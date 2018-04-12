@@ -59,7 +59,7 @@ func removeLinkLayerDevicesRefsOp(linkLayerDeviceDocID string) txn.Op {
 // linkLayerDeviceDocID. If the linkLayerDevicesRefsDoc is missing, no error and
 // -1 children are returned.
 func getParentDeviceNumChildrenRefs(st *State, linkLayerDeviceDocID string) (int, error) {
-	devicesRefs, closer := st.getCollection(linkLayerDevicesRefsC)
+	devicesRefs, closer := st.db().GetCollection(linkLayerDevicesRefsC)
 	defer closer()
 
 	var doc linkLayerDevicesRefsDoc

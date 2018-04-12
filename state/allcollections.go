@@ -4,10 +4,9 @@
 package state
 
 import (
-	"github.com/juju/utils/featureflag"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state/bakerystorage"
 )
 
@@ -51,11 +50,14 @@ func allCollections() collectionSchema {
 		// Infrastructure collections
 		// ==========================
 
+		globalClockC: {
+			global:    true,
+			rawAccess: true,
+		},
 		txnsC: {
 			// This collection is used exclusively by mgo/txn to record transactions.
-			global:         true,
-			rawAccess:      true,
-			explicitCreate: &mgo.CollectionInfo{},
+			global:    true,
+			rawAccess: true,
 			indexes: []mgo.Index{{
 				// The "s" field is used in queries
 				// by mgo/txn.Runner.ResumeAll.
@@ -119,7 +121,7 @@ func allCollections() collectionSchema {
 		migrationsC: {
 			global: true,
 			indexes: []mgo.Index{{
-				Key: []string{"model-uuid"},
+				Key: []string{"model-uuid", "-attempt"},
 			}},
 		},
 
@@ -217,7 +219,11 @@ func allCollections() collectionSchema {
 
 		// This collection holds users related to a model and will be used as one
 		// of the intersection axis of permissionsC
-		modelUsersC: {},
+		modelUsersC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "user"},
+			}},
+		},
 
 		// This collection contains governors that prevent certain kinds of
 		// changes from being accepted.
@@ -246,8 +252,12 @@ func allCollections() collectionSchema {
 		// -----
 
 		// These collections hold information associated with applications.
-		charmsC:       {},
-		applicationsC: {},
+		charmsC: {},
+		applicationsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "name"},
+			}},
+		},
 		unitsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "application"},
@@ -274,16 +284,24 @@ func allCollections() collectionSchema {
 				Key: []string{"model-uuid", "endpoints.applicationname"},
 			}},
 		},
-		relationScopesC: {},
+		relationScopesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "key", "departing"},
+			}},
+		},
 
 		// -----
 
 		// These collections hold information associated with machines.
 		containerRefsC: {},
 		instanceDataC:  {},
-		machinesC:      {},
-		rebootC:        {},
-		sshHostKeysC:   {},
+		machinesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "machineid"},
+			}},
+		},
+		rebootC:      {},
+		sshHostKeysC: {},
 
 		// This collection contains information from removed machines
 		// that needs to be cleaned up in the provider.
@@ -333,9 +351,13 @@ func allCollections() collectionSchema {
 		subnetsC:              {},
 		linkLayerDevicesC:     {},
 		linkLayerDevicesRefsC: {},
-		ipAddressesC:          {},
-		endpointBindingsC:     {},
-		openedPortsC:          {},
+		ipAddressesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "machine-id", "device-name"},
+			}},
+		},
+		endpointBindingsC: {},
+		openedPortsC:      {},
 
 		// -----
 
@@ -382,14 +404,18 @@ func allCollections() collectionSchema {
 
 		constraintsC:        {},
 		storageConstraintsC: {},
-		statusesC:           {},
+		statusesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "_id"},
+			}},
+		},
 		statusesHistoryC: {
 			rawAccess: true,
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "globalkey", "updated"},
 			}, {
 				// used for migration and model-specific pruning
-				Key: []string{"model-uuid", "-updated"},
+				Key: []string{"model-uuid", "-updated", "-_id"},
 			}, {
 				// used for global pruning (after size check)
 				Key: []string{"-updated"},
@@ -398,8 +424,52 @@ func allCollections() collectionSchema {
 
 		// This collection holds information about cloud image metadata.
 		cloudimagemetadataC: {
+			global:  true,
+			indexes: cloudimagemetadata.MongoIndexes(),
+		},
+
+		// Cross model relations collections.
+		applicationOffersC: {
+			indexes: []mgo.Index{
+				{Key: []string{"model-uuid", "_id"}},
+				{Key: []string{"model-uuid", "application-name"}},
+			},
+		},
+		offerConnectionsC: {
+			indexes: []mgo.Index{
+				{Key: []string{"model-uuid", "offer-uuid"}},
+			},
+		},
+		remoteApplicationsC: {},
+		// remoteEntitiesC holds information about entities involved in
+		// cross-model relations.
+		remoteEntitiesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "token"},
+			}},
+		},
+		// externalControllersC holds connection information for other
+		// controllers hosting models involved in cross-model relations.
+		externalControllersC: {
 			global: true,
 		},
+		// relationNetworksC holds required ingress or egress cidrs for remote relations.
+		relationNetworksC: {},
+
+		// firewallRulesC holds firewall rules for defined service types.
+		firewallRulesC: {},
+
+		// podSpecsC holds the CAAS pod specifications,
+		// for applications.
+		podSpecsC: {},
+
+		// cloudContainersC holds the CAAS container (pod) information
+		// for units, eg address, ports.
+		cloudContainersC: {},
+
+		// cloudServicesC holds the CAAS service information
+		// eg addresses.
+		cloudServicesC: {},
 
 		// ----------------------
 
@@ -408,31 +478,6 @@ func allCollections() collectionSchema {
 
 		// metrics; status-history; logs; ..?
 
-		auditingC: {
-			global:    true,
-			rawAccess: true,
-		},
-	}
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		for name, details := range map[string]collectionInfo{
-			applicationOffersC: {
-				indexes: []mgo.Index{{Key: []string{"model-uuid", "url"}}},
-			},
-			remoteApplicationsC: {},
-			// remoteEntitiesC holds information about entities involved in
-			// cross-model relations.
-			remoteEntitiesC: {
-				indexes: []mgo.Index{{
-					Key: []string{"model-uuid", "source-model-uuid", "token"},
-				}, {
-					Key: []string{"model-uuid", "source-model-uuid"},
-				}},
-			},
-			// tokensC holds unique tokens for the model.
-			tokensC: {},
-		} {
-			result[name] = details
-		}
 	}
 	return result
 }
@@ -448,7 +493,6 @@ const (
 	annotationsC             = "annotations"
 	autocertCacheC           = "autocertCache"
 	assignUnitC              = "assignUnits"
-	auditingC                = "audit.log"
 	bakeryStorageItemsC      = "bakeryStorageItems"
 	blockDevicesC            = "blockdevices"
 	blocksC                  = "blocks"
@@ -456,6 +500,8 @@ const (
 	cleanupsC                = "cleanups"
 	cloudimagemetadataC      = "cloudimagemetadata"
 	cloudsC                  = "clouds"
+	cloudContainersC         = "cloudcontainers"
+	cloudServicesC           = "cloudservices"
 	cloudCredentialsC        = "cloudCredentials"
 	constraintsC             = "constraints"
 	containerRefsC           = "containerRefs"
@@ -463,6 +509,7 @@ const (
 	controllerUsersC         = "controllerusers"
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
+	globalClockC             = "globalclock"
 	globalSettingsC          = "globalSettings"
 	guimetadataC             = "guimetadata"
 	guisettingsC             = "guisettings"
@@ -485,6 +532,7 @@ const (
 	openedPortsC             = "openedPorts"
 	payloadsC                = "payloads"
 	permissionsC             = "permissions"
+	podSpecsC                = "podSpecs"
 	providerIDsC             = "providerIDs"
 	rebootC                  = "reboot"
 	relationScopesC          = "relationscopes"
@@ -519,8 +567,11 @@ const (
 	// "resources" (see resource/persistence/mongo.go)
 
 	// Cross model relations
-	applicationOffersC  = "applicationOffers"
-	remoteApplicationsC = "remoteApplications"
-	remoteEntitiesC     = "remoteEntities"
-	tokensC             = "tokens"
+	applicationOffersC   = "applicationOffers"
+	remoteApplicationsC  = "remoteApplications"
+	offerConnectionsC    = "applicationOfferConnections"
+	remoteEntitiesC      = "remoteEntities"
+	externalControllersC = "externalControllers"
+	relationNetworksC    = "relationNetworks"
+	firewallRulesC       = "firewallRules"
 )

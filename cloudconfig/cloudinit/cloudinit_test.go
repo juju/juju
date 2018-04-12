@@ -310,6 +310,18 @@ var ctests = []struct {
 		cfg.AddRunCmd("ifconfig")
 	},
 }, {
+	"PrependRunCmd",
+	map[string]interface{}{"runcmd": []string{
+		"echo 'Hello World'",
+		"ifconfig",
+	}},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.AddRunCmd("ifconfig")
+		cfg.PrependRunCmd(
+			"echo 'Hello World'",
+		)
+	},
+}, {
 	"AddScripts",
 	map[string]interface{}{"runcmd": []string{
 		"echo 'Hello World'",
@@ -360,8 +372,39 @@ var ctests = []struct {
 			0644,
 		)
 	},
-},
-}
+}, {
+	"ManageEtcHosts",
+	map[string]interface{}{"manage_etc_hosts": true},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.ManageEtcHosts(true)
+	},
+}, {
+	"SetSSHKeys",
+	map[string]interface{}{"ssh_keys": map[string]interface{}{
+		"rsa_private": "private",
+		"rsa_public":  "public",
+	}},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.SetSSHKeys(cloudinit.SSHKeys{
+			RSA: &cloudinit.SSHKey{
+				Private: "private",
+				Public:  "public",
+			},
+		})
+	},
+}, {
+	"SetSSHKeys unsets keys",
+	map[string]interface{}{},
+	func(cfg cloudinit.CloudConfig) {
+		cfg.SetSSHKeys(cloudinit.SSHKeys{
+			RSA: &cloudinit.SSHKey{
+				Private: "private",
+				Public:  "public",
+			},
+		})
+		cfg.SetSSHKeys(cloudinit.SSHKeys{})
+	},
+}}
 
 func (S) TestOutput(c *gc.C) {
 	for i, t := range ctests {

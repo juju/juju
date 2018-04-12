@@ -13,6 +13,8 @@ import (
 var (
 	_ EntityInfo = (*MachineInfo)(nil)
 	_ EntityInfo = (*ApplicationInfo)(nil)
+	_ EntityInfo = (*RemoteApplicationInfo)(nil)
+	_ EntityInfo = (*ApplicationOfferInfo)(nil)
 	_ EntityInfo = (*UnitInfo)(nil)
 	_ EntityInfo = (*RelationInfo)(nil)
 	_ EntityInfo = (*AnnotationInfo)(nil)

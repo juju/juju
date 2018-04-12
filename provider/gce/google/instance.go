@@ -12,37 +12,46 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// InstanceSpec holds all the information needed to create a new GCE
-// instance within some zone.
+// InstanceSpec holds all the information needed to create a new GCE instance.
 // TODO(ericsnow) Validate the invariants?
 type InstanceSpec struct {
 	// ID is the "name" of the instance.
 	ID string
+
 	// Type is the name of the GCE instance type. The value is resolved
 	// relative to an availability zone when the API request is sent.
 	// The type must match one of the GCE-recognized types.
 	Type string
+
 	// Disks holds the information needed to request each of the disks
 	// that should be attached to a new instance. This must include a
 	// single root disk.
 	Disks []DiskSpec
+
 	// Network identifies the information for the network that a new
 	// instance should use. If the network does not exist then it will
 	// be added when the instance is. At least the network's name must
 	// be set.
 	Network NetworkSpec
+
 	// NetworkInterfaces is the names of the network interfaces to
 	// associate with the instance. They will be connected to the the
 	// network identified by the instance spec. At least one name must
 	// be provided.
 	NetworkInterfaces []string
+
 	// Metadata is the GCE instance "user-specified" metadata that will
 	// be initialized on the new instance.
 	Metadata map[string]string
+
 	// Tags are the labels to associate with the instance. This is
 	// useful when making bulk calls or in relation to some API methods
 	// (e.g. related to firewalls access rules).
 	Tags []string
+
+	// AvailabilityZone holds the name of the availability zone in which
+	// to create the instance.
+	AvailabilityZone string
 }
 
 func (is InstanceSpec) raw() *compute.Instance {
@@ -99,15 +108,19 @@ type InstanceSummary struct {
 	Metadata map[string]string
 	// Addresses are the IP Addresses associated with the instance.
 	Addresses []network.Address
+	// NetworkInterfaces are the network connections associated with
+	// the instance.
+	NetworkInterfaces []*compute.NetworkInterface
 }
 
 func newInstanceSummary(raw *compute.Instance) InstanceSummary {
 	return InstanceSummary{
-		ID:        raw.Name,
-		ZoneName:  path.Base(raw.Zone),
-		Status:    raw.Status,
-		Metadata:  unpackMetadata(raw.Metadata),
-		Addresses: extractAddresses(raw.NetworkInterfaces...),
+		ID:                raw.Name,
+		ZoneName:          path.Base(raw.Zone),
+		Status:            raw.Status,
+		Metadata:          unpackMetadata(raw.Metadata),
+		Addresses:         extractAddresses(raw.NetworkInterfaces...),
+		NetworkInterfaces: raw.NetworkInterfaces,
 	}
 }
 
@@ -175,14 +188,28 @@ func (gi Instance) Metadata() map[string]string {
 	return gi.InstanceSummary.Metadata
 }
 
+// NetworkInterfaces returns the details of the network connection for
+// this instance.
+func (gi Instance) NetworkInterfaces() []compute.NetworkInterface {
+	var results []compute.NetworkInterface
+	// Copy to prevent callers from mutating the source data.
+	for _, iface := range gi.InstanceSummary.NetworkInterfaces {
+		results = append(results, *iface)
+	}
+	return results
+}
+
 // packMetadata composes the provided data into the format required
 // by the GCE API.
 func packMetadata(data map[string]string) *compute.Metadata {
 	var items []*compute.MetadataItems
 	for key, value := range data {
+		// Needs to be a new variable so that &localValue is different
+		// each time round the loop.
+		localValue := value
 		item := compute.MetadataItems{
 			Key:   key,
-			Value: value,
+			Value: &localValue,
 		}
 		items = append(items, &item)
 	}
@@ -198,7 +225,14 @@ func unpackMetadata(data *compute.Metadata) map[string]string {
 
 	result := make(map[string]string)
 	for _, item := range data.Items {
-		result[item.Key] = item.Value
+		if item == nil {
+			continue
+		}
+		value := ""
+		if item.Value != nil {
+			value = *item.Value
+		}
+		result[item.Key] = value
 	}
 	return result
 }

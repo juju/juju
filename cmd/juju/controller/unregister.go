@@ -26,7 +26,7 @@ func NewUnregisterCommand(store jujuclient.ClientStore) cmd.Command {
 
 // unregisterCommand removes a Juju controller from the local store.
 type unregisterCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.CommandBase
 	controllerName string
 	assumeYes      bool
 	store          jujuclient.ClientStore

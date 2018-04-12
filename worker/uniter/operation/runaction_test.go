@@ -8,11 +8,11 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
@@ -23,7 +23,7 @@ type RunActionSuite struct {
 var _ = gc.Suite(&RunActionSuite{})
 
 func (s *RunActionSuite) TestPrepareErrorBadActionAndFailSucceeds(c *gc.C) {
-	errBadAction := runner.NewBadActionError("some-action-id", "splat")
+	errBadAction := charmrunner.NewBadActionError("some-action-id", "splat")
 	runnerFactory := &MockRunnerFactory{
 		MockNewActionRunner: &MockNewActionRunner{err: errBadAction},
 	}
@@ -46,7 +46,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailSucceeds(c *gc.C) {
 }
 
 func (s *RunActionSuite) TestPrepareErrorBadActionAndFailErrors(c *gc.C) {
-	errBadAction := runner.NewBadActionError("some-action-id", "foof")
+	errBadAction := charmrunner.NewBadActionError("some-action-id", "foof")
 	runnerFactory := &MockRunnerFactory{
 		MockNewActionRunner: &MockNewActionRunner{err: errBadAction},
 	}
@@ -70,7 +70,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailErrors(c *gc.C) {
 
 func (s *RunActionSuite) TestPrepareErrorActionNotAvailable(c *gc.C) {
 	runnerFactory := &MockRunnerFactory{
-		MockNewActionRunner: &MockNewActionRunner{err: runner.ErrActionNotAvailable},
+		MockNewActionRunner: &MockNewActionRunner{err: charmrunner.ErrActionNotAvailable},
 	}
 	factory := operation.NewFactory(operation.FactoryParams{
 		RunnerFactory: runnerFactory,

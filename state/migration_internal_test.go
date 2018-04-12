@@ -6,7 +6,7 @@ package state
 import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/testing"
 )
@@ -37,7 +37,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		openedPortsC,
 
 		// application / unit
-		leasesC,
 		applicationsC,
 		unitsC,
 		meterStatusC, // red / green status for metrics of units
@@ -162,11 +161,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// and are not to be migrated.
 		globalSettingsC,
 
-		// The auditing collection stores a large amount of historical data
-		// and will be streamed across after migration in a similar way to
-		// logging.
-		auditingC,
-
 		// There is a precheck to ensure that there are no pending reboots
 		// for the model being migrated, and as such, there is no need to
 		// migrate that information.
@@ -179,6 +173,15 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Metrics manager maintains controller specific state relating to
 		// the store and forward of charm metrics. Nothing to migrate here.
 		metricsManagerC,
+
+		// The global clock is not migrated; each controller has its own
+		// independent global clock.
+		globalClockC,
+
+		// Leases are not migrated either. When an application is migrated,
+		// we include the name of the leader unit. On import, a new lease
+		// is created for the leader unit.
+		leasesC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -187,8 +190,16 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		//Cross Model Relations - TODO
 		remoteApplicationsC,
 		applicationOffersC,
-		tokensC,
+		offerConnectionsC,
 		remoteEntitiesC,
+		externalControllersC,
+		relationNetworksC,
+		firewallRulesC,
+
+		// TODO(caas)
+		podSpecsC,
+		cloudContainersC,
+		cloudServicesC,
 	)
 
 	envCollections := set.NewStrings()
@@ -220,12 +231,16 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		// is created in the new controller (yay name changes).
 		"ControllerUUID",
 
+		"Type",
 		"MigrationMode",
 		"Owner",
 		"Cloud",
 		"CloudRegion",
 		"CloudCredential",
 		"LatestAvailableTools",
+		"SLA",
+		"MeterStatus",
+		"EnvironVersion",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)
 }
@@ -312,7 +327,12 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 }
 
 func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
-	fields := set.NewStrings(
+	ignored := set.NewStrings(
+		// KeepInstance is only set when a machine is
+		// dying/dead (to be removed).
+		"KeepInstance",
+	)
+	migrated := set.NewStrings(
 		// DocID is the env + machine id
 		"DocID",
 		"MachineId",
@@ -321,7 +341,6 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 		"ModelUUID",
 
 		"InstanceId",
-		"Status",
 		"Arch",
 		"Mem",
 		"RootDisk",
@@ -330,7 +349,7 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 		"Tags",
 		"AvailZone",
 	)
-	s.AssertExportedFields(c, instanceData{}, fields)
+	s.AssertExportedFields(c, instanceData{}, migrated.Union(ignored))
 }
 
 func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
@@ -361,6 +380,7 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"Exposed",
 		"MinUnits",
 		"MetricCredentials",
+		"PasswordHash",
 	)
 	s.AssertExportedFields(c, applicationDoc{}, migrated.Union(ignored))
 }
@@ -431,6 +451,8 @@ func (s *MigrationSuite) TestRelationDocFields(c *gc.C) {
 		"Key",
 		"Id",
 		"Endpoints",
+		"Suspended",
+		"SuspendedReason",
 		// Life isn't exported, only alive.
 		"Life",
 		// UnitCount isn't explicitly exported, but defined by the stored
@@ -574,6 +596,7 @@ func (s *MigrationSuite) TestBlockDeviceFields(c *gc.C) {
 		"Label",
 		"UUID",
 		"HardwareId",
+		"WWN",
 		"BusAddress",
 		"Size",
 		"FilesystemType",
@@ -602,6 +625,9 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 		"SpaceName",
 		"ProviderId",
 		"AvailabilityZone",
+		"ProviderNetworkId",
+		"FanLocalUnderlay",
+		"FanOverlay",
 	)
 	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
 }
@@ -616,6 +642,7 @@ func (s *MigrationSuite) TestIPAddressDocFields(c *gc.C) {
 		"MachineID",
 		"DNSSearchDomains",
 		"GatewayAddress",
+		"IsDefaultGateway",
 		"ProviderID",
 		"DNSServers",
 		"SubnetCIDR",
@@ -677,6 +704,7 @@ func (s *MigrationSuite) TestVolumeDocFields(c *gc.C) {
 		"DocID",
 		"Life",
 		"MachineId", // recreated from pool properties
+		"Releasing", // only when dying; can't migrate dying storage
 	)
 	migrated := set.NewStrings(
 		"Name",
@@ -688,7 +716,7 @@ func (s *MigrationSuite) TestVolumeDocFields(c *gc.C) {
 	s.AssertExportedFields(c, volumeDoc{}, migrated.Union(ignored))
 	// The info and params fields ar structs.
 	s.AssertExportedFields(c, VolumeInfo{}, set.NewStrings(
-		"HardwareId", "Size", "Pool", "VolumeId", "Persistent"))
+		"HardwareId", "WWN", "Size", "Pool", "VolumeId", "Persistent"))
 	s.AssertExportedFields(c, VolumeParams{}, set.NewStrings(
 		"Size", "Pool"))
 }
@@ -719,6 +747,7 @@ func (s *MigrationSuite) TestFilesystemDocFields(c *gc.C) {
 		"DocID",
 		"Life",
 		"MachineId", // recreated from pool properties
+		"Releasing", // only when dying; can't migrate dying storage
 	)
 	migrated := set.NewStrings(
 		"FilesystemId",
@@ -761,6 +790,7 @@ func (s *MigrationSuite) TestStorageInstanceDocFields(c *gc.C) {
 		"ModelUUID",
 		"DocID",
 		"Life",
+		"Releasing", // only when dying; can't migrate dying storage
 	)
 	migrated := set.NewStrings(
 		"Id",
@@ -768,6 +798,7 @@ func (s *MigrationSuite) TestStorageInstanceDocFields(c *gc.C) {
 		"Owner",
 		"StorageName",
 		"AttachmentCount", // through count of attachment instances
+		"Constraints",
 	)
 	s.AssertExportedFields(c, storageInstanceDoc{}, migrated.Union(ignored))
 }

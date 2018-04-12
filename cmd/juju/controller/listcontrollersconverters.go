@@ -97,6 +97,11 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 				}
 			}
 		}
+		models, err := c.store.AllModels(controllerName)
+		if err != nil && !errors.IsNotFound(err) {
+			addError("models", controllerName, err)
+		}
+		modelCount := len(models)
 
 		item := ControllerItem{
 			ModelName:      modelName,
@@ -113,8 +118,8 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 		if details.MachineCount != nil && *details.MachineCount > 0 {
 			item.MachineCount = details.MachineCount
 		}
-		if details.ModelCount != nil && *details.ModelCount > 0 {
-			item.ModelCount = details.ModelCount
+		if modelCount > 0 {
+			item.ModelCount = &modelCount
 		}
 		if details.ControllerMachineCount > 0 {
 			item.ControllerMachines = &ControllerMachines{

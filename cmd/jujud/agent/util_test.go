@@ -14,12 +14,11 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -44,8 +43,6 @@ import (
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/peergrouper"
-	"github.com/juju/juju/worker/singular"
 )
 
 const (
@@ -60,7 +57,6 @@ var fastDialOpts = api.DialOpts{
 }
 
 type commonMachineSuite struct {
-	singularRecord  *singularRunnerRecord
 	fakeEnsureMongo *agenttest.FakeEnsureMongo
 	AgentSuite
 }
@@ -89,12 +85,6 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	fakeCmd(filepath.Join(testpath, "stop"))
 
 	s.PatchValue(&upstart.InitDir, c.MkDir())
-
-	s.singularRecord = newSingularRunnerRecord()
-	s.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
-	s.PatchValue(&peergrouperNew, func(*state.State, clock.Clock, bool, peergrouper.Hub) (worker.Worker, error) {
-		return newDummyWorker(), nil
-	})
 
 	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
 }
@@ -287,168 +277,6 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 	}
 }
 
-type mockAgentConfig struct {
-	agent.Config
-	providerType string
-	tag          names.Tag
-}
-
-func (m *mockAgentConfig) Tag() names.Tag {
-	return m.tag
-}
-
-func (m *mockAgentConfig) Value(key string) string {
-	if key == agent.ProviderType {
-		return m.providerType
-	}
-	return ""
-}
-
-type singularRunnerRecord struct {
-	runnerC chan *fakeSingularRunner
-}
-
-func newSingularRunnerRecord() *singularRunnerRecord {
-	return &singularRunnerRecord{
-		runnerC: make(chan *fakeSingularRunner, 64),
-	}
-}
-
-func (r *singularRunnerRecord) newSingularRunner(runner jworker.Runner, conn singular.Conn) (jworker.Runner, error) {
-	sr, err := singular.New(runner, conn)
-	if err != nil {
-		return nil, err
-	}
-	fakeRunner := &fakeSingularRunner{
-		Runner: sr,
-		startC: make(chan string, 64),
-	}
-	r.runnerC <- fakeRunner
-	return fakeRunner, nil
-}
-
-// nextRunner blocks until a new singular runner is created.
-func (r *singularRunnerRecord) nextRunner(c *gc.C) *fakeSingularRunner {
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case r := <-r.runnerC:
-			return r
-		case <-timeout:
-			c.Fatal("timed out waiting for singular runner to be created")
-		}
-	}
-}
-
-type fakeSingularRunner struct {
-	jworker.Runner
-	startC chan string
-}
-
-func (r *fakeSingularRunner) StartWorker(name string, start func() (worker.Worker, error)) error {
-	logger.Infof("starting fake worker %q", name)
-	r.startC <- name
-	return r.Runner.StartWorker(name, start)
-}
-
-// waitForWorker waits for a given worker to be started, returning all
-// workers started while waiting.
-func (r *fakeSingularRunner) waitForWorker(c *gc.C, target string) []string {
-	var seen []string
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case <-time.After(coretesting.ShortWait):
-			c.Logf("still waiting for %q; workers seen so far: %+v", target, seen)
-		case workerName := <-r.startC:
-			seen = append(seen, workerName)
-			if workerName == target {
-				c.Logf("target worker %q started; workers seen so far: %+v", workerName, seen)
-				return seen
-			}
-			c.Logf("worker %q started; still waiting for %q; workers seen so far: %+v", workerName, target, seen)
-		case <-timeout:
-			c.Fatal("timed out waiting for " + target)
-		}
-	}
-}
-
-// waitForWorkers waits for a given worker to be started, returning all
-// workers started while waiting.
-func (r *fakeSingularRunner) waitForWorkers(c *gc.C, targets []string) []string {
-	var seen []string
-	seenTargets := make(map[string]bool)
-	numSeenTargets := 0
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case workerName := <-r.startC:
-			c.Logf("worker %q started; workers seen so far: %+v (len: %d, len(targets): %d)", workerName, seen, len(seen), len(targets))
-			if seenTargets[workerName] == true {
-				c.Fatal("worker started twice: " + workerName)
-			}
-			seenTargets[workerName] = true
-			numSeenTargets++
-			seen = append(seen, workerName)
-			if numSeenTargets == len(targets) {
-				c.Logf("all expected target workers started: %+v", seen)
-				return seen
-			}
-			c.Logf("still waiting for workers %+v to start; numSeenTargets=%d", targets, numSeenTargets)
-		case <-timeout:
-			c.Fatalf("timed out waiting for %v", targets)
-		}
-	}
-}
-
-type mockMetricAPI struct {
-	stop          chan struct{}
-	cleanUpCalled chan struct{}
-	sendCalled    chan struct{}
-}
-
-func newMockMetricAPI() *mockMetricAPI {
-	return &mockMetricAPI{
-		stop:          make(chan struct{}),
-		cleanUpCalled: make(chan struct{}),
-		sendCalled:    make(chan struct{}),
-	}
-}
-
-func (m *mockMetricAPI) CleanupOldMetrics() error {
-	go func() {
-		select {
-		case m.cleanUpCalled <- struct{}{}:
-		case <-m.stop:
-			break
-		}
-	}()
-	return nil
-}
-
-func (m *mockMetricAPI) SendMetrics() error {
-	go func() {
-		select {
-		case m.sendCalled <- struct{}{}:
-		case <-m.stop:
-			break
-		}
-	}()
-	return nil
-}
-
-func (m *mockMetricAPI) SendCalled() <-chan struct{} {
-	return m.sendCalled
-}
-
-func (m *mockMetricAPI) CleanupCalled() <-chan struct{} {
-	return m.cleanUpCalled
-}
-
-func (m *mockMetricAPI) Stop() {
-	close(m.stop)
-}
-
 type mockLoopDeviceManager struct {
 	detachLoopDevicesArgRootfs string
 	detachLoopDevicesArgPrefix string
@@ -531,6 +359,7 @@ func newDummyWorker() worker.Worker {
 
 type FakeConfig struct {
 	agent.ConfigSetter
+	values map[string]string
 }
 
 func (FakeConfig) LogDir() string {
@@ -541,14 +370,22 @@ func (FakeConfig) Tag() names.Tag {
 	return names.NewMachineTag("42")
 }
 
+func (f FakeConfig) Value(key string) string {
+	if f.values == nil {
+		return ""
+	}
+	return f.values[key]
+}
+
 type FakeAgentConfig struct {
 	AgentConf
+	values map[string]string
 }
 
 func (FakeAgentConfig) ReadConfig(string) error { return nil }
 
-func (FakeAgentConfig) CurrentConfig() agent.Config {
-	return FakeConfig{}
+func (a FakeAgentConfig) CurrentConfig() agent.Config {
+	return FakeConfig{values: a.values}
 }
 
 func (FakeAgentConfig) ChangeConfig(mutate agent.ConfigMutator) error {
@@ -565,7 +402,7 @@ type minModelWorkersEnviron struct {
 
 func (e *minModelWorkersEnviron) Config() *config.Config {
 	attrs := coretesting.FakeConfig()
-	cfg, err := config.New(config.NoDefaults, attrs)
+	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		panic(err)
 	}

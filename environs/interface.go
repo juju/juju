@@ -19,13 +19,20 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// A EnvironProvider represents a computing and storage provider.
+// A EnvironProvider represents a computing and storage provider
+// for either a traditional cloud or a container substrate like k8s.
 type EnvironProvider interface {
 	config.Validator
 	ProviderCredentials
 
+	// Version returns the version of the provider. This is recorded as the
+	// environ version for each model, and used to identify which upgrade
+	// operations to run when upgrading a model's environ. Providers should
+	// start out at version 0.
+	Version() int
+
 	// CloudSchema returns the schema used to validate input for add-cloud.  If
-	// a provider does not suppport custom clouds, CloudSchema should return
+	// a provider does not support custom clouds, CloudSchema should return
 	// nil.
 	CloudSchema() *jsonschema.Schema
 
@@ -38,7 +45,12 @@ type EnvironProvider interface {
 	// "uuid" attribute of the base configuration. This is called for the
 	// controller model during bootstrap, and also for new hosted models.
 	PrepareConfig(PrepareConfigParams) (*config.Config, error)
+}
 
+// A EnvironProvider represents a computing and storage provider
+// for a traditional cloud like AWS or Openstack.
+type CloudEnvironProvider interface {
+	EnvironProvider
 	// Open opens the environment and returns it. The configuration must
 	// have passed through PrepareConfig at some point in its lifecycle.
 	//
@@ -129,6 +141,11 @@ type FinalizeCredentialParams struct {
 	// to finalize the credentials.
 	CloudEndpoint string
 
+	// CloudStorageEndpoint is the storage endpoint for the cloud that the
+	// credentials are for. This may be used by the provider to communicate
+	// with the cloud to finalize the credentials.
+	CloudStorageEndpoint string
+
 	// CloudIdentityEndpoint is the identity endpoint for the cloud that the
 	// credentials are for. This may be used by the provider to communicate
 	// with the cloud to finalize the credentials.
@@ -211,6 +228,18 @@ type ConfigGetter interface {
 	Config() *config.Config
 }
 
+// CloudDestroyer provides the API to cleanup cloud resources.
+type CloudDestroyer interface {
+	// Destroy shuts down all known machines and destroys the
+	// rest of the environment. Note that on some providers,
+	// very recently started instances may not be destroyed
+	// because they are not yet visible.
+	//
+	// When Destroy has been called, any Environ referring to the
+	// same remote environment may become invalid.
+	Destroy() error
+}
+
 // An Environ represents a Juju environment.
 //
 // Due to the limitations of some providers (for example ec2), the
@@ -230,6 +259,9 @@ type Environ interface {
 	// StorageProviders returned from Environ.StorageProvider will
 	// be scoped specifically to that Environ.
 	storage.ProviderRegistry
+
+	// CloudDestroyer provides the API to cleanup cloud resources.
+	CloudDestroyer
 
 	// PrepareForBootstrap prepares an environment for bootstrapping.
 	//
@@ -308,15 +340,6 @@ type Environ interface {
 	// then ErrNotBootstrapped should be returned instead.
 	ControllerInstances(controllerUUID string) ([]instance.Id, error)
 
-	// Destroy shuts down all known machines and destroys the
-	// rest of the environment. Note that on some providers,
-	// very recently started instances may not be destroyed
-	// because they are not yet visible.
-	//
-	// When Destroy has been called, any Environ referring to the
-	// same remote environment may become invalid.
-	Destroy() error
-
 	// DestroyController is similar to Destroy() in that it destroys
 	// the model, which in this case will be the controller model.
 	//
@@ -326,11 +349,19 @@ type Environ interface {
 	// when the Juju controller process is unavailable.
 	DestroyController(controllerUUID string) error
 
-	Firewaller
-
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
 
+	InstancePrechecker
+
+	// InstanceTypesFetcher represents an environment that can return
+	// information about the available instance types.
+	InstanceTypesFetcher
+}
+
+// InstancePrechecker provides a means of "prechecking" instance
+// arguments before recording them in state.
+type InstancePrechecker interface {
 	// PrecheckInstance performs a preflight check on the specified
 	// series and constraints, ensuring that they are possibly valid for
 	// creating an instance in this model.
@@ -339,16 +370,26 @@ type Environ interface {
 	// all invalid parameters. If PrecheckInstance returns nil, it is not
 	// guaranteed that the constraints are valid; if a non-nil error is
 	// returned, then the constraints are definitely invalid.
-	//
-	// TODO(axw) find a home for state.Prechecker that isn't state and
-	// isn't environs, so both packages can refer to it. Maybe the
-	// constraints package? Can't be instance, because constraints
-	// import instance...
-	PrecheckInstance(series string, cons constraints.Value, placement string) error
+	PrecheckInstance(PrecheckInstanceParams) error
+}
 
-	// InstanceTypesFetcher represents an environment that can return
-	// information about the available instance types.
-	InstanceTypesFetcher
+// PrecheckInstanceParams contains the parameters for
+// InstancePrechecker.PrecheckInstance.
+type PrecheckInstanceParams struct {
+	// Series contains the series of the machine.
+	Series string
+
+	// Constraints contains the machine constraints.
+	Constraints constraints.Value
+
+	// Placement contains the machine placement directive, if any.
+	Placement string
+
+	// VolumeAttachments contains the parameters for attaching existing
+	// volumes to the instance. The PrecheckInstance method should not
+	// expect the attachment's Machine field to be set, as PrecheckInstance
+	// may be called before a machine ID is allocated.
+	VolumeAttachments []storage.VolumeAttachmentParams
 }
 
 // CreateParams contains the parameters for Environ.Create.
@@ -400,15 +441,26 @@ type InstanceTypesFetcher interface {
 type Upgrader interface {
 	// UpgradeOperations returns a list of UpgradeOperations for upgrading
 	// an Environ.
-	UpgradeOperations() []UpgradeOperation
+	UpgradeOperations(UpgradeOperationsParams) []UpgradeOperation
+}
+
+// UpgradeOperationsParams contains the parameters for
+// Upgrader.UpgradeOperations.
+type UpgradeOperationsParams struct {
+	// ControllerUUID is the UUID of the controller that manages
+	// the Environ being upgraded.
+	ControllerUUID string
 }
 
 // UpgradeOperation contains a target agent version and sequence of upgrade
 // steps to apply to get to that version.
 type UpgradeOperation struct {
-	// TargetVersion is the target agent version number to which the
-	// upgrade steps pertain.
-	TargetVersion version.Number
+	// TargetVersion is the target environ provider version number to
+	// which the upgrade steps pertain. When a model is upgraded, all
+	// upgrade operations will be run for versions greater than the
+	// recorded environ version. This version number is independent of
+	// the agent and controller versions.
+	TargetVersion int
 
 	// Steps contains the sequence of upgrade steps to apply when
 	// upgrading to the accompanying target version number.

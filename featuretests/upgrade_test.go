@@ -58,6 +58,12 @@ type upgradeSuite struct {
 	oldVersion version.Binary
 }
 
+func (s *upgradeSuite) SetUpSuite(c *gc.C) {
+	s.AgentSuite.SetUpSuite(c)
+	// Speed up the watcher frequency to make the test much faster.
+	s.PatchValue(&watcher.Period, 200*time.Millisecond)
+}
+
 func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 
@@ -108,6 +114,7 @@ func (s *upgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	// when upgrades have started and can control when upgrades
 	// should finish.
 	upgradeCh := make(chan bool)
+	upgradeChClosed := false
 	abort := make(chan bool)
 	fakePerformUpgrade := func(version.Number, []upgrades.Target, upgrades.Context) error {
 		// Signal that upgrade has started.
@@ -133,12 +140,21 @@ func (s *upgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 
 	c.Assert(waitForUpgradeToStart(upgradeCh), jc.IsTrue)
 
+	// The test will hang if there's a failure in the assertions below
+	// and upgradeCh isn't closed.
+	defer func() {
+		if !upgradeChClosed {
+			close(upgradeCh)
+		}
+	}()
+
 	// Only user and local logins are allowed during upgrade. Users get a restricted API.
 	s.checkLoginToAPIAsUser(c, machine0Conf, RestrictedAPIExposed)
 	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), jc.IsTrue)
 	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), jc.IsFalse)
 
 	close(upgradeCh) // Allow upgrade to complete
+	upgradeChClosed = true
 
 	waitForUpgradeToFinish(c, machine0Conf)
 
@@ -158,16 +174,13 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 	// terminates the machine agent with the UpgradeReadyError which
 	// makes the downgrade happen.
 
-	// Speed up the watcher frequency to make the test much faster.
-	s.PatchValue(&watcher.Period, 200*time.Millisecond)
-
 	// Provide (fake) tools so that the upgrader has something to downgrade to.
 	envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), s.oldVersion)
 
 	// Create 3 controllers
 	machineA, _ := s.makeStateAgentVersion(c, s.oldVersion)
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(changes.Added), gc.Equals, 2)
 	machineB, _, _ := s.configureMachine(c, changes.Added[0], s.oldVersion)

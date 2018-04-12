@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
@@ -26,6 +27,7 @@ type BackingSubnet interface {
 	CIDR() string
 	VLANTag() int
 	ProviderId() network.Id
+	ProviderNetworkId() network.Id
 	AvailabilityZones() []string
 	Status() string
 	SpaceName() string
@@ -41,8 +43,6 @@ type BackingSubnet interface {
 // * subnetDoc.AvailabilityZone becomes subnetDoc.AvailabilityZones,
 //   adding an upgrade step to migrate existing non empty zones on
 //   subnet docs. Also change state.Subnet.AvailabilityZone to
-// * add subnetDoc.SpaceName - no upgrade step needed, as it will only
-//   be used for new space-aware subnets.
 // * Subnets need a reference count to calculate Status.
 // * ensure EC2 and MAAS providers accept empty IDs as Subnets() args
 //   and return all subnets, including the AvailabilityZones (for EC2;
@@ -50,6 +50,11 @@ type BackingSubnet interface {
 type BackingSubnetInfo struct {
 	// ProviderId is a provider-specific network id. This may be empty.
 	ProviderId network.Id
+
+	// ProviderNetworkId is the id of the network containing this
+	// subnet from the provider's perspective. It can be empty if the
+	// provider doesn't support distinct networks.
+	ProviderNetworkId network.Id
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
@@ -86,17 +91,9 @@ type BackingSpace interface {
 
 	// ProviderId returns the network ID of the provider
 	ProviderId() network.Id
-
-	// Zones returns a list of availability zone(s) that this
-	// space is in. It can be empty if the provider does not support
-	// availability zones.
-	Zones() []string
-
-	// Life returns the lifecycle state of the space
-	Life() params.Life
 }
 
-// Backing defines the methods needed by the API facade to store and
+// NetworkBacking defines the methods needed by the API facade to store and
 // retrieve information from the underlying persistency layer (state
 // DB).
 type NetworkBacking interface {
@@ -124,6 +121,9 @@ type NetworkBacking interface {
 
 	// ModelTag returns the tag of the model this state is associated to.
 	ModelTag() names.ModelTag
+
+	// ReloadSpaces loads spaces from backing environ
+	ReloadSpaces(environ environs.Environ) error
 }
 
 func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
@@ -187,6 +187,7 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []pa
 			DNSSearchDomains:    v.DNSSearchDomains,
 			GatewayAddress:      v.GatewayAddress.Value,
 			Routes:              routes,
+			IsDefaultGateway:    v.IsDefaultGateway,
 		}
 	}
 	return result
@@ -267,6 +268,7 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 			DNSServers:       netConfig.DNSServers,
 			DNSSearchDomains: netConfig.DNSSearchDomains,
 			GatewayAddress:   netConfig.GatewayAddress,
+			IsDefaultGateway: netConfig.IsDefaultGateway,
 		}
 		logger.Tracef("state address args for device: %+v", addr)
 		devicesAddrs = append(devicesAddrs, addr)
@@ -284,9 +286,6 @@ func NetworkingEnvironFromModelConfig(configGetter environs.EnvironConfigGetter)
 	modelConfig, err := configGetter.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get model config")
-	}
-	if modelConfig.Type() == "dummy" {
-		return nil, errors.NotSupportedf("dummy provider network config")
 	}
 	env, err := environs.GetEnviron(configGetter, environs.New)
 	if err != nil {
@@ -319,7 +318,9 @@ type NetworkConfigSource interface {
 // MergeProviderAndObservedNetworkConfigs returns the effective network configs,
 // using observedConfigs as a base and selectively updating it using the
 // matching providerConfigs for each interface.
-func MergeProviderAndObservedNetworkConfigs(providerConfigs, observedConfigs []params.NetworkConfig) []params.NetworkConfig {
+func MergeProviderAndObservedNetworkConfigs(
+	providerConfigs, observedConfigs []params.NetworkConfig,
+) []params.NetworkConfig {
 
 	providerConfigByName := networkConfigsByName(providerConfigs)
 	logger.Tracef("known provider config by name: %+v", providerConfigByName)
@@ -369,6 +370,7 @@ func networkConfigsByAddress(input []params.NetworkConfig) map[string]params.Net
 }
 
 func mergeObservedAndProviderInterfaceConfig(observedConfig, providerConfig params.NetworkConfig) params.NetworkConfig {
+	logger.Debugf("mergeObservedAndProviderInterfaceConfig %+v %+v", observedConfig, providerConfig)
 	finalConfig := observedConfig
 
 	// The following fields cannot be observed and are only known by the
@@ -391,6 +393,7 @@ func mergeObservedAndProviderInterfaceConfig(observedConfig, providerConfig para
 	if observedConfig.ParentInterfaceName == "" {
 		finalConfig.ParentInterfaceName = providerConfig.ParentInterfaceName
 	}
+	logger.Debugf("mergeObservedAndProviderInterfaceConfig %+v", finalConfig)
 
 	return finalConfig
 }
@@ -436,4 +439,57 @@ func mergeObservedAndProviderAddressConfig(observedConfig, providerConfig params
 	}
 
 	return finalConfig
+}
+
+func networkToParamsNetworkInfo(info network.NetworkInfo) params.NetworkInfo {
+	addresses := make([]params.InterfaceAddress, len(info.Addresses))
+	for i, addr := range info.Addresses {
+		addresses[i] = params.InterfaceAddress{
+			Address: addr.Address,
+			CIDR:    addr.CIDR,
+		}
+	}
+	return params.NetworkInfo{
+		MACAddress:    info.MACAddress,
+		InterfaceName: info.InterfaceName,
+		Addresses:     addresses,
+	}
+}
+
+func MachineNetworkInfoResultToNetworkInfoResult(inResult state.MachineNetworkInfoResult) params.NetworkInfoResult {
+	if inResult.Error != nil {
+		return params.NetworkInfoResult{Error: common.ServerError(inResult.Error)}
+	}
+	infos := make([]params.NetworkInfo, len(inResult.NetworkInfos))
+	for i, info := range inResult.NetworkInfos {
+		infos[i] = networkToParamsNetworkInfo(info)
+	}
+	return params.NetworkInfoResult{
+		Info: infos,
+	}
+}
+
+func FanConfigToFanConfigResult(config network.FanConfig) params.FanConfigResult {
+	result := params.FanConfigResult{make([]params.FanConfigEntry, len(config))}
+	for i, entry := range config {
+		result.Fans[i] = params.FanConfigEntry{entry.Underlay.String(), entry.Overlay.String()}
+	}
+	return result
+}
+
+func FanConfigResultToFanConfig(config params.FanConfigResult) (network.FanConfig, error) {
+	rv := make(network.FanConfig, len(config.Fans))
+	for i, entry := range config.Fans {
+		_, ipnet, err := net.ParseCIDR(entry.Underlay)
+		if err != nil {
+			return nil, err
+		}
+		rv[i].Underlay = ipnet
+		_, ipnet, err = net.ParseCIDR(entry.Overlay)
+		if err != nil {
+			return nil, err
+		}
+		rv[i].Overlay = ipnet
+	}
+	return rv, nil
 }

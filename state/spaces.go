@@ -57,17 +57,24 @@ func (s *Space) Subnets() (results []*Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot fetch subnets")
 	name := s.Name()
 
-	subnetsCollection, closer := s.st.getCollection(subnetsC)
+	subnetsCollection, closer := s.st.db().GetCollection(subnetsC)
 	defer closer()
 
 	var doc subnetDoc
-	iter := subnetsCollection.Find(bson.D{{"space-name", name}}).Iter()
+	// We ignore space-name field for FAN subnets...
+	iter := subnetsCollection.Find(bson.D{{"space-name", name}, bson.DocElem{"fan-local-underlay", bson.D{{"$exists", false}}}}).Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		subnet := &Subnet{s.st, doc}
+		subnet := &Subnet{s.st, doc, name}
 		results = append(results, subnet)
+		// ...and then add them explicitly as descendants of underlay network.
+		childIter := subnetsCollection.Find(bson.D{{"fan-local-underlay", doc.CIDR}}).Iter()
+		for childIter.Next(&doc) {
+			subnet := &Subnet{s.st, doc, name}
+			results = append(results, subnet)
+		}
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, err
 	}
 	return results, nil
@@ -106,18 +113,22 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 		ops = append(ops, txn.Op{
 			C:      subnetsC,
 			Id:     subnetId,
-			Assert: txn.DocExists,
+			Assert: bson.D{bson.DocElem{"fan-local-underlay", bson.D{{"$exists", false}}}},
 			Update: bson.D{{"$set", bson.D{{"space-name", name}}}},
 		})
 	}
 
-	if err := st.runTransaction(ops); err == txn.ErrAborted {
+	if err := st.db().RunTransaction(ops); err == txn.ErrAborted {
 		if _, err := st.Space(name); err == nil {
 			return nil, errors.AlreadyExistsf("space %q", name)
 		}
 		for _, subnetId := range subnets {
-			if _, err := st.Subnet(subnetId); errors.IsNotFound(err) {
+			subnet, err := st.Subnet(subnetId)
+			if errors.IsNotFound(err) {
 				return nil, err
+			}
+			if subnet.FanLocalUnderlay() != "" {
+				return nil, errors.Errorf("Can't set space for FAN subnet %q - it's always inherited from underlay", subnet.CIDR())
 			}
 		}
 		if err := newSpace.Refresh(); err != nil {
@@ -137,7 +148,7 @@ func (st *State) AddSpace(name string, providerId network.Id, subnets []string, 
 // is returned if the space doesn't exist or if there was a problem accessing
 // its information.
 func (st *State) Space(name string) (*Space, error) {
-	spaces, closer := st.getCollection(spacesC)
+	spaces, closer := st.db().GetCollection(spacesC)
 	defer closer()
 
 	var doc spaceDoc
@@ -153,7 +164,7 @@ func (st *State) Space(name string) (*Space, error) {
 
 // AllSpaces returns all spaces for the model.
 func (st *State) AllSpaces() ([]*Space, error) {
-	spacesCollection, closer := st.getCollection(spacesC)
+	spacesCollection, closer := st.db().GetCollection(spacesC)
 	defer closer()
 
 	docs := []spaceDoc{}
@@ -185,7 +196,7 @@ func (s *Space) EnsureDead() (err error) {
 		Assert: isAliveDoc,
 	}}
 
-	txnErr := s.st.runTransaction(ops)
+	txnErr := s.st.db().RunTransaction(ops)
 	if txnErr == nil {
 		s.doc.Life = Dead
 		return nil
@@ -212,7 +223,7 @@ func (s *Space) Remove() (err error) {
 		ops = append(ops, s.st.networkEntityGlobalKeyRemoveOp("space", s.ProviderId()))
 	}
 
-	txnErr := s.st.runTransaction(ops)
+	txnErr := s.st.db().RunTransaction(ops)
 	if txnErr == nil {
 		return nil
 	}
@@ -223,7 +234,7 @@ func (s *Space) Remove() (err error) {
 // returns an error that satisfies errors.IsNotFound if the Space has been
 // removed.
 func (s *Space) Refresh() error {
-	spaces, closer := s.st.getCollection(spacesC)
+	spaces, closer := s.st.db().GetCollection(spacesC)
 	defer closer()
 
 	var doc spaceDoc

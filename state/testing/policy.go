@@ -9,14 +9,14 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 )
 
 type MockPolicy struct {
-	GetPrechecker                 func() (state.Prechecker, error)
+	GetPrechecker                 func() (environs.InstancePrechecker, error)
 	GetConfigValidator            func() (config.Validator, error)
 	GetProviderConfigSchemaSource func() (config.ConfigSchemaSource, error)
 	GetConstraintsValidator       func() (constraints.Validator, error)
@@ -24,7 +24,7 @@ type MockPolicy struct {
 	GetStorageProviderRegistry    func() (storage.ProviderRegistry, error)
 }
 
-func (p *MockPolicy) Prechecker() (state.Prechecker, error) {
+func (p *MockPolicy) Prechecker() (environs.InstancePrechecker, error) {
 	if p.GetPrechecker != nil {
 		return p.GetPrechecker()
 	}

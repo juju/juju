@@ -4,6 +4,8 @@
 package state
 
 import (
+	"github.com/juju/utils/clock"
+
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/bakerystorage"
 )
@@ -15,7 +17,8 @@ import (
 func (st *State) NewBakeryStorage() (bakerystorage.ExpirableStorage, error) {
 	return bakerystorage.New(bakerystorage.Config{
 		GetCollection: func() (mongo.Collection, func()) {
-			return st.getCollection(bakeryStorageItemsC)
+			return st.db().GetCollection(bakeryStorageItemsC)
 		},
+		Clock: clock.WallClock,
 	})
 }

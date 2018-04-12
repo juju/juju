@@ -22,6 +22,14 @@ var stateUpgradeOperations = func() []Operation {
 		upgradeToVersion{version.MustParse("2.0.0"), stateStepsFor20()},
 		upgradeToVersion{version.MustParse("2.1.0"), stateStepsFor21()},
 		upgradeToVersion{version.MustParse("2.2.0"), stateStepsFor22()},
+		upgradeToVersion{version.MustParse("2.2.1"), stateStepsFor221()},
+		upgradeToVersion{version.MustParse("2.2.2"), stateStepsFor222()},
+		upgradeToVersion{version.MustParse("2.2.3"), stateStepsFor223()},
+		upgradeToVersion{version.MustParse("2.3.0"), stateStepsFor23()},
+		upgradeToVersion{version.MustParse("2.3.1"), stateStepsFor231()},
+		upgradeToVersion{version.MustParse("2.3.2"), stateStepsFor232()},
+		upgradeToVersion{version.MustParse("2.3.4"), stateStepsFor234()},
+		upgradeToVersion{version.MustParse("2.4.0"), stateStepsFor24()},
 	}
 	return steps
 }
@@ -32,6 +40,7 @@ var stateUpgradeOperations = func() []Operation {
 var upgradeOperations = func() []Operation {
 	steps := []Operation{
 		upgradeToVersion{version.MustParse("2.0.0"), stepsFor20()},
+		upgradeToVersion{version.MustParse("2.2.0"), stepsFor22()},
 	}
 	return steps
 }

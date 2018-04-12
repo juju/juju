@@ -49,6 +49,22 @@ func (*format_2_0Suite) TestReadConfWithExisting2_0ConfigFileContents(c *gc.C) {
 	c.Assert(config.Jobs(), jc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageModel})
 }
 
+func (*format_2_0Suite) TestMarshalUnmarshal(c *gc.C) {
+	loggingConfig := "juju=INFO;unit=INFO"
+	config := newTestConfig(c)
+	// configFilePath is not serialized as it is the location of the file.
+	config.configFilePath = ""
+	config.SetLoggingConfig(loggingConfig)
+
+	data, err := format_2_0.marshal(config)
+	c.Assert(err, jc.ErrorIsNil)
+	newConfig, err := format_2_0.unmarshal(data)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(newConfig, gc.DeepEquals, config)
+	c.Check(newConfig.LoggingConfig(), gc.Equals, loggingConfig)
+}
+
 var agentConfig2_0Contents = `
 # format 2.0
 controller: controller-deadbeef-1bad-500d-9000-4b1d0d06f00d

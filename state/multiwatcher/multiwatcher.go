@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -176,17 +176,18 @@ func NewStatusInfo(s status.StatusInfo, err error) StatusInfo {
 // ApplicationInfo holds the information about an application that is tracked
 // by multiwatcherStore.
 type ApplicationInfo struct {
-	ModelUUID   string                 `json:"model-uuid"`
-	Name        string                 `json:"name"`
-	Exposed     bool                   `json:"exposed"`
-	CharmURL    string                 `json:"charm-url"`
-	OwnerTag    string                 `json:"owner-tag"`
-	Life        Life                   `json:"life"`
-	MinUnits    int                    `json:"min-units"`
-	Constraints constraints.Value      `json:"constraints"`
-	Config      map[string]interface{} `json:"config,omitempty"`
-	Subordinate bool                   `json:"subordinate"`
-	Status      StatusInfo             `json:"status"`
+	ModelUUID       string                 `json:"model-uuid"`
+	Name            string                 `json:"name"`
+	Exposed         bool                   `json:"exposed"`
+	CharmURL        string                 `json:"charm-url"`
+	OwnerTag        string                 `json:"owner-tag"`
+	Life            Life                   `json:"life"`
+	MinUnits        int                    `json:"min-units"`
+	Constraints     constraints.Value      `json:"constraints"`
+	Config          map[string]interface{} `json:"config,omitempty"`
+	Subordinate     bool                   `json:"subordinate"`
+	Status          StatusInfo             `json:"status"`
+	WorkloadVersion string                 `json:"workload-version"`
 }
 
 // EntityId returns a unique identifier for an application across
@@ -202,20 +203,41 @@ func (i *ApplicationInfo) EntityId() EntityId {
 // RemoteApplicationInfo holds the information about a remote application that is
 // tracked by multiwatcherStore.
 type RemoteApplicationInfo struct {
-	ModelUUID      string     `json:"model-uuid"`
-	Name           string     `json:"name"`
-	ApplicationURL string     `json:"application-url"`
-	Life           Life       `json:"life"`
-	Status         StatusInfo `json:"status"`
+	ModelUUID string     `json:"model-uuid"`
+	Name      string     `json:"name"`
+	OfferUUID string     `json:"offer-uuid"`
+	OfferURL  string     `json:"offer-url"`
+	Life      Life       `json:"life"`
+	Status    StatusInfo `json:"status"`
 }
 
-// EntityId returns a unique identifier for a remote application across
-// environments.
+// EntityId returns a unique identifier for a remote application across models.
 func (i *RemoteApplicationInfo) EntityId() EntityId {
 	return EntityId{
 		Kind:      "remoteApplication",
 		ModelUUID: i.ModelUUID,
 		Id:        i.Name,
+	}
+}
+
+// ApplicationOfferInfo holds the information about an application offer that is
+// tracked by multiwatcherStore.
+type ApplicationOfferInfo struct {
+	ModelUUID            string `json:"model-uuid"`
+	OfferName            string `json:"offer-name"`
+	OfferUUID            string `json:"offer-uuid"`
+	ApplicationName      string `json:"application-name"`
+	CharmName            string `json:"charm-name"`
+	TotalConnectedCount  int    `json:"total-connected-count"`
+	ActiveConnectedCount int    `json:"active-connected-count"`
+}
+
+// EntityId returns a unique identifier for an application offer across models.
+func (i *ApplicationOfferInfo) EntityId() EntityId {
+	return EntityId{
+		Kind:      "applicationOffer",
+		ModelUUID: i.ModelUUID,
+		Id:        i.OfferName,
 	}
 }
 

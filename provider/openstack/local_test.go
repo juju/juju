@@ -5,17 +5,17 @@ package openstack_test
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
-	jujuerrors "github.com/juju/errors"
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -25,15 +25,16 @@ import (
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/goose.v1/cinder"
-	"gopkg.in/goose.v1/client"
-	"gopkg.in/goose.v1/identity"
-	"gopkg.in/goose.v1/neutron"
-	"gopkg.in/goose.v1/nova"
-	"gopkg.in/goose.v1/testservices/hook"
-	"gopkg.in/goose.v1/testservices/neutronservice"
-	"gopkg.in/goose.v1/testservices/novaservice"
-	"gopkg.in/goose.v1/testservices/openstackservice"
+	"gopkg.in/goose.v2/cinder"
+	"gopkg.in/goose.v2/client"
+	"gopkg.in/goose.v2/identity"
+	"gopkg.in/goose.v2/neutron"
+	"gopkg.in/goose.v2/nova"
+	"gopkg.in/goose.v2/testservices/hook"
+	"gopkg.in/goose.v2/testservices/identityservice"
+	"gopkg.in/goose.v2/testservices/neutronservice"
+	"gopkg.in/goose.v2/testservices/novaservice"
+	"gopkg.in/goose.v2/testservices/openstackservice"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
@@ -55,7 +56,8 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	supportedversion "github.com/juju/juju/juju/version"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
@@ -70,8 +72,6 @@ type ProviderSuite struct {
 }
 
 var _ = gc.Suite(&ProviderSuite{})
-var _ = gc.Suite(&localHTTPSServerSuite{})
-var _ = gc.Suite(&noSwiftSuite{})
 
 func (s *ProviderSuite) SetUpTest(c *gc.C) {
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt, openstack.StorageAttempt)
@@ -92,6 +92,7 @@ func registerLocalTests() {
 	config := makeTestConfig(cred)
 	config["agent-version"] = coretesting.FakeVersionNumber.String()
 	config["authorized-keys"] = "fakekey"
+	config["network"] = "private_999"
 	gc.Suite(&localLiveSuite{
 		LiveTests: LiveTests{
 			cred: cred,
@@ -106,6 +107,9 @@ func registerLocalTests() {
 			TestConfig: config,
 		},
 	})
+	gc.Suite(&noNeutronSuite{
+		cred: cred,
+	})
 }
 
 // localServer is used to spin up a local Openstack service double.
@@ -117,13 +121,15 @@ type localServer struct {
 	UseTLS          bool
 }
 
-type newOpenstackFunc func(*identity.Credentials, identity.AuthMode, bool) (*novaservice.Nova, *neutronservice.Neutron, []string)
+type newOpenstackFunc func(*identity.Credentials, identity.AuthMode, bool) (*openstackservice.Openstack, []string)
 
 func (s *localServer) start(
 	c *gc.C, cred *identity.Credentials, newOpenstackFunc newOpenstackFunc,
 ) {
 	var logMsg []string
-	s.Nova, s.Neutron, logMsg = newOpenstackFunc(cred, identity.AuthUserPass, s.UseTLS)
+	s.Openstack, logMsg = newOpenstackFunc(cred, identity.AuthUserPass, s.UseTLS)
+	s.Nova = s.Openstack.Nova
+	s.Neutron = s.Openstack.Neutron
 	for _, msg := range logMsg {
 		c.Logf("%v", msg)
 	}
@@ -161,9 +167,10 @@ func makeMockAdapter() *mockAdapter {
 		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
 			metadata := args.Metadata.(map[string]string)
 			volume := cinder.Volume{
-				ID:       args.Name,
-				Metadata: metadata,
-				Status:   "cool",
+				ID:               args.Name,
+				Metadata:         metadata,
+				Status:           "cool",
+				AvailabilityZone: args.AvailabilityZone,
 			}
 			volumes[volume.ID] = &volume
 			return &volume, nil
@@ -375,7 +382,10 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 		return nil
 	})
 
-	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": true})
+	env := s.openEnviron(c, coretesting.Attrs{
+		"network":         "private_999",
+		"use-floating-ip": true,
+	})
 	err := bootstrapEnv(c, env)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapFinished, jc.IsTrue)
@@ -526,6 +536,7 @@ func (s *localServerSuite) TestStartInstanceExternalNetworkUnknownLabel(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -541,10 +552,110 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 
 	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "failed to get network detail\n"+
+		"caused by: "+
+		"Resource at http://.*/networks/.* not found\n"+
+		"caused by: "+
+		"request \\(http://.*/networks/.*\\) returned unexpected status: "+
+		"404; error info: .*itemNotFound.*")
+}
+
+func (s *localServerSuite) TestStartInstanceNetworksDifferentAZ(c *gc.C) {
+	// If both the network and external-network config values are
+	// specified, there is not check for them being on different
+	// network availability zones when use-floating-ips specified.
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network":          "net",     // az = nova
+		"external-network": "ext-net", // az = test-available
+		"use-floating-ip":  true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.StopInstances(inst.Id())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *localServerSuite) TestStartInstanceNetworkNoExternalNetInAZ(c *gc.C) {
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network":         "net", // az = nova
+		"use-floating-ip": true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, _, _, err = testing.StartInstance(s.env, s.ControllerUUID, "100")
+	c.Assert(err, gc.ErrorMatches, "cannot allocate a public IP as needed: could not find an external network in availability zone.*")
+}
+
+func (s *localServerSuite) TestStartInstancePortSecurityEnabled(c *gc.C) {
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network": "net",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
+	c.Assert(err, jc.ErrorIsNil)
+	novaClient := openstack.GetNovaClient(s.env)
+	detail, err := novaClient.GetServer(string(inst.Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(detail.Groups, gc.NotNil)
+}
+
+func (s *localServerSuite) TestStartInstancePortSecurityDisabled(c *gc.C) {
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network": "net-disabled",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
+	c.Assert(err, jc.ErrorIsNil)
+	novaClient := openstack.GetNovaClient(s.env)
+	detail, err := novaClient.GetServer(string(inst.Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(detail.Groups, gc.IsNil)
+}
+
+func (s *localServerSuite) TestStartInstanceGetServerFail(c *gc.C) {
+	// Force an error in waitForActiveServerDetails
+	cleanup := s.srv.Nova.RegisterControlPoint(
+		"server",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			return fmt.Errorf("GetServer failed on purpose")
+		},
+	)
+	defer cleanup()
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
+	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot run instance: (\\n|.)*"+
 		"caused by: "+
 		"request \\(.*/servers\\) returned unexpected status: "+
-		"404; error info: .*itemNotFound.*")
+		"500; error info: .*GetServer failed on purpose")
+	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
+}
+
+func (s *localServerSuite) TestStartInstanceWaitForActiveDetails(c *gc.C) {
+	env := s.openEnviron(c, coretesting.Attrs{"firewall-mode": config.FwInstance})
+
+	s.srv.Nova.SetServerStatus(nova.StatusBuild)
+	defer s.srv.Nova.SetServerStatus("")
+
+	// Make time advance in zero time
+	clk := gitjujutesting.NewClock(time.Time{})
+	clock := gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+	env.(*openstack.Environ).SetClock(&clock)
+
+	inst, _, _, err := testing.StartInstance(env, s.ControllerUUID, "100")
+	c.Check(inst, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "cannot run instance: max duration exceeded: instance .* has status BUILD")
 }
 
 func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
@@ -785,7 +896,10 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 }
 
 func (s *localServerSuite) TestAllInstancesFloatingIP(c *gc.C) {
-	env := s.openEnviron(c, coretesting.Attrs{"use-floating-ip": true})
+	env := s.openEnviron(c, coretesting.Attrs{
+		"network":         "private_999",
+		"use-floating-ip": true,
+	})
 
 	inst0, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
 	inst1, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "101")
@@ -852,31 +966,6 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 
 func (s *localServerSuite) TestInstancesGatheringWithFloatingIP(c *gc.C) {
 	s.assertInstancesGathering(c, true)
-}
-
-func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
-	coretesting.SkipIfPPC64EL(c, "lp:1425242")
-
-	cleanup := s.srv.Nova.RegisterControlPoint(
-		"addServer",
-		func(sc hook.ServiceControl, args ...interface{}) error {
-			details := args[0].(*nova.ServerDetail)
-			details.Status = nova.StatusBuildSpawning
-			return nil
-		},
-	)
-	defer cleanup()
-	stateInst, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "100")
-	defer func() {
-		err := s.env.StopInstances(stateInst.Id())
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-
-	instances, err := s.env.Instances([]instance.Id{stateInst.Id()})
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instances, gc.HasLen, 1)
-	c.Assert(instances[0].Status().Message, gc.Equals, nova.StatusBuildSpawning)
 }
 
 func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
@@ -1041,7 +1130,67 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	_, ok := environs.SupportsNetworking(env)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s *localServerSuite) prepareNetworkingEnviron(c *gc.C) environs.NetworkingEnviron {
+	env := s.Open(c, s.env.Config())
+	netenv, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsTrue)
+	return netenv
+}
+
+func (s *localServerSuite) TestSubnetsFindAll(c *gc.C) {
+	env := s.prepareNetworkingEnviron(c)
+	obtainedSubnets, err := env.Subnets(instance.Id(""), []network.Id{})
+	c.Assert(err, jc.ErrorIsNil)
+	neutronClient := openstack.GetNeutronClient(s.env)
+	openstackSubnets, err := neutronClient.ListSubnetsV2()
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedSubnetMap := make(map[network.Id]network.SubnetInfo)
+	for _, sub := range obtainedSubnets {
+		obtainedSubnetMap[sub.ProviderId] = sub
+	}
+
+	expectedSubnetMap := make(map[network.Id]network.SubnetInfo)
+	for _, os := range openstackSubnets {
+		net, err := neutronClient.GetNetworkV2(os.NetworkId)
+		c.Assert(err, jc.ErrorIsNil)
+		expectedSubnetMap[network.Id(os.Id)] = network.SubnetInfo{
+			CIDR:              os.Cidr,
+			ProviderId:        network.Id(os.Id),
+			VLANTag:           0,
+			AvailabilityZones: net.AvailabilityZones,
+			SpaceProviderId:   "",
+		}
+	}
+
+	c.Check(obtainedSubnetMap, jc.DeepEquals, expectedSubnetMap)
+}
+
+func (s *localServerSuite) TestSubnetsWithMissingSubnet(c *gc.C) {
+	env := s.prepareNetworkingEnviron(c)
+	subnets, err := env.Subnets(instance.Id(""), []network.Id{"missing"})
+	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[missing\]`)
+	c.Assert(subnets, gc.HasLen, 0)
+}
+
+func (s *localServerSuite) TestSuperSubnets(c *gc.C) {
+	env := s.prepareNetworkingEnviron(c)
+	obtainedSubnets, err := env.SuperSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+	neutronClient := openstack.GetNeutronClient(s.env)
+	openstackSubnets, err := neutronClient.ListSubnetsV2()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSubnets := make([]string, len(openstackSubnets))
+	for i, os := range openstackSubnets {
+		expectedSubnets[i] = os.Cidr
+	}
+	sort.Strings(obtainedSubnets)
+	sort.Strings(expectedSubnets)
+	c.Check(obtainedSubnets, jc.DeepEquals, expectedSubnets)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
@@ -1096,7 +1245,7 @@ func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, series.LatestLts(), "amd64", "instance-type=m1.tiny",
+		env, supportedversion.SupportedLts(), "amd64", "instance-type=m1.tiny",
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1113,7 +1262,7 @@ func (s *localServerSuite) TestFindInstanceImageConstraintHypervisor(c *gc.C) {
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, series.LatestLts(), "amd64", "virt-type="+testVirtType,
+		env, supportedversion.SupportedLts(), "amd64", "virt-type="+testVirtType,
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1132,7 +1281,7 @@ func (s *localServerSuite) TestFindInstanceImageWithHypervisorNoConstraint(c *gc
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, series.LatestLts(), "amd64", "",
+		env, supportedversion.SupportedLts(), "amd64", "",
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1149,7 +1298,7 @@ func (s *localServerSuite) TestFindInstanceNoConstraint(c *gc.C) {
 	}}
 
 	spec, err := openstack.FindInstanceSpec(
-		env, series.LatestLts(), "amd64", "",
+		env, supportedversion.SupportedLts(), "amd64", "",
 		imageMetadata,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1164,7 +1313,7 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 		Arch: "amd64",
 	}}
 	_, err := openstack.FindInstanceSpec(
-		env, series.LatestLts(), "amd64", "instance-type=m1.large",
+		env, supportedversion.SupportedLts(), "amd64", "instance-type=m1.large",
 		imageMetadata,
 	)
 	c.Assert(err, gc.ErrorMatches, `no instance types in some-region matching constraints "instance-type=m1.large"`)
@@ -1173,42 +1322,218 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small")
-	placement := ""
-	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{Series: supportedversion.SupportedLts(), Constraints: cons})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := s.Open(c, s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.large")
-	placement := ""
-	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{Series: supportedversion.SupportedLts(), Constraints: cons})
 	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	placement := "zone=test-available"
-	err := t.env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
+	err := t.env.PrecheckInstance(environs.PrecheckInstanceParams{Series: supportedversion.SupportedLts(), Placement: placement})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	placement := "zone=test-unavailable"
-	err := t.env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
-	c.Assert(err, jc.ErrorIsNil)
+	err := t.env.PrecheckInstance(environs.PrecheckInstanceParams{Series: supportedversion.SupportedLts(), Placement: placement})
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is unavailable`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	placement := "zone=test-unknown"
-	err := t.env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+	err := t.env.PrecheckInstance(environs.PrecheckInstanceParams{Series: supportedversion.SupportedLts(), Placement: placement})
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not valid`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 	t.srv.Nova.SetAvailabilityZones() // no availability zone support
 	placement := "zone=test-unknown"
-	err := t.env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
-	c.Assert(err, jc.Satisfies, jujuerrors.IsNotImplemented)
+	err := t.env.PrecheckInstance(environs.PrecheckInstanceParams{Series: supportedversion.SupportedLts(), Placement: placement})
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceVolumeAvailZonesNoPlacement(c *gc.C) {
+	t.testPrecheckInstanceVolumeAvailZones(c, "")
+}
+
+func (t *localServerSuite) TestPrecheckInstanceVolumeAvailZonesSameZonePlacement(c *gc.C) {
+	t.testPrecheckInstanceVolumeAvailZones(c, "zone=az1")
+}
+
+func (t *localServerSuite) testPrecheckInstanceVolumeAvailZones(c *gc.C, placement string) {
+	t.srv.Nova.SetAvailabilityZones(
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	_, err := t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+		Size:             123,
+		Name:             "foo",
+		AvailabilityZone: "az1",
+		Metadata: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = t.env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:            supportedversion.SupportedLts(),
+		Placement:         placement,
+		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceAvailZonesConflictsVolume(c *gc.C) {
+	t.srv.Nova.SetAvailabilityZones(
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	_, err := t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+		Size:             123,
+		Name:             "foo",
+		AvailabilityZone: "az1",
+		Metadata: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = t.env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:            supportedversion.SupportedLts(),
+		Placement:         "zone=az2",
+		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az2": cannot create instance in zone "az2", as this will prevent attaching the requested disks in zone "az1"`)
+}
+
+func (t *localServerSuite) TestDeriveAvailabilityZones(c *gc.C) {
+	placement := "zone=test-available"
+	env := t.env.(common.ZonedEnviron)
+	zones, err := env.DeriveAvailabilityZones(
+		environs.StartInstanceParams{
+			Placement: placement,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zones, gc.DeepEquals, []string{"test-available"})
+}
+
+func (t *localServerSuite) TestDeriveAvailabilityZonesUnavailable(c *gc.C) {
+	placement := "zone=test-unavailable"
+	env := t.env.(common.ZonedEnviron)
+	zones, err := env.DeriveAvailabilityZones(
+		environs.StartInstanceParams{
+			Placement: placement,
+		})
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is unavailable`)
+	c.Assert(zones, gc.HasLen, 0)
+}
+
+func (t *localServerSuite) TestDeriveAvailabilityZonesUnknown(c *gc.C) {
+	placement := "zone=test-unknown"
+	env := t.env.(common.ZonedEnviron)
+	zones, err := env.DeriveAvailabilityZones(
+		environs.StartInstanceParams{
+			Placement: placement,
+		})
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unknown" not valid`)
+	c.Assert(zones, gc.HasLen, 0)
+}
+
+func (t *localServerSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C) {
+	t.srv.Nova.SetAvailabilityZones(
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: false,
+			},
+		},
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	_, err := t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+		Size:             123,
+		Name:             "foo",
+		AvailabilityZone: "az2",
+		Metadata: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	env := t.env.(common.ZonedEnviron)
+	zones, err := env.DeriveAvailabilityZones(
+		environs.StartInstanceParams{
+			VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zones, gc.DeepEquals, []string{"az2"})
+}
+
+func (t *localServerSuite) TestDeriveAvailabilityZonesConflictsVolume(c *gc.C) {
+	t.srv.Nova.SetAvailabilityZones(
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	_, err := t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+		Size:             123,
+		Name:             "foo",
+		AvailabilityZone: "az1",
+		Metadata: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	env := t.env.(common.ZonedEnviron)
+	zones, err := env.DeriveAvailabilityZones(
+		environs.StartInstanceParams{
+			Placement:         "zone=az2",
+			VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
+		})
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=az2": cannot create instance in zone "az2", as this will prevent attaching the requested disks in zone "az1"`)
+	c.Assert(zones, gc.HasLen, 0)
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
@@ -1239,6 +1564,30 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 		"image-metadata-url", "my datasource", "keystone catalog", "default cloud images", "default ubuntu cloud images"})
 }
 
+// To compare found and expected SecurityGroupRules, convert the rules to RuleInfo, minus
+// details we can't predict such as id.
+func ruleToRuleInfo(rules []neutron.SecurityGroupRuleV2) []neutron.RuleInfoV2 {
+	ruleInfo := make([]neutron.RuleInfoV2, 0, len(rules))
+	for _, r := range rules {
+		ri := neutron.RuleInfoV2{
+			Direction:      r.Direction,
+			EthernetType:   r.EthernetType,
+			RemoteIPPrefix: r.RemoteIPPrefix,
+		}
+		if r.IPProtocol != nil {
+			ri.IPProtocol = *r.IPProtocol
+		}
+		if r.PortRangeMax != nil {
+			ri.PortRangeMax = *r.PortRangeMax
+		}
+		if r.PortRangeMin != nil {
+			ri.PortRangeMin = *r.PortRangeMin
+		}
+		ruleInfo = append(ruleInfo, ri)
+	}
+	return ruleInfo
+}
+
 // TestEnsureGroup checks that when creating a duplicate security group, the existing group is
 // returned and the existing rules have been left as is.
 func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
@@ -1248,35 +1597,100 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 			IPProtocol:   "tcp",
 			PortRangeMin: 22,
 			PortRangeMax: 22,
+			EthernetType: "IPv4",
 		},
-	}
-
-	assertRule := func(group neutron.SecurityGroupV2) {
-		c.Check(len(group.Rules), gc.Equals, 3)
-		for _, r := range group.Rules {
-			// Ignore the 2 default egress rules for each new
-			// security group created by Neutron
-			if r.Direction == "egress" {
-				continue
-			}
-			c.Check(r.Direction, gc.Equals, "ingress")
-			c.Check(*r.IPProtocol, gc.Equals, "tcp")
-			c.Check(*r.PortRangeMin, gc.Equals, 22)
-			c.Check(*r.PortRangeMax, gc.Equals, 22)
-		}
 	}
 
 	group, err := openstack.EnsureGroup(s.env, "test group", rule)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(group.Name, gc.Equals, "test group")
-	assertRule(group)
+
+	// Rules created by Neutron when a new Security Group is created
+	defaultRules := []neutron.RuleInfoV2{
+		{
+			Direction:    "egress",
+			EthernetType: "IPv4",
+		},
+		{
+			Direction:    "egress",
+			EthernetType: "IPv6",
+		},
+	}
+	expectedRules := append(defaultRules, rule[0])
+	obtainedRules := ruleToRuleInfo(group.Rules)
+	c.Check(obtainedRules, jc.SameContents, expectedRules)
 	id := group.Id
-	// Do it again and check that the existing group is returned.
+
+	// Do it again and check that the existing group is returned
+	// and updated.
+	rules := []neutron.RuleInfoV2{
+		{
+			Direction:    "ingress",
+			IPProtocol:   "tcp",
+			PortRangeMin: 22,
+			PortRangeMax: 22,
+			EthernetType: "IPv4",
+		},
+		{
+			Direction:    "ingress",
+			IPProtocol:   "icmp",
+			EthernetType: "IPv6",
+		},
+	}
+	group, err = openstack.EnsureGroup(s.env, "test group", rules)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(group.Id, gc.Equals, id)
+	c.Assert(group.Name, gc.Equals, "test group")
+	c.Check(len(group.Rules), gc.Equals, 4)
+	expectedRules = append(defaultRules, rules...)
+	obtainedRulesSecondTime := ruleToRuleInfo(group.Rules)
+	c.Check(obtainedRulesSecondTime, jc.SameContents, expectedRules)
+
+	// 3rd time with same name, should be back to the orginal now
 	group, err = openstack.EnsureGroup(s.env, "test group", rule)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(group.Id, gc.Equals, id)
 	c.Assert(group.Name, gc.Equals, "test group")
-	assertRule(group)
+	expectedRules = append(defaultRules, rule[0])
+	obtainedRulesThirdTime := ruleToRuleInfo(group.Rules)
+	c.Check(obtainedRulesThirdTime, jc.SameContents, expectedRules)
+	c.Check(obtainedRulesThirdTime, jc.SameContents, obtainedRules)
+}
+
+// TestMatchingGroup checks that you receive the group you expected.  matchingGroup()
+// is used by the firewaller when opening and closing ports.  Unit test in response to bug 1675799.
+func (s *localServerSuite) TestMatchingGroup(c *gc.C) {
+	rule := []neutron.RuleInfoV2{
+		{
+			Direction:    "ingress",
+			IPProtocol:   "tcp",
+			PortRangeMin: 22,
+			PortRangeMax: 22,
+			EthernetType: "IPv4",
+		},
+	}
+
+	err := bootstrapEnv(c, s.env)
+	group1, err := openstack.EnsureGroup(s.env,
+		openstack.MachineGroupName(s.env, s.ControllerUUID, "1"), rule)
+	c.Assert(err, jc.ErrorIsNil)
+	group2, err := openstack.EnsureGroup(s.env,
+		openstack.MachineGroupName(s.env, s.ControllerUUID, "2"), rule)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = openstack.EnsureGroup(s.env, openstack.MachineGroupName(s.env, s.ControllerUUID, "11"), rule)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = openstack.EnsureGroup(s.env, openstack.MachineGroupName(s.env, s.ControllerUUID, "12"), rule)
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineNameRegexp := openstack.MachineGroupRegexp(s.env, "1")
+	groupMatched, err := openstack.MatchingGroup(s.env, machineNameRegexp)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(group1.Id, gc.Equals, groupMatched.Id)
+
+	machineNameRegexp = openstack.MachineGroupRegexp(s.env, "2")
+	groupMatched, err = openstack.MatchingGroup(s.env, machineNameRegexp)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(group2.Id, gc.Equals, groupMatched.Id)
 }
 
 // localHTTPSServerSuite contains tests that run against an Openstack service
@@ -1292,6 +1706,8 @@ type localHTTPSServerSuite struct {
 	env   environs.Environ
 }
 
+var _ = gc.Suite(&localHTTPSServerSuite{})
+
 func (s *localHTTPSServerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	overrideCinderProvider(c, &s.CleanupSuite, &mockAdapter{})
@@ -1301,6 +1717,7 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 	attrs := makeTestConfig(s.cred)
 	attrs["agent-version"] = coretesting.FakeVersionNumber.String()
 	attrs["authorized-keys"] = "fakekey"
+	attrs["network"] = "net"
 	// In order to set up and tear down the environment properly, we must
 	// disable hostname verification
 	attrs["ssl-hostname-verification"] = false
@@ -1337,7 +1754,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.env, err = bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
-		jujuclienttesting.NewMemStore(),
+		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1539,6 +1956,7 @@ func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 		Name:     newMachineName,
 		FlavorId: "1", // test service has 1,2,3 for flavor ids
 		ImageId:  "1", // UseTestImageData sets up images 1 and 2
+		Networks: []nova.ServerNetworks{{NetworkId: "1"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity, gc.NotNil)
@@ -1555,7 +1973,7 @@ func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 
 func (s *localServerSuite) TestResolveNetworkUUID(c *gc.C) {
 	var sampleUUID = "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
-	networkId, err := openstack.ResolveNetwork(s.env, sampleUUID)
+	networkId, err := openstack.ResolveNetwork(s.env, sampleUUID, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networkId, gc.Equals, sampleUUID)
 }
@@ -1564,14 +1982,17 @@ func (s *localServerSuite) TestResolveNetworkLabel(c *gc.C) {
 	// For now this test has to cheat and use knowledge of goose internals
 	var networkLabel = "net"
 	var expectNetworkId = "1"
-	networkId, err := openstack.ResolveNetwork(s.env, networkLabel)
+	networkId, err := openstack.ResolveNetwork(s.env, networkLabel, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networkId, gc.Equals, expectNetworkId)
 }
 
 func (s *localServerSuite) TestResolveNetworkNotPresent(c *gc.C) {
 	var notPresentNetwork = "no-network-with-this-label"
-	networkId, err := openstack.ResolveNetwork(s.env, notPresentNetwork)
+	networkId, err := openstack.ResolveNetwork(s.env, notPresentNetwork, false)
+	c.Check(networkId, gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `no networks exist with label "no-network-with-this-label"`)
+	networkId, err = openstack.ResolveNetwork(s.env, notPresentNetwork, true)
 	c.Check(networkId, gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, `no networks exist with label "no-network-with-this-label"`)
 }
@@ -1586,12 +2007,12 @@ func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnavailable(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-unavailable")
-	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is unavailable`)
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-unknown")
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 }
 
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
@@ -1599,8 +2020,8 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{
-		ControllerUUID: t.ControllerUUID,
-		Placement:      "zone=" + zone,
+		ControllerUUID:   t.ControllerUUID,
+		AvailabilityZone: zone,
 	}
 	result, err := testing.StartInstanceWithParams(t.env, "1", params)
 	if err != nil {
@@ -1661,121 +2082,6 @@ func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 	c.Assert(zones[1].Available(), jc.IsFalse)
 }
 
-type mockAvailabilityZoneAllocations struct {
-	group  []instance.Id // input param
-	result []common.AvailabilityZoneInstances
-	err    error
-}
-
-func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
-	e common.ZonedEnviron, group []instance.Id,
-) ([]common.AvailabilityZoneInstances, error) {
-	t.group = group
-	return t.result, t.err
-}
-
-func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
-	err := bootstrapEnv(c, t.env)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var mock mockAvailabilityZoneAllocations
-	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-
-	// no distribution group specified
-	testing.AssertStartInstance(c, t.env, t.ControllerUUID, "1")
-	c.Assert(mock.group, gc.HasLen, 0)
-
-	// distribution group specified: ensure it's passed through to AvailabilityZone.
-	expectedInstances := []instance.Id{"i-0", "i-1"}
-	params := environs.StartInstanceParams{
-		ControllerUUID: t.ControllerUUID,
-		DistributionGroup: func() ([]instance.Id, error) {
-			return expectedInstances, nil
-		},
-	}
-	_, err = testing.StartInstanceWithParams(t.env, "1", params)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
-}
-
-func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
-	err := bootstrapEnv(c, t.env)
-	c.Assert(err, jc.ErrorIsNil)
-
-	mock := mockAvailabilityZoneAllocations{
-		err: fmt.Errorf("AvailabilityZoneAllocations failed"),
-	}
-	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-	_, _, _, err = testing.StartInstance(t.env, t.ControllerUUID, "1")
-	c.Assert(jujuerrors.Cause(err), gc.Equals, mock.err)
-
-	mock.err = nil
-	dgErr := fmt.Errorf("DistributionGroup failed")
-	params := environs.StartInstanceParams{
-		ControllerUUID: t.ControllerUUID,
-		DistributionGroup: func() ([]instance.Id, error) {
-			return nil, dgErr
-		},
-	}
-	_, err = testing.StartInstanceWithParams(t.env, "1", params)
-	c.Assert(jujuerrors.Cause(err), gc.Equals, dgErr)
-}
-
-func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
-	err := bootstrapEnv(c, t.env)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// test-available is the only available AZ, so AvailabilityZoneAllocations
-	// is guaranteed to return that.
-	inst, _ := testing.AssertStartInstance(c, t.env, t.ControllerUUID, "1")
-	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "test-available")
-}
-
-func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
-	coretesting.SkipIfPPC64EL(c, "lp:1425242")
-
-	t.srv.Nova.SetAvailabilityZones(
-		// bootstrap node will be on az1.
-		nova.AvailabilityZone{
-			Name: "az1",
-			State: nova.AvailabilityZoneState{
-				Available: true,
-			},
-		},
-		// az2 will be made to return an error.
-		nova.AvailabilityZone{
-			Name: "az2",
-			State: nova.AvailabilityZoneState{
-				Available: true,
-			},
-		},
-		// az3 will be valid to host an instance.
-		nova.AvailabilityZone{
-			Name: "az3",
-			State: nova.AvailabilityZoneState{
-				Available: true,
-			},
-		},
-	)
-
-	err := bootstrapEnv(c, t.env)
-	c.Assert(err, jc.ErrorIsNil)
-
-	cleanup := t.srv.Nova.RegisterControlPoint(
-		"addServer",
-		func(sc hook.ServiceControl, args ...interface{}) error {
-			serverDetail := args[0].(*nova.ServerDetail)
-			if serverDetail.AvailabilityZone == "az2" {
-				return fmt.Errorf("No valid host was found")
-			}
-			return nil
-		},
-	)
-	defer cleanup()
-	inst, _ := testing.AssertStartInstance(c, t.env, t.ControllerUUID, "1")
-	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "az3")
-}
-
 func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
@@ -1810,22 +2116,135 @@ func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	_, _, _, err = testing.StartInstance(t.env, t.ControllerUUID, "1")
+	_, err = testing.StartInstanceWithParams(t.env, "1", environs.StartInstanceParams{
+		ControllerUUID:   t.ControllerUUID,
+		AvailabilityZone: "az2",
+	})
 	c.Assert(err, gc.ErrorMatches, "(?s).*Some unknown error.*")
 }
 
-func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
+func (t *localServerSuite) testStartInstanceWithParamsDeriveAZ(
+	machineId string,
+	params environs.StartInstanceParams,
+) (*environs.StartInstanceResult, error) {
+	zonedEnv := t.env.(common.ZonedEnviron)
+	zones, err := zonedEnv.DeriveAvailabilityZones(params)
+	if err != nil {
+		return nil, err
+	}
+	if len(zones) < 1 {
+		return nil, errors.New("no zones found")
+	}
+	params.AvailabilityZone = zones[0]
+	return testing.StartInstanceWithParams(t.env, "1", params)
+}
+
+func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) {
+	t.srv.Nova.SetAvailabilityZones(
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		nova.AvailabilityZone{
+			Name: "test-available",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
 	err := bootstrapEnv(c, t.env)
 	c.Assert(err, jc.ErrorIsNil)
 
-	mock := mockAvailabilityZoneAllocations{
-		err: jujuerrors.NotImplementedf("availability zones"),
-	}
-	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
+	_, err = t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+		Size:             123,
+		Name:             "foo",
+		AvailabilityZone: "az2",
+		Metadata: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := t.testStartInstanceWithParamsDeriveAZ("1", environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		VolumeAttachments: []storage.VolumeAttachmentParams{
+			{VolumeId: "foo"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(openstack.InstanceServerDetail(result.Instance).AvailabilityZone, gc.Equals, "az2")
+}
 
-	// Instance will be created without an availability zone specified.
-	inst, _ := testing.AssertStartInstance(c, t.env, t.ControllerUUID, "1")
-	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "")
+func (t *localServerSuite) TestStartInstanceVolumeAttachmentsMultipleAvailZones(c *gc.C) {
+	err := bootstrapEnv(c, t.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, az := range []string{"az1", "az2"} {
+		_, err := t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+			Size:             123,
+			Name:             "vol-" + az,
+			AvailabilityZone: az,
+			Metadata: map[string]string{
+				"juju-model-uuid":      coretesting.ModelTag.Id(),
+				"juju-controller-uuid": coretesting.ControllerTag.Id(),
+			},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	_, err = t.testStartInstanceWithParamsDeriveAZ("1", environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		VolumeAttachments: []storage.VolumeAttachmentParams{
+			{VolumeId: "vol-az1"},
+			{VolumeId: "vol-az2"},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot attach volumes from multiple availability zones: vol-az1 is in az1, vol-az2 is in az2`)
+}
+
+func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZoneConflictsPlacement(c *gc.C) {
+	err := bootstrapEnv(c, t.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	t.srv.Nova.SetAvailabilityZones(
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+	_, err = t.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+		Size:             123,
+		Name:             "foo",
+		AvailabilityZone: "az1",
+		Metadata: map[string]string{
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = testing.StartInstanceWithParams(t.env, "1", environs.StartInstanceParams{
+		ControllerUUID:    t.ControllerUUID,
+		VolumeAttachments: []storage.VolumeAttachmentParams{{VolumeId: "foo"}},
+		AvailabilityZone:  "az2",
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot create instance in zone "az2", as this will prevent attaching the requested disks in zone "az1"`)
 }
 
 func (t *localServerSuite) TestInstanceTags(c *gc.C) {
@@ -1931,7 +2350,46 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	s.checkGroupController(c, env, newController)
 }
 
-func addVolume(c *gc.C, env environs.Environ, controllerUUID, name string) {
+func (s *localServerSuite) TestAdoptResourcesNoStorage(c *gc.C) {
+	// Nova-lxd doesn't support storage. lp:1677225
+	s.PatchValue(openstack.NewOpenstackStorage, func(*openstack.Environ) (openstack.OpenstackStorage, error) {
+		return nil, errors.NotSupportedf("volumes")
+	})
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	hostedModelUUID := "7e386e08-cba7-44a4-a76e-7c1633584210"
+	cfg, err := s.env.Config().Apply(map[string]interface{}{
+		"uuid": hostedModelUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  makeCloudSpec(s.cred),
+		Config: cfg,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	originalController := coretesting.ControllerTag.Id()
+	_, _, _, err = testing.StartInstance(env, originalController, "0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkInstanceTags(c, s.env, originalController)
+	s.checkInstanceTags(c, env, originalController)
+	s.checkGroupController(c, s.env, originalController)
+	s.checkGroupController(c, env, originalController)
+
+	// Needs to be a correctly formatted uuid so we can get it out of
+	// group names.
+	newController := "aaaaaaaa-bbbb-cccc-dddd-0123456789ab"
+	err = env.AdoptResources(newController, version.MustParse("1.2.3"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkInstanceTags(c, s.env, originalController)
+	s.checkInstanceTags(c, env, newController)
+	s.checkGroupController(c, s.env, originalController)
+	s.checkGroupController(c, env, newController)
+}
+
+func addVolume(c *gc.C, env environs.Environ, controllerUUID, name string) *storage.Volume {
 	storageAdapter, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
 	c.Assert(err, jc.ErrorIsNil)
 	modelUUID := env.Config().UUID()
@@ -1946,6 +2404,7 @@ func addVolume(c *gc.C, env environs.Environ, controllerUUID, name string) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Assert(result[0].Error, jc.ErrorIsNil)
+	return result[0].Volume
 }
 
 func (s *localServerSuite) checkInstanceTags(c *gc.C, env environs.Environ, expectedController string) {
@@ -2012,6 +2471,156 @@ func (s *localServerSuite) TestUpdateGroupController(c *gc.C) {
 	))
 }
 
+// noNeutronSuite is a clone of localServerSuite which hacks the local
+// openstack to remove the neutron service from the auth response -
+// this causes the client to switch to nova networking.
+type noNeutronSuite struct {
+	coretesting.BaseSuite
+	cred                 *identity.Credentials
+	srv                  localServer
+	env                  environs.Environ
+	toolsMetadataStorage envstorage.Storage
+	imageMetadataStorage envstorage.Storage
+	storageAdapter       *mockAdapter
+}
+
+func (s *noNeutronSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	c.Logf("Running local tests")
+}
+
+func (s *noNeutronSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.srv.start(c, s.cred, newNovaNetworkingOpenstackService)
+
+	userPass, ok := s.srv.Openstack.Identity.(*identityservice.UserPass)
+	c.Assert(ok, jc.IsTrue)
+	// Ensure that there's nothing returned with a type of "network",
+	// so that we switch over to nova networking.
+	cleanup := userPass.RegisterControlPoint("authorisation", func(sc hook.ServiceControl, args ...interface{}) error {
+		res, ok := args[0].(*identityservice.AccessResponse)
+		c.Assert(ok, jc.IsTrue)
+		var filtered []identityservice.V2Service
+		for _, service := range res.Access.ServiceCatalog {
+			if service.Type != "network" {
+				filtered = append(filtered, service)
+			}
+		}
+		res.Access.ServiceCatalog = filtered
+		return nil
+	})
+	s.AddCleanup(func(c *gc.C) { cleanup() })
+
+	cl := client.NewClient(s.cred, identity.AuthUserPass, nil)
+	err := cl.Authenticate()
+	c.Assert(err, jc.ErrorIsNil)
+	containerURL, err := cl.MakeServiceURL("object-store", "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
+		"name":               "sample-no-neutron",
+		"type":               "openstack",
+		"auth-mode":          "userpass",
+		"agent-version":      coretesting.FakeVersionNumber.String(),
+		"agent-metadata-url": containerURL + "/juju-dist-test/tools",
+		"image-metadata-url": containerURL + "/juju-dist-test",
+		"authorized-keys":    "fakekey",
+	})
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	// For testing, we create a storage instance to which is uploaded tools and image metadata.
+	env, err := bootstrap.Prepare(
+		envtesting.BootstrapContext(c),
+		jujuclient.NewMemStore(),
+		prepareParams(attrs, s.cred),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.env = env
+	s.toolsMetadataStorage = openstack.MetadataStorage(s.env)
+	// Put some fake metadata in place so that tests that are simply
+	// starting instances without any need to check if those instances
+	// are running can find the metadata.
+	envtesting.UploadFakeTools(c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
+	s.imageMetadataStorage = openstack.ImageMetadataStorage(s.env)
+	openstack.UseTestImageData(s.imageMetadataStorage, s.cred)
+	s.storageAdapter = makeMockAdapter()
+	overrideCinderProvider(c, &s.CleanupSuite, s.storageAdapter)
+}
+
+func (s *noNeutronSuite) TearDownTest(c *gc.C) {
+	if s.imageMetadataStorage != nil {
+		openstack.RemoveTestImageData(s.imageMetadataStorage)
+	}
+	if s.toolsMetadataStorage != nil {
+		envtesting.RemoveFakeToolsMetadata(c, s.toolsMetadataStorage)
+	}
+	s.srv.stop()
+	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *noNeutronSuite) TestUpdateGroupControllerNoNeutron(c *gc.C) {
+	// Ensure that when Juju updates the security groups when we don't
+	// have Neutron networking, that we don't get confused by security
+	// groups that are not part of this model.
+	client := openstack.GetNovaClient(s.env)
+	// Non-Juju groups and groups for other models.
+	names := []string{
+		"unrelated",
+		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff",
+		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff-0",
+	}
+	for _, name := range names {
+		createNovaSecurityGroup(c, client, name)
+	}
+
+	// Bootstrapping will create the groups for this model.
+	err := bootstrapEnv(c, s.env)
+	c.Assert(err, jc.ErrorIsNil)
+
+	groupNamesBefore := set.NewStrings(getNovaSecurityGroupNames(c, client)...)
+	c.Assert(groupNamesBefore, gc.DeepEquals, set.NewStrings(
+		"default",
+		"unrelated",
+		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff",
+		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff-0",
+		// These are the groups for our model.
+		"juju-deadbeef-1bad-500d-9000-4b1d0d06f00d-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"juju-deadbeef-1bad-500d-9000-4b1d0d06f00d-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
+	))
+
+	firewaller := openstack.GetFirewaller(s.env)
+	err = firewaller.UpdateGroupController("aabbccdd-eeee-ffff-0000-0123456789ab")
+	c.Assert(err, jc.ErrorIsNil)
+
+	groupNamesAfter := set.NewStrings(getNovaSecurityGroupNames(c, client)...)
+	c.Assert(groupNamesAfter, gc.DeepEquals, set.NewStrings(
+		// These ones are left alone.
+		"default",
+		"unrelated",
+		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff",
+		"juju-aaaaaaaa-bbbb-cccc-dddd-9876543210ab-12345678-eeee-eeee-eeee-aabbccddeeff-0",
+		// Only these last two are updated.
+		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
+	))
+}
+
+func createNovaSecurityGroup(c *gc.C, client *nova.Client, name string) {
+	c.Logf("creating group %q", name)
+	_, err := client.CreateSecurityGroup(name, "")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func getNovaSecurityGroupNames(c *gc.C, client *nova.Client) []string {
+	groups, err := client.ListSecurityGroups()
+	c.Assert(err, jc.ErrorIsNil)
+	var names []string
+	for _, group := range groups {
+		names = append(names, group.Name)
+	}
+	return names
+}
+
 func prepareParams(attrs map[string]interface{}, cred *identity.Credentials) bootstrap.PrepareParams {
 	return bootstrap.PrepareParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
@@ -2052,6 +2661,8 @@ type noSwiftSuite struct {
 	srv  localServer
 	env  environs.Environ
 }
+
+var _ = gc.Suite(&noSwiftSuite{})
 
 func (s *noSwiftSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
@@ -2099,7 +2710,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 
 	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
-		jujuclienttesting.NewMemStore(),
+		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2112,7 +2723,15 @@ func (s *noSwiftSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *noSwiftSuite) TestBootstrap(c *gc.C) {
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		// A label that corresponds to a neutron test service network
+		"network": "net",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      testing.AdminSecret,
 		CAPrivateKey:     coretesting.CAKey,
@@ -2120,18 +2739,24 @@ func (s *noSwiftSuite) TestBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func newFullOpenstackService(cred *identity.Credentials, auth identity.AuthMode, useTSL bool) (*novaservice.Nova, *neutronservice.Neutron, []string) {
+func newFullOpenstackService(cred *identity.Credentials, auth identity.AuthMode, useTSL bool) (*openstackservice.Openstack, []string) {
 	service, logMsg := openstackservice.New(cred, auth, useTSL)
 	service.UseNeutronNetworking()
 	service.SetupHTTP(nil)
-	return service.Nova, service.Neutron, logMsg
+	return service, logMsg
 }
 
-func newNovaOnlyOpenstackService(cred *identity.Credentials, auth identity.AuthMode, useTSL bool) (*novaservice.Nova, *neutronservice.Neutron, []string) {
+func newNovaOnlyOpenstackService(cred *identity.Credentials, auth identity.AuthMode, useTSL bool) (*openstackservice.Openstack, []string) {
 	service, logMsg := openstackservice.NewNoSwift(cred, auth, useTSL)
 	service.UseNeutronNetworking()
 	service.SetupHTTP(nil)
-	return service.Nova, service.Neutron, logMsg
+	return service, logMsg
+}
+
+func newNovaNetworkingOpenstackService(cred *identity.Credentials, auth identity.AuthMode, useTSL bool) (*openstackservice.Openstack, []string) {
+	service, logMsg := openstackservice.New(cred, auth, useTSL)
+	service.SetupHTTP(nil)
+	return service, logMsg
 }
 
 func bootstrapEnv(c *gc.C, env environs.Environ) error {

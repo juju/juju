@@ -6,15 +6,16 @@
 package lxd_test
 
 import (
+	"github.com/juju/cmd/cmdtesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/lxd"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools/lxdclient"
@@ -66,7 +67,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 		},
 	}
 
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	params := environs.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 	}
@@ -78,7 +79,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 	// We don't check bsFinalizer because functions cannot be compared.
 	c.Check(result.Finalize, gc.NotNil)
 
-	out := coretesting.Stderr(ctx)
+	out := cmdtesting.Stderr(ctx)
 	c.Assert(out, gc.Equals, "To configure your system to better support LXD containers, please see: https://github.com/lxc/lxd/blob/master/doc/production-setup.md\n")
 }
 
@@ -100,32 +101,60 @@ func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 }
 
 func (s *environSuite) TestDestroy(c *gc.C) {
-	err := s.Env.Destroy()
+	s.Client.Volumes = map[string][]api.StorageVolume{
+		"juju": []api.StorageVolume{{
+			Name: "not-ours",
+			StorageVolumePut: api.StorageVolumePut{
+				Config: map[string]string{
+					"user.juju-model-uuid": "other",
+				},
+			},
+		}, {
+			Name: "ours",
+			StorageVolumePut: api.StorageVolumePut{
+				Config: map[string]string{
+					"user.juju-model-uuid": s.Config.UUID(),
+				},
+			},
+		}},
+	}
 
-	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *environSuite) TestDestroyAPI(c *gc.C) {
 	err := s.Env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	fwname := common.EnvFullName(s.Env.Config().UUID())
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "Ports",
-		Args: []interface{}{
-			fwname,
-		},
-	}, {
-		FuncName: "Destroy",
-		Args:     nil,
-	}})
+	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
+		{"Destroy", nil},
+		{"StorageSupported", nil},
+		{"StoragePools", nil},
+		{"VolumeList", []interface{}{"juju"}},
+		{"VolumeDelete", []interface{}{"juju", "ours"}},
+		{"VolumeList", []interface{}{"juju-zfs"}},
+	})
 }
 
-func (s *environSuite) TestDestroyHostedModels(c *gc.C) {
+func (s *environSuite) TestDestroyController(c *gc.C) {
 	s.UpdateConfig(c, map[string]interface{}{
 		"controller-uuid": s.Config.UUID(),
 	})
 	s.Stub.ResetCalls()
+
+	s.Client.Volumes = map[string][]api.StorageVolume{
+		"juju": []api.StorageVolume{{
+			Name: "not-ours",
+			StorageVolumePut: api.StorageVolumePut{
+				Config: map[string]string{
+					"user.juju-controller-uuid": "other",
+				},
+			},
+		}, {
+			Name: "ours",
+			StorageVolumePut: api.StorageVolumePut{
+				Config: map[string]string{
+					"user.juju-controller-uuid": s.Config.UUID(),
+				},
+			},
+		}},
+	}
 
 	// machine0 is in the controller model.
 	machine0 := s.NewRawInstance(c, "juju-controller-machine-0")
@@ -145,11 +174,18 @@ func (s *environSuite) TestDestroyHostedModels(c *gc.C) {
 	err := s.Env.DestroyController(s.Config.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	fwname := common.EnvFullName(s.Env.Config().UUID())
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
-		{"Ports", []interface{}{fwname}},
 		{"Destroy", nil},
+		{"StorageSupported", nil},
+		{"StoragePools", nil},
+		{"VolumeList", []interface{}{"juju"}},
+		{"VolumeList", []interface{}{"juju-zfs"}},
 		{"Instances", []interface{}{"juju-", lxdclient.AliveStatuses}},
 		{"RemoveInstances", []interface{}{"juju-", []string{machine1.Name}}},
+		{"StorageSupported", nil},
+		{"StoragePools", nil},
+		{"VolumeList", []interface{}{"juju"}},
+		{"VolumeDelete", []interface{}{"juju", "ours"}},
+		{"VolumeList", []interface{}{"juju-zfs"}},
 	})
 }

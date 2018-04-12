@@ -4,10 +4,11 @@
 package application
 
 import (
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
@@ -30,7 +31,7 @@ func (s *UnexposeSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&UnexposeSuite{})
 
 func runUnexpose(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, NewUnexposeCommand(), args...)
+	_, err := cmdtesting.RunCommand(c, NewUnexposeCommand(), args...)
 	return err
 }
 
@@ -42,10 +43,11 @@ func (s *UnexposeSuite) assertExposed(c *gc.C, application string, expected bool
 }
 
 func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
+
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
+	curl := charm.MustParseURL("local:trusty/multi-series-1")
 	s.AssertService(c, "some-application-name", curl, 1, 0)
 
 	err = runExpose(c, "some-application-name")
@@ -64,10 +66,11 @@ func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 }
 
 func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
+
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
+	curl := charm.MustParseURL("local:trusty/multi-series-1")
 	s.AssertService(c, "some-application-name", curl, 1, 0)
 
 	// Block operation

@@ -44,6 +44,8 @@ KNAME="sda1" SIZE="254803968" LABEL="" UUID="7a62bd85-a350-4c09-8944-5b99bf2080c
 KNAME="sda2" SIZE="1024" LABEL="boot" UUID="" TYPE="disk"
 KNAME="sdb" SIZE="32017047552" LABEL="" UUID="" TYPE="disk"
 KNAME="sdb1" SIZE="32015122432" LABEL="media" UUID="2c1c701d-f2ce-43a4-b345-33e2e39f9503" FSTYPE="ext4" TYPE="disk"
+KNAME="fd0" SIZE="1024" TYPE="disk" MAJ:MIN="2:0"
+KNAME="fd1" SIZE="1024" TYPE="disk" MAJ:MIN="2:1"
 EOF`)
 
 	devices, err := diskmanager.ListBlockDevices()
@@ -71,6 +73,14 @@ EOF`)
 		UUID:           "2c1c701d-f2ce-43a4-b345-33e2e39f9503",
 		FilesystemType: "ext4",
 	}})
+}
+
+func (s *ListBlockDevicesSuite) TestListBlockDevicesWWN(c *gc.C) {
+	// If ID_WWN is found, then we should get
+	// a WWN value.
+	s.testListBlockDevicesExtended(c, `
+ID_WWN=foo
+`, storage.BlockDevice{WWN: "foo"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesBusAddress(c *gc.C) {

@@ -16,7 +16,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/component/all"
 	coremigration "github.com/juju/juju/core/migration"
@@ -180,7 +180,6 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	c.Assert(uploader.resources, jc.DeepEquals, map[string]string{
 		"app0/blob0": "blob0",
 		"app1/blob1": "blob1",
-		"app2/blob2": "<placeholder>",
 	})
 	c.Assert(uploader.unitResources, jc.SameContents, []string{"app1/99-blob1"})
 }

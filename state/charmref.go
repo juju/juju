@@ -5,7 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/mgo.v2/txn"
 )
 
@@ -14,9 +14,8 @@ var errCharmInUse = errors.New("charm in use")
 // appCharmIncRefOps returns the operations necessary to record a reference
 // to a charm and its per-application settings and storage constraints
 // documents. It will fail if the charm is not Alive.
-func appCharmIncRefOps(st modelBackend, appName string, curl *charm.URL, canCreate bool) ([]txn.Op, error) {
-	db := st.db()
-	charms, closer := db.GetCollection(charmsC)
+func appCharmIncRefOps(mb modelBackend, appName string, curl *charm.URL, canCreate bool) ([]txn.Op, error) {
+	charms, closer := mb.db().GetCollection(charmsC)
 	defer closer()
 
 	// If we're migrating. charm document will not be present. But
@@ -33,14 +32,14 @@ func appCharmIncRefOps(st modelBackend, appName string, curl *charm.URL, canCrea
 		checkOps = []txn.Op{checkOp}
 	}
 
-	refcounts, closer := db.GetCollection(refcountsC)
+	refcounts, closer := mb.db().GetCollection(refcountsC)
 	defer closer()
 
 	getIncRefOp := nsRefcounts.CreateOrIncRefOp
 	if !canCreate {
 		getIncRefOp = nsRefcounts.StrictIncRefOp
 	}
-	settingsKey := applicationSettingsKey(appName, curl)
+	settingsKey := applicationCharmConfigKey(appName, curl)
 	settingsOp, err := getIncRefOp(refcounts, settingsKey, 1)
 	if err != nil {
 		return nil, errors.Annotate(err, "settings reference")
@@ -61,12 +60,13 @@ func appCharmIncRefOps(st modelBackend, appName string, curl *charm.URL, canCrea
 
 // appCharmDecRefOps returns the operations necessary to delete a
 // reference to a charm and its per-application settings and storage
-// constraints document. If no references to a given (app, charm) pair
+// constraints document.
+// If maybeDoFinal is true, and no references to a given (app, charm) pair
 // remain, the operations returned will also remove the settings and
 // storage constraints documents for that pair, and schedule a cleanup
 // to see if the charm itself is now unreferenced and can be tidied
 // away itself.
-func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL) ([]txn.Op, error) {
+func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDoFinal bool) ([]txn.Op, error) {
 	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
@@ -76,7 +76,7 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL) ([]txn.
 		return nil, errors.Annotate(err, "charm reference")
 	}
 
-	settingsKey := applicationSettingsKey(appName, curl)
+	settingsKey := applicationCharmConfigKey(appName, curl)
 	settingsOp, isFinal, err := nsRefcounts.DyingDecRefOp(refcounts, settingsKey)
 	if err != nil {
 		return nil, errors.Annotatef(err, "settings reference %s", settingsKey)
@@ -89,7 +89,7 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL) ([]txn.
 	}
 
 	ops := []txn.Op{settingsOp, storageConstraintsOp, charmOp}
-	if isFinal {
+	if isFinal && maybeDoFinal {
 		// XXX(fwereade): this construction, in common with ~all
 		// our refcount logic, is safe in parallel but not in
 		// serial. If this logic is used twice while composing a
@@ -103,7 +103,7 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL) ([]txn.
 // finalAppCharmRemoveOps returns operations to delete the settings
 // and storage constraints documents and queue a charm cleanup.
 func finalAppCharmRemoveOps(appName string, curl *charm.URL) []txn.Op {
-	settingsKey := applicationSettingsKey(appName, curl)
+	settingsKey := applicationCharmConfigKey(appName, curl)
 	removeSettingsOp := txn.Op{
 		C:      settingsC,
 		Id:     settingsKey,
@@ -141,20 +141,4 @@ func charmDestroyOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
 	}
 
 	return []txn.Op{charmOp, refcountOp}, nil
-}
-
-// charmRemoveOps implements the logic of charm.Remove.
-func charmRemoveOps(st modelBackend, curl *charm.URL) ([]txn.Op, error) {
-	charms, closer := st.db().GetCollection(charmsC)
-	defer closer()
-
-	charmKey := curl.String()
-
-	// Remove the charm document as long as the charm is dying.
-	charmOp, err := nsLife.dyingOp(charms, charmKey)
-	if err != nil {
-		return nil, errors.Annotate(err, "charm")
-	}
-	charmOp.Remove = true
-	return []txn.Op{charmOp}, nil
 }

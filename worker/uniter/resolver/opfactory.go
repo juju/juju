@@ -6,8 +6,8 @@ package resolver
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -50,6 +50,14 @@ func (s *resolverOpFactory) NewSkipHook(info hook.Info) (operation.Operation, er
 
 func (s *resolverOpFactory) NewUpgrade(charmURL *charm.URL) (operation.Operation, error) {
 	op, err := s.Factory.NewUpgrade(charmURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return s.wrapUpgradeOp(op, charmURL), nil
+}
+
+func (s *resolverOpFactory) NewNoOpUpgrade(charmURL *charm.URL) (operation.Operation, error) {
+	op, err := s.Factory.NewNoOpUpgrade(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -112,8 +120,10 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 	switch info.Kind {
 	case hooks.ConfigChanged:
 		v := s.RemoteState.ConfigVersion
+		series := s.RemoteState.Series
 		op = onCommitWrapper{op, func() {
 			s.LocalState.ConfigVersion = v
+			s.LocalState.Series = series
 		}}
 	case hooks.LeaderSettingsChanged:
 		v := s.RemoteState.LeaderSettingsVersion

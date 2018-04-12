@@ -7,17 +7,20 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"path"
+	"path/filepath"
 	"runtime"
 	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
+	corecharm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/params"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/metrics/sender"
 	"github.com/juju/juju/worker/metrics/spool"
 )
@@ -25,12 +28,15 @@ import (
 var _ = gc.Suite(&senderSuite{})
 
 type senderSuite struct {
+	jujutesting.BaseSuite
+
 	spoolDir      string
 	socketDir     string
 	metricfactory spool.MetricFactory
 }
 
 func (s *senderSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.spoolDir = c.MkDir()
 	s.socketDir = c.MkDir()
 
@@ -41,11 +47,15 @@ func (s *senderSuite) SetUpTest(c *gc.C) {
 
 	declaredMetrics := map[string]corecharm.Metric{
 		"pings": corecharm.Metric{Description: "test pings", Type: corecharm.MetricTypeAbsolute},
+		"pongs": corecharm.Metric{Description: "test pongs", Type: corecharm.MetricTypeGauge},
 	}
 	recorder, err := s.metricfactory.Recorder(declaredMetrics, "local:trusty/testcharm", "testcharm/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = recorder.AddMetric("pings", "50", time.Now())
+	err = recorder.AddMetric("pings", "50", time.Now(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = recorder.AddMetric("pongs", "51", time.Now(), map[string]string{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = recorder.Close()
@@ -72,11 +82,15 @@ func (s *senderSuite) TestHandler(c *gc.C) {
 
 	declaredMetrics := map[string]corecharm.Metric{
 		"pings": corecharm.Metric{Description: "test pings", Type: corecharm.MetricTypeAbsolute},
+		"pongs": corecharm.Metric{Description: "test pongs", Type: corecharm.MetricTypeGauge},
 	}
 	recorder, err := metricFactory.Recorder(declaredMetrics, "local:trusty/testcharm", "testcharm/0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = recorder.AddMetric("pings", "50", time.Now())
+	err = recorder.AddMetric("pings", "50", time.Now(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = recorder.AddMetric("pongs", "51", time.Now(), map[string]string{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = recorder.Close()
@@ -93,9 +107,13 @@ func (s *senderSuite) TestHandler(c *gc.C) {
 	c.Assert(apiSender.batches, gc.HasLen, 1)
 	c.Assert(apiSender.batches[0].Tag, gc.Equals, "testcharm/0")
 	c.Assert(apiSender.batches[0].Batch.CharmURL, gc.Equals, "local:trusty/testcharm")
-	c.Assert(apiSender.batches[0].Batch.Metrics, gc.HasLen, 1)
+	c.Assert(apiSender.batches[0].Batch.Metrics, gc.HasLen, 2)
 	c.Assert(apiSender.batches[0].Batch.Metrics[0].Key, gc.Equals, "pings")
 	c.Assert(apiSender.batches[0].Batch.Metrics[0].Value, gc.Equals, "50")
+	c.Assert(apiSender.batches[0].Batch.Metrics[0].Labels, gc.HasLen, 0)
+	c.Assert(apiSender.batches[0].Batch.Metrics[1].Key, gc.Equals, "pongs")
+	c.Assert(apiSender.batches[0].Batch.Metrics[1].Value, gc.Equals, "51")
+	c.Assert(apiSender.batches[0].Batch.Metrics[1].Labels, gc.DeepEquals, map[string]string{"foo": "bar"})
 }
 
 func (s *senderSuite) TestMetricSendingSuccess(c *gc.C) {
@@ -163,6 +181,19 @@ func (s *senderSuite) TestSendingFails(c *gc.C) {
 	batches, err := reader.Read()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 1)
+}
+
+func (s *senderSuite) TestDataErrorIgnored(c *gc.C) {
+	err := ioutil.WriteFile(filepath.Join(s.spoolDir, "foo.meta"), []byte{}, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	apiSender := newTestAPIMetricSender()
+
+	metricSender, err := sender.NewSender(apiSender, s.metricfactory, s.socketDir, "test-unit-0")
+	c.Assert(err, jc.ErrorIsNil)
+	stopCh := make(chan struct{})
+	err = metricSender.Do(stopCh)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(apiSender.batches, gc.HasLen, 0)
 }
 
 func (s *senderSuite) TestNoSpoolDirectory(c *gc.C) {

@@ -5,6 +5,9 @@ package ec2_test
 
 import (
 	"fmt"
+	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -17,7 +20,6 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
-	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	amzec2 "gopkg.in/amz.v3/ec2"
@@ -41,7 +43,8 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	supportedversion "github.com/juju/juju/juju/version"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
@@ -101,7 +104,7 @@ func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
 
-	region := t.srv.region()
+	region := t.srv.region
 	t.CloudRegion = region.Name
 	t.CloudEndpoint = region.EC2Endpoint
 	restoreEC2Patching := patchEC2ForTesting(c, region)
@@ -121,7 +124,11 @@ type localServer struct {
 	// instances.
 	createRootDisks bool
 
-	ec2srv *ec2test.Server
+	ec2srv      *ec2test.Server
+	proxy       *httputil.ReverseProxy
+	proxyServer *httptest.Server
+	client      *amzec2.EC2
+	region      aws.Region
 
 	defaultVPC *amzec2.VPC
 	zones      []amzec2.AvailabilityZoneInfo
@@ -137,18 +144,36 @@ func (srv *localServer) startServer(c *gc.C) {
 	srv.ec2srv.SetCreateRootDisks(srv.createRootDisks)
 	srv.addSpice(c)
 
-	region := srv.region()
+	// Create a reverse proxy, so we can override responses.
+	endpointURL, err := url.Parse(srv.ec2srv.URL())
+	c.Assert(err, jc.ErrorIsNil)
+	backendURL := &url.URL{
+		Scheme: endpointURL.Scheme,
+		Host:   endpointURL.Host,
+	}
+	srv.proxy = httputil.NewSingleHostReverseProxy(backendURL)
+	srv.proxyServer = httptest.NewServer(srv.proxy)
+	endpointURL, err = url.Parse(srv.proxyServer.URL)
+	c.Assert(err, jc.ErrorIsNil)
+	srv.region = aws.Region{
+		Name:        "test",
+		EC2Endpoint: endpointURL.String(),
+	}
+	srv.client = amzec2.New(aws.Auth{}, srv.region, aws.SignV4Factory(srv.region.Name, "ec2"))
 
-	zones := make([]amzec2.AvailabilityZoneInfo, 3)
-	zones[0].Region = region.Name
-	zones[0].Name = region.Name + "-available"
+	zones := make([]amzec2.AvailabilityZoneInfo, 4)
+	zones[0].Region = srv.region.Name
+	zones[0].Name = srv.region.Name + "-available"
 	zones[0].State = "available"
-	zones[1].Region = region.Name
-	zones[1].Name = region.Name + "-impaired"
+	zones[1].Region = srv.region.Name
+	zones[1].Name = srv.region.Name + "-impaired"
 	zones[1].State = "impaired"
-	zones[2].Region = region.Name
-	zones[2].Name = region.Name + "-unavailable"
+	zones[2].Region = srv.region.Name
+	zones[2].Name = srv.region.Name + "-unavailable"
 	zones[2].State = "unavailable"
+	zones[3].Region = srv.region.Name
+	zones[3].Name = srv.region.Name + "-available2"
+	zones[3].State = "available"
 	srv.ec2srv.SetAvailabilityZones(zones)
 	srv.ec2srv.SetInitialInstanceState(ec2test.Pending)
 	srv.zones = zones
@@ -156,18 +181,6 @@ func (srv *localServer) startServer(c *gc.C) {
 	defaultVPC, err := srv.ec2srv.AddDefaultVPCAndSubnets()
 	c.Assert(err, jc.ErrorIsNil)
 	srv.defaultVPC = &defaultVPC
-}
-
-func (srv *localServer) client() *amzec2.EC2 {
-	region := srv.region()
-	return amzec2.New(aws.Auth{}, region, aws.SignV4Factory(region.Name, "ec2"))
-}
-
-func (srv *localServer) region() aws.Region {
-	return aws.Region{
-		Name:        "test",
-		EC2Endpoint: srv.ec2srv.URL(),
-	}
 }
 
 // addSpice adds some "spice" to the local server
@@ -184,6 +197,7 @@ func (srv *localServer) addSpice(c *gc.C) {
 }
 
 func (srv *localServer) stopServer(c *gc.C) {
+	srv.proxyServer.Close()
 	srv.ec2srv.Reset(false)
 	srv.ec2srv.Quit()
 	srv.defaultVPC = nil
@@ -221,7 +235,7 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return series.LatestLts() })
+	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return supportedversion.SupportedLts() })
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
@@ -240,10 +254,10 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.srv.startServer(c)
-	region := t.srv.region()
+	region := t.srv.region
 	t.CloudRegion = region.Name
 	t.CloudEndpoint = region.EC2Endpoint
-	t.client = t.srv.client()
+	t.client = t.srv.client
 	restoreEC2Patching := patchEC2ForTesting(c, region)
 	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 	t.Tests.SetUpTest(c)
@@ -324,6 +338,7 @@ func (t *localServerSuite) prepareWithParamsAndBootstrapWithVPCID(c *gc.C, param
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      testing.AdminSecret,
 		CAPrivateKey:     coretesting.CAKey,
+		Placement:        "zone=test-available",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -374,29 +389,21 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 	userData, err := utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(userData), jc.YAMLEquals, map[interface{}]interface{}{
-		"output": map[interface{}]interface{}{
-			"all": "| tee -a /var/log/cloud-init-output.log",
-		},
-		"users": []interface{}{
-			map[interface{}]interface{}{
-				"name":        "ubuntu",
-				"lock_passwd": true,
-				"groups": []interface{}{"adm", "audio",
-					"cdrom", "dialout", "dip", "floppy",
-					"netdev", "plugdev", "sudo", "video"},
-				"shell":               "/bin/bash",
-				"sudo":                []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
-				"ssh-authorized-keys": splitAuthKeys(env.Config().AuthorizedKeys()),
-			},
-		},
-		"runcmd": []interface{}{
-			"set -xe",
-			"install -D -m 644 /dev/null '/etc/systemd/system/juju-clean-shutdown.service'",
-			"printf '%s\\n' '\n[Unit]\nDescription=Stop all network interfaces on shutdown\nDefaultDependencies=false\nAfter=final.target\n\n[Service]\nType=oneshot\nExecStart=/sbin/ifdown -a -v --force\nStandardOutput=tty\nStandardError=tty\n\n[Install]\nWantedBy=final.target\n' > '/etc/systemd/system/juju-clean-shutdown.service'", "/bin/systemctl enable '/etc/systemd/system/juju-clean-shutdown.service'",
-			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
-			"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
-		},
+
+	var userDataMap map[string]interface{}
+	err = goyaml.Unmarshal(userData, &userDataMap)
+	c.Assert(err, jc.ErrorIsNil)
+	var keys []string
+	for key := range userDataMap {
+		keys = append(keys, key)
+	}
+	c.Assert(keys, jc.SameContents, []string{"output", "users", "runcmd", "ssh_keys"})
+	c.Assert(userDataMap["runcmd"], jc.DeepEquals, []interface{}{
+		"set -xe",
+		"install -D -m 644 /dev/null '/etc/systemd/system/juju-clean-shutdown.service'",
+		"printf '%s\\n' '\n[Unit]\nDescription=Stop all network interfaces on shutdown\nDefaultDependencies=false\nAfter=final.target\n\n[Service]\nType=oneshot\nExecStart=/sbin/ifdown -a -v --force\nStandardOutput=tty\nStandardError=tty\n\n[Install]\nWantedBy=final.target\n' > '/etc/systemd/system/juju-clean-shutdown.service'", "/bin/systemctl enable '/etc/systemd/system/juju-clean-shutdown.service'",
+		"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
+		"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
 	})
 
 	// check that a new instance will be started with a machine agent
@@ -409,7 +416,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	userData, err = utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("second instance: UserData: %q", userData)
-	var userDataMap map[interface{}]interface{}
+	userDataMap = nil
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, jc.ErrorIsNil)
 	CheckPackage(c, userDataMap, "curl", true)
@@ -459,29 +466,21 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 	userData, err := utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(userData), jc.YAMLEquals, map[interface{}]interface{}{
-		"output": map[interface{}]interface{}{
-			"all": "| tee -a /var/log/cloud-init-output.log",
-		},
-		"users": []interface{}{
-			map[interface{}]interface{}{
-				"name":        "ubuntu",
-				"lock_passwd": true,
-				"groups": []interface{}{"adm", "audio",
-					"cdrom", "dialout", "dip", "floppy",
-					"netdev", "plugdev", "sudo", "video"},
-				"shell":               "/bin/bash",
-				"sudo":                []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
-				"ssh-authorized-keys": splitAuthKeys(env.Config().AuthorizedKeys()),
-			},
-		},
-		"runcmd": []interface{}{
-			"set -xe",
-			"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
-			"printf '%s\\n' '\nauthor \"Juju Team <juju@lists.ubuntu.com>\"\ndescription \"Stop all network interfaces on shutdown\"\nstart on runlevel [016]\ntask\nconsole output\n\nexec /sbin/ifdown -a -v --force\n' > '/etc/init/juju-clean-shutdown.conf'",
-			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
-			"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
-		},
+
+	var userDataMap map[string]interface{}
+	err = goyaml.Unmarshal(userData, &userDataMap)
+	c.Assert(err, jc.ErrorIsNil)
+	var keys []string
+	for key := range userDataMap {
+		keys = append(keys, key)
+	}
+	c.Assert(keys, jc.SameContents, []string{"output", "users", "runcmd", "ssh_keys"})
+	c.Assert(userDataMap["runcmd"], jc.DeepEquals, []interface{}{
+		"set -xe",
+		"install -D -m 644 /dev/null '/etc/init/juju-clean-shutdown.conf'",
+		"printf '%s\\n' '\nauthor \"Juju Team <juju@lists.ubuntu.com>\"\ndescription \"Stop all network interfaces on shutdown\"\nstart on runlevel [016]\ntask\nconsole output\n\nexec /sbin/ifdown -a -v --force\n' > '/etc/init/juju-clean-shutdown.conf'",
+		"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
+		"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
 	})
 
 	// check that a new instance will be started with a machine agent
@@ -494,7 +493,7 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	userData, err = utils.Gunzip(inst.UserData)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("second instance: UserData: %q", userData)
-	var userDataMap map[interface{}]interface{}
+	userDataMap = nil
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, jc.ErrorIsNil)
 	CheckPackage(c, userDataMap, "curl", true)
@@ -709,20 +708,6 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 	assertGroups("default")
 }
 
-// splitAuthKeys splits the given authorized keys
-// into the form expected to be found in the
-// user data.
-func splitAuthKeys(keys string) []interface{} {
-	slines := strings.FieldsFunc(keys, func(r rune) bool {
-		return r == '\n'
-	})
-	var lines []interface{}
-	for _, line := range slines {
-		lines = append(lines, ssh.EnsureJujuComment(strings.TrimSpace(line)))
-	}
-	return lines
-}
-
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
@@ -758,18 +743,86 @@ func (t *localServerSuite) TestStartInstanceAvailZoneImpaired(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	_, err := t.testStartInstanceAvailZone(c, "test-unknown")
-	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Details(err), gc.Matches, `.*availability zone \"\" not valid.*`)
 }
 
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := t.prepareAndBootstrap(c)
 
-	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID, Placement: "zone=" + zone, StatusCallback: fakeCallback}
+	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID, AvailabilityZone: zone, StatusCallback: fakeCallback}
 	result, err := testing.StartInstanceWithParams(env, "1", params)
 	if err != nil {
 		return nil, err
 	}
 	return result.Instance, nil
+}
+
+func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) {
+	env := t.prepareAndBootstrap(c)
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "volume-zone",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		StatusCallback: fakeCallback,
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+				Machine:  names.NewMachineTag("1"),
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
+	}
+	result, err := testing.StartInstanceWithParams(env, "1", args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ec2.InstanceEC2(result.Instance).AvailZone, gc.Equals, "volume-zone")
+}
+
+func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZonePlacementConflicts(c *gc.C) {
+	env := t.prepareAndBootstrap(c)
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "volume-zone",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		StatusCallback: fakeCallback,
+		Placement:      "zone=test-available",
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+				Machine:  names.NewMachineTag("1"),
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
+	}
+	_, err = testing.StartInstanceWithParams(env, "1", args)
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested EBS volumes in zone "volume-zone"`)
+}
+
+func (t *localServerSuite) TestStartInstanceZoneIndependent(c *gc.C) {
+	env := t.prepareAndBootstrap(c)
+	params := environs.StartInstanceParams{
+		ControllerUUID:   t.ControllerUUID,
+		StatusCallback:   fakeCallback,
+		AvailabilityZone: "test-available",
+		Placement:        "nonsense",
+	}
+	_, err := testing.StartInstanceWithParams(env, "1", params)
+	c.Assert(err, gc.ErrorMatches, "unknown placement directive: nonsense")
+	// The returned error should indicate that it is independent
+	// of the availability zone specified.
+	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
 }
 
 func (t *localServerSuite) TestStartInstanceSubnet(c *gc.C) {
@@ -793,8 +846,8 @@ func (t *localServerSuite) TestStartInstanceSubnetAZUnavailable(c *gc.C) {
 }
 
 func (t *localServerSuite) testStartInstanceSubnet(c *gc.C, subnet string) (instance.Instance, error) {
-	env := t.prepareAndBootstrap(c)
-	subIDs := t.addTestingSubnets(c)
+	subIDs, vpcId := t.addTestingSubnets(c)
+	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": vpcId, "vpc-id-force": true})
 	params := environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		Placement:      fmt.Sprintf("subnet=%s", subnet),
@@ -804,11 +857,38 @@ func (t *localServerSuite) testStartInstanceSubnet(c *gc.C, subnet string) (inst
 			subIDs[2]: []string{"test-unavailable"},
 		},
 	}
-	result, err := testing.StartInstanceWithParams(env, "1", params)
+	zonedEnviron := env.(common.ZonedEnviron)
+	zones, err := zonedEnviron.DeriveAvailabilityZones(params)
 	if err != nil {
 		return nil, err
 	}
-	return result.Instance, nil
+	if len(zones) > 0 {
+		params.AvailabilityZone = zones[0]
+		result, err := testing.StartInstanceWithParams(env, "1", params)
+		if err != nil {
+			return nil, err
+		}
+		return result.Instance, nil
+	}
+	return nil, errors.Errorf("testStartInstanceSubnet failed")
+}
+
+func (t *localServerSuite) TestDeriveAvailabilityZoneSubnetWrongVPC(c *gc.C) {
+	subIDs, vpcId := t.addTestingSubnets(c)
+	c.Assert(vpcId, gc.Not(gc.Equals), "vpc-0")
+	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": "vpc-0", "vpc-id-force": true})
+	params := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		Placement:      "subnet=0.1.2.0/24",
+		SubnetsToZones: map[network.Id][]string{
+			subIDs[0]: []string{"test-available"},
+			subIDs[1]: []string{"test-available"},
+			subIDs[2]: []string{"test-unavailable"},
+		},
+	}
+	zonedEnviron := env.(common.ZonedEnviron)
+	_, err := zonedEnviron.DeriveAvailabilityZones(params)
+	c.Assert(err, gc.ErrorMatches, `unknown placement directive: subnet=0.1.2.0/24`)
 }
 
 func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
@@ -882,62 +962,97 @@ func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 	return t.result, t.err
 }
 
-func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
-	env := t.prepareAndBootstrap(c)
+func (t *localServerSuite) TestDeriveAvailabilityZones(c *gc.C) {
+	var resultZones []amzec2.AvailabilityZoneInfo
+	t.PatchValue(ec2.EC2AvailabilityZones, func(e *amzec2.EC2, f *amzec2.Filter) (*amzec2.AvailabilityZonesResp, error) {
+		resp := &amzec2.AvailabilityZonesResp{
+			Zones: append([]amzec2.AvailabilityZoneInfo{}, resultZones...),
+		}
+		return resp, nil
+	})
+	env := t.Prepare(c).(common.ZonedEnviron)
+	resultZones = make([]amzec2.AvailabilityZoneInfo, 2)
+	resultZones[0].Name = "az1"
+	resultZones[1].Name = "az2"
+	resultZones[0].State = "available"
+	resultZones[1].State = "impaired"
 
-	mock := mockAvailabilityZoneAllocations{
-		result: []common.AvailabilityZoneInstances{{ZoneName: "az1"}},
-	}
-	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-
-	// no distribution group specified
-	testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
-	c.Assert(mock.group, gc.HasLen, 0)
-
-	// distribution group specified: ensure it's passed through to AvailabilityZone.
-	expectedInstances := []instance.Id{"i-0", "i-1"}
-	params := environs.StartInstanceParams{
-		ControllerUUID: t.ControllerUUID,
-		DistributionGroup: func() ([]instance.Id, error) {
-			return expectedInstances, nil
-		},
-		StatusCallback: fakeCallback,
-	}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	zones, err := env.DeriveAvailabilityZones(environs.StartInstanceParams{Placement: "zone=az1"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
+	c.Assert(zones, gc.DeepEquals, []string{"az1"})
 }
 
-func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
-	env := t.prepareAndBootstrap(c)
+func (t *localServerSuite) TestDeriveAvailabilityZonesImpaired(c *gc.C) {
+	var resultZones []amzec2.AvailabilityZoneInfo
+	t.PatchValue(ec2.EC2AvailabilityZones, func(e *amzec2.EC2, f *amzec2.Filter) (*amzec2.AvailabilityZonesResp, error) {
+		resp := &amzec2.AvailabilityZonesResp{
+			Zones: append([]amzec2.AvailabilityZoneInfo{}, resultZones...),
+		}
+		return resp, nil
+	})
+	env := t.Prepare(c).(common.ZonedEnviron)
+	resultZones = make([]amzec2.AvailabilityZoneInfo, 2)
+	resultZones[0].Name = "az1"
+	resultZones[1].Name = "az2"
+	resultZones[0].State = "available"
+	resultZones[1].State = "impaired"
 
-	mock := mockAvailabilityZoneAllocations{
-		err: fmt.Errorf("AvailabilityZoneAllocations failed"),
-	}
-	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-	_, _, _, err := testing.StartInstance(env, t.ControllerUUID, "1")
-	c.Assert(errors.Cause(err), gc.Equals, mock.err)
+	zones, err := env.DeriveAvailabilityZones(environs.StartInstanceParams{Placement: "zone=az2"})
+	c.Assert(err, gc.ErrorMatches, "availability zone \"az2\" is \"impaired\"")
+	c.Assert(zones, gc.HasLen, 0)
+}
 
-	mock.err = nil
-	dgErr := fmt.Errorf("DistributionGroup failed")
-	params := environs.StartInstanceParams{
+func (t *localServerSuite) TestDeriveAvailabilityZonesConflictVolume(c *gc.C) {
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "volume-zone",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
-		DistributionGroup: func() ([]instance.Id, error) {
-			return nil, dgErr
-		},
 		StatusCallback: fakeCallback,
+		Placement:      "zone=test-available",
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+				Machine:  names.NewMachineTag("1"),
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
 	}
-	_, err = testing.StartInstanceWithParams(env, "1", params)
-	c.Assert(errors.Cause(err), gc.Equals, dgErr)
+	env := t.Prepare(c).(common.ZonedEnviron)
+	zones, err := env.DeriveAvailabilityZones(args)
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested EBS volumes in zone "volume-zone"`)
+	c.Assert(zones, gc.HasLen, 0)
 }
 
-func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
-	env := t.prepareAndBootstrap(c)
+func (t *localServerSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C) {
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "volume-zone",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
-	// test-available is the only available AZ, so AvailabilityZoneAllocations
-	// is guaranteed to return that.
-	inst, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
-	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "test-available")
+	args := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+		StatusCallback: fakeCallback,
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+				Machine:  names.NewMachineTag("1"),
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
+	}
+	env := t.Prepare(c).(common.ZonedEnviron)
+	zones, err := env.DeriveAvailabilityZones(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zones, gc.DeepEquals, []string{"volume-zone"})
 }
 
 var azConstrainedErr = &amzec2.Error{
@@ -983,32 +1098,29 @@ func (t *localServerSuite) TestStartInstanceAvailZoneAllNoDefaultSubnet(c *gc.C)
 func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, runInstancesError *amzec2.Error) {
 	env := t.prepareAndBootstrap(c)
 
-	mock := mockAvailabilityZoneAllocations{
-		result: []common.AvailabilityZoneInstances{
-			{ZoneName: "az1"}, {ZoneName: "az2"},
-		},
-	}
-	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-
-	var azArgs []string
-
 	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (*amzec2.RunInstancesResp, error) {
-		azArgs = append(azArgs, ri.AvailZone)
 		return nil, runInstancesError
 	})
-	_, _, _, err := testing.StartInstance(env, t.ControllerUUID, "1")
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
-		"cannot run instances: %s \\(%s\\)",
-		regexp.QuoteMeta(runInstancesError.Message),
-		runInstancesError.Code,
-	))
-	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
+
+	params := environs.StartInstanceParams{
+		ControllerUUID:   t.ControllerUUID,
+		StatusCallback:   fakeCallback,
+		AvailabilityZone: "test-available",
+	}
+
+	_, err := testing.StartInstanceWithParams(env, "1", params)
+	// All AZConstrained failures should return an error that does
+	// *not* satisfy environs.IsAvailabilityZoneIndependent,
+	// so the caller knows to try a new zone, rather than fail.
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Details(err), jc.Contains, runInstancesError.Message)
 }
 
 // addTestingSubnets adds a testing default VPC with 3 subnets in the EC2 test
 // server: 2 of the subnets are in the "test-available" AZ, the remaining - in
-// "test-unavailable". Returns a slice with the IDs of the created subnets.
-func (t *localServerSuite) addTestingSubnets(c *gc.C) []network.Id {
+// "test-unavailable". Returns a slice with the IDs of the created subnets and
+// vpc id that those were added to
+func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]network.Id, string) {
 	vpc := t.srv.ec2srv.AddVPC(amzec2.VPC{
 		CIDRBlock: "0.1.0.0/16",
 		IsDefault: true,
@@ -1040,24 +1152,30 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) []network.Id {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	results[2] = network.Id(sub3.Id)
-	return results
+	return results, vpc.Id
 }
 
 func (t *localServerSuite) prepareAndBootstrap(c *gc.C) environs.Environ {
-	env := t.Prepare(c)
+	return t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{})
+}
+
+func (t *localServerSuite) prepareAndBootstrapWithConfig(c *gc.C, config coretesting.Attrs) environs.Environ {
+	args := t.PrepareParams(c)
+	args.ModelConfig = coretesting.Attrs(args.ModelConfig).Merge(config)
+	env := t.PrepareWithParams(c, args)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      testing.AdminSecret,
 		CAPrivateKey:     coretesting.CAKey,
+		Placement:        "zone=test-available",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }
 
 func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) {
-	c.Skip("temporarily disabled")
 	env := t.prepareAndBootstrap(c)
-	subIDs := t.addTestingSubnets(c)
+	subIDs, _ := t.addTestingSubnets(c)
 
 	// Expect an error because zone test-available isn't in SubnetsToZones
 	params := environs.StartInstanceParams{
@@ -1072,12 +1190,13 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) 
 		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, "1", params)
-	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
+	c.Assert(errors.Details(err), gc.Matches, `.*subnets in AZ "test-available" not found.*`)
 }
 
 func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
-	subIDs := t.addTestingSubnets(c)
+	subIDs, _ := t.addTestingSubnets(c)
 
 	// Should work - test-available is in SubnetsToZones and in myspace.
 	params := environs.StartInstanceParams{
@@ -1096,9 +1215,8 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 
 func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
-	subIDs := t.addTestingSubnets(c)
+	subIDs, _ := t.addTestingSubnets(c)
 
-	// Shoule work because zone is not specified so we can resolve the constraints
 	params := environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
@@ -1108,15 +1226,45 @@ func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 		},
 		StatusCallback: fakeCallback,
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	t.assertStartInstanceWithParamsFindAZ(c, env, "1", params)
+}
+
+func (t *localServerSuite) assertStartInstanceWithParamsFindAZ(
+	c *gc.C,
+	env environs.Environ,
+	machineId string,
+	params environs.StartInstanceParams,
+) {
+	zonedEnviron := env.(common.ZonedEnviron)
+	zones, err := zonedEnviron.DeriveAvailabilityZones(params)
 	c.Assert(err, jc.ErrorIsNil)
+	if len(zones) > 0 {
+		params.AvailabilityZone = zones[0]
+		_, err = testing.StartInstanceWithParams(env, "1", params)
+		c.Assert(err, jc.ErrorIsNil)
+		return
+	}
+	availabilityZones, err := zonedEnviron.AvailabilityZones()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, zone := range availabilityZones {
+		if !zone.Available() {
+			continue
+		}
+		params.AvailabilityZone = zone.Name()
+		_, err = testing.StartInstanceWithParams(env, "1", params)
+		if err == nil {
+			return
+		} else if !environs.IsAvailabilityZoneIndependent(err) {
+			continue
+		}
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 	c.Skip("temporarily disabled")
-
-	env := t.prepareAndBootstrap(c)
-	subIDs := t.addTestingSubnets(c)
+	subIDs, vpcId := t.addTestingSubnets(c)
+	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": vpcId})
 
 	// We requested a space, but there are no subnets in SubnetsToZones, so we can't resolve
 	// the constraints
@@ -1128,7 +1276,9 @@ func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 		},
 		StatusCallback: fakeCallback,
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	//_, err := testing.StartInstanceWithParams(env, "1", params)
+	zonedEnviron := env.(common.ZonedEnviron)
+	_, err := zonedEnviron.DeriveAvailabilityZones(params)
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
 }
 
@@ -1147,13 +1297,6 @@ func (t *localServerSuite) TestStartInstanceAvailZoneOneNoDefaultSubnetErr(c *gc
 func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, runInstancesError *amzec2.Error) {
 	env := t.prepareAndBootstrap(c)
 
-	mock := mockAvailabilityZoneAllocations{
-		result: []common.AvailabilityZoneInstances{
-			{ZoneName: "az1"}, {ZoneName: "az2"},
-		},
-	}
-	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-
 	// The first call to RunInstances fails with an error indicating the AZ
 	// is constrained. The second attempt succeeds, and so allocates to az2.
 	var azArgs []string
@@ -1166,10 +1309,26 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 		}
 		return realRunInstances(e, ri, fakeCallback)
 	})
-	inst, hwc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
-	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
-	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "az2")
-	c.Check(*hwc.AvailabilityZone, gc.Equals, "az2")
+
+	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID}
+	zonedEnviron := env.(common.ZonedEnviron)
+	availabilityZones, err := zonedEnviron.AvailabilityZones()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, zone := range availabilityZones {
+		if !zone.Available() {
+			continue
+		}
+		params.AvailabilityZone = zone.Name()
+		_, err = testing.StartInstanceWithParams(env, "1", params)
+		if err == nil {
+			break
+		} else if !environs.IsAvailabilityZoneIndependent(err) {
+			continue
+		}
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	sort.Strings(azArgs)
+	c.Assert(azArgs, gc.DeepEquals, []string{"test-available", "test-available2"})
 }
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
@@ -1269,57 +1428,126 @@ func (t *localServerSuite) TestConstraintsMerge(c *gc.C) {
 func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
-	placement := ""
-	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:      supportedversion.SupportedLts(),
+		Constraints: cons,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.invalid")
-	placement := ""
-	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:      supportedversion.SupportedLts(),
+		Constraints: cons,
+	})
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "m1.invalid" specified`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=i386")
-	placement := ""
-	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:      supportedversion.SupportedLts(),
+		Constraints: cons,
+	})
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "i386" specified`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-available"
-	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    supportedversion.SupportedLts(),
+		Placement: placement,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
-	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
-	c.Assert(err, jc.ErrorIsNil)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    supportedversion.SupportedLts(),
+		Placement: placement,
+	})
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is "unavailable"`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
-	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
+	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    supportedversion.SupportedLts(),
+		Placement: placement,
+	})
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
 }
 
+func (t *localServerSuite) TestPrecheckInstanceVolumeAvailZoneNoPlacement(c *gc.C) {
+	t.testPrecheckInstanceVolumeAvailZone(c, "")
+}
+
+func (t *localServerSuite) TestPrecheckInstanceVolumeAvailZoneSameZonePlacement(c *gc.C) {
+	t.testPrecheckInstanceVolumeAvailZone(c, "zone=test-available")
+}
+
+func (t *localServerSuite) testPrecheckInstanceVolumeAvailZone(c *gc.C, placement string) {
+	env := t.Prepare(c)
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "test-available",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    supportedversion.SupportedLts(),
+		Placement: placement,
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceAvailZoneVolumeConflict(c *gc.C) {
+	env := t.Prepare(c)
+	resp, err := t.client.CreateVolume(amzec2.CreateVolume{
+		VolumeSize: 1,
+		VolumeType: "gp2",
+		AvailZone:  "volume-zone",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = env.PrecheckInstance(environs.PrecheckInstanceParams{
+		Series:    supportedversion.SupportedLts(),
+		Placement: "zone=test-available",
+		VolumeAttachments: []storage.VolumeAttachmentParams{{
+			AttachmentParams: storage.AttachmentParams{
+				Provider: "ebs",
+			},
+			Volume:   names.NewVolumeTag("23"),
+			VolumeId: resp.Id,
+		}},
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested EBS volumes in zone "volume-zone"`)
+}
+
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	region := t.srv.region()
-	aws.Regions[region.Name] = t.srv.region()
+	region := t.srv.region
+	aws.Regions[region.Name] = t.srv.region
 	defer delete(aws.Regions, region.Name)
 
 	env := t.Prepare(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
 	c.Assert(err, jc.ErrorIsNil)
-	params.Series = series.LatestLts()
+	params.Series = supportedversion.SupportedLts()
 	params.Endpoint = region.EC2Endpoint
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1407,7 +1635,7 @@ func (t *localServerSuite) TestSubnetsWithInstanceId(c *gc.C) {
 	subnets, err := env.Subnets(instId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
-	validateSubnets(c, subnets)
+	validateSubnets(c, subnets, "")
 
 	interfaces, err := env.NetworkInterfaces(instId)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1425,7 +1653,7 @@ func (t *localServerSuite) TestSubnetsWithInstanceIdAndSubnetId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
 	c.Assert(subnets[0].ProviderId, gc.Equals, interfaces[0].ProviderSubnetId)
-	validateSubnets(c, subnets)
+	validateSubnets(c, subnets, "")
 }
 
 func (t *localServerSuite) TestSubnetsWithInstanceIdMissingSubnet(c *gc.C) {
@@ -1449,22 +1677,31 @@ func (t *localServerSuite) TestInstanceInformation(c *gc.C) {
 	c.Assert(types.InstanceTypes, gc.HasLen, 48)
 }
 
-func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
+func validateSubnets(c *gc.C, subnets []network.SubnetInfo, vpcId network.Id) {
 	// These are defined in the test server for the testing default
 	// VPC.
 	defaultSubnets := []network.SubnetInfo{{
 		CIDR:              "10.10.0.0/24",
 		ProviderId:        "subnet-0",
+		ProviderNetworkId: vpcId,
 		VLANTag:           0,
-		AvailabilityZones: []string{"test-available"},
+		AvailabilityZones: []string{"test-available2"},
 	}, {
 		CIDR:              "10.10.1.0/24",
 		ProviderId:        "subnet-1",
+		ProviderNetworkId: vpcId,
 		VLANTag:           0,
-		AvailabilityZones: []string{"test-impaired"},
+		AvailabilityZones: []string{"test-available"},
 	}, {
 		CIDR:              "10.10.2.0/24",
 		ProviderId:        "subnet-2",
+		ProviderNetworkId: vpcId,
+		VLANTag:           0,
+		AvailabilityZones: []string{"test-impaired"},
+	}, {
+		CIDR:              "10.10.3.0/24",
+		ProviderId:        "subnet-3",
+		ProviderNetworkId: vpcId,
 		VLANTag:           0,
 		AvailabilityZones: []string{"test-unavailable"},
 	}}
@@ -1478,7 +1715,7 @@ func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
 		c.Assert(err, jc.ErrorIsNil)
 		// Don't know which AZ the subnet will end up in.
 		defaultSubnets[index].AvailabilityZones = subnet.AvailabilityZones
-		c.Assert(subnet, jc.DeepEquals, defaultSubnets[index])
+		c.Check(subnet, jc.DeepEquals, defaultSubnets[index])
 	}
 }
 
@@ -1488,12 +1725,12 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 	subnets, err := env.Subnets(instance.UnknownId, []network.Id{"subnet-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
-	validateSubnets(c, subnets)
+	validateSubnets(c, subnets, "vpc-0")
 
 	subnets, err = env.Subnets(instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnets, gc.HasLen, 3)
-	validateSubnets(c, subnets)
+	c.Assert(subnets, gc.HasLen, 4)
+	validateSubnets(c, subnets, "vpc-0")
 }
 
 func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
@@ -1555,15 +1792,6 @@ func (s *localServerSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	// Controllers should be started with a burstable
 	// instance if possible, and a 32 GiB disk.
 	c.Assert(ec2inst.InstanceType, gc.Equals, "t2.medium")
-}
-
-func controllerTag(allTags []amzec2.Tag) string {
-	for _, tag := range allTags {
-		if tag.Key == tags.JujuController {
-			return tag.Value
-		}
-	}
-	return ""
 }
 
 func makeFilter(key string, values ...string) *amzec2.Filter {
@@ -1713,7 +1941,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.srv.startServer(c)
 
-	region := t.srv.region()
+	region := t.srv.region
 	credential := cloud.NewCredential(
 		cloud.AccessKeyAuthType,
 		map[string]string{
@@ -1726,7 +1954,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 
 	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
-		jujuclienttesting.NewMemStore(),
+		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ModelConfig:      localConfigAttrs,
@@ -1764,7 +1992,7 @@ func patchEC2ForTesting(c *gc.C, region aws.Region) func() {
 // by the cloudinit data matches the given regexp pattern, otherwise it
 // checks that no script matches.  It's exported so it can be used by tests
 // defined in ec2_test.
-func CheckScripts(c *gc.C, userDataMap map[interface{}]interface{}, pattern string, match bool) {
+func CheckScripts(c *gc.C, userDataMap map[string]interface{}, pattern string, match bool) {
 	scripts0 := userDataMap["runcmd"]
 	if scripts0 == nil {
 		c.Errorf("cloudinit has no entry for runcmd")
@@ -1790,7 +2018,7 @@ func CheckScripts(c *gc.C, userDataMap map[interface{}]interface{}, pattern stri
 // CheckPackage checks that the cloudinit will or won't install the given
 // package, depending on the value of match.  It's exported so it can be
 // used by tests defined outside the ec2 package.
-func CheckPackage(c *gc.C, userDataMap map[interface{}]interface{}, pkg string, match bool) {
+func CheckPackage(c *gc.C, userDataMap map[string]interface{}, pkg string, match bool) {
 	pkgs0 := userDataMap["packages"]
 	if pkgs0 == nil {
 		if match {

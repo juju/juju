@@ -14,19 +14,19 @@ import (
 
 // EnvironConfigGetter implements environs.EnvironConfigGetter
 // in terms of a *state.State.
+// TODO - CAAS(externalreality): Once cloud methods are migrated
+// to model EnvironConfigGetter will no longer need to contain
+// both state and model but only model.
 type EnvironConfigGetter struct {
 	*state.State
+	*state.Model
 }
 
 // CloudSpec implements environs.EnvironConfigGetter.
-func (g EnvironConfigGetter) CloudSpec(tag names.ModelTag) (environs.CloudSpec, error) {
-	model, err := g.GetModel(tag)
-	if err != nil {
-		return environs.CloudSpec{}, errors.Trace(err)
-	}
-	cloudName := model.Cloud()
-	regionName := model.CloudRegion()
-	credentialTag, _ := model.CloudCredential()
+func (g EnvironConfigGetter) CloudSpec() (environs.CloudSpec, error) {
+	cloudName := g.Model.Cloud()
+	regionName := g.Model.CloudRegion()
+	credentialTag, _ := g.Model.CloudCredential()
 	return CloudSpec(g.State, cloudName, regionName, credentialTag)
 }
 
@@ -48,7 +48,12 @@ func CloudSpec(
 		if err != nil {
 			return environs.CloudSpec{}, errors.Trace(err)
 		}
-		credential = &credentialValue
+		cloudCredential := cloud.NewNamedCredential(credentialValue.Name,
+			cloud.AuthType(credentialValue.AuthType),
+			credentialValue.Attributes,
+			credentialValue.Revoked,
+		)
+		credential = &cloudCredential
 	}
 
 	return environs.MakeCloudSpec(modelCloud, regionName, credential)
@@ -62,7 +67,11 @@ type NewEnvironFunc func(*state.State) (environs.Environ, error)
 // using the given environs.NewEnvironFunc.
 func GetNewEnvironFunc(newEnviron environs.NewEnvironFunc) NewEnvironFunc {
 	return func(st *state.State) (environs.Environ, error) {
-		g := EnvironConfigGetter{st}
+		m, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		g := EnvironConfigGetter{st, m}
 		return environs.GetEnviron(g, newEnviron)
 	}
 }

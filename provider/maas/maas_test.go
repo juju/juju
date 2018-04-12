@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -26,6 +27,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/keys"
+	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -62,7 +64,7 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.MustHostSeries, func() string { return series.LatestLts() })
+	s.PatchValue(&series.MustHostSeries, func() string { return supportedversion.SupportedLts() })
 }
 
 func (s *baseProviderSuite) TearDownTest(c *gc.C) {
@@ -121,26 +123,37 @@ var maasEnvAttrs = coretesting.Attrs{
 	},
 }
 
-// makeEnviron creates a functional maasEnviron for a test.
-func (suite *providerSuite) makeEnviron() *maasEnviron {
+func (suite *providerSuite) makeEnvironWithURL(url string, getCapabilities MaasCapabilities) (*maasEnviron, error) {
 	cred := cloud.NewCredential(cloud.OAuth1AuthType, map[string]string{
 		"maas-oauth": "a:b:c",
 	})
 	cloud := environs.CloudSpec{
 		Type:       "maas",
 		Name:       "maas",
-		Endpoint:   suite.testMAASObject.TestServer.URL,
+		Endpoint:   url,
 		Credential: &cred,
 	}
 	attrs := coretesting.FakeConfig().Merge(maasEnvAttrs)
 	suite.controllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
-		panic(err)
+		return nil, errors.Trace(err)
 	}
-	env, err := NewEnviron(cloud, cfg, func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
-		return set.NewStrings("network-deployment-ubuntu"), nil
-	})
+	env, err := NewEnviron(cloud, cfg, getCapabilities)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return env, nil
+}
+
+// makeEnviron creates a functional maasEnviron for a test.
+func (suite *providerSuite) makeEnviron() *maasEnviron {
+	env, err := suite.makeEnvironWithURL(
+		suite.testMAASObject.TestServer.URL,
+		func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+			return set.NewStrings("network-deployment-ubuntu"), nil
+		},
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -153,40 +166,12 @@ func (suite *providerSuite) addNode(jsonText string) instance.Id {
 	return instance.Id(resourceURI)
 }
 
-func (suite *providerSuite) getInstance(systemId string) *maas1Instance {
-	input := fmt.Sprintf(`{"system_id": %q}`, systemId)
-	node := suite.testMAASObject.TestServer.NewNode(input)
-	statusGetter := func(instance.Id) (string, string) {
-		return "unknown", "FAKE"
-	}
-	return &maas1Instance{&node, nil, statusGetter}
-}
-
-func (suite *providerSuite) getNetwork(name string, id int, vlanTag int) *gomaasapi.MAASObject {
-	var vlan string
-	if vlanTag == 0 {
-		vlan = "null"
-	} else {
-		vlan = fmt.Sprintf("%d", vlanTag)
-	}
-	var input string
-	input = fmt.Sprintf(`{"name": %q, "ip":"192.168.%d.1", "netmask": "255.255.255.0",`+
-		`"vlan_tag": %s, "description": "%s_%d_%d" }`, name, id, vlan, name, id, vlanTag)
-	network := suite.testMAASObject.TestServer.NewNetwork(input)
-	return &network
-}
-
 func createSubnetInfo(subnetID, spaceID, ipRange uint) network.SubnetInfo {
 	return network.SubnetInfo{
 		CIDR:            fmt.Sprintf("192.168.%d.0/24", ipRange),
 		ProviderId:      network.Id(strconv.Itoa(int(subnetID))),
 		SpaceProviderId: network.Id(fmt.Sprintf("%d", spaceID)),
 	}
-}
-
-func createSubnet(ipRange, spaceAndNICID uint) gomaasapi.CreateSubnet {
-	space := fmt.Sprintf("space-%d", spaceAndNICID)
-	return createSubnetWithSpace(ipRange, spaceAndNICID, space)
 }
 
 func createSubnetWithSpace(ipRange, NICID uint, space string) gomaasapi.CreateSubnet {

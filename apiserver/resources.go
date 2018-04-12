@@ -12,12 +12,13 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
+	"github.com/juju/juju/state"
 )
 
 // ResourcesBackend is the functionality of Juju's state needed for the resources API.
@@ -41,17 +42,17 @@ type ResourcesBackend interface {
 // ResourcesHandler is the HTTP handler for client downloads and
 // uploads of resources.
 type ResourcesHandler struct {
-	StateAuthFunc func(*http.Request, ...string) (ResourcesBackend, func(), names.Tag, error)
+	StateAuthFunc func(*http.Request, ...string) (ResourcesBackend, state.PoolHelper, names.Tag, error)
 }
 
 // ServeHTTP implements http.Handler.
 func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	backend, closer, tag, err := h.StateAuthFunc(req, names.UserTagKind, names.MachineTagKind)
+	backend, ph, tag, err := h.StateAuthFunc(req, names.UserTagKind, names.MachineTagKind)
 	if err != nil {
 		api.SendHTTPError(resp, err)
 		return
 	}
-	defer closer()
+	defer ph.Release()
 
 	switch req.Method {
 	case "GET":
@@ -189,7 +190,12 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 	var ur api.UploadRequest
 
 	if req.Header.Get(api.HeaderContentLength) == "" {
-		req.Header.Set(api.HeaderContentLength, fmt.Sprint(req.ContentLength))
+		size := req.ContentLength
+		// size will be negative if there is no content.
+		if size < 0 {
+			size = 0
+		}
+		req.Header.Set(api.HeaderContentLength, fmt.Sprint(size))
 	}
 
 	ctype := req.Header.Get(api.HeaderContentType)

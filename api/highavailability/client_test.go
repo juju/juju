@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/highavailability"
 	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
@@ -47,12 +48,19 @@ func setAgentPresence(c *gc.C, s *jujutesting.JujuConnSuite, machineId string) *
 }
 
 func assertEnableHA(c *gc.C, s *jujutesting.JujuConnSuite) {
-	_, err := s.State.AddMachine("quantal", state.JobManageModel)
+	m, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	// We have to ensure the agents are alive, or EnableHA will
 	// create more to replace them.
 	pingerA := setAgentPresence(c, s, "0")
 	defer assertKill(c, pingerA)
+
+	err = m.SetMachineAddresses(
+		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
+		network.NewScopedAddress("cloud-local0.internal", network.ScopeCloudLocal),
+		network.NewScopedAddress("fc00::1", network.ScopePublic),
+	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	emptyCons := constraints.Value{}
 	client := highavailability.NewClient(s.APIState)

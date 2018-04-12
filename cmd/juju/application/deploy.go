@@ -5,26 +5,30 @@ package application
 
 import (
 	"archive/zip"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v2"
+	"gopkg.in/juju/charmrepo.v2/csclient"
+	"gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/modelconfig"
+	app "github.com/juju/juju/apiserver/facades/client/application"
 	apiparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/block"
@@ -32,7 +36,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
 )
@@ -48,10 +51,13 @@ type CharmAdder interface {
 
 type ApplicationAPI interface {
 	AddMachines(machineParams []apiparams.AddMachineParams) ([]apiparams.AddMachinesResult, error)
-	AddRelation(endpoints ...string) (*apiparams.AddRelationResults, error)
-	AddUnits(application string, numUnits int, placement []*instance.Placement) ([]string, error)
+	AddRelation(endpoints, viaCIDRs []string) (*apiparams.AddRelationResults, error)
+	AddUnits(application.AddUnitsParams) ([]string, error)
 	Expose(application string) error
-	GetCharmURL(serviceName string) (*charm.URL, error)
+	GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error)
+	GetConfig(appNames ...string) ([]map[string]interface{}, error)
+	GetConstraints(appNames ...string) ([]constraints.Value, error)
+	GetCharmURL(applicationName string) (*charm.URL, error)
 	SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error)
 	SetCharm(application.SetCharmConfig) error
 	SetConstraints(application string, constraints constraints.Value) error
@@ -67,7 +73,7 @@ type ModelAPI interface {
 // command needs for metered charms.
 type MeteredDeployAPI interface {
 	IsMetered(charmURL string) (bool, error)
-	SetMetricCredentials(service string, credentials []byte) error
+	SetMetricCredentials(application string, credentials []byte) error
 }
 
 // DeployAPI represents the methods of the API the deploy
@@ -91,9 +97,6 @@ type DeployAPI interface {
 	GetBundle(*charm.URL) (charm.Bundle, error)
 
 	WatchAll() (*api.AllWatcher, error)
-
-	// AddPendingResources(client.AddPendingResourcesArgs) (ids []string, _ error)
-	// DeployResources(cmd.DeployResourcesArgs) (ids []string, _ error)
 }
 
 // The following structs exist purely because Go cannot create a
@@ -182,20 +185,54 @@ func (a *deployAPIAdapter) SetAnnotation(annotations map[string]map[string]strin
 	return a.annotationsClient.Set(annotations)
 }
 
-type NewAPIRootFn func() (DeployAPI, error)
+func (a *deployAPIAdapter) GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error) {
+	return a.annotationsClient.Get(tags)
+}
 
-func NewDefaultDeployCommand() cmd.Command {
-	return NewDeployCommandWithDefaultAPI([]DeployStep{
+// NewDeployCommandForTest returns a command to deploy applications inteded to be used only in tests.
+func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []DeployStep) modelcmd.ModelCommand {
+	deployCmd := &DeployCommand{
+		Steps:      steps,
+		NewAPIRoot: newAPIRoot,
+	}
+	if newAPIRoot == nil {
+		deployCmd.NewAPIRoot = func() (DeployAPI, error) {
+			apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			bakeryClient, err := deployCmd.BakeryClient()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			cstoreClient := newCharmStoreClient(bakeryClient).WithChannel(deployCmd.Channel)
+
+			return &deployAPIAdapter{
+				Connection:        apiRoot,
+				apiClient:         &apiClient{Client: apiRoot.Client()},
+				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
+				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
+				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
+				charmstoreClient:  &charmstoreClient{Client: cstoreClient},
+				annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
+				charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
+			}, nil
+		}
+	}
+	return modelcmd.Wrap(deployCmd)
+}
+
+// NewDeployCommand returns a command to deploy applications.
+func NewDeployCommand() modelcmd.ModelCommand {
+	steps := []DeployStep{
 		&RegisterMeteredCharm{
 			RegisterURL: planURL + "/plan/authorize",
 			QueryURL:    planURL + "/charm",
 		},
-	})
-}
-
-func NewDeployCommandWithDefaultAPI(steps []DeployStep) cmd.Command {
-	deployCmd := &DeployCommand{Steps: steps}
-	cmd := modelcmd.Wrap(deployCmd)
+	}
+	deployCmd := &DeployCommand{
+		Steps: steps,
+	}
 	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
 		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
 		if err != nil {
@@ -207,7 +244,7 @@ func NewDeployCommandWithDefaultAPI(steps []DeployStep) cmd.Command {
 		}
 		cstoreClient := newCharmStoreClient(bakeryClient).WithChannel(deployCmd.Channel)
 
-		adapter := &deployAPIAdapter{
+		return &deployAPIAdapter{
 			Connection:        apiRoot,
 			apiClient:         &apiClient{Client: apiRoot.Client()},
 			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
@@ -216,19 +253,10 @@ func NewDeployCommandWithDefaultAPI(steps []DeployStep) cmd.Command {
 			charmstoreClient:  &charmstoreClient{Client: cstoreClient},
 			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
 			charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
-		}
-
-		return adapter, nil
+		}, nil
 	}
-	return cmd
-}
 
-// NewDeployCommand returns a command to deploy services.
-func NewDeployCommand(newAPIRoot NewAPIRootFn, steps []DeployStep) cmd.Command {
-	return modelcmd.Wrap(&DeployCommand{
-		Steps:      steps,
-		NewAPIRoot: newAPIRoot,
-	})
+	return modelcmd.Wrap(deployCmd)
 }
 
 type DeployCommand struct {
@@ -238,6 +266,10 @@ type DeployCommand struct {
 	// CharmOrBundle is either a charm URL, a path where a charm can be found,
 	// or a bundle name.
 	CharmOrBundle string
+
+	// BundleOverlay refers to config files that specify additional bundle
+	// configuration to be merged with the main bundle.
+	BundleOverlayFile []string
 
 	// Channel holds the charmstore channel to use when obtaining
 	// the charm to be deployed.
@@ -250,8 +282,12 @@ type DeployCommand struct {
 	// running an unsupported series.
 	Force bool
 
+	// DryRun is used to specify that the bundle shouldn't actually be
+	// deployed but just output the changes.
+	DryRun bool
+
 	ApplicationName string
-	Config          cmd.FileVar
+	ConfigOptions   common.ConfigFlag
 	ConstraintsStr  string
 	Constraints     constraints.Value
 	BindToSpaces    string
@@ -273,10 +309,22 @@ type DeployCommand struct {
 	Bindings map[string]string
 	Steps    []DeployStep
 
-	// NewAPIRoot stores a function which returns a new API root.
-	NewAPIRoot NewAPIRootFn
+	// UseExisting machines when deploying the bundle.
+	UseExisting bool
+	// BundleMachines is a mapping for machines in the bundle to machines
+	// in the model.
+	BundleMachines map[string]string
 
-	flagSet *gnuflag.FlagSet
+	// NewAPIRoot stores a function which returns a new API root.
+	NewAPIRoot func() (DeployAPI, error)
+
+	// Trust signifies that the charm should be deployed with access to
+	// trusted credentials. That is, hooks run by the charm can access
+	// cloud credentials and other trusted access credentials.
+	Trust bool
+
+	machineMap string
+	flagSet    *gnuflag.FlagSet
 }
 
 const deployDoc = `
@@ -319,11 +367,56 @@ For example:
   juju deploy /path/to/bundle/openstack/bundle.yaml
 
 If an 'application name' is not provided, the application name used is the
-'charm or bundle' name.
+'charm or bundle' name.  A user-supplied 'application name' must consist only of
+lower-case letters (a-z), numbers (0-9), and single hyphens (-).  The name must
+begin with a letter and not have a group of all numbers follow a hyphen.
+Examples:
+  Valid:   myappname, custom-app, app2-scat-23skidoo
+  Invalid: myAppName, custom--app, app2-scat-23, areacode-555-info
 
 Constraints can be specified by specifying the '--constraints' option. If the
 application is later scaled out with ` + "`juju add-unit`" + `, provisioned machines
 will use the same constraints (unless changed by ` + "`juju set-constraints`" + `).
+
+Application configuration values can be specified using '--config' option. This
+option accepts either a path to a yaml-formatted file or a key=value pair. 
+Configuration file provided should be in format
+<charm name>:
+	<option name>: <option value>
+	...
+For example, to deploying 'mediawiki' with the configuration file 'mycfg.yaml'
+that contains:
+
+mediawiki:
+	name: my media wiki
+	admins: me:pwdOne
+	debug: true
+
+use
+
+  juju deploy mediawiki --config mycfg.yaml
+
+To specify key=value pair to set an application option value, use:
+ 
+  juju deploy mediawiki --config name='my media wiki'
+   
+When specifying more than one option value, use:
+
+  juju deploy mediawiki --config name='my media wiki' --config debug=true
+
+Care must be taken when specifying more than one configuration via 
+'--config' option - any later values will override those specified earlier.
+For example, when calling
+
+  juju deploy mediawiki --config name='my media wiki' --config mycfg.yaml
+  
+if mycfg.yaml contained a value for 'name', it will be used in preference 
+to the earlier 'my media wiki' value.
+The same applies to single value options. For example, when calling
+
+  juju deploy mediawiki --config name='a media wiki' --config name='my wiki'
+
+the value 'my wiki' will be used for the option 'name'.
 
 Resources may be uploaded by specifying the '--resource' option followed by a
 name=filepath pair. This option may be repeated more than once to upload more
@@ -351,12 +444,38 @@ When deploying an application or adding machines, the 'spaces' constraint can
 be used to define a comma-delimited list of required and forbidden spaces (the
 latter prefixed with "^", similar to the 'tags' constraint).
 
+When deploying bundles, machines specified in the bundle are added to the
+model as new machines. In order to use the existing machines in the model
+rather than create new machines, the option --map-machines=existing can be
+used. To specify particular machines for the mapping, multiple comma separated
+values of the form "bundle-id=existing-id" can be passed where the bundle-id
+and the existing-id refer to top level machine IDs. For example, if there was
+a bundle that specified machines 1, 2, and 3, and the model had machines 1, 2,
+3 and 4, the following deployment of the bundle would use machines 1 and 2 in
+the model for machines 1 and 2 in the bundle and use machine 4 in the model
+for the bundle machine 3.
+
+  juju deploy some-bundle --map-machines existing,3=4
+
+Only top level machines can be mapped in this way, just as only top level
+machines can be defined in the machines section of the bundle.
+
 
 Examples:
-    juju deploy mysql --to 23       (deploy to machine 23)
-    juju deploy mysql --to 24/lxd/3 (deploy to lxd container 3 on machine 24)
-    juju deploy mysql --to lxd:25   (deploy to a new lxd container on machine 25)
-    juju deploy mysql --to lxd      (deploy to a new lxd container on a new machine)
+    juju deploy mysql               (deploy to a new machine)
+    juju deploy mysql --to 23       (deploy to preexisting machine 23)
+    juju deploy mysql --to lxd      (deploy to a new LXD container on a new machine)
+    juju deploy mysql --to lxd:25   (deploy to a new LXD container on machine 25)
+    juju deploy mysql --to 24/lxd/3 (deploy to LXD container 3 on machine 24)
+
+    juju deploy mysql -n 2 --to 3,lxd:5
+    (deploy 2 units, one on machine 3 & one to a new LXD container on machine 5)
+
+    juju deploy mysql -n 3 --to 3
+    (deploy 3 units, one on machine 3 & the remaining two on new machines)
+
+    juju deploy mysql -n 5 --constraints mem=8G
+    (deploy 5 units to machines with at least 8 GB of memory)
 
     juju deploy mysql --to zone=us-east-1a
     (provider-dependent; deploy to a specific AZ)
@@ -364,21 +483,16 @@ Examples:
     juju deploy mysql --to host.maas
     (deploy to a specific MAAS node)
 
-    juju deploy mysql -n 5 --constraints mem=8G
-    (deploy 5 units to machines with at least 8 GB of memory)
-
     juju deploy haproxy -n 2 --constraints spaces=dmz,^cms,^database
-    (deploy 2 units to machines that are part of the 'dmz' space but not of the
-    'cmd' or the 'database' spaces)
+    (deploy 2 units to machines that are in the 'dmz' space but not of
+    the 'cmd' or the 'database' spaces)
 
 See also:
-    spaces
-    constraints
     add-unit
-    set-config
-    get-config
+    config
     set-constraints
     get-constraints
+    spaces
 `
 
 // DeployStep is an action that needs to be taken during charm deployment.
@@ -402,6 +516,7 @@ type DeploymentInfo struct {
 	ApplicationName string
 	ModelUUID       string
 	CharmInfo       *apicharms.CharmInfo
+	ApplicationPlan string
 }
 
 func (c *DeployCommand) Info() *cmd.Info {
@@ -414,27 +529,46 @@ func (c *DeployCommand) Info() *cmd.Info {
 }
 
 var (
-	// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
-	// whether we are deploying a charm or a bundle.
-	charmOnlyFlags        = []string{"bind", "config", "constraints", "force", "n", "num-units", "series", "to", "resource"}
-	bundleOnlyFlags       = []string{}
-	modelCommandBaseFlags = []string{"B", "no-browser-login"}
+	// TODO(thumper): support dry-run for apps as well as bundles.
+	bundleOnlyFlags = []string{
+		"overlay", "dry-run", "map-machines",
+	}
 )
 
+// charmOnlyFlags and bundleOnlyFlags are used to validate flags based on
+// whether we are deploying a charm or a bundle.
+func charmOnlyFlags() []string {
+	charmOnlyFlags := []string{
+		"bind", "config", "constraints", "force", "n", "num-units",
+		"series", "to", "resource", "attach-storage",
+	}
+
+	charmOnlyFlags = append(charmOnlyFlags, "trust")
+
+	return charmOnlyFlags
+}
+
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ConfigOptions.SetPreserveStringValue(true)
 	// Keep above charmOnlyFlags and bundleOnlyFlags lists updated when adding
 	// new flags.
 	c.UnitCommandBase.SetFlags(f)
 	c.ModelCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "Number of application units to deploy for principal charms")
 	f.StringVar((*string)(&c.Channel), "channel", "", "Channel to use when getting the charm or bundle from the charm store")
-	f.Var(&c.Config, "config", "Path to yaml-formatted application config")
+	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
+
+	f.BoolVar(&c.Trust, "trust", false, "Allows charm to run hooks that require access credentials")
+
+	f.Var(cmd.NewAppendStringsValue(&c.BundleOverlayFile), "overlay", "Bundles to overlay on the primary bundle, applied in order")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the bundle deploy would do")
 	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
+	f.StringVar(&c.machineMap, "map-machines", "", "Specify the existing machines to use for bundle deployments")
 
 	for _, step := range c.Steps {
 		step.SetFlags(f)
@@ -464,7 +598,45 @@ func (c *DeployCommand) Init(args []string) error {
 	if err := c.parseBind(); err != nil {
 		return err
 	}
+
+	useExisting, mapping, err := parseMachineMap(c.machineMap)
+	if err != nil {
+		return errors.Annotate(err, "error in --map-machines")
+	}
+	c.UseExisting = useExisting
+	c.BundleMachines = mapping
+
 	return c.UnitCommandBase.Init(args)
+}
+
+func parseMachineMap(value string) (bool, map[string]string, error) {
+	parts := strings.Split(value, ",")
+	useExisting := false
+	mapping := make(map[string]string)
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		switch part {
+		case "":
+			// No-op.
+		case "existing":
+			useExisting = true
+		default:
+			otherParts := strings.Split(part, "=")
+			if len(otherParts) != 2 {
+				return false, nil, errors.Errorf("expected \"existing\" or \"<bundle-id>=<machine-id>\", got %q", part)
+			}
+			bundleID, machineID := strings.TrimSpace(otherParts[0]), strings.TrimSpace(otherParts[1])
+
+			if i, err := strconv.Atoi(bundleID); err != nil || i < 0 {
+				return false, nil, errors.Errorf("bundle-id %q is not a top level machine id", bundleID)
+			}
+			if i, err := strconv.Atoi(machineID); err != nil || i < 0 {
+				return false, nil, errors.Errorf("machine-id %q is not a top level machine id", machineID)
+			}
+			mapping[bundleID] = machineID
+		}
+	}
+	return useExisting, mapping, nil
 }
 
 type ModelConfigGetter interface {
@@ -488,19 +660,62 @@ func (c *DeployCommand) deployBundle(
 	channel params.Channel,
 	apiRoot DeployAPI,
 	bundleStorage map[string]map[string]storage.Constraints,
-) error {
+) (rErr error) {
+	bakeryClient, err := c.BakeryClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelUUID, ok := apiRoot.ModelUUID()
+	if !ok {
+		return errors.New("API connection is controller-only (should never happen)")
+	}
+
+	for application, applicationSpec := range data.Applications {
+		if applicationSpec.Plan != "" {
+			for _, step := range c.Steps {
+				s := step
+				charmURL, err := charm.ParseURL(applicationSpec.Charm)
+				if err != nil {
+					return errors.Trace(err)
+				}
+
+				deployInfo := DeploymentInfo{
+					CharmID:         charmstore.CharmID{URL: charmURL},
+					ApplicationName: application,
+					ApplicationPlan: applicationSpec.Plan,
+					ModelUUID:       modelUUID,
+				}
+
+				err = s.RunPre(apiRoot, bakeryClient, ctx, deployInfo)
+				if err != nil {
+					return errors.Trace(err)
+				}
+
+				defer func() {
+					err = errors.Trace(s.RunPost(apiRoot, bakeryClient, ctx, deployInfo, rErr))
+					if err != nil {
+						rErr = err
+					}
+				}()
+			}
+		}
+	}
+
 	// TODO(ericsnow) Do something with the CS macaroons that were returned?
 	if _, err := deployBundle(
 		filePath,
 		data,
+		c.BundleOverlayFile,
 		channel,
 		apiRoot,
 		ctx,
 		bundleStorage,
+		c.DryRun,
+		c.UseExisting,
+		c.BundleMachines,
 	); err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "cannot deploy bundle")
 	}
-	ctx.Infof("Deploy of bundle completed.")
 	return nil
 }
 
@@ -516,6 +731,12 @@ func (c *DeployCommand) deployCharm(
 		return err
 	}
 
+	if len(c.AttachStorage) > 0 && apiRoot.BestFacadeVersion("Application") < 5 {
+		// DeployArgs.AttachStorage is only supported from
+		// Application API version 5 and onwards.
+		return errors.New("this juju controller does not support --attach-storage")
+	}
+
 	numUnits := c.NumUnits
 	if charmInfo.Meta.Subordinate {
 		if !constraints.IsEmpty(&c.Constraints) {
@@ -527,14 +748,68 @@ func (c *DeployCommand) deployCharm(
 			return errors.New("cannot use --num-units or --to with subordinate application")
 		}
 	}
-	serviceName := c.ApplicationName
-	if serviceName == "" {
-		serviceName = charmInfo.Meta.Name
+	applicationName := c.ApplicationName
+	if applicationName == "" {
+		applicationName = charmInfo.Meta.Name
 	}
 
+	// Process the --config args.
+	// We may have a single file arg specified, in which case
+	// it points to a YAML file keyed on the charm name and
+	// containing values for any charm settings.
+	// We may also have key/value pairs representing
+	// charm settings which overrides anything in the YAML file.
+	// If more than one file is specified, that is an error.
 	var configYAML []byte
-	if c.Config.Path != "" {
-		configYAML, err = c.Config.Read(ctx)
+	files, err := c.ConfigOptions.AbsoluteFileNames(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(files) > 1 {
+		return errors.Errorf("only a single config YAML file can be specified, got %d", len(files))
+	}
+	if len(files) == 1 {
+		configYAML, err = ioutil.ReadFile(files[0])
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	attr, err := c.ConfigOptions.ReadConfigPairs(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	appConfig := make(map[string]string)
+	for k, v := range attr {
+		appConfig[k] = v.(string)
+	}
+
+	// Expand the trust flag into the appConfig
+	if c.Trust {
+		appConfig[app.TrustConfigOptionName] = strconv.FormatBool(c.Trust)
+	}
+
+	// Application facade V5 expects charm config to either all be in YAML
+	// or config map. If config map is specified, that overrides YAML.
+	// So we need to combine the two here to have only one.
+	if apiRoot.BestFacadeVersion("Application") < 6 && len(appConfig) > 0 {
+		var configFromFile map[string]map[string]string
+		err := yaml.Unmarshal(configYAML, &configFromFile)
+		if err != nil {
+			return errors.Annotate(err, "badly formatted YAML config file")
+		}
+		if configFromFile == nil {
+			configFromFile = make(map[string]map[string]string)
+		}
+		charmSettings, ok := configFromFile[applicationName]
+		if !ok {
+			charmSettings = make(map[string]string)
+		}
+		for k, v := range appConfig {
+			charmSettings[k] = v
+		}
+		appConfig = nil
+		configFromFile[applicationName] = charmSettings
+		configYAML, err = yaml.Marshal(configFromFile)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -552,7 +827,7 @@ func (c *DeployCommand) deployCharm(
 
 	deployInfo := DeploymentInfo{
 		CharmID:         id,
-		ApplicationName: serviceName,
+		ApplicationName: applicationName,
 		ModelUUID:       uuid,
 		CharmInfo:       charmInfo,
 	}
@@ -579,7 +854,7 @@ func (c *DeployCommand) deployCharm(
 	}
 
 	ids, err := resourceadapters.DeployResources(
-		serviceName,
+		applicationName,
 		id,
 		csMac,
 		c.Resources,
@@ -590,18 +865,24 @@ func (c *DeployCommand) deployCharm(
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(apiRoot.Deploy(application.DeployArgs{
+	if len(appConfig) == 0 {
+		appConfig = nil
+	}
+	args := application.DeployArgs{
 		CharmID:          id,
 		Cons:             c.Constraints,
-		ApplicationName:  serviceName,
+		ApplicationName:  applicationName,
 		Series:           series,
 		NumUnits:         numUnits,
 		ConfigYAML:       string(configYAML),
+		Config:           appConfig,
 		Placement:        c.Placement,
 		Storage:          c.Storage,
+		AttachStorage:    c.AttachStorage,
 		Resources:        ids,
 		EndpointBindings: c.Bindings,
-	}))
+	}
+	return errors.Trace(apiRoot.Deploy(args))
 }
 
 const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<endpoint-name>=<space> ...]'. "
@@ -663,7 +944,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 
 	deploy, err := findDeployerFIFO(
 		c.maybeReadLocalBundle,
-		c.maybeReadLocalCharm,
+		func() (deployFn, error) { return c.maybeReadLocalCharm(apiRoot) },
 		c.maybePredeployedLocalCharm,
 		c.maybeReadCharmstoreBundleFn(apiRoot),
 		c.charmStoreCharm, // This always returns a deployer
@@ -689,15 +970,15 @@ func findDeployerFIFO(maybeDeployers ...func() (deployFn, error)) (deployFn, err
 type deployFn func(*cmd.Context, DeployAPI) error
 
 func (c *DeployCommand) validateBundleFlags() error {
-	if flags := getFlags(c.flagSet, charmOnlyFlags); len(flags) > 0 {
-		return errors.Errorf("Flags provided but not supported when deploying a bundle: %s.", strings.Join(flags, ", "))
+	if flags := getFlags(c.flagSet, charmOnlyFlags()); len(flags) > 0 {
+		return errors.Errorf("flags provided but not supported when deploying a bundle: %s", strings.Join(flags, ", "))
 	}
 	return nil
 }
 
 func (c *DeployCommand) validateCharmFlags() error {
 	if flags := getFlags(c.flagSet, bundleOnlyFlags); len(flags) > 0 {
-		return errors.Errorf("Flags provided but not supported when deploying a charm: %s.", strings.Join(flags, ", "))
+		return errors.Errorf("flags provided but not supported when deploying a charm: %s", strings.Join(flags, ", "))
 	}
 	return nil
 }
@@ -715,6 +996,9 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	}
 
 	return func(ctx *cmd.Context, api DeployAPI) error {
+		if err := c.validateCharmFlags(); err != nil {
+			return errors.Trace(err)
+		}
 		formattedCharmURL := userCharmURL.String()
 		ctx.Infof("Located charm %q.", formattedCharmURL)
 		ctx.Infof("Deploying charm %q.", formattedCharmURL)
@@ -730,31 +1014,30 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 
 func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 	bundleFile := c.CharmOrBundle
-	var (
-		bundleFilePath                string
-		resolveRelativeBundleFilePath bool
-	)
+	var bundleDir string
+	isDir := false
+	resolveDir := false
 
 	bundleData, err := charmrepo.ReadBundleFile(bundleFile)
 	if err != nil {
 		// We may have been given a local bundle archive or exploded directory.
-		bundle, url, pathErr := charmrepo.NewBundleAtPath(bundleFile)
+		bundle, _, pathErr := charmrepo.NewBundleAtPath(bundleFile)
 		if charmrepo.IsInvalidPathError(pathErr) {
 			return nil, errors.Errorf(""+
 				"The charm or bundle %q is ambiguous.\n"+
 				"To deploy a local charm or bundle, run `juju deploy ./%[1]s`.\n"+
 				"To deploy a charm or bundle from the store, run `juju deploy cs:%[1]s`.",
-				c.CharmOrBundle,
+				bundleFile,
 			)
 		}
 		if pathErr != nil {
 			// If the bundle files existed but we couldn't read them,
 			// then return that error rather than trying to interpret
 			// as a charm.
-			if info, statErr := os.Stat(c.CharmOrBundle); statErr == nil {
+			if info, statErr := os.Stat(bundleFile); statErr == nil {
 				if info.IsDir() {
 					if _, ok := pathErr.(*charmrepo.NotFoundError); !ok {
-						return nil, pathErr
+						return nil, errors.Annotate(pathErr, "cannot deploy bundle")
 					}
 				}
 			}
@@ -764,12 +1047,12 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 		}
 
 		bundleData = bundle.Data()
-		bundleFile = url.String()
 		if info, err := os.Stat(bundleFile); err == nil && info.IsDir() {
-			bundleFilePath = bundleFile
+			resolveDir = true
+			isDir = true
 		}
 	} else {
-		resolveRelativeBundleFilePath = true
+		resolveDir = true
 	}
 
 	if err := c.validateBundleFlags(); err != nil {
@@ -777,15 +1060,21 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 	}
 
 	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
-		// For local bundles, we extract the local path of the bundle
-		// directory.
-		if resolveRelativeBundleFilePath {
-			bundleFilePath = filepath.Dir(ctx.AbsPath(bundleFile))
+		if resolveDir {
+			if isDir {
+				// If we get to here bundleFile is a directory, in which case
+				// we should use the absolute path as the bundFilePath, or it is
+				// an archive, in which case we should pass the empty string.
+				bundleDir = ctx.AbsPath(bundleFile)
+			} else {
+				// If the bundle is defined with just a yaml file, the bundle
+				// path is the directory that holds the file.
+				bundleDir = filepath.Dir(ctx.AbsPath(bundleFile))
+			}
 		}
-
 		return errors.Trace(c.deployBundle(
 			ctx,
-			bundleFilePath,
+			bundleDir,
 			bundleData,
 			c.Channel,
 			apiRoot,
@@ -794,16 +1083,51 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 	}, nil
 }
 
-func (c *DeployCommand) maybeReadLocalCharm() (deployFn, error) {
+func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error) {
+	// NOTE: Here we select the series using the algorithm defined by
+	// `seriesSelector.CharmSeries`. This serves to override the algorithm found in
+	// `charmrepo.NewCharmAtPath` which is outdated (but must still be
+	// called since the code is coupled with path interpretation logic which
+	// cannot easily be factored out).
+
+	// NOTE: Reading the charm here is only meant to aid in inferring the correct
+	// series, if this fails we fall back to the argument series. If reading
+	// the charm fails here it will also fail below (the charm is read again
+	// below) where it is handled properly. This is just an expedient to get
+	// the correct series. A proper refactoring of the charmrepo package is
+	// needed for a more elegant fix.
+
+	ch, err := charm.ReadCharm(c.CharmOrBundle)
+	series := c.Series
+	if err == nil {
+		modelCfg, err := getModelConfig(apiRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		seriesSelector := seriesSelector{
+			seriesFlag:      series,
+			supportedSeries: ch.Meta().Series,
+			force:           c.Force,
+			conf:            modelCfg,
+			fromBundle:      false,
+		}
+
+		series, err = seriesSelector.charmSeries()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	// Charm may have been supplied via a path reference.
-	ch, curl, err := charmrepo.NewCharmAtPathForceSeries(c.CharmOrBundle, c.Series, c.Force)
+	ch, curl, err := charmrepo.NewCharmAtPathForceSeries(c.CharmOrBundle, series, c.Force)
 	// We check for several types of known error which indicate
 	// that the supplied reference was indeed a path but there was
 	// an issue reading the charm located there.
 	if charm.IsMissingSeriesError(err) {
 		return nil, err
 	} else if charm.IsUnsupportedSeriesError(err) {
-		return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
+		return nil, errors.Trace(err)
 	} else if errors.Cause(err) == zip.ErrFormat {
 		return nil, errors.Errorf("invalid charm or bundle provided at %q", c.CharmOrBundle)
 	} else if _, ok := err.(*charmrepo.NotFoundError); ok {
@@ -819,6 +1143,10 @@ func (c *DeployCommand) maybeReadLocalCharm() (deployFn, error) {
 	}
 
 	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
+		if err := c.validateCharmFlags(); err != nil {
+			return errors.Trace(err)
+		}
+
 		if curl, err = apiRoot.AddLocalCharm(curl, ch); err != nil {
 			return errors.Trace(err)
 		}
@@ -936,9 +1264,8 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		// Store the charm in the controller
 		curl, csMac, err := addCharmFromURL(apiRoot, storeCharmOrBundleURL, channel)
 		if err != nil {
-			if err1, ok := errors.Cause(err).(*termsRequiredError); ok {
-				terms := strings.Join(err1.Terms, " ")
-				return errors.Errorf(`Declined: please agree to the following terms %s. Try: "juju agree %s"`, terms, terms)
+			if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
+				return errors.Trace(termErr.UserErr())
 			}
 			return errors.Annotatef(err, "storing charm for URL %q", storeCharmOrBundleURL)
 		}

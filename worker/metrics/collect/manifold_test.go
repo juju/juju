@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
+	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
@@ -109,6 +109,61 @@ func (s *ManifoldSuite) TestCollectWorkerStarts(c *gc.C) {
 	c.Assert(worker, gc.NotNil)
 	worker.Kill()
 	err = worker.Wait()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ManifoldSuite) TestCollectWorkerErrorStopsListener(c *gc.C) {
+	s.PatchValue(collect.NewRecorder,
+		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+			return nil, errors.New("blah")
+		})
+	listener := &mockListener{}
+	s.PatchValue(collect.NewSocketListener, collect.NewSocketListenerFnc(listener))
+	s.PatchValue(collect.ReadCharm,
+		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+			return corecharm.MustParseURL("local:ubuntu-1"), map[string]corecharm.Metric{"pings": {Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
+		})
+	worker, err := s.manifold.Start(s.resources.Context())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(worker, gc.NotNil)
+	err = worker.Wait()
+	c.Assert(err, gc.ErrorMatches, ".*blah")
+	listener.CheckCallNames(c, "Stop")
+}
+
+type errorRecorder struct {
+	*spool.JSONMetricRecorder
+}
+
+func (e *errorRecorder) AddMetric(
+	key, value string, created time.Time, labels map[string]string) (err error) {
+	return e.JSONMetricRecorder.AddMetric(key, "bad", created, labels)
+}
+
+func (s *ManifoldSuite) TestRecordMetricsError(c *gc.C) {
+	// An error recording a metric does not propagate the error
+	// to the worker which could cause a bounce.
+	recorder, err := spool.NewJSONMetricRecorder(
+		spool.MetricRecorderConfig{
+			SpoolDir: c.MkDir(),
+			Metrics: map[string]corecharm.Metric{
+				"juju-units": corecharm.Metric{},
+			},
+			CharmURL: "local:precise/wordpress",
+			UnitTag:  "unit-wordpress-0",
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(collect.NewRecorder,
+		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+			return &errorRecorder{recorder}, nil
+		})
+	s.PatchValue(collect.ReadCharm,
+		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+			return corecharm.MustParseURL("cs:wordpress-37"), nil, nil
+		})
+	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
+	c.Assert(err, jc.ErrorIsNil)
+	err = collectEntity.Do(nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -263,7 +318,8 @@ type dummyRecorder struct {
 	batches []spool.MetricBatch
 }
 
-func (r *dummyRecorder) AddMetric(key, value string, created time.Time) error {
+func (r *dummyRecorder) AddMetric(
+	key, value string, created time.Time, labels map[string]string) error {
 	if r.err != "" {
 		return errors.New(r.err)
 	}
@@ -273,9 +329,10 @@ func (r *dummyRecorder) AddMetric(key, value string, created time.Time) error {
 		UUID:     utils.MustNewUUID().String(),
 		Created:  then,
 		Metrics: []jujuc.Metric{{
-			Key:   key,
-			Value: value,
-			Time:  then,
+			Key:    key,
+			Value:  value,
+			Time:   then,
+			Labels: labels,
 		}},
 		UnitTag: r.unitTag,
 	})

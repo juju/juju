@@ -38,6 +38,13 @@ type Credential struct {
 
 	// Label is optionally set to describe the credentials to a user.
 	Label string
+
+	// Invalid is true if the credential is invalid.
+	Invalid bool
+
+	// InvalidReason contains the reason why a credential was flagged as invalid.
+	// It is expected that this string will be empty when a credential is valid.
+	InvalidReason string
 }
 
 // AuthType returns the authentication type.
@@ -85,6 +92,16 @@ func (c *Credential) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // auth-type and attributes.
 func NewCredential(authType AuthType, attributes map[string]string) Credential {
 	return Credential{authType: authType, attributes: copyStringMap(attributes)}
+}
+
+// NewNamedCredential returns an immutable Credential with the supplied properties.
+func NewNamedCredential(name string, authType AuthType, attributes map[string]string, revoked bool) Credential {
+	return Credential{
+		Label:      name,
+		authType:   authType,
+		attributes: copyStringMap(attributes),
+		Revoked:    revoked,
+	}
 }
 
 // NewEmptyCredential returns a new Credential with the EmptyAuthType
@@ -311,7 +328,7 @@ type CredentialAttr struct {
 	// value used for this attribute.
 	FileAttr string
 
-	// FilePath is true is the value of this attribute is a file path. If
+	// FilePath is true if the value of this attribute is a file path. If
 	// this is true, then the attribute value will be set to the contents
 	// of the file when the credential is "finalized".
 	FilePath bool

@@ -89,7 +89,7 @@ type AgentEntity interface {
 type CloudAccessor interface {
 	Cloud(cloud string) (cloud.Cloud, error)
 	Clouds() (map[names.CloudTag]cloud.Cloud, error)
-	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
+	CloudCredential(tag names.CloudCredentialTag) (Credential, error)
 }
 
 // ModelAccessor defines the methods needed to watch for model
@@ -103,6 +103,7 @@ type ModelAccessor interface {
 // access controller information.
 type ControllerAccessor interface {
 	ControllerConfig() (controller.Config, error)
+	ControllerInfo(modelUUID string) (addrs []string, CACert string, _ error)
 }
 
 // UnitsWatcher defines the methods needed to retrieve an entity (a

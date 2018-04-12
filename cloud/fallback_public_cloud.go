@@ -26,6 +26,8 @@ clouds:
         endpoint: https://ec2.eu-west-1.amazonaws.com
       eu-west-2:
         endpoint: https://ec2.eu-west-2.amazonaws.com
+      eu-west-3:
+        endpoint: https://ec2.eu-west-3.amazonaws.com
       eu-central-1:
         endpoint: https://ec2.eu-central-1.amazonaws.com
       ap-south-1:
@@ -61,15 +63,29 @@ clouds:
     regions:
       us-east1:
         endpoint: https://www.googleapis.com
+      us-east4:
+        endpoint: https://www.googleapis.com
       us-central1:
         endpoint: https://www.googleapis.com
       us-west1:
         endpoint: https://www.googleapis.com
       europe-west1:
         endpoint: https://www.googleapis.com
+      europe-west2:
+        endpoint: https://www.googleapis.com
+      europe-west3:
+        endpoint: https://www.googleapis.com
       asia-east1:
         endpoint: https://www.googleapis.com
       asia-northeast1:
+        endpoint: https://www.googleapis.com
+      asia-southeast1:
+        endpoint: https://www.googleapis.com
+      asia-south1:
+        endpoint: https://www.googleapis.com
+      australia-southeast1:
+        endpoint: https://www.googleapis.com
+      southamerica-east1:
         endpoint: https://www.googleapis.com
   azure:
     type: azure
@@ -172,6 +188,14 @@ clouds:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
+      koreacentral:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net        
+      koreasouth:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net        
   azure-china:
     type: azure
     description: Microsoft Azure China
@@ -235,4 +259,19 @@ clouds:
         endpoint: https://wdc.cloudsigma.com/api/2.0/
       zrh:
         endpoint: https://zrh.cloudsigma.com/api/2.0/
+  oracle:
+    type: oracle
+    description: Oracle Cloud
+    auth-types: [ userpass ]
+    regions:
+      uscom-central-1:
+        endpoint: https://compute.uscom-central-1.oraclecloud.com
+      us2:
+        endpoint: https://compute.uscom-central-1.oraclecloud.com
+      us6:
+        endpoint: https://compute.us6.oraclecloud.com
+      em2:
+        endpoint: https://compute.em2.oraclecloud.com
+      em3:
+        endpoint: https://compute.em3.oraclecloud.com
 `

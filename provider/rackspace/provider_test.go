@@ -61,6 +61,11 @@ type fakeProvider struct {
 	testing.Stub
 }
 
+func (p *fakeProvider) Version() int {
+	p.MethodCall(p, "Version")
+	return 0
+}
+
 func (p *fakeProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	p.MethodCall(p, "Open", args)
 	return nil, nil

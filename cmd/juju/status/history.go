@@ -5,8 +5,10 @@ package status
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/status"
 )
@@ -29,8 +32,15 @@ func NewStatusHistoryCommand() cmd.Command {
 	return modelcmd.Wrap(&statusHistoryCommand{})
 }
 
+// HistoryAPI is the API surface for the show-status-log command.
+type HistoryAPI interface {
+	StatusHistory(kind status.HistoryKind, tag names.Tag, filter status.StatusHistoryFilter) (status.History, error)
+	Close() error
+}
+
 type statusHistoryCommand struct {
 	modelcmd.ModelCommandBase
+	api                  HistoryAPI
 	out                  cmd.Output
 	outputContent        string
 	backlogSize          int
@@ -42,21 +52,15 @@ type statusHistoryCommand struct {
 	includeStatusUpdates bool
 }
 
-var statusHistoryDoc = `
+var statusHistoryDoc = fmt.Sprintf(`
 This command will report the history of status changes for
 a given entity.
 The statuses are available for the following types.
 -type supports:
-    juju-unit: will show statuses for the unit's juju agent.
-    workload: will show statuses for the unit's workload.
-    unit: will show workload and juju agent combined for the specified unit.
-    juju-machine: will show statuses for machine's juju agent.
-    machine: will show statuses for machines.
-    juju-container: will show statuses for the container's juju agent.
-    container: will show statuses for containers.
+%v
  and sorted by time of occurrence.
  The default is unit.
-`
+`, supportedHistoryKindDescs())
 
 func (c *statusHistoryCommand) Info() *cmd.Info {
 	return &cmd.Info{
@@ -67,9 +71,30 @@ func (c *statusHistoryCommand) Info() *cmd.Info {
 	}
 }
 
+func supportedHistoryKindTypes() string {
+	supported := set.NewStrings()
+	for k, _ := range status.AllHistoryKind() {
+		supported.Add(string(k))
+	}
+	return strings.Join(supported.SortedValues(), "|")
+}
+
+func supportedHistoryKindDescs() string {
+	types := status.AllHistoryKind()
+	supported := set.NewStrings()
+	for k, _ := range types {
+		supported.Add(string(k))
+	}
+	all := ""
+	for _, k := range supported.SortedValues() {
+		all += fmt.Sprintf("    %v:  %v\n", k, types[status.HistoryKind(k)])
+	}
+	return all
+}
+
 func (c *statusHistoryCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.outputContent, "type", "unit", "Type of statuses to be displayed [agent|workload|combined|machine|machineInstance|container|containerinstance]")
+	f.StringVar(&c.outputContent, "type", "unit", fmt.Sprintf("Type of statuses to be displayed [%v]", supportedHistoryKindTypes()))
 	f.IntVar(&c.backlogSize, "n", 0, "Returns the last N logs (cannot be combined with --days or --date)")
 	f.IntVar(&c.backlogSizeDays, "days", 0, "Returns the logs for the past <days> days (cannot be combined with -n or --date)")
 	f.StringVar(&c.backlogDate, "from-date", "", "Returns logs for any date after the passed one, the expected date format is YYYY-MM-DD (cannot be combined with -n or --days)")
@@ -123,8 +148,15 @@ func (c *statusHistoryCommand) Init(args []string) error {
 
 const runningHookMSG = "running update-status hook"
 
+func (c *statusHistoryCommand) getAPI() (HistoryAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
+	return c.NewAPIClient()
+}
+
 func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := c.NewAPIClient()
+	apiclient, err := c.getAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -174,24 +206,19 @@ func (c *statusHistoryCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("no status history available")
 	}
 
-	table := [][]string{{"TIME", "TYPE", "STATUS", "MESSAGE"}}
-	lengths := []int{1, 1, 1, 1}
-
-	statuses = statuses.SquashLogs(1)
-	statuses = statuses.SquashLogs(2)
-	statuses = statuses.SquashLogs(3)
-	for _, v := range statuses {
-		fields := []string{common.FormatTime(v.Since, c.isoTime), string(v.Kind), string(v.Status), v.Info}
-		for k, v := range fields {
-			if len(v) > lengths[k] {
-				lengths[k] = len(v)
-			}
-		}
-		table = append(table, fields)
-	}
-	f := fmt.Sprintf("%%-%ds\t%%-%ds\t%%-%ds\t%%-%ds\n", lengths[0], lengths[1], lengths[2], lengths[3])
-	for _, v := range table {
-		fmt.Printf(f, v[0], v[1], v[2], v[3])
-	}
+	c.writeTabular(ctx.Stdout, statuses)
 	return nil
+}
+
+func (c *statusHistoryCommand) writeTabular(writer io.Writer, statuses status.History) {
+	tw := output.TabWriter(writer)
+	w := output.Wrapper{tw}
+
+	w.Println("Time", "Type", "Status", "Message")
+	for _, v := range statuses {
+		w.Print(common.FormatTime(v.Since, c.isoTime), v.Kind)
+		w.PrintStatus(v.Status)
+		w.Println(v.Info)
+	}
+	tw.Flush()
 }

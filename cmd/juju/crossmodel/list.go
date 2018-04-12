@@ -5,92 +5,126 @@ package crossmodel
 
 import (
 	"fmt"
+	"regexp"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/api/applicationoffers"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/jujuclient"
 )
 
 const listCommandDoc = `
-List information about applications' endpoints that have been shared.
+List information about applications' endpoints that have been shared and who is connected.
 
-options:
--o, --output (= "")
-   specify an output file
---format (= tabular)
-   specify output format (json|tabular|yaml)
-[[--<filter-scope> ]<filter-term>],...
-   <filter-term> is free text and will be matched against any of:
-       - endpoint URL prefix
-       - interface name
-       - charm name
-   <filter-scope> is optional and is used to limit the scope of the search using the search term, one of:
-       - url
-       - interface
-       - charm
+The default tabular output shows each user connected (relating to) the offer, and the 
+relation id of the relation.
+
+The summary output shows one row per offer, with a count of active/total relations.
+
+The YAML output shows additional information about the source of connections, including
+the source model UUID.
+
+The output can be filtered by:
+ - interface: the interface name of the endpoint
+ - application: the name of the offered application
+ - connected user: the name of a user who has a relation to the offer
+ - allowed consumer: the name of a user allowed to consume the offer
+ - active only: only show offers which are in use (are related to)
 
 Examples:
     $ juju offers
-    $ juju offers user/model
-    $ juju offers --url user/model
+    $ juju offers -m model
     $ juju offers --interface db2
+    $ juju offers --application mysql
+    $ juju offers --connected-user fred
+    $ juju offers --allowed-consumer mary
+    $ juju offers hosted-mysql
+    $ juju offers hosted-mysql --active-only
 
-    $ juju offers --interface db2
-    mycontroller
-    Application  Charm  Connected  Store         URL                     Endpoint  Interface  Role
-    db2          db2    123        mycontroller  admin/controller.mysql  db        db2        provider
-
+See also:
+   find-offers   
+   show-offer
 `
 
 // listCommand returns storage instances.
 type listCommand struct {
-	CrossModelCommandBase
+	modelcmd.ModelCommandBase
 
 	out cmd.Output
 
-	newAPIFunc func() (ListAPI, error)
+	newAPIFunc    func() (ListAPI, error)
+	refreshModels func(jujuclient.ClientStore, string) error
 
-	filters []crossmodel.ApplicationOfferFilter
+	activeOnly        bool
+	interfaceName     string
+	applicationName   string
+	connectedUserName string
+	consumerName      string
+	offerName         string
+	filters           []crossmodel.ApplicationOfferFilter
 }
 
 // NewListEndpointsCommand constructs new list endpoint command.
 func NewListEndpointsCommand() cmd.Command {
 	listCmd := &listCommand{}
 	listCmd.newAPIFunc = func() (ListAPI, error) {
-		return listCmd.NewCrossModelAPI()
+		return listCmd.NewApplicationOffersAPI()
 	}
+	listCmd.refreshModels = listCmd.ModelCommandBase.RefreshModels
 	return modelcmd.Wrap(listCmd)
+}
+
+// NewApplicationOffersAPI returns an application offers api for the root api endpoint
+// that the command returns.
+func (c *listCommand) NewApplicationOffersAPI() (*applicationoffers.Client, error) {
+	root, err := c.NewControllerAPIRoot()
+	if err != nil {
+		return nil, err
+	}
+	return applicationoffers.NewClient(root), nil
 }
 
 // Init implements Command.Init.
 func (c *listCommand) Init(args []string) (err error) {
-	// TODO (anastasiamac 2015-11-17)  need to get filters from user input
-	return cmd.CheckEmpty(args)
+	offerName, err := cmd.ZeroOrOneArgs(args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.offerName = offerName
+	return nil
 }
 
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "offers",
+		Args:    "[<offer-name>]",
 		Aliases: []string{"list-offers"},
-		Purpose: "Lists shared endpoints",
+		Purpose: "Lists shared endpoints.",
 		Doc:     listCommandDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CrossModelCommandBase.SetFlags(f)
-
-	// TODO (anastasiamac 2015-11-17)  need to get filters from user input
+	c.ModelCommandBase.SetFlags(f)
+	f.StringVar(&c.applicationName, "application", "", "return results matching the application")
+	f.StringVar(&c.interfaceName, "interface", "", "return results matching the interface name")
+	f.StringVar(&c.consumerName, "allowed-consumer", "", "return results where the user is allowed to consume the offer")
+	f.StringVar(&c.connectedUserName, "connected-user", "", "return results where the user has a connection to the offer")
+	f.BoolVar(&c.activeOnly, "active-only", false, "only return results where the offer is in use")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 		"tabular": formatListTabular,
+		"summary": formatListSummary,
 	})
 }
 
@@ -102,30 +136,55 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	// TODO (anastasiamac 2015-11-17) add input filters
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	modelName, _, err := c.ModelDetails()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !jujuclient.IsQualifiedModelName(modelName) {
+		store := modelcmd.QualifyingClientStore{c.ClientStore()}
+		var err error
+		modelName, err = store.QualifiedModelName(controllerName, modelName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	unqualifiedModelName, ownerTag, err := jujuclient.SplitModelName(modelName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.filters = []crossmodel.ApplicationOfferFilter{{
+		OwnerName:       ownerTag.Name(),
+		ModelName:       unqualifiedModelName,
+		ApplicationName: c.applicationName,
+	}}
+	if c.offerName != "" {
+		c.filters[0].OfferName = fmt.Sprintf("^%v$", regexp.QuoteMeta(c.offerName))
+	}
+	if c.interfaceName != "" {
+		c.filters[0].Endpoints = []crossmodel.EndpointFilterTerm{{
+			Interface: c.interfaceName,
+		}}
+	}
+	if c.connectedUserName != "" {
+		c.filters[0].ConnectedUsers = []string{c.connectedUserName}
+	}
+	if c.consumerName != "" {
+		c.filters[0].AllowedConsumers = []string{c.consumerName}
+	}
+
 	offeredApplications, err := api.ListOffers(c.filters...)
 	if err != nil {
 		return err
 	}
 
-	// Filter out valid output, if any...
-	valid := []crossmodel.ApplicationOfferDetails{}
-	for _, application := range offeredApplications {
-		if application.Error != nil {
-			fmt.Fprintf(ctx.Stderr, "%v\n", application.Error)
-			continue
-		}
-		if application.Result != nil {
-			valid = append(valid, *application.Result)
-		}
-	}
-	if len(valid) == 0 {
-		return nil
-	}
-
 	// For now, all offers come from the one controller.
-	controllerName := c.ControllerName()
-	data, err := formatApplicationOfferDetails(controllerName, valid)
+	data, err := formatApplicationOfferDetails(controllerName, offeredApplications, c.activeOnly)
 	if err != nil {
 		return errors.Annotate(err, "failed to format found applications")
 	}
@@ -136,30 +195,60 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 // ListAPI defines the API methods that list endpoints command use.
 type ListAPI interface {
 	Close() error
-	ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOfferDetailsResult, error)
+	ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*crossmodel.ApplicationOfferDetails, error)
 }
 
 // ListOfferItem defines the serialization behaviour of an offer item in endpoints list.
 type ListOfferItem struct {
-	// CharmName is the charm name of this application.
-	CharmName string `yaml:"charm,omitempty" json:"charm,omitempty"`
+	// OfferName is the name of the offer.
+	OfferName string `yaml:"-" json:"-"`
 
-	// UsersCount is the count of how many users are connected to this shared application.
-	UsersCount int `yaml:"connected,omitempty" json:"connected,omitempty"`
+	// ApplicationName is the application backing this offer.
+	ApplicationName string `yaml:"application" json:"application"`
 
-	// Location is part of Juju location where this application is shared relative to the store.
-	Location string `yaml:"url" json:"url"`
+	// Store is the controller hosting this offer.
+	Source string `yaml:"store,omitempty" json:"store,omitempty"`
+
+	// CharmURL is the charm URL of this application.
+	CharmURL string `yaml:"charm,omitempty" json:"charm,omitempty"`
+
+	// OfferURL is part of Juju location where this offer is shared relative to the store.
+	OfferURL string `yaml:"offer-url" json:"offer-url"`
 
 	// Endpoints is a list of application endpoints.
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
+
+	// Connections holds details of connections to the offer.
+	Connections []offerConnectionDetails `yaml:"connections,omitempty" json:"connections,omitempty"`
+
+	// Users are the users who can consume the offer.
+	Users map[string]OfferUser `yaml:"users,omitempty" json:"users,omitempty"`
 }
 
-type directoryApplications map[string]ListOfferItem
+type offeredApplications map[string]ListOfferItem
 
-func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOfferDetails) (map[string]directoryApplications, error) {
-	controllerOffers := make(map[string]directoryApplications)
+type offerConnectionStatus struct {
+	Current string `json:"current" yaml:"current"`
+	Message string `json:"message,omitempty" yaml:"message,omitempty"`
+	Since   string `json:"since,omitempty" yaml:"since,omitempty"`
+}
+
+type offerConnectionDetails struct {
+	SourceModelUUID string                `json:"source-model-uuid" yaml:"source-model-uuid"`
+	Username        string                `json:"username" yaml:"username"`
+	RelationId      int                   `json:"relation-id" yaml:"relation-id"`
+	Endpoint        string                `json:"endpoint" yaml:"endpoint"`
+	Status          offerConnectionStatus `json:"status" yaml:"status"`
+	IngressSubnets  []string              `json:"ingress-subnets,omitempty" yaml:"ingress-subnets,omitempty"`
+}
+
+func formatApplicationOfferDetails(store string, all []*crossmodel.ApplicationOfferDetails, activeOnly bool) (offeredApplications, error) {
+	result := make(offeredApplications)
 	for _, one := range all {
-		url, err := crossmodel.ParseApplicationURL(one.OfferURL)
+		if activeOnly && len(one.Connections) == 0 {
+			continue
+		}
+		url, err := crossmodel.ParseOfferURL(one.OfferURL)
 		if err != nil {
 			return nil, errors.Annotatef(err, "%v", one.OfferURL)
 		}
@@ -167,27 +256,44 @@ func formatApplicationOfferDetails(store string, all []crossmodel.ApplicationOff
 			url.Source = store
 		}
 
-		// Get offers for this controller.
-		offersMap, ok := controllerOffers[url.Source]
-		if !ok {
-			offersMap = make(directoryApplications)
-			controllerOffers[url.Source] = offersMap
-		}
-
 		// Store offers by name.
-		offersMap[one.OfferName] = convertOfferToListItem(url, one)
+		result[one.OfferName] = convertOfferToListItem(url, one)
 	}
-	return controllerOffers, nil
+	return result, nil
 }
 
-func convertOfferToListItem(url *crossmodel.ApplicationURL, offer crossmodel.ApplicationOfferDetails) ListOfferItem {
+func convertOfferToListItem(url *crossmodel.OfferURL, offer *crossmodel.ApplicationOfferDetails) ListOfferItem {
 	item := ListOfferItem{
-		CharmName:  offer.CharmName,
-		Location:   offer.OfferURL,
-		UsersCount: offer.ConnectedCount,
-		Endpoints:  convertCharmEndpoints(offer.Endpoints...),
+		OfferName:       offer.OfferName,
+		ApplicationName: offer.ApplicationName,
+		Source:          url.Source,
+		CharmURL:        offer.CharmURL,
+		OfferURL:        offer.OfferURL,
+		Endpoints:       convertCharmEndpoints(offer.Endpoints...),
+		Users:           convertUsers(offer.Users...),
+	}
+	for _, conn := range offer.Connections {
+		item.Connections = append(item.Connections, offerConnectionDetails{
+			SourceModelUUID: conn.SourceModelUUID,
+			Username:        conn.Username,
+			RelationId:      conn.RelationId,
+			Endpoint:        conn.Endpoint,
+			Status: offerConnectionStatus{
+				Current: conn.Status.String(),
+				Message: conn.Message,
+				Since:   friendlyDuration(conn.Since),
+			},
+			IngressSubnets: conn.IngressSubnets,
+		})
 	}
 	return item
+}
+
+func friendlyDuration(when *time.Time) string {
+	if when == nil {
+		return ""
+	}
+	return common.UserFriendlyDuration(*when, time.Now())
 }
 
 // convertCharmEndpoints takes any number of charm relations and
@@ -198,7 +304,7 @@ func convertCharmEndpoints(relations ...charm.Relation) map[string]RemoteEndpoin
 	}
 	output := make(map[string]RemoteEndpoint, len(relations))
 	for _, one := range relations {
-		output[one.Name] = RemoteEndpoint{one.Interface, string(one.Role)}
+		output[one.Name] = RemoteEndpoint{one.Name, one.Interface, string(one.Role)}
 	}
 	return output
 }

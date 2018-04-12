@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
 )
@@ -38,7 +39,6 @@ func NewClient(st base.APICallCloser) *Client {
 		facade:              backend,
 		ControllerConfigAPI: common.NewControllerConfig(backend),
 		ModelStatusAPI:      common.NewModelStatusAPI(backend),
-		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(backend),
 	}
 }
 
@@ -51,19 +51,30 @@ func (c *Client) AllModels() ([]base.UserModel, error) {
 		return nil, errors.Trace(err)
 	}
 	result := make([]base.UserModel, len(models.UserModels))
-	for i, model := range models.UserModels {
-		owner, err := names.ParseUserTag(model.OwnerTag)
+	for i, usermodel := range models.UserModels {
+		owner, err := names.ParseUserTag(usermodel.OwnerTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", model.OwnerTag, i)
+			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", usermodel.OwnerTag, i)
+		}
+		modelType := model.ModelType(usermodel.Type)
+		if modelType == "" {
+			modelType = model.IAAS
 		}
 		result[i] = base.UserModel{
-			Name:           model.Name,
-			UUID:           model.UUID,
+			Name:           usermodel.Name,
+			UUID:           usermodel.UUID,
+			Type:           modelType,
 			Owner:          owner.Id(),
-			LastConnection: model.LastConnection,
+			LastConnection: usermodel.LastConnection,
 		}
 	}
 	return result, nil
+}
+
+// CloudSpec returns a CloudSpec for the specified model.
+func (c *Client) CloudSpec(modelTag names.ModelTag) (environs.CloudSpec, error) {
+	api := cloudspec.NewCloudSpecAPI(c.facade, modelTag)
+	return api.CloudSpec()
 }
 
 // ModelConfig returns all model settings for the
@@ -123,15 +134,35 @@ func (c *Client) HostedModelConfigs() ([]HostedConfig, error) {
 	return hostedConfigs, err
 }
 
+// DestroyControllerParams controls the behaviour of destroying the controller.
+type DestroyControllerParams struct {
+	// DestroyModels controls whether or not all hosted models should be
+	// destroyed. If this is false, and there are non-empty hosted models,
+	// an error with the code params.CodeHasHostedModels will be returned.
+	DestroyModels bool
+
+	// DestroyStorage controls whether or not storage in the model (and
+	// hosted models, if DestroyModels is true) should be destroyed.
+	//
+	// This is ternary: nil, false, or true. If nil and there is persistent
+	// storage in the model (or hosted models), an error with the code
+	// params.CodeHasPersistentStorage will be returned.
+	DestroyStorage *bool
+}
+
 // DestroyController puts the controller model into a "dying" state,
-// and removes all non-manager machine instances. Underlying DestroyModel
-// calls will fail if there are any manually-provisioned non-manager machines
-// in state.
-func (c *Client) DestroyController(destroyModels bool) error {
-	args := params.DestroyControllerArgs{
-		DestroyModels: destroyModels,
+// and removes all non-manager machine instances.
+func (c *Client) DestroyController(args DestroyControllerParams) error {
+	if c.BestAPIVersion() < 4 {
+		if args.DestroyStorage == nil || !*args.DestroyStorage {
+			return errors.New("this Juju controller requires DestroyStorage to be true")
+		}
+		args.DestroyStorage = nil
 	}
-	return c.facade.FacadeCall("DestroyController", args, nil)
+	return c.facade.FacadeCall("DestroyController", params.DestroyControllerArgs{
+		DestroyModels:  args.DestroyModels,
+		DestroyStorage: args.DestroyStorage,
+	}, nil)
 }
 
 // ListBlockedModels returns a list of all models within the controller
@@ -214,6 +245,18 @@ func (c *Client) GetControllerAccess(user string) (permission.Access, error) {
 	return permission.Access(results.Results[0].Result.Access), nil
 }
 
+// ConfigSet updates the passed controller configuration values. Any
+// settings that aren't passed will be left with their previous
+// values.
+func (c *Client) ConfigSet(values map[string]interface{}) error {
+	if c.BestAPIVersion() < 5 {
+		return errors.Errorf("this controller version doesn't support updating controller config")
+	}
+	return errors.Trace(
+		c.facade.FacadeCall("ConfigSet", params.ControllerConfigSet{Config: values}, nil),
+	)
+}
+
 // MigrationSpec holds the details required to start the migration of
 // a single model.
 type MigrationSpec struct {
@@ -224,8 +267,6 @@ type MigrationSpec struct {
 	TargetUser           string
 	TargetPassword       string
 	TargetMacaroons      []macaroon.Slice
-	ExternalControl      bool
-	SkipInitialPrechecks bool
 }
 
 // Validate performs sanity checks on the migration configuration it
@@ -239,9 +280,6 @@ func (s *MigrationSpec) Validate() error {
 	}
 	if len(s.TargetAddrs) < 1 {
 		return errors.NotValidf("empty target API addresses")
-	}
-	if s.TargetCACert == "" {
-		return errors.NotValidf("empty target CA cert")
 	}
 	if !names.IsValidUser(s.TargetUser) {
 		return errors.NotValidf("target user")
@@ -260,12 +298,12 @@ func (s *MigrationSpec) Validate() error {
 // this call just supports starting one migration at a time.
 func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 	if err := spec.Validate(); err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotatef(err, "client-side validation failed")
 	}
 
 	macsJSON, err := macaroonsToJSON(spec.TargetMacaroons)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotatef(err, "client-side validation failed")
 	}
 
 	args := params.InitiateMigrationArgs{
@@ -279,8 +317,6 @@ func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 				Password:      spec.TargetPassword,
 				Macaroons:     string(macsJSON),
 			},
-			ExternalControl:      spec.ExternalControl,
-			SkipInitialPrechecks: spec.SkipInitialPrechecks,
 		}},
 	}
 	response := params.InitiateMigrationResults{}

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
+	"github.com/Azure/azure-sdk-for-go/arm/disk"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
 	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
 	"github.com/Azure/azure-sdk-for-go/arm/storage"
@@ -37,13 +38,14 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	jujunetwork "github.com/juju/juju/network"
+
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
+	internalazureresources "github.com/juju/juju/provider/azure/internal/azureresources"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/juju/provider/azure/internal/tracing"
+	"github.com/juju/juju/provider/azure/internal/useragent"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 )
 
@@ -63,6 +65,10 @@ const (
 	// controllerAvailabilitySet is the name of the availability set
 	// used for controller machines.
 	controllerAvailabilitySet = "juju-controller"
+
+	computeAPIVersion = "2016-04-30-preview"
+	networkAPIVersion = "2017-03-01"
+	storageAPIVersion = "2016-12-01"
 )
 
 type azureEnviron struct {
@@ -95,6 +101,7 @@ type azureEnviron struct {
 	authorizer *cloudSpecAuth
 
 	compute            compute.ManagementClient
+	disk               disk.ManagementClient
 	resources          resources.ManagementClient
 	storage            storage.ManagementClient
 	network            network.ManagementClient
@@ -104,13 +111,12 @@ type azureEnviron struct {
 	mu                     sync.Mutex
 	config                 *azureModelConfig
 	instanceTypes          map[string]instances.InstanceType
-	storageAccount         *storage.Account
+	storageAccount         **storage.Account
 	storageAccountKey      *storage.AccountKey
 	commonResourcesCreated bool
 }
 
 var _ environs.Environ = (*azureEnviron)(nil)
-var _ state.Prechecker = (*azureEnviron)(nil)
 
 // newEnviron creates a new azureEnviron.
 func newEnviron(
@@ -167,16 +173,19 @@ func (env *azureEnviron) initEnviron() error {
 	}
 
 	env.compute = compute.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
+	env.disk = disk.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.resources = resources.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.storage = storage.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	env.network = network.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
 	clients := map[string]*autorest.Client{
 		"azure.compute":   &env.compute.Client,
+		"azure.disk":      &env.disk.Client,
 		"azure.resources": &env.resources.Client,
 		"azure.storage":   &env.storage.Client,
 		"azure.network":   &env.network.Client,
 	}
 	for id, client := range clients {
+		useragent.UpdateClient(client)
 		client.Authorizer = env.authorizer
 		logger := loggo.GetLogger(id)
 		if env.provider.config.Sender != nil {
@@ -244,18 +253,13 @@ func (env *azureEnviron) initResourceGroup(controllerUUID string, controller boo
 		names.NewControllerTag(controllerUUID),
 		env.config,
 	)
-	storageAccountType := env.config.storageAccountType
 	env.mu.Unlock()
 
 	logger.Debugf("creating resource group %q", env.resourceGroup)
-	err := env.callAPI(func() (autorest.Response, error) {
-		group, err := resourceGroupsClient.CreateOrUpdate(env.resourceGroup, resources.ResourceGroup{
-			Location: to.StringPtr(env.location),
-			Tags:     to.StringMapPtr(tags),
-		})
-		return group.Response, err
-	})
-	if err != nil {
+	if _, err := resourceGroupsClient.CreateOrUpdate(env.resourceGroup, resources.Group{
+		Location: to.StringPtr(env.location),
+		Tags:     to.StringMapPtr(tags),
+	}); err != nil {
 		return errors.Annotate(err, "creating resource group")
 	}
 
@@ -266,29 +270,27 @@ func (env *azureEnviron) initResourceGroup(controllerUUID string, controller boo
 		// e.g. those made by the firewaller. For the controller model,
 		// we fold the creation of these resources into the bootstrap
 		// machine's deployment.
-		if err := env.createCommonResourceDeployment(
-			tags, storageAccountType, nil,
-		); err != nil {
+		if err := env.createCommonResourceDeployment(tags, nil); err != nil {
 			return errors.Trace(err)
 		}
 	}
+
+	// New models are not given a storage account. Initialise the
+	// storage account pointer to a pointer to a nil pointer, so
+	// "getStorageAccount" avoids making an API call.
+	env.storageAccount = new(*storage.Account)
+
 	return nil
 }
 
 func (env *azureEnviron) createCommonResourceDeployment(
 	tags map[string]string,
-	storageAccountType string,
 	rules []network.SecurityRule,
+	commonResources ...armtemplates.Resource,
 ) error {
-	const apiPort = -1
-	commonResources := networkTemplateResources(
-		env.location, tags, apiPort, rules,
-	)
-	commonResources = append(commonResources, storageAccountTemplateResource(
-		env.location, tags,
-		env.storageAccountName,
-		storageAccountType,
-	))
+	commonResources = append(commonResources, networkTemplateResources(
+		env.location, tags, nil, rules,
+	)...)
 
 	// We perform this deployment asynchronously, to avoid blocking
 	// the "juju add-model" command; Create is called synchronously.
@@ -301,7 +303,6 @@ func (env *azureEnviron) createCommonResourceDeployment(
 	)
 	template := armtemplates.Template{Resources: commonResources}
 	if err := createDeployment(
-		env.callAPI,
 		deploymentsClient,
 		env.resourceGroup,
 		"common", // deployment name
@@ -390,12 +391,12 @@ func (env *azureEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
-// PrecheckInstance is defined on the state.Prechecker interface.
-func (env *azureEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	if placement != "" {
-		return fmt.Errorf("unknown placement directive: %s", placement)
+// PrecheckInstance is defined on the environs.InstancePrechecker interface.
+func (env *azureEnviron) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+	if args.Placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", args.Placement)
 	}
-	if !cons.HasInstanceType() {
+	if !args.Constraints.HasInstanceType() {
 		return nil
 	}
 	// Constraint has an instance-type constraint so let's see if it is valid.
@@ -404,11 +405,11 @@ func (env *azureEnviron) PrecheckInstance(series string, cons constraints.Value,
 		return err
 	}
 	for _, instanceType := range instanceTypes {
-		if instanceType.Name == *cons.InstanceType {
+		if instanceType.Name == *args.Constraints.InstanceType {
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid instance type %q", *cons.InstanceType)
+	return fmt.Errorf("invalid instance type %q", *args.Constraints.InstanceType)
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.
@@ -495,7 +496,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("picked tools %q", selectedTools[0].Version)
+	logger.Infof("picked agent binaries %q", selectedTools[0].Version)
 
 	// Finalize the instance config, which we'll render to CustomData below.
 	if err := args.InstanceConfig.SetTools(selectedTools); err != nil {
@@ -558,19 +559,22 @@ func (env *azureEnviron) createVirtualMachine(
 	instanceConfig *instancecfg.InstanceConfig,
 	storageAccountType string,
 ) error {
-
-	deploymentsClient := resources.DeploymentsClient{env.resources}
-
-	var apiPort int
+	deploymentsClient := resources.DeploymentsClient{
+		ManagementClient: env.resources,
+	}
+	apiPorts := make([]int, 0, 2)
 	if instanceConfig.Controller != nil {
-		apiPortValue := instanceConfig.Controller.Config.APIPort()
-		apiPort = apiPortValue
-	} else {
-		apiPorts := instanceConfig.APIInfo.Ports()
-		if len(apiPorts) != 1 {
-			return errors.Errorf("expected one API port, found %v", apiPorts)
+		apiPorts = append(apiPorts, instanceConfig.Controller.Config.APIPort())
+		if instanceConfig.Controller.Config.AutocertDNSName() != "" {
+			// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
+			apiPorts = append(apiPorts, 80)
 		}
-		apiPort = apiPorts[0]
+	} else {
+		ports := instanceConfig.APIInfo.Ports()
+		if len(ports) != 1 {
+			return errors.Errorf("expected one API port, found %v", ports)
+		}
+		apiPorts = append(apiPorts, ports[0])
 	}
 
 	var nicDependsOn, vmDependsOn []string
@@ -579,19 +583,12 @@ func (env *azureEnviron) createVirtualMachine(
 	if createCommonResources {
 		// We're starting the bootstrap machine, so we will create the
 		// common resources in the same deployment.
-		commonResources := networkTemplateResources(env.location, envTags, apiPort, nil)
-		commonResources = append(commonResources, storageAccountTemplateResource(
-			env.location, envTags,
-			env.storageAccountName, storageAccountType,
-		))
-		resources = append(resources, commonResources...)
+		resources = append(resources,
+			networkTemplateResources(env.location, envTags, apiPorts, nil)...,
+		)
 		nicDependsOn = append(nicDependsOn, fmt.Sprintf(
 			`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`,
 			internalNetworkName,
-		))
-		vmDependsOn = append(vmDependsOn, fmt.Sprintf(
-			`[resourceId('Microsoft.Storage/storageAccounts', '%s')]`,
-			env.storageAccountName,
 		))
 	} else {
 		// Wait for the common resource deployment to complete.
@@ -602,6 +599,17 @@ func (env *azureEnviron) createVirtualMachine(
 		}
 	}
 
+	maybeStorageAccount, err := env.getStorageAccount()
+	if errors.IsNotFound(err) {
+		// Only models created prior to Juju 2.3 will have a storage
+		// account. Juju 2.3 onwards exclusively uses managed disks
+		// for all new models, and handles both managed and unmanaged
+		// disks for upgraded models.
+		maybeStorageAccount = nil
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
 	osProfile, seriesOS, err := newOSProfile(
 		vmName, instanceConfig,
 		env.provider.config.RandomWindowsAdminPassword,
@@ -610,7 +618,12 @@ func (env *azureEnviron) createVirtualMachine(
 	if err != nil {
 		return errors.Annotate(err, "creating OS profile")
 	}
-	storageProfile, err := newStorageProfile(vmName, env.storageAccountName, instanceSpec)
+	storageProfile, err := newStorageProfile(
+		vmName,
+		maybeStorageAccount,
+		storageAccountType,
+		instanceSpec,
+	)
 	if err != nil {
 		return errors.Annotate(err, "creating storage profile")
 	}
@@ -627,12 +640,32 @@ func (env *azureEnviron) createVirtualMachine(
 			`[resourceId('Microsoft.Compute/availabilitySets','%s')]`,
 			availabilitySetName,
 		)
+		var availabilitySetProperties interface{}
+		if maybeStorageAccount == nil {
+			// This model uses managed disks; we must create
+			// the availability set as "aligned" to support
+			// them.
+			availabilitySetProperties = &compute.AvailabilitySetProperties{
+				// Managed means the availability set is
+				// "aligned", allowing managed disks to be
+				// used.
+				Managed: to.BoolPtr(true),
+
+				// Azure complains when the fault domain count
+				// is not specified, even though it is meant
+				// to be optional and default to the maximum.
+				// The maximum depends on the location, and
+				// there is no API to query it.
+				PlatformFaultDomainCount: to.Int32Ptr(maxFaultDomains(env.location)),
+			}
+		}
 		resources = append(resources, armtemplates.Resource{
-			APIVersion: compute.APIVersion,
+			APIVersion: computeAPIVersion,
 			Type:       "Microsoft.Compute/availabilitySets",
 			Name:       availabilitySetName,
 			Location:   env.location,
 			Tags:       envTags,
+			Properties: availabilitySetProperties,
 		})
 		availabilitySetSubResource = &compute.SubResource{
 			ID: to.StringPtr(availabilitySetId),
@@ -643,7 +676,7 @@ func (env *azureEnviron) createVirtualMachine(
 	publicIPAddressName := vmName + "-public-ip"
 	publicIPAddressId := fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, publicIPAddressName)
 	resources = append(resources, armtemplates.Resource{
-		APIVersion: network.APIVersion,
+		APIVersion: networkAPIVersion,
 		Type:       "Microsoft.Network/publicIPAddresses",
 		Name:       publicIPAddressName,
 		Location:   env.location,
@@ -676,7 +709,7 @@ func (env *azureEnviron) createVirtualMachine(
 	nicDependsOn = append(nicDependsOn, publicIPAddressId)
 	ipConfigurations := []network.InterfaceIPConfiguration{{
 		Name: to.StringPtr("primary"),
-		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
+		InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
 			Primary:                   to.BoolPtr(true),
 			PrivateIPAddress:          to.StringPtr(privateIP.String()),
 			PrivateIPAllocationMethod: network.Static,
@@ -687,7 +720,7 @@ func (env *azureEnviron) createVirtualMachine(
 		},
 	}}
 	resources = append(resources, armtemplates.Resource{
-		APIVersion: network.APIVersion,
+		APIVersion: networkAPIVersion,
 		Type:       "Microsoft.Network/networkInterfaces",
 		Name:       nicName,
 		Location:   env.location,
@@ -700,13 +733,13 @@ func (env *azureEnviron) createVirtualMachine(
 
 	nics := []compute.NetworkInterfaceReference{{
 		ID: to.StringPtr(nicId),
-		Properties: &compute.NetworkInterfaceReferenceProperties{
+		NetworkInterfaceReferenceProperties: &compute.NetworkInterfaceReferenceProperties{
 			Primary: to.BoolPtr(true),
 		},
 	}}
 	vmDependsOn = append(vmDependsOn, nicId)
 	resources = append(resources, armtemplates.Resource{
-		APIVersion: compute.APIVersion,
+		APIVersion: computeAPIVersion,
 		Type:       "Microsoft.Compute/virtualMachines",
 		Name:       vmName,
 		Location:   env.location,
@@ -738,7 +771,7 @@ func (env *azureEnviron) createVirtualMachine(
 			)
 		}
 		resources = append(resources, armtemplates.Resource{
-			APIVersion: compute.APIVersion,
+			APIVersion: computeAPIVersion,
 			Type:       "Microsoft.Compute/virtualMachines/extensions",
 			Name:       vmName + "/" + extensionName,
 			Location:   env.location,
@@ -758,7 +791,6 @@ func (env *azureEnviron) createVirtualMachine(
 		deploymentsClient.ResponseInspector,
 	)
 	if err := createDeployment(
-		env.callAPI,
 		deploymentsClient,
 		env.resourceGroup,
 		vmName, // deployment name
@@ -769,6 +801,32 @@ func (env *azureEnviron) createVirtualMachine(
 	return nil
 }
 
+// maxFaultDomains returns the maximum number of fault domains for the
+// given location/region. The numbers were taken from
+// https://docs.microsoft.com/en-au/azure/virtual-machines/windows/manage-availability,
+// as at 31 August 2017.
+func maxFaultDomains(location string) int32 {
+	// From the page linked in the doc comment:
+	// "The number of fault domains for managed availability sets varies
+	// by region - either two or three per region."
+	//
+	// We record those that at the time of writing have 3. Anything
+	// else has at least 2, so we just assume 2.
+	switch location {
+	case
+		"eastus",
+		"eastus2",
+		"westus",
+		"centralus",
+		"northcentralus",
+		"southcentralus",
+		"northeurope",
+		"westeurope":
+		return 3
+	}
+	return 2
+}
+
 // waitCommonResourcesCreated waits for the "common" deployment to complete.
 func (env *azureEnviron) waitCommonResourcesCreated() error {
 	env.mu.Lock()
@@ -776,10 +834,38 @@ func (env *azureEnviron) waitCommonResourcesCreated() error {
 	if env.commonResourcesCreated {
 		return nil
 	}
-	if err := env.waitCommonResourcesCreatedLocked(); err != nil {
+	deployment, err := env.waitCommonResourcesCreatedLocked()
+	if err != nil {
 		return errors.Trace(err)
 	}
 	env.commonResourcesCreated = true
+	if deployment != nil {
+		// Check if the common deployment created
+		// a storage account. If it didn't, we can
+		// avoid a query for the storage account.
+		var hasStorageAccount bool
+		if deployment.Properties.Providers != nil {
+			for _, p := range *deployment.Properties.Providers {
+				if to.String(p.Namespace) != "Microsoft.Storage" {
+					continue
+				}
+				if p.ResourceTypes == nil {
+					continue
+				}
+				for _, rt := range *p.ResourceTypes {
+					if to.String(rt.ResourceType) != "storageAccounts" {
+						continue
+					}
+					hasStorageAccount = true
+					break
+				}
+				break
+			}
+		}
+		if !hasStorageAccount {
+			env.storageAccount = new(*storage.Account)
+		}
+	}
 	return nil
 }
 
@@ -787,7 +873,7 @@ type deploymentIncompleteError struct {
 	error
 }
 
-func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
+func (env *azureEnviron) waitCommonResourcesCreatedLocked() (*resources.DeploymentExtended, error) {
 	deploymentsClient := resources.DeploymentsClient{env.resources}
 
 	// Release the lock while we're waiting, to avoid blocking others.
@@ -798,13 +884,10 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
 	// for the "common" deployment to be in one of the terminal
 	// states. The deployment typically takes only around 30 seconds,
 	// but we allow for a longer duration to be defensive.
+	var deployment *resources.DeploymentExtended
 	waitDeployment := func() error {
-		var result resources.DeploymentExtended
-		if err := env.callAPI(func() (autorest.Response, error) {
-			var err error
-			result, err = deploymentsClient.Get(env.resourceGroup, "common")
-			return result.Response, err
-		}); err != nil {
+		result, err := deploymentsClient.Get(env.resourceGroup, "common")
+		if err != nil {
 			if result.StatusCode == http.StatusNotFound {
 				// The controller model does not have a "common"
 				// deployment, as its common resources are created
@@ -823,9 +906,10 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
 		if state == "Succeeded" {
 			// The deployment has succeeded, so the resources are
 			// ready for use.
+			deployment = &result
 			return nil
 		}
-		err := errors.Errorf("common resource deployment status is %q", state)
+		err = errors.Errorf("common resource deployment status is %q", state)
 		switch state {
 		case "Canceled", "Failed", "Deleted":
 		default:
@@ -833,7 +917,7 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
 		}
 		return err
 	}
-	return retry.Call(retry.CallArgs{
+	if err := retry.Call(retry.CallArgs{
 		Func: waitDeployment,
 		IsFatalError: func(err error) bool {
 			_, ok := err.(deploymentIncompleteError)
@@ -843,7 +927,10 @@ func (env *azureEnviron) waitCommonResourcesCreatedLocked() error {
 		Delay:       5 * time.Second,
 		MaxDuration: 5 * time.Minute,
 		Clock:       env.provider.config.RetryClock,
-	})
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return deployment, nil
 }
 
 // createAvailabilitySet creates the availability set for a machine to use
@@ -888,7 +975,8 @@ func availabilitySetName(
 // based on the series and chosen instance spec.
 func newStorageProfile(
 	vmName string,
-	storageAccountName string,
+	maybeStorageAccount *storage.Account,
+	storageAccountType string,
 	instanceSpec *instances.InstanceSpec,
 ) (*compute.StorageProfile, error) {
 	logger.Debugf("creating storage profile for %q", vmName)
@@ -902,23 +990,27 @@ func newStorageProfile(
 	sku := urnParts[2]
 	version := urnParts[3]
 
-	osDisksRoot := fmt.Sprintf(
-		`reference(resourceId('Microsoft.Storage/storageAccounts', '%s'), '%s').primaryEndpoints.blob`,
-		storageAccountName, storage.APIVersion,
-	)
 	osDiskName := vmName
-	osDiskURI := fmt.Sprintf(
-		`[concat(%s, '%s/%s%s')]`,
-		osDisksRoot, osDiskVHDContainer, osDiskName, vhdExtension,
-	)
 	osDiskSizeGB := mibToGB(instanceSpec.InstanceType.RootDisk)
 	osDisk := &compute.OSDisk{
 		Name:         to.StringPtr(osDiskName),
 		CreateOption: compute.FromImage,
 		Caching:      compute.ReadWrite,
-		Vhd:          &compute.VirtualHardDisk{URI: to.StringPtr(osDiskURI)},
 		DiskSizeGB:   to.Int32Ptr(int32(osDiskSizeGB)),
 	}
+
+	if maybeStorageAccount == nil {
+		// This model uses managed disks.
+		osDisk.ManagedDisk = &compute.ManagedDiskParameters{
+			StorageAccountType: compute.StorageAccountTypes(storageAccountType),
+		}
+	} else {
+		// This model uses unmanaged disks.
+		osDiskVhdRoot := blobContainerURL(maybeStorageAccount, osDiskVHDContainer)
+		vhdURI := osDiskVhdRoot + osDiskName + vhdExtension
+		osDisk.Vhd = &compute.VirtualHardDisk{to.StringPtr(vhdURI)}
+	}
+
 	return &compute.StorageProfile{
 		ImageReference: &compute.ImageReference{
 			Publisher: to.StringPtr(publisher),
@@ -1038,27 +1130,21 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 		return nil
 	}
 
-	maybeStorageClient, err := env.getStorageClient()
-	if errors.IsNotFound(err) {
-		// It is possible, if unlikely, that the first deployment for a
-		// hosted model will fail or be canceled before the model's
-		// storage account is created. We must therefore cater for the
-		// account being missing or incomplete here.
-		maybeStorageClient = nil
-	} else if err != nil {
+	maybeStorageClient, _, err := env.maybeGetStorageClient()
+	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// List network interfaces and public IP addresses.
 	instanceNics, err := instanceNetworkInterfaces(
-		env.callAPI, env.resourceGroup,
+		env.resourceGroup,
 		network.InterfacesClient{env.network},
 	)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	instancePips, err := instancePublicIPAddresses(
-		env.callAPI, env.resourceGroup,
+		env.resourceGroup,
 		network.PublicIPAddressesClient{env.network},
 	)
 	if err != nil {
@@ -1101,12 +1187,8 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 func (env *azureEnviron) cancelDeployment(name string) error {
 	deploymentsClient := resources.DeploymentsClient{env.resources}
 	logger.Debugf("- canceling deployment %q", name)
-	var cancelResult autorest.Response
-	if err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		cancelResult, err = deploymentsClient.Cancel(env.resourceGroup, name)
-		return cancelResult, err
-	}); err != nil {
+	cancelResult, err := deploymentsClient.Cancel(env.resourceGroup, name)
+	if err != nil {
 		if cancelResult.Response != nil {
 			switch cancelResult.StatusCode {
 			case http.StatusNotFound:
@@ -1134,6 +1216,7 @@ func (env *azureEnviron) deleteVirtualMachine(
 	publicIPAddresses []network.PublicIPAddress,
 ) error {
 	vmClient := compute.VirtualMachinesClient{env.compute}
+	diskClient := disk.DisksClient{env.disk}
 	nicClient := network.InterfacesClient{env.network}
 	nsgClient := network.SecurityGroupsClient{env.network}
 	securityRuleClient := network.SecurityRulesClient{env.network}
@@ -1141,9 +1224,13 @@ func (env *azureEnviron) deleteVirtualMachine(
 	deploymentsClient := resources.DeploymentsClient{env.resources}
 	vmName := string(instId)
 
+	// TODO(axw) delete resources concurrently.
+
+	// The VM must be deleted first, to release the lock on its resources.
 	logger.Debugf("- deleting virtual machine (%s)", vmName)
-	if err := deleteResource(env.callAPI, vmClient, env.resourceGroup, vmName); err != nil {
-		if !errors.IsNotFound(err) {
+	vmResultCh, errCh := vmClient.Delete(env.resourceGroup, vmName, nil)
+	if result, err := <-vmResultCh, <-errCh; err != nil {
+		if !isNotFoundResponse(result.Response) {
 			return errors.Annotate(err, "deleting virtual machine")
 		}
 	}
@@ -1151,15 +1238,25 @@ func (env *azureEnviron) deleteVirtualMachine(
 	if maybeStorageClient != nil {
 		logger.Debugf("- deleting OS VHD (%s)", vmName)
 		blobClient := maybeStorageClient.GetBlobService()
-		if _, err := blobClient.DeleteBlobIfExists(osDiskVHDContainer, vmName, nil); err != nil {
-			return errors.Annotate(err, "deleting OS VHD")
+		vhdContainer := blobClient.GetContainerReference(osDiskVHDContainer)
+		vhdBlob := vhdContainer.Blob(vmName)
+		_, err := vhdBlob.DeleteIfExists(nil)
+		return errors.Annotate(err, "deleting OS VHD")
+	} else {
+		// Delete the managed OS disk.
+		logger.Debugf("- deleting OS disk (%s)", vmName)
+		resultCh, errCh := diskClient.Delete(env.resourceGroup, vmName, nil)
+		if result, err := <-resultCh, <-errCh; err != nil {
+			if !isNotFoundResponse(result.Response) {
+				return errors.Annotate(err, "deleting OS disk")
+			}
 		}
 	}
 
 	logger.Debugf("- deleting security rules (%s)", vmName)
 	if err := deleteInstanceNetworkSecurityRules(
-		env.resourceGroup, instId, nsgClient,
-		securityRuleClient, env.callAPI,
+		env.resourceGroup, instId,
+		nsgClient, securityRuleClient,
 	); err != nil {
 		return errors.Annotate(err, "deleting network security rules")
 	}
@@ -1168,8 +1265,9 @@ func (env *azureEnviron) deleteVirtualMachine(
 	for _, nic := range networkInterfaces {
 		nicName := to.String(nic.Name)
 		logger.Tracef("deleting NIC %q", nicName)
-		if err := deleteResource(env.callAPI, nicClient, env.resourceGroup, nicName); err != nil {
-			if !errors.IsNotFound(err) {
+		resultCh, errCh := nicClient.Delete(env.resourceGroup, nicName, nil)
+		if result, err := <-resultCh, <-errCh; err != nil {
+			if !isNotFoundResponse(result) {
 				return errors.Annotate(err, "deleting NIC")
 			}
 		}
@@ -1179,8 +1277,9 @@ func (env *azureEnviron) deleteVirtualMachine(
 	for _, pip := range publicIPAddresses {
 		pipName := to.String(pip.Name)
 		logger.Tracef("deleting public IP %q", pipName)
-		if err := deleteResource(env.callAPI, pipClient, env.resourceGroup, pipName); err != nil {
-			if !errors.IsNotFound(err) {
+		resultCh, errCh := pipClient.Delete(env.resourceGroup, pipName, nil)
+		if result, err := <-resultCh, <-errCh; err != nil {
+			if !isNotFoundResponse(result) {
 				return errors.Annotate(err, "deleting public IP")
 			}
 		}
@@ -1188,8 +1287,9 @@ func (env *azureEnviron) deleteVirtualMachine(
 
 	// The deployment must be deleted last, or we risk leaking resources.
 	logger.Debugf("- deleting deployment (%s)", vmName)
-	if err := deleteResource(env.callAPI, deploymentsClient, env.resourceGroup, vmName); err != nil {
-		if !errors.IsNotFound(err) {
+	resultCh, errCh := deploymentsClient.Delete(env.resourceGroup, vmName, nil)
+	if result, err := <-resultCh, <-errCh; err != nil {
+		if !isNotFoundResponse(result) {
 			return errors.Annotate(err, "deleting deployment")
 		}
 	}
@@ -1247,42 +1347,31 @@ func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion versi
 		return errors.Trace(err)
 	}
 
-	resourceClient := resources.Client{env.resources}
-	var failed []string
-
-	apiVersions, err := collectAPIVersions(env.callAPI, env.resources)
+	apiVersions, err := collectAPIVersions(resources.ProvidersClient{env.resources})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	var res resources.ResourceListResult
-	err = env.callAPI(func() (autorest.Response, error) {
-		var err error
-		res, err = groupClient.ListResources(env.resourceGroup, "", nil)
-		return res.Response, err
-	})
+	resourceClient := resources.GroupClient{env.resources}
+	res, err := groupClient.ListResources(env.resourceGroup, "", "", nil)
 	if err != nil {
 		return errors.Annotate(err, "listing resources")
 	}
+	var failed []string
 	for res.Value != nil {
 		for _, resource := range *res.Value {
-			// We need to set the API version to a value that's
-			// correct for the specific resource type. If we leave it
-			// as the version for the Microsoft.Resources provider we
-			// get NoRegisteredProviderFound errors.
-			resourceClient.APIVersion = apiVersions[to.String(resource.Type)]
-			err := env.updateResourceControllerTag(&resourceClient, resource, controllerUUID)
+			apiVersion := apiVersions[to.String(resource.Type)]
+			err := env.updateResourceControllerTag(
+				internalazureresources.ResourcesClient{&resourceClient},
+				resource, controllerUUID, apiVersion,
+			)
 			if err != nil {
 				name := to.String(resource.Name)
 				logger.Errorf("error updating resource tags for %q: %v", name, err)
 				failed = append(failed, name)
 			}
 		}
-		err = env.callAPI(func() (autorest.Response, error) {
-			var err error
-			res, err = groupClient.ListResourcesNextResults(res)
-			return res.Response, err
-		})
+		res, err = groupClient.ListResourcesNextResults(res)
 		if err != nil {
 			return errors.Annotate(err, "getting next page of resources")
 		}
@@ -1295,18 +1384,15 @@ func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion versi
 }
 
 func (env *azureEnviron) updateGroupControllerTag(client *resources.GroupsClient, groupName, controllerUUID string) error {
-	var group resources.ResourceGroup
-	err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		group, err = client.Get(groupName)
-		return group.Response, err
-	})
+	group, err := client.Get(groupName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	logger.Debugf("updating resource group %s juju controller uuid to %s",
-		to.String(group.Name), controllerUUID)
+	logger.Debugf(
+		"updating resource group %s juju controller uuid to %s",
+		to.String(group.Name), controllerUUID,
+	)
 	groupTags := toTags(group.Tags)
 	groupTags[tags.JujuController] = controllerUUID
 	group.Tags = to.StringMapPtr(groupTags)
@@ -1316,75 +1402,41 @@ func (env *azureEnviron) updateGroupControllerTag(client *resources.GroupsClient
 		(*group.Properties).ProvisioningState = nil
 	}
 
-	err = env.callAPI(func() (autorest.Response, error) {
-		res, err := client.CreateOrUpdate(groupName, group)
-		return res.Response, err
-	})
+	_, err = client.CreateOrUpdate(groupName, group)
 	return errors.Annotatef(err, "updating controller for resource group %q", groupName)
 }
 
-func (env *azureEnviron) updateResourceControllerTag(client *resources.Client, stubResource resources.GenericResource, controllerUUID string) error {
+func (env *azureEnviron) updateResourceControllerTag(
+	client internalazureresources.ResourcesClient,
+	stubResource resources.GenericResource,
+	controllerUUID string,
+	apiVersion string,
+) error {
 	stubTags := toTags(stubResource.Tags)
 	if stubTags[tags.JujuController] == controllerUUID {
 		// No update needed.
 		return nil
 	}
 
-	namespace, parentPath, subtype, err := splitResourceType(to.String(stubResource.Type))
-	if err != nil {
-		return errors.Annotatef(err, "splitting resource type")
-	}
-
 	// Need to get the resource individually to ensure that the
 	// properties are populated.
-	var resource resources.GenericResource
-	err = env.callAPI(func() (autorest.Response, error) {
-		var err error
-		resource, err = client.Get(
-			env.resourceGroup,
-			namespace,
-			parentPath,
-			subtype,
-			to.String(stubResource.Name),
-		)
-		return resource.Response, err
-	})
+	resource, err := client.GetByID(to.String(stubResource.ID), apiVersion)
 	if err != nil {
 		return errors.Annotatef(err, "getting full resource %q", to.String(stubResource.Name))
 	}
 
-	logger.Debugf("updating %s (%s) juju controller uuid to %s",
-		to.String(resource.Name), to.String(resource.Type), controllerUUID)
+	logger.Debugf("updating %s juju controller UUID to %s", to.String(stubResource.ID), controllerUUID)
 	resourceTags := toTags(resource.Tags)
 	resourceTags[tags.JujuController] = controllerUUID
 	resource.Tags = to.StringMapPtr(resourceTags)
-
-	err = env.callAPI(func() (autorest.Response, error) {
-		res, err := client.CreateOrUpdate(
-			env.resourceGroup,
-			namespace,
-			parentPath,
-			subtype,
-			to.String(resource.Name),
-			resource,
-		)
-		return res.Response, err
-	})
+	_, errCh := client.CreateOrUpdateByID(
+		to.String(stubResource.ID),
+		resource,
+		nil, // cancel channel
+		apiVersion,
+	)
+	err = <-errCh
 	return errors.Annotatef(err, "updating controller for %q", to.String(resource.Name))
-}
-
-// splitResourceType breaks the resource type into provider namespace,
-// parent path and subtype so we can pass the components to the
-// resource CreateOrUpdate method.
-func splitResourceType(resourceType string) (string, string, string, error) {
-	parts := strings.Split(resourceType, "/")
-	if len(parts) < 2 {
-		return "", "", "", errors.Errorf("expected at least 2 parts in resource type %q", resourceType)
-	}
-	namespace := parts[0]
-	subtype := parts[len(parts)-1]
-	parentPath := strings.Join(parts[1:len(parts)-1], "/")
-	return namespace, parentPath, subtype, nil
 }
 
 // AllInstances is specified in the InstanceBroker interface.
@@ -1400,13 +1452,9 @@ func (env *azureEnviron) allInstances(
 	controllerOnly bool,
 ) ([]instance.Instance, error) {
 	deploymentsClient := resources.DeploymentsClient{env.resources}
-	var deploymentsResult resources.DeploymentListResult
-	if err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		deploymentsResult, err = deploymentsClient.List(resourceGroup, "", nil)
-		return deploymentsResult.Response, err
-	}); err != nil {
-		if deploymentsResult.Response.Response != nil && deploymentsResult.StatusCode == http.StatusNotFound {
+	deploymentsResult, err := deploymentsClient.List(resourceGroup, "", nil)
+	if err != nil {
+		if isNotFoundResponse(deploymentsResult.Response) {
 			// This will occur if the resource group does not
 			// exist, e.g. in a fresh hosted environment.
 			return nil, nil
@@ -1420,6 +1468,13 @@ func (env *azureEnviron) allInstances(
 	azureInstances := make([]*azureInstance, 0, len(*deploymentsResult.Value))
 	for _, deployment := range *deploymentsResult.Value {
 		name := to.String(deployment.Name)
+		if _, err := names.ParseMachineTag(name); err != nil {
+			// Deployments we create for Juju machines are named
+			// with the machine tag. We also create a "common"
+			// deployment, so this will exclude that VM and any
+			// other stray deployment resources.
+			continue
+		}
 		if deployment.Properties == nil || deployment.Properties.Dependencies == nil {
 			continue
 		}
@@ -1433,7 +1488,6 @@ func (env *azureEnviron) allInstances(
 
 	if len(azureInstances) > 0 && refreshAddresses {
 		if err := setInstanceAddresses(
-			env.callAPI,
 			resourceGroup,
 			network.InterfacesClient{env.network},
 			network.PublicIPAddressesClient{env.network},
@@ -1502,12 +1556,8 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(controllerUUID st
 		tags.JujuController, controllerUUID,
 	)
 	client := resources.GroupsClient{env.resources}
-	var result resources.ResourceGroupListResult
-	if err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		result, err = client.List(filter, nil)
-		return result.Response, err
-	}); err != nil {
+	result, err := client.List(filter, nil)
+	if err != nil {
 		return errors.Annotate(err, "listing resource groups")
 	}
 	if result.Value == nil {
@@ -1556,36 +1606,12 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(controllerUUID st
 
 func (env *azureEnviron) deleteResourceGroup(resourceGroup string) error {
 	client := resources.GroupsClient{env.resources}
-	var result autorest.Response
-	if err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		result, err = client.Delete(resourceGroup, nil)
-		return result, err
-	}); err != nil {
-		if result.Response == nil || result.StatusCode != http.StatusNotFound {
-			return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
-		}
+	resultCh, errCh := client.Delete(resourceGroup, nil)
+	result, err := <-resultCh, <-errCh
+	if err != nil && !isNotFoundResponse(result) {
+		return errors.Annotatef(err, "deleting resource group %q", resourceGroup)
 	}
 	return nil
-}
-
-var errNoFwGlobal = errors.New("global firewall mode is not supported")
-
-// OpenPorts is specified in the Environ interface. However, Azure does not
-// support the global firewall mode.
-func (env *azureEnviron) OpenPorts(ports []jujunetwork.IngressRule) error {
-	return errNoFwGlobal
-}
-
-// ClosePorts is specified in the Environ interface. However, Azure does not
-// support the global firewall mode.
-func (env *azureEnviron) ClosePorts(ports []jujunetwork.IngressRule) error {
-	return errNoFwGlobal
-}
-
-// Ports is specified in the Environ interface.
-func (env *azureEnviron) IngressRules() ([]jujunetwork.IngressRule, error) {
-	return nil, errNoFwGlobal
 }
 
 // Provider is specified in the Environ interface.
@@ -1629,12 +1655,8 @@ func (env *azureEnviron) getInstanceTypesLocked() (map[string]instances.Instance
 	location := env.location
 	client := compute.VirtualMachineSizesClient{env.compute}
 
-	var result compute.VirtualMachineSizeListResult
-	if err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		result, err = client.List(location)
-		return result.Response, err
-	}); err != nil {
+	result, err := client.List(location)
+	if err != nil {
 		return nil, errors.Annotate(err, "listing VM sizes")
 	}
 	instanceTypes := make(map[string]instances.InstanceType)
@@ -1652,20 +1674,37 @@ func (env *azureEnviron) getInstanceTypesLocked() (map[string]instances.Instance
 	return instanceTypes, nil
 }
 
+// maybeGetStorageClient returns the environment's storage client if it
+// has one, and nil if it does not.
+func (env *azureEnviron) maybeGetStorageClient() (internalazurestorage.Client, *storage.Account, error) {
+	storageClient, storageAccount, err := env.getStorageClient()
+	if errors.IsNotFound(err) {
+		// Only models created prior to Juju 2.3 will have a storage
+		// account. Juju 2.3 onwards exclusively uses managed disks
+		// for all new models, and handles both managed and unmanaged
+		// disks for upgraded models.
+		storageClient = nil
+		storageAccount = nil
+	} else if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return storageClient, storageAccount, nil
+}
+
 // getStorageClient queries the storage account key, and uses it to construct
 // a new storage client.
-func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, error) {
+func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, *storage.Account, error) {
 	env.mu.Lock()
 	defer env.mu.Unlock()
-	storageAccount, err := env.getStorageAccountLocked(false)
+	storageAccount, err := env.getStorageAccountLocked()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting storage account")
+		return nil, nil, errors.Annotate(err, "getting storage account")
 	}
 	storageAccountKey, err := env.getStorageAccountKeyLocked(
 		to.String(storageAccount.Name), false,
 	)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting storage account key")
+		return nil, nil, errors.Annotate(err, "getting storage account key")
 	}
 	client, err := getStorageClient(
 		env.provider.config.NewStorageClient,
@@ -1674,37 +1713,40 @@ func (env *azureEnviron) getStorageClient() (internalazurestorage.Client, error)
 		storageAccountKey,
 	)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting storage client")
+		return nil, nil, errors.Annotate(err, "getting storage client")
 	}
-	return client, nil
+	return client, storageAccount, nil
 }
 
 // getStorageAccount returns the storage account for this environment's
-// resource group. If refresh is true, cached details will be refreshed.
-func (env *azureEnviron) getStorageAccount(refresh bool) (*storage.Account, error) {
+// resource group.
+func (env *azureEnviron) getStorageAccount() (*storage.Account, error) {
 	env.mu.Lock()
 	defer env.mu.Unlock()
-	return env.getStorageAccountLocked(refresh)
+	return env.getStorageAccountLocked()
 }
 
-func (env *azureEnviron) getStorageAccountLocked(refresh bool) (*storage.Account, error) {
-	if !refresh && env.storageAccount != nil {
-		return env.storageAccount, nil
+func (env *azureEnviron) getStorageAccountLocked() (*storage.Account, error) {
+	if env.storageAccount != nil {
+		if *env.storageAccount == nil {
+			return nil, errors.NotFoundf("storage account")
+		}
+		return *env.storageAccount, nil
 	}
 	client := storage.AccountsClient{env.storage}
-	var account storage.Account
-	if err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		account, err = client.GetProperties(env.resourceGroup, env.storageAccountName)
-		return account.Response, err
-	}); err != nil {
-		if account.Response.Response != nil && account.Response.StatusCode == http.StatusNotFound {
+	account, err := client.GetProperties(env.resourceGroup, env.storageAccountName)
+	if err != nil {
+		if isNotFoundResponse(account.Response) {
+			// Remember that the account was not found
+			// by storing a pointer to a nil pointer.
+			env.storageAccount = new(*storage.Account)
 			return nil, errors.NewNotFound(err, fmt.Sprintf("storage account not found"))
 		}
-		return nil, errors.Annotate(err, "getting storage account")
+		return nil, errors.Trace(err)
 	}
-	env.storageAccount = &account
-	return env.storageAccount, nil
+	env.storageAccount = new(*storage.Account)
+	*env.storageAccount = &account
+	return &account, nil
 }
 
 // getStorageAccountKeysLocked returns a storage account key for this
@@ -1715,12 +1757,7 @@ func (env *azureEnviron) getStorageAccountKeyLocked(accountName string, refresh 
 		return env.storageAccountKey, nil
 	}
 	client := storage.AccountsClient{env.storage}
-	key, err := getStorageAccountKey(
-		env.callAPI,
-		client,
-		env.resourceGroup,
-		accountName,
-	)
+	key, err := getStorageAccountKey(client, env.resourceGroup, accountName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1740,8 +1777,4 @@ func (env *azureEnviron) AgentMirror() (simplestreams.CloudSpec, error) {
 		// data are the storage endpoints.
 		Endpoint: fmt.Sprintf("https://%s/", env.storageEndpoint),
 	}, nil
-}
-
-func (env *azureEnviron) callAPI(f func() (autorest.Response, error)) error {
-	return backoffAPIRequestCaller{env.provider.config.RetryClock}.call(f)
 }

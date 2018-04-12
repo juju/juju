@@ -7,13 +7,15 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"gopkg.in/juju/charm.v6/hooks"
 
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type runHook struct {
@@ -78,11 +80,16 @@ func RunningHookMessage(hookName string) string {
 // Execute is part of the Operation interface.
 func (rh *runHook) Execute(state State) (*State, error) {
 	message := RunningHookMessage(rh.name)
-	if err := rh.beforeHook(); err != nil {
+	if err := rh.beforeHook(state); err != nil {
 		return nil, err
 	}
-	if err := rh.callbacks.SetExecutingStatus(message); err != nil {
-		return nil, err
+	// In order to reduce controller load, the uniter no longer
+	// records when it is running the update-status hook. If the
+	// hook fails, that is recorded.
+	if hooks.Kind(rh.name) != hooks.UpdateStatus {
+		if err := rh.callbacks.SetExecutingStatus(message); err != nil {
+			return nil, err
+		}
 	}
 	// The before hook may have updated unit status and we don't want that
 	// to count so reset it here before running the hook.
@@ -94,7 +101,7 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	err := rh.runner.RunHook(rh.name)
 	cause := errors.Cause(err)
 	switch {
-	case context.IsMissingHookError(cause):
+	case charmrunner.IsMissingHookError(cause):
 		ranHook = false
 		err = nil
 	case cause == context.ErrRequeueAndReboot:
@@ -129,14 +136,18 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	}.apply(state), err
 }
 
-func (rh *runHook) beforeHook() error {
+func (rh *runHook) beforeHook(state State) error {
 	var err error
 	switch rh.info.Kind {
 	case hooks.Install:
-		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
-			Status: string(status.Maintenance),
-			Info:   status.MessageInstallingCharm,
-		})
+		// If the charm has already updated the unit status in a previous hook,
+		// then don't overwrite that here.
+		if !state.StatusSet {
+			err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+				Status: string(status.Maintenance),
+				Info:   status.MessageInstallingCharm,
+			})
+		}
 	case hooks.Stop:
 		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
 			Status: string(status.Maintenance),
@@ -153,14 +164,19 @@ func (rh *runHook) beforeHook() error {
 // afterHook runs after a hook completes, or after a hook that is
 // not implemented by the charm is expected to have run if it were
 // implemented.
-func (rh *runHook) afterHook(state State) (bool, error) {
+func (rh *runHook) afterHook(state State) (_ bool, err error) {
+	defer func() {
+		if err != nil {
+			logger.Errorf("error updating workload status after %v hook: %v", rh.info.Kind, err)
+		}
+	}()
+
 	ctx := rh.runner.Context()
 	hasRunStatusSet := ctx.HasExecutionSetUnitStatus() || state.StatusSet
-	var err error
 	switch rh.info.Kind {
 	case hooks.Stop:
 		// Charm is no longer of this world.
-		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+		err = ctx.SetUnitStatus(jujuc.StatusInfo{
 			Status: string(status.Terminated),
 		})
 	case hooks.Start:
@@ -170,15 +186,21 @@ func (rh *runHook) afterHook(state State) (bool, error) {
 		logger.Debugf("unit %v has started but has not yet set status", ctx.UnitName())
 		// We've finished the start hook and the charm has not updated its
 		// own status so we'll set it to unknown.
-		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+		err = ctx.SetUnitStatus(jujuc.StatusInfo{
 			Status: string(status.Unknown),
 		})
+	case hooks.RelationBroken:
+		var isLeader bool
+		isLeader, err = ctx.IsLeader()
+		if !isLeader || err != nil {
+			return hasRunStatusSet && err == nil, err
+		}
+		rel, err := ctx.Relation(rh.info.RelationId)
+		if err == nil && rel.Suspended() {
+			err = rel.SetStatus(relation.Suspended)
+		}
 	}
-	if err != nil {
-		logger.Errorf("error updating workload status after %v hook: %v", rh.info.Kind, err)
-		return false, err
-	}
-	return hasRunStatusSet, nil
+	return hasRunStatusSet && err == nil, err
 }
 
 // Commit updates relation state to include the fact of the hook's execution,

@@ -6,10 +6,7 @@
 package lxdclient
 
 import (
-	"bytes"
-	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/juju/errors"
@@ -29,15 +26,6 @@ type DiskDevice struct {
 	Pool     string
 	ReadOnly bool
 }
-
-type File struct {
-	Content []byte
-	Path    string
-	GID     int
-	UID     int
-	Mode    os.FileMode
-}
-type Files []File
 
 // TODO(ericsnow) We probably need to address some of the things that
 // get handled in container/lxc/clonetemplate.go.
@@ -59,16 +47,6 @@ type rawInstanceClient interface {
 type instanceClient struct {
 	raw    rawInstanceClient
 	remote string
-}
-
-func deviceProperties(device Device) []string {
-	var props []string
-
-	for k, v := range device {
-		props = append(props, fmt.Sprintf("%s=%s", k, v))
-	}
-
-	return props
 }
 
 func (client *instanceClient) addInstance(spec InstanceSpec) error {
@@ -108,14 +86,6 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 		// TODO(ericsnow) Handle different failures (from the async
 		// operation) differently?
 		return errors.Trace(err)
-	}
-
-	for _, file := range spec.Files {
-		logger.Infof("pushing file %q to container %q", file.Path, spec.Name)
-		err := client.raw.PushFile(spec.Name, file.Path, file.GID, file.UID, file.Mode.String(), bytes.NewReader(file.Content))
-		if err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	return nil

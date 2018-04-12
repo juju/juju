@@ -18,14 +18,16 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/state"
 )
 
 type ResourcesHandlerSuite struct {
@@ -61,13 +63,16 @@ func (s *ResourcesHandlerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ResourcesHandlerSuite) authState(req *http.Request, tagKinds ...string) (apiserver.ResourcesBackend, func(), names.Tag, error) {
+func (s *ResourcesHandlerSuite) authState(req *http.Request, tagKinds ...string) (
+	apiserver.ResourcesBackend, state.PoolHelper, names.Tag, error,
+) {
 	if s.stateAuthErr != nil {
 		return nil, nil, nil, errors.Trace(s.stateAuthErr)
 	}
-	closer := func() {}
+
+	ph := apiservertesting.StubPoolHelper{StubRelease: func() bool { return false }}
 	tag := names.NewUserTag(s.username)
-	return s.backend, closer, tag, nil
+	return s.backend, ph, tag, nil
 }
 
 func (s *ResourcesHandlerSuite) TestStateAuthFailure(c *gc.C) {

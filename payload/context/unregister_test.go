@@ -7,6 +7,7 @@ import (
 	"bytes"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/context"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type unregisterSuite struct {
@@ -32,7 +32,7 @@ func (s *unregisterSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.compCtx = &stubUnregisterContext{stub: s.stub}
-	s.ctx = coretesting.Context(c)
+	s.ctx = cmdtesting.Context(c)
 }
 
 func (s *unregisterSuite) Component(name string) (context.Component, error) {

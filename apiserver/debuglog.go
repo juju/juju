@@ -7,16 +7,17 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"syscall"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/state"
 )
 
@@ -26,29 +27,43 @@ import (
 // variants. The supplied handle func allows for varied handling of
 // requests.
 type debugLogHandler struct {
-	ctxt   httpContext
-	handle debugLogHandlerFunc
+	ctxt          httpContext
+	authenticator httpcontext.Authenticator
+	authorizer    httpcontext.Authorizer
+	handle        debugLogHandlerFunc
 }
 
 type debugLogHandlerFunc func(
 	state.LogTailerState,
-	*debugLogParams,
+	debugLogParams,
 	debugLogSocket,
 	<-chan struct{},
 ) error
 
 func newDebugLogHandler(
 	ctxt httpContext,
+	authenticator httpcontext.Authenticator,
+	authorizer httpcontext.Authorizer,
 	handle debugLogHandlerFunc,
 ) *debugLogHandler {
 	return &debugLogHandler{
-		ctxt:   ctxt,
-		handle: handle,
+		ctxt:          ctxt,
+		authenticator: authenticator,
+		authorizer:    authorizer,
+		handle:        handle,
 	}
 }
 
 // ServeHTTP will serve up connections as a websocket for the
 // debug-log API.
+//
+// The authentication and authorization have to be done after the http request
+// has been upgraded to a websocket as we may be sending back a discharge
+// required error. This error contains the macaroon that needs to be
+// discharged by the user. In order for this error to be deserialized
+// correctly any auth failure will come back in the initial error that is
+// returned over the websocket. This is consumed by the ConnectStream function
+// on the apiclient.
 //
 // Args for the HTTP request are as follows:
 //   includeEntity -> []string - lists entity tags to include in the response
@@ -71,13 +86,25 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(conn *websocket.Conn) {
 		socket := &debugLogSocketImpl{conn}
 		defer conn.Close()
+		// Authentication and authorization has to be done after the http
+		// connection has been upgraded to a websocket.
 
-		st, releaser, _, err := h.ctxt.stateForRequestAuthenticatedTag(req, names.MachineTagKind, names.UserTagKind)
+		authInfo, err := h.authenticator.Authenticate(req)
+		if err != nil {
+			socket.sendError(errors.Annotate(err, "authentication failed"))
+			return
+		}
+		if err := h.authorizer.Authorize(authInfo); err != nil {
+			socket.sendError(errors.Annotate(err, "authorization failed"))
+			return
+		}
+
+		st, err := h.ctxt.stateForRequestUnauthenticated(req)
 		if err != nil {
 			socket.sendError(err)
 			return
 		}
-		defer releaser()
+		defer st.Release()
 
 		params, err := readDebugLogParams(req.URL.Query())
 		if err != nil {
@@ -93,12 +120,15 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 	}
-	websocketServer(w, req, handler)
+	websocket.Serve(w, req, handler)
 }
 
 func isBrokenPipe(err error) bool {
 	err = errors.Cause(err)
 	if opErr, ok := err.(*net.OpError); ok {
+		if sysCallErr, ok := opErr.Err.(*os.SyscallError); ok {
+			return sysCallErr.Err == syscall.EPIPE
+		}
 		return opErr.Err == syscall.EPIPE
 	}
 	return false
@@ -131,7 +161,7 @@ func (s *debugLogSocketImpl) sendOk() {
 
 // sendError implements debugLogSocket.
 func (s *debugLogSocketImpl) sendError(err error) {
-	if sendErr := sendInitialErrorV0(s.conn, err); sendErr != nil {
+	if sendErr := s.conn.SendInitialErrorV0(err); sendErr != nil {
 		logger.Errorf("closing websocket, %v", err)
 		s.conn.Close()
 		return
@@ -156,13 +186,13 @@ type debugLogParams struct {
 	excludeModule []string
 }
 
-func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
-	params := new(debugLogParams)
+func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
+	var params debugLogParams
 
 	if value := queryMap.Get("maxLines"); value != "" {
 		num, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return nil, errors.Errorf("maxLines value %q is not a valid unsigned number", value)
+			return params, errors.Errorf("maxLines value %q is not a valid unsigned number", value)
 		}
 		params.maxLines = uint(num)
 	}
@@ -170,7 +200,7 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 	if value := queryMap.Get("replay"); value != "" {
 		replay, err := strconv.ParseBool(value)
 		if err != nil {
-			return nil, errors.Errorf("replay value %q is not a valid boolean", value)
+			return params, errors.Errorf("replay value %q is not a valid boolean", value)
 		}
 		params.fromTheStart = replay
 	}
@@ -178,7 +208,7 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 	if value := queryMap.Get("noTail"); value != "" {
 		noTail, err := strconv.ParseBool(value)
 		if err != nil {
-			return nil, errors.Errorf("noTail value %q is not a valid boolean", value)
+			return params, errors.Errorf("noTail value %q is not a valid boolean", value)
 		}
 		params.noTail = noTail
 	}
@@ -186,7 +216,7 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 	if value := queryMap.Get("backlog"); value != "" {
 		num, err := strconv.ParseUint(value, 10, 64)
 		if err != nil {
-			return nil, errors.Errorf("backlog value %q is not a valid unsigned number", value)
+			return params, errors.Errorf("backlog value %q is not a valid unsigned number", value)
 		}
 		params.backlog = uint(num)
 	}
@@ -195,7 +225,7 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 		var ok bool
 		level, ok := loggo.ParseLevel(value)
 		if !ok || level < loggo.TRACE || level > loggo.ERROR {
-			return nil, errors.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
+			return params, errors.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
 				value, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
 		}
 		params.filterLevel = level
@@ -204,7 +234,7 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 	if value := queryMap.Get("startTime"); value != "" {
 		startTime, err := time.Parse(time.RFC3339Nano, value)
 		if err != nil {
-			return nil, errors.Errorf("start time %q is not a valid time in RFC3339 format", value)
+			return params, errors.Errorf("start time %q is not a valid time in RFC3339 format", value)
 		}
 		params.startTime = startTime
 	}

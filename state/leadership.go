@@ -28,13 +28,21 @@ func leadershipSettingsKey(applicationId string) string {
 // LeadershipClaimer returns a leadership.Claimer for units and services in the
 // state's model.
 func (st *State) LeadershipClaimer() leadership.Claimer {
-	return leadershipClaimer{st.workers.leadershipManager()}
+	return leadershipClaimer{
+		lazyLeaseManager{func() *lease.Manager {
+			return st.workers.leadershipManager()
+		}},
+	}
 }
 
 // LeadershipChecker returns a leadership.Checker for units and services in the
 // state's model.
 func (st *State) LeadershipChecker() leadership.Checker {
-	return leadershipChecker{st.workers.leadershipManager()}
+	return leadershipChecker{
+		lazyLeaseManager{func() *lease.Manager {
+			return st.workers.leadershipManager()
+		}},
+	}
 }
 
 // buildTxnWithLeadership returns a transaction source that combines the supplied source
@@ -83,14 +91,14 @@ func (leadershipSecretary) CheckDuration(duration time.Duration) error {
 	return nil
 }
 
-// leadershipChecker implements leadership.Checker by wrapping a LeaseManager.
+// leadershipChecker implements leadership.Checker by wrapping a lease.Checker.
 type leadershipChecker struct {
-	manager *lease.Manager
+	checker corelease.Checker
 }
 
 // LeadershipCheck is part of the leadership.Checker interface.
 func (m leadershipChecker) LeadershipCheck(applicationname, unitName string) leadership.Token {
-	token := m.manager.Token(applicationname, unitName)
+	token := m.checker.Token(applicationname, unitName)
 	return leadershipToken{
 		applicationname: applicationname,
 		unitName:        unitName,
@@ -114,14 +122,14 @@ func (t leadershipToken) Check(out interface{}) error {
 	return errors.Trace(err)
 }
 
-// leadershipClaimer implements leadership.Claimer by wrappping a LeaseManager.
+// leadershipClaimer implements leadership.Claimer by wrappping a lease.Claimer.
 type leadershipClaimer struct {
-	manager *lease.Manager
+	claimer corelease.Claimer
 }
 
 // ClaimLeadership is part of the leadership.Claimer interface.
 func (m leadershipClaimer) ClaimLeadership(applicationname, unitName string, duration time.Duration) error {
-	err := m.manager.Claim(applicationname, unitName, duration)
+	err := m.claimer.Claim(applicationname, unitName, duration)
 	if errors.Cause(err) == corelease.ErrClaimDenied {
 		return leadership.ErrClaimDenied
 	}
@@ -129,7 +137,10 @@ func (m leadershipClaimer) ClaimLeadership(applicationname, unitName string, dur
 }
 
 // BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
-func (m leadershipClaimer) BlockUntilLeadershipReleased(applicationname string) error {
-	err := m.manager.WaitUntilExpired(applicationname)
+func (m leadershipClaimer) BlockUntilLeadershipReleased(applicationname string, cancel <-chan struct{}) error {
+	err := m.claimer.WaitUntilExpired(applicationname, cancel)
+	if errors.Cause(err) == corelease.ErrWaitCancelled {
+		return leadership.ErrBlockCancelled
+	}
 	return errors.Trace(err)
 }

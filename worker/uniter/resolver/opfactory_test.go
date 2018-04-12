@@ -8,8 +8,8 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -83,11 +83,13 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 	f := resolver.NewResolverOpFactory(s.opFactory)
 	f.RemoteState.ConfigVersion = 1
 	f.RemoteState.UpdateStatusVersion = 3
+	f.RemoteState.Series = "trusty"
 
 	op, err := f.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 	f.RemoteState.ConfigVersion = 2
 	f.RemoteState.UpdateStatusVersion = 4
+	f.RemoteState.Series = "xenial"
 
 	_, err = op.Commit(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,6 +99,7 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 	// was constructed.
 	c.Assert(f.LocalState.ConfigVersion, gc.Equals, 1)
 	c.Assert(f.LocalState.UpdateStatusVersion, gc.Equals, 3)
+	c.Assert(f.LocalState.Series, gc.Equals, "trusty")
 }
 
 func (s *ResolverOpFactorySuite) TestLeaderSettingsChanged(c *gc.C) {
@@ -130,6 +133,7 @@ func (s *ResolverOpFactorySuite) TestUpgrade(c *gc.C) {
 	s.testUpgrade(c, resolver.ResolverOpFactory.NewUpgrade)
 	s.testUpgrade(c, resolver.ResolverOpFactory.NewRevertUpgrade)
 	s.testUpgrade(c, resolver.ResolverOpFactory.NewResolvedUpgrade)
+	s.testUpgrade(c, resolver.ResolverOpFactory.NewNoOpUpgrade)
 }
 
 func (s *ResolverOpFactorySuite) testUpgrade(

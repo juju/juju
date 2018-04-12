@@ -4,8 +4,7 @@
 package identityfilewriter
 
 import (
-	"errors"
-
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -39,11 +38,14 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	}
 
 	// Get the machine agent's jobs.
-	entity, err := apiagent.NewState(apiCaller).Entity(tag)
+	apiSt, err := apiagent.NewState(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	entity, err := apiSt.Entity(tag)
 	if err != nil {
 		return nil, err
 	}
-
 	var isModelManager bool
 	for _, job := range entity.Jobs() {
 		if job == multiwatcher.JobManageModel {

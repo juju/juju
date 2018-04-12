@@ -36,7 +36,7 @@ func (pc *ProxyConfig) Set(newSettings proxyutils.Settings) error {
 	}
 	pc.http = httpUrl
 	pc.https = httpsUrl
-	pc.noProxy = newSettings.NoProxy
+	pc.noProxy = newSettings.FullNoProxy()
 	return nil
 }
 
@@ -81,10 +81,9 @@ func (pc *ProxyConfig) useProxy(addr string) bool {
 	if host == "localhost" {
 		return false
 	}
-	if ip := net.ParseIP(host); ip != nil {
-		if ip.IsLoopback() {
-			return false
-		}
+	ip := net.ParseIP(host)
+	if ip != nil && ip.IsLoopback() {
+		return false
 	}
 
 	if pc.noProxy == "*" {
@@ -113,6 +112,9 @@ func (pc *ProxyConfig) useProxy(addr string) bool {
 		}
 		if p[0] != '.' && strings.HasSuffix(addr, p) && addr[len(addr)-len(p)-1] == '.' {
 			// no_proxy "foo.com" matches "bar.foo.com"
+			return false
+		}
+		if _, net, err := net.ParseCIDR(p); ip != nil && err == nil && net.Contains(ip) {
 			return false
 		}
 	}
@@ -163,6 +165,9 @@ var portMap = map[string]string{
 func canonicalAddr(url *url.URL) string {
 	addr := url.Host
 	if !hasPort(addr) {
+		if strings.HasPrefix(addr, "[") && strings.HasSuffix(addr, "]") {
+			addr = addr[1 : len(addr)-1]
+		}
 		return net.JoinHostPort(addr, portMap[url.Scheme])
 	}
 	return addr

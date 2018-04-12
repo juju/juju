@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container"
@@ -146,30 +147,12 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWhenMachineNotAliveO
 		Name: "eth0",
 		Type: state.EthernetDevice,
 	}
-	s.assertSetLinkLayerDevicesFailsForArgs(c, args, "machine not found or not alive")
+	s.assertSetLinkLayerDevicesFailsForArgs(c, args, `machine "0" not alive`)
 
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertSetLinkLayerDevicesFailsForArgs(c, args, "machine not found or not alive")
-}
-
-func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWhenModelNotAlive(c *gc.C) {
-	otherModel, err := s.otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = otherModel.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := state.LinkLayerDeviceArgs{
-		Name: "eth0",
-		Type: state.EthernetDevice,
-	}
-	err = s.otherStateMachine.SetLinkLayerDevices(args)
-	expectedError := fmt.Sprintf(
-		"cannot set link-layer devices to machine %q: model %q is no longer alive",
-		s.otherStateMachine.Id(), otherModel.Name(),
-	)
-	c.Assert(err, gc.ErrorMatches, expectedError)
+	s.assertSetLinkLayerDevicesFailsForArgs(c, args, `machine "0" not alive`)
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithMissingParentSameMachine(c *gc.C) {
@@ -608,6 +591,17 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDeviceRemoveRemovesProviderID(
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesNoop(c *gc.C) {
+	args := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: state.EthernetDevice,
+	}
+	err := s.machine.SetLinkLayerDevices(args)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetLinkLayerDevices(args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *linkLayerDevicesStateSuite) removeDeviceAndAssertSuccess(c *gc.C, givenDevice *state.LinkLayerDevice) {
 	err := givenDevice.Remove()
 	c.Assert(err, jc.ErrorIsNil)
@@ -747,12 +741,6 @@ func (s *linkLayerDevicesStateSuite) createNICAndBridgeWithIP(c *gc.C, machine *
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *linkLayerDevicesStateSuite) setupMachineInTwoSpaces(c *gc.C) {
-	s.setupTwoSpaces(c)
-	s.createNICAndBridgeWithIP(c, s.machine, "ens33", "br-ens33", "10.0.0.20/24")
-	s.createNICAndBridgeWithIP(c, s.machine, "ens0p10", "br-ens0p10", "10.10.0.20/24")
-}
-
 func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpaces(c *gc.C) {
 	s.setupTwoSpaces(c)
 	// Is put into the 'default' space
@@ -768,6 +756,53 @@ func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpaces(c *gc.C) {
 	c.Check(devices, gc.HasLen, 1)
 	c.Check(devices[0].Name(), gc.Equals, "br-eth0")
 	c.Check(devices[0].Type(), gc.Equals, state.BridgeDevice)
+}
+
+func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpaces(c *gc.C) {
+	s.setupTwoSpaces(c)
+	s.createSpaceAndSubnet(c, "private", "10.20.0.0/24")
+	s.createNICAndBridgeWithIP(c, s.machine, "eth0", "br-eth0", "10.0.0.20/24")
+	s.createNICWithIP(c, s.machine, "eth1", "10.10.0.20/24")
+	s.createNICWithIP(c, s.machine, "eth2", "10.20.0.20/24")
+	s.machine.SetMachineAddresses(network.NewScopedAddress("10.0.0.20", network.ScopePublic),
+		network.NewScopedAddress("10.10.0.20", network.ScopePublic),
+		network.NewScopedAddress("10.10.0.30", network.ScopePublic),
+		network.NewScopedAddress("10.20.0.20", network.ScopeCloudLocal))
+
+	res := s.machine.GetNetworkInfoForSpaces(set.NewStrings("default", "dmz", "doesnotexists", ""))
+	c.Check(res, gc.HasLen, 4)
+
+	resDefault, ok := res["default"]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(resDefault.Error, jc.ErrorIsNil)
+	c.Assert(resDefault.NetworkInfos, gc.HasLen, 1)
+	c.Check(resDefault.NetworkInfos[0].InterfaceName, gc.Equals, "br-eth0")
+	c.Assert(resDefault.NetworkInfos[0].Addresses, gc.HasLen, 1)
+	c.Check(resDefault.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.0.0.20")
+	c.Check(resDefault.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.0.0.0/24")
+
+	resDMZ, ok := res["dmz"]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(resDMZ.Error, jc.ErrorIsNil)
+	c.Assert(resDMZ.NetworkInfos, gc.HasLen, 1)
+	c.Check(resDMZ.NetworkInfos[0].InterfaceName, gc.Equals, "eth1")
+	c.Assert(resDMZ.NetworkInfos[0].Addresses, gc.HasLen, 1)
+	c.Check(resDMZ.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.10.0.20")
+	c.Check(resDMZ.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.10.0.0/24")
+
+	resEmpty, ok := res[""]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(resEmpty.Error, jc.ErrorIsNil)
+	c.Assert(resEmpty.NetworkInfos, gc.HasLen, 1)
+	c.Check(resEmpty.NetworkInfos[0].InterfaceName, gc.Equals, "eth2")
+	c.Assert(resEmpty.NetworkInfos[0].Addresses, gc.HasLen, 1)
+	c.Check(resEmpty.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.20.0.20")
+	c.Check(resEmpty.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.20.0.0/24")
+
+	resDoesNotExists, ok := res["doesnotexists"]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(resDoesNotExists.Error, gc.ErrorMatches, `.*machine "0" has no devices in space "doesnotexists".*`)
+	c.Assert(resDoesNotExists.NetworkInfos, gc.HasLen, 0)
 }
 
 func (s *linkLayerDevicesStateSuite) TestLinkLayerDevicesForSpacesNoSuchSpace(c *gc.C) {
@@ -1322,7 +1357,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesToContainerWhenConta
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	s.assertSetLinkLayerDevicesToContainerFailsWithBeforeHook(c, beforeHook, `.*machine not found or not alive`)
+	s.assertSetLinkLayerDevicesToContainerFailsWithBeforeHook(c, beforeHook, `.*machine "0/lxd/0" not alive`)
 }
 
 func (s *linkLayerDevicesStateSuite) assertSetLinkLayerDevicesToContainerFailsWithBeforeHook(c *gc.C, beforeHook func(), expectedError string) {

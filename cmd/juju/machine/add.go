@@ -159,6 +159,7 @@ type AddMachineAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	Close() error
 	ForceDestroyMachines(machines ...string) error
+	DestroyMachinesWithParams(force, keep bool, machines ...string) error
 	ModelUUID() (string, bool)
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
@@ -352,7 +353,7 @@ func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Con
 	case sshScope:
 		provisionMachine = sshProvisioner
 	case winrmScope:
-		provisionMachine = winrmProvisioner
+		provisionMachine = c.provisionWinRM
 	default:
 		return errNonManualScope
 	}
@@ -377,14 +378,23 @@ func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Con
 		},
 	}
 
+	machineId, err := provisionMachine(args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ctx.Infof("created machine %v", machineId)
+	return nil
+}
+
+func (c *addCommand) provisionWinRM(args manual.ProvisionMachineArgs) (string, error) {
 	base := osenv.JujuXDGDataHomePath("x509")
 	keyPath := filepath.Join(base, "winrmkey.pem")
 	certPath := filepath.Join(base, "winrmcert.crt")
 	cert := winrm.NewX509()
 	if err := cert.LoadClientCert(keyPath, certPath); err != nil {
-		return errors.Annotatef(err, "connot load/create x509 client certs for winrm connection")
+		return "", errors.Annotatef(err, "connot load/create x509 client certs for winrm connection")
 	}
-	if err = cert.LoadCACert(filepath.Join(base, "winrmcacert.crt")); err != nil {
+	if err := cert.LoadCACert(filepath.Join(base, "winrmcacert.crt")); err != nil {
 		logger.Infof("cannot not find any CA cert to load")
 	}
 
@@ -401,22 +411,17 @@ func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Con
 	if caCert == nil {
 		logger.Infof("Skipping winrm CA validation")
 		cfg.Insecure = true
-
 	} else {
 		cfg.CACert = caCert
 	}
 
-	args.WinRM = manual.WinRMArgs{}
-	args.WinRM.Keys = cert
-	args.WinRM.Client, err = winrm.NewClient(cfg)
+	client, err := winrm.NewClient(cfg)
 	if err != nil {
-		return errors.Annotatef(err, "cannot create secure winrm client conn")
+		return "", errors.Annotatef(err, "cannot create WinRM client connection")
 	}
-
-	machineId, err := provisionMachine(args)
-	if err == nil {
-		ctx.Infof("created machine %v", machineId)
+	args.WinRM = manual.WinRMArgs{
+		Keys:   cert,
+		Client: client,
 	}
-
-	return err
+	return winrmProvisioner(args)
 }

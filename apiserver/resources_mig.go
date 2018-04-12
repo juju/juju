@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/resource"
@@ -20,24 +20,24 @@ import (
 // resourcesMigrationUploadHandler handles resources uploads for model migrations.
 type resourcesMigrationUploadHandler struct {
 	ctxt          httpContext
-	stateAuthFunc func(*http.Request) (*state.State, func(), error)
+	stateAuthFunc func(*http.Request) (*state.PooledState, error)
 }
 
 func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
-	st, releaser, err := h.stateAuthFunc(r)
+	st, err := h.stateAuthFunc(r)
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)
 		}
 		return
 	}
-	defer releaser()
+	defer st.Release()
 
 	switch r.Method {
 	case "POST":
-		res, err := h.processPost(r, st)
+		res, err := h.processPost(r, st.State)
 		if err != nil {
 			if err := sendError(w, err); err != nil {
 				logger.Errorf("%v", err)

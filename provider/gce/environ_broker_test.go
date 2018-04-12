@@ -13,12 +13,14 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/storage"
 )
 
 type environBrokerSuite struct {
@@ -93,6 +95,33 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Check(result.Hardware, jc.DeepEquals, s.hardware)
 }
 
+func (s *environBrokerSuite) TestStartInstanceAvailabilityZoneIndependentError(c *gc.C) {
+	s.FakeEnviron.Err = errors.New("blargh")
+
+	_, err := s.Env.StartInstance(s.StartInstArgs)
+	c.Assert(err, gc.ErrorMatches, "blargh")
+	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
+}
+
+func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *gc.C) {
+	s.FakeEnviron.Spec = s.spec
+	s.FakeEnviron.Inst = s.BaseInstance
+	s.FakeEnviron.Hwc = s.hardware
+
+	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
+		VolumeId: "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+	}}
+	derivedZones, err := s.Env.DeriveAvailabilityZones(s.StartInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(derivedZones, gc.HasLen, 1)
+	s.StartInstArgs.AvailabilityZone = derivedZones[0]
+
+	result, err := s.Env.StartInstance(s.StartInstArgs)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, derivedZones[0])
+}
+
 func (s *environBrokerSuite) TestFinishInstanceConfig(c *gc.C) {
 	err := gce.FinishInstanceConfig(s.Env, s.StartInstArgs, s.spec)
 
@@ -127,6 +156,14 @@ func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(inst, jc.DeepEquals, s.BaseInstance)
+}
+
+func (s *environBrokerSuite) TestNewRawInstanceZoneSpecificError(c *gc.C) {
+	s.FakeConn.Err = errors.New("blargh")
+
+	_, err := gce.NewRawInstance(s.Env, s.StartInstArgs, s.spec)
+	c.Assert(err, gc.ErrorMatches, "blargh")
+	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 }
 
 func (s *environBrokerSuite) TestGetMetadataUbuntu(c *gc.C) {

@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/testing"
 )
 
 type ShowOutputSuite struct {
@@ -48,7 +48,7 @@ func (s *ShowOutputSuite) TestInit(c *gc.C) {
 				t.should, strings.Join(t.args, " "))
 			cmd, _ := action.NewShowOutputCommandForTest(s.store)
 			args := append([]string{modelFlag, "admin"}, t.args...)
-			err := testing.InitCommand(cmd, args)
+			err := cmdtesting.InitCommand(cmd, args)
 			if t.expectError != "" {
 				c.Check(err, gc.ErrorMatches, t.expectError)
 			}
@@ -124,10 +124,10 @@ timing:
 		expectedErr: "an apiserver error",
 	}, {
 		should:            "only return once status is no longer running or pending",
-		withAPIDelay:      2 * time.Second,
-		withClientWait:    "6s",
+		withAPIDelay:      1 * time.Second,
+		withClientWait:    "30s",
 		withClientQueryID: validActionId,
-		withAPITimeout:    4 * time.Second,
+		withAPITimeout:    3 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Status: "running",
@@ -298,7 +298,7 @@ func testRunHelper(c *gc.C, s *ShowOutputSuite, client *fakeAPIClient, expectedE
 		args = append(args, "--wait", wait)
 	}
 	cmd, _ := action.NewShowOutputCommandForTest(s.store)
-	ctx, err := testing.RunCommand(c, cmd, args...)
+	ctx, err := cmdtesting.RunCommand(c, cmd, args...)
 	if expectedErr != "" {
 		c.Check(err, gc.ErrorMatches, expectedErr)
 	} else {

@@ -4,6 +4,8 @@
 package undertaker
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
@@ -26,8 +28,8 @@ type Facade interface {
 // Config holds the resources and configuration necessary to run an
 // undertaker worker.
 type Config struct {
-	Facade  Facade
-	Environ environs.Environ
+	Facade    Facade
+	Destroyer environs.CloudDestroyer
 }
 
 // Validate returns an error if the config cannot be expected to drive
@@ -36,8 +38,8 @@ func (config Config) Validate() error {
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
 	}
-	if config.Environ == nil {
-		return errors.NotValidf("nil Environ")
+	if config.Destroyer == nil {
+		return errors.NotValidf("nil Destroyer")
 	}
 	return nil
 }
@@ -129,7 +131,7 @@ func (u *Undertaker) run() error {
 	); err != nil {
 		return errors.Trace(err)
 	}
-	if err := u.config.Environ.Destroy(); err != nil {
+	if err := u.config.Destroyer.Destroy(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -152,27 +154,29 @@ func (u *Undertaker) processDyingModel() error {
 	if err := u.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
 	}
-	defer watcher.Kill() // The watcher is not needed once this func returns.
+	defer watcher.Kill()
 
+	attempt := 1
 	for {
 		select {
 		case <-u.catacomb.Dying():
 			return u.catacomb.ErrDying()
 		case <-watcher.Changes():
-			// TODO(fwereade): this is wrong. If there's a time
-			// it's ok to ignore an error, it's when we know
-			// exactly what an error is/means. If there's a
-			// specific code for "not done yet", *that* is what
-			// we should be ignoring. But unknown errors are
-			// *unknown*, and we can't just assume that it's
-			// safe to continue.
 			err := u.config.Facade.ProcessDyingModel()
 			if err == nil {
 				// ProcessDyingModel succeeded. We're free to
 				// destroy any remaining environ resources.
 				return nil
 			}
-			// Yes, we ignore the error. See comment above.
+			if !params.IsCodeModelNotEmpty(err) && !params.IsCodeHasHostedModels(err) {
+				return errors.Trace(err)
+			}
+			// Retry once there are changes to the model's resources.
+			u.setStatus(
+				status.Destroying,
+				fmt.Sprintf("attempt %d to destroy model failed (will retry):  %v", attempt, err),
+			)
 		}
+		attempt++
 	}
 }

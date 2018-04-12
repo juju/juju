@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -17,12 +18,14 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
 type detectCredentialsSuite struct {
-	store       *jujuclienttesting.MemStore
+	testing.BaseSuite
+
+	store       *jujuclient.MemStore
 	aCredential jujucloud.CloudCredential
 }
 
@@ -93,11 +96,16 @@ func (p *mockProvider) FinalizeCredential(
 }
 
 func (s *detectCredentialsSuite) SetUpSuite(c *gc.C) {
-	environs.RegisterProvider("mock-provider", &mockProvider{detectedCreds: &s.aCredential})
+	s.BaseSuite.SetUpSuite(c)
+	unreg := environs.RegisterProvider("mock-provider", &mockProvider{detectedCreds: &s.aCredential})
+	s.AddCleanup(func(_ *gc.C) {
+		unreg()
+	})
 }
 
 func (s *detectCredentialsSuite) SetUpTest(c *gc.C) {
-	s.store = jujuclienttesting.NewMemStore()
+	s.BaseSuite.SetUpTest(c)
+	s.store = jujuclient.NewMemStore()
 	s.aCredential = jujucloud.CloudCredential{}
 }
 
@@ -115,9 +123,9 @@ func (s *detectCredentialsSuite) run(c *gc.C, stdin io.Reader, clouds map[string
 		return nil, errors.NotFoundf("cloud %s", cloudName)
 	}
 	command := cloud.NewDetectCredentialsCommandForTest(s.store, registeredProvidersFunc, allCloudsFunc, cloudByNameFunc)
-	err := testing.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	ctx.Stdin = stdin
 	return ctx, command.Run(ctx)
 }
@@ -152,7 +160,7 @@ func (s *detectCredentialsSuite) assertDetectCredential(c *gc.C, cloudName, expe
 		}
 		c.Assert(s.store.Credentials["test-cloud"], jc.DeepEquals, s.aCredential)
 	} else {
-		output := strings.Replace(testing.Stderr(ctx), "\n", "", -1)
+		output := strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1)
 		c.Assert(output, gc.Matches, ".*"+regexp.QuoteMeta(errText)+".*")
 	}
 }
@@ -200,7 +208,7 @@ func (s *detectCredentialsSuite) TestNewDetectCredentialNoneFound(c *gc.C) {
 	stdin := strings.NewReader("")
 	ctx, err := s.run(c, stdin, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	output := strings.Replace(testing.Stderr(ctx), "\n", "", -1)
+	output := strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1)
 	c.Assert(output, gc.Matches, ".*No cloud credentials found.*")
 	c.Assert(s.store.Credentials, gc.HasLen, 0)
 }
@@ -216,7 +224,7 @@ func (s *detectCredentialsSuite) TestDetectCredentialInvalidChoice(c *gc.C) {
 	stdin := strings.NewReader("3\nQ\n")
 	ctx, err := s.run(c, stdin, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	output := strings.Replace(testing.Stderr(ctx), "\n", "", -1)
+	output := strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1)
 	c.Assert(output, gc.Matches, ".*Invalid choice, enter a number between 1 and 2.*")
 	c.Assert(s.store.Credentials, gc.HasLen, 0)
 }

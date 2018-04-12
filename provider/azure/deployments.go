@@ -5,14 +5,12 @@ package azure
 
 import (
 	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
-	"github.com/Azure/go-autorest/autorest"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
 )
 
 func createDeployment(
-	callAPI callAPIFunc,
 	client resources.DeploymentsClient,
 	resourceGroup string,
 	deploymentName string,
@@ -28,14 +26,13 @@ func createDeployment(
 			Mode:     resources.Incremental,
 		},
 	}
-	if err := callAPI(func() (autorest.Response, error) {
-		return client.CreateOrUpdate(
-			resourceGroup,
-			deploymentName,
-			deployment,
-			nil, // abort channel
-		)
-	}); err != nil {
+	_, errChan := client.CreateOrUpdate(
+		resourceGroup,
+		deploymentName,
+		deployment,
+		nil, // abort channel
+	)
+	if err := <-errChan; err != nil {
 		return errors.Annotatef(err, "creating deployment %q", deploymentName)
 	}
 	return nil

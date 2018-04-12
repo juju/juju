@@ -35,7 +35,7 @@ func (c commands) unitFilename(name, dirname string) string {
 func (c commands) listAll() string {
 	// We can't just use the same command as listRunning (with an extra
 	// "--all" because it misses some inactive units.
-	args := `list-unit-files --no-legend --no-page -t service` +
+	args := `list-unit-files --no-legend --no-page -l -t service` +
 		` | grep -o -P '^\w[\S]*(?=\.service)'`
 	return c.resolve(args)
 }

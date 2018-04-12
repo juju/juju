@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -32,13 +33,13 @@ func (s *ModelsSuite) TestModelByNameNoFile(c *gc.C) {
 	err := os.Remove(jujuclient.JujuModelsPath())
 	c.Assert(err, jc.ErrorIsNil)
 	details, err := s.store.ModelByName("not-found", "admin/admin")
-	c.Assert(err, gc.ErrorMatches, "models for controller not-found not found")
+	c.Assert(err, gc.ErrorMatches, "model not-found:admin/admin not found")
 	c.Assert(details, gc.IsNil)
 }
 
 func (s *ModelsSuite) TestModelByNameControllerNotFound(c *gc.C) {
 	details, err := s.store.ModelByName("not-found", "admin/admin")
-	c.Assert(err, gc.ErrorMatches, "models for controller not-found not found")
+	c.Assert(err, gc.ErrorMatches, "model not-found:admin/admin not found")
 	c.Assert(details, gc.IsNil)
 }
 
@@ -104,7 +105,7 @@ func (s *ModelsSuite) TestSetCurrentModel(c *gc.C) {
 }
 
 func (s *ModelsSuite) TestUpdateModelNewController(c *gc.C) {
-	testModelDetails := jujuclient.ModelDetails{"test.uuid"}
+	testModelDetails := jujuclient.ModelDetails{ModelUUID: "test.uuid", ModelType: model.IAAS}
 	err := s.store.UpdateModel("new-controller", "admin/new-model", testModelDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	models, err := s.store.AllModels("new-controller")
@@ -115,7 +116,7 @@ func (s *ModelsSuite) TestUpdateModelNewController(c *gc.C) {
 }
 
 func (s *ModelsSuite) TestUpdateModelExistingControllerAndModelNewModel(c *gc.C) {
-	testModelDetails := jujuclient.ModelDetails{"test.uuid"}
+	testModelDetails := jujuclient.ModelDetails{ModelUUID: "test.uuid", ModelType: model.IAAS}
 	err := s.store.UpdateModel("kontroll", "admin/new-model", testModelDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	models, err := s.store.AllModels("kontroll")
@@ -128,7 +129,7 @@ func (s *ModelsSuite) TestUpdateModelExistingControllerAndModelNewModel(c *gc.C)
 }
 
 func (s *ModelsSuite) TestUpdateModelOverwrites(c *gc.C) {
-	testModelDetails := jujuclient.ModelDetails{"test.uuid"}
+	testModelDetails := jujuclient.ModelDetails{ModelUUID: "test.uuid", ModelType: model.IAAS}
 	for i := 0; i < 2; i++ {
 		// Twice so we exercise the code path of updating with
 		// identical details.
@@ -138,6 +139,12 @@ func (s *ModelsSuite) TestUpdateModelOverwrites(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*details, jc.DeepEquals, testModelDetails)
 	}
+}
+
+func (s *ModelsSuite) TestUpdateModelRejectsTypeChange(c *gc.C) {
+	testModelDetails := jujuclient.ModelDetails{ModelUUID: "test.uuid", ModelType: model.CAAS}
+	err := s.store.UpdateModel("kontroll", "admin/my-model", testModelDetails)
+	c.Assert(err, gc.ErrorMatches, `model type was "iaas", cannot change to "caas"`)
 }
 
 func (s *ModelsSuite) TestUpdateModelEmptyModels(c *gc.C) {
@@ -151,7 +158,7 @@ controllers:
 `[1:]), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	testModelDetails := jujuclient.ModelDetails{"test.uuid"}
+	testModelDetails := jujuclient.ModelDetails{ModelUUID: "test.uuid", ModelType: model.IAAS}
 	err = s.store.UpdateModel("ctrl", "admin/admin", testModelDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	models, err := s.store.AllModels("ctrl")

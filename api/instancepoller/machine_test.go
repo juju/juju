@@ -142,19 +142,17 @@ func (s *MachineSuite) TestTooManyResultsServerError(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRefreshSuccess(c *gc.C) {
-	var called int
 	results := params.LifeResults{
 		Results: []params.LifeResult{{Life: params.Dying}},
 	}
-	apiCaller := successAPICaller(c, "Life", entitiesArgs, results, &called)
+	apiCaller := successAPICaller(c, "Life", entitiesArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
 	c.Check(machine.Refresh(), jc.ErrorIsNil)
 	c.Check(machine.Life(), gc.Equals, params.Dying)
-	c.Check(called, gc.Equals, 1)
+	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 
 func (s *MachineSuite) TestStatusSuccess(c *gc.C) {
-	var called int
 	now := time.Now()
 	expectStatus := params.StatusResult{
 		Status: "foo",
@@ -170,57 +168,53 @@ func (s *MachineSuite) TestStatusSuccess(c *gc.C) {
 		Since: &now,
 	}
 	results := params.StatusResults{Results: []params.StatusResult{expectStatus}}
-	apiCaller := successAPICaller(c, "Status", entitiesArgs, results, &called)
+	apiCaller := successAPICaller(c, "Status", entitiesArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
 	status, err := machine.Status()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(status, jc.DeepEquals, expectStatus)
-	c.Check(called, gc.Equals, 1)
+	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 
 func (s *MachineSuite) TestIsManualSuccess(c *gc.C) {
-	var called int
 	results := params.BoolResults{
 		Results: []params.BoolResult{{Result: true}},
 	}
-	apiCaller := successAPICaller(c, "AreManuallyProvisioned", entitiesArgs, results, &called)
+	apiCaller := successAPICaller(c, "AreManuallyProvisioned", entitiesArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
 	isManual, err := machine.IsManual()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(isManual, jc.IsTrue)
-	c.Check(called, gc.Equals, 1)
+	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 
 func (s *MachineSuite) TestInstanceIdSuccess(c *gc.C) {
-	var called int
 	results := params.StringResults{
 		Results: []params.StringResult{{Result: "i-foo"}},
 	}
-	apiCaller := successAPICaller(c, "InstanceId", entitiesArgs, results, &called)
+	apiCaller := successAPICaller(c, "InstanceId", entitiesArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
 	instId, err := machine.InstanceId()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(instId, gc.Equals, instance.Id("i-foo"))
-	c.Check(called, gc.Equals, 1)
+	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 
 func (s *MachineSuite) TestInstanceStatusSuccess(c *gc.C) {
-	var called int
 	results := params.StatusResults{
 		Results: []params.StatusResult{{
 			Status: status.Provisioning.String(),
 		}},
 	}
-	apiCaller := successAPICaller(c, "InstanceStatus", entitiesArgs, results, &called)
+	apiCaller := successAPICaller(c, "InstanceStatus", entitiesArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
 	statusResult, err := machine.InstanceStatus()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(statusResult.Status, gc.DeepEquals, status.Provisioning.String())
-	c.Check(called, gc.Equals, 1)
+	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 
 func (s *MachineSuite) TestSetInstanceStatusSuccess(c *gc.C) {
-	var called int
 	expectArgs := params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
 			Tag:    "machine-42",
@@ -229,30 +223,28 @@ func (s *MachineSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 	results := params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	}
-	apiCaller := successAPICaller(c, "SetInstanceStatus", expectArgs, results, &called)
+	apiCaller := successAPICaller(c, "SetInstanceStatus", expectArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
 	err := machine.SetInstanceStatus("RUNNING", "", nil)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(called, gc.Equals, 1)
+	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 
 func (s *MachineSuite) TestProviderAddressesSuccess(c *gc.C) {
-	var called int
 	addresses := network.NewAddresses("2001:db8::1", "0.1.2.3")
 	results := params.MachineAddressesResults{
 		Results: []params.MachineAddressesResult{{
 			Addresses: params.FromNetworkAddresses(addresses...),
 		}}}
-	apiCaller := successAPICaller(c, "ProviderAddresses", entitiesArgs, results, &called)
+	apiCaller := successAPICaller(c, "ProviderAddresses", entitiesArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
 	addrs, err := machine.ProviderAddresses()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(addrs, jc.DeepEquals, addresses)
-	c.Check(called, gc.Equals, 1)
+	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 
 func (s *MachineSuite) TestSetProviderAddressesSuccess(c *gc.C) {
-	var called int
 	addresses := network.NewAddresses("2001:db8::1", "0.1.2.3")
 	expectArgs := params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{{
@@ -262,27 +254,25 @@ func (s *MachineSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 	results := params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	}
-	apiCaller := successAPICaller(c, "SetProviderAddresses", expectArgs, results, &called)
+	apiCaller := successAPICaller(c, "SetProviderAddresses", expectArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
 	err := machine.SetProviderAddresses(addresses...)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(called, gc.Equals, 1)
+	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 
 func (s *MachineSuite) CheckClientError(c *gc.C, wf methodWrapper) {
-	var called int
-	apiCaller := clientErrorAPICaller(c, "", nil, &called)
+	apiCaller := clientErrorAPICaller(c, "", nil)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
 	c.Check(wf(machine), gc.ErrorMatches, "client error!")
-	c.Check(called, gc.Equals, 1)
+	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 
 func (s *MachineSuite) CheckServerError(c *gc.C, wf methodWrapper, expectErr string, serverResults interface{}) {
-	var called int
-	apiCaller := successAPICaller(c, "", nil, serverResults, &called)
+	apiCaller := successAPICaller(c, "", nil, serverResults)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
 	c.Check(wf(machine), gc.ErrorMatches, expectErr)
-	c.Check(called, gc.Equals, 1)
+	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 
 var entitiesArgs = params.Entities{

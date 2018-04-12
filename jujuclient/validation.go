@@ -21,6 +21,9 @@ func ValidateModelDetails(details ModelDetails) error {
 	if details.ModelUUID == "" {
 		return errors.NotValidf("missing uuid, model details")
 	}
+	if details.ModelType == "" {
+		return errors.NotValidf("missing type, model details")
+	}
 	return nil
 }
 
@@ -36,7 +39,10 @@ func ValidateAccountDetails(details AccountDetails) error {
 
 // ValidateControllerName validates the given controller name.
 func ValidateControllerName(name string) error {
-	// TODO(axw) define a regex for valid controller names.
+	// Note: the only validation we can do here is to check if no name was supplied.
+	// We can accept any names here, irrespective of names.IsValidControllerName
+	// since controller names can also be DNS names containing "." or
+	// any other character combinations.
 	if name == "" {
 		return errors.NotValidf("empty controller name")
 	}
@@ -51,6 +57,17 @@ func ValidateModelName(name string) error {
 	}
 	if !names.IsValidModelName(modelName) {
 		return errors.NotValidf("model name %q", name)
+	}
+	return nil
+}
+
+// ValidateModel validates the given model name and details.
+func ValidateModel(name string, details ModelDetails) error {
+	if err := ValidateModelName(name); err != nil {
+		return err
+	}
+	if err := ValidateModelDetails(details); err != nil {
+		return err
 	}
 	return nil
 }

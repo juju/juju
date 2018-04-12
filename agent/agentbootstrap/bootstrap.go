@@ -5,6 +5,7 @@ package agentbootstrap
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -12,6 +13,7 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
@@ -26,6 +28,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/worker/raft"
 )
 
 var logger = loggo.GetLogger("juju.agent.agentbootstrap")
@@ -53,7 +56,7 @@ type InitializeStateParams struct {
 	StorageProviderRegistry storage.ProviderRegistry
 }
 
-// InitializeState should be called on the bootstrap machine's agent
+// InitializeState should be called with the bootstrap machine's agent
 // configuration. It uses that information to create the controller, dial the
 // controller, and initialize it. It also generates a new password for the
 // bootstrap machine and calls Write to save the the configuration.
@@ -89,9 +92,15 @@ func InitializeState(
 	info.Tag = nil
 	info.Password = c.OldPassword()
 
-	if err := initMongoAdminUser(info.Info, dialOpts, info.Password); err != nil {
-		return nil, nil, errors.Annotate(err, "failed to initialize mongo admin user")
+	if err := initRaft(c); err != nil {
+		return nil, nil, errors.Trace(err)
 	}
+
+	session, err := initMongo(info.Info, dialOpts, info.Password)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "failed to initialize mongo")
+	}
+	defer session.Close()
 
 	cloudCredentials := make(map[names.CloudCredentialTag]cloud.Credential)
 	var cloudCredentialTag names.CloudCredentialTag
@@ -106,9 +115,10 @@ func InitializeState(
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(state.InitializeParams{
+	ctlr, st, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		ControllerModelArgs: state.ModelArgs{
+			Type:                    state.ModelTypeIAAS,
 			Owner:                   adminUser,
 			Config:                  args.ControllerModelConfig,
 			Constraints:             args.ModelConstraints,
@@ -116,14 +126,15 @@ func InitializeState(
 			CloudRegion:             args.ControllerCloudRegion,
 			CloudCredential:         cloudCredentialTag,
 			StorageProviderRegistry: args.StorageProviderRegistry,
+			EnvironVersion:          args.ControllerModelEnvironVersion,
 		},
 		Cloud:                     args.ControllerCloud,
 		CloudCredentials:          cloudCredentials,
 		ControllerConfig:          args.ControllerConfig,
 		ControllerInheritedConfig: args.ControllerInheritedConfig,
 		RegionInheritedConfig:     args.RegionInheritedConfig,
-		MongoInfo:                 info,
-		MongoDialOpts:             dialOpts,
+		MongoSession:              session,
+		AdminPassword:             info.Password,
 		NewPolicy:                 newPolicy,
 	})
 	if err != nil {
@@ -135,6 +146,7 @@ func InitializeState(
 			st.Close()
 		}
 	}()
+	ctlr.Close()
 	servingInfo.SharedSecret = args.SharedSecret
 	c.SetStateServingInfo(servingInfo)
 
@@ -185,7 +197,7 @@ func InitializeState(
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting environ provider")
 	}
-	hostedModelEnv, err := provider.Open(environs.OpenParams{
+	hostedModelEnv, err := environs.Open(provider, environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: hostedModelConfig,
 	})
@@ -198,7 +210,8 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "creating hosted model environment")
 	}
 
-	_, hostedModelState, err := st.NewModel(state.ModelArgs{
+	model, hostedModelState, err := st.NewModel(state.ModelArgs{
+		Type:                    state.ModelTypeIAAS,
 		Owner:                   adminUser,
 		Config:                  hostedModelConfig,
 		Constraints:             args.ModelConstraints,
@@ -206,11 +219,26 @@ func InitializeState(
 		CloudRegion:             args.ControllerCloudRegion,
 		CloudCredential:         cloudCredentialTag,
 		StorageProviderRegistry: args.StorageProviderRegistry,
+		EnvironVersion:          hostedModelEnv.Provider().Version(),
 	})
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model")
 	}
-	hostedModelState.Close()
+
+	defer hostedModelState.Close()
+
+	if err := model.AutoConfigureContainerNetworking(hostedModelEnv); err != nil {
+		return nil, nil, errors.Annotate(err, "autoconfiguring container networking")
+	}
+
+	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
+	if err = hostedModelState.ReloadSpaces(hostedModelEnv); err != nil {
+		if errors.IsNotSupported(err) {
+			logger.Debugf("Not performing spaces load on a non-networking environment")
+		} else {
+			return nil, nil, errors.Annotate(err, "fetching hosted model spaces")
+		}
+	}
 
 	return st, m, nil
 }
@@ -227,15 +255,31 @@ func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) st
 	}
 }
 
-// initMongoAdminUser adds the admin user with the specified
-// password to the admin database in Mongo.
-func initMongoAdminUser(info mongo.Info, dialOpts mongo.DialOpts, password string) error {
-	session, err := mongo.DialWithInfo(info, dialOpts)
+func initRaft(agentConfig agent.Config) error {
+	raftDir := filepath.Join(agentConfig.DataDir(), "raft")
+	return raft.Bootstrap(raft.Config{
+		StorageDir: raftDir,
+		Logger:     logger,
+		Tag:        agentConfig.Tag(),
+	})
+}
+
+// initMongo dials the initial MongoDB connection, setting a
+// password for the admin user, and returning the session.
+func initMongo(info mongo.Info, dialOpts mongo.DialOpts, password string) (*mgo.Session, error) {
+	session, err := mongo.DialWithInfo(mongo.MongoInfo{Info: info}, dialOpts)
 	if err != nil {
-		return err
+		return nil, errors.Trace(err)
 	}
-	defer session.Close()
-	return mongo.SetAdminMongoPassword(session, mongo.AdminUser, password)
+	if err := mongo.SetAdminMongoPassword(session, mongo.AdminUser, password); err != nil {
+		session.Close()
+		return nil, errors.Trace(err)
+	}
+	if err := mongo.Login(session, mongo.AdminUser, password); err != nil {
+		session.Close()
+		return nil, errors.Trace(err)
+	}
+	return session, nil
 }
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
@@ -294,18 +338,7 @@ func initBootstrapMachine(c agent.ConfigSetter, st *state.State, args Initialize
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
 func initAPIHostPorts(c agent.ConfigSetter, st *state.State, addrs []network.Address, apiPort int) error {
-	var hostPorts []network.HostPort
-	// First try to select the correct address using the default space where all
-	// API servers should be accessible on.
-	spaceAddr, ok := network.SelectAddressBySpaces(addrs)
-	if ok {
-		logger.Debugf("selected %q as API address", spaceAddr.Value)
-		hostPorts = network.AddressesWithPort([]network.Address{spaceAddr}, apiPort)
-	} else {
-		// Fallback to using all instead.
-		hostPorts = network.AddressesWithPort(addrs, apiPort)
-	}
-
+	hostPorts := network.AddressesWithPort(addrs, apiPort)
 	return st.SetAPIHostPorts([][]network.HostPort{hostPorts})
 }
 

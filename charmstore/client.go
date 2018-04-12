@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charm.v6"
+	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/charmrepo.v2/csclient"
+	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 )
@@ -125,19 +125,6 @@ func (c Client) LatestRevisions(charms []CharmID, metadata map[string][]string) 
 		results[i] = CharmRevision{Revision: rev.Revision, Err: rev.Err}
 	}
 	return results, nil
-}
-
-func (c Client) latestRevisions(channel csparams.Channel, cid CharmID, metadata map[string][]string) (CharmRevision, error) {
-	if err := c.jar.Activate(cid.URL); err != nil {
-		return CharmRevision{}, errors.Trace(err)
-	}
-	defer c.jar.Deactivate()
-	revisions, err := c.csWrapper.Latest(cid.Channel, []*charm.URL{cid.URL}, metadata)
-	if err != nil {
-		return CharmRevision{}, errors.Trace(err)
-	}
-	rev := revisions[0]
-	return CharmRevision{Revision: rev.Revision, Err: rev.Err}, nil
 }
 
 // ResourceRequest is the data needed to request a resource from the charmstore.

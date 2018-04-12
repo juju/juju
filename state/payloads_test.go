@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/state"
@@ -666,8 +666,8 @@ func addUnit(c *gc.C, s ConnSuite, args unitArgs) *state.Unit {
 	ch := s.AddTestingCharm(c, args.charm)
 	ch = s.AddMetaCharm(c, args.charm, args.metadata, 2)
 
-	svc := s.AddTestingService(c, args.service, ch)
-	unit, err := svc.AddUnit()
+	app := s.AddTestingApplication(c, args.service, ch)
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO(ericsnow) Explicitly: call unit.AssignToMachine(m)?

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -21,8 +22,8 @@ import (
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
@@ -39,7 +40,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -50,6 +50,7 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/stateenvirons"
 	statestorage "github.com/juju/juju/state/storage"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -92,6 +93,9 @@ type JujuConnSuite struct {
 
 	ControllerConfig   controller.Config
 	State              *state.State
+	StatePool          *state.StatePool
+	Model              *state.Model
+	IAASModel          *state.IAASModel
 	Environ            environs.Environ
 	APIState           api.Connection
 	apiStates          []api.Connection // additional api.Connections to close on teardown
@@ -109,7 +113,6 @@ type JujuConnSuite struct {
 const AdminSecret = "dummy-secret"
 
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.MgoSuite.SetUpSuite(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
@@ -145,14 +148,14 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
-	model, err := s.State.ControllerModel()
+	owner, err := s.State.ControllerOwner()
 	c.Assert(err, jc.ErrorIsNil)
-	return model.Owner()
+	return owner
 }
 
 func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
-	info := s.State.MongoConnectionInfo()
-	info.Password = "dummy-secret"
+	info := statetesting.NewMongoInfo()
+	info.Password = AdminSecret
 	return info
 }
 
@@ -161,7 +164,9 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
-	apiInfo.ModelTag = s.State.ModelTag()
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo.ModelTag = model.ModelTag()
 	return apiInfo
 }
 
@@ -321,7 +326,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, (map[string]interface{})(s.sampleConfig()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	s.ControllerConfig = testing.FakeControllerConfig()
 	for key, value := range s.ControllerConfigAttrs {
 		s.ControllerConfig[key] = value
@@ -392,7 +397,15 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.BackingState = getStater.GetStateInAPIServer()
 	s.BackingStatePool = getStater.GetStatePoolInAPIServer()
 
-	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.BackingState.MongoConnectionInfo())
+	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.MongoInfo(c))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.StatePool = state.NewStatePool(s.State)
+
+	s.Model, err = s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.IAASModel, err = s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiInfo, err := environs.APIInfo(s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), environ)
@@ -465,14 +478,16 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 		return nil, errors.New("missing controller UUID")
 	}
 	config := environ.Config()
-	password := AdminSecret
-	if password == "" {
-		return nil, errors.Errorf("cannot connect without admin-secret")
-	}
 	modelTag := names.NewModelTag(config.UUID())
 
-	mongoInfo.Password = password
+	mongoInfo.Password = AdminSecret
 	opts := mongotest.DialOpts()
+	session, err := mongo.DialWithInfo(*mongoInfo, opts)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer session.Close()
+
 	newPolicyFunc := stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
@@ -481,8 +496,7 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 		Clock:              clock.WallClock,
 		ControllerTag:      controllerTag,
 		ControllerModelTag: modelTag,
-		MongoInfo:          mongoInfo,
-		MongoDialOpts:      opts,
+		MongoSession:       session,
 		NewPolicy:          newPolicyFunc,
 	}
 	st, err := state.Open(args)
@@ -633,6 +647,12 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 			)
 		}
 	}
+	// Close the state pool before we close the underlying state.
+	if s.StatePool != nil {
+		err := s.StatePool.Close()
+		c.Check(err, jc.ErrorIsNil)
+		s.StatePool = nil
+	}
 	// Close state.
 	if s.State != nil {
 		err := s.State.Close()
@@ -682,30 +702,32 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	return sch
 }
 
-func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Application {
+func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
 	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 
 }
 
-func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
+func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
 	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }
 
-func (s *JujuConnSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
+func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
 	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch, EndpointBindings: bindings})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }
 
-func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetter {
+func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetterWriter {
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	paths := agent.DefaultPaths
 	paths.DataDir = s.DataDir()
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	config, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths:             paths,
@@ -713,11 +735,10 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 			UpgradedToVersion: jujuversion.Current,
 			Password:          password,
 			Nonce:             "nonce",
-			StateAddresses:    s.MongoInfo(c).Addrs,
 			APIAddresses:      s.APIInfo(c).Addrs,
 			CACert:            testing.CACert,
 			Controller:        s.State.ControllerTag(),
-			Model:             s.State.ModelTag(),
+			Model:             model.ModelTag(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return config
@@ -726,6 +747,6 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 // AssertConfigParameterUpdated updates environment parameter and
 // asserts that no errors were encountered
 func (s *JujuConnSuite) AssertConfigParameterUpdated(c *gc.C, key string, value interface{}) {
-	err := s.BackingState.UpdateModelConfig(map[string]interface{}{key: value}, nil, nil)
+	err := s.Model.UpdateModelConfig(map[string]interface{}{key: value}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

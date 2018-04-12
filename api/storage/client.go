@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/storage"
 )
 
 // Client allows access to the storage API end point.
@@ -138,8 +139,11 @@ func (c *Client) ListFilesystems(machines []string) ([]params.FilesystemDetailsL
 }
 
 // AddToUnit adds specified storage to desired units.
-func (c *Client) AddToUnit(storages []params.StorageAddParams) ([]params.ErrorResult, error) {
-	out := params.ErrorResults{}
+//
+// NOTE(axw) for old controllers, the results will only
+// contain errors.
+func (c *Client) AddToUnit(storages []params.StorageAddParams) ([]params.AddStorageResult, error) {
+	out := params.AddStorageResults{}
 	in := params.StoragesAddParams{Storages: storages}
 	err := c.facade.FacadeCall("AddToUnit", in, &out)
 	if err != nil {
@@ -178,21 +182,42 @@ func (c *Client) Attach(unitId string, storageIds []string) ([]params.ErrorResul
 	return out.Results, nil
 }
 
-// Destroy destroys specified storage entities.
-func (c *Client) Destroy(storageIds []string) ([]params.ErrorResult, error) {
-	results := params.ErrorResults{}
-	entities := make([]params.Entity, len(storageIds))
-	for i, id := range storageIds {
+// Remove removes the specified storage entities from the model,
+// optionally destroying them.
+func (c *Client) Remove(storageIds []string, destroyAttachments, destroyStorage bool) ([]params.ErrorResult, error) {
+	for _, id := range storageIds {
 		if !names.IsValidStorage(id) {
 			return nil, errors.NotValidf("storage ID %q", id)
 		}
-		entities[i] = params.Entity{Tag: names.NewStorageTag(id).String()}
 	}
-	if err := c.facade.FacadeCall(
-		"Destroy",
-		params.Entities{Entities: entities},
-		&results,
-	); err != nil {
+	results := params.ErrorResults{}
+	var args interface{}
+	var method string
+	if c.BestAPIVersion() <= 3 {
+		if !destroyStorage {
+			return nil, errors.Errorf("this juju controller does not support non-destructive removal of storage")
+		}
+		// In version 3, destroyAttached is ignored; removing
+		// storage always causes detachment.
+		entities := make([]params.Entity, len(storageIds))
+		for i, id := range storageIds {
+			entities[i].Tag = names.NewStorageTag(id).String()
+		}
+		args = params.Entities{entities}
+		method = "Destroy"
+	} else {
+		storage := make([]params.RemoveStorageInstance, len(storageIds))
+		for i, id := range storageIds {
+			storage[i] = params.RemoveStorageInstance{
+				Tag:                names.NewStorageTag(id).String(),
+				DestroyAttachments: destroyAttachments,
+				DestroyStorage:     destroyStorage,
+			}
+		}
+		args = params.RemoveStorage{storage}
+		method = "Remove"
+	}
+	if err := c.facade.FacadeCall(method, args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != len(storageIds) {
@@ -230,4 +255,35 @@ func (c *Client) Detach(storageIds []string) ([]params.ErrorResult, error) {
 		)
 	}
 	return results.Results, nil
+}
+
+// Import imports storage into the model.
+func (c *Client) Import(
+	kind storage.StorageKind,
+	storagePool string,
+	storageProviderId string,
+	storageName string,
+) (names.StorageTag, error) {
+	var results params.ImportStorageResults
+	args := params.BulkImportStorageParams{
+		[]params.ImportStorageParams{{
+			StorageName: storageName,
+			Kind:        params.StorageKind(kind),
+			Pool:        storagePool,
+			ProviderId:  storageProviderId,
+		}},
+	}
+	if err := c.facade.FacadeCall("Import", args, &results); err != nil {
+		return names.StorageTag{}, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return names.StorageTag{}, errors.Errorf(
+			"expected 1 result, got %d",
+			len(results.Results),
+		)
+	}
+	if err := results.Results[0].Error; err != nil {
+		return names.StorageTag{}, err
+	}
+	return names.ParseStorageTag(results.Results[0].Result.StorageTag)
 }

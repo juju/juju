@@ -104,6 +104,7 @@ func (commandWrapperSuite) TestCreateMachineSuccess(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	cloudInitPath := filepath.Join(tmpDir, "cloud-init")
 	userDataPath := filepath.Join(tmpDir, "user-data")
+	networkConfigPath := filepath.Join(tmpDir, "network-config")
 	err = ioutil.WriteFile(cloudInitPath, []byte("#cloud-init\nEOF\n"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -119,11 +120,12 @@ func (commandWrapperSuite) TestCreateMachineSuccess(c *gc.C) {
 
 	hostname := "host00"
 	params := CreateMachineParams{
-		Hostname:     hostname,
-		Series:       "precise",
-		UserDataFile: cloudInitPath,
-		CpuCores:     1,
-		RootDisk:     8,
+		Hostname:          hostname,
+		Series:            "precise",
+		UserDataFile:      cloudInitPath,
+		NetworkConfigData: "this-is-network-config",
+		CpuCores:          1,
+		RootDisk:          8,
 	}
 
 	MakeCreateMachineParamsTestable(&params, pathfinder, stub.Run, "arm64")
@@ -137,9 +139,13 @@ func (commandWrapperSuite) TestCreateMachineSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(b), jc.Contains, "#cloud-init")
 
+	b, err = ioutil.ReadFile(networkConfigPath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(b), gc.Equals, "this-is-network-config")
+
 	c.Check(len(stub.Calls()), gc.Equals, 4)
 	want := []string{
-		`genisoimage -output \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00-ds\.iso -volid cidata -joliet -rock user-data meta-data`,
+		`genisoimage -output \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00-ds\.iso -volid cidata -joliet -rock user-data meta-data network-config`,
 		`qemu-img create -b \/tmp/juju-libvirtSuite-\d+\/kvm\/guests\/precise-arm64-backing-file.qcow -f qcow2 \/tmp\/juju-libvirtSuite-\d+\/kvm\/guests\/host00.qcow 8G`,
 		`virsh define \/tmp\/juju-libvirtSuite-\d+\/host00.xml`,
 		"virsh start host00",

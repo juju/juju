@@ -8,10 +8,53 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	tomb "gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 )
+
+type MockNotifyWatcher struct {
+	tomb tomb.Tomb
+	ch   <-chan struct{}
+}
+
+func NewMockNotifyWatcher(ch <-chan struct{}) *MockNotifyWatcher {
+	w := &MockNotifyWatcher{ch: ch}
+	go func() {
+		defer w.tomb.Done()
+		<-w.tomb.Dying()
+		w.tomb.Kill(tomb.ErrDying)
+	}()
+	return w
+}
+
+func (w *MockNotifyWatcher) Changes() watcher.NotifyChannel {
+	return watcher.NotifyChannel(w.ch)
+}
+
+func (w *MockNotifyWatcher) Stop() error {
+	w.Kill()
+	return w.Wait()
+}
+
+func (w *MockNotifyWatcher) Kill() {
+	w.tomb.Kill(nil)
+}
+
+// KillErr can be used to kill the worker with
+// an error, to simulate a failing watcher.
+func (w *MockNotifyWatcher) KillErr(err error) {
+	w.tomb.Kill(err)
+}
+
+func (w *MockNotifyWatcher) Err() error {
+	return w.tomb.Err()
+}
+
+func (w *MockNotifyWatcher) Wait() error {
+	return w.tomb.Wait()
+}
 
 func NewNotifyWatcherC(c *gc.C, watcher watcher.NotifyWatcher, preAssert func()) NotifyWatcherC {
 	if preAssert == nil {

@@ -4,13 +4,17 @@
 package uniter_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/status"
 )
 
 type relationSuite struct {
@@ -44,8 +48,13 @@ func (s *relationSuite) TestIdAndTag(c *gc.C) {
 	c.Assert(s.apiRelation.Tag(), gc.Equals, s.stateRelation.Tag().(names.RelationTag))
 }
 
+func (s *relationSuite) TestOtherApplication(c *gc.C) {
+	c.Assert(s.apiRelation.OtherApplication(), gc.Equals, "mysql")
+}
+
 func (s *relationSuite) TestRefresh(c *gc.C) {
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiRelation.Suspended(), jc.IsTrue)
 
 	// EnterScope with mysqlUnit, so the relation will be set to dying
 	// when destroyed later.
@@ -58,19 +67,35 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 	// Destroy it - should set it to dying.
 	err = s.stateRelation.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	// Update suspended as well.
+	err = s.stateRelation.SetSuspended(false, "")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiRelation.Suspended(), jc.IsTrue)
 
 	err = s.apiRelation.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
+	c.Assert(s.apiRelation.Suspended(), jc.IsFalse)
 
 	// Leave scope with mysqlUnit, so the relation will be removed.
 	err = myRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
+	c.Assert(s.apiRelation.Suspended(), jc.IsFalse)
 	err = s.apiRelation.Refresh()
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+}
+
+func (s *relationSuite) TestSetStatus(c *gc.C) {
+	err := s.State.LeadershipClaimer().ClaimLeadership("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.apiRelation.SetStatus(relation.Suspended)
+	c.Assert(err, jc.ErrorIsNil)
+	relStatus, err := s.stateRelation.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relStatus.Status, gc.Equals, status.Suspended)
 }
 
 func (s *relationSuite) TestEndpoint(c *gc.C) {
@@ -107,8 +132,8 @@ func (s *relationSuite) TestRelationById(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiRel, gc.DeepEquals, s.apiRelation)
 
-	// Add a relation to mysql service, which cannot be retrived.
-	otherRel, _, _ := s.addRelatedService(c, "mysql", "logging", s.mysqlUnit)
+	// Add a relation to mysql application, which cannot be retrived.
+	otherRel, _, _ := s.addRelatedApplication(c, "mysql", "logging", s.mysqlUnit)
 
 	// Test some invalid cases.
 	for _, relId := range []int{-1, 42, otherRel.Id()} {

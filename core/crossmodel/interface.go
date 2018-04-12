@@ -4,12 +4,18 @@
 package crossmodel
 
 import (
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/macaroon.v1"
+
+	"github.com/juju/juju/apiserver/params"
 )
 
 // ApplicationOffer holds the details of an application offered
 // by this model.
 type ApplicationOffer struct {
+	// OfferUUID is the UUID of the offer.
+	OfferUUID string
+
 	// OfferName is the name of the offer.
 	OfferName string
 
@@ -25,10 +31,16 @@ type ApplicationOffer struct {
 	Endpoints map[string]charm.Relation
 }
 
-// AddApplicationOfferArgs contain parameters used to create an application offer.
+// AddApplicationOfferArgs contains parameters used to create an application offer.
 type AddApplicationOfferArgs struct {
 	// OfferName is the name of the offer.
 	OfferName string
+
+	// Owner is the user name who owns the offer.
+	Owner string
+
+	// HasRead are the user names who can see the offer exists.
+	HasRead []string
 
 	// ApplicationName is the name of the application to which the offer pertains.
 	ApplicationName string
@@ -46,6 +58,22 @@ type AddApplicationOfferArgs struct {
 	Icon []byte
 }
 
+// ConsumeApplicationArgs contains parameters used to consume an offer.
+type ConsumeApplicationArgs struct {
+	// Offer is the offer to be consumed.
+	Offer params.ApplicationOfferDetails
+
+	// Macaroon is used for authentication.
+	Macaroon *macaroon.Macaroon
+
+	// ControllerInfo contains connection details to the controller
+	// hosting the offer.
+	ControllerInfo *ControllerInfo
+
+	// ApplicationAlias is the name of the alias to use for the application name.
+	ApplicationAlias string
+}
+
 // String returns the offered application name.
 func (s *ApplicationOffer) String() string {
 	return s.ApplicationName
@@ -54,7 +82,10 @@ func (s *ApplicationOffer) String() string {
 // ApplicationOfferFilter is used to query applications offered
 // by this model.
 type ApplicationOfferFilter struct {
-	// OfferName is the name of the model hosting the offer.
+	// OwnerName is the owner of the model hosting the offer.
+	OwnerName string
+
+	// ModelName is the name of the model hosting the offer.
 	ModelName string
 
 	// OfferName is the name of the offer.
@@ -70,8 +101,11 @@ type ApplicationOfferFilter struct {
 	// Endpoint contains an endpoint filter criteria.
 	Endpoints []EndpointFilterTerm
 
-	// AllowedUsers are the users allowed to consume the application.
-	AllowedUsers []string
+	// AllowedConsumers are the users allowed to consume the offer.
+	AllowedConsumers []string
+
+	// ConnectedUsers are the users currently related to the offer.
+	ConnectedUsers []string
 }
 
 // EndpointFilterTerm represents a remote endpoint filter.
@@ -95,11 +129,20 @@ type ApplicationOffers interface {
 	// UpdateOffer replaces an existing offer at the same URL.
 	UpdateOffer(offer AddApplicationOfferArgs) (*ApplicationOffer, error)
 
+	// ApplicationOffer returns the named application offer.
+	ApplicationOffer(offerName string) (*ApplicationOffer, error)
+
+	// ApplicationOfferForUUID returns the application offer with the UUID.
+	ApplicationOfferForUUID(offerUUID string) (*ApplicationOffer, error)
+
 	// ListOffers returns the offers satisfying the specified filter.
 	ListOffers(filter ...ApplicationOfferFilter) ([]ApplicationOffer, error)
 
 	// Remove removes the application offer at the specified URL.
-	Remove(offerName string) error
+	Remove(offerName string, force bool) error
+
+	// AllApplicationOffers returns all application offers in the model.
+	AllApplicationOffers() (offers []*ApplicationOffer, _ error)
 }
 
 // RemoteApplication represents a remote application.

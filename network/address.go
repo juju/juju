@@ -15,14 +15,16 @@ import (
 	"github.com/juju/utils/set"
 )
 
-// Private network ranges for IPv4 and IPv6.
+// Private and special use network ranges for IPv4 and IPv6.
 // See: http://tools.ietf.org/html/rfc1918
 // Also: http://tools.ietf.org/html/rfc4193
+// And: https://tools.ietf.org/html/rfc6890
 var (
 	classAPrivate   = mustParseCIDR("10.0.0.0/8")
 	classBPrivate   = mustParseCIDR("172.16.0.0/12")
 	classCPrivate   = mustParseCIDR("192.168.0.0/16")
 	ipv6UniqueLocal = mustParseCIDR("fc00::/7")
+	classEReserved  = mustParseCIDR("240.0.0.0/4")
 )
 
 const (
@@ -84,6 +86,7 @@ const (
 	ScopeUnknown      Scope = ""
 	ScopePublic       Scope = "public"
 	ScopeCloudLocal   Scope = "local-cloud"
+	ScopeFanLocal     Scope = "local-fan"
 	ScopeMachineLocal Scope = "local-machine"
 	ScopeLinkLocal    Scope = "link-local"
 )
@@ -214,6 +217,13 @@ func isIPv4PrivateNetworkAddress(addrType AddressType, ip net.IP) bool {
 		classCPrivate.Contains(ip)
 }
 
+func isIPv4ReservedEAddress(addrType AddressType, ip net.IP) bool {
+	if addrType != IPv4Address {
+		return false
+	}
+	return classEReserved.Contains(ip)
+}
+
 func isIPv6UniqueLocalAddress(addrType AddressType, ip net.IP) bool {
 	if addrType != IPv6Address {
 		return false
@@ -239,6 +249,10 @@ func deriveScope(addr Address) Scope {
 		isIPv6UniqueLocalAddress(addr.Type, ip) {
 		return ScopeCloudLocal
 	}
+	if isIPv4ReservedEAddress(addr.Type, ip) {
+		return ScopeFanLocal
+	}
+
 	if ip.IsLinkLocalMulticast() ||
 		ip.IsLinkLocalUnicast() ||
 		ip.IsInterfaceLocalMulticast() {
@@ -261,27 +275,33 @@ func ExactScopeMatch(addr Address, addrScopes ...Scope) bool {
 	return false
 }
 
-// SelectAddressBySpaces picks the first address from the given slice that has
-// the given space name associated.
-func SelectAddressBySpaces(addresses []Address, spaceNames ...SpaceName) (Address, bool) {
+// SelectAddressesBySpaceNames filters the input slice of Addresses down to
+// those in the input space names.
+func SelectAddressesBySpaceNames(addresses []Address, spaceNames ...SpaceName) ([]Address, bool) {
+	if len(spaceNames) == 0 {
+		logger.Errorf("addresses not filtered - no spaces given.")
+		return addresses, false
+	}
+
+	var selectedAddresses []Address
 	for _, addr := range addresses {
 		if spaceNameList(spaceNames).IndexOf(addr.SpaceName) >= 0 {
-			logger.Debugf("selected %q as first address in space %q", addr.Value, addr.SpaceName)
-			return addr, true
+			logger.Debugf("selected %q as an address in space %q", addr.Value, addr.SpaceName)
+			selectedAddresses = append(selectedAddresses, addr)
 		}
 	}
 
-	if len(spaceNames) == 0 {
-		logger.Errorf("no spaces to select addresses from")
-	} else {
-		logger.Errorf("no addresses found in spaces %s", spaceNames)
+	if len(selectedAddresses) > 0 {
+		return selectedAddresses, true
 	}
-	return Address{}, false
+
+	logger.Errorf("no addresses found in spaces %s", spaceNames)
+	return addresses, false
 }
 
-// SelectHostsPortBySpaces picks the first HostPort from the given slice that has
-// the given space name associated.
-func SelectHostsPortBySpaces(hps []HostPort, spaceNames ...SpaceName) ([]HostPort, bool) {
+// SelectHostPortsBySpaceNames filters the input slice of HostPorts down to
+// those in the input space names.
+func SelectHostPortsBySpaceNames(hps []HostPort, spaceNames ...SpaceName) ([]HostPort, bool) {
 	if len(spaceNames) == 0 {
 		logger.Errorf("host ports not filtered - no spaces given.")
 		return hps, false
@@ -317,49 +337,6 @@ func SelectControllerAddress(addresses []Address, machineLocal bool) (Address, b
 	return internalAddress, ok
 }
 
-// SelectMongoHostPorts returns the most suitable HostPort (as string) to
-// use as a Juju Controller (API/state server) endpoint given the list of
-// hostPorts. It first tries to find the first HostPort bound to the
-// spaces provided, then, if that fails, uses the older selection method based on scope.
-// When machineLocal is true and an address can't be selected by space both
-// ScopeCloudLocal and ScopeMachineLocal addresses are considered during the
-// selection, otherwise just ScopeCloudLocal are.
-func SelectMongoHostPortsBySpaces(hostPorts []HostPort, spaces []SpaceName) ([]string, bool) {
-	filteredHostPorts, ok := SelectHostsPortBySpaces(hostPorts, spaces...)
-	if ok {
-		logger.Debugf(
-			"selected %q as controller host:port, using spaces %q",
-			filteredHostPorts, spaces,
-		)
-	}
-	return HostPortsToStrings(filteredHostPorts), ok
-}
-
-// HostPortsHasIPv4Address returns true if the passed slice of HostPort
-// contains an IPv4 address that is not just a machine-local address.
-func HostPortsHasIPv4Address(hostPorts []HostPort) bool {
-	for _, hp := range hostPorts {
-		logger.Tracef("found Address of Value %q, Type %q and Scope %q",
-			hp.Address.Value, hp.Address.Type, hp.Address.Scope)
-		if hp.Address.Type == "ipv4" &&
-			hp.Address.Scope != ScopeMachineLocal {
-			return true
-		}
-	}
-	return false
-}
-
-func SelectMongoHostPortsByScope(hostPorts []HostPort, machineLocal bool) []string {
-	// Fallback to using the legacy and error-prone approach using scope
-	// selection instead.
-	internalHP := SelectInternalHostPort(hostPorts, machineLocal)
-	logger.Debugf(
-		"selected %q as controller host:port, using scope selection",
-		internalHP,
-	)
-	return []string{internalHP}
-}
-
 // SelectPublicAddress picks one address from a slice that would be
 // appropriate to display as a publicly accessible endpoint. If there
 // are no suitable addresses, then ok is false (and an empty address is
@@ -389,7 +366,7 @@ func SelectPublicHostPort(hps []HostPort) string {
 
 // SelectInternalAddress picks one address from a slice that can be
 // used as an endpoint for juju internal communication. If there are
-// are no suitable addresses, then ok is false (and an empty address is
+// no suitable addresses, then ok is false (and an empty address is
 // returned). If a suitable address was found then ok is true.
 func SelectInternalAddress(addresses []Address, machineLocal bool) (Address, bool) {
 	index := bestAddressIndex(len(addresses), func(i int) Address {
@@ -399,6 +376,24 @@ func SelectInternalAddress(addresses []Address, machineLocal bool) (Address, boo
 		return Address{}, false
 	}
 	return addresses[index], true
+}
+
+// SelectInternalAddresses picks the best addresses from a slice that can be
+// used as an endpoint for juju internal communication.
+// I nil slice is returned if there are no suitable addresses identified.
+func SelectInternalAddresses(addresses []Address, machineLocal bool) []Address {
+	indexes := bestAddressIndexes(len(addresses), func(i int) Address {
+		return addresses[i]
+	}, internalAddressMatcher(machineLocal))
+	if len(indexes) == 0 {
+		return nil
+	}
+
+	out := make([]Address, 0, len(indexes))
+	for _, index := range indexes {
+		out = append(out, addresses[index])
+	}
+	return out
 }
 
 // SelectInternalHostPort picks one HostPort from a slice that can be
@@ -454,11 +449,16 @@ func publicMatch(addr Address) scopeMatch {
 			return exactScopeIPv4
 		}
 		return exactScope
-	case ScopeCloudLocal, ScopeUnknown:
+	case ScopeCloudLocal:
 		if addr.Type == IPv4Address {
-			return fallbackScopeIPv4
+			return firstFallbackScopeIPv4
 		}
-		return fallbackScope
+		return firstFallbackScope
+	case ScopeFanLocal, ScopeUnknown:
+		if addr.Type == IPv4Address {
+			return secondFallbackScopeIPv4
+		}
+		return secondFallbackScope
 	}
 	return invalidScope
 }
@@ -477,11 +477,16 @@ func cloudLocalMatch(addr Address) scopeMatch {
 			return exactScopeIPv4
 		}
 		return exactScope
+	case ScopeFanLocal:
+		if addr.Type == IPv4Address {
+			return firstFallbackScopeIPv4
+		}
+		return firstFallbackScope
 	case ScopePublic, ScopeUnknown:
 		if addr.Type == IPv4Address {
-			return fallbackScopeIPv4
+			return secondFallbackScopeIPv4
 		}
-		return fallbackScope
+		return secondFallbackScope
 	}
 	return invalidScope
 }
@@ -502,8 +507,10 @@ const (
 	invalidScope scopeMatch = iota
 	exactScopeIPv4
 	exactScope
-	fallbackScopeIPv4
-	fallbackScope
+	firstFallbackScopeIPv4
+	firstFallbackScope
+	secondFallbackScopeIPv4
+	secondFallbackScope
 )
 
 type scopeMatchFunc func(addr Address) scopeMatch
@@ -529,7 +536,7 @@ func bestAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc, matchFunc s
 	matches := filterAndCollateAddressIndexes(numAddr, getAddrFunc, matchFunc)
 
 	// Retrieve the indexes of the addresses with the best scope and type match.
-	allowedMatchTypes := []scopeMatch{exactScopeIPv4, exactScope, fallbackScopeIPv4, fallbackScope}
+	allowedMatchTypes := []scopeMatch{exactScopeIPv4, exactScope, firstFallbackScopeIPv4, firstFallbackScope, secondFallbackScopeIPv4, secondFallbackScope}
 	for _, matchType := range allowedMatchTypes {
 		indexes, ok := matches[matchType]
 		if ok && len(indexes) > 0 {
@@ -544,7 +551,7 @@ func prioritizedAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc, matc
 	matches := filterAndCollateAddressIndexes(numAddr, getAddrFunc, matchFunc)
 
 	// Retrieve the indexes of the addresses with the best scope and type match.
-	allowedMatchTypes := []scopeMatch{exactScopeIPv4, exactScope, fallbackScopeIPv4, fallbackScope}
+	allowedMatchTypes := []scopeMatch{exactScopeIPv4, exactScope, firstFallbackScopeIPv4, firstFallbackScope, secondFallbackScopeIPv4, secondFallbackScope}
 	var prioritized []int
 	for _, matchType := range allowedMatchTypes {
 		indexes, ok := matches[matchType]
@@ -561,7 +568,7 @@ func filterAndCollateAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc,
 	for i := 0; i < numAddr; i++ {
 		matchType := matchFunc(getAddrFunc(i))
 		switch matchType {
-		case exactScopeIPv4, exactScope, fallbackScopeIPv4, fallbackScope:
+		case exactScopeIPv4, exactScope, firstFallbackScopeIPv4, firstFallbackScope, secondFallbackScopeIPv4, secondFallbackScope:
 			matches[matchType] = append(matches[matchType], i)
 		}
 	}
@@ -572,6 +579,7 @@ func filterAndCollateAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc,
 // - public IPs first;
 // - hostnames after that, but "localhost" will be last if present;
 // - cloud-local next;
+// - fan-local next;
 // - machine-local next;
 // - link-local next;
 // - non-hostnames with unknown scope last.
@@ -582,10 +590,12 @@ func (a Address) sortOrder() int {
 		order = 0x00
 	case ScopeCloudLocal:
 		order = 0x20
-	case ScopeMachineLocal:
+	case ScopeFanLocal:
 		order = 0x40
-	case ScopeLinkLocal:
+	case ScopeMachineLocal:
 		order = 0x80
+	case ScopeLinkLocal:
+		order = 0xA0
 	}
 	switch a.Type {
 	case HostName:

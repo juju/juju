@@ -12,12 +12,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/juju/charmrepo.v2-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charm.v6"
+	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/charmrepo.v2"
+	"gopkg.in/juju/charmrepo.v2/csclient"
 	"gopkg.in/juju/charmstore.v5-unstable"
 
 	"github.com/juju/juju/cmd/juju/application"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
 )
 
 type UpgradeCharmResourceSuite struct {
@@ -44,8 +44,7 @@ func (s *UpgradeCharmResourceSuite) SetUpSuite(c *gc.C) {
 func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	chPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
-
-	_, err := testing.RunCommand(c, application.NewDefaultDeployCommand(), chPath, "riak", "--series", "quantal")
+	_, err := runDeploy(c, chPath, "riak", "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	riak, err := s.State.Application("riak")
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,7 +86,7 @@ resources:
 	err = ioutil.WriteFile(resourceFile, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = testing.RunCommand(c, application.NewUpgradeCharmCommand(),
+	_, err = cmdtesting.RunCommand(c, application.NewUpgradeCharmCommand(),
 		"riak", "--path="+myriakPath.Path, "--resource", "data="+resourceFile)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -193,13 +192,11 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	err := ioutil.WriteFile(resourceFile, []byte(resourceContent), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx, err := testing.RunCommand(c, application.NewDefaultDeployCommand(), "trusty/starsay", "--resource", "upload-resource="+resourceFile)
+	output, err := runDeploy(c, "trusty/starsay", "--resource", "upload-resource="+resourceFile)
 	c.Assert(err, jc.ErrorIsNil)
-	output := testing.Stderr(ctx)
 
 	expectedOutput := `Located charm "cs:trusty/starsay-1".
-Deploying charm "cs:trusty/starsay-1".
-`
+Deploying charm "cs:trusty/starsay-1".`
 	c.Assert(output, gc.Equals, expectedOutput)
 	s.assertCharmsUploaded(c, "cs:trusty/starsay-1")
 	s.assertServicesDeployed(c, map[string]serviceInfo{
@@ -279,7 +276,7 @@ Deploying charm "cs:trusty/starsay-1".
 
 	testcharms.UploadCharm(c, s.client, "trusty/starsay-2", "starsay")
 
-	_, err = testing.RunCommand(c, application.NewUpgradeCharmCommand(), "starsay")
+	_, err = cmdtesting.RunCommand(c, application.NewUpgradeCharmCommand(), "starsay")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertServicesDeployed(c, map[string]serviceInfo{
@@ -342,7 +339,7 @@ func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]servic
 	deployed := make(map[string]serviceInfo, len(services))
 	for _, application := range services {
 		charm, _ := application.CharmURL()
-		config, err := application.ConfigSettings()
+		config, err := application.CharmConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		if len(config) == 0 {
 			config = nil
@@ -373,4 +370,12 @@ type serviceInfo struct {
 	exposed          bool
 	storage          map[string]state.StorageConstraints
 	endpointBindings map[string]string
+}
+
+// runDeploy executes the deploy command in order to deploy the given
+// charm or bundle. The deployment stderr output and error are returned.
+// TODO(rog) delete this when tests are universally internal or external.
+func runDeploy(c *gc.C, args ...string) (string, error) {
+	ctx, err := cmdtesting.RunCommand(c, application.NewDeployCommand(), args...)
+	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }

@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"net/rpc"
+	"os"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -62,6 +63,9 @@ var baseCommands = map[string]creator{
 	"status-set" + cmdSuffix:              NewStatusSetCommand,
 	"network-get" + cmdSuffix:             NewNetworkGetCommand,
 	"application-version-set" + cmdSuffix: NewApplicationVersionSetCommand,
+	"pod-spec-set" + cmdSuffix:            NewPodSpecSetCommand,
+	"goal-state" + cmdSuffix:              NewGoalStateCommand,
+	"credential-get" + cmdSuffix:          NewCredentialGetCommand,
 }
 
 var storageCommands = map[string]creator{
@@ -174,8 +178,8 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	// Beware, reducing the log level of the following line will lead
 	// to passwords leaking if passed as args.
 	logger.Tracef("running hook tool %q %q", req.CommandName, req.Args)
-	logger.Tracef("running hook tool %q", req.CommandName)
-	logger.Debugf("hook context id %q; dir %q", req.ContextId, req.Dir)
+	logger.Debugf("running hook tool %q", req.CommandName)
+	logger.Tracef("hook context id %q; dir %q", req.ContextId, req.Dir)
 	wrapper := &cmdWrapper{c, nil}
 	resp.Code = cmd.Main(wrapper, ctx, req.Args)
 	if errors.Cause(wrapper.err) == ErrNoStdin {
@@ -207,7 +211,7 @@ func NewServer(getCmd CmdGetter, socketPath string) (*Server, error) {
 	}
 	listener, err := sockets.Listen(socketPath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "listening to jujuc socket")
 	}
 	s := &Server{
 		socketPath: socketPath,
@@ -252,6 +256,13 @@ func (s *Server) Run() (err error) {
 func (s *Server) Close() {
 	close(s.closing)
 	s.listener.Close()
+	// We need to remove the socket path because
+	// we renamed the path after opening the
+	// socket and it won't be cleaned up automatically.
+	// Ignore error as we can't do much here
+	// anyway and remove the path if we start the
+	// server again.
+	os.Remove(s.socketPath)
 	<-s.closed
 }
 

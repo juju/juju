@@ -14,17 +14,24 @@ import (
 // State represents the global state managed by the Juju controller.
 type State interface {
 	AllMachines() ([]Machine, error)
-	AllModels() ([]Model, error)
+	AllModelUUIDs() ([]string, error)
 	AllUsers() ([]User, error)
 	ControllerTag() names.ControllerTag
-	ForModel(names.ModelTag) (StateCloser, error)
 	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
 }
 
-// StateCloser extends the State interface with a Close method.
-type StateCloser interface {
+// PooledState is a wrapper for State that includes methods to negotiate with
+// the pool that supplied it.
+type PooledState interface {
+	state.PoolHelper
 	State
-	Close() error
+}
+
+// StatePool represents a pool of State objects.
+type StatePool interface {
+	SystemState() State
+	Get(modelUUID string) (PooledState, error)
+	GetModel(modelUUID string) (Model, state.PoolHelper, error)
 }
 
 // Machine represents a machine in a Juju model.
@@ -48,17 +55,54 @@ type User interface {
 	UserTag() names.UserTag
 }
 
-// NewState takes a *state.State, and returns a State value backed by it.
-func NewState(st *state.State) State {
-	return stateShim{st}
+type statePoolShim struct {
+	pool *state.StatePool
+}
+
+// NewStatePool takes a *state.StatePool, and returns
+// a StatePool value backed by it.
+func NewStatePool(pool *state.StatePool) StatePool {
+	return statePoolShim{pool}
 }
 
 type stateShim struct {
 	*state.State
 }
 
+type pooledStateShim struct {
+	*state.PooledState
+}
+
+func (p statePoolShim) SystemState() State {
+	return stateShim{p.pool.SystemState()}
+}
+
+func (p statePoolShim) Get(modelUUID string) (PooledState, error) {
+	st, err := p.pool.Get(modelUUID)
+	if err != nil {
+		return nil, err
+	}
+	return pooledStateShim{st}, nil
+}
+
+func (p statePoolShim) GetModel(modelUUID string) (Model, state.PoolHelper, error) {
+	model, ph, err := p.pool.GetModel(modelUUID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return model, ph, err
+}
+
 func (s stateShim) AllMachines() ([]Machine, error) {
-	machines, err := s.State.AllMachines()
+	return allMachines(s.State)
+}
+
+func (s pooledStateShim) AllMachines() ([]Machine, error) {
+	return allMachines(s.State)
+}
+
+func allMachines(st *state.State) ([]Machine, error) {
+	machines, err := st.AllMachines()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -71,22 +115,16 @@ func (s stateShim) AllMachines() ([]Machine, error) {
 	return out, nil
 }
 
-func (s stateShim) AllModels() ([]Model, error) {
-	models, err := s.State.AllModels()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	out := make([]Model, len(models))
-	for i, m := range models {
-		if m != nil {
-			out[i] = m
-		}
-	}
-	return out, nil
+func (s stateShim) AllUsers() ([]User, error) {
+	return allUsers(s.State)
 }
 
-func (s stateShim) AllUsers() ([]User, error) {
-	users, err := s.State.AllUsers(true)
+func (s pooledStateShim) AllUsers() ([]User, error) {
+	return allUsers(s.State)
+}
+
+func allUsers(st *state.State) ([]User, error) {
+	users, err := st.AllUsers(true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -97,12 +135,4 @@ func (s stateShim) AllUsers() ([]User, error) {
 		}
 	}
 	return out, nil
-}
-
-func (s stateShim) ForModel(tag names.ModelTag) (StateCloser, error) {
-	st, err := s.State.ForModel(tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return stateShim{st}, nil
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -27,6 +27,7 @@ const (
 	validActionId          = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 	invalidActionId        = "f47ac10b-58cc-4372-a567-0e02b2c3d47"
 	validUnitId            = "mysql/0"
+	validUnitId2           = "mysql/1"
 	invalidUnitId          = "something-strange-"
 	validServiceId         = "mysql"
 	invalidServiceId       = "something-strange-"
@@ -41,7 +42,7 @@ type BaseActionSuite struct {
 	command cmd.Command
 
 	modelFlags []string
-	store      *jujuclienttesting.MemStore
+	store      *jujuclient.MemStore
 }
 
 func (s *BaseActionSuite) SetUpTest(c *gc.C) {
@@ -49,7 +50,7 @@ func (s *BaseActionSuite) SetUpTest(c *gc.C) {
 
 	s.modelFlags = []string{"-m", "--model"}
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "ctrl"
 	s.store.Accounts["ctrl"] = jujuclient.AccountDetails{
 		User: "admin",
@@ -110,7 +111,7 @@ func tagsForIdPrefix(prefix string, tags ...string) params.FindTagsResults {
 // setupValueFile creates a file containing one value for testing.
 // cf. cmd/juju/set_test.go
 func setupValueFile(c *gc.C, dir, filename, value string) string {
-	ctx := coretesting.ContextForDir(c, dir)
+	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath(filename)
 	content := []byte(value)
 	err := ioutil.WriteFile(path, content, 0666)
@@ -165,7 +166,7 @@ func (c *fakeAPIClient) ListCompleted(args params.Entities) (params.ActionsByRec
 	}, c.apiErr
 }
 
-func (c *fakeAPIClient) Cancel(args params.Actions) (params.ActionResults, error) {
+func (c *fakeAPIClient) Cancel(args params.Entities) (params.ActionResults, error) {
 	return params.ActionResults{
 		Results: c.actionResults,
 	}, c.apiErr

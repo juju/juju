@@ -200,7 +200,7 @@ func (s *SSHCommonSuite) setHostChecker(hostChecker jujussh.ReachableChecker) {
 }
 
 func (s *SSHCommonSuite) setupModel(c *gc.C) {
-	// Add machine-0 with a mysql service and mysql/0 unit
+	// Add machine-0 with a mysql application and mysql/0 unit
 	u := s.Factory.MakeUnit(c, nil)
 
 	// Set both the preferred public and private addresses for machine-0, add a

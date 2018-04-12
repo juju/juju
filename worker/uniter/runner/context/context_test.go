@@ -10,9 +10,10 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -79,6 +80,8 @@ func (s *InterfaceSuite) TestAddingMetricsInWrongContext(c *gc.C) {
 	ctx := s.GetContext(c, 1, "u/123")
 	err := ctx.AddMetric("key", "123", time.Now())
 	c.Assert(err, gc.ErrorMatches, "metrics not allowed in this context")
+	err = ctx.AddMetricLabels("key", "123", time.Now(), map[string]string{"foo": "bar"})
+	c.Assert(err, gc.ErrorMatches, "metrics not allowed in this context")
 }
 
 func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
@@ -88,14 +91,21 @@ func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
 	c.Check(zone, gc.Equals, "a-zone")
 }
 
-func (s *InterfaceSuite) TestUnitNetworkConfig(c *gc.C) {
+func (s *InterfaceSuite) TestUnitNetworkInfo(c *gc.C) {
 	// Only the error case is tested to ensure end-to-end integration, the rest
 	// of the cases are tested separately for network-get, api/uniter, and
 	// apiserver/uniter, respectively.
 	ctx := s.GetContext(c, -1, "")
-	netConfig, err := ctx.NetworkConfig("unknown")
-	c.Check(err, gc.ErrorMatches, `binding name "unknown" not defined by the unit's charm`)
-	c.Check(netConfig, gc.IsNil)
+	netInfo, err := ctx.NetworkInfo([]string{"unknown"}, -1)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(netInfo, gc.DeepEquals, map[string]params.NetworkInfoResult{
+		"unknown": {
+			Error: &params.Error{
+				Message: "binding name \"unknown\" not defined by the unit's charm",
+			},
+		},
+	},
+	)
 }
 
 func (s *InterfaceSuite) TestUnitStatus(c *gc.C) {
@@ -209,7 +219,7 @@ func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
 
 	// Change remote config.
-	err = s.service.UpdateConfigSettings(charm.Settings{
+	err = s.service.UpdateCharmConfig(charm.Settings{
 		"blog-title": "Something Else",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -218,6 +228,49 @@ func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
 	settings, err = ctx.ConfigSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
+}
+
+func (s *InterfaceSuite) TestGoalState(c *gc.C) {
+
+	timestamp := time.Date(2200, time.November, 5, 0, 0, 0, 0, time.UTC)
+	mockUnitSince := func(inUnits application.UnitsGoalState) application.UnitsGoalState {
+		outUnits := application.UnitsGoalState{}
+		for name, gsStatus := range inUnits {
+			c.Assert(gsStatus.Since, gc.NotNil)
+			outUnits[name] = application.GoalStateStatus{
+				Status: gsStatus.Status,
+				Since:  &timestamp,
+			}
+		}
+		return outUnits
+	}
+
+	gsStatus := application.GoalStateStatus{
+		Status: "waiting",
+		Since:  &timestamp,
+	}
+	goalStateCheck := application.GoalState{
+		Units: application.UnitsGoalState{
+			"u/0": gsStatus,
+		},
+		Relations: map[string]application.UnitsGoalState{
+			"db": application.UnitsGoalState{
+				"u/0": gsStatus,
+			},
+		},
+	}
+
+	ctx := s.GetContext(c, -1, "")
+	goalState, err := ctx.GoalState()
+
+	// Mock status Since string
+	goalState.Units = mockUnitSince(goalState.Units)
+	for relationsNames, relationUnits := range goalState.Relations {
+		goalState.Relations[relationsNames] = mockUnitSince(relationUnits)
+	}
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(goalState, gc.DeepEquals, &goalStateCheck)
 }
 
 // TestNonActionCallsToActionMethodsFail does exactly what its name says:
@@ -388,7 +441,7 @@ func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
 
 func (s *InterfaceSuite) TestStorageAddConstraints(c *gc.C) {
 	expected := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{
+		"data": {
 			params.StorageConstraints{},
 		},
 	}
@@ -402,7 +455,7 @@ var two = uint64(2)
 
 func (s *InterfaceSuite) TestStorageAddConstraintsSameStorage(c *gc.C) {
 	expected := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{
+		"data": {
 			params.StorageConstraints{},
 			params.StorageConstraints{Count: &two},
 		},
@@ -416,8 +469,8 @@ func (s *InterfaceSuite) TestStorageAddConstraintsSameStorage(c *gc.C) {
 
 func (s *InterfaceSuite) TestStorageAddConstraintsDifferentStorage(c *gc.C) {
 	expected := map[string][]params.StorageConstraints{
-		"data": []params.StorageConstraints{params.StorageConstraints{}},
-		"diff": []params.StorageConstraints{
+		"data": {params.StorageConstraints{}},
+		"diff": {
 			params.StorageConstraints{Count: &two}},
 	}
 

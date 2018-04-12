@@ -6,6 +6,7 @@ package main
 import (
 	"os"
 
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/cmd/juju/commands"
@@ -24,5 +25,9 @@ func init() {
 }
 
 func main() {
+	_, err := loggo.ReplaceDefaultWriter(cmd.NewWarningWriter(os.Stderr))
+	if err != nil {
+		panic(err)
+	}
 	os.Exit(commands.Main(os.Args))
 }

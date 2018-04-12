@@ -46,7 +46,7 @@ func (m *Machine) Life() params.Life {
 
 // Refresh updates the cached local copy of the machine's data.
 func (m *Machine) Refresh() error {
-	life, err := common.Life(m.facade, m.tag)
+	life, err := common.OneLife(m.facade, m.tag)
 	if err != nil {
 		return errors.Trace(err)
 	}

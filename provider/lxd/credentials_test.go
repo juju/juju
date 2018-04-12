@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -128,7 +129,7 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCert(c *gc.C) {
 
 func (s *credentialsSuite) TestFinalizeCredentialLocal(c *gc.C) {
 	cert, _ := s.TestingCert(c)
-	out, err := s.Provider.FinalizeCredential(coretesting.Context(c), environs.FinalizeCredentialParams{
+	out, err := s.Provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "1.2.3.4",
 		Credential: cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 			"client-cert": string(cert.CertPEM),
@@ -154,7 +155,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocal(c *gc.C) {
 func (s *credentialsSuite) TestFinalizeCredentialLocalAddCert(c *gc.C) {
 	s.Stub.SetErrors(errors.NotFoundf("certificate"))
 	cert, _ := s.TestingCert(c)
-	out, err := s.Provider.FinalizeCredential(coretesting.Context(c), environs.FinalizeCredentialParams{
+	out, err := s.Provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "", // skips host lookup
 		Credential: cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 			"client-cert": string(cert.CertPEM),
@@ -185,7 +186,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertAlreadyThere(c *gc.
 		errors.New("UNIQUE constraint failed: certificates.fingerprint"),
 	)
 	cert, _ := s.TestingCert(c)
-	out, err := s.Provider.FinalizeCredential(coretesting.Context(c), environs.FinalizeCredentialParams{
+	out, err := s.Provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "", // skips host lookup
 		Credential: cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 			"client-cert": string(cert.CertPEM),
@@ -218,7 +219,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertFatal(c *gc.C) {
 		errors.NotFoundf("certificate"),
 	)
 	cert, _ := s.TestingCert(c)
-	_, err := s.Provider.FinalizeCredential(coretesting.Context(c), environs.FinalizeCredentialParams{
+	_, err := s.Provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "", // skips host lookup
 		Credential: cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 			"client-cert": string(cert.CertPEM),
@@ -236,7 +237,7 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
 		"client-cert": "foo",
 		"client-key":  "bar",
 	})
-	_, err := s.Provider.FinalizeCredential(coretesting.Context(c), environs.FinalizeCredentialParams{
+	_, err := s.Provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "8.8.8.8",
 		Credential:    in,
 	})
@@ -258,7 +259,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalInteractive(c *gc.C) {
 	s.writeFile(c, filepath.Join(home, ".config/lxc/client.crt"), string(cert.CertPEM))
 	s.writeFile(c, filepath.Join(home, ".config/lxc/client.key"), string(cert.KeyPEM))
 
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	out, err := s.Provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
 		CloudEndpoint: "1.2.3.4",
 		Credential:    cloud.NewCredential("interactive", map[string]string{}),
@@ -289,7 +290,7 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocalInteractive(c *gc.C) {
 	// Patch the interface addresses for the calling machine, so
 	// it appears that we're not on the LXD server host.
 	s.PatchValue(&s.InterfaceAddrs, []net.Addr{&net.IPNet{IP: net.ParseIP("8.8.8.8")}})
-	_, err := s.Provider.FinalizeCredential(coretesting.Context(c), environs.FinalizeCredentialParams{
+	_, err := s.Provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "8.8.8.8",
 		Credential:    cloud.NewCredential("interactive", map[string]string{}),
 	})

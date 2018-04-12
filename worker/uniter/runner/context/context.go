@@ -2,7 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package context contains the ContextFactory and Context definitions. Context implements
-// jujuc.Context and is used together with uniter.Runner to run hooks, commands and actions.
+// hooks.Context and is used together with uniter.Runner to run hooks, commands and actions.
 package context
 
 import (
@@ -15,14 +15,17 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -92,7 +95,7 @@ type HookProcess interface {
 	Kill() error
 }
 
-// HookContext is the implementation of jujuc.Context.
+// HookContext is the implementation of hooks.Context.
 type HookContext struct {
 	unit *uniter.Unit
 
@@ -103,8 +106,11 @@ type HookContext struct {
 	// not fully there yet.
 	state *uniter.State
 
-	// LeadershipContext supplies several jujuc.Context methods.
+	// LeadershipContext supplies several hooks.Context methods.
 	LeadershipContext
+
+	// principal is the unitName of the principal charm.
+	principal string
 
 	// privateAddress is the cached value of the unit's private
 	// address.
@@ -120,6 +126,9 @@ type HookContext struct {
 	// configSettings holds the service configuration.
 	configSettings charm.Settings
 
+	// goalState holds the goal state struct
+	goalState application.GoalState
+
 	// id identifies the context.
 	id string
 
@@ -130,8 +139,8 @@ type HookContext struct {
 	// uuid is the universally unique identifier of the environment.
 	uuid string
 
-	// envName is the human friendly name of the environment.
-	envName string
+	// modelName is the human friendly name of the environment.
+	modelName string
 
 	// unitName is the human friendly name of the local unit.
 	unitName string
@@ -179,7 +188,7 @@ type HookContext struct {
 	// like a juju-run command or a hook
 	process HookProcess
 
-	// rebootPriority tells us when the hook wants to reboot. If rebootPriority is jujuc.RebootNow
+	// rebootPriority tells us when the hook wants to reboot. If rebootPriority is hooks.RebootNow
 	// the hook will be killed and requeued
 	rebootPriority jujuc.RebootPriority
 
@@ -207,9 +216,15 @@ type HookContext struct {
 
 	componentDir   func(string) string
 	componentFuncs map[string]ComponentFunc
+
+	//  slaLevel contains the current SLA level.
+	slaLevel string
+
+	// The cloud specification
+	cloudSpec *params.CloudSpec
 }
 
-// Component implements jujuc.Context.
+// Component implements hooks.Context.
 func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, error) {
 	compCtxFunc, ok := ctx.componentFuncs[name]
 	if !ok {
@@ -242,7 +257,7 @@ func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
 	}
 
 	switch err {
-	case nil, ErrNoProcess:
+	case nil, charmrunner.ErrNoProcess:
 		// ErrNoProcess almost certainly means we are running in debug hooks
 	default:
 		ctx.SetRebootPriority(jujuc.RebootSkip)
@@ -475,6 +490,41 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
+func (ctx *HookContext) GoalState() (*application.GoalState, error) {
+	var err error
+	ctx.goalState, err = ctx.state.GoalState()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ctx.goalState, nil
+}
+
+func (ctx *HookContext) SetPodSpec(specYaml string) error {
+	entityName := ctx.unitName
+	isLeader, err := ctx.IsLeader()
+	if err != nil {
+		return errors.Annotatef(err, "cannot determine leadership")
+	}
+	if !isLeader {
+		// TODO(caas) - race - initial unit is sometimes not recognised as the leader
+		logger.Warningf("%v is not the leader but is setting application pod spec", entityName)
+		//return ErrIsNotLeader
+	}
+	entityName = ctx.unit.ApplicationName()
+	return ctx.state.SetPodSpec(entityName, specYaml)
+}
+
+// CloudSpec return the cloud specification for the running unit's model
+func (ctx *HookContext) CloudSpec() (*params.CloudSpec, error) {
+	var err error
+	ctx.cloudSpec, err = ctx.state.CloudSpec()
+	if err != nil {
+		return nil, err
+	}
+	return ctx.cloudSpec, nil
+}
+
 // ActionName returns the name of the action.
 func (ctx *HookContext) ActionName() (string, error) {
 	if ctx.actionData == nil {
@@ -553,6 +603,11 @@ func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
 	return errors.New("metrics not allowed in this context")
 }
 
+// AddMetricLabels adds metrics with labels to the hook context.
+func (ctx *HookContext) AddMetricLabels(key, value string, created time.Time, labels map[string]string) error {
+	return errors.New("metrics not allowed in this context")
+}
+
 // ActionData returns the context's internal action data. It's meant to be
 // transitory; it exists to allow uniter and runner code to keep working as
 // it did; it should be considered deprecated, and not used by new clients.
@@ -575,13 +630,21 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"JUJU_AGENT_SOCKET="+paths.GetJujucSocket(),
 		"JUJU_UNIT_NAME="+context.unitName,
 		"JUJU_MODEL_UUID="+context.uuid,
-		"JUJU_MODEL_NAME="+context.envName,
+		"JUJU_MODEL_NAME="+context.modelName,
 		"JUJU_API_ADDRESSES="+strings.Join(context.apiAddrs, " "),
-		"JUJU_METER_STATUS="+context.meterStatus.code,
-		"JUJU_METER_INFO="+context.meterStatus.info,
+		"JUJU_SLA="+context.slaLevel,
 		"JUJU_MACHINE_ID="+context.assignedMachineTag.Id(),
+		"JUJU_PRINCIPAL_UNIT="+context.principal,
 		"JUJU_AVAILABILITY_ZONE="+context.availabilityzone,
+		"JUJU_VERSION="+version.Current.String(),
 	)
+	if context.meterStatus != nil {
+		vars = append(vars,
+			"JUJU_METER_STATUS="+context.meterStatus.code,
+			"JUJU_METER_INFO="+context.meterStatus.info,
+		)
+
+	}
 	if r, err := context.HookRelation(); err == nil {
 		vars = append(vars,
 			"JUJU_RELATION="+r.Name(),
@@ -741,7 +804,7 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 	// and discard the error state.  Actions should not error the uniter.
 	if err != nil {
 		message = err.Error()
-		if IsMissingHookError(err) {
+		if charmrunner.IsMissingHookError(err) {
 			message = fmt.Sprintf("action not implemented on unit %q", ctx.unitName)
 		}
 		status = params.ActionFailed
@@ -759,7 +822,7 @@ func (ctx *HookContext) killCharmHook() error {
 	proc := ctx.GetProcess()
 	if proc == nil {
 		// nothing to kill
-		return ErrNoProcess
+		return charmrunner.ErrNoProcess
 	}
 	logger.Infof("trying to kill context process %v", proc.Pid())
 
@@ -785,11 +848,6 @@ func (ctx *HookContext) killCharmHook() error {
 		logger.Infof("waiting for context process %v to die", proc.Pid())
 		tick = ctx.clock.After(100 * time.Millisecond)
 	}
-}
-
-// NetworkConfig returns the network config for the given bindingName.
-func (ctx *HookContext) NetworkConfig(bindingName string) ([]params.NetworkConfig, error) {
-	return ctx.unit.NetworkConfig(bindingName)
 }
 
 // UnitWorkloadVersion returns the version of the workload reported by
@@ -827,4 +885,13 @@ func (ctx *HookContext) SetUnitWorkloadVersion(version string) error {
 		return err
 	}
 	return result.OneError()
+}
+
+// NetworkInfo returns the network info for the given bindings on the given relation.
+func (ctx *HookContext) NetworkInfo(bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error) {
+	var relId *int
+	if relationId != -1 {
+		relId = &relationId
+	}
+	return ctx.unit.NetworkInfo(bindingNames, relId)
 }

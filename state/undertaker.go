@@ -11,8 +11,13 @@ import (
 
 var ErrModelNotDying = errors.New("model is not dying")
 
-// ProcessDyingModel checks if there are any machines or services left in
-// state. If there are none, the model's life is changed from dying to dead.
+// ProcessDyingModel checks if the model is Dying and empty, and if so,
+// transitions the model to Dead.
+//
+// If the model is non-empty because it is the controller model and still
+// contains hosted models, an error satisfying IsHasHostedModelsError will
+// be returned. If the model is otherwise non-empty, an error satisfying
+// IsNonEmptyModelError will be returned.
 func (st *State) ProcessDyingModel() (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		model, err := st.Model()
@@ -25,18 +30,23 @@ func (st *State) ProcessDyingModel() (err error) {
 		}
 
 		if st.IsController() {
-			models, err := st.AllModels()
+			// We should not mark the controller model as Dead until
+			// all hosted models have been removed, otherwise the
+			// hosted model environs may not have been destroyed.
+			modelUUIDs, err := st.AllModelUUIDsIncludingDead()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			for _, model := range models {
-				if model.UUID() != st.ModelUUID() && model.Life() != Dead {
-					return nil, errors.Errorf("one or more hosted models are not yet dead")
-				}
+			if n := len(modelUUIDs) - 1; n > 0 {
+				return nil, errors.Trace(hasHostedModelsError(n))
 			}
 		}
 
-		if err := model.checkEmpty(); err != nil {
+		modelEntityRefsDoc, err := model.getEntityRefs()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if _, err := checkModelEntityRefsEmpty(modelEntityRefsDoc); err != nil {
 			return nil, errors.Trace(err)
 		}
 
@@ -46,13 +56,18 @@ func (st *State) ProcessDyingModel() (err error) {
 			Assert: isDyingDoc,
 			Update: bson.M{"$set": bson.M{
 				"life":          Dead,
-				"time-of-death": st.NowToTheSecond(),
+				"time-of-death": st.nowToTheSecond(),
 			}},
+		}, {
+			// Cleanup the owner:envName unique key.
+			C:      usermodelnameC,
+			Id:     model.uniqueIndexID(),
+			Remove: true,
 		}}
 		return ops, nil
 	}
 
-	if err = st.run(buildTxn); err != nil {
+	if err = st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

@@ -19,10 +19,10 @@
 package dummy
 
 import (
+	"crypto/tls"
 	"fmt"
-	"io"
 	"net"
-	"net/http"
+	"net/http/httptest"
 	"os"
 	"runtime"
 	"strconv"
@@ -39,7 +39,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -48,14 +47,18 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
@@ -81,7 +84,7 @@ var errNotPrepared = errors.New("model is not prepared")
 // SampleCloudSpec returns an environs.CloudSpec that can be used to
 // open a dummy Environ.
 func SampleCloudSpec() environs.CloudSpec {
-	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "dummy", "passeord": "secret"})
+	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "dummy", "password": "secret"})
 	return environs.CloudSpec{
 		Type:             "dummy",
 		Name:             "dummy",
@@ -104,7 +107,7 @@ func SampleConfig() testing.Attrs {
 		"firewall-mode":             config.FwInstance,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"default-series":            series.LatestLts(),
+		"default-series":            jujuversion.SupportedLts(),
 
 		"secret":     "pork",
 		"controller": true,
@@ -121,18 +124,19 @@ func PatchTransientErrorInjectionChannel(c chan error) func() {
 	return gitjujutesting.PatchValue(&transientErrorInjection, c)
 }
 
-// stateInfo returns a *state.Info which allows clients to connect to the
+// mongoInfo returns a mongo.MongoInfo which allows clients to connect to the
 // shared dummy state, if it exists.
-func stateInfo() *mongo.MongoInfo {
+func mongoInfo() mongo.MongoInfo {
 	if gitjujutesting.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
 	mongoPort := strconv.Itoa(gitjujutesting.MgoServer.Port())
 	addrs := []string{net.JoinHostPort("localhost", mongoPort)}
-	return &mongo.MongoInfo{
+	return mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  addrs,
-			CACert: testing.CACert,
+			Addrs:      addrs,
+			CACert:     testing.CACert,
+			DisableTLS: !gitjujutesting.MgoServer.SSLEnabled(),
 		},
 	}
 }
@@ -173,20 +177,21 @@ type OpSubnets struct {
 }
 
 type OpStartInstance struct {
-	Env              string
-	MachineId        string
-	MachineNonce     string
-	PossibleTools    coretools.List
-	Instance         instance.Instance
-	Constraints      constraints.Value
-	SubnetsToZones   map[network.Id][]string
-	NetworkInfo      []network.InterfaceInfo
-	Volumes          []storage.Volume
-	Info             *mongo.MongoInfo
-	Jobs             []multiwatcher.MachineJob
-	APIInfo          *api.Info
-	Secret           string
-	AgentEnvironment map[string]string
+	Env               string
+	MachineId         string
+	MachineNonce      string
+	PossibleTools     coretools.List
+	Instance          instance.Instance
+	Constraints       constraints.Value
+	SubnetsToZones    map[network.Id][]string
+	NetworkInfo       []network.InterfaceInfo
+	Volumes           []storage.Volume
+	VolumeAttachments []storage.VolumeAttachment
+	Info              *mongo.MongoInfo
+	Jobs              []multiwatcher.MachineJob
+	APIInfo           *api.Info
+	Secret            string
+	AgentEnvironment  map[string]string
 }
 
 type OpStopInstances struct {
@@ -244,7 +249,8 @@ type environState struct {
 	insts          map[instance.Id]*dummyInstance
 	globalRules    network.IngressRuleSlice
 	bootstrapped   bool
-	apiListener    net.Listener
+	mux            *apiserverhttp.Mux
+	httpServer     *httptest.Server
 	apiServer      *apiserver.Server
 	apiState       *state.State
 	apiStatePool   *state.StatePool
@@ -262,6 +268,9 @@ type environ struct {
 	ecfgUnlocked *environConfig
 	spacesMutex  sync.RWMutex
 }
+
+var _ environs.Environ = (*environ)(nil)
+var _ environs.Networking = (*environ)(nil)
 
 // discardOperations discards all Operations written to it.
 var discardOperations = make(chan Operation)
@@ -311,8 +320,8 @@ func Reset(c *gc.C) {
 	// may require waiting on RPC calls that interact with the
 	// EnvironProvider (e.g. EnvironProvider.Open).
 	for _, s := range oldState {
-		if s.apiListener != nil {
-			s.apiListener.Close()
+		if s.httpServer != nil {
+			s.httpServer.Close()
 		}
 		s.destroy()
 	}
@@ -424,15 +433,19 @@ func newState(name string, ops chan<- Operation, newStatePolicy state.NewPolicyF
 	return s
 }
 
-// listenAPI starts a network listener listening for API
-// connections and proxies them to the API server port.
+// listenAPI starts an HTTP server listening for API connections.
 func (s *environState) listenAPI() int {
-	l, err := net.Listen("tcp", ":0")
+	certPool, err := api.CreateCertPool(testing.CACert)
 	if err != nil {
-		panic(fmt.Errorf("cannot start listener: %v", err))
+		panic(err)
 	}
-	s.apiListener = l
-	return l.Addr().(*net.TCPAddr).Port
+	tlsConfig := api.NewTLSConfig(certPool)
+	tlsConfig.ServerName = "juju-apiserver"
+	tlsConfig.Certificates = []tls.Certificate{*testing.ServerTLSCert}
+	s.mux = apiserverhttp.NewMux()
+	s.httpServer = httptest.NewUnstartedServer(s.mux)
+	s.httpServer.TLS = tlsConfig
+	return s.httpServer.Listener.Addr().(*net.TCPAddr).Port
 }
 
 // SetSupportsSpaces allows to enable and disable SupportsSpaces for tests.
@@ -536,17 +549,17 @@ var _ config.ConfigSchemaSource = (*environProvider)(nil)
 
 // ConfigSchema returns extra config attributes specific
 // to this provider only.
-func (p environProvider) ConfigSchema() schema.Fields {
+func (p *environProvider) ConfigSchema() schema.Fields {
 	return configFields
 }
 
 // ConfigDefaults returns the default values for the
 // provider specific config attributes.
-func (p environProvider) ConfigDefaults() schema.Defaults {
+func (p *environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
 }
 
-func (environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+func (*environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.EmptyAuthType: {},
 		cloud.UserPassAuthType: {
@@ -597,6 +610,11 @@ func (e *environ) state() (*environState, error) {
 	return state, nil
 }
 
+// Version is part of the EnvironProvider interface.
+func (*environProvider) Version() int {
+	return 0
+}
+
 func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -619,12 +637,12 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 
 // CloudSchema returns the schema used to validate input for add-cloud.  Since
 // this provider does not support custom clouds, this always returns nil.
-func (p environProvider) CloudSchema() *jsonschema.Schema {
+func (p *environProvider) CloudSchema() *jsonschema.Schema {
 	return nil
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p environProvider) Ping(endpoint string) error {
+func (p *environProvider) Ping(endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 
@@ -656,10 +674,10 @@ func (e *environ) checkBroken(method string) error {
 	return nil
 }
 
-// PrecheckInstance is specified in the state.Prechecker interface.
-func (*environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	if placement != "" && placement != "valid" {
-		return fmt.Errorf("%s placement is invalid", placement)
+// PrecheckInstance is specified in the environs.InstancePrechecker interface.
+func (*environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+	if args.Placement != "" && args.Placement != "valid" {
+		return fmt.Errorf("%s placement is invalid", args.Placement)
 	}
 	return nil
 }
@@ -714,7 +732,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		return nil, errors.New("no CA certificate in controller configuration")
 	}
 
-	logger.Infof("would pick tools from %s", availableTools)
+	logger.Infof("would pick agent binaries from %s", availableTools)
 
 	estate, err := e.state()
 	if err != nil {
@@ -764,15 +782,21 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				cloudCredentials[cloudCredentialTag] = *icfg.Bootstrap.ControllerCloudCredential
 			}
 
-			info := stateInfo()
+			session, err := mongo.DialWithInfo(mongoInfo(), mongotest.DialOpts())
+			if err != nil {
+				return err
+			}
+			defer session.Close()
+
 			// Since the admin user isn't setup until after here,
 			// the password in the info structure is empty, so the admin
 			// user is constructed with an empty password here.
 			// It is set just below.
-			st, err := state.Initialize(state.InitializeParams{
+			ctlr, st, err := state.Initialize(state.InitializeParams{
 				Clock:            clock.WallClock,
 				ControllerConfig: icfg.Controller.Config,
 				ControllerModelArgs: state.ModelArgs{
+					Type:                    state.ModelTypeIAAS,
 					Owner:                   adminUser,
 					Config:                  icfg.Bootstrap.ControllerModelConfig,
 					Constraints:             icfg.Bootstrap.BootstrapMachineConstraints,
@@ -783,28 +807,34 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				},
 				Cloud:            icfg.Bootstrap.ControllerCloud,
 				CloudCredentials: cloudCredentials,
-				MongoInfo:        info,
-				MongoDialOpts:    mongotest.DialOpts(),
+				MongoSession:     session,
 				NewPolicy:        estate.newStatePolicy,
+				AdminPassword:    icfg.Controller.MongoInfo.Password,
 			})
 			if err != nil {
 				return err
 			}
+			ctlr.Close()
 			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
+				st.Close()
 				return err
 			}
 			if err := st.SetAdminMongoPassword(icfg.Controller.MongoInfo.Password); err != nil {
+				st.Close()
 				return err
 			}
 			if err := st.MongoSession().DB("admin").Login("admin", icfg.Controller.MongoInfo.Password); err != nil {
+				st.Close()
 				return err
 			}
 			env, err := st.Model()
 			if err != nil {
+				st.Close()
 				return err
 			}
 			owner, err := st.User(env.Owner())
 			if err != nil {
+				st.Close()
 				return err
 			}
 			// We log this out for test purposes only. No one in real life can use
@@ -813,31 +843,52 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.Controller.MongoInfo.Password)
 			owner.SetPassword(icfg.Controller.MongoInfo.Password)
 
-			estate.apiStatePool = state.NewStatePool(st)
+			statePool := state.NewStatePool(st)
+			stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock.WallClock)
+			if err != nil {
+				statePool.Close()
+				st.Close()
+				return err
+			}
+			stateAuthenticator.AddHandlers(estate.mux)
 
 			machineTag := names.NewMachineTag("0")
-			estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
-				Clock:       clock.WallClock,
-				Cert:        testing.ServerCert,
-				Key:         testing.ServerKey,
-				Tag:         machineTag,
-				DataDir:     DataDir,
-				LogDir:      LogDir,
-				StatePool:   estate.apiStatePool,
-				Hub:         centralhub.New(machineTag),
-				NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
-				// Should never be used but prevent external access just in case.
-				AutocertURL: "https://0.1.2.3/no-autocert-here",
-				RegisterIntrospectionHandlers: func(f func(path string, h http.Handler)) {
-					f("navel", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-						io.WriteString(w, "gazing")
-					}))
+			estate.httpServer.StartTLS()
+			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
+				StatePool:       statePool,
+				Authenticator:   stateAuthenticator,
+				Clock:           clock.WallClock,
+				GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
+				Tag:             machineTag,
+				DataDir:         DataDir,
+				LogDir:          LogDir,
+				Mux:             estate.mux,
+				Hub:             centralhub.New(machineTag),
+				NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
+				RateLimitConfig: apiserver.DefaultRateLimitConfig(),
+				PublicDNSName:   icfg.Controller.Config.AutocertDNSName(),
+				UpgradeComplete: func() bool {
+					return true
+				},
+				RestoreStatus: func() state.RestoreStatus {
+					return state.RestoreNotActive
 				},
 			})
 			if err != nil {
+				statePool.Close()
+				st.Close()
 				panic(err)
 			}
 			estate.apiState = st
+			estate.apiStatePool = statePool
+
+			// Maintain the state authenticator (time out local user interactions).
+			abort := make(chan struct{})
+			go stateAuthenticator.Maintain(abort)
+			go func(apiServer *apiserver.Server) {
+				defer close(abort)
+				apiServer.Wait()
+			}(estate.apiServer)
 		}
 		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}
 		return nil
@@ -991,7 +1042,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if args.InstanceConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
 		return nil, errors.New("entity tag must match started machine")
 	}
-	logger.Infof("would pick tools from %s", args.Tools)
+	logger.Infof("would pick agent binaries from %s", args.Tools)
 	series := args.Tools.OneSeries()
 
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
@@ -1012,15 +1063,29 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	// To match current system capability, only provide hardware characteristics for
 	// environ machines, not containers.
 	if state.ParentId(machineId) == "" {
+		// Assume that the provided Availability Zone won't fail,
+		// though one is required.
+		var zone string
+		if args.Placement != "" {
+			split := strings.Split(args.Placement, "=")
+			if len(split) == 2 && split[0] == "zone" {
+				zone = split[1]
+			}
+		}
+		if zone == "" && args.AvailabilityZone != "" {
+			zone = args.AvailabilityZone
+		}
+
 		// We will just assume the instance hardware characteristics exactly matches
 		// the supplied constraints (if specified).
 		hc = &instance.HardwareCharacteristics{
-			Arch:     args.Constraints.Arch,
-			Mem:      args.Constraints.Mem,
-			RootDisk: args.Constraints.RootDisk,
-			CpuCores: args.Constraints.CpuCores,
-			CpuPower: args.Constraints.CpuPower,
-			Tags:     args.Constraints.Tags,
+			Arch:             args.Constraints.Arch,
+			Mem:              args.Constraints.Mem,
+			RootDisk:         args.Constraints.RootDisk,
+			CpuCores:         args.Constraints.CpuCores,
+			CpuPower:         args.Constraints.CpuPower,
+			Tags:             args.Constraints.Tags,
+			AvailabilityZone: &zone,
 		}
 		// Fill in some expected instance hardware characteristics if constraints not specified.
 		if hc.Arch == nil {
@@ -1059,10 +1124,22 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	for iv, v := range args.Volumes {
 		persistent, _ := v.Attributes["persistent"].(bool)
 		volumes[iv] = storage.Volume{
-			Tag: names.NewVolumeTag(strconv.Itoa(iv + 1)),
+			Tag: v.Tag,
 			VolumeInfo: storage.VolumeInfo{
 				Size:       v.Size,
 				Persistent: persistent,
+			},
+		}
+	}
+	// Simulate attaching volumes when requested.
+	volumeAttachments := make([]storage.VolumeAttachment, len(args.VolumeAttachments))
+	for iv, v := range args.VolumeAttachments {
+		volumeAttachments[iv] = storage.VolumeAttachment{
+			Volume:  v.Volume,
+			Machine: v.Machine,
+			VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
+				DeviceName: fmt.Sprintf("sd%c", 'b'+rune(iv)),
+				ReadOnly:   v.ReadOnly,
 			},
 		}
 	}
@@ -1073,19 +1150,20 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
-		Env:              e.name,
-		MachineId:        machineId,
-		MachineNonce:     args.InstanceConfig.MachineNonce,
-		PossibleTools:    args.Tools,
-		Constraints:      args.Constraints,
-		SubnetsToZones:   subnetsToZones,
-		Volumes:          volumes,
-		Instance:         i,
-		Jobs:             args.InstanceConfig.Jobs,
-		Info:             mongoInfo,
-		APIInfo:          args.InstanceConfig.APIInfo,
-		AgentEnvironment: args.InstanceConfig.AgentEnvironment,
-		Secret:           e.ecfg().secret(),
+		Env:               e.name,
+		MachineId:         machineId,
+		MachineNonce:      args.InstanceConfig.MachineNonce,
+		PossibleTools:     args.Tools,
+		Constraints:       args.Constraints,
+		SubnetsToZones:    subnetsToZones,
+		Volumes:           volumes,
+		VolumeAttachments: volumeAttachments,
+		Instance:          i,
+		Jobs:              args.InstanceConfig.Jobs,
+		Info:              mongoInfo,
+		APIInfo:           args.InstanceConfig.APIInfo,
+		AgentEnvironment:  args.InstanceConfig.AgentEnvironment,
+		Secret:            e.ecfg().secret(),
 	}
 	return &environs.StartInstanceResult{
 		Instance: i,
@@ -1275,16 +1353,43 @@ func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	return []common.AvailabilityZone{
 		azShim{"zone1", true},
 		azShim{"zone2", false},
+		azShim{"zone3", true},
+		azShim{"zone4", true},
 	}, nil
 }
 
 // InstanceAvailabilityZoneNames implements environs.ZonedEnviron.
 func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
-	// TODO(dimitern): Fix this properly.
 	if err := env.checkBroken("InstanceAvailabilityZoneNames"); err != nil {
 		return nil, errors.NotSupportedf("instance availability zones")
 	}
-	return []string{"zone1"}, nil
+	availabilityZones, err := env.AvailabilityZones()
+	if err != nil {
+		return nil, err
+	}
+	azMaxIndex := len(availabilityZones) - 1
+	azIndex := 0
+	returnValue := make([]string, len(ids))
+	for i, _ := range ids {
+		if availabilityZones[azIndex].Available() {
+			returnValue[i] = availabilityZones[azIndex].Name()
+		} else {
+			// Based on knowledge of how the AZs are setup above
+			// in AvailabilityZones()
+			azIndex += 1
+			returnValue[i] = availabilityZones[azIndex].Name()
+		}
+		azIndex += 1
+		if azIndex == azMaxIndex {
+			azIndex = 0
+		}
+	}
+	return returnValue, nil
+}
+
+// DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
+func (env *environ) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+	return nil, nil
 }
 
 // Subnets implements environs.Environ.Subnets.
@@ -1665,4 +1770,31 @@ func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, contain
 
 func (e *environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
+}
+
+// ProviderSpaceInfo implements NetworkingEnviron.
+func (*environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("provider space info")
+}
+
+// AreSpacesRoutable implements NetworkingEnviron.
+func (*environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
+}
+
+// SSHAddresses implements environs.SSHAddresses.
+// For testing we cut "100.100.100.100" out of this list.
+func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	var rv []network.Address
+	for _, addr := range addresses {
+		if addr.Value != "100.100.100.100" {
+			rv = append(rv, addr)
+		}
+	}
+	return rv, nil
+}
+
+// SuperSubnets implements environs.SuperSubnets
+func (*environ) SuperSubnets() ([]string, error) {
+	return nil, errors.NotSupportedf("super subnets")
 }

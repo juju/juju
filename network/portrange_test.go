@@ -93,6 +93,11 @@ func (*PortRangeSuite) TestStrings(c *gc.C) {
 		gc.Equals,
 		"80-100/tcp",
 	)
+	c.Assert(
+		network.PortRange{-1, -1, "ICMP"}.String(),
+		gc.Equals,
+		"icmp",
+	)
 }
 
 func (*PortRangeSuite) TestValidate(c *gc.C) {
@@ -139,7 +144,11 @@ func (*PortRangeSuite) TestValidate(c *gc.C) {
 	}, {
 		"invalid protocol",
 		network.PortRange{80, 80, "some protocol"},
-		`invalid protocol "some protocol", expected "tcp" or "udp"`,
+		`invalid protocol "some protocol", expected "tcp", "udp", or "icmp"`,
+	}, {
+		"invalid icmp port",
+		network.PortRange{1, 1, "icmp"},
+		`protocol "icmp" doesn't support any ports; got "1"`,
 	}}
 
 	for i, t := range testCases {
@@ -240,6 +249,23 @@ func (*PortRangeSuite) TestParsePortRangeDefaultProtocol(c *gc.C) {
 	c.Check(portRange.Protocol, gc.Equals, "tcp")
 	c.Check(portRange.FromPort, gc.Equals, 80)
 	c.Check(portRange.ToPort, gc.Equals, 80)
+}
+
+func (*PortRangeSuite) TestParseIcmpProtocol(c *gc.C) {
+	portRange, err := network.ParsePortRange("icmp")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(portRange.Protocol, gc.Equals, "icmp")
+	c.Check(portRange.FromPort, gc.Equals, -1)
+	c.Check(portRange.ToPort, gc.Equals, -1)
+}
+
+func (*PortRangeSuite) TestParseIcmpProtocolRoundTrip(c *gc.C) {
+	portRange, err := network.ParsePortRange("icmp")
+	c.Assert(err, jc.ErrorIsNil)
+	portRangeStr := portRange.String()
+
+	c.Check(portRangeStr, gc.Equals, "icmp")
 }
 
 func (*PortRangeSuite) TestParsePortRangeRoundTrip(c *gc.C) {

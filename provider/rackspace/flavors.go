@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
-	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v2/nova"
 )
 
 var logger = loggo.GetLogger("juju.provider.rackspace")

@@ -7,46 +7,56 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
 )
 
 const showCommandDoc = `
-Show extended information about an offered application.
-
-This command is aimed for a user who wants to see more detail about what’s offered behind a particular URL.
-
-options:
--o, --output (= "")
-   specify an output file
---format (= tabular)
-   specify output format (tabular|json|yaml)
+This command is intended to enable users to learn more about the
+application offered from a particular URL. In addition to the URL of
+the offer, extra information is provided from the readme file of the
+charm being offered.
 
 Examples:
-   $ juju show-endpoints fred/prod.db2
+To show the extended information for the application 'prod' offered
+from the model 'default' on the same Juju controller:
+
+     juju show-offer default.prod
+
+The supplied URL can also include a username where offers require them. 
+This will be given as part of the URL retrieved from the
+'juju find-offers' command. To show information for the application
+'prod' from the model 'default' from the user 'admin':
+
+    juju show-offer admin/default.prod
+
+To show the information regarding the application 'prod' offered from
+the model 'default' on an accessible controller named 'controller':
+
+    juju show-offer controller:default.prod
 
 See also:
-   find-endpoints
+  find-offers
 `
 
 type showCommand struct {
-	CrossModelCommandBase
+	RemoteEndpointsCommandBase
 
 	url        string
 	out        cmd.Output
-	newAPIFunc func() (ShowAPI, error)
+	newAPIFunc func(string) (ShowAPI, error)
 }
 
 // NewShowOfferedEndpointCommand constructs command that
 // allows to show details of offered application's endpoint.
 func NewShowOfferedEndpointCommand() cmd.Command {
 	showCmd := &showCommand{}
-	showCmd.newAPIFunc = func() (ShowAPI, error) {
-		return showCmd.NewCrossModelAPI()
+	showCmd.newAPIFunc = func(controllerName string) (ShowAPI, error) {
+		return showCmd.NewRemoteEndpointsAPI(controllerName)
 	}
-	return modelcmd.Wrap(showCmd)
+	return modelcmd.WrapController(showCmd)
 }
 
 // Init implements Command.Init.
@@ -54,33 +64,23 @@ func (c *showCommand) Init(args []string) (err error) {
 	if len(args) != 1 {
 		return errors.New("must specify endpoint URL")
 	}
-
-	urlStr := args[0]
-	if url, err := crossmodel.ParseApplicationURL(urlStr); err != nil {
-		return err
-	} else {
-		// For now we only support offers on the current controller.
-		if url.Source != "" && url.Source != c.ControllerName() {
-			return errors.NotSupportedf("showing endpoints from another controller %q", url.Source)
-		}
-		url.Source = ""
-	}
-	c.url = urlStr
+	c.url = args[0]
 	return nil
 }
 
 // Info implements Command.Info.
 func (c *showCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "show-endpoints",
-		Purpose: "Shows offered applications' endpoints details",
+		Name:    "show-offer",
+		Args:    "[<controller>:]<offer url>",
+		Purpose: "Shows extended information about the offered application.",
 		Doc:     showCommandDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CrossModelCommandBase.SetFlags(f)
+	c.RemoteEndpointsCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -90,18 +90,44 @@ func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *showCommand) Run(ctx *cmd.Context) (err error) {
-	api, err := c.newAPIFunc()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return err
+	}
+	url, err := crossmodel.ParseOfferURL(c.url)
+	if err != nil {
+		store := c.ClientStore()
+		currentModel, err := store.CurrentModel(controllerName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		url, err = makeURLFromCurrentModel(c.url, controllerName, currentModel)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if url.Source != "" {
+		controllerName = url.Source
+	}
+	accountDetails, err := c.CurrentAccountDetails()
+	if err != nil {
+		return err
+	}
+	loggedInUser := accountDetails.User
+
+	api, err := c.newAPIFunc(controllerName)
 	if err != nil {
 		return err
 	}
 	defer api.Close()
 
-	found, err := api.ApplicationOffer(c.url)
+	url.Source = ""
+	found, err := api.ApplicationOffer(url.String())
 	if err != nil {
 		return err
 	}
 
-	output, err := convertOffers(found)
+	output, err := convertOffers(controllerName, names.NewUserTag(loggedInUser), found)
 	if err != nil {
 		return err
 	}
@@ -111,32 +137,69 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 // ShowAPI defines the API methods that cross model show command uses.
 type ShowAPI interface {
 	Close() error
-	ApplicationOffer(url string) (params.ApplicationOffer, error)
+	ApplicationOffer(url string) (*crossmodel.ApplicationOfferDetails, error)
 }
 
-// ShowRemoteApplication defines the serialization behaviour of remote application.
+type OfferUser struct {
+	UserName    string `yaml:"-" json:"-"`
+	DisplayName string `yaml:"display-name,omitempty" json:"display-name,omitempty"`
+	Access      string `yaml:"access" json:"access"`
+}
+
+// ShowOfferedApplication defines the serialization behaviour of an application offer.
 // This is used in map-style yaml output where remote application name is the key.
-type ShowRemoteApplication struct {
+type ShowOfferedApplication struct {
+	// Description is the user entered description.
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+
+	// Access is the level of access the user has on the offer.
+	Access string `yaml:"access" json:"access"`
+
 	// Endpoints list of offered application endpoints.
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
 
-	// Description is the user entered description.
-	Description string `yaml:"description,omitempty" json:"description,omitempty"`
+	// Users are the users who can access the offer.
+	Users map[string]OfferUser `yaml:"users,omitempty" json:"users,omitempty"`
 }
 
 // convertOffers takes any number of api-formatted remote applications and
 // creates a collection of ui-formatted offers.
-func convertOffers(offers ...params.ApplicationOffer) (map[string]ShowRemoteApplication, error) {
+func convertOffers(
+	store string, loggedInUser names.UserTag, offers ...*crossmodel.ApplicationOfferDetails,
+) (map[string]ShowOfferedApplication, error) {
 	if len(offers) == 0 {
 		return nil, nil
 	}
-	output := make(map[string]ShowRemoteApplication, len(offers))
+	output := make(map[string]ShowOfferedApplication, len(offers))
 	for _, one := range offers {
-		app := ShowRemoteApplication{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
+		access := accessForUser(loggedInUser, one.Users)
+		app := ShowOfferedApplication{
+			Access:    access,
+			Endpoints: convertRemoteEndpoints(one.Endpoints...),
+			Users:     convertUsers(one.Users...),
+		}
 		if one.ApplicationDescription != "" {
 			app.Description = one.ApplicationDescription
 		}
-		output[one.OfferURL] = app
+		url, err := crossmodel.ParseOfferURL(one.OfferURL)
+		if err != nil {
+			return nil, err
+		}
+		if url.Source == "" {
+			url.Source = store
+		}
+		output[url.String()] = app
 	}
 	return output, nil
+}
+
+func convertUsers(users ...crossmodel.OfferUserDetails) map[string]OfferUser {
+	if len(users) == 0 {
+		return nil
+	}
+	output := make(map[string]OfferUser, len(users))
+	for _, one := range users {
+		output[one.UserName] = OfferUser{one.UserName, one.DisplayName, string(one.Access)}
+	}
+	return output
 }

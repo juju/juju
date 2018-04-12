@@ -11,6 +11,7 @@ import (
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 )
 
 type stateSuite struct {
@@ -24,11 +25,11 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.uniter, s.BackingState)
-	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.uniter, s.BackingState)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.uniter, s.BackingState, s.IAASModel.Model)
 }
 
 func (s *stateSuite) TestProviderType(c *gc.C) {
-	cfg, err := s.State.ModelConfig()
+	cfg, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	providerType, err := s.uniter.ProviderType()
@@ -46,7 +47,7 @@ func (s *stateSuite) TestAllMachinePorts(c *gc.C) {
 	c.Assert(unitPorts, gc.HasLen, 0)
 
 	// Add another wordpress unit on the same machine.
-	wordpressUnit1, err := s.wordpressService.AddUnit()
+	wordpressUnit1, err := s.wordpressApplication.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpressUnit1.AssignToMachine(s.wordpressMachine)
 	c.Assert(err, jc.ErrorIsNil)

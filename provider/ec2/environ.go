@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
 
@@ -73,7 +74,12 @@ type environ struct {
 	defaultVPCMutex   sync.Mutex
 	defaultVPCChecked bool
 	defaultVPC        *ec2.VPC
+
+	ensureGroupMutex sync.Mutex
 }
+
+var _ environs.Environ = (*environ)(nil)
+var _ environs.Networking = (*environ)(nil)
 
 func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
@@ -111,7 +117,7 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	ecfg := env.ecfg()
 	vpcID, forceVPCID := ecfg.vpcID(), ecfg.forceVPCID()
 	if err := validateBootstrapVPC(env.ec2, env.cloud.Region, vpcID, forceVPCID, ctx); err != nil {
-		return errors.Trace(err)
+		return errors.Trace(maybeConvertCredentialError(err))
 	}
 	return nil
 }
@@ -123,7 +129,7 @@ func (env *environ) Create(args environs.CreateParams) error {
 	}
 	vpcID := env.ecfg().vpcID()
 	if err := validateModelVPC(env.ec2, env.name, vpcID); err != nil {
-		return errors.Trace(err)
+		return errors.Trace(maybeConvertCredentialError(err))
 	}
 	// TODO(axw) 2016-08-04 #1609643
 	// Create global security group(s) here.
@@ -132,7 +138,8 @@ func (env *environ) Create(args environs.CreateParams) error {
 
 // Bootstrap is part of the Environ interface.
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	return common.Bootstrap(ctx, e, args)
+	r, err := common.Bootstrap(ctx, e, args)
+	return r, maybeConvertCredentialError(err)
 }
 
 // SupportsSpaces is specified on environs.Networking.
@@ -212,7 +219,7 @@ func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 		filter.Add("region-name", e.cloud.Region)
 		resp, err := ec2AvailabilityZones(e.ec2, filter)
 		if err != nil {
-			return nil, err
+			return nil, maybeConvertCredentialError(err)
 		}
 		logger.Debugf("availability zones: %+v", resp)
 		e.availabilityZones = make([]common.AvailabilityZone, len(resp.Zones))
@@ -238,6 +245,15 @@ func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, er
 		zones[i] = inst.(*ec2Instance).AvailZone
 	}
 	return zones, err
+}
+
+// DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
+func (e *environ) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+	availabilityZone, err := e.deriveAvailabilityZone(args)
+	if availabilityZone != "" {
+		return []string{availabilityZone}, errors.Trace(err)
+	}
+	return nil, errors.Trace(err)
 }
 
 type ec2Placement struct {
@@ -271,7 +287,7 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 		matcher := CreateSubnetMatcher(value)
 		// Get all known subnets, look for a match
 		allSubnets := []string{}
-		subnetResp, err := e.ec2.Subnets(nil, nil)
+		subnetResp, vpcId, err := e.subnetsForVPC()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -283,7 +299,7 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 		for _, subnet := range subnetResp.Subnets {
 			allSubnets = append(allSubnets, fmt.Sprintf("%q:%q", subnet.Id, subnet.CIDRBlock))
 			if matcher.Match(subnet) {
-				// We found the CIDR, now see if we can find the AZ
+				// We found the CIDR, now see if we can find the AZs.
 				for _, zone := range zones {
 					if zone.Name() == subnet.AvailZone {
 						ec2AZ := zone.(*ec2AvailabilityZone)
@@ -296,19 +312,22 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 				logger.Debugf("found a matching subnet (%v) but couldn't find the AZ", subnet)
 			}
 		}
-		logger.Debugf("searched for subnet %q, did not find it in all subnets %v", value, allSubnets)
+		logger.Debugf("searched for subnet %q, did not find it in all subnets %v for vpc-id %q", value, allSubnets, vpcId)
 	}
 	return nil, fmt.Errorf("unknown placement directive: %v", placement)
 }
 
-// PrecheckInstance is defined on the state.Prechecker interface.
-func (e *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	if placement != "" {
-		if _, err := e.parsePlacement(placement); err != nil {
-			return err
-		}
+// PrecheckInstance is defined on the environs.InstancePrechecker interface.
+func (e *environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+	if _, _, err := e.deriveAvailabilityZoneAndSubnetID(
+		environs.StartInstanceParams{
+			Placement:         args.Placement,
+			VolumeAttachments: args.VolumeAttachments,
+		},
+	); err != nil {
+		return errors.Trace(err)
 	}
-	if !cons.HasInstanceType() {
+	if !args.Constraints.HasInstanceType() {
 		return nil
 	}
 	// Constraint has an instance-type constraint so let's see if it is valid.
@@ -317,17 +336,17 @@ func (e *environ) PrecheckInstance(series string, cons constraints.Value, placem
 		return errors.Trace(err)
 	}
 	for _, itype := range instanceTypes {
-		if itype.Name != *cons.InstanceType {
+		if itype.Name != *args.Constraints.InstanceType {
 			continue
 		}
-		if archMatches(itype.Arches, cons.Arch) {
+		if archMatches(itype.Arches, args.Constraints.Arch) {
 			return nil
 		}
 	}
-	if cons.Arch == nil {
-		return fmt.Errorf("invalid AWS instance type %q specified", *cons.InstanceType)
+	if args.Constraints.Arch == nil {
+		return fmt.Errorf("invalid AWS instance type %q specified", *args.Constraints.InstanceType)
 	}
-	return fmt.Errorf("invalid AWS instance type %q and arch %q specified", *cons.InstanceType, *cons.Arch)
+	return fmt.Errorf("invalid AWS instance type %q and arch %q specified", *args.Constraints.InstanceType, *args.Constraints.Arch)
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
@@ -371,8 +390,6 @@ func (e *environ) DistributeInstances(candidates, distributionGroup []instance.I
 	return common.DistributeInstances(e, candidates, distributionGroup)
 }
 
-var availabilityZoneAllocations = common.AvailabilityZoneAllocations
-
 // MaintainInstance is specified in the InstanceBroker interface.
 func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 	return nil
@@ -386,9 +403,6 @@ func resourceName(tag names.Tag, envName string) string {
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.StartInstanceResult, resultErr error) {
-	if args.ControllerUUID == "" {
-		return nil, errors.New("missing controller UUID")
-	}
 	var inst *ec2Instance
 	callback := args.StatusCallback
 	defer func() {
@@ -401,56 +415,48 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		}
 	}()
 
-	var availabilityZones []string
-	var placementSubnetID string
-	if args.Placement != "" {
-		placement, err := e.parsePlacement(args.Placement)
-		if err != nil {
-			return nil, err
+	callback(status.Allocating, "Verifying availability zone", nil)
+
+	annotateWrapError := func(received error, annotation string) error {
+		if received == nil {
+			return nil
 		}
-		if placement.availabilityZone.State != availableState {
-			return nil, errors.Errorf("availability zone %q is %q", placement.availabilityZone.Name, placement.availabilityZone.State)
+		// If there is a problem with authentication/authorisation,
+		// we want a correctly typed error.
+		annotatedErr := errors.Annotate(
+			maybeConvertCredentialError(received),
+			annotation)
+		if common.IsCredentialNotValid(annotatedErr) {
+			return annotatedErr
 		}
-		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
-		if placement.subnet != nil {
-			if placement.subnet.State != availableState {
-				return nil, errors.Errorf("subnet %q is %q", placement.subnet.CIDRBlock, placement.subnet.State)
-			}
-			placementSubnetID = placement.subnet.Id
-		}
+		return common.ZoneIndependentError(annotatedErr)
 	}
 
-	callback(status.Allocating, "Determining availability zones", nil)
-	// If no availability zone is specified, then automatically spread across
-	// the known zones for optimal spread across the instance distribution
-	// group.
-	var zoneInstances []common.AvailabilityZoneInstances
-	if len(availabilityZones) == 0 {
-		var err error
-		var group []instance.Id
-		if args.DistributionGroup != nil {
-			group, err = args.DistributionGroup()
-			if err != nil {
-				return nil, err
-			}
+	wrapError := func(received error) error {
+		return annotateWrapError(received, "")
+	}
+
+	// Verify the provided availability zone to start the instance in.  It's
+	// provided via StartInstanceParams Constraints or AvailabilityZone.
+	// The availability zone of existing volumes that are to be
+	// attached to the machine must all match, and must be the same
+	// as specified zone (if any).
+	availabilityZone, placementSubnetID, err := e.deriveAvailabilityZoneAndSubnetID(args)
+	if err != nil {
+		// An IsNotValid error is returned if the zone is invalid;
+		// this is a zone-specific error.
+		zoneSpecific := errors.IsNotValid(err)
+		if !zoneSpecific {
+			return nil, wrapError(err)
 		}
-		zoneInstances, err = availabilityZoneAllocations(e, group)
-		if err != nil {
-			return nil, err
-		}
-		for _, z := range zoneInstances {
-			availabilityZones = append(availabilityZones, z.ZoneName)
-		}
-		if len(availabilityZones) == 0 {
-			return nil, errors.New("failed to determine availability zones")
-		}
+		return nil, err
 	}
 
 	arches := args.Tools.Arches()
 
 	instanceTypes, err := e.supportedInstanceTypes()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, wrapError(err)
 	}
 
 	spec, err := findInstanceSpec(
@@ -466,11 +472,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		},
 	)
 	if err != nil {
-		return nil, err
+		return nil, wrapError(err)
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, common.ZoneIndependentError(
+			errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches),
+		)
 	}
 
 	if spec.InstanceType.Deprecated {
@@ -478,29 +486,34 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	}
 
 	if err := args.InstanceConfig.SetTools(tools); err != nil {
-		return nil, errors.Trace(err)
+		return nil, common.ZoneIndependentError(err)
 	}
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
-		return nil, err
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	callback(status.Allocating, "Making user data", nil)
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, AmazonRenderer{})
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot make user data")
+		return nil, common.ZoneIndependentError(
+			errors.Annotate(err, "cannot make user data"),
+		)
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
-	var apiPort int
+	apiPorts := make([]int, 0, 2)
 	if args.InstanceConfig.Controller != nil {
-		apiPort = args.InstanceConfig.Controller.Config.APIPort()
+		apiPorts = append(apiPorts, args.InstanceConfig.Controller.Config.APIPort())
+		if args.InstanceConfig.Controller.Config.AutocertDNSName() != "" {
+			// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
+			apiPorts = append(apiPorts, 80)
+		}
 	} else {
-		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
+		apiPorts = append(apiPorts, args.InstanceConfig.APIInfo.Ports()[0])
 	}
 	callback(status.Allocating, "Setting up groups", nil)
-	groups, err := e.setUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
-
+	groups, err := e.setUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPorts)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot set up groups")
+		return nil, annotateWrapError(err, "cannot set up groups")
 	}
 
 	blockDeviceMappings := getBlockDeviceMappings(
@@ -534,70 +547,60 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		ImageId:             spec.Image.Id,
 	}
 
+	runArgs := commonRunArgs
+	runArgs.AvailZone = availabilityZone
+
 	haveVPCID := isVPCIDSet(e.ecfg().vpcID())
-
-	for _, zone := range availabilityZones {
-		runArgs := commonRunArgs
-		runArgs.AvailZone = zone
-
-		var subnetIDsForZone []string
-		var subnetErr error
-		if haveVPCID {
-			var allowedSubnetIDs []string
-			if placementSubnetID != "" {
-				allowedSubnetIDs = []string{placementSubnetID}
+	var subnetIDsForZone []string
+	var subnetErr error
+	if haveVPCID {
+		var allowedSubnetIDs []string
+		if placementSubnetID != "" {
+			allowedSubnetIDs = []string{placementSubnetID}
+		} else {
+			for subnetID, _ := range args.SubnetsToZones {
+				allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
+			}
+		}
+		subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2, e.ecfg().vpcID(), availabilityZone, allowedSubnetIDs)
+	} else if args.Constraints.HaveSpaces() {
+		subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(availabilityZone, args.SubnetsToZones)
+		if subnetErr == nil && placementSubnetID != "" {
+			asSet := set.NewStrings(subnetIDsForZone...)
+			if asSet.Contains(placementSubnetID) {
+				subnetIDsForZone = []string{placementSubnetID}
 			} else {
-				for subnetID, _ := range args.SubnetsToZones {
-					allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
-				}
-			}
-			subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2, e.ecfg().vpcID(), zone, allowedSubnetIDs)
-		} else if args.Constraints.HaveSpaces() {
-			subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(zone, args.SubnetsToZones)
-			if subnetErr == nil && placementSubnetID != "" {
-				asSet := set.NewStrings(subnetIDsForZone...)
-				if asSet.Contains(placementSubnetID) {
-					subnetIDsForZone = []string{placementSubnetID}
-				} else {
-					subnetIDsForZone = nil
-					subnetErr = errors.NotFoundf("subnets %q in AZ %q", placementSubnetID, zone)
-				}
+				subnetIDsForZone = nil
+				subnetErr = errors.NotFoundf("subnets %q in AZ %q", placementSubnetID, availabilityZone)
 			}
 		}
-
-		switch {
-		case subnetErr != nil && errors.IsNotFound(subnetErr):
-			logger.Infof("no matching subnets in zone %q; assuming zone is constrained and trying another", zone)
-			continue
-		case subnetErr != nil:
-			return nil, errors.Annotatef(subnetErr, "getting subnets for zone %q", zone)
-		case len(subnetIDsForZone) > 1:
-			// With multiple equally suitable subnets, picking one at random
-			// will allow for better instance spread within the same zone, and
-			// still work correctly if we happen to pick a constrained subnet
-			// (we'll just treat this the same way we treat constrained zones
-			// and retry).
-			runArgs.SubnetId = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))]
-			logger.Infof(
-				"selected random subnet %q from all matching in zone %q: %v",
-				runArgs.SubnetId, zone, subnetIDsForZone,
-			)
-		case len(subnetIDsForZone) == 1:
-			runArgs.SubnetId = subnetIDsForZone[0]
-			logger.Infof("selected subnet %q in zone %q", runArgs.SubnetId, zone)
-		}
-
-		callback(status.Allocating, fmt.Sprintf("Trying to start instance in availability zone %q", zone), nil)
-		instResp, err = runInstances(e.ec2, runArgs, callback)
-		if err == nil || !isZoneOrSubnetConstrainedError(err) {
-			break
-		}
-
-		logger.Infof("%q is constrained, trying another availability zone", zone)
 	}
 
+	switch {
+	case subnetErr != nil && errors.IsNotFound(subnetErr):
+		return nil, errors.Trace(subnetErr)
+	case subnetErr != nil:
+		return nil, errors.Annotatef(maybeConvertCredentialError(subnetErr), "getting subnets for zone %q", availabilityZone)
+	case len(subnetIDsForZone) > 1:
+		// With multiple equally suitable subnets, picking one at random
+		// will allow for better instance spread within the same zone, and
+		// still work correctly if we happen to pick a constrained subnet
+		// (we'll just treat this the same way we treat constrained zones
+		// and retry).
+		runArgs.SubnetId = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))]
+		logger.Debugf("selected random subnet %q from all matching in zone %q", runArgs.SubnetId, availabilityZone)
+	case len(subnetIDsForZone) == 1:
+		runArgs.SubnetId = subnetIDsForZone[0]
+		logger.Debugf("selected subnet %q in zone %q", runArgs.SubnetId, availabilityZone)
+	}
+
+	callback(status.Allocating, fmt.Sprintf("Trying to start instance in availability zone %q", availabilityZone), nil)
+	instResp, err = runInstances(e.ec2, runArgs, callback)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot run instances")
+		if !isZoneOrSubnetConstrainedError(err) {
+			err = annotateWrapError(err, "cannot run instances")
+		}
+		return nil, err
 	}
 	if len(instResp.Instances) != 1 {
 		return nil, errors.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
@@ -622,7 +625,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	)
 	args.InstanceConfig.Tags[tagName] = instanceName
 	if err := tagResources(e.ec2, args.InstanceConfig.Tags, string(inst.Id())); err != nil {
-		return nil, errors.Annotate(err, "tagging instance")
+		return nil, annotateWrapError(err, "tagging instance")
 	}
 
 	// Tag the machine's root EBS volume, if it has one.
@@ -635,7 +638,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		)
 		tags[tagName] = instanceName + "-root"
 		if err := tagRootDisk(e.ec2, tags, inst.Instance); err != nil {
-			return nil, errors.Annotate(err, "tagging root disk")
+			return nil, annotateWrapError(err, "tagging root disk")
 		}
 	}
 
@@ -652,6 +655,117 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		Instance: inst,
 		Hardware: &hc,
 	}, nil
+}
+
+func (e *environ) deriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
+	availabilityZone, _, err := e.deriveAvailabilityZoneAndSubnetID(args)
+	return availabilityZone, err
+}
+
+func (e *environ) deriveAvailabilityZoneAndSubnetID(args environs.StartInstanceParams) (string, string, error) {
+	// Determine the availability zones of existing volumes that are to be
+	// attached to the machine. They must all match, and must be the same
+	// as specified zone (if any).
+	volumeAttachmentsZone, err := volumeAttachmentsZone(e.ec2, args.VolumeAttachments)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	placementZone, placementSubnetID, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	var availabilityZone string
+	if placementZone != "" {
+		availabilityZone = placementZone
+	} else if args.AvailabilityZone != "" {
+		// Validate and check state of the AvailabilityZone
+		zones, err := e.AvailabilityZones()
+		if err != nil {
+			return "", "", err
+		}
+		for _, z := range zones {
+			if z.Name() == args.AvailabilityZone {
+				ec2AZ := z.(*ec2AvailabilityZone)
+				if ec2AZ.AvailabilityZoneInfo.State != availableState {
+					return "", "", errors.Errorf(
+						"availability zone %q is %q",
+						ec2AZ.AvailabilityZoneInfo.Name,
+						ec2AZ.AvailabilityZoneInfo.State,
+					)
+				} else {
+					availabilityZone = args.AvailabilityZone
+				}
+				break
+			}
+		}
+		if availabilityZone == "" {
+			return "", "", errors.NotValidf("availability zone %q", availabilityZone)
+		}
+	}
+	return availabilityZone, placementSubnetID, nil
+}
+
+func (e *environ) instancePlacementZone(placement, volumeAttachmentsZone string) (zone, subnet string, _ error) {
+	if placement == "" {
+		return volumeAttachmentsZone, "", nil
+	}
+	var placementSubnetID string
+	instPlacement, err := e.parsePlacement(placement)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	if instPlacement.availabilityZone.State != availableState {
+		return "", "", errors.Errorf(
+			"availability zone %q is %q",
+			instPlacement.availabilityZone.Name,
+			instPlacement.availabilityZone.State,
+		)
+	}
+	if volumeAttachmentsZone != "" && volumeAttachmentsZone != instPlacement.availabilityZone.Name {
+		return "", "", errors.Errorf(
+			"cannot create instance with placement %q, as this will prevent attaching the requested EBS volumes in zone %q",
+			placement, volumeAttachmentsZone,
+		)
+	}
+	if instPlacement.subnet != nil {
+		if instPlacement.subnet.State != availableState {
+			return "", "", errors.Errorf("subnet %q is %q", instPlacement.subnet.CIDRBlock, instPlacement.subnet.State)
+		}
+		placementSubnetID = instPlacement.subnet.Id
+	}
+	return instPlacement.availabilityZone.Name, placementSubnetID, nil
+}
+
+// volumeAttachmentsZone determines the availability zone for each volume
+// identified in the volume attachment parameters, checking that they are
+// all the same, and returns the availability zone name.
+func volumeAttachmentsZone(ec2 *ec2.EC2, attachments []storage.VolumeAttachmentParams) (string, error) {
+	volumeIds := make([]string, 0, len(attachments))
+	for _, a := range attachments {
+		if a.Provider != EBS_ProviderType {
+			continue
+		}
+		volumeIds = append(volumeIds, a.VolumeId)
+	}
+	if len(volumeIds) == 0 {
+		return "", nil
+	}
+	resp, err := ec2.Volumes(volumeIds, nil)
+	if err != nil {
+		return "", errors.Annotatef(maybeConvertCredentialError(err), "getting volume details (%s)", volumeIds)
+	}
+	if len(resp.Volumes) == 0 {
+		return "", nil
+	}
+	for i, v := range resp.Volumes[1:] {
+		if v.AvailZone != resp.Volumes[i].AvailZone {
+			return "", errors.Errorf(
+				"cannot attach volumes from multiple availability zones: %s is in %s, %s is in %s",
+				resp.Volumes[i].Id, resp.Volumes[i].AvailZone, v.Id, v.AvailZone,
+			)
+		}
+	}
+	return resp.Volumes[0].AvailZone, nil
 }
 
 // tagResources calls ec2.CreateTags, tagging each of the specified resources
@@ -672,7 +786,7 @@ func tagResources(e *ec2.EC2, tags map[string]string, resourceIds ...string) err
 			return err
 		}
 	}
-	return err
+	return maybeConvertCredentialError(err)
 }
 
 func tagRootDisk(e *ec2.EC2, tags map[string]string, inst *ec2.Instance) error {
@@ -698,7 +812,8 @@ func tagRootDisk(e *ec2.EC2, tags map[string]string, inst *ec2.Instance) error {
 	}
 	for a := waitRootDiskAttempt.Start(); volumeId == "" && a.Next(); {
 		resp, err := e.Instances([]string{inst.InstanceId}, nil)
-		if err = errors.Annotate(err, "cannot fetch instance information"); err != nil {
+		if err != nil {
+			err = errors.Annotate(maybeConvertCredentialError(err), "cannot fetch instance information")
 			logger.Warningf("%v", err)
 			if a.HasNext() == false {
 				return err
@@ -732,7 +847,7 @@ func _runInstances(e *ec2.EC2, ri *ec2.RunInstances, c environs.StatusCallbackFu
 		}
 		try++
 	}
-	return resp, err
+	return resp, maybeConvertCredentialError(err)
 }
 
 func (e *environ) StopInstances(ids ...instance.Id) error {
@@ -744,7 +859,7 @@ func (e *environ) StopInstances(ids ...instance.Id) error {
 func (e *environ) groupInfoByName(groupName string) (ec2.SecurityGroupInfo, error) {
 	resp, err := e.securityGroupsByNameOrID(groupName)
 	if err != nil {
-		return ec2.SecurityGroupInfo{}, err
+		return ec2.SecurityGroupInfo{}, maybeConvertCredentialError(err)
 	}
 
 	if len(resp.Groups) != 1 {
@@ -821,7 +936,7 @@ func (e *environ) gatherInstances(
 ) error {
 	resp, err := e.ec2.Instances(nil, filter)
 	if err != nil {
-		return err
+		return maybeConvertCredentialError(err)
 	}
 	n := 0
 	// For each requested id, add it to the returned instances
@@ -861,6 +976,11 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 		networkInterfacesResp, err = e.ec2.NetworkInterfaces(nil, filter)
 		logger.Tracef("instance %q NICs: %#v (err: %v)", instId, networkInterfacesResp, err)
 		if err != nil {
+			err = maybeConvertCredentialError(err)
+			if common.IsCredentialNotValid(err) {
+				// no need to re-try: there is a problem with credentials
+				break
+			}
 			logger.Errorf("failed to get instance %q interfaces: %v (retrying)", instId, err)
 			continue
 		}
@@ -881,7 +1001,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 	for i, iface := range ec2Interfaces {
 		resp, err := e.ec2.Subnets([]string{iface.SubnetId}, nil)
 		if err != nil {
-			return nil, errors.Annotatef(err, "failed to retrieve subnet %q info", iface.SubnetId)
+			return nil, errors.Annotatef(maybeConvertCredentialError(err), "failed to retrieve subnet %q info", iface.SubnetId)
 		}
 		if len(resp.Subnets) != 1 {
 			return nil, errors.Errorf("expected 1 subnet, got %d", len(resp.Subnets))
@@ -909,7 +1029,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 	return result, nil
 }
 
-func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (network.SubnetInfo, error) {
+func makeSubnetInfo(cidr string, subnetId, providerNetworkId network.Id, availZones []string) (network.SubnetInfo, error) {
 	_, _, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", cidr)
@@ -918,6 +1038,7 @@ func makeSubnetInfo(cidr string, subnetId network.Id, availZones []string) (netw
 	info := network.SubnetInfo{
 		CIDR:              cidr,
 		ProviderId:        subnetId,
+		ProviderNetworkId: providerNetworkId,
 		VLANTag:           0, // Not supported on EC2
 		AvailabilityZones: availZones,
 	}
@@ -960,7 +1081,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 				continue
 			}
 			subIdSet[string(iface.ProviderSubnetId)] = true
-			info, err := makeSubnetInfo(iface.CIDR, iface.ProviderSubnetId, iface.AvailabilityZones)
+			info, err := makeSubnetInfo(iface.CIDR, iface.ProviderSubnetId, iface.ProviderNetworkId, iface.AvailabilityZones)
 			if err != nil {
 				// Error will already have been logged.
 				continue
@@ -968,7 +1089,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			results = append(results, info)
 		}
 	} else {
-		resp, err := e.ec2.Subnets(nil, nil)
+		resp, _, err := e.subnetsForVPC()
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to retrieve subnets")
 		}
@@ -986,7 +1107,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 			}
 			subIdSet[subnet.Id] = true
 			cidr := subnet.CIDRBlock
-			info, err := makeSubnetInfo(cidr, network.Id(subnet.Id), []string{subnet.AvailZone})
+			info, err := makeSubnetInfo(cidr, network.Id(subnet.Id), network.Id(subnet.VPCId), []string{subnet.AvailZone})
 			if err != nil {
 				// Error will already have been logged.
 				continue
@@ -1007,6 +1128,19 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 	}
 
 	return results, nil
+}
+
+func (e *environ) subnetsForVPC() (resp *ec2.SubnetsResp, vpcId string, err error) {
+	filter := ec2.NewFilter()
+	vpcId = e.ecfg().vpcID()
+	if !isVPCIDSet(vpcId) {
+		if hasDefaultVPC, err := e.hasDefaultVPC(); err == nil && hasDefaultVPC {
+			vpcId = e.defaultVPC.Id
+		}
+	}
+	filter.Add("vpc-id", vpcId)
+	resp, err = e.ec2.Subnets(nil, filter)
+	return resp, vpcId, maybeConvertCredentialError(err)
 }
 
 // AdoptResources is part of the Environ interface.
@@ -1073,7 +1207,7 @@ func (e *environ) AllInstancesByState(states ...string) ([]instance.Instance, er
 		// If there's no group, then there cannot be any instances.
 		return nil, nil
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(maybeConvertCredentialError(err))
 	}
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", states...)
@@ -1089,7 +1223,7 @@ func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, err
 	e.addControllerFilter(filter, controllerUUID)
 	ids, err := e.allInstanceIDs(filter)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(maybeConvertCredentialError(err))
 	}
 	if len(ids) == 0 {
 		return nil, environs.ErrNotBootstrapped
@@ -1112,7 +1246,7 @@ func (e *environ) allControllerManagedInstances(controllerUUID string) ([]instan
 func (e *environ) allInstanceIDs(filter *ec2.Filter) ([]instance.Id, error) {
 	insts, err := e.allInstances(filter)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(maybeConvertCredentialError(err))
 	}
 	ids := make([]instance.Id, len(insts))
 	for i, inst := range insts {
@@ -1124,7 +1258,7 @@ func (e *environ) allInstanceIDs(filter *ec2.Filter) ([]instance.Id, error) {
 func (e *environ) allInstances(filter *ec2.Filter) ([]instance.Instance, error) {
 	resp, err := e.ec2.Instances(nil, filter)
 	if err != nil {
-		return nil, errors.Annotate(err, "listing instances")
+		return nil, errors.Annotate(maybeConvertCredentialError(err), "listing instances")
 	}
 	var insts []instance.Instance
 	for _, r := range resp.Reservations {
@@ -1140,10 +1274,10 @@ func (e *environ) allInstances(filter *ec2.Filter) ([]instance.Instance, error) 
 // Destroy is part of the environs.Environ interface.
 func (e *environ) Destroy() error {
 	if err := common.Destroy(e); err != nil {
-		return errors.Trace(err)
+		return errors.Trace(maybeConvertCredentialError(err))
 	}
 	if err := e.cleanEnvironmentSecurityGroups(); err != nil {
-		return errors.Annotate(err, "cannot delete environment security groups")
+		return errors.Annotate(maybeConvertCredentialError(err), "cannot delete environment security groups")
 	}
 	return nil
 }
@@ -1177,11 +1311,14 @@ func (e *environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 	if err != nil {
 		return errors.Annotate(err, "listing volumes")
 	}
-	errs := destroyVolumes(e.ec2, volIds)
+	errs := foreachVolume(e.ec2, volIds, destroyVolume)
 	for i, err := range errs {
 		if err == nil {
 			continue
 		}
+		// (anastasiamac 2018-03-21) This is strange - we do try
+		// to destroy all volumes but afterwards, if we have encountered any errors,
+		// we will return first one...The same logic happens on detach..?...
 		return errors.Annotatef(err, "destroying volume %q", volIds[i], err)
 	}
 
@@ -1253,13 +1390,13 @@ func (e *environ) openPortsInGroup(name string, rules []network.IngressRule) err
 		for i := range ipPerms {
 			_, err := e.ec2.AuthorizeSecurityGroup(g, ipPerms[i:i+1])
 			if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
-				return fmt.Errorf("cannot open port %v: %v", ipPerms[i], err)
+				return errors.Annotatef(maybeConvertCredentialError(err), "cannot open port %v", ipPerms[i])
 			}
 		}
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("cannot open ports: %v", err)
+		return errors.Annotate(maybeConvertCredentialError(err), "cannot open ports")
 	}
 	return nil
 }
@@ -1277,7 +1414,7 @@ func (e *environ) closePortsInGroup(name string, rules []network.IngressRule) er
 	}
 	_, err = e.ec2.RevokeSecurityGroup(g, rulesToIPPerms(rules))
 	if err != nil {
-		return fmt.Errorf("cannot close ports: %v", err)
+		return errors.Annotate(maybeConvertCredentialError(err), "cannot close ports")
 	}
 	return nil
 }
@@ -1348,7 +1485,7 @@ func (e *environ) instanceSecurityGroups(instIDs []instance.Id, states ...string
 
 	resp, err := e.ec2.Instances(strInstID, filter)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot retrieve instance information from aws to delete security groups")
+		return nil, errors.Annotatef(maybeConvertCredentialError(err), "cannot retrieve instance information from aws to delete security groups")
 	}
 
 	securityGroups := []ec2.SecurityGroup{}
@@ -1368,7 +1505,7 @@ func (e *environ) controllerSecurityGroups(controllerUUID string) ([]ec2.Securit
 	e.addControllerFilter(filter, controllerUUID)
 	resp, err := e.ec2.SecurityGroups(nil, filter)
 	if err != nil {
-		return nil, errors.Annotate(err, "listing security groups")
+		return nil, errors.Annotate(maybeConvertCredentialError(err), "listing security groups")
 	}
 	groups := make([]ec2.SecurityGroup, len(resp.Groups))
 	for i, info := range resp.Groups {
@@ -1382,7 +1519,7 @@ func (e *environ) modelSecurityGroupIDs() ([]string, error) {
 	e.addModelFilter(filter)
 	resp, err := e.ec2.SecurityGroups(nil, filter)
 	if err != nil {
-		return nil, errors.Annotate(err, "listing security groups")
+		return nil, errors.Annotate(maybeConvertCredentialError(err), "listing security groups")
 	}
 	groupIDs := make([]string, len(resp.Groups))
 	for i, info := range resp.Groups {
@@ -1428,7 +1565,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 		if err == nil || ec2ErrCode(err) != "InvalidInstanceID.NotFound" {
 			// This will return either success at terminating all instances (1st condition) or
 			// encountered error as long as it's not NotFound (2nd condition).
-			return err
+			return maybeConvertCredentialError(err)
 		}
 	}
 
@@ -1463,7 +1600,11 @@ var terminateInstancesById = func(ec2inst *ec2.EC2, ids ...instance.Id) (*ec2.Te
 	for i, id := range ids {
 		strs[i] = string(id)
 	}
-	return ec2inst.TerminateInstances(strs)
+	r, err := ec2inst.TerminateInstances(strs)
+	if err != nil {
+		return nil, maybeConvertCredentialError(err)
+	}
+	return r, nil
 }
 
 func (e *environ) deleteSecurityGroupsForInstances(ids []instance.Id) {
@@ -1524,7 +1665,10 @@ var deleteSecurityGroupInsistently = func(inst SecurityGroupCleaner, group ec2.S
 				logger.Debugf("deleting security group %q", group.Name)
 				return nil
 			}
-			return errors.Trace(err)
+			return errors.Trace(maybeConvertCredentialError(err))
+		},
+		IsFatalError: func(err error) bool {
+			return common.IsCredentialNotValid(err)
 		},
 		NotifyFunc: func(err error, attempt int) {
 			logger.Debugf("deleting security group %q, attempt %d", group.Name, attempt)
@@ -1567,34 +1711,36 @@ func (e *environ) jujuGroupName() string {
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(controllerUUID, machineId string, apiPort int) ([]ec2.SecurityGroup, error) {
-
-	// Ensure there's a global group for Juju-related traffic.
-	jujuGroup, err := e.ensureGroup(controllerUUID, e.jujuGroupName(),
-		[]ec2.IPPerm{{
-			Protocol:  "tcp",
-			FromPort:  22,
-			ToPort:    22,
-			SourceIPs: []string{"0.0.0.0/0"},
-		}, {
+func (e *environ) setUpGroups(controllerUUID, machineId string, apiPorts []int) ([]ec2.SecurityGroup, error) {
+	perms := []ec2.IPPerm{{
+		Protocol:  "tcp",
+		FromPort:  22,
+		ToPort:    22,
+		SourceIPs: []string{"0.0.0.0/0"},
+	}}
+	for _, apiPort := range apiPorts {
+		perms = append(perms, ec2.IPPerm{
 			Protocol:  "tcp",
 			FromPort:  apiPort,
 			ToPort:    apiPort,
 			SourceIPs: []string{"0.0.0.0/0"},
-		}, {
-			Protocol: "tcp",
-			FromPort: 0,
-			ToPort:   65535,
-		}, {
-			Protocol: "udp",
-			FromPort: 0,
-			ToPort:   65535,
-		}, {
-			Protocol: "icmp",
-			FromPort: -1,
-			ToPort:   -1,
-		}},
-	)
+		})
+	}
+	perms = append(perms, ec2.IPPerm{
+		Protocol: "tcp",
+		FromPort: 0,
+		ToPort:   65535,
+	}, ec2.IPPerm{
+		Protocol: "udp",
+		FromPort: 0,
+		ToPort:   65535,
+	}, ec2.IPPerm{
+		Protocol: "icmp",
+		FromPort: -1,
+		ToPort:   -1,
+	})
+	// Ensure there's a global group for Juju-related traffic.
+	jujuGroup, err := e.ensureGroup(controllerUUID, e.jujuGroupName(), perms)
 	if err != nil {
 		return nil, err
 	}
@@ -1640,6 +1786,12 @@ func (e *environ) securityGroupsByNameOrID(groupName string) (*ec2.SecurityGroup
 // Any entries in perms without SourceIPs will be granted for
 // the named group only.
 func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
+	// Due to parallelization of the provisioner, it's possible that we try
+	// to create the model security group a second time before the first time
+	// is complete causing failures.
+	e.ensureGroupMutex.Lock()
+	defer e.ensureGroupMutex.Unlock()
+
 	// Specify explicit VPC ID if needed (not for default VPC or EC2-classic).
 	chosenVPCID := e.ecfg().vpcID()
 	inVPCLogSuffix := fmt.Sprintf(" (in VPC %q)", chosenVPCID)
@@ -1650,7 +1802,7 @@ func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (
 
 	resp, err := e.ec2.CreateSecurityGroup(chosenVPCID, name, "juju group")
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
-		err = errors.Annotatef(err, "creating security group %q%s", name, inVPCLogSuffix)
+		err = errors.Annotatef(maybeConvertCredentialError(err), "creating security group %q%s", name, inVPCLogSuffix)
 		return zeroGroup, err
 	}
 
@@ -1671,8 +1823,7 @@ func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (
 	} else {
 		resp, err := e.securityGroupsByNameOrID(name)
 		if err != nil {
-			err = errors.Annotatef(err, "fetching security group %q%s", name, inVPCLogSuffix)
-			return zeroGroup, err
+			return zeroGroup, errors.Annotatef(maybeConvertCredentialError(err), "fetching security group %q%s", name, inVPCLogSuffix)
 		}
 		if len(resp.Groups) == 0 {
 			return zeroGroup, errors.NotFoundf("security group %q%s", name, inVPCLogSuffix)
@@ -1696,8 +1847,7 @@ func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (
 	if len(revoke) > 0 {
 		_, err := e.ec2.RevokeSecurityGroup(g, revoke.ipPerms())
 		if err != nil {
-			err = errors.Annotatef(err, "revoking security group %q%s", g.Id, inVPCLogSuffix)
-			return zeroGroup, err
+			return zeroGroup, errors.Annotatef(maybeConvertCredentialError(err), "revoking security group %q%s", g.Id, inVPCLogSuffix)
 		}
 	}
 
@@ -1710,8 +1860,7 @@ func (e *environ) ensureGroup(controllerUUID, name string, perms []ec2.IPPerm) (
 	if len(add) > 0 {
 		_, err := e.ec2.AuthorizeSecurityGroup(g, add.ipPerms())
 		if err != nil {
-			err = errors.Annotatef(err, "authorizing security group %q%s", g.Id, inVPCLogSuffix)
-			return zeroGroup, err
+			return zeroGroup, errors.Annotatef(maybeConvertCredentialError(err), "authorizing security group %q%s", g.Id, inVPCLogSuffix)
 		}
 	}
 	return g, nil
@@ -1784,7 +1933,7 @@ func isZoneOrSubnetConstrainedError(err error) bool {
 // constrained for the instance type being provisioned, or is
 // otherwise unusable for the specific request made.
 func isZoneConstrainedError(err error) bool {
-	switch err := err.(type) {
+	switch err := errors.Cause(err).(type) {
 	case *ec2.Error:
 		switch err.Code {
 		case "Unsupported", "InsufficientInstanceCapacity":
@@ -1810,7 +1959,7 @@ func isZoneConstrainedError(err error) bool {
 // the instance type being provisioned, or is otherwise unusable for the
 // specific request made.
 func isSubnetConstrainedError(err error) bool {
-	switch err := err.(type) {
+	switch err := errors.Cause(err).(type) {
 	case *ec2.Error:
 		switch err.Code {
 		case "InsufficientFreeAddressesInSubnet", "InsufficientInstanceCapacity":
@@ -1877,7 +2026,7 @@ func (e *environ) hasDefaultVPC() (bool, error) {
 		filter.Add("isDefault", "true")
 		resp, err := e.ec2.VPCs(nil, filter)
 		if err != nil {
-			return false, errors.Trace(err)
+			return false, errors.Trace(maybeConvertCredentialError(err))
 		}
 		if len(resp.VPCs) > 0 {
 			e.defaultVPC = &resp.VPCs[0]
@@ -1885,4 +2034,37 @@ func (e *environ) hasDefaultVPC() (bool, error) {
 		e.defaultVPCChecked = true
 	}
 	return e.defaultVPC != nil, nil
+}
+
+// ProviderSpaceInfo implements NetworkingEnviron.
+func (*environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("provider space info")
+}
+
+// AreSpacesRoutable implements NetworkingEnviron.
+func (*environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
+}
+
+// SSHAddresses implements environs.SSHAddresses.
+func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	return addresses, nil
+}
+
+// SuperSubnets implements NetworkingEnviron.SuperSubnets
+func (e *environ) SuperSubnets() ([]string, error) {
+	vpcId := e.ecfg().vpcID()
+	if !isVPCIDSet(vpcId) {
+		if hasDefaultVPC, err := e.hasDefaultVPC(); err == nil && hasDefaultVPC {
+			vpcId = e.defaultVPC.Id
+		}
+	}
+	if !isVPCIDSet(vpcId) {
+		return nil, errors.NotSupportedf("Not a VPC environment")
+	}
+	cidr, err := getVPCCIDR(e.ec2, vpcId)
+	if err != nil {
+		return nil, err
+	}
+	return []string{cidr}, nil
 }

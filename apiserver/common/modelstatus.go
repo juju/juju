@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
 // ModelStatusAPI implements the ModelStatus() API.
@@ -19,29 +20,27 @@ type ModelStatusAPI struct {
 }
 
 // NewModelStatusAPI creates an implementation providing the ModelStatus() API.
-func NewModelStatusAPI(st ModelManagerBackend, authorizer facade.Authorizer, apiUser names.UserTag) *ModelStatusAPI {
+func NewModelStatusAPI(backend ModelManagerBackend, authorizer facade.Authorizer, apiUser names.UserTag) *ModelStatusAPI {
 	return &ModelStatusAPI{
 		authorizer: authorizer,
 		apiUser:    apiUser,
-		backend:    st,
+		backend:    backend,
 	}
 }
 
 // ModelStatus returns a summary of the model.
 func (c *ModelStatusAPI) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
 	models := req.Entities
-	results := params.ModelStatusResults{}
-
 	status := make([]params.ModelStatus, len(models))
 	for i, model := range models {
 		modelStatus, err := c.modelStatus(model.Tag)
 		if err != nil {
-			return results, errors.Trace(err)
+			status[i].Error = ServerError(err)
+			continue
 		}
 		status[i] = modelStatus
 	}
-	results.Results = status
-	return results, nil
+	return params.ModelStatusResults{Results: status}, nil
 }
 
 func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
@@ -52,10 +51,12 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 	}
 	st := c.backend
 	if modelTag != c.backend.ModelTag() {
-		if st, err = c.backend.ForModel(modelTag); err != nil {
+		otherSt, releaser, err := c.backend.GetBackend(modelTag.Id())
+		if err != nil {
 			return status, errors.Trace(err)
 		}
-		defer st.Close()
+		defer releaser()
+		st = otherSt
 	}
 
 	model, err := st.Model()
@@ -92,12 +93,77 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		return status, errors.Trace(err)
 	}
 
-	return params.ModelStatus{
+	result := params.ModelStatus{
 		ModelTag:           tag,
 		OwnerTag:           model.Owner().String(),
 		Life:               params.Life(model.Life().String()),
 		HostedMachineCount: len(hostedMachines),
 		ApplicationCount:   len(applications),
 		Machines:           modelMachines,
-	}, nil
+	}
+
+	if model.Type() == state.ModelTypeIAAS {
+		volumes, err := st.AllVolumes()
+		if err != nil {
+			return status, errors.Trace(err)
+		}
+		result.Volumes = ModelVolumeInfo(volumes)
+
+		filesystems, err := st.AllFilesystems()
+		if err != nil {
+			return status, errors.Trace(err)
+		}
+		result.Filesystems = ModelFilesystemInfo(filesystems)
+	}
+	return result, nil
+}
+
+// ModelFilesystemInfo returns information about filesystems in the model.
+func ModelFilesystemInfo(in []state.Filesystem) []params.ModelFilesystemInfo {
+	out := make([]params.ModelFilesystemInfo, len(in))
+	for i, in := range in {
+		var statusString string
+		status, err := in.Status()
+		if err != nil {
+			statusString = err.Error()
+		} else {
+			statusString = string(status.Status)
+		}
+		var providerId string
+		if info, err := in.Info(); err == nil {
+			providerId = info.FilesystemId
+		}
+		out[i] = params.ModelFilesystemInfo{
+			Id:         in.Tag().Id(),
+			ProviderId: providerId,
+			Status:     statusString,
+			Detachable: in.Detachable(),
+		}
+	}
+	return out
+}
+
+// ModelVolumeInfo returns information about volumes in the model.
+func ModelVolumeInfo(in []state.Volume) []params.ModelVolumeInfo {
+	out := make([]params.ModelVolumeInfo, len(in))
+	for i, in := range in {
+		var statusString string
+		status, err := in.Status()
+		if err != nil {
+			statusString = err.Error()
+		} else {
+			statusString = string(status.Status)
+		}
+		var providerId string
+		if info, err := in.Info(); err == nil {
+			providerId = info.VolumeId
+		}
+		out[i] = params.ModelVolumeInfo{
+			Id:         in.Tag().Id(),
+			ProviderId: providerId,
+			Status:     statusString,
+			Detachable: in.Detachable(),
+		}
+	}
+	return out
 }

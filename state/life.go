@@ -61,24 +61,33 @@ type AgentLiving interface {
 	Remove() error
 }
 
-func isAlive(st *State, collName string, id interface{}) (bool, error) {
-	coll, closer := st.getCollection(collName)
+func isAlive(mb modelBackend, collName string, id interface{}) (bool, error) {
+	coll, closer := mb.db().GetCollection(collName)
 	defer closer()
 	return isAliveWithSession(coll, id)
 }
 
 func isAliveWithSession(coll mongo.Collection, id interface{}) (bool, error) {
-	n, err := coll.Find(bson.D{{"_id", id}, {"life", Alive}}).Count()
-	return n == 1, err
+	return checkLifeWithSession(coll, id, bson.DocElem{"life", Alive})
 }
 
-func isNotDead(st *State, collName string, id interface{}) (bool, error) {
-	coll, closer := st.getCollection(collName)
+func isNotDead(mb modelBackend, collName string, id interface{}) (bool, error) {
+	coll, closer := mb.db().GetCollection(collName)
 	defer closer()
 	return isNotDeadWithSession(coll, id)
 }
 
 func isNotDeadWithSession(coll mongo.Collection, id interface{}) (bool, error) {
-	n, err := coll.Find(bson.D{{"_id", id}, {"life", bson.D{{"$ne", Dead}}}}).Count()
+	return checkLifeWithSession(coll, id, bson.DocElem{"life", bson.D{{"$ne", Dead}}})
+}
+
+func isDead(mb modelBackend, collName string, id interface{}) (bool, error) {
+	coll, closer := mb.db().GetCollection(collName)
+	defer closer()
+	return checkLifeWithSession(coll, id, bson.DocElem{"life", Dead})
+}
+
+func checkLifeWithSession(coll mongo.Collection, id interface{}, sel bson.DocElem) (bool, error) {
+	n, err := coll.Find(bson.D{{"_id", id}, sel}).Count()
 	return n == 1, err
 }

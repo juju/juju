@@ -114,6 +114,11 @@ func credentials(cloud environs.CloudSpec) (*auth.Credentials, error) {
 	}, nil
 }
 
+// Version is part of the EnvironProvider interface.
+func (joyentProvider) Version() int {
+	return 0
+}
+
 func (joyentProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")

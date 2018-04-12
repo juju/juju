@@ -7,72 +7,165 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 
+	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/relation"
 )
 
-// formatListTabular returns a tabular summary of remote applications or
+// formatListSummary returns a tabular summary of remote application offers or
 // errors out if parameter is not of expected type.
-func formatListTabular(writer io.Writer, value interface{}) error {
-	endpoints, ok := value.(map[string]directoryApplications)
+func formatListSummary(writer io.Writer, value interface{}) error {
+	offers, ok := value.(offeredApplications)
 	if !ok {
-		return errors.Errorf("expected value of type %T, got %T", endpoints, value)
+		return errors.Errorf("expected value of type %T, got %T", offers, value)
 	}
-	return formatListEndpointsTabular(writer, endpoints)
+	return formatListEndpointsSummary(writer, offers)
 }
 
-// formatListEndpointsTabular returns a tabular summary of listed applications' endpoints.
-func formatListEndpointsTabular(writer io.Writer, all map[string]directoryApplications) error {
+type offerItems []ListOfferItem
+
+// formatListEndpointsSummary returns a tabular summary of listed applications' endpoints.
+func formatListEndpointsSummary(writer io.Writer, offers offeredApplications) error {
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
 
-	// Ensure directories are sorted alphabetically.
-	directories := []string{}
-	for name, _ := range all {
-		directories = append(directories, name)
+	// Sort offers by source then application name.
+	allOffers := offerItems{}
+	for _, offer := range offers {
+		allOffers = append(allOffers, offer)
 	}
-	sort.Strings(directories)
+	sort.Sort(allOffers)
 
-	for _, directory := range directories {
-		w.Println(directory)
-		w.Println("Application", "Charm", "Connected", "Store", "URL", "Endpoint", "Interface", "Role")
-
-		// Sort application names alphabetically.
-		applications := all[directory]
-		applicationNames := []string{}
-		for name, _ := range applications {
-			applicationNames = append(applicationNames, name)
+	w.Println("Offer", "Application", "Charm", "Connected", "Store", "URL", "Endpoint", "Interface", "Role")
+	for _, offer := range allOffers {
+		// Sort endpoints alphabetically.
+		endpoints := []string{}
+		for endpoint, _ := range offer.Endpoints {
+			endpoints = append(endpoints, endpoint)
 		}
-		sort.Strings(applicationNames)
+		sort.Strings(endpoints)
 
-		for _, name := range applicationNames {
-			application := applications[name]
-
-			// Sort endpoints alphabetically.
-			endpoints := []string{}
-			for endpoint, _ := range application.Endpoints {
-				endpoints = append(endpoints, endpoint)
-			}
-			sort.Strings(endpoints)
-
-			for i, endpointName := range endpoints {
-
-				endpoint := application.Endpoints[endpointName]
-				if i == 0 {
-					// As there is some information about application and its endpoints,
-					// only display application information once
-					// when the first endpoint is  displayed.
-					w.Println(name, application.CharmName, fmt.Sprint(application.UsersCount), directory, application.Location, endpointName, endpoint.Interface, endpoint.Role)
-					continue
+		for i, endpointName := range endpoints {
+			endpoint := offer.Endpoints[endpointName]
+			if i == 0 {
+				// As there is some information about offer and its endpoints,
+				// only display offer information once when the first endpoint is displayed.
+				totalConnectedCount := len(offer.Connections)
+				activeConnectedCount := 0
+				for _, conn := range offer.Connections {
+					if conn.Status.Current == relation.Joined.String() {
+						activeConnectedCount++
+					}
 				}
-				// Subsequent lines only need to display endpoint information.
-				// This will display less noise.
-				w.Println("", "", "", "", "", endpointName, endpoint.Interface, endpoint.Role)
+				w.Println(offer.OfferName, offer.ApplicationName, offer.CharmURL,
+					fmt.Sprintf("%v/%v", activeConnectedCount, totalConnectedCount),
+					offer.Source, offer.OfferURL, endpointName, endpoint.Interface, endpoint.Role)
+				continue
 			}
+			// Subsequent lines only need to display endpoint information.
+			// This will display less noise.
+			w.Println("", "", "", "", "", "", endpointName, endpoint.Interface, endpoint.Role)
 		}
 	}
 	tw.Flush()
 	return nil
+}
+
+func (o offerItems) Len() int      { return len(o) }
+func (o offerItems) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+func (o offerItems) Less(i, j int) bool {
+	return o[i].OfferName < o[j].OfferName
+}
+
+func formatListTabular(writer io.Writer, value interface{}) error {
+	offers, ok := value.(offeredApplications)
+	if !ok {
+		return errors.Errorf("expected value of type %T, got %T", offers, value)
+	}
+	return formatListEndpointsTabular(writer, offers)
+}
+
+// formatListEndpointsTabular returns a tabular summary of listed applications' endpoints.
+func formatListEndpointsTabular(writer io.Writer, offers offeredApplications) error {
+	tw := output.TabWriter(writer)
+	w := output.Wrapper{tw}
+
+	// Sort offers by source then application name.
+	allOffers := offerItems{}
+	for _, offer := range offers {
+		allOffers = append(allOffers, offer)
+	}
+	sort.Sort(allOffers)
+
+	w.Println("Offer", "User", "Relation id", "Status", "Endpoint", "Interface", "Role", "Ingress subnets")
+	for _, offer := range allOffers {
+		// Sort endpoints alphabetically.
+		endpoints := []string{}
+		for endpoint, _ := range offer.Endpoints {
+			endpoints = append(endpoints, endpoint)
+		}
+		sort.Strings(endpoints)
+
+		// Sort connections by relation id and username.
+		sort.Sort(byUserRelationId(offer.Connections))
+
+		// If there are no connections, print am empty row.
+		if len(offer.Connections) == 0 {
+			w.Println(offer.OfferName, "-", "", "", "", "", "", "")
+		}
+
+		for i, conn := range offer.Connections {
+			if i == 0 {
+				w.Print(offer.OfferName)
+			} else {
+				w.Print("")
+			}
+			endpoints := make(map[string]RemoteEndpoint)
+			for alias, ep := range offer.Endpoints {
+				aliasedEp := ep
+				aliasedEp.Name = alias
+				endpoints[ep.Name] = ep
+			}
+			connEp := endpoints[conn.Endpoint]
+			w.Print(conn.Username, conn.RelationId)
+			w.PrintColor(RelationStatusColor(relation.Status(conn.Status.Current)), conn.Status.Current)
+			w.Println(connEp.Name, connEp.Interface, connEp.Role, strings.Join(conn.IngressSubnets, ","))
+		}
+	}
+	tw.Flush()
+	return nil
+}
+
+// RelationStatusColor returns a context used to print the status with the relevant color.
+func RelationStatusColor(status relation.Status) *ansiterm.Context {
+	switch status {
+	case relation.Joined:
+		return output.GoodHighlight
+	case relation.Suspended:
+		return output.WarningHighlight
+	case relation.Broken, relation.Error:
+		return output.ErrorHighlight
+	}
+	return nil
+}
+
+type byUserRelationId []offerConnectionDetails
+
+func (b byUserRelationId) Len() int {
+	return len(b)
+}
+
+func (b byUserRelationId) Less(i, j int) bool {
+	if b[i].Username == b[j].Username {
+		return b[i].RelationId < b[j].RelationId
+	}
+	return b[i].Username < b[j].Username
+}
+
+func (b byUserRelationId) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
 }

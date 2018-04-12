@@ -21,12 +21,12 @@ type environMongo struct {
 
 // GetCollection is part of the lease.Mongo interface.
 func (m *environMongo) GetCollection(name string) (mongo.Collection, func()) {
-	return m.state.getCollection(name)
+	return m.state.db().GetCollection(name)
 }
 
 // RunTransaction is part of the lease.Mongo interface.
 func (m *environMongo) RunTransaction(buildTxn jujutxn.TransactionSource) error {
-	return m.state.run(buildTxn)
+	return m.state.db().Run(buildTxn)
 }
 
 // Mongo Upgrade
@@ -57,7 +57,7 @@ func (st *State) SetUpgradeMongoMode(v mongo.Version) (UpgradeMongoParams, error
 	}
 	result := UpgradeMongoParams{}
 	machines := []*Machine{}
-	for _, mID := range currentInfo.VotingMachineIds {
+	for _, mID := range currentInfo.MachineIds {
 		m, err := st.Machine(mID)
 		if err != nil {
 			return UpgradeMongoParams{}, errors.Annotate(err, "cannot change all the replicas")

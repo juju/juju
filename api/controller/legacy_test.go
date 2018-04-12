@@ -5,27 +5,22 @@ package controller_test
 
 import (
 	"fmt"
-	"net"
 	"time"
 
-	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/apiserver"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
-	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
@@ -55,13 +50,14 @@ func (s *legacySuite) TestAllModels(c *gc.C) {
 
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
-	envs, err := sysManager.AllModels()
+	models, err := sysManager.AllModels()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envs, gc.HasLen, 3)
+	c.Assert(models, gc.HasLen, 3)
 
 	var obtained []string
-	for _, env := range envs {
-		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner, env.Name))
+	for _, m := range models {
+		c.Assert(m.Type, gc.Equals, model.IAAS)
+		obtained = append(obtained, fmt.Sprintf("%s/%s", m.Owner, m.Name))
 	}
 	expected := []string{
 		"admin/controller",
@@ -98,8 +94,8 @@ func (s *legacySuite) TestDestroyController(c *gc.C) {
 
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
-	err := sysManager.DestroyController(false)
-	c.Assert(err, gc.ErrorMatches, `failed to destroy model: hosting 1 other models \(controller has hosted models\)`)
+	err := sysManager.DestroyController(controller.DestroyControllerParams{})
+	c.Assert(err, gc.ErrorMatches, `failed to destroy model: hosting 1 other model \(controller has hosted models\)`)
 }
 
 func (s *legacySuite) TestListBlockedModels(c *gc.C) {
@@ -212,27 +208,7 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 }
 
 func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
-
-	lis, err := net.Listen("tcp", "localhost:0")
-	c.Assert(err, jc.ErrorIsNil)
-
-	srv, err := apiserver.NewServer(s.State, lis, apiserver.ServerConfig{
-		Clock:       clock.WallClock,
-		Cert:        testing.ServerCert,
-		Key:         testing.ServerKey,
-		Tag:         names.NewMachineTag("0"),
-		Hub:         pubsub.NewStructuredHub(nil),
-		DataDir:     c.MkDir(),
-		LogDir:      c.MkDir(),
-		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
-		AutocertURL: "https://0.1.2.3/no-autocert-here",
-		StatePool:   state.NewStatePool(s.State),
-	})
-	c.Assert(err, gc.IsNil)
-
-	// Connect to the API server we've just started.
 	apiInfo := s.APIInfo(c)
-	apiInfo.Addrs = []string{lis.Addr().String()}
 	apiInfo.ModelTag = names.ModelTag{}
 	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	sysManager := controller.NewClient(apiState)
@@ -266,7 +242,9 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	// even when there's an outstanding Next call.
 	srvStopped := make(chan struct{})
 	go func() {
-		srv.Stop()
+		// Resetting the dummy environment will call Stop on the
+		// embedded API server.
+		dummy.Reset(c)
 		close(srvStopped)
 	}()
 
@@ -285,24 +263,6 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
-}
-
-func (s *legacySuite) TestModelStatus(c *gc.C) {
-	sysManager := s.OpenAPI(c)
-	defer sysManager.Close()
-	s.Factory.MakeMachine(c, nil)
-	modelTag := s.State.ModelTag()
-	results, err := sysManager.ModelStatus(modelTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []base.ModelStatus{{
-		UUID:               modelTag.Id(),
-		TotalMachineCount:  1,
-		HostedMachineCount: 1,
-		ServiceCount:       0,
-		Owner:              "admin",
-		Life:               string(params.Alive),
-		Machines:           []base.Machine{{Id: "0", InstanceId: "id-2", Status: "pending"}},
-	}})
 }
 
 func (s *legacySuite) TestGetControllerAccess(c *gc.C) {

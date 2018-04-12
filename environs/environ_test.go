@@ -21,7 +21,7 @@ var _ = gc.Suite(&environSuite{})
 func (s *environSuite) TestGetEnvironment(c *gc.C) {
 	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	config, err := s.State.ModelConfig()
+	config, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env.Config().UUID(), jc.DeepEquals, config.UUID())

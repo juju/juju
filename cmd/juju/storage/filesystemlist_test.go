@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/testing"
 )
 
 func (s *ListSuite) TestFilesystemListEmpty(c *gc.C) {
@@ -123,13 +123,13 @@ func (s *ListSuite) assertUnmarshalledOutput(c *gc.C, unmarshal unmarshaller, ex
 	var result struct {
 		Filesystems map[string]storage.FilesystemInfo
 	}
-	err = unmarshal([]byte(testing.Stdout(context)), &result)
+	err = unmarshal([]byte(cmdtesting.Stdout(context)), &result)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := s.expect(c, nil)
 	c.Assert(result.Filesystems, jc.DeepEquals, expected)
 
-	obtainedErr := testing.Stderr(context)
+	obtainedErr := cmdtesting.Stderr(context)
 	c.Assert(obtainedErr, gc.Equals, expectedErr)
 }
 
@@ -157,15 +157,15 @@ func (s *ListSuite) assertValidFilesystemList(c *gc.C, args []string, expectedOu
 }
 
 func (s *ListSuite) runFilesystemList(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c,
+	return cmdtesting.RunCommand(c,
 		storage.NewListCommandForTest(s.mockAPI, s.store), append(args, "--filesystem")...)
 }
 
 func (s *ListSuite) assertUserFacingOutput(c *gc.C, context *cmd.Context, expectedOut, expectedErr string) {
-	obtainedOut := testing.Stdout(context)
+	obtainedOut := cmdtesting.Stdout(context)
 	c.Assert(obtainedOut, gc.Equals, expectedOut)
 
-	obtainedErr := testing.Stderr(context)
+	obtainedErr := cmdtesting.Stderr(context)
 	c.Assert(obtainedErr, gc.Equals, expectedErr)
 }
 
@@ -293,6 +293,29 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 						UnitTag:    "unit-transcode-1",
 						MachineTag: "machine-1",
 						Location:   "/mnt/pieces",
+					},
+				},
+			},
+		}, {
+			// filesystem 5 is assigned to db-dir/1100, but is not yet
+			// attached to any machines.
+			FilesystemTag: "filesystem-5",
+			Info: params.FilesystemInfo{
+				FilesystemId: "provider-supplied-filesystem-5",
+				Size:         3,
+			},
+			Status: createTestStatus(status.Attached, ""),
+			Storage: &params.StorageDetails{
+				StorageTag: "storage-db-dir-1100",
+				OwnerTag:   "unit-abc-0",
+				Kind:       params.StorageKindBlock,
+				Life:       "alive",
+				Status:     createTestStatus(status.Attached, ""),
+				Attachments: map[string]params.StorageAttachmentDetails{
+					"unit-abc-0": params.StorageAttachmentDetails{
+						StorageTag: "storage-db-dir-1100",
+						UnitTag:    "unit-abc-0",
+						Location:   "/mnt/fuji",
 					},
 				},
 			},

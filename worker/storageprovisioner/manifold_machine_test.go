@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/engine/enginetest"
 	"github.com/juju/juju/state/multiwatcher"
@@ -125,8 +124,4 @@ func (f *fakeAPIConn) APICall(objType string, version int, id, request string, a
 
 func (*fakeAPIConn) BestFacadeVersion(facade string) int {
 	return 42
-}
-
-func (f *fakeAPIConn) Agent() *apiagent.State {
-	return apiagent.NewState(f)
 }

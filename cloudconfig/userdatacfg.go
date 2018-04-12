@@ -35,12 +35,20 @@ type UserdataConfig interface {
 	// with appropriate configuration. It will run ConfigureBasic() and
 	// ConfigureJuju()
 	Configure() error
+
 	// ConfigureBasic updates the provided cloudinit.Config with
 	// basic configuration to initialise an OS image.
 	ConfigureBasic() error
+
 	// ConfigureJuju updates the provided cloudinit.Config with configuration
 	// to initialise a Juju machine agent.
 	ConfigureJuju() error
+
+	// ConfigureCustomOverrides updates the provided cloudinit.Config with
+	// user provided cloudinit data.  Data provided will overwrite current
+	// values with three exceptions: preruncmd was handled in ConfigureBasic()
+	// and packages and postruncmd were handled in ConfigureJuju().
+	ConfigureCustomOverrides() error
 }
 
 // NewUserdataConfig is supposed to take in an instanceConfig as well as a
@@ -65,6 +73,8 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudCon
 	case os.Ubuntu:
 		return &unixConfigure{base}, nil
 	case os.CentOS:
+		return &unixConfigure{base}, nil
+	case os.OpenSUSE:
 		return &unixConfigure{base}, nil
 	case os.Windows:
 		return &windowsConfigure{base}, nil
@@ -151,6 +161,8 @@ func SetUbuntuUser(conf cloudinit.CloudConfig, authorizedKeys string) {
 			groups = UbuntuGroups
 		case os.CentOS:
 			groups = CentOSGroups
+		case os.OpenSUSE:
+			groups = OpenSUSEGroups
 		}
 		conf.AddUser(&cloudinit.User{
 			Name:              "ubuntu",

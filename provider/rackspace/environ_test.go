@@ -52,7 +52,15 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 
 func (s *environSuite) TestStartInstance(c *gc.C) {
 	configurator := &fakeConfigurator{}
-	s.PatchValue(rackspace.WaitSSH, func(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst common.InstanceRefresher, timeout environs.BootstrapDialOpts) (addr string, err error) {
+	s.PatchValue(rackspace.WaitSSH, func(
+		stdErr io.Writer,
+		interrupted <-chan os.Signal,
+		client ssh.Client,
+		checkHostScript string,
+		inst common.InstanceRefresher,
+		timeout environs.BootstrapDialOpts,
+		hostSSHOptions common.HostSSHOptionsFunc,
+	) (addr string, err error) {
 		addresses, err := inst.Addresses()
 		if err != nil {
 			return "", err
@@ -206,8 +214,8 @@ func (e *fakeEnviron) Provider() environs.EnvironProvider {
 	return nil
 }
 
-func (e *fakeEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	e.Push("PrecheckInstance", series, cons, placement)
+func (e *fakeEnviron) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+	e.Push("PrecheckInstance", args)
 	return nil
 }
 
@@ -257,16 +265,6 @@ func (e *fakeConfigurator) ChangeIngressRules(ipAddress string, insert bool, rul
 func (e *fakeConfigurator) FindIngressRules() ([]network.IngressRule, error) {
 	e.Push("FindIngressRules")
 	return nil, nil
-}
-
-func (e *fakeConfigurator) AddIpAddress(nic string, addr string) error {
-	e.Push("AddIpAddress", nic, addr)
-	return nil
-}
-
-func (e *fakeConfigurator) ReleaseIpAddress(addr string) error {
-	e.Push("AddIpAddress", addr)
-	return nil
 }
 
 type fakeInstance struct {

@@ -4,11 +4,13 @@
 package featuretests
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -29,6 +31,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 )
 
 type cmdControllerSuite struct {
@@ -36,9 +39,9 @@ type cmdControllerSuite struct {
 }
 
 func (s *cmdControllerSuite) run(c *gc.C, args ...string) *cmd.Context {
-	context := testing.Context(c)
+	context := cmdtesting.Context(c)
 	command := commands.NewJujuCommand(context)
-	c.Assert(testing.InitCommand(command, args), jc.ErrorIsNil)
+	c.Assert(cmdtesting.InitCommand(command, args), jc.ErrorIsNil)
 	c.Assert(command.Run(context), jc.ErrorIsNil)
 	loggo.RemoveWriter("warning")
 	return context
@@ -75,16 +78,16 @@ func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 Use --refresh flag with this command to see the latest information.
 
 Controller  Model       User   Access     Cloud/Region        Models  Machines  HA  Version
-kontroll*   controller  admin  superuser  dummy/dummy-region       -         -   -  (unknown)  
+kontroll*   controller  admin  superuser  dummy/dummy-region       1         -   -  (unknown)  
 
 `[1:]
-	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, expectedOutput)
 }
 
 func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 	s.createModelAdminUser(c, "new-model", false)
 	context := s.run(c, "list-models")
-	c.Assert(testing.Stdout(context), gc.Equals, ""+
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: kontroll\n"+
 		"\n"+
 		"Model        Cloud/Region        Status     Access  Last connection\n"+
@@ -96,12 +99,12 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 	s.createModelNormalUser(c, "new-model", false)
 	context := s.run(c, "list-models", "--all")
-	c.Assert(testing.Stdout(context), gc.Equals, ""+
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: kontroll\n"+
 		"\n"+
-		"Model              Cloud/Region        Status     Access  Last connection\n"+
-		"admin/controller*  dummy/dummy-region  available  admin   just now\n"+
-		"test/new-model     dummy/dummy-region  available          never connected\n"+
+		"Model           Cloud/Region        Status     Access  Last connection\n"+
+		"controller*     dummy/dummy-region  available  admin   just now\n"+
+		"test/new-model  dummy/dummy-region  available  -       never connected\n"+
 		"\n")
 }
 
@@ -110,42 +113,43 @@ func (s *cmdControllerSuite) TestListModelsYAML(c *gc.C) {
 	two := uint64(2)
 	s.Factory.MakeMachine(c, &factory.MachineParams{Characteristics: &instance.HardwareCharacteristics{CpuCores: &two}})
 	context := s.run(c, "list-models", "--format=yaml")
-	c.Assert(testing.Stdout(context), gc.Matches, `
+	expectedOutput := `
 models:
-- name: controller
+- name: admin/controller
+  short-name: controller
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+  model-type: iaas
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: kontroll
   owner: admin
   cloud: dummy
   region: dummy-region
+  credential:
+    name: cred
+    owner: admin
+    cloud: dummy
   type: dummy
   life: alive
   status:
     current: available
     since: .*
-  users:
-    admin:
-      display-name: admin
-      access: admin
-      last-connection: just now
-  machines:
-    "0":
-      cores: 0
-    "1":
-      cores: 2
+  access: admin
+  last-connection: just now
+  sla-owner: admin
+  agent-version: %v
 current-model: controller
-`[1:])
+`[1:]
+	c.Assert(cmdtesting.Stdout(context), gc.Matches, fmt.Sprintf(expectedOutput, version.Current))
 }
 
 func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 	modelInfo := s.createModelAdminUser(c, "new-model", false)
-	st, err := s.State.ForModel(names.NewModelTag(modelInfo.UUID))
+	st, err := s.StatePool.Get(modelInfo.UUID)
 	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
+	defer st.Release()
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.Destroy()
+	err = m.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
@@ -159,7 +163,7 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 	// Dead models still show up in the list. It's a lie to pretend they
 	// don't exist, and they will go away quickly.
 	context := s.run(c, "list-models")
-	c.Assert(testing.Stdout(context), gc.Equals, ""+
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, ""+
 		"Controller: kontroll\n"+
 		"\n"+
 		"Model        Cloud/Region        Status      Access  Last connection\n"+
@@ -186,8 +190,8 @@ func (s *cmdControllerSuite) testAddModel(c *gc.C, args ...string) {
 		"--config", "controller=false",
 	)
 	context := s.run(c, args...)
-	c.Check(testing.Stdout(context), gc.Equals, "")
-	c.Check(testing.Stderr(context), gc.Equals, `
+	c.Check(cmdtesting.Stdout(context), gc.Equals, "")
+	c.Check(cmdtesting.Stderr(context), gc.Equals, `
 Added 'new-model' model on dummy/dummy-region with credential 'cred' for user 'admin'
 `[1:])
 
@@ -363,5 +367,5 @@ func (s *cmdControllerSuite) TestGetControllerConfigYAML(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfgYaml, err := yaml.Marshal(controllerCfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, string(cfgYaml))
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, string(cfgYaml))
 }

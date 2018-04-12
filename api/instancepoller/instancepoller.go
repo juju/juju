@@ -38,7 +38,7 @@ func NewAPI(caller base.APICaller) *API {
 // Machine provides access to methods of a state.Machine through the
 // facade.
 func (api *API) Machine(tag names.MachineTag) (*Machine, error) {
-	life, err := common.Life(api.facade, tag)
+	life, err := common.OneLife(api.facade, tag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

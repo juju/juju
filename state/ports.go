@@ -53,20 +53,20 @@ func NewPortRange(unitName string, fromPort, toPort int, protocol string) (PortR
 	return p, nil
 }
 
-// PortRangeFromNetworkPortRange constructs a state.PortRange from the
-// given unitName and network.PortRange.
-func PortRangeFromNetworkPortRange(unitName string, portRange network.PortRange) (PortRange, error) {
-	return NewPortRange(unitName, portRange.FromPort, portRange.ToPort, portRange.Protocol)
-}
-
 // Validate checks if the port range is valid.
 func (p PortRange) Validate() error {
 	proto := strings.ToLower(p.Protocol)
-	if proto != "tcp" && proto != "udp" {
+	if proto != "tcp" && proto != "udp" && proto != "icmp" {
 		return errors.Errorf("invalid protocol %q", proto)
 	}
 	if !names.IsValidUnit(p.UnitName) {
 		return errors.Errorf("invalid unit %q", p.UnitName)
+	}
+	if proto == "icmp" {
+		if p.FromPort == p.ToPort && p.FromPort == -1 {
+			return nil
+		}
+		return errors.Errorf(`protocol "icmp" doesn't support any ports; got "%v"`, p.FromPort)
 	}
 	if p.FromPort > p.ToPort {
 		return errors.Errorf("invalid port range %d-%d", p.FromPort, p.ToPort)
@@ -93,6 +93,9 @@ func (a PortRange) Length() int {
 // valid range from 1 to 65535, inclusive.
 func (a PortRange) SanitizeBounds() PortRange {
 	b := a
+	if a.Protocol == "icmp" {
+		return b
+	}
 	if b.FromPort > b.ToPort {
 		b.FromPort, b.ToPort = b.ToPort, b.FromPort
 	}
@@ -133,7 +136,11 @@ func (prA PortRange) CheckConflicts(prB PortRange) error {
 
 // Strings returns the port range as a string.
 func (p PortRange) String() string {
-	return fmt.Sprintf("%d-%d/%s (%q)", p.FromPort, p.ToPort, strings.ToLower(p.Protocol), p.UnitName)
+	proto := strings.ToLower(p.Protocol)
+	if proto == "icmp" {
+		return fmt.Sprintf("%s (%q)", proto, p.UnitName)
+	}
+	return fmt.Sprintf("%d-%d/%s (%q)", p.FromPort, p.ToPort, proto, p.UnitName)
 }
 
 // portsDoc represents the state of ports opened on machines for networks
@@ -157,11 +164,6 @@ type Ports struct {
 // String returns p as a user-readable string.
 func (p *Ports) String() string {
 	return fmt.Sprintf("ports for machine %q, subnet %q", p.doc.MachineID, p.doc.SubnetID)
-}
-
-// globalKey returns the id of the ports document.
-func (p *Ports) globalKey() string {
-	return portsGlobalKey(p.doc.MachineID, p.doc.SubnetID)
 }
 
 // portsGlobalKey returns the global database key for the opened ports
@@ -243,7 +245,7 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 		return ops, nil
 	}
 	// Run the transaction using the state transaction runner.
-	if err = p.st.run(buildTxn); err != nil {
+	if err = p.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	// Mark object as created.
@@ -314,7 +316,7 @@ func (p *Ports) ClosePorts(portRange PortRange) (err error) {
 			return setPortsDocOps(p.st, ports.doc, assert, newPorts...), nil
 		}
 	}
-	if err = p.st.run(buildTxn); err != nil {
+	if err = p.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	p.doc.Ports = newPorts
@@ -335,7 +337,7 @@ func (p *Ports) PortsForUnit(unitName string) []PortRange {
 
 // Refresh refreshes the port document from state.
 func (p *Ports) Refresh() error {
-	openedPorts, closer := p.st.getCollection(openedPortsC)
+	openedPorts, closer := p.st.db().GetCollection(openedPortsC)
 	defer closer()
 
 	err := openedPorts.FindId(p.doc.DocID).One(&p.doc)
@@ -376,7 +378,7 @@ func (p *Ports) Remove() error {
 		}
 		return ports.removeOps(), nil
 	}
-	return p.st.run(buildTxn)
+	return p.st.db().Run(buildTxn)
 }
 
 // OpenedPorts returns this machine ports document for the given subnetID.
@@ -391,7 +393,7 @@ func (m *Machine) OpenedPorts(subnetID string) (*Ports, error) {
 // AllPorts returns all opened ports for this machine (on all
 // networks).
 func (m *Machine) AllPorts() ([]*Ports, error) {
-	openedPorts, closer := m.st.getCollection(openedPortsC)
+	openedPorts, closer := m.st.db().GetCollection(openedPortsC)
 	defer closer()
 
 	docs := []portsDoc{}
@@ -531,7 +533,7 @@ func removePortsForUnitOps(st *State, unit *Unit) ([]txn.Op, error) {
 
 // getPorts returns the ports document for the specified machine and subnet.
 func getPorts(st *State, machineID, subnetID string) (*Ports, error) {
-	openedPorts, closer := st.getCollection(openedPortsC)
+	openedPorts, closer := st.db().GetCollection(openedPortsC)
 	defer closer()
 
 	var doc portsDoc

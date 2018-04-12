@@ -7,43 +7,68 @@
 package jujuclient
 
 import (
+	"crypto/sha256"
+	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex"
+	"github.com/juju/persistent-cookiejar"
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/juju/osenv"
 )
 
-var _ ClientStore = (*store)(nil)
+var (
+	_ ClientStore = (*store)(nil)
 
-var logger = loggo.GetLogger("juju.jujuclient")
+	logger = loggo.GetLogger("juju.jujuclient")
 
-// A second should be enough to write or read any files. But
-// some disks are slow when under load, so lets give the disk a
-// reasonable time to get the lock.
-var lockTimeout = 5 * time.Second
+	// A second should be enough to write or read any files. But
+	// some disks are slow when under load, so lets give the disk a
+	// reasonable time to get the lock.
+	lockTimeout = 5 * time.Second
+)
 
 // NewFileClientStore returns a new filesystem-based client store
 // that manages files in $XDG_DATA_HOME/juju.
 func NewFileClientStore() ClientStore {
-	return &store{}
+	return &store{
+		lockName: generateStoreLockName(),
+	}
 }
 
 // NewFileCredentialStore returns a new filesystem-based credentials store
 // that manages credentials in $XDG_DATA_HOME/juju.
 func NewFileCredentialStore() CredentialStore {
-	return &store{}
+	return &store{
+		lockName: generateStoreLockName(),
+	}
 }
 
-type store struct{}
+type store struct {
+	lockName string
+}
+
+// generateStoreLockName uses part of the hash of the controller path as the
+// name of the lock. This is to avoid contention between multiple users on a
+// single machine with different controller files, but also helps with
+// contention in tests.
+func generateStoreLockName() string {
+	h := sha256.New()
+	h.Write([]byte(JujuControllersPath()))
+	fullHash := fmt.Sprintf("%x", h.Sum(nil))
+	return fmt.Sprintf("store-lock-%x", fullHash[:8])
+}
 
 func (s *store) acquireLock() (mutex.Releaser, error) {
-	const lockName = "store-lock"
 	spec := mutex.Spec{
-		Name:    lockName,
+		Name:    s.lockName,
 		Clock:   clock.WallClock,
 		Delay:   20 * time.Millisecond,
 		Timeout: lockTimeout,
@@ -287,6 +312,14 @@ func (s *store) RemoveController(name string) error {
 		}
 	}
 
+	// Remove the controller cookie jars.
+	for _, name := range names {
+		err := os.Remove(JujuCookiePath(name))
+		if err != nil && !os.IsNotExist(err) {
+			return errors.Trace(err)
+		}
+	}
+
 	// Finally, remove the controllers. This must be done last
 	// so we don't end up with dangling entries in other files.
 	return WriteControllersFile(controllers)
@@ -297,10 +330,7 @@ func (s *store) UpdateModel(controllerName, modelName string, details ModelDetai
 	if err := ValidateControllerName(controllerName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := ValidateModelName(modelName); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ValidateModelDetails(details); err != nil {
+	if err := ValidateModel(modelName, details); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -316,6 +346,15 @@ func (s *store) UpdateModel(controllerName, modelName string, details ModelDetai
 			oldDetails, ok := models.Models[modelName]
 			if ok && details == oldDetails {
 				return false, nil
+			}
+			if ok && oldDetails.ModelType == "" && details.ModelType != model.IAAS ||
+				oldDetails.ModelType != "" && oldDetails.ModelType != details.ModelType {
+				oldModelType := oldDetails.ModelType
+				if oldModelType == "" {
+					oldModelType = model.IAAS
+				}
+				return false, errors.Errorf(
+					"model type was %q, cannot change to %q", oldModelType, details.ModelType)
 			}
 			models.Models[modelName] = details
 			return true, nil
@@ -437,8 +476,9 @@ func (s *store) ModelByName(controllerName, modelName string) (*ModelDetails, er
 	controllerModels, ok := all[controllerName]
 	if !ok {
 		return nil, errors.NotFoundf(
-			"models for controller %s",
+			"model %s:%s",
 			controllerName,
+			modelName,
 		)
 	}
 	details, ok := controllerModels.Models[modelName]
@@ -486,10 +526,9 @@ func (s *store) RemoveModel(controllerName, modelName string) error {
 	))
 }
 
-func updateModels(
-	controllerName string,
-	update func(*ControllerModels) (bool, error),
-) error {
+type updateModelFunc func(storedModels *ControllerModels) (bool, error)
+
+func updateModels(controllerName string, update updateModelFunc) error {
 	all, err := ReadModelsFile(JujuModelsPath())
 	if err != nil {
 		return errors.Trace(err)
@@ -511,6 +550,52 @@ func updateModels(
 	}
 	if updated {
 		return errors.Trace(WriteModelsFile(all))
+	}
+	return nil
+}
+
+// SetModels implements ModelUpdater.
+func (s *store) SetModels(controllerName string, models map[string]ModelDetails) error {
+	if err := ValidateControllerName(controllerName); err != nil {
+		return errors.Trace(err)
+	}
+
+	for modelName, details := range models {
+		if err := ValidateModel(modelName, details); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	releaser, err := s.acquireLock()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer releaser.Release()
+
+	err = updateModels(controllerName, func(storedModels *ControllerModels) (bool, error) {
+		changed := len(storedModels.Models) != len(models)
+		// Add or update controller models based on a new collection.
+		for modelName, details := range models {
+			oldDetails, ok := storedModels.Models[modelName]
+			if ok && details == oldDetails {
+				continue
+			}
+			storedModels.Models[modelName] = details
+			changed = true
+		}
+		// Delete models that are not in the new collection.
+		for modelName, _ := range storedModels.Models {
+			if _, ok := models[modelName]; !ok {
+				delete(storedModels.Models, modelName)
+				if storedModels.CurrentModel == modelName {
+					storedModels.CurrentModel = ""
+				}
+			}
+		}
+		return changed, nil
+	})
+	if err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -695,11 +780,42 @@ func (s *store) BootstrapConfigForController(controllerName string) (*BootstrapC
 	if !ok {
 		return nil, errors.NotFoundf("bootstrap config for controller %s", controllerName)
 	}
-	if cfg.CloudType == "" {
-		// TODO(axw) 2016-07-25 #1603841
-		// Drop this when we get to 2.0. This exists only for
-		// compatibility with previous beta releases.
-		cfg.CloudType, _ = cfg.Config["type"].(string)
-	}
 	return &cfg, nil
+}
+
+// CookieJar returns the cookie jar associated with the given controller.
+func (s *store) CookieJar(controllerName string) (CookieJar, error) {
+	if err := ValidateControllerName(controllerName); err != nil {
+		return nil, errors.Trace(err)
+	}
+	path := JujuCookiePath(controllerName)
+	jar, err := cookiejar.New(&cookiejar.Options{
+		Filename: path,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &cookieJar{
+		path: path,
+		Jar:  jar,
+	}, nil
+}
+
+type cookieJar struct {
+	path string
+	*cookiejar.Jar
+}
+
+func (jar *cookieJar) Save() error {
+	// Ensure that the directory exists before saving.
+	if err := os.MkdirAll(filepath.Dir(jar.path), 0700); err != nil {
+		return errors.Annotatef(err, "cannot make cookies directory")
+	}
+	return jar.Jar.Save()
+}
+
+// JujuCookiePath is the location where cookies associated
+// with the given controller are expected to be found.
+func JujuCookiePath(controllerName string) string {
+	return osenv.JujuXDGDataHomePath("cookies", controllerName+".json")
 }

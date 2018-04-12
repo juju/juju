@@ -6,6 +6,7 @@ package agent
 import (
 	"os"
 	"runtime"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -13,6 +14,7 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/introspection"
 )
@@ -30,6 +32,7 @@ type introspectionConfig struct {
 	Agent              agent.Agent
 	Engine             *dependency.Engine
 	StatePoolReporter  introspection.IntrospectionReporter
+	PubSubReporter     introspection.IntrospectionReporter
 	PrometheusGatherer prometheus.Gatherer
 	NewSocketName      func(names.Tag) string
 	WorkerFunc         func(config introspection.Config) (worker.Worker, error)
@@ -52,6 +55,7 @@ func startIntrospection(cfg introspectionConfig) error {
 		SocketName:         socketName,
 		DepEngine:          cfg.Engine,
 		StatePool:          cfg.StatePoolReporter,
+		PubSub:             cfg.PubSubReporter,
 		PrometheusGatherer: cfg.PrometheusGatherer,
 	})
 	if err != nil {
@@ -83,7 +87,23 @@ func newPrometheusRegistry() (*prometheus.Registry, error) {
 	return r, nil
 }
 
-func (h *statePoolHolder) IntrospectionReport() string {
+// statePoolIntrospectionReporter wraps a (possibly nil) state.StatePool,
+// calling its IntrospectionReport method or returning a message if it
+// is nil.
+type statePoolIntrospectionReporter struct {
+	mu   sync.Mutex
+	pool *state.StatePool
+}
+
+func (h *statePoolIntrospectionReporter) set(pool *state.StatePool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.pool = pool
+}
+
+func (h *statePoolIntrospectionReporter) IntrospectionReport() string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	if h.pool == nil {
 		return "agent has no pool set"
 	}

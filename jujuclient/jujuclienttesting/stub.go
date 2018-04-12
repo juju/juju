@@ -27,6 +27,7 @@ type StubStore struct {
 	AllModelsFunc       func(controller string) (map[string]jujuclient.ModelDetails, error)
 	CurrentModelFunc    func(controller string) (string, error)
 	ModelByNameFunc     func(controller, model string) (*jujuclient.ModelDetails, error)
+	SetModelsFunc       func(controllerName string, models map[string]jujuclient.ModelDetails) error
 
 	UpdateAccountFunc  func(controllerName string, details jujuclient.AccountDetails) error
 	AccountDetailsFunc func(controllerName string) (*jujuclient.AccountDetails, error)
@@ -38,6 +39,8 @@ type StubStore struct {
 
 	BootstrapConfigForControllerFunc func(controllerName string) (*jujuclient.BootstrapConfig, error)
 	UpdateBootstrapConfigFunc        func(controllerName string, cfg jujuclient.BootstrapConfig) error
+
+	CookieJarFunc func(controllerName string) (jujuclient.CookieJar, error)
 }
 
 func NewStubStore() *StubStore {
@@ -84,6 +87,9 @@ func NewStubStore() *StubStore {
 	result.ModelByNameFunc = func(controller, model string) (*jujuclient.ModelDetails, error) {
 		return nil, result.Stub.NextErr()
 	}
+	result.SetModelsFunc = func(controllerName string, models map[string]jujuclient.ModelDetails) error {
+		return result.Stub.NextErr()
+	}
 
 	result.UpdateAccountFunc = func(controllerName string, details jujuclient.AccountDetails) error {
 		return result.Stub.NextErr()
@@ -111,6 +117,9 @@ func NewStubStore() *StubStore {
 	result.UpdateBootstrapConfigFunc = func(controllerName string, cfg jujuclient.BootstrapConfig) error {
 		return result.Stub.NextErr()
 	}
+	result.CookieJarFunc = func(controllerName string) (jujuclient.CookieJar, error) {
+		return nil, result.Stub.NextErr()
+	}
 	return result
 }
 
@@ -127,6 +136,7 @@ func WrapClientStore(underlying jujuclient.ClientStore) *StubStore {
 	stub.SetCurrentControllerFunc = underlying.SetCurrentController
 	stub.CurrentControllerFunc = underlying.CurrentController
 	stub.UpdateModelFunc = underlying.UpdateModel
+	stub.SetModelsFunc = underlying.SetModels
 	stub.SetCurrentModelFunc = underlying.SetCurrentModel
 	stub.RemoveModelFunc = underlying.RemoveModel
 	stub.AllModelsFunc = underlying.AllModels
@@ -137,6 +147,7 @@ func WrapClientStore(underlying jujuclient.ClientStore) *StubStore {
 	stub.RemoveAccountFunc = underlying.RemoveAccount
 	stub.BootstrapConfigForControllerFunc = underlying.BootstrapConfigForController
 	stub.UpdateBootstrapConfigFunc = underlying.UpdateBootstrapConfig
+	stub.CookieJarFunc = underlying.CookieJar
 	return stub
 }
 
@@ -186,6 +197,12 @@ func (c *StubStore) CurrentController() (string, error) {
 func (c *StubStore) UpdateModel(controller, model string, details jujuclient.ModelDetails) error {
 	c.MethodCall(c, "UpdateModel", controller, model, details)
 	return c.UpdateModelFunc(controller, model, details)
+}
+
+// SetModels implements ModelUpdater.
+func (c *StubStore) SetModels(controller string, models map[string]jujuclient.ModelDetails) error {
+	c.MethodCall(c, "SetModels", controller, models)
+	return c.SetModelsFunc(controller, models)
 }
 
 // SetCurrentModel implements ModelUpdater.
@@ -264,4 +281,9 @@ func (c *StubStore) BootstrapConfigForController(controllerName string) (*jujucl
 func (c *StubStore) UpdateBootstrapConfig(controllerName string, cfg jujuclient.BootstrapConfig) error {
 	c.MethodCall(c, "UpdateBootstrapConfig", controllerName, cfg)
 	return c.UpdateBootstrapConfigFunc(controllerName, cfg)
+}
+
+func (c *StubStore) CookieJar(controllerName string) (jujuclient.CookieJar, error) {
+	c.MethodCall(c, "CookieJar", controllerName)
+	return c.CookieJarFunc(controllerName)
 }

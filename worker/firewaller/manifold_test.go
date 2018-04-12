@@ -39,7 +39,7 @@ func (s *ManifoldSuite) TestManifoldFirewallModeNone(c *gc.C) {
 		AgentName:                "agent",
 		APICallerName:            "api-caller",
 		EnvironName:              "environ",
-		NewAPIConnForModel:       func(*api.Info) (func(string) (api.Connection, error), error) { return nil, nil },
+		NewControllerConnection:  func(*api.Info) (api.Connection, error) { return nil, nil },
 		NewFirewallerFacade:      func(base.APICaller) (firewaller.FirewallerAPI, error) { return nil, nil },
 		NewFirewallerWorker:      func(firewaller.Config) (worker.Worker, error) { return nil, nil },
 		NewRemoteRelationsFacade: func(base.APICaller) (*remoterelations.Client, error) { return nil, nil },
@@ -86,7 +86,7 @@ func (s *ManifoldConfigSuite) validConfig() firewaller.ManifoldConfig {
 		AgentName:                "agent",
 		APICallerName:            "api-caller",
 		EnvironName:              "environ",
-		NewAPIConnForModel:       func(*api.Info) (func(string) (api.Connection, error), error) { return nil, nil },
+		NewControllerConnection:  func(*api.Info) (api.Connection, error) { return nil, nil },
 		NewFirewallerFacade:      func(base.APICaller) (firewaller.FirewallerAPI, error) { return nil, nil },
 		NewFirewallerWorker:      func(firewaller.Config) (worker.Worker, error) { return nil, nil },
 		NewRemoteRelationsFacade: func(base.APICaller) (*remoterelations.Client, error) { return nil, nil },
@@ -122,9 +122,9 @@ func (s *ManifoldConfigSuite) TestMissingNewFirewallerWorker(c *gc.C) {
 	s.checkNotValid(c, "nil NewFirewallerWorker not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingNewAPIConnForModel(c *gc.C) {
-	s.config.NewAPIConnForModel = nil
-	s.checkNotValid(c, "nil NewAPIConnForModel not valid")
+func (s *ManifoldConfigSuite) TestMissingNewControllerConnection(c *gc.C) {
+	s.config.NewControllerConnection = nil
+	s.checkNotValid(c, "nil NewControllerConnection not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingNewRemoteRelationsFacade(c *gc.C) {

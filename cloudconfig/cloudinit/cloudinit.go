@@ -78,11 +78,6 @@ type cloudConfig struct {
 	attrs map[string]interface{}
 }
 
-// getPackageCommander is defined on the AdvancedPackagingConfig interface.
-func (cfg *cloudConfig) getPackageCommander() commands.PackageCommander {
-	return cfg.paccmder
-}
-
 // getPackagingConfigurer is defined on the AdvancedPackagingConfig interface.
 func (cfg *cloudConfig) getPackagingConfigurer() config.PackagingConfigurer {
 	return cfg.pacconfer
@@ -200,6 +195,11 @@ func (cfg *cloudConfig) AddScripts(script ...string) {
 	for _, line := range script {
 		cfg.AddRunCmd(line)
 	}
+}
+
+// PrependRunCmd is defined on the RunCmdsConfig interface.
+func (cfg *cloudConfig) PrependRunCmd(args ...string) {
+	cfg.attrs["runcmd"] = append([]string{strings.Join(args, " ")}, cfg.RunCmds()...)
 }
 
 // RemoveRunCmd is defined on the RunCmdsConfig interface.
@@ -325,6 +325,18 @@ func (cfg *cloudConfig) SetSSHAuthorizedKeys(rawKeys string) {
 	}
 }
 
+// SetSSHKeys is defined on the SSHKeysConfig interface.
+func (cfg *cloudConfig) SetSSHKeys(keys SSHKeys) {
+	if keys.RSA != nil {
+		cfg.SetAttr("ssh_keys", map[string]interface{}{
+			string(RSAPrivate): keys.RSA.Private,
+			string(RSAPublic):  keys.RSA.Public,
+		})
+	} else {
+		cfg.UnsetAttr("ssh_keys")
+	}
+}
+
 // SetDisableRoot is defined on the RootUserConfig interface.
 func (cfg *cloudConfig) SetDisableRoot(disable bool) {
 	cfg.SetAttr("disable_root", disable)
@@ -339,6 +351,15 @@ func (cfg *cloudConfig) UnsetDisableRoot() {
 func (cfg *cloudConfig) DisableRoot() bool {
 	disable, _ := cfg.attrs["disable_root"].(bool)
 	return disable
+}
+
+// ManageEtcHosts enables or disables management of /etc/hosts.
+func (cfg *cloudConfig) ManageEtcHosts(manage bool) {
+	if manage {
+		cfg.SetAttr("manage_etc_hosts", true)
+	} else {
+		cfg.UnsetAttr("manage_etc_hosts")
+	}
 }
 
 // AddRunTextFile is defined on the WrittenFilesConfig interface.

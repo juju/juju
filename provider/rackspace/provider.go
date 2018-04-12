@@ -14,7 +14,7 @@ import (
 )
 
 type environProvider struct {
-	environs.EnvironProvider
+	environs.CloudEnvironProvider
 }
 
 var providerInstance *environProvider
@@ -33,13 +33,13 @@ func (p environProvider) Ping(endpoint string) error {
 // PrepareConfig is part of the EnvironProvider interface.
 func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	args.Cloud = transformCloudSpec(args.Cloud)
-	return p.EnvironProvider.PrepareConfig(args)
+	return p.CloudEnvironProvider.PrepareConfig(args)
 }
 
 // Open is part of the EnvironProvider interface.
 func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	args.Cloud = transformCloudSpec(args.Cloud)
-	return p.EnvironProvider.Open(args)
+	return p.CloudEnvironProvider.Open(args)
 }
 
 func transformCloudSpec(spec environs.CloudSpec) environs.CloudSpec {

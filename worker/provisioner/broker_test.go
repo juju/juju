@@ -4,7 +4,6 @@
 package provisioner_test
 
 import (
-	"errors"
 	"io/ioutil"
 	"net"
 	"path/filepath"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
@@ -30,6 +30,67 @@ import (
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/worker/provisioner"
 )
+
+type brokerSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&brokerSuite{})
+
+func (s *brokerSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	s.PatchValue(&provisioner.GetMachineCloudInitData, func(_ string) (map[string]interface{}, error) {
+		return map[string]interface{}{
+			"packages":   []interface{}{"python-novaclient"},
+			"fake-entry": []interface{}{"testing-garbage"},
+			"apt": map[interface{}]interface{}{
+				"primary": []interface{}{
+					map[interface{}]interface{}{
+						"arches": []interface{}{"default"},
+						"uri":    "http://archive.ubuntu.com/ubuntu",
+					},
+				},
+				"security": []interface{}{
+					map[interface{}]interface{}{
+						"arches": []interface{}{"default"},
+						"uri":    "http://archive.ubuntu.com/ubuntu",
+					},
+				},
+			},
+			"ca-certs": map[interface{}]interface{}{
+				"remove-defaults": true,
+				"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
+			},
+		}, nil
+	})
+}
+
+func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *gc.C) {
+	obtained, err := provisioner.CombinedCloudInitData(nil, "ca-certs,apt-primary", "xenial", loggo.Logger{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertCloudInitUserData(obtained, map[string]interface{}{
+		"apt": map[string]interface{}{
+			"primary": []interface{}{
+				map[interface{}]interface{}{
+					"arches": []interface{}{"default"},
+					"uri":    "http://archive.ubuntu.com/ubuntu",
+				},
+			},
+		},
+		"ca-certs": map[interface{}]interface{}{
+			"remove-defaults": true,
+			"trusted":         []interface{}{"-----BEGIN CERTIFICATE-----\nYOUR-ORGS-TRUSTED-CA-CERT-HERE\n-----END CERTIFICATE-----\n"},
+		},
+	}, c)
+}
+
+func (s *brokerSuite) TestCombinedCloudInitDataNoContainerInheritProperties(c *gc.C) {
+	containerConfig := fakeContainerConfig()
+	obtained, err := provisioner.CombinedCloudInitData(containerConfig.CloudInitUserData, "", "xenial", loggo.Logger{})
+	c.Assert(err, jc.ErrorIsNil)
+	assertCloudInitUserData(obtained, containerConfig.CloudInitUserData, c)
+}
 
 type fakeAddr struct{ value string }
 
@@ -74,17 +135,25 @@ var fakeDeviceToBridge network.DeviceToBridge = network.DeviceToBridge{
 	BridgeName: "br-dummy0",
 }
 
-var fakeContainerConfig = params.ContainerConfig{
-	UpdateBehavior:          &params.UpdateBehavior{true, true},
-	ProviderType:            "fake",
-	AuthorizedKeys:          coretesting.FakeAuthKeys,
-	SSLHostnameVerification: true,
+func fakeContainerConfig() params.ContainerConfig {
+	return params.ContainerConfig{
+		UpdateBehavior:          &params.UpdateBehavior{true, true},
+		ProviderType:            "fake",
+		AuthorizedKeys:          coretesting.FakeAuthKeys,
+		SSLHostnameVerification: true,
+		CloudInitUserData: map[string]interface{}{
+			"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
+			"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+			"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+			"package_upgrade": false,
+		},
+	}
 }
 
 func NewFakeAPI() *fakeAPI {
 	return &fakeAPI{
 		Stub:                &gitjujutesting.Stub{},
-		fakeContainerConfig: fakeContainerConfig,
+		fakeContainerConfig: fakeContainerConfig(),
 		fakeInterfaceInfo:   fakeInterfaceInfo,
 	}
 }
@@ -149,6 +218,66 @@ func (f *fakeAPI) PrepareHost(containerTag names.MachineTag, log loggo.Logger) e
 		return f.fakePreparer(containerTag, log)
 	}
 	return nil
+}
+
+type fakeContainerManager struct {
+	gitjujutesting.Stub
+}
+
+func (m *fakeContainerManager) CreateContainer(instanceConfig *instancecfg.InstanceConfig,
+	cons constraints.Value,
+	series string,
+	network *container.NetworkConfig,
+	storage *container.StorageConfig,
+	callback environs.StatusCallbackFunc,
+) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	m.MethodCall(m, "CreateContainer", instanceConfig, cons, series, network, storage, callback)
+	inst := mockInstance{id: "testinst"}
+	arch := "testarch"
+	hw := instance.HardwareCharacteristics{Arch: &arch}
+	return &inst, &hw, m.NextErr()
+}
+
+func (m *fakeContainerManager) DestroyContainer(id instance.Id) error {
+	m.MethodCall(m, "DestroyContainer", id)
+	return m.NextErr()
+}
+
+func (m *fakeContainerManager) ListContainers() ([]instance.Instance, error) {
+	m.MethodCall(m, "ListContainers")
+	return nil, m.NextErr()
+}
+
+func (m *fakeContainerManager) Namespace() instance.Namespace {
+	ns, _ := instance.NewNamespace(coretesting.ModelTag.Id())
+	return ns
+}
+
+func (m *fakeContainerManager) IsInitialized() bool {
+	m.MethodCall(m, "IsInitialized")
+	m.PopNoErr()
+	return true
+}
+
+type mockInstance struct {
+	id string
+}
+
+var _ instance.Instance = (*mockInstance)(nil)
+
+// Id implements instance.Instance.Id.
+func (m *mockInstance) Id() instance.Id {
+	return instance.Id(m.id)
+}
+
+// Status implements instance.Instance.Status.
+func (m *mockInstance) Status() instance.InstanceStatus {
+	return instance.InstanceStatus{}
+}
+
+// Addresses implements instance.Instance.Addresses.
+func (m *mockInstance) Addresses() ([]network.Address, error) {
+	return nil, nil
 }
 
 type patcher interface {
@@ -228,30 +357,18 @@ func callMaintainInstance(c *gc.C, s patcher, broker environs.InstanceBroker, ma
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type fakeBridger struct {
-	errorMessage string
-	returnError  bool
-}
-
-var _ network.Bridger = (*fakeBridger)(nil)
-
-func newFakeBridger(returnsError bool, errorMessage string) *fakeBridger {
-	return &fakeBridger{
-		returnError:  returnsError,
-		errorMessage: errorMessage,
+func assertCloudInitUserData(obtained, expected map[string]interface{}, c *gc.C) {
+	c.Assert(obtained, gc.HasLen, len(expected))
+	for obtainedK, obtainedV := range obtained {
+		expectedV, ok := expected[obtainedK]
+		c.Assert(ok, jc.IsTrue)
+		switch obtainedK {
+		case "package_upgrade":
+			c.Assert(obtainedV, gc.Equals, expectedV)
+		case "apt", "ca-certs":
+			c.Assert(obtainedV, jc.DeepEquals, expectedV)
+		default:
+			c.Assert(obtainedV, jc.SameContents, expectedV)
+		}
 	}
-}
-
-func newFakeBridgerNeverErrors() *fakeBridger {
-	return &fakeBridger{
-		returnError:  false,
-		errorMessage: "",
-	}
-}
-
-func (f *fakeBridger) Bridge(devices []network.DeviceToBridge, reconfigureDelay int) error {
-	if f.returnError {
-		return errors.New(f.errorMessage)
-	}
-	return nil
 }

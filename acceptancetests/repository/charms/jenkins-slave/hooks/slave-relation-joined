@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -e
+
+# Set the slave hostname to match the juju unit
+# in the jenkins master instance
+slavehost=$(echo ${JUJU_UNIT_NAME} | sed s,/,-,)
+noexecutors=$(cat /proc/cpuinfo | grep processor | wc -l)
+config_labels=$(config-get labels)
+labels=$(uname -p)
+
+if [[ -n "$config_labels" ]]; then
+    labels=$config_labels
+fi
+
+# Set all relations
+relation-set executors=$noexecutors
+relation-set labels="$labels"
+relation-set slavehost=$slavehost
+relation-set slaveaddress=`unit-get private-address`

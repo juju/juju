@@ -5,7 +5,7 @@ package lease_test
 
 import (
 	"fmt"
-	"time" // Only used for time types and Parse().
+	"time"
 
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -38,46 +38,48 @@ func init() {
 }
 
 type FixtureParams struct {
-	Id         string
-	Namespace  string
-	Collection string
-	ClockStart time.Time
-	ClockStep  time.Duration
+	Id                string
+	Namespace         string
+	Collection        string
+	LocalClockStart   time.Time
+	GlobalClockOffset time.Duration
 }
 
 // Fixture collects together a running client and a bunch of useful data.
 type Fixture struct {
-	Client corelease.Client
-	Config lease.ClientConfig
-	Runner jujutxn.Runner
-	Clock  *Clock
-	Zero   time.Time
+	Client      corelease.Client
+	Config      lease.ClientConfig
+	Runner      jujutxn.Runner
+	LocalClock  *Clock
+	GlobalClock GlobalClock
+	Zero        time.Time
 }
 
 func NewFixture(c *gc.C, database *mgo.Database, params FixtureParams) *Fixture {
 	mongo := NewMongo(database)
-	clockStart := params.ClockStart
-	if clockStart.IsZero() {
-		clockStart = defaultClockStart
+	localClockStart := params.LocalClockStart
+	if localClockStart.IsZero() {
+		localClockStart = defaultClockStart
 	}
-	clock := NewClock(clockStart, params.ClockStep)
-	monotonic := newMonotonicClock(params.ClockStep)
+	localClock := NewClock(localClockStart)
+	globalClock := GlobalClock{NewClock(time.Unix(0, 0).Add(params.GlobalClockOffset))}
 	config := lease.ClientConfig{
-		Id:           or(params.Id, "default-client"),
-		Namespace:    or(params.Namespace, "default-namespace"),
-		Collection:   or(params.Collection, "default-collection"),
-		Mongo:        mongo,
-		Clock:        clock,
-		MonotonicNow: monotonic.Now,
+		Id:          or(params.Id, "default-client"),
+		Namespace:   or(params.Namespace, "default-namespace"),
+		Collection:  or(params.Collection, "default-collection"),
+		Mongo:       mongo,
+		LocalClock:  localClock,
+		GlobalClock: globalClock,
 	}
 	client, err := lease.NewClient(config)
 	c.Assert(err, jc.ErrorIsNil)
 	return &Fixture{
-		Client: client,
-		Config: config,
-		Runner: mongo.runner,
-		Clock:  clock,
-		Zero:   clockStart,
+		Client:      client,
+		Config:      config,
+		Runner:      mongo.runner,
+		LocalClock:  localClock,
+		GlobalClock: globalClock,
+		Zero:        localClockStart,
 	}
 }
 
@@ -155,7 +157,7 @@ func checkExpiry(info corelease.Info, expiry interface{}) (bool, string) {
 	if actual.Equal(expect) {
 		return true, ""
 	}
-	return false, fmt.Sprintf("expiry is %s; expected %s", actual, expect)
+	return false, fmt.Sprintf("expiry is %s; expected %s (%s)", actual, expect, actual.Sub(expect))
 }
 
 type FixtureSuite struct {

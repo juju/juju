@@ -25,11 +25,11 @@ func (s *SettingsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *SettingsSuite) createSettings(key string, values map[string]interface{}) (*Settings, error) {
-	return createSettings(s.state, s.collection, key, values)
+	return createSettings(s.state.db(), s.collection, key, values)
 }
 
 func (s *SettingsSuite) readSettings() (*Settings, error) {
-	return readSettings(s.state, s.collection, s.key)
+	return readSettings(s.state.db(), s.collection, s.key)
 }
 
 func (s *SettingsSuite) TestCreateEmptySettings(c *gc.C) {
@@ -55,7 +55,7 @@ func (s *SettingsSuite) TestCannotWriteMissing(c *gc.C) {
 	node, err := s.createSettings(s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = removeSettings(s.state, s.collection, s.key)
+	err = removeSettings(s.state.db(), s.collection, s.key)
 	c.Assert(err, jc.ErrorIsNil)
 
 	node.Set("foo", "bar")
@@ -83,7 +83,7 @@ func (s *SettingsSuite) TestUpdateWithWrite(c *gc.C) {
 	var mgoData struct {
 		Settings settingsMap
 	}
-	settings, closer := s.state.getCollection(settingsC)
+	settings, closer := s.state.db().GetCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
@@ -168,7 +168,7 @@ func (s *SettingsSuite) TestSetItem(c *gc.C) {
 	var mgoData struct {
 		Settings settingsMap
 	}
-	settings, closer := s.state.getCollection(settingsC)
+	settings, closer := s.state.db().GetCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
@@ -196,7 +196,7 @@ func (s *SettingsSuite) TestSetItemEscape(c *gc.C) {
 	var mgoData struct {
 		Settings map[string]interface{}
 	}
-	settings, closer := s.state.getCollection(settingsC)
+	settings, closer := s.state.db().GetCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
@@ -221,7 +221,7 @@ func (s *SettingsSuite) TestReplaceSettingsEscape(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	options := map[string]interface{}{"$baz": 1, "foo.bar": "beta"}
-	rop, settingsChanged, err := replaceSettingsOp(s.state, s.collection, s.key, options)
+	rop, settingsChanged, err := replaceSettingsOp(s.state.db(), s.collection, s.key, options)
 	c.Assert(err, jc.ErrorIsNil)
 	ops := []txn.Op{rop}
 	err = node.db.RunTransaction(ops)
@@ -236,7 +236,7 @@ func (s *SettingsSuite) TestReplaceSettingsEscape(c *gc.C) {
 	var mgoData struct {
 		Settings map[string]interface{}
 	}
-	settings, closer := s.state.getCollection(settingsC)
+	settings, closer := s.state.db().GetCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
@@ -257,7 +257,7 @@ func (s *SettingsSuite) TestcreateSettingsEscape(c *gc.C) {
 	var mgoData struct {
 		Settings map[string]interface{}
 	}
-	settings, closer := s.state.getCollection(settingsC)
+	settings, closer := s.state.db().GetCollection(settingsC)
 	defer closer()
 
 	err = settings.FindId(s.key).One(&mgoData)
@@ -416,7 +416,7 @@ func (s *SettingsSuite) TestMultipleWritesAreStable(c *gc.C) {
 	var mgoData struct {
 		Settings map[string]interface{}
 	}
-	settings, closer := s.state.getCollection(settingsC)
+	settings, closer := s.state.db().GetCollection(settingsC)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
@@ -483,4 +483,28 @@ func (s *SettingsSuite) TestList(c *gc.C) {
 		"key#1": {"foo1": "bar1"},
 		"key#2": {"foo2": "bar2"},
 	})
+}
+
+func (s *SettingsSuite) TestUpdatingInterfaceSliceValue(c *gc.C) {
+	// When storing config values that are coerced from schemas as
+	// List(Something), the value will always be a []interface{}. Make
+	// sure we can safely update settings with those values.
+	s1, err := s.createSettings(s.key, map[string]interface{}{
+		"foo1": []interface{}{"bar1"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s1.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s2, err := s.readSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	s2.Set("foo1", []interface{}{"bar1", "bar2"})
+	_, err = s2.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s3, err := s.readSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	value, found := s3.Get("foo1")
+	c.Assert(found, gc.Equals, true)
+	c.Assert(value, gc.DeepEquals, []interface{}{"bar1", "bar2"})
 }

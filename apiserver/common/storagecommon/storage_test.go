@@ -4,8 +4,6 @@
 package storagecommon_test
 
 import (
-	"path/filepath"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -59,6 +57,7 @@ func (s *storageAttachmentInfoSuite) SetUpTest(c *gc.C) {
 		DeviceName:  "sda",
 		DeviceLinks: []string{"/dev/disk/by-id/verbatim"},
 		HardwareId:  "whatever",
+		WWN:         "drbr",
 	}}
 	s.st = &fakeStorage{
 		storageInstance: func(tag names.StorageTag) (state.StorageInstance, error) {
@@ -83,7 +82,7 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentDeviceNa
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
-		Location: filepath.FromSlash("/dev/sda"),
+		Location: "/dev/sda",
 	})
 }
 
@@ -115,7 +114,18 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentHardware
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
-		Location: filepath.FromSlash("/dev/disk/by-id/whatever"),
+		Location: "/dev/disk/by-id/whatever",
+	})
+}
+
+func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentWWN(c *gc.C) {
+	s.volume.info.WWN = "drbr"
+	info, err := storagecommon.StorageAttachmentInfo(s.st, s.storageAttachment, s.machineTag)
+	c.Assert(err, jc.ErrorIsNil)
+	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
+	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
+		Kind:     storage.StorageKindBlock,
+		Location: "/dev/disk/by-id/wwn-drbr",
 	})
 }
 
@@ -135,7 +145,7 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoMatchingBlockDevic
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
 		Kind:     storage.StorageKindBlock,
-		Location: filepath.FromSlash("/dev/sdb"),
+		Location: "/dev/sdb",
 	})
 }
 

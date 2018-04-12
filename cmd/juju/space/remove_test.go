@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/feature"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type RemoveSuite struct {
@@ -22,8 +21,7 @@ var _ = gc.Suite(&RemoveSuite{})
 func (s *RemoveSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSpaceSuite.SetUpTest(c)
-	s.command, _ = space.NewRemoveCommandForTest(s.api)
-	c.Assert(s.command, gc.NotNil)
+	s.newCommand = space.NewRemoveCommand
 }
 
 func (s *RemoveSuite) TestInit(c *gc.C) {
@@ -50,18 +48,15 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 		expectName: "myspace",
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
-		// Create a new instance of the subcommand for each test, but
-		// since we're not running the command no need to use
-		// modelcmd.Wrap().
-		wrappedCommand, command := space.NewRemoveCommandForTest(s.api)
-		err := coretesting.InitCommand(wrappedCommand, test.args)
+		command, err := s.InitCommand(c, test.args...)
 		if test.expectErr != "" {
 			prefixedErr := "invalid arguments specified: " + test.expectErr
 			c.Check(err, gc.ErrorMatches, prefixedErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
+			command := command.(*space.RemoveCommand)
+			c.Check(command.Name(), gc.Equals, test.expectName)
 		}
-		c.Check(command.Name(), gc.Equals, test.expectName)
 		// No API calls should be recorded at this stage.
 		s.api.CheckCallNames(c)
 	}

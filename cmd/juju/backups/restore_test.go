@@ -7,6 +7,7 @@ import (
 	"io"
 	"sort"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,11 +17,11 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	_ "github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/lxd"
@@ -30,7 +31,7 @@ import (
 
 type restoreSuite struct {
 	BaseBackupsSuite
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&restoreSuite{})
@@ -50,19 +51,18 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 	err := cloud.WritePersonalCloudMetadata(clouds)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{
-		ControllerUUID:         "deadbeef-0bad-400d-8000-5b1d0d06f00d",
-		CACert:                 testing.CACert,
-		Cloud:                  "mycloud",
-		CloudRegion:            "a-region",
-		APIEndpoints:           []string{"10.0.1.1:17777"},
-		UnresolvedAPIEndpoints: []string{"10.0.1.1:17777"},
+		ControllerUUID: "deadbeef-0bad-400d-8000-5b1d0d06f00d",
+		CACert:         testing.CACert,
+		Cloud:          "mycloud",
+		CloudRegion:    "a-region",
+		APIEndpoints:   []string{"10.0.1.1:17777"},
 	}
 	s.store.CurrentControllerName = "testing"
 	s.store.Models["testing"] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
-			"admin": {"test1-uuid"},
+			"admin": {ModelUUID: "test1-uuid", ModelType: model.IAAS},
 		},
 		CurrentModel: "admin",
 	}
@@ -96,13 +96,13 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 
 func (s *restoreSuite) TestRestoreArgs(c *gc.C) {
 	s.command = backups.NewRestoreCommandForTest(s.store, nil, nil, nil, nil)
-	_, err := testing.RunCommand(c, s.command, "restore")
+	_, err := cmdtesting.RunCommand(c, s.command, "restore")
 	c.Assert(err, gc.ErrorMatches, "you must specify either a file or a backup id.")
 
-	_, err = testing.RunCommand(c, s.command, "restore", "--id", "anid", "--file", "afile")
+	_, err = cmdtesting.RunCommand(c, s.command, "restore", "--id", "anid", "--file", "afile")
 	c.Assert(err, gc.ErrorMatches, "you must specify either a file or a backup id but not both.")
 
-	_, err = testing.RunCommand(c, s.command, "restore", "--id", "anid", "-b")
+	_, err = cmdtesting.RunCommand(c, s.command, "restore", "--id", "anid", "-b")
 	c.Assert(err, gc.ErrorMatches, "it is not possible to rebootstrap and restore from an id.")
 }
 
@@ -137,7 +137,7 @@ func (s *restoreSuite) TestRestoreReboostrapControllerExists(c *gc.C) {
 		backups.GetEnvironFunc(fakeEnv),
 		backups.GetRebootstrapParamsFunc("mycloud"),
 	)
-	_, err := testing.RunCommand(c, s.command, "restore", "--file", "afile", "-b")
+	_, err := cmdtesting.RunCommand(c, s.command, "restore", "--file", "afile", "-b")
 	c.Assert(err, gc.ErrorMatches, ".*still seems to exist.*")
 }
 
@@ -157,7 +157,7 @@ func (s *restoreSuite) TestRestoreReboostrapNoControllers(c *gc.C) {
 		return errors.New("failed to bootstrap new controller")
 	})
 
-	_, err := testing.RunCommand(c, s.command, "restore", "--file", "afile", "-b")
+	_, err := cmdtesting.RunCommand(c, s.command, "restore", "--file", "afile", "-b")
 	c.Assert(err, gc.ErrorMatches, ".*failed to bootstrap new controller")
 }
 
@@ -178,7 +178,7 @@ func (s *restoreSuite) TestRestoreReboostrapReadsMetadata(c *gc.C) {
 		return errors.New("failed to bootstrap new controller")
 	})
 
-	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
+	_, err := cmdtesting.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
 	c.Assert(err, gc.ErrorMatches, ".*failed to bootstrap new controller")
 }
 
@@ -201,16 +201,15 @@ func (s *restoreSuite) TestFailedRestoreReboostrapMaintainsControllerInfo(c *gc.
 		return nil
 	})
 
-	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
+	_, err := cmdtesting.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
 	c.Assert(err, gc.ErrorMatches, "failed")
 	// The details below are as per what was done in test setup, so no changes.
 	c.Assert(s.store.Controllers["testing"], jc.DeepEquals, jujuclient.ControllerDetails{
-		Cloud:                  "mycloud",
-		CloudRegion:            "a-region",
-		CACert:                 testing.CACert,
-		ControllerUUID:         "deadbeef-0bad-400d-8000-5b1d0d06f00d",
-		APIEndpoints:           []string{"10.0.1.1:17777"},
-		UnresolvedAPIEndpoints: []string{"10.0.1.1:17777"},
+		Cloud:          "mycloud",
+		CloudRegion:    "a-region",
+		CACert:         testing.CACert,
+		ControllerUUID: "deadbeef-0bad-400d-8000-5b1d0d06f00d",
+		APIEndpoints:   []string{"10.0.1.1:17777"},
 	})
 }
 
@@ -236,30 +235,77 @@ func (s *restoreSuite) TestRestoreReboostrapWritesUpdatedControllerInfo(c *gc.C)
 			"state-port":              1234,
 			"api-port":                17777,
 			"set-numa-control-policy": false,
+			"max-logs-age":            "72h",
+			"max-logs-size":           "4G",
+			"max-txn-log-size":        "10M",
+			"auditing-enabled":        false,
+			"audit-log-capture-args":  true,
+			"audit-log-max-size":      "200M",
+			"audit-log-max-backups":   5,
 		})
 		boostrapped = true
 		return nil
 	})
 
-	intPtr := func(i int) *int {
-		return &i
-	}
-
-	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
+	_, err := cmdtesting.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(boostrapped, jc.IsTrue)
 	c.Assert(s.store.Controllers["testing"], jc.DeepEquals, jujuclient.ControllerDetails{
-		Cloud:                  "mycloud",
-		CloudRegion:            "a-region",
-		CACert:                 testing.CACert,
-		ControllerUUID:         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
-		APIEndpoints:           []string{"10.0.0.1:17777"},
-		UnresolvedAPIEndpoints: []string{"10.0.0.1:17777"},
-		AgentVersion:           version.Current.String(),
-		ModelCount:             intPtr(2),
-		MachineCount:           intPtr(1),
+		Cloud:          "mycloud",
+		CloudRegion:    "a-region",
+		CACert:         testing.CACert,
+		ControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		APIEndpoints:   []string{"10.0.0.1:17777"},
+		AgentVersion:   version.Current.String(),
+		// We won't get correct machine count until
+		// we connect properly eventually.
+		MachineCount:           nil,
 		ControllerMachineCount: 1,
 	})
+}
+
+func (s *restoreSuite) TestRestoreReboostrapControllerConfigDefaults(c *gc.C) {
+	metadata := params.BackupsMetadataResult{
+		CACert:       testing.CACert,
+		CAPrivateKey: testing.CAKey,
+	}
+	fakeEnv := fakeEnviron{}
+	s.command = backups.NewRestoreCommandForTest(
+		s.store, &mockRestoreAPI{},
+		func(string) (backups.ArchiveReader, *params.BackupsMetadataResult, error) {
+			return &mockArchiveReader{}, &metadata, nil
+		},
+		backups.GetEnvironFunc(fakeEnv),
+		nil,
+	)
+	boostrapped := false
+	var expectedExcludes []interface{}
+	for _, exclude := range controller.DefaultAuditLogExcludeMethods {
+		expectedExcludes = append(expectedExcludes, exclude)
+	}
+	s.PatchValue(&backups.BootstrapFunc, func(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error {
+		c.Assert(args.ControllerConfig, jc.DeepEquals, controller.Config{
+			"controller-uuid":           "deadbeef-0bad-400d-8000-5b1d0d06f00d",
+			"ca-cert":                   testing.CACert,
+			"state-port":                37017,
+			"api-port":                  17070,
+			"set-numa-control-policy":   false,
+			"max-logs-age":              "72h",
+			"max-logs-size":             "4096M",
+			"max-txn-log-size":          "10M",
+			"auditing-enabled":          true,
+			"audit-log-capture-args":    false,
+			"audit-log-max-size":        "300M",
+			"audit-log-max-backups":     10,
+			"audit-log-exclude-methods": expectedExcludes,
+		})
+		boostrapped = true
+		return nil
+	})
+
+	_, err := cmdtesting.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(boostrapped, jc.IsTrue)
 }
 
 func (s *restoreSuite) TestRestoreReboostrapBuiltInProvider(c *gc.C) {
@@ -289,7 +335,7 @@ func (s *restoreSuite) TestRestoreReboostrapBuiltInProvider(c *gc.C) {
 		return nil
 	})
 
-	_, err := testing.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
+	_, err := cmdtesting.RunCommand(c, s.command, "restore", "-m", "testing:test1", "--file", "afile", "-b")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(boostrapped, jc.IsTrue)
 }

@@ -27,7 +27,7 @@ type annotatorDoc struct {
 }
 
 // SetAnnotations adds key/value pairs to annotations in MongoDB.
-func (st *State) SetAnnotations(entity GlobalEntity, annotations map[string]string) (err error) {
+func (m *Model) SetAnnotations(entity GlobalEntity, annotations map[string]string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot update annotations on %s", entity.Tag())
 	if len(annotations) == 0 {
 		return nil
@@ -54,7 +54,7 @@ func (st *State) SetAnnotations(entity GlobalEntity, annotations map[string]stri
 	// annotations in the meantime, we consider that worthy of an error
 	// (will be fixed when new entities can never share names with old ones).
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		annotations, closer := st.getCollection(annotationsC)
+		annotations, closer := m.st.db().GetCollection(annotationsC)
 		defer closer()
 		if count, err := annotations.FindId(entity.globalKey()).Count(); err != nil {
 			return nil, err
@@ -63,17 +63,17 @@ func (st *State) SetAnnotations(entity GlobalEntity, annotations map[string]stri
 			if attempt != 0 {
 				return nil, fmt.Errorf("%s no longer exists", entity.Tag())
 			}
-			return insertAnnotationsOps(st, entity, toInsert)
+			return insertAnnotationsOps(m.st, entity, toInsert)
 		}
-		return updateAnnotations(st, entity, toUpdate, toRemove), nil
+		return updateAnnotations(m.st, entity, toUpdate, toRemove), nil
 	}
-	return st.run(buildTxn)
+	return m.st.db().Run(buildTxn)
 }
 
 // Annotations returns all the annotations corresponding to an entity.
-func (st *State) Annotations(entity GlobalEntity) (map[string]string, error) {
+func (m *Model) Annotations(entity GlobalEntity) (map[string]string, error) {
 	doc := new(annotatorDoc)
-	annotations, closer := st.getCollection(annotationsC)
+	annotations, closer := m.st.db().GetCollection(annotationsC)
 	defer closer()
 	err := annotations.FindId(entity.globalKey()).One(doc)
 	if err == mgo.ErrNotFound {
@@ -88,8 +88,8 @@ func (st *State) Annotations(entity GlobalEntity) (map[string]string, error) {
 
 // Annotation returns the annotation value corresponding to the given key.
 // If the requested annotation is not found, an empty string is returned.
-func (st *State) Annotation(entity GlobalEntity, key string) (string, error) {
-	ann, err := st.Annotations(entity)
+func (m *Model) Annotation(entity GlobalEntity, key string) (string, error) {
+	ann, err := m.Annotations(entity)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -112,16 +112,13 @@ func insertAnnotationsOps(st *State, entity GlobalEntity, toInsert map[string]st
 
 	switch tag := tag.(type) {
 	case names.ModelTag:
-		model, err := st.GetModel(tag)
-		if err != nil {
-			return nil, errors.Annotatef(err, "inserting annotations")
-		}
-		if model.UUID() == model.ControllerUUID() {
+		if tag.Id() == st.ControllerModelUUID() {
 			// This is the controller model, and cannot be removed.
 			// Ergo, we can skip the existence check below.
 			return ops, nil
 		}
 	}
+
 	// If the entity is not the controller model, add a DocExists check on the
 	// entity document, in order to avoid possible races between entity
 	// removal and annotation creation.
@@ -137,10 +134,10 @@ func insertAnnotationsOps(st *State, entity GlobalEntity, toInsert map[string]st
 }
 
 // updateAnnotations returns the operations required to update or remove annotations in MongoDB.
-func updateAnnotations(st *State, entity GlobalEntity, toUpdate, toRemove bson.M) []txn.Op {
+func updateAnnotations(mb modelBackend, entity GlobalEntity, toUpdate, toRemove bson.M) []txn.Op {
 	return []txn.Op{{
 		C:      annotationsC,
-		Id:     st.docID(entity.globalKey()),
+		Id:     mb.docID(entity.globalKey()),
 		Assert: txn.DocExists,
 		Update: setUnsetUpdateAnnotations(toUpdate, toRemove),
 	}}
@@ -148,10 +145,10 @@ func updateAnnotations(st *State, entity GlobalEntity, toUpdate, toRemove bson.M
 
 // annotationRemoveOp returns an operation to remove a given annotation
 // document from MongoDB.
-func annotationRemoveOp(st *State, id string) txn.Op {
+func annotationRemoveOp(mb modelBackend, id string) txn.Op {
 	return txn.Op{
 		C:      annotationsC,
-		Id:     st.docID(id),
+		Id:     mb.docID(id),
 		Remove: true,
 	}
 }

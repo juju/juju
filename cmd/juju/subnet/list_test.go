@@ -14,7 +14,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/juju/subnet"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ListSuite struct {
@@ -25,8 +24,7 @@ var _ = gc.Suite(&ListSuite{})
 
 func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.BaseSubnetSuite.SetUpTest(c)
-	s.command, _ = subnet.NewListCommandForTest(s.api)
-	c.Assert(s.command, gc.NotNil)
+	s.newCommand = subnet.NewListCommand
 }
 
 func (s *ListSuite) TestInit(c *gc.C) {
@@ -83,19 +81,16 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		expectFormat: "yaml",
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
-		// Create a new instance of the subcommand for each test, but
-		// since we're not running the command no need to use
-		// modelcmd.Wrap().
-		wrappedCommand, command := subnet.NewListCommandForTest(s.api)
-		err := coretesting.InitCommand(wrappedCommand, test.args)
+		command, err := s.InitCommand(c, test.args...)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
+			command := command.(*subnet.ListCommand)
+			c.Check(command.SpaceName, gc.Equals, test.expectSpace)
+			c.Check(command.ZoneName, gc.Equals, test.expectZone)
+			c.Check(command.Out.Name(), gc.Equals, test.expectFormat)
 		}
-		c.Check(command.SpaceName, gc.Equals, test.expectSpace)
-		c.Check(command.ZoneName, gc.Equals, test.expectZone)
-		c.Check(command.Out.Name(), gc.Equals, test.expectFormat)
 
 		// No API calls should be recorded at this stage.
 		s.api.CheckCallNames(c)
@@ -123,6 +118,7 @@ subnets:
   2001:db8::/32:
     type: ipv6
     provider-id: subnet-bar
+    provider-network-id: network-yay
     status: terminating
     space: dmz
     zones:
@@ -145,6 +141,7 @@ subnets:
 		`"2001:db8::/32":{` +
 		`"type":"ipv6",` +
 		`"provider-id":"subnet-bar",` +
+		`"provider-network-id":"network-yay",` +
 		`"status":"terminating",` +
 		`"space":"dmz",` +
 		`"zones":["zone2"]}}}

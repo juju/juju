@@ -1,5 +1,5 @@
 name: juju
-version: 2.2-beta1
+version: 2.4-beta1
 summary: juju client
 description: Through the use of charms, juju provides you with shareable, re-usable, and repeatable expressions of devops best practices.
 confinement: classic
@@ -30,10 +30,27 @@ parts:
     #source-tag: juju-2.0.2
     #source-commit: a83896d913d7e43c960e441c1e41612116d92d46
     #source-branch: develop
+    #apply patches before building
+    prepare: |
+      cat patches/*.diff | patch -f -u -p1 -r- -d ../go/src
     go-packages:
       - github.com/juju/juju/cmd/juju
       #If you are releasing a build with public streams, you don't need to build the agent
+      #Instead, you should use the released agent
       - github.com/juju/juju/cmd/jujud
+      - github.com/juju/juju/cmd/plugins/juju-metadata
     install: |
       mkdir -p $SNAPCRAFT_PART_INSTALL/bash_completions
       cp -a etc/bash_completion.d/juju* $SNAPCRAFT_PART_INSTALL/bash_completions/.
+      #If you are releasing a build with public streams, copy in the agent directly
+      #If needed, grab the agent from streams
+      #curl http://streams.canonical.com/juju/tools/agent/$SNAPCRAFT_PROJECT_VERSION/juju-$SNAPCRAFT_PROJECT_VERSION-ubuntu-amd64.tgz | tar xz -C $SNAPCRAFT_PART_INSTALL/bin/
+      jujud=$SNAPCRAFT_PART_INSTALL/bin/jujud
+      version=$(jujud version)
+      hash=$(sha256sum $jujud | cut -d " " -f 1)
+      cat > jujud-versions.yaml <<EOF
+      versions:
+        - version: $version
+          sha256: $hash
+      EOF
+      cp -a jujud-versions.yaml $SNAPCRAFT_PART_INSTALL/bin

@@ -14,5 +14,9 @@ import (
 // This is similar to state.SetModelAgentVersion but it doesn't require that
 // the model have all agents at the same version already.
 func SetAgentVersion(st *state.State, vers version.Number) error {
-	return st.UpdateModelConfig(map[string]interface{}{"agent-version": vers.String()}, nil, nil)
+	model, err := st.Model()
+	if err != nil {
+		return err
+	}
+	return model.UpdateModelConfig(map[string]interface{}{"agent-version": vers.String()}, nil)
 }

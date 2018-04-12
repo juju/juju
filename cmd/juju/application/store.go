@@ -7,67 +7,37 @@
 package application
 
 import (
-	"fmt"
 	"net/url"
-	"strings"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v2/csclient"
+	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/cmd/juju/common"
 )
 
-// maybeTermsAgreementError returns err as a *termsAgreementError
-// if it has a "terms agreement required" error code, otherwise
-// it returns err unchanged.
-func maybeTermsAgreementError(err error) error {
-	const code = "term agreement required"
-	e, ok := errors.Cause(err).(*httpbakery.DischargeError)
-	if !ok || e.Reason == nil || e.Reason.Code != code {
-		return err
-	}
-	magicMarker := code + ":"
-	index := strings.LastIndex(e.Reason.Message, magicMarker)
-	if index == -1 {
-		return err
-	}
-	return &termsRequiredError{strings.Fields(e.Reason.Message[index+len(magicMarker):])}
+// SeriesConfig defines the single config method that we need to resolve
+// changes.
+type SeriesConfig interface {
+	// DefaultSeries returns the configured default Ubuntu series for the environment,
+	// and whether the default series was explicitly configured on the environment.
+	DefaultSeries() (string, bool)
 }
-
-type termsRequiredError struct {
-	Terms []string
-}
-
-func (e *termsRequiredError) Error() string {
-	return fmt.Sprintf("please agree to terms %q", strings.Join(e.Terms, " "))
-}
-
-func isSeriesSupported(requestedSeries string, supportedSeries []string) bool {
-	for _, series := range supportedSeries {
-		if series == requestedSeries {
-			return true
-		}
-	}
-	return false
-}
-
-// TODO(ericsnow) Return charmstore.CharmID from resolve()?
 
 // ResolveCharmFunc is the type of a function that resolves a charm URL.
 type ResolveCharmFunc func(
 	resolveWithChannel func(*charm.URL) (*charm.URL, csparams.Channel, []string, error),
-	conf *config.Config,
+	conf SeriesConfig,
 	url *charm.URL,
 ) (*charm.URL, csparams.Channel, []string, error)
 
 func resolveCharm(
 	resolveWithChannel func(*charm.URL) (*charm.URL, csparams.Channel, []string, error),
-	conf *config.Config,
+	conf SeriesConfig,
 	url *charm.URL,
 ) (*charm.URL, csparams.Channel, []string, error) {
 	if url.Schema != "cs" {
@@ -118,7 +88,7 @@ func addCharmFromURL(client CharmAdder, curl *charm.URL, channel csparams.Channe
 		}
 		m, err := client.AuthorizeCharmstoreEntity(curl)
 		if err != nil {
-			return nil, nil, maybeTermsAgreementError(err)
+			return nil, nil, common.MaybeTermsAgreementError(err)
 		}
 		if err := client.AddCharmWithAuthorization(curl, channel, m); err != nil {
 			return nil, nil, errors.Trace(err)

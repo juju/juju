@@ -13,10 +13,6 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// DefaultBridgePrefix is the standard prefix we apply to a device to find a
-// name for the associated bridge. (eg when bridging ens3 we create br-ens3)
-const DefaultBridgePrefix = "br-"
-
 // PrepareAPI is the functional interface that we need to be able to ask what
 // changes are necessary, and to then report back what changes have been done
 // to the host machine.
@@ -68,13 +64,6 @@ func NewHostPreparer(params HostPreparerParams) *HostPreparer {
 		abortChan:          params.AbortChan,
 		machineTag:         params.MachineTag,
 		logger:             params.Logger,
-	}
-}
-
-// DefaultBridgeCreator returns a function that will create a bridger with all the default settings.
-func DefaultBridgeCreator() func() (network.Bridger, error) {
-	return func() (network.Bridger, error) {
-		return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, DefaultBridgePrefix, systemNetworkInterfacesFile)
 	}
 }
 

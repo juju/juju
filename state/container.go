@@ -21,19 +21,19 @@ type machineContainers struct {
 	Children  []string `bson:",omitempty"`
 }
 
-func (st *State) addChildToContainerRefOp(parentId string, childId string) txn.Op {
+func addChildToContainerRefOp(mb modelBackend, parentId string, childId string) txn.Op {
 	return txn.Op{
 		C:      containerRefsC,
-		Id:     st.docID(parentId),
+		Id:     mb.docID(parentId),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$addToSet", bson.D{{"children", childId}}}},
 	}
 }
 
-func (st *State) insertNewContainerRefOp(machineId string, children ...string) txn.Op {
+func insertNewContainerRefOp(mb modelBackend, machineId string, children ...string) txn.Op {
 	return txn.Op{
 		C:      containerRefsC,
-		Id:     st.docID(machineId),
+		Id:     mb.docID(machineId),
 		Assert: txn.DocMissing,
 		Insert: &machineContainers{
 			Id:       machineId,
@@ -44,10 +44,10 @@ func (st *State) insertNewContainerRefOp(machineId string, children ...string) t
 
 // removeContainerRefOps returns the txn.Op's necessary to remove a machine container record.
 // These include removing the record itself and updating the host machine's children property.
-func removeContainerRefOps(st *State, machineId string) []txn.Op {
+func removeContainerRefOps(mb modelBackend, machineId string) []txn.Op {
 	removeRefOp := txn.Op{
 		C:      containerRefsC,
-		Id:     st.docID(machineId),
+		Id:     mb.docID(machineId),
 		Assert: txn.DocExists,
 		Remove: true,
 	}
@@ -58,7 +58,7 @@ func removeContainerRefOps(st *State, machineId string) []txn.Op {
 	}
 	removeParentRefOp := txn.Op{
 		C:      containerRefsC,
-		Id:     st.docID(parentId),
+		Id:     mb.docID(parentId),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$pull", bson.D{{"children", machineId}}}},
 	}

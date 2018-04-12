@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -25,8 +26,6 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
-	cmdtesting "github.com/juju/juju/cmd/testing"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -41,14 +40,14 @@ type MainSuite struct {
 var _ = gc.Suite(&MainSuite{})
 
 func deployHelpText() string {
-	return cmdtesting.HelpText(application.NewDefaultDeployCommand(), "juju deploy")
+	return cmdtesting.HelpText(application.NewDeployCommand(), "juju deploy")
 }
 func configHelpText() string {
 	return cmdtesting.HelpText(application.NewConfigCommand(), "juju config")
 }
 
 func syncToolsHelpText() string {
-	return cmdtesting.HelpText(newSyncToolsCommand(), "juju sync-tools")
+	return cmdtesting.HelpText(newSyncToolsCommand(), "juju sync-agent-binaries")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -102,20 +101,20 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "unknown option before command",
 		args:    []string{"--cheese", "bootstrap"},
 		code:    2,
-		out:     "error: flag provided but not defined: --cheese\n",
+		out:     "ERROR flag provided but not defined: --cheese\n",
 	}, {
 		summary: "unknown option after command",
 		args:    []string{"bootstrap", "--cheese"},
 		code:    2,
-		out:     "error: flag provided but not defined: --cheese\n",
+		out:     "ERROR flag provided but not defined: --cheese\n",
 	}, {
 		summary: "known option, but specified before command",
 		args:    []string{"--model", "blah", "bootstrap"},
 		code:    2,
-		out:     "error: flag provided but not defined: --model\n",
+		out:     "ERROR flag provided but not defined: --model\n",
 	}, {
-		summary: "juju sync-tools registered properly",
-		args:    []string{"sync-tools", "--help"},
+		summary: "juju sync-agent-binaries registered properly",
+		args:    []string{"sync-agent-binaries", "--help"},
 		code:    0,
 		out:     syncToolsHelpText(),
 	}, {
@@ -144,9 +143,9 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuModelEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{
-		{"--log-file", logpath, "--debug", "controllers"}, // global flags before
-		{"controllers", "--log-file", logpath, "--debug"}, // after
-		{"--log-file", logpath, "controllers", "--debug"}, // mixed
+		{"--log-file", logpath, "--debug", "help"}, // global flags before
+		{"help", "--log-file", logpath, "--debug"}, // after
+		{"--log-file", logpath, "help", "--debug"}, // mixed
 	}
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
@@ -390,6 +389,7 @@ var commandNames = []string{
 	"actions",
 	"add-cloud",
 	"add-credential",
+	"add-k8s",
 	"add-machine",
 	"add-model",
 	"add-relation",
@@ -401,29 +401,34 @@ var commandNames = []string{
 	"add-user",
 	"agree",
 	"agreements",
-	"allocate",
 	"attach",
+	"attach-resource",
+	"attach-storage",
 	"autoload-credentials",
 	"backups",
 	"bootstrap",
-	"budgets",
+	"budget",
 	"cached-images",
+	"cancel-action",
 	"change-user-password",
 	"charm",
+	"charm-resources",
 	"clouds",
 	"collect-metrics",
 	"config",
+	"consume",
 	"controller-config",
 	"controllers",
 	"create-backup",
-	"create-budget",
 	"create-storage-pool",
+	"create-wallet",
 	"credentials",
 	"debug-hooks",
 	"debug-log",
 	"deploy",
 	"destroy-controller",
 	"destroy-model",
+	"detach-storage",
 	"disable-command",
 	"disable-user",
 	"disabled-commands",
@@ -433,25 +438,32 @@ var commandNames = []string{
 	"enable-ha",
 	"enable-user",
 	"expose",
+	"find-offers",
+	"firewall-rules",
 	"get-constraints",
 	"get-model-constraints",
 	"grant",
 	"gui",
 	"help",
 	"help-tool",
+	"hook-tool",
+	"hook-tools",
+	"import-filesystem",
 	"import-ssh-key",
 	"kill-controller",
 	"list-actions",
 	"list-agreements",
 	"list-backups",
-	"list-budgets",
 	"list-cached-images",
+	"list-charm-resources",
 	"list-clouds",
 	"list-controllers",
 	"list-credentials",
 	"list-disabled-commands",
+	"list-firewall-rules",
 	"list-machines",
 	"list-models",
+	"list-offers",
 	"list-payloads",
 	"list-plans",
 	"list-regions",
@@ -462,57 +474,72 @@ var commandNames = []string{
 	"list-storage-pools",
 	"list-subnets",
 	"list-users",
+	"list-wallets",
 	"login",
 	"logout",
 	"machines",
 	"metrics",
 	"migrate",
 	"model-config",
+	"model-default",
 	"model-defaults",
 	"models",
+	"offer",
+	"offers",
 	"payloads",
 	"plans",
 	"regions",
 	"register",
 	"relate", //alias for add-relation
+	"reload-spaces",
 	"remove-application",
 	"remove-backup",
 	"remove-cached-images",
 	"remove-cloud",
+	"remove-consumed-application",
 	"remove-credential",
 	"remove-machine",
+	"remove-offer",
 	"remove-relation",
+	"remove-saas",
 	"remove-ssh-key",
 	"remove-storage",
 	"remove-unit",
 	"remove-user",
 	"resolved",
+	"resolve",
 	"resources",
 	"restore-backup",
+	"resume-relation",
 	"retry-provisioning",
 	"revoke",
 	"run",
 	"run-action",
 	"scp",
-	"set-budget",
 	"set-constraints",
 	"set-default-credential",
 	"set-default-region",
+	"set-firewall-rule",
 	"set-meter-status",
 	"set-model-constraints",
 	"set-plan",
+	"set-wallet",
 	"show-action-output",
 	"show-action-status",
 	"show-backup",
-	"show-budget",
 	"show-cloud",
 	"show-controller",
+	"show-credential",
+	"show-credentials",
 	"show-machine",
 	"show-model",
+	"show-offer",
 	"show-status",
 	"show-status-log",
 	"show-storage",
 	"show-user",
+	"show-wallet",
+	"sla",
 	"spaces",
 	"ssh",
 	"ssh-keys",
@@ -520,38 +547,35 @@ var commandNames = []string{
 	"storage",
 	"storage-pools",
 	"subnets",
+	"suspend-relation",
 	"switch",
+	"sync-agent-binaries",
 	"sync-tools",
+	"trust",
 	"unexpose",
 	"unregister",
-	"update-allocation",
 	"update-clouds",
 	"update-credential",
+	"update-series",
 	"upgrade-charm",
 	"upgrade-gui",
 	"upgrade-juju",
+	"upgrade-model",
 	"upload-backup",
 	"users",
 	"version",
+	"wallets",
 	"whoami",
 }
 
 // devFeatures are feature flags that impact registration of commands.
 var devFeatures = []string{
-	feature.CrossModelRelations,
-	feature.PersistentStorage,
+	// Currently no feature flags.
 }
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-	"attach-storage",
-	"consume",
-	"detach-storage",
-	"find-endpoints",
-	"list-offers",
-	"offer",
-	"offers",
-	"show-endpoints",
+// Currently no commands behind feature flags.
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
@@ -655,7 +679,7 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 
 	registry := &stubRegistry{stub: stub}
 	registry.names = append(registry.names, "help", "version") // implicit
-	registerCommands(registry, testing.Context(c))
+	registerCommands(registry, cmdtesting.Context(c))
 	sort.Strings(registry.names)
 
 	expected := make([]string, len(commandNames))
@@ -683,7 +707,7 @@ func (r *commands) RegisterSuperAlias(name, super, forName string, check cmd.Dep
 
 func (s *MainSuite) TestModelCommands(c *gc.C) {
 	var commands commands
-	registerCommands(&commands, testing.Context(c))
+	registerCommands(&commands, cmdtesting.Context(c))
 	// There should not be any ModelCommands registered.
 	// ModelCommands must be wrapped using modelcmd.Wrap.
 	for _, cmd := range commands {
@@ -706,7 +730,7 @@ func (s *MainSuite) TestAllCommandsPurpose(c *gc.C) {
 	// - Makes the Doc content either start like a sentence, or start
 	//   godoc-like by using the command's name in lowercase.
 	var commands commands
-	registerCommands(&commands, testing.Context(c))
+	registerCommands(&commands, cmdtesting.Context(c))
 	for _, cmd := range commands {
 		info := cmd.Info()
 		purpose := strings.TrimSpace(info.Purpose)

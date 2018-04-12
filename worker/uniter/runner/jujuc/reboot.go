@@ -10,6 +10,17 @@ import (
 	"github.com/juju/gnuflag"
 )
 
+const (
+	// RebootSkip is a noop.
+	RebootSkip RebootPriority = iota
+	// RebootAfterHook means wait for current hook to finish before
+	// rebooting.
+	RebootAfterHook
+	// RebootNow means reboot immediately, killing and requeueing the
+	// calling hook
+	RebootNow
+)
+
 // JujuRebootCommand implements the juju-reboot command.
 type JujuRebootCommand struct {
 	cmd.CommandBase

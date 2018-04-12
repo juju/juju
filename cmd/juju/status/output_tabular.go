@@ -13,82 +13,38 @@ import (
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/hooks"
 
+	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 )
 
-type statusRelation struct {
-	application1 string
-	application2 string
-	relation     string
-	subordinate  bool
-}
-
-func (s *statusRelation) relationType() string {
-	if s.subordinate {
-		return "subordinate"
-	} else if s.application1 == s.application2 {
-		return "peer"
-	}
-	return "regular"
-}
-
-type relationFormatter struct {
-	relationIndex set.Strings
-	relations     map[string]*statusRelation
-}
-
-func newRelationFormatter() *relationFormatter {
-	return &relationFormatter{
-		relationIndex: set.NewStrings(),
-		relations:     make(map[string]*statusRelation),
-	}
-}
-
-func (r *relationFormatter) len() int {
-	return r.relationIndex.Size()
-}
-
-func (r *relationFormatter) add(rel1, rel2, relation string, is2SubOf1 bool) {
-	rel := []string{rel1, rel2}
-	if !is2SubOf1 {
-		sort.Sort(sort.StringSlice(rel))
-	}
-	k := strings.Join(rel, "\t")
-	r.relations[k] = &statusRelation{
-		application1: rel[0],
-		application2: rel[1],
-		relation:     relation,
-		subordinate:  is2SubOf1,
-	}
-	r.relationIndex.Add(k)
-}
-
-func (r *relationFormatter) sorted() []string {
-	return r.relationIndex.SortedValues()
-}
-
-func (r *relationFormatter) get(k string) *statusRelation {
-	return r.relations[k]
-}
+const caasModelType = "caas"
 
 // FormatTabular writes a tabular summary of machines, applications, and
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
 func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
-	const maxVersionWidth = 15
 	const ellipsis = "..."
-	const truncatedWidth = maxVersionWidth - len(ellipsis)
+	const iaasMaxVersionWidth = 15
+	const caasMaxVersionWidth = 30
 
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
 		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
+
+	maxVersionWidth := iaasMaxVersionWidth
+	if fs.Model.Type == caasModelType {
+		maxVersionWidth = caasMaxVersionWidth
+	}
+	truncatedWidth := maxVersionWidth - len(ellipsis)
+
 	// To format things into columns.
 	tw := output.TabWriter(writer)
 	if forceColor {
@@ -106,6 +62,8 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		cloudRegion += "/" + fs.Model.CloudRegion
 	}
 
+	metering := fs.Model.MeterStatus != nil
+
 	header := []interface{}{"Model", "Controller", "Cloud/Region", "Version"}
 	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion, fs.Model.Version}
 	message := getModelMessage(fs.Model)
@@ -113,43 +71,59 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		header = append(header, "Notes")
 		values = append(values, message)
 	}
+	if fs.Model.SLA != "" {
+		header = append(header, "SLA")
+		values = append(values, fs.Model.SLA)
+	}
 
 	// The first set of headers don't use outputHeaders because it adds the blank line.
 	p(header...)
 	p(values...)
 
 	if len(fs.RemoteApplications) > 0 {
-		outputHeaders("SAAS name", "Status", "Store", "URL")
+		outputHeaders("SAAS", "Status", "Store", "URL")
 		for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.RemoteApplications)) {
 			app := fs.RemoteApplications[appName]
 			var store, urlPath string
-			url, err := crossmodel.ParseApplicationURL(app.ApplicationURL)
+			url, err := crossmodel.ParseOfferURL(app.OfferURL)
 			if err == nil {
 				store = url.Source
+				url.Source = ""
 				urlPath = url.Path()
 				if store == "" {
 					store = "local"
 				}
 			} else {
 				// This is not expected.
-				logger.Errorf("invalid application URL %q: %v", app.ApplicationURL, err)
+				logger.Errorf("invalid offer URL %q: %v", app.OfferURL, err)
 				store = "unknown"
-				urlPath = app.ApplicationURL
+				urlPath = app.OfferURL
 			}
-			p(appName, app.StatusInfo.Current, store, urlPath)
+			w.Print(appName)
+			w.PrintStatus(app.StatusInfo.Current)
+			p(store, urlPath)
 		}
 		tw.Flush()
 	}
 
 	units := make(map[string]unitStatus)
-	metering := false
-	relations := newRelationFormatter()
-	outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
+	if fs.Model.Type == caasModelType {
+		outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Address", "Notes")
+	} else {
+		outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
+	}
 	tw.SetColumnAlignRight(3)
 	tw.SetColumnAlignRight(6)
 	for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
 		app := fs.Applications[appName]
 		version := app.Version
+		// CAAS versions may have repo prefix we don't care about.
+		if fs.Model.Type == caasModelType {
+			parts := strings.Split(version, "/")
+			if len(parts) == 2 {
+				version = parts[1]
+			}
+		}
 		// Don't let a long version push out the version column.
 		if len(version) > maxVersionWidth {
 			version = version[:truncatedWidth] + ellipsis
@@ -167,32 +141,20 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		} else {
 			w.Print(scale)
 		}
-		p(app.CharmName,
+		w.Print(app.CharmName,
 			app.CharmOrigin,
 			app.CharmRev,
-			app.OS,
-			notes)
-
+			app.OS)
+		if fs.Model.Type == caasModelType {
+			w.Print(app.Address)
+		}
+		p(notes)
 		for un, u := range app.Units {
 			units[un] = u
 			if u.MeterStatus != nil {
 				metering = true
 			}
 		}
-		// Ensure that we pick a consistent name for peer relations.
-		sortedRelTypes := make([]string, 0, len(app.Relations))
-		for relType := range app.Relations {
-			sortedRelTypes = append(sortedRelTypes, relType)
-		}
-		sort.Strings(sortedRelTypes)
-
-		subs := set.NewStrings(app.SubordinateTo...)
-		for _, relType := range sortedRelTypes {
-			for _, related := range app.Relations[relType] {
-				relations.add(related, appName, relType, subs.Contains(related))
-			}
-		}
-
 	}
 
 	pUnit := func(name string, u unitStatus, level int) {
@@ -207,6 +169,14 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		w.Print(indent("", level*2, name))
 		w.PrintStatus(u.WorkloadStatusInfo.Current)
 		w.PrintStatus(u.JujuStatusInfo.Current)
+		if fs.Model.Type == caasModelType {
+			p(
+				u.Address,
+				strings.Join(u.OpenedPorts, ","),
+				message,
+			)
+			return
+		}
 		p(
 			u.Machine,
 			u.PublicAddress,
@@ -215,7 +185,11 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		)
 	}
 
-	outputHeaders("Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
+	if fs.Model.Type == caasModelType {
+		outputHeaders("Unit", "Workload", "Agent", "Address", "Ports", "Message")
+	} else {
+		outputHeaders("Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
+	}
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
@@ -224,7 +198,14 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	if metering {
-		outputHeaders("Meter", "Status", "Message")
+		outputHeaders("Entity", "Meter status", "Message")
+		if fs.Model.MeterStatus != nil {
+			w.Print("model")
+			outputColor := fromMeterStatusColor(fs.Model.MeterStatus.Color)
+			w.PrintColor(outputColor, fs.Model.MeterStatus.Color)
+			w.PrintColor(outputColor, fs.Model.MeterStatus.Message)
+			w.Println()
+		}
 		for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 			u := units[name]
 			if u.MeterStatus != nil {
@@ -237,19 +218,80 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		}
 	}
 
-	p()
-	printMachines(tw, fs.Machines)
+	if fs.Model.Type != caasModelType || len(fs.Machines) > 0 {
+		p()
+		printMachines(tw, fs.Machines)
+	}
 
-	if relations.len() > 0 {
-		outputHeaders("Relation", "Provides", "Consumes", "Type")
-		for _, k := range relations.sorted() {
-			r := relations.get(k)
-			if r != nil {
-				p(r.relation, r.application1, r.application2, r.relationType())
+	if err := printOffers(tw, fs.Offers); err != nil {
+		w.Println(err.Error())
+	}
+
+	if len(fs.Relations) > 0 {
+		sort.Slice(fs.Relations, func(i, j int) bool {
+			a, b := fs.Relations[i], fs.Relations[j]
+			if a.Provider == b.Provider {
+				return a.Requirer < b.Requirer
 			}
+			return a.Provider < b.Provider
+		})
+		outputHeaders("Relation provider", "Requirer", "Interface", "Type", "Message")
+		for _, r := range fs.Relations {
+			w.Print(r.Provider, r.Requirer, r.Interface, r.Type)
+			if r.Status != string(relation.Joined) {
+				w.PrintColor(cmdcrossmodel.RelationStatusColor(relation.Status(r.Status)), r.Status)
+				if r.Message != "" {
+					w.Print(" - " + r.Message)
+				}
+			}
+			w.Println()
 		}
 	}
 
+	tw.Flush()
+	return nil
+}
+
+type offerItems []offerStatus
+
+// printOffers prints a tabular summary of the offers.
+func printOffers(tw *ansiterm.TabWriter, offers map[string]offerStatus) error {
+	if len(offers) == 0 {
+		return nil
+	}
+	w := output.Wrapper{tw}
+	w.Println()
+
+	w.Println("Offer", "Application", "Charm", "Rev", "Connected", "Endpoint", "Interface", "Role")
+	for _, offerName := range utils.SortStringsNaturally(stringKeysFromMap(offers)) {
+		offer := offers[offerName]
+		// Sort endpoints alphabetically.
+		endpoints := []string{}
+		for endpoint, _ := range offer.Endpoints {
+			endpoints = append(endpoints, endpoint)
+		}
+		sort.Strings(endpoints)
+
+		for i, endpointName := range endpoints {
+
+			endpoint := offer.Endpoints[endpointName]
+			if i == 0 {
+				// As there is some information about offer and its endpoints,
+				// only display offer information once when the first endpoint is displayed.
+				curl, err := charm.ParseURL(offer.CharmURL)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				w.Println(offerName, offer.ApplicationName, curl.Name, fmt.Sprint(curl.Revision),
+					fmt.Sprintf("%v/%v", offer.ActiveConnectedCount, offer.TotalConnectedCount),
+					endpointName, endpoint.Interface, endpoint.Role)
+				continue
+			}
+			// Subsequent lines only need to display endpoint information.
+			// This will display less noise.
+			w.Println("", "", "", "", endpointName, endpoint.Interface, endpoint.Role)
+		}
+	}
 	tw.Flush()
 	return nil
 }

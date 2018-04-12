@@ -15,22 +15,14 @@ const UnregisterCmdName = "payload-unregister"
 type UnregisterCmd struct {
 	cmd.CommandBase
 
-	hctx  Component
-	class string
-	id    string
+	hookContextFunc func() (Component, error)
+	class           string
+	id              string
 }
 
 // NewUnregisterCmd returns a new UnregisterCmd that wraps the given context.
 func NewUnregisterCmd(ctx HookContext) (*UnregisterCmd, error) {
-	compCtx, err := ContextComponent(ctx)
-	if err != nil {
-		// The component wasn't tracked properly.
-		return nil, errors.Trace(err)
-	}
-	c := &UnregisterCmd{
-		hctx: compCtx,
-	}
-	return c, nil
+	return &UnregisterCmd{hookContextFunc: componentHookContext(ctx)}, nil
 }
 
 // Info implements cmd.Command.
@@ -70,17 +62,21 @@ func (c *UnregisterCmd) Run(ctx *cmd.Context) error {
 
 	logger.Tracef(`Running unregister command with id "%s/%s"`, c.class, c.id)
 
+	hctx, err := c.hookContextFunc()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// TODO(ericsnow) Verify that Untrack gives a meaningful error when
 	// the ID is not found.
-	if err := c.hctx.Untrack(c.class, c.id); err != nil {
+	if err := hctx.Untrack(c.class, c.id); err != nil {
 		return errors.Trace(err)
 	}
 
 	// TODO(ericsnow) Is the flush really necessary?
 
-	// We flush to state immedeiately so that status reflects the
+	// We flush to state immediately so that status reflects the
 	// payload correctly.
-	if err := c.hctx.Flush(); err != nil {
+	if err := hctx.Flush(); err != nil {
 		return errors.Trace(err)
 	}
 

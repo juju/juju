@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
@@ -94,7 +94,7 @@ type CharmInfo struct {
 
 // insertCharmOps returns the txn operations necessary to insert the supplied
 // charm data. If curl is nil, an error will be returned.
-func insertCharmOps(st *State, info CharmInfo) ([]txn.Op, error) {
+func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 	if info.ID == nil {
 		return nil, errors.New("*charm.URL was nil")
 	}
@@ -120,17 +120,17 @@ func insertCharmOps(st *State, info CharmInfo) ([]txn.Op, error) {
 		}
 		doc.Macaroon = mac
 	}
-	return insertAnyCharmOps(st, &doc)
+	return insertAnyCharmOps(mb, &doc)
 }
 
 // insertPlaceholderCharmOps returns the txn operations necessary to insert a
 // charm document referencing a store charm that is not yet directly accessible
 // within the model. If curl is nil, an error will be returned.
-func insertPlaceholderCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
+func insertPlaceholderCharmOps(mb modelBackend, curl *charm.URL) ([]txn.Op, error) {
 	if curl == nil {
 		return nil, errors.New("*charm.URL was nil")
 	}
-	return insertAnyCharmOps(st, &charmDoc{
+	return insertAnyCharmOps(mb, &charmDoc{
 		DocID:       curl.String(),
 		URL:         curl,
 		Placeholder: true,
@@ -140,11 +140,11 @@ func insertPlaceholderCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 // insertPendingCharmOps returns the txn operations necessary to insert a charm
 // document referencing a charm that has yet to be uploaded to the model.
 // If curl is nil, an error will be returned.
-func insertPendingCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
+func insertPendingCharmOps(mb modelBackend, curl *charm.URL) ([]txn.Op, error) {
 	if curl == nil {
 		return nil, errors.New("*charm.URL was nil")
 	}
-	return insertAnyCharmOps(st, &charmDoc{
+	return insertAnyCharmOps(mb, &charmDoc{
 		DocID:         curl.String(),
 		URL:           curl,
 		PendingUpload: true,
@@ -153,9 +153,8 @@ func insertPendingCharmOps(st *State, curl *charm.URL) ([]txn.Op, error) {
 
 // insertAnyCharmOps returns the txn operations necessary to insert the supplied
 // charm document.
-func insertAnyCharmOps(st modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
-	db := st.db()
-	charms, closer := db.GetCollection(charmsC)
+func insertAnyCharmOps(mb modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
+	charms, closer := mb.db().GetCollection(charmsC)
 	defer closer()
 
 	life, err := nsLife.read(charms, cdoc.DocID)
@@ -175,7 +174,7 @@ func insertAnyCharmOps(st modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
 		Insert: cdoc,
 	}
 
-	refcounts, closer := db.GetCollection(refcountsC)
+	refcounts, closer := mb.db().GetCollection(refcountsC)
 	defer closer()
 
 	charmKey := charmGlobalKey(cdoc.URL)
@@ -191,11 +190,8 @@ func insertAnyCharmOps(st modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
 // updateCharmOps returns the txn operations necessary to update the charm
 // document with the supplied data, so long as the supplied assert still holds
 // true.
-func updateCharmOps(
-	st *State, info CharmInfo, assert bson.D,
-) ([]txn.Op, error) {
-
-	charms, closer := st.getCollection(charmsC)
+func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, error) {
+	charms, closer := mb.db().GetCollection(charmsC)
 	defer closer()
 
 	charmKey := info.ID.String()
@@ -257,10 +253,10 @@ func convertPlaceholderCharmOps(docID string) ([]txn.Op, error) {
 
 // deleteOldPlaceholderCharmsOps returns the txn ops required to delete all placeholder charm
 // records older than the specified charm URL.
-func deleteOldPlaceholderCharmsOps(st *State, charms mongo.Collection, curl *charm.URL) ([]txn.Op, error) {
+func deleteOldPlaceholderCharmsOps(mb modelBackend, charms mongo.Collection, curl *charm.URL) ([]txn.Op, error) {
 	// Get a regex with the charm URL and no revision.
 	noRevURL := curl.WithRevision(-1)
-	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
+	curlRegex := "^" + regexp.QuoteMeta(mb.docID(noRevURL.String()))
 
 	var docs []charmDoc
 	query := bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}
@@ -269,7 +265,7 @@ func deleteOldPlaceholderCharmsOps(st *State, charms mongo.Collection, curl *cha
 		return nil, errors.Trace(err)
 	}
 
-	refcounts, closer := st.getCollection(refcountsC)
+	refcounts, closer := mb.db().GetCollection(refcountsC)
 	defer closer()
 
 	var ops []txn.Op
@@ -371,7 +367,7 @@ func (c *Charm) Destroy() error {
 		}
 		return ops, nil
 	}
-	if err := c.st.run(buildTxn); err != nil {
+	if err := c.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	c.doc.Life = Dying
@@ -403,7 +399,7 @@ func (c *Charm) Remove() error {
 		Id:     c.doc.URL.String(),
 		Remove: true,
 	}}
-	if err := c.st.runTransaction(removeOps); err != nil {
+	if err := c.st.db().RunTransaction(removeOps); err != nil {
 		return errors.Trace(err)
 	}
 	c.doc.Life = Dead
@@ -507,7 +503,7 @@ func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := c.st.runTransaction(ops); err != nil {
+	if err := c.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -516,7 +512,7 @@ func (c *Charm) UpdateMacaroon(m macaroon.Slice) error {
 // AddCharm adds the ch charm with curl to the state.
 // On success the newly added charm state is returned.
 func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
-	charms, closer := st.getCollection(charmsC)
+	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	if err := validateCharmVersion(info.Charm); err != nil {
@@ -548,7 +544,7 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 		}
 		return nil, errors.AlreadyExistsf("charm %q", info.ID)
 	}
-	if err = st.run(buildTxn); err == nil {
+	if err = st.db().Run(buildTxn); err == nil {
 		return st.Charm(info.ID)
 	}
 	return nil, errors.Trace(err)
@@ -570,7 +566,7 @@ func validateCharmVersion(ch hasMeta) error {
 
 // AllCharms returns all charms in state.
 func (st *State) AllCharms() ([]*Charm, error) {
-	charmsCollection, closer := st.getCollection(charmsC)
+	charmsCollection, closer := st.db().GetCollection(charmsC)
 	defer closer()
 	var cdoc charmDoc
 	var charms []*Charm
@@ -585,7 +581,7 @@ func (st *State) AllCharms() ([]*Charm, error) {
 // Charm returns the charm with the given URL. Charms pending upload
 // to storage and placeholders are never returned.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
-	charms, closer := st.getCollection(charmsC)
+	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	cdoc := &charmDoc{}
@@ -611,7 +607,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 // LatestPlaceholderCharm returns the latest charm described by the
 // given URL but which is not yet deployed.
 func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
-	charms, closer := st.getCollection(charmsC)
+	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	noRevURL := curl.WithRevision(-1)
@@ -650,7 +646,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenURL *charm.URL,
 	}
 
 	revisionSeq := charmRevSeqName(curl.WithRevision(-1).String())
-	revision, err := st.sequenceWithMin(revisionSeq, curl.Revision)
+	revision, err := sequenceWithMin(st, revisionSeq, curl.Revision)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to allocate charm revision")
 	}
@@ -661,7 +657,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenURL *charm.URL,
 		return nil, errors.Trace(err)
 	}
 
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return allocatedURL, nil
@@ -695,7 +691,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		return nil, errors.Errorf("expected charm URL with revision, got %q", curl)
 	}
 
-	charms, closer := st.getCollection(charmsC)
+	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	var (
@@ -727,7 +723,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 			return nil, jujutxn.ErrNoOperations
 		}
 	}
-	if err = st.run(buildTxn); err == nil {
+	if err = st.db().Run(buildTxn); err == nil {
 		return newCharm(st, &uploadedCharm), nil
 	}
 	return nil, errors.Trace(err)
@@ -749,7 +745,7 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 	if curl.Revision < 0 {
 		return errors.Errorf("expected charm URL with revision, got %q", curl)
 	}
-	charms, closer := st.getCollection(charmsC)
+	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -775,13 +771,13 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 		ops := append(deleteOps, insertOps...)
 		return ops, nil
 	}
-	return errors.Trace(st.run(buildTxn))
+	return errors.Trace(st.db().Run(buildTxn))
 }
 
 // UpdateUploadedCharm marks the given charm URL as uploaded and
 // updates the rest of its data, returning it as *state.Charm.
 func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
-	charms, closer := st.getCollection(charmsC)
+	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	doc := &charmDoc{}
@@ -800,7 +796,7 @@ func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		return nil, onAbort(err, ErrCharmRevisionAlreadyModified)
 	}
 	return st.Charm(info.ID)

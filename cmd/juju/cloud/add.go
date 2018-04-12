@@ -5,12 +5,14 @@ package cloud
 
 import (
 	"fmt"
+	"io/ioutil"
 	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
@@ -107,6 +109,9 @@ func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *AddCloudCommand) Init(args []string) (err error) {
 	if len(args) > 0 {
 		c.Cloud = args[0]
+		if ok := names.IsValidCloud(c.Cloud); !ok {
+			return errors.NotValidf("cloud name %q", c.Cloud)
+		}
 	}
 	if len(args) > 1 {
 		if c.CloudFile != args[1] && c.CloudFile != "" {
@@ -126,6 +131,7 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	if c.CloudFile == "" {
 		return c.runInteractive(ctxt)
 	}
+
 	specifiedClouds, err := c.cloudMetadataStore.ParseCloudMetadataFile(c.CloudFile)
 	if err != nil {
 		return err
@@ -136,6 +142,15 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	newCloud, ok := specifiedClouds[c.Cloud]
 	if !ok {
 		return errors.Errorf("cloud %q not found in file %q", c.Cloud, c.CloudFile)
+	}
+
+	// first validate cloud input
+	data, err := ioutil.ReadFile(c.CloudFile)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err = cloud.ValidateCloudSet([]byte(data)); err != nil {
+		ctxt.Warningf(err.Error())
 	}
 
 	// validate cloud data
@@ -259,15 +274,15 @@ func queryName(
 	}
 }
 
-func queryCloudType(pollster *interact.Pollster) (string, error) {
+// addableCloudProviders returns the names of providers supported by add-cloud,
+// and also the names of those which are not supported.
+func addableCloudProviders() (providers []string, unsupported []string, _ error) {
 	allproviders := environs.RegisteredProviders()
-	var unsupported []string
-	var providers []string
 	for _, name := range allproviders {
 		provider, err := environs.Provider(name)
 		if err != nil {
 			// should be impossible
-			return "", errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
 
 		if provider.CloudSchema() != nil {
@@ -277,7 +292,15 @@ func queryCloudType(pollster *interact.Pollster) (string, error) {
 		}
 	}
 	sort.Strings(providers)
+	return providers, unsupported, nil
+}
 
+func queryCloudType(pollster *interact.Pollster) (string, error) {
+	providers, unsupported, err := addableCloudProviders()
+	if err != nil {
+		// should be impossible
+		return "", errors.Trace(err)
+	}
 	supportedCloud := interact.VerifyOptions("cloud type", providers, false)
 
 	cloudVerify := func(s string) (ok bool, errmsg string, err error) {

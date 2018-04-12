@@ -13,7 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -182,9 +182,10 @@ func New(config Config) (*Worker, error) {
 // Worker waits until a migration is active and its configured
 // Fortress is locked down, and then orchestrates a model migration.
 type Worker struct {
-	catacomb catacomb.Catacomb
-	config   Config
-	logger   loggo.Logger
+	catacomb    catacomb.Catacomb
+	config      Config
+	logger      loggo.Logger
+	lastFailure string
 }
 
 // Kill implements worker.Worker.
@@ -207,11 +208,6 @@ func (w *Worker) run() error {
 	if errors.Cause(err) == fortress.ErrAborted {
 		return w.catacomb.ErrDying()
 	} else if err != nil {
-		return errors.Trace(err)
-	}
-
-	if status.ExternalControl {
-		err := w.waitForMigrationEnd()
 		return errors.Trace(err)
 	}
 
@@ -281,6 +277,7 @@ func (w *Worker) setInfoStatus(s string, a ...interface{}) {
 }
 
 func (w *Worker) setErrorStatus(s string, a ...interface{}) {
+	w.lastFailure = fmt.Sprintf(s, a...)
 	w.setStatusAndLog(w.logger.Errorf, s, a...)
 }
 
@@ -412,6 +409,11 @@ func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID st
 		return errors.Annotate(err, "failed to import model into target controller")
 	}
 
+	if wrench.IsActive("migrationmaster", "die-in-export") {
+		// Simulate a abort causing failure to test last status not over written.
+		return errors.New("wrench in the transferModel works")
+	}
+
 	w.setInfoStatus("uploading model binaries into target controller")
 	wrapper := &uploadWrapper{targetClient, modelUUID}
 	err = w.config.UploadBinaries(migration.UploadBinariesConfig{
@@ -440,9 +442,25 @@ func (w *Worker) doVALIDATION(status coremigration.MigrationStatus) (coremigrati
 		return coremigration.ABORT, nil
 	}
 
+	client, closer, err := w.openTargetAPI(status.TargetInfo)
+	if err != nil {
+		return coremigration.UNKNOWN, errors.Trace(err)
+	}
+	defer closer()
+
+	// Check that the provider and target controller agree about what
+	// machines belong to the migrated model.
+	ok, err = w.checkTargetMachines(client, status.ModelUUID)
+	if err != nil {
+		return coremigration.UNKNOWN, errors.Trace(err)
+	}
+	if !ok {
+		return coremigration.ABORT, nil
+	}
+
 	// Once all agents have validated, activate the model in the
 	// target controller.
-	err = w.activateModel(status.TargetInfo, status.ModelUUID)
+	err = w.activateModel(client, status.ModelUUID)
 	if err != nil {
 		w.setErrorStatus("model activation failed, %v", err)
 		return coremigration.ABORT, nil
@@ -450,17 +468,29 @@ func (w *Worker) doVALIDATION(status coremigration.MigrationStatus) (coremigrati
 	return coremigration.SUCCESS, nil
 }
 
-func (w *Worker) activateModel(targetInfo coremigration.TargetInfo, modelUUID string) error {
-	w.setInfoStatus("activating model in target controller")
-	conn, err := w.openAPIConn(targetInfo)
+func (w *Worker) checkTargetMachines(targetClient *migrationtarget.Client, modelUUID string) (bool, error) {
+	w.setInfoStatus("checking machines in migrated model")
+	results, err := targetClient.CheckMachines(modelUUID)
 	if err != nil {
-		return errors.Trace(err)
+		return false, errors.Trace(err)
 	}
-	defer conn.Close()
+	if len(results) > 0 {
+		for _, resultErr := range results {
+			w.logger.Errorf(resultErr.Error())
+		}
+		plural := "s"
+		if len(results) == 1 {
+			plural = ""
+		}
+		w.setErrorStatus("machine sanity check failed, %d error%s found", len(results), plural)
+		return false, nil
+	}
+	return true, nil
+}
 
-	targetClient := migrationtarget.NewClient(conn)
-	err = targetClient.Activate(modelUUID)
-	return errors.Trace(err)
+func (w *Worker) activateModel(targetClient *migrationtarget.Client, modelUUID string) error {
+	w.setInfoStatus("activating model in target controller")
+	return errors.Trace(targetClient.Activate(modelUUID))
 }
 
 func (w *Worker) doSUCCESS(status coremigration.MigrationStatus) (coremigration.Phase, error) {
@@ -576,6 +606,10 @@ func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID str
 
 func (w *Worker) doREAP() (coremigration.Phase, error) {
 	w.setInfoStatus("successful, removing model from source controller")
+	// NOTE(babbageclunk): Calling Reap will set the migration phase
+	// to DONE if successful - this avoids a race where this worker is
+	// killed by the model going away before it can update the phase
+	// itself.
 	err := w.config.Facade.Reap()
 	if err != nil {
 		w.setErrorStatus("removing exported model failed: %s", err.Error())
@@ -585,7 +619,7 @@ func (w *Worker) doREAP() (coremigration.Phase, error) {
 }
 
 func (w *Worker) doABORT(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
-	w.setInfoStatus("aborted, removing model from target controller")
+	w.setInfoStatus("aborted, removing model from target controller: %s", w.lastFailure)
 	if err := w.removeImportedModel(targetInfo, modelUUID); err != nil {
 		// This isn't fatal. Removing the imported model is a best
 		// efforts attempt so just report the error and proceed.
@@ -644,40 +678,6 @@ func (w *Worker) waitForActiveMigration() (coremigration.MigrationStatus, error)
 		// While waiting for a migration, ensure the fortress is open.
 		if err := w.config.Guard.Unlock(); err != nil {
 			return empty, errors.Trace(err)
-		}
-	}
-}
-
-func (w *Worker) waitForMigrationEnd() error {
-	w.logger.Infof("migration is externally managed. waiting for completion")
-	watcher, err := w.config.Facade.Watch()
-	if err != nil {
-		return errors.Annotate(err, "watching for migration")
-	}
-	if err := w.catacomb.Add(watcher); err != nil {
-		return errors.Trace(err)
-	}
-	defer watcher.Kill()
-
-	for {
-		select {
-		case <-w.catacomb.Dying():
-			return w.catacomb.ErrDying()
-		case <-watcher.Changes():
-		}
-
-		status, err := w.config.Facade.MigrationStatus()
-		if err != nil {
-			return errors.Annotate(err, "retrieving migration status")
-		}
-		w.logger.Infof("migration phase is now %v", status.Phase)
-		if status.Phase.IsTerminal() {
-			if modelHasMigrated(status.Phase) {
-				w.logger.Infof("migration is complete")
-				return ErrMigrated
-			}
-			w.logger.Infof("migration has aborted")
-			return ErrInactive
 		}
 	}
 }
@@ -820,6 +820,14 @@ func formatMinionWaitUpdate(reports coremigration.MinionReports) string {
 		msg += fmt.Sprintf(", %d failed", failed)
 	}
 	return msg
+}
+
+func (w *Worker) openTargetAPI(targetInfo coremigration.TargetInfo) (*migrationtarget.Client, func() error, error) {
+	conn, err := w.openAPIConn(targetInfo)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return migrationtarget.NewClient(conn), conn.Close, nil
 }
 
 func (w *Worker) openAPIConn(targetInfo coremigration.TargetInfo) (api.Connection, error) {

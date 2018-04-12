@@ -8,40 +8,38 @@ import (
 	"time"
 
 	"github.com/gorilla/schema"
-	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 )
 
 type logStreamSource interface {
-	getStart(sink string, allModels bool) (time.Time, error)
-	newTailer(*state.LogTailerParams) (state.LogTailer, error)
+	getStart(sink string) (time.Time, error)
+	newTailer(state.LogTailerParams) (state.LogTailer, error)
 }
 
 type messageWriter interface {
 	WriteJSON(v interface{}) error
 }
 
-type closerFunc func()
-
 // logStreamEndpointHandler takes requests to stream logs from the DB.
 type logStreamEndpointHandler struct {
 	stopCh    <-chan struct{}
-	newSource func(*http.Request) (logStreamSource, closerFunc, error)
+	newSource func(*http.Request) (logStreamSource, state.PoolHelper, error)
 }
 
 func newLogStreamEndpointHandler(ctxt httpContext) *logStreamEndpointHandler {
-	newSource := func(req *http.Request) (logStreamSource, closerFunc, error) {
-		st, releaser, _, err := ctxt.stateForRequestAuthenticatedAgent(req)
+	newSource := func(req *http.Request) (logStreamSource, state.PoolHelper, error) {
+		st, _, err := ctxt.stateForRequestAuthenticatedAgent(req)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		return &logStreamState{st}, releaser, nil
+		return &logStreamState{st}, st, nil
 	}
 	return &logStreamEndpointHandler{
 		stopCh:    ctxt.stop(),
@@ -71,20 +69,20 @@ func (h *logStreamEndpointHandler) ServeHTTP(w http.ResponseWriter, req *http.Re
 		h.sendError(conn, req, nil)
 		reqHandler.serveWebsocket(h.stopCh)
 	}
-	websocketServer(w, req, handler)
+	websocket.Serve(w, req, handler)
 }
 
 func (h *logStreamEndpointHandler) newLogStreamRequestHandler(conn messageWriter, req *http.Request, clock clock.Clock) (rh *logStreamRequestHandler, err error) {
 	// Validate before authenticate because the authentication is
 	// dependent on the state connection that is determined during the
 	// validation.
-	source, closer, err := h.newSource(req)
+	source, ph, err := h.newSource(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	defer func() {
 		if err != nil {
-			closer()
+			ph.Release()
 		}
 	}()
 
@@ -101,17 +99,16 @@ func (h *logStreamEndpointHandler) newLogStreamRequestHandler(conn messageWriter
 	}
 
 	reqHandler := &logStreamRequestHandler{
-		conn:          conn,
-		req:           req,
-		tailer:        tailer,
-		closer:        closer,
-		sendModelUUID: cfg.AllModels,
+		conn:       conn,
+		req:        req,
+		tailer:     tailer,
+		poolHelper: ph,
 	}
 	return reqHandler, nil
 }
 
 func (h *logStreamEndpointHandler) newTailer(source logStreamSource, cfg params.LogStreamConfig, clock clock.Clock) (state.LogTailer, error) {
-	start, err := source.getStart(cfg.Sink, cfg.AllModels)
+	start, err := source.getStart(cfg.Sink)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting log start position")
 	}
@@ -126,10 +123,9 @@ func (h *logStreamEndpointHandler) newTailer(source logStreamSource, cfg params.
 		}
 	}
 
-	tailerArgs := &state.LogTailerParams{
+	tailerArgs := state.LogTailerParams{
 		StartTime:    start,
 		InitialLines: cfg.MaxLookbackRecords,
-		AllModels:    cfg.AllModels,
 	}
 	tailer, err := source.newTailer(tailerArgs)
 	if err != nil {
@@ -145,7 +141,7 @@ func (h *logStreamEndpointHandler) sendError(ws *websocket.Conn, req *http.Reque
 	if err != nil && featureflag.Enabled(feature.DeveloperMode) {
 		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
 	}
-	if sendErr := sendInitialErrorV0(ws, err); sendErr != nil {
+	if sendErr := ws.SendInitialErrorV0(err); sendErr != nil {
 		logger.Errorf("closing websocket, %v", err)
 		ws.Close()
 	}
@@ -156,17 +152,8 @@ type logStreamState struct {
 	state.LogTailerState
 }
 
-func (st logStreamState) getStart(sink string, allModels bool) (time.Time, error) {
-	var tracker *state.LastSentLogTracker
-	if allModels {
-		var err error
-		tracker, err = state.NewAllLastSentLogTracker(st, sink)
-		if err != nil {
-			return time.Time{}, errors.Trace(err)
-		}
-	} else {
-		tracker = state.NewLastSentLogTracker(st, st.ModelUUID(), sink)
-	}
+func (st logStreamState) getStart(sink string) (time.Time, error) {
+	tracker := state.NewLastSentLogTracker(st, st.ModelUUID(), sink)
 	defer tracker.Close()
 
 	// Resume for the sink...
@@ -186,7 +173,7 @@ func (st logStreamState) getStart(sink string, allModels bool) (time.Time, error
 	return time.Unix(0, lastSentTimestamp), nil
 }
 
-func (st logStreamState) newTailer(args *state.LogTailerParams) (state.LogTailer, error) {
+func (st logStreamState) newTailer(args state.LogTailerParams) (state.LogTailer, error) {
 	tailer, err := state.NewLogTailer(st, args)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -195,11 +182,10 @@ func (st logStreamState) newTailer(args *state.LogTailerParams) (state.LogTailer
 }
 
 type logStreamRequestHandler struct {
-	conn          messageWriter
-	req           *http.Request
-	tailer        state.LogTailer
-	sendModelUUID bool
-	closer        closerFunc
+	conn       messageWriter
+	req        *http.Request
+	tailer     state.LogTailer
+	poolHelper state.PoolHelper
 }
 
 func (h *logStreamRequestHandler) serveWebsocket(stop <-chan struct{}) {
@@ -216,7 +202,7 @@ func (h *logStreamRequestHandler) serveWebsocket(stop <-chan struct{}) {
 				logger.Errorf("tailer stopped: %v", h.tailer.Err())
 				return
 			}
-			if err := h.sendRecords([]*state.LogRecord{rec}, h.sendModelUUID); err != nil {
+			if err := h.sendRecords([]*state.LogRecord{rec}); err != nil {
 				if isBrokenPipe(err) {
 					logger.Tracef("logstream handler stopped (client disconnected)")
 				} else {
@@ -229,20 +215,21 @@ func (h *logStreamRequestHandler) serveWebsocket(stop <-chan struct{}) {
 
 func (h *logStreamRequestHandler) close() {
 	h.tailer.Stop()
-	h.closer()
+	h.poolHelper.Release()
 }
 
-func (h *logStreamRequestHandler) sendRecords(rec []*state.LogRecord, sendModelUUID bool) error {
-	apiRec := h.apiFromRecords(rec, sendModelUUID)
+func (h *logStreamRequestHandler) sendRecords(rec []*state.LogRecord) error {
+	apiRec := h.apiFromRecords(rec)
 	return errors.Trace(h.conn.WriteJSON(apiRec))
 }
 
-func (h *logStreamRequestHandler) apiFromRecords(records []*state.LogRecord, sendModelUUID bool) params.LogStreamRecords {
+func (h *logStreamRequestHandler) apiFromRecords(records []*state.LogRecord) params.LogStreamRecords {
 	var result params.LogStreamRecords
 	result.Records = make([]params.LogStreamRecord, len(records))
 	for i, rec := range records {
 		apiRec := params.LogStreamRecord{
 			ID:        rec.ID,
+			ModelUUID: rec.ModelUUID,
 			Version:   rec.Version.String(),
 			Entity:    rec.Entity.String(),
 			Timestamp: rec.Time,
@@ -250,9 +237,6 @@ func (h *logStreamRequestHandler) apiFromRecords(records []*state.LogRecord, sen
 			Location:  rec.Location,
 			Level:     rec.Level.String(),
 			Message:   rec.Message,
-		}
-		if sendModelUUID {
-			apiRec.ModelUUID = rec.ModelUUID
 		}
 		result.Records[i] = apiRec
 	}

@@ -29,13 +29,13 @@ func (s *LeaderSuite) SetUpTest(c *gc.C) {
 		Stub: &s.Stub,
 	}
 	s.tracker = &StubTracker{
-		Stub:        &s.Stub,
-		serviceName: "led-service",
+		Stub:            &s.Stub,
+		applicationName: "led-service",
 	}
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ApplicationName",
 	}}, func() {
-		s.context = context.NewLeadershipContext(s.accessor, s.tracker)
+		s.context = context.NewLeadershipContext(s.accessor, s.tracker, "u/0")
 	})
 }
 
@@ -183,7 +183,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsSuccess(c *gc.C) {
 		FuncName: "ClaimLeader",
 	}, {
 		FuncName: "Merge",
-		Args: []interface{}{"led-service", map[string]string{
+		Args: []interface{}{"led-service", "u/0", map[string]string{
 			"some": "very",
 			"nice": "data",
 		}},
@@ -219,7 +219,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsError(c *gc.C) {
 		FuncName: "ClaimLeader",
 	}, {
 		FuncName: "Merge",
-		Args: []interface{}{"led-service", map[string]string{
+		Args: []interface{}{"led-service", "u/0", map[string]string{
 			"some": "very",
 			"nice": "data",
 		}},
@@ -252,7 +252,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsClearsCache(c *gc.C) {
 		FuncName: "ClaimLeader",
 	}, {
 		FuncName: "Merge",
-		Args: []interface{}{"led-service", map[string]string{
+		Args: []interface{}{"led-service", "u/0", map[string]string{
 			"some": "very",
 			"nice": "data",
 		}},
@@ -289,27 +289,27 @@ type StubLeadershipSettingsAccessor struct {
 	results []map[string]string
 }
 
-func (stub *StubLeadershipSettingsAccessor) Read(serviceName string) (result map[string]string, _ error) {
-	stub.MethodCall(stub, "Read", serviceName)
+func (stub *StubLeadershipSettingsAccessor) Read(applicationName string) (result map[string]string, _ error) {
+	stub.MethodCall(stub, "Read", applicationName)
 	result, stub.results = stub.results[0], stub.results[1:]
 	return result, stub.NextErr()
 }
 
-func (stub *StubLeadershipSettingsAccessor) Merge(serviceName string, settings map[string]string) error {
-	stub.MethodCall(stub, "Merge", serviceName, settings)
+func (stub *StubLeadershipSettingsAccessor) Merge(applicationName, unitName string, settings map[string]string) error {
+	stub.MethodCall(stub, "Merge", applicationName, unitName, settings)
 	return stub.NextErr()
 }
 
 type StubTracker struct {
 	leadership.Tracker
 	*testing.Stub
-	serviceName string
-	results     []StubTicket
+	applicationName string
+	results         []StubTicket
 }
 
 func (stub *StubTracker) ApplicationName() string {
 	stub.MethodCall(stub, "ApplicationName")
-	return stub.serviceName
+	return stub.applicationName
 }
 
 func (stub *StubTracker) ClaimLeader() (result leadership.Ticket) {

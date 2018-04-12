@@ -15,7 +15,24 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/permission"
 )
+
+// Credential contains information about the credential as stored on
+// the controller.
+type Credential struct {
+	cloudCredentialDoc
+}
+
+// CloudCredentialTag returns cloud credential tag.
+func (c Credential) CloudCredentialTag() (names.CloudCredentialTag, error) {
+	return c.cloudCredentialDoc.cloudCredentialTag()
+}
+
+// IsValid indicates whether the credential is valid.
+func (c Credential) IsValid() bool {
+	return !c.cloudCredentialDoc.Invalid
+}
 
 // cloudCredentialDoc records information about a user's cloud credentials.
 type cloudCredentialDoc struct {
@@ -26,47 +43,65 @@ type cloudCredentialDoc struct {
 	Revoked    bool              `bson:"revoked"`
 	AuthType   string            `bson:"auth-type"`
 	Attributes map[string]string `bson:"attributes,omitempty"`
+
+	// Invalid stores flag that indicates if a credential is invalid.
+	// Note that the credential is valid:
+	//  * if the flag is explicitly set to 'false'; or
+	//  * if the flag is not set at all, as will be the case for
+	//    new inserts or credentials created with previous Juju versions. In
+	//    this case, we'd still read it as 'false' and the credential validity
+	//    will be interpreted correctly.
+	// This flag will need to be explicitly set to 'true' for a credential
+	// to be considered invalid.
+	Invalid bool `bson:"invalid"`
+
+	// InvalidReason contains the reason why the credential was marked as invalid.
+	// This can range from cloud messages such as an expired credential to
+	// commercial reasons set via CLI or api calls.
+	InvalidReason string `bson:"invalid-reason,omitempty"`
 }
 
 // CloudCredential returns the cloud credential for the given tag.
-func (st *State) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
-	coll, cleanup := st.getCollection(cloudCredentialsC)
+func (st *State) CloudCredential(tag names.CloudCredentialTag) (Credential, error) {
+	coll, cleanup := st.db().GetCollection(cloudCredentialsC)
 	defer cleanup()
 
 	var doc cloudCredentialDoc
 	err := coll.FindId(cloudCredentialDocID(tag)).One(&doc)
 	if err == mgo.ErrNotFound {
-		return cloud.Credential{}, errors.NotFoundf(
+		return Credential{}, errors.NotFoundf(
 			"cloud credential %q", tag.Id(),
 		)
 	} else if err != nil {
-		return cloud.Credential{}, errors.Annotatef(
+		return Credential{}, errors.Annotatef(
 			err, "getting cloud credential %q", tag.Id(),
 		)
 	}
-	return doc.toCredential(), nil
+	return Credential{doc}, nil
 }
 
 // CloudCredentials returns the user's cloud credentials for a given cloud,
 // keyed by credential name.
-func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
-	coll, cleanup := st.getCollection(cloudCredentialsC)
+func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[string]Credential, error) {
+	coll, cleanup := st.db().GetCollection(cloudCredentialsC)
 	defer cleanup()
 
-	var doc cloudCredentialDoc
-	credentials := make(map[string]cloud.Credential)
+	credentials := make(map[string]Credential)
 	iter := coll.Find(bson.D{
 		{"owner", user.Id()},
 		{"cloud", cloudName},
 	}).Iter()
+	defer iter.Close()
+
+	var doc cloudCredentialDoc
 	for iter.Next(&doc) {
 		tag, err := doc.cloudCredentialTag()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		credentials[tag.Id()] = doc.toCredential()
+		credentials[tag.Id()] = Credential{doc}
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotatef(
 			err, "cannot get cloud credentials for user %q, cloud %q",
 			user.Id(), cloudName,
@@ -77,7 +112,10 @@ func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[str
 
 // UpdateCloudCredential adds or updates a cloud credential with the given tag.
 func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential cloud.Credential) error {
-	credentials := map[names.CloudCredentialTag]cloud.Credential{tag: credential}
+	credentials := map[names.CloudCredentialTag]Credential{
+		tag: convertCloudCredentialToState(tag, credential),
+	}
+	annotationMsg := "updating cloud credentials"
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		cloudName := tag.Cloud().Id()
 		cloud, err := st.Cloud(cloudName)
@@ -95,12 +133,16 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 		if err == nil {
 			ops = append(ops, updateCloudCredentialOp(tag, credential))
 		} else {
+			annotationMsg = "creating cloud credential"
+			if credential.Invalid || credential.InvalidReason != "" {
+				return nil, errors.NotSupportedf("adding invalid credential")
+			}
 			ops = append(ops, createCloudCredentialOp(tag, credential))
 		}
 		return ops, nil
 	}
-	if err := st.run(buildTxn); err != nil {
-		return errors.Annotate(err, "updating cloud credentials")
+	if err := st.db().Run(buildTxn); err != nil {
+		return errors.Annotate(err, annotationMsg)
 	}
 	return nil
 }
@@ -117,7 +159,7 @@ func (st *State) RemoveCloudCredential(tag names.CloudCredentialTag) error {
 		}
 		return removeCloudCredentialOps(tag), nil
 	}
-	if err := st.run(buildTxn); err != nil {
+	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Annotate(err, "removing cloud credential")
 	}
 	return nil
@@ -152,6 +194,8 @@ func updateCloudCredentialOp(tag names.CloudCredentialTag, cred cloud.Credential
 			{"auth-type", string(cred.AuthType())},
 			{"attributes", cred.Attributes()},
 			{"revoked", cred.Revoked},
+			{"invalid", cred.Invalid},
+			{"invalid-reason", cred.InvalidReason},
 		}}},
 	}
 }
@@ -180,13 +224,6 @@ func (c cloudCredentialDoc) cloudCredentialTag() (names.CloudCredentialTag, erro
 	return names.NewCloudCredentialTag(id), nil
 }
 
-func (c cloudCredentialDoc) toCredential() cloud.Credential {
-	out := cloud.NewCredential(cloud.AuthType(c.AuthType), c.Attributes)
-	out.Revoked = c.Revoked
-	out.Label = c.Name
-	return out
-}
-
 // validateCloudCredentials checks that the supplied cloud credentials are
 // valid for use with the controller's cloud, and returns a set of txn.Ops
 // to assert the same in a transaction. The map keys are the cloud credential
@@ -201,7 +238,7 @@ func (c cloudCredentialDoc) toCredential() cloud.Credential {
 // perhaps all this code is unnecessary.
 func validateCloudCredentials(
 	cloud cloud.Cloud,
-	credentials map[names.CloudCredentialTag]cloud.Credential,
+	credentials map[names.CloudCredentialTag]Credential,
 ) ([]txn.Op, error) {
 	requiredAuthTypes := make(set.Strings)
 	for tag, credential := range credentials {
@@ -213,7 +250,7 @@ func validateCloudCredentials(
 		}
 		var found bool
 		for _, authType := range cloud.AuthTypes {
-			if credential.AuthType() == authType {
+			if credential.AuthType == string(authType) {
 				found = true
 				break
 			}
@@ -221,10 +258,10 @@ func validateCloudCredentials(
 		if !found {
 			return nil, errors.NewNotValid(nil, fmt.Sprintf(
 				"credential %q with auth-type %q is not supported (expected one of %q)",
-				tag.Id(), credential.AuthType(), cloud.AuthTypes,
+				tag.Id(), credential.AuthType, cloud.AuthTypes,
 			))
 		}
-		requiredAuthTypes.Add(string(credential.AuthType()))
+		requiredAuthTypes.Add(string(credential.AuthType))
 	}
 	ops := make([]txn.Op, len(requiredAuthTypes))
 	for i, authType := range requiredAuthTypes.SortedValues() {
@@ -248,4 +285,75 @@ func (st *State) WatchCredential(cred names.CloudCredentialTag) NotifyWatcher {
 		return id == cloudCredentialDocID(cred)
 	}
 	return newNotifyCollWatcher(st, cloudCredentialsC, filter)
+}
+
+// AllCloudCredentials returns all cloud credentials stored on the controller
+// for a given user.
+func (st *State) AllCloudCredentials(user names.UserTag) ([]Credential, error) {
+	coll, cleanup := st.db().GetCollection(cloudCredentialsC)
+	defer cleanup()
+
+	// There are 2 ways of getting a credential for a user:
+	// 1. user name stored in the credential tag (aka doc id);
+	// 2. look up using Owner field.
+	// We use Owner field below as credential tag or doc ID may be changed
+	// in the future to be a real Primary Key that has nothing to do with
+	// the data it identifies, i.e. no business meaning.
+	clause := bson.D{{"owner", user.Id()}}
+
+	var docs []cloudCredentialDoc
+	err := coll.Find(clause).Sort("cloud").All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting cloud credentials for %q", user.Id())
+	}
+
+	if len(docs) == 0 {
+		return nil, errors.NotFoundf("cloud credentials for %q", user.Id())
+	}
+
+	credentials := make([]Credential, len(docs))
+	for i, doc := range docs {
+		credentials[i] = Credential{doc}
+	}
+	return credentials, nil
+}
+
+// CredentialOwnerModelAccess stores cloud credential model information for the credential owner
+// or an error retrieving it.
+type CredentialOwnerModelAccess struct {
+	ModelName   string
+	OwnerAccess permission.Access
+	Error       error
+}
+
+// CredentialModelsAndOwnerAccess returns all models that use given cloud credential as well as
+// what access the credential owner has on these models.
+func (st *State) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]CredentialOwnerModelAccess, error) {
+	coll, cleanup := st.db().GetCollection(modelsC)
+	defer cleanup()
+
+	var docs []modelDoc
+	err := coll.Find(bson.D{{"cloud-credential", tag.Id()}}).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting models that use cloud credential %q", tag.Id())
+	}
+	if len(docs) == 0 {
+		return nil, errors.NotFoundf("models that use cloud credentials %q", tag.Id())
+	}
+
+	results := make([]CredentialOwnerModelAccess, len(docs))
+	for i, model := range docs {
+		results[i] = CredentialOwnerModelAccess{ModelName: model.Name}
+		ownerAccess, err := st.UserAccess(tag.Owner(), names.NewModelTag(model.UUID))
+		if err != nil {
+			if errors.IsNotFound(err) {
+				results[i].OwnerAccess = permission.NoAccess
+				continue
+			}
+			results[i].Error = errors.Trace(err)
+			continue
+		}
+		results[i].OwnerAccess = ownerAccess.Access
+	}
+	return results, nil
 }

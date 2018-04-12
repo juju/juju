@@ -12,10 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/lease"
 	coretesting "github.com/juju/juju/testing"
@@ -112,28 +110,31 @@ func (facade *stubFacade) Wait() error {
 	return facade.stub.NextErr()
 }
 
-var errClaimDenied = errors.Trace(lease.ErrClaimDenied)
-
-type mockAgent struct {
-	agent.Agent
-	wrongKind bool
+type stubWorker struct {
+	stub *testing.Stub
 }
 
-func (mock *mockAgent) CurrentConfig() agent.Config {
-	return &mockAgentConfig{wrongKind: mock.wrongKind}
-}
-
-type mockAgentConfig struct {
-	agent.Config
-	wrongKind bool
-}
-
-func (mock *mockAgentConfig) Tag() names.Tag {
-	if mock.wrongKind {
-		return names.NewUnitTag("foo/1")
+func newStubWorker(stub *testing.Stub) *stubWorker {
+	return &stubWorker{
+		stub: stub,
 	}
-	return names.NewMachineTag("123")
 }
+
+func (w *stubWorker) Check() bool {
+	w.stub.MethodCall(w, "Check")
+	return true
+}
+
+func (w *stubWorker) Kill() {
+	w.stub.MethodCall(w, "Kill")
+}
+
+func (w *stubWorker) Wait() error {
+	w.stub.MethodCall(w, "Wait")
+	return w.stub.NextErr()
+}
+
+var errClaimDenied = errors.Trace(lease.ErrClaimDenied)
 
 type fakeClock struct {
 	clock.Clock

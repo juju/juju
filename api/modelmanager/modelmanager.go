@@ -7,10 +7,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/permission"
@@ -103,7 +105,13 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 		CloudCredential: credential,
 		Owner:           ownerTag.Id(),
 		Life:            string(modelInfo.Life),
+		AgentVersion:    modelInfo.AgentVersion,
 	}
+	modelType := modelInfo.Type
+	if modelType == "" {
+		modelType = model.IAAS.String()
+	}
+	result.Type = model.ModelType(modelType)
 	result.Status = base.Status{
 		Status: modelInfo.Status.Status,
 		Info:   modelInfo.Status.Info,
@@ -162,19 +170,111 @@ func (c *Client) ListModels(user string) ([]base.UserModel, error) {
 		return nil, errors.Trace(err)
 	}
 	result := make([]base.UserModel, len(models.UserModels))
-	for i, model := range models.UserModels {
-		owner, err := names.ParseUserTag(model.OwnerTag)
+	for i, usermodel := range models.UserModels {
+		owner, err := names.ParseUserTag(usermodel.OwnerTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", model.OwnerTag, i)
+			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", usermodel.OwnerTag, i)
+		}
+		modelType := model.ModelType(usermodel.Type)
+		if modelType == "" {
+			modelType = model.IAAS
 		}
 		result[i] = base.UserModel{
-			Name:           model.Name,
-			UUID:           model.UUID,
+			Name:           usermodel.Name,
+			UUID:           usermodel.UUID,
+			Type:           modelType,
 			Owner:          owner.Id(),
-			LastConnection: model.LastConnection,
+			LastConnection: usermodel.LastConnection,
 		}
 	}
 	return result, nil
+}
+
+func (c *Client) ListModelSummaries(user string, all bool) ([]base.UserModelSummary, error) {
+	var out params.ModelSummaryResults
+	if !names.IsValidUser(user) {
+		return nil, errors.Errorf("invalid user name %q", user)
+	}
+	in := params.ModelSummariesRequest{UserTag: names.NewUserTag(user).String(), All: all}
+	err := c.facade.FacadeCall("ListModelSummaries", in, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	summaries := make([]base.UserModelSummary, len(out.Results))
+	for i, r := range out.Results {
+		if r.Error != nil {
+			// cope with typed error
+			summaries[i] = base.UserModelSummary{Error: errors.Trace(r.Error)}
+			continue
+		}
+		summary := r.Result
+		modelType := model.ModelType(summary.Type)
+		if modelType == "" {
+			modelType = model.IAAS
+		}
+		summaries[i] = base.UserModelSummary{
+			Name:               summary.Name,
+			UUID:               summary.UUID,
+			Type:               modelType,
+			ControllerUUID:     summary.ControllerUUID,
+			ProviderType:       summary.ProviderType,
+			DefaultSeries:      summary.DefaultSeries,
+			CloudRegion:        summary.CloudRegion,
+			Life:               string(summary.Life),
+			ModelUserAccess:    string(summary.UserAccess),
+			UserLastConnection: summary.UserLastConnection,
+			Counts:             make([]base.EntityCount, len(summary.Counts)),
+			AgentVersion:       summary.AgentVersion,
+		}
+		for pos, count := range summary.Counts {
+			summaries[i].Counts[pos] = base.EntityCount{string(count.Entity), count.Count}
+		}
+		summaries[i].Status = base.Status{
+			Status: summary.Status.Status,
+			Info:   summary.Status.Info,
+			Data:   make(map[string]interface{}),
+			Since:  summary.Status.Since,
+		}
+		//TODO (anastasiamac 2017-11-24) do we need status data for summaries?
+		// we do not translate it at cmd/presentation layer and is it really a summary?...
+		for k, v := range summary.Status.Data {
+			summaries[i].Status.Data[k] = v
+		}
+		if owner, err := names.ParseUserTag(summary.OwnerTag); err != nil {
+			summaries[i].Error = errors.Annotatef(err, "while parsing model owner tag")
+			continue
+		} else {
+			summaries[i].Owner = owner.Id()
+		}
+		if cloud, err := names.ParseCloudTag(summary.CloudTag); err != nil {
+			summaries[i].Error = errors.Annotatef(err, "while parsing model cloud tag")
+			continue
+		} else {
+			summaries[i].Cloud = cloud.Id()
+		}
+		if summary.CloudCredentialTag != "" {
+			if credTag, err := names.ParseCloudCredentialTag(summary.CloudCredentialTag); err != nil {
+				summaries[i].Error = errors.Annotatef(err, "while parsing model cloud credential tag")
+				continue
+			} else {
+				summaries[i].CloudCredential = credTag.Id()
+			}
+		}
+		if summary.Migration != nil {
+			summaries[i].Migration = &base.MigrationSummary{
+				Status:    summary.Migration.Status,
+				StartTime: summary.Migration.Start,
+				EndTime:   summary.Migration.End,
+			}
+		}
+		if summary.SLA != nil {
+			summaries[i].SLA = &base.SLASummary{
+				Level: summary.SLA.Level,
+				Owner: summary.SLA.Owner,
+			}
+		}
+	}
+	return summaries, nil
 }
 
 func (c *Client) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, error) {
@@ -192,11 +292,55 @@ func (c *Client) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, err
 	if len(results.Results) != len(tags) {
 		return nil, errors.Errorf("expected %d result(s), got %d", len(tags), len(results.Results))
 	}
+	for i := range results.Results {
+		if results.Results[i].Error != nil {
+			continue
+		}
+		if results.Results[i].Result.Type == "" {
+			results.Results[i].Result.Type = model.IAAS.String()
+		}
+	}
 	return results.Results, nil
 }
 
 // DumpModel returns the serialized database agnostic model representation.
-func (c *Client) DumpModel(model names.ModelTag) (map[string]interface{}, error) {
+func (c *Client) DumpModel(model names.ModelTag, simplified bool) (map[string]interface{}, error) {
+	if bestVer := c.BestAPIVersion(); bestVer < 3 {
+		logger.Debugf("calling older dump model on v%d", bestVer)
+		if simplified {
+			logger.Warningf("simplified dump-model not available, server too old")
+		}
+		return c.dumpModelV2(model)
+	}
+
+	var results params.StringResults
+	entities := params.DumpModelRequest{
+		Entities:   []params.Entity{{Tag: model.String()}},
+		Simplified: simplified,
+	}
+
+	err := c.facade.FacadeCall("DumpModels", entities, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if count := len(results.Results); count != 1 {
+		return nil, errors.Errorf("unexpected result count: %d", count)
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	// Parse back into a map.
+	var asMap map[string]interface{}
+	err = yaml.Unmarshal([]byte(result.Result), &asMap)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return asMap, nil
+}
+
+func (c *Client) dumpModelV2(model names.ModelTag) (map[string]interface{}, error) {
 	var results params.MapResults
 	entities := params.Entities{
 		Entities: []params.Entity{{Tag: model.String()}},
@@ -240,12 +384,23 @@ func (c *Client) DumpModelDB(model names.ModelTag) (map[string]interface{}, erro
 // DestroyModel puts the specified model into a "dying" state, which will
 // cause the model's resources to be cleaned up, after which the model will
 // be removed.
-func (c *Client) DestroyModel(tag names.ModelTag) error {
-	var results params.ErrorResults
-	entities := params.Entities{
-		Entities: []params.Entity{{Tag: tag.String()}},
+func (c *Client) DestroyModel(tag names.ModelTag, destroyStorage *bool) error {
+	var args interface{}
+	if c.BestAPIVersion() < 4 {
+		if destroyStorage == nil || !*destroyStorage {
+			return errors.New("this Juju controller requires destroyStorage to be true")
+		}
+		args = params.Entities{Entities: []params.Entity{{Tag: tag.String()}}}
+	} else {
+		args = params.DestroyModelsParams{
+			Models: []params.DestroyModelParams{{
+				ModelTag:       tag.String(),
+				DestroyStorage: destroyStorage,
+			}},
+		}
 	}
-	if err := c.facade.FacadeCall("DestroyModels", entities, &results); err != nil {
+	var results params.ErrorResults
+	if err := c.facade.FacadeCall("DestroyModels", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	if n := len(results.Results); n != 1 {

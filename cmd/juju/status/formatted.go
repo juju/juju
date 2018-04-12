@@ -18,6 +18,8 @@ type formattedStatus struct {
 	Machines           map[string]machineStatus           `json:"machines"`
 	Applications       map[string]applicationStatus       `json:"applications"`
 	RemoteApplications map[string]remoteApplicationStatus `json:"application-endpoints,omitempty" yaml:"application-endpoints,omitempty"`
+	Offers             map[string]offerStatus             `json:"offers,omitempty" yaml:"offers,omitempty"`
+	Relations          []relationStatus                   `json:"-" yaml:"-"`
 }
 
 type formattedMachineStatus struct {
@@ -31,12 +33,15 @@ type errorStatus struct {
 
 type modelStatus struct {
 	Name             string             `json:"name" yaml:"name"`
+	Type             string             `json:"type" yaml:"type"`
 	Controller       string             `json:"controller" yaml:"controller"`
 	Cloud            string             `json:"cloud" yaml:"cloud"`
 	CloudRegion      string             `json:"region,omitempty" yaml:"region,omitempty"`
 	Version          string             `json:"version" yaml:"version"`
 	AvailableVersion string             `json:"upgrade-available,omitempty" yaml:"upgrade-available,omitempty"`
 	Status           statusInfoContents `json:"model-status,omitempty" yaml:"model-status,omitempty"`
+	MeterStatus      *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
+	SLA              string             `json:"sla,omitempty" yaml:"sla,omitempty"`
 }
 
 type networkInterface struct {
@@ -91,6 +96,8 @@ type applicationStatus struct {
 	CharmName     string                `json:"charm-name" yaml:"charm-name"`
 	CharmRev      int                   `json:"charm-rev" yaml:"charm-rev"`
 	CanUpgradeTo  string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
+	ProviderId    string                `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
+	Address       string                `json:"address,omitempty" yaml:"address,omitempty"`
 	Exposed       bool                  `json:"exposed" yaml:"exposed"`
 	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
 	StatusInfo    statusInfoContents    `json:"application-status,omitempty" yaml:"application-status"`
@@ -117,17 +124,18 @@ func (s applicationStatus) MarshalYAML() (interface{}, error) {
 }
 
 type remoteEndpoint struct {
+	Name      string `json:"-" yaml:"-"`
 	Interface string `json:"interface" yaml:"interface"`
 	Role      string `json:"role" yaml:"role"`
 }
 
 type remoteApplicationStatus struct {
-	Err            error                     `json:"-" yaml:",omitempty"`
-	ApplicationURL string                    `json:"url" yaml:"url"`
-	Endpoints      map[string]remoteEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
-	Life           string                    `json:"life,omitempty" yaml:"life,omitempty"`
-	StatusInfo     statusInfoContents        `json:"application-status,omitempty" yaml:"application-status"`
-	Relations      map[string][]string       `json:"relations,omitempty" yaml:"relations,omitempty"`
+	Err        error                     `json:"-" yaml:",omitempty"`
+	OfferURL   string                    `json:"url" yaml:"url"`
+	Endpoints  map[string]remoteEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
+	Life       string                    `json:"life,omitempty" yaml:"life,omitempty"`
+	StatusInfo statusInfoContents        `json:"application-status,omitempty" yaml:"application-status"`
+	Relations  map[string][]string       `json:"relations,omitempty" yaml:"relations,omitempty"`
 }
 
 type remoteApplicationStatusNoMarshal remoteApplicationStatus
@@ -146,6 +154,32 @@ func (s remoteApplicationStatus) MarshalYAML() (interface{}, error) {
 	return remoteApplicationStatusNoMarshal(s), nil
 }
 
+type offerStatusNoMarshal offerStatus
+
+type offerStatus struct {
+	Err                  error                     `json:"-" yaml:",omitempty"`
+	OfferName            string                    `json:"-" yaml:",omitempty"`
+	ApplicationName      string                    `json:"application" yaml:"application"`
+	CharmURL             string                    `json:"charm,omitempty" yaml:"charm,omitempty"`
+	TotalConnectedCount  int                       `json:"total-connected-count,omitempty" yaml:"total-connected-count,omitempty"`
+	ActiveConnectedCount int                       `json:"active-connected-count,omitempty" yaml:"active-connected-count,omitempty"`
+	Endpoints            map[string]remoteEndpoint `json:"endpoints" yaml:"endpoints"`
+}
+
+func (s offerStatus) MarshalJSON() ([]byte, error) {
+	if s.Err != nil {
+		return json.Marshal(errorStatus{s.Err.Error()})
+	}
+	return json.Marshal(offerStatusNoMarshal(s))
+}
+
+func (s offerStatus) MarshalYAML() (interface{}, error) {
+	if s.Err != nil {
+		return errorStatus{s.Err.Error()}, nil
+	}
+	return offerStatusNoMarshal(s), nil
+}
+
 type meterStatus struct {
 	Color   string `json:"color,omitempty" yaml:"color,omitempty"`
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
@@ -153,8 +187,8 @@ type meterStatus struct {
 
 type unitStatus struct {
 	// New Juju Health Status fields.
-	WorkloadStatusInfo statusInfoContents `json:"workload-status,omitempty" yaml:"workload-status"`
-	JujuStatusInfo     statusInfoContents `json:"juju-status,omitempty" yaml:"juju-status"`
+	WorkloadStatusInfo statusInfoContents `json:"workload-status,omitempty" yaml:"workload-status,omitempty"`
+	JujuStatusInfo     statusInfoContents `json:"juju-status,omitempty" yaml:"juju-status,omitempty"`
 	MeterStatus        *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
 
 	Leader        bool                  `json:"leader,omitempty" yaml:"leader,omitempty"`
@@ -162,6 +196,8 @@ type unitStatus struct {
 	Machine       string                `json:"machine,omitempty" yaml:"machine,omitempty"`
 	OpenedPorts   []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
 	PublicAddress string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
+	Address       string                `json:"address,omitempty" yaml:"address,omitempty"`
+	ProviderId    string                `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
 	Subordinates  map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
 }
 
@@ -175,7 +211,7 @@ func (s *formattedStatus) applicationScale(name string) (string, bool) {
 	match := func(u unitStatus) {
 		desiredUnitCount += 1
 		switch u.JujuStatusInfo.Current {
-		case status.Executing, status.Idle:
+		case status.Executing, status.Idle, status.Running:
 			currentUnitCount += 1
 		}
 	}
@@ -240,4 +276,13 @@ func (s unitStatus) MarshalYAML() (interface{}, error) {
 		return errorStatus{s.WorkloadStatusInfo.Err.Error()}, nil
 	}
 	return unitStatusNoMarshal(s), nil
+}
+
+type relationStatus struct {
+	Provider  string
+	Requirer  string
+	Interface string
+	Type      string
+	Status    string
+	Message   string
 }

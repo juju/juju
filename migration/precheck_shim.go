@@ -11,15 +11,16 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// PrecheckShim wraps a *state.State to implement PrecheckBackend.
-func PrecheckShim(st *state.State) (PrecheckBackend, error) {
-	rSt, err := st.Resources()
+// PrecheckShim wraps a pair of *state.States to implement PrecheckBackend.
+func PrecheckShim(modelState, controllerState *state.State) (PrecheckBackend, error) {
+	rSt, err := modelState.Resources()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &precheckShim{
-		State:       st,
-		resourcesSt: rSt,
+		State:           modelState,
+		controllerState: controllerState,
+		resourcesSt:     rSt,
 	}, nil
 }
 
@@ -27,7 +28,8 @@ func PrecheckShim(st *state.State) (PrecheckBackend, error) {
 // inspection.
 type precheckShim struct {
 	*state.State
-	resourcesSt state.Resources
+	controllerState *state.State
+	resourcesSt     state.Resources
 }
 
 // Model implements PrecheckBackend.
@@ -39,19 +41,6 @@ func (s *precheckShim) Model() (PrecheckModel, error) {
 	return model, nil
 }
 
-// AllModels implements PrecheckBackend.
-func (s *precheckShim) AllModels() ([]PrecheckModel, error) {
-	models, err := s.State.AllModels()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	out := make([]PrecheckModel, 0, len(models))
-	for _, model := range models {
-		out = append(out, model)
-	}
-	return out, nil
-}
-
 // IsMigrationActive implements PrecheckBackend.
 func (s *precheckShim) IsMigrationActive(modelUUID string) (bool, error) {
 	return state.IsMigrationActive(s.State, modelUUID)
@@ -59,10 +48,15 @@ func (s *precheckShim) IsMigrationActive(modelUUID string) (bool, error) {
 
 // AgentVersion implements PrecheckBackend.
 func (s *precheckShim) AgentVersion() (version.Number, error) {
-	cfg, err := s.State.ModelConfig()
+	model, err := s.State.Model()
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}
+	cfg, err := model.ModelConfig()
+	if err != nil {
+		return version.Zero, errors.Trace(err)
+	}
+
 	vers, ok := cfg.AgentVersion()
 	if !ok {
 		return version.Zero, errors.New("no model agent version")
@@ -96,6 +90,18 @@ func (s *precheckShim) AllApplications() ([]PrecheckApplication, error) {
 	return out, nil
 }
 
+func (s *precheckShim) AllRelations() ([]PrecheckRelation, error) {
+	rels, err := s.State.AllRelations()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var out []PrecheckRelation
+	for _, rel := range rels {
+		out = append(out, &precheckRelationShim{rel})
+	}
+	return out, nil
+}
+
 // ListPendingResources implements PrecheckBackend.
 func (s *precheckShim) ListPendingResources(app string) ([]resource.Resource, error) {
 	resources, err := s.resourcesSt.ListPendingResources(app)
@@ -106,24 +112,25 @@ func (s *precheckShim) ListPendingResources(app string) ([]resource.Resource, er
 }
 
 // ControllerBackend implements PrecheckBackend.
-func (s *precheckShim) ControllerBackend() (PrecheckBackendCloser, error) {
-	model, err := s.State.ControllerModel()
+func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
+	return PrecheckShim(s.controllerState, s.controllerState)
+}
+
+// PoolShim wraps a state.StatePool to produce a Pool.
+func PoolShim(pool *state.StatePool) Pool {
+	return &poolShim{pool}
+}
+
+type poolShim struct {
+	pool *state.StatePool
+}
+
+func (p *poolShim) GetModel(uuid string) (PrecheckModel, func(), error) {
+	model, ph, err := p.pool.GetModel(uuid)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	st, err := s.State.ForModel(model.ModelTag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	rSt, err := st.Resources()
-	if err != nil {
-		st.Close()
-		return nil, errors.Trace(err)
-	}
-	return &precheckShim{
-		State:       st,
-		resourcesSt: rSt,
-	}, nil
+	return model, func() { ph.Release() }, nil
 }
 
 // precheckAppShim implements PrecheckApplication.
@@ -142,4 +149,22 @@ func (s *precheckAppShim) AllUnits() ([]PrecheckUnit, error) {
 		out = append(out, unit)
 	}
 	return out, nil
+}
+
+// precheckRelationShim implements PrecheckRelation.
+type precheckRelationShim struct {
+	*state.Relation
+}
+
+// Unit implements PreCheckRelation.
+func (s *precheckRelationShim) Unit(pu PrecheckUnit) (PrecheckRelationUnit, error) {
+	u, ok := pu.(*state.Unit)
+	if !ok {
+		return nil, errors.Errorf("got %T instead of *state.Unit", pu)
+	}
+	ru, err := s.Relation.Unit(u)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ru, nil
 }

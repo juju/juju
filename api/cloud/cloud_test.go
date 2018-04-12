@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -11,6 +12,7 @@ import (
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	cloudapi "github.com/juju/juju/api/cloud"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 )
@@ -173,16 +175,17 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "UpdateCredentials")
 			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-			c.Assert(a, jc.DeepEquals, params.UpdateCloudCredentials{Credentials: []params.UpdateCloudCredential{{
-				Tag: "cloudcred-foo_bob_bar",
-				Credential: params.CloudCredential{
-					AuthType: "userpass",
-					Attributes: map[string]string{
-						"username": "admin",
-						"password": "adm1n",
+			c.Assert(a, jc.DeepEquals, params.TaggedCredentials{
+				Credentials: []params.TaggedCredential{{
+					Tag: "cloudcred-foo_bob_bar",
+					Credential: params.CloudCredential{
+						AuthType: "userpass",
+						Attributes: map[string]string{
+							"username": "admin",
+							"password": "adm1n",
+						},
 					},
-				},
-			}}})
+				}}})
 			*result.(*params.ErrorResults) = params.ErrorResults{
 				Results: []params.ErrorResult{{}},
 			}
@@ -285,4 +288,279 @@ func (s *cloudSuite) TestCredentials(c *gc.C) {
 			},
 		},
 	})
+}
+
+func (s *cloudSuite) TestAddCloudNotInV1API(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Check(objType, gc.Equals, "Cloud")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "AddCloud")
+				return nil
+			},
+		),
+		BestVersion: 1,
+	}
+	client := cloudapi.NewClient(apiCaller)
+	err := client.AddCloud(cloud.Cloud{
+		Name:      "foo",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+		Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+	})
+
+	c.Assert(err, gc.ErrorMatches, "AddCloud\\(\\).* not implemented")
+}
+
+func (s *cloudSuite) TestAddCloudV2API(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				called = true
+				c.Check(objType, gc.Equals, "Cloud")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "AddCloud")
+				return nil
+			},
+		),
+		BestVersion: 2,
+	}
+
+	client := cloudapi.NewClient(apiCaller)
+	err := client.AddCloud(cloud.Cloud{
+		Name:      "foo",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+		Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *cloudSuite) TestAddCredentialNotInV1API(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				return nil
+			},
+		),
+		BestVersion: 1,
+	}
+	client := cloudapi.NewClient(apiCaller)
+	err := client.AddCredential("cloudcred-acloud-user-credname",
+		cloud.NewCredential(cloud.UserPassAuthType, map[string]string{}))
+
+	c.Assert(err, gc.ErrorMatches, "AddCredential\\(\\).* not implemented")
+}
+
+func (s *cloudSuite) TestAddCredentialV2API(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				called = true
+				c.Check(objType, gc.Equals, "Cloud")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "AddCredentials")
+				c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+				*result.(*params.ErrorResults) = params.ErrorResults{
+					Results: []params.ErrorResult{{}},
+				}
+
+				return nil
+			},
+		),
+		BestVersion: 2,
+	}
+
+	client := cloudapi.NewClient(apiCaller)
+	err := client.AddCredential("cloudcred-acloud-user-credname",
+		cloud.NewCredential(cloud.UserPassAuthType,
+			map[string]string{}))
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *cloudSuite) TestCredentialContentsArgumentCheck(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{BestVersion: 2}
+	client := cloudapi.NewClient(apiCaller)
+
+	// Check supplying cloud name without credential name is invalid.
+	result, err := client.CredentialContents("cloud", "", true)
+	c.Assert(result, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "credential name must be supplied")
+
+	// Check supplying credential name without cloud name is invalid.
+	result, err = client.CredentialContents("", "credential", true)
+	c.Assert(result, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "cloud name must be supplied")
+}
+
+func (s *cloudSuite) TestCredentialContentsAll(c *gc.C) {
+	expectedResults := []params.CredentialContentResult{
+		{
+			Result: &params.ControllerCredentialInfo{
+				Content: params.CredentialContent{
+					Cloud:    "cloud-name",
+					Name:     "credential-name",
+					AuthType: "userpass",
+					Attributes: map[string]string{
+						"username": "fred",
+						"password": "sekret"},
+				},
+				Models: []params.ModelAccess{
+					{Model: "abcmodel", Access: "admin"},
+					{Model: "xyzmodel", Access: "read"},
+					{Model: "no-access-model"}, // no access
+				},
+			},
+		}, {
+			Error: common.ServerError(errors.New("boom")),
+		},
+	}
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Check(objType, gc.Equals, "Cloud")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "CredentialContents")
+				c.Assert(result, gc.FitsTypeOf, &params.CredentialContentResults{})
+				c.Assert(a, jc.DeepEquals, params.CloudCredentialArgs{
+					IncludeSecrets: true,
+				})
+				*result.(*params.CredentialContentResults) = params.CredentialContentResults{
+					Results: expectedResults,
+				}
+				return nil
+			},
+		),
+		BestVersion: 2,
+	}
+
+	client := cloudapi.NewClient(apiCaller)
+	results, err := client.CredentialContents("", "", true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *cloudSuite) TestCredentialContentsOne(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Check(objType, gc.Equals, "Cloud")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "CredentialContents")
+				c.Assert(result, gc.FitsTypeOf, &params.CredentialContentResults{})
+				c.Assert(a, jc.DeepEquals, params.CloudCredentialArgs{
+					IncludeSecrets: true,
+					Credentials: []params.CloudCredentialArg{
+						{CloudName: "cloud-name", CredentialName: "credential-name"},
+					},
+				})
+				*result.(*params.CredentialContentResults) = params.CredentialContentResults{
+					Results: []params.CredentialContentResult{
+						{},
+					},
+				}
+				return nil
+			},
+		),
+		BestVersion: 2,
+	}
+
+	client := cloudapi.NewClient(apiCaller)
+	results, err := client.CredentialContents("cloud-name", "credential-name", true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 1)
+}
+
+func (s *cloudSuite) TestCredentialContentsGotMoreThanBargainedFor(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				*result.(*params.CredentialContentResults) = params.CredentialContentResults{
+					Results: []params.CredentialContentResult{
+						{},
+						{},
+					},
+				}
+				return nil
+			},
+		),
+		BestVersion: 2,
+	}
+
+	client := cloudapi.NewClient(apiCaller)
+	results, err := client.CredentialContents("cloud-name", "credential-name", true)
+	c.Assert(results, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "expected 1 result for credential \"cloud-name\" on cloud \"credential-name\", got 2")
+}
+
+func (s *cloudSuite) TestCredentialContentsServerError(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				return errors.New("boom")
+			}),
+		BestVersion: 2,
+	}
+
+	client := cloudapi.NewClient(apiCaller)
+	results, err := client.CredentialContents("", "", true)
+	c.Assert(results, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *cloudSuite) TestCredentialContentsNotInV2API(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				return nil
+			},
+		),
+		BestVersion: 1,
+	}
+	client := cloudapi.NewClient(apiCaller)
+	_, err := client.CredentialContents("", "", true)
+	c.Assert(err, gc.ErrorMatches, "CredentialContents\\(\\).* not implemented")
 }

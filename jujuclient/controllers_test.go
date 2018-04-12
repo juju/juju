@@ -5,6 +5,7 @@ package jujuclient_test
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -16,7 +17,7 @@ import (
 
 type ControllersSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	store          jujuclient.ControllerStore
+	store          jujuclient.ClientStore
 	controllerName string
 	controller     jujuclient.ControllerDetails
 }
@@ -28,12 +29,11 @@ func (s *ControllersSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclient.NewFileClientStore()
 	s.controllerName = "test.controller"
 	s.controller = jujuclient.ControllerDetails{
-		UnresolvedAPIEndpoints: []string{"test.server.hostname"},
-		ControllerUUID:         "test.uuid",
-		APIEndpoints:           []string{"test.api.endpoint"},
-		CACert:                 "test.ca.cert",
-		Cloud:                  "aws",
-		CloudRegion:            "southeastasia",
+		ControllerUUID: "test.uuid",
+		APIEndpoints:   []string{"test.api.endpoint"},
+		CACert:         "test.ca.cert",
+		Cloud:          "aws",
+		CloudRegion:    "southeastasia",
 	}
 }
 
@@ -59,7 +59,7 @@ func (s *ControllersSuite) TestControllerByName(c *gc.C) {
 	found, err := s.store.ControllerByName(name)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := s.getControllers(c)[name]
-	c.Assert(found, gc.DeepEquals, &expected)
+	c.Assert(found, jc.DeepEquals, &expected)
 }
 
 func (s *ControllersSuite) TestAddController(c *gc.C) {
@@ -154,6 +154,30 @@ func (s *ControllersSuite) TestCurrentControllerNoneExists(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "current controller not found")
 }
 
+func (s *ControllersSuite) TestRemoveControllerRemovesCookieJar(c *gc.C) {
+	name := firstTestControllerName(c)
+
+	jar, err := s.store.CookieJar(name)
+	c.Assert(err, jc.ErrorIsNil)
+	err = jar.Save()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Sanity-check that the cookie jar file exists.
+	_, err = os.Stat(jujuclient.JujuCookiePath(name))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.store.RemoveController(name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	found, err := s.store.ControllerByName(name)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("controller %v not found", name))
+	c.Assert(found, gc.IsNil)
+
+	// Check that the cookie jar has been removed.
+	_, err = os.Stat(jujuclient.JujuCookiePath(name))
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+}
+
 func (s *ControllersSuite) TestCurrentController(c *gc.C) {
 	writeTestControllersFile(c)
 
@@ -179,15 +203,6 @@ func (s *ControllersSuite) TestSetCurrentControllerNoneExists(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "controller test.controller not found")
 }
 
-func (s *ControllersSuite) assertWriteFails(c *gc.C, failureMessage string) {
-	err := s.store.UpdateController(s.controllerName, s.controller)
-	c.Assert(err, gc.ErrorMatches, failureMessage)
-
-	found, err := s.store.ControllerByName(s.controllerName)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("controller %v not found", s.controllerName))
-	c.Assert(found, gc.IsNil)
-}
-
 func (s *ControllersSuite) assertControllerNotExists(c *gc.C) {
 	all := writeTestControllersFile(c)
 	_, exists := all.Controllers[s.controllerName]
@@ -195,7 +210,9 @@ func (s *ControllersSuite) assertControllerNotExists(c *gc.C) {
 }
 
 func (s *ControllersSuite) assertUpdateSucceeded(c *gc.C) {
-	c.Assert(s.getControllers(c)[s.controllerName], gc.DeepEquals, s.controller)
+	ctl := s.getControllers(c)[s.controllerName]
+	ctl.DNSCache = nil
+	c.Assert(ctl, jc.DeepEquals, s.controller)
 }
 
 func (s *ControllersSuite) getControllers(c *gc.C) map[string]jujuclient.ControllerDetails {

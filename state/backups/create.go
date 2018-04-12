@@ -28,6 +28,7 @@ const (
 )
 
 type createArgs struct {
+	backupDir      string
 	filesToBackUp  []string
 	db             DBDumper
 	metadataReader io.Reader
@@ -43,7 +44,7 @@ type createResult struct {
 // updates the metadata with the file info.
 func create(args *createArgs) (_ *createResult, err error) {
 	// Prepare the backup builder.
-	builder, err := newBuilder(args.filesToBackUp, args.db)
+	builder, err := newBuilder(args.backupDir, args.filesToBackUp, args.db)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -109,9 +110,9 @@ type builder struct {
 // directories which backup uses as its staging area while building the
 // archive.  It also creates the archive
 // (temp root, tarball root, DB dumpdir), along with any error.
-func newBuilder(filesToBackUp []string, db DBDumper) (b *builder, err error) {
+func newBuilder(backupDir string, filesToBackUp []string, db DBDumper) (b *builder, err error) {
 	// Create the backups workspace root directory.
-	rootDir, err := ioutil.TempDir("", tempPrefix)
+	rootDir, err := ioutil.TempDir(backupDir, tempPrefix)
 	if err != nil {
 		return nil, errors.Annotate(err, "while making backups workspace")
 	}

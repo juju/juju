@@ -57,7 +57,7 @@ func (m *Machine) setFlag() error {
 			Insert: &rebootDoc{Id: m.Id()},
 		},
 	}
-	err := m.st.runTransaction(ops)
+	err := m.st.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 		if err := checkModelActive(m.st); err != nil {
 			return errors.Trace(err)
@@ -79,7 +79,7 @@ func removeRebootDocOp(st *State, machineId string) txn.Op {
 }
 
 func (m *Machine) clearFlag() error {
-	reboot, closer := m.st.getCollection(rebootC)
+	reboot, closer := m.st.db().GetCollection(rebootC)
 	defer closer()
 
 	docID := m.doc.DocID
@@ -88,7 +88,7 @@ func (m *Machine) clearFlag() error {
 		return nil
 	}
 	ops := []txn.Op{removeRebootDocOp(m.st, m.Id())}
-	err = m.st.runTransaction(ops)
+	err = m.st.db().RunTransaction(ops)
 	if err != nil {
 		return errors.Errorf("failed to clear reboot flag: %v", err)
 	}
@@ -107,7 +107,7 @@ func (m *Machine) SetRebootFlag(flag bool) error {
 
 // GetRebootFlag returns the reboot flag for this machine.
 func (m *Machine) GetRebootFlag() (bool, error) {
-	rebootCol, closer := m.st.getCollection(rebootC)
+	rebootCol, closer := m.st.db().GetCollection(rebootC)
 	defer closer()
 
 	count, err := rebootCol.FindId(m.doc.DocID).Count()
@@ -133,7 +133,7 @@ func (m *Machine) machinesToCareAboutRebootsFor() []string {
 // If we are a container, and our parent needs to reboot, this should return:
 // ShouldShutdown
 func (m *Machine) ShouldRebootOrShutdown() (RebootAction, error) {
-	rebootCol, closer := m.st.getCollection(rebootC)
+	rebootCol, closer := m.st.db().GetCollection(rebootC)
 	defer closer()
 
 	machines := m.machinesToCareAboutRebootsFor()

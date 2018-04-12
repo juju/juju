@@ -27,7 +27,7 @@ See also:
     expose`[1:]
 
 // NewUnexposeCommand returns a command to unexpose services.
-func NewUnexposeCommand() cmd.Command {
+func NewUnexposeCommand() modelcmd.ModelCommand {
 	return modelcmd.Wrap(&unexposeCommand{})
 }
 

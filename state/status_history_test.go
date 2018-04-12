@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -30,8 +31,52 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
 	clock := testing.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.Factory.MakeApplication(c, nil)
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+	application := s.Factory.MakeApplication(c, nil)
+
+	initialHistory := 20000
+	filter := status.StatusHistoryFilter{Size: 25000}
+	expectMax := 10000
+	// On some of the architectures, the status history collection is much
+	// smaller than amd64, so we need more entries to get the right size.
+	switch arch.HostArch() {
+	case arch.S390X, arch.PPC64EL, arch.ARM64:
+		initialHistory = 40000
+		filter = status.StatusHistoryFilter{Size: 50000}
+		expectMax = 20000
+	}
+
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+	state.PrimeUnitStatusHistory(c, clock, unit, status.Active, initialHistory, 1000, nil)
+
+	history, err := unit.StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("%d\n", len(history))
+	c.Assert(history, gc.HasLen, initialHistory+1)
+
+	// Prune down to 1MB.
+	err = state.PruneStatusHistory(s.State, 0, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	history, err = unit.StatusHistory(filter)
+	c.Assert(err, jc.ErrorIsNil)
+	historyLen := len(history)
+	// When writing this test, the size was 6670 for about 0,00015 MB per entry
+	// but that is a size that can most likely change so I wont risk a flaky test
+	// here, enough to say that if this size suddenly is no longer less than
+	// half its good reason for suspicion.
+	c.Assert(historyLen, jc.LessThan, expectMax)
+}
+
+func (s *StatusHistorySuite) TestPruneStatusBySizeOnlyForController(c *gc.C) {
+	clock := testing.NewClock(coretesting.NonZeroTime())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	st := s.Factory.MakeModel(c, &factory.ModelParams{})
+	defer st.Close()
+
+	localFactory := factory.NewFactory(st)
+	application := localFactory.MakeApplication(c, nil)
+	unit := localFactory.MakeUnit(c, &factory.UnitParams{Application: application})
 	state.PrimeUnitStatusHistory(c, clock, unit, status.Active, 20000, 1000, nil)
 
 	history, err := unit.StatusHistory(status.StatusHistoryFilter{Size: 25000})
@@ -39,17 +84,15 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
 	c.Logf("%d\n", len(history))
 	c.Assert(history, gc.HasLen, 20001)
 
-	err = state.PruneStatusHistory(s.State, 0, 1)
+	err = state.PruneStatusHistory(st, 0, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	history, err = unit.StatusHistory(status.StatusHistoryFilter{Size: 25000})
 	c.Assert(err, jc.ErrorIsNil)
 	historyLen := len(history)
-	// When writing this test, the size was 6670 for about 0,00015 MB per entry
-	// but that is a size that can most likely change so I wont risk a flaky test
-	// here, enough to say that if this size suddenly is no longer less than
-	// half its good reason for suspicion.
-	c.Assert(historyLen, jc.LessThan, 10000)
+
+	// Pruning by size should only be done for the controller state.
+	c.Assert(historyLen, gc.Equals, 20001)
 }
 
 func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
@@ -66,9 +109,9 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 	const count = 3
 	units := make([]*state.Unit, count)
 	agents := make([]*state.UnitAgent, count)
-	service := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil)
 	for i := 0; i < count; i++ {
-		units[i] = s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+		units[i] = s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 		agents[i] = units[i].Agent()
 	}
 
@@ -146,8 +189,8 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 
 func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHook(c *gc.C) {
 
-	service := s.Factory.MakeApplication(c, nil)
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 	agent := unit.Agent()
 
 	primeUnitAgentStatusHistory(c, agent, 100, 0, "running update-status hook")
@@ -166,8 +209,8 @@ func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHook(c *g
 
 func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHookFiltered(c *gc.C) {
 
-	service := s.Factory.MakeApplication(c, nil)
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 	agent := unit.Agent()
 
 	primeUnitAgentStatusHistory(c, agent, 100, 0, "running update-status hook")
@@ -183,8 +226,8 @@ func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHookFilte
 func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	// TODO(perrito666) setup should be extracted into a fixture and the
 	// 6 or 7 test cases each get their own method.
-	service := s.Factory.MakeApplication(c, nil)
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
 	twoDaysBack := time.Hour * 48
 	threeDaysBack := time.Hour * 72
@@ -265,4 +308,26 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	c.Assert(history[0].Message, gc.Equals, "current status")
 	c.Assert(history[1].Message, gc.Equals, "waiting for machine")
 	c.Assert(history[2].Message, gc.Equals, "2 days ago")
+}
+
+func (s *StatusHistorySuite) TestSameValueNotRepeated(c *gc.C) {
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	now := time.Now()
+	for i := 0; i < 10; i++ {
+		when := now.Add(time.Duration(i) * time.Second)
+		err := unit.SetStatus(status.StatusInfo{
+			Status:  status.Active,
+			Message: "current status",
+			Since:   &when,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	history, err := unit.StatusHistory(status.StatusHistoryFilter{Size: 50})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 2)
+	c.Assert(history[0].Message, gc.Equals, "current status")
+	c.Assert(history[1].Message, gc.Equals, "waiting for machine")
 }

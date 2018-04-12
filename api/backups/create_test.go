@@ -8,7 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/backups"
-	apiserverbackups "github.com/juju/juju/apiserver/backups"
+	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
 	"github.com/juju/juju/apiserver/params"
 	backupstesting "github.com/juju/juju/state/backups/testing"
 )

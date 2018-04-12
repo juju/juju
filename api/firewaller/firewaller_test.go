@@ -7,18 +7,23 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/firewaller"
-	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // NOTE: This suite is intended for embedding into other suites,
 // so common code can be reused. Do not add test cases to it,
 // otherwise they'll be run by each other suite that embeds it.
 type firewallerSuite struct {
-	testing.JujuConnSuite
+	jujutesting.JujuConnSuite
 
 	st          api.Connection
 	machines    []*state.Machine
@@ -27,7 +32,7 @@ type firewallerSuite struct {
 	units       []*state.Unit
 	relations   []*state.Relation
 
-	firewaller *firewaller.State
+	firewaller *firewaller.Client
 }
 
 var _ = gc.Suite(&firewallerSuite{})
@@ -58,19 +63,19 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 		s.machines[i], err = s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
 	}
-	// Create a service and three units for these machines.
+	// Create an application and three units for these machines.
 	s.charm = s.AddTestingCharm(c, "wordpress")
-	s.application = s.AddTestingService(c, "wordpress", s.charm)
+	s.application = s.AddTestingApplication(c, "wordpress", s.charm)
 	// Add the rest of the units and assign them.
 	for i := 0; i <= 2; i++ {
-		s.units[i], err = s.application.AddUnit()
+		s.units[i], err = s.application.AddUnit(state.AddUnitParams{})
 		c.Check(err, jc.ErrorIsNil)
 		err = s.units[i].AssignToMachine(s.machines[i])
 		c.Check(err, jc.ErrorIsNil)
 	}
 
 	// Create a relation.
-	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -79,6 +84,165 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the firewaller API facade.
-	s.firewaller = firewaller.NewState(s.st)
-	c.Assert(s.firewaller, gc.NotNil)
+	firewallerClient, err := firewaller.NewClient(s.st)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(firewallerClient, gc.NotNil)
+	s.firewaller = firewallerClient
+}
+
+func (s *firewallerSuite) TestWatchEgressAddressesForRelation(c *gc.C) {
+	var callCount int
+	relationTag := names.NewRelationTag("mediawiki:db mysql:db")
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchEgressAddressesForRelations")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: relationTag.String()}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client, err := firewaller.NewClient(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.WatchEgressAddressesForRelation(relationTag)
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *firewallerSuite) TestWatchInressAddressesForRelation(c *gc.C) {
+	var callCount int
+	relationTag := names.NewRelationTag("mediawiki:db mysql:db")
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchIngressAddressesForRelations")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: relationTag.String()}}})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client, err := firewaller.NewClient(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.WatchIngressAddressesForRelation(relationTag)
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *firewallerSuite) TestControllerAPIInfoForModel(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ControllerAPIInfoForModels")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: coretesting.ModelTag.String()}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ControllerAPIInfoResults{})
+		*(result.(*params.ControllerAPIInfoResults)) = params.ControllerAPIInfoResults{
+			Results: []params.ControllerAPIInfoResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client, err := firewaller.NewClient(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.ControllerAPIInfoForModel(coretesting.ModelTag.Id())
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *firewallerSuite) TestMacaroonForRelation(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "MacaroonForRelations")
+		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{
+			{Tag: names.NewRelationTag("mysql:db wordpress:db").String()}}})
+		c.Assert(result, gc.FitsTypeOf, &params.MacaroonResults{})
+		*(result.(*params.MacaroonResults)) = params.MacaroonResults{
+			Results: []params.MacaroonResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client, err := firewaller.NewClient(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.MacaroonForRelation("mysql:db wordpress:db")
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *firewallerSuite) TestSetRelationStatus(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SetRelationsStatus")
+		c.Assert(arg, gc.DeepEquals, params.SetStatus{Entities: []params.EntityStatusArgs{
+			{
+				Tag:    names.NewRelationTag("mysql:db wordpress:db").String(),
+				Status: "suspended",
+				Info:   "a message",
+			}}})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		callCount++
+		return nil
+	})
+	client, err := firewaller.NewClient(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	err = client.SetRelationStatus("mysql:db wordpress:db", relation.Suspended, "a message")
+	c.Check(err, gc.ErrorMatches, "FAIL")
+	c.Check(callCount, gc.Equals, 1)
+}
+
+func (s *firewallerSuite) TestFirewallRules(c *gc.C) {
+	var callCount int
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Firewaller")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "FirewallRules")
+		c.Assert(arg, gc.DeepEquals, params.KnownServiceArgs{
+			KnownServices: []params.KnownServiceValue{
+				params.JujuApplicationOfferRule, params.JujuControllerRule,
+			},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ListFirewallRulesResults{})
+		*(result.(*params.ListFirewallRulesResults)) = params.ListFirewallRulesResults{
+			Rules: []params.FirewallRule{
+				{KnownService: params.JujuApplicationOfferRule, WhitelistCIDRS: []string{"10.0.0.0/16"}},
+			},
+		}
+		callCount++
+		return nil
+	})
+	client, err := firewaller.NewClient(apiCaller)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := client.FirewallRules("juju-application-offer", "juju-controller")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Check(callCount, gc.Equals, 1)
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -57,12 +56,12 @@ func (*joyentEnviron) Provider() environs.EnvironProvider {
 	return providerInstance
 }
 
-// PrecheckInstance is defined on the state.Prechecker interface.
-func (env *joyentEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	if placement != "" {
-		return fmt.Errorf("unknown placement directive: %s", placement)
+// PrecheckInstance is defined on the environs.InstancePrechecker interface.
+func (env *joyentEnviron) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+	if args.Placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", args.Placement)
 	}
-	if !cons.HasInstanceType() {
+	if !args.Constraints.HasInstanceType() {
 		return nil
 	}
 	// Constraint has an instance-type constraint so let's see if it is valid.
@@ -71,11 +70,11 @@ func (env *joyentEnviron) PrecheckInstance(series string, cons constraints.Value
 		return err
 	}
 	for _, instanceType := range instanceTypes {
-		if instanceType.Name == *cons.InstanceType {
+		if instanceType.Name == *args.Constraints.InstanceType {
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid Joyent instance %q specified", *cons.InstanceType)
+	return fmt.Errorf("invalid Joyent instance %q specified", *args.Constraints.InstanceType)
 }
 
 func (env *joyentEnviron) SetConfig(cfg *config.Config) error {

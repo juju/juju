@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package featuretests_test
+package featuretests
 
 import (
 	gitjujutesting "github.com/juju/testing"
@@ -15,8 +15,6 @@ import (
 type InitiateSuite struct {
 	coretesting.BaseSuite
 }
-
-var _ = gc.Suite(&InitiateSuite{})
 
 func (s *InitiateSuite) TestInitiateReplicaSet(c *gc.C) {
 	var err error

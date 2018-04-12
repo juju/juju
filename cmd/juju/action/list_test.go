@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type ListSuite struct {
@@ -66,6 +66,11 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		args:                 []string{"--format=yaml", "--schema", validServiceId},
 		expectedOutputSchema: true,
 		expectedSvc:          names.NewApplicationTag(validServiceId),
+	}, {
+		should:               "default to yaml output when --schema flag is specified",
+		args:                 []string{"--schema", validServiceId},
+		expectedOutputSchema: true,
+		expectedSvc:          names.NewApplicationTag(validServiceId),
 	}}
 
 	for i, t := range tests {
@@ -74,7 +79,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 				t.should, strings.Join(t.args, " "))
 			s.wrappedCommand, s.command = action.NewListCommandForTest(s.store)
 			args := append([]string{modelFlag, "admin"}, t.args...)
-			err := testing.InitCommand(s.wrappedCommand, args)
+			err := cmdtesting.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
 				c.Check(err, jc.ErrorIsNil)
 				c.Check(s.command.ApplicationTag(), gc.Equals, t.expectedSvc)
@@ -93,7 +98,6 @@ kill            Kill the database.
 no-description  No description
 no-params       An action with no parameters.
 snapshot        Take a snapshot of the database.
-
 `[1:]
 
 	tests := []struct {
@@ -124,6 +128,15 @@ snapshot        Take a snapshot of the database.
 		withArgs:        []string{validServiceId},
 		expectNoResults: true,
 		expectMessage:   fmt.Sprintf("No actions defined for %s.\n", validServiceId),
+	}, {
+		should:           "get tabular default output when --schema is NOT specified",
+		withArgs:         []string{"--format=default", validServiceId},
+		withCharmActions: someCharmActions,
+	}, {
+		should:           "get full schema default output (YAML) when --schema is specified",
+		withArgs:         []string{"--format=default", "--schema", validServiceId},
+		expectFullSchema: true,
+		withCharmActions: someCharmActions,
 	}}
 
 	for i, t := range tests {
@@ -140,7 +153,7 @@ snapshot        Take a snapshot of the database.
 
 				args := append([]string{modelFlag, "admin"}, t.withArgs...)
 				s.wrappedCommand, s.command = action.NewListCommandForTest(s.store)
-				ctx, err := testing.RunCommand(c, s.wrappedCommand, args...)
+				ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, args...)
 
 				if t.expectedErr != "" || t.withAPIErr != "" {
 					c.Check(err, gc.ErrorMatches, t.expectedErr)
@@ -150,9 +163,9 @@ snapshot        Take a snapshot of the database.
 					if t.expectFullSchema {
 						checkFullSchema(c, t.withCharmActions, result)
 					} else if t.expectNoResults {
-						c.Check(testing.Stderr(ctx), gc.Matches, t.expectMessage)
+						c.Check(cmdtesting.Stderr(ctx), gc.Matches, t.expectMessage)
 					} else {
-						c.Check(testing.Stdout(ctx), gc.Equals, simpleOutput)
+						c.Check(cmdtesting.Stdout(ctx), gc.Equals, simpleOutput)
 					}
 				}
 

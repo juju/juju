@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/testing"
 )
 
 var (
@@ -59,7 +59,7 @@ func (s *RunSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should               string
 		args                 []string
-		expectUnit           names.UnitTag
+		expectUnits          []names.UnitTag
 		expectAction         string
 		expectParamsYamlPath string
 		expectParseStrings   bool
@@ -77,11 +77,29 @@ func (s *RunSuite) TestInit(c *gc.C) {
 	}, {
 		should:      "fail with invalid unit tag",
 		args:        []string{invalidUnitId, "valid-action-name"},
-		expectError: "invalid unit name \"something-strange-\"",
+		expectError: "invalid unit or action name \"something-strange-\"",
 	}, {
+		should:      "fail with invalid unit tag first",
+		args:        []string{validUnitId, invalidUnitId, "valid-action-name"},
+		expectError: "invalid unit or action name \"something-strange-\"",
+	}, {
+		should:      "fail with invalid unit tag second",
+		args:        []string{invalidUnitId, validUnitId, "valid-action-name"},
+		expectError: "invalid unit or action name \"something-strange-\"",
+	}, {
+		should:       "work with multiple valid units",
+		args:         []string{validUnitId, validUnitId2, "valid-action-name"},
+		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId), names.NewUnitTag(validUnitId2)},
+		expectAction: "valid-action-name",
+		expectKVArgs: [][]string{},
+	}, {}, {
 		should:      "fail with invalid action name",
 		args:        []string{validUnitId, "BadName"},
-		expectError: "invalid action name \"BadName\"",
+		expectError: "invalid unit or action name \"BadName\"",
+	}, {
+		should:      "fail with invalid action name ending in \"-\"",
+		args:        []string{validUnitId, "name-end-with-dash-"},
+		expectError: "invalid unit or action name \"name-end-with-dash-\"",
 	}, {
 		should:      "fail with wrong formatting of k-v args",
 		args:        []string{validUnitId, "valid-action-name", "uh"},
@@ -95,33 +113,48 @@ func (s *RunSuite) TestInit(c *gc.C) {
 		args:        []string{validUnitId, "valid-action-name", "no-go?od=3"},
 		expectError: "key \"no-go\\?od\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens",
 	}, {
+		should:       "work with action name ending in numeric values",
+		args:         []string{validUnitId, "action-01"},
+		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectAction: "action-01",
+	}, {
+		should:       "work with numeric values within action name",
+		args:         []string{validUnitId, "action-00-foo"},
+		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectAction: "action-00-foo",
+	}, {
+		should:       "work with action name starting with numeric values",
+		args:         []string{validUnitId, "00-action"},
+		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
+		expectAction: "00-action",
+	}, {
 		should:       "work with empty values",
 		args:         []string{validUnitId, "valid-action-name", "ok="},
-		expectUnit:   names.NewUnitTag(validUnitId),
+		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
 		expectAction: "valid-action-name",
 		expectKVArgs: [][]string{{"ok", ""}},
 	}, {
 		should:             "handle --parse-strings",
 		args:               []string{validUnitId, "valid-action-name", "--string-args"},
-		expectUnit:         names.NewUnitTag(validUnitId),
+		expectUnits:        []names.UnitTag{names.NewUnitTag(validUnitId)},
 		expectAction:       "valid-action-name",
 		expectParseStrings: true,
 	}, {
 		// cf. worker/uniter/runner/jujuc/action-set_test.go per @fwereade
 		should:       "work with multiple '=' signs",
 		args:         []string{validUnitId, "valid-action-name", "ok=this=is=weird="},
-		expectUnit:   names.NewUnitTag(validUnitId),
+		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
 		expectAction: "valid-action-name",
 		expectKVArgs: [][]string{{"ok", "this=is=weird="}},
 	}, {
 		should:       "init properly with no params",
 		args:         []string{validUnitId, "valid-action-name"},
-		expectUnit:   names.NewUnitTag(validUnitId),
+		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
 		expectAction: "valid-action-name",
 	}, {
 		should:               "handle --params properly",
 		args:                 []string{validUnitId, "valid-action-name", "--params=foo.yml"},
-		expectUnit:           names.NewUnitTag(validUnitId),
+		expectUnits:          []names.UnitTag{names.NewUnitTag(validUnitId)},
 		expectAction:         "valid-action-name",
 		expectParamsYamlPath: "foo.yml",
 	}, {
@@ -134,7 +167,7 @@ func (s *RunSuite) TestInit(c *gc.C) {
 			"foo.baz.bo=3",
 			"bar.foo=hello",
 		},
-		expectUnit:           names.NewUnitTag(validUnitId),
+		expectUnits:          []names.UnitTag{names.NewUnitTag(validUnitId)},
 		expectAction:         "valid-action-name",
 		expectParamsYamlPath: "foo.yml",
 		expectKVArgs: [][]string{
@@ -151,7 +184,7 @@ func (s *RunSuite) TestInit(c *gc.C) {
 			"foo.baz.bo=y",
 			"bar.foo=hello",
 		},
-		expectUnit:   names.NewUnitTag(validUnitId),
+		expectUnits:  []names.UnitTag{names.NewUnitTag(validUnitId)},
 		expectAction: "valid-action-name",
 		expectKVArgs: [][]string{
 			{"foo", "bar", "2"},
@@ -166,9 +199,9 @@ func (s *RunSuite) TestInit(c *gc.C) {
 			c.Logf("test %d: should %s:\n$ juju run-action %s\n", i,
 				t.should, strings.Join(t.args, " "))
 			args := append([]string{modelFlag, "admin"}, t.args...)
-			err := testing.InitCommand(wrappedCommand, args)
+			err := cmdtesting.InitCommand(wrappedCommand, args)
 			if t.expectError == "" {
-				c.Check(command.UnitTag(), gc.Equals, t.expectUnit)
+				c.Check(command.UnitTags(), gc.DeepEquals, t.expectUnits)
 				c.Check(command.ActionName(), gc.Equals, t.expectAction)
 				c.Check(command.ParamsYAML().Path, gc.Equals, t.expectParamsYamlPath)
 				c.Check(command.Args(), jc.DeepEquals, t.expectKVArgs)
@@ -367,7 +400,7 @@ func (s *RunSuite) TestRun(c *gc.C) {
 
 				wrappedCommand, _ := action.NewRunCommandForTest(s.store)
 				args := append([]string{modelFlag, "admin"}, t.withArgs...)
-				ctx, err := testing.RunCommand(c, wrappedCommand, args...)
+				ctx, err := cmdtesting.RunCommand(c, wrappedCommand, args...)
 
 				if t.expectedErr != "" || t.withAPIErr != "" {
 					c.Check(err, gc.ErrorMatches, t.expectedErr)

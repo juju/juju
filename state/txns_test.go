@@ -33,6 +33,7 @@ const (
 func (s *MultiModelRunnerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.testRunner = &recordingRunner{}
+	logsC := logCollectionName(modelUUID)
 	s.multiModelRunner = &multiModelRunner{
 		rawRunner: s.testRunner,
 		modelUUID: modelUUID,
@@ -286,6 +287,7 @@ type objIdDoc struct {
 
 func (s *MultiModelRunnerSuite) TestWithObjectIds(c *gc.C) {
 	id := bson.NewObjectId()
+	logsC := logCollectionName(modelUUID)
 	inOps := []txn.Op{{
 		C:      logsC,
 		Id:     id,
@@ -453,14 +455,18 @@ func (s *MultiModelRunnerSuite) TestResumeTransactionsWithError(c *gc.C) {
 }
 
 func (s *MultiModelRunnerSuite) TestMaybePruneTransactions(c *gc.C) {
-	err := s.multiModelRunner.MaybePruneTransactions(2.0)
+	err := s.multiModelRunner.MaybePruneTransactions(jujutxn.PruneOptions{
+		PruneFactor: 2.0,
+	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.testRunner.pruneTransactionsCalled, jc.IsTrue)
 }
 
 func (s *MultiModelRunnerSuite) TestMaybePruneTransactionsWithError(c *gc.C) {
 	s.testRunner.pruneTransactionsErr = errors.New("boom")
-	err := s.multiModelRunner.MaybePruneTransactions(2.0)
+	err := s.multiModelRunner.MaybePruneTransactions(jujutxn.PruneOptions{
+		PruneFactor: 2.0,
+	})
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
@@ -495,7 +501,7 @@ func (r *recordingRunner) ResumeTransactions() error {
 	return r.resumeTransactionsErr
 }
 
-func (r *recordingRunner) MaybePruneTransactions(float32) error {
+func (r *recordingRunner) MaybePruneTransactions(_ jujutxn.PruneOptions) error {
 	r.pruneTransactionsCalled = true
 	return r.pruneTransactionsErr
 }

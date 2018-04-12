@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 
@@ -256,12 +256,10 @@ func (s *CharmSuite) TestDestroyFinalUnitReference(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.charm,
 	})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
-		Application: app,
-		SetCharmURL: true,
-	})
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
 
-	err := app.Destroy()
+	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	removeUnit(c, unit)
 
@@ -701,11 +699,6 @@ func assertCustomCharm(c *gc.C, ch *state.Charm, series string, meta *charm.Meta
 	// Ignore the StoragePath and BundleSHA256 methods, they're irrelevant.
 }
 
-func assertStandardCharm(c *gc.C, ch *state.Charm, series string) {
-	chd := testcharms.Repo.CharmDir(ch.Meta().Name)
-	assertCustomCharm(c, ch, series, chd.Meta(), chd.Config(), chd.Metrics(), chd.Revision())
-}
-
 func forEachStandardCharm(c *gc.C, f func(name string)) {
 	for _, name := range []string{
 		"logging", "mysql", "riak", "wordpress",
@@ -734,7 +727,7 @@ func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 var configYaml = `
 options:
   working:
-    description: when set to false, prevents service from functioning correctly
+    description: when set to false, prevents application from functioning correctly
     default: true
     type: boolean
 `

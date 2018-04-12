@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -32,7 +32,7 @@ import (
 type syncToolsSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	fakeSyncToolsAPI *fakeSyncToolsAPI
-	store            *jujuclienttesting.MemStore
+	store            *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&syncToolsSuite{})
@@ -43,7 +43,7 @@ func (s *syncToolsSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&getSyncToolsAPI, func(c *syncToolsCommand) (syncToolsAPI, error) {
 		return s.fakeSyncToolsAPI, nil
 	})
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "ctrl"
 	s.store.Accounts["ctrl"] = jujuclient.AccountDetails{
 		User: "admin",
@@ -55,10 +55,10 @@ func (s *syncToolsSuite) Reset(c *gc.C) {
 	s.SetUpTest(c)
 }
 
-func (s *syncToolsSuite) runSyncToolsCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+func (s *syncToolsSuite) runSyncAgentBinariesCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 	cmd := &syncToolsCommand{}
 	cmd.SetClientStore(s.store)
-	return coretesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
+	return cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
 }
 
 var syncToolsCommandTests = []struct {
@@ -132,7 +132,7 @@ func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
 			called = true
 			return nil
 		}
-		ctx, err := s.runSyncToolsCommand(c, test.args...)
+		ctx, err := s.runSyncAgentBinariesCommand(c, test.args...)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ctx, gc.NotNil)
 		c.Assert(called, jc.IsTrue)
@@ -157,7 +157,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 		called = true
 		return nil
 	}
-	ctx, err := s.runSyncToolsCommand(c, "-m", "test-target", "--local-dir", dir, "--stream", "proposed")
+	ctx, err := s.runSyncAgentBinariesCommand(c, "-m", "test-target", "--local-dir", dir, "--stream", "proposed")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
@@ -173,7 +173,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectoryPublic(c *gc.C) {
 		called = true
 		return nil
 	}
-	ctx, err := s.runSyncToolsCommand(c, "-m", "test-target", "--local-dir", dir, "--public")
+	ctx, err := s.runSyncAgentBinariesCommand(c, "-m", "test-target", "--local-dir", dir, "--public")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
@@ -203,8 +203,8 @@ func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
 	messages := []jc.SimpleMessage{
 		{loggo.INFO, "Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead."},
 	}
-	// Run sync-tools command with --destination flag.
-	ctx, err := s.runSyncToolsCommand(c, "-m", "test-target", "--destination", dir, "--stream", "released")
+	// Run sync-agents command with --destination flag.
+	ctx, err := s.runSyncAgentBinariesCommand(c, "-m", "test-target", "--destination", dir, "--stream", "released")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
@@ -284,7 +284,7 @@ func (s *syncToolsSuite) TestAPIAdapterBlockUploadTools(c *gc.C) {
 		// Block operation
 		return common.OperationBlockedError("TestAPIAdapterBlockUploadTools")
 	}
-	_, err := s.runSyncToolsCommand(c, "-m", "test-target", "--destination", c.MkDir(), "--stream", "released")
+	_, err := s.runSyncAgentBinariesCommand(c, "-m", "test-target", "--destination", c.MkDir(), "--stream", "released")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestAPIAdapterBlockUploadTools.*")
 }
 

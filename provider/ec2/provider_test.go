@@ -4,13 +4,18 @@
 package ec2_test
 
 import (
+	"fmt"
+
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"gopkg.in/amz.v3/aws"
+	ec2cloud "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -46,7 +51,7 @@ func (s *ProviderSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ProviderSuite) TestOpen(c *gc.C) {
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	})
@@ -59,7 +64,7 @@ func (s *ProviderSuite) TestOpenUnknownRegion(c *gc.C) {
 	// anything in the client. That means that when new regions are
 	// added to AWS, we'll be able to support them.
 	s.spec.Region = "foobar"
-	_, err := s.provider.Open(environs.OpenParams{
+	_, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	})
@@ -74,7 +79,7 @@ func (s *ProviderSuite) TestOpenKnownRegionInvalidEndpoint(c *gc.C) {
 	})
 	s.spec.Endpoint = "https://us-east-1.aws.amazon.com/v1.2/"
 
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	})
@@ -96,7 +101,7 @@ func (s *ProviderSuite) TestOpenKnownRegionValidEndpoint(c *gc.C) {
 	})
 	s.spec.Endpoint = "https://ec2.us-east-1.amazonaws.com"
 
-	env, err := s.provider.Open(environs.OpenParams{
+	env, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	})
@@ -118,9 +123,90 @@ func (s *ProviderSuite) TestOpenUnsupportedCredential(c *gc.C) {
 }
 
 func (s *ProviderSuite) testOpenError(c *gc.C, spec environs.CloudSpec, expect string) {
-	_, err := s.provider.Open(environs.OpenParams{
+	_, err := environs.Open(s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: coretesting.ModelConfig(c),
 	})
 	c.Assert(err, gc.ErrorMatches, expect)
+}
+
+func (s *ProviderSuite) TestVerifyCredentialsErrs(c *gc.C) {
+	env, err := environs.Open(s.provider, environs.OpenParams{
+		Cloud:  s.spec,
+		Config: coretesting.ModelConfig(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env, gc.NotNil)
+
+	err = ec2.VerifyCredentials(env)
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, gc.Not(jc.Satisfies), common.IsCredentialNotValid)
+}
+
+func (s *ProviderSuite) TestMaybeConvertCredentialErrorIgnoresNil(c *gc.C) {
+	err := ec2.MaybeConvertCredentialError(nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ProviderSuite) TestMaybeConvertCredentialErrorConvertsCredentialRelatedFailures(c *gc.C) {
+	for _, code := range []string{
+		"AuthFailure",
+		"InvalidClientTokenId",
+		"MissingAuthenticationToken",
+		"Blocked",
+		"CustomerKeyHasBeenRevoked",
+		"PendingVerification",
+		"SignatureDoesNotMatch",
+	} {
+		err := ec2.MaybeConvertCredentialError(&ec2cloud.Error{Code: code})
+		c.Assert(err, gc.NotNil)
+		c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
+	}
+}
+
+func (s *ProviderSuite) TestMaybeConvertCredentialErrorAppendsAuthorisationFailureMessage(c *gc.C) {
+	for _, code := range []string{
+		"OptInRequired",
+		"UnauthorizedOperation",
+	} {
+		err := ec2.MaybeConvertCredentialError(&ec2cloud.Error{Code: code})
+		c.Assert(err, gc.NotNil)
+		c.Assert(err, gc.Not(jc.Satisfies), common.IsCredentialNotValid)
+		c.Assert(err.Error(), jc.Contains, fmt.Sprintf("\nPlease subscribe to the requested Amazon service. \n"+
+			"You are currently not authorized to use it.\n"+
+			"New Amazon accounts might take some time to be activated while \n"+
+			"your details are being verified.:  (%v)", code))
+	}
+}
+
+func (s *ProviderSuite) TestMaybeConvertCredentialErrorHandlesOtherProviderErrors(c *gc.C) {
+	// Any other ec2.Error is returned unwrapped.
+	err := ec2.MaybeConvertCredentialError(&ec2cloud.Error{Code: "DryRunOperation"})
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+	c.Assert(err, gc.Not(jc.Satisfies), common.IsCredentialNotValid)
+}
+
+func (s *ProviderSuite) TestConvertedCredentialError(c *gc.C) {
+	// Trace() will keep error type
+	inner := ec2.MaybeConvertCredentialError(&ec2cloud.Error{Code: "Blocked"})
+	traced := errors.Trace(inner)
+	c.Assert(traced, gc.NotNil)
+	c.Assert(traced, jc.Satisfies, common.IsCredentialNotValid)
+
+	// Annotate() will keep error type
+	annotated := errors.Annotate(inner, "annotation")
+	c.Assert(annotated, gc.NotNil)
+	c.Assert(annotated, jc.Satisfies, common.IsCredentialNotValid)
+
+	// Running a CredentialNotValid through conversion call again is a no-op.
+	again := ec2.MaybeConvertCredentialError(inner)
+	c.Assert(again, gc.NotNil)
+	c.Assert(again, jc.Satisfies, common.IsCredentialNotValid)
+	c.Assert(again.Error(), jc.Contains, "\nYour Amazon account is currently blocked.:  (Blocked)")
+
+	// Running an annotated CredentialNotValid through conversion call again is a no-op too.
+	againAnotated := ec2.MaybeConvertCredentialError(annotated)
+	c.Assert(againAnotated, gc.NotNil)
+	c.Assert(againAnotated, jc.Satisfies, common.IsCredentialNotValid)
+	c.Assert(againAnotated.Error(), jc.Contains, "\nYour Amazon account is currently blocked.:  (Blocked)")
 }

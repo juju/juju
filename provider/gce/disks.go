@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/storage"
 )
@@ -52,6 +53,10 @@ func (g *storageProvider) Scope() storage.Scope {
 }
 
 func (g *storageProvider) Dynamic() bool {
+	return true
+}
+
+func (e *storageProvider) Releasable() bool {
 	return true
 }
 
@@ -204,7 +209,7 @@ func (v *volumeSource) createOneVolume(p storage.VolumeParams, instances instanc
 		SizeHintGB:         mibToGib(p.Size),
 		Name:               volumeName,
 		PersistentDiskType: persistentType,
-		Description:        v.modelUUID,
+		Labels:             resourceTagsToDiskLabels(p.ResourceTags),
 	}
 
 	gceDisks, err := v.gce.CreateDisks(zone, []google.DiskSpec{disk})
@@ -215,7 +220,6 @@ func (v *volumeSource) createOneVolume(p storage.VolumeParams, instances instanc
 		return nil, nil, errors.New(fmt.Sprintf("unexpected number of disks created: %d", len(gceDisks)))
 	}
 	gceDisk := gceDisks[0]
-	// TODO(perrito666) Tag, there are no tags in gce, how do we fix it?
 
 	attachedDisk, err := v.attachOneVolume(gceDisk.Name, google.ModeRW, inst.ID)
 	if err != nil {
@@ -246,17 +250,25 @@ func (v *volumeSource) createOneVolume(p storage.VolumeParams, instances instanc
 }
 
 func (v *volumeSource) DestroyVolumes(volNames []string) ([]error, error) {
+	return v.foreachVolume(volNames, v.destroyOneVolume), nil
+}
+
+func (v *volumeSource) ReleaseVolumes(volNames []string) ([]error, error) {
+	return v.foreachVolume(volNames, v.releaseOneVolume), nil
+}
+
+func (v *volumeSource) foreachVolume(volNames []string, f func(string) error) []error {
 	var wg sync.WaitGroup
 	wg.Add(len(volNames))
 	results := make([]error, len(volNames))
 	for i, volumeName := range volNames {
 		go func(i int, volumeName string) {
 			defer wg.Done()
-			results[i] = v.destroyOneVolume(volumeName)
+			results[i] = f(volumeName)
 		}(i, volumeName)
 	}
 	wg.Wait()
-	return results, nil
+	return results
 }
 
 func parseVolumeId(volName string) (string, string, error) {
@@ -267,7 +279,6 @@ func parseVolumeId(volName string) (string, string, error) {
 	zone := idRest[0]
 	volumeUUID := idRest[1]
 	return zone, volumeUUID, nil
-
 }
 
 func isValidVolume(volumeName string) bool {
@@ -286,33 +297,87 @@ func (v *volumeSource) destroyOneVolume(volName string) error {
 	return nil
 }
 
-func (v *volumeSource) ListVolumes() ([]string, error) {
-	azs, err := v.gce.AvailabilityZones("")
+func (v *volumeSource) releaseOneVolume(volName string) error {
+	zone, _, err := parseVolumeId(volName)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot determine availability zones")
+		return errors.Annotatef(err, "invalid volume id %q", volName)
 	}
+	disk, err := v.gce.Disk(zone, volName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	switch disk.Status {
+	case google.StatusReady, google.StatusFailed:
+	default:
+		return errors.Errorf(
+			"cannot release volume %q with status %q",
+			volName, disk.Status,
+		)
+	}
+	if len(disk.AttachedInstances) > 0 {
+		return errors.Errorf(
+			"cannot release volume %q, attached to instances %q",
+			volName, disk.AttachedInstances,
+		)
+	}
+	delete(disk.Labels, tags.JujuController)
+	delete(disk.Labels, tags.JujuModel)
+	if err := v.gce.SetDiskLabels(zone, volName, disk.LabelFingerprint, disk.Labels); err != nil {
+		return errors.Annotatef(err, "cannot remove labels from volume %q", volName)
+	}
+	return nil
+}
+
+func (v *volumeSource) ListVolumes() ([]string, error) {
 	var volumes []string
-	for _, zone := range azs {
-		disks, err := v.gce.Disks(zone.Name())
-		if err != nil {
-			// maybe use available and status also.
-			logger.Errorf("cannot get disks for %q zone", zone.Name())
+	disks, err := v.gce.Disks()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, disk := range disks {
+		if !isValidVolume(disk.Name) {
 			continue
 		}
-		for _, disk := range disks {
-			// Blank disk description means an older disk or a disk
-			// not created by storage, we should not touch it.
-			if disk.Description != v.modelUUID && disk.Description != "" {
-				continue
-			}
-			// We don't want to lay hands on disks we did not create.
-			if isValidVolume(disk.Name) {
-				volumes = append(volumes, disk.Name)
-			}
+		if disk.Labels[tags.JujuModel] != v.modelUUID {
+			continue
 		}
+		volumes = append(volumes, disk.Name)
 	}
 	return volumes, nil
 }
+
+// ImportVolume is specified on the storage.VolumeImporter interface.
+func (v *volumeSource) ImportVolume(volName string, tags map[string]string) (storage.VolumeInfo, error) {
+	zone, _, err := parseVolumeId(volName)
+	if err != nil {
+		return storage.VolumeInfo{}, errors.Annotatef(err, "cannot get volume %q", volName)
+	}
+	disk, err := v.gce.Disk(zone, volName)
+	if err != nil {
+		return storage.VolumeInfo{}, errors.Annotatef(err, "cannot get volume %q", volName)
+	}
+	if disk.Status != google.StatusReady {
+		return storage.VolumeInfo{}, errors.Errorf(
+			"cannot import volume %q with status %q",
+			volName, disk.Status,
+		)
+	}
+	if disk.Labels == nil {
+		disk.Labels = make(map[string]string)
+	}
+	for k, v := range resourceTagsToDiskLabels(tags) {
+		disk.Labels[k] = v
+	}
+	if err := v.gce.SetDiskLabels(zone, volName, disk.LabelFingerprint, disk.Labels); err != nil {
+		return storage.VolumeInfo{}, errors.Annotatef(err, "cannot update labels on volume %q", volName)
+	}
+	return storage.VolumeInfo{
+		VolumeId:   disk.Name,
+		Size:       disk.Size,
+		Persistent: true,
+	}, nil
+}
+
 func (v *volumeSource) DescribeVolumes(volNames []string) ([]storage.DescribeVolumesResult, error) {
 	results := make([]storage.DescribeVolumesResult, len(volNames))
 	for i, vol := range volNames {
@@ -368,7 +433,10 @@ func (v *volumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentPara
 			attachment.Volume,
 			attachment.Machine,
 			storage.VolumeAttachmentInfo{
-				DeviceName: attached.DeviceName,
+				DeviceLink: fmt.Sprintf(
+					"/dev/disk/by-id/google-%s",
+					attached.DeviceName,
+				),
 			},
 		}
 	}
@@ -414,4 +482,20 @@ func (v *volumeSource) detachOneVolume(attachParam storage.VolumeAttachmentParam
 		return errors.Annotatef(err, "%q is not a valid volume id", volumeName)
 	}
 	return v.gce.DetachDisk(zone, string(instId), volumeName)
+}
+
+// resourceTagsToDiskLabels translates a set of
+// resource tags, provided by Juju, to disk labels.
+func resourceTagsToDiskLabels(in map[string]string) map[string]string {
+	out := make(map[string]string)
+	for k, v := range in {
+		// Only the controller and model UUID tags are carried
+		// over, as they're known not to conflict with GCE's
+		// rules regarding label values.
+		switch k {
+		case tags.JujuController, tags.JujuModel:
+			out[k] = v
+		}
+	}
+	return out
 }

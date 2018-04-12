@@ -24,6 +24,10 @@ type VolumeInfo struct {
 	// a hardware ID, so this may be left blank.
 	HardwareId string
 
+	// WWN is the volume's World Wide Name (WWN). Not all volumes
+	// have a WWN, so this may be left blank.
+	WWN string
+
 	// Size is the size of the volume, in MiB.
 	Size uint64
 

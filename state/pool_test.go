@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -17,7 +18,6 @@ import (
 type statePoolSuite struct {
 	statetesting.StateSuite
 	State1, State2                    *state.State
-	Pool                              *state.StatePool
 	ModelUUID, ModelUUID1, ModelUUID2 string
 }
 
@@ -34,75 +34,51 @@ func (s *statePoolSuite) SetUpTest(c *gc.C) {
 	s.State2 = s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { s.State2.Close() })
 	s.ModelUUID2 = s.State2.ModelUUID()
-
-	s.Pool = state.NewStatePool(s.State)
-	s.AddCleanup(func(*gc.C) { s.Pool.Close() })
 }
 
 func (s *statePoolSuite) TestGet(c *gc.C) {
-	st1, _, err := s.Pool.Get(s.ModelUUID1)
+	st1, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st1.ModelUUID(), gc.Equals, s.ModelUUID1)
 
-	st2, _, err := s.Pool.Get(s.ModelUUID2)
+	st2, err := s.StatePool.Get(s.ModelUUID2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st2.ModelUUID(), gc.Equals, s.ModelUUID2)
 
 	// Check that the same instances are returned
 	// when a State for the same model is re-requested.
-	st1_, _, err := s.Pool.Get(s.ModelUUID1)
+	st1_, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st1_, gc.Equals, st1)
+	c.Assert(st1_.State, gc.Equals, st1.State)
 
-	st2_, _, err := s.Pool.Get(s.ModelUUID2)
+	st2_, err := s.StatePool.Get(s.ModelUUID2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st2_, gc.Equals, st2)
+	c.Assert(st2_.State, gc.Equals, st2.State)
 }
 
 func (s *statePoolSuite) TestGetWithControllerModel(c *gc.C) {
 	// When a State for the controller model is requested, the same
 	// State that was original passed in should be returned.
-	st0, _, err := s.Pool.Get(s.ModelUUID)
+	st0, err := s.StatePool.Get(s.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st0, gc.Equals, s.State)
+	c.Assert(st0.State, gc.Equals, s.State)
 }
 
 func (s *statePoolSuite) TestGetSystemState(c *gc.C) {
-	st0 := s.Pool.SystemState()
+	st0 := s.StatePool.SystemState()
 	c.Assert(st0, gc.Equals, s.State)
-}
-
-func (s *statePoolSuite) TestKillWorkers(c *gc.C) {
-	// Get some State instances via the pool and extract their
-	// internal workers.
-	st1, _, err := s.Pool.Get(s.ModelUUID1)
-	c.Assert(err, jc.ErrorIsNil)
-	w1 := state.GetInternalWorkers(st1)
-	workertest.CheckAlive(c, w1)
-
-	st2, _, err := s.Pool.Get(s.ModelUUID2)
-	c.Assert(err, jc.ErrorIsNil)
-	w2 := state.GetInternalWorkers(st2)
-	workertest.CheckAlive(c, w2)
-
-	// Now kill their workers.
-	s.Pool.KillWorkers()
-
-	// Ensure the internal workers for each State died.
-	c.Check(workertest.CheckKilled(c, w1), jc.ErrorIsNil)
-	c.Check(workertest.CheckKilled(c, w2), jc.ErrorIsNil)
 }
 
 func (s *statePoolSuite) TestClose(c *gc.C) {
 	// Get some State instances.
-	st1, _, err := s.Pool.Get(s.ModelUUID1)
+	st1, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st2, _, err := s.Pool.Get(s.ModelUUID2)
+	st2, err := s.StatePool.Get(s.ModelUUID2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now close them.
-	err = s.Pool.Close()
+	err = s.StatePool.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Confirm that controller State isn't closed.
@@ -111,46 +87,50 @@ func (s *statePoolSuite) TestClose(c *gc.C) {
 
 	// Ensure that new ones are returned if further States are
 	// requested.
-	st1_, _, err := s.Pool.Get(s.ModelUUID1)
+	st1_, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st1_, gc.Not(gc.Equals), st1)
 
-	st2_, _, err := s.Pool.Get(s.ModelUUID2)
+	st2_, err := s.StatePool.Get(s.ModelUUID2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st2_, gc.Not(gc.Equals), st2)
 }
 
 func (s *statePoolSuite) TestTooManyReleases(c *gc.C) {
-	st, firstRelease, err := s.Pool.Get(s.ModelUUID1)
+	st1, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 	// Get a second reference to the same model
-	_, secondRelease, err := s.Pool.Get(s.ModelUUID1)
+	st2, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Try to call the first releaser twice.
-	firstRelease()
-	firstRelease()
+	st1.Release()
+	st1.Release()
 
-	err = s.Pool.Remove(s.ModelUUID1)
+	removed, err := s.StatePool.Remove(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removed, jc.IsFalse)
 
 	// Not closed because r2 has not been called.
-	assertNotClosed(c, st)
+	assertNotClosed(c, st1.State)
 
-	secondRelease()
-	assertClosed(c, st)
+	removed = st2.Release()
+	c.Assert(removed, jc.IsTrue)
+	assertClosed(c, st1.State)
 }
 
 func (s *statePoolSuite) TestReleaseOnSystemStateUUID(c *gc.C) {
-	st, releaser, err := s.Pool.Get(s.ModelUUID)
+	st, err := s.StatePool.Get(s.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	releaser()
-	assertNotClosed(c, st)
+	removed := st.Release()
+	c.Assert(removed, jc.IsFalse)
+	assertNotClosed(c, st.State)
 }
 
 func (s *statePoolSuite) TestRemoveSystemStateUUID(c *gc.C) {
-	err := s.Pool.Remove(s.ModelUUID)
+	removed, err := s.StatePool.Remove(s.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removed, jc.IsFalse)
 	assertNotClosed(c, s.State)
 }
 
@@ -165,47 +145,53 @@ func assertClosed(c *gc.C, st *state.State) {
 }
 
 func (s *statePoolSuite) TestRemoveWithNoRefsCloses(c *gc.C) {
-	st, releaser, err := s.Pool.Get(s.ModelUUID1)
+	st, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	releaser()
 
 	// Confirm the state isn't closed.
-	assertNotClosed(c, st)
+	removed := st.Release()
+	c.Assert(removed, jc.IsFalse)
+	assertNotClosed(c, st.State)
 
-	err = s.Pool.Remove(s.ModelUUID1)
+	removed, err = s.StatePool.Remove(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removed, jc.IsTrue)
 
-	assertClosed(c, st)
+	assertClosed(c, st.State)
 }
 
 func (s *statePoolSuite) TestRemoveWithRefsClosesOnLastRelease(c *gc.C) {
-	st, firstRelease, err := s.Pool.Get(s.ModelUUID1)
+	st, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, secondRelease, err := s.Pool.Get(s.ModelUUID1)
+	st2, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 	// Now there are two references to the state.
 	// Sanity check!
-	assertNotClosed(c, st)
+	assertNotClosed(c, st.State)
 
 	// Doesn't close while there are refs still held.
-	err = s.Pool.Remove(s.ModelUUID1)
+	removed, err := s.StatePool.Remove(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	assertNotClosed(c, st)
+	c.Assert(removed, jc.IsFalse)
+	assertNotClosed(c, st.State)
 
-	firstRelease()
+	removed = st.Release()
 	// Hasn't been closed - still one outstanding reference.
-	assertNotClosed(c, st)
+	c.Assert(removed, jc.IsFalse)
+	assertNotClosed(c, st.State)
 
 	// Should be closed when it's released back into the pool.
-	secondRelease()
-	assertClosed(c, st)
+	removed = st2.Release()
+	c.Assert(removed, jc.IsTrue)
+	assertClosed(c, st.State)
 }
 
 func (s *statePoolSuite) TestGetRemovedNotAllowed(c *gc.C) {
-	_, _, err := s.Pool.Get(s.ModelUUID1)
+	_, err := s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.Pool.Remove(s.ModelUUID1)
+	_, err = s.StatePool.Remove(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, err = s.Pool.Get(s.ModelUUID1)
+	_, err = s.StatePool.Get(s.ModelUUID1)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("model %v has been removed", s.ModelUUID1))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

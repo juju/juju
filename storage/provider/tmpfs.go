@@ -83,6 +83,11 @@ func (*tmpfsProvider) Dynamic() bool {
 	return true
 }
 
+// Releasable is defined on the Provider interface.
+func (*tmpfsProvider) Releasable() bool {
+	return false
+}
+
 // DefaultPools is defined on the Provider interface.
 func (*tmpfsProvider) DefaultPools() []*storage.Config {
 	return nil
@@ -153,6 +158,11 @@ func (s *tmpfsFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]er
 	// DestroyFilesystems is a no-op; there is nothing to destroy,
 	// since the filesystem is ephemeral and disappears once
 	// detached.
+	return make([]error, len(filesystemIds)), nil
+}
+
+// ReleaseFilesystems is defined on the FilesystemSource interface.
+func (s *tmpfsFilesystemSource) ReleaseFilesystems(filesystemIds []string) ([]error, error) {
 	return make([]error, len(filesystemIds)), nil
 }
 

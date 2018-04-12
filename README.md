@@ -3,10 +3,10 @@ juju
 
 juju is devops distilled.
 
-Juju enables you to use [Charms](http://jujucharms.com/charms) to deploy your application architectures to EC2, OpenStack,
-Azure, HP your data center and even your own Ubuntu based laptop.
-Moving between models is simple giving you the flexibility to switch hosts
-whenever you want — for free.
+Juju enables you to use [Charms](https://jujucharms.com/docs/stable/charms) to deploy your
+application architectures to EC2, OpenStack, Azure, GCE, your data center, and
+even your own Ubuntu based laptop.  Moving between models is simple giving you
+the flexibility to switch hosts whenever you want — for free.
 
 For more information, see the [docs](https://jujucharms.com/docs/stable/getting-started).
 
@@ -16,12 +16,30 @@ Getting started
 `juju` is written in Go (http://golang.org), a modern, compiled, statically typed,
 concurrent language. This document describes how to build `juju` from source.
 
-If you are looking for binary releases of `juju`, they are available from the Juju
-stable PPA, `https://launchpad.net/~juju/+archive/stable`, and can be installed with:
+If you are looking for binary releases of `juju`, they are available in the snap store
 
-    sudo apt-add-repository ppa:juju/stable
-    sudo apt-get update
-    sudo apt-get install juju
+    snap install juju --classic
+    
+Installing Go
+--------------
+
+`Juju's` source code currently depends on Go 1.9. One of the easiest ways
+to install golang is from a snap. You may need to first install
+the [snap client](https://snapcraft.io/docs/core/install). Installing the golang
+snap package is then as easy as
+
+    snap install go --classic
+
+Note: Check the version of Ubuntu you are using. If it is 16.04 LTS, the snap installation gets 1.6 golang version.
+      But juju build needs "context" package which is available only from 1.7 golang version.
+
+You can read about the "classic" confinement policy [here](https://insights.ubuntu.com/2017/01/09/how-to-snap-introducing-classic-confinement/)
+
+If you want to use `apt`, then you can add the [juju-golang PPA](https://launchpad.net/~juju/+archive/ubuntu/golang) and then run the following
+
+    sudo apt install golang-1.9
+
+Alternatively, you can always follow the official [binary installation instructions](https://golang.org/doc/install#install)
 
 Setting GOPATH
 --------------
@@ -67,7 +85,7 @@ install `juju` and its dependencies. To checkout without installing, use the
     go help get
 
 At this point you will have the git local repository of the `juju` source at
-`$GOPATH/github.com/juju/juju`. The source for any dependent packages will
+`$GOPATH/src/github.com/juju/juju`. The source for any dependent packages will
 also be available inside `$GOPATH`. You can use `git pull --rebase`, or the 
 less convenient `go get -u github.com/juju/juju/...` to update the source
 from time to time.
@@ -77,6 +95,23 @@ If you want to know more about contributing to `juju`, please read the
 Installing prerequisites
 ------------------------
 
+### *Making use of Makefile*
+
+The `juju` repository contains a `Makefile`, which is the preferred way to install dependencies and other features.
+It is advisable, when installing `juju` from source, to look at the [Makefile](./Makefile), located in `$GOPATH/src/github.com/juju/juju/Makefile`.
+
+### *Dependencies*
+
+Juju needs some dependencies in order to be installed and the preferred way to 
+collect the necessary packages is to use the provided `Makefile`.
+The target `godeps` will download the go packages listed in `dependencies.tsv`. The following bash code will install the dependencies.
+
+    cd $GOPATH/src/github.com/juju/juju
+    export JUJU_MAKE_GODEPS=true
+    make godeps
+
+### *Runtime Dependencies*
+
 You can use `make install-dependencies` or, if you prefer to install
 them manually, check the Makefile target.
 
@@ -84,6 +119,14 @@ This will add some PPAs to ensure that you can install the required
 golang and mongodb-server versions for precise onwards, in addition to the
 other dependencies.
 
+### *Build Dependencies*
+
+Before you can build Juju, see
+[Dependency management](CONTRIBUTING.md#dependency-management) section of
+`CONTRIBUTING` to ensure you have build dependencies setup.
+
+As mentioned in Go Installation step, juju requires "context" package which is available from 1.7 golang. Upgrade your golang version to 1.7 or later. If you have trouble installing in 16.04 try longsleep/golang-backports as described in below link:
+https://github.com/golang/go/wiki/Ubuntu
 
 Building juju
 =============
@@ -110,13 +153,9 @@ commands. You can verify this using
 
     which juju
 
-You should be able to bootstrap a local model now with the following
-(Note: the use of sudo for bootstrap here is only required for the local
-provider because it uses LXC, which requires root privileges)
+You should be able to bootstrap a local model now with the following:
 
-    juju init
-    juju switch local
-    sudo juju bootstrap
+    juju bootstrap localhost
 
 Installing bash completion for juju
 ===================================
@@ -152,8 +191,3 @@ To enable strict mode, the following bugs need to be resolved, and the snap upda
  * Needs SSH interface (https://bugs.launchpad.net/snappy/+bug/1606574)
  * Bash completion doesn't work (https://launchpad.net/bugs/1612303)
  * Juju plugin support (https://bugs.launchpad.net/juju/+bug/1628538)
-
-Needed for confinement
-----------------------
- * Missing support for abstract unix sockets (https://bugs.launchpad.net/snappy/+bug/1604967)
- * Needs SSH interface (https://bugs.launchpad.net/snappy/+bug/1606574)

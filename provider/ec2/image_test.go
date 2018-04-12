@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
 	"github.com/juju/juju/testing"
 )
@@ -46,7 +47,7 @@ var findInstanceSpecTests = []struct {
 		series: "xenial",
 		arches: []string{"amd64"},
 		cons:   "cores=4",
-		itype:  "t2.xlarge",
+		itype:  "c5.xlarge",
 		image:  "ami-00000133",
 	}, {
 		series: "xenial",
@@ -70,7 +71,7 @@ var findInstanceSpecTests = []struct {
 		series: "xenial",
 		arches: []string{"amd64"},
 		cons:   "cpu-power=800",
-		itype:  "c4.large",
+		itype:  "c5.large",
 		image:  "ami-00000133",
 	}, {
 		series: "xenial",
@@ -88,21 +89,21 @@ var findInstanceSpecTests = []struct {
 		series:  "xenial",
 		arches:  []string{"amd64"},
 		cons:    "mem=4G root-disk=16384M",
-		itype:   "m4.large",
+		itype:   "c5.large",
 		storage: []string{"ssd", "ebs"},
 		image:   "ami-00000133",
 	}, {
 		series:  "xenial",
 		arches:  []string{"amd64"},
 		cons:    "mem=4G root-disk=16384M",
-		itype:   "m4.large",
+		itype:   "c5.large",
 		storage: []string{"ebs", "ssd"},
 		image:   "ami-00000139",
 	}, {
 		series:  "xenial",
 		arches:  []string{"amd64"},
 		cons:    "mem=4G root-disk=16384M",
-		itype:   "m4.large",
+		itype:   "c5.large",
 		storage: []string{"ebs"},
 		image:   "ami-00000139",
 	}, {
@@ -170,7 +171,7 @@ func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.
 
 	instanceConstraint := &instances.InstanceConstraint{
 		Region:      "test",
-		Series:      series.LatestLts(),
+		Series:      version.SupportedLts(),
 		Constraints: constraints.MustParse("instance-type=t2.medium"),
 	}
 
@@ -192,16 +193,16 @@ var findInstanceSpecErrorTests = []struct {
 	err    string
 }{
 	{
-		series: series.LatestLts(),
+		series: version.SupportedLts(),
 		arches: []string{"arm"},
-		err:    fmt.Sprintf(`no "%s" images in test with arches \[arm\]`, series.LatestLts()),
+		err:    fmt.Sprintf(`no "%s" images in test with arches \[arm\]`, version.SupportedLts()),
 	}, {
 		series: "raring",
 		arches: []string{"amd64", "i386"},
 		cons:   "mem=4G",
 		err:    `no "raring" images in test matching instance types \[.*\]`,
 	}, {
-		series: series.LatestLts(),
+		series: version.SupportedLts(),
 		arches: []string{"amd64"},
 		cons:   "instance-type=m1.small mem=4G",
 		err:    `no instance types in test matching constraints "instance-type=m1.small mem=4096M"`,

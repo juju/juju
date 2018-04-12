@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
@@ -14,54 +16,88 @@ import (
 	jworker "github.com/juju/juju/worker"
 )
 
-// LogPruneParams specifies how logs should be pruned.
-type LogPruneParams struct {
-	MaxLogAge       time.Duration
-	MaxCollectionMB int
-	PruneInterval   time.Duration
+var logger = loggo.GetLogger("juju.worker.dblogpruner")
+
+type Config struct {
+	State         *state.State
+	Clock         clock.Clock
+	PruneInterval time.Duration
 }
 
-const DefaultMaxLogAge = 3 * 24 * time.Hour // 3 days
-const DefaultMaxCollectionMB = 4 * 1024     // 4 GB
-const DefaultPruneInterval = 5 * time.Minute
-
-// NewLogPruneParams returns a LogPruneParams initialised with default
-// values.
-func NewLogPruneParams() *LogPruneParams {
-	return &LogPruneParams{
-		MaxLogAge:       DefaultMaxLogAge,
-		MaxCollectionMB: DefaultMaxCollectionMB,
-		PruneInterval:   DefaultPruneInterval,
+func (config Config) Validate() error {
+	if config.State == nil {
+		return errors.NotValidf("nil State")
 	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if config.PruneInterval <= 0 {
+		return errors.NotValidf("non-positive PruneInterval")
+	}
+	return nil
 }
 
-// New returns a worker which periodically wakes up to remove old log
-// entries stored in MongoDB. This worker is intended to run just
-// once, on the MongoDB master.
-func New(st *state.State, params *LogPruneParams) worker.Worker {
-	w := &pruneWorker{
-		st:     st,
-		params: params,
+// NewWorker returns a worker which periodically wakes up to remove old log
+// entries stored in MongoDB. This worker must not be run in more than one
+// agent concurrently.
+func NewWorker(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	}
-	return jworker.NewSimpleWorker(w.loop)
+	w := &pruneWorker{config: config}
+	return jworker.NewSimpleWorker(w.loop), nil
 }
 
 type pruneWorker struct {
-	st     *state.State
-	params *LogPruneParams
+	config Config
 }
 
 func (w *pruneWorker) loop(stopCh <-chan struct{}) error {
-	p := w.params
+	controllerConfigWatcher := w.config.State.WatchControllerConfig()
+	defer worker.Stop(controllerConfigWatcher)
+
+	var (
+		maxLogAge               time.Duration
+		maxCollectionMB         int
+		controllerConfigChanges = controllerConfigWatcher.Changes()
+		pruneTimer              clock.Timer
+		pruneCh                 <-chan time.Time
+	)
+
 	for {
 		select {
 		case <-stopCh:
 			return tomb.ErrDying
-		case <-time.After(p.PruneInterval):
-			// TODO(fwereade): 2016-03-17 lp:1558657
-			minLogTime := time.Now().Add(-p.MaxLogAge)
-			err := state.PruneLogs(w.st, minLogTime, p.MaxCollectionMB)
+
+		case _, ok := <-controllerConfigChanges:
+			if !ok {
+				return errors.New("controller configuration watcher closed")
+			}
+			controllerConfig, err := w.config.State.ControllerConfig()
 			if err != nil {
+				return errors.Annotate(err, "cannot load controller configuration")
+			}
+			newMaxAge := controllerConfig.MaxLogsAge()
+			newMaxCollectionMB := controllerConfig.MaxLogSizeMB()
+			if newMaxAge != maxLogAge || newMaxCollectionMB != maxCollectionMB {
+				logger.Infof("log pruning config: max age: %v, max collection size %dM", newMaxAge, newMaxCollectionMB)
+				maxLogAge = newMaxAge
+				maxCollectionMB = newMaxCollectionMB
+			}
+			if pruneTimer == nil {
+				// We defer starting the timer until the
+				// controller configuration watcher fires
+				// for the first time, and we have correct
+				// configuration values for pruning below.
+				pruneTimer = w.config.Clock.NewTimer(w.config.PruneInterval)
+				pruneCh = pruneTimer.Chan()
+				defer pruneTimer.Stop()
+			}
+
+		case <-pruneCh:
+			pruneTimer.Reset(w.config.PruneInterval)
+			minLogTime := time.Now().Add(-maxLogAge)
+			if err := state.PruneLogs(w.config.State, minLogTime, maxCollectionMB); err != nil {
 				return errors.Trace(err)
 			}
 		}

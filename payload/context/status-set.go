@@ -15,22 +15,17 @@ const StatusSetCmdName = "payload-status-set"
 
 // NewStatusSetCmd returns a new StatusSetCmd that wraps the given context.
 func NewStatusSetCmd(ctx HookContext) (*StatusSetCmd, error) {
-	compCtx, err := ContextComponent(ctx)
-	if err != nil {
-		// The component wasn't tracked properly.
-		return nil, errors.Trace(err)
-	}
-	return &StatusSetCmd{hctx: compCtx}, nil
+	return &StatusSetCmd{hookContextFunc: componentHookContext(ctx)}, nil
 }
 
 // StatusSetCmd is a command that registers a payload with juju.
 type StatusSetCmd struct {
 	cmd.CommandBase
 
-	hctx   Component
-	class  string
-	id     string
-	status string
+	hookContextFunc func() (Component, error)
+	class           string
+	id              string
+	status          string
 }
 
 // Info implements cmd.Command.
@@ -64,16 +59,20 @@ func (c *StatusSetCmd) Run(ctx *cmd.Context) error {
 	if err := c.validate(ctx); err != nil {
 		return errors.Trace(err)
 	}
+	hctx, err := c.hookContextFunc()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	if err := c.hctx.SetStatus(c.class, c.id, c.status); err != nil {
+	if err := hctx.SetStatus(c.class, c.id, c.status); err != nil {
 		return errors.Trace(err)
 	}
 
 	// TODO(ericsnow) Is the flush really necessary?
 
-	// We flush to state immedeiately so that status reflects the
+	// We flush to state immediately so that status reflects the
 	// payload correctly.
-	if err := c.hctx.Flush(); err != nil {
+	if err := hctx.Flush(); err != nil {
 		return errors.Trace(err)
 	}
 

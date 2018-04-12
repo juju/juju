@@ -295,3 +295,89 @@ func (s *NetworkSuite) TestQuoteSpaceSet(c *gc.C) {
 	// Mixed
 	checkQuoteSpaceSet(c, `"", "b"`, "b", "")
 }
+
+type CIDRSuite struct{}
+
+var _ = gc.Suite(&CIDRSuite{})
+
+func (s *CIDRSuite) TestSubnetInAnyRange(c *gc.C) {
+	type test struct {
+		cidrs    []string
+		subnet   string
+		included bool
+	}
+
+	tests := []*test{
+		{
+			cidrs: []string{
+				"192.168.8.0/21",
+				"192.168.20.0/24",
+			},
+			subnet:   "192.168.8.0/24",
+			included: true,
+		}, {
+			cidrs: []string{
+				"192.168.8.0/21",
+				"192.168.20.0/24",
+			},
+			subnet:   "192.168.12.128/26",
+			included: true,
+		}, {
+			cidrs: []string{
+				"192.168.8.0/21",
+				"192.168.20.0/24",
+			},
+			subnet:   "192.168.20.128/27",
+			included: true,
+		}, {
+			cidrs: []string{
+				"192.168.8.0/21",
+				"192.168.20.0/24",
+			},
+			subnet:   "192.168.15.255/32",
+			included: true,
+		}, {
+			cidrs: []string{
+				"192.168.8.0/21",
+				"192.168.20.0/24",
+			},
+			subnet:   "192.168.16.64/26",
+			included: false,
+		}, {
+			cidrs: []string{
+				"2620:0:2d0:200:0:0:0:10/116",
+				"2630:0:2d0:200:0:0:0:10/120",
+			},
+			subnet:   "2620:0:2d0:200:0:0:0:0/124",
+			included: true,
+		}, {
+			cidrs: []string{
+				"2620:0:2d0:200:0:0:0:10/116",
+				"2630:0:2d0:200:0:0:0:10/120",
+			},
+			subnet:   "2620:0:2d0:200:0:0:0:10/128",
+			included: true,
+		}, {
+			cidrs: []string{
+				"2620:0:2d0:200:0:0:0:10/116",
+				"2630:0:2d0:200:0:0:0:10/120",
+			},
+			subnet:   "2620:0:2d0:200:0:0:20:10/120",
+			included: false,
+		},
+	}
+
+	for i, t := range tests {
+		c.Logf("test %d: %v in %v?", i, t.subnet, t.cidrs)
+		cidrs := make([]*net.IPNet, len(t.cidrs))
+		for i, cidrStr := range t.cidrs {
+			_, cidr, err := net.ParseCIDR(cidrStr)
+			c.Assert(err, jc.ErrorIsNil)
+			cidrs[i] = cidr
+		}
+		_, subnet, err := net.ParseCIDR(t.subnet)
+		c.Assert(err, jc.ErrorIsNil)
+		result := network.SubnetInAnyRange(cidrs, subnet)
+		c.Assert(result, gc.Equals, t.included)
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -20,7 +21,7 @@ import (
 )
 
 var usageAddCredentialSummary = `
-Adds or replaces credentials for a cloud.`[1:]
+Adds or replaces credentials for a cloud, stored locally on this client.`[1:]
 
 var usageAddCredentialDetails = `
 The user is prompted to add credentials interactively if a YAML-formatted
@@ -34,16 +35,15 @@ credentials:
       secret-key: <key>
   azure:
     <credential name>:
-      auth-type: userpass
+      auth-type: service-principal-secret
       application-id: <uuid1>
       application-password: <password>
       subscription-id: <uuid2>
-      tenant-id: <uuid3>
 
 A "credential name" is arbitrary and is used solely to represent a set of
 credentials, of which there may be multiple per cloud.
 The ` + "`--replace`" + ` option is required if credential information for the named
-cloud already exists. All such information will be overwritten.
+cloud already exists locally. All such information will be overwritten.
 This command does not set default regions nor default credentials. Note
 that if only one credential name exists, it will become the effective
 default credential.
@@ -148,7 +148,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	}
 	// If there are *any* credentials already for the cloud, we'll ask for the --replace flag.
 	if !c.Replace && len(existingCredentials.AuthCredentials) > 0 && len(credentials.AuthCredentials) > 0 {
-		return errors.Errorf("credentials for cloud %s already exist; use --replace to overwrite / merge", c.CloudName)
+		return errors.Errorf("local credentials for cloud %q already exist; use --replace to overwrite / merge", c.CloudName)
 	}
 
 	validAuthType := func(authType jujucloud.AuthType) bool {
@@ -159,17 +159,24 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 		}
 		return false
 	}
+
+	names := []string{}
 	for name, cred := range credentials.AuthCredentials {
 		if !validAuthType(cred.AuthType()) {
 			return errors.Errorf("credential %q contains invalid auth type %q, valid auth types for cloud %q are %v", name, cred.AuthType(), c.CloudName, c.cloud.AuthTypes)
 		}
 		existingCredentials.AuthCredentials[name] = cred
+		names = append(names, name)
 	}
 	err = c.store.UpdateCredential(c.CloudName, *existingCredentials)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(ctxt.Stdout, "Credentials updated for cloud %q.\n", c.CloudName)
+	verb := "added"
+	if c.Replace {
+		verb = "updated"
+	}
+	fmt.Fprintf(ctxt.Stdout, "Credentials %q %v for cloud %q.\n", strings.Join(names, ", "), verb, c.CloudName)
 	return nil
 }
 
@@ -201,15 +208,17 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 	if err != nil {
 		return errors.Trace(err)
 	}
+	verb := "added"
 	if _, ok := existingCredentials.AuthCredentials[credentialName]; ok {
-		fmt.Fprint(ctxt.Stdout, "A credential with that name already exists.\n")
-		overwrite, err := pollster.YN("Replace the existing credential", false)
+		fmt.Fprint(ctxt.Stdout, fmt.Sprintf("A credential %q already exists locally on this client.\n", credentialName))
+		overwrite, err := pollster.YN("Replace local credential", false)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if !overwrite {
 			return nil
 		}
+		verb = "updated"
 	}
 	authType, err := c.promptAuthType(pollster, c.cloud.AuthTypes, ctxt.Stdout)
 	if err != nil {
@@ -226,6 +235,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 	}
 
 	cloudEndpoint := c.cloud.Endpoint
+	cloudStorageEndpoint := c.cloud.StorageEndpoint
 	cloudIdentityEndpoint := c.cloud.IdentityEndpoint
 	if len(c.cloud.Regions) > 0 {
 		// NOTE(axw) we use the first region in the cloud,
@@ -238,6 +248,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		// That would be better left to the provider, though.
 		region := c.cloud.Regions[0]
 		cloudEndpoint = region.Endpoint
+		cloudStorageEndpoint = region.StorageEndpoint
 		cloudIdentityEndpoint = region.IdentityEndpoint
 	}
 
@@ -249,6 +260,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		ctxt, environs.FinalizeCredentialParams{
 			Credential:            jujucloud.NewCredential(authType, attrs),
 			CloudEndpoint:         cloudEndpoint,
+			CloudStorageEndpoint:  cloudStorageEndpoint,
 			CloudIdentityEndpoint: cloudIdentityEndpoint,
 		},
 	)
@@ -261,7 +273,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 	if err != nil {
 		return errors.Trace(err)
 	}
-	fmt.Fprintf(ctxt.Stdout, "Credentials added for cloud %s.\n\n", c.CloudName)
+	fmt.Fprintf(ctxt.Stdout, "Credential %q %v locally for cloud %q.\n\n", credentialName, verb, c.CloudName)
 	return nil
 }
 

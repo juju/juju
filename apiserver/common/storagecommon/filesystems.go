@@ -68,20 +68,6 @@ func FilesystemParams(
 	return result, nil
 }
 
-// FilesystemsToState converts a slice of params.Filesystem to a mapping
-// of filesystem tags to state.FilesystemInfo.
-func FilesystemsToState(in []params.Filesystem) (map[names.FilesystemTag]state.FilesystemInfo, error) {
-	m := make(map[names.FilesystemTag]state.FilesystemInfo)
-	for _, v := range in {
-		tag, filesystemInfo, err := FilesystemToState(v)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		m[tag] = filesystemInfo
-	}
-	return m, nil
-}
-
 // FilesystemToState converts a params.Filesystem to state.FilesystemInfo
 // and names.FilesystemTag.
 func FilesystemToState(v params.Filesystem) (names.FilesystemTag, state.FilesystemInfo, error) {

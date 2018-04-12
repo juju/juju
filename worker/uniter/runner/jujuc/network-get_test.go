@@ -5,13 +5,14 @@ package jujuc_test
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -24,21 +25,86 @@ var _ = gc.Suite(&NetworkGetSuite{})
 func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 	hctx := s.GetHookContext(c, -1, "")
 
-	presetBindings := make(map[string][]params.NetworkConfig)
-	presetBindings["known-relation"] = []params.NetworkConfig{
-		{Address: "10.10.0.23"},
-		{Address: "192.168.1.111"},
+	presetBindings := make(map[string]params.NetworkInfoResult)
+	presetBindings["known-relation"] = params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{MACAddress: "00:11:22:33:44:00",
+				InterfaceName: "eth0",
+				Addresses: []params.InterfaceAddress{
+					{
+						Address: "10.10.0.23",
+						CIDR:    "10.10.0.0/24",
+					},
+					{
+						Address: "192.168.1.111",
+						CIDR:    "192.168.1.0/24",
+					},
+				},
+			},
+			{MACAddress: "00:11:22:33:44:11",
+				InterfaceName: "eth1",
+				Addresses: []params.InterfaceAddress{
+					{
+						Address: "10.10.1.23",
+						CIDR:    "10.10.1.0/24",
+					},
+					{
+						Address: "192.168.2.111",
+						CIDR:    "192.168.2.0/24",
+					},
+				},
+			},
+		},
 	}
-	presetBindings["known-extra"] = []params.NetworkConfig{
-		{Address: "10.20.1.42"},
-		{Address: "fc00::1/64"},
+	presetBindings["known-extra"] = params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{MACAddress: "00:11:22:33:44:22",
+				InterfaceName: "eth2",
+				Addresses: []params.InterfaceAddress{
+					{
+						Address: "10.20.1.42",
+						CIDR:    "10.20.1.42/24",
+					},
+					{
+						Address: "fc00::1",
+						CIDR:    "fc00::/64",
+					},
+				},
+			},
+		},
 	}
-	presetBindings["valid-no-config"] = nil
+	presetBindings["valid-no-config"] = params.NetworkInfoResult{}
 	// Simulate known but unspecified bindings.
-	presetBindings["known-unbound"] = []params.NetworkConfig{
-		{Address: "10.33.1.8"}, // Simulate preferred private address will be used for these.
+	presetBindings["known-unbound"] = params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{MACAddress: "00:11:22:33:44:33",
+				InterfaceName: "eth3",
+				Addresses: []params.InterfaceAddress{
+					{
+						Address: "10.33.1.8",
+						CIDR:    "10.33.1.8/24",
+					},
+				},
+			},
+		},
 	}
-	hctx.info.NetworkInterface.BindingsToNetworkConfigs = presetBindings
+	// Simulate info with egress and ingress data.
+	presetBindings["ingress-egress"] = params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{MACAddress: "00:11:22:33:44:33",
+				InterfaceName: "eth3",
+				Addresses: []params.InterfaceAddress{
+					{
+						Address: "10.33.1.8",
+						CIDR:    "10.33.1.8/24",
+					},
+				},
+			},
+		},
+		IngressAddresses: []string{"100.1.2.3", "100.4.3.2"},
+		EgressSubnets:    []string{"192.168.1.0/8", "10.0.0.0/8"},
+	}
+	hctx.info.NetworkInterface.NetworkInfoResults = presetBindings
 
 	com, err := jujuc.NewCommand(hctx, cmdString("network-get"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -62,36 +128,113 @@ func (s *NetworkGetSuite) TestNetworkGet(c *gc.C) {
 		args:    []string{""},
 		out:     `no binding name specified`,
 	}, {
-		summary: "binding name given, no --primary-address given",
-		code:    2,
-		args:    []string{"foo"},
-		out:     `--primary-address is currently required`,
-	}, {
-		summary: "unknown binding given, with --primary-address",
-		args:    []string{"unknown", "--primary-address"},
+		summary: "unknown binding given, no extra args given",
 		code:    1,
-		out:     "insert server error for unknown binding here",
+		args:    []string{"unknown"},
+		out:     `no network config found for binding "unknown"`,
 	}, {
-		summary: "valid arguments, API server returns no config",
-		args:    []string{"valid-no-config", "--primary-address"},
+		summary: "unknown binding given, with additional args",
+		args:    []string{"unknown", "--ingress-address"},
+		code:    1,
+		out:     `no network config found for binding "unknown"`,
+	}, {
+		summary: "API server returns no config for this binding, with --ingress-address",
+		args:    []string{"valid-no-config", "--ingress-address"},
 		code:    1,
 		out:     `no network config found for binding "valid-no-config"`,
 	}, {
-		summary: "explicitly bound, extra-binding name given with --primary-address",
-		args:    []string{"known-extra", "--primary-address"},
+		summary: "API server returns no config for this binding, no address args",
+		args:    []string{"valid-no-config"},
+		code:    1,
+		out:     `no network config found for binding "valid-no-config"`,
+	}, {
+		summary: "explicitly bound, extra-binding name given with single flag arg",
+		args:    []string{"known-extra", "--ingress-address"},
 		out:     "10.20.1.42",
 	}, {
-		summary: "explicitly bound relation name given with --primary-address",
-		args:    []string{"known-relation", "--primary-address"},
+		summary: "explicitly bound, extra-binding name given with multiple flag args",
+		args:    []string{"known-extra", "--ingress-address", "--bind-address"},
+		out: `
+bind-address: 10.20.1.42
+ingress-address: 10.20.1.42`[1:],
+	}, {
+		summary: "explicitly bound, extra-binding name given without extra args",
+		args:    []string{"known-extra"},
+		out: `
+bind-addresses:
+- macaddress: "00:11:22:33:44:22"
+  interfacename: eth2
+  addresses:
+  - address: 10.20.1.42
+    cidr: 10.20.1.42/24
+  - address: fc00::1
+    cidr: fc00::/64`[1:],
+	}, {
+		summary: "explicitly bound relation name given with single flag arg",
+		args:    []string{"known-relation", "--ingress-address"},
 		out:     "10.10.0.23",
 	}, {
-		summary: "implicitly bound binding name given with --primary-address",
-		args:    []string{"known-unbound", "--primary-address"},
-		out:     "10.33.1.8", // preferred private address used for unspecified bindings.
+		summary: "explicitly bound relation name given without extra args",
+		args:    []string{"known-relation"},
+		out: `
+bind-addresses:
+- macaddress: "00:11:22:33:44:00"
+  interfacename: eth0
+  addresses:
+  - address: 10.10.0.23
+    cidr: 10.10.0.0/24
+  - address: 192.168.1.111
+    cidr: 192.168.1.0/24
+- macaddress: "00:11:22:33:44:11"
+  interfacename: eth1
+  addresses:
+  - address: 10.10.1.23
+    cidr: 10.10.1.0/24
+  - address: 192.168.2.111
+    cidr: 192.168.2.0/24`[1:],
+	}, {
+		summary: "no user requested binding falls back to binding address, with ingress-address arg",
+		args:    []string{"known-unbound", "--ingress-address"},
+		out:     "10.33.1.8",
+	}, {
+		summary: "no user requested binding falls back to primary address, without address args",
+		args:    []string{"known-unbound"},
+		out: `
+bind-addresses:
+- macaddress: "00:11:22:33:44:33"
+  interfacename: eth3
+  addresses:
+  - address: 10.33.1.8
+    cidr: 10.33.1.8/24`[1:],
+	}, {
+		summary: "explicit ingress and egress information",
+		args:    []string{"ingress-egress", "--ingress-address", "--bind-address", "--egress-subnets"},
+		out: `
+bind-address: 10.33.1.8
+egress-subnets:
+- 192.168.1.0/8
+- 10.0.0.0/8
+ingress-address: 100.1.2.3`[1:],
+	}, {
+		summary: "explicit ingress and egress information, no extra args",
+		args:    []string{"ingress-egress"},
+		out: `
+bind-addresses:
+- macaddress: "00:11:22:33:44:33"
+  interfacename: eth3
+  addresses:
+  - address: 10.33.1.8
+    cidr: 10.33.1.8/24
+egress-subnets:
+- 192.168.1.0/8
+- 10.0.0.0/8
+ingress-addresses:
+- 100.1.2.3
+- 100.4.3.2`[1:],
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		com := s.createCommand(c)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
 		if code == 0 {
@@ -103,7 +246,7 @@ func (s *NetworkGetSuite) TestNetworkGet(c *gc.C) {
 			c.Check(bufferString(ctx.Stdout), gc.Equals, expect)
 		} else {
 			c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-			expect := fmt.Sprintf(`(.|\n)*error: %s\n`, t.out)
+			expect := fmt.Sprintf(`(.|\n)*ERROR %s\n`, t.out)
 			c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 		}
 	}
@@ -111,31 +254,13 @@ func (s *NetworkGetSuite) TestNetworkGet(c *gc.C) {
 
 func (s *NetworkGetSuite) TestHelp(c *gc.C) {
 
-	var helpTemplate = `
-Usage: network-get [options] <binding-name> --primary-address
-
-Summary:
-get network config
-
-Options:
---format  (= smart)
-    Specify output format (json|smart|yaml)
--o, --output (= "")
-    Specify an output file
---primary-address  (= false)
-    get the primary address for the binding
-
-Details:
-network-get returns the network config for a given binding name. The only
-supported flag for now is --primary-address, which is required and returns
-the IP address the local unit should advertise as its endpoint to its peers.
-`[1:]
+	helpLine := `Usage: network-get [options] <binding-name> [--ingress-address] [--bind-address] [--egress-subnets]`
 
 	com := s.createCommand(c)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Check(code, gc.Equals, 0)
 
-	c.Check(bufferString(ctx.Stdout), gc.Equals, helpTemplate)
+	c.Check(strings.Split(bufferString(ctx.Stdout), "\n")[0], gc.Equals, helpLine)
 	c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 }

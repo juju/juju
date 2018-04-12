@@ -174,6 +174,11 @@ func (a *action) ActionTag() names.ActionTag {
 	return names.NewActionTag(a.Id())
 }
 
+// Model returns the model associated with the action
+func (a *action) Model() (*Model, error) {
+	return a.st.Model()
+}
+
 // ActionResults is a data transfer object that holds the key Action
 // output and results information.
 type ActionResults struct {
@@ -185,20 +190,24 @@ type ActionResults struct {
 // Begin marks an action as running, and logs the time it was started.
 // It asserts that the action is currently pending.
 func (a *action) Begin() (Action, error) {
-	err := a.st.runTransaction([]txn.Op{
+	m, err := a.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = m.st.db().RunTransaction([]txn.Op{
 		{
 			C:      actionsC,
 			Id:     a.doc.DocId,
 			Assert: bson.D{{"status", ActionPending}},
 			Update: bson.D{{"$set", bson.D{
 				{"status", ActionRunning},
-				{"started", a.st.NowToTheSecond()},
+				{"started", a.st.nowToTheSecond()},
 			}}},
 		}})
 	if err != nil {
 		return nil, err
 	}
-	return a.st.Action(a.Id())
+	return m.Action(a.Id())
 }
 
 // Finish removes action from the pending queue and captures the output
@@ -211,7 +220,12 @@ func (a *action) Finish(results ActionResults) (Action, error) {
 // an actionresult to capture the outcome of the action. It asserts that
 // the action is not already completed.
 func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]interface{}, message string) (Action, error) {
-	err := a.st.runTransaction([]txn.Op{
+	m, err := a.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	err = m.st.db().RunTransaction([]txn.Op{
 		{
 			C:  actionsC,
 			Id: a.doc.DocId,
@@ -225,17 +239,17 @@ func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 				{"status", finalStatus},
 				{"message", message},
 				{"results", results},
-				{"completed", a.st.NowToTheSecond()},
+				{"completed", a.st.nowToTheSecond()},
 			}}},
 		}, {
 			C:      actionNotificationsC,
-			Id:     a.st.docID(ensureActionMarker(a.Receiver()) + a.Id()),
+			Id:     m.st.docID(ensureActionMarker(a.Receiver()) + a.Id()),
 			Remove: true,
 		}})
 	if err != nil {
 		return nil, err
 	}
-	return a.st.Action(a.Id())
+	return m.Action(a.Id())
 }
 
 // newAction builds an Action for the given State and actionDoc.
@@ -247,24 +261,24 @@ func newAction(st *State, adoc actionDoc) Action {
 }
 
 // newActionDoc builds the actionDoc with the given name and parameters.
-func newActionDoc(st *State, receiverTag names.Tag, actionName string, parameters map[string]interface{}) (actionDoc, actionNotificationDoc, error) {
+func newActionDoc(mb modelBackend, receiverTag names.Tag, actionName string, parameters map[string]interface{}) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(receiverTag.Id())
 	actionId, err := NewUUID()
 	if err != nil {
 		return actionDoc{}, actionNotificationDoc{}, err
 	}
 	actionLogger.Debugf("newActionDoc name: '%s', receiver: '%s', actionId: '%s'", actionName, receiverTag, actionId)
-	modelUUID := st.ModelUUID()
+	modelUUID := mb.modelUUID()
 	return actionDoc{
-			DocId:      st.docID(actionId.String()),
+			DocId:      mb.docID(actionId.String()),
 			ModelUUID:  modelUUID,
 			Receiver:   receiverTag.Id(),
 			Name:       actionName,
 			Parameters: parameters,
-			Enqueued:   st.NowToTheSecond(),
+			Enqueued:   mb.nowToTheSecond(),
 			Status:     ActionPending,
 		}, actionNotificationDoc{
-			DocId:     st.docID(prefix + actionId.String()),
+			DocId:     mb.docID(prefix + actionId.String()),
 			ModelUUID: modelUUID,
 			Receiver:  receiverTag.Id(),
 			ActionID:  actionId.String(),
@@ -274,9 +288,10 @@ func newActionDoc(st *State, receiverTag names.Tag, actionName string, parameter
 var ensureActionMarker = ensureSuffixFn(actionMarker)
 
 // Action returns an Action by Id, which is a UUID.
-func (st *State) Action(id string) (Action, error) {
+func (m *Model) Action(id string) (Action, error) {
 	actionLogger.Tracef("Action() %q", id)
-	actions, closer := st.getCollection(actionsC)
+	st := m.st
+	actions, closer := st.db().GetCollection(actionsC)
 	defer closer()
 
 	doc := actionDoc{}
@@ -292,9 +307,9 @@ func (st *State) Action(id string) (Action, error) {
 }
 
 // AllActions returns all Actions.
-func (st *State) AllActions() ([]Action, error) {
+func (m *Model) AllActions() ([]Action, error) {
 	actionLogger.Tracef("AllActions()")
-	actions, closer := st.getCollection(actionsC)
+	actions, closer := m.st.db().GetCollection(actionsC)
 	defer closer()
 
 	results := []Action{}
@@ -304,33 +319,33 @@ func (st *State) AllActions() ([]Action, error) {
 		return nil, errors.Annotatef(err, "cannot get all actions")
 	}
 	for _, doc := range docs {
-		results = append(results, newAction(st, doc))
+		results = append(results, newAction(m.st, doc))
 	}
 	return results, nil
 }
 
 // ActionByTag returns an Action given an ActionTag.
-func (st *State) ActionByTag(tag names.ActionTag) (Action, error) {
-	return st.Action(tag.Id())
+func (m *Model) ActionByTag(tag names.ActionTag) (Action, error) {
+	return m.Action(tag.Id())
 }
 
 // FindActionTagsByPrefix finds Actions with ids that share the supplied prefix, and
 // returns a list of corresponding ActionTags.
-func (st *State) FindActionTagsByPrefix(prefix string) []names.ActionTag {
+func (m *Model) FindActionTagsByPrefix(prefix string) []names.ActionTag {
 	actionLogger.Tracef("FindActionTagsByPrefix() %q", prefix)
 	var results []names.ActionTag
 	var doc struct {
 		Id string `bson:"_id"`
 	}
 
-	actions, closer := st.getCollection(actionsC)
+	actions, closer := m.st.db().GetCollection(actionsC)
 	defer closer()
 
-	iter := actions.Find(bson.D{{"_id", bson.D{{"$regex", "^" + st.docID(prefix)}}}}).Iter()
+	iter := actions.Find(bson.D{{"_id", bson.D{{"$regex", "^" + m.st.docID(prefix)}}}}).Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
 		actionLogger.Tracef("FindActionTagsByPrefix() iter doc %+v", doc)
-		localID := st.localID(doc.Id)
+		localID := m.st.localID(doc.Id)
 		if names.IsValidAction(localID) {
 			results = append(results, names.NewActionTag(localID))
 		}
@@ -340,32 +355,32 @@ func (st *State) FindActionTagsByPrefix(prefix string) []names.ActionTag {
 }
 
 // FindActionsByName finds Actions with the given name.
-func (st *State) FindActionsByName(name string) ([]Action, error) {
+func (m *Model) FindActionsByName(name string) ([]Action, error) {
 	var results []Action
 	var doc actionDoc
 
-	actions, closer := st.getCollection(actionsC)
+	actions, closer := m.st.db().GetCollection(actionsC)
 	defer closer()
 
 	iter := actions.Find(bson.D{{"name", name}}).Iter()
 	for iter.Next(&doc) {
-		results = append(results, newAction(st, doc))
+		results = append(results, newAction(m.st, doc))
 	}
 	return results, errors.Trace(iter.Close())
 }
 
 // EnqueueAction
-func (st *State) EnqueueAction(receiver names.Tag, actionName string, payload map[string]interface{}) (Action, error) {
+func (m *Model) EnqueueAction(receiver names.Tag, actionName string, payload map[string]interface{}) (Action, error) {
 	if len(actionName) == 0 {
 		return nil, errors.New("action name required")
 	}
 
-	receiverCollectionName, receiverId, err := st.tagToCollectionAndId(receiver)
+	receiverCollectionName, receiverId, err := m.st.tagToCollectionAndId(receiver)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	doc, ndoc, err := newActionDoc(st, receiver, actionName, payload)
+	doc, ndoc, err := newActionDoc(m.st, receiver, actionName, payload)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -387,7 +402,7 @@ func (st *State) EnqueueAction(receiver names.Tag, actionName string, payload ma
 	}}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if notDead, err := isNotDead(st, receiverCollectionName, receiverId); err != nil {
+		if notDead, err := isNotDead(m.st, receiverCollectionName, receiverId); err != nil {
 			return nil, err
 		} else if !notDead {
 			return nil, ErrDead
@@ -396,8 +411,8 @@ func (st *State) EnqueueAction(receiver names.Tag, actionName string, payload ma
 		}
 		return ops, nil
 	}
-	if err = st.run(buildTxn); err == nil {
-		return newAction(st, doc), nil
+	if err = m.st.db().Run(buildTxn); err == nil {
+		return newAction(m.st, doc), nil
 	}
 	return nil, err
 }
@@ -412,7 +427,7 @@ func (st *State) matchingActionsByReceiverId(id string) ([]Action, error) {
 	var doc actionDoc
 	var actions []Action
 
-	actionsCollection, closer := st.getCollection(actionsC)
+	actionsCollection, closer := st.db().GetCollection(actionsC)
 	defer closer()
 
 	iter := actionsCollection.Find(bson.D{{"receiver", id}}).Iter()
@@ -453,7 +468,7 @@ func (st *State) matchingActionsByReceiverAndStatus(tag names.Tag, statusConditi
 	var doc actionDoc
 	var actions []Action
 
-	actionsCollection, closer := st.getCollection(actionsC)
+	actionsCollection, closer := st.db().GetCollection(actionsC)
 	defer closer()
 
 	sel := append(bson.D{{"receiver", tag.Id()}}, statusCondition...)
@@ -463,4 +478,13 @@ func (st *State) matchingActionsByReceiverAndStatus(tag names.Tag, statusConditi
 		actions = append(actions, newAction(st, doc))
 	}
 	return actions, errors.Trace(iter.Close())
+}
+
+// PruneActions removes action entries until
+// only logs newer than <maxLogTime> remain and also ensures
+// that the collection is smaller than <maxLogsMB> after the
+// deletion.
+func PruneActions(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
+	err := pruneCollection(st, maxHistoryTime, maxHistoryMB, actionsC, "completed", GoTime)
+	return errors.Trace(err)
 }

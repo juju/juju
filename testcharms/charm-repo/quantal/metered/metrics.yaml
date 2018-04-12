@@ -4,4 +4,7 @@ metrics:
   pings:
     type: gauge
     description: Description of the metric.
+  pongs:
+    type: gauge
+    description: Description of the metric.
   juju-units:

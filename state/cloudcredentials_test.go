@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -36,13 +38,37 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialNew(c *gc.C) {
 	err = s.State.UpdateCloudCredential(tag, cred)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// The retrieved credentials have labels although cloud.NewCredential
-	// doesn't have them, so add it to the expected value.
-	cred.Label = "foobar"
-
 	out, err := s.State.CloudCredential(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.DeepEquals, cred)
+
+	expected := statetesting.CloudCredential(cloud.AccessKeyAuthType,
+		map[string]string{"bar": "bar val", "foo": "foo val"},
+	)
+	expected.DocID = "stratus#bob#foobar"
+	expected.Owner = "bob"
+	expected.Cloud = "stratus"
+	expected.Name = "foobar"
+	c.Assert(out, jc.DeepEquals, expected)
+}
+
+func (s *CloudCredentialsSuite) TestCreateInvalidCredential(c *gc.C) {
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "stratus",
+		Type:      "low",
+		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+	// Setting of these properties should have no effect when creating a new credential.
+	cred.Invalid = true
+	cred.InvalidReason = "because am testing you"
+	tag := names.NewCloudCredentialTag("stratus/bob/foobar")
+	err = s.State.UpdateCloudCredential(tag, cred)
+	c.Assert(err, gc.ErrorMatches, "creating cloud credential: adding invalid credential not supported")
 }
 
 func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsExisting(c *gc.C) {
@@ -69,13 +95,76 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsExisting(c *gc.C) {
 	err = s.State.UpdateCloudCredential(tag, cred)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// The retrieved credentials have labels although cloud.NewCredential
-	// doesn't have them, so add it to the expected value.
-	cred.Label = "foobar"
+	out, err := s.State.CloudCredential(tag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := statetesting.CloudCredential(cloud.UserPassAuthType, map[string]string{
+		"user":     "bob's nephew",
+		"password": "simple",
+	})
+	expected.DocID = "stratus#bob#foobar"
+	expected.Owner = "bob"
+	expected.Cloud = "stratus"
+	expected.Name = "foobar"
+	expected.Revoked = true
+
+	c.Assert(out, jc.DeepEquals, expected)
+}
+
+func (s *CloudCredentialsSuite) TestInvalidateCredential(c *gc.C) {
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "stratus",
+		Type:      "low",
+		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+	tag := names.NewCloudCredentialTag("stratus/bob/foobar")
+	err = s.State.UpdateCloudCredential(tag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cred = cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"user":     "bob's nephew",
+		"password": "simple",
+	})
+	cred.Invalid = true
+	cred.InvalidReason = "because it is really really invalid"
+	err = s.State.UpdateCloudCredential(tag, cred)
+	c.Assert(err, jc.ErrorIsNil)
 
 	out, err := s.State.CloudCredential(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.DeepEquals, cred)
+
+	expected := statetesting.CloudCredential(cloud.UserPassAuthType, map[string]string{
+		"user":     "bob's nephew",
+		"password": "simple",
+	})
+	expected.DocID = "stratus#bob#foobar"
+	expected.Owner = "bob"
+	expected.Cloud = "stratus"
+	expected.Name = "foobar"
+	expected.Invalid = true
+	expected.InvalidReason = "because it is really really invalid"
+
+	c.Assert(out, jc.DeepEquals, expected)
+
+	// and now flip back to indicate credential is valid
+	cred.Invalid = false
+	err = s.State.UpdateCloudCredential(tag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err = s.State.CloudCredential(tag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected.Invalid = false
+	// InvalidReason has not been emptied (it will be a responsibility of
+	// api/apiserver layers to construct correct requests that remove the reason when credential is valid).
+	// Here we do expect that the reason is still present.
+	c.Assert(out, jc.DeepEquals, expected)
 }
 
 func (s *CloudCredentialsSuite) TestUpdateCloudCredentialInvalidAuthType(c *gc.C) {
@@ -127,12 +216,30 @@ func (s *CloudCredentialsSuite) TestCloudCredentials(c *gc.C) {
 	cred1.Label = "bobcred1"
 	cred2.Label = "bobcred2"
 
+	expected1 := statetesting.CloudCredential(cloud.AccessKeyAuthType, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+	expected1.DocID = "stratus#bob#bobcred1"
+	expected1.Owner = "bob"
+	expected1.Cloud = "stratus"
+	expected1.Name = "bobcred1"
+
+	expected2 := statetesting.CloudCredential(cloud.AccessKeyAuthType, map[string]string{
+		"baz": "baz val",
+		"qux": "qux val",
+	})
+	expected2.DocID = "stratus#bob#bobcred2"
+	expected2.Owner = "bob"
+	expected2.Cloud = "stratus"
+	expected2.Name = "bobcred2"
+
 	for _, userName := range []string{"bob", "bob"} {
 		creds, err := s.State.CloudCredentials(names.NewUserTag(userName), "stratus")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(creds, jc.DeepEquals, map[string]cloud.Credential{
-			tag1.Id(): cred1,
-			tag3.Id(): cred2,
+		c.Assert(creds, jc.DeepEquals, map[string]state.Credential{
+			tag1.Id(): expected1,
+			tag3.Id(): expected2,
 		})
 	}
 }
@@ -212,4 +319,55 @@ func (s *CloudCredentialsSuite) TestWatchCredentialIgnoresOther(c *gc.C) {
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
+}
+
+func (s *CloudCredentialsSuite) createCloudCredential(c *gc.C, cloudName, userName, credentialName string) (names.CloudCredentialTag, state.Credential) {
+	authType := cloud.AccessKeyAuthType
+	attributes := map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	}
+
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      cloudName,
+		Type:      "low",
+		AuthTypes: cloud.AuthTypes{authType, cloud.UserPassAuthType},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cred := cloud.NewCredential(authType, attributes)
+
+	// Cloud credential tag to use when looking up this credential.
+	tag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", cloudName, userName, credentialName))
+	err = s.State.UpdateCloudCredential(tag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Credential data as stored in state.
+	expected := state.Credential{}
+	expected.DocID = fmt.Sprintf("%s#%s#%s", cloudName, userName, credentialName)
+	expected.Owner = userName
+	expected.Cloud = cloudName
+	expected.Name = credentialName
+	expected.AuthType = string(authType)
+	expected.Attributes = attributes
+
+	return tag, expected
+}
+
+func (s *CloudCredentialsSuite) TestAllCloudCredentialsNotFound(c *gc.C) {
+	out, err := s.State.AllCloudCredentials(names.NewUserTag("bob"))
+	c.Assert(err, gc.ErrorMatches, "cloud credentials for \"bob\" not found")
+	c.Assert(out, gc.IsNil)
+}
+
+func (s *CloudCredentialsSuite) TestAllCloudCredentials(c *gc.C) {
+	_, one := s.createCloudCredential(c, "cirrus", "bob", "foobar")
+	_, two := s.createCloudCredential(c, "stratus", "bob", "foobar")
+
+	// Added to make sure it is not returned.
+	s.createCloudCredential(c, "cumulus", "mary", "foobar")
+
+	out, err := s.State.AllCloudCredentials(names.NewUserTag("bob"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, jc.DeepEquals, []state.Credential{one, two})
 }

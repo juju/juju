@@ -10,26 +10,14 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
-)
-
-// RebootPriority is the type used for reboot requests.
-type RebootPriority int
-
-const (
-	// RebootSkip is a noop.
-	RebootSkip RebootPriority = iota
-	// RebootAfterHook means wait for current hook to finish before
-	// rebooting.
-	RebootAfterHook
-	// RebootNow means reboot immediately, killing and requeueing the
-	// calling hook
-	RebootNow
 )
 
 // Context is the interface that all hook helper commands
@@ -106,6 +94,15 @@ type ContextUnit interface {
 
 	// Config returns the current service configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
+
+	// GoalState returns the goal state for the current unit.
+	GoalState() (*application.GoalState, error)
+
+	// SetPodSpec updates the yaml spec used to create a pod.
+	SetPodSpec(specYaml string) error
+
+	// CloudSpec returns the unit's cloud specification
+	CloudSpec() (*params.CloudSpec, error)
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.
@@ -123,6 +120,9 @@ type ContextStatus interface {
 	// SetApplicationStatus updates the status for the unit's service.
 	SetApplicationStatus(StatusInfo) error
 }
+
+// RebootPriority is the type used for reboot requests.
+type RebootPriority int
 
 // ContextInstance is the part of a hook context related to the unit's instance.
 type ContextInstance interface {
@@ -159,14 +159,8 @@ type ContextNetworking interface {
 	// protocol, then by number.
 	OpenedPorts() []network.PortRange
 
-	// NetworkConfig returns the network configuration for the unit and the
-	// given bindingName.
-	//
-	// TODO(dimitern): Currently, only the Address is populated, add the
-	// rest later.
-	//
-	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
-	NetworkConfig(bindingName string) ([]params.NetworkConfig, error)
+	// NetworkInfo returns the network info for the given bindings on the given relation.
+	NetworkInfo(bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error)
 }
 
 // ContextLeadership is the part of a hook context related to the
@@ -190,6 +184,8 @@ type ContextLeadership interface {
 type ContextMetrics interface {
 	// AddMetric records a metric to return after hook execution.
 	AddMetric(string, string, time.Time) error
+	// AddMetricLabels records a metric with tags to return after hook execution.
+	AddMetricLabels(string, string, time.Time, map[string]string) error
 }
 
 // ContextStorage is the part of a hook context related to storage
@@ -270,6 +266,12 @@ type ContextRelation interface {
 
 	// ReadSettings returns the settings of any remote unit in the relation.
 	ReadSettings(unit string) (params.Settings, error)
+
+	// Suspended returns true if the relation is suspended.
+	Suspended() bool
+
+	// SetStatus sets the relation's status.
+	SetStatus(relation.Status) error
 }
 
 // ContextStorageAttachment expresses the capabilities of a hook with
@@ -307,9 +309,9 @@ type Settings interface {
 	Delete(string)
 }
 
-// newRelationIdValue returns a gnuflag.Value for convenient parsing of relation
+// NewRelationIdValue returns a gnuflag.Value for convenient parsing of relation
 // ids in ctx.
-func newRelationIdValue(ctx Context, result *int) (*relationIdValue, error) {
+func NewRelationIdValue(ctx Context, result *int) (*relationIdValue, error) {
 	v := &relationIdValue{result: result, ctx: ctx}
 	id := -1
 	if r, err := ctx.HookRelation(); err == nil {
@@ -351,46 +353,5 @@ func (v *relationIdValue) Set(value string) error {
 	}
 	*v.result = id
 	v.value = value
-	return nil
-}
-
-// newStorageIdValue returns a gnuflag.Value for convenient parsing of storage
-// ids in ctx.
-func newStorageIdValue(ctx Context, result *names.StorageTag) (*storageIdValue, error) {
-	v := &storageIdValue{result: result, ctx: ctx}
-	if s, err := ctx.HookStorage(); err == nil {
-		*v.result = s.Tag()
-	} else if !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-	return v, nil
-}
-
-// storageIdValue implements gnuflag.Value for use in storage commands.
-type storageIdValue struct {
-	result *names.StorageTag
-	ctx    Context
-}
-
-// String returns the current value.
-func (v *storageIdValue) String() string {
-	if *v.result == (names.StorageTag{}) {
-		return ""
-	}
-	return v.result.Id()
-}
-
-// Set interprets value as a storage id, if possible, and returns an error
-// if it is not known to the system. The parsed storage id will be written
-// to v.result.
-func (v *storageIdValue) Set(value string) error {
-	if !names.IsValidStorage(value) {
-		return errors.Errorf("invalid storage ID %q", value)
-	}
-	tag := names.NewStorageTag(value)
-	if _, err := v.ctx.Storage(tag); err != nil {
-		return errors.Trace(err)
-	}
-	*v.result = tag
 	return nil
 }

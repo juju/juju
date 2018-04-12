@@ -5,14 +5,17 @@ package state_test
 
 import (
 	"bytes"
+	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testing/factory"
@@ -31,10 +34,10 @@ func (s *CleanupSuite) SetUpTest(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupDyingApplicationUnits(c *gc.C) {
 	// Create a application with some units.
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
-		unit, err := mysql.AddUnit()
+		unit, err := mysql.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -69,7 +72,7 @@ func (s *CleanupSuite) TestCleanupDyingApplicationUnits(c *gc.C) {
 func (s *CleanupSuite) TestCleanupDyingApplicationCharm(c *gc.C) {
 	// Create a application and a charm.
 	ch := s.AddTestingCharm(c, "mysql")
-	mysql := s.AddTestingService(c, "mysql", ch)
+	mysql := s.AddTestingApplication(c, "mysql", ch)
 
 	// Create a dummy archive blob.
 	stor := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
@@ -115,13 +118,13 @@ func (s *CleanupSuite) TestCleanupRemoteApplicationWithRelations(c *gc.C) {
 	}
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
-		SourceModel: s.State.ModelTag(),
+		SourceModel: s.IAASModel.ModelTag(),
 		Token:       "t0",
 		Endpoints:   mysqlEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps[0], eps[1])
@@ -151,9 +154,11 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 
 	// Destroy the controller and check the model is unaffected, but a
 	// cleanup for the model and applications has been scheduled.
-	controllerEnv, err := s.State.Model()
+	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = controllerEnv.DestroyIncludingHosted()
+	err = controllerModel.Destroy(state.DestroyModelParams{
+		DestroyHostedModels: true,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Two cleanups should be scheduled. One to destroy the hosted
@@ -193,9 +198,9 @@ func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Destroy model, check cleanup queued.
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.Destroy()
+	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 
@@ -217,10 +222,10 @@ func (s *CleanupSuite) TestCleanupModelApplications(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Create a application with some units.
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	units := make([]*state.Unit, 3)
 	for i := range units {
-		unit, err := mysql.AddUnit()
+		unit, err := mysql.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -230,7 +235,7 @@ func (s *CleanupSuite) TestCleanupModelApplications(c *gc.C) {
 	// unaffected, but a cleanup for the application has been scheduled.
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = model.Destroy()
+	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 	s.assertCleanupRuns(c)
@@ -290,12 +295,13 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": settings not found`)
 }
 
-func (s *CleanupSuite) TestForceDestroyMachineErrors(c *gc.C) {
+func (s *CleanupSuite) TestDestroyControllerMachineErrors(c *gc.C) {
 	manager, err := s.State.AddMachine("quantal", state.JobManageModel)
+	manager.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
-	err = manager.ForceDestroy()
-	c.Assert(err, gc.ErrorMatches, "machine is required by the model")
+	err = manager.Destroy()
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
 	s.assertDoesNotNeedCleanup(c)
 	assertLife(c, manager, state.Alive)
 }
@@ -331,6 +337,51 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	assertLife(c, machine, state.Dead)
 }
 
+func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changes.Added, gc.HasLen, 2)
+	c.Check(changes.Removed, gc.HasLen, 0)
+	c.Check(changes.Maintained, gc.HasLen, 1)
+	c.Check(changes.Promoted, gc.HasLen, 0)
+	c.Check(changes.Demoted, gc.HasLen, 0)
+	c.Check(changes.Converted, gc.HasLen, 0)
+	for _, mid := range changes.Added {
+		m, err := s.State.Machine(mid)
+		c.Assert(err, jc.ErrorIsNil)
+		m.SetHasVote(true)
+	}
+	s.assertDoesNotNeedCleanup(c)
+	err = machine.ForceDestroy()
+	c.Assert(err, jc.ErrorIsNil)
+	// The machine should no longer want the vote, should be forced to not have the vote, and forced to not be a
+	// controller member anymore
+	c.Assert(machine.Refresh(), jc.ErrorIsNil)
+	c.Check(machine.Life(), gc.Equals, state.Dying)
+	c.Check(machine.WantsVote(), jc.IsFalse)
+	c.Check(machine.HasVote(), jc.IsTrue)
+	c.Check(machine.Jobs(), jc.DeepEquals, []state.MachineJob{state.JobManageModel})
+	controllerInfo, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(controllerInfo.MachineIds, gc.DeepEquals, append([]string{machine.Id()}, changes.Added...))
+	// ForceDestroy sets up a cleanupForceDestroyedMachine, which calls EnsureDead which sets up a cleanupDyingMachine
+	// so it takes 2 cleanup runs to run clear
+	s.assertCleanupCount(c, 2)
+	// After we've run the cleanup for the controller machine, the machine should be dead, and it should not be
+	// present in the other documents.
+	assertLife(c, machine, state.Dead)
+	controllerInfo, err = s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	sort.Strings(controllerInfo.MachineIds)
+	sort.Strings(changes.Added)
+	// Only the machines that were added should still be part of the controller
+	c.Check(controllerInfo.MachineIds, gc.DeepEquals, changes.Added)
+}
+
 func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -340,8 +391,8 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}
-	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	u, err := application.AddUnit()
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
+	u, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -352,7 +403,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	// this tag matches the storage instance created for the unit above.
 	storageTag := names.NewStorageTag("data/0")
 
-	sa, err := s.State.StorageAttachment(storageTag, u.UnitTag())
+	sa, err := s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sa.Life(), gc.Equals, state.Alive)
 
@@ -361,12 +412,15 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupCount(c, 2)
 
-	// After running the cleanup, the storage attachment and instance
-	// should both be removed.
-	_, err = s.State.StorageAttachment(storageTag, u.UnitTag())
+	// After running the cleanups, the storage attachment should
+	// have been removed; the storage instance should be floating,
+	// and will be removed along with the machine.
+	_, err = s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.State.StorageInstance(storageTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	si, err := s.IAASModel.StorageInstance(storageTag)
+	c.Assert(err, jc.ErrorIsNil)
+	_, hasOwner := si.Owner()
+	c.Assert(hasOwner, jc.IsFalse)
 
 	// Check that the unit has been removed.
 	assertRemoved(c, u)
@@ -498,12 +552,13 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 
 	// Check the cleanup still runs happily.
 	s.assertCleanupCount(c, 1)
+	s.assertCleanupRuns(c)
 }
 
 func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	// Create a application with a unit.
-	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	unit, err := dummy.AddUnit()
+	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	unit, err := dummy.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
@@ -544,8 +599,8 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupWithCompletedActions(c *gc.C) {
 	// Create a application with a unit.
-	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	unit, err := dummy.AddUnit()
+	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	unit, err := dummy.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
@@ -577,8 +632,8 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}
-	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	u, err := application.AddUnit()
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
+	u, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
@@ -587,19 +642,19 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 	// this tag matches the storage instance created for the unit above.
 	storageTag := names.NewStorageTag("data/0")
 
-	sa, err := s.State.StorageAttachment(storageTag, u.UnitTag())
+	sa, err := s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sa.Life(), gc.Equals, state.Alive)
 
-	// destroy unit and run cleanups; the attachment should be marked dying
+	// destroy unit and run cleanups; the storage should be detached
 	err = u.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
-	// After running the cleanup, the attachment should be dying.
-	sa, err = s.State.StorageAttachment(storageTag, u.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sa.Life(), gc.Equals, state.Dying)
+	// After running the cleanup, the attachment should be removed
+	// (short-circuited, because volume was never attached).
+	_, err = s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)
@@ -610,8 +665,8 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"allecto": makeStorageCons("modelscoped-block", 1024, 1),
 	}
-	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	u, err := application.AddUnit()
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
+	u, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
@@ -620,25 +675,25 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	// this tag matches the storage instance created for the unit above.
 	storageTag := names.NewStorageTag("allecto/0")
 
-	si, err := s.State.StorageInstance(storageTag)
+	si, err := s.IAASModel.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Alive)
 
 	// destroy storage instance and run cleanups
-	err = s.State.DestroyStorageInstance(storageTag)
+	err = s.IAASModel.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
-	si, err = s.State.StorageInstance(storageTag)
+	si, err = s.IAASModel.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Dying)
-	sa, err := s.State.StorageAttachment(storageTag, u.UnitTag())
+	sa, err := s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sa.Life(), gc.Equals, state.Alive)
 	s.assertCleanupRuns(c)
 
-	// After running the cleanup, the attachment should be dying.
-	sa, err = s.State.StorageAttachment(storageTag, u.UnitTag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sa.Life(), gc.Equals, state.Dying)
+	// After running the cleanup, the attachment should be removed
+	// (short-circuited, because volume was never attached).
+	_, err = s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)
@@ -649,8 +704,8 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("modelscoped", 1024, 1),
 	}
-	application := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	unit, err := application.AddUnit()
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
+	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -675,7 +730,7 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
-	vas, err := s.State.MachineVolumeAttachments(machine.MachineTag())
+	vas, err := s.IAASModel.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vas, gc.HasLen, 1)
 	c.Assert(vas[0].Life(), gc.Equals, state.Dying)
@@ -695,11 +750,11 @@ func (s *CleanupSuite) TestCleanupVolumeAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
-	err = s.State.DestroyVolume(names.NewVolumeTag("0/0"))
+	err = s.IAASModel.DestroyVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
-	attachment, err := s.State.VolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
+	attachment, err := s.IAASModel.VolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachment.Life(), gc.Equals, state.Dying)
 }
@@ -715,19 +770,84 @@ func (s *CleanupSuite) TestCleanupFilesystemAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
-	err = s.State.DestroyFilesystem(names.NewFilesystemTag("0/0"))
+	err = s.IAASModel.DestroyFilesystem(names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
-	attachment, err := s.State.FilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
+	attachment, err := s.IAASModel.FilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachment.Life(), gc.Equals, state.Dying)
+}
+
+func (s *CleanupSuite) TestCleanupResourceBlob(c *gc.C) {
+	app := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
+	data := "ancient-debris"
+	res := resourcetesting.NewResource(c, nil, "mug", "wp", data).Resource
+	resources, err := s.State.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	path := "application-wp/resources/mug"
+	stateStorage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
+	closer, _, err := stateStorage.Get(path)
+	c.Assert(err, jc.ErrorIsNil)
+	err = closer.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertCleanupRuns(c)
+
+	_, _, err = stateStorage.Get(path)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CleanupSuite) TestCleanupResourceBlobHandlesMissing(c *gc.C) {
+	app := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
+	data := "ancient-debris"
+	res := resourcetesting.NewResource(c, nil, "mug", "wp", data).Resource
+	resources, err := s.State.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	path := "application-wp/resources/mug"
+	stateStorage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
+	err = stateStorage.Remove(path)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertCleanupRuns(c)
+	// Make sure the cleanup completed successfully.
+	s.assertDoesNotNeedCleanup(c)
 }
 
 func (s *CleanupSuite) TestNothingToCleanup(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 	s.assertCleanupRuns(c)
 	s.assertDoesNotNeedCleanup(c)
+}
+
+func (s *CleanupSuite) TestCleanupIDSanity(c *gc.C) {
+	// Cleanup IDs shouldn't be ObjectIdHex("blah")
+	app := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
+	err := app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	coll := s.Session.DB("juju").C("cleanups")
+	var ids []struct {
+		ID string `bson:"_id"`
+	}
+	err = coll.Find(nil).All(&ids)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, item := range ids {
+		c.Assert(item.ID, gc.Not(gc.Matches), `.*ObjectIdHex\(.*`)
+	}
+	s.assertCleanupRuns(c)
 }
 
 func (s *CleanupSuite) assertCleanupRuns(c *gc.C) {

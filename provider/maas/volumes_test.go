@@ -79,14 +79,19 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 		machine: &fakeMachine{},
 		constraintMatches: gomaasapi.ConstraintMatches{
 			Storage: map[string][]gomaasapi.BlockDevice{
-				"root": {&fakeBlockDevice{name: "sda", path: "/dev/disk/by-dname/sda", size: 250059350016}},
-				"1":    {&fakeBlockDevice{name: "sdb", path: "/dev/disk/by-dname/sdb", size: 500059350016}},
-				"2": {
-					&fakeBlockDevice{name: "sdc", path: "/dev/disk/by-dname/sdc", size: 250362438230},
-					&fakeBlockDevice{name: "sdf", path: "/dev/disk/by-dname/sdf", size: 280362438231},
+				"root": {&fakeBlockDevice{name: "sda", idPath: "/dev/disk/by-dname/sda", size: 250059350016}},
+				"1":    {&fakeBlockDevice{name: "sdb", idPath: "/dev/sdb", size: 500059350016}},
+				"2":    {&fakeBlockDevice{name: "sdc", idPath: "/dev/disk/by-id/foo", size: 250362438230}},
+				"3": {
+					&fakeBlockDevice{name: "sdd", idPath: "/dev/disk/by-dname/sdd", size: 250362438230},
+					&fakeBlockDevice{name: "sde", idPath: "/dev/disk/by-dname/sde", size: 250362438230},
 				},
-				"3": {&fakeBlockDevice{name: "sdd", path: "/dev/disk/by-dname/sdd", size: 250362438230}},
-				"4": {&fakeBlockDevice{name: "sde", path: "/dev/disk/by-dname/sde", size: 250362438230}},
+				"4": {
+					&fakeBlockDevice{name: "sdf", idPath: "/dev/disk/by-id/wwn-drbr", size: 280362438231},
+				},
+				"5": {
+					&fakeBlockDevice{name: "sdg", idPath: "/dev/disk/by-dname/sdg", size: 280362438231},
+				},
 			},
 		},
 	}
@@ -94,54 +99,61 @@ func (s *volumeSuite) TestInstanceVolumesMAAS2(c *gc.C) {
 	volumes, attachments, err := instance.volumes(mTag, []names.VolumeTag{
 		names.NewVolumeTag("1"),
 		names.NewVolumeTag("2"),
+		names.NewVolumeTag("3"),
+		names.NewVolumeTag("4"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	// Expect 3 volumes - root volume is ignored.
-	c.Assert(volumes, gc.HasLen, 3)
-	c.Assert(attachments, gc.HasLen, 3)
+	// Expect 4 volumes - root volume is ignored, as are volumes
+	// with tags we did not request.
+	c.Assert(volumes, gc.HasLen, 4)
+	c.Assert(attachments, gc.HasLen, 4)
 	c.Check(volumes, jc.SameContents, []storage.Volume{{
 		names.NewVolumeTag("1"),
 		storage.VolumeInfo{
-			VolumeId:   "volume-1",
-			Size:       476893,
-			Persistent: false,
+			VolumeId: "volume-1",
+			Size:     476893,
 		},
 	}, {
 		names.NewVolumeTag("2"),
 		storage.VolumeInfo{
 			VolumeId:   "volume-2",
 			Size:       238764,
-			Persistent: false,
+			HardwareId: "foo",
 		},
 	}, {
-		names.NewVolumeTag("2"),
+		names.NewVolumeTag("3"),
 		storage.VolumeInfo{
-			VolumeId:   "volume-2",
-			Size:       267374,
-			Persistent: false,
+			VolumeId: "volume-3",
+			Size:     238764,
+		},
+	}, {
+		names.NewVolumeTag("4"),
+		storage.VolumeInfo{
+			VolumeId: "volume-4",
+			Size:     267374,
+			WWN:      "drbr",
 		},
 	}})
 	c.Assert(attachments, jc.SameContents, []storage.VolumeAttachment{{
 		names.NewVolumeTag("1"),
 		mTag,
 		storage.VolumeAttachmentInfo{
-			DeviceLink: "/dev/disk/by-dname/sdb",
-			ReadOnly:   false,
+			DeviceName: "sdb",
 		},
 	}, {
 		names.NewVolumeTag("2"),
 		mTag,
-		storage.VolumeAttachmentInfo{
-			DeviceLink: "/dev/disk/by-dname/sdc",
-			ReadOnly:   false,
-		},
+		storage.VolumeAttachmentInfo{},
 	}, {
-		names.NewVolumeTag("2"),
+		names.NewVolumeTag("3"),
 		mTag,
 		storage.VolumeAttachmentInfo{
-			DeviceLink: "/dev/disk/by-dname/sdf",
-			ReadOnly:   false,
+			DeviceLink: "/dev/disk/by-dname/sdd",
 		},
+	}, {
+		names.NewVolumeTag("4"),
+		mTag,
+		storage.VolumeAttachmentInfo{},
 	}})
 }
 

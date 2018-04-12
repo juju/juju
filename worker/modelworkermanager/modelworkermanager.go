@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/state"
@@ -17,41 +16,50 @@ import (
 
 var logger = loggo.GetLogger("juju.workers.modelworkermanager")
 
-// Backend defines the State functionality used by the manager worker.
-type Backend interface {
+// ModelWatcher provides an interface for watching the additiona and
+// removal of models.
+type ModelWatcher interface {
 	WatchModels() state.StringsWatcher
-	GetModel(names.ModelTag) (BackendModel, error)
 }
 
-type BackendModel interface {
+// ModelGetter provides an interface for getting models by UUID.
+// Once a model is no longer required, the returned function must
+// be called to dispose of the model.
+type ModelGetter interface {
+	Model(modelUUID string) (Model, func(), error)
+}
+
+// Model represents a model.
+type Model interface {
 	MigrationMode() state.MigrationMode
+	Type() state.ModelType
 }
 
-// NewWorkerFunc should return a worker responsible for running
-// all a model's required workers; and for returning nil when
-// there's no more model to manage.
-type NewWorkerFunc func(controllerUUID, modelUUID string) (worker.Worker, error)
+// NewModelWorkerFunc should return a worker responsible for running
+// all a model's required workers; and for returning nil when there's
+// no more model to manage.
+type NewModelWorkerFunc func(modelUUID string, modelType state.ModelType) (worker.Worker, error)
 
 // Config holds the dependencies and configuration necessary to run
 // a model worker manager.
 type Config struct {
-	ControllerUUID string
-	Backend        Backend
-	NewWorker      NewWorkerFunc
+	ModelWatcher   ModelWatcher
+	ModelGetter    ModelGetter
+	NewModelWorker NewModelWorkerFunc
 	ErrorDelay     time.Duration
 }
 
 // Validate returns an error if config cannot be expected to drive
 // a functional model worker manager.
 func (config Config) Validate() error {
-	if config.ControllerUUID == "" {
-		return errors.NotValidf("missing controller UUID")
+	if config.ModelWatcher == nil {
+		return errors.NotValidf("nil ModelWatcher")
 	}
-	if config.Backend == nil {
-		return errors.NotValidf("nil Backend")
+	if config.ModelGetter == nil {
+		return errors.NotValidf("nil ModelGetter")
 	}
-	if config.NewWorker == nil {
-		return errors.NotValidf("nil NewWorker")
+	if config.NewModelWorker == nil {
+		return errors.NotValidf("nil NewModelWorker")
 	}
 	if config.ErrorDelay <= 0 {
 		return errors.NotValidf("non-positive ErrorDelay")
@@ -102,9 +110,29 @@ func (m *modelWorkerManager) loop() error {
 	if err := m.catacomb.Add(m.runner); err != nil {
 		return errors.Trace(err)
 	}
-	watcher := m.config.Backend.WatchModels()
+	watcher := m.config.ModelWatcher.WatchModels()
 	if err := m.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
+	}
+
+	modelChanged := func(modelUUID string) error {
+		model, release, err := m.config.ModelGetter.Model(modelUUID)
+		if errors.IsNotFound(err) {
+			// Model was removed, ignore it.
+			return nil
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		defer release()
+
+		if !isModelActive(model) {
+			// Ignore this model until it's activated - we
+			// never want to run workers for an importing
+			// model.
+			// https://bugs.launchpad.net/juju/+bug/1646310
+			return nil
+		}
+		return errors.Trace(m.ensure(modelUUID, model.Type()))
 	}
 
 	for {
@@ -116,21 +144,7 @@ func (m *modelWorkerManager) loop() error {
 				return errors.New("changes stopped")
 			}
 			for _, modelUUID := range uuids {
-				model, err := m.config.Backend.GetModel(names.NewModelTag(modelUUID))
-				if errors.IsNotFound(err) {
-					continue
-				}
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if model.MigrationMode() == state.MigrationModeImporting {
-					// Ignore this model until it's activated - we
-					// never want to run workers for an importing
-					// model.
-					// https://bugs.launchpad.net/juju/+bug/1646310
-					continue
-				}
-				if err := m.ensure(m.config.ControllerUUID, modelUUID); err != nil {
+				if err := modelChanged(modelUUID); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -138,18 +152,18 @@ func (m *modelWorkerManager) loop() error {
 	}
 }
 
-func (m *modelWorkerManager) ensure(controllerUUID, modelUUID string) error {
-	starter := m.starter(controllerUUID, modelUUID)
+func (m *modelWorkerManager) ensure(modelUUID string, modelType state.ModelType) error {
+	starter := m.starter(modelUUID, modelType)
 	if err := m.runner.StartWorker(modelUUID, starter); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (m *modelWorkerManager) starter(controllerUUID, modelUUID string) func() (worker.Worker, error) {
+func (m *modelWorkerManager) starter(modelUUID string, modelType state.ModelType) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		logger.Debugf("starting workers for model %q", modelUUID)
-		worker, err := m.config.NewWorker(controllerUUID, modelUUID)
+		worker, err := m.config.NewModelWorker(modelUUID, modelType)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot manage model %q", modelUUID)
 		}
@@ -163,4 +177,8 @@ func neverFatal(error) bool {
 
 func neverImportant(error, error) bool {
 	return false
+}
+
+func isModelActive(m Model) bool {
+	return m.MigrationMode() != state.MigrationModeImporting
 }

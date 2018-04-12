@@ -5,7 +5,7 @@ package resolver
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -94,4 +94,8 @@ type LocalState struct {
 	// This is used to prevent us re running actions requested by the
 	// controller.
 	CompletedActions map[string]struct{}
+
+	// Series is the current series running on the unit from remotestate.Snapshot
+	// for which a config-changed hook has been committed.
+	Series string
 }

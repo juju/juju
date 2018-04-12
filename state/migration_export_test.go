@@ -11,13 +11,18 @@ import (
 
 	"github.com/juju/description"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"gopkg.in/juju/charm.v6"
+	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
@@ -27,9 +32,11 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // Constraints stores megabytes by default for memory and root disk.
@@ -51,9 +58,7 @@ type MigrationBaseSuite struct {
 }
 
 func (s *MigrationBaseSuite) setLatestTools(c *gc.C, latestTools version.Number) {
-	dbModel, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = dbModel.UpdateLatestToolsVersion(latestTools)
+	err := s.Model.UpdateLatestToolsVersion(latestTools)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -97,10 +102,13 @@ func (s *MigrationBaseSuite) makeApplicationWithLeader(c *gc.C, applicationname 
 }
 
 func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *state.Unit, names.StorageTag) {
-	pool := "loop-pool"
+	pool := "modelscoped"
 	kind := "block"
 	// Create a default pool for block devices.
-	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
+	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 	_, err := pm.Create(pool, provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -110,8 +118,8 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-"+kind, ch, storage)
-	unit, err := service.AddUnit()
+	service := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, storage)
+	unit, err := service.AddUnit(state.AddUnitParams{})
 
 	machine := s.Factory.MakeMachine(c, nil)
 	err = unit.AssignToMachine(machine)
@@ -131,6 +139,11 @@ type MigrationExportSuite struct {
 
 var _ = gc.Suite(&MigrationExportSuite{})
 
+func (s *MigrationExportSuite) SetUpTest(c *gc.C) {
+	s.MigrationBaseSuite.SetUpTest(c)
+	s.SetFeatureFlags(feature.StrictMigration)
+}
+
 func (s *MigrationExportSuite) checkStatusHistory(c *gc.C, history []description.Status, statusVal status.Status) {
 	for i, st := range history {
 		c.Logf("status history #%d: %s", i, st.Updated())
@@ -141,9 +154,7 @@ func (s *MigrationExportSuite) checkStatusHistory(c *gc.C, history []description
 }
 
 func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
-	stModel, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetAnnotations(stModel, testAnnotations)
+	err := s.Model.SetAnnotations(s.Model, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
@@ -152,15 +163,17 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	machineSeq := s.setRandSequenceValue(c, "machine")
 	fooSeq := s.setRandSequenceValue(c, "application-foo")
 	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
+	environVersion := 123
+	err = s.Model.SetEnvironVersion(environVersion)
+	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
-	dbModel, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Tag(), gc.Equals, dbModel.ModelTag())
-	c.Assert(model.Owner(), gc.Equals, dbModel.Owner())
-	dbModelCfg, err := dbModel.Config()
+	c.Assert(model.Type(), gc.Equals, string(s.Model.Type()))
+	c.Assert(model.Tag(), gc.Equals, s.Model.ModelTag())
+	c.Assert(model.Owner(), gc.Equals, s.Model.Owner())
+	dbModelCfg, err := s.Model.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	modelAttrs := dbModelCfg.AllAttrs()
 	modelCfg := model.Config()
@@ -168,6 +181,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	modelCfg["resource-tags"] = map[string]string{}
 	c.Assert(modelCfg, jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
+	c.Assert(model.EnvironVersion(), gc.Equals, environVersion)
 	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := model.Constraints()
 	c.Assert(constraints, gc.NotNil)
@@ -187,14 +201,14 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	// Make sure we have some last connection times for the admin user,
 	// and create a few other users.
-	lastConnection := s.State.NowToTheSecond()
-	owner, err := s.State.UserAccess(s.Owner, s.State.ModelTag())
+	lastConnection := state.NowToTheSecond(s.State)
+	owner, err := s.State.UserAccess(s.Owner, s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.UpdateModelUserLastConnection(s.State, owner, lastConnection)
 	c.Assert(err, jc.ErrorIsNil)
 
 	bobTag := names.NewUserTag("bob@external")
-	bob, err := s.State.AddModelUser(s.State.ModelUUID(), state.UserAccessSpec{
+	bob, err := s.Model.AddUser(state.UserAccessSpec{
 		User:      bobTag,
 		CreatedBy: s.Owner,
 		Access:    permission.ReadAccess,
@@ -228,8 +242,34 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	c.Assert(exportedBob.Access(), gc.Equals, "read")
 }
 
+func (s *MigrationExportSuite) TestSLAs(c *gc.C) {
+	err := s.State.SetSLA("essential", "bob", []byte("creds"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	sla := model.SLA()
+
+	c.Assert(sla.Level(), gc.Equals, "essential")
+	c.Assert(sla.Credentials(), gc.DeepEquals, "creds")
+}
+
+func (s *MigrationExportSuite) TestMeterStatus(c *gc.C) {
+	err := s.State.SetModelMeterStatus("RED", "red info message")
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	sla := model.MeterStatus()
+
+	c.Assert(sla.Code(), gc.Equals, "RED")
+	c.Assert(sla.Info(), gc.Equals, "red info message")
+}
+
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {
-	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G"))
+	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G tags=foo,bar spaces=dmz"))
 }
 
 func (s *MigrationExportSuite) TestMachinesWithVirtConstraint(c *gc.C) {
@@ -242,7 +282,8 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 		Constraints: cons,
 	})
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
-	err := s.State.SetAnnotations(machine1, testAnnotations)
+
+	err := s.Model.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, machine1, status.Started, addedHistoryCount)
 
@@ -290,6 +331,7 @@ func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
 		Label:          "sda-label",
 		UUID:           "some-uuid",
 		HardwareId:     "magic",
+		WWN:            "drbr",
 		BusAddress:     "bus stop",
 		Size:           16 * 1024 * 1024 * 1024,
 		FilesystemType: "ext4",
@@ -315,6 +357,7 @@ func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
 	c.Check(ex1.Label(), gc.Equals, "sda-label")
 	c.Check(ex1.UUID(), gc.Equals, "some-uuid")
 	c.Check(ex1.HardwareID(), gc.Equals, "magic")
+	c.Check(ex1.WWN(), gc.Equals, "drbr")
 	c.Check(ex1.BusAddress(), gc.Equals, "bus stop")
 	c.Check(ex1.Size(), gc.Equals, uint64(16*1024*1024*1024))
 	c.Check(ex1.FilesystemType(), gc.Equals, "ext4")
@@ -335,9 +378,14 @@ func (s *MigrationExportSuite) TestApplicationsWithVirtConstraint(c *gc.C) {
 
 func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constraints.Value) {
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Settings: map[string]interface{}{
+		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
+		ApplicationConfig: map[string]interface{}{
+			"app foo": "app bar",
+		},
+		ApplicationConfigFields: environschema.Fields{
+			"app foo": environschema.Attr{Type: environschema.Tstring}},
 		Constraints: cons,
 	})
 	err := application.UpdateLeaderSettings(&goodToken{}, map[string]string{
@@ -346,7 +394,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constrain
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetAnnotations(application, testAnnotations)
+	err = s.Model.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, application, status.Active, addedHistoryCount)
 
@@ -359,11 +407,15 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constrain
 	exported := applications[0]
 	c.Assert(exported.Name(), gc.Equals, application.Name())
 	c.Assert(exported.Tag(), gc.Equals, application.ApplicationTag())
+	c.Assert(exported.Type(), gc.Equals, string(s.Model.Type()))
 	c.Assert(exported.Series(), gc.Equals, application.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
-	c.Assert(exported.Settings(), jc.DeepEquals, map[string]interface{}{
+	c.Assert(exported.CharmConfig(), jc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
+	})
+	c.Assert(exported.ApplicationConfig(), jc.DeepEquals, map[string]interface{}{
+		"app foo": "app bar",
 	})
 	c.Assert(exported.LeadershipSettings(), jc.DeepEquals, map[string]interface{}{
 		"leader": "true",
@@ -405,7 +457,7 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 		err = unit.SetWorkloadVersion(version)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	err = s.State.SetAnnotations(unit, testAnnotations)
+	err = s.Model.SetAnnotations(unit, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, unit, status.Active, addedHistoryCount)
 	s.primeStatusHistory(c, unit.Agent(), status.Idle, addedHistoryCount)
@@ -494,7 +546,7 @@ func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
 func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
 	s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
-	state.AddTestingServiceWithBindings(
+	state.AddTestingApplicationWithBindings(
 		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": "one"})
 
@@ -512,14 +564,14 @@ func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestRelations(c *gc.C) {
-	wordpress := state.AddTestingService(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	mysql := state.AddTestingService(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	// InferEndpoints will always return provider, requirer
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	msEp, wpEp := eps[0], eps[1]
 	c.Assert(err, jc.ErrorIsNil)
+	msEp, wpEp := eps[0], eps[1]
 	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 	mysql_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
 
@@ -571,6 +623,70 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	}
 	checkEndpoint(exEps[0], mysql_0.Name(), msEp, mysqlSettings)
 	checkEndpoint(exEps[1], wordpress_0.Name(), wpEp, wordpressSettings)
+
+	// Make sure there is a status.
+	status := exRel.Status()
+	c.Check(status.Value(), gc.Equals, "joining")
+}
+
+func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	mysql_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+
+	logging := s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+
+	addSubordinate := func(app *state.Application, unit *state.Unit) {
+		eps, err := s.State.InferEndpoints(app.Name(), logging.Name())
+		c.Assert(err, jc.ErrorIsNil)
+		rel, err := s.State.AddRelation(eps...)
+		c.Assert(err, jc.ErrorIsNil)
+		pru, err := rel.Unit(unit)
+		c.Assert(err, jc.ErrorIsNil)
+		err = pru.EnterScope(nil)
+		c.Assert(err, jc.ErrorIsNil)
+		// Need to reload the doc to get the subordinates.
+		err = unit.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		subordinates := unit.SubordinateNames()
+		c.Assert(subordinates, gc.HasLen, 1)
+		loggingUnit, err := s.State.Unit(subordinates[0])
+		c.Assert(err, jc.ErrorIsNil)
+		sub, err := rel.Unit(loggingUnit)
+		c.Assert(err, jc.ErrorIsNil)
+		err = sub.EnterScope(nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	addSubordinate(mysql, mysql_0)
+	addSubordinate(wordpress, wordpress_0)
+
+	setTools := func(unit *state.Unit) {
+		app, err := unit.Application()
+		c.Assert(err, jc.ErrorIsNil)
+		agentTools := version.Binary{
+			Number: jujuversion.Current,
+			Arch:   arch.HostArch(),
+			Series: app.Series(),
+		}
+		err = unit.SetAgentVersion(agentTools)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	units, err := logging.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 2)
+
+	for _, unit := range units {
+		setTools(unit)
+	}
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	rels := model.Relations()
+	c.Assert(rels, gc.HasLen, 2)
 }
 
 func (s *MigrationExportSuite) TestSpaces(c *gc.C) {
@@ -619,13 +735,36 @@ func (s *MigrationExportSuite) TestLinkLayerDevices(c *gc.C) {
 	c.Assert(device.Type(), gc.Equals, string(state.EthernetDevice))
 }
 
+func (s *MigrationExportSuite) TestLinkLayerDevicesSkipped(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: state.EthernetDevice,
+	}
+	err := machine.SetLinkLayerDevices(deviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipLinkLayerDevices: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	devices := model.LinkLayerDevices()
+	c.Assert(devices, gc.HasLen, 0)
+}
+
 func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	_, err := s.State.AddSubnet(state.SubnetInfo{
-		CIDR:             "10.0.0.0/24",
-		ProviderId:       network.Id("foo"),
-		VLANTag:          64,
-		AvailabilityZone: "bar",
-		SpaceName:        "bam",
+		CIDR:              "10.0.0.0/24",
+		ProviderId:        network.Id("foo"),
+		ProviderNetworkId: network.Id("rust"),
+		VLANTag:           64,
+		AvailabilityZone:  "bar",
+		SpaceName:         "bam",
+		FanLocalUnderlay:  "100.2.0.0/16",
+		FanOverlay:        "253.0.0.0/8",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSpace("bam", "", nil, true)
@@ -639,9 +778,12 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	subnet := subnets[0]
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
 	c.Assert(subnet.ProviderId(), gc.Equals, "foo")
+	c.Assert(subnet.ProviderNetworkId(), gc.Equals, "rust")
 	c.Assert(subnet.VLANTag(), gc.Equals, 64)
-	c.Assert(subnet.AvailabilityZone(), gc.Equals, "bar")
+	c.Assert(subnet.AvailabilityZones(), gc.DeepEquals, []string{"bar"})
 	c.Assert(subnet.SpaceName(), gc.Equals, "bam")
+	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "100.2.0.0/16")
+	c.Assert(subnet.FanOverlay(), gc.Equals, "253.0.0.0/8")
 }
 
 func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
@@ -685,6 +827,39 @@ func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
 	c.Assert(addr.GatewayAddress(), gc.Equals, "0.1.2.1")
 }
 
+func (s *MigrationExportSuite) TestIPAddressesSkipped(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	deviceArgs := state.LinkLayerDeviceArgs{
+		Name: "foo",
+		Type: state.EthernetDevice,
+	}
+	err = machine.SetLinkLayerDevices(deviceArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	args := state.LinkLayerDeviceAddress{
+		DeviceName:       "foo",
+		ConfigMethod:     state.StaticAddress,
+		CIDRAddress:      "0.1.2.3/24",
+		ProviderID:       "bar",
+		DNSServers:       []string{"bam", "mam"},
+		DNSSearchDomains: []string{"weeee"},
+		GatewayAddress:   "0.1.2.1",
+	}
+	err = machine.SetDevicesAddresses(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipIPAddresses: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	addresses := model.IPAddresses()
+	c.Assert(addresses, gc.HasLen, 0)
+}
+
 func (s *MigrationExportSuite) TestSSHHostKeys(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
@@ -702,7 +877,23 @@ func (s *MigrationExportSuite) TestSSHHostKeys(c *gc.C) {
 	c.Assert(key.Keys(), jc.DeepEquals, []string{"bam", "mam"})
 }
 
-func (s *MigrationExportSuite) TestCloudImageMetadatas(c *gc.C) {
+func (s *MigrationExportSuite) TestSSHHostKeysSkipped(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+	err := s.State.SetSSHHostKeys(machine.MachineTag(), []string{"bam", "mam"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipSSHHostKeys: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	keys := model.SSHHostKeys()
+	c.Assert(keys, gc.HasLen, 0)
+}
+
+func (s *MigrationExportSuite) TestCloudImageMetadata(c *gc.C) {
 	storageSize := uint64(3)
 	attrs := cloudimagemetadata.MetadataAttributes{
 		Stream:          "stream",
@@ -741,16 +932,46 @@ func (s *MigrationExportSuite) TestCloudImageMetadatas(c *gc.C) {
 	c.Check(image.DateCreated(), gc.Equals, int64(2))
 }
 
+func (s *MigrationExportSuite) TestCloudImageMetadataSkipped(c *gc.C) {
+	storageSize := uint64(3)
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          "stream",
+		Region:          "region-test",
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test",
+		RootStorageSize: &storageSize,
+		Source:          "test",
+	}
+	metadata := []cloudimagemetadata.Metadata{{attrs, 2, "1", 2}}
+
+	err := s.State.CloudImageMetadataStorage.SaveMetadata(metadata)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipCloudImageMetadata: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	images := model.CloudImageMetadata()
+	c.Assert(images, gc.HasLen, 0)
+}
+
 func (s *MigrationExportSuite) TestActions(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	_, err := s.State.EnqueueAction(machine.MachineTag(), "foo", nil)
+
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = m.EnqueueAction(machine.MachineTag(), "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)
-
 	actions := model.Actions()
 	c.Assert(actions, gc.HasLen, 1)
 	action := actions[0]
@@ -758,6 +979,25 @@ func (s *MigrationExportSuite) TestActions(c *gc.C) {
 	c.Check(action.Name(), gc.Equals, "foo")
 	c.Check(action.Status(), gc.Equals, "pending")
 	c.Check(action.Message(), gc.Equals, "")
+}
+
+func (s *MigrationExportSuite) TestActionsSkipped(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = m.EnqueueAction(machine.MachineTag(), "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipActions: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions := model.Actions()
+	c.Assert(actions, gc.HasLen, 0)
 }
 
 type goodToken struct{}
@@ -781,14 +1021,15 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	// We know that the first volume is called "0/0" as it is the first volume
 	// (volumes use sequences), and it is bound to machine 0.
 	volTag := names.NewVolumeTag("0/0")
-	err := s.State.SetVolumeInfo(volTag, state.VolumeInfo{
+	err := s.IAASModel.SetVolumeInfo(volTag, state.VolumeInfo{
 		HardwareId: "magic",
+		WWN:        "drbr",
 		Size:       1500,
 		VolumeId:   "volume id",
 		Persistent: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetVolumeAttachmentInfo(machineTag, volTag, state.VolumeAttachmentInfo{
+	err = s.IAASModel.SetVolumeAttachmentInfo(machineTag, volTag, state.VolumeAttachmentInfo{
 		DeviceName: "device name",
 		DeviceLink: "device link",
 		BusAddress: "bus address",
@@ -808,6 +1049,7 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	c.Check(provisioned.Size(), gc.Equals, uint64(1500))
 	c.Check(provisioned.Pool(), gc.Equals, "loop")
 	c.Check(provisioned.HardwareID(), gc.Equals, "magic")
+	c.Check(provisioned.WWN(), gc.Equals, "drbr")
 	c.Check(provisioned.VolumeID(), gc.Equals, "volume id")
 	c.Check(provisioned.Persistent(), jc.IsTrue)
 	attachments := provisioned.Attachments()
@@ -858,12 +1100,12 @@ func (s *MigrationExportSuite) TestFilesystems(c *gc.C) {
 	// We know that the first filesystem is called "0/0" as it is the first
 	// filesystem (filesystems use sequences), and it is bound to machine 0.
 	fsTag := names.NewFilesystemTag("0/0")
-	err := s.State.SetFilesystemInfo(fsTag, state.FilesystemInfo{
+	err := s.IAASModel.SetFilesystemInfo(fsTag, state.FilesystemInfo{
 		Size:         1500,
 		FilesystemId: "filesystem id",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetFilesystemAttachmentInfo(machineTag, fsTag, state.FilesystemAttachmentInfo{
+	err = s.IAASModel.SetFilesystemAttachmentInfo(machineTag, fsTag, state.FilesystemAttachmentInfo{
 		MountPoint: "/mnt/foo",
 		ReadOnly:   true,
 	})
@@ -923,7 +1165,7 @@ func (s *MigrationExportSuite) TestStorage(c *gc.C) {
 	c.Assert(constraints, gc.HasLen, 2)
 	cons, found := constraints["data"]
 	c.Assert(found, jc.IsTrue)
-	c.Check(cons.Pool(), gc.Equals, "loop-pool")
+	c.Check(cons.Pool(), gc.Equals, "modelscoped")
 	c.Check(cons.Size(), gc.Equals, uint64(0x400))
 	c.Check(cons.Count(), gc.Equals, uint64(1))
 	cons, found = constraints["allecto"]
@@ -1110,11 +1352,12 @@ func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revisi
 }
 
 func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
-	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+	dbApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
-		SourceModel: s.State.ModelTag(),
+		SourceModel: s.IAASModel.ModelTag(),
 		Token:       "charisma",
+		OfferUUID:   "offer-uuid",
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
 			Name:      "db",
@@ -1132,7 +1375,56 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 			Role:      charm.RoleProvider,
 			Scope:     charm.ScopeGlobal,
 		}},
+		Spaces: []*environs.ProviderSpaceInfo{{
+			CloudType: "ec2",
+			ProviderAttributes: map[string]interface{}{
+				"thing1":  23,
+				"thing2":  "halberd",
+				"network": "network-1",
+			},
+			SpaceInfo: network.SpaceInfo{
+				Name:       "public",
+				ProviderId: "juju-space-public",
+				Subnets: []network.SubnetInfo{{
+					ProviderId:        "juju-subnet-12",
+					CIDR:              "1.2.3.0/24",
+					AvailabilityZones: []string{"az1", "az2"},
+					SpaceProviderId:   "juju-space-public",
+					ProviderNetworkId: "network-1",
+				}},
+			},
+		}, {
+			CloudType: "ec2",
+			ProviderAttributes: map[string]interface{}{
+				"thing1":  24,
+				"thing2":  "bardiche",
+				"network": "network-1",
+			},
+			SpaceInfo: network.SpaceInfo{
+				Name:       "private",
+				ProviderId: "juju-space-private",
+				Subnets: []network.SubnetInfo{{
+					ProviderId:        "juju-subnet-24",
+					CIDR:              "1.2.4.0/24",
+					AvailabilityZones: []string{"az1", "az2"},
+					SpaceProviderId:   "juju-space-private",
+					ProviderNetworkId: "network-1",
+				}},
+			},
+		}},
+		Bindings: map[string]string{
+			"db":       "private",
+			"db-admin": "private",
+			"logging":  "public",
+		},
+		// Macaroon not exported.
+		Macaroon: &macaroon.Macaroon{},
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	eps, err := s.State.InferEndpoints("gravy-rainbow", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
@@ -1142,28 +1434,121 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	app := model.RemoteApplications()[0]
 	c.Check(app.Tag(), gc.Equals, names.NewApplicationTag("gravy-rainbow"))
 	c.Check(app.Name(), gc.Equals, "gravy-rainbow")
-	c.Check(app.OfferName(), gc.Equals, "")
+	c.Check(app.OfferUUID(), gc.Equals, "offer-uuid")
 	c.Check(app.URL(), gc.Equals, "me/model.rainbow")
-	c.Check(app.SourceModelTag(), gc.Equals, s.State.ModelTag())
+	c.Check(app.SourceModelTag(), gc.Equals, s.IAASModel.ModelTag())
 	c.Check(app.IsConsumerProxy(), jc.IsFalse)
+	c.Check(app.Bindings(), gc.DeepEquals, map[string]string{
+		"db":       "private",
+		"db-admin": "private",
+		"logging":  "public",
+	})
 
 	c.Assert(app.Endpoints(), gc.HasLen, 3)
 	ep := app.Endpoints()[0]
 	c.Check(ep.Name(), gc.Equals, "db")
 	c.Check(ep.Interface(), gc.Equals, "mysql")
-	c.Check(ep.Limit(), gc.Equals, 0)
 	c.Check(ep.Role(), gc.Equals, "provider")
-	c.Check(ep.Scope(), gc.Equals, "global")
 	ep = app.Endpoints()[1]
 	c.Check(ep.Name(), gc.Equals, "db-admin")
 	c.Check(ep.Interface(), gc.Equals, "mysql-root")
-	c.Check(ep.Limit(), gc.Equals, 5)
 	c.Check(ep.Role(), gc.Equals, "provider")
-	c.Check(ep.Scope(), gc.Equals, "global")
 	ep = app.Endpoints()[2]
 	c.Check(ep.Name(), gc.Equals, "logging")
 	c.Check(ep.Interface(), gc.Equals, "logging")
-	c.Check(ep.Limit(), gc.Equals, 0)
 	c.Check(ep.Role(), gc.Equals, "provider")
-	c.Check(ep.Scope(), gc.Equals, "global")
+
+	originalSpaces := dbApp.Spaces()
+	actualSpaces := app.Spaces()
+	c.Assert(actualSpaces, gc.HasLen, 2)
+	checkSpaceMatches(c, actualSpaces[0], originalSpaces[0])
+	checkSpaceMatches(c, actualSpaces[1], originalSpaces[1])
+
+	c.Assert(model.Relations(), gc.HasLen, 1)
+	rel := model.Relations()[0]
+	c.Assert(rel.Key(), gc.Equals, "wordpress:db gravy-rainbow:db")
+}
+
+func checkSpaceMatches(c *gc.C, actual description.RemoteSpace, original state.RemoteSpace) {
+	c.Check(actual.CloudType(), gc.Equals, original.CloudType)
+	c.Check(actual.Name(), gc.Equals, original.Name)
+	c.Check(actual.ProviderId(), gc.Equals, original.ProviderId)
+	c.Check(actual.ProviderAttributes(), gc.DeepEquals, map[string]interface{}(original.ProviderAttributes))
+	subnets := actual.Subnets()
+	c.Assert(subnets, gc.HasLen, len(original.Subnets))
+	for i, subnet := range subnets {
+		c.Logf("subnet %d", i)
+		checkSubnetMatches(c, subnet, original.Subnets[i])
+	}
+}
+
+func checkSubnetMatches(c *gc.C, actual description.Subnet, original state.RemoteSubnet) {
+	c.Check(actual.CIDR(), gc.Equals, original.CIDR)
+	c.Check(actual.ProviderId(), gc.Equals, original.ProviderId)
+	c.Check(actual.VLANTag(), gc.Equals, original.VLANTag)
+	c.Check(actual.AvailabilityZones(), gc.DeepEquals, original.AvailabilityZones)
+	c.Check(actual.ProviderSpaceId(), gc.Equals, original.ProviderSpaceId)
+	c.Check(actual.ProviderNetworkId(), gc.Equals, original.ProviderNetworkId)
+}
+
+func (s *MigrationExportSuite) TestModelStatus(c *gc.C) {
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(model.Status().Value(), gc.Equals, "available")
+	c.Check(model.StatusHistory(), gc.HasLen, 1)
+}
+
+func (s *MigrationExportSuite) TestTooManyStatusHistories(c *gc.C) {
+	// Check that we cap the history entries at 20.
+	machine := s.Factory.MakeMachine(c, nil)
+	s.primeStatusHistory(c, machine, status.Started, 21)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Machines(), gc.HasLen, 1)
+	history := model.Machines()[0].StatusHistory()
+	c.Assert(history, gc.HasLen, 20)
+	s.checkStatusHistory(c, history, status.Started)
+}
+
+func (s *MigrationExportSuite) TestRelationWithNoStatus(c *gc.C) {
+	// Importing from a model from before relations had status will
+	// mean that there's no status to export - don't fail to export if
+	// there isn't a status for a relation.
+	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	// InferEndpoints will always return provider, requirer
+	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
+	mysql_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
+
+	ru, err := rel.Unit(wordpress_0)
+	c.Assert(err, jc.ErrorIsNil)
+	wordpressSettings := map[string]interface{}{
+		"name": "wordpress/0",
+	}
+	err = ru.EnterScope(wordpressSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ru, err = rel.Unit(mysql_0)
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlSettings := map[string]interface{}{
+		"name": "mysql/0",
+	}
+	err = ru.EnterScope(mysqlSettings)
+	c.Assert(err, jc.ErrorIsNil)
+
+	state.RemoveRelationStatus(c, rel)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	rels := model.Relations()
+	c.Assert(rels, gc.HasLen, 1)
+	c.Assert(rels[0].Status(), gc.IsNil)
 }

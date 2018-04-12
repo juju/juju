@@ -49,39 +49,6 @@ func (r *RestoreSuite) SetUpTest(c *gc.C) {
 	r.BaseSuite.SetUpTest(c)
 }
 
-func (r *RestoreSuite) createTestFiles(c *gc.C) {
-	tarDirE := path.Join(r.cwd, "TarDirectoryEmpty")
-	err := os.Mkdir(tarDirE, os.FileMode(0755))
-	c.Check(err, jc.ErrorIsNil)
-
-	tarDirP := path.Join(r.cwd, "TarDirectoryPopulated")
-	err = os.Mkdir(tarDirP, os.FileMode(0755))
-	c.Check(err, jc.ErrorIsNil)
-
-	tarSubFile1 := path.Join(tarDirP, "TarSubFile1")
-	tarSubFile1Handle, err := os.Create(tarSubFile1)
-	c.Check(err, jc.ErrorIsNil)
-	tarSubFile1Handle.WriteString("TarSubFile1")
-	tarSubFile1Handle.Close()
-
-	tarSubDir := path.Join(tarDirP, "TarDirectoryPopulatedSubDirectory")
-	err = os.Mkdir(tarSubDir, os.FileMode(0755))
-	c.Check(err, jc.ErrorIsNil)
-
-	tarFile1 := path.Join(r.cwd, "TarFile1")
-	tarFile1Handle, err := os.Create(tarFile1)
-	c.Check(err, jc.ErrorIsNil)
-	tarFile1Handle.WriteString("TarFile1")
-	tarFile1Handle.Close()
-
-	tarFile2 := path.Join(r.cwd, "TarFile2")
-	tarFile2Handle, err := os.Create(tarFile2)
-	c.Check(err, jc.ErrorIsNil)
-	tarFile2Handle.WriteString("TarFile2")
-	tarFile2Handle.Close()
-	r.testFiles = []string{tarDirE, tarDirP, tarFile1, tarFile2}
-}
-
 func (r *RestoreSuite) TestReplicasetIsReset(c *gc.C) {
 	server := &gitjujutesting.MgoInstance{Params: []string{"--replSet", "juju"}}
 	err := server.Start(coretesting.Certs)
@@ -175,7 +142,6 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 			Model:             coretesting.ModelTag,
 			Password:          "placeholder",
 			Nonce:             "dummyNonce",
-			StateAddresses:    []string{"fakeStateAddress:1234"},
 			APIAddresses:      []string{"fakeAPIAddress:12345"},
 			CACert:            coretesting.CACert,
 		}
@@ -249,12 +215,13 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer server.DestroyWithLog()
 
-	st := statetesting.InitializeWithArgs(c,
+	ctlr, st := statetesting.InitializeWithArgs(c,
 		statetesting.InitializeArgs{
 			Owner: names.NewLocalUserTag("test-admin"),
 			Clock: gitjujutesting.NewClock(coretesting.NonZeroTime()),
 		})
 	c.Assert(st.Close(), jc.ErrorIsNil)
+	c.Assert(ctlr.Close(), jc.ErrorIsNil)
 
 	r.PatchValue(&mongoDefaultDialOpts, mongotest.DialOpts)
 	r.PatchValue(&environsGetNewPolicyFunc, func(
@@ -262,7 +229,8 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	) state.NewPolicyFunc {
 		return nil
 	})
-	st, err = newStateConnection(st.ControllerTag(), st.ModelTag(), statetesting.NewMongoInfo())
+
+	st, err = newStateConnection(st.ControllerTag(), names.NewModelTag(st.ModelUUID()), statetesting.NewMongoInfo())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }
@@ -271,10 +239,12 @@ func (r *RestoreSuite) TestRunViaSSH(c *gc.C) {
 	var (
 		passedAddress string
 		passedArgs    []string
+		passedOptions *ssh.Options
 	)
 	fakeSSHCommand := func(address string, args []string, options *ssh.Options) *ssh.Cmd {
 		passedAddress = address
 		passedArgs = args
+		passedOptions = options
 		return ssh.Command("", []string{"ls"}, &ssh.Options{})
 	}
 
@@ -282,4 +252,10 @@ func (r *RestoreSuite) TestRunViaSSH(c *gc.C) {
 	runViaSSH("invalidAddress", "invalidScript")
 	c.Assert(passedAddress, gc.Equals, "ubuntu@invalidAddress")
 	c.Assert(passedArgs, gc.DeepEquals, []string{"sudo", "-n", "bash", "-c 'invalidScript'"})
+
+	var expectedOptions ssh.Options
+	expectedOptions.SetIdentities("/var/lib/juju/system-identity")
+	expectedOptions.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
+	expectedOptions.SetKnownHostsFile(os.DevNull)
+	c.Assert(passedOptions, jc.DeepEquals, &expectedOptions)
 }

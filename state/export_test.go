@@ -15,15 +15,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
+	jutils "github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
@@ -55,10 +55,8 @@ var (
 	ControllerAvailable                  = &controllerAvailable
 	GetOrCreatePorts                     = getOrCreatePorts
 	GetPorts                             = getPorts
-	AddVolumeOps                         = (*State).addVolumeOps
 	CombineMeterStatus                   = combineMeterStatus
 	ApplicationGlobalKey                 = applicationGlobalKey
-	ReadSettings                         = readSettings
 	ControllerInheritedSettingsGlobalKey = controllerInheritedSettingsGlobalKey
 	ModelGlobalKey                       = modelGlobalKey
 	MergeBindings                        = mergeBindings
@@ -111,17 +109,12 @@ func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.Transacti
 
 func newRunnerForHooks(st *State) jujutxn.Runner {
 	db := st.database.(*database)
-	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db.raw})
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
+		Database: db.raw,
+		Clock:    st.stateClock,
+	})
 	db.runner = runner
 	return runner
-}
-
-func OfferForName(sd crossmodel.ApplicationOffers, name string) (*applicationOfferDoc, error) {
-	return sd.(*applicationOffers).offerForName(name)
-}
-
-func MakeApplicationOffer(sd crossmodel.ApplicationOffers, offer *applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
-	return sd.(*applicationOffers).makeApplicationOffer(*offer)
 }
 
 // SetPolicy updates the State's policy field to the
@@ -137,11 +130,19 @@ func (doc *MachineDoc) String() string {
 	return m.String()
 }
 
-func ServiceSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {
-	refcounts, closer := st.getCollection(refcountsC)
+func ApplicationSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {
+	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
 
-	key := applicationSettingsKey(appName, curl)
+	key := applicationCharmConfigKey(appName, curl)
+	return nsRefcounts.read(refcounts, key)
+}
+
+func ApplicationOffersRefCount(st *State, appName string) (int, error) {
+	refcounts, closer := st.db().GetCollection(refcountsC)
+	defer closer()
+
+	key := applicationOffersRefCountKey(appName)
 	return nsRefcounts.read(refcounts, key)
 }
 
@@ -168,23 +169,23 @@ func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 	return sch
 }
 
-func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Application {
-	return addTestingService(c, st, "", name, ch, nil, nil)
+func AddTestingApplication(c *gc.C, st *State, name string, ch *Charm) *Application {
+	return addTestingApplication(c, st, "", name, ch, nil, nil)
 }
 
-func AddTestingServiceForSeries(c *gc.C, st *State, series, name string, ch *Charm) *Application {
-	return addTestingService(c, st, series, name, ch, nil, nil)
+func AddTestingApplicationForSeries(c *gc.C, st *State, series, name string, ch *Charm) *Application {
+	return addTestingApplication(c, st, series, name, ch, nil, nil)
 }
 
-func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
-	return addTestingService(c, st, "", name, ch, nil, storage)
+func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
+	return addTestingApplication(c, st, "", name, ch, nil, storage)
 }
 
-func AddTestingServiceWithBindings(c *gc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
-	return addTestingService(c, st, "", name, ch, bindings, nil)
+func AddTestingApplicationWithBindings(c *gc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
+	return addTestingApplication(c, st, "", name, ch, bindings, nil)
 }
 
-func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, bindings map[string]string, storage map[string]StorageConstraints) *Application {
+func addTestingApplication(c *gc.C, st *State, series, name string, ch *Charm, bindings map[string]string, storage map[string]StorageConstraints) *Application {
 	c.Assert(ch, gc.NotNil)
 	app, err := st.AddApplication(AddApplicationArgs{
 		Name:             name,
@@ -231,36 +232,6 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	return sch
 }
 
-// SetCharmBundleURL sets the deprecated bundleurl field in the
-// charm document for the charm with the specified URL.
-func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
-	ops := []txn.Op{{
-		C:      charmsC,
-		Id:     st.docID(curl.String()),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"bundleurl", bundleURL}}}},
-	}}
-	err := st.runTransaction(ops)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func SetPasswordHash(e Authenticator, passwordHash string) error {
-	type hasSetPasswordHash interface {
-		setPasswordHash(string) error
-	}
-	return e.(hasSetPasswordHash).setPasswordHash(passwordHash)
-}
-
-// Return the underlying PasswordHash stored in the database. Used by the test
-// suite to check that the PasswordHash gets properly updated to new values
-// when compatibility mode is detected.
-func GetPasswordHash(e Authenticator) string {
-	type hasGetPasswordHash interface {
-		getPasswordHash() string
-	}
-	return e.(hasGetPasswordHash).getPasswordHash()
-}
-
 func init() {
 	txnLogSize = txnLogSizeTests
 }
@@ -271,7 +242,7 @@ func TxnRevno(st *State, collName string, id interface{}) (int64, error) {
 	var doc struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}
-	coll, closer := st.getCollection(collName)
+	coll, closer := st.db().GetCollection(collName)
 	defer closer()
 	err := coll.FindId(id).One(&doc)
 	if err != nil {
@@ -283,7 +254,7 @@ func TxnRevno(st *State, collName string, id interface{}) (int64, error) {
 // MinUnitsRevno returns the Revno of the minUnits document
 // associated with the given application name.
 func MinUnitsRevno(st *State, applicationname string) (int, error) {
-	minUnitsCollection, closer := st.getCollection(minUnitsC)
+	minUnitsCollection, closer := st.db().GetCollection(minUnitsC)
 	defer closer()
 	var doc minUnitsDoc
 	if err := minUnitsCollection.FindId(applicationname).One(&doc); err != nil {
@@ -296,8 +267,12 @@ func ConvertTagToCollectionNameAndId(st *State, tag names.Tag) (string, interfac
 	return st.tagToCollectionAndId(tag)
 }
 
+func NowToTheSecond(st *State) time.Time {
+	return st.nowToTheSecond()
+}
+
 func RunTransaction(st *State, ops []txn.Op) error {
-	return st.runTransaction(ops)
+	return st.db().RunTransaction(ops)
 }
 
 // Return the PasswordSalt that goes along with the PasswordHash
@@ -326,7 +301,7 @@ func NewActionStatusWatcher(st *State, receivers []ActionReceiver, statuses ...A
 }
 
 func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
-	upgradeInfos, closer := st.getCollection(upgradeInfoC)
+	upgradeInfos, closer := st.db().GetCollection(upgradeInfoC)
 	defer closer()
 
 	var out []*UpgradeInfo
@@ -336,7 +311,7 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 	for iter.Next(&doc) {
 		out = append(out, &UpgradeInfo{st: st, doc: doc})
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -346,28 +321,38 @@ func UserModelNameIndex(username, modelName string) string {
 	return userModelNameIndex(username, modelName)
 }
 
-func DocID(st *State, id string) string {
-	return st.docID(id)
+func (m *Model) UniqueIndexExists() bool {
+	coll, closer := m.st.db().GetCollection(usermodelnameC)
+	defer closer()
+
+	var doc bson.M
+	err := coll.FindId(m.uniqueIndexID()).One(&doc)
+
+	return err == nil
 }
 
-func LocalID(st *State, id string) string {
-	return st.localID(id)
+func DocID(mb modelBackend, id string) string {
+	return mb.docID(id)
 }
 
-func StrictLocalID(st *State, id string) (string, error) {
-	return st.strictLocalID(id)
+func LocalID(mb modelBackend, id string) string {
+	return mb.localID(id)
+}
+
+func StrictLocalID(mb modelBackend, id string) (string, error) {
+	return mb.strictLocalID(id)
 }
 
 func GetUnitModelUUID(unit *Unit) string {
 	return unit.doc.ModelUUID
 }
 
-func GetCollection(st *State, name string) (mongo.Collection, func()) {
-	return st.getCollection(name)
+func GetCollection(mb modelBackend, name string) (mongo.Collection, func()) {
+	return mb.db().GetCollection(name)
 }
 
-func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
-	return st.getRawCollection(name)
+func GetRawCollection(mb modelBackend, name string) (*mgo.Collection, func()) {
+	return mb.db().GetRawCollection(name)
 }
 
 func HasRawAccess(collectionName string) bool {
@@ -385,27 +370,31 @@ func MultiEnvCollections() []string {
 }
 
 func Sequence(st *State, name string) (int, error) {
-	return st.sequence(name)
+	return sequence(st, name)
 }
 
 func SequenceWithMin(st *State, name string, minVal int) (int, error) {
-	return st.sequenceWithMin(name, minVal)
+	return sequenceWithMin(st, name, minVal)
 }
 
 func SequenceEnsure(st *State, name string, nextVal int) error {
-	sequences, closer := st.getRawCollection(sequenceC)
+	sequences, closer := st.db().GetRawCollection(sequenceC)
 	defer closer()
 	updater := newDbSeqUpdater(sequences, st.ModelUUID(), name)
 	return updater.ensure(nextVal)
 }
 
-func SetModelLifeDead(st *State, modelUUID string) error {
+func (m *Model) SetDead() error {
 	ops := []txn.Op{{
 		C:      modelsC,
-		Id:     modelUUID,
+		Id:     m.doc.UUID,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+	}, {
+		C:      usermodelnameC,
+		Id:     m.uniqueIndexID(),
+		Remove: true,
 	}}
-	return st.runTransaction(ops)
+	return m.st.db().RunTransaction(ops)
 }
 
 func HostedModelCount(c *gc.C, st *State) int {
@@ -464,7 +453,6 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
 
 // MakeLogDoc creates a database document for a single log message.
 func MakeLogDoc(
-	modelUUID string,
 	entity names.Tag,
 	t time.Time,
 	module string,
@@ -473,15 +461,14 @@ func MakeLogDoc(
 	msg string,
 ) *logDoc {
 	return &logDoc{
-		Id:        bson.NewObjectId(),
-		Time:      t.UnixNano(),
-		ModelUUID: modelUUID,
-		Entity:    entity.String(),
-		Version:   version.Current.String(),
-		Module:    module,
-		Location:  location,
-		Level:     int(level),
-		Message:   msg,
+		Id:       bson.NewObjectId(),
+		Time:     t.UnixNano(),
+		Entity:   entity.String(),
+		Version:  version.Current.String(),
+		Module:   module,
+		Location: location,
+		Level:    int(level),
+		Message:  msg,
 	}
 }
 
@@ -491,10 +478,6 @@ func SpaceDoc(s *Space) spaceDoc {
 
 func ForceDestroyMachineOps(m *Machine) ([]txn.Op, error) {
 	return m.forceDestroyOps()
-}
-
-func IsManagerMachineError(err error) bool {
-	return errors.Cause(err) == managerMachineError
 }
 
 func MakeActionIdConverter(st *State) func(string) (string, error) {
@@ -508,14 +491,44 @@ func MakeActionIdConverter(st *State) func(string) (string, error) {
 }
 
 func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time.Time) error {
-	return st.updateLastModelConnection(e.UserTag, when)
+	model, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return model.updateLastModelConnection(e.UserTag, when)
+}
+
+func (m *Machine) SetWantsVote(wantsVote bool) error {
+	err := m.st.runRawTransaction([]txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Update: bson.M{"$set": bson.M{"novote": !wantsVote}},
+	}})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	m.doc.NoVote = !wantsVote
+	return nil
+}
+
+func RemoveController(c *gc.C, m *Machine) {
+	err := m.st.RemoveControllerMachine(m)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func RemoveEndpointBindingsForService(c *gc.C, app *Application) {
 	globalKey := app.globalKey()
 	removeOp := removeEndpointBindingsOp(globalKey)
 
-	txnError := app.st.runTransaction([]txn.Op{removeOp})
+	txnError := app.st.db().RunTransaction([]txn.Op{removeOp})
+	err := onAbort(txnError, nil) // ignore ErrAborted as it asserts DocExists
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func RemoveOfferConnectionsForRelation(c *gc.C, rel *Relation) {
+	removeOps := removeOfferConnectionsForRelationOps(rel.Id())
+	txnError := rel.st.db().RunTransaction(removeOps)
 	err := onAbort(txnError, nil) // ignore ErrAborted as it asserts DocExists
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -557,7 +570,14 @@ func ResetMigrationMode(c *gc.C, st *State) {
 			"$set": bson.M{"migration-mode": MigrationModeNone},
 		},
 	}}
-	err := st.runTransaction(ops)
+	err := st.db().RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func RemoveRelationStatus(c *gc.C, rel *Relation) {
+	st := rel.st
+	ops := []txn.Op{removeStatusOp(st, rel.globalScope())}
+	err := st.db().RunTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -571,7 +591,7 @@ func PrimeUnitStatusHistory(
 ) {
 	globalKey := unit.globalKey()
 
-	history, closer := unit.st.getCollection(statusesHistoryC)
+	history, closer := unit.st.db().GetCollection(statusesHistoryC)
 	defer closer()
 	historyW := history.Writeable()
 
@@ -603,10 +623,40 @@ func PrimeUnitStatusHistory(
 	}
 
 	var buildTxn jujutxn.TransactionSource = func(int) ([]txn.Op, error) {
-		return statusSetOps(unit.st, doc, globalKey)
+		return statusSetOps(unit.st.db(), doc, globalKey)
 	}
 
-	err := unit.st.run(buildTxn)
+	err := unit.st.db().Run(buildTxn)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// PrimeActions generates actions to be pruned. The method pads each
+// entry with a 1MB string. This should allow us to infer the
+// approximate size of the entry and limit the number of entries that
+// must be generated for size related tests.
+func PrimeActions(c *gc.C, age time.Time, unit *Unit, count int) {
+	actionCollection, closer := unit.st.db().GetCollection(actionsC)
+	defer closer()
+
+	actionCollectionWriter := actionCollection.Writeable()
+
+	const numBytes = 1 * 1000 * 1000
+	var padding [numBytes]byte
+	var actionDocs []interface{}
+	for i := 0; i < count; i++ {
+		id, err := jutils.NewUUID()
+		c.Assert(err, jc.ErrorIsNil)
+		actionDocs = append(actionDocs, actionDoc{
+			DocId:     id.String(),
+			ModelUUID: unit.st.ModelUUID(),
+			Receiver:  unit.Name(),
+			Completed: age,
+			Status:    ActionCompleted,
+			Message:   string(padding[:numBytes]),
+		})
+	}
+
+	err := actionCollectionWriter.Insert(actionDocs...)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -645,7 +695,7 @@ func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
 // of a given kind scheduled.
 func AssertNoCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
 	var docs []cleanupDoc
-	cleanups, closer := st.getCollection(cleanupsC)
+	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
 	err := cleanups.Find(nil).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -659,7 +709,7 @@ func AssertNoCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
 // AssertNoCleanups checks that there are no cleanups scheduled.
 func AssertNoCleanups(c *gc.C, st *State) {
 	var docs []cleanupDoc
-	cleanups, closer := st.getCollection(cleanupsC)
+	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
 	err := cleanups.Find(nil).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -668,8 +718,56 @@ func AssertNoCleanups(c *gc.C, st *State) {
 	}
 }
 
-// GetApplicationSettings allows access to settings collection for a
-// given application.
-func GetApplicationSettings(st *State, app *Application) *Settings {
-	return newSettings(st, settingsC, app.settingsKey())
+// GetApplicationCharmConfig allows access to settings collection for a
+// given application in order to get the charm config.
+func GetApplicationCharmConfig(st *State, app *Application) *Settings {
+	return newSettings(st.db(), settingsC, app.charmConfigKey())
+}
+
+// GetApplicationConfig allows access to settings collection for a
+// given application in order to get the application config.
+func GetApplicationConfig(st *State, app *Application) *Settings {
+	return newSettings(st.db(), settingsC, app.applicationConfigKey())
+}
+
+// GetControllerSettings allows access to settings collection for
+// the controller.
+func GetControllerSettings(st *State) *Settings {
+	return newSettings(st.db(), controllersC, controllerSettingsGlobalKey)
+}
+
+// NewSLALevel returns a new SLA level.
+func NewSLALevel(level string) (slaLevel, error) {
+	return newSLALevel(level)
+}
+
+func AppStorageConstraints(app *Application) (map[string]StorageConstraints, error) {
+	return readStorageConstraints(app.st, app.storageConstraintsKey())
+}
+
+func RemoveRelation(c *gc.C, rel *Relation) {
+	ops, err := rel.removeOps("", "")
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.st.db().RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func AddVolumeOps(st *State, params VolumeParams, machineId string) ([]txn.Op, names.VolumeTag, error) {
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, names.VolumeTag{}, err
+	}
+	return im.addVolumeOps(params, machineId)
+}
+
+func ModelBackendFromIAASModel(im *IAASModel) modelBackend {
+	return im.mb
+}
+
+func (st *State) IsUserSuperuser(user names.UserTag) (bool, error) {
+	return st.isUserSuperuser(user)
+}
+
+func (st *State) ModelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.Query, SessionCloser, error) {
+	return st.modelQueryForUser(user, isSuperuser)
 }

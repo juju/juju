@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/url"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -83,6 +84,7 @@ func (c *mockConnector) ConnectStream(path string, values url.Values) (base.Stre
 	c.c.Assert(path, gc.Equals, "/logsink")
 	c.c.Assert(values, jc.DeepEquals, url.Values{
 		"jujuclientversion": []string{version.Current.String()},
+		"version":           []string{"1"},
 	})
 	if c.connectError != nil {
 		return nil, c.connectError
@@ -108,7 +110,9 @@ func (s mockStream) ReadJSON(v interface{}) error {
 }
 
 func (s mockStream) NextReader() (messageType int, r io.Reader, err error) {
-	s.conn.c.Errorf("NextReader called unexpectedly")
+	// NextReader is now called by the read loop thread.
+	// So just wait a bit and return so it doesn't sit in a very tight loop.
+	time.Sleep(time.Millisecond)
 	return 0, nil, nil
 }
 

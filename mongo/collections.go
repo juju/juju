@@ -33,6 +33,7 @@ type Collection interface {
 	Count() (int, error)
 	Find(query interface{}) Query
 	FindId(id interface{}) Query
+	Pipe(pipeline interface{}) *mgo.Pipe
 
 	// Writeable gives access to methods that enable direct DB access. It
 	// should be used with judicious care, and for only the best of reasons.
@@ -68,7 +69,7 @@ type Query interface {
 	Explain(result interface{}) error
 	For(result interface{}, f func() error) error
 	Hint(indexKey ...string) Query
-	Iter() *mgo.Iter
+	Iter() Iterator
 	Limit(n int) Query
 	LogReplay() Query
 	MapReduce(job *mgo.MapReduce, result interface{}) (info *mgo.MapReduceInfo, err error)
@@ -81,6 +82,14 @@ type Query interface {
 	Snapshot() Query
 	Sort(fields ...string) Query
 	Tail(timeout time.Duration) *mgo.Iter
+}
+
+// Iterator defines the parts of the mgo.Iter that we use - this
+// interface allows us to switch out the querying for testing.
+type Iterator interface {
+	Next(interface{}) bool
+	Timeout() bool
+	Close() error
 }
 
 // WrapCollection returns a Collection that wraps the supplied *mgo.Collection.
@@ -102,6 +111,11 @@ func (cw collectionWrapper) Name() string {
 // Find is part of the Collection interface.
 func (cw collectionWrapper) Find(query interface{}) Query {
 	return queryWrapper{cw.Collection.Find(query)}
+}
+
+// Pipe is part of the Collection interface
+func (cw collectionWrapper) Pipe(pipeline interface{}) *mgo.Pipe {
+	return cw.Collection.Pipe(pipeline)
 }
 
 // FindId is part of the Collection interface.
@@ -169,4 +183,8 @@ func (qw queryWrapper) Snapshot() Query {
 
 func (qw queryWrapper) Sort(fields ...string) Query {
 	return queryWrapper{qw.Query.Sort(fields...)}
+}
+
+func (qw queryWrapper) Iter() Iterator {
+	return qw.Query.Iter()
 }

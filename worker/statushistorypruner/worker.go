@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package statushistorypruner
@@ -9,54 +9,43 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
-	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/statushistory"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/pruner"
 )
 
-// Facade represents an API that implements status history pruning.
-type Facade interface {
-	Prune(time.Duration, int) error
+// Worker prunes status history records at regular intervals.
+type Worker struct {
+	pruner.PrunerWorker
 }
 
-// Config holds all necessary attributes to start a pruner worker.
-type Config struct {
-	Facade         Facade
-	MaxHistoryTime time.Duration
-	MaxHistoryMB   uint
-	PruneInterval  time.Duration
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	NewTimer jworker.NewTimerFunc
+// NewFacade returns a new status history facade.
+func NewFacade(caller base.APICaller) pruner.Facade {
+	return statushistory.NewFacade(caller)
 }
 
-// Validate will err unless basic requirements for a valid
-// config are met.
-func (c *Config) Validate() error {
-	if c.Facade == nil {
-		return errors.New("missing Facade")
-	}
-	if c.NewTimer == nil {
-		return errors.New("missing Timer")
-	}
-	// TODO(perrito666) this assumes out of band knowledge of how filter
-	// values are treated, expand config to support the "dont use this filter"
-	// case as an explicit statement.
-	if c.MaxHistoryMB <= 0 && c.MaxHistoryTime <= 0 {
-		return errors.New("missing prune criteria, no size or date limit provided")
-	}
-	return nil
+func (w *Worker) loop() error {
+	return w.Work(func(config *config.Config) (time.Duration, uint) {
+		return config.MaxStatusHistoryAge(), config.MaxStatusHistorySizeMB()
+	})
 }
 
-// New returns a worker.Worker for history Pruner.
-func New(conf Config) (worker.Worker, error) {
+// New creates a new status history pruner.
+func New(conf pruner.Config) (worker.Worker, error) {
 	if err := conf.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	doPruning := func(stop <-chan struct{}) error {
-		err := conf.Facade.Prune(conf.MaxHistoryTime, int(conf.MaxHistoryMB))
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
+
+	w := &Worker{
+		pruner.New(conf),
 	}
 
-	return jworker.NewPeriodicWorker(doPruning, conf.PruneInterval, conf.NewTimer), nil
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: w.Catacomb(),
+		Work: w.loop,
+	})
+
+	return w, errors.Trace(err)
 }

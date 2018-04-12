@@ -4,10 +4,12 @@
 package status
 
 import (
+	"fmt"
 	"strings"
 
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -53,16 +55,26 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 	out := formattedStatus{
 		Model: modelStatus{
 			Name:             sf.status.Model.Name,
+			Type:             sf.status.Model.Type,
 			Controller:       sf.controllerName,
 			Cloud:            cloudTag.Id(),
 			CloudRegion:      sf.status.Model.CloudRegion,
 			Version:          sf.status.Model.Version,
 			AvailableVersion: sf.status.Model.AvailableVersion,
 			Status:           sf.getStatusInfoContents(sf.status.Model.ModelStatus),
+			SLA:              sf.status.Model.SLA,
 		},
 		Machines:           make(map[string]machineStatus),
 		Applications:       make(map[string]applicationStatus),
 		RemoteApplications: make(map[string]remoteApplicationStatus),
+		Offers:             make(map[string]offerStatus),
+		Relations:          make([]relationStatus, len(sf.relations)),
+	}
+	if sf.status.Model.MeterStatus.Color != "" {
+		out.Model.MeterStatus = &meterStatus{
+			Color:   sf.status.Model.MeterStatus.Color,
+			Message: sf.status.Model.MeterStatus.Message,
+		}
 	}
 	for k, m := range sf.status.Machines {
 		out.Machines[k] = sf.formatMachine(m)
@@ -72,6 +84,14 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 	}
 	for sn, s := range sf.status.RemoteApplications {
 		out.RemoteApplications[sn] = sf.formatRemoteApplication(sn, s)
+	}
+	for name, offer := range sf.status.Offers {
+		out.Offers[name] = sf.formatOffer(name, offer)
+	}
+	i := 0
+	for _, rel := range sf.relations {
+		out.Relations[i] = sf.formatRelation(rel)
+		i++
 	}
 	return out, nil
 }
@@ -140,7 +160,14 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 }
 
 func (sf *statusFormatter) formatApplication(name string, application params.ApplicationStatus) applicationStatus {
+	var osInfo string
 	appOS, _ := series.GetOSFromSeries(application.Series)
+	osInfo = strings.ToLower(appOS.String())
+
+	// TODO(caas) - enhance GetOSFromSeries
+	if appOS == os.Unknown && sf.status.Model.Type == "caas" {
+		osInfo = application.Series
+	}
 	var (
 		charmOrigin = ""
 		charmName   = ""
@@ -167,12 +194,14 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		Err:           application.Err,
 		Charm:         application.Charm,
 		Series:        application.Series,
-		OS:            strings.ToLower(appOS.String()),
+		OS:            osInfo,
 		CharmOrigin:   charmOrigin,
 		CharmName:     charmName,
 		CharmRev:      charmRev,
 		Exposed:       application.Exposed,
 		Life:          application.Life,
+		ProviderId:    application.ProviderId,
+		Address:       application.PublicAddress,
 		Relations:     application.Relations,
 		CanUpgradeTo:  application.CanUpgradeTo,
 		SubordinateTo: application.SubordinateTo,
@@ -193,11 +222,11 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 
 func (sf *statusFormatter) formatRemoteApplication(name string, application params.RemoteApplicationStatus) remoteApplicationStatus {
 	out := remoteApplicationStatus{
-		Err:            application.Err,
-		ApplicationURL: application.ApplicationURL,
-		Life:           application.Life,
-		Relations:      application.Relations,
-		StatusInfo:     sf.getRemoteApplicationStatusInfo(application),
+		Err:        application.Err,
+		OfferURL:   application.OfferURL,
+		Life:       application.Life,
+		Relations:  application.Relations,
+		StatusInfo: sf.getRemoteApplicationStatusInfo(application),
 	}
 	out.Endpoints = make(map[string]remoteEndpoint)
 	for _, ep := range application.Endpoints {
@@ -205,6 +234,39 @@ func (sf *statusFormatter) formatRemoteApplication(name string, application para
 			Interface: ep.Interface,
 			Role:      string(ep.Role),
 		}
+	}
+	return out
+}
+
+func (sf *statusFormatter) formatRelation(rel params.RelationStatus) relationStatus {
+	var provider, requirer params.EndpointStatus
+	for _, ep := range rel.Endpoints {
+		switch charm.RelationRole(ep.Role) {
+		case charm.RolePeer:
+			provider = ep
+			requirer = ep
+		case charm.RoleProvider:
+			provider = ep
+		case charm.RoleRequirer:
+			requirer = ep
+		}
+	}
+	var relType string
+	switch {
+	case rel.Scope == "container":
+		relType = "subordinate"
+	case provider.ApplicationName == requirer.ApplicationName:
+		relType = "peer"
+	default:
+		relType = "regular"
+	}
+	out := relationStatus{
+		Provider:  fmt.Sprintf("%s:%s", provider.ApplicationName, provider.Name),
+		Requirer:  fmt.Sprintf("%s:%s", requirer.ApplicationName, requirer.Name),
+		Interface: rel.Interface,
+		Type:      relType,
+		Status:    rel.Status.Status,
+		Message:   rel.Status.Info,
 	}
 	return out
 }
@@ -237,6 +299,25 @@ func (sf *statusFormatter) getRemoteApplicationStatusInfo(application params.Rem
 	return info
 }
 
+func (sf *statusFormatter) formatOffer(name string, offer params.ApplicationOfferStatus) offerStatus {
+	out := offerStatus{
+		Err:                  offer.Err,
+		ApplicationName:      offer.ApplicationName,
+		CharmURL:             offer.CharmURL,
+		ActiveConnectedCount: offer.ActiveConnectedCount,
+		TotalConnectedCount:  offer.TotalConnectedCount,
+	}
+	out.Endpoints = make(map[string]remoteEndpoint)
+	for alias, ep := range offer.Endpoints {
+		out.Endpoints[alias] = remoteEndpoint{
+			Name:      ep.Name,
+			Interface: ep.Interface,
+			Role:      string(ep.Role),
+		}
+	}
+	return out
+}
+
 type unitFormatInfo struct {
 	unit            params.UnitStatus
 	unitName        string
@@ -253,6 +334,8 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 		JujuStatusInfo:     sf.getAgentStatusInfo(info.unit),
 		Machine:            info.unit.Machine,
 		OpenedPorts:        info.unit.OpenedPorts,
+		ProviderId:         info.unit.ProviderId,
+		Address:            info.unit.Address,
 		PublicAddress:      info.unit.PublicAddress,
 		Charm:              info.unit.Charm,
 		Subordinates:       make(map[string]unitStatus),
@@ -293,6 +376,9 @@ func (sf *statusFormatter) getStatusInfoContents(inst params.DetailedStatus) sta
 }
 
 func (sf *statusFormatter) getWorkloadStatusInfo(unit params.UnitStatus) statusInfoContents {
+	if unit.WorkloadStatus.Status == "" {
+		return statusInfoContents{}
+	}
 	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
 		Err:     unit.WorkloadStatus.Err,

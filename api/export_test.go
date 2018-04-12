@@ -4,7 +4,9 @@
 package api
 
 import (
-	"github.com/gorilla/websocket"
+	"context"
+	"net/url"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
@@ -13,23 +15,29 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/rpc/jsoncodec"
 )
 
 var (
-	CertDir             = &certDir
-	NewWebsocketDialer  = newWebsocketDialer
-	WebsocketDial       = &websocketDial
-	SlideAddressToFront = slideAddressToFront
-	BestVersion         = bestVersion
-	FacadeVersions      = &facadeVersions
+	CertDir                 = &certDir
+	WebsocketDial           = &websocketDial
+	WebsocketDialWithErrors = websocketDialWithErrors
+	SlideAddressToFront     = slideAddressToFront
+	BestVersion             = bestVersion
+	FacadeVersions          = &facadeVersions
 )
 
-func DialAPI(info *Info, opts DialOpts) (*websocket.Conn, string, error) {
-	result, err := dialAPI(info, opts)
+func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {
+	result, err := dialAPI(context.TODO(), info, opts)
 	if err != nil {
 		return nil, "", err
 	}
-	return result.conn, result.urlStr, nil
+	// Replace the IP address in the URL with the
+	// host name so that tests can check it more
+	// easily.
+	u, _ := url.Parse(result.urlStr)
+	u.Host = result.addr
+	return result.conn, u.String(), nil
 }
 
 // RPCConnection defines the methods that are called on the rpc.Conn instance.
@@ -47,6 +55,11 @@ func ServerRoot(c *Client) string {
 	return c.st.serverRoot()
 }
 
+// UnderlyingConn returns the underlying transport connection.
+func UnderlyingConn(c Connection) jsoncodec.JSONConn {
+	return c.(*state).conn
+}
+
 // TestingStateParams is the parameters for NewTestingState, so that you can
 // only set the bits that you acutally want to test.
 type TestingStateParams struct {
@@ -58,7 +71,7 @@ type TestingStateParams struct {
 	ServerRoot     string
 	RPCConnection  RPCConnection
 	Clock          clock.Clock
-	Broken         chan struct{}
+	Broken, Closed chan struct{}
 }
 
 // NewTestingState creates an api.State object that can be used for testing. It
@@ -83,6 +96,7 @@ func NewTestingState(params TestingStateParams) Connection {
 		serverScheme:      params.ServerScheme,
 		serverRootAddress: params.ServerRoot,
 		broken:            params.Broken,
+		closed:            params.Closed,
 	}
 	return st
 }

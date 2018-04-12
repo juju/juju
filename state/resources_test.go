@@ -9,7 +9,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 
 	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/resource"
@@ -31,7 +31,7 @@ type ResourcesSuite struct {
 
 func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 	ch := s.ConnSuite.AddTestingCharm(c, "wordpress")
-	s.ConnSuite.AddTestingService(c, "a-application", ch)
+	s.ConnSuite.AddTestingApplication(c, "a-application", ch)
 
 	st, err := s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)

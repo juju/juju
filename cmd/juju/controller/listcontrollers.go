@@ -56,7 +56,7 @@ func (c *listControllersCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *listControllersCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.JujuCommandBase.SetFlags(f)
+	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.refresh, "refresh", false, "Connect to each controller to download the latest details")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
@@ -83,8 +83,7 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "failed to list controllers")
 	}
 	if len(controllers) == 0 && c.out.Name() == "tabular" {
-		ctx.Infof("%s", modelcmd.ErrNoControllersDefined)
-		return nil
+		return errors.Trace(modelcmd.ErrNoControllersDefined)
 	}
 	if c.refresh && len(controllers) > 0 {
 		var wg sync.WaitGroup
@@ -130,11 +129,15 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 
 func (c *listControllersCommand) refreshControllerDetails(client ControllerAccessAPI, controllerName string) error {
 	// First, get all the models the user can see, and their details.
-	var modelStatus []base.ModelStatus
 	allModels, err := client.AllModels()
 	if err != nil {
 		return err
 	}
+	// Update client store.
+	if err := c.SetControllerModels(c.store, controllerName, allModels); err != nil {
+		return errors.Trace(err)
+	}
+
 	var controllerModelUUID string
 	modelTags := make([]names.ModelTag, len(allModels))
 	for i, m := range allModels {
@@ -143,7 +146,7 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 			controllerModelUUID = m.UUID
 		}
 	}
-	modelStatus, err = client.ModelStatus(modelTags...)
+	modelStatus, err := client.ModelStatus(modelTags...)
 	if err != nil {
 		return err
 	}
@@ -156,19 +159,30 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 		return err
 	}
 
-	modelCount := len(allModels)
-	details.ModelCount = &modelCount
 	machineCount := 0
 	for _, s := range modelStatus {
+		if s.Error != nil {
+			if errors.IsNotFound(s.Error) {
+				// This most likely occurred because a model was
+				// destroyed half-way through the call.
+				continue
+			}
+			return errors.Trace(s.Error)
+		}
 		machineCount += s.TotalMachineCount
 	}
 	details.MachineCount = &machineCount
-	details.ActiveControllerMachineCount, details.ControllerMachineCount = controllerMachineCounts(controllerModelUUID, modelStatus)
+	details.ActiveControllerMachineCount, details.ControllerMachineCount = ControllerMachineCounts(controllerModelUUID, modelStatus)
 	return c.store.UpdateController(controllerName, *details)
 }
 
-func controllerMachineCounts(controllerModelUUID string, modelStatus []base.ModelStatus) (activeCount, totalCount int) {
-	for _, s := range modelStatus {
+func ControllerMachineCounts(controllerModelUUID string, modelStatusResults []base.ModelStatus) (activeCount, totalCount int) {
+	for _, s := range modelStatusResults {
+		if s.Error != nil {
+			// This most likely occurred because a model was
+			// destroyed half-way through the call.
+			continue
+		}
 		if s.UUID != controllerModelUUID {
 			continue
 		}
@@ -186,7 +200,7 @@ func controllerMachineCounts(controllerModelUUID string, modelStatus []base.Mode
 }
 
 type listControllersCommand struct {
-	modelcmd.JujuCommandBase
+	modelcmd.CommandBase
 
 	out     cmd.Output
 	store   jujuclient.ClientStore

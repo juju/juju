@@ -41,6 +41,11 @@ func NewProvider() environs.EnvironProvider {
 	}
 }
 
+// Version is part of the EnvironProvider interface.
+func (*environProvider) Version() int {
+	return 0
+}
+
 // Open implements environs.EnvironProvider.
 func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	local, err := p.validateCloudSpec(args.Cloud)
@@ -64,7 +69,7 @@ func (p *environProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p environProvider) Ping(endpoint string) error {
+func (p *environProvider) Ping(endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 
@@ -74,7 +79,15 @@ func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*con
 	if err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	return args.Config, nil
+	// Set the default filesystem-storage source.
+	attrs := make(map[string]interface{})
+	if _, ok := args.Config.StorageDefaultFilesystemSource(); !ok {
+		attrs[config.StorageDefaultFilesystemSourceKey] = lxdStorageProviderType
+	}
+	if len(attrs) == 0 {
+		return args.Config, nil
+	}
+	return args.Config.Apply(attrs)
 }
 
 // Validate implements environs.EnvironProvider.

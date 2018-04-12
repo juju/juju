@@ -10,7 +10,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -31,7 +30,7 @@ var _ = gc.Suite(&pingerSuite{})
 
 func (s *pingerSuite) newServerWithTestClock(c *gc.C) (*apiserver.Server, *testing.Clock) {
 	clock := testing.NewClock(time.Now())
-	config := s.sampleConfig(c)
+	config := s.config
 	config.PingClock = clock
 	server := s.newServer(c, config)
 	return server, clock
@@ -120,18 +119,13 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 }
 
 func (s *pingerSuite) TestAgentConnectionsShutDownWhenAPIServerDies(c *gc.C) {
-	clock := testing.NewClock(time.Now())
-	config := s.sampleConfig(c)
-	config.Clock = clock
-	server := s.newServerDirtyKill(c, config)
+	server := s.newServerDirtyKill(c, s.config)
 	conn, _ := s.OpenAPIAsNewMachine(c, server)
 
 	err := pingConn(conn)
 	c.Assert(err, jc.ErrorIsNil)
 	server.Kill()
 
-	// We know this is less than the client ping interval.
-	clock.Advance(apiserver.MongoPingInterval)
 	checkConnectionDies(c, conn)
 }
 
@@ -149,18 +143,11 @@ func waitForClock(c *gc.C, clock *testing.Clock) {
 }
 
 func checkConnectionDies(c *gc.C, conn api.Connection) {
-	attempt := utils.AttemptStrategy{
-		Total: coretesting.LongWait,
-		Delay: coretesting.ShortWait,
+	select {
+	case <-conn.Broken():
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("connection didn't get shut down")
 	}
-	for a := attempt.Start(); a.Next(); {
-		err := pingConn(conn)
-		if err != nil {
-			c.Assert(err, gc.ErrorMatches, "connection is shut down")
-			return
-		}
-	}
-	c.Fatal("connection didn't get shut down")
 }
 
 func pingConn(conn api.Connection) error {

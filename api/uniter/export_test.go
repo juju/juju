@@ -33,12 +33,15 @@ func PatchUnitResponse(p testing.Patcher, u *Unit, expectedRequest string, respo
 	})
 }
 
-// PatchUnitFacadeCall changes the internal FacadeCaller to one that calls the provided request handler function.
-func PatchUnitFacadeCall(p testing.Patcher, u *Unit, respFunc func(request string, params, response interface{}) error) {
-	testing.PatchFacadeCall(p, &u.st.facade, respFunc)
-}
-
 // CreateUnit creates uniter.Unit for tests.
 func CreateUnit(st *State, tag names.UnitTag) *Unit {
-	return &Unit{st, tag, params.Alive}
+	return &Unit{
+		st:           st,
+		tag:          tag,
+		life:         params.Alive,
+		resolvedMode: params.ResolvedNone,
+		series:       "trusty",
+	}
 }
+
+var NewStateV4 = newStateForVersionFn(4)

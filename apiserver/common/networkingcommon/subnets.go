@@ -349,6 +349,7 @@ func addOneSubnet(api NetworkBacking, args params.AddSubnetParams, cache *addSub
 	// Try adding the subnet.
 	backingInfo := BackingSubnetInfo{
 		ProviderId:        subnetInfo.ProviderId,
+		ProviderNetworkId: subnetInfo.ProviderNetworkId,
 		CIDR:              subnetInfo.CIDR,
 		VLANTag:           subnetInfo.VLANTag,
 		AvailabilityZones: zones,
@@ -422,13 +423,14 @@ func ListSubnets(api NetworkBacking, args params.SubnetsFilters) (results params
 			spaceTag = names.NewSpaceTag(subnet.SpaceName()).String()
 		}
 		result := params.Subnet{
-			CIDR:       subnet.CIDR(),
-			ProviderId: string(subnet.ProviderId()),
-			VLANTag:    subnet.VLANTag(),
-			Life:       subnet.Life(),
-			SpaceTag:   spaceTag,
-			Zones:      subnet.AvailabilityZones(),
-			Status:     subnet.Status(),
+			CIDR:              subnet.CIDR(),
+			ProviderId:        string(subnet.ProviderId()),
+			ProviderNetworkId: string(subnet.ProviderNetworkId()),
+			VLANTag:           subnet.VLANTag(),
+			Life:              subnet.Life(),
+			SpaceTag:          spaceTag,
+			Zones:             subnet.AvailabilityZones(),
+			Status:            subnet.Status(),
 		}
 		results.Results = append(results.Results, result)
 	}

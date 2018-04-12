@@ -9,7 +9,7 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 )
@@ -32,7 +32,7 @@ func newMacaroonJar(cache MacaroonCache, serverURL *url.URL) (*macaroonJar, erro
 // macaroonJar is a special form of http.CookieJar that uses a backing
 // MacaroonCache to populate the jar and store updated macaroons.
 // This is a fairly specifically crafted type in order to deal with the fact
-// that gopkg.in/juju/charmrepo.v2-unstable/csclient.Client does all the work
+// that gopkg.in/juju/charmrepo.v2/csclient.Client does all the work
 // of handling updated macaroons.  If a request with a macaroon returns with a
 // DischargeRequiredError, csclient.Client will discharge the returned
 // macaroon's caveats, and then save the final macaroon in the cookiejar, then

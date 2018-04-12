@@ -172,7 +172,7 @@ func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 		InstanceConfig: &instancecfg.InstanceConfig{},
 	})
 	c.Check(res, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "tools not found")
+	c.Check(err, gc.ErrorMatches, "agent binaries not found")
 
 	icfg := &instancecfg.InstanceConfig{}
 	err = icfg.SetTools(tools.List{toolsVal})

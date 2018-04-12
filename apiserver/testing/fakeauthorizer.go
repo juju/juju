@@ -34,6 +34,12 @@ func (fa FakeAuthorizer) AuthMachineAgent() bool {
 	return isMachine
 }
 
+// AuthApplicationAgent returns whether the current client is an application operator.
+func (fa FakeAuthorizer) AuthApplicationAgent() bool {
+	_, isApp := fa.GetAuthTag().(names.ApplicationTag)
+	return isApp
+}
+
 // AuthUnitAgent returns whether the current client is a unit agent.
 func (fa FakeAuthorizer) AuthUnitAgent() bool {
 	_, isUnit := fa.GetAuthTag().(names.UnitTag)
@@ -60,7 +66,7 @@ func (fa FakeAuthorizer) HasPermission(operation permission.Access, target names
 		if fa.AdminTag != emptyTag && ut == fa.AdminTag {
 			return true, nil
 		}
-		if operation == permission.WriteAccess && ut == fa.HasWriteTag {
+		if ut == fa.HasWriteTag && (operation == permission.WriteAccess || operation == permission.ReadAccess) {
 			return true, nil
 		}
 
@@ -88,6 +94,8 @@ func nameBasedHasPermission(name string, operation permission.Access, target nam
 		perm = permission.AdminAccess
 	case strings.HasPrefix(name, string(permission.WriteAccess)):
 		perm = permission.WriteAccess
+	case strings.HasPrefix(name, string(permission.ConsumeAccess)):
+		perm = permission.ConsumeAccess
 	case strings.HasPrefix(name, string(permission.ReadAccess)):
 		perm = permission.ReadAccess
 	default:
@@ -100,17 +108,14 @@ func nameBasedHasPermission(name string, operation permission.Access, target nam
 	if len(name) == 0 {
 		return operation == perm
 	}
-	if target.Kind() != names.ModelTagKind {
+	if name[0] == '-' {
+		name = name[1:]
+	}
+	targetTag, err := names.ParseTag(name)
+	if err != nil {
 		return false
 	}
-	if names.IsValidModel(name) {
-		newTarget, err := names.ParseModelTag(name)
-		if err != nil {
-			return false
-		}
-		return operation == perm && newTarget == target.(names.ModelTag)
-	}
-	return false
+	return operation == perm && targetTag.String() == target.String()
 }
 
 // ConnectedModel returns the UUID of the model the current client is

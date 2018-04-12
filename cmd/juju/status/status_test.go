@@ -4,7 +4,6 @@
 package status
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -14,17 +13,19 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -47,7 +48,7 @@ var (
 )
 
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	code = cmd.Main(NewStatusCommand(), ctx, args)
 	stdout = ctx.Stdout.(*bytes.Buffer).Bytes()
 	stderr = ctx.Stderr.(*bytes.Buffer).Bytes()
@@ -160,6 +161,7 @@ func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
 var (
 	model = M{
 		"name":       "controller",
+		"type":       "iaas",
 		"controller": "kontroll",
 		"cloud":      "dummy",
 		"region":     "dummy-region",
@@ -168,6 +170,7 @@ var (
 			"current": "available",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
+		"sla": "unsupported",
 	}
 
 	machine0 = M{
@@ -1188,7 +1191,7 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		addAliveUnit{"mysql", "1"},
 
-		relateServices{"wordpress", "mysql"},
+		relateServices{"wordpress", "mysql", ""},
 
 		setAgentStatus{"wordpress/0", status.Error,
 			"hook failed: some-relation-changed",
@@ -1277,7 +1280,7 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		addAliveUnit{"mysql", "1"},
 
-		relateServices{"wordpress", "mysql"},
+		relateServices{"wordpress", "mysql", ""},
 
 		setAgentStatus{"wordpress/0", status.Error,
 			"hook failed: some-relation-changed",
@@ -1504,9 +1507,9 @@ var statusTests = []testCase{
 		setMachineStatus{"4", status.Started, ""},
 		addAliveUnit{"private", "4"},
 
-		relateServices{"project", "mysql"},
-		relateServices{"project", "varnish"},
-		relateServices{"private", "mysql"},
+		relateServices{"project", "mysql", ""},
+		relateServices{"project", "varnish", ""},
+		relateServices{"private", "mysql", ""},
 
 		expect{
 			"multiples services with relations between some of them",
@@ -1771,9 +1774,9 @@ var statusTests = []testCase{
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
 
-		relateServices{"wordpress", "mysql"},
-		relateServices{"wordpress", "logging"},
-		relateServices{"mysql", "logging"},
+		relateServices{"wordpress", "mysql", ""},
+		relateServices{"wordpress", "logging", ""},
+		relateServices{"mysql", "logging", ""},
 
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
@@ -2568,6 +2571,7 @@ var statusTests = []testCase{
 			M{
 				"model": M{
 					"name":              "controller",
+					"type":              "iaas",
 					"controller":        "kontroll",
 					"cloud":             "dummy",
 					"region":            "dummy-region",
@@ -2577,6 +2581,7 @@ var statusTests = []testCase{
 						"current": "available",
 						"since":   "01 Apr 15 01:23+10:00",
 					},
+					"sla": "unsupported",
 				},
 				"machines":     M{},
 				"applications": M{},
@@ -2797,7 +2802,7 @@ var statusTests = []testCase{
 
 		addCharm{"mysql"},
 		addRemoteApplication{name: "hosted-mysql", url: "me/model.mysql", charm: "mysql", endpoints: []string{"server"}},
-		relateServices{"wordpress", "hosted-mysql"},
+		relateServices{"wordpress", "hosted-mysql", ""},
 
 		expect{
 			"a remote application",
@@ -2818,7 +2823,6 @@ var statusTests = []testCase{
 						},
 						"application-status": M{
 							"current": "unknown",
-							"message": "waiting for remote connection",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"relations": M{
@@ -2853,6 +2857,58 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+			},
+		},
+	),
+	test( // 24
+		"set meter status on the model",
+		setModelMeterStatus{"RED", "status message"},
+		expect{
+			"simulate just the two services and a bootstrap node",
+			M{
+				"model": M{
+					"name":       "controller",
+					"type":       "iaas",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"region":     "dummy-region",
+					"version":    "1.2.3",
+					"model-status": M{
+						"current": "available",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
+					"meter-status": M{
+						"color":   "red",
+						"message": "status message",
+					},
+					"sla": "unsupported",
+				},
+				"machines":     M{},
+				"applications": M{},
+			},
+		},
+	),
+	test( // 25
+		"set sla on the model",
+		setSLA{"advanced"},
+		expect{
+			"set sla on the model",
+			M{
+				"model": M{
+					"name":       "controller",
+					"type":       "iaas",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+					"region":     "dummy-region",
+					"version":    "1.2.3",
+					"model-status": M{
+						"current": "available",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
+					"sla": "advanced",
+				},
+				"machines":     M{},
+				"applications": M{},
 			},
 		},
 	),
@@ -2923,6 +2979,15 @@ func wordpressCharm(extras M) M {
 }
 
 // TODO(dfc) test failing components by destructively mutating the state under the hood
+
+type setSLA struct {
+	level string
+}
+
+func (s setSLA) step(c *gc.C, ctx *context) {
+	err := ctx.st.SetSLA(s.level, "test-user", []byte(""))
+	c.Assert(err, jc.ErrorIsNil)
+}
 
 type addMachine struct {
 	machineId string
@@ -3176,10 +3241,11 @@ func (as addService) step(c *gc.C, ctx *context) {
 }
 
 type addRemoteApplication struct {
-	name      string
-	url       string
-	charm     string
-	endpoints []string
+	name            string
+	url             string
+	charm           string
+	endpoints       []string
+	isConsumerProxy bool
 }
 
 func (as addRemoteApplication) step(c *gc.C, ctx *context) {
@@ -3195,10 +3261,55 @@ func (as addRemoteApplication) step(c *gc.C, ctx *context) {
 		endpoints = append(endpoints, r)
 	}
 	_, err := ctx.st.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        as.name,
-		URL:         as.url,
-		SourceModel: coretesting.ModelTag,
-		Endpoints:   endpoints,
+		Name:            as.name,
+		URL:             as.url,
+		SourceModel:     coretesting.ModelTag,
+		Endpoints:       endpoints,
+		IsConsumerProxy: as.isConsumerProxy,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type addApplicationOffer struct {
+	name            string
+	owner           string
+	applicationName string
+	endpoints       []string
+}
+
+func (ao addApplicationOffer) step(c *gc.C, ctx *context) {
+	endpoints := make(map[string]string)
+	for _, ep := range ao.endpoints {
+		endpoints[ep] = ep
+	}
+	offers := state.NewApplicationOffers(ctx.st)
+	_, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
+		OfferName:       ao.name,
+		Owner:           ao.owner,
+		ApplicationName: ao.applicationName,
+		Endpoints:       endpoints,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type addOfferConnection struct {
+	sourceModelUUID string
+	name            string
+	username        string
+	relationKey     string
+}
+
+func (oc addOfferConnection) step(c *gc.C, ctx *context) {
+	rel, err := ctx.st.KeyRelation(oc.relationKey)
+	c.Assert(err, jc.ErrorIsNil)
+	offer, err := state.NewApplicationOffers(ctx.st).ApplicationOffer(oc.name)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = ctx.st.AddOfferConnection(state.AddOfferConnectionParams{
+		SourceModelUUID: oc.sourceModelUUID,
+		OfferUUID:       offer.OfferUUID,
+		Username:        oc.username,
+		RelationId:      rel.Id(),
+		RelationKey:     rel.Tag().Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -3255,7 +3366,7 @@ type addUnit struct {
 func (au addUnit) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Application(au.serviceName)
 	c.Assert(err, jc.ErrorIsNil)
-	u, err := s.AddUnit()
+	u, err := s.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := ctx.st.Machine(au.machineId)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3271,7 +3382,7 @@ type addAliveUnit struct {
 func (aau addAliveUnit) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Application(aau.serviceName)
 	c.Assert(err, jc.ErrorIsNil)
-	u, err := s.AddUnit()
+	u, err := s.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	pinger := ctx.setAgentPresence(c, u)
 	m, err := ctx.st.Machine(aau.machineId)
@@ -3305,6 +3416,18 @@ func (s setUnitMeterStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(s.unitName)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetMeterStatus(s.color, s.message)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type setModelMeterStatus struct {
+	color   string
+	message string
+}
+
+func (s setModelMeterStatus) step(c *gc.C, ctx *context) {
+	m, err := ctx.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetMeterStatus(s.color, s.message)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3478,12 +3601,19 @@ func (sms setMachineStatus) step(c *gc.C, ctx *context) {
 
 type relateServices struct {
 	ep1, ep2 string
+	status   string
 }
 
 func (rs relateServices) step(c *gc.C, ctx *context) {
 	eps, err := ctx.st.InferEndpoints(rs.ep1, rs.ep2)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = ctx.st.AddRelation(eps...)
+	rel, err := ctx.st.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	s := rs.status
+	if s == "" {
+		s = "joined"
+	}
+	err = rel.SetStatus(status.StatusInfo{Status: status.Status(s)})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3612,6 +3742,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 	expected := M{
 		"model": M{
 			"name":       "hosted",
+			"type":       "iaas",
 			"controller": "kontroll",
 			"cloud":      "dummy",
 			"region":     "dummy-region",
@@ -3621,6 +3752,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 				"since":   "01 Apr 15 01:23+10:00",
 				"message": "migrating: foo bar",
 			},
+			"sla": "unsupported",
 		},
 		"machines":     M{},
 		"applications": M{},
@@ -3648,8 +3780,8 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 
 func (s *StatusSuite) TestMigrationInProgressTabular(c *gc.C) {
 	expected := `
-Model   Controller  Cloud/Region        Version  Notes
-hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar
+Model   Controller  Cloud/Region        Version  Notes               SLA
+hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar  unsupported
 
 App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
 
@@ -3669,8 +3801,8 @@ Machine  State  DNS  Inst id  Series  AZ  Message
 
 func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
 	expected := `
-Model   Controller  Cloud/Region        Version  Notes
-hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar
+Model   Controller  Cloud/Region        Version  Notes               SLA
+hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar  unsupported
 
 App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
 
@@ -3769,9 +3901,9 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		setUnitStatus{"mysql/0", status.Active, "", nil},
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
-		relateServices{"wordpress", "mysql"},
-		relateServices{"wordpress", "logging"},
-		relateServices{"mysql", "logging"},
+		relateServices{"wordpress", "mysql", ""},
+		relateServices{"wordpress", "logging", ""},
+		relateServices{"mysql", "logging", ""},
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
 		setUnitsAlive{"logging"},
@@ -3840,9 +3972,9 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
 
-		relateServices{"wordpress", "mysql"},
-		relateServices{"wordpress", "logging"},
-		relateServices{"mysql", "logging"},
+		relateServices{"wordpress", "mysql", ""},
+		relateServices{"wordpress", "logging", ""},
+		relateServices{"mysql", "logging", ""},
 
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
@@ -3921,9 +4053,9 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		setUnitTools{"mysql/0", version.MustParseBinary("1.2.3-trusty-ppc")},
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
-		relateServices{"wordpress", "mysql"},
-		relateServices{"wordpress", "logging"},
-		relateServices{"mysql", "logging"},
+		relateServices{"wordpress", "mysql", "suspended"},
+		relateServices{"wordpress", "logging", ""},
+		relateServices{"mysql", "logging", ""},
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
 		setUnitsAlive{"logging"},
@@ -3941,6 +4073,11 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		startAliveMachine{"3"},
 		setMachineStatus{"3", status.Started, ""},
 		setMachineInstanceStatus{"3", status.Started, "I am number three"},
+
+		addApplicationOffer{name: "hosted-mysql", applicationName: "mysql", owner: "admin", endpoints: []string{"server"}},
+		addRemoteApplication{name: "remote-wordpress", charm: "wordpress", endpoints: []string{"db"}, isConsumerProxy: true},
+		relateServices{"remote-wordpress", "mysql", ""},
+		addOfferConnection{sourceModelUUID: coretesting.ModelTag.Id(), name: "hosted-mysql", username: "fred", relationKey: "remote-wordpress:db mysql:server"},
 	}
 	for _, s := range steps {
 		s.step(c, ctx)
@@ -3948,21 +4085,17 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 	return ctx
 }
 
-func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) {
+func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
-	var args []string
-	if !useFeatureFlag {
-		args = []string{"--format", "tabular"}
-	}
-	code, stdout, stderr := runStatus(c, args...)
+	code, stdout, stderr := runStatus(c, "--format", "tabular")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
-Model       Controller  Cloud/Region        Version  Notes
-controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4
+Model       Controller  Cloud/Region        Version  Notes                     SLA
+controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4  unsupported
 
-SAAS name    Status   Store  URL
+SAAS         Status   Store  URL
 hosted-riak  unknown  local  me/model.riak
 
 App        Version          Status       Scale  Charm      Store       Rev  OS      Notes
@@ -3982,19 +4115,16 @@ Machine  State    DNS       Inst id       Series   AZ          Message
 2        started  10.0.2.1  controller-2  quantal              
 3        started  10.0.3.1  controller-3  quantal              I am number three
 
-Relation           Provides   Consumes   Type
-juju-info          logging    mysql      regular
-logging-dir        logging    wordpress  regular
-info               mysql      logging    subordinate
-db                 mysql      wordpress  regular
-logging-directory  wordpress  logging    subordinate
+Offer         Application  Charm  Rev  Connected  Endpoint  Interface  Role
+hosted-mysql  mysql        mysql  1    1/1        server    mysql      provider
+
+Relation provider      Requirer                   Interface  Type         Message
+mysql:juju-info        logging:info               juju-info  subordinate  
+mysql:server           wordpress:db               mysql      regular      suspended  
+wordpress:logging-dir  logging:logging-directory  logging    subordinate  
 
 `[1:]
 	c.Assert(string(stdout), gc.Equals, expected)
-}
-
-func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
-	s.testStatusWithFormatTabular(c, false)
 }
 
 func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
@@ -4044,18 +4174,33 @@ Machine  State  DNS  Inst id  Series  AZ  Message
 `[1:])
 }
 
-func (s *StatusSuite) TestFormatTabularConsistentPeerRelationName(c *gc.C) {
+func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 	status := formattedStatus{
+		Model: modelStatus{
+			Type: "caas",
+		},
 		Applications: map[string]applicationStatus{
 			"foo": {
-				Relations: map[string][]string{
-					"coordinator":  {"foo"},
-					"frobulator":   {"foo"},
-					"encapsulator": {"foo"},
-					"catchulator":  {"foo"},
-					"perforator":   {"foo"},
-					"deliverator":  {"foo"},
-					"replicator":   {"foo"},
+				Address: "54.32.1.2",
+				Units: map[string]unitStatus{
+					"foo/0": {
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Allocating,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Active,
+						},
+					},
+					"foo/1": {
+						Address:     "10.0.0.1",
+						OpenedPorts: []string{"80/TCP"},
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Running,
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Active,
+						},
+					},
 				},
 			},
 		},
@@ -4063,12 +4208,17 @@ func (s *StatusSuite) TestFormatTabularConsistentPeerRelationName(c *gc.C) {
 	out := &bytes.Buffer{}
 	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
-	sections, err := splitTableSections(out.Bytes())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sections["Relation"], gc.DeepEquals, []string{
-		"Relation    Provides  Consumes  Type",
-		"replicator  foo       foo       peer",
-	})
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Store  Rev  OS  Address    Notes
+foo                     1/2                  0      54.32.1.2  
+
+Unit   Workload  Agent       Address   Ports   Message
+foo/0  active    allocating                    
+foo/1  active    running     10.0.0.1  80/TCP  
+`[1:])
 }
 
 func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
@@ -4096,7 +4246,7 @@ func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 
 	code, _, stderr := runStatus(c, "--format", "tabular")
 	c.Check(code, gc.Equals, 1)
-	c.Check(string(stderr), gc.Equals, "error: unable to obtain the current status\n")
+	c.Check(string(stderr), gc.Equals, "ERROR unable to obtain the current status\n")
 }
 
 func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
@@ -4134,9 +4284,9 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 		"foo/0                                                   \n"+
 		"foo/1                                                   \n"+
 		"\n"+
-		"Meter  Status   Message\n"+
-		"foo/0  strange  warning: stable strangelets  \n"+
-		"foo/1  up       things are looking up        \n"+
+		"Entity  Meter status  Message\n"+
+		"foo/0   strange       warning: stable strangelets  \n"+
+		"foo/1   up            things are looking up        \n"+
 		"\n"+
 		"Machine  State  DNS  Inst id  Series  AZ  Message\n")
 }
@@ -4202,11 +4352,11 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		// And the service is exposed
 		setServiceExposed{"logging", true},
 		// And the "wordpress" service is related to the "mysql" service
-		relateServices{"wordpress", "mysql"},
+		relateServices{"wordpress", "mysql", ""},
 		// And the "wordpress" service is related to the "logging" service
-		relateServices{"wordpress", "logging"},
+		relateServices{"wordpress", "logging", ""},
 		// And the "mysql" service is related to the "logging" service
-		relateServices{"mysql", "logging"},
+		relateServices{"mysql", "logging", ""},
 		// And the "logging" service is a subordinate to unit 0 of the "wordpress" service
 		addSubordinate{"wordpress/0", "logging"},
 		setAgentStatus{"logging/0", status.Idle, "", nil},
@@ -4285,6 +4435,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 	const expected = "" +
 		"model:\n" +
 		"  name: controller\n" +
+		"  type: iaas\n" +
 		"  controller: kontroll\n" +
 		"  cloud: dummy\n" +
 		"  region: dummy-region\n" +
@@ -4292,6 +4443,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"  model-status:\n" +
 		"    current: available\n" +
 		"    since: 01 Apr 15 01:23+10:00\n" +
+		"  sla: unsupported\n" +
 		"machines:\n" +
 		"  \"0\":\n" +
 		"    juju-status:\n" +
@@ -4530,7 +4682,7 @@ func (s *StatusSuite) TestSummaryStatusWithUnresolvableDns(c *gc.C) {
 
 func initStatusCommand(args ...string) (*statusCommand, error) {
 	com := &statusCommand{}
-	return com, coretesting.InitCommand(modelcmd.Wrap(com), args)
+	return com, cmdtesting.InitCommand(modelcmd.Wrap(com), args)
 }
 
 var statusInitTests = []struct {
@@ -4589,6 +4741,7 @@ var statusTimeTest = test(
 		M{
 			"model": M{
 				"name":       "controller",
+				"type":       "iaas",
 				"controller": "kontroll",
 				"cloud":      "dummy",
 				"region":     "dummy-region",
@@ -4597,6 +4750,7 @@ var statusTimeTest = test(
 					"current": "available",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
+				"sla": "unsupported",
 			},
 			"machines": M{
 				"0": machine0,
@@ -4679,32 +4833,6 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		},
 		Applications:       map[string]applicationStatus{},
 		RemoteApplications: map[string]remoteApplicationStatus{},
+		Offers:             map[string]offerStatus{},
 	})
-}
-
-type tableSections map[string][]string
-
-func sectionTitle(lines []string) string {
-	return strings.SplitN(lines[0], " ", 2)[0]
-}
-
-func splitTableSections(tableData []byte) (tableSections, error) {
-	scanner := bufio.NewScanner(bytes.NewReader(tableData))
-	result := make(tableSections)
-	var current []string
-	for scanner.Scan() {
-		if line := scanner.Text(); line == "" && current != nil {
-			result[sectionTitle(current)] = current
-			current = nil
-		} else if line != "" {
-			current = append(current, line)
-		}
-	}
-	if scanner.Err() != nil {
-		return nil, scanner.Err()
-	}
-	if current != nil {
-		result[sectionTitle(current)] = current
-	}
-	return result, nil
 }

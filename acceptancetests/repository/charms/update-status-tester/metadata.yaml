@@ -1,0 +1,12 @@
+name: update-status-tester
+summary: Exercises update-status hook
+maintainer: Charmers <juju@lists.ubuntu.com>
+description: |
+    Uses charm config to set the unit status.
+categories:
+     - misc
+series:
+  - trusty
+  - xenial
+  - artful
+  - bionic

@@ -166,22 +166,6 @@ type progressWriter struct {
 
 var _ (io.Writer) = (*progressWriter)(nil)
 
-var modifiers = []string{"k", "M", "G"}
-
-// bps converts a number of bytes over a number of seconds into a reasonably formatted value
-func toBPS(bytes uint64, seconds float64) string {
-	bps := float64(bytes) / seconds
-	modifier := ""
-	for _, mod := range modifiers {
-		if bps < 10000 {
-			break
-		}
-		bps = bps / 1024
-		modifier = mod
-	}
-	return fmt.Sprintf("%.1f%sB/s", bps, modifier)
-}
-
 func (p *progressWriter) Write(content []byte) (n int, err error) {
 	if p.clock == nil {
 		p.clock = clock.WallClock

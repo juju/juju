@@ -5,6 +5,7 @@ package networkingcommon
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
@@ -17,7 +18,6 @@ import (
 
 // subnetShim forwards and adapts state.Subnets methods to BackingSubnet.
 type subnetShim struct {
-	BackingSubnet
 	subnet *state.Subnet
 }
 
@@ -27,6 +27,10 @@ func (s *subnetShim) CIDR() string {
 
 func (s *subnetShim) VLANTag() int {
 	return s.subnet.VLANTag()
+}
+
+func (s *subnetShim) ProviderNetworkId() network.Id {
+	return s.subnet.ProviderNetworkId()
 }
 
 func (s *subnetShim) ProviderId() network.Id {
@@ -56,7 +60,6 @@ func (s *subnetShim) SpaceName() string {
 
 // spaceShim forwards and adapts state.Space methods to BackingSpace.
 type spaceShim struct {
-	BackingSpace
 	space *state.Space
 }
 
@@ -80,15 +83,22 @@ func (s *spaceShim) Subnets() ([]BackingSubnet, error) {
 	return subnets, nil
 }
 
-func NewStateShim(st *state.State) *stateShim {
-	return &stateShim{stateenvirons.EnvironConfigGetter{st}, st}
+func NewStateShim(st *state.State) (*stateShim, error) {
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &stateShim{stateenvirons.EnvironConfigGetter{st, m}, st, m}, nil
 }
 
 // stateShim forwards and adapts state.State methods to Backing
 // method.
+// TODO - CAAS(ericclaudejones): This should contain state and stateenvirons alone, model will be
+// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	stateenvirons.EnvironConfigGetter
 	st *state.State
+	m  *state.Model
 }
 
 func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) error {
@@ -110,17 +120,19 @@ func (s *stateShim) AllSpaces() ([]BackingSpace, error) {
 }
 
 func (s *stateShim) AddSubnet(info BackingSubnetInfo) (BackingSubnet, error) {
-	// TODO(xtian): cargo culting taking the first zone - why was this done?
+	// TODO(babbageclunk): we only take the first zone because
+	// state.Subnet currently only stores one.
 	var firstZone string
 	if len(info.AvailabilityZones) > 0 {
 		firstZone = info.AvailabilityZones[0]
 	}
 	_, err := s.st.AddSubnet(state.SubnetInfo{
-		CIDR:             info.CIDR,
-		VLANTag:          info.VLANTag,
-		ProviderId:       info.ProviderId,
-		AvailabilityZone: firstZone,
-		SpaceName:        info.SpaceName,
+		CIDR:              info.CIDR,
+		VLANTag:           info.VLANTag,
+		ProviderId:        info.ProviderId,
+		ProviderNetworkId: info.ProviderNetworkId,
+		AvailabilityZone:  firstZone,
+		SpaceName:         info.SpaceName,
 	})
 	return nil, err // Drop the first result, as it's unused.
 }
@@ -144,4 +156,8 @@ func (s *stateShim) AvailabilityZones() ([]providercommon.AvailabilityZone, erro
 
 func (s *stateShim) SetAvailabilityZones(zones []providercommon.AvailabilityZone) error {
 	return nil
+}
+
+func (s *stateShim) ModelTag() names.ModelTag {
+	return s.m.ModelTag()
 }

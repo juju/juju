@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/singular"
@@ -30,9 +31,8 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{
 		ClockName:     "harriet",
 		APICallerName: "kim",
-		AgentName:     "jenny",
 	})
-	expectInputs := []string{"harriet", "kim", "jenny"}
+	expectInputs := []string{"harriet", "kim"}
 	c.Check(manifold.Inputs, jc.DeepEquals, expectInputs)
 }
 
@@ -70,26 +70,9 @@ func (s *ManifoldSuite) TestStartMissingClock(c *gc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{
 		ClockName:     "clock",
 		APICallerName: "api-caller",
-		AgentName:     "agent",
 	})
 	context := dt.StubContext(nil, map[string]interface{}{
 		"clock": dependency.ErrMissing,
-	})
-
-	worker, err := manifold.Start(context)
-	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
-	c.Check(worker, gc.IsNil)
-}
-
-func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
-	manifold := singular.Manifold(singular.ManifoldConfig{
-		ClockName:     "clock",
-		APICallerName: "api-caller",
-		AgentName:     "agent",
-	})
-	context := dt.StubContext(nil, map[string]interface{}{
-		"clock":      &fakeClock{},
-		"api-caller": dependency.ErrMissing,
 	})
 
 	worker, err := manifold.Start(context)
@@ -101,33 +84,14 @@ func (s *ManifoldSuite) TestStartMissingAPICaller(c *gc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{
 		ClockName:     "clock",
 		APICallerName: "api-caller",
-		AgentName:     "agent",
 	})
 	context := dt.StubContext(nil, map[string]interface{}{
 		"clock":      &fakeClock{},
-		"api-caller": &fakeAPICaller{},
-		"agent":      dependency.ErrMissing,
+		"api-caller": dependency.ErrMissing,
 	})
 
 	worker, err := manifold.Start(context)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
-	c.Check(worker, gc.IsNil)
-}
-
-func (s *ManifoldSuite) TestStartWrongAgent(c *gc.C) {
-	manifold := singular.Manifold(singular.ManifoldConfig{
-		ClockName:     "clock",
-		APICallerName: "api-caller",
-		AgentName:     "agent",
-	})
-	context := dt.StubContext(nil, map[string]interface{}{
-		"clock":      &fakeClock{},
-		"api-caller": &fakeAPICaller{},
-		"agent":      &mockAgent{wrongKind: true},
-	})
-
-	worker, err := manifold.Start(context)
-	c.Check(err, gc.ErrorMatches, "singular flag expected a machine agent")
 	c.Check(worker, gc.IsNil)
 }
 
@@ -136,17 +100,18 @@ func (s *ManifoldSuite) TestStartNewFacadeError(c *gc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{
 		ClockName:     "clock",
 		APICallerName: "api-caller",
-		AgentName:     "agent",
-		NewFacade: func(apiCaller base.APICaller, tag names.MachineTag) (singular.Facade, error) {
+		Claimant:      names.NewMachineTag("123"),
+		Entity:        coretesting.ModelTag,
+		NewFacade: func(apiCaller base.APICaller, claimant names.MachineTag, entity names.Tag) (singular.Facade, error) {
 			c.Check(apiCaller, gc.Equals, expectAPICaller)
-			c.Check(tag.String(), gc.Equals, "machine-123")
+			c.Check(claimant.String(), gc.Equals, "machine-123")
+			c.Check(entity, gc.Equals, coretesting.ModelTag)
 			return nil, errors.New("grark plop")
 		},
 	})
 	context := dt.StubContext(nil, map[string]interface{}{
 		"clock":      &fakeClock{},
 		"api-caller": expectAPICaller,
-		"agent":      &mockAgent{},
 	})
 
 	worker, err := manifold.Start(context)
@@ -159,9 +124,8 @@ func (s *ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{
 		ClockName:     "clock",
 		APICallerName: "api-caller",
-		AgentName:     "agent",
 		Duration:      time.Minute,
-		NewFacade: func(_ base.APICaller, _ names.MachineTag) (singular.Facade, error) {
+		NewFacade: func(base.APICaller, names.MachineTag, names.Tag) (singular.Facade, error) {
 			return expectFacade, nil
 		},
 		NewWorker: func(config singular.FlagConfig) (worker.Worker, error) {
@@ -174,7 +138,6 @@ func (s *ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
 		"clock":      &fakeClock{},
 		"api-caller": &fakeAPICaller{},
-		"agent":      &mockAgent{},
 	})
 
 	worker, err := manifold.Start(context)
@@ -183,12 +146,12 @@ func (s *ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
-	expectWorker := &fakeWorker{}
+	var stub testing.Stub
+	expectWorker := newStubWorker(&stub)
 	manifold := singular.Manifold(singular.ManifoldConfig{
 		ClockName:     "clock",
 		APICallerName: "api-caller",
-		AgentName:     "agent",
-		NewFacade: func(_ base.APICaller, _ names.MachineTag) (singular.Facade, error) {
+		NewFacade: func(base.APICaller, names.MachineTag, names.Tag) (singular.Facade, error) {
 			return &fakeFacade{}, nil
 		},
 		NewWorker: func(_ singular.FlagConfig) (worker.Worker, error) {
@@ -198,10 +161,41 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
 		"clock":      &fakeClock{},
 		"api-caller": &fakeAPICaller{},
-		"agent":      &mockAgent{},
 	})
 
 	worker, err := manifold.Start(context)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(worker, gc.Equals, expectWorker)
+
+	var out engine.Flag
+	err = manifold.Output(worker, &out)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(out.Check(), jc.IsTrue)
+
+	c.Check(worker.Wait(), jc.ErrorIsNil)
+	stub.CheckCallNames(c, "Check", "Wait")
+}
+
+func (s *ManifoldSuite) TestWorkerBouncesOnRefresh(c *gc.C) {
+	var stub testing.Stub
+	stub.SetErrors(singular.ErrRefresh)
+	errWorker := newStubWorker(&stub)
+
+	manifold := singular.Manifold(singular.ManifoldConfig{
+		ClockName:     "clock",
+		APICallerName: "api-caller",
+		NewFacade: func(base.APICaller, names.MachineTag, names.Tag) (singular.Facade, error) {
+			return &fakeFacade{}, nil
+		},
+		NewWorker: func(_ singular.FlagConfig) (worker.Worker, error) {
+			return errWorker, nil
+		},
+	})
+	context := dt.StubContext(nil, map[string]interface{}{
+		"clock":      &fakeClock{},
+		"api-caller": &fakeAPICaller{},
+	})
+
+	worker, err := manifold.Start(context)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(worker.Wait(), gc.Equals, dependency.ErrBounce)
 }

@@ -10,11 +10,14 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/status"
 )
 
 // relationKey returns a string describing the relation defined by
@@ -35,13 +38,15 @@ func relationKey(endpoints []Endpoint) string {
 // relationDoc is the internal representation of a Relation in MongoDB.
 // Note the correspondence with RelationInfo in apiserver/params.
 type relationDoc struct {
-	DocID     string `bson:"_id"`
-	Key       string `bson:"key"`
-	ModelUUID string `bson:"model-uuid"`
-	Id        int
-	Endpoints []Endpoint
-	Life      Life
-	UnitCount int
+	DocID           string     `bson:"_id"`
+	Key             string     `bson:"key"`
+	ModelUUID       string     `bson:"model-uuid"`
+	Id              int        `bson:"id"`
+	Endpoints       []Endpoint `bson:"endpoints"`
+	Life            Life       `bson:"life"`
+	UnitCount       int        `bson:"unitcount"`
+	Suspended       bool       `bson:"suspended"`
+	SuspendedReason string     `bson:"suspended-reason"`
 }
 
 // Relation represents a relation between one or two service endpoints.
@@ -66,11 +71,21 @@ func (r *Relation) Tag() names.Tag {
 	return names.NewRelationTag(r.doc.Key)
 }
 
+// Suspended returns true if the relation is suspended.
+func (r *Relation) Suspended() bool {
+	return r.doc.Suspended
+}
+
+// SuspendedReason returns the reason why the relation is suspended.
+func (r *Relation) SuspendedReason() string {
+	return r.doc.SuspendedReason
+}
+
 // Refresh refreshes the contents of the relation from the underlying
 // state. It returns an error that satisfies errors.IsNotFound if the
 // relation has been removed.
 func (r *Relation) Refresh() error {
-	relations, closer := r.st.getCollection(relationsC)
+	relations, closer := r.st.db().GetCollection(relationsC)
 	defer closer()
 
 	doc := relationDoc{}
@@ -94,6 +109,144 @@ func (r *Relation) Refresh() error {
 // Life returns the relation's current life state.
 func (r *Relation) Life() Life {
 	return r.doc.Life
+}
+
+// Status returns the relation's current status data.
+func (r *Relation) Status() (status.StatusInfo, error) {
+	rStatus, err := getStatus(r.st.db(), r.globalScope(), "relation")
+	if err != nil {
+		return rStatus, err
+	}
+	return rStatus, nil
+}
+
+// SetStatus sets the status of the relation.
+func (r *Relation) SetStatus(statusInfo status.StatusInfo) error {
+	currentStatus, err := r.Status()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if currentStatus.Status != statusInfo.Status {
+		validTransition := true
+		switch statusInfo.Status {
+		case status.Broken:
+		case status.Suspending:
+			validTransition = currentStatus.Status != status.Broken && currentStatus.Status != status.Suspended
+		case status.Joining:
+			validTransition = currentStatus.Status != status.Broken && currentStatus.Status != status.Joined
+		case status.Joined, status.Suspended:
+			validTransition = currentStatus.Status != status.Broken
+		case status.Error:
+			if statusInfo.Message == "" {
+				return errors.Errorf("cannot set status %q without info", statusInfo.Status)
+			}
+		default:
+			return errors.NewNotValid(nil, fmt.Sprintf("cannot set invalid status %q", statusInfo.Status))
+		}
+		if !validTransition {
+			return errors.NewNotValid(nil, fmt.Sprintf(
+				"cannot set status %q when relation has status %q", statusInfo.Status, currentStatus.Status))
+		}
+	}
+	return setStatus(r.st.db(), setStatusParams{
+		badge:     "relation",
+		globalKey: r.globalScope(),
+		status:    statusInfo.Status,
+		message:   statusInfo.Message,
+		rawData:   statusInfo.Data,
+		updated:   timeOrNow(statusInfo.Since, r.st.clock()),
+	})
+}
+
+// SetSuspended sets whether the relation is suspended.
+func (r *Relation) SetSuspended(suspended bool, suspendedReason string) error {
+	if r.doc.Suspended == suspended {
+		return nil
+	}
+	if !suspended && suspendedReason != "" {
+		return errors.New("cannot set suspended reason if not suspended")
+	}
+
+	var buildTxn jujutxn.TransactionSource = func(attempt int) ([]txn.Op, error) {
+
+		if attempt > 1 {
+			if err := r.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		var (
+			oc       *OfferConnection
+			err      error
+			checkOps []txn.Op
+		)
+		oc, err = r.st.OfferConnectionForRelation(r.Tag().Id())
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		if err == nil {
+			checkOps = append(checkOps, txn.Op{
+				C:      offerConnectionsC,
+				Id:     fmt.Sprintf("%d", r.Id()),
+				Assert: txn.DocExists,
+			})
+		}
+		if !suspended && oc != nil {
+			// Can only resume a relation when the user of the associated connection has consume access
+			// - either via being a model admin or having been granted access.
+			isAdmin, err := r.st.isControllerOrModelAdmin(names.NewUserTag(oc.UserName()))
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if !isAdmin {
+				// Not an admin so check for consume access and add the assert.
+				ok, err := r.checkConsumePermission(oc.OfferUUID(), oc.UserName())
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				if !ok {
+					return nil, errors.Errorf(
+						"cannot resume relation %q where user %q does not have consume permission",
+						r.Tag().Id(), oc.UserName())
+				}
+				checkOps = append(checkOps, txn.Op{
+					C:  permissionsC,
+					Id: permissionID(applicationOfferKey(oc.OfferUUID()), userGlobalKey(strings.ToLower(oc.UserName()))),
+					Assert: bson.D{
+						{"access",
+							bson.D{{"$in", []permission.Access{permission.ConsumeAccess, permission.AdminAccess}}}}},
+				})
+			}
+		}
+		setOps := []txn.Op{{
+			C:      relationsC,
+			Id:     r.doc.DocID,
+			Assert: bson.D{{"suspended", r.doc.Suspended}},
+			Update: bson.D{
+				{"$set", bson.D{{"suspended", suspended}}},
+				{"$set", bson.D{{"suspended-reason", suspendedReason}}},
+			},
+		}}
+		return append(setOps, checkOps...), nil
+	}
+
+	err := r.st.db().Run(buildTxn)
+	if err == nil {
+		r.doc.Suspended = suspended
+	}
+	return err
+}
+
+func (r *Relation) checkConsumePermission(offerUUID, userId string) (bool, error) {
+	perm, err := r.st.GetOfferAccess(offerUUID, names.NewUserTag(userId))
+	if err != nil && !errors.IsNotFound(err) {
+		return false, errors.Trace(err)
+	}
+	if perm != permission.ConsumeAccess && perm != permission.AdminAccess {
+		return false, nil
+	}
+	return true, nil
 }
 
 // Destroy ensures that the relation will be removed at some point; if no units
@@ -130,7 +283,7 @@ func (r *Relation) Destroy() (err error) {
 		}
 		return ops, nil
 	}
-	return rel.st.run(buildTxn)
+	return rel.st.db().Run(buildTxn)
 }
 
 // destroyOps returns the operations necessary to destroy the relation, and
@@ -196,6 +349,13 @@ func (r *Relation) removeOps(ignoreService string, departingUnitName string) ([]
 			ops = append(ops, epOps...)
 		}
 	}
+	ops = append(ops, removeStatusOp(r.st, r.globalScope()))
+	ops = append(ops, removeRelationNetworksOps(r.st, r.doc.Key)...)
+	re := r.st.RemoteEntities()
+	tokenOps := re.removeRemoteEntityOps(r.Tag())
+	ops = append(ops, tokenOps...)
+	offerOps := removeOfferConnectionsForRelationOps(r.Id())
+	ops = append(ops, offerOps...)
 	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
 	return append(ops, cleanupOp), nil
 }
@@ -219,7 +379,7 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string)
 		asserts = append(hasRelation, cannotDieYet...)
 	} else {
 		// This service may require immediate removal.
-		applications, closer := r.st.getCollection(applicationsC)
+		applications, closer := r.st.db().GetCollection(applicationsC)
 		defer closer()
 
 		svc := &Application{st: r.st}
@@ -256,14 +416,18 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 		asserts = append(hasRelation, isAliveDoc...)
 	} else {
 		// The remote application may require immediate removal.
-		services, closer := r.st.getCollection(remoteApplicationsC)
+		services, closer := r.st.db().GetCollection(remoteApplicationsC)
 		defer closer()
 
-		svc := &RemoteApplication{st: r.st}
+		app := &RemoteApplication{st: r.st}
 		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 1}}
 		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
-		if err := services.Find(removable).One(&svc.doc); err == nil {
-			return svc.removeOps(hasLastRef), nil
+		if err := services.Find(removable).One(&app.doc); err == nil {
+			removeOps, err := app.removeOps(hasLastRef)
+			if err != nil {
+				return nil, err
+			}
+			return removeOps, nil
 		} else if err != mgo.ErrNotFound {
 			return nil, err
 		}
@@ -298,7 +462,8 @@ func (r *Relation) Endpoint(applicationname string) (Endpoint, error) {
 			return ep, nil
 		}
 	}
-	return Endpoint{}, errors.Errorf("application %q is not a member of %q", applicationname, r)
+	msg := fmt.Sprintf("application %q is not a member of %q", applicationname, r)
+	return Endpoint{}, errors.NewNotFound(nil, msg)
 }
 
 // Endpoints returns the endpoints for the relation.
@@ -329,8 +494,8 @@ func (r *Relation) RelatedEndpoints(applicationname string) ([]Endpoint, error) 
 
 // Unit returns a RelationUnit for the supplied unit.
 func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
-	const checkUnitLife = true
-	return r.unit(u.Name(), u.doc.Principal, u.IsPrincipal(), checkUnitLife)
+	const isLocalUnit = true
+	return r.unit(u.Name(), u.doc.Principal, u.IsPrincipal(), isLocalUnit)
 }
 
 // RemoteUnit returns a RelationUnit for the supplied unit
@@ -348,15 +513,29 @@ func (r *Relation) RemoteUnit(unitName string) (*RelationUnit, error) {
 	// relation, so all remote units are principals.
 	const principal = ""
 	const isPrincipal = true
-	const checkUnitLife = false
-	return r.unit(unitName, principal, isPrincipal, checkUnitLife)
+	const isLocalUnit = false
+	return r.unit(unitName, principal, isPrincipal, isLocalUnit)
+}
+
+// IsCrossModel returns whether this relation is a cross-model
+// relation.
+func (r *Relation) IsCrossModel() (bool, error) {
+	for _, ep := range r.Endpoints() {
+		_, err := r.st.RemoteApplication(ep.ApplicationName)
+		if err == nil {
+			return true, nil
+		} else if !errors.IsNotFound(err) {
+			return false, errors.Trace(err)
+		}
+	}
+	return false, nil
 }
 
 func (r *Relation) unit(
 	unitName string,
 	principal string,
 	isPrincipal bool,
-	checkUnitLife bool,
+	isLocalUnit bool,
 ) (*RelationUnit, error) {
 	serviceName, err := names.UnitApplication(unitName)
 	if err != nil {
@@ -375,20 +554,24 @@ func (r *Relation) unit(
 		scope = fmt.Sprintf("%s#%s", scope, container)
 	}
 	return &RelationUnit{
-		st:            r.st,
-		relation:      r,
-		unitName:      unitName,
-		isPrincipal:   isPrincipal,
-		checkUnitLife: checkUnitLife,
-		endpoint:      ep,
-		scope:         scope,
+		st:          r.st,
+		relation:    r,
+		unitName:    unitName,
+		isPrincipal: isPrincipal,
+		isLocalUnit: isLocalUnit,
+		endpoint:    ep,
+		scope:       scope,
 	}, nil
 }
 
 // globalScope returns the scope prefix for relation scope document keys
 // in the global scope.
 func (r *Relation) globalScope() string {
-	return fmt.Sprintf("r#%d", r.doc.Id)
+	return relationGlobalScope(r.doc.Id)
+}
+
+func relationGlobalScope(id int) string {
+	return fmt.Sprintf("r#%d", id)
 }
 
 // relationSettingsCleanupChange removes the settings doc.

@@ -47,7 +47,6 @@ func newOrchestratorForController(args OrchestratorArgs) (*orchestrator, error) 
 		return nil, errors.Errorf("multiple log forwarding targets not supported (yet)")
 	}
 	lf, err := args.OpenLogForwarder(OpenLogForwarderArgs{
-		AllModels:        true,
 		ControllerUUID:   args.ControllerUUID,
 		LogForwardConfig: args.LogForwardConfig,
 		Caller:           args.Caller,

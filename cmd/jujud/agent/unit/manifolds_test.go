@@ -53,6 +53,11 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"meter-status",
 		"metric-collect",
 		"metric-sender",
+		"upgrade-steps-flag",
+		"upgrade-steps-runner",
+		"upgrade-steps-gate",
+		"upgrade-check-gate",
+		"upgrade-check-flag",
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
@@ -72,11 +77,16 @@ func (*ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 		"migration-fortress",
 		"migration-minion",
 		"migration-inactive-flag",
+		"upgrade-steps-gate",
+		"upgrade-check-flag",
+		"upgrade-steps-runner",
+		"upgrade-steps-flag",
+		"upgrade-check-gate",
 	)
 	config := unit.ManifoldsConfig{}
 	manifolds := unit.Manifolds(config)
 	for name, manifold := range manifolds {
-		c.Logf(name)
+		c.Logf("%v [%v]", name, manifold.Inputs)
 		if !exempt.Contains(name) {
 			checkContains(c, manifold.Inputs, "migration-inactive-flag")
 			checkContains(c, manifold.Inputs, "migration-fortress")

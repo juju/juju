@@ -27,15 +27,18 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/caas"
 	"github.com/juju/juju/cmd/juju/cachedimages"
 	"github.com/juju/juju/cmd/juju/charmcmd"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/juju/crossmodel"
+	"github.com/juju/juju/cmd/juju/firewall"
 	"github.com/juju/juju/cmd/juju/gui"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/metricsdebug"
 	"github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/cmd/juju/resource"
 	rcmd "github.com/juju/juju/cmd/juju/romulus/commands"
 	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/juju/space"
@@ -49,6 +52,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -131,7 +135,7 @@ type main struct {
 func (m main) Run(args []string) int {
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		cmd.WriteError(os.Stderr, err)
 		return 2
 	}
 
@@ -140,12 +144,12 @@ func (m main) Run(args []string) int {
 	newInstall := m.maybeWarnJuju1x()
 
 	if err = juju.InitJujuXDGDataHome(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %s\n", err)
+		cmd.WriteError(ctx.Stderr, err)
 		return 2
 	}
 
 	if err := installProxy(); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %s\n", err)
+		cmd.WriteError(ctx.Stderr, err)
 		return 2
 	}
 
@@ -153,7 +157,7 @@ func (m main) Run(args []string) int {
 		fmt.Fprintf(ctx.Stderr, "Since Juju %v is being run for the first time, downloading latest cloud information.\n", jujuversion.Current.Major)
 		updateCmd := cloud.NewUpdateCloudsCommand()
 		if err := updateCmd.Run(ctx); err != nil {
-			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
+			cmd.WriteError(ctx.Stderr, err)
 		}
 	}
 
@@ -270,18 +274,25 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newBootstrapCommand())
 	r.Register(application.NewAddRelationCommand())
 
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		r.Register(crossmodel.NewOfferCommand())
-		r.Register(crossmodel.NewShowOfferedEndpointCommand())
-		r.Register(crossmodel.NewListEndpointsCommand())
-		r.Register(crossmodel.NewFindEndpointsCommand())
-		r.Register(application.NewConsumeCommand())
-	}
+	// Cross model relations commands.
+	r.Register(crossmodel.NewOfferCommand())
+	r.Register(crossmodel.NewRemoveOfferCommand())
+	r.Register(crossmodel.NewShowOfferedEndpointCommand())
+	r.Register(crossmodel.NewListEndpointsCommand())
+	r.Register(crossmodel.NewFindEndpointsCommand())
+	r.Register(application.NewConsumeCommand())
+	r.Register(application.NewSuspendRelationCommand())
+	r.Register(application.NewResumeRelationCommand())
+
+	// Firewall rule commands.
+	r.Register(firewall.NewSetFirewallRuleCommand())
+	r.Register(firewall.NewListFirewallRulesCommand())
 
 	// Destruction commands.
 	r.Register(application.NewRemoveRelationCommand())
 	r.Register(application.NewRemoveApplicationCommand())
 	r.Register(application.NewRemoveUnitCommand())
+	r.Register(application.NewRemoveSaasCommand())
 
 	// Reporting commands.
 	r.Register(status.NewStatusCommand())
@@ -291,8 +302,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Error resolution and debugging commands.
 	r.Register(newDefaultRunCommand())
 	r.Register(newSCPCommand(nil))
-	r.Register(newSSHCommand(nil))
-	r.Register(newResolvedCommand())
+	r.Register(newSSHCommand(nil, nil))
+	r.Register(application.NewResolvedCommand())
 	r.Register(newDebugLogCommand())
 	r.Register(newDebugHooksCommand(nil))
 
@@ -302,9 +313,12 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newSyncToolsCommand())
 	r.Register(newUpgradeJujuCommand(nil))
 	r.Register(application.NewUpgradeCharmCommand())
+	r.Register(application.NewUpdateSeriesCommand())
 
 	// Charm tool commands.
 	r.Register(newHelpToolCommand())
+	// TODO (anastasiamac 2017-08-1) This needs to be removed in Juju 3.x
+	// lp#1707836
 	r.Register(charmcmd.NewSuperCommand())
 
 	// Manage backups.
@@ -364,6 +378,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(action.NewRunCommand())
 	r.Register(action.NewShowOutputCommand())
 	r.Register(action.NewListCommand())
+	r.Register(action.NewCancelCommand())
 
 	// Manage controller availability
 	r.Register(newEnableHACommand())
@@ -371,7 +386,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage and control services
 	r.Register(application.NewAddUnitCommand())
 	r.Register(application.NewConfigCommand())
-	r.Register(application.NewDefaultDeployCommand())
+	r.Register(application.NewDeployCommand())
 	r.Register(application.NewExposeCommand())
 	r.Register(application.NewUnexposeCommand())
 	r.Register(application.NewServiceGetConstraintsCommand())
@@ -389,14 +404,14 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(storage.NewPoolListCommand())
 	r.Register(storage.NewShowCommand())
 	r.Register(storage.NewRemoveStorageCommandWithAPI())
-	if featureflag.Enabled(feature.PersistentStorage) {
-		r.Register(storage.NewDetachStorageCommandWithAPI())
-		r.Register(storage.NewAttachStorageCommandWithAPI())
-	}
+	r.Register(storage.NewDetachStorageCommandWithAPI())
+	r.Register(storage.NewAttachStorageCommandWithAPI())
+	r.Register(storage.NewImportFilesystemCommand(storage.NewStorageImporter, nil))
 
 	// Manage spaces
 	r.Register(space.NewAddCommand())
 	r.Register(space.NewListCommand())
+	r.Register(space.NewReloadCommand())
 	if featureflag.Enabled(feature.PostNetCLIMVP) {
 		r.Register(space.NewRemoveCommand())
 		r.Register(space.NewUpdateCommand())
@@ -421,7 +436,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewUnregisterCommand(jujuclient.NewFileClientStore()))
 	r.Register(controller.NewEnableDestroyControllerCommand())
 	r.Register(controller.NewShowControllerCommand())
-	r.Register(controller.NewGetConfigCommand())
+	r.Register(controller.NewConfigCommand())
 
 	// Debug Metrics
 	r.Register(metricsdebug.New())
@@ -442,10 +457,41 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cloud.NewAddCredentialCommand())
 	r.Register(cloud.NewRemoveCredentialCommand())
 	r.Register(cloud.NewUpdateCredentialCommand())
+	r.Register(cloud.NewShowCredentialCommand())
+
+	// CAAS commands
+	r.Register(caas.NewAddCAASCommand(&cloudToCommandAdapter{}))
+
+	// Manage Application Credential Access
+	r.Register(application.NewTrustCommand())
 
 	// Juju GUI commands.
 	r.Register(gui.NewGUICommand())
 	r.Register(gui.NewUpgradeGUICommand())
+
+	// Resource commands
+	r.Register(resource.NewUploadCommand(resource.UploadDeps{
+		NewClient: func(c *resource.UploadCommand) (resource.UploadClient, error) {
+			apiRoot, err := c.NewAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return resourceadapters.NewAPIClient(apiRoot)
+		},
+		OpenResource: func(s string) (resource.ReadSeekCloser, error) {
+			return os.Open(s)
+		},
+	}))
+	r.Register(resource.NewListCommand(resource.ListDeps{
+		NewClient: func(c *resource.ListCommand) (resource.ListClient, error) {
+			apiRoot, err := c.NewAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return resourceadapters.NewAPIClient(apiRoot)
+		},
+	}))
+	r.Register(resource.NewCharmResourcesCommand(nil))
 
 	// Commands registered elsewhere.
 	for _, newCommand := range registeredCommands {

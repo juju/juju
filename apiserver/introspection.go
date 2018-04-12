@@ -6,7 +6,7 @@ package apiserver
 import (
 	"net/http"
 
-	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -32,18 +32,18 @@ func (h introspectionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h introspectionHandler) checkAuth(r *http.Request) error {
-	st, releaser, entity, err := h.ctx.stateAndEntityForRequestAuthenticatedUser(r)
+	st, entity, err := h.ctx.stateAndEntityForRequestAuthenticatedUser(r)
 	if err != nil {
 		return err
 	}
-	defer releaser()
+	defer st.Release()
 
 	// Users with "superuser" access on the controller,
 	// or "read" access on the controller model, can
 	// access these endpoints.
 
 	ok, err := common.HasPermission(
-		st.UserAccess,
+		st.UserPermission,
 		entity.Tag(),
 		permission.SuperuserAccess,
 		st.ControllerTag(),
@@ -55,15 +55,11 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 		return nil
 	}
 
-	controllerModel, err := st.ControllerModel()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	ok, err = common.HasPermission(
-		st.UserAccess,
+		st.UserPermission,
 		entity.Tag(),
 		permission.ReadAccess,
-		controllerModel.ModelTag(),
+		names.NewModelTag(st.ControllerModelUUID()),
 	)
 	if err != nil {
 		return err

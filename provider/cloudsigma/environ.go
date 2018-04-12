@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -131,7 +130,7 @@ func (env *environ) DestroyController(controllerUUID string) error {
 // all invalid parameters. If PrecheckInstance returns nil, it is not
 // guaranteed that the constraints are valid; if a non-nil error is
 // returned, then the constraints are definitely invalid.
-func (env *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+func (env *environ) PrecheckInstance(environs.PrecheckInstanceParams) error {
 	return nil
 }
 

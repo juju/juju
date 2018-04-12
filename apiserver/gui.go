@@ -20,8 +20,10 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/gorilla/handlers"
 	"github.com/juju/errors"
 	"github.com/juju/version"
+	names "gopkg.in/juju/names.v2"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/common/apihttp"
@@ -60,8 +62,8 @@ var (
 // - the "jujugui" directory includes a "templates/config.js.go" file which is
 //   used to render the Juju GUI configuration file. The template receives at
 //   least the following variables in its context: "base", "host", "socket",
-//   "controllerSocket", "staticURL", "uuid" and "version". It might receive
-//   more variables but cannot assume them to be always provided.
+//   "controllerSocket", "staticURL" and "version". It might receive more
+//   variables but cannot assume them to be always provided.
 type guiRouter struct {
 	dataDir string
 	ctxt    httpContext
@@ -76,7 +78,7 @@ func guiEndpoints(pattern, dataDir string, ctxt httpContext) []apihttp.Endpoint 
 	}
 	var endpoints []apihttp.Endpoint
 	add := func(pattern string, h func(*guiHandler, http.ResponseWriter, *http.Request)) {
-		handler := gr.ensureFileHandler(h)
+		handler := handlers.CompressHandler(gr.ensureFileHandler(h))
 		// TODO: We can switch from all methods to specific ones for entries
 		// where we only want to support specific request methods. However, our
 		// tests currently assert that errors come back as application/json and
@@ -118,54 +120,11 @@ func (gr *guiRouter) ensureFileHandler(h func(gh *guiHandler, w http.ResponseWri
 			}
 			return
 		}
-
-		modelUUID, useLegacyPathPath, err := gr.ctxt.modelUUIDFromRequest(req)
-		if err != nil {
-			if err := sendError(w, err); err != nil {
-				logger.Errorf("%v", err)
-			}
-			return
-		}
-		if useLegacyPathPath {
-			newPath := req.URL.Query().Get("new-path")
-			useLegacyPathPath = newPath == "false"
-		}
-
-		// We need to know if the old GUI < 2.3.0 is running so that
-		// the correct GUI URL path can be set.
-		oldGUI := false
-		st, releaser, err := gr.ctxt.srv.statePool.Get(modelUUID)
-		if err == nil {
-			defer releaser()
-			vers, err := st.GUIVersion()
-			if err == nil {
-				oldGUI = vers.Major < 2 || vers.Minor < 3
-			} else {
-				logger.Warningf("cannot retrieve GUI version: %v", err)
-			}
-		} else {
-			logger.Warningf("cannot retrieve GUI version: %v", err)
-		}
-
-		baseGUIURLPath := guiURLPathPrefix
-		if useLegacyPathPath {
-			// request is old style with model UUID directly in path
-			baseGUIURLPath = baseGUIURLPath + modelUUID
-		} else if oldGUI {
-			// GUI version is < 2.3.0 so we need to account for /u/user/model in the GUI URL.
-			user := req.URL.Query().Get(":user")
-			model := req.URL.Query().Get(":modelname")
-			baseGUIURLPath = strings.Replace(gr.pattern, ":user", user, -1)
-			baseGUIURLPath = strings.Replace(baseGUIURLPath, ":modelname", model, -1)
-			baseGUIURLPath = strings.Replace(baseGUIURLPath, ":modeluuid", modelUUID, -1)
-		}
-
 		gh := &guiHandler{
-			rootDir:          rootDir,
-			baseModelURLPath: guiURLPathPrefix + modelUUID,
-			baseGUIURLPath:   baseGUIURLPath,
-			hash:             hash,
-			uuid:             modelUUID,
+			ctxt:     gr.ctxt,
+			rootDir:  rootDir,
+			basePath: guiURLPathPrefix,
+			hash:     hash,
 		}
 		h(gh, w, req)
 	})
@@ -178,11 +137,7 @@ func (gr *guiRouter) ensureFileHandler(h func(gh *guiHandler, w http.ResponseWri
 // and archive hash.
 func (gr *guiRouter) ensureFiles(req *http.Request) (rootDir string, hash string, err error) {
 	// Retrieve the Juju GUI info from the GUI storage.
-	st, releaser, err := gr.ctxt.stateForRequestUnauthenticated(req)
-	if err != nil {
-		return "", "", errors.Annotate(err, "cannot open state")
-	}
-	defer releaser()
+	st := gr.ctxt.srv.statePool.SystemState()
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return "", "", errors.Annotate(err, "cannot open GUI storage")
@@ -289,15 +244,15 @@ func uncompressGUI(r io.Reader, sourceDir, targetDir string) error {
 
 // guiHandler serves the Juju GUI.
 type guiHandler struct {
-	baseModelURLPath string
-	baseGUIURLPath   string
-	rootDir          string
-	hash             string
-	uuid             string
+	ctxt     httpContext
+	basePath string
+	rootDir  string
+	hash     string
 }
 
 // serveStatic serves the GUI static files.
 func (h *guiHandler) serveStatic(w http.ResponseWriter, req *http.Request) {
+	logger.Debugf("serving Juju GUI static files")
 	staticDir := filepath.Join(h.rootDir, "static")
 	fs := http.FileServer(http.Dir(staticDir))
 	http.StripPrefix(h.hashedPath("static/"), fs).ServeHTTP(w, req)
@@ -305,6 +260,7 @@ func (h *guiHandler) serveStatic(w http.ResponseWriter, req *http.Request) {
 
 // serveCombo serves the GUI JavaScript and CSS files, dynamically combined.
 func (h *guiHandler) serveCombo(w http.ResponseWriter, req *http.Request) {
+	logger.Debugf("serving Juju GUI combined files")
 	ctype := ""
 	// The combo query is like /combo/?path/to/file1&path/to/file2 ...
 	parts := strings.Split(req.URL.RawQuery, "&")
@@ -360,6 +316,7 @@ func sendGUIComboFile(w io.Writer, fpath string) {
 	}
 	defer f.Close()
 	if _, err := io.Copy(w, f); err != nil {
+		logger.Infof("cannot copy combo file %q: %s", fpath, err)
 		return
 	}
 	fmt.Fprintf(w, "\n/* %s */\n", filepath.Base(fpath))
@@ -367,6 +324,7 @@ func sendGUIComboFile(w io.Writer, fpath string) {
 
 // serveIndex serves the GUI index file.
 func (h *guiHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
+	logger.Debugf("serving Juju GUI index")
 	spriteFile := filepath.Join(h.rootDir, spritePath)
 	spriteContent, err := ioutil.ReadFile(spriteFile)
 	if err != nil {
@@ -375,23 +333,13 @@ func (h *guiHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
 		}
 		return
 	}
-
-	// Record whether e need to use a legacy URL in the config.
-	// The default config URL path without the extra query param
-	// generates the new base path.
-	uuid := req.URL.Query().Get(":modeluuid")
-	configPath := "config.js"
-	if uuid != "" {
-		configPath += "?new-path=false"
-	}
-
 	tmpl := filepath.Join(h.rootDir, "templates", "index.html.go")
 	if err := renderGUITemplate(w, tmpl, map[string]interface{}{
 		// staticURL holds the root of the static hierarchy, hence why the
 		// empty string is used here.
 		"staticURL": h.hashedPath(""),
 		"comboURL":  h.hashedPath("combo"),
-		"configURL": h.hashedPath(configPath),
+		"configURL": h.hashedPath(getConfigPath(req.URL.Path, h.ctxt)),
 		// TODO frankban: make it possible to enable debug.
 		"debug":         false,
 		"spriteContent": string(spriteContent),
@@ -402,19 +350,102 @@ func (h *guiHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// getConfigPath returns the appropriate GUI config path for the given request
+// path.
+func getConfigPath(path string, ctxt httpContext) string {
+	configPath := "config.js"
+	// Handle requests from old clients, in which the model UUID is a fragment
+	// in the request path. If this is the case, we also need to include the
+	// UUID in the GUI base URL.
+	uuid := uuidFromPath(path)
+	if uuid != "" {
+		return fmt.Sprintf("%[1]s?model-uuid=%[2]s&base-postfix=%[2]s/", configPath, uuid)
+	}
+	st := ctxt.srv.statePool.SystemState()
+	if isNewGUI(st) {
+		// This is the proper case in which a new GUI is being served from a
+		// new URL. No query must be included in the config path.
+		return configPath
+	}
+	// Possibly handle requests to the new "/u/{user}/{model}" path, but
+	// made from an old version of the GUI, which didn't connect to the
+	// model based on the path.
+	uuid, user, model := modelInfoFromPath(path, st, ctxt.srv.statePool)
+	if uuid != "" {
+		return fmt.Sprintf("%s?model-uuid=%s&base-postfix=u/%s/%s/", configPath, uuid, user, model)
+	}
+	return configPath
+}
+
+// uuidFromPath checks whether the given path includes a fragment with a
+// valid model UUID. An empty string is returned if the model is not found.
+func uuidFromPath(path string) string {
+	path = strings.TrimPrefix(path, guiURLPathPrefix)
+	uuid := strings.SplitN(path, "/", 2)[0]
+	if names.IsValidModel(uuid) {
+		return uuid
+	}
+	return ""
+}
+
+// modelInfoFromPath checks whether the given path includes "/u/{user}/{model}""
+// fragments identifying a model, in which case its UUID, user and model name
+// are returned. Empty strings are returned if the model is not found.
+func modelInfoFromPath(path string, st *state.State, pool *state.StatePool) (uuid, user, modelName string) {
+	path = strings.TrimPrefix(path, guiURLPathPrefix)
+	parts := strings.SplitN(path, "/", 4)
+	if len(parts) < 3 || parts[0] != "u" || !names.IsValidUserName(parts[1]) || !names.IsValidModelName(parts[2]) {
+		return "", "", ""
+	}
+	user, modelName = parts[1], parts[2]
+	modelUUIDs, err := st.ModelUUIDsForUser(names.NewUserTag(user))
+	if err != nil {
+		return "", "", ""
+	}
+	for _, modelUUID := range modelUUIDs {
+		model, ph, err := pool.GetModel(modelUUID)
+		if err != nil {
+			return "", "", ""
+		}
+		defer ph.Release()
+		if model.Name() == modelName {
+			return modelUUID, user, modelName
+		}
+	}
+	return "", "", ""
+}
+
+// isNewGUI reports whether the version of the current GUI is >= 2.3.0.
+func isNewGUI(st *state.State) bool {
+	vers, err := st.GUIVersion()
+	if err != nil {
+		logger.Warningf("cannot retrieve GUI version: %v", err)
+		// Assume a recent version of the GUI is being served.
+		return true
+	}
+	return vers.Major > 2 || (vers.Major == 2 && vers.Minor >= 3)
+}
+
 // serveConfig serves the Juju GUI JavaScript configuration file.
 func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
+	logger.Debugf("serving Juju GUI configuration")
 	w.Header().Set("Content-Type", jsMimeType)
+	base := h.basePath
+	// These query parameters may be set by the index handler.
+	uuid := req.URL.Query().Get("model-uuid")
+	if uuid != "" {
+		base += req.URL.Query().Get("base-postfix")
+	}
 	tmpl := filepath.Join(h.rootDir, "templates", "config.js.go")
 	if err := renderGUITemplate(w, tmpl, map[string]interface{}{
-		"base":             h.baseGUIURLPath,
+		"base":             base,
 		"host":             req.Host,
 		"controllerSocket": "/api",
 		"socket":           "/model/$uuid/api",
 		// staticURL holds the root of the static hierarchy, hence why the
 		// empty string is used here.
 		"staticURL": h.hashedPath(""),
-		"uuid":      h.uuid,
+		"uuid":      uuid,
 		"version":   jujuversion.Current.String(),
 	}); err != nil {
 		if err := sendError(w, err); err != nil {
@@ -423,10 +454,10 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// hashedPath returns the gull path (including the GUI archive hash) to the
+// hashedPath returns the full path (including the GUI archive hash) to the
 // given path, that must not start with a slash.
 func (h *guiHandler) hashedPath(p string) string {
-	return path.Join(h.baseModelURLPath, h.hash, p)
+	return path.Join(h.basePath, h.hash, p)
 }
 
 func renderGUITemplate(w http.ResponseWriter, tmpl string, ctx map[string]interface{}) error {
@@ -468,11 +499,11 @@ func (h *guiArchiveHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 // handleGet returns information on Juju GUI archives in the controller.
 func (h *guiArchiveHandler) handleGet(w http.ResponseWriter, req *http.Request) error {
 	// Open the GUI archive storage.
-	st, releaser, err := h.ctxt.stateForRequestUnauthenticated(req)
+	st, err := h.ctxt.stateForRequestUnauthenticated(req)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
-	defer releaser()
+	defer st.Release()
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return errors.Annotate(err, "cannot open GUI storage")
@@ -536,11 +567,11 @@ func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request)
 	}
 
 	// Open the GUI archive storage.
-	st, releaser, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+	st, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
-	defer releaser()
+	defer st.Release()
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return errors.Annotate(err, "cannot open GUI storage")
@@ -612,11 +643,11 @@ func (h *guiVersionHandler) handlePut(w http.ResponseWriter, req *http.Request) 
 	}
 
 	// Authenticate the request and retrieve the Juju state.
-	st, releaser, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+	st, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
-	defer releaser()
+	defer st.Release()
 
 	var selected params.GUIVersionRequest
 	decoder := json.NewDecoder(req.Body)

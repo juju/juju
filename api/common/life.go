@@ -11,21 +11,36 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// Life requests the life cycle of the given entity from the given
+// Life requests the life cycle of the given entities from the given
 // server-side API facade via the given caller.
-func Life(caller base.FacadeCaller, tag names.Tag) (params.Life, error) {
+func Life(caller base.FacadeCaller, tags []names.Tag) ([]params.LifeResult, error) {
+	if len(tags) == 0 {
+		return []params.LifeResult{}, nil
+	}
 	var result params.LifeResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag.String()}},
+	entities := make([]params.Entity, len(tags))
+	for i, t := range tags {
+		entities[i] = params.Entity{t.String()}
 	}
+	args := params.Entities{Entities: entities}
 	if err := caller.FacadeCall("Life", args, &result); err != nil {
+		return []params.LifeResult{}, err
+	}
+	return result.Results, nil
+}
+
+// OneLife requests the life cycle of the given entity from the given
+// server-side API facade via the given caller.
+func OneLife(caller base.FacadeCaller, tag names.Tag) (params.Life, error) {
+	result, err := Life(caller, []names.Tag{tag})
+	if err != nil {
 		return "", err
 	}
-	if len(result.Results) != 1 {
-		return "", errors.Errorf("expected 1 result, got %d", len(result.Results))
+	if len(result) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(result))
 	}
-	if err := result.Results[0].Error; err != nil {
+	if err := result[0].Error; err != nil {
 		return "", err
 	}
-	return result.Results[0].Life, nil
+	return result[0].Life, nil
 }

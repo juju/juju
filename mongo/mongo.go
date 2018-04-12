@@ -49,7 +49,7 @@ const (
 	// installing mongo.
 	JujuMongoPackage = "juju-mongodb3.2"
 
-	// JujuMongoTooldPackage is the mongo package Juju uses when
+	// JujuMongoToolsPackage is the mongo package Juju uses when
 	// installing mongo tools to get mongodump etc.
 	JujuMongoToolsPackage = "juju-mongo-tools3.2"
 
@@ -270,38 +270,14 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 // address by selecting it from the given addresses. If no addresses are
 // available an empty string is returned.
 func SelectPeerAddress(addrs []network.Address) string {
-	logger.Debugf("selecting mongo peer address from %+v", addrs)
-	// ScopeMachineLocal addresses are OK if we can't pick by space, also the
-	// second bool return is ignored intentionally.
-	addr, _ := network.SelectControllerAddress(addrs, true)
+	// ScopeMachineLocal addresses are never suitable for mongo peers,
+	// as each controller runs on a separate machine.
+	const allowMachineLocal = false
+
+	// The second bool result is ignored intentionally (we return an empty
+	// string if no suitable address is available.)
+	addr, _ := network.SelectControllerAddress(addrs, allowMachineLocal)
 	return addr.Value
-}
-
-// SelectPeerHostPort returns the HostPort to use as the mongo replica set peer
-// by selecting it from the given hostPorts.
-func SelectPeerHostPort(hostPorts []network.HostPort) string {
-	// TODO(macgreagoir) IPv6. We were always choosing a cloud-local or
-	// falling back to machine-local here (with true arg) but this doesn't
-	// make sense in IPv6, where the IPv6 [public] address is ignored in
-	// favour of ip6-localhost. Only pass true if we find an IPv4 address
-	// in the slice.
-	logger.Debugf("selecting mongo peer hostPort by scope from %+v", hostPorts)
-	allowMachineLocal := network.HostPortsHasIPv4Address(hostPorts)
-	return network.SelectMongoHostPortsByScope(hostPorts, allowMachineLocal)[0]
-}
-
-// SelectPeerHostPortBySpace returns the HostPort to use as the mongo replica set peer
-// by selecting it from the given hostPorts.
-func SelectPeerHostPortBySpace(hostPorts []network.HostPort, space network.SpaceName) string {
-	logger.Debugf("selecting mongo peer hostPort in space %s from %+v", space, hostPorts)
-	// ScopeMachineLocal addresses are OK if we can't pick by space.
-	suitableHostPorts, foundHostPortsInSpaces := network.SelectMongoHostPortsBySpaces(hostPorts, []network.SpaceName{space})
-
-	if !foundHostPortsInSpaces {
-		logger.Debugf("Failed to select hostPort by space - trying by scope from %+v", hostPorts)
-		suitableHostPorts = network.SelectMongoHostPortsByScope(hostPorts, true)
-	}
-	return suitableHostPorts[0]
 }
 
 // GenerateSharedSecret generates a pseudo-random shared secret (keyfile)
@@ -324,7 +300,11 @@ func Path(version Version) (string, error) {
 	return mongoPath(version, os.Stat, exec.LookPath)
 }
 
-func mongoPath(version Version, stat func(string) (os.FileInfo, error), lookPath func(string) (string, error)) (string, error) {
+func mongoPath(
+	version Version,
+	stat func(string) (os.FileInfo, error),
+	lookPath func(string) (string, error),
+) (string, error) {
 	switch version {
 	case Mongo24:
 		if _, err := stat(JujuMongod24Path); err == nil {
@@ -711,12 +691,12 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 // yet be.
 func packagesForSeries(series string) ([]string, []string) {
 	switch series {
-	case "precise", "quantal", "raring", "saucy", "centos7":
+	case "precise", "centos7":
 		return []string{"mongodb-server"}, []string{}
-	case "trusty", "wily", "xenial":
-		return []string{JujuMongoPackage, JujuMongoToolsPackage}, []string{"juju-mongodb"}
+	case "trusty":
+		return []string{"juju-mongodb"}, []string{}
 	default:
-		// y and onwards
+		// xenial and onwards
 		return []string{JujuMongoPackage, JujuMongoToolsPackage}, []string{}
 	}
 }

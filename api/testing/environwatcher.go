@@ -21,20 +21,23 @@ type ModelWatcherFacade interface {
 type ModelWatcherTests struct {
 	facade ModelWatcherFacade
 	state  *state.State
+	model  *state.Model
 }
 
 func NewModelWatcherTests(
 	facade ModelWatcherFacade,
 	st *state.State,
+	m *state.Model,
 ) *ModelWatcherTests {
 	return &ModelWatcherTests{
 		facade: facade,
 		state:  st,
+		model:  m,
 	}
 }
 
 func (s *ModelWatcherTests) TestModelConfig(c *gc.C) {
-	envConfig, err := s.state.ModelConfig()
+	envConfig, err := s.model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	conf, err := s.facade.ModelConfig()
@@ -44,7 +47,7 @@ func (s *ModelWatcherTests) TestModelConfig(c *gc.C) {
 }
 
 func (s *ModelWatcherTests) TestWatchForModelConfigChanges(c *gc.C) {
-	envConfig, err := s.state.ModelConfig()
+	envConfig, err := s.model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.facade.WatchForModelConfigChanges()
@@ -57,24 +60,24 @@ func (s *ModelWatcherTests) TestWatchForModelConfigChanges(c *gc.C) {
 
 	// Change the model configuration by updating an existing attribute, check it's detected.
 	newAttrs := map[string]interface{}{"logging-config": "juju=ERROR"}
-	err = s.state.UpdateModelConfig(newAttrs, nil, nil)
+	err = s.model.UpdateModelConfig(newAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Change the model configuration by adding a new attribute, check it's detected.
 	newAttrs = map[string]interface{}{"foo": "bar"}
-	err = s.state.UpdateModelConfig(newAttrs, nil, nil)
+	err = s.model.UpdateModelConfig(newAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Change the model configuration by removing an attribute, check it's detected.
-	err = s.state.UpdateModelConfig(map[string]interface{}{}, []string{"foo"}, nil)
+	err = s.model.UpdateModelConfig(map[string]interface{}{}, []string{"foo"})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Change it back to the original config.
 	oldAttrs := map[string]interface{}{"logging-config": envConfig.AllAttrs()["logging-config"]}
-	err = s.state.UpdateModelConfig(oldAttrs, nil, nil)
+	err = s.model.UpdateModelConfig(oldAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }

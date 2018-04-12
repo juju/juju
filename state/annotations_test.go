@@ -47,13 +47,13 @@ func (s *AnnotationsSuite) createTestAnnotation(c *gc.C) string {
 	key := "testkey"
 	expected := "typo"
 	s.assertSetAnnotation(c, key, expected)
-	assertAnnotation(c, s.State, s.testEntity, key, expected)
+	assertAnnotation(c, s.Model, s.testEntity, key, expected)
 	return key
 }
 
 func (s *AnnotationsSuite) setAnnotationResult(c *gc.C, key, value string) error {
 	annts := map[string]string{key: value}
-	return s.State.SetAnnotations(s.testEntity, annts)
+	return s.Model.SetAnnotations(s.testEntity, annts)
 }
 
 func (s *AnnotationsSuite) assertSetAnnotation(c *gc.C, key, value string) {
@@ -61,8 +61,8 @@ func (s *AnnotationsSuite) assertSetAnnotation(c *gc.C, key, value string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func assertAnnotation(c *gc.C, st *state.State, entity state.GlobalEntity, key, expected string) {
-	value, err := st.Annotation(entity, key)
+func assertAnnotation(c *gc.C, model *state.Model, entity state.GlobalEntity, key, expected string) {
+	value, err := model.Annotation(entity, key)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value, gc.DeepEquals, expected)
 }
@@ -72,16 +72,16 @@ func (s *AnnotationsSuite) TestSetAnnotationsUpdate(c *gc.C) {
 	updated := "fixed"
 
 	s.assertSetAnnotation(c, key, updated)
-	assertAnnotation(c, s.State, s.testEntity, key, updated)
+	assertAnnotation(c, s.Model, s.testEntity, key, updated)
 }
 
 func (s *AnnotationsSuite) TestSetAnnotationsRemove(c *gc.C) {
 	key := s.createTestAnnotation(c)
 	updated := ""
 	s.assertSetAnnotation(c, key, updated)
-	assertAnnotation(c, s.State, s.testEntity, key, updated)
+	assertAnnotation(c, s.Model, s.testEntity, key, updated)
 
-	annts, err := s.State.Annotations(s.testEntity)
+	annts, err := s.Model.Annotations(s.testEntity)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// we are expecting not to find this key...
@@ -102,19 +102,19 @@ func (s *AnnotationsSuite) TestSetAnnotationsDestroyedEntity(c *gc.C) {
 	_, err = s.State.Machine(s.testEntity.Id())
 	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*not found.*")
 
-	annts, err := s.State.Annotations(s.testEntity)
+	annts, err := s.Model.Annotations(s.testEntity)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(annts, gc.DeepEquals, map[string]string{})
 
 	annts[key] = "oops"
-	err = s.State.SetAnnotations(s.testEntity, annts)
+	err = s.Model.SetAnnotations(s.testEntity, annts)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*no longer exists.*")
 	c.Assert(err, gc.ErrorMatches, ".*cannot update annotations.*")
 }
 
 func (s *AnnotationsSuite) TestSetAnnotationsNonExistentEntity(c *gc.C) {
 	annts := map[string]string{"key": "oops"}
-	err := s.State.SetAnnotations(state.MockGlobalEntity{}, annts)
+	err := s.Model.SetAnnotations(state.MockGlobalEntity{}, annts)
 
 	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*no longer exists.*")
 	c.Assert(err, gc.ErrorMatches, ".*cannot update annotations.*")
@@ -127,11 +127,11 @@ func (s *AnnotationsSuite) TestSetAnnotationsConcurrently(c *gc.C) {
 
 	setAnnotations := func() {
 		s.assertSetAnnotation(c, key, first)
-		assertAnnotation(c, s.State, s.testEntity, key, first)
+		assertAnnotation(c, s.Model, s.testEntity, key, first)
 	}
 	defer state.SetBeforeHooks(c, s.State, setAnnotations).Check()
 	s.assertSetAnnotation(c, key, last)
-	assertAnnotation(c, s.State, s.testEntity, key, last)
+	assertAnnotation(c, s.Model, s.testEntity, key, last)
 }
 
 type AnnotationsEnvSuite struct {
@@ -147,18 +147,18 @@ func (s *AnnotationsEnvSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedEnvironment(c *gc.C) {
-	env, st := s.createTestEnv(c)
+func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedModel(c *gc.C) {
+	model, st := s.createTestModel(c)
 	defer st.Close()
 
 	key := "key"
 	expected := "oops"
 	annts := map[string]string{key: expected}
-	err := st.SetAnnotations(env, annts)
+	err := model.SetAnnotations(model, annts)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAnnotation(c, st, env, key, expected)
+	assertAnnotation(c, model, model, key, expected)
 
-	err = env.Destroy()
+	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
@@ -167,12 +167,12 @@ func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedEnvironment(c *gc.C) {
 
 	expected = "fail"
 	annts[key] = expected
-	err = s.State.SetAnnotations(env, annts)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*model not found.*")
+	err = s.Model.SetAnnotations(model, annts)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "model.* no longer exists")
 	c.Assert(err, gc.ErrorMatches, ".*cannot update annotations.*")
 }
 
-func (s *AnnotationsEnvSuite) createTestEnv(c *gc.C) (*state.Model, *state.State) {
+func (s *AnnotationsEnvSuite) createTestModel(c *gc.C) (*state.Model, *state.State) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
@@ -180,10 +180,13 @@ func (s *AnnotationsEnvSuite) createTestEnv(c *gc.C) (*state.Model, *state.State
 		"uuid": uuid.String(),
 	})
 	owner := names.NewUserTag("test@remote")
-	env, st, err := s.State.NewModel(state.ModelArgs{
-		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: owner,
+	model, st, err := s.State.NewModel(state.ModelArgs{
+		Type:        state.ModelTypeIAAS,
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg, Owner: owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return env, st
+	return model, st
 }

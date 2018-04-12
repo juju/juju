@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
+	corecharm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/uniter"
@@ -43,10 +43,10 @@ func (s *BundlesDirSuite) TearDownSuite(c *gc.C) {
 func (s *BundlesDirSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	// Add a charm, service and unit to login to the API with.
+	// Add a charm, application and unit to login to the API with.
 	charm := s.AddTestingCharm(c, "wordpress")
-	service := s.AddTestingService(c, "wordpress", charm)
-	unit, err := service.AddUnit()
+	app := s.AddTestingApplication(c, "wordpress", charm)
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -101,7 +101,7 @@ func (f fakeBundleInfo) ArchiveSha256() (string, error) {
 func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	basedir := c.MkDir()
 	bunsDir := filepath.Join(basedir, "random", "bundles")
-	downloader := api.NewCharmDownloader(s.st.Client())
+	downloader := api.NewCharmDownloader(s.st)
 	d := charm.NewBundlesDir(bunsDir, downloader)
 
 	checkDownloadsEmpty := func() {

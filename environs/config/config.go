@@ -5,24 +5,29 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
-	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"github.com/juju/version"
-	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
+	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/logfwd/syslog"
+	"github.com/juju/juju/network"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")
@@ -84,6 +89,9 @@ const (
 	// FTPProxyKey stores the key for this setting.
 	FTPProxyKey = "ftp-proxy"
 
+	// NoProxyKey stores the key for this setting.
+	NoProxyKey = "no-proxy"
+
 	// AptHTTPProxyKey stores the key for this setting.
 	AptHTTPProxyKey = "apt-http-proxy"
 
@@ -93,15 +101,22 @@ const (
 	// AptFTPProxyKey stores the key for this setting.
 	AptFTPProxyKey = "apt-ftp-proxy"
 
-	// NoProxyKey stores the key for this setting.
-	NoProxyKey = "no-proxy"
+	// AptNoProxyKey stores the key for this setting.
+	AptNoProxyKey = "apt-no-proxy"
 
 	// NetBondReconfigureDelay is the key to pass when bridging
 	// the network for containers.
 	NetBondReconfigureDelayKey = "net-bond-reconfigure-delay"
 
+	// ContainerNetworkingMethod is the key for setting up
+	// networking method for containers.
+	ContainerNetworkingMethod = "container-networking-method"
+
 	// The default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
+
+	// The default filesystem storage source.
+	StorageDefaultFilesystemSourceKey = "storage-default-filesystem-source"
 
 	// ResourceTagsKey is an optional list or space-separated string
 	// of k=v pairs, defining the tags for ResourceTags.
@@ -136,6 +151,45 @@ const (
 	// ExtraInfoKey is the key for arbitrary user specified string data that
 	// is stored against the model.
 	ExtraInfoKey = "extra-info"
+
+	// MaxStatusHistoryAge is the maximum age of status history values
+	// to keep when pruning, eg "72h"
+	MaxStatusHistoryAge = "max-status-history-age"
+
+	// MaxStatusHistorySize is the maximum size the status history
+	// collection can grow to before it is pruned, eg "5M"
+	MaxStatusHistorySize = "max-status-history-size"
+
+	// MaxActionResultsAge is the maximum age of actions to keep when pruning, eg
+	// "72h"
+	MaxActionResultsAge = "max-action-results-age"
+
+	// MaxActionResultsSize is the maximum size the actions collection can
+	// grow to before it is pruned, eg "5M"
+	MaxActionResultsSize = "max-action-results-size"
+
+	// UpdateStatusHookInterval is how often to run the update-status hook.
+	UpdateStatusHookInterval = "update-status-hook-interval"
+
+	// EgressSubnets are the source addresses from which traffic from this model
+	// originates if the model is deployed such that NAT or similar is in use.
+	EgressSubnets = "egress-subnets"
+
+	// FanConfig defines the configuration for FAN network running in the model.
+	FanConfig = "fan-config"
+
+	// CloudInitUserDataKey is the key to specify cloud-init yaml the user
+	// wants to add into the cloud-config data produced by Juju when
+	// provisioning machines.
+	CloudInitUserDataKey = "cloudinit-userdata"
+
+	// BackupDirKey specifies the backup working directory.
+	BackupDirKey = "backup-dir"
+
+	// ContainerInheritProperiesKey is the key to specify a list of properties
+	// to be copied from a machine to a container during provisioning.  The
+	// list will be comma separated.
+	ContainerInheritProperiesKey = "container-inherit-properties"
 
 	//
 	// Deprecated Settings Attributes
@@ -221,7 +275,7 @@ func PreferredSeries(cfg HasDefaultSeries) string {
 	if series, ok := cfg.DefaultSeries(); ok {
 		return series
 	}
-	return series.LatestLts()
+	return jujuversion.SupportedLts()
 }
 
 // Config holds an immutable environment configuration.
@@ -265,6 +319,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	if err != nil {
 		return nil, err
 	}
+
 	c := &Config{
 		defined: defined.(map[string]interface{}),
 		unknown: make(map[string]interface{}),
@@ -272,6 +327,7 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	if err := c.ensureUnitLogging(); err != nil {
 		return nil, err
 	}
+
 	// no old config to compare against
 	if err := Validate(c, nil); err != nil {
 		return nil, err
@@ -284,6 +340,21 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 	}
 	return c, nil
 }
+
+const (
+	// DefaultStatusHistoryAge is the default value for MaxStatusHistoryAge.
+	DefaultStatusHistoryAge = "336h" // 2 weeks
+
+	// DefaultStatusHistorySize is the default value for MaxStatusHistorySize.
+	DefaultStatusHistorySize = "5G"
+
+	// DefaultUpdateStatusHookInterval is the default value for UpdateStatusHookInterval
+	DefaultUpdateStatusHookInterval = "5m"
+
+	DefaultActionResultsAge = "336h" // 2 weeks
+
+	DefaultActionResultsSize = "5G"
+)
 
 var defaultConfigValues = map[string]interface{}{
 	// Network.
@@ -311,17 +382,24 @@ var defaultConfigValues = map[string]interface{}{
 	//
 	// $ juju model-config net-bond-reconfigure-delay=30
 	NetBondReconfigureDelayKey: 17,
+	ContainerNetworkingMethod:  "",
 
-	"default-series":           series.LatestLts(),
-	ProvisionerHarvestModeKey:  HarvestDestroyed.String(),
-	ResourceTagsKey:            "",
-	"logging-config":           "",
-	AutomaticallyRetryHooks:    true,
-	"enable-os-refresh-update": true,
-	"enable-os-upgrade":        true,
-	"development":              false,
-	"test-mode":                false,
-	TransmitVendorMetricsKey:   true,
+	"default-series":             jujuversion.SupportedLts(),
+	ProvisionerHarvestModeKey:    HarvestDestroyed.String(),
+	ResourceTagsKey:              "",
+	"logging-config":             "",
+	AutomaticallyRetryHooks:      true,
+	"enable-os-refresh-update":   true,
+	"enable-os-upgrade":          true,
+	"development":                false,
+	"test-mode":                  false,
+	TransmitVendorMetricsKey:     true,
+	UpdateStatusHookInterval:     DefaultUpdateStatusHookInterval,
+	EgressSubnets:                "",
+	FanConfig:                    "",
+	CloudInitUserDataKey:         "",
+	ContainerInheritProperiesKey: "",
+	BackupDirKey:                 "",
 
 	// Image and agent streams and URLs.
 	"image-stream":       "released",
@@ -340,7 +418,14 @@ var defaultConfigValues = map[string]interface{}{
 	AptHTTPProxyKey:  "",
 	AptHTTPSProxyKey: "",
 	AptFTPProxyKey:   "",
+	AptNoProxyKey:    "",
 	"apt-mirror":     "",
+
+	// Status history settings
+	MaxStatusHistoryAge:  DefaultStatusHistoryAge,
+	MaxStatusHistorySize: DefaultStatusHistorySize,
+	MaxActionResultsAge:  DefaultActionResultsAge,
+	MaxActionResultsSize: DefaultActionResultsSize,
 }
 
 // ConfigDefaults returns the config default values
@@ -406,25 +491,6 @@ func CoerceForStorage(attrs map[string]interface{}) map[string]interface{} {
 	return coercedAttrs
 }
 
-// InvalidConfigValue is an error type for a config value that failed validation.
-type InvalidConfigValueError struct {
-	// Key is the config key used to access the value.
-	Key string
-	// Value is the value that failed validation.
-	Value string
-	// Reason indicates why the value failed validation.
-	Reason error
-}
-
-// Error returns the error string.
-func (e *InvalidConfigValueError) Error() string {
-	msg := fmt.Sprintf("invalid config value for %s: %q", e.Key, e.Value)
-	if e.Reason != nil {
-		msg = msg + ": " + e.Reason.Error()
-	}
-	return msg
-}
-
 // Validate ensures that config is a valid configuration.  If old is not nil,
 // it holds the previous environment configuration for consideration when
 // validating changes.
@@ -478,6 +544,122 @@ func Validate(cfg, old *Config) error {
 		return errors.Annotate(err, "validating resource tags")
 	}
 
+	if v, ok := cfg.defined[MaxStatusHistoryAge].(string); ok {
+		if _, err := time.ParseDuration(v); err != nil {
+			return errors.Annotate(err, "invalid max status history age in model configuration")
+		}
+	}
+
+	if v, ok := cfg.defined[MaxStatusHistorySize].(string); ok {
+		if _, err := utils.ParseSize(v); err != nil {
+			return errors.Annotate(err, "invalid max status history size in model configuration")
+		}
+	}
+
+	if v, ok := cfg.defined[MaxActionResultsAge].(string); ok {
+		if _, err := time.ParseDuration(v); err != nil {
+			return errors.Annotate(err, "invalid max action age in model configuration")
+		}
+	}
+
+	if v, ok := cfg.defined[MaxActionResultsSize].(string); ok {
+		if _, err := utils.ParseSize(v); err != nil {
+			return errors.Annotate(err, "invalid max action size in model configuration")
+		}
+	}
+
+	if v, ok := cfg.defined[UpdateStatusHookInterval].(string); ok {
+		if f, err := time.ParseDuration(v); err != nil {
+			return errors.Annotate(err, "invalid update status hook interval in model configuration")
+		} else {
+			if f < 1*time.Minute {
+				return errors.Annotatef(err, "update status hook frequency %v cannot be less than 1m", f)
+			}
+			if f > 60*time.Minute {
+				return errors.Annotatef(err, "update status hook frequency %v cannot be greater than 60m", f)
+			}
+		}
+	}
+
+	if v, ok := cfg.defined[EgressSubnets].(string); ok && v != "" {
+		cidrs := strings.Split(v, ",")
+		for _, cidr := range cidrs {
+			if _, _, err := net.ParseCIDR(strings.TrimSpace(cidr)); err != nil {
+				return errors.Annotatef(err, "invalid egress subnet: %v", cidr)
+			}
+			if cidr == "0.0.0.0/0" {
+				return errors.Errorf("CIDR %q not allowed", cidr)
+			}
+		}
+	}
+
+	if v, ok := cfg.defined[FanConfig].(string); ok && v != "" {
+		_, err := network.ParseFanConfig(v)
+		if err != nil {
+			return err
+		}
+	}
+
+	if v, ok := cfg.defined[ContainerNetworkingMethod].(string); ok {
+		switch v {
+		case "fan":
+			if cfg, err := cfg.FanConfig(); err != nil || cfg == nil {
+				return errors.New("container-networking-method cannot be set to 'fan' without fan-config set")
+			}
+		case "provider": // TODO(wpk) FIXME we should check that the provider supports this setting!
+		case "local":
+		case "": // We'll try to autoconfigure it
+		default:
+			return fmt.Errorf("Invalid value for container-networking-method - %v", v)
+		}
+	}
+
+	if raw, ok := cfg.defined[CloudInitUserDataKey].(string); ok && raw != "" {
+		userDataMap, err := ensureStringMaps(raw)
+		if err != nil {
+			return errors.Annotate(err, "cloudinit-userdata")
+		}
+
+		// if there packages, ensure they are strings
+		if packages, ok := userDataMap["packages"].([]interface{}); ok {
+			for _, v := range packages {
+				checker := schema.String()
+				if _, err := checker.Coerce(v, nil); err != nil {
+					return errors.Annotate(err, "cloudinit-userdata: packages must be a list of strings")
+				}
+			}
+		}
+
+		// error if users is specified
+		if _, ok := userDataMap["users"]; ok {
+			return errors.New("cloudinit-userdata: users not allowed")
+		}
+
+		// error if runcmd is specified
+		if _, ok := userDataMap["runcmd"]; ok {
+			return errors.New("cloudinit-userdata: runcmd not allowed, use preruncmd or postruncmd instead")
+		}
+
+		// error if bootcmd is specified
+		if _, ok := userDataMap["bootcmd"]; ok {
+			return errors.New("cloudinit-userdata: bootcmd not allowed")
+		}
+	}
+
+	if raw, ok := cfg.defined[ContainerInheritProperiesKey].(string); ok && raw != "" {
+		rawProperties := strings.Split(raw, ",")
+		propertySet := set.NewStrings()
+		for _, prop := range rawProperties {
+			propertySet.Add(strings.TrimSpace(prop))
+		}
+		whiteListSet := set.NewStrings("apt-primary", "apt-sources", "apt-security", "ca-certs")
+		diffSet := propertySet.Difference(whiteListSet)
+
+		if !diffSet.IsEmpty() {
+			return fmt.Errorf("container-inherit-properties: %s not allowed", strings.Join(diffSet.SortedValues(), ", "))
+		}
+	}
+
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
@@ -498,6 +680,20 @@ func Validate(cfg, old *Config) error {
 
 	cfg.defined = ProcessDeprecatedAttributes(cfg.defined)
 	return nil
+}
+
+// ensureStringMaps takes in a string and returns YAML in a map
+// where all keys of any nested maps are strings.
+func ensureStringMaps(in string) (map[string]interface{}, error) {
+	userDataMap := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(in), &userDataMap); err != nil {
+		return nil, errors.Annotate(err, "must be valid YAML")
+	}
+	out, err := utils.ConformYAML(userDataMap)
+	if err != nil {
+		return nil, err
+	}
+	return out.(map[string]interface{}), nil
 }
 
 func isEmpty(val interface{}) bool {
@@ -590,6 +786,12 @@ func (c *Config) NetBondReconfigureDelay() int {
 	return value
 }
 
+// ContainerNetworkingMethod returns the method with which
+// containers network should be set up.
+func (c *Config) ContainerNetworkingMethod() string {
+	return c.asString(ContainerNetworkingMethod)
+}
+
 // ProxySettings returns all four proxy settings; http, https, ftp, and no
 // proxy.
 func (c *Config) ProxySettings() proxy.Settings {
@@ -616,7 +818,7 @@ func (c *Config) FTPProxy() string {
 	return c.asString(FTPProxyKey)
 }
 
-// NoProxy returns the 'no proxy' for the environment.
+// NoProxy returns the 'no-proxy' for the environment.
 func (c *Config) NoProxy() string {
 	return c.asString(NoProxyKey)
 }
@@ -640,9 +842,10 @@ func addSchemeIfMissing(defaultScheme string, url string) string {
 // AptProxySettings returns all three proxy settings; http, https and ftp.
 func (c *Config) AptProxySettings() proxy.Settings {
 	return proxy.Settings{
-		Http:  c.AptHTTPProxy(),
-		Https: c.AptHTTPSProxy(),
-		Ftp:   c.AptFTPProxy(),
+		Http:    c.AptHTTPProxy(),
+		Https:   c.AptHTTPSProxy(),
+		Ftp:     c.AptFTPProxy(),
+		NoProxy: c.AptNoProxy(),
 	}
 }
 
@@ -662,6 +865,11 @@ func (c *Config) AptHTTPSProxy() string {
 // Falls back to the default ftp-proxy if not specified.
 func (c *Config) AptFTPProxy() string {
 	return addSchemeIfMissing("ftp", c.getWithFallback(AptFTPProxyKey, FTPProxyKey))
+}
+
+// AptNoProxy returns the 'apt-no-proxy' for the environment.
+func (c *Config) AptNoProxy() string {
+	return c.getWithFallback(AptNoProxyKey, NoProxyKey)
 }
 
 // AptMirror sets the apt mirror for the environment.
@@ -781,6 +989,12 @@ func (c *Config) LoggingConfig() string {
 	return c.asString("logging-config")
 }
 
+// BackupDir returns the configuration string for the temporary files
+// backup.
+func (c *Config) BackupDir() string {
+	return c.asString(BackupDirKey)
+}
+
 // AutomaticallyRetryHooks returns whether we should automatically retry hooks.
 // By default this should be true.
 func (c *Config) AutomaticallyRetryHooks() bool {
@@ -868,6 +1082,13 @@ func (c *Config) StorageDefaultBlockSource() (string, bool) {
 	return bs, bs != ""
 }
 
+// StorageDefaultFilesystemSource returns the default filesystem
+// storage source for the environment.
+func (c *Config) StorageDefaultFilesystemSource() (string, bool) {
+	bs := c.asString(StorageDefaultFilesystemSourceKey)
+	return bs, bs != ""
+}
+
 // ResourceTags returns a set of tags to set on environment resources
 // that Juju creates and manages, if the provider supports them. These
 // tags have no special meaning to Juju, but may be used for existing
@@ -891,6 +1112,90 @@ func (c *Config) resourceTags() (map[string]string, error) {
 		}
 	}
 	return v, nil
+}
+
+// MaxStatusHistoryAge is the maximum age of status history entries
+// before being pruned.
+func (c *Config) MaxStatusHistoryAge() time.Duration {
+	// Value has already been validated.
+	val, _ := time.ParseDuration(c.mustString(MaxStatusHistoryAge))
+	return val
+}
+
+// MaxStatusHistorySizeMB is the maximum size in MiB which the status history
+// collection can grow to before being pruned.
+func (c *Config) MaxStatusHistorySizeMB() uint {
+	// Value has already been validated.
+	val, _ := utils.ParseSize(c.mustString(MaxStatusHistorySize))
+	return uint(val)
+}
+
+func (c *Config) MaxActionResultsAge() time.Duration {
+	// Value has already been validated.
+	val, _ := time.ParseDuration(c.mustString(MaxActionResultsAge))
+	return val
+}
+
+func (c *Config) MaxActionResultsSizeMB() uint {
+	// Value has already been validated.
+	val, _ := utils.ParseSize(c.mustString(MaxActionResultsSize))
+	return uint(val)
+}
+
+// UpdateStatusHookInterval is how often to run the charm
+// update-status hook.
+func (c *Config) UpdateStatusHookInterval() time.Duration {
+	// TODO(wallyworld) - remove this work around when possible as
+	// we already have a defaulting mechanism for config.
+	// It's only here to guard against using Juju clients >= 2.2
+	// with Juju controllers running 2.1.x
+	raw := c.asString(UpdateStatusHookInterval)
+	if raw == "" {
+		raw = DefaultUpdateStatusHookInterval
+	}
+	// Value has already been validated.
+	val, _ := time.ParseDuration(raw)
+	return val
+}
+
+// EgressSubnets are the source addresses from which traffic from this model
+// originates if the model is deployed such that NAT or similar is in use.
+func (c *Config) EgressSubnets() []string {
+	raw := c.asString(EgressSubnets)
+	if raw == "" {
+		return []string{}
+	}
+	// Value has already been validated.
+	rawAddr := strings.Split(raw, ",")
+	result := make([]string, len(rawAddr))
+	for i, addr := range rawAddr {
+		result[i] = strings.TrimSpace(addr)
+	}
+	return result
+}
+
+// FanConfig is the configuration of FAN network running in the model.
+func (c *Config) FanConfig() (network.FanConfig, error) {
+	// At this point we are sure that the line is valid.
+	return network.ParseFanConfig(c.asString(FanConfig))
+}
+
+// CloudInitUserData returns a copy of the raw user data attributes
+// that were specified by the user.
+func (c *Config) CloudInitUserData() map[string]interface{} {
+	raw := c.asString(CloudInitUserDataKey)
+	if raw == "" {
+		return nil
+	}
+	// The raw data has already passed Validate()
+	conformingUserDataMap, _ := ensureStringMaps(raw)
+	return conformingUserDataMap
+}
+
+// ContainerInheritProperies returns a copy of the raw user data keys
+// that were specified by the user.
+func (c *Config) ContainerInheritProperies() string {
+	return c.asString(ContainerInheritProperiesKey)
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes
@@ -966,7 +1271,8 @@ var alwaysOptional = schema.Defaults{
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.
-	StorageDefaultBlockSourceKey: schema.Omit,
+	StorageDefaultBlockSourceKey:      schema.Omit,
+	StorageDefaultFilesystemSourceKey: schema.Omit,
 
 	"firewall-mode":              schema.Omit,
 	"logging-config":             schema.Omit,
@@ -978,6 +1284,7 @@ var alwaysOptional = schema.Defaults{
 	AptHTTPProxyKey:              schema.Omit,
 	AptHTTPSProxyKey:             schema.Omit,
 	AptFTPProxyKey:               schema.Omit,
+	AptNoProxyKey:                schema.Omit,
 	"apt-mirror":                 schema.Omit,
 	AgentStreamKey:               schema.Omit,
 	ResourceTagsKey:              schema.Omit,
@@ -997,6 +1304,17 @@ var alwaysOptional = schema.Defaults{
 	"test-mode":                  schema.Omit,
 	TransmitVendorMetricsKey:     schema.Omit,
 	NetBondReconfigureDelayKey:   schema.Omit,
+	ContainerNetworkingMethod:    schema.Omit,
+	MaxStatusHistoryAge:          schema.Omit,
+	MaxStatusHistorySize:         schema.Omit,
+	MaxActionResultsAge:          schema.Omit,
+	MaxActionResultsSize:         schema.Omit,
+	UpdateStatusHookInterval:     schema.Omit,
+	EgressSubnets:                schema.Omit,
+	FanConfig:                    schema.Omit,
+	CloudInitUserDataKey:         schema.Omit,
+	ContainerInheritProperiesKey: schema.Omit,
+	BackupDirKey:                 schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -1044,9 +1362,9 @@ var (
 // of juju that does recognise the fields, but that their presence is still
 // anomalous to some degree and should be flagged (and that there is thereby
 // a mechanism for observing fields that really are typos etc).
-func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.Defaults) (map[string]interface{}, error) {
+func (cfg *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults schema.Defaults) (map[string]interface{}, error) {
 	attrs := cfg.UnknownAttrs()
-	checker := schema.FieldMap(fields, defaults)
+	checker := schema.FieldMap(extrafields, defaults)
 	coerced, err := checker.Coerce(attrs, nil)
 	if err != nil {
 		// TODO(ericsnow) Drop this?
@@ -1055,12 +1373,36 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 	}
 	result := coerced.(map[string]interface{})
 	for name, value := range attrs {
-		if fields[name] == nil {
+		if extrafields[name] == nil {
+			// We know this name isn't in the global fields, or it wouldn't be
+			// an UnknownAttr, it also appears to not be in the extra fields
+			// that are provider specific.  Check to see if an alternative
+			// spelling is in either the extra fields or the core fields.
 			if val, isString := value.(string); isString && val != "" {
 				// only warn about attributes with non-empty string values
-				logger.Warningf("unknown config field %q", name)
+				altName := strings.Replace(name, "_", "-", -1)
+				if extrafields[altName] != nil || fields[altName] != nil {
+					logger.Warningf("unknown config field %q, did you mean %q?", name, altName)
+				} else {
+					logger.Warningf("unknown config field %q", name)
+				}
 			}
 			result[name] = value
+			// The only allowed types for unknown attributes are string, int, float and bool
+			switch value.(type) {
+			case string:
+				continue
+			case int:
+				continue
+			case bool:
+				continue
+			case float32:
+				continue
+			case float64:
+				continue
+			default:
+				return nil, fmt.Errorf("%s: unknown type (%q)", name, value)
+			}
 		}
 	}
 	return result, nil
@@ -1104,6 +1446,7 @@ func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	addIfNotEmpty(settings, AptHTTPProxyKey, proxySettings.Http)
 	addIfNotEmpty(settings, AptHTTPSProxyKey, proxySettings.Https)
 	addIfNotEmpty(settings, AptFTPProxyKey, proxySettings.Ftp)
+	addIfNotEmpty(settings, AptNoProxyKey, proxySettings.NoProxy)
 	return settings
 }
 
@@ -1166,6 +1509,11 @@ var configSchema = environschema.Fields{
 	AptHTTPSProxyKey: {
 		// TODO document acceptable format
 		Description: "The APT HTTPS proxy for the model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	AptNoProxyKey: {
+		Description: "List of domain addresses not to be proxied for APT (comma-separated)",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
@@ -1327,6 +1675,11 @@ global or per instance security groups.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
+	StorageDefaultFilesystemSourceKey: {
+		Description: "The default filesystem storage source for the model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
 	"test-mode": {
 		Description: `Whether the model is intended for testing.
 If true, accessing the charm store does not affect statistical
@@ -1360,6 +1713,61 @@ data of the store. (default false)`,
 	NetBondReconfigureDelayKey: {
 		Description: "The amount of time in seconds to sleep between ifdown and ifup when bridging",
 		Type:        environschema.Tint,
+		Group:       environschema.EnvironGroup,
+	},
+	ContainerNetworkingMethod: {
+		Description: "Method of container networking setup - one of fan, provider, local",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	MaxStatusHistoryAge: {
+		Description: "The maximum age for status history entries before they are pruned, in human-readable time format",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	MaxStatusHistorySize: {
+		Description: "The maximum size for the status history collection, in human-readable memory format",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	MaxActionResultsAge: {
+		Description: "The maximum age for action entries before they are pruned, in human-readable time format",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	MaxActionResultsSize: {
+		Description: "The maximum size for the action collection, in human-readable memory format",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	UpdateStatusHookInterval: {
+		Description: "How often to run the charm update-status hook, in human-readable time format (default 5m, range 1-60m)",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	EgressSubnets: {
+		Description: "Source address(es) for traffic originating from this model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	FanConfig: {
+		Description: "Configuration for fan networking for this model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	CloudInitUserDataKey: {
+		Description: "Cloud-init user-data (in yaml format) to be added to userdata for new machines created in this model",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	ContainerInheritProperiesKey: {
+		Description: "List of properties to be copied from the host machine to new containers created in this model (comma-separated)",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	BackupDirKey: {
+		Description: "Directory used to store the backup working directory",
+		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 }

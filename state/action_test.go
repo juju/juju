@@ -7,8 +7,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
+	test "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils"
@@ -18,6 +20,8 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type ActionSuite struct {
@@ -30,6 +34,7 @@ type ActionSuite struct {
 	unit2             *state.Unit
 	charmlessUnit     *state.Unit
 	actionlessUnit    *state.Unit
+	model             *state.Model
 }
 
 var _ = gc.Suite(&ActionSuite{})
@@ -42,9 +47,9 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	s.charm = s.AddTestingCharm(c, "dummy")
 	s.actionlessCharm = s.AddTestingCharm(c, "actionless")
 
-	s.service = s.AddTestingService(c, "dummy", s.charm)
+	s.service = s.AddTestingApplication(c, "dummy", s.charm)
 	c.Assert(err, jc.ErrorIsNil)
-	s.actionlessService = s.AddTestingService(c, "actionless", s.actionlessCharm)
+	s.actionlessService = s.AddTestingApplication(c, "actionless", s.actionlessCharm)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sURL, _ := s.service.CharmURL()
@@ -52,29 +57,32 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	actionlessSURL, _ := s.actionlessService.CharmURL()
 	c.Assert(actionlessSURL, gc.NotNil)
 
-	s.unit, err = s.service.AddUnit()
+	s.unit, err = s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
 
 	err = s.unit.SetCharmURL(sURL)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.unit2, err = s.service.AddUnit()
+	s.unit2, err = s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit2.Series(), gc.Equals, "quantal")
 
 	err = s.unit2.SetCharmURL(sURL)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.charmlessUnit, err = s.service.AddUnit()
+	s.charmlessUnit, err = s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.charmlessUnit.Series(), gc.Equals, "quantal")
 
-	s.actionlessUnit, err = s.actionlessService.AddUnit()
+	s.actionlessUnit, err = s.actionlessService.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.actionlessUnit.Series(), gc.Equals, "quantal")
 
 	err = s.actionlessUnit.SetCharmURL(actionlessSURL)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.model, err = s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -131,7 +139,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 		expectedErr: "validation failed: \\(root\\)\\.outfile : must be of type string, given 5",
 	}} {
 		c.Logf("Test %d: should %s", i, t.should)
-		before := s.State.NowToTheSecond()
+		before := state.NowToTheSecond(s.State)
 		later := before.Add(testing.LongWait)
 
 		// Copy params over into empty premade map for comparison later
@@ -149,8 +157,12 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 			ch, _ := s.State.Charm(curl)
 			schema := ch.Actions()
 			c.Logf("Schema for unit %q:\n%#v", t.whichUnit.Name(), schema)
+
 			// verify we can get it back out by Id
-			action, err := s.State.Action(a.Id())
+			model, err := s.State.Model()
+			c.Assert(err, jc.ErrorIsNil)
+
+			action, err := model.Action(a.Id())
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(action, gc.NotNil)
 			c.Check(action.Id(), gc.Equals, a.Id())
@@ -161,7 +173,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 
 			// Enqueued time should be within a reasonable time of the beginning
 			// of the test
-			now := s.State.NowToTheSecond()
+			now := state.NowToTheSecond(s.State)
 			c.Check(action.Enqueued(), jc.TimeBetween(before, now))
 			c.Check(action.Enqueued(), jc.TimeBetween(before, later))
 			continue
@@ -271,19 +283,19 @@ func makeUnits(c *gc.C, s *ActionSuite, units map[string]*state.Unit, schemas ma
 	}
 
 	for name, schema := range schemas {
-		svcName := name + "-defaults-service"
+		svcName := name + "-defaults-application"
 
-		// Add a testing service
+		// Add a testing application
 		ch := s.AddActionsCharm(c, freeCharms[name], schema, 1)
-		svc := s.AddTestingService(c, svcName, ch)
+		app := s.AddTestingApplication(c, svcName, ch)
 
 		// Get its charm URL
-		sURL, _ := svc.CharmURL()
+		sURL, _ := app.CharmURL()
 		c.Assert(sURL, gc.NotNil)
 
 		// Add a unit
 		var err error
-		u, err := svc.AddUnit()
+		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(u.Series(), gc.Equals, "quantal")
 		err = u.SetCharmURL(sURL)
@@ -297,7 +309,7 @@ func (s *ActionSuite) TestEnqueueActionRequiresName(c *gc.C) {
 	name := ""
 
 	// verify can not enqueue an Action without a name
-	_, err := s.State.EnqueueAction(s.unit.Tag(), name, nil)
+	_, err := s.model.EnqueueAction(s.unit.Tag(), name, nil)
 	c.Assert(err, gc.ErrorMatches, "action name required")
 }
 
@@ -321,12 +333,15 @@ func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
 	c.Assert(len(actions), gc.Equals, 2)
 
 	// verify we can Fail one, retrieve the other, and they're not mixed up
-	action1, err := s.State.Action(a1.Id())
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	action1, err := model.Action(a1.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = action1.Finish(state.ActionResults{Status: state.ActionFailed})
 	c.Assert(err, jc.ErrorIsNil)
 
-	action2, err := s.State.Action(a2.Id())
+	action2, err := model.Action(a2.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(action2.Parameters(), jc.DeepEquals, params2)
 
@@ -385,7 +400,10 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	a, err := unit.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	action, err := s.State.Action(a.Id())
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	action, err := model.Action(a.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ensure no action results for this action
@@ -432,7 +450,10 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	a, err := unit.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	action, err := s.State.Action(a.Id())
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	action, err := model.Action(a.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ensure no action results for this action
@@ -480,11 +501,11 @@ func (s *ActionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 	}
 
 	for _, action := range actions {
-		_, err := s.State.EnqueueAction(s.unit.Tag(), action.Name, action.Parameters)
+		_, err := s.model.EnqueueAction(s.unit.Tag(), action.Name, action.Parameters)
 		c.Assert(err, gc.Equals, nil)
 	}
 
-	tags := s.State.FindActionTagsByPrefix(prefix)
+	tags := s.model.FindActionTagsByPrefix(prefix)
 
 	c.Assert(len(tags), gc.Equals, len(actions))
 	for i, tag := range tags {
@@ -506,11 +527,11 @@ func (s *ActionSuite) TestFindActionsByName(c *gc.C) {
 	}
 
 	for _, action := range actions {
-		_, err := s.State.EnqueueAction(s.unit.Tag(), action.Name, action.Parameters)
+		_, err := s.model.EnqueueAction(s.unit.Tag(), action.Name, action.Parameters)
 		c.Assert(err, gc.Equals, nil)
 	}
 
-	results, err := s.State.FindActionsByName("action-1")
+	results, err := s.model.FindActionsByName("action-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(len(results), gc.Equals, 2)
@@ -531,8 +552,8 @@ func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 	// clients of it's initial state
 
 	// preamble
-	svc := s.AddTestingService(c, "dummy3", s.charm)
-	unit, err := svc.AddUnit()
+	app := s.AddTestingApplication(c, "dummy3", s.charm)
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.State.Unit(unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
@@ -743,8 +764,8 @@ func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
 }
 
 func (s *ActionSuite) TestWatchActionNotifications(c *gc.C) {
-	svc := s.AddTestingService(c, "dummy2", s.charm)
-	u, err := svc.AddUnit()
+	app := s.AddTestingApplication(c, "dummy2", s.charm)
+	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := u.WatchActionNotifications()
@@ -761,8 +782,11 @@ func (s *ActionSuite) TestWatchActionNotifications(c *gc.C) {
 	fa3, err := u.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// fail the middle one
-	action, err := s.State.Action(fa2.Id())
+	action, err := model.Action(fa2.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = action.Finish(state.ActionResults{Status: state.ActionFailed, Message: "die scum"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -816,7 +840,10 @@ func (s *ActionSuite) TestActionStatusWatcher(c *gc.C) {
 		a, err := tcase.receiver.AddAction(tcase.name, nil)
 		c.Assert(err, jc.ErrorIsNil)
 
-		action, err := s.State.Action(a.Id())
+		model, err := s.State.Model()
+		c.Assert(err, jc.ErrorIsNil)
+
+		action, err := model.Action(a.Id())
 		c.Assert(err, jc.ErrorIsNil)
 
 		_, err = action.Finish(state.ActionResults{Status: tcase.status})
@@ -949,4 +976,137 @@ func (h *uuidMockHelper) mask(uuid utils.UUID) utils.UUID {
 		}
 	}
 	return uuid
+}
+
+type ActionPruningSuite struct {
+	statetesting.StateWithWallClockSuite
+}
+
+var _ = gc.Suite(&ActionPruningSuite{})
+
+func (s *ActionPruningSuite) TestPruneActionsBySize(c *gc.C) {
+	clock := test.NewClock(coretesting.NonZeroTime())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	// PrimeActions generates the actions to be pruned.
+	const numActionEntries = 15 //At slightly > 1MB per entry
+	const maxLogSize = 5        //MB
+	state.PrimeActions(c, clock.Now(), unit, numActionEntries)
+
+	actions, err := unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, numActionEntries)
+
+	err = state.PruneActions(s.State, 0, maxLogSize)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions, err = unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	actionsLen := len(actions)
+
+	// The test here is to see if the remaining count is relatively close to
+	// the max log size. I would expect the number of remaining entries to
+	// be no greater than 1.5x the max log size in MB since each entry is
+	// about 1MB (in memory) in size. 1.5x is probably good enough to ensure
+	// this test doesn't flake.
+	c.Assert(float64(actionsLen), jc.LessThan, 1.5*maxLogSize)
+}
+
+func (s *ActionPruningSuite) TestPruneActionsBySizeOldestFirst(c *gc.C) {
+	clock := test.NewClock(coretesting.NonZeroTime())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	const numActionEntriesOlder = 5
+	const numActionEntriesYounger = 5
+	const numActionEntries = numActionEntriesOlder + numActionEntriesYounger
+	const maxLogSize = 5 //MB
+
+	olderTime := clock.Now().Add(-1 * time.Hour)
+	youngerTime := clock.Now()
+
+	state.PrimeActions(c, olderTime, unit, numActionEntriesOlder)
+	state.PrimeActions(c, youngerTime, unit, numActionEntriesYounger)
+
+	actions, err := unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, numActionEntries)
+
+	err = state.PruneActions(s.State, 0, maxLogSize)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions, err = unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var olderEntries []time.Time
+	var youngerEntries []time.Time
+	for _, entry := range actions {
+		if entry.Completed().Before(youngerTime.Round(time.Second)) {
+			olderEntries = append(olderEntries, entry.Completed())
+		} else {
+			youngerEntries = append(youngerEntries, entry.Completed())
+		}
+	}
+
+	c.Assert(len(youngerEntries), jc.GreaterThan, len(olderEntries))
+}
+
+func (s *ActionPruningSuite) TestPruneActionByAge(c *gc.C) {
+	clock := test.NewClock(time.Now())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	const numCurrentActionEntries = 5
+	const numExpiredActionEntries = 5
+	const ageOfExpired = 10 * time.Hour
+
+	state.PrimeActions(c, clock.Now(), unit, numCurrentActionEntries)
+	state.PrimeActions(c, clock.Now().Add(-1*ageOfExpired), unit, numExpiredActionEntries)
+
+	actions, err := unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, numCurrentActionEntries+numExpiredActionEntries)
+
+	err = state.PruneActions(s.State, 1*time.Hour, 0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions, err = unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	actionsLen := len(actions)
+
+	c.Log(actions)
+	c.Assert(actionsLen, gc.Equals, numCurrentActionEntries)
+}
+
+// Pruner should not prune actions with age of epoch time since the epoch is a
+// special value denoting an incomplete action.
+func (s *ActionPruningSuite) TestDoNotPruneIncompleteActions(c *gc.C) {
+	clock := test.NewClock(time.Now())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	// Completed times with the zero value are designated not complete
+	const numZeroValueEntries = 5
+	state.PrimeActions(c, time.Time{}, unit, numZeroValueEntries)
+
+	actions, err := unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = state.PruneActions(s.State, 1*time.Hour, 0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions, err = unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	actionsLen := len(actions)
+
+	c.Assert(actionsLen, gc.Equals, numZeroValueEntries)
 }

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -73,21 +74,21 @@ func (suite *PluginSuite) TestFindPluginsIgnoreNotExec(c *gc.C) {
 
 func (suite *PluginSuite) TestRunPluginExising(c *gc.C) {
 	suite.makeWorkingPlugin("foo", 0755)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	err := RunPlugin(ctx, "foo", []string{"some params"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(ctx), gc.Equals, "foo some params\n")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "foo some params\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
 func (suite *PluginSuite) TestRunPluginWithFailing(c *gc.C) {
 	suite.makeFailingPlugin("foo", 2)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	err := RunPlugin(ctx, "foo", []string{"some params"})
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 2")
 	c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
-	c.Assert(testing.Stdout(ctx), gc.Equals, "failing\n")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "failing\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
 func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *gc.C) {

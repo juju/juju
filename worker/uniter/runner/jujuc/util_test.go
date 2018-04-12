@@ -14,7 +14,12 @@ import (
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
-	jujuctesting "github.com/juju/juju/worker/uniter/runner/jujuc/testing"
+	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
+)
+
+const (
+	formatYaml = iota
+	formatJson
 )
 
 func bufferBytes(stream io.Writer) []byte {
@@ -78,6 +83,19 @@ func (c *Context) AddMetric(key, value string, created time.Time) error {
 		Time:  created,
 	})
 	return c.Context.AddMetric(key, value, created)
+}
+
+func (c *Context) AddMetricLabels(key, value string, created time.Time, labels map[string]string) error {
+	if !c.canAddMetrics {
+		return fmt.Errorf("metrics disabled")
+	}
+	c.metrics = append(c.metrics, jujuc.Metric{
+		Key:    key,
+		Value:  value,
+		Time:   created,
+		Labels: labels,
+	})
+	return c.Context.AddMetricLabels(key, value, created, labels)
 }
 
 func (c *Context) RequestReboot(priority jujuc.RebootPriority) error {

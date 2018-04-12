@@ -6,7 +6,6 @@
 package lxd_test
 
 import (
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -48,51 +47,4 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(addresses, jc.DeepEquals, s.Addresses)
-}
-
-func (s *instanceSuite) TestOpenPortsAPI(c *gc.C) {
-	err := s.Instance.OpenPorts("42", s.Rules)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "OpenPorts",
-		Args: []interface{}{
-			s.InstName,
-			s.Rules,
-		},
-	}})
-}
-
-func (s *instanceSuite) TestClosePortsAPI(c *gc.C) {
-	err := s.Instance.ClosePorts("42", s.Rules)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "ClosePorts",
-		Args: []interface{}{
-			s.InstName,
-			s.Rules,
-		},
-	}})
-}
-
-func (s *instanceSuite) TestPortsOkay(c *gc.C) {
-	s.Firewaller.PortRanges = s.Rules
-
-	ports, err := s.Instance.IngressRules("42")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(ports, jc.DeepEquals, s.Rules)
-}
-
-func (s *instanceSuite) TestPortsAPI(c *gc.C) {
-	_, err := s.Instance.IngressRules("42")
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "Ports",
-		Args: []interface{}{
-			s.InstName,
-		},
-	}})
 }

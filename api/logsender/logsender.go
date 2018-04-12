@@ -40,15 +40,30 @@ func NewAPI(connector base.StreamConnector) *API {
 func (api *API) LogWriter() (LogWriter, error) {
 	attrs := make(url.Values)
 	attrs.Set("jujuclientversion", version.Current.String())
+	// Version 1 does ping/pong handling.
+	attrs.Set("version", "1")
 	conn, err := api.connector.ConnectStream("/logsink", attrs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot connect to /logsink")
 	}
-	return writer{conn}, nil
+	logWriter := writer{conn}
+	go logWriter.readLoop()
+	return logWriter, nil
 }
 
 type writer struct {
 	conn base.Stream
+}
+
+// readLoop is necessary for the client to process websocket control messages.
+// Close() is safe to call concurrently.
+func (w writer) readLoop() {
+	for {
+		if _, _, err := w.conn.NextReader(); err != nil {
+			w.conn.Close()
+			break
+		}
+	}
 }
 
 func (w writer) WriteLog(m *params.LogRecord) error {

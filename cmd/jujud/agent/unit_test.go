@@ -67,7 +67,7 @@ func (s *UnitSuite) TearDownTest(c *gc.C) {
 // It returns the assigned machine, new unit and the agent's configuration.
 func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Config, *tools.Tools) {
 	machine := s.Factory.MakeMachine(c, nil)
-	app := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 		Machine:     machine,
@@ -93,22 +93,25 @@ func (s *UnitSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
 }
 
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
+	s.primeAgent(c)
+	// Now init actually reads the agent configuration file.
+	// So use the prime agent call which installs a wordpress unit.
 	a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
 	c.Assert(err, jc.ErrorIsNil)
-	err = coretesting.InitCommand(a, []string{
-		"--data-dir", "jd",
-		"--unit-name", "w0rd-pre55/1",
+	err = cmdtesting.InitCommand(a, []string{
+		"--data-dir", s.DataDir(),
+		"--unit-name", "wordpress/0",
 		"--log-to-stderr",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(a.AgentConf.DataDir(), gc.Equals, "jd")
-	c.Check(a.UnitName, gc.Equals, "w0rd-pre55/1")
+	c.Check(a.AgentConf.DataDir(), gc.Equals, s.DataDir())
+	c.Check(a.UnitName, gc.Equals, "wordpress/0")
 }
 
 func (s *UnitSuite) TestParseMissing(c *gc.C) {
 	uc, err := NewUnitAgent(nil, s.newBufferedLogWriter())
 	c.Assert(err, jc.ErrorIsNil)
-	err = coretesting.InitCommand(uc, []string{
+	err = cmdtesting.InitCommand(uc, []string{
 		"--data-dir", "jc",
 	})
 
@@ -126,7 +129,7 @@ func (s *UnitSuite) TestParseNonsense(c *gc.C) {
 		a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
 		c.Assert(err, jc.ErrorIsNil)
 
-		err = coretesting.InitCommand(a, append(args, "--data-dir", "jc"))
+		err = cmdtesting.InitCommand(a, append(args, "--data-dir", "jc"))
 		c.Check(err, gc.ErrorMatches, `--unit-name option expects "<application>/<n>" argument`)
 	}
 }
@@ -135,7 +138,7 @@ func (s *UnitSuite) TestParseUnknown(c *gc.C) {
 	a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = coretesting.InitCommand(a, []string{
+	err = cmdtesting.InitCommand(a, []string{
 		"--unit-name", "wordpress/1",
 		"thundering typhoons",
 	})
@@ -413,7 +416,7 @@ func (s *UnitSuite) TestChangeConfig(c *gc.C) {
 
 func (s *UnitSuite) TestWorkers(c *gc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1610993")
-	tracker := NewEngineTracker()
+	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackUnits(c, tracker, unitManifolds)
 	s.PatchValue(&unitManifolds, instrumented)
 
@@ -426,7 +429,7 @@ func (s *UnitSuite) TestWorkers(c *gc.C) {
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 
-	matcher := NewWorkerMatcher(c, tracker, a.Tag().String(),
+	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
 		append(alwaysUnitWorkers, notMigratingUnitWorkers...))
-	WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 }

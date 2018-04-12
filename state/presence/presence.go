@@ -9,6 +9,7 @@ package presence
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
 	"sync"
 	"time"
@@ -23,6 +24,13 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.state.presence")
+
+// lookupBatchSize is how many Sequence => Being keys we'll lookup at one time.
+// In testing, we could do 50,000 entries in a single request without errors.
+// This mostly prevents us from blowout.
+// Going from 10 to 100, increased the throughput 2x. Going to 1k was ~1.1x, and
+// going to 10k was another 1.1x. 1000 seems a reasonable size.
+const lookupBatchSize = 1000
 
 // Agent shouldn't really live here -- it's not used in this package,
 // and is implemented by a couple of state types for the convenience of
@@ -61,7 +69,6 @@ func docIDStr(modelUUID string, localID string) string {
 // {
 //   "_id":   <model UUID>:<time slot>,
 //   "slot": <slot>,
-//   "model-uuid": <model UUID>,
 //   "alive": { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
 //   "dead":  { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
 // }
@@ -78,7 +85,17 @@ func docIDStr(modelUUID string, localID string) string {
 // into the beings collection to establish the mapping between pinger sequence
 // and key.
 
-// BUG(gn): The pings and beings collection currently grow without bound.
+// psuedoRandomFactor defines an increasing chance that we will trigger an effect.
+// Inspired by: http://dota2.gamepedia.com/Random_distribution
+// The idea is that 'on average' we will trigger 5% of the time. However, that
+// leaves a low but non-zero chance that we will *never* trigger, and a
+// surprisingly high chance that we will trigger twice in a row.
+// psuedoRandom increases the chance to trigger everytime it does not trigger,
+// ultimately making it mandatory that you will trigger, and giving the desirable
+// average case that you will trigger while still giving some slop so that
+// machines won't get into sync and trigger at the same time.
+// psuedoRandomFactor of 0.00380 represents a 5% average chance to trigger.
+const psuedoRandomFactor = 0.00380
 
 // A Watcher can watch any number of pinger keys for liveness changes.
 type Watcher struct {
@@ -97,6 +114,11 @@ type Watcher struct {
 	beingKey map[int64]string
 	beingSeq map[string]int64
 
+	// ignoredSeqs are sequences that are active pingers, but are superseded by another pinger.
+	// We know who they represent, but there is a newer being that applies. This is because some agents
+	// (like the Controller agents), maintain multiple active connections.
+	ignoredSeqs map[int64]string
+
 	// watches has the per-key observer channels from Watch/Unwatch.
 	watches map[string][]chan<- Change
 
@@ -106,7 +128,7 @@ type Watcher struct {
 	pending []event
 
 	// request is used to deliver requests from the public API into
-	// the the gorotuine loop.
+	// the the goroutine loop.
 	request chan interface{}
 
 	// syncDone contains pending done channels from sync requests.
@@ -116,6 +138,17 @@ type Watcher struct {
 	// knowledge. It's maintained here so that ForceRefresh
 	// can manipulate it to force a sync sooner.
 	next <-chan time.Time
+
+	// syncsSinceLastPrune is a counter that tracks how long it has been
+	// since we've run a prune on the Beings and Pings collections.
+	syncsSinceLastPrune int
+
+	// beingLoads tracks the number of beings that we've had to refresh from the database
+	beingLoads uint64
+}
+
+func (w Watcher) String() string {
+	return fmt.Sprintf("presence.Watcher(%s)", w.modelUUID)
 }
 
 type event struct {
@@ -142,14 +175,15 @@ func NewDeadWatcher(err error) *Watcher {
 // NewWatcher returns a new Watcher.
 func NewWatcher(base *mgo.Collection, modelTag names.ModelTag) *Watcher {
 	w := &Watcher{
-		modelUUID: modelTag.Id(),
-		base:      base,
-		pings:     pingsC(base),
-		beings:    beingsC(base),
-		beingKey:  make(map[int64]string),
-		beingSeq:  make(map[string]int64),
-		watches:   make(map[string][]chan<- Change),
-		request:   make(chan interface{}),
+		modelUUID:   modelTag.Id(),
+		base:        base,
+		pings:       pingsC(base),
+		beings:      beingsC(base),
+		beingKey:    make(map[int64]string),
+		beingSeq:    make(map[string]int64),
+		watches:     make(map[string][]chan<- Change),
+		request:     make(chan interface{}),
+		ignoredSeqs: make(map[int64]string),
 	}
 	go func() {
 		err := w.loop()
@@ -297,6 +331,8 @@ func (w *Watcher) loop() error {
 			for _, done := range syncDone {
 				close(done)
 			}
+			w.syncsSinceLastPrune++
+			w.checkShouldPrune()
 		case req := <-w.request:
 			w.handle(req)
 			w.flush()
@@ -317,6 +353,11 @@ func (w *Watcher) flush() {
 				return
 			case req := <-w.request:
 				w.handle(req)
+				// handle may append to the w.pending array, and/or it may unwatch something that was previously pending
+				// thus changing e.ch to nil while we are waiting to send the request. We need to make sure we are using
+				// the correct 'e' object
+				// See TestRobustness which fails if this line doesn't exist
+				e = &w.pending[i]
 				continue
 			case e.ch <- Change{e.key, e.alive}:
 			}
@@ -324,6 +365,22 @@ func (w *Watcher) flush() {
 		}
 	}
 	w.pending = w.pending[:0]
+}
+
+// checkShouldPrune looks at whether we should run a prune step this time
+func (w *Watcher) checkShouldPrune() {
+	chanceToPrune := float64(w.syncsSinceLastPrune) * psuedoRandomFactor
+	if chanceToPrune < 1.0 && rand.Float64() > chanceToPrune {
+		return
+	}
+	// When we decide to prune, we also drop our old cached beings
+	logger.Debugf("watcher %q decided to prune %q and %q", w.modelUUID, w.beings.Name, w.pings.Name)
+	w.syncsSinceLastPrune = 0
+	pruner := NewPruner(w.modelUUID, w.beings, w.pings, w.delta)
+	err := pruner.Prune(w.ignoredSeqs)
+	if err != nil {
+		logger.Warningf("error while pruning %q for %q: %v", w.beings.Name, w.modelUUID, err)
+	}
 }
 
 // handle deals with requests delivered by the public API
@@ -369,10 +426,9 @@ func (w *Watcher) handle(req interface{}) {
 }
 
 type beingInfo struct {
-	DocID     string `bson:"_id"`
-	Seq       int64  `bson:"seq,omitempty"`
-	ModelUUID string `bson:"model-uuid,omitempty"`
-	Key       string `bson:"key,omitempty"`
+	DocID string `bson:"_id"`
+	Seq   int64  `bson:"seq,omitempty"`
+	Key   string `bson:"key,omitempty"`
 }
 
 type pingInfo struct {
@@ -382,130 +438,240 @@ type pingInfo struct {
 	Dead  map[string]int64 `bson:",omitempty"`
 }
 
-func (w *Watcher) findAllBeings() (map[int64]beingInfo, error) {
-	beings := make([]beingInfo, 0)
-	session := w.beings.Database.Session.Copy()
-	defer session.Close()
-	beingsC := w.beings.With(session)
+func (w *Watcher) lookupPings(session *mgo.Session) ([]pingInfo, error) {
+	pings := w.pings.With(session)
+	return lookupPings(pings, w.modelUUID, time.Now(), w.delta)
+}
 
-	err := beingsC.Find(bson.D{{"model-uuid", w.modelUUID}}).All(&beings)
+func lookupPings(pings *mgo.Collection, modelUUID string, ts time.Time, delta time.Duration) ([]pingInfo, error) {
+	// TODO(perrito666) 2016-05-02 lp:1558657
+	s := timeSlot(ts, delta)
+	slot := docIDInt64(modelUUID, s)
+	previousSlot := docIDInt64(modelUUID, s-period)
+	var ping []pingInfo
+	q := bson.D{{"$or", []pingInfo{{DocID: slot}, {DocID: previousSlot}}}}
+	err := pings.Find(q).All(&ping)
+	if err != nil && err != mgo.ErrNotFound {
+		return nil, errors.Trace(err)
+	}
+	return ping, nil
+}
+
+func (w *Watcher) lookForDead(pings []pingInfo) (map[int64]bool, error) {
+	// Learn about all enforced deaths.
+	// TODO(ericsnow) Remove this once KillForTesting() goes away.
+	dead := make(map[int64]bool)
+	deadSeqs, err := deadSeqs(pings)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	beingInfos := make(map[int64]beingInfo, len(beings))
-	for _, being := range beings {
-		beingInfos[being.Seq] = being
+	for _, seq := range deadSeqs {
+		dead[seq] = true
+		logger.Tracef("[%s] found seq=%d dead", w.modelUUID[:6], seq)
 	}
-	return beingInfos, nil
+	return dead, nil
+}
+
+// decompressPings looks at a map like 'Alive' and turns it into an array of
+// sequences that were seen in those maps
+func decompressPings(maps []map[string]int64) ([]int64, error) {
+	if len(maps) == 0 {
+		return nil, nil
+	}
+	// First step, merge all value structures together.
+	// Every ping has a bit field in an int64. However, bitwise-or preserves
+	// everything that was ever alive without having to decode them multiple times.
+	baseToBits := make(map[string]int64, len(maps[0]))
+	for i := range maps {
+		for hexbase, bits := range maps[i] {
+			baseToBits[hexbase] |= bits
+		}
+	}
+	sequences := make([]int64, 0, len(baseToBits)*30)
+	for hexbase, bits := range baseToBits {
+		base, err := strconv.ParseInt(hexbase, 16, 64)
+		if err != nil {
+			return nil, errors.Annotatef(err, "presence cannot parse alive key: %q", base)
+		}
+		base *= 63
+		for i := int64(0); i < 63 && bits > 0; i++ {
+			on := (bits&1 == 1)
+			bits >>= 1
+			if !on {
+				continue
+			}
+			seq := base + i
+			sequences = append(sequences, seq)
+		}
+	}
+	return sequences, nil
+}
+
+func aliveSeqs(pings []pingInfo) ([]int64, error) {
+	maps := make([]map[string]int64, len(pings))
+	for i := range pings {
+		maps[i] = pings[i].Alive
+	}
+	return decompressPings(maps)
+}
+
+func deadSeqs(pings []pingInfo) ([]int64, error) {
+	maps := make([]map[string]int64, len(pings))
+	for i := range pings {
+		maps[i] = pings[i].Dead
+	}
+	return decompressPings(maps)
+}
+
+func (w *Watcher) handleAlive(pings []pingInfo) (map[int64]bool, []int64, error) {
+	// Learn about all the pingers that reported and queue
+	// events for those that weren't known to be alive and
+	// are not reportedly dead either.
+	alive := make(map[int64]bool)
+	unknownSeqs := make([]int64, 0)
+	aliveSeq, err := aliveSeqs(pings)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	for _, seq := range aliveSeq {
+		alive[seq] = true
+		if _, ok := w.beingKey[seq]; ok {
+			// entries in beingKey are ones we consider alive
+			// since we already have this sequence, we
+			// consider this being alive and this as the
+			// active sequence for that being, so we don't
+			// need to do any more work for this sequence
+			continue
+		}
+		if key, ok := w.ignoredSeqs[seq]; ok {
+			// This is a known sequence that has been superseded
+			if _, ok := w.beingSeq[key]; ok {
+				// The sequence that supersedes this one is still alive
+				continue
+			} else {
+				// What was a living pinger has now died, and this one might be promoted to primary pinger
+				// Treat it as Unknown
+				delete(w.ignoredSeqs, seq)
+			}
+		}
+		unknownSeqs = append(unknownSeqs, seq)
+	}
+	return alive, unknownSeqs, nil
+}
+
+// lookupUnknownSeqs handles finding new sequences that we weren't already tracking.
+// Keys that we find are now alive will have a 'found alive' event queued.
+func (w *Watcher) lookupUnknownSeqs(unknownSeqs []int64, dead map[int64]bool, session *mgo.Session) error {
+	if len(unknownSeqs) == 0 {
+		// Nothing to do, with nothing unknown.
+		return nil
+	}
+	// We do cache *all* beingInfos, but they're reasonably small
+	seqToBeing := make(map[int64]beingInfo, len(unknownSeqs))
+	startTime := time.Now()
+	beingsC := w.beings.With(session)
+	remaining := unknownSeqs
+	for len(remaining) > 0 {
+		// batch this into reasonable lengths
+		// testing shows that it works just fine at 50,000 ids, but be a
+		// bit more conservative
+		batch := remaining
+		if len(remaining) > lookupBatchSize {
+			batch = remaining[:lookupBatchSize]
+			remaining = remaining[lookupBatchSize:]
+		} else {
+			remaining = nil
+		}
+		docIds := make([]string, len(batch))
+		for i, seq := range batch {
+			docIds[i] = docIDInt64(w.modelUUID, seq)
+		}
+		query := beingsC.Find(bson.M{"_id": bson.M{"$in": docIds}})
+		// We don't need the _id returned, as its just a way to lookup the seq,
+		// and _id is quite large
+		query = query.Select(bson.M{"_id": false, "key": true, "seq": true})
+		query.Batch(lookupBatchSize)
+		beingIter := query.Iter()
+		being := beingInfo{}
+		for beingIter.Next(&being) {
+			seqToBeing[being.Seq] = being
+			w.beingLoads++
+		}
+		if err := beingIter.Close(); err != nil {
+			if err != mgo.ErrNotFound {
+				// This may be an old sequence, not considered fatal
+				return err
+			}
+		}
+	}
+	rate := ""
+	elapsed := time.Since(startTime)
+	if len(unknownSeqs) > 0 {
+		seqPerMS := float64(len(unknownSeqs)) / (elapsed.Seconds() * 1000.0)
+		rate = fmt.Sprintf(" (%.1fseq/ms)", seqPerMS)
+	}
+	unownedCount := 0
+	for _, seq := range unknownSeqs {
+		being, ok := seqToBeing[seq]
+		if !ok {
+			// Not Found
+			unownedCount++
+			logger.Tracef("[%s] found seq=%d unowned", w.modelUUID[:6], seq)
+			continue
+		}
+		cur := w.beingSeq[being.Key]
+		if cur < seq {
+			delete(w.beingKey, cur)
+			if cur > 0 {
+				w.ignoredSeqs[cur] = being.Key
+			}
+		} else {
+			// We already have a sequence for this key, and it is
+			// newer than the one we just saw.
+			w.ignoredSeqs[seq] = being.Key
+			continue
+		}
+		// Start tracking the new sequence for this key
+		w.beingKey[seq] = being.Key
+		w.beingSeq[being.Key] = seq
+		if cur > 0 || dead[seq] {
+			// if cur > 0, then we already think this is alive, no
+			// need to queue another message.
+			// if dead[] then we still wouldn't queue an alive message
+			// because we are writing a 'is dead' message.
+			continue
+		}
+		logger.Tracef("[%s] found seq=%d alive with key %q", w.modelUUID[:6], seq, being.Key)
+		for _, ch := range w.watches[being.Key] {
+			w.pending = append(w.pending, event{ch, being.Key, true})
+		}
+	}
+	logger.Tracef("looked up %d unknown sequences for %q (%d unowned) in %v%s from %q",
+		len(unknownSeqs), w.modelUUID, unownedCount, elapsed, rate, beingsC.Name)
+	return nil
 }
 
 // sync updates the watcher knowledge from the database, and
 // queues events to observing channels. It fetches the last two time
 // slots and compares the union of both to the in-memory state.
 func (w *Watcher) sync() error {
-	var allBeings map[int64]beingInfo
-	if len(w.beingKey) == 0 {
-		// The very first time we sync, we grab all ever-known beings,
-		// so we don't have to look them up one-by-one
-		var err error
-		if allBeings, err = w.findAllBeings(); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	// TODO(perrito666) 2016-05-02 lp:1558657
-	s := timeSlot(time.Now(), w.delta)
-	slot := docIDInt64(w.modelUUID, s)
-	previousSlot := docIDInt64(w.modelUUID, s-period)
 	session := w.pings.Database.Session.Copy()
 	defer session.Close()
-	pings := w.pings.With(session)
-	var ping []pingInfo
-	q := bson.D{{"$or", []pingInfo{{DocID: slot}, {DocID: previousSlot}}}}
-	err := pings.Find(q).All(&ping)
-	if err != nil && err != mgo.ErrNotFound {
-		return errors.Trace(err)
+	pings, err := w.lookupPings(session)
+	if err != nil {
+		return err
 	}
-
-	// Learn about all enforced deaths.
-	// TODO(ericsnow) Remove this once KillForTesting() goes away.
-	dead := make(map[int64]bool)
-	for i := range ping {
-		for key, value := range ping[i].Dead {
-			k, err := strconv.ParseInt(key, 16, 64)
-			if err != nil {
-				err = errors.Annotatef(err, "presence cannot parse dead key: %q", key)
-				panic(err)
-			}
-			k *= 63
-			for i := int64(0); i < 63 && value > 0; i++ {
-				on := value&1 == 1
-				value >>= 1
-				if !on {
-					continue
-				}
-				seq := k + i
-				dead[seq] = true
-				logger.Tracef("[%s] found seq=%d dead", w.modelUUID[:6], seq)
-			}
-		}
+	dead, err := w.lookForDead(pings)
+	if err != nil {
+		return err
 	}
-
-	// Learn about all the pingers that reported and queue
-	// events for those that weren't known to be alive and
-	// are not reportedly dead either.
-	beingsC := w.beings.With(session)
-	alive := make(map[int64]bool)
-	being := beingInfo{}
-	for i := range ping {
-		for key, value := range ping[i].Alive {
-			k, err := strconv.ParseInt(key, 16, 64)
-			if err != nil {
-				err = errors.Annotatef(err, "presence cannot parse alive key: %q", key)
-				panic(err)
-			}
-			k *= 63
-			for i := int64(0); i < 63 && value > 0; i++ {
-				on := value&1 == 1
-				value >>= 1
-				if !on {
-					continue
-				}
-				seq := k + i
-				alive[seq] = true
-				if _, ok := w.beingKey[seq]; ok {
-					continue
-				}
-				// Check if the being exists in the 'all' map,
-				// otherwise do a single lookup in mongo
-				var ok bool
-				if being, ok = allBeings[seq]; !ok {
-					err := beingsC.Find(bson.D{{"_id", docIDInt64(w.modelUUID, seq)}}).One(&being)
-					if err == mgo.ErrNotFound {
-						logger.Tracef("[%s] found seq=%d unowned", w.modelUUID[:6], seq)
-						continue
-					}
-					if err != nil {
-						return errors.Trace(err)
-					}
-				}
-				cur := w.beingSeq[being.Key]
-				if cur < seq {
-					delete(w.beingKey, cur)
-				} else {
-					// Current sequence is more recent.
-					continue
-				}
-				w.beingKey[seq] = being.Key
-				w.beingSeq[being.Key] = seq
-				if cur > 0 || dead[seq] {
-					continue
-				}
-				logger.Tracef("[%s] found seq=%d alive with key %q", w.modelUUID[:6], seq, being.Key)
-				for _, ch := range w.watches[being.Key] {
-					w.pending = append(w.pending, event{ch, being.Key, true})
-				}
-			}
-		}
+	alive, unknownSeqs, err := w.handleAlive(pings)
+	if err != nil {
+		return err
+	}
+	err = w.lookupUnknownSeqs(unknownSeqs, dead, session)
+	if err != nil {
+		return err
 	}
 
 	// Pingers that were known to be alive and haven't reported
@@ -527,28 +693,34 @@ func (w *Watcher) sync() error {
 // Pinger periodically reports that a specific key is alive, so that
 // watchers interested on that fact can react appropriately.
 type Pinger struct {
-	modelUUID string
-	mu        sync.Mutex
-	tomb      tomb.Tomb
-	base      *mgo.Collection
-	pings     *mgo.Collection
-	started   bool
-	beingKey  string
-	beingSeq  int64
-	fieldKey  string // hex(beingKey / 63)
-	fieldBit  uint64 // 1 << (beingKey%63)
-	lastSlot  int64
-	delta     time.Duration
+	modelUUID    string
+	mu           sync.Mutex
+	tomb         tomb.Tomb
+	base         *mgo.Collection
+	pings        *mgo.Collection
+	started      bool
+	beingKey     string
+	beingSeq     int64
+	fieldKey     string // hex(beingKey / 63)
+	fieldBit     uint64 // 1 << (beingKey%63)
+	lastSlot     int64
+	delta        time.Duration
+	recorderFunc func() PingRecorder
+}
+
+type PingRecorder interface {
+	Ping(modelUUID string, slot int64, fieldKey string, fieldBit uint64) error
 }
 
 // NewPinger returns a new Pinger to report that key is alive.
 // It starts reporting after Start is called.
-func NewPinger(base *mgo.Collection, modelTag names.ModelTag, key string) *Pinger {
+func NewPinger(base *mgo.Collection, modelTag names.ModelTag, key string, recorderFunc func() PingRecorder) *Pinger {
 	return &Pinger{
-		base:      base,
-		pings:     pingsC(base),
-		beingKey:  key,
-		modelUUID: modelTag.Id(),
+		base:         base,
+		pings:        pingsC(base),
+		beingKey:     key,
+		modelUUID:    modelTag.Id(),
+		recorderFunc: recorderFunc,
 	}
 }
 
@@ -706,10 +878,9 @@ func (p *Pinger) prepare() error {
 	beings := beingsC(base)
 	return errors.Trace(beings.Insert(
 		beingInfo{
-			DocID:     docIDInt64(p.modelUUID, p.beingSeq),
-			Seq:       p.beingSeq,
-			ModelUUID: p.modelUUID,
-			Key:       p.beingKey,
+			DocID: docIDInt64(p.modelUUID, p.beingSeq),
+			Seq:   p.beingSeq,
+			Key:   p.beingKey,
 		},
 	))
 }
@@ -725,9 +896,9 @@ func (p *Pinger) ping() (err error) {
 			err = fmt.Errorf("%v", v)
 		}
 	}()
-	session := p.pings.Database.Session.Copy()
-	defer session.Close()
 	if p.delta == 0 {
+		session := p.pings.Database.Session.Copy()
+		defer session.Close()
 		base := p.base.With(session)
 		delta, err := clockDelta(base)
 		if err != nil {
@@ -743,14 +914,15 @@ func (p *Pinger) ping() (err error) {
 		return nil
 	}
 	p.lastSlot = slot
-	pings := p.pings.With(session)
-	_, err = pings.UpsertId(
-		docIDInt64(p.modelUUID, slot),
-		bson.D{
-			{"$set", bson.D{{"slot", slot}}},
-			{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}},
-		})
+	p.recorderFunc().Ping(p.modelUUID, slot, p.fieldKey, p.fieldBit)
 	return errors.Trace(err)
+}
+
+// collapsedBeingsInfo tracks the result of aggregating all of the items in the
+// beings table by their key.
+type collapsedBeingsInfo struct {
+	Key  string  `bson:"_id"`
+	Seqs []int64 `bson:"seqs"`
 }
 
 // clockDelta returns the approximate skew between
@@ -887,4 +1059,35 @@ func beingsC(base *mgo.Collection) *mgo.Collection {
 
 func pingsC(base *mgo.Collection) *mgo.Collection {
 	return base.Database.C(base.Name + ".pings")
+}
+
+func removeModelFromCollection(coll *mgo.Collection, modelUUID string) error {
+	modelIDMatch := bson.M{"_id": bson.RegEx{"^" + modelUUID + ":", ""}}
+	if changed, err := coll.RemoveAll(modelIDMatch); err != nil {
+		if err == mgo.ErrNotFound {
+			// not a worthy error
+			return nil
+		}
+		return errors.Trace(err)
+	} else {
+		logger.Debugf("removed %d entries from %q for model %q",
+			changed.Removed, coll.FullName, modelUUID)
+	}
+	return nil
+}
+
+// RemovePresenceForModel removes all of the records of entities for a given model
+// across all of the collections.
+func RemovePresenceForModel(base *mgo.Collection, modelTag names.ModelTag) error {
+	errs := make([]error, 0)
+	for _, f := range []func(*mgo.Collection) *mgo.Collection{pingsC, beingsC, seqsC} {
+		err := removeModelFromCollection(f(base), modelTag.Id())
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) != 0 {
+		return errors.Errorf("errors removing presence for model %q: %v", modelTag.Id(), errs)
+	}
+	return nil
 }

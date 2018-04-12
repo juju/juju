@@ -6,6 +6,7 @@ package cloud_test
 import (
 	"encoding/json"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -21,19 +22,19 @@ type regionsSuite struct {
 var _ = gc.Suite(&regionsSuite{})
 
 func (s *regionsSuite) TestListRegionsInvalidCloud(c *gc.C) {
-	_, err := testing.RunCommand(c, cloud.NewListRegionsCommand(), "invalid")
+	_, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "invalid")
 	c.Assert(err, gc.ErrorMatches, "cloud invalid not found")
 }
 
 func (s *regionsSuite) TestListRegionsInvalidArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, cloud.NewListRegionsCommand(), "aws", "another")
+	_, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "aws", "another")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["another"\]`)
 }
 
 func (s *regionsSuite) TestListRegions(c *gc.C) {
-	ctx, err := testing.RunCommand(c, cloud.NewListRegionsCommand(), "aws")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "aws")
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, `
 us-east-1
 us-east-2
@@ -42,6 +43,7 @@ us-west-2
 ca-central-1
 eu-west-1
 eu-west-2
+eu-west-3
 eu-central-1
 ap-south-1
 ap-southeast-1
@@ -54,16 +56,16 @@ sa-east-1
 }
 
 func (s *regionsSuite) TestListRegionsBuiltInCloud(c *gc.C) {
-	ctx, err := testing.RunCommand(c, cloud.NewListRegionsCommand(), "localhost")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "localhost")
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, "localhost\n\n")
 }
 
 func (s *regionsSuite) TestListRegionsYaml(c *gc.C) {
-	ctx, err := testing.RunCommand(c, cloud.NewListRegionsCommand(), "aws", "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "aws", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, `
 us-east-1:
   endpoint: https://ec2.us-east-1.amazonaws.com
@@ -79,6 +81,8 @@ eu-west-1:
   endpoint: https://ec2.eu-west-1.amazonaws.com
 eu-west-2:
   endpoint: https://ec2.eu-west-2.amazonaws.com
+eu-west-3:
+  endpoint: https://ec2.eu-west-3.amazonaws.com
 eu-central-1:
   endpoint: https://ec2.eu-central-1.amazonaws.com
 ap-south-1:
@@ -97,26 +101,35 @@ sa-east-1:
 }
 
 func (s *regionsSuite) TestListGCERegions(c *gc.C) {
-	ctx, err := testing.RunCommand(c, cloud.NewListRegionsCommand(), "google")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "google")
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, `
 us-east1
+us-east4
 us-central1
 us-west1
 europe-west1
+europe-west2
+europe-west3
 asia-east1
 asia-northeast1
+asia-southeast1
+asia-south1
+australia-southeast1
+southamerica-east1
 
 `[1:])
 }
 
 func (s *regionsSuite) TestListGCERegionsYaml(c *gc.C) {
-	ctx, err := testing.RunCommand(c, cloud.NewListRegionsCommand(), "google", "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "google", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, `
 us-east1:
+  endpoint: https://www.googleapis.com
+us-east4:
   endpoint: https://www.googleapis.com
 us-central1:
   endpoint: https://www.googleapis.com
@@ -124,9 +137,21 @@ us-west1:
   endpoint: https://www.googleapis.com
 europe-west1:
   endpoint: https://www.googleapis.com
+europe-west2:
+  endpoint: https://www.googleapis.com
+europe-west3:
+  endpoint: https://www.googleapis.com
 asia-east1:
   endpoint: https://www.googleapis.com
 asia-northeast1:
+  endpoint: https://www.googleapis.com
+asia-southeast1:
+  endpoint: https://www.googleapis.com
+asia-south1:
+  endpoint: https://www.googleapis.com
+australia-southeast1:
+  endpoint: https://www.googleapis.com
+southamerica-east1:
   endpoint: https://www.googleapis.com
 `[1:])
 }
@@ -138,9 +163,9 @@ type regionDetails struct {
 }
 
 func (s *regionsSuite) TestListRegionsJson(c *gc.C) {
-	ctx, err := testing.RunCommand(c, cloud.NewListRegionsCommand(), "azure", "--format", "json")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "azure", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	out := testing.Stdout(ctx)
+	out := cmdtesting.Stdout(ctx)
 	var data map[string]regionDetails
 	err = json.Unmarshal([]byte(out), &data)
 	c.Assert(err, jc.ErrorIsNil)
@@ -169,5 +194,7 @@ func (s *regionsSuite) TestListRegionsJson(c *gc.C) {
 		"canadaeast":         {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 		"uksouth":            {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 		"ukwest":             {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
+		"koreasouth":         {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
+		"koreacentral":       {Endpoint: "https://management.azure.com", IdentityEndpoint: "https://graph.windows.net", StorageEndpoint: "https://core.windows.net"},
 	})
 }

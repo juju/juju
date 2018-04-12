@@ -5,17 +5,21 @@ package peergrouper
 
 import (
 	"fmt"
+	"net"
+	"reflect"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/clock"
-	worker "gopkg.in/juju/worker.v1"
+	"github.com/kr/pretty"
+	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/state"
@@ -25,41 +29,41 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
-type stateInterface interface {
-	Machine(id string) (stateMachine, error)
+type State interface {
+	RemoveControllerMachine(m Machine) error
+	ControllerConfig() (controller.Config, error)
+	ControllerInfo() (*state.ControllerInfo, error)
+	Machine(id string) (Machine, error)
 	WatchControllerInfo() state.NotifyWatcher
 	WatchControllerStatusChanges() state.StringsWatcher
-	ControllerInfo() (*state.ControllerInfo, error)
-	MongoSession() mongoSession
-	Space(id string) (SpaceReader, error)
-	SetOrGetMongoSpaceName(spaceName network.SpaceName) (network.SpaceName, error)
-	SetMongoSpaceState(mongoSpaceState state.MongoSpaceStates) error
+	WatchControllerConfig() state.NotifyWatcher
 }
 
-type stateMachine interface {
+type Space interface {
+	Name() string
+}
+
+type Machine interface {
 	Id() string
-	InstanceId() (instance.Id, error)
+	Life() state.Life
 	Status() (status.StatusInfo, error)
+	SetStatus(status.StatusInfo) error
 	Refresh() error
 	Watch() state.NotifyWatcher
 	WantsVote() bool
 	HasVote() bool
 	SetHasVote(hasVote bool) error
-	APIHostPorts() []network.HostPort
-	MongoHostPorts() []network.HostPort
+	Addresses() []network.Address
 }
 
-type mongoSession interface {
+type MongoSession interface {
 	CurrentStatus() (*replicaset.Status, error)
 	CurrentMembers() ([]replicaset.Member, error)
 	Set([]replicaset.Member) error
 }
 
-type publisherInterface interface {
-	// publish publishes information about the given controllers
-	// to whomsoever it may concern. When it is called there
-	// is no guarantee that any of the information has actually changed.
-	publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error
+type APIHostPortsSetter interface {
+	SetAPIHostPorts([][]network.HostPort) error
 }
 
 var (
@@ -83,7 +87,7 @@ var (
 // Hub defines the only method of the apiserver centralhub that
 // the peer grouper uses.
 type Hub interface {
-	Publish(topic pubsub.Topic, data interface{}) (<-chan struct{}, error)
+	Publish(topic string, data interface{}) (<-chan struct{}, error)
 }
 
 // pgWorker is a worker which watches the controller machines in state
@@ -93,10 +97,7 @@ type Hub interface {
 type pgWorker struct {
 	catacomb catacomb.Catacomb
 
-	// st represents the State. It is an interface so we can swap
-	// out the implementation during testing.
-	st    stateInterface
-	clock clock.Clock
+	config Config
 
 	// machineChanges receives events from the machineTrackers when
 	// controller machines change in ways that are relevant to the
@@ -107,41 +108,64 @@ type pgWorker struct {
 	// are currently watching (all the controller machines).
 	machineTrackers map[string]*machineTracker
 
-	// publisher holds the implementation of the API
-	// address publisher.
-	publisher publisherInterface
+	// serverDetails holds the last server information broadcast via pub/sub.
+	// It is used to detect changes since the last publish.
+	serverDetails apiserver.Details
+}
 
-	providerSupportsSpaces bool
+// Config holds the configuration for a peergrouper worker.
+type Config struct {
+	State              State
+	APIHostPortsSetter APIHostPortsSetter
+	MongoSession       MongoSession
+	Clock              clock.Clock
+	SupportsSpaces     bool
+	MongoPort          int
+	APIPort            int
 
-	// hub is the central hub of the apiserver, and is used to publish the
-	// details of the api servers.
-	hub Hub
+	// Hub is the central hub of the apiserver,
+	// and is used to publish the details of the
+	// API servers.
+	Hub Hub
+}
+
+// Validate validates the worker configuration.
+func (config Config) Validate() error {
+	if config.State == nil {
+		return errors.NotValidf("nil State")
+	}
+	if config.APIHostPortsSetter == nil {
+		return errors.NotValidf("nil APIHostPortsSetter")
+	}
+	if config.MongoSession == nil {
+		return errors.NotValidf("nil MongoSession")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if config.Hub == nil {
+		return errors.NotValidf("nil Hub")
+	}
+	if config.MongoPort <= 0 {
+		return errors.NotValidf("non-positive MongoPort")
+	}
+	if config.APIPort <= 0 {
+		return errors.NotValidf("non-positive APIPort")
+	}
+	return nil
 }
 
 // New returns a new worker that maintains the mongo replica set
 // with respect to the given state.
-func New(st *state.State, clock clock.Clock, supportsSpaces bool, hub Hub) (worker.Worker, error) {
-	cfg, err := st.ControllerConfig()
-	if err != nil {
-		return nil, err
+func New(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	}
-	shim := &stateShim{
-		State:     st,
-		mongoPort: cfg.StatePort(),
-		apiPort:   cfg.APIPort(),
-	}
-	return newWorker(shim, clock, newPublisher(st), supportsSpaces, hub)
-}
 
-func newWorker(st stateInterface, clock clock.Clock, pub publisherInterface, supportsSpaces bool, hub Hub) (worker.Worker, error) {
 	w := &pgWorker{
-		st:                     st,
-		clock:                  clock,
-		machineChanges:         make(chan struct{}),
-		machineTrackers:        make(map[string]*machineTracker),
-		publisher:              pub,
-		providerSupportsSpaces: supportsSpaces,
-		hub: hub,
+		config:          config,
+		machineChanges:  make(chan struct{}),
+		machineTrackers: make(map[string]*machineTracker),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -153,16 +177,23 @@ func newWorker(st stateInterface, clock clock.Clock, pub publisherInterface, sup
 	return w, nil
 }
 
+// Kill is part of the worker.Worker interface.
 func (w *pgWorker) Kill() {
 	w.catacomb.Kill(nil)
 }
 
+// Wait is part of the worker.Worker interface.
 func (w *pgWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
 func (w *pgWorker) loop() error {
 	controllerChanges, err := w.watchForControllerChanges()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	configChanges, err := w.watchForConfigChanges()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -176,52 +207,69 @@ func (w *pgWorker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-controllerChanges:
+			// A controller machine was added or removed.
 			logger.Tracef("<-controllerChanges")
 			changed, err := w.updateControllerMachines()
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if changed {
-				// A controller machine was added or removed, update
-				// the replica set immediately.
-				logger.Tracef("controller added or removed, update replica now")
-				updateChan = w.clock.After(0)
+			if !changed {
+				continue
 			}
-
+			logger.Tracef("controller added or removed, update replica now")
 		case <-w.machineChanges:
+			// One of the controller machines changed.
 			logger.Tracef("<-w.machineChanges")
-			// One of the controller machines changed, update the
-			// replica set immediately.
-			updateChan = w.clock.After(0)
+		case <-configChanges:
+			// Controller config has changed.
+			logger.Tracef("<-w.configChanges")
 
+			// If a config change wakes up the loop before the topology has
+			// been represented in the worker's machine trackers, ignore it;
+			// errors will occur when trying to determine peer group changes.
+			// Continuing is OK because subsequent invocations of the loop will
+			// pick up the most recent config from state anyway.
+			if len(w.machineTrackers) == 0 {
+				logger.Tracef("no controller information, ignoring config change")
+				continue
+			}
 		case <-updateChan:
+			// Scheduled update.
 			logger.Tracef("<-updateChan")
-			ok := true
-			servers, instanceIds, err := w.apiPublishInfo()
-			if err != nil {
-				return fmt.Errorf("cannot get API server info: %v", err)
+		}
+
+		servers := w.apiServerHostPorts()
+		apiHostPorts := make([][]network.HostPort, 0, len(servers))
+		for _, serverHostPorts := range servers {
+			apiHostPorts = append(apiHostPorts, serverHostPorts)
+		}
+
+		var failed bool
+		if err := w.config.APIHostPortsSetter.SetAPIHostPorts(apiHostPorts); err != nil {
+			logger.Errorf("cannot write API server addresses: %v", err)
+			failed = true
+		}
+
+		members, err := w.updateReplicaSet()
+		if err != nil {
+			if _, isReplicaSetError := err.(*replicaSetError); !isReplicaSetError {
+				return err
 			}
-			if err := w.publisher.publishAPIServers(servers, instanceIds); err != nil {
-				logger.Errorf("cannot publish API server addresses: %v", err)
-				ok = false
-			}
-			if err := w.updateReplicaset(); err != nil {
-				if _, isReplicaSetError := err.(*replicaSetError); !isReplicaSetError {
-					return err
-				}
-				logger.Errorf("cannot set replicaset: %v", err)
-				ok = false
-			}
-			if ok {
-				// Update the replica set members occasionally
-				// to keep them up to date with the current
-				// replica set member statuses.
-				updateChan = w.clock.After(pollInterval)
-				retryInterval = initialRetryInterval
-			} else {
-				updateChan = w.clock.After(retryInterval)
-				retryInterval = scaleRetry(retryInterval)
-			}
+			logger.Errorf("cannot set replicaset: %v", err)
+			failed = true
+		}
+		w.publishAPIServerDetails(servers, members)
+
+		if failed {
+			logger.Tracef("failed, waking up after: %v", retryInterval)
+			updateChan = w.config.Clock.After(retryInterval)
+			retryInterval = scaleRetry(retryInterval)
+		} else {
+			// Update the replica set members occasionally to keep them up to
+			// date with the current replica-set member statuses.
+			logger.Tracef("succeeded, waking up after: %v", pollInterval)
+			updateChan = w.config.Clock.After(pollInterval)
+			retryInterval = initialRetryInterval
 		}
 	}
 }
@@ -234,16 +282,16 @@ func scaleRetry(value time.Duration) time.Duration {
 	return value
 }
 
-// watchForControllerChanges starts two watchers pertaining to changes
-// to the controllers, returning a channel which will receive events
-// if either watcher fires.
+// watchForControllerChanges starts two watchers for changes to controller
+// info and status.
+// It returns a channel which will receive events if any of the watchers fires.
 func (w *pgWorker) watchForControllerChanges() (<-chan struct{}, error) {
-	controllerInfoWatcher := w.st.WatchControllerInfo()
+	controllerInfoWatcher := w.config.State.WatchControllerInfo()
 	if err := w.catacomb.Add(controllerInfoWatcher); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	controllerStatusWatcher := w.st.WatchControllerStatusChanges()
+	controllerStatusWatcher := w.config.State.WatchControllerStatusChanges()
 	if err := w.catacomb.Add(controllerStatusWatcher); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -264,11 +312,26 @@ func (w *pgWorker) watchForControllerChanges() (<-chan struct{}, error) {
 	return out, nil
 }
 
+// watchForConfigChanges starts a watcher for changes to controller config.
+// It returns a channel which will receive events if the watcher fires.
+// This is separate from watchForControllerChanges because of the worker loop
+// logic. If controller machines have not changed, then further processing
+// does not occur, whereas we want to re-publish API addresses and check
+// for replica-set changes if either the management or HA space configs have
+// changed.
+func (w *pgWorker) watchForConfigChanges() (<-chan struct{}, error) {
+	controllerConfigWatcher := w.config.State.WatchControllerConfig()
+	if err := w.catacomb.Add(controllerConfigWatcher); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return controllerConfigWatcher.Changes(), nil
+}
+
 // updateControllerMachines updates the peergrouper's current list of
 // controller machines, as well as starting and stopping trackers for
 // them as they are added and removed.
 func (w *pgWorker) updateControllerMachines() (bool, error) {
-	info, err := w.st.ControllerInfo()
+	info, err := w.config.State.ControllerInfo()
 	if err != nil {
 		return false, fmt.Errorf("cannot get controller info: %v", err)
 	}
@@ -288,11 +351,7 @@ func (w *pgWorker) updateControllerMachines() (bool, error) {
 
 	// Start machines with no watcher
 	for _, id := range info.MachineIds {
-		if _, ok := w.machineTrackers[id]; ok {
-			continue
-		}
-		logger.Debugf("found new machine %q", id)
-		stm, err := w.st.Machine(id)
+		stm, err := w.config.State.Machine(id)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				// If the machine isn't found, it must have been
@@ -304,13 +363,19 @@ func (w *pgWorker) updateControllerMachines() (bool, error) {
 			}
 			return false, fmt.Errorf("cannot get machine %q: %v", id, err)
 		}
+		if _, ok := w.machineTrackers[id]; ok {
+			continue
+		}
+		logger.Debugf("found new machine %q", id)
 
 		// Don't add the machine unless it is "Started"
 		machineStatus, err := stm.Status()
 		if err != nil {
 			return false, errors.Annotatef(err, "cannot get status for machine %q", id)
 		}
-		if machineStatus.Status == status.Started {
+		// A machine in status Error or Stopped might still be properly running the controller. We still want to treat
+		// it as an active machine, even if we're trying to tear it down.
+		if machineStatus.Status != status.Pending {
 			logger.Debugf("machine %q has started, adding it to peergrouper list", id)
 			tracker, err := newMachineTracker(stm, w.machineChanges)
 			if err != nil {
@@ -338,120 +403,53 @@ func inStrings(t string, ss []string) bool {
 	return false
 }
 
-func (w *pgWorker) apiPublishInfo() ([][]network.HostPort, []instance.Id, error) {
+// apiServerHostPorts returns the host-ports for each apiserver machine.
+func (w *pgWorker) apiServerHostPorts() map[string][]network.HostPort {
+	servers := make(map[string][]network.HostPort)
+	for _, m := range w.machineTrackers {
+		hostPorts := network.AddressesWithPort(m.Addresses(), w.config.APIPort)
+		if len(hostPorts) == 0 {
+			continue
+		}
+		servers[m.Id()] = hostPorts
+	}
+	return servers
+}
+
+// publishAPIServerDetails publishes the details corresponding to the latest
+// known controller/replica-set topology if it has changed from the last known
+// state.
+func (w *pgWorker) publishAPIServerDetails(
+	servers map[string][]network.HostPort,
+	members map[string]*replicaset.Member,
+) {
 	details := apiserver.Details{
 		Servers:   make(map[string]apiserver.APIServer),
 		LocalOnly: true,
 	}
-	servers := make([][]network.HostPort, 0, len(w.machineTrackers))
-	instanceIds := make([]instance.Id, 0, len(w.machineTrackers))
-	for _, m := range w.machineTrackers {
-		hostPorts := m.APIHostPorts()
-		server := apiserver.APIServer{ID: m.Id()}
-		if len(hostPorts) == 0 {
-			continue
+	for id, hostPorts := range servers {
+		var internalAddress string
+		if members[id] != nil {
+			mongoAddress, _, err := net.SplitHostPort(members[id].Address)
+			if err == nil {
+				internalAddress = net.JoinHostPort(mongoAddress, strconv.Itoa(w.config.APIPort))
+			}
+		}
+		server := apiserver.APIServer{
+			ID:              id,
+			InternalAddress: internalAddress,
 		}
 		for _, hp := range network.FilterUnusableHostPorts(hostPorts) {
 			server.Addresses = append(server.Addresses, hp.String())
 		}
-
-		instanceId, err := m.stm.InstanceId()
-		if err != nil {
-			return nil, nil, err
-		}
-		instanceIds = append(instanceIds, instanceId)
-		servers = append(servers, m.APIHostPorts())
+		sort.Strings(server.Addresses)
 		details.Servers[server.ID] = server
 	}
-	w.hub.Publish(apiserver.DetailsTopic, details)
-	return servers, instanceIds, nil
-}
 
-// peerGroupInfo collates current session information about the
-// mongo peer group with information from state machines.
-func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
-	session := w.st.MongoSession()
-	info := &peerGroupInfo{}
-	var err error
-	status, err := session.CurrentStatus()
-	if err != nil {
-		return nil, fmt.Errorf("cannot get replica set status: %v", err)
+	if !reflect.DeepEqual(w.serverDetails, details) {
+		w.config.Hub.Publish(apiserver.DetailsTopic, details)
+		w.serverDetails = details
 	}
-	info.statuses = status.Members
-	info.members, err = session.CurrentMembers()
-	if err != nil {
-		return nil, fmt.Errorf("cannot get replica set members: %v", err)
-	}
-	info.machineTrackers = w.machineTrackers
-
-	spaceName, err := w.getMongoSpace(mongoAddresses(info.machineTrackers))
-	if err != nil {
-		return nil, err
-	}
-	info.mongoSpace = spaceName
-
-	return info, nil
-}
-
-func mongoAddresses(machines map[string]*machineTracker) [][]network.Address {
-	addresses := make([][]network.Address, len(machines))
-	i := 0
-	for _, m := range machines {
-		for _, hp := range m.MongoHostPorts() {
-			addresses[i] = append(addresses[i], hp.Address)
-		}
-		i++
-	}
-	return addresses
-}
-
-// getMongoSpace updates info with the space that Mongo servers should exist in.
-func (w *pgWorker) getMongoSpace(addrs [][]network.Address) (network.SpaceName, error) {
-	unset := network.SpaceName("")
-
-	stateInfo, err := w.st.ControllerInfo()
-	if err != nil {
-		return unset, errors.Annotate(err, "cannot get state server info")
-	}
-
-	switch stateInfo.MongoSpaceState {
-	case state.MongoSpaceUnknown:
-		if !w.providerSupportsSpaces {
-			err := w.st.SetMongoSpaceState(state.MongoSpaceUnsupported)
-			if err != nil {
-				return unset, errors.Annotate(err, "cannot set Mongo space state")
-			}
-			return unset, nil
-		}
-
-		// We want to find a space that contains all Mongo servers so we can
-		// use it to look up the IP address of each Mongo server to be used
-		// to set up the peer group.
-		spaceStats := generateSpaceStats(addrs)
-		if spaceStats.LargestSpaceContainsAll == false {
-			err := w.st.SetMongoSpaceState(state.MongoSpaceInvalid)
-			if err != nil {
-				return unset, errors.Annotate(err, "cannot set Mongo space state")
-			}
-			logger.Warningf("couldn't find a space containing all peer group machines")
-			return unset, nil
-		} else {
-			spaceName, err := w.st.SetOrGetMongoSpaceName(spaceStats.LargestSpace)
-			if err != nil {
-				return unset, errors.Annotate(err, "error setting/getting Mongo space")
-			}
-			return spaceName, nil
-		}
-
-	case state.MongoSpaceValid:
-		space, err := w.st.Space(stateInfo.MongoSpaceName)
-		if err != nil {
-			return unset, errors.Annotate(err, "looking up space")
-		}
-		return network.SpaceName(space.Name()), nil
-	}
-
-	return unset, nil
 }
 
 // replicaSetError holds an error returned as a result
@@ -461,36 +459,25 @@ type replicaSetError struct {
 	error
 }
 
-func prettyReplicaSetMembers(members []replicaset.Member) string {
-	var result []string
-	for _, member := range members {
-		vote := true
-		if member.Votes != nil && *member.Votes == 0 {
-			vote = false
-		}
-		result = append(result, fmt.Sprintf("    Id: %d, Tags: %v, Vote: %v", member.Id, member.Tags, vote))
-	}
-	return strings.Join(result, "\n")
-}
-
-// updateReplicaset sets the current replica set members, and applies the
-// given voting status to machines in the state.
-func (w *pgWorker) updateReplicaset() error {
+// updateReplicaSet sets the current replica set members, and applies the
+// given voting status to machines in the state. A mapping of machine ID
+// to replicaset.Member structures is returned.
+func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	info, err := w.peerGroupInfo()
 	if err != nil {
-		return errors.Annotate(err, "cannot get peergrouper info")
+		return nil, errors.Annotate(err, "creating peer group info")
 	}
 	members, voting, err := desiredPeerGroup(info)
 	if err != nil {
-		return fmt.Errorf("cannot compute desired peer group: %v", err)
+		return nil, errors.Annotate(err, "computing desired peer group")
 	}
 	if logger.IsDebugEnabled() {
 		if members != nil {
 			logger.Debugf("desired peer group members: \n%s", prettyReplicaSetMembers(members))
 		} else {
 			var output []string
-			for m, v := range voting {
-				output = append(output, fmt.Sprintf("  %s: %v", m.id, v))
+			for id, v := range voting {
+				output = append(output, fmt.Sprintf("  %s: %v", id, v))
 			}
 			logger.Debugf("no change in desired peer group, voting: \n%s", strings.Join(output, "\n"))
 		}
@@ -519,7 +506,8 @@ func (w *pgWorker) updateReplicaset() error {
 	// Note that we potentially update the HasVote status of the machines even
 	// if the members have not changed.
 	var added, removed []*machineTracker
-	for m, hasVote := range voting {
+	for id, hasVote := range voting {
+		m := info.machines[id]
 		switch {
 		case hasVote && !m.stm.HasVote():
 			added = append(added, m)
@@ -528,27 +516,101 @@ func (w *pgWorker) updateReplicaset() error {
 		}
 	}
 	if err := setHasVote(added, true); err != nil {
-		return errors.Annotate(err, "cannot set HasVote added")
+		return nil, errors.Annotate(err, "adding new voters")
 	}
 	if members != nil {
-		if err := w.st.MongoSession().Set(members); err != nil {
+		ms := make([]replicaset.Member, 0, len(members))
+		for _, m := range members {
+			ms = append(ms, *m)
+		}
+		if err := w.config.MongoSession.Set(ms); err != nil {
 			// We've failed to set the replica set, so revert back
 			// to the previous settings.
 			if err1 := setHasVote(added, false); err1 != nil {
 				logger.Errorf("cannot revert machine voting after failure to change replica set: %v", err1)
 			}
-			return &replicaSetError{err}
+			return nil, &replicaSetError{err}
 		}
 		logger.Infof("successfully updated replica set")
 	}
 	if err := setHasVote(removed, false); err != nil {
-		return errors.Annotate(err, "cannot set HasVote removed")
+		return nil, errors.Annotate(err, "removing non-voters")
 	}
-	return nil
+
+	// Reset machine status for members of the changed peer-group.
+	// Any previous peer-group determination errors result in status
+	// warning messages.
+	// Remove members from the return that are not voters.
+	for id := range members {
+		if err := w.machineTrackers[id].stm.SetStatus(getStatusInfo("")); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if !voting[id] {
+			delete(members, id)
+		}
+	}
+	for _, removedTracker := range removed {
+		if removedTracker.stm.Life() != state.Alive {
+			logger.Debugf("removing dying controller machine %s", removedTracker.Id())
+			if err := w.config.State.RemoveControllerMachine(removedTracker.stm); err != nil {
+				logger.Errorf("failed to remove dying machine as a controller after removing its vote: %v", err)
+			}
+		} else {
+			logger.Debugf("vote removed from %v but machine is %s", removedTracker.Id(), state.Alive)
+		}
+	}
+	return members, nil
 }
 
-// setHasVote sets the HasVote status of all the given
-// machines to hasVote.
+func prettyReplicaSetMembers(members map[string]*replicaset.Member) string {
+	var result []string
+	// Its easier to read if we sort by Id.
+	keys := make([]string, 0, len(members))
+	for key := range members {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		m := members[key]
+		result = append(result, fmt.Sprintf("    Id: %d, Tags: %v, Vote: %v", m.Id, m.Tags, isVotingMember(m)))
+	}
+	return strings.Join(result, "\n")
+}
+
+// peerGroupInfo collates current session information about the
+// mongo peer group with information from state machines.
+func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
+	sts, err := w.config.MongoSession.CurrentStatus()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get replica set status")
+	}
+
+	members, err := w.config.MongoSession.CurrentMembers()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get replica set members")
+	}
+
+	haSpace, err := w.getHASpaceFromConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Tracef("read peer group info: %# v\n%# v", pretty.Formatter(sts), pretty.Formatter(members))
+	return newPeerGroupInfo(w.machineTrackers, sts.Members, members, w.config.MongoPort, haSpace)
+}
+
+// getHASpaceFromConfig returns a SpaceName from the controller config for
+// HA space. If unset, the empty space ("") will be returned.
+func (w *pgWorker) getHASpaceFromConfig() (network.SpaceName, error) {
+	config, err := w.config.State.ControllerConfig()
+	if err != nil {
+		return network.SpaceName(""), err
+	}
+	return network.SpaceName(config.JujuHASpace()), nil
+}
+
+// setHasVote sets the HasVote status of all the given machines to hasVote.
 func setHasVote(ms []*machineTracker, hasVote bool) error {
 	if len(ms) == 0 {
 		return nil
@@ -560,43 +622,4 @@ func setHasVote(ms []*machineTracker, hasVote bool) error {
 		}
 	}
 	return nil
-}
-
-// allSpaceStats holds a SpaceStats for both API and Mongo machines
-type allSpaceStats struct {
-	APIMachines   spaceStats
-	MongoMachines spaceStats
-}
-
-// SpaceStats holds information useful when choosing which space to pick an
-// address from.
-type spaceStats struct {
-	SpaceRefCount           map[network.SpaceName]int
-	LargestSpace            network.SpaceName
-	LargestSpaceSize        int
-	LargestSpaceContainsAll bool
-}
-
-// generateSpaceStats takes a list of machine addresses and returns information
-// about what spaces are referenced by those machines.
-func generateSpaceStats(addresses [][]network.Address) spaceStats {
-	var stats spaceStats
-	stats.SpaceRefCount = make(map[network.SpaceName]int)
-
-	for i := range addresses {
-		for _, addr := range addresses[i] {
-			v := stats.SpaceRefCount[addr.SpaceName]
-			v++
-			stats.SpaceRefCount[addr.SpaceName] = v
-
-			if v > stats.LargestSpaceSize {
-				stats.LargestSpace = addr.SpaceName
-				stats.LargestSpaceSize = v
-			}
-		}
-	}
-
-	stats.LargestSpaceContainsAll = stats.LargestSpaceSize == len(addresses)
-
-	return stats
 }

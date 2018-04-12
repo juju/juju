@@ -13,13 +13,16 @@ import (
 )
 
 var usageSetDefaultCredentialSummary = `
-Sets the default credentials for a cloud.`[1:]
+Sets local default credentials for a cloud.`[1:]
 
 var usageSetDefaultCredentialDetails = `
-The default credentials are specified with a "credential name". A 
-credential name is created during the process of adding credentials either 
-via `[1:] + "`juju add-credential` or `juju autoload-credentials`" + `. Credential names 
-can be listed with ` + "`juju credentials`" + `.
+The default credentials are specified with a "credential name". 
+
+A credential name is created during the process of adding credentials either 
+via `[1:] + "`juju add-credential` or `juju autoload-credentials`" + `. 
+Credential names can be listed with ` + "`juju credentials`" + `.
+
+This command sets a locally stored credential to be used as a default.
 Default credentials avoid the need to specify a particular set of 
 credentials when more than one are available for a given cloud.
 
@@ -92,6 +95,6 @@ func (c *setDefaultCredentialCommand) Run(ctxt *cmd.Context) error {
 	if err := c.store.UpdateCredential(c.cloud, *cred); err != nil {
 		return err
 	}
-	ctxt.Infof("Default credential for %s set to %q.", c.cloud, c.credential)
+	ctxt.Infof("Local credential %q is set to be default for %q for this client.", c.credential, c.cloud)
 	return nil
 }

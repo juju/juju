@@ -11,7 +11,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -21,12 +21,6 @@ import (
 )
 
 const fingerprint = "123456789012345678901234567890123456789012345678"
-
-func newFingerprint(c *gc.C, data string) charmresource.Fingerprint {
-	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
-	c.Assert(err, jc.ErrorIsNil)
-	return fp
-}
 
 type HelpersSuite struct {
 	testing.IsolationSuite

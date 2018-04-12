@@ -62,7 +62,7 @@ func (s *watcherSuite) facadeContext(id string, dispose func()) facadetest.Conte
 }
 
 func getFacadeFactory(c *gc.C, name string, version int) facade.Factory {
-	factory, err := common.Facades.GetFactory(name, version)
+	factory, err := apiserver.AllFacades().GetFactory(name, version)
 	c.Assert(err, jc.ErrorIsNil)
 	return factory
 }
@@ -144,7 +144,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 	id := s.resources.Register(apiservertesting.NewFakeNotifyWatcher())
 	s.authorizer.Tag = names.NewUserTag("frogdog")
 
-	factory, err := common.Facades.GetFactory("MigrationStatusWatcher", 1)
+	factory, err := apiserver.AllFacades().GetFactory("MigrationStatusWatcher", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = factory(facadetest.Context{
 		Resources_: s.resources,
@@ -182,7 +182,7 @@ func (b *fakeMigrationBackend) LatestMigration() (state.ModelMigration, error) {
 	return new(fakeModelMigration), nil
 }
 
-func (b *fakeMigrationBackend) APIHostPorts() ([][]network.HostPort, error) {
+func (b *fakeMigrationBackend) APIHostPortsForClients() ([][]network.HostPort, error) {
 	return [][]network.HostPort{
 		MustParseHostPorts("1.2.3.4:5", "2.3.4.5:6"),
 		MustParseHostPorts("3.4.5.6:7"),

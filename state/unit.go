@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -22,7 +23,9 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	mgoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/status"
@@ -97,14 +100,35 @@ type unitDoc struct {
 type Unit struct {
 	st  *State
 	doc unitDoc
+
+	// Cache the model type as it is immutable as is referenced
+	// during the lifecycle of the unit.
+	modelType ModelType
 }
 
-func newUnit(st *State, udoc *unitDoc) *Unit {
+func newUnit(st *State, modelType ModelType, udoc *unitDoc) *Unit {
 	unit := &Unit{
-		st:  st,
-		doc: *udoc,
+		st:        st,
+		doc:       *udoc,
+		modelType: modelType,
 	}
 	return unit
+}
+
+// ContainerInfo returns information about the containing hosting this unit.
+// This is only used for CAAS models.
+func (u *Unit) ContainerInfo() (CloudContainer, error) {
+	doc, err := u.cloudContainer()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &cloudContainer{*doc}, nil
+}
+
+// ShouldBeAssigned returns whether the unit should be assigned to a machine.
+// IAAS models require units to be assigned.
+func (u *Unit) ShouldBeAssigned() bool {
+	return u.modelType == ModelTypeIAAS
 }
 
 // Application returns the application.
@@ -120,19 +144,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	settings, err := readSettings(u.st, settingsC, applicationSettingsKey(u.doc.Application, u.doc.CharmURL))
-	if err != nil {
-		return nil, err
-	}
-	chrm, err := u.st.Charm(u.doc.CharmURL)
-	if err != nil {
-		return nil, err
-	}
-	result := chrm.Config().DefaultSettings()
-	for name, value := range settings.Map() {
-		result[name] = value
-	}
-	return result, nil
+	return charmSettingsWithDefaults(u.st, u.doc.CharmURL, applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL))
 }
 
 // ApplicationName returns the application name.
@@ -196,7 +208,7 @@ func (u *Unit) Life() Life {
 // the charm (eg, the version of postgresql that is running, as
 // opposed to the version of the postgresql charm).
 func (u *Unit) WorkloadVersion() (string, error) {
-	status, err := getStatus(u.st, u.globalWorkloadVersionKey(), "workload")
+	status, err := getStatus(u.st.db(), u.globalWorkloadVersionKey(), "workload")
 	if errors.IsNotFound(err) {
 		return "", nil
 	} else if err != nil {
@@ -211,8 +223,8 @@ func (u *Unit) SetWorkloadVersion(version string) error {
 	// Store in status rather than an attribute of the unit doc - we
 	// want to avoid everything being an attr of the main docs to
 	// stop a swarm of watchers being notified for irrelevant changes.
-	now := u.st.clock.Now()
-	return setStatus(u.st, setStatusParams{
+	now := u.st.clock().Now()
+	return setStatus(u.st.db(), setStatusParams{
 		badge:     "workload",
 		globalKey: u.globalWorkloadVersionKey(),
 		status:    status.Active,
@@ -232,7 +244,7 @@ func (u *Unit) WorkloadVersionHistory() *HistoryGetter {
 // yet been set.
 func (u *Unit) AgentTools() (*tools.Tools, error) {
 	if u.doc.Tools == nil {
-		return nil, errors.NotFoundf("agent tools for unit %q", u)
+		return nil, errors.NotFoundf("agent binaries for unit %q", u)
 	}
 	tools := *u.doc.Tools
 	return &tools, nil
@@ -252,7 +264,7 @@ func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
-	if err := u.st.runTransaction(ops); err != nil {
+	if err := u.st.db().RunTransaction(ops); err != nil {
 		return onAbort(err, ErrDead)
 	}
 	u.doc.Tools = tools
@@ -277,19 +289,12 @@ func (u *Unit) setPasswordHash(passwordHash string) error {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
 	}}
-	err := u.st.runTransaction(ops)
+	err := u.st.db().RunTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, ErrDead))
 	}
 	u.doc.PasswordHash = passwordHash
 	return nil
-}
-
-// Return the underlying PasswordHash stored in the database. Used by the test
-// suite to check that the PasswordHash gets properly updated to new values
-// when compatibility mode is detected.
-func (u *Unit) getPasswordHash() string {
-	return u.doc.PasswordHash
 }
 
 // PasswordValid returns whether the given password is valid
@@ -300,6 +305,109 @@ func (u *Unit) PasswordValid(password string) bool {
 		return true
 	}
 	return false
+}
+
+// UpdateOperation returns a model operation that will update a unit.
+func (u *Unit) UpdateOperation(props UnitUpdateProperties) *UpdateUnitOperation {
+	return &UpdateUnitOperation{
+		unit:  &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
+		props: props,
+	}
+}
+
+// UpdateUnitsOperation is a model operation for updating a unit.
+type UpdateUnitOperation struct {
+	unit  *Unit
+	props UnitUpdateProperties
+
+	setStatusDocs map[string]statusDoc
+}
+
+// Build is part of the ModelOperation interface.
+func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
+	op.setStatusDocs = make(map[string]statusDoc)
+
+	containerInfo, err := op.unit.cloudContainer()
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	if containerInfo == nil {
+		containerInfo = &cloudContainerDoc{
+			Id: op.unit.globalKey(),
+		}
+	}
+	existingContainerInfo := *containerInfo
+
+	var newProviderId string
+	if op.props.ProviderId != nil {
+		newProviderId = *op.props.ProviderId
+	}
+	if containerInfo.ProviderId != "" &&
+		newProviderId != "" &&
+		containerInfo.ProviderId != newProviderId {
+		logger.Debugf("unit %q has provider id %q which changed to %q",
+			op.unit.Name(), containerInfo.ProviderId, newProviderId)
+	}
+
+	if op.props.ProviderId != nil {
+		containerInfo.ProviderId = newProviderId
+	}
+	if op.props.Address != nil {
+		containerInfo.Address = *op.props.Address
+	}
+	if op.props.Ports != nil {
+		containerInfo.Ports = *op.props.Ports
+	}
+	// Currently, we only update container attributes but that might change.
+	var ops []txn.Op
+	if !reflect.DeepEqual(*containerInfo, existingContainerInfo) {
+		containerOps, err := op.unit.saveContainerOps(*containerInfo)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, containerOps...)
+	}
+
+	updateStatus := func(key string, status *status.StatusInfo) error {
+		now := op.unit.st.clock().Now()
+		doc := statusDoc{
+			Status:     status.Status,
+			StatusInfo: status.Message,
+			StatusData: mgoutils.EscapeKeys(status.Data),
+			Updated:    now.UnixNano(),
+		}
+		op.setStatusDocs[key] = doc
+		statusOps, err := statusSetOps(op.unit.st.db(), doc, key)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops = append(ops, statusOps...)
+		return nil
+	}
+	if op.props.AgentStatus != nil {
+		if err := updateStatus(op.unit.globalAgentKey(), op.props.AgentStatus); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	if op.props.UnitStatus != nil {
+		if err := updateStatus(op.unit.globalKey(), op.props.UnitStatus); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return ops, nil
+}
+
+// Done is part of the ModelOperation interface.
+func (op *UpdateUnitOperation) Done(err error) error {
+	if err != nil {
+		return errors.Annotatef(err, "updating unit %q", op.unit.Name())
+	}
+	// We can't include in the ops slice the necessary status history updates,
+	// so as with existing practice, do a best effort update of status history.
+	for key, doc := range op.setStatusDocs {
+		probablyUpdateStatusHistory(op.unit.st.db(), key, doc)
+	}
+	return nil
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as
@@ -314,47 +422,66 @@ func (u *Unit) Destroy() (err error) {
 			u.doc.Life = Dying
 		}
 	}()
-	unit := &Unit{st: u.st, doc: u.doc}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := unit.Refresh(); errors.IsNotFound(err) {
-				return nil, jujutxn.ErrNoOperations
-			} else if err != nil {
-				return nil, err
-			}
-		}
-		switch ops, err := unit.destroyOps(); err {
-		case errRefresh:
-		case errAlreadyDying:
+	return u.st.ApplyOperation(u.DestroyOperation())
+}
+
+// DestroyOperation returns a model operation that will destroy the unit.
+func (u *Unit) DestroyOperation() *DestroyUnitOperation {
+	return &DestroyUnitOperation{unit: &Unit{st: u.st, doc: u.doc, modelType: u.modelType}}
+}
+
+// DestroyUnitOperation is a model operation for destroying a unit.
+type DestroyUnitOperation struct {
+	// unit holds the unit to destroy.
+	unit *Unit
+
+	// DestroyStorage controls whether or not storage attached
+	// to the unit is destroyed. If this is false, then detachable
+	// storage will be detached and left in the model.
+	DestroyStorage bool
+}
+
+// Build is part of the ModelOperation interface.
+func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
+	if attempt > 0 {
+		if err := op.unit.Refresh(); errors.IsNotFound(err) {
 			return nil, jujutxn.ErrNoOperations
-		case nil:
-			return ops, nil
-		default:
+		} else if err != nil {
 			return nil, err
 		}
+	}
+	switch ops, err := op.unit.destroyOps(op.DestroyStorage); err {
+	case errRefresh:
+	case errAlreadyDying:
 		return nil, jujutxn.ErrNoOperations
+	case nil:
+		return ops, nil
+	default:
+		return nil, err
 	}
-	if err = unit.st.run(buildTxn); err == nil {
-		if historyErr := unit.eraseHistory(); historyErr != nil {
-			logger.Errorf("cannot delete history for unit %q: %v", unit.globalKey(), err)
-		}
-		if err = unit.Refresh(); errors.IsNotFound(err) {
-			return nil
-		}
+	return nil, jujutxn.ErrNoOperations
+}
+
+// Done is part of the ModelOperation interface.
+func (op *DestroyUnitOperation) Done(err error) error {
+	if err != nil {
+		return errors.Annotatef(err, "cannot destroy unit %q", op.unit)
 	}
-	return err
+	if err := op.unit.eraseHistory(); err != nil {
+		logger.Errorf("cannot delete history for unit %q: %v", op.unit.globalKey(), err)
+	}
+	return nil
 }
 
 func (u *Unit) eraseHistory() error {
-	history, closer := u.st.getCollection(statusesHistoryC)
-	defer closer()
-	historyW := history.Writeable()
-
-	if _, err := historyW.RemoveAll(bson.D{{"statusid", u.globalKey()}}); err != nil {
-		return err
+	if err := eraseStatusHistory(u.st, u.globalKey()); err != nil {
+		return errors.Annotate(err, "workload")
 	}
-	if _, err := historyW.RemoveAll(bson.D{{"statusid", u.globalAgentKey()}}); err != nil {
-		return err
+	if err := eraseStatusHistory(u.st, u.globalAgentKey()); err != nil {
+		return errors.Annotate(err, "agent")
+	}
+	if err := eraseStatusHistory(u.st, u.globalWorkloadVersionKey()); err != nil {
+		return errors.Annotate(err, "version")
 	}
 	return nil
 }
@@ -362,7 +489,7 @@ func (u *Unit) eraseHistory() error {
 // destroyOps returns the operations required to destroy the unit. If it
 // returns errRefresh, the unit should be refreshed and the destruction
 // operations recalculated.
-func (u *Unit) destroyOps() ([]txn.Op, error) {
+func (u *Unit) destroyOps(destroyStorage bool) ([]txn.Op, error) {
 	if u.doc.Life != Alive {
 		return nil, errAlreadyDying
 	}
@@ -389,7 +516,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
 	minUnitsOp := minUnitsTriggerOp(u.st, u.ApplicationName())
-	cleanupOp := newCleanupOp(cleanupDyingUnit, u.doc.Name)
+	cleanupOp := newCleanupOp(cleanupDyingUnit, u.doc.Name, destroyStorage)
 	setDyingOp := txn.Op{
 		C:      unitsC,
 		Id:     u.doc.DocID,
@@ -406,8 +533,9 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// See if the unit agent has started running.
 	// If so then we can't set directly to dead.
 	isAssigned := u.doc.MachineId != ""
+	shouldBeAssigned := u.ShouldBeAssigned()
 	agentStatusDocId := u.globalAgentKey()
-	agentStatusInfo, agentErr := getStatus(u.st, agentStatusDocId, "agent")
+	agentStatusInfo, agentErr := getStatus(u.st.db(), agentStatusDocId, "agent")
 	if errors.IsNotFound(agentErr) {
 		return nil, errAlreadyDying
 	} else if agentErr != nil {
@@ -416,8 +544,12 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	if isAssigned && agentStatusInfo.Status != status.Allocating {
 		return setDyingOps, nil
 	}
-	if agentStatusInfo.Status != status.Error && agentStatusInfo.Status != status.Allocating {
-		return nil, errors.Errorf("unexpected unit state - unit with status %v is not assigned to a machine", agentStatusInfo.Status)
+	if shouldBeAssigned {
+		switch agentStatusInfo.Status {
+		case status.Error, status.Allocating, status.Running:
+		default:
+			return nil, errors.Errorf("unexpected unit state - unit with status %v is not assigned to a machine", agentStatusInfo.Status)
+		}
 	}
 
 	statusOp := txn.Op{
@@ -432,7 +564,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		},
 	})
 	// If the unit is unassigned, ensure it is not assigned in the interim.
-	if !isAssigned {
+	if !isAssigned && shouldBeAssigned {
 		removeAsserts = append(removeAsserts, bson.DocElem{"machineid", ""})
 	}
 
@@ -524,8 +656,10 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 
 	// If removal conditions satisfied by machine & container docs, we can
 	// destroy it, in addition to removing the unit principal.
+	var cleanupOps []txn.Op
 	if machineCheck && containerCheck {
 		machineUpdate = append(machineUpdate, bson.D{{"$set", bson.D{{"life", Dying}}}}...)
+		cleanupOps = []txn.Op{newCleanupOp(cleanupDyingMachine, m.doc.Id)}
 	}
 
 	ops = append(ops, txn.Op{
@@ -534,6 +668,8 @@ func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 		Assert: machineAssert,
 		Update: machineUpdate,
 	})
+	ops = append(ops, cleanupOps...)
+
 	return ops, nil
 }
 
@@ -599,7 +735,7 @@ func (u *Unit) EnsureDead() (err error) {
 		Assert: assert,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
-	if err := u.st.runTransaction(ops); err != txn.ErrAborted {
+	if err := u.st.db().RunTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
 	if notDead, err := isNotDead(u.st, unitsC, u.doc.DocID); err != nil {
@@ -648,7 +784,7 @@ func (u *Unit) Remove() (err error) {
 
 	// Now we're sure we haven't left any scopes occupied by this unit, we
 	// can safely remove the document.
-	unit := &Unit{st: u.st, doc: u.doc}
+	unit := &Unit{st: u.st, doc: u.doc, modelType: u.modelType}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := unit.Refresh(); errors.IsNotFound(err) {
@@ -668,7 +804,7 @@ func (u *Unit) Remove() (err error) {
 		}
 		return nil, jujutxn.ErrNoOperations
 	}
-	return unit.st.run(buildTxn)
+	return unit.st.db().Run(buildTxn)
 }
 
 // Resolved returns the resolved mode for the unit.
@@ -775,6 +911,9 @@ func (u *Unit) noAssignedMachineOp() txn.Op {
 
 // PublicAddress returns the public address of the unit.
 func (u *Unit) PublicAddress() (network.Address, error) {
+	if !u.ShouldBeAssigned() {
+		return u.scopedAddress("public")
+	}
 	m, err := u.machine()
 	if err != nil {
 		unitLogger.Tracef("%v", err)
@@ -785,12 +924,118 @@ func (u *Unit) PublicAddress() (network.Address, error) {
 
 // PrivateAddress returns the private address of the unit.
 func (u *Unit) PrivateAddress() (network.Address, error) {
+	if !u.ShouldBeAssigned() {
+		return u.scopedAddress("private")
+	}
 	m, err := u.machine()
 	if err != nil {
 		unitLogger.Tracef("%v", err)
 		return network.Address{}, errors.Trace(err)
 	}
 	return m.PrivateAddress()
+}
+
+func (u *Unit) scopedAddress(scope string) (network.Address, error) {
+	addr, err := u.serviceAddress(scope)
+	if err == nil {
+		return addr, nil
+	}
+	if network.IsNoAddressError(err) {
+		return u.containerAddress()
+	}
+	return network.Address{}, errors.Trace(err)
+}
+
+// AllAddresses returns the public and private addresses
+// plus the container address of the unit (if known).
+// Only relevant for CAAS models - will return an empty
+// slice for IAAS models.
+func (u *Unit) AllAddresses() ([]network.Address, error) {
+	if u.ShouldBeAssigned() {
+		return nil, nil
+	}
+	// First the addresses of the service.
+	app, err := u.Application()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	serviceInfo, err := app.ServiceInfo()
+	if errors.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	addresses := serviceInfo.Addresses()
+
+	// Second the address of the container.
+	addr, err := u.containerAddress()
+	if network.IsNoAddressError(err) {
+		return addresses, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	addresses = append(addresses, addr)
+	return addresses, nil
+}
+
+// containerAddress returns the address of the pod's container.
+func (u *Unit) containerAddress() (network.Address, error) {
+	containerInfo, err := u.cloudContainer()
+	if errors.IsNotFound(err) {
+		return network.Address{}, network.NoAddressError("container")
+	}
+	if err != nil {
+		return network.Address{}, errors.Trace(err)
+	}
+	addr := containerInfo.Address
+	if addr == "" {
+		return network.Address{}, network.NoAddressError("container")
+	}
+	return network.Address{
+		Value: addr,
+		Scope: network.ScopeMachineLocal,
+		Type:  network.DeriveAddressType(addr),
+	}, nil
+}
+
+// serviceAddress returns the address of the service
+// managing the pods in which the unit workload is running.
+func (u *Unit) serviceAddress(scope string) (network.Address, error) {
+	addresses, err := u.AllAddresses()
+	if err != nil {
+		return network.Address{}, errors.Trace(err)
+	}
+	if len(addresses) == 0 {
+		return network.Address{}, network.NoAddressError(scope)
+	}
+
+	getStrictPublicAddr := func(addresses []network.Address) (network.Address, bool) {
+		addr, ok := network.SelectPublicAddress(addresses)
+		ok = ok && addr.Scope == network.ScopePublic
+		return addr, ok
+	}
+
+	getInternalAddr := func(addresses []network.Address) (network.Address, bool) {
+		return network.SelectInternalAddress(addresses, false)
+	}
+
+	var addrMatch func([]network.Address) (network.Address, bool)
+	switch scope {
+	case "public":
+		addrMatch = getStrictPublicAddr
+	case "private":
+		addrMatch = getInternalAddr
+	default:
+		return network.Address{}, errors.NotValidf("address scope %q", scope)
+	}
+
+	addr, found := addrMatch(addresses)
+	if !found {
+		return network.Address{}, network.NoAddressError(scope)
+	}
+	return addr, nil
 }
 
 // AvailabilityZone returns the name of the availability zone into which
@@ -807,7 +1052,7 @@ func (u *Unit) AvailabilityZone() (string, error) {
 // state. It an error that satisfies errors.IsNotFound if the unit has
 // been removed.
 func (u *Unit) Refresh() error {
-	units, closer := u.st.getCollection(unitsC)
+	units, closer := u.st.db().GetCollection(unitsC)
 	defer closer()
 
 	err := units.FindId(u.doc.DocID).One(&u.doc)
@@ -858,7 +1103,7 @@ func (u *Unit) AgentStatus() (status.StatusInfo, error) {
 // representing past statuses for this unit.
 func (u *Unit) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        u.st,
+		db:        u.st.db(),
 		globalKey: u.globalKey(),
 		filter:    filter,
 	}
@@ -875,13 +1120,17 @@ func (u *Unit) Status() (status.StatusInfo, error) {
 	// itself as being in error. So we'll do that model translation here.
 	// TODO(fwereade) as on unitagent, this transformation does not belong here.
 	// For now, pretend we're always reading the unit status.
-	info, err := getStatus(u.st, u.globalAgentKey(), "unit")
+	info, err := getStatus(u.st.db(), u.globalAgentKey(), "unit")
 	if err != nil {
 		return status.StatusInfo{}, err
 	}
 	if info.Status != status.Error {
-		info, err = getStatus(u.st, u.globalKey(), "unit")
+		info, err = getStatus(u.st.db(), u.globalKey(), "unit")
 		if err != nil {
+			// CAAS units don't have any unit status.
+			if errors.IsNotFound(err) {
+				return status.StatusInfo{}, nil
+			}
 			return status.StatusInfo{}, err
 		}
 	}
@@ -897,13 +1146,13 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 	if !status.ValidWorkloadStatus(unitStatus.Status) {
 		return errors.Errorf("cannot set invalid status %q", unitStatus.Status)
 	}
-	return setStatus(u.st, setStatusParams{
+	return setStatus(u.st.db(), setStatusParams{
 		badge:     "unit",
 		globalKey: u.globalKey(),
 		status:    unitStatus.Status,
 		message:   unitStatus.Message,
 		rawData:   unitStatus.Data,
-		updated:   unitStatus.Since,
+		updated:   timeOrNow(unitStatus.Since, u.st.clock()),
 	})
 }
 
@@ -1135,7 +1384,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 			})
 		if u.doc.CharmURL != nil {
 			// Drop the reference to the old charm.
-			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL)
+			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL, true)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1143,7 +1392,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 		}
 		return ops, nil
 	}
-	err := u.st.run(buildTxn)
+	err := u.st.db().Run(buildTxn)
 	if err == nil {
 		u.doc.CharmURL = curl
 	}
@@ -1188,7 +1437,20 @@ func (u *Unit) assertCharmOps(ch *Charm) []txn.Op {
 // AgentPresence returns whether the respective remote agent is alive.
 func (u *Unit) AgentPresence() (bool, error) {
 	pwatcher := u.st.workers.presenceWatcher()
-	return pwatcher.Alive(u.globalAgentKey())
+	if u.ShouldBeAssigned() {
+		return pwatcher.Alive(u.globalAgentKey())
+	}
+	// Units in CAAS models rely on the operator pings.
+	// These are for the application itself.
+	app, err := u.Application()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	appAlive, err := pwatcher.Alive(app.globalKey())
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return appAlive, nil
 }
 
 // Tag returns a name identifying the unit.
@@ -1205,12 +1467,17 @@ func (u *Unit) UnitTag() names.UnitTag {
 }
 
 // WaitAgentPresence blocks until the respective agent is alive.
+// This should really only be used in the test suite.
 func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
 	pwatcher := u.st.workers.presenceWatcher()
 	pwatcher.Watch(u.globalAgentKey(), ch)
 	defer pwatcher.Unwatch(u.globalAgentKey(), ch)
+	pingBatcher := u.st.getPingBatcher()
+	if err := pingBatcher.Sync(); err != nil {
+		return err
+	}
 	for i := 0; i < 2; i++ {
 		select {
 		case change := <-ch:
@@ -1231,11 +1498,19 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := u.st.getPresenceCollection()
-	p := presence.NewPinger(presenceCollection, u.st.ModelTag(), u.globalAgentKey())
-	err := p.Start()
+	recorder := u.st.getPingBatcher()
+	model, err := u.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	p := presence.NewPinger(presenceCollection, model.ModelTag(), u.globalAgentKey(),
+		func() presence.PingRecorder { return u.st.getPingBatcher() })
+	err = p.Start()
 	if err != nil {
 		return nil, err
 	}
+	// Make sure this Agent status is written to the database before returning.
+	recorder.Sync()
 	return p, nil
 }
 
@@ -1253,7 +1528,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 		return u.doc.MachineId, nil
 	}
 
-	units, closer := u.st.getCollection(unitsC)
+	units, closer := u.st.db().GetCollection(unitsC)
 	defer closer()
 
 	pudoc := unitDoc{}
@@ -1294,7 +1569,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		}
 		return u.assignToMachineOps(m, unused)
 	}
-	if err := u.st.run(buildTxn); err != nil {
+	if err := u.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	u.doc.MachineId = m.doc.Id
@@ -1325,7 +1600,11 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storagePools, err := machineStoragePools(m.st, storageParams)
+	im, err := u.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storagePools, err := machineStoragePools(im, storageParams)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1419,33 +1698,65 @@ func validateUnitMachineAssignment(
 // validateDynamicMachineStorageParams validates that the provided machine
 // storage parameters are compatible with the specified machine.
 func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParams) error {
-	pools, err := machineStoragePools(m.st, params)
+	im, err := m.st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	pools, err := machineStoragePools(im, params)
 	if err != nil {
 		return err
 	}
-	return validateDynamicMachineStoragePools(m, pools)
+	if err := validateDynamicMachineStoragePools(m, pools); err != nil {
+		return err
+	}
+	// Validate the volume/filesystem attachments for the machine.
+	for volumeTag := range params.volumeAttachments {
+		volume, err := im.volumeByTag(volumeTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !volume.Detachable() && volume.doc.MachineId != m.Id() {
+			return errors.Errorf(
+				"storage is non-detachable (bound to machine %s)",
+				volume.doc.MachineId,
+			)
+		}
+	}
+	for filesystemTag := range params.filesystemAttachments {
+		filesystem, err := im.filesystemByTag(filesystemTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !filesystem.Detachable() && filesystem.doc.MachineId != m.Id() {
+			return errors.Errorf(
+				"storage is non-detachable (bound to machine %s)",
+				filesystem.doc.MachineId,
+			)
+		}
+	}
+	return nil
 }
 
 // machineStoragePools returns the names of storage pools in each of the
 // volume, filesystem and attachments in the machine storage parameters.
-func machineStoragePools(st *State, params *machineStorageParams) (set.Strings, error) {
+func machineStoragePools(im *IAASModel, params *machineStorageParams) (set.Strings, error) {
 	pools := make(set.Strings)
 	for _, v := range params.volumes {
-		v, err := st.volumeParamsWithDefaults(v.Volume, "")
+		v, err := im.volumeParamsWithDefaults(v.Volume, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		pools.Add(v.Pool)
 	}
 	for _, f := range params.filesystems {
-		f, err := st.filesystemParamsWithDefaults(f.Filesystem, "")
+		f, err := im.filesystemParamsWithDefaults(f.Filesystem, "")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		pools.Add(f.Pool)
 	}
 	for volumeTag := range params.volumeAttachments {
-		volume, err := st.Volume(volumeTag)
+		volume, err := im.Volume(volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1460,7 +1771,7 @@ func machineStoragePools(st *State, params *machineStorageParams) (set.Strings, 
 		}
 	}
 	for filesystemTag := range params.filesystemAttachments {
-		filesystem, err := st.Filesystem(filesystemTag)
+		filesystem, err := im.Filesystem(filesystemTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1495,15 +1806,19 @@ func validateDynamicMachineStoragePools(m *Machine, pools set.Strings) error {
 		// to be restarted to pick up new configuration.
 		return errors.NotSupportedf("adding storage to %s container", m.ContainerType())
 	}
-	return validateDynamicStoragePools(m.st, pools)
+	im, err := m.st.IAASModel()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return validateDynamicStoragePools(im, pools)
 }
 
 // validateDynamicStoragePools validates that all of the specified storage
 // providers support dynamic storage provisioning. If any provider doesn't
 // support dynamic storage, then an IsNotSupported error is returned.
-func validateDynamicStoragePools(st *State, pools set.Strings) error {
+func validateDynamicStoragePools(im *IAASModel, pools set.Strings) error {
 	for pool := range pools {
-		providerType, provider, err := poolStorageProvider(st, pool)
+		providerType, provider, err := poolStorageProvider(im, pool)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1660,7 +1975,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	if err != nil {
 		return err
 	}
-	machinesCollection, closer := u.st.getCollection(machinesC)
+	machinesCollection, closer := u.st.db().GetCollection(machinesC)
 	defer closer()
 	var host machineDoc
 	if err := machinesCollection.Find(query).One(&host); err == mgo.ErrNotFound {
@@ -1691,7 +2006,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 		m, ops, err = u.assignToNewMachineOps(template, host.Id, *cons.Container)
 		return ops, err
 	}
-	if err := u.st.run(buildTxn); err != nil {
+	if err := u.st.db().Run(buildTxn); err != nil {
 		if errors.Cause(err) == machineNotCleanErr {
 			// The clean machine was used before we got a chance
 			// to use it so just stick the unit on a new machine.
@@ -1749,7 +2064,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		m, ops, err = u.assignToNewMachineOps(template, "", containerType)
 		return ops, err
 	}
-	if err := u.st.run(buildTxn); err != nil {
+	if err := u.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	u.doc.MachineId = m.doc.Id
@@ -1788,17 +2103,17 @@ func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 }
 
 func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
-	storageAttachments, err := u.st.UnitStorageAttachments(u.UnitTag())
+	im, err := u.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storageAttachments, err := im.UnitStorageAttachments(u.UnitTag())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage attachments")
 	}
 	ch, err := u.charm()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting charm")
-	}
-	allCons, err := u.StorageConstraints()
-	if err != nil {
-		return nil, errors.Annotatef(err, "getting storage constraints")
 	}
 
 	// Sort storage attachments so the volume ids are consistent (for testing).
@@ -1811,12 +2126,12 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 	for _, storageAttachment := range storageAttachments {
-		storage, err := u.st.storageInstance(storageAttachment.StorageInstance())
+		storage, err := im.storageInstance(storageAttachment.StorageInstance())
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
 		machineParams, err := machineStorageParamsForStorageInstance(
-			u.st, chMeta, u.UnitTag(), u.Series(), allCons, storage,
+			u.st, chMeta, u.UnitTag(), u.Series(), storage,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1850,7 +2165,6 @@ func machineStorageParamsForStorageInstance(
 	charmMeta *charm.Meta,
 	unit names.UnitTag,
 	series string,
-	allCons map[string]StorageConstraints,
 	storage *storageInstance,
 ) (*machineStorageParams, error) {
 
@@ -1861,33 +2175,12 @@ func machineStorageParamsForStorageInstance(
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	switch storage.Kind() {
-	case StorageKindBlock:
-		volumeAttachmentParams := VolumeAttachmentParams{
-			charmStorage.ReadOnly,
-		}
-		if unit == storage.maybeOwner() {
-			// The storage instance is owned by the unit, so we'll need
-			// to create a volume.
-			cons := allCons[storage.StorageName()]
-			volumeParams := VolumeParams{
-				storage: storage.StorageTag(),
-				Pool:    cons.Pool,
-				Size:    cons.Size,
-			}
-			volumes = append(volumes, MachineVolumeParams{
-				volumeParams, volumeAttachmentParams,
-			})
-		} else {
-			// The storage instance is owned by the service, so there
-			// should be a (shared) volume already, for which we will
-			// just add an attachment.
-			volume, err := st.StorageInstanceVolume(storage.StorageTag())
-			if err != nil {
-				return nil, errors.Annotatef(err, "getting volume for storage %q", storage.Tag().Id())
-			}
-			volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
-		}
 	case StorageKindFilesystem:
 		location, err := filesystemMountPoint(charmStorage, storage.StorageTag(), series)
 		if err != nil {
@@ -1901,27 +2194,90 @@ func machineStorageParamsForStorageInstance(
 			location,
 			charmStorage.ReadOnly,
 		}
-		if unit == storage.maybeOwner() {
-			// The storage instance is owned by the unit, so we'll need
-			// to create a filesystem.
-			cons := allCons[storage.StorageName()]
+		var volumeBacked bool
+		if filesystem, err := im.StorageInstanceFilesystem(storage.StorageTag()); err == nil {
+			// The filesystem already exists, so just attach it.
+			// When creating ops to attach the storage to the
+			// machine, we will check if the attachment already
+			// exists, and whether the storage can be attached to
+			// the machine.
+			if !charmStorage.Shared {
+				// The storage is not shared, so make sure that it is
+				// not currently attached to any other machine. If it
+				// is, it should be in the process of being detached.
+				existing, err := im.FilesystemAttachments(filesystem.FilesystemTag())
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				if len(existing) > 0 {
+					return nil, errors.Errorf(
+						"%s is attached to %s",
+						names.ReadableString(filesystem.FilesystemTag()),
+						names.ReadableString(existing[0].Machine()),
+					)
+				}
+			}
+			filesystemAttachments[filesystem.FilesystemTag()] = filesystemAttachmentParams
+			if _, err := filesystem.Volume(); err == nil {
+				// The filesystem is volume-backed, so make sure we attach the volume too.
+				volumeBacked = true
+			}
+		} else if errors.IsNotFound(err) {
 			filesystemParams := FilesystemParams{
 				storage: storage.StorageTag(),
-				Pool:    cons.Pool,
-				Size:    cons.Size,
+				Pool:    storage.doc.Constraints.Pool,
+				Size:    storage.doc.Constraints.Size,
 			}
 			filesystems = append(filesystems, MachineFilesystemParams{
 				filesystemParams, filesystemAttachmentParams,
 			})
 		} else {
-			// The storage instance is owned by the service, so there
-			// should be a (shared) filesystem already, for which we will
-			// just add an attachment.
-			filesystem, err := st.StorageInstanceFilesystem(storage.StorageTag())
-			if err != nil {
-				return nil, errors.Annotatef(err, "getting filesystem for storage %q", storage.Tag().Id())
+			return nil, errors.Annotatef(err, "getting filesystem for storage %q", storage.Tag().Id())
+		}
+
+		if !volumeBacked {
+			break
+		}
+		// Fall through to attach the volume that backs the filesystem.
+		fallthrough
+
+	case StorageKindBlock:
+		volumeAttachmentParams := VolumeAttachmentParams{
+			charmStorage.ReadOnly,
+		}
+		if volume, err := im.StorageInstanceVolume(storage.StorageTag()); err == nil {
+			// The volume already exists, so just attach it. When
+			// creating ops to attach the storage to the machine,
+			// we will check if the attachment already exists, and
+			// whether the storage can be attached to the machine.
+			if !charmStorage.Shared {
+				// The storage is not shared, so make sure that it is
+				// not currently attached to any other machine. If it
+				// is, it should be in the process of being detached.
+				existing, err := im.VolumeAttachments(volume.VolumeTag())
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				if len(existing) > 0 {
+					return nil, errors.Errorf(
+						"%s is attached to %s",
+						names.ReadableString(volume.VolumeTag()),
+						names.ReadableString(existing[0].Machine()),
+					)
+				}
 			}
-			filesystemAttachments[filesystem.FilesystemTag()] = filesystemAttachmentParams
+			volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
+		} else if errors.IsNotFound(err) {
+			volumeParams := VolumeParams{
+				storage: storage.StorageTag(),
+				Pool:    storage.doc.Constraints.Pool,
+				Size:    storage.doc.Constraints.Size,
+			}
+			volumes = append(volumes, MachineVolumeParams{
+				volumeParams, volumeAttachmentParams,
+			})
+		} else {
+			return nil, errors.Annotatef(err, "getting volume for storage %q", storage.Tag().Id())
 		}
 	default:
 		return nil, errors.Errorf("invalid storage kind %v", storage.Kind())
@@ -2069,7 +2425,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (*Machine, erro
 		m, ops, err = u.assignToCleanMaybeEmptyMachineOps(requireEmpty)
 		return ops, err
 	}
-	if err := u.st.run(buildTxn); err != nil {
+	if err := u.st.db().Run(buildTxn); err != nil {
 		return nil, errors.Trace(err)
 	}
 	u.doc.MachineId = m.doc.Id
@@ -2094,6 +2450,12 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		return failure(err)
 	}
 
+	im, err := u.st.IAASModel()
+	if err != nil {
+		assignContextf(&err, u.Name(), context)
+		return failure(err)
+	}
+
 	// If required storage is not all dynamic, then assigning
 	// to a new machine is required.
 	storageParams, err := u.machineStorageParams()
@@ -2101,12 +2463,12 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
-	storagePools, err := machineStoragePools(u.st, storageParams)
+	storagePools, err := machineStoragePools(im, storageParams)
 	if err != nil {
 		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
-	if err := validateDynamicStoragePools(u.st, storagePools); err != nil {
+	if err := validateDynamicStoragePools(im, storagePools); err != nil {
 		if errors.IsNotSupported(err) {
 			return failure(noCleanMachines)
 		}
@@ -2130,7 +2492,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	// instances for those that are provisioned. Instances
 	// will be distributed across in preference to
 	// unprovisioned machines.
-	machinesCollection, closer := u.st.getCollection(machinesC)
+	machinesCollection, closer := u.st.db().GetCollection(machinesC)
 	defer closer()
 	var mdocs []*machineDoc
 	if err := machinesCollection.Find(query).All(&mdocs); err != nil {
@@ -2227,7 +2589,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 			Update: bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}},
 		})
 	}
-	err = u.st.runTransaction(ops)
+	err = u.st.db().RunTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, errors.NotFoundf("machine")))
 	}
@@ -2267,7 +2629,13 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (Action, e
 	if err != nil {
 		return nil, err
 	}
-	return u.st.EnqueueAction(u.Tag(), name, payloadWithDefaults)
+
+	model, err := u.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return model.EnqueueAction(u.Tag(), name, payloadWithDefaults)
 }
 
 // ActionSpecs gets the ActionSpec map for the Unit's charm.
@@ -2360,7 +2728,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 		Assert: append(notDeadDoc, resolvedNotSet...),
 		Update: bson.D{{"$set", bson.D{{"resolved", mode}}}},
 	}}
-	if err := u.st.runTransaction(ops); err == nil {
+	if err := u.st.db().RunTransaction(ops); err == nil {
 		u.doc.Resolved = mode
 		return nil
 	} else if err != txn.ErrAborted {
@@ -2383,7 +2751,7 @@ func (u *Unit) ClearResolved() error {
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"resolved", ResolvedNone}}}},
 	}}
-	err := u.st.runTransaction(ops)
+	err := u.st.db().RunTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, errors.NotFoundf("unit"))
 	}
@@ -2412,9 +2780,10 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 
 type addUnitOpsArgs struct {
 	unitDoc            *unitDoc
+	containerDoc       *cloudContainerDoc
 	agentStatusDoc     statusDoc
-	workloadStatusDoc  statusDoc
-	workloadVersionDoc statusDoc
+	workloadStatusDoc  *statusDoc
+	workloadVersionDoc *statusDoc
 	meterStatusDoc     *meterStatusDoc
 }
 
@@ -2428,12 +2797,21 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 
 	// TODO: consider the constraints op
 	// TODO: consider storageOps
-	prereqOps := []txn.Op{
-		createStatusOp(st, unitGlobalKey(name), args.workloadStatusDoc),
-		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
-		createStatusOp(st, globalWorkloadVersionKey(name), args.workloadVersionDoc),
-		createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc),
+	var prereqOps []txn.Op
+	if args.containerDoc != nil {
+		prereqOps = append(prereqOps, txn.Op{
+			C:      cloudContainersC,
+			Id:     args.containerDoc.Id,
+			Insert: args.containerDoc,
+			Assert: txn.DocMissing,
+		})
 	}
+	prereqOps = append(prereqOps,
+		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
+		createStatusOp(st, unitGlobalKey(name), *args.workloadStatusDoc),
+		createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc),
+		createStatusOp(st, globalWorkloadVersionKey(name), *args.workloadVersionDoc),
+	)
 
 	// Freshly-created units will not have a charm URL set; migrated
 	// ones will, and they need to maintain their refcounts. If we
@@ -2466,9 +2844,31 @@ type HistoryGetter struct {
 // StatusHistory implements status.StatusHistoryGetter.
 func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        g.st,
+		db:        g.st.db(),
 		globalKey: g.globalKey,
 		filter:    filter,
 	}
 	return statusHistory(args)
+}
+
+// GetSpaceForBinding returns the space name associated with the specified endpoint.
+func (u *Unit) GetSpaceForBinding(bindingName string) (string, error) {
+	app, err := u.Application()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	bindings, err := app.EndpointBindings()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	boundSpace, known := bindings[bindingName]
+	if !known {
+		// If default binding is not explicitly defined we'll use default space
+		if bindingName == environs.DefaultSpaceName {
+			return environs.DefaultSpaceName, nil
+		}
+		return "", errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", bindingName))
+	}
+	return boundSpace, nil
 }

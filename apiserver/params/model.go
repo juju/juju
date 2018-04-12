@@ -72,6 +72,13 @@ type ModelUnset struct {
 	Keys []string `json:"keys"`
 }
 
+// ModelSLA contains the arguments for the SetSLALevel client API
+// call.
+type ModelSLA struct {
+	ModelSLAInfo
+	Credentials []byte `json:"creds"`
+}
+
 // SetModelDefaults contains the arguments for SetModelDefaults
 // client API call.
 type SetModelDefaults struct {
@@ -103,7 +110,8 @@ type UnsetModelDefaults struct {
 // SetModelAgentVersion contains the arguments for
 // SetModelAgentVersion client API call.
 type SetModelAgentVersion struct {
-	Version version.Number `json:"version"`
+	Version             version.Number `json:"version"`
+	IgnoreAgentVersions bool           `json:"force,omitempty"`
 }
 
 // ModelMigrationStatus holds information about the progress of a (possibly
@@ -117,10 +125,11 @@ type ModelMigrationStatus struct {
 // ModelInfo holds information about the Juju model.
 type ModelInfo struct {
 	Name               string `json:"name"`
+	Type               string `json:"type"`
 	UUID               string `json:"uuid"`
 	ControllerUUID     string `json:"controller-uuid"`
-	ProviderType       string `json:"provider-type"`
-	DefaultSeries      string `json:"default-series"`
+	ProviderType       string `json:"provider-type,omitempty"`
+	DefaultSeries      string `json:"default-series,omitempty"`
 	CloudTag           string `json:"cloud-tag"`
 	CloudRegion        string `json:"cloud-region,omitempty"`
 	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
@@ -132,7 +141,7 @@ type ModelInfo struct {
 	Life Life `json:"life"`
 
 	// Status is the current status of the model.
-	Status EntityStatus `json:"status"`
+	Status EntityStatus `json:"status,omitempty"`
 
 	// Users contains information about the users that have access
 	// to the model. Owners and administrators can see all users
@@ -147,6 +156,93 @@ type ModelInfo struct {
 	// Migration contains information about the latest failed or
 	// currently-running migration. It'll be nil if there isn't one.
 	Migration *ModelMigrationStatus `json:"migration,omitempty"`
+
+	// SLA contains the information about the SLA for the model, if set.
+	SLA *ModelSLAInfo `json:"sla"`
+
+	// AgentVersion is the agent version for this model.
+	AgentVersion *version.Number `json:"agent-version"`
+}
+
+// ModelSummary holds summary about a Juju model.
+type ModelSummary struct {
+	Name               string `json:"name"`
+	UUID               string `json:"uuid"`
+	Type               string `json:"type"`
+	ControllerUUID     string `json:"controller-uuid"`
+	ProviderType       string `json:"provider-type,omitempty"`
+	DefaultSeries      string `json:"default-series,omitempty"`
+	CloudTag           string `json:"cloud-tag"`
+	CloudRegion        string `json:"cloud-region,omitempty"`
+	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
+
+	// OwnerTag is the tag of the user that owns the model.
+	OwnerTag string `json:"owner-tag"`
+
+	// Life is the current lifecycle state of the model.
+	Life Life `json:"life"`
+
+	// Status is the current status of the model.
+	Status EntityStatus `json:"status,omitempty"`
+
+	// UserAccess is model access level for the  current user.
+	UserAccess UserAccessPermission `json:"user-access"`
+
+	// UserLastConnection contains the time when current user logged in
+	// into the model last.
+	UserLastConnection *time.Time `json:"last-connection"`
+
+	// Counts contains counts of interesting entities
+	// in the model, for example machines, cores, containers, units, etc.
+	Counts []ModelEntityCount `json:"counts"`
+
+	// Migration contains information about the latest failed or
+	// currently-running migration. It'll be nil if there isn't one.
+	Migration *ModelMigrationStatus `json:"migration,omitempty"`
+
+	// SLA contains the information about the SLA for the model, if set.
+	SLA *ModelSLAInfo `json:"sla"`
+
+	// AgentVersion is the agent version for this model.
+	AgentVersion *version.Number `json:"agent-version"`
+}
+
+// ModelEntityCount represent a count for a model entity where entities could be
+// machines, units, etc...
+type ModelEntityCount struct {
+	Entity CountedEntity `json:"entity"`
+	Count  int64         `json:"count"`
+}
+
+// CountedEntity identifies an entity that has a count.
+type CountedEntity string
+
+const (
+	Machines CountedEntity = "machines"
+	Cores    CountedEntity = "cores"
+)
+
+// ModelSLAInfo describes the SLA info for a model.
+type ModelSLAInfo struct {
+	Level string `json:"level"`
+	Owner string `json:"owner"`
+}
+
+// ModelSummaryResult holds the result of a ListModelsWithInfo call.
+type ModelSummaryResult struct {
+	Result *ModelSummary `json:"result,omitempty"`
+	Error  *Error        `json:"error,omitempty"`
+}
+
+// ModelSummaryResults holds the result of a bulk ListModelsWithInfo call.
+type ModelSummaryResults struct {
+	Results []ModelSummaryResult `json:"results"`
+}
+
+// ModelSummariesRequest encapsulates how we request a list of model summaries.
+type ModelSummariesRequest struct {
+	UserTag string `json:"user-tag"`
+	All     bool   `json:"all,omitempty"`
 }
 
 // ModelInfoResult holds the result of a ModelInfo call.
@@ -155,7 +251,7 @@ type ModelInfoResult struct {
 	Error  *Error     `json:"error,omitempty"`
 }
 
-// ModelInfoResult holds the result of a bulk ModelInfo call.
+// ModelInfoResults holds the result of a bulk ModelInfo call.
 type ModelInfoResults struct {
 	Results []ModelInfoResult `json:"results"`
 }
@@ -197,6 +293,22 @@ type MachineHardware struct {
 	CpuPower         *uint64   `json:"cpu-power,omitempty"`
 	Tags             *[]string `json:"tags,omitempty"`
 	AvailabilityZone *string   `json:"availability-zone,omitempty"`
+}
+
+// ModelVolumeInfo holds information about a volume in a model.
+type ModelVolumeInfo struct {
+	Id         string `json:"id"`
+	ProviderId string `json:"provider-id,omitempty"`
+	Status     string `json:"status,omitempty"`
+	Detachable bool   `json:"detachable,omitempty"`
+}
+
+// ModelFilesystemInfo holds information about a filesystem in a model.
+type ModelFilesystemInfo struct {
+	Id         string `json:"id"`
+	ProviderId string `json:"provider-id,omitempty"`
+	Status     string `json:"status,omitempty"`
+	Detachable bool   `json:"detachable,omitempty"`
 }
 
 // ModelUserInfo holds information on a user who has access to a
@@ -251,3 +363,41 @@ const (
 	ModelReadAccess  UserAccessPermission = "read"
 	ModelWriteAccess UserAccessPermission = "write"
 )
+
+// DestroyModelsParams holds the arguments for destroying models.
+type DestroyModelsParams struct {
+	Models []DestroyModelParams `json:"models"`
+}
+
+// DestroyModelParams holds the arguments for destroying a model.
+type DestroyModelParams struct {
+	// ModelTag is the tag of the model to destroy.
+	ModelTag string `json:"model-tag"`
+
+	// DestroyStorage controls whether or not storage in the model.
+	//
+	// This is ternary: nil, false, or true. If nil and there is persistent
+	// storage in the model, an error with the code
+	// params.CodeHasPersistentStorage will be returned.
+	DestroyStorage *bool `json:"destroy-storage,omitempty"`
+}
+
+// ModelCredential stores information about cloud credential that a model uses:
+// what credential is being used, is it valid for this model, etc.
+type ModelCredential struct {
+	// Model is a tag for the model.
+	Model string `json:"model-tag"`
+
+	// Exists indicates whether credential was set on the model.
+	// It is valid for model not to have a credential if it is on the
+	// cloud that does not require auth.
+	Exists bool `json:"exists,omitempty"`
+
+	// CloudCredential is the tag for the cloud credential that the model uses.
+	CloudCredential string `json:"credential-tag"`
+
+	// Valid stores whether this credential is valid, for example, not expired,
+	// and whether this credential works for this model, i.e. all model
+	// machines can be accessed with this credential.
+	Valid bool `json:"valid,omitempty"`
+}

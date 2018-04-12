@@ -330,7 +330,7 @@ printf '%s\\n' '.*"Stop all network interfaces.*' > '/etc/init/juju-clean-shutdo
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
-\(\[ ! -e /home/ubuntu/.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
+\[ -e /etc/profile.d/juju-proxy.sh \] \|\| printf .* >> /etc/profile.d/juju-proxy.sh
 mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
@@ -387,7 +387,7 @@ printf '%s\\n' '.*"Stop all network interfaces on shutdown".*' > '/etc/init/juju
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -n "\$JUJU_PROGRESS_FD" \|\| \(exec \{JUJU_PROGRESS_FD\}>&2\) 2>/dev/null && exec \{JUJU_PROGRESS_FD\}>&2 \|\| JUJU_PROGRESS_FD=2
-\(\[ ! -e /home/ubuntu/\.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
+\[ -e /etc/profile.d/juju-proxy.sh \] \|\| printf .* >> /etc/profile.d/juju-proxy.sh
 mkdir -p /var/lib/juju/locks
 \(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
@@ -429,6 +429,16 @@ printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 	// CentOS non controller with systemd
 	{
 		cfg:          makeNormalConfig("centos7"),
+		inexactMatch: true,
+		expectScripts: `
+systemctl is-enabled firewalld &> /dev/null && systemctl mask firewalld || true
+systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true
+sed -i "s/\^\.\*requiretty/#Defaults requiretty/" /etc/sudoers
+`,
+	},
+	// OpenSUSE non controller with systemd
+	{
+		cfg:          makeNormalConfig("opensuseleap"),
 		inexactMatch: true,
 		expectScripts: `
 systemctl is-enabled firewalld &> /dev/null && systemctl mask firewalld || true
@@ -528,12 +538,6 @@ func newSimpleTools(vers string) *tools.Tools {
 		Size:    10,
 		SHA256:  "1234",
 	}
-}
-
-func newFileTools(vers, path string) *tools.Tools {
-	tools := newSimpleTools(vers)
-	tools.URL = "file://" + path
-	return tools
 }
 
 func getAgentConfig(c *gc.C, tag string, scripts []string) (cfg string) {
@@ -720,6 +724,74 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
+
+func (s *cloudinitSuite) TestCloudInitConfigCloudInitUserData(c *gc.C) {
+	environConfig := minimalModelConfig(c)
+	environConfig, err := environConfig.Apply(map[string]interface{}{
+		config.CloudInitUserDataKey: validCloudInitUserData,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	instanceCfg := s.createInstanceConfig(c, environConfig)
+	cloudcfg, err := cloudinit.New("xenial")
+	c.Assert(err, jc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Verify the settings against cloudinit-userdata
+	cfgPackages := cloudcfg.Packages()
+	expectedPackages := []string{
+		`ubuntu-fan`, // last juju specified package
+		`python-keystoneclient`,
+		`python-glanceclient`,
+	}
+	c.Assert(len(cfgPackages), jc.GreaterThan, 2)
+	c.Assert(cfgPackages[len(cfgPackages)-3:], gc.DeepEquals, expectedPackages)
+
+	cmds := cloudcfg.RunCmds()
+	beginning := []string{
+		`mkdir /tmp/preruncmd`,
+		`mkdir /tmp/preruncmd2`,
+		`set -xe`, // first line of juju specified cmds
+	}
+	ending := []string{
+		`rm $bin/tools.tar.gz && rm $bin/juju2.3.4-quantal-amd64.sha256`, // last line of juju specified cmds
+		`mkdir /tmp/postruncmd`,
+		`mkdir /tmp/postruncmd2`,
+	}
+	c.Assert(len(cmds), jc.GreaterThan, 6)
+	c.Assert(cmds[:3], gc.DeepEquals, beginning)
+	c.Assert(cmds[len(cmds)-3:], gc.DeepEquals, ending)
+
+	c.Assert(cloudcfg.SystemUpgrade(), gc.Equals, false)
+
+	// Render to check for the "unexpected" cloudinit text.
+	// cloudconfig doesn't have public access to all attrs.
+	data, err := cloudcfg.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+	ciContent := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(data, &ciContent)
+	c.Assert(err, jc.ErrorIsNil)
+	testCmd, ok := ciContent["test-key"].([]interface{})
+	c.Assert(ok, jc.IsTrue)
+	c.Check(testCmd, gc.DeepEquals, []interface{}{"test line one"})
+}
+
+var validCloudInitUserData = `
+packages:
+  - 'python-keystoneclient'
+  - 'python-glanceclient'
+preruncmd:
+  - mkdir /tmp/preruncmd
+  - mkdir /tmp/preruncmd2
+postruncmd:
+  - mkdir /tmp/postruncmd
+  - mkdir /tmp/postruncmd2
+package_upgrade: false
+test-key:
+  - test line one
+`[1:]
 
 func (*cloudinitSuite) bootstrapConfigScripts(c *gc.C) []string {
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
@@ -1076,7 +1148,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 	udata, err := cloudconfig.NewUserdataConfig(&cfg, ci)
 	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
-	c.Assert(err, gc.ErrorMatches, "invalid machine configuration: missing tools")
+	c.Assert(err, gc.ErrorMatches, "invalid machine configuration: missing agent binaries")
 
 	for i, test := range verifyTests {
 		c.Logf("test %d. %s", i, test.err)
@@ -1164,21 +1236,27 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.RunCmds()
-	first := `([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`
+	first := `[ -e /etc/profile.d/juju-proxy.sh ] || printf '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`
 	expected := []string{
 		`export http_proxy=http://user@10.0.0.1`,
 		`export HTTP_PROXY=http://user@10.0.0.1`,
-		`export no_proxy=localhost,10.0.3.1`,
-		`export NO_PROXY=localhost,10.0.3.1`,
-		`(id ubuntu &> /dev/null) && (printf '%s\n' 'export http_proxy=http://user@10.0.0.1
+		`export no_proxy=0.1.2.3,10.0.3.1,localhost`,
+		`export NO_PROXY=0.1.2.3,10.0.3.1,localhost`,
+		`(printf '%s\n' 'export http_proxy=http://user@10.0.0.1
 export HTTP_PROXY=http://user@10.0.0.1
-export no_proxy=localhost,10.0.3.1
-export NO_PROXY=localhost,10.0.3.1' > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
+export no_proxy=0.1.2.3,10.0.3.1,localhost
+export NO_PROXY=0.1.2.3,10.0.3.1,localhost' > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
+		`printf '%s\n' '# To allow juju to control the global systemd proxy settings,
+# create symbolic links to this file from within /etc/systemd/system.conf.d/
+# and /etc/systemd/users.conf.d/.
+[Manager]
+DefaultEnvironment="http_proxy=http://user@10.0.0.1" "HTTP_PROXY=http://user@10.0.0.1" "no_proxy=0.1.2.3,10.0.3.1,localhost" "NO_PROXY=0.1.2.3,10.0.3.1,localhost" 
+' > /etc/juju-proxy-systemd.conf`,
 	}
 	found := false
 	for i, cmd := range cmds {
 		if cmd == first {
-			c.Assert(cmds[i+1:i+6], jc.DeepEquals, expected)
+			c.Assert(cmds[i+1:i+7], jc.DeepEquals, expected)
 			found = true
 			break
 		}
@@ -1284,14 +1362,14 @@ func (*cloudinitSuite) TestToolsDownloadCommand(c *gc.C) {
 n=1
 while true; do
 
-    printf "Attempt $n to download tools from %s...\n" 'a'
-    download 'a' && echo "Tools downloaded successfully." && break
+    printf "Attempt $n to download agent binaries from %s...\n" 'a'
+    download 'a' && echo "Agent binaries downloaded successfully." && break
 
-    printf "Attempt $n to download tools from %s...\n" 'b'
-    download 'b' && echo "Tools downloaded successfully." && break
+    printf "Attempt $n to download agent binaries from %s...\n" 'b'
+    download 'b' && echo "Agent binaries downloaded successfully." && break
 
-    printf "Attempt $n to download tools from %s...\n" 'c'
-    download 'c' && echo "Tools downloaded successfully." && break
+    printf "Attempt $n to download agent binaries from %s...\n" 'c'
+    download 'c' && echo "Agent binaries downloaded successfully." && break
 
     echo "Download failed, retrying in 15s"
     sleep 15
@@ -1358,5 +1436,52 @@ func (*cloudinitSuite) TestSetUbuntuUserCentOS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	keys := []string{"akey", "bkey"}
 	expected := expectedUbuntuUser(cloudconfig.CentOSGroups, keys)
+	c.Assert(string(data), jc.YAMLEquals, expected)
+}
+
+func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *gc.C) {
+	instConfig := makeBootstrapConfig("quantal").maybeSetModelConfig(
+		minimalModelConfig(c),
+	).render()
+	instConfig.Bootstrap.InitialSSHHostKeys.RSA = &instancecfg.SSHKeyPair{
+		Private: "private",
+		Public:  "public",
+	}
+	cloudcfg, err := cloudinit.New(instConfig.Series)
+	c.Assert(err, jc.ErrorIsNil)
+
+	udata, err := cloudconfig.NewUserdataConfig(&instConfig, cloudcfg)
+	c.Assert(err, jc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := cloudcfg.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+
+	configKeyValues := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(data, &configKeyValues)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(configKeyValues["ssh_keys"], jc.DeepEquals, map[interface{}]interface{}{
+		"rsa_private": "private",
+		"rsa_public":  "public",
+	})
+
+	cmds := cloudcfg.BootCmds()
+	c.Assert(cmds, jc.DeepEquals, []string{
+		`echo 'Regenerating SSH RSA host key' >&$JUJU_PROGRESS_FD`,
+		`rm /etc/ssh/ssh_host_rsa_key*`,
+		`ssh-keygen -t rsa -N "" -f /etc/ssh/ssh_host_rsa_key`,
+		`ssh-keygen -t dsa -N "" -f /etc/ssh/ssh_host_dsa_key`,
+		`ssh-keygen -t ecdsa -N "" -f /etc/ssh/ssh_host_ecdsa_key`,
+	})
+}
+
+func (*cloudinitSuite) TestSetUbuntuUserOpenSUSE(c *gc.C) {
+	ci, err := cloudinit.New("opensuseleap")
+	c.Assert(err, jc.ErrorIsNil)
+	cloudconfig.SetUbuntuUser(ci, "akey\n#also\nbkey")
+	data, err := ci.RenderYAML()
+	c.Assert(err, jc.ErrorIsNil)
+	keys := []string{"akey", "bkey"}
+	expected := expectedUbuntuUser(cloudconfig.OpenSUSEGroups, keys)
 	c.Assert(string(data), jc.YAMLEquals, expected)
 }

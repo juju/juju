@@ -1,14 +1,10 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(anastasia) 2014-10-08 #1378716
-// Re-enable tests for PPC64/ARM64 when the fixed gccgo has been backported to trusty and the CI machines have been updated.
-
-// +build !gccgo
-
 package provisioner_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -77,26 +73,34 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.provisioner = provisioner.NewState(s.st)
 	c.Assert(s.provisioner, gc.NotNil)
 
-	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState, s.IAASModel.Model)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
 }
 
-func (s *provisionerSuite) TestMachineTagAndId(c *gc.C) {
-	apiMachine, err := s.provisioner.Machine(names.NewMachineTag("42"))
-	c.Assert(err, gc.ErrorMatches, "machine 42 not found")
-	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
-	c.Assert(apiMachine, gc.IsNil)
-
-	// TODO(dfc) fix this type assertion
-	apiMachine, err = s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
+func (s *provisionerSuite) assertGetOneMachine(c *gc.C, tag names.MachineTag) *provisioner.Machine {
+	result, err := s.provisioner.Machines(tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiMachine.Tag(), gc.Equals, s.machine.Tag())
-	c.Assert(apiMachine.Id(), gc.Equals, s.machine.Id())
+	c.Assert(len(result), gc.Equals, 1)
+	c.Assert(result[0].Err, gc.IsNil)
+	return result[0].Machine
+}
+
+func (s *provisionerSuite) TestMachinesTagAndId(c *gc.C) {
+	result, err := s.provisioner.Machines(names.NewMachineTag("42"), s.machine.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(result), gc.Equals, 2)
+
+	c.Assert(result[0].Err, gc.ErrorMatches, "machine 42 not found")
+	c.Assert(result[0].Err, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(result[0].Machine, gc.IsNil)
+
+	c.Assert(result[1].Err, gc.IsNil)
+	c.Assert(result[1].Machine.Tag(), gc.Equals, s.machine.Tag())
+	c.Assert(result[1].Machine.Id(), gc.Equals, s.machine.Id())
 }
 
 func (s *provisionerSuite) TestGetSetStatus(c *gc.C) {
-	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 
 	machineStatus, info, err := apiMachine.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -116,9 +120,7 @@ func (s *provisionerSuite) TestGetSetStatus(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestGetSetInstanceStatus(c *gc.C) {
-	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
-
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 	instanceStatus, info, err := apiMachine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceStatus, gc.Equals, status.Pending)
@@ -135,10 +137,8 @@ func (s *provisionerSuite) TestGetSetInstanceStatus(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
-	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = apiMachine.SetStatus(status.Error, "blah", map[string]interface{}{"foo": "bar"})
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+	err := apiMachine.SetStatus(status.Error, "blah", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineStatus, info, err := apiMachine.Status()
@@ -162,12 +162,12 @@ func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	}
 	err = machine.SetInstanceStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	machines, info, err := s.provisioner.MachinesWithTransientErrors()
+	result, err := s.provisioner.MachinesWithTransientErrors()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.HasLen, 1)
-	c.Assert(machines[0].Id(), gc.Equals, "1")
-	c.Assert(info, gc.HasLen, 1)
-	c.Assert(info[0], gc.DeepEquals, params.StatusResult{
+	c.Assert(result, gc.HasLen, 1)
+
+	c.Assert(result[0].Machine.Id(), gc.Equals, "1")
+	c.Assert(result[0].Status, gc.DeepEquals, params.StatusResult{
 		Id:     "1",
 		Life:   "alive",
 		Status: "provisioning error",
@@ -182,7 +182,7 @@ func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(otherMachine.Life(), gc.Equals, state.Alive)
 
-	apiMachine, err := s.provisioner.Machine(otherMachine.Tag().(names.MachineTag))
+	apiMachine := s.assertGetOneMachine(c, otherMachine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = apiMachine.Remove()
@@ -210,18 +210,16 @@ func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 
 	// Now try to EnsureDead machine 0 - should fail.
-	apiMachine, err = s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
+	apiMachine = s.assertGetOneMachine(c, s.machine.MachineTag())
 	err = apiMachine.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is still a controller member")
 }
 
 func (s *provisionerSuite) TestMarkForRemoval(c *gc.C) {
 	machine, err := s.State.AddMachine("xenial", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiMachine, err := s.provisioner.Machine(machine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
+	apiMachine := s.assertGetOneMachine(c, machine.MachineTag())
 
 	err = apiMachine.MarkForRemoval()
 	c.Assert(err, gc.ErrorMatches, "cannot remove machine 1: machine is not dead")
@@ -243,8 +241,7 @@ func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(otherMachine.Life(), gc.Equals, state.Alive)
 
-	apiMachine, err := s.provisioner.Machine(otherMachine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
+	apiMachine := s.assertGetOneMachine(c, otherMachine.MachineTag())
 	c.Assert(apiMachine.Life(), gc.Equals, params.Alive)
 
 	err = apiMachine.EnsureDead()
@@ -275,8 +272,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	notProvisionedMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiMachine, err := s.provisioner.Machine(notProvisionedMachine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
+	apiMachine := s.assertGetOneMachine(c, notProvisionedMachine.MachineTag())
 
 	instanceId, err := apiMachine.InstanceId()
 	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
@@ -312,14 +308,13 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot record provisioning info for "i-wont": cannot set instance data for machine "1": already set`)
 
 	// Now try to get machine 0's instance id.
-	apiMachine, err = s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
+	apiMachine = s.assertGetOneMachine(c, s.machine.MachineTag())
 	instanceId, err = apiMachine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceId, gc.Equals, instance.Id("i-manager"))
 
 	// Now check volumes and volume attachments.
-	volume, err := s.State.Volume(names.NewVolumeTag("1/0"))
+	volume, err := s.IAASModel.Volume(names.NewVolumeTag("1/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
@@ -328,7 +323,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		Pool:     "loop-pool",
 		Size:     124,
 	})
-	stateVolumeAttachments, err := s.State.MachineVolumeAttachments(names.NewMachineTag("1"))
+	stateVolumeAttachments, err := s.IAASModel.MachineVolumeAttachments(names.NewMachineTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateVolumeAttachments, gc.HasLen, 1)
 	volumeAttachmentInfo, err := stateVolumeAttachments[0].Info()
@@ -343,32 +338,66 @@ func (s *provisionerSuite) TestSeries(c *gc.C) {
 	foobarMachine, err := s.State.AddMachine("foobar", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiMachine, err := s.provisioner.Machine(foobarMachine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
+	apiMachine := s.assertGetOneMachine(c, foobarMachine.MachineTag())
 	series, err := apiMachine.Series()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(series, gc.Equals, "foobar")
 
 	// Now try machine 0.
-	apiMachine, err = s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
+	apiMachine = s.assertGetOneMachine(c, s.machine.MachineTag())
 	series, err = apiMachine.Series()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(series, gc.Equals, "quantal")
 }
 
-func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
-	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
+func (s *provisionerSuite) TestAvailabilityZone(c *gc.C) {
+	// Create a fresh machine, since machine 0 is already provisioned.
+	template := state.MachineTemplate{
+		Series: "xenial",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	notProvisionedMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
+
+	apiMachine := s.assertGetOneMachine(c, notProvisionedMachine.MachineTag())
+
+	instanceId, err := apiMachine.InstanceId()
+	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
+	c.Assert(err, gc.ErrorMatches, "machine 1 not provisioned")
+	c.Assert(instanceId, gc.Equals, instance.Id(""))
+
+	availabilityZone := "ru-north-siberia"
+	hwChars := instance.MustParseHardware(fmt.Sprintf("availability-zone=%s", availabilityZone))
+
+	err = apiMachine.SetInstanceInfo(
+		"azinst", "nonce", &hwChars, nil, nil, nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	retAvailabilityZone, err := apiMachine.AvailabilityZone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(availabilityZone, gc.Equals, retAvailabilityZone)
+}
+
+func (s *provisionerSuite) TestKeepInstance(c *gc.C) {
+	err := s.machine.SetKeepInstance(true)
+	c.Assert(err, jc.ErrorIsNil)
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+	keep, err := apiMachine.KeepInstance()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(keep, jc.IsTrue)
+}
+
+func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 	instances, err := apiMachine.DistributionGroup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.DeepEquals, []instance.Id{"i-manager"})
 
 	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	apiMachine, err = s.provisioner.Machine(machine1.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	apiMachine = s.assertGetOneMachine(c, machine1.MachineTag())
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	err = apiMachine.SetInstanceInfo("i-d", "fake", nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -378,7 +407,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 
 	var unitNames []string
 	for i := 0; i < 3; i++ {
-		unit, err := wordpress.AddUnit()
+		unit, err := wordpress.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		unitNames = append(unitNames, unit.Name())
 		err = unit.AssignToMachine(machine1)
@@ -392,8 +421,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
 	stateMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	apiMachine, err := s.provisioner.Machine(stateMachine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
+	apiMachine := s.assertGetOneMachine(c, stateMachine.MachineTag())
 	err = apiMachine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = apiMachine.Remove()
@@ -401,6 +429,70 @@ func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
 	_, err = apiMachine.DistributionGroup()
 	c.Assert(err, gc.ErrorMatches, "machine 1 not found")
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *provisionerSuite) TestDistributionGroupByMachineId(c *gc.C) {
+	results, err := s.provisioner.DistributionGroupByMachineId(s.machine.MachineTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results), gc.Equals, 1)
+	c.Assert(results, gc.DeepEquals, []provisioner.DistributionGroupResult{
+		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
+	})
+
+	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err = s.provisioner.DistributionGroupByMachineId(
+		s.machine.MachineTag(),
+		machine1.MachineTag(),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results), gc.Equals, 2)
+	c.Assert(results, gc.DeepEquals, []provisioner.DistributionGroupResult{
+		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
+		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
+	})
+
+	machine2, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	unit2, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit2.AssignToMachine(machine2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results, err = s.provisioner.DistributionGroupByMachineId(
+		s.machine.MachineTag(),
+		machine1.MachineTag(),
+		machine2.MachineTag(),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results), gc.Equals, 3)
+	c.Assert(results, gc.DeepEquals, []provisioner.DistributionGroupResult{
+		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
+		provisioner.DistributionGroupResult{MachineIds: []string{"2"}, Err: nil},
+		provisioner.DistributionGroupResult{MachineIds: []string{"1"}, Err: nil},
+	})
+}
+
+func (s *provisionerSuite) TestDistributionGroupByMachineIdNotFound(c *gc.C) {
+	stateMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	machineTag := stateMachine.MachineTag()
+	apiMachine := s.assertGetOneMachine(c, machineTag)
+	err = apiMachine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = apiMachine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.provisioner.DistributionGroupByMachineId(machineTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results), gc.Equals, 1)
+	c.Assert(results[0].Err, gc.ErrorMatches, "machine 1 not found")
+	c.Assert(results[0].Err, jc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
@@ -427,8 +519,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	}
 	machine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
-	apiMachine, err := s.provisioner.Machine(machine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
+	apiMachine := s.assertGetOneMachine(c, machine.MachineTag())
 	provisioningInfo, err := apiMachine.ProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioningInfo.Series, gc.Equals, template.Series)
@@ -443,8 +534,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 func (s *provisionerSuite) TestProvisioningInfoMachineNotFound(c *gc.C) {
 	stateMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	apiMachine, err := s.provisioner.Machine(stateMachine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
+	apiMachine := s.assertGetOneMachine(c, stateMachine.MachineTag())
 	err = apiMachine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = apiMachine.Remove()
@@ -456,8 +546,7 @@ func (s *provisionerSuite) TestProvisioningInfoMachineNotFound(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
-	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 
 	// Add one LXD container.
 	template := state.MachineTemplate{
@@ -493,8 +582,7 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestWatchContainersAcceptsSupportedContainers(c *gc.C) {
-	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 
 	for _, ctype := range instance.ContainerTypes {
 		w, err := apiMachine.WatchContainers(ctype)
@@ -504,10 +592,9 @@ func (s *provisionerSuite) TestWatchContainersAcceptsSupportedContainers(c *gc.C
 }
 
 func (s *provisionerSuite) TestWatchContainersErrors(c *gc.C) {
-	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 
-	_, err = apiMachine.WatchContainers(instance.NONE)
+	_, err := apiMachine.WatchContainers(instance.NONE)
 	c.Assert(err, gc.ErrorMatches, `unsupported container type "none"`)
 
 	_, err = apiMachine.WatchContainers("")
@@ -589,9 +676,8 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
-	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
-	err = apiMachine.SetSupportedContainers(instance.LXD, instance.KVM)
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+	err := apiMachine.SetSupportedContainers(instance.LXD, instance.KVM)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Refresh()
@@ -602,9 +688,8 @@ func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestSupportsNoContainers(c *gc.C) {
-	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
-	c.Assert(err, jc.ErrorIsNil)
-	err = apiMachine.SupportsNoContainers()
+	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
+	err := apiMachine.SupportsNoContainers()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Refresh()

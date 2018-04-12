@@ -5,6 +5,7 @@ package cloudimagemetadata_test
 
 import (
 	"regexp"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -13,6 +14,7 @@ import (
 	txntesting "github.com/juju/txn/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -84,6 +86,51 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataWithDateCreated(c *gc.C) {
 	metadata := cloudimagemetadata.Metadata{attrs, 0, "1", now}
 	s.assertRecordMetadata(c, metadata)
 	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{}, metadata)
+}
+
+func (s *cloudImageMetadataSuite) TestSaveMetadataExpiry(c *gc.C) {
+	s.assertSaveMetadataExpiry(c, true)
+}
+
+func (s *cloudImageMetadataSuite) TestSaveMetadataNoExpiry(c *gc.C) {
+	s.assertSaveMetadataExpiry(c, false)
+}
+
+func (s *cloudImageMetadataSuite) assertSaveMetadataExpiry(c *gc.C, expires bool) {
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          "stream",
+		Region:          "region-test",
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test",
+		Source:          "test",
+	}
+	now := coretesting.NonZeroTime().UnixNano()
+	metadata := []cloudimagemetadata.Metadata{{attrs, 0, "1", now}}
+	s.assertNoMetadata(c)
+
+	var err error
+	if expires {
+		err = s.storage.SaveMetadata(metadata)
+	} else {
+		err = s.storage.SaveMetadataNoExpiry(metadata)
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	coll, closer := s.access.GetCollection(collectionName)
+	defer closer()
+
+	var all []bson.M
+	err = coll.Find(nil).All(&all)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, record := range all {
+		expiresAt, ok := record["expire-at"].(time.Time)
+		c.Assert(ok, gc.Equals, expires)
+		if expires {
+			c.Assert(expiresAt.UnixNano() > now, jc.IsTrue)
+		}
+	}
 }
 
 func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
@@ -190,6 +237,21 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataUpdateSameAttrsDiffImages(c *g
 	s.assertRecordMetadata(c, metadata1)
 	s.assertMetadataRecorded(c, attrs, metadata1)
 	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{}, metadata1)
+}
+
+func (s *cloudImageMetadataSuite) TestSaveMetadataDuplicates(c *gc.C) {
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:   "stream",
+		Version:  "14.04",
+		Series:   "trusty",
+		Arch:     "arch",
+		Source:   "test",
+		Region:   "wonder",
+		VirtType: "lxd",
+	}
+	metadata0 := cloudimagemetadata.Metadata{attrs, 0, "1", 0}
+	err := s.storage.SaveMetadata([]cloudimagemetadata.Metadata{metadata0, metadata0})
+	c.Assert(err, gc.ErrorMatches, ".*"+regexp.QuoteMeta(`duplicate metadata record for image id 1 (key="stream:wonder:trusty:arch:lxd::test")`))
 }
 
 func (s *cloudImageMetadataSuite) TestSaveDiffMetadataConcurrentlyAndOrderByDateCreated(c *gc.C) {
@@ -366,8 +428,8 @@ func (s *cloudImageMetadataSuite) assertConcurrentSave(c *gc.C, metadata0, metad
 	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{}, expected...)
 }
 
-func (s *cloudImageMetadataSuite) assertRecordMetadata(c *gc.C, m cloudimagemetadata.Metadata) {
-	err := s.storage.SaveMetadata([]cloudimagemetadata.Metadata{m})
+func (s *cloudImageMetadataSuite) assertRecordMetadata(c *gc.C, m ...cloudimagemetadata.Metadata) {
+	err := s.storage.SaveMetadata(m)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

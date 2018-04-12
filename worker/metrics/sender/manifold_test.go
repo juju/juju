@@ -9,12 +9,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/errors"
 	"github.com/juju/httprequest"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -29,6 +31,7 @@ type ManifoldSuite struct {
 	testing.IsolationSuite
 	factory   spool.MetricFactory
 	client    metricsadder.MetricsAdderClient
+	apiCaller *stubAPICaller
 	manifold  dependency.Manifold
 	resources dt.StubResources
 }
@@ -59,9 +62,10 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	err := os.MkdirAll(filepath.Join(dataDir, "agents", "unit-u-0"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.apiCaller = &stubAPICaller{&testing.Stub{}}
 	s.resources = dt.StubResources{
 		"agent":        dt.StubResource{Output: &dummyAgent{dataDir: dataDir}},
-		"api-caller":   dt.StubResource{Output: &stubAPICaller{&testing.Stub{}}},
+		"api-caller":   dt.StubResource{Output: s.apiCaller},
 		"metric-spool": dt.StubResource{Output: s.factory},
 	}
 }
@@ -106,6 +110,31 @@ func (s *ManifoldSuite) setupWorkerTest(c *gc.C) worker.Worker {
 	return worker
 }
 
+type mockListener struct {
+	testing.Stub
+	spool.ConnectionHandler
+}
+
+// Stop implements the stopper interface.
+func (l *mockListener) Stop() error {
+	l.AddCall("Stop")
+	return nil
+}
+
+func (s *ManifoldSuite) TestWorkerErrorStopsSender(c *gc.C) {
+	listener := &mockListener{}
+	s.PatchValue(sender.NewListener, sender.NewListenerFunc(listener))
+
+	s.apiCaller.SetErrors(errors.New("blah"))
+
+	worker, err := s.manifold.Start(s.resources.Context())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(worker, gc.NotNil)
+	err = worker.Wait()
+	c.Assert(err, gc.ErrorMatches, ".*blah")
+	listener.CheckCallNames(c, "Stop")
+}
+
 var _ base.APICaller = (*stubAPICaller)(nil)
 
 type stubAPICaller struct {
@@ -114,7 +143,7 @@ type stubAPICaller struct {
 
 func (s *stubAPICaller) APICall(objType string, version int, id, request string, params, response interface{}) error {
 	s.MethodCall(s, "APICall", objType, version, id, request, params, response)
-	return nil
+	return s.NextErr()
 }
 
 func (s *stubAPICaller) BestFacadeVersion(facade string) int {
@@ -136,6 +165,10 @@ func (s *stubAPICaller) ConnectControllerStream(string, url.Values, http.Header)
 }
 
 func (s *stubAPICaller) HTTPClient() (*httprequest.Client, error) {
+	panic("should not be called")
+}
+
+func (s *stubAPICaller) BakeryClient() *httpbakery.Client {
 	panic("should not be called")
 }
 

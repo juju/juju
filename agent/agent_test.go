@@ -111,7 +111,7 @@ var agentConfigTests = []struct {
 	},
 	checkErr: "CA certificate not found in configuration",
 }, {
-	about: "need either state or api addresses",
+	about: "need api addresses",
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
@@ -121,20 +121,7 @@ var agentConfigTests = []struct {
 		Controller:        testing.ControllerTag,
 		Model:             testing.ModelTag,
 	},
-	checkErr: "state or API addresses not found in configuration",
-}, {
-	about: "invalid state address",
-	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
-		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: jujuversion.Current,
-		Password:          "sekrit",
-		CACert:            "ca cert",
-		Controller:        testing.ControllerTag,
-		Model:             testing.ModelTag,
-		StateAddresses:    []string{"localhost:8080", "bad-address"},
-	},
-	checkErr: `invalid controller address "bad-address"`,
+	checkErr: "API addresses not found in configuration",
 }, {
 	about: "invalid api address",
 	params: agent.AgentConfigParams{
@@ -149,18 +136,6 @@ var agentConfigTests = []struct {
 	},
 	checkErr: `invalid API server address "bad-address"`,
 }, {
-	about: "good state addresses",
-	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
-		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: jujuversion.Current,
-		Password:          "sekrit",
-		CACert:            "ca cert",
-		Controller:        testing.ControllerTag,
-		Model:             testing.ModelTag,
-		StateAddresses:    []string{"localhost:1234"},
-	},
-}, {
 	about: "good api addresses",
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
@@ -173,19 +148,6 @@ var agentConfigTests = []struct {
 		APIAddresses:      []string{"localhost:1234"},
 	},
 }, {
-	about: "both state and api addresses",
-	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
-		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: jujuversion.Current,
-		Password:          "sekrit",
-		CACert:            "ca cert",
-		Controller:        testing.ControllerTag,
-		Model:             testing.ModelTag,
-		StateAddresses:    []string{"localhost:1234"},
-		APIAddresses:      []string{"localhost:1235"},
-	},
-}, {
 	about: "everything...",
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
@@ -195,7 +157,6 @@ var agentConfigTests = []struct {
 		CACert:            "ca cert",
 		Controller:        testing.ControllerTag,
 		Model:             testing.ModelTag,
-		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
 	},
@@ -209,7 +170,6 @@ var agentConfigTests = []struct {
 		CACert:            "ca cert",
 		Controller:        testing.ControllerTag,
 		Model:             testing.ModelTag,
-		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
 	},
@@ -226,7 +186,6 @@ var agentConfigTests = []struct {
 		CACert:            "ca cert",
 		Controller:        testing.ControllerTag,
 		Model:             testing.ModelTag,
-		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
 	},
@@ -246,7 +205,6 @@ var agentConfigTests = []struct {
 		CACert:            "ca cert",
 		Controller:        testing.ControllerTag,
 		Model:             testing.ModelTag,
-		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
 	},
@@ -261,7 +219,7 @@ var agentConfigTests = []struct {
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 	},
-	checkErr: "entity tag must be MachineTag or UnitTag, got names.UserTag",
+	checkErr: "entity tag must be MachineTag, UnitTag or ApplicationTag, got names.UserTag",
 }, {
 	about: "agentConfig accepts a Unit tag",
 	params: agent.AgentConfigParams{
@@ -272,11 +230,25 @@ var agentConfigTests = []struct {
 		Controller:        testing.ControllerTag,
 		Model:             testing.ModelTag,
 		CACert:            "ca cert",
-		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 	},
 	inspectConfig: func(c *gc.C, cfg agent.Config) {
 		c.Check(cfg.Dir(), gc.Equals, "/data/dir/agents/unit-ubuntu-1")
+	},
+}, {
+	about: "agentConfig accepts an Application tag",
+	params: agent.AgentConfigParams{
+		Paths:             agent.Paths{DataDir: "/data/dir"},
+		Tag:               names.NewApplicationTag("ubuntu"),
+		Password:          "sekrit",
+		UpgradedToVersion: jujuversion.Current,
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
+		CACert:            "ca cert",
+		APIAddresses:      []string{"localhost:1235"},
+	},
+	inspectConfig: func(c *gc.C, cfg agent.Config) {
+		c.Check(cfg.Dir(), gc.Equals, "/data/dir/agents/application-ubuntu")
 	},
 }}
 
@@ -380,7 +352,6 @@ var attributeParams = agent.AgentConfigParams{
 	UpgradedToVersion: jujuversion.Current,
 	Password:          "sekrit",
 	CACert:            "ca cert",
-	StateAddresses:    []string{"localhost:1234"},
 	APIAddresses:      []string{"localhost:1235"},
 	Nonce:             "a nonce",
 	Controller:        testing.ControllerTag,
@@ -462,32 +433,48 @@ func (*suite) TestAPIInfoMissingAddress(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
+func (*suite) TestAPIInfoServesLocalhostOnlyWhenServingInfoPresent(c *gc.C) {
 	attrParams := attributeParams
+	attrParams.APIAddresses = []string{"localhost:1235", "localhost:1236"}
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
-	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses)+1)
-	localhostAddressFound := false
-	for _, eachAPIAddress := range apiinfo.Addrs {
-		if eachAPIAddress == "localhost:47" {
-			localhostAddressFound = true
-			break
-		}
-	}
-	c.Assert(localhostAddressFound, jc.IsTrue)
+	c.Check(apiinfo.Addrs, gc.DeepEquals, []string{"localhost:47"})
 }
 
 func (*suite) TestMongoInfo(c *gc.C) {
 	attrParams := attributeParams
+	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88"}
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	mongoInfo, ok := conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69"})
+	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69", "foo.example:69", "bar.example:69"})
+	c.Check(mongoInfo.Info.DisableTLS, jc.IsFalse)
+}
+
+func (*suite) TestPromotedMongoInfo(c *gc.C) {
+	attrParams := attributeParams
+	attrParams.APIAddresses = []string{"foo.example:1235", "bar.example:1236", "localhost:88"}
+	conf, err := agent.NewAgentConfig(attrParams)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mongoInfo, ok := conf.MongoInfo()
+	c.Assert(ok, jc.IsFalse)
+
+	// Promote the agent to a controller by
+	// setting state serving info. As soon
+	// as this is done, we should be able
+	// to use MongoInfo.
+	conf.SetStateServingInfo(stateServingInfo())
+
+	mongoInfo, ok = conf.MongoInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69", "foo.example:69", "bar.example:69"})
+	c.Check(mongoInfo.Info.DisableTLS, jc.IsFalse)
 }
 
 func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfo(c *gc.C) {

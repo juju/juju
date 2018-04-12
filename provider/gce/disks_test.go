@@ -179,22 +179,76 @@ func (s *volumeSourceSuite) TestDestroyVolumes(c *gc.C) {
 	c.Assert(call[0].ID, gc.Equals, "a--volume-name")
 }
 
+func (s *volumeSourceSuite) TestReleaseVolumes(c *gc.C) {
+	s.FakeConn.GoogleDisk = s.BaseDisk
+
+	errs, err := s.source.ReleaseVolumes([]string{s.BaseDisk.Name})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(errs, gc.HasLen, 1)
+	c.Assert(errs[0], jc.ErrorIsNil)
+
+	called, calls := s.FakeConn.WasCalled("SetDiskLabels")
+	c.Check(called, jc.IsTrue)
+	c.Assert(calls, gc.HasLen, 1)
+	c.Assert(calls[0].ZoneName, gc.Equals, "home-zone")
+	c.Assert(calls[0].ID, gc.Equals, s.BaseDisk.Name)
+	c.Assert(calls[0].Labels, jc.DeepEquals, map[string]string{
+		"yodel": "eh",
+		// Note, no controller/model labels
+	})
+}
+
+func (s *volumeSourceSuite) TestImportVolume(c *gc.C) {
+	s.FakeConn.GoogleDisk = s.BaseDisk
+
+	c.Assert(s.source, gc.Implements, new(storage.VolumeImporter))
+	volumeInfo, err := s.source.(storage.VolumeImporter).ImportVolume(
+		s.BaseDisk.Name, map[string]string{
+			"juju-model-uuid":      "foo",
+			"juju-controller-uuid": "bar",
+		},
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(volumeInfo, jc.DeepEquals, storage.VolumeInfo{
+		VolumeId:   s.BaseDisk.Name,
+		Size:       1024,
+		Persistent: true,
+	})
+
+	called, calls := s.FakeConn.WasCalled("SetDiskLabels")
+	c.Check(called, jc.IsTrue)
+	c.Assert(calls, gc.HasLen, 1)
+	c.Assert(calls[0].ZoneName, gc.Equals, "home-zone")
+	c.Assert(calls[0].ID, gc.Equals, s.BaseDisk.Name)
+	c.Assert(calls[0].Labels, jc.DeepEquals, map[string]string{
+		"juju-model-uuid":      "foo",
+		"juju-controller-uuid": "bar",
+		"yodel":                "eh", // other existing tags left alone
+	})
+}
+
+func (s *volumeSourceSuite) TestImportVolumeNotReady(c *gc.C) {
+	s.FakeConn.GoogleDisk = s.BaseDisk
+	s.FakeConn.GoogleDisk.Status = "floop"
+
+	_, err := s.source.(storage.VolumeImporter).ImportVolume(
+		s.BaseDisk.Name, map[string]string{},
+	)
+	c.Check(err, gc.ErrorMatches, `cannot import volume "`+s.BaseDisk.Name+`" with status "floop"`)
+
+	called, _ := s.FakeConn.WasCalled("SetDiskLabels")
+	c.Check(called, jc.IsFalse)
+}
+
 func (s *volumeSourceSuite) TestListVolumes(c *gc.C) {
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
-	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}
 	vols, err := s.source.ListVolumes()
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 1)
 
-	azsCalled, call := s.FakeConn.WasCalled("AvailabilityZones")
-	c.Check(call, gc.HasLen, 1)
-	c.Assert(azsCalled, jc.IsTrue)
-	c.Assert(call[0].Region, gc.Equals, "")
-
 	disksCalled, call := s.FakeConn.WasCalled("Disks")
 	c.Check(call, gc.HasLen, 1)
 	c.Assert(disksCalled, jc.IsTrue)
-	c.Assert(call[0].ZoneName, gc.Equals, "home-zone")
 }
 
 func (s *volumeSourceSuite) TestListVolumesOnlyListsCurrentModelUUID(c *gc.C) {
@@ -205,28 +259,14 @@ func (s *volumeSourceSuite) TestListVolumesOnlyListsCurrentModelUUID(c *gc.C) {
 		Status:      google.StatusReady,
 		Size:        1024,
 		Description: "a-different-model-uuid",
+		Labels: map[string]string{
+			"juju-model-uuid": "foo",
+		},
 	}
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
-	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}
 	vols, err := s.source.ListVolumes()
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 1)
-}
-
-func (s *volumeSourceSuite) TestListVolumesListsEmptyUUIDVolumes(c *gc.C) {
-	otherDisk := &google.Disk{
-		Id:          1234568,
-		Name:        "home-zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
-		Zone:        "home-zone",
-		Status:      google.StatusReady,
-		Size:        1024,
-		Description: "",
-	}
-	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
-	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}
-	vols, err := s.source.ListVolumes()
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(vols, gc.HasLen, 2)
 }
 
 func (s *volumeSourceSuite) TestListVolumesIgnoresNamesFormatteDifferently(c *gc.C) {
@@ -239,7 +279,6 @@ func (s *volumeSourceSuite) TestListVolumesIgnoresNamesFormatteDifferently(c *gc
 		Description: "",
 	}
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
-	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}
 	vols, err := s.source.ListVolumes()
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(vols, gc.HasLen, 1)
@@ -274,7 +313,8 @@ func (s *volumeSourceSuite) TestAttachVolumes(c *gc.C) {
 	c.Assert(res, gc.HasLen, 1)
 	c.Assert(res[0].VolumeAttachment.Volume.String(), gc.Equals, "volume-0")
 	c.Assert(res[0].VolumeAttachment.Machine.String(), gc.Equals, "machine-0")
-	c.Assert(res[0].VolumeAttachment.VolumeAttachmentInfo.DeviceName, gc.Equals, "home-zone-1234567")
+	c.Assert(res[0].VolumeAttachment.VolumeAttachmentInfo.DeviceName, gc.Equals, "")
+	c.Assert(res[0].VolumeAttachment.VolumeAttachmentInfo.DeviceLink, gc.Equals, "/dev/disk/by-id/google-home-zone-1234567")
 
 	// Disk Was attached
 	attachCalled, call := s.FakeConn.WasCalled("AttachDisk")

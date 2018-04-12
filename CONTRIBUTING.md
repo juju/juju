@@ -11,9 +11,7 @@ Contents
 Quick links
 ===========
 
-* issue tracker: https://launchpad.net/juju-core
-* continuous integration: http://juju-ci.vapour.ws:8080/
-* code review: http://reviews.vapour.ws/
+* issue tracker: https://launchpad.net/juju
 
 Documentation:
 * https://jujucharms.com/docs/
@@ -111,7 +109,7 @@ Add the check script as a git hook:
 
 ```shell
 $ cd $GOPATH/src/github.com/juju/juju
-$ ln -s ../../scripts/pre-push.bash .git/hooks/pre-push
+$ ln -s scripts/pre-push.bash .git/hooks/pre-push
 ```
 
 This will ensure that any changes you commit locally pass a basic sanity
@@ -125,7 +123,7 @@ Make sure your local copy and github fork stay in sync with upstream:
 
 ```shell
 $ cd $GOPATH/src/github.com/juju/juju
-$ git pull upstream master
+$ git pull upstream develop
 $ git push
 ```
 
@@ -231,11 +229,11 @@ Naturally it is not so linear in practice.  Each of these is elaborated below.
 Sync with upstream
 ------------------
 
-First check that the branch is on master:
+First check that the branch is on develop:
 
 ```shell
 $ git branch
-* master
+* develop
   old_feature
 ```
 
@@ -243,14 +241,14 @@ Then pull in the latest changes from upstream, assuming you have done
 the setup as above:
 
 ```shell
-$ git pull upstream master
+$ git pull upstream develop
 ```
 
 Feature branches
 ----------------
 
 All development should be done on feature branches based on a current
-copy of master.  So after pulling up your local repo, make a new branch
+copy of develop.  So after pulling up your local repo, make a new branch
 for your work:
 
 ```shell
@@ -327,12 +325,12 @@ When ready for feedback, push your feature branch to github, optionally after
 collapsing multiple commits into discrete changes:
 
 ```shell
-$ git rebase -i --autosquash master
+$ git rebase -i --autosquash develop
 $ git push origin new_feature
 ```
 
 Go to the web page (https://github.com/$YOUR_GITHUB_USERNAME/juju)
-and hit the "Pull Request" button, selecting master as the target.
+and hit the "Pull Request" button, selecting develop as the target.
 
 This creates a numbered pull request on the github site, where members
 of the juju project can see and comment on the changes.
@@ -355,56 +353,29 @@ Code review
 -----------
 
 The juju project uses peer review of pull requests prior to merging to
-facilitate improvements both in code quality and in design.  The code
-review tool is ReviewBoard, hosted at http://reviews.vapour.ws/.  In the
-event that the site is down, the project will temporarily fall back to
-github for reviews of critical pull requests.
-
-A review request is automatically created for every pull request.  A
-link to that review request is added to the body of the pull request.
-Whenever the pull request is updated, the review request is likewise
-updated.  Thus for the normal workflow of contribution, there should
-be no need to worry about creating or updating review requests.
+facilitate improvements both in code quality and in design.
 
 Once you have created your pull request, it will be reviewed.  Make sure
 to address the feedback.  Your request might go through several rounds
-of feedback before the patch is approved or rejected.  Once you get a
-"ship it" from a member of the juju project, and there are not any
-"NOT LGTM" comments in ReviewBoard or github, you are ready to have your
-patch merged by a member of the juju team.  Congratulations!
+of feedback before the patch is approved or rejected.  Once you get an approval
+from a member of the juju project, you are ready to have your patch merged.
+Congratulations!
 
-The code review site uses github OAuth for authentication.  To log in
-simply go to login page and click the "github" button.  The first time
-you do this, it will redirect you to github to approve access and then
-redirect you back.  This first time is the only one where you will be
-redirected to github.  Furthermore, ReviewBoard will keep you logged in
-between visits via session cookies.
-
-That first time you log in, a ReviewBoard account will be created for
-you using your github username.  However, your email address is not
-added.  If you want to receive review-related email, be sure to add your
-email address to your ReviewBoard profile.
-
-For more information on ReviewBoard see:
-
- doc/contributions/reviewboard.md
 
 Continuous integration
 ----------------------
 
 Continuous integration is automated through Jenkins:
 
-http://juju-ci.vapour.ws:8080/
-
-The bot runs the test suite after `$$merge$$` but before it actually
-merges the pull request into master.
+The bot runs on all commits during the PRE process,
+as well as handles merges. Use the `$$merge$$` comment to land PR's.
 
 Community
 =========
 
 The juju community is growing and you have a number of options for
 interacting beyond the workflow and the
-[issue tracker](https://launchpad.net/juju-core).
+[issue tracker](https://launchpad.net/juju).
 
 Take a look at the community page:
 

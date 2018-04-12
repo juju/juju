@@ -32,7 +32,7 @@ type sshHostKeysDoc struct {
 // NOTE: Currently only machines are supported. This can be
 // generalised to take other tag types later, if and when we need it.
 func (st *State) GetSSHHostKeys(tag names.MachineTag) (SSHHostKeys, error) {
-	coll, closer := st.getCollection(sshHostKeysC)
+	coll, closer := st.db().GetCollection(sshHostKeysC)
 	defer closer()
 
 	var doc sshHostKeysDoc
@@ -53,7 +53,7 @@ func (st *State) SetSSHHostKeys(tag names.MachineTag, keys SSHHostKeys) error {
 	doc := sshHostKeysDoc{
 		Keys: keys,
 	}
-	err := st.runTransaction([]txn.Op{
+	err := st.db().RunTransaction([]txn.Op{
 		{
 			C:      sshHostKeysC,
 			Id:     id,
@@ -69,7 +69,7 @@ func (st *State) SetSSHHostKeys(tag names.MachineTag, keys SSHHostKeys) error {
 
 // removeSSHHostKeyOp returns the operation needed to remove the SSH
 // host key document associated with the given globalKey.
-func removeSSHHostKeyOp(st *State, globalKey string) txn.Op {
+func removeSSHHostKeyOp(globalKey string) txn.Op {
 	return txn.Op{
 		C:      sshHostKeysC,
 		Id:     globalKey,

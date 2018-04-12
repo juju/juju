@@ -20,6 +20,7 @@ type VolumeSource struct {
 	ListVolumesFunc          func() ([]string, error)
 	DescribeVolumesFunc      func([]string) ([]storage.DescribeVolumesResult, error)
 	DestroyVolumesFunc       func([]string) ([]error, error)
+	ReleaseVolumesFunc       func([]string) ([]error, error)
 	ValidateVolumeParamsFunc func(storage.VolumeParams) error
 	AttachVolumesFunc        func([]storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)
 	DetachVolumesFunc        func([]storage.VolumeAttachmentParams) ([]error, error)
@@ -59,6 +60,15 @@ func (s *VolumeSource) DestroyVolumes(volIds []string) ([]error, error) {
 		return s.DestroyVolumesFunc(volIds)
 	}
 	return nil, errors.NotImplementedf("DestroyVolumes")
+}
+
+// ReleaseVolumes is defined on storage.VolumeSource.
+func (s *VolumeSource) ReleaseVolumes(volIds []string) ([]error, error) {
+	s.MethodCall(s, "ReleaseVolumes", volIds)
+	if s.ReleaseVolumesFunc != nil {
+		return s.ReleaseVolumesFunc(volIds)
+	}
+	return nil, errors.NotImplementedf("ReleaseVolumes")
 }
 
 // ValidateVolumeParams is defined on storage.VolumeSource.

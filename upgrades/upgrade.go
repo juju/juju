@@ -97,15 +97,6 @@ func PerformUpgrade(from version.Number, targets []Target, context Context) erro
 		if err := runUpgradeSteps(ops, targets, context.StateContext()); err != nil {
 			return err
 		}
-		if hasDatabaseMasterTarget(targets) {
-			ops, err := newEnvironUpgradeOpsIterator(from, context)
-			if err != nil {
-				return err
-			}
-			if err := runUpgradeSteps(ops, targets, context.StateContext()); err != nil {
-				return err
-			}
-		}
 	}
 	ops := newUpgradeOpsIterator(from)
 	if err := runUpgradeSteps(ops, targets, context.APIContext()); err != nil {

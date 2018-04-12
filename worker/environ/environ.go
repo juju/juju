@@ -6,7 +6,6 @@ package environ
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/watcher"
@@ -20,7 +19,6 @@ var logger = loggo.GetLogger("juju.worker.environ")
 type ConfigObserver interface {
 	environs.EnvironConfigGetter
 	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
-	WatchCredential(tag names.CloudCredentialTag) (watcher.NotifyWatcher, error)
 }
 
 // Config describes the dependencies of a Tracker.

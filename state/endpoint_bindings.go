@@ -7,11 +7,18 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/environs"
 )
+
+// defaultEndpointName is the key in the bindings map that stores the
+// space name that endpoints should be bound to if they aren't found
+// individually.
+const defaultEndpointName = ""
 
 // endpointBindingsDoc represents how a service endpoints are bound to spaces.
 // The DocID field contains the service's global key, so there is always one
@@ -73,8 +80,8 @@ func (b bindingsMap) GetBSON() (interface{}, error) {
 // Returns true/false if there are any actual differences.
 func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[string]string, bool, error) {
 	defaultsMap := DefaultEndpointBindingsForCharm(meta)
-	defaultBinding := oldMap[""]
-	if newDefaultBinding, ok := newMap[""]; ok {
+	defaultBinding := oldMap[defaultEndpointName]
+	if newDefaultBinding, ok := newMap[defaultEndpointName]; ok {
 		// new default binding supersedes the old default binding
 		defaultBinding = newDefaultBinding
 	}
@@ -102,8 +109,8 @@ func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[stri
 
 		updated[key] = effectiveValue
 	}
-	if defaultBinding != "" {
-		updated[""] = defaultBinding
+	if defaultBinding != environs.DefaultSpaceName {
+		updated[defaultEndpointName] = defaultBinding
 	}
 
 	// Any other bindings in newMap are most likely extraneous, but add them
@@ -214,7 +221,7 @@ func removeEndpointBindingsOp(key string) txn.Op {
 // readEndpointBindings returns the stored bindings and TxnRevno for the given
 // service global key, or an error satisfying errors.IsNotFound() otherwise.
 func readEndpointBindings(st *State, key string) (map[string]string, int64, error) {
-	endpointBindings, closer := st.getCollection(endpointBindingsC)
+	endpointBindings, closer := st.db().GetCollection(endpointBindingsC)
 	defer closer()
 
 	var doc endpointBindingsDoc
@@ -264,10 +271,10 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 	// in bindings. In follow-up, this will be enforced by using refcounts on
 	// spaces.
 	for endpoint, space := range bindings {
-		if endpoint != "" && !endpointsNamesSet.Contains(endpoint) {
+		if endpoint != defaultEndpointName && !endpointsNamesSet.Contains(endpoint) {
 			return errors.NotValidf("unknown endpoint %q", endpoint)
 		}
-		if space != "" && !spacesNamesSet.Contains(space) {
+		if space != environs.DefaultSpaceName && !spacesNamesSet.Contains(space) {
 			return errors.NotValidf("unknown space %q", space)
 		}
 	}
@@ -281,12 +288,10 @@ func DefaultEndpointBindingsForCharm(charmMeta *charm.Meta) map[string]string {
 	allRelations := charmMeta.CombinedRelations()
 	bindings := make(map[string]string, len(allRelations)+len(charmMeta.ExtraBindings))
 	for name := range allRelations {
-		bindings[name] = ""
+		bindings[name] = environs.DefaultSpaceName
 	}
 	for name := range charmMeta.ExtraBindings {
-		bindings[name] = ""
+		bindings[name] = environs.DefaultSpaceName
 	}
-	// All charms have a 'default' binding
-	// bindings[""] = ""
 	return bindings
 }

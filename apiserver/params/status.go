@@ -8,6 +8,7 @@ package params
 import (
 	"time"
 
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -25,17 +26,21 @@ type FullStatus struct {
 	Machines           map[string]MachineStatus           `json:"machines"`
 	Applications       map[string]ApplicationStatus       `json:"applications"`
 	RemoteApplications map[string]RemoteApplicationStatus `json:"remote-applications"`
+	Offers             map[string]ApplicationOfferStatus  `json:"offers"`
 	Relations          []RelationStatus                   `json:"relations"`
 }
 
 // ModelStatusInfo holds status information about the model itself.
 type ModelStatusInfo struct {
 	Name             string         `json:"name"`
+	Type             string         `json:"type"`
 	CloudTag         string         `json:"cloud-tag"`
 	CloudRegion      string         `json:"region,omitempty"`
 	Version          string         `json:"version"`
 	AvailableVersion string         `json:"available-version"`
 	ModelStatus      DetailedStatus `json:"model-status"`
+	MeterStatus      MeterStatus    `json:"meter-status"`
+	SLA              string         `json:"sla"`
 }
 
 // NetworkInterfaceStatus holds a /etc/network/interfaces-type data and the
@@ -113,17 +118,32 @@ type ApplicationStatus struct {
 	MeterStatuses   map[string]MeterStatus `json:"meter-statuses"`
 	Status          DetailedStatus         `json:"status"`
 	WorkloadVersion string                 `json:"workload-version"`
+
+	// The following are for CAAS models.
+	ProviderId    string `json:"provider-id,omitempty"`
+	PublicAddress string `json:"public-address"`
 }
 
 // RemoteApplicationStatus holds status info about a remote application.
 type RemoteApplicationStatus struct {
-	Err             error               `json:"err,omitempty"`
-	ApplicationURL  string              `json:"application-url"`
-	ApplicationName string              `json:"application-name"`
-	Endpoints       []RemoteEndpoint    `json:"endpoints"`
-	Life            string              `json:"life"`
-	Relations       map[string][]string `json:"relations"`
-	Status          DetailedStatus      `json:"status"`
+	Err       error               `json:"err,omitempty"`
+	OfferURL  string              `json:"offer-url"`
+	OfferName string              `json:"offer-name"`
+	Endpoints []RemoteEndpoint    `json:"endpoints"`
+	Life      string              `json:"life"`
+	Relations map[string][]string `json:"relations"`
+	Status    DetailedStatus      `json:"status"`
+}
+
+// ApplicationOfferStatus holds status info about an application offer.
+type ApplicationOfferStatus struct {
+	Err                  error                     `json:"err,omitempty"`
+	OfferName            string                    `json:"offer-name"`
+	ApplicationName      string                    `json:"application-name"`
+	CharmURL             string                    `json:"charm"`
+	Endpoints            map[string]RemoteEndpoint `json:"endpoints"`
+	ActiveConnectedCount int                       `json:"active-connected-count"`
+	TotalConnectedCount  int                       `json:"total-connected-count"`
 }
 
 // MeterStatus represents the meter status of a unit.
@@ -147,6 +167,10 @@ type UnitStatus struct {
 	Charm         string                `json:"charm"`
 	Subordinates  map[string]UnitStatus `json:"subordinates"`
 	Leader        bool                  `json:"leader,omitempty"`
+
+	// The following are for CAAS models.
+	ProviderId string `json:"provider-id,omitempty"`
+	Address    string `json:"address,omitempty"`
 }
 
 // RelationStatus holds status info about a relation.
@@ -156,6 +180,7 @@ type RelationStatus struct {
 	Interface string           `json:"interface"`
 	Scope     string           `json:"scope"`
 	Endpoints []EndpointStatus `json:"endpoints"`
+	Status    DetailedStatus   `json:"status"`
 }
 
 // EndpointStatus holds status info about a single endpoint.
@@ -265,4 +290,13 @@ const (
 	Alive Life = "alive"
 	Dying Life = "dying"
 	Dead  Life = "dead"
+)
+
+// RelationStatusValue describes the status of a relation.
+type RelationStatusValue relation.Status
+
+const (
+	Joined    RelationStatusValue = "joined"
+	Suspended RelationStatusValue = "suspended"
+	Broken    RelationStatusValue = "broken"
 )

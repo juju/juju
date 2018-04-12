@@ -104,6 +104,14 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		return nil, errors.Trace(err)
 	}
 
+	cloudInitUserData, err := combinedCloudInitData(
+		config.CloudInitUserData,
+		config.ContainerInheritProperties,
+		series, lxdLogger)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if err := instancecfg.PopulateInstanceConfig(
 		args.InstanceConfig,
 		config.ProviderType,
@@ -114,6 +122,7 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		config.AptMirror,
 		config.EnableOSRefreshUpdate,
 		config.EnableOSUpgrade,
+		cloudInitUserData,
 	); err != nil {
 		lxdLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, err

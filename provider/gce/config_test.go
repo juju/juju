@@ -88,23 +88,6 @@ func (ts configTestSpec) newConfig(c *gc.C) *config.Config {
 	return cfg
 }
 
-func (ts configTestSpec) fixCfg(c *gc.C, cfg *config.Config) *config.Config {
-	newCfg, err := cfg.Apply(ts.insert)
-	c.Assert(err, jc.ErrorIsNil)
-	return newCfg
-}
-
-func updateAttrs(attrs, updates testing.Attrs) testing.Attrs {
-	updated := make(testing.Attrs, len(attrs))
-	for k, v := range attrs {
-		updated[k] = v
-	}
-	for k, v := range updates {
-		updated[k] = v
-	}
-	return updated
-}
-
 var newConfigTests = []configTestSpec{{
 	info:   "unknown field is not touched",
 	insert: testing.Attrs{"unknown-field": 12345},

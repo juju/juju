@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -100,7 +100,7 @@ func newCommonWatcher(backend modelBackend) commonWatcher {
 type commonWatcher struct {
 	backend modelBackend
 	db      Database
-	watcher *watcher.Watcher
+	watcher watcher.BaseWatcher
 	tomb    tomb.Tomb
 }
 
@@ -210,83 +210,85 @@ func (st *State) WatchModels() StringsWatcher {
 }
 
 // WatchModelLives returns a StringsWatcher that notifies of changes
-// to any model life values. The most important difference between
-// this and WatchModels is that this will signal one last time if a
-// model is removed.
+// to any model life values. The watcher will not send any more events
+// for a model after it has been observed to be Dead.
 func (st *State) WatchModelLives() StringsWatcher {
 	return newLifecycleWatcher(st, modelsC, nil, nil, nil)
 }
 
 // WatchModelVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all model-scoped volumes.
-func (st *State) WatchModelVolumes() StringsWatcher {
-	return st.watchModelMachinestorage(volumesC)
+func (im *IAASModel) WatchModelVolumes() StringsWatcher {
+	return im.watchModelMachinestorage(volumesC)
 }
 
 // WatchModelFilesystems returns a StringsWatcher that notifies of changes
 // to the lifecycles of all model-scoped filesystems.
-func (st *State) WatchModelFilesystems() StringsWatcher {
-	return st.watchModelMachinestorage(filesystemsC)
+func (im *IAASModel) WatchModelFilesystems() StringsWatcher {
+	return im.watchModelMachinestorage(filesystemsC)
 }
 
-func (st *State) watchModelMachinestorage(collection string) StringsWatcher {
-	pattern := fmt.Sprintf("^%s$", st.docID(names.NumberSnippet))
+func (im *IAASModel) watchModelMachinestorage(collection string) StringsWatcher {
+	mb := im.mb
+	pattern := fmt.Sprintf("^%s$", mb.docID(names.NumberSnippet))
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
-		k, err := st.strictLocalID(id.(string))
+		k, err := mb.strictLocalID(id.(string))
 		if err != nil {
 			return false
 		}
 		return !strings.Contains(k, "/")
 	}
-	return newLifecycleWatcher(st, collection, members, filter, nil)
+	return newLifecycleWatcher(mb, collection, members, filter, nil)
 }
 
 // WatchMachineVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all volumes scoped to the specified machine.
-func (st *State) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
-	return st.watchMachineStorage(m, volumesC)
+func (im *IAASModel) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
+	return im.watchMachineStorage(m, volumesC)
 }
 
 // WatchMachineFilesystems returns a StringsWatcher that notifies of changes
 // to the lifecycles of all filesystems scoped to the specified machine.
-func (st *State) WatchMachineFilesystems(m names.MachineTag) StringsWatcher {
-	return st.watchMachineStorage(m, filesystemsC)
+func (im *IAASModel) WatchMachineFilesystems(m names.MachineTag) StringsWatcher {
+	return im.watchMachineStorage(m, filesystemsC)
 }
 
-func (st *State) watchMachineStorage(m names.MachineTag, collection string) StringsWatcher {
-	pattern := fmt.Sprintf("^%s/%s$", st.docID(m.Id()), names.NumberSnippet)
+func (im *IAASModel) watchMachineStorage(m names.MachineTag, collection string) StringsWatcher {
+	mb := im.mb
+	pattern := fmt.Sprintf("^%s/%s$", mb.docID(m.Id()), names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	prefix := m.Id() + "/"
 	filter := func(id interface{}) bool {
-		k, err := st.strictLocalID(id.(string))
+		k, err := mb.strictLocalID(id.(string))
 		if err != nil {
 			return false
 		}
 		return strings.HasPrefix(k, prefix)
 	}
-	return newLifecycleWatcher(st, collection, members, filter, nil)
+	return newLifecycleWatcher(mb, collection, members, filter, nil)
 }
 
-// WatchEnvironVolumeAttachments returns a StringsWatcher that notifies of
+// WatchModelVolumeAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all volume attachments related to environ-
 // scoped volumes.
-func (st *State) WatchEnvironVolumeAttachments() StringsWatcher {
-	return st.watchModelMachinestorageAttachments(volumeAttachmentsC)
+func (im *IAASModel) WatchModelVolumeAttachments() StringsWatcher {
+	return im.watchModelMachinestorageAttachments(volumeAttachmentsC)
 }
 
-// WatchEnvironFilesystemAttachments returns a StringsWatcher that notifies
+// WatchModelFilesystemAttachments returns a StringsWatcher that notifies
 // of changes to the lifecycles of all filesystem attachments related to
 // environ-scoped filesystems.
-func (st *State) WatchEnvironFilesystemAttachments() StringsWatcher {
-	return st.watchModelMachinestorageAttachments(filesystemAttachmentsC)
+func (im *IAASModel) WatchModelFilesystemAttachments() StringsWatcher {
+	return im.watchModelMachinestorageAttachments(filesystemAttachmentsC)
 }
 
-func (st *State) watchModelMachinestorageAttachments(collection string) StringsWatcher {
-	pattern := fmt.Sprintf("^%s.*:%s$", st.docID(""), names.NumberSnippet)
+func (im *IAASModel) watchModelMachinestorageAttachments(collection string) StringsWatcher {
+	mb := im.mb
+	pattern := fmt.Sprintf("^%s.*:%s$", mb.docID(""), names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
-		k, err := st.strictLocalID(id.(string))
+		k, err := mb.strictLocalID(id.(string))
 		if err != nil {
 			return false
 		}
@@ -296,40 +298,41 @@ func (st *State) watchModelMachinestorageAttachments(collection string) StringsW
 		}
 		return !strings.Contains(k[colon+1:], "/")
 	}
-	return newLifecycleWatcher(st, collection, members, filter, nil)
+	return newLifecycleWatcher(mb, collection, members, filter, nil)
 }
 
 // WatchMachineVolumeAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all volume attachments related to the specified
 // machine, for volumes scoped to the machine.
-func (st *State) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatcher {
-	return st.watchMachineStorageAttachments(m, volumeAttachmentsC)
+func (im *IAASModel) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatcher {
+	return im.watchMachineStorageAttachments(m, volumeAttachmentsC)
 }
 
 // WatchMachineFilesystemAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all filesystem attachments related to the specified
 // machine, for filesystems scoped to the machine.
-func (st *State) WatchMachineFilesystemAttachments(m names.MachineTag) StringsWatcher {
-	return st.watchMachineStorageAttachments(m, filesystemAttachmentsC)
+func (im *IAASModel) WatchMachineFilesystemAttachments(m names.MachineTag) StringsWatcher {
+	return im.watchMachineStorageAttachments(m, filesystemAttachmentsC)
 }
 
-func (st *State) watchMachineStorageAttachments(m names.MachineTag, collection string) StringsWatcher {
-	pattern := fmt.Sprintf("^%s:%s/.*", st.docID(m.Id()), m.Id())
+func (im *IAASModel) watchMachineStorageAttachments(m names.MachineTag, collection string) StringsWatcher {
+	mb := im.mb
+	pattern := fmt.Sprintf("^%s:%s/.*", mb.docID(m.Id()), m.Id())
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	prefix := m.Id() + fmt.Sprintf(":%s/", m.Id())
 	filter := func(id interface{}) bool {
-		k, err := st.strictLocalID(id.(string))
+		k, err := mb.strictLocalID(id.(string))
 		if err != nil {
 			return false
 		}
 		return strings.HasPrefix(k, prefix)
 	}
-	return newLifecycleWatcher(st, collection, members, filter, nil)
+	return newLifecycleWatcher(mb, collection, members, filter, nil)
 }
 
-// WatchServices returns a StringsWatcher that notifies of changes to
+// WatchApplications returns a StringsWatcher that notifies of changes to
 // the lifecycles of the services in the model.
-func (st *State) WatchServices() StringsWatcher {
+func (st *State) WatchApplications() StringsWatcher {
 	return newLifecycleWatcher(st, applicationsC, nil, isLocalID(st), nil)
 }
 
@@ -342,11 +345,11 @@ func (st *State) WatchRemoteApplications() StringsWatcher {
 // WatchStorageAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all storage instances attached to the
 // specified unit.
-func (st *State) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
+func (im *IAASModel) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
 	members := bson.D{{"unitid", unit.Id()}}
 	prefix := unitGlobalKey(unit.Id()) + "#"
 	filter := func(id interface{}) bool {
-		k, err := st.strictLocalID(id.(string))
+		k, err := im.mb.strictLocalID(id.(string))
 		if err != nil {
 			return false
 		}
@@ -356,11 +359,11 @@ func (st *State) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
 		// Transform storage attachment document ID to storage ID.
 		return id[len(prefix):]
 	}
-	return newLifecycleWatcher(st, storageAttachmentsC, members, filter, tr)
+	return newLifecycleWatcher(im.mb, storageAttachmentsC, members, filter, tr)
 }
 
 // WatchUnits returns a StringsWatcher that notifies of changes to the
-// lifecycles of units of s.
+// lifecycles of units of a.
 func (a *Application) WatchUnits() StringsWatcher {
 	members := bson.D{{"application", a.doc.Name}}
 	prefix := a.doc.Name + "/"
@@ -375,13 +378,13 @@ func (a *Application) WatchUnits() StringsWatcher {
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to the
-// lifecycles of relations involving s.
+// lifecycles of relations involving a.
 func (a *Application) WatchRelations() StringsWatcher {
 	return watchApplicationRelations(a.st, a.doc.Name)
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to the
-// lifecycles of relations involving s.
+// lifecycles of relations involving a.
 func (s *RemoteApplication) WatchRelations() StringsWatcher {
 	return watchApplicationRelations(s.st, s.doc.Name)
 }
@@ -394,12 +397,10 @@ func watchApplicationRelations(backend modelBackend, applicationName string) Str
 		if err != nil {
 			return false
 		}
-		out := strings.HasPrefix(k, prefix) || strings.Contains(k, infix)
-		return out
+		return strings.HasPrefix(k, prefix) || strings.Contains(k, infix)
 	}
-
 	members := bson.D{{"endpoints.applicationname", applicationName}}
-	return newLifecycleWatcher(backend, relationsC, members, filter, nil)
+	return newRelationLifeSuspendedWatcher(backend, members, filter, nil)
 }
 
 // WatchModelMachines returns a StringsWatcher that notifies of changes to
@@ -994,7 +995,7 @@ func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange
 		TxnRevno int64 `bson:"txn-revno"`
 		Version  int64 `bson:"version"`
 	}
-	if err := readSettingsDocInto(w.backend, settingsC, key, &doc); err != nil {
+	if err := readSettingsDocInto(w.backend.db(), settingsC, key, &doc); err != nil {
 		return -1, err
 	}
 	setRelationUnitChangeVersion(changes, key, doc.Version)
@@ -1086,6 +1087,187 @@ func (w *relationUnitsWatcher) loop() (err error) {
 		case out <- changes:
 			sentInitial = true
 			changes = params.RelationUnitsChange{}
+			out = nil
+		}
+	}
+}
+
+// WatchLifeSuspendedStatus returns a watcher that notifies of changes to the life
+// or suspended status of the relation.
+func (r *Relation) WatchLifeSuspendedStatus() StringsWatcher {
+	filter := func(id interface{}) bool {
+		k, err := r.st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return k == r.Tag().Id()
+	}
+	members := bson.D{{"id", r.Id()}}
+	return newRelationLifeSuspendedWatcher(r.st, members, filter, nil)
+}
+
+type relationLifeSuspended struct {
+	life      Life
+	suspended bool
+}
+
+// relationLifeSuspendedWatcher sends notifications of changes to the life or
+// suspended status of specific relations.
+type relationLifeSuspendedWatcher struct {
+	commonWatcher
+	out           chan []string
+	lifeSuspended map[string]relationLifeSuspended
+
+	members   bson.D
+	filter    func(interface{}) bool
+	transform func(id string) string
+}
+
+// newRelationLifeSuspendedWatcher creates a watcher that sends changes when the
+// life or suspended status of specific relations change.
+func newRelationLifeSuspendedWatcher(
+	backend modelBackend,
+	members bson.D,
+	filter func(key interface{}) bool,
+	transform func(id string) string,
+) *relationLifeSuspendedWatcher {
+	w := &relationLifeSuspendedWatcher{
+		commonWatcher: newCommonWatcher(backend),
+		out:           make(chan []string),
+		members:       members,
+		filter:        filter,
+		transform:     transform,
+		lifeSuspended: make(map[string]relationLifeSuspended),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+func (w *relationLifeSuspendedWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+type relationLifeSuspendedDoc struct {
+	DocId     string `bson:"_id"`
+	Life      Life   `bson:"life"`
+	Suspended bool   `bson:"suspended"`
+}
+
+var relationLifeSuspendedFields = bson.D{{"_id", 1}, {"life", 1}, {"suspended", 1}}
+
+func (w *relationLifeSuspendedWatcher) initial() (set.Strings, error) {
+	coll, closer := w.db.GetCollection(relationsC)
+	defer closer()
+
+	ids := make(set.Strings)
+	var doc relationLifeSuspendedDoc
+	iter := coll.Find(w.members).Select(relationLifeSuspendedFields).Iter()
+	for iter.Next(&doc) {
+		// If no members criteria is specified, use the filter
+		// to reject any unsuitable initial elements.
+		if w.members == nil && w.filter != nil && !w.filter(doc.DocId) {
+			continue
+		}
+		id := w.backend.localID(doc.DocId)
+		ids.Add(id)
+		if doc.Life != Dead {
+			w.lifeSuspended[id] = relationLifeSuspended{life: doc.Life, suspended: doc.Suspended}
+		}
+	}
+	return ids, iter.Close()
+}
+
+func (w *relationLifeSuspendedWatcher) merge(ids set.Strings, updates map[interface{}]bool) error {
+	coll, closer := w.db.GetCollection(relationsC)
+	defer closer()
+
+	// Separate ids into those thought to exist and those known to be removed.
+	var changed []string
+	latest := make(map[string]relationLifeSuspended)
+	for docID, exists := range updates {
+		switch docID := docID.(type) {
+		case string:
+			if exists {
+				changed = append(changed, docID)
+			} else {
+				latest[w.backend.localID(docID)] = relationLifeSuspended{life: Dead}
+			}
+		default:
+			return errors.Errorf("id is not of type string, got %T", docID)
+		}
+	}
+
+	// Collect life states from ids thought to exist. Any that don't actually
+	// exist are ignored (we'll hear about them in the next set of updates --
+	// all that's actually happened in that situation is that the watcher
+	// events have lagged a little behind reality).
+	iter := coll.Find(bson.D{{"_id", bson.D{{"$in", changed}}}}).Select(relationLifeSuspendedFields).Iter()
+	var doc relationLifeSuspendedDoc
+	for iter.Next(&doc) {
+		latest[w.backend.localID(doc.DocId)] = relationLifeSuspended{life: doc.Life, suspended: doc.Suspended}
+	}
+	if err := iter.Close(); err != nil {
+		return err
+	}
+
+	// Add to ids any whose life state is known to have changed.
+	for id, newLifeSuspended := range latest {
+		gone := newLifeSuspended.life == Dead
+		oldLifeSuspended, known := w.lifeSuspended[id]
+		switch {
+		case known && gone:
+			delete(w.lifeSuspended, id)
+		case !known && !gone:
+			w.lifeSuspended[id] = newLifeSuspended
+		case known &&
+			(newLifeSuspended.life != oldLifeSuspended.life || newLifeSuspended.suspended != oldLifeSuspended.suspended):
+			w.lifeSuspended[id] = newLifeSuspended
+		default:
+			continue
+		}
+		ids.Add(id)
+	}
+	return nil
+}
+
+func (w *relationLifeSuspendedWatcher) loop() error {
+	in := make(chan watcher.Change)
+	w.watcher.WatchCollectionWithFilter(relationsC, in, w.filter)
+	defer w.watcher.UnwatchCollection(relationsC, in)
+	ids, err := w.initial()
+	if err != nil {
+		return err
+	}
+	out := w.out
+	for {
+		values := ids.Values()
+		if w.transform != nil {
+			for i, v := range values {
+				values[i] = w.transform(v)
+			}
+		}
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case ch := <-in:
+			updates, ok := collect(ch, in, w.tomb.Dying())
+			if !ok {
+				return tomb.ErrDying
+			}
+			if err := w.merge(ids, updates); err != nil {
+				return err
+			}
+			if !ids.IsEmpty() {
+				out = w.out
+			}
+		case out <- values:
+			ids = make(set.Strings)
 			out = nil
 		}
 	}
@@ -1321,6 +1503,11 @@ func (st *State) WatchControllerInfo() NotifyWatcher {
 	return newEntityWatcher(st, controllersC, modelGlobalKey)
 }
 
+// WatchControllerConfig returns a NotifyWatcher for controller settings.
+func (st *State) WatchControllerConfig() NotifyWatcher {
+	return newEntityWatcher(st, controllersC, controllerSettingsGlobalKey)
+}
+
 // Watch returns a watcher for observing changes to a machine.
 func (m *Machine) Watch() NotifyWatcher {
 	return newEntityWatcher(m.st, machinesC, m.doc.DocID)
@@ -1343,9 +1530,9 @@ func (u *Unit) Watch() NotifyWatcher {
 	return newEntityWatcher(u.st, unitsC, u.doc.DocID)
 }
 
-// Watch returns a watcher for observing changes to an model.
-func (e *Model) Watch() NotifyWatcher {
-	return newEntityWatcher(e.st, modelsC, e.doc.UUID)
+// Watch returns a watcher for observing changes to a model.
+func (m *Model) Watch() NotifyWatcher {
+	return newEntityWatcher(m.st, modelsC, m.doc.UUID)
 }
 
 // WatchUpgradeInfo returns a watcher for observing changes to upgrade
@@ -1362,8 +1549,14 @@ func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
 
 // WatchForModelConfigChanges returns a NotifyWatcher waiting for the Model
 // Config to change.
-func (st *State) WatchForModelConfigChanges() NotifyWatcher {
-	return newEntityWatcher(st, settingsC, st.docID(modelGlobalKey))
+func (model *Model) WatchForModelConfigChanges() NotifyWatcher {
+	return newEntityWatcher(model.st, settingsC, model.st.docID(modelGlobalKey))
+}
+
+// WatchModelEntityReferences returns a NotifyWatcher waiting for the Model
+// Entity references to change for specified model.
+func (st *State) WatchModelEntityReferences(mUUID string) NotifyWatcher {
+	return newEntityWatcher(st, modelEntityRefsC, mUUID)
 }
 
 // WatchForUnitAssignment watches for new services that request units to be
@@ -1372,31 +1565,45 @@ func (st *State) WatchForUnitAssignment() StringsWatcher {
 	return newCollectionWatcher(st, colWCfg{col: assignUnitC})
 }
 
-// WatchAPIHostPorts returns a NotifyWatcher that notifies
+// WatchAPIHostPortsForClients returns a NotifyWatcher that notifies
 // when the set of API addresses changes.
-func (st *State) WatchAPIHostPorts() NotifyWatcher {
+func (st *State) WatchAPIHostPortsForClients() NotifyWatcher {
 	return newEntityWatcher(st, controllersC, apiHostPortsKey)
+}
+
+// WatchAPIHostPortsForAgents returns a NotifyWatcher that notifies
+// when the set of API addresses usable by agents changes.
+func (st *State) WatchAPIHostPortsForAgents() NotifyWatcher {
+	return newEntityWatcher(st, controllersC, apiHostPortsForAgentsKey)
 }
 
 // WatchStorageAttachment returns a watcher for observing changes
 // to a storage attachment.
-func (st *State) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) NotifyWatcher {
+func (im *IAASModel) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) NotifyWatcher {
 	id := storageAttachmentId(u.Id(), s.Id())
-	return newEntityWatcher(st, storageAttachmentsC, st.docID(id))
+	return newEntityWatcher(im.mb, storageAttachmentsC, im.mb.docID(id))
 }
 
 // WatchVolumeAttachment returns a watcher for observing changes
 // to a volume attachment.
-func (st *State) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) NotifyWatcher {
+func (im *IAASModel) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) NotifyWatcher {
 	id := volumeAttachmentId(m.Id(), v.Id())
-	return newEntityWatcher(st, volumeAttachmentsC, st.docID(id))
+	return newEntityWatcher(im.mb, volumeAttachmentsC, im.mb.docID(id))
 }
 
 // WatchFilesystemAttachment returns a watcher for observing changes
 // to a filesystem attachment.
-func (st *State) WatchFilesystemAttachment(m names.MachineTag, f names.FilesystemTag) NotifyWatcher {
+func (im *IAASModel) WatchFilesystemAttachment(m names.MachineTag, f names.FilesystemTag) NotifyWatcher {
 	id := filesystemAttachmentId(m.Id(), f.Id())
-	return newEntityWatcher(st, filesystemAttachmentsC, st.docID(id))
+	return newEntityWatcher(im.mb, filesystemAttachmentsC, im.mb.docID(id))
+}
+
+// WatchCharmConfig returns a watcher for observing changes to the
+// application's charm configuration settings. The returned watcher will be
+// valid only while the application's charm URL is not changed.
+func (a *Application) WatchCharmConfig() (NotifyWatcher, error) {
+	configKey := a.charmConfigKey()
+	return newEntityWatcher(a.st, settingsC, a.st.docID(configKey)), nil
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the
@@ -1409,8 +1616,15 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	settingsKey := applicationSettingsKey(u.doc.Application, u.doc.CharmURL)
-	return newEntityWatcher(u.st, settingsC, u.st.docID(settingsKey)), nil
+	charmConfigKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
+	return newEntityWatcher(u.st, settingsC, u.st.docID(charmConfigKey)), nil
+}
+
+// WatchApplicationConfigSettings is the same as WatchConfigSettings but
+// notifies on changes to application configuration not charm configuration.
+func (u *Unit) WatchApplicationConfigSettings() (NotifyWatcher, error) {
+	applicationConfigKey := applicationConfigKey(u.ApplicationName())
+	return newEntityWatcher(u.st, settingsC, u.st.docID(applicationConfigKey)), nil
 }
 
 // WatchMeterStatus returns a watcher observing changes that affect the meter status
@@ -2243,15 +2457,15 @@ func makeControllerIdFilter(st *State) func(interface{}) bool {
 
 // WatchActionResults starts and returns a StringsWatcher that
 // notifies on new ActionResults being added.
-func (st *State) WatchActionResults() StringsWatcher {
-	return st.WatchActionResultsFilteredBy()
+func (m *Model) WatchActionResults() StringsWatcher {
+	return m.WatchActionResultsFilteredBy()
 }
 
 // WatchActionResultsFilteredBy starts and returns a StringsWatcher
 // that notifies on new ActionResults being added for the ActionRecevers
 // being watched.
-func (st *State) WatchActionResultsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
-	return newActionStatusWatcher(st, receivers, []ActionStatus{ActionCompleted, ActionCancelled, ActionFailed}...)
+func (m *Model) WatchActionResultsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
+	return newActionStatusWatcher(m.st, receivers, []ActionStatus{ActionCompleted, ActionCancelled, ActionFailed}...)
 }
 
 // openedPortsWatcher notifies of changes in the openedPorts
@@ -2311,6 +2525,7 @@ func (w *openedPortsWatcher) initial() (set.Strings, error) {
 	portDocs := set.NewStrings()
 	var doc portsDoc
 	iter := ports.Find(nil).Select(bson.D{{"_id", 1}, {"txn-revno", 1}}).Iter()
+	defer iter.Close()
 	for iter.Next(&doc) {
 		id, err := w.backend.strictLocalID(doc.DocID)
 		if err != nil {
@@ -2685,13 +2900,24 @@ func (st *State) WatchRemoteRelations() StringsWatcher {
 		}
 		return num > 0
 	}
-	return newLifecycleWatcher(st, relationsC, nil, filter, tr)
+	return newRelationLifeSuspendedWatcher(st, nil, filter, tr)
 }
 
 // WatchSubnets returns a StringsWatcher that notifies of changes to
 // the lifecycles of the subnets in the model.
-func (st *State) WatchSubnets() StringsWatcher {
-	return newLifecycleWatcher(st, subnetsC, nil, isLocalID(st), nil)
+func (st *State) WatchSubnets(subnetFilter func(id interface{}) bool) StringsWatcher {
+	filter := func(id interface{}) bool {
+		subnet, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		if subnetFilter == nil {
+			return true
+		}
+		return subnetFilter(subnet)
+	}
+
+	return newLifecycleWatcher(st, subnetsC, nil, filter, nil)
 }
 
 // isLocalID returns a watcher filter func that rejects ids not specific
@@ -2704,5 +2930,320 @@ func isLocalID(st modelBackend) func(interface{}) bool {
 		}
 		_, err := st.strictLocalID(key)
 		return err == nil
+	}
+}
+
+// relationNetworksWatcher notifies of changes in the
+// relationNetworks collection, either ingress of egress.
+type relationNetworksWatcher struct {
+	commonWatcher
+	key         string
+	direction   string
+	filter      func(key interface{}) bool
+	knownTxnRev int64
+	knownCidrs  set.Strings
+	out         chan []string
+}
+
+var _ Watcher = (*relationNetworksWatcher)(nil)
+
+// WatchRelationIngressNetworks starts and returns a StringsWatcher notifying
+// of ingress changes to the relationNetworks collection for the relation.
+func (r *Relation) WatchRelationIngressNetworks() StringsWatcher {
+	return newrelationNetworksWatcher(r.st, r.Tag().Id(), ingress)
+}
+
+// WatchRelationEgressNetworks starts and returns a StringsWatcher notifying
+// of egress changes to the relationNetworks collection for the relation.
+func (r *Relation) WatchRelationEgressNetworks() StringsWatcher {
+	return newrelationNetworksWatcher(r.st, r.Tag().Id(), egress)
+}
+
+func newrelationNetworksWatcher(st modelBackend, relationKey, direction string) StringsWatcher {
+	filter := func(id interface{}) bool {
+		k, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return strings.HasPrefix(k, relationKey+":"+direction+":")
+	}
+	w := &relationNetworksWatcher{
+		commonWatcher: newCommonWatcher(st),
+		key:           relationKey,
+		direction:     direction,
+		filter:        filter,
+		knownCidrs:    set.NewStrings(),
+		out:           make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+
+	return w
+}
+
+// Changes returns the event channel for watching changes
+// to a relation's ingress networks.
+func (w *relationNetworksWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+func (w *relationNetworksWatcher) loadCIDRs() (bool, error) {
+	coll, closer := w.db.GetCollection(relationNetworksC)
+	defer closer()
+
+	var doc struct {
+		TxnRevno int64    `bson:"txn-revno"`
+		Id       string   `bson:"_id"`
+		CIDRs    []string `bson:"cidrs"`
+	}
+	err := coll.FindId(relationNetworkDocID(w.key, w.direction, relationNetworkAdmin)).One(&doc)
+	if err == mgo.ErrNotFound {
+		err = coll.FindId(relationNetworkDocID(w.key, w.direction, relationNetworkDefault)).One(&doc)
+	}
+	if err == mgo.ErrNotFound {
+		// Record deleted.
+		changed := w.knownCidrs.Size() > 0
+		w.knownCidrs = set.NewStrings()
+		return changed, nil
+	}
+	if err != nil {
+		return false, errors.Trace(err)
+
+	}
+	cidrs := w.knownCidrs
+	if doc.TxnRevno == -1 {
+		// Record deleted.
+		cidrs = set.NewStrings()
+	}
+	if doc.TxnRevno > w.knownTxnRev {
+		cidrs = set.NewStrings(doc.CIDRs...)
+	}
+	w.knownTxnRev = doc.TxnRevno
+	changed := !cidrs.Difference(w.knownCidrs).IsEmpty() || !w.knownCidrs.Difference(cidrs).IsEmpty()
+	w.knownCidrs = cidrs
+	return changed, nil
+}
+
+func (w *relationNetworksWatcher) loop() error {
+	in := make(chan watcher.Change)
+	w.watcher.WatchCollectionWithFilter(relationNetworksC, in, w.filter)
+	defer w.watcher.UnwatchCollection(relationNetworksC, in)
+
+	var (
+		sentInitial bool
+		changed     bool
+		out         chan<- []string
+		err         error
+	)
+	if _, err = w.loadCIDRs(); err != nil {
+		logger.Criticalf(err.Error())
+		return errors.Trace(err)
+	}
+	for {
+		if !sentInitial || changed {
+			changed = false
+			out = w.out
+		}
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case _, ok := <-in:
+			if !ok {
+				return tomb.ErrDying
+			}
+			if changed, err = w.loadCIDRs(); err != nil {
+				return errors.Trace(err)
+			}
+		case out <- w.knownCidrs.Values():
+			out = nil
+			sentInitial = true
+		}
+		if w.knownTxnRev == -1 {
+			// Record deleted
+			return tomb.ErrDying
+		}
+	}
+}
+
+// externalControllersWatcher notifies about addition and removal of
+// external controller references.
+type externalControllersWatcher struct {
+	commonWatcher
+	coll func() (mongo.Collection, func())
+	out  chan []string
+}
+
+var _ Watcher = (*externalControllersWatcher)(nil)
+
+func newExternalControllersWatcher(st *State) StringsWatcher {
+	w := &externalControllersWatcher{
+		commonWatcher: newCommonWatcher(st),
+		coll:          collFactory(st.db(), externalControllersC),
+		out:           make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for w.
+func (w *externalControllersWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+func (w *externalControllersWatcher) initial() (set.Strings, error) {
+	// Get the initial documents in the collection.
+	type idDoc struct {
+		Id string `bson:"_id"`
+	}
+	coll, closer := w.coll()
+	defer closer()
+	changes := make(set.Strings)
+	iter := coll.Find(nil).Select(bson.D{{"_id", 1}}).Iter()
+	var doc idDoc
+	for iter.Next(&doc) {
+		changes.Add(doc.Id)
+	}
+	return changes, iter.Close()
+}
+
+func (w *externalControllersWatcher) loop() error {
+	in := make(chan watcher.Change)
+	w.watcher.WatchCollection(externalControllersC, in)
+	defer w.watcher.UnwatchCollection(externalControllersC, in)
+
+	changes, err := w.initial()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	reported := make(set.Strings)
+	out := w.out
+	for {
+		select {
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case ch := <-in:
+			updates, ok := collect(ch, in, w.tomb.Dying())
+			if !ok {
+				return tomb.ErrDying
+			}
+			for id, updated := range updates {
+				id := id.(string)
+				if updated != reported.Contains(id) {
+					// updated and hasn't been reported, or
+					// removed and has been reported
+					changes.Add(id)
+				}
+			}
+			if changes.Size() > 0 {
+				out = w.out
+			}
+		case out <- changes.SortedValues():
+			out = nil
+			for _, id := range changes.Values() {
+				if reported.Contains(id) {
+					reported.Remove(id)
+				} else {
+					reported.Add(id)
+				}
+			}
+			changes = make(set.Strings)
+		}
+	}
+}
+
+// WatchPodSpec returns a watcher observing changes that affect the
+// pod spec for an application or unit.
+func (m *CAASModel) WatchPodSpec(appTag names.ApplicationTag) (NotifyWatcher, error) {
+	docKeys := []docKey{{
+		podSpecsC,
+		m.st.docID(applicationGlobalKey(appTag.Id())),
+	}}
+	return newDocWatcher(m.st, docKeys), nil
+}
+
+// containerAddressesWatcher notifies about changes to a unit's pod address(es).
+type containerAddressesWatcher struct {
+	commonWatcher
+	unit *Unit
+	out  chan struct{}
+}
+
+var _ Watcher = (*containerAddressesWatcher)(nil)
+
+// WatchContainerAddresses returns a new NotifyWatcher watching the unit's pod address(es).
+func (u *Unit) WatchContainerAddresses() NotifyWatcher {
+	return newContainerAddressesWatcher(u)
+}
+
+func newContainerAddressesWatcher(u *Unit) NotifyWatcher {
+	w := &containerAddressesWatcher{
+		commonWatcher: newCommonWatcher(u.st),
+		out:           make(chan struct{}),
+		unit:          u,
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for w.
+func (w *containerAddressesWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *containerAddressesWatcher) loop() error {
+	id := w.backend.docID(w.unit.globalKey())
+	continers, closer := w.db.GetCollection(cloudContainersC)
+	revno, err := getTxnRevno(continers, id)
+	closer()
+	if err != nil {
+		return err
+	}
+	containerCh := make(chan watcher.Change)
+	w.watcher.Watch(cloudContainersC, id, revno, containerCh)
+	defer w.watcher.Unwatch(cloudContainersC, id, containerCh)
+
+	var address string
+	container, err := w.unit.cloudContainer()
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	} else if err == nil {
+		address = container.Address
+	}
+	out := w.out
+	for {
+		select {
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-containerCh:
+			container, err := w.unit.cloudContainer()
+			if err != nil {
+				return err
+			}
+			newAddress := container.Address
+			if newAddress != address {
+				address = newAddress
+				out = w.out
+			}
+		case out <- struct{}{}:
+			out = nil
+		}
 	}
 }

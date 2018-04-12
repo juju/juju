@@ -14,15 +14,15 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v2-unstable"
+	"gopkg.in/juju/charmrepo.v2"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
+	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/testing"
 )
 
@@ -55,7 +55,7 @@ var sampleConfig = testing.Attrs{
 	"unknown":                    "my-unknown",
 	"ssl-hostname-verification":  true,
 	"development":                false,
-	"default-series":             series.LatestLts(),
+	"default-series":             jujuversion.SupportedLts(),
 	"disable-network-management": false,
 	"ignore-machine-addresses":   false,
 	"automatically-retry-hooks":  true,
@@ -550,6 +550,25 @@ var configTests = []configTest{
 			"syslog-client-cert": testing.ServerCert,
 			"syslog-client-key":  testing.ServerKey,
 		}),
+	}, {
+		about:       "Valid container-inherit-properties",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"container-inherit-properties": "apt-primary, ca-certs",
+		}),
+	}, {
+		about:       "Invalid container-inherit-properties",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"container-inherit-properties": "apt-security, write_files,users,apt-sources",
+		}),
+		err: `container-inherit-properties: users, write_files not allowed`,
+	}, {
+		about:       "String as valid value",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"backup-dir": "/foo/bar",
+		}),
 	},
 }
 
@@ -615,7 +634,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	if seriesAttr != "" {
 		c.Assert(defaultSeries, gc.Equals, seriesAttr)
 	} else {
-		c.Assert(defaultSeries, gc.Equals, series.LatestLts())
+		c.Assert(defaultSeries, gc.Equals, jujuversion.SupportedLts())
 	}
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
@@ -730,14 +749,9 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	if val, ok := test.attrs[config.NetBondReconfigureDelayKey].(int); ok {
 		c.Assert(cfg.NetBondReconfigureDelay(), gc.Equals, val)
 	}
-}
 
-func (test configTest) assertDuration(c *gc.C, name string, actual time.Duration, defaultInSeconds int) {
-	value, ok := test.attrs[name].(int)
-	if !ok || value == 0 {
-		c.Assert(actual, gc.Equals, time.Duration(defaultInSeconds)*time.Second)
-	} else {
-		c.Assert(actual, gc.Equals, time.Duration(value)*time.Second)
+	if val, ok := test.attrs[config.ContainerInheritProperiesKey].(string); ok && val != "" {
+		c.Assert(cfg.ContainerInheritProperies(), gc.Equals, val)
 	}
 }
 
@@ -752,7 +766,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"firewall-mode":              config.FwInstance,
 		"unknown":                    "my-unknown",
 		"ssl-hostname-verification":  true,
-		"default-series":             series.LatestLts(),
+		"default-series":             jujuversion.SupportedLts(),
 		"disable-network-management": false,
 		"ignore-machine-addresses":   false,
 		"automatically-retry-hooks":  true,
@@ -849,6 +863,69 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	}
 }
 
+type configValidateCloudInitUserDataTest struct {
+	about string
+	value string
+	err   string
+}
+
+var configValidateCloudInitUserDataTests = []configValidateCloudInitUserDataTest{
+	{
+		about: "Valid cloud init user data values",
+		value: validCloudInitUserData,
+	}, {
+		about: "Invalid cloud init user data values: package int",
+		value: invalidCloudInitUserDataPackageInt,
+		err:   `cloudinit-userdata: packages must be a list of strings: expected string, got int\(76\)`,
+	}, {
+		about: "Invalid cloud init user data values: users",
+		value: invalidCloudInitUserDataUsers,
+		err:   `cloudinit-userdata: users not allowed`,
+	}, {
+		about: "Invalid cloud init user data values: runcmd",
+		value: invalidCloudInitUserDataRunCmd,
+		err:   `cloudinit-userdata: runcmd not allowed, use preruncmd or postruncmd instead`,
+	}, {
+		about: "Invalid cloud init user data values: bootcmd",
+		value: invalidCloudInitUserDataBootCmd,
+		err:   `cloudinit-userdata: bootcmd not allowed`,
+	}, {
+		about: "Invalid cloud init user data: yaml",
+		value: invalidCloudInitUserDataInvalidYAML,
+		err:   `cloudinit-userdata: must be valid YAML: yaml: line 2: did not find expected '-' indicator`,
+	},
+}
+
+func (s *ConfigSuite) TestValidateCloudInitUserData(c *gc.C) {
+	files := []gitjujutesting.TestFile{
+		{".ssh/id_dsa.pub", "dsa"},
+		{".ssh/id_rsa.pub", "rsa\n"},
+		{".ssh/identity.pub", "identity"},
+		{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
+		{".ssh/authorized_keys2", "auth2\nauth3\n"},
+	}
+	s.FakeHomeSuite.Home.AddFiles(c, files...)
+	for i, test := range configValidateCloudInitUserDataTests {
+		c.Logf("test %d of %d. %s", i+1, len(configValidateCloudInitUserDataTests), test.about)
+		test.checkNew(c)
+	}
+}
+
+func (test configValidateCloudInitUserDataTest) checkNew(c *gc.C) {
+	final := testing.Attrs{
+		"type": "my-type", "name": "my-name",
+		"uuid": testing.ModelTag.Id(),
+		config.CloudInitUserDataKey: test.value,
+	}
+
+	_, err := config.New(config.UseDefaults, final)
+	if test.err != "" {
+		c.Assert(err, gc.ErrorMatches, test.err)
+		return
+	}
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *ConfigSuite) addJujuFiles(c *gc.C) {
 	s.FakeHomeSuite.Home.AddFiles(c, []gitjujutesting.TestFile{
 		{".ssh/id_rsa.pub", "rsa\n"},
@@ -899,6 +976,20 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	fields["known"] = schema.Int()
 	_, err = cfg.ValidateUnknownAttrs(fields, defaults)
 	c.Assert(err, gc.ErrorMatches, `known: expected int, got string\("this"\)`)
+
+	// Completely unknown attr, not-simple field type: failure.
+	cfg, err = config.New(config.UseDefaults, map[string]interface{}{
+		"name":       "myenv",
+		"type":       "other",
+		"uuid":       testing.ModelTag.Id(),
+		"extra-info": "official extra user data",
+		"known":      "this",
+		"unknown":    "that",
+		"mapAttr":    map[string]string{"foo": "bar"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = cfg.ValidateUnknownAttrs(nil, nil)
+	c.Assert(err.Error(), gc.Equals, `mapAttr: unknown type (map["foo":"bar"])`)
 }
 
 type testAttr struct {
@@ -982,6 +1073,14 @@ func (s *ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
 	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO;unit=DEBUG")
 }
 
+func (s *ConfigSuite) TestBackupDir(c *gc.C) {
+	s.addJujuFiles(c)
+	testDir := c.MkDir()
+	config := newTestConfig(c, testing.Attrs{
+		"backup-dir": testDir})
+	c.Assert(config.BackupDir(), gc.Equals, testDir)
+}
+
 func (s *ConfigSuite) TestAutoHookRetryDefault(c *gc.C) {
 	config := newTestConfig(c, testing.Attrs{})
 	c.Assert(config.AutomaticallyRetryHooks(), gc.Equals, true)
@@ -1015,6 +1114,7 @@ func (s *ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 	c.Assert(config.FTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
 	c.Assert(config.AptFTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
 	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
+	c.Assert(config.AptNoProxy(), gc.Equals, "localhost,10.0.3.1")
 }
 
 func (s *ConfigSuite) TestProxyValuesWithFallbackNoScheme(c *gc.C) {
@@ -1033,6 +1133,7 @@ func (s *ConfigSuite) TestProxyValuesWithFallbackNoScheme(c *gc.C) {
 	c.Assert(config.FTPProxy(), gc.Equals, "user@10.0.0.1")
 	c.Assert(config.AptFTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
 	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
+	c.Assert(config.AptNoProxy(), gc.Equals, "localhost,10.0.3.1")
 }
 
 func (s *ConfigSuite) TestProxyValues(c *gc.C) {
@@ -1078,12 +1179,13 @@ func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
 		Http:    "http://http proxy",
 		Https:   "https://https proxy",
 		Ftp:     "ftp://ftp proxy",
-		NoProxy: "",
+		NoProxy: "no proxy",
 	}
 	cfg, err := cfg.Apply(config.ProxyConfigMap(proxySettings))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxySettings)
-	// Apt proxy settings always include the scheme. NoProxy is empty.
+	cfg, err = cfg.Apply(config.AptProxyConfigMap(proxySettings))
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, expectedProxySettings)
 }
 
@@ -1091,15 +1193,69 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg := newTestConfig(c, testing.Attrs{})
 	proxySettings := proxy.Settings{
-		Http:  "http://httpproxy",
-		Https: "https://httpsproxy",
-		Ftp:   "ftp://ftpproxy",
+		Http:    "http://httpproxy",
+		Https:   "https://httpsproxy",
+		Ftp:     "ftp://ftpproxy",
+		NoProxy: "noproxyhost1,noproxyhost2",
 	}
 	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxySettings))
 	c.Assert(err, jc.ErrorIsNil)
 	// The default proxy settings should still be empty.
 	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy.Settings{NoProxy: "127.0.0.1,localhost,::1"})
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
+}
+
+func (s *ConfigSuite) TestStatusHistoryConfigDefaults(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{})
+	c.Assert(cfg.MaxStatusHistoryAge(), gc.Equals, 336*time.Hour)
+	c.Assert(cfg.MaxStatusHistorySizeMB(), gc.Equals, uint(5120))
+}
+
+func (s *ConfigSuite) TestStatusHistoryConfigValues(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		"max-status-history-size": "8G",
+		"max-status-history-age":  "96h",
+	})
+	c.Assert(cfg.MaxStatusHistoryAge(), gc.Equals, 96*time.Hour)
+	c.Assert(cfg.MaxStatusHistorySizeMB(), gc.Equals, uint(8192))
+}
+
+func (s *ConfigSuite) TestUpdateStatusHookIntervalConfigDefault(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{})
+	c.Assert(cfg.UpdateStatusHookInterval(), gc.Equals, 5*time.Minute)
+}
+
+func (s *ConfigSuite) TestUpdateStatusHookIntervalConfigValue(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		"update-status-hook-interval": "30m",
+	})
+	c.Assert(cfg.UpdateStatusHookInterval(), gc.Equals, 30*time.Minute)
+}
+
+func (s *ConfigSuite) TestEgressSubnets(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		"egress-subnets": "10.0.0.1/32, 192.168.1.1/16",
+	})
+	c.Assert(cfg.EgressSubnets(), gc.DeepEquals, []string{"10.0.0.1/32", "192.168.1.1/16"})
+}
+
+func (s *ConfigSuite) TestCloudInitUserDataFromEnvironment(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		config.CloudInitUserDataKey: validCloudInitUserData,
+	})
+	c.Assert(cfg.CloudInitUserData(), gc.DeepEquals, map[string]interface{}{
+		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+		"package_upgrade": false},
+	)
+}
+
+func (s *ConfigSuite) TestContainerInheritProperies(c *gc.C) {
+	cfg := newTestConfig(c, testing.Attrs{
+		"container-inherit-properties": "ca-certs,apt-primary",
+	})
+	c.Assert(cfg.ContainerInheritProperies(), gc.Equals, "ca-certs,apt-primary")
 }
 
 func (s *ConfigSuite) TestSchemaNoExtra(c *gc.C) {
@@ -1213,4 +1369,61 @@ var invalidCACert = `
 -----BEGIN CERTIFICATE-----
 MIIBOgIBAAJAZabKgKInuOxj5vDWLwHHQtK3/45KB+32D15w94Nt83BmuGxo90lw
 -----END CERTIFICATE-----
+`[1:]
+
+var validCloudInitUserData = `
+packages:
+  - 'python-keystoneclient'
+  - 'python-glanceclient'
+preruncmd:
+  - mkdir /tmp/preruncmd
+  - mkdir /tmp/preruncmd2
+postruncmd:
+  - mkdir /tmp/postruncmd
+  - mkdir /tmp/postruncmd2
+package_upgrade: false
+`[1:]
+
+var invalidCloudInitUserDataPackageInt = `
+packages:
+    - 76
+postruncmd:
+    - mkdir /tmp/runcmd
+package_upgrade: true
+`[1:]
+
+var invalidCloudInitUserDataRunCmd = `
+packages:
+    - 'string1'
+    - 'string2'
+runcmd:
+    - mkdir /tmp/runcmd
+package_upgrade: true
+`[1:]
+
+var invalidCloudInitUserDataBootCmd = `
+packages:
+    - 'string1'
+    - 'string2'
+bootcmd:
+    - mkdir /tmp/bootcmd
+package_upgrade: true
+`[1:]
+
+var invalidCloudInitUserDataUsers = `
+packages:
+    - 'string1'
+    - 'string2'
+users:
+    name: test-user
+package_upgrade: true
+`[1:]
+
+var invalidCloudInitUserDataInvalidYAML = `
+packages:
+    - 'string1'
+     'string2'
+runcmd:
+    - mkdir /tmp/runcmd
+package_upgrade: true
 `[1:]

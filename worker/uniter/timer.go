@@ -4,21 +4,30 @@
 package uniter
 
 import (
+	"math/rand"
 	"time"
+
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
-const (
-	// interval at which the unit's status should be polled
-	statusPollInterval = 5 * time.Minute
-)
+type waitDuration time.Duration
 
-// updateStatusSignal returns a time channel that fires after a given interval.
-func updateStatusSignal() <-chan time.Time {
+func (w waitDuration) After() <-chan time.Time {
 	// TODO(fwereade): 2016-03-17 lp:1558657
-	return time.After(statusPollInterval)
+	return time.After(time.Duration(w))
 }
 
-// NewUpdateStatusTimer returns a timed signal suitable for update-status hook.
-func NewUpdateStatusTimer() func() <-chan time.Time {
-	return updateStatusSignal
+// NewUpdateStatusTimer returns a func returning timed signal suitable for update-status hook.
+func NewUpdateStatusTimer() remotestate.UpdateStatusTimerFunc {
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	return func(wait time.Duration) remotestate.Waiter {
+		// Actual time to wait is randomised to be +/-20%
+		// of the nominal value.
+		lower := 0.8 * float64(wait)
+		window := 0.4 * float64(wait)
+		offset := float64(r.Int63n(int64(window)))
+		wait = time.Duration(lower + offset)
+
+		return waitDuration(wait)
+	}
 }

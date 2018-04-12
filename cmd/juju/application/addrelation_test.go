@@ -6,6 +6,7 @@ package application
 import (
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -13,7 +14,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/core/crossmodel"
+	jtesting "github.com/juju/juju/testing"
 )
 
 type AddRelationSuite struct {
@@ -24,7 +26,7 @@ type AddRelationSuite struct {
 func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.mockAPI = &mockAddAPI{Stub: &testing.Stub{}}
-	s.mockAPI.addRelationFunc = func(endpoints ...string) (*params.AddRelationResults, error) {
+	s.mockAPI.addRelationFunc = func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 		// At the moment, cmd implementation ignores the return values,
 		// so nil is an acceptable return for testing purposes.
 		return nil, s.mockAPI.NextErr()
@@ -34,7 +36,9 @@ func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&AddRelationSuite{})
 
 func (s *AddRelationSuite) runAddRelation(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, NewAddRelationCommandForTest(s.mockAPI), args...)
+	cmd := NewAddRelationCommandForTest(s.mockAPI, s.mockAPI)
+	cmd.SetClientStore(NewMockStore())
+	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	return err
 }
 
@@ -55,7 +59,7 @@ func (s *AddRelationSuite) TestAddRelationWrongNumberOfArguments(c *gc.C) {
 func (s *AddRelationSuite) TestAddRelationSuccess(c *gc.C) {
 	err := s.runAddRelation(c, "application1", "application2")
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"})
+	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"}, []string(nil))
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
@@ -64,15 +68,15 @@ func (s *AddRelationSuite) TestAddRelationFail(c *gc.C) {
 	s.mockAPI.SetErrors(errors.New(msg))
 	err := s.runAddRelation(c, "application1", "application2")
 	c.Assert(err, gc.ErrorMatches, msg)
-	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"})
+	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"}, []string(nil))
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
 func (s *AddRelationSuite) TestAddRelationBlocked(c *gc.C) {
 	s.mockAPI.SetErrors(common.OperationBlockedError("TestBlockAddRelation"))
 	err := s.runAddRelation(c, "application1", "application2")
-	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockAddRelation.*")
-	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"})
+	jtesting.AssertOperationWasBlocked(c, err, ".*TestBlockAddRelation.*")
+	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"}, []string(nil))
 	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
@@ -81,14 +85,16 @@ func (s *AddRelationSuite) TestAddRelationUnauthorizedMentionsJujuGrant(c *gc.C)
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	})
-	ctx, _ := coretesting.RunCommand(c, NewAddRelationCommandForTest(s.mockAPI), "application1", "application2")
-	errString := strings.Replace(coretesting.Stderr(ctx), "\n", " ", -1)
+	cmd := NewAddRelationCommandForTest(s.mockAPI, s.mockAPI)
+	cmd.SetClientStore(NewMockStore())
+	ctx, _ := cmdtesting.RunCommand(c, cmd, "application1", "application2")
+	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
 	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }
 
 type mockAddAPI struct {
 	*testing.Stub
-	addRelationFunc func(endpoints ...string) (*params.AddRelationResults, error)
+	addRelationFunc func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error)
 }
 
 func (s mockAddAPI) Close() error {
@@ -96,12 +102,20 @@ func (s mockAddAPI) Close() error {
 	return s.NextErr()
 }
 
-func (s mockAddAPI) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
-	s.MethodCall(s, "AddRelation", endpoints)
-	return s.addRelationFunc(endpoints...)
+func (s mockAddAPI) AddRelation(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
+	s.MethodCall(s, "AddRelation", endpoints, viaCIDRs)
+	return s.addRelationFunc(endpoints, viaCIDRs)
 }
 
 func (s mockAddAPI) BestAPIVersion() int {
 	s.MethodCall(s, "BestAPIVersion")
-	return 2
+	return 4
+}
+
+func (mockAddAPI) Consume(crossmodel.ConsumeApplicationArgs) (string, error) {
+	return "", errors.New("unexpected method call: Consume")
+}
+
+func (mockAddAPI) GetConsumeDetails(string) (params.ConsumeOfferDetails, error) {
+	return params.ConsumeOfferDetails{}, errors.New("unexpected method call: GetConsumeDetails")
 }

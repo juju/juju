@@ -8,8 +8,7 @@ package lxd
 import "github.com/juju/juju/tools/lxdclient"
 
 var (
-	GlobalFirewallName = (*environ).globalFirewallName
-	NewInstance        = newInstance
+	NewInstance = newInstance
 )
 
 func ExposeInstRaw(inst *environInstance) *lxdclient.Instance {
@@ -18,10 +17,6 @@ func ExposeInstRaw(inst *environInstance) *lxdclient.Instance {
 
 func ExposeInstEnv(inst *environInstance) *environ {
 	return inst.env
-}
-
-func UnsetEnvConfig(env *environ) {
-	env.ecfg = nil
 }
 
 func ExposeEnvConfig(env *environ) *environConfig {

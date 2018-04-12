@@ -7,10 +7,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
+	//"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -148,11 +150,44 @@ func matchHostArchTools(allTools tools.List) (tools.List, error) {
 	archTools, err := allTools.Match(tools.Filter{Arch: arch})
 	if err == tools.ErrNoMatches {
 		return nil, errors.Errorf(
-			"need tools for arch %s, only found %s",
+			"need agent binaries for arch %s, only found %s",
 			arch, allTools.Arches(),
 		)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return archTools, nil
+}
+
+// GetMachineCloudInitData is for testing purposes.
+var GetMachineCloudInitData = cloudconfig.GetMachineCloudInitData
+
+// combinedCloudInitData returns a combined map of the given cloudInitData
+// and instance cloud init properties provided.
+func combinedCloudInitData(
+	cloudInitData map[string]interface{},
+	containerInheritProperties, series string,
+	log loggo.Logger,
+) (map[string]interface{}, error) {
+	if containerInheritProperties == "" {
+		return cloudInitData, nil
+	}
+	machineData, err := GetMachineCloudInitData(series)
+	if err != nil {
+		return nil, err
+	}
+	if machineData == nil {
+		return cloudInitData, nil
+	}
+
+	if cloudInitData == nil {
+		cloudInitData = make(map[string]interface{})
+	}
+
+	resultsMap := cloudconfig.CloudConfigByVersionFunc(series)(containerInheritProperties, machineData, log)
+	for k, v := range resultsMap {
+		cloudInitData[k] = v
+	}
+
+	return cloudInitData, nil
 }

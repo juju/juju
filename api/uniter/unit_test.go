@@ -8,18 +8,21 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/core/application"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -187,8 +190,8 @@ func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a couple of subordinates and try again.
-	_, _, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
-	_, _, monitoringSub := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
+	_, _, loggingSub := s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
+	_, _, monitoringSub := s.addRelatedApplication(c, "wordpress", "monitoring", s.wordpressUnit)
 	c.Assert(loggingSub.Life(), gc.Equals, state.Alive)
 	c.Assert(monitoringSub.Life(), gc.Equals, state.Alive)
 
@@ -204,7 +207,7 @@ func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
 	c.Assert(monitoringSub.Life(), gc.Equals, state.Dying)
 }
 
-func (s *unitSuite) TestRefresh(c *gc.C) {
+func (s *unitSuite) TestRefreshLife(c *gc.C) {
 	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
 
 	err := s.apiUnit.EnsureDead()
@@ -214,6 +217,37 @@ func (s *unitSuite) TestRefresh(c *gc.C) {
 	err = s.apiUnit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiUnit.Life(), gc.Equals, params.Dead)
+}
+
+func (s *unitSuite) TestRefreshResolve(c *gc.C) {
+	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.apiUnit.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	mode := s.apiUnit.Resolved()
+	c.Assert(mode, gc.Equals, params.ResolvedRetryHooks)
+
+	err = s.apiUnit.ClearResolved()
+	c.Assert(err, jc.ErrorIsNil)
+	mode = s.apiUnit.Resolved()
+	c.Assert(mode, gc.Equals, params.ResolvedRetryHooks)
+
+	err = s.apiUnit.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	mode = s.apiUnit.Resolved()
+	c.Assert(mode, gc.Equals, params.ResolvedNone)
+}
+
+func (s *unitSuite) TestRefreshSeries(c *gc.C) {
+	c.Assert(s.apiUnit.Series(), gc.Equals, "quantal")
+	err := s.wordpressMachine.UpdateMachineSeries("xenial", true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.apiUnit.Series(), gc.Equals, "quantal")
+
+	err = s.apiUnit.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.apiUnit.Series(), gc.Equals, "xenial")
 }
 
 func (s *unitSuite) TestWatch(c *gc.C) {
@@ -239,20 +273,72 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 	wc.AssertOneChange()
 }
 
-func (s *unitSuite) TestResolve(c *gc.C) {
-	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
+func (s *unitSuite) TestWatchRelations(c *gc.C) {
+	w, err := s.apiUnit.WatchRelations()
+	c.Assert(err, jc.ErrorIsNil)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
+	// Initial event.
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// Change something other than the lifecycle and make sure it's
+	// not detected.
+	err = s.wordpressApplication.SetExposed()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	// Add another application and relate it to wordpress,
+	// check it's detected.
+	s.addMachineAppCharmAndUnit(c, "mysql")
+	rel := s.addRelation(c, "wordpress", "mysql")
+	wc.AssertChange(rel.String())
+
+	// Destroy the relation and check it's detected.
+	err = rel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(rel.String())
+	wc.AssertNoChange()
+}
+
+func (s *unitSuite) TestSubordinateWatchRelations(c *gc.C) {
+	// A subordinate unit deployed with this wordpress unit shouldn't
+	// be notified about changes to logging mysql.
+	loggingRel, _, loggingUnit := s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = loggingUnit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	mode, err := s.apiUnit.Resolved()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mode, gc.Equals, params.ResolvedRetryHooks)
+	// Add another principal app that we can relate logging to.
+	s.addMachineAppCharmAndUnit(c, "mysql")
 
-	err = s.apiUnit.ClearResolved()
+	api := s.OpenAPIAs(c, loggingUnit.Tag(), password)
+	uniter, err := api.Uniter()
+	c.Assert(err, jc.ErrorIsNil)
+	apiUnit, err := uniter.Unit(loggingUnit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 
-	mode, err = s.apiUnit.Resolved()
+	w, err := apiUnit.WatchRelations()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mode, gc.Equals, params.ResolvedNone)
+
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
+	wc.AssertChange(loggingRel.Tag().Id())
+	wc.AssertNoChange()
+
+	// Adding a subordinate relation to another application doesn't notify this unit.
+	s.addRelation(c, "mysql", "logging")
+	wc.AssertNoChange()
+
+	// Destroying a relevant relation does notify it.
+	err = loggingRel.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(loggingRel.Tag().Id())
+	wc.AssertNoChange()
 }
 
 func (s *unitSuite) TestAssignedMachine(c *gc.C) {
@@ -261,10 +347,11 @@ func (s *unitSuite) TestAssignedMachine(c *gc.C) {
 	c.Assert(machineTag, gc.Equals, s.wordpressMachine.Tag())
 }
 
-func (s *unitSuite) TestIsPrincipal(c *gc.C) {
-	ok, err := s.apiUnit.IsPrincipal()
+func (s *unitSuite) TestPrincipalName(c *gc.C) {
+	unitName, ok, err := s.apiUnit.PrincipalName()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(unitName, gc.Equals, "")
 }
 
 func (s *unitSuite) TestHasSubordinates(c *gc.C) {
@@ -273,8 +360,8 @@ func (s *unitSuite) TestHasSubordinates(c *gc.C) {
 	c.Assert(found, jc.IsFalse)
 
 	// Add a couple of subordinates and try again.
-	s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
-	s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
+	s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
+	s.addRelatedApplication(c, "wordpress", "monitoring", s.wordpressUnit)
 
 	found, err = s.apiUnit.HasSubordinates()
 	c.Assert(err, jc.ErrorIsNil)
@@ -307,44 +394,6 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	address, err = s.apiUnit.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address, gc.Equals, "1.2.3.4")
-}
-
-func (s *unitSuite) TestNetworkConfig(c *gc.C) {
-	c.Skip("dimitern: temporarily disabled to pass a CI run until it can be fixed like its apiserver/uniter counterpart")
-
-	// Set some provider addresses bound to both "public" and "internal"
-	// spaces.
-	addresses := []network.Address{
-		network.NewAddressOnSpace("public", "8.8.8.8"),
-		network.NewAddressOnSpace("", "8.8.4.4"),
-		network.NewAddressOnSpace("internal", "10.0.0.1"),
-		network.NewAddressOnSpace("internal", "10.0.0.2"),
-		network.NewAddressOnSpace("public", "fc00::1"),
-	}
-	err := s.wordpressMachine.SetProviderAddresses(addresses...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	netConfig, err := s.apiUnit.NetworkConfig("db") // relation name, bound to "internal"
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(netConfig, jc.DeepEquals, []params.NetworkConfig{
-		{Address: "10.0.0.1"},
-		{Address: "10.0.0.2"},
-	})
-
-	netConfig, err = s.apiUnit.NetworkConfig("admin-api") // extra-binding name, bound to "public"
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(netConfig, jc.DeepEquals, []params.NetworkConfig{
-		{Address: "8.8.8.8"},
-		{Address: "fc00::1"},
-	})
-
-	netConfig, err = s.apiUnit.NetworkConfig("unknown")
-	c.Assert(err, gc.ErrorMatches, `binding name "unknown" not defined by the unit's charm`)
-	c.Assert(netConfig, gc.IsNil)
-
-	netConfig, err = s.apiUnit.NetworkConfig("")
-	c.Assert(err, gc.ErrorMatches, "binding name cannot be empty")
-	c.Assert(netConfig, gc.IsNil)
 }
 
 func (s *unitSuite) TestAvailabilityZone(c *gc.C) {
@@ -420,6 +469,45 @@ func (s *unitSuite) TestGetSetCharmURL(c *gc.C) {
 	c.Assert(curl.String(), gc.Equals, s.wordpressCharm.String())
 }
 
+func (s *unitSuite) TestNetworkInfo(c *gc.C) {
+	var called int
+	relId := 2
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		called++
+		if called == 1 {
+			*(result.(*params.UnitRefreshResults)) = params.UnitRefreshResults{
+				Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone, Series: "quantal"}}}
+			return nil
+		}
+		c.Check(objType, gc.Equals, "Uniter")
+		c.Check(version, gc.Equals, expectedVersion)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "NetworkInfo")
+		c.Check(arg, gc.DeepEquals, params.NetworkInfoParams{
+			Unit:       "unit-mysql-0",
+			Bindings:   []string{"server"},
+			RelationId: &relId,
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.NetworkInfoResults{})
+		*(result.(*params.NetworkInfoResults)) = params.NetworkInfoResults{
+			Results: map[string]params.NetworkInfoResult{
+				"db": {
+					Error: &params.Error{Message: "FAIL"},
+				}},
+		}
+		return nil
+	})
+
+	ut := names.NewUnitTag("mysql/0")
+	st := uniter.NewState(apiCaller, ut)
+	unit, err := st.Unit(ut)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := unit.NetworkInfo([]string{"server"}, &relId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result["db"].Error, gc.ErrorMatches, "FAIL")
+	c.Assert(called, gc.Equals, 2)
+}
+
 func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	// Make sure ConfigSettings returns an error when
 	// no charm URL is set, as its state counterpart does.
@@ -437,7 +525,7 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	})
 
 	// Update the config and check we get the changes on the next call.
-	err = s.wordpressService.UpdateConfigSettings(charm.Settings{
+	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
 		"blog-title": "superhero paparazzi",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -467,22 +555,50 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
-	err = s.wordpressService.UpdateConfigSettings(charm.Settings{
+	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
 		"blog-title": "superhero paparazzi",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.wordpressService.UpdateConfigSettings(charm.Settings{
+	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Non-change is not reported.
-	err = s.wordpressService.UpdateConfigSettings(charm.Settings{
+	err = s.wordpressApplication.UpdateCharmConfig(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+}
+
+func (s *unitSuite) TestWatchTrustConfigSettings(c *gc.C) {
+	watcher, err := s.apiUnit.WatchTrustConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+
+	notifyWatcher := watchertest.NewNotifyWatcherC(c, watcher, s.BackingState.StartSync)
+	defer notifyWatcher.AssertStops()
+
+	// Initial event.
+	notifyWatcher.AssertOneChange()
+
+	// Update application config and see if it is reported
+	trustFieldKey := "trust"
+	s.wordpressApplication.UpdateApplicationConfig(application.ConfigAttributes{
+		trustFieldKey: true,
+	},
+		[]string{},
+		environschema.Fields{trustFieldKey: {
+			Description: "Does this application have access to trusted credentials",
+			Type:        environschema.Tbool,
+			Group:       environschema.JujuGroup,
+		}},
+		schema.Defaults{
+			trustFieldKey: false,
+		},
+	)
+	notifyWatcher.AssertOneChange()
 }
 
 func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
@@ -568,30 +684,37 @@ func (s *unitSuite) TestWatchActionNotificationsMoreResults(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 2")
 }
 
-func (s *unitSuite) TestServiceNameAndTag(c *gc.C) {
-	c.Assert(s.apiUnit.ApplicationName(), gc.Equals, s.wordpressService.Name())
-	c.Assert(s.apiUnit.ApplicationTag(), gc.Equals, s.wordpressService.Tag())
+func (s *unitSuite) TestApplicationNameAndTag(c *gc.C) {
+	c.Assert(s.apiUnit.ApplicationName(), gc.Equals, s.wordpressApplication.Name())
+	c.Assert(s.apiUnit.ApplicationTag(), gc.Equals, s.wordpressApplication.Tag())
 }
 
-func (s *unitSuite) TestJoinedRelations(c *gc.C) {
-	joinedRelations, err := s.apiUnit.JoinedRelations()
+func (s *unitSuite) TestRelationSuspended(c *gc.C) {
+	relationStatus, err := s.apiUnit.RelationsStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(joinedRelations, gc.HasLen, 0)
+	c.Assert(relationStatus, gc.HasLen, 0)
 
-	rel1, _, _ := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
-	joinedRelations, err = s.apiUnit.JoinedRelations()
+	rel1, _, _ := s.addRelatedApplication(c, "wordpress", "monitoring", s.wordpressUnit)
+	relationStatus, err = s.apiUnit.RelationsStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(joinedRelations, gc.DeepEquals, []names.RelationTag{
-		rel1.Tag().(names.RelationTag),
-	})
+	c.Assert(relationStatus, gc.DeepEquals, []uniter.RelationStatus{{
+		Tag:       rel1.Tag().(names.RelationTag),
+		InScope:   true,
+		Suspended: false,
+	}})
 
-	rel2, _, _ := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
-	joinedRelations, err = s.apiUnit.JoinedRelations()
+	rel2 := s.addRelationSuspended(c, "wordpress", "logging", s.wordpressUnit)
+	relationStatus, err = s.apiUnit.RelationsStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(joinedRelations, jc.SameContents, []names.RelationTag{
-		rel1.Tag().(names.RelationTag),
-		rel2.Tag().(names.RelationTag),
-	})
+	c.Assert(relationStatus, jc.SameContents, []uniter.RelationStatus{{
+		Tag:       rel1.Tag().(names.RelationTag),
+		InScope:   true,
+		Suspended: false,
+	}, {
+		Tag:       rel2.Tag().(names.RelationTag),
+		InScope:   false,
+		Suspended: true,
+	}})
 }
 
 func (s *unitSuite) TestWatchAddresses(c *gc.C) {
@@ -641,7 +764,11 @@ func (s *unitSuite) TestAddMetrics(c *gc.C) {
 			return nil
 		},
 	)
-	metrics := []params.Metric{{"A", "23", time.Now()}, {"B", "27.0", time.Now()}}
+	metrics := []params.Metric{{
+		Key: "A", Value: "23", Time: time.Now(),
+	}, {
+		Key: "B", Value: "27.0", Time: time.Now(), Labels: map[string]string{"foo": "bar"},
+	}}
 	err := s.apiUnit.AddMetrics(metrics)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -654,7 +781,11 @@ func (s *unitSuite) TestAddMetricsError(c *gc.C) {
 			return fmt.Errorf("test error")
 		},
 	)
-	metrics := []params.Metric{{"A", "23", time.Now()}, {"B", "27.0", time.Now()}}
+	metrics := []params.Metric{{
+		Key: "A", Value: "23", Time: time.Now(),
+	}, {
+		Key: "B", Value: "27.0", Time: time.Now(), Labels: map[string]string{"foo": "bar"},
+	}}
 	err := s.apiUnit.AddMetrics(metrics)
 	c.Assert(err, gc.ErrorMatches, "unable to add metric: test error")
 }
@@ -671,7 +802,11 @@ func (s *unitSuite) TestAddMetricsResultError(c *gc.C) {
 			return nil
 		},
 	)
-	metrics := []params.Metric{{"A", "23", time.Now()}, {"B", "27.0", time.Now()}}
+	metrics := []params.Metric{{
+		Key: "A", Value: "23", Time: time.Now(),
+	}, {
+		Key: "B", Value: "27.0", Time: time.Now(), Labels: map[string]string{"foo": "bar"},
+	}}
 	err := s.apiUnit.AddMetrics(metrics)
 	c.Assert(err, gc.ErrorMatches, "error adding metrics")
 }
@@ -756,18 +891,8 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 	wc.AssertOneChange()
 }
 
-func (s *unitSuite) patchNewState(
-	c *gc.C,
-	patchFunc func(_ base.APICaller, _ names.UnitTag) *uniter.State,
-) {
-	s.uniterSuite.patchNewState(c, patchFunc)
-	var err error
-	s.apiUnit, err = s.uniter.Unit(s.wordpressUnit.Tag().(names.UnitTag))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 type unitMetricBatchesSuite struct {
-	testing.JujuConnSuite
+	jujutesting.JujuConnSuite
 
 	st      api.Connection
 	uniter  *uniter.State
@@ -784,11 +909,11 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	service := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
+	application := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
 		Charm: s.charm,
 	})
 	unit := s.Factory.MakeUnit(c, &jujufactory.UnitParams{
-		Application: service,
+		Application: application,
 		SetCharmURL: true,
 	})
 
@@ -808,7 +933,11 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *unitMetricBatchesSuite) TestSendMetricBatchPatch(c *gc.C) {
-	metrics := []params.Metric{{"pings", "5", time.Now().UTC()}}
+	metrics := []params.Metric{{
+		Key: "pings", Value: "5", Time: time.Now().UTC(),
+	}, {
+		Key: "pongs", Value: "6", Time: time.Now().UTC(), Labels: map[string]string{"foo": "bar"},
+	}}
 	uuid := utils.MustNewUUID().String()
 	batch := params.MetricBatch{
 		UUID:     uuid,
@@ -843,7 +972,11 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatchFail(c *gc.C) {
 			result.Results[0].Error = common.ServerError(common.ErrPerm)
 			return nil
 		})
-	metrics := []params.Metric{{"pings", "5", time.Now().UTC()}}
+	metrics := []params.Metric{{
+		Key: "pings", Value: "5", Time: time.Now().UTC(),
+	}, {
+		Key: "pongs", Value: "6", Time: time.Now().UTC(), Labels: map[string]string{"foo": "bar"},
+	}}
 	uuid := utils.MustNewUUID().String()
 	batch := params.MetricBatch{
 		UUID:     uuid,
@@ -862,7 +995,11 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatchFail(c *gc.C) {
 func (s *unitMetricBatchesSuite) TestSendMetricBatch(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	now := time.Now().Round(time.Second).UTC()
-	metrics := []params.Metric{{"pings", "5", now}}
+	metrics := []params.Metric{{
+		Key: "pings", Value: "5", Time: now,
+	}, {
+		Key: "pongs", Value: "6", Time: time.Now().UTC(), Labels: map[string]string{"foo": "bar"},
+	}}
 	batch := params.MetricBatch{
 		UUID:     uuid,
 		CharmURL: s.charm.URL().String(),
@@ -881,8 +1018,11 @@ func (s *unitMetricBatchesSuite) TestSendMetricBatch(c *gc.C) {
 	c.Assert(batches[0].UUID(), gc.Equals, uuid)
 	c.Assert(batches[0].Sent(), jc.IsFalse)
 	c.Assert(batches[0].CharmURL(), gc.Equals, s.charm.URL().String())
-	c.Assert(batches[0].Metrics(), gc.HasLen, 1)
-	c.Assert(batches[0].Metrics()[0].Key, gc.Equals, "pings")
+	c.Assert(batches[0].Metrics(), gc.HasLen, 2)
 	c.Assert(batches[0].Metrics()[0].Key, gc.Equals, "pings")
 	c.Assert(batches[0].Metrics()[0].Value, gc.Equals, "5")
+	c.Assert(batches[0].Metrics()[0].Labels, gc.HasLen, 0)
+	c.Assert(batches[0].Metrics()[1].Key, gc.Equals, "pongs")
+	c.Assert(batches[0].Metrics()[1].Value, gc.Equals, "6")
+	c.Assert(batches[0].Metrics()[1].Labels, gc.DeepEquals, map[string]string{"foo": "bar"})
 }

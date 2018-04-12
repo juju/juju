@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/nacl/secretbox"
@@ -25,16 +26,15 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
-	cmdtesting "github.com/juju/juju/cmd/testing"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type RegisterSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	apiConnection            *mockAPIConnection
-	store                    *jujuclienttesting.MemStore
+	store                    *jujuclient.MemStore
 	apiOpenError             error
 	listModels               func(jujuclient.ClientStore, string, string) ([]base.UserModel, error)
 	listModelsControllerName string
@@ -74,7 +74,7 @@ func (s *RegisterSuite) SetUpTest(c *gc.C) {
 		return nil, nil
 	}
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 }
 
 func (s *RegisterSuite) TearDownTest(c *gc.C) {
@@ -85,14 +85,10 @@ func (s *RegisterSuite) TearDownTest(c *gc.C) {
 func (s *RegisterSuite) TestInit(c *gc.C) {
 	registerCommand := controller.NewRegisterCommandForTest(nil, nil, nil)
 
-	err := testing.InitCommand(registerCommand, []string{})
+	err := cmdtesting.InitCommand(registerCommand, []string{})
 	c.Assert(err, gc.ErrorMatches, "registration data missing")
 
-	err = testing.InitCommand(registerCommand, []string{"foo"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(registerCommand.Arg, gc.Equals, "foo")
-
-	err = testing.InitCommand(registerCommand, []string{"foo", "bar"})
+	err = cmdtesting.InitCommand(registerCommand, []string{"foo", "bar"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["bar"\]`)
 }
 
@@ -108,6 +104,7 @@ func (s *RegisterSuite) TestRegisterOneModel(c *gc.C) {
 			Name:  "theoneandonly",
 			Owner: "carol",
 			UUID:  mockControllerUUID,
+			Type:  model.IAAS,
 		}}, nil
 	}
 	prompter := cmdtesting.NewSeqPrompter(c, "»", `
@@ -115,8 +112,8 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller \[controller-name\]: »
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "controller-name".
 
@@ -136,10 +133,12 @@ func (s *RegisterSuite) TestRegisterMultipleModels(c *gc.C) {
 			Name:  "model1",
 			Owner: "bob",
 			UUID:  mockControllerUUID,
+			Type:  model.IAAS,
 		}, {
 			Name:  "model2",
 			Owner: "bob",
 			UUID:  "eeeeeeee-12e9-11e4-8a70-b2227cce2b55",
+			Type:  model.IAAS,
 		}}, nil
 	}
 	prompter := cmdtesting.NewSeqPrompter(c, "»", `
@@ -147,8 +146,8 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller \[controller-name\]: »
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "controller-name".
 
@@ -192,8 +191,8 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller \[controller-name\]: »
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "controller-name".
 `[1:]+noModelsText)
@@ -261,7 +260,6 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller: »
 You must specify a non-empty controller name.
 Enter a name for this controller: »
@@ -284,10 +282,10 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller: »controller-name
 Controller "controller-name" already exists.
 Enter a name for this controller: »other-name
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "other-name".
 `[1:]+noModelsText)
@@ -308,6 +306,7 @@ func (s *RegisterSuite) TestControllerUUIDExists(c *gc.C) {
 			Name:  "model-name",
 			Owner: "bob",
 			UUID:  mockControllerUUID,
+			Type:  model.IAAS,
 		}}, nil
 	}
 
@@ -325,6 +324,7 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
+Enter a name for this controller: »foo
 Initial password successfully set for bob.
 `[1:])
 	err = s.run(c, prompter, registrationData)
@@ -346,6 +346,7 @@ func (s *RegisterSuite) TestProposedControllerNameExists(c *gc.C) {
 			Name:  "model-name",
 			Owner: "bob",
 			UUID:  mockControllerUUID,
+			Type:  model.IAAS,
 		}}, nil
 	}
 
@@ -354,10 +355,10 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
-Initial password successfully set for bob.
 Enter a name for this controller: »controller-name
 Controller "controller-name" already exists.
 Enter a name for this controller: »other-name
+Initial password successfully set for bob.
 
 Welcome, bob. You are now logged into "other-name".
 
@@ -407,11 +408,16 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
+Enter a name for this controller: »foo
 `[1:])
 	defer prompter.CheckDone()
 	s.apiOpenError = errors.New("open failed")
 	err := s.run(c, prompter, registrationData)
-	c.Assert(err, gc.ErrorMatches, `open failed`)
+	c.Assert(c.GetTestLog(), gc.Matches, "(.|\n)*open failed(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, `
+Provided registration token may have been expired.
+A controller administrator must reset your user to issue a new token.
+See "juju help change-user-password" for more information.`[1:])
 }
 
 func (s *RegisterSuite) TestRegisterServerError(c *gc.C) {
@@ -429,6 +435,8 @@ Enter a new password: »hunter2
 
 Confirm password: »hunter2
 
+Enter a name for this controller: »foo
+
 `[1:])
 
 	registrationData := s.encodeRegistrationData(c, jujuclient.RegistrationInfo{
@@ -436,7 +444,11 @@ Confirm password: »hunter2
 		SecretKey: mockSecretKey,
 	})
 	err = s.run(c, prompter, registrationData)
-	c.Assert(err, gc.ErrorMatches, "xyz")
+	c.Assert(c.GetTestLog(), gc.Matches, "(.|\n)* xyz(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, `
+Provided registration token may have been expired.
+A controller administrator must reset your user to issue a new token.
+See "juju help change-user-password" for more information.`[1:])
 
 	// Check that the controller hasn't been added.
 	_, err = s.store.ControllerByName("controller-name")
@@ -475,7 +487,11 @@ Welcome, bob@external. You are now logged into "public-controller-name".
 
 func (s *RegisterSuite) TestRegisterPublicAPIOpenError(c *gc.C) {
 	s.apiOpenError = errors.New("open failed")
-	err := s.run(c, noPrompts(c), "0.1.2.3")
+	prompter := cmdtesting.NewSeqPrompter(c, "»", `
+Enter a name for this controller: »public-controller-name
+`[1:])
+	defer prompter.CheckDone()
+	err := s.run(c, prompter, "0.1.2.3")
 	c.Assert(err, gc.ErrorMatches, `open failed`)
 }
 
@@ -576,7 +592,7 @@ func (s *RegisterSuite) run(c *gc.C, stdio io.ReadWriter, args ...string) error 
 	}
 
 	command := controller.NewRegisterCommandForTest(s.apiOpen, s.listModels, s.store)
-	err := testing.InitCommand(command, args)
+	err := cmdtesting.InitCommand(command, args)
 	c.Assert(err, jc.ErrorIsNil)
 	return command.Run(&cmd.Context{
 		Dir:    c.MkDir(),

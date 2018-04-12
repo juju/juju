@@ -15,8 +15,10 @@ import (
 // independently of individual models.
 var controllerFacadeNames = set.NewStrings(
 	"AllModelWatcher",
+	"ApplicationOffers",
 	"Cloud",
 	"Controller",
+	"CrossController",
 	"MigrationTarget",
 	"ModelManager",
 	"UserManager",
@@ -32,17 +34,21 @@ var commonFacadeNames = set.NewStrings(
 	// backwards compatibility. Remove once we're sure no non-Juju
 	// clients care about it.
 	"HighAvailability",
+
+	// NotifyWatcher may be used for watching controller API info,
+	// in conjunction with the CrossController facade.
+	"NotifyWatcher",
 )
 
 func controllerFacadesOnly(facadeName, _ string) error {
-	if !isControllerFacade(facadeName) {
+	if !IsControllerFacade(facadeName) {
 		return errors.NewNotSupported(nil, fmt.Sprintf("facade %q not supported for controller API connection", facadeName))
 	}
 	return nil
 }
 
-// isControllerFacade reports whether the given facade name can be accessed
-// using the controller connection.
-func isControllerFacade(facadeName string) bool {
+// IsControllerFacade reports whether the given facade name can be accessed
+// using a controller connection.
+func IsControllerFacade(facadeName string) bool {
 	return controllerFacadeNames.Contains(facadeName) || commonFacadeNames.Contains(facadeName)
 }

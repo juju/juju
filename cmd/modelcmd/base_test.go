@@ -4,8 +4,11 @@
 package modelcmd_test
 
 import (
+	"io/ioutil"
 	"strings"
 
+	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -15,15 +18,15 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type BaseCommandSuite struct {
 	testing.IsolationSuite
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&BaseCommandSuite{})
@@ -31,15 +34,15 @@ var _ = gc.Suite(&BaseCommandSuite{})
 func (s *BaseCommandSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "foo"
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{
 		APIEndpoints: []string{"testing.invalid:1234"},
 	}
 	s.store.Models["foo"] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
-			"admin/badmodel":  {"deadbeef"},
-			"admin/goodmodel": {"deadbeef2"},
+			"admin/badmodel":  {ModelUUID: "deadbeef", ModelType: model.IAAS},
+			"admin/goodmodel": {ModelUUID: "deadbeef2", ModelType: model.IAAS},
 		},
 		CurrentModel: "admin/badmodel",
 	}
@@ -53,14 +56,19 @@ func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, current, expectedCurrent 
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return nil, errors.Trace(&params.Error{Code: params.CodeModelNotFound, Message: "model deaddeaf not found"})
 	}
-	cmd := modelcmd.NewModelCommandBase(s.store, "foo", "admin/badmodel")
-	cmd.SetAPIOpen(apiOpen)
-	conn, err := cmd.NewAPIRoot()
+	baseCmd := new(modelcmd.ModelCommandBase)
+	baseCmd.SetClientStore(s.store)
+	baseCmd.SetAPIOpen(apiOpen)
+	modelcmd.InitContexts(&cmd.Context{Stderr: ioutil.Discard}, baseCmd)
+	modelcmd.SetRunStarted(baseCmd)
+	baseCmd.SetModelName("foo:admin/badmodel", false)
+	conn, err := baseCmd.NewAPIRoot()
 	c.Assert(conn, gc.IsNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Equals, `model "admin/badmodel" has been removed from the controller, run 'juju models' and switch to one of them.There are 1 accessible models on controller "foo".`)
+	c.Assert(msg, gc.Equals, `model "admin/badmodel" has been removed from the controller, run 'juju models' and switch to one of them.`)
 	c.Assert(s.store.Models["foo"].Models, gc.HasLen, 1)
-	c.Assert(s.store.Models["foo"].Models["admin/goodmodel"], gc.DeepEquals, jujuclient.ModelDetails{"deadbeef2"})
+	c.Assert(s.store.Models["foo"].Models["admin/goodmodel"], gc.DeepEquals,
+		jujuclient.ModelDetails{ModelUUID: "deadbeef2", ModelType: model.IAAS})
 	c.Assert(s.store.Models["foo"].CurrentModel, gc.Equals, expectedCurrent)
 }
 
@@ -79,7 +87,7 @@ type NewGetBootstrapConfigParamsFuncSuite struct {
 var _ = gc.Suite(&NewGetBootstrapConfigParamsFuncSuite{})
 
 func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *gc.C) {
-	clientStore := jujuclienttesting.NewMemStore()
+	clientStore := jujuclient.NewMemStore()
 	clientStore.Controllers["foo"] = jujuclient.ControllerDetails{}
 	clientStore.BootstrapConfig["foo"] = jujuclient.BootstrapConfig{
 		Cloud:               "cloud",
@@ -93,7 +101,7 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *gc.C) {
 	var registry mockProviderRegistry
 
 	f := modelcmd.NewGetBootstrapConfigParamsFunc(
-		coretesting.Context(c),
+		cmdtesting.Context(c),
 		clientStore,
 		&registry,
 	)
@@ -125,4 +133,8 @@ func (p *mockEnvironProvider) FinalizeCredential(
 	out := args.Credential
 	out.Label = "finalized"
 	return &out, nil
+}
+
+func (p *mockEnvironProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.EmptyAuthType: cloud.CredentialSchema{}}
 }

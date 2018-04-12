@@ -84,6 +84,11 @@ func (*loopProvider) Dynamic() bool {
 	return true
 }
 
+// Releasable is defined on the Provider interface.
+func (*loopProvider) Releasable() bool {
+	return false
+}
+
 // DefaultPools is defined on the Provider interface.
 func (*loopProvider) DefaultPools() []*storage.Config {
 	return nil
@@ -155,6 +160,11 @@ func (lvs *loopVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error)
 		}
 	}
 	return results, nil
+}
+
+// ReleaseVolumes is defined on the VolumeSource interface.
+func (lvs *loopVolumeSource) ReleaseVolumes(volumeIds []string) ([]error, error) {
+	return make([]error, len(volumeIds)), nil
 }
 
 func (lvs *loopVolumeSource) destroyVolume(volumeId string) error {

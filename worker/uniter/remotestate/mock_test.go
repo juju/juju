@@ -5,8 +5,10 @@ package remotestate_test
 
 import (
 	"sync"
+	"time"
 
-	"gopkg.in/juju/charm.v6-unstable"
+	"github.com/juju/juju/core/model"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -97,11 +99,14 @@ func (w *mockRelationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 }
 
 type mockState struct {
-	unit                      mockUnit
-	relations                 map[names.RelationTag]*mockRelation
-	storageAttachment         map[params.StorageAttachmentId]params.StorageAttachment
-	relationUnitsWatchers     map[names.RelationTag]*mockRelationUnitsWatcher
-	storageAttachmentWatchers map[names.StorageTag]*mockNotifyWatcher
+	modelType                   model.ModelType
+	unit                        mockUnit
+	relations                   map[names.RelationTag]*mockRelation
+	storageAttachment           map[params.StorageAttachmentId]params.StorageAttachment
+	relationUnitsWatchers       map[names.RelationTag]*mockRelationUnitsWatcher
+	storageAttachmentWatchers   map[names.StorageTag]*mockNotifyWatcher
+	updateStatusInterval        time.Duration
+	updateStatusIntervalWatcher *mockNotifyWatcher
 }
 
 func (st *mockState) Relation(tag names.RelationTag) (remotestate.Relation, error) {
@@ -181,16 +186,27 @@ func (st *mockState) WatchStorageAttachment(
 	return watcher, nil
 }
 
+func (st *mockState) UpdateStatusHookInterval() (time.Duration, error) {
+	return st.updateStatusInterval, nil
+}
+
+func (st *mockState) WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, error) {
+	return st.updateStatusIntervalWatcher, nil
+}
+
 type mockUnit struct {
-	tag                   names.UnitTag
-	life                  params.Life
-	resolved              params.ResolvedMode
-	service               mockService
-	unitWatcher           *mockNotifyWatcher
-	addressesWatcher      *mockNotifyWatcher
-	configSettingsWatcher *mockNotifyWatcher
-	storageWatcher        *mockStringsWatcher
-	actionWatcher         *mockStringsWatcher
+	tag                              names.UnitTag
+	life                             params.Life
+	resolved                         params.ResolvedMode
+	series                           string
+	application                      mockApplication
+	unitWatcher                      *mockNotifyWatcher
+	addressesWatcher                 *mockNotifyWatcher
+	configSettingsWatcher            *mockNotifyWatcher
+	applicationConfigSettingsWatcher *mockNotifyWatcher
+	storageWatcher                   *mockStringsWatcher
+	actionWatcher                    *mockStringsWatcher
+	relationsWatcher                 *mockStringsWatcher
 }
 
 func (u *mockUnit) Life() params.Life {
@@ -201,12 +217,16 @@ func (u *mockUnit) Refresh() error {
 	return nil
 }
 
-func (u *mockUnit) Resolved() (params.ResolvedMode, error) {
-	return u.resolved, nil
+func (u *mockUnit) Resolved() params.ResolvedMode {
+	return u.resolved
 }
 
 func (u *mockUnit) Application() (remotestate.Application, error) {
-	return &u.service, nil
+	return &u.application, nil
+}
+
+func (u *mockUnit) Series() string {
+	return u.series
 }
 
 func (u *mockUnit) Tag() names.UnitTag {
@@ -225,6 +245,10 @@ func (u *mockUnit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 	return u.configSettingsWatcher, nil
 }
 
+func (u *mockUnit) WatchTrustConfigSettings() (watcher.NotifyWatcher, error) {
+	return u.applicationConfigSettingsWatcher, nil
+}
+
 func (u *mockUnit) WatchStorage() (watcher.StringsWatcher, error) {
 	return u.storageWatcher, nil
 }
@@ -233,52 +257,52 @@ func (u *mockUnit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 	return u.actionWatcher, nil
 }
 
-type mockService struct {
+func (u *mockUnit) WatchRelations() (watcher.StringsWatcher, error) {
+	return u.relationsWatcher, nil
+}
+
+type mockApplication struct {
 	tag                   names.ApplicationTag
 	life                  params.Life
 	curl                  *charm.URL
 	charmModifiedVersion  int
 	forceUpgrade          bool
-	serviceWatcher        *mockNotifyWatcher
+	applicationWatcher    *mockNotifyWatcher
 	leaderSettingsWatcher *mockNotifyWatcher
-	relationsWatcher      *mockStringsWatcher
 }
 
-func (s *mockService) CharmModifiedVersion() (int, error) {
+func (s *mockApplication) CharmModifiedVersion() (int, error) {
 	return s.charmModifiedVersion, nil
 }
 
-func (s *mockService) CharmURL() (*charm.URL, bool, error) {
+func (s *mockApplication) CharmURL() (*charm.URL, bool, error) {
 	return s.curl, s.forceUpgrade, nil
 }
 
-func (s *mockService) Life() params.Life {
+func (s *mockApplication) Life() params.Life {
 	return s.life
 }
 
-func (s *mockService) Refresh() error {
+func (s *mockApplication) Refresh() error {
 	return nil
 }
 
-func (s *mockService) Tag() names.ApplicationTag {
+func (s *mockApplication) Tag() names.ApplicationTag {
 	return s.tag
 }
 
-func (s *mockService) Watch() (watcher.NotifyWatcher, error) {
-	return s.serviceWatcher, nil
+func (s *mockApplication) Watch() (watcher.NotifyWatcher, error) {
+	return s.applicationWatcher, nil
 }
 
-func (s *mockService) WatchLeadershipSettings() (watcher.NotifyWatcher, error) {
+func (s *mockApplication) WatchLeadershipSettings() (watcher.NotifyWatcher, error) {
 	return s.leaderSettingsWatcher, nil
 }
 
-func (s *mockService) WatchRelations() (watcher.StringsWatcher, error) {
-	return s.relationsWatcher, nil
-}
-
 type mockRelation struct {
-	id   int
-	life params.Life
+	id        int
+	life      params.Life
+	suspended bool
 }
 
 func (r *mockRelation) Id() int {
@@ -287,6 +311,14 @@ func (r *mockRelation) Id() int {
 
 func (r *mockRelation) Life() params.Life {
 	return r.life
+}
+
+func (r *mockRelation) Suspended() bool {
+	return r.suspended
+}
+
+func (r *mockRelation) UpdateSuspended(suspended bool) {
+	r.suspended = suspended
 }
 
 type mockLeadershipTracker struct {

@@ -19,8 +19,18 @@ import (
 // ConfigFlag records k=v attributes from command arguments
 // and/or specified files containing key values.
 type ConfigFlag struct {
-	files []string
-	attrs map[string]interface{}
+	files               []string
+	attrs               map[string]interface{}
+	preserveStringValue bool
+}
+
+// SetPreserveStringValue sets whether name values should be
+// converted to a type that is inferred from their
+// string value, by way of YAML unmarshalling,or kept as
+// the original string value. The default behaviour is to
+// apply YAML unmarshalling to the value.
+func (f *ConfigFlag) SetPreserveStringValue(val bool) {
+	f.preserveStringValue = val
 }
 
 // Set implements gnuflag.Value.Set.
@@ -34,8 +44,12 @@ func (f *ConfigFlag) Set(s string) error {
 		return nil
 	}
 	var value interface{}
-	if err := yaml.Unmarshal([]byte(fields[1]), &value); err != nil {
-		return errors.Trace(err)
+	if fields[1] == "" || f.preserveStringValue {
+		value = fields[1]
+	} else {
+		if err := yaml.Unmarshal([]byte(fields[1]), &value); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	if f.attrs == nil {
 		f.attrs = make(map[string]interface{})
@@ -65,6 +79,28 @@ func (f *ConfigFlag) ReadAttrs(ctx *cmd.Context) (map[string]interface{}, error)
 		attrs[k] = v
 	}
 	return attrs, nil
+}
+
+// ReadConfigPairs returns just the k=v attributes.
+func (f *ConfigFlag) ReadConfigPairs(ctx *cmd.Context) (map[string]interface{}, error) {
+	attrs := make(map[string]interface{})
+	for k, v := range f.attrs {
+		attrs[k] = v
+	}
+	return attrs, nil
+}
+
+// AbsoluteFileNames returns the absolute path of any file names specified.
+func (f *ConfigFlag) AbsoluteFileNames(ctx *cmd.Context) ([]string, error) {
+	files := make([]string, len(f.files))
+	for i, f := range f.files {
+		path, err := utils.NormalizePath(f)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		files[i] = ctx.AbsPath(path)
+	}
+	return files, nil
 }
 
 // String implements gnuflag.Value.String.

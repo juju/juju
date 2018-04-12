@@ -13,10 +13,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -125,28 +126,28 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	sCons := map[string]state.StorageConstraints{
 		"data": {Pool: "", Size: 1024, Count: 1},
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, sCons)
+	service := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
 	s.machine = nil // allocate a new machine
 	unit := s.AddUnit(c, service)
 
-	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
+	storageAttachments, err := s.IAASModel.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 	storageTag := storageAttachments[0].StorageInstance()
 
-	volume, err := s.State.StorageInstanceVolume(storageTag)
+	volume, err := s.IAASModel.StorageInstanceVolume(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeTag := volume.VolumeTag()
 	machineTag := s.machine.MachineTag()
 
-	err = s.State.SetVolumeInfo(
+	err = s.IAASModel.SetVolumeInfo(
 		volumeTag, state.VolumeInfo{
 			VolumeId: "vol-123",
 			Size:     456,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetVolumeAttachmentInfo(
+	err = s.IAASModel.SetVolumeAttachmentInfo(
 		machineTag, volumeTag, state.VolumeAttachmentInfo{
 			DeviceName: "sdb",
 		},
@@ -160,15 +161,15 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	uniter, err := st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
 
-	contextFactory, err := context.NewContextFactory(
-		uniter,
-		unit.Tag().(names.UnitTag),
-		runnertesting.FakeTracker{},
-		s.getRelationInfos,
-		s.storage,
-		s.paths,
-		testing.NewClock(time.Time{}),
-	)
+	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
+		State:            uniter,
+		UnitTag:          unit.Tag().(names.UnitTag),
+		Tracker:          runnertesting.FakeTracker{},
+		GetRelationInfos: s.getRelationInfos,
+		Storage:          s.storage,
+		Paths:            s.paths,
+		Clock:            testing.NewClock(time.Time{}),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	factory, err := runner.NewFactory(
 		uniter,
@@ -228,7 +229,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		action, err := s.State.EnqueueAction(s.unit.Tag(), test.actionName, test.payload)
+		action, err := s.model.EnqueueAction(s.unit.Tag(), test.actionName, test.payload)
 		c.Assert(err, jc.ErrorIsNil)
 		rnr, err := s.factory.NewActionRunner(action.Id())
 		c.Assert(err, jc.ErrorIsNil)
@@ -256,51 +257,51 @@ func (s *FactorySuite) TestNewActionRunnerBadCharm(c *gc.C) {
 	rnr, err := s.factory.NewActionRunner("irrelevant")
 	c.Assert(rnr, gc.IsNil)
 	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
-	c.Assert(err, gc.Not(jc.Satisfies), runner.IsBadActionError)
+	c.Assert(err, gc.Not(jc.Satisfies), charmrunner.IsBadActionError)
 }
 
 func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	action, err := s.State.EnqueueAction(s.unit.Tag(), "no-such-action", nil)
+	action, err := s.model.EnqueueAction(s.unit.Tag(), "no-such-action", nil)
 	c.Assert(err, jc.ErrorIsNil) // this will fail when using AddAction on unit
 	rnr, err := s.factory.NewActionRunner(action.Id())
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"no-such-action\" action: not defined")
-	c.Check(err, jc.Satisfies, runner.IsBadActionError)
+	c.Check(err, jc.Satisfies, charmrunner.IsBadActionError)
 }
 
 func (s *FactorySuite) TestNewActionRunnerBadParams(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", map[string]interface{}{
+	action, err := s.model.EnqueueAction(s.unit.Tag(), "snapshot", map[string]interface{}{
 		"outfile": 123,
 	})
 	c.Assert(err, jc.ErrorIsNil) // this will fail when state is done right
 	rnr, err := s.factory.NewActionRunner(action.Id())
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"snapshot\" action: .*")
-	c.Check(err, jc.Satisfies, runner.IsBadActionError)
+	c.Check(err, jc.Satisfies, charmrunner.IsBadActionError)
 }
 
 func (s *FactorySuite) TestNewActionRunnerMissingAction(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", nil)
+	action, err := s.model.EnqueueAction(s.unit.Tag(), "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.unit.CancelAction(action)
 	c.Assert(err, jc.ErrorIsNil)
 	rnr, err := s.factory.NewActionRunner(action.Id())
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
-	c.Check(err, gc.Equals, runner.ErrActionNotAvailable)
+	c.Check(err, gc.Equals, charmrunner.ErrActionNotAvailable)
 }
 
 func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	otherUnit, err := s.service.AddUnit()
+	otherUnit, err := s.service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.State.EnqueueAction(otherUnit.Tag(), "snapshot", nil)
+	action, err := s.model.EnqueueAction(otherUnit.Tag(), "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	rnr, err := s.factory.NewActionRunner(action.Id())
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
-	c.Check(err, gc.Equals, runner.ErrActionNotAvailable)
+	c.Check(err, gc.Equals, charmrunner.ErrActionNotAvailable)
 }

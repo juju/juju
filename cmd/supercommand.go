@@ -52,13 +52,6 @@ func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 	return cmd.NewSuperCommand(p)
 }
 
-// NewSubSuperCommand should be used to create a SuperCommand
-// that runs as a subcommand of some other SuperCommand.
-func NewSubSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
-	p.NotifyRun = runNotifier
-	return cmd.NewSuperCommand(p)
-}
-
 func runNotifier(name string) {
 	logger.Infof("running %s [%s %s %s]", name, jujuversion.Current, runtime.Compiler, runtime.Version())
 	logger.Debugf("  args: %#v", os.Args)

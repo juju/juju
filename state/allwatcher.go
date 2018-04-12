@@ -8,13 +8,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -25,7 +23,7 @@ import (
 // a single model from the State.
 type allWatcherStateBacking struct {
 	st               *State
-	watcher          *watcher.Watcher
+	watcher          watcher.BaseWatcher
 	collectionByName map[string]allWatcherStateCollection
 }
 
@@ -33,7 +31,7 @@ type allWatcherStateBacking struct {
 // for all models from the State.
 type allModelWatcherStateBacking struct {
 	st               *State
-	watcher          *watcher.Watcher
+	watcher          watcher.BaseWatcher
 	stPool           *StatePool
 	collectionByName map[string]allWatcherStateCollection
 }
@@ -94,6 +92,8 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 			collection.subsidiary = true
 		case remoteApplicationsC:
 			collection.docType = reflect.TypeOf(backingRemoteApplication{})
+		case applicationOffersC:
+			collection.docType = reflect.TypeOf(backingApplicationOffer{})
 		default:
 			panic(errors.Errorf("unknown collection %q", collName))
 		}
@@ -115,8 +115,23 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 
 type backingModel modelDoc
 
+func (e *backingModel) isNotFoundAndModelDead(err error) bool {
+	// Return true if the error is not found and the model is dead.
+	// This will be the case if the model has been marked dead, pending cleanup.
+	return errors.IsNotFound(err) && e.Life == Dead
+}
+
 func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) error {
-	cfg, err := st.ModelConfig()
+	m, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	cfg, err := m.ModelConfig()
+	if e.isNotFoundAndModelDead(err) {
+		// Treat it as if the model is removed.
+		return e.removed(store, e.UUID, e.UUID, st)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -129,11 +144,19 @@ func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) e
 		Config:         cfg.AllAttrs(),
 	}
 	c, err := readConstraints(st, modelGlobalKey)
+	// Treat it as if the model is removed.
+	if e.isNotFoundAndModelDead(err) {
+		return e.removed(store, e.UUID, e.UUID, st)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
 	info.Constraints = c
-	modelStatus, err := getStatus(st, modelGlobalKey, "model")
+	modelStatus, err := getStatus(st.db(), modelGlobalKey, "model")
+	if e.isNotFoundAndModelDead(err) {
+		// Treat it as if the model is removed.
+		return e.removed(store, e.UUID, e.UUID, st)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -327,7 +350,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 		// so fetch the associated unit status and opened ports.
 		unitStatus, agentStatus, err := unitAndAgentStatus(st, u.Name)
 		if err != nil {
-			return errors.Annotatef(err, "reading unit and agent status for %q", u.Name)
+			return errors.Annotatef(err, "cannot retrieve unit and agent status for %q", u.Name)
 		}
 		// Unit and workload status.
 		info.WorkloadStatus = multiwatcher.NewStatusInfo(unitStatus, nil)
@@ -355,7 +378,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 	}
 	publicAddress, privateAddress, err := getUnitAddresses(st, u.Name)
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "cannot get addresses for %q", u.Name)
 	}
 	info.PublicAddress = publicAddress
 	info.PrivateAddress = privateAddress
@@ -426,7 +449,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		}
 		info.Constraints = c
 		needConfig = true
-		applicationStatus, err := getStatus(st, key, "application")
+		applicationStatus, err := getStatus(st.db(), key, "application")
 		if err != nil {
 			return errors.Annotatef(err, "reading application status for key %s", key)
 		}
@@ -443,7 +466,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 			// Not sure how status can even return NotFound as it is created
 			// with the application initially. For now, we'll log the error as per
 			// the above and return Unknown.
-			now := st.clock.Now()
+			now := st.clock().Now()
 			info.Status = multiwatcher.StatusInfo{
 				Current: status.Unknown,
 				Since:   &now,
@@ -454,6 +477,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		// The entry already exists, so preserve the current status.
 		oldInfo := oldInfo.(*multiwatcher.ApplicationInfo)
 		info.Constraints = oldInfo.Constraints
+		info.WorkloadVersion = oldInfo.WorkloadVersion
 		if info.CharmURL == oldInfo.CharmURL {
 			// The charm URL remains the same - we can continue to
 			// use the same config settings.
@@ -465,7 +489,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		}
 	}
 	if needConfig {
-		doc, err := readSettingsDoc(st, settingsC, applicationSettingsKey(app.Name, app.CharmURL))
+		doc, err := readSettingsDoc(st.db(), settingsC, applicationCharmConfigKey(app.Name, app.CharmURL))
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -494,18 +518,24 @@ func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 	if app.Name == "" {
 		return errors.Errorf("remote application name is not set")
 	}
+	if app.IsConsumerProxy {
+		// Since this is a consumer proxy, we update the offer
+		// info in this (the offering) model.
+		return app.updateOfferInfo(st, store)
+	}
 	info := &multiwatcher.RemoteApplicationInfo{
-		ModelUUID:      st.ModelUUID(),
-		Name:           app.Name,
-		ApplicationURL: app.URL,
-		Life:           multiwatcher.Life(app.Life.String()),
+		ModelUUID: st.ModelUUID(),
+		Name:      app.Name,
+		OfferUUID: app.OfferUUID,
+		OfferURL:  app.URL,
+		Life:      multiwatcher.Life(app.Life.String()),
 	}
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
 		logger.Debugf("new remote application %q added to backing state", app.Name)
 		// Fetch the status.
 		key := remoteApplicationGlobalKey(app.Name)
-		serviceStatus, err := getStatus(st, key, "remote application")
+		serviceStatus, err := getStatus(st.db(), key, "remote application")
 		if err != nil {
 			return errors.Annotatef(err, "reading remote application status for key %s", key)
 		}
@@ -524,17 +554,106 @@ func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 	return nil
 }
 
-func (svc *backingRemoteApplication) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
+func (app *backingRemoteApplication) updateOfferInfo(st *State, store *multiwatcherStore) error {
+	// Remote Applications reference an offer using the offer UUID.
+	// Offers in the store use offer name as the id key, so we need
+	// to look through the store entities to find any matching offer.
+	var offerInfo *multiwatcher.ApplicationOfferInfo
+	entities := store.All()
+	for _, e := range entities {
+		var ok bool
+		if offerInfo, ok = e.(*multiwatcher.ApplicationOfferInfo); ok {
+			if offerInfo.OfferUUID != app.OfferUUID {
+				offerInfo = nil
+				continue
+			}
+			break
+		}
+	}
+	// If we have an existing remote application,
+	// adjust any offer info also.
+	if offerInfo == nil {
+		return nil
+	}
+	remoteConnection, err := st.RemoteConnectionStatus(offerInfo.OfferUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	offerInfo.TotalConnectedCount = remoteConnection.TotalConnectionCount()
+	offerInfo.ActiveConnectedCount = remoteConnection.ActiveConnectionCount()
+	store.Update(offerInfo)
+	return nil
+}
+
+func (app *backingRemoteApplication) removed(store *multiwatcherStore, modelUUID, id string, st *State) (err error) {
+	err = app.updateOfferInfo(st, store)
+	if err != nil {
+		// We log the error but don't prevent the remote app removal.
+		logger.Errorf("updating application offer info: %v", err)
+	}
 	store.Remove(multiwatcher.EntityId{
 		Kind:      "remoteApplication",
+		ModelUUID: modelUUID,
+		Id:        id,
+	})
+	return err
+}
+
+func (app *backingRemoteApplication) mongoId() string {
+	return app.DocID
+}
+
+type backingApplicationOffer applicationOfferDoc
+
+func (offer *backingApplicationOffer) updated(st *State, store *multiwatcherStore, id string) error {
+	info := &multiwatcher.ApplicationOfferInfo{
+		ModelUUID:       st.ModelUUID(),
+		OfferName:       offer.OfferName,
+		OfferUUID:       offer.OfferUUID,
+		ApplicationName: offer.ApplicationName,
+	}
+	err := updateOfferInfo(st, info)
+	if err != nil {
+		return errors.Annotatef(err, "reading application offer details for %s", offer.OfferName)
+	}
+	store.Update(info)
+	return nil
+}
+
+func updateOfferInfo(st *State, offerInfo *multiwatcher.ApplicationOfferInfo) error {
+	offers := NewApplicationOffers(st)
+	offer, err := offers.ApplicationOfferForUUID(offerInfo.OfferUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	localApp, err := st.Application(offer.ApplicationName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	curl, _ := localApp.CharmURL()
+	offerInfo.ApplicationName = offer.ApplicationName
+	offerInfo.CharmName = curl.Name
+
+	remoteConnection, err := st.RemoteConnectionStatus(offerInfo.OfferUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	offerInfo.TotalConnectedCount = remoteConnection.TotalConnectionCount()
+	offerInfo.ActiveConnectedCount = remoteConnection.ActiveConnectionCount()
+	return nil
+}
+
+func (offer *backingApplicationOffer) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
+	store.Remove(multiwatcher.EntityId{
+		Kind:      "applicationOffer",
 		ModelUUID: modelUUID,
 		Id:        id,
 	})
 	return nil
 }
 
-func (app *backingRemoteApplication) mongoId() string {
-	return app.DocID
+func (offer *backingApplicationOffer) mongoId() string {
+	return offer.DocID
 }
 
 type backingAction actionDoc
@@ -684,7 +803,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 		newInfo := *info
 		// Get the unit's current recorded status from state.
 		// It's needed to reset the unit status when a unit comes off error.
-		statusInfo, err := getStatus(st, unitGlobalKey(newInfo.Name), "unit")
+		statusInfo, err := getStatus(st.db(), unitGlobalKey(newInfo.Name), "unit")
 		if err != nil {
 			return err
 		}
@@ -738,8 +857,13 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 		}
 	}
 
-	// A change in a unit's status might also affect it's application.
-	application, err := st.Application(newInfo.Application)
+	// Retrieve the unit.
+	unit, err := st.Unit(newInfo.Name)
+	if err != nil {
+		return errors.Annotatef(err, "cannot retrieve unit %q", newInfo.Name)
+	}
+	// A change in a unit's status might also affect its application.
+	application, err := unit.Application()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -757,6 +881,12 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	}
 	newApplicationInfo := *applicationInfo.(*multiwatcher.ApplicationInfo)
 	newApplicationInfo.Status = multiwatcher.NewStatusInfo(status, nil)
+	workloadVersion, err := unit.WorkloadVersion()
+	if err != nil {
+		return errors.Annotatef(err, "cannot retrieve workload version for %q", unit.Name())
+	} else if workloadVersion != "" {
+		newApplicationInfo.WorkloadVersion = workloadVersion
+	}
 	store.Update(&newApplicationInfo)
 	return nil
 }
@@ -1035,6 +1165,7 @@ func backingEntityIdForGlobalKey(modelUUID, key string) (multiwatcher.EntityId, 
 	id := key[2:]
 	switch key[0] {
 	case 'm':
+		id = strings.TrimSuffix(id, "#instance")
 		return (&multiwatcher.MachineInfo{
 			ModelUUID: modelUUID,
 			Id:        id,
@@ -1081,8 +1212,8 @@ type backingEntityDoc interface {
 	mongoId() string
 }
 
-func newAllWatcherStateBacking(st *State) Backing {
-	collections := makeAllWatcherCollectionInfo(
+func newAllWatcherStateBacking(st *State, params WatchParams) Backing {
+	collectionNames := []string{
 		machinesC,
 		unitsC,
 		applicationsC,
@@ -1094,13 +1225,12 @@ func newAllWatcherStateBacking(st *State) Backing {
 		openedPortsC,
 		actionsC,
 		blocksC,
-	)
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		crossModelCollections := makeAllWatcherCollectionInfo(remoteApplicationsC)
-		for name, w := range crossModelCollections {
-			collections[name] = w
-		}
+		remoteApplicationsC,
 	}
+	if params.IncludeOffers {
+		collectionNames = append(collectionNames, applicationOffersC)
+	}
+	collections := makeAllWatcherCollectionInfo(collectionNames...)
 	return &allWatcherStateBacking{
 		st:               st,
 		watcher:          st.workers.txnLogWatcher(),
@@ -1140,7 +1270,7 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.
 	if !ok {
 		return errors.Errorf("unknown collection %q in fetch request", change.C)
 	}
-	col, closer := b.st.getCollection(c.name)
+	col, closer := b.st.db().GetCollection(c.name)
 	defer closer()
 	doc := reflect.New(c.docType).Interface().(backingEntityDoc)
 
@@ -1179,13 +1309,8 @@ func NewAllModelWatcherStateBacking(st *State, pool *StatePool) Backing {
 		constraintsC,
 		settingsC,
 		openedPortsC,
+		remoteApplicationsC,
 	)
-	if featureflag.Enabled(feature.CrossModelRelations) {
-		crossModelCollections := makeAllWatcherCollectionInfo(remoteApplicationsC)
-		for name, w := range crossModelCollections {
-			collections[name] = w
-		}
-	}
 	return &allModelWatcherStateBacking{
 		st:               st,
 		watcher:          st.workers.txnLogWatcher(),
@@ -1210,28 +1335,36 @@ func (b *allModelWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 
 // GetAll fetches all items that we want to watch from the state.
 func (b *allModelWatcherStateBacking) GetAll(all *multiwatcherStore) error {
-	models, err := b.st.AllModels()
+	modelUUIDs, err := b.st.AllModelUUIDs()
 	if err != nil {
 		return errors.Annotate(err, "error loading models")
 	}
-	for _, m := range models {
-		if err := b.loadAllWatcherEntitiesForModel(m, all); err != nil {
+	for _, modelUUID := range modelUUIDs {
+		if err := b.loadAllWatcherEntitiesForModel(modelUUID, all); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(m *Model, all *multiwatcherStore) error {
-	st, err := b.st.ForModel(m.ModelTag())
+func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(modelUUID string, all *multiwatcherStore) error {
+	st, err := b.stPool.Get(modelUUID)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			// This can occur if the model has been destroyed since
+			// the moment when model uuid has been retrieved.
+			// If we cannot find the model in the above call,
+			// we do not want to err out and we do not want to proceed
+			// with this call - just leave.
+			return nil
+		}
 		return errors.Trace(err)
 	}
-	defer st.Close()
+	defer st.Release()
 
-	err = loadAllWatcherEntities(st, b.collectionByName, all)
+	err = loadAllWatcherEntities(st.State, b.collectionByName, all)
 	if err != nil {
-		return errors.Annotatef(err, "error loading entities for model %v", m.UUID())
+		return errors.Annotatef(err, "error loading entities for model %v", modelUUID)
 	}
 	return nil
 }
@@ -1251,32 +1384,31 @@ func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change wat
 
 	doc := reflect.New(c.docType).Interface().(backingEntityDoc)
 
-	st, releaser, err := b.getState(modelUUID)
+	st, err := b.getState(modelUUID)
 	if err != nil {
-		_, modelErr := b.st.GetModel(names.NewModelTag(modelUUID))
-		if errors.IsNotFound(modelErr) {
+		if exists, modelErr := b.st.ModelExists(modelUUID); exists && modelErr == nil {
 			// The entity's model is gone so remove the entity
 			// from the store.
 			doc.removed(all, modelUUID, id, nil)
 			return nil
 		}
-		return errors.Trace(err)
+		return errors.Trace(err) // prioritise getState error
 	}
-	defer releaser()
+	defer st.Release()
 
-	col, closer := st.getCollection(c.name)
+	col, closer := st.db().GetCollection(c.name)
 	defer closer()
 
 	// TODO - see TODOs in allWatcherStateBacking.Changed()
 	err = col.FindId(id).One(doc)
 	if err == mgo.ErrNotFound {
-		err := doc.removed(all, modelUUID, id, st)
+		err := doc.removed(all, modelUUID, id, st.State)
 		return errors.Trace(err)
 	}
 	if err != nil {
 		return err
 	}
-	return doc.updated(st, all, id)
+	return doc.updated(st.State, all, id)
 }
 
 func (b *allModelWatcherStateBacking) idForChange(change watcher.Change) (string, string, error) {
@@ -1292,12 +1424,12 @@ func (b *allModelWatcherStateBacking) idForChange(change watcher.Change) (string
 	return modelUUID, id, nil
 }
 
-func (b *allModelWatcherStateBacking) getState(modelUUID string) (*State, func(), error) {
-	st, releaser, err := b.stPool.Get(modelUUID)
+func (b *allModelWatcherStateBacking) getState(modelUUID string) (*PooledState, error) {
+	st, err := b.stPool.Get(modelUUID)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return st, releaser, nil
+	return st, nil
 }
 
 // Release implements the Backing interface.

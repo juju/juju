@@ -10,12 +10,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -44,14 +45,14 @@ type ContextFactory interface {
 }
 
 // StorageContextAccessor is an interface providing access to StorageContexts
-// for a jujuc.Context.
+// for a hooks.Context.
 type StorageContextAccessor interface {
 
 	// StorageTags returns the tags of storage instances attached to
 	// the unit.
 	StorageTags() ([]names.StorageTag, error)
 
-	// Storage returns the jujuc.ContextStorageAttachment with the
+	// Storage returns the hooks.ContextStorageAttachment with the
 	// supplied tag if it was found, and whether it was found.
 	Storage(names.StorageTag) (jujuc.ContextStorageAttachment, error)
 }
@@ -69,11 +70,13 @@ type contextFactory struct {
 	// Fields that shouldn't change in a factory's lifetime.
 	paths      Paths
 	modelUUID  string
-	envName    string
+	modelName  string
+	modelType  model.ModelType
 	machineTag names.MachineTag
 	storage    StorageContextAccessor
 	clock      clock.Clock
 	zone       string
+	principal  string
 
 	// Callback to get relation state snapshot.
 	getRelationInfos RelationsFunc
@@ -83,50 +86,67 @@ type contextFactory struct {
 	rand *rand.Rand
 }
 
+// FactoryConfig contains configuration values
+// for the context factory.
+type FactoryConfig struct {
+	State            *uniter.State
+	UnitTag          names.UnitTag
+	Tracker          leadership.Tracker
+	GetRelationInfos RelationsFunc
+	Storage          StorageContextAccessor
+	Paths            Paths
+	Clock            clock.Clock
+}
+
 // NewContextFactory returns a ContextFactory capable of creating execution contexts backed
 // by the supplied unit's supplied API connection.
-func NewContextFactory(
-	state *uniter.State,
-	unitTag names.UnitTag,
-	tracker leadership.Tracker,
-	getRelationInfos RelationsFunc,
-	storage StorageContextAccessor,
-	paths Paths,
-	clock clock.Clock,
-) (
-	ContextFactory, error,
-) {
-	unit, err := state.Unit(unitTag)
+func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
+	unit, err := config.State.Unit(config.UnitTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	machineTag, err := unit.AssignedMachine()
+	m, err := config.State.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	model, err := state.Model()
+	var (
+		machineTag names.MachineTag
+		zone       string
+	)
+	if m.Type() == model.IAAS {
+		machineTag, err = unit.AssignedMachine()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		zone, err = unit.AvailabilityZone()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	principal, ok, err := unit.PrincipalName()
 	if err != nil {
 		return nil, errors.Trace(err)
+	} else if !ok {
+		principal = ""
 	}
 
-	zone, err := unit.AvailabilityZone()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	f := &contextFactory{
 		unit:             unit,
-		state:            state,
-		tracker:          tracker,
-		paths:            paths,
-		modelUUID:        model.UUID(),
-		envName:          model.Name(),
+		state:            config.State,
+		tracker:          config.Tracker,
+		paths:            config.Paths,
+		modelUUID:        m.UUID(),
+		modelName:        m.Name(),
 		machineTag:       machineTag,
-		getRelationInfos: getRelationInfos,
+		getRelationInfos: config.GetRelationInfos,
 		relationCaches:   map[int]*RelationCache{},
-		storage:          storage,
+		storage:          config.Storage,
 		rand:             rand.New(rand.NewSource(time.Now().Unix())),
-		clock:            clock,
+		clock:            config.Clock,
 		zone:             zone,
+		principal:        principal,
+		modelType:        m.Type(),
 	}
 	return f, nil
 }
@@ -142,13 +162,14 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 	leadershipContext := newLeadershipContext(
 		f.state.LeadershipSettings,
 		f.tracker,
+		f.unit.Name(),
 	)
 	ctx := &HookContext{
 		unit:               f.unit,
 		state:              f.state,
 		LeadershipContext:  leadershipContext,
 		uuid:               f.modelUUID,
-		envName:            f.envName,
+		modelName:          f.modelName,
 		unitName:           f.unit.Name(),
 		assignedMachineTag: f.machineTag,
 		relations:          f.getContextRelations(),
@@ -159,6 +180,7 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		componentDir:       f.paths.ComponentDir,
 		componentFuncs:     registeredComponentFuncs,
 		availabilityzone:   f.zone,
+		principal:          f.principal,
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err
@@ -269,10 +291,20 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	if err != nil {
 		return err
 	}
-	ctx.machinePorts, err = f.state.AllMachinePorts(f.machineTag)
+
+	sla, err := f.state.SLALevel()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "could not retrieve the SLA level")
 	}
+	ctx.slaLevel = sla
+
+	// TODO(fwereade) 23-10-2014 bug 1384572
+	// Nothing here should ever be getting the environ config directly.
+	modelConfig, err := f.state.ModelConfig()
+	if err != nil {
+		return err
+	}
+	ctx.proxySettings = modelConfig.ProxySettings()
 
 	statusCode, statusInfo, err := f.unit.MeterStatus()
 	if err != nil {
@@ -283,24 +315,23 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 		info: statusInfo,
 	}
 
-	// TODO(fwereade) 23-10-2014 bug 1384572
-	// Nothing here should ever be getting the environ config directly.
-	modelConfig, err := f.state.ModelConfig()
-	if err != nil {
-		return err
-	}
-	ctx.proxySettings = modelConfig.ProxySettings()
+	if f.modelType == model.IAAS {
+		ctx.machinePorts, err = f.state.AllMachinePorts(f.machineTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-	// Calling these last, because there's a potential race: they're not guaranteed
-	// to be set in time to be needed for a hook. If they're not, we just leave them
-	// unset as we always have; this isn't great but it's about behaviour preservation.
-	ctx.publicAddress, err = f.unit.PublicAddress()
-	if err != nil && !params.IsCodeNoAddressSet(err) {
-		return err
-	}
-	ctx.privateAddress, err = f.unit.PrivateAddress()
-	if err != nil && !params.IsCodeNoAddressSet(err) {
-		return err
+		// Calling these last, because there's a potential race: they're not guaranteed
+		// to be set in time to be needed for a hook. If they're not, we just leave them
+		// unset as we always have; this isn't great but it's about behaviour preservation.
+		ctx.publicAddress, err = f.unit.PublicAddress()
+		if err != nil && !params.IsCodeNoAddressSet(err) {
+			logger.Warningf("cannot get legacy public address for %v: %v", f.unit.Name(), err)
+		}
+		ctx.privateAddress, err = f.unit.PrivateAddress()
+		if err != nil && !params.IsCodeNoAddressSet(err) {
+			logger.Warningf("cannot get legacy private address for %v: %v", f.unit.Name(), err)
+		}
 	}
 	return nil
 }

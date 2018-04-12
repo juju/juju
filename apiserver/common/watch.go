@@ -128,7 +128,7 @@ func NewMultiNotifyWatcher(w ...state.NotifyWatcher) *MultiNotifyWatcher {
 // sending.
 func (w *MultiNotifyWatcher) loop(in <-chan struct{}) {
 	defer close(w.changes)
-	// out is initialised to m.changes to send the inital event.
+	// out is initialised to m.changes to send the initial event.
 	out := w.changes
 	var timer <-chan time.Time
 	for {

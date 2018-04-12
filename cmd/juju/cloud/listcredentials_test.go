@@ -6,6 +6,7 @@ package cloud_test
 import (
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -13,13 +14,13 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
 
 type listCredentialsSuite struct {
 	testing.BaseSuite
-	store              *jujuclienttesting.MemStore
+	store              *jujuclient.MemStore
 	personalCloudsFunc func() (map[string]jujucloud.Cloud, error)
 	cloudByNameFunc    func(string) (*jujucloud.Cloud, error)
 }
@@ -40,12 +41,15 @@ var _ = gc.Suite(&listCredentialsSuite{
 
 func (s *listCredentialsSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	environs.RegisterProvider("test-provider", &mockProvider{})
+	unreg := environs.RegisterProvider("test-provider", &mockProvider{})
+	s.AddCleanup(func(_ *gc.C) {
+		unreg()
+	})
 }
 
 func (s *listCredentialsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.store = &jujuclienttesting.MemStore{
+	s.store = &jujuclient.MemStore{
 		Credentials: map[string]jujucloud.CloudCredential{
 			"aws": {
 				DefaultRegion:     "ap-southeast-2",
@@ -158,7 +162,7 @@ func (s *listCredentialsSuite) TestListCredentialsYAMLWithSecrets(c *gc.C) {
 	}
 	out := s.listCredentials(c, "--format", "yaml", "--show-secrets")
 	c.Assert(out, gc.Equals, `
-credentials:
+local-credentials:
   aws:
     default-credential: down
     default-region: ap-southeast-2
@@ -210,7 +214,7 @@ func (s *listCredentialsSuite) TestListCredentialsYAMLNoSecrets(c *gc.C) {
 	}
 	out := s.listCredentials(c, "--format", "yaml")
 	c.Assert(out, gc.Equals, `
-credentials:
+local-credentials:
   aws:
     default-credential: down
     default-region: ap-southeast-2
@@ -241,7 +245,7 @@ credentials:
 func (s *listCredentialsSuite) TestListCredentialsYAMLFiltered(c *gc.C) {
 	out := s.listCredentials(c, "--format", "yaml", "azure")
 	c.Assert(out, gc.Equals, `
-credentials:
+local-credentials:
   azure:
     azhja:
       auth-type: userpass
@@ -254,26 +258,26 @@ credentials:
 func (s *listCredentialsSuite) TestListCredentialsJSONWithSecrets(c *gc.C) {
 	out := s.listCredentials(c, "--format", "json", "--show-secrets")
 	c.Assert(out, gc.Equals, `
-{"credentials":{"aws":{"default-credential":"down","default-region":"ap-southeast-2","cloud-credentials":{"bob":{"auth-type":"access-key","details":{"access-key":"key","secret-key":"secret"}},"down":{"auth-type":"userpass","details":{"password":"password","username":"user"}}}},"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","application-password":"app-secret","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}},"google":{"cloud-credentials":{"default":{"auth-type":"oauth2","details":{"client-email":"email","client-id":"id","private-key":"key"}}}},"mycloud":{"cloud-credentials":{"me":{"auth-type":"access-key","details":{"access-key":"key","secret-key":"secret"}}}}}}
+{"local-credentials":{"aws":{"default-credential":"down","default-region":"ap-southeast-2","cloud-credentials":{"bob":{"auth-type":"access-key","details":{"access-key":"key","secret-key":"secret"}},"down":{"auth-type":"userpass","details":{"password":"password","username":"user"}}}},"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","application-password":"app-secret","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}},"google":{"cloud-credentials":{"default":{"auth-type":"oauth2","details":{"client-email":"email","client-id":"id","private-key":"key"}}}},"mycloud":{"cloud-credentials":{"me":{"auth-type":"access-key","details":{"access-key":"key","secret-key":"secret"}}}}}}
 `[1:])
 }
 
 func (s *listCredentialsSuite) TestListCredentialsJSONNoSecrets(c *gc.C) {
 	out := s.listCredentials(c, "--format", "json")
 	c.Assert(out, gc.Equals, `
-{"credentials":{"aws":{"default-credential":"down","default-region":"ap-southeast-2","cloud-credentials":{"bob":{"auth-type":"access-key","details":{"access-key":"key"}},"down":{"auth-type":"userpass","details":{"username":"user"}}}},"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}},"google":{"cloud-credentials":{"default":{"auth-type":"oauth2","details":{"client-email":"email","client-id":"id"}}}},"mycloud":{"cloud-credentials":{"me":{"auth-type":"access-key","details":{"access-key":"key"}}}}}}
+{"local-credentials":{"aws":{"default-credential":"down","default-region":"ap-southeast-2","cloud-credentials":{"bob":{"auth-type":"access-key","details":{"access-key":"key"}},"down":{"auth-type":"userpass","details":{"username":"user"}}}},"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}},"google":{"cloud-credentials":{"default":{"auth-type":"oauth2","details":{"client-email":"email","client-id":"id"}}}},"mycloud":{"cloud-credentials":{"me":{"auth-type":"access-key","details":{"access-key":"key"}}}}}}
 `[1:])
 }
 
 func (s *listCredentialsSuite) TestListCredentialsJSONFiltered(c *gc.C) {
 	out := s.listCredentials(c, "--format", "json", "azure")
 	c.Assert(out, gc.Equals, `
-{"credentials":{"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}}}}
+{"local-credentials":{"azure":{"cloud-credentials":{"azhja":{"auth-type":"userpass","details":{"application-id":"app-id","subscription-id":"subscription-id","tenant-id":"tenant-id"}}}}}}
 `[1:])
 }
 
 func (s *listCredentialsSuite) TestListCredentialsEmpty(c *gc.C) {
-	s.store = &jujuclienttesting.MemStore{
+	s.store = &jujuclient.MemStore{
 		Credentials: map[string]jujucloud.CloudCredential{
 			"aws": {
 				AuthCredentials: map[string]jujucloud.Credential{
@@ -289,36 +293,36 @@ func (s *listCredentialsSuite) TestListCredentialsEmpty(c *gc.C) {
 	c.Assert(out, gc.Equals, "Cloud  Credentialsaws    bob")
 
 	out = strings.Replace(s.listCredentials(c, "--format", "yaml"), "\n", "", -1)
-	c.Assert(out, gc.Equals, "credentials:  aws:    bob:      auth-type: oauth2")
+	c.Assert(out, gc.Equals, "local-credentials:  aws:    bob:      auth-type: oauth2")
 
 	out = strings.Replace(s.listCredentials(c, "--format", "json"), "\n", "", -1)
-	c.Assert(out, gc.Equals, `{"credentials":{"aws":{"cloud-credentials":{"bob":{"auth-type":"oauth2"}}}}}`)
+	c.Assert(out, gc.Equals, `{"local-credentials":{"aws":{"cloud-credentials":{"bob":{"auth-type":"oauth2"}}}}}`)
 }
 
 func (s *listCredentialsSuite) TestListCredentialsNone(c *gc.C) {
-	listCmd := cloud.NewListCredentialsCommandForTest(jujuclienttesting.NewMemStore(), s.personalCloudsFunc, s.cloudByNameFunc)
-	ctx, err := testing.RunCommand(c, listCmd)
+	listCmd := cloud.NewListCredentialsCommandForTest(jujuclient.NewMemStore(), s.personalCloudsFunc, s.cloudByNameFunc)
+	ctx, err := cmdtesting.RunCommand(c, listCmd)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	out := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
-	c.Assert(out, gc.Equals, "No credentials to display.")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	out := strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
+	c.Assert(out, gc.Equals, "No locally stored credentials to display.")
 
-	ctx, err = testing.RunCommand(c, listCmd, "--format", "yaml")
+	ctx, err = cmdtesting.RunCommand(c, listCmd, "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	out = strings.Replace(testing.Stdout(ctx), "\n", "", -1)
-	c.Assert(out, gc.Equals, "credentials: {}")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	out = strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
+	c.Assert(out, gc.Equals, "local-credentials: {}")
 
-	ctx, err = testing.RunCommand(c, listCmd, "--format", "json")
+	ctx, err = cmdtesting.RunCommand(c, listCmd, "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	out = strings.Replace(testing.Stdout(ctx), "\n", "", -1)
-	c.Assert(out, gc.Equals, `{"credentials":{}}`)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	out = strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1)
+	c.Assert(out, gc.Equals, `{"local-credentials":{}}`)
 }
 
 func (s *listCredentialsSuite) listCredentials(c *gc.C, args ...string) string {
-	ctx, err := testing.RunCommand(c, cloud.NewListCredentialsCommandForTest(s.store, s.personalCloudsFunc, s.cloudByNameFunc), args...)
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCredentialsCommandForTest(s.store, s.personalCloudsFunc, s.cloudByNameFunc), args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stderr(ctx), gc.Equals, "")
-	return testing.Stdout(ctx)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	return cmdtesting.Stdout(ctx)
 }

@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket/websockettest"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -26,18 +28,19 @@ import (
 )
 
 type logtransferSuite struct {
-	authHTTPSuite
+	apiserverBaseSuite
 	userTag         names.UserTag
 	password        string
 	machineTag      names.MachineTag
 	machinePassword string
 	logs            loggo.TestWriter
+	url             string
 }
 
 var _ = gc.Suite(&logtransferSuite{})
 
 func (s *logtransferSuite) SetUpTest(c *gc.C) {
-	s.authHTTPSuite.SetUpTest(c)
+	s.apiserverBaseSuite.SetUpTest(c)
 	s.password = "jabberwocky"
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: s.password})
 	s.userTag = u.Tag().(names.UserTag)
@@ -46,20 +49,17 @@ func (s *logtransferSuite) SetUpTest(c *gc.C) {
 	})
 	s.machineTag = m.Tag().(names.MachineTag)
 	s.machinePassword = password
-
 	s.setUserAccess(c, permission.SuperuserAccess)
+
+	url := s.URL("/migrate/logtransfer", url.Values{
+		"jujuclientversion": {version.Current.String()},
+	})
+	url.Scheme = "wss"
+	s.url = url.String()
 
 	s.logs.Clear()
 	writer := loggo.NewMinimumLevelWriter(&s.logs, loggo.INFO)
 	c.Assert(loggo.RegisterWriter("logsink-tests", writer), jc.ErrorIsNil)
-}
-
-func (s *logtransferSuite) logtransferURL(c *gc.C, scheme string) *url.URL {
-	server := s.makeURL(c, scheme, "/migrate/logtransfer", nil)
-	query := server.Query()
-	query.Set("jujuclientversion", version.Current.String())
-	server.RawQuery = query.Encode()
-	return server
 }
 
 func (s *logtransferSuite) makeAuthHeader() http.Header {
@@ -73,73 +73,77 @@ func (s *logtransferSuite) dialWebsocket(c *gc.C) *websocket.Conn {
 }
 
 func (s *logtransferSuite) dialWebsocketInternal(c *gc.C, header http.Header) *websocket.Conn {
-	server := s.logtransferURL(c, "wss").String()
-	conn := dialWebsocketFromURL(c, server, header)
+	conn, _, err := dialWebsocketFromURL(c, s.url, header)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 	return conn
+}
+
+func (s *logtransferSuite) checkAuthFails(c *gc.C, header http.Header, code int, message string) {
+	_, resp, err := dialWebsocketFromURL(c, s.url, header)
+	c.Assert(err, gc.Equals, websocket.ErrBadHandshake)
+	defer resp.Body.Close()
+
+	c.Assert(resp.StatusCode, gc.Equals, code)
+	body, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(body), gc.Matches, message+"\n")
 }
 
 func (s *logtransferSuite) TestRejectsMissingModelHeader(c *gc.C) {
 	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
 	ws := s.dialWebsocketInternal(c, header)
-	assertJSONError(c, ws, `unknown model: ""`)
-	assertWebsocketClosed(c, ws)
+	websockettest.AssertJSONError(c, ws, `initialising migration logsink session: unknown model: ""`)
+	websockettest.AssertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestRejectsBadMigratingModelUUID(c *gc.C) {
 	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
 	header.Add(params.MigrationModelHTTPHeader, "does-not-exist")
 	ws := s.dialWebsocketInternal(c, header)
-	assertJSONError(c, ws, `unknown model: "does-not-exist"`)
-	assertWebsocketClosed(c, ws)
+	websockettest.AssertJSONError(c, ws, `initialising migration logsink session: unknown model: "does-not-exist"`)
+	websockettest.AssertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestRejectsInvalidVersion(c *gc.C) {
-	url := s.logtransferURL(c, "wss")
-	query := url.Query()
-	query.Set("jujuclientversion", "blah")
-	url.RawQuery = query.Encode()
-	conn := dialWebsocketFromURL(c, url.String(), s.makeAuthHeader())
+	url := s.URL("/migrate/logtransfer", url.Values{"jujuclientversion": {"blah"}})
+	url.Scheme = "wss"
+	conn, _, err := dialWebsocketFromURL(c, url.String(), s.makeAuthHeader())
+	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	assertJSONError(c, conn, `^invalid jujuclientversion "blah".*`)
-	assertWebsocketClosed(c, conn)
+	websockettest.AssertJSONError(c, conn, `^initialising migration logsink session: invalid jujuclientversion "blah".*`)
+	websockettest.AssertWebsocketClosed(c, conn)
 }
 
 func (s *logtransferSuite) TestRejectsMachineLogins(c *gc.C) {
 	header := utils.BasicAuthHeader(s.machineTag.String(), s.machinePassword)
 	header.Add(params.MachineNonceHeader, "nonce")
-	ws := s.dialWebsocketInternal(c, header)
-	assertJSONError(c, ws, `tag kind machine not valid`)
-	assertWebsocketClosed(c, ws)
+	s.checkAuthFails(c, header, http.StatusForbidden, "authorization failed: machine 0 is not a user")
 }
 
 func (s *logtransferSuite) TestRejectsBadPasword(c *gc.C) {
 	header := utils.BasicAuthHeader(s.userTag.String(), "wrong")
 	header.Add(params.MigrationModelHTTPHeader, s.State.ModelUUID())
-	ws := s.dialWebsocketInternal(c, header)
-	assertJSONError(c, ws, "invalid entity name or password")
-	assertWebsocketClosed(c, ws)
+	s.checkAuthFails(c, header, http.StatusUnauthorized, "authentication failed: invalid entity name or password")
 }
 
 func (s *logtransferSuite) TestRequiresSuperUser(c *gc.C) {
 	s.setUserAccess(c, permission.AddModelAccess)
-	ws := s.dialWebsocketInternal(c, s.makeAuthHeader())
-	assertJSONError(c, ws, `not a controller admin`)
-	assertWebsocketClosed(c, ws)
+	s.checkAuthFails(c, s.makeAuthHeader(), http.StatusForbidden, "authorization failed: user .* is not a controller admin")
 }
 
 func (s *logtransferSuite) TestRequiresMigrationModeNone(c *gc.C) {
 	s.setMigrationMode(c, state.MigrationModeImporting)
 	ws := s.dialWebsocket(c)
-	assertJSONError(c, ws, `model migration mode is "importing" instead of ""`)
-	assertWebsocketClosed(c, ws)
+	websockettest.AssertJSONError(c, ws, `initialising migration logsink session: model migration mode is "importing" instead of ""`)
+	websockettest.AssertWebsocketClosed(c, ws)
 }
 
 func (s *logtransferSuite) TestLogging(c *gc.C) {
 	conn := s.dialWebsocket(c)
 
 	// Read back the nil error, indicating that all is well.
-	assertJSONInitialErrorNil(c, conn)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
 	err := conn.WriteJSON(&params.LogRecord{
@@ -164,7 +168,7 @@ func (s *logtransferSuite) TestLogging(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for the log documents to be written to the DB.
-	logsColl := s.State.MongoSession().DB("logs").C("logs")
+	logsColl := s.State.MongoSession().DB("logs").C("logs." + s.State.ModelUUID())
 	var docs []bson.M
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		err := logsColl.Find(nil).Sort("t").All(&docs)
@@ -181,9 +185,7 @@ func (s *logtransferSuite) TestLogging(c *gc.C) {
 	}
 
 	// Check the recorded logs are correct.
-	modelUUID := s.State.ModelUUID()
 	c.Assert(docs[0]["t"], gc.Equals, t0.UnixNano())
-	c.Assert(docs[0]["e"], gc.Equals, modelUUID)
 	c.Assert(docs[0]["n"], gc.Equals, "machine-23")
 	c.Assert(docs[0]["m"], gc.Equals, "some.where")
 	c.Assert(docs[0]["l"], gc.Equals, "foo.go:42")
@@ -191,7 +193,6 @@ func (s *logtransferSuite) TestLogging(c *gc.C) {
 	c.Assert(docs[0]["x"], gc.Equals, "all is well")
 
 	c.Assert(docs[1]["t"], gc.Equals, t1.UnixNano())
-	c.Assert(docs[1]["e"], gc.Equals, modelUUID)
 	c.Assert(docs[1]["n"], gc.Equals, "machine-101")
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")
 	c.Assert(docs[1]["l"], gc.Equals, "bar.go:99")
@@ -219,7 +220,7 @@ func (s *logtransferSuite) TestTracksLastSentLogTime(c *gc.C) {
 	conn := s.dialWebsocket(c)
 
 	// Read back the nil error, indicating that all is well.
-	assertJSONInitialErrorNil(c, conn)
+	websockettest.AssertJSONInitialErrorNil(c, conn)
 
 	tracker := state.NewLastSentLogTracker(s.State, s.State.ModelUUID(), "migration-logtransfer")
 	defer tracker.Close()
@@ -304,8 +305,7 @@ func assertTrackerTime(c *gc.C, tracker *state.LastSentLogTracker, expected time
 }
 
 func (s *logtransferSuite) setUserAccess(c *gc.C, level permission.Access) {
-	controllerTag := names.NewControllerTag(s.ControllerConfig.ControllerUUID())
-	_, err := s.State.SetUserAccess(s.userTag, controllerTag, level)
+	_, err := s.State.SetUserAccess(s.userTag, s.State.ControllerTag(), level)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

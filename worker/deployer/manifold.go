@@ -49,10 +49,13 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 	// Get the machine agent's jobs.
 	// TODO(fwereade): this functionality should be on the
 	// deployer facade instead.
-	agentFacade := apiagent.NewState(apiCaller)
+	agentFacade, err := apiagent.NewState(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	entity, err := agentFacade.Entity(tag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	var isUnitHoster bool

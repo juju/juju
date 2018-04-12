@@ -29,10 +29,13 @@ type ToolsURLGetter interface {
 	ToolsURLs(v version.Binary) ([]string, error)
 }
 
-// APIHostPortsGetter is an interface providing the APIHostPorts method.
-type APIHostPortsGetter interface {
-	// APIHostPorst returns the HostPorts for each API server.
-	APIHostPorts() ([][]network.HostPort, error)
+// APIHostPortsGetter is an interface providing the APIHostPortsForAgents
+// method.
+type APIHostPortsForAgentsGetter interface {
+	// APIHostPortsForAgents returns the HostPorts for each API server that
+	// are suitable for agent-to-controller API communication based on the
+	// configured (if any) controller management space.
+	APIHostPortsForAgents() ([][]network.HostPort, error)
 }
 
 // ToolsStorageGetter is an interface providing the ToolsStorage method.
@@ -118,7 +121,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 	}
 	tooler, ok := entity.(state.AgentTooler)
 	if !ok {
-		return nil, NotSupportedError(tag, "agent tools")
+		return nil, NotSupportedError(tag, "agent binaries")
 	}
 	existingTools, err := tooler.AgentTools()
 	if err != nil {
@@ -185,7 +188,7 @@ func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, can
 	}
 	entity, ok := entity0.(state.AgentTooler)
 	if !ok {
-		return NotSupportedError(tag, "agent tools")
+		return NotSupportedError(tag, "agent binaries")
 	}
 	return entity.SetAgentVersion(vers)
 }
@@ -259,9 +262,9 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.
 	}
 	filter := toolsFilter(args)
 	cfg := env.Config()
-	stream := envtools.PreferredStream(&args.Number, cfg.Development(), cfg.AgentStream())
+	streams := envtools.PreferredStreams(&args.Number, cfg.Development(), cfg.AgentStream())
 	simplestreamsList, err := envtoolsFindTools(
-		env, args.MajorVersion, args.MinorVersion, stream, filter,
+		env, args.MajorVersion, args.MinorVersion, streams, filter,
 	)
 	if len(storageList) == 0 && err != nil {
 		return nil, err
@@ -297,7 +300,7 @@ func (f *ToolsFinder) matchingStorageTools(args params.FindToolsParams) (coretoo
 	for i, m := range allMetadata {
 		vers, err := version.ParseBinary(m.Version)
 		if err != nil {
-			return nil, errors.Annotatef(err, "unexpectedly bad version %q in tools storage", m.Version)
+			return nil, errors.Annotatef(err, "unexpected bad version %q of agent binary in storage", m.Version)
 		}
 		list[i] = &coretools.Tools{
 			Version: vers,
@@ -335,12 +338,12 @@ func toolsFilter(args params.FindToolsParams) coretools.Filter {
 
 type toolsURLGetter struct {
 	modelUUID          string
-	apiHostPortsGetter APIHostPortsGetter
+	apiHostPortsGetter APIHostPortsForAgentsGetter
 }
 
 // NewToolsURLGetter creates a new ToolsURLGetter that
 // returns tools URLs pointing at an API server.
-func NewToolsURLGetter(modelUUID string, a APIHostPortsGetter) *toolsURLGetter {
+func NewToolsURLGetter(modelUUID string, a APIHostPortsForAgentsGetter) *toolsURLGetter {
 	return &toolsURLGetter{modelUUID, a}
 }
 

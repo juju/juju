@@ -46,7 +46,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	}
 
 	if len(args.Tools) == 0 {
-		return nil, errors.New("tools not found")
+		return nil, errors.New("agent binaries not found")
 	}
 
 	img, err := findInstanceImage(args.ImageMetadata)

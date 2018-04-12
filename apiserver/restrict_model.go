@@ -10,12 +10,14 @@ import (
 )
 
 func modelFacadesOnly(facadeName, _ string) error {
-	if !isModelFacade(facadeName) {
+	if !IsModelFacade(facadeName) {
 		return errors.NewNotSupported(nil, fmt.Sprintf("facade %q not supported for model API connection", facadeName))
 	}
 	return nil
 }
 
-func isModelFacade(facadeName string) bool {
+// IsModelFacade reports whether the given facade name can be accessed
+// using a model connection.
+func IsModelFacade(facadeName string) bool {
 	return !controllerFacadeNames.Contains(facadeName)
 }

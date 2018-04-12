@@ -261,19 +261,3 @@ func (mi *maas1Instance) hostname() (string, error) {
 	// A MAAS instance has its DNS name immediately.
 	return mi.maasObject.GetField("hostname")
 }
-
-// MAAS does not do firewalling so these port methods do nothing.
-func (mi *maas1Instance) OpenPorts(machineId string, rules []network.IngressRule) error {
-	logger.Debugf("unimplemented OpenPorts() called")
-	return nil
-}
-
-func (mi *maas1Instance) ClosePorts(machineId string, rules []network.IngressRule) error {
-	logger.Debugf("unimplemented ClosePorts() called")
-	return nil
-}
-
-func (mi *maas1Instance) IngressRules(machineId string) ([]network.IngressRule, error) {
-	logger.Debugf("unimplemented Rules() called")
-	return nil, nil
-}

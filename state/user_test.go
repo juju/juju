@@ -234,10 +234,10 @@ func (s *UserSuite) TestRemoveUserRemovesUserAccess(c *gc.C) {
 	// Assert user exists and can authenticate.
 	c.Assert(user.PasswordValid("so sekrit"), jc.IsTrue)
 
-	s.State.SetUserAccess(user.UserTag(), s.State.ModelTag(), permission.AdminAccess)
+	s.State.SetUserAccess(user.UserTag(), s.IAASModel.ModelTag(), permission.AdminAccess)
 	s.State.SetUserAccess(user.UserTag(), s.State.ControllerTag(), permission.SuperuserAccess)
 
-	uam, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	uam, err := s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(uam.Access, gc.Equals, permission.AdminAccess)
 
@@ -254,7 +254,7 @@ func (s *UserSuite) TestRemoveUserRemovesUserAccess(c *gc.C) {
 	err = s.State.RemoveUser(user.UserTag())
 	c.Check(err, jc.ErrorIsNil)
 
-	uam, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	uam, err = s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf("user %q is permanently deleted", user.UserTag().Name()))
 
 	uac, err = s.State.UserAccess(user.UserTag(), s.State.ControllerTag())
@@ -407,4 +407,56 @@ func (s *UserSuite) TestSetPasswordClearsSecretKey(c *gc.C) {
 	err = u.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u.SecretKey(), gc.IsNil)
+}
+
+func (s *UserSuite) TestResetPassword(c *gc.C) {
+	u, err := s.State.AddUserWithSecretKey("bob", "display", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.HasLen, 32)
+	oldKey := u.SecretKey()
+
+	key, err := u.ResetPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(key, gc.Not(gc.DeepEquals), oldKey)
+	c.Assert(key, gc.NotNil)
+	c.Assert(u.SecretKey(), gc.DeepEquals, key)
+}
+
+func (s *UserSuite) TestResetPasswordFailIfDeactivated(c *gc.C) {
+	u, err := s.State.AddUser("bob", "display", "pass", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = u.Disable()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = u.ResetPassword()
+	c.Assert(err, gc.ErrorMatches, `cannot reset password for user "bob": user deactivated`)
+	c.Assert(u.SecretKey(), gc.IsNil)
+}
+
+func (s *UserSuite) TestResetPasswordFailIfDeleted(c *gc.C) {
+	u, err := s.State.AddUser("bob", "display", "pass", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.RemoveUser(u.Tag().(names.UserTag))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = u.ResetPassword()
+	c.Assert(err, gc.ErrorMatches, `cannot reset password for user "bob": user "bob" is permanently deleted`)
+	c.Assert(u.SecretKey(), gc.IsNil)
+}
+
+func (s *UserSuite) TestResetPasswordIfPasswordSet(c *gc.C) {
+	u, err := s.State.AddUser("bob", "display", "pass", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = u.SetPassword("anything")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.PasswordValid("anything"), jc.IsTrue)
+	c.Assert(u.SecretKey(), gc.IsNil)
+
+	key, err := u.ResetPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.DeepEquals, key)
+	c.Assert(u.PasswordValid("anything"), jc.IsFalse)
 }

@@ -4,7 +4,10 @@
 package presence_test
 
 import (
+	"fmt"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	stdtesting "testing"
 	"time"
 
@@ -16,6 +19,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/state/presence"
@@ -87,10 +91,10 @@ func assertNoChange(c *gc.C, watch <-chan presence.Change) {
 	}
 }
 
-func assertAlive(c *gc.C, w *presence.Watcher, key string, alive bool) {
-	alive, err := w.Alive("a")
+func assertAlive(c *gc.C, w *presence.Watcher, key string, expAlive bool) {
+	realAlive, err := w.Alive(key)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, gc.Equals, alive)
+	c.Assert(realAlive, gc.Equals, expAlive)
 }
 
 // assertStopped stops a worker and waits until it reports stopped.
@@ -98,7 +102,7 @@ func assertAlive(c *gc.C, w *presence.Watcher, key string, alive bool) {
 // that the worker has stopped, and thus is no longer using its mgo
 // session before TearDownTest shuts down the connection.
 func assertStopped(c *gc.C, w worker.Worker) {
-	c.Assert(worker.Stop(w), gc.IsNil)
+	c.Assert(worker.Stop(w), jc.ErrorIsNil)
 }
 
 func (s *PresenceSuite) TestErrAndDead(c *gc.C) {
@@ -120,6 +124,10 @@ func (s *PresenceSuite) TestErrAndDead(c *gc.C) {
 	}
 }
 
+func (s *PresenceSuite) getDirectRecorder() presence.PingRecorder {
+	return presence.DirectRecordFunc(s.presence)
+}
+
 func (s *PresenceSuite) TestAliveError(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
 	c.Assert(w.Stop(), gc.IsNil)
@@ -132,8 +140,8 @@ func (s *PresenceSuite) TestAliveError(c *gc.C) {
 
 func (s *PresenceSuite) TestWorkflow(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	pa := presence.NewPinger(s.presence, s.modelTag, "a")
-	pb := presence.NewPinger(s.presence, s.modelTag, "b")
+	pa := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
+	pb := presence.NewPinger(s.presence, s.modelTag, "b", s.getDirectRecorder)
 	defer assertStopped(c, w)
 	defer assertStopped(c, pa)
 	defer assertStopped(c, pb)
@@ -170,7 +178,7 @@ func (s *PresenceSuite) TestWorkflow(c *gc.C) {
 	assertNoChange(c, cha)
 	pa.KillForTesting()
 	w.Sync()
-	pa = presence.NewPinger(s.presence, s.modelTag, "a")
+	pa = presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
 	pa.Start()
 	w.StartSync()
 	assertNoChange(c, cha)
@@ -218,7 +226,7 @@ func (s *PresenceSuite) TestScale(c *gc.C) {
 
 	c.Logf("Starting %d pingers...", N)
 	for i := 0; i < N; i++ {
-		p := presence.NewPinger(s.presence, s.modelTag, strconv.Itoa(i))
+		p := presence.NewPinger(s.presence, s.modelTag, strconv.Itoa(i), s.getDirectRecorder)
 		c.Assert(p.Start(), gc.IsNil)
 		ps = append(ps, p)
 	}
@@ -246,7 +254,7 @@ func (s *PresenceSuite) TestScale(c *gc.C) {
 
 func (s *PresenceSuite) TestExpiry(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	p := presence.NewPinger(s.presence, s.modelTag, "a")
+	p := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
 	defer assertStopped(c, w)
 	defer assertStopped(c, p)
 
@@ -279,7 +287,7 @@ func (s *PresenceSuite) TestWatchPeriod(c *gc.C) {
 	presence.RealTimeSlot()
 
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	p := presence.NewPinger(s.presence, s.modelTag, "a")
+	p := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
 	defer assertStopped(c, w)
 	defer assertStopped(c, p)
 
@@ -324,7 +332,7 @@ func (s *PresenceSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 }
 
 func (s *PresenceSuite) TestRestartWithoutGaps(c *gc.C) {
-	p := presence.NewPinger(s.presence, s.modelTag, "a")
+	p := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
 	c.Assert(p.Start(), gc.IsNil)
 	defer assertStopped(c, p)
 
@@ -378,8 +386,8 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *gc.C) {
 	presence.RealTimeSlot()
 
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	p1 := presence.NewPinger(s.presence, s.modelTag, "a")
-	p2 := presence.NewPinger(s.presence, s.modelTag, "a")
+	p1 := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
+	p2 := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
 	defer assertStopped(c, w)
 	defer assertStopped(c, p1)
 	defer assertStopped(c, p2)
@@ -409,7 +417,7 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *gc.C) {
 
 func (s *PresenceSuite) TestStartSync(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	p := presence.NewPinger(s.presence, s.modelTag, "a")
+	p := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
 	defer assertStopped(c, w)
 	defer assertStopped(c, p)
 
@@ -438,7 +446,7 @@ func (s *PresenceSuite) TestStartSync(c *gc.C) {
 
 func (s *PresenceSuite) TestSync(c *gc.C) {
 	w := presence.NewWatcher(s.presence, s.modelTag)
-	p := presence.NewPinger(s.presence, s.modelTag, "a")
+	p := presence.NewPinger(s.presence, s.modelTag, "a", s.getDirectRecorder)
 	defer assertStopped(c, w)
 	defer assertStopped(c, p)
 
@@ -468,32 +476,6 @@ func (s *PresenceSuite) TestSync(c *gc.C) {
 
 	assertChange(c, ch, presence.Change{"a", true})
 
-	select {
-	case <-done:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("Sync failed to returned")
-	}
-}
-
-func (s *PresenceSuite) TestFindAllBeings(c *gc.C) {
-	w := presence.NewWatcher(s.presence, s.modelTag)
-	p := presence.NewPinger(s.presence, s.modelTag, "a")
-	defer assertStopped(c, w)
-	defer assertStopped(c, p)
-
-	ch := make(chan presence.Change)
-	w.Watch("a", ch)
-	assertChange(c, ch, presence.Change{"a", false})
-	c.Assert(p.Start(), gc.IsNil)
-	done := make(chan bool)
-	go func() {
-		w.Sync()
-		done <- true
-	}()
-	assertChange(c, ch, presence.Change{"a", true})
-	results, err := presence.FindAllBeings(w)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
 	select {
 	case <-done:
 	case <-time.After(testing.LongWait):
@@ -540,16 +522,174 @@ func (s *PresenceSuite) TestTwoEnvironments(c *gc.C) {
 	assertNoChange(c, ch1)
 }
 
-func (s *PresenceSuite) setup(c *gc.C, key string) (*presence.Watcher, *presence.Pinger, <-chan presence.Change) {
+func newModelTag(c *gc.C) names.ModelTag {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	modelUUID := uuid.String()
+	return names.NewModelTag(modelUUID)
+}
 
-	w := presence.NewWatcher(s.presence, names.NewModelTag(modelUUID))
-	p := presence.NewPinger(s.presence, names.NewModelTag(modelUUID), key)
+func (s *PresenceSuite) setup(c *gc.C, key string) (*presence.Watcher, *presence.Pinger, <-chan presence.Change) {
+	modelTag := newModelTag(c)
+
+	w := presence.NewWatcher(s.presence, modelTag)
+	p := presence.NewPinger(s.presence, modelTag, key, s.getDirectRecorder)
 
 	ch := make(chan presence.Change)
 	w.Watch(key, ch)
 	assertChange(c, ch, presence.Change{key, false})
 	return w, p, ch
+}
+
+func countModelIds(c *gc.C, coll *mgo.Collection, modelTag names.ModelTag) int {
+	count, err := coll.Find(bson.M{"_id": bson.RegEx{"^" + modelTag.Id() + ":", ""}}).Count()
+	// either the error is NotFound or nil
+	if err != nil {
+		c.Assert(err, gc.Equals, mgo.ErrNotFound)
+	}
+	return count
+}
+
+func (s *PresenceSuite) TestRemovePresenceForModel(c *gc.C) {
+	key := "a"
+
+	// Start a pinger in this model
+	w1 := presence.NewWatcher(s.presence, s.modelTag)
+	p1 := presence.NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
+	ch1 := make(chan presence.Change)
+	w1.Watch(key, ch1)
+	assertChange(c, ch1, presence.Change{key, false})
+	defer assertStopped(c, w1)
+	defer assertStopped(c, p1)
+	p1.Start()
+	w1.StartSync()
+	assertChange(c, ch1, presence.Change{"a", true})
+
+	// Start a second model and pinger with the same key
+	modelTag2 := newModelTag(c)
+	w2 := presence.NewWatcher(s.presence, modelTag2)
+	p2 := presence.NewPinger(s.presence, modelTag2, key, s.getDirectRecorder)
+	ch2 := make(chan presence.Change)
+	w2.Watch(key, ch2)
+	assertChange(c, ch2, presence.Change{key, false})
+	defer assertStopped(c, w2)
+	defer assertStopped(c, p2)
+	// Start them, and check that we see they're alive
+	p2.Start()
+	w2.StartSync()
+	assertChange(c, ch2, presence.Change{"a", true})
+
+	beings := s.presence.Database.C(s.presence.Name + ".beings")
+	pings := s.presence.Database.C(s.presence.Name + ".pings")
+	seqs := s.presence.Database.C(s.presence.Name + ".seqs")
+	// we should have a being and pings for both pingers
+	c.Check(countModelIds(c, beings, s.modelTag), gc.Equals, 1)
+	c.Check(countModelIds(c, beings, modelTag2), gc.Equals, 1)
+	c.Check(countModelIds(c, pings, s.modelTag), jc.GreaterThan, 0)
+	c.Check(countModelIds(c, pings, modelTag2), jc.GreaterThan, 0)
+	c.Check(countModelIds(c, seqs, s.modelTag), gc.Equals, 1)
+	c.Check(countModelIds(c, seqs, modelTag2), gc.Equals, 1)
+
+	// kill everything in the first model
+	assertStopped(c, w1)
+	assertStopped(c, p1)
+	// And cleanup the resources
+	err := presence.RemovePresenceForModel(s.presence, s.modelTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Should not cause the second pinger to go dead
+	w2.StartSync()
+	assertNoChange(c, ch2)
+
+	// And we should only have the second model in the databases
+	c.Check(countModelIds(c, beings, s.modelTag), gc.Equals, 0)
+	c.Check(countModelIds(c, beings, modelTag2), gc.Equals, 1)
+	c.Check(countModelIds(c, pings, s.modelTag), gc.Equals, 0)
+	c.Check(countModelIds(c, pings, modelTag2), jc.GreaterThan, 0)
+	c.Check(countModelIds(c, seqs, s.modelTag), gc.Equals, 0)
+	c.Check(countModelIds(c, seqs, modelTag2), gc.Equals, 1)
+
+	// Removing a Model that is no longer there should not be an error
+	err = presence.RemovePresenceForModel(s.presence, s.modelTag)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *PresenceSuite) TestMultiplePingersForEntity(c *gc.C) {
+	// We should be able to track multiple sequences for a given Entity, without having to reread the database all the time
+	key := "a"
+
+	// Start a pinger in this model
+	w := presence.NewWatcher(s.presence, s.modelTag)
+	defer assertStopped(c, w)
+	p1 := presence.NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
+	p1.Start()
+	assertStopped(c, p1)
+	p2 := presence.NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
+	p2.Start()
+	assertStopped(c, p2)
+	p3 := presence.NewPinger(s.presence, s.modelTag, key, s.getDirectRecorder)
+	p3.Start()
+	assertStopped(c, p3)
+	w.Sync()
+	loads := w.BeingLoads()
+	c.Check(loads, jc.GreaterThan, uint64(0))
+	alive, err := w.Alive(key)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(alive, jc.IsTrue)
+	// When we sync a second time, all of the above entities should already be cached, so we don't have to load them again
+	w.Sync()
+	c.Check(w.BeingLoads(), gc.Equals, loads)
+}
+
+func (s *PresenceSuite) TestRobustness(c *gc.C) {
+	// There used to be a potential condition, where during a flush() we wait for a channel send, and while we're
+	// waiting for it, we would handle events, which might cause us to grow our pending array, which would realloc
+	// the slice. If while that happened the original watch was unwatched, then we nil the channel, but the object
+	// we were hung pending on part of the reallocated slice.
+	w := presence.NewWatcher(s.presence, s.modelTag)
+	defer assertStopped(c, w)
+	// Start a watch for changes to 'key'. Never listen for actual events on that channel, though, so we know flush()
+	// will always be blocked, but allowing other events while waiting to send that event.
+	rootKey := "key"
+	keyChan := make(chan presence.Change, 0)
+	w.Watch(rootKey, keyChan)
+	// Whenever we successfully watch in the main loop(), it starts a flush. We should now be able to build up more
+	// watches while waiting. Create enough of these that we know the slice gets reallocated
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	var observed uint32
+	const numKeys = 10
+	for i := 0; i < numKeys; i++ {
+		k := fmt.Sprintf("k%d", i)
+		kChan := make(chan presence.Change, 0)
+		w.Watch("key", kChan)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case <-kChan:
+				atomic.AddUint32(&observed, 1)
+				return
+			case <-time.After(testing.LongWait):
+				c.Fatalf("timed out waiting %s for %q to see its event", testing.LongWait, k)
+			}
+		}()
+	}
+	// None of them should actually have triggered, since the very first pending object has not been listened to
+	// And now we unwatch that object
+	time.Sleep(testing.ShortWait)
+	c.Check(atomic.LoadUint32(&observed), gc.Equals, uint32(0))
+	w.Unwatch(rootKey, keyChan)
+	// This should unblock all of them, and everything should go to observed
+	failTime := time.After(testing.LongWait)
+	o := atomic.LoadUint32(&observed)
+	for o != numKeys {
+		select {
+		case <-time.After(time.Millisecond):
+			o = atomic.LoadUint32(&observed)
+		case <-failTime:
+			c.Fatalf("only observed %d changes (expected %d) after %s time", atomic.LoadUint32(&observed), numKeys, testing.LongWait)
+		}
+	}
+	c.Check(atomic.LoadUint32(&observed), gc.Equals, uint32(numKeys))
 }

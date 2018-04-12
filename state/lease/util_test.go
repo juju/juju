@@ -17,29 +17,26 @@ import (
 // can be configured to Advance automatically whenever Now is called. Attempts
 // to call Alarm will panic: they're not useful to a clock.Client itself, but
 // are extremely helpful when driving one.
+// This differs from github.com/juju/testing.Clock in that it has a Reset() function.
 type Clock struct {
 	clock.Clock
-	now  time.Time
-	step time.Duration
+	now time.Time
 }
 
-// NewClock returns a *Clock, set to now, that advances by step whenever Now()
-// is called.
-func NewClock(now time.Time, step time.Duration) *Clock {
-	return &Clock{now: now, step: step}
+// NewClock returns a *Clock, set to now.
+func NewClock(now time.Time) *Clock {
+	return &Clock{now: now}
 }
 
 // Now is part of the clock.Clock interface.
 func (clock *Clock) Now() time.Time {
-	defer clock.Advance(clock.step)
 	return clock.now
 }
 
 // Reset causes the clock to act as though it had just been created with
-// NewClock(now, step).
-func (clock *Clock) Reset(now time.Time, step time.Duration) {
+// NewClock(now).
+func (clock *Clock) Reset(now time.Time) {
 	clock.now = now
-	clock.step = step
 }
 
 // Advance advances the clock by the supplied time.
@@ -47,21 +44,12 @@ func (clock *Clock) Advance(duration time.Duration) {
 	clock.now = clock.now.Add(duration)
 }
 
-type monotonicClock struct {
-	now  time.Duration
-	step time.Duration
+type GlobalClock struct {
+	*Clock
 }
 
-func (m *monotonicClock) Now() time.Duration {
-	m.now += m.step
-	return m.now
-}
-
-// newMonotonicClock returns a monotonic clock instance whose
-// Now() method returns a duration advance by step each time
-// it is called.
-func newMonotonicClock(step time.Duration) *monotonicClock {
-	return &monotonicClock{step: step}
+func (clock GlobalClock) Now() (time.Time, error) {
+	return clock.Clock.Now(), nil
 }
 
 // Mongo exposes database operations. It uses a real database -- we can't mock

@@ -183,7 +183,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}
 
 	cons := constraints.Value{
-	// nothing
+		// nothing
 	}
 
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "trusty", "")
@@ -312,10 +312,9 @@ func (s *BaseSuiteUnpatched) IsRunningLocally(c *gc.C) bool {
 type BaseSuite struct {
 	BaseSuiteUnpatched
 
-	Stub       *gitjujutesting.Stub
-	Client     *StubClient
-	Firewaller *stubFirewaller
-	Common     *stubCommon
+	Stub   *gitjujutesting.Stub
+	Client *StubClient
+	Common *stubCommon
 }
 
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
@@ -328,7 +327,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.Stub = &gitjujutesting.Stub{}
 	s.Client = &StubClient{
-		Stub: s.Stub,
+		Stub:               s.Stub,
+		StorageIsSupported: true,
 		Server: &api.Server{
 			ServerPut: api.ServerPut{
 				Config: map[string]interface{}{},
@@ -338,7 +338,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
-	s.Firewaller = &stubFirewaller{stub: s.Stub}
 	s.Common = &stubCommon{stub: s.Stub}
 
 	// Patch out all expensive external deps.
@@ -349,7 +348,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		lxdProfiles:  s.Client,
 		lxdImages:    s.Client,
 		lxdStorage:   s.Client,
-		Firewaller:   s.Firewaller,
 		remote: lxdclient.Remote{
 			Cert: &lxdclient.Cert{
 				Name:    "juju",
@@ -408,21 +406,7 @@ func NewBaseConfig(c *gc.C) *config.Config {
 	return cfg
 }
 
-func NewCustomBaseConfig(c *gc.C, updates map[string]interface{}) *config.Config {
-	if updates == nil {
-		updates = make(testing.Attrs)
-	}
-
-	cfg := NewBaseConfig(c)
-
-	cfg, err := cfg.Apply(updates)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return cfg
-}
-
-type ConfigValues struct {
-}
+type ConfigValues struct{}
 
 type Config struct {
 	*environConfig
@@ -615,6 +599,30 @@ func (conn *StubClient) StorageSupported() bool {
 	return conn.StorageIsSupported
 }
 
+func (conn *StubClient) StoragePool(name string) (api.StoragePool, error) {
+	conn.AddCall("StoragePool", name)
+	return api.StoragePool{
+		Name:   name,
+		Driver: "dir",
+	}, conn.NextErr()
+}
+
+func (conn *StubClient) StoragePools() ([]api.StoragePool, error) {
+	conn.AddCall("StoragePools")
+	return []api.StoragePool{{
+		Name:   "juju",
+		Driver: "dir",
+	}, {
+		Name:   "juju-zfs",
+		Driver: "zfs",
+	}}, conn.NextErr()
+}
+
+func (conn *StubClient) CreateStoragePool(name, driver string, attrs map[string]string) error {
+	conn.AddCall("CreateStoragePool", name, driver, attrs)
+	return conn.NextErr()
+}
+
 func (conn *StubClient) VolumeCreate(pool, volume string, config map[string]string) error {
 	conn.AddCall("VolumeCreate", pool, volume, config)
 	return conn.NextErr()
@@ -625,6 +633,19 @@ func (conn *StubClient) VolumeDelete(pool, volume string) error {
 	return conn.NextErr()
 }
 
+func (conn *StubClient) Volume(pool, volume string) (api.StorageVolume, error) {
+	conn.AddCall("Volume", pool, volume)
+	if err := conn.NextErr(); err != nil {
+		return api.StorageVolume{}, err
+	}
+	for _, v := range conn.Volumes[pool] {
+		if v.Name == volume {
+			return v, nil
+		}
+	}
+	return api.StorageVolume{}, errors.NotFoundf("volume %q in pool %q", volume, pool)
+}
+
 func (conn *StubClient) VolumeList(pool string) ([]api.StorageVolume, error) {
 	conn.AddCall("VolumeList", pool)
 	if err := conn.NextErr(); err != nil {
@@ -633,37 +654,7 @@ func (conn *StubClient) VolumeList(pool string) ([]api.StorageVolume, error) {
 	return conn.Volumes[pool], nil
 }
 
-// TODO(ericsnow) Move stubFirewaller to environs/testing or provider/common/testing.
-
-type stubFirewaller struct {
-	stub *gitjujutesting.Stub
-
-	PortRanges []network.IngressRule
-}
-
-func (fw *stubFirewaller) IngressRules(fwname string) ([]network.IngressRule, error) {
-	fw.stub.AddCall("Ports", fwname)
-	if err := fw.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return fw.PortRanges, nil
-}
-
-func (fw *stubFirewaller) OpenPorts(fwname string, rules ...network.IngressRule) error {
-	fw.stub.AddCall("OpenPorts", fwname, rules)
-	if err := fw.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-func (fw *stubFirewaller) ClosePorts(fwname string, rules ...network.IngressRule) error {
-	fw.stub.AddCall("ClosePorts", fwname, rules)
-	if err := fw.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+func (conn *StubClient) VolumeUpdate(pool, volume string, update api.StorageVolume) error {
+	conn.AddCall("VolumeUpdate", pool, volume, update)
+	return conn.NextErr()
 }

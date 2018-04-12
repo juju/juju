@@ -33,18 +33,44 @@ func GetNewPolicyFunc(getEnviron func(*state.State) (environs.Environ, error)) s
 }
 
 // Prechecker implements state.Policy.
-func (p environStatePolicy) Prechecker() (state.Prechecker, error) {
-	// Environ implements state.Prechecker.
+func (p environStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
+	model, err := p.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if model.Type() != state.ModelTypeIAAS {
+		// Only IAAS models support machines, hence prechecking.
+		return nil, errors.NotImplementedf("Prechecker")
+	}
+	// Environ implements environs.InstancePrechecker.
 	return p.getEnviron(p.st)
 }
 
 // ConfigValidator implements state.Policy.
 func (p environStatePolicy) ConfigValidator() (config.Validator, error) {
+	model, err := p.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if model.Type() != state.ModelTypeIAAS {
+		// TODO(caas) CAAS providers should also support
+		// config validation.
+		return nil, errors.NotImplementedf("ConfigValidator")
+	}
 	return environProvider(p.st)
 }
 
 // ProviderConfigSchemaSource implements state.Policy.
 func (p environStatePolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSource, error) {
+	model, err := p.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if model.Type() != state.ModelTypeIAAS {
+		// TODO(caas) CAAS providers should also provide
+		// a config schema.
+		return nil, errors.NotImplementedf("ProviderConfigSchemaSource")
+	}
 	provider, err := environProvider(p.st)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -57,6 +83,15 @@ func (p environStatePolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSou
 
 // ConstraintsValidator implements state.Policy.
 func (p environStatePolicy) ConstraintsValidator() (constraints.Validator, error) {
+	model, err := p.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if model.Type() != state.ModelTypeIAAS {
+		// TODO(caas) CAAS providers should also provide
+		// constraints validation.
+		return nil, errors.NotImplementedf("ConstraintsValidator")
+	}
 	env, err := p.getEnviron(p.st)
 	if err != nil {
 		return nil, err
@@ -66,6 +101,14 @@ func (p environStatePolicy) ConstraintsValidator() (constraints.Validator, error
 
 // InstanceDistributor implements state.Policy.
 func (p environStatePolicy) InstanceDistributor() (instance.Distributor, error) {
+	model, err := p.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if model.Type() != state.ModelTypeIAAS {
+		// Only IAAS models support machines, hence distribution.
+		return nil, errors.NotImplementedf("InstanceDistributor")
+	}
 	env, err := p.getEnviron(p.st)
 	if err != nil {
 		return nil, err
@@ -78,6 +121,14 @@ func (p environStatePolicy) InstanceDistributor() (instance.Distributor, error) 
 
 // StorageProviderRegistry implements state.Policy.
 func (p environStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
+	model, err := p.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if model.Type() != state.ModelTypeIAAS {
+		// Only IAAS models support storage.
+		return nil, errors.NotImplementedf("StorageProviderRegistry")
+	}
 	env, err := p.getEnviron(p.st)
 	if err != nil {
 		return nil, errors.Trace(err)

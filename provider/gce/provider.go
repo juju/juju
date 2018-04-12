@@ -14,11 +14,24 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
+const (
+	// provider version 1 introduces labels for disks,
+	// for associating them with a model and controller.
+	providerVersion1 = 1
+
+	currentProviderVersion = providerVersion1
+)
+
 type environProvider struct {
 	environProviderCredentials
 }
 
 var providerInstance environProvider
+
+// Version is part of the EnvironProvider interface.
+func (environProvider) Version() int {
+	return currentProviderVersion
+}
 
 // Open implements environs.EnvironProvider.
 func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {

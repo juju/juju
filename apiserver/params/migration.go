@@ -23,14 +23,8 @@ type InitiateMigrationArgs struct {
 // MigrationSpec holds the details required to start the migration of
 // a single model.
 type MigrationSpec struct {
-	ModelTag        string              `json:"model-tag"`
-	TargetInfo      MigrationTargetInfo `json:"target-info"`
-	ExternalControl bool                `json:"external-control"`
-
-	// SkipInitialPrechecks allows the migration prechecks run during
-	// handling of the InitiateMigration API call to be bypassed. It
-	// is only honoured if ExternalControl is true.
-	SkipInitialPrechecks bool `json:"skip-initial-prechecks"`
+	ModelTag   string              `json:"model-tag"`
+	TargetInfo MigrationTargetInfo `json:"target-info"`
 }
 
 // MigrationTargetInfo holds the details required to connect to and
@@ -142,10 +136,9 @@ type MigrationModelInfo struct {
 
 // MigrationStatus reports the current status of a model migration.
 type MigrationStatus struct {
-	MigrationId     string `json:"migration-id"`
-	Attempt         int    `json:"attempt"`
-	Phase           string `json:"phase"`
-	ExternalControl bool   `json:"external-control"`
+	MigrationId string `json:"migration-id"`
+	Attempt     int    `json:"attempt"`
+	Phase       string `json:"phase"`
 
 	// TODO(mjs): I'm not convinced these Source fields will get used.
 	SourceAPIAddrs []string `json:"source-api-addrs"`

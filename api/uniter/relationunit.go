@@ -40,16 +40,6 @@ func (ru *RelationUnit) Endpoint() Endpoint {
 	return ru.endpoint
 }
 
-// PrivateAddress returns the private address of the unit and whether
-// it is valid.
-//
-// NOTE: This differs from state.RelationUnit.PrivateAddress() by
-// returning an error instead of a bool, because it needs to make an
-// API call.
-func (ru *RelationUnit) PrivateAddress() (string, error) {
-	return ru.unit.PrivateAddress()
-}
-
 // EnterScope ensures that the unit has entered its scope in the relation.
 // When the unit has already entered its relation scope, EnterScope will report
 // success but make no changes to state.

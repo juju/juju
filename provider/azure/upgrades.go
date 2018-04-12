@@ -4,21 +4,21 @@
 package azure
 
 import (
+	"strings"
+
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
-	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
-	"github.com/juju/version"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
 )
 
 // UpgradeOperations is part of the upgrades.OperationSource interface.
-func (env *azureEnviron) UpgradeOperations() []environs.UpgradeOperation {
+func (env *azureEnviron) UpgradeOperations(environs.UpgradeOperationsParams) []environs.UpgradeOperation {
 	return []environs.UpgradeOperation{{
-		version.MustParse("2.2-alpha1"),
+		providerVersion1,
 		[]environs.UpgradeStep{
 			commonDeploymentUpgradeStep{env},
 		},
@@ -53,42 +53,39 @@ func (step commonDeploymentUpgradeStep) Run() error {
 	// We will add these, excluding the SSH/API rules, to the
 	// network security group template created in the deployment
 	// below.
-	nsgClient := network.SecurityGroupsClient{env.network}
-	allRules, err := networkSecurityRules(
-		nsgClient, env.callAPI, env.resourceGroup,
-	)
+	nsgClient := network.SecurityGroupsClient{
+		ManagementClient: env.network,
+	}
+	allRules, err := networkSecurityRules(nsgClient, env.resourceGroup)
 	if errors.IsNotFound(err) {
 		allRules = nil
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	var rules []network.SecurityRule
+	rules := make([]network.SecurityRule, 0, len(allRules))
 	for _, rule := range allRules {
-		switch to.String(rule.Name) {
-		case to.String(sshSecurityRule.Name):
-		case to.String(apiSecurityRule.Name):
-		default:
-			rules = append(rules, rule)
+		name := to.String(rule.Name)
+		if name == sshSecurityRuleName || strings.HasPrefix(name, apiSecurityRulePrefix) {
+			continue
 		}
+		rules = append(rules, rule)
 	}
 
 	env.mu.Lock()
 	storageAccountType := env.config.storageAccountType
 	env.mu.Unlock()
-	return env.createCommonResourceDeployment(
-		nil, storageAccountType, rules,
-	)
+	return env.createCommonResourceDeployment(nil, rules, storageAccountTemplateResource(
+		env.location, nil,
+		env.storageAccountName,
+		storageAccountType,
+	))
 }
 
 func isControllerEnviron(env *azureEnviron) (bool, error) {
 	// Look for a machine with the "juju-is-controller" tag set to "true".
 	client := compute.VirtualMachinesClient{env.compute}
-	var result compute.VirtualMachineListResult
-	if err := env.callAPI(func() (autorest.Response, error) {
-		var err error
-		result, err = client.List(env.resourceGroup)
-		return result.Response, err
-	}); err != nil {
+	result, err := client.List(env.resourceGroup)
+	if err != nil {
 		return false, errors.Annotate(err, "listing virtual machines")
 	}
 

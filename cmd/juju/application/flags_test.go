@@ -93,3 +93,17 @@ func (FlagSuite) TestStorageFlagBundleStorageErrors(c *gc.C) {
 	err := flag.Set("foo")
 	c.Assert(err, gc.ErrorMatches, `expected \[<application>\:]<store>=<constraints>`)
 }
+
+func (FlagSuite) TestAttachStorageFlag(c *gc.C) {
+	var stores []string
+	flag := attachStorageFlag{&stores}
+	err := flag.Set("foo/0,bar/1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stores, jc.DeepEquals, []string{"foo/0", "bar/1"})
+}
+
+func (FlagSuite) TestAttachStorageFlagErrors(c *gc.C) {
+	flag := attachStorageFlag{new([]string)}
+	err := flag.Set("zing")
+	c.Assert(err, gc.ErrorMatches, `storage ID "zing" not valid`)
+}

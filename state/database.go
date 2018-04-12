@@ -4,16 +4,24 @@
 package state
 
 import (
-	"fmt"
+	"runtime/debug"
+	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/names.v2"
+	"github.com/juju/utils/clock"
+	"github.com/juju/utils/featureflag"
+	"github.com/kr/pretty"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
 )
+
+var txnLogger = loggo.GetLogger("juju.state.txn")
 
 type SessionCloser func()
 
@@ -84,9 +92,6 @@ type Database interface {
 	// Run is a convenience method running a transaction using a
 	// transaction building function.
 	Run(transactions jujutxn.TransactionSource) error
-
-	// RunFor is like Run but runs the transaction for the model specified.
-	RunFor(modelUUID string, transactions jujutxn.TransactionSource) error
 
 	// Schema returns the schema used to load the database. The returned schema
 	// is not a copy and must not be modified.
@@ -170,37 +175,33 @@ type collectionInfo struct {
 // collectionSchema defines the set of collections used in juju.
 type collectionSchema map[string]collectionInfo
 
-// Load causes all recorded collections to be created and indexed as specified;
-// the returned Database will filter queries and transactions according to the
-// suppplied model UUID.
-func (schema collectionSchema) Load(
+// Create causes all recorded collections to be created and indexed as specified
+func (schema collectionSchema) Create(
 	db *mgo.Database,
-	modelUUID string,
-	runTransactionObserver RunTransactionObserverFunc,
-) (Database, error) {
-	if !names.IsValidModel(modelUUID) {
-		return nil, errors.New("invalid model UUID")
-	}
+	settings *controller.Config,
+) error {
 	for name, info := range schema {
 		rawCollection := db.C(name)
 		if spec := info.explicitCreate; spec != nil {
+			// We allow the max txn log collection size to be overridden by the user.
+			if name == txnLogC && settings != nil {
+				maxSize := settings.MaxTxnLogSizeMB()
+				if maxSize > 0 {
+					logger.Infof("overriding max txn log collection size: %dM", maxSize)
+					spec.MaxBytes = maxSize * 1024 * 1024
+				}
+			}
 			if err := createCollection(rawCollection, spec); err != nil {
-				message := fmt.Sprintf("cannot create collection %q", name)
-				return nil, maybeUnauthorized(err, message)
+				return mongo.MaybeUnauthorizedf(err, "cannot create collection %q", name)
 			}
 		}
 		for _, index := range info.indexes {
 			if err := rawCollection.EnsureIndex(index); err != nil {
-				return nil, maybeUnauthorized(err, "cannot create index")
+				return mongo.MaybeUnauthorizedf(err, "cannot create index")
 			}
 		}
 	}
-	return &database{
-		raw:                    db,
-		schema:                 schema,
-		modelUUID:              modelUUID,
-		runTransactionObserver: runTransactionObserver,
-	}, nil
+	return nil
 }
 
 // createCollection swallows collection-already-exists errors.
@@ -208,7 +209,7 @@ func createCollection(raw *mgo.Collection, spec *mgo.CollectionInfo) error {
 	err := raw.Create(spec)
 	// The lack of error code for this error was reported upstream:
 	//     https://jira.mongodb.org/browse/SERVER-6992
-	if err == nil || err.Error() == "collection already exists" {
+	if err == nil || strings.HasSuffix(err.Error(), "already exists") {
 		return nil
 	}
 	return err
@@ -239,6 +240,9 @@ type database struct {
 	// runTransactionObserver is passed on to txn.TransactionRunner, to be
 	// invoked after calls to Run and RunTransaction.
 	runTransactionObserver RunTransactionObserverFunc
+
+	// clock is used to time how long transactions take to run
+	clock clock.Clock
 }
 
 // RunTransactionObserverFunc is the type of a function to be called
@@ -253,6 +257,7 @@ func (db *database) copySession(modelUUID string) (*database, SessionCloser) {
 		modelUUID:  modelUUID,
 		runner:     db.runner,
 		ownSession: true,
+		clock:      db.clock,
 	}, session.Close
 }
 
@@ -271,6 +276,9 @@ func (db *database) GetCollection(name string) (collection mongo.Collection, clo
 	info, found := db.schema[name]
 	if !found {
 		logger.Errorf("using unknown collection %q", name)
+		if featureflag.Enabled(feature.DeveloperMode) {
+			logger.Errorf("from %s", string(debug.Stack()))
+		}
 	}
 
 	// Copy session if necessary.
@@ -325,18 +333,24 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			raw = raw.With(session)
 			closer = session.Close
 		}
-		var observer func([]txn.Op, error)
+		observer := func(t jujutxn.ObservedTransaction) {
+			txnLogger.Tracef("ran transaction in %.3fs %# v\nerr: %v",
+				t.Duration.Seconds(), pretty.Formatter(t.Ops), t.Error)
+		}
 		if db.runTransactionObserver != nil {
-			observer = func(ops []txn.Op, err error) {
+			observer = func(t jujutxn.ObservedTransaction) {
+				txnLogger.Tracef("ran transaction in %.3fs %# v\nerr: %v",
+					t.Duration.Seconds(), pretty.Formatter(t.Ops), t.Error)
 				db.runTransactionObserver(
 					db.raw.Name, db.modelUUID,
-					ops, err,
+					t.Ops, t.Error,
 				)
 			}
 		}
 		params := jujutxn.RunnerParams{
 			Database:               raw,
 			RunTransactionObserver: observer,
+			Clock: db.clock,
 		}
 		runner = jujutxn.NewRunner(params)
 	}
@@ -376,15 +390,6 @@ func (db *database) RunRawTransaction(ops []txn.Op) error {
 // Run is part of the Database interface.
 func (db *database) Run(transactions jujutxn.TransactionSource) error {
 	runner, closer := db.TransactionRunner()
-	defer closer()
-	return runner.Run(transactions)
-}
-
-// RunFor is part of the Database interface.
-func (db *database) RunFor(modelUUID string, transactions jujutxn.TransactionSource) error {
-	newDB, dbcloser := db.CopyForModel(modelUUID)
-	defer dbcloser()
-	runner, closer := newDB.TransactionRunner()
 	defer closer()
 	return runner.Run(transactions)
 }

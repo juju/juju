@@ -1,0 +1,5 @@
+#!/bin/sh
+
+status-set maintenance "Removing sshguard" || true
+sudo apt-get remove sshguard || true
+status-set maintenance "Installed" || true

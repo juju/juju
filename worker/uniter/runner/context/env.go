@@ -20,6 +20,8 @@ func OSDependentEnvVars(paths Paths) []string {
 		return ubuntuEnv(paths)
 	case jujuos.CentOS:
 		return centosEnv(paths)
+	case jujuos.OpenSUSE:
+		return opensuseEnv(paths)
 	}
 	return nil
 }
@@ -41,6 +43,10 @@ func ubuntuEnv(paths Paths) []string {
 }
 
 func centosEnv(paths Paths) []string {
+	return appendPath(paths)
+}
+
+func opensuseEnv(paths Paths) []string {
 	return appendPath(paths)
 }
 

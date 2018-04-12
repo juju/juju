@@ -1,0 +1,12 @@
+name: multi-series
+summary: "That's a dummy charm with multi-series."
+description: |
+    This is a longer description which
+    potentially contains multiple lines.
+series:
+    - precise
+    - xenial
+provides:
+    multi-directory:
+           interface: logging
+           scope: container

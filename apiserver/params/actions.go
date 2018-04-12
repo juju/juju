@@ -138,3 +138,8 @@ type ActionSpec struct {
 	Description string                 `json:"description"`
 	Params      map[string]interface{} `json:"params"`
 }
+
+type ActionPruneArgs struct {
+	MaxHistoryTime time.Duration `json:"max-history-time"`
+	MaxHistoryMB   int           `json:"max-history-mb"`
+}

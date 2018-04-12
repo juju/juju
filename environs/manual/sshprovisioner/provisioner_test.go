@@ -9,13 +9,12 @@ import (
 	"os"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -25,6 +24,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	jujuversion "github.com/juju/juju/juju/version"
 )
 
 type provisionerSuite struct {
@@ -46,7 +46,7 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 }
 
 func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
-	var series = series.LatestLts()
+	var series = jujuversion.SupportedLts()
 	const arch = "amd64"
 
 	args := s.getArgs(c)
@@ -128,7 +128,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestFinishInstancConfig(c *gc.C) {
-	var series = series.LatestLts()
+	var series = jujuversion.SupportedLts()
 	const arch = "amd64"
 	defer fakeSSH{
 		Series:         series,
@@ -150,7 +150,7 @@ func (s *provisionerSuite) TestFinishInstancConfig(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
-	var series = series.LatestLts()
+	var series = jujuversion.SupportedLts()
 	const arch = "amd64"
 	defer fakeSSH{
 		Series:         series,
@@ -161,10 +161,10 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	machineId, err := sshprovisioner.ProvisionMachine(s.getArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.UpdateModelConfig(
+	err = s.IAASModel.UpdateModelConfig(
 		map[string]interface{}{
 			"enable-os-upgrade": false,
-		}, nil, nil)
+		}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	icfg, err := client.InstanceConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")

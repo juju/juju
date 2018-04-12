@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -25,6 +26,20 @@ type storage struct {
 
 var _ Storage = (*storage)(nil)
 
+// expiryTime is the time after which non-custom image metadata
+// records will be deleted from the cache.
+const expiryTime = 5 * time.Minute
+
+// MongoIndexes returns the indexes to apply to the clouldimagemetadata collection.
+// We return an index that expires records containing a created-at field after 5 minutes.
+func MongoIndexes() []mgo.Index {
+	return []mgo.Index{{
+		Key:         []string{"expire-at"},
+		ExpireAfter: expiryTime,
+		Sparse:      true,
+	}}
+}
+
 // NewStorage constructs a new Storage that stores image metadata
 // in the provided data store.
 func NewStorage(collectionName string, store DataStore) Storage {
@@ -33,15 +48,26 @@ func NewStorage(collectionName string, store DataStore) Storage {
 
 var emptyMetadata = Metadata{}
 
+// SaveMetadataNoExpiry implements Storage.SaveMetadataNoExpiry and behaves as save-or-update.
+// Records will not expire.
+func (s *storage) SaveMetadataNoExpiry(metadata []Metadata) error {
+	return s.saveMetadata(metadata, false)
+}
+
 // SaveMetadata implements Storage.SaveMetadata and behaves as save-or-update.
+// Records will expire after a set time.
 func (s *storage) SaveMetadata(metadata []Metadata) error {
+	return s.saveMetadata(metadata, true)
+}
+
+func (s *storage) saveMetadata(metadata []Metadata, expires bool) error {
 	if len(metadata) == 0 {
 		return nil
 	}
 
 	newDocs := make([]imagesMetadataDoc, len(metadata))
 	for i, m := range metadata {
-		newDoc := s.mongoDoc(m)
+		newDoc := s.mongoDoc(m, expires)
 		if err := validateMetadata(&newDoc); err != nil {
 			return err
 		}
@@ -49,9 +75,15 @@ func (s *storage) SaveMetadata(metadata []Metadata) error {
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		seen := set.NewStrings()
 		var ops []txn.Op
 		for _, newDoc := range newDocs {
 			newDocCopy := newDoc
+			if seen.Contains(newDocCopy.Id) {
+				return nil, errors.Errorf(
+					"duplicate metadata record for image id %s (key=%q)",
+					newDocCopy.ImageId, newDocCopy.Id)
+			}
 			op := txn.Op{
 				C:  s.collection,
 				Id: newDocCopy.Id,
@@ -73,6 +105,7 @@ func (s *storage) SaveMetadata(metadata []Metadata) error {
 				ops = append(ops, op)
 				logger.Debugf("updating cloud image id for metadata %v", newDocCopy.Id)
 			}
+			seen.Add(newDocCopy.Id)
 		}
 		if len(ops) == 0 {
 			return nil, jujutxn.ErrNoOperations
@@ -182,6 +215,10 @@ type imagesMetadataDoc struct {
 	// that there can be a public and custom image for the same attributes set.
 	Id string `bson:"_id"`
 
+	// ExpireAt is optional and records a time used in conjunction with the
+	// TTL index in order to expire the record.
+	ExpireAt time.Time `bson:"expire-at,omitempty"`
+
 	// ImageId is an image identifier.
 	ImageId string `bson:"image_id"`
 
@@ -224,7 +261,7 @@ type imagesMetadataDoc struct {
 
 func (m imagesMetadataDoc) metadata() Metadata {
 	r := Metadata{
-		MetadataAttributes{
+		MetadataAttributes: MetadataAttributes{
 			Source:          m.Source,
 			Stream:          m.Stream,
 			Region:          m.Region,
@@ -234,9 +271,9 @@ func (m imagesMetadataDoc) metadata() Metadata {
 			RootStorageType: m.RootStorageType,
 			VirtType:        m.VirtType,
 		},
-		m.Priority,
-		m.ImageId,
-		m.DateCreated,
+		Priority:    m.Priority,
+		ImageId:     m.ImageId,
+		DateCreated: m.DateCreated,
 	}
 	if m.RootStorageSize != 0 {
 		r.RootStorageSize = &m.RootStorageSize
@@ -244,11 +281,12 @@ func (m imagesMetadataDoc) metadata() Metadata {
 	return r
 }
 
-func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
+func (s *storage) mongoDoc(m Metadata, expires bool) imagesMetadataDoc {
+	now := time.Now()
 	dateCreated := m.DateCreated
 	if dateCreated == 0 {
 		// TODO(fwereade): 2016-03-17 lp:1558657
-		dateCreated = time.Now().UnixNano()
+		dateCreated = now.UnixNano()
 	}
 	r := imagesMetadataDoc{
 		Id:              buildKey(m),
@@ -263,6 +301,9 @@ func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 		DateCreated:     dateCreated,
 		Source:          m.Source,
 		Priority:        m.Priority,
+	}
+	if expires {
+		r.ExpireAt = now
 	}
 	if m.RootStorageSize != nil {
 		r.RootStorageSize = *m.RootStorageSize

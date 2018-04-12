@@ -24,7 +24,8 @@ const (
 	// http://bazaar.launchpad.net/~cloud-init-dev/cloud-init/trunk/view/head:/cloudinit/sources/
 	// http://cloudinit.readthedocs.org/en/latest/
 	// Also see https://github.com/lxc/lxd/blob/master/specs/configuration.md.
-	UserdataKey = "user-data"
+	UserdataKey      = "user-data"
+	NetworkconfigKey = "network-config"
 
 	// CertificateFingerprintKey is a key that we define to associate
 	// a certificate fingerprint with an instance. We use this to clean
@@ -104,10 +105,6 @@ type InstanceSpec struct {
 
 	// Devices to be added at container initialisation time.
 	Devices
-
-	// Files to be pushed after initialisation has completed but
-	// before the container is started.
-	Files
 
 	// TODO(ericsnow) Other possible fields:
 	// Disks

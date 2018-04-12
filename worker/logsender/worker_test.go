@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/api"
@@ -91,7 +92,6 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 
 		expectedDocs = append(expectedDocs, bson.M{
 			"t": ts.UnixNano(),
-			"e": s.State.ModelUUID(),
 			"r": version.Current.String(),
 			"n": s.machineTag.String(),
 			"m": "logsender-test",
@@ -103,7 +103,7 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 
 	// Wait for the logs to appear in the database.
 	var docs []bson.M
-	logsColl := s.State.MongoSession().DB("logs").C("logs")
+	logsColl := s.logCollection()
 	for a := testing.LongAttempt.Start(); a.Next(); {
 		err := logsColl.Find(bson.M{"m": "logsender-test"}).All(&docs)
 		c.Assert(err, jc.ErrorIsNil)
@@ -119,6 +119,10 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 		delete(doc, "_id")
 		c.Assert(doc, gc.DeepEquals, expectedDocs[i])
 	}
+}
+
+func (s *workerSuite) logCollection() *mgo.Collection {
+	return s.State.MongoSession().DB("logs").C("logs." + s.State.ModelUUID())
 }
 
 func (s *workerSuite) TestDroppedLogs(c *gc.C) {
@@ -154,7 +158,7 @@ func (s *workerSuite) TestDroppedLogs(c *gc.C) {
 
 	// Wait for the logs to appear in the database.
 	var docs []bson.M
-	logsColl := s.State.MongoSession().DB("logs").C("logs")
+	logsColl := s.logCollection()
 	for a := testing.LongAttempt.Start(); a.Next(); {
 		if !a.HasNext() {
 			c.Fatal("timed out waiting for logs")
@@ -174,7 +178,6 @@ func (s *workerSuite) TestDroppedLogs(c *gc.C) {
 	delete(docs[1], "_id")
 	c.Assert(docs[1], gc.DeepEquals, bson.M{
 		"t": ts.UnixNano(), // Should share timestamp with previous message.
-		"e": s.State.ModelUUID(),
 		"r": version.Current.String(),
 		"n": s.machineTag.String(),
 		"m": "juju.worker.logsender",

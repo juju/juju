@@ -89,8 +89,18 @@ func connectFallback(
 	// than the alternatives.
 	var tryConnect = func() {
 		conn, err = apiOpen(info, api.DialOpts{
-			Timeout:    time.Second,
-			RetryDelay: 200 * time.Millisecond,
+			// The DialTimeout is for connecting to the underlying
+			// socket. We use three seconds because it should be fast
+			// but it is possible to add a manual machine to a distant
+			// controller such that the round trip time could be as high
+			// as 500ms.
+			DialTimeout: 3 * time.Second,
+			RetryDelay:  200 * time.Millisecond,
+			// The timeout is for the complete login handshake.
+			// If the server is rate limiting, it will normally pause
+			// before responding to the login request, but the pause is
+			// in the realm of five to ten seconds.
+			Timeout: time.Minute,
 		})
 	}
 
@@ -265,4 +275,17 @@ func changePassword(oldPassword string, a agent.Agent, facade apiagent.ConnFacad
 	// locally, lest we change it remotely, crash suddenly, and
 	// end up locked out forever.
 	return facade.SetPassword(a.CurrentConfig().Tag(), newPassword)
+}
+
+// NewExternalControllerConnectionFunc returns a function returning an
+// api connection to a controller with the specified api info.
+type NewExternalControllerConnectionFunc func(*api.Info) (api.Connection, error)
+
+// NewExternalControllerConnection returns an api connection to a controller
+// with the specified api info.
+func NewExternalControllerConnection(apiInfo *api.Info) (api.Connection, error) {
+	return api.Open(apiInfo, api.DialOpts{
+		Timeout:    2 * time.Second,
+		RetryDelay: 500 * time.Millisecond,
+	})
 }

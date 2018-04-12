@@ -35,10 +35,6 @@ func (wct WriteConfTest) scriptname() string {
 	return fmt.Sprintf("'%s/init/%s/exec-start.sh'", wct.DataDir, wct.Service)
 }
 
-func (wct WriteConfTest) servicename() string {
-	return fmt.Sprintf("%s.service", wct.Service)
-}
-
 // CheckCommands checks the given commands against the test's expectations.
 func (wct WriteConfTest) CheckCommands(c *gc.C, commands []string) {
 	c.Check(commands[0], gc.Equals, "mkdir -p "+wct.dirname())
@@ -48,11 +44,6 @@ func (wct WriteConfTest) CheckCommands(c *gc.C, commands []string) {
 		commands = commands[2:]
 	}
 	wct.checkWriteConf(c, commands)
-}
-
-func (wct WriteConfTest) CheckInstallAndStartCommands(c *gc.C, commands []string) {
-	wct.CheckCommands(c, commands[:len(commands)-1])
-	c.Check(commands[len(commands)-1], gc.Equals, "/bin/systemctl start "+wct.servicename())
 }
 
 func (wct WriteConfTest) checkWriteExecScript(c *gc.C, commands []string) {

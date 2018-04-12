@@ -8,17 +8,22 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
-func newDebugLogDBHandler(ctxt httpContext) http.Handler {
-	return newDebugLogHandler(ctxt, handleDebugLogDBRequest)
+func newDebugLogDBHandler(
+	ctxt httpContext,
+	authenticator httpcontext.Authenticator,
+	authorizer httpcontext.Authorizer,
+) http.Handler {
+	return newDebugLogHandler(ctxt, authenticator, authorizer, handleDebugLogDBRequest)
 }
 
 func handleDebugLogDBRequest(
 	st state.LogTailerState,
-	reqParams *debugLogParams,
+	reqParams debugLogParams,
 	socket debugLogSocket,
 	stop <-chan struct{},
 ) error {
@@ -54,8 +59,8 @@ func handleDebugLogDBRequest(
 	}
 }
 
-func makeLogTailerParams(reqParams *debugLogParams) *state.LogTailerParams {
-	params := &state.LogTailerParams{
+func makeLogTailerParams(reqParams debugLogParams) state.LogTailerParams {
+	params := state.LogTailerParams{
 		MinLevel:      reqParams.filterLevel,
 		NoTail:        reqParams.noTail,
 		StartTime:     reqParams.startTime,
@@ -84,6 +89,6 @@ func formatLogRecord(r *state.LogRecord) *params.LogMessage {
 
 var newLogTailer = _newLogTailer // For replacing in tests
 
-func _newLogTailer(st state.LogTailerState, params *state.LogTailerParams) (state.LogTailer, error) {
+func _newLogTailer(st state.LogTailerState, params state.LogTailerParams) (state.LogTailer, error) {
 	return state.NewLogTailer(st, params)
 }

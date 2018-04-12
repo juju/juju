@@ -4,14 +4,11 @@
 package agent
 
 import (
-	"runtime"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
@@ -24,16 +21,16 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/upgrades"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 var (
-	agentLogger = loggo.GetLogger("juju.jujud")
-
 	// should be an explicit dependency, can't do it cleanly yet
 	unitManifolds = unit.Manifolds
 )
@@ -54,8 +51,9 @@ type UnitAgent struct {
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
 	// longer any immediately pending agent upgrades.
-	// Channel used as a selectable bool (closed means true).
-	initialUpgradeCheckComplete chan struct{}
+	initialUpgradeCheckComplete gate.Lock
+	preUpgradeSteps             upgrades.PreUpgradeStepsFunc
+	upgradeComplete             gate.Lock
 
 	prometheusRegistry *prometheus.Registry
 }
@@ -70,9 +68,10 @@ func NewUnitAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter)
 		AgentConf:        NewAgentConf(""),
 		configChangedVal: voyeur.NewValue(true),
 		ctx:              ctx,
-		initialUpgradeCheckComplete: make(chan struct{}),
+		initialUpgradeCheckComplete: gate.NewLock(),
 		bufferedLogger:              bufferedLogger,
 		prometheusRegistry:          prometheusRegistry,
+		preUpgradeSteps:             upgrades.PreUpgradeSteps,
 	}, nil
 }
 
@@ -107,17 +106,19 @@ func (a *UnitAgent) Init(args []string) error {
 		RestartDelay:  jworker.RestartDelay,
 	})
 
+	if err := a.ReadConfig(a.Tag().String()); err != nil {
+		return err
+	}
+	agentConfig := a.CurrentConfig()
+
 	if !a.logToStdErr {
-		if err := a.ReadConfig(a.Tag().String()); err != nil {
-			return err
-		}
-		agentConfig := a.CurrentConfig()
 
 		// the writer in ctx.stderr gets set as the loggo writer in github.com/juju/cmd/logging.go
 		a.ctx.Stderr = &lumberjack.Logger{
 			Filename:   agent.LogFilename(agentConfig),
 			MaxSize:    300, // megabytes
 			MaxBackups: 2,
+			Compress:   true,
 		}
 
 	}
@@ -131,16 +132,21 @@ func (a *UnitAgent) Stop() error {
 	return a.tomb.Wait()
 }
 
+func (a *UnitAgent) isUpgradeRunning() bool {
+	return !a.upgradeComplete.IsUnlocked()
+}
+
+func (a *UnitAgent) isInitialUpgradeCheckPending() bool {
+	return !a.initialUpgradeCheckComplete.IsUnlocked()
+}
+
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	defer a.tomb.Done()
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return err
 	}
-	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), jujuversion.Current, runtime.Compiler)
-	if flags := featureflag.String(); flags != "" {
-		logger.Warningf("developer feature flags enabled: %s", flags)
-	}
+	setupAgentLogging(a.CurrentConfig())
 
 	a.runner.StartWorker("api", a.APIWorkers)
 	err := cmdutil.AgentDone(logger, a.runner.Wait())
@@ -150,6 +156,16 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 
 // APIWorkers returns a dependency.Engine running the unit agent's responsibilities.
 func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
+	updateAgentConfLogging := func(loggingConfig string) error {
+		return a.AgentConf.ChangeConfig(func(setter agent.ConfigSetter) error {
+			setter.SetLoggingConfig(loggingConfig)
+			return nil
+		})
+	}
+
+	agentConfig := a.AgentConf.CurrentConfig()
+	a.upgradeComplete = upgradesteps.NewLock(agentConfig)
+
 	manifolds := unitManifolds(unit.ManifoldsConfig{
 		Agent:                agent.APIHostPortsSetter{a},
 		LogSource:            a.bufferedLogger.Logs(),
@@ -157,6 +173,11 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		AgentConfigChanged:   a.configChangedVal,
 		ValidateMigration:    a.validateMigration,
 		PrometheusRegisterer: a.prometheusRegistry,
+		UpdateLoggerConfig:   updateAgentConfLogging,
+		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
+		PreUpgradeSteps:      a.preUpgradeSteps,
+		UpgradeStepsLock:     a.upgradeComplete,
+		UpgradeCheckLock:     a.initialUpgradeCheckComplete,
 	})
 
 	config := dependency.EngineConfig{

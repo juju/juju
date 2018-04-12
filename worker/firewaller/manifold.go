@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -22,7 +23,7 @@ type ManifoldConfig struct {
 	APICallerName string
 	EnvironName   string
 
-	NewAPIConnForModel       api.NewConnectionForModelFunc
+	NewControllerConnection  apicaller.NewExternalControllerConnectionFunc
 	NewRemoteRelationsFacade func(base.APICaller) (*remoterelations.Client, error)
 	NewFirewallerFacade      func(base.APICaller) (FirewallerAPI, error)
 	NewFirewallerWorker      func(Config) (worker.Worker, error)
@@ -51,8 +52,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.EnvironName == "" {
 		return errors.NotValidf("empty EnvironName")
 	}
-	if cfg.NewAPIConnForModel == nil {
-		return errors.NotValidf("nil NewAPIConnForModel")
+	if cfg.NewControllerConnection == nil {
+		return errors.NotValidf("nil NewControllerConnection")
 	}
 	if cfg.NewRemoteRelationsFacade == nil {
 		return errors.NotValidf("nil NewRemoteRelationsFacade")
@@ -85,20 +86,21 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 	if err := context.Get(cfg.EnvironName, &environ); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// Check if the env supports global firewalling.  If the
+	// configured mode is instance, we can ignore fwEnv being a
+	// nil value, as it won't be used.
+	fwEnv, fwEnvOK := environ.(environs.Firewaller)
+
 	mode := environ.Config().FirewallMode()
 	if mode == config.FwNone {
 		logger.Infof("stopping firewaller (not required)")
 		return nil, dependency.ErrUninstall
-	}
-
-	agentConf := agent.CurrentConfig()
-	apiInfo, ok := agentConf.APIInfo()
-	if !ok {
-		return nil, errors.New("no API connection details")
-	}
-	apiConnForModelFunc, err := cfg.NewAPIConnForModel(apiInfo)
-	if err != nil {
-		return nil, errors.Trace(err)
+	} else if mode == config.FwGlobal {
+		if !fwEnvOK {
+			logger.Infof("Firewall global mode set on provider with no support. stopping firewaller")
+			return nil, dependency.ErrUninstall
+		}
 	}
 
 	firewallerAPI, err := cfg.NewFirewallerFacade(apiConn)
@@ -114,10 +116,10 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		ModelUUID:          agent.CurrentConfig().Model().Id(),
 		RemoteRelationsApi: remoteRelationsAPI,
 		FirewallerAPI:      firewallerAPI,
-		EnvironFirewaller:  environ,
+		EnvironFirewaller:  fwEnv,
 		EnvironInstances:   environ,
 		Mode:               mode,
-		NewRemoteFirewallerAPIFunc: remoteFirewallerAPIFunc(apiConnForModelFunc),
+		NewCrossModelFacadeFunc: crossmodelFirewallerFacadeFunc(cfg.NewControllerConnection),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

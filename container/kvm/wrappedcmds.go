@@ -35,11 +35,12 @@ import (
 )
 
 const (
-	guestDir = "guests"
-	poolName = "juju-pool"
-	kvm      = "kvm"
-	metadata = "meta-data"
-	userdata = "user-data"
+	guestDir      = "guests"
+	poolName      = "juju-pool"
+	kvm           = "kvm"
+	metadata      = "meta-data"
+	userdata      = "user-data"
+	networkconfig = "network-config"
 
 	// This path is only valid on ubuntu, and xenial at this point.
 	// TODO(ro) 2017-01-20 Determine if we will support trusty and update this
@@ -58,14 +59,15 @@ var (
 
 // CreateMachineParams Implements libvirt.domainParams.
 type CreateMachineParams struct {
-	Hostname      string
-	Series        string
-	UserDataFile  string
-	NetworkBridge string
-	Memory        uint64
-	CpuCores      uint64
-	RootDisk      uint64
-	Interfaces    []libvirt.InterfaceInfo
+	Hostname          string
+	Series            string
+	UserDataFile      string
+	NetworkConfigData string
+	NetworkBridge     string
+	Memory            uint64
+	CpuCores          uint64
+	RootDisk          uint64
+	Interfaces        []libvirt.InterfaceInfo
 
 	disks    []libvirt.DiskInfo
 	findPath func(string) (string, error)
@@ -320,6 +322,10 @@ func writeDatasourceVolume(params CreateMachineParams) (string, error) {
 		return "", errors.Trace(err)
 	}
 
+	if err := writeNetworkConfig(params, templateDir); err != nil {
+		return "", errors.Trace(err)
+	}
+
 	// Creating a working DS volume was a bit troublesome for me. I finally
 	// found the details in the docs.
 	// http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
@@ -364,7 +370,8 @@ func writeDatasourceVolume(params CreateMachineParams) (string, error) {
 		"-volid", "cidata",
 		"-joliet", "-rock",
 		userdata,
-		metadata)
+		metadata,
+		networkconfig)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -429,6 +436,23 @@ func writeMetadata(dir string) error {
 		}
 	}()
 	_, err = f.WriteString(data)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func writeNetworkConfig(params CreateMachineParams, dir string) error {
+	f, err := os.Create(filepath.Join(dir, networkconfig))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer func() {
+		if err = f.Close(); err != nil {
+			logger.Errorf("failed to close %q %s", f.Name(), err)
+		}
+	}()
+	_, err = f.WriteString(params.NetworkConfigData)
 	if err != nil {
 		return errors.Trace(err)
 	}

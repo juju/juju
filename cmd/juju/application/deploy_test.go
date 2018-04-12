@@ -15,18 +15,19 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v2"
+	"gopkg.in/juju/charmrepo.v2/csclient"
+	csclientparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/juju/charmstore.v5-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery"
@@ -45,10 +46,10 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	jtesting "github.com/juju/juju/testing"
 )
 
 type DeploySuite struct {
@@ -65,8 +66,19 @@ func (s *DeploySuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
 
+// runDeploy executes the deploy command in order to deploy the given
+// charm or bundle. The deployment stderr output and error are returned.
+func runDeployWithOutput(c *gc.C, args ...string) (string, string, error) {
+	ctx, err := cmdtesting.RunCommand(c, NewDeployCommand(), args...)
+	return strings.Trim(cmdtesting.Stdout(ctx), "\n"),
+		strings.Trim(cmdtesting.Stderr(ctx), "\n"),
+		err
+}
+
+// runDeploy executes the deploy command in order to deploy the given
+// charm or bundle. The deployment stderr output and error are returned.
 func runDeploy(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, NewDefaultDeployCommand(), args...)
+	_, _, err := runDeployWithOutput(c, args...)
 	return err
 }
 
@@ -92,14 +104,20 @@ var initErrorTests = []struct {
 	}, {
 		args: []string{"charm", "application", "--force"},
 		err:  `--force is only used with --series`,
+	}, {
+		args: []string{"charm", "--attach-storage", "foo/0", "-n", "2"},
+		err:  `--attach-storage cannot be used with -n`,
+	}, {
+		args: []string{"bundle", "--map-machines", "foo"},
+		err:  `error in --map-machines: expected "existing" or "<bundle-id>=<machine-id>", got "foo"`,
 	},
 }
 
 func (s *DeploySuite) TestInitErrors(c *gc.C) {
 	for i, t := range initErrorTests {
 		c.Logf("test %d", i)
-		err := coretesting.InitCommand(NewDefaultDeployCommand(), t.args)
-		c.Assert(err, gc.ErrorMatches, t.err)
+		err := cmdtesting.InitCommand(NewDeployCommand(), t.args)
+		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
@@ -112,8 +130,9 @@ func (s *DeploySuite) TestNoCharmOrBundle(c *gc.C) {
 func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockDeploy")
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	err := runDeploy(c, ch, "some-application-name", "--series", "quantal")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	err := runDeploy(c, ch, "some-application-name", "--series", "precise")
+
 	s.AssertBlocked(c, err, ".*TestBlockDeploy.*")
 }
 
@@ -137,11 +156,11 @@ func (s *DeploySuite) TestPathWithNoCharmOrBundle(c *gc.C) {
 }
 
 func (s *DeploySuite) TestCharmDir(c *gc.C) {
-	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
+	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "multi-series")
 	err := runDeploy(c, ch, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
-	s.AssertService(c, "dummy", curl, 1, 0)
+	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	s.AssertService(c, "multi-series", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFromPathRelativeDir(c *gc.C) {
@@ -160,23 +179,42 @@ func (s *DeploySuite) TestDeployFromPathRelativeDir(c *gc.C) {
 
 func (s *DeploySuite) TestDeployFromPathOldCharm(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
-	err := runDeploy(c, path, "--series", "precise")
+	err := runDeploy(c, path, "--series", "precise", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	s.AssertService(c, "dummy", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
+	// Update the model default series to be unset.
+	updateAttrs := map[string]interface{}{"default-series": ""}
+	err := s.IAASModel.UpdateModelConfig(updateAttrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
-	err := runDeploy(c, path)
+	err = runDeploy(c, path)
 	c.Assert(err, gc.ErrorMatches, "series not specified and charm does not define any")
 }
 
-func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
-	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "multi-series")
+func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c *gc.C) {
+	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
 	err := runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:precise/multi-series-1")
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", version.SupportedLts()))
+	s.AssertService(c, "dummy", curl, 1, 0)
+}
+
+func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
+	// multi-series/metadata.yaml provides "precise" as its default series
+	// and yet, here, the model defaults to the series "trusty". This test
+	// asserts that the model's default takes precedence.
+	updateAttrs := map[string]interface{}{"default-series": "trusty"}
+	err := s.IAASModel.UpdateModelConfig(updateAttrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "multi-series")
+	err = runDeploy(c, path)
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL("local:trusty/multi-series-1")
 	s.AssertService(c, "multi-series", curl, 1, 0)
 }
 
@@ -191,7 +229,7 @@ func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeries(c *gc.C) {
 	path := testcharms.Repo.ClonedDirPath(s.CharmsPath, "multi-series")
 	err := runDeploy(c, path, "--series", "quantal")
-	c.Assert(err, gc.ErrorMatches, `series "quantal" not supported by charm, supported series are: precise,trusty. Use --force to deploy the charm anyway.`)
+	c.Assert(err, gc.ErrorMatches, `series "quantal" not supported by charm, supported series are: precise,trusty,xenial,yakkety`)
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
@@ -220,10 +258,10 @@ func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
 }
 
 func (s *DeploySuite) TestCharmBundle(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
+	curl := charm.MustParseURL("local:trusty/multi-series-1")
 	s.AssertService(c, "some-application-name", curl, 1, 0)
 }
 
@@ -235,44 +273,95 @@ func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
 	s.AssertService(c, "logging", curl, 0, 0)
 }
 
-func (s *DeploySuite) TestConfig(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+func (s *DeploySuite) combinedSettings(ch charm.Charm, inSettings charm.Settings) charm.Settings {
+	result := ch.Config().DefaultSettings()
+	for name, value := range inSettings {
+		result[name] = value
+	}
+	return result
+}
+
+func (s *DeploySuite) TestSingleConfigFile(c *gc.C) {
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	path := setupConfigFile(c, c.MkDir())
-	err := runDeploy(c, ch, "dummy-application", "--config", path, "--series", "quantal")
+	err := runDeploy(c, ch, "dummy-application", "--config", path, "--series", "precise")
 	c.Assert(err, jc.ErrorIsNil)
 	application, err := s.State.Application("dummy-application")
 	c.Assert(err, jc.ErrorIsNil)
-	settings, err := application.ConfigSettings()
+	settings, err := application.CharmConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, gc.DeepEquals, charm.Settings{
+	appCh, _, err := application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(appCh, charm.Settings{
 		"skill-level": int64(9000),
 		"username":    "admin001",
-	})
+	}))
 }
 
 func (s *DeploySuite) TestRelativeConfigPath(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	// Putting a config file in home is okay as $HOME is set to a tempdir
 	setupConfigFile(c, utils.Home())
-	err := runDeploy(c, ch, "dummy-application", "--config", "~/testconfig.yaml", "--series", "quantal")
+	err := runDeploy(c, ch, "dummy-application", "--config", "~/testconfig.yaml")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *DeploySuite) TestConfigError(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+func (s *DeploySuite) TestConfigValues(c *gc.C) {
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	err := runDeploy(c, ch, "dummy-application", "--config", "skill-level=9000", "--config", "outlook=good", "--series", "precise")
+	c.Assert(err, jc.ErrorIsNil)
+	application, err := s.State.Application("dummy-application")
+	c.Assert(err, jc.ErrorIsNil)
+	settings, err := application.CharmConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	appCh, _, err := application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(appCh, charm.Settings{
+		"outlook":     "good",
+		"skill-level": int64(9000),
+		"username":    "admin001",
+	}))
+}
+
+func (s *DeploySuite) TestConfigValuesWithFile(c *gc.C) {
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	path := setupConfigFile(c, c.MkDir())
-	err := runDeploy(c, ch, "other-application", "--config", path, "--series", "quantal")
+	err := runDeploy(c, ch, "dummy-application", "--config", path, "--config", "outlook=good", "--config", "skill-level=8000", "--series", "precise")
+	c.Assert(err, jc.ErrorIsNil)
+	application, err := s.State.Application("dummy-application")
+	c.Assert(err, jc.ErrorIsNil)
+	settings, err := application.CharmConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	appCh, _, err := application.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, gc.DeepEquals, s.combinedSettings(appCh, charm.Settings{
+		"outlook":     "good",
+		"skill-level": int64(8000),
+		"username":    "admin001",
+	}))
+}
+
+func (s *DeploySuite) TestSingleConfigMoreThanOneFile(c *gc.C) {
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	err := runDeploy(c, ch, "dummy-application", "--config", "one", "--config", "another", "--series", "precise")
+	c.Assert(err, gc.ErrorMatches, "only a single config YAML file can be specified, got 2")
+}
+
+func (s *DeploySuite) TestConfigError(c *gc.C) {
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	path := setupConfigFile(c, c.MkDir())
+	err := runDeploy(c, ch, "other-application", "--config", path)
 	c.Assert(err, gc.ErrorMatches, `no settings found for "other-application"`)
 	_, err = s.State.Application("other-application")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *DeploySuite) TestConstraints(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	err := runDeploy(c, ch, "--constraints", "mem=2G cores=2", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
-	application, _ := s.AssertService(c, "dummy", curl, 1, 0)
+	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	application, _ := s.AssertService(c, "multi-series", curl, 1, 0)
 	cons, err := application.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cores=2"))
@@ -295,7 +384,7 @@ func (s *DeploySuite) TestResources(c *gc.C) {
 	d := DeployCommand{}
 	args := []string{ch, "--resource", res1, "--resource", res2, "--series", "quantal"}
 
-	err = coretesting.InitCommand(modelcmd.Wrap(&d), args)
+	err = cmdtesting.InitCommand(modelcmd.Wrap(&d), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d.Resources, gc.DeepEquals, map[string]string{
 		"foo": foopath,
@@ -334,7 +423,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 func (s *DeploySuite) TestPlacement(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
 	// Add a machine that will be ignored due to placement directive.
-	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(version.SupportedLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = runDeploy(c, ch, "-n", "1", "--to", "valid", "--series", "quantal")
@@ -363,11 +452,11 @@ func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {
 }
 
 func (s *DeploySuite) TestNumUnits(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
 	err := runDeploy(c, ch, "-n", "13", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/dummy-1")
-	s.AssertService(c, "dummy", curl, 13, 0)
+	curl := charm.MustParseURL("local:trusty/multi-series-1")
+	s.AssertService(c, "multi-series", curl, 13, 0)
 }
 
 func (s *DeploySuite) TestNumUnitsSubordinate(c *gc.C) {
@@ -398,9 +487,9 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 
 func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(version.SupportedLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", machine.Id(), ch, "portlandia", "--series", series.LatestLts())
+	err = runDeploy(c, "--to", machine.Id(), ch, "portlandia", "--series", version.SupportedLts())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id())
 }
@@ -408,12 +497,12 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
 	template := state.MachineTemplate{
-		Series: series.LatestLts(),
+		Series: version.SupportedLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", container.Id(), ch, "portlandia", "--series", series.LatestLts())
+	err = runDeploy(c, "--to", container.Id(), ch, "portlandia", "--series", version.SupportedLts())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, container.Id())
 	machines, err := s.State.AllMachines()
@@ -423,9 +512,9 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 
 func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(version.SupportedLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = runDeploy(c, "--to", "lxd:"+machine.Id(), ch, "portlandia", "--series", series.LatestLts())
+	err = runDeploy(c, "--to", "lxd:"+machine.Id(), ch, "portlandia", "--series", version.SupportedLts())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertForceMachine(c, machine.Id()+"/lxd/0")
 
@@ -443,18 +532,19 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 }
 
 func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
-	err := runDeploy(c, "--to", "42", ch, "portlandia", "--series", "quantal")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "multi-series")
+	err := runDeploy(c, "--to", "42", ch, "portlandia", "--series", "precise")
 	c.Assert(err, gc.ErrorMatches, `cannot deploy "portlandia" to machine 42: machine 42 not found`)
 	_, err = s.State.Application("portlandia")
 	c.Assert(err, gc.ErrorMatches, `application "portlandia" not found`)
 }
 
 func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
-	machine, err := s.State.AddMachine(series.LatestLts(), state.JobHostUnits)
+	machine, err := s.State.AddMachine(version.SupportedLts(), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
 	err = runDeploy(c, "--to", machine.Id(), ch, "--series", "quantal")
+
 	c.Assert(err, gc.ErrorMatches, "cannot use --num-units or --to with subordinate application")
 	_, err = s.State.Application("dummy")
 	c.Assert(err, gc.ErrorMatches, `application "dummy" not found`)
@@ -467,9 +557,10 @@ func (s *DeploySuite) TestNonLocalCannotHostUnits(c *gc.C) {
 
 func (s *DeploySuite) TestDeployLocalWithTerms(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "terms1")
-	output, err := runDeployCommand(c, ch, "--series", "trusty")
+	_, stdErr, err := runDeployWithOutput(c, ch, "--series", "trusty")
+
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(output, gc.Equals, `Deploying charm "local:trusty/terms1-1".`)
+	c.Check(stdErr, gc.Equals, `Deploying charm "local:trusty/terms1-1".`)
 
 	curl := charm.MustParseURL("local:trusty/terms1-1")
 	s.AssertService(c, "terms1", curl, 1, 0)
@@ -487,9 +578,9 @@ func (s *DeploySuite) TestDeployFlags(c *gc.C) {
 	flagSet.VisitAll(func(flag *gnuflag.Flag) {
 		allFlags = append(allFlags, flag.Name)
 	})
-	declaredFlags := append(charmAndBundleFlags, charmOnlyFlags...)
+	declaredFlags := append(charmAndBundleFlags, charmOnlyFlags()...)
 	declaredFlags = append(declaredFlags, bundleOnlyFlags...)
-	declaredFlags = append(declaredFlags, modelCommandBaseFlags...)
+	declaredFlags = append(declaredFlags, "B", "no-browser-login")
 	sort.Strings(declaredFlags)
 	c.Assert(declaredFlags, jc.DeepEquals, allFlags)
 }
@@ -507,7 +598,7 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 // setupConfigFile creates a configuration file for testing set
 // with the --config argument specifying a configuration file.
 func setupConfigFile(c *gc.C, dir string) string {
-	ctx := coretesting.ContextForDir(c, dir)
+	ctx := cmdtesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("testconfig.yaml")
 	content := []byte("dummy-application:\n  skill-level: 9000\n  username: admin001\n\n")
 	err := ioutil.WriteFile(path, content, 0666)
@@ -596,7 +687,7 @@ func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 		if test.readPermUser != "" {
 			s.changeReadPerm(c, url, test.readPermUser)
 		}
-		_, err := coretesting.RunCommand(c, NewDefaultDeployCommand(), test.deployURL, fmt.Sprintf("wordpress%d", i))
+		_, err := cmdtesting.RunCommand(c, NewDeployCommand(), test.deployURL, fmt.Sprintf("wordpress%d", i))
 		if test.expectError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectError)
 			continue
@@ -606,18 +697,18 @@ func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 }
 
 func (s *DeployCharmStoreSuite) TestDeployWithTermsSuccess(c *gc.C) {
-	testcharms.UploadCharm(c, s.client, "trusty/terms1-1", "terms1")
-	output, err := runDeployCommand(c, "trusty/terms1")
+	_, ch := testcharms.UploadCharm(c, s.client, "trusty/terms1-1", "terms1")
+	_, stdErr, err := runDeployWithOutput(c, "trusty/terms1")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedOutput := `
 Located charm "cs:trusty/terms1-1".
 Deploying charm "cs:trusty/terms1-1".
 Deployment under prior agreement to terms: term1/1 term3/1
 `
-	c.Assert(output, gc.Equals, strings.TrimSpace(expectedOutput))
+	c.Assert(stdErr, gc.Equals, strings.TrimSpace(expectedOutput))
 	s.assertCharmsUploaded(c, "cs:trusty/terms1-1")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"terms1": {charm: "cs:trusty/terms1-1"},
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"terms1": {charm: "cs:trusty/terms1-1", config: ch.Config().DefaultSettings()},
 	})
 	_, err = s.State.Unit("terms1/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -629,8 +720,8 @@ func (s *DeployCharmStoreSuite) TestDeployWithTermsNotSigned(c *gc.C) {
 		Code:    "term agreement required",
 	}
 	testcharms.UploadCharm(c, s.client, "quantal/terms1-1", "terms1")
-	_, err := runDeployCommand(c, "quantal/terms1")
-	expectedError := `Declined: please agree to the following terms term/1 term/2. Try: "juju agree term/1 term/2"`
+	err := runDeploy(c, "quantal/terms1")
+	expectedError := `Declined: some terms require agreement. Try: "juju agree term/1 term/2"`
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
 
@@ -643,11 +734,11 @@ func (s *DeployCharmStoreSuite) TestDeployWithChannel(c *gc.C) {
 	err = s.client.Publish(id, []csclientparams.Channel{csclientparams.EdgeChannel}, nil)
 	c.Assert(err, gc.IsNil)
 
-	_, err = runDeployCommand(c, "--channel", "edge", "~client-username/wordpress")
+	err = runDeploy(c, "--channel", "edge", "~client-username/wordpress")
 	c.Assert(err, gc.IsNil)
 	s.assertCharmsUploaded(c, "cs:~client-username/precise/wordpress-0")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"wordpress": {charm: "cs:~client-username/precise/wordpress-0"},
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"wordpress": {charm: "cs:~client-username/precise/wordpress-0", config: ch.Config().DefaultSettings()},
 	})
 }
 
@@ -777,8 +868,8 @@ func (s *charmStoreSuite) assertCharmsUploaded(c *gc.C, ids ...string) {
 	c.Assert(uploaded, jc.SameContents, ids)
 }
 
-// serviceInfo holds information about a deployed application.
-type serviceInfo struct {
+// applicationInfo holds information about a deployed application.
+type applicationInfo struct {
 	charm            string
 	config           charm.Settings
 	constraints      constraints.Value
@@ -790,7 +881,7 @@ type serviceInfo struct {
 // assertDeployedServiceBindings checks that services were deployed into the
 // expected spaces. It is separate to assertServicesDeployed because it is only
 // relevant to a couple of tests.
-func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string]serviceInfo) {
+func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string]applicationInfo) {
 	services, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -801,18 +892,24 @@ func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string
 	}
 }
 
+func (s *charmStoreSuite) combinedSettings(ch charm.Charm, inSettings charm.Settings) charm.Settings {
+	result := ch.Config().DefaultSettings()
+	for name, value := range inSettings {
+		result[name] = value
+	}
+	return result
+}
+
 // assertApplicationsDeployed checks that the given applications have been deployed.
-func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]serviceInfo) {
-	services, err := s.State.AllApplications()
+func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]applicationInfo) {
+	applications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
-	deployed := make(map[string]serviceInfo, len(services))
-	for _, application := range services {
-		charm, _ := application.CharmURL()
-		config, err := application.ConfigSettings()
+	deployed := make(map[string]applicationInfo, len(applications))
+	for _, application := range applications {
+		curl, _ := application.CharmURL()
 		c.Assert(err, jc.ErrorIsNil)
-		if len(config) == 0 {
-			config = nil
-		}
+		config, err := application.CharmConfig()
+		c.Assert(err, jc.ErrorIsNil)
 		constraints, err := application.Constraints()
 		c.Assert(err, jc.ErrorIsNil)
 		storage, err := application.StorageConstraints()
@@ -820,8 +917,8 @@ func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]se
 		if len(storage) == 0 {
 			storage = nil
 		}
-		deployed[application.Name()] = serviceInfo{
-			charm:       charm.String(),
+		deployed[application.Name()] = applicationInfo{
+			charm:       curl.String(),
 			config:      config,
 			constraints: constraints,
 			exposed:     application.IsExposed(),
@@ -889,7 +986,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 	}
 	meteredURL := charm.MustParseURL("cs:quantal/metered-1")
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
-	withCharmDeployable(fakeAPI, meteredURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, 1)
+	withCharmDeployable(fakeAPI, meteredURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, 1, nil, nil)
 
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -907,7 +1004,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 			return fakeAPI, nil
 		},
 	}
-	_, err = coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(setMetricCredentialsCall(), gc.Equals, 1)
@@ -918,8 +1015,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "metered",
 			PlanURL:         "someplan",
-			Budget:          "",
-			Limit:           "0",
+			IncreaseBudget:  0,
 		}},
 	}})
 }
@@ -940,7 +1036,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 	}
 	meteredURL := charm.MustParseURL("cs:quantal/metered-1")
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
-	withCharmDeployable(fakeAPI, meteredURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, 1)
+	withCharmDeployable(fakeAPI, meteredURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, 1, nil, nil)
 
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -955,7 +1051,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 			return fakeAPI, nil
 		},
 	}
-	_, err = coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1")
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(setMetricCredentialsCall(), gc.Equals, 1)
@@ -967,8 +1063,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 			CharmURL:        "cs:quantal/metered-1",
 			ApplicationName: "metered",
 			PlanURL:         "thisplan",
-			Budget:          "",
-			Limit:           "0",
+			IncreaseBudget:  0,
 		}},
 	}})
 }
@@ -988,7 +1083,7 @@ func (s *DeployCharmStoreSuite) TestSetMetricCredentialsNotCalledForUnmeteredCha
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	withCharmRepoResolvable(fakeAPI, charmURL, cfg)
-	withCharmDeployable(fakeAPI, charmURL, "quantal", charmDir.Meta(), charmDir.Metrics(), false, 1)
+	withCharmDeployable(fakeAPI, charmURL, "quantal", charmDir.Meta(), charmDir.Metrics(), false, 1, nil, nil)
 
 	deploy := &DeployCommand{
 		Steps: []DeployStep{&RegisterMeteredCharm{}},
@@ -997,7 +1092,7 @@ func (s *DeployCharmStoreSuite) TestSetMetricCredentialsNotCalledForUnmeteredCha
 		},
 	}
 
-	_, err = coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/dummy-1")
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/dummy-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, call := range fakeAPI.Calls() {
@@ -1033,7 +1128,7 @@ summary: summary
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	withCharmRepoResolvable(fakeAPI, url, cfg)
-	withCharmDeployable(fakeAPI, url, "quantal", ch.Meta(), ch.Metrics(), true, 1)
+	withCharmDeployable(fakeAPI, url, "quantal", ch.Meta(), ch.Metrics(), true, 1, nil, nil)
 
 	stub := &jujutesting.Stub{}
 	handler := &testMetricsRegistrationHandler{Stub: stub}
@@ -1046,7 +1141,7 @@ summary: summary
 		},
 	}
 
-	_, err = coretesting.RunCommand(c, modelcmd.Wrap(deploy), url.String())
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), url.String())
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckNoCalls(c)
 }
@@ -1077,7 +1172,7 @@ summary: summary
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	withCharmRepoResolvable(fakeAPI, url, cfg)
-	withCharmDeployable(fakeAPI, url, "quantal", ch.Meta(), ch.Metrics(), true, 1)
+	withCharmDeployable(fakeAPI, url, "quantal", ch.Meta(), ch.Metrics(), true, 1, nil, nil)
 
 	stub := &jujutesting.Stub{}
 	handler := &testMetricsRegistrationHandler{Stub: stub}
@@ -1090,7 +1185,7 @@ summary: summary
 		},
 	}
 
-	_, err = coretesting.RunCommand(c, modelcmd.Wrap(deploy), url.String(), "--plan", "someplan")
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), url.String(), "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{{
 		"Authorize", []interface{}{metricRegistrationPost{
@@ -1098,8 +1193,7 @@ summary: summary
 			CharmURL:        "cs:~user/quantal/metered-0",
 			ApplicationName: "metered",
 			PlanURL:         "someplan",
-			Budget:          "",
-			Limit:           "0",
+			IncreaseBudget:  0,
 		}},
 	}})
 }
@@ -1110,13 +1204,13 @@ func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecified
 	_, err = s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	testcharms.UploadCharm(c, s.client, "cs:quantal/wordpress-extra-bindings-1", "wordpress-extra-bindings")
+	_, ch := testcharms.UploadCharm(c, s.client, "cs:quantal/wordpress-extra-bindings-1", "wordpress-extra-bindings")
 	err = runDeploy(c, "cs:quantal/wordpress-extra-bindings-1", "--bind", "db=db db-client=db public admin-api=public")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"wordpress-extra-bindings": {charm: "cs:quantal/wordpress-extra-bindings-1"},
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"wordpress-extra-bindings": {charm: "cs:quantal/wordpress-extra-bindings-1", config: ch.Config().DefaultSettings()},
 	})
-	s.assertDeployedServiceBindings(c, map[string]serviceInfo{
+	s.assertDeployedServiceBindings(c, map[string]applicationInfo{
 		"wordpress-extra-bindings": {
 			endpointBindings: map[string]string{
 				"":                "public",
@@ -1154,7 +1248,7 @@ func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) 
 	cfg, err := config.New(config.NoDefaults, cfgAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	withCharmRepoResolvable(fakeAPI, meteredCharmURL, cfg)
-	withCharmDeployable(fakeAPI, meteredCharmURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, 1)
+	withCharmDeployable(fakeAPI, meteredCharmURL, "quantal", charmDir.Meta(), charmDir.Metrics(), true, 1, nil, nil)
 
 	// `"hello registration"\n` (quotes and newline from json
 	// encoding) is returned by the fake http server. This is binary64
@@ -1168,7 +1262,7 @@ func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) 
 			return fakeAPI, nil
 		},
 	}
-	_, err = coretesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:quantal/metered-1", "--plan", "someplan")
 
 	c.Check(err, gc.ErrorMatches, "IsMetered")
 }
@@ -1233,6 +1327,63 @@ func (s *ParseBindSuite) checkParseFailsForArgs(c *gc.C, args string, expectedEr
 	c.Check(parsedBindings, gc.IsNil)
 }
 
+type ParseMachineMapSuite struct{}
+
+var _ = gc.Suite(&ParseMachineMapSuite{})
+
+func (s *ParseMachineMapSuite) TestEmptyString(c *gc.C) {
+	existing, mapping, err := parseMachineMap("")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(existing, jc.IsFalse)
+	c.Check(mapping, gc.HasLen, 0)
+}
+
+func (s *ParseMachineMapSuite) TestExisting(c *gc.C) {
+	existing, mapping, err := parseMachineMap("existing")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(existing, jc.IsTrue)
+	c.Check(mapping, gc.HasLen, 0)
+}
+
+func (s *ParseMachineMapSuite) TestMapping(c *gc.C) {
+	existing, mapping, err := parseMachineMap("1=2,3=4")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(existing, jc.IsFalse)
+	c.Check(mapping, jc.DeepEquals, map[string]string{
+		"1": "2", "3": "4",
+	})
+}
+
+func (s *ParseMachineMapSuite) TestMappingWithExisting(c *gc.C) {
+	existing, mapping, err := parseMachineMap("1=2,3=4,existing")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(existing, jc.IsTrue)
+	c.Check(mapping, jc.DeepEquals, map[string]string{
+		"1": "2", "3": "4",
+	})
+}
+
+func (s *ParseMachineMapSuite) TestSpaces(c *gc.C) {
+	existing, mapping, err := parseMachineMap("1=2, 3=4, existing")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(existing, jc.IsTrue)
+	c.Check(mapping, jc.DeepEquals, map[string]string{
+		"1": "2", "3": "4",
+	})
+}
+
+func (s *ParseMachineMapSuite) TestErrors(c *gc.C) {
+	checkErr := func(value, expect string) {
+		_, _, err := parseMachineMap(value)
+		c.Check(err, gc.ErrorMatches, expect)
+	}
+
+	checkErr("blah", `expected "existing" or "<bundle-id>=<machine-id>", got "blah"`)
+	checkErr("1=2=3", `expected "existing" or "<bundle-id>=<machine-id>", got "1=2=3"`)
+	checkErr("1=-1", `machine-id "-1" is not a top level machine id`)
+	checkErr("-1=1", `bundle-id "-1" is not a top level machine id`)
+}
+
 type DeployUnitTestSuite struct {
 	jujutesting.IsolationSuite
 	DeployAPI
@@ -1246,49 +1397,97 @@ func (s *DeployUnitTestSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookiesFile)
 }
 
-func (s *DeployUnitTestSuite) TestDeployLocalCharm_GivesCorrectUserMessage(c *gc.C) {
-	// Copy dummy charm to path where we can deploy it from
-	charmsPath := c.MkDir()
-	charmDir := testcharms.Repo.ClonedDir(charmsPath, "dummy")
-
-	cfgAttrs := map[string]interface{}{
+func (s *DeployUnitTestSuite) cfgAttrs() map[string]interface{} {
+	return map[string]interface{}{
 		"name": "name",
 		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"type": "foo",
 	}
-	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
+}
 
-	dummyURL := charm.MustParseURL("local:trusty/dummy-1")
-	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir)
-	withCharmDeployable(fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1)
+func (s *DeployUnitTestSuite) fakeAPI() *fakeDeployAPI {
+	return vanillaFakeModelAPI(s.cfgAttrs())
+}
 
-	cmd := NewDeployCommand(func() (DeployAPI, error) {
+func (s *DeployUnitTestSuite) makeCharmDir(c *gc.C, cloneCharm string) *charm.CharmDir {
+	charmsPath := c.MkDir()
+	return testcharms.Repo.ClonedDir(charmsPath, cloneCharm)
+}
+
+func (s *DeployUnitTestSuite) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ...string) (*cmd.Context, error) {
+	cmd := NewDeployCommandForTest(func() (DeployAPI, error) {
 		return fakeAPI, nil
 	}, nil)
-	context, err := jtesting.RunCommand(c, cmd, charmDir.Path, "--series", "trusty")
-	c.Assert(err, jc.ErrorIsNil)
+	cmd.SetClientStore(NewMockStore())
+	return cmdtesting.RunCommand(c, cmd, args...)
+}
 
-	c.Check(jtesting.Stderr(context), gc.Equals, `Deploying charm "local:trusty/dummy-1".`+"\n")
+func (s *DeployUnitTestSuite) TestDeployApplicationConfig(c *gc.C) {
+	charmsPath := c.MkDir()
+	charmDir := testcharms.Repo.ClonedDir(charmsPath, "dummy")
+
+	fakeAPI := vanillaFakeModelAPI(map[string]interface{}{
+		"name": "name",
+		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type": "foo",
+	})
+
+	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
+	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir)
+	withCharmDeployable(
+		fakeAPI,
+		dummyURL,
+		"trusty",
+		charmDir.Meta(),
+		charmDir.Metrics(),
+		false,
+		1,
+		nil,
+		map[string]string{"foo": "bar"},
+	)
+
+	cmd := NewDeployCommandForTest(func() (DeployAPI, error) { return fakeAPI, nil }, nil)
+	cmd.SetClientStore(NewMockStore())
+	_, err := cmdtesting.RunCommand(c, cmd, dummyURL.String(),
+		"--config", "foo=bar",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DeployUnitTestSuite) TestDeployLocalWithBundleOverlay(c *gc.C) {
+	charmDir := s.makeCharmDir(c, "multi-series")
+	fakeAPI := s.fakeAPI()
+
+	multiSeriesURL := charm.MustParseURL("local:trusty/multi-series-1")
+	withLocalCharmDeployable(fakeAPI, multiSeriesURL, charmDir)
+	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, nil, nil)
+
+	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--overlay", "somefile")
+	c.Check(err, gc.ErrorMatches, "flags provided but not supported when deploying a charm: --overlay")
+}
+
+func (s *DeployUnitTestSuite) TestDeployLocalCharmGivesCorrectUserMessage(c *gc.C) {
+	// Copy multi-series charm to path where we can deploy it from
+	charmDir := s.makeCharmDir(c, "multi-series")
+	fakeAPI := s.fakeAPI()
+
+	multiSeriesURL := charm.MustParseURL("local:trusty/multi-series-1")
+	withLocalCharmDeployable(fakeAPI, multiSeriesURL, charmDir)
+	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, nil, nil)
+
+	context, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--series", "trusty")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(cmdtesting.Stderr(context), gc.Equals, `Deploying charm "local:trusty/multi-series-1".`+"\n")
 }
 
 func (s *DeployUnitTestSuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) {
-	charmsPath := c.MkDir()
-	charmDir := testcharms.Repo.ClonedDir(charmsPath, "dummy")
+	charmDir := s.makeCharmDir(c, "multi-series")
+	multiSeriesURL := charm.MustParseURL("local:trusty/multi-series-1")
+	fakeAPI := s.fakeAPI()
+	withLocalCharmDeployable(fakeAPI, multiSeriesURL, charmDir)
+	withCharmDeployable(fakeAPI, multiSeriesURL, "trusty", charmDir.Meta(), charmDir.Metrics(), true, 1, nil, nil)
 
-	cfgAttrs := map[string]interface{}{
-		"name": "name",
-		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"type": "foo",
-	}
-	dummyURL := charm.MustParseURL("local:trusty/dummy-1")
-	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
-	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir)
-	withCharmDeployable(fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), true, 1)
-
-	deployCmd := NewDeployCommand(func() (DeployAPI, error) {
-		return fakeAPI, nil
-	}, nil)
-	_, err := coretesting.RunCommand(c, deployCmd, charmDir.Path, "--series", "trusty")
+	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We never attempt to set metric credentials
@@ -1299,26 +1498,17 @@ func (s *DeployUnitTestSuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c
 	}
 }
 
-func (s *DeployUnitTestSuite) TestRedeployLocalCharm_SucceedsWhenDeployed(c *gc.C) {
-	charmsPath := c.MkDir()
-	charmDir := testcharms.Repo.ClonedDir(charmsPath, "dummy")
-
-	fakeAPI := vanillaFakeModelAPI(map[string]interface{}{
-		"name": "name",
-		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"type": "foo",
-	})
+func (s *DeployUnitTestSuite) TestRedeployLocalCharmSucceedsWhenDeployed(c *gc.C) {
+	charmDir := s.makeCharmDir(c, "dummy")
+	fakeAPI := s.fakeAPI()
 	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
 	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir)
-	withCharmDeployable(fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1)
+	withCharmDeployable(fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, nil, nil)
 
-	deployCmd := NewDeployCommand(func() (DeployAPI, error) {
-		return fakeAPI, nil
-	}, nil)
-	context, err := jtesting.RunCommand(c, deployCmd, dummyURL.String())
+	context, err := s.runDeploy(c, fakeAPI, dummyURL.String())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(jtesting.Stderr(context), gc.Equals, ""+
+	c.Check(cmdtesting.Stderr(context), gc.Equals, ""+
 		`Located charm "local:trusty/dummy-0".`+"\n"+
 		`Deploying charm "local:trusty/dummy-0".`+"\n",
 	)
@@ -1327,16 +1517,11 @@ func (s *DeployUnitTestSuite) TestRedeployLocalCharm_SucceedsWhenDeployed(c *gc.
 func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 	bundleDir := testcharms.Repo.BundleArchive(c.MkDir(), "wordpress-simple")
 
-	cfgAttrs := map[string]interface{}{
-		"name": "name",
-		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"type": "foo",
-	}
-	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
+	fakeAPI := s.fakeAPI()
 	withAllWatcher(fakeAPI)
 
 	fakeBundleURL := charm.MustParseURL("cs:bundle/wordpress-simple")
-	cfg, err := config.New(config.NoDefaults, cfgAttrs)
+	cfg, err := config.New(config.NoDefaults, s.cfgAttrs())
 	c.Assert(err, jc.ErrorIsNil)
 	withCharmRepoResolvable(fakeAPI, fakeBundleURL, cfg)
 	fakeAPI.Call("GetBundle", fakeBundleURL).Returns(bundleDir, error(nil))
@@ -1351,8 +1536,13 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 		&charm.Metrics{},
 		false,
 		0,
+		nil,
+		nil,
 	)
-	fakeAPI.Call("AddUnits", "mysql", 1, []*instance.Placement(nil)).Returns([]string{"mysql/0"}, error(nil))
+	fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "mysql",
+		NumUnits:        1,
+	}).Returns([]string{"mysql/0"}, error(nil))
 
 	wordpressURL := charm.MustParseURL("cs:wordpress")
 	withCharmRepoResolvable(fakeAPI, wordpressURL, cfg)
@@ -1364,28 +1554,90 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 		&charm.Metrics{},
 		false,
 		0,
+		nil,
+		nil,
 	)
-	fakeAPI.Call("AddUnits", "wordpress", 1, []*instance.Placement(nil)).Returns([]string{"wordpress/0"}, error(nil))
+	fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "wordpress",
+		NumUnits:        1,
+	}).Returns([]string{"wordpress/0"}, error(nil))
 
-	fakeAPI.Call("AddRelation", "wordpress:db", "mysql:server").Returns(
+	fakeAPI.Call("AddRelation", []interface{}{"wordpress:db", "mysql:server"}, []interface{}{}).Returns(
 		&params.AddRelationResults{},
 		error(nil),
 	)
 
-	deployCmd := NewDeployCommand(func() (DeployAPI, error) {
+	deployCmd := NewDeployCommandForTest(func() (DeployAPI, error) {
 		return fakeAPI, nil
 	}, nil)
-	context, err := jtesting.RunCommand(c, deployCmd, "cs:bundle/wordpress-simple")
+	deployCmd.SetClientStore(NewMockStore())
+	context, err := cmdtesting.RunCommand(c, deployCmd, "cs:bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(jtesting.Stderr(context), gc.Equals, ""+
+	c.Check(cmdtesting.Stderr(context), gc.Equals, ""+
 		`Located bundle "cs:bundle/wordpress-simple"`+"\n"+
-		`Deploying charm "cs:mysql"`+"\n"+
-		`Deploying charm "cs:wordpress"`+"\n"+
-		`Related "wordpress:db" and "mysql:server"`+"\n"+
+		"Resolving charm: mysql\n"+
+		"Resolving charm: wordpress\n"+
 		`Deploy of bundle completed.`+
 		"\n",
 	)
+	c.Check(cmdtesting.Stdout(context), gc.Equals, ""+
+		"Executing changes:\n"+
+		"- upload charm cs:mysql\n"+
+		"- deploy application mysql using cs:mysql\n"+
+		"- upload charm cs:wordpress\n"+
+		"- deploy application wordpress using cs:wordpress\n"+
+		"- add relation wordpress:db - mysql:server\n"+
+		"- add unit mysql/0 to new machine 0\n"+
+		"- add unit wordpress/0 to new machine 1\n",
+	)
+}
+
+func (s *DeployUnitTestSuite) TestDeployAttachStorage(c *gc.C) {
+	charmsPath := c.MkDir()
+	charmDir := testcharms.Repo.ClonedDir(charmsPath, "dummy")
+
+	fakeAPI := vanillaFakeModelAPI(map[string]interface{}{
+		"name": "name",
+		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type": "foo",
+	})
+
+	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
+	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir)
+	withCharmDeployable(
+		fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, []string{"foo/0", "bar/1", "baz/2"}, nil,
+	)
+
+	cmd := NewDeployCommandForTest(func() (DeployAPI, error) { return fakeAPI, nil }, nil)
+	cmd.SetClientStore(NewMockStore())
+	_, err := cmdtesting.RunCommand(c, cmd, dummyURL.String(),
+		"--attach-storage", "foo/0",
+		"--attach-storage", "bar/1,baz/2",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DeployUnitTestSuite) TestDeployAttachStorageNotSupported(c *gc.C) {
+	charmsPath := c.MkDir()
+	charmDir := testcharms.Repo.ClonedDir(charmsPath, "dummy")
+
+	fakeAPI := vanillaFakeModelAPI(map[string]interface{}{
+		"name": "name",
+		"uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"type": "foo",
+	})
+	fakeAPI.Call("BestFacadeVersion", "Application").Returns(4) // v4 doesn't support attach-storage
+	dummyURL := charm.MustParseURL("local:trusty/dummy-0")
+	withLocalCharmDeployable(fakeAPI, dummyURL, charmDir)
+	withCharmDeployable(
+		fakeAPI, dummyURL, "trusty", charmDir.Meta(), charmDir.Metrics(), false, 1, []string{"foo/0", "bar/1", "baz/2"}, nil,
+	)
+
+	cmd := NewDeployCommandForTest(func() (DeployAPI, error) { return fakeAPI, nil }, nil)
+	cmd.SetClientStore(NewMockStore())
+	_, err := cmdtesting.RunCommand(c, cmd, dummyURL.String(), "--attach-storage", "foo/0")
+	c.Assert(err, gc.ErrorMatches, "this juju controller does not support --attach-storage")
 }
 
 // fakeDeployAPI is a mock of the API used by the deploy command. It's
@@ -1476,7 +1728,20 @@ func (f *fakeDeployAPI) CharmInfo(url string) (*charms.CharmInfo, error) {
 
 func (f *fakeDeployAPI) Deploy(args application.DeployArgs) error {
 	results := f.MethodCall(f, "Deploy", args)
+	if len(results) != 1 {
+		return errors.Errorf("expected 1 result, got %d: %v", len(results), results)
+	}
 	return jujutesting.TypeAssertError(results[0])
+}
+
+func (f *fakeDeployAPI) GetAnnotations(tags []string) ([]params.AnnotationsGetResult, error) {
+	return nil, nil
+}
+func (f *fakeDeployAPI) GetConfig(appNames ...string) ([]map[string]interface{}, error) {
+	return nil, nil
+}
+func (f *fakeDeployAPI) GetConstraints(appNames ...string) ([]constraints.Value, error) {
+	return nil, nil
 }
 
 func (f *fakeDeployAPI) GetBundle(url *charm.URL) (charm.Bundle, error) {
@@ -1494,13 +1759,13 @@ func (f *fakeDeployAPI) WatchAll() (*api.AllWatcher, error) {
 	return results[0].(*api.AllWatcher), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
-	results := f.MethodCall(f, "AddRelation", variadicStringToInterface(endpoints...)...)
+func (f *fakeDeployAPI) AddRelation(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
+	results := f.MethodCall(f, "AddRelation", stringToInterface(endpoints), stringToInterface(viaCIDRs))
 	return results[0].(*params.AddRelationResults), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) AddUnits(application string, numUnits int, placement []*instance.Placement) ([]string, error) {
-	results := f.MethodCall(f, "AddUnits", application, numUnits, placement)
+func (f *fakeDeployAPI) AddUnits(args application.AddUnitsParams) ([]string, error) {
+	results := f.MethodCall(f, "AddUnits", args)
 	return results[0].([]string), jujutesting.TypeAssertError(results[1])
 }
 
@@ -1539,17 +1804,7 @@ func (f *fakeDeployAPI) AddMachines(machineParams []params.AddMachineParams) ([]
 	return results[0].([]params.AddMachinesResult), jujutesting.TypeAssertError(results[0])
 }
 
-type fakeBundle struct {
-	charm.Bundle
-	*jujutesting.CallMocker
-}
-
-func (f *fakeBundle) Data() *charm.BundleData {
-	results := f.MethodCall(f, "Data")
-	return results[0].(*charm.BundleData)
-}
-
-func variadicStringToInterface(args ...string) []interface{} {
+func stringToInterface(args []string) []interface{} {
 	interfaceArgs := make([]interface{}, len(args))
 	for i, a := range args {
 		interfaceArgs[i] = a
@@ -1564,6 +1819,7 @@ func vanillaFakeModelAPI(cfgAttrs map[string]interface{}) *fakeDeployAPI {
 	fakeAPI.Call("Close").Returns(error(nil))
 	fakeAPI.Call("ModelGet").Returns(cfgAttrs, error(nil))
 	fakeAPI.Call("ModelUUID").Returns("deadbeef-0bad-400d-8000-4b1d0d06f00d", true)
+	fakeAPI.Call("BestFacadeVersion", "Application").Returns(6)
 
 	return fakeAPI
 }
@@ -1584,6 +1840,8 @@ func withCharmDeployable(
 	metrics *charm.Metrics,
 	metered bool,
 	numUnits int,
+	attachStorage []string,
+	config map[string]string,
 ) {
 	fakeAPI.Call("AddCharm", url, csclientparams.Channel("")).Returns(error(nil))
 	fakeAPI.Call("CharmInfo", url.String()).Returns(
@@ -1599,6 +1857,8 @@ func withCharmDeployable(
 		ApplicationName: url.Name,
 		Series:          series,
 		NumUnits:        numUnits,
+		AttachStorage:   attachStorage,
+		Config:          config,
 	}).Returns(error(nil))
 	fakeAPI.Call("IsMetered", url.String()).Returns(metered, error(nil))
 

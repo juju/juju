@@ -93,6 +93,7 @@ type ModelResult struct {
 	Error *Error `json:"error,omitempty"`
 	Name  string `json:"name"`
 	UUID  string `json:"uuid"`
+	Type  string `json:"type"`
 }
 
 // ModelCreateArgs holds the arguments that are necessary to create
@@ -135,6 +136,7 @@ type ModelCreateArgs struct {
 type Model struct {
 	Name     string `json:"name"`
 	UUID     string `json:"uuid"`
+	Type     string `json:"type"`
 	OwnerTag string `json:"owner-tag"`
 }
 
@@ -250,6 +252,18 @@ type ControllerConfigResult struct {
 	Config ControllerConfig `json:"config"`
 }
 
+// ControllerAPIInfoResult holds controller api address details.
+type ControllerAPIInfoResult struct {
+	Addresses []string `json:"addresses"`
+	CACert    string   `json:"cacert"`
+	Error     *Error   `json:"error,omitempty"`
+}
+
+// ControllerAPIInfoResults holds controller api address details results.
+type ControllerAPIInfoResults struct {
+	Results []ControllerAPIInfoResult `json:"results"`
+}
+
 // RelationUnit holds a relation and a unit tag.
 type RelationUnit struct {
 	Relation string `json:"relation"`
@@ -294,9 +308,27 @@ type RelationUnitsSettings struct {
 	RelationUnits []RelationUnitSettings `json:"relation-units"`
 }
 
+// RelationResults holds the result of an API call that returns
+// information about multiple relations.
+type RelationResults struct {
+	Results []RelationResult `json:"results"`
+}
+
 // RelationResult returns information about a single relation,
 // or an error.
 type RelationResult struct {
+	Error            *Error                `json:"error,omitempty"`
+	Life             Life                  `json:"life"`
+	Suspended        bool                  `json:"bool,omitempty"`
+	Id               int                   `json:"id"`
+	Key              string                `json:"key"`
+	Endpoint         multiwatcher.Endpoint `json:"endpoint"`
+	OtherApplication string                `json:"other-application,omitempty"`
+}
+
+// RelationResultV5 returns information about a single relation,
+// or an error, but doesn't include the other application name.
+type RelationResultV5 struct {
 	Error    *Error                `json:"error,omitempty"`
 	Life     Life                  `json:"life"`
 	Id       int                   `json:"id"`
@@ -304,10 +336,10 @@ type RelationResult struct {
 	Endpoint multiwatcher.Endpoint `json:"endpoint"`
 }
 
-// RelationResults holds the result of an API call that returns
-// information about multiple relations.
-type RelationResults struct {
-	Results []RelationResult `json:"results"`
+// RelationResultsV5 holds the result of an API call that returns
+// information about multiple V5 relations.
+type RelationResultsV5 struct {
+	Results []RelationResultV5 `json:"results"`
 }
 
 // EntityCharmURL holds an entity's tag and a charm URL.
@@ -432,6 +464,23 @@ type VersionResults struct {
 	Results []VersionResult `json:"results"`
 }
 
+// SetModelEnvironVersions holds the tags and associated environ versions
+// of a collection of models.
+type SetModelEnvironVersions struct {
+	Models []SetModelEnvironVersion `json:"models,omitempty"`
+}
+
+// SetModelEnvironVersions holds the tag and associated environ version
+// of a model.
+type SetModelEnvironVersion struct {
+	// ModelTag is the string representation of a model tag, which
+	// should be parseable using names.ParseModelTag.
+	ModelTag string `json:"model-tag"`
+
+	// Version is the environ version to set for the model.
+	Version int `json:"version"`
+}
+
 // ToolsResult holds the tools and possibly error for a given
 // Tools() API call.
 type ToolsResult struct {
@@ -537,6 +586,27 @@ type RelationUnitsWatchResults struct {
 	Results []RelationUnitsWatchResult `json:"results"`
 }
 
+// RelationUnitStatusResult holds details about scope
+// and suspended status for a relation unit.
+type RelationUnitStatus struct {
+	RelationTag string `json:"relation-tag"`
+	InScope     bool   `json:"in-scope"`
+	Suspended   bool   `json:"suspended"`
+}
+
+// RelationUnitStatusResult holds details about scope and status for
+// relation units, and an error.
+type RelationUnitStatusResult struct {
+	RelationResults []RelationUnitStatus `json:"results"`
+	Error           *Error               `json:"error,omitempty"`
+}
+
+// RelationUnitStatusResults holds the results of a
+// uniter RelationStatus API call.
+type RelationUnitStatusResults struct {
+	Results []RelationUnitStatusResult `json:"results"`
+}
+
 // MachineStorageIdsWatchResult holds a MachineStorageIdsWatcher id,
 // changes and an error (if any).
 type MachineStorageIdsWatchResult struct {
@@ -606,16 +676,18 @@ type AgentVersionResult struct {
 
 // ProvisioningInfo holds machine provisioning info.
 type ProvisioningInfo struct {
-	Constraints      constraints.Value         `json:"constraints"`
-	Series           string                    `json:"series"`
-	Placement        string                    `json:"placement"`
-	Jobs             []multiwatcher.MachineJob `json:"jobs"`
-	Volumes          []VolumeParams            `json:"volumes,omitempty"`
-	Tags             map[string]string         `json:"tags,omitempty"`
-	SubnetsToZones   map[string][]string       `json:"subnets-to-zones,omitempty"`
-	ImageMetadata    []CloudImageMetadata      `json:"image-metadata,omitempty"`
-	EndpointBindings map[string]string         `json:"endpoint-bindings,omitempty"`
-	ControllerConfig map[string]interface{}    `json:"controller-config,omitempty"`
+	Constraints       constraints.Value         `json:"constraints"`
+	Series            string                    `json:"series"`
+	Placement         string                    `json:"placement"`
+	Jobs              []multiwatcher.MachineJob `json:"jobs"`
+	Volumes           []VolumeParams            `json:"volumes,omitempty"`
+	VolumeAttachments []VolumeAttachmentParams  `json:"volume-attachments,omitempty"`
+	Tags              map[string]string         `json:"tags,omitempty"`
+	SubnetsToZones    map[string][]string       `json:"subnets-to-zones,omitempty"`
+	ImageMetadata     []CloudImageMetadata      `json:"image-metadata,omitempty"`
+	EndpointBindings  map[string]string         `json:"endpoint-bindings,omitempty"`
+	ControllerConfig  map[string]interface{}    `json:"controller-config,omitempty"`
+	CloudInitUserData map[string]interface{}    `json:"cloudinit-userdata,omitempty"`
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.
@@ -631,9 +703,10 @@ type ProvisioningInfoResults struct {
 
 // Metric holds a single metric.
 type Metric struct {
-	Key   string    `json:"key"`
-	Value string    `json:"value"`
-	Time  time.Time `json:"time"`
+	Key    string            `json:"key"`
+	Value  string            `json:"value"`
+	Time   time.Time         `json:"time"`
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // MetricsParam contains the metrics for a single unit.
@@ -678,12 +751,12 @@ type MeterStatusResults struct {
 	Results []MeterStatusResult `json:"results"`
 }
 
-// SingularClaim represents a request for exclusive model administration access
-// on the part of some controller.
+// SingularClaim represents a request for exclusive administrative access
+// to an entity (model or controller) on the part of the claimaint.
 type SingularClaim struct {
-	ModelTag      string        `json:"model-tag"`
-	ControllerTag string        `json:"controller-tag"`
-	Duration      time.Duration `json:"duration"`
+	EntityTag   string        `json:"entity-tag"`
+	ClaimantTag string        `json:"claimant-tag"`
+	Duration    time.Duration `json:"duration"`
 }
 
 // SingularClaims holds any number of SingularClaim~s.
@@ -734,4 +807,57 @@ type ResourceUploadResult struct {
 
 	// Timestamp indicates when the resource was added to the model.
 	Timestamp time.Time `json:"timestamp"`
+}
+
+// UnitRefreshResult is used to return the latest values for attributes
+// on a unit.
+type UnitRefreshResult struct {
+	Life     Life
+	Resolved ResolvedMode
+	Series   string
+	Error    *Error
+}
+
+// UnitRefreshResults holds the results for any API call which ends
+// up returning a list of UnitRefreshResult.
+type UnitRefreshResults struct {
+	Results []UnitRefreshResult
+}
+
+// EntityString holds an entity tag and a string value.
+type EntityString struct {
+	Tag   string `json:"tag"`
+	Value string `json:"value"`
+}
+
+// SetPodSpecParams holds the arguments for setting the pod
+// spec for a set of applications.
+type SetPodSpecParams struct {
+	Specs []EntityString `json:"specs"`
+}
+
+// GoalStateResults holds the results of GoalStates API call
+type GoalStateResults struct {
+	Results []GoalStateResult `json:"results"`
+}
+
+// GoalStateResult the result of GoalStates per entity.
+type GoalStateResult struct {
+	Result *GoalState `json:"result"`
+	Error  *Error     `json:"error"`
+}
+
+// GoalStateStatus goal-state at unit level
+type GoalStateStatus struct {
+	Status string     `json:"status"`
+	Since  *time.Time `json:"since"`
+}
+
+// UnitsGoalState collection of GoalStatesStatus with unit name
+type UnitsGoalState map[string]GoalStateStatus
+
+// GoalState goal-state at application level, stores Units and Units-Relations
+type GoalState struct {
+	Units     UnitsGoalState            `json:"units"`
+	Relations map[string]UnitsGoalState `json:"relations"`
 }

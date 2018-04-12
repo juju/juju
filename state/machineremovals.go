@@ -59,13 +59,13 @@ func (m *Machine) MarkForRemoval() (err error) {
 		}
 		return ops, nil
 	}
-	return m.st.run(buildTxn)
+	return m.st.db().Run(buildTxn)
 }
 
 // AllMachineRemovals returns (the ids of) all of the machines that
 // need to be removed but need provider-level cleanup.
 func (st *State) AllMachineRemovals() ([]string, error) {
-	removals, close := st.getCollection(machineRemovalsC)
+	removals, close := st.db().GetCollection(machineRemovalsC)
 	defer close()
 
 	var docs []machineRemovalDoc
@@ -81,7 +81,7 @@ func (st *State) AllMachineRemovals() ([]string, error) {
 }
 
 func (st *State) allMachinesMatching(query bson.D) ([]*Machine, error) {
-	machines, close := st.getCollection(machinesC)
+	machines, close := st.db().GetCollection(machinesC)
 	defer close()
 
 	var docs []machineDoc
@@ -203,5 +203,5 @@ func (st *State) CompleteMachineRemovals(ids ...string) error {
 		}
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }

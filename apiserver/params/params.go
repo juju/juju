@@ -115,6 +115,7 @@ type ErrorResult struct {
 // The endpoints specified are unordered.
 type AddRelation struct {
 	Endpoints []string `json:"endpoints"`
+	ViaCIDRs  []string `json:"via-cidrs,omitempty"`
 }
 
 // AddRelationResults holds the results of a AddRelation call. The Endpoints
@@ -124,9 +125,38 @@ type AddRelationResults struct {
 }
 
 // DestroyRelation holds the parameters for making the DestroyRelation call.
-// The endpoints specified are unordered.
+// A relation is identified by either endpoints or id.
+// The endpoints, if specified, are unordered.
 type DestroyRelation struct {
-	Endpoints []string `json:"endpoints"`
+	Endpoints  []string `json:"endpoints,omitempty"`
+	RelationId int      `json:"relation-id"`
+}
+
+// RelationStatusArgs holds the parameters for updating the status
+// of one or more relations.
+type RelationStatusArgs struct {
+	Args []RelationStatusArg `json:"args"`
+}
+
+// RelationStatusArg holds the new status value for a relation.
+type RelationStatusArg struct {
+	UnitTag    string              `json:"unit-tag"`
+	RelationId int                 `json:"relation-id"`
+	Status     RelationStatusValue `json:"status"`
+	Message    string              `json:"message"`
+}
+
+// RelationSuspendedArgs holds the parameters for setting
+// the suspended status of one or more relations.
+type RelationSuspendedArgs struct {
+	Args []RelationSuspendedArg `json:"args"`
+}
+
+// RelationSuspendedArg holds the new suspended status value for a relation.
+type RelationSuspendedArg struct {
+	RelationId int    `json:"relation-id"`
+	Message    string `json:"message"`
+	Suspended  bool   `json:"suspended"`
 }
 
 // AddCharm holds the arguments for making an AddCharm API call.
@@ -201,9 +231,18 @@ type AddMachinesResult struct {
 }
 
 // DestroyMachines holds parameters for the DestroyMachines call.
+// This is the legacy params struct used with the client facade.
+// TODO(wallyworld) - remove in Juju 3.0
 type DestroyMachines struct {
 	MachineNames []string `json:"machine-names"`
 	Force        bool     `json:"force"`
+}
+
+// DestroyMachinesParams holds parameters for the DestroyMachinesWithParams call.
+type DestroyMachinesParams struct {
+	MachineTags []string `json:"machine-tags"`
+	Force       bool     `json:"force,omitempty"`
+	Keep        bool     `json:"keep,omitempty"`
 }
 
 // ApplicationsDeploy holds the parameters for deploying one or more applications.
@@ -223,6 +262,7 @@ type ApplicationDeploy struct {
 	Constraints      constraints.Value              `json:"constraints"`
 	Placement        []*instance.Placement          `json:"placement,omitempty"`
 	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
+	AttachStorage    []string                       `json:"attach-storage,omitempty"`
 	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
 	Resources        map[string]string              `json:"resources,omitempty"`
 }
@@ -237,6 +277,24 @@ type ApplicationUpdate struct {
 	SettingsStrings map[string]string  `json:"settings,omitempty"`
 	SettingsYAML    string             `json:"settings-yaml"` // Takes precedence over SettingsStrings if both are present.
 	Constraints     *constraints.Value `json:"constraints,omitempty"`
+}
+
+// UpdateSeriesArg holds the parameters for updating the series for the
+// specified application or machine. For Application, only known by facade
+// version 5 and greater. For MachineManger, only known by facade version
+// 4 or greater.
+type UpdateSeriesArg struct {
+	Entity Entity `json:"tag"`
+	Force  bool   `json:"force"`
+	Series string `json:"series"`
+}
+
+// UpdateSeriesArgs holds the parameters for updating the series
+// of one or more applications or machines. For Application, only known
+// by facade version 5 and greater. For MachineManger, only known by facade
+// version 4 or greater.
+type UpdateSeriesArgs struct {
+	Args []UpdateSeriesArg `json:"args"`
 }
 
 // ApplicationSetCharm sets the charm for a given application.
@@ -306,11 +364,31 @@ type ApplicationGet struct {
 
 // ApplicationGetResults holds results of the application Get call.
 type ApplicationGetResults struct {
-	Application string                 `json:"application"`
-	Charm       string                 `json:"charm"`
-	Config      map[string]interface{} `json:"config"`
-	Constraints constraints.Value      `json:"constraints"`
-	Series      string                 `json:"series"`
+	Application       string                 `json:"application"`
+	Charm             string                 `json:"charm"`
+	CharmConfig       map[string]interface{} `json:"config"`
+	ApplicationConfig map[string]interface{} `json:"application-config,omitempty"`
+	Constraints       constraints.Value      `json:"constraints"`
+	Series            string                 `json:"series"`
+}
+
+// ApplicationConfigSetArgs holds the parameters for
+// setting application config values for specified applications.
+type ApplicationConfigSetArgs struct {
+	Args []ApplicationConfigSet
+}
+
+// ApplicationConfigSet holds the parameters for an application
+// config set command.
+type ApplicationConfigSet struct {
+	ApplicationName string            `json:"application"`
+	Config          map[string]string `json:"config"`
+}
+
+// ApplicationConfigUnsetArgs holds the parameters for
+// resetting application config values for specified applications.
+type ApplicationConfigUnsetArgs struct {
+	Args []ApplicationUnset
 }
 
 // ApplicationCharmRelations holds parameters for making the application CharmRelations call.
@@ -337,6 +415,17 @@ type ApplicationMetricCredential struct {
 // ApplicationMetricCredentials holds multiple ApplicationMetricCredential parameters.
 type ApplicationMetricCredentials struct {
 	Creds []ApplicationMetricCredential `json:"creds"`
+}
+
+// ApplicationGetConfigResults holds the return values for application GetConfig.
+type ApplicationGetConfigResults struct {
+	Results []ConfigResult
+}
+
+// ConfigResults holds configuration values for an entity.
+type ConfigResult struct {
+	Config map[string]interface{} `json:"config"`
+	Error  *Error                 `json:"error,omitempty"`
 }
 
 // PublicAddress holds parameters for the PublicAddress call.
@@ -372,6 +461,13 @@ type ResolvedResults struct {
 	Settings    map[string]interface{} `json:"settings"`
 }
 
+// UnitsResolved holds parameters for the ResolveUnitErrors call.
+type UnitsResolved struct {
+	Tags  Entities `json:"tags,omitempty"`
+	Retry bool     `json:"retry,omitempty"`
+	All   bool     `json:"all,omitempty"`
+}
+
 // AddApplicationUnitsResults holds the names of the units added by the
 // AddUnits call.
 type AddApplicationUnitsResults struct {
@@ -383,16 +479,100 @@ type AddApplicationUnits struct {
 	ApplicationName string                `json:"application"`
 	NumUnits        int                   `json:"num-units"`
 	Placement       []*instance.Placement `json:"placement"`
+	AttachStorage   []string              `json:"attach-storage,omitempty"`
 }
 
-// DestroyApplicationUnits holds parameters for the DestroyUnits call.
+// UpdateApplicationUnitArgs holds the parameters for
+// updating application units.
+type UpdateApplicationUnitArgs struct {
+	Args []UpdateApplicationUnits `json:"args"`
+}
+
+// UpdateApplicationUnits holds unit parameters for a specified application.
+type UpdateApplicationUnits struct {
+	ApplicationTag string                  `json:"application-tag"`
+	Units          []ApplicationUnitParams `json:"units"`
+}
+
+// ApplicationUnitParams holds unit parameters used to update a unit.
+type ApplicationUnitParams struct {
+	ProviderId string                 `json:"provider-id"`
+	UnitTag    string                 `json:"unit-tag"`
+	Address    string                 `json:"address"`
+	Ports      []string               `json:"ports"`
+	Status     string                 `json:"status"`
+	Info       string                 `json:"info"`
+	Data       map[string]interface{} `json:"data"`
+}
+
+// UpdateApplicationServiceArgs holds the parameters for
+// updating application services.
+type UpdateApplicationServiceArgs struct {
+	Args []UpdateApplicationServiceArg `json:"args"`
+}
+
+// UpdateApplicationServiceArg holds parameters used to update
+// an application's service definition for the cloud.
+type UpdateApplicationServiceArg struct {
+	ApplicationTag string    `json:"application-tag"`
+	ProviderId     string    `json:"provider-id"`
+	Addresses      []Address `json:"addresses"`
+}
+
+// DestroyApplicationUnits holds parameters for the deprecated
+// Application.DestroyUnits call.
 type DestroyApplicationUnits struct {
 	UnitNames []string `json:"unit-names"`
 }
 
-// ApplicationDestroy holds the parameters for making the application Destroy call.
+// DestroyUnitsParams holds bulk parameters for the Application.DestroyUnit call.
+type DestroyUnitsParams struct {
+	Units []DestroyUnitParams `json:"units"`
+}
+
+// DestroyUnitParams holds parameters for the Application.DestroyUnit call.
+type DestroyUnitParams struct {
+	// UnitTag holds the tag of the unit to destroy.
+	UnitTag string `json:"unit-tag"`
+
+	// DestroyStorage controls whether or not storage
+	// attached to the unit should be destroyed.
+	DestroyStorage bool `json:"destroy-storage,omitempty"`
+}
+
+// ApplicationDestroy holds the parameters for making the deprecated
+// Application.Destroy call.
 type ApplicationDestroy struct {
 	ApplicationName string `json:"application"`
+}
+
+// DestroyApplicationsParams holds bulk parameters for the
+// Application.DestroyApplication call.
+type DestroyApplicationsParams struct {
+	Applications []DestroyApplicationParams `json:"applications"`
+}
+
+// DestroyApplicationParams holds parameters for the
+// Application.DestroyApplication call.
+type DestroyApplicationParams struct {
+	// ApplicationTag holds the tag of the application to destroy.
+	ApplicationTag string `json:"application-tag"`
+
+	// DestroyStorage controls whether or not storage attached to
+	// units of the application should be destroyed.
+	DestroyStorage bool `json:"destroy-storage,omitempty"`
+}
+
+// DestroyConsumedApplicationsParams holds bulk parameters for the
+// Application.DestroyConsumedApplication call.
+type DestroyConsumedApplicationsParams struct {
+	Applications []DestroyConsumedApplicationParams `json:"applications"`
+}
+
+// DestroyConsumedApplicationParams holds the parameters for the
+// RemoteApplication.Destroy call.
+type DestroyConsumedApplicationParams struct {
+	ApplicationTag string `json:"application-tag"`
 }
 
 // Creds holds credentials for identifying an entity.
@@ -407,13 +587,14 @@ type Creds struct {
 // then the provided macaroon slices will be used for authentication (if
 // any one is valid, the authentication succeeds). If there are no
 // valid macaroons and macaroon authentication is configured,
-// the LoginResponse will contain a macaroon that when
+// the LoginResult will contain a macaroon that when
 // discharged, may allow access.
 type LoginRequest struct {
 	AuthTag     string           `json:"auth-tag"`
 	Credentials string           `json:"credentials"`
 	Nonce       string           `json:"nonce"`
 	Macaroons   []macaroon.Slice `json:"macaroons"`
+	CLIArgs     string           `json:"cli-args,omitempty"`
 	UserData    string           `json:"user-data"`
 }
 
@@ -448,6 +629,18 @@ type GetApplicationConstraints struct {
 // GetConstraintsResults holds results of the GetConstraints call.
 type GetConstraintsResults struct {
 	Constraints constraints.Value `json:"constraints"`
+}
+
+// ApplicationGetConstraintsResults holds the multiple return values for GetConstraints call.
+type ApplicationGetConstraintsResults struct {
+	Results []ApplicationConstraint `json:"results"`
+}
+
+// ApplicationConstraint holds the constraints value for a single application, or
+// an error for trying to get it.
+type ApplicationConstraint struct {
+	Constraints constraints.Value `json:"constraints"`
+	Error       *Error            `json:"error,omitempty"`
 }
 
 // SetConstraints stores parameters for making the SetConstraints call.
@@ -541,12 +734,14 @@ type UpdateBehavior struct {
 // ContainerConfig contains information from the model config that is
 // needed for container cloud-init.
 type ContainerConfig struct {
-	ProviderType            string         `json:"provider-type"`
-	AuthorizedKeys          string         `json:"authorized-keys"`
-	SSLHostnameVerification bool           `json:"ssl-hostname-verification"`
-	Proxy                   proxy.Settings `json:"proxy"`
-	AptProxy                proxy.Settings `json:"apt-proxy"`
-	AptMirror               string         `json:"apt-mirror"`
+	ProviderType               string                 `json:"provider-type"`
+	AuthorizedKeys             string                 `json:"authorized-keys"`
+	SSLHostnameVerification    bool                   `json:"ssl-hostname-verification"`
+	Proxy                      proxy.Settings         `json:"proxy"`
+	AptProxy                   proxy.Settings         `json:"apt-proxy"`
+	AptMirror                  string                 `json:"apt-mirror"`
+	CloudInitUserData          map[string]interface{} `json:"cloudinit-userdata,omitempty"`
+	ContainerInheritProperties string                 `json:"container-inherit-properties,omitempty"`
 	*UpdateBehavior
 }
 
@@ -575,8 +770,7 @@ type ProvisioningScriptResult struct {
 // DeployerConnectionValues containers the result of deployer.ConnectionInfo
 // API call.
 type DeployerConnectionValues struct {
-	StateAddresses []string `json:"state-addresses"`
-	APIAddresses   []string `json:"api-addresses"`
+	APIAddresses []string `json:"api-addresses"`
 }
 
 // JobsResult holds the jobs for a machine that are returned by a call to Jobs.
@@ -665,6 +859,12 @@ type LoginResult struct {
 
 	// Servers is the list of API server addresses.
 	Servers [][]HostPort `json:"servers,omitempty"`
+
+	// PublicDNSName holds the host name for which an officially
+	// signed certificate will be used for TLS connection to the server.
+	// If empty, the private Juju CA certificate must be used to verify
+	// the connection.
+	PublicDNSName string `json:"public-dns-name,omitempty"`
 
 	// ModelTag is the tag for the model that is being connected to.
 	ModelTag string `json:"model-tag,omitempty"`
@@ -879,7 +1079,7 @@ type ResumeReplicationParams struct {
 type MeterStatusParam struct {
 	Tag  string `json:"tag"`
 	Code string `json:"code"`
-	Info string `json:"info, omitempty"`
+	Info string `json:"info,omitempty"`
 }
 
 // MeterStatusParams holds parameters for making SetMeterStatus calls.
@@ -982,4 +1182,12 @@ type DestroyUnitInfo struct {
 	// DestroyedStorage is the tags of storage instances that will be
 	// destroyed as a result of destroying the unit.
 	DestroyedStorage []Entity `json:"destroyed-storage,omitempty"`
+}
+
+// DumpModelRequest wraps the request for a dump-model call.
+// A simplified dump will not contain a complete export, but instead
+// a reduced set that is determined by the server.
+type DumpModelRequest struct {
+	Entities   []Entity `json:"entities"`
+	Simplified bool     `json:"simplified"`
 }

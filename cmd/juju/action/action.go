@@ -39,7 +39,7 @@ type APIClient interface {
 	ListCompleted(params.Entities) (params.ActionsByReceivers, error)
 
 	// Cancel attempts to cancel a queued up Action from running.
-	Cancel(params.Actions) (params.ActionResults, error)
+	Cancel(params.Entities) (params.ActionResults, error)
 
 	// ApplicationCharmActions is a single query which uses ApplicationsCharmsActions to
 	// get the charm.Actions for a single Service by tag.

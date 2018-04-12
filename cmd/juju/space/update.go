@@ -14,12 +14,12 @@ import (
 )
 
 // NewUpdateCommand returns a command used to update subnets in a space.
-func NewUpdateCommand() cmd.Command {
-	return modelcmd.Wrap(&updateCommand{})
+func NewUpdateCommand() modelcmd.ModelCommand {
+	return modelcmd.Wrap(&UpdateCommand{})
 }
 
-// updateCommand calls the API to update an existing network space.
-type updateCommand struct {
+// UpdateCommand calls the API to update an existing network space.
+type UpdateCommand struct {
 	SpaceCommandBase
 	Name  string
 	CIDRs set.Strings
@@ -32,7 +32,7 @@ CIDRs) "leave" their current space and "enter" the one we're updating.
 `
 
 // Info is defined on the cmd.Command interface.
-func (c *updateCommand) Info() *cmd.Info {
+func (c *UpdateCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "update-space",
 		Args:    "<name> <CIDR1> [ <CIDR2> ...]",
@@ -43,14 +43,14 @@ func (c *updateCommand) Info() *cmd.Info {
 
 // Init is defined on the cmd.Command interface. It checks the
 // arguments for sanity and sets up the command to run.
-func (c *updateCommand) Init(args []string) error {
+func (c *UpdateCommand) Init(args []string) error {
 	var err error
 	c.Name, c.CIDRs, err = ParseNameAndCIDRs(args, false)
 	return errors.Trace(err)
 }
 
 // Run implements Command.Run.
-func (c *updateCommand) Run(ctx *cmd.Context) error {
+func (c *UpdateCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		// Update the space.
 		err := api.UpdateSpace(c.Name, c.CIDRs.SortedValues())

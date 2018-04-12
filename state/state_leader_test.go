@@ -7,18 +7,21 @@ import (
 	"time" // Only used for time types.
 
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/leadership"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type LeadershipSuite struct {
 	ConnSuite
-	checker leadership.Checker
-	claimer leadership.Claimer
+	checker     leadership.Checker
+	claimer     leadership.Claimer
+	globalClock globalclock.Updater
 }
 
 var _ = gc.Suite(&LeadershipSuite{})
@@ -29,11 +32,13 @@ func (s *LeadershipSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.checker = s.State.LeadershipChecker()
 	s.claimer = s.State.LeadershipClaimer()
+	s.globalClock, err = s.State.GlobalClockUpdater()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *LeadershipSuite) TestClaimValidatesApplicationname(c *gc.C) {
-	err := s.claimer.ClaimLeadership("not/a/service", "u/0", time.Minute)
-	c.Check(err, gc.ErrorMatches, `cannot claim lease "not/a/service": not an application name`)
+	err := s.claimer.ClaimLeadership("not/a/application", "u/0", time.Minute)
+	c.Check(err, gc.ErrorMatches, `cannot claim lease "not/a/application": not an application name`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
@@ -50,9 +55,9 @@ func (s *LeadershipSuite) TestClaimValidateDuration(c *gc.C) {
 }
 
 func (s *LeadershipSuite) TestCheckValidatesApplicationname(c *gc.C) {
-	token := s.checker.LeadershipCheck("not/a/service", "u/0")
+	token := s.checker.LeadershipCheck("not/a/application", "u/0")
 	err := token.Check(nil)
-	c.Check(err, gc.ErrorMatches, `cannot check lease "not/a/service": not an application name`)
+	c.Check(err, gc.ErrorMatches, `cannot check lease "not/a/application": not an application name`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
@@ -64,8 +69,8 @@ func (s *LeadershipSuite) TestCheckValidatesUnitName(c *gc.C) {
 }
 
 func (s *LeadershipSuite) TestBlockValidatesApplicationname(c *gc.C) {
-	err := s.claimer.BlockUntilLeadershipReleased("not/a/service")
-	c.Check(err, gc.ErrorMatches, `cannot wait for lease "not/a/service" expiry: not an application name`)
+	err := s.claimer.BlockUntilLeadershipReleased("not/an/application", nil)
+	c.Check(err, gc.ErrorMatches, `cannot wait for lease "not/an/application" expiry: not an application name`)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
@@ -76,14 +81,14 @@ func (s *LeadershipSuite) TestClaimExpire(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Claim on behalf of another.
-	err = s.claimer.ClaimLeadership("application", "service/1", time.Minute)
+	err = s.claimer.ClaimLeadership("application", "application/1", time.Minute)
 	c.Check(err, gc.Equals, leadership.ErrClaimDenied)
 
 	// Allow the first claim to expire.
 	s.expire(c, "application")
 
 	// Reclaim on behalf of another.
-	err = s.claimer.ClaimLeadership("application", "service/1", time.Minute)
+	err = s.claimer.ClaimLeadership("application", "application/1", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -112,16 +117,54 @@ func (s *LeadershipSuite) TestCheck(c *gc.C) {
 	c.Check(ops2, gc.IsNil)
 }
 
-func (s *LeadershipSuite) TestKillWorkersUnblocksClaimer(c *gc.C) {
+func (s *LeadershipSuite) TestCloseStateUnblocksClaimer(c *gc.C) {
 	err := s.claimer.ClaimLeadership("blah", "blah/0", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.State.KillWorkers()
-	s.Clock.Advance(coretesting.LongWait)
+	err = s.State.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
 	select {
-	case err := <-s.expiryChan("blah"):
+	case err := <-s.expiryChan("blah", nil):
 		c.Check(err, gc.ErrorMatches, "lease manager stopped")
-	case <-s.Clock.After(coretesting.LongWait):
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out while waiting for unblock")
+	}
+}
+
+func (s *LeadershipSuite) TestLeadershipClaimerRestarts(c *gc.C) {
+	// SetClockForTesting will restart the workers, and
+	// will have replaced them by the time it returns.
+	s.State.SetClockForTesting(gitjujutesting.NewClock(time.Time{}))
+
+	err := s.claimer.ClaimLeadership("blah", "blah/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *LeadershipSuite) TestLeadershipCheckerRestarts(c *gc.C) {
+	err := s.claimer.ClaimLeadership("application", "application/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// SetClockForTesting will restart the workers, and
+	// will have replaced them by the time it returns.
+	s.State.SetClockForTesting(gitjujutesting.NewClock(time.Time{}))
+
+	token := s.checker.LeadershipCheck("application", "application/0")
+	err = token.Check(nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *LeadershipSuite) TestBlockUntilLeadershipReleasedCancel(c *gc.C) {
+	err := s.claimer.ClaimLeadership("blah", "blah/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cancel := make(chan struct{})
+	close(cancel)
+
+	select {
+	case err := <-s.expiryChan("blah", cancel):
+		c.Check(err, gc.Equals, leadership.ErrBlockCancelled)
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out while waiting for unblock")
 	}
 }
@@ -141,20 +184,35 @@ func (s *LeadershipSuite) TestApplicationLeaders(c *gc.C) {
 }
 
 func (s *LeadershipSuite) expire(c *gc.C, applicationname string) {
+	err := s.globalClock.Advance(time.Hour)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The lease manager starts a new timer each time it
+	// is waiting for something to do, so we can't know
+	// how many clients are waiting on the clock without
+	// being tying ourselves too closely to the implementation.
+	// Instead, advance the clock by an hour and then unblock
+	// all timers until the lease is expired.
 	s.Clock.Advance(time.Hour)
-	s.Session.Fsync(false)
-	select {
-	case err := <-s.expiryChan(applicationname):
-		c.Assert(err, jc.ErrorIsNil)
-	case <-s.Clock.After(coretesting.LongWait):
-		c.Fatalf("never unblocked")
+
+	unblocked := s.expiryChan(applicationname, nil)
+	timeout := time.After(coretesting.LongWait)
+	for {
+		select {
+		case <-timeout:
+			c.Fatalf("never unblocked")
+		case err := <-unblocked:
+			c.Assert(err, jc.ErrorIsNil)
+			return
+		case <-s.Clock.Alarms():
+		}
 	}
 }
 
-func (s *LeadershipSuite) expiryChan(applicationname string) <-chan error {
+func (s *LeadershipSuite) expiryChan(applicationname string, cancel <-chan struct{}) <-chan error {
 	expired := make(chan error, 1)
 	go func() {
-		expired <- s.claimer.BlockUntilLeadershipReleased("blah")
+		expired <- s.claimer.BlockUntilLeadershipReleased(applicationname, cancel)
 	}()
 	return expired
 }

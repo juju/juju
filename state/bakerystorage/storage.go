@@ -23,8 +23,9 @@ var expiryTimeIndex = mgo.Index{
 }
 
 type storage struct {
-	config   Config
-	expireAt time.Time
+	config      Config
+	expireAt    time.Time
+	expireAfter time.Duration
 }
 
 type storageDoc struct {
@@ -35,7 +36,12 @@ type storageDoc struct {
 
 // ExpireAt implements ExpirableStorage.ExpireAt.
 func (s *storage) ExpireAt(expireAt time.Time) ExpirableStorage {
-	return &storage{s.config, expireAt}
+	return &storage{config: s.config, expireAt: expireAt}
+}
+
+// ExpireAfter implements ExpirableStorage.ExpireAt.
+func (s *storage) ExpireAfter(expireAfter time.Duration) ExpirableStorage {
+	return &storage{config: s.config, expireAfter: expireAfter}
 }
 
 // Put implements bakery.Storage.Put.
@@ -47,11 +53,15 @@ func (s *storage) Put(location, item string) error {
 		Location: location,
 		Item:     item,
 	}
-	if !s.expireAt.IsZero() {
+	expireAt := s.expireAt
+	if expireAt.IsZero() && s.expireAfter > 0 {
+		expireAt = s.config.Clock.Now().Add(s.expireAfter)
+	}
+	if !expireAt.IsZero() {
 		// NOTE(axw) we subtract one second from the expiry time, because
 		// the expireAfterSeconds index we create is 1 and not 0 due to
 		// a limitation in the mgo EnsureIndex API.
-		doc.ExpireAt = s.expireAt.Add(-1 * time.Second)
+		doc.ExpireAt = expireAt.Add(-1 * time.Second)
 	}
 	_, err := coll.Writeable().UpsertId(location, doc)
 	if err != nil {

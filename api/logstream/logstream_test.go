@@ -35,8 +35,7 @@ func (s *LogReaderSuite) TestOpenFullConfig(c *gc.C) {
 	stream := mockStream{stub: stub}
 	conn.ReturnConnectStream = stream
 	cfg := params.LogStreamConfig{
-		AllModels: true,
-		Sink:      "spam",
+		Sink: "spam",
 	}
 
 	_, err := logstream.Open(conn, cfg, cUUID)
@@ -44,7 +43,6 @@ func (s *LogReaderSuite) TestOpenFullConfig(c *gc.C) {
 
 	stub.CheckCallNames(c, "ConnectStream")
 	stub.CheckCall(c, 0, "ConnectStream", `/logstream`, url.Values{
-		"all":  []string{"true"},
 		"sink": []string{"spam"},
 	})
 }

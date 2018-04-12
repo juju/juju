@@ -31,6 +31,10 @@ func configureCloudinit(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.Clo
 		if err != nil {
 			return nil, err
 		}
+		err = udata.ConfigureCustomOverrides()
+		if err != nil {
+			return nil, err
+		}
 		return udata, nil
 	}
 	err = udata.Configure()

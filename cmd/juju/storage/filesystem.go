@@ -146,6 +146,9 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 		}
 		info.Storage = storageTag.Id()
 		if storageInfo.Attachments != nil {
+			if info.Attachments == nil {
+				info.Attachments = &FilesystemAttachments{}
+			}
 			info.Attachments.Units = storageInfo.Attachments.Units
 		}
 	}

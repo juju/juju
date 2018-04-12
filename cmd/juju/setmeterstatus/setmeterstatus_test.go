@@ -6,6 +6,7 @@ package setmeterstatus_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -45,7 +47,7 @@ func (s *SetMeterStatusSuite) TestUnit(c *gc.C) {
 	s.PatchValue(setmeterstatus.NewClient, func(_ modelcmd.ModelCommandBase) (setmeterstatus.SetMeterStatusClient, error) {
 		return &client, nil
 	})
-	_, err := coretesting.RunCommand(c, setmeterstatus.New(), "metered/0", "RED")
+	_, err := cmdtesting.RunCommand(c, setmeterstatus.New(), "metered/0", "RED")
 	c.Assert(err, jc.ErrorIsNil)
 	client.CheckCall(c, 0, "SetMeterStatus", "unit-metered-0", "RED", "")
 }
@@ -55,7 +57,7 @@ func (s *SetMeterStatusSuite) TestService(c *gc.C) {
 	s.PatchValue(setmeterstatus.NewClient, func(_ modelcmd.ModelCommandBase) (setmeterstatus.SetMeterStatusClient, error) {
 		return &client, nil
 	})
-	_, err := coretesting.RunCommand(c, setmeterstatus.New(), "metered", "RED")
+	_, err := cmdtesting.RunCommand(c, setmeterstatus.New(), "metered", "RED")
 	c.Assert(err, jc.ErrorIsNil)
 	client.CheckCall(c, 0, "SetMeterStatus", "application-metered", "RED", "")
 }
@@ -65,7 +67,7 @@ func (s *SetMeterStatusSuite) TestNotValidServiceOrUnit(c *gc.C) {
 	s.PatchValue(setmeterstatus.NewClient, func(_ modelcmd.ModelCommandBase) (setmeterstatus.SetMeterStatusClient, error) {
 		return &client, nil
 	})
-	_, err := coretesting.RunCommand(c, setmeterstatus.New(), "!!!!!!", "RED")
+	_, err := cmdtesting.RunCommand(c, setmeterstatus.New(), "!!!!!!", "RED")
 	c.Assert(err, gc.ErrorMatches, `"!!!!!!" is not a valid unit or application`)
 }
 
@@ -76,7 +78,7 @@ type DebugMetricsCommandSuite struct {
 var _ = gc.Suite(&DebugMetricsCommandSuite{})
 
 func (s *DebugMetricsCommandSuite) TestDebugNoArgs(c *gc.C) {
-	_, err := coretesting.RunCommand(c, setmeterstatus.New())
+	_, err := cmdtesting.RunCommand(c, setmeterstatus.New())
 	c.Assert(err, gc.ErrorMatches, `you need to specify an entity \(application or unit\) and a status`)
 }
 
@@ -84,7 +86,7 @@ func (s *DebugMetricsCommandSuite) TestUnits(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "local:quantal/mysql-1"})
 	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service, SetCharmURL: true})
-	_, err := coretesting.RunCommand(c, setmeterstatus.New(), unit.Name(), "RED", "--info", "foobar")
+	_, err := cmdtesting.RunCommand(c, setmeterstatus.New(), unit.Name(), "RED", "--info", "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	status, err := unit.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
@@ -95,11 +97,11 @@ func (s *DebugMetricsCommandSuite) TestUnits(c *gc.C) {
 func (s *DebugMetricsCommandSuite) TestService(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "local:quantal/mysql-1"})
 	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
-	unit0, err := service.AddUnit()
+	unit0, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	unit1, err := service.AddUnit()
+	unit1, err := service.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = coretesting.RunCommand(c, setmeterstatus.New(), "mysql", "RED", "--info", "foobar")
+	_, err = cmdtesting.RunCommand(c, setmeterstatus.New(), "mysql", "RED", "--info", "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	status, err := unit0.GetMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)

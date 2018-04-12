@@ -9,11 +9,11 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -37,11 +37,20 @@ var portsTests = []struct {
 	{[]string{"close-port", "443/udp"}, makeRanges("99/tcp")},
 	{[]string{"open-port", "123/udp"}, makeRanges("99/tcp", "123/udp")},
 	{[]string{"close-port", "9999/UDP"}, makeRanges("99/tcp", "123/udp")},
+	{[]string{"open-port", "icmp"}, makeRanges("icmp", "99/tcp", "123/udp")},
 }
 
 func makeRanges(stringRanges ...string) []network.PortRange {
 	var results []network.PortRange
 	for _, s := range stringRanges {
+		if s == "icmp" {
+			results = append(results, network.PortRange{
+				FromPort: -1,
+				ToPort:   -1,
+				Protocol: "icmp",
+			})
+			continue
+		}
 		if strings.Contains(s, "-") {
 			parts := strings.Split(s, "-")
 			fromPort, _ := strconv.Atoi(parts[0])
@@ -73,9 +82,9 @@ func (s *PortsSuite) TestOpenClose(c *gc.C) {
 	for _, t := range portsTests {
 		com, err := jujuc.NewCommand(hctx, cmdString(t.cmd[0]))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.cmd[1:])
-		c.Assert(code, gc.Equals, 0)
+		c.Check(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 		hctx.info.CheckPorts(c, t.expect)
@@ -89,16 +98,17 @@ var badPortsTests = []struct {
 	{nil, "no port or range specified"},
 	{[]string{"0"}, `port must be in the range \[1, 65535\]; got "0"`},
 	{[]string{"65536"}, `port must be in the range \[1, 65535\]; got "65536"`},
-	{[]string{"two"}, `expected <port>\[/<protocol>\] or <from>-<to>\[/<protocol>\]; got "two"`},
-	{[]string{"80/http"}, `protocol must be "tcp" or "udp"; got "http"`},
-	{[]string{"blah/blah/blah"}, `expected <port>\[/<protocol>\] or <from>-<to>\[/<protocol>\]; got "blah/blah/blah"`},
+	{[]string{"two"}, `expected <port>\[/<protocol>\] or <from>-<to>\[/<protocol>\] or icmp; got "two"`},
+	{[]string{"80/http"}, `protocol must be "tcp", "udp", or "icmp"; got "http"`},
+	{[]string{"blah/blah/blah"}, `expected <port>\[/<protocol>\] or <from>-<to>\[/<protocol>\] or icmp; got "blah/blah/blah"`},
 	{[]string{"123", "haha"}, `unrecognized args: \["haha"\]`},
 	{[]string{"1-0"}, `invalid port range 1-0/tcp; expected fromPort <= toPort`},
 	{[]string{"-42"}, `flag provided but not defined: -4`},
 	{[]string{"99999/UDP"}, `port must be in the range \[1, 65535\]; got "99999"`},
-	{[]string{"9999/foo"}, `protocol must be "tcp" or "udp"; got "foo"`},
-	{[]string{"80-90/http"}, `protocol must be "tcp" or "udp"; got "http"`},
+	{[]string{"9999/foo"}, `protocol must be "tcp", "udp", or "icmp"; got "foo"`},
+	{[]string{"80-90/http"}, `protocol must be "tcp", "udp", or "icmp"; got "http"`},
 	{[]string{"20-10/tcp"}, `invalid port range 20-10/tcp; expected fromPort <= toPort`},
+	{[]string{"80/icmp"}, `protocol "icmp" doesn't support any ports; got "80"`},
 }
 
 func (s *PortsSuite) TestBadArgs(c *gc.C) {
@@ -107,7 +117,7 @@ func (s *PortsSuite) TestBadArgs(c *gc.C) {
 			hctx := s.GetHookContext(c, -1, "")
 			com, err := jujuc.NewCommand(hctx, cmdString(name))
 			c.Assert(err, jc.ErrorIsNil)
-			err = testing.InitCommand(com, t.args)
+			err = cmdtesting.InitCommand(com, t.args)
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
 	}
@@ -117,9 +127,9 @@ func (s *PortsSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	open, err := jujuc.NewCommand(hctx, cmdString("open-port"))
 	c.Assert(err, jc.ErrorIsNil)
-	flags := testing.NewFlagSet()
+	flags := cmdtesting.NewFlagSet()
 	c.Assert(string(open.Info().Help(flags)), gc.Equals, `
-Usage: open-port <port>[/<protocol>] or <from>-<to>[/<protocol>]
+Usage: open-port <port>[/<protocol>] or <from>-<to>[/<protocol>] or icmp
 
 Summary:
 register a port or range to open
@@ -131,7 +141,7 @@ The port range will only be open while the application is exposed.
 	close, err := jujuc.NewCommand(hctx, cmdString("close-port"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(close.Info().Help(flags)), gc.Equals, `
-Usage: close-port <port>[/<protocol>] or <from>-<to>[/<protocol>]
+Usage: close-port <port>[/<protocol>] or <from>-<to>[/<protocol>] or icmp
 
 Summary:
 ensure a port or range is always closed
@@ -153,10 +163,10 @@ func (s *PortsSuite) TestOpenCloseDeprecation(c *gc.C) {
 		name := t.cmd[0]
 		com, err := jujuc.NewCommand(hctx, cmdString(name))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.cmd[1:])
 		c.Assert(code, gc.Equals, 0)
-		c.Assert(testing.Stdout(ctx), gc.Equals, "")
-		c.Assert(testing.Stderr(ctx), gc.Equals, "--format flag deprecated for command \""+name+"\"")
+		c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+		c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "--format flag deprecated for command \""+name+"\"")
 	}
 }

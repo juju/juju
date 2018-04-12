@@ -54,6 +54,12 @@ var isFatalTests = []struct {
 		err:     errors.Trace(worker.ErrTerminateAgent),
 		isFatal: true,
 	}, {
+		err:     worker.ErrRestartAgent,
+		isFatal: true,
+	}, {
+		err:     errors.Trace(worker.ErrRestartAgent),
+		isFatal: true,
+	}, {
 		err:     &upgrader.UpgradeReadyError{},
 		isFatal: true,
 	}, {

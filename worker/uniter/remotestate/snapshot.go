@@ -4,7 +4,7 @@
 package remotestate
 
 import (
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -16,7 +16,7 @@ type Snapshot struct {
 	Life params.Life
 
 	// Relations contains the lifecycle states of
-	// each of the service's relations, keyed by
+	// each of the application's relations, keyed by
 	// relation IDs.
 	Relations map[int]RelationSnapshot
 
@@ -24,7 +24,7 @@ type Snapshot struct {
 	// states of each of the unit's storage attachments.
 	Storage map[names.StorageTag]StorageSnapshot
 
-	// CharmModifiedVersion is increased whenever the service's charm was
+	// CharmModifiedVersion is increased whenever the application's charm was
 	// changed in some way.
 	CharmModifiedVersion int
 
@@ -68,11 +68,15 @@ type Snapshot struct {
 	// Commands is the list of IDs of commands to be
 	// executed by this unit.
 	Commands []string
+
+	// Series is the current series running on the unit
+	Series string
 }
 
 type RelationSnapshot struct {
-	Life    params.Life
-	Members map[string]int64
+	Life      params.Life
+	Suspended bool
+	Members   map[string]int64
 }
 
 // StorageSnapshot has information relating to a storage

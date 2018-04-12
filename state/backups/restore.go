@@ -157,13 +157,19 @@ func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelT
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempt := utils.AttemptStrategy{Delay: newStateConnDelay, Min: newStateConnMinAttempts}
 	getEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
+
+	session, err := mongo.DialWithInfo(*info, mongoDefaultDialOpts())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer session.Close()
+
 	for a := attempt.Start(); a.Next(); {
 		st, err = state.Open(state.OpenParams{
 			Clock:              clock.WallClock,
 			ControllerTag:      controllerTag,
 			ControllerModelTag: modelTag,
-			MongoInfo:          info,
-			MongoDialOpts:      mongoDefaultDialOpts(),
+			MongoSession:       session,
 			NewPolicy:          environsGetNewPolicyFunc(getEnviron),
 		})
 		if err == nil {
@@ -276,10 +282,15 @@ var sshCommand = ssh.Command
 
 // runViaSSH runs script in the remote machine with address addr.
 func runViaSSH(addr string, script string) error {
-	// This is taken from cmd/juju/ssh.go there is no other clear way to set user
-	userAddr := "ubuntu@" + addr
 	sshOptions := ssh.Options{}
 	sshOptions.SetIdentities("/var/lib/juju/system-identity")
+	// Disable host key checking. We're not pushing across anything
+	// sensitive, and there's no guarantee that the machine would
+	// have published up-to-date host key information.
+	sshOptions.SetStrictHostKeyChecking(ssh.StrictHostChecksNo)
+	sshOptions.SetKnownHostsFile(os.DevNull)
+
+	userAddr := "ubuntu@" + addr
 	userCmd := sshCommand(userAddr, []string{"sudo", "-n", "bash", "-c " + utils.ShQuote(script)}, &sshOptions)
 	var stdoutBuf bytes.Buffer
 	var stderrBuf bytes.Buffer

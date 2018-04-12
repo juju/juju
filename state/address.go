@@ -4,44 +4,48 @@
 package state
 
 import (
+	"fmt"
 	"net"
 	"reflect"
+	"sort"
 	"strconv"
 
 	"github.com/juju/errors"
 	statetxn "github.com/juju/txn"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 )
 
 // controllerAddresses returns the list of internal addresses of the state
 // server machines.
 func (st *State) controllerAddresses() ([]string, error) {
-	ssState := st
-	model, err := st.ControllerModel()
+	cinfo, err := st.ControllerInfo()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if st.ModelTag() != model.ModelTag() {
-		// We are not using the controller model, so get one.
-		logger.Debugf("getting a controller state connection, current env: %s", st.ModelTag())
-		ssState, err = st.ForModel(model.ModelTag())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer ssState.Close()
-		logger.Debugf("ssState env: %s", ssState.ModelTag())
+
+	var machines mongo.Collection
+	var closer SessionCloser
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	if model.ModelTag() == cinfo.ModelTag {
+		machines, closer = st.db().GetCollection(machinesC)
+	} else {
+		machines, closer = st.db().GetCollectionFor(cinfo.ModelTag.Id(), machinesC)
+	}
+	defer closer()
 
 	type addressMachine struct {
 		Addresses []address
 	}
 	var allAddresses []addressMachine
 	// TODO(rog) 2013/10/14 index machines on jobs.
-	machines, closer := ssState.getCollection(machinesC)
-	defer closer()
 	err = machines.Find(bson.D{{"jobs", JobManageModel}}).All(&allAddresses)
 	if err != nil {
 		return nil, err
@@ -85,73 +89,162 @@ func (st *State) Addresses() ([]string, error) {
 	return appendPort(addrs, config.StatePort()), nil
 }
 
-// APIAddressesFromMachines returns the list of cloud-internal addresses that
-// can be used to connect to the state API server.
-// This method will be deprecated when API addresses are
-// stored independently in their own document.
-func (st *State) APIAddressesFromMachines() ([]string, error) {
-	addrs, err := st.controllerAddresses()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	config, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return appendPort(addrs, config.APIPort()), nil
-}
-
-const apiHostPortsKey = "apiHostPorts"
+const (
+	// Key for *all* addresses at which controllers are accessible.
+	apiHostPortsKey = "apiHostPorts"
+	// Key for addresses at which controllers are accessible by agents.
+	apiHostPortsForAgentsKey = "apiHostPortsForAgents"
+)
 
 type apiHostPortsDoc struct {
 	APIHostPorts [][]hostPort `bson:"apihostports"`
 	TxnRevno     int64        `bson:"txn-revno"`
 }
 
-// SetAPIHostPorts sets the addresses of the API server instances.
+// SetAPIHostPorts sets the addresses, if changed, of two collections:
+// - The list of *all* addresses at which the API is accessible.
+// - The list of addresses at which the API can be accessed by agents according
+//   to the controller management space configuration.
 // Each server is represented by one element in the top level slice.
-func (st *State) SetAPIHostPorts(netHostsPorts [][]network.HostPort) error {
-	controllers, closer := st.getCollection(controllersC)
+func (st *State) SetAPIHostPorts(newHostPorts [][]network.HostPort) error {
+	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
-	doc := apiHostPortsDoc{
-		APIHostPorts: fromNetworkHostsPorts(netHostsPorts),
-	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var existingDoc apiHostPortsDoc
-		err := controllers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&existingDoc)
+		ops, err := st.getOpsForHostPortsChange(controllers, apiHostPortsKey, newHostPorts)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
-		op := txn.Op{
-			C:  controllersC,
-			Id: apiHostPortsKey,
-			Assert: bson.D{{
-				"txn-revno", existingDoc.TxnRevno,
-			}},
+
+		newHostPortsForAgents, err := st.filterHostPortsForManagementSpace(newHostPorts)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		hostPorts := networkHostsPorts(existingDoc.APIHostPorts)
-		if !hostsPortsEqual(netHostsPorts, hostPorts) {
-			op.Update = bson.D{{
-				"$set", bson.D{{"apihostports", doc.APIHostPorts}},
-			}}
-		} else {
+		agentAddrOps, err := st.getOpsForHostPortsChange(
+			controllers, apiHostPortsForAgentsKey, newHostPortsForAgents)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, agentAddrOps...)
+
+		if ops == nil || len(ops) == 0 {
 			return nil, statetxn.ErrNoOperations
 		}
-		return []txn.Op{op}, nil
+		return ops, nil
 	}
-	if err := st.run(buildTxn); err != nil {
+
+	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Annotate(err, "cannot set API addresses")
 	}
-	logger.Debugf("setting API hostPorts: %v", netHostsPorts)
 	return nil
 }
 
-// APIHostPorts returns the API addresses as set by SetAPIHostPorts.
-func (st *State) APIHostPorts() ([][]network.HostPort, error) {
+// getOpsForHostPortsChange returns a slice of operations used to update an
+// API host/collection in the DB.
+// If the current document indicates the same host/port collection as the
+// input, no operations are returned.
+func (st *State) getOpsForHostPortsChange(
+	mc mongo.Collection,
+	key string,
+	newHostPorts [][]network.HostPort,
+) ([]txn.Op, error) {
+	var ops []txn.Op
+
+	// Retrieve the current document. Return an insert operation if not found.
+	var extantHostPortDoc apiHostPortsDoc
+	err := mc.Find(bson.D{{"_id", key}}).One(&extantHostPortDoc)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			return []txn.Op{{
+				C:      controllersC,
+				Id:     key,
+				Insert: bson.D{{"apihostports", fromNetworkHostsPorts(newHostPorts)}},
+			}}, nil
+		}
+		return ops, err
+	}
+
+	// Queue an update operation if the host/port collections differ.
+	extantHostPorts := networkHostsPorts(extantHostPortDoc.APIHostPorts)
+	if !hostsPortsEqual(newHostPorts, extantHostPorts) {
+		ops = []txn.Op{{
+			C:  controllersC,
+			Id: key,
+			Assert: bson.D{{
+				"txn-revno", extantHostPortDoc.TxnRevno,
+			}},
+			Update: bson.D{{
+				"$set", bson.D{{"apihostports", fromNetworkHostsPorts(newHostPorts)}},
+			}},
+		}}
+		logger.Debugf("setting %s: %v", key, newHostPorts)
+	}
+	return ops, nil
+}
+
+// filterHostPortsForManagementSpace filters the collection of API addresses
+// based on the configured management space for the controller.
+// If there is no space configured, or if the one of the slices is filtered down
+// to zero elements, just use the unfiltered slice for safety - we do not
+// want to cut off communication to the controller based on erroneous config.
+func (st *State) filterHostPortsForManagementSpace(apiHostPorts [][]network.HostPort) ([][]network.HostPort, error) {
+	config, err := st.ControllerConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	var hostPortsForAgents [][]network.HostPort
+	if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != "" {
+		hostPortsForAgents = make([][]network.HostPort, len(apiHostPorts))
+		sp := network.SpaceName(mgmtSpace)
+		for i := range apiHostPorts {
+			if filtered, ok := network.SelectHostPortsBySpaceNames(apiHostPorts[i], sp); ok {
+				hostPortsForAgents[i] = filtered
+			} else {
+				hostPortsForAgents[i] = apiHostPorts[i]
+			}
+		}
+	} else {
+		hostPortsForAgents = apiHostPorts
+	}
+	return hostPortsForAgents, nil
+}
+
+// APIHostPortsForClients returns the collection of *all* known API addresses.
+func (st *State) APIHostPortsForClients() ([][]network.HostPort, error) {
+	hp, err := st.apiHostPortsForKey(apiHostPortsKey)
+	if err != nil {
+		err = errors.Trace(err)
+	}
+	return hp, err
+}
+
+// APIHostPortsForAgents returns the collection of API addresses that should
+// be used by agents.
+// If there is no management network space configured for the controller,
+// or if the space is misconfigured, the return will be the same as
+// APIHostPortsForClients.
+// Otherwise the returned addresses will correspond with the management net space.
+// If there is no document at all, we simply fall back to APIHostPortsForClients.
+func (st *State) APIHostPortsForAgents() ([][]network.HostPort, error) {
+	hp, err := st.apiHostPortsForKey(apiHostPortsForAgentsKey)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			logger.Debugf("No document for %s; using %s", apiHostPortsForAgentsKey, apiHostPortsKey)
+			return st.APIHostPortsForClients()
+		}
+		return nil, errors.Trace(err)
+	}
+	return hp, nil
+}
+
+// apiHostPortsForKey returns API addresses extracted from the document
+// identified by the input key.
+func (st *State) apiHostPortsForKey(key string) ([][]network.HostPort, error) {
 	var doc apiHostPortsDoc
-	controllers, closer := st.getCollection(controllersC)
+	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
-	err := controllers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&doc)
+	err := controllers.Find(bson.D{{"_id", key}}).One(&doc)
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +392,46 @@ func addressesEqual(a, b []network.Address) bool {
 	return reflect.DeepEqual(a, b)
 }
 
+func dupeAndSort(a [][]network.HostPort) [][]network.HostPort {
+	var result [][]network.HostPort
+
+	for _, val := range a {
+		var inner []network.HostPort
+		for _, hp := range val {
+			inner = append(inner, hp)
+		}
+		network.SortHostPorts(inner)
+		result = append(result, inner)
+	}
+	sort.Sort(hostsPortsSlice(result))
+	return result
+}
+
+type hostsPortsSlice [][]network.HostPort
+
+func (hp hostsPortsSlice) Len() int      { return len(hp) }
+func (hp hostsPortsSlice) Swap(i, j int) { hp[i], hp[j] = hp[j], hp[i] }
+func (hp hostsPortsSlice) Less(i, j int) bool {
+	lhs := (hostPortsSlice)(hp[i]).String()
+	rhs := (hostPortsSlice)(hp[j]).String()
+	return lhs < rhs
+}
+
+type hostPortsSlice []network.HostPort
+
+func (hp hostPortsSlice) String() string {
+	var result string
+	for _, val := range hp {
+		result += fmt.Sprintf("%s-%d ", val.Address, val.Port)
+	}
+	return result
+}
+
 // hostsPortsEqual checks that two arrays of network hostports are equal.
 func hostsPortsEqual(a, b [][]network.HostPort) bool {
-	return reflect.DeepEqual(a, b)
+	// Make a copy of all the values so we don't mutate the args in order
+	// to determine if they are the same while we mutate the slice to order them.
+	aPrime := dupeAndSort(a)
+	bPrime := dupeAndSort(b)
+	return reflect.DeepEqual(aPrime, bPrime)
 }

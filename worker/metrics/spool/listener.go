@@ -77,7 +77,7 @@ func (l *socketListener) loop() error {
 // when it is killed.
 func NewPeriodicWorker(do jworker.PeriodicWorkerCall, period time.Duration, newTimer func(time.Duration) jworker.PeriodicTimer, stop func()) worker.Worker {
 	return &periodicWorker{
-		Worker: jworker.NewPeriodicWorker(do, period, newTimer),
+		Worker: jworker.NewPeriodicWorker(do, period, newTimer, jworker.Jitter(0.2)),
 		stop:   stop,
 	}
 }

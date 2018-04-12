@@ -172,6 +172,7 @@ type Volume struct {
 type VolumeInfo struct {
 	VolumeId   string `json:"volume-id"`
 	HardwareId string `json:"hardware-id,omitempty"`
+	WWN        string `json:"wwn,omitempty"`
 	// Pool is the name of the storage pool used to
 	// allocate the volume. Juju controllers older
 	// than 2.2 do not populate this field, so it may
@@ -215,6 +216,20 @@ type VolumeParams struct {
 	Attributes map[string]interface{}  `json:"attributes,omitempty"`
 	Tags       map[string]string       `json:"tags,omitempty"`
 	Attachment *VolumeAttachmentParams `json:"attachment,omitempty"`
+}
+
+// RemoveVolumeParams holds the parameters for destroying or releasing a
+// storage volume.
+type RemoveVolumeParams struct {
+	// Provider is the storage provider that manages the volume.
+	Provider string `json:"provider"`
+
+	// VolumeId is the storage provider's unique ID for the volume.
+	VolumeId string `json:"volume-id"`
+
+	// Destroy controls whether the volume should be completely
+	// destroyed, or otherwise merely released from Juju's management.
+	Destroy bool `json:"destroy,omitempty"`
 }
 
 // VolumeAttachmentParams holds the parameters for creating a volume
@@ -273,6 +288,17 @@ type VolumeParamsResult struct {
 // VolumeParamsResults holds provisioning parameters for multiple volumes.
 type VolumeParamsResults struct {
 	Results []VolumeParamsResult `json:"results,omitempty"`
+}
+
+// RemoveVolumeParamsResults holds parameters for destroying a volume.
+type RemoveVolumeParamsResult struct {
+	Result RemoveVolumeParams `json:"result"`
+	Error  *Error             `json:"error,omitempty"`
+}
+
+// RemoveVolumeParamsResults holds parameters for destroying multiple volumes.
+type RemoveVolumeParamsResults struct {
+	Results []RemoveVolumeParamsResult `json:"results,omitempty"`
 }
 
 // VolumeAttachmentParamsResults holds provisioning parameters for a volume
@@ -341,6 +367,20 @@ type FilesystemParams struct {
 	Attachment    *FilesystemAttachmentParams `json:"attachment,omitempty"`
 }
 
+// RemoveFilesystemParams holds the parameters for destroying or releasing
+// a filesystem.
+type RemoveFilesystemParams struct {
+	// Provider is the storage provider that manages the filesystem.
+	Provider string `json:"provider"`
+
+	// FilesystemId is the storage provider's unique ID for the filesystem.
+	FilesystemId string `json:"filesystem-id"`
+
+	// Destroy controls whether the filesystem should be completely
+	// destroyed, or otherwise merely released from Juju's management.
+	Destroy bool `json:"destroy,omitempty"`
+}
+
 // FilesystemAttachmentParams holds the parameters for creating a filesystem
 // attachment.
 type FilesystemAttachmentParams struct {
@@ -385,6 +425,19 @@ type FilesystemParamsResult struct {
 // FilesystemParamsResults holds provisioning parameters for multiple filesystems.
 type FilesystemParamsResults struct {
 	Results []FilesystemParamsResult `json:"results,omitempty"`
+}
+
+// RemoveFilesystemParamsResult holds parameters for destroying or releasing
+// a filesystem.
+type RemoveFilesystemParamsResult struct {
+	Result RemoveFilesystemParams `json:"result"`
+	Error  *Error                 `json:"error,omitempty"`
+}
+
+// RemoveFilesystemParamsResults holds parameters for destroying or releasing
+// multiple filesystems.
+type RemoveFilesystemParamsResults struct {
+	Results []RemoveFilesystemParamsResult `json:"results,omitempty"`
 }
 
 // FilesystemAttachmentParamsResults holds provisioning parameters for a filesystem
@@ -729,4 +782,85 @@ type StorageAddParams struct {
 // StoragesAddParams holds storage details to add to units dynamically.
 type StoragesAddParams struct {
 	Storages []StorageAddParams `json:"storages"`
+}
+
+// RemoveStorage holds the parameters for removing storage from the model.
+type RemoveStorage struct {
+	Storage []RemoveStorageInstance `json:"storage"`
+}
+
+// RemoveStorageInstance holds the parameters for removing a storage instance.
+type RemoveStorageInstance struct {
+	// Tag is the tag of the storage instance to be destroyed.
+	Tag string `json:"tag"`
+
+	// DestroyAttachments controls whether or not the storage attachments
+	// will be destroyed automatically. If DestroyAttachments is false,
+	// then the storage must already be detached.
+	DestroyAttachments bool `json:"destroy-attachments,omitempty"`
+
+	// DestroyStorage controls whether or not the associated cloud storage
+	// is destroyed. If DestroyStorage is true, the cloud storage will be
+	// destroyed; otherwise it will only be released from Juju's control.
+	DestroyStorage bool `json:"destroy-storage,omitempty"`
+}
+
+// BulkImportStorageParams contains the parameters for importing a collection
+// of storage entities.
+type BulkImportStorageParams struct {
+	Storage []ImportStorageParams `json:"storage"`
+}
+
+// ImportStorageParams contains the parameters for importing a storage entity.
+type ImportStorageParams struct {
+	// Kind is the kind of the storage entity to import.
+	Kind StorageKind `json:"kind"`
+
+	// Pool is the name of the storage pool into which the storage is to
+	// be imported.
+	Pool string `json:"pool"`
+
+	// ProviderId is the storage provider's unique ID for the storage,
+	// e.g. the EBS volume ID.
+	ProviderId string `json:"provider-id"`
+
+	// StorageName is the name of the storage to assign to the entity.
+	StorageName string `json:"storage-name"`
+}
+
+// ImportStorageResults contains the results of importing a collection of
+// storage entities.
+type ImportStorageResults struct {
+	Results []ImportStorageResult `json:"results"`
+}
+
+// ImportStorageResult contains the result of importing a storage entity.
+type ImportStorageResult struct {
+	Result *ImportStorageDetails `json:"result,omitempty"`
+	Error  *Error                `json:"error,omitempty"`
+}
+
+// ImportStorageDetails contains the details of an imported storage entity.
+type ImportStorageDetails struct {
+	// StorageTag contains the string representation of the storage tag
+	// assigned to the imported storage entity.
+	StorageTag string `json:"storage-tag"`
+}
+
+// AddStorageResults contains the results of adding storage to units.
+type AddStorageResults struct {
+	Results []AddStorageResult `json:"results"`
+}
+
+// AddStorageResult contains the result of adding storage to a unit.
+type AddStorageResult struct {
+	Result *AddStorageDetails `json:"result,omitempty"`
+	Error  *Error             `json:"error,omitempty"`
+}
+
+// AddStorageDetails contains the details of added storage.
+type AddStorageDetails struct {
+	// StorageTags contains the string representation of the storage tags
+	// of the added storage instances.
+	StorageTags []string `json:"storage-tags"`
 }

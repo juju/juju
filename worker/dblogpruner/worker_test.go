@@ -8,7 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
@@ -20,6 +23,7 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/dblogpruner"
+	"github.com/juju/juju/worker/workertest"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -29,33 +33,67 @@ func TestPackage(t *stdtesting.T) {
 var _ = gc.Suite(&suite{})
 
 type suite struct {
-	statetesting.StateSuite
-	pruner   worker.Worker
-	logsColl *mgo.Collection
+	jujutesting.MgoSuite
+	testing.BaseSuite
+
+	state          *state.State
+	pruner         worker.Worker
+	logsColl       *mgo.Collection
+	controllerColl *mgo.Collection
+}
+
+func (s *suite) SetUpSuite(c *gc.C) {
+	s.MgoSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
+}
+
+func (s *suite) TearDownSuite(c *gc.C) {
+	s.BaseSuite.TearDownSuite(c)
+	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
-	s.logsColl = s.State.MongoSession().DB("logs").C("logs")
+	s.MgoSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *suite) StartWorker(c *gc.C, maxLogAge time.Duration, maxCollectionMB int) {
-	params := &dblogpruner.LogPruneParams{
-		MaxLogAge:       maxLogAge,
-		MaxCollectionMB: maxCollectionMB,
-		PruneInterval:   time.Millisecond, // Speed up pruning interval for testing
+func (s *suite) TearDownTest(c *gc.C) {
+	s.BaseSuite.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
+}
+
+func (s *suite) setupState(c *gc.C, maxLogAge, maxCollectionMB string) {
+	controllerConfig := map[string]interface{}{
+		"max-logs-age":  maxLogAge,
+		"max-logs-size": maxCollectionMB,
 	}
-	s.pruner = dblogpruner.New(s.State, params)
-	s.AddCleanup(func(*gc.C) {
-		s.pruner.Kill()
-		c.Assert(s.pruner.Wait(), jc.ErrorIsNil)
+
+	var ctlr *state.Controller
+	ctlr, s.state = statetesting.InitializeWithArgs(c, statetesting.InitializeArgs{
+		Owner:            names.NewLocalUserTag("test-admin"),
+		Clock:            jujutesting.NewClock(testing.NonZeroTime()),
+		ControllerConfig: controllerConfig,
 	})
+	ctlr.Close()
+	s.AddCleanup(func(*gc.C) { s.state.Close() })
+	s.logsColl = s.state.MongoSession().DB("logs").C("logs." + s.state.ModelUUID())
+}
+
+func (s *suite) startWorker(c *gc.C) {
+	pruner, err := dblogpruner.NewWorker(dblogpruner.Config{
+		State:         s.state,
+		Clock:         clock.WallClock,
+		PruneInterval: time.Millisecond,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.pruner = pruner
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, s.pruner) })
 }
 
 func (s *suite) TestPrunesOldLogs(c *gc.C) {
 	maxLogAge := 24 * time.Hour
-	noPruneMB := int(1e9)
-	s.StartWorker(c, maxLogAge, noPruneMB)
+	s.setupState(c, "24h", "1000P")
+	s.startWorker(c)
 
 	now := time.Now()
 	addLogsToPrune := func(count int) {
@@ -88,12 +126,17 @@ func (s *suite) TestPrunesOldLogs(c *gc.C) {
 }
 
 func (s *suite) TestPrunesLogsBySize(c *gc.C) {
+	s.setupState(c, "999h", "2M")
 	startingLogCount := 25000
+	// On some of the architectures, the logs collection is much
+	// smaller than amd64, so we need more logs to get the right size.
+	switch arch.HostArch() {
+	case arch.S390X, arch.PPC64EL, arch.ARM64:
+		startingLogCount *= 2
+	}
 	s.addLogs(c, time.Now(), "stuff", startingLogCount)
 
-	noPruneAge := 999 * time.Hour
-	s.StartWorker(c, noPruneAge, 2)
-
+	s.startWorker(c)
 	for attempt := testing.LongAttempt.Start(); attempt.Next(); {
 		count, err := s.logsColl.Count()
 		c.Assert(err, jc.ErrorIsNil)
@@ -108,11 +151,19 @@ func (s *suite) TestPrunesLogsBySize(c *gc.C) {
 }
 
 func (s *suite) addLogs(c *gc.C, t0 time.Time, text string, count int) {
-	dbLogger := state.NewEntityDbLogger(s.State, names.NewMachineTag("0"), version.Current)
+	dbLogger := state.NewDbLogger(s.state)
 	defer dbLogger.Close()
 
 	for offset := 0; offset < count; offset++ {
 		t := t0.Add(-time.Duration(offset) * time.Second)
-		dbLogger.Log(t, "some.module", "foo.go:42", loggo.INFO, text)
+		dbLogger.Log([]state.LogRecord{{
+			Time:     t,
+			Entity:   names.NewMachineTag("0"),
+			Version:  version.Current,
+			Module:   "some.module",
+			Location: "foo.go:42",
+			Level:    loggo.INFO,
+			Message:  text,
+		}})
 	}
 }

@@ -5,7 +5,7 @@ package operation
 
 import (
 	"github.com/juju/errors"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
+	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/worker/uniter/charm"
@@ -60,6 +60,11 @@ func (f *factory) NewInstall(charmURL *corecharm.URL) (Operation, error) {
 // NewUpgrade is part of the Factory interface.
 func (f *factory) NewUpgrade(charmURL *corecharm.URL) (Operation, error) {
 	return f.newDeploy(Upgrade, charmURL, false, false)
+}
+
+// NewNoOpUpgrade is part of the Factory interface.
+func (f *factory) NewNoOpUpgrade(charmURL *corecharm.URL) (Operation, error) {
+	return &skipOperation{&noOpUpgrade{charmURL: charmURL}}, nil
 }
 
 // NewRevertUpgrade is part of the Factory interface.

@@ -5,11 +5,10 @@ package jujuc_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type statusSetSuite struct {
@@ -38,17 +37,17 @@ func (s *statusSetSuite) TestStatusSetInit(c *gc.C) {
 	for i, t := range statusSetInitTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetStatusHookContext(c)
-		com, err := jujuc.NewCommand(hctx, cmdString("status-set"))
+		com, err := jujuc.NewCommand(hctx, "status-set")
 		c.Assert(err, jc.ErrorIsNil)
-		testing.TestInit(c, com, t.args, t.err)
+		cmdtesting.TestInit(c, com, t.args, t.err)
 	}
 }
 
 func (s *statusSetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
-	com, err := jujuc.NewCommand(hctx, cmdString("status-set"))
+	com, err := jujuc.NewCommand(hctx, "status-set")
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	expectedHelp := "" +
@@ -58,7 +57,7 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 		"set status information\n" +
 		"\n" +
 		"Options:\n" +
-		"--service, --application  (= false)\n" +
+		"--application  (= false)\n" +
 		"    set this status for the application to which the unit belongs if the unit is the leader\n" +
 		"\n" +
 		"Details:\n" +
@@ -77,9 +76,9 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
-		com, err := jujuc.NewCommand(hctx, cmdString("status-set"))
+		com, err := jujuc.NewCommand(hctx, "status-set")
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, args)
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
@@ -95,13 +94,12 @@ func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 	for i, args := range [][]string{
 		[]string{"--application", "maintenance", "doing some work"},
 		[]string{"--application", "active", ""},
-		[]string{"--service", "maintenance", "doing some work"},
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
-		com, err := jujuc.NewCommand(hctx, cmdString("status-set"))
+		com, err := jujuc.NewCommand(hctx, "status-set")
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, args)
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")

@@ -75,10 +75,9 @@ func (s *instanceSuite) TestInstanceMetadata(c *gc.C) {
 }
 
 func (s *instanceSuite) TestPackMetadata(c *gc.C) {
-	expected := compute.Metadata{Items: []*compute.MetadataItems{{
-		Key:   "spam",
-		Value: "eggs",
-	}}}
+	expected := compute.Metadata{Items: []*compute.MetadataItems{
+		makeMetadataItems("spam", "eggs"),
+	}}
 	data := map[string]string{"spam": "eggs"}
 	packed := google.PackMetadata(data)
 
@@ -87,10 +86,9 @@ func (s *instanceSuite) TestPackMetadata(c *gc.C) {
 
 func (s *instanceSuite) TestUnpackMetadata(c *gc.C) {
 	expected := map[string]string{"spam": "eggs"}
-	packed := compute.Metadata{Items: []*compute.MetadataItems{{
-		Key:   "spam",
-		Value: "eggs",
-	}}}
+	packed := compute.Metadata{Items: []*compute.MetadataItems{
+		makeMetadataItems("spam", "eggs"),
+	}}
 	data := google.UnpackMetadata(&packed)
 
 	c.Check(data, jc.DeepEquals, expected)

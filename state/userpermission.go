@@ -42,13 +42,32 @@ func accessToString(a permission.Access) string {
 // userPermission returns a Permission for the given Subject and User.
 func (st *State) userPermission(objectGlobalKey, subjectGlobalKey string) (*userPermission, error) {
 	result := &userPermission{}
-	permissions, closer := st.getCollection(permissionsC)
+	permissions, closer := st.db().GetCollection(permissionsC)
 	defer closer()
 
 	id := permissionID(objectGlobalKey, subjectGlobalKey)
 	err := permissions.FindId(id).One(&result.doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("user permissions for user %q", id)
+		return nil, errors.NotFoundf("user permission for %q on %q", subjectGlobalKey, objectGlobalKey)
+	}
+	return result, nil
+}
+
+// usersPermissions returns all permissions for a given object.
+func (st *State) usersPermissions(objectGlobalKey string) ([]*userPermission, error) {
+	permissions, closer := st.db().GetCollection(permissionsC)
+	defer closer()
+
+	var matchingPermissions []permissionDoc
+	findExpr := fmt.Sprintf("^%s#.*$", objectGlobalKey)
+	if err := permissions.Find(
+		bson.D{{"_id", bson.D{{"$regex", findExpr}}}},
+	).All(&matchingPermissions); err != nil {
+		return nil, err
+	}
+	var result []*userPermission
+	for _, pDoc := range matchingPermissions {
+		result = append(result, &userPermission{doc: pDoc})
 	}
 	return result, nil
 }
@@ -57,33 +76,15 @@ func (st *State) userPermission(objectGlobalKey, subjectGlobalKey string) (*user
 func (st *State) controllerUserPermission(objectGlobalKey, subjectGlobalKey string) (*userPermission, error) {
 	result := &userPermission{}
 
-	permissions, closer := st.getCollection(permissionsC)
+	permissions, closer := st.db().GetCollection(permissionsC)
 	defer closer()
 
 	id := permissionID(objectGlobalKey, subjectGlobalKey)
 	err := permissions.FindId(id).One(&result.doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("user permissions for user %q", id)
+		return nil, errors.NotFoundf("user permission for %q on %q", subjectGlobalKey, objectGlobalKey)
 	}
 	return result, nil
-}
-
-// isReadOnly returns whether or not the user has write access or only
-// read access to the model.
-func (p *userPermission) isReadOnly() bool {
-	return stringToAccess(p.doc.Access) == permission.NoAccess || stringToAccess(p.doc.Access) == permission.ReadAccess
-}
-
-// isAdmin is a convenience method that
-// returns whether or not the user has permission.AdminAccess.
-func (p *userPermission) isAdmin() bool {
-	return stringToAccess(p.doc.Access) == permission.AdminAccess
-}
-
-// isReadWrite is a convenience method that
-// returns whether or not the user has permission.WriteAccess.
-func (p *userPermission) isReadWrite() bool {
-	return stringToAccess(p.doc.Access) == permission.WriteAccess
 }
 
 func (p *userPermission) access() permission.Access {

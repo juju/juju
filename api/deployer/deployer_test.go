@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/deployer"
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -28,15 +27,14 @@ func TestAll(t *stdtesting.T) {
 
 type deployerSuite struct {
 	testing.JujuConnSuite
-	*apitesting.APIAddresserTests
 
 	stateAPI api.Connection
 
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
 	machine     *state.Machine
-	service0    *state.Application
-	service1    *state.Application
+	app0        *state.Application
+	app1        *state.Application
 	principal   *state.Unit
 	subordinate *state.Unit
 
@@ -51,16 +49,16 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	err := s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Create the needed services and relate them.
-	s.service0 = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	s.service1 = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	// Create the needed applications and relate them.
+	s.app0 = s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.app1 = s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create principal and subordinate units and assign them.
-	s.principal, err = s.service0.AddUnit()
+	s.principal, err = s.app0.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.principal.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,8 +72,6 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// Create the deployer facade.
 	s.st = deployer.NewState(s.stateAPI)
 	c.Assert(s.st, gc.NotNil)
-
-	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.st, s.BackingState)
 }
 
 // Note: This is really meant as a unit-test, this isn't a test that
@@ -139,7 +135,7 @@ func (s *deployerSuite) TestUnit(c *gc.C) {
 	// First create a new machine and deploy another unit there.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	principal1, err := s.service0.AddUnit()
+	principal1, err := s.app0.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = principal1.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -224,19 +220,6 @@ func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
 	err = s.subordinate.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.subordinate.PasswordValid("phony-12345678901234567890"), jc.IsTrue)
-}
-
-func (s *deployerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	stateAddresses, err := s.State.Addresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(stateAddresses), gc.Equals, 1)
-
-	addresses, err := s.st.StateAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, gc.DeepEquals, stateAddresses)
 }
 
 func (s *deployerSuite) TestUnitSetStatus(c *gc.C) {

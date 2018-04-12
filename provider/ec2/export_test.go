@@ -54,13 +54,17 @@ func AllModelGroups(e environs.Environ) ([]string, error) {
 }
 
 var (
-	EC2AvailabilityZones        = &ec2AvailabilityZones
-	AvailabilityZoneAllocations = &availabilityZoneAllocations
-	RunInstances                = &runInstances
-	BlockDeviceNamer            = blockDeviceNamer
-	GetBlockDeviceMappings      = getBlockDeviceMappings
-	IsVPCNotUsableError         = isVPCNotUsableError
-	IsVPCNotRecommendedError    = isVPCNotRecommendedError
+	EC2AvailabilityZones           = &ec2AvailabilityZones
+	RunInstances                   = &runInstances
+	BlockDeviceNamer               = blockDeviceNamer
+	GetBlockDeviceMappings         = getBlockDeviceMappings
+	IsVPCNotUsableError            = isVPCNotUsableError
+	IsVPCNotRecommendedError       = isVPCNotRecommendedError
+	ShortAttempt                   = &shortAttempt
+	DestroyVolumeAttempt           = &destroyVolumeAttempt
+	DeleteSecurityGroupInsistently = &deleteSecurityGroupInsistently
+	TerminateInstancesById         = &terminateInstancesById
+	MaybeConvertCredentialError    = maybeConvertCredentialError
 )
 
 const VPCIDNone = vpcIDNone
@@ -75,17 +79,6 @@ func UseTestImageData(c *gc.C, files map[string]string) {
 	} else {
 		sstesting.SetRoundTripperFiles(nil, nil)
 	}
-}
-
-var (
-	ShortAttempt                   = &shortAttempt
-	DestroyVolumeAttempt           = &destroyVolumeAttempt
-	DeleteSecurityGroupInsistently = &deleteSecurityGroupInsistently
-	TerminateInstancesById         = &terminateInstancesById
-)
-
-func EC2ErrCode(err error) string {
-	return ec2ErrCode(err)
 }
 
 // FabricateInstance creates a new fictitious instance
@@ -364,3 +357,7 @@ const testImageMetadataProduct = `
  "format": "products:1.0"
 }
 `
+
+func VerifyCredentials(env environs.Environ) error {
+	return verifyCredentials(env.(*environ))
+}

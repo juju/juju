@@ -68,7 +68,10 @@ func (c *logoutCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Run implements Command.Run.
 func (c *logoutCommand) Run(ctx *cmd.Context) error {
-	controllerName := c.ControllerName()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	store := c.ClientStore()
 	if err := c.logout(store, controllerName); err != nil {
 		return errors.Trace(err)
@@ -131,11 +134,7 @@ this command again with the "--force" flag.
 `)
 	}
 
-	details, err := store.ControllerByName(controllerName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := c.ClearControllerMacaroons(details.APIEndpoints); err != nil {
+	if err := c.ClearControllerMacaroons(c.ClientStore(), controllerName); err != nil {
 		return errors.Trace(err)
 	}
 

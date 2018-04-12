@@ -94,10 +94,25 @@ func SkipIfI386(c *gc.C, bugID string) {
 	}
 }
 
+// SkipIfS390X skips the test if the arch is S390X.
+func SkipIfS390X(c *gc.C, bugID string) {
+	if arch.NormaliseArch(runtime.GOARCH) == arch.S390X {
+		c.Skip(fmt.Sprintf("Test disabled on S390X until fixed - see bug %s", bugID))
+	}
+}
+
 // SkipIfWindowsBug skips the test if the OS is Windows.
 func SkipIfWindowsBug(c *gc.C, bugID string) {
 	if runtime.GOOS == "windows" {
 		c.Skip(fmt.Sprintf("Test disabled on Windows until fixed - see bug %s", bugID))
+	}
+}
+
+// SkipUnlessControllerOS skips the test if the current OS is not a supported
+// controller OS.
+func SkipUnlessControllerOS(c *gc.C) {
+	if jujuos.HostOS() != jujuos.Ubuntu {
+		c.Skip("Test disabled for non-controller OS")
 	}
 }
 
@@ -243,6 +258,10 @@ func GetPackageManager() (s PackageManagerStruct, err error) {
 		s.PackageManager = "yum"
 		s.PackageQuery = "yum"
 		s.RepositoryManager = "yum-config-manager --add-repo"
+	case jujuos.OpenSUSE:
+		s.PackageManager = "zypper"
+		s.PackageQuery = "zypper"
+		s.RepositoryManager = "zypper addrepo"
 	case jujuos.Ubuntu:
 		s.PackageManager = "apt-get"
 		s.PackageQuery = "dpkg-query"

@@ -4,8 +4,8 @@
 package rackspace
 
 import (
-	"gopkg.in/goose.v1/client"
-	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v2/client"
+	"gopkg.in/goose.v2/identity"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/openstack"

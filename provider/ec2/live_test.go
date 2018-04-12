@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
+	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -79,7 +80,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LiveTests.SetUpSuite(c)
 	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return series.LatestLts() })
+	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return supportedversion.SupportedLts() })
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -129,9 +130,9 @@ func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, t.ControllerUUID, "30", cons)
 	defer t.Env.StopInstances(inst.Id())
 	ec2inst := ec2.InstanceEC2(inst)
-	c.Assert(ec2inst.InstanceType, gc.Equals, "m4.large")
+	c.Assert(ec2inst.InstanceType, gc.Equals, "c5.large")
 	c.Assert(*hc.Arch, gc.Equals, "amd64")
-	c.Assert(*hc.Mem, gc.Equals, uint64(8*1024))
+	c.Assert(*hc.Mem, gc.Equals, uint64(4*1024))
 	c.Assert(*hc.RootDisk, gc.Equals, uint64(8*1024))
 	c.Assert(*hc.CpuCores, gc.Equals, uint64(2))
 }
@@ -287,6 +288,38 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 		}
 	}
 	c.Assert(instIds, jc.SameContents, idsFromInsts(allInsts))
+}
+
+func (t *LiveTests) TestInstanceGroupsWithAutocert(c *gc.C) {
+	// Prepare the controller configuration.
+	t.PrepareOnce(c)
+	params := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
+	}
+	err := testing.FillInStartInstanceParams(t.Env, "42", true, &params)
+	c.Assert(err, jc.ErrorIsNil)
+	config := params.InstanceConfig.Controller.Config
+	config["api-port"] = 443
+	config["autocert-dns-name"] = "example.com"
+
+	// Bootstrap the controller.
+	result, err := t.Env.StartInstance(params)
+	c.Assert(err, jc.ErrorIsNil)
+	inst := result.Instance
+	defer t.Env.StopInstances(inst.Id())
+
+	// Get security permissions.
+	groups := amzec2.SecurityGroupNames(ec2.JujuGroupName(t.Env))
+	ec2conn := ec2.EnvironEC2(t.Env)
+	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(groupsResp.Groups, gc.HasLen, 1)
+	perms := groupsResp.Groups[0].IPPerms
+
+	// Check that the expected ports are accessible.
+	checkPortAllowed(c, perms, 22)
+	checkPortAllowed(c, perms, 80)
+	checkPortAllowed(c, perms, 443)
 }
 
 func checkPortAllowed(c *gc.C, perms []amzec2.IPPerm, port int) {

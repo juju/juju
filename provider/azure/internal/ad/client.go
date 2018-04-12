@@ -18,8 +18,7 @@ import (
 
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
-
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/provider/azure/internal/useragent"
 )
 
 const (
@@ -34,10 +33,6 @@ var (
 	utf8BOM = []byte("\ufeff")
 )
 
-func UserAgent() string {
-	return "Juju/" + version.Current.String()
-}
-
 type ManagementClient struct {
 	autorest.Client
 	BaseURI    string
@@ -45,8 +40,10 @@ type ManagementClient struct {
 }
 
 func NewManagementClient(baseURI string) ManagementClient {
+	client := autorest.NewClientWithUserAgent("arm-graphrbac/" + APIVersion)
+	useragent.UpdateClient(&client)
 	return ManagementClient{
-		Client:     autorest.NewClientWithUserAgent(UserAgent()),
+		Client:     client,
 		BaseURI:    baseURI,
 		APIVersion: APIVersion,
 	}
@@ -92,8 +89,11 @@ func WithOdataErrorUnlessStatusCode(codes ...int) autorest.RespondDecorator {
 				}
 
 				e := azure.RequestError{
-					ServiceError: &azure.ServiceError{Code: oe.ServiceError.Code},
-					RequestID:    azure.ExtractRequestID(resp),
+					ServiceError: &azure.ServiceError{
+						Code:    oe.ServiceError.Code,
+						Message: oe.ServiceError.Message.Value,
+					},
+					RequestID: azure.ExtractRequestID(resp),
 				}
 				if e.StatusCode == nil {
 					e.StatusCode = resp.StatusCode
@@ -105,10 +105,17 @@ func WithOdataErrorUnlessStatusCode(codes ...int) autorest.RespondDecorator {
 	}
 }
 
+// See https://msdn.microsoft.com/en-us/library/azure/ad/graph/howto/azure-ad-graph-api-error-codes-and-error-handling
 type odataRequestError struct {
 	ServiceError *odataServiceError `json:"odata.error"`
 }
 
 type odataServiceError struct {
-	Code string `json:"code"`
+	Code    string                   `json:"code"`
+	Message odataServiceErrorMessage `json:"message"`
+}
+
+type odataServiceErrorMessage struct {
+	Lang  string `json:"lang"`
+	Value string `json:"value"`
 }

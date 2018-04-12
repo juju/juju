@@ -4,6 +4,7 @@
 package rpcreflect
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 )
@@ -77,18 +78,14 @@ func (v Value) GoValue() reflect.Value {
 // It returns an error if either the root method or the object
 // method were not found.
 // It panics if called on the zero Value.
+// The version argument is ignored - all versions will find
+// the same method.
 func (v Value) FindMethod(rootMethodName string, version int, objMethodName string) (MethodCaller, error) {
 	if !v.IsValid() {
 		panic("FindMethod called on invalid Value")
 	}
 	caller := methodCaller{
 		rootValue: v.rootValue,
-	}
-	if version != 0 {
-		return nil, &CallNotImplementedError{
-			RootMethod: rootMethodName,
-			Version:    version,
-		}
 	}
 	var err error
 	caller.rootMethod, err = v.rootType.Method(rootMethodName)
@@ -121,12 +118,15 @@ func (v Value) Kill() {
 	}
 }
 
-func (caller methodCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
+func (caller methodCaller) Call(ctx context.Context, objId string, arg reflect.Value) (reflect.Value, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	obj, err := caller.rootMethod.Call(caller.rootValue, objId)
 	if err != nil {
 		return reflect.Value{}, err
 	}
-	return caller.objMethod.Call(obj, arg)
+	return caller.objMethod.Call(ctx, obj, arg)
 }
 
 func (caller methodCaller) ParamsType() reflect.Type {
@@ -146,5 +146,5 @@ type MethodCaller interface {
 
 	// Call is actually placing a call to instantiate an given instance and
 	// call the method on that instance.
-	Call(objId string, arg reflect.Value) (reflect.Value, error)
+	Call(ctx context.Context, objId string, arg reflect.Value) (reflect.Value, error)
 }

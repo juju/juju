@@ -59,7 +59,7 @@ var (
 func NewLock(agentConfig agent.Config) gate.Lock {
 	lock := gate.NewLock()
 
-	if wrench.IsActive("machine-agent", "always-try-upgrade") {
+	if wrench.IsActive(wrenchKey(agentConfig), "always-try-upgrade") {
 		// Always enter upgrade mode. This allows test of upgrades
 		// even when there's actually no upgrade steps to run.
 		return lock
@@ -95,10 +95,6 @@ func NewWorker(
 	machine StatusSetter,
 	newEnvironFunc environs.NewEnvironFunc,
 ) (worker.Worker, error) {
-	tag, ok := agent.CurrentConfig().Tag().(names.MachineTag)
-	if !ok {
-		return nil, errors.New("machine agent's tag is not a MachineTag")
-	}
 	w := &upgradesteps{
 		upgradeComplete: upgradeComplete,
 		agent:           agent,
@@ -107,8 +103,7 @@ func NewWorker(
 		openState:       openState,
 		preUpgradeSteps: preUpgradeSteps,
 		machine:         machine,
-		tag:             tag,
-		newEnviron:      newEnvironFunc,
+		tag:             agent.CurrentConfig().Tag(),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -125,12 +120,11 @@ type upgradesteps struct {
 	jobs            []multiwatcher.MachineJob
 	openState       func() (*state.State, error)
 	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMaster bool) error
-	newEnviron      environs.NewEnvironFunc
 	machine         StatusSetter
 
 	fromVersion  version.Number
 	toVersion    version.Number
-	tag          names.MachineTag
+	tag          names.Tag
 	isMaster     bool
 	isController bool
 	st           *state.State
@@ -159,8 +153,16 @@ func isAPILostDuringUpgrade(err error) bool {
 	return ok
 }
 
+func (w *upgradesteps) wrenchKey() string {
+	return wrenchKey(w.agent.CurrentConfig())
+}
+
+func wrenchKey(agentConfig agent.Config) string {
+	return agentConfig.Tag().Kind() + "-agent"
+}
+
 func (w *upgradesteps) run() error {
-	if wrench.IsActive("machine-agent", "fail-upgrade-start") {
+	if wrench.IsActive(w.wrenchKey(), "fail-upgrade-start") {
 		return nil // Make the worker stop
 	}
 
@@ -178,7 +180,7 @@ func (w *upgradesteps) run() error {
 		return nil
 	}
 
-	// If the machine agent is a controller, flag that state
+	// If the agent is a machine agent for a controller, flag that state
 	// needs to be opened before running upgrade steps
 	for _, job := range w.jobs {
 		if job == multiwatcher.JobManageModel {
@@ -208,7 +210,7 @@ func (w *upgradesteps) run() error {
 		// to restart.
 		//
 		// For other errors, the error is not returned because we want
-		// the machine agent to stay running in an error state waiting
+		// the agent to stay running in an error state waiting
 		// for user intervention.
 		if isAPILostDuringUpgrade(err) {
 			return err
@@ -232,7 +234,7 @@ func (w *upgradesteps) runUpgrades() error {
 		return err
 	}
 
-	if wrench.IsActive("machine-agent", "fail-upgrade") {
+	if wrench.IsActive(w.wrenchKey(), "fail-upgrade") {
 		return errors.New("wrench")
 	}
 
@@ -252,10 +254,13 @@ func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 		return nil, errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.tag))
 	}
 
-	if !w.isController {
-		return nil, nil
+	if w.isController {
+		return w.prepareControllerForUpgrade()
 	}
+	return nil, nil
+}
 
+func (w *upgradesteps) prepareControllerForUpgrade() (*state.UpgradeInfo, error) {
 	logger.Infof("signalling that this controller is ready for upgrade")
 	info, err := w.st.EnsureUpgradeInfo(w.tag.Id(), w.fromVersion, w.toVersion)
 	if err != nil {
@@ -275,7 +280,7 @@ func (w *upgradesteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 		if w.isMaster {
 			logger.Errorf("downgrading model agent version to %v due to aborted upgrade",
 				w.fromVersion)
-			if rollbackErr := w.st.SetModelAgentVersion(w.fromVersion); rollbackErr != nil {
+			if rollbackErr := w.st.SetModelAgentVersion(w.fromVersion, true); rollbackErr != nil {
 				logger.Errorf("rollback failed: %v", rollbackErr)
 				return nil, errors.Annotate(rollbackErr, "failed to roll back desired agent version")
 			}
@@ -294,7 +299,7 @@ func (w *upgradesteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 	watcher := info.Watch()
 	defer watcher.Stop()
 
-	maxWait := getUpgradeStartTimeout(w.isMaster)
+	maxWait := w.getUpgradeStartTimeout()
 	timeout := time.After(maxWait)
 	for {
 		select {
@@ -330,18 +335,18 @@ func (w *upgradesteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 	}
 }
 
-// runUpgradeSteps runs the required upgrade steps for the machine
-// agent, retrying on failure. The agent's UpgradedToVersion is set
+// runUpgradeSteps runs the required upgrade steps for the agent,
+// retrying on failure. The agent's UpgradedToVersion is set
 // once the upgrade is complete.
 //
 // This function conforms to the agent.ConfigMutator type and is
-// designed to be called via a machine agent's ChangeConfig method.
+// designed to be called via an agent's ChangeConfig method.
 func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	var upgradeErr error
 	w.machine.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
 
 	stBackend := upgrades.NewStateBackend(w.st)
-	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend, w.newEnviron)
+	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend)
 	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
 
 	targets := jobsToTargets(w.jobs, w.isMaster)
@@ -397,8 +402,8 @@ func (w *upgradesteps) finaliseUpgrade(info *state.UpgradeInfo) error {
 	return nil
 }
 
-func getUpgradeStartTimeout(isMaster bool) time.Duration {
-	if wrench.IsActive("machine-agent", "short-upgrade-timeout") {
+func (w *upgradesteps) getUpgradeStartTimeout() time.Duration {
+	if wrench.IsActive(w.wrenchKey(), "short-upgrade-timeout") {
 		// This duration is fairly arbitrary. During manual testing it
 		// avoids the normal long wait but still provides a small
 		// window to check the environment status and logs before the
@@ -406,7 +411,7 @@ func getUpgradeStartTimeout(isMaster bool) time.Duration {
 		return time.Minute
 	}
 
-	if isMaster {
+	if w.isMaster {
 		return UpgradeStartTimeoutMaster
 	}
 	return UpgradeStartTimeoutSecondary
@@ -444,7 +449,7 @@ var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
 }
 
 // jobsToTargets determines the upgrade targets corresponding to the
-// jobs assigned to a machine agent. This determines the upgrade steps
+// jobs assigned to an agent. This determines the upgrade steps
 // which will run during an upgrade.
 func jobsToTargets(jobs []multiwatcher.MachineJob, isMaster bool) (targets []upgrades.Target) {
 	for _, job := range jobs {

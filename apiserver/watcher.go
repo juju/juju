@@ -4,62 +4,19 @@
 package apiserver
 
 import (
-	"reflect"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
-
-func init() {
-	common.RegisterFacade(
-		"AllWatcher", 1, NewAllWatcher,
-		reflect.TypeOf((*SrvAllWatcher)(nil)),
-	)
-	// Note: AllModelWatcher uses the same infrastructure as AllWatcher
-	// but they are get under separate names as it possible the may
-	// diverge in the future (especially in terms of authorisation
-	// checks).
-	common.RegisterFacade(
-		"AllModelWatcher", 2, NewAllWatcher,
-		reflect.TypeOf((*SrvAllWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"NotifyWatcher", 1, newNotifyWatcher,
-		reflect.TypeOf((*srvNotifyWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"StringsWatcher", 1, newStringsWatcher,
-		reflect.TypeOf((*srvStringsWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"RelationUnitsWatcher", 1, newRelationUnitsWatcher,
-		reflect.TypeOf((*srvRelationUnitsWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"VolumeAttachmentsWatcher", 2, newVolumeAttachmentsWatcher,
-		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"FilesystemAttachmentsWatcher", 2, newFilesystemAttachmentsWatcher,
-		reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"EntityWatcher", 2, newEntitiesWatcher,
-		reflect.TypeOf((*srvEntitiesWatcher)(nil)),
-	)
-	common.RegisterFacade(
-		"MigrationStatusWatcher", 1, newMigrationStatusWatcher,
-		reflect.TypeOf((*srvMigrationStatusWatcher)(nil)),
-	)
-}
 
 // NewAllWatcher returns a new API server endpoint for interacting
 // with a watcher created by the WatchAll and WatchAllModels API calls.
@@ -136,7 +93,7 @@ type srvNotifyWatcher struct {
 }
 
 func isAgent(auth facade.Authorizer) bool {
-	return auth.AuthMachineAgent() || auth.AuthUnitAgent()
+	return auth.AuthMachineAgent() || auth.AuthUnitAgent() || auth.AuthApplicationAgent()
 }
 
 func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
@@ -144,7 +101,7 @@ func newNotifyWatcher(context facade.Context) (facade.Facade, error) {
 	auth := context.Auth()
 	resources := context.Resources()
 
-	if !isAgent(auth) {
+	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(state.NotifyWatcher)
@@ -185,7 +142,9 @@ func newStringsWatcher(context facade.Context) (facade.Facade, error) {
 	auth := context.Auth()
 	resources := context.Resources()
 
-	if !isAgent(auth) {
+	// TODO(wallyworld) - enhance this watcher to support
+	// anonymous api calls with macaroons.
+	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(state.StringsWatcher)
@@ -227,7 +186,9 @@ func newRelationUnitsWatcher(context facade.Context) (facade.Facade, error) {
 	auth := context.Auth()
 	resources := context.Resources()
 
-	if !isAgent(auth) {
+	// TODO(wallyworld) - enhance this watcher to support
+	// anonymous api calls with macaroons.
+	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(state.RelationUnitsWatcher)
@@ -254,6 +215,110 @@ func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error
 		err = common.ErrStoppedWatcher
 	}
 	return params.RelationUnitsWatchResult{}, err
+}
+
+// srvRelationStatusWatcher defines the API wrapping a state.RelationStatusWatcher.
+type srvRelationStatusWatcher struct {
+	watcherCommon
+	st      *state.State
+	watcher state.StringsWatcher
+}
+
+func newRelationStatusWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+
+	// TODO(wallyworld) - enhance this watcher to support
+	// anonymous api calls with macaroons.
+	if auth.GetAuthTag() != nil && !isAgent(auth) {
+		return nil, common.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(state.StringsWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvRelationStatusWatcher{
+		watcherCommon: newWatcherCommon(context),
+		st:            context.State(),
+		watcher:       watcher,
+	}, nil
+}
+
+// Next returns when a change has occured to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvRelationStatusWatcher.
+func (w *srvRelationStatusWatcher) Next() (params.RelationLifeSuspendedStatusWatchResult, error) {
+	if changes, ok := <-w.watcher.Changes(); ok {
+		changesParams := make([]params.RelationLifeSuspendedStatusChange, len(changes))
+		for i, key := range changes {
+			change, err := crossmodel.GetRelationLifeSuspendedStatusChange(crossmodel.GetBackend(w.st), key)
+			if err != nil {
+				return params.RelationLifeSuspendedStatusWatchResult{
+					Error: common.ServerError(err),
+				}, nil
+			}
+			changesParams[i] = *change
+		}
+		return params.RelationLifeSuspendedStatusWatchResult{
+			Changes: changesParams,
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = common.ErrStoppedWatcher
+	}
+	return params.RelationLifeSuspendedStatusWatchResult{}, err
+}
+
+// srvOfferStatusWatcher defines the API wrapping a crossmodelrelations.OfferStatusWatcher.
+type srvOfferStatusWatcher struct {
+	watcherCommon
+	st      *state.State
+	watcher crossmodelrelations.OfferWatcher
+}
+
+func newOfferStatusWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+
+	// TODO(wallyworld) - enhance this watcher to support
+	// anonymous api calls with macaroons.
+	if auth.GetAuthTag() != nil && !isAgent(auth) {
+		return nil, common.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(crossmodelrelations.OfferWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvOfferStatusWatcher{
+		watcherCommon: newWatcherCommon(context),
+		st:            context.State(),
+		watcher:       watcher,
+	}, nil
+}
+
+// Next returns when a change has occured to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvOfferStatusWatcher.
+func (w *srvOfferStatusWatcher) Next() (params.OfferStatusWatchResult, error) {
+	if _, ok := <-w.watcher.Changes(); ok {
+		change, err := crossmodel.GetOfferStatusChange(crossmodel.GetBackend(w.st), w.watcher.OfferUUID())
+		if err != nil {
+			return params.OfferStatusWatchResult{
+				Error: common.ServerError(err),
+			}, nil
+		}
+		return params.OfferStatusWatchResult{
+			Changes: []params.OfferStatusChange{*change},
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = common.ErrStoppedWatcher
+	}
+	return params.OfferStatusWatchResult{}, err
 }
 
 // srvMachineStorageIdsWatcher defines the API wrapping a state.StringsWatcher
@@ -392,7 +457,7 @@ var getMigrationBackend = func(st *state.State) migrationBackend {
 // migration watchers.
 type migrationBackend interface {
 	LatestMigration() (state.ModelMigration, error)
-	APIHostPorts() ([][]network.HostPort, error)
+	APIHostPortsForClients() ([][]network.HostPort, error)
 	ControllerConfig() (controller.Config, error)
 }
 
@@ -477,7 +542,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 }
 
 func (w *srvMigrationStatusWatcher) getLocalHostPorts() ([]string, error) {
-	hostports, err := w.st.APIHostPorts()
+	hostports, err := w.st.APIHostPortsForClients()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

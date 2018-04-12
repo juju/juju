@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,8 +16,9 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/testing"
 )
 
 type ListControllersSuite struct {
@@ -27,41 +29,50 @@ type ListControllersSuite struct {
 var _ = gc.Suite(&ListControllersSuite{})
 
 func (s *ListControllersSuite) TestListControllersEmptyStore(c *gc.C) {
-	s.store = jujuclienttesting.NewMemStore()
-	context, err := s.runListControllers(c)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(testing.Stdout(context), gc.Equals, "")
-	c.Check(testing.Stderr(context), gc.Equals, modelcmd.ErrNoControllersDefined.Error())
+	s.store = jujuclient.NewMemStore()
+	_, err := s.runListControllers(c)
+	c.Check(errors.Cause(err), gc.Equals, modelcmd.ErrNoControllersDefined)
 }
 
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
+	store := s.createTestClientStore(c)
+	delete(store.Accounts, "aws-test")
+	originallyInStore := &jujuclient.ControllerModels{
+		CurrentModel: "admin/my-model",
+		Models: map[string]jujuclient.ModelDetails{
+			"model0":   {ModelUUID: "abc", ModelType: model.IAAS},
+			"my-model": {ModelUUID: "def", ModelType: model.IAAS},
+		},
+	}
+	c.Assert(store.Models["mallards"], gc.DeepEquals, originallyInStore)
+
 	s.expectedOutput = `
 Use --refresh flag with this command to see the latest information.
 
-Controller           Model       User   Access     Cloud/Region        Models  Machines  HA  Version
-aws-test             controller  -      -          aws/us-east-1            2         5   -  2.0.1      
-mallards*            my-model    admin  superuser  mallards/mallards1       -         -   -  (unknown)  
-mark-test-prodstack  -           admin  (unknown)  prodstack                -         -   -  (unknown)  
+Controller           Model             User   Access     Cloud/Region        Models  Machines  HA  Version
+aws-test             admin/controller  -      -          aws/us-east-1            1         5   -  2.0.1      
+mallards*            my-model          admin  superuser  mallards/mallards1       2         -   -  (unknown)  
+mark-test-prodstack  -                 admin  (unknown)  prodstack                -         -   -  (unknown)  
 
 `[1:]
 
-	store := s.createTestClientStore(c)
-	delete(store.Accounts, "aws-test")
 	s.assertListControllers(c)
+	// Check store was not updated.
+	c.Assert(store.Models["mallards"], gc.DeepEquals, originallyInStore)
 }
 
 func (s *ListControllersSuite) TestListControllersRefresh(c *gc.C) {
-	s.createTestClientStore(c)
-	s.api = func(controllerNamee string) controller.ControllerAccessAPI {
-		fakeController := &fakeController{
-			controllerName: controllerNamee,
-			modelNames: map[string]string{
-				"abc": "controller",
-				"def": "my-model",
-				"ghi": "controller",
-			},
-			store: s.store,
-		}
+	store := s.createTestClientStore(c)
+	originallyInStore := &jujuclient.ControllerModels{
+		CurrentModel: "admin/my-model",
+		Models: map[string]jujuclient.ModelDetails{
+			"model0":   {ModelUUID: "abc", ModelType: model.IAAS},
+			"my-model": {ModelUUID: "def", ModelType: model.IAAS},
+		},
+	}
+	c.Assert(store.Models["mallards"], gc.DeepEquals, originallyInStore)
+	s.api = func(controllerName string) controller.ControllerAccessAPI {
+		fakeController := &fakeController{controllerName: controllerName}
 		return fakeController
 	}
 	s.expectedOutput = `
@@ -72,19 +83,19 @@ mark-test-prodstack  -           admin  (unknown)  prodstack                -   
 
 `[1:]
 	s.assertListControllers(c, "--refresh")
+	// Check store was updated.
+	c.Assert(store.Models["mallards"], gc.DeepEquals, &jujuclient.ControllerModels{
+		CurrentModel: "admin/my-model",
+		Models: map[string]jujuclient.ModelDetails{
+			"admin/controller": {ModelUUID: "abc", ModelType: model.IAAS},
+			"admin/my-model":   {ModelUUID: "def", ModelType: model.IAAS},
+		},
+	})
 }
 
 func (s *ListControllersSuite) setupAPIForControllerMachines() {
 	s.api = func(controllerName string) controller.ControllerAccessAPI {
-		fakeController := &fakeController{
-			controllerName: controllerName,
-			modelNames: map[string]string{
-				"abc": "controller",
-				"def": "my-model",
-				"ghi": "controller",
-			},
-			store: s.store,
-		}
+		fakeController := &fakeController{controllerName: controllerName}
 		switch controllerName {
 		case "aws-test":
 			fakeController.machines = map[string][]base.Machine{
@@ -93,16 +104,13 @@ func (s *ListControllersSuite) setupAPIForControllerMachines() {
 					{Id: "2", HasVote: true, WantsVote: true, Status: "down"},
 					{Id: "3", HasVote: false, WantsVote: true, Status: "active"},
 				},
-				"abc": {
-					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
-				},
-				"def": {
-					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
-				},
 			}
 		case "mallards":
 			fakeController.machines = map[string][]base.Machine{
 				"abc": {
+					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
+				},
+				"def": {
 					{Id: "1", HasVote: true, WantsVote: true, Status: "active"},
 				},
 			}
@@ -195,7 +203,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 				Cloud:          "aws",
 				CloudRegion:    "us-east-1",
 				AgentVersion:   "2.0.1",
-				ModelCount:     intPtr(2),
+				ModelCount:     intPtr(1),
 				MachineCount:   intPtr(5),
 			},
 			"mallards": {
@@ -208,6 +216,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 				CACert:         "this-is-another-ca-cert",
 				Cloud:          "mallards",
 				CloudRegion:    "mallards1",
+				ModelCount:     intPtr(2),
 			},
 			"mark-test-prodstack": {
 				ControllerUUID: "this-is-a-uuid",
@@ -250,8 +259,19 @@ func (s *ListControllersSuite) TestListControllersUnrecognizedOptionFlag(c *gc.C
 	s.assertListControllersFailed(c, "--model", "still.my.world")
 }
 
+func (s *ListControllersSuite) TestListControllersNoControllers(c *gc.C) {
+	store := s.createTestClientStore(c)
+	store.Controllers = map[string]jujuclient.ControllerDetails{}
+	s.expectedErr = `No controllers registered.
+
+Please either create a new controller using "juju bootstrap" or connect to
+another controller that you have been given access to using "juju register".
+`
+	s.assertListControllersFailed(c)
+}
+
 func (s *ListControllersSuite) runListControllers(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, controller.NewListControllersCommandForTest(s.store, s.api), args...)
+	return cmdtesting.RunCommand(c, controller.NewListControllersCommandForTest(s.store, s.api), args...)
 }
 
 func (s *ListControllersSuite) assertListControllersFailed(c *gc.C, args ...string) {
@@ -262,7 +282,7 @@ func (s *ListControllersSuite) assertListControllersFailed(c *gc.C, args ...stri
 func (s *ListControllersSuite) assertListControllers(c *gc.C, args ...string) string {
 	context, err := s.runListControllers(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	if s.expectedOutput != "" {
 		c.Assert(output, gc.Equals, s.expectedOutput)
 	}

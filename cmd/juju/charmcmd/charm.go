@@ -5,14 +5,9 @@ package charmcmd
 
 import (
 	"github.com/juju/cmd"
+
+	"github.com/juju/juju/cmd/juju/resource"
 )
-
-var registeredSubCommands []cmd.Command
-
-// RegisterSubCommand registers the given command as a "juju charm" subcommand.
-func RegisterSubCommand(c cmd.Command) {
-	registeredSubCommands = append(registeredSubCommands, c)
-}
 
 var charmDoc = `
 "juju charm" is the the juju CLI equivalent of the "charm" command used
@@ -32,20 +27,12 @@ func NewSuperCommand() *Command {
 		SuperCommand: *cmd.NewSuperCommand(
 			cmd.SuperCommandParams{
 				Name:        "charm",
-				Doc:         charmDoc,
+				Doc:         resource.DeprecatedSince + charmDoc,
 				UsagePrefix: "juju",
-				Purpose:     charmPurpose,
+				Purpose:     resource.Deprecated + charmPurpose,
 			},
 		),
 	}
-
-	// Sub-commands may be registered directly here, like so:
-	//charmCmd.Register(newXXXCommand())
-
-	// ...or externally via RegisterSubCommand().
-	for _, command := range registeredSubCommands {
-		charmCmd.Register(command)
-	}
-
+	charmCmd.Register(resource.NewListCharmResourcesCommand(nil))
 	return charmCmd
 }

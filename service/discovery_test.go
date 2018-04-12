@@ -61,10 +61,6 @@ func (dt discoveryTest) disableVersionDiscovery(s *discoverySuite) {
 	dt.setVersion(s)
 }
 
-func (dt discoveryTest) setLocal(c *gc.C, s *discoverySuite) {
-	s.PatchLocalDiscoveryNoMatch(dt.expected)
-}
-
 func (dt discoveryTest) setVersion(s *discoverySuite) version.Binary {
 	vers := dt.version()
 	s.PatchSeries(vers.Series)
@@ -134,6 +130,10 @@ var discoveryTests = []discoveryTest{{
 }, {
 	os:       jujuos.CentOS,
 	series:   "centos7",
+	expected: service.InitSystemSystemd,
+}, {
+	os:       jujuos.OpenSUSE,
+	series:   "opensuseleap",
 	expected: service.InitSystemSystemd,
 }, {
 	os:       jujuos.Unknown,

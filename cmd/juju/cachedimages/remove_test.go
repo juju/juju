@@ -5,6 +5,7 @@ package cachedimages_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -45,7 +46,7 @@ func (s *removeImageCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func runRemoveCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, cachedimages.NewRemoveCommandForTest(), args...)
+	return cmdtesting.RunCommand(c, cachedimages.NewRemoveCommandForTest(), args...)
 }
 
 func (s *removeImageCommandSuite) TestRemoveImage(c *gc.C) {

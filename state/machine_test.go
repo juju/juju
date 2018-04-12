@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -17,18 +18,22 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type MachineSuite struct {
@@ -50,6 +55,7 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine0, err = s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.machine0.SetHasVote(true), jc.ErrorIsNil)
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -111,10 +117,23 @@ func (s *MachineSuite) TestSetUnsetRebootFlag(c *gc.C) {
 	c.Assert(rebootFlag, jc.IsFalse)
 }
 
+func (s *MachineSuite) TestSetKeepInstance(c *gc.C) {
+	err := s.machine.SetProvisioned("1234", "nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.SetKeepInstance(true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	m, err := s.State.Machine(s.machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	keep, err := m.KeepInstance()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(keep, jc.IsTrue)
+}
+
 func (s *MachineSuite) TestAddMachineInsideMachineModelDying(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Destroy(), jc.ErrorIsNil)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 
 	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
@@ -212,7 +231,7 @@ func (s *MachineSuite) TestMachineIsManager(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
-	cfg, err := s.State.ModelConfig()
+	cfg, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Type(), gc.Not(gc.Equals), "null")
 	c.Assert(s.machine.Id(), gc.Equals, "1")
@@ -220,7 +239,7 @@ func (s *MachineSuite) TestMachineIsManualBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(manual, jc.IsFalse)
 	attrs := map[string]interface{}{"type": "null"}
-	err = s.State.UpdateModelConfig(attrs, nil, nil)
+	err = s.IAASModel.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	manual, err = s.machine0.IsManual()
 	c.Assert(err, jc.ErrorIsNil)
@@ -268,14 +287,16 @@ func (s *MachineSuite) TestMachineIsContainer(c *gc.C) {
 }
 
 func (s *MachineSuite) TestLifeJobManageModel(c *gc.C) {
-	// A JobManageModel machine must never advance lifecycle.
 	m := s.machine0
 	err := m.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
-	err = m.ForceDestroy()
-	c.Assert(err, gc.ErrorMatches, "machine is required by the model")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
 	err = m.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, "machine 0 is required by the model")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is still a voting controller member")
+	// Since this is the only controller machine, we cannot even force destroy it
+	err = m.ForceDestroy()
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
+	err = m.EnsureDead()
+	c.Assert(err, gc.ErrorMatches, "machine 0 is still a voting controller member")
 }
 
 func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
@@ -295,8 +316,8 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 
 func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	// A machine with an assigned unit must not advance lifecycle.
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -329,8 +350,8 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -371,7 +392,7 @@ func (s *MachineSuite) TestDestroyOpsForManagerFails(c *gc.C) {
 
 	// ... and assert that we cannot get the destroy ops for it.
 	ops, err := state.ForceDestroyMachineOps(m)
-	c.Assert(err, jc.Satisfies, state.IsManagerMachineError)
+	c.Assert(err, gc.ErrorMatches, `machine 0 is the only controller machine`)
 	c.Assert(ops, gc.IsNil)
 }
 
@@ -384,8 +405,8 @@ func (s *MachineSuite) TestDestroyAbort(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDestroyCancel(c *gc.C) {
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
@@ -396,8 +417,8 @@ func (s *MachineSuite) TestDestroyCancel(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDestroyContention(c *gc.C) {
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	perturb := jujutxn.TestHook{
@@ -411,13 +432,13 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDestroyWithServiceDestroyPending(c *gc.C) {
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = svc.Destroy()
+	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -427,18 +448,18 @@ func (s *MachineSuite) TestDestroyWithServiceDestroyPending(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDestroyFailsWhenNewUnitAdded(c *gc.C) {
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = svc.Destroy()
+	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		anotherSvc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-		anotherUnit, err := anotherSvc.AddUnit()
+		anotherApp := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+		anotherUnit, err := anotherApp.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = anotherUnit.AssignToMachine(s.machine)
 		c.Assert(err, jc.ErrorIsNil)
@@ -451,8 +472,8 @@ func (s *MachineSuite) TestDestroyFailsWhenNewUnitAdded(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDestroyWithUnitDestroyPending(c *gc.C) {
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -467,13 +488,13 @@ func (s *MachineSuite) TestDestroyWithUnitDestroyPending(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDestroyFailsWhenNewContainerAdded(c *gc.C) {
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = svc.Destroy()
+	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
@@ -547,22 +568,6 @@ func (s *MachineSuite) TestHasVote(c *gc.C) {
 	c.Assert(s.machine.HasVote(), jc.IsFalse)
 }
 
-func (s *MachineSuite) TestCannotDestroyMachineWithVote(c *gc.C) {
-	err := s.machine.SetHasVote(true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Make another machine value so that
-	// it won't have the cached HasVote value.
-	m, err := s.State.Machine(s.machine.Id())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.machine.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine "+s.machine.Id()+" is a voting replica set member")
-
-	err = m.Destroy()
-	c.Assert(err, gc.ErrorMatches, "machine "+s.machine.Id()+" is a voting replica set member")
-}
-
 func (s *MachineSuite) TestRemoveAbort(c *gc.C) {
 	err := s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -603,13 +608,11 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
-	info := testing.NewMongoInfo()
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       s.Session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
@@ -633,6 +636,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we cannot log in with the wrong password.
+	info := testing.NewMongoInfo()
 	info.Tag = ent.Tag()
 	info.Password = "bar"
 	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
@@ -641,12 +645,14 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
+	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
+	c.Assert(err, jc.ErrorIsNil)
+	defer session.Close()
 	st1, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
 		ControllerModelTag: s.modelTag,
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       session,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
@@ -772,9 +778,9 @@ func (s *MachineSuite) TestDesiredSpacesEndpoints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	svc := s.AddTestingServiceWithBindings(c, "mysql",
+	app := s.AddTestingApplicationWithBindings(c, "mysql",
 		s.AddTestingCharm(c, "mysql"), map[string]string{"server": "db"})
-	unit, err := svc.AddUnit()
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -794,9 +800,9 @@ func (s *MachineSuite) TestDesiredSpacesEndpointsAndConstraints(c *gc.C) {
 		Spaces: &[]string{"foo"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	svc := s.AddTestingServiceWithBindings(c, "mysql",
+	app := s.AddTestingApplicationWithBindings(c, "mysql",
 		s.AddTestingCharm(c, "mysql"), map[string]string{"server": "db"})
-	unit, err := svc.AddUnit()
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -830,9 +836,9 @@ func (s *MachineSuite) TestDesiredSpacesNothingRequested(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	// And empty bindings
-	svc := s.AddTestingServiceWithBindings(c, "mysql",
+	app := s.AddTestingApplicationWithBindings(c, "mysql",
 		s.AddTestingCharm(c, "mysql"), map[string]string{})
-	unit, err := svc.AddUnit()
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -936,6 +942,28 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 	c.Assert(s.machine.CheckProvisioned("not-really"), jc.IsFalse)
 }
 
+func (s *MachineSuite) TestSetProvisionedDupInstanceId(c *gc.C) {
+	var logWriter loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("dupe-test", &logWriter), gc.IsNil)
+	s.AddCleanup(func(*gc.C) {
+		loggo.RemoveWriter("dupe-test")
+	})
+
+	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	anotherMachine, _ := s.Factory.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
+	err = anotherMachine.SetProvisioned("umbrella/0", "another_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	found := false
+	for _, le := range logWriter.Log() {
+		if found = strings.Contains(le.Message, "duplicate instance id"); found == true {
+			break
+		}
+	}
+	c.Assert(found, jc.IsTrue)
+}
+
 func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C) {
 	assertNotProvisioned := func() {
 		c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
@@ -969,7 +997,10 @@ func (s *MachineSuite) addVolume(c *gc.C, params state.VolumeParams, machineId s
 }
 
 func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
+	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -987,12 +1018,15 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
 
-	volume, err := s.State.Volume(volumeTag)
+	volume, err := s.IAASModel.Volume(volumeTag)
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo.Pool = "loop-pool" // taken from params
 	c.Assert(info, gc.Equals, volumeInfo)
+	volumeStatus, err := volume.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeStatus.Status, gc.Equals, status.Attaching)
 }
 
 func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {
@@ -1059,7 +1093,7 @@ func (s *MachineSuite) TestRefreshWhenNotAlive(c *gc.C) {
 func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 	// Check that Machine.Units and st.UnitsFor work correctly.
 
-	// Make three machines, three services and three units for each service;
+	// Make three machines, three services and three units for each application;
 	// variously assign units to machines and check that Machine.Units
 	// tells us the right thing.
 
@@ -1071,16 +1105,16 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 
 	dummy := s.AddTestingCharm(c, "dummy")
 	logging := s.AddTestingCharm(c, "logging")
-	s0 := s.AddTestingService(c, "s0", dummy)
-	s1 := s.AddTestingService(c, "s1", dummy)
-	s2 := s.AddTestingService(c, "s2", dummy)
-	s3 := s.AddTestingService(c, "s3", logging)
+	s0 := s.AddTestingApplication(c, "s0", dummy)
+	s1 := s.AddTestingApplication(c, "s1", dummy)
+	s2 := s.AddTestingApplication(c, "s2", dummy)
+	s3 := s.AddTestingApplication(c, "s3", logging)
 
 	units := make([][]*state.Unit, 4)
-	for i, svc := range []*state.Application{s0, s1, s2} {
+	for i, app := range []*state.Application{s0, s1, s2} {
 		units[i] = make([]*state.Unit, 3)
 		for j := range units[i] {
-			units[i][j], err = svc.AddUnit()
+			units[i][j], err = app.AddUnit(state.AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
@@ -1146,13 +1180,13 @@ func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *gc.C) (*state.Machin
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Clean(), jc.IsTrue)
 
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
+	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Clean(), jc.IsFalse)
-	return m, svc, unit
+	return m, app, unit
 }
 
 func (s *MachineSuite) TestMachineDirtyAfterAddingUnit(c *gc.C) {
@@ -1221,7 +1255,7 @@ func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 	//  Unit.Watch
 	//  State.WatchForModelConfigChanges
 	//  Unit.WatchConfigSettings
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.Watch()
@@ -1245,8 +1279,8 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	err := s.machine.SetProvisioned("cheese", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	mysql0, err := mysql.AddUnit()
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1270,7 +1304,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Assign another unit and make the first Dying; check both changes detected.
-	mysql1, err := mysql.AddUnit()
+	mysql1, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql1.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1280,7 +1314,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a subordinate to the Alive unit; no change.
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -1340,7 +1374,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 func (s *MachineSuite) TestWatchPrincipalUnitsDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.unitsWatcher, which
 	// is also used by Unit.WatchSubordinateUnits.
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.WatchPrincipalUnits()
@@ -1363,8 +1397,8 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Assign a unit (to a separate instance); change detected.
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	mysql0, err := mysql.AddUnit()
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql0, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1385,7 +1419,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Assign another unit and make the first Dying; check both changes detected.
-	mysql1, err := mysql.AddUnit()
+	mysql1, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql1.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1395,7 +1429,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a subordinate to the Alive unit; change detected.
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -1455,7 +1489,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWatchUnitsDiesOnStateClose(c *gc.C) {
-	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		m, err := st.Machine(s.machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
 		w := m.WatchUnits()
@@ -1509,7 +1543,7 @@ func (s *MachineSuite) TestSetConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cons2 := constraints.MustParse("mem=2G")
 	err = machine.SetConstraints(cons2)
-	c.Assert(err, gc.ErrorMatches, "cannot set constraints: machine is already provisioned")
+	c.Assert(err, gc.ErrorMatches, `updating machine "2": cannot set constraints: machine is already provisioned`)
 
 	// Check the failed set had no effect.
 	mcons, err = machine.Constraints()
@@ -1522,7 +1556,7 @@ func (s *MachineSuite) TestSetAmbiguousConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("mem=4G instance-type=foo")
 	err = machine.SetConstraints(cons)
-	c.Assert(err, gc.ErrorMatches, `cannot set constraints: ambiguous constraints: "instance-type" overlaps with "mem"`)
+	c.Assert(err, gc.ErrorMatches, `updating machine "2": cannot set constraints: ambiguous constraints: "instance-type" overlaps with "mem"`)
 }
 
 func (s *MachineSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
@@ -1548,7 +1582,7 @@ func (s *MachineSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 
 func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 	cons := constraints.MustParse("mem=1G")
-	cannotSet := `cannot set constraints: not found or not alive`
+	cannotSet := `updating machine "1": cannot set constraints: not found or not alive`
 	testWhenDying(c, s.machine, cannotSet, cannotSet, func() error {
 		err := s.machine.SetConstraints(cons)
 		mcons, err1 := s.machine.Constraints()
@@ -2374,4 +2408,194 @@ func (s *MachineSuite) TestMachineAddDifferentAction(c *gc.C) {
 
 	_, err = m.AddAction("benchmark", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add action "benchmark" to a machine; only predefined actions allowed`)
+}
+
+func (s *MachineSuite) setupTestUpdateMachineSeries(c *gc.C) *state.Machine {
+	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series", ch)
+	subCh := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate")
+	_ = state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series-subordinate", subCh)
+
+	eps, err := s.State.InferEndpoints("multi-series", "multi-series-subordinate")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(mach)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ru, err := rel.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch2 := state.AddTestingCharmMultiSeries(c, s.State, "wordpress")
+	app2 := state.AddTestingApplicationForSeries(c, s.State, "precise", "wordpress", ch2)
+	unit2, err := app2.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit2.AssignToMachine(mach)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return mach
+}
+
+func (s *MachineSuite) assertMachineAndUnitSeriesChanged(c *gc.C, mach *state.Machine, series string) {
+	err := mach.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mach.Series(), gc.Equals, series)
+	principals := mach.Principals()
+	for _, p := range principals {
+		u, err := s.State.Unit(p)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(u.Series(), gc.Equals, series)
+		subs := u.SubordinateNames()
+		for _, sn := range subs {
+			u, err := s.State.Unit(sn)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(u.Series(), gc.Equals, series)
+		}
+	}
+}
+
+func (s *MachineSuite) TestUpdateMachineSeries(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.UpdateMachineSeries("trusty", false)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertMachineAndUnitSeriesChanged(c, mach, "trusty")
+}
+
+func (s *MachineSuite) TestUpdateMachineSeriesFail(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.UpdateMachineSeries("xenial", false)
+	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
+	s.assertMachineAndUnitSeriesChanged(c, mach, "precise")
+}
+
+func (s *MachineSuite) TestUpdateMachineSeriesForce(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.UpdateMachineSeries("xenial", true)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertMachineAndUnitSeriesChanged(c, mach, "xenial")
+}
+
+func (s *MachineSuite) TestUpdateMachineSeriesSameSeriesToStart(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.UpdateMachineSeries("precise", false)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertMachineAndUnitSeriesChanged(c, mach, "precise")
+}
+
+func (s *MachineSuite) TestUpdateMachineSeriesSameSeriesAfterStart(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				ops := []txn.Op{{
+					C:      state.MachinesC,
+					Id:     state.DocID(s.State, mach.Id()),
+					Update: bson.D{{"$set", bson.D{{"series", "trusty"}}}},
+				}}
+				err := state.RunTransaction(s.State, ops)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+			After: func() {
+				err := mach.Refresh()
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(mach.Series(), gc.Equals, "trusty")
+			},
+		},
+	).Check()
+
+	err := mach.UpdateMachineSeries("trusty", false)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mach.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mach.Series(), gc.Equals, "trusty")
+}
+
+func (s *MachineSuite) TestUpdateMachineSeriesCharmURLChangedSeriesFail(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				v2 := state.AddTestingCharmMultiSeries(c, s.State, "multi-seriesv2")
+				cfg := state.SetCharmConfig{Charm: v2}
+				app, err := s.State.Application("multi-series")
+				c.Assert(err, jc.ErrorIsNil)
+				err = app.SetCharm(cfg)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		},
+	).Check()
+
+	// Trusty is listed in only version 1 of the charm.
+	err := mach.UpdateMachineSeries("trusty", false)
+	c.Assert(err, gc.ErrorMatches, "cannot update series for \"2\" to trusty: series \"trusty\" not supported by charm, supported series are: precise,xenial")
+}
+
+func (s *MachineSuite) TestUpdateMachineSeriesPrincipalsListChange(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(mach.Principals()), gc.Equals, 2)
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				app, err := s.State.Application("wordpress")
+				c.Assert(err, jc.ErrorIsNil)
+				unit, err := app.AddUnit(state.AddUnitParams{})
+				c.Assert(err, jc.ErrorIsNil)
+				err = unit.AssignToMachine(mach)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		},
+	).Check()
+
+	err = mach.UpdateMachineSeries("trusty", false)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertMachineAndUnitSeriesChanged(c, mach, "trusty")
+	c.Assert(len(mach.Principals()), gc.Equals, 3)
+}
+
+func (s *MachineSuite) TestUpdateMachineSeriesSubordinateListChangeIncompatibleSeries(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.Refresh()
+
+	unit, err := s.State.Unit("multi-series/0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.SubordinateNames(), gc.DeepEquals, []string{"multi-series-subordinate/0"})
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				subCh2 := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate2")
+				subApp2 := state.AddTestingApplicationForSeries(c, s.State, "precise", "multi-series-subordinate2", subCh2)
+				c.Assert(subApp2.Series(), gc.Equals, "precise")
+
+				eps, err := s.State.InferEndpoints("multi-series", "multi-series-subordinate2")
+				c.Assert(err, jc.ErrorIsNil)
+				rel, err := s.State.AddRelation(eps...)
+				c.Assert(err, jc.ErrorIsNil)
+
+				err = unit.Refresh()
+				c.Assert(err, jc.ErrorIsNil)
+				relUnit, err := rel.Unit(unit)
+				c.Assert(err, jc.ErrorIsNil)
+				err = relUnit.EnterScope(nil)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		},
+	).Check()
+
+	err = mach.UpdateMachineSeries("yakkety", false)
+	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
+	s.assertMachineAndUnitSeriesChanged(c, mach, "precise")
 }

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -23,7 +24,7 @@ var _ = gc.Suite(&ConfigCommandSuite{})
 
 func (s *ConfigCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := model.NewConfigCommandForTest(s.fake)
-	return testing.RunCommand(c, command, args...)
+	return cmdtesting.RunCommand(c, command, args...)
 }
 
 func (s *ConfigCommandSuite) TestInit(c *gc.C) {
@@ -33,15 +34,7 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 		errorMatch string
 		nilErr     bool
 	}{
-		{ // Test set
-			desc:       "keys cannot be duplicates",
-			args:       []string{"special=extra", "special=other"},
-			errorMatch: `key "special" specified more than once`,
-		}, {
-			desc:       "agent-version cannot be set",
-			args:       []string{"agent-version=2.0.0"},
-			errorMatch: `agent-version must be set via "upgrade-juju"`,
-		}, {
+		{
 			// Test reset
 			desc:       "reset requires arg",
 			args:       []string{"--reset"},
@@ -54,10 +47,6 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 			desc:       "agent-version cannot be reset",
 			args:       []string{"--reset", "agent-version"},
 			errorMatch: `"agent-version" cannot be reset`,
-		}, {
-			desc:       "set and reset cannot have duplicate keys",
-			args:       []string{"--reset", "special", "special=extra"},
-			errorMatch: `key "special" cannot be both set and reset in the same command`,
 		}, {
 			desc:       "reset cannot have k=v pairs",
 			args:       []string{"--reset", "a,b,c=d,e"},
@@ -84,7 +73,7 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 	} {
 		c.Logf("test %d: %s", i, test.desc)
 		cmd := model.NewConfigCommandForTest(s.fake)
-		err := testing.InitCommand(cmd, test.args)
+		err := cmdtesting.InitCommand(cmd, test.args)
 		if test.nilErr {
 			c.Check(err, jc.ErrorIsNil)
 			continue
@@ -99,7 +88,7 @@ func (s *ConfigCommandSuite) TestSingleValue(c *gc.C) {
 	context, err := s.run(c, "special")
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, "multi\nline\n")
 }
 
@@ -119,7 +108,7 @@ func (s *ConfigCommandSuite) TestGetUnknownValue(c *gc.C) {
 	context, err := s.run(c, "unknown")
 	c.Assert(err, gc.ErrorMatches, `key "unknown" not found in {<nil> ""} model.`)
 
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, "")
 }
 
@@ -128,7 +117,7 @@ func (s *ConfigCommandSuite) TestSingleValueJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	want := "{\"special\":{\"Value\":\"special value\",\"Source\":\"model\"}}\n"
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, want)
 }
 
@@ -141,7 +130,7 @@ func (s *ConfigCommandSuite) TestSingleValueYAML(c *gc.C) {
 		"  value: special value\n" +
 		"  source: model\n"
 
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, want)
 }
 
@@ -149,7 +138,7 @@ func (s *ConfigCommandSuite) TestAllValuesYAML(c *gc.C) {
 	context, err := s.run(c, "--format=yaml")
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	expected := "" +
 		"running:\n" +
 		"  value: true\n" +
@@ -164,7 +153,7 @@ func (s *ConfigCommandSuite) TestAllValuesJSON(c *gc.C) {
 	context, err := s.run(c, "--format=json")
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	expected := `{"running":{"Value":true,"Source":"model"},"special":{"Value":"special value","Source":"model"}}` + "\n"
 	c.Assert(output, gc.Equals, expected)
 }
@@ -173,13 +162,52 @@ func (s *ConfigCommandSuite) TestAllValuesTabular(c *gc.C) {
 	context, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 
-	output := testing.Stdout(context)
+	output := cmdtesting.Stdout(context)
 	expected := "" +
 		"Attribute  From   Value\n" +
 		"running    model  true\n" +
 		"special    model  special value\n" +
 		"\n"
 	c.Assert(output, gc.Equals, expected)
+}
+
+func (s *ConfigCommandSuite) TestSetAgentVersion(c *gc.C) {
+	_, err := s.run(c, "agent-version=2.0.0")
+	c.Assert(err, gc.ErrorMatches, `"agent-version"" must be set via "upgrade-model"`)
+}
+
+func (s *ConfigCommandSuite) TestSetAndReset(c *gc.C) {
+	_, err := s.run(c, "--reset", "special", "special=bar")
+	c.Assert(err, gc.ErrorMatches, `key "special" cannot be both set and reset in the same command`)
+}
+
+func (s *ConfigCommandSuite) TestSetFromFile(c *gc.C) {
+	tmpdir := c.MkDir()
+	configFile := filepath.Join(tmpdir, "config.yaml")
+	err := ioutil.WriteFile(configFile, []byte("special: extra\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.run(c, configFile)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := map[string]interface{}{
+		"special": "extra",
+	}
+	c.Assert(s.fake.values, jc.DeepEquals, expected)
+}
+
+func (s *ConfigCommandSuite) TestSetFromFileCombined(c *gc.C) {
+	tmpdir := c.MkDir()
+	configFile := filepath.Join(tmpdir, "config.yaml")
+	err := ioutil.WriteFile(configFile, []byte("special: extra\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.run(c, configFile, "unknown=foo")
+	c.Assert(err, jc.ErrorIsNil)
+	expected := map[string]interface{}{
+		"special": "extra",
+		"unknown": "foo",
+	}
+	c.Assert(s.fake.values, jc.DeepEquals, expected)
 }
 
 func (s *ConfigCommandSuite) TestPassesValues(c *gc.C) {
@@ -192,7 +220,48 @@ func (s *ConfigCommandSuite) TestPassesValues(c *gc.C) {
 	c.Assert(s.fake.values, jc.DeepEquals, expected)
 }
 
-func (s *ConfigCommandSuite) TestSettingKnownValue(c *gc.C) {
+func (s *ConfigCommandSuite) TestPassesCloudInitUserDataLong(c *gc.C) {
+	modelCfg, err := s.fake.ModelGet()
+	modelCfg["cloudinit-userdata"] = "test data"
+	err = s.fake.ModelSet(modelCfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	context, err := s.run(c, "cloudinit-userdata")
+	c.Assert(err, jc.ErrorIsNil)
+	output := cmdtesting.Stdout(context)
+	c.Assert(output, gc.Equals, "test data\n")
+
+	context2, err := s.run(c)
+	c.Assert(err, jc.ErrorIsNil)
+	output2 := cmdtesting.Stdout(context2)
+	expected2 := "" +
+		"Attribute           From   Value\n" +
+		"cloudinit-userdata  model  <value set, see juju model-config cloudinit-userdata>\n" +
+		"running             model  true\n" +
+		"special             model  special value\n" +
+		"\n"
+	c.Assert(output2, gc.Equals, expected2)
+}
+
+func (s *ConfigCommandSuite) TestPassesCloudInitUserDataShort(c *gc.C) {
+	modelCfg, err := s.fake.ModelGet()
+	modelCfg["cloudinit-userdata"] = ""
+	err = s.fake.ModelSet(modelCfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	context, err := s.run(c)
+	c.Assert(err, jc.ErrorIsNil)
+	output := cmdtesting.Stdout(context)
+	expected := "" +
+		"Attribute           From   Value\n" +
+		"cloudinit-userdata  model  \"\"\n" +
+		"running             model  true\n" +
+		"special             model  special value\n" +
+		"\n"
+	c.Assert(output, gc.Equals, expected)
+}
+
+func (s *ConfigCommandSuite) TestSettingUnknownValue(c *gc.C) {
 	_, err := s.run(c, "special=extra", "unknown=foo")
 	c.Assert(err, jc.ErrorIsNil)
 	// Command succeeds, but warning logged.

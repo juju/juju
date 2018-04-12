@@ -26,7 +26,7 @@ import (
 	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
+	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	goyaml "gopkg.in/yaml.v2"
@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 // worstCase is used for timeouts when timing out
@@ -84,6 +85,7 @@ type context struct {
 	dataDir                string
 	s                      *UniterSuite
 	st                     *state.State
+	im                     *state.IAASModel
 	api                    *apiuniter.State
 	apiConn                api.Connection
 	leaderClaimer          coreleadership.Claimer
@@ -92,7 +94,7 @@ type context struct {
 	charms                 map[string][]byte
 	hooks                  []string
 	sch                    *state.Charm
-	svc                    *state.Application
+	application            *state.Application
 	unit                   *state.Unit
 	uniter                 *uniter.Uniter
 	relatedSvc             *state.Application
@@ -188,24 +190,6 @@ func (ctx *context) writeHook(c *gc.C, path string, good bool) {
 	ctx.writeExplicitHook(c, path, content)
 }
 
-func (ctx *context) writeActions(c *gc.C, path string, names []string) {
-	for _, name := range names {
-		ctx.writeAction(c, path, name)
-	}
-}
-
-func (ctx *context) writeMetricsYaml(c *gc.C, path string) {
-	metricsYamlPath := filepath.Join(path, "metrics.yaml")
-	var metricsYamlFull []byte = []byte(`
-metrics:
-  pings:
-    type: gauge
-    description: sample metric
-`)
-	err := ioutil.WriteFile(metricsYamlPath, []byte(metricsYamlFull), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (ctx *context) writeAction(c *gc.C, path, name string) {
 	actionPath := filepath.Join(path, "actions", name)
 	action := actions[name]
@@ -293,16 +277,13 @@ func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	if err != nil || len(addresses) == 0 {
 		addControllerMachine(c, ctx.st)
 	}
-	addresses, err = ctx.st.APIAddressesFromMachines()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addresses, gc.HasLen, 1)
 }
 
 func addControllerMachine(c *gc.C, st *state.State) {
 	// The AddControllerMachine call will update the API host ports
 	// to made-up addresses. We need valid addresses so that the uniter
 	// can download charms from the API server.
-	apiHostPorts, err := st.APIHostPorts()
+	apiHostPorts, err := st.APIHostPortsForClients()
 	c.Assert(err, gc.IsNil)
 	testing.AddControllerMachine(c, st)
 	err = st.SetAPIHostPorts(apiHostPorts)
@@ -364,10 +345,6 @@ func (s createCharm) step(c *gc.C, ctx *context) {
 	step(c, ctx, addCharm{dir, curl(s.revision)})
 }
 
-func (s createCharm) charmURL() string {
-	return curl(s.revision).String()
-}
-
 type addCharm struct {
 	dir  *corecharm.CharmDir
 	curl *corecharm.URL
@@ -405,24 +382,24 @@ func (s serveCharm) step(c *gc.C, ctx *context) {
 	}
 }
 
-type createServiceAndUnit struct {
-	serviceName string
-	storage     map[string]state.StorageConstraints
+type createApplicationAndUnit struct {
+	applicationName string
+	storage         map[string]state.StorageConstraints
 }
 
-func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
-	if csau.serviceName == "" {
-		csau.serviceName = "u"
+func (csau createApplicationAndUnit) step(c *gc.C, ctx *context) {
+	if csau.applicationName == "" {
+		csau.applicationName = "u"
 	}
 	sch, err := ctx.st.Charm(curl(0))
 	c.Assert(err, jc.ErrorIsNil)
-	svc := ctx.s.AddTestingServiceWithStorage(c, csau.serviceName, sch, csau.storage)
-	unit, err := svc.AddUnit()
+	app := ctx.s.AddTestingApplicationWithStorage(c, csau.applicationName, sch, csau.storage)
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the unit to a provisioned machine to match expected state.
 	assertAssignUnit(c, ctx.st, unit)
-	ctx.svc = svc
+	ctx.application = app
 	ctx.unit = unit
 
 	ctx.apiLogin(c)
@@ -436,7 +413,7 @@ type createUniter struct {
 
 func (s createUniter) step(c *gc.C, ctx *context) {
 	step(c, ctx, ensureStateWorker{})
-	step(c, ctx, createServiceAndUnit{})
+	step(c, ctx, createApplicationAndUnit{})
 	if s.minion {
 		step(c, ctx, forceMinion{})
 	}
@@ -499,7 +476,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	if err != nil {
 		panic(err.Error())
 	}
-	downloader := api.NewCharmDownloader(ctx.apiConn.Client())
+	downloader := api.NewCharmDownloader(ctx.apiConn)
 	operationExecutor := operation.NewExecutor
 	if s.newExecutorFunc != nil {
 		operationExecutor = s.newExecutorFunc
@@ -513,7 +490,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		DataDir:              ctx.dataDir,
 		Downloader:           downloader,
 		MachineLockName:      hookExecutionLockName(),
-		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
+		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer(),
 		NewOperationExecutor: operationExecutor,
 		TranslateResolverErr: s.translateResolverErr,
 		Observer:             ctx,
@@ -879,7 +856,9 @@ type waitActionResults struct {
 }
 
 func (s waitActionResults) step(c *gc.C, ctx *context) {
-	resultsWatcher := ctx.st.WatchActionResults()
+	m, err := ctx.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	resultsWatcher := m.WatchActionResults()
 	defer func() {
 		c.Assert(resultsWatcher.Stop(), gc.IsNil)
 	}()
@@ -976,7 +955,7 @@ func (s updateStatusHookTick) step(c *gc.C, ctx *context) {
 type changeConfig map[string]interface{}
 
 func (s changeConfig) step(c *gc.C, ctx *context) {
-	err := ctx.svc.UpdateConfigSettings(corecharm.Settings(s))
+	err := ctx.application.UpdateCharmConfig(corecharm.Settings(s))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -986,7 +965,9 @@ type addAction struct {
 }
 
 func (s addAction) step(c *gc.C, ctx *context) {
-	_, err := ctx.st.EnqueueAction(ctx.unit.Tag(), s.name, s.params)
+	m, err := ctx.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = m.EnqueueAction(ctx.unit.Tag(), s.name, s.params)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1003,7 +984,7 @@ func (s upgradeCharm) step(c *gc.C, ctx *context) {
 		Charm:      sch,
 		ForceUnits: s.forced,
 	}
-	err = ctx.svc.SetCharm(cfg)
+	err = ctx.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	serveCharm{}.step(c, ctx)
 }
@@ -1137,7 +1118,7 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 		panic("don't add two relations!")
 	}
 	if ctx.relatedSvc == nil {
-		ctx.relatedSvc = ctx.s.AddTestingService(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
+		ctx.relatedSvc = ctx.s.AddTestingApplication(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
 	}
 	eps, err := ctx.st.InferEndpoints("u", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1170,7 +1151,7 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 type addRelationUnit struct{}
 
 func (s addRelationUnit) step(c *gc.C, ctx *context) {
-	u, err := ctx.relatedSvc.AddUnit()
+	u, err := ctx.relatedSvc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := ctx.relation.Unit(u)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1231,7 +1212,7 @@ type addSubordinateRelation struct {
 
 func (s addSubordinateRelation) step(c *gc.C, ctx *context) {
 	if _, err := ctx.st.Application("logging"); errors.IsNotFound(err) {
-		ctx.s.AddTestingService(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
+		ctx.s.AddTestingApplication(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
 	}
 	eps, err := ctx.st.InferEndpoints("logging", "u:"+s.ifce)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1458,7 +1439,9 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 		"ftp-proxy":   s.Ftp,
 		"no-proxy":    s.NoProxy,
 	}
-	err := ctx.st.UpdateModelConfig(attrs, nil, nil)
+	m, err := ctx.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1564,7 +1547,7 @@ type mockLeaderTracker struct {
 }
 
 func (mock *mockLeaderTracker) ApplicationName() string {
-	return mock.ctx.svc.Name()
+	return mock.ctx.application.Name()
 }
 
 func (mock *mockLeaderTracker) ClaimDuration() time.Duration {
@@ -1613,7 +1596,7 @@ func (mock *mockLeaderTracker) setLeader(c *gc.C, isLeader bool) {
 	}
 	if isLeader {
 		err := mock.ctx.leaderClaimer.ClaimLeadership(
-			mock.ctx.svc.Name(), mock.ctx.unit.Name(), time.Minute,
+			mock.ctx.application.Name(), mock.ctx.unit.Name(), time.Minute,
 		)
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
@@ -1658,7 +1641,7 @@ type setLeaderSettings map[string]string
 func (s setLeaderSettings) step(c *gc.C, ctx *context) {
 	// We do this directly on State, not the API, so we don't have to worry
 	// about getting an API conn for whatever unit's meant to be leader.
-	err := ctx.svc.UpdateLeaderSettings(successToken{}, s)
+	err := ctx.application.UpdateLeaderSettings(successToken{}, s)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.s.BackingState.StartSync()
 }
@@ -1672,7 +1655,7 @@ func (successToken) Check(interface{}) error {
 type verifyLeaderSettings map[string]string
 
 func (verify verifyLeaderSettings) step(c *gc.C, ctx *context) {
-	actual, err := ctx.svc.LeaderSettings()
+	actual, err := ctx.application.LeaderSettings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, jc.DeepEquals, map[string]string(verify))
 }
@@ -1736,18 +1719,18 @@ func (*mockCharmDirGuard) Lockdown(_ fortress.Abort) error { return nil }
 type provisionStorage struct{}
 
 func (s provisionStorage) step(c *gc.C, ctx *context) {
-	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
+	storageAttachments, err := ctx.im.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 
-	filesystem, err := ctx.st.StorageInstanceFilesystem(storageAttachments[0].StorageInstance())
+	filesystem, err := ctx.im.StorageInstanceFilesystem(storageAttachments[0].StorageInstance())
 	c.Assert(err, jc.ErrorIsNil)
 
 	filesystemInfo := state.FilesystemInfo{
 		Size:         1024,
 		FilesystemId: "fs-id",
 	}
-	err = ctx.st.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfo)
+	err = ctx.im.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineId, err := ctx.unit.AssignedMachineId()
@@ -1756,7 +1739,7 @@ func (s provisionStorage) step(c *gc.C, ctx *context) {
 	filesystemAttachmentInfo := state.FilesystemAttachmentInfo{
 		MountPoint: "/srv/wordpress/content",
 	}
-	err = ctx.st.SetFilesystemAttachmentInfo(
+	err = ctx.im.SetFilesystemAttachmentInfo(
 		names.NewMachineTag(machineId),
 		filesystem.FilesystemTag(),
 		filesystemAttachmentInfo,
@@ -1767,10 +1750,10 @@ func (s provisionStorage) step(c *gc.C, ctx *context) {
 type destroyStorageAttachment struct{}
 
 func (s destroyStorageAttachment) step(c *gc.C, ctx *context) {
-	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
+	storageAttachments, err := ctx.im.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
-	err = ctx.st.DetachStorage(
+	err = ctx.im.DetachStorage(
 		storageAttachments[0].StorageInstance(),
 		ctx.unit.UnitTag(),
 	)
@@ -1780,7 +1763,7 @@ func (s destroyStorageAttachment) step(c *gc.C, ctx *context) {
 type verifyStorageDetached struct{}
 
 func (s verifyStorageDetached) step(c *gc.C, ctx *context) {
-	storageAttachments, err := ctx.st.UnitStorageAttachments(ctx.unit.UnitTag())
+	storageAttachments, err := ctx.im.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 0)
 }
@@ -1809,9 +1792,19 @@ func (t *manualTicker) Tick() error {
 	return nil
 }
 
+type dummyWaiter struct {
+	c chan time.Time
+}
+
+func (w dummyWaiter) After() <-chan time.Time {
+	return w.c
+}
+
 // ReturnTimer can be used to replace the update status signal generator.
-func (t *manualTicker) ReturnTimer() <-chan time.Time {
-	return t.c
+func (t *manualTicker) ReturnTimer() remotestate.UpdateStatusTimerFunc {
+	return func(_ time.Duration) remotestate.Waiter {
+		return dummyWaiter{t.c}
+	}
 }
 
 func newManualTicker() *manualTicker {

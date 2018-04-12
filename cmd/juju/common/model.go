@@ -4,30 +4,41 @@
 package common
 
 import (
-	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/status"
 )
 
 // ModelInfo contains information about a model.
 type ModelInfo struct {
-	Name           string                      `json:"name" yaml:"name"`
+	// Name is a fully qualified model name, i.e. having the format $owner/$model.
+	Name string `json:"name" yaml:"name"`
+
+	// ShortName is un-qualified model name.
+	ShortName      string                      `json:"short-name" yaml:"short-name"`
 	UUID           string                      `json:"model-uuid" yaml:"model-uuid"`
+	Type           model.ModelType             `json:"model-type" yaml:"model-type"`
 	ControllerUUID string                      `json:"controller-uuid" yaml:"controller-uuid"`
 	ControllerName string                      `json:"controller-name" yaml:"controller-name"`
 	Owner          string                      `json:"owner" yaml:"owner"`
 	Cloud          string                      `json:"cloud" yaml:"cloud"`
 	CloudRegion    string                      `json:"region,omitempty" yaml:"region,omitempty"`
-	ProviderType   string                      `json:"type" yaml:"type"`
+	ProviderType   string                      `json:"type,omitempty" yaml:"type,omitempty"`
 	Life           string                      `json:"life" yaml:"life"`
-	Status         ModelStatus                 `json:"status" yaml:"status"`
-	Users          map[string]ModelUserInfo    `json:"users" yaml:"users"`
+	Status         *ModelStatus                `json:"status,omitempty" yaml:"status,omitempty"`
+	Users          map[string]ModelUserInfo    `json:"users,omitempty" yaml:"users,omitempty"`
 	Machines       map[string]ModelMachineInfo `json:"machines,omitempty" yaml:"machines,omitempty"`
+	SLA            string                      `json:"sla,omitempty" yaml:"sla,omitempty"`
+	SLAOwner       string                      `json:"sla-owner,omitempty" yaml:"sla-owner,omitempty"`
+	AgentVersion   string                      `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
+	Credential     *ModelCredential            `json:"credential,omitempty" yaml:"credential,omitempty"`
 }
 
 // ModelMachineInfo contains information about a machine in a model.
@@ -39,7 +50,7 @@ type ModelMachineInfo struct {
 
 // ModelStatus contains the current status of a model.
 type ModelStatus struct {
-	Current        status.Status `json:"current" yaml:"current"`
+	Current        status.Status `json:"current,omitempty" yaml:"current,omitempty"`
 	Message        string        `json:"message,omitempty" yaml:"message,omitempty"`
 	Since          string        `json:"since,omitempty" yaml:"since,omitempty"`
 	Migration      string        `json:"migration,omitempty" yaml:"migration,omitempty"`
@@ -55,48 +66,95 @@ type ModelUserInfo struct {
 	LastConnection string `yaml:"last-connection" json:"last-connection"`
 }
 
-// friendlyDuration renders a time pointer that we get from the API as
+// FriendlyDuration renders a time pointer that we get from the API as
 // a friendly string.
-func friendlyDuration(when *time.Time, now time.Time) string {
+func FriendlyDuration(when *time.Time, now time.Time) string {
 	if when == nil {
 		return ""
 	}
 	return UserFriendlyDuration(*when, now)
 }
 
+// ModelCredential contains model credential basic details.
+type ModelCredential struct {
+	Name  string `json:"name" yaml:"name"`
+	Owner string `json:"owner" yaml:"owner"`
+	Cloud string `json:"cloud" yaml:"cloud"`
+}
+
 // ModelInfoFromParams translates a params.ModelInfo to ModelInfo.
 func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error) {
-	tag, err := names.ParseUserTag(info.OwnerTag)
+	ownerTag, err := names.ParseUserTag(info.OwnerTag)
 	if err != nil {
 		return ModelInfo{}, errors.Trace(err)
-	}
-	status := ModelStatus{
-		Current: info.Status.Status,
-		Message: info.Status.Info,
-		Since:   friendlyDuration(info.Status.Since, now),
-	}
-	if info.Migration != nil {
-		status.Migration = info.Migration.Status
-		status.MigrationStart = friendlyDuration(info.Migration.Start, now)
-		status.MigrationEnd = friendlyDuration(info.Migration.End, now)
 	}
 	cloudTag, err := names.ParseCloudTag(info.CloudTag)
 	if err != nil {
 		return ModelInfo{}, errors.Trace(err)
 	}
-	return ModelInfo{
-		Name:           info.Name,
+	modelInfo := ModelInfo{
+		ShortName:      info.Name,
+		Name:           jujuclient.JoinOwnerModelName(ownerTag, info.Name),
+		Type:           model.ModelType(info.Type),
 		UUID:           info.UUID,
 		ControllerUUID: info.ControllerUUID,
-		Owner:          tag.Id(),
+		Owner:          ownerTag.Id(),
 		Life:           string(info.Life),
-		Status:         status,
 		Cloud:          cloudTag.Id(),
 		CloudRegion:    info.CloudRegion,
-		ProviderType:   info.ProviderType,
-		Users:          ModelUserInfoFromParams(info.Users, now),
-		Machines:       ModelMachineInfoFromParams(info.Machines),
-	}, nil
+	}
+	if info.AgentVersion != nil {
+		modelInfo.AgentVersion = info.AgentVersion.String()
+	}
+	// Although this may be more performance intensive, we have to use reflection
+	// since structs containing map[string]interface {} cannot be compared, i.e
+	// cannot use simple '==' here.
+	if !reflect.DeepEqual(info.Status, params.EntityStatus{}) {
+		modelInfo.Status = &ModelStatus{
+			Current: info.Status.Status,
+			Message: info.Status.Info,
+			Since:   FriendlyDuration(info.Status.Since, now),
+		}
+	}
+	if info.Migration != nil {
+		status := modelInfo.Status
+		if status == nil {
+			status = &ModelStatus{}
+			modelInfo.Status = status
+		}
+		status.Migration = info.Migration.Status
+		status.MigrationStart = FriendlyDuration(info.Migration.Start, now)
+		status.MigrationEnd = FriendlyDuration(info.Migration.End, now)
+	}
+
+	if info.ProviderType != "" {
+		modelInfo.ProviderType = info.ProviderType
+
+	}
+	if len(info.Users) != 0 {
+		modelInfo.Users = ModelUserInfoFromParams(info.Users, now)
+	}
+	if len(info.Machines) != 0 {
+		modelInfo.Machines = ModelMachineInfoFromParams(info.Machines)
+	}
+	if info.SLA != nil {
+		modelInfo.SLA = ModelSLAFromParams(info.SLA)
+		modelInfo.SLAOwner = ModelSLAOwnerFromParams(info.SLA)
+	}
+
+	if info.CloudCredentialTag != "" {
+		credTag, err := names.ParseCloudCredentialTag(info.CloudCredentialTag)
+		if err != nil {
+			return ModelInfo{}, errors.Trace(err)
+		}
+		modelInfo.Credential = &ModelCredential{
+			Name:  credTag.Name(),
+			Owner: credTag.Owner().Id(),
+			Cloud: credTag.Cloud().Id(),
+		}
+	}
+
+	return modelInfo, nil
 }
 
 // ModelMachineInfoFromParams translates []params.ModelMachineInfo to a map of
@@ -132,6 +190,20 @@ func ModelUserInfoFromParams(users []params.ModelUserInfo, now time.Time) map[st
 	return output
 }
 
+func ModelSLAFromParams(sla *params.ModelSLAInfo) string {
+	if sla == nil {
+		return ""
+	}
+	return sla.Level
+}
+
+func ModelSLAOwnerFromParams(sla *params.ModelSLAInfo) string {
+	if sla == nil {
+		return ""
+	}
+	return sla.Owner
+}
+
 // OwnerQualifiedModelName returns the model name qualified with the
 // model owner if the owner is not the same as the given canonical
 // user name. If the owner is a local user, we omit the domain.
@@ -139,6 +211,5 @@ func OwnerQualifiedModelName(modelName string, owner, user names.UserTag) string
 	if owner.Id() == user.Id() {
 		return modelName
 	}
-	ownerName := owner.Id()
-	return fmt.Sprintf("%s/%s", ownerName, modelName)
+	return jujuclient.JoinOwnerModelName(owner, modelName)
 }

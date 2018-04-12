@@ -9,6 +9,7 @@ import (
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/mgo.v2"
@@ -41,6 +42,7 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 			s.PopNoErr()
 			return &s.collection, s.closeCollection
 		},
+		Clock: clock.WallClock,
 	}
 }
 
@@ -48,6 +50,12 @@ func (s *StorageSuite) TestValidateConfigGetCollection(c *gc.C) {
 	s.config.GetCollection = nil
 	_, err := New(s.config)
 	c.Assert(err, gc.ErrorMatches, "validating config: nil GetCollection not valid")
+}
+
+func (s *StorageSuite) TestValidateConfigClock(c *gc.C) {
+	s.config.Clock = nil
+	_, err := New(s.config)
+	c.Assert(err, gc.ErrorMatches, "validating config: nil Clock not valid")
 }
 
 func (s *StorageSuite) TestPut(c *gc.C) {
@@ -83,6 +91,37 @@ func (s *StorageSuite) TestExpireAt(c *gc.C) {
 			Location: "foo",
 			Item:     "bar",
 			ExpireAt: expiryTime.Add(-1 * time.Second),
+		}}},
+		{"Close", nil},
+	})
+}
+
+type mockClock struct {
+	clock.Clock
+	now time.Time
+}
+
+func (m *mockClock) Now() time.Time {
+	return m.now
+}
+
+func (s *StorageSuite) TestExpireAfter(c *gc.C) {
+	now := time.Now()
+	s.config.Clock = &mockClock{now: now}
+	store, err := New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	store = store.ExpireAfter(24 * time.Hour)
+
+	err = store.Put("foo", "bar")
+	c.Assert(err, jc.ErrorIsNil)
+	s.CheckCalls(c, []gitjujutesting.StubCall{
+		{"GetCollection", nil},
+		{"Writeable", nil},
+		{"UpsertId", []interface{}{"foo", storageDoc{
+			Location: "foo",
+			Item:     "bar",
+			ExpireAt: now.Add(24 * time.Hour).Add(-1 * time.Second),
 		}}},
 		{"Close", nil},
 	})

@@ -4,6 +4,7 @@
 package state
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
@@ -11,13 +12,15 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/status"
 )
 
@@ -32,13 +35,16 @@ type RemoteApplication struct {
 type remoteApplicationDoc struct {
 	DocID           string              `bson:"_id"`
 	Name            string              `bson:"name"`
-	OfferName       string              `bson:"offer-name"`
+	OfferUUID       string              `bson:"offer-uuid"`
 	URL             string              `bson:"url,omitempty"`
 	SourceModelUUID string              `bson:"source-model-uuid"`
 	Endpoints       []remoteEndpointDoc `bson:"endpoints"`
+	Spaces          []remoteSpaceDoc    `bson:"spaces"`
+	Bindings        map[string]string   `bson:"bindings"`
 	Life            Life                `bson:"life"`
 	RelationCount   int                 `bson:"relationcount"`
 	IsConsumerProxy bool                `bson:"is-consumer-proxy"`
+	Macaroon        string              `bson:"macaroon,omitempty"`
 }
 
 // remoteEndpointDoc represents the internal state of a remote application endpoint in MongoDB.
@@ -48,6 +54,48 @@ type remoteEndpointDoc struct {
 	Interface string              `bson:"interface"`
 	Limit     int                 `bson:"limit"`
 	Scope     charm.RelationScope `bson:"scope"`
+}
+
+type attributeMap map[string]interface{}
+
+// remoteSpaceDoc represents the internal state of a space in another
+// model in the DB.
+type remoteSpaceDoc struct {
+	CloudType          string            `bson:"cloud-type"`
+	Name               string            `bson:"name"`
+	ProviderId         string            `bson:"provider-id"`
+	ProviderAttributes attributeMap      `bson:"provider-attributes"`
+	Subnets            []remoteSubnetDoc `bson:"subnets"`
+}
+
+// RemoteSpace represents a space in another model that endpoints are
+// bound to.
+type RemoteSpace struct {
+	CloudType          string
+	Name               string
+	ProviderId         string
+	ProviderAttributes attributeMap
+	Subnets            []RemoteSubnet
+}
+
+// remoteSubnetDoc represents a subnet in another model in the DB.
+type remoteSubnetDoc struct {
+	CIDR              string   `bson:"cidr"`
+	ProviderId        string   `bson:"provider-id"`
+	VLANTag           int      `bson:"vlan-tag"`
+	AvailabilityZones []string `bson:"availability-zones"`
+	ProviderSpaceId   string   `bson:"provider-space-id"`
+	ProviderNetworkId string   `bson:"provider-network-id"`
+}
+
+// RemoteSubnet represents a subnet in another model.
+type RemoteSubnet struct {
+	CIDR              string
+	ProviderId        string
+	VLANTag           int
+	AvailabilityZones []string
+	ProviderSpaceId   string
+	ProviderNetworkId string
 }
 
 func newRemoteApplication(st *State, doc *remoteApplicationDoc) *RemoteApplication {
@@ -60,6 +108,11 @@ func newRemoteApplication(st *State, doc *remoteApplicationDoc) *RemoteApplicati
 
 // remoteApplicationGlobalKey returns the global database key for the
 // remote application with the given name.
+//
+// This seems like an aggressively cryptic prefix, but apparently the
+// all-watcher requires that global keys have single letter prefixes
+// and r and a were taken.
+// TODO(babbageclunk): check whether this is still the case.
 func remoteApplicationGlobalKey(appName string) string {
 	return "c#" + appName
 }
@@ -90,9 +143,9 @@ func (s *RemoteApplication) Name() string {
 	return s.doc.Name
 }
 
-// OfferName returns the name on te offering side.
-func (s *RemoteApplication) OfferName() string {
-	return s.doc.OfferName
+// OfferUUID returns the offer UUID.
+func (s *RemoteApplication) OfferUUID() string {
+	return s.doc.OfferUUID
 }
 
 // URL returns the remote service URL, and a boolean indicating whether or not
@@ -106,7 +159,7 @@ func (s *RemoteApplication) URL() (string, bool) {
 // model to identify the service in future communications.
 func (s *RemoteApplication) Token() (string, error) {
 	r := s.st.RemoteEntities()
-	return r.GetToken(s.SourceModel(), s.Tag())
+	return r.GetToken(s.Tag())
 }
 
 // Tag returns a name identifying the application.
@@ -117,6 +170,83 @@ func (s *RemoteApplication) Tag() names.Tag {
 // Life returns whether the application is Alive, Dying or Dead.
 func (s *RemoteApplication) Life() Life {
 	return s.doc.Life
+}
+
+// Spaces returns the remote spaces this application is connected to.
+func (s *RemoteApplication) Spaces() []RemoteSpace {
+	var result []RemoteSpace
+	for _, space := range s.doc.Spaces {
+		result = append(result, remoteSpaceFromDoc(space))
+	}
+	return result
+}
+
+// Bindings returns the endpoint->space bindings for the application.
+func (s *RemoteApplication) Bindings() map[string]string {
+	result := make(map[string]string)
+	for epName, spName := range s.doc.Bindings {
+		result[epName] = spName
+	}
+	return result
+}
+
+// SpaceForEndpoint returns the remote space an endpoint is bound to,
+// if one is found.
+func (s *RemoteApplication) SpaceForEndpoint(endpointName string) (RemoteSpace, bool) {
+	spaceName, ok := s.doc.Bindings[endpointName]
+	if !ok {
+		return RemoteSpace{}, false
+	}
+	for _, space := range s.doc.Spaces {
+		if space.Name == spaceName {
+			return remoteSpaceFromDoc(space), true
+		}
+	}
+	return RemoteSpace{}, false
+}
+
+func remoteSpaceFromDoc(space remoteSpaceDoc) RemoteSpace {
+	result := RemoteSpace{
+		CloudType:          space.CloudType,
+		Name:               space.Name,
+		ProviderId:         space.ProviderId,
+		ProviderAttributes: copyAttributes(space.ProviderAttributes),
+	}
+	for _, subnet := range space.Subnets {
+		result.Subnets = append(result.Subnets, remoteSubnetFromDoc(subnet))
+	}
+	return result
+}
+
+func remoteSubnetFromDoc(subnet remoteSubnetDoc) RemoteSubnet {
+	return RemoteSubnet{
+		CIDR:              subnet.CIDR,
+		ProviderId:        subnet.ProviderId,
+		VLANTag:           subnet.VLANTag,
+		AvailabilityZones: copyStrings(subnet.AvailabilityZones),
+		ProviderSpaceId:   subnet.ProviderSpaceId,
+		ProviderNetworkId: subnet.ProviderNetworkId,
+	}
+}
+
+func copyStrings(values []string) []string {
+	if values == nil {
+		return nil
+	}
+	result := make([]string, len(values))
+	copy(result, values)
+	return result
+}
+
+func copyAttributes(values attributeMap) attributeMap {
+	if values == nil {
+		return nil
+	}
+	result := make(attributeMap)
+	for key, value := range values {
+		result[key] = value
+	}
+	return result
 }
 
 // Destroy ensures that this remote application reference and all its relations
@@ -149,7 +279,7 @@ func (s *RemoteApplication) Destroy() (err error) {
 		}
 		return nil, jujutxn.ErrTransientFailure
 	}
-	return s.st.run(buildTxn)
+	return s.st.db().Run(buildTxn)
 }
 
 // destroyOps returns the operations required to destroy the application. If it
@@ -191,7 +321,11 @@ func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
 	// removed, the application can also be removed.
 	if s.doc.RelationCount == removeCount {
 		hasLastRefs := bson.D{{"life", Alive}, {"relationcount", removeCount}}
-		return append(ops, s.removeOps(hasLastRefs)...), nil
+		removeOps, err := s.removeOps(hasLastRefs)
+		if err != nil {
+			return nil, err
+		}
+		return append(ops, removeOps...), nil
 	}
 	// In all other cases, application removal will be handled as a consequence
 	// of the removal of the relation referencing it. If any  relations have
@@ -220,7 +354,7 @@ func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
 
 // removeOps returns the operations required to remove the application. Supplied
 // asserts will be included in the operation on the application document.
-func (s *RemoteApplication) removeOps(asserts bson.D) []txn.Op {
+func (s *RemoteApplication) removeOps(asserts bson.D) ([]txn.Op, error) {
 	r := s.st.RemoteEntities()
 	ops := []txn.Op{
 		{
@@ -230,14 +364,15 @@ func (s *RemoteApplication) removeOps(asserts bson.D) []txn.Op {
 			Remove: true,
 		},
 		removeStatusOp(s.st, s.globalKey()),
-		r.removeRemoteEntityOp(s.SourceModel(), s.Tag()),
 	}
-	return ops
+	tokenOps := r.removeRemoteEntityOps(s.Tag())
+	ops = append(ops, tokenOps...)
+	return ops, nil
 }
 
 // Status returns the status of the remote application.
 func (s *RemoteApplication) Status() (status.StatusInfo, error) {
-	return getStatus(s.st, s.globalKey(), "remote application")
+	return getStatus(s.st.db(), s.globalKey(), "remote application")
 }
 
 // SetStatus sets the status for the application.
@@ -245,13 +380,13 @@ func (s *RemoteApplication) SetStatus(info status.StatusInfo) error {
 	if !info.Status.KnownWorkloadStatus() {
 		return errors.Errorf("cannot set invalid status %q", info.Status)
 	}
-	return setStatus(s.st, setStatusParams{
+	return setStatus(s.st.db(), setStatusParams{
 		badge:     "remote application",
 		globalKey: s.globalKey(),
 		status:    info.Status,
 		message:   info.Message,
 		rawData:   info.Data,
-		updated:   info.Since,
+		updated:   timeOrNow(info.Since, s.st.clock()),
 	})
 }
 
@@ -374,10 +509,22 @@ func (s *RemoteApplication) AddEndpoints(eps []charm.Relation) error {
 		}
 		return ops, nil
 	}
-	if err := s.st.run(buildTxn); err != nil {
+	if err := s.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return s.Refresh()
+}
+
+func (s *RemoteApplication) Macaroon() (*macaroon.Macaroon, error) {
+	if s.doc.Macaroon == "" {
+		return nil, nil
+	}
+	var mac macaroon.Macaroon
+	err := json.Unmarshal([]byte(s.doc.Macaroon), &mac)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &mac, nil
 }
 
 // String returns the application name.
@@ -389,7 +536,7 @@ func (s *RemoteApplication) String() string {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // application has been removed.
 func (s *RemoteApplication) Refresh() error {
-	applications, closer := s.st.getCollection(remoteApplicationsC)
+	applications, closer := s.st.db().GetCollection(remoteApplicationsC)
 	defer closer()
 
 	err := applications.FindId(s.doc.DocID).One(&s.doc)
@@ -414,8 +561,8 @@ type AddRemoteApplicationParams struct {
 	// match the application name in the URL, or the name in the remote model.
 	Name string
 
-	// OfferName is the name the offering side has given to the remote application.
-	OfferName string
+	// OfferUUID is the UUID of the offer.
+	OfferUUID string
 
 	// URL is either empty, or the URL that the remote application was offered
 	// with on the hosting model.
@@ -431,9 +578,19 @@ type AddRemoteApplicationParams struct {
 	// Endpoints describes the endpoints that the remote application implements.
 	Endpoints []charm.Relation
 
+	// Spaces describes the network spaces that the remote
+	// application's endpoints inhabit in the remote model.
+	Spaces []*environs.ProviderSpaceInfo
+
+	// Bindings maps each endpoint name to the remote space it is bound to.
+	Bindings map[string]string
+
 	// IsConsumerProxy is true when a remote application is created as a result
 	// of a registration operation from a remote model.
 	IsConsumerProxy bool
+
+	// Macaroon is used for authentication on the offering side.
+	Macaroon *macaroon.Macaroon
 }
 
 // Validate returns an error if there's a problem with the
@@ -445,12 +602,21 @@ func (p AddRemoteApplicationParams) Validate() error {
 	if p.URL != "" {
 		// URL may be empty, to represent remote applications corresponding
 		// to consumers of an offered application.
-		if _, err := crossmodel.ParseApplicationURL(p.URL); err != nil {
-			return errors.Annotate(err, "validating offered application URL")
+		if _, err := crossmodel.ParseOfferURL(p.URL); err != nil {
+			return errors.Annotate(err, "validating offer URL")
 		}
 	}
 	if p.SourceModel == (names.ModelTag{}) {
 		return errors.NotValidf("empty source model tag")
+	}
+	spaceNames := set.NewStrings()
+	for _, space := range p.Spaces {
+		spaceNames.Add(space.Name)
+	}
+	for endpoint, space := range p.Bindings {
+		if !spaceNames.Contains(space) {
+			return errors.NotValidf("endpoint %q bound to missing space %q", endpoint, space)
+		}
 	}
 	return nil
 }
@@ -471,16 +637,26 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		return nil, errors.Errorf("model is no longer alive")
 	}
 
+	var macJSON string
+	if args.Macaroon != nil {
+		b, err := json.Marshal(args.Macaroon)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		macJSON = string(b)
+	}
 	applicationID := st.docID(args.Name)
 	// Create the application addition operations.
 	appDoc := &remoteApplicationDoc{
 		DocID:           applicationID,
 		Name:            args.Name,
-		OfferName:       args.OfferName,
+		OfferUUID:       args.OfferUUID,
 		SourceModelUUID: args.SourceModel.Id(),
 		URL:             args.URL,
+		Bindings:        args.Bindings,
 		Life:            Alive,
 		IsConsumerProxy: args.IsConsumerProxy,
+		Macaroon:        macJSON,
 	}
 	eps := make([]remoteEndpointDoc, len(args.Endpoints))
 	for i, ep := range args.Endpoints {
@@ -493,13 +669,29 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		}
 	}
 	appDoc.Endpoints = eps
-	app := newRemoteApplication(st, appDoc)
-	statusDoc := statusDoc{
-		ModelUUID:  st.ModelUUID(),
-		Status:     status.Unknown,
-		StatusInfo: "waiting for remote connection",
-		Updated:    time.Now().UnixNano(),
+	spaces := make([]remoteSpaceDoc, len(args.Spaces))
+	for i, space := range args.Spaces {
+		spaces[i] = remoteSpaceDoc{
+			CloudType:          space.CloudType,
+			Name:               space.Name,
+			ProviderId:         string(space.ProviderId),
+			ProviderAttributes: space.ProviderAttributes,
+		}
+		subnets := make([]remoteSubnetDoc, len(space.Subnets))
+		for i, subnet := range space.Subnets {
+			subnets[i] = remoteSubnetDoc{
+				CIDR:              subnet.CIDR,
+				ProviderId:        string(subnet.ProviderId),
+				VLANTag:           subnet.VLANTag,
+				AvailabilityZones: copyStrings(subnet.AvailabilityZones),
+				ProviderSpaceId:   string(subnet.SpaceProviderId),
+				ProviderNetworkId: string(subnet.ProviderNetworkId),
+			}
+		}
+		spaces[i].Subnets = subnets
 	}
+	appDoc.Spaces = spaces
+	app := newRemoteApplication(st, appDoc)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
@@ -523,7 +715,6 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 		}
 		ops := []txn.Op{
 			model.assertActiveOp(),
-			createStatusOp(st, app.globalKey(), statusDoc),
 			{
 				C:      remoteApplicationsC,
 				Id:     appDoc.Name,
@@ -535,16 +726,22 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 				Assert: txn.DocMissing,
 			},
 		}
+		if !args.IsConsumerProxy {
+			statusDoc := statusDoc{
+				ModelUUID: st.ModelUUID(),
+				Status:    status.Unknown,
+				Updated:   time.Now().UnixNano(),
+			}
+			ops = append(ops, createStatusOp(st, app.globalKey(), statusDoc))
+		}
 		// If we know the token, import it.
 		if args.Token != "" {
-			importRemoteEntityOps := st.RemoteEntities().importRemoteEntityOps(
-				args.SourceModel, app.Tag(), args.Token,
-			)
+			importRemoteEntityOps := st.RemoteEntities().importRemoteEntityOps(app.Tag(), args.Token)
 			ops = append(ops, importRemoteEntityOps...)
 		}
 		return ops, nil
 	}
-	if err = st.run(buildTxn); err != nil {
+	if err = st.db().Run(buildTxn); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return app, nil
@@ -556,7 +753,7 @@ func (st *State) RemoteApplication(name string) (_ *RemoteApplication, err error
 		return nil, errors.NotValidf("remote application name %q", name)
 	}
 
-	applications, closer := st.getCollection(remoteApplicationsC)
+	applications, closer := st.db().GetCollection(remoteApplicationsC)
 	defer closer()
 
 	appDoc := &remoteApplicationDoc{}
@@ -572,7 +769,7 @@ func (st *State) RemoteApplication(name string) (_ *RemoteApplication, err error
 
 // RemoteApplicationByToken returns a remote application state by token.
 func (st *State) RemoteApplicationByToken(token string) (_ *RemoteApplication, err error) {
-	apps, closer := st.getCollection(remoteApplicationsC)
+	apps, closer := st.db().GetCollection(remoteApplicationsC)
 	defer closer()
 
 	appDoc := &remoteApplicationDoc{}
@@ -588,7 +785,7 @@ func (st *State) RemoteApplicationByToken(token string) (_ *RemoteApplication, e
 
 // AllRemoteApplications returns all the remote applications used by the model.
 func (st *State) AllRemoteApplications() (applications []*RemoteApplication, err error) {
-	applicationsCollection, closer := st.getCollection(remoteApplicationsC)
+	applicationsCollection, closer := st.db().GetCollection(remoteApplicationsC)
 	defer closer()
 
 	appDocs := []remoteApplicationDoc{}
@@ -600,30 +797,4 @@ func (st *State) AllRemoteApplications() (applications []*RemoteApplication, err
 		applications = append(applications, newRemoteApplication(st, &v))
 	}
 	return applications, nil
-}
-
-// RemoteConnectionStatus returns summary information about connections to the specified offer.
-func (st *State) RemoteConnectionStatus(offerName string) (*RemoteConnectionStatus, error) {
-	applicationsCollection, closer := st.getCollection(remoteApplicationsC)
-	defer closer()
-
-	count, err := applicationsCollection.Find(bson.D{{"offer-name", offerName}}).Count()
-	if err != nil {
-		return nil, errors.Errorf("cannot get remote connection status for offer %q", offerName)
-	}
-	return &RemoteConnectionStatus{
-		count: count,
-	}, nil
-}
-
-// RemoteConnectionStatus holds summary information about connections
-// to an application offer.
-type RemoteConnectionStatus struct {
-	count int
-}
-
-// ConnectionCount returns the number of remote applications
-// related to an offer.
-func (r *RemoteConnectionStatus) ConnectionCount() int {
-	return r.count
 }

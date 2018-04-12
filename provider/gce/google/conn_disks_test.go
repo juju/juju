@@ -45,7 +45,7 @@ func (s *connSuite) TestConnectionDisks(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	s.FakeConn.Disks = []*compute.Disk{fakeDisk}
 
-	disks, err := s.Conn.Disks("home-zone")
+	disks, err := s.Conn.Disks()
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(disks, gc.HasLen, 1)
 	fakeGoogleDisk := google.NewDisk(fakeDisk)
@@ -54,22 +54,44 @@ func (s *connSuite) TestConnectionDisks(c *gc.C) {
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "ListDisks")
 	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
-	c.Check(s.FakeConn.Calls[0].ZoneName, gc.Equals, "home-zone")
+	c.Check(s.FakeConn.Calls[0].ZoneName, gc.Equals, "")
 }
 
 func (s *connSuite) TestConnectionDisk(c *gc.C) {
 	_, fakeDisk, err := fakeDiskAndSpec()
 	c.Check(err, jc.ErrorIsNil)
 	s.FakeConn.Disk = fakeDisk
+	s.FakeConn.Disk.Zone = "https://www.googleapis.com/compute/v1/projects/my-project/zones/home-zone"
+
 	disk, err := s.Conn.Disk("home-zone", fakeVolName)
 	c.Check(err, jc.ErrorIsNil)
 	fakeGoogleDisk := google.NewDisk(fakeDisk)
 	c.Assert(disk, gc.DeepEquals, fakeGoogleDisk)
+	c.Assert(disk.Zone, gc.Equals, "home-zone")
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "GetDisk")
 	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
 	c.Check(s.FakeConn.Calls[0].ZoneName, gc.Equals, "home-zone")
+}
+
+func (s *connSuite) TestConnectionSetDiskLabels(c *gc.C) {
+	_, fakeDisk, err := fakeDiskAndSpec()
+	c.Check(err, jc.ErrorIsNil)
+	s.FakeConn.Disk = fakeDisk
+	labels := map[string]string{
+		"a": "b",
+		"c": "d",
+	}
+	err = s.Conn.SetDiskLabels("home-zone", fakeVolName, "fingerprint", labels)
+	c.Check(err, jc.ErrorIsNil)
+
+	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "SetDiskLabels")
+	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
+	c.Check(s.FakeConn.Calls[0].ZoneName, gc.Equals, "home-zone")
+	c.Check(s.FakeConn.Calls[0].LabelFingerprint, gc.Equals, "fingerprint")
+	c.Check(s.FakeConn.Calls[0].Labels, jc.DeepEquals, labels)
 }
 
 func (s *connSuite) TestConnectionAttachDisk(c *gc.C) {

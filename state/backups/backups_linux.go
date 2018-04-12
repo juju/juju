@@ -68,7 +68,7 @@ func ensureMongoService(agentConfig agent.Config) error {
 // * updates existing db entries to make sure they hold no references to
 // old instances
 // * updates config in all agents.
-func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (names.Tag, error) {
+func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) {
 	meta, backupReader, err := b.Get(backupId)
 	if err != nil {
 		return nil, errors.Annotatef(err, "could not fetch backup %q", backupId)
@@ -266,13 +266,30 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 	// TODO(perrito666): We should never stop process because of this.
 	// updateAllMachines will not return errors for individual
 	// agent update failures
-	models, err := st.AllModels()
+	pool := state.NewStatePool(st)
+	defer pool.Close()
+
+	modelUUIDs, err := st.AllModelUUIDs()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	machines := []machineModel{}
-	for _, model := range models {
-		machinesForModel, err := st.AllMachinesFor(model.UUID())
+	var machines []machineModel
+	for _, modelUUID := range modelUUIDs {
+		st, err := pool.Get(modelUUID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer func() {
+			st.Release()
+			pool.Remove(modelUUID)
+		}()
+
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		machinesForModel, err := st.AllMachines()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -286,7 +303,7 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 	}
 
 	// Mark restoreInfo as Finished so upon restart of the apiserver
-	// the client can reconnect and determine if we where succesful.
+	// the client can reconnect and determine if we where successful.
 	info := st.RestoreInfo()
 	// In mongo 3.2, even though the backup is made with --oplog, there
 	// are stale transactions in this collection.

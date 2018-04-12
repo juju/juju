@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
+	"github.com/kr/pretty"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -55,14 +56,6 @@ var (
 		JobManageModel: "api-server",
 	}
 )
-
-// AllJobs returns all supported machine jobs.
-func AllJobs() []MachineJob {
-	return []MachineJob{
-		JobHostUnits,
-		JobManageModel,
-	}
-}
 
 // ToParams returns the job as multiwatcher.MachineJob.
 func (job MachineJob) ToParams() multiwatcher.MachineJob {
@@ -208,7 +201,6 @@ type instanceData struct {
 	MachineId  string      `bson:"machineid"`
 	InstanceId instance.Id `bson:"instanceid"`
 	ModelUUID  string      `bson:"model-uuid"`
-	Status     string      `bson:"status,omitempty"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
 	RootDisk   *uint64     `bson:"rootdisk,omitempty"`
@@ -216,6 +208,10 @@ type instanceData struct {
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
 	Tags       *[]string   `bson:"tags,omitempty"`
 	AvailZone  *string     `bson:"availzone,omitempty"`
+
+	// KeepInstance is set to true if, on machine removal from Juju,
+	// the cloud instance should be retained.
+	KeepInstance bool `bson:"keep-instance,omitempty"`
 }
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
@@ -240,7 +236,7 @@ func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, 
 }
 
 func getInstanceData(st *State, id string) (instanceData, error) {
-	instanceDataCollection, closer := st.getCollection(instanceDataC)
+	instanceDataCollection, closer := st.db().GetCollection(instanceDataC)
 	defer closer()
 
 	var instData instanceData
@@ -278,6 +274,34 @@ func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
 }
 
+// SetKeepInstance sets whether the cloud machine instance
+// will be retained when the machine is removed from Juju.
+// This is only relevant if an instance exists.
+func (m *Machine) SetKeepInstance(keepInstance bool) error {
+	ops := []txn.Op{{
+		C:      instanceDataC,
+		Id:     m.doc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"keep-instance", keepInstance}}}},
+	}}
+	if err := m.st.db().RunTransaction(ops); err != nil {
+		// If instance doc doesn't exist, that's ok; there's nothing to keep,
+		// but that's not an error we care about.
+		return errors.Annotatef(onAbort(err, nil), "cannot set KeepInstance on machine %v", m)
+	}
+	return nil
+}
+
+// KeepInstance reports whether a machine, when removed from
+// Juju, will cause the corresponding cloud instance to be stopped.
+func (m *Machine) KeepInstance() (bool, error) {
+	instData, err := getInstanceData(m.st, m.Id())
+	if err != nil {
+		return false, err
+	}
+	return instData.KeepInstance, nil
+}
+
 // WantsVote reports whether the machine is a controller
 // that wants to take part in peer voting.
 func (m *Machine) WantsVote() bool {
@@ -294,17 +318,26 @@ func (m *Machine) HasVote() bool {
 // member of the replica set. It should only be called
 // from the worker that maintains the replica set.
 func (m *Machine) SetHasVote(hasVote bool) error {
+	op := m.UpdateOperation()
+	op.HasVote = &hasVote
+	if err := m.st.ApplyOperation(op); err != nil {
+		return errors.Trace(err)
+	}
+	m.doc.HasVote = hasVote
+	return nil
+}
+
+func (m *Machine) setHasVoteOps(hasVote bool) ([]txn.Op, error) {
+	if m.Life() == Dead {
+		return nil, ErrDead
+	}
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"hasvote", hasVote}}}},
 	}}
-	if err := m.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set HasVote of machine %v: %v", m, onAbort(err, ErrDead))
-	}
-	m.doc.HasVote = hasVote
-	return nil
+	return ops, nil
 }
 
 // SetStopMongoUntilVersion sets a version that is to be checked against
@@ -316,7 +349,7 @@ func (m *Machine) SetStopMongoUntilVersion(v mongo.Version) error {
 		Id:     m.doc.DocID,
 		Update: bson.D{{"$set", bson.D{{"stopmongountilversion", v.String()}}}},
 	}}
-	if err := m.st.runTransaction(ops); err != nil {
+	if err := m.st.db().RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set StopMongoUntilVersion %v: %v", m, onAbort(err, ErrDead))
 	}
 	m.doc.StopMongoUntilVersion = v.String()
@@ -346,7 +379,12 @@ func (m *Machine) IsManual() (bool, error) {
 	// case we need to check if its provider type is "manual".
 	// We also check for "null", which is an alias for manual.
 	if m.doc.Id == "0" {
-		cfg, err := m.st.ModelConfig()
+		model, err := m.st.Model()
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+
+		cfg, err := model.ModelConfig()
 		if err != nil {
 			return false, err
 		}
@@ -361,7 +399,7 @@ func (m *Machine) IsManual() (bool, error) {
 // have not yet been set.
 func (m *Machine) AgentTools() (*tools.Tools, error) {
 	if m.doc.Tools == nil {
-		return nil, errors.NotFoundf("agent tools for machine %v", m)
+		return nil, errors.NotFoundf("agent binaries for machine %v", m)
 	}
 	tools := *m.doc.Tools
 	return &tools, nil
@@ -380,8 +418,23 @@ func checkVersionValidity(v version.Binary) error {
 // currently running.
 func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set agent version for machine %v", m)
-	if err = checkVersionValidity(v); err != nil {
-		return err
+	ops, tools, err := m.setAgentVersionOps(v)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// A "raw" transaction is needed here because this function gets
+	// called before database migrations have run so we don't
+	// necessarily want the env UUID added to the id.
+	if err := m.st.runRawTransaction(ops); err != nil {
+		return onAbort(err, ErrDead)
+	}
+	m.doc.Tools = tools
+	return nil
+}
+
+func (m *Machine) setAgentVersionOps(v version.Binary) ([]txn.Op, *tools.Tools, error) {
+	if err := checkVersionValidity(v); err != nil {
+		return nil, nil, err
 	}
 	tools := &tools.Tools{Version: v}
 	ops := []txn.Op{{
@@ -390,14 +443,7 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
-	// A "raw" transaction is needed here because this function gets
-	// called before database migraions have run so we don't
-	// necessarily want the env UUID added to the id.
-	if err := m.st.runRawTransaction(ops); err != nil {
-		return onAbort(err, ErrDead)
-	}
-	m.doc.Tools = tools
-	return nil
+	return ops, tools, nil
 }
 
 // SetMongoPassword sets the password the agent responsible for the machine
@@ -413,37 +459,29 @@ func (m *Machine) SetMongoPassword(password string) error {
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
 	if len(password) < utils.MinAgentPasswordLength {
-		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
+		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
 	}
-	return m.setPasswordHash(utils.AgentPasswordHash(password))
+	passwordHash := utils.AgentPasswordHash(password)
+	op := m.UpdateOperation()
+	op.PasswordHash = &passwordHash
+	if err := m.st.ApplyOperation(op); err != nil {
+		return errors.Trace(err)
+	}
+	m.doc.PasswordHash = passwordHash
+	return nil
 }
 
-// setPasswordHash sets the underlying password hash in the database directly
-// to the value supplied. This is split out from SetPassword to allow direct
-// manipulation in tests (to check for backwards compatibility).
-func (m *Machine) setPasswordHash(passwordHash string) error {
+func (m *Machine) setPasswordHashOps(passwordHash string) ([]txn.Op, error) {
+	if m.doc.Life == Dead {
+		return nil, ErrDead
+	}
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
 	}}
-	// A "raw" transaction is used here because this code has to work
-	// before the machine env UUID DB migration has run. In this case
-	// we don't want the automatic env UUID prefixing to the doc _id
-	// to occur.
-	if err := m.st.runRawTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, ErrDead))
-	}
-	m.doc.PasswordHash = passwordHash
-	return nil
-}
-
-// Return the underlying PasswordHash stored in the database. Used by the test
-// suite to check that the PasswordHash gets properly updated to new values
-// when compatibility mode is detected.
-func (m *Machine) getPasswordHash() string {
-	return m.doc.PasswordHash
+	return ops, nil
 }
 
 // PasswordValid returns whether the given password is valid
@@ -469,24 +507,60 @@ func (m *Machine) ForceDestroy() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := m.st.runTransaction(ops); err != txn.ErrAborted {
-		return errors.Trace(err)
+	if err := m.st.db().RunTransaction(ops); err != txn.ErrAborted {
+		return errors.Annotatef(err, "failed to run transaction: %s", pretty.Sprint(ops))
 	}
 	return nil
 }
 
-var managerMachineError = errors.New("machine is required by the model")
-
 func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
 	if m.IsManager() {
-		return nil, errors.Trace(managerMachineError)
+		controllerInfo, err := m.st.ControllerInfo()
+		if err != nil {
+			return nil, errors.Annotatef(err, "reading controller info")
+		}
+		if len(controllerInfo.MachineIds) <= 1 {
+			return nil, errors.Errorf("machine %s is the only controller machine", m.Id())
+		}
+		// We set the machine to Dying if it isn't already dead.
+		var machineOp txn.Op
+		if m.Life() < Dead {
+			// Make sure we don't want the vote, and we are queued to be Dying
+			machineOp = txn.Op{
+				C:      machinesC,
+				Id:     m.doc.DocID,
+				Assert: bson.D{{"life", bson.D{{"$in", []Life{Alive, Dying}}}}},
+				Update: bson.D{{"$set", bson.D{{"novote", true}, {"life", Dying}}}},
+			}
+		} else {
+			machineOp = txn.Op{
+				C:      machinesC,
+				Id:     m.doc.DocID,
+				Update: bson.D{{"$set", bson.D{{"novote", true}}}},
+			}
+		}
+		controllerOp := txn.Op{
+			C:      controllersC,
+			Id:     modelGlobalKey,
+			Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
+		}
+		// Note that ForceDestroy does *not* cleanup the replicaset, so it might cause problems.
+		// However, we're letting the user handle times when the machine agent isn't running, etc.
+		// We may need to update the peergrouper for this.
+		return []txn.Op{
+			machineOp,
+			controllerOp,
+			newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id),
+		}, nil
+	} else {
+		// Make sure the machine doesn't become a manager while we're destroying it
+		return []txn.Op{{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
+		}, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id),
+		}, nil
 	}
-
-	return []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
-	}, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}, nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
@@ -515,7 +589,7 @@ func IsHasAssignedUnitsError(err error) bool {
 // Containers returns the container ids belonging to a parent machine.
 // TODO(wallyworld): move this method to a service
 func (m *Machine) Containers() ([]string, error) {
-	containerRefs, closer := m.st.getCollection(containerRefsC)
+	containerRefs, closer := m.st.db().GetCollection(containerRefsC)
 	defer closer()
 
 	var mc machineContainers
@@ -627,10 +701,8 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		advanceAsserts := bson.D{
-			{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}},
-			{"hasvote", bson.D{{"$ne", true}}},
-		}
+		ops := []txn.Op{op}
+		var asserts bson.D
 		// Grab a fresh copy of the machine data.
 		// We don't write to original, because the expectation is that state-
 		// changing methods only set the requested change on the receiver; a case
@@ -649,32 +721,54 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			if m.doc.Life != Alive {
 				return nil, jujutxn.ErrNoOperations
 			}
-			advanceAsserts = append(advanceAsserts, isAliveDoc...)
+			// Manager nodes are allowed to go to dying even when they have the vote, as that is used as the signal
+			// that they should lose their vote
+			asserts = append(asserts, isAliveDoc...)
 		case Dead:
 			if m.doc.Life == Dead {
 				return nil, jujutxn.ErrNoOperations
 			}
-			advanceAsserts = append(advanceAsserts, notDeadDoc...)
+			if m.doc.HasVote {
+				return nil, fmt.Errorf("machine %s is still a voting controller member", m.doc.Id)
+			}
+			if m.IsManager() {
+				return nil, errors.Errorf("machine %s is still a controller member", m.Id())
+			}
+			asserts = append(asserts, bson.D{
+				{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}},
+				{"hasvote", bson.M{"$ne": true}},
+			}...)
+			asserts = append(asserts, notDeadDoc...)
 		default:
 			panic(fmt.Errorf("cannot advance lifecycle to %v", life))
 		}
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
-		if hasJob(m.doc.Jobs, JobManageModel) {
-			// (NOTE: When we enable multiple JobManageModel machines,
-			// this restriction will be lifted, but we will assert that the
-			// machine is not voting)
-			return nil, fmt.Errorf("machine %s is required by the model", m.doc.Id)
-		}
-		if m.doc.HasVote {
-			return nil, fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
-		}
 		// If there are no alive units left on the machine, or all the services are dying,
 		// then the machine may be soon destroyed by a cleanup worker.
 		// In that case, we don't want to return any error about not being able to
 		// destroy a machine with units as it will be a lie.
 		if life == Dying {
 			canDie := true
+			if hasJob(m.doc.Jobs, JobManageModel) || m.doc.HasVote {
+				// If we're responsible for managing the model, make sure we ask to drop our vote
+				ops[0].Update = bson.D{
+					{"$set", bson.D{{"life", life}, {"novote", true}}},
+				}
+				controllerInfo, err := m.st.ControllerInfo()
+				if err != nil {
+					return nil, errors.Annotatef(err, "reading controller info")
+				}
+				if len(controllerInfo.MachineIds) <= 1 {
+					return nil, errors.Errorf("machine %s is the only controller machine", m.Id())
+				}
+				controllerOp := txn.Op{
+					C:      controllersC,
+					Id:     modelGlobalKey,
+					Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
+				}
+				ops = append(ops, controllerOp)
+			}
 			var principalUnitnames []string
 			for _, principalUnit := range m.doc.Principals {
 				principalUnitnames = append(principalUnitnames, principalUnit)
@@ -697,6 +791,15 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 					return nil, errors.Annotatef(err, "reading machine %s containers", m)
 				}
 				canDie = len(containers) == 0
+				containerCheck := txn.Op{
+					C:  containerRefsC,
+					Id: m.doc.DocID,
+					Assert: bson.D{{"$or", []bson.D{
+						{{"children", bson.D{{"$size", 0}}}},
+						{{"children", bson.D{{"$exists", false}}}},
+					}}},
+				}
+				ops = append(ops, containerCheck)
 			}
 			if canDie {
 				checkUnits := bson.DocElem{
@@ -706,16 +809,9 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 						{{"principals", bson.D{{"$exists", false}}}},
 					},
 				}
-				op.Assert = append(advanceAsserts, checkUnits)
-				containerCheck := txn.Op{
-					C:  containerRefsC,
-					Id: m.doc.DocID,
-					Assert: bson.D{{"$or", []bson.D{
-						{{"children", bson.D{{"$size", 0}}}},
-						{{"children", bson.D{{"$exists", false}}}},
-					}}},
-				}
-				return []txn.Op{op, containerCheck, cleanupOp}, nil
+				ops[0].Assert = append(asserts, checkUnits)
+				ops = append(ops, cleanupOp)
+				return ops, nil
 			}
 		}
 
@@ -725,23 +821,27 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 				UnitNames: m.doc.Principals,
 			}
 		}
-		advanceAsserts = append(advanceAsserts, noUnits)
+		asserts = append(asserts, noUnits)
 
 		if life == Dead {
+			if hasJob(m.doc.Jobs, JobManageModel) {
+				return nil, errors.Errorf("machine %s is still resposible for being a controller", m.Id())
+			}
 			// A machine may not become Dead until it has no more
 			// attachments to detachable storage.
 			storageAsserts, err := m.assertNoPersistentStorage()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			advanceAsserts = append(advanceAsserts, storageAsserts...)
+			asserts = append(asserts, storageAsserts...)
 		}
 
 		// Add the additional asserts needed for this transaction.
-		op.Assert = advanceAsserts
-		return []txn.Op{op, cleanupOp}, nil
+		ops[0].Assert = asserts
+		ops = append(ops, cleanupOp)
+		return ops, nil
 	}
-	if err = m.st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
+	if err = m.st.db().Run(buildTxn); err == jujutxn.ErrExcessiveContention {
 		err = errors.Annotatef(err, "machine %s cannot advance lifecycle", m)
 	}
 	return err
@@ -751,10 +851,14 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 // filesystems attached to the machine, and returns any mgo/txn assertions
 // required to ensure that remains true.
 func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
+	im, err := m.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	attachments := make(set.Tags)
 	for _, v := range m.doc.Volumes {
 		tag := names.NewVolumeTag(v)
-		detachable, err := isDetachableVolumeTag(m.st, tag)
+		detachable, err := isDetachableVolumeTag(im.mb.db(), tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -764,7 +868,7 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 	}
 	for _, f := range m.doc.Filesystems {
 		tag := names.NewFilesystemTag(f)
-		detachable, err := isDetachableFilesystemTag(m.st, tag)
+		detachable, err := isDetachableFilesystemTag(im.mb.db(), tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -825,6 +929,10 @@ func (m *Machine) removePortsOps() ([]txn.Op, error) {
 }
 
 func (m *Machine) removeOps() ([]txn.Op, error) {
+	im, err := m.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if m.doc.Life != Dead {
 		return nil, fmt.Errorf("machine is not dead")
 	}
@@ -842,12 +950,12 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeStatusOp(m.st, m.globalInstanceKey()),
-		removeConstraintsOp(m.st, m.globalKey()),
+		removeConstraintsOp(m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
 		removeMachineBlockDevicesOp(m.Id()),
 		removeModelMachineRefOp(m.st, m.Id()),
-		removeSSHHostKeyOp(m.st, m.globalKey()),
+		removeSSHHostKeyOp(m.globalKey()),
 	}
 	linkLayerDevicesOps, err := m.removeAllLinkLayerDevicesOps()
 	if err != nil {
@@ -861,11 +969,11 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	filesystemOps, err := m.st.removeMachineFilesystemsOps(m)
+	filesystemOps, err := im.removeMachineFilesystemsOps(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	volumeOps, err := m.st.removeMachineVolumesOps(m)
+	volumeOps, err := im.removeMachineVolumesOps(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -903,7 +1011,7 @@ func (m *Machine) Remove() (err error) {
 		}
 		return ops, nil
 	}
-	return m.st.run(buildTxn)
+	return m.st.db().Run(buildTxn)
 }
 
 // Refresh refreshes the contents of the machine from the underlying
@@ -928,12 +1036,17 @@ func (m *Machine) AgentPresence() (bool, error) {
 }
 
 // WaitAgentPresence blocks until the respective agent is alive.
+// This should really only be used in the test suite.
 func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of machine %v", m)
 	ch := make(chan presence.Change)
 	pwatcher := m.st.workers.presenceWatcher()
 	pwatcher.Watch(m.globalKey(), ch)
 	defer pwatcher.Unwatch(m.globalKey(), ch)
+	pingBatcher := m.st.getPingBatcher()
+	if err := pingBatcher.Sync(); err != nil {
+		return err
+	}
 	for i := 0; i < 2; i++ {
 		select {
 		case change := <-ch:
@@ -954,11 +1067,15 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := m.st.getPresenceCollection()
-	p := presence.NewPinger(presenceCollection, m.st.modelTag, m.globalKey())
+	recorder := m.st.getPingBatcher()
+	p := presence.NewPinger(presenceCollection, m.st.modelTag, m.globalKey(),
+		func() presence.PingRecorder { return m.st.getPingBatcher() })
 	err := p.Start()
 	if err != nil {
 		return nil, err
 	}
+	// Make sure this Agent status is written to the database before returning.
+	recorder.Sync()
 	// We preform a manual sync here so that the
 	// presence pinger has the most up-to-date information when it
 	// starts. This ensures that commands run immediately after bootstrap
@@ -988,7 +1105,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 // InstanceStatus returns the provider specific instance status for this machine,
 // or a NotProvisionedError if instance is not yet provisioned.
 func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
-	machineStatus, err := getStatus(m.st, m.globalInstanceKey(), "instance")
+	machineStatus, err := getStatus(m.st.db(), m.globalInstanceKey(), "instance")
 	if err != nil {
 		logger.Warningf("error when retrieving instance status for machine: %s, %v", m.Id(), err)
 		return status.StatusInfo{}, err
@@ -998,13 +1115,13 @@ func (m *Machine) InstanceStatus() (status.StatusInfo, error) {
 
 // SetInstanceStatus sets the provider specific instance status for a machine.
 func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
-	return setStatus(m.st, setStatusParams{
+	return setStatus(m.st.db(), setStatusParams{
 		badge:     "instance",
 		globalKey: m.globalInstanceKey(),
 		status:    sInfo.Status,
 		message:   sInfo.Message,
 		rawData:   sInfo.Data,
-		updated:   sInfo.Since,
+		updated:   timeOrNow(sInfo.Since, m.st.clock()),
 	})
 
 }
@@ -1016,7 +1133,7 @@ func (m *Machine) SetInstanceStatus(sInfo status.StatusInfo) (err error) {
 // this juju machine is deployed.
 func (m *Machine) InstanceStatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        m.st,
+		db:        m.st.db(),
 		globalKey: m.globalInstanceKey(),
 		filter:    filter,
 	}
@@ -1043,7 +1160,7 @@ func (m *Machine) AvailabilityZone() (string, error) {
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get units assigned to machine %v", m)
-	unitsCollection, closer := m.st.getCollection(unitsC)
+	unitsCollection, closer := m.st.db().GetCollection(unitsC)
 	defer closer()
 
 	pudocs := []unitDoc{}
@@ -1051,15 +1168,19 @@ func (m *Machine) Units() (units []*Unit, err error) {
 	if err != nil {
 		return nil, err
 	}
+	model, err := m.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	for _, pudoc := range pudocs {
-		units = append(units, newUnit(m.st, &pudoc))
+		units = append(units, newUnit(m.st, model.Type(), &pudoc))
 		docs := []unitDoc{}
 		err = unitsCollection.Find(bson.D{{"principal", pudoc.Name}}).All(&docs)
 		if err != nil {
 			return nil, err
 		}
 		for _, doc := range docs {
-			units = append(units, newUnit(m.st, &doc))
+			units = append(units, newUnit(m.st, model.Type(), &doc))
 		}
 	}
 	return units, nil
@@ -1142,11 +1263,25 @@ func (m *Machine) DesiredSpaces() (set.Strings, error) {
 // that if the provisioner crashes (or its connection to the state is
 // lost) after starting the instance, we can be sure that only a single
 // instance will be able to act for that machine.
-func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) (err error) {
+func (m *Machine) SetProvisioned(
+	id instance.Id,
+	nonce string,
+	characteristics *instance.HardwareCharacteristics,
+) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set instance data for machine %q", m)
 
 	if id == "" || nonce == "" {
 		return fmt.Errorf("instance id and nonce cannot be empty")
+	}
+
+	coll, closer := m.st.db().GetCollection(instanceDataC)
+	defer closer()
+	count, err := coll.Find(bson.D{{"instanceid", id}}).Count()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if count > 0 {
+		logger.Warningf("duplicate instance id %q already saved", id)
 	}
 
 	if characteristics == nil {
@@ -1180,7 +1315,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		},
 	}
 
-	if err = m.st.runTransaction(ops); err == nil {
+	if err = m.st.db().RunTransaction(ops); err == nil {
 		m.doc.Nonce = nonce
 		return nil
 	} else if err != txn.ErrAborted {
@@ -1202,7 +1337,9 @@ func (m *Machine) SetInstanceInfo(
 	volumes map[names.VolumeTag]VolumeInfo,
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
-	logger.Tracef("setting instance info: machine %v, deviceAddrs: %#v, devicesArgs: %#v", m.Id(), devicesAddrs, devicesArgs)
+	logger.Tracef(
+		"setting instance info: machine %v, deviceAddrs: %#v, devicesArgs: %#v",
+		m.Id(), devicesAddrs, devicesArgs)
 
 	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
 		return errors.Trace(err)
@@ -1210,12 +1347,35 @@ func (m *Machine) SetInstanceInfo(
 	if err := m.SetDevicesAddressesIdempotently(devicesAddrs); err != nil {
 		return errors.Trace(err)
 	}
-	if err := setProvisionedVolumeInfo(m.st, volumes); err != nil {
+
+	im, err := m.st.IAASModel()
+	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := setMachineVolumeAttachmentInfo(m.st, m.Id(), volumeAttachments); err != nil {
+
+	// Record volumes and volume attachments, and set the initial
+	// status: attached or attaching.
+	if err := setProvisionedVolumeInfo(im, volumes); err != nil {
 		return errors.Trace(err)
 	}
+	if err := setMachineVolumeAttachmentInfo(im, m.Id(), volumeAttachments); err != nil {
+		return errors.Trace(err)
+	}
+	volumeStatus := make(map[names.VolumeTag]status.Status)
+	for tag := range volumes {
+		volumeStatus[tag] = status.Attaching
+	}
+	for tag := range volumeAttachments {
+		volumeStatus[tag] = status.Attached
+	}
+	for tag, status := range volumeStatus {
+		if err := im.SetVolumeStatus(tag, status, "", nil, nil); err != nil {
+			return errors.Annotatef(
+				err, "setting status of %s", names.ReadableString(tag),
+			)
+		}
+	}
+
 	return m.SetProvisioned(id, nonce, characteristics)
 }
 
@@ -1254,7 +1414,13 @@ func (m *Machine) PublicAddress() (network.Address, error) {
 // match, and if not it selects the best from the slice of all available
 // addresses. It returns the new address and a bool indicating if a different
 // one was picked.
-func maybeGetNewAddress(addr address, providerAddresses, machineAddresses []address, getAddr func([]address) network.Address, checkScope func(address) bool) (address, bool) {
+func maybeGetNewAddress(
+	addr address,
+	providerAddresses,
+	machineAddresses []address,
+	getAddr func([]address) network.Address,
+	checkScope func(address) bool,
+) (address, bool) {
 	// For picking the best address, try provider addresses first.
 	var newAddr address
 	netAddr := getAddr(providerAddresses)
@@ -1344,9 +1510,12 @@ func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
 	return ops
 }
 
-func (m *Machine) setPublicAddressOps(providerAddresses []address, machineAddresses []address) ([]txn.Op, address, bool) {
+func (m *Machine) setPublicAddressOps(providerAddresses []address, machineAddresses []address) ([]txn.Op, *address) {
 	publicAddress := m.doc.PreferredPublicAddress
-	logger.Tracef("machine %v: current public address: %#v \nprovider addresses: %#v \nmachine addresses: %#v", m.Id(), publicAddress, providerAddresses, machineAddresses)
+	logger.Tracef(
+		"machine %v: current public address: %#v \nprovider addresses: %#v \nmachine addresses: %#v",
+		m.Id(), publicAddress, providerAddresses, machineAddresses)
+
 	// Always prefer an exact match if available.
 	checkScope := func(addr address) bool {
 		return network.ExactScopeMatch(addr.networkAddress(), network.ScopePublic)
@@ -1360,18 +1529,19 @@ func (m *Machine) setPublicAddressOps(providerAddresses []address, machineAddres
 	newAddr, changed := maybeGetNewAddress(publicAddress, providerAddresses, machineAddresses, getAddr, checkScope)
 	if !changed {
 		// No change, so no ops.
-		return []txn.Op{}, publicAddress, false
+		return []txn.Op{}, nil
 	}
 
 	ops := m.setPreferredAddressOps(newAddr, true)
-	return ops, newAddr, true
+	return ops, &newAddr
 }
 
-func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddresses []address) ([]txn.Op, address, bool) {
+func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddresses []address) ([]txn.Op, *address) {
 	privateAddress := m.doc.PreferredPrivateAddress
 	// Always prefer an exact match if available.
 	checkScope := func(addr address) bool {
-		return network.ExactScopeMatch(addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal)
+		return network.ExactScopeMatch(
+			addr.networkAddress(), network.ScopeMachineLocal, network.ScopeCloudLocal, network.ScopeFanLocal)
 	}
 	// Without an exact match, prefer a fallback match.
 	getAddr := func(addresses []address) network.Address {
@@ -1382,24 +1552,17 @@ func (m *Machine) setPrivateAddressOps(providerAddresses []address, machineAddre
 	newAddr, changed := maybeGetNewAddress(privateAddress, providerAddresses, machineAddresses, getAddr, checkScope)
 	if !changed {
 		// No change, so no ops.
-		return []txn.Op{}, privateAddress, false
+		return []txn.Op{}, nil
 	}
 	ops := m.setPreferredAddressOps(newAddr, false)
-	return ops, newAddr, true
+	return ops, &newAddr
 }
 
 // SetProviderAddresses records any addresses related to the machine, sourced
 // by asking the provider.
-func (m *Machine) SetProviderAddresses(addresses ...network.Address) (err error) {
-	mdoc, err := m.st.getMachineDoc(m.Id())
-	if err != nil {
-		return errors.Annotatef(err, "cannot refresh provider addresses for machine %s", m)
-	}
-	if err = m.setAddresses(addresses, &mdoc.Addresses, "addresses"); err != nil {
-		return fmt.Errorf("cannot set addresses of machine %v: %v", m, err)
-	}
-	m.doc.Addresses = mdoc.Addresses
-	return nil
+func (m *Machine) SetProviderAddresses(addresses ...network.Address) error {
+	err := m.setAddresses(nil, &addresses)
+	return errors.Annotatef(err, "cannot set addresses of machine %v", m)
 }
 
 // ProviderAddresses returns any hostnames and ips associated with a machine,
@@ -1422,38 +1585,20 @@ func (m *Machine) MachineAddresses() (addresses []network.Address) {
 
 // SetMachineAddresses records any addresses related to the machine, sourced
 // by asking the machine.
-func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) {
-	mdoc, err := m.st.getMachineDoc(m.Id())
-	if err != nil {
-		return errors.Annotatef(err, "cannot refresh machine addresses for machine %s", m)
-	}
-	if err = m.setAddresses(addresses, &mdoc.MachineAddresses, "machineaddresses"); err != nil {
-		return fmt.Errorf("cannot set machine addresses of machine %v: %v", m, err)
-	}
-	m.doc.MachineAddresses = mdoc.MachineAddresses
-	return nil
+func (m *Machine) SetMachineAddresses(addresses ...network.Address) error {
+	err := m.setAddresses(&addresses, nil)
+	return errors.Annotatef(err, "cannot set machine addresses of machine %v", m)
 }
 
 // setAddresses updates the machine's addresses (either Addresses or
 // MachineAddresses, depending on the field argument). Changes are
 // only predicated on the machine not being Dead; concurrent address
 // changes are ignored.
-func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fieldName string) error {
-	addressesToSet := make([]network.Address, len(addresses))
-	copy(addressesToSet, addresses)
-
-	// Update addresses now.
-	network.SortAddresses(addressesToSet)
-	origin := OriginProvider
-	if fieldName == "machineaddresses" {
-		origin = OriginMachine
-	}
-	stateAddresses := fromNetworkAddresses(addressesToSet, origin)
-
+func (m *Machine) setAddresses(machineAddresses, providerAddresses *[]network.Address) error {
 	var (
-		newPrivate, newPublic         address
-		changedPrivate, changedPublic bool
-		err                           error
+		machineStateAddresses, providerStateAddresses []address
+		newPrivate, newPublic                         *address
+		err                                           error
 	)
 	machine := m
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -1462,58 +1607,79 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 				return nil, err
 			}
 		}
-		if machine.doc.Life == Dead {
-			return nil, errNotAlive
+		var ops []txn.Op
+		ops, machineStateAddresses, providerStateAddresses, newPrivate, newPublic, err = machine.setAddressesOps(
+			machineAddresses, providerAddresses,
+		)
+		if err != nil {
+			return nil, err
 		}
-		ops := []txn.Op{{
-			C:      machinesC,
-			Id:     machine.doc.DocID,
-			Assert: notDeadDoc,
-			Update: bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}},
-		}}
-
-		var providerAddresses []address
-		var machineAddresses []address
-		if fieldName == "machineaddresses" {
-			providerAddresses = machine.doc.Addresses
-			machineAddresses = stateAddresses
-		} else {
-			machineAddresses = machine.doc.MachineAddresses
-			providerAddresses = stateAddresses
-		}
-
-		var setPrivateAddressOps, setPublicAddressOps []txn.Op
-		setPrivateAddressOps, newPrivate, changedPrivate = machine.setPrivateAddressOps(providerAddresses, machineAddresses)
-		setPublicAddressOps, newPublic, changedPublic = machine.setPublicAddressOps(providerAddresses, machineAddresses)
-		ops = append(ops, setPrivateAddressOps...)
-		ops = append(ops, setPublicAddressOps...)
 		return ops, nil
 	}
-	err = m.st.run(buildTxn)
-	if err == txn.ErrAborted {
-		return ErrDead
-	} else if err != nil {
+	if err := m.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 
-	*field = stateAddresses
-	if changedPrivate {
+	m.doc.MachineAddresses = machineStateAddresses
+	m.doc.Addresses = providerStateAddresses
+	if newPrivate != nil {
 		oldPrivate := m.doc.PreferredPrivateAddress.networkAddress()
-		m.doc.PreferredPrivateAddress = newPrivate
+		m.doc.PreferredPrivateAddress = *newPrivate
 		logger.Infof(
 			"machine %q preferred private address changed from %q to %q",
 			m.Id(), oldPrivate, newPrivate.networkAddress(),
 		)
 	}
-	if changedPublic {
+	if newPublic != nil {
 		oldPublic := m.doc.PreferredPublicAddress.networkAddress()
-		m.doc.PreferredPublicAddress = newPublic
+		m.doc.PreferredPublicAddress = *newPublic
 		logger.Infof(
 			"machine %q preferred public address changed from %q to %q",
 			m.Id(), oldPublic, newPublic.networkAddress(),
 		)
 	}
 	return nil
+}
+
+func (m *Machine) setAddressesOps(
+	machineAddresses, providerAddresses *[]network.Address,
+) (_ []txn.Op, machineStateAddresses, providerStateAddresses []address, newPrivate, newPublic *address, _ error) {
+
+	if m.doc.Life == Dead {
+		return nil, nil, nil, nil, nil, ErrDead
+	}
+
+	fromNetwork := func(in []network.Address, origin Origin) []address {
+		sorted := make([]network.Address, len(in))
+		copy(sorted, in)
+		network.SortAddresses(sorted)
+		return fromNetworkAddresses(sorted, origin)
+	}
+
+	var set bson.D
+	machineStateAddresses = m.doc.MachineAddresses
+	providerStateAddresses = m.doc.Addresses
+	if machineAddresses != nil {
+		machineStateAddresses = fromNetwork(*machineAddresses, OriginMachine)
+		set = append(set, bson.DocElem{"machineaddresses", machineStateAddresses})
+	}
+	if providerAddresses != nil {
+		providerStateAddresses = fromNetwork(*providerAddresses, OriginProvider)
+		set = append(set, bson.DocElem{"addresses", providerStateAddresses})
+	}
+
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", set}},
+	}}
+
+	setPrivateAddressOps, newPrivate := m.setPrivateAddressOps(providerStateAddresses, machineStateAddresses)
+	setPublicAddressOps, newPublic := m.setPublicAddressOps(providerStateAddresses, machineStateAddresses)
+	ops = append(ops, setPrivateAddressOps...)
+	ops = append(ops, setPublicAddressOps...)
+	return ops, machineStateAddresses, providerStateAddresses, newPrivate, newPublic, nil
 }
 
 // CheckProvisioned returns true if the machine was provisioned with the given nonce.
@@ -1542,14 +1708,31 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 // instance for the machine. It will fail if the machine is Dead, or if it
 // is already provisioned.
 func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set constraints")
+	op := m.UpdateOperation()
+	op.Constraints = &cons
+	return m.st.ApplyOperation(op)
+}
+
+func (m *Machine) setConstraintsOps(cons constraints.Value) ([]txn.Op, error) {
 	unsupported, err := m.st.validateConstraints(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf(
-			"setting constraints on machine %q: unsupported constraints: %v", m.Id(), strings.Join(unsupported, ","))
+			"setting constraints on machine %q: unsupported constraints: %v",
+			m.Id(), strings.Join(unsupported, ","),
+		)
 	} else if err != nil {
-		return err
+		return nil, err
 	}
+
+	if m.doc.Life != Alive {
+		return nil, errNotAlive
+	}
+	if _, err := m.InstanceId(); err == nil {
+		return nil, fmt.Errorf("machine is already provisioned")
+	} else if !errors.IsNotProvisioned(err) {
+		return nil, err
+	}
+
 	notSetYet := bson.D{{"nonce", ""}}
 	ops := []txn.Op{{
 		C:      machinesC,
@@ -1558,37 +1741,15 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	}}
 	mcons, err := m.st.resolveMachineConstraints(cons)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	ops = append(ops, setConstraintsOp(m.st, m.globalKey(), mcons))
-	// make multiple attempts to push the ErrExcessiveContention case out of the
-	// realm of plausibility: it implies local state indicating unprovisioned,
-	// and remote state indicating provisioned (reasonable); but which changes
-	// back to unprovisioned and then to provisioned again with *very* specific
-	// timing in the course of this loop.
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if m, err = m.st.Machine(m.doc.Id); err != nil {
-				return nil, err
-			}
-		}
-		if m.doc.Life != Alive {
-			return nil, errNotAlive
-		}
-		if _, err := m.InstanceId(); err == nil {
-			return nil, fmt.Errorf("machine is already provisioned")
-		} else if !errors.IsNotProvisioned(err) {
-			return nil, err
-		}
-		return ops, nil
-	}
-	return m.st.run(buildTxn)
+	ops = append(ops, setConstraintsOp(m.globalKey(), mcons))
+	return ops, nil
 }
 
 // Status returns the status of the machine.
 func (m *Machine) Status() (status.StatusInfo, error) {
-	mStatus, err := getStatus(m.st, m.globalKey(), "machine")
+	mStatus, err := getStatus(m.st.db(), m.globalKey(), "machine")
 	if err != nil {
 		return mStatus, err
 	}
@@ -1617,13 +1778,13 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 	default:
 		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
-	return setStatus(m.st, setStatusParams{
+	return setStatus(m.st.db(), setStatusParams{
 		badge:     "machine",
 		globalKey: m.globalKey(),
 		status:    statusInfo.Status,
 		message:   statusInfo.Message,
 		rawData:   statusInfo.Data,
-		updated:   statusInfo.Since,
+		updated:   timeOrNow(statusInfo.Since, m.st.clock()),
 	})
 }
 
@@ -1632,7 +1793,7 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 // representing past statuses for this machine.
 func (m *Machine) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        m.st,
+		db:        m.st.db(),
 		globalKey: m.globalKey(),
 		filter:    filter,
 	}
@@ -1697,7 +1858,7 @@ func (m *Machine) updateSupportedContainers(supportedContainers []instance.Conta
 				}}},
 		},
 	}
-	if err = m.st.runTransaction(ops); err != nil {
+	if err = m.st.db().RunTransaction(ops); err != nil {
 		err = onAbort(err, ErrDead)
 		logger.Errorf("cannot update supported containers of machine %v: %v", m, err)
 		return err
@@ -1730,7 +1891,7 @@ func (m *Machine) markInvalidContainers() error {
 			}
 			if statusInfo.Status == status.Pending {
 				containerType := ContainerTypeFromId(containerId)
-				now := m.st.clock.Now()
+				now := m.st.clock().Now()
 				s := status.StatusInfo{
 					Status:  status.Error,
 					Message: "unsupported container",
@@ -1753,7 +1914,11 @@ func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
 
 // VolumeAttachments returns the machine's volume attachments.
 func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
-	return m.st.MachineVolumeAttachments(m.MachineTag())
+	im, err := m.st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return im.MachineVolumeAttachments(m.MachineTag())
 }
 
 // AddAction is part of the ActionReceiver interface.
@@ -1772,7 +1937,13 @@ func (m *Machine) AddAction(name string, payload map[string]interface{}) (Action
 	if err != nil {
 		return nil, err
 	}
-	return m.st.EnqueueAction(m.Tag(), name, payloadWithDefaults)
+
+	model, err := m.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return model.EnqueueAction(m.Tag(), name, payloadWithDefaults)
 }
 
 // CancelAction is part of the ActionReceiver interface.
@@ -1803,4 +1974,150 @@ func (m *Machine) PendingActions() ([]Action, error) {
 // RunningActions is part of the ActionReceiver interface.
 func (m *Machine) RunningActions() ([]Action, error) {
 	return m.st.matchingActionsRunning(m)
+}
+
+// UpdateMachineSeries updates the series for the Machine.
+func (m *Machine) UpdateMachineSeries(series string, force bool) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		// Exit early if the Machine series doesn't need to change.
+		if m.Series() == series {
+			return nil, jujutxn.ErrNoOperations
+		}
+
+		principals := m.Principals() // unit names
+		verifiedUnits, err := m.verifyUnitsSeries(principals, series, force)
+		if err != nil {
+			return nil, err
+		}
+
+		ops := []txn.Op{{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: bson.D{{"life", Alive}, {"principals", principals}},
+			Update: bson.D{{"$set", bson.D{{"series", series}}}},
+		}}
+		for _, unit := range verifiedUnits {
+			curl, _ := unit.CharmURL()
+			ops = append(ops, txn.Op{
+				C:  unitsC,
+				Id: unit.doc.DocID,
+				Assert: bson.D{{"life", Alive},
+					{"charmurl", curl},
+					{"subordinates", unit.SubordinateNames()}},
+				Update: bson.D{{"$set", bson.D{{"series", series}}}},
+			})
+		}
+
+		return ops, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	return errors.Annotatef(err, "cannot update series for %q to %s", m, series)
+}
+
+func (m *Machine) verifyUnitsSeries(unitNames []string, series string, force bool) ([]*Unit, error) {
+	results := []*Unit{}
+	for _, u := range unitNames {
+		unit, err := m.st.Unit(u)
+		if err != nil {
+			return nil, err
+		}
+		app, err := unit.Application()
+		if err != nil {
+			return nil, err
+		}
+		err = app.VerifySupportedSeries(series, force)
+		if err != nil {
+			return nil, err
+		}
+
+		subordinates := unit.SubordinateNames()
+		subUnits, err := m.verifyUnitsSeries(subordinates, series, force)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, unit)
+		results = append(results, subUnits...)
+	}
+	return results, nil
+}
+
+// UpdateOperation returns a model operation that will update the machine.
+func (m *Machine) UpdateOperation() *UpdateMachineOperation {
+	return &UpdateMachineOperation{m: &Machine{st: m.st, doc: m.doc}}
+}
+
+// UpdateMachineOperation is a model operation for updating a machine.
+type UpdateMachineOperation struct {
+	// m holds the machine to update.
+	m *Machine
+
+	AgentVersion      *version.Binary
+	Constraints       *constraints.Value
+	HasVote           *bool
+	MachineAddresses  *[]network.Address
+	ProviderAddresses *[]network.Address
+	PasswordHash      *string
+}
+
+// Build is part of the ModelOperation interface.
+func (op *UpdateMachineOperation) Build(attempt int) ([]txn.Op, error) {
+	if attempt > 0 {
+		if err := op.m.Refresh(); err != nil {
+			return nil, err
+		}
+	}
+
+	var allOps []txn.Op
+
+	if op.AgentVersion != nil {
+		ops, _, err := op.m.setAgentVersionOps(*op.AgentVersion)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot set agent version")
+		}
+		allOps = append(allOps, ops...)
+	}
+
+	if op.Constraints != nil {
+		ops, err := op.m.setConstraintsOps(*op.Constraints)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot set constraints")
+		}
+		allOps = append(allOps, ops...)
+	}
+
+	if op.HasVote != nil {
+		ops, err := op.m.setHasVoteOps(*op.HasVote)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot set has-vote")
+		}
+		allOps = append(allOps, ops...)
+	}
+
+	if op.MachineAddresses != nil || op.ProviderAddresses != nil {
+		ops, _, _, _, _, err := op.m.setAddressesOps(op.MachineAddresses, op.ProviderAddresses)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot set addresses")
+		}
+		allOps = append(allOps, ops...)
+	}
+
+	if op.PasswordHash != nil {
+		ops, err := op.m.setPasswordHashOps(*op.PasswordHash)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot set password")
+		}
+		allOps = append(allOps, ops...)
+	}
+
+	return allOps, nil
+}
+
+// Done is part of the ModelOperation interface.
+func (op *UpdateMachineOperation) Done(err error) error {
+	return errors.Annotatef(err, "updating machine %q", op.m)
 }

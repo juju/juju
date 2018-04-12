@@ -23,6 +23,8 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
+	"github.com/juju/juju/cmd/jujud/introspect"
+	"github.com/juju/juju/cmd/jujud/updateseries"
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
@@ -65,7 +67,7 @@ const (
 func getenv(name string) (string, error) {
 	value := os.Getenv(name)
 	if value == "" {
-		return "", fmt.Errorf("%s not set", name)
+		return "", errors.Errorf("%s not set", name)
 	}
 	return value, nil
 }
@@ -82,10 +84,10 @@ func getwd() (string, error) {
 	return abs, nil
 }
 
-// jujuCMain uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET to ask a running unit agent
+// hookToolMain uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET to ask a running unit agent
 // to execute a Command on our behalf. Individual commands should be exposed
 // by symlinking the command name to this executable.
-func jujuCMain(commandName string, ctx *cmd.Context, args []string) (code int, err error) {
+func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int, err error) {
 	code = 1
 	contextId, err := getenv("JUJU_CONTEXT_ID")
 	if err != nil {
@@ -179,7 +181,14 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	}
 	jujud.Register(unitAgent)
 
+	caasOperatorAgent, err := agentcmd.NewCaasOperatorAgent(ctx, bufferedLogger)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
+	jujud.Register(caasOperatorAgent)
+
 	jujud.Register(NewUpgradeMongoCommand())
+	jujud.Register(agentcmd.NewCheckConnectionCommand(agentConf, agentcmd.ConnectAsAgent))
 
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil
@@ -206,7 +215,7 @@ func Main(args []string) int {
 
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		cmd.WriteError(os.Stderr, err)
 		os.Exit(exit_err)
 	}
 
@@ -215,10 +224,6 @@ func Main(args []string) int {
 	switch commandName {
 	case names.Jujud:
 		code, err = jujuDMain(args, ctx)
-	case names.Jujuc:
-		fmt.Fprint(os.Stderr, jujudDoc)
-		code = exit_err
-		err = fmt.Errorf("jujuc should not be called directly")
 	case names.JujuRun:
 		run := &RunCommand{
 			MachineLockName: agent.MachineLockName,
@@ -226,11 +231,15 @@ func Main(args []string) int {
 		code = cmd.Main(run, ctx, args[1:])
 	case names.JujuDumpLogs:
 		code = cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
+	case names.JujuIntrospect:
+		code = cmd.Main(&introspect.IntrospectCommand{}, ctx, args[1:])
+	case names.JujuUpdateSeries:
+		code = cmd.Main(&updateseries.UpdateSeriesCommand{}, ctx, args[1:])
 	default:
-		code, err = jujuCMain(commandName, ctx, args)
+		code, err = hookToolMain(commandName, ctx, args)
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		cmd.WriteError(ctx.Stderr, err)
 	}
 	return code
 }

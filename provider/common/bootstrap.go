@@ -4,8 +4,10 @@
 package common
 
 import (
+	"bufio"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -19,6 +21,7 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/ssh"
+	cryptossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig"
@@ -133,11 +136,19 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	}
 	maybeSetBridge(instanceConfig)
 
+	// We're creating a new instance; inject host keys so that we can then
+	// make an SSH connection with known keys.
+	initialSSHHostKeys, err := generateSSHHostKeys()
+	if err != nil {
+		return nil, "", nil, errors.Annotate(err, "generating SSH host keys")
+	}
+	instanceConfig.Bootstrap.InitialSSHHostKeys = initialSSHHostKeys
+
 	cloudRegion := args.CloudName
 	if args.CloudRegion != "" {
 		cloudRegion += "/" + args.CloudRegion
 	}
-	fmt.Fprintf(ctx.GetStderr(), "Launching controller instance(s) on %s...\n", cloudRegion)
+	ctx.Infof("Launching controller instance(s) on %s...", cloudRegion)
 	// Print instance status reports status changes during provisioning.
 	// Note the carriage returns, meaning subsequent prints are to the same
 	// line of stderr, not a new line.
@@ -160,7 +171,8 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		fmt.Fprintf(ctx.GetStderr(), "   %s\r", info)
 		return nil
 	}
-	result, err := env.StartInstance(environs.StartInstanceParams{
+
+	var startInstanceArgs = environs.StartInstanceParams{
 		ControllerUUID:  args.ControllerConfig.ControllerUUID(),
 		Constraints:     args.BootstrapConstraints,
 		Tools:           availableTools,
@@ -169,9 +181,39 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		ImageMetadata:   imageMetadata,
 		StatusCallback:  instanceStatus,
 		CleanupCallback: statusCleanup,
-	})
-	if err != nil {
+	}
+	zones, err := startInstanceZones(env, startInstanceArgs)
+	if errors.IsNotImplemented(err) {
+		// No zone support, so just call StartInstance with
+		// a blank StartInstanceParams.AvailabilityZone.
+		zones = []string{""}
+	} else if err != nil {
 		return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
+	}
+
+	var result *environs.StartInstanceResult
+	for i, zone := range zones {
+		startInstanceArgs.AvailabilityZone = zone
+		result, err = env.StartInstance(startInstanceArgs)
+		if err == nil {
+			break
+		}
+		if zone == "" || environs.IsAvailabilityZoneIndependent(err) {
+			return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
+		}
+		if i < len(zones)-1 {
+			// Try the next zone.
+			logger.Debugf("failed to start instance in availability zone %q: %s", zone, err)
+			continue
+		}
+		// This is the last zone in the list, error.
+		if len(zones) > 1 {
+			return nil, "", nil, errors.Errorf(
+				"cannot start bootstrap instance in any availability zone (%s)",
+				strings.Join(zones, ", "),
+			)
+		}
+		return nil, "", nil, errors.Annotatef(err, "cannot start bootstrap instance in availability zone %q", zone)
 	}
 
 	msg := fmt.Sprintf(" - %s (%s)", result.Instance.Id(), formatHardware(result.Hardware))
@@ -180,11 +222,12 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		padding := make([]string, 40-len(msg))
 		msg += strings.Join(padding, " ")
 	}
-	fmt.Fprintln(ctx.GetStderr(), msg)
+	ctx.Infof(msg)
 
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
 		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
+		icfg.Bootstrap.InitialSSHHostKeys = initialSSHHostKeys
 		envConfig := env.Config()
 		if result.Config != nil {
 			updated, err := envConfig.Apply(result.Config.UnknownAttrs())
@@ -200,6 +243,37 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		return FinishBootstrap(ctx, client, env, result.Instance, icfg, opts)
 	}
 	return result, selectedSeries, finalize, nil
+}
+
+func startInstanceZones(env environs.Environ, args environs.StartInstanceParams) ([]string, error) {
+	zonedEnviron, ok := env.(ZonedEnviron)
+	if !ok {
+		return nil, errors.NotImplementedf("ZonedEnviron")
+	}
+
+	// Attempt creating the instance in each of the availability
+	// zones, unless the args imply a specific zone.
+	zones, err := zonedEnviron.DeriveAvailabilityZones(args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(zones) > 0 {
+		return zones, nil
+	}
+	allZones, err := zonedEnviron.AvailabilityZones()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, zone := range allZones {
+		if !zone.Available() {
+			continue
+		}
+		zones = append(zones, zone.Name())
+	}
+	if len(zones) == 0 {
+		return nil, errors.New("no usable availability zones")
+	}
+	return zones, nil
 }
 
 func formatHardware(hw *instance.HardwareCharacteristics) string {
@@ -242,6 +316,8 @@ var FinishBootstrap = func(
 	interrupted := make(chan os.Signal, 1)
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
+
+	hostSSHOptions := bootstrapSSHOptionsFunc(instanceConfig)
 	addr, err := WaitSSH(
 		ctx.GetStderr(),
 		interrupted,
@@ -249,11 +325,20 @@ var FinishBootstrap = func(
 		GetCheckNonceCommand(instanceConfig),
 		&RefreshableInstance{inst, env},
 		opts,
+		hostSSHOptions,
 	)
 	if err != nil {
 		return err
 	}
-	return ConfigureMachine(ctx, client, addr, instanceConfig)
+	ctx.Infof("Connected to %v", addr)
+
+	sshOptions, cleanup, err := hostSSHOptions(addr)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	return ConfigureMachine(ctx, client, addr, instanceConfig, sshOptions)
 }
 
 func GetCheckNonceCommand(instanceConfig *instancecfg.InstanceConfig) string {
@@ -278,7 +363,13 @@ func GetCheckNonceCommand(instanceConfig *instancecfg.InstanceConfig) string {
 	return checkNonceCommand
 }
 
-func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host string, instanceConfig *instancecfg.InstanceConfig) error {
+func ConfigureMachine(
+	ctx environs.BootstrapContext,
+	client ssh.Client,
+	host string,
+	instanceConfig *instancecfg.InstanceConfig,
+	sshOptions *ssh.Options,
+) error {
 	// Bootstrap is synchronous, and will spawn a subprocess
 	// to complete the procedure. If the user hits Ctrl-C,
 	// SIGINT is sent to the foreground process attached to
@@ -301,18 +392,91 @@ func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host str
 	if err := udata.ConfigureJuju(); err != nil {
 		return err
 	}
+	if err := udata.ConfigureCustomOverrides(); err != nil {
+		return err
+	}
 	configScript, err := cloudcfg.RenderScript()
 	if err != nil {
 		return err
 	}
 	script := shell.DumpFileOnErrorScript(instanceConfig.CloudInitOutputLog) + configScript
+	ctx.Infof("Running machine configuration script...")
 	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
 		Host:           "ubuntu@" + host,
 		Client:         client,
+		SSHOptions:     sshOptions,
 		Config:         cloudcfg,
 		ProgressWriter: ctx.GetStderr(),
 		Series:         instanceConfig.Series,
 	})
+}
+
+// HostSSHOptionsFunc is a function that, given a hostname, returns
+// an ssh.Options and a cleanup function, or an error.
+type HostSSHOptionsFunc func(host string) (*ssh.Options, func(), error)
+
+// DefaultHostSSHOptions returns a a nil *ssh.Options, which means
+// to use the defaults; and a no-op cleanup function.
+func DefaultHostSSHOptions(host string) (*ssh.Options, func(), error) {
+	return nil, func() {}, nil
+}
+
+// bootstrapSSHOptionsFunc that takes a bootstrap machine's InstanceConfig
+// and returns a HostSSHOptionsFunc.
+func bootstrapSSHOptionsFunc(instanceConfig *instancecfg.InstanceConfig) HostSSHOptionsFunc {
+	return func(host string) (*ssh.Options, func(), error) {
+		return hostBootstrapSSHOptions(host, instanceConfig)
+	}
+}
+
+func hostBootstrapSSHOptions(
+	host string,
+	instanceConfig *instancecfg.InstanceConfig,
+) (_ *ssh.Options, cleanup func(), err error) {
+	cleanup = func() {}
+	defer func() {
+		if err != nil {
+			cleanup()
+		}
+	}()
+
+	options := &ssh.Options{}
+	options.SetStrictHostKeyChecking(ssh.StrictHostChecksYes)
+
+	// If any host keys are being injected, we'll set up a
+	// known_hosts file with their contents, and accept only
+	// them.
+	hostKeys := instanceConfig.Bootstrap.InitialSSHHostKeys
+	var algos []string
+	var pubKeys []string
+	if hostKeys.RSA != nil {
+		algos = append(algos, cryptossh.KeyAlgoRSA)
+		pubKeys = append(pubKeys, hostKeys.RSA.Public)
+	}
+	if len(pubKeys) == 0 {
+		return options, cleanup, nil
+	}
+
+	// Create a temporary known_hosts file.
+	f, err := ioutil.TempFile("", "juju-known-hosts")
+	if err != nil {
+		return nil, cleanup, errors.Trace(err)
+	}
+	cleanup = func() {
+		f.Close()
+		os.RemoveAll(f.Name())
+	}
+	w := bufio.NewWriter(f)
+	for _, pubKey := range pubKeys {
+		fmt.Fprintln(w, host, strings.TrimSpace(pubKey))
+	}
+	if err := w.Flush(); err != nil {
+		return nil, cleanup, errors.Annotate(err, "writing known_hosts")
+	}
+
+	options.SetHostKeyAlgorithms(algos...)
+	options.SetKnownHostsFile(f.Name())
+	return options, cleanup, nil
 }
 
 // InstanceRefresher is the subet of the Instance interface required
@@ -347,9 +511,10 @@ func (i *RefreshableInstance) Refresh() error {
 }
 
 type hostChecker struct {
-	addr   network.Address
-	client ssh.Client
-	wg     *sync.WaitGroup
+	addr           network.Address
+	client         ssh.Client
+	hostSSHOptions HostSSHOptionsFunc
+	wg             *sync.WaitGroup
 
 	// checkDelay is the amount of time to wait between retries.
 	checkDelay time.Duration
@@ -372,15 +537,22 @@ func (*hostChecker) Close() error {
 
 func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 	defer hc.wg.Done()
+
+	address := hc.addr.Value
+	sshOptions, cleanup, err := hc.hostSSHOptions(address)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
 	// The value of connectSSH is taken outside the goroutine that may outlive
 	// hostChecker.loop, or we evoke the wrath of the race detector.
 	connectSSH := connectSSH
-	done := make(chan error, 1)
 	var lastErr error
+	done := make(chan error, 1)
 	for {
-		address := hc.addr.Value
 		go func() {
-			done <- connectSSH(hc.client, address, hc.checkHostScript)
+			done <- connectSSH(hc.client, address, hc.checkHostScript, sshOptions)
 		}()
 		select {
 		case <-dying:
@@ -402,9 +574,10 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 
 type parallelHostChecker struct {
 	*parallel.Try
-	client ssh.Client
-	stderr io.Writer
-	wg     sync.WaitGroup
+	client         ssh.Client
+	hostSSHOptions HostSSHOptionsFunc
+	stderr         io.Writer
+	wg             sync.WaitGroup
 
 	// active is a map of adresses to channels for addresses actively
 	// being tested. The goroutine testing the address will continue
@@ -430,6 +603,7 @@ func (p *parallelHostChecker) UpdateAddresses(addrs []network.Address) {
 		hc := &hostChecker{
 			addr:            addr,
 			client:          p.client,
+			hostSSHOptions:  p.hostSSHOptions,
 			checkDelay:      p.checkDelay,
 			checkHostScript: p.checkHostScript,
 			closed:          closed,
@@ -457,8 +631,8 @@ func (p *parallelHostChecker) Close() error {
 
 // connectSSH is called to connect to the specified host and
 // execute the "checkHostScript" bash script on it.
-var connectSSH = func(client ssh.Client, host, checkHostScript string) error {
-	cmd := client.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
+var connectSSH = func(client ssh.Client, host, checkHostScript string, options *ssh.Options) error {
+	cmd := client.Command("ubuntu@"+host, []string{"/bin/bash"}, options)
 	cmd.Stdin = strings.NewReader(checkHostScript)
 	output, err := cmd.CombinedOutput()
 	if err != nil && len(output) > 0 {
@@ -483,6 +657,7 @@ func WaitSSH(
 	checkHostScript string,
 	inst InstanceRefresher,
 	opts environs.BootstrapDialOpts,
+	hostSSHOptions HostSSHOptionsFunc,
 ) (addr string, err error) {
 	globalTimeout := time.After(opts.Timeout)
 	pollAddresses := time.NewTimer(0)
@@ -497,6 +672,7 @@ func WaitSSH(
 		active:          make(map[network.Address]chan struct{}),
 		checkDelay:      opts.RetryDelay,
 		checkHostScript: checkHostScript,
+		hostSSHOptions:  hostSSHOptions,
 	}
 	defer checker.wg.Wait()
 	defer checker.Kill()
@@ -546,4 +722,19 @@ func WaitSSH(
 			return result.(*hostChecker).addr.Value, nil
 		}
 	}
+}
+
+func generateSSHHostKeys() (instancecfg.SSHHostKeys, error) {
+	// Generate a single ssh-rsa key. We'll configure the SSH client
+	// such that that is the only host key type we'll accept.
+	var keys instancecfg.SSHHostKeys
+	private, public, err := ssh.GenerateKey("juju-bootstrap")
+	if err != nil {
+		return keys, errors.Annotate(err, "generating SSH key")
+	}
+	keys.RSA = &instancecfg.SSHKeyPair{
+		Private: private,
+		Public:  public,
+	}
+	return keys, nil
 }

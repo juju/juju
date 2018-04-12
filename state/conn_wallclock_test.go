@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
 )
 
@@ -38,7 +39,10 @@ type ConnWithWallClockSuite struct {
 func (cs *ConnWithWallClockSuite) SetUpTest(c *gc.C) {
 	cs.policy = statetesting.MockPolicy{
 		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
-			return dummy.StorageProviders(), nil
+			return storage.ChainedProviderRegistry{
+				dummy.StorageProviders(),
+				provider.CommonStorageProviders(),
+			}, nil
 		},
 	}
 	cs.StateWithWallClockSuite.NewPolicy = func(*state.State) state.Policy {
@@ -47,7 +51,7 @@ func (cs *ConnWithWallClockSuite) SetUpTest(c *gc.C) {
 
 	cs.StateWithWallClockSuite.SetUpTest(c)
 
-	cs.modelTag = cs.State.ModelTag()
+	cs.modelTag = cs.IAASModel.ModelTag()
 
 	jujuDB := cs.MgoSuite.Session.DB("juju")
 	cs.annotations = jujuDB.C("annotations")
@@ -64,16 +68,16 @@ func (s *ConnWithWallClockSuite) AddTestingCharm(c *gc.C, name string) *state.Ch
 	return state.AddTestingCharm(c, s.State, name)
 }
 
-func (s *ConnWithWallClockSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Application {
-	return state.AddTestingService(c, s.State, name, ch)
+func (s *ConnWithWallClockSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
+	return state.AddTestingApplication(c, s.State, name, ch)
 }
 
-func (s *ConnWithWallClockSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	return state.AddTestingServiceWithStorage(c, s.State, name, ch, storage)
+func (s *ConnWithWallClockSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
+	return state.AddTestingApplicationWithStorage(c, s.State, name, ch, storage)
 }
 
-func (s *ConnWithWallClockSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
-	return state.AddTestingServiceWithBindings(c, s.State, name, ch, bindings)
+func (s *ConnWithWallClockSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
+	return state.AddTestingApplicationWithBindings(c, s.State, name, ch, bindings)
 }
 
 func (s *ConnWithWallClockSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {
@@ -114,7 +118,11 @@ func (s *ConnWithWallClockSuite) NewStateForModelNamed(c *gc.C, modelName string
 	})
 	otherOwner := names.NewLocalUserTag("test-admin")
 	_, otherState, err := s.State.NewModel(state.ModelArgs{
-		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: otherOwner,
+		Type:        state.ModelTypeIAAS,
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       otherOwner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 

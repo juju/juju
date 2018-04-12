@@ -7,26 +7,37 @@ import (
 	stderrors "errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v6-unstable"
+	"github.com/juju/utils/clock"
+	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
 )
 
 // RelationUnit holds information about a single unit in a relation, and
 // allows clients to conveniently access unit-specific functionality.
 type RelationUnit struct {
-	st            *State
-	relation      *Relation
-	unitName      string
-	isPrincipal   bool
-	checkUnitLife bool
-	endpoint      Endpoint
-	scope         string
+	st          *State
+	relation    *Relation
+	unitName    string
+	isPrincipal bool
+	endpoint    Endpoint
+	scope       string
+
+	// isLocalUnit is true for relation units representing
+	// the local side of a cross model relation, or for
+	// any 2 units in a non cross model relation.
+	isLocalUnit bool
 }
 
 // Relation returns the relation associated with the unit.
@@ -87,19 +98,19 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	//   being saved for a followup).
 	relationDocID := ru.relation.doc.DocID
 	var ops []txn.Op
-	if ru.checkUnitLife {
+	if ru.isLocalUnit {
 		ops = append(ops, txn.Op{
 			C:      unitsC,
 			Id:     ru.unitName,
 			Assert: isAliveDoc,
 		})
-		ops = append(ops, txn.Op{
-			C:      relationsC,
-			Id:     relationDocID,
-			Assert: isAliveDoc,
-			Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
-		})
 	}
+	ops = append(ops, txn.Op{
+		C:      relationsC,
+		Id:     relationDocID,
+		Assert: isAliveDoc,
+		Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
+	})
 
 	// * Create the unit settings in this relation, if they do not already
 	//   exist; or completely overwrite them if they do. This must happen
@@ -114,7 +125,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		ops = append(ops, createSettingsOp(settingsC, ruKey, settings))
 	} else {
 		var rop txn.Op
-		rop, settingsChanged, err = replaceSettingsOp(ru.st, settingsC, ruKey, settings)
+		rop, settingsChanged, err = replaceSettingsOp(ru.st.db(), settingsC, ruKey, settings)
 		if err != nil {
 			return err
 		}
@@ -141,7 +152,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	}
 
 	// Now run the complete transaction, or figure out why we can't.
-	if err := ru.st.runTransaction(ops); err != txn.ErrAborted {
+	if err := ru.st.db().RunTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
 	if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
@@ -163,7 +174,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	} else if !alive {
 		return ErrCannotEnterScope
 	}
-	if ru.checkUnitLife {
+	if ru.isLocalUnit {
 		units, closer := db.GetCollection(unitsC)
 		defer closer()
 		if alive, err := isAliveWithSession(units, ru.unitName); err != nil {
@@ -204,7 +215,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 // exists and is Alive, its name will be returned as well; if one exists
 // but is not Alive, ErrCannotEnterScopeYet is returned.
 func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
-	units, closer := ru.st.getCollection(unitsC)
+	units, closer := ru.st.db().GetCollection(unitsC)
 	defer closer()
 
 	if !ru.isPrincipal || ru.endpoint.Scope != charm.ScopeContainer {
@@ -225,7 +236,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 		if err != nil {
 			return nil, "", err
 		}
-		_, ops, err := application.addUnitOps(unitName, nil)
+		_, ops, err := application.addUnitOps(unitName, AddUnitParams{}, nil)
 		return ops, "", err
 	} else if err != nil {
 		return nil, "", err
@@ -243,7 +254,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 // but does not *actually* leave the scope, to avoid triggering relation
 // cleanup.
 func (ru *RelationUnit) PrepareLeaveScope() error {
-	relationScopes, closer := ru.st.getCollection(relationScopesC)
+	relationScopes, closer := ru.st.db().GetCollection(relationScopesC)
 	defer closer()
 
 	key := ru.key()
@@ -257,7 +268,7 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 		Id:     key,
 		Update: bson.D{{"$set", bson.D{{"departing", true}}}},
 	}}
-	return ru.st.runTransaction(ops)
+	return ru.st.db().RunTransaction(ops)
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -266,7 +277,7 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 // leaves, it is removed immediately. It is not an error to leave a scope
 // that the unit is not, or never was, a member of.
 func (ru *RelationUnit) LeaveScope() error {
-	relationScopes, closer := ru.st.getCollection(relationScopesC)
+	relationScopes, closer := ru.st.db().GetCollection(relationScopesC)
 	defer closer()
 
 	key := ru.key()
@@ -336,10 +347,66 @@ func (ru *RelationUnit) LeaveScope() error {
 		}
 		return ops, nil
 	}
-	if err := ru.st.run(buildTxn); err != nil {
+	if err := ru.st.db().Run(buildTxn); err != nil {
 		return errors.Annotatef(err, "cannot leave scope for %s", desc)
 	}
 	return nil
+}
+
+// Valid returns whether this RelationUnit is one that can actually
+// exist in the relation. For container-scoped relations, RUs can be
+// created for subordinate units whose principal unit isn't a member
+// of the relation. There are too many places that rely on being able
+// to construct a nonsensical RU to query InScope or Joined, so we
+// allow them to be constructed but they will always return false for
+// Valid.
+// TODO(babbageclunk): unpick the reliance on creating invalid RUs.
+func (ru *RelationUnit) Valid() (bool, error) {
+	if ru.endpoint.Scope != charm.ScopeContainer || ru.isPrincipal {
+		return true, nil
+	}
+	// A subordinate container-scoped relation unit is valid if:
+	// the other end of the relation is also a subordinate charm
+	// or its principal unit is also a member of the relation.
+	appName, err := names.UnitApplication(ru.unitName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	var otherAppName string
+	for _, ep := range ru.relation.Endpoints() {
+		if ep.ApplicationName != appName {
+			otherAppName = ep.ApplicationName
+		}
+	}
+	if otherAppName == "" {
+		return false, errors.Errorf("couldn't find other endpoint")
+	}
+	otherApp, err := ru.st.Application(otherAppName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if !otherApp.IsPrincipal() {
+		return true, nil
+	}
+
+	unit, err := ru.st.Unit(ru.unitName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	// No need to check the flag here - we know we're subordinate.
+	pName, _ := unit.PrincipalName()
+	principalAppName, err := names.UnitApplication(pName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	// If the other application is a principal, only allow it if it's in the relation.
+	_, err = ru.relation.Endpoint(principalAppName)
+	if errors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Trace(err)
+	}
+	return true, nil
 }
 
 // InScope returns whether the relation unit has entered scope and not left it.
@@ -356,7 +423,7 @@ func (ru *RelationUnit) Joined() (bool, error) {
 // inScope returns whether a scope document exists satisfying the supplied
 // selector.
 func (ru *RelationUnit) inScope(sel bson.D) (bool, error) {
-	relationScopes, closer := ru.st.getCollection(relationScopesC)
+	relationScopes, closer := ru.st.db().GetCollection(relationScopesC)
 	defer closer()
 
 	sel = append(sel, bson.D{{"_id", ru.key()}}...)
@@ -384,7 +451,7 @@ func watchRelationScope(
 // Settings returns a Settings which allows access to the unit's settings
 // within the relation.
 func (ru *RelationUnit) Settings() (*Settings, error) {
-	return readSettings(ru.st, settingsC, ru.key())
+	return readSettings(ru.st.db(), settingsC, ru.key())
 }
 
 // ReadSettings returns a map holding the settings of the unit with the
@@ -403,11 +470,124 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	if err != nil {
 		return nil, err
 	}
-	node, err := readSettings(ru.st, settingsC, key)
+	node, err := readSettings(ru.st.db(), settingsC, key)
 	if err != nil {
 		return nil, err
 	}
 	return node.Map(), nil
+}
+
+// PreferredAddressRetryArgs returns the retry strategy for getting a unit's preferred address.
+// Override for testing to use a different clock.
+var PreferredAddressRetryArgs = func() retry.CallArgs {
+	return retry.CallArgs{
+		Clock:       clock.WallClock,
+		Delay:       3 * time.Second,
+		MaxDuration: 30 * time.Second,
+	}
+}
+
+// NetworksForRelation returns the ingress and egress addresses for a relation and unit.
+// The ingress addresses depend on if the relation is cross model and whether the
+// relation endpoint is bound to a space.
+func NetworksForRelation(
+	binding string, unit *Unit, rel *Relation, defaultEgress []string,
+) (boundSpace string, ingress []string, egress []string, _ error) {
+	st := unit.st
+
+	relEgress := NewRelationEgressNetworks(st)
+	egressSubnets, err := relEgress.Networks(rel.Tag().Id())
+	if err != nil && !errors.IsNotFound(err) {
+		return "", nil, nil, errors.Trace(err)
+	} else if err == nil {
+		egress = egressSubnets.CIDRS()
+	} else {
+		egress = defaultEgress
+	}
+
+	boundSpace, err = unit.GetSpaceForBinding(binding)
+	if err != nil && !errors.IsNotValid(err) {
+		return "", nil, nil, errors.Trace(err)
+	}
+	// If the endpoint for this relation is not bound to a space, or
+	// is bound to the default space, we need to look up the ingress
+	// address info which is aware of cross model relations.
+	if boundSpace == environs.DefaultSpaceName || err != nil {
+		crossmodel, err := rel.IsCrossModel()
+		if err != nil {
+			return "", nil, nil, errors.Trace(err)
+		}
+		// TODO(caas) - we might need to use the service address
+		if crossmodel && unit.ShouldBeAssigned() {
+			var address network.Address
+			retryArg := PreferredAddressRetryArgs()
+			retryArg.Func = func() error {
+				var err error
+				address, err = unit.PublicAddress()
+				return err
+			}
+			retryArg.IsFatalError = func(err error) bool {
+				return !network.IsNoAddressError(err)
+			}
+			err := retry.Call(retryArg)
+			if err != nil {
+				// TODO(wallyworld) - it's ok to return a private address sometimes
+				// TODO return an error when it's not possible to use the private address
+				logger.Warningf(
+					"no public address for unit %q in cross model relation %q, using private address",
+					unit.Name(), rel)
+				address, err = unit.PrivateAddress()
+				if err != nil {
+					return "", nil, nil, errors.Trace(err)
+				}
+			}
+			ingress = []string{address.Value}
+		}
+	}
+	if len(ingress) == 0 {
+		if unit.ShouldBeAssigned() {
+			// We don't yet have an ingress address, so pick one from the space to
+			// which the endpoint is bound.
+			machineID, err := unit.AssignedMachineId()
+			if err != nil {
+				return "", nil, nil, errors.Trace(err)
+			}
+
+			machine, err := st.Machine(machineID)
+			if err != nil {
+				return "", nil, nil, errors.Trace(err)
+			}
+
+			networkInfos := machine.GetNetworkInfoForSpaces(set.NewStrings(boundSpace))
+			// The binding address information based on link layer devices.
+			for _, nwInfo := range networkInfos[boundSpace].NetworkInfos {
+				for _, addr := range nwInfo.Addresses {
+					ingress = append(ingress, addr.Address)
+				}
+
+			}
+		} else {
+			// Be be consistent with IAAS behaviour above, we'll return all
+			// addresses, including any container address.
+			addr, err := unit.AllAddresses()
+			if err != nil {
+				logger.Warningf(
+					"no service address for unit %q in relation %q",
+					unit.Name(), rel)
+			} else {
+				network.SortAddresses(addr)
+				for _, a := range addr {
+					ingress = append(ingress, a.Value)
+				}
+			}
+		}
+	}
+
+	// If no egress subnets defined, We default to the ingress address.
+	if len(egress) == 0 && len(ingress) > 0 {
+		egress = network.FormatAsCIDR([]string{ingress[0]})
+	}
+	return boundSpace, ingress, egress, nil
 }
 
 // unitKey returns a string, based on the relation and the supplied unit name,
@@ -441,7 +621,7 @@ type relationScopeDoc struct {
 	DocID     string `bson:"_id"`
 	Key       string `bson:"key"`
 	ModelUUID string `bson:"model-uuid"`
-	Departing bool
+	Departing bool   `bson:"departing"`
 }
 
 func (d *relationScopeDoc) unitName() string {

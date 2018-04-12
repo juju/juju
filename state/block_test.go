@@ -51,7 +51,9 @@ func (s *blockSuite) assertModelHasBlock(c *gc.C, st *state.State, t state.Block
 	c.Assert(block.Type(), gc.Equals, t)
 	tag, err := block.Tag()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tag, gc.Equals, st.ModelTag())
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tag, gc.Equals, m.ModelTag())
 	c.Assert(block.Message(), gc.Equals, msg)
 }
 
@@ -180,7 +182,11 @@ func (s *blockSuite) createTestModel(c *gc.C) (*state.Model, *state.State) {
 	})
 	owner := names.NewUserTag("test@remote")
 	env, st, err := s.State.NewModel(state.ModelArgs{
-		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: owner,
+		Type:        state.ModelTypeIAAS,
+		CloudName:   "dummy",
+		CloudRegion: "dummy-region",
+		Config:      cfg,
+		Owner:       owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)

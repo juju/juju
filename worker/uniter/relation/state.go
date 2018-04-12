@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 )
@@ -182,6 +182,12 @@ func ReadAllStateDirs(dirPath string) (dirs map[int]*StateDir, err error) {
 // Ensure creates the directory if it does not already exist.
 func (d *StateDir) Ensure() error {
 	return os.MkdirAll(d.path, 0755)
+}
+
+// Exists returns true if the directory for this state exists.
+func (d *StateDir) Exists() bool {
+	_, err := os.Stat(d.path)
+	return err == nil
 }
 
 // Write atomically writes to disk the relation state change in hi.

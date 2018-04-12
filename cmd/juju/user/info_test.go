@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/testing"
 )
 
 var logger = loggo.GetLogger("juju.cmd.user.test")
@@ -69,9 +69,9 @@ func (*fakeUserInfoAPI) UserInfo(usernames []string, all usermanager.IncludeDisa
 }
 
 func (s *UserInfoCommandSuite) TestUserInfo(c *gc.C) {
-	context, err := testing.RunCommand(c, s.NewShowUserCommand())
+	context, err := cmdtesting.RunCommand(c, s.NewShowUserCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, `user-name: current-user
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `user-name: current-user
 access: add-model
 date-created: 1981-02-27
 last-connection: 2014-01-01
@@ -79,9 +79,9 @@ last-connection: 2014-01-01
 }
 
 func (s *UserInfoCommandSuite) TestUserInfoExactTime(c *gc.C) {
-	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "--exact-time")
+	context, err := cmdtesting.RunCommand(c, s.NewShowUserCommand(), "--exact-time")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, `user-name: current-user
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `user-name: current-user
 access: add-model
 date-created: 1981-02-27 16:10:05 +0000 UTC
 last-connection: 2014-01-01 00:00:00 +0000 UTC
@@ -89,9 +89,9 @@ last-connection: 2014-01-01 00:00:00 +0000 UTC
 }
 
 func (s *UserInfoCommandSuite) TestUserInfoWithUsername(c *gc.C) {
-	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "foobar")
+	context, err := cmdtesting.RunCommand(c, s.NewShowUserCommand(), "foobar")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, `user-name: foobar
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `user-name: foobar
 display-name: Foo Bar
 access: login
 date-created: 1981-02-27
@@ -100,39 +100,39 @@ last-connection: 2014-01-01
 }
 
 func (s *UserInfoCommandSuite) TestUserInfoExternalUser(c *gc.C) {
-	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "fred@external")
+	context, err := cmdtesting.RunCommand(c, s.NewShowUserCommand(), "fred@external")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, `user-name: fred@external
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `user-name: fred@external
 display-name: Fred External
 access: add-model
 `)
 }
 
 func (s *UserInfoCommandSuite) TestUserInfoUserDoesNotExist(c *gc.C) {
-	_, err := testing.RunCommand(c, s.NewShowUserCommand(), "barfoo")
+	_, err := cmdtesting.RunCommand(c, s.NewShowUserCommand(), "barfoo")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *UserInfoCommandSuite) TestUserInfoFormatJson(c *gc.C) {
-	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "--format", "json")
+	context, err := cmdtesting.RunCommand(c, s.NewShowUserCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 {"user-name":"current-user","access":"add-model","date-created":"1981-02-27","last-connection":"2014-01-01"}
 `[1:])
 }
 
 func (s *UserInfoCommandSuite) TestUserInfoFormatJsonWithUsername(c *gc.C) {
-	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "foobar", "--format", "json")
+	context, err := cmdtesting.RunCommand(c, s.NewShowUserCommand(), "foobar", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, `
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `
 {"user-name":"foobar","display-name":"Foo Bar","access":"login","date-created":"1981-02-27","last-connection":"2014-01-01"}
 `[1:])
 }
 
 func (s *UserInfoCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
-	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "--format", "yaml")
+	context, err := cmdtesting.RunCommand(c, s.NewShowUserCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, `user-name: current-user
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, `user-name: current-user
 access: add-model
 date-created: 1981-02-27
 last-connection: 2014-01-01
@@ -140,6 +140,6 @@ last-connection: 2014-01-01
 }
 
 func (s *UserInfoCommandSuite) TestTooManyArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, s.NewShowUserCommand(), "username", "whoops")
+	_, err := cmdtesting.RunCommand(c, s.NewShowUserCommand(), "username", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }

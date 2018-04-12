@@ -81,6 +81,11 @@ func (*rootfsProvider) Dynamic() bool {
 	return true
 }
 
+// Releasable is defined on the Provider interface.
+func (*rootfsProvider) Releasable() bool {
+	return false
+}
+
 // DefaultPools is defined on the Provider interface.
 func (*rootfsProvider) DefaultPools() []*storage.Config {
 	return nil
@@ -185,6 +190,11 @@ func (s *rootfsFilesystemSource) createFilesystem(params storage.FilesystemParam
 func (s *rootfsFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]error, error) {
 	// DestroyFilesystems is a no-op; we leave the storage directory
 	// in tact for post-mortems and such.
+	return make([]error, len(filesystemIds)), nil
+}
+
+// ReleaseFilesystems is defined on the FilesystemSource interface.
+func (s *rootfsFilesystemSource) ReleaseFilesystems(filesystemIds []string) ([]error, error) {
 	return make([]error, len(filesystemIds)), nil
 }
 

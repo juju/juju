@@ -6,7 +6,6 @@ package peergrouper
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"path"
 	"reflect"
 	"strconv"
@@ -15,11 +14,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/voyeur"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -32,19 +30,20 @@ import (
 // that we don't want to directly depend on in unit tests.
 
 type fakeState struct {
-	mu          sync.Mutex
-	errors      errorPatterns
-	machines    map[string]*fakeMachine
-	controllers voyeur.Value // of *state.ControllerInfo
-	statuses    voyeur.Value // of statuses collection
-	session     *fakeMongoSession
-	check       func(st *fakeState) error
+	mu               sync.Mutex
+	errors           errorPatterns
+	machines         map[string]*fakeMachine
+	controllers      voyeur.Value // of *state.ControllerInfo
+	statuses         voyeur.Value // of statuses collection
+	controllerConfig voyeur.Value // of controller.Config
+	session          *fakeMongoSession
+	check            func(st *fakeState) error
 }
 
 var (
-	_ stateInterface = (*fakeState)(nil)
-	_ stateMachine   = (*fakeMachine)(nil)
-	_ mongoSession   = (*fakeMongoSession)(nil)
+	_ State        = (*fakeState)(nil)
+	_ Machine      = (*fakeMachine)(nil)
+	_ MongoSession = (*fakeMongoSession)(nil)
 )
 
 type errorPatterns struct {
@@ -112,12 +111,8 @@ func NewFakeState() *fakeState {
 		machines: make(map[string]*fakeMachine),
 	}
 	st.session = newFakeMongoSession(st, &st.errors)
-	st.controllers.Set(&state.ControllerInfo{})
+	st.controllerConfig.Set(controller.Config{})
 	return st
-}
-
-func (st *fakeState) MongoSession() mongoSession {
-	return st.session
 }
 
 func (st *fakeState) checkInvariants() {
@@ -177,7 +172,7 @@ func (st *fakeState) machine(id string) *fakeMachine {
 	return st.machines[id]
 }
 
-func (st *fakeState) Machine(id string) (stateMachine, error) {
+func (st *fakeState) Machine(id string) (Machine, error) {
 	if err := st.errors.errorFor("State.Machine", id); err != nil {
 		return nil, err
 	}
@@ -198,8 +193,10 @@ func (st *fakeState) addMachine(id string, wantsVote bool) *fakeMachine {
 		errors:  &st.errors,
 		checker: st,
 		doc: machineDoc{
-			id:        id,
-			wantsVote: wantsVote,
+			id:         id,
+			wantsVote:  wantsVote,
+			statusInfo: status.StatusInfo{Status: status.Started},
+			life:       state.Alive,
 		},
 	}
 	st.machines[id] = m
@@ -237,48 +234,50 @@ func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
 	return WatchStrings(&st.statuses)
 }
 
-func (st *fakeState) Space(name string) (SpaceReader, error) {
-	foo := []networkingcommon.BackingSpace{
-		&testing.FakeSpace{SpaceName: "Space" + name},
-		&testing.FakeSpace{SpaceName: "Space" + name},
-		&testing.FakeSpace{SpaceName: "Space" + name},
-	}
-	return foo[0].(SpaceReader), nil
-}
-
-func (st *fakeState) SetOrGetMongoSpaceName(mongoSpaceName network.SpaceName) (network.SpaceName, error) {
-	inf, _ := st.ControllerInfo()
-	strMongoSpaceName := string(mongoSpaceName)
-
-	if inf.MongoSpaceState == state.MongoSpaceUnknown {
-		inf.MongoSpaceName = strMongoSpaceName
-		inf.MongoSpaceState = state.MongoSpaceValid
-		st.controllers.Set(inf)
-	}
-	return network.SpaceName(inf.MongoSpaceName), nil
-}
-
-func (st *fakeState) SetMongoSpaceState(mongoSpaceState state.MongoSpaceStates) error {
-	inf, _ := st.ControllerInfo()
-	inf.MongoSpaceState = mongoSpaceState
-	st.controllers.Set(inf)
-	return nil
-}
-
-func (st *fakeState) getMongoSpaceName() string {
-	inf, _ := st.ControllerInfo()
-	return inf.MongoSpaceName
-}
-
-func (st *fakeState) getMongoSpaceState() state.MongoSpaceStates {
-	inf, _ := st.ControllerInfo()
-	return inf.MongoSpaceState
+func (st *fakeState) WatchControllerConfig() state.NotifyWatcher {
+	return WatchValue(&st.controllerConfig)
 }
 
 func (st *fakeState) ModelConfig() (*config.Config, error) {
 	attrs := coretesting.FakeConfig()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	return cfg, err
+}
+
+func (st *fakeState) ControllerConfig() (controller.Config, error) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+
+	if err := st.errors.errorFor("State.ControllerConfig"); err != nil {
+		return nil, err
+	}
+	return deepCopy(st.controllerConfig.Get()).(controller.Config), nil
+}
+
+func (st *fakeState) RemoveControllerMachine(m Machine) error {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	controllerInfo := st.controllers.Get().(*state.ControllerInfo)
+	machineIds := controllerInfo.MachineIds
+	var newMachineIds []string
+	machineId := m.Id()
+	for _, id := range machineIds {
+		if id == machineId {
+			continue
+		}
+		newMachineIds = append(newMachineIds, id)
+	}
+	st.setControllers(newMachineIds...)
+	return nil
+}
+
+func (st *fakeState) setHASpace(spaceName string) {
+	st.mu.Lock()
+	defer st.mu.Unlock()
+
+	cfg := st.controllerConfig.Get().(controller.Config)
+	cfg[controller.JujuHASpace] = spaceName
+	st.controllerConfig.Set(cfg)
 }
 
 type fakeMachine struct {
@@ -290,12 +289,13 @@ type fakeMachine struct {
 }
 
 type machineDoc struct {
-	id             string
-	wantsVote      bool
-	hasVote        bool
-	instanceId     instance.Id
-	mongoHostPorts []network.HostPort
-	apiHostPorts   []network.HostPort
+	id         string
+	wantsVote  bool
+	hasVote    bool
+	instanceId instance.Id
+	addresses  []network.Address
+	statusInfo status.StatusInfo
+	life       state.Life
 }
 
 func (m *fakeMachine) Refresh() error {
@@ -320,13 +320,10 @@ func (m *fakeMachine) Id() string {
 	return m.doc.id
 }
 
-func (m *fakeMachine) InstanceId() (instance.Id, error) {
+func (m *fakeMachine) Life() state.Life {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if err := m.errors.errorFor("Machine.InstanceId", m.doc.id); err != nil {
-		return "", err
-	}
-	return m.doc.instanceId, nil
+	return m.doc.life
 }
 
 func (m *fakeMachine) Watch() state.NotifyWatcher {
@@ -347,22 +344,23 @@ func (m *fakeMachine) HasVote() bool {
 	return m.doc.hasVote
 }
 
-func (m *fakeMachine) MongoHostPorts() []network.HostPort {
+func (m *fakeMachine) Addresses() []network.Address {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.doc.mongoHostPorts
-}
-
-func (m *fakeMachine) APIHostPorts() []network.HostPort {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.doc.apiHostPorts
+	return m.doc.addresses
 }
 
 func (m *fakeMachine) Status() (status.StatusInfo, error) {
-	return status.StatusInfo{
-		Status: status.Started,
-	}, nil
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.doc.statusInfo, nil
+}
+
+func (m *fakeMachine) SetStatus(sInfo status.StatusInfo) error {
+	m.mutate(func(doc *machineDoc) {
+		doc.statusInfo = sInfo
+	})
+	return nil
 }
 
 // mutate atomically changes the machineDoc of
@@ -377,45 +375,13 @@ func (m *fakeMachine) mutate(f func(*machineDoc)) {
 	m.checker.checkInvariants()
 }
 
-func (m *fakeMachine) setStateHostPort(hostPort string) {
-	var mongoHostPorts []network.HostPort
-	if hostPort != "" {
-		host, portStr, err := net.SplitHostPort(hostPort)
-		if err != nil {
-			panic(err)
-		}
-		port, err := strconv.Atoi(portStr)
-		if err != nil {
-			panic(err)
-		}
-		mongoHostPorts = network.NewHostPorts(port, host)
-		mongoHostPorts[0].Scope = network.ScopeCloudLocal
-	}
-
+func (m *fakeMachine) setAddresses(addrs ...network.Address) {
 	m.mutate(func(doc *machineDoc) {
-		doc.mongoHostPorts = mongoHostPorts
+		doc.addresses = addrs
 	})
 }
 
-func (m *fakeMachine) setMongoHostPorts(hostPorts []network.HostPort) {
-	m.mutate(func(doc *machineDoc) {
-		doc.mongoHostPorts = hostPorts
-	})
-}
-
-func (m *fakeMachine) setAPIHostPorts(hostPorts []network.HostPort) {
-	m.mutate(func(doc *machineDoc) {
-		doc.apiHostPorts = hostPorts
-	})
-}
-
-func (m *fakeMachine) setInstanceId(instanceId instance.Id) {
-	m.mutate(func(doc *machineDoc) {
-		doc.instanceId = instanceId
-	})
-}
-
-// SetHasVote implements stateMachine.SetHasVote.
+// SetHasVote implements Machine.SetHasVote.
 func (m *fakeMachine) SetHasVote(hasVote bool) error {
 	if err := m.errors.errorFor("Machine.SetHasVote", m.doc.id, hasVote); err != nil {
 		return err
@@ -428,6 +394,13 @@ func (m *fakeMachine) SetHasVote(hasVote bool) error {
 
 func (m *fakeMachine) setWantsVote(wantsVote bool) {
 	m.mutate(func(doc *machineDoc) {
+		doc.wantsVote = wantsVote
+	})
+}
+
+func (m *fakeMachine) advanceLifecycle(life state.Life, wantsVote bool) {
+	m.mutate(func(doc *machineDoc) {
+		doc.life = life
 		doc.wantsVote = wantsVote
 	})
 }
@@ -448,8 +421,6 @@ func newFakeMongoSession(checker invariantChecker, errors *errorPatterns) *fakeM
 	s := new(fakeMongoSession)
 	s.checker = checker
 	s.errors = errors
-	s.members.Set([]replicaset.Member(nil))
-	s.status.Set(&replicaset.Status{})
 	return s
 }
 
@@ -479,10 +450,10 @@ func (session *fakeMongoSession) setStatus(members []replicaset.MemberStatus) {
 // Set implements mongoSession.Set
 func (session *fakeMongoSession) Set(members []replicaset.Member) error {
 	if err := session.errors.errorFor("Session.Set"); err != nil {
-		logger.Infof("NOT setting replicaset members to \n%s", prettyReplicaSetMembers(members))
+		logger.Infof("NOT setting replicaset members to \n%s", prettyReplicaSetMembersSlice(members))
 		return err
 	}
-	logger.Infof("setting replicaset members to \n%s", prettyReplicaSetMembers(members))
+	logger.Infof("setting replicaset members to \n%s", prettyReplicaSetMembersSlice(members))
 	session.members.Set(deepCopy(members))
 	if session.InstantlyReady {
 		statuses := make([]replicaset.MemberStatus, len(members))
@@ -501,6 +472,17 @@ func (session *fakeMongoSession) Set(members []replicaset.Member) error {
 	}
 	session.checker.checkInvariants()
 	return nil
+}
+
+// prettyReplicaSetMembersSlice wraps prettyReplicaSetMembers for testing
+// purposes only.
+func prettyReplicaSetMembersSlice(members []replicaset.Member) string {
+	vrm := make(map[string]*replicaset.Member, len(members))
+	for i := range members {
+		m := members[i]
+		vrm[strconv.Itoa(i)] = &m
+	}
+	return prettyReplicaSetMembers(vrm)
 }
 
 // deepCopy makes a deep copy of any type by marshalling
@@ -529,6 +511,16 @@ type notifier struct {
 	changes chan struct{}
 }
 
+func (n *notifier) loop() {
+	defer n.tomb.Done()
+	for n.w.Next() {
+		select {
+		case n.changes <- struct{}{}:
+		case <-n.tomb.Dying():
+		}
+	}
+}
+
 // WatchValue returns a NotifyWatcher that triggers
 // when the given value changes. Its Wait and Err methods
 // never return a non-nil error.
@@ -539,16 +531,6 @@ func WatchValue(val *voyeur.Value) state.NotifyWatcher {
 	}
 	go n.loop()
 	return n
-}
-
-func (n *notifier) loop() {
-	defer n.tomb.Done()
-	for n.w.Next() {
-		select {
-		case n.changes <- struct{}{}:
-		case <-n.tomb.Dying():
-		}
-	}
 }
 
 // Changes returns a channel that sends a value when the value changes.

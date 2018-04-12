@@ -10,11 +10,15 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type remoteApplicationSuite struct {
@@ -46,13 +50,60 @@ func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		},
 	}
-	var err error
+
+	spaces := []*environs.ProviderSpaceInfo{{
+		CloudType: "ec2",
+		ProviderAttributes: map[string]interface{}{
+			"thing1":  23,
+			"thing2":  "halberd",
+			"network": "network-1",
+		},
+		SpaceInfo: network.SpaceInfo{
+			Name:       "public",
+			ProviderId: "juju-space-public",
+			Subnets: []network.SubnetInfo{{
+				ProviderId:        "juju-subnet-12",
+				CIDR:              "1.2.3.0/24",
+				AvailabilityZones: []string{"az1", "az2"},
+				SpaceProviderId:   "juju-space-public",
+				ProviderNetworkId: "network-1",
+			}},
+		},
+	}, {
+		CloudType: "ec2",
+		ProviderAttributes: map[string]interface{}{
+			"thing1":  24,
+			"thing2":  "bardiche",
+			"network": "network-1",
+		},
+		SpaceInfo: network.SpaceInfo{
+			Name:       "private",
+			ProviderId: "juju-space-private",
+			Subnets: []network.SubnetInfo{{
+				ProviderId:        "juju-subnet-24",
+				CIDR:              "1.2.4.0/24",
+				AvailabilityZones: []string{"az1", "az2"},
+				SpaceProviderId:   "juju-space-private",
+				ProviderNetworkId: "network-1",
+			}},
+		},
+	}}
+	bindings := map[string]string{
+		"db":       "private",
+		"db-admin": "private",
+		"logging":  "public",
+	}
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
 	s.application, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
 		URL:         "me/model.mysql",
-		SourceModel: s.State.ModelTag(),
-		Token:       "t0",
+		SourceModel: s.IAASModel.ModelTag(),
+		Token:       "app-token",
 		Endpoints:   eps,
+		Spaces:      spaces,
+		Bindings:    bindings,
+		Macaroon:    mac,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -72,15 +123,27 @@ func (s *remoteApplicationSuite) assertApplicationRelations(c *gc.C, svc *state.
 	return rels
 }
 
+func (s *remoteApplicationSuite) TestNoStatusForConsumerProxy(c *gc.C) {
+	application, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:            "hosted-mysql",
+		URL:             "me/model.mysql",
+		SourceModel:     s.IAASModel.ModelTag(),
+		Token:           "app-token",
+		IsConsumerProxy: true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = application.Status()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *remoteApplicationSuite) TestInitialStatus(c *gc.C) {
 	appStatus, err := s.application.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appStatus.Since, gc.NotNil)
 	appStatus.Since = nil
 	c.Assert(appStatus, gc.DeepEquals, status.StatusInfo{
-		Status:  status.Unknown,
-		Message: "waiting for remote connection",
-		Data:    map[string]interface{}{},
+		Status: status.Unknown,
+		Data:   map[string]interface{}{},
 	})
 }
 
@@ -159,13 +222,69 @@ func (s *remoteApplicationSuite) TestURL(c *gc.C) {
 	// Add another remote application without a URL.
 	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql1",
-		SourceModel: s.State.ModelTag(),
-		Token:       "t0",
+		SourceModel: s.IAASModel.ModelTag(),
+		Token:       "app-token",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	url, ok = app.URL()
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(url, gc.Equals, "")
+}
+
+func (s *remoteApplicationSuite) TestSpaces(c *gc.C) {
+	spaces := s.application.Spaces()
+	c.Assert(spaces, gc.DeepEquals, []state.RemoteSpace{{
+		CloudType:  "ec2",
+		Name:       "public",
+		ProviderId: "juju-space-public",
+		ProviderAttributes: map[string]interface{}{
+			"thing1":  23,
+			"thing2":  "halberd",
+			"network": "network-1",
+		},
+		Subnets: []state.RemoteSubnet{{
+			ProviderId:        "juju-subnet-12",
+			CIDR:              "1.2.3.0/24",
+			AvailabilityZones: []string{"az1", "az2"},
+			ProviderSpaceId:   "juju-space-public",
+			ProviderNetworkId: "network-1",
+		}},
+	}, {
+		CloudType:  "ec2",
+		Name:       "private",
+		ProviderId: "juju-space-private",
+		ProviderAttributes: map[string]interface{}{
+			"thing1":  24,
+			"thing2":  "bardiche",
+			"network": "network-1",
+		},
+		Subnets: []state.RemoteSubnet{{
+			ProviderId:        "juju-subnet-24",
+			CIDR:              "1.2.4.0/24",
+			AvailabilityZones: []string{"az1", "az2"},
+			ProviderSpaceId:   "juju-space-private",
+			ProviderNetworkId: "network-1",
+		}},
+	}})
+}
+
+func (s *remoteApplicationSuite) TestSpaceForEndpoint(c *gc.C) {
+	space, ok := s.application.SpaceForEndpoint("db")
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(space.Name, gc.Equals, "private")
+	space, ok = s.application.SpaceForEndpoint("logging")
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(space.Name, gc.Equals, "public")
+	space, ok = s.application.SpaceForEndpoint("something else")
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *remoteApplicationSuite) TestBindings(c *gc.C) {
+	c.Assert(s.application.Bindings(), gc.DeepEquals, map[string]string{
+		"db":       "private",
+		"db-admin": "private",
+		"logging":  "public",
+	})
 }
 
 func (s *remoteApplicationSuite) TestMysqlEndpoints(c *gc.C) {
@@ -207,6 +326,14 @@ func (s *remoteApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 	c.Assert(eps, gc.DeepEquals, []state.Endpoint{serverEP, adminEp, loggingEp})
 }
 
+func (s *remoteApplicationSuite) TestMacaroon(c *gc.C) {
+	mac, err := macaroon.New(nil, "test", "")
+	c.Assert(err, jc.ErrorIsNil)
+	appMac, err := s.application.Macaroon()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appMac, gc.DeepEquals, mac)
+}
+
 func (s *remoteApplicationSuite) TestApplicationRefresh(c *gc.C) {
 	s1, err := s.State.RemoteApplication(s.application.Name())
 	c.Assert(err, jc.ErrorIsNil)
@@ -227,7 +354,7 @@ func (s *remoteApplicationSuite) TestAddRelationBothRemote(c *gc.C) {
 		},
 	}
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "wordpress", Endpoints: wpep, SourceModel: s.State.ModelTag()})
+		Name: "wordpress", Endpoints: wpep, SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -237,48 +364,84 @@ func (s *remoteApplicationSuite) TestAddRelationBothRemote(c *gc.C) {
 
 func (s *remoteApplicationSuite) TestInferEndpointsWrongScope(c *gc.C) {
 	subCharm := s.AddTestingCharm(c, "logging")
-	s.AddTestingService(c, "logging", subCharm)
+	s.AddTestingApplication(c, "logging", subCharm)
 	_, err := s.State.InferEndpoints("logging", "mysql")
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
 func (s *remoteApplicationSuite) TestAddRemoteApplicationErrors(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "haha/borken", SourceModel: s.State.ModelTag()})
+		Name: "haha/borken", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "haha/borken": name "haha/borken" not valid`)
 	_, err = s.State.RemoteApplication("haha/borken")
 	c.Assert(err, gc.ErrorMatches, `remote application name "haha/borken" not valid`)
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "borken", URL: "haha/borken", SourceModel: s.State.ModelTag()})
+		Name: "borken", URL: "haha/borken", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, gc.ErrorMatches,
-		`cannot add remote application "borken": validating offered application URL: `+
+		`cannot add remote application "borken": validating offer URL: `+
 			`application offer URL is missing application`,
 	)
 	_, err = s.State.RemoteApplication("borken")
 	c.Assert(err, gc.ErrorMatches, `remote application "borken" not found`)
 }
 
+func (s *remoteApplicationSuite) TestParamsValidateChecksBindings(c *gc.C) {
+	eps := []charm.Relation{
+		{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+
+	spaces := []*environs.ProviderSpaceInfo{{
+		SpaceInfo: network.SpaceInfo{
+			Name: "public",
+		},
+	}}
+	bindings := map[string]string{
+		"db": "private",
+	}
+	args := state.AddRemoteApplicationParams{
+		Name:        "mysql",
+		URL:         "me/model.mysql",
+		SourceModel: s.IAASModel.ModelTag(),
+		Token:       "app-token",
+		Endpoints:   eps,
+		Spaces:      spaces,
+		Bindings:    bindings,
+	}
+	err := args.Validate()
+	c.Assert(err, gc.ErrorMatches, `endpoint "db" bound to missing space "private" not valid`)
+	bindings["db"] = "public"
+	// Tolerates bindings for non-existent endpoints.
+	bindings["gidget"] = "public"
+	err = args.Validate()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *remoteApplicationSuite) TestAddRemoteApplication(c *gc.C) {
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", URL: "me/model.foo", SourceModel: s.State.ModelTag()})
+		Name: "foo", OfferUUID: "offer-uuid", URL: "me/model.foo", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.Name(), gc.Equals, "foo")
 	c.Assert(foo.IsConsumerProxy(), jc.IsFalse)
 	foo, err = s.State.RemoteApplication("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.Name(), gc.Equals, "foo")
-	c.Assert(foo.OfferName(), gc.Equals, "bar")
+	c.Assert(foo.OfferUUID(), gc.Equals, "offer-uuid")
 	url, ok := foo.URL()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(url, gc.Equals, "me/model.foo")
 	c.Assert(foo.IsConsumerProxy(), jc.IsFalse)
-	c.Assert(foo.SourceModel().Id(), gc.Equals, s.State.ModelTag().Id())
+	c.Assert(foo.SourceModel().Id(), gc.Equals, s.IAASModel.ModelTag().Id())
 }
 
 func (s *remoteApplicationSuite) TestAddRemoteApplicationFromConsumer(c *gc.C) {
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", SourceModel: s.State.ModelTag(), IsConsumerProxy: true})
+		Name: "foo", SourceModel: s.IAASModel.ModelTag(), IsConsumerProxy: true})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.IsConsumerProxy(), jc.IsTrue)
 	foo, err = s.State.RemoteApplication("foo")
@@ -293,7 +456,7 @@ func (s *remoteApplicationSuite) TestAddEndpoints(c *gc.C) {
 		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
+		Name: "foo", OfferUUID: "offer-uuid", SourceModel: s.IAASModel.ModelTag(),
 		Endpoints: origEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -331,7 +494,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConflicting(c *gc.C) {
 		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
+		Name: "foo", OfferUUID: "offer-uuid", SourceModel: s.IAASModel.ModelTag(),
 		Endpoints: origEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -351,7 +514,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentOneDeleted(c *gc.C) {
 		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
+		Name: "foo", OfferUUID: "offer-uuid", SourceModel: s.IAASModel.ModelTag(),
 		Endpoints: origEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -365,7 +528,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentOneDeleted(c *gc.C) {
 		err := foo.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-			Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
+			Name: "foo", OfferUUID: "offer-uuid", SourceModel: s.IAASModel.ModelTag(),
 			Endpoints: reducedEps,
 		})
 		c.Assert(err, jc.ErrorIsNil)
@@ -405,7 +568,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentConflictingOneAdded(c
 		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
+		Name: "foo", OfferUUID: "offer-uuid", SourceModel: s.IAASModel.ModelTag(),
 		Endpoints: origEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -435,7 +598,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentDifferentOneAdded(c *
 		{Name: "ep2", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "foo", OfferName: "bar", SourceModel: s.State.ModelTag(),
+		Name: "foo", OfferUUID: "offer-uuid", SourceModel: s.IAASModel.ModelTag(),
 		Endpoints: origEps,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -481,7 +644,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentDifferentOneAdded(c *
 
 func (s *remoteApplicationSuite) TestAddRemoteRelationWrongScope(c *gc.C) {
 	subCharm := s.AddTestingCharm(c, "logging")
-	s.AddTestingService(c, "logging", subCharm)
+	s.AddTestingApplication(c, "logging", subCharm)
 	ep1 := state.Endpoint{
 		ApplicationName: "mysql",
 		Relation: charm.Relation{
@@ -501,7 +664,7 @@ func (s *remoteApplicationSuite) TestAddRemoteRelationWrongScope(c *gc.C) {
 		},
 	}
 	_, err := s.State.AddRelation(ep1, ep2)
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:logging-client mysql:logging": both endpoints must be globally scoped for remote relations`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:logging-client mysql:logging": local endpoint must be globally scoped for remote relations`)
 }
 
 func (s *remoteApplicationSuite) TestAddRemoteRelationLocalFirst(c *gc.C) {
@@ -534,7 +697,7 @@ func (s *remoteApplicationSuite) assertAddRemoteRelation(c *gc.C, application1, 
 			},
 		},
 	}
-	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints(application1, application2)
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps[0], eps[1])
@@ -558,20 +721,78 @@ func (s *remoteApplicationSuite) TestDestroySimple(c *gc.C) {
 }
 
 func (s *remoteApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Destroy a local application with no units in relation scope; check application and
+	// Destroy the remote application with no units in relation scope; check application and
 	// unit removed.
-	err = wordpress.Destroy()
+	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress.Refresh()
+	err = s.application.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = rel.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *remoteApplicationSuite) TestDestroyWithRemoteTokens(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps[0], eps[1])
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add remote token so we can check it is cleaned up.
+	re := s.State.RemoteEntities()
+	relToken, err := re.ExportLocalEntity(rel.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.application.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = re.GetToken(s.application.Tag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = re.GetToken(rel.Tag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	_, err = re.GetRemoteEntity("app-token")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	err = rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	_, err = re.GetRemoteEntity(relToken)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *remoteApplicationSuite) TestDestroyWithOfferConnections(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps[0], eps[1])
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a offer connection record so we can check it is cleaned up.
+	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		SourceModelUUID: coretesting.ModelTag.Id(),
+		RelationId:      rel.Id(),
+		RelationKey:     rel.Tag().Id(),
+		Username:        "fred",
+		OfferUUID:       "offer-uuid",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	rc, err := s.State.RemoteConnectionStatus("offer-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rc.TotalConnectionCount(), gc.Equals, 1)
+
+	err = s.application.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	rc, err = s.State.RemoteConnectionStatus("offer-uuid")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rc.TotalConnectionCount(), gc.Equals, 0)
 }
 
 func (s *remoteApplicationSuite) TestDestroyWithReferencedRelation(c *gc.C) {
@@ -584,20 +805,20 @@ func (s *remoteApplicationSuite) TestDestroyWithReferencedRelationStaleCount(c *
 
 func (s *remoteApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool) {
 	ch := s.AddTestingCharm(c, "wordpress")
-	wordpress := s.AddTestingService(c, "wordpress", ch)
+	wordpress := s.AddTestingApplication(c, "wordpress", ch)
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel0, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.AddTestingService(c, "another", ch)
+	s.AddTestingApplication(c, "another", ch)
 	eps, err = s.State.InferEndpoints("another", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel1, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a separate reference to the first relation.
-	unit, err := wordpress.AddUnit()
+	unit, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel0.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -646,7 +867,7 @@ func (s *remoteApplicationSuite) TestAllRemoteApplications(c *gc.C) {
 	c.Assert(len(applications), gc.Equals, 1)
 
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "another", SourceModel: s.State.ModelTag()})
+		Name: "another", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	applications, err = s.State.AllRemoteApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -654,22 +875,22 @@ func (s *remoteApplicationSuite) TestAllRemoteApplications(c *gc.C) {
 
 	// Check the returned application, order is defined by sorted keys.
 	names := make([]string, len(applications))
-	for i, svc := range applications {
-		names[i] = svc.Name()
+	for i, app := range applications {
+		names[i] = app.Name()
 	}
 	sort.Strings(names)
 	c.Assert(names[0], gc.Equals, "another")
 	c.Assert(names[1], gc.Equals, "mysql")
 }
 
-func (s *remoteApplicationSuite) TestAddApplicationEnvironmentDying(c *gc.C) {
-	// Check that applications cannot be added if the environment is initially Dying.
+func (s *remoteApplicationSuite) TestAddApplicationModelDying(c *gc.C) {
+	// Check that applications cannot be added if the model is initially Dying.
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = model.Destroy()
+	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": model is no longer alive`)
 }
 
@@ -678,7 +899,7 @@ func (s *remoteApplicationSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": local application with same name already exists`)
 }
 
@@ -692,16 +913,16 @@ func (s *remoteApplicationSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": local application with same name already exists`)
 }
 
 func (s *remoteApplicationSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": remote application already exists`)
 }
 
@@ -711,26 +932,26 @@ func (s *remoteApplicationSuite) TestAddApplicationRemoteAddedAfterInitial(c *gc
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-			Name: "s1", SourceModel: s.State.ModelTag()})
+			Name: "s1", SourceModel: s.IAASModel.ModelTag()})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": remote application already exists`)
 }
 
-func (s *remoteApplicationSuite) TestAddApplicationEnvironDiesAfterInitial(c *gc.C) {
+func (s *remoteApplicationSuite) TestAddApplicationModelDiesAfterInitial(c *gc.C) {
 	// Check that a application with a name conflict cannot be added if
 	// there is no conflict initially but a remote application is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		model, err := s.State.Model()
 		c.Assert(err, jc.ErrorIsNil)
-		err = model.Destroy()
+		err = model.Destroy(state.DestroyModelParams{})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "s1", SourceModel: s.State.ModelTag()})
+		Name: "s1", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": model "testenv" is no longer alive`)
 }
 
@@ -742,7 +963,7 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplications(c *gc.C) {
 	wc.AssertNoChange()
 
 	db2, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "db2", SourceModel: s.State.ModelTag()})
+		Name: "db2", SourceModel: s.IAASModel.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("db2")
 	wc.AssertNoChange()
@@ -763,7 +984,7 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplicationsDying(c *gc.C) {
 	wc.AssertNoChange()
 
 	ch := s.AddTestingCharm(c, "wordpress")
-	wordpress := s.AddTestingService(c, "wordpress", ch)
+	wordpress := s.AddTestingApplication(c, "wordpress", ch)
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps[0], eps[1])
@@ -771,7 +992,7 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplicationsDying(c *gc.C) {
 
 	// Add a unit to the relation so the remote application is not
 	// short-circuit removed.
-	unit, err := wordpress.AddUnit()
+	unit, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)

@@ -8,17 +8,12 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	"github.com/juju/utils/set"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/resource"
-)
-
-const (
-	// CleanupKindResourceBlob identifies the cleanup kind
-	// for resource blobs.
-	CleanupKindResourceBlob = "resourceBlob"
 )
 
 // ResourcePersistenceBase exposes the core persistence functionality
@@ -43,10 +38,6 @@ type ResourcePersistenceBase interface {
 	// IncCharmModifiedVersionOps returns the operations necessary to increment
 	// the CharmModifiedVersion field for the given application.
 	IncCharmModifiedVersionOps(applicationID string) []txn.Op
-
-	// NewCleanupOp creates a mgo transaction operation that queues up
-	// some cleanup action in state.
-	NewCleanupOp(kind, prefix string) txn.Op
 }
 
 // ResourcePersistence provides the persistence functionality for the
@@ -335,6 +326,16 @@ func (p ResourcePersistence) getStored(res resource.Resource) (storedResource, e
 	return stored, nil
 }
 
+// RemovePendingResources removes the pending application-level
+// resources for a specific application, normally in the case that the
+// application couln't be deployed.
+func (p ResourcePersistence) RemovePendingAppResources(applicationID string, pendingIDs map[string]string) error {
+	buildTxn := func(int) ([]txn.Op, error) {
+		return p.NewRemovePendingAppResourcesOps(applicationID, pendingIDs)
+	}
+	return errors.Trace(p.base.Run(buildTxn))
+}
+
 // NewResolvePendingResourceOps generates mongo transaction operations
 // to set the identified resource as active.
 //
@@ -390,12 +391,43 @@ func (p ResourcePersistence) NewRemoveResourcesOps(applicationID string) ([]txn.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return removeResourcesAndStorageCleanupOps(docs), nil
+}
 
-	ops := newRemoveResourcesOps(docs)
-	for _, doc := range docs {
-		if doc.StoragePath != "" { // Don't schedule cleanups for placeholder resources.
-			ops = append(ops, p.base.NewCleanupOp(CleanupKindResourceBlob, doc.StoragePath))
-		}
+// NewRemovePendingResourcesOps returns mgo transaction operations to
+// clean up pending resources for the application from state. We pass
+// in the pending IDs to avoid removing the wrong resources if there's
+// a race to deploy the same application.
+func (p ResourcePersistence) NewRemovePendingAppResourcesOps(applicationID string, pendingIDs map[string]string) ([]txn.Op, error) {
+	docs, err := p.resources(applicationID)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return ops, nil
+	pending := make([]resourceDoc, 0, len(docs))
+	for _, doc := range docs {
+		if doc.UnitID != "" || doc.PendingID == "" {
+			continue
+		}
+		if pendingIDs[doc.Name] != doc.PendingID {
+			// This is a pending resource for a different deployment
+			// of an application with the same name.
+			continue
+		}
+		pending = append(pending, doc)
+	}
+	return removeResourcesAndStorageCleanupOps(pending), nil
+}
+
+func removeResourcesAndStorageCleanupOps(docs []resourceDoc) []txn.Op {
+	ops := newRemoveResourcesOps(docs)
+	seenPaths := set.NewStrings()
+	for _, doc := range docs {
+		// Don't schedule cleanups for placeholder resources, or multiple for a given path.
+		if doc.StoragePath == "" || seenPaths.Contains(doc.StoragePath) {
+			continue
+		}
+		ops = append(ops, newCleanupOp(cleanupResourceBlob, doc.StoragePath))
+		seenPaths.Add(doc.StoragePath)
+	}
+	return ops
 }

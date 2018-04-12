@@ -93,6 +93,13 @@ type RestartableService interface {
 	Restart() error
 }
 
+type UpgradableService interface {
+	// WriteService write the service conf data, if the service is
+	// running add links to allow for manual and automatic start
+	// of the service.
+	WriteService() error
+}
+
 // TODO(ericsnow) bug #1426458
 // Eliminate the need to pass an empty conf for most service methods
 // and several helper functions.
@@ -127,7 +134,7 @@ func newService(name string, conf common.Conf, initSystem, series string) (Servi
 			return nil, errors.Annotatef(err, "failed to find juju data dir for application %q", name)
 		}
 
-		svc, err := systemd.NewService(name, conf, dataDir)
+		svc, err := systemd.NewService(name, conf, dataDir, systemd.NewDBusAPI)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
 		}

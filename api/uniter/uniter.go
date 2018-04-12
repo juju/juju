@@ -7,13 +7,16 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
 )
@@ -69,12 +72,12 @@ func newStateForVersionFn(version int) func(base.APICaller, names.UnitTag) *Stat
 	}
 }
 
-// newStateV4 creates a new client-side Uniter facade, version 4.
-var newStateV4 = newStateForVersionFn(4)
+// newStateV8 creates a new client-side Uniter facade, version 8
+var newStateV8 = newStateForVersionFn(8)
 
 // NewState creates a new client-side Uniter facade.
 // Defined like this to allow patching during tests.
-var NewState = newStateV4
+var NewState = newStateV8
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.
@@ -89,7 +92,7 @@ func (st *State) Facade() base.FacadeCaller {
 
 // life requests the lifecycle of the given entity from the server.
 func (st *State) life(tag names.Tag) (params.Life, error) {
-	return common.Life(st.facade, tag)
+	return common.OneLife(st.facade, tag)
 }
 
 // relation requests relation information from the server.
@@ -112,6 +115,21 @@ func (st *State) relation(relationTag, unitTag names.Tag) (params.RelationResult
 		return nothing, err
 	}
 	return result.Results[0], nil
+}
+
+func (st *State) setRelationStatus(id int, status relation.Status) error {
+	args := params.RelationStatusArgs{
+		Args: []params.RelationStatusArg{{
+			UnitTag:    st.unitTag.String(),
+			RelationId: id,
+			Status:     params.RelationStatusValue(status),
+		}},
+	}
+	var results params.ErrorResults
+	if err := st.facade.FacadeCall("SetRelationStatus", args, &results); err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
 }
 
 // getOneAction retrieves a single Action from the controller.
@@ -145,15 +163,15 @@ func (st *State) getOneAction(tag *names.ActionTag) (params.ActionResult, error)
 
 // Unit provides access to methods of a state.Unit through the facade.
 func (st *State) Unit(tag names.UnitTag) (*Unit, error) {
-	life, err := st.life(tag)
+	unit := &Unit{
+		tag: tag,
+		st:  st,
+	}
+	err := unit.Refresh()
 	if err != nil {
 		return nil, err
 	}
-	return &Unit{
-		tag:  tag,
-		life: life,
-		st:   st,
-	}, nil
+	return unit, nil
 }
 
 // Application returns an application state by tag.
@@ -203,10 +221,12 @@ func (st *State) Relation(relationTag names.RelationTag) (*Relation, error) {
 		return nil, err
 	}
 	return &Relation{
-		id:   result.Id,
-		tag:  relationTag,
-		life: result.Life,
-		st:   st,
+		id:        result.Id,
+		tag:       relationTag,
+		life:      result.Life,
+		suspended: result.Suspended,
+		st:        st,
+		otherApp:  result.OtherApplication,
 	}, nil
 }
 
@@ -294,10 +314,12 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	}
 	relationTag := names.NewRelationTag(result.Key)
 	return &Relation{
-		id:   result.Id,
-		tag:  relationTag,
-		life: result.Life,
-		st:   st,
+		id:        result.Id,
+		tag:       relationTag,
+		life:      result.Life,
+		suspended: result.Suspended,
+		st:        st,
+		otherApp:  result.OtherApplication,
 	}, nil
 }
 
@@ -311,9 +333,14 @@ func (st *State) Model() (*Model, error) {
 	if err := result.Error; err != nil {
 		return nil, err
 	}
+	modelType := model.ModelType(result.Type)
+	if modelType == "" {
+		modelType = model.IAAS
+	}
 	return &Model{
-		name: result.Name,
-		uuid: result.UUID,
+		name:      result.Name,
+		uuid:      result.UUID,
+		modelType: modelType,
 	}, nil
 }
 
@@ -389,4 +416,109 @@ func ErrIfNotVersionFn(minVersion int, bestAPIVersion int) func(string) error {
 		}
 		return errors.NotImplementedf("%s(...) requires v%d+", fnName, minVersion)
 	}
+}
+
+// SLALevel returns the SLA level set on the model.
+func (st *State) SLALevel() (string, error) {
+	if st.BestAPIVersion() < 5 {
+		return "unsupported", nil
+	}
+	var result params.StringResult
+	err := st.facade.FacadeCall("SLALevel", nil, &result)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if err := result.Error; err != nil {
+		return "", errors.Trace(err)
+	}
+	return result.Result, nil
+}
+
+// GoalState returns a GoalState struct with the charm's
+// peers and related units information.
+func (st *State) GoalState() (application.GoalState, error) {
+	var result params.GoalStateResults
+
+	gs := application.GoalState{}
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: st.unitTag.String()},
+		},
+	}
+
+	err := st.facade.FacadeCall("GoalStates", args, &result)
+	if err != nil {
+		return gs, err
+	}
+	if len(result.Results) != 1 {
+		return gs, errors.Errorf("expected 1 result, got %d", len(result.Results))
+	}
+	if err := result.Results[0].Error; err != nil {
+		return gs, err
+	}
+	gs = goalStateFromParams(result.Results[0].Result)
+	return gs, nil
+}
+
+func goalStateFromParams(paramsGoalState *params.GoalState) application.GoalState {
+	goalState := application.GoalState{}
+
+	copyUnits := func(units params.UnitsGoalState) application.UnitsGoalState {
+		copiedUnits := application.UnitsGoalState{}
+		for name, gs := range units {
+			copiedUnits[name] = application.GoalStateStatus{
+				Status: gs.Status,
+				Since:  gs.Since,
+			}
+		}
+		return copiedUnits
+	}
+
+	goalState.Units = copyUnits(paramsGoalState.Units)
+
+	if paramsGoalState.Relations != nil {
+		goalState.Relations = make(map[string]application.UnitsGoalState)
+		for relation, relationUnits := range paramsGoalState.Relations {
+			goalState.Relations[relation] = copyUnits(relationUnits)
+		}
+	}
+
+	return goalState
+}
+
+// SetPodSpec sets the pod spec of the specified application.
+func (st *State) SetPodSpec(appName string, spec string) error {
+	if !names.IsValidApplication(appName) {
+		return errors.NotValidf("application name %q", appName)
+	}
+	tag := names.NewApplicationTag(appName)
+	var result params.ErrorResults
+	args := params.SetPodSpecParams{
+		Specs: []params.EntityString{{
+			Tag:   tag.String(),
+			Value: spec,
+		}},
+	}
+	if err := st.facade.FacadeCall("SetPodSpec", args, &result); err != nil {
+		return errors.Trace(err)
+	}
+	return result.OneError()
+}
+
+// CloudSpec returns the cloud spec for the model that calling unit or
+// application resides in.
+// If the application has not been authorised to access its cloud spec,
+// then an authorisation error will be returned.
+func (st *State) CloudSpec() (*params.CloudSpec, error) {
+	var result params.CloudSpecResult
+
+	err := st.facade.FacadeCall("CloudSpec", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.Error; err != nil {
+		return nil, err
+	}
+	return result.Result, nil
 }

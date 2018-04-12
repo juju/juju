@@ -54,7 +54,7 @@ func (s *environSuite) TestBase(c *gc.C) {
 	c.Assert(cfg, gc.NotNil)
 	c.Check(cfg.Name(), gc.Equals, "testname")
 
-	c.Check(env.PrecheckInstance("", constraints.Value{}, ""), gc.IsNil)
+	c.Check(env.PrecheckInstance(environs.PrecheckInstanceParams{}), gc.IsNil)
 
 	hasRegion, ok := env.(simplestreams.HasRegion)
 	c.Check(ok, gc.Equals, true)
@@ -65,11 +65,6 @@ func (s *environSuite) TestBase(c *gc.C) {
 	c.Check(cloudSpec.Region, gc.Not(gc.Equals), "")
 	c.Check(cloudSpec.Endpoint, gc.Not(gc.Equals), "")
 
-	c.Check(env.OpenPorts(nil), gc.IsNil)
-	c.Check(env.ClosePorts(nil), gc.IsNil)
-	ports, err := env.IngressRules()
-	c.Assert(err, gc.IsNil)
-	c.Check(ports, gc.IsNil)
 }
 
 func (s *environSuite) TestUnsupportedConstraints(c *gc.C) {

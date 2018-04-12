@@ -14,7 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/resource"
@@ -221,7 +221,7 @@ func uploadCharms(config UploadBinariesConfig) error {
 
 func uploadTools(config UploadBinariesConfig) error {
 	for v, uri := range config.Tools {
-		logger.Debugf("sending tools to target: %s", v)
+		logger.Debugf("sending agent binaries to target: %s", v)
 
 		reader, err := config.ToolsDownloader.OpenURI(uri, nil)
 		if err != nil {
@@ -236,7 +236,7 @@ func uploadTools(config UploadBinariesConfig) error {
 		defer cleanup()
 
 		if _, err := config.ToolsUploader.UploadTools(content, v); err != nil {
-			return errors.Annotate(err, "cannot upload tools")
+			return errors.Annotate(err, "cannot upload agent binaries")
 		}
 	}
 	return nil
@@ -245,10 +245,8 @@ func uploadTools(config UploadBinariesConfig) error {
 func uploadResources(config UploadBinariesConfig) error {
 	for _, res := range config.Resources {
 		if res.ApplicationRevision.IsPlaceholder() {
-			err := config.ResourceUploader.SetPlaceholderResource(res.ApplicationRevision)
-			if err != nil {
-				return errors.Annotate(err, "cannot set placeholder resource")
-			}
+			// Resource placeholders created in the migration import rather
+			// than attempting to post empty resources.
 		} else {
 			err := uploadAppResource(config, res.ApplicationRevision)
 			if err != nil {

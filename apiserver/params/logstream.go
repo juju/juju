@@ -36,10 +36,6 @@ type LogStreamRecord struct {
 // See apiserver/debuglog.go:debugLogParams for additional things we
 // may consider supporting here.
 type LogStreamConfig struct {
-	// AllModels indicates whether logs for all the controller's models
-	// should be included or just those of the connection's model.
-	AllModels bool `schema:"all" url:"all,omitempty"`
-
 	// Sink identifies the target to which log records will be streamed.
 	// This is used as a bookmark for where to start the next time logs
 	// are streamed for the same sink.

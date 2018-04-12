@@ -7,15 +7,14 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/crossmodel"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/testing"
 )
 
 type findSuite struct {
@@ -35,19 +34,18 @@ func (s *findSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *findSuite) runFind(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, crossmodel.NewFindEndpointsCommandForTest(s.store, s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, crossmodel.NewFindEndpointsCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *findSuite) TestFindNoArgs(c *gc.C) {
 	s.mockAPI.c = c
-	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{ModelName: "test"}
-	s.mockAPI.expectedModelName = "model"
+	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{}
 	s.assertFind(
 		c,
 		[]string{},
 		`
-URL                    Interfaces
-fred/model.hosted-db2  http:db2, http:log
+Store   URL                   Access   Interfaces
+master  fred/test.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -57,20 +55,24 @@ func (s *findSuite) TestFindDuplicateUrl(c *gc.C) {
 	s.assertFindError(c, []string{"url", "--url", "urlparam"}, ".*URL term cannot be specified twice.*")
 }
 
-func (s *findSuite) TestFindDifferentController(c *gc.C) {
-	s.assertFindError(c, []string{"different:user/model.offer"}, `finding endpoints from another controller "different" not supported`)
+func (s *findSuite) TestFindOfferandUrl(c *gc.C) {
+	s.assertFindError(c, []string{"--offer", "offer", "--url", "urlparam"}, ".*cannot specify both a URL term and offer term.*")
 }
 
 func (s *findSuite) TestNoResults(c *gc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedModelName = "none"
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
+		OwnerName: "bob",
 		ModelName: "none",
+		Endpoints: []jujucrossmodel.EndpointFilterTerm{{
+			Interface: "mysql",
+		}},
 	}
-	s.mockAPI.results = []params.ApplicationOffer{}
+	s.mockAPI.results = []*jujucrossmodel.ApplicationOfferDetails{}
 	s.assertFindError(
 		c,
-		[]string{"--url", "none"},
+		[]string{"--url", "none", "--interface", "mysql"},
 		`no matching application offers found`,
 	)
 }
@@ -80,6 +82,7 @@ func (s *findSuite) TestSimpleFilter(c *gc.C) {
 	s.mockAPI.expectedModelName = "model"
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
 		OfferName: "hosted-db2",
+		OwnerName: "fred",
 		ModelName: "model",
 	}
 	s.mockAPI.expectedModelName = "model"
@@ -87,8 +90,8 @@ func (s *findSuite) TestSimpleFilter(c *gc.C) {
 		c,
 		[]string{"--format", "tabular", "--url", "fred/model.hosted-db2"},
 		`
-URL                    Interfaces
-fred/model.hosted-db2  http:db2, http:log
+Store   URL                    Access   Interfaces
+master  fred/model.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -97,19 +100,19 @@ fred/model.hosted-db2  http:db2, http:log
 func (s *findSuite) TestEndpointFilter(c *gc.C) {
 	s.mockAPI.c = c
 	s.mockAPI.expectedFilter = &jujucrossmodel.ApplicationOfferFilter{
+		OwnerName: "fred",
 		ModelName: "model",
 		Endpoints: []jujucrossmodel.EndpointFilterTerm{{
 			Interface: "mysql",
-			Name:      "db",
 		}},
 	}
 	s.mockAPI.expectedModelName = "model"
 	s.assertFind(
 		c,
-		[]string{"--format", "tabular", "--url", "fred/model", "--endpoint", "db", "--interface", "mysql"},
+		[]string{"--format", "tabular", "--url", "fred/model", "--interface", "mysql"},
 		`
-URL                    Interfaces
-fred/model.hosted-db2  http:db2, http:log
+Store   URL                    Access   Interfaces
+master  fred/model.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -126,7 +129,8 @@ func (s *findSuite) TestFindYaml(c *gc.C) {
 		c,
 		[]string{"fred/model.hosted-db2", "--format", "yaml"},
 		`
-fred/model.hosted-db2:
+master:fred/model.hosted-db2:
+  access: consume
   endpoints:
     db2:
       interface: http
@@ -134,6 +138,10 @@ fred/model.hosted-db2:
     log:
       interface: http
       role: provider
+  users:
+    bob:
+      display-name: Bob
+      access: consume
 `[1:],
 	)
 }
@@ -144,8 +152,22 @@ func (s *findSuite) TestFindTabular(c *gc.C) {
 		c,
 		[]string{"fred/model.hosted-db2", "--format", "tabular"},
 		`
-URL                    Interfaces
-fred/model.hosted-db2  http:db2, http:log
+Store   URL                    Access   Interfaces
+master  fred/model.hosted-db2  consume  http:db2, http:log
+
+`[1:],
+	)
+}
+
+func (s *findSuite) TestFindDifferentController(c *gc.C) {
+	s.mockAPI.expectedModelName = "model"
+	s.mockAPI.controllerName = "different"
+	s.assertFind(
+		c,
+		[]string{"fred/model.hosted-db2", "--format", "tabular"},
+		`
+Store      URL                    Access   Interfaces
+different  fred/model.hosted-db2  consume  http:db2, http:log
 
 `[1:],
 	)
@@ -155,7 +177,7 @@ func (s *findSuite) assertFind(c *gc.C, args []string, expected string) {
 	context, err := s.runFind(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtained := testing.Stdout(context)
+	obtained := cmdtesting.Stdout(context)
 	c.Assert(obtained, gc.Matches, expected)
 }
 
@@ -166,17 +188,18 @@ func (s *findSuite) assertFindError(c *gc.C, args []string, expected string) {
 
 type mockFindAPI struct {
 	c                 *gc.C
+	controllerName    string
 	msg, offerName    string
 	expectedModelName string
 	expectedFilter    *jujucrossmodel.ApplicationOfferFilter
-	results           []params.ApplicationOffer
+	results           []*jujucrossmodel.ApplicationOfferDetails
 }
 
 func (s mockFindAPI) Close() error {
 	return nil
 }
 
-func (s mockFindAPI) FindApplicationOffers(filters ...jujucrossmodel.ApplicationOfferFilter) ([]params.ApplicationOffer, error) {
+func (s mockFindAPI) FindApplicationOffers(filters ...jujucrossmodel.ApplicationOfferFilter) ([]*jujucrossmodel.ApplicationOfferDetails, error) {
 	if s.msg != "" {
 		return nil, errors.New(s.msg)
 	}
@@ -188,12 +211,20 @@ func (s mockFindAPI) FindApplicationOffers(filters ...jujucrossmodel.Application
 	if s.results != nil {
 		return s.results, nil
 	}
-	return []params.ApplicationOffer{{
-		OfferURL:  fmt.Sprintf("fred/%s.%s", s.expectedModelName, s.offerName),
+	store := s.controllerName
+	if store == "" {
+		store = "master"
+	}
+	offerURL := fmt.Sprintf("%s:fred/%s.%s", store, s.expectedModelName, s.offerName)
+	return []*jujucrossmodel.ApplicationOfferDetails{{
+		OfferURL:  offerURL,
 		OfferName: s.offerName,
-		Endpoints: []params.RemoteEndpoint{
+		Endpoints: []charm.Relation{
 			{Name: "log", Interface: "http", Role: charm.RoleProvider},
 			{Name: "db2", Interface: "http", Role: charm.RoleRequirer},
 		},
+		Users: []jujucrossmodel.OfferUserDetails{{
+			UserName: "bob", DisplayName: "Bob", Access: "consume",
+		}},
 	}}, nil
 }

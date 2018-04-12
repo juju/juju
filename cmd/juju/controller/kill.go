@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/clock"
 
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
@@ -39,31 +40,21 @@ See also:
     unregister
 `
 
-// NewKillCommand returns a command to kill a controller. Killing is a forceful
-// destroy.
-func NewKillCommand() cmd.Command {
-	// Even though this command is all about killing a controller we end up
-	// needing environment endpoints so we can fall back to the client destroy
-	// environment method. This shouldn't really matter in practice as the
-	// user trying to take down the controller will need to have access to the
-	// controller environment anyway.
+// NewKillCommand returns a command to kill a controller. Killing is a
+// forceful destroy.
+func NewKillCommand() modelcmd.Command {
 	return wrapKillCommand(&killCommand{
 		clock: clock.WallClock,
-	}, nil, clock.WallClock)
+	})
 }
 
 // wrapKillCommand provides the common wrapping used by tests and
 // the default NewKillCommand above.
-func wrapKillCommand(kill *killCommand, apiOpen modelcmd.APIOpener, clock clock.Clock) cmd.Command {
-	if apiOpen == nil {
-		apiOpen = modelcmd.OpenFunc(kill.JujuCommandBase.NewAPIRoot)
-	}
-	openStrategy := modelcmd.NewTimeoutOpener(apiOpen, clock, 10*time.Second)
+func wrapKillCommand(kill *killCommand) modelcmd.Command {
 	return modelcmd.WrapController(
 		kill,
 		modelcmd.WrapControllerSkipControllerFlags,
 		modelcmd.WrapControllerSkipDefaultController,
-		modelcmd.WrapControllerAPIOpener(openStrategy),
 	)
 }
 
@@ -97,9 +88,14 @@ func (c *killCommand) Init(args []string) error {
 	return c.destroyCommandBase.Init(args)
 }
 
+var errConnTimedOut = errors.New("open connection timed out")
+
 // Run implements Command.Run
 func (c *killCommand) Run(ctx *cmd.Context) error {
-	controllerName := c.ControllerName()
+	controllerName, err := c.ControllerName()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	store := c.ClientStore()
 	if !c.assumeYes {
 		if err := confirmDestruction(ctx, controllerName); err != nil {
@@ -108,18 +104,14 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Attempt to connect to the API.
-	api, err := c.getControllerAPI()
-	switch {
-	case err == nil:
+	api, err := c.getControllerAPIWithTimeout(10 * time.Second)
+	switch errors.Cause(err) {
+	case nil:
 		defer api.Close()
-	case errors.Cause(err) == common.ErrPerm:
+	case common.ErrPerm:
 		return errors.Annotate(err, "cannot destroy controller")
 	default:
-		if errors.Cause(err) != modelcmd.ErrConnTimedOut {
-			logger.Debugf("unable to open api: %s", err)
-		}
 		ctx.Infof("Unable to open API: %s\n", err)
-		api = nil
 	}
 
 	// Obtain controller environ so we can clean up afterwards.
@@ -134,8 +126,12 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		return environs.Destroy(controllerName, controllerEnviron, store)
 	}
 
-	// Attempt to destroy the controller and all environments.
-	err = api.DestroyController(true)
+	// Attempt to destroy the controller and all models and storage.
+	destroyStorage := true
+	err = api.DestroyController(controller.DestroyControllerParams{
+		DestroyModels:  true,
+		DestroyStorage: &destroyStorage,
+	})
 	if err != nil {
 		ctx.Infof("Unable to destroy controller through the API: %s\nDestroying through provider", err)
 		return environs.Destroy(controllerName, controllerEnviron, store)
@@ -150,6 +146,32 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	return environs.Destroy(controllerName, controllerEnviron, store)
 }
 
+func (c *killCommand) getControllerAPIWithTimeout(timeout time.Duration) (destroyControllerAPI, error) {
+	type result struct {
+		c   destroyControllerAPI
+		err error
+	}
+	resultc := make(chan result)
+	done := make(chan struct{})
+	go func() {
+		api, err := c.getControllerAPI()
+		select {
+		case resultc <- result{api, err}:
+		case <-done:
+			if api != nil {
+				api.Close()
+			}
+		}
+	}()
+	select {
+	case r := <-resultc:
+		return r.c, r.err
+	case <-c.clock.After(timeout):
+		close(done)
+		return nil, errConnTimedOut
+	}
+}
+
 // DirectDestroyRemaining will attempt to directly destroy any remaining
 // models that have machines left.
 func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyControllerAPI) {
@@ -160,6 +182,16 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 		logger.Errorf("unable to retrieve hosted model config: %v", err)
 	}
 	for _, model := range hostedConfig {
+		if model.Error != nil {
+			// We can only display model name here since
+			// the error coming from api can be anything
+			// including the parsing of the model owner tag.
+			// Only model name is guaranteed to be set in the result
+			// when an error is returned.
+			hasErrors = true
+			logger.Errorf("could not kill %s directly: %v", model.Name, model.Error)
+			continue
+		}
 		ctx.Infof("Killing %s/%s directly", model.Owner.Id(), model.Name)
 		cfg, err := config.New(config.NoDefaults, model.Config)
 		if err != nil {
@@ -167,21 +199,30 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 			hasErrors = true
 			continue
 		}
-		env, err := environs.New(environs.OpenParams{
-			Cloud:  model.CloudSpec,
-			Config: cfg,
-		})
+		p, err := environs.Provider(model.CloudSpec.Type)
 		if err != nil {
 			logger.Errorf(err.Error())
 			hasErrors = true
 			continue
 		}
-		if err := env.Destroy(); err != nil {
-			logger.Errorf(err.Error())
-			hasErrors = true
-		} else {
-			ctx.Infof("  done")
+		// TODO(caas) - only cloud providers support Destroy()
+		if cloudProvider, ok := p.(environs.CloudEnvironProvider); ok {
+			env, err := environs.Open(cloudProvider, environs.OpenParams{
+				Cloud:  model.CloudSpec,
+				Config: cfg,
+			})
+			if err != nil {
+				logger.Errorf(err.Error())
+				hasErrors = true
+				continue
+			}
+			if err := env.Destroy(); err != nil {
+				logger.Errorf(err.Error())
+				hasErrors = true
+				continue
+			}
 		}
+		ctx.Infof("  done")
 	}
 	if hasErrors {
 		logger.Errorf("there were problems destroying some models, manual intervention may be necessary to ensure resources are released")

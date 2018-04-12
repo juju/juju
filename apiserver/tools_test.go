@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -11,7 +12,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
@@ -21,112 +22,104 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	apiauthentication "github.com/juju/juju/api/authentication"
-	apitesting "github.com/juju/juju/api/testing"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
-	envtesting "github.com/juju/juju/environs/testing"
+	apitesting "github.com/juju/juju/apiserver/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 
-// charmsCommonSuite wraps authHTTPSuite and adds
-// some helper methods suitable for working with the
-// tools endpoint.
-type toolsCommonSuite struct {
-	authHTTPSuite
+type toolsSuite struct {
+	apiserverBaseSuite
 }
 
-func (s *toolsCommonSuite) toolsURL(c *gc.C, query string) *url.URL {
-	uri := s.baseURL(c)
-	uri.Path = fmt.Sprintf("/model/%s/tools", s.modelUUID)
-	uri.RawQuery = query
-	return uri
+var _ = gc.Suite(&toolsSuite{})
+
+func (s *toolsSuite) toolsURL(query string) *url.URL {
+	return s.modelToolsURL(s.Model.UUID(), query)
 }
 
-func (s *toolsCommonSuite) toolsURI(c *gc.C, query string) string {
+func (s *toolsSuite) modelToolsURL(model, query string) *url.URL {
+	u := s.URL(fmt.Sprintf("/model/%s/tools", model), nil)
+	u.RawQuery = query
+	return u
+}
+
+func (s *toolsSuite) toolsURI(query string) string {
 	if query != "" && query[0] == '?' {
 		query = query[1:]
 	}
-	return s.toolsURL(c, query).String()
+	return s.toolsURL(query).String()
 }
 
-func (s *toolsCommonSuite) downloadRequest(c *gc.C, version version.Binary, uuid string) *http.Response {
-	url := s.toolsURL(c, "")
+func (s *toolsSuite) uploadRequest(c *gc.C, url, contentType string, content io.Reader) *http.Response {
+	return s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Method:      "POST",
+		URL:         url,
+		ContentType: contentType,
+		Body:        content,
+	})
+}
+
+func (s *toolsSuite) downloadRequest(c *gc.C, version version.Binary, uuid string) *http.Response {
+	url := s.toolsURL("")
 	if uuid == "" {
 		url.Path = fmt.Sprintf("/tools/%s", version)
 	} else {
 		url.Path = fmt.Sprintf("/model/%s/tools/%s", uuid, version)
 	}
-	return s.sendRequest(c, httpRequestParams{method: "GET", url: url.String()})
+	return apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: url.String()})
 }
 
-func (s *toolsCommonSuite) assertUploadResponse(c *gc.C, resp *http.Response, agentTools *coretools.Tools) {
+func (s *toolsSuite) assertUploadResponse(c *gc.C, resp *http.Response, agentTools *coretools.Tools) {
 	toolsResponse := s.assertResponse(c, resp, http.StatusOK)
 	c.Check(toolsResponse.Error, gc.IsNil)
 	c.Check(toolsResponse.ToolsList, jc.DeepEquals, coretools.List{agentTools})
 }
 
-func (s *toolsCommonSuite) assertGetFileResponse(c *gc.C, resp *http.Response, expBody, expContentType string) {
-	body := assertResponse(c, resp, http.StatusOK, expContentType)
-	c.Check(string(body), gc.Equals, expBody)
-}
-
-func (s *toolsCommonSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+func (s *toolsSuite) assertJSONErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
 	toolsResponse := s.assertResponse(c, resp, expCode)
-	c.Assert(toolsResponse.Error, gc.NotNil)
-	c.Assert(toolsResponse.Error.Message, gc.Matches, expError)
+	c.Check(toolsResponse.ToolsList, gc.IsNil)
+	c.Check(toolsResponse.Error, gc.NotNil)
+	c.Check(toolsResponse.Error.Message, gc.Matches, expError)
 }
 
-func (s *toolsCommonSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ToolsResult {
-	body := assertResponse(c, resp, expStatus, params.ContentTypeJSON)
+func (s *toolsSuite) assertPlainErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+	body := apitesting.AssertResponse(c, resp, expCode, "text/plain; charset=utf-8")
+	c.Assert(string(body), gc.Matches, expError+"\n")
+}
+
+func (s *toolsSuite) assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ToolsResult {
+	body := apitesting.AssertResponse(c, resp, expStatus, params.ContentTypeJSON)
 	var toolsResponse params.ToolsResult
 	err := json.Unmarshal(body, &toolsResponse)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("Body: %s", body))
 	return toolsResponse
 }
 
-type toolsSuite struct {
-	toolsCommonSuite
-	commontesting.BlockHelper
-}
-
-var _ = gc.Suite(&toolsSuite{})
-
-func (s *toolsSuite) SetUpTest(c *gc.C) {
-	s.toolsCommonSuite.SetUpTest(c)
-	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
-	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
-}
-
 func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
-	info := s.APIInfo(c)
-	uri := "http://" + info.Addrs[0] + "/tools"
-	s.sendRequest(c, httpRequestParams{
-		method:      "PUT",
-		url:         uri,
-		expectError: `.*malformed HTTP response.*`,
+	url := s.toolsURL("")
+	url.Scheme = "http"
+	apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Method:      "PUT",
+		URL:         url.String(),
+		ExpectError: `.*malformed HTTP response.*`,
 	})
 }
 
 func (s *toolsSuite) TestRequiresAuth(c *gc.C) {
-	resp := s.sendRequest(c, httpRequestParams{method: "GET", url: s.toolsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no credentials provided")
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: s.toolsURI("")})
+	s.assertPlainErrorResponse(c, resp, http.StatusUnauthorized, "authentication failed: no credentials provided")
 }
 
 func (s *toolsSuite) TestRequiresPOST(c *gc.C) {
-	resp := s.authRequest(c, httpRequestParams{method: "PUT", url: s.toolsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
+	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "PUT", URL: s.toolsURI("")})
+	s.assertJSONErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
 }
 
 func (s *toolsSuite) TestAuthRequiresUser(c *gc.C) {
@@ -140,76 +133,79 @@ func (s *toolsSuite) TestAuthRequiresUser(c *gc.C) {
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	resp := s.sendRequest(c, httpRequestParams{tag: machine.Tag().String(), password: password, method: "POST", url: s.toolsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "machine 0 not provisioned")
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Tag:      machine.Tag().String(),
+		Password: password,
+		Method:   "POST",
+		URL:      s.toolsURI(""),
+		Nonce:    "fake_nonce",
+	})
+	s.assertPlainErrorResponse(
+		c, resp, http.StatusForbidden,
+		"authorization failed: tag kind machine not valid",
+	)
 
 	// Now try a user login.
-	resp = s.authRequest(c, httpRequestParams{method: "POST", url: s.toolsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
+	resp = s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.toolsURI("")})
+	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 }
 
 func (s *toolsSuite) TestUploadRequiresVersion(c *gc.C) {
-	resp := s.authRequest(c, httpRequestParams{method: "POST", url: s.toolsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
+	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "POST", URL: s.toolsURI("")})
+	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 }
 
 func (s *toolsSuite) TestUploadFailsWithNoTools(c *gc.C) {
-	// Create an empty file.
-	tempFile, err := ioutil.TempFile(c.MkDir(), "tools")
-	c.Assert(err, jc.ErrorIsNil)
-
-	resp := s.uploadRequest(c, s.toolsURI(c, "?binaryVersion=1.18.0-quantal-amd64"), "application/x-tar-gz", tempFile.Name())
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "no tools uploaded")
+	var empty bytes.Buffer
+	resp := s.uploadRequest(c, s.toolsURI("?binaryVersion=1.18.0-quantal-amd64"), "application/x-tar-gz", &empty)
+	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "no agent binaries uploaded")
 }
 
 func (s *toolsSuite) TestUploadFailsWithInvalidContentType(c *gc.C) {
-	// Create an empty file.
-	tempFile, err := ioutil.TempFile(c.MkDir(), "tools")
-	c.Assert(err, jc.ErrorIsNil)
-
+	var empty bytes.Buffer
 	// Now try with the default Content-Type.
-	resp := s.uploadRequest(c, s.toolsURI(c, "?binaryVersion=1.18.0-quantal-amd64"), "application/octet-stream", tempFile.Name())
-	s.assertErrorResponse(
+	resp := s.uploadRequest(c, s.toolsURI("?binaryVersion=1.18.0-quantal-amd64"), "application/octet-stream", &empty)
+	s.assertJSONErrorResponse(
 		c, resp, http.StatusBadRequest, "expected Content-Type: application/x-tar-gz, got: application/octet-stream")
 }
 
-func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binary, string) {
+func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binary, []byte) {
 	localStorage := c.MkDir()
 	vers := version.MustParseBinary("1.9.0-quantal-amd64")
 	versionStrings := []string{vers.String()}
 	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "released", versionStrings)
 	toolsFile := envtools.StorageName(vers, "released")
-	return expectedTools, vers, path.Join(localStorage, toolsFile)
+	toolsContent, err := ioutil.ReadFile(filepath.Join(localStorage, toolsFile))
+	c.Assert(err, jc.ErrorIsNil)
+	return expectedTools, vers, toolsContent
 }
 
 func (s *toolsSuite) TestUpload(c *gc.C) {
 	// Make some fake tools.
-	expectedTools, v, toolPath := s.setupToolsForUpload(c)
+	expectedTools, v, toolsContent := s.setupToolsForUpload(c)
 	vers := v.String()
+
 	// Now try uploading them.
 	resp := s.uploadRequest(
-		c, s.toolsURI(c, "?binaryVersion="+vers), "application/x-tar-gz", toolPath)
+		c, s.toolsURI("?binaryVersion="+vers),
+		"application/x-tar-gz",
+		bytes.NewReader(toolsContent),
+	)
 
 	// Check the response.
-	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), s.State.ModelUUID(), vers)
+	expectedTools[0].URL = s.toolsURL("").String() + "/" + vers
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
 	metadata, uploadedData := s.getToolsFromStorage(c, s.State, vers)
-	expectedData, err := ioutil.ReadFile(toolPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uploadedData, gc.DeepEquals, expectedData)
+	c.Assert(uploadedData, gc.DeepEquals, toolsContent)
 	allMetadata := s.getToolsMetadataFromStorage(c, s.State)
 	c.Assert(allMetadata, jc.DeepEquals, []binarystorage.Metadata{metadata})
 }
 
 func (s *toolsSuite) TestMigrateTools(c *gc.C) {
-	controllerTag := names.NewControllerTag(s.ControllerConfig.ControllerUUID())
-	_, err := s.State.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Make some fake tools.
-	expectedTools, v, toolPath := s.setupToolsForUpload(c)
+	expectedTools, v, toolsContent := s.setupToolsForUpload(c)
 	vers := v.String()
 
 	newSt := s.Factory.MakeModel(c, nil)
@@ -218,86 +214,93 @@ func (s *toolsSuite) TestMigrateTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = importedModel.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
-	s.extraHeaders = map[string]string{
-		params.MigrationModelHTTPHeader: importedModel.UUID(),
-	}
-
-	uri := s.baseURL(c)
-	uri.Path = "/migrate/tools"
-	uri.RawQuery = "binaryVersion=" + vers
 
 	// Now try uploading them.
-	resp := s.uploadRequest(c, uri.String(), "application/x-tar-gz", toolPath)
+	uri := s.URL("/migrate/tools", url.Values{"binaryVersion": {vers}})
+	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Method:      "POST",
+		URL:         uri.String(),
+		ContentType: "application/x-tar-gz",
+		Body:        bytes.NewReader(toolsContent),
+		ExtraHeaders: map[string]string{
+			params.MigrationModelHTTPHeader: importedModel.UUID(),
+		},
+	})
 
 	// Check the response.
-	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), importedModel.UUID(), vers)
+	expectedTools[0].URL = s.modelToolsURL(s.State.ControllerModelUUID(), "").String() + "/" + vers
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
 	metadata, uploadedData := s.getToolsFromStorage(c, newSt, vers)
-	expectedData, err := ioutil.ReadFile(toolPath)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uploadedData, gc.DeepEquals, expectedData)
+	c.Assert(uploadedData, gc.DeepEquals, toolsContent)
 	allMetadata := s.getToolsMetadataFromStorage(c, newSt)
 	c.Assert(allMetadata, jc.DeepEquals, []binarystorage.Metadata{metadata})
 }
 
 func (s *toolsSuite) TestMigrateToolsNotMigrating(c *gc.C) {
-	controllerTag := names.NewControllerTag(s.ControllerConfig.ControllerUUID())
-	_, err := s.State.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Make some fake tools.
-	_, v, toolPath := s.setupToolsForUpload(c)
+	_, v, toolsContent := s.setupToolsForUpload(c)
 	vers := v.String()
 
 	newSt := s.Factory.MakeModel(c, nil)
 	defer newSt.Close()
-	s.extraHeaders = map[string]string{
-		params.MigrationModelHTTPHeader: newSt.ModelUUID(),
-	}
 
-	uri := s.baseURL(c)
-	uri.Path = "/migrate/tools"
-	uri.RawQuery = "binaryVersion=" + vers
+	uri := s.URL("/migrate/tools", url.Values{"binaryVersion": {vers}})
+	resp := s.sendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Method:      "POST",
+		URL:         uri.String(),
+		ContentType: "application/x-tar-gz",
+		Body:        bytes.NewReader(toolsContent),
+		ExtraHeaders: map[string]string{
+			params.MigrationModelHTTPHeader: newSt.ModelUUID(),
+		},
+	})
 
 	// Now try uploading them.
-	resp := s.uploadRequest(c, uri.String(), "application/x-tar-gz", toolPath)
-	s.assertErrorResponse(
+	s.assertJSONErrorResponse(
 		c, resp, http.StatusBadRequest,
 		`model migration mode is "" instead of "importing"`,
 	)
 }
 
 func (s *toolsSuite) TestMigrateToolsUnauth(c *gc.C) {
-	// The default user is just a normal user, not a controller admin
-	_, v, toolPath := s.setupToolsForUpload(c)
-	vers := v.String()
-
-	uri := s.baseURL(c)
-	uri.Path = "/migrate/tools"
-	uri.RawQuery = "?binaryVersion=" + vers
-
-	// Now try uploading them.
-	resp := s.uploadRequest(c, uri.String(), "application/x-tar-gz", toolPath)
-
-	s.assertErrorResponse(
-		c, resp, http.StatusUnauthorized,
-		"not a controller admin",
+	// Try uploading as a non controller admin.
+	url := s.URL("/migrate/tools", nil).String()
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "hunter2"})
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Method:   "POST",
+		URL:      url,
+		Tag:      user.Tag().String(),
+		Password: "hunter2",
+	})
+	s.assertPlainErrorResponse(
+		c, resp, http.StatusForbidden,
+		"authorization failed: user .* is not a controller admin",
 	)
 }
 
 func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 	// Make some fake tools.
-	_, v, toolPath := s.setupToolsForUpload(c)
+	_, v, toolsContent := s.setupToolsForUpload(c)
 	vers := v.String()
+
 	// Block all changes.
-	s.BlockAllChanges(c, "TestUpload")
+	err := s.State.SwitchBlockOn(state.ChangeBlock, "TestUpload")
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Now try uploading them.
 	resp := s.uploadRequest(
-		c, s.toolsURI(c, "?binaryVersion="+vers), "application/x-tar-gz", toolPath)
+		c, s.toolsURI("?binaryVersion="+vers),
+		"application/x-tar-gz",
+		bytes.NewReader(toolsContent),
+	)
 	toolsResponse := s.assertResponse(c, resp, http.StatusBadRequest)
-	s.AssertBlocked(c, toolsResponse.Error, "TestUpload")
+	c.Assert(toolsResponse.Error, jc.Satisfies, params.IsCodeOperationBlocked)
+	c.Assert(errors.Cause(toolsResponse.Error), gc.DeepEquals, &params.Error{
+		Message: "TestUpload",
+		Code:    "operation is blocked",
+	})
 
 	// Check the contents.
 	storage, err := s.State.ToolsStorage()
@@ -310,67 +313,56 @@ func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	// Backwards compatibility check, that we can upload tools to
 	// https://host:port/tools
-	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
-	url := s.toolsURL(c, "binaryVersion="+vers.String())
+	expectedTools, vers, toolsContent := s.setupToolsForUpload(c)
+	url := s.toolsURL("binaryVersion=" + vers.String())
 	url.Path = "/tools"
-	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", toolPath)
-	// Check the response.
-	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), s.State.ModelUUID(), vers)
+	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", bytes.NewReader(toolsContent))
+	expectedTools[0].URL = s.modelToolsURL(s.State.ControllerModelUUID(), "").String() + "/" + vers.String()
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
 func (s *toolsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
 	// Check that we can upload tools to https://host:port/ModelUUID/tools
-	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
-	url := s.toolsURL(c, "binaryVersion="+vers.String())
-	url.Path = fmt.Sprintf("/model/%s/tools", s.State.ModelUUID())
-	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", toolPath)
+	expectedTools, vers, toolsContent := s.setupToolsForUpload(c)
+	url := s.toolsURL("binaryVersion=" + vers.String())
+	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", bytes.NewReader(toolsContent))
 	// Check the response.
-	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), s.State.ModelUUID(), vers)
+	expectedTools[0].URL = s.toolsURL("").String() + "/" + vers.String()
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
 func (s *toolsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
-	envState := s.setupOtherModel(c)
-	// Check that we can upload tools to https://host:port/ModelUUID/tools
-	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
-	url := s.toolsURL(c, "binaryVersion="+vers.String())
-	url.Path = fmt.Sprintf("/model/%s/tools", envState.ModelUUID())
-	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", toolPath)
-	// Check the response.
-	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), envState.ModelUUID(), vers)
-	s.assertUploadResponse(c, resp, expectedTools[0])
-}
+	newSt := s.Factory.MakeModel(c, nil)
+	defer newSt.Close()
 
-func (s *toolsSuite) TestUploadRejectsWrongModelUUIDPath(c *gc.C) {
-	// Check that we cannot access the tools at https://host:port/BADModelUUID/tools
-	url := s.toolsURL(c, "")
-	url.Path = "/model/dead-beef-123456/tools"
-	resp := s.authRequest(c, httpRequestParams{method: "POST", url: url.String()})
-	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
+	// Check that we can upload tools to https://host:port/ModelUUID/tools
+	expectedTools, vers, toolsContent := s.setupToolsForUpload(c)
+	url := s.modelToolsURL(newSt.ModelUUID(), "binaryVersion="+vers.String())
+	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", bytes.NewReader(toolsContent))
+
+	// Check the response.
+	expectedTools[0].URL = s.modelToolsURL(newSt.ModelUUID(), "").String() + "/" + vers.String()
+	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
 func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	// Make some fake tools.
-	expectedTools, v, toolPath := s.setupToolsForUpload(c)
+	expectedTools, v, toolsContent := s.setupToolsForUpload(c)
 	vers := v.String()
 	// Now try uploading them. The tools will be cloned for
 	// each additional series specified.
 	params := "?binaryVersion=" + vers + "&series=quantal,precise"
-	resp := s.uploadRequest(c, s.toolsURI(c, params), "application/x-tar-gz", toolPath)
+	resp := s.uploadRequest(c, s.toolsURI(params), "application/x-tar-gz", bytes.NewReader(toolsContent))
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 
 	// Check the response.
-	info := s.APIInfo(c)
-	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), info.ModelTag.Id(), vers)
+	expectedTools[0].URL = s.toolsURL("").String() + "/" + vers
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
 	storage, err := s.State.ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
-	expectedData, err := ioutil.ReadFile(toolPath)
-	c.Assert(err, jc.ErrorIsNil)
 	for _, series := range []string{"precise", "quantal"} {
 		v.Series = series
 		_, r, err := storage.Open(v.String())
@@ -378,7 +370,7 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 		uploadedData, err := ioutil.ReadAll(r)
 		r.Close()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(uploadedData, gc.DeepEquals, expectedData)
+		c.Assert(uploadedData, gc.DeepEquals, toolsContent)
 	}
 
 	// ensure other series *aren't* there.
@@ -402,18 +394,20 @@ func (s *toolsSuite) TestDownloadModelUUIDPath(c *gc.C) {
 }
 
 func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *gc.C) {
-	envState := s.setupOtherModel(c)
+	newSt := s.Factory.MakeModel(c, nil)
+	defer newSt.Close()
+
 	v := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.MustHostSeries(),
 	}
-	tools := s.storeFakeTools(c, envState, "abc", binarystorage.Metadata{
+	tools := s.storeFakeTools(c, newSt, "abc", binarystorage.Metadata{
 		Version: v.String(),
 		Size:    3,
 		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
-	s.testDownload(c, tools, envState.ModelUUID())
+	s.testDownload(c, tools, newSt.ModelUUID())
 }
 
 func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
@@ -428,61 +422,6 @@ func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
 		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
 	s.testDownload(c, tools, "")
-}
-
-func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
-	// The tools are not in binarystorage, so the download request causes
-	// the API server to search for the tools in simplestreams, fetch
-	// them, and then cache them in binarystorage.
-	vers := version.MustParseBinary("1.23.0-trusty-amd64")
-	stor := s.DefaultToolsStorage
-	envtesting.RemoveTools(c, stor, "released")
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", vers)[0]
-	data := s.testDownload(c, tools, "")
-
-	metadata, cachedData := s.getToolsFromStorage(c, s.State, tools.Version.String())
-	c.Assert(metadata.Size, gc.Equals, tools.Size)
-	c.Assert(metadata.SHA256, gc.Equals, tools.SHA256)
-	c.Assert(string(cachedData), gc.Equals, string(data))
-}
-
-func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
-	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
-	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
-	stor := s.DefaultToolsStorage
-	envtesting.RemoveTools(c, stor, "released")
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", current)[0]
-	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader("!"), 1)
-	c.Assert(err, jc.ErrorIsNil)
-
-	resp := s.downloadRequest(c, tools.Version, "")
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: size mismatch for .*")
-	s.assertToolsNotStored(c, tools.Version.String())
-}
-
-func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
-	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
-	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
-	stor := s.DefaultToolsStorage
-	envtesting.RemoveTools(c, stor, "released")
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", current)[0]
-	sameSize := strings.Repeat("!", int(tools.Size))
-	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader(sameSize), tools.Size)
-	c.Assert(err, jc.ErrorIsNil)
-
-	resp := s.downloadRequest(c, tools.Version, "")
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: hash mismatch for .*")
-	s.assertToolsNotStored(c, tools.Version.String())
 }
 
 func (s *toolsSuite) storeFakeTools(c *gc.C, st *state.State, content string, metadata binarystorage.Metadata) *coretools.Tools {
@@ -519,14 +458,6 @@ func (s *toolsSuite) getToolsMetadataFromStorage(c *gc.C, st *state.State) []bin
 	return metadata
 }
 
-func (s *toolsSuite) assertToolsNotStored(c *gc.C, vers string) {
-	storage, err := s.State.ToolsStorage()
-	c.Assert(err, jc.ErrorIsNil)
-	defer storage.Close()
-	_, err = storage.Metadata(vers)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
 func (s *toolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) []byte {
 	resp := s.downloadRequest(c, tools.Version, uuid)
 	defer resp.Body.Close()
@@ -538,105 +469,4 @@ func (s *toolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) 
 	hash.Write(data)
 	c.Assert(fmt.Sprintf("%x", hash.Sum(nil)), gc.Equals, tools.SHA256)
 	return data
-}
-
-func (s *toolsSuite) TestDownloadRejectsWrongModelUUIDPath(c *gc.C) {
-	current := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: series.MustHostSeries(),
-	}
-	resp := s.downloadRequest(c, current, "dead-beef-123456")
-	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
-}
-
-type toolsWithMacaroonsSuite struct {
-	toolsCommonSuite
-}
-
-var _ = gc.Suite(&toolsWithMacaroonsSuite{})
-
-func (s *toolsWithMacaroonsSuite) SetUpTest(c *gc.C) {
-	s.macaroonAuthEnabled = true
-	s.toolsCommonSuite.SetUpTest(c)
-}
-
-func (s *toolsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredError(c *gc.C) {
-	resp := s.sendRequest(c, httpRequestParams{
-		method: "POST",
-		url:    s.toolsURI(c, ""),
-	})
-
-	charmResponse := s.assertResponse(c, resp, http.StatusUnauthorized)
-	c.Assert(charmResponse.Error, gc.NotNil)
-	c.Assert(charmResponse.Error.Message, gc.Equals, "verification failed: no macaroons")
-	c.Assert(charmResponse.Error.Code, gc.Equals, params.CodeDischargeRequired)
-	c.Assert(charmResponse.Error.Info, gc.NotNil)
-	c.Assert(charmResponse.Error.Info.Macaroon, gc.NotNil)
-}
-
-func (s *toolsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
-	checkCount := 0
-	s.DischargerLogin = func() string {
-		checkCount++
-		return s.userTag.Id()
-	}
-	resp := s.sendRequest(c, httpRequestParams{
-		do:     s.doer(),
-		method: "POST",
-		url:    s.toolsURI(c, ""),
-	})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
-	c.Assert(checkCount, gc.Equals, 1)
-}
-
-func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
-	// Create a new local user that we can log in as
-	// using macaroon authentication.
-	const password = "hunter2"
-	user := s.Factory.MakeUser(c, &factory.UserParams{Password: password})
-
-	// Install a "web-page" visitor that deals with the interaction
-	// method that Juju controllers support for authenticating local
-	// users. Note: the use of httpbakery.NewMultiVisitor is necessary
-	// to trigger httpbakery to query the authentication methods and
-	// bypass browser authentication.
-	var prompted bool
-	jar := apitesting.NewClearableCookieJar()
-	client := utils.GetNonValidatingHTTPClient()
-	client.Jar = jar
-	bakeryClient := httpbakery.NewClient()
-	bakeryClient.Client = client
-	bakeryClient.WebPageVisitor = httpbakery.NewMultiVisitor(apiauthentication.NewVisitor(
-		user.UserTag().Id(),
-		func(username string) (string, error) {
-			c.Assert(username, gc.Equals, user.UserTag().Id())
-			prompted = true
-			return password, nil
-		},
-	))
-	bakeryDo := func(req *http.Request) (*http.Response, error) {
-		var body io.ReadSeeker
-		if req.Body != nil {
-			body = req.Body.(io.ReadSeeker)
-			req.Body = nil
-		}
-		return bakeryClient.DoWithBodyAndCustomError(req, body, bakeryGetError)
-	}
-
-	resp := s.sendRequest(c, httpRequestParams{
-		method:   "POST",
-		url:      s.toolsURI(c, ""),
-		tag:      user.UserTag().String(),
-		password: "", // no password forces macaroon usage
-		do:       bakeryDo,
-	})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
-	c.Assert(prompted, jc.IsTrue)
-}
-
-// doer returns a Do function that can make a bakery request
-// appropriate for a charms endpoint.
-func (s *toolsWithMacaroonsSuite) doer() func(*http.Request) (*http.Response, error) {
-	return bakeryDo(nil, bakeryGetError)
 }

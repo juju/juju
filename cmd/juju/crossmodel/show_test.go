@@ -5,14 +5,14 @@ package crossmodel_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/crossmodel"
-	"github.com/juju/juju/testing"
+	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 )
 
 type showSuite struct {
@@ -31,15 +31,11 @@ func (s *showSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *showSuite) runShow(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, crossmodel.NewShowEndpointsCommandForTest(s.store, s.mockAPI), args...)
+	return cmdtesting.RunCommand(c, crossmodel.NewShowEndpointsCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *showSuite) TestShowNoUrl(c *gc.C) {
 	s.assertShowError(c, nil, ".*must specify endpoint URL.*")
-}
-
-func (s *showSuite) TestShowDifferentController(c *gc.C) {
-	s.assertShowError(c, []string{"different:user/model.offer"}, `showing endpoints from another controller "different" not supported`)
 }
 
 func (s *showSuite) TestShowApiError(c *gc.C) {
@@ -51,12 +47,22 @@ func (s *showSuite) TestShowURLError(c *gc.C) {
 	s.assertShowError(c, []string{"fred/model.foo/db2"}, "application offer URL has invalid form.*")
 }
 
+func (s *showSuite) TestShowNameOnly(c *gc.C) {
+	s.assertShowYaml(c, "db2")
+}
+
 func (s *showSuite) TestShowYaml(c *gc.C) {
+	s.assertShowYaml(c, "fred/model.db2")
+}
+
+func (s *showSuite) assertShowYaml(c *gc.C, arg string) {
 	s.assertShow(
 		c,
-		[]string{"fred/model.db2", "--format", "yaml"},
+		[]string{arg, "--format", "yaml"},
 		`
-fred/model.db2:
+test-master:fred/model.db2:
+  description: IBM DB2 Express Server Edition is an entry level database system
+  access: consume
   endpoints:
     db2:
       interface: http
@@ -64,7 +70,10 @@ fred/model.db2:
     log:
       interface: http
       role: provider
-  description: IBM DB2 Express Server Edition is an entry level database system
+  users:
+    bob:
+      display-name: Bob
+      access: consume
 `[1:],
 	)
 }
@@ -74,9 +83,23 @@ func (s *showSuite) TestShowTabular(c *gc.C) {
 		c,
 		[]string{"fred/model.db2", "--format", "tabular"},
 		`
-Application URL  Description                                 Endpoint  Interface  Role
-fred/model.db2   IBM DB2 Express Server Edition is an entry  db2       http       requirer
-                 level database system                       log       http       provider
+Store        URL             Access   Description                                 Endpoint  Interface  Role
+test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
+                                      level database system                       log       http       provider
+
+`[1:],
+	)
+}
+
+func (s *showSuite) TestShowDifferentController(c *gc.C) {
+	s.mockAPI.controllerName = "different"
+	s.assertShow(
+		c,
+		[]string{"different:fred/model.db2", "--format", "tabular"},
+		`
+Store      URL             Access   Description                                 Endpoint  Interface  Role
+different  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry  db2       http       requirer
+                                    level database system                       log       http       provider
 
 `[1:],
 	)
@@ -88,12 +111,12 @@ func (s *showSuite) TestShowTabularExactly180Desc(c *gc.C) {
 		c,
 		[]string{"fred/model.db2", "--format", "tabular"},
 		`
-Application URL  Description                                   Endpoint  Interface  Role
-fred/model.db2   IBM DB2 Express Server Edition is an entry    db2       http       requirer
-                 level database systemIBM DB2 Express Server   log       http       provider
-                 Edition is an entry level database systemIBM                       
-                 DB2 Express Server Edition is an entry level                       
-                 dat                                                                
+Store        URL             Access   Description                                   Endpoint  Interface  Role
+test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
+                                      level database systemIBM DB2 Express Server   log       http       provider
+                                      Edition is an entry level database systemIBM                       
+                                      DB2 Express Server Edition is an entry level                       
+                                      dat                                                                
 
 `[1:],
 	)
@@ -105,12 +128,12 @@ func (s *showSuite) TestShowTabularMoreThan180Desc(c *gc.C) {
 		c,
 		[]string{"fred/model.db2", "--format", "tabular"},
 		`
-Application URL  Description                                   Endpoint  Interface  Role
-fred/model.db2   IBM DB2 Express Server Edition is an entry    db2       http       requirer
-                 level database systemIBM DB2 Express Server   log       http       provider
-                 Edition is an entry level database systemIBM                       
-                 DB2 Express Server Edition is an entry level                       
-                 ...                                                                
+Store        URL             Access   Description                                   Endpoint  Interface  Role
+test-master  fred/model.db2  consume  IBM DB2 Express Server Edition is an entry    db2       http       requirer
+                                      level database systemIBM DB2 Express Server   log       http       provider
+                                      Edition is an entry level database systemIBM                       
+                                      DB2 Express Server Edition is an entry level                       
+                                      ...                                                                
 
 `[1:],
 	)
@@ -120,7 +143,7 @@ func (s *showSuite) assertShow(c *gc.C, args []string, expected string) {
 	context, err := s.runShow(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtained := testing.Stdout(context)
+	obtained := cmdtesting.Stdout(context)
 	c.Assert(obtained, gc.Matches, expected)
 }
 
@@ -130,25 +153,33 @@ func (s *showSuite) assertShowError(c *gc.C, args []string, expected string) {
 }
 
 type mockShowAPI struct {
-	msg, desc string
+	controllerName string
+	msg, desc      string
 }
 
 func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) ApplicationOffer(url string) (params.ApplicationOffer, error) {
+func (s mockShowAPI) ApplicationOffer(url string) (*jujucrossmodel.ApplicationOfferDetails, error) {
 	if s.msg != "" {
-		return params.ApplicationOffer{}, errors.New(s.msg)
+		return nil, errors.New(s.msg)
 	}
 
-	return params.ApplicationOffer{
+	offerURL := "fred/model.db2"
+	if s.controllerName != "" {
+		offerURL = s.controllerName + ":" + offerURL
+	}
+	return &jujucrossmodel.ApplicationOfferDetails{
 		OfferName:              "hosted-db2",
-		OfferURL:               "fred/model.db2",
+		OfferURL:               offerURL,
 		ApplicationDescription: s.desc,
-		Endpoints: []params.RemoteEndpoint{
+		Endpoints: []charm.Relation{
 			{Name: "log", Interface: "http", Role: charm.RoleProvider},
 			{Name: "db2", Interface: "http", Role: charm.RoleRequirer},
 		},
+		Users: []jujucrossmodel.OfferUserDetails{{
+			UserName: "bob", DisplayName: "Bob", Access: "consume",
+		}},
 	}, nil
 }

@@ -87,6 +87,8 @@ func versionInitSystem(ser string) (string, error) {
 		}
 	case os.CentOS:
 		return InitSystemSystemd, nil
+	case os.OpenSUSE:
+		return InitSystemSystemd, nil
 	}
 	return "", errors.NotFoundf("unknown os %q (from series %q), init system", seriesos, ser)
 }

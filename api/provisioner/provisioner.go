@@ -26,6 +26,27 @@ type State struct {
 	facade base.FacadeCaller
 }
 
+// MachineResult provides a found Machine and any Error related to
+// finding it.
+type MachineResult struct {
+	Machine *Machine
+	Err     *params.Error
+}
+
+// MachineStatusResult provides a found Machine and Status Results
+// for it.
+type MachineStatusResult struct {
+	Machine *Machine
+	Status  params.StatusResult
+}
+
+// DistributionGroupResult provides a slice of machine.Ids in the
+// distribution group and any Error related to finding it.
+type DistributionGroupResult struct {
+	MachineIds []string
+	Err        *params.Error
+}
+
 const provisionerFacade = "Provisioner"
 
 // NewState creates a new client-side Machiner facade.
@@ -41,20 +62,34 @@ func NewState(caller base.APICaller) *State {
 
 // machineLife requests the lifecycle of the given machine from the server.
 func (st *State) machineLife(tag names.MachineTag) (params.Life, error) {
-	return common.Life(st.facade, tag)
+	return common.OneLife(st.facade, tag)
 }
 
-// Machine provides access to methods of a state.Machine through the facade.
-func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
-	life, err := st.machineLife(tag)
-	if err != nil {
-		return nil, err
+// Machine provides access to methods of a state.Machine through the facade
+// for the given tags.
+func (st *State) Machines(tags ...names.MachineTag) ([]MachineResult, error) {
+	lenTags := len(tags)
+	genericTags := make([]names.Tag, lenTags)
+	for i, t := range tags {
+		genericTags[i] = t
 	}
-	return &Machine{
-		tag:  tag,
-		life: life,
-		st:   st,
-	}, nil
+	result, err := common.Life(st.facade, genericTags)
+	if err != nil {
+		return []MachineResult{}, err
+	}
+	machines := make([]MachineResult, lenTags)
+	for i, r := range result {
+		if r.Error == nil {
+			machines[i].Machine = &Machine{
+				tag:  tags[i],
+				life: r.Life,
+				st:   st,
+			}
+		} else {
+			machines[i].Err = r.Error
+		}
+	}
+	return machines, nil
 }
 
 // WatchModelMachines returns a StringsWatcher that notifies of
@@ -112,24 +147,25 @@ func (st *State) ContainerConfig() (result params.ContainerConfig, err error) {
 
 // MachinesWithTransientErrors returns a slice of machines and corresponding status information
 // for those machines which have transient provisioning errors.
-func (st *State) MachinesWithTransientErrors() ([]*Machine, []params.StatusResult, error) {
+func (st *State) MachinesWithTransientErrors() ([]MachineStatusResult, error) {
 	var results params.StatusResults
 	err := st.facade.FacadeCall("MachinesWithTransientErrors", nil, &results)
 	if err != nil {
-		return nil, nil, err
+		return []MachineStatusResult{}, err
 	}
-	machines := make([]*Machine, len(results.Results))
+	machines := make([]MachineStatusResult, len(results.Results))
 	for i, status := range results.Results {
 		if status.Error != nil {
 			continue
 		}
-		machines[i] = &Machine{
+		machines[i].Machine = &Machine{
 			tag:  names.NewMachineTag(status.Id),
 			life: status.Life,
 			st:   st,
 		}
+		machines[i].Status = status
 	}
-	return machines, results.Results, nil
+	return machines, nil
 }
 
 // FindTools returns al ist of tools matching the specified version number and
@@ -280,6 +316,38 @@ func (st *State) HostChangesForContainer(containerTag names.MachineTag) ([]netwo
 	for i, bridgeInfo := range newBridges {
 		res[i].BridgeName = bridgeInfo.BridgeName
 		res[i].DeviceName = bridgeInfo.HostDeviceName
+		res[i].MACAddress = bridgeInfo.MACAddress
 	}
 	return res, result.Results[0].ReconfigureDelay, nil
+}
+
+// DistributionGroupByMachineId returns a slice of machine.Ids
+// that belong to the same distribution group as the given
+// Machine. The provisioner may use this information
+// to distribute instances for high availability.
+func (st *State) DistributionGroupByMachineId(tags ...names.MachineTag) ([]DistributionGroupResult, error) {
+	var stringResults params.StringsResults
+	entities := make([]params.Entity, len(tags))
+	for i, t := range tags {
+		entities[i] = params.Entity{Tag: t.String()}
+	}
+	err := st.facade.FacadeCall("DistributionGroupByMachineId", params.Entities{Entities: entities}, &stringResults)
+	if err != nil {
+		return []DistributionGroupResult{}, err
+	}
+	results := make([]DistributionGroupResult, len(tags))
+	for i, stringResult := range stringResults.Results {
+		results[i] = DistributionGroupResult{MachineIds: stringResult.Result, Err: stringResult.Error}
+	}
+	return results, nil
+}
+
+// CACert returns the certificate used to validate the API and state connections.
+func (a *State) CACert() (string, error) {
+	var result params.BytesResult
+	err := a.facade.FacadeCall("CACert", nil, &result)
+	if err != nil {
+		return "", err
+	}
+	return string(result.Result), nil
 }

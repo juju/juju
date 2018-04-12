@@ -11,16 +11,20 @@ import (
 
 	"github.com/juju/errors"
 
-	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/common"
+	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
 	"github.com/juju/juju/apiserver/httpattachment"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
 
-var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
-	stor := backups.NewStorage(st)
+var newBackups = func(st *state.State, m *state.Model) (backups.Backups, io.Closer) {
+	backend := struct {
+		*state.State
+		*state.Model
+	}{st, m}
+	stor := backups.NewStorage(backend)
 	return backups.NewBackups(stor), stor
 }
 
@@ -32,14 +36,25 @@ type backupHandler struct {
 func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	// Validate before authenticate because the authentication is dependent
 	// on the state connection that is determined during the validation.
-	st, releaser, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+	st, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 	if err != nil {
 		h.sendError(resp, err)
 		return
 	}
-	defer releaser()
+	defer st.Release()
 
-	backups, closer := newBackups(st)
+	if !st.IsController() {
+		h.sendError(resp, errors.New("requested model is not the controller model"))
+		return
+	}
+
+	m, err := st.Model()
+	if err != nil {
+		h.sendError(resp, err)
+		return
+	}
+
+	backups, closer := newBackups(st.State, m)
 	defer closer.Close()
 
 	switch req.Method {

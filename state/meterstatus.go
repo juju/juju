@@ -76,13 +76,21 @@ type meterStatusDoc struct {
 	Info      string `bson:"info"`
 }
 
-// SetMeterStatus sets the meter status for the unit.
-func (u *Unit) SetMeterStatus(codeStr, info string) error {
+func isValidMeterStatusCode(codeStr string) (MeterStatusCode, error) {
 	code := MeterStatusFromString(codeStr)
 	switch code {
 	case MeterGreen, MeterAmber, MeterRed:
+		return code, nil
 	default:
-		return errors.Errorf("invalid meter status %q", code)
+		return MeterNotAvailable, errors.NotValidf("meter status %q", codeStr)
+	}
+}
+
+// SetMeterStatus sets the meter status for the unit.
+func (u *Unit) SetMeterStatus(codeStr, info string) error {
+	code, err := isValidMeterStatusCode(codeStr)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	meterDoc, err := u.getMeterStatusDoc()
 	if err != nil {
@@ -118,16 +126,16 @@ func (u *Unit) SetMeterStatus(codeStr, info string) error {
 				Update: bson.D{{"$set", bson.D{{"code", code.String()}, {"info", info}}}},
 			}}, nil
 	}
-	return errors.Annotatef(u.st.run(buildTxn), "cannot set meter state for unit %s", u.Name())
+	return errors.Annotatef(u.st.db().Run(buildTxn), "cannot set meter state for unit %s", u.Name())
 }
 
 // createMeterStatusOp returns the operation needed to create the meter status
 // document associated with the given globalKey.
-func createMeterStatusOp(st *State, globalKey string, doc *meterStatusDoc) txn.Op {
-	doc.ModelUUID = st.ModelUUID()
+func createMeterStatusOp(mb modelBackend, globalKey string, doc *meterStatusDoc) txn.Op {
+	doc.ModelUUID = mb.modelUUID()
 	return txn.Op{
 		C:      meterStatusC,
-		Id:     st.docID(globalKey),
+		Id:     mb.docID(globalKey),
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
@@ -135,10 +143,10 @@ func createMeterStatusOp(st *State, globalKey string, doc *meterStatusDoc) txn.O
 
 // removeMeterStatusOp returns the operation needed to remove the meter status
 // document associated with the given globalKey.
-func removeMeterStatusOp(st *State, globalKey string) txn.Op {
+func removeMeterStatusOp(mb modelBackend, globalKey string) txn.Op {
 	return txn.Op{
 		C:      meterStatusC,
-		Id:     st.docID(globalKey),
+		Id:     mb.docID(globalKey),
 		Remove: true,
 	}
 }
@@ -174,7 +182,7 @@ func combineMeterStatus(a, b MeterStatus) MeterStatus {
 }
 
 func (u *Unit) getMeterStatusDoc() (*meterStatusDoc, error) {
-	meterStatuses, closer := u.st.getCollection(meterStatusC)
+	meterStatuses, closer := u.st.db().GetCollection(meterStatusC)
 	defer closer()
 	var status meterStatusDoc
 	err := meterStatuses.FindId(u.globalMeterStatusKey()).One(&status)

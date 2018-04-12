@@ -4,6 +4,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,8 +17,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
-	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charm.v6"
+	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/downloader"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -44,6 +46,11 @@ func (c *Client) Status(patterns []string) (*params.FullStatus, error) {
 	p := params.StatusParams{Patterns: patterns}
 	if err := c.facade.FacadeCall("FullStatus", p, &result); err != nil {
 		return nil, err
+	}
+	// Older servers don't fill out model type, but
+	// we know a missing type is an "iaas" model.
+	if result.Model.Type == "" {
+		result.Model.Type = model.IAAS.String()
 	}
 	return &result, nil
 }
@@ -184,6 +191,21 @@ func (c *Client) ForceDestroyMachines(machines ...string) error {
 	return c.facade.FacadeCall("DestroyMachines", params, nil)
 }
 
+// DestroyMachinesWithParams removes a given set of machines and all associated units.
+//
+// NOTE(wallyworld) this exists only for backwards compatibility, when MachineManager
+// facade v4 is not available. The MachineManager.DestroyMachinesWithParams method
+// should be preferred.
+//
+// TODO(wallyworld) 2017-03-16 #1673323
+// Drop this in Juju 3.0.
+func (c *Client) DestroyMachinesWithParams(force, keep bool, machines ...string) error {
+	if keep {
+		return errors.NotSupportedf("destroy machine with keep-instance=true")
+	}
+	return c.DestroyMachines(machines...)
+}
+
 // GetModelConstraints returns the constraints for the model.
 func (c *Client) GetModelConstraints() (constraints.Value, error) {
 	results := new(params.GetConstraintsResults)
@@ -247,8 +269,8 @@ func (c *Client) Close() error {
 
 // SetModelAgentVersion sets the model agent-version setting
 // to the given value.
-func (c *Client) SetModelAgentVersion(version version.Number) error {
-	args := params.SetModelAgentVersion{Version: version}
+func (c *Client) SetModelAgentVersion(version version.Number, ignoreAgentVersions bool) error {
+	args := params.SetModelAgentVersion{Version: version, IgnoreAgentVersions: ignoreAgentVersions}
 	return c.facade.FacadeCall("SetModelAgentVersion", args, nil)
 }
 
@@ -429,16 +451,31 @@ func (c *Client) ResolveCharm(ref *charm.URL) (*charm.URL, error) {
 // OpenCharm streams out the identified charm from the controller via
 // the API.
 func (c *Client) OpenCharm(curl *charm.URL) (io.ReadCloser, error) {
+	return c.OpenURI(openCharmArgs(curl))
+}
+
+// OpenCharm streams out the identified charm from the controller via
+// the API.
+func OpenCharm(apiCaller base.APICaller, curl *charm.URL) (io.ReadCloser, error) {
+	uri, query := openCharmArgs(curl)
+	return openURI(apiCaller, uri, query)
+}
+
+func openCharmArgs(curl *charm.URL) (string, url.Values) {
 	query := make(url.Values)
 	query.Add("url", curl.String())
 	query.Add("file", "*")
-	return c.OpenURI("/charms", query)
+	return "/charms", query
 }
 
 // OpenURI performs a GET on a Juju HTTP endpoint returning the
 func (c *Client) OpenURI(uri string, query url.Values) (io.ReadCloser, error) {
+	return openURI(c.st, uri, query)
+}
+
+func openURI(apiCaller base.APICaller, uri string, query url.Values) (io.ReadCloser, error) {
 	// The returned httpClient sets the base url to /model/<uuid> if it can.
-	httpClient, err := c.st.HTTPClient()
+	httpClient, err := apiCaller.HTTPClient()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -450,15 +487,15 @@ func (c *Client) OpenURI(uri string, query url.Values) (io.ReadCloser, error) {
 }
 
 // NewCharmDownloader returns a new charm downloader that wraps the
-// provided API client.
-func NewCharmDownloader(client *Client) *downloader.Downloader {
+// provided API caller.
+func NewCharmDownloader(apiCaller base.APICaller) *downloader.Downloader {
 	dlr := &downloader.Downloader{
 		OpenBlob: func(url *url.URL) (io.ReadCloser, error) {
 			curl, err := charm.ParseURL(url.String())
 			if err != nil {
 				return nil, errors.Annotate(err, "did not receive a valid charm URL")
 			}
-			reader, err := client.OpenCharm(curl)
+			reader, err := OpenCharm(apiCaller, curl)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -518,10 +555,50 @@ func (c *Client) AgentVersion() (version.Number, error) {
 
 // websocketDial is called instead of dialer.Dial so we can override it in
 // tests.
-var websocketDial = func(dialer *websocket.Dialer, urlStr string, requestHeader http.Header) (base.Stream, error) {
-	c, _, err := dialer.Dial(urlStr, requestHeader)
+var websocketDial = websocketDialWithErrors
+
+// WebsocketDialer is something that can make a websocket connection. Enables
+// testing the error unpacking in websocketDialWithErrors.
+type WebsocketDialer interface {
+	Dial(string, http.Header) (*websocket.Conn, *http.Response, error)
+}
+
+// websocketDialWithErrors dials the websocket and extracts any error
+// from the response if there's a handshake error setting up the
+// socket. Any other errors are returned normally.
+func websocketDialWithErrors(dialer WebsocketDialer, urlStr string, requestHeader http.Header) (base.Stream, error) {
+	c, resp, err := dialer.Dial(urlStr, requestHeader)
 	if err != nil {
-		return nil, errors.Trace(err)
+		if err == websocket.ErrBadHandshake {
+			// If ErrBadHandshake is returned, a non-nil response
+			// is returned so the client can react to auth errors
+			// (for example).
+			//
+			// The problem here is that there is a response, but the response
+			// body is truncated to 1024 bytes for debugging information, not
+			// for a true response. While this may work for small bodies, it
+			// isn't guaranteed to work for all messages.
+			defer resp.Body.Close()
+			body, readErr := ioutil.ReadAll(resp.Body)
+			if readErr != nil {
+				return nil, err
+			}
+			if resp.Header.Get("Content-Type") == "application/json" {
+				var result params.ErrorResult
+				jsonErr := json.Unmarshal(body, &result)
+				if jsonErr != nil {
+					return nil, errors.Annotate(jsonErr, "reading error response")
+				}
+				return nil, result.Error
+			}
+
+			err = errors.Errorf(
+				"%s (%s)",
+				strings.TrimSpace(string(body)),
+				http.StatusText(resp.StatusCode),
+			)
+		}
+		return nil, err
 	}
 	return c, nil
 }

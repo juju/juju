@@ -12,8 +12,16 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/azurestorage"
+)
+
+const (
+	// provider version 1 introduces the "common" deployment,
+	// which contains common resources such as the virtual
+	// network and network security group.
+	providerVersion1 = 1
+
+	currentProviderVersion = providerVersion1
 )
 
 // Logger for the Azure provider.
@@ -34,7 +42,12 @@ type ProviderConfig struct {
 	// clients.
 	NewStorageClient azurestorage.NewClientFunc
 
-	// RetryClock is used when retrying API calls due to rate-limiting.
+	// RetryClock is used for retrying some operations, like
+	// waiting for deployments to complete.
+	//
+	// Retries due to rate-limiting are handled by the go-autorest
+	// package, which uses "time" directly. We cannot mock the
+	// waiting in that case.
 	RetryClock clock.Clock
 
 	// RandomWindowsAdminPassword is a function used to generate
@@ -45,10 +58,11 @@ type ProviderConfig struct {
 	// key pair for provisioning Linux machines.
 	GenerateSSHKey func(comment string) (private, public string, _ error)
 
-	// InteractiveCreateServicePrincipal is a function used to
-	// interactively create/update service principals with
-	// password credentials.
-	InteractiveCreateServicePrincipal azureauth.InteractiveCreateServicePrincipalFunc
+	// ServicePrincipalCreator is the interface used to create service principals.
+	ServicePrincipalCreator ServicePrincipalCreator
+
+	// AzureCLI is the interface the to Azure CLI (az) command.
+	AzureCLI AzureCLI
 }
 
 // Validate validates the Azure provider configuration.
@@ -65,8 +79,11 @@ func (cfg ProviderConfig) Validate() error {
 	if cfg.GenerateSSHKey == nil {
 		return errors.NotValidf("nil GenerateSSHKey")
 	}
-	if cfg.InteractiveCreateServicePrincipal == nil {
-		return errors.NotValidf("nil InteractiveCreateServicePrincipal")
+	if cfg.ServicePrincipalCreator == nil {
+		return errors.NotValidf("nil ServicePrincipalCreator")
+	}
+	if cfg.AzureCLI == nil {
+		return errors.NotValidf("nil AzureCLI")
 	}
 	return nil
 }
@@ -84,12 +101,16 @@ func NewEnvironProvider(config ProviderConfig) (*azureEnvironProvider, error) {
 	}
 	return &azureEnvironProvider{
 		environProviderCredentials: environProviderCredentials{
-			sender:                            config.Sender,
-			requestInspector:                  config.RequestInspector,
-			interactiveCreateServicePrincipal: config.InteractiveCreateServicePrincipal,
+			servicePrincipalCreator: config.ServicePrincipalCreator,
+			azureCLI:                config.AzureCLI,
 		},
 		config: config,
 	}, nil
+}
+
+// Version is part of the EnvironProvider interface.
+func (prov *azureEnvironProvider) Version() int {
+	return currentProviderVersion
 }
 
 // Open is part of the EnvironProvider interface.
@@ -121,7 +142,15 @@ func (prov *azureEnvironProvider) PrepareConfig(args environs.PrepareConfigParam
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	return args.Config, nil
+	// Set the default block-storage source.
+	attrs := make(map[string]interface{})
+	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
+		attrs[config.StorageDefaultBlockSourceKey] = azureStorageProviderType
+	}
+	if len(attrs) == 0 {
+		return args.Config, nil
+	}
+	return args.Config.Apply(attrs)
 }
 
 func validateCloudSpec(spec environs.CloudSpec) error {

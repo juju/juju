@@ -4,13 +4,21 @@
 package remotestate
 
 import (
-	"gopkg.in/juju/charm.v6-unstable"
+	"time"
+
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
 )
+
+type Waiter interface {
+	After() <-chan time.Time
+}
+
+type UpdateStatusTimerFunc func(time.Duration) Waiter
 
 type State interface {
 	Relation(names.RelationTag) (Relation, error)
@@ -19,46 +27,52 @@ type State interface {
 	Unit(names.UnitTag) (Unit, error)
 	WatchRelationUnits(names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
+	WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, error)
+	UpdateStatusHookInterval() (time.Duration, error)
 }
 
 type Unit interface {
 	Life() params.Life
 	Refresh() error
-	Resolved() (params.ResolvedMode, error)
+	Resolved() params.ResolvedMode
 	Application() (Application, error)
+	Series() string
 	Tag() names.UnitTag
 	Watch() (watcher.NotifyWatcher, error)
 	WatchAddresses() (watcher.NotifyWatcher, error)
 	WatchConfigSettings() (watcher.NotifyWatcher, error)
+	WatchTrustConfigSettings() (watcher.NotifyWatcher, error)
 	WatchStorage() (watcher.StringsWatcher, error)
 	WatchActionNotifications() (watcher.StringsWatcher, error)
+	// WatchRelation returns a watcher that fires when relations
+	// relevant for this unit change.
+	WatchRelations() (watcher.StringsWatcher, error)
 }
 
 type Application interface {
 	// CharmModifiedVersion returns a revision number for the charm that
 	// increments whenever the charm or a resource for the charm changes.
 	CharmModifiedVersion() (int, error)
-	// CharmURL returns the url for the charm for this service.
+	// CharmURL returns the url for the charm for this application.
 	CharmURL() (*charm.URL, bool, error)
-	// Life returns whether the service is alive.
+	// Life returns whether the application is alive.
 	Life() params.Life
 	// Refresh syncs this value with the api server.
 	Refresh() error
-	// Tag returns the tag for this service.
+	// Tag returns the tag for this application.
 	Tag() names.ApplicationTag
-	// Watch returns a watcher that fires when this service changes.
+	// Watch returns a watcher that fires when this application changes.
 	Watch() (watcher.NotifyWatcher, error)
 	// WatchLeadershipSettings returns a watcher that fires when the leadership
-	// settings for this service change.
+	// settings for this application change.
 	WatchLeadershipSettings() (watcher.NotifyWatcher, error)
-	// WatchRelation returns a watcher that fires when the relations on this
-	// service change.
-	WatchRelations() (watcher.StringsWatcher, error)
 }
 
 type Relation interface {
 	Id() int
 	Life() params.Life
+	Suspended() bool
+	UpdateSuspended(bool)
 }
 
 func NewAPIState(st *uniter.State) State {

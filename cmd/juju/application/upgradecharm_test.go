@@ -13,30 +13,32 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
-	"gopkg.in/juju/charmrepo.v2-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	charmstore "gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/juju/charm.v6"
+	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/charmrepo.v2"
+	"gopkg.in/juju/charmrepo.v2/csclient"
+	csclientparams "gopkg.in/juju/charmrepo.v2/csclient/params"
+	"gopkg.in/juju/charmstore.v5-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	macaroon "gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/apiserver/params"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -85,7 +87,7 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 
 	s.resolveCharm = func(
 		resolveWithChannel func(*charm.URL) (*charm.URL, csclientparams.Channel, []string, error),
-		conf *config.Config,
+		conf SeriesConfig,
 		url *charm.URL,
 	) (*charm.URL, csclientparams.Channel, []string, error) {
 		s.AddCall("ResolveCharm", resolveWithChannel, conf, url)
@@ -117,21 +119,23 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 	s.modelConfigGetter = mockModelConfigGetter{}
 	s.resourceLister = mockResourceLister{}
 
-	store := jujuclienttesting.NewMemStore()
+	store := jujuclient.NewMemStore()
 	store.CurrentControllerName = "foo"
-	store.Controllers["foo"] = jujuclient.ControllerDetails{}
+	store.Controllers["foo"] = jujuclient.ControllerDetails{
+		APIEndpoints: []string{"0.1.2.3:1234"},
+	}
 	store.Models["foo"] = &jujuclient.ControllerModels{
 		CurrentModel: "admin/bar",
 		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {}},
 	}
-	apiOpener := modelcmd.OpenFunc(func(store jujuclient.ClientStore, controller, model string) (api.Connection, error) {
-		s.AddCall("OpenAPI", store, controller, model)
+	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
+		s.AddCall("OpenAPI")
 		return &s.apiConnection, nil
-	})
+	}
 
 	s.cmd = NewUpgradeCharmCommandForTest(
 		store,
-		apiOpener,
+		apiOpen,
 		s.deployResources,
 		s.resolveCharm,
 		func(conn api.Connection, bakeryClient *httpbakery.Client, channel csclientparams.Channel) CharmAdder {
@@ -161,14 +165,14 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UpgradeCharmSuite) runUpgradeCharm(c *gc.C, args ...string) (*cmd.Context, error) {
-	return coretesting.RunCommand(c, s.cmd, args...)
+	return cmdtesting.RunCommand(c, s.cmd, args...)
 }
 
 func (s *UpgradeCharmSuite) TestStorageConstraints(c *gc.C) {
 	_, err := s.runUpgradeCharm(c, "foo", "--storage", "bar=baz")
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "SetCharm")
-	s.charmUpgradeClient.CheckCall(c, 1, "SetCharm", application.SetCharmConfig{
+	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
+	s.charmUpgradeClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -203,8 +207,8 @@ func (s *UpgradeCharmSuite) TestConfigSettings(c *gc.C) {
 
 	_, err = s.runUpgradeCharm(c, "foo", "--config", configFile)
 	c.Assert(err, jc.ErrorIsNil)
-	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "SetCharm")
-	s.charmUpgradeClient.CheckCall(c, 1, "SetCharm", application.SetCharmConfig{
+	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "Get", "SetCharm")
+	s.charmUpgradeClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: jujucharmstore.CharmID{
 			URL:     s.resolvedCharmURL,
@@ -259,7 +263,7 @@ func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&UpgradeCharmErrorsStateSuite{})
 
 func runUpgradeCharm(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, NewUpgradeCharmCommand(), args...)
+	_, err := cmdtesting.RunCommand(c, NewUpgradeCharmCommand(), args...)
 	return err
 }
 
@@ -464,7 +468,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestInitWithResources(c *gc.C) {
 	d := upgradeCharmCommand{}
 	args := []string{"dummy", "--resource", res1, "--resource", res2}
 
-	err = coretesting.InitCommand(modelcmd.Wrap(&d), args)
+	err = cmdtesting.InitCommand(modelcmd.Wrap(&d), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d.Resources, gc.DeepEquals, map[string]string{
 		"foo": foopath,
@@ -646,8 +650,8 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeCharmWithChannel(c *gc.C) 
 	c.Assert(err, gc.IsNil)
 
 	s.assertCharmsUploaded(c, "cs:~client-username/trusty/wordpress-0", "cs:~client-username/trusty/wordpress-1")
-	s.assertApplicationsDeployed(c, map[string]serviceInfo{
-		"wordpress": {charm: "cs:~client-username/trusty/wordpress-1"},
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"wordpress": {charm: "cs:~client-username/trusty/wordpress-1", config: ch.Config().DefaultSettings()},
 	})
 }
 
@@ -664,7 +668,7 @@ func (s *UpgradeCharmCharmStoreStateSuite) TestUpgradeWithTermsNotSigned(c *gc.C
 		Message: "term agreement required: term/1 term/2",
 		Code:    "term agreement required",
 	}
-	expectedError := `Declined: please agree to the following terms term/1 term/2. Try: "juju agree term/1 term/2"`
+	expectedError := `Declined: some terms require agreement. Try: "juju agree term/1 term/2"`
 	err = runUpgradeCharm(c, "terms1")
 	c.Assert(err, gc.ErrorMatches, expectedError)
 }
@@ -673,6 +677,27 @@ type mockAPIConnection struct {
 	api.Connection
 	bestFacadeVersion int
 	serverVersion     *version.Number
+}
+
+func (m *mockAPIConnection) Addr() string {
+	return "0.1.2.3:1234"
+}
+
+func (m *mockAPIConnection) IPAddr() string {
+	return "0.1.2.3:1234"
+}
+
+func (m *mockAPIConnection) AuthTag() names.Tag {
+	return names.NewUserTag("testuser")
+}
+
+func (m *mockAPIConnection) PublicDNSName() string {
+	return ""
+}
+
+func (m *mockAPIConnection) APIHostPorts() [][]network.HostPort {
+	p, _ := network.ParseHostPorts(m.Addr())
+	return [][]network.HostPort{p}
 }
 
 func (m *mockAPIConnection) BestFacadeVersion(name string) int {
@@ -728,6 +753,11 @@ func (m *mockCharmUpgradeClient) GetCharmURL(applicationName string) (*charm.URL
 func (m *mockCharmUpgradeClient) SetCharm(cfg application.SetCharmConfig) error {
 	m.MethodCall(m, "SetCharm", cfg)
 	return m.NextErr()
+}
+
+func (m *mockCharmUpgradeClient) Get(applicationName string) (*params.ApplicationGetResults, error) {
+	m.MethodCall(m, "Get", applicationName)
+	return &params.ApplicationGetResults{}, m.NextErr()
 }
 
 type mockModelConfigGetter struct {

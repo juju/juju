@@ -11,7 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/worker/metrics/sender"
 )
 
 // TODO(bogdanteleaga): update this once querying for actions by name is implemented.
@@ -230,7 +231,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 			sendParams := params.RunParams{
 				Timeout:  commandTimeout,
 				Units:    []string{unitId},
-				Commands: "nc -U ../metrics-send.socket",
+				Commands: "nc -U ../" + sender.DefaultMetricsSendSocketName,
 			}
 			sendResults, err := runnerClient.Run(sendParams)
 			if err != nil {

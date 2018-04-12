@@ -6,10 +6,12 @@ package api
 import (
 	"net"
 	"net/url"
+	"os"
 	"runtime/debug"
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -19,8 +21,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/cleaner"
-	"github.com/juju/juju/api/discoverspaces"
-	"github.com/juju/juju/api/imagemetadata"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/api/keyupdater"
 	"github.com/juju/juju/api/reboot"
@@ -43,6 +43,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		Credentials: password,
 		Nonce:       nonce,
 		Macaroons:   macaroons,
+		CLIArgs:     utils.CommandString(os.Args...),
 	}
 	// If we are in developer mode, add the stack location as user data to the
 	// login request. This will allow the apiserver to connect connection ids
@@ -129,6 +130,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		modelTag:         result.ModelTag,
 		controllerTag:    result.ControllerTag,
 		servers:          servers,
+		publicDNSName:    result.PublicDNSName,
 		facades:          result.Facades,
 		modelAccess:      modelAccess,
 		controllerAccess: controllerAccess,
@@ -150,6 +152,7 @@ type loginResultParams struct {
 	controllerAccess string
 	servers          [][]network.HostPort
 	facades          []params.FacadeVersions
+	publicDNSName    string
 }
 
 func (st *state) setLoginResult(p loginResultParams) error {
@@ -181,6 +184,7 @@ func (st *state) setLoginResult(p loginResultParams) error {
 		return err
 	}
 	st.hostPorts = hostPorts
+	st.publicDNSName = p.publicDNSName
 
 	st.facadeVersions = make(map[string][]int, len(p.facades))
 	for _, facade := range p.facades {
@@ -293,11 +297,6 @@ func (st *state) Reboot() (reboot.State, error) {
 	}
 }
 
-// DiscoverSpaces returns access to the DiscoverSpacesAPI.
-func (st *state) DiscoverSpaces() *discoverspaces.API {
-	return discoverspaces.NewAPI(st)
-}
-
 // KeyUpdater returns access to the KeyUpdater API
 func (st *state) KeyUpdater() *keyupdater.State {
 	return keyupdater.NewState(st)
@@ -324,9 +323,4 @@ func (st *state) Cleaner() *cleaner.API {
 // set.
 func (st *state) ServerVersion() (version.Number, bool) {
 	return st.serverVersion, st.serverVersion != version.Zero
-}
-
-// MetadataUpdater returns access to the imageMetadata API
-func (st *state) MetadataUpdater() *imagemetadata.Client {
-	return imagemetadata.NewClient(st)
 }

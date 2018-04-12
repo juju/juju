@@ -4,7 +4,6 @@
 package tools
 
 var (
-	Setenv                        = setenv
 	FindExecutable                = findExecutable
 	CheckToolsSeries              = checkToolsSeries
 	ArchiveAndSHA256              = archiveAndSHA256
@@ -14,3 +13,7 @@ var (
 	GetVersionFromJujud           = getVersionFromJujud
 	ExecCommand                   = &execCommand
 )
+
+func VersionsMatchingHash(v *Versions, h string) []string {
+	return v.versionsMatchingHash(h)
+}

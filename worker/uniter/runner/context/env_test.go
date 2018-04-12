@@ -14,9 +14,11 @@ import (
 	"github.com/juju/utils/keyvalues"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
@@ -53,6 +55,7 @@ func (s *EnvSuite) getContext() (ctx *context.HookContext, expectVars []string) 
 			"this-unit/123",
 			"PURPLE",
 			"proceed with care",
+			"essential",
 			"some-zone",
 			[]string{"he.re:12345", "the.re:23456"},
 			proxy.Settings{
@@ -65,13 +68,16 @@ func (s *EnvSuite) getContext() (ctx *context.HookContext, expectVars []string) 
 		), []string{
 			"JUJU_CONTEXT_ID=some-context-id",
 			"JUJU_MODEL_UUID=model-uuid-deadbeef",
+			"JUJU_PRINCIPAL_UNIT=this-unit/123",
 			"JUJU_MODEL_NAME=some-model-name",
 			"JUJU_UNIT_NAME=this-unit/123",
 			"JUJU_METER_STATUS=PURPLE",
 			"JUJU_METER_INFO=proceed with care",
+			"JUJU_SLA=essential",
 			"JUJU_API_ADDRESSES=he.re:12345 the.re:23456",
 			"JUJU_MACHINE_ID=42",
 			"JUJU_AVAILABILITY_ZONE=some-zone",
+			"JUJU_VERSION=1.2.3",
 			"http_proxy=some-http-proxy",
 			"HTTP_PROXY=some-http-proxy",
 			"https_proxy=some-https-proxy",
@@ -108,6 +114,7 @@ func (s *EnvSuite) TestEnvSetsPath(c *gc.C) {
 
 func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 	os.Setenv("Path", "foo;bar")
 	os.Setenv("PSModulePath", "ping;pong")
 	windowsVars := []string{
@@ -129,6 +136,7 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 
 func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 	os.Setenv("PATH", "foo:bar")
 	ubuntuVars := []string{
 		"PATH=path-to-tools:foo:bar",

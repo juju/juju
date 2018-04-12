@@ -240,13 +240,6 @@ func (s *oplogSuite) startMongo(c *gc.C) (*jujutesting.MgoInstance, *mgo.Session
 	return &inst, s.dialMongo(c, &inst)
 }
 
-func (s *oplogSuite) emptyCapped(c *gc.C, coll *mgo.Collection) {
-	// Call the emptycapped (test) command on a capped
-	// collection. This invalidates any cursors on the collection.
-	err := coll.Database.Run(bson.D{{"emptycapped", coll.Name}}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *oplogSuite) dialMongo(c *gc.C, inst *jujutesting.MgoInstance) *mgo.Session {
 	session, err := inst.Dial()
 	c.Assert(err, jc.ErrorIsNil)
@@ -332,18 +325,18 @@ func (i *fakeIterator) Next(result interface{}) bool {
 	return true
 }
 
-func (i *fakeIterator) Err() error {
-	if i.pos < len(i.docs) {
-		return nil
-	}
-	return i.err
-}
-
 func (i *fakeIterator) Timeout() bool {
 	if i.pos < len(i.docs) {
 		return false
 	}
 	return i.timeout
+}
+
+func (i *fakeIterator) Close() error {
+	if i.pos < len(i.docs) {
+		return nil
+	}
+	return i.err
 }
 
 func newFakeIterator(err error, docs ...*mongo.OplogDoc) *fakeIterator {
@@ -363,7 +356,7 @@ type fakeSession struct {
 
 var timeoutIterator = fakeIterator{timeout: true}
 
-func (s *fakeSession) NewIter(ts bson.MongoTimestamp, ids []int64) mongo.OplogIterator {
+func (s *fakeSession) NewIter(ts bson.MongoTimestamp, ids []int64) mongo.Iterator {
 	if s.pos >= len(s.iterators) {
 		// We've run out of results - at this point the calls to get
 		// more data would just keep timing out.

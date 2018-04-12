@@ -6,3 +6,9 @@ description: |
 series:
     - precise
     - trusty
+    - xenial
+    - yakkety
+provides:
+    multi-directory:
+           interface: logging
+           scope: container

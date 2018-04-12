@@ -4,6 +4,8 @@
 package google
 
 import (
+	"path"
+
 	"github.com/juju/errors"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
@@ -106,14 +108,9 @@ type DiskSpec struct {
 	// characters must be a dash, lowercase letter, or digit, except the
 	// last character, which cannot be a dash.
 	Name string
-	// Description holds a description of the disk, it currently holds
-	// modelUUID.
-	// This field is used instead of a tag or metadata because, at the moment of writing
-	// this feature, compute (v1) API does not support any way to add extra data
-	// to disks.
-	// Description was picked because it is not mutable (actually no field is) for disks.
-	// There is a metadata API but it is not supported for disks for the moment.
-	Description string
+	// Labels holds labels/metadata for the disk. Labels are used for
+	// storing volume resource tags.
+	Labels map[string]string
 }
 
 // TooSmall checks the spec's size hint and indicates whether or not
@@ -180,7 +177,7 @@ func (ds *DiskSpec) newDetached() (*compute.Disk, error) {
 		SizeGb:      int64(ds.SizeGB()),
 		SourceImage: ds.ImageURL,
 		Type:        string(ds.PersistentDiskType),
-		Description: ds.Description,
+		Labels:      ds.Labels,
 	}, nil
 }
 
@@ -201,30 +198,60 @@ type Disk struct {
 	// Id is an unique identifier google adds to the disk, it usually
 	// is not used in the API.
 	Id uint64
+
 	// Name is a unique identifier string for each disk.
 	Name string
-	// Description holds the description field for a disk, we store env UUID here.
+
+	// Description holds the description field for a disk, we used to
+	// store the model UUID here.
 	Description string
+
 	// Size is the size in mbit.
 	Size uint64
+
 	// Type is one of the available disk types supported by
 	// gce (persistent or ephemeral).
 	Type DiskType
-	// Zone indicates the zone in which the disk lives.
+
+	// Zone holds the name of the zone in which the disk lives.
 	Zone string
+
 	// DiskStatus holds the status of he aforementioned disk.
 	Status DiskStatus
+
+	// AttachedInstances holds the IDs of instances that have the disk
+	// attached.
+	AttachedInstances []string
+
+	// Labels holds labels/metadata for the disk. Labels are used for
+	// storing volume resource tags.
+	Labels map[string]string
+
+	// LabelFingerprint holds a hash of the labels, to be used to prevent
+	// conflicting changes to labels.
+	LabelFingerprint string
 }
 
 func NewDisk(cd *compute.Disk) *Disk {
+	// cd.Users contains the users of the disk (attached instances),
+	// in form: project/zones/zone/instances/instance. Disks and
+	// instances must be in the same zone, so we just take the
+	// final part of the path.
+	attachedInstances := make([]string, len(cd.Users))
+	for i, u := range cd.Users {
+		attachedInstances[i] = path.Base(u)
+	}
 	d := &Disk{
-		Id:          cd.Id,
-		Name:        cd.Name,
-		Description: cd.Description,
-		Size:        gibToMib(cd.SizeGb),
-		Type:        DiskType(cd.Type),
-		Zone:        cd.Zone,
-		Status:      DiskStatus(cd.Status),
+		Id:                cd.Id,
+		Name:              cd.Name,
+		Description:       cd.Description,
+		Size:              gibToMib(cd.SizeGb),
+		Type:              DiskType(cd.Type),
+		Zone:              path.Base(cd.Zone),
+		Status:            DiskStatus(cd.Status),
+		Labels:            cd.Labels,
+		LabelFingerprint:  cd.LabelFingerprint,
+		AttachedInstances: attachedInstances,
 	}
 	return d
 }

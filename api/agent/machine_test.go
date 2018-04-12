@@ -9,14 +9,13 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
-	apiserveragent "github.com/juju/juju/apiserver/agent"
+	apiserveragent "github.com/juju/juju/apiserver/facades/agent/agent"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
@@ -56,15 +55,18 @@ func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
 	}
 	err := s.State.SetStateServingInfo(ssi)
 	c.Assert(err, jc.ErrorIsNil)
-	info, err := apiagent.NewState(st).StateServingInfo()
+	apiSt, err := apiagent.NewState(st)
+	c.Assert(err, jc.ErrorIsNil)
+	info, err := apiSt.StateServingInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 }
 
 func (s *servingInfoSuite) TestStateServingInfoPermission(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c)
-
-	_, err := apiagent.NewState(st).StateServingInfo()
+	apiSt, err := apiagent.NewState(st)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = apiSt.StateServingInfo()
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "permission denied",
 		Code:    "unauthorized access",
@@ -81,8 +83,9 @@ func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
 
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 	expected := true
-	result, err := apiagent.NewState(st).IsMaster()
-
+	apiSt, err := apiagent.NewState(st)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := apiSt.IsMaster()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, expected)
 	c.Assert(calledIsMaster, jc.IsTrue)
@@ -90,7 +93,9 @@ func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
 
 func (s *servingInfoSuite) TestIsMasterPermission(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c)
-	_, err := apiagent.NewState(st).IsMaster()
+	apiSt, err := apiagent.NewState(st)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = apiSt.IsMaster()
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "permission denied",
 		Code:    "unauthorized access",
@@ -112,12 +117,16 @@ func (s *machineSuite) SetUpTest(c *gc.C) {
 
 func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	tag := names.NewMachineTag("42")
-	m, err := apiagent.NewState(s.st).Entity(tag)
+	apiSt, err := apiagent.NewState(s.st)
+	c.Assert(err, jc.ErrorIsNil)
+	m, err := apiSt.Entity(tag)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(m, gc.IsNil)
 
-	m, err = apiagent.NewState(s.st).Entity(s.machine.Tag())
+	apiSt, err = apiagent.NewState(s.st)
+	c.Assert(err, jc.ErrorIsNil)
+	m, err = apiSt.Entity(s.machine.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, s.machine.Tag().String())
 	c.Assert(m.Life(), gc.Equals, params.Alive)
@@ -128,14 +137,18 @@ func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	m, err = apiagent.NewState(s.st).Entity(s.machine.Tag())
+	apiSt, err = apiagent.NewState(s.st)
+	c.Assert(err, jc.ErrorIsNil)
+	m, err = apiSt.Entity(s.machine.Tag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(m, gc.IsNil)
 }
 
 func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
-	entity, err := apiagent.NewState(s.st).Entity(s.machine.Tag())
+	apiSt, err := apiagent.NewState(s.st)
+	c.Assert(err, jc.ErrorIsNil)
+	entity, err := apiSt.Entity(s.machine.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = entity.SetPassword("foo")
@@ -159,8 +172,9 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info.Tag = tag
 	info.Password = "foo-12345678901234567890"
-	err = tryOpenState(s.State.ModelTag(), s.State.ControllerTag(), info)
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+	c.Assert(session, gc.IsNil)
 }
 
 func (s *machineSuite) TestClearReboot(c *gc.C) {
@@ -170,7 +184,9 @@ func (s *machineSuite) TestClearReboot(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rFlag, jc.IsTrue)
 
-	entity, err := apiagent.NewState(s.st).Entity(s.machine.Tag())
+	apiSt, err := apiagent.NewState(s.st)
+	c.Assert(err, jc.ErrorIsNil)
+	entity, err := apiSt.Entity(s.machine.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = entity.ClearReboot()
@@ -179,18 +195,4 @@ func (s *machineSuite) TestClearReboot(c *gc.C) {
 	rFlag, err = s.machine.GetRebootFlag()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rFlag, jc.IsFalse)
-}
-
-func tryOpenState(modelTag names.ModelTag, controllerTag names.ControllerTag, info *mongo.MongoInfo) error {
-	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      controllerTag,
-		ControllerModelTag: modelTag,
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
-	})
-	if err == nil {
-		st.Close()
-	}
-	return err
 }

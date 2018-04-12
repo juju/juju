@@ -39,16 +39,16 @@ type userAccessTarget struct {
 	globalKey string
 }
 
-// AddModelUser adds a new user for the model identified by modelUUID to the database.
-func (st *State) AddModelUser(modelUUID string, spec UserAccessSpec) (permission.UserAccess, error) {
+// AddUser adds a new user for the model to the database.
+func (m *Model) AddUser(spec UserAccessSpec) (permission.UserAccess, error) {
 	if err := permission.ValidateModelAccess(spec.Access); err != nil {
 		return permission.UserAccess{}, errors.Annotate(err, "adding model user")
 	}
 	target := userAccessTarget{
-		uuid:      modelUUID,
+		uuid:      m.UUID(),
 		globalKey: modelGlobalKey,
 	}
-	return st.addUserAccess(spec, target)
+	return m.st.addUserAccess(spec, target)
 }
 
 // AddControllerUser adds a new user for the curent controller to the database.
@@ -89,7 +89,7 @@ func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (pe
 			spec.User,
 			spec.CreatedBy,
 			spec.DisplayName,
-			st.NowToTheSecond(),
+			st.nowToTheSecond(),
 			spec.Access)
 		targetTag = names.NewModelTag(target.uuid)
 	case controllerGlobalKey:
@@ -98,13 +98,13 @@ func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (pe
 			spec.User,
 			spec.CreatedBy,
 			spec.DisplayName,
-			st.NowToTheSecond(),
+			st.nowToTheSecond(),
 			spec.Access)
 		targetTag = st.controllerTag
 	default:
 		return permission.UserAccess{}, errors.NotSupportedf("user access global key %q", target.globalKey)
 	}
-	err = st.runTransactionFor(target.uuid, ops)
+	err = st.db().RunTransactionFor(target.uuid, ops)
 	if err == txn.ErrAborted {
 		err = errors.AlreadyExistsf("user access %q", spec.User.Id())
 	}
@@ -138,6 +138,26 @@ func NewControllerUserAccess(st *State, userDoc userAccessDoc) (permission.UserA
 		return permission.UserAccess{}, errors.Annotate(err, "obtaining controller permission")
 	}
 	return newUserAccess(perm, userDoc, names.NewControllerTag(userDoc.ObjectUUID)), nil
+}
+
+// UserPermission returns the access permission for the passed subject and target.
+func (st *State) UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error) {
+	switch target.Kind() {
+	case names.ModelTagKind, names.ControllerTagKind:
+		access, err := st.UserAccess(subject, target)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		return access.Access, nil
+	case names.ApplicationOfferTagKind:
+		offerUUID, err := applicationOfferUUID(st, target.Id())
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		return st.GetOfferAccess(offerUUID, subject)
+	default:
+		return "", errors.NotValidf("%q as a target", target.Kind())
+	}
 }
 
 func newUserAccess(perm *userPermission, userDoc userAccessDoc, object names.Tag) permission.UserAccess {

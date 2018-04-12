@@ -37,38 +37,75 @@ func (c *ModelStatusAPI) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus
 		return nil, err
 	}
 
-	results := make([]base.ModelStatus, len(result.Results))
-	for i, r := range result.Results {
+	return c.processModelStatusResults(result.Results)
+}
+
+func (c *ModelStatusAPI) processModelStatusResults(rs []params.ModelStatus) ([]base.ModelStatus, error) {
+	results := make([]base.ModelStatus, len(rs))
+	for i, r := range rs {
+		if r.Error != nil {
+			// cope with typed error
+			results[i].Error = errors.Trace(r.Error)
+			continue
+		}
 		model, err := names.ParseModelTag(r.ModelTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "ModelTag %q at position %d", r.ModelTag, i)
+			results[i].Error = errors.Trace(err)
+			continue
 		}
 		owner, err := names.ParseUserTag(r.OwnerTag)
 		if err != nil {
-			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", r.OwnerTag, i)
+			results[i].Error = errors.Trace(err)
+			continue
 		}
-
-		results[i] = base.ModelStatus{
-			UUID:               model.Id(),
-			Life:               string(r.Life),
-			Owner:              owner.Id(),
-			HostedMachineCount: r.HostedMachineCount,
-			ServiceCount:       r.ApplicationCount,
-			TotalMachineCount:  len(r.Machines),
-		}
-		results[i].Machines = make([]base.Machine, len(r.Machines))
-		for j, mm := range r.Machines {
-			if mm.Hardware != nil && mm.Hardware.Cores != nil {
-				results[i].CoreCount += int(*mm.Hardware.Cores)
-			}
-			results[i].Machines[j] = base.Machine{
-				Id:         mm.Id,
-				InstanceId: mm.InstanceId,
-				HasVote:    mm.HasVote,
-				WantsVote:  mm.WantsVote,
-				Status:     mm.Status,
-			}
-		}
+		results[i] = constructModelStatus(model, owner, r)
 	}
 	return results, nil
+}
+
+func constructModelStatus(model names.ModelTag, owner names.UserTag, r params.ModelStatus) base.ModelStatus {
+	volumes := make([]base.Volume, len(r.Volumes))
+	for i, in := range r.Volumes {
+		volumes[i] = base.Volume{
+			Id:         in.Id,
+			ProviderId: in.ProviderId,
+			Status:     in.Status,
+			Detachable: in.Detachable,
+		}
+	}
+
+	filesystems := make([]base.Filesystem, len(r.Filesystems))
+	for i, in := range r.Filesystems {
+		filesystems[i] = base.Filesystem{
+			Id:         in.Id,
+			ProviderId: in.ProviderId,
+			Status:     in.Status,
+			Detachable: in.Detachable,
+		}
+	}
+
+	result := base.ModelStatus{
+		UUID:               model.Id(),
+		Life:               string(r.Life),
+		Owner:              owner.Id(),
+		HostedMachineCount: r.HostedMachineCount,
+		ServiceCount:       r.ApplicationCount,
+		TotalMachineCount:  len(r.Machines),
+		Volumes:            volumes,
+		Filesystems:        filesystems,
+	}
+	result.Machines = make([]base.Machine, len(r.Machines))
+	for j, mm := range r.Machines {
+		if mm.Hardware != nil && mm.Hardware.Cores != nil {
+			result.CoreCount += int(*mm.Hardware.Cores)
+		}
+		result.Machines[j] = base.Machine{
+			Id:         mm.Id,
+			InstanceId: mm.InstanceId,
+			HasVote:    mm.HasVote,
+			WantsVote:  mm.WantsVote,
+			Status:     mm.Status,
+		}
+	}
+	return result
 }

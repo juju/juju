@@ -4,25 +4,28 @@
 package machine
 
 import (
+	"net/http"
 	"runtime"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/crosscontroller"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
 	jworker "github.com/juju/juju/worker"
@@ -30,33 +33,56 @@ import (
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
+	"github.com/juju/juju/worker/apiserver"
+	"github.com/juju/juju/worker/apiservercertwatcher"
+	"github.com/juju/juju/worker/auditconfigupdater"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/centralhub"
+	"github.com/juju/juju/worker/certupdater"
+	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
+	"github.com/juju/juju/worker/externalcontrollerupdater"
+	"github.com/juju/juju/worker/fanconfigurer"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/globalclockupdater"
 	"github.com/juju/juju/worker/hostkeyreporter"
+	"github.com/juju/juju/worker/httpserver"
 	"github.com/juju/juju/worker/identityfilewriter"
-	"github.com/juju/juju/worker/logforwarder"
-	"github.com/juju/juju/worker/logforwarder/sinks"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machineactions"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
+	"github.com/juju/juju/worker/modelworkermanager"
+	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/proxyupdater"
+	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/reboot"
+	"github.com/juju/juju/worker/restorewatcher"
 	"github.com/juju/juju/worker/resumer"
+	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
+	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
+)
+
+const (
+	// globalClockUpdaterUpdateInterval is the interval between
+	// global clock updates.
+	globalClockUpdaterUpdateInterval = 1 * time.Second
+
+	// globalClockUpdaterBackoffDelay is the amount of time to
+	// delay when a concurrent global clock update is detected.
+	globalClockUpdaterBackoffDelay = 10 * time.Second
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -89,6 +115,10 @@ type ManifoldsConfig struct {
 	// upgrader worker completes it's first check.
 	UpgradeCheckLock gate.Lock
 
+	// OpenController is function used by the controller manifold to
+	// create a *state.Controller.
+	OpenController func(coreagent.Config) (*state.Controller, error)
+
 	// OpenState is function used by the state manifold to create a
 	// *state.State.
 	OpenState func(coreagent.Config) (*state.State, error)
@@ -96,13 +126,6 @@ type ManifoldsConfig struct {
 	// OpenStateForUpgrade is a function the upgradesteps worker can
 	// use to establish a connection to state.
 	OpenStateForUpgrade func() (*state.State, error)
-
-	// StartStateWorkers is function called by the stateworkers
-	// manifold to start workers which rely on a *state.State but
-	// which haven't been converted to run directly under the
-	// dependency engine yet. This will go once these workers have
-	// been converted.
-	StartStateWorkers func(*state.State) (worker.Worker, error)
 
 	// StartAPIWorkers is passed to the apiworkers manifold. It starts
 	// workers which rely on an API connection (which have not yet
@@ -125,10 +148,6 @@ type ManifoldsConfig struct {
 	// otherwise be restricted.
 	NewDeployContext func(st *apideployer.State, agentConfig coreagent.Config) deployer.Context
 
-	// NewEnvironFunc is a function opens a provider "environment"
-	// (typically environs.New).
-	NewEnvironFunc environs.NewEnvironFunc
-
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
 
@@ -144,8 +163,48 @@ type ManifoldsConfig struct {
 	// CentralHub is the primary hub that exists in the apiserver.
 	CentralHub *pubsub.StructuredHub
 
-	// DepEngineReporter is a dependency engine reporter.
-	DepEngineReporter dependency.Reporter
+	// PubSubReporter is the introspection reporter for the pubsub forwarding
+	// worker.
+	PubSubReporter psworker.Reporter
+
+	// UpdateLoggerConfig is a function that will save the specified
+	// config value as the logging config in the agent.conf file.
+	UpdateLoggerConfig func(string) error
+
+	// NewAgentStatusSetter provides upgradesteps.StatusSetter.
+	NewAgentStatusSetter func(apiConn api.Connection) (upgradesteps.StatusSetter, error)
+
+	// ControllerLeaseDuration defines for how long this agent will ask
+	// for controller administration rights.
+	ControllerLeaseDuration time.Duration
+
+	// LogPruneInterval defines how frequently logs are pruned from
+	// the database.
+	LogPruneInterval time.Duration
+
+	// TransactionPruneInterval defines how frequently mgo/txn transactions
+	// are pruned from the database.
+	TransactionPruneInterval time.Duration
+
+	// SetStatePool is used by the state worker for informing the agent of
+	// the StatePool that it creates, so we can pass it to the introspection
+	// worker running outside of the dependency engine.
+	SetStatePool func(*state.StatePool)
+
+	// RegisterIntrospectionHTTPHandlers is a function that calls the
+	// supplied function to register introspection HTTP handlers. The
+	// function will be passed a path and a handler; the function may
+	// alter the path as it sees fit, e.g. by adding a prefix.
+	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
+
+	// NewModelWorker returns a new worker for managing the model with
+	// the specified UUID and type.
+	NewModelWorker func(modelUUID string, modelType state.ModelType) (worker.Worker, error)
+
+	// ControllerSupportsSpaces is a function that reports whether or
+	// not the controller model, represented by the given *state.State,
+	// supports network spaces.
+	ControllerSupportsSpaces func(*state.State) (bool, error)
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -178,6 +237,20 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
 	}
 
+	newExternalControllerWatcherClient := func(apiInfo *api.Info) (
+		externalcontrollerupdater.ExternalControllerWatcherClientCloser, error,
+	) {
+		conn, err := apicaller.NewExternalControllerConnection(apiInfo)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return crosscontroller.NewClient(conn), nil
+	}
+
+	agentConfig := config.Agent.CurrentConfig()
+	machineTag := agentConfig.Tag().(names.MachineTag)
+	controllerTag := agentConfig.Controller()
+
 	return dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
@@ -191,6 +264,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// be Very Wrong Indeed to use SetCanUninstall in conjunction
 		// with this code.
 		terminationName: terminationworker.Manifold(),
+
+		clockName: clockManifold(config.Clock),
+
+		// Each machine agent has a flag manifold/worker which
+		// reports whether or not the agent is a controller.
+		isControllerFlagName: isControllerFlagManifold(),
 
 		// The stateconfigwatcher manifold watches the machine agent's
 		// configuration and reports if state serving info is
@@ -213,6 +292,37 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Hub: config.CentralHub,
 		}),
 
+		// The pubsub manifold gets the APIInfo from the agent config,
+		// and uses this as a basis to talk to the other API servers.
+		// The worker subscribes to the messages sent by the peergrouper
+		// that defines the set of machines that are the API servers.
+		// All non-local messages that originate from the machine that
+		// is running the worker get forwarded to the other API servers.
+		// This worker does not run in non-API server machines through
+		// the hub dependency, as that is only available if the machine
+		// is an API server.
+		pubSubName: psworker.Manifold(psworker.ManifoldConfig{
+			AgentName:      agentName,
+			CentralHubName: centralHubName,
+			Clock:          config.Clock,
+			Logger:         loggo.GetLogger("juju.worker.pubsub"),
+			NewWorker:      psworker.NewWorker,
+			Reporter:       config.PubSubReporter,
+		}),
+
+		/* TODO(menn0) - this is currently unused, pending further
+		 * refactoring in the state package.
+
+			// The controller manifold creates a *state.Controller and
+			// makes it available to other manifolds. It pings the MongoDB
+			// session regularly and will die if pings fail.
+			controllerName: workercontroller.Manifold(workercontroller.ManifoldConfig{
+				AgentName:              agentName,
+				StateConfigWatcherName: stateConfigWatcherName,
+				OpenController:         config.OpenController,
+			}),
+		*/
+
 		// The state manifold creates a *state.State and makes it
 		// available to other manifolds. It pings the mongodb session
 		// regularly and will die if pings fail.
@@ -220,18 +330,8 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:              agentName,
 			StateConfigWatcherName: stateConfigWatcherName,
 			OpenState:              config.OpenState,
-		}),
-
-		// The stateworkers manifold starts workers which rely on a
-		// *state.State but which haven't been converted to run
-		// directly under the dependency engine yet. This manifold
-		// will be removed once all such workers have been converted;
-		// until then, the workers are expected to handle their own
-		// checks for upgrades etc, rather than blocking this whole
-		// worker on upgrade completion.
-		stateWorkersName: StateWorkersManifold(StateWorkersConfig{
-			StateName:         stateName,
-			StartStateWorkers: config.StartStateWorkers,
+			PrometheusRegisterer:   config.PrometheusRegisterer,
+			SetStatePool:           config.SetStatePool,
 		}),
 
 		// The api-config-watcher manifold monitors the API server
@@ -241,6 +341,15 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
 		}),
+
+		// The certificate-watcher manifold monitors the API server
+		// certificate in the agent config for changes, and parses
+		// and offers the result to other manifolds. This is only
+		// run by state servers.
+		certificateWatcherName: ifController(apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
+			AgentName:          agentName,
+			AgentConfigChanged: config.AgentConfigChanged,
+		})),
 
 		// The api caller is a thin concurrent wrapper around a connection
 		// to some API server. It's used by many other manifolds, which all
@@ -303,7 +412,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			OpenStateForUpgrade:  config.OpenStateForUpgrade,
 			PreUpgradeSteps:      config.PreUpgradeSteps,
-			NewEnvironFunc:       config.NewEnvironFunc,
+			NewAgentStatusSetter: config.NewAgentStatusSetter,
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -335,6 +444,32 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
 		}),
+
+		// We run a global clock updater for every controller machine.
+		//
+		// The global clock updater is primary for detecting and
+		// preventing concurrent updates, to ensure global time is
+		// monotonic and increases at a rate no faster than real time.
+		globalClockUpdaterName: globalclockupdater.Manifold(globalclockupdater.ManifoldConfig{
+			ClockName:      clockName,
+			StateName:      stateName,
+			NewWorker:      globalclockupdater.NewWorker,
+			UpdateInterval: globalClockUpdaterUpdateInterval,
+			BackoffDelay:   globalClockUpdaterBackoffDelay,
+		}),
+
+		// Each controller machine runs a singular worker which will
+		// attempt to claim responsibility for running certain workers
+		// that must not be run concurrently by multiple agents.
+		isPrimaryControllerFlagName: ifController(singular.Manifold(singular.ManifoldConfig{
+			ClockName:     clockName,
+			APICallerName: apiCallerName,
+			Duration:      config.ControllerLeaseDuration,
+			Claimant:      machineTag,
+			Entity:        controllerTag,
+			NewFacade:     singular.NewFacade,
+			NewWorker:     singular.NewWorker,
+		})),
 
 		// The serving-info-setter manifold sets grabs the state
 		// serving info from the API connection and writes it to the
@@ -368,8 +503,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// according to changes in environment config. We should only need
 		// one of these in a consolidated agent.
 		loggingConfigUpdaterName: ifNotMigrating(logger.Manifold(logger.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
 		// The diskmanager worker periodically lists block devices on the
@@ -398,12 +534,19 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		})),
 
+		fanConfigurerName: ifNotMigrating(fanconfigurer.Manifold(fanconfigurer.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Clock:         config.Clock,
+		})),
+
 		// The machiner Worker will wait for the identified machine to become
 		// Dying and make it Dead; or until the machine becomes Dead by other
-		// means.
+		// means. This worker needs to be launched after fanconfigurer
+		// so that it reports interfaces created by it.
 		machinerName: ifNotMigrating(machiner.Manifold(machiner.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			FanConfigurerName: fanConfigurerName,
 		})),
 
 		// The log sender is a leaf worker that sends log messages to some
@@ -419,7 +562,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			LogSource:     config.LogSource,
 		})),
 
-		// The deployer worker is responsible for deploying and recalling unit
+		// The deployer worker is primary for deploying and recalling unit
 		// agents, according to changes in a set of state units; and for the
 		// final removal of its agents' units from state when they are no
 		// longer needed.
@@ -476,14 +619,99 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:     hostkeyreporter.NewFacade,
 			NewWorker:     hostkeyreporter.NewWorker,
 		})),
-		logForwarderName: ifFullyUpgraded(logforwarder.Manifold(logforwarder.ManifoldConfig{
-			StateName:     stateName,
-			APICallerName: apiCallerName,
-			Sinks: []logforwarder.LogSinkSpec{{
-				Name:   "juju-log-forward",
-				OpenFn: sinks.OpenSyslog,
-			}},
+
+		externalControllerUpdaterName: ifNotMigrating(ifPrimaryController(externalcontrollerupdater.Manifold(
+			externalcontrollerupdater.ManifoldConfig{
+				APICallerName:                      apiCallerName,
+				NewExternalControllerWatcherClient: newExternalControllerWatcherClient,
+			},
+		))),
+
+		logPrunerName: ifNotMigrating(ifPrimaryController(dblogpruner.Manifold(
+			dblogpruner.ManifoldConfig{
+				ClockName:     clockName,
+				StateName:     stateName,
+				PruneInterval: config.LogPruneInterval,
+				NewWorker:     dblogpruner.NewWorker,
+			},
+		))),
+
+		txnPrunerName: ifNotMigrating(ifPrimaryController(txnpruner.Manifold(
+			txnpruner.ManifoldConfig{
+				ClockName:     clockName,
+				StateName:     stateName,
+				PruneInterval: config.TransactionPruneInterval,
+				NewWorker:     txnpruner.New,
+			},
+		))),
+
+		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
+			AgentName:             agentName,
+			CertWatcherName:       certificateWatcherName,
+			ClockName:             clockName,
+			StateName:             stateName,
+			PrometheusRegisterer:  config.PrometheusRegisterer,
+			NewTLSConfig:          httpserver.NewTLSConfig,
+			NewStateAuthenticator: httpserver.NewStateAuthenticator,
+			NewWorker:             httpserver.NewWorkerShim,
+		}),
+
+		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
+			AgentName:                         agentName,
+			AuthenticatorName:                 httpServerName,
+			ClockName:                         clockName,
+			StateName:                         stateName,
+			MuxName:                           httpServerName,
+			UpgradeGateName:                   upgradeStepsGateName,
+			RestoreStatusName:                 restoreWatcherName,
+			AuditConfigUpdaterName:            auditConfigUpdaterName,
+			PrometheusRegisterer:              config.PrometheusRegisterer,
+			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
+			Hub:       config.CentralHub,
+			NewWorker: apiserver.NewWorker,
+		}),
+
+		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
+			StateName:      stateName,
+			NewWorker:      modelworkermanager.New,
+			NewModelWorker: config.NewModelWorker,
 		})),
+
+		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{
+			AgentName:                agentName,
+			ClockName:                clockName,
+			StateName:                stateName,
+			Hub:                      config.CentralHub,
+			NewWorker:                peergrouper.New,
+			ControllerSupportsSpaces: config.ControllerSupportsSpaces,
+		})),
+
+		restoreWatcherName: restorewatcher.Manifold(restorewatcher.ManifoldConfig{
+			StateName: stateName,
+			NewWorker: restorewatcher.NewWorker,
+		}),
+
+		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
+			AgentName:                agentName,
+			StateName:                stateName,
+			NewWorker:                certupdater.NewCertificateUpdater,
+			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,
+		})),
+
+		auditConfigUpdaterName: ifController(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
+			AgentName: agentName,
+			StateName: stateName,
+			NewWorker: auditconfigupdater.New,
+		})),
+	}
+}
+
+func clockManifold(clock clock.Clock) dependency.Manifold {
+	return dependency.Manifold{
+		Start: func(_ dependency.Context) (worker.Worker, error) {
+			return engine.NewValueWorker(clock)
+		},
+		Output: engine.ValueWorkerOutput,
 	}
 }
 
@@ -501,15 +729,29 @@ var ifNotMigrating = engine.Housing{
 	Occupy: migrationFortressName,
 }.Decorate
 
+var ifPrimaryController = engine.Housing{
+	Flags: []string{
+		isPrimaryControllerFlagName,
+	},
+}.Decorate
+
+var ifController = engine.Housing{
+	Flags: []string{
+		isControllerFlagName,
+	},
+}.Decorate
+
 const (
 	agentName              = "agent"
 	terminationName        = "termination-signal-handler"
 	stateConfigWatcherName = "state-config-watcher"
+	controllerName         = "controller"
 	stateName              = "state"
-	stateWorkersName       = "unconverted-state-workers"
 	apiCallerName          = "api-caller"
 	apiConfigWatcherName   = "api-config-watcher"
 	centralHubName         = "central-hub"
+	pubSubName             = "pubsub-forwarder"
+	clockName              = "clock"
 
 	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgrade-steps-runner"
@@ -522,22 +764,37 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	servingInfoSetterName    = "serving-info-setter"
-	apiWorkersName           = "unconverted-api-workers"
-	rebootName               = "reboot-executor"
-	loggingConfigUpdaterName = "logging-config-updater"
-	diskManagerName          = "disk-manager"
-	proxyConfigUpdater       = "proxy-config-updater"
-	apiAddressUpdaterName    = "api-address-updater"
-	machinerName             = "machiner"
-	logSenderName            = "log-sender"
-	deployerName             = "unit-agent-deployer"
-	authenticationWorkerName = "ssh-authkeys-updater"
-	storageProvisionerName   = "storage-provisioner"
-	resumerName              = "mgo-txn-resumer"
-	identityFileWriterName   = "ssh-identity-writer"
-	toolsVersionCheckerName  = "tools-version-checker"
-	machineActionName        = "machine-action-runner"
-	hostKeyReporterName      = "host-key-reporter"
-	logForwarderName         = "log-forwarder"
+	servingInfoSetterName         = "serving-info-setter"
+	apiWorkersName                = "unconverted-api-workers"
+	rebootName                    = "reboot-executor"
+	loggingConfigUpdaterName      = "logging-config-updater"
+	diskManagerName               = "disk-manager"
+	proxyConfigUpdater            = "proxy-config-updater"
+	apiAddressUpdaterName         = "api-address-updater"
+	machinerName                  = "machiner"
+	logSenderName                 = "log-sender"
+	deployerName                  = "unit-agent-deployer"
+	authenticationWorkerName      = "ssh-authkeys-updater"
+	storageProvisionerName        = "storage-provisioner"
+	resumerName                   = "mgo-txn-resumer"
+	identityFileWriterName        = "ssh-identity-writer"
+	toolsVersionCheckerName       = "tools-version-checker"
+	machineActionName             = "machine-action-runner"
+	hostKeyReporterName           = "host-key-reporter"
+	fanConfigurerName             = "fan-configurer"
+	externalControllerUpdaterName = "external-controller-updater"
+	globalClockUpdaterName        = "global-clock-updater"
+	isPrimaryControllerFlagName   = "is-primary-controller-flag"
+	isControllerFlagName          = "is-controller-flag"
+	logPrunerName                 = "log-pruner"
+	txnPrunerName                 = "transaction-pruner"
+	certificateWatcherName        = "certificate-watcher"
+	modelWorkerManagerName        = "model-worker-manager"
+	peergrouperName               = "peer-grouper"
+	restoreWatcherName            = "restore-watcher"
+	certificateUpdaterName        = "certificate-updater"
+	auditConfigUpdaterName        = "audit-config-updater"
+
+	httpServerName = "http-server"
+	apiServerName  = "api-server"
 )

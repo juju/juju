@@ -17,15 +17,10 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/tools/lxdclient"
 )
-
-func isController(icfg *instancecfg.InstanceConfig) bool {
-	return multiwatcher.AnyJobNeedsState(icfg.Jobs...)
-}
 
 // MaintainInstance is specified in the InstanceBroker interface.
 func (*environ) MaintainInstance(args environs.StartInstanceParams) error {

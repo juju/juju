@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -36,14 +36,21 @@ echo $(basename $0) $@
 exit $EXIT_CODE
 `
 
-var fakecommands = []string{"tmux"}
+var fakecommands = []string{"sleep", "tmux"}
 
 func (s *DebugHooksServerSuite) SetUpTest(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: Currently debug does not work on windows")
 	}
 	s.fakebin = c.MkDir()
-	s.tmpdir = c.MkDir()
+
+	// Create a clean $TMPDIR for the debug hooks scripts.
+	s.tmpdir = filepath.Join(c.MkDir(), "debug-hooks")
+	err := os.RemoveAll(s.tmpdir)
+	c.Assert(err, jc.ErrorIsNil)
+	err = os.MkdirAll(s.tmpdir, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.PatchEnvPathPrepend(s.fakebin)
 	s.PatchEnvironment("TMPDIR", s.tmpdir)
 	s.PatchEnvironment("TEST_RESULT", "")
@@ -52,7 +59,7 @@ func (s *DebugHooksServerSuite) SetUpTest(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.ctx = NewHooksContext("foo/8")
-	s.ctx.FlockDir = s.tmpdir
+	s.ctx.FlockDir = c.MkDir()
 	s.PatchEnvironment("JUJU_UNIT_NAME", s.ctx.Unit)
 }
 
@@ -148,69 +155,78 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	c.Assert(session, gc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	flockRequestCh := make(chan chan struct{})
+	s.PatchValue(&waitClientExit, func(*ServerSession) {
+		<-<-flockRequestCh
+	})
+	defer close(flockRequestCh)
+
 	const hookName = "myhook"
-
-	// Run the hook in debug mode with the exit flock held,
-	// and also create the .pid file. We'll populate it with
-	// an invalid PID; this will cause the server process to
-	// exit cleanly (as if the PID were real and no longer running).
-	cmd := exec.Command("flock", s.ctx.ClientExitFileLock(), "-c", "sleep 10s")
-	c.Assert(cmd.Start(), gc.IsNil)
-	defer cmd.Process.Kill() // kill flock
-
-	ch := make(chan error)
+	runHookCh := make(chan error)
 	go func() {
-		ch <- session.RunHook(hookName, s.tmpdir, os.Environ())
+		runHookCh <- session.RunHook(hookName, s.tmpdir, os.Environ())
 	}()
 
-	// Wait until either we find the debug dir, or the flock is released.
-	ticker := time.Tick(10 * time.Millisecond)
-	var debugdir os.FileInfo
+	flockCh := make(chan struct{})
+	select {
+	case flockRequestCh <- flockCh:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for flock to be requested")
+	}
+	defer close(flockCh)
+
+	// Look for the debug hooks temporary dir, inside $TMPDIR.
+	tmpdir, err := os.Open(s.tmpdir)
+	if err != nil {
+		c.Fatalf("Failed to open $TMPDIR: %s", err)
+	}
+	defer tmpdir.Close()
+	entries, err := tmpdir.Readdir(-1)
+	if err != nil {
+		c.Fatalf("Failed to read $TMPDIR: %s", err)
+	}
+	c.Assert(entries, gc.HasLen, 1)
+	c.Assert(entries[0].IsDir(), jc.IsTrue)
+	c.Assert(strings.HasPrefix(entries[0].Name(), "juju-debug-hooks-"), jc.IsTrue)
+
+	debugDir := filepath.Join(s.tmpdir, entries[0].Name())
+	hookScript := filepath.Join(debugDir, "hook.sh")
+	_, err = os.Stat(hookScript)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the debug hooks script exports the environment,
+	// and the values are as expected. When RunHook completes,
+	// it removes the temporary directory in which the scripts
+	// reside; so we must wait for it to be written before we
+	// wait for RunHook to return.
 	timeout := time.After(testing.LongWait)
-	for debugdir == nil {
-		select {
-		case <-timeout:
-			c.Fatal("test timed out")
-		case err = <-ch:
-			// flock was released before we found the debug dir.
-			c.Fatalf("could not find hook.sh\nerr: %v\noutput: %s", err, output.String())
-		case <-ticker:
-			tmpdir, err := os.Open(s.tmpdir)
-			if err != nil {
-				c.Fatalf("Failed to open $TMPDIR: %s", err)
-			}
-			fi, err := tmpdir.Readdir(-1)
-			if err != nil {
-				c.Fatalf("Failed to read $TMPDIR: %s", err)
-			}
-			tmpdir.Close()
-			for _, fi := range fi {
-				if fi.IsDir() {
-					hooksh := filepath.Join(s.tmpdir, fi.Name(), "hook.sh")
-					if _, err = os.Stat(hooksh); err == nil {
-						debugdir = fi
-						break
-					}
-				}
-			}
-			if debugdir != nil {
+	envsh := filepath.Join(debugDir, "env.sh")
+	for {
+		// Wait for env.sh to show up, and have some content. If it exists and
+		// is size 0, we managed to see it at exactly the time it is being
+		// written.
+		if st, err := os.Stat(envsh); err == nil {
+			if st.Size() != 0 {
 				break
 			}
-			time.Sleep(10 * time.Millisecond)
+		}
+		select {
+		case <-time.After(time.Millisecond):
+		case <-timeout:
+			c.Fatal("timed out waiting for env.sh to be written")
 		}
 	}
-
-	envsh := filepath.Join(s.tmpdir, debugdir.Name(), "env.sh")
 	s.verifyEnvshFile(c, envsh, hookName)
 
-	hookpid := filepath.Join(s.tmpdir, debugdir.Name(), "hook.pid")
+	// Write the hook.pid file, causing the debug hooks script to exit.
+	hookpid := filepath.Join(debugDir, "hook.pid")
 	err = ioutil.WriteFile(hookpid, []byte("not a pid"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// RunHook should complete without waiting to be
 	// killed, and despite the exit lock being held.
 	select {
-	case err = <-ch:
+	case err := <-runHookCh:
 		c.Assert(err, jc.ErrorIsNil)
 	case <-time.After(testing.LongWait):
 		c.Fatal("RunHook did not complete")

@@ -10,7 +10,17 @@ import (
 )
 
 // MgoTestPackage should be called to register the tests for any package
-// that requires a secure connection to a MongoDB server.
+// that requires a connection to a MongoDB server.
+//
+// The server will be configured without SSL enabled, which slows down
+// tests. For tests that care about security (which should be few), use
+// MgoSSLTestPackage.
 func MgoTestPackage(t *testing.T) {
+	gitjujutesting.MgoTestPackage(t, nil)
+}
+
+// MgoSSLTestPackage should be called to register the tests for any package
+// that requires a secure (SSL) connection to a MongoDB server.
+func MgoSSLTestPackage(t *testing.T) {
 	gitjujutesting.MgoTestPackage(t, Certs)
 }

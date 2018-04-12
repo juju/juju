@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -238,6 +239,7 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 	expectedCons := bootstrapCons
 	expectedCons.Mem = intPtr(3584)
 	c.Assert(env.instanceConfig.Bootstrap.BootstrapMachineConstraints, jc.DeepEquals, expectedCons)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerModelEnvironVersion, gc.Equals, 123)
 }
 
 func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToExistingProviderSupportedArches(c *gc.C) {
@@ -422,7 +424,7 @@ func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
 
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.CentOS })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -452,7 +454,7 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
 
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -479,7 +481,7 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
 
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.GenericLinux })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -507,7 +509,7 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
 	// such as s390.
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
-	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, []string, tools.Filter) (tools.List, error) {
 		c.Fatal("should not call FindTools if BuildAgent is specified")
 		return nil, errors.NotFoundf("tools")
 	})
@@ -521,7 +523,19 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 		BuildAgentTarball: func(build bool, ver *version.Number, _ string) (*sync.BuiltAgent, error) {
 			c.Logf("BuildAgentTarball version %s", ver)
 			c.Assert(build, jc.IsTrue)
-			return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+			c.Assert(ver.String(), gc.Equals, "1.99.0.1")
+			localVer := *ver
+			// If we found an official build we suppress the build number.
+			localVer.Build = 0
+			return &sync.BuiltAgent{
+				Dir:      c.MkDir(),
+				Official: true,
+				Version: version.Binary{
+					Number: localVer,
+					Series: "quental",
+					Arch:   "arm64",
+				},
+			}, nil
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -529,7 +543,7 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 	cfg := env.instanceConfig.Bootstrap.ControllerModelConfig
 	agentVersion, valid := cfg.AgentVersion()
 	c.Check(valid, jc.IsTrue)
-	c.Check(agentVersion.String(), gc.Equals, "1.99.0.1")
+	c.Check(agentVersion.String(), gc.Equals, "1.99.0")
 }
 
 func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientArch string) {
@@ -541,7 +555,7 @@ func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientAr
 		toolsArch = "amd64"
 	}
 	findToolsOk := false
-	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, _ int, _ int, _ string, filter tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, _ int, _ int, _ []string, filter tools.Filter) (tools.List, error) {
 		c.Assert(filter.Arch, gc.Equals, toolsArch)
 		c.Assert(filter.Series, gc.Equals, "quantal")
 		findToolsOk = true
@@ -587,7 +601,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
 	// such as s390.
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
-	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
@@ -611,7 +625,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 	}
 
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
-	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
@@ -699,7 +713,7 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessRemote(c *gc.C) {
 		}}, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
 		ControllerConfig:     coretesting.FakeControllerConfig(),
 		AdminSecret:          "admin-secret",
@@ -707,7 +721,7 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessRemote(c *gc.C) {
 		GUIDataSourceBaseURL: "https://1.2.3.4/gui/sources",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Fetching Juju GUI 2.0.42\n")
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "Fetching Juju GUI 2.0.42\n")
 
 	// The most recent GUI release info has been stored.
 	c.Assert(env.instanceConfig.Bootstrap.GUI.URL, gc.Equals, "https://1.2.3.4/juju-gui-2.0.42.tar.bz2")
@@ -720,14 +734,14 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
 	path := makeGUIArchive(c, "jujugui-2.2.0")
 	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      "admin-secret",
 		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Fetching Juju GUI 2.2.0 from local archive\n")
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "Fetching Juju GUI 2.2.0 from local archive\n")
 
 	// Check GUI URL and version.
 	c.Assert(env.instanceConfig.Bootstrap.GUI.URL, gc.Equals, "file://"+path)
@@ -750,14 +764,14 @@ func (s *bootstrapSuite) TestBootstrapGUISuccessLocal(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapGUISuccessNoGUI(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      "admin-secret",
 		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Juju GUI installation has been disabled\n")
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "Juju GUI installation has been disabled\n")
 	c.Assert(env.instanceConfig.Bootstrap.GUI, gc.IsNil)
 }
 
@@ -766,7 +780,7 @@ func (s *bootstrapSuite) TestBootstrapGUINoStreams(c *gc.C) {
 		return nil, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
 		ControllerConfig:     coretesting.FakeControllerConfig(),
 		AdminSecret:          "admin-secret",
@@ -774,7 +788,7 @@ func (s *bootstrapSuite) TestBootstrapGUINoStreams(c *gc.C) {
 		GUIDataSourceBaseURL: "https://1.2.3.4/gui/sources",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(ctx), jc.Contains, "No available Juju GUI archives found\n")
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "No available Juju GUI archives found\n")
 	c.Assert(env.instanceConfig.Bootstrap.GUI, gc.IsNil)
 }
 
@@ -783,7 +797,7 @@ func (s *bootstrapSuite) TestBootstrapGUIStreamsFailure(c *gc.C) {
 		return nil, errors.New("bad wolf")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
 		ControllerConfig:     coretesting.FakeControllerConfig(),
 		AdminSecret:          "admin-secret",
@@ -791,21 +805,21 @@ func (s *bootstrapSuite) TestBootstrapGUIStreamsFailure(c *gc.C) {
 		GUIDataSourceBaseURL: "https://1.2.3.4/gui/sources",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(ctx), jc.Contains, "Unable to fetch Juju GUI info: bad wolf\n")
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "Unable to fetch Juju GUI info: bad wolf\n")
 	c.Assert(env.instanceConfig.Bootstrap.GUI, gc.IsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapGUIErrorNotFound(c *gc.C) {
 	s.PatchEnvironment("JUJU_GUI", "/no/such/file")
 	env := newEnviron("foo", useDefaultKeys, nil)
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      "admin-secret",
 		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(ctx), jc.Contains, `Cannot use Juju GUI at "/no/such/file": cannot open Juju GUI archive:`)
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Cannot use Juju GUI at "/no/such/file": cannot open Juju GUI archive:`)
 }
 
 func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidArchive(c *gc.C) {
@@ -814,42 +828,42 @@ func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidArchive(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      "admin-secret",
 		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(ctx), jc.Contains, fmt.Sprintf("Cannot use Juju GUI at %q: cannot read Juju GUI archive", path))
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, fmt.Sprintf("Cannot use Juju GUI at %q: cannot read Juju GUI archive", path))
 }
 
 func (s *bootstrapSuite) TestBootstrapGUIErrorInvalidVersion(c *gc.C) {
 	path := makeGUIArchive(c, "jujugui-invalid")
 	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      "admin-secret",
 		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(ctx), jc.Contains, fmt.Sprintf(`Cannot use Juju GUI at %q: cannot parse version "invalid"`, path))
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, fmt.Sprintf(`Cannot use Juju GUI at %q: cannot parse version "invalid"`, path))
 }
 
 func (s *bootstrapSuite) TestBootstrapGUIErrorUnexpectedArchive(c *gc.C) {
 	path := makeGUIArchive(c, "not-a-gui")
 	s.PatchEnvironment("JUJU_GUI", path)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	err := bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      "admin-secret",
 		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(ctx), jc.Contains, fmt.Sprintf("Cannot use Juju GUI at %q: cannot find Juju GUI version", path))
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, fmt.Sprintf("Cannot use Juju GUI at %q: cannot find Juju GUI version", path))
 }
 
 func makeGUIArchive(c *gc.C, dir string) string {
@@ -893,6 +907,9 @@ func createImageMetadataForArch(c *gc.C, arch string) (dir string, _ []*imagemet
 	return sourceDir, im
 }
 
+// TestBootstrapMetadata tests:
+// `juju bootstrap --metadata-source <dir>` where <dir>/images
+// and <dir>/tools exist
 func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	environs.UnregisterImageDataSourceFunc("bootstrap metadata")
 
@@ -928,6 +945,80 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	c.Assert(env.instanceConfig, gc.NotNil)
 	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata, gc.HasLen, 1)
 	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[0], gc.DeepEquals, metadata[0])
+}
+
+func (s *bootstrapSuite) TestBootstrapMetadataDirNonexistend(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	nonExistentFileName := "/tmp/TestBootstrapMetadataDirNonexistend"
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		MetadataDir:      nonExistentFileName,
+	})
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("simplestreams metadata source: %s not found", nonExistentFileName))
+}
+
+// TestBootstrapMetadataImagesNoTools tests 2 cases:
+// juju bootstrap --metadata-source <dir>
+// juju bootstrap --metadata-source <dir>/images
+// where <dir>/tools doesn't exist
+func (s *bootstrapSuite) TestBootstrapMetadataImagesNoTools(c *gc.C) {
+
+	metadataDir, _ := createImageMetadata(c)
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+
+	startingDefaultBaseURL := envtools.DefaultBaseURL
+	for i, suffix := range []string{"", "images"} {
+		environs.UnregisterImageDataSourceFunc("bootstrap metadata")
+		err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      "admin-secret",
+			CAPrivateKey:     coretesting.CAKey,
+			MetadataDir:      filepath.Join(metadataDir, suffix),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(env.bootstrapCount, gc.Equals, i+1)
+		c.Assert(envtools.DefaultBaseURL, gc.Equals, startingDefaultBaseURL)
+
+		datasources, err := environs.ImageMetadataSources(env)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(datasources, gc.HasLen, 3)
+		c.Assert(datasources[0].Description(), gc.Equals, "bootstrap metadata")
+	}
+}
+
+// TestBootstrapMetadataToolsNoImages tests 2 cases:
+// juju bootstrap --metadata-source <dir>
+// juju bootstrap --metadata-source <dir>/tools
+// where <dir>/images doesn't exist
+func (s *bootstrapSuite) TestBootstrapMetadataToolsNoImages(c *gc.C) {
+	environs.UnregisterImageDataSourceFunc("bootstrap metadata")
+
+	metadataDir := c.MkDir()
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.UploadFakeTools(c, stor, "released", "released")
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	for i, suffix := range []string{"", "tools"} {
+		err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      "admin-secret",
+			CAPrivateKey:     coretesting.CAKey,
+			MetadataDir:      filepath.Join(metadataDir, suffix),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(env.bootstrapCount, gc.Equals, i+1)
+		c.Assert(envtools.DefaultBaseURL, gc.Equals, metadataDir)
+		datasources, err := environs.ImageMetadataSources(env)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(datasources, gc.HasLen, 2)
+		c.Assert(datasources[0].Description(), gc.Not(gc.Equals), "bootstrap metadata")
+	}
 }
 
 func (s *bootstrapSuite) TestBootstrapCloudCredential(c *gc.C) {
@@ -1095,6 +1186,14 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 	_, err := envtesting.UploadFakeToolsVersions(env.storage, stream, stream, toolsBinaries...)
 	c.Assert(err, jc.ErrorIsNil)
 
+	env.checkToolsFunc = func(t tools.List) {
+		mockInstanceCfg := &instancecfg.InstanceConfig{}
+		// All providers call SetTools on instance config during StartInstance
+		// (which is called by Bootstrap). Checking here that the call will pass.
+		err := mockInstanceCfg.SetTools(t)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      "admin-secret",
@@ -1169,7 +1268,7 @@ func (s *bootstrapSuite) TestAvailableToolsInvalidArch(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string {
 		return arch.S390X
 	})
-	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, []string, tools.Filter) (tools.List, error) {
 		c.Fatal("find packaged tools should not be called")
 		return nil, errors.New("unexpected")
 	})
@@ -1200,6 +1299,12 @@ type bootstrapEnviron struct {
 	args                      environs.BootstrapParams
 	instanceConfig            *instancecfg.InstanceConfig
 	storage                   storage.Storage
+
+	// Providers are expected to receive a list of available
+	// agent binaries (aka tools). This list needs to be valid.
+	// For example, as discovered in lp#1745951, all items in that list
+	// must be of the same version.
+	checkToolsFunc func(tools.List)
 }
 
 func newEnviron(name string, defaultKeys bool, extraAttrs map[string]interface{}) *bootstrapEnviron {
@@ -1217,7 +1322,8 @@ func newEnviron(name string, defaultKeys bool, extraAttrs map[string]interface{}
 		panic(fmt.Errorf("cannot create config from %#v: %v", m, err))
 	}
 	return &bootstrapEnviron{
-		cfg: cfg,
+		cfg:            cfg,
+		checkToolsFunc: func(t tools.List) {},
 	}
 }
 
@@ -1233,6 +1339,9 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	e.bootstrapCount++
 	e.args = args
+
+	e.checkToolsFunc(args.AvailableTools)
+
 	finalizer := func(_ environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
 		e.finalizerCount++
 		e.instanceConfig = icfg
@@ -1263,6 +1372,18 @@ func (e *bootstrapEnviron) ConstraintsValidator() (constraints.Validator, error)
 	v := constraints.NewValidator()
 	v.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64})
 	return v, nil
+}
+
+func (e *bootstrapEnviron) Provider() environs.EnvironProvider {
+	return bootstrapEnvironProvider{}
+}
+
+type bootstrapEnvironProvider struct {
+	environs.EnvironProvider
+}
+
+func (p bootstrapEnvironProvider) Version() int {
+	return 123
 }
 
 type bootstrapEnvironWithRegion struct {

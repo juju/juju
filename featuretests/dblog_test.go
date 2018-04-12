@@ -38,16 +38,6 @@ func (s *dblogSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *dblogSuite) TestMachineAgentLogsGoToDB(c *gc.C) {
-	foundLogs := s.runMachineAgentTest(c)
-	c.Assert(foundLogs, jc.IsTrue)
-}
-
-func (s *dblogSuite) TestUnitAgentLogsGoToDB(c *gc.C) {
-	foundLogs := s.runUnitAgentTest(c)
-	c.Assert(foundLogs, jc.IsTrue)
-}
-
-func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 	// Create a machine and an agent for it.
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: agent.BootstrapNonce,
@@ -75,10 +65,11 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer a.Stop()
 
-	return s.waitForLogs(c, m.Tag())
+	foundLogs := s.waitForLogs(c, m.Tag())
+	c.Assert(foundLogs, jc.IsTrue)
 }
 
-func (s *dblogSuite) runUnitAgentTest(c *gc.C) bool {
+func (s *dblogSuite) TestUnitAgentLogsGoToDB(c *gc.C) {
 	// Create a unit and an agent for it.
 	u, password := s.Factory.MakeUnitReturningPassword(c, nil)
 	s.PrimeAgent(c, u.Tag(), password)
@@ -95,14 +86,15 @@ func (s *dblogSuite) runUnitAgentTest(c *gc.C) bool {
 	go func() { c.Assert(a.Run(nil), jc.ErrorIsNil) }()
 	defer a.Stop()
 
-	return s.waitForLogs(c, u.Tag())
+	foundLogs := s.waitForLogs(c, u.Tag())
+	c.Assert(foundLogs, jc.IsTrue)
 }
 
 func (s *dblogSuite) getLogCount(c *gc.C, entity names.Tag) int {
 	// TODO(mjs) - replace this with State's functionality for reading
 	// logs from the DB, once it gets this. This will happen before
 	// the DB logging feature branch is merged.
-	logs := s.Session.DB("logs").C("logs")
+	logs := s.Session.DB("logs").C("logs." + s.State.ModelUUID())
 	count, err := logs.Find(bson.M{"n": entity.String()}).Count()
 	c.Assert(err, jc.ErrorIsNil)
 	return count
@@ -123,10 +115,8 @@ type debugLogDbSuite struct {
 	agenttest.AgentSuite
 }
 
-var _ = gc.Suite(&debugLogDbSuite{})
-
 func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
-	// Restart mongod with a the replicaset enabled.
+	// Restart mongod with the replicaset enabled.
 	mongod := jujutesting.MgoServer
 	mongod.Params = []string{"--replSet", "juju"}
 	mongod.Restart()
@@ -145,7 +135,7 @@ func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
 
 func (s *debugLogDbSuite) TearDownSuite(c *gc.C) {
 	// Restart mongod without the replicaset enabled so as not to
-	// affect other test that reply on this mongod instance in this
+	// affect other tests that rely on this mongod instance in this
 	// package.
 	mongod := jujutesting.MgoServer
 	mongod.Params = []string{}
@@ -155,12 +145,27 @@ func (s *debugLogDbSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
-	dbLogger := state.NewEntityDbLogger(s.State, names.NewMachineTag("99"), version.Current)
+	dbLogger := state.NewDbLogger(s.State)
 	defer dbLogger.Close()
 
 	t := time.Date(2015, 6, 23, 13, 8, 49, 0, time.UTC)
-	dbLogger.Log(t, "juju.foo", "code.go:42", loggo.INFO, "all is well")
-	dbLogger.Log(t.Add(time.Second), "juju.bar", "go.go:99", loggo.ERROR, "no it isn't")
+	dbLogger.Log([]state.LogRecord{{
+		Time:     t,
+		Entity:   names.NewMachineTag("99"),
+		Version:  version.Current,
+		Module:   "juju.foo",
+		Location: "code.go:42",
+		Level:    loggo.INFO,
+		Message:  "all is well",
+	}, {
+		Time:     t.Add(time.Second),
+		Entity:   names.NewMachineTag("99"),
+		Version:  version.Current,
+		Module:   "juju.bar",
+		Location: "go.go:99",
+		Level:    loggo.ERROR,
+		Message:  "no it isn't",
+	}})
 
 	messages := make(chan common.LogMessage)
 	go func(numMessages int) {
@@ -201,7 +206,15 @@ func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
 	})
 
 	// Now write and observe another log. This should be read from the oplog.
-	dbLogger.Log(t.Add(2*time.Second), "ju.jitsu", "no.go:3", loggo.WARNING, "beep beep")
+	dbLogger.Log([]state.LogRecord{{
+		Time:     t.Add(2 * time.Second),
+		Entity:   names.NewMachineTag("99"),
+		Version:  version.Current,
+		Module:   "ju.jitsu",
+		Location: "no.go:3",
+		Level:    loggo.WARNING,
+		Message:  "beep beep",
+	}})
 	assertMessage(common.LogMessage{
 		Entity:    "machine-99",
 		Timestamp: t.Add(2 * time.Second),
@@ -213,18 +226,49 @@ func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
 }
 
 func (s *debugLogDbSuite) TestLogsUsesStartTime(c *gc.C) {
-	dbLogger := state.NewEntityDbLogger(s.State, names.NewMachineTag("99"), version.Current)
+	dbLogger := state.NewDbLogger(s.State)
 	defer dbLogger.Close()
 
+	entity := names.NewMachineTag("99")
+	version := version.Current
 	t1 := time.Date(2015, 6, 23, 13, 8, 49, 100, time.UTC)
 	// Check that start time has subsecond resolution.
 	t2 := time.Date(2015, 6, 23, 13, 8, 51, 50, time.UTC)
 	t3 := t1.Add(2 * time.Second)
 	t4 := t1.Add(4 * time.Second)
-	dbLogger.Log(t1, "juju.foo", "code.go:42", loggo.INFO, "spinto band")
-	dbLogger.Log(t2, "juju.quux", "ok.go:101", loggo.INFO, "king gizzard and the lizard wizard")
-	dbLogger.Log(t3, "juju.bar", "go.go:99", loggo.ERROR, "born ruffians")
-	dbLogger.Log(t4, "juju.baz", "go.go.go:23", loggo.WARNING, "cold war kids")
+	dbLogger.Log([]state.LogRecord{{
+		Time:     t1,
+		Entity:   entity,
+		Version:  version,
+		Module:   "juju.foo",
+		Location: "code.go:42",
+		Level:    loggo.INFO,
+		Message:  "spinto band",
+	}, {
+		Time:     t2,
+		Entity:   entity,
+		Version:  version,
+		Module:   "juju.quux",
+		Location: "ok.go:101",
+		Level:    loggo.INFO,
+		Message:  "king gizzard and the lizard wizard",
+	}, {
+		Time:     t3,
+		Entity:   entity,
+		Version:  version,
+		Module:   "juju.bar",
+		Location: "go.go:99",
+		Level:    loggo.ERROR,
+		Message:  "born ruffians",
+	}, {
+		Time:     t4,
+		Entity:   entity,
+		Version:  version,
+		Module:   "juju.baz",
+		Location: "go.go.go:23",
+		Level:    loggo.WARNING,
+		Message:  "cold war kids",
+	}})
 
 	client := s.APIState.Client()
 	logMessages, err := client.WatchDebugLog(common.DebugLogParams{

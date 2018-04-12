@@ -51,7 +51,7 @@ func (s *apiEnvironmentSuite) TestGrantModel(c *gc.C) {
 	modelUser, err := s.State.UserAccess(user, model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser.UserName, gc.Equals, user.Id())
-	lastConn, err := s.State.LastModelConnection(modelUser.UserTag)
+	lastConn, err := s.Model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
 }
@@ -64,7 +64,7 @@ func (s *apiEnvironmentSuite) TestRevokeModel(c *gc.C) {
 	mm := modelmanager.NewClient(s.OpenControllerAPI(c))
 	defer mm.Close()
 
-	modelUser, err := s.State.UserAccess(user.UserTag, s.State.ModelTag())
+	modelUser, err := s.State.UserAccess(user.UserTag, s.IAASModel.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelUser, gc.Not(gc.DeepEquals), permission.UserAccess{})
 
@@ -72,7 +72,7 @@ func (s *apiEnvironmentSuite) TestRevokeModel(c *gc.C) {
 	err = mm.RevokeModel(user.UserName, "read", model.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelUser, err = s.State.UserAccess(user.UserTag, s.State.ModelTag())
+	modelUser, err = s.State.UserAccess(user.UserTag, s.IAASModel.ModelTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 	c.Assert(modelUser, gc.DeepEquals, permission.UserAccess{})
 }
@@ -91,18 +91,18 @@ func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
 			UserName:       owner.UserName,
 			DisplayName:    owner.DisplayName,
 			Access:         "admin",
-			LastConnection: lastConnPointer(c, s.State, owner),
+			LastConnection: lastConnPointer(c, mod, owner),
 		}, {
 			UserName:       "bobjohns@ubuntuone",
 			DisplayName:    "Bob Johns",
 			Access:         "admin",
-			LastConnection: lastConnPointer(c, s.State, modelUser),
+			LastConnection: lastConnPointer(c, mod, modelUser),
 		},
 	})
 }
 
-func lastConnPointer(c *gc.C, st *state.State, modelUser permission.UserAccess) *time.Time {
-	lastConn, err := st.LastModelConnection(modelUser.UserTag)
+func lastConnPointer(c *gc.C, mod *state.Model, modelUser permission.UserAccess) *time.Time {
+	lastConn, err := mod.LastModelConnection(modelUser.UserTag)
 	if err != nil {
 		if state.IsNeverConnectedError(err) {
 			return nil
@@ -116,8 +116,12 @@ func (s *apiEnvironmentSuite) TestUploadToolsOtherEnvironment(c *gc.C) {
 	// setup other environment
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
+
+	otherModel, err := otherState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
 	info := s.APIInfo(c)
-	info.ModelTag = otherState.ModelTag()
+	info.ModelTag = otherModel.ModelTag()
 	otherAPIState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	defer otherAPIState.Close()

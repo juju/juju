@@ -370,12 +370,6 @@ type stubAgentConfig struct {
 	caCert string
 }
 
-func (mc *stubAgentConfig) setAddresses(addrs ...string) {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
-	mc.addrs = append([]string(nil), addrs...)
-}
-
 func (mc *stubAgentConfig) SetAPIHostPorts(servers [][]network.HostPort) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()

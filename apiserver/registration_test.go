@@ -19,46 +19,23 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type registrationSuite struct {
-	authHTTPSuite
-	bob *state.User
+	apiserverBaseSuite
+	bob             *state.User
+	registrationURL string
 }
 
 var _ = gc.Suite(&registrationSuite{})
 
 func (s *registrationSuite) SetUpTest(c *gc.C) {
-	s.authHTTPSuite.SetUpTest(c)
-	bob, err := s.BackingState.AddUserWithSecretKey("bob", "", "admin")
+	s.apiserverBaseSuite.SetUpTest(c)
+	bob, err := s.State.AddUserWithSecretKey("bob", "", "admin")
 	c.Assert(err, jc.ErrorIsNil)
 	s.bob = bob
-}
-
-func (s *registrationSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
-	body := assertResponse(c, resp, expCode, params.ContentTypeJSON)
-	var result params.ErrorResult
-	s.unmarshal(c, body, &result)
-	c.Assert(result.Error, gc.NotNil)
-	c.Assert(result.Error, gc.Matches, expError)
-}
-
-func (s *registrationSuite) assertResponse(c *gc.C, resp *http.Response) params.SecretKeyLoginResponse {
-	body := assertResponse(c, resp, http.StatusOK, params.ContentTypeJSON)
-	var response params.SecretKeyLoginResponse
-	s.unmarshal(c, body, &response)
-	return response
-}
-
-func (*registrationSuite) unmarshal(c *gc.C, body []byte, out interface{}) {
-	err := json.Unmarshal(body, out)
-	c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
-}
-
-func (s *registrationSuite) registrationURL(c *gc.C) string {
-	url := s.baseURL(c)
-	url.Path = "/register"
-	return url.String()
+	s.registrationURL = s.server.URL + "/register"
 }
 
 func (s *registrationSuite) TestRegister(c *gc.C) {
@@ -73,7 +50,7 @@ func (s *registrationSuite) TestRegister(c *gc.C) {
 	)
 	resp := httptesting.Do(c, httptesting.DoRequestParams{
 		Do:     utils.GetNonValidatingHTTPClient().Do,
-		URL:    s.registrationURL(c),
+		URL:    s.registrationURL,
 		Method: "POST",
 		JSONBody: &params.SecretKeyLoginRequest{
 			User:              "user-bob",
@@ -103,8 +80,8 @@ func (s *registrationSuite) TestRegister(c *gc.C) {
 	var responsePayload params.SecretKeyLoginResponsePayload
 	err = json.Unmarshal(plaintext, &responsePayload)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(responsePayload.CACert, gc.Equals, s.BackingState.CACert())
-	model, err := s.BackingState.Model()
+	c.Assert(responsePayload.CACert, gc.Equals, coretesting.CACert)
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(responsePayload.ControllerUUID, gc.Equals, model.ControllerUUID())
 }
@@ -112,7 +89,7 @@ func (s *registrationSuite) TestRegister(c *gc.C) {
 func (s *registrationSuite) TestRegisterInvalidMethod(c *gc.C) {
 	httptesting.AssertJSONCall(c, httptesting.JSONCallParams{
 		Do:           utils.GetNonValidatingHTTPClient().Do,
-		URL:          s.registrationURL(c),
+		URL:          s.registrationURL,
 		Method:       "GET",
 		ExpectStatus: http.StatusMethodNotAllowed,
 		ExpectBody: &params.ErrorResult{
@@ -186,7 +163,7 @@ func (s *registrationSuite) TestRegisterInvalidRequestPayload(c *gc.C) {
 func (s *registrationSuite) testInvalidRequest(c *gc.C, requestBody, errorMessage, errorCode string, statusCode int) {
 	httptesting.AssertJSONCall(c, httptesting.JSONCallParams{
 		Do:           utils.GetNonValidatingHTTPClient().Do,
-		URL:          s.registrationURL(c),
+		URL:          s.registrationURL,
 		Method:       "POST",
 		Body:         strings.NewReader(requestBody),
 		ExpectStatus: statusCode,

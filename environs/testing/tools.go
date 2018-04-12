@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/state"
+	supportedversion "github.com/juju/juju/juju/version"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -179,7 +179,7 @@ func UploadFakeToolsVersions(stor storage.Storage, toolsDir, stream string, vers
 	for _, tools := range existing {
 		existingTools[tools.Version] = tools
 	}
-	var agentTools coretools.List = make(coretools.List, len(versions))
+	var agentTools = make(coretools.List, len(versions))
 	for i, version := range versions {
 		if tools, ok := existingTools[version]; ok {
 			agentTools[i] = tools
@@ -245,8 +245,6 @@ func SignFileData(stor storage.Storage, fileName string) error {
 func AssertUploadFakeToolsVersions(c *gc.C, stor storage.Storage, toolsDir, stream string, versions ...version.Binary) []*coretools.Tools {
 	agentTools, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...)
 	c.Assert(err, jc.ErrorIsNil)
-	err = envtools.MergeAndWriteMetadata(stor, toolsDir, stream, agentTools, envtools.DoNotWriteMirrors)
-	c.Assert(err, jc.ErrorIsNil)
 	return agentTools
 }
 
@@ -287,7 +285,7 @@ func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 
 // UploadFakeTools puts fake tools into the supplied storage with a binary
 // version matching jujuversion.Current; if jujuversion.Current's series is different
-// to series.LatestLts(), matching fake tools will be uploaded for that
+// to  juju/juju/version.SupportedLts(), matching fake tools will be uploaded for that
 // series.  This is useful for tests that are kinda casual about specifying
 // their environment.
 func UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, stream string) {
@@ -312,7 +310,7 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	name := envtools.StorageName(toolsVersion, toolsDir)
 	err := stor.Remove(name)
 	c.Check(err, jc.ErrorIsNil)
-	defaultSeries := series.LatestLts()
+	defaultSeries := supportedversion.SupportedLts()
 	if series.MustHostSeries() != defaultSeries {
 		toolsVersion.Series = defaultSeries
 		name := envtools.StorageName(toolsVersion, toolsDir)
@@ -561,8 +559,3 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 		DefaultSeries: "precise",
 		Expect:        []version.Binary{V1001p64},
 	}}
-
-func SetSSLHostnameVerification(c *gc.C, st *state.State, SSLHostnameVerification bool) {
-	err := st.UpdateModelConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}

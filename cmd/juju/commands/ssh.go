@@ -4,8 +4,12 @@
 package commands
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -21,12 +25,26 @@ name' or a 'machine id'. Both are obtained in the output to "juju status". If
 'user' is specified then the connection is made to that user account;
 otherwise, the default 'ubuntu' account, created by Juju, is used.
 
-The optional command is executed on the remote machine. Any output is sent back
-to the user. Screen-based programs require the default of '--pty=true'.
+The optional command is executed on the remote machine, and any output is sent
+back to the user. If no command is specified, then an interactive shell session
+will be initiated.
+
+When "juju ssh" is executed without a terminal attached, e.g. when piping the
+output of another command into it, then the default behavior is to not allocate
+a pseudo-terminal (pty) for the ssh session; otherwise a pty is allocated. This
+behavior can be overridden by explicitly specifying the behavior with
+"--pty=true" or "--pty=false".
 
 The SSH host keys of the target are verified. The --no-host-key-checks option
 can be used to disable these checks. Use of this option is not recommended as
 it opens up the possibility of a man-in-the-middle attack.
+
+The default identity known to Juju and used by this command is ~/.ssh/id_rsa
+
+Options can be passed to the local OpenSSH client (ssh) on platforms 
+where it is available. This is done by inserting them between the target and 
+a possible remote command. Refer to the ssh man page for an explanation 
+of those options.
 
 Examples:
 Connect to machine 0:
@@ -45,24 +63,39 @@ Connect to a jenkins unit as user jenkins:
 
     juju ssh jenkins@jenkins/0
 
+Connect to a mysql unit with an identity not known to juju (ssh option -i):
+
+    juju ssh mysql/0 -i ~/.ssh/my_private_key echo hello
+
 See also: 
     scp`
 
-func newSSHCommand(hostChecker jujussh.ReachableChecker) cmd.Command {
+func newSSHCommand(
+	hostChecker jujussh.ReachableChecker,
+	isTerminal func(interface{}) bool,
+) cmd.Command {
 	c := new(sshCommand)
 	c.setHostChecker(hostChecker)
+	c.isTerminal = isTerminal
 	return modelcmd.Wrap(c)
 }
 
 // sshCommand is responsible for launching a ssh shell on a given unit or machine.
 type sshCommand struct {
 	SSHCommon
+	isTerminal func(interface{}) bool
+	pty        autoBoolValue
+}
+
+func (c *sshCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.SSHCommon.SetFlags(f)
+	f.Var(&c.pty, "pty", "Enable pseudo-tty allocation")
 }
 
 func (c *sshCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "ssh",
-		Args:    "<[user@]target> [command]",
+		Args:    "<[user@]target> [openssh options] [command]",
 		Purpose: usageSSHSummary,
 		Doc:     usageSSHDetails,
 	}
@@ -90,7 +123,21 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	options, err := c.getSSHOptions(c.pty, target)
+	var pty bool
+	if c.pty.b != nil {
+		pty = *c.pty.b
+	} else {
+		// Flag was not specified: create a pty
+		// on the remote side iff this process
+		// has a terminal.
+		isTerminal := isTerminal
+		if c.isTerminal != nil {
+			isTerminal = c.isTerminal
+		}
+		pty = isTerminal(ctx.Stdin)
+	}
+
+	options, err := c.getSSHOptions(pty, target)
 	if err != nil {
 		return err
 	}
@@ -101,3 +148,35 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 	cmd.Stderr = ctx.Stderr
 	return cmd.Run()
 }
+
+// autoBoolValue is like gnuflag.boolValue, but remembers
+// whether or not a value has been set, so its behaviour
+// can be determined dynamically, during command execution.
+type autoBoolValue struct {
+	b *bool
+}
+
+func (b *autoBoolValue) Set(s string) error {
+	v, err := strconv.ParseBool(s)
+	if err != nil {
+		return err
+	}
+	b.b = &v
+	return nil
+}
+
+func (b *autoBoolValue) Get() interface{} {
+	if b.b != nil {
+		return *b.b
+	}
+	return b.b // nil
+}
+
+func (b *autoBoolValue) String() string {
+	if b.b != nil {
+		return fmt.Sprint(*b.b)
+	}
+	return "<auto>"
+}
+
+func (b *autoBoolValue) IsBoolFlag() bool { return true }

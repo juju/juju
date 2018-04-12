@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/provisioner"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type ContainerSetupSuite struct {
@@ -84,7 +86,7 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 
 func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 	if s.p != nil {
-		stop(c, s.p)
+		workertest.CleanKill(c, s.p)
 	}
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
@@ -96,8 +98,12 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 		RestartDelay:  jworker.RestartDelay,
 	})
 	pr := apiprovisioner.NewState(s.st)
-	machine, err := pr.Machine(tag)
+	result, err := pr.Machines(tag)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(result), gc.Equals, 1)
+	c.Assert(result[0].Err, gc.IsNil)
+	machine := result[0].Machine
+
 	err = machine.SetSupportedContainers(instance.ContainerTypes...)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := s.AgentConfigForTag(c, tag)
@@ -127,7 +133,7 @@ func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctyp
 
 	// make a container on the host machine
 	template := state.MachineTemplate{
-		Series: series.LatestLts(),
+		Series: supportedversion.SupportedLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, host.Id(), ctype)
@@ -154,7 +160,7 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	var provisionerStarted uint32
 	startProvisionerWorker := func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
-		toolsFinder provisioner.ToolsFinder) error {
+		toolsFinder provisioner.ToolsFinder, distributionGroupFinder provisioner.DistributionGroupFinder) error {
 		c.Assert(containerType, gc.Equals, ctype)
 		c.Assert(cfg.Tag(), gc.Equals, host.Tag())
 		atomic.StoreUint32(&provisionerStarted, 1)
@@ -177,7 +183,7 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 	for _, ctype := range containerTypes {
 		// create a machine to host the container.
 		m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-			Series:      series.LatestLts(),
+			Series:      supportedversion.SupportedLts(),
 			Jobs:        []state.MachineJob{state.JobHostUnits},
 			Constraints: s.defaultConstraints,
 		})
@@ -231,14 +237,14 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 
 	s.PatchValue(&provisioner.StartProvisioner, func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
-		toolsFinder provisioner.ToolsFinder) error {
+		toolsFinder provisioner.ToolsFinder, distributionGroupFinder provisioner.DistributionGroupFinder) error {
 		toolsFinder.FindTools(jujuversion.Current, series.MustHostSeries(), arch.AMD64)
 		return nil
 	})
 
 	// create a machine to host the container.
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      series.LatestLts(),
+		Series:      supportedversion.SupportedLts(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})
@@ -274,7 +280,7 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	// A noop worker callback.
 	startProvisionerWorker := func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
-		toolsFinder provisioner.ToolsFinder) error {
+		toolsFinder provisioner.ToolsFinder, distributionGroupFinder provisioner.DistributionGroupFinder) error {
 		return nil
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
@@ -289,6 +295,10 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 		ser = "centos7"
 		expected_initial = []string{
 			"yum", "--assumeyes", "--debuglevel=1", "install"}
+	case jujuos.OpenSUSE:
+		ser = "opensuseleap"
+		expected_initial = []string{
+			"zypper", " --quiet", "--non-interactive-include-reboot-patches", "install"}
 	default:
 		ser = "precise"
 		expected_initial = []string{
@@ -336,7 +346,7 @@ func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 	}
 }
 
-func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
+func (s *ContainerSetupSuite) TestContainerInitInstDataError(c *gc.C) {
 	spec := mutex.Spec{
 		Name:  s.lockName,
 		Clock: clock.WallClock,
@@ -347,7 +357,7 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	defer releaser.Release()
 
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      series.LatestLts(),
+		Series:      supportedversion.SupportedLts(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})
@@ -370,7 +380,7 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	abort := make(chan struct{})
 	close(abort)
 	err = handler.Handle(abort, []string{"0/lxd/0"})
-	c.Assert(err, gc.ErrorMatches, ".*failed to acquire initialization lock:.*")
+	c.Assert(err, gc.ErrorMatches, ".*initialising container infrastructure on host machine: instance data for machine.*not found")
 
 }
 

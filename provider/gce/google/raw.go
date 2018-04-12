@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"golang.org/x/net/context"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/googleapi"
 )
@@ -214,17 +215,17 @@ func (rc *rawConn) CreateDisk(project, zone string, spec *compute.Disk) error {
 	return errors.Trace(rc.waitOperation(project, op, attemptsLong))
 }
 
-func (rc *rawConn) ListDisks(project, zone string) ([]*compute.Disk, error) {
+func (rc *rawConn) ListDisks(project string) ([]*compute.Disk, error) {
 	ds := rc.Service.Disks
-	call := ds.List(project, zone)
+	call := ds.AggregatedList(project)
 	var results []*compute.Disk
 	for {
 		diskList, err := call.Do()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		for _, disk := range diskList.Items {
-			results = append(results, disk)
+		for _, list := range diskList.Items {
+			results = append(results, list.Disks...)
 		}
 		if diskList.NextPageToken == "" {
 			break
@@ -252,6 +253,16 @@ func (rc *rawConn) GetDisk(project, zone, id string) (*compute.Disk, error) {
 		return nil, errors.Annotatef(err, "cannot get disk %q at zone %q in project %q", id, zone, project)
 	}
 	return disk, nil
+}
+
+func (rc *rawConn) SetDiskLabels(project, zone, id, labelFingerprint string, labels map[string]string) error {
+	ds := rc.Service.Disks
+	call := ds.SetLabels(project, zone, id, &compute.ZoneSetLabelsRequest{
+		LabelFingerprint: labelFingerprint,
+		Labels:           labels,
+	})
+	_, err := call.Do()
+	return errors.Trace(err)
 }
 
 func (rc *rawConn) AttachDisk(project, zone, instanceId string, disk *compute.AttachedDisk) error {
@@ -298,7 +309,7 @@ func isWaitError(err error) bool {
 }
 
 type opDoer interface {
-	Do() (*compute.Operation, error)
+	Do(...googleapi.CallOption) (*compute.Operation, error)
 }
 
 // checkOperation requests a new copy of the given operation from the
@@ -381,4 +392,32 @@ func (rc *rawConn) SetMetadata(projectID, zone, instanceID string, metadata *com
 	}
 	err = rc.waitOperation(projectID, op, attemptsLong)
 	return errors.Trace(err)
+}
+
+func (rc *rawConn) ListSubnetworks(projectID, region string) ([]*compute.Subnetwork, error) {
+	ctx := context.Background()
+	call := rc.Subnetworks.List(projectID, region)
+	var results []*compute.Subnetwork
+	err := call.Pages(ctx, func(page *compute.SubnetworkList) error {
+		results = append(results, page.Items...)
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results, nil
+}
+
+func (rc *rawConn) ListNetworks(projectID string) ([]*compute.Network, error) {
+	ctx := context.Background()
+	call := rc.Networks.List(projectID)
+	var results []*compute.Network
+	err := call.Pages(ctx, func(page *compute.NetworkList) error {
+		results = append(results, page.Items...)
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return results, nil
 }

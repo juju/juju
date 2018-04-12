@@ -15,17 +15,14 @@ import (
 // machine have been seen to have changed. This triggers a refresh of all
 // block devices for attached volumes backing pending filesystems.
 func machineBlockDevicesChanged(ctx *context) error {
-	if len(ctx.incompleteFilesystemParams) == 0 {
-		return nil
-	}
 	volumeTags := make([]names.VolumeTag, 0, len(ctx.incompleteFilesystemParams))
-	// We only need to query volumes for incomplete filesystems,
-	// and not incomplete filesystem attachments, because a
-	// filesystem attachment cannot exist without a filesystem.
-	// Therefore, the block device must have existed before
-	// the filesystem attachment. Upon restarting the worker,
-	// witnessing an already-provisioned filesystem will trigger
-	// a refresh of the block device for the backing volume.
+	// We must query volumes for both incomplete filesystems
+	// and incomplete filesystem attachments, because even
+	// though a filesystem attachment cannot exist without a
+	// filesystem, the filesystem may be created and attached
+	// in different sessions, and there is no guarantee that
+	// the block device will remain attached to the machine
+	// in between.
 	for _, params := range ctx.incompleteFilesystemParams {
 		if params.Volume == (names.VolumeTag{}) {
 			// Filesystem is not volume-backed.
@@ -36,6 +33,30 @@ func machineBlockDevicesChanged(ctx *context) error {
 			continue
 		}
 		volumeTags = append(volumeTags, params.Volume)
+	}
+	for _, params := range ctx.incompleteFilesystemAttachmentParams {
+		filesystem, ok := ctx.filesystems[params.Filesystem]
+		if !ok {
+			continue
+		}
+		if filesystem.Volume == (names.VolumeTag{}) {
+			// Filesystem is not volume-backed.
+			continue
+		}
+		if _, ok := ctx.volumeBlockDevices[filesystem.Volume]; ok {
+			// Backing-volume's block device is already attached.
+			continue
+		}
+		var found bool
+		for _, tag := range volumeTags {
+			if filesystem.Volume == tag {
+				found = true
+				break
+			}
+		}
+		if !found {
+			volumeTags = append(volumeTags, filesystem.Volume)
+		}
 	}
 	if len(volumeTags) == 0 {
 		return nil

@@ -10,17 +10,18 @@ import (
 	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 )
 
 // PrecheckInstance verifies that the provided series and constraints
 // are valid for use in creating an instance in this environment.
-func (env *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	if _, err := env.parsePlacement(placement); err != nil {
+func (env *environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+	if _, err := env.parsePlacement(args.Placement); err != nil {
 		return errors.Trace(err)
 	}
 
-	if cons.HasInstanceType() {
-		return errors.Errorf("LXD does not support instance types (got %q)", *cons.InstanceType)
+	if args.Constraints.HasInstanceType() {
+		return errors.Errorf("LXD does not support instance types (got %q)", *args.Constraints.InstanceType)
 	}
 
 	return nil

@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -19,7 +20,8 @@ type ModelValidationSuite struct {
 func (s *ModelValidationSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.model = jujuclient.ModelDetails{
-		"test.uuid",
+		ModelUUID: "test.uuid",
+		ModelType: model.IAAS,
 	}
 }
 
@@ -36,6 +38,11 @@ func (s *ModelValidationSuite) TestValidateModelName(c *gc.C) {
 func (s *ModelValidationSuite) TestValidateModelDetailsNoModelUUID(c *gc.C) {
 	s.model.ModelUUID = ""
 	s.assertValidateModelDetailsFails(c, "missing uuid, model details not valid")
+}
+
+func (s *ModelValidationSuite) TestValidateModelDetailsNoModelType(c *gc.C) {
+	s.model.ModelType = ""
+	s.assertValidateModelDetailsFails(c, "missing type, model details not valid")
 }
 
 func (s *ModelValidationSuite) assertValidateModelDetailsFails(c *gc.C, failureMessage string) {

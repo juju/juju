@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -196,7 +197,6 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		Tools:          tools,
 		Constraints:    cons,
 		//Placement: "",
-		//DistributionGroup: nil,
 	}
 
 	s.InstanceType = allInstanceTypes[0]
@@ -204,12 +204,18 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	// Storage
 	eUUID := s.Env.Config().UUID()
 	s.BaseDisk = &google.Disk{
-		Id:          1234567,
-		Name:        "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
-		Zone:        "home-zone",
-		Status:      google.StatusReady,
-		Size:        1024,
-		Description: eUUID,
+		Id:               1234567,
+		Name:             "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+		Zone:             "home-zone",
+		Status:           google.StatusReady,
+		Size:             1024,
+		Description:      eUUID,
+		LabelFingerprint: "foo",
+		Labels: map[string]string{
+			"yodel":                "eh",
+			"juju-model-uuid":      eUUID,
+			"juju-controller-uuid": s.ControllerUUID,
+		},
 	}
 }
 
@@ -271,12 +277,27 @@ func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instanc
 		Status:    google.StatusRunning,
 		Metadata:  s.UbuntuMetadata,
 		Addresses: s.Addresses,
+		NetworkInterfaces: []*compute.NetworkInterface{{
+			Name:       "somenetif",
+			NetworkIP:  "10.0.10.3",
+			Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/go-team",
+			Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/go-team",
+			AccessConfigs: []*compute.AccessConfig{{
+				Type:  "ONE_TO_ONE_NAT",
+				Name:  "ExternalNAT",
+				NatIP: "25.185.142.226",
+			}},
+		}},
 	}
 	return google.NewInstance(summary, &instanceSpec)
 }
 
 func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, id string) *environInstance {
 	base := s.NewBaseInstance(c, id)
+	return newInstance(base, s.Env)
+}
+
+func (s *BaseSuiteUnpatched) NewInstanceFromBase(base *google.Instance) *environInstance {
 	return newInstance(base, s.Env)
 }
 
@@ -447,31 +468,34 @@ func (fe *fakeEnviron) FindInstanceSpec(
 type fakeConnCall struct {
 	FuncName string
 
-	ID           string
-	IDs          []string
-	ZoneName     string
-	ZoneNames    []string
-	Prefix       string
-	Statuses     []string
-	InstanceSpec google.InstanceSpec
-	FirewallName string
-	Rules        []network.IngressRule
-	Region       string
-	Disks        []google.DiskSpec
-	VolumeName   string
-	InstanceId   string
-	Mode         string
-	Key          string
-	Value        string
+	ID               string
+	IDs              []string
+	ZoneName         string
+	Prefix           string
+	Statuses         []string
+	InstanceSpec     google.InstanceSpec
+	FirewallName     string
+	Rules            []network.IngressRule
+	Region           string
+	Disks            []google.DiskSpec
+	VolumeName       string
+	InstanceId       string
+	Mode             string
+	Key              string
+	Value            string
+	LabelFingerprint string
+	Labels           map[string]string
 }
 
 type fakeConn struct {
 	Calls []fakeConnCall
 
-	Inst  *google.Instance
-	Insts []google.Instance
-	Rules []network.IngressRule
-	Zones []google.AvailabilityZone
+	Inst      *google.Instance
+	Insts     []google.Instance
+	Rules     []network.IngressRule
+	Zones     []google.AvailabilityZone
+	Subnets   []*compute.Subnetwork
+	Networks_ []*compute.Network
 
 	GoogleDisks   []*google.Disk
 	GoogleDisk    *google.Disk
@@ -514,11 +538,10 @@ func (fc *fakeConn) Instances(prefix string, statuses ...string) ([]google.Insta
 	return fc.Insts, fc.err()
 }
 
-func (fc *fakeConn) AddInstance(spec google.InstanceSpec, zones ...string) (*google.Instance, error) {
+func (fc *fakeConn) AddInstance(spec google.InstanceSpec) (*google.Instance, error) {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "AddInstance",
 		InstanceSpec: spec,
-		ZoneNames:    zones,
 	})
 	return fc.Inst, fc.err()
 }
@@ -576,6 +599,21 @@ func (fc *fakeConn) AvailabilityZones(region string) ([]google.AvailabilityZone,
 	return fc.Zones, fc.err()
 }
 
+func (fc *fakeConn) Subnetworks(region string) ([]*compute.Subnetwork, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "Subnetworks",
+		Region:   region,
+	})
+	return fc.Subnets, fc.err()
+}
+
+func (fc *fakeConn) Networks() ([]*compute.Network, error) {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName: "Networks",
+	})
+	return fc.Networks_, fc.err()
+}
+
 func (fc *fakeConn) CreateDisks(zone string, disks []google.DiskSpec) ([]*google.Disk, error) {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName: "CreateDisks",
@@ -585,10 +623,9 @@ func (fc *fakeConn) CreateDisks(zone string, disks []google.DiskSpec) ([]*google
 	return fc.GoogleDisks, fc.err()
 }
 
-func (fc *fakeConn) Disks(zone string) ([]*google.Disk, error) {
+func (fc *fakeConn) Disks() ([]*google.Disk, error) {
 	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName: "Disks",
-		ZoneName: zone,
 	})
 	return fc.GoogleDisks, fc.err()
 }
@@ -609,6 +646,17 @@ func (fc *fakeConn) Disk(zone, id string) (*google.Disk, error) {
 		ID:       id,
 	})
 	return fc.GoogleDisk, fc.err()
+}
+
+func (fc *fakeConn) SetDiskLabels(zone, id, labelFingerprint string, labels map[string]string) error {
+	fc.Calls = append(fc.Calls, fakeConnCall{
+		FuncName:         "SetDiskLabels",
+		ZoneName:         zone,
+		ID:               id,
+		LabelFingerprint: labelFingerprint,
+		Labels:           labels,
+	})
+	return fc.err()
 }
 
 func (fc *fakeConn) AttachDisk(zone, volumeName, instanceId string, mode google.DiskMode) (*google.AttachedDisk, error) {

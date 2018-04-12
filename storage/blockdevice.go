@@ -36,6 +36,12 @@ type BlockDevice struct {
 	// name, as the hardware ID is immutable.
 	HardwareId string `yaml:"hardwareid,omitempty"`
 
+	// WWN is the block device's World Wide Name (WWN) unique identifier.
+	// Not all block devices have one, so WWN may be empty. This is used
+	// to identify a block device if it is available, in preference to
+	// UUID or device name, as the WWN is immutable.
+	WWN string `yaml:"wwn,omitempty"`
+
 	// BusAddress is the bus address: where the block device is attached
 	// to the machine. This is currently only populated for disks attached
 	// to the SCSI bus.

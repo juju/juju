@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
@@ -64,20 +65,20 @@ func (s *updateCloudsSuite) setupTestServer(c *gc.C, serverContent string) *http
 
 func (s *updateCloudsSuite) TestBadArgs(c *gc.C) {
 	updateCmd := cloud.NewUpdateCloudsCommandForTest("")
-	_, err := testing.RunCommand(c, updateCmd, "extra")
+	_, err := cmdtesting.RunCommand(c, updateCmd, "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *updateCloudsSuite) run(c *gc.C, url, errMsg string) string {
 	updateCmd := cloud.NewUpdateCloudsCommandForTest(url)
-	out, err := testing.RunCommand(c, updateCmd)
+	out, err := cmdtesting.RunCommand(c, updateCmd)
 	if errMsg == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		errString := strings.Replace(err.Error(), "\n", "", -1)
 		c.Assert(errString, gc.Matches, errMsg)
 	}
-	return testing.Stderr(out)
+	return cmdtesting.Stderr(out)
 }
 
 func (s *updateCloudsSuite) Test404(c *gc.C) {

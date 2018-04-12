@@ -36,9 +36,8 @@ var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
 var _ filestorage.RawFileStorage = (*backupBlobStorage)(nil)
 
 func getBackupDBWrapper(st *state.State) *storageDBWrapper {
-	modelUUID := st.ModelTag().Id()
 	db := st.MongoSession().DB(storageDBName)
-	return newStorageDBWrapper(db, storageMetaName, modelUUID)
+	return newStorageDBWrapper(db, storageMetaName, st.ModelUUID())
 }
 
 // NewBackupID creates a new backup ID based on the metadata.
@@ -95,8 +94,9 @@ func ExposeCreateResult(result *createResult) (io.ReadCloser, int64, string) {
 }
 
 // NewTestCreateArgs builds a new args value for create() calls.
-func NewTestCreateArgs(filesToBackUp []string, db DBDumper, metar io.Reader) *createArgs {
+func NewTestCreateArgs(backupDir string, filesToBackUp []string, db DBDumper, metar io.Reader) *createArgs {
 	args := createArgs{
+		backupDir:      backupDir,
 		filesToBackUp:  filesToBackUp,
 		db:             db,
 		metadataReader: metar,
@@ -105,8 +105,8 @@ func NewTestCreateArgs(filesToBackUp []string, db DBDumper, metar io.Reader) *cr
 }
 
 // ExposeCreateResult extracts the values in a create() args value.
-func ExposeCreateArgs(args *createArgs) ([]string, DBDumper) {
-	return args.filesToBackUp, args.db
+func ExposeCreateArgs(args *createArgs) (string, []string, DBDumper) {
+	return args.backupDir, args.filesToBackUp, args.db
 }
 
 // NewTestCreateResult builds a new create() result.

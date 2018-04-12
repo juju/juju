@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -17,7 +18,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
@@ -32,41 +33,63 @@ func modelKey(modelUUID string) string {
 	return fmt.Sprintf("%s#%s", modelGlobalKey, modelUUID)
 }
 
+// ModelType signals the type of a model - IAAS or CAAS
+type ModelType string
+
+const (
+	modelTypeNone = ModelType("")
+	ModelTypeIAAS = ModelType("iaas")
+	ModelTypeCAAS = ModelType("caas")
+)
+
+// ParseModelType turns a valid model type string into a ModelType
+// constant.
+func ParseModelType(raw string) (ModelType, error) {
+	for _, typ := range []ModelType{ModelTypeIAAS, ModelTypeCAAS} {
+		if raw == string(typ) {
+			return typ, nil
+		}
+	}
+	return "", errors.NotValidf("model type %v", raw)
+}
+
 // MigrationMode specifies where the Model is with respect to migration.
 type MigrationMode string
 
 const (
 	// MigrationModeNone is the default mode for a model and reflects
 	// that it isn't involved with a model migration.
-	MigrationModeNone MigrationMode = ""
+	MigrationModeNone = MigrationMode("")
 
 	// MigrationModeExporting reflects a model that is in the process of being
 	// exported from one controller to another.
-	MigrationModeExporting MigrationMode = "exporting"
+	MigrationModeExporting = MigrationMode("exporting")
 
 	// MigrationModeImporting reflects a model that is being imported into a
 	// controller, but is not yet fully active.
-	MigrationModeImporting MigrationMode = "importing"
+	MigrationModeImporting = MigrationMode("importing")
 )
 
 // Model represents the state of a model.
 type Model struct {
-	// st is not necessarily the state of this model. Though it is
-	// usually safe to assume that it is. The only times it isn't is when we
-	// get models other than the current one - which is mostly in
-	// controller api endpoints.
 	st  *State
 	doc modelDoc
 }
 
 // modelDoc represents the internal state of the model in MongoDB.
 type modelDoc struct {
-	UUID           string `bson:"_id"`
-	Name           string
-	Life           Life
+	UUID           string        `bson:"_id"`
+	Name           string        `bson:"name"`
+	Type           ModelType     `bson:"type"`
+	Life           Life          `bson:"life"`
 	Owner          string        `bson:"owner"`
 	ControllerUUID string        `bson:"controller-uuid"`
 	MigrationMode  MigrationMode `bson:"migration-mode"`
+
+	// EnvironVersion is the version of the Environ. As providers
+	// evolve, cloud resource representations may change; the environ
+	// version tracks the current version of that.
+	EnvironVersion int `bson:"environ-version"`
 
 	// Cloud is the name of the cloud to which the model is deployed.
 	Cloud string `bson:"cloud"`
@@ -83,10 +106,69 @@ type modelDoc struct {
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
 	LatestAvailableTools string `bson:"available-tools,omitempty"`
+
+	// SLA is the current support level of the model.
+	SLA slaDoc `bson:"sla"`
+
+	// MeterStatus is the current meter status of the model.
+	MeterStatus modelMeterStatusdoc `bson:"meter-status"`
 }
 
-// modelEntityRefsDoc records references to the top-level entities
-// in the model.
+// slaLevel enumerates the support levels available to a model.
+type slaLevel string
+
+const (
+	slaNone        = slaLevel("")
+	SLAUnsupported = slaLevel("unsupported")
+	SLAEssential   = slaLevel("essential")
+	SLAStandard    = slaLevel("standard")
+	SLAAdvanced    = slaLevel("advanced")
+)
+
+// String implements fmt.Stringer returning the string representation of an
+// SLALevel.
+func (l slaLevel) String() string {
+	if l == slaNone {
+		l = SLAUnsupported
+	}
+	return string(l)
+}
+
+// newSLALevel returns a new SLA level from a string representation.
+func newSLALevel(level string) (slaLevel, error) {
+	l := slaLevel(level)
+	if l == slaNone {
+		l = SLAUnsupported
+	}
+	switch l {
+	case SLAUnsupported, SLAEssential, SLAStandard, SLAAdvanced:
+		return l, nil
+	}
+	return l, errors.NotValidf("SLA level %q", level)
+}
+
+// slaDoc represents the state of the SLA on the model.
+type slaDoc struct {
+	// Level is the current support level set on the model.
+	Level slaLevel `bson:"level"`
+
+	// Owner is the SLA owner of the model.
+	Owner string `bson:"owner,omitempty"`
+
+	// Credentials authenticates the support level setting.
+	Credentials []byte `bson:"credentials"`
+}
+
+type modelMeterStatusdoc struct {
+	Code string `bson:"code"`
+	Info string `bson:"info"`
+}
+
+// modelEntityRefsDoc records references to the top-level entities in the
+// model.  This is also used to determine if a model can be destroyed.
+// Consequently, any changes, especially additions of entities, here, would
+// need to be reflected, at least, in Model.checkModelEntityRefsEmpty(...) as
+// well as Model.destroyOps(...)
 type modelEntityRefsDoc struct {
 	UUID string `bson:"_id"`
 
@@ -103,66 +185,63 @@ type modelEntityRefsDoc struct {
 	Filesystems []string `bson:"filesystems"`
 }
 
-// ControllerModel returns the model that was bootstrapped.
-// This is the only model that can have controller machines.
-// The owner of this model is also considered "special", in that
-// they are the only user that is able to create other users (until we
-// have more fine grained permissions), and they cannot be disabled.
-func (st *State) ControllerModel() (*Model, error) {
-	ssinfo, err := st.ControllerInfo()
-	if err != nil {
-		return nil, errors.Annotate(err, "could not get controller info")
-	}
-
-	models, closer := st.getCollection(modelsC)
-	defer closer()
-
-	env := &Model{st: st}
-	uuid := ssinfo.ModelTag.Id()
-	if err := env.refresh(models.FindId(uuid)); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return env, nil
-}
-
 // Model returns the model entity.
 func (st *State) Model() (*Model, error) {
-	return st.GetModel(st.modelTag)
-}
-
-// GetModel looks for the model identified by the uuid passed in.
-func (st *State) GetModel(tag names.ModelTag) (*Model, error) {
-	models, closer := st.getCollection(modelsC)
-	defer closer()
-
-	model := &Model{st: st}
-	if err := model.refresh(models.FindId(tag.Id())); err != nil {
+	model := &Model{
+		st: st,
+	}
+	if err := model.refresh(st.modelTag.Id()); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return model, nil
 }
 
-// AllModels returns all the models in the system.
-func (st *State) AllModels() ([]*Model, error) {
-	models, closer := st.getCollection(modelsC)
+// AllModelUUIDs returns the UUIDs for all non-dead models in the controller.
+// Results are sorted by (name, owner).
+func (st *State) AllModelUUIDs() ([]string, error) {
+	return st.filteredModelUUIDs(notDeadDoc)
+}
+
+// AllModelUUIDsIncludingDead returns the UUIDs for all models in the controller.
+// Results are sorted by (name, owner).
+func (st *State) AllModelUUIDsIncludingDead() ([]string, error) {
+	return st.filteredModelUUIDs(nil)
+}
+
+// filteredModelUUIDs returns all model uuids that match the filter.
+func (st *State) filteredModelUUIDs(filter bson.D) ([]string, error) {
+	models, closer := st.db().GetCollection(modelsC)
 	defer closer()
 
-	var modelDocs []modelDoc
-	err := models.Find(nil).Sort("name", "owner").All(&modelDocs)
+	var docs []bson.M
+	err := models.Find(filter).Sort("name", "owner").Select(bson.M{"_id": 1}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
-
-	result := make([]*Model, len(modelDocs))
-	for i, doc := range modelDocs {
-		result[i] = &Model{st: st, doc: doc}
+	out := make([]string, len(docs))
+	for i, doc := range docs {
+		out[i] = doc["_id"].(string)
 	}
+	return out, nil
+}
 
-	return result, nil
+// ModelExists returns true if a model with the supplied UUID exists.
+func (st *State) ModelExists(uuid string) (bool, error) {
+	models, closer := st.db().GetCollection(modelsC)
+	defer closer()
+
+	count, err := models.FindId(uuid).Count()
+	if err != nil {
+		return false, errors.Annotate(err, "querying model")
+	}
+	return count > 0, nil
 }
 
 // ModelArgs is a params struct for creating a new model.
 type ModelArgs struct {
+	// Type specifies the general type of the model (IAAS or CAAS).
+	Type ModelType
+
 	// CloudName is the name of the cloud to which the model is deployed.
 	CloudName string
 
@@ -190,21 +269,33 @@ type ModelArgs struct {
 
 	// MigrationMode is the initial migration mode of the model.
 	MigrationMode MigrationMode
+
+	// EnvironVersion is the initial version of the Environ for the model.
+	EnvironVersion int
 }
 
 // Validate validates the ModelArgs.
 func (m ModelArgs) Validate() error {
+	if m.Type == modelTypeNone {
+		return errors.NotValidf("empty Type")
+	}
 	if m.Config == nil {
 		return errors.NotValidf("nil Config")
 	}
 	if !names.IsValidCloud(m.CloudName) {
 		return errors.NotValidf("Cloud Name %q", m.CloudName)
 	}
+	if m.Type == ModelTypeCAAS && m.CloudRegion != "" {
+		return errors.NotSupportedf("CAAS model with CloudRegion")
+	}
 	if m.Owner == (names.UserTag{}) {
 		return errors.NotValidf("empty Owner")
 	}
-	if m.StorageProviderRegistry == nil {
+	if m.StorageProviderRegistry == nil && m.Type == ModelTypeIAAS {
 		return errors.NotValidf("nil StorageProviderRegistry")
+	}
+	if m.StorageProviderRegistry != nil && m.Type == ModelTypeCAAS {
+		return errors.NotValidf("CAAS model with StorageProviderRegistry")
 	}
 	switch m.MigrationMode {
 	case MigrationModeNone, MigrationModeImporting:
@@ -227,12 +318,14 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err := args.Validate(); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	// For now, the model cloud must be the same as the controller cloud.
+
 	controllerInfo, err := st.ControllerInfo()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	if controllerInfo.CloudName != args.CloudName {
+
+	// For IAAS Models, the model cloud must be the same as the controller cloud.
+	if args.Type == ModelTypeIAAS && controllerInfo.CloudName != args.CloudName {
 		return nil, nil, errors.NewNotValid(
 			nil, fmt.Sprintf("controller cloud %s does not match model cloud %s", controllerInfo.CloudName, args.CloudName))
 	}
@@ -243,9 +336,15 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	assertCloudRegionOp, err := validateCloudRegion(controllerCloud, args.CloudRegion)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
+
+	var prereqOps []txn.Op
+
+	if args.Type == ModelTypeIAAS {
+		assertCloudRegionOp, err := validateCloudRegion(controllerCloud, args.CloudRegion)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		prereqOps = append(prereqOps, assertCloudRegionOp)
 	}
 
 	// Ensure that the cloud credential is valid, or if one is not
@@ -256,12 +355,14 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+
 	assertCloudCredentialOp, err := validateCloudCredential(
 		controllerCloud, cloudCredentials, args.CloudCredential,
 	)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	prereqOps = append(prereqOps, assertCloudCredentialOp)
 
 	if owner.IsLocal() {
 		if _, err := st.User(owner); err != nil {
@@ -275,9 +376,8 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		names.NewModelTag(uuid),
 		controllerInfo.ModelTag,
 		session,
-		st.mongoInfo,
 		st.newPolicy,
-		st.clock,
+		st.clock(),
 		st.runTransactionObserver,
 	)
 	if err != nil {
@@ -290,17 +390,13 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}()
 	newSt.controllerModelTag = st.controllerModelTag
 
-	modelOps, err := newSt.modelSetupOps(st.controllerTag.Id(), args, nil)
+	modelOps, modelStatusDoc, err := newSt.modelSetupOps(st.controllerTag.Id(), args, nil)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new model")
 	}
 
-	prereqOps := []txn.Op{
-		assertCloudRegionOp,
-		assertCloudCredentialOp,
-	}
 	ops := append(prereqOps, modelOps...)
-	err = newSt.runTransaction(ops)
+	err = newSt.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 
 		// We have a  unique key restriction on the "owner" and "name" fields,
@@ -308,7 +404,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		// the same "owner" and "name" in the collection. If the txn is
 		// aborted, check if it is due to the unique key restriction.
 		name := args.Config.Name()
-		models, closer := st.getCollection(modelsC)
+		models, closer := st.db().GetCollection(modelsC)
 		defer closer()
 		envCount, countErr := models.Find(bson.D{
 			{"owner", owner.Id()},
@@ -319,14 +415,14 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		} else if envCount > 0 {
 			err = errors.AlreadyExistsf("model %q for %s", name, owner.Id())
 		} else {
-			err = errors.New("model already exists")
+			err = errors.Annotate(err, "failed to create new model")
 		}
 	}
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	err = newSt.start(st.controllerTag)
+	err = newSt.start(st.controllerTag, nil)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not start state for new model")
 	}
@@ -335,11 +431,18 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	if args.MigrationMode != MigrationModeImporting {
+		probablyUpdateStatusHistory(newSt.db(), modelGlobalKey, modelStatusDoc)
+	}
+
 	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), permission.AdminAccess)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
 	}
 
+	if err := InitDbLogs(session, uuid); err != nil {
+		return nil, nil, errors.Annotate(err, "initialising model logs collection")
+	}
 	return newModel, newSt, nil
 }
 
@@ -359,7 +462,7 @@ func validateCloudRegion(cloud jujucloud.Cloud, regionName string) (txn.Op, erro
 			return txn.Op{}, errors.Trace(err)
 		}
 		assertCloudRegionOp.Assert = bson.D{
-			{"regions." + region.Name, bson.D{{"$exists", true}}},
+			{"regions." + utils.EscapeKey(region.Name), bson.D{{"$exists", true}}},
 		}
 	} else {
 		if len(cloud.Regions) > 0 {
@@ -379,7 +482,7 @@ func validateCloudRegion(cloud jujucloud.Cloud, regionName string) (txn.Op, erro
 // will be asserted.
 func validateCloudCredential(
 	cloud jujucloud.Cloud,
-	cloudCredentials map[string]jujucloud.Credential,
+	cloudCredentials map[string]Credential,
 	cloudCredential names.CloudCredentialTag,
 ) (txn.Op, error) {
 	if cloudCredential != (names.CloudCredentialTag{}) {
@@ -458,6 +561,11 @@ func (m *Model) Name() string {
 	return m.doc.Name
 }
 
+// Type returns the human friendly name of the model.
+func (m *Model) Type() ModelType {
+	return m.doc.Type
+}
+
 // Cloud returns the name of the cloud to which the model is deployed.
 func (m *Model) Cloud() string {
 	return m.doc.Cloud
@@ -484,19 +592,13 @@ func (m *Model) MigrationMode() MigrationMode {
 
 // SetMigrationMode updates the migration mode of the model.
 func (m *Model) SetMigrationMode(mode MigrationMode) error {
-	st, closeState, err := m.getState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer closeState()
-
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     m.doc.UUID,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"migration-mode", mode}}}},
 	}}
-	if err := st.runTransaction(ops); err != nil {
+	if err := m.st.db().RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 	return m.Refresh()
@@ -515,56 +617,53 @@ func (m *Model) Owner() names.UserTag {
 
 // Status returns the status of the model.
 func (m *Model) Status() (status.StatusInfo, error) {
-	st, closeState, err := m.getState()
-	if err != nil {
-		return status.StatusInfo{}, errors.Trace(err)
-	}
-	defer closeState()
-	status, err := getStatus(st, m.globalKey(), "model")
+	status, err := getStatus(m.st.db(), m.globalKey(), "model")
 	if err != nil {
 		return status, err
 	}
 	return status, nil
 }
 
+// localID returns the local id value by stripping off the model uuid prefix
+// if it is there.
+func (m *Model) localID(ID string) string {
+	modelUUID, localID, ok := splitDocID(ID)
+	if !ok || modelUUID != m.doc.UUID {
+		return ID
+	}
+	return localID
+}
+
 // SetStatus sets the status of the model.
 func (m *Model) SetStatus(sInfo status.StatusInfo) error {
-	st, closeState, err := m.getState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer closeState()
 	if !status.ValidModelStatus(sInfo.Status) {
 		return errors.Errorf("cannot set invalid status %q", sInfo.Status)
 	}
-	return setStatus(st, setStatusParams{
+	return setStatus(m.st.db(), setStatusParams{
 		badge:     "model",
 		globalKey: m.globalKey(),
 		status:    sInfo.Status,
 		message:   sInfo.Message,
 		rawData:   sInfo.Data,
-		updated:   sInfo.Since,
+		updated:   timeOrNow(sInfo.Since, m.st.clock()),
 	})
+}
+
+// StatusHistory returns a slice of at most filter.Size StatusInfo items
+// or items as old as filter.Date or items newer than now - filter.Delta time
+// representing past statuses for this application.
+func (m *Model) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		db:        m.st.db(),
+		globalKey: m.globalKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
 
 // Config returns the config for the model.
 func (m *Model) Config() (*config.Config, error) {
-	st, closeState, err := m.getState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer closeState()
-	return st.ModelConfig()
-}
-
-// ConfigValues returns the config values for the model.
-func (m *Model) ConfigValues() (config.ConfigValues, error) {
-	st, closeState, err := m.getState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer closeState()
-	return st.ModelConfigValues()
+	return getModelConfig(m.st.db())
 }
 
 // UpdateLatestToolsVersion looks up for the latest available version of
@@ -578,7 +677,7 @@ func (m *Model) UpdateLatestToolsVersion(ver version.Number) error {
 		Id:     m.doc.UUID,
 		Update: bson.D{{"$set", bson.D{{"available-tools", v}}}},
 	}}
-	err := m.st.runTransaction(ops)
+	err := m.st.db().RunTransaction(ops)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -604,31 +703,156 @@ func (m *Model) LatestToolsVersion() version.Number {
 	return v
 }
 
+// SLALevel returns the SLA level as a string.
+func (m *Model) SLALevel() string {
+	return m.doc.SLA.Level.String()
+}
+
+// SLAOwner returns the SLA owner as a string. Note that this may differ from
+// the model owner.
+func (m *Model) SLAOwner() string {
+	return m.doc.SLA.Owner
+}
+
+// SLACredential returns the SLA credential.
+func (m *Model) SLACredential() []byte {
+	return m.doc.SLA.Credentials
+}
+
+// SetSLA sets the SLA on the model.
+func (m *Model) SetSLA(level, owner string, credentials []byte) error {
+	l, err := newSLALevel(level)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ops := []txn.Op{{
+		C:  modelsC,
+		Id: m.doc.UUID,
+		Update: bson.D{{"$set", bson.D{{"sla", slaDoc{
+			Level:       l,
+			Owner:       owner,
+			Credentials: credentials,
+		}}}}},
+	}}
+	err = m.st.db().RunTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return m.Refresh()
+}
+
+// SetMeterStatus sets the current meter status for this model.
+func (m *Model) SetMeterStatus(status, info string) error {
+	if _, err := isValidMeterStatusCode(status); err != nil {
+		return errors.Trace(err)
+	}
+	ops := []txn.Op{{
+		C:  modelsC,
+		Id: m.doc.UUID,
+		Update: bson.D{{"$set", bson.D{{"meter-status", modelMeterStatusdoc{
+			Code: status,
+			Info: info,
+		}}}}},
+	}}
+	err := m.st.db().RunTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return m.Refresh()
+}
+
+// MeterStatus returns the current meter status for this model.
+func (m *Model) MeterStatus() MeterStatus {
+	ms := m.doc.MeterStatus
+	return MeterStatus{
+		Code: MeterStatusFromString(ms.Code),
+		Info: ms.Info,
+	}
+}
+
+// EnvironVersion is the version of the model's environ -- the related
+// cloud provider resources. The environ version is used by the controller
+// to identify environ/provider upgrade steps to run for a model's environ
+// after the controller is upgraded, or the model is migrated to another
+// controller.
+func (m *Model) EnvironVersion() int {
+	return m.doc.EnvironVersion
+}
+
+// SetEnvironVersion sets the model's current environ version. The value
+// must be monotonically increasing.
+func (m *Model) SetEnvironVersion(v int) error {
+	mOrig := m
+	mCopy := *m
+	m = &mCopy // copy so we can refresh without affecting the original m
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if v < m.doc.EnvironVersion {
+			return nil, errors.Errorf(
+				"cannot set environ version to %v, which is less than the current version %v",
+				v, m.doc.EnvironVersion,
+			)
+		}
+		if v == m.doc.EnvironVersion {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return []txn.Op{{
+			C:      modelsC,
+			Id:     m.doc.UUID,
+			Assert: bson.D{{"environ-version", m.doc.EnvironVersion}},
+			Update: bson.D{{"$set", bson.D{{"environ-version", v}}}},
+		}}, nil
+	}
+	if err := m.st.db().Run(buildTxn); err != nil {
+		return errors.Trace(err)
+	}
+	mOrig.doc.EnvironVersion = v
+	return nil
+}
+
 // globalKey returns the global database key for the model.
 func (m *Model) globalKey() string {
 	return modelGlobalKey
 }
 
 func (m *Model) Refresh() error {
-	models, closer := m.st.getCollection(modelsC)
-	defer closer()
-	return m.refresh(models.FindId(m.UUID()))
+	return m.refresh(m.UUID())
 }
 
-func (m *Model) refresh(query mongo.Query) error {
-	err := query.One(&m.doc)
+func (m *Model) refresh(uuid string) error {
+	models, closer := m.st.db().GetCollection(modelsC)
+	defer closer()
+	err := models.FindId(uuid).One(&m.doc)
 	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("model")
+		return errors.NotFoundf("model %q", uuid)
 	}
 	return err
 }
 
+// AllUnits returns all units for a model, for all applications.
+func (m *Model) AllUnits() ([]*Unit, error) {
+	coll, closer := m.st.db().GetCollection(unitsC)
+	defer closer()
+
+	docs := []unitDoc{}
+	err := coll.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all units for model")
+	}
+	var units []*Unit
+	for i := range docs {
+		units = append(units, newUnit(m.st, m.Type(), &docs[i]))
+	}
+	return units, nil
+}
+
 // Users returns a slice of all users for this model.
 func (m *Model) Users() ([]permission.UserAccess, error) {
-	if m.st.ModelUUID() != m.UUID() {
-		return nil, errors.New("cannot lookup model users outside the current model")
-	}
-	coll, closer := m.st.getCollection(modelUsersC)
+	coll, closer := m.st.db().GetCollection(modelUsersC)
 	defer closer()
 
 	var userDocs []userAccessDoc
@@ -667,52 +891,58 @@ func (m *Model) isControllerModel() bool {
 	return m.st.controllerModelTag.Id() == m.doc.UUID
 }
 
+// DestroyModelParams contains parameters for destroy a model.
+type DestroyModelParams struct {
+	// DestroyHostedModels controls whether or not hosted models
+	// are destroyed also. This only applies to the controller
+	// model.
+	//
+	// If this is false when destroying the controller model,
+	// there must be no hosted models, or an error satisfying
+	// IsHasHostedModelsError will be returned.
+	//
+	// TODO(axw) this should be moved to the Controller type.
+	DestroyHostedModels bool
+
+	// DestroyStorage controls whether or not storage in the
+	// model (and hosted models, if DestroyHostedModels is true)
+	// should be destroyed.
+	//
+	// This is ternary: nil, false, or true. If nil and
+	// there is persistent storage in the model (or hosted
+	// models), an error satisfying IsHasPersistentStorageError
+	// will be returned.
+	DestroyStorage *bool
+}
+
+func (m *Model) uniqueIndexID() string {
+	return userModelNameIndex(m.doc.Owner, m.doc.Name)
+}
+
 // Destroy sets the models's lifecycle to Dying, preventing
 // addition of services or machines to state. If called on
 // an empty hosted model, the lifecycle will be advanced
 // straight to Dead.
-//
-// If called on a controller model, and that controller is
-// hosting any non-Dead models, this method will return an
-// error satisfying IsHasHostedsError.
-func (m *Model) Destroy() error {
-	ensureNoHostedModels := false
-	if m.isControllerModel() {
-		ensureNoHostedModels = true
-	}
-	return m.destroy(ensureNoHostedModels)
-}
-
-// DestroyIncludingHosted sets the model's lifecycle to Dying, preventing
-// addition of services or machines to state. If this model is a controller
-// hosting other models, they will also be destroyed.
-func (m *Model) DestroyIncludingHosted() error {
-	ensureNoHostedModels := false
-	return m.destroy(ensureNoHostedModels)
-}
-
-func (m *Model) destroy(ensureNoHostedModels bool) (err error) {
+func (m *Model) Destroy(args DestroyModelParams) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to destroy model")
-
-	st, closeState, err := m.getState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer closeState()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// On the first attempt, we assume memory state is recent
 		// enough to try using...
 		if attempt != 0 {
 			// ...but on subsequent attempts, we read fresh environ
-			// state from the DB. Note that we do *not* refresh `e`
-			// itself, as detailed in doc/hacking-state.txt
-			if m, err = st.Model(); err != nil {
+			// state from the DB. Note that we do *not* refresh the
+			// original `m` itself, as detailed in doc/hacking-state.txt
+			if attempt == 1 {
+				mCopy := *m
+				m = &mCopy
+			}
+			if err := m.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
 
-		ops, err := m.destroyOps(ensureNoHostedModels, false)
+		ops, err := m.destroyOps(args, false, false)
 		if err == errModelNotAlive {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -721,8 +951,7 @@ func (m *Model) destroy(ensureNoHostedModels bool) (err error) {
 
 		return ops, nil
 	}
-
-	return st.run(buildTxn)
+	return m.st.db().Run(buildTxn)
 }
 
 // errModelNotAlive is a signal emitted from destroyOps to indicate
@@ -732,51 +961,142 @@ var errModelNotAlive = errors.New("model is no longer alive")
 type hasHostedModelsError int
 
 func (e hasHostedModelsError) Error() string {
-	return fmt.Sprintf("hosting %d other models", e)
+	s := ""
+	if e != 1 {
+		s = "s"
+	}
+	return fmt.Sprintf("hosting %d other model"+s, e)
 }
 
+// IsHasHostedModelsError reports whether or not the given error
+// was caused by an attempt to destroy the controller model while
+// it contained non-empty hosted models, without specifying that
+// they should also be destroyed.
 func IsHasHostedModelsError(err error) bool {
 	_, ok := errors.Cause(err).(hasHostedModelsError)
+	return ok
+}
+
+type hasPersistentStorageError struct{}
+
+func (hasPersistentStorageError) Error() string {
+	return "model contains persistent storage"
+}
+
+// IsHasPersistentStorageError reports whether or not the given
+// error was caused by an attempt to destroy a model while it
+// contained persistent storage, without specifying how the
+// storage should be removed (destroyed or released).
+func IsHasPersistentStorageError(err error) bool {
+	_, ok := errors.Cause(err).(hasPersistentStorageError)
+	return ok
+}
+
+type modelNotEmptyError struct {
+	machines     int
+	applications int
+	volumes      int
+	filesystems  int
+}
+
+// Error is part of the error interface.
+func (e modelNotEmptyError) Error() string {
+	msg := "model not empty, found "
+	plural := func(n int, thing string) string {
+		s := fmt.Sprintf("%d %s", n, thing)
+		if n != 1 {
+			s += "s"
+		}
+		return s
+	}
+	var contains []string
+	if n := e.machines; n > 0 {
+		contains = append(contains, plural(n, "machine"))
+	}
+	if n := e.applications; n > 0 {
+		contains = append(contains, plural(n, "application"))
+	}
+	if n := e.volumes; n > 0 {
+		contains = append(contains, plural(n, "volume"))
+	}
+	if n := e.filesystems; n > 0 {
+		contains = append(contains, plural(n, "filesystem"))
+	}
+	return msg + strings.Join(contains, ", ")
+}
+
+// IsModelNotEmptyError reports whether or not the given error was caused
+// due to an operation requiring a model to be empty, where the model is
+// non-empty.
+func IsModelNotEmptyError(err error) bool {
+	_, ok := errors.Cause(err).(modelNotEmptyError)
 	return ok
 }
 
 // destroyOps returns the txn operations necessary to begin model
 // destruction, or an error indicating why it can't.
 //
-// If ensureNoHostedModels is true, then destroyOps will
-// fail if there are any non-Dead hosted models
-func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, error) {
+// If ensureEmpty is true, then destroyOps will return an error
+// if the model is non-empty.
+//
+// If destroyingController is true, then destroyOps will progress
+// empty models to Dead, but otherwise will return only non-mutating
+// ops to assert the current state of the model, and will leave it
+// to the "models" cleanup to destroy the model.
+func (m *Model) destroyOps(
+	args DestroyModelParams,
+	ensureEmpty bool,
+	destroyingController bool,
+) ([]txn.Op, error) {
 	if m.Life() != Alive {
 		return nil, errModelNotAlive
 	}
 
-	// Ensure we're using the model's state.
-	st, closeState, err := m.getState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer closeState()
-
 	// Check if the model is empty. If it is, we can advance the model's
 	// lifecycle state directly to Dead.
-	checkEmptyErr := m.checkEmpty()
-	isEmpty := checkEmptyErr == nil
-	if ensureEmpty && !isEmpty {
-		return nil, errors.Trace(checkEmptyErr)
+	modelEntityRefs, err := m.getEntityRefs()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting model entity refs")
 	}
-
+	isEmpty := true
 	modelUUID := m.UUID()
 	nextLife := Dying
-	var prereqOps []txn.Op
-	if isEmpty {
-		prereqOps = []txn.Op{{
-			C:  modelEntityRefsC,
-			Id: modelUUID,
-			Assert: bson.D{
-				{"machines", bson.D{{"$size", 0}}},
-				{"applications", bson.D{{"$size", 0}}},
-			},
-		}}
+
+	prereqOps, err := checkModelEntityRefsEmpty(modelEntityRefs)
+	if err != nil {
+		if ensureEmpty {
+			return nil, errors.Trace(err)
+		}
+		isEmpty = false
+		prereqOps = nil
+		if args.DestroyStorage == nil {
+			// The model is non-empty, and the user has not specified
+			// whether storage should be destroyed or released. Make
+			// sure there are no filesystems or volumes in the model.
+			storageOps, err := checkModelEntityRefsNoPersistentStorage(
+				m.st.db(), modelEntityRefs,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			prereqOps = storageOps
+		} else if !*args.DestroyStorage {
+			// The model is non-empty, and the user has specified that
+			// storage should be released. Make sure the storage is
+			// all releasable.
+			im, err := m.IAASModel()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			storageOps, err := checkModelEntityRefsAllReleasableStorage(
+				im, modelEntityRefs,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			prereqOps = storageOps
+		}
+	} else {
 		if !m.isControllerModel() {
 			// The model is empty, and is not the controller
 			// model, so we can move it straight to Dead.
@@ -784,20 +1104,48 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		}
 	}
 
-	if ensureNoHostedModels {
+	if m.isControllerModel() && (!args.DestroyHostedModels || args.DestroyStorage == nil || !*args.DestroyStorage) {
+		// This is the controller model, and we've not been instructed
+		// to destroy hosted models, or we've not been instructed to
+		// destroy storage.
+		//
 		// Check for any Dying or alive but non-empty models. If there
-		// are any, we return an error indicating that there are hosted
-		// models.
-		models, err := st.AllModels()
+		// are any and we have not been instructed to destroy them, we
+		// return an error indicating that there are hosted models.
+
+		// We need access State instances for hosted models and it's
+		// too hard to thread an external StatePool to here, so create
+		// a fresh one. Creating new States is relatively slow but
+		// this is ok because this is an infrequently used code path.
+		pool := NewStatePool(m.st)
+		defer pool.Close()
+
+		modelUUIDs, err := m.st.AllModelUUIDsIncludingDead()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		var aliveEmpty, aliveNonEmpty, dying, dead int
-		for _, model := range models {
-			if model.UUID() == m.UUID() {
+		for _, aModelUUID := range modelUUIDs {
+			if aModelUUID == m.UUID() {
 				// Ignore the controller model.
 				continue
 			}
+
+			st, err := pool.Get(aModelUUID)
+			if err != nil {
+				// This model could have been removed.
+				if errors.IsNotFound(err) {
+					continue
+				}
+				return nil, errors.Trace(err)
+			}
+			defer st.Release()
+
+			model, err := st.Model()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			if model.Life() == Dead {
 				// Dead hosted models don't affect
 				// whether the controller can be
@@ -807,8 +1155,11 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 				continue
 			}
 			// See if the model is empty, and if it is,
-			// get the ops required to destroy it.
-			ops, err := model.destroyOps(false, true)
+			// get the ops required to ensure it can be
+			// destroyed, but without effecting the
+			// destruction. The destruction is carried
+			// out by the cleanup.
+			ops, err := model.destroyOps(args, !args.DestroyHostedModels, true)
 			switch err {
 			case errModelNotAlive:
 				dying++
@@ -816,10 +1167,13 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 				prereqOps = append(prereqOps, ops...)
 				aliveEmpty++
 			default:
+				if !IsModelNotEmptyError(err) {
+					return nil, errors.Trace(err)
+				}
 				aliveNonEmpty++
 			}
 		}
-		if dying > 0 || aliveNonEmpty > 0 {
+		if !args.DestroyHostedModels && (dying > 0 || aliveNonEmpty > 0) {
 			// There are Dying, or Alive but non-empty models.
 			// We cannot destroy the controller without first
 			// destroying the models and waiting for them to
@@ -835,34 +1189,59 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		// move to Dead is still Alive, so we're protected from an
 		// ABA style problem where an empty model is concurrently
 		// removed, and replaced with a non-empty model.
-		prereqOps = append(prereqOps, assertHostedModelsOp(aliveEmpty+dead))
+		prereqOps = append(prereqOps,
+			assertHostedModelsOp(aliveEmpty+aliveNonEmpty+dying+dead),
+		)
 	}
 
-	timeOfDying := st.NowToTheSecond()
+	timeOfDying := m.st.nowToTheSecond()
 	modelUpdateValues := bson.D{
 		{"life", nextLife},
 		{"time-of-dying", timeOfDying},
 	}
+	var ops []txn.Op
 	if nextLife == Dead {
 		modelUpdateValues = append(modelUpdateValues, bson.DocElem{
 			"time-of-death", timeOfDying,
 		})
+		ops = append(ops, txn.Op{
+			// Cleanup the owner:envName unique key.
+			C:      usermodelnameC,
+			Id:     m.uniqueIndexID(),
+			Remove: true,
+		})
 	}
 
-	ops := []txn.Op{{
+	modelOp := txn.Op{
 		C:      modelsC,
 		Id:     modelUUID,
 		Assert: isAliveDoc,
-		Update: bson.D{{"$set", modelUpdateValues}},
-	}}
+	}
+	if !destroyingController || nextLife == Dead {
+		modelOp.Update = bson.D{{"$set", modelUpdateValues}}
+	}
+	ops = append(ops, modelOp)
+	if destroyingController {
+		// We're destroying the controller model, and being asked
+		// to check the validity of destroying hosted models,
+		// progressing empty models to Dead. We don't want to
+		// include the cleanups below, as they assume we're
+		// destroying the model.
+		return append(prereqOps, ops...), nil
+	}
 
 	// Because txn operations execute in order, and may encounter
 	// arbitrarily long delays, we need to make sure every op
 	// causes a state change that's still consistent; so we make
 	// sure the cleanup ops are the last thing that will execute.
 	if m.isControllerModel() {
-		cleanupOp := newCleanupOp(cleanupModelsForDyingController, modelUUID)
-		ops = append(ops, cleanupOp)
+		ops = append(ops, newCleanupOp(
+			cleanupModelsForDyingController, modelUUID,
+			// pass through the DestroyModelArgs to the cleanup,
+			// so the models can be destroyed according to the
+			// same rules.
+			args,
+		))
 	}
 	if !isEmpty {
 		// We only need to destroy resources if the model is non-empty.
@@ -871,100 +1250,225 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		// hosted model in the course of destroying the controller. In
 		// that case we'll get errors if we try to enqueue hosted-model
 		// cleanups, because the cleanups collection is non-global.
-		cleanupMachinesOp := newCleanupOp(cleanupMachinesForDyingModel, modelUUID)
-		cleanupApplicationsOp := newCleanupOp(cleanupApplicationsForDyingModel, modelUUID)
-		cleanupVolumesOp := newCleanupOp(cleanupVolumesForDyingModel, modelUUID)
-		cleanupFilesystemsOp := newCleanupOp(cleanupFilesystemsForDyingModel, modelUUID)
 		ops = append(ops,
-			cleanupMachinesOp,
-			cleanupApplicationsOp,
-			cleanupVolumesOp,
-			cleanupFilesystemsOp,
+			newCleanupOp(cleanupApplicationsForDyingModel, modelUUID),
 		)
+		if m.Type() == ModelTypeIAAS {
+			ops = append(ops, newCleanupOp(cleanupMachinesForDyingModel, modelUUID))
+			if args.DestroyStorage != nil {
+				// The user has specified that the storage should be destroyed
+				// or released, which we can do in a cleanup. If the user did
+				// not specify either, then we have already added prereq ops
+				// to assert that there is no storage in the model.
+				ops = append(ops, newCleanupOp(
+					cleanupStorageForDyingModel, modelUUID,
+					// pass through DestroyModelArgs.DestroyStorage to the
+					// cleanup, so the storage can be destroyed/released
+					// according to the parameters.
+					*args.DestroyStorage,
+				))
+			}
+		}
 	}
 	return append(prereqOps, ops...), nil
 }
 
-// checkEmpty checks that the machine is empty of any entities that may
-// require external resource cleanup. If the model is not empty, then
-// an error will be returned.
-func (m *Model) checkEmpty() error {
-	st, closeState, err := m.getState()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer closeState()
-
-	modelEntityRefs, closer := st.getCollection(modelEntityRefsC)
+// getEntityRefs reads the current model entity refs document for the model.
+func (m *Model) getEntityRefs() (*modelEntityRefsDoc, error) {
+	modelEntityRefs, closer := m.st.db().GetCollection(modelEntityRefsC)
 	defer closer()
 
 	var doc modelEntityRefsDoc
 	if err := modelEntityRefs.FindId(m.UUID()).One(&doc); err != nil {
 		if err == mgo.ErrNotFound {
-			return errors.NotFoundf("entity references doc for model %s", m.UUID())
+			return nil, errors.NotFoundf("entity references doc for model %s", m.UUID())
 		}
-		return errors.Annotatef(err, "getting entity references for model %s", m.UUID())
+		return nil, errors.Annotatef(err, "getting entity references for model %s", m.UUID())
 	}
-	if n := len(doc.Machines); n > 0 {
-		return errors.Errorf("model not empty, found %d machine(s)", n)
+	return &doc, nil
+}
+
+// (TODO) externalreality: Temporary method to access state from model while
+// factoring Model concerns out from state.
+func (model *Model) State() *State {
+	return model.st
+}
+
+// checkModelEntityRefsEmpty checks that the model is empty of any entities
+// that may require external resource cleanup. If the model is not empty,
+// then an error will be returned; otherwise txn.Ops are returned to assert
+// the continued emptiness.
+func checkModelEntityRefsEmpty(doc *modelEntityRefsDoc) ([]txn.Op, error) {
+	// These errors could be potentially swallowed as we re-try to destroy model.
+	// Let's, at least, log them for observation.
+	err := modelNotEmptyError{
+		machines:     len(doc.Machines),
+		applications: len(doc.Applications),
+		volumes:      len(doc.Volumes),
+		filesystems:  len(doc.Filesystems),
 	}
-	if n := len(doc.Applications); n > 0 {
-		return errors.Errorf("model not empty, found %d application(s)", n)
+	if err != (modelNotEmptyError{}) {
+		return nil, err
 	}
-	if n := len(doc.Volumes); n > 0 {
-		return errors.Errorf("model not empty, found %d volume(s)", n)
+
+	return []txn.Op{{
+		C:  modelEntityRefsC,
+		Id: doc.UUID,
+		Assert: bson.D{
+			{"machines", bson.D{{"$size", 0}}},
+			{"applications", bson.D{{"$size", 0}}},
+			{"volumes", bson.D{{"$size", 0}}},
+			{"filesystems", bson.D{{"$size", 0}}},
+		},
+	}}, nil
+}
+
+// checkModelEntityRefsNoPersistentStorage checks that there is no
+// persistent storage in the model. If there is, then an error of
+// type hasPersistentStorageError is returned. If there is not,
+// txn.Ops are returned to assert the same.
+func checkModelEntityRefsNoPersistentStorage(
+	db Database, doc *modelEntityRefsDoc,
+) ([]txn.Op, error) {
+	for _, volumeId := range doc.Volumes {
+		volumeTag := names.NewVolumeTag(volumeId)
+		detachable, err := isDetachableVolumeTag(db, volumeTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if detachable {
+			return nil, hasPersistentStorageError{}
+		}
 	}
-	if n := len(doc.Filesystems); n > 0 {
-		return errors.Errorf("model not empty, found %d filesystem(s)", n)
+	for _, filesystemId := range doc.Filesystems {
+		filesystemTag := names.NewFilesystemTag(filesystemId)
+		detachable, err := isDetachableFilesystemTag(db, filesystemTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if detachable {
+			return nil, hasPersistentStorageError{}
+		}
 	}
-	return nil
+	return noNewStorageModelEntityRefs(doc), nil
 }
 
-func addModelMachineRefOp(st *State, machineId string) txn.Op {
-	return addModelEntityRefOp(st, "machines", machineId)
+// checkModelEntityRefsAllReleasableStorage checks that there all
+// persistent storage in the model is releasable. If it is, then
+// txn.Ops are returned to assert the same; if it is not, then an
+// error is returned.
+func checkModelEntityRefsAllReleasableStorage(im *IAASModel, doc *modelEntityRefsDoc) ([]txn.Op, error) {
+	for _, volumeId := range doc.Volumes {
+		volumeTag := names.NewVolumeTag(volumeId)
+		volume, err := im.volumeByTag(volumeTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !volume.Detachable() {
+			continue
+		}
+		if err := checkStoragePoolReleasable(im, volume.pool()); err != nil {
+			return nil, errors.Annotatef(err,
+				"cannot release %s", names.ReadableString(volumeTag),
+			)
+		}
+	}
+	for _, filesystemId := range doc.Filesystems {
+		filesystemTag := names.NewFilesystemTag(filesystemId)
+		filesystem, err := im.filesystemByTag(filesystemTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !filesystem.Detachable() {
+			continue
+		}
+		if err := checkStoragePoolReleasable(im, filesystem.pool()); err != nil {
+			return nil, errors.Annotatef(err,
+				"cannot release %s", names.ReadableString(filesystemTag),
+			)
+		}
+	}
+	return noNewStorageModelEntityRefs(doc), nil
 }
 
-func removeModelMachineRefOp(st *State, machineId string) txn.Op {
-	return removeModelEntityRefOp(st, "machines", machineId)
+func noNewStorageModelEntityRefs(doc *modelEntityRefsDoc) []txn.Op {
+	noNewVolumes := bson.DocElem{
+		"volumes", bson.D{{
+			"$not", bson.D{{
+				"$elemMatch", bson.D{{
+					"$nin", doc.Volumes,
+				}},
+			}},
+		}},
+		// There are no volumes that are not in
+		// the set of volumes we previously knew
+		// about => the current set of volumes
+		// is a subset of the previously known set.
+	}
+	noNewFilesystems := bson.DocElem{
+		"filesystems", bson.D{{
+			"$not", bson.D{{
+				"$elemMatch", bson.D{{
+					"$nin", doc.Filesystems,
+				}},
+			}},
+		}},
+	}
+	return []txn.Op{{
+		C:  modelEntityRefsC,
+		Id: doc.UUID,
+		Assert: bson.D{
+			noNewVolumes,
+			noNewFilesystems,
+		},
+	}}
 }
 
-func addModelApplicationRefOp(st *State, applicationname string) txn.Op {
-	return addModelEntityRefOp(st, "applications", applicationname)
+func addModelMachineRefOp(mb modelBackend, machineId string) txn.Op {
+	return addModelEntityRefOp(mb, "machines", machineId)
 }
 
-func removeModelApplicationRefOp(st *State, applicationname string) txn.Op {
-	return removeModelEntityRefOp(st, "applications", applicationname)
+func removeModelMachineRefOp(mb modelBackend, machineId string) txn.Op {
+	return removeModelEntityRefOp(mb, "machines", machineId)
 }
 
-func addModelVolumeRefOp(st *State, volumeId string) txn.Op {
-	return addModelEntityRefOp(st, "volumes", volumeId)
+func addModelApplicationRefOp(mb modelBackend, applicationname string) txn.Op {
+	return addModelEntityRefOp(mb, "applications", applicationname)
 }
 
-func removeModelVolumeRefOp(st *State, volumeId string) txn.Op {
-	return removeModelEntityRefOp(st, "volumes", volumeId)
+func removeModelApplicationRefOp(mb modelBackend, applicationname string) txn.Op {
+	return removeModelEntityRefOp(mb, "applications", applicationname)
 }
 
-func addModelFilesystemRefOp(st *State, filesystemId string) txn.Op {
-	return addModelEntityRefOp(st, "filesystems", filesystemId)
+func addModelVolumeRefOp(mb modelBackend, volumeId string) txn.Op {
+	return addModelEntityRefOp(mb, "volumes", volumeId)
 }
 
-func removeModelFilesystemRefOp(st *State, filesystemId string) txn.Op {
-	return removeModelEntityRefOp(st, "filesystems", filesystemId)
+func removeModelVolumeRefOp(mb modelBackend, volumeId string) txn.Op {
+	return removeModelEntityRefOp(mb, "volumes", volumeId)
 }
 
-func addModelEntityRefOp(st *State, entityField, entityId string) txn.Op {
+func addModelFilesystemRefOp(mb modelBackend, filesystemId string) txn.Op {
+	return addModelEntityRefOp(mb, "filesystems", filesystemId)
+}
+
+func removeModelFilesystemRefOp(mb modelBackend, filesystemId string) txn.Op {
+	return removeModelEntityRefOp(mb, "filesystems", filesystemId)
+}
+
+func addModelEntityRefOp(mb modelBackend, entityField, entityId string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
-		Id:     st.ModelUUID(),
+		Id:     mb.modelUUID(),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$addToSet", bson.D{{entityField, entityId}}}},
 	}
 }
 
-func removeModelEntityRefOp(st *State, entityField, entityId string) txn.Op {
+func removeModelEntityRefOp(mb modelBackend, entityField, entityId string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
-		Id:     st.ModelUUID(),
+		Id:     mb.modelUUID(),
 		Update: bson.D{{"$pull", bson.D{{entityField, entityId}}}},
 	}
 }
@@ -972,18 +1476,22 @@ func removeModelEntityRefOp(st *State, entityField, entityId string) txn.Op {
 // createModelOp returns the operation needed to create
 // an model document with the given name and UUID.
 func createModelOp(
+	modelType ModelType,
 	owner names.UserTag,
 	name, uuid, controllerUUID, cloudName, cloudRegion string,
 	cloudCredential names.CloudCredentialTag,
 	migrationMode MigrationMode,
+	environVersion int,
 ) txn.Op {
 	doc := &modelDoc{
+		Type:            modelType,
 		UUID:            uuid,
 		Name:            name,
 		Life:            Alive,
 		Owner:           owner.Id(),
 		ControllerUUID:  controllerUUID,
 		MigrationMode:   migrationMode,
+		EnvironVersion:  environVersion,
 		Cloud:           cloudName,
 		CloudRegion:     cloudRegion,
 		CloudCredential: cloudCredential.Id(),
@@ -1042,7 +1550,7 @@ func HostedModelCountOp(amount int) txn.Op {
 
 func hostedModelCount(st *State) (int, error) {
 	var doc hostedModelCountDoc
-	controllers, closer := st.getCollection(controllersC)
+	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
 
 	if err := controllers.Find(bson.D{{"_id", hostedModelCountKey}}).One(&doc); err != nil {
@@ -1065,29 +1573,6 @@ func createUniqueOwnerModelNameOp(owner names.UserTag, envName string) txn.Op {
 // assertAliveOp returns a txn.Op that asserts the model is alive.
 func (m *Model) assertActiveOp() txn.Op {
 	return assertModelActiveOp(m.UUID())
-}
-
-// getState returns the State for the model, and a function to close
-// it when done. If m.st is the model-specific state, then it will
-// be returned and the close function will be a no-op.
-//
-// TODO(axw) 2016-04-14 #1570269
-// find a way to guarantee that every Model is associated with the
-// appropriate State. The current work-around is too easy to get wrong.
-func (m *Model) getState() (*State, func(), error) {
-	if m.st.modelTag == m.ModelTag() {
-		return m.st, func() {}, nil
-	}
-	st, err := m.st.ForModel(m.ModelTag())
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	uuid := st.ModelUUID()
-	return st, func() {
-		if err := st.Close(); err != nil {
-			logger.Errorf("closing temporary state for model %s", uuid)
-		}
-	}, nil
 }
 
 // assertModelActiveOp returns a txn.Op that asserts the given

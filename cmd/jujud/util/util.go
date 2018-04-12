@@ -5,13 +5,11 @@ package util
 
 import (
 	"fmt"
-	"io"
 	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/series"
-	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
@@ -37,7 +35,7 @@ func RequiredError(name string) error {
 func IsFatal(err error) bool {
 	err = errors.Cause(err)
 	switch err {
-	case jworker.ErrTerminateAgent, jworker.ErrRebootMachine, jworker.ErrShutdownMachine:
+	case jworker.ErrTerminateAgent, jworker.ErrRebootMachine, jworker.ErrShutdownMachine, jworker.ErrRestartAgent:
 		return true
 	}
 
@@ -108,10 +106,13 @@ func AgentDone(logger loggo.Logger, err error) error {
 	if ug, ok := err.(*upgrader.UpgradeReadyError); ok {
 		if err := ug.ChangeAgentTools(); err != nil {
 			// Return and let the init system deal with the restart.
-			err = errors.Annotate(err, "cannot change agent tools")
+			err = errors.Annotate(err, "cannot change agent binaries")
 			logger.Infof(err.Error())
 			return err
 		}
+	}
+	if err == jworker.ErrRestartAgent {
+		logger.Warningf("agent restarting")
 	}
 	return err
 }
@@ -228,36 +229,6 @@ func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		MemoryProfile: agentConfig.MongoMemoryProfile(),
 	}
 	return params, nil
-}
-
-// NewCloseWorker returns a task that wraps the given task,
-// closing the given closer when it finishes.
-func NewCloseWorker(logger loggo.Logger, worker worker.Worker, closer io.Closer) worker.Worker {
-	return &CloseWorker{
-		worker: worker,
-		closer: closer,
-		logger: logger,
-	}
-}
-
-// CloseWorker is a worker which closes the given closer when finished
-// with a task.
-type CloseWorker struct {
-	worker worker.Worker
-	closer io.Closer
-	logger loggo.Logger
-}
-
-func (c *CloseWorker) Kill() {
-	c.worker.Kill()
-}
-
-func (c *CloseWorker) Wait() error {
-	err := c.worker.Wait()
-	if err := c.closer.Close(); err != nil {
-		c.logger.Errorf("closeWorker: close error: %v", err)
-	}
-	return err
 }
 
 // ParamsStateServingInfoToStateStateServingInfo converts a

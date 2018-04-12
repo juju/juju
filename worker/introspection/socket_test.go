@@ -107,25 +107,37 @@ func (s *introspectionSuite) TestCmdLine(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestGoroutineProfile(c *gc.C) {
-	buf := s.call(c, "/debug/pprof/goroutine")
+	buf := s.call(c, "/debug/pprof/goroutine?debug=1")
 	c.Assert(buf, gc.NotNil)
 	matches(c, buf, `^goroutine profile: total \d+`)
 }
 
+func (s *introspectionSuite) TestTrace(c *gc.C) {
+	buf := s.call(c, "/debug/pprof/trace?seconds=1")
+	c.Assert(buf, gc.NotNil)
+	matches(c, buf, `^Content-Type: application/octet-stream*`)
+}
+
 func (s *introspectionSuite) TestMissingDepEngineReporter(c *gc.C) {
-	buf := s.call(c, "/depengine/")
+	buf := s.call(c, "/depengine")
 	matches(c, buf, "404 Not Found")
 	matches(c, buf, "missing dependency engine reporter")
 }
 
 func (s *introspectionSuite) TestMissingStatePoolReporter(c *gc.C) {
-	buf := s.call(c, "/statepool/")
+	buf := s.call(c, "/statepool")
 	matches(c, buf, "404 Not Found")
 	matches(c, buf, "State Pool Report: missing reporter")
 }
 
+func (s *introspectionSuite) TestMissingPubSubReporter(c *gc.C) {
+	buf := s.call(c, "/pubsub")
+	matches(c, buf, "404 Not Found")
+	matches(c, buf, "PubSub Report: missing reporter")
+}
+
 func (s *introspectionSuite) TestStateTrackerReporter(c *gc.C) {
-	buf := s.call(c, "/debug/pprof/juju/state/tracker")
+	buf := s.call(c, "/debug/pprof/juju/state/tracker?debug=1")
 	matches(c, buf, "200 OK")
 	matches(c, buf, "juju/state/tracker profile: total")
 }
@@ -140,7 +152,7 @@ func (s *introspectionSuite) TestEngineReporter(c *gc.C) {
 		},
 	}
 	s.startWorker(c)
-	buf := s.call(c, "/depengine/")
+	buf := s.call(c, "/depengine")
 
 	matches(c, buf, "200 OK")
 	matches(c, buf, "working: true")

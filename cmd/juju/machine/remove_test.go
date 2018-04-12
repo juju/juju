@@ -5,9 +5,11 @@ package machine_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/machine"
@@ -16,7 +18,8 @@ import (
 
 type RemoveMachineSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	fake *fakeRemoveMachineAPI
+	fake          *fakeRemoveMachineAPI
+	apiConnection *mockAPIConnection
 }
 
 var _ = gc.Suite(&RemoveMachineSuite{})
@@ -24,11 +27,14 @@ var _ = gc.Suite(&RemoveMachineSuite{})
 func (s *RemoveMachineSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake = &fakeRemoveMachineAPI{}
+	s.apiConnection = &mockAPIConnection{
+		bestFacadeVersion: 4,
+	}
 }
 
 func (s *RemoveMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	remove, _ := machine.NewRemoveCommandForTest(s.fake)
-	return testing.RunCommand(c, remove, args...)
+	remove, _ := machine.NewRemoveCommandForTest(s.apiConnection, s.fake)
+	return cmdtesting.RunCommand(c, remove, args...)
 }
 
 func (s *RemoveMachineSuite) TestInit(c *gc.C) {
@@ -36,6 +42,7 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 		args        []string
 		machines    []string
 		force       bool
+		keep        bool
 		errorString string
 	}{
 		{
@@ -55,6 +62,10 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 			machines: []string{"1", "2"},
 			force:    true,
 		}, {
+			args:     []string{"--keep-instance", "1", "2"},
+			machines: []string{"1", "2"},
+			keep:     true,
+		}, {
 			args:        []string{"lxd"},
 			errorString: `invalid machine id "lxd"`,
 		}, {
@@ -63,11 +74,12 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, removeCmd := machine.NewRemoveCommandForTest(s.fake)
-		err := testing.InitCommand(wrappedCommand, test.args)
+		wrappedCommand, removeCmd := machine.NewRemoveCommandForTest(s.apiConnection, s.fake)
+		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(removeCmd.Force, gc.Equals, test.force)
+			c.Check(removeCmd.KeepInstance, gc.Equals, test.keep)
 			c.Check(removeCmd.MachineIds, jc.DeepEquals, test.machines)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errorString)
@@ -96,7 +108,7 @@ func (s *RemoveMachineSuite) TestRemoveOutput(c *gc.C) {
 	}}
 	ctx, err := s.run(c, "1", "2/lxd/1")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	stderr := testing.Stderr(ctx)
+	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `
 removing machine 1 failed: oy vey
 removing machine 2/lxd/1
@@ -106,11 +118,30 @@ removing machine 2/lxd/1
 `[1:])
 }
 
+func (s *RemoveMachineSuite) TestRemoveOutputKeep(c *gc.C) {
+	ctx, err := s.run(c, "--keep-instance", "1", "2")
+	c.Assert(err, jc.ErrorIsNil)
+	stderr := cmdtesting.Stderr(ctx)
+	c.Assert(stderr, gc.Equals, `
+removing machine 1 (but retaining cloud instance)
+removing machine 2 (but retaining cloud instance)
+`[1:])
+}
+
 func (s *RemoveMachineSuite) TestRemoveForce(c *gc.C) {
 	_, err := s.run(c, "--force", "1", "2/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.forced, jc.IsTrue)
+	c.Assert(s.fake.keep, jc.IsFalse)
 	c.Assert(s.fake.machines, jc.DeepEquals, []string{"1", "2/lxd/1"})
+}
+
+func (s *RemoveMachineSuite) TestRemoveKeep(c *gc.C) {
+	_, err := s.run(c, "--keep-instance", "1", "2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fake.forced, jc.IsFalse)
+	c.Assert(s.fake.keep, jc.IsTrue)
+	c.Assert(s.fake.machines, jc.DeepEquals, []string{"1", "2"})
 }
 
 func (s *RemoveMachineSuite) TestBlockedError(c *gc.C) {
@@ -127,8 +158,15 @@ func (s *RemoveMachineSuite) TestForceBlockedError(c *gc.C) {
 	testing.AssertOperationWasBlocked(c, err, ".*TestForceBlockedError.*")
 }
 
+func (s *RemoveMachineSuite) TestOldFacadeRemoveKeep(c *gc.C) {
+	s.apiConnection.bestFacadeVersion = 3
+	_, err := s.run(c, "--keep-instance", "1")
+	c.Assert(err, gc.ErrorMatches, "this version of Juju doesn't support --keep-instance")
+}
+
 type fakeRemoveMachineAPI struct {
 	forced      bool
+	keep        bool
 	machines    []string
 	removeError error
 	results     []params.DestroyMachineResult
@@ -148,6 +186,12 @@ func (f *fakeRemoveMachineAPI) ForceDestroyMachines(machines ...string) ([]param
 	return f.destroyMachines(machines)
 }
 
+func (f *fakeRemoveMachineAPI) DestroyMachinesWithParams(force, keep bool, machines ...string) ([]params.DestroyMachineResult, error) {
+	f.forced = force
+	f.keep = keep
+	return f.destroyMachines(machines)
+}
+
 func (f *fakeRemoveMachineAPI) destroyMachines(machines []string) ([]params.DestroyMachineResult, error) {
 	f.machines = machines
 	if f.removeError != nil || f.results != nil {
@@ -158,4 +202,13 @@ func (f *fakeRemoveMachineAPI) destroyMachines(machines []string) ([]params.Dest
 		results[i].Info = &params.DestroyMachineInfo{}
 	}
 	return results, nil
+}
+
+type mockAPIConnection struct {
+	api.Connection
+	bestFacadeVersion int
+}
+
+func (m *mockAPIConnection) BestFacadeVersion(name string) int {
+	return m.bestFacadeVersion
 }

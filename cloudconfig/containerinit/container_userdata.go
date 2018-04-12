@@ -5,25 +5,17 @@
 package containerinit
 
 import (
-	"bytes"
-	"fmt"
 	"io/ioutil"
-	"net"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/proxy"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 )
 
 var (
@@ -58,182 +50,19 @@ func WriteCloudInitFile(directory string, userData []byte) (string, error) {
 	return userDataFilename, nil
 }
 
-var (
-	systemNetworkInterfacesFile = "/etc/network/interfaces"
-	networkInterfacesFile       = systemNetworkInterfacesFile + "-juju"
-)
-
-// GenerateNetworkConfig renders a network config for one or more network
-// interfaces, using the given non-nil networkConfig containing a non-empty
-// Interfaces field.
-func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, error) {
-	if networkConfig == nil || len(networkConfig.Interfaces) == 0 {
-		return "", errors.Errorf("missing container network config")
-	}
-	logger.Debugf("generating network config from %#v", *networkConfig)
-
-	prepared := PrepareNetworkConfigFromInterfaces(networkConfig.Interfaces)
-
-	var output bytes.Buffer
-	gatewayHandled := false
-	for _, name := range prepared.InterfaceNames {
-		output.WriteString("\n")
-		if name == "lo" {
-			output.WriteString("auto ")
-			autoStarted := strings.Join(prepared.AutoStarted, " ")
-			output.WriteString(autoStarted + "\n\n")
-			output.WriteString("iface lo inet loopback\n")
-
-			dnsServers := strings.Join(prepared.DNSServers, " ")
-			if dnsServers != "" {
-				output.WriteString("  dns-nameservers ")
-				output.WriteString(dnsServers + "\n")
-			}
-
-			dnsSearchDomains := strings.Join(prepared.DNSSearchDomains, " ")
-			if dnsSearchDomains != "" {
-				output.WriteString("  dns-search ")
-				output.WriteString(dnsSearchDomains + "\n")
-			}
-			continue
-		}
-
-		address, hasAddress := prepared.NameToAddress[name]
-		if !hasAddress {
-			output.WriteString("iface " + name + " inet manual\n")
-			continue
-		} else if address == string(network.ConfigDHCP) {
-			output.WriteString("iface " + name + " inet dhcp\n")
-			// We're expecting to get a default gateway
-			// from the DHCP lease.
-			gatewayHandled = true
-			continue
-		}
-
-		output.WriteString("iface " + name + " inet static\n")
-		output.WriteString("  address " + address + "\n")
-		if !gatewayHandled && prepared.GatewayAddress != "" {
-			_, network, err := net.ParseCIDR(address)
-			if err != nil {
-				return "", errors.Annotatef(err, "invalid gateway for interface %q with address %q", name, address)
-			}
-
-			gatewayIP := net.ParseIP(prepared.GatewayAddress)
-			if network.Contains(gatewayIP) {
-				output.WriteString("  gateway " + prepared.GatewayAddress + "\n")
-				gatewayHandled = true // write it only once
-			}
-		}
-		for _, route := range prepared.NameToRoutes[name] {
-			output.WriteString(fmt.Sprintf("  post-up ip route add %s via %s metric %d\n",
-				route.DestinationCIDR, route.GatewayIP, route.Metric))
-			output.WriteString(fmt.Sprintf("  pre-down ip route del %s via %s metric %d\n",
-				route.DestinationCIDR, route.GatewayIP, route.Metric))
-		}
-	}
-
-	generatedConfig := output.String()
-	logger.Debugf("generated network config:\n%s", generatedConfig)
-
-	if !gatewayHandled {
-		logger.Infof("generated network config has no gateway")
-	}
-
-	return generatedConfig, nil
-}
-
-// PreparedConfig holds all the necessary information to render a persistent
-// network config to a file.
-type PreparedConfig struct {
-	InterfaceNames   []string
-	AutoStarted      []string
-	DNSServers       []string
-	DNSSearchDomains []string
-	NameToAddress    map[string]string
-	NameToRoutes     map[string][]network.Route
-	GatewayAddress   string
-}
-
-// PrepareNetworkConfigFromInterfaces collects the necessary information to
-// render a persistent network config from the given slice of
-// network.InterfaceInfo. The result always includes the loopback interface.
-func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *PreparedConfig {
-	dnsServers := set.NewStrings()
-	dnsSearchDomains := set.NewStrings()
-	gatewayAddress := ""
-	namesInOrder := make([]string, 1, len(interfaces)+1)
-	nameToAddress := make(map[string]string)
-	nameToRoutes := make(map[string][]network.Route)
-
-	// Always include the loopback.
-	namesInOrder[0] = "lo"
-	autoStarted := set.NewStrings("lo")
-
-	for _, info := range interfaces {
-		if !info.NoAutoStart {
-			autoStarted.Add(info.InterfaceName)
-		}
-
-		if cidr := info.CIDRAddress(); cidr != "" {
-			nameToAddress[info.InterfaceName] = cidr
-		} else if info.ConfigType == network.ConfigDHCP {
-			nameToAddress[info.InterfaceName] = string(network.ConfigDHCP)
-		}
-		nameToRoutes[info.InterfaceName] = info.Routes
-
-		for _, dns := range info.DNSServers {
-			dnsServers.Add(dns.Value)
-		}
-
-		dnsSearchDomains = dnsSearchDomains.Union(set.NewStrings(info.DNSSearchDomains...))
-
-		if gatewayAddress == "" && info.GatewayAddress.Value != "" {
-			gatewayAddress = info.GatewayAddress.Value
-		}
-
-		namesInOrder = append(namesInOrder, info.InterfaceName)
-	}
-
-	prepared := &PreparedConfig{
-		InterfaceNames:   namesInOrder,
-		NameToAddress:    nameToAddress,
-		NameToRoutes:     nameToRoutes,
-		AutoStarted:      autoStarted.SortedValues(),
-		DNSServers:       dnsServers.SortedValues(),
-		DNSSearchDomains: dnsSearchDomains.SortedValues(),
-		GatewayAddress:   gatewayAddress,
-	}
-
-	logger.Debugf("prepared network config for rendering: %+v", prepared)
-	return prepared
-}
-
-// newCloudInitConfigWithNetworks creates a cloud-init config which
-// might include per-interface networking config if both networkConfig
-// is not nil and its Interfaces field is not empty.
-func newCloudInitConfigWithNetworks(series string, networkConfig *container.NetworkConfig) (cloudinit.CloudConfig, error) {
-	cloudConfig, err := cloudinit.New(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if networkConfig != nil {
-		config, err := GenerateNetworkConfig(networkConfig)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
-		cloudConfig.AddRunCmd(raiseJujuNetworkInterfacesScript(systemNetworkInterfacesFile, networkInterfacesFile))
-	}
-
-	return cloudConfig, nil
-}
-
 func CloudInitUserData(
 	instanceConfig *instancecfg.InstanceConfig,
 	networkConfig *container.NetworkConfig,
 ) ([]byte, error) {
-	cloudConfig, err := newCloudInitConfigWithNetworks(instanceConfig.Series, networkConfig)
+	cloudConfig, err := cloudinit.New(instanceConfig.Series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var interfaces []network.InterfaceInfo
+	if networkConfig != nil {
+		interfaces = networkConfig.Interfaces
+	}
+	err = cloudConfig.AddNetworkConfig(interfaces)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -258,125 +87,4 @@ func CloudInitUserData(
 		return nil, errors.Trace(err)
 	}
 	return data, nil
-}
-
-// TemplateUserData returns a minimal user data necessary for the template.
-// This should have the authorized keys, base packages, the cloud archive if
-// necessary,  initial apt proxy config, and it should do the apt-get
-// update/upgrade initially.
-func TemplateUserData(
-	series string,
-	authorizedKeys string,
-	aptProxy proxy.Settings,
-	aptMirror string,
-	enablePackageUpdates bool,
-	enableOSUpgrades bool,
-	networkConfig *container.NetworkConfig,
-) ([]byte, error) {
-	var config cloudinit.CloudConfig
-	var err error
-	if networkConfig != nil {
-		config, err = newCloudInitConfigWithNetworks(series, networkConfig)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	} else {
-		config, err = cloudinit.New(series)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	cloudconfig.SetUbuntuUser(config, authorizedKeys)
-	config.AddScripts(
-		"set -xe", // ensure we run all the scripts or abort.
-	)
-	// For LTS series which need support for the cloud-tools archive,
-	// we need to enable apt-get update regardless of the environ
-	// setting, otherwise provisioning will fail.
-	if series == "precise" && !enablePackageUpdates {
-		logger.Infof("series %q requires cloud-tools archive: enabling updates", series)
-		enablePackageUpdates = true
-	}
-
-	if enablePackageUpdates && config.RequiresCloudArchiveCloudTools() {
-		config.AddCloudArchiveCloudTools()
-	}
-	config.AddPackageCommands(aptProxy, aptMirror, enablePackageUpdates, enableOSUpgrades)
-
-	initSystem, err := service.VersionInitSystem(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cmds, err := shutdownInitCommands(initSystem, series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	config.AddScripts(strings.Join(cmds, "\n"))
-
-	data, err := config.RenderYAML()
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func shutdownInitCommands(initSystem, series string) ([]string, error) {
-	shutdownCmd := "/sbin/shutdown -h now"
-	name := "juju-template-restart"
-	desc := "juju shutdown job"
-
-	execStart := shutdownCmd
-
-	conf := common.Conf{
-		Desc:         desc,
-		Transient:    true,
-		AfterStopped: "cloud-final",
-		ExecStart:    execStart,
-	}
-	// systemd uses targets for synchronization of services
-	if initSystem == service.InitSystemSystemd {
-		conf.AfterStopped = "cloud-config.target"
-	}
-
-	svc, err := service.NewService(name, conf, series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cmds, err := svc.InstallCommands()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	startCommands, err := svc.StartCommands()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cmds = append(cmds, startCommands...)
-
-	return cmds, nil
-}
-
-// raiseJujuNetworkInterfacesScript returns a cloud-init script to
-// raise Juju's network interfaces supplied via cloud-init.
-//
-// Note: we sleep to mitigate against LP #1337873 and LP #1269921.
-func raiseJujuNetworkInterfacesScript(oldInterfacesFile, newInterfacesFile string) string {
-	return fmt.Sprintf(`
-if [ -f %[2]s ]; then
-    echo "stopping all interfaces"
-    ifdown -a
-    sleep 1.5
-    if ifup -a --interfaces=%[2]s; then
-        echo "ifup with %[2]s succeeded, renaming to %[1]s"
-        cp %[1]s %[1]s-orig
-        cp %[2]s %[1]s
-    else
-        echo "ifup with %[2]s failed, leaving old %[1]s alone"
-        ifup -a
-    fi
-else
-    echo "did not find %[2]s, not reconfiguring networking"
-fi`[1:],
-		oldInterfacesFile, newInterfacesFile)
 }

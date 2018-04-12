@@ -103,24 +103,3 @@ func (s *StorageSuite) TestReadListLegacyPPC64(c *gc.C) {
 	}
 	c.Assert(list, gc.DeepEquals, expected)
 }
-
-var setenvTests = []struct {
-	set    string
-	expect []string
-}{
-	{"foo=1", []string{"foo=1", "arble="}},
-	{"foo=", []string{"foo=", "arble="}},
-	{"arble=23", []string{"foo=bar", "arble=23"}},
-	{"zaphod=42", []string{"foo=bar", "arble=", "zaphod=42"}},
-}
-
-func (*StorageSuite) TestSetenv(c *gc.C) {
-	env0 := []string{"foo=bar", "arble="}
-	for i, t := range setenvTests {
-		c.Logf("test %d", i)
-		env := make([]string, len(env0))
-		copy(env, env0)
-		env = envtools.Setenv(env, t.set)
-		c.Check(env, gc.DeepEquals, t.expect)
-	}
-}

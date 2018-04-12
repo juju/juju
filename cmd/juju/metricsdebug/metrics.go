@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/gosuri/uitable"
@@ -101,6 +102,9 @@ func (slice metricSlice) Len() int {
 
 // Less implements the sort.Interface.
 func (slice metricSlice) Less(i, j int) bool {
+	if slice[i].Metric == slice[j].Metric {
+		return renderLabels(slice[i].Labels) < renderLabels(slice[j].Labels)
+	}
 	return slice[i].Metric < slice[j].Metric
 }
 
@@ -110,10 +114,11 @@ func (slice metricSlice) Swap(i, j int) {
 }
 
 type metric struct {
-	Unit      string    `json:"unit" yaml:"unit"`
-	Timestamp time.Time `json:"timestamp" yaml:"timestamp"`
-	Metric    string    `json:"metric" yaml:"metric"`
-	Value     string    `json:"value" yaml:"value"`
+	Unit      string            `json:"unit" yaml:"unit"`
+	Timestamp time.Time         `json:"timestamp" yaml:"timestamp"`
+	Metric    string            `json:"metric" yaml:"metric"`
+	Value     string            `json:"value" yaml:"value"`
+	Labels    map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
 }
 
 // Run implements Command.Run.
@@ -142,6 +147,7 @@ func (c *MetricsCommand) Run(ctx *cmd.Context) error {
 			Timestamp: m.Time,
 			Metric:    m.Key,
 			Value:     m.Value,
+			Labels:    m.Labels,
 		}
 	}
 	sortedResults := metricSlice(results)
@@ -162,10 +168,19 @@ func formatTabular(writer io.Writer, value interface{}) error {
 	for _, col := range []int{1, 2, 3, 4} {
 		table.RightAlign(col)
 	}
-	table.AddRow("UNIT", "TIMESTAMP", "METRIC", "VALUE")
+	table.AddRow("UNIT", "TIMESTAMP", "METRIC", "VALUE", "LABELS")
 	for _, m := range metrics {
-		table.AddRow(m.Unit, m.Timestamp.Format(time.RFC3339), m.Metric, m.Value)
+		table.AddRow(m.Unit, m.Timestamp.Format(time.RFC3339), m.Metric, m.Value, renderLabels(m.Labels))
 	}
 	_, err := fmt.Fprint(writer, table.String())
 	return errors.Trace(err)
+}
+
+func renderLabels(m map[string]string) string {
+	var result []string
+	for k, v := range m {
+		result = append(result, fmt.Sprintf("%s=%s", k, v))
+	}
+	sort.Strings(result)
+	return strings.Join(result, ",")
 }

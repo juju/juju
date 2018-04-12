@@ -40,6 +40,7 @@ type Config struct {
 	SocketName         string
 	DepEngine          DepEngineReporter
 	StatePool          IntrospectionReporter
+	PubSub             IntrospectionReporter
 	PrometheusGatherer prometheus.Gatherer
 }
 
@@ -60,6 +61,7 @@ type socketListener struct {
 	listener           *net.UnixListener
 	depEngine          DepEngineReporter
 	statePool          IntrospectionReporter
+	pubsub             IntrospectionReporter
 	prometheusGatherer prometheus.Gatherer
 	done               chan struct{}
 }
@@ -90,6 +92,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		listener:           l,
 		depEngine:          config.DepEngine,
 		statePool:          config.StatePool,
+		pubsub:             config.PubSub,
 		prometheusGatherer: config.PrometheusGatherer,
 		done:               make(chan struct{}),
 	}
@@ -104,6 +107,7 @@ func (w *socketListener) serve() {
 		ReportSources{
 			DependencyEngine:   w.depEngine,
 			StatePool:          w.statePool,
+			PubSub:             w.pubsub,
 			PrometheusGatherer: w.prometheusGatherer,
 		}, mux.Handle)
 
@@ -139,6 +143,7 @@ func (w *socketListener) Wait() error {
 type ReportSources struct {
 	DependencyEngine   DepEngineReporter
 	StatePool          IntrospectionReporter
+	PubSub             IntrospectionReporter
 	PrometheusGatherer prometheus.Gatherer
 }
 
@@ -154,10 +159,15 @@ func RegisterHTTPHandlers(
 	handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
 	handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 	handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
-	handle("/depengine/", depengineHandler{sources.DependencyEngine})
-	handle("/statepool/", introspectionReporterHandler{
+	handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
+	handle("/depengine", depengineHandler{sources.DependencyEngine})
+	handle("/statepool", introspectionReporterHandler{
 		name:     "State Pool Report",
 		reporter: sources.StatePool,
+	})
+	handle("/pubsub", introspectionReporterHandler{
+		name:     "PubSub Report",
+		reporter: sources.PubSub,
 	})
 	handle("/metrics", promhttp.HandlerFor(sources.PrometheusGatherer, promhttp.HandlerOpts{}))
 }

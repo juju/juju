@@ -7,7 +7,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/openstack"

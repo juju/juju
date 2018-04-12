@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
@@ -97,16 +98,23 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	if logDir == "" {
 		logDir = agent.DefaultPaths.LogDir
 	}
+
+	availabilityZone := conf.PopValue(container.ConfigAvailabilityZone)
+	if availabilityZone == "" {
+		logger.Infof("Availability zone will be empty for this container manager")
+	}
+
 	conf.WarnAboutUnused()
-	return &containerManager{namespace: namespace, logdir: logDir}, nil
+	return &containerManager{namespace: namespace, logdir: logDir, availabilityZone: availabilityZone}, nil
 }
 
 // containerManager handles all of the business logic at the juju specific
 // level. It makes sure that the necessary directories are in place, that the
 // user-data is written out in the right place.
 type containerManager struct {
-	namespace instance.Namespace
-	logdir    string
+	namespace        instance.Namespace
+	logdir           string
+	availabilityZone string
 }
 
 var _ container.Manager = (*containerManager)(nil)
@@ -126,7 +134,7 @@ func (manager *containerManager) CreateContainer(
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
-) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
+) (_ instance.Instance, hc *instance.HardwareCharacteristics, err error) {
 
 	name, err := manager.namespace.Hostname(instanceConfig.MachineId)
 	if err != nil {
@@ -147,6 +155,8 @@ func (manager *containerManager) CreateContainer(
 	// disk.
 	kvmContainer := KvmObjectFactory.New(name)
 
+	hc = &instance.HardwareCharacteristics{AvailabilityZone: &manager.availabilityZone}
+
 	// Create the cloud-init.
 	directory, err := container.NewDirectory(name)
 	if err != nil {
@@ -166,6 +176,7 @@ func (manager *containerManager) CreateContainer(
 	startParams.Series = series
 	startParams.Network = networkConfig
 	startParams.UserDataFile = userDataFilename
+	startParams.NetworkConfigData = cloudinit.CloudInitNetworkConfigDisabled
 	startParams.StatusCallback = callback
 
 	// If the Simplestream requested is anything but released, update

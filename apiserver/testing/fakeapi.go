@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"context"
 	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -72,18 +74,19 @@ func (srv *Server) serveAPI(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		return
 	}
-	srv.serveConn(conn, req.URL.Query().Get(":modeluuid"))
+	srv.serveConn(req.Context(), conn, req.URL.Query().Get(":modeluuid"))
 }
 
-func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string) {
+func (srv *Server) serveConn(ctx context.Context, wsConn *websocket.Conn, modelUUID string) {
 	codec := jsoncodec.NewWebsocket(wsConn)
-	conn := rpc.NewConn(codec, &fakeobserver.Instance{})
+	conn := rpc.NewConn(codec, observer.NewRecorderFactory(
+		&fakeobserver.Instance{}, nil, observer.NoCaptureArgs))
 
 	root := allVersions{
 		rpcreflect.ValueOf(reflect.ValueOf(srv.newRoot(modelUUID))),
 	}
-	conn.ServeRoot(root, nil)
-	conn.Start()
+	conn.ServeRoot(root, nil, nil)
+	conn.Start(ctx)
 	<-conn.Dead()
 	conn.Close()
 }

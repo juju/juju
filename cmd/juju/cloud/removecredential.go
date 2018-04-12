@@ -19,7 +19,7 @@ type removeCredentialCommand struct {
 }
 
 var usageRemoveCredentialSummary = `
-Removes credentials for a cloud.`[1:]
+Removes locally stored credentials for a cloud.`[1:]
 
 var usageRemoveCredentialDetails = `
 The credentials to be removed are specified by a "credential name".
@@ -63,19 +63,19 @@ func (c *removeCredentialCommand) Init(args []string) (err error) {
 func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {
 	cred, err := c.store.CredentialForCloud(c.cloud)
 	if errors.IsNotFound(err) {
-		ctxt.Infof("No credentials exist for cloud %q", c.cloud)
+		ctxt.Infof("No locally stored credentials exist for cloud %q", c.cloud)
 		return nil
 	} else if err != nil {
 		return err
 	}
 	if _, ok := cred.AuthCredentials[c.credential]; !ok {
-		ctxt.Infof("No credential called %q exists for cloud %q", c.credential, c.cloud)
+		ctxt.Infof("No local credential called %q exists for cloud %q", c.credential, c.cloud)
 		return nil
 	}
 	delete(cred.AuthCredentials, c.credential)
 	if err := c.store.UpdateCredential(c.cloud, *cred); err != nil {
 		return err
 	}
-	ctxt.Infof("Credential %q for cloud %q has been deleted.", c.credential, c.cloud)
+	ctxt.Infof("Local credential %q for cloud %q has been deleted.", c.credential, c.cloud)
 	return nil
 }

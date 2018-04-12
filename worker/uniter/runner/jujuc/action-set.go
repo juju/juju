@@ -5,14 +5,14 @@ package jujuc
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/charm.v6"
 )
 
-var keyRule = regexp.MustCompile("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
+var keyRule = charm.GetActionNameRule()
 
 // ActionSetCommand implements the action-set command.
 type ActionSetCommand struct {

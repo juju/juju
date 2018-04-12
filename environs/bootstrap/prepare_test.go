@@ -15,7 +15,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -49,7 +48,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 	)
 	cfg, err := config.New(config.NoDefaults, baselineAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	controllerStore := jujuclienttesting.NewMemStore()
+	controllerStore := jujuclient.NewMemStore()
 	ctx := envtesting.BootstrapContext(c)
 	controllerCfg := controller.Config{
 		controller.ControllerUUIDKey:       testing.ControllerTag.Id(),

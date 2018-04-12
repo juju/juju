@@ -5,27 +5,25 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/testing"
 )
 
 type APIContextSuite struct {
-	testing.IsolationSuite
-}
-
-func (s *APIContextSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	testing.MakeFakeHome(c)
+	testing.FakeJujuXDGDataHomeSuite
 }
 
 var _ = gc.Suite(&APIContextSuite{})
 
 func (s *APIContextSuite) TestNewAPIContext(c *gc.C) {
-	ctx, err := modelcmd.NewAPIContext(nil, nil)
+	store := jujuclient.NewFileClientStore()
+
+	ctx, err := modelcmd.NewAPIContext(nil, nil, store, "testcontroller")
 	c.Assert(err, jc.ErrorIsNil)
 
 	handler := func(w http.ResponseWriter, req *http.Request) {
@@ -51,7 +49,7 @@ func (s *APIContextSuite) TestNewAPIContext(c *gc.C) {
 
 	// Make another APIContext which should
 	// get the cookies just saved.
-	ctx, err = modelcmd.NewAPIContext(nil, nil)
+	ctx, err = modelcmd.NewAPIContext(nil, nil, store, "testcontroller")
 	c.Assert(err, jc.ErrorIsNil)
 
 	handler = func(w http.ResponseWriter, req *http.Request) {
@@ -65,8 +63,9 @@ func (s *APIContextSuite) TestNewAPIContext(c *gc.C) {
 }
 
 func (s *APIContextSuite) TestDomainCookie(c *gc.C) {
+	store := jujuclient.NewFileClientStore()
 	s.PatchEnvironment("JUJU_USER_DOMAIN", "something")
-	ctx, err := modelcmd.NewAPIContext(nil, nil)
+	ctx, err := modelcmd.NewAPIContext(nil, nil, store, "testcontroller")
 	c.Assert(err, jc.ErrorIsNil)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		c.Check(req.Cookies(), jc.DeepEquals, []*http.Cookie{{

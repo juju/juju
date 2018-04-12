@@ -24,9 +24,11 @@ func NewRemoveCommand() cmd.Command {
 // removeCommand causes an existing machine to be destroyed.
 type removeCommand struct {
 	modelcmd.ModelCommandBase
-	api        RemoveMachineAPI
-	MachineIds []string
-	Force      bool
+	apiRoot      api.Connection
+	machineAPI   RemoveMachineAPI
+	MachineIds   []string
+	Force        bool
+	KeepInstance bool
 }
 
 const destroyMachineDoc = `
@@ -46,6 +48,11 @@ Remove machine number 5 which has no running units or containers:
 Remove machine 6 and any running units or containers:
 
     juju remove-machine 6 --force
+    
+Remove machine 7 from the Juju model but do not stop 
+the corresponding cloud instance:
+
+    juju remove-machine 7 --keep-instance
 
 See also:
     add-machine
@@ -65,6 +72,7 @@ func (c *removeCommand) Info() *cmd.Info {
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.Force, "force", false, "Completely remove a machine and all its dependencies")
+	f.BoolVar(&c.KeepInstance, "keep-instance", false, "Do not stop the running cloud instance")
 }
 
 func (c *removeCommand) Init(args []string) error {
@@ -83,6 +91,7 @@ func (c *removeCommand) Init(args []string) error {
 type RemoveMachineAPI interface {
 	DestroyMachines(machines ...string) ([]params.DestroyMachineResult, error)
 	ForceDestroyMachines(machines ...string) ([]params.DestroyMachineResult, error)
+	DestroyMachinesWithParams(force, keep bool, machines ...string) ([]params.DestroyMachineResult, error)
 	Close() error
 }
 
@@ -100,6 +109,10 @@ func (a removeMachineAdapter) ForceDestroyMachines(machines ...string) ([]params
 	return a.destroyMachines(a.Client.ForceDestroyMachines, machines)
 }
 
+func (a removeMachineAdapter) DestroyMachinesWithParams(force, keep bool, machines ...string) ([]params.DestroyMachineResult, error) {
+	return a.destroyMachines(a.Client.ForceDestroyMachines, machines)
+}
+
 func (a removeMachineAdapter) destroyMachines(f func(...string) error, machines []string) ([]params.DestroyMachineResult, error) {
 	if err := f(machines...); err != nil {
 		return nil, err
@@ -111,16 +124,26 @@ func (a removeMachineAdapter) destroyMachines(f func(...string) error, machines 
 	return results, nil
 }
 
-func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
-	if c.api != nil {
-		return c.api, nil
+func (c *removeCommand) getAPIRoot() (api.Connection, error) {
+	if c.apiRoot != nil {
+		return c.apiRoot, nil
 	}
-	root, err := c.NewAPIRoot()
+	return c.NewAPIRoot()
+}
+
+func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
+	root, err := c.getAPIRoot()
 	if err != nil {
 		return nil, err
 	}
-	if root.BestFacadeVersion("MachineManager") >= 3 {
+	if root.BestFacadeVersion("MachineManager") < 4 && c.KeepInstance {
+		return nil, errors.New("this version of Juju doesn't support --keep-instance")
+	}
+	if root.BestFacadeVersion("MachineManager") >= 3 && c.machineAPI == nil {
 		return machinemanager.NewClient(root), nil
+	}
+	if c.machineAPI != nil {
+		return c.machineAPI, nil
 	}
 	return removeMachineAdapter{root.Client()}, nil
 }
@@ -133,12 +156,16 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	destroy := client.DestroyMachines
-	if c.Force {
-		destroy = client.ForceDestroyMachines
+	var results []params.DestroyMachineResult
+	if c.KeepInstance {
+		results, err = client.DestroyMachinesWithParams(c.Force, c.KeepInstance, c.MachineIds...)
+	} else {
+		destroy := client.DestroyMachines
+		if c.Force {
+			destroy = client.ForceDestroyMachines
+		}
+		results, err = destroy(c.MachineIds...)
 	}
-
-	results, err := destroy(c.MachineIds...)
 	if err := block.ProcessBlockedError(err, block.BlockRemove); err != nil {
 		return err
 	}
@@ -151,7 +178,11 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 			ctx.Infof("removing machine %s failed: %s", id, result.Error)
 			continue
 		}
-		ctx.Infof("removing machine %s", id)
+		if c.KeepInstance {
+			ctx.Infof("removing machine %s (but retaining cloud instance)", id)
+		} else {
+			ctx.Infof("removing machine %s", id)
+		}
 		for _, entity := range result.Info.DestroyedUnits {
 			unitTag, err := names.ParseUnitTag(entity.Tag)
 			if err != nil {

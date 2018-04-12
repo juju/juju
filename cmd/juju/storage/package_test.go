@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -34,13 +33,13 @@ func (s *BaseStorageSuite) TearDownTest(c *gc.C) {
 
 type SubStorageSuite struct {
 	jujutesting.FakeJujuXDGDataHomeSuite
-	store *jujuclienttesting.MemStore
+	store *jujuclient.MemStore
 }
 
 func (s *SubStorageSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{

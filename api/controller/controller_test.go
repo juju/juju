@@ -5,8 +5,8 @@ package controller_test
 
 import (
 	"encoding/json"
-	"errors"
 
+	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -14,11 +14,13 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type Suite struct {
@@ -27,24 +29,68 @@ type Suite struct {
 
 var _ = gc.Suite(&Suite{})
 
+func (s *Suite) TestDestroyControllerAPIVersion(c *gc.C) {
+	apiCaller := apitesting.BestVersionCaller{BestVersion: 3}
+	client := controller.NewClient(apiCaller)
+	for _, destroyStorage := range []*bool{nil, new(bool)} {
+		err := client.DestroyController(controller.DestroyControllerParams{
+			DestroyStorage: destroyStorage,
+		})
+		c.Assert(err, gc.ErrorMatches, "this Juju controller requires DestroyStorage to be true")
+	}
+
+}
+
+func (s *Suite) TestDestroyController(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.BestVersionCaller{
+		BestVersion: 4,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			stub.AddCall(objType+"."+request, arg)
+			return stub.NextErr()
+		},
+	}
+	client := controller.NewClient(apiCaller)
+
+	destroyStorage := true
+	err := client.DestroyController(controller.DestroyControllerParams{
+		DestroyModels:  true,
+		DestroyStorage: &destroyStorage,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{"Controller.DestroyController", []interface{}{params.DestroyControllerArgs{
+			DestroyModels:  true,
+			DestroyStorage: &destroyStorage,
+		}}},
+	})
+}
+
+func (s *Suite) TestDestroyControllerError(c *gc.C) {
+	apiCaller := apitesting.BestVersionCaller{
+		BestVersion: 4,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			return errors.New("nope")
+		},
+	}
+	client := controller.NewClient(apiCaller)
+	err := client.DestroyController(controller.DestroyControllerParams{})
+	c.Assert(err, gc.ErrorMatches, "nope")
+}
+
 func (s *Suite) TestInitiateMigration(c *gc.C) {
 	s.checkInitiateMigration(c, makeSpec())
 }
 
-func (s *Suite) TestInitiateMigrationExternalControl(c *gc.C) {
+func (s *Suite) TestInitiateMigrationEmptyCACert(c *gc.C) {
 	spec := makeSpec()
-	spec.ExternalControl = true
-	s.checkInitiateMigration(c, spec)
-}
-
-func (s *Suite) TestInitiateMigrationSkipPrechecks(c *gc.C) {
-	spec := makeSpec()
-	spec.SkipInitialPrechecks = true
+	spec.TargetCACert = ""
 	s.checkInitiateMigration(c, spec)
 }
 
 func (s *Suite) checkInitiateMigration(c *gc.C, spec controller.MigrationSpec) {
-	client, stub := makeClient(params.InitiateMigrationResults{
+	client, stub := makeInitiateMigrationClient(params.InitiateMigrationResults{
 		Results: []params.InitiateMigrationResult{{
 			MigrationId: "id",
 		}},
@@ -77,14 +123,12 @@ func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
 				Password:      spec.TargetPassword,
 				Macaroons:     string(macsJSON),
 			},
-			ExternalControl:      spec.ExternalControl,
-			SkipInitialPrechecks: spec.SkipInitialPrechecks,
 		}},
 	}
 }
 
 func (s *Suite) TestInitiateMigrationError(c *gc.C) {
-	client, _ := makeClient(params.InitiateMigrationResults{
+	client, _ := makeInitiateMigrationClient(params.InitiateMigrationResults{
 		Results: []params.InitiateMigrationResult{{
 			Error: common.ServerError(errors.New("boom")),
 		}},
@@ -95,7 +139,7 @@ func (s *Suite) TestInitiateMigrationError(c *gc.C) {
 }
 
 func (s *Suite) TestInitiateMigrationResultMismatch(c *gc.C) {
-	client, _ := makeClient(params.InitiateMigrationResults{
+	client, _ := makeInitiateMigrationClient(params.InitiateMigrationResults{
 		Results: []params.InitiateMigrationResult{
 			{MigrationId: "id"},
 			{MigrationId: "wtf"},
@@ -117,12 +161,12 @@ func (s *Suite) TestInitiateMigrationCallError(c *gc.C) {
 }
 
 func (s *Suite) TestInitiateMigrationValidationError(c *gc.C) {
-	client, stub := makeClient(params.InitiateMigrationResults{})
+	client, stub := makeInitiateMigrationClient(params.InitiateMigrationResults{})
 	spec := makeSpec()
 	spec.ModelUUID = "not-a-uuid"
 	id, err := client.InitiateMigration(spec)
 	c.Check(id, gc.Equals, "")
-	c.Check(err, gc.ErrorMatches, "model UUID not valid")
+	c.Check(err, gc.ErrorMatches, "client-side validation failed: model UUID not valid")
 	c.Check(stub.Calls(), gc.HasLen, 0) // API call shouldn't have happened
 }
 
@@ -194,7 +238,7 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *gc.C) {
 	c.Assert(third.Error.Error(), gc.Equals, "validating CloudSpec: empty Type not valid")
 }
 
-func makeClient(results params.InitiateMigrationResults) (
+func makeInitiateMigrationClient(results params.InitiateMigrationResults) (
 	*controller.Client, *jujutesting.Stub,
 ) {
 	var stub jujutesting.Stub
@@ -228,4 +272,111 @@ func makeSpec() controller.MigrationSpec {
 
 func randomUUID() string {
 	return utils.MustNewUUID().String()
+}
+
+func (s *Suite) TestModelStatusEmpty(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "Controller")
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ModelStatus")
+		c.Check(result, gc.FitsTypeOf, &params.ModelStatusResults{})
+
+		return nil
+	})
+
+	client := controller.NewClient(apiCaller)
+	results, err := client.ModelStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []base.ModelStatus{})
+}
+
+func (s *Suite) TestModelStatus(c *gc.C) {
+	apiCaller := apitesting.BestVersionCaller{
+		BestVersion: 4,
+		APICallerFunc: func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Check(objType, gc.Equals, "Controller")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ModelStatus")
+			c.Check(arg, jc.DeepEquals, params.Entities{
+				[]params.Entity{
+					{Tag: coretesting.ModelTag.String()},
+					{Tag: coretesting.ModelTag.String()},
+				},
+			})
+			c.Check(result, gc.FitsTypeOf, &params.ModelStatusResults{})
+
+			out := result.(*params.ModelStatusResults)
+			out.Results = []params.ModelStatus{
+				params.ModelStatus{
+					ModelTag:           coretesting.ModelTag.String(),
+					OwnerTag:           "user-glenda",
+					ApplicationCount:   3,
+					HostedMachineCount: 2,
+					Life:               "alive",
+					Machines: []params.ModelMachineInfo{{
+						Id:         "0",
+						InstanceId: "inst-ance",
+						Status:     "pending",
+					}},
+				},
+				params.ModelStatus{Error: common.ServerError(errors.New("model error"))},
+			}
+			return nil
+		},
+	}
+
+	client := controller.NewClient(apiCaller)
+	results, err := client.ModelStatus(coretesting.ModelTag, coretesting.ModelTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results[0], jc.DeepEquals, base.ModelStatus{
+		UUID:               coretesting.ModelTag.Id(),
+		TotalMachineCount:  1,
+		HostedMachineCount: 2,
+		ServiceCount:       3,
+		Owner:              "glenda",
+		Life:               string(params.Alive),
+		Machines:           []base.Machine{{Id: "0", InstanceId: "inst-ance", Status: "pending"}},
+	})
+	c.Assert(results[1].Error, gc.ErrorMatches, "model error")
+}
+
+func (s *Suite) TestModelStatusError(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(
+		func(objType string, version int, id, request string, args, result interface{}) error {
+			return errors.New("model error")
+		})
+	client := controller.NewClient(apiCaller)
+	out, err := client.ModelStatus(coretesting.ModelTag, coretesting.ModelTag)
+	c.Assert(err, gc.ErrorMatches, "model error")
+	c.Assert(out, gc.IsNil)
+}
+
+func (s *Suite) TestConfigSet(c *gc.C) {
+	apiCaller := apitesting.BestVersionCaller{
+		BestVersion: 5,
+		APICallerFunc: func(objType string, version int, id, request string, args, result interface{}) error {
+			c.Assert(objType, gc.Equals, "Controller")
+			c.Assert(version, gc.Equals, 5)
+			c.Assert(request, gc.Equals, "ConfigSet")
+			c.Assert(result, gc.IsNil)
+			c.Assert(args, gc.DeepEquals, params.ControllerConfigSet{Config: map[string]interface{}{
+				"some-setting": 345,
+			}})
+			return errors.New("ruth mundy")
+		},
+	}
+	client := controller.NewClient(apiCaller)
+	err := client.ConfigSet(map[string]interface{}{
+		"some-setting": 345,
+	})
+	c.Assert(err, gc.ErrorMatches, "ruth mundy")
+}
+
+func (s *Suite) TestConfigSetAgainstOlderAPIVersion(c *gc.C) {
+	apiCaller := apitesting.BestVersionCaller{BestVersion: 4}
+	client := controller.NewClient(apiCaller)
+	err := client.ConfigSet(map[string]interface{}{
+		"some-setting": 345,
+	})
+	c.Assert(err, gc.ErrorMatches, "this controller version doesn't support updating controller config")
 }

@@ -7,18 +7,23 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 )
 
 // PrecheckInstance verifies that the provided series and constraints
 // are valid for use in creating an instance in this environment.
-func (env *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	if _, err := env.parsePlacement(placement); err != nil {
+func (env *environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+	volumeAttachmentsZone, err := volumeAttachmentsZone(args.VolumeAttachments)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := env.instancePlacementZone(args.Placement, volumeAttachmentsZone); err != nil {
 		return errors.Trace(err)
 	}
 
-	if cons.HasInstanceType() {
-		if !checkInstanceType(cons) {
-			return errors.Errorf("invalid GCE instance type %q", *cons.InstanceType)
+	if args.Constraints.HasInstanceType() {
+		if !checkInstanceType(args.Constraints) {
+			return errors.Errorf("invalid GCE instance type %q", *args.Constraints.InstanceType)
 		}
 	}
 

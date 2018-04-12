@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
-	"github.com/juju/juju/testing"
 )
 
 type StatusSuite struct {
@@ -38,8 +38,9 @@ func (s *StatusSuite) TestRun(c *gc.C) {
 	emptyArgs := []string{}
 	emptyPrefixArgs := []string{}
 	prefixArgs := []string{prefix}
-	result1 := []params.ActionResult{{Status: "some-random-status"}}
-	result2 := []params.ActionResult{{Status: "a status"}, {Status: "another status"}}
+	result1 := []params.ActionResult{{Status: "some-random-status", Action: &params.Action{Tag: faketag, Name: "fakeName"}}}
+	result2 := []params.ActionResult{{Status: "a status", Action: &params.Action{Tag: faketag2, Name: "fakeName2"}}, {Status: "another status"}}
+	errResult := []params.ActionResult{{Status: "", Error: &params.Error{Message: "an error"}}}
 
 	errNotFound := "no actions found"
 	errNotFoundForPrefix := `no actions found matching prefix "` + prefix + `"`
@@ -82,6 +83,7 @@ func (s *StatusSuite) TestRun(c *gc.C) {
 		{args: nameArgs, actionsByNames: resultOneError, expectError: errNames.Message},
 		{args: nameArgs, actionsByNames: params.ActionsByNames{[]params.ActionsByName{{Name: "action_name"}}}, expectError: "no actions were found for name action_name"},
 		{args: nameArgs, actionsByNames: resultOne, results: result1},
+		{args: prefixArgs, tags: tagsForIdPrefix(prefix, faketag), results: errResult},
 	}
 
 	for i, test := range tests {
@@ -106,7 +108,7 @@ func (s *StatusSuite) runTestCase(c *gc.C, tc statusTestCase) {
 
 		s.subcommand, _ = action.NewStatusCommandForTest(s.store)
 		args := append([]string{modelFlag, "admin"}, tc.args...)
-		ctx, err := testing.RunCommand(c, s.subcommand, args...)
+		ctx, err := cmdtesting.RunCommand(c, s.subcommand, args...)
 		if tc.expectError == "" {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {
@@ -114,10 +116,38 @@ func (s *StatusSuite) runTestCase(c *gc.C, tc statusTestCase) {
 		}
 		if len(tc.results) > 0 {
 			out := &bytes.Buffer{}
+			checkActionResultsMap(c, tc.results)
 			err := cmd.FormatYaml(out, action.ActionResultsToMap(tc.results))
 			c.Check(err, jc.ErrorIsNil)
 			c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, out.String())
 			c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
+		}
+	}
+}
+
+func checkActionResultsMap(c *gc.C, results []params.ActionResult) {
+	requiredOutputFields := []string{"status", "completed at"}
+	actionFields := []string{"action", "id", "unit"}
+
+	actionResults := action.ActionResultsToMap(results)
+
+	for i, result := range results {
+		a := actionResults["actions"].([]map[string]interface{})[i]
+
+		for _, field := range requiredOutputFields {
+			c.Logf("checking for presence of result output field: %s", field)
+			c.Check(a[field], gc.NotNil)
+		}
+
+		if result.Action != nil {
+			for _, field := range actionFields {
+				c.Logf("checking for presence of action output field: %s", field)
+				c.Check(a[field], gc.NotNil)
+			}
+		}
+
+		if result.Error != nil {
+			c.Check(a["error"], gc.NotNil)
 		}
 	}
 }

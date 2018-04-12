@@ -217,6 +217,10 @@ func ServerError(err error) *params.Error {
 		code = params.CodeHasAssignedUnits
 	case state.IsHasHostedModelsError(err):
 		code = params.CodeHasHostedModels
+	case state.IsHasPersistentStorageError(err):
+		code = params.CodeHasPersistentStorage
+	case state.IsModelNotEmptyError(err):
+		code = params.CodeModelNotEmpty
 	case isNoAddressSetError(err):
 		code = params.CodeNoAddressSet
 	case errors.IsNotProvisioned(err):
@@ -225,6 +229,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeUpgradeInProgress
 	case state.IsHasAttachmentsError(err):
 		code = params.CodeMachineHasAttachedStorage
+	case state.IsStorageAttachedError(err):
+		code = params.CodeStorageAttached
 	case isUnknownModelError(err):
 		code = params.CodeModelNotFound
 	case errors.IsNotSupported(err):
@@ -233,6 +239,10 @@ func ServerError(err error) *params.Error {
 		code = params.CodeBadRequest
 	case errors.IsMethodNotAllowed(err):
 		code = params.CodeMethodNotAllowed
+	case errors.IsNotImplemented(err):
+		code = params.CodeNotImplemented
+	case state.IsIncompatibleSeriesError(err):
+		code = params.CodeIncompatibleSeries
 	default:
 		if err, ok := err.(*DischargeRequiredError); ok {
 			code = params.CodeDischargeRequired
@@ -308,6 +318,10 @@ func RestoreError(err error) error {
 		return err
 	case params.IsCodeHasHostedModels(err):
 		return err
+	case params.IsCodeHasPersistentStorage(err):
+		return err
+	case params.IsCodeModelNotEmpty(err):
+		return err
 	case params.IsCodeNoAddressSet(err):
 		// TODO(ericsnow) Handle isNoAddressSetError here.
 		// ...by parsing msg?
@@ -321,6 +335,8 @@ func RestoreError(err error) error {
 	case params.IsCodeMachineHasAttachedStorage(err):
 		// TODO(ericsnow) Handle state.HasAttachmentsError here.
 		// ...by parsing msg?
+		return err
+	case params.IsCodeStorageAttached(err):
 		return err
 	case params.IsCodeNotSupported(err):
 		return errors.NewNotSupported(nil, msg)

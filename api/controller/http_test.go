@@ -12,8 +12,10 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // newHTTPFixture creates and returns an HTTP fixture to be used in order to
@@ -70,6 +72,11 @@ var _ base.APICallCloser = (*httpAPICallCloser)(nil)
 type httpAPICallCloser struct {
 	base.APICallCloser
 	url *url.URL
+}
+
+// ModelTag implements base.APICallCloser.
+func (*httpAPICallCloser) ModelTag() (names.ModelTag, bool) {
+	return coretesting.ModelTag, true
 }
 
 // BestFacadeVersion implements base.APICallCloser.

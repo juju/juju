@@ -7,7 +7,8 @@ var (
 	NetLookupIP                    = &netLookupIP
 	NetListen                      = &netListen
 	RunCommand                     = runCommand
-	BridgeCmd                      = bridgeCmd
-	PythonInterpreters             = pythonInterpreters
 	NewEtcNetworkInterfacesBridger = newEtcNetworkInterfacesBridger
+	SimulatedOS                    = &simulatedOS
+	LaunchIpRouteShow              = &launchIpRouteShow
+	LaunchIpRouteShowReal          = launchIpRouteShowReal
 )

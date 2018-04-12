@@ -3,10 +3,7 @@
 
 package permission
 
-import (
-	"github.com/juju/errors"
-	"github.com/juju/schema"
-)
+import "github.com/juju/errors"
 
 // Access represents a level of access.
 type Access string
@@ -23,6 +20,9 @@ const (
 
 	// WriteAccess allows a user to make changes to a permission subject.
 	WriteAccess Access = "write"
+
+	// ConsumeAccess allows a user to consume a permission subject.
+	ConsumeAccess Access = "consume"
 
 	// AdminAccess allows a user full control over the subject.
 	AdminAccess Access = "admin"
@@ -57,6 +57,16 @@ func ValidateModelAccess(access Access) error {
 		return nil
 	}
 	return errors.NotValidf("%q model access", access)
+}
+
+// ValidateOfferAccess returns error if the passed access is not a valid
+// offer access level.
+func ValidateOfferAccess(access Access) error {
+	switch access {
+	case ReadAccess, ConsumeAccess, AdminAccess:
+		return nil
+	}
+	return errors.NotValidf("%q offer access", access)
 }
 
 //ValidateControllerAccess returns error if the passed access is not a valid
@@ -139,23 +149,37 @@ func (a Access) GreaterControllerAccessThan(access Access) bool {
 	return v1 > v2
 }
 
-// accessField returns a Checker that accepts a string value only
-// and returns a valid Access or an error.
-func accessField() schema.Checker {
-	return accessC{}
+func (a Access) offerValue() int {
+	switch a {
+	case NoAccess:
+		return 0
+	case ReadAccess:
+		return 1
+	case ConsumeAccess:
+		return 2
+	case AdminAccess:
+		return 3
+	default:
+		return -1
+	}
 }
 
-type accessC struct{}
+// EqualOrGreaterOfferAccessThan returns true if the current access is
+// equal or greater than the passed in access level.
+func (a Access) EqualOrGreaterOfferAccessThan(access Access) bool {
+	v1, v2 := a.offerValue(), access.offerValue()
+	if v1 < 0 || v2 < 0 {
+		return false
+	}
+	return v1 >= v2
+}
 
-func (c accessC) Coerce(v interface{}, path []string) (interface{}, error) {
-	s := schema.String()
-	in, err := s.Coerce(v, path)
-	if err != nil {
-		return nil, err
+// GreaterOfferAccessThan returns true if the current access is
+// greater than the passed in access level.
+func (a Access) GreaterOfferAccessThan(access Access) bool {
+	v1, v2 := a.offerValue(), access.offerValue()
+	if v1 < 0 || v2 < 0 {
+		return false
 	}
-	access := Access(in.(string))
-	if err := access.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return access, nil
+	return v1 > v2
 }

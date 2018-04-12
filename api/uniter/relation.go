@@ -6,10 +6,11 @@ package uniter
 import (
 	"fmt"
 
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
@@ -19,10 +20,12 @@ import (
 // Relation represents a relation between one or two service
 // endpoints.
 type Relation struct {
-	st   *State
-	tag  names.RelationTag
-	id   int
-	life params.Life
+	st        *State
+	tag       names.RelationTag
+	id        int
+	life      params.Life
+	suspended bool
+	otherApp  string
 }
 
 // Tag returns the relation tag.
@@ -48,6 +51,23 @@ func (r *Relation) Life() params.Life {
 	return r.life
 }
 
+// Suspended returns the relation's current suspended status.
+func (r *Relation) Suspended() bool {
+	return r.suspended
+}
+
+// UpdateSuspended updates the in memory value of the
+// relation's suspended attribute.
+func (r *Relation) UpdateSuspended(suspended bool) {
+	r.suspended = suspended
+}
+
+// OtherApplication returns the name of the application on the other
+// end of the relation (from this unit's perspective).
+func (r *Relation) OtherApplication() string {
+	return r.otherApp
+}
+
 // Refresh refreshes the contents of the relation from the underlying
 // state. It returns an error that satisfies errors.IsNotFound if the
 // relation has been removed.
@@ -56,12 +76,18 @@ func (r *Relation) Refresh() error {
 	if err != nil {
 		return err
 	}
-	// NOTE: The life cycle information is the only
-	// thing that can change - id, tag and endpoint
+	// NOTE: The status and life cycle information are the only
+	// things that can change - id, tag and endpoint
 	// information are static.
 	r.life = result.Life
+	r.suspended = result.Suspended
 
 	return nil
+}
+
+// SetStatus updates the status of the relation.
+func (r *Relation) SetStatus(status relation.Status) error {
+	return r.st.setRelationStatus(r.id, status)
 }
 
 func (r *Relation) toCharmRelation(cr multiwatcher.CharmRelation) charm.Relation {

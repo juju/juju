@@ -9,12 +9,12 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/backups"
-	"github.com/juju/juju/testing"
 )
 
 type uploadSuite struct {
@@ -72,7 +72,7 @@ func (s *uploadSuite) createArchive(c *gc.C) {
 func (s *uploadSuite) TestOkay(c *gc.C) {
 	s.createArchive(c)
 	s.setSuccess()
-	ctx, err := testing.RunCommand(c, s.command, s.filename)
+	ctx, err := cmdtesting.RunCommand(c, s.command, s.filename)
 	c.Check(err, jc.ErrorIsNil)
 
 	out := MetaResultString
@@ -81,13 +81,13 @@ func (s *uploadSuite) TestOkay(c *gc.C) {
 
 func (s *uploadSuite) TestFileMissing(c *gc.C) {
 	s.setSuccess()
-	_, err := testing.RunCommand(c, s.command, s.filename)
+	_, err := cmdtesting.RunCommand(c, s.command, s.filename)
 	c.Check(os.IsNotExist(errors.Cause(err)), jc.IsTrue)
 }
 
 func (s *uploadSuite) TestError(c *gc.C) {
 	s.createArchive(c)
 	s.setFailure("failed!")
-	_, err := testing.RunCommand(c, s.command, s.filename)
+	_, err := cmdtesting.RunCommand(c, s.command, s.filename)
 	c.Check(errors.Cause(err), gc.ErrorMatches, "failed!")
 }

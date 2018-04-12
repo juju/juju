@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
@@ -21,21 +22,23 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter.remotestate")
 
-// RemoteStateWatcher collects unit, service, and service config information
+// RemoteStateWatcher collects unit, application, and application config information
 // from separate state watchers, and updates a Snapshot which is sent on a
 // channel upon change.
 type RemoteStateWatcher struct {
 	st                        State
 	unit                      Unit
-	service                   Application
+	application               Application
+	modelType                 model.ModelType
 	relations                 map[names.RelationTag]*relationUnitsWatcher
 	relationUnitsChanges      chan relationUnitsChange
 	storageAttachmentWatchers map[names.StorageTag]*storageAttachmentWatcher
 	storageAttachmentChanges  chan storageAttachmentChange
 	leadershipTracker         leadership.Tracker
-	updateStatusChannel       func() <-chan time.Time
+	updateStatusChannel       UpdateStatusTimerFunc
 	commandChannel            <-chan string
-	retryHookChannel          <-chan struct{}
+	retryHookChannel          watcher.NotifyChannel
+	applicationChannel        watcher.NotifyChannel
 
 	catacomb catacomb.Catacomb
 
@@ -49,15 +52,27 @@ type RemoteStateWatcher struct {
 type WatcherConfig struct {
 	State               State
 	LeadershipTracker   leadership.Tracker
-	UpdateStatusChannel func() <-chan time.Time
+	UpdateStatusChannel UpdateStatusTimerFunc
 	CommandChannel      <-chan string
-	RetryHookChannel    <-chan struct{}
+	RetryHookChannel    watcher.NotifyChannel
+	ApplicationChannel  watcher.NotifyChannel
 	UnitTag             names.UnitTag
+	ModelType           model.ModelType
+}
+
+func (w WatcherConfig) validate() error {
+	if w.ModelType == model.CAAS && w.ApplicationChannel == nil {
+		return errors.NotValidf("watcher config for CAAS model with nil application channel")
+	}
+	return nil
 }
 
 // NewWatcher returns a RemoteStateWatcher that handles state changes pertaining to the
 // supplied unit.
 func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
+	if err := config.validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	w := &RemoteStateWatcher{
 		st:                        config.State,
 		relations:                 make(map[names.RelationTag]*relationUnitsWatcher),
@@ -68,6 +83,8 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		updateStatusChannel:       config.UpdateStatusChannel,
 		commandChannel:            config.CommandChannel,
 		retryHookChannel:          config.RetryHookChannel,
+		applicationChannel:        config.ApplicationChannel,
+		modelType:                 config.ModelType,
 		// Note: it is important that the out channel be buffered!
 		// The remote state watcher will perform a non-blocking send
 		// on the channel to wake up the observer. It is non-blocking
@@ -111,8 +128,9 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	snapshot.Relations = make(map[int]RelationSnapshot)
 	for id, relationSnapshot := range w.current.Relations {
 		relationSnapshotCopy := RelationSnapshot{
-			Life:    relationSnapshot.Life,
-			Members: make(map[string]int64),
+			Life:      relationSnapshot.Life,
+			Suspended: relationSnapshot.Suspended,
+			Members:   make(map[string]int64),
 		}
 		for name, version := range relationSnapshot.Members {
 			relationSnapshotCopy.Members[name] = version
@@ -157,13 +175,16 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 	defer func() {
 		cause := errors.Cause(err)
 		if params.IsCodeNotFoundOrCodeUnauthorized(cause) {
-			err = jworker.ErrTerminateAgent
+			// We only want to terminate the agent for IAAS models.
+			if w.modelType == model.IAAS {
+				err = jworker.ErrTerminateAgent
+			}
 		}
 	}()
 	if w.unit, err = w.st.Unit(unitTag); err != nil {
 		return errors.Trace(err)
 	}
-	w.service, err = w.unit.Application()
+	w.application, err = w.unit.Application()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -187,28 +208,29 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 	requiredEvents++
 
-	var seenApplicationChange bool
-	servicew, err := w.service.Watch()
+	var seenConfigChange bool
+	charmConfigw, err := w.unit.WatchConfigSettings()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := w.catacomb.Add(servicew); err != nil {
+
+	if err := w.catacomb.Add(charmConfigw); err != nil {
 		return errors.Trace(err)
 	}
 	requiredEvents++
 
-	var seenConfigChange bool
-	configw, err := w.unit.WatchConfigSettings()
+	var seenTrustConfigChange bool
+	trustConfigw, err := w.unit.WatchTrustConfigSettings()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := w.catacomb.Add(configw); err != nil {
+	if err := w.catacomb.Add(trustConfigw); err != nil {
 		return errors.Trace(err)
 	}
 	requiredEvents++
 
 	var seenRelationsChange bool
-	relationsw, err := w.service.WatchRelations()
+	relationsw, err := w.unit.WatchRelations()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -222,23 +244,46 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	addressesChanges := addressesw.Changes()
 	if err := w.catacomb.Add(addressesw); err != nil {
 		return errors.Trace(err)
 	}
 	requiredEvents++
 
-	var seenStorageChange bool
-	storagew, err := w.unit.WatchStorage()
-	if err != nil {
-		return errors.Trace(err)
+	var (
+		seenStorageChange bool
+		storageChanges    watcher.StringsChannel
+
+		seenApplicationChange *bool
+	)
+
+	if w.modelType == model.IAAS {
+		// This is in IAAS model so we need to watch state for application
+		// charm changes instead of being informed by the operator.
+		applicationw, err := w.application.Watch()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := w.catacomb.Add(applicationw); err != nil {
+			return errors.Trace(err)
+		}
+		w.applicationChannel = applicationw.Changes()
+		seenApplicationChange = new(bool)
+		requiredEvents++
+
+		storagew, err := w.unit.WatchStorage()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		storageChanges = storagew.Changes()
+		if err := w.catacomb.Add(storagew); err != nil {
+			return errors.Trace(err)
+		}
+		requiredEvents++
 	}
-	if err := w.catacomb.Add(storagew); err != nil {
-		return errors.Trace(err)
-	}
-	requiredEvents++
 
 	var seenLeaderSettingsChange bool
-	leaderSettingsw, err := w.service.WatchLeadershipSettings()
+	leaderSettingsw, err := w.application.WatchLeadershipSettings()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -257,6 +302,16 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 	requiredEvents++
 
+	var seenUpdateStatusIntervalChange bool
+	updateStatusIntervalw, err := w.st.WatchUpdateStatusHookInterval()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(updateStatusIntervalw); err != nil {
+		return errors.Trace(err)
+	}
+	requiredEvents++
+
 	var seenLeadershipChange bool
 	// There's no watcher for this per se; we wait on a channel
 	// returned by the leadership tracker.
@@ -264,7 +319,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 	var eventsObserved int
 	observedEvent := func(flag *bool) {
-		if !*flag {
+		if flag != nil && !*flag {
 			*flag = true
 			eventsObserved++
 		}
@@ -300,6 +355,23 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		observedEvent(&seenLeadershipChange)
 	}
 
+	var updateStatusInterval time.Duration
+	var updateStatusTimer <-chan time.Time
+	resetUpdateStatusTimer := func() {
+		updateStatusTimer = w.updateStatusChannel(updateStatusInterval).After()
+	}
+	configChanged := func(changeOccured bool, event *bool) error {
+		logger.Debugf("got config change: ok=%t", changeOccured)
+		if !changeOccured {
+			return errors.New("config watcher closed")
+		}
+		if err := w.configChanged(); err != nil {
+			return errors.Trace(err)
+		}
+		observedEvent(event)
+		return nil
+	}
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -315,27 +387,27 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenUnitChange)
 
-		case _, ok := <-servicew.Changes():
-			logger.Debugf("got service change")
+		case _, ok := <-w.applicationChannel:
+			logger.Debugf("got application change")
 			if !ok {
-				return errors.New("service watcher closed")
+				return errors.New("application watcher closed")
 			}
 			if err := w.applicationChanged(); err != nil {
 				return errors.Trace(err)
 			}
-			observedEvent(&seenApplicationChange)
+			observedEvent(seenApplicationChange)
 
-		case _, ok := <-configw.Changes():
-			logger.Debugf("got config change: ok=%t", ok)
-			if !ok {
-				return errors.New("config watcher closed")
+		case _, ok := <-charmConfigw.Changes():
+			err = configChanged(ok, &seenConfigChange)
+			if err != nil {
+				return err
 			}
-			if err := w.configChanged(); err != nil {
-				return errors.Trace(err)
+		case _, ok := <-trustConfigw.Changes():
+			err = configChanged(ok, &seenTrustConfigChange)
+			if err != nil {
+				return err
 			}
-			observedEvent(&seenConfigChange)
-
-		case _, ok := <-addressesw.Changes():
+		case _, ok := <-addressesChanges:
 			logger.Debugf("got address change: ok=%t", ok)
 			if !ok {
 				return errors.New("addresses watcher closed")
@@ -375,7 +447,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenRelationsChange)
 
-		case keys, ok := <-storagew.Changes():
+		case keys, ok := <-storageChanges:
 			logger.Debugf("got storage change: %v ok=%t", keys, ok)
 			if !ok {
 				return errors.New("storage watcher closed")
@@ -385,8 +457,29 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenStorageChange)
 
+		case _, ok := <-updateStatusIntervalw.Changes():
+			logger.Debugf("got update status interval change: ok=%t", ok)
+			if !ok {
+				return errors.New("update status interval watcher closed")
+			}
+			observedEvent(&seenUpdateStatusIntervalChange)
+
+			var err error
+			updateStatusInterval, err = w.st.UpdateStatusHookInterval()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			wasActive := updateStatusTimer != nil
+			resetUpdateStatusTimer()
+			if wasActive {
+				// This is not the first time we've seen an update
+				// status interval change, so there's no need to
+				// fall out and fire an initial change event.
+				continue
+			}
+
 		case <-waitMinion:
-			logger.Debugf("got leadership change: minion")
+			logger.Debugf("got leadership change for %v: minion", unitTag.Id())
 			if err := w.leadershipChanged(false); err != nil {
 				return errors.Trace(err)
 			}
@@ -394,7 +487,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			waitLeader = w.leadershipTracker.WaitLeader().Ready()
 
 		case <-waitLeader:
-			logger.Debugf("got leadership change: leader")
+			logger.Debugf("got leadership change for %v: leader", unitTag.Id())
 			if err := w.leadershipChanged(true); err != nil {
 				return errors.Trace(err)
 			}
@@ -413,11 +506,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 
-		case <-w.updateStatusChannel():
+		case <-updateStatusTimer:
 			logger.Debugf("update status timer triggered")
 			if err := w.updateStatusChanged(); err != nil {
 				return errors.Trace(err)
 			}
+			resetUpdateStatusTimer()
 
 		case id, ok := <-w.commandChannel:
 			if !ok {
@@ -472,27 +566,24 @@ func (w *RemoteStateWatcher) unitChanged() error {
 	if err := w.unit.Refresh(); err != nil {
 		return errors.Trace(err)
 	}
-	resolved, err := w.unit.Resolved()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.current.Life = w.unit.Life()
-	w.current.ResolvedMode = resolved
+	w.current.ResolvedMode = w.unit.Resolved()
+	w.current.Series = w.unit.Series()
 	return nil
 }
 
 // applicationChanged responds to changes in the application.
 func (w *RemoteStateWatcher) applicationChanged() error {
-	if err := w.service.Refresh(); err != nil {
+	if err := w.application.Refresh(); err != nil {
 		return errors.Trace(err)
 	}
-	url, force, err := w.service.CharmURL()
+	url, force, err := w.application.CharmURL()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ver, err := w.service.CharmModifiedVersion()
+	ver, err := w.application.CharmModifiedVersion()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -532,7 +623,7 @@ func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) error {
 	return nil
 }
 
-// relationsChanged responds to service relation changes.
+// relationsChanged responds to application relation changes.
 func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -553,7 +644,21 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 			if _, ok := w.relations[relationTag]; ok {
 				relationSnapshot := w.current.Relations[rel.Id()]
 				relationSnapshot.Life = rel.Life()
+				relationSnapshot.Suspended = rel.Suspended()
 				w.current.Relations[rel.Id()] = relationSnapshot
+				if rel.Suspended() {
+					// Relation has been suspended, so stop the listeners here.
+					// The relation itself is retained in the current relations
+					// in the suspended state so that departed/broken hooks can run.
+					if ruw, ok := w.relations[relationTag]; ok {
+						worker.Stop(ruw)
+						delete(w.relations, relationTag)
+					}
+				}
+				continue
+			}
+			// If the relation is suspended, we don't need to watch it.
+			if rel.Suspended() {
 				continue
 			}
 			ruw, err := w.st.WatchRelationUnits(relationTag, w.unit.Tag())
@@ -581,8 +686,9 @@ func (w *RemoteStateWatcher) watchRelationUnits(
 	rel Relation, relationTag names.RelationTag, ruw watcher.RelationUnitsWatcher,
 ) error {
 	relationSnapshot := RelationSnapshot{
-		Life:    rel.Life(),
-		Members: make(map[string]int64),
+		Life:      rel.Life(),
+		Suspended: rel.Suspended(),
+		Members:   make(map[string]int64),
 	}
 	select {
 	case <-w.catacomb.Dying():

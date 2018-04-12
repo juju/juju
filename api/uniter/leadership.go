@@ -33,15 +33,14 @@ type LeadershipSettingsAccessor struct {
 }
 
 // Merge merges the provided settings into the leadership settings for
-// the given service ID. Only leaders of a given service may perform
+// the given application and unit. Only leaders of a given service may perform
 // this operation.
-func (lsa *LeadershipSettingsAccessor) Merge(serviceId string, settings map[string]string) error {
+func (lsa *LeadershipSettingsAccessor) Merge(appId, unitId string, settings map[string]string) error {
 
 	if err := lsa.checkAPIVersion("Merge"); err != nil {
 		return errors.Annotatef(err, "cannot access leadership api")
 	}
-
-	results, err := lsa.bulkMerge(lsa.prepareMerge(serviceId, settings))
+	results, err := lsa.bulkMerge(lsa.prepareMerge(appId, unitId, settings))
 	if err != nil {
 		return errors.Annotatef(err, "failed to call leadership api")
 	}
@@ -103,9 +102,10 @@ func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(serviceId string)
 // Prepare functions for building bulk-calls.
 //
 
-func (lsa *LeadershipSettingsAccessor) prepareMerge(serviceId string, settings map[string]string) params.MergeLeadershipSettingsParam {
+func (lsa *LeadershipSettingsAccessor) prepareMerge(appId, unitId string, settings map[string]string) params.MergeLeadershipSettingsParam {
 	return params.MergeLeadershipSettingsParam{
-		ApplicationTag: names.NewApplicationTag(serviceId).String(),
+		ApplicationTag: names.NewApplicationTag(appId).String(),
+		UnitTag:        names.NewUnitTag(unitId).String(),
 		Settings:       settings,
 	}
 }

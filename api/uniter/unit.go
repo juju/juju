@@ -4,10 +4,8 @@
 package uniter
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/common"
@@ -19,9 +17,11 @@ import (
 
 // Unit represents a juju unit as seen by a uniter worker.
 type Unit struct {
-	st   *State
-	tag  names.UnitTag
-	life params.Life
+	st           *State
+	tag          names.UnitTag
+	life         params.Life
+	resolvedMode params.ResolvedMode
+	series       string
 }
 
 // Tag returns the unit's tag.
@@ -44,13 +44,39 @@ func (u *Unit) Life() params.Life {
 	return u.life
 }
 
+// Series returns the unit's series value.
+func (u *Unit) Series() string {
+	return u.series
+}
+
+// Resolved returns the unit's resolved mode value.
+func (u *Unit) Resolved() params.ResolvedMode {
+	return u.resolvedMode
+}
+
 // Refresh updates the cached local copy of the unit's data.
 func (u *Unit) Refresh() error {
-	life, err := u.st.life(u.tag)
-	if err != nil {
-		return err
+	var results params.UnitRefreshResults
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: u.tag.String()},
+		},
 	}
-	u.life = life
+	err := u.st.facade.FacadeCall("Refresh", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return errors.Trace(result.Error)
+	}
+
+	u.life = result.Life
+	u.resolvedMode = result.Resolved
+	u.series = result.Series
 	return nil
 }
 
@@ -85,7 +111,7 @@ func (u *Unit) UnitStatus() (params.StatusResult, error) {
 		return params.StatusResult{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
+		return params.StatusResult{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -170,22 +196,44 @@ func (u *Unit) EnsureDead() error {
 
 // Watch returns a watcher for observing changes to the unit.
 func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(u.st.facade, u.tag)
+	return common.Watch(u.st.facade, "Watch", u.tag)
 }
 
-// Service returns the service.
+// WatchRelations returns a StringsWatcher that notifies of changes to
+// the lifecycles of relations involving u.
+func (u *Unit) WatchRelations() (watcher.StringsWatcher, error) {
+	var results params.StringsWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("WatchUnitRelations", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(u.st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// Application returns the unit's application.
 func (u *Unit) Application() (*Application, error) {
-	service := &Application{
+	application := &Application{
 		st:  u.st,
 		tag: u.ApplicationTag(),
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
-	err := service.Refresh()
+	err := application.Refresh()
 	if err != nil {
 		return nil, err
 	}
-	return service, nil
+	return application, nil
 }
 
 // ConfigSettings returns the complete set of service charm config settings
@@ -202,7 +250,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -255,29 +303,6 @@ func (u *Unit) DestroyAllSubordinates() error {
 	return result.OneError()
 }
 
-// Resolved returns the resolved mode for the unit.
-//
-// NOTE: This differs from state.Unit.Resolved() by returning an
-// error as well, because it needs to make an API call
-func (u *Unit) Resolved() (params.ResolvedMode, error) {
-	var results params.ResolvedModeResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag.String()}},
-	}
-	err := u.st.facade.FacadeCall("Resolved", args, &results)
-	if err != nil {
-		return "", err
-	}
-	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return "", result.Error
-	}
-	return result.Mode, nil
-}
-
 // AssignedMachine returns the unit's assigned machine tag or an error
 // satisfying params.IsCodeNotAssigned when the unit has no assigned
 // machine..
@@ -295,7 +320,7 @@ func (u *Unit) AssignedMachine() (names.MachineTag, error) {
 		return invalidTag, err
 	}
 	if len(results.Results) != 1 {
-		return invalidTag, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return invalidTag, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -304,29 +329,36 @@ func (u *Unit) AssignedMachine() (names.MachineTag, error) {
 	return names.ParseMachineTag(result.Result)
 }
 
-// IsPrincipal returns whether the unit is deployed in its own container,
-// and can therefore have subordinate services deployed alongside it.
+// PrincipalName returns the principal unit name and true for subordinates.
+// For principal units the function returns "" and false.
 //
-// NOTE: This differs from state.Unit.IsPrincipal() by returning an
+// NOTE: This differs from state.Unit.PrincipalName() by returning an
 // error as well, because it needs to make an API call.
-func (u *Unit) IsPrincipal() (bool, error) {
+func (u *Unit) PrincipalName() (string, bool, error) {
 	var results params.StringBoolResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	err := u.st.facade.FacadeCall("GetPrincipal", args, &results)
 	if err != nil {
-		return false, err
+		return "", false, err
 	}
 	if len(results.Results) != 1 {
-		return false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return "", false, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return false, result.Error
+		return "", false, result.Error
 	}
-	// GetPrincipal returns false when the unit is subordinate.
-	return !result.Ok, nil
+	var unitName string
+	if result.Ok {
+		unitTag, err := names.ParseUnitTag(result.Result)
+		if err != nil {
+			return "", false, err
+		}
+		unitName = unitTag.Id()
+	}
+	return unitName, result.Ok, nil
 }
 
 // HasSubordinates returns the tags of any subordinate units.
@@ -340,7 +372,7 @@ func (u *Unit) HasSubordinates() (bool, error) {
 		return false, err
 	}
 	if len(results.Results) != 1 {
-		return false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return false, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -367,7 +399,7 @@ func (u *Unit) PublicAddress() (string, error) {
 		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -394,7 +426,7 @@ func (u *Unit) PrivateAddress() (string, error) {
 		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -476,7 +508,7 @@ func (u *Unit) CharmURL() (*charm.URL, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -496,7 +528,7 @@ func (u *Unit) CharmURL() (*charm.URL, error) {
 // An error will be returned if the unit is dead, or the charm URL not known.
 func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	if curl == nil {
-		return fmt.Errorf("charm URL cannot be nil")
+		return errors.Errorf("charm URL cannot be nil")
 	}
 	var result params.ErrorResults
 	args := params.EntitiesCharmURL{
@@ -529,16 +561,28 @@ func (u *Unit) ClearResolved() error {
 // set before this method is called, and the returned watcher will be
 // valid only while the unit's charm URL is not changed.
 func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
+	return getSettingsWatcher(u, "WatchConfigSettings")
+}
+
+// WatchTrustConfigSettings will return a watcher to monitor at least the trust
+// application configuration settings. This is in contrast to Charm
+// configuration settings watchers which are created with WatchConfigSettings
+// and do not monitor for application configuration settings such as "trust".
+func (u *Unit) WatchTrustConfigSettings() (watcher.NotifyWatcher, error) {
+	return getSettingsWatcher(u, "WatchTrustConfigSettings")
+}
+
+func getSettingsWatcher(u *Unit, facadeName string) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("WatchConfigSettings", args, &results)
+	err := u.st.facade.FacadeCall(facadeName, args, &results)
 	if err != nil {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -549,9 +593,12 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 }
 
 // WatchAddresses returns a watcher for observing changes to the
-// unit's addresses. The unit must be assigned to a machine before
-// this method is called, and the returned watcher will be valid only
-// while the unit's assigned machine is not changed.
+// unit's addresses.
+// For IAAS models, the unit must be assigned to a machine before
+// this method is called, and the returned watcher will be valid
+// only while the unit's assigned machine is not changed.
+// For CAAS models, the watcher observes changes to the address
+// of the pod associated with the unit.
 func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
@@ -562,7 +609,7 @@ func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -585,7 +632,7 @@ func (u *Unit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -612,32 +659,49 @@ func (u *Unit) RequestReboot() error {
 	return result.OneError()
 }
 
-// JoinedRelations returns the tags of the relations the unit has joined.
-func (u *Unit) JoinedRelations() ([]names.RelationTag, error) {
-	var results params.StringsResults
+// RelationStatus holds information about a relation's scope and status.
+type RelationStatus struct {
+	// Tag is the relation tag.
+	Tag names.RelationTag
+
+	// Suspended is true if the relation is suspended.
+	Suspended bool
+
+	// InScope is true if the relation unit is in scope.
+	InScope bool
+}
+
+// RelationsInScope returns the tags of the relations the unit has joined
+// and entered scope, or the relation is suspended.
+func (u *Unit) RelationsStatus() ([]RelationStatus, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("JoinedRelations", args, &results)
+	var results params.RelationUnitStatusResults
+	err := u.st.facade.FacadeCall("RelationsStatus", args, &results)
 	if err != nil {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	var relTags []names.RelationTag
-	for _, rel := range result.Result {
-		tag, err := names.ParseRelationTag(rel)
+	var statusResult []RelationStatus
+	for _, result := range result.RelationResults {
+		tag, err := names.ParseRelationTag(result.RelationTag)
 		if err != nil {
 			return nil, err
 		}
-		relTags = append(relTags, tag)
+		statusResult = append(statusResult, RelationStatus{
+			Tag:       tag,
+			InScope:   result.InScope,
+			Suspended: result.Suspended,
+		})
 	}
-	return relTags, nil
+	return statusResult, nil
 }
 
 // MeterStatus returns the meter status of the unit.
@@ -672,7 +736,7 @@ func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -711,30 +775,19 @@ func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) er
 	return results.Combine()
 }
 
-// NetworkConfig requests network config information for the unit and the given
-// bindingName.
-func (u *Unit) NetworkConfig(bindingName string) ([]params.NetworkConfig, error) {
-	var results params.UnitNetworkConfigResults
-	args := params.UnitsNetworkConfig{
-		Args: []params.UnitNetworkConfig{{
-			BindingName: bindingName,
-			UnitTag:     u.tag.String(),
-		}},
+// NetworkInfo returns network interfaces/addresses for specified bindings.
+func (u *Unit) NetworkInfo(bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error) {
+	var results params.NetworkInfoResults
+	args := params.NetworkInfoParams{
+		Unit:       u.tag.String(),
+		Bindings:   bindings,
+		RelationId: relationId,
 	}
 
-	err := u.st.facade.FacadeCall("NetworkConfig", args, &results)
+	err := u.st.facade.FacadeCall("NetworkInfo", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	return result.Config, nil
+	return results.Results, nil
 }

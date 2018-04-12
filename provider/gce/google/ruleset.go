@@ -9,83 +9,189 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/errors"
+	"github.com/juju/utils/set"
+	"google.golang.org/api/compute/v1"
+
 	"github.com/juju/juju/network"
 )
 
-// RuleSet is used to manipulate port ranges
-// for a collection of IngressRules.
-type RuleSet struct {
-	rules []network.IngressRule
+// ruleSet is used to manipulate port ranges for a collection of
+// firewall rules or ingress rules. Each key is the identifier for a
+// set of source CIDRs that are allowed for a set of port ranges.
+type ruleSet map[string]*firewall
 
-	// firewallCidrs is filled in each time the
-	// firewall rules are determined from
-	// the ingress rules.
-	firewallCidrs map[string][]string
-}
-
-func newRuleSet(rules ...network.IngressRule) RuleSet {
-	var result RuleSet
-	result.rules = make([]network.IngressRule, len(rules))
-	result.firewallCidrs = make(map[string][]string)
-	copy(result.rules, rules)
+func newRuleSetFromRules(rules ...network.IngressRule) ruleSet {
+	result := make(ruleSet)
+	for _, rule := range rules {
+		result.addRule(rule)
+	}
 	return result
 }
 
-func (rs RuleSet) getCIDRs(name string) []string {
-	return rs.firewallCidrs[name]
+func (rs ruleSet) addRule(rule network.IngressRule) {
+	sourceCIDRs := rule.SourceCIDRs
+	if len(sourceCIDRs) == 0 {
+		sourceCIDRs = []string{"0.0.0.0/0"}
+	}
+	key := sourcecidrs(sourceCIDRs).key()
+	fw, ok := rs[key]
+	if !ok {
+		fw = &firewall{
+			SourceCIDRs:  sourceCIDRs,
+			AllowedPorts: make(protocolPorts),
+		}
+		rs[key] = fw
+	}
+	ports := fw.AllowedPorts
+	ports[rule.Protocol] = append(ports[rule.Protocol], rule.PortRange)
 }
 
-// sourcecidrs is used to calculate a unique firewall
-// name suffix for a collection of cidrs.
+func newRuleSetFromFirewalls(firewalls ...*compute.Firewall) (ruleSet, error) {
+	result := make(ruleSet)
+	for _, firewall := range firewalls {
+		err := result.addFirewall(firewall)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+	}
+	return result, nil
+}
+
+func (rs ruleSet) addFirewall(fw *compute.Firewall) error {
+	if len(fw.TargetTags) != 1 {
+		return errors.Errorf(
+			"firewall rule %q has %d targets (expected 1): %#v",
+			fw.Name,
+			len(fw.TargetTags),
+			fw.TargetTags,
+		)
+	}
+	sourceRanges := fw.SourceRanges
+	if len(sourceRanges) == 0 {
+		sourceRanges = []string{"0.0.0.0/0"}
+	}
+	key := sourcecidrs(sourceRanges).key()
+	result := &firewall{
+		Name:         fw.Name,
+		Target:       fw.TargetTags[0],
+		SourceCIDRs:  sourceRanges,
+		AllowedPorts: make(protocolPorts),
+	}
+	for _, allowed := range fw.Allowed {
+		ranges := make([]network.PortRange, len(allowed.Ports))
+		for i, rangeStr := range allowed.Ports {
+			portRange, err := network.ParsePortRange(rangeStr)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			portRange.Protocol = allowed.IPProtocol
+			ranges[i] = portRange
+		}
+		p := result.AllowedPorts
+		p[allowed.IPProtocol] = append(p[allowed.IPProtocol], ranges...)
+	}
+	for protocol, ranges := range result.AllowedPorts {
+		result.AllowedPorts[protocol] = network.CombinePortRanges(ranges...)
+	}
+	if other, ok := rs[key]; ok {
+		return errors.Errorf(
+			"duplicate firewall rules found matching CIDRs %#v: %q and %q",
+			fw.SourceRanges,
+			fw.Name,
+			other.Name,
+		)
+	}
+	rs[key] = result
+	return nil
+}
+
+func (rs ruleSet) matchProtocolPorts(ports protocolPorts) (*firewall, bool) {
+	for _, fw := range rs {
+		if fw.AllowedPorts.String() == ports.String() {
+			return fw, true
+		}
+	}
+	return nil, false
+}
+
+func (rs ruleSet) matchSourceCIDRs(cidrs []string) (*firewall, bool) {
+	result, ok := rs[sourcecidrs(cidrs).key()]
+	return result, ok
+}
+
+// ToIngressRules converts this set of firewall rules to the ingress
+// rules used elsewhere in Juju. This conversion throws away the rule
+// name information, so these ingress rules can't be directly related
+// back to the firewall rules they came from (except by matching
+// source CIDRs and ports).
+func (rs ruleSet) toIngressRules() ([]network.IngressRule, error) {
+	var results []network.IngressRule
+	for _, fw := range rs {
+		rules, err := fw.toIngressRules()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		results = append(results, rules...)
+	}
+	network.SortIngressRules(results)
+	return results, nil
+}
+
+func (rs ruleSet) allNames() set.Strings {
+	result := set.NewStrings()
+	for _, fw := range rs {
+		result.Add(fw.Name)
+	}
+	return result
+}
+
+// sourcecidrs is used to calculate a unique key for a collection of
+// cidrs.
 type sourcecidrs []string
 
-func (s sourcecidrs) nameSuffix() string {
-	if len(s) == 0 || len(s) == 1 && s[0] == "0.0.0.0/0" {
-		return ""
-	}
-	src := strings.Join(s, ",")
+func (s sourcecidrs) key() string {
+	src := strings.Join(s.sorted(), ",")
 	hash := sha256.New()
 	hash.Write([]byte(src))
 	hashStr := fmt.Sprintf("%x", hash.Sum(nil))
-	return hashStr[:6]
+	return hashStr[:10]
+}
+
+func (s sourcecidrs) sorted() []string {
+	values := make([]string, len(s))
+	copy(values, s)
+	sort.Strings(values)
+	return values
+}
+
+// firewall represents a GCE firewall - if it was constructed from a
+// set of ingress rules the name and target information won't be
+// populated.
+type firewall struct {
+	Name         string
+	Target       string
+	SourceCIDRs  []string
+	AllowedPorts protocolPorts
+}
+
+func (fw *firewall) toIngressRules() ([]network.IngressRule, error) {
+	var results []network.IngressRule
+	for _, portRanges := range fw.AllowedPorts {
+		for _, p := range portRanges {
+			rule, err := network.NewIngressRule(p.Protocol, p.FromPort, p.ToPort, fw.SourceCIDRs...)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			results = append(results, rule)
+		}
+	}
+	return results, nil
 }
 
 // protocolPorts maps a protocol eg "tcp" to a collection of
 // port ranges for that protocol.
 type protocolPorts map[string][]network.PortRange
-
-// getFirewallRules returns a map  of "firewallname" to ports to open
-// fot that firewall, based on the ingress rules in the ruleset.
-func (rs RuleSet) getFirewallRules(namePrefix string) map[string]protocolPorts {
-	result := make(map[string]protocolPorts)
-	for _, rule := range rs.rules {
-
-		// We make a unique firewall name based on a has of the CIDRs.
-		// For backwards compatibility, open rules for "0.0.0.0/0"
-		// do not use any hash in the name.
-		fwname := namePrefix
-		suffix := sourcecidrs(rule.SourceCIDRs).nameSuffix()
-		if suffix != "" {
-			fwname = fwname + "-" + suffix
-		}
-		cidrs := rule.SourceCIDRs
-		if len(cidrs) == 0 {
-			cidrs = []string{"0.0.0.0/0"}
-		}
-		rs.firewallCidrs[fwname] = cidrs
-
-		// Add the current port ranges to the firewall name.
-		protocolPortsForName, ok := result[fwname]
-		if !ok {
-			protocolPortsForName = make(protocolPorts)
-			result[fwname] = protocolPortsForName
-		}
-		portsForProtocol := protocolPortsForName[rule.Protocol]
-		portsForProtocol = append(portsForProtocol, rule.PortRange)
-		protocolPortsForName[rule.Protocol] = portsForProtocol
-	}
-	return result
-}
 
 func (pp protocolPorts) String() string {
 	var sortedProtocols []string

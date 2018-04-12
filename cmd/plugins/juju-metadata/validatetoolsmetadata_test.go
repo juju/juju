@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"gopkg.in/amz.v3/aws"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -24,7 +24,7 @@ import (
 type ValidateToolsMetadataSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	metadataDir string
-	store       *jujuclienttesting.MemStore
+	store       *jujuclient.MemStore
 }
 
 var _ = gc.Suite(&ValidateToolsMetadataSuite{})
@@ -32,7 +32,7 @@ var _ = gc.Suite(&ValidateToolsMetadataSuite{})
 func runValidateToolsMetadata(c *gc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, error) {
 	cmd := &validateToolsMetadataCommand{}
 	cmd.SetClientStore(store)
-	return coretesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
+	return cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
 }
 
 var validateInitToolsErrorTests = []struct {
@@ -62,7 +62,7 @@ func (s *ValidateToolsMetadataSuite) TestInitErrors(c *gc.C) {
 		c.Logf("test %d", i)
 		cmd := &validateToolsMetadataCommand{}
 		cmd.SetClientStore(s.store)
-		err := coretesting.InitCommand(modelcmd.Wrap(cmd), t.args)
+		err := cmdtesting.InitCommand(modelcmd.Wrap(cmd), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
@@ -74,7 +74,7 @@ func (s *ValidateToolsMetadataSuite) TestInvalidProviderError(c *gc.C) {
 
 func (s *ValidateToolsMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
 	_, err := runValidateToolsMetadata(c, s.store, "-p", "maas", "-s", "series", "-r", "region", "-d", "dir")
-	c.Check(err, gc.ErrorMatches, `maas provider does not support tools metadata validation`)
+	c.Check(err, gc.ErrorMatches, `maas provider does not support metadata validation for agents`)
 }
 
 func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version, region, series, endpoint string) error {
@@ -99,7 +99,7 @@ func (s *ValidateToolsMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.store = jujuclient.NewMemStore()
 	cacheTestEnvConfig(c, s.store)
 
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
@@ -124,7 +124,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.
 	s.setupEc2LocalMetadata(c, "us-east-1")
 	ctx, err := runValidateToolsMetadata(c, s.store, "-m", "ec2-controller:ec2", "-j", "1.11.4", "-d", s.metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Assert(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
@@ -145,7 +145,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.
 		"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
@@ -156,7 +156,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 		"-p", "ec2", "-s", "raring", "-r", "us-west-1",
 		"-u", "https://ec2.us-west-1.amazonaws.com", "-d", s.metadataDir,
 	)
-	c.Assert(err, gc.ErrorMatches, "no matching tools(.|\n)*Resolve Metadata(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, "no matching agent binaries(.|\n)*Resolve Metadata(.|\n)*")
 	_, err = runValidateToolsMetadata(c, s.store,
 		"-p", "ec2", "-s", "precise", "-r", "region",
 		"-u", "https://ec2.region.amazonaws.com", "-d", s.metadataDir,
@@ -171,7 +171,7 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
@@ -182,12 +182,12 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 		"-p", "openstack", "-s", "precise", "-r", "region-2",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
-	c.Assert(err, gc.ErrorMatches, "no matching tools(.|\n)*Resolve Metadata(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, "no matching agent binaries(.|\n)*Resolve Metadata(.|\n)*")
 	_, err = runValidateToolsMetadata(c, s.store,
 		"-p", "openstack", "-s", "raring", "-r", "region-3",
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
-	c.Assert(err, gc.ErrorMatches, "no matching tools(.|\n)*Resolve Metadata(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, "no matching agent binaries(.|\n)*Resolve Metadata(.|\n)*")
 }
 
 func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
@@ -197,7 +197,7 @@ func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
 		"-u", "some-auth-url", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
@@ -209,7 +209,7 @@ func (s *ValidateToolsMetadataSuite) TestStream(c *gc.C) {
 		"-u", "some-auth-url", "-d", s.metadataDir, "--stream", "proposed",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
@@ -221,7 +221,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorVersionMatch(c *gc.C) {
 		"-u", "some-auth-url", "-d", s.metadataDir, "--majorminor-version", "1",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
@@ -233,7 +233,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
 		"-u", "some-auth-url", "-d", s.metadataDir, "--majorminor-version", "1.12",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
@@ -244,7 +244,7 @@ func (s *ValidateToolsMetadataSuite) TestJustDirectory(c *gc.C) {
 		"-s", "raring", "-d", s.metadataDir,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	errOut := coretesting.Stdout(ctx)
+	errOut := cmdtesting.Stdout(ctx)
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }

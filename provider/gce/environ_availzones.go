@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/storage"
 )
 
 // AvailabilityZones returns all availability zones in the environment.
@@ -53,6 +54,15 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 	return results, err
 }
 
+// DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
+func (env *environ) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+	zone, err := env.deriveAvailabilityZones(args.Placement, args.VolumeAttachments)
+	if zone != "" {
+		return []string{zone}, errors.Trace(err)
+	}
+	return nil, errors.Trace(err)
+}
+
 func (env *environ) availZone(name string) (*google.AvailabilityZone, error) {
 	zones, err := env.gce.AvailabilityZones(env.cloud.Region)
 	if err != nil {
@@ -79,48 +89,74 @@ func (env *environ) availZoneUp(name string) (*google.AvailabilityZone, error) {
 
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
-// parseAvailabilityZones returns the availability zones that should be
-// tried for the given instance spec. If a placement argument was
-// provided then only that one is returned. Otherwise the environment is
-// queried for available zones. In that case, the resulting list is
-// roughly ordered such that the environment's instances are spread
-// evenly across the region.
-func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
-	if args.Placement != "" {
-		// args.Placement will always be a zone name or empty.
-		placement, err := env.parsePlacement(args.Placement)
+// volumeAttachmentsZone determines the availability zone for each volume
+// identified in the volume attachment parameters, checking that they are
+// all the same, and returns the availability zone name.
+func volumeAttachmentsZone(volumeAttachments []storage.VolumeAttachmentParams) (string, error) {
+	var zone string
+	for i, a := range volumeAttachments {
+		volumeZone, _, err := parseVolumeId(a.VolumeId)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return "", errors.Trace(err)
 		}
-		// TODO(ericsnow) Fail if placement.Zone is not in the env's configured region?
-		return []string{placement.Zone.Name()}, nil
+		if zone == "" {
+			zone = volumeZone
+		} else if zone != volumeZone {
+			return "", errors.Errorf(
+				"cannot attach volumes from multiple availability zones: %s is in %s, %s is in %s",
+				volumeAttachments[i-1].VolumeId, zone, a.VolumeId, volumeZone,
+			)
+		}
 	}
+	return zone, nil
+}
 
-	// If no availability zone is specified, then automatically spread across
-	// the known zones for optimal spread across the instance distribution
-	// group.
-	var group []instance.Id
-	var err error
-	if args.DistributionGroup != nil {
-		group, err = args.DistributionGroup()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+func (env *environ) instancePlacementZone(placement string, volumeAttachmentsZone string) (string, error) {
+	if placement == "" {
+		return volumeAttachmentsZone, nil
 	}
-	zoneInstances, err := availabilityZoneAllocations(env, group)
+	// placement will always be a zone name or empty.
+	instPlacement, err := env.parsePlacement(placement)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	logger.Infof("found %d zones: %v", len(zoneInstances), zoneInstances)
-
-	var zoneNames []string
-	for _, z := range zoneInstances {
-		zoneNames = append(zoneNames, z.ZoneName)
+	if volumeAttachmentsZone != "" && instPlacement.Zone.Name() != volumeAttachmentsZone {
+		return "", errors.Errorf(
+			"cannot create instance with placement %q, as this will prevent attaching the requested disks in zone %q",
+			placement, volumeAttachmentsZone,
+		)
 	}
+	return instPlacement.Zone.Name(), nil
+}
 
-	if len(zoneNames) == 0 {
-		return nil, errors.NotFoundf("failed to determine availability zones")
+func (e *environ) deriveAvailabilityZones(
+	placement string,
+	volumeAttachments []storage.VolumeAttachmentParams,
+) (string, error) {
+	volumeAttachmentsZone, err := volumeAttachmentsZone(volumeAttachments)
+	if err != nil {
+		return "", errors.Trace(err)
 	}
+	if placement == "" {
+		return volumeAttachmentsZone, nil
+	}
+	instPlacement, err := e.parsePlacement(placement)
+	if err != nil {
+		return "", err
+	}
+	instanceZone := instPlacement.Zone.Name()
+	if err := validateAvailabilityZoneConsistency(instanceZone, volumeAttachmentsZone); err != nil {
+		return "", errors.Annotatef(err, "cannot create instance with placement %q", placement)
+	}
+	return instanceZone, nil
+}
 
-	return zoneNames, nil
+func validateAvailabilityZoneConsistency(instanceZone, volumeAttachmentsZone string) error {
+	if volumeAttachmentsZone != "" && instanceZone != volumeAttachmentsZone {
+		return errors.Errorf(
+			"cannot create instance in zone %q, as this will prevent attaching the requested disks in zone %q",
+			instanceZone, volumeAttachmentsZone,
+		)
+	}
+	return nil
 }

@@ -42,6 +42,7 @@ type ContextSuite struct {
 	membership     map[int][]string
 
 	st      api.Connection
+	model   *state.Model
 	service *state.Application
 	machine *state.Machine
 	unit    *state.Unit
@@ -60,7 +61,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.machine = nil
 
 	ch := s.AddTestingCharm(c, "wordpress")
-	s.service = s.AddTestingService(c, "u", ch)
+	s.service = s.AddTestingApplication(c, "u", ch)
 	s.unit = s.AddUnit(c, s.service)
 
 	storageData0 := names.NewStorageTag("data/0")
@@ -83,6 +84,8 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.uniter, gc.NotNil)
 	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
+	s.model, err = s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.paths = runnertesting.NewRealPaths(c)
 	s.membership = map[int][]string{}
@@ -98,15 +101,15 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.AddContextRelation(c, "db0")
 	s.AddContextRelation(c, "db1")
 
-	s.contextFactory, err = context.NewContextFactory(
-		s.uniter,
-		s.unit.Tag().(names.UnitTag),
-		runnertesting.FakeTracker{},
-		s.getRelationInfos,
-		s.storage,
-		s.paths,
-		jujutesting.NewClock(time.Time{}),
-	)
+	s.contextFactory, err = context.NewContextFactory(context.FactoryConfig{
+		State:            s.uniter,
+		UnitTag:          s.unit.Tag().(names.UnitTag),
+		Tracker:          runnertesting.FakeTracker{},
+		GetRelationInfos: s.getRelationInfos,
+		Storage:          s.storage,
+		Paths:            s.paths,
+		Clock:            jujutesting.NewClock(time.Time{}),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	factory, err := runner.NewFactory(
@@ -119,7 +122,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ContextSuite) AddContextRelation(c *gc.C, name string) {
-	s.AddTestingService(c, name, s.relch)
+	s.AddTestingApplication(c, name, s.relch)
 	eps, err := s.State.InferEndpoints("u", name)
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -137,7 +140,7 @@ func (s *ContextSuite) AddContextRelation(c *gc.C, name string) {
 }
 
 func (s *ContextSuite) AddUnit(c *gc.C, svc *state.Application) *state.Unit {
-	unit, err := svc.AddUnit()
+	unit, err := svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	if s.machine != nil {
 		err = unit.AssignToMachine(s.machine)

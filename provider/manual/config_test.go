@@ -46,11 +46,3 @@ func MinimalConfig(c *gc.C) *config.Config {
 	c.Assert(err, jc.ErrorIsNil)
 	return testConfig
 }
-
-func getModelConfig(c *gc.C, attrs map[string]interface{}) *environConfig {
-	testConfig, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := ManualProvider{}.validate(testConfig, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	return envConfig
-}

@@ -180,3 +180,30 @@ func (c *Client) SetPassword(username, password string) error {
 	}
 	return results.OneError()
 }
+
+// ResetPassword resets password for the specified user.
+func (c *Client) ResetPassword(username string) ([]byte, error) {
+	if !names.IsValidUser(username) {
+		return nil, fmt.Errorf("invalid user name %q", username)
+	}
+
+	in := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewUserTag(username).String(),
+		}},
+	}
+	var out params.AddUserResults
+	err := c.facade.FacadeCall("ResetPassword", in, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if count := len(out.Results); count != 1 {
+		logger.Errorf("expected 1 result, got %#v", out)
+		return nil, errors.Errorf("expected 1 result, got %d", count)
+	}
+	result := out.Results[0]
+	if result.Error != nil {
+		return nil, errors.Trace(result.Error)
+	}
+	return result.SecretKey, nil
+}

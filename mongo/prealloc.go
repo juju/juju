@@ -29,8 +29,9 @@ var (
 	// preallocated Mongo data files.
 	zeroes = make([]byte, 64*1024)
 
-	minOplogSizeMB = 512
-	maxOplogSizeMB = 1024
+	smallOplogSizeMB   = 512
+	regularOplogSizeMB = 1024
+	smallOplogBoundary = 15360.0
 
 	availSpace   = fsAvailSpace
 	preallocFile = doPreallocFile
@@ -48,13 +49,11 @@ func preallocOplog(dir string, oplogSizeMB int) error {
 // defaultOplogSize returns the default size in MB for the
 // mongo oplog based on the directory of the mongo database.
 //
-// The size of the oplog is calculated according to the
-// formula used by Mongo:
-//     http://docs.mongodb.org/manual/core/replica-set-oplog/
-//
-// NOTE: we deviate from the specified minimum and maximum
-//       sizes. Mongo suggests a minimum of 1GB and maximum
-//       of 50GB; we set these to 512MB and 1GB respectively.
+// Since we limit the maximum oplog size to 1GB and every change
+// in opLogSize requires mongo restart we are not using the default
+// MongoDB formula but simply using 512MB for small disks and 1GB
+// for larger ones.
+
 func defaultOplogSize(dir string) (int, error) {
 	if hostWordSize == 32 {
 		// "For 32-bit systems, MongoDB allocates about 48 megabytes
@@ -70,20 +69,18 @@ func defaultOplogSize(dir string) (int, error) {
 
 	// FIXME calculate disk size on Windows like on Linux below.
 	if runtimeGOOS == "windows" {
-		return minOplogSizeMB, nil
+		return smallOplogSizeMB, nil
 	}
 
 	avail, err := availSpace(dir)
 	if err != nil {
 		return -1, err
 	}
-	size := int(avail * 0.05)
-	if size < minOplogSizeMB {
-		size = minOplogSizeMB
-	} else if size > maxOplogSizeMB {
-		size = maxOplogSizeMB
+	if avail < smallOplogBoundary {
+		return smallOplogSizeMB, nil
+	} else {
+		return regularOplogSizeMB, nil
 	}
-	return size, nil
 }
 
 // fsAvailSpace returns the available space in MB on the

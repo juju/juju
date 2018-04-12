@@ -7,6 +7,7 @@ import (
 	"regexp"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -14,10 +15,10 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/testing"
 )
 
 type ShowControllerSuite struct {
@@ -31,11 +32,6 @@ var _ = gc.Suite(&ShowControllerSuite{})
 func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
 	s.baseControllerSuite.SetUpTest(c)
 	s.fakeController = &fakeController{
-		modelNames: map[string]string{
-			"abc": "controller",
-			"def": "my-model",
-			"ghi": "controller",
-		},
 		machines: map[string][]base.Machine{
 			"ghi": {
 				{Id: "0", InstanceId: "id-0", HasVote: false, WantsVote: true, Status: "active"},
@@ -45,8 +41,8 @@ func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
-	s.api = func(controllerNamee string) controller.ControllerAccessAPI {
-		s.fakeController.controllerName = controllerNamee
+	s.api = func(controllerName string) controller.ControllerAccessAPI {
+		s.fakeController.controllerName = controllerName
 		return s.fakeController
 	}
 }
@@ -60,7 +56,7 @@ func (s *ShowControllerSuite) TestShowOneControllerOneInStore(c *gc.C) {
     cloud: mallards
     agent-version: 999.99.99
 `
-	s.fakeController.store = s.createTestClientStore(c)
+	s.createTestClientStore(c)
 
 	s.expectedOutput = `
 mallards:
@@ -79,7 +75,7 @@ mallards:
       uuid: def
       machine-count: 2
       core-count: 4
-  current-model: my-model
+  current-model: admin/my-model
   account:
     user: admin
     access: superuser
@@ -97,7 +93,7 @@ func (s *ShowControllerSuite) TestShowControllerWithPasswords(c *gc.C) {
     cloud: mallards
     agent-version: 999.99.99
 `
-	s.fakeController.store = s.createTestClientStore(c)
+	s.createTestClientStore(c)
 
 	s.expectedOutput = `
 mallards:
@@ -116,7 +112,7 @@ mallards:
       uuid: def
       machine-count: 2
       core-count: 4
-  current-model: my-model
+  current-model: admin/my-model
   account:
     user: admin
     access: superuser
@@ -149,7 +145,6 @@ func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *gc.C) {
 		CloudRegion:   "mallards1",
 		CloudEndpoint: "http://mallards.local/MAAS",
 	}
-	s.fakeController.store = store
 
 	s.expectedOutput = `
 mallards:
@@ -169,7 +164,7 @@ mallards:
       uuid: def
       machine-count: 2
       core-count: 4
-  current-model: my-model
+  current-model: admin/my-model
   account:
     user: admin
     access: superuser
@@ -179,7 +174,7 @@ mallards:
 }
 
 func (s *ShowControllerSuite) TestShowOneControllerManyInStore(c *gc.C) {
-	s.fakeController.store = s.createTestClientStore(c)
+	s.createTestClientStore(c)
 
 	s.expectedOutput = `
 aws-test:
@@ -205,7 +200,7 @@ aws-test:
       uuid: ghi
       machine-count: 2
       core-count: 4
-  current-model: controller
+  current-model: admin/controller
   account:
     user: admin
     access: superuser
@@ -214,7 +209,7 @@ aws-test:
 }
 
 func (s *ShowControllerSuite) TestShowSomeControllerMoreInStore(c *gc.C) {
-	s.fakeController.store = s.createTestClientStore(c)
+	s.createTestClientStore(c)
 	s.expectedOutput = `
 aws-test:
   details:
@@ -239,7 +234,7 @@ aws-test:
       uuid: ghi
       machine-count: 2
       core-count: 4
-  current-model: controller
+  current-model: admin/controller
   account:
     user: admin
     access: superuser
@@ -259,25 +254,25 @@ mark-test-prodstack:
 }
 
 func (s *ShowControllerSuite) TestShowControllerJsonOne(c *gc.C) {
-	s.fakeController.store = s.createTestClientStore(c)
+	s.createTestClientStore(c)
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"controller","account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
 `[1:]
 
 	s.assertShowController(c, "--format", "json", "aws-test")
 }
 
 func (s *ShowControllerSuite) TestShowControllerJsonMany(c *gc.C) {
-	s.fakeController.store = s.createTestClientStore(c)
+	s.createTestClientStore(c)
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"controller","account":{"user":"admin","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"ca-cert":"this-is-a-ca-cert","cloud":"prodstack","agent-version":"999.99.99"},"account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}},"mark-test-prodstack":{"details":{"uuid":"this-is-a-uuid","api-endpoints":["this-is-one-of-many-api-endpoints"],"ca-cert":"this-is-a-ca-cert","cloud":"prodstack","agent-version":"999.99.99"},"account":{"user":"admin","access":"superuser"}}}
 `[1:]
 	s.assertShowController(c, "--format", "json", "aws-test", "mark-test-prodstack")
 }
 
 func (s *ShowControllerSuite) TestShowControllerReadFromStoreErr(c *gc.C) {
-	s.fakeController.store = s.createTestClientStore(c)
+	s.createTestClientStore(c)
 
 	msg := "fail getting controller"
 	errStore := jujuclienttesting.NewStubStore()
@@ -291,12 +286,11 @@ func (s *ShowControllerSuite) TestShowControllerReadFromStoreErr(c *gc.C) {
 
 func (s *ShowControllerSuite) TestShowControllerNoArgs(c *gc.C) {
 	store := s.createTestClientStore(c)
-	s.fakeController.store = store
+	store.CurrentControllerName = "aws-test"
 
 	s.expectedOutput = `
-{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"controller","account":{"user":"admin","access":"superuser"}}}
+{"aws-test":{"details":{"uuid":"this-is-the-aws-test-uuid","api-endpoints":["this-is-aws-test-of-many-api-endpoints"],"ca-cert":"this-is-aws-test-ca-cert","cloud":"aws","region":"us-east-1","agent-version":"999.99.99"},"controller-machines":{"0":{"instance-id":"id-0","ha-status":"ha-pending"},"1":{"instance-id":"id-1","ha-status":"down, lost connection"},"2":{"instance-id":"id-2","ha-status":"ha-enabled"}},"models":{"controller":{"uuid":"ghi","machine-count":2,"core-count":4}},"current-model":"admin/controller","account":{"user":"admin","access":"superuser"}}}
 `[1:]
-	store.CurrentControllerName = "aws-test"
 	s.assertShowController(c, "--format", "json")
 }
 
@@ -324,8 +318,41 @@ func (s *ShowControllerSuite) TestShowControllerUnrecognizedOptionFlag(c *gc.C) 
 	s.assertShowControllerFailed(c, "--model", "still.my.world")
 }
 
+func (s *ShowControllerSuite) TestShowControllerRefreshesStore(c *gc.C) {
+	store := s.createTestClientStore(c)
+	_, err := s.runShowController(c, "aws-test")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(store.Controllers["aws-test"].ControllerMachineCount, gc.Equals, 3)
+	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, gc.Equals, 1)
+	s.fakeController.machines["ghi"][0].HasVote = true
+	_, err = s.runShowController(c, "aws-test")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(store.Controllers["aws-test"].ControllerMachineCount, gc.Equals, 3)
+	c.Check(store.Controllers["aws-test"].ActiveControllerMachineCount, gc.Equals, 2)
+}
+
+func (s *ShowControllerSuite) TestShowControllerRefreshesStoreModels(c *gc.C) {
+	store := s.createTestClientStore(c)
+	c.Assert(store.Models["mallards"], gc.DeepEquals, &jujuclient.ControllerModels{
+		CurrentModel: "admin/my-model",
+		Models: map[string]jujuclient.ModelDetails{
+			"model0":   {ModelUUID: "abc", ModelType: model.IAAS},
+			"my-model": {ModelUUID: "def", ModelType: model.IAAS},
+		},
+	})
+	_, err := s.runShowController(c, "mallards")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(store.Models["mallards"], gc.DeepEquals, &jujuclient.ControllerModels{
+		CurrentModel: "admin/my-model",
+		Models: map[string]jujuclient.ModelDetails{
+			"admin/controller": {ModelUUID: "abc", ModelType: model.IAAS},
+			"admin/my-model":   {ModelUUID: "def", ModelType: model.IAAS},
+		},
+	})
+}
+
 func (s *ShowControllerSuite) runShowController(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, controller.NewShowControllerCommandForTest(s.store, s.api), args...)
+	return cmdtesting.RunCommand(c, controller.NewShowControllerCommandForTest(s.store, s.api), args...)
 }
 
 func (s *ShowControllerSuite) assertShowControllerFailed(c *gc.C, args ...string) {
@@ -336,13 +363,11 @@ func (s *ShowControllerSuite) assertShowControllerFailed(c *gc.C, args ...string
 func (s *ShowControllerSuite) assertShowController(c *gc.C, args ...string) {
 	context, err := s.runShowController(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, s.expectedOutput)
+	c.Assert(cmdtesting.Stdout(context), gc.Equals, s.expectedOutput)
 }
 
 type fakeController struct {
 	controllerName string
-	store          jujuclient.ClientStore
-	modelNames     map[string]string
 	machines       map[string][]base.Machine
 }
 
@@ -367,20 +392,20 @@ func (c *fakeController) ModelStatus(models ...names.ModelTag) (result []base.Mo
 }
 
 func (c *fakeController) AllModels() (result []base.UserModel, _ error) {
-	all, err := c.store.AllModels(c.controllerName)
-	if errors.IsNotFound(err) {
+	models := map[string][]base.UserModel{
+		"aws-test": {
+			{Name: "controller", UUID: "ghi", Owner: "admin", Type: model.IAAS},
+		},
+		"mallards": {
+			{Name: "controller", UUID: "abc", Owner: "admin", Type: model.IAAS},
+			{Name: "my-model", UUID: "def", Owner: "admin", Type: model.IAAS},
+		},
+	}
+	all, exists := models[c.controllerName]
+	if !exists {
 		return result, nil
 	}
-	if err != nil {
-		return nil, err
-	}
-	for _, m := range all {
-		result = append(result, base.UserModel{
-			UUID: m.ModelUUID,
-			Name: c.modelNames[m.ModelUUID],
-		})
-	}
-	return result, nil
+	return all, nil
 }
 
 func (*fakeController) Close() error {

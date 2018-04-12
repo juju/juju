@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -17,13 +18,12 @@ import (
 	"github.com/juju/juju/api/base"
 	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
-	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -46,22 +46,27 @@ var _ = gc.Suite(&DestroySuite{})
 
 type baseDestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	api       *fakeDestroyAPI
-	clientapi *fakeDestroyAPIClient
-	store     *jujuclienttesting.MemStore
-	apierror  error
+	api        *fakeDestroyAPI
+	clientapi  *fakeDestroyAPIClient
+	storageAPI *mockStorageAPI
+	store      *jujuclient.MemStore
+	apierror   error
 }
 
 // fakeDestroyAPI mocks out the controller API
 type fakeDestroyAPI struct {
 	gitjujutesting.Stub
-	cloud        environs.CloudSpec
-	env          map[string]interface{}
-	destroyAll   bool
-	blocks       []params.ModelBlockInfo
-	envStatus    map[string]base.ModelStatus
-	allModels    []base.UserModel
-	hostedConfig []apicontroller.HostedConfig
+	cloud          environs.CloudSpec
+	env            map[string]interface{}
+	blocks         []params.ModelBlockInfo
+	envStatus      map[string]base.ModelStatus
+	allModels      []base.UserModel
+	hostedConfig   []apicontroller.HostedConfig
+	bestAPIVersion int
+}
+
+func (f *fakeDestroyAPI) BestAPIVersion() int {
+	return f.bestAPIVersion
 }
 
 func (f *fakeDestroyAPI) Close() error {
@@ -93,9 +98,8 @@ func (f *fakeDestroyAPI) HostedModelConfigs() ([]apicontroller.HostedConfig, err
 	return f.hostedConfig, nil
 }
 
-func (f *fakeDestroyAPI) DestroyController(destroyAll bool) error {
-	f.MethodCall(f, "DestroyController", destroyAll)
-	f.destroyAll = destroyAll
+func (f *fakeDestroyAPI) DestroyController(args apicontroller.DestroyControllerParams) error {
+	f.MethodCall(f, "DestroyController", args)
 	return f.NextErr()
 }
 
@@ -156,12 +160,15 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	s.clientapi = &fakeDestroyAPIClient{}
 	owner := names.NewUserTag("owner")
 	s.api = &fakeDestroyAPI{
-		cloud:     dummy.SampleCloudSpec(),
-		envStatus: map[string]base.ModelStatus{},
+		cloud:          dummy.SampleCloudSpec(),
+		envStatus:      map[string]base.ModelStatus{},
+		bestAPIVersion: 4,
 	}
 	s.apierror = nil
 
-	s.store = jujuclienttesting.NewMemStore()
+	s.storageAPI = &mockStorageAPI{}
+
+	s.store = jujuclient.NewMemStore()
 	s.store.Controllers["test1"] = jujuclient.ControllerDetails{
 		APIEndpoints:   []string{"localhost"},
 		CACert:         testing.CACert,
@@ -232,11 +239,13 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, s.newDestroyCommand(), args...)
+	return cmdtesting.RunCommand(c, s.newDestroyCommand(), args...)
 }
 
 func (s *DestroySuite) newDestroyCommand() cmd.Command {
-	return controller.NewDestroyCommandForTest(s.api, s.clientapi, s.store, s.apierror)
+	return controller.NewDestroyCommandForTest(
+		s.api, s.clientapi, s.storageAPI, s.store, s.apierror,
+	)
 }
 
 func checkControllerExistsInStore(c *gc.C, name string, store jujuclient.ControllerGetter) {
@@ -288,7 +297,6 @@ func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
 func (s *DestroySuite) TestDestroy(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.destroyAll, jc.IsFalse)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
@@ -296,7 +304,6 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.destroyAll, jc.IsFalse)
 	c.Assert(s.clientapi.destroycalled, jc.IsFalse)
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
@@ -304,8 +311,94 @@ func (s *DestroySuite) TestDestroyAlias(c *gc.C) {
 func (s *DestroySuite) TestDestroyWithDestroyAllModelsFlag(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.api.destroyAll, jc.IsTrue)
+	s.api.CheckCallNames(c, "DestroyController", "AllModels", "ModelStatus", "Close")
+	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
+		DestroyModels: true,
+	})
 	checkControllerRemovedFromStore(c, "test1", s.store)
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlag(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-storage")
+	c.Assert(err, jc.ErrorIsNil)
+	destroyStorage := true
+	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
+		DestroyStorage: &destroyStorage,
+	})
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyReleaseStorageFlag(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test1", "-y", "--release-storage")
+	c.Assert(err, jc.ErrorIsNil)
+	destroyStorage := false
+	s.api.CheckCall(c, 0, "DestroyController", apicontroller.DestroyControllerParams{
+		DestroyStorage: &destroyStorage,
+	})
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyDestroyReleaseStorageFlagsMutuallyExclusive(c *gc.C) {
+	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-storage", "--release-storage")
+	c.Assert(err, gc.ErrorMatches, "--destroy-storage and --release-storage cannot both be specified")
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecified(c *gc.C) {
+	var haveFilesystem bool
+	for uuid, status := range s.api.envStatus {
+		status.Life = string(params.Alive)
+		status.Volumes = append(status.Volumes, base.Volume{Detachable: true})
+		if !haveFilesystem {
+			haveFilesystem = true
+			status.Filesystems = append(
+				status.Filesystems, base.Filesystem{Detachable: true},
+			)
+		}
+		s.api.envStatus[uuid] = status
+	}
+
+	s.api.SetErrors(&params.Error{Code: params.CodeHasPersistentStorage})
+	_, err := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
+	c.Assert(err.Error(), gc.Equals, `cannot destroy controller "test1"
+
+The controller has persistent storage remaining:
+	3 volumes and 1 filesystem across 3 models
+
+To destroy the storage, run the destroy-controller
+command again with the "--destroy-storage" flag.
+
+To release the storage from Juju's management
+without destroying it, use the "--release-storage"
+flag instead. The storage can then be imported
+into another Juju model.
+
+`)
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecifiedOldController(c *gc.C) {
+	s.api.bestAPIVersion = 3
+	s.storageAPI.storage = []params.StorageDetails{{}}
+
+	_, err := s.runDestroyCommand(c, "test1", "-y")
+	c.Assert(err, gc.ErrorMatches, `cannot destroy controller "test1"
+
+Destroying this controller will destroy the storage,
+but you have not indicated that you want to do that.
+
+Please run the the command again with --destroy-storage
+to confirm that you want to destroy the storage along
+with the controller.
+
+If instead you want to keep the storage, you must first
+upgrade the controller to version 2.3 or greater.
+
+`)
+}
+
+func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecifiedOldControllerNoStorage(c *gc.C) {
+	s.api.bestAPIVersion = 3
+	s.storageAPI.storage = nil // no storage
+
+	_, err := s.runDestroyCommand(c, "test1", "-y")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *DestroySuite) TestDestroyControllerGetFails(c *gc.C) {
@@ -321,7 +414,6 @@ func (s *DestroySuite) TestFailedDestroyController(c *gc.C) {
 	s.api.SetErrors(errors.New("permission denied"))
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
-	c.Assert(s.api.destroyAll, jc.IsFalse)
 	checkControllerExistsInStore(c, "test1", s.store)
 }
 
@@ -359,10 +451,8 @@ func (s *DestroySuite) TestDestroyControllerReattempt(c *gc.C) {
 		"DestroyController",
 		"AllModels",
 		"ModelStatus",
-		"ModelStatus",
 		"DestroyController",
 		"AllModels",
-		"ModelStatus",
 		"ModelStatus",
 		"Close",
 	)
@@ -386,40 +476,40 @@ func (s *DestroySuite) resetController(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	var stdin, stdout bytes.Buffer
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
 
 	// Ensure confirmation is requested if "-y" is not specified.
 	stdin.WriteString("n")
-	_, errc := cmdtesting.RunCommand(ctx, s.newDestroyCommand(), "test1")
+	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "controller destruction aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
+	c.Check(cmdtesting.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
 	checkControllerExistsInStore(c, "test1", s.store)
 
 	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
 	stdout.Reset()
-	_, errc = cmdtesting.RunCommand(ctx, s.newDestroyCommand(), "test1")
+	_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "controller destruction aborted")
 	case <-time.After(testing.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
+	c.Check(cmdtesting.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
 	checkControllerExistsInStore(c, "test1", s.store)
 
 	for _, answer := range []string{"y", "Y", "yes", "YES"} {
 		stdin.Reset()
 		stdout.Reset()
 		stdin.WriteString(answer)
-		_, errc = cmdtesting.RunCommand(ctx, s.newDestroyCommand(), "test1")
+		_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
 		select {
 		case err := <-errc:
 			c.Check(err, jc.ErrorIsNil)
@@ -475,9 +565,24 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 		},
 	}
 	ctx, _ := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
-	c.Assert(testing.Stderr(ctx), gc.Equals, "Destroying controller\n"+
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Destroying controller\n"+
 		"Name   Model UUID                            Owner   Disabled commands\n"+
 		"test1  1871299e-1370-4f3e-83ab-1849ed7b1076  cheryl  destroy-model\n"+
 		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob     all, destroy-model\n")
-	c.Assert(testing.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+}
+
+type mockStorageAPI struct {
+	gitjujutesting.Stub
+	storage []params.StorageDetails
+}
+
+func (m *mockStorageAPI) Close() error {
+	m.MethodCall(m, "Close")
+	return m.NextErr()
+}
+
+func (m *mockStorageAPI) ListStorageDetails() ([]params.StorageDetails, error) {
+	m.MethodCall(m, "ListStorageDetails")
+	return m.storage, m.NextErr()
 }

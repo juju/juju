@@ -86,7 +86,13 @@ type fakeController struct {
 }
 
 func newFakeController() *fakeController {
-	return &fakeController{Stub: &testing.Stub{}}
+	return &fakeController{
+		Stub: &testing.Stub{},
+		zones: []gomaasapi.Zone{
+			&fakeZone{name: "mossack"},
+			&fakeZone{name: "fonseca"},
+		},
+	}
 }
 
 func newFakeControllerWithErrors(errors ...error) *fakeController {
@@ -96,7 +102,9 @@ func newFakeControllerWithErrors(errors ...error) *fakeController {
 }
 
 func newFakeControllerWithFiles(files ...gomaasapi.File) *fakeController {
-	return &fakeController{Stub: &testing.Stub{}, files: files}
+	controller := newFakeController()
+	controller.files = files
+	return controller
 }
 
 func (c *fakeController) Devices(args gomaasapi.DevicesArgs) ([]gomaasapi.Device, error) {
@@ -427,7 +435,6 @@ func (v fakeVLAN) MTU() int {
 }
 
 type fakeInterface struct {
-	gomaasapi.Interface
 	*testing.Stub
 
 	id         int
@@ -440,6 +447,8 @@ type fakeInterface struct {
 	links      []gomaasapi.Link
 	macAddress string
 }
+
+var _ gomaasapi.Interface = (*fakeInterface)(nil)
 
 func (v *fakeInterface) ID() int {
 	return v.id
@@ -484,6 +493,23 @@ func (v *fakeInterface) MACAddress() string {
 func (v *fakeInterface) LinkSubnet(args gomaasapi.LinkSubnetArgs) error {
 	v.MethodCall(v, "LinkSubnet", args)
 	return v.NextErr()
+}
+
+func (v *fakeInterface) Delete() error {
+	v.MethodCall(v, "Delete")
+	return v.NextErr()
+}
+
+func (v *fakeInterface) Tags() []string {
+	return nil
+}
+
+func (v *fakeInterface) UnlinkSubnet(gomaasapi.Subnet) error {
+	return errors.NotImplementedf("UnlinkSubnet")
+}
+
+func (v *fakeInterface) Update(gomaasapi.UpdateInterfaceArgs) error {
+	return errors.NotImplementedf("Update")
 }
 
 type fakeLink struct {
@@ -541,17 +567,17 @@ func (f *fakeFile) ReadAll() ([]byte, error) {
 
 type fakeBlockDevice struct {
 	gomaasapi.BlockDevice
-	name string
-	path string
-	size uint64
+	name   string
+	idPath string
+	size   uint64
 }
 
 func (bd fakeBlockDevice) Name() string {
 	return bd.name
 }
 
-func (bd fakeBlockDevice) Path() string {
-	return bd.path
+func (bd fakeBlockDevice) IDPath() string {
+	return bd.idPath
 }
 
 func (bd fakeBlockDevice) Size() uint64 {
@@ -559,12 +585,44 @@ func (bd fakeBlockDevice) Size() uint64 {
 }
 
 type fakeDevice struct {
-	gomaasapi.Device
 	*testing.Stub
 
 	interfaceSet []gomaasapi.Interface
 	systemID     string
 	interface_   gomaasapi.Interface
+	deleteCB     func()
+}
+
+var _ gomaasapi.Device = (*fakeDevice)(nil)
+
+func (d *fakeDevice) FQDN() string {
+	return ""
+}
+
+func (d *fakeDevice) Hostname() string {
+	return ""
+}
+
+func (d *fakeDevice) IPAddresses() []string {
+	addrs := make([]string, 0, len(d.interfaceSet))
+	for _, iface := range d.interfaceSet {
+		for _, link := range iface.Links() {
+			addrs = append(addrs, link.IPAddress())
+		}
+	}
+	return addrs
+}
+
+func (d *fakeDevice) Owner() string {
+	return ""
+}
+
+func (d *fakeDevice) Parent() string {
+	return ""
+}
+
+func (d *fakeDevice) Zone() gomaasapi.Zone {
+	return &fakeZone{}
 }
 
 func (d *fakeDevice) InterfaceSet() []gomaasapi.Interface {
@@ -583,5 +641,8 @@ func (d *fakeDevice) CreateInterface(args gomaasapi.CreateInterfaceArgs) (gomaas
 
 func (d *fakeDevice) Delete() error {
 	d.MethodCall(d, "Delete")
+	if d.deleteCB != nil {
+		d.deleteCB()
+	}
 	return d.NextErr()
 }

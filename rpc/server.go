@@ -4,8 +4,11 @@
 package rpc
 
 import (
+	"context"
 	"io"
 	"reflect"
+	"runtime/debug"
+	"strings"
 	"sync"
 
 	"github.com/juju/errors"
@@ -87,13 +90,17 @@ func (hdr *Header) IsRequest() bool {
 	return hdr.Request.Type != "" || hdr.Request.Action != ""
 }
 
-// ObserverFactory is a type which can construct a new Observer.
-type ObserverFactory interface {
+// RecorderFactory is a function that returns a recorder to record
+// details of a single request/response.
+type RecorderFactory func() Recorder
 
-	// RPCObserver will return a new Observer usually constructed
-	// from the state previously built up in the Observer. The
-	// returned instance will be utilized per RPC request.
-	RPCObserver() Observer
+// Recorder represents something the connection uses to record
+// requests and replies. Recording a message can fail (for example for
+// audit logging), and when it does the request should be failed as
+// well.
+type Recorder interface {
+	HandleRequest(hdr *Header, body interface{}) error
+	HandleReply(req Request, replyHdr *Header, body interface{}) error
 }
 
 // Note that we use "client request" and "server request" to name
@@ -143,22 +150,27 @@ type Conn struct {
 	// dead is closed when the input loop terminates.
 	dead chan struct{}
 
+	// context is created when the connection is started, and is
+	// cancelled when the connection is closed.
+	context       context.Context
+	cancelContext context.CancelFunc
+
 	// inputLoopError holds the error that caused the input loop to
 	// terminate prematurely.  It is set before dead is closed.
 	inputLoopError error
 
-	observerFactory ObserverFactory
+	recorderFactory RecorderFactory
 }
 
 // NewConn creates a new connection that uses the given codec for
-// transport, but it does not start it. Conn.Start must be called before
-// any requests are sent or received. If notifier is non-nil, the
-// appropriate method will be called for every RPC request.
-func NewConn(codec Codec, observerFactory ObserverFactory) *Conn {
+// transport, but it does not start it. Conn.Start must be called
+// before any requests are sent or received. If recorderFactory is
+// non-nil, it will be called to get a new recorder for every request.
+func NewConn(codec Codec, factory RecorderFactory) *Conn {
 	return &Conn{
 		codec:           codec,
 		clientPending:   make(map[uint64]*Call),
-		observerFactory: observerFactory,
+		recorderFactory: ensureFactory(factory),
 	}
 }
 
@@ -167,10 +179,14 @@ func NewConn(codec Codec, observerFactory ObserverFactory) *Conn {
 // effect if it has already been called.  By default, a connection
 // serves no methods.  See Conn.Serve for a description of how to
 // serve methods on a Conn.
-func (conn *Conn) Start() {
+//
+// The context passed in will be propagated to requests served by
+// the connection.
+func (conn *Conn) Start(ctx context.Context) {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 	if conn.dead == nil {
+		conn.context, conn.cancelContext = context.WithCancel(ctx)
 		conn.dead = make(chan struct{})
 		go conn.input()
 	}
@@ -195,14 +211,14 @@ func (conn *Conn) Start() {
 // Methods defined on O may defined in one of the following forms, where
 // T and R must be struct types.
 //
-//	Method()
-//	Method() R
-//	Method() (R, error)
-//	Method() error
-//	Method(T)
-//	Method(T) R
-//	Method(T) (R, error)
-//	Method(T) error
+//	Method([context.Context])
+//	Method([context.Context]) R
+//	Method([context.Context]) (R, error)
+//	Method([context.Context]) error
+//	Method([context.Context,]T)
+//	Method([context.Context,]T) R
+//	Method([context.Context,]T) (R, error)
+//	Method([context.Context,]T) error
 //
 // If transformErrors is non-nil, it will be called on all returned
 // non-nil errors, for example to transform the errors into ServerErrors
@@ -213,12 +229,12 @@ func (conn *Conn) Start() {
 // set of methods being served by the connection. This will have
 // no effect on calls that are currently being services.
 // If root is nil, the connection will serve no methods.
-func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) {
+func (conn *Conn) Serve(root interface{}, factory RecorderFactory, transformErrors func(error) error) {
 	rootValue := rpcreflect.ValueOf(reflect.ValueOf(root))
 	if rootValue.IsValid() {
-		conn.serve(rootValue, transformErrors)
+		conn.serve(rootValue, factory, transformErrors)
 	} else {
-		conn.serve(nil, transformErrors)
+		conn.serve(nil, factory, transformErrors)
 	}
 }
 
@@ -231,17 +247,18 @@ func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) {
 // possibly returning some result.
 //
 // The Kill method will be called when the connection is closed.
-func (conn *Conn) ServeRoot(root Root, transformErrors func(error) error) {
-	conn.serve(root, transformErrors)
+func (conn *Conn) ServeRoot(root Root, factory RecorderFactory, transformErrors func(error) error) {
+	conn.serve(root, factory, transformErrors)
 }
 
-func (conn *Conn) serve(root Root, transformErrors func(error) error) {
+func (conn *Conn) serve(root Root, factory RecorderFactory, transformErrors func(error) error) {
 	if transformErrors == nil {
 		transformErrors = noopTransform
 	}
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 	conn.root = root
+	conn.recorderFactory = ensureFactory(factory)
 	conn.transformErrors = transformErrors
 }
 
@@ -279,13 +296,29 @@ func (conn *Conn) Close() error {
 	}
 	conn.closing = true
 	if conn.root != nil {
+		// Kill calls down into the resources to stop all the resources which
+		// includes watchers. The watches need to be killed in order for their
+		// API methods to return, otherwise they are just waiting.
 		conn.root.Kill()
 	}
 	conn.mutex.Unlock()
 
 	// Wait for any outstanding server requests to complete
-	// and write their replies before closing the codec.
+	// and write their replies before closing the codec. We
+	// cancel the context so that any requests that would
+	// block will be notified that the server is shutting
+	// down.
+	conn.cancelContext()
 	conn.srvPending.Wait()
+
+	conn.mutex.Lock()
+	if conn.root != nil {
+		// It is possible that since we last Killed the root, other resources
+		// may have been added during some of the pending call resoulutions.
+		// So to release these resources, double tap the root.
+		conn.root.Kill()
+	}
+	conn.mutex.Unlock()
 
 	// Closing the codec should cause the input loop to terminate.
 	if err := conn.codec.Close(); err != nil {
@@ -343,6 +376,7 @@ func (conn *Conn) input() {
 
 // loop implements the looping part of Conn.input.
 func (conn *Conn) loop() error {
+	defer conn.cancelContext()
 	for {
 		var hdr Header
 		err := conn.codec.ReadHeader(&hdr)
@@ -371,17 +405,25 @@ func (conn *Conn) readBody(resp interface{}, isRequest bool) error {
 	return conn.codec.ReadBody(resp, isRequest)
 }
 
+func (conn *Conn) getRecorder() Recorder {
+	conn.mutex.Lock()
+	defer conn.mutex.Unlock()
+	return conn.recorderFactory()
+}
+
 func (conn *Conn) handleRequest(hdr *Header) error {
-	observer := conn.observerFactory.RPCObserver()
+	recorder := conn.getRecorder()
 	req, err := conn.bindRequest(hdr)
 	if err != nil {
-		observer.ServerRequest(hdr, nil)
+		if err := recorder.HandleRequest(hdr, nil); err != nil {
+			return errors.Trace(err)
+		}
 		if err := conn.readBody(nil, true); err != nil {
 			return err
 		}
 		// We don't transform the error here. bindRequest will have
 		// already transformed it and returned a zero req.
-		return conn.writeErrorResponse(hdr, err, observer)
+		return conn.writeErrorResponse(hdr, err, recorder)
 	}
 	var argp interface{}
 	var arg reflect.Value
@@ -391,7 +433,9 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		argp = v.Interface()
 	}
 	if err := conn.readBody(argp, true); err != nil {
-		observer.ServerRequest(hdr, nil)
+		if err := recorder.HandleRequest(hdr, nil); err != nil {
+			return errors.Trace(err)
+		}
 
 		// If we get EOF, we know the connection is a
 		// goner, so don't try to respond.
@@ -406,28 +450,31 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		// the error is actually a framing or syntax
 		// problem, then the next ReadHeader should pick
 		// up the problem and abort.
-		return conn.writeErrorResponse(hdr, req.transformErrors(err), observer)
+		return conn.writeErrorResponse(hdr, req.transformErrors(err), recorder)
 	}
+	var body interface{} = struct{}{}
 	if req.ParamsType() != nil {
-		observer.ServerRequest(hdr, arg.Interface())
-	} else {
-		observer.ServerRequest(hdr, struct{}{})
+		body = arg.Interface()
+	}
+	if err := recorder.HandleRequest(hdr, body); err != nil {
+		logger.Errorf("error recording request %+v with arg %+v: %T %+v", req, arg, err, err)
+		return conn.writeErrorResponse(hdr, req.transformErrors(err), recorder)
 	}
 	conn.mutex.Lock()
 	closing := conn.closing
 	if !closing {
 		conn.srvPending.Add(1)
-		go conn.runRequest(req, arg, hdr.Version, observer)
+		go conn.runRequest(req, arg, hdr.Version, recorder)
 	}
 	conn.mutex.Unlock()
 	if closing {
 		// We're closing down - no new requests may be initiated.
-		return conn.writeErrorResponse(hdr, req.transformErrors(ErrShutdown), observer)
+		return conn.writeErrorResponse(hdr, req.transformErrors(ErrShutdown), recorder)
 	}
 	return nil
 }
 
-func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, observer Observer) error {
+func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, recorder Recorder) error {
 	conn.sending.Lock()
 	defer conn.sending.Unlock()
 	hdr := &Header{
@@ -440,7 +487,9 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, observer Observe
 		hdr.ErrorCode = ""
 	}
 	hdr.Error = err.Error()
-	observer.ServerReply(reqHdr.Request, hdr, struct{}{})
+	if err := recorder.HandleReply(reqHdr.Request, hdr, struct{}{}); err != nil {
+		logger.Errorf("error recording reply %+v: %T %+v", hdr, err, err)
+	}
 
 	return conn.codec.WriteMessage(hdr, struct{}{})
 }
@@ -485,11 +534,32 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 }
 
 // runRequest runs the given request and sends the reply.
-func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, version int, observer Observer) {
+func (conn *Conn) runRequest(
+	req boundRequest,
+	arg reflect.Value,
+	version int,
+	recorder Recorder,
+) {
+	// If the request causes a panic, ensure we log that before closing the connection.
+	defer func() {
+		if panicResult := recover(); panicResult != nil {
+			logger.Criticalf(
+				"panic running request %+v with arg %+v: %v\n%v", req, arg, panicResult, string(debug.Stack()))
+			conn.writeErrorResponse(&req.hdr, errors.Errorf("%v", panicResult), recorder)
+		}
+	}()
 	defer conn.srvPending.Done()
-	rv, err := req.Call(req.hdr.Request.Id, arg)
+
+	// Create a request-specific context, cancelled when the
+	// request returns.
+	//
+	// TODO(axw) provide a means for clients to cancel a request.
+	ctx, cancel := context.WithCancel(conn.context)
+	defer cancel()
+
+	rv, err := req.Call(ctx, req.hdr.Request.Id, arg)
 	if err != nil {
-		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), observer)
+		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), recorder)
 	} else {
 		hdr := &Header{
 			RequestId: req.hdr.RequestId,
@@ -501,13 +571,23 @@ func (conn *Conn) runRequest(req boundRequest, arg reflect.Value, version int, o
 		} else {
 			rvi = struct{}{}
 		}
-		observer.ServerReply(req.hdr.Request, hdr, rvi)
+		if err := recorder.HandleReply(req.hdr.Request, hdr, rvi); err != nil {
+			logger.Errorf("error recording reply %+v: %T %+v", hdr, err, err)
+		}
 		conn.sending.Lock()
 		err = conn.codec.WriteMessage(hdr, rvi)
 		conn.sending.Unlock()
 	}
 	if err != nil {
-		logger.Errorf("error writing response: %v", err)
+		// If the message failed due to the other end closing the socket, that
+		// is expected when an agent restarts so no need to log an  error.
+		// The error type here is errors.errorString so all we can do is a match
+		// on the error string content.
+		msg := err.Error()
+		if !strings.Contains(msg, "websocket: close sent") &&
+			!strings.Contains(msg, "write: broken pipe") {
+			logger.Errorf("error writing response: %T %+v", err, err)
+		}
 	}
 }
 
@@ -519,3 +599,19 @@ func (e *serverError) ErrorCode() string {
 	// serverError only knows one error code.
 	return codeNotImplemented
 }
+
+func ensureFactory(f RecorderFactory) RecorderFactory {
+	if f != nil {
+		return f
+	}
+	var nop nopRecorder
+	return func() Recorder {
+		return &nop
+	}
+}
+
+type nopRecorder struct{}
+
+func (nopRecorder) HandleRequest(hdr *Header, body interface{}) error { return nil }
+
+func (nopRecorder) HandleReply(req Request, hdr *Header, body interface{}) error { return nil }

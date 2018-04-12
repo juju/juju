@@ -109,26 +109,34 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 		return errors.New("no database connection info available (is this a controller host?)")
 	}
 
+	session, err := mongo.DialWithInfo(*info, mongo.DefaultDialOpts())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer session.Close()
+
 	st0, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
-		MongoInfo:          info,
-		MongoDialOpts:      mongo.DefaultDialOpts(),
+		MongoSession:       session,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to connect to database")
 	}
 	defer st0.Close()
 
-	envs, err := st0.AllModels()
+	statePool := state.NewStatePool(st0)
+	defer statePool.Close()
+
+	modelUUIDs, err := st0.AllModelUUIDs()
 	if err != nil {
 		return errors.Annotate(err, "failed to look up models")
 	}
-	for _, env := range envs {
-		err := c.dumpLogsForEnv(ctx, st0, env.ModelTag())
+	for _, modelUUID := range modelUUIDs {
+		err := c.dumpLogsForEnv(ctx, statePool, names.NewModelTag(modelUUID))
 		if err != nil {
-			return errors.Annotatef(err, "failed to dump logs for model %s", env.UUID())
+			return errors.Annotatef(err, "failed to dump logs for model %s", modelUUID)
 		}
 	}
 
@@ -151,12 +159,16 @@ func (c *dumpLogsCommand) findMachineId(dataDir string) (string, error) {
 	return "", errors.New("no machine agent configuration found")
 }
 
-func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, st0 *state.State, tag names.ModelTag) error {
-	st, err := st0.ForModel(tag)
+func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.StatePool, tag names.ModelTag) error {
+	st, err := statePool.Get(tag.Id())
 	if err != nil {
+		if errors.IsNotFound(err) {
+			ctx.Infof("model with uuid %v has been removed", tag.Id())
+			return nil
+		}
 		return errors.Annotate(err, "failed open model")
 	}
-	defer st.Close()
+	defer st.Release()
 
 	logName := ctx.AbsPath(filepath.Join(c.outDir, fmt.Sprintf("%s.log", tag.Id())))
 	ctx.Infof("writing to %s", logName)
@@ -170,7 +182,7 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, st0 *state.State, tag
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
-	tailer, err := state.NewLogTailer(st, &state.LogTailerParams{NoTail: true})
+	tailer, err := state.NewLogTailer(st, state.LogTailerParams{NoTail: true})
 	if err != nil {
 		return errors.Annotate(err, "failed to create a log tailer")
 	}

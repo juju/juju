@@ -31,8 +31,13 @@ func userGlobalKey(userID string) string {
 	return fmt.Sprintf("%s#%s", userGlobalKeyPrefix, userID)
 }
 
+func userIDFromGlobalKey(key string) string {
+	prefix := userGlobalKeyPrefix + "#"
+	return strings.TrimPrefix(key, prefix)
+}
+
 func (st *State) checkUserExists(name string) (bool, error) {
-	users, closer := st.getCollection(usersC)
+	users, closer := st.db().GetCollection(usersC)
 	defer closer()
 
 	var count int
@@ -56,14 +61,11 @@ func (st *State) AddUser(name, displayName, password, creator string) (*User, er
 // The new user will not have a password. A password must be set, clearing the
 // secret key in the process, before the user can login normally.
 func (st *State) AddUserWithSecretKey(name, displayName, creator string) (*User, error) {
-	// Generate a random, 32-byte secret key. This can be used
-	// to obtain the controller's (self-signed) CA certificate
-	// and set the user's password.
-	var secretKey [32]byte
-	if _, err := rand.Read(secretKey[:]); err != nil {
+	secretKey, err := generateSecretKey()
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return st.addUser(name, displayName, "", creator, secretKey[:])
+	return st.addUser(name, displayName, "", creator, secretKey)
 }
 
 func (st *State) addUser(name, displayName, password, creator string, secretKey []byte) (*User, error) {
@@ -72,7 +74,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	}
 	nameToLower := strings.ToLower(name)
 
-	dateCreated := st.NowToTheSecond()
+	dateCreated := st.nowToTheSecond()
 	user := &User{
 		st: st,
 		doc: userDoc{
@@ -108,7 +110,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 		defaultControllerPermission)
 	ops = append(ops, controllerUserOps...)
 
-	err := st.runTransaction(ops)
+	err := st.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.Errorf("username unavailable")
 	}
@@ -149,7 +151,7 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 		}}
 		return ops, nil
 	}
-	return st.run(buildTxn)
+	return st.db().Run(buildTxn)
 }
 
 func createInitialUserOps(controllerUUID string, user names.UserTag, password, salt string, dateCreated time.Time) []txn.Op {
@@ -185,7 +187,7 @@ func createInitialUserOps(controllerUUID string, user names.UserTag, password, s
 // getUser fetches information about the user with the
 // given name into the provided userDoc.
 func (st *State) getUser(name string, udoc *userDoc) error {
-	users, closer := st.getCollection(usersC)
+	users, closer := st.db().GetCollection(usersC)
 	defer closer()
 
 	name = strings.ToLower(name)
@@ -224,7 +226,7 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 	var result []*User
 
-	users, closer := st.getCollection(usersC)
+	users, closer := st.db().GetCollection(usersC)
 	defer closer()
 
 	var query bson.D
@@ -254,7 +256,7 @@ func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 	for iter.Next(&doc) {
 		result = append(result, &User{st: st, doc: doc})
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Always return a predictable order, sort by Name.
@@ -335,7 +337,7 @@ func (u *User) UserTag() names.UserTag {
 // normal case, the LastLogin is the last time that the user connected through
 // the API server.
 func (u *User) LastLogin() (time.Time, error) {
-	lastLogins, closer := u.st.getRawCollection(userLastLoginC)
+	lastLogins, closer := u.st.db().GetRawCollection(userLastLoginC)
 	defer closer()
 
 	var lastLogin userLastLoginDoc
@@ -348,14 +350,6 @@ func (u *User) LastLogin() (time.Time, error) {
 	}
 
 	return lastLogin.LastLogin.UTC(), nil
-}
-
-// NowToTheSecond returns the current time in UTC to the nearest second. We use
-// this for a time source that is not more precise than we can handle. When
-// serializing time in and out of mongo, we lose enough precision that it's
-// misleading to store any more than precision to the second.
-func (st *State) NowToTheSecond() time.Time {
-	return st.clock.Now().Round(time.Second).UTC()
 }
 
 // NeverLoggedInError is used to indicate that a user has never logged in.
@@ -379,7 +373,7 @@ func (u *User) UpdateLastLogin() (err error) {
 	if err := u.ensureNotDeleted(); err != nil {
 		return errors.Annotate(err, "cannot update last login")
 	}
-	lastLogins, closer := u.st.getCollection(userLastLoginC)
+	lastLogins, closer := u.st.db().GetCollection(userLastLoginC)
 	defer closer()
 
 	lastLoginsW := lastLogins.Writeable()
@@ -392,7 +386,7 @@ func (u *User) UpdateLastLogin() (err error) {
 	lastLogin := userLastLoginDoc{
 		DocID:     u.doc.DocID,
 		ModelUUID: u.st.ModelUUID(),
-		LastLogin: u.st.NowToTheSecond(),
+		LastLogin: u.st.nowToTheSecond(),
 	}
 
 	_, err = lastLoginsW.UpsertId(lastLogin.DocID, lastLogin)
@@ -440,7 +434,7 @@ func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 		Assert: txn.DocExists,
 		Update: update,
 	}}
-	if err := u.st.runTransaction(ops); err != nil {
+	if err := u.st.db().RunTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set password of user %q", u.Name())
 	}
 	u.doc.PasswordHash = pwHash
@@ -481,11 +475,11 @@ func (u *User) Disable() error {
 	if err := u.ensureNotDeleted(); err != nil {
 		return errors.Annotate(err, "cannot disable")
 	}
-	environment, err := u.st.ControllerModel()
+	owner, err := u.st.ControllerOwner()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if u.doc.Name == environment.Owner().Name() {
+	if u.doc.Name == owner.Name() {
 		return errors.Unauthorizedf("cannot disable controller model owner")
 	}
 	return errors.Annotatef(u.setDeactivated(true), "cannot disable user %q", u.Name())
@@ -506,7 +500,7 @@ func (u *User) setDeactivated(value bool) error {
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"deactivated", value}}}},
 	}}
-	if err := u.st.runTransaction(ops); err != nil {
+	if err := u.st.db().RunTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
 			err = fmt.Errorf("user no longer exists")
 		}
@@ -549,6 +543,61 @@ func (u *User) ensureNotDeleted() error {
 		return DeletedUserError{u.Name()}
 	}
 	return nil
+}
+
+// ResetPassword clears the user's password (if there is one),
+// and generates a new secret key for the user.
+// This must be an active user.
+func (u *User) ResetPassword() ([]byte, error) {
+	var key []byte
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if err := u.ensureNotDeleted(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if u.IsDisabled() {
+			return nil, fmt.Errorf("user deactivated")
+		}
+		var err error
+		key, err = generateSecretKey()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		update := bson.D{
+			{
+				"$set", bson.D{
+					{"secretkey", key},
+				},
+			},
+			{
+				"$unset", bson.D{
+					{"passwordhash", ""},
+					{"passwordsalt", ""},
+				},
+			},
+		}
+		return []txn.Op{{
+			C:      usersC,
+			Id:     u.Name(),
+			Assert: txn.DocExists,
+			Update: update,
+		}}, nil
+	}
+	if err := u.st.db().Run(buildTxn); err != nil {
+		return nil, errors.Annotatef(err, "cannot reset password for user %q", u.Name())
+	}
+	u.doc.SecretKey = key
+	u.doc.PasswordHash = ""
+	u.doc.PasswordSalt = ""
+	return key, nil
+}
+
+// generateSecretKey generates a random, 32-byte secret key.
+func generateSecretKey() ([]byte, error) {
+	var secretKey [32]byte
+	if _, err := rand.Read(secretKey[:]); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return secretKey[:], nil
 }
 
 // userList type is used to provide the methods for sorting.

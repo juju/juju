@@ -1,23 +1,22 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
-
 package modelworkermanager
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v2"
-
 	"github.com/juju/juju/state"
 )
 
-type BackendShim struct {
-	*state.State
+// StatePoolModelGetter implements ModelGetter in terms of a *state.StatePool.
+type StatePoolModelGetter struct {
+	*state.StatePool
 }
 
-func (s BackendShim) GetModel(tag names.ModelTag) (BackendModel, error) {
-	m, err := s.State.GetModel(tag)
+// Model is part of the ModelGetter interface.
+func (g StatePoolModelGetter) Model(modelUUID string) (Model, func(), error) {
+	model, ph, err := g.StatePool.GetModel(modelUUID)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	return m, nil
+	return model, func() { ph.Release() }, nil
 }

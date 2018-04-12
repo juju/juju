@@ -128,15 +128,3 @@ func TmpfsFilesystemSource(storageDir string, run func(string, ...string) (strin
 func TmpfsProvider(run func(string, ...string) (string, error)) storage.Provider {
 	return &tmpfsProvider{run}
 }
-
-// MountedDirs returns all the Dirs which have been created during any CreateFilesystem calls
-// on the specified filesystem source..
-func MountedDirs(fsSource storage.FilesystemSource) set.Strings {
-	switch fs := fsSource.(type) {
-	case *rootfsFilesystemSource:
-		return fs.dirFuncs.(*MockDirFuncs).Dirs
-	case *tmpfsFilesystemSource:
-		return fs.dirFuncs.(*MockDirFuncs).Dirs
-	}
-	panic("unexpectd type")
-}

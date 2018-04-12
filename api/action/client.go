@@ -84,7 +84,7 @@ func (c *Client) ListCompleted(arg params.Entities) (params.ActionsByReceivers, 
 }
 
 // Cancel attempts to cancel a queued up Action from running.
-func (c *Client) Cancel(arg params.Actions) (params.ActionResults, error) {
+func (c *Client) Cancel(arg params.Entities) (params.ActionResults, error) {
 	results := params.ActionResults{}
 	err := c.facade.FacadeCall("Cancel", arg, &results)
 	return results, err

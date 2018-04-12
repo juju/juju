@@ -17,7 +17,7 @@ import (
 
 // Machine represents a juju machine as seen by the firewaller worker.
 type Machine struct {
-	st   *State
+	st   *Client
 	tag  names.MachineTag
 	life params.Life
 }
@@ -142,4 +142,24 @@ func (m *Machine) OpenedPorts(subnetTag names.SubnetTag) (map[network.PortRange]
 		endResult[ports.PortRange.NetworkPortRange()] = unitTag
 	}
 	return endResult, nil
+}
+
+// IsManual returns true if the machine was manually provisioned.
+func (m *Machine) IsManual() (bool, error) {
+	var results params.BoolResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag.String()}},
+	}
+	err := m.st.facade.FacadeCall("AreManuallyProvisioned", args, &results)
+	if err != nil {
+		return false, err
+	}
+	if len(results.Results) != 1 {
+		return false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.Result, nil
 }

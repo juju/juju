@@ -30,20 +30,6 @@ func fakeCallback(_ status.Status, _ string, _ map[string]interface{}) error {
 	return nil
 }
 
-// FakeStateInfo holds information about no state - it will always
-// give an error when connected to.  The machine id gives the machine id
-// of the machine to be started.
-func FakeStateInfo(machineId string) *mongo.MongoInfo {
-	return &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{"0.1.2.3:1234"},
-			CACert: testing.CACert,
-		},
-		Tag:      names.NewMachineTag(machineId),
-		Password: "unimportant",
-	}
-}
-
 // FakeAPIInfo holds information about no state - it will always
 // give an error when connected to.  The machine id gives the machine id
 // of the machine to be started.
@@ -84,7 +70,7 @@ func AssertStartControllerInstance(
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
 	params := environs.StartInstanceParams{ControllerUUID: controllerUUID}
-	err := fillinStartInstanceParams(env, machineId, true, &params)
+	err := FillInStartInstanceParams(env, machineId, true, &params)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := env.StartInstance(params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -152,13 +138,15 @@ func StartInstanceWithParams(
 ) (
 	*environs.StartInstanceResult, error,
 ) {
-	if err := fillinStartInstanceParams(env, machineId, false, &params); err != nil {
+	if err := FillInStartInstanceParams(env, machineId, false, &params); err != nil {
 		return nil, err
 	}
 	return env.StartInstance(params)
 }
 
-func fillinStartInstanceParams(env environs.Environ, machineId string, isController bool, params *environs.StartInstanceParams) error {
+// FillInStartInstanceParams prepares the instance parameters for starting
+// the instance.
+func FillInStartInstanceParams(env environs.Environ, machineId string, isController bool, params *environs.StartInstanceParams) error {
 	if params.ControllerUUID == "" {
 		return errors.New("missing controller UUID in start instance parameters")
 	}
@@ -174,8 +162,8 @@ func fillinStartInstanceParams(env environs.Environ, machineId string, isControl
 	if params.Constraints.Arch != nil {
 		filter.Arch = *params.Constraints.Arch
 	}
-	stream := tools.PreferredStream(&agentVersion, env.Config().Development(), env.Config().AgentStream())
-	possibleTools, err := tools.FindTools(env, -1, -1, stream, filter)
+	streams := tools.PreferredStreams(&agentVersion, env.Config().Development(), env.Config().AgentStream())
+	possibleTools, err := tools.FindTools(env, -1, -1, streams, filter)
 	if err != nil {
 		return errors.Trace(err)
 	}

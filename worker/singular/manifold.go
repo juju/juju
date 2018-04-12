@@ -11,7 +11,6 @@ import (
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker/dependency"
@@ -22,10 +21,11 @@ import (
 type ManifoldConfig struct {
 	ClockName     string
 	APICallerName string
-	AgentName     string
 	Duration      time.Duration
+	Claimant      names.MachineTag
+	Entity        names.Tag
 
-	NewFacade func(base.APICaller, names.MachineTag) (Facade, error)
+	NewFacade func(base.APICaller, names.MachineTag, names.Tag) (Facade, error)
 	NewWorker func(FlagConfig) (worker.Worker, error)
 }
 
@@ -39,19 +39,8 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
-	var agent agent.Agent
-	if err := context.Get(config.AgentName, &agent); err != nil {
-		return nil, errors.Trace(err)
-	}
-	agentTag := agent.CurrentConfig().Tag()
-	machineTag, ok := agentTag.(names.MachineTag)
-	if !ok {
-		return nil, errors.New("singular flag expected a machine agent")
-	}
 
-	// TODO(fwereade): model id is implicit in apiCaller, would
-	// be better if explicit.
-	facade, err := config.NewFacade(apiCaller, machineTag)
+	facade, err := config.NewFacade(apiCaller, config.Claimant, config.Entity)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -63,7 +52,22 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return flag, nil
+	return wrappedWorker{flag}, nil
+}
+
+// wrappedWorker wraps a flag worker, translating ErrRefresh into
+// dependency.ErrBounce.
+type wrappedWorker struct {
+	worker.Worker
+}
+
+// Wait is part of the worker.Worker interface.
+func (w wrappedWorker) Wait() error {
+	err := w.Worker.Wait()
+	if err == ErrRefresh {
+		err = dependency.ErrBounce
+	}
+	return err
 }
 
 // Manifold returns a dependency.Manifold that will run a FlagWorker and
@@ -73,9 +77,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.ClockName,
 			config.APICallerName,
-			config.AgentName,
 		},
-		Start:  config.start,
-		Output: engine.FlagOutput,
+		Start: config.start,
+		Output: func(in worker.Worker, out interface{}) error {
+			if w, ok := in.(wrappedWorker); ok {
+				in = w.Worker
+			}
+			return engine.FlagOutput(in, out)
+		},
 	}
 }

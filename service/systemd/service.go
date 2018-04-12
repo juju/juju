@@ -42,7 +42,7 @@ func ListServices() ([]string, error) {
 	// would need conn.ListUnitFiles. Such a method has been requested.
 	// (see https://github.com/coreos/go-systemd/issues/76). In the
 	// meantime we use systemctl at the shell to list the services.
-	// Once that is addressed upstread we can just call listServices here.
+	// Once that is addressed upstream we can just call listServices here.
 	names, err := Cmdline{}.ListAll()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -55,24 +55,29 @@ func ListCommand() string {
 	return cmds.listAll()
 }
 
+// Type alias for a DBusAPI factory method.
+type DBusAPIFactory = func() (DBusAPI, error)
+
 // Service provides visibility into and control over a systemd service.
 type Service struct {
 	common.Service
 
 	ConfName string
 	UnitName string
-	Dirname  string
+	DirName  string
 	Script   []byte
+
+	newDBus DBusAPIFactory
 }
 
 // NewService returns a new value that implements Service for systemd.
-func NewService(name string, conf common.Conf, dataDir string) (*Service, error) {
+func NewService(name string, conf common.Conf, dataDir string, newDBus DBusAPIFactory) (*Service, error) {
 	confName := name + ".service"
 	var volName string
 	if conf.ExecStart != "" {
 		volName = renderer.VolumeName(common.Unquote(strings.Fields(conf.ExecStart)[0]))
 	}
-	dirname := volName + renderer.Join(dataDir, "init", name)
+	dirName := volName + renderer.Join(dataDir, "init", name)
 
 	service := &Service{
 		Service: common.Service{
@@ -81,7 +86,8 @@ func NewService(name string, conf common.Conf, dataDir string) (*Service, error)
 		},
 		ConfName: confName,
 		UnitName: confName,
-		Dirname:  dirname,
+		DirName:  dirName,
+		newDBus:  newDBus,
 	}
 
 	if err := service.setConf(conf); err != nil {
@@ -91,8 +97,11 @@ func NewService(name string, conf common.Conf, dataDir string) (*Service, error)
 	return service, nil
 }
 
-// dbusAPI exposes all the systemd API methods needed by juju.
-type dbusAPI interface {
+// DBusAPI exposes all the systemd API methods needed by juju.
+// To regenerate the mock for this interface,
+// run "go generate" from the package directory.
+//go:generate mockgen -package systemd_test -destination dbusapi_mock_test.go github.com/juju/juju/service/systemd DBusAPI
+type DBusAPI interface {
 	Close()
 	ListUnits() ([]dbus.UnitStatus, error)
 	StartUnit(string, string, chan<- string) (int, error)
@@ -105,7 +114,7 @@ type dbusAPI interface {
 	Reload() error
 }
 
-var newConn = func() (dbusAPI, error) {
+var NewDBusAPI = func() (DBusAPI, error) {
 	return dbus.New()
 }
 
@@ -161,7 +170,7 @@ func (s *Service) validate(conf common.Conf) error {
 }
 
 func (s *Service) normalize(conf common.Conf) (common.Conf, []byte) {
-	scriptPath := renderer.ScriptFilename("exec-start", s.Dirname)
+	scriptPath := renderer.ScriptFilename("exec-start", s.DirName)
 	return normalize(s.Service.Name, conf, scriptPath, &renderer)
 }
 
@@ -220,7 +229,7 @@ func (s *Service) check() (bool, error) {
 func (s *Service) readConf() (common.Conf, error) {
 	var conf common.Conf
 
-	data, err := Cmdline{}.conf(s.Service.Name, s.Dirname)
+	data, err := Cmdline{}.conf(s.Service.Name, s.DirName)
 	if err != nil {
 		return conf, s.errorf(err, "failed to read conf from systemd")
 	}
@@ -232,8 +241,8 @@ func (s *Service) readConf() (common.Conf, error) {
 	return conf, nil
 }
 
-func (s Service) newConn() (dbusAPI, error) {
-	conn, err := newConn()
+func (s *Service) newConn() (DBusAPI, error) {
+	conn, err := s.newDBus()
 	if err != nil {
 		logger.Errorf("failed to connect to dbus for application %q: %v", s.Service.Name, err)
 	}
@@ -403,7 +412,7 @@ func (s *Service) remove() error {
 		return s.errorf(err, "dbus post-disable daemon reload request failed")
 	}
 
-	if err := removeAll(s.Dirname); err != nil {
+	if err := removeAll(s.DirName); err != nil {
 		return s.errorf(err, "failed to delete juju-managed conf dir")
 	}
 
@@ -454,32 +463,7 @@ func (s *Service) install() error {
 		}
 	}
 
-	filename, err := s.writeConf()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	conn, err := s.newConn()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer conn.Close()
-
-	runtime, force := false, true
-	_, err = conn.LinkUnitFiles([]string{filename}, runtime, force)
-	if err != nil {
-		return s.errorf(err, "dbus link request failed")
-	}
-
-	if err := conn.Reload(); err != nil {
-		return s.errorf(err, "dbus post-link daemon reload request failed")
-	}
-
-	_, _, err = conn.EnableUnitFiles([]string{filename}, runtime, force)
-	if err != nil {
-		return s.errorf(err, "dbus enable request failed")
-	}
-	return nil
+	return s.WriteService()
 }
 
 func (s *Service) writeConf() (string, error) {
@@ -488,13 +472,13 @@ func (s *Service) writeConf() (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	if err := mkdirAll(s.Dirname); err != nil {
-		return "", s.errorf(err, "failed to create juju-managed service dir %q", s.Dirname)
+	if err := mkdirAll(s.DirName); err != nil {
+		return "", s.errorf(err, "failed to create juju-managed service dir %q", s.DirName)
 	}
-	filename := path.Join(s.Dirname, s.ConfName)
+	filename := path.Join(s.DirName, s.ConfName)
 
 	if s.Script != nil {
-		scriptPath := renderer.ScriptFilename("exec-start", s.Dirname)
+		scriptPath := renderer.ScriptFilename("exec-start", s.DirName)
 		if scriptPath != s.Service.Conf.ExecStart {
 			err := errors.Errorf("wrong script path: expected %q, got %q", scriptPath, s.Service.Conf.ExecStart)
 			return filename, s.errorf(err, "failed to write script at %q", scriptPath)
@@ -527,7 +511,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 	}
 
 	name := s.Name()
-	dirname := s.Dirname
+	dirname := s.DirName
 
 	data, err := s.serialize()
 	if err != nil {
@@ -561,4 +545,40 @@ func (s *Service) StartCommands() ([]string, error) {
 		cmds.start(name),
 	}
 	return cmdList, nil
+}
+
+// WriteService implements UpgradableService.WriteService
+func (s *Service) WriteService() error {
+	filename, err := s.writeConf()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if running, err := IsRunning(); err != nil {
+		return errors.Trace(err)
+	} else if !running {
+		return nil
+	}
+
+	conn, err := s.newConn()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer conn.Close()
+
+	runtime, force := false, true
+	if _, err = conn.LinkUnitFiles([]string{filename}, runtime, force); err != nil {
+		return s.errorf(err, "dbus link request failed")
+	}
+
+	err = conn.Reload()
+	if err != nil {
+		return s.errorf(err, "dbus post-link daemon reload request failed")
+	}
+
+	if _, _, err = conn.EnableUnitFiles([]string{filename}, runtime, force); err != nil {
+		return s.errorf(err, "dbus enable request failed")
+
+	}
+	return nil
 }

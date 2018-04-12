@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ListSuite struct {
@@ -26,8 +25,7 @@ var _ = gc.Suite(&ListSuite{})
 
 func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
-	s.command, _ = space.NewListCommandForTest(s.api)
-	c.Assert(s.command, gc.NotNil)
+	s.newCommand = space.NewListCommand
 }
 
 func (s *ListSuite) TestInit(c *gc.C) {
@@ -71,18 +69,15 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		expectFormat: "tabular",
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
-		// Create a new instance of the subcommand for each test, but
-		// since we're not running the command no need to use
-		// modelcmd.Wrap().
-		wrappedCommand, command := space.NewListCommandForTest(s.api)
-		err := coretesting.InitCommand(wrappedCommand, test.args)
+		command, err := s.InitCommand(c, test.args...)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
+			command := command.(*space.ListCommand)
+			c.Check(command.ListFormat(), gc.Equals, test.expectFormat)
+			c.Check(command.Short, gc.Equals, test.expectShort)
 		}
-		c.Check(command.ListFormat(), gc.Equals, test.expectFormat)
-		c.Check(command.Short, gc.Equals, test.expectShort)
 
 		// No API calls should be recorded at this stage.
 		s.api.CheckCallNames(c)
@@ -279,6 +274,26 @@ func (s *ListSuite) TestRunWhenNoSpacesExistSucceeds(c *gc.C) {
 
 	s.api.CheckCallNames(c, "ListSpaces", "Close")
 	s.api.CheckCall(c, 0, "ListSpaces")
+}
+
+func (s *ListSuite) TestRunWhenNoSpacesExistSucceedsWithProperFormat(c *gc.C) {
+	s.api.Spaces = s.api.Spaces[0:0]
+
+	s.AssertRunSucceeds(c,
+		`no spaces to display\n`,
+		"{\"spaces\":{}}\n", // json formatted stdout.
+		"--format=json",
+	)
+
+	s.AssertRunSucceeds(c,
+		`no spaces to display\n`,
+		"spaces: {}\n", // yaml formatted stdout.
+		"--format=yaml",
+	)
+
+	s.api.CheckCallNames(c, "ListSpaces", "Close", "ListSpaces", "Close")
+	s.api.CheckCall(c, 0, "ListSpaces")
+	s.api.CheckCall(c, 2, "ListSpaces")
 }
 
 func (s *ListSuite) TestRunWhenSpacesNotSupported(c *gc.C) {

@@ -13,7 +13,7 @@ import (
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -44,7 +44,7 @@ var _ = gc.Suite(&RelationerSuite{})
 func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
-	s.app = s.AddTestingService(c, "u", s.AddTestingCharm(c, "riak"))
+	s.app = s.AddTestingApplication(c, "u", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, jc.ErrorIsNil)
 	rels, err := s.app.Relations()
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,7 +74,7 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.RelationUnit, *state.Unit) {
-	u, err := s.app.AddUnit()
+	u, err := s.app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u.Name(), gc.Equals, name)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -296,8 +296,8 @@ var _ = gc.Suite(&RelationerImplicitSuite{})
 
 func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	// Create a relationer for an implicit endpoint (mysql:juju-info).
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	u, err := mysql.AddUnit()
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	u, err := mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -305,7 +305,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProviderAddresses(network.NewScopedAddress("blah", network.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)

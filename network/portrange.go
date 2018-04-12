@@ -22,8 +22,14 @@ type PortRange struct {
 // IsValid determines if the port range is valid.
 func (p PortRange) Validate() error {
 	proto := strings.ToLower(p.Protocol)
-	if proto != "tcp" && proto != "udp" {
-		return errors.Errorf(`invalid protocol %q, expected "tcp" or "udp"`, proto)
+	if proto != "tcp" && proto != "udp" && proto != "icmp" {
+		return errors.Errorf(`invalid protocol %q, expected "tcp", "udp", or "icmp"`, proto)
+	}
+	if proto == "icmp" {
+		if p.FromPort == p.ToPort && p.FromPort == -1 {
+			return nil
+		}
+		return errors.Errorf(`protocol "icmp" doesn't support any ports; got "%v"`, p.FromPort)
 	}
 	err := errors.Errorf(
 		"invalid port range %d-%d/%s",
@@ -51,10 +57,14 @@ func (a PortRange) ConflictsWith(b PortRange) bool {
 }
 
 func (p PortRange) String() string {
-	if p.FromPort == p.ToPort {
-		return fmt.Sprintf("%d/%s", p.FromPort, strings.ToLower(p.Protocol))
+	protocol := strings.ToLower(p.Protocol)
+	if protocol == "icmp" {
+		return protocol
 	}
-	return fmt.Sprintf("%d-%d/%s", p.FromPort, p.ToPort, strings.ToLower(p.Protocol))
+	if p.FromPort == p.ToPort {
+		return fmt.Sprintf("%d/%s", p.FromPort, protocol)
+	}
+	return fmt.Sprintf("%d-%d/%s", p.FromPort, p.ToPort, protocol)
 }
 
 func (p PortRange) GoString() string {
@@ -135,7 +145,7 @@ func CollapsePorts(ports []Port) (result []PortRange) {
 // string does not include a protocol then "tcp" is used. Validate()
 // gets called on the result before returning. If validation fails the
 // invalid PortRange is still returned.
-// Example strings: "80/tcp", "443", "12345-12349/udp".
+// Example strings: "80/tcp", "443", "12345-12349/udp", "icmp".
 func ParsePortRange(inPortRange string) (PortRange, error) {
 	// Extract the protocol.
 	protocol := "tcp"
@@ -149,6 +159,9 @@ func ParsePortRange(inPortRange string) (PortRange, error) {
 	portRange, err := parsePortRange(inPortRange)
 	if err != nil {
 		return portRange, errors.Trace(err)
+	}
+	if portRange.FromPort == -1 {
+		protocol = "icmp"
 	}
 	portRange.Protocol = protocol
 
@@ -174,12 +187,15 @@ func parsePortRange(portRange string) (PortRange, error) {
 	}
 
 	if len(parts) == 1 {
-		port, err := strconv.Atoi(parts[0])
-		if err != nil {
-			return result, errors.Annotatef(err, "invalid port %q", portRange)
+		if parts[0] == "icmp" {
+			start, end = -1, -1
+		} else {
+			port, err := strconv.Atoi(parts[0])
+			if err != nil {
+				return result, errors.Annotatef(err, "invalid port %q", portRange)
+			}
+			start, end = port, port
 		}
-		start = port
-		end = port
 	} else {
 		var err error
 		if start, err = strconv.Atoi(parts[0]); err != nil {

@@ -38,7 +38,7 @@ type StorageInfo struct {
 	Life        string              `yaml:"life,omitempty" json:"life,omitempty"`
 	Status      EntityStatus        `yaml:"status" json:"status"`
 	Persistent  bool                `yaml:"persistent" json:"persistent"`
-	Attachments *StorageAttachments `yaml:"attachments" json:"attachments"`
+	Attachments *StorageAttachments `yaml:"attachments,omitempty" json:"attachments,omitempty"`
 }
 
 // StorageAttachments contains details about all attachments to a storage

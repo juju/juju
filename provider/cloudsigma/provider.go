@@ -46,7 +46,7 @@ type environProvider struct {
 var providerInstance = environProvider{}
 
 // check the provider implements environs.EnvironProvider interface
-var _ environs.EnvironProvider = (*environProvider)(nil)
+var _ environs.CloudEnvironProvider = (*environProvider)(nil)
 
 func init() {
 	// This will only happen in binaries that actually import this provider
@@ -55,6 +55,11 @@ func init() {
 	// except in direct tests for that provider.
 	environs.RegisterProvider("cloudsigma", providerInstance)
 	environs.RegisterImageDataSourceFunc("cloud sigma image source", getImageSource)
+}
+
+// Version is part of the EnvironProvider interface.
+func (environProvider) Version() int {
+	return 0
 }
 
 // Open opens the environment and returns it.

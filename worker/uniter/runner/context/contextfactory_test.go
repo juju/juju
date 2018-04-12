@@ -8,19 +8,23 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/environs"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
@@ -40,15 +44,15 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 	s.paths = runnertesting.NewRealPaths(c)
 	s.membership = map[int][]string{}
 
-	contextFactory, err := context.NewContextFactory(
-		s.uniter,
-		s.unit.Tag().(names.UnitTag),
-		runnertesting.FakeTracker{},
-		s.getRelationInfos,
-		s.storage,
-		s.paths,
-		testing.NewClock(time.Time{}),
-	)
+	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
+		State:            s.uniter,
+		UnitTag:          s.unit.Tag().(names.UnitTag),
+		Tracker:          runnertesting.FakeTracker{},
+		GetRelationInfos: s.getRelationInfos,
+		Storage:          s.storage,
+		Paths:            s.paths,
+		Clock:            testing.NewClock(time.Time{}),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.factory = contextFactory
 }
@@ -60,6 +64,12 @@ func (s *ContextFactorySuite) setUpCacheMethods(c *gc.C) {
 	// responsible for creating missing caches etc.)
 	_, err := s.factory.HookContext(hook.Info{Kind: hooks.Install})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ContextFactorySuite) Model(c *gc.C) *state.Model {
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	return m
 }
 
 func (s *ContextFactorySuite) updateCache(relId int, unitName string, settings params.Settings) {
@@ -92,8 +102,8 @@ func (s *ContextFactorySuite) testLeadershipContextWiring(c *gc.C, createContext
 	var stub testing.Stub
 	stub.SetErrors(errors.New("bam"))
 	restore := context.PatchNewLeadershipContext(
-		func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker) context.LeadershipContext {
-			stub.AddCall("NewLeadershipContext", accessor, tracker)
+		func(accessor context.LeadershipSettingsAccessor, tracker leadership.Tracker, unitName string) context.LeadershipContext {
+			stub.AddCall("NewLeadershipContext", accessor, tracker, unitName)
 			return &StubLeadershipContext{Stub: &stub}
 		},
 	)
@@ -106,11 +116,20 @@ func (s *ContextFactorySuite) testLeadershipContextWiring(c *gc.C, createContext
 
 	stub.CheckCalls(c, []testing.StubCall{{
 		FuncName: "NewLeadershipContext",
-		Args:     []interface{}{s.uniter.LeadershipSettings, runnertesting.FakeTracker{}},
+		Args:     []interface{}{s.uniter.LeadershipSettings, runnertesting.FakeTracker{}, "u/0"},
 	}, {
 		FuncName: "IsLeader",
 	}})
 
+}
+
+func (s *ContextFactorySuite) TestNewHookContextRetrievesSLALevel(c *gc.C) {
+	err := s.State.SetSLA("essential", "bob", []byte("creds"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx, err := s.factory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.SLALevel(), gc.Equals, "essential")
 }
 
 func (s *ContextFactorySuite) TestNewHookContextLeadershipContext(c *gc.C) {
@@ -132,7 +151,7 @@ func (s *ContextFactorySuite) TestNewCommandContextLeadershipContext(c *gc.C) {
 func (s *ContextFactorySuite) TestNewActionContextLeadershipContext(c *gc.C) {
 	s.testLeadershipContextWiring(c, func() *context.HookContext {
 		s.SetCharm(c, "dummy")
-		action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", nil)
+		action, err := s.Model(c).EnqueueAction(s.unit.Tag(), "snapshot", nil)
 		c.Assert(err, jc.ErrorIsNil)
 
 		actionData := &context.ActionData{
@@ -167,28 +186,28 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	sCons := map[string]state.StorageConstraints{
 		"data": {Pool: "", Size: 1024, Count: 1},
 	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, sCons)
+	service := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
 	s.machine = nil // allocate a new machine
 	unit := s.AddUnit(c, service)
 
-	storageAttachments, err := s.State.UnitStorageAttachments(unit.UnitTag())
+	storageAttachments, err := s.IAASModel.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 	storageTag := storageAttachments[0].StorageInstance()
 
-	volume, err := s.State.StorageInstanceVolume(storageTag)
+	volume, err := s.IAASModel.StorageInstanceVolume(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeTag := volume.VolumeTag()
 	machineTag := s.machine.MachineTag()
 
-	err = s.State.SetVolumeInfo(
+	err = s.IAASModel.SetVolumeInfo(
 		volumeTag, state.VolumeInfo{
 			VolumeId: "vol-123",
 			Size:     456,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.SetVolumeAttachmentInfo(
+	err = s.IAASModel.SetVolumeAttachmentInfo(
 		machineTag, volumeTag, state.VolumeAttachmentInfo{
 			DeviceName: "sdb",
 		},
@@ -202,15 +221,15 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	uniter, err := st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
 
-	contextFactory, err := context.NewContextFactory(
-		uniter,
-		unit.Tag().(names.UnitTag),
-		runnertesting.FakeTracker{},
-		s.getRelationInfos,
-		s.storage,
-		s.paths,
-		testing.NewClock(time.Time{}),
-	)
+	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
+		State:            uniter,
+		UnitTag:          unit.Tag().(names.UnitTag),
+		Tracker:          runnertesting.FakeTracker{},
+		GetRelationInfos: s.getRelationInfos,
+		Storage:          s.storage,
+		Paths:            s.paths,
+		Clock:            testing.NewClock(time.Time{}),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := contextFactory.HookContext(hook.Info{
 		Kind:      hooks.StorageAttached,
@@ -226,9 +245,53 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	s.AssertNotRelationContext(c, ctx)
 }
 
+func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer st.Close()
+	f := factory.NewFactory(st)
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	password, err := utils.RandomPassword()
+	err = unit.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	apiInfo, err := environs.APIInfo(
+		s.ControllerConfig.ControllerUUID(), st.ModelUUID(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
+	apiInfo.Tag = unit.Tag()
+	apiInfo.Password = password
+	apiState, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	uniter, err := apiState.Uniter()
+	c.Assert(err, jc.ErrorIsNil)
+
+	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
+		State:            uniter,
+		UnitTag:          unit.Tag().(names.UnitTag),
+		Tracker:          runnertesting.FakeTracker{},
+		GetRelationInfos: s.getRelationInfos,
+		Storage:          s.storage,
+		Paths:            s.paths,
+		Clock:            testing.NewClock(time.Time{}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := contextFactory.HookContext(hook.Info{
+		Kind: hooks.ConfigChanged,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.UnitName(), gc.Equals, unit.Name())
+	s.AssertNotActionContext(c, ctx)
+	s.AssertNotRelationContext(c, ctx)
+	s.AssertNotStorageContext(c, ctx)
+}
+
 func (s *ContextFactorySuite) TestActionContext(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", nil)
+	action, err := s.Model(c).EnqueueAction(s.unit.Tag(), "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actionData := &context.ActionData{

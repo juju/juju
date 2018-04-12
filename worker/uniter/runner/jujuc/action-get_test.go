@@ -8,15 +8,16 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/worker/uniter/runner/jujuc/jujuctesting"
 )
 
 type ActionGetSuite struct {
-	ContextSuite
+	jujuctesting.ContextSuite
 }
 
 var _ = gc.Suite(&ActionGetSuite{})
@@ -42,11 +43,11 @@ func (s *ActionGetSuite) TestNonActionRunFail(c *gc.C) {
 	hctx := &nonActionContext{}
 	com, err := jujuc.NewCommand(hctx, cmdString("action-get"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{})
 	c.Check(code, gc.Equals, 1)
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-	expect := fmt.Sprintf(`(\n)*error: %s\n`, "ActionParams queried from non-Action hook context")
+	expect := fmt.Sprintf(`(\n)*ERROR %s\n`, "ActionParams queried from non-Action hook context")
 	c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 }
 
@@ -254,7 +255,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 		hctx.actionParams = t.actionParams
 		com, err := jujuc.NewCommand(hctx, cmdString("action-get"))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
 		if code == 0 {
@@ -262,7 +263,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 		} else {
 			c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-			expect := fmt.Sprintf(`(\n)*error: %s\n`, t.errMsg)
+			expect := fmt.Sprintf(`(\n)*ERROR %s\n`, t.errMsg)
 			c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 		}
 	}
@@ -272,7 +273,7 @@ func (s *ActionGetSuite) TestHelp(c *gc.C) {
 	hctx := &actionGetContext{}
 	com, err := jujuc.NewCommand(hctx, cmdString("action-get"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-get [options] [<key>[.<key>.<key>...]]

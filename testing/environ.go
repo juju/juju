@@ -7,7 +7,6 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
+	jujuversion "github.com/juju/juju/juju/version"
 )
 
 // FakeAuthKeys holds the authorized key used for testing
@@ -47,6 +47,13 @@ func FakeControllerConfig() controller.Config {
 		"state-port":              1234,
 		"api-port":                17777,
 		"set-numa-control-policy": false,
+		"max-logs-age":            "72h",
+		"max-logs-size":           "4G",
+		"max-txn-log-size":        "10M",
+		"auditing-enabled":        false,
+		"audit-log-capture-args":  true,
+		"audit-log-max-size":      "200M",
+		"audit-log-max-backups":   5,
 	}
 }
 
@@ -61,7 +68,7 @@ func FakeConfig() Attrs {
 		"firewall-mode":             config.FwInstance,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"default-series":            series.LatestLts(),
+		"default-series":            jujuversion.SupportedLts(),
 	}
 }
 

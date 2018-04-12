@@ -6,9 +6,9 @@ package agent
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
-	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
+	charmtesting "github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )

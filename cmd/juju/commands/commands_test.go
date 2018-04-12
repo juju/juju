@@ -79,21 +79,20 @@ func (c *stubCommand) Run(ctx *cmd.Context) error {
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
-
 	return nil
 }
 
-func (c *stubCommand) SetModelName(name string) error {
+func (c *stubCommand) SetModelName(name string, allowDefault bool) error {
 	c.stub.AddCall("SetModelName", name)
 	c.envName = name
 	return c.stub.NextErr()
 }
 
-func (c *stubCommand) ModelName() string {
+func (c *stubCommand) ModelName() (string, error) {
 	c.stub.AddCall("ModelName")
 	c.stub.NextErr() // pop one off
 
-	return c.envName
+	return c.envName, nil
 }
 
 type stubRegistry struct {

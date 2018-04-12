@@ -32,11 +32,13 @@ var _ = gc.Suite(&MetadataSuite{})
 var metadataCommandNames = []string{
 	"add-image",
 	"delete-image",
+	"generate-agents",
 	"generate-image",
 	"generate-tools",
 	"help",
 	"list-images",
 	"sign",
+	"validate-agents",
 	"validate-images",
 	"validate-tools",
 }
@@ -111,7 +113,7 @@ func (s *MetadataSuite) TestHelpValidateImages(c *gc.C) {
 }
 
 func (s *MetadataSuite) TestHelpValidateTools(c *gc.C) {
-	s.assertHelpOutput(c, "validate-tools")
+	s.assertHelpOutput(c, "validate-agents")
 }
 
 func (s *MetadataSuite) TestHelpGenerateImage(c *gc.C) {

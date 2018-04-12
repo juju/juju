@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
@@ -15,7 +16,9 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/subnet"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -28,8 +31,8 @@ func TestPackage(t *stdtesting.T) {
 type BaseSubnetSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 
-	command cmd.Command
-	api     *StubAPI
+	newCommand func() modelcmd.ModelCommand
+	api        *StubAPI
 }
 
 var _ = gc.Suite(&BaseSubnetSuite{})
@@ -56,25 +59,40 @@ func (s *BaseSubnetSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.api, gc.NotNil)
 
 	// All subcommand suites embedding this one should initialize
-	// s.command immediately after calling this method!
+	// s.newCommand immediately after calling this method!
 }
 
 func (s *BaseSubnetSuite) TearDownTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-// RunCommand executes the s.command passing any args
-// and returning the stdout and stderr output as strings, as well as
-// any error.
+// InitCommand creates a command with s.newCommand and runs its
+// Init method only. It returns the inner command and any error.
+func (s *BaseSubnetSuite) InitCommand(c *gc.C, args ...string) (cmd.Command, error) {
+	cmd := s.newCommandForTest()
+	err := cmdtesting.InitCommand(cmd, args)
+	return modelcmd.InnerCommand(cmd), err
+}
+
+// RunCommand creates a command with s.newCommand and executes it,
+// passing any args and returning the stdout and stderr output as
+// strings, as well as any error.
 func (s *BaseSubnetSuite) RunCommand(c *gc.C, args ...string) (string, string, error) {
-	if s.command == nil {
-		panic("command is nil")
-	}
-	ctx, err := coretesting.RunCommand(c, s.command, args...)
-	if ctx != nil {
-		return coretesting.Stdout(ctx), coretesting.Stderr(ctx), err
-	}
-	return "", "", err
+	cmd := s.newCommandForTest()
+	ctx, err := cmdtesting.RunCommand(c, cmd, args...)
+	return cmdtesting.Stdout(ctx), cmdtesting.Stderr(ctx), err
+}
+
+func (s *BaseSubnetSuite) newCommandForTest() modelcmd.ModelCommand {
+	cmd := s.newCommand()
+	// The client store shouldn't be used, but mock it
+	// out to make sure.
+	cmd.SetClientStore(jujuclient.NewMemStore())
+	cmd1 := modelcmd.InnerCommand(cmd).(interface {
+		SetAPI(subnet.SubnetAPI)
+	})
+	cmd1.SetAPI(s.api)
+	return cmd
 }
 
 // AssertRunFails is a shortcut for calling RunCommand with the
@@ -128,11 +146,12 @@ func NewStubAPI() *StubAPI {
 		Zones:      []string{"zone1", "zone2"},
 	}, {
 		// IPv6 subnet.
-		CIDR:       "2001:db8::/32",
-		ProviderId: "subnet-bar",
-		Life:       params.Dying,
-		SpaceTag:   "space-dmz",
-		Zones:      []string{"zone2"},
+		CIDR:              "2001:db8::/32",
+		ProviderId:        "subnet-bar",
+		ProviderNetworkId: "network-yay",
+		Life:              params.Dying,
+		SpaceTag:          "space-dmz",
+		Zones:             []string{"zone2"},
 	}, {
 		// IPv4 VLAN subnet.
 		CIDR:     "10.10.0.0/16",

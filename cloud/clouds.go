@@ -39,11 +39,17 @@ const (
 	// UserPassAuthType is an authentication type using a username and password.
 	UserPassAuthType AuthType = "userpass"
 
+	// UserPassAuthType is an authentication type using a username and password and a client certificate
+	UserPassWithCertAuthType AuthType = "userpasswithcert"
+
 	// OAuth1AuthType is an authentication type using oauth1.
 	OAuth1AuthType AuthType = "oauth1"
 
 	// OAuth2AuthType is an authentication type using oauth2.
 	OAuth2AuthType AuthType = "oauth2"
+
+	// OAuth2WithCertAuthType is an authentication type using oauth2 and a client certificate
+	OAuth2WithCertAuthType AuthType = "oauth2withcert"
 
 	// JSONFileAuthType is an authentication type that takes a path to
 	// a JSON file.
@@ -125,6 +131,12 @@ type Cloud struct {
 	// Like Config above, this will be combined with Juju-generated and user
 	// supplied values; with user supplied values taking precedence.
 	RegionConfig RegionConfig
+
+	// CACertificates contains an optional list of Certificate
+	// Authority certificates to be used to validate certificates
+	// of cloud infrastructure components
+	// The contents are Base64 encoded x.509 certs.
+	CACertificates []string
 }
 
 // Region is a cloud region.
@@ -165,6 +177,7 @@ type cloud struct {
 	Regions          regions                `yaml:"regions,omitempty"`
 	Config           map[string]interface{} `yaml:"config,omitempty"`
 	RegionConfig     RegionConfig           `yaml:"region-config,omitempty"`
+	CACertificates   []string               `yaml:"ca-certificates,omitempty"`
 }
 
 // regions is a collection of regions, either as a map and/or
@@ -187,6 +200,14 @@ type region struct {
 	Endpoint         string `yaml:"endpoint,omitempty"`
 	IdentityEndpoint string `yaml:"identity-endpoint,omitempty"`
 	StorageEndpoint  string `yaml:"storage-endpoint,omitempty"`
+}
+
+var caasCloudTypes = map[string]bool{
+	"kubernetes": true,
+}
+
+func CloudIsCAAS(cloud Cloud) bool {
+	return caasCloudTypes[cloud.Type]
 }
 
 // CloudByName returns the cloud with the specified name.
@@ -317,6 +338,7 @@ var defaultCloudDescription = map[string]string{
 	"lxd":         "LXD Container Hypervisor",
 	"maas":        "Metal As A Service",
 	"openstack":   "Openstack Cloud",
+	"oracle":      "Oracle Compute Cloud Service",
 }
 
 // WritePublicCloudMetadata marshals to YAML and writes the cloud metadata
@@ -396,6 +418,7 @@ func cloudToInternal(in Cloud, withName bool) *cloud {
 		Regions:          regions,
 		Config:           in.Config,
 		RegionConfig:     in.RegionConfig,
+		CACertificates:   in.CACertificates,
 	}
 }
 
@@ -430,6 +453,7 @@ func cloudFromInternal(in *cloud) Cloud {
 		Config:           in.Config,
 		RegionConfig:     in.RegionConfig,
 		Description:      in.Description,
+		CACertificates:   in.CACertificates,
 	}
 	meta.denormaliseMetadata()
 	return meta

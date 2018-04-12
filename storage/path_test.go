@@ -21,6 +21,14 @@ func (s *BlockDevicePathSuite) TestBlockDevicePathSerial(c *gc.C) {
 	}, "/dev/disk/by-id/SPR_OSUM_123")
 }
 
+func (s *BlockDevicePathSuite) TestBlockDevicePathWWN(c *gc.C) {
+	testBlockDevicePath(c, storage.BlockDevice{
+		HardwareId: "SPR_OSUM_123",
+		WWN:        "rr!",
+		DeviceName: "name",
+	}, "/dev/disk/by-id/wwn-rr!")
+}
+
 func (s *BlockDevicePathSuite) TestBlockDevicePathDeviceName(c *gc.C) {
 	testBlockDevicePath(c, storage.BlockDevice{
 		DeviceName: "name",

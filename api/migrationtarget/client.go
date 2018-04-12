@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
@@ -219,4 +219,31 @@ func (c *Client) AdoptResources(modelUUID string) error {
 		SourceControllerVersion: jujuversion.Current,
 	}
 	return errors.Trace(c.caller.FacadeCall("AdoptResources", args, nil))
+}
+
+// CACert returns the CA certificate associated with
+// the connection.
+func (c *Client) CACert() (string, error) {
+	var result params.BytesResult
+	err := c.caller.FacadeCall("CACert", nil, &result)
+	if err != nil {
+		return "", err
+	}
+	return string(result.Result), nil
+}
+
+// CheckMachines compares the machines in state with the ones reported
+// by the provider and reports any discrepancies.
+func (c *Client) CheckMachines(modelUUID string) ([]error, error) {
+	var result params.ErrorResults
+	args := params.ModelArgs{names.NewModelTag(modelUUID).String()}
+	err := c.caller.FacadeCall("CheckMachines", args, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var results []error
+	for _, res := range result.Results {
+		results = append(results, errors.Errorf(res.Error.Message))
+	}
+	return results, nil
 }

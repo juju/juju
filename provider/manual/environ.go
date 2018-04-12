@@ -119,7 +119,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
 			return err
 		}
-		return common.ConfigureMachine(ctx, ssh.DefaultClient, e.host, icfg)
+		return common.ConfigureMachine(ctx, ssh.DefaultClient, e.host, icfg, nil)
 	}
 
 	result := &environs.BootstrapResult{
@@ -314,7 +314,7 @@ exit 0
 	return err
 }
 
-func (*manualEnviron) PrecheckInstance(series string, _ constraints.Value, placement string) error {
+func (*manualEnviron) PrecheckInstance(environs.PrecheckInstanceParams) error {
 	return errors.New(`use "juju add-machine ssh:[user@]<host>" to provision machines`)
 }
 

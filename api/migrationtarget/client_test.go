@@ -20,7 +20,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
@@ -154,6 +154,26 @@ func (s *ClientSuite) TestAdoptResources(c *gc.C) {
 	})
 }
 
+func (s *ClientSuite) TestCheckMachines(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		target, ok := result.(*params.ErrorResults)
+		c.Assert(ok, jc.IsTrue)
+		*target = params.ErrorResults{Results: []params.ErrorResult{
+			{Error: &params.Error{Message: "oops"}},
+			{Error: &params.Error{Message: "oh no"}},
+		}}
+		stub.AddCall(objType+"."+request, id, arg)
+		return nil
+	})
+	client := migrationtarget.NewClient(apiCaller)
+	results, err := client.CheckMachines("django")
+	c.Assert(results, gc.HasLen, 2)
+	c.Assert(results[0], gc.ErrorMatches, "oops")
+	c.Assert(results[1], gc.ErrorMatches, "oh no")
+	s.AssertModelCall(c, &stub, names.NewModelTag("django"), "CheckMachines", err, false)
+}
+
 func (s *ClientSuite) TestUploadCharm(c *gc.C) {
 	const charmBody = "charming"
 	curl := charm.MustParseURL("cs:~user/foo-2")
@@ -252,6 +272,21 @@ func (s *ClientSuite) TestPlaceholderResource(c *gc.C) {
 	expectedURL := fmt.Sprintf("/migrate/resources?application=app&description=blob+description&fingerprint=%s&name=blob&origin=upload&path=blob.tgz&revision=3&size=123&type=file", res.Fingerprint.Hex())
 	c.Assert(doer.url, gc.Equals, expectedURL)
 	c.Assert(doer.body, gc.Equals, "")
+}
+
+func (s *ClientSuite) TestCACert(c *gc.C) {
+	call := func(objType string, version int, id, request string, args, response interface{}) error {
+		c.Check(objType, gc.Equals, "MigrationTarget")
+		c.Check(request, gc.Equals, "CACert")
+		c.Check(args, gc.Equals, nil)
+		c.Check(response, gc.FitsTypeOf, (*params.BytesResult)(nil))
+		response.(*params.BytesResult).Result = []byte("foo cert")
+		return nil
+	}
+	client := migrationtarget.NewClient(apitesting.APICallerFunc(call))
+	r, err := client.CACert()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r, gc.Equals, "foo cert")
 }
 
 func (s *ClientSuite) AssertModelCall(c *gc.C, stub *jujutesting.Stub, tag names.ModelTag, call string, err error, expectError bool) {

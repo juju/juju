@@ -4,8 +4,6 @@
 package upgrades
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -15,17 +13,32 @@ import (
 
 // StateBackend provides an interface for upgrading the global state database.
 type StateBackend interface {
-	AllModels() ([]Model, error)
+	ControllerUUID() string
 
 	StripLocalUserDomain() error
 	RenameAddModelPermission() error
-	DropOldLogIndex() error
 	AddMigrationAttempt() error
 	AddLocalCharmSequences() error
 	UpdateLegacyLXDCloudCredentials(string, cloud.Credential) error
 	UpgradeNoProxyDefaults() error
 	AddNonDetachableStorageMachineId() error
 	RemoveNilValueApplicationSettings() error
+	AddControllerLogCollectionsSizeSettings() error
+	AddStatusHistoryPruneSettings() error
+	AddActionPruneSettings() error
+	AddStorageInstanceConstraints() error
+	SplitLogCollections() error
+	AddUpdateStatusHookSettings() error
+	CorrectRelationUnitCounts() error
+	AddModelEnvironVersion() error
+	AddModelType() error
+	MigrateLeasesToGlobalTime() error
+	MoveOldAuditLog() error
+	AddRelationStatus() error
+	DeleteCloudImageMetadata() error
+	MoveMongoSpaceToHASpaceConfig() error
+	CreateMissingApplicationConfig() error
+	RemoveVotingMachineIds() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -44,16 +57,8 @@ type stateBackend struct {
 	st *state.State
 }
 
-func (s stateBackend) AllModels() ([]Model, error) {
-	models, err := s.st.AllModels()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	out := make([]Model, len(models))
-	for i, m := range models {
-		out[i] = &modelShim{s.st, m}
-	}
-	return out, nil
+func (s stateBackend) ControllerUUID() string {
+	return s.st.ControllerUUID()
 }
 
 func (s stateBackend) StripLocalUserDomain() error {
@@ -62,10 +67,6 @@ func (s stateBackend) StripLocalUserDomain() error {
 
 func (s stateBackend) RenameAddModelPermission() error {
 	return state.RenameAddModelPermission(s.st)
-}
-
-func (s stateBackend) DropOldLogIndex() error {
-	return state.DropOldLogIndex(s.st)
 }
 
 func (s stateBackend) AddMigrationAttempt() error {
@@ -92,6 +93,66 @@ func (s stateBackend) RemoveNilValueApplicationSettings() error {
 	return state.RemoveNilValueApplicationSettings(s.st)
 }
 
+func (s stateBackend) AddControllerLogCollectionsSizeSettings() error {
+	return state.AddControllerLogCollectionsSizeSettings(s.st)
+}
+
+func (s stateBackend) AddStatusHistoryPruneSettings() error {
+	return state.AddStatusHistoryPruneSettings(s.st)
+}
+
+func (s stateBackend) AddActionPruneSettings() error {
+	return state.AddActionPruneSettings(s.st)
+}
+
+func (s stateBackend) AddUpdateStatusHookSettings() error {
+	return state.AddUpdateStatusHookSettings(s.st)
+}
+
+func (s stateBackend) AddStorageInstanceConstraints() error {
+	return state.AddStorageInstanceConstraints(s.st)
+}
+
+func (s stateBackend) SplitLogCollections() error {
+	return state.SplitLogCollections(s.st)
+}
+
+func (s stateBackend) CorrectRelationUnitCounts() error {
+	return state.CorrectRelationUnitCounts(s.st)
+}
+
+func (s stateBackend) AddModelEnvironVersion() error {
+	return state.AddModelEnvironVersion(s.st)
+}
+
+func (s stateBackend) AddModelType() error {
+	return state.AddModelType(s.st)
+}
+
+func (s stateBackend) MigrateLeasesToGlobalTime() error {
+	return state.MigrateLeasesToGlobalTime(s.st)
+}
+
+func (s stateBackend) MoveOldAuditLog() error {
+	return state.MoveOldAuditLog(s.st)
+}
+
+func (s stateBackend) AddRelationStatus() error {
+	return state.AddRelationStatus(s.st)
+}
+
+func (s stateBackend) MoveMongoSpaceToHASpaceConfig() error {
+	return state.MoveMongoSpaceToHASpaceConfig(s.st)
+}
+
+func (s stateBackend) CreateMissingApplicationConfig() error {
+	return state.CreateMissingApplicationConfig(s.st)
+}
+
+func (s stateBackend) RemoveVotingMachineIds() error {
+	return state.RemoveVotingMachineIds(s.st)
+}
+
 type modelShim struct {
 	st *state.State
 	m  *state.Model
@@ -106,4 +167,8 @@ func (m *modelShim) CloudSpec() (environs.CloudSpec, error) {
 	regionName := m.m.CloudRegion()
 	credentialTag, _ := m.m.CloudCredential()
 	return stateenvirons.CloudSpec(m.st, cloudName, regionName, credentialTag)
+}
+
+func (s stateBackend) DeleteCloudImageMetadata() error {
+	return state.DeleteCloudImageMetadata(s.st)
 }

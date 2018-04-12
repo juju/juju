@@ -34,11 +34,9 @@ const ImageMetadata = "image-metadata"
 // DeveloperMode allows access to developer specific commands and behaviour.
 const DeveloperMode = "developer-mode"
 
-// CrossModelRelations allows cross model relations functionality.
-const CrossModelRelations = "cross-model"
+// StrictMigration will cause migration to error if there are unexported
+// values for annotations, status, status history, or settings.
+const StrictMigration = "strict-migration"
 
-// LXDStorage enables the LXD storage provider.
-const LXDStorage = "lxd-storage"
-
-// PersistentStorage enables the persistent storage feature.
-const PersistentStorage = "persistent-storage"
+// CAAS enables creating models on CAAS infrastructure (k8s, etc)
+const CAAS = "caas"

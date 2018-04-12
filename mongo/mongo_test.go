@@ -146,7 +146,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 		}
 		return 0, fmt.Errorf("not a directory")
 	})
-	s.PatchValue(mongo.MinOplogSizeMB, 1)
+	s.PatchValue(mongo.SmallOplogSizeMB, 1)
 
 	testPath := c.MkDir()
 	s.mongodConfigPath = filepath.Join(testPath, "mongodConfig")
@@ -372,9 +372,9 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 
 	tests := []installs{
 		{"precise", [][]string{{"--target-release", "precise-updates/cloud-tools", "mongodb-server"}}},
-		{"trusty", [][]string{{"juju-mongodb3.2"}, {"juju-mongo-tools3.2"}}},
-		{"wily", [][]string{{"juju-mongodb3.2"}, {"juju-mongo-tools3.2"}}},
+		{"trusty", [][]string{{"juju-mongodb"}}},
 		{"xenial", [][]string{{"juju-mongodb3.2"}, {"juju-mongo-tools3.2"}}},
+		{"bionic", [][]string{{"juju-mongodb3.2"}, {"juju-mongo-tools3.2"}}},
 	}
 
 	testing.PatchExecutableAsEchoArgs(c, s, "add-apt-repository")
@@ -432,9 +432,9 @@ func (s *MongoSuite) TestInstallMongodFallsBack(c *gc.C) {
 
 	tests := []installs{
 		{"precise", "mongodb-server"},
-		{"trusty", "juju-mongodb3.2\njuju-mongodb"},
-		{"wily", "juju-mongodb3.2\njuju-mongodb"},
-		{"xenial", "juju-mongodb3.2\njuju-mongodb"},
+		{"trusty", "juju-mongodb"},
+		{"xenial", "juju-mongodb3.2"},
+		{"bionic", "juju-mongodb3.2"},
 	}
 
 	dataDir := c.MkDir()
@@ -683,6 +683,10 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 
 func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
 	addresses := []network.Address{{
+		Value: "127.0.0.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeMachineLocal,
+	}, {
 		Value: "10.0.0.1",
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
@@ -694,26 +698,6 @@ func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
 
 	address := mongo.SelectPeerAddress(addresses)
 	c.Assert(address, gc.Equals, "10.0.0.1")
-}
-
-func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
-
-	hostPorts := []network.HostPort{{
-		Address: network.Address{
-			Value: "10.0.0.1",
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
-		},
-		Port: controller.DefaultStatePort}, {
-		Address: network.Address{
-			Value: "8.8.8.8",
-			Type:  network.IPv4Address,
-			Scope: network.ScopePublic,
-		},
-		Port: controller.DefaultStatePort}}
-
-	address := mongo.SelectPeerHostPort(hostPorts)
-	c.Assert(address, gc.Equals, "10.0.0.1:"+strconv.Itoa(controller.DefaultStatePort))
 }
 
 func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {

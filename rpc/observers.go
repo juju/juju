@@ -28,6 +28,14 @@ type Observer interface {
 	ServerReply(req Request, hdr *Header, body interface{})
 }
 
+// ObserverFactory is a type which can construct a new Observer.
+type ObserverFactory interface {
+	// RPCObserver will return a new Observer usually constructed
+	// from the state previously built up in the Observer. The
+	// returned instance will be utilized per RPC request.
+	RPCObserver() Observer
+}
+
 // NewObserverMultiplexer returns a new ObserverMultiplexer
 // with the provided RequestNotifiers.
 func NewObserverMultiplexer(rpcObservers ...Observer) *ObserverMultiplexer {

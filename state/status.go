@@ -4,10 +4,14 @@
 package state
 
 import (
+	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/clock"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -17,6 +21,163 @@ import (
 	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/status"
 )
+
+// ModelStatus holds all the current status values for a given model
+// and offers accessors for the various parts of a model.
+type ModelStatus struct {
+	model *Model
+	docs  map[string]statusDocWithID
+}
+
+// LoadModelStatus retrieves all the status documents for the model
+// at once. Used to primarily speed up status.
+func (m *Model) LoadModelStatus() (*ModelStatus, error) {
+	statuses, closer := m.st.db().GetCollection(statusesC)
+	defer closer()
+
+	var docs []statusDocWithID
+	err := statuses.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to read status collection")
+	}
+
+	result := &ModelStatus{
+		model: m,
+		docs:  make(map[string]statusDocWithID),
+	}
+	for _, doc := range docs {
+		id := m.localID(doc.ID)
+		result.docs[id] = doc
+	}
+
+	return result, nil
+}
+
+func (m *ModelStatus) getDoc(key, badge string) (statusDocWithID, error) {
+	doc, found := m.docs[key]
+	if !found {
+		return statusDocWithID{}, errors.Annotate(errors.NotFoundf(badge), "cannot get status")
+	}
+	return doc, nil
+}
+
+func (m *ModelStatus) getStatus(key, badge string) (status.StatusInfo, error) {
+	doc, err := m.getDoc(key, badge)
+	if err != nil {
+		return status.StatusInfo{}, err
+	}
+	return doc.asStatusInfo(), nil
+}
+
+// Model returns the status of the model.
+func (m *ModelStatus) Model() (status.StatusInfo, error) {
+	return m.getStatus(m.model.globalKey(), "model")
+}
+
+// Application returns the status of the model.
+// The unitNames are needed due to the current weird implementation of
+// application status.
+func (m *ModelStatus) Application(appName string, unitNames []string) (status.StatusInfo, error) {
+	// This is kinda terrible, see notes in applcation.go for *Application.Status().
+	doc, err := m.getDoc(applicationGlobalKey(appName), "application")
+	if err != nil {
+		return status.StatusInfo{}, err
+	}
+	if doc.NeverSet {
+		// Get the status for the agents, and derive a status from that.
+		var unitStatuses []status.StatusInfo
+		for _, name := range unitNames {
+			unitStatus, err := m.UnitWorkload(name)
+			if err != nil {
+				errors.Annotatef(err, "deriving application status from %q", name)
+			}
+			unitStatuses = append(unitStatuses, unitStatus)
+		}
+		if len(unitStatuses) > 0 {
+			return deriveApplicationStatus(unitStatuses), nil
+		}
+
+	}
+	return doc.asStatusInfo(), nil
+}
+
+// MachineAgent returns the status of the machine agent.
+func (m *ModelStatus) MachineAgent(machineID string) (status.StatusInfo, error) {
+	return m.getStatus(machineGlobalKey(machineID), "machine")
+}
+
+// MachineInstance returns the status of the machine instance.
+func (m *ModelStatus) MachineInstance(machineID string) (status.StatusInfo, error) {
+	return m.getStatus(machineGlobalInstanceKey(machineID), "instance")
+}
+
+// FullUnitWorkloadVersion returns the full status info for the workload
+// version of a unit. This is used for selecting the workload version for
+// an application.
+func (m *ModelStatus) FullUnitWorkloadVersion(unitName string) (status.StatusInfo, error) {
+	return m.getStatus(globalWorkloadVersionKey(unitName), "workload")
+}
+
+// UnitWorkload returns the status of the machine instance.
+func (m *ModelStatus) UnitWorkloadVersion(unitName string) (string, error) {
+	info, err := m.getStatus(globalWorkloadVersionKey(unitName), "workload")
+	if err != nil {
+		return "", err
+	}
+	return info.Message, nil
+}
+
+// UnitWorkload returns the status of the machine instance.
+func (m *ModelStatus) UnitAgent(unitName string) (status.StatusInfo, error) {
+	// We do horrible things with unit status.
+	// See notes in unitagent.go.
+	info, err := m.getStatus(unitAgentGlobalKey(unitName), "agent")
+	if err != nil {
+		return info, err
+	}
+	if info.Status == status.Error {
+		return status.StatusInfo{
+			Status:  status.Idle,
+			Message: "",
+			Data:    map[string]interface{}{},
+			Since:   info.Since,
+		}, nil
+	}
+	return info, nil
+}
+
+// UnitWorkload returns the status of the machine instance.
+func (m *ModelStatus) UnitWorkload(unitName string) (status.StatusInfo, error) {
+	// We do horrible things with unit status.
+	// See notes in unit.go.
+	info, err := m.getStatus(unitAgentGlobalKey(unitName), "unit")
+	if err != nil {
+		return info, err
+	} else if info.Status == status.Error {
+		return info, nil
+	}
+
+	return m.getStatus(unitGlobalKey(unitName), "workload")
+}
+
+type statusDocWithID struct {
+	ID         string                 `bson:"_id"`
+	ModelUUID  string                 `bson:"model-uuid"`
+	Status     status.Status          `bson:"status"`
+	StatusInfo string                 `bson:"statusinfo"`
+	StatusData map[string]interface{} `bson:"statusdata"`
+	Updated    int64                  `bson:"updated"`
+	NeverSet   bool                   `bson:"neverset"`
+}
+
+func (doc *statusDocWithID) asStatusInfo() status.StatusInfo {
+	return status.StatusInfo{
+		Status:  doc.Status,
+		Message: doc.StatusInfo,
+		Data:    utils.UnescapeKeys(doc.StatusData),
+		Since:   unixNanoToTime(doc.Updated),
+	}
+}
 
 // statusDoc represents a entity status in Mongodb.  The implicit
 // _id field is explicitly set to the global key of the associated
@@ -49,9 +210,9 @@ func unixNanoToTime(i int64) *time.Time {
 // getStatus retrieves the status document associated with the given
 // globalKey and converts it to a StatusInfo. If the status document
 // is not found, a NotFoundError referencing badge will be returned.
-func getStatus(st *State, globalKey, badge string) (_ status.StatusInfo, err error) {
+func getStatus(db Database, globalKey, badge string) (_ status.StatusInfo, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get status")
-	statuses, closer := st.getCollection(statusesC)
+	statuses, closer := db.GetCollection(statusesC)
 	defer closer()
 
 	var doc statusDoc
@@ -98,35 +259,53 @@ type setStatusParams struct {
 	updated *time.Time
 }
 
+func timeOrNow(t *time.Time, clock clock.Clock) *time.Time {
+	if t == nil {
+		now := clock.Now()
+		t = &now
+	}
+	return t
+}
+
 // setStatus inteprets the supplied params as documented on the type.
-func setStatus(st *State, params setStatusParams) (err error) {
+func setStatus(db Database, params setStatusParams) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set status")
+	if params.updated == nil {
+		return errors.NotValidf("nil updated time")
+	}
+
 	doc := statusDoc{
 		Status:     params.status,
 		StatusInfo: params.message,
 		StatusData: utils.EscapeKeys(params.rawData),
 		Updated:    params.updated.UnixNano(),
 	}
-	probablyUpdateStatusHistory(st, params.globalKey, doc)
+
+	newStatus, historyErr := probablyUpdateStatusHistory(db, params.globalKey, doc)
+	if !newStatus && historyErr == nil {
+		// If this status is not new (i.e. it is exactly the same as
+		// our last status), there is no need to update the record.
+		// Update here will only reset the 'Since' field.
+		return err
+	}
 
 	// Set the authoritative status document, or fail trying.
-
 	var buildTxn jujutxn.TransactionSource = func(int) ([]txn.Op, error) {
-		return statusSetOps(st, doc, params.globalKey)
+		return statusSetOps(db, doc, params.globalKey)
 	}
 	if params.token != nil {
 		buildTxn = buildTxnWithLeadership(buildTxn, params.token)
 	}
-	err = st.run(buildTxn)
+	err = db.Run(buildTxn)
 	if cause := errors.Cause(err); cause == mgo.ErrNotFound {
 		return errors.NotFoundf(params.badge)
 	}
 	return errors.Trace(err)
 }
 
-func statusSetOps(st *State, doc statusDoc, globalKey string) ([]txn.Op, error) {
+func statusSetOps(db Database, doc statusDoc, globalKey string) ([]txn.Op, error) {
 	update := bson.D{{"$set", &doc}}
-	txnRevno, err := st.readTxnRevno(statusesC, globalKey)
+	txnRevno, err := readTxnRevno(db, statusesC, globalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -141,10 +320,10 @@ func statusSetOps(st *State, doc statusDoc, globalKey string) ([]txn.Op, error) 
 
 // createStatusOp returns the operation needed to create the given status
 // document associated with the given globalKey.
-func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
+func createStatusOp(mb modelBackend, globalKey string, doc statusDoc) txn.Op {
 	return txn.Op{
 		C:      statusesC,
-		Id:     st.docID(globalKey),
+		Id:     mb.docID(globalKey),
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}
@@ -152,13 +331,17 @@ func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 
 // removeStatusOp returns the operation needed to remove the status
 // document associated with the given globalKey.
-func removeStatusOp(st *State, globalKey string) txn.Op {
+func removeStatusOp(mb modelBackend, globalKey string) txn.Op {
 	return txn.Op{
 		C:      statusesC,
-		Id:     st.docID(globalKey),
+		Id:     mb.docID(globalKey),
 		Remove: true,
 	}
 }
+
+// globalKeyField must have the same value as the tag for
+// historicalStatusDoc.GlobalKey.
+const globalKeyField = "globalkey"
 
 type historicalStatusDoc struct {
 	ModelUUID  string                 `bson:"model-uuid"`
@@ -172,7 +355,21 @@ type historicalStatusDoc struct {
 	Updated int64 `bson:"updated"`
 }
 
-func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
+type recordedHistoricalStatusDoc struct {
+	ID         bson.ObjectId          `bson:"_id"`
+	Status     status.Status          `bson:"status"`
+	StatusInfo string                 `bson:"statusinfo"`
+	StatusData map[string]interface{} `bson:"statusdata"`
+}
+
+// probablyUpdateStatusHistory inspects existing status-history
+// and determines if this status is new or the same as the last recorded.
+// If this is a new status, a new status history record will be added.
+// If this status is the same as the last status we've received,
+// we update that record to have a new timestamp.
+// Status messages are considered to be the same if they only differ in their timestamps.
+// The call returns true if a new status history record has been created.
+func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) (bool, error) {
 	historyDoc := &historicalStatusDoc{
 		Status:     doc.Status,
 		StatusInfo: doc.StatusInfo,
@@ -180,17 +377,97 @@ func probablyUpdateStatusHistory(st *State, globalKey string, doc statusDoc) {
 		Updated:    doc.Updated,
 		GlobalKey:  globalKey,
 	}
-	history, closer := st.getCollection(statusesHistoryC)
+	history, closer := db.GetCollection(statusesHistoryC)
 	defer closer()
-	historyW := history.Writeable()
-	if err := historyW.Insert(historyDoc); err != nil {
-		logger.Errorf("failed to write status history: %v", err)
+
+	// Find the current value to see if it is worthwhile adding the new
+	// status value.
+	var latest []recordedHistoricalStatusDoc
+	query := history.Find(bson.D{{globalKeyField, globalKey}})
+	query = query.Sort("-updated").Limit(1)
+	err := query.All(&latest)
+	if err == nil && len(latest) == 1 {
+		current := latest[0]
+		// Short circuit the writing to the DB if the status, message,
+		// and data match.
+		dataSame := func(left, right map[string]interface{}) bool {
+			// If they are both empty, then it is the same.
+			if len(left) == 0 && len(right) == 0 {
+				return true
+			}
+			// If either are now empty, they aren't the same.
+			if len(left) == 0 || len(right) == 0 {
+				return false
+			}
+			// Failing that, use reflect.
+			return reflect.DeepEqual(left, right)
+		}
+		// Check the data last as the short circuit evaluation may mean
+		// we rarely need to drop down into the reflect library.
+		if current.Status == doc.Status &&
+			current.StatusInfo == doc.StatusInfo &&
+			dataSame(current.StatusData, doc.StatusData) {
+			// If the status values have not changed since the last run,
+			// update history record with this timestamp
+			// to keep correct track of when SetStatus ran.
+			historyW := history.Writeable()
+			err = historyW.Update(
+				bson.D{{"_id", current.ID}},
+				bson.D{{"$set", bson.D{{"updated", doc.Updated}}}})
+			if err != nil {
+				logger.Errorf("failed to update status history: %v", err)
+				return false, err
+			}
+			return false, nil
+		}
 	}
+
+	historyW := history.Writeable()
+	err = historyW.Insert(historyDoc)
+	if err != nil {
+		logger.Errorf("failed to write status history: %v", err)
+		return false, err
+	}
+	return true, nil
+}
+
+// eraseStatusHistory removes all status history documents for
+// the given global key. The documents are removed in batches
+// to avoid locking the status history collection for extended
+// periods of time, preventing status history being recorded
+// for other entities.
+func eraseStatusHistory(mb modelBackend, globalKey string) error {
+	// TODO(axw) restructure status history so we have one
+	// document per global key, and sub-documents per status
+	// recording. This method would then become a single
+	// Remove operation.
+
+	history, closer := mb.db().GetCollection(statusesHistoryC)
+	defer closer()
+
+	iter := history.Find(bson.D{{
+		globalKeyField, globalKey,
+	}}).Select(bson.M{"_id": 1}).Iter()
+	defer iter.Close()
+
+	logFormat := "deleted %d status history documents for " + fmt.Sprintf("%q", globalKey)
+	deleted, err := deleteInBatches(
+		history.Writeable().Underlying(), iter,
+		logFormat, loggo.DEBUG,
+		noEarlyFinish,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if deleted > 0 {
+		logger.Debugf(logFormat, deleted)
+	}
+	return nil
 }
 
 // statusHistoryArgs hold the arguments to call statusHistory.
 type statusHistoryArgs struct {
-	st        *State
+	db        Database
 	globalKey string
 	filter    status.StatusHistoryFilter
 }
@@ -238,7 +515,7 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 	if err := args.filter.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating arguments")
 	}
-	statusHistory, closer := args.st.getCollection(statusesHistoryC)
+	statusHistory, closer := args.db.GetCollection(statusesHistoryC)
 	defer closer()
 
 	var results []status.StatusInfo
@@ -259,78 +536,7 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 	return results, nil
 }
 
-// PruneStatusHistory removes status history entries until
-// only logs newer than <maxLogTime> remain and also ensures
-// that the collection is smaller than <maxLogsMB> after the
-// deletion.
 func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
-	if maxHistoryMB < 0 {
-		return errors.NotValidf("non-positive maxHistoryMB")
-	}
-	if maxHistoryTime < 0 {
-		return errors.NotValidf("non-positive maxHistoryTime")
-	}
-	if maxHistoryMB == 0 && maxHistoryTime == 0 {
-		return errors.NotValidf("backlog size and time constraints are both 0")
-	}
-
-	// NOTE(axw) we require a raw collection to obtain the size of the
-	// collection. Take care to include model-uuid in queries where
-	// appropriate.
-	history, closer := st.getRawCollection(statusesHistoryC)
-	defer closer()
-
-	// Status Record Age
-	if maxHistoryTime > 0 {
-		t := st.clock.Now().Add(-maxHistoryTime)
-		_, err := history.RemoveAll(bson.D{
-			{"model-uuid", st.ModelUUID()},
-			{"updated", bson.M{"$lt": t.UnixNano()}},
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	if maxHistoryMB == 0 {
-		return nil
-	}
-	// Collection Size
-	collMB, err := getCollectionMB(history)
-	if err != nil {
-		return errors.Annotate(err, "retrieving status history collection size")
-	}
-	if collMB <= maxHistoryMB {
-		return nil
-	}
-	// TODO(perrito666) explore if there would be any beneffit from having the
-	// size limit be per model
-	count, err := history.Count()
-	if err == mgo.ErrNotFound || count <= 0 {
-		return nil
-	}
-	if err != nil {
-		return errors.Annotate(err, "counting status history records")
-	}
-	// We are making the assumption that status sizes can be averaged for
-	// large numbers and we will get a reasonable approach on the size.
-	// Note: Capped collections are not used for this because they, currently
-	// at least, lack a way to be resized and the size is expected to change
-	// as real life data of the history usage is gathered.
-	sizePerStatus := float64(collMB) / float64(count)
-	if sizePerStatus == 0 {
-		return errors.New("unexpected result calculating status history entry size")
-	}
-	deleteStatuses := count - int(float64(collMB-maxHistoryMB)/sizePerStatus)
-	result := historicalStatusDoc{}
-	err = history.Find(nil).Sort("-updated").Skip(deleteStatuses).One(&result)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	_, err = history.RemoveAll(bson.D{
-		{"updated", bson.M{"$lt": result.Updated}},
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	err := pruneCollection(st, maxHistoryTime, maxHistoryMB, statusesHistoryC, "updated", NanoSeconds)
+	return errors.Trace(err)
 }

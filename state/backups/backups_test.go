@@ -92,7 +92,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	stored := s.setStored("spam")
 
 	// Run the backup.
-	paths := backups.Paths{DataDir: "/var/lib/juju"}
+	paths := backups.Paths{BackupDir: "/path/to/dir", DataDir: "/var/lib/juju"}
 	targets := set.NewStrings("juju", "admin")
 	dbInfo := backups.DBInfo{"a", "b", "c", targets, mongo.Mongo32wt}
 	meta := backupstesting.NewMetadataStarted()
@@ -102,7 +102,8 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 
 	// Test the call values.
 	s.Storage.CheckCalled(c, "spam", meta, archiveFile, "Add", "Metadata")
-	filesToBackUp, _ := backups.ExposeCreateArgs(received)
+	backupDir, filesToBackUp, _ := backups.ExposeCreateArgs(received)
+	c.Check(backupDir, gc.Equals, "/path/to/dir")
 	c.Check(filesToBackUp, jc.SameContents, []string{"<some file>"})
 
 	c.Check(receivedDBInfo.Address, gc.Equals, "a")

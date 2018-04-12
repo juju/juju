@@ -81,20 +81,6 @@ func (s APIHostPortsSetter) SetAPIHostPorts(servers [][]network.HostPort) error 
 	})
 }
 
-// StateServingInfoSetter trivially wraps an Agent to implement
-// worker/certupdater/SetStateServingInfo.
-type StateServingInfoSetter struct {
-	Agent
-}
-
-// SetStateServingInfo is the SetStateServingInfo interface.
-func (s StateServingInfoSetter) SetStateServingInfo(info params.StateServingInfo) error {
-	return s.ChangeConfig(func(c ConfigSetter) error {
-		c.SetStateServingInfo(info)
-		return nil
-	})
-}
-
 // Paths holds the directory paths used by the agent.
 type Paths struct {
 	// DataDir is the data directory where each agent has a subdirectory
@@ -167,6 +153,29 @@ const (
 	AgentServiceName  = "AGENT_SERVICE_NAME"
 	MongoOplogSize    = "MONGO_OPLOG_SIZE"
 	NUMACtlPreference = "NUMA_CTL_PREFERENCE"
+
+	AgentLoginRateLimit  = "AGENT_LOGIN_RATE_LIMIT"
+	AgentLoginMinPause   = "AGENT_LOGIN_MIN_PAUSE"
+	AgentLoginMaxPause   = "AGENT_LOGIN_MAX_PAUSE"
+	AgentLoginRetryPause = "AGENT_LOGIN_RETRY_PAUSE"
+
+	AgentConnMinPause       = "AGENT_CONN_MIN_PAUSE"
+	AgentConnMaxPause       = "AGENT_CONN_MAX_PAUSE"
+	AgentConnLowerThreshold = "AGENT_CONN_LOWER_THRESHOLD"
+	AgentConnUpperThreshold = "AGENT_CONN_UPPER_THRESHOLD"
+	AgentConnLookbackWindow = "AGENT_CONN_LOOKBACK_WINDOW"
+
+	MgoStatsEnabled = "MGO_STATS_ENABLED"
+
+	// LoggingOverride will set the logging for this agent to the value
+	// specified. Model configuration will be ignored and this value takes
+	// precidence for the agent.
+	LoggingOverride = "LOGGING_OVERRIDE"
+
+	LogSinkDBLoggerBufferSize    = "LOGSINK_DBLOGGER_BUFFER_SIZE"
+	LogSinkDBLoggerFlushInterval = "LOGSINK_DBLOGGER_FLUSH_INTERVAL"
+	LogSinkRateLimitBurst        = "LOGSINK_RATELIMIT_BURST"
+	LogSinkRateLimitRefill       = "LOGSINK_RATELIMIT_REFILL"
 )
 
 // The Config interface is the sole way that the agent gets access to the
@@ -239,6 +248,11 @@ type Config interface {
 	// successfully run, which is also the same as the initially deployed version.
 	UpgradedToVersion() version.Number
 
+	// LoggingConfig returns the logging config for this agent. Initially this
+	// value is empty, but as the agent gets notified of model agent config
+	// changes this value is saved.
+	LoggingConfig() string
+
 	// Value returns the value associated with the key, or an empty string if
 	// the key is not found.
 	Value(key string) string
@@ -300,6 +314,9 @@ type configSetterOnly interface {
 	// SetMongoMemoryProfile sets the passed policy as the one to be
 	// used.
 	SetMongoMemoryProfile(mongo.MemoryProfile)
+
+	// SetLoggingConfig sets the logging config value for the agent.
+	SetLoggingConfig(string)
 }
 
 // LogFileName returns the filename for the Agent's log file.
@@ -309,7 +326,15 @@ func LogFilename(c Config) string {
 
 type ConfigMutator func(ConfigSetter) error
 
+type ConfigRenderer interface {
+	// Render generates the agent configuration
+	// as a byte array.
+	Render() ([]byte, error)
+}
+
 type ConfigWriter interface {
+	ConfigRenderer
+
 	// Write writes the agent configuration.
 	Write() error
 }
@@ -328,12 +353,12 @@ type ConfigSetterWriter interface {
 // Ensure that the configInternal struct implements the Config interface.
 var _ Config = (*configInternal)(nil)
 
-type connectionDetails struct {
+type apiDetails struct {
 	addresses []string
 	password  string
 }
 
-func (d *connectionDetails) clone() *connectionDetails {
+func (d *apiDetails) clone() *apiDetails {
 	if d == nil {
 		return nil
 	}
@@ -352,10 +377,11 @@ type configInternal struct {
 	jobs               []multiwatcher.MachineJob
 	upgradedToVersion  version.Number
 	caCert             string
-	stateDetails       *connectionDetails
-	apiDetails         *connectionDetails
+	apiDetails         *apiDetails
+	statePassword      string
 	oldPassword        string
 	servingInfo        *params.StateServingInfo
+	loggingConfig      string
 	values             map[string]string
 	mongoVersion       string
 	mongoMemoryProfile string
@@ -372,7 +398,6 @@ type AgentConfigParams struct {
 	Nonce              string
 	Controller         names.ControllerTag
 	Model              names.ModelTag
-	StateAddresses     []string
 	APIAddresses       []string
 	CACert             string
 	Values             map[string]string
@@ -390,10 +415,12 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		return nil, errors.Trace(requiredError("entity tag"))
 	}
 	switch configParams.Tag.(type) {
-	case names.MachineTag, names.UnitTag:
-		// these are the only two type of tags that can represent an agent
+	case names.MachineTag, names.UnitTag, names.ApplicationTag:
+		// These are the only three type of tags that can represent an agent
+		// IAAS - machine and unit
+		// CAAS - application
 	default:
-		return nil, errors.Errorf("entity tag must be MachineTag or UnitTag, got %T", configParams.Tag)
+		return nil, errors.Errorf("entity tag must be MachineTag, UnitTag or ApplicationTag, got %T", configParams.Tag)
 	}
 	if configParams.UpgradedToVersion == version.Zero {
 		return nil, errors.Trace(requiredError("upgradedToVersion"))
@@ -434,14 +461,8 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		mongoVersion:       configParams.MongoVersion.String(),
 		mongoMemoryProfile: configParams.MongoMemoryProfile.String(),
 	}
-
-	if len(configParams.StateAddresses) > 0 {
-		config.stateDetails = &connectionDetails{
-			addresses: configParams.StateAddresses,
-		}
-	}
 	if len(configParams.APIAddresses) > 0 {
-		config.apiDetails = &connectionDetails{
+		config.apiDetails = &apiDetails{
 			addresses: configParams.APIAddresses,
 		}
 	}
@@ -526,7 +547,6 @@ func (c0 *configInternal) Clone() Config {
 	c1 := *c0
 	// Deep copy only fields which may be affected
 	// by ConfigSetter methods.
-	c1.stateDetails = c0.stateDetails.clone()
 	c1.apiDetails = c0.apiDetails.clone()
 	c1.jobs = append([]multiwatcher.MachineJob{}, c0.jobs...)
 	c1.values = make(map[string]string, len(c0.values))
@@ -554,7 +574,7 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 		addrs = append(addrs, hps...)
 	}
 	c.apiDetails.addresses = addrs
-	logger.Infof("API server address details %q written to agent config as %q", servers, addrs)
+	logger.Debugf("API server address details %q written to agent config as %q", servers, addrs)
 }
 
 func (c *configInternal) SetCACert(cert string) {
@@ -569,13 +589,23 @@ func (c *configInternal) SetValue(key, value string) {
 	}
 }
 
+// LoggingConfig implements Config.
+func (c *configInternal) LoggingConfig() string {
+	return c.loggingConfig
+}
+
+// SetLoggingConfig implements configSetterOnly.
+func (c *configInternal) SetLoggingConfig(value string) {
+	c.loggingConfig = value
+}
+
 func (c *configInternal) SetOldPassword(oldPassword string) {
 	c.oldPassword = oldPassword
 }
 
 func (c *configInternal) SetPassword(newPassword string) {
-	if c.stateDetails != nil {
-		c.stateDetails.password = newPassword
+	if c.servingInfo != nil {
+		c.statePassword = newPassword
 	}
 	if c.apiDetails != nil {
 		c.apiDetails.password = newPassword
@@ -583,7 +613,7 @@ func (c *configInternal) SetPassword(newPassword string) {
 }
 
 func (c *configInternal) Write() error {
-	data, err := c.fileContents()
+	data, err := c.Render()
 	if err != nil {
 		return err
 	}
@@ -648,6 +678,9 @@ func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
 
 func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
 	c.servingInfo = &info
+	if c.statePassword == "" && c.apiDetails != nil {
+		c.statePassword = c.apiDetails.password
+	}
 }
 
 func (c *configInternal) APIAddresses() ([]string, error) {
@@ -678,13 +711,8 @@ func (c *configInternal) Dir() string {
 }
 
 func (c *configInternal) check() error {
-	if c.stateDetails == nil && c.apiDetails == nil {
-		return errors.Trace(requiredError("state or API addresses"))
-	}
-	if c.stateDetails != nil {
-		if err := checkAddrs(c.stateDetails.addresses, "controller address"); err != nil {
-			return err
-		}
+	if c.apiDetails == nil {
+		return errors.Trace(requiredError("API addresses"))
 	}
 	if c.apiDetails != nil {
 		if err := checkAddrs(c.apiDetails.addresses, "API server address"); err != nil {
@@ -736,7 +764,7 @@ func checkAddrs(addrs []string, what string) error {
 	return nil
 }
 
-func (c *configInternal) fileContents() ([]byte, error) {
+func (c *configInternal) Render() ([]byte, error) {
 	data, err := currentFormat.marshal(c)
 	if err != nil {
 		return nil, err
@@ -749,7 +777,7 @@ func (c *configInternal) fileContents() ([]byte, error) {
 
 // WriteCommands is defined on Config interface.
 func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error) {
-	data, err := c.fileContents()
+	data, err := c.Render()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -767,22 +795,15 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 	}
 	servingInfo, isController := c.StateServingInfo()
 	addrs := c.apiDetails.addresses
+	// For controller we return only localhost - we should not connect
+	// to other controllers if we can talk locally.
 	if isController {
 		port := servingInfo.APIPort
 		// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4
 		// loopback, and when/if this changes localhost should resolve
 		// to IPv6 loopback in any case (lp:1644009). Review.
 		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(port))
-		addrInAddrs := false
-		for _, addr := range addrs {
-			if addr == localAPIAddr {
-				addrInAddrs = true
-				break
-			}
-		}
-		if !addrInAddrs {
-			addrs = append(addrs, localAPIAddr)
-		}
+		addrs = []string{localAPIAddr}
 	}
 	return &api.Info{
 		Addrs:    addrs,
@@ -800,16 +821,30 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	if !ok {
 		return nil, false
 	}
+	// We return localhost first and then all addresses of known API
+	// endpoints - this lets us connect to other Mongo instances and start
+	// state even if our own Mongo has not started yet (see lp:1749383 #1).
 	// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4 loopback,
 	// and when/if this changes localhost should resolve to IPv6 loopback
 	// in any case (lp:1644009). Review.
-	addr := net.JoinHostPort("localhost", strconv.Itoa(ssi.StatePort))
+	local := net.JoinHostPort("localhost", strconv.Itoa(ssi.StatePort))
+	addrs := []string{local}
+
+	for _, addr := range c.apiDetails.addresses {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, false
+		}
+		if host := net.JoinHostPort(host, strconv.Itoa(ssi.StatePort)); host != local {
+			addrs = append(addrs, host)
+		}
+	}
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{addr},
+			Addrs:  addrs,
 			CACert: c.caCert,
 		},
-		Password: c.stateDetails.password,
+		Password: c.statePassword,
 		Tag:      c.tag,
 	}, true
 }

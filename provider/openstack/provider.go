@@ -8,6 +8,7 @@ package openstack
 import (
 	"fmt"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -15,16 +16,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/version"
-	"gopkg.in/goose.v1/cinder"
-	"gopkg.in/goose.v1/client"
-	gooseerrors "gopkg.in/goose.v1/errors"
-	"gopkg.in/goose.v1/identity"
-	gooselogging "gopkg.in/goose.v1/logging"
-	"gopkg.in/goose.v1/neutron"
-	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v2/cinder"
+	"gopkg.in/goose.v2/client"
+	gooseerrors "gopkg.in/goose.v2/errors"
+	"gopkg.in/goose.v2/identity"
+	gooselogging "gopkg.in/goose.v2/logging"
+	"gopkg.in/goose.v2/neutron"
+	"gopkg.in/goose.v2/nova"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -38,8 +41,8 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
 
@@ -61,8 +64,8 @@ type EnvironProvider struct {
 }
 
 var (
-	_ environs.EnvironProvider = (*EnvironProvider)(nil)
-	_ environs.ProviderSchema  = (*EnvironProvider)(nil)
+	_ environs.CloudEnvironProvider = (*EnvironProvider)(nil)
+	_ environs.ProviderSchema       = (*EnvironProvider)(nil)
 )
 
 var providerInstance *EnvironProvider = &EnvironProvider{
@@ -133,6 +136,11 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
+// Version is part of the EnvironProvider interface.
+func (EnvironProvider) Version() int {
+	return 0
+}
+
 func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	logger.Infof("opening model %q", args.Config.Name())
 	if err := validateCloudSpec(args.Cloud); err != nil {
@@ -168,6 +176,17 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 	if err := e.SetConfig(args.Config); err != nil {
 		return nil, err
 	}
+
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	client, err := authClient(e.cloud, e.ecfgUnlocked)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot set config")
+	}
+	e.clientUnlocked = client
+	e.novaUnlocked = nova.New(e.clientUnlocked)
+	e.neutronUnlocked = neutron.New(e.clientUnlocked)
+
 	return e, nil
 }
 
@@ -275,11 +294,13 @@ type Environ struct {
 
 	// Clock is defined so it can be replaced for testing
 	clock clock.Clock
+
+	publicIPMutex sync.Mutex
 }
 
 var _ environs.Environ = (*Environ)(nil)
+var _ environs.NetworkingEnviron = (*Environ)(nil)
 var _ simplestreams.HasRegion = (*Environ)(nil)
-var _ state.Prechecker = (*Environ)(nil)
 var _ instance.Distributor = (*Environ)(nil)
 var _ environs.InstanceTagger = (*Environ)(nil)
 
@@ -551,7 +572,19 @@ func (e *Environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, er
 }
 
 type openstackPlacement struct {
-	availabilityZone nova.AvailabilityZone
+	zoneName string
+}
+
+// DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
+func (e *Environ) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+	availabilityZone, err := e.deriveAvailabilityZone(args.Placement, args.VolumeAttachments)
+	if err != nil && !errors.IsNotImplemented(err) {
+		return nil, errors.Trace(err)
+	}
+	if availabilityZone != "" {
+		return []string{availabilityZone}, nil
+	}
+	return nil, nil
 }
 
 func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) {
@@ -562,30 +595,21 @@ func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) 
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
 		availabilityZone := value
-		zones, err := e.AvailabilityZones()
+		err := common.ValidateAvailabilityZone(e, availabilityZone)
 		if err != nil {
 			return nil, err
 		}
-		for _, z := range zones {
-			if z.Name() == availabilityZone {
-				return &openstackPlacement{
-					z.(*openstackAvailabilityZone).AvailabilityZone,
-				}, nil
-			}
-		}
-		return nil, errors.Errorf("invalid availability zone %q", availabilityZone)
+		return &openstackPlacement{zoneName: availabilityZone}, nil
 	}
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
 
-// PrecheckInstance is defined on the state.Prechecker interface.
-func (e *Environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	if placement != "" {
-		if _, err := e.parsePlacement(placement); err != nil {
-			return err
-		}
+// PrecheckInstance is defined on the environs.InstancePrechecker interface.
+func (e *Environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+	if _, err := e.deriveAvailabilityZone(args.Placement, args.VolumeAttachments); err != nil {
+		return errors.Trace(err)
 	}
-	if !cons.HasInstanceType() {
+	if !args.Constraints.HasInstanceType() {
 		return nil
 	}
 	// Constraint has an instance-type constraint so let's see if it is valid.
@@ -595,11 +619,11 @@ func (e *Environ) PrecheckInstance(series string, cons constraints.Value, placem
 		return err
 	}
 	for _, flavor := range flavors {
-		if flavor.Name == *cons.InstanceType {
+		if flavor.Name == *args.Constraints.InstanceType {
 			return nil
 		}
 	}
-	return errors.Errorf("invalid Openstack flavour %q specified", *cons.InstanceType)
+	return errors.Errorf("invalid Openstack flavour %q specified", *args.Constraints.InstanceType)
 }
 
 // PrepareForBootstrap is part of the Environ interface.
@@ -798,13 +822,6 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	defer e.ecfgMutex.Unlock()
 	e.ecfgUnlocked = ecfg
 
-	client, err := authClient(e.cloud, ecfg)
-	if err != nil {
-		return errors.Annotate(err, "cannot set config")
-	}
-	e.clientUnlocked = client
-	e.novaUnlocked = nova.New(e.clientUnlocked)
-	e.neutronUnlocked = neutron.New(e.clientUnlocked)
 	return nil
 }
 
@@ -826,21 +843,25 @@ func identityClientVersion(authURL string) (int, error) {
 		// User explicitely did not provide any version, it is empty.
 		return -1, nil
 	}
-	// The last part of the path should be the version #.
+	// The last part of the path should be the version #, prefixed with a 'v' or 'V'
 	// Example: https://keystone.foo:443/v3/
-	versionNumStr := strings.TrimPrefix(strings.ToLower(url.Path), "/v")
-	versionNumStr = strings.TrimSuffix(versionNumStr, "/")
-	if versionNumStr == url.Path || versionNumStr == "" {
-		// If nothing was trimmed, version specification was malformed.
-		// If nothing was left after trim, version number is not provided and,
-		// hence, version specification was malformed.
+	// Example: https://sharedhost.foo:443/identity/v3/
+	urlpath := strings.ToLower(url.Path)
+	urlpath, tail := path.Split(urlpath)
+	if len(tail) == 0 && len(urlpath) > 2 {
+		// trailing /, remove it and split again
+		urlpath, tail = path.Split(strings.TrimRight(urlpath, "/"))
+	}
+	versionNumStr := strings.TrimPrefix(tail, "v")
+	logger.Tracef("authURL: %s", authURL)
+	major, _, err := version.ParseMajorMinor(versionNumStr)
+	if len(tail) < 2 || tail[0] != 'v' || err != nil {
+		// There must be a '/v' in the URL path.
 		// At this stage only '/Vxxx' and '/vxxx' are valid where xxx is major.minor version.
 		// Return 0 as this is the lowest invalid number according to openstack codebase:
 		// -1 is reserved and has special handling; 1, 2, 3, etc are valid identity client versions.
 		return 0, errors.NotValidf("version part of identity url %s", authURL)
 	}
-	logger.Tracef("authURL: %s", authURL)
-	major, _, err := version.ParseMajorMinor(versionNumStr)
 	return major, err
 }
 
@@ -920,48 +941,19 @@ func (*Environ) MaintainInstance(args environs.StartInstanceParams) error {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.ControllerUUID == "" {
-		return nil, errors.New("missing controller UUID")
-	}
-	var availabilityZones []string
-	if args.Placement != "" {
-		placement, err := e.parsePlacement(args.Placement)
+func (e *Environ) StartInstance(args environs.StartInstanceParams) (_ *environs.StartInstanceResult, err error) {
+	if args.AvailabilityZone != "" {
+		// args.AvailabilityZone should only be set if this OpenStack
+		// supports zones; validate the zone.
+		volumeAttachmentsZone, err := e.volumeAttachmentsZone(args.VolumeAttachments)
 		if err != nil {
-			return nil, err
+			return nil, common.ZoneIndependentError(err)
 		}
-		if !placement.availabilityZone.State.Available {
-			return nil, errors.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
+		if err := validateAvailabilityZoneConsistency(args.AvailabilityZone, volumeAttachmentsZone); err != nil {
+			return nil, common.ZoneIndependentError(err)
 		}
-		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
-	}
-
-	// If no availability zone is specified, then automatically spread across
-	// the known zones for optimal spread across the instance distribution
-	// group.
-	if len(availabilityZones) == 0 {
-		var group []instance.Id
-		var err error
-		if args.DistributionGroup != nil {
-			group, err = args.DistributionGroup()
-			if err != nil {
-				return nil, err
-			}
-		}
-		zoneInstances, err := availabilityZoneAllocations(e, group)
-		if errors.IsNotImplemented(err) {
-			// Availability zones are an extension, so we may get a
-			// not implemented error; ignore these.
-		} else if err != nil {
-			return nil, err
-		} else {
-			for _, zone := range zoneInstances {
-				availabilityZones = append(availabilityZones, zone.ZoneName)
-			}
-		}
-		if len(availabilityZones) == 0 {
-			// No explicitly selectable zones available, so use an unspecified zone.
-			availabilityZones = []string{""}
+		if err := common.ValidateAvailabilityZone(e, args.AvailabilityZone); err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
 
@@ -974,58 +966,44 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		Constraints: args.Constraints,
 	}, args.ImageMetadata)
 	if err != nil {
-		return nil, err
+		return nil, common.ZoneIndependentError(err)
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, common.ZoneIndependentError(
+			errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches),
+		)
 	}
 
 	if err := args.InstanceConfig.SetTools(tools); err != nil {
-		return nil, errors.Trace(err)
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
-		return nil, err
+		return nil, common.ZoneIndependentError(err)
 	}
 	cloudcfg, err := e.configurator.GetCloudConfig(args)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, common.ZoneIndependentError(err)
 	}
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, OpenstackRenderer{})
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot make user data")
+		return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot make user data"))
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 
 	networks, err := e.networking.DefaultNetworks()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting initial networks")
+		return nil, common.ZoneIndependentError(errors.Annotate(err, "getting initial networks"))
 	}
 	usingNetwork := e.ecfg().network()
 	if usingNetwork != "" {
-		networkId, err := e.networking.ResolveNetwork(usingNetwork)
+		networkId, err := e.networking.ResolveNetwork(usingNetwork, false)
 		if err != nil {
-			return nil, err
+			return nil, common.ZoneIndependentError(err)
 		}
 		logger.Debugf("using network id %q", networkId)
 		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
-	}
-
-	var apiPort int
-	if args.InstanceConfig.Controller != nil {
-		apiPort = args.InstanceConfig.Controller.Config.APIPort()
-	} else {
-		// All ports are the same so pick the first.
-		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
-	}
-	groupNames, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot set up groups")
-	}
-	novaGroupNames := make([]nova.SecurityGroupName, len(groupNames))
-	for i, name := range groupNames {
-		novaGroupNames[i].Name = name
 	}
 
 	machineName := resourceName(
@@ -1034,6 +1012,97 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		args.InstanceConfig.MachineId,
 	)
 
+	if e.ecfg().useOpenstackGBP() {
+		client := e.neutron()
+		ptArg := neutron.PolicyTargetV2{
+			Name:                fmt.Sprintf("juju-policytarget-%s", machineName),
+			PolicyTargetGroupId: e.ecfg().policyTargetGroup(),
+		}
+		pt, err := client.CreatePolicyTargetV2(ptArg)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		networks = append(networks, nova.ServerNetworks{PortId: pt.PortId})
+	}
+
+	// For BUG 1680787: openstack: add support for neutron networks where port
+	// security is disabled.
+	// If any network specified for instance boot has PortSecurityEnabled equals
+	// false, don't create security groups, instance boot will fail.
+	createSecurityGroups := true
+	if len(networks) > 0 && e.supportsNeutron() {
+		client := e.neutron()
+		for _, n := range networks {
+			if n.NetworkId == "" {
+				// It's a GBP network.
+				continue
+			}
+			net, err := client.GetNetworkV2(n.NetworkId)
+			if err != nil {
+				return nil, common.ZoneIndependentError(err)
+			}
+			if net.PortSecurityEnabled != nil &&
+				*net.PortSecurityEnabled == false {
+				createSecurityGroups = *net.PortSecurityEnabled
+				logger.Infof("network %q has port_security_enabled set to false. Not using security groups.", net.Id)
+				break
+			}
+		}
+	}
+
+	var novaGroupNames = []nova.SecurityGroupName{}
+	if createSecurityGroups {
+		var apiPort int
+		if args.InstanceConfig.Controller != nil {
+			apiPort = args.InstanceConfig.Controller.Config.APIPort()
+		} else {
+			// All ports are the same so pick the first.
+			apiPort = args.InstanceConfig.APIInfo.Ports()[0]
+		}
+		groupNames, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
+		if err != nil {
+			return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot set up groups"))
+		}
+		novaGroupNames = make([]nova.SecurityGroupName, len(groupNames))
+		for i, name := range groupNames {
+			novaGroupNames[i].Name = name
+		}
+	}
+
+	waitForActiveServerDetails := func(
+		client *nova.Client,
+		id string,
+		timeout time.Duration,
+	) (server *nova.ServerDetail, err error) {
+
+		var errStillBuilding = errors.Errorf("instance %q has status BUILD", id)
+		err = retry.Call(retry.CallArgs{
+			Clock:       e.clock,
+			Delay:       10 * time.Second,
+			MaxDuration: timeout,
+			Func: func() error {
+				server, err = client.GetServer(id)
+				if err != nil {
+					return err
+				}
+				if server.Status == nova.StatusBuild {
+					return errStillBuilding
+				}
+				return nil
+			},
+			NotifyFunc: func(lastError error, attempt int) {
+				args.StatusCallback(status.Provisioning, fmt.Sprintf("%s, wait 10 seconds before retry, attempt %d", lastError, attempt), nil)
+			},
+			IsFatalError: func(err error) bool {
+				return err != errStillBuilding
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+		return server, nil
+	}
+
 	tryStartNovaInstance := func(
 		attempts utils.AttemptStrategy,
 		client *nova.Client,
@@ -1041,34 +1110,29 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	) (server *nova.Entity, err error) {
 		for a := attempts.Start(); a.Next(); {
 			server, err = client.RunServer(instanceOpts)
-			if err == nil || gooseerrors.IsNotFound(err) == false {
+			if err != nil {
+				break
+			}
+			var serverDetail *nova.ServerDetail
+			serverDetail, err = waitForActiveServerDetails(client, server.Id, 5*time.Minute)
+			if err != nil {
+				server = nil
+				break
+			} else if serverDetail.Status == nova.StatusActive {
+				break
+			} else if serverDetail.Status == nova.StatusError {
+				// Perhaps there is an error case where a retry in the same AZ
+				// is a good idea.
+				logger.Infof("Instance %q in ERROR state with fault %q", server.Id, serverDetail.Fault.Message)
+				logger.Infof("Deleting instance %q in ERROR state", server.Id)
+				if err = e.terminateInstances([]instance.Id{instance.Id(server.Id)}); err != nil {
+					logger.Debugf("Failed to delete instance in ERROR state, %q", err)
+				}
+				server = nil
+				err = errors.New(serverDetail.Fault.Message)
 				break
 			}
 		}
-		return server, err
-	}
-
-	tryStartNovaInstanceAcrossAvailZones := func(
-		attempts utils.AttemptStrategy,
-		client *nova.Client,
-		instanceOpts nova.RunServerOpts,
-		availabilityZones []string,
-	) (server *nova.Entity, err error) {
-		for _, zone := range availabilityZones {
-			instanceOpts.AvailabilityZone = zone
-			e.configurator.ModifyRunServerOptions(&instanceOpts)
-			server, err = tryStartNovaInstance(attempts, client, instanceOpts)
-			if err == nil || isNoValidHostsError(err) == false {
-				break
-			}
-
-			logger.Infof("no valid hosts available in zone %q, trying another availability zone", zone)
-		}
-
-		if err != nil {
-			err = errors.Annotate(err, "cannot run instance")
-		}
-
 		return server, err
 	}
 
@@ -1080,15 +1144,26 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		SecurityGroupNames: novaGroupNames,
 		Networks:           networks,
 		Metadata:           args.InstanceConfig.Tags,
+		AvailabilityZone:   args.AvailabilityZone,
 	}
-	server, err := tryStartNovaInstanceAcrossAvailZones(shortAttempt, e.nova(), opts, availabilityZones)
+	e.configurator.ModifyRunServerOptions(&opts)
+
+	server, err := tryStartNovaInstance(shortAttempt, e.nova(), opts)
 	if err != nil {
-		return nil, errors.Trace(err)
+		// 'No valid host available' is typically a resource error,
+		// let the provisioner know it is a good idea to try another
+		// AZ if available.
+		err := errors.Annotate(err, "cannot run instance")
+		zoneSpecific := isNoValidHostsError(err)
+		if !zoneSpecific {
+			err = common.ZoneIndependentError(err)
+		}
+		return nil, err
 	}
 
 	detail, err := e.nova().GetServer(server.Id)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot get started instance")
+		return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot get started instance"))
 	}
 
 	inst := &openstackInstance{
@@ -1100,10 +1175,15 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	logger.Infof("started instance %q", inst.Id())
 	withPublicIP := e.ecfg().useFloatingIP()
 	if withPublicIP {
+		// If we don't lock here, AllocatePublicIP() can return the same
+		// public IP for 2 different instances.  Only one will successfully
+		// be assigned the public IP, the other will not have one.
+		e.publicIPMutex.Lock()
+		defer e.publicIPMutex.Unlock()
 		var publicIP *string
 		logger.Debugf("allocating public IP address for openstack node")
 		if fip, err := e.networking.AllocatePublicIP(inst.Id()); err != nil {
-			return nil, errors.Annotate(err, "cannot allocate a public IP as needed")
+			return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot allocate a public IP as needed"))
 		} else {
 			publicIP = fip
 			logger.Infof("allocated public IP %s", *publicIP)
@@ -1113,21 +1193,93 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, errors.Annotatef(err, "cannot assign public address %s to instance %q", publicIP, inst.Id())
+			return nil, common.ZoneIndependentError(errors.Annotatef(err,
+				"cannot assign public address %s to instance %q",
+				publicIP, inst.Id(),
+			))
 		}
 		inst.floatingIP = publicIP
 	}
+
 	return &environs.StartInstanceResult{
 		Instance: inst,
 		Hardware: inst.hardwareCharacteristics(),
 	}, nil
 }
 
-func isNoValidHostsError(err error) bool {
-	if gooseErr, ok := err.(gooseerrors.Error); ok {
-		if cause := gooseErr.Cause(); cause != nil {
-			return strings.Contains(cause.Error(), "No valid host was found")
+func (e *Environ) deriveAvailabilityZone(
+	placement string,
+	volumeAttachments []storage.VolumeAttachmentParams,
+) (string, error) {
+	volumeAttachmentsZone, err := e.volumeAttachmentsZone(volumeAttachments)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if placement == "" {
+		return volumeAttachmentsZone, nil
+	}
+	instPlacement, err := e.parsePlacement(placement)
+	if err != nil {
+		return "", err
+	}
+	if err := validateAvailabilityZoneConsistency(instPlacement.zoneName, volumeAttachmentsZone); err != nil {
+		return "", errors.Annotatef(err, "cannot create instance with placement %q", placement)
+	}
+	return instPlacement.zoneName, nil
+}
+
+func validateAvailabilityZoneConsistency(instanceZone, volumeAttachmentsZone string) error {
+	if volumeAttachmentsZone != "" && instanceZone != volumeAttachmentsZone {
+		return errors.Errorf(
+			"cannot create instance in zone %q, as this will prevent attaching the requested disks in zone %q",
+			instanceZone, volumeAttachmentsZone,
+		)
+	}
+	return nil
+}
+
+// volumeAttachmentsZone determines the availability zone for each volume
+// identified in the volume attachment parameters, checking that they are
+// all the same, and returns the availability zone name.
+func (e *Environ) volumeAttachmentsZone(volumeAttachments []storage.VolumeAttachmentParams) (string, error) {
+	if len(volumeAttachments) == 0 {
+		return "", nil
+	}
+	cinderProvider, err := e.cinderProvider()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	volumes, err := modelCinderVolumes(cinderProvider.storageAdapter, cinderProvider.modelUUID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	var zone string
+	for i, a := range volumeAttachments {
+		var v *cinder.Volume
+		for i := range volumes {
+			if volumes[i].ID == a.VolumeId {
+				v = &volumes[i]
+				break
+			}
 		}
+		if v == nil {
+			return "", errors.Errorf("cannot find volume %q to attach to new instance", a.VolumeId)
+		}
+		if zone == "" {
+			zone = v.AvailabilityZone
+		} else if v.AvailabilityZone != zone {
+			return "", errors.Errorf(
+				"cannot attach volumes from multiple availability zones: %s is in %s, %s is in %s",
+				volumeAttachments[i-1].VolumeId, zone, a.VolumeId, v.AvailabilityZone,
+			)
+		}
+	}
+	return zone, nil
+}
+
+func isNoValidHostsError(err error) bool {
+	if cause := errors.Cause(err); cause != nil {
+		return strings.Contains(cause.Error(), "No valid host was found")
 	}
 	return false
 }
@@ -1200,7 +1352,7 @@ func (e *Environ) listServers(ids []instance.Id) ([]nova.ServerDetail, error) {
 // updateFloatingIPAddresses updates the instances with any floating IP address
 // that have been assigned to those instances.
 func (e *Environ) updateFloatingIPAddresses(instances map[string]instance.Instance) error {
-	servers, err := e.nova().ListServersDetail(nil)
+	servers, err := e.nova().ListServersDetail(jujuMachineFilter())
 	if err != nil {
 		return err
 	}
@@ -1285,20 +1437,6 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cinder, err := e.cinderProvider()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(axw): fix the storage API.
-	volumeSource, err := cinder.VolumeSource(nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	volumeIds, err := volumeSource.ListVolumes()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	for _, instance := range instances {
 		err := e.TagInstance(instance.Id(), controllerTag)
 		if err != nil {
@@ -1307,13 +1445,11 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 		}
 	}
 
-	for _, volumeId := range volumeIds {
-		_, err := cinder.storageAdapter.SetVolumeMetadata(volumeId, controllerTag)
-		if err != nil {
-			logger.Errorf("error updating controller tag for volume %s: %v", volumeId, err)
-			failed = append(failed, volumeId)
-		}
+	failedVolumes, err := e.adoptVolumes(controllerTag)
+	if err != nil {
+		return errors.Trace(err)
 	}
+	failed = append(failed, failedVolumes...)
 
 	err = e.firewaller.UpdateGroupController(controllerUUID)
 	if err != nil {
@@ -1323,6 +1459,40 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 		return errors.Errorf("error updating controller tag for some resources: %v", failed)
 	}
 	return nil
+}
+
+func (e *Environ) adoptVolumes(controllerTag map[string]string) ([]string, error) {
+	cinder, err := e.cinderProvider()
+	if errors.IsNotSupported(err) {
+		logger.Debugf("volumes not supported: not transferring ownership for volumes")
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO(axw): fix the storage API.
+	storageConfig, err := storage.NewConfig("cinder", CinderProviderType, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	volumeSource, err := cinder.VolumeSource(storageConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	volumeIds, err := volumeSource.ListVolumes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var failed []string
+	for _, volumeId := range volumeIds {
+		_, err := cinder.storageAdapter.SetVolumeMetadata(volumeId, controllerTag)
+		if err != nil {
+			logger.Errorf("error updating controller tag for volume %s: %v", volumeId, err)
+			failed = append(failed, volumeId)
+		}
+	}
+	return failed, nil
 }
 
 // AllInstances returns all instances in this environment.
@@ -1414,11 +1584,12 @@ func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 	// Delete all volumes managed by the controller.
 	cinder, err := e.cinderProvider()
 	if err == nil {
-		volIds, err := allControllerManagedVolumes(cinder.storageAdapter, controllerUUID)
+		volumes, err := controllerCinderVolumes(cinder.storageAdapter, controllerUUID)
 		if err != nil {
 			return errors.Annotate(err, "listing volumes")
 		}
-		errs := destroyVolumes(cinder.storageAdapter, volIds)
+		volIds := volumeInfoToVolumeIds(cinderToJujuVolumeInfos(volumes))
+		errs := foreachVolume(cinder.storageAdapter, volIds, destroyVolume)
 		for i, err := range errs {
 			if err == nil {
 				continue
@@ -1432,20 +1603,6 @@ func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error 
 	// Security groups for hosted models are destroyed by the
 	// DeleteAllControllerGroups method call from Destroy().
 	return nil
-}
-
-func allControllerManagedVolumes(storageAdapter OpenstackStorage, controllerUUID string) ([]string, error) {
-	volumes, err := listVolumes(storageAdapter, func(v *cinder.Volume) bool {
-		return v.Metadata[tags.JujuController] == controllerUUID
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	volIds := make([]string, len(volumes))
-	for i, v := range volumes {
-		volIds[i] = v.VolumeId
-	}
-	return volIds, nil
 }
 
 func resourceName(namespace instance.Namespace, envName, resourceId string) string {
@@ -1584,4 +1741,72 @@ func validateAuthURL(authURL string) error {
 		return errors.NotValidf("auth-url %q", authURL)
 	}
 	return nil
+}
+
+// Subnets is specified on environs.Networking.
+func (e *Environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	return e.networking.Subnets(instId, subnetIds)
+}
+
+// NetworkInterfaces is specified on environs.Networking.
+func (e *Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	return e.networking.NetworkInterfaces(instId)
+}
+
+// SupportsSpaces is specified on environs.Networking.
+func (e *Environ) SupportsSpaces() (bool, error) {
+	return false, nil
+}
+
+// SupportsSpaceDiscovery is specified on environs.Networking.
+func (e *Environ) SupportsSpaceDiscovery() (bool, error) {
+	return false, nil
+}
+
+// Spaces is specified on environs.Networking.
+func (e *Environ) Spaces() ([]network.SpaceInfo, error) {
+	return nil, errors.NotSupportedf("spaces")
+}
+
+// SupportsContainerAddresses is specified on environs.Networking.
+func (e *Environ) SupportsContainerAddresses() (bool, error) {
+	return false, errors.NotSupportedf("container address")
+}
+
+// SuperSubnets is specified on environs.Networking
+func (e *Environ) SuperSubnets() ([]string, error) {
+	subnets, err := e.networking.Subnets("", nil)
+	if err != nil {
+		return nil, err
+	}
+	cidrs := make([]string, len(subnets))
+	for i, subnet := range subnets {
+		cidrs[i] = subnet.CIDR
+	}
+	return cidrs, nil
+}
+
+// AllocateContainerAddresses is specified on environs.Networking.
+func (e *Environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotSupportedf("allocate container address")
+}
+
+// ReleaseContainerAddresses is specified on environs.Networking.
+func (e *Environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
+	return errors.NotSupportedf("release container address")
+}
+
+// ProviderSpaceInfo is specified on environs.NetworkingEnviron.
+func (*Environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+	return nil, errors.NotSupportedf("provider space info")
+}
+
+// AreSpacesRoutable is specified on environs.NetworkingEnviron.
+func (*Environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+	return false, nil
+}
+
+// SSHAddresses is specified on environs.SSHAddresses.
+func (*Environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+	return addresses, nil
 }

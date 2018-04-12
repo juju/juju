@@ -6,8 +6,6 @@ package common_test
 import (
 	"io"
 
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -16,11 +14,11 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	jujustorage "github.com/juju/juju/storage"
-	"github.com/juju/juju/tools"
 )
 
 type allInstancesFunc func() ([]instance.Instance, error)
-type startInstanceFunc func(string, constraints.Value, []string, tools.List, *instancecfg.InstanceConfig) (instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error)
+type instancesFunc func([]instance.Id) ([]instance.Instance, error)
+type startInstanceFunc func(environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error)
 type stopInstancesFunc func([]instance.Id) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
 type configFunc func() *config.Config
@@ -29,6 +27,7 @@ type setConfigFunc func(*config.Config) error
 type mockEnviron struct {
 	storage          storage.Storage
 	allInstances     allInstancesFunc
+	instances        instancesFunc
 	startInstance    startInstanceFunc
 	stopInstances    stopInstancesFunc
 	getToolsSources  getToolsSourcesFunc
@@ -46,14 +45,12 @@ func (env *mockEnviron) AllInstances() ([]instance.Instance, error) {
 	return env.allInstances()
 }
 
+func (env *mockEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+	return env.instances(ids)
+}
+
 func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	inst, hw, networkInfo, err := env.startInstance(
-		args.Placement,
-		args.Constraints,
-		nil,
-		args.Tools,
-		args.InstanceConfig,
-	)
+	inst, hw, networkInfo, err := env.startInstance(args)
 	if err != nil {
 		return nil, err
 	}
@@ -97,11 +94,13 @@ func (env *mockEnviron) StorageProvider(t jujustorage.ProviderType) (jujustorage
 
 type availabilityZonesFunc func() ([]common.AvailabilityZone, error)
 type instanceAvailabilityZoneNamesFunc func([]instance.Id) ([]string, error)
+type deriveAvailabilityZonesFunc func(environs.StartInstanceParams) ([]string, error)
 
 type mockZonedEnviron struct {
 	mockEnviron
 	availabilityZones             availabilityZonesFunc
 	instanceAvailabilityZoneNames instanceAvailabilityZoneNamesFunc
+	deriveAvailabilityZones       deriveAvailabilityZonesFunc
 }
 
 func (env *mockZonedEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
@@ -112,17 +111,26 @@ func (env *mockZonedEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([
 	return env.instanceAvailabilityZoneNames(ids)
 }
 
+func (env *mockZonedEnviron) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+	return env.deriveAvailabilityZones(args)
+}
+
 type mockInstance struct {
 	id                string
 	addresses         []network.Address
 	addressesErr      error
 	dnsName           string
 	dnsNameErr        error
+	status            instance.InstanceStatus
 	instance.Instance // stub out other methods with panics
 }
 
 func (inst *mockInstance) Id() instance.Id {
 	return instance.Id(inst.id)
+}
+
+func (inst *mockInstance) Status() instance.InstanceStatus {
+	return inst.status
 }
 
 func (inst *mockInstance) Addresses() ([]network.Address, error) {

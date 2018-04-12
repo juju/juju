@@ -16,12 +16,11 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/storage/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -34,6 +33,7 @@ var _ = gc.Suite(&internalStateSuite{})
 type internalStateSuite struct {
 	jujutesting.MgoSuite
 	testing.BaseSuite
+	controller *Controller
 	state      *State
 	owner      names.UserTag
 	modelCount int
@@ -50,29 +50,25 @@ func (s *internalStateSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *internalStateSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
 
 	s.owner = names.NewLocalUserTag("test-admin")
-	// Copied from NewMongoInfo (due to import loops).
-	info := &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{jujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-	}
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
-	st, err := Initialize(InitializeParams{
+	ctlr, st, err := Initialize(InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: ModelArgs{
-			CloudName:               "dummy",
-			CloudRegion:             "dummy-region",
-			Owner:                   s.owner,
-			Config:                  modelCfg,
-			StorageProviderRegistry: dummy.StorageProviders(),
+			Type:        ModelTypeIAAS,
+			CloudName:   "dummy",
+			CloudRegion: "dummy-region",
+			Owner:       s.owner,
+			Config:      modelCfg,
+			StorageProviderRegistry: storage.ChainedProviderRegistry{
+				dummy.StorageProviders(),
+				provider.CommonStorageProviders(),
+			},
 		},
 		Cloud: cloud.Cloud{
 			Name:      "dummy",
@@ -84,15 +80,19 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 				},
 			},
 		},
-		MongoInfo:     info,
-		MongoDialOpts: mongotest.DialOpts(),
+		MongoSession:  s.Session,
+		AdminPassword: "dummy-secret",
 		NewPolicy: func(*State) Policy {
 			return internalStatePolicy{}
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	s.controller = ctlr
 	s.state = st
-	s.AddCleanup(func(*gc.C) { s.state.Close() })
+	s.AddCleanup(func(*gc.C) {
+		s.state.Close()
+		s.controller.Close()
+	})
 }
 
 func (s *internalStateSuite) TearDownTest(c *gc.C) {
@@ -107,11 +107,15 @@ func (s *internalStateSuite) newState(c *gc.C) *State {
 		"uuid": utils.MustNewUUID().String(),
 	})
 	_, st, err := s.state.NewModel(ModelArgs{
+		Type:        ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
 		Config:      cfg,
 		Owner:       s.owner,
-		StorageProviderRegistry: dummy.StorageProviders(),
+		StorageProviderRegistry: storage.ChainedProviderRegistry{
+			dummy.StorageProviders(),
+			provider.CommonStorageProviders(),
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { st.Close() })
@@ -120,7 +124,7 @@ func (s *internalStateSuite) newState(c *gc.C) *State {
 
 type internalStatePolicy struct{}
 
-func (internalStatePolicy) Prechecker() (Prechecker, error) {
+func (internalStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
 	return nil, errors.NotImplementedf("Prechecker")
 }
 
@@ -137,7 +141,10 @@ func (internalStatePolicy) InstanceDistributor() (instance.Distributor, error) {
 }
 
 func (internalStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
-	return dummy.StorageProviders(), nil
+	return storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	}, nil
 }
 
 func (internalStatePolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSource, error) {

@@ -14,17 +14,6 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 )
 
-type volumeAlreadyProvisionedError struct {
-	error
-}
-
-// IsVolumeAlreadyProvisioned returns true if the specified error
-// is caused by a volume already being provisioned.
-func IsVolumeAlreadyProvisioned(err error) bool {
-	_, ok := err.(*volumeAlreadyProvisionedError)
-	return ok
-}
-
 // VolumeParams returns the parameters for creating or destroying
 // the given volume.
 func VolumeParams(
@@ -115,6 +104,7 @@ func VolumeToState(v params.Volume) (names.VolumeTag, state.VolumeInfo, error) {
 	}
 	return volumeTag, state.VolumeInfo{
 		v.Info.HardwareId,
+		v.Info.WWN,
 		v.Info.Size,
 		"", // pool is set by state
 		v.Info.VolumeId,
@@ -139,6 +129,7 @@ func VolumeInfoFromState(info state.VolumeInfo) params.VolumeInfo {
 	return params.VolumeInfo{
 		info.VolumeId,
 		info.HardwareId,
+		info.WWN,
 		info.Pool,
 		info.Size,
 		info.Persistent,

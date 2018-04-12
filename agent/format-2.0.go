@@ -44,8 +44,9 @@ type format_2_0Serialization struct {
 	APIAddresses []string `yaml:"apiaddresses,omitempty"`
 	APIPassword  string   `yaml:"apipassword,omitempty"`
 
-	OldPassword string            `yaml:"oldpassword,omitempty"`
-	Values      map[string]string `yaml:"values"`
+	OldPassword   string            `yaml:"oldpassword,omitempty"`
+	LoggingConfig string            `yaml:"loggingconfig,omitempty"`
+	Values        map[string]string `yaml:"values"`
 
 	// Only controller machines have these next items set.
 	ControllerCert     string `yaml:"controllercert,omitempty"`
@@ -99,17 +100,13 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		controller:        controllerTag,
 		model:             modelTag,
 		caCert:            format.CACert,
+		statePassword:     format.StatePassword,
 		oldPassword:       format.OldPassword,
+		loggingConfig:     format.LoggingConfig,
 		values:            format.Values,
 	}
-	if len(format.StateAddresses) > 0 {
-		config.stateDetails = &connectionDetails{
-			format.StateAddresses,
-			format.StatePassword,
-		}
-	}
 	if len(format.APIAddresses) > 0 {
-		config.apiDetails = &connectionDetails{
+		config.apiDetails = &apiDetails{
 			format.APIAddresses,
 			format.APIPassword,
 		}
@@ -173,6 +170,7 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		Model:             modelTag,
 		CACert:            string(config.caCert),
 		OldPassword:       config.oldPassword,
+		LoggingConfig:     config.loggingConfig,
 		Values:            config.values,
 	}
 	if config.servingInfo != nil {
@@ -183,18 +181,11 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		format.StatePort = config.servingInfo.StatePort
 		format.SharedSecret = config.servingInfo.SharedSecret
 		format.SystemIdentity = config.servingInfo.SystemIdentity
-	}
-	if config.stateDetails != nil {
-		if len(config.stateDetails.addresses) > 0 {
-			format.StateAddresses = config.stateDetails.addresses
-			format.StatePassword = config.stateDetails.password
-		}
+		format.StatePassword = config.statePassword
 	}
 	if config.apiDetails != nil {
-		if len(config.apiDetails.addresses) > 0 {
-			format.APIAddresses = config.apiDetails.addresses
-			format.APIPassword = config.apiDetails.password
-		}
+		format.APIAddresses = config.apiDetails.addresses
+		format.APIPassword = config.apiDetails.password
 	}
 	if config.mongoVersion != "" {
 		format.MongoVersion = string(config.mongoVersion)

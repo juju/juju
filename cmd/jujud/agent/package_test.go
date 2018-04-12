@@ -20,5 +20,5 @@ func init() {
 func TestPackage(t *stdtesting.T) {
 	// TODO(waigani) 2014-03-19 bug 1294458
 	// Refactor to use base suites
-	coretesting.MgoTestPackage(t)
+	coretesting.MgoSSLTestPackage(t)
 }

@@ -108,7 +108,7 @@ type SubnetInfo struct {
 	// unknown.
 	CIDR string
 
-	// ProviderId is a provider-specific network id. This the only
+	// ProviderId is a provider-specific subnet id. This the only
 	// required field.
 	ProviderId Id
 
@@ -123,22 +123,21 @@ type SubnetInfo struct {
 	// availability zones.
 	AvailabilityZones []string
 
-	// SpaceProviderId holds the provider Id of the space associated with
-	// this subnet. Can be empty if not supported.
+	// SpaceProviderId holds the provider Id of the space associated
+	// with this subnet. Can be empty if not supported.
+	// TODO(babbageclunk): change this to ProviderSpaceId to be
+	// consistent with the InterfaceInfo.Provider*Id fields.
 	SpaceProviderId Id
+
+	// ProviderNetworkId holds the provider id of the network
+	// containing this subnet, for example VPC id for EC2.
+	ProviderNetworkId Id
 }
 
 type SpaceInfo struct {
 	Name       string
 	ProviderId Id
 	Subnets    []SubnetInfo
-}
-type BySpaceName []SpaceInfo
-
-func (s BySpaceName) Len() int      { return len(s) }
-func (s BySpaceName) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
-func (s BySpaceName) Less(i, j int) bool {
-	return s[i].Name < s[j].Name
 }
 
 // InterfaceConfigType defines valid network interface configuration
@@ -187,6 +186,10 @@ type InterfaceInfo struct {
 	// ProviderSubnetId is the provider-specific id for the associated
 	// subnet.
 	ProviderSubnetId Id
+
+	// ProviderNetworkId is the provider-specific id for the
+	// associated network.
+	ProviderNetworkId Id
 
 	// ProviderSpaceId is the provider-specific id for the associated space, if
 	// known and supported.
@@ -259,6 +262,9 @@ type InterfaceInfo struct {
 	// Routes defines a list of routes that should be added when this interface
 	// is brought up, and removed when this interface is stopped.
 	Routes []Route
+
+	// IsDefaultGateway is set if this device is a default gw on a machine.
+	IsDefaultGateway bool
 }
 
 // Route defines a single route to a subnet via a defined gateway.
@@ -270,6 +276,25 @@ type Route struct {
 	GatewayIP string
 	// Metric is the weight to apply to this route.
 	Metric int
+}
+
+// InterfaceAddress represents a single address attached to the interface.
+type InterfaceAddress struct {
+	Address string
+	CIDR    string
+}
+
+// NetworkInfo describes one interface with assigned IP addresses, it's a mirror of params.NetworkInfo.
+type NetworkInfo struct {
+	// MACAddress is the network interface's hardware MAC address
+	// (e.g. "aa:bb:cc:dd:ee:ff").
+	MACAddress string
+
+	// InterfaceName is the OS-specific interface name, eg. "eth0" or "eno1.412"
+	InterfaceName string
+
+	// Addresses contains a list of addresses configured on the interface.
+	Addresses []InterfaceAddress
 }
 
 // Validate that this Route is properly formed.
@@ -381,6 +406,9 @@ type DeviceToBridge struct {
 
 	// BridgeName is the name of the bridge that we want created.
 	BridgeName string
+
+	// MACAddress is the MAC address of the device to be bridged
+	MACAddress string
 }
 
 // LXCNetDefaultConfig is the location of the default network config
@@ -550,4 +578,52 @@ func QuoteSpaces(vals []string) string {
 // gets sorted values output.
 func QuoteSpaceSet(vals set.Strings) string {
 	return QuoteSpaces(vals.SortedValues())
+}
+
+// firstLastAddresses returns the first and last addresses of the subnet.
+func firstLastAddresses(subnet *net.IPNet) (net.IP, net.IP) {
+	firstIP := subnet.IP
+	lastIP := make([]byte, len(firstIP))
+	copy(lastIP, firstIP)
+
+	for i, b := range lastIP {
+		lastIP[i] = b ^ (^subnet.Mask[i])
+	}
+	return firstIP, lastIP
+}
+
+func cidrContains(cidr *net.IPNet, subnet *net.IPNet) bool {
+	first, last := firstLastAddresses(subnet)
+	return cidr.Contains(first) && cidr.Contains(last)
+}
+
+// SubnetInAnyRange returns true if the subnet's address range is fully
+// contained in any of the specified subnet blocks.
+func SubnetInAnyRange(cidrs []*net.IPNet, subnet *net.IPNet) bool {
+	for _, cidr := range cidrs {
+		if cidrContains(cidr, subnet) {
+			return true
+		}
+	}
+	return false
+}
+
+// FormatAsCIDR converts the specified IP addresses to
+// a slice of CIDRs.
+func FormatAsCIDR(addresses []string) []string {
+	result := make([]string, len(addresses))
+	for i, a := range addresses {
+		cidr := a
+		// If address is not already a cidr, add a /32 (ipv4) or /128 (ipv6).
+		if _, _, err := net.ParseCIDR(a); err != nil {
+			ip := net.ParseIP(a)
+			if ip.To4() != nil {
+				cidr = a + "/32"
+			} else {
+				cidr = a + "/128"
+			}
+		}
+		result[i] = cidr
+	}
+	return result
 }

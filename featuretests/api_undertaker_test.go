@@ -19,6 +19,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/watcher/watchertest"
+	"gopkg.in/juju/names.v2"
 )
 
 // TODO(fwereade) 2016-03-17 lp:1558668
@@ -73,14 +74,14 @@ func (s *undertakerSuite) TestStateProcessDyingEnviron(c *gc.C) {
 	err = undertakerClient.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Destroy(), jc.ErrorIsNil)
-	c.Assert(env.Refresh(), jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dying)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
 
 	err = undertakerClient.ProcessDyingModel()
-	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 machine\(s\)`)
+	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 machine \(model not empty\)`)
 }
 
 func (s *undertakerSuite) TestStateRemoveEnvironFails(c *gc.C) {
@@ -115,18 +116,18 @@ func (s *undertakerSuite) TestHostedProcessDyingEnviron(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
 	factory.NewFactory(otherSt).MakeApplication(c, nil)
-	env, err := otherSt.Model()
+	model, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Destroy(), jc.ErrorIsNil)
-	c.Assert(env.Refresh(), jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dying)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
 
 	err = otherSt.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient.ProcessDyingModel(), jc.ErrorIsNil)
 
-	c.Assert(env.Refresh(), jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dead)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Dead)
 }
 
 func (s *undertakerSuite) TestWatchModelResources(c *gc.C) {
@@ -150,9 +151,9 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "can't remove model: model not dead")
 
 	factory.NewFactory(otherSt).MakeApplication(c, nil)
-	env, err := otherSt.Model()
+	model, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Destroy(), jc.ErrorIsNil)
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 
 	// Aborts on dying environ.
 	err = undertakerClient.RemoveModel()
@@ -183,7 +184,7 @@ func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) 
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
-	info.ModelTag = otherState.ModelTag()
+	info.ModelTag = names.NewModelTag(otherState.ModelUUID())
 
 	otherAPIState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)

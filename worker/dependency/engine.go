@@ -5,6 +5,7 @@ package dependency
 
 import (
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -343,8 +344,8 @@ func (engine *Engine) requestStart(name string, delay time.Duration) {
 
 // context returns a context backed by a snapshot of current
 // worker state, restricted to those workers declared in inputs. It must only
-// be called from the loop goroutine; see inside for a detailed dicsussion of
-// why we took this appproach.
+// be called from the loop goroutine; see inside for a detailed discussion of
+// why we took this approach.
 func (engine *Engine) context(name string, inputs []string, abort <-chan struct{}) *context {
 	// We snapshot the resources available at invocation time, rather than adding an
 	// additional communicate-resource-request channel. The latter approach is not
@@ -493,6 +494,10 @@ func (engine *Engine) gotStarted(name string, worker worker.Worker, resourceLog 
 	}
 }
 
+type stackTracer interface {
+	StackTrace() []string
+}
+
 // gotStopped updates the engine to reflect the demise of (or failure to create)
 // a worker. It must only be called from the loop goroutine.
 func (engine *Engine) gotStopped(name string, err error, resourceLog []resourceAccess) {
@@ -544,6 +549,9 @@ func (engine *Engine) gotStopped(name string, err error, resourceLog []resourceA
 		default:
 			// Something went wrong but we don't know what. Try again soon.
 			logger.Errorf("%q manifold worker returned unexpected error: %v", name, err)
+			if tracer, ok := err.(stackTracer); ok {
+				logger.Debugf("stack trace:\n%s", strings.Join(tracer.StackTrace(), "\n"))
+			}
 			engine.requestStart(name, engine.config.ErrorDelay)
 		}
 	}

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -22,7 +21,6 @@ type rawProvider struct {
 	lxdProfiles
 	lxdImages
 	lxdStorage
-	common.Firewaller
 
 	remote lxdclient.Remote
 }
@@ -61,8 +59,15 @@ type lxdImages interface {
 
 type lxdStorage interface {
 	StorageSupported() bool
+
+	StoragePool(name string) (lxdapi.StoragePool, error)
+	StoragePools() ([]lxdapi.StoragePool, error)
+	CreateStoragePool(name, driver string, attrs map[string]string) error
+
+	Volume(pool, volume string) (lxdapi.StorageVolume, error)
 	VolumeCreate(pool, volume string, config map[string]string) error
 	VolumeDelete(pool, volume string) error
+	VolumeUpdate(pool, volume string, update lxdapi.StorageVolume) error
 	VolumeList(pool string) ([]lxdapi.StorageVolume, error)
 }
 
@@ -98,7 +103,6 @@ func newRawProviderFromConfig(config lxdclient.Config) (*rawProvider, error) {
 		lxdProfiles:  client,
 		lxdImages:    client,
 		lxdStorage:   client,
-		Firewaller:   common.NewFirewaller(),
 		remote:       config.Remote,
 	}, nil
 }

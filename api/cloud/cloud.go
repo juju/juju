@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 )
@@ -38,7 +39,7 @@ func (c *Client) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		clouds[tag] = cloudFromParams(tag.Id(), cloud)
+		clouds[tag] = common.CloudFromParams(tag.Id(), cloud)
 	}
 	return clouds, nil
 }
@@ -56,32 +57,7 @@ func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 	if results.Results[0].Error != nil {
 		return jujucloud.Cloud{}, results.Results[0].Error
 	}
-	return cloudFromParams(tag.Id(), *results.Results[0].Cloud), nil
-}
-
-func cloudFromParams(cloudName string, p params.Cloud) jujucloud.Cloud {
-	authTypes := make([]jujucloud.AuthType, len(p.AuthTypes))
-	for i, authType := range p.AuthTypes {
-		authTypes[i] = jujucloud.AuthType(authType)
-	}
-	regions := make([]jujucloud.Region, len(p.Regions))
-	for i, region := range p.Regions {
-		regions[i] = jujucloud.Region{
-			Name:             region.Name,
-			Endpoint:         region.Endpoint,
-			IdentityEndpoint: region.IdentityEndpoint,
-			StorageEndpoint:  region.StorageEndpoint,
-		}
-	}
-	return jujucloud.Cloud{
-		Name:             cloudName,
-		Type:             p.Type,
-		AuthTypes:        authTypes,
-		Endpoint:         p.Endpoint,
-		IdentityEndpoint: p.IdentityEndpoint,
-		StorageEndpoint:  p.StorageEndpoint,
-		Regions:          regions,
-	}
+	return common.CloudFromParams(tag.Id(), *results.Results[0].Cloud), nil
 }
 
 // DefaultCloud returns the tag of the cloud that models will be
@@ -131,8 +107,8 @@ func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]na
 // UpdateCredential updates a cloud credentials.
 func (c *Client) UpdateCredential(tag names.CloudCredentialTag, credential jujucloud.Credential) error {
 	var results params.ErrorResults
-	args := params.UpdateCloudCredentials{
-		Credentials: []params.UpdateCloudCredential{{
+	args := params.TaggedCredentials{
+		Credentials: []params.TaggedCredential{{
 			Tag: tag.String(),
 			Credential: params.CloudCredential{
 				AuthType:   string(credential.AuthType()),
@@ -160,7 +136,7 @@ func (c *Client) RevokeCredential(tag names.CloudCredentialTag) error {
 	return results.OneError()
 }
 
-// Credentials return a slice of credential values for the specified tags.
+// Credentials returns a slice of credential values for the specified tags.
 // Secrets are excluded from the credential attributes.
 func (c *Client) Credentials(tags ...names.CloudCredentialTag) ([]params.CloudCredentialResult, error) {
 	if len(tags) == 0 {
@@ -177,4 +153,74 @@ func (c *Client) Credentials(tags ...names.CloudCredentialTag) ([]params.CloudCr
 		return nil, errors.Trace(err)
 	}
 	return results.Results, nil
+}
+
+// AddCredential adds a credential to the controller with a given tag.
+// This can be a credential for a cloud that is not the same cloud as the controller's host.
+func (c *Client) AddCredential(tag string, credential jujucloud.Credential) error {
+	if bestVer := c.BestAPIVersion(); bestVer < 2 {
+		return errors.NotImplementedf("AddCredential() (need v2+, have v%d)", bestVer)
+	}
+	var results params.ErrorResults
+	cloudCredential := params.CloudCredential{
+		AuthType:   string(credential.AuthType()),
+		Attributes: credential.Attributes(),
+	}
+	args := params.TaggedCredentials{
+		Credentials: []params.TaggedCredential{{
+			Tag:        tag,
+			Credential: cloudCredential,
+		},
+		}}
+	if err := c.facade.FacadeCall("AddCredentials", args, &results); err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
+// AddCloud adds a new cloud to current controller.
+func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
+	if bestVer := c.BestAPIVersion(); bestVer < 2 {
+		return errors.NotImplementedf("AddCloud() (need v2+, have v%d)", bestVer)
+	}
+	args := params.AddCloudArgs{Name: cloud.Name, Cloud: common.CloudToParams(cloud)}
+	err := c.facade.FacadeCall("AddCloud", args, nil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// CredentialContents returns contents of the credential values for the specified
+// cloud and credential name. Secrets will be included if requested.
+func (c *Client) CredentialContents(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error) {
+	if bestVer := c.BestAPIVersion(); bestVer < 2 {
+		return nil, errors.NotImplementedf("CredentialContents() (need v2+, have v%d)", bestVer)
+	}
+	oneCredential := params.CloudCredentialArg{}
+	if cloud == "" && credential == "" {
+		// this is valid and means we want all.
+	} else if cloud == "" {
+		return nil, errors.New("cloud name must be supplied")
+	} else if credential == "" {
+		return nil, errors.New("credential name must be supplied")
+	} else {
+		oneCredential.CloudName = cloud
+		oneCredential.CredentialName = credential
+	}
+	var out params.CredentialContentResults
+	in := params.CloudCredentialArgs{
+		IncludeSecrets: withSecrets,
+	}
+	if !oneCredential.IsEmpty() {
+		in.Credentials = []params.CloudCredentialArg{oneCredential}
+	}
+	err := c.facade.FacadeCall("CredentialContents", in, &out)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !oneCredential.IsEmpty() && len(out.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result for credential %q on cloud %q, got %d", cloud, credential, len(out.Results))
+	}
+	return out.Results, nil
 }

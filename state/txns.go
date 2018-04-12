@@ -4,14 +4,18 @@
 package state
 
 import (
+	"runtime/debug"
+	"strings"
+	"time"
+
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
 
-func (st *State) readTxnRevno(collectionName string, id interface{}) (int64, error) {
-	collection, closer := st.database.GetCollection(collectionName)
+func readTxnRevno(db Database, collectionName string, id interface{}) (int64, error) {
+	collection, closer := db.GetCollection(collectionName)
 	defer closer()
 	query := collection.FindId(id).Select(bson.D{{"txn-revno", 1}})
 	var result struct {
@@ -21,24 +25,8 @@ func (st *State) readTxnRevno(collectionName string, id interface{}) (int64, err
 	return result.TxnRevno, errors.Trace(err)
 }
 
-func (st *State) runTransaction(ops []txn.Op) error {
-	return st.database.RunTransaction(ops)
-}
-
-func (st *State) runTransactionFor(modelUUID string, ops []txn.Op) error {
-	return st.database.RunTransactionFor(modelUUID, ops)
-}
-
 func (st *State) runRawTransaction(ops []txn.Op) error {
 	return st.database.RunRawTransaction(ops)
-}
-
-func (st *State) run(transactions jujutxn.TransactionSource) error {
-	return st.database.Run(transactions)
-}
-
-func (st *State) runForModel(modelUUID string, transactions jujutxn.TransactionSource) error {
-	return st.database.RunFor(modelUUID, transactions)
 }
 
 // ResumeTransactions resumes all pending transactions.
@@ -52,8 +40,13 @@ func (st *State) ResumeTransactions() error {
 func (st *State) MaybePruneTransactions() error {
 	runner, closer := st.database.TransactionRunner()
 	defer closer()
-	// Prune txns only when txn count has doubled since last prune.
-	return runner.MaybePruneTransactions(2.0)
+	// Prune txns when txn count has increased by 10% since last prune.
+	return runner.MaybePruneTransactions(jujutxn.PruneOptions{
+		PruneFactor:        1.1,
+		MinNewTransactions: 1000,
+		MaxNewTransactions: 100000,
+		MaxTime:            time.Now().Add(-time.Hour),
+	})
 }
 
 type multiModelRunner struct {
@@ -62,10 +55,32 @@ type multiModelRunner struct {
 	modelUUID string
 }
 
+func shortStack() string {
+	var rv []string
+	for _, line := range strings.Split(string(debug.Stack()), "\n") {
+		if len(line) > 0 && line[0] == '\t' {
+			rv = append(rv, strings.Split(line[1:], " ")[0])
+		}
+	}
+	// We definitely have at least 3 objects in rv - debug.Stack(), this function and the one that called it.
+	return strings.Join(rv[3:], " ")
+}
+
+var seenShortStacks = make(map[string]bool)
+
 // RunTransaction is part of the jujutxn.Runner interface. Operations
 // that affect multi-model collections will be modified to
 // ensure correct interaction with these collections.
 func (r *multiModelRunner) RunTransaction(ops []txn.Op) error {
+	if len(ops) == 0 {
+		stack := shortStack()
+		// It is a warning that should be reported to us, but we definitely
+		// don't want to clutter up logs so we'll only write it once.
+		if !seenShortStacks[stack] {
+			seenShortStacks[stack] = true
+			logger.Warningf("Running no-op transaction - called by %s", stack)
+		}
+	}
 	newOps, err := r.updateOps(ops)
 	if err != nil {
 		return errors.Trace(err)
@@ -99,8 +114,8 @@ func (r *multiModelRunner) ResumeTransactions() error {
 }
 
 // MaybePruneTransactions is part of the jujutxn.Runner interface.
-func (r *multiModelRunner) MaybePruneTransactions(pruneFactor float32) error {
-	return r.rawRunner.MaybePruneTransactions(pruneFactor)
+func (r *multiModelRunner) MaybePruneTransactions(opts jujutxn.PruneOptions) error {
+	return r.rawRunner.MaybePruneTransactions(opts)
 }
 
 // updateOps modifies the Insert and Update fields in a slice of
@@ -137,7 +152,6 @@ func (r *multiModelRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 		}
 		outOps = append(outOps, outOp)
 	}
-	logger.Tracef("rewrote transaction: %#v", outOps)
 	return outOps, nil
 }
 

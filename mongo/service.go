@@ -156,7 +156,6 @@ func newConf(args ConfigArgs) common.Conf {
 	mongoCmd := args.MongoPath +
 
 		" --dbpath " + utils.ShQuote(args.DBDir) +
-		" --sslOnNormalPorts" +
 		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(args.DataDir)) +
 		// --sslPEMKeyPassword has to have its argument passed with = thanks to
 		// https://bugs.launchpad.net/juju-core/+bug/1581284.
@@ -181,6 +180,13 @@ func newConf(args ConfigArgs) common.Conf {
 	} else {
 		mongoCmd = mongoCmd +
 			" --noauth"
+	}
+	if args.Version.Major == 2 {
+		mongoCmd = mongoCmd +
+			" --sslOnNormalPorts"
+	} else {
+		mongoCmd = mongoCmd +
+			" --sslMode requireSSL"
 	}
 	if args.Version.StorageEngine != WiredTiger {
 		mongoCmd = mongoCmd +

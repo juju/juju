@@ -8,14 +8,44 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/network"
 )
+
+//PackageHelper is the interface for configuring specific parameter of the package manager
+type packageHelper interface {
+	// addPackageProxyCmd is a helper method which returns the corresponding runcmd
+	// to apply the package proxy settings.
+	addPackageProxyCmd(url string) string
+
+	//Returns the required packages, depending on the OS
+	getRequiredPackages() []string
+}
+
+//Implementation of PackageHelper for CentOS
+type centOSHelper struct {
+}
+
+//Returns the list of required packages in CentOS
+func (helper centOSHelper) getRequiredPackages() []string {
+	return []string{
+		"curl",
+		"bridge-utils",
+		"cloud-utils",
+		"nmap-ncat",
+		"tmux",
+	}
+}
+
+// addPackageProxyCmd is a helper method which returns the corresponding runcmd
+// to apply the package proxy settings for CentOS
+func (helper centOSHelper) addPackageProxyCmd(url string) string {
+	return fmt.Sprintf("/bin/echo 'proxy=%s' >> /etc/yum.conf", url)
+}
 
 // centOSCloudConfig is the cloudconfig type specific to CentOS machines.
 // It simply contains a cloudConfig and adds the package management related
@@ -23,17 +53,12 @@ import (
 // It implements the cloudinit.Config interface.
 type centOSCloudConfig struct {
 	*cloudConfig
+	helper packageHelper
 }
 
 // SetPackageProxy is defined on the PackageProxyConfig interface.
 func (cfg *centOSCloudConfig) SetPackageProxy(url string) {
 	cfg.SetAttr("package_proxy", url)
-}
-
-// addPackageProxyCmd is a helper function which returns the corresponding runcmd
-// to apply the package proxy settings on a CentOS machine.
-func addPackageProxyCmd(cfg CloudConfig, url string) string {
-	return fmt.Sprintf("/bin/echo 'proxy=%s' >> /etc/yum.conf", url)
 }
 
 // UnsetPackageProxy is defined on the PackageProxyConfig interface.
@@ -101,7 +126,7 @@ func (cfg *centOSCloudConfig) RenderYAML() ([]byte, error) {
 	// check for package proxy setting and add commands:
 	var proxy string
 	if proxy = cfg.PackageProxy(); proxy != "" {
-		cfg.AddRunCmd(addPackageProxyCmd(cfg, proxy))
+		cfg.AddRunCmd(cfg.helper.addPackageProxyCmd(proxy))
 		cfg.UnsetPackageProxy()
 	}
 
@@ -208,16 +233,8 @@ func (cfg *centOSCloudConfig) AddPackageCommands(
 
 // addRequiredPackages is defined on the AdvancedPackagingConfig interface.
 func (cfg *centOSCloudConfig) addRequiredPackages() {
-	packages := []string{
-		"curl",
-		"bridge-utils",
-		"cloud-utils",
-		"nmap-ncat",
-		"tmux",
-	}
-	if featureflag.Enabled(feature.DeveloperMode) {
-		packages = append(packages, "socat")
-	}
+
+	packages := cfg.helper.getRequiredPackages()
 
 	// The required packages need to come from the correct repo.
 	// For CentOS 7, this requires an rpm cloud archive be up.
@@ -238,4 +255,10 @@ func (cfg *centOSCloudConfig) addRequiredPackages() {
 //However on centOS even when rendering the YAML we use a helper function
 //addPackageProxyCmds. Research if calling the same is fine.
 func (cfg *centOSCloudConfig) updateProxySettings(proxySettings proxy.Settings) {
+}
+
+// AddNetworkConfig is defined on the NetworkingConfig interface.
+// TODO(wpk) This has to be implemented for CentOS on VSphere to work properly!
+func (cfg *centOSCloudConfig) AddNetworkConfig(interfaces []network.InterfaceInfo) error {
+	return nil
 }

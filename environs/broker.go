@@ -40,13 +40,9 @@ type StartInstanceParams struct {
 	// instance should be started.
 	Placement string
 
-	// DistributionGroup, if non-nil, is a function
-	// that returns a slice of instance.Ids that belong
-	// to the same distribution group as the machine
-	// being provisioned. The InstanceBroker may use
-	// this information to distribute instances for
-	// high availability.
-	DistributionGroup func() ([]instance.Id, error)
+	// AvailabilityZone, provides the name of the availability
+	// zone required to start the instance.
+	AvailabilityZone string
 
 	// Volumes is a set of parameters for volumes that should be created.
 	//
@@ -54,6 +50,15 @@ type StartInstanceParams struct {
 	// as it is guaranteed that any volumes in this list are designated
 	// for attachment to the instance being started.
 	Volumes []storage.VolumeParams
+
+	// VolumeAttachments is a set of parameters for existing volumes that
+	// should be attached. If the StartInstance method does not attach the
+	// volumes, they will be attached by the storage provisioner once the
+	// machine has been created. The attachments are presented here to
+	// give the provider an opportunity for the volume attachments to
+	// influence the instance creation, e.g. by restricting the machine
+	// to specific availability zones.
+	VolumeAttachments []storage.VolumeAttachmentParams
 
 	// NetworkInfo is an optional list of network interface details,
 	// necessary to configure on the instance.
@@ -69,6 +74,7 @@ type StartInstanceParams struct {
 	// provider-specific space IDs. It is populated when provisioning a machine
 	// to host a unit of a service with endpoint bindings.
 	EndpointBindings map[string]network.Id
+
 	// ImageMetadata is a collection of image metadata
 	// that may be used to start this instance.
 	ImageMetadata []*imagemetadata.ImageMetadata
@@ -117,11 +123,18 @@ type StartInstanceResult struct {
 // stop that from being possible right now.
 type InstanceBroker interface {
 	// StartInstance asks for a new instance to be created, associated with
-	// the provided config in machineConfig. The given config describes the juju
-	// state for the new instance to connect to. The config MachineNonce, which must be
-	// unique within an environment, is used by juju to protect against the
-	// consequences of multiple instances being started with the same machine
-	// id.
+	// the provided config in machineConfig. The given config describes the
+	// juju state for the new instance to connect to. The config
+	// MachineNonce, which must be unique within an environment, is used by
+	// juju to protect against the consequences of multiple instances being
+	// started with the same machine id.
+	//
+	// Callers may attempt to distribute instances across a set of
+	// availability zones. If one zone fails, then the caller is expected
+	// to attempt in another zone. If the provider can determine that
+	// the StartInstanceParams can never be fulfilled in any zone, then
+	// it may return an error satisfying the IsAvailabilityZoneIndependent
+	// function in this package.
 	StartInstance(args StartInstanceParams) (*StartInstanceResult, error)
 
 	// StopInstances shuts down the instances with the specified IDs.

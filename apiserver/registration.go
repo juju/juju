@@ -40,15 +40,15 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		}
 		return
 	}
-	st, releaser, err := h.ctxt.stateForRequestUnauthenticated(req)
+	st, err := h.ctxt.stateForRequestUnauthenticated(req)
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)
 		}
 		return
 	}
-	defer releaser()
-	userTag, response, err := h.processPost(req, st)
+	defer st.Release()
+	userTag, response, err := h.processPost(req, st.State)
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)
@@ -58,7 +58,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 
 	// Set a short-lived macaroon as a cookie on the response,
 	// which the client can use to obtain a discharge macaroon.
-	m, err := h.ctxt.srv.authCtxt.CreateLocalLoginMacaroon(userTag)
+	m, err := h.ctxt.srv.authenticator.CreateLocalLoginMacaroon(userTag)
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)
@@ -181,8 +181,13 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	if !st.IsController() {
 		return nil, errors.New("state is not for a controller")
 	}
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	caCert, _ := controllerConfig.CACert()
 	payload := params.SecretKeyLoginResponsePayload{
-		CACert:         st.CACert(),
+		CACert:         caCert,
 		ControllerUUID: st.ControllerUUID(),
 	}
 	return &payload, nil

@@ -84,7 +84,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // isModelManager returns whether the agent has JobManageModel,
 // or an error.
 func isModelManager(a agent.Agent, apiCaller base.APICaller) (bool, error) {
-	agentFacade := apiagent.NewState(apiCaller)
+	agentFacade, err := apiagent.NewState(apiCaller)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	entity, err := agentFacade.Entity(a.CurrentConfig().Tag())
 	if err != nil {
 		return false, errors.Trace(err)

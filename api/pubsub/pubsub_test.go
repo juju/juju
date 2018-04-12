@@ -5,26 +5,21 @@ package pubsub_test
 
 import (
 	"errors"
-	"fmt"
 	"io"
-	"net"
 	"net/url"
 	"time"
 
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apipubsub "github.com/juju/juju/api/pubsub"
-	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/observer"
-	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/testserver"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -120,7 +115,9 @@ func (s mockStream) ReadJSON(v interface{}) error {
 }
 
 func (s mockStream) NextReader() (messageType int, r io.Reader, err error) {
-	s.conn.c.Errorf("NextReader called unexpectedly")
+	// NextReader is now called by the read loop thread.
+	// So just wait a bit and return so it doesn't sit in a very tight loop.
+	time.Sleep(time.Millisecond)
 	return 0, nil, nil
 }
 
@@ -134,9 +131,8 @@ type PubSubIntegrationSuite struct {
 	machineTag names.Tag
 	password   string
 	nonce      string
-	address    string
 	hub        *pubsub.StructuredHub
-	server     *apiserver.Server
+	info       *api.Info
 }
 
 var _ = gc.Suite(&PubSubIntegrationSuite{})
@@ -152,25 +148,23 @@ func (s *PubSubIntegrationSuite) SetUpTest(c *gc.C) {
 	s.machineTag = m.Tag()
 	s.password = password
 	s.hub = pubsub.NewStructuredHub(nil)
-	s.server, s.address = newServerWithHub(c, s.State, s.hub)
-	s.AddCleanup(func(*gc.C) { s.server.Stop() })
+
+	statePool := state.NewStatePool(s.State)
+	s.AddCleanup(func(*gc.C) { statePool.Close() })
+	config := testserver.DefaultServerConfig(c)
+	config.Hub = s.hub
+	server := testserver.NewServerWithConfig(c, statePool, config)
+	s.AddCleanup(func(c *gc.C) { c.Assert(server.Stop(), jc.ErrorIsNil) })
+
+	s.info = server.Info
+	s.info.ModelTag = s.IAASModel.ModelTag()
+	s.info.Tag = s.machineTag
+	s.info.Password = s.password
+	s.info.Nonce = s.nonce
 }
 
 func (s *PubSubIntegrationSuite) connect(c *gc.C) apipubsub.MessageWriter {
-	dialOpts := api.DialOpts{
-		DialAddressInterval: 20 * time.Millisecond,
-		Timeout:             50 * time.Millisecond,
-		RetryDelay:          50 * time.Millisecond,
-	}
-	info := &api.Info{
-		Addrs:    []string{s.address},
-		CACert:   coretesting.CACert,
-		ModelTag: s.State.ModelTag(),
-		Tag:      s.machineTag,
-		Password: s.password,
-		Nonce:    s.nonce,
-	}
-	conn, err := api.Open(info, dialOpts)
+	conn, err := api.Open(s.info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 
@@ -183,10 +177,10 @@ func (s *PubSubIntegrationSuite) connect(c *gc.C) apipubsub.MessageWriter {
 
 func (s *PubSubIntegrationSuite) TestMessages(c *gc.C) {
 	writer := s.connect(c)
-	var topic pubsub.Topic = "test.message"
+	topic := "test.message"
 	messages := []map[string]interface{}{}
 	done := make(chan struct{})
-	_, err := s.hub.Subscribe(pubsub.MatchAll, func(t pubsub.Topic, payload map[string]interface{}) {
+	_, err := s.hub.SubscribeMatch(pubsub.MatchAll, func(t string, payload map[string]interface{}) {
 		c.Check(t, gc.Equals, topic)
 		messages = append(messages, payload)
 		if len(messages) == 2 {
@@ -219,23 +213,4 @@ func (s *PubSubIntegrationSuite) TestMessages(c *gc.C) {
 		c.Fatal("messages not received")
 	}
 	c.Assert(messages, jc.DeepEquals, []map[string]interface{}{first, second})
-}
-
-func newServerWithHub(c *gc.C, st *state.State, hub *pubsub.StructuredHub) (*apiserver.Server, string) {
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
-		Clock:       clock.WallClock,
-		Cert:        coretesting.ServerCert,
-		Key:         coretesting.ServerKey,
-		Tag:         names.NewMachineTag("0"),
-		LogDir:      c.MkDir(),
-		Hub:         hub,
-		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
-		StatePool:   state.NewStatePool(st),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	port := listener.Addr().(*net.TCPAddr).Port
-	address := fmt.Sprintf("localhost:%d", port)
-	return srv, address
 }

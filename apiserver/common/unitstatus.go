@@ -6,7 +6,7 @@ package common
 import (
 	"fmt"
 
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -62,7 +62,7 @@ func UnitStatus(unit UnitStatusGetter) (agent StatusAndErr, workload StatusAndEr
 
 func canBeLost(agent, workload status.StatusInfo) bool {
 	switch agent.Status {
-	case status.Allocating:
+	case status.Allocating, status.Running:
 		return false
 	case status.Executing:
 		return agent.Message != operation.RunningHookMessage(string(hooks.Install))

@@ -12,6 +12,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
@@ -112,4 +114,29 @@ func (ch *agentConf) CurrentConfig() agent.Config {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 	return ch._config.Clone()
+}
+
+func setupAgentLogging(config agent.Config) {
+
+	if loggingOverride := config.Value(agent.LoggingOverride); loggingOverride != "" {
+		logger.Infof("logging override set for this agent: %q", loggingOverride)
+		loggo.DefaultContext().ResetLoggerLevels()
+		err := loggo.ConfigureLoggers(loggingOverride)
+		if err != nil {
+			logger.Errorf("setting logging override %v", err)
+		}
+	} else if loggingConfig := config.LoggingConfig(); loggingConfig != "" {
+		logger.Infof("setting logging config to %q", loggingConfig)
+		// There should only be valid logging configuration strings saved
+		// in the logging config section in the agent.conf file.
+		loggo.DefaultContext().ResetLoggerLevels()
+		err := loggo.ConfigureLoggers(loggingConfig)
+		if err != nil {
+			logger.Errorf("problem setting logging config %v", err)
+		}
+	}
+
+	if flags := featureflag.String(); flags != "" {
+		logger.Warningf("developer feature flags enabled: %s", flags)
+	}
 }

@@ -9,10 +9,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 	"gopkg.in/tomb.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/remoterelations"
 )
@@ -27,6 +30,7 @@ type mockRelationsFacade struct {
 	relations                          map[string]*mockRelation
 	relationsEndpoints                 map[string]*relationEndpointInfo
 	relationsUnitsWatchers             map[string]*mockRelationUnitsWatcher
+	controllerInfo                     map[string]*api.Info
 }
 
 func newMockRelationsFacade(stub *testing.Stub) *mockRelationsFacade {
@@ -38,12 +42,8 @@ func newMockRelationsFacade(stub *testing.Stub) *mockRelationsFacade {
 		remoteApplicationsWatcher:          newMockStringsWatcher(),
 		remoteApplicationRelationsWatchers: make(map[string]*mockStringsWatcher),
 		relationsUnitsWatchers:             make(map[string]*mockRelationUnitsWatcher),
+		controllerInfo:                     make(map[string]*api.Info),
 	}
-}
-
-func (m *mockRelationsFacade) Close() error {
-	m.stub.MethodCall(m, "Close")
-	return nil
 }
 
 func (m *mockRelationsFacade) WatchRemoteApplications() (watcher.StringsWatcher, error) {
@@ -105,41 +105,32 @@ func (m *mockRelationsFacade) WatchRemoteApplicationRelations(application string
 	return m.remoteApplicationRelationsWatchers[application], nil
 }
 
-func (m *mockRelationsFacade) ExportEntities(entities []names.Tag) ([]params.RemoteEntityIdResult, error) {
+func (m *mockRelationsFacade) ExportEntities(entities []names.Tag) ([]params.TokenResult, error) {
 	m.stub.MethodCall(m, "ExportEntities", entities)
 	if err := m.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	result := make([]params.RemoteEntityIdResult, len(entities))
+	result := make([]params.TokenResult, len(entities))
 	for i, e := range entities {
-		result[i] = params.RemoteEntityIdResult{
-			Result: &params.RemoteEntityId{
-				ModelUUID: "model-uuid",
-				Token:     "token-" + e.Id(),
-			},
+		result[i] = params.TokenResult{
+			Token: "token-" + e.Id(),
 		}
 	}
 	return result, nil
 }
 
-func (m *mockRelationsFacade) ImportRemoteEntity(sourceModelUUID string, entity names.Tag, token string) error {
-	m.stub.MethodCall(m, "ImportRemoteEntity", sourceModelUUID, entity, token)
-	if err := m.stub.NextErr(); err != nil {
-		return err
-	}
-	return nil
+func (m *mockRelationsFacade) ImportRemoteEntity(entity names.Tag, token string) error {
+	m.stub.MethodCall(m, "ImportRemoteEntity", entity, token)
+	return m.stub.NextErr()
 }
 
-func (m *mockRelationsFacade) RemoveRemoteEntity(sourceModelUUID string, entity names.Tag) error {
-	m.stub.MethodCall(m, "RemoveRemoteEntity", sourceModelUUID, entity)
-	if err := m.stub.NextErr(); err != nil {
-		return err
-	}
-	return nil
+func (m *mockRelationsFacade) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
+	m.stub.MethodCall(m, "SaveMacaroon", entity, mac)
+	return m.stub.NextErr()
 }
 
-func (m *mockRelationsFacade) GetToken(modelUUID string, entity names.Tag) (string, error) {
-	m.stub.MethodCall(m, "GetToken", modelUUID, entity)
+func (m *mockRelationsFacade) GetToken(entity names.Tag) (string, error) {
+	m.stub.MethodCall(m, "GetToken", entity)
 	if err := m.stub.NextErr(); err != nil {
 		return "", err
 	}
@@ -160,29 +151,6 @@ func (m *mockRelationsFacade) RelationUnitSettings(relationUnits []params.Relati
 	return result, nil
 }
 
-func (m *mockRelationsFacade) PublishLocalRelationChange(change params.RemoteRelationChangeEvent) error {
-	m.stub.MethodCall(m, "PublishLocalRelationChange", change)
-	if err := m.stub.NextErr(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *mockRelationsFacade) RegisterRemoteRelations(relations ...params.RegisterRemoteRelation) ([]params.RemoteEntityIdResult, error) {
-	m.stub.MethodCall(m, "RegisterRemoteRelations", relations)
-	if err := m.stub.NextErr(); err != nil {
-		return nil, err
-	}
-	result := make([]params.RemoteEntityIdResult, len(relations))
-	for i, rel := range relations {
-		result[i].Result = &params.RemoteEntityId{
-			ModelUUID: "source-model-uuid",
-			Token:     "token-" + rel.OfferName,
-		}
-	}
-	return result, nil
-}
-
 func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.RemoteApplicationResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -190,17 +158,21 @@ func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.Remot
 	if err := m.stub.NextErr(); err != nil {
 		return nil, err
 	}
+	mac, err := macaroon.New(nil, "test", "")
+	if err != nil {
+		return nil, err
+	}
 	result := make([]params.RemoteApplicationResult, len(names))
 	for i, name := range names {
 		if app, ok := m.remoteApplications[name]; ok {
 			result[i] = params.RemoteApplicationResult{
 				Result: &params.RemoteApplication{
-					Name:       app.name,
-					OfferName:  app.offername,
-					Life:       app.life,
-					Status:     app.status,
-					ModelUUID:  app.modelUUID,
-					Registered: app.registered,
+					Name:            app.name,
+					OfferUUID:       app.offeruuid,
+					Life:            app.life,
+					ModelUUID:       app.modelUUID,
+					IsConsumerProxy: app.registered,
+					Macaroon:        mac,
 				},
 			}
 		} else {
@@ -228,9 +200,10 @@ func (m *mockRelationsFacade) Relations(keys []string) ([]params.RemoteRelationR
 	for i, key := range keys {
 		if rel, ok := m.relations[key]; ok {
 			result[i].Result = &params.RemoteRelation{
-				Id:   rel.id,
-				Life: rel.life,
-				Key:  keys[i],
+				Id:        rel.id,
+				Life:      rel.life,
+				Suspended: rel.Suspended(),
+				Key:       keys[i],
 			}
 			if epInfo, ok := m.relationsEndpoints[key]; ok {
 				result[i].Result.RemoteEndpointName = epInfo.remoteEndpointName
@@ -253,6 +226,141 @@ func (m *mockRelationsFacade) WatchLocalRelationUnits(relationKey string) (watch
 	}
 	m.relationsUnitsWatchers[relationKey] = newMockRelationUnitsWatcher()
 	return m.relationsUnitsWatchers[relationKey], nil
+}
+
+func (m *mockRelationsFacade) ConsumeRemoteRelationChange(change params.RemoteRelationChangeEvent) error {
+	m.stub.MethodCall(m, "ConsumeRemoteRelationChange", change)
+	if err := m.stub.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *mockRelationsFacade) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) {
+	m.stub.MethodCall(m, "ControllerAPIInfoForModel", modelUUID)
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return m.controllerInfo[modelUUID], nil
+}
+
+func (m *mockRelationsFacade) SetRemoteApplicationStatus(applicationName string, status status.Status, message string) error {
+	m.stub.MethodCall(m, "SetRemoteApplicationStatus", applicationName, status.String(), message)
+	return nil
+}
+
+type mockRemoteRelationsFacade struct {
+	mu   sync.Mutex
+	stub *testing.Stub
+	remoterelations.RemoteModelRelationsFacadeCloser
+	relationsUnitsWatchers  map[string]*mockRelationUnitsWatcher
+	relationsStatusWatchers map[string]*mockRelationStatusWatcher
+	offersStatusWatchers    map[string]*mockOfferStatusWatcher
+}
+
+func newMockRemoteRelationsFacade(stub *testing.Stub) *mockRemoteRelationsFacade {
+	return &mockRemoteRelationsFacade{
+		stub: stub,
+		relationsUnitsWatchers:  make(map[string]*mockRelationUnitsWatcher),
+		relationsStatusWatchers: make(map[string]*mockRelationStatusWatcher),
+		offersStatusWatchers:    make(map[string]*mockOfferStatusWatcher),
+	}
+}
+
+func (m *mockRemoteRelationsFacade) Close() error {
+	m.stub.MethodCall(m, "Close")
+	return nil
+}
+
+func (m *mockRemoteRelationsFacade) PublishRelationChange(change params.RemoteRelationChangeEvent) error {
+	m.stub.MethodCall(m, "PublishRelationChange", change)
+	if err := m.stub.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *mockRemoteRelationsFacade) RegisterRemoteRelations(relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error) {
+	m.stub.MethodCall(m, "RegisterRemoteRelations", relations)
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	result := make([]params.RegisterRemoteRelationResult, len(relations))
+	mac, err := macaroon.New(nil, "apimac", "")
+	if err != nil {
+		return nil, err
+	}
+	for i, rel := range relations {
+		result[i].Result = &params.RemoteRelationDetails{
+			Token:    "token-" + rel.OfferUUID,
+			Macaroon: mac,
+		}
+	}
+	return result, nil
+}
+
+func (m *mockRemoteRelationsFacade) relationsUnitsWatcher(key string) (*mockRelationUnitsWatcher, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	w, ok := m.relationsUnitsWatchers[key]
+	return w, ok
+}
+
+func (m *mockRemoteRelationsFacade) WatchRelationUnits(arg params.RemoteEntityArg) (watcher.RelationUnitsWatcher, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "WatchRelationUnits", arg.Token, arg.Macaroons)
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	m.relationsUnitsWatchers[arg.Token] = newMockRelationUnitsWatcher()
+	return m.relationsUnitsWatchers[arg.Token], nil
+}
+
+func (m *mockRemoteRelationsFacade) relationsStatusWatcher(key string) (*mockRelationStatusWatcher, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	w, ok := m.relationsStatusWatchers[key]
+	return w, ok
+}
+
+func (m *mockRemoteRelationsFacade) WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "WatchRelationSuspendedStatus", arg.Token, arg.Macaroons)
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	m.relationsStatusWatchers[arg.Token] = newMockRelationStatusWatcher()
+	return m.relationsStatusWatchers[arg.Token], nil
+}
+
+func (m *mockRemoteRelationsFacade) WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatcher, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "WatchOfferStatus", arg.OfferUUID, arg.Macaroons)
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	m.offersStatusWatchers[arg.OfferUUID] = newMockOfferStatusWatcher()
+	return m.offersStatusWatchers[arg.OfferUUID], nil
+}
+
+// RelationUnitSettings returns the relation unit settings for the given relation units in the remote model.
+func (m *mockRemoteRelationsFacade) RelationUnitSettings(relationUnits []params.RemoteRelationUnit) ([]params.SettingsResult, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "RelationUnitSettings", relationUnits)
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	result := make([]params.SettingsResult, len(relationUnits))
+	for i := range relationUnits {
+		result[i].Settings = map[string]string{
+			"foo": "bar",
+		}
+	}
+	return result, nil
 }
 
 type mockWatcher struct {
@@ -309,10 +417,9 @@ func (w *mockStringsWatcher) Changes() watcher.StringsChannel {
 type mockRemoteApplication struct {
 	testing.Stub
 	name       string
-	offername  string
+	offeruuid  string
 	url        string
 	life       params.Life
-	status     string
 	modelUUID  string
 	registered bool
 }
@@ -335,9 +442,45 @@ func (w *mockRelationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 	return w.changes
 }
 
+type mockRelationStatusWatcher struct {
+	mockWatcher
+	changes chan []watcher.RelationStatusChange
+}
+
+func newMockRelationStatusWatcher() *mockRelationStatusWatcher {
+	w := &mockRelationStatusWatcher{
+		changes: make(chan []watcher.RelationStatusChange, 1),
+	}
+	go w.doneWhenDying()
+	return w
+}
+
+func (w *mockRelationStatusWatcher) Changes() watcher.RelationStatusChannel {
+	w.MethodCall(w, "Changes")
+	return w.changes
+}
+
+type mockOfferStatusWatcher struct {
+	mockWatcher
+	changes chan []watcher.OfferStatusChange
+}
+
+func newMockOfferStatusWatcher() *mockOfferStatusWatcher {
+	w := &mockOfferStatusWatcher{
+		changes: make(chan []watcher.OfferStatusChange, 1),
+	}
+	go w.doneWhenDying()
+	return w
+}
+
+func (w *mockOfferStatusWatcher) Changes() watcher.OfferStatusChannel {
+	w.MethodCall(w, "Changes")
+	return w.changes
+}
+
 func newMockRemoteApplication(name, url string) *mockRemoteApplication {
 	return &mockRemoteApplication{
-		name: name, url: url, life: params.Alive, offername: "offer-" + name,
+		name: name, url: url, life: params.Alive, offeruuid: "offer-" + name + "-uuid",
 		modelUUID: "remote-model-uuid",
 	}
 }
@@ -359,8 +502,10 @@ func (r *mockRemoteApplication) Life() params.Life {
 
 type mockRelation struct {
 	testing.Stub
-	id   int
-	life params.Life
+	sync.Mutex
+	id        int
+	life      params.Life
+	suspended bool
 }
 
 func newMockRelation(id int) *mockRelation {
@@ -378,4 +523,17 @@ func (r *mockRelation) Id() int {
 func (r *mockRelation) Life() params.Life {
 	r.MethodCall(r, "Life")
 	return r.life
+}
+
+func (r *mockRelation) Suspended() bool {
+	r.Lock()
+	defer r.Unlock()
+	r.MethodCall(r, "Suspended")
+	return r.suspended
+}
+
+func (r *mockRelation) SetSuspended(suspended bool) {
+	r.Lock()
+	defer r.Unlock()
+	r.suspended = suspended
 }

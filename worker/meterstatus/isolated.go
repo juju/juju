@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/charm.v6/hooks"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/common/charmrunner"
 )
 
 const (
@@ -140,7 +140,7 @@ func (w *isolatedStatusWorker) applyStatus(code, info string) {
 	err := w.config.Runner.RunHook(code, info, w.tomb.Dying())
 	cause := errors.Cause(err)
 	switch {
-	case context.IsMissingHookError(cause):
+	case charmrunner.IsMissingHookError(cause):
 		logger.Infof("skipped %q hook (missing)", string(hooks.MeterStatusChanged))
 	case err != nil:
 		logger.Errorf("meter status worker encountered hook error: %v", err)

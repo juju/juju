@@ -68,13 +68,13 @@ See also:
     set-model-constraints`
 
 // NewServiceGetConstraintsCommand returns a command which gets application constraints.
-func NewServiceGetConstraintsCommand() cmd.Command {
+func NewServiceGetConstraintsCommand() modelcmd.ModelCommand {
 	return modelcmd.Wrap(&serviceGetConstraintsCommand{})
 }
 
 type serviceConstraintsAPI interface {
 	Close() error
-	GetConstraints(string) (constraints.Value, error)
+	GetConstraints(...string) ([]constraints.Value, error)
 	SetConstraints(string, constraints.Value) error
 }
 
@@ -146,7 +146,7 @@ func (c *serviceGetConstraintsCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.out.Write(ctx, cons)
+	return c.out.Write(ctx, cons[0])
 }
 
 type serviceSetConstraintsCommand struct {
@@ -155,7 +155,7 @@ type serviceSetConstraintsCommand struct {
 }
 
 // NewServiceSetConstraintsCommand returns a command which sets application constraints.
-func NewServiceSetConstraintsCommand() cmd.Command {
+func NewServiceSetConstraintsCommand() modelcmd.ModelCommand {
 	return modelcmd.Wrap(&serviceSetConstraintsCommand{})
 }
 

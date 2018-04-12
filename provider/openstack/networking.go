@@ -4,14 +4,18 @@
 package openstack
 
 import (
+	"fmt"
+	"net"
 	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/goose.v1/neutron"
-	"gopkg.in/goose.v1/nova"
+	"github.com/juju/utils/set"
+	"gopkg.in/goose.v2/neutron"
+	"gopkg.in/goose.v2/nova"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 // Networking is an interface providing networking-related operations
@@ -26,8 +30,19 @@ type Networking interface {
 	DefaultNetworks() ([]nova.ServerNetworks, error)
 
 	// ResolveNetwork takes either a network ID or label
+	// with a string to specify whether the network is external
 	// and returns the corresponding network ID.
-	ResolveNetwork(string) (string, error)
+	ResolveNetwork(string, bool) (string, error)
+
+	// Subnets returns basic information about subnets known
+	// by OpenStack for the environment.
+	// Needed for Environ.Networking
+	Subnets(instance.Id, []network.Id) ([]network.SubnetInfo, error)
+
+	// NetworkInterfaces requests information about the network
+	// interfaces on the given instance.
+	// Needed for Environ.Networking
+	NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error)
 }
 
 // NetworkingDecorator is an interface that provides a means of overriding
@@ -89,11 +104,27 @@ func (n *switchingNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
 }
 
 // ResolveNetwork is part of the Networking interface.
-func (n *switchingNetworking) ResolveNetwork(name string) (string, error) {
+func (n *switchingNetworking) ResolveNetwork(name string, external bool) (string, error) {
 	if err := n.initNetworking(); err != nil {
 		return "", errors.Trace(err)
 	}
-	return n.networking.ResolveNetwork(name)
+	return n.networking.ResolveNetwork(name, external)
+}
+
+// Subnets is part of the Networking interface.
+func (n *switchingNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	if err := n.initNetworking(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return n.networking.Subnets(instId, subnetIds)
+}
+
+// NetworkInterfaces is part of the Networking interface
+func (n *switchingNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	if err := n.initNetworking(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return n.networking.NetworkInterfaces(instId)
 }
 
 type networkingBase struct {
@@ -116,28 +147,56 @@ type NeutronNetworking struct {
 	networkingBase
 }
 
+// networkFilter returns a neutron.Filter to match Neutron Networks with
+// the exact given name AND router:external boolean result.
+func projectIdFilter(projectId string) *neutron.Filter {
+	filter := neutron.NewFilter()
+	filter.Set(neutron.FilterProjectId, projectId)
+	return filter
+}
+
 // AllocatePublicIP is part of the Networking interface.
 func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error) {
-	azNames, err := n.env.InstanceAvailabilityZoneNames([]instance.Id{instId})
-	if err != nil {
-		logger.Debugf("allocatePublicIP(): InstanceAvailabilityZoneNames() failed with %s\n", err)
-		return nil, errors.Trace(err)
-	}
-
-	// find the external networks in the same availability zone as the instance
 	extNetworkIds := make([]string, 0)
-	for _, az := range azNames {
-		// return one or an array?
-		extNetIds, _ := getExternalNeutronNetworksByAZ(n.env, az)
-		if len(extNetIds) > 0 {
-			extNetworkIds = append(extNetworkIds, extNetIds...)
+	neutronClient := n.env.neutron()
+	externalNetwork := n.env.ecfg().externalNetwork()
+	if externalNetwork != "" {
+		// the config specified an external network, try it first.
+		netId, err := resolveNeutronNetwork(neutronClient, externalNetwork, true)
+		if err != nil {
+			logger.Debugf("external network %s not found, search for one", externalNetwork)
+		} else {
+			logger.Debugf("using external network %q", externalNetwork)
+			extNetworkIds = []string{netId}
 		}
 	}
+
 	if len(extNetworkIds) == 0 {
-		return nil, errors.NewNotFound(nil, "could not find an external network in availablity zone")
+		// Create slice of network.Ids for external networks in the same AZ as
+		// the instance's network, to find an existing floating ip in, or allocate
+		// a new floating ip from.
+		network := n.env.ecfg().network()
+		netId, err := resolveNeutronNetwork(neutronClient, network, false)
+		netDetails, err := neutronClient.GetNetworkV2(netId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		for _, az := range netDetails.AvailabilityZones {
+			extNetIds, _ := getExternalNeutronNetworksByAZ(n.env, az)
+			if len(extNetIds) > 0 {
+				extNetworkIds = append(extNetworkIds, extNetIds...)
+			}
+		}
+
+		if len(extNetworkIds) == 0 {
+			return nil, errors.NewNotFound(nil, fmt.Sprintf("could not find an external network in availability zone %s", netDetails.AvailabilityZones))
+		}
 	}
 
-	fips, err := n.env.neutron().ListFloatingIPsV2()
+	// Look for FIPs in same project as the credentials.
+	// Admins have visibility into other projects.
+	fips, err := n.env.neutron().ListFloatingIPsV2(projectIdFilter(n.env.client().TenantId()))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -162,7 +221,7 @@ func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error
 	var lastErr error
 	for _, extNetId := range extNetworkIds {
 		var newfip *neutron.FloatingIPV2
-		newfip, lastErr = n.env.neutron().AllocateFloatingIPV2(extNetId)
+		newfip, lastErr = neutronClient.AllocateFloatingIPV2(extNetId)
 		if lastErr == nil {
 			logger.Debugf("allocated new public IP: %s", newfip.IP)
 			return &newfip.IP, nil
@@ -173,44 +232,29 @@ func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error
 	return nil, lastErr
 }
 
+// externalNetworkFilter returns a neutron.Filter to match Neutron Networks with
+// router:external = true.
+func externalNetworkFilter() *neutron.Filter {
+	filter := neutron.NewFilter()
+	filter.Set(neutron.FilterRouterExternal, "true")
+	return filter
+}
+
 // getExternalNeutronNetworksByAZ returns all external networks within the
 // given availability zone. If azName is empty, return all external networks.
 func getExternalNeutronNetworksByAZ(e *Environ, azName string) ([]string, error) {
 	neutron := e.neutron()
-	externalNetwork := e.ecfg().externalNetwork()
-	if externalNetwork != "" {
-		// the config specified an external network, try it first.
-		netId, err := resolveNeutronNetwork(neutron, externalNetwork)
-		if err != nil {
-			logger.Debugf("external network %s not found, search for one", externalNetwork)
-		} else {
-			netDetails, err := neutron.GetNetworkV2(netId)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			// double check that the requested network is in the given AZ
-			for _, netAZ := range netDetails.AvailabilityZones {
-				if azName == netAZ {
-					logger.Debugf("using external network %q", externalNetwork)
-					return []string{netId}, nil
-				}
-			}
-			logger.Debugf("external network %s was found, however not in the %s availability zone", externalNetwork, azName)
-		}
-	}
 	// Find all external networks in availability zone
-	networks, err := neutron.ListNetworksV2()
+	networks, err := neutron.ListNetworksV2(externalNetworkFilter())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	netIds := make([]string, 0)
 	for _, network := range networks {
-		if network.External == true {
-			for _, netAZ := range network.AvailabilityZones {
-				if azName == netAZ {
-					netIds = append(netIds, network.Id)
-					break
-				}
+		for _, netAZ := range network.AvailabilityZones {
+			if azName == netAZ {
+				netIds = append(netIds, network.Id)
+				break
 			}
 		}
 	}
@@ -226,23 +270,102 @@ func (n *NeutronNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
 }
 
 // ResolveNetwork is part of the Networking interface.
-func (n *NeutronNetworking) ResolveNetwork(name string) (string, error) {
-	return resolveNeutronNetwork(n.env.neutron(), name)
+func (n *NeutronNetworking) ResolveNetwork(name string, external bool) (string, error) {
+	return resolveNeutronNetwork(n.env.neutron(), name, external)
 }
 
-func resolveNeutronNetwork(neutron *neutron.Client, name string) (string, error) {
+// networkFilter returns a neutron.Filter to match Neutron Networks with
+// the exact given name AND router:external boolean result.
+func networkFilter(name string, external bool) *neutron.Filter {
+	filter := neutron.NewFilter()
+	filter.Set(neutron.FilterNetwork, fmt.Sprintf("%s", name))
+	filter.Set(neutron.FilterRouterExternal, fmt.Sprintf("%t", external))
+	return filter
+}
+
+func resolveNeutronNetwork(neutron *neutron.Client, name string, external bool) (string, error) {
 	if utils.IsValidUUIDString(name) {
 		return name, nil
 	}
-	var networkIds []string
-	networks, err := neutron.ListNetworksV2()
+	networks, err := neutron.ListNetworksV2(networkFilter(name, external))
 	if err != nil {
 		return "", err
 	}
+	var networkIds []string
 	for _, network := range networks {
-		if network.Name == name {
-			networkIds = append(networkIds, network.Id)
-		}
+		networkIds = append(networkIds, network.Id)
 	}
 	return processResolveNetworkIds(name, networkIds)
+}
+
+func makeSubnetInfo(neutron *neutron.Client, subnet neutron.SubnetV2) (network.SubnetInfo, error) {
+	_, _, err := net.ParseCIDR(subnet.Cidr)
+	if err != nil {
+		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", subnet.Cidr)
+	}
+	net, err := neutron.GetNetworkV2(subnet.NetworkId)
+	if err != nil {
+		return network.SubnetInfo{}, err
+	}
+
+	// TODO (hml) 2017-03-20:
+	// With goose updates, VLANTag can be updated to be
+	// network.segmentation_id, if network.network_type equals vlan
+	info := network.SubnetInfo{
+		CIDR:              subnet.Cidr,
+		ProviderId:        network.Id(subnet.Id),
+		VLANTag:           0,
+		AvailabilityZones: net.AvailabilityZones,
+		SpaceProviderId:   "",
+	}
+	logger.Tracef("found subnet with info %#v", info)
+	return info, nil
+}
+
+// Subnets returns basic information about the specified subnets known
+// by the provider for the specified instance or list of ids. subnetIds can be
+// empty, in which case all known are returned.
+func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	var results []network.SubnetInfo
+	subIdSet := set.NewStrings()
+	for _, subId := range subnetIds {
+		subIdSet.Add(string(subId))
+	}
+
+	if instId != instance.UnknownId {
+		// TODO(hml): 2017-03-20
+		// Implement Subnets() for case where instId is specified
+		return nil, errors.NotSupportedf("neutron subnets with instance Id")
+	} else {
+		neutron := n.env.neutron()
+		subnets, err := neutron.ListSubnetsV2()
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to retrieve subnets")
+		}
+		if len(subnetIds) == 0 {
+			for _, subnet := range subnets {
+				subIdSet.Add(string(subnet.Id))
+			}
+		}
+		for _, subnet := range subnets {
+			if !subIdSet.Contains(string(subnet.Id)) {
+				logger.Tracef("subnet %q not in %v, skipping", subnet.Id, subnetIds)
+				continue
+			}
+			subIdSet.Remove(string(subnet.Id))
+			if info, err := makeSubnetInfo(neutron, subnet); err == nil {
+				// Error will already have been logged.
+				results = append(results, info)
+			}
+
+		}
+	}
+	if !subIdSet.IsEmpty() {
+		return nil, errors.Errorf("failed to find the following subnet ids: %v", subIdSet.Values())
+	}
+	return results, nil
+}
+
+func (n *NeutronNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotSupportedf("neutron network interfaces")
 }

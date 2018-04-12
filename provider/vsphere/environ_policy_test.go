@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !gccgo
-
 package vsphere_test
 
 import (
@@ -10,17 +8,16 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/provider/vsphere"
 )
 
 type environPolSuite struct {
-	vsphere.BaseSuite
+	EnvironFixture
 }
 
 var _ = gc.Suite(&environPolSuite{})
 
 func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -31,7 +28,7 @@ func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
@@ -41,7 +38,7 @@ func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
@@ -52,16 +49,10 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabArch(c *gc.C) {
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
 	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
-}
-
-func (s *environPolSuite) TestSupportNetworks(c *gc.C) {
-	isSupported := s.Env.SupportNetworks()
-
-	c.Check(isSupported, jc.IsFalse)
 }

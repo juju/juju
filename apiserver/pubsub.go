@@ -5,22 +5,21 @@ package apiserver
 
 import (
 	"net/http"
+	"time"
 
-	"github.com/gorilla/websocket"
+	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/errors"
-	"github.com/juju/pubsub"
 	"github.com/juju/utils/featureflag"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/state"
 )
 
 // Hub defines the publish method that the handler uses to publish
 // messages on the centralhub of the apiserver.
 type Hub interface {
-	Publish(pubsub.Topic, interface{}) (<-chan struct{}, error)
+	Publish(string, interface{}) (<-chan struct{}, error)
 }
 
 func newPubSubHandler(h httpContext, hub Hub) http.Handler {
@@ -35,61 +34,51 @@ type pubsubHandler struct {
 	hub  Hub
 }
 
-func (h *pubsubHandler) authenticate(req *http.Request) error {
-	// We authenticate against the controller state instance that is held
-	// by Server.
-	_, releaser, entity, err := h.ctxt.stateForRequestAuthenticated(req)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// We don't actually use the state for anything except authentication.
-	defer releaser()
-
-	switch machine := entity.(type) {
-	case *state.Machine:
-		// Only machines have machine tags.
-		for _, job := range machine.Jobs() {
-			if job == state.JobManageModel {
-				return nil
-			}
-		}
-	default:
-		logger.Errorf("attempt to log in as a machine agent by %v", entity.Tag())
-	}
-	return errors.Trace(common.ErrPerm)
-}
-
 // ServeHTTP implements the http.Handler interface.
 func (h *pubsubHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(socket *websocket.Conn) {
 		logger.Debugf("start of *pubsubHandler.ServeHTTP")
 		defer socket.Close()
 
-		if err := h.authenticate(req); err != nil {
-			h.sendError(socket, req, err)
-			return
-		}
-
 		// If we get to here, no more errors to report, so we report a nil
 		// error.  This way the first line of the socket is always a json
 		// formatted simple error.
 		h.sendError(socket, req, nil)
+
+		// Here we configure the ping/pong handling for the websocket so
+		// the server can notice when the client goes away.
+		// See the long note in logsink.go for the rationale.
+		socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
+		socket.SetPongHandler(func(string) error {
+			socket.SetReadDeadline(time.Now().Add(websocket.PongDelay))
+			return nil
+		})
+		ticker := time.NewTicker(websocket.PingPeriod)
+		defer ticker.Stop()
 
 		messageCh := h.receiveMessages(socket)
 		for {
 			select {
 			case <-h.ctxt.stop():
 				return
+			case <-ticker.C:
+				deadline := time.Now().Add(websocket.WriteWait)
+				if err := socket.WriteControl(gorillaws.PingMessage, []byte{}, deadline); err != nil {
+					// This error is expected if the other end goes away. By
+					// returning we close the socket through the defer call.
+					logger.Debugf("failed to write ping: %s", err)
+					return
+				}
 			case m := <-messageCh:
 				logger.Tracef("topic: %q, data: %v", m.Topic, m.Data)
-				_, err := h.hub.Publish(pubsub.Topic(m.Topic), m.Data)
+				_, err := h.hub.Publish(m.Topic, m.Data)
 				if err != nil {
 					logger.Errorf("publish failed: %v", err)
 				}
 			}
 		}
 	}
-	websocketServer(w, req, handler)
+	websocket.Serve(w, req, handler)
 }
 
 func (h *pubsubHandler) receiveMessages(socket *websocket.Conn) <-chan params.PubSubMessage {
@@ -127,7 +116,7 @@ func (h *pubsubHandler) sendError(ws *websocket.Conn, req *http.Request, err err
 	if err != nil && featureflag.Enabled(feature.DeveloperMode) {
 		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
 	}
-	if sendErr := sendInitialErrorV0(ws, err); sendErr != nil {
+	if sendErr := ws.SendInitialErrorV0(err); sendErr != nil {
 		logger.Errorf("closing websocket, %v", err)
 		ws.Close()
 		return

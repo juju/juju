@@ -4,30 +4,65 @@
 package state
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
+const maxStatusHistoryEntries = 20
+
+// ExportConfig allows certain aspects of the model to be skipped
+// during the export. The intent of this is to be able to get a partial
+// export to support other API calls, like status.
+type ExportConfig struct {
+	SkipActions            bool
+	SkipAnnotations        bool
+	SkipCloudImageMetadata bool
+	SkipCredentials        bool
+	SkipIPAddresses        bool
+	SkipSettings           bool
+	SkipSSHHostKeys        bool
+	SkipStatusHistory      bool
+	SkipLinkLayerDevices   bool
+}
+
+// ExportPartial the current model for the State optionally skipping
+// aspects as defined by the ExportConfig.
+func (st *State) ExportPartial(cfg ExportConfig) (description.Model, error) {
+	return st.exportImpl(cfg)
+}
+
 // Export the current model for the State.
 func (st *State) Export() (description.Model, error) {
+	return st.exportImpl(ExportConfig{})
+}
+
+func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	dbModel, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	im, err := st.IAASModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	export := exporter{
 		st:      st,
+		im:      im,
+		cfg:     cfg,
 		dbModel: dbModel,
 		logger:  loggo.GetLogger("juju.state.export-model"),
 	}
@@ -51,9 +86,10 @@ func (st *State) Export() (description.Model, error) {
 	}
 
 	modelConfig, found := export.modelSettings[modelGlobalKey]
-	if !found {
+	if !found && !cfg.SkipSettings {
 		return nil, errors.New("missing model config")
 	}
+	delete(export.modelSettings, modelGlobalKey)
 
 	blocks, err := export.readBlocks()
 	if err != nil {
@@ -61,15 +97,17 @@ func (st *State) Export() (description.Model, error) {
 	}
 
 	args := description.ModelArgs{
+		Type:               string(dbModel.Type()),
 		Cloud:              dbModel.Cloud(),
 		CloudRegion:        dbModel.CloudRegion(),
 		Owner:              dbModel.Owner(),
 		Config:             modelConfig.Settings,
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
+		EnvironVersion:     dbModel.EnvironVersion(),
 		Blocks:             blocks,
 	}
 	export.model = description.NewModel(args)
-	if credsTag, credsSet := dbModel.CloudCredential(); credsSet {
+	if credsTag, credsSet := dbModel.CloudCredential(); credsSet && !cfg.SkipCredentials {
 		creds, err := st.CloudCredential(credsTag)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -78,8 +116,8 @@ func (st *State) Export() (description.Model, error) {
 			Owner:      credsTag.Owner(),
 			Cloud:      credsTag.Cloud(),
 			Name:       credsTag.Name(),
-			AuthType:   string(creds.AuthType()),
-			Attributes: creds.Attributes(),
+			AuthType:   creds.AuthType,
+			Attributes: creds.Attributes,
 		})
 	}
 	modelKey := dbModel.globalKey()
@@ -92,7 +130,9 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 	export.model.SetConstraints(constraintsArgs)
-
+	if err := export.modelStatus(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.modelUsers(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -100,6 +140,9 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 	if err := export.applications(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := export.remoteApplications(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := export.relations(); err != nil {
@@ -135,21 +178,31 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if err := export.remoteApplications(); err != nil {
-		return nil, errors.Trace(err)
+	// If we are doing a partial export, it doesn't really make sense
+	// to validate the model.
+	fullExport := ExportConfig{}
+	if cfg == fullExport {
+		if err := export.model.Validate(); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
-	if err := export.model.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
+	export.model.SetSLA(dbModel.SLALevel(), dbModel.SLAOwner(), string(dbModel.SLACredential()))
+	export.model.SetMeterStatus(dbModel.MeterStatus().Code.String(), dbModel.MeterStatus().Info)
 
-	export.logExtras()
+	if featureflag.Enabled(feature.StrictMigration) {
+		if err := export.checkUnexportedValues(); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 
 	return export.model, nil
 }
 
 type exporter struct {
+	cfg     ExportConfig
 	st      *State
+	im      *IAASModel
 	dbModel *Model
 	model   description.Model
 	logger  loggo.Logger
@@ -166,7 +219,7 @@ type exporter struct {
 }
 
 func (e *exporter) sequences() error {
-	sequences, closer := e.st.getCollection(sequenceC)
+	sequences, closer := e.st.db().GetCollection(sequenceC)
 	defer closer()
 
 	var docs []sequenceDoc
@@ -181,7 +234,7 @@ func (e *exporter) sequences() error {
 }
 
 func (e *exporter) readBlocks() (map[string]string, error) {
-	blocks, closer := e.st.getCollection(blocksC)
+	blocks, closer := e.st.db().GetCollection(blocksC)
 	defer closer()
 
 	var docs []blockDoc
@@ -197,6 +250,17 @@ func (e *exporter) readBlocks() (map[string]string, error) {
 		result[doc.Type.MigrationValue()] = doc.Message
 	}
 	return result, nil
+}
+
+func (e *exporter) modelStatus() error {
+	statusArgs, err := e.statusArgs(modelGlobalKey)
+	if err != nil {
+		return errors.Annotatef(err, "status for model")
+	}
+
+	e.model.SetStatus(statusArgs)
+	e.model.SetStatusHistory(e.statusHistoryArgs(modelGlobalKey))
+	return nil
 }
 
 func (e *exporter) modelUsers() error {
@@ -240,7 +304,7 @@ func (e *exporter) machines() error {
 	}
 
 	// Read all the open ports documents.
-	openedPorts, closer := e.st.getCollection(openedPortsC)
+	openedPorts, closer := e.st.db().GetCollection(openedPortsC)
 	defer closer()
 	var portsData []portsDoc
 	if err := openedPorts.Find(nil).All(&portsData); err != nil {
@@ -277,7 +341,7 @@ func (e *exporter) machines() error {
 }
 
 func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
-	instanceDataCollection, closer := e.st.getCollection(instanceDataC)
+	instanceDataCollection, closer := e.st.db().GetCollection(instanceDataC)
 	defer closer()
 
 	var instData []instanceData
@@ -293,7 +357,7 @@ func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
 }
 
 func (e *exporter) loadMachineBlockDevices() (map[string][]BlockDeviceInfo, error) {
-	coll, closer := e.st.getCollection(blockDevicesC)
+	coll, closer := e.st.db().GetCollection(blockDevicesC)
 	defer closer()
 
 	var deviceData []blockDevicesDoc
@@ -352,6 +416,14 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 		return nil, errors.NotValidf("missing instance data for machine %s", machine.Id())
 	}
 	exMachine.SetInstance(e.newCloudInstanceArgs(instData))
+	instance := exMachine.Instance()
+	instanceKey := machine.globalInstanceKey()
+	statusArgs, err := e.statusArgs(instanceKey)
+	if err != nil {
+		return nil, errors.Annotatef(err, "status for machine instance %s", machine.Id())
+	}
+	instance.SetStatus(statusArgs)
+	instance.SetStatusHistory(e.statusHistoryArgs(instanceKey))
 
 	// We don't rely on devices being there. If they aren't, we get an empty slice,
 	// which is fine to iterate over with range.
@@ -362,6 +434,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 			Label:          device.Label,
 			UUID:           device.UUID,
 			HardwareID:     device.HardwareId,
+			WWN:            device.WWN,
 			BusAddress:     device.BusAddress,
 			Size:           device.Size,
 			FilesystemType: device.FilesystemType,
@@ -372,7 +445,7 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 
 	// Find the current machine status.
 	globalKey := machine.globalKey()
-	statusArgs, err := e.statusArgs(globalKey)
+	statusArgs, err = e.statusArgs(globalKey)
 	if err != nil {
 		return nil, errors.Annotatef(err, "status for machine %s", machine.Id())
 	}
@@ -447,7 +520,6 @@ func (e *exporter) newAddressArgs(a address) description.AddressArgs {
 func (e *exporter) newCloudInstanceArgs(data instanceData) description.CloudInstanceArgs {
 	inst := description.CloudInstanceArgs{
 		InstanceId: string(data.InstanceId),
-		Status:     data.Status,
 	}
 	if data.Arch != nil {
 		inst.Architecture = *data.Arch
@@ -533,7 +605,7 @@ func (e *exporter) applications() error {
 }
 
 func (e *exporter) readAllStorageConstraints() error {
-	coll, closer := e.st.getCollection(storageConstraintsC)
+	coll, closer := e.st.db().GetCollection(storageConstraintsC)
 	defer closer()
 
 	storageConstraints := make(map[string]storageConstraintsDoc)
@@ -543,7 +615,7 @@ func (e *exporter) readAllStorageConstraints() error {
 	for iter.Next(&doc) {
 		storageConstraints[e.st.localID(doc.DocID)] = doc
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "failed to read storage constraints")
 	}
 	e.logger.Debugf("read %d storage constraint documents", len(storageConstraints))
@@ -589,21 +661,30 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	application := ctx.application
 	appName := application.Name()
 	globalKey := application.globalKey()
-	settingsKey := application.settingsKey()
+	charmConfigKey := application.charmConfigKey()
+	appConfigKey := application.applicationConfigKey()
 	leadershipKey := leadershipSettingsKey(appName)
 	storageConstraintsKey := application.storageConstraintsKey()
 
-	applicationSettingsDoc, found := e.modelSettings[settingsKey]
-	if !found {
-		return errors.Errorf("missing settings for application %q", appName)
+	applicationCharmSettingsDoc, found := e.modelSettings[charmConfigKey]
+	if !found && !e.cfg.SkipSettings {
+		return errors.Errorf("missing charm settings for application %q", appName)
 	}
+	delete(e.modelSettings, charmConfigKey)
+	applicationConfigDoc, found := e.modelSettings[appConfigKey]
+	if !found && !e.cfg.SkipSettings {
+		return errors.Errorf("missing config for application %q", appName)
+	}
+	delete(e.modelSettings, appConfigKey)
 	leadershipSettingsDoc, found := e.modelSettings[leadershipKey]
-	if !found {
+	if !found && !e.cfg.SkipSettings {
 		return errors.Errorf("missing leadership settings for application %q", appName)
 	}
+	delete(e.modelSettings, leadershipKey)
 
 	args := description.ApplicationArgs{
 		Tag:                  application.ApplicationTag(),
+		Type:                 e.model.Type(),
 		Series:               application.doc.Series,
 		Subordinate:          application.doc.Subordinate,
 		CharmURL:             application.doc.CharmURL.String(),
@@ -611,9 +692,11 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		CharmModifiedVersion: application.doc.CharmModifiedVersion,
 		ForceCharm:           application.doc.ForceCharm,
 		Exposed:              application.doc.Exposed,
+		PasswordHash:         application.doc.PasswordHash,
 		MinUnits:             application.doc.MinUnits,
 		EndpointBindings:     map[string]string(ctx.endpoingBindings[globalKey]),
-		Settings:             applicationSettingsDoc.Settings,
+		ApplicationConfig:    applicationConfigDoc.Settings,
+		CharmConfig:          applicationCharmSettingsDoc.Settings,
 		Leader:               ctx.leader,
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
 		MetricsCredentials:   application.doc.MetricCredentials,
@@ -648,7 +731,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			return errors.Errorf("missing meter status for unit %s", unit.Name())
 		}
 
-		workloadVersion, err := unit.WorkloadVersion()
+		workloadVersion, err := e.unitWorkloadVersion(unit)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -717,6 +800,17 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 
 	return nil
+}
+
+func (e *exporter) unitWorkloadVersion(unit *Unit) (string, error) {
+	// Rather than call unit.WorkloadVersion(), which does a database
+	// query, we go directly to the status value that is stored.
+	key := unit.globalWorkloadVersionKey()
+	info, err := e.statusArgs(key)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return info.Message, nil
 }
 
 func (e *exporter) setResources(exApp description.Application, resources resource.ServiceResources) error {
@@ -813,11 +907,30 @@ func (e *exporter) relations() error {
 		return errors.Trace(err)
 	}
 
+	remoteApps := make(set.Strings)
+	for _, a := range e.model.RemoteApplications() {
+		remoteApps.Add(a.Name())
+	}
 	for _, relation := range rels {
 		exRelation := e.model.AddRelation(description.RelationArgs{
 			Id:  relation.Id(),
 			Key: relation.String(),
 		})
+		globalKey := relation.globalScope()
+		statusArgs, err := e.statusArgs(globalKey)
+		if err == nil {
+			exRelation.SetStatus(statusArgs)
+		} else if !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "status for relation %v", relation.Id())
+		}
+
+		isRemote := false
+		for _, ep := range relation.Endpoints() {
+			if remoteApps.Contains(ep.ApplicationName) {
+				isRemote = true
+				break
+			}
+		}
 		for _, ep := range relation.Endpoints() {
 			exEndPoint := exRelation.AddEndpoint(description.EndpointArgs{
 				ApplicationName: ep.ApplicationName,
@@ -829,21 +942,37 @@ func (e *exporter) relations() error {
 				Scope:           string(ep.Scope),
 			})
 			// We expect a relationScope and settings for each of the
-			// units of the specified application.
+			// units of the specified application, unless it is a
+			// remote application.
+			if isRemote {
+				continue
+			}
 			units := e.units[ep.ApplicationName]
 			for _, unit := range units {
 				ru, err := relation.Unit(unit)
 				if err != nil {
 					return errors.Trace(err)
 				}
+				valid, err := ru.Valid()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if !valid {
+					// It doesn't make sense for this application to have a
+					// relations scope for this endpoint. For example the
+					// situation where we have a subordinate charm related to
+					// two different principals.
+					continue
+				}
 				key := ru.key()
 				if !relationScopes.Contains(key) {
 					return errors.Errorf("missing relation scope for %s and %s", relation, unit.Name())
 				}
 				settingsDoc, found := e.modelSettings[key]
-				if !found {
+				if !found && !e.cfg.SkipSettings {
 					return errors.Errorf("missing relation settings for %s and %s", relation, unit.Name())
 				}
+				delete(e.modelSettings, key)
 				exEndPoint.SetUnitSettings(unit.Name(), settingsDoc.Settings)
 			}
 		}
@@ -869,6 +998,9 @@ func (e *exporter) spaces() error {
 }
 
 func (e *exporter) linklayerdevices() error {
+	if e.cfg.SkipLinkLayerDevices {
+		return nil
+	}
 	linklayerdevices, err := e.st.AllLinkLayerDevices()
 	if err != nil {
 		return errors.Trace(err)
@@ -898,18 +1030,30 @@ func (e *exporter) subnets() error {
 	e.logger.Debugf("read %d subnets", len(subnets))
 
 	for _, subnet := range subnets {
-		e.model.AddSubnet(description.SubnetArgs{
-			CIDR:             subnet.CIDR(),
-			ProviderId:       string(subnet.ProviderId()),
-			VLANTag:          subnet.VLANTag(),
-			AvailabilityZone: subnet.AvailabilityZone(),
-			SpaceName:        subnet.SpaceName(),
-		})
+		args := description.SubnetArgs{
+			CIDR:              subnet.CIDR(),
+			ProviderId:        string(subnet.ProviderId()),
+			ProviderNetworkId: string(subnet.ProviderNetworkId()),
+			VLANTag:           subnet.VLANTag(),
+			SpaceName:         subnet.SpaceName(),
+			FanLocalUnderlay:  subnet.FanLocalUnderlay(),
+			FanOverlay:        subnet.FanOverlay(),
+		}
+		// TODO(babbageclunk): at the moment state.Subnet only stores
+		// one AZ.
+		az := subnet.AvailabilityZone()
+		if az != "" {
+			args.AvailabilityZones = []string{az}
+		}
+		e.model.AddSubnet(args)
 	}
 	return nil
 }
 
 func (e *exporter) ipaddresses() error {
+	if e.cfg.SkipIPAddresses {
+		return nil
+	}
 	ipaddresses, err := e.st.AllIPAddresses()
 	if err != nil {
 		return errors.Trace(err)
@@ -932,6 +1076,9 @@ func (e *exporter) ipaddresses() error {
 }
 
 func (e *exporter) sshHostKeys() error {
+	if e.cfg.SkipSSHHostKeys {
+		return nil
+	}
 	machines, err := e.st.AllMachines()
 	if err != nil {
 		return errors.Trace(err)
@@ -955,6 +1102,9 @@ func (e *exporter) sshHostKeys() error {
 }
 
 func (e *exporter) cloudimagemetadata() error {
+	if e.cfg.SkipCloudImageMetadata {
+		return nil
+	}
 	cloudimagemetadata, err := e.st.CloudImageMetadataStorage.AllCloudImageMetadata()
 	if err != nil {
 		return errors.Trace(err)
@@ -980,7 +1130,16 @@ func (e *exporter) cloudimagemetadata() error {
 }
 
 func (e *exporter) actions() error {
-	actions, err := e.st.AllActions()
+	if e.cfg.SkipActions {
+		return nil
+	}
+
+	m, err := e.st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	actions, err := m.AllActions()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1004,7 +1163,7 @@ func (e *exporter) actions() error {
 }
 
 func (e *exporter) readAllRelationScopes() (set.Strings, error) {
-	relationScopes, closer := e.st.getCollection(relationScopesC)
+	relationScopes, closer := e.st.db().GetCollection(relationScopesC)
 	defer closer()
 
 	docs := []relationScopeDoc{}
@@ -1022,7 +1181,7 @@ func (e *exporter) readAllRelationScopes() (set.Strings, error) {
 }
 
 func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
-	unitsCollection, closer := e.st.getCollection(unitsC)
+	unitsCollection, closer := e.st.db().GetCollection(unitsC)
 	defer closer()
 
 	docs := []unitDoc{}
@@ -1031,16 +1190,20 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 		return nil, errors.Annotate(err, "cannot get all units")
 	}
 	e.logger.Debugf("found %d unit docs", len(docs))
+	model, err := e.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	result := make(map[string][]*Unit)
 	for _, doc := range docs {
 		units := result[doc.Application]
-		result[doc.Application] = append(units, newUnit(e.st, &doc))
+		result[doc.Application] = append(units, newUnit(e.st, model.Type(), &doc))
 	}
 	return result, nil
 }
 
 func (e *exporter) readAllEndpointBindings() (map[string]bindingsMap, error) {
-	bindings, closer := e.st.getCollection(endpointBindingsC)
+	bindings, closer := e.st.db().GetCollection(endpointBindingsC)
 	defer closer()
 
 	docs := []endpointBindingsDoc{}
@@ -1057,7 +1220,7 @@ func (e *exporter) readAllEndpointBindings() (map[string]bindingsMap, error) {
 }
 
 func (e *exporter) readAllMeterStatus() (map[string]*meterStatusDoc, error) {
-	meterStatuses, closer := e.st.getCollection(meterStatusC)
+	meterStatuses, closer := e.st.db().GetCollection(meterStatusC)
 	defer closer()
 
 	docs := []meterStatusDoc{}
@@ -1074,7 +1237,7 @@ func (e *exporter) readAllMeterStatus() (map[string]*meterStatusDoc, error) {
 }
 
 func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
-	lastConnections, closer := e.st.getCollection(modelUserLastConnectionC)
+	lastConnections, closer := e.st.db().GetCollection(modelUserLastConnectionC)
 	defer closer()
 
 	var docs []modelUserLastConnectionDoc
@@ -1090,7 +1253,12 @@ func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
 }
 
 func (e *exporter) readAllAnnotations() error {
-	annotations, closer := e.st.getCollection(annotationsC)
+	e.annotations = make(map[string]annotatorDoc)
+	if e.cfg.SkipAnnotations {
+		return nil
+	}
+
+	annotations, closer := e.st.db().GetCollection(annotationsC)
 	defer closer()
 
 	var docs []annotatorDoc
@@ -1099,7 +1267,6 @@ func (e *exporter) readAllAnnotations() error {
 	}
 	e.logger.Debugf("read %d annotations docs", len(docs))
 
-	e.annotations = make(map[string]annotatorDoc)
 	for _, doc := range docs {
 		e.annotations[doc.GlobalKey] = doc
 	}
@@ -1107,7 +1274,7 @@ func (e *exporter) readAllAnnotations() error {
 }
 
 func (e *exporter) readAllConstraints() error {
-	constraintsCollection, closer := e.st.getCollection(constraintsC)
+	constraintsCollection, closer := e.st.db().GetCollection(constraintsC)
 	defer closer()
 
 	// Since the constraintsDoc doesn't include any global key or _id
@@ -1145,7 +1312,12 @@ func (e *exporter) getAnnotations(key string) map[string]string {
 }
 
 func (e *exporter) readAllSettings() error {
-	settings, closer := e.st.getCollection(settingsC)
+	e.modelSettings = make(map[string]settingsDoc)
+	if e.cfg.SkipSettings {
+		return nil
+	}
+
+	settings, closer := e.st.db().GetCollection(settingsC)
 	defer closer()
 
 	var docs []settingsDoc
@@ -1153,7 +1325,6 @@ func (e *exporter) readAllSettings() error {
 		return errors.Trace(err)
 	}
 
-	e.modelSettings = make(map[string]settingsDoc)
 	for _, doc := range docs {
 		key := e.st.localID(doc.DocID)
 		e.modelSettings[key] = doc
@@ -1162,7 +1333,7 @@ func (e *exporter) readAllSettings() error {
 }
 
 func (e *exporter) readAllStatuses() error {
-	statuses, closer := e.st.getCollection(statusesC)
+	statuses, closer := e.st.db().GetCollection(statusesC)
 	defer closer()
 
 	var docs []bson.M
@@ -1186,11 +1357,14 @@ func (e *exporter) readAllStatuses() error {
 }
 
 func (e *exporter) readAllStatusHistory() error {
-	statuses, closer := e.st.getCollection(statusesHistoryC)
+	statuses, closer := e.st.db().GetCollection(statusesHistoryC)
 	defer closer()
 
 	count := 0
 	e.statusHistory = make(map[string][]historicalStatusDoc)
+	if e.cfg.SkipStatusHistory {
+		return nil
+	}
 	var doc historicalStatusDoc
 	// In tests, sorting by time can leave the results
 	// underconstrained - include document id for deterministic
@@ -1203,7 +1377,7 @@ func (e *exporter) readAllStatusHistory() error {
 		count++
 	}
 
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "failed to read status history collection")
 	}
 
@@ -1218,6 +1392,7 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 	if !found {
 		return result, errors.NotFoundf("status data for %s", globalKey)
 	}
+	delete(e.status, globalKey)
 
 	status, ok := statusDoc["status"].(string)
 	if !ok {
@@ -1248,8 +1423,11 @@ func (e *exporter) statusArgs(globalKey string) (description.StatusArgs, error) 
 
 func (e *exporter) statusHistoryArgs(globalKey string) []description.StatusArgs {
 	history := e.statusHistory[globalKey]
+	e.logger.Tracef("found %d status history docs for %s", len(history), globalKey)
+	if len(history) > maxStatusHistoryEntries {
+		history = history[:maxStatusHistoryEntries]
+	}
 	result := make([]description.StatusArgs, len(history))
-	e.logger.Debugf("found %d status history docs for %s", len(history), globalKey)
 	for i, doc := range history {
 		result[i] = description.StatusArgs{
 			Value:   string(doc.Status),
@@ -1258,7 +1436,7 @@ func (e *exporter) statusHistoryArgs(globalKey string) []description.StatusArgs 
 			Updated: time.Unix(0, doc.Updated),
 		}
 	}
-
+	delete(e.statusHistory, globalKey)
 	return result
 }
 
@@ -1266,7 +1444,7 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 	doc, found := e.constraints[globalKey]
 	if !found {
 		// No constraints for this key.
-		e.logger.Debugf("no constraints found for key %q", globalKey)
+		e.logger.Tracef("no constraints found for key %q", globalKey)
 		return description.ConstraintsArgs{}, nil
 	}
 	// We capture any type error using a closure to avoid having to return
@@ -1279,7 +1457,7 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 		case string:
 			return value
 		default:
-			optionalErr = errors.Errorf("expected uint64 for %s, got %T", name, value)
+			optionalErr = errors.Errorf("expected string for %s, got %T", name, value)
 		}
 		return ""
 	}
@@ -1300,8 +1478,19 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 		case nil:
 		case []string:
 			return value
+		case []interface{}:
+			var result []string
+			for _, val := range value {
+				sval, ok := val.(string)
+				if !ok {
+					optionalErr = errors.Errorf("expected string slice for %s, got %T value", name, val)
+					return nil
+				}
+				result = append(result, sval)
+			}
+			return result
 		default:
-			optionalErr = errors.Errorf("expected []string] for %s, got %T", name, value)
+			optionalErr = errors.Errorf("expected []string for %s, got %T", name, value)
 		}
 		return nil
 	}
@@ -1323,15 +1512,33 @@ func (e *exporter) constraintsArgs(globalKey string) (description.ConstraintsArg
 	return result, nil
 }
 
-func (e *exporter) logExtras() {
+func (e *exporter) checkUnexportedValues() error {
+	var missing []string
+
 	// As annotations are saved into the model, they are removed from the
 	// exporter's map. If there are any left at the end, we are missing
-	// things. Not an error just now, just a warning that we have missed
-	// something. Could potentially be an error at a later date when
-	// migrations are complete (but probably not).
+	// things.
 	for key, doc := range e.annotations {
-		e.logger.Warningf("unexported annotation for %s, %s", doc.Tag, key)
+		missing = append(missing, fmt.Sprintf("unexported annotations for %s, %s", doc.Tag, key))
 	}
+
+	for key := range e.modelSettings {
+		missing = append(missing, fmt.Sprintf("unexported settings for %s", key))
+	}
+
+	for key := range e.status {
+		missing = append(missing, fmt.Sprintf("unexported status for %s", key))
+	}
+
+	for key := range e.statusHistory {
+		missing = append(missing, fmt.Sprintf("unexported status history for %s", key))
+	}
+
+	if len(missing) > 0 {
+		content := strings.Join(missing, "\n  ")
+		return errors.Errorf("migration missed some docs:\n  %s", content)
+	}
+	return nil
 }
 
 func (e *exporter) remoteApplications() error {
@@ -1353,12 +1560,21 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 	url, _ := app.URL()
 	args := description.RemoteApplicationArgs{
 		Tag:             app.Tag().(names.ApplicationTag),
-		OfferName:       app.OfferName(),
+		OfferUUID:       app.OfferUUID(),
 		URL:             url,
 		SourceModel:     app.SourceModel(),
 		IsConsumerProxy: app.IsConsumerProxy(),
+		Bindings:        app.Bindings(),
 	}
 	descApp := e.model.AddRemoteApplication(args)
+	status, err := e.statusArgs(app.globalKey())
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	// Not all remote applications have status.
+	if err == nil {
+		descApp.SetStatus(status)
+	}
 	endpoints, err := app.Endpoints()
 	if err != nil {
 		return errors.Trace(err)
@@ -1368,11 +1584,31 @@ func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
 			Name:      ep.Name,
 			Role:      string(ep.Role),
 			Interface: ep.Interface,
-			Limit:     ep.Limit,
-			Scope:     string(ep.Scope),
 		})
 	}
+	for _, space := range app.Spaces() {
+		e.addRemoteSpace(descApp, space)
+	}
 	return nil
+}
+
+func (e *exporter) addRemoteSpace(descApp description.RemoteApplication, space RemoteSpace) {
+	descSpace := descApp.AddSpace(description.RemoteSpaceArgs{
+		CloudType:          space.CloudType,
+		Name:               space.Name,
+		ProviderId:         space.ProviderId,
+		ProviderAttributes: space.ProviderAttributes,
+	})
+	for _, subnet := range space.Subnets {
+		descSpace.AddSubnet(description.SubnetArgs{
+			CIDR:              subnet.CIDR,
+			ProviderId:        subnet.ProviderId,
+			VLANTag:           subnet.VLANTag,
+			AvailabilityZones: subnet.AvailabilityZones,
+			ProviderSpaceId:   subnet.ProviderSpaceId,
+			ProviderNetworkId: subnet.ProviderNetworkId,
+		})
+	}
 }
 
 func (e *exporter) storage() error {
@@ -1392,24 +1628,23 @@ func (e *exporter) storage() error {
 }
 
 func (e *exporter) volumes() error {
-	coll, closer := e.st.getCollection(volumesC)
+	coll, closer := e.st.db().GetCollection(volumesC)
 	defer closer()
 
 	attachments, err := e.readVolumeAttachments()
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	var doc volumeDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		vol := &volume{e.st, doc}
+		vol := &volume{e.im, doc}
 		if err := e.addVolume(vol, attachments[doc.Name]); err != nil {
 			return errors.Trace(err)
 		}
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "failed to read volumes")
 	}
 	return nil
@@ -1435,6 +1670,7 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) 
 		args.Size = info.Size
 		args.Pool = info.Pool
 		args.HardwareID = info.HardwareId
+		args.WWN = info.WWN
 		args.VolumeID = info.VolumeId
 		args.Persistent = info.Persistent
 	} else {
@@ -1481,7 +1717,7 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) 
 }
 
 func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, error) {
-	coll, closer := e.st.getCollection(volumeAttachmentsC)
+	coll, closer := e.st.db().GetCollection(volumeAttachmentsC)
 	defer closer()
 
 	result := make(map[string][]volumeAttachmentDoc)
@@ -1493,7 +1729,7 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 		result[doc.Volume] = append(result[doc.Volume], doc)
 		count++
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotate(err, "failed to read volumes attachments")
 	}
 	e.logger.Debugf("read %d volume attachment documents", count)
@@ -1501,24 +1737,23 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 }
 
 func (e *exporter) filesystems() error {
-	coll, closer := e.st.getCollection(filesystemsC)
+	coll, closer := e.st.db().GetCollection(filesystemsC)
 	defer closer()
 
 	attachments, err := e.readFilesystemAttachments()
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	var doc filesystemDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		fs := &filesystem{e.st, doc}
+		fs := &filesystem{e.im, doc}
 		if err := e.addFilesystem(fs, attachments[doc.FilesystemId]); err != nil {
 			return errors.Trace(err)
 		}
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "failed to read filesystems")
 	}
 	return nil
@@ -1584,7 +1819,7 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 }
 
 func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmentDoc, error) {
-	coll, closer := e.st.getCollection(filesystemAttachmentsC)
+	coll, closer := e.st.db().GetCollection(filesystemAttachmentsC)
 	defer closer()
 
 	result := make(map[string][]filesystemAttachmentDoc)
@@ -1596,7 +1831,7 @@ func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmen
 		result[doc.Filesystem] = append(result[doc.Filesystem], doc)
 		count++
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotate(err, "failed to read filesystem attachments")
 	}
 	e.logger.Debugf("read %d filesystem attachment documents", count)
@@ -1604,24 +1839,23 @@ func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmen
 }
 
 func (e *exporter) storageInstances() error {
-	coll, closer := e.st.getCollection(storageInstancesC)
+	coll, closer := e.st.db().GetCollection(storageInstancesC)
 	defer closer()
 
 	attachments, err := e.readStorageAttachments()
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	var doc storageInstanceDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		instance := &storageInstance{e.st, doc}
+		instance := &storageInstance{e.im, doc}
 		if err := e.addStorage(instance, attachments[doc.Id]); err != nil {
 			return errors.Trace(err)
 		}
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return errors.Annotate(err, "failed to read storage instances")
 	}
 	return nil
@@ -1632,19 +1866,21 @@ func (e *exporter) addStorage(instance *storageInstance, attachments []names.Uni
 	if !ok {
 		owner = nil
 	}
+	cons := description.StorageInstanceConstraints(instance.doc.Constraints)
 	args := description.StorageArgs{
 		Tag:         instance.StorageTag(),
 		Kind:        instance.Kind().String(),
 		Owner:       owner,
 		Name:        instance.StorageName(),
 		Attachments: attachments,
+		Constraints: &cons,
 	}
 	e.model.AddStorage(args)
 	return nil
 }
 
 func (e *exporter) readStorageAttachments() (map[string][]names.UnitTag, error) {
-	coll, closer := e.st.getCollection(storageAttachmentsC)
+	coll, closer := e.st.db().GetCollection(storageAttachmentsC)
 	defer closer()
 
 	result := make(map[string][]names.UnitTag)
@@ -1657,7 +1893,7 @@ func (e *exporter) readStorageAttachments() (map[string][]names.UnitTag, error) 
 		result[doc.StorageInstance] = append(result[doc.StorageInstance], unit)
 		count++
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotate(err, "failed to read storage attachments")
 	}
 	e.logger.Debugf("read %d storage attachment documents", count)
@@ -1694,6 +1930,7 @@ func (m storagePoolSettingsManager) ListSettings(keyPrefix string) (map[string]m
 	for key, doc := range m.e.modelSettings {
 		if strings.HasPrefix(key, keyPrefix) {
 			result[key] = doc.Settings
+			delete(m.e.modelSettings, key)
 		}
 	}
 	return result, nil

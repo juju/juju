@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
 	"github.com/juju/version"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
@@ -100,7 +100,6 @@ func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 	return migration.MigrationStatus{
 		MigrationId:      status.MigrationId,
 		ModelUUID:        modelTag.Id(),
-		ExternalControl:  status.Spec.ExternalControl,
 		Phase:            phase,
 		PhaseChangedTime: status.PhaseChangedTime,
 		TargetInfo: migration.TargetInfo{
@@ -173,7 +172,7 @@ func (c *Client) Export() (migration.SerializedModel, error) {
 	for _, toolsInfo := range serialized.Tools {
 		v, err := version.ParseBinary(toolsInfo.Version)
 		if err != nil {
-			return migration.SerializedModel{}, errors.Annotate(err, "error parsing tools version")
+			return migration.SerializedModel{}, errors.Annotate(err, "error parsing agent binary version")
 		}
 		tools[v] = toolsInfo.URI
 	}
@@ -344,9 +343,11 @@ func convertResourceRevision(app, name string, rev params.SerializedModelResourc
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	fp, err := charmresource.ParseFingerprint(rev.FingerprintHex)
-	if err != nil {
-		return empty, errors.Annotate(err, "invalid fingerprint")
+	var fp charmresource.Fingerprint
+	if rev.FingerprintHex != "" {
+		if fp, err = charmresource.ParseFingerprint(rev.FingerprintHex); err != nil {
+			return empty, errors.Annotate(err, "invalid fingerprint")
+		}
 	}
 	return resource.Resource{
 		Resource: charmresource.Resource{

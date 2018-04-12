@@ -6,7 +6,7 @@ package main
 import (
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/api/imagemetadata"
+	"github.com/juju/juju/api/imagemetadatamanager"
 )
 
 type cloudImageMetadataCommandBase struct {
@@ -20,12 +20,12 @@ func (c *cloudImageMetadataCommandBase) SetFlags(f *gnuflag.FlagSet) {
 
 // NewImageMetadataAPI returns a image metadata api for the root api endpoint
 // that the environment command returns.
-func (c *cloudImageMetadataCommandBase) NewImageMetadataAPI() (*imagemetadata.Client, error) {
+func (c *cloudImageMetadataCommandBase) NewImageMetadataAPI() (*imagemetadatamanager.Client, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, err
 	}
-	return imagemetadata.NewClient(root), nil
+	return imagemetadatamanager.NewClient(root), nil
 }
 
 // MetadataInfo defines the serialization behaviour of image metadata information.

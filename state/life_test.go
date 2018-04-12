@@ -20,7 +20,7 @@ type LifeSuite struct {
 func (s *LifeSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
-	s.svc = s.AddTestingService(c, "dummysvc", s.charm)
+	s.svc = s.AddTestingApplication(c, "dummysvc", s.charm)
 }
 
 var _ = gc.Suite(&LifeSuite{})
@@ -94,7 +94,7 @@ func (l *unitLife) id() (coll string, id interface{}) {
 }
 
 func (l *unitLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
-	unit, err := s.svc.AddUnit()
+	unit, err := s.svc.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 	l.unit = unit

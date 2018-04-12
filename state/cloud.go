@@ -11,12 +11,8 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/mongo/utils"
 )
-
-// cloudGlobalKey returns the global database key for the specified cloud.
-func cloudGlobalKey(name string) string {
-	return "cloud#" + name
-}
 
 // cloudDoc records information about the cloud that the controller operates in.
 type cloudDoc struct {
@@ -28,6 +24,7 @@ type cloudDoc struct {
 	IdentityEndpoint string                       `bson:"identity-endpoint,omitempty"`
 	StorageEndpoint  string                       `bson:"storage-endpoint,omitempty"`
 	Regions          map[string]cloudRegionSubdoc `bson:"regions,omitempty"`
+	CACertificates   []string                     `bson:"ca-certificates,omitempty"`
 }
 
 // cloudRegionSubdoc records information about cloud regions.
@@ -46,7 +43,7 @@ func createCloudOp(cloud cloud.Cloud) txn.Op {
 	}
 	regions := make(map[string]cloudRegionSubdoc)
 	for _, region := range cloud.Regions {
-		regions[region.Name] = cloudRegionSubdoc{
+		regions[utils.EscapeKey(region.Name)] = cloudRegionSubdoc{
 			region.Endpoint,
 			region.IdentityEndpoint,
 			region.StorageEndpoint,
@@ -64,6 +61,7 @@ func createCloudOp(cloud cloud.Cloud) txn.Op {
 			IdentityEndpoint: cloud.IdentityEndpoint,
 			StorageEndpoint:  cloud.StorageEndpoint,
 			Regions:          regions,
+			CACertificates:   cloud.CACertificates,
 		},
 	}
 }
@@ -81,7 +79,7 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 	for i, name := range regionNames.SortedValues() {
 		region := d.Regions[name]
 		regions[i] = cloud.Region{
-			name,
+			utils.UnescapeKey(name),
 			region.Endpoint,
 			region.IdentityEndpoint,
 			region.StorageEndpoint,
@@ -95,12 +93,13 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 		IdentityEndpoint: d.IdentityEndpoint,
 		StorageEndpoint:  d.StorageEndpoint,
 		Regions:          regions,
+		CACertificates:   d.CACertificates,
 	}
 }
 
 // Clouds returns the definitions for all clouds in the controller.
 func (st *State) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
-	coll, cleanup := st.getCollection(cloudsC)
+	coll, cleanup := st.db().GetCollection(cloudsC)
 	defer cleanup()
 
 	var doc cloudDoc
@@ -109,7 +108,7 @@ func (st *State) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 	for iter.Next(&doc) {
 		clouds[names.NewCloudTag(doc.Name)] = doc.toCloud()
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Annotate(err, "getting clouds")
 	}
 	return clouds, nil
@@ -117,7 +116,7 @@ func (st *State) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 
 // Cloud returns the controller's cloud definition.
 func (st *State) Cloud(name string) (cloud.Cloud, error) {
-	coll, cleanup := st.getCollection(cloudsC)
+	coll, cleanup := st.db().GetCollection(cloudsC)
 	defer cleanup()
 
 	var doc cloudDoc
@@ -139,7 +138,7 @@ func (st *State) AddCloud(c cloud.Cloud) error {
 		return errors.Annotate(err, "invalid cloud")
 	}
 	ops := []txn.Op{createCloudOp(c)}
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.db().RunTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
 			err = errors.AlreadyExistsf("cloud %q", c.Name)
 		}

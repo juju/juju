@@ -4,11 +4,12 @@
 package state_test
 
 import (
-	"errors"
 	"time"
 
+	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 
@@ -19,16 +20,18 @@ import (
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	workerstate "github.com/juju/juju/worker/state"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type ManifoldSuite struct {
 	statetesting.StateSuite
-	manifold        dependency.Manifold
-	openStateCalled bool
-	openStateErr    error
-	config          workerstate.ManifoldConfig
-	agent           *mockAgent
-	resources       dt.StubResources
+	manifold          dependency.Manifold
+	openStateCalled   bool
+	openStateErr      error
+	config            workerstate.ManifoldConfig
+	agent             *mockAgent
+	resources         dt.StubResources
+	setStatePoolCalls []*state.StatePool
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -36,14 +39,27 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
+	// Close the state pool, as it's not needed, and it
+	// refers to the state object's mongo session. If we
+	// do not close the pool, its embedded watcher may
+	// attempt to access mongo after it has been closed
+	// by the state tracker.
+	err := s.StatePool.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.openStateCalled = false
 	s.openStateErr = nil
+	s.setStatePoolCalls = nil
 
 	s.config = workerstate.ManifoldConfig{
 		AgentName:              "agent",
 		StateConfigWatcherName: "state-config-watcher",
 		OpenState:              s.fakeOpenState,
 		PingInterval:           10 * time.Millisecond,
+		PrometheusRegisterer:   prometheus.NewRegistry(),
+		SetStatePool: func(pool *state.StatePool) {
+			s.setStatePoolCalls = append(s.setStatePoolCalls, pool)
+		},
 	}
 	s.manifold = workerstate.Manifold(s.config)
 	s.resources = dt.StubResources{
@@ -84,10 +100,24 @@ func (s *ManifoldSuite) TestStateConfigWatcherMissing(c *gc.C) {
 
 func (s *ManifoldSuite) TestStartOpenStateNil(c *gc.C) {
 	s.config.OpenState = nil
-	manifold := workerstate.Manifold(s.config)
+	s.startManifoldInvalidConfig(c, s.config, "nil OpenState not valid")
+}
+
+func (s *ManifoldSuite) TestStartPrometheusRegistererNil(c *gc.C) {
+	s.config.PrometheusRegisterer = nil
+	s.startManifoldInvalidConfig(c, s.config, "nil PrometheusRegisterer not valid")
+}
+
+func (s *ManifoldSuite) TestStartSetStatePoolNil(c *gc.C) {
+	s.config.SetStatePool = nil
+	s.startManifoldInvalidConfig(c, s.config, "nil SetStatePool not valid")
+}
+
+func (s *ManifoldSuite) startManifoldInvalidConfig(c *gc.C, config workerstate.ManifoldConfig, expect string) {
+	manifold := workerstate.Manifold(config)
 	w, err := manifold.Start(s.resources.Context())
 	c.Check(w, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "OpenState is nil in config")
+	c.Check(err, gc.ErrorMatches, expect)
 }
 
 func (s *ManifoldSuite) TestStartNotStateServer(c *gc.C) {
@@ -108,7 +138,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	w := s.mustStartManifold(c)
 	c.Check(s.openStateCalled, jc.IsTrue)
 	checkNotExiting(c, w)
-	checkStop(c, w)
+	workertest.CleanKill(c, w)
 }
 
 func (s *ManifoldSuite) TestStatePinging(c *gc.C) {
@@ -134,7 +164,7 @@ func (s *ManifoldSuite) TestOutputWrongType(c *gc.C) {
 	var wrong int
 	err := s.manifold.Output(w, &wrong)
 	c.Check(wrong, gc.Equals, 0)
-	c.Check(err, gc.ErrorMatches, `out should be \*state.State; got .+`)
+	c.Check(err, gc.ErrorMatches, `out should be \*StateTracker; got .+`)
 }
 
 func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
@@ -144,13 +174,13 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	err := s.manifold.Output(w, &stTracker)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := stTracker.Use()
+	pool, err := stTracker.Use()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(st, gc.Equals, s.State)
+	c.Check(pool.SystemState(), gc.Equals, s.State)
 	c.Assert(stTracker.Done(), jc.ErrorIsNil)
 
 	// Ensure State is closed when the worker is done.
-	checkStop(c, w)
+	workertest.CleanKill(c, w)
 	assertStateClosed(c, s.State)
 }
 
@@ -161,16 +191,62 @@ func (s *ManifoldSuite) TestStateStillInUse(c *gc.C) {
 	err := s.manifold.Output(w, &stTracker)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := stTracker.Use()
+	pool, err := stTracker.Use()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Close the worker while the State is still in use.
-	checkStop(c, w)
-	assertStateNotClosed(c, st)
+	workertest.CleanKill(c, w)
+	assertStateNotClosed(c, pool.SystemState())
 
 	// Now signal that the State is no longer needed.
 	c.Assert(stTracker.Done(), jc.ErrorIsNil)
-	assertStateClosed(c, st)
+	assertStateClosed(c, pool.SystemState())
+}
+
+func (s *ManifoldSuite) TestDeadStateRemoved(c *gc.C) {
+	// Create an additional state *before* we start
+	// the worker, so the worker's lifecycle watcher
+	// is guaranteed to observe it in both the Alive
+	// state and the Dead state.
+	newSt := s.Factory.MakeModel(c, nil)
+	defer newSt.Close()
+	model, err := newSt.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := s.mustStartManifold(c)
+	defer workertest.CleanKill(c, w)
+
+	var stTracker workerstate.StateTracker
+	err = s.manifold.Output(w, &stTracker)
+	c.Assert(err, jc.ErrorIsNil)
+	pool, err := stTracker.Use()
+	c.Assert(err, jc.ErrorIsNil)
+	defer stTracker.Done()
+
+	// Get a reference to the state pool entry, so we can
+	// prevent it from being fully removed from the pool.
+	st, err := pool.Get(newSt.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Release()
+
+	// Progress the model to Dead.
+	err = model.Destroy(state.DestroyModelParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Dead)
+	s.State.StartSync()
+
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		st, err := pool.Get(newSt.ModelUUID())
+		if errors.IsNotFound(err) {
+			c.Assert(err, gc.ErrorMatches, "model .* has been removed")
+			return
+		}
+		c.Assert(err, jc.ErrorIsNil)
+		st.Release()
+	}
+	c.Fatal("timed out waiting for model state to be removed from pool")
 }
 
 func (s *ManifoldSuite) mustStartManifold(c *gc.C) worker.Worker {
@@ -185,11 +261,6 @@ func (s *ManifoldSuite) startManifold(c *gc.C) (worker.Worker, error) {
 		s.AddCleanup(func(*gc.C) { worker.Stop(w) })
 	}
 	return w, err
-}
-
-func checkStop(c *gc.C, w worker.Worker) {
-	err := worker.Stop(w)
-	c.Check(err, jc.ErrorIsNil)
 }
 
 func checkNotExiting(c *gc.C, w worker.Worker) {

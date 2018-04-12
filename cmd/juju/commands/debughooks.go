@@ -6,14 +6,16 @@ package commands
 import (
 	"encoding/base64"
 	"fmt"
-	"sort"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/network/ssh"
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
@@ -21,6 +23,7 @@ import (
 
 func newDebugHooksCommand(hostChecker ssh.ReachableChecker) cmd.Command {
 	c := new(debugHooksCommand)
+	c.getActionAPI = c.newActionsAPI
 	c.setHostChecker(hostChecker)
 	return modelcmd.Wrap(c)
 }
@@ -29,10 +32,12 @@ func newDebugHooksCommand(hostChecker ssh.ReachableChecker) cmd.Command {
 type debugHooksCommand struct {
 	sshCommand
 	hooks []string
+
+	getActionAPI func() (ActionsAPI, error)
 }
 
 const debugHooksDoc = `
-Interactively debug a hook remotely on an application unit.
+Interactively debug hooks or actions remotely on an application unit.
 
 See the "juju help ssh" for information about SSH related options
 accepted by the debug-hooks command.
@@ -41,8 +46,8 @@ accepted by the debug-hooks command.
 func (c *debugHooksCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "debug-hooks",
-		Args:    "<unit name> [hook names]",
-		Purpose: "Launch a tmux session to debug a hook.",
+		Args:    "<unit name> [hook or action names]",
+		Purpose: "Launch a tmux session to debug hooks and/or actions.",
 		Doc:     debugHooksDoc,
 	}
 }
@@ -68,10 +73,14 @@ func (c *debugHooksCommand) Init(args []string) error {
 }
 
 type charmRelationsAPI interface {
-	CharmRelations(serviceName string) ([]string, error)
+	CharmRelations(applicationName string) ([]string, error)
 }
 
-func (c *debugHooksCommand) getServiceAPI() (charmRelationsAPI, error) {
+type ActionsAPI interface {
+	ApplicationCharmActions(params.Entity) (map[string]params.ActionSpec, error)
+}
+
+func (c *debugHooksCommand) getApplicationAPI() (charmRelationsAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -79,45 +88,91 @@ func (c *debugHooksCommand) getServiceAPI() (charmRelationsAPI, error) {
 	return application.NewClient(root), nil
 }
 
-func (c *debugHooksCommand) validateHooks() error {
+func (c *debugHooksCommand) newActionsAPI() (ActionsAPI, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, err
+	}
+	return action.NewClient(root), nil
+}
+
+func (c *debugHooksCommand) validateHooksOrActions() error {
 	if len(c.hooks) == 0 {
 		return nil
 	}
-	service, err := names.UnitApplication(c.Target)
-	if err != nil {
-		return err
-	}
-	serviceAPI, err := c.getServiceAPI()
-	if err != nil {
-		return err
-	}
-	relations, err := serviceAPI.CharmRelations(service)
+	appName, err := names.UnitApplication(c.Target)
 	if err != nil {
 		return err
 	}
 
-	validHooks := make(map[string]bool)
+	// Get a set of valid hooks.
+	validHooks, err := c.getValidHooks(appName)
+	if err != nil {
+		return err
+	}
+
+	// Get a set of valid actions.
+	validActions, err := c.getValidActions(appName)
+	if err != nil {
+		return err
+	}
+
+	// Is passed argument a valid hook or action name?
+	// If not valid, err out.
+	allValid := validHooks.Union(validActions)
+	for _, hook := range c.hooks {
+		if !allValid.Contains(hook) {
+			return errors.Errorf("unit %q contains neither hook nor action %q, valid actions are %v and valid hooks are %v",
+				c.Target,
+				hook,
+				validActions.SortedValues(),
+				validHooks.SortedValues(),
+			)
+		}
+	}
+	return nil
+}
+
+func (c *debugHooksCommand) getValidActions(appName string) (set.Strings, error) {
+	appTag := names.NewApplicationTag(appName)
+	actionAPI, err := c.getActionAPI()
+	if err != nil {
+		return nil, err
+	}
+
+	allActions, err := actionAPI.ApplicationCharmActions(params.Entity{Tag: appTag.String()})
+	if err != nil {
+		return nil, err
+	}
+
+	validActions := set.NewStrings()
+	for name, _ := range allActions {
+		validActions.Add(name)
+	}
+	return validActions, nil
+}
+
+func (c *debugHooksCommand) getValidHooks(appName string) (set.Strings, error) {
+	applicationAPI, err := c.getApplicationAPI()
+	if err != nil {
+		return nil, err
+	}
+	relations, err := applicationAPI.CharmRelations(appName)
+	if err != nil {
+		return nil, err
+	}
+
+	validHooks := set.NewStrings()
 	for _, hook := range hooks.UnitHooks() {
-		validHooks[string(hook)] = true
+		validHooks.Add(string(hook))
 	}
 	for _, relation := range relations {
 		for _, hook := range hooks.RelationHooks() {
 			hook := fmt.Sprintf("%s-%s", relation, hook)
-			validHooks[hook] = true
+			validHooks.Add(hook)
 		}
 	}
-	for _, hook := range c.hooks {
-		if !validHooks[hook] {
-			names := make([]string, 0, len(validHooks))
-			for hookName := range validHooks {
-				names = append(names, hookName)
-			}
-			sort.Strings(names)
-			logger.Infof("unknown hook %s, valid hook names: %v", hook, names)
-			return errors.Errorf("unit %q does not contain hook %q", c.Target, hook)
-		}
-	}
-	return nil
+	return validHooks, nil
 }
 
 // Run ensures c.Target is a unit, and resolves its address,
@@ -129,7 +184,7 @@ func (c *debugHooksCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer c.cleanupRun()
-	err = c.validateHooks()
+	err = c.validateHooksOrActions()
 	if err != nil {
 		return err
 	}

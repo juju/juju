@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v2/identity"
 	"gopkg.in/ini.v1"
 
 	"github.com/juju/juju/cloud"

@@ -4,8 +4,6 @@
 package user
 
 import (
-	"encoding/asn1"
-	"encoding/base64"
 	"fmt"
 
 	"github.com/juju/cmd"
@@ -16,15 +14,17 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
 )
 
 var usageSummary = `
 Adds a Juju user to a controller.`[1:]
 
-const usageDetails = "A `juju register` command will be printed, which must be executed by the" + `
-user to complete the registration process. The user's details are stored
-within the shared model, and will be removed when the model is destroyed.
+const usageDetails = `The user's details are stored within the controller and
+will be removed when the controller is destroyed.
+
+A user unique registration string will be printed. This registration string 
+must be used by the newly added user as supplied to 
+complete the registration process. 
 
 Some machine providers will require the user to be in possession of certain
 credentials in order to create a model.
@@ -111,40 +111,14 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	if c.DisplayName != "" {
 		displayName = fmt.Sprintf("%s (%s)", c.DisplayName, c.User)
 	}
-
-	// Generate the base64-encoded string for the user to pass to
-	// "juju register". We marshal the information using ASN.1
-	// to keep the size down, since we need to encode binary data.
-	controllerDetails, err := c.ClientStore().ControllerByName(c.ControllerName())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	registrationInfo := jujuclient.RegistrationInfo{
-		User:           c.User,
-		Addrs:          controllerDetails.APIEndpoints,
-		SecretKey:      secretKey,
-		ControllerName: c.ControllerName(),
-	}
-	registrationData, err := asn1.Marshal(registrationInfo)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Use URLEncoding so we don't get + or / in the string,
-	// and pad with zero bytes so we don't get =; this all
-	// makes it easier to copy & paste in a terminal.
-	//
-	// The embedded ASN.1 data is length-encoded, so the
-	// padding will not complicate decoding.
-	remainder := len(registrationData) % 3
-	if remainder != 0 {
-		var pad [3]byte
-		registrationData = append(registrationData, pad[:3-remainder]...)
-	}
-	base64RegistrationData := base64.URLEncoding.EncodeToString(
-		registrationData,
+	base64RegistrationData, err := generateUserControllerAccessToken(
+		c.ControllerCommandBase,
+		c.User,
+		secretKey,
 	)
-
+	if err != nil {
+		return errors.Annotate(err, "generating controller user access token")
+	}
 	fmt.Fprintf(ctx.Stdout, "User %q added\n", displayName)
 	fmt.Fprintf(ctx.Stdout, "Please send this command to %v:\n", c.User)
 	fmt.Fprintf(ctx.Stdout, "    juju register %s\n",

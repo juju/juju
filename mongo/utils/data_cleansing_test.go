@@ -66,7 +66,7 @@ func (s *dataCleansingSuite) TestUnescapeKey_UnescapesPeriods(c *gc.C) {
 	})
 }
 
-func (s *dataCleansingSuite) TestUnescapeKey_UnescapesDollarSigns(c *gc.C) {
+func (s *dataCleansingSuite) TestUnescapeKeys_UnescapesDollarSigns(c *gc.C) {
 	before := map[string]interface{}{
 		"\uff04" + "a": "c",
 	}
@@ -94,18 +94,18 @@ func (s *dataCleansingSuite) TestUnescapeKeys_RecursivelyUnescapes(c *gc.C) {
 	})
 }
 
-func (s *dataCleansingSuite) TestEscapeString_EscapesPeriods(c *gc.C) {
-	c.Check("a"+"\uff0e"+"b", gc.Equals, utils.EscapeString("a.b"))
+func (s *dataCleansingSuite) TestEscapeKey_EscapesPeriods(c *gc.C) {
+	c.Check("a"+"\uff0e"+"b", gc.Equals, utils.EscapeKey("a.b"))
 }
 
-func (s *dataCleansingSuite) TestEscapeString_EscapesDollarSigns(c *gc.C) {
-	c.Check("\uff04"+"a", gc.Equals, utils.EscapeString("$a"))
+func (s *dataCleansingSuite) TestEscapeKey_EscapesDollarSigns(c *gc.C) {
+	c.Check("\uff04"+"a", gc.Equals, utils.EscapeKey("$a"))
 }
 
-func (s *dataCleansingSuite) TestUnescapeString_UnescapesPeriod(c *gc.C) {
-	c.Check(utils.UnescapeString("a"+"\uff0e"+"b"), gc.Equals, "a.b")
+func (s *dataCleansingSuite) TestUnescapeKey_UnescapesPeriod(c *gc.C) {
+	c.Check(utils.UnescapeKey("a"+"\uff0e"+"b"), gc.Equals, "a.b")
 }
 
-func (s *dataCleansingSuite) TestUnescapeString_UnescapesDollarSigns(c *gc.C) {
-	c.Check(utils.UnescapeString("\uff04"+"a"), gc.Equals, "$a")
+func (s *dataCleansingSuite) TestUnescapeKey_UnescapesDollarSigns(c *gc.C) {
+	c.Check(utils.UnescapeKey("\uff04"+"a"), gc.Equals, "$a")
 }

@@ -6,12 +6,11 @@ package uniter_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/watcher/watchertest"
 )
@@ -20,10 +19,10 @@ import (
 // and relationUnitSuite. We're not just embeddnig relationUnitSuite
 // into relationSuite to avoid running the former's tests twice.
 type commonRelationSuiteMixin struct {
-	mysqlMachine *state.Machine
-	mysqlService *state.Application
-	mysqlCharm   *state.Charm
-	mysqlUnit    *state.Unit
+	mysqlMachine     *state.Machine
+	mysqlApplication *state.Application
+	mysqlCharm       *state.Charm
+	mysqlUnit        *state.Unit
 
 	stateRelation *state.Relation
 }
@@ -36,12 +35,14 @@ type relationUnitSuite struct {
 var _ = gc.Suite(&relationUnitSuite{})
 
 func (m *commonRelationSuiteMixin) SetUpTest(c *gc.C, s uniterSuite) {
-	// Create another machine, service and unit, so we can
+	// Create another machine, application and unit, so we can
 	// test relations and relation units.
-	m.mysqlMachine, m.mysqlService, m.mysqlCharm, m.mysqlUnit = s.addMachineServiceCharmAndUnit(c, "mysql")
+	m.mysqlMachine, m.mysqlApplication, m.mysqlCharm, m.mysqlUnit = s.addMachineAppCharmAndUnit(c, "mysql")
 
 	// Add a relation, used by both this suite and relationSuite.
 	m.stateRelation = s.addRelation(c, "wordpress", "mysql")
+	err := m.stateRelation.SetSuspended(true, "")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *relationUnitSuite) SetUpTest(c *gc.C) {
@@ -90,23 +91,6 @@ func (s *relationUnitSuite) TestEndpoint(c *gc.C) {
 	})
 }
 
-func (s *relationUnitSuite) TestPrivateAddress(c *gc.C) {
-	_, apiRelUnit := s.getRelationUnits(c)
-
-	// Try getting it first without an address set.
-	address, err := apiRelUnit.PrivateAddress()
-	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no private address set`)
-
-	// Set an address and try again.
-	err = s.wordpressMachine.SetProviderAddresses(
-		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	address, err = apiRelUnit.PrivateAddress()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(address, gc.Equals, "1.2.3.4")
-}
-
 func (s *relationUnitSuite) TestEnterScopeSuccessfully(c *gc.C) {
 	// NOTE: This test is not as exhaustive as the ones in state.
 	// Here, we just check the success case, while the two error
@@ -128,9 +112,9 @@ func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, true)
 
-	// Now we destroy mysqlService, so the relation is be set to
+	// Now we destroy mysqlApplication, so the relation is be set to
 	// dying.
-	err = s.mysqlService.Destroy()
+	err = s.mysqlApplication.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.stateRelation.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -152,7 +136,7 @@ func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScopeYet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now we create a subordinate of wordpressUnit and enter scope.
-	subRel, _, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
+	subRel, _, loggingSub := s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
 	wpRelUnit, err := subRel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpRelUnit, true)

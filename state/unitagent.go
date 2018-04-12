@@ -35,7 +35,7 @@ func (u *UnitAgent) String() string {
 
 // Status returns the status of the unit agent.
 func (u *UnitAgent) Status() (status.StatusInfo, error) {
-	info, err := getStatus(u.st, u.globalKey(), "agent")
+	info, err := getStatus(u.st.db(), u.globalKey(), "agent")
 	if err != nil {
 		return status.StatusInfo{}, errors.Trace(err)
 	}
@@ -43,6 +43,7 @@ func (u *UnitAgent) Status() (status.StatusInfo, error) {
 	// be in error state, but the state model more correctly records the agent
 	// itself as being in error. So we'll do that model translation here.
 	// TODO(fwereade): this should absolutely not be happpening in the model.
+	// TODO: when fixed, also fix code in status.go for UnitAgent.
 	if info.Status == status.Error {
 		return status.StatusInfo{
 			Status:  status.Idle,
@@ -65,11 +66,12 @@ func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
 		return errors.Trace(err)
 	}
 	isAssigned := unit.doc.MachineId != ""
+	shouldBeAssigned := unit.ShouldBeAssigned()
 	isPrincipal := unit.doc.Principal == ""
 
 	switch unitAgentStatus.Status {
 	case status.Idle, status.Executing, status.Rebooting, status.Failed:
-		if !isAssigned && isPrincipal {
+		if !isAssigned && isPrincipal && shouldBeAssigned {
 			return errors.Errorf("cannot set status %q until unit is assigned", unitAgentStatus.Status)
 		}
 	case status.Error:
@@ -80,18 +82,23 @@ func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
 		if isAssigned {
 			return errors.Errorf("cannot set status %q as unit is already assigned", unitAgentStatus.Status)
 		}
+	case status.Running:
+		// Only CAAS units (those that require assignment) can have a status of running.
+		if shouldBeAssigned {
+			return errors.Errorf("cannot set invalid status %q", unitAgentStatus.Status)
+		}
 	case status.Lost:
 		return errors.Errorf("cannot set status %q", unitAgentStatus.Status)
 	default:
 		return errors.Errorf("cannot set invalid status %q", unitAgentStatus.Status)
 	}
-	return setStatus(u.st, setStatusParams{
+	return setStatus(u.st.db(), setStatusParams{
 		badge:     "agent",
 		globalKey: u.globalKey(),
 		status:    unitAgentStatus.Status,
 		message:   unitAgentStatus.Message,
 		rawData:   unitAgentStatus.Data,
-		updated:   unitAgentStatus.Since,
+		updated:   timeOrNow(unitAgentStatus.Since, u.st.clock()),
 	})
 }
 
@@ -100,7 +107,7 @@ func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
 // representing past statuses for this agent.
 func (u *UnitAgent) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        u.st,
+		db:        u.st.db(),
 		globalKey: u.globalKey(),
 		filter:    filter,
 	}

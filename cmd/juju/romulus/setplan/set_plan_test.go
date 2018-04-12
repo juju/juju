@@ -14,7 +14,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon-bakery.v1/bakery"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon.v1"
@@ -55,7 +55,7 @@ func (s *setPlanCommandSuite) SetUpTest(c *gc.C) {
 	}
 	dummyCharm, err := s.State.AddCharm(charmInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddTestingService(c, "mysql", dummyCharm)
+	s.AddTestingApplication(c, "mysql", dummyCharm)
 
 	mockAPI, err := newMockAPI()
 	c.Assert(err, jc.ErrorIsNil)

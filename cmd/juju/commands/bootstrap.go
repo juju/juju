@@ -17,21 +17,25 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/names.v2"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/lxd/lxdnames"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -73,6 +77,10 @@ algorithm by assigning a "placement directive" via the '--to' option. This
 dictates what machine to use for the controller. This would typically be
 used with the MAAS provider ('--to <host>.maas').
 
+Available keys for use with --config can be found here:
+    https://jujucharms.com/docs/stable/controllers-config
+    https://jujucharms.com/docs/stable/models-config
+
 You can change the default timeout and retry delays used during the
 bootstrap by changing the following settings in your configuration
 (all values represent number of seconds):
@@ -86,10 +94,24 @@ address.
 
 Private clouds may need to specify their own custom image metadata and
 tools/agent. Use '--metadata-source' whose value is a local directory.
-The value of '--agent-version' will become the default tools version to
-use in all models for this controller. The full binary version is accepted
-(e.g.: 2.0.1-xenial-amd64) but only the numeric version (e.g.: 2.0.1) is
-used. Otherwise, by default, the version used is that of the client.
+
+By default, the Juju version of the agent binary that is downloaded and 
+installed on all models for the new controller will be the same as that 
+of the Juju client used to perform the bootstrap.
+However, a user can specify a different agent version via '--agent-version' 
+option to bootstrap command. Juju will use this version for models' agents 
+as long as the client's version is from the same Juju release series.
+In other words, a 2.2.1 client can bootstrap any 2.2.x agents but cannot
+bootstrap any 2.0.x or 2.1.x agents.
+The agent version can be specified a simple numeric version, e.g. 2.2.4.
+
+For example, at the time when 2.3.0, 2.3.1 and 2.3.2 are released and your
+agent stream is 'released' (default), then a 2.3.1 client can bootstrap:
+    * 2.3.0 controller by running '... bootstrap --agent-version=2.3.0 ...';
+    * 2.3.1 controller by running '... bootstrap ...';
+    * 2.3.2 controller by running 'bootstrap --auto-upgrade'.
+However, if this client has a copy of codebase, then a local copy of Juju 
+will be built and bootstrapped - 2.3.1.1.
 
 Examples:
     juju bootstrap
@@ -99,13 +121,16 @@ Examples:
     juju bootstrap aws/us-east-1
     juju bootstrap google joe-us-east1
     juju bootstrap --config=~/config-rs.yaml rackspace joe-syd
-    juju bootstrap --config agent-version=1.25.3 aws joe-us-east-1
+    juju bootstrap --agent-version=2.2.4 aws joe-us-east-1
     juju bootstrap --config bootstrap-timeout=1200 azure joe-eastus
 
 See also:
     add-credentials
     add-model
-    set-constraints`
+    controller-config
+    model-config
+    set-constraints
+    show-cloud`
 
 // defaultHostedModelName is the name of the hosted model created in each
 // controller for deploying workloads to, in addition to the "controller" model.
@@ -147,6 +172,7 @@ type bootstrapCommand struct {
 	Cloud               string
 	Region              string
 	noGUI               bool
+	noSwitch            bool
 	interactive         bool
 }
 
@@ -168,19 +194,20 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 		f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
 	}
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
-	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as tools and/or metadata source")
+	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as agent and/or image metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "Do not destroy the model if bootstrap fails")
-	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "Upgrade to the latest patch release tools on first bootstrap")
-	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of tools to use for Juju agents")
+	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "After bootstrap, upgrade to the latest patch release")
+	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of agent binaries to use for Juju agents")
 	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
 	f.Var(&c.config, "config", "Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
-	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--config config.yaml [--config key=value ...])")
+	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--model-default config.yaml [--model-default key=value ...])")
 	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "Name of the default hosted model for the controller")
-	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
 	f.BoolVar(&c.showClouds, "clouds", false, "Print the available clouds which can be used to bootstrap a Juju environment")
 	f.StringVar(&c.showRegionsForCloud, "regions", "", "Print the available regions for the specified cloud")
+	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
+	f.BoolVar(&c.noSwitch, "no-switch", false, "Do not switch to the newly created controller")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -224,7 +251,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 	if c.AgentVersion != nil && (c.AgentVersion.Major != jujuversion.Current.Major || c.AgentVersion.Minor != jujuversion.Current.Minor) {
-		return errors.New("requested agent version major.minor mismatch")
+		return errors.Errorf("this client can only bootstrap %v.%v agents", jujuversion.Current.Major, jujuversion.Current.Minor)
 	}
 
 	switch len(args) {
@@ -236,6 +263,9 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	c.Cloud = args[0]
 	if i := strings.IndexRune(c.Cloud, '/'); i > 0 {
 		c.Cloud, c.Region = c.Cloud[:i], c.Cloud[i+1:]
+	}
+	if ok := names.IsValidCloud(c.Cloud); !ok {
+		return errors.NotValidf("cloud name %q", c.Cloud)
 	}
 	if len(args) > 1 {
 		c.controllerName = args[1]
@@ -387,6 +417,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if c.controllerName == "" {
 		c.controllerName = defaultControllerName(cloud.Name, region.Name)
 	}
+	// set a Region so it's config can be found below.
+	if c.Region == "" {
+		c.Region = region.Name
+	}
 
 	config, err := c.bootstrapConfigs(ctx, cloud, provider)
 	if err != nil {
@@ -452,19 +486,21 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	// Set the current model to the initial hosted model.
-	if err := store.UpdateModel(c.controllerName, c.hostedModelName, jujuclient.ModelDetails{
-		hostedModelUUID.String(),
-	}); err != nil {
-		return errors.Trace(err)
-	}
-	if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
+	if err := store.UpdateModel(
+		c.controllerName,
+		c.hostedModelName,
+		jujuclient.ModelDetails{ModelUUID: hostedModelUUID.String(), ModelType: model.IAAS},
+	); err != nil {
 		return errors.Trace(err)
 	}
 
-	// Set the current controller so "juju status" can be run while
-	// bootstrapping is underway.
-	if err := store.SetCurrentController(c.controllerName); err != nil {
-		return errors.Trace(err)
+	if !c.noSwitch {
+		if err := store.SetCurrentModel(c.controllerName, c.hostedModelName); err != nil {
+			return errors.Trace(err)
+		}
+		if err := store.SetCurrentController(c.controllerName); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	cloudRegion := c.Cloud
@@ -481,11 +517,22 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		if resultErr != nil {
 			if c.KeepBrokenEnvironment {
 				ctx.Infof(`
-bootstrap failed but --keep-broken was specified so resources are not being destroyed.
-When you have finished diagnosing the problem, remember to clean up the failed controller.
+bootstrap failed but --keep-broken was specified. 
+This means that cloud resources are left behind, but not registered to 
+your local client, as the controller was not successfully created. 
+However, you should be able to ssh into the machine using the user "ubuntu" and 
+their IP address for diagnosis and investigation.
+When you are ready to clean up the failed controller, use your cloud console or 
+equivalent CLI tools to terminate the instances and remove remaining resources. 
+
 See `[1:] + "`juju kill-controller`" + `.`)
 			} else {
-				handleBootstrapError(ctx, resultErr, func() error {
+				logger.Errorf("%v", resultErr)
+				logger.Debugf("(error details: %v)", errors.Details(resultErr))
+				// Set resultErr to cmd.ErrSilent to prevent
+				// logging the error twice.
+				resultErr = cmd.ErrSilent
+				handleBootstrapError(ctx, func() error {
 					return environsDestroy(
 						c.controllerName, environ, store,
 					)
@@ -501,7 +548,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	ctx.InterruptNotify(interrupted)
 	defer ctx.StopInterruptNotify(interrupted)
 	go func() {
-		for _ = range interrupted {
+		for range interrupted {
 			ctx.Infof("Interrupt signalled: waiting for bootstrap to exit")
 		}
 	}()
@@ -513,14 +560,20 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		metadataDir = ctx.AbsPath(c.MetadataSource)
 	}
 
-	// Merge environ and bootstrap-specific constraints.
 	constraintsValidator, err := environ.ConstraintsValidator()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	bootstrapConstraints, err := constraintsValidator.Merge(
-		c.Constraints, c.BootstrapConstraints,
-	)
+
+	// Merge in any space constraints that should be implied from controller
+	// space config.
+	// Do it before calling merge, because the constraints will be validated
+	// there.
+	constraints := c.Constraints
+	constraints.Spaces = config.controller.AsSpaceConstraints(constraints.Spaces)
+
+	// Merge environ and bootstrap-specific constraints.
+	bootstrapConstraints, err := constraintsValidator.Merge(constraints, c.BootstrapConstraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -575,7 +628,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if err := c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName)); err != nil {
+	if err := c.SetModelName(modelcmd.JoinModelName(c.controllerName, c.hostedModelName), false); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -583,8 +636,20 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	if c.AgentVersion != nil {
 		agentVersion = *c.AgentVersion
 	}
-	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, agentVersion, config.controller.APIPort(), environ)
+	addrs, err := common.BootstrapEndpointAddresses(environ)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := juju.UpdateControllerDetailsFromLogin(
+		c.ClientStore(),
+		c.controllerName,
+		juju.UpdateControllerParams{
+			AgentVersion:           agentVersion.String(),
+			CurrentHostPorts:       [][]network.HostPort{network.AddressesWithPort(addrs, config.controller.APIPort())},
+			PublicDNSName:          newStringIfNonEmpty(config.controller.AutocertDNSName()),
+			MachineCount:           newInt(1),
+			ControllerMachineCount: newInt(1),
+		}); err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
 
@@ -868,6 +933,19 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		}
 		inheritedControllerAttrs[k] = v
 	}
+	// Region config values, for the region to be bootstrapped, from clouds.yaml
+	// override what is in the cloud config.
+	for k, v := range cloud.RegionConfig[c.Region] {
+		switch {
+		case bootstrap.IsBootstrapAttribute(k):
+			bootstrapConfigAttrs[k] = v
+			continue
+		case controller.ControllerOnlyAttribute(k):
+			controllerConfigAttrs[k] = v
+			continue
+		}
+		inheritedControllerAttrs[k] = v
+	}
 	// Model defaults are added to the inherited controller attributes.
 	// Any command line set model defaults override what is in the cloud config.
 	for k, v := range modelDefaultConfigAttrs {
@@ -1043,16 +1121,17 @@ func checkProviderType(envType string) error {
 }
 
 // handleBootstrapError is called to clean up if bootstrap fails.
-func handleBootstrapError(ctx *cmd.Context, err error, cleanup func() error) {
+func handleBootstrapError(ctx *cmd.Context, cleanup func() error) {
 	ch := make(chan os.Signal, 1)
 	ctx.InterruptNotify(ch)
 	defer ctx.StopInterruptNotify(ch)
 	defer close(ch)
 	go func() {
-		for _ = range ch {
+		for range ch {
 			fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
 		}
 	}()
+	logger.Debugf("cleaning up after failed bootstrap")
 	if err := cleanup(); err != nil {
 		logger.Errorf("error cleaning up: %v", err)
 	}
@@ -1067,4 +1146,15 @@ func handleChooseCloudRegionError(ctx *cmd.Context, err error) error {
 		err, "juju update-clouds",
 	)
 	return cmd.ErrSilent
+}
+
+func newInt(i int) *int {
+	return &i
+}
+
+func newStringIfNonEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -74,7 +74,7 @@ func (s *statusGetSuite) TestOutputFormatJustStatus(c *gc.C) {
 		setFakeStatus(hctx)
 		com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
 		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
+		ctx := cmdtesting.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
@@ -99,7 +99,7 @@ func (s *statusGetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetStatusHookContext(c)
 	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	expectedHelp := "" +
@@ -131,7 +131,7 @@ func (s *statusGetSuite) TestOutputPath(c *gc.C) {
 	setFakeStatus(hctx)
 	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--format", "json", "--output", "some-file", "--include-data"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
@@ -162,7 +162,7 @@ func (s *statusGetSuite) TestServiceStatus(c *gc.C) {
 	setFakeServiceStatus(hctx)
 	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := testing.Context(c)
+	ctx := cmdtesting.Context(c)
 	code := cmd.Main(com, ctx, []string{"--format", "json", "--include-data", "--application"})
 	c.Assert(code, gc.Equals, 0)
 

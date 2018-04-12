@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -38,8 +39,9 @@ func init() {
 	gc.Suite(&BakeryStorageSuite{})
 	gc.Suite(&blockSuite{})
 	gc.Suite(&cmdControllerSuite{})
-	gc.Suite(&cmdCredentialSuite{})
+	gc.Suite(&CmdCredentialSuite{})
 	gc.Suite(&cmdJujuSuite{})
+	gc.Suite(&cmdJujuSuiteNoCAAS{})
 	gc.Suite(&cmdLoginSuite{})
 	gc.Suite(&cmdModelSuite{})
 	gc.Suite(&cmdRegistrationSuite{})
@@ -52,17 +54,31 @@ func init() {
 	gc.Suite(&CmdRelationSuite{})
 	gc.Suite(&remoteRelationsSuite{})
 	gc.Suite(&crossmodelSuite{})
+	gc.Suite(&ApplicationConfigSuite{})
+	gc.Suite(&CharmUpgradeSuite{})
+	gc.Suite(&ResourcesCmdSuite{})
+	gc.Suite(&cmdUpdateSeriesSuite{})
+	gc.Suite(&FirewallRulesSuite{})
+	gc.Suite(&syslogSuite{})
+	gc.Suite(&introspectionSuite{})
+	gc.Suite(&debugLogDbSuite{})
+	gc.Suite(&InitiateSuite{})
+	gc.Suite(&UserSuite{})
+	gc.Suite(&cmdMetricsCommandSuite{})
+	gc.Suite(&meterStatusIntegrationSuite{})
+	gc.Suite(&CAASOperatorSuite{})
 
 	// TODO (anastasiamac 2016-07-19) Bug#1603585
 	// These tests cannot run on windows - they require a bootstrapped controller.
 	if runtime.GOOS == "linux" {
 		gc.Suite(&cloudImageMetadataSuite{})
 		gc.Suite(&cmdSpaceSuite{})
+		gc.Suite(&cmdUpgradeSuite{})
 	}
 }
 
 func TestPackage(t *testing.T) {
-	coretesting.MgoTestPackage(t)
+	coretesting.MgoSSLTestPackage(t)
 }
 
 func runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -71,9 +87,9 @@ func runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 	// return an error if we attempt to run two commands in the
 	// same test.
 	loggo.ResetWriters()
-	ctx := coretesting.Context(c)
+	ctx := cmdtesting.Context(c)
 	command := jujucmd.NewJujuCommand(ctx)
-	return coretesting.RunCommand(c, command, args...)
+	return cmdtesting.RunCommand(c, command, args...)
 }
 
 func runCommandExpectSuccess(c *gc.C, command string, args ...string) {
@@ -84,5 +100,5 @@ func runCommandExpectSuccess(c *gc.C, command string, args ...string) {
 func runCommandExpectFailure(c *gc.C, command, expectedError string, args ...string) {
 	context, err := runCommand(c, append([]string{command}, args...)...)
 	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
-	c.Assert(coretesting.Stderr(context), jc.Contains, expectedError)
+	c.Assert(cmdtesting.Stderr(context), jc.Contains, expectedError)
 }

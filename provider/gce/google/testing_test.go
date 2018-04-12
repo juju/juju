@@ -100,7 +100,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.RawMetadata = compute.Metadata{
 		Items: []*compute.MetadataItems{{
 			Key:   "eggs",
-			Value: "steak",
+			Value: StringPtr("steak"),
 		}},
 		Fingerprint: "heymumwatchthis",
 	}
@@ -127,14 +127,16 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		NetworkInterfaces: []string{"somenetif"},
 		Metadata:          s.Metadata,
 		Tags:              []string{"spam"},
+		AvailabilityZone:  "a-zone",
 	}
 	s.Instance = Instance{
 		InstanceSummary: InstanceSummary{
-			ID:        "spam",
-			ZoneName:  "a-zone",
-			Status:    StatusRunning,
-			Metadata:  s.Metadata,
-			Addresses: s.Addresses,
+			ID:                "spam",
+			ZoneName:          "a-zone",
+			Status:            StatusRunning,
+			Metadata:          s.Metadata,
+			Addresses:         s.Addresses,
+			NetworkInterfaces: s.RawInstance.NetworkInterfaces,
 		},
 		spec: &s.InstanceSpec,
 	}
@@ -144,24 +146,30 @@ func (s *BaseSuite) NewWaitError(op *compute.Operation, cause error) error {
 	return waitError{op, cause}
 }
 
+func StringPtr(val string) *string {
+	return &val
+}
+
 type fakeCall struct {
 	FuncName string
 
-	ProjectID    string
-	Region       string
-	ZoneName     string
-	Name         string
-	ID           string
-	Prefix       string
-	Statuses     []string
-	Instance     *compute.Instance
-	InstValue    compute.Instance
-	Firewall     *compute.Firewall
-	InstanceId   string
-	AttachedDisk *compute.AttachedDisk
-	DeviceName   string
-	ComputeDisk  *compute.Disk
-	Metadata     *compute.Metadata
+	ProjectID        string
+	Region           string
+	ZoneName         string
+	Name             string
+	ID               string
+	Prefix           string
+	Statuses         []string
+	Instance         *compute.Instance
+	InstValue        compute.Instance
+	Firewall         *compute.Firewall
+	InstanceId       string
+	AttachedDisk     *compute.AttachedDisk
+	DeviceName       string
+	ComputeDisk      *compute.Disk
+	Metadata         *compute.Metadata
+	LabelFingerprint string
+	Labels           map[string]string
 }
 
 type fakeConn struct {
@@ -177,6 +185,8 @@ type fakeConn struct {
 	Disks         []*compute.Disk
 	Disk          *compute.Disk
 	AttachedDisks []*compute.AttachedDisk
+	Networks      []*compute.Network
+	Subnetworks   []*compute.Subnetwork
 }
 
 func (rc *fakeConn) GetProject(projectID string) (*compute.Project, error) {
@@ -350,11 +360,10 @@ func (rc *fakeConn) CreateDisk(project, zone string, spec *compute.Disk) error {
 	return err
 }
 
-func (rc *fakeConn) ListDisks(project, zone string) ([]*compute.Disk, error) {
+func (rc *fakeConn) ListDisks(project string) ([]*compute.Disk, error) {
 	call := fakeCall{
 		FuncName:  "ListDisks",
 		ProjectID: project,
-		ZoneName:  zone,
 	}
 	rc.Calls = append(rc.Calls, call)
 
@@ -395,6 +404,24 @@ func (rc *fakeConn) GetDisk(project, zone, id string) (*compute.Disk, error) {
 		err = nil
 	}
 	return rc.Disk, err
+}
+
+func (rc *fakeConn) SetDiskLabels(project, zone, id, labelFingerprint string, labels map[string]string) error {
+	call := fakeCall{
+		FuncName:         "SetDiskLabels",
+		ProjectID:        project,
+		ZoneName:         zone,
+		ID:               id,
+		LabelFingerprint: labelFingerprint,
+		Labels:           labels,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return err
 }
 
 func (rc *fakeConn) AttachDisk(project, zone, instanceId string, attachedDisk *compute.AttachedDisk) error {
@@ -479,4 +506,39 @@ func (rc *fakeConn) SetMetadata(projectID, zone, instanceID string, metadata *co
 		err = nil
 	}
 	return err
+}
+
+func (rc *fakeConn) ListNetworks(projectID string) ([]*compute.Network, error) {
+	call := fakeCall{
+		FuncName:  "ListNetworks",
+		ProjectID: projectID,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return rc.Networks, nil
+}
+
+func (rc *fakeConn) ListSubnetworks(projectID, region string) ([]*compute.Subnetwork, error) {
+	call := fakeCall{
+		FuncName:  "ListSubnetworks",
+		ProjectID: projectID,
+		Region:    region,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return rc.Subnetworks, nil
 }

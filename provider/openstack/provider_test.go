@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/goose.v1/neutron"
-	"gopkg.in/goose.v1/nova"
+	"gopkg.in/goose.v2/neutron"
+	"gopkg.in/goose.v2/nova"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
@@ -310,6 +310,26 @@ func (*localTests) TestSecGroupMatchesIngressRule(c *gc.C) {
 		},
 		expected: false,
 	}, {
+		about: "nil rule component: PortRangeMin",
+		rule:  network.MustNewIngressRule(proto_tcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
+		secGroupRule: neutron.SecurityGroupRuleV2{
+			IPProtocol:     &proto_tcp,
+			PortRangeMin:   nil,
+			PortRangeMax:   &port_85,
+			RemoteIPPrefix: "192.168.100.0/24",
+		},
+		expected: false,
+	}, {
+		about: "nil rule component: PortRangeMax",
+		rule:  network.MustNewIngressRule(proto_tcp, 80, 85, "0.0.0.0/0", "192.168.1.0/24"),
+		secGroupRule: neutron.SecurityGroupRuleV2{
+			IPProtocol:     &proto_tcp,
+			PortRangeMin:   &port_85,
+			PortRangeMax:   nil,
+			RemoteIPPrefix: "192.168.100.0/24",
+		},
+		expected: false,
+	}, {
 		about: "mismatched port range and rule",
 		rule:  network.MustNewIngressRule(proto_tcp, 80, 85),
 		secGroupRule: neutron.SecurityGroupRuleV2{
@@ -518,49 +538,44 @@ func (localTests) TestPingOK(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type providerUnitTests struct{}
+type providerUnitTests struct {
+	gitjujutesting.IsolationSuite
+}
 
 var _ = gc.Suite(&providerUnitTests{})
 
-func (s *providerUnitTests) checkIdentityClientVersionInvalid(c *gc.C, url string) {
+func checkIdentityClientVersionInvalid(c *gc.C, url string) {
 	_, err := identityClientVersion(url)
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf("version part of identity url %s not valid", url))
 }
 
+func checkIdentityClientVersion(c *gc.C, url string, expversion int) {
+	version, err := identityClientVersion(url)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, expversion)
+}
 func (s *providerUnitTests) TestIdentityClientVersion_BadURLErrors(c *gc.C) {
-	s.checkIdentityClientVersionInvalid(c, "https://keystone.internal/a")
-	s.checkIdentityClientVersionInvalid(c, "https://keystone.internal/v")
-	s.checkIdentityClientVersionInvalid(c, "https://keystone.internal/V")
-	s.checkIdentityClientVersionInvalid(c, "https://keystone.internal/V/")
-	s.checkIdentityClientVersionInvalid(c, "https://keystone.internal/100")
+	checkIdentityClientVersionInvalid(c, "https://keystone.internal/a")
+	checkIdentityClientVersionInvalid(c, "https://keystone.internal/v")
+	checkIdentityClientVersionInvalid(c, "https://keystone.internal/V")
+	checkIdentityClientVersionInvalid(c, "https://keystone.internal/V/")
+	checkIdentityClientVersionInvalid(c, "https://keystone.internal/100")
+	checkIdentityClientVersionInvalid(c, "https://keystone.internal/vot")
+	checkIdentityClientVersionInvalid(c, "https://keystone.internal/identity/vot")
+	checkIdentityClientVersionInvalid(c, "https://keystone.internal/identity/2")
 
 	_, err := identityClientVersion("abc123")
 	c.Check(err, gc.ErrorMatches, `url abc123 is malformed`)
-
-	_, err = identityClientVersion("https://keystone.internal/vot")
-	c.Check(err, gc.ErrorMatches, `invalid major version number ot: .* parsing "ot": invalid syntax`)
 }
 
 func (s *providerUnitTests) TestIdentityClientVersion_ParsesGoodURL(c *gc.C) {
-	version, err := identityClientVersion("https://keystone.internal/v2.0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(version, gc.Equals, 2)
-
-	version, err = identityClientVersion("https://keystone.internal/v3.0/")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(version, gc.Equals, 3)
-
-	version, err = identityClientVersion("https://keystone.internal/v2/")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(version, gc.Equals, 2)
-
-	version, err = identityClientVersion("https://keystone.internal/V2/")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(version, gc.Equals, 2)
-
-	_, err = identityClientVersion("https://keystone.internal")
-	c.Check(err, jc.ErrorIsNil)
-
-	_, err = identityClientVersion("https://keystone.internal/")
-	c.Check(err, jc.ErrorIsNil)
+	checkIdentityClientVersion(c, "https://keystone.internal/v2.0", 2)
+	checkIdentityClientVersion(c, "https://keystone.internal/v3.0/", 3)
+	checkIdentityClientVersion(c, "https://keystone.internal/v2/", 2)
+	checkIdentityClientVersion(c, "https://keystone.internal/V2/", 2)
+	checkIdentityClientVersion(c, "https://keystone.internal/internal/V2/", 2)
+	checkIdentityClientVersion(c, "https://keystone.internal/internal/v3.0/", 3)
+	checkIdentityClientVersion(c, "https://keystone.internal/internal/v3.2///", 3)
+	checkIdentityClientVersion(c, "https://keystone.internal", -1)
+	checkIdentityClientVersion(c, "https://keystone.internal/", -1)
 }

@@ -80,7 +80,8 @@ func InitUbuntuUser(host, login, authorizedKeys string, read io.Reader, write io
 
 const initUbuntuScript = `
 set -e
-(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash
+(grep ubuntu /etc/group) || groupadd ubuntu
+(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash -g ubuntu
 umask 0077
 temp=$(mktemp)
 echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp
@@ -128,6 +129,7 @@ func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 	// logical cores due to hyperthreading.
 	recorded := make(map[string]bool)
 	var physicalId string
+	var processorEntries uint64
 	hc.CpuCores = new(uint64)
 	for _, line := range lines[3:] {
 		if strings.HasPrefix(line, "physical id") {
@@ -142,12 +144,14 @@ func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 				*hc.CpuCores += cores
 				recorded[physicalId] = true
 			}
+		} else if strings.HasPrefix(line, "processor") {
+			processorEntries++
 		}
 	}
 	if *hc.CpuCores == 0 {
-		// In the case of a single-core, non-HT CPU, we'll see no
-		// "physical id" or "cpu cores" lines.
-		*hc.CpuCores = 1
+		// As a fallback, if there're no `physical id` entries, we count `processor` entries
+		// This happens on arm, arm64, ppc, see lp:1664434
+		*hc.CpuCores = processorEntries
 	}
 
 	// TODO(axw) calculate CpuPower. What algorithm do we use?
@@ -189,6 +193,11 @@ os_id=$(grep '^ID=' /etc/os-release | tr -d '"' | cut -d= -f2)
 if [ "$os_id" = 'centos' ]; then
   os_version=$(grep '^VERSION_ID=' /etc/os-release | tr -d '"' | cut -d= -f2)
   echo "centos$os_version"
+elif [ "$os_id" = 'opensuse' ]; then
+  os_version=$(grep '^VERSION_ID=' /etc/os-release | tr -d '"' | cut -d= -f2 | cut -d. -f1)
+  if [ $os_version -eq 42 ]; then
+    echo "opensuseleap"
+  fi
 else
   lsb_release -cs
 fi

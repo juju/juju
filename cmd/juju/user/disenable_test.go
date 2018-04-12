@@ -5,11 +5,11 @@ package user_test
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/testing"
 )
 
 type DisableUserSuite struct {
@@ -47,7 +47,7 @@ func (s *DisableUserSuite) testInit(c *gc.C, wrappedCommand cmd.Command, command
 		},
 	} {
 		c.Logf("test %d, args %v", i, test.args)
-		err := testing.InitCommand(wrappedCommand, test.args)
+		err := cmdtesting.InitCommand(wrappedCommand, test.args)
 		if test.errMatch == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(command.User, gc.Equals, test.user)
@@ -67,7 +67,7 @@ func (s *DisableUserSuite) TestInit(c *gc.C) {
 func (s *DisableUserSuite) TestDisable(c *gc.C) {
 	username := "testing"
 	disableCommand, _ := user.NewDisableCommandForTest(s.mock, s.store)
-	_, err := testing.RunCommand(c, disableCommand, username)
+	_, err := cmdtesting.RunCommand(c, disableCommand, username)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mock.disable, gc.Equals, username)
 }
@@ -75,7 +75,7 @@ func (s *DisableUserSuite) TestDisable(c *gc.C) {
 func (s *DisableUserSuite) TestEnable(c *gc.C) {
 	username := "testing"
 	enableCommand, _ := user.NewEnableCommandForTest(s.mock, s.store)
-	_, err := testing.RunCommand(c, enableCommand, username)
+	_, err := cmdtesting.RunCommand(c, enableCommand, username)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mock.enable, gc.Equals, username)
 }

@@ -31,7 +31,7 @@ func (s *ManifoldConfigSuite) validConfig() remoterelations.ManifoldConfig {
 	return remoterelations.ManifoldConfig{
 		AgentName:                "agent",
 		APICallerName:            "api-caller",
-		NewAPIConnForModel:       func(*api.Info) (func(string) (api.Connection, error), error) { return nil, nil },
+		NewControllerConnection:  func(*api.Info) (api.Connection, error) { return nil, nil },
 		NewRemoteRelationsFacade: func(base.APICaller) (remoterelations.RemoteRelationsFacade, error) { return nil, nil },
 		NewWorker:                func(remoterelations.Config) (worker.Worker, error) { return nil, nil },
 	}
@@ -61,9 +61,9 @@ func (s *ManifoldConfigSuite) TestMissingNewWorker(c *gc.C) {
 	s.checkNotValid(c, "nil NewWorker not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingNewAPIConnForModel(c *gc.C) {
-	s.config.NewAPIConnForModel = nil
-	s.checkNotValid(c, "nil NewAPIConnForModel not valid")
+func (s *ManifoldConfigSuite) TestMissingNewControllerConnection(c *gc.C) {
+	s.config.NewControllerConnection = nil
+	s.checkNotValid(c, "nil NewControllerConnection not valid")
 }
 
 func (s *ManifoldConfigSuite) checkNotValid(c *gc.C, expect string) {

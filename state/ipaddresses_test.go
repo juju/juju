@@ -5,9 +5,11 @@ package state_test
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
@@ -26,6 +28,14 @@ type ipAddressesStateSuite struct {
 }
 
 var _ = gc.Suite(&ipAddressesStateSuite{})
+
+type AddressSorter []*state.Address
+
+func (a AddressSorter) Len() int           { return len(a) }
+func (a AddressSorter) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a AddressSorter) Less(i, j int) bool { return a[i].DocID() < a[j].DocID() }
+
+var _ sort.Interface = (AddressSorter)(nil)
 
 func (s *ipAddressesStateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
@@ -164,15 +174,18 @@ func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNotFoundErrorWhenMissing(
 
 func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNotFoundErrorWithUnknownOrLocalSubnet(c *gc.C) {
 	cidrs := []string{"127.0.0.0/8", "::1/128", "8.8.0.0/16"}
+	missingCIDRs := set.NewStrings(cidrs...)
 	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", cidrs...)
 
-	for i, address := range addresses {
+	for _, address := range addresses {
 		result, err := address.Subnet()
 		c.Check(result, gc.IsNil)
 		c.Check(err, jc.Satisfies, errors.IsNotFound)
-		expectedError := fmt.Sprintf("subnet %q not found", cidrs[i])
+		expectedError := fmt.Sprintf("subnet %q not found", address.SubnetCIDR())
 		c.Check(err, gc.ErrorMatches, expectedError)
+		missingCIDRs.Remove(address.SubnetCIDR())
 	}
+	c.Check(missingCIDRs.SortedValues(), gc.DeepEquals, []string{})
 }
 
 func (s *ipAddressesStateSuite) TestRemoveSuccess(c *gc.C) {
@@ -261,7 +274,9 @@ func (s *ipAddressesStateSuite) addTwoDevicesWithTwoAddressesEach(c *gc.C) []*st
 	_, device1Addresses := s.addNamedDeviceWithAddresses(c, "eth1", "10.20.0.1/16", "10.20.0.2/16")
 	_, device2Addresses := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.100.2/16", "fc00::/64")
 	s.assertAllAddressesOnMachineMatchCount(c, s.machine, 4)
-	return append(device1Addresses, device2Addresses...)
+	addresses := append(device1Addresses, device2Addresses...)
+	sort.Sort(AddressSorter(addresses))
+	return addresses
 }
 
 func (s *ipAddressesStateSuite) removeAllAddressesOnMachineAndAssertNoneRemain(c *gc.C) {
@@ -280,6 +295,7 @@ func (s *ipAddressesStateSuite) TestMachineAllAddressesSuccess(c *gc.C) {
 	addedAddresses := s.addTwoDevicesWithTwoAddressesEach(c)
 
 	allAddresses, err := s.machine.AllAddresses()
+	sort.Sort(AddressSorter(allAddresses))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allAddresses, jc.DeepEquals, addedAddresses)
 }
@@ -290,9 +306,15 @@ func (s *ipAddressesStateSuite) TestMachineAllNetworkAddresses(c *gc.C) {
 	for i := range addedAddresses {
 		expected[i] = addedAddresses[i].NetworkAddress()
 	}
+	sort.Slice(expected, func(i, j int) bool {
+		return expected[i].Value < expected[j].Value
+	})
 
 	networkAddresses, err := s.machine.AllNetworkAddresses()
 	c.Assert(err, jc.ErrorIsNil)
+	sort.Slice(networkAddresses, func(i, j int) bool {
+		return networkAddresses[i].Value < networkAddresses[j].Value
+	})
 	c.Assert(networkAddresses, jc.DeepEquals, expected)
 }
 
@@ -503,22 +525,6 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatch
 	s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
 }
 
-func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenModelNotAlive(c *gc.C) {
-	s.addNamedDeviceForMachine(c, "eth0", s.otherStateMachine)
-	otherModel, err := s.otherState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = otherModel.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := state.LinkLayerDeviceAddress{
-		CIDRAddress:  "10.20.30.40/16",
-		DeviceName:   "eth0",
-		ConfigMethod: state.StaticAddress,
-	}
-	err = s.otherStateMachine.SetDevicesAddresses(args)
-	c.Assert(err, gc.ErrorMatches, `.*: model "other-model" is no longer alive`)
-}
-
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenMachineNotAliveOrGone(c *gc.C) {
 	s.addNamedDeviceForMachine(c, "eth0", s.otherStateMachine)
 	err := s.otherStateMachine.EnsureDead()
@@ -661,17 +667,19 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithMultipleUpdatesOfSame
 		DNSSearchDomains: []string{"example.com", "example.org"},
 		GatewayAddress:   "0.1.2.1",
 	}, {
-		// Test deletes work for DNS settings, also change method, provider id, and gateway.
+		// Test deletes work for DNS settings, also change method, and gateway.
 		DeviceName:       "eth0",
 		ConfigMethod:     state.DynamicAddress,
 		CIDRAddress:      "0.1.2.3/24",
-		ProviderID:       "id-xxxx", // last change wins
+		ProviderID:       "id-0123", // not allowed to change ProviderID once set
 		DNSServers:       nil,
 		DNSSearchDomains: nil,
 		GatewayAddress:   "0.1.2.2",
 	}}
-	err := s.machine.SetDevicesAddresses(setArgs...)
-	c.Assert(err, jc.ErrorIsNil)
+	for _, arg := range setArgs {
+		err := s.machine.SetDevicesAddresses(arg)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	updatedAddresses, err := device.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedAddresses, gc.HasLen, len(initialAddresses))

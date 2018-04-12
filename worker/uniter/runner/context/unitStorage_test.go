@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -70,7 +71,7 @@ func (s *unitStorageSuite) TestAddUnitStorageZeroCount(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*count must be specified.*`)
 
 	// Make sure no storage instances was added
-	after, err := s.State.AllStorageInstances()
+	after, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
 	s.assertExistingStorage(c, after)
@@ -89,7 +90,7 @@ func (s *unitStorageSuite) TestAddUnitStorageWithSize(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*only count can be specified.*`)
 
 	// Make sure no storage instances was added
-	after, err := s.State.AllStorageInstances()
+	after, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
 	s.assertExistingStorage(c, after)
@@ -107,7 +108,7 @@ func (s *unitStorageSuite) TestAddUnitStorageWithPool(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*only count can be specified.*`)
 
 	// Make sure no storage instances was added
-	after, err := s.State.AllStorageInstances()
+	after, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, 0)
 	s.assertExistingStorage(c, after)
@@ -135,7 +136,10 @@ func (s *unitStorageSuite) TestAddUnitStorageAccumulatedSame(c *gc.C) {
 
 func setupTestStorageSupport(c *gc.C, s *state.State) {
 	stsetts := state.NewStateSettings(s)
-	poolManager := poolmanager.New(stsetts, dummy.StorageProviders())
+	poolManager := poolmanager.New(stsetts, storage.ChainedProviderRegistry{
+		dummy.StorageProviders(),
+		provider.CommonStorageProviders(),
+	})
 	_, err := poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = poolManager.Create(testPersistentPool, "modelscoped", map[string]interface{}{"persistent": true})
@@ -144,7 +148,7 @@ func setupTestStorageSupport(c *gc.C, s *state.State) {
 
 func (s *unitStorageSuite) createStorageEnabledUnit(c *gc.C) {
 	s.ch = s.AddTestingCharm(c, s.charmName)
-	s.service = s.AddTestingServiceWithStorage(c, s.charmName, s.ch, s.initCons)
+	s.service = s.AddTestingApplicationWithStorage(c, s.charmName, s.ch, s.initCons)
 	s.unit = s.AddUnit(c, s.service)
 
 	s.assertStorageCreated(c)
@@ -172,7 +176,7 @@ func (s *unitStorageSuite) createStorageBlock2Unit(c *gc.C) {
 }
 
 func (s *unitStorageSuite) assertStorageCreated(c *gc.C) {
-	all, err := s.State.AllStorageInstances()
+	all, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	s.initialStorageInstancesCount = len(all)
 	s.expectedStorageNames = set.NewStrings()
@@ -221,7 +225,7 @@ func (s *unitStorageSuite) assertUnitStorageAdded(c *gc.C, cons ...map[string]pa
 	err := ctx.Flush("success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	after, err := s.State.AllStorageInstances()
+	after, err := s.IAASModel.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(after)-s.initialStorageInstancesCount, gc.Equals, len(cons))
 	s.assertExistingStorage(c, after)

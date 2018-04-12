@@ -4,6 +4,8 @@
 package block
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -91,9 +93,9 @@ func ProcessBlockedError(err error, block Block) error {
 		return nil
 	}
 	if params.IsCodeOperationBlocked(err) {
-		msg := blockedMessages[block]
-		logger.Errorf("%v\n%v", err, msg)
-		return errors.New(msg)
+		msg := fmt.Sprintf("%v\n%v", err, blockedMessages[block])
+		logger.Infof(msg)
+		return errors.Errorf(msg)
 	}
 	return err
 }

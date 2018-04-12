@@ -28,9 +28,9 @@ import (
 
 // TODO(wallyworld) - lp:1602508 - collections need to be defined in collections.go
 const (
-	logsDB     = "logs"
-	logsC      = "logs"
-	forwardedC = "forwarded"
+	logsDB      = "logs"
+	logsCPrefix = "logs."
+	forwardedC  = "forwarded"
 )
 
 // ErrNeverForwarded signals to the caller that the ID of a
@@ -43,7 +43,7 @@ type MongoSessioner interface {
 	MongoSession() *mgo.Session
 }
 
-// ModelSessioner supports creating new mongo sessions for the controller.
+// ControllerSessioner supports creating new mongo sessions for the controller.
 type ControllerSessioner interface {
 	MongoSessioner
 
@@ -64,14 +64,18 @@ var logIndexes = [][]string{
 	// This index needs to include _id because
 	// logTailer.processCollection uses _id to ensure log records with
 	// the same time have a consistent ordering.
-	{"e", "t", "_id"},
-	{"e", "n"},
+	{"t", "_id"},
+	{"n"},
+}
+
+func logCollectionName(modelUUID string) string {
+	return logsCPrefix + modelUUID
 }
 
 // InitDbLogs sets up the indexes for the logs collection. It should
 // be called as state is opened. It is idempotent.
-func InitDbLogs(session *mgo.Session) error {
-	logsColl := session.DB(logsDB).C(logsC)
+func InitDbLogs(session *mgo.Session, modelUUID string) error {
+	logsColl := session.DB(logsDB).C(logCollectionName(modelUUID))
 	for _, key := range logIndexes {
 		err := logsColl.EnsureIndex(mgo.Index{Key: key})
 		if err != nil {
@@ -135,24 +139,10 @@ type LastSentLogTracker struct {
 // the timestamps of the most recent log records forwarded to the
 // identified log sink for the current model.
 func NewLastSentLogTracker(st ModelSessioner, modelUUID, sink string) *LastSentLogTracker {
-	return newLastSentLogTracker(st, modelUUID, sink)
-}
-
-// NewAllLastSentLogTracker returns a new tracker that records and retrieves
-// the timestamps of the most recent log records forwarded to the
-// identified log sink for *all* models.
-func NewAllLastSentLogTracker(st ControllerSessioner, sink string) (*LastSentLogTracker, error) {
-	if !st.IsController() {
-		return nil, errors.New("only the admin model can track all log records")
-	}
-	return newLastSentLogTracker(st, "", sink), nil
-}
-
-func newLastSentLogTracker(st MongoSessioner, model, sink string) *LastSentLogTracker {
 	session := st.MongoSession().Copy()
 	return &LastSentLogTracker{
-		id:      fmt.Sprintf("%s#%s", model, sink),
-		model:   model,
+		id:      fmt.Sprintf("%s#%s", modelUUID, sink),
+		model:   modelUUID,
 		sink:    sink,
 		session: session,
 	}
@@ -203,15 +193,14 @@ func (logger *LastSentLogTracker) Get() (int64, int64, error) {
 // for increased precision.
 // TODO: remove version from this structure: https://pad.lv/1643743
 type logDoc struct {
-	Id        bson.ObjectId `bson:"_id"`
-	Time      int64         `bson:"t"` // unix nano UTC
-	ModelUUID string        `bson:"e"`
-	Entity    string        `bson:"n"` // e.g. "machine-0"
-	Version   string        `bson:"r"`
-	Module    string        `bson:"m"` // e.g. "juju.worker.firewaller"
-	Location  string        `bson:"l"` // "filename:lineno"
-	Level     int           `bson:"v"`
-	Message   string        `bson:"x"`
+	Id       bson.ObjectId `bson:"_id"`
+	Time     int64         `bson:"t"` // unix nano UTC
+	Entity   string        `bson:"n"` // e.g. "machine-0"
+	Version  string        `bson:"r"`
+	Module   string        `bson:"m"` // e.g. "juju.worker.firewaller"
+	Location string        `bson:"l"` // "filename:lineno"
+	Level    int           `bson:"v"`
+	Message  string        `bson:"x"`
 }
 
 type DbLogger struct {
@@ -227,21 +216,49 @@ func NewDbLogger(st ModelSessioner) *DbLogger {
 	}
 }
 
-// Log writes a log message to the database.
-func (logger *DbLogger) Log(t time.Time, entity string, module string, location string, level loggo.Level, msg string) error {
-	// TODO(ericsnow) Use a controller-global int sequence for Id.
+// Log writes log messages to the database. Log records
+// are written to the database in bulk; callers should
+// buffer log records to and call Log with a batch to
+// minimise database writes.
+//
+// The ModelUUID and ID fields of records are ignored;
+// DbLogger is scoped to a single model, and ID is
+// controlled by the DbLogger code.
+func (logger *DbLogger) Log(records []LogRecord) error {
+	for _, r := range records {
+		if err := validateInputLogRecord(r); err != nil {
+			return errors.Annotate(err, "validating input log record")
+		}
+	}
+	bulk := logger.logsColl.Bulk()
+	for _, r := range records {
+		var versionString string
+		if r.Version != version.Zero {
+			versionString = r.Version.String()
+		}
+		bulk.Insert(&logDoc{
+			// TODO(axw) Use a controller-global int
+			// sequence for Id, so we can order by
+			// insertion.
+			Id:       bson.NewObjectId(),
+			Time:     r.Time.UnixNano(),
+			Entity:   r.Entity.String(),
+			Version:  versionString,
+			Module:   r.Module,
+			Location: r.Location,
+			Level:    int(r.Level),
+			Message:  r.Message,
+		})
+	}
+	_, err := bulk.Run()
+	return errors.Annotatef(err, "inserting %d log record(s)", len(records))
+}
 
-	unixEpochNanoUTC := t.UnixNano()
-	return logger.logsColl.Insert(&logDoc{
-		Id:        bson.NewObjectId(),
-		Time:      unixEpochNanoUTC,
-		ModelUUID: logger.modelUUID,
-		Entity:    entity,
-		Module:    module,
-		Location:  location,
-		Level:     int(level),
-		Message:   msg,
-	})
+func validateInputLogRecord(r LogRecord) error {
+	if r.Entity == nil {
+		return errors.NotValidf("missing Entity")
+	}
+	return nil
 }
 
 // Close cleans up resources used by the DbLogger instance.
@@ -249,42 +266,6 @@ func (logger *DbLogger) Close() {
 	if logger.logsColl != nil {
 		logger.logsColl.Database.Session.Close()
 	}
-}
-
-// EntityDbLogger writes log records about one entity.
-type EntityDbLogger struct {
-	DbLogger
-	entity  string
-	version string
-}
-
-// NewEntityDbLogger returns an EntityDbLogger instance which is used
-// to write logs to the database.
-func NewEntityDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *EntityDbLogger {
-	dbLogger := NewDbLogger(st)
-	return &EntityDbLogger{
-		DbLogger: *dbLogger,
-		entity:   entity.String(),
-		version:  ver.String(),
-	}
-}
-
-// Log writes a log message to the database.
-func (logger *EntityDbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
-	// TODO(ericsnow) Use a controller-global int sequence for Id.
-
-	unixEpochNanoUTC := t.UnixNano()
-	return logger.logsColl.Insert(&logDoc{
-		Id:        bson.NewObjectId(),
-		Time:      unixEpochNanoUTC,
-		ModelUUID: logger.modelUUID,
-		Entity:    logger.entity,
-		Version:   logger.version,
-		Module:    module,
-		Location:  location,
-		Level:     int(level),
-		Message:   msg,
-	})
 }
 
 // LogTailer allows for retrieval of Juju's logs from MongoDB. It
@@ -341,7 +322,6 @@ type LogTailerParams struct {
 	IncludeModule []string
 	ExcludeModule []string
 	Oplog         *mgo.Collection // For testing only
-	AllModels     bool
 }
 
 // oplogOverlap is used to decide on the initial oplog timestamp to
@@ -361,6 +341,10 @@ const oplogOverlap = time.Minute
 // output of large broken models with logging at DEBUG.
 var maxRecentLogIds = int(oplogOverlap.Minutes() * 150000)
 
+// maxInitialLines limits the number of documents we will load into memory
+// so that we can iterate them in the correct order.
+var maxInitialLines = 10000
+
 // LogTailerState describes the methods on State required for logging to
 // the database.
 type LogTailerState interface {
@@ -372,19 +356,16 @@ type LogTailerState interface {
 
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
-func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error) {
-	if !st.IsController() && params.AllModels {
-		return nil, errors.NewNotValid(nil, "not allowed to tail logs from all models: not a controller")
-	}
-
+func NewLogTailer(st LogTailerState, params LogTailerParams) (LogTailer, error) {
 	session := st.MongoSession().Copy()
 	t := &logTailer{
-		modelUUID: st.ModelUUID(),
-		session:   session,
-		logsColl:  session.DB(logsDB).C(logsC).With(session),
-		params:    params,
-		logCh:     make(chan *LogRecord),
-		recentIds: newRecentIdTracker(maxRecentLogIds),
+		modelUUID:       st.ModelUUID(),
+		session:         session,
+		logsColl:        session.DB(logsDB).C(logCollectionName(st.ModelUUID())).With(session),
+		params:          params,
+		logCh:           make(chan *LogRecord),
+		recentIds:       newRecentIdTracker(maxRecentLogIds),
+		maxInitialLines: maxInitialLines,
 	}
 	go func() {
 		err := t.loop()
@@ -397,15 +378,16 @@ func NewLogTailer(st LogTailerState, params *LogTailerParams) (LogTailer, error)
 }
 
 type logTailer struct {
-	tomb      tomb.Tomb
-	modelUUID string
-	session   *mgo.Session
-	logsColl  *mgo.Collection
-	params    *LogTailerParams
-	logCh     chan *LogRecord
-	lastID    int64
-	lastTime  time.Time
-	recentIds *recentIdTracker
+	tomb            tomb.Tomb
+	modelUUID       string
+	session         *mgo.Session
+	logsColl        *mgo.Collection
+	params          LogTailerParams
+	logCh           chan *LogRecord
+	lastID          int64
+	lastTime        time.Time
+	recentIds       *recentIdTracker
+	maxInitialLines int
 }
 
 // Logs implements the LogTailer interface.
@@ -430,51 +412,62 @@ func (t *logTailer) Err() error {
 }
 
 func (t *logTailer) loop() error {
+	// NOTE: don't trace or annotate the errors returned
+	// from this method as the error may be tomb.ErrDying, and
+	// the tomb code is sensitive about equality.
 	err := t.processCollection()
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
 
 	if t.params.NoTail {
 		return nil
 	}
 
-	err = t.tailOplog()
-	return errors.Trace(err)
+	return t.tailOplog()
 }
 
-func (t *logTailer) processCollection() error {
-	// Create a selector from the params.
-	sel := t.paramsToSelector(t.params, "")
-	query := t.logsColl.Find(sel)
-
-	if t.params.InitialLines > 0 {
-		// This is a little racy but it's good enough.
-		count, err := query.Count()
-		if err != nil {
-			return errors.Annotate(err, "query count failed")
+func (t *logTailer) processReversed(query *mgo.Query) error {
+	// We must sort by exactly the fields in the index and exactly reversed
+	// so that Mongo will use the index and not try to sort in memory.
+	// Note (jam): 2017-04-19 if this is truly too much memory load we should
+	// a) limit InitialLines to something reasonable
+	// b) we *could* just load the object _ids and then do a forward query
+	//    on exactly those ids (though it races with new items being inserted)
+	// c) use the aggregation pipeline in Mongo 3.2 to write the docs to
+	//    a temp location and iterate them forward from there.
+	// (a) makes the most sense for me :)
+	if t.params.InitialLines > t.maxInitialLines {
+		return errors.Errorf("too many lines requested (%d) maximum is %d",
+			t.params.InitialLines, maxInitialLines)
+	}
+	query.Sort("-t", "-_id")
+	query.Limit(t.params.InitialLines)
+	iter := query.Iter()
+	defer iter.Close()
+	queue := make([]logDoc, t.params.InitialLines)
+	cur := t.params.InitialLines
+	var doc logDoc
+	for iter.Next(&doc) {
+		select {
+		case <-t.tomb.Dying():
+			return errors.Trace(tomb.ErrDying)
+		default:
 		}
-		if skipOver := count - t.params.InitialLines; skipOver > 0 {
-			query = query.Skip(skipOver)
+		cur--
+		queue[cur] = doc
+		if cur == 0 {
+			break
 		}
 	}
-
-	// In tests, sorting by time can leave the result ordering
-	// underconstrained. Since object ids are (timestamp, machine id,
-	// process id, counter)
-	// https://docs.mongodb.com/manual/reference/bson-types/#objectid
-	// and the tests only run one mongod process, including _id
-	// guarantees getting log messages in a predictable order.
-	//
-	// Important: it is critical that the sort index includes _id,
-	// otherwise MongoDB won't use the index, which risks hitting
-	// MongoDB's 32MB sort limit.  See https://pad.lv/1590605.
-	//
-	// TODO(ericsnow) Sort only by _id once it is a sequential int.
-	iter := query.Sort("e", "t", "_id").Iter()
-	doc := new(logDoc)
-	for iter.Next(doc) {
-		rec, err := logDocToRecord(doc)
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	// We loaded the queue in reverse order, truncate it to just the actual
+	// contents, and then return them in the correct order.
+	queue = queue[cur:]
+	for _, doc := range queue {
+		rec, err := logDocToRecord(t.modelUUID, &doc)
 		if err != nil {
 			return errors.Annotate(err, "deserialization failed (possible DB corruption)")
 		}
@@ -487,6 +480,65 @@ func (t *logTailer) processCollection() error {
 			t.recentIds.Add(doc.Id)
 		}
 	}
+	return nil
+}
+
+func (t *logTailer) processCollection() error {
+	// Create a selector from the params.
+	sel := t.paramsToSelector(t.params, "")
+	query := t.logsColl.Find(sel)
+
+	var doc logDoc
+	if t.params.InitialLines > 0 {
+		return t.processReversed(query)
+	}
+	// In tests, sorting by time can leave the result ordering
+	// underconstrained. Since object ids are (timestamp, machine id,
+	// process id, counter)
+	// https://docs.mongodb.com/manual/reference/bson-types/#objectid
+	// and the tests only run one mongod process, including _id
+	// guarantees getting log messages in a predictable order.
+	//
+	// Important: it is critical that the sort index includes _id,
+	// otherwise MongoDB won't use the index, which risks hitting
+	// MongoDB's 32MB sort limit.  See https://pad.lv/1590605.
+	//
+	// If we get a deserialisation error, write out the first failure,
+	// but don't write out any additional errors until we either hit
+	// a good value, or end the method.
+	deserialisationFailures := 0
+	iter := query.Sort("t", "_id").Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		rec, err := logDocToRecord(t.modelUUID, &doc)
+		if err != nil {
+			if deserialisationFailures == 0 {
+				logger.Warningf("log deserialization failed (possible DB corruption), %v", err)
+			}
+			// Add the id to the recentIds so we don't try to look at it again
+			// during the oplog traversal.
+			t.recentIds.Add(doc.Id)
+			deserialisationFailures++
+			continue
+		} else {
+			if deserialisationFailures > 1 {
+				logger.Debugf("total of %d log serialisation errors", deserialisationFailures)
+			}
+			deserialisationFailures = 0
+		}
+		select {
+		case <-t.tomb.Dying():
+			return tomb.ErrDying
+		case t.logCh <- rec:
+			t.lastID = rec.ID
+			t.lastTime = rec.Time
+			t.recentIds.Add(doc.Id)
+		}
+	}
+	if deserialisationFailures > 1 {
+		logger.Debugf("total of %d log serialisation errors", deserialisationFailures)
+	}
+
 	return errors.Trace(iter.Close())
 }
 
@@ -496,7 +548,7 @@ func (t *logTailer) tailOplog() error {
 	newParams := t.params
 	newParams.StartID = t.lastID // (t.lastID + 1) once Id is a sequential int.
 	oplogSel := append(t.paramsToSelector(newParams, "o."),
-		bson.DocElem{"ns", logsDB + "." + logsC},
+		bson.DocElem{"ns", logsDB + "." + logCollectionName(t.modelUUID)},
 	)
 
 	oplog := t.params.Oplog
@@ -511,14 +563,22 @@ func (t *logTailer) tailOplog() error {
 	logger.Tracef("LogTailer starting oplog tailing: recent id count=%d, lastTime=%s, minOplogTs=%s",
 		recentIds.Length(), t.lastTime, minOplogTs)
 
+	// If we get a deserialisation error, write out the first failure,
+	// but don't write out any additional errors until we either hit
+	// a good value, or end the method.
+	deserialisationFailures := 0
 	skipCount := 0
 	for {
 		select {
 		case <-t.tomb.Dying():
-			return errors.Trace(tomb.ErrDying)
+			return tomb.ErrDying
 		case oplogDoc, ok := <-oplogTailer.Out():
 			if !ok {
 				return errors.Annotate(oplogTailer.Err(), "oplog tailer died")
+			}
+			if oplogDoc.Operation != "i" {
+				// We only care about inserts.
+				continue
 			}
 
 			doc := new(logDoc)
@@ -535,26 +595,32 @@ func (t *logTailer) tailOplog() error {
 				}
 				continue
 			}
-			rec, err := logDocToRecord(doc)
+			rec, err := logDocToRecord(t.modelUUID, doc)
 			if err != nil {
-				return errors.Annotate(err, "deserialization failed (possible DB corruption)")
+				if deserialisationFailures == 0 {
+					logger.Warningf("log deserialization failed (possible DB corruption), %v", err)
+				}
+				deserialisationFailures++
+				continue
+			} else {
+				if deserialisationFailures > 1 {
+					logger.Debugf("total of %d log serialisation errors", deserialisationFailures)
+				}
+				deserialisationFailures = 0
 			}
 			select {
 			case <-t.tomb.Dying():
-				return errors.Trace(tomb.ErrDying)
+				return tomb.ErrDying
 			case t.logCh <- rec:
 			}
 		}
 	}
 }
 
-func (t *logTailer) paramsToSelector(params *LogTailerParams, prefix string) bson.D {
+func (t *logTailer) paramsToSelector(params LogTailerParams, prefix string) bson.D {
 	sel := bson.D{}
 	if !params.StartTime.IsZero() {
 		sel = append(sel, bson.DocElem{"t", bson.M{"$gte": params.StartTime.UnixNano()}})
-	}
-	if !params.AllModels {
-		sel = append(sel, bson.DocElem{"e", t.modelUUID})
 	}
 	if params.MinLevel > loggo.UNSPECIFIED {
 		sel = append(sel, bson.DocElem{"v", bson.M{"$gte": int(params.MinLevel)}})
@@ -649,7 +715,7 @@ func (s *objectIdSet) Length() int {
 	return len(s.ids)
 }
 
-func logDocToRecord(doc *logDoc) (*LogRecord, error) {
+func logDocToRecord(modelUUID string, doc *logDoc) (*LogRecord, error) {
 	var ver version.Number
 	if doc.Version != "" {
 		parsed, err := version.Parse(doc.Version)
@@ -673,7 +739,7 @@ func logDocToRecord(doc *logDoc) (*LogRecord, error) {
 		ID:   doc.Time,
 		Time: time.Unix(0, doc.Time).UTC(), // not worth preserving TZ
 
-		ModelUUID: doc.ModelUUID,
+		ModelUUID: modelUUID,
 		Entity:    entity,
 		Version:   ver,
 
@@ -689,22 +755,23 @@ func logDocToRecord(doc *logDoc) (*LogRecord, error) {
 // logs collection. All logs older than minLogTime are
 // removed. Further removal is also performed if the logs collection
 // size is greater than maxLogsMB.
-func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
-	session, logsColl := initLogsSession(st)
+func PruneLogs(st ControllerSessioner, minLogTime time.Time, maxLogsMB int) error {
+	if !st.IsController() {
+		return errors.Errorf("pruning logs requires a controller state")
+	}
+	session, logsDB := initLogsSessionDB(st)
 	defer session.Close()
 
-	modelUUIDs, err := getEnvsInLogs(logsColl)
+	logColls, err := getLogCollections(logsDB)
 	if err != nil {
 		return errors.Annotate(err, "failed to get log counts")
 	}
 
 	pruneCounts := make(map[string]int)
 
-	// Remove old log entries (per model UUID to take advantage
-	// of indexes on the logs collection).
-	for _, modelUUID := range modelUUIDs {
-		removeInfo, err := logsColl.RemoveAll(bson.M{
-			"e": modelUUID,
+	// Remove old log entries for each model.
+	for modelUUID, logColl := range logColls {
+		removeInfo, err := logColl.RemoveAll(bson.M{
 			"t": bson.M{"$lt": minLogTime.UnixNano()},
 		})
 		if err != nil {
@@ -713,9 +780,10 @@ func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 		pruneCounts[modelUUID] = removeInfo.Removed
 	}
 
-	// Do further pruning if the logs collection is over the maximum size.
+	// Do further pruning if the total size of the log collections is
+	// over the maximum size.
 	for {
-		collMB, err := getCollectionMB(logsColl)
+		collMB, err := getCollectionTotalMB(logColls)
 		if err != nil {
 			return errors.Annotate(err, "failed to retrieve log counts")
 		}
@@ -723,7 +791,7 @@ func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 			break
 		}
 
-		modelUUID, count, err := findEnvWithMostLogs(logsColl, modelUUIDs)
+		modelUUID, count, err := findModelWithMostLogs(logColls)
 		if err != nil {
 			return errors.Annotate(err, "log count query failed")
 		}
@@ -738,7 +806,8 @@ func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 		// NOTE: this assumes that there are no more logs being added
 		// for the time range being pruned (which should be true for
 		// any realistic minimum log collection size).
-		tsQuery := logsColl.Find(bson.M{"e": modelUUID}).Sort("e", "t")
+		logColl := logColls[modelUUID]
+		tsQuery := logColl.Find(nil).Sort("t", "_id")
 		tsQuery = tsQuery.Skip(toRemove)
 		tsQuery = tsQuery.Select(bson.M{"t": 1})
 		var doc bson.M
@@ -749,8 +818,7 @@ func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 		thresholdTs := doc["t"]
 
 		// Remove old records.
-		removeInfo, err := logsColl.RemoveAll(bson.M{
-			"e": modelUUID,
+		removeInfo, err := logColl.RemoveAll(bson.M{
 			"t": bson.M{"$lt": thresholdTs},
 		})
 		if err != nil {
@@ -767,10 +835,7 @@ func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 	return nil
 }
 
-// initLogsSession creates a new session suitable for logging updates,
-// returning the session and a logs mgo.Collection connected to that
-// session.
-func initLogsSession(st MongoSessioner) (*mgo.Session, *mgo.Collection) {
+func initLogsSessionDB(st MongoSessioner) (*mgo.Session, *mgo.Database) {
 	// To improve throughput, only wait for the logs to be written to
 	// the primary. For some reason, this makes a huge difference even
 	// when the replicaset only has one member (i.e. a single primary).
@@ -778,8 +843,15 @@ func initLogsSession(st MongoSessioner) (*mgo.Session, *mgo.Collection) {
 	session.SetSafe(&mgo.Safe{
 		W: 1,
 	})
-	db := session.DB(logsDB)
-	return session, db.C(logsC).With(session)
+	return session, session.DB(logsDB)
+}
+
+// initLogsSession creates a new session suitable for logging updates,
+// returning the session and a logs mgo.Collection connected to that
+// session.
+func initLogsSession(st ModelSessioner) (*mgo.Session, *mgo.Collection) {
+	session, db := initLogsSessionDB(st)
+	return session, db.C(logCollectionName(st.ModelUUID()))
 }
 
 // getCollectionMB returns the size of a MongoDB collection (in
@@ -796,25 +868,45 @@ func getCollectionMB(coll *mgo.Collection) (int, error) {
 	return result["size"].(int), nil
 }
 
-// getEnvsInLogs returns the unique model UUIDs that exist in
-// the logs collection. This uses the one of the indexes on the
-// collection and should be fast.
-func getEnvsInLogs(coll *mgo.Collection) ([]string, error) {
-	var modelUUIDs []string
-	err := coll.Find(nil).Distinct("e", &modelUUIDs)
+// getCollectionTotalMB returns the total size of the log collections
+// passed.
+func getCollectionTotalMB(colls map[string]*mgo.Collection) (int, error) {
+	total := 0
+	for _, coll := range colls {
+		size, err := getCollectionMB(coll)
+		if err != nil {
+			return 0, errors.Trace(err)
+		}
+		total += size
+	}
+	return total, nil
+}
+
+// getLogCollections returns all of the log collections in the DB by
+// model UUID.
+func getLogCollections(db *mgo.Database) (map[string]*mgo.Collection, error) {
+	result := make(map[string]*mgo.Collection)
+	names, err := db.CollectionNames()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return modelUUIDs, nil
+	for _, name := range names {
+		if !strings.HasPrefix(name, logsCPrefix) {
+			continue
+		}
+		uuid := name[len(logsCPrefix):]
+		result[uuid] = db.C(name)
+	}
+	return result, nil
 }
 
-// findEnvWithMostLogs returns the modelUUID and log count for the
-// model with the most logs in the logs collection.
-func findEnvWithMostLogs(logsColl *mgo.Collection, modelUUIDs []string) (string, int, error) {
+// findModelWithMostLogs returns the modelUUID and row count for the
+// collection with the most logs in the logs DB.
+func findModelWithMostLogs(colls map[string]*mgo.Collection) (string, int, error) {
 	var maxModelUUID string
 	var maxCount int
-	for _, modelUUID := range modelUUIDs {
-		count, err := getLogCountForEnv(logsColl, modelUUID)
+	for modelUUID, coll := range colls {
+		count, err := getRowCountForCollection(coll)
 		if err != nil {
 			return "", -1, errors.Trace(err)
 		}
@@ -826,10 +918,10 @@ func findEnvWithMostLogs(logsColl *mgo.Collection, modelUUIDs []string) (string,
 	return maxModelUUID, maxCount, nil
 }
 
-// getLogCountForEnv returns the number of log records stored for a
-// given model.
-func getLogCountForEnv(coll *mgo.Collection, modelUUID string) (int, error) {
-	count, err := coll.Find(bson.M{"e": modelUUID}).Count()
+// getRowCountForCollection returns the number of log records stored for a
+// given model log collection.
+func getRowCountForCollection(coll *mgo.Collection) (int, error) {
+	count, err := coll.Count()
 	if err != nil {
 		return -1, errors.Annotate(err, "failed to get log count")
 	}
@@ -838,14 +930,13 @@ func getLogCountForEnv(coll *mgo.Collection, modelUUID string) (int, error) {
 
 func removeModelLogs(session *mgo.Session, modelUUID string) error {
 	logsDB := session.DB(logsDB)
-	logsColl := logsDB.C(logsC)
-	_, err := logsColl.RemoveAll(bson.M{"e": modelUUID})
-	if err != nil {
+	logsColl := logsDB.C(logCollectionName(modelUUID))
+	if err := logsColl.DropCollection(); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Also remove the tracked high-water times.
 	trackersColl := logsDB.C(forwardedC)
-	_, err = trackersColl.RemoveAll(bson.M{"model-uuid": modelUUID})
+	_, err := trackersColl.RemoveAll(bson.M{"model-uuid": modelUUID})
 	return errors.Trace(err)
 }

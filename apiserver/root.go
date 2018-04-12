@@ -4,6 +4,9 @@
 package apiserver
 
 import (
+	"context"
+	"fmt"
+	"net/url"
 	"reflect"
 	"sync"
 	"time"
@@ -26,12 +29,6 @@ var (
 	// Move to API (e.g. params) so that the pinging there may
 	// depend on the interval.
 	maxClientPingInterval = 3 * time.Minute
-
-	// mongoPingInterval defines the interval at which an API server
-	// will ping the mongo session to make sure that it's still
-	// alive. When the ping returns an error, the server will be
-	// terminated.
-	mongoPingInterval = 10 * time.Second
 )
 
 type objectKey struct {
@@ -45,6 +42,7 @@ type objectKey struct {
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
 	state     *state.State
+	model     *state.Model
 	rpcConn   *rpc.Conn
 	resources *common.Resources
 	entity    state.Entity
@@ -55,6 +53,10 @@ type apiHandler struct {
 	// user manager and model manager api endpoints from here.
 	modelUUID string
 
+	// connectionID is shared between the API observer (including API
+	// requests and responses in the agent log) and the audit logger.
+	connectionID uint64
+
 	// serverHost is the host:port of the API server that the client
 	// connected to.
 	serverHost string
@@ -63,14 +65,21 @@ type apiHandler struct {
 var _ = (*apiHandler)(nil)
 
 // newAPIHandler returns a new apiHandler.
-func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string, serverHost string) (*apiHandler, error) {
-	r := &apiHandler{
-		state:      st,
-		resources:  common.NewResources(),
-		rpcConn:    rpcConn,
-		modelUUID:  modelUUID,
-		serverHost: serverHost,
+func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string, connectionID uint64, serverHost string) (*apiHandler, error) {
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	r := &apiHandler{
+		state:        st,
+		model:        m,
+		resources:    common.NewResources(),
+		rpcConn:      rpcConn,
+		modelUUID:    modelUUID,
+		connectionID: connectionID,
+		serverHost:   serverHost,
+	}
+
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -78,6 +87,21 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		return nil, errors.Trace(err)
 	}
 	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Facades involved with managing application offers need the auth context
+	// to mint and validate macaroons.
+	localOfferAccessEndpoint := url.URL{
+		Scheme: "https",
+		Host:   serverHost,
+		Path:   localOfferAccessLocationPath,
+	}
+	offerAuthCtxt := srv.offerAuthCtxt.WithDischargeURL(localOfferAccessEndpoint.String())
+	if err := r.resources.RegisterNamed(
+		"offerAccessAuthContext",
+		common.ValueResource{offerAuthCtxt},
+	); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return r, nil
@@ -121,18 +145,19 @@ func (s *srvCaller) ResultType() reflect.Type {
 
 // Call takes the object Id and an instance of ParamsType to create an object and place
 // a call on its method. It then returns an instance of ResultType.
-func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
+func (s *srvCaller) Call(ctx context.Context, objId string, arg reflect.Value) (reflect.Value, error) {
 	objVal, err := s.creator(objId)
 	if err != nil {
 		return reflect.Value{}, err
 	}
-	return s.objMethod.Call(objVal, arg)
+	return s.objMethod.Call(ctx, objVal, arg)
 }
 
 // apiRoot implements basic method dispatching to the facade registry.
 type apiRoot struct {
 	state       *state.State
 	pool        *state.StatePool
+	facades     *facade.Registry
 	resources   *common.Resources
 	authorizer  facade.Authorizer
 	objectMutex sync.RWMutex
@@ -140,15 +165,106 @@ type apiRoot struct {
 }
 
 // newAPIRoot returns a new apiRoot.
-func newAPIRoot(st *state.State, pool *state.StatePool, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
+func newAPIRoot(st *state.State, pool *state.StatePool, facades *facade.Registry, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
 	r := &apiRoot{
 		state:       st,
 		pool:        pool,
+		facades:     facades,
 		resources:   resources,
 		authorizer:  authorizer,
 		objectCache: make(map[objectKey]reflect.Value),
 	}
 	return r
+}
+
+// restrictAPIRoot calls restrictAPIRootDuringMaintenance, and
+// then restricts the result further to the controller or model
+// facades, depending on the type of login.
+func restrictAPIRoot(
+	srv *Server,
+	apiRoot rpc.Root,
+	model *state.Model,
+	auth authResult,
+) (rpc.Root, error) {
+	if !auth.controllerMachineLogin {
+		// Controller agents are allowed to
+		// connect even during maintenance.
+		restrictedRoot, err := restrictAPIRootDuringMaintenance(
+			srv, apiRoot, model, auth.tag, auth.controllerMachineLogin,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		apiRoot = restrictedRoot
+	}
+	if auth.controllerOnlyLogin {
+		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)
+	} else {
+		apiRoot = restrictRoot(apiRoot, modelFacadesOnly)
+		if model.Type() == state.ModelTypeCAAS {
+			apiRoot = restrictRoot(apiRoot, caasModelFacadesOnly)
+		}
+	}
+	return apiRoot, nil
+}
+
+// restrictAPIRootDuringMaintenance restricts the API root during
+// maintenance events (upgrade, restore, or migration), depending
+// on the authenticated client.
+func restrictAPIRootDuringMaintenance(
+	srv *Server,
+	apiRoot rpc.Root,
+	model *state.Model,
+	authTag names.Tag,
+	controllerMachineLogin bool,
+) (rpc.Root, error) {
+	describeLogin := func() string {
+		if authTag == nil {
+			return "anonymous login"
+		}
+		return fmt.Sprintf("login for %s", names.ReadableString(authTag))
+	}
+
+	switch status := srv.restoreStatus(); status {
+	case state.RestorePending, state.RestoreInProgress:
+		if _, ok := authTag.(names.UserTag); ok {
+			// Users get access to a limited set of functionality
+			// while a restore is pending or in progress.
+			if status == state.RestorePending {
+				return restrictRoot(apiRoot, aboutToRestoreMethodsOnly), nil
+			} else {
+				return restrictAll(apiRoot, restoreInProgressError), nil
+			}
+		}
+		// Agent and anonymous logins are blocked during restore.
+		return nil, errors.Errorf("%s blocked because restore is in progress", describeLogin())
+	}
+
+	if !srv.upgradeComplete() {
+		if _, ok := authTag.(names.UserTag); ok {
+			// Users get access to a limited set of functionality
+			// while an upgrade is in progress.
+			return restrictRoot(apiRoot, upgradeMethodsOnly), nil
+		}
+		// Agent and anonymous logins are blocked during upgrade.
+		return nil, errors.Errorf("%s blocked because upgrade is in progress", describeLogin())
+	}
+
+	// For user logins, we limit access during migrations.
+	if _, ok := authTag.(names.UserTag); ok {
+		switch model.MigrationMode() {
+		case state.MigrationModeImporting:
+			// The user is not able to access a model that is currently being
+			// imported until the model has been activated.
+			apiRoot = restrictAll(apiRoot, errors.New("migration in progress, model is importing"))
+		case state.MigrationModeExporting:
+			// The user is not allowed to change anything in a model that is
+			// currently being moved to another controller.
+			apiRoot = restrictRoot(apiRoot, migrationClientMethodsOnly)
+		}
+	}
+
+	return apiRoot, nil
 }
 
 // Kill implements rpc.Killer, stopping the root's resources.
@@ -163,7 +279,7 @@ func (r *apiRoot) Kill() {
 // For more information about how FindMethod should work, see rpc/server.go and
 // rpc/rpcreflect/value.go
 func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	goType, objMethod, err := lookupMethod(rootName, version, methodName)
+	goType, objMethod, err := r.lookupMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +299,7 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 		}
 		// Now that we have the write lock, check one more time in case
 		// someone got the write lock before us.
-		factory, err := common.Facades.GetFactory(rootName, version)
+		factory, err := r.facades.GetFactory(rootName, version)
 		if err != nil {
 			// We don't check for IsNotFound here, because it
 			// should have already been handled in the GetType
@@ -219,6 +335,33 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 	}, nil
 }
 
+func (r *apiRoot) lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
+	noMethod := rpcreflect.ObjMethod{}
+	goType, err := r.facades.GetType(rootName, version)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, noMethod, &rpcreflect.CallNotImplementedError{
+				RootMethod: rootName,
+				Version:    version,
+			}
+		}
+		return nil, noMethod, err
+	}
+	rpcType := rpcreflect.ObjTypeOf(goType)
+	objMethod, err := rpcType.Method(methodName)
+	if err != nil {
+		if err == rpcreflect.ErrMethodNotFound {
+			return nil, noMethod, &rpcreflect.CallNotImplementedError{
+				RootMethod: rootName,
+				Version:    version,
+				Method:     methodName,
+			}
+		}
+		return nil, noMethod, err
+	}
+	return goType, objMethod, nil
+}
+
 func (r *apiRoot) dispose(key objectKey) {
 	r.objectMutex.Lock()
 	defer r.objectMutex.Unlock()
@@ -236,11 +379,6 @@ func (r *apiRoot) facadeContext(key objectKey) *facadeContext {
 type facadeContext struct {
 	r   *apiRoot
 	key objectKey
-}
-
-// Abort is part of of the facade.Context interface.
-func (ctx *facadeContext) Abort() <-chan struct{} {
-	return nil
 }
 
 // Auth is part of of the facade.Context interface.
@@ -273,50 +411,23 @@ func (ctx *facadeContext) ID() string {
 	return ctx.key.objId
 }
 
-func lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
-	noMethod := rpcreflect.ObjMethod{}
-	goType, err := common.Facades.GetType(rootName, version)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, noMethod, &rpcreflect.CallNotImplementedError{
-				RootMethod: rootName,
-				Version:    version,
-			}
-		}
-		return nil, noMethod, err
-	}
-	rpcType := rpcreflect.ObjTypeOf(goType)
-	objMethod, err := rpcType.Method(methodName)
-	if err != nil {
-		if err == rpcreflect.ErrMethodNotFound {
-			return nil, noMethod, &rpcreflect.CallNotImplementedError{
-				RootMethod: rootName,
-				Version:    version,
-				Method:     methodName,
-			}
-		}
-		return nil, noMethod, err
-	}
-	return goType, objMethod, nil
-}
-
-// AnonRoot dispatches API calls to those available to an anonymous connection
-// which has not logged in.
-type anonRoot struct {
+// adminRoot dispatches API calls to those available to an anonymous connection
+// which has not logged in, which here is the admin facade.
+type adminRoot struct {
 	*apiHandler
 	adminAPIs map[int]interface{}
 }
 
-// NewAnonRoot creates a new AnonRoot which dispatches to the given Admin API implementation.
-func newAnonRoot(h *apiHandler, adminAPIs map[int]interface{}) *anonRoot {
-	r := &anonRoot{
+// newAdminRoot creates a new AnonRoot which dispatches to the given Admin API implementation.
+func newAdminRoot(h *apiHandler, adminAPIs map[int]interface{}) *adminRoot {
+	r := &adminRoot{
 		apiHandler: h,
 		adminAPIs:  adminAPIs,
 	}
 	return r
 }
 
-func (r *anonRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
+func (r *adminRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	if rootName != "Admin" {
 		return nil, &rpcreflect.CallNotImplementedError{
 			RootMethod: rootName,
@@ -338,6 +449,12 @@ func (r *apiHandler) AuthMachineAgent() bool {
 	return isMachine
 }
 
+// AuthApplicationAgent returns whether the current client is an application operator.
+func (r *apiHandler) AuthApplicationAgent() bool {
+	_, isApp := r.GetAuthTag().(names.ApplicationTag)
+	return isApp
+}
+
 // AuthUnitAgent returns whether the current client is a unit agent.
 func (r *apiHandler) AuthUnitAgent() bool {
 	_, isUnit := r.GetAuthTag().(names.UnitTag)
@@ -353,7 +470,11 @@ func (r *apiHandler) AuthOwner(tag names.Tag) bool {
 // AuthController returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
 func (r *apiHandler) AuthController() bool {
-	return isMachineWithJob(r.entity, state.JobManageModel)
+	type hasIsManager interface {
+		IsManager() bool
+	}
+	m, ok := r.entity.(hasIsManager)
+	return ok && m.IsManager()
 }
 
 // AuthClient returns whether the authenticated entity is a client
@@ -363,8 +484,11 @@ func (r *apiHandler) AuthClient() bool {
 	return isUser
 }
 
-// GetAuthTag returns the tag of the authenticated entity.
+// GetAuthTag returns the tag of the authenticated entity, if any.
 func (r *apiHandler) GetAuthTag() names.Tag {
+	if r.entity == nil {
+		return nil
+	}
 	return r.entity.Tag()
 }
 
@@ -376,24 +500,19 @@ func (r *apiHandler) ConnectedModel() string {
 	return r.modelUUID
 }
 
-// GetAuthEntity returns the authenticated entity.
-func (r *apiHandler) GetAuthEntity() state.Entity {
-	return r.entity
-}
-
 // HasPermission returns true if the logged in user can perform <operation> on <target>.
 func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag) (bool, error) {
-	return common.HasPermission(r.state.UserAccess, r.entity.Tag(), operation, target)
+	return common.HasPermission(r.state.UserPermission, r.entity.Tag(), operation, target)
 }
 
 // UserHasPermission returns true if the passed in user can perform <operation> on <target>.
 func (r *apiHandler) UserHasPermission(user names.UserTag, operation permission.Access, target names.Tag) (bool, error) {
-	return common.HasPermission(r.state.UserAccess, user, operation, target)
+	return common.HasPermission(r.state.UserPermission, user, operation, target)
 }
 
 // DescribeFacades returns the list of available Facades and their Versions
-func DescribeFacades() []params.FacadeVersions {
-	facades := common.Facades.List()
+func DescribeFacades(registry *facade.Registry) []params.FacadeVersions {
+	facades := registry.List()
 	result := make([]params.FacadeVersions, len(facades))
 	for i, facade := range facades {
 		result[i].Name = facade.Name

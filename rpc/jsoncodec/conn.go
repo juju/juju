@@ -6,7 +6,6 @@ package jsoncodec
 import (
 	"encoding/json"
 	"io"
-	"net"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -16,7 +15,7 @@ import (
 // NewWebsocket returns an rpc codec that uses the given websocket
 // connection to send and receive messages.
 func NewWebsocket(conn *websocket.Conn) *Codec {
-	return New(&wsJSONConn{conn: conn})
+	return New(NewWebsocketConn(conn))
 }
 
 type wsJSONConn struct {
@@ -25,6 +24,12 @@ type wsJSONConn struct {
 	// one concurrent reader.
 	writeMutex sync.Mutex
 	readMutex  sync.Mutex
+}
+
+// NewWebsocketConn returns a JSONConn implementation
+// that uses the given connection for transport.
+func NewWebsocketConn(conn *websocket.Conn) JSONConn {
+	return &wsJSONConn{conn: conn}
 }
 
 func (conn *wsJSONConn) Send(msg interface{}) error {
@@ -59,20 +64,24 @@ func (conn *wsJSONConn) Close() error {
 	return conn.conn.Close()
 }
 
-// NewNet returns an rpc codec that uses the given net
-// connection to send and receive messages.
-func NewNet(conn net.Conn) *Codec {
-	return New(&netConn{
+// NewNet returns an rpc codec that uses the given connection
+// to send and receive messages.
+func NewNet(conn io.ReadWriteCloser) *Codec {
+	return New(NetJSONConn(conn))
+}
+
+func NetJSONConn(conn io.ReadWriteCloser) JSONConn {
+	return &netConn{
 		enc:  json.NewEncoder(conn),
 		dec:  json.NewDecoder(conn),
 		conn: conn,
-	})
+	}
 }
 
 type netConn struct {
 	enc  *json.Encoder
 	dec  *json.Decoder
-	conn net.Conn
+	conn io.ReadWriteCloser
 }
 
 func (conn *netConn) Send(msg interface{}) error {

@@ -5,6 +5,7 @@ package provisioner
 
 import (
 	"fmt"
+	"os"
 	"sync/atomic"
 	"time"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/api/common"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxd"
@@ -32,6 +32,8 @@ import (
 
 var (
 	systemNetworkInterfacesFile = "/etc/network/interfaces"
+	systemSbinIfup              = "/sbin/ifup"
+	systemNetplanDirectory      = "/etc/netplan"
 	activateBridgesTimeout      = 5 * time.Minute
 )
 
@@ -153,7 +155,7 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(abort <-chan struct{}, c
 	if err := cs.runInitialiser(abort, containerType, initialiser); err != nil {
 		return errors.Annotate(err, "setting up container dependencies on host machine")
 	}
-	return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker, toolsFinder)
+	return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker, toolsFinder, getDistributionGroupFinder(cs.provisioner))
 }
 
 // acquireLock tries to grab the machine lock (initLockName), and either
@@ -217,7 +219,11 @@ func observeNetwork() ([]params.NetworkConfig, error) {
 }
 
 func defaultBridger() (network.Bridger, error) {
-	return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, instancecfg.DefaultBridgePrefix, systemNetworkInterfacesFile)
+	if _, err := os.Stat(systemSbinIfup); err == nil {
+		return network.DefaultEtcNetworkInterfacesBridger(activateBridgesTimeout, systemNetworkInterfacesFile)
+	} else {
+		return network.DefaultNetplanBridger(activateBridgesTimeout, systemNetplanDirectory)
+	}
 }
 
 func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.Logger) error {
@@ -257,6 +263,13 @@ func (cs *ContainerSetup) getContainerArtifacts(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+
+	availabilityZone, err := cs.machine.AvailabilityZone()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	// pass host machine's availability zone to the container manager config
+	managerConfig[container.ConfigAvailabilityZone] = availabilityZone
 
 	switch containerType {
 	case instance.KVM:
@@ -337,6 +350,7 @@ func startProvisionerWorker(
 	config agent.Config,
 	broker environs.InstanceBroker,
 	toolsFinder ToolsFinder,
+	distributionGroupFinder DistributionGroupFinder,
 ) error {
 
 	workerName := fmt.Sprintf("%s-provisioner", containerType)
@@ -344,7 +358,7 @@ func startProvisionerWorker(
 	// already been added to the machine. It will see that the
 	// container does not have an instance yet and create one.
 	return runner.StartWorker(workerName, func() (worker.Worker, error) {
-		w, err := NewContainerProvisioner(containerType, provisioner, config, broker, toolsFinder)
+		w, err := NewContainerProvisioner(containerType, provisioner, config, broker, toolsFinder, distributionGroupFinder)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

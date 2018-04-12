@@ -4,7 +4,6 @@
 package joyent
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -13,7 +12,6 @@ import (
 	"github.com/joyent/gosdc/cloudapi"
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -44,10 +42,6 @@ func newCompute(cloud environs.CloudSpec) (*joyentCompute, error) {
 	}
 	client := client.NewClient(cloud.Endpoint, cloudapi.DefaultAPIVersion, creds, newGoLogger())
 	return &joyentCompute{cloudapi: cloudapi.New(client)}, nil
-}
-
-func (env *joyentEnviron) machineFullName(machineId string) string {
-	return fmt.Sprintf("juju-%s-%s", env.name, names.NewMachineTag(machineId))
 }
 
 var unsupportedConstraints = []string{

@@ -47,9 +47,9 @@ type syncToolsCommand struct {
 var _ cmd.Command = (*syncToolsCommand)(nil)
 
 const synctoolsDoc = `
-This copies the Juju agent software from the official tools store (located
-at https://streams.canonical.com/juju) into a model. It is generally done
-when the model is without Internet access.
+This copies the Juju agent software from the official agent binaries store 
+(located at https://streams.canonical.com/juju) into a model. 
+It is generally done when the model is without Internet access.
 
 Instead of the above site, a local directory can be specified as source.
 The online store will, of course, need to be contacted at some point to get
@@ -57,24 +57,25 @@ the software.
 
 Examples:
     # Download the software (version auto-selected) to the model:
-    juju sync-tools --debug
+    juju sync-agent-binaries --debug
 
     # Download a specific version of the software locally:
-    juju sync-tools --debug --version 2.0 --local-dir=/home/ubuntu/sync-tools
+    juju sync-agent-binaries --debug --version 2.0 --local-dir=/home/ubuntu/sync-agent-binaries
 
     # Get locally available software to the model:
-    juju sync-tools --debug --source=/home/ubuntu/sync-tools
+    juju sync-agent-binaries --debug --source=/home/ubuntu/sync-agent-binaries
 
 See also:
-    upgrade-juju
+    upgrade-model
 
 `
 
 func (c *syncToolsCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "sync-tools",
-		Purpose: "Copy tools from the official tool store into a local model.",
+		Name:    "sync-agent-binaries",
+		Purpose: "Copy agent binaries from the official agent store into a local model.",
 		Doc:     synctoolsDoc,
+		Aliases: []string{"sync-tools"},
 	}
 }
 
@@ -126,8 +127,8 @@ func (c *syncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 	writer := loggo.NewMinimumLevelWriter(
 		cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr),
 		loggo.INFO)
-	loggo.RegisterWriter("synctools", writer)
-	defer loggo.RemoveWriter("synctools")
+	loggo.RegisterWriter("syncagentbinaries", writer)
+	defer loggo.RemoveWriter("syncagentbinaries")
 
 	sctx := &sync.SyncContext{
 		AllVersions:  c.allVersions,

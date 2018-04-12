@@ -36,10 +36,11 @@ func (s *createSuite) TestLegacy(c *gc.C) {
 	meta := backupstesting.NewMetadataStarted()
 	metadataFile, err := meta.AsJSONBuffer()
 	c.Assert(err, jc.ErrorIsNil)
+	backupDir := c.MkDir()
 	_, testFiles, expected := s.createTestFiles(c)
 
 	dumper := &TestDBDumper{}
-	args := backups.NewTestCreateArgs(testFiles, dumper, metadataFile)
+	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, metadataFile)
 	result, err := backups.Create(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
@@ -57,10 +58,11 @@ func (s *createSuite) TestLegacy(c *gc.C) {
 }
 
 func (s *createSuite) TestMetadataFileMissing(c *gc.C) {
+	var backupDir string
 	var testFiles []string
 	dumper := &TestDBDumper{}
 
-	args := backups.NewTestCreateArgs(testFiles, dumper, nil)
+	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, nil)
 	_, err := backups.Create(args)
 
 	c.Check(err, gc.ErrorMatches, "missing metadataReader")

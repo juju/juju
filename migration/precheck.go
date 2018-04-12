@@ -8,11 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cloud"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
@@ -26,21 +25,21 @@ type PrecheckBackend interface {
 	AgentVersion() (version.Number, error)
 	NeedsCleanup() (bool, error)
 	Model() (PrecheckModel, error)
-	AllModels() ([]PrecheckModel, error)
+	AllModelUUIDs() ([]string, error)
 	IsUpgrading() (bool, error)
 	IsMigrationActive(string) (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
 	AllApplications() ([]PrecheckApplication, error)
-	ControllerBackend() (PrecheckBackendCloser, error)
-	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
+	AllRelations() ([]PrecheckRelation, error)
+	ControllerBackend() (PrecheckBackend, error)
+	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
 	ListPendingResources(string) ([]resource.Resource, error)
 }
 
-// PrecheckBackendCloser adds the Close method to the standard
-// PrecheckBackend.
-type PrecheckBackendCloser interface {
-	PrecheckBackend
-	Close() error
+// Pool defines the interface to a StatePool used by the migration
+// prechecks.
+type Pool interface {
+	GetModel(string) (PrecheckModel, func(), error)
 }
 
 // PrecheckModel describes the state interface a model as needed by
@@ -88,6 +87,22 @@ type PrecheckUnit interface {
 	AgentPresence() (bool, error)
 }
 
+// PrecheckRelation describes the state interface for relations needed
+// for prechecks.
+type PrecheckRelation interface {
+	String() string
+	IsCrossModel() (bool, error)
+	Endpoints() []state.Endpoint
+	Unit(PrecheckUnit) (PrecheckRelationUnit, error)
+}
+
+// PrecheckRelationUnit describes the interface for relation units
+// needed for migration prechecks.
+type PrecheckRelationUnit interface {
+	Valid() (bool, error)
+	InScope() (bool, error)
+}
+
 // SourcePrecheck checks the state of the source controller to make
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the model to be migrated.
@@ -100,7 +115,12 @@ func SourcePrecheck(backend PrecheckBackend) error {
 		return errors.Trace(err)
 	}
 
-	if err := checkApplications(backend); err != nil {
+	appUnits, err := checkApplications(backend)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := checkRelations(backend, appUnits); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -115,7 +135,6 @@ func SourcePrecheck(backend PrecheckBackend) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer controllerBackend.Close()
 	if err := checkController(controllerBackend); err != nil {
 		return errors.Annotate(err, "controller")
 	}
@@ -148,7 +167,7 @@ func checkModel(backend PrecheckBackend) error {
 // TargetPrecheck checks the state of the target controller to make
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the target controller.
-func TargetPrecheck(backend PrecheckBackend, modelInfo coremigration.ModelInfo) error {
+func TargetPrecheck(backend PrecheckBackend, pool Pool, modelInfo coremigration.ModelInfo) error {
 	if err := modelInfo.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -186,11 +205,17 @@ func TargetPrecheck(backend PrecheckBackend, modelInfo coremigration.ModelInfo) 
 	}
 
 	// Check for conflicts with existing models
-	models, err := backend.AllModels()
+	modelUUIDs, err := backend.AllModelUUIDs()
 	if err != nil {
 		return errors.Annotate(err, "retrieving models")
 	}
-	for _, model := range models {
+	for _, modelUUID := range modelUUIDs {
+		model, release, err := pool.GetModel(modelUUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer release()
+
 		// If the model is importing then it's probably left behind
 		// from a previous migration attempt. It will be removed
 		// before the next import.
@@ -282,41 +307,35 @@ func checkMachines(backend PrecheckBackend) error {
 	return nil
 }
 
-func checkApplications(backend PrecheckBackend) error {
+func checkApplications(backend PrecheckBackend) (map[string][]PrecheckUnit, error) {
 	modelVersion, err := backend.AgentVersion()
 	if err != nil {
-		return errors.Annotate(err, "retrieving model version")
+		return nil, errors.Annotate(err, "retrieving model version")
 	}
 	apps, err := backend.AllApplications()
 	if err != nil {
-		return errors.Annotate(err, "retrieving applications")
+		return nil, errors.Annotate(err, "retrieving applications")
 	}
+
+	appUnits := make(map[string][]PrecheckUnit, len(apps))
 	for _, app := range apps {
 		if app.Life() != state.Alive {
-			return errors.Errorf("application %s is %s", app.Name(), app.Life())
+			return nil, errors.Errorf("application %s is %s", app.Name(), app.Life())
 		}
-		err := checkUnits(app, modelVersion)
+		units, err := app.AllUnits()
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Annotatef(err, "retrieving units for %s", app.Name())
 		}
-
-		resources, err := backend.ListPendingResources(app.Name())
+		err = checkUnits(app, units, modelVersion)
 		if err != nil {
-			return errors.Annotate(err, "checking resources")
+			return nil, errors.Trace(err)
 		}
-		if len(resources) > 0 {
-			resName := resources[0].Name
-			return errors.Errorf("resource %q is pending for application %s", resName, app.Name())
-		}
+		appUnits[app.Name()] = units
 	}
-	return nil
+	return appUnits, nil
 }
 
-func checkUnits(app PrecheckApplication, modelVersion version.Number) error {
-	units, err := app.AllUnits()
-	if err != nil {
-		return errors.Annotatef(err, "retrieving units for %s", app.Name())
-	}
+func checkUnits(app PrecheckApplication, units []PrecheckUnit, modelVersion version.Number) error {
 	if len(units) < app.MinUnits() {
 		return errors.Errorf("application %s is below its minimum units threshold", app.Name())
 	}
@@ -362,11 +381,11 @@ func checkUnitAgentStatus(unit PrecheckUnit) error {
 func checkAgentTools(modelVersion version.Number, agent agentToolsGetter, agentLabel string) error {
 	tools, err := agent.AgentTools()
 	if err != nil {
-		return errors.Annotatef(err, "retrieving tools for %s", agentLabel)
+		return errors.Annotatef(err, "retrieving agent binaries for %s", agentLabel)
 	}
 	agentVersion := tools.Version.Number
 	if agentVersion != modelVersion {
-		return errors.Errorf("%s tools don't match model (%s != %s)",
+		return errors.Errorf("%s agent binaries don't match model (%s != %s)",
 			agentLabel, agentVersion, modelVersion)
 	}
 	return nil
@@ -382,4 +401,46 @@ func newStatusError(format, id string, s status.Status) error {
 		msg += fmt.Sprintf(" (%s)", s)
 	}
 	return errors.New(msg)
+}
+
+func checkRelations(backend PrecheckBackend, appUnits map[string][]PrecheckUnit) error {
+	relations, err := backend.AllRelations()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model relations")
+	}
+	for _, rel := range relations {
+		// We expect a relationScope and settings for each of the
+		// units of the specified application, unless it is a
+		// remote application.
+		crossModel, err := rel.IsCrossModel()
+		if err != nil {
+			return errors.Annotatef(err, "checking whether relation %s is cross-model", rel)
+		}
+		if crossModel {
+			continue
+		}
+		for _, ep := range rel.Endpoints() {
+			for _, unit := range appUnits[ep.ApplicationName] {
+				ru, err := rel.Unit(unit)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				valid, err := ru.Valid()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if !valid {
+					continue
+				}
+				inScope, err := ru.InScope()
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if !inScope {
+					return errors.Errorf("unit %s hasn't joined relation %s yet", unit.Name(), rel)
+				}
+			}
+		}
+	}
+	return nil
 }

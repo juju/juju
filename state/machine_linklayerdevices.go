@@ -9,11 +9,13 @@ import (
 	"net"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 )
 
@@ -26,7 +28,7 @@ const defaultSpaceName = "default"
 // error satisfying errors.IsNotFound() is returned when no such device exists
 // on the machine.
 func (m *Machine) LinkLayerDevice(name string) (*LinkLayerDevice, error) {
-	linkLayerDevices, closer := m.st.getCollection(linkLayerDevicesC)
+	linkLayerDevices, closer := m.st.db().GetCollection(linkLayerDevicesC)
 	defer closer()
 
 	linkLayerDeviceDocID := m.linkLayerDeviceDocIDFromName(name)
@@ -68,7 +70,7 @@ func (m *Machine) AllLinkLayerDevices() ([]*LinkLayerDevice, error) {
 }
 
 func (m *Machine) forEachLinkLayerDeviceDoc(docFieldsToSelect bson.D, callbackFunc func(resultDoc *linkLayerDeviceDoc)) error {
-	linkLayerDevices, closer := m.st.getCollection(linkLayerDevicesC)
+	linkLayerDevices, closer := m.st.db().GetCollection(linkLayerDevicesC)
 	defer closer()
 
 	query := linkLayerDevices.Find(bson.D{{"machine-id", m.doc.Id}})
@@ -112,7 +114,7 @@ func (m *Machine) RemoveAllLinkLayerDevices() error {
 		return errors.Trace(err)
 	}
 
-	return m.st.runTransaction(ops)
+	return m.st.db().RunTransaction(ops)
 }
 
 func (m *Machine) removeAllLinkLayerDevicesOps() ([]txn.Op, error) {
@@ -182,7 +184,7 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 	defer errors.DeferredAnnotatef(&err, "cannot set link-layer devices to machine %q", m.doc.Id)
 
 	if len(devicesArgs) == 0 {
-		logger.Warningf("no device addresses to set")
+		logger.Debugf("no device addresses to set")
 		return nil
 	}
 
@@ -192,10 +194,10 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 			return nil, errors.Trace(err)
 		}
 
+		if m.doc.Life != Alive {
+			return nil, errors.Errorf("machine %q not alive", m.doc.Id)
+		}
 		if attempt > 0 {
-			if err := checkModelActive(m.st); err != nil {
-				return nil, errors.Trace(err)
-			}
 			if err := m.isStillAlive(); err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -211,8 +213,9 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 			}
 		}
 
+		// We've checked the model is alive directly, and we assert the machine is alive, we don't need to also
+		// assert the model is alive, because then the machine would be dying as well.
 		ops := []txn.Op{
-			assertModelActiveOp(m.st.ModelUUID()),
 			m.assertAliveOp(),
 		}
 
@@ -220,9 +223,14 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		if len(setDevicesOps) == 0 {
+			// No need to assert only that the machine is alive
+			logger.Debugf("no changes to LinkLayerDevices for machine %q", m.Id())
+			return nil, jujutxn.ErrNoOperations
+		}
 		return append(ops, setDevicesOps...), nil
 	}
-	if err := m.st.run(buildTxn); err != nil {
+	if err := m.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -237,7 +245,7 @@ func (st *State) allProviderIDsForAddresses() (set.Strings, error) {
 }
 
 func (st *State) allProviderIDsForEntity(entityName string) (set.Strings, error) {
-	idCollection, closer := st.getCollection(providerIDsC)
+	idCollection, closer := st.db().GetCollection(providerIDsC)
 	defer closer()
 
 	allProviderIDs := set.NewStrings()
@@ -442,7 +450,7 @@ func (m *Machine) assertAliveOp() txn.Op {
 }
 
 func (m *Machine) setDevicesFromDocsOps(newDocs []linkLayerDeviceDoc) ([]txn.Op, error) {
-	devices, closer := m.st.getCollection(linkLayerDevicesC)
+	devices, closer := m.st.db().GetCollection(linkLayerDevicesC)
 	defer closer()
 
 	var ops []txn.Op
@@ -507,6 +515,7 @@ func (m *Machine) parentDocIDFromDeviceDoc(doc *linkLayerDeviceDoc) (string, err
 }
 
 func (m *Machine) updateLinkLayerDeviceOps(existingDoc, newDoc *linkLayerDeviceDoc) (ops []txn.Op, err error) {
+	// none of the ops in this function are assert-only, so callers can know if there are any changes by just checking len(ops)
 	var newParentDocID string
 	if newDoc.ParentName != "" {
 		newParentDocID, err = m.parentDocIDFromDeviceDoc(newDoc)
@@ -536,7 +545,11 @@ func (m *Machine) updateLinkLayerDeviceOps(existingDoc, newDoc *linkLayerDeviceD
 		ops = append(ops, assertLinkLayerDeviceExistsOp(existingParentDocID))
 		ops = append(ops, decrementDeviceNumChildrenOp(existingParentDocID))
 	}
-	ops = append(ops, updateLinkLayerDeviceDocOp(existingDoc, newDoc))
+	updateDeviceOp, deviceHasChanges := updateLinkLayerDeviceDocOp(existingDoc, newDoc)
+	if deviceHasChanges {
+		// we only include the op if it will actually change something
+		ops = append(ops, updateDeviceOp)
+	}
 
 	if newDoc.ProviderID != "" {
 		if existingDoc.ProviderID != "" && existingDoc.ProviderID != newDoc.ProviderID {
@@ -577,6 +590,10 @@ type LinkLayerDeviceAddress struct {
 
 	// GatewayAddress is the address of the gateway to use, which can be empty.
 	GatewayAddress string
+
+	// IsDefaultGateway is set to true if this address on this device is the
+	// default gw on a machine.
+	IsDefaultGateway bool
 }
 
 // SetDevicesAddresses sets the addresses of all devices in devicesAddresses,
@@ -593,9 +610,8 @@ type LinkLayerDeviceAddress struct {
 // - ErrProviderIDNotUnique, when one or more specified ProviderIDs are not unique.
 func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set link-layer device addresses of machine %q", m.doc.Id)
-
 	if len(devicesAddresses) == 0 {
-		logger.Warningf("no device addresses to set")
+		logger.Debugf("no device addresses to set")
 		return nil
 	}
 
@@ -605,13 +621,10 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 			return nil, errors.Trace(err)
 		}
 
+		if err := m.isStillAlive(); err != nil {
+			return nil, errors.Trace(err)
+		}
 		if attempt > 0 {
-			if err := checkModelActive(m.st); err != nil {
-				return nil, errors.Trace(err)
-			}
-			if err := m.isStillAlive(); err != nil {
-				return nil, errors.Trace(err)
-			}
 			allIds, err := m.st.allProviderIDsForAddresses()
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -624,8 +637,9 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 			}
 		}
 
+		// we checked the model is active, but we only assert the machine is alive, because it will be dying if
+		// the model is dying.
 		ops := []txn.Op{
-			assertModelActiveOp(m.st.ModelUUID()),
 			m.assertAliveOp(),
 		}
 
@@ -633,9 +647,15 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		if len(setAddressesOps) == 0 {
+			// no actual address changes to be queued, so no need to create an op that just asserts
+			// the machine is alive
+			logger.Debugf("no changes to DevicesAddresses for machine %q", m.Id())
+			return nil, jujutxn.ErrNoOperations
+		}
 		return append(ops, setAddressesOps...), nil
 	}
-	if err := m.st.run(buildTxn); err != nil {
+	if err := m.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -716,7 +736,7 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 	subnetCIDR := ipNet.String()
 	subnet, err := m.st.Subnet(subnetCIDR)
 	if errors.IsNotFound(err) {
-		logger.Infof(
+		logger.Debugf(
 			"address %q on machine %q uses unknown or machine-local subnet %q",
 			addressValue, m.Id(), subnetCIDR,
 		)
@@ -744,6 +764,7 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 		DNSServers:       args.DNSServers,
 		DNSSearchDomains: args.DNSSearchDomains,
 		GatewayAddress:   args.GatewayAddress,
+		IsDefaultGateway: args.IsDefaultGateway,
 	}
 	return newDoc, nil
 }
@@ -756,27 +777,32 @@ func (m *Machine) verifySubnetAlive(subnet *Subnet) error {
 }
 
 func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.Op, error) {
-	addresses, closer := m.st.getCollection(ipAddressesC)
+	addresses, closer := m.st.db().GetCollection(ipAddressesC)
 	defer closer()
 
 	var ops []txn.Op
 
 	for _, newDoc := range newDocs {
+		var thisDeviceOps []txn.Op
+		hasChanges := false
 		deviceDocID := m.linkLayerDeviceDocIDFromName(newDoc.DeviceName)
-		ops = append(ops, assertLinkLayerDeviceExistsOp(deviceDocID))
+		thisDeviceOps = append(thisDeviceOps, assertLinkLayerDeviceExistsOp(deviceDocID))
 
 		var existingDoc ipAddressDoc
 		err := addresses.FindId(newDoc.DocID).One(&existingDoc)
 		if err == mgo.ErrNotFound {
 			// Address does not exist yet - insert it.
-			ops = append(ops, insertIPAddressDocOp(&newDoc))
+			hasChanges = true
+			thisDeviceOps = append(thisDeviceOps, insertIPAddressDocOp(&newDoc))
 			if newDoc.ProviderID != "" {
 				id := network.Id(newDoc.ProviderID)
-				ops = append(ops, m.st.networkEntityGlobalKeyOp("address", id))
+				thisDeviceOps = append(thisDeviceOps, m.st.networkEntityGlobalKeyOp("address", id))
 			}
 		} else if err == nil {
 			// Address already exists - update what's possible.
-			ops = append(ops, updateIPAddressDocOp(&existingDoc, &newDoc))
+			var ipOp txn.Op
+			ipOp, hasChanges = updateIPAddressDocOp(&existingDoc, &newDoc)
+			thisDeviceOps = append(thisDeviceOps, ipOp)
 			if newDoc.ProviderID != "" {
 				if existingDoc.ProviderID != "" && existingDoc.ProviderID != newDoc.ProviderID {
 					return nil, errors.Errorf("cannot change ProviderID of link address %q", existingDoc.Value)
@@ -784,16 +810,20 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 				if existingDoc.ProviderID != newDoc.ProviderID {
 					// Need to insert the new provider id in providerIDsC
 					id := network.Id(newDoc.ProviderID)
-					ops = append(ops, m.st.networkEntityGlobalKeyOp("address", id))
+					thisDeviceOps = append(thisDeviceOps, m.st.networkEntityGlobalKeyOp("address", id))
+					hasChanges = true
 				}
 			}
 		} else {
 			return nil, errors.Trace(err)
 		}
 
-		ops, err = m.maybeAssertSubnetAliveOps(&newDoc, ops)
+		thisDeviceOps, err = m.maybeAssertSubnetAliveOps(&newDoc, thisDeviceOps)
 		if err != nil {
 			return nil, errors.Trace(err)
+		}
+		if hasChanges {
+			ops = append(ops, thisDeviceOps...)
 		}
 	}
 	return ops, nil
@@ -828,7 +858,7 @@ func (m *Machine) RemoveAllAddresses() error {
 		return errors.Trace(err)
 	}
 
-	return m.st.runTransaction(ops)
+	return m.st.db().RunTransaction(ops)
 }
 
 func (m *Machine) removeAllAddressesOps() ([]txn.Op, error) {
@@ -1094,4 +1124,121 @@ func generateMACAddress() string {
 		digits[i] = rand.Intn(256)
 	}
 	return fmt.Sprintf(macAddressTemplate, digits...)
+}
+
+// MachineNetworkInfoResult contains an error or a list of NetworkInfo structures for a specific space.
+type MachineNetworkInfoResult struct {
+	NetworkInfos []network.NetworkInfo
+	Error        error
+}
+
+// Add address to a device in list or create a new device with this address.
+func addAddressToResult(networkInfos []network.NetworkInfo, address *Address) ([]network.NetworkInfo, error) {
+	ifaceAddress := network.InterfaceAddress{
+		Address: address.Value(),
+		CIDR:    address.SubnetCIDR(),
+	}
+	for i := range networkInfos {
+		networkInfo := &networkInfos[i]
+		if networkInfo.InterfaceName == address.DeviceName() {
+			networkInfo.Addresses = append(networkInfo.Addresses, ifaceAddress)
+			return networkInfos, nil
+		}
+	}
+
+	MAC := ""
+	device, err := address.Device()
+	if err == nil {
+		MAC = device.MACAddress()
+	} else if !errors.IsNotFound(err) {
+		return nil, err
+	}
+	networkInfo := network.NetworkInfo{
+		InterfaceName: address.DeviceName(),
+		MACAddress:    MAC,
+		Addresses:     []network.InterfaceAddress{ifaceAddress},
+	}
+	return append(networkInfos, networkInfo), nil
+}
+
+// GetNetworkInfoForSpaces returns MachineNetworkInfoResult with a list of devices for each space in spaces
+// TODO(wpk): 2017-05-04 This does not work for L2-only devices as it iterates over addresses, needs to be fixed.
+// When changing the method we have to keep the ordering.
+func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](MachineNetworkInfoResult) {
+	results := make(map[string](MachineNetworkInfoResult))
+
+	var privateAddress network.Address
+
+	if spaces.Contains(environs.DefaultSpaceName) {
+		var err error
+		privateAddress, err = m.PrivateAddress()
+		if err != nil {
+			results[environs.DefaultSpaceName] = MachineNetworkInfoResult{Error: errors.Annotatef(err, "getting machine %q preferred private address", m.MachineTag())}
+			spaces.Remove(environs.DefaultSpaceName)
+		}
+	}
+
+	addresses, err := m.AllAddresses()
+	logger.Debugf("Looking for something from spaces %v in %v", spaces, addresses)
+	if err != nil {
+		result := MachineNetworkInfoResult{Error: errors.Annotate(err, "cannot get devices addresses")}
+		for space := range spaces {
+			if _, ok := results[space]; !ok {
+				results[space] = result
+			}
+		}
+		return results
+	}
+	actualSpaces := set.NewStrings()
+	for _, addr := range addresses {
+		subnet, err := addr.Subnet()
+		switch {
+		case errors.IsNotFound(err):
+			logger.Debugf("skipping %s: not linked to a known subnet (%v)", addr, err)
+		case err != nil:
+			logger.Errorf("cannot get subnet for address %q - %q", addr, err)
+		default:
+			space := subnet.SpaceName()
+			actualSpaces.Add(space)
+			if spaces.Contains(space) {
+				r := results[space]
+				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
+				if err != nil {
+					r.Error = err
+				} else {
+					results[space] = r
+				}
+			}
+			if spaces.Contains(environs.DefaultSpaceName) && privateAddress.Value == addr.Value() {
+				r := results[environs.DefaultSpaceName]
+				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
+				if err != nil {
+					r.Error = err
+				} else {
+					results[environs.DefaultSpaceName] = r
+				}
+			}
+		}
+	}
+
+	// For a spaceless environment we won't find a subnet that's linked to privateAddress,
+	// we have to work around that and at least return minimal information.
+	if r, filledPrivateAddress := results[environs.DefaultSpaceName]; !filledPrivateAddress && spaces.Contains(environs.DefaultSpaceName) {
+		r.NetworkInfos = []network.NetworkInfo{{
+			Addresses: []network.InterfaceAddress{{
+				Address: privateAddress.Value,
+			}},
+		}}
+		results[environs.DefaultSpaceName] = r
+	}
+	actualSpacesStr := network.QuoteSpaceSet(actualSpaces)
+
+	for space := range spaces {
+		if _, ok := results[space]; !ok {
+			results[space] = MachineNetworkInfoResult{
+				Error: errors.Errorf("machine %q has no devices in space %q, only spaces %s", m.doc.Id, space, actualSpacesStr),
+			}
+		}
+	}
+	return results
 }

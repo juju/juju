@@ -5,7 +5,7 @@ package application
 
 import (
 	"github.com/juju/cmd"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charmrepo.v2/csclient"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
@@ -16,7 +16,7 @@ import (
 
 func NewUpgradeCharmCommandForTest(
 	store jujuclient.ClientStore,
-	apiOpener modelcmd.APIOpener,
+	apiOpen api.OpenFunc,
 	deployResources resourceadapters.DeployResourcesFunc,
 	resolveCharm ResolveCharmFunc,
 	newCharmAdder NewCharmAdderFunc,
@@ -35,15 +35,14 @@ func NewUpgradeCharmCommandForTest(
 		NewResourceLister:     newResourceLister,
 	}
 	cmd.SetClientStore(store)
-	cmd.SetAPIOpener(apiOpener)
+	cmd.SetAPIOpen(apiOpen)
 	return modelcmd.Wrap(cmd)
 }
 
-// NewConfigCommandForTest returns a SetCommand with the api provided as specified.
-func NewConfigCommandForTest(api configCommandAPI) cmd.Command {
-	return modelcmd.Wrap(&configCommand{
-		api: api,
-	})
+// NewResolvedCommandForTest returns a ResolvedCommand with the api provided as specified.
+func NewResolvedCommandForTest(applicationResolveAPI applicationResolveAPI, clientAPI clientAPI) modelcmd.ModelCommand {
+	cmd := &resolvedCommand{applicationResolveAPI: applicationResolveAPI, clientAPI: clientAPI}
+	return modelcmd.Wrap(cmd)
 }
 
 // NewAddUnitCommandForTest returns an AddUnitCommand with the api provided as specified.
@@ -54,15 +53,13 @@ func NewAddUnitCommandForTest(api serviceAddUnitAPI) cmd.Command {
 }
 
 // NewAddRelationCommandForTest returns an AddRelationCommand with the api provided as specified.
-func NewAddRelationCommandForTest(api ApplicationAddRelationAPI) cmd.Command {
-	cmd := &addRelationCommand{newAPIFunc: func() (ApplicationAddRelationAPI, error) {
-		return api, nil
-	}}
+func NewAddRelationCommandForTest(addAPI applicationAddRelationAPI, consumeAPI applicationConsumeDetailsAPI) modelcmd.ModelCommand {
+	cmd := &addRelationCommand{addRelationAPI: addAPI, consumeDetailsAPI: consumeAPI}
 	return modelcmd.Wrap(cmd)
 }
 
 // NewRemoveRelationCommandForTest returns an RemoveRelationCommand with the api provided as specified.
-func NewRemoveRelationCommandForTest(api ApplicationDestroyRelationAPI) cmd.Command {
+func NewRemoveRelationCommandForTest(api ApplicationDestroyRelationAPI) modelcmd.ModelCommand {
 	cmd := &removeRelationCommand{newAPIFunc: func() (ApplicationDestroyRelationAPI, error) {
 		return api, nil
 	}}
@@ -70,8 +67,49 @@ func NewRemoveRelationCommandForTest(api ApplicationDestroyRelationAPI) cmd.Comm
 }
 
 // NewConsumeCommandForTest returns a ConsumeCommand with the specified api.
-func NewConsumeCommandForTest(api applicationConsumeAPI) cmd.Command {
-	return modelcmd.Wrap(&consumeCommand{api: api})
+func NewConsumeCommandForTest(
+	store jujuclient.ClientStore,
+	sourceAPI applicationConsumeDetailsAPI,
+	targetAPI applicationConsumeAPI,
+) cmd.Command {
+	c := &consumeCommand{sourceAPI: sourceAPI, targetAPI: targetAPI}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c)
+}
+
+func NewUpdateSeriesCommandForTest(
+	appAPI updateApplicationSeriesAPI,
+	machAPI updateMachineSeriesAPI,
+) modelcmd.ModelCommand {
+	cmd := &updateSeriesCommand{
+		updateApplicationSeriesClient: appAPI,
+		updateMachineSeriesClient:     machAPI,
+	}
+	return modelcmd.Wrap(cmd)
+}
+
+// NewSuspendRelationCommandForTest returns a SuspendRelationCommand with the api provided as specified.
+func NewSuspendRelationCommandForTest(api SetRelationSuspendedAPI) modelcmd.ModelCommand {
+	cmd := &suspendRelationCommand{newAPIFunc: func() (SetRelationSuspendedAPI, error) {
+		return api, nil
+	}}
+	return modelcmd.Wrap(cmd)
+}
+
+// NewResumeRelationCommandForTest returns a ResumeRelationCommand with the api provided as specified.
+func NewResumeRelationCommandForTest(api SetRelationSuspendedAPI) modelcmd.ModelCommand {
+	cmd := &resumeRelationCommand{newAPIFunc: func() (SetRelationSuspendedAPI, error) {
+		return api, nil
+	}}
+	return modelcmd.Wrap(cmd)
+}
+
+// NewRemoveSaasCommandForTest returns a RemoveSaasCommand with the api provided as specified.
+func NewRemoveSaasCommandForTest(api RemoveSaasAPI) modelcmd.ModelCommand {
+	cmd := &removeSaasCommand{newAPIFunc: func() (RemoveSaasAPI, error) {
+		return api, nil
+	}}
+	return modelcmd.Wrap(cmd)
 }
 
 type Patcher interface {

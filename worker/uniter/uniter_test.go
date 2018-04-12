@@ -20,7 +20,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
-	corecharm "gopkg.in/juju/charm.v6-unstable"
+	corecharm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
@@ -110,12 +110,18 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 		c.Logf("\ntest %d: %s\n", i, t.summary)
 		func() {
 			defer s.Reset(c)
-			env, err := s.State.Model()
+
+			model, err := s.State.Model()
 			c.Assert(err, jc.ErrorIsNil)
+
+			im, err := s.State.IAASModel()
+			c.Assert(err, jc.ErrorIsNil)
+
 			ctx := &context{
 				s:                      s,
 				st:                     s.State,
-				uuid:                   env.UUID(),
+				im:                     im,
+				uuid:                   model.UUID(),
 				path:                   s.unitDir,
 				dataDir:                s.dataDir,
 				charms:                 make(map[string][]byte),
@@ -134,7 +140,7 @@ func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 			"unable to create state dir",
 			writeFile{"state", 0644},
 			createCharm{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitUniterDead{err: `failed to initialize uniter for "unit-u-0": .*` + errNotDir},
 		), ut(
@@ -143,7 +149,7 @@ func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 			// connect to the API, but here we use a different service
 			// (and hence unit) name.
 			createCharm{},
-			createServiceAndUnit{serviceName: "w"},
+			createApplicationAndUnit{applicationName: "w"},
 			startUniter{unitTag: "unit-u-0"},
 			waitUniterDead{err: `failed to initialize uniter for "unit-u-0": permission denied`},
 		),
@@ -157,7 +163,7 @@ func (s *UniterSuite) TestPreviousDownloadsCleared(c *gc.C) {
 			createCharm{},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			createDownloads{},
 			startUniter{},
 			waitAddresses{},
@@ -200,8 +206,8 @@ func (m *noopExecutor) Run(op operation.Operation) error {
 }
 
 func (s *UniterSuite) TestUniterStartupStatus(c *gc.C) {
-	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
-		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
+	executorFunc := func(stateFilePath string, initialState operation.State, acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
+		e, err := operation.NewExecutor(stateFilePath, initialState, acquireLock)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil
 	}
@@ -211,7 +217,7 @@ func (s *UniterSuite) TestUniterStartupStatus(c *gc.C) {
 			createCharm{},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{
 				newExecutorFunc: executorFunc,
 			},
@@ -497,7 +503,7 @@ func (s *UniterSuite) TestUniterHookSynchronisation(c *gc.C) {
 			createCharm{},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitHooks{},
@@ -738,9 +744,9 @@ resources:
 
 func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: currently does not work on windows")
-	}
+	coretesting.SkipIfWindowsBug(c, "lp:1403084")
+	//TODO(hml): Fix this on S390X, intermittent there.
+	coretesting.SkipIfS390X(c, "lp:1534637")
 	makeTest := func(description string, content, extraChecks ft.Entries) uniterTest {
 		return ut(description,
 			createCharm{
@@ -1199,7 +1205,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
@@ -1230,7 +1236,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
@@ -1263,7 +1269,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
@@ -1297,7 +1303,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
@@ -1340,7 +1346,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
@@ -1374,7 +1380,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
@@ -1406,7 +1412,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			addAction{"action-log", nil},
 			addAction{"action-log", nil},
 			addAction{"action-log", nil},
@@ -1446,7 +1452,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{status: status.Idle},
@@ -1551,17 +1557,17 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 
 	addControllerMachine(c, ctx.st)
 
-	// Create the subordinate service.
+	// Create the subordinate application.
 	dir := testcharms.Repo.ClonedDir(c.MkDir(), "logging")
 	curl, err := corecharm.ParseURL("cs:quantal/logging")
 	c.Assert(err, jc.ErrorIsNil)
 	curl = curl.WithRevision(dir.Revision())
 	step(c, ctx, addCharm{dir, curl})
-	ctx.svc = s.AddTestingService(c, "u", ctx.sch)
+	ctx.application = s.AddTestingApplication(c, "u", ctx.sch)
 
-	// Create the principal service and add a relation.
-	wps := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	wpu, err := wps.AddUnit()
+	// Create the principal application and add a relation.
+	wps := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wpu, err := wps.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("wordpress", "u")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1602,7 +1608,7 @@ func (s *UniterSuite) TestRebootDisabledInActions(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			addAction{"action-reboot", nil},
 			startUniter{},
 			waitAddresses{},
@@ -1636,7 +1642,7 @@ func (s *UniterSuite) TestRebootFinishesHook(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUniterDead{err: "machine needs to reboot"},
@@ -1665,7 +1671,7 @@ func (s *UniterSuite) TestRebootNowKillsHook(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUniterDead{err: "machine needs to reboot"},
@@ -1694,7 +1700,7 @@ func (s *UniterSuite) TestRebootDisabledOnHookError(c *gc.C) {
 			},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{},
+			createApplicationAndUnit{},
 			startUniter{},
 			waitAddresses{},
 			waitUnitAgent{
@@ -1851,7 +1857,7 @@ storage:
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{storage: storageConstraints},
+			createApplicationAndUnit{storage: storageConstraints},
 			provisionStorage{},
 			startUniter{},
 			waitAddresses{},
@@ -1862,7 +1868,7 @@ storage:
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{storage: storageConstraints},
+			createApplicationAndUnit{storage: storageConstraints},
 			provisionStorage{},
 			startUniter{},
 			waitAddresses{},
@@ -1879,7 +1885,7 @@ storage:
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{storage: storageConstraints},
+			createApplicationAndUnit{storage: storageConstraints},
 			// provision and destroy the storage before the uniter starts,
 			// to ensure it never sees the storage as attached
 			provisionStorage{},
@@ -1896,7 +1902,7 @@ storage:
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{storage: storageConstraints},
+			createApplicationAndUnit{storage: storageConstraints},
 			startUniter{},
 			// no hooks should be run, as storage isn't provisioned
 			waitHooks{},
@@ -1908,7 +1914,7 @@ storage:
 			createCharm{customize: appendStorageMetadata},
 			serveCharm{},
 			ensureStateWorker{},
-			createServiceAndUnit{storage: storageConstraints},
+			createApplicationAndUnit{storage: storageConstraints},
 			unitDying,
 			startUniter{},
 			// no hooks should be run, and unit agent should terminate
@@ -1938,8 +1944,8 @@ func (m *mockExecutor) Run(op operation.Operation) error {
 }
 
 func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
-	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
-		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
+	executorFunc := func(stateFilePath string, initialState operation.State, acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
+		e, err := operation.NewExecutor(stateFilePath, initialState, acquireLock)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil
 	}
@@ -1959,8 +1965,8 @@ func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
 }
 
 func (s *UniterSuite) TestTranslateResolverError(c *gc.C) {
-	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
-		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
+	executorFunc := func(stateFilePath string, initialState operation.State, acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
+		e, err := operation.NewExecutor(stateFilePath, initialState, acquireLock)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil
 	}

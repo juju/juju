@@ -44,7 +44,7 @@ func (h *RestHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type modelRestHandler struct {
 	ctxt          httpContext
 	dataDir       string
-	stateAuthFunc func(*http.Request) (*state.State, func(), error)
+	stateAuthFunc func(*http.Request) (*state.PooledState, error)
 }
 
 // ServeGet handles http GET requests.
@@ -53,13 +53,13 @@ func (h *modelRestHandler) ServeGet(w http.ResponseWriter, r *http.Request) erro
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
 
-	st, releaser, _, err := h.ctxt.stateForRequestAuthenticated(r)
+	st, _, err := h.ctxt.stateForRequestAuthenticated(r)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer releaser()
+	defer st.Release()
 
-	return errors.Trace(h.processGet(r, w, st))
+	return errors.Trace(h.processGet(r, w, st.State))
 }
 
 // processGet handles a ReST GET request after authentication.
@@ -89,17 +89,21 @@ func (h *modelRestHandler) processRemoteApplication(r *http.Request, w http.Resp
 		return errors.NotSupportedf("attribute %v on entity %v", attribute, name)
 	}
 
-	// TODO(wallyworld) - for now, offername corresponds to the remoteApp name in the source model
 	// Get the backend state for the source model so we can lookup the app in that model to get the charm details.
-	offer := remoteApp.OfferName()
+	offerUUID := remoteApp.OfferUUID()
 	sourceModelUUID := remoteApp.SourceModel().Id()
-	sourceSt, releaser, err := h.ctxt.srv.statePool.Get(sourceModelUUID)
+	sourceSt, err := h.ctxt.srv.statePool.Get(sourceModelUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer releaser()
+	defer sourceSt.Release()
 
-	app, err := sourceSt.Application(offer)
+	offers := state.NewApplicationOffers(sourceSt.State)
+	offer, err := offers.ApplicationOfferForUUID(offerUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	app, err := sourceSt.Application(offer.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}

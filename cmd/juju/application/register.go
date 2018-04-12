@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -18,74 +17,82 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 )
 
-var (
-	budgetWithLimitRe    = regexp.MustCompile(`^[a-zA-Z0-9\-]+:[0-9]+$`)
-	limitWithoutBudgetRe = regexp.MustCompile(`:[0-9]+$`)
-)
-
 type metricRegistrationPost struct {
 	ModelUUID       string `json:"env-uuid"`
 	CharmURL        string `json:"charm-url"`
 	ApplicationName string `json:"service-name"`
 	PlanURL         string `json:"plan-url"`
-	Budget          string `json:"budget"`
-	Limit           string `json:"limit"`
+	IncreaseBudget  int    `json:"increase-budget"`
 }
 
 // RegisterMeteredCharm implements the DeployStep interface.
 type RegisterMeteredCharm struct {
-	AllocationSpec string
 	Plan           string
+	IncreaseBudget int
 	RegisterURL    string
 	QueryURL       string
 	credentials    []byte
-	budget         string
-	limit          string
 }
 
 func (r *RegisterMeteredCharm) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&r.AllocationSpec, "budget", ":0", "budget and allocation limit")
+	f.IntVar(&r.IncreaseBudget, "increase-budget", 0, "increase model budget allocation by this amount")
 	f.StringVar(&r.Plan, "plan", "", "plan to deploy charm under")
 }
 
 // RunPre obtains authorization to deploy this charm. The authorization, if received is not
 // sent to the controller, rather it is kept as an attribute on RegisterMeteredCharm.
 func (r *RegisterMeteredCharm) RunPre(api MeteredDeployAPI, bakeryClient *httpbakery.Client, ctx *cmd.Context, deployInfo DeploymentInfo) error {
-	if allocBudget, allocLimit, err := parseBudgetWithLimit(r.AllocationSpec); err == nil {
-		// Make these available to registration if valid.
-		r.budget, r.limit = allocBudget, allocLimit
-	} else {
-		return errors.Trace(err)
+	if r.IncreaseBudget < 0 {
+		return errors.Errorf("invalid budget increase %d", r.IncreaseBudget)
 	}
-
-	metered, err := api.IsMetered(deployInfo.CharmID.URL.String())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !metered {
-		return nil
-	}
-	info := deployInfo.CharmInfo
-	if r.Plan == "" && info.Metrics != nil && !info.Metrics.PlanRequired() {
-		return nil
-	}
-
-	if r.Plan == "" && deployInfo.CharmID.URL.Schema == "cs" {
-		r.Plan, err = r.getDefaultPlan(bakeryClient, deployInfo.CharmID.URL.String())
-		if err != nil {
-			if isNoDefaultPlanError(err) {
-				options, err1 := r.getCharmPlans(bakeryClient, deployInfo.CharmID.URL.String())
-				if err1 != nil {
-					return err1
-				}
-				charmURL := deployInfo.CharmID.URL.String()
-				if len(options) > 0 {
-					return errors.Errorf(`%v has no default plan. Try "juju deploy --plan <plan-name> with one of %v"`, charmURL, strings.Join(options, ", "))
-				} else {
-					return errors.Errorf("no plans available for %v.", charmURL)
-				}
+	var err error
+	// if the deployInfo specifies an application plan it means
+	// that it is to be deployed as part of the bundle and should
+	// be deployed using the specified plan: the bundle author
+	// clearly marked it as a metered application so there's no need
+	// to check.
+	if deployInfo.ApplicationPlan != "" {
+		r.Plan = deployInfo.ApplicationPlan
+		if r.Plan == "default" {
+			r.Plan, err = r.getDefaultPlan(bakeryClient, deployInfo.CharmID.URL.String())
+			if err != nil {
+				return errors.Trace(err)
 			}
-			return err
+		}
+	} else {
+		// otherwise we check if the charm is metered
+		metered, err := api.IsMetered(deployInfo.CharmID.URL.String())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !metered {
+			return nil
+		}
+
+		info := deployInfo.CharmInfo
+		if r.Plan == "" && info.Metrics != nil && !info.Metrics.PlanRequired() {
+			return nil
+		}
+
+		// if the plan was not specified and this is a charmstore charm we
+		// check if the charm has a default plan
+		if r.Plan == "" && deployInfo.CharmID.URL.Schema == "cs" {
+			r.Plan, err = r.getDefaultPlan(bakeryClient, deployInfo.CharmID.URL.String())
+			if err != nil {
+				if isNoDefaultPlanError(err) {
+					options, err1 := r.getCharmPlans(bakeryClient, deployInfo.CharmID.URL.String())
+					if err1 != nil {
+						return err1
+					}
+					charmURL := deployInfo.CharmID.URL.String()
+					if len(options) > 0 {
+						return errors.Errorf(`%v has no default plan. Try "juju deploy --plan <plan-name> with one of %v"`, charmURL, strings.Join(options, ", "))
+					} else {
+						return errors.Errorf("no plans available for %v.", charmURL)
+					}
+				}
+				return err
+			}
 		}
 	}
 
@@ -93,8 +100,6 @@ func (r *RegisterMeteredCharm) RunPre(api MeteredDeployAPI, bakeryClient *httpba
 		deployInfo.ModelUUID,
 		deployInfo.CharmID.URL.String(),
 		deployInfo.ApplicationName,
-		r.budget,
-		r.limit,
 		bakeryClient,
 	)
 	if err != nil {
@@ -223,7 +228,7 @@ func (r *RegisterMeteredCharm) getCharmPlans(client *httpbakery.Client, cURL str
 	return info, nil
 }
 
-func (r *RegisterMeteredCharm) registerMetrics(modelUUID, charmURL, serviceName, budget, limit string, client *httpbakery.Client) ([]byte, error) {
+func (r *RegisterMeteredCharm) registerMetrics(modelUUID, charmURL, serviceName string, client *httpbakery.Client) ([]byte, error) {
 	if r.RegisterURL == "" {
 		return nil, errors.Errorf("no metric registration url is specified")
 	}
@@ -237,8 +242,7 @@ func (r *RegisterMeteredCharm) registerMetrics(modelUUID, charmURL, serviceName,
 		CharmURL:        charmURL,
 		ApplicationName: serviceName,
 		PlanURL:         r.Plan,
-		Budget:          budget,
-		Limit:           limit,
+		IncreaseBudget:  r.IncreaseBudget,
 	}
 
 	buff := &bytes.Buffer{}
@@ -275,13 +279,4 @@ func (r *RegisterMeteredCharm) registerMetrics(modelUUID, charmURL, serviceName,
 		return nil, errors.Errorf("authorization failed: http response is %d", response.StatusCode)
 	}
 	return nil, errors.Errorf("authorization failed: %s", respError.Error)
-}
-
-func parseBudgetWithLimit(bl string) (string, string, error) {
-	if !budgetWithLimitRe.MatchString(bl) && !limitWithoutBudgetRe.MatchString(bl) {
-
-		return "", "", errors.New("invalid allocation, expecting <budget>:<limit>")
-	}
-	parts := strings.Split(bl, ":")
-	return parts[0], parts[1], nil
 }

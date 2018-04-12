@@ -143,7 +143,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	}
 	client, err := sockets.Dial(c.socketPath())
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "dialing juju run socket")
 	}
 	defer client.Close()
 

@@ -33,8 +33,8 @@ func IsMethodAllowedDuringUpgrade(facadeName, methodName string) bool {
 var allowedMethodsDuringUpgrades = map[string]set.Strings{
 	"Client": set.NewStrings(
 		"FullStatus",          // for "juju status"
-		"FindTools",           // for "juju upgrade-juju", before we can reset upgrade to re-run
-		"AbortCurrentUpgrade", // for "juju upgrade-juju", so that we can reset upgrade to re-run
+		"FindTools",           // for "juju upgrade-model", before we can reset upgrade to re-run
+		"AbortCurrentUpgrade", // for "juju upgrade-model", so that we can reset upgrade to re-run
 
 	),
 	"SSHClient": set.NewStrings( // allow all SSH client related calls

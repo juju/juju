@@ -67,7 +67,7 @@ func FormatSummary(writer io.Writer, value interface{}) error {
 	p("# Remote:", fmt.Sprintf("(%d)", len(fs.RemoteApplications)))
 	for _, svcName := range utils.SortStringsNaturally(stringKeysFromMap(fs.RemoteApplications)) {
 		s := fs.RemoteApplications[svcName]
-		p(svcName, "", s.ApplicationURL)
+		p(svcName, "", s.OfferURL)
 	}
 	f.tw.Flush()
 

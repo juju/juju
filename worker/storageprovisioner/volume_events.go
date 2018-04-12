@@ -120,6 +120,16 @@ func updateVolume(ctx *context, info storage.Volume) {
 // ID, updatePendingVolume will request that the machine be watched so its
 // instance ID can be learned.
 func updatePendingVolume(ctx *context, params storage.VolumeParams) {
+	if params.Attachment == nil {
+		// NOTE(axw) this would only happen if the model is
+		// in an incoherent state; we should never have an
+		// alive, unprovisioned, and unattached volume.
+		logger.Warningf(
+			"%s is in an incoherent state, ignoring",
+			names.ReadableString(params.Tag),
+		)
+		return
+	}
 	if params.Attachment.InstanceId == "" {
 		watchMachine(ctx, params.Attachment.Machine)
 		ctx.incompleteVolumeParams[params.Tag] = params
@@ -193,7 +203,7 @@ func processDeadVolumes(ctx *context, tags []names.VolumeTag, volumeResults []pa
 	if len(destroy) > 0 {
 		ops := make([]scheduleOp, len(destroy))
 		for i, tag := range destroy {
-			ops[i] = &destroyVolumeOp{tag: tag}
+			ops[i] = &removeVolumeOp{tag: tag}
 		}
 		scheduleOperations(ctx, ops...)
 	}
@@ -382,6 +392,22 @@ func volumeParams(ctx *context, tags []names.VolumeTag) ([]storage.VolumeParams,
 	return allParams, nil
 }
 
+// removeVolumeParams obtains the specified volumes' destruction parameters.
+func removeVolumeParams(ctx *context, tags []names.VolumeTag) ([]params.RemoveVolumeParams, error) {
+	paramsResults, err := ctx.config.Volumes.RemoveVolumeParams(tags)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting volume params")
+	}
+	allParams := make([]params.RemoveVolumeParams, len(tags))
+	for i, result := range paramsResults {
+		if result.Error != nil {
+			return nil, errors.Annotate(result.Error, "getting volume removal parameters")
+		}
+		allParams[i] = result.Result
+	}
+	return allParams, nil
+}
+
 func volumesFromStorage(in []storage.Volume) []params.Volume {
 	out := make([]params.Volume, len(in))
 	for i, v := range in {
@@ -390,6 +416,7 @@ func volumesFromStorage(in []storage.Volume) []params.Volume {
 			params.VolumeInfo{
 				v.VolumeId,
 				v.HardwareId,
+				v.WWN,
 				"", // pool
 				v.Size,
 				v.Persistent,
@@ -426,6 +453,7 @@ func volumeFromParams(in params.Volume) (storage.Volume, error) {
 		storage.VolumeInfo{
 			in.Info.VolumeId,
 			in.Info.HardwareId,
+			in.Info.WWN,
 			in.Info.Size,
 			in.Info.Persistent,
 		},

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -136,6 +137,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 	apiInfo := s.APIInfo(c)
 	paths := agent.DefaultPaths
 	paths.DataDir = s.DataDir()
+	paths.LogDir = s.LogDir
 	paths.MetricsSpoolDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -144,7 +146,6 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 			UpgradedToVersion: vers.Number,
 			Password:          password,
 			Nonce:             agent.BootstrapNonce,
-			StateAddresses:    stateInfo.Addrs,
 			APIAddresses:      apiInfo.Addrs,
 			CACert:            stateInfo.CACert,
 			Controller:        coretesting.ControllerTag,
@@ -182,7 +183,10 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	conf := s.WriteStateAgentConfig(c, tag, password, vers, s.State.ModelTag())
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	conf := s.WriteStateAgentConfig(c, tag, password, vers, model.ModelTag())
 	s.primeAPIHostPorts(c)
 	return conf, agentTools
 }
@@ -195,17 +199,19 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	vers version.Binary,
 	modelTag names.ModelTag,
 ) agent.ConfigSetterWriter {
-	stateInfo := s.State.MongoConnectionInfo()
+	stateInfo := s.MongoInfo(c)
 	apiPort := gitjujutesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
-			Paths:             agent.NewPathsWithDefaults(agent.Paths{DataDir: s.DataDir()}),
+			Paths: agent.NewPathsWithDefaults(agent.Paths{
+				DataDir: s.DataDir(),
+				LogDir:  s.LogDir,
+			}),
 			Tag:               tag,
 			UpgradedToVersion: vers.Number,
 			Password:          password,
 			Nonce:             agent.BootstrapNonce,
-			StateAddresses:    stateInfo.Addrs,
 			APIAddresses:      apiAddr,
 			CACert:            stateInfo.CACert,
 			Controller:        s.State.ControllerTag(),
@@ -241,7 +247,7 @@ func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 // arguments as provided.
 func (s *AgentSuite) InitAgent(c *gc.C, a cmd.Command, args ...string) {
 	args = append([]string{"--data-dir", s.DataDir()}, args...)
-	err := coretesting.InitCommand(a, args)
+	err := cmdtesting.InitCommand(a, args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -250,12 +256,14 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 	c.Assert(err, jc.ErrorIsNil)
 	info, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
+	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
+	c.Assert(err, jc.ErrorIsNil)
+	defer session.Close()
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
-		MongoInfo:          info,
-		MongoDialOpts:      mongotest.DialOpts(),
+		MongoSession:       session,
 		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),

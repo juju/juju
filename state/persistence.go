@@ -36,10 +36,6 @@ type Persistence interface {
 	// IncCharmModifiedVersionOps returns the operations necessary to increment
 	// the CharmModifiedVersion field for the given application.
 	IncCharmModifiedVersionOps(applicationID string) []txn.Op
-
-	// NewCleanupOp creates a mgo transaction operation that queues up
-	// some cleanup action in state.
-	NewCleanupOp(kind, prefix string) txn.Op
 }
 
 type statePersistence struct {
@@ -53,7 +49,7 @@ func (st *State) newPersistence() Persistence {
 
 // One gets the identified document from the collection.
 func (sp statePersistence) One(collName, id string, doc interface{}) error {
-	coll, closeColl := sp.st.getCollection(collName)
+	coll, closeColl := sp.st.db().GetCollection(collName)
 	defer closeColl()
 
 	err := coll.FindId(id).One(doc)
@@ -68,7 +64,7 @@ func (sp statePersistence) One(collName, id string, doc interface{}) error {
 
 // All gets all documents from the collection matching the query.
 func (sp statePersistence) All(collName string, query, docs interface{}) error {
-	coll, closeColl := sp.st.getCollection(collName)
+	coll, closeColl := sp.st.db().GetCollection(collName)
 	defer closeColl()
 
 	if err := coll.Find(query).All(docs); err != nil {
@@ -79,7 +75,7 @@ func (sp statePersistence) All(collName string, query, docs interface{}) error {
 
 // Run runs the transaction produced by the provided factory function.
 func (sp statePersistence) Run(transactions jujutxn.TransactionSource) error {
-	if err := sp.st.run(transactions); err != nil {
+	if err := sp.st.db().Run(transactions); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -108,10 +104,4 @@ func (sp *statePersistence) ApplicationExistsOps(applicationID string) []txn.Op 
 // CharmModifiedVersion field for the given service.
 func (sp *statePersistence) IncCharmModifiedVersionOps(applicationID string) []txn.Op {
 	return incCharmModifiedVersionOps(applicationID)
-}
-
-// NewCleanupOp creates a mgo transaction operation that queues up
-// some cleanup action in state.
-func (sp *statePersistence) NewCleanupOp(kind, prefix string) txn.Op {
-	return newCleanupOp(cleanupKind(kind), prefix)
 }

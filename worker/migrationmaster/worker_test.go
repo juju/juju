@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	servercommon "github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
@@ -91,6 +92,12 @@ var (
 	}
 	activateCall = jujutesting.StubCall{
 		"MigrationTarget.Activate",
+		[]interface{}{
+			params.ModelArgs{ModelTag: modelTag.String()},
+		},
+	}
+	checkMachinesCall = jujutesting.StubCall{
+		"MigrationTarget.CheckMachines",
 		[]interface{}{
 			params.ModelArgs{ModelTag: modelTag.String()},
 		},
@@ -253,6 +260,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
 			apiOpenControllerCall,
+			checkMachinesCall,
 			activateCall,
 			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.SUCCESS}},
@@ -543,6 +551,71 @@ func (s *Suite) TestVALIDATIONFailedAgent(c *gc.C) {
 	))
 }
 
+func (s *Suite) TestVALIDATIONCheckMachinesOneError(c *gc.C) {
+	s.facade.queueStatus(s.makeStatus(coremigration.VALIDATION))
+	s.facade.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
+
+	s.connection.machineErrs = []string{"been so strange"}
+	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]jujutesting.StubCall{
+			{"facade.WatchMinionReports", nil},
+			{"facade.MinionReports", nil},
+			apiOpenControllerCall,
+			checkMachinesCall,
+			apiCloseCall,
+		},
+		abortCalls,
+	))
+	lastMessages := s.facade.statuses[len(s.facade.statuses)-2:]
+	c.Assert(lastMessages, gc.DeepEquals, []string{
+		"machine sanity check failed, 1 error found",
+		"aborted, removing model from target controller: machine sanity check failed, 1 error found",
+	})
+}
+
+func (s *Suite) TestVALIDATIONCheckMachinesSeveralErrors(c *gc.C) {
+	s.facade.queueStatus(s.makeStatus(coremigration.VALIDATION))
+	s.facade.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
+	s.connection.machineErrs = []string{"been so strange", "lit up"}
+	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]jujutesting.StubCall{
+			{"facade.WatchMinionReports", nil},
+			{"facade.MinionReports", nil},
+			apiOpenControllerCall,
+			checkMachinesCall,
+			apiCloseCall,
+		},
+		abortCalls,
+	))
+	lastMessages := s.facade.statuses[len(s.facade.statuses)-2:]
+	c.Assert(lastMessages, gc.DeepEquals, []string{
+		"machine sanity check failed, 2 errors found",
+		"aborted, removing model from target controller: machine sanity check failed, 2 errors found",
+	})
+}
+
+func (s *Suite) TestVALIDATIONCheckMachinesOtherError(c *gc.C) {
+	s.facade.queueStatus(s.makeStatus(coremigration.VALIDATION))
+	s.facade.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
+	s.connection.checkMachineErr = errors.Errorf("something went bang")
+
+	s.checkWorkerReturns(c, s.connection.checkMachineErr)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]jujutesting.StubCall{
+			{"facade.WatchMinionReports", nil},
+			{"facade.MinionReports", nil},
+			apiOpenControllerCall,
+			checkMachinesCall,
+			apiCloseCall,
+		},
+	))
+}
+
 func (s *Suite) TestSUCCESSMinionWaitWatchError(c *gc.C) {
 	s.checkMinionWaitWatchError(c, coremigration.SUCCESS)
 }
@@ -713,48 +786,6 @@ func (s *Suite) TestAPIConnectWithMacaroon(c *gc.C) {
 			abortCall,
 			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.ABORTDONE}},
-		},
-	))
-}
-
-func (s *Suite) TestExternalControl(c *gc.C) {
-	status := s.makeStatus(coremigration.QUIESCE)
-	status.ExternalControl = true
-	s.facade.queueStatus(status)
-
-	status.Phase = coremigration.DONE
-	s.facade.queueStatus(status)
-
-	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
-	s.stub.CheckCalls(c, joinCalls(
-		// Wait for migration to start.
-		watchStatusLockdownCalls,
-
-		// Wait for migration to end.
-		[]jujutesting.StubCall{
-			{"facade.Watch", nil},
-			{"facade.MigrationStatus", nil},
-		},
-	))
-}
-
-func (s *Suite) TestExternalControlABORT(c *gc.C) {
-	status := s.makeStatus(coremigration.QUIESCE)
-	status.ExternalControl = true
-	s.facade.queueStatus(status)
-
-	status.Phase = coremigration.ABORTDONE
-	s.facade.queueStatus(status)
-
-	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
-	s.stub.CheckCalls(c, joinCalls(
-		// Wait for migration to start.
-		watchStatusLockdownCalls,
-
-		// Wait for migration to end.
-		[]jujutesting.StubCall{
-			{"facade.Watch", nil},
-			{"facade.MigrationStatus", nil},
 		},
 	))
 }
@@ -1054,6 +1085,8 @@ type stubMasterFacade struct {
 	minionReportsErr      error
 
 	exportedResources []coremigration.SerializedModelResource
+
+	statuses []string
 }
 
 func (f *stubMasterFacade) triggerWatcher() {
@@ -1164,6 +1197,7 @@ func (f *stubMasterFacade) SetPhase(phase coremigration.Phase) error {
 }
 
 func (f *stubMasterFacade) SetStatusMessage(message string) error {
+	f.statuses = append(f.statuses, message)
 	return nil
 }
 
@@ -1217,14 +1251,17 @@ type stubConnection struct {
 
 	latestLogErr  error
 	latestLogTime time.Time
+
+	machineErrs     []string
+	checkMachineErr error
 }
 
 func (c *stubConnection) BestFacadeVersion(string) int {
 	return 1
 }
 
-func (c *stubConnection) APICall(objType string, version int, id, request string, params, response interface{}) error {
-	c.stub.AddCall(objType+"."+request, params)
+func (c *stubConnection) APICall(objType string, version int, id, request string, args, response interface{}) error {
+	c.stub.AddCall(objType+"."+request, args)
 
 	if objType == "MigrationTarget" {
 		switch request {
@@ -1240,6 +1277,14 @@ func (c *stubConnection) APICall(objType string, version int, id, request string
 			// from the API it will have a timezone attached.
 			*responseTime = c.latestLogTime.In(time.UTC)
 			return c.latestLogErr
+		case "CheckMachines":
+			results := response.(*params.ErrorResults)
+			for _, msg := range c.machineErrs {
+				results.Results = append(results.Results, params.ErrorResult{
+					Error: servercommon.ServerError(errors.Errorf(msg)),
+				})
+			}
+			return c.checkMachineErr
 		}
 	}
 	return errors.New("unexpected API call")

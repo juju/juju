@@ -75,7 +75,10 @@ const (
 	CodeDead                      = "dead"
 	CodeHasAssignedUnits          = "machine has assigned units"
 	CodeHasHostedModels           = "controller has hosted models"
+	CodeHasPersistentStorage      = "controller/model has persistent storage"
+	CodeModelNotEmpty             = "model not empty"
 	CodeMachineHasAttachedStorage = "machine has attached storage"
+	CodeStorageAttached           = "storage is attached"
 	CodeNotProvisioned            = "not provisioned"
 	CodeNoAddressSet              = "no address set"
 	CodeTryAgain                  = "try again"
@@ -94,6 +97,7 @@ const (
 	CodeDischargeRequired         = "macaroon discharge required"
 	CodeRedirect                  = "redirection required"
 	CodeRetry                     = "retry"
+	CodeIncompatibleSeries        = "incompatible series"
 )
 
 // ErrCode returns the error code associated with
@@ -184,8 +188,20 @@ func IsCodeHasHostedModels(err error) bool {
 	return ErrCode(err) == CodeHasHostedModels
 }
 
+func IsCodeHasPersistentStorage(err error) bool {
+	return ErrCode(err) == CodeHasPersistentStorage
+}
+
+func IsCodeModelNotEmpty(err error) bool {
+	return ErrCode(err) == CodeModelNotEmpty
+}
+
 func IsCodeMachineHasAttachedStorage(err error) bool {
 	return ErrCode(err) == CodeMachineHasAttachedStorage
+}
+
+func IsCodeStorageAttached(err error) bool {
+	return ErrCode(err) == CodeStorageAttached
 }
 
 func IsCodeNotProvisioned(err error) bool {
@@ -238,4 +254,12 @@ func IsMethodNotAllowed(err error) bool {
 
 func IsRedirect(err error) bool {
 	return ErrCode(err) == CodeRedirect
+}
+
+func IsCodeIncompatibleSeries(err error) bool {
+	return ErrCode(err) == CodeIncompatibleSeries
+}
+
+func IsCodeForbidden(err error) bool {
+	return ErrCode(err) == CodeForbidden
 }
