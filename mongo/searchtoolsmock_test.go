@@ -6,7 +6,6 @@ package mongo
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	os "os"
 	reflect "reflect"
 )
 
@@ -33,33 +32,32 @@ func (m *MockSearchTools) EXPECT() *MockSearchToolsMockRecorder {
 	return m.recorder
 }
 
-// RunCommand mocks base method
-func (m *MockSearchTools) RunCommand(arg0 string, arg1 ...string) (string, error) {
+// Exists mocks base method
+func (m *MockSearchTools) Exists(arg0 string) bool {
+	ret := m.ctrl.Call(m, "Exists", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Exists indicates an expected call of Exists
+func (mr *MockSearchToolsMockRecorder) Exists(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exists", reflect.TypeOf((*MockSearchTools)(nil).Exists), arg0)
+}
+
+// GetCommandOutput mocks base method
+func (m *MockSearchTools) GetCommandOutput(arg0 string, arg1 ...string) (string, error) {
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "RunCommand", varargs...)
+	ret := m.ctrl.Call(m, "GetCommandOutput", varargs...)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// RunCommand indicates an expected call of RunCommand
-func (mr *MockSearchToolsMockRecorder) RunCommand(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+// GetCommandOutput indicates an expected call of GetCommandOutput
+func (mr *MockSearchToolsMockRecorder) GetCommandOutput(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	varargs := append([]interface{}{arg0}, arg1...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunCommand", reflect.TypeOf((*MockSearchTools)(nil).RunCommand), varargs...)
-}
-
-// Stat mocks base method
-func (m *MockSearchTools) Stat(arg0 string) (os.FileInfo, error) {
-	ret := m.ctrl.Call(m, "Stat", arg0)
-	ret0, _ := ret[0].(os.FileInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Stat indicates an expected call of Stat
-func (mr *MockSearchToolsMockRecorder) Stat(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stat", reflect.TypeOf((*MockSearchTools)(nil).Stat), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCommandOutput", reflect.TypeOf((*MockSearchTools)(nil).GetCommandOutput), varargs...)
 }

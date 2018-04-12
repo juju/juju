@@ -37,11 +37,17 @@ var (
 	// mongod.
 	JujuMongod24Path = "/usr/lib/juju/bin/mongod"
 
+	// JujuMongod32Path holds the default path to juju-mongodb3.2
+	JujuMongod32Path = "/usr/lib/juju/mongo3.2/bin/mongod"
+
 	// MongodSystemPath is actually just the system path
 	MongodSystemPath = "/usr/bin/mongod"
 
 	// This is NUMACTL package name for apt-get
 	numaCtlPkg = "numactl"
+
+	// mininmumSystemMongoVersion is the minimum version we would allow to be used from /usr/bin/mongod.
+	minimumSystemMongoVersion = Version{Major: 3, Minor: 4}
 )
 
 // StorageEngine represents the storage used by mongo.
