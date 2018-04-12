@@ -1669,9 +1669,16 @@ func (api *APIv6) unsetApplicationConfig(arg params.ApplicationUnset) error {
 
 // ResolveUnitErrors marks errors on the specified units as resolved.
 func (api *APIv6) ResolveUnitErrors(p params.UnitsResolved) (params.ErrorResults, error) {
-	// TODO(wallyworld)
 	if p.All {
-		return params.ErrorResults{}, errors.NotImplementedf("resolve --all")
+		unitsWithErrors, err := api.backend.UnitsInError()
+		if err != nil {
+			return params.ErrorResults{}, errors.Trace(err)
+		}
+		for _, u := range unitsWithErrors {
+			if err := u.Resolve(p.Retry); err != nil {
+				return params.ErrorResults{}, errors.Annotatef(err, "resolve error for unit %q", u.UnitTag().Id())
+			}
+		}
 	}
 
 	var result params.ErrorResults

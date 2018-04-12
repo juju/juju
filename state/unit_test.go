@@ -992,6 +992,40 @@ func assertRemoved(c *gc.C, entity state.Living) {
 	}
 }
 
+func (s *UnitSuite) TestUnitsInError(c *gc.C) {
+	now := coretesting.NonZeroTime()
+	err := s.unit.SetAgentStatus(status.StatusInfo{
+		Status:  status.Error,
+		Message: "some error",
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Set a non unit error to ensure it's ignored.
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetStatus(status.StatusInfo{
+		Status:  status.Error,
+		Message: "some machine error",
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a unit not in error to ensure it's ignored.
+	another, err := s.application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = another.SetAgentStatus(status.StatusInfo{
+		Status: status.Allocating,
+		Since:  &now,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := s.State.UnitsInError()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	c.Assert(units[0], jc.DeepEquals, s.unit)
+}
+
 func (s *UnitSuite) TestTag(c *gc.C) {
 	c.Assert(s.unit.Tag().String(), gc.Equals, "unit-wordpress-0")
 }
@@ -1050,9 +1084,9 @@ func (s *UnitSuite) TestUnitWaitAgentPresence(c *gc.C) {
 }
 
 func (s *UnitSuite) TestResolve(c *gc.C) {
-	err := s.unit.Resolve(false)
+	err := s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
-	err = s.unit.Resolve(true)
+	err = s.unit.Resolve(false)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
 
 	now := coretesting.NonZeroTime()
@@ -1063,17 +1097,17 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	}
 	err = s.unit.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Resolve(false)
-	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(true)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.unit.Resolve(false)
 	c.Assert(err, gc.ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
 	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedRetryHooks)
 
 	err = s.unit.ClearResolved()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Resolve(true)
-	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(false)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
 	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedNoHooks)
 }

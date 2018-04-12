@@ -46,17 +46,16 @@ var resolvedTests = []struct {
 	}, {
 		args: []string{"jeremy-fisher"},
 		err:  `unit name "jeremy-fisher" not valid`,
-		// TODO(wallyworld) - uncomment once server side supports all=true
-		//}, {
-		//	args: []string{"jeremy-fisher/99", "--all"},
-		//	err:  `specifying unit names\(s\) with --all not supported`,
-		//}, {
-		//	apiVersion: 5,
-		//	args:       []string{"--all"},
-		//	err:        `resolving all units or more than one unit not support by this version of Juju`,
-		//}, {
-		//	args: []string{"--all", "--no-retry"},
-		//	all:  true,
+	}, {
+		args: []string{"jeremy-fisher/99", "--all"},
+		err:  `specifying unit names\(s\) with --all not supported`,
+	}, {
+		apiVersion: 5,
+		args:       []string{"--all"},
+		err:        `resolving all units or more than one unit not support by this version of Juju`,
+	}, {
+		args: []string{"--all", "--no-retry"},
+		all:  true,
 	}, {
 		apiVersion:  5,
 		args:        []string{"jeremy-fisher/98", "jeremy-fisher/99"},
