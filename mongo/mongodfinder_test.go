@@ -293,7 +293,7 @@ func (s *OSSearchToolsSuite) TestGetCommandOutputValid(c *gc.C) {
 		c.Skip("not running 'echo' on windows")
 	}
 	tools := mongo.OSSearchTools{}
-	out, err := tools.GetCommandOutput("echo", "argument")
+	out, err := tools.GetCommandOutput("/bin/echo", "argument")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(out, gc.Equals, "argument\n")
 }
@@ -309,7 +309,7 @@ echo "hello $1"
 exit 1
 `), 0755)
 	tools := mongo.OSSearchTools{}
-	out, err := tools.GetCommandOutput("echo", "argument")
+	out, err := tools.GetCommandOutput(path, "argument")
 	c.Assert(err, gc.NotNil)
 	c.Check(out, gc.Equals, "hello argument\n")
 }
@@ -322,10 +322,9 @@ func (s *OSSearchToolsSuite) TestGetCommandOutputNonExecutable(c *gc.C) {
 	path := filepath.Join(dir, "failing")
 	err := ioutil.WriteFile(path, []byte(`#!/bin/bash --norc
 echo "shouldn't happen $1"
-exit 1
 `), 0644)
 	tools := mongo.OSSearchTools{}
-	out, err := tools.GetCommandOutput("echo", "argument")
+	out, err := tools.GetCommandOutput(path, "argument")
 	c.Assert(err, gc.NotNil)
 	c.Check(out, gc.Equals, "")
 }
