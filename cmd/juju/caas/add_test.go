@@ -109,15 +109,15 @@ type fakeCredentialStore struct {
 	jujutesting.Stub
 }
 
-func (fcs fakeCredentialStore) CredentialForCloud(string) (*cloud.CloudCredential, error) {
+func (fcs *fakeCredentialStore) CredentialForCloud(string) (*cloud.CloudCredential, error) {
 	return nil, nil
 }
 
-func (fcs fakeCredentialStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
+func (fcs *fakeCredentialStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
 	return map[string]cloud.CloudCredential{}, nil
 }
 
-func (fcs fakeCredentialStore) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
+func (fcs *fakeCredentialStore) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
 	return nil
 }
 

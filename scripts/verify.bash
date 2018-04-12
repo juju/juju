@@ -56,7 +56,6 @@ all_prints=`echo $logging_prints $error_prints | tr " " ,`
 go tool vet \
    -all \
    -composites=false \
-   -copylocks=false \
    -printfuncs=$all_prints \
     . || [ -n "$IGNORE_VET_WARNINGS" ]
 
