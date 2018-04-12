@@ -128,8 +128,8 @@ timing:
 		withClientWait:    "6s",
 		withClientQueryID: validActionId,
 		// Wait just slightly less than the 2s tick time, to make sure it times out first
-		withAPITimeout:    3900 * time.Millisecond,
-		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
+		withAPITimeout: 3900 * time.Millisecond,
+		withTags:       tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Status: "running",
 			Output: map[string]interface{}{

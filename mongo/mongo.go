@@ -716,7 +716,7 @@ func packagesForSeries(series string) ([]string, []string) {
 		return []string{JujuMongoPackage, JujuMongoToolsPackage}, []string{}
 	default:
 		// Bionic and newer
-		return []string{"mongodb-server-core", "mongdb-clients"}, []string{}
+		return []string{"mongodb-server-core", "mongodb-clients"}, []string{}
 	}
 }
 
