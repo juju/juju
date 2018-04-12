@@ -223,47 +223,6 @@ var (
 	}
 )
 
-// InstalledVersion returns the version of mongo installed.
-// We look for a specific, known version supported by this Juju,
-// and fall back to the original mongo 2.4.
-func InstalledVersion() Version {
-	mgoVersion := Mongo24
-	// We change this for order of precedence. The issue is that Mongo36 is
-	// just /usr/bin/mongo which may not actually be 3.4 on Trusty/Xenial.
-	// We still prefer if /usr/lib/juju/bin/mong2.4 is available, or if
-	// /usr/lib/juju/mongo3.2/bin/mongod is available.
-	if binariesAvailable(Mongo36wt, os.Stat) {
-		mgoVersion = Mongo36wt
-	}
-	if binariesAvailable(Mongo24, os.Stat) {
-		mgoVersion = Mongo24
-	}
-	if binariesAvailable(Mongo32wt, os.Stat) {
-		mgoVersion = Mongo32wt
-	}
-	return mgoVersion
-}
-
-// binariesAvailable returns true if the binaries for the
-// given Version of mongo are available.
-func binariesAvailable(v Version, statFunc func(string) (os.FileInfo, error)) bool {
-	var path string
-	switch v {
-	case Mongo24:
-		// 2.4 has a fixed path.
-		path = JujuMongod24Path
-	case Mongo36wt:
-		// 3.6 switched back to using the system mongod
-		path = MongodSystemPath
-	default:
-		path = JujuMongodPath(v)
-	}
-	if _, err := statFunc(path); err == nil {
-		return true
-	}
-	return false
-}
-
 // WithAddresses represents an entity that has a set of
 // addresses. e.g. a state Machine object
 type WithAddresses interface {
@@ -373,14 +332,9 @@ func mongoPath(version Version, stat func(string) (os.FileInfo, error), lookPath
 	case Mongo36wt:
 		if _, err := stat(MongodSystemPath); err == nil {
 			return MongodSystemPath, nil
-		}
-
-		path, err := lookPath("mongod")
-		if err != nil {
-			logger.Infof("could not find %v or mongod in $PATH", MongodSystemPath)
+		} else {
 			return "", err
 		}
-		return path, nil
 	default:
 		path := JujuMongodPath(version)
 		var err error
@@ -529,8 +483,8 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 		// (LP #1441904)
 		logger.Errorf("cannot install/upgrade mongod (will proceed anyway): %v", err)
 	}
-	mgoVersion := InstalledVersion()
-	mongoPath, err := Path(mgoVersion)
+	finder := NewMongodFinder()
+	mongoPath, mgoVersion, err := finder.FindBest()
 	if err != nil {
 		return err
 	}
