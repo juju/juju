@@ -101,7 +101,7 @@ func GetImageWithServer(
 		target = entry.Target
 		image, _, err := server.GetImage(target)
 		if err == nil {
-			logger.Debugf("Found image locally - %q %q", image, target)
+			logger.Debugf("Found image locally - %q %q", image.Filename, target)
 			return server, image, target, nil
 		}
 	}
@@ -130,7 +130,7 @@ func GetImageWithServer(
 		if target != "" {
 			image, _, err := source.GetImage(target)
 			if err == nil {
-				logger.Debugf("Found image remotely - %q %q %q", source, image, target)
+				logger.Debugf("Found image remotely - %q %q %q", remote.Name, image.Filename, target)
 				return source, image, target, nil
 			} else {
 				lastErr = err
