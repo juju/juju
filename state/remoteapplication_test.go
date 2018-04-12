@@ -94,7 +94,7 @@ func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 		"db-admin": "private",
 		"logging":  "public",
 	}
-	mac, err := macaroon.New(nil, []byte("test"), "")
+	mac, err := apitesting.NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	s.application, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
@@ -328,7 +328,7 @@ func (s *remoteApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 }
 
 func (s *remoteApplicationSuite) TestMacaroon(c *gc.C) {
-	mac, err := macaroon.New(nil, []byte("test"), "")
+	mac, err := apitesting.NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	appMac, err := s.application.Macaroon()
 	c.Assert(err, jc.ErrorIsNil)

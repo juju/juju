@@ -412,7 +412,7 @@ func (s *remoteRelationsSuite) TestControllerAPIInfoForModel(c *gc.C) {
 
 func (s *remoteRelationsSuite) TestSaveMacaroon(c *gc.C) {
 	rel := names.NewRelationTag("mysql:db wordpress:db")
-	mac, err := macaroon.New(nil, nil, "")
+	mac, err := apitesting.NewMacaroon("id")
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "RemoteRelations")

@@ -777,7 +777,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 		CACert:        coretesting.CACert}, offeringModelTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	mac, err := macaroon.New(nil, []byte("apimac"), "")
+	mac, err := apitesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
 	var relToken string
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -938,7 +938,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 		CACert:        coretesting.CACert}, offeringModelTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	mac, err := macaroon.New(nil, []byte("apimac"), "")
+	mac, err := apitesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
 	watched := make(chan bool)
 	var relToken string
@@ -1024,7 +1024,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 		CACert:        coretesting.CACert}, offeringModelTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	mac, err := macaroon.New(nil, []byte("apimac"), "")
+	mac, err := apitesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
 	published := make(chan bool)
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

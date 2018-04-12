@@ -238,7 +238,7 @@ func (s *remoteRelationsSuite) TestGetTokens(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestSaveMacaroons(c *gc.C) {
-	mac, err := macaroon.New(nil, []byte("id"), "")
+	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	relTag := names.NewRelationTag("mysql:db wordpress:db")
 	result, err := s.api.SaveMacaroons(params.EntityMacaroonArgs{
@@ -271,7 +271,7 @@ func (s *remoteRelationsSuite) TestRemoteApplications(c *gc.C) {
 	s.st.remoteApplications["django"] = newMockRemoteApplication("django", "me/model.riak")
 	result, err := s.api.RemoteApplications(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := macaroon.New(nil, []byte("test"), "")
+	mac, err := apitesting.NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.RemoteApplicationResult{{
 		Result: &params.RemoteApplication{

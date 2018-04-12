@@ -96,7 +96,7 @@ func (s *ConsumeSuite) assertSuccessModelDotApplication(c *gc.C, alias string) {
 		ctx, err = s.runConsume(c, "ctrl:booster.uke")
 	}
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := macaroon.New(nil, []byte("id"), "loc")
+	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	s.mockAPI.CheckCalls(c, []testing.StubCall{
 		{"GetConsumeDetails", []interface{}{"bob/booster.uke"}},
@@ -144,7 +144,7 @@ func (a *mockConsumeAPI) Consume(arg crossmodel.ConsumeApplicationArgs) (string,
 
 func (a *mockConsumeAPI) GetConsumeDetails(url string) (params.ConsumeOfferDetails, error) {
 	a.MethodCall(a, "GetConsumeDetails", url)
-	mac, err := macaroon.New(nil, []byte("id"), "loc")
+	mac, err := apitesting.NewMacaroon("id")
 	if err != nil {
 		return params.ConsumeOfferDetails{}, err
 	}

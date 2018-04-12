@@ -49,6 +49,7 @@ func (s *storage) ExpireAfter(expireAfter time.Duration) ExpirableStorage {
 	return &newStorage
 }
 
+// RootKey implements Storage.RootKey
 func (s *storage) RootKey() ([]byte, []byte, error) {
 	storage, closer := s.getStorage()
 	defer closer()
@@ -60,12 +61,16 @@ func (s *storage) getStorage() (bakery.Storage, func()) {
 	return s.config.GetStorage(s.rootKeys, coll, s.expireAfter), closer
 }
 
+// Get implements Storage.Get
 func (s *storage) Get(id []byte) ([]byte, error) {
 	storage, closer := s.getStorage()
 	defer closer()
 	i, err := storage.Get(id)
 	if err != nil {
-		return s.legacyGet(id)
+		if err == bakery.ErrNotFound {
+			return s.legacyGet(id)
+		}
+		return nil, err
 	}
 	return i, nil
 }

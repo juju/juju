@@ -244,7 +244,7 @@ func (s *httpSuite) TestAuthHTTPRequest(c *gc.C) {
 	c.Assert(pass, gc.Equals, "password")
 	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
 
-	mac, err := macaroon.New(nil, []byte("id"), "loc")
+	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Macaroons = []macaroon.Slice{{mac}}
 	req = s.authHTTPRequest(c, apiInfo)

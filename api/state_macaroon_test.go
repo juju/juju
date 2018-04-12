@@ -31,7 +31,7 @@ const testUserName = "testuser@somewhere"
 
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
-	mac, err := macaroon.New(nil, []byte("test"), "")
+	mac, err := apitesting.NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	s.macSlice = []macaroon.Slice{{mac}}
 	s.AddModelUser(c, testUserName)

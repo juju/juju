@@ -120,7 +120,6 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("admin"),
 			Password:      "secret",
-			// Macaroons:     macs,
 		},
 	})
 }

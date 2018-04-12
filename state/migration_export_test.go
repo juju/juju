@@ -1352,7 +1352,7 @@ func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revisi
 }
 
 func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
-	mac, err := macaroon.New(nil, nil, "")
+	mac, err := apitesting.NewMacaroon("apimac")
 	c.Assert(err, gc.IsNil)
 	dbApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",

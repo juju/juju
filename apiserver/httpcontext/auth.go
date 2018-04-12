@@ -123,8 +123,6 @@ func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface
 	}
 	w.Header().Set("Content-Type", params.ContentTypeJSON)
 	w.Header().Set("Content-Length", fmt.Sprint(len(body)))
-	// this shows that the body has gone over 1024 is size.
-	logger.Criticalf("Body is: %s (%d)", string(body), len(body))
 	w.WriteHeader(statusCode)
 	if _, err := w.Write(body); err != nil {
 		return errors.Annotate(err, "cannot write response")

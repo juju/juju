@@ -268,7 +268,7 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.apiOpen = func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
-		mac, err := macaroon.New(nil, []byte("test"), "")
+		mac, err := apitesting.NewMacaroon("test")
 		c.Assert(err, jc.ErrorIsNil)
 		info.Macaroons = []macaroon.Slice{{mac}}
 		return api.Open(info, dialOpts)

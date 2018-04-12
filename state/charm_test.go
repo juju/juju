@@ -292,7 +292,6 @@ func (s *CharmSuite) TestAddCharmWithAuth(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ms, err := dummy.Macaroon()
 	c.Assert(err, jc.ErrorIsNil)
-	// c.Assert(ms, gc.DeepEquals, info.Macaroon)
 	apitesting.MacaroonEquals(c, ms[0], info.Macaroon[0])
 }
 

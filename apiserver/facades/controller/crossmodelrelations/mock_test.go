@@ -503,7 +503,7 @@ type mockBakeryService struct {
 
 func (s *mockBakeryService) NewMacaroon(caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
 	s.MethodCall(s, "NewMacaroon", caveats)
-	mac, err := macaroon.New(nil, []byte("id"), "")
+	mac, err := apitesting.NewMacaroon("id")
 	if err != nil {
 		return nil, err
 	}

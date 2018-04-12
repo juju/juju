@@ -539,7 +539,7 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 		ApplicationDescription: "description",
 		Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
 	}
-	mac, err := macaroon.New(nil, []byte("id"), "loc")
+	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	controllerInfo := &params.ExternalControllerInfo{
 		ControllerTag: coretesting.ControllerTag.String(),

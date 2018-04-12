@@ -92,7 +92,7 @@ func (s *RemoteFirewallerSuite) TestControllerAPIInfoForModels(c *gc.C) {
 }
 
 func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *gc.C) {
-	mac, err := macaroon.New(nil, nil, "")
+	mac, err := apitesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
 	entity := names.NewRelationTag("mysql:db wordpress:db")
 	s.st.macaroons[entity] = mac

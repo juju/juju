@@ -62,7 +62,7 @@ func (s *RemoteEntitiesSuite) TestMacaroon(c *gc.C) {
 	s.assertExportLocalEntity(c, entity)
 
 	re := s.State.RemoteEntities()
-	mac, err := macaroon.New(nil, []byte("id"), "loc")
+	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	err = re.SaveMacaroon(entity, mac)
 	c.Assert(err, jc.ErrorIsNil)

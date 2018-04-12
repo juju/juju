@@ -32,6 +32,7 @@ type BakeryStorageSuite struct {
 
 func (s *BakeryStorageSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
+	s.LoggingSuite.SetUpTest(c)
 	s.db = s.Session.DB("bakerydb")
 	s.coll = s.db.C("bakedgoods")
 	s.ensureIndexes(c)
@@ -39,14 +40,17 @@ func (s *BakeryStorageSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *BakeryStorageSuite) TearDownTest(c *gc.C) {
+	s.LoggingSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 }
 
 func (s *BakeryStorageSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
 }
 
 func (s *BakeryStorageSuite) TearDownSuite(c *gc.C) {
+	s.MgoSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
 

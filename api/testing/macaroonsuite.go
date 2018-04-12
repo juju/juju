@@ -124,7 +124,7 @@ func (s *MacaroonSuite) APIInfo(c *gc.C) *api.Info {
 	info.Password = ""
 	// Fill in any old macaroon to ensure we don't attempt
 	// an anonymous login.
-	mac, err := macaroon.New(nil, []byte("test"), "")
+	mac, err := NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	info.Macaroons = []macaroon.Slice{{mac}}
 	return info
@@ -190,4 +190,8 @@ func MacaroonEquals(c *gc.C, m1, m2 *macaroon.Macaroon) {
 	c.Assert(m1.Id(), jc.DeepEquals, m2.Id())
 	c.Assert(m1.Signature(), jc.DeepEquals, m2.Signature())
 	c.Assert(m1.Location(), jc.DeepEquals, m2.Location())
+}
+
+func NewMacaroon(id string) (*macaroon.Macaroon, error) {
+	return macaroon.New(nil, []byte(id), "")
 }

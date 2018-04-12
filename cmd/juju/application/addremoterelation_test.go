@@ -192,7 +192,7 @@ type baseAddRemoteRelationSuite struct {
 func (s *baseAddRemoteRelationSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	var err error
-	s.mac, err = macaroon.New(nil, []byte("id"), "loc")
+	s.mac, err = apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	s.mockAPI = &mockAddRelationAPI{
 		addRelation: func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {

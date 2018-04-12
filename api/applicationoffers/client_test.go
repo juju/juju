@@ -596,7 +596,7 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 	controllerInfo := &params.ExternalControllerInfo{
 		Addrs: []string{"1.2.3.4"},
 	}
-	mac, err := macaroon.New(nil, []byte("id"), "loc")
+	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	var called bool
 	apiCaller := basetesting.APICallerFunc(
