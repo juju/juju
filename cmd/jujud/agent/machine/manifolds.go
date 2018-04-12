@@ -719,7 +719,6 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Path:              "/raft",
 		})),
 
-		// TODO(babbageclunk): not sure what gates should be around this.
 		raftName: raft.Manifold(raft.ManifoldConfig{
 			ClockName:     clockName,
 			AgentName:     agentName,
