@@ -53,7 +53,7 @@ are able to use this command.
 Targets are specified using either machine ids, application names or unit
 names.  At least one target specifier is needed.
 
-Multiple values can be set for --machine, --application/--app/-a, and --unit/-u by using
+Multiple values can be set for --machine, --application and --unit by using
 comma separated values.
 
 --application, --unit and --timeout options are shorted as below for
@@ -69,11 +69,8 @@ If the target is an application, the command is run on all units for that
 application. For example, if there was an application "mysql" and that application
 had two units, "mysql/0" and "mysql/1", then
   --application mysql
-  --app mysql
-   -a mysql
 is equivalent to
   --unit mysql/0,mysql/1
-   -u mysql/0,mysql/1
 
 Commands run for applications or units are executed in a 'hook context' for
 the unit.
@@ -110,7 +107,6 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 		"default": cmd.FormatYaml,
 	})
 	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
-<<<<<<< HEAD
 	for _, flag := range[]string{"timeout", "t"} {
 		f.DurationVar(&c.timeout, flag, 5*time.Minute, "How long to wait before the remote command is considered to have failed")
 	}
@@ -121,16 +117,6 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	for _, flag := range[]string{"unit", "u"} {
 		f.Var(cmd.NewStringsValue(nil, &c.units), flag, "One or more unit ids")
 	}
-=======
-	f.DurationVar(&c.timeout, "timeout", 5*time.Minute, "How long to wait before the remote command is considered to have failed")
-	f.DurationVar(&c.timeout, "t", 5*time.Minute, "How long to wait before the remote command is considered to have failed")
-	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "One or more machine ids")
-	f.Var(cmd.NewStringsValue(nil, &c.services), "application", "One or more application names")
-	f.Var(cmd.NewStringsValue(nil, &c.services), "app", "One or more application names")
-	f.Var(cmd.NewStringsValue(nil, &c.services), "a", "One or more application names")
-	f.Var(cmd.NewStringsValue(nil, &c.units), "unit", "One or more unit ids")
-	f.Var(cmd.NewStringsValue(nil, &c.units), "u", "One or more unit ids")
->>>>>>> 658da1af0ce959737d3047a888ebe918be748830
 }
 
 func (c *runCommand) Init(args []string) error {
@@ -160,7 +146,7 @@ func (c *runCommand) Init(args []string) error {
 		}
 	} else {
 		if len(c.machines) == 0 && len(c.services) == 0 && len(c.units) == 0 {
-			return errors.Errorf("You must specify a target, either through --all, --machine, --application/--app/-a or --unit/-u")
+			return errors.Errorf("You must specify a target, either through --all, --machine, --application or --unit")
 		}
 	}
 

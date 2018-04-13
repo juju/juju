@@ -52,7 +52,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 	}, {
 		message:  "no target",
 		args:     []string{"sudo reboot"},
-		errMatch: "You must specify a target, either through --all, --machine, --application/--app/-a or --unit/-u",
+		errMatch: "You must specify a target, either through --all, --machine, --application or --unit",
 	}, {
 		message:  "command to all machines",
 		args:     []string{"--all", "sudo reboot"},
