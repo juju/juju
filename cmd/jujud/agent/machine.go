@@ -51,6 +51,7 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
@@ -488,6 +489,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			return nil, err
 		}
 		pubsubReporter := psworker.NewReporter()
+		presenceRecorder := presence.New(clock.WallClock)
 		updateAgentConfLogging := func(loggingConfig string) error {
 			return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
 				setter.SetLoggingConfig(loggingConfig)
@@ -544,6 +546,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			PrometheusRegisterer: a.prometheusRegistry,
 			CentralHub:           a.centralHub,
 			PubSubReporter:       pubsubReporter,
+			PresenceRecorder:     presenceRecorder,
 			UpdateLoggerConfig:   updateAgentConfLogging,
 			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
 				return a.machine(apiConn)
@@ -569,6 +572,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			PubSubReporter:     pubsubReporter,
 			NewSocketName:      a.newIntrospectionSocketName,
 			PrometheusGatherer: a.prometheusRegistry,
+			PresenceRecorder:   presenceRecorder,
 			WorkerFunc:         introspection.NewWorker,
 		}); err != nil {
 			// If the introspection worker failed to start, we just log error

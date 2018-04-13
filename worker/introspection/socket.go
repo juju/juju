@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"runtime"
+	"sort"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -17,6 +18,8 @@ import (
 	"gopkg.in/tomb.v1"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/worker/introspection/pprof"
 )
 
@@ -42,6 +45,7 @@ type Config struct {
 	StatePool          IntrospectionReporter
 	PubSub             IntrospectionReporter
 	PrometheusGatherer prometheus.Gatherer
+	Presence           presence.Recorder
 }
 
 // Validate checks the config values to assert they are valid to create the worker.
@@ -63,6 +67,7 @@ type socketListener struct {
 	statePool          IntrospectionReporter
 	pubsub             IntrospectionReporter
 	prometheusGatherer prometheus.Gatherer
+	presence           presence.Recorder
 	done               chan struct{}
 }
 
@@ -94,6 +99,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		statePool:          config.StatePool,
 		pubsub:             config.PubSub,
 		prometheusGatherer: config.PrometheusGatherer,
+		presence:           config.Presence,
 		done:               make(chan struct{}),
 	}
 	go w.serve()
@@ -109,6 +115,7 @@ func (w *socketListener) serve() {
 			StatePool:          w.statePool,
 			PubSub:             w.pubsub,
 			PrometheusGatherer: w.prometheusGatherer,
+			Presence:           w.presence,
 		}, mux.Handle)
 
 	srv := http.Server{Handler: mux}
@@ -145,6 +152,7 @@ type ReportSources struct {
 	StatePool          IntrospectionReporter
 	PubSub             IntrospectionReporter
 	PrometheusGatherer prometheus.Gatherer
+	Presence           presence.Recorder
 }
 
 // AddHandlers calls the given function with http.Handlers
@@ -169,7 +177,11 @@ func RegisterHTTPHandlers(
 		name:     "PubSub Report",
 		reporter: sources.PubSub,
 	})
-	handle("/metrics", promhttp.HandlerFor(sources.PrometheusGatherer, promhttp.HandlerOpts{}))
+	handle("/metrics/", promhttp.HandlerFor(sources.PrometheusGatherer, promhttp.HandlerOpts{}))
+	// Unit agents don't have a presence recorder to pass in.
+	if sources.Presence != nil {
+		handle("/presence/", presenceHandler{sources.Presence})
+	}
 }
 
 type depengineHandler struct {
@@ -213,4 +225,59 @@ func (h introspectionReporterHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 
 	fmt.Fprintf(w, "%s:\n\n", h.name)
 	fmt.Fprint(w, h.reporter.IntrospectionReport())
+}
+
+type presenceHandler struct {
+	presence presence.Recorder
+}
+
+// ServeHTTP is part of the http.Handler interface.
+func (h presenceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if h.presence == nil || !h.presence.IsEnabled() {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("agent is not an apiserver\n"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+
+	tw := output.TabWriter(w)
+	wrapper := output.Wrapper{tw}
+
+	// Could be smart here and switch on the request accept header.
+	connections := h.presence.Connections()
+	models := connections.Models()
+	sort.Strings(models)
+
+	for _, name := range models {
+		wrapper.Println("[" + name + "]")
+		wrapper.Println()
+		wrapper.Println("AGENT", "SERVER", "CONN ID", "STATUS")
+		values := connections.ForModel(name).Values()
+		sort.Sort(ValueSort(values))
+		for _, value := range values {
+			agentName := value.Agent
+			if value.ControllerAgent {
+				agentName += " (controller)"
+			}
+			wrapper.Println(agentName, value.Server, value.ConnectionID, value.Status)
+		}
+		wrapper.Println()
+	}
+	tw.Flush()
+}
+
+type ValueSort []presence.Value
+
+func (a ValueSort) Len() int      { return len(a) }
+func (a ValueSort) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ValueSort) Less(i, j int) bool {
+	// Sort by agent, then server, then connection id
+	if a[i].Agent != a[j].Agent {
+		return a[i].Agent < a[j].Agent
+	}
+	if a[i].Server != a[j].Server {
+		return a[i].Server < a[j].Server
+	}
+	return a[i].ConnectionID < a[j].ConnectionID
 }
