@@ -127,6 +127,7 @@ func (s *KVMSuite) TestCreateContainerUtilizesReleaseSimpleStream(c *gc.C) {
 	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
 
 	c.Assert(kvm.TestStartParams.ImageDownloadURL, gc.Equals, "")
+	c.Assert(kvm.TestStartParams.Stream, gc.Equals, "released")
 }
 
 // Test that CreateContainer creates proper startParams.
@@ -147,6 +148,7 @@ func (s *KVMSuite) TestCreateContainerUtilizesDailySimpleStream(c *gc.C) {
 	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
 
 	c.Assert(kvm.TestStartParams.ImageDownloadURL, gc.Equals, "http://cloud-images.ubuntu.com/daily")
+	c.Assert(kvm.TestStartParams.Stream, gc.Equals, "daily")
 }
 
 func (s *KVMSuite) TestCreateContainerUtilizesSetImageMetadataURL(c *gc.C) {
@@ -173,15 +175,17 @@ func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
 	startParams := kvm.StartParams{
 		Series:           "mocked-series",
 		Arch:             "mocked-arch",
+		Stream:           "released",
 		ImageDownloadURL: "mocked-url",
 	}
 	mockedContainer := kvm.NewEmptyKvmContainer()
 	mockedContainer.Start(startParams)
 
 	expectedArgs := fmt.Sprintf(
-		"synchronise images for %s %s %s",
+		"synchronise images for %s %s %s %s",
 		startParams.Arch,
 		startParams.Series,
+		startParams.Stream,
 		startParams.ImageDownloadURL,
 	)
 	c.Assert(c.GetTestLog(), jc.Contains, expectedArgs)

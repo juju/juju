@@ -52,14 +52,14 @@ func newDataSourceFunc(baseURL string) func() simplestreams.DataSource {
 	}
 }
 
-// Metadata models the inforamtion about a particular cloud image download
+// Metadata models the information about a particular cloud image download
 // product.
 type Metadata struct {
 	Arch string `json:"arch,omitempty"`
 	// For testing.
 	// TODO(ro) 2016-12-07 BaseURL was jammed on to allow for testing in
 	// juju/container/kvm/sync_internal_test. Refactor to pass it in rather
-	// than setting it on an otherwise unecessecarily exported member.
+	// than setting it on an otherwise needlessly exported member.
 	BaseURL string `json:"-"`
 	Release string `json:"release,omitempty"`
 	Version string `json:"version,omitempty"`
@@ -147,10 +147,14 @@ func validateArgs(arch, release, ftype string) error {
 	return nil
 }
 
-// One gets Metadata for one content download item -- the most recent of
-// 'series', for architecture, 'arch', of the format 'ftype'. 'src' exists to
-// pass in a data source for testing.
-func One(arch, release, ftype string, src func() simplestreams.DataSource) (*Metadata, error) {
+// One gets Metadata for one content download item:
+// The most recent of:
+//   - architecture
+//   - OS release
+//   - Simplestreams stream
+//   - File image type.
+// src exists to pass in a data source for testing.
+func One(arch, release, stream, ftype string, src func() simplestreams.DataSource) (*Metadata, error) {
 	if err := validateArgs(arch, release, ftype); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -158,12 +162,13 @@ func One(arch, release, ftype string, src func() simplestreams.DataSource) (*Met
 		src = DefaultSource
 	}
 	ds := []simplestreams.DataSource{src()}
-	limit := &imagemetadata.ImageConstraint{
+	limit := imagemetadata.NewImageConstraint(
 		simplestreams.LookupParams{
 			Arches: []string{arch},
 			Series: []string{release},
+			Stream: stream,
 		},
-	}
+	)
 
 	md, _, err := Fetch(ds, limit, Filter(ftype))
 	if err != nil {
@@ -173,11 +178,11 @@ func One(arch, release, ftype string, src func() simplestreams.DataSource) (*Met
 		return nil, errors.Trace(err)
 	}
 	if len(md) < 1 {
-		return nil, errors.Errorf("no results for %q, %q, %q", arch, release, ftype)
+		return nil, errors.Errorf("no results for %q, %q, %q, %q", arch, release, stream, ftype)
 	}
 	if len(md) > 1 {
 		// Should not be possible.
-		return nil, errors.Errorf("got %d results xpected 1 for %q, %q, %q", len(md), arch, release, ftype)
+		return nil, errors.Errorf("got %d results expected 1 for %q, %q, %q, %q", len(md), arch, release, stream, ftype)
 	}
 	return md[0], nil
 }

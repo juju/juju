@@ -190,6 +190,7 @@ func (manager *containerManager) CreateContainer(
 	startParams.UserDataFile = userDataFilename
 	startParams.NetworkConfigData = containerinit.CloudInitNetworkConfigDisabled
 	startParams.StatusCallback = callback
+	startParams.Stream = manager.imageStream
 
 	// Check whether a container image metadata URL was configured.
 	// Default to Ubuntu cloud images if configured stream is not "released".

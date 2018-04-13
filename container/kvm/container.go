@@ -50,10 +50,11 @@ func (c *kvmContainer) Start(params StartParams) error {
 	sp := syncParams{
 		arch:    params.Arch,
 		series:  params.Series,
+		stream:  params.Stream,
 		ftype:   ftype,
 		srcFunc: srcFunc,
 	}
-	logger.Debugf("synchronise images for %s %s %s", sp.arch, sp.series, params.ImageDownloadURL)
+	logger.Debugf("synchronise images for %s %s %s %s", sp.arch, sp.series, sp.stream, params.ImageDownloadURL)
 	var callback ProgressCallback
 	if params.StatusCallback != nil {
 		callback = func(msg string) {
