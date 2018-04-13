@@ -51,10 +51,12 @@ type DetailsRequest struct {
 
 // ConnectTopic is the topic name for the published message
 // whenever an agent conntects to the API server.
+// data: `APIConnection`
 const ConnectTopic = "apiserver.agent-connect"
 
 // DisconnectTopic is the topic name for the published message
 // whenever an agent disconntects to the API server.
+// data: `APIConnection`
 const DisconnectTopic = "apiserver.agent-disconnect"
 
 // APIConnection holds all the salient pieces of information that are
@@ -66,6 +68,23 @@ type APIConnection struct {
 	ConnectionID    uint64 `yaml:"connection-id"`
 	Origin          string `yaml:"origin"`
 	UserData        string `yaml:"user-data,omitempty"`
+}
+
+// PresenceRequestTopic is used by the presence worker to ask another HA server
+// to report its connections.
+// data: `OriginTarget`
+const PresenceRequestTopic = "presence.request"
+
+// PresenceResponseTopic is used by the presence worker to respond to the
+// request topic above.
+// data: `PresenceResponse`
+const PresenceResponseTopic = "presence.response"
+
+// PresenceResponse contains all of the current connections for the server
+// identified by Origin.
+type PresenceResponse struct {
+	Origin      string          `yaml:"origin"`
+	Connections []APIConnection `yaml:"connections"`
 }
 
 // OriginTarget represents the data for the connect and disconnect
