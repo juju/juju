@@ -18,8 +18,8 @@ import (
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
@@ -1352,6 +1352,8 @@ func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revisi
 }
 
 func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
+	mac, err := apitesting.NewMacaroon("apimac")
+	c.Assert(err, gc.IsNil)
 	dbApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
@@ -1418,7 +1420,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 			"logging":  "public",
 		},
 		// Macaroon not exported.
-		Macaroon: &macaroon.Macaroon{},
+		Macaroon: mac,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))

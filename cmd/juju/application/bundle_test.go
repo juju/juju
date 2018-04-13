@@ -23,8 +23,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v2"
-	"gopkg.in/juju/charmrepo.v2/csclient"
+	"gopkg.in/juju/charmrepo.v3"
+	"gopkg.in/juju/charmrepo.v3/csclient"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"

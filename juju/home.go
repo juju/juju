@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/ssh"
-	"gopkg.in/juju/charmrepo.v2"
+	"gopkg.in/juju/charmrepo.v3"
 
 	"github.com/juju/juju/juju/osenv"
 )

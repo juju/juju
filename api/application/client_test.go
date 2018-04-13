@@ -9,10 +9,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/application"
 	basetesting "github.com/juju/juju/api/base/testing"
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
@@ -539,7 +539,7 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 		ApplicationDescription: "description",
 		Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
 	}
-	mac, err := macaroon.New(nil, "id", "loc")
+	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	controllerInfo := &params.ExternalControllerInfo{
 		ControllerTag: coretesting.ControllerTag.String(),

@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon.v2-unstable"
 )
 
 var _ = gc.Suite(&MacaroonJarSuite{})
@@ -29,11 +29,12 @@ func (MacaroonJarSuite) TestActivate(c *gc.C) {
 	ch := charm.MustParseURL("cs:mysql")
 	err = jar.Activate(ch)
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := macaroon.New([]byte("key"), "id", "loc")
+	m, err := macaroon.New([]byte("key"), []byte("id"), "loc")
 	c.Assert(err, jc.ErrorIsNil)
 	ms := macaroon.Slice{m}
 	httpbakery.SetCookie(jar, u, ms)
-	c.Assert(cache[ch], gc.DeepEquals, ms)
+	// c.Assert(cache[ch], gc.DeepEquals, ms)
+	MacaroonEquals(c, cache[ch][0], ms[0])
 }
 
 func (MacaroonJarSuite) TestDeactivate(c *gc.C) {
@@ -45,7 +46,7 @@ func (MacaroonJarSuite) TestDeactivate(c *gc.C) {
 	ch := charm.MustParseURL("cs:mysql")
 	err = jar.Activate(ch)
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := macaroon.New([]byte("key"), "id", "loc")
+	m, err := macaroon.New([]byte("key"), []byte("id"), "loc")
 	c.Assert(err, jc.ErrorIsNil)
 	ms := macaroon.Slice{m}
 	err = jar.Deactivate()
@@ -64,4 +65,10 @@ func (f fakeCache) Set(u *charm.URL, m macaroon.Slice) error {
 
 func (f fakeCache) Get(u *charm.URL) (macaroon.Slice, error) {
 	return f[u], nil
+}
+
+func MacaroonEquals(c *gc.C, m1, m2 *macaroon.Macaroon) {
+	c.Assert(m1.Id(), jc.DeepEquals, m2.Id())
+	c.Assert(m1.Signature(), jc.DeepEquals, m2.Signature())
+	c.Assert(m1.Location(), jc.DeepEquals, m2.Location())
 }

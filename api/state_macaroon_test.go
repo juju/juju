@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
@@ -31,7 +31,7 @@ const testUserName = "testuser@somewhere"
 
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
-	mac, err := macaroon.New(nil, "test", "")
+	mac, err := apitesting.NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	s.macSlice = []macaroon.Slice{{mac}}
 	s.AddModelUser(c, testUserName)
@@ -149,7 +149,7 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 	catcher := urlCatcher{}
 	s.PatchValue(api.WebsocketDial, catcher.recordLocation)
 
-	mac, err := macaroon.New([]byte("abc-123"), "aurora gone", "shankil butchers")
+	mac, err := macaroon.New([]byte("abc-123"), []byte("aurora gone"), "shankil butchers")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.DischargerLogin = func() string {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -21,7 +21,7 @@ type mockBakeryService struct {
 	*bakery.Service
 }
 
-func (m *mockBakeryService) ExpireStorageAt(time.Time) (authentication.ExpirableStorageBakeryService, error) {
+func (m *mockBakeryService) ExpireStorageAfter(time.Duration) (authentication.ExpirableStorageBakeryService, error) {
 	return m, nil
 }
 

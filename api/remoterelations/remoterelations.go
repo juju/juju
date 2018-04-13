@@ -6,7 +6,7 @@ package remoterelations
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"

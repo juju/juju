@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
@@ -137,7 +137,7 @@ func (s *stateSuite) TestLoginSetsControllerAccess(c *gc.C) {
 func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
 	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
-	mac, err := macaroon.New([]byte("root-key"), "id", "juju")
+	mac, err := macaroon.New([]byte("root-key"), []byte("id"), "juju")
 	c.Assert(err, jc.ErrorIsNil)
 	err = apistate.Login(tag, "", "", []macaroon.Slice{{mac}})
 	c.Assert(err, gc.ErrorMatches, "interaction required but not possible")

@@ -14,9 +14,10 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/mgo.v2"
 
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -284,14 +285,14 @@ func (s *CharmSuite) TestAddCharm(c *gc.C) {
 func (s *CharmSuite) TestAddCharmWithAuth(c *gc.C) {
 	// Check that adding charms from scratch works correctly.
 	info := s.dummyCharm(c, "")
-	m, err := macaroon.New([]byte("rootkey"), "id", "loc")
+	m, err := macaroon.New([]byte("rootkey"), []byte("id"), "loc")
 	c.Assert(err, jc.ErrorIsNil)
 	info.Macaroon = macaroon.Slice{m}
 	dummy, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	ms, err := dummy.Macaroon()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ms, gc.DeepEquals, info.Macaroon)
+	apitesting.MacaroonEquals(c, ms[0], info.Macaroon[0])
 }
 
 func (s *CharmSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
@@ -461,7 +462,7 @@ func (s *CharmSuite) TestUpdateUploadedCharm(c *gc.C) {
 	_, err = s.State.PrepareLocalCharmUpload(info.ID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m, err := macaroon.New([]byte("rootkey"), "id", "loc")
+	m, err := macaroon.New([]byte("rootkey"), []byte("id"), "loc")
 	c.Assert(err, jc.ErrorIsNil)
 	info.Macaroon = macaroon.Slice{m}
 	c.Assert(err, jc.ErrorIsNil)
@@ -477,7 +478,7 @@ func (s *CharmSuite) TestUpdateUploadedCharm(c *gc.C) {
 	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
 	ms, err := sch.Macaroon()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ms, gc.DeepEquals, info.Macaroon)
+	apitesting.MacaroonEquals(c, ms[0], info.Macaroon[0])
 }
 
 func (s *CharmSuite) TestUpdateUploadedCharmEscapesSpecialCharsInConfig(c *gc.C) {

@@ -4,16 +4,16 @@
 package crossmodelrelations_test
 
 import (
+	"bytes"
 	"regexp"
-	"strings"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
@@ -104,12 +104,13 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life p
 		relationId:      1,
 	}
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
-	mac, err := s.bakery.NewMacaroon("", nil,
+	mac, err := s.bakery.NewMacaroon(
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
 		})
+
 	c.Assert(err, jc.ErrorIsNil)
 	suspended := true
 	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
@@ -192,12 +193,13 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 		relationKey:     "db2:db django:db",
 		relationId:      1,
 	}
-	mac, err := s.bakery.NewMacaroon("", nil,
+	mac, err := s.bakery.NewMacaroon(
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("offer-uuid", "offer-uuid"),
 			checkers.DeclaredCaveat("username", "mary"),
 		})
+
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.api.RegisterRemoteRelations(params.RegisterRemoteRelationArgs{
 		Relations: []params.RegisterRemoteRelationArg{{
@@ -223,11 +225,11 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	})
 	cav := result.Result.Macaroon.Caveats()
 	c.Check(cav, gc.HasLen, 5)
-	c.Check(strings.HasPrefix(cav[0].Id, "time-before "), jc.IsTrue)
-	c.Check(cav[1].Id, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")
-	c.Check(cav[2].Id, gc.Equals, "declared offer-uuid offer-uuid")
-	c.Check(cav[3].Id, gc.Equals, "declared username mary")
-	c.Check(cav[4].Id, gc.Equals, "declared relation-key offeredapp:local remote-apptoken:remote")
+	c.Check(bytes.HasPrefix(cav[0].Id, []byte("time-before ")), jc.IsTrue)
+	c.Check(cav[1].Id, jc.DeepEquals, []byte("declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d"))
+	c.Check(cav[2].Id, jc.DeepEquals, []byte("declared offer-uuid offer-uuid"))
+	c.Check(cav[3].Id, jc.DeepEquals, []byte("declared username mary"))
+	c.Check(cav[4].Id, jc.DeepEquals, []byte("declared relation-key offeredapp:local remote-apptoken:remote"))
 
 	expectedRemoteApp := s.st.remoteApplications["remote-apptoken"]
 	expectedRemoteApp.Stub = testing.Stub{} // don't care about api calls
@@ -272,12 +274,13 @@ func (s *crossmodelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 		relationId:      1,
 	}
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2"
-	mac, err := s.bakery.NewMacaroon("", nil,
+	mac, err := s.bakery.NewMacaroon(
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
 		})
+
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := s.api.RelationUnitSettings(params.RemoteRelationUnits{
 		RelationUnits: []params.RemoteRelationUnit{{
@@ -307,12 +310,13 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 		relationKey:     "db2:db django:db",
 		relationId:      1,
 	}
-	mac, err := s.bakery.NewMacaroon("", nil,
+	mac, err := s.bakery.NewMacaroon(
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
 		})
+
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
 		Changes: []params.IngressNetworksChangeEvent{
@@ -345,12 +349,13 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *g
 		relationKey:     "db2:db django:db",
 		relationId:      1,
 	}
-	mac, err := s.bakery.NewMacaroon("", nil,
+	mac, err := s.bakery.NewMacaroon(
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
 		})
+
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.firewallRules[state.JujuApplicationOfferRule] = &state.FirewallRule{WhitelistCIDRs: []string{"10.1.1.1/8"}}
 	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
@@ -380,12 +385,13 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 		relationKey:     "db2:db django:db",
 		relationId:      1,
 	}
-	mac, err := s.bakery.NewMacaroon("", nil,
+	mac, err := s.bakery.NewMacaroon(
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
 		})
+
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{
@@ -430,12 +436,13 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 		relationKey:     "db2:db django:db",
 		relationId:      1,
 	}
-	mac, err := s.bakery.NewMacaroon("", nil,
+	mac, err := s.bakery.NewMacaroon(
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
 		})
+
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{
@@ -476,12 +483,13 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 	app := &mockApplication{}
 	s.st.applications["mysql"] = app
 	s.st.remoteEntities[names.NewApplicationOfferTag("hosted-mysql")] = "token-hosted-mysql"
-	mac, err := s.bakery.NewMacaroon("", nil,
+	mac, err := s.bakery.NewMacaroon(
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
 			checkers.DeclaredCaveat("username", "mary"),
 		})
+
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.OfferArgs{
 		Args: []params.OfferArg{

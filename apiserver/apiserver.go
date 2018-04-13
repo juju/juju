@@ -21,8 +21,8 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -692,11 +692,13 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		pattern: "/gui-version",
 		handler: guiVersionHandler,
 	}, {
-		pattern: localOfferAccessLocationPath + "/discharge",
-		handler: appOfferDischargeMux,
+		pattern:         localOfferAccessLocationPath + "/discharge",
+		handler:         appOfferDischargeMux,
+		unauthenticated: true,
 	}, {
-		pattern: localOfferAccessLocationPath + "/publickey",
-		handler: appOfferDischargeMux,
+		pattern:         localOfferAccessLocationPath + "/publickey",
+		handler:         appOfferDischargeMux,
+		unauthenticated: true,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {

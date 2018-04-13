@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -720,7 +720,7 @@ func (s *ApplicationSuite) TestConsumeIdempotent(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
-	mac, err := macaroon.New(nil, "test", "")
+	mac, err := apitesting.NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	controllerUUID := utils.MustNewUUID().String()
 	results, err := s.api.Consume(params.ConsumeApplicationArgs{
@@ -764,7 +764,7 @@ func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestConsumeFromSameController(c *gc.C) {
-	mac, err := macaroon.New(nil, "test", "")
+	mac, err := apitesting.NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.api.Consume(params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{

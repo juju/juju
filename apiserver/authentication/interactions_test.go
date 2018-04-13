@@ -29,7 +29,7 @@ func (s *InteractionsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *InteractionsSuite) TestStart(c *gc.C) {
-	waitId, err := s.interactions.Start("caveat-id", time.Time{})
+	waitId, err := s.interactions.Start([]byte("caveat-id"), time.Time{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(waitId, gc.Not(gc.Equals), "")
 }
@@ -63,7 +63,7 @@ func (s *InteractionsSuite) TestWait(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(interaction, gc.NotNil)
 	c.Assert(interaction, jc.DeepEquals, &authentication.Interaction{
-		CaveatId:   "caveat-id",
+		CaveatId:   []byte("caveat-id"),
 		LoginUser:  loginUser,
 		LoginError: loginError,
 	})
@@ -118,7 +118,7 @@ func (s *InteractionsSuite) TestWaitExpired(c *gc.C) {
 	t1 := t0.Add(time.Second)
 	t2 := t1.Add(time.Second)
 
-	waitId, err := s.interactions.Start("caveat-id", t2)
+	waitId, err := s.interactions.Start([]byte("caveat-id"), t2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	type waitResult struct {
@@ -153,7 +153,7 @@ func (s *InteractionsSuite) TestWaitExpired(c *gc.C) {
 }
 
 func (s *InteractionsSuite) start(c *gc.C, caveatId string) string {
-	waitId, err := s.interactions.Start(caveatId, time.Time{})
+	waitId, err := s.interactions.Start([]byte(caveatId), time.Time{})
 	c.Assert(err, jc.ErrorIsNil)
 	return waitId
 }

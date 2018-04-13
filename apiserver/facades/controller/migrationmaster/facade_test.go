@@ -15,7 +15,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
@@ -489,7 +489,7 @@ func (m *stubMigration) ModelUUID() string {
 }
 
 func (m *stubMigration) TargetInfo() (*coremigration.TargetInfo, error) {
-	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location")
 	if err != nil {
 		panic(err)
 	}

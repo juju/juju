@@ -6,9 +6,9 @@ package cmd
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v2"
-	"gopkg.in/juju/charmrepo.v2/csclient"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/juju/charmrepo.v3"
+	"gopkg.in/juju/charmrepo.v3/csclient"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 )
 
 // CharmResolver interface defines the functionality to resolve a charm URL.

@@ -8,8 +8,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/params"
@@ -92,7 +92,7 @@ func (s *RemoteFirewallerSuite) TestControllerAPIInfoForModels(c *gc.C) {
 }
 
 func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *gc.C) {
-	mac, err := macaroon.New(nil, "", "")
+	mac, err := apitesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
 	entity := names.NewRelationTag("mysql:db wordpress:db")
 	s.st.macaroons[entity] = mac

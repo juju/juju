@@ -15,7 +15,7 @@ import (
 	"github.com/juju/gnuflag"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/authentication"

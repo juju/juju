@@ -13,7 +13,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/idmclient/ussologin"
 	"gopkg.in/juju/environschema.v1/form"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/jujuclient"
 )
@@ -67,7 +67,8 @@ func newAPIContext(ctxt *cmd.Context, opts *AuthOpts, store jujuclient.CookieSto
 			In:  ctxt.Stdin,
 			Out: ctxt.Stdout,
 		}
-		visitors = append(visitors, ussologin.NewVisitor("juju", filler, jujuclient.NewTokenStore()))
+		newVisitor := ussologin.NewVisitor("juju", filler, jujuclient.NewTokenStore())
+		visitors = append(visitors, newVisitor)
 	} else {
 		visitors = append(visitors, httpbakery.WebBrowserVisitor)
 	}
