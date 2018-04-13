@@ -5,7 +5,15 @@
 
 package lxd
 
+import (
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/tools/lxdclient"
+)
+
 var (
-	NICDevice      = nicDevice
-	NetworkDevices = networkDevices
+	NICDevice       = nicDevice
+	NetworkDevices  = networkDevices
+	GetImageSources = func(mgr container.Manager) ([]lxdclient.Remote, error) {
+		return mgr.(*containerManager).getImageSources()
+	}
 )

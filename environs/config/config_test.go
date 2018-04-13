@@ -90,18 +90,20 @@ var configTests = []configTest{
 		useDefaults: config.UseDefaults,
 		attrs:       minimalConfigAttrs,
 	}, {
-		about:       "Agent Stream",
+		about:       "Streams",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"image-metadata-url": "image-url",
-			"agent-stream":       "released",
+			"image-stream":           "released",
+			"agent-stream":           "released",
+			"container-image-stream": "daily",
 		}),
 	}, {
 		about:       "Metadata URLs",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"image-metadata-url": "image-url",
-			"agent-metadata-url": "agent-metadata-url-value",
+			"image-metadata-url":           "image-url",
+			"agent-metadata-url":           "agent-metadata-url-value",
+			"container-image-metadata-url": "container-image-metadata-url-value",
 		}),
 	}, {
 		about:       "Explicit series",
@@ -714,6 +716,20 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		}
 	}
 	c.Assert(agentStreamValue, gc.Equals, expectedAgentStreamAttr)
+
+	containerURL, urlPresent := cfg.ContainerImageMetadataURL()
+	if v, _ := test.attrs["container-image-metadata-url"].(string); v != "" {
+		c.Assert(containerURL, gc.Equals, v)
+		c.Assert(urlPresent, jc.IsTrue)
+	} else {
+		c.Assert(urlPresent, jc.IsFalse)
+	}
+
+	if v, ok := test.attrs["container-image-stream"]; ok {
+		c.Assert(cfg.ContainerImageStream(), gc.Equals, v)
+	} else {
+		c.Assert(cfg.ContainerImageStream(), gc.Equals, "released")
+	}
 
 	resourceTags, cfgHasResourceTags := cfg.ResourceTags()
 	c.Assert(cfgHasResourceTags, jc.IsTrue)

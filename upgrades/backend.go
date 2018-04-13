@@ -35,6 +35,7 @@ type StateBackend interface {
 	AddRelationStatus() error
 	MoveOldAuditLog() error
 	DeleteCloudImageMetadata() error
+	EnsureContainerImageStreamDefault() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -139,4 +140,8 @@ func (s stateBackend) MoveOldAuditLog() error {
 
 func (s stateBackend) DeleteCloudImageMetadata() error {
 	return state.DeleteCloudImageMetadata(s.st)
+}
+
+func (s stateBackend) EnsureContainerImageStreamDefault() error {
+	return state.UpgradeContainerImageStreamDefault(s.st)
 }

@@ -29,10 +29,9 @@ func newTestDataSource(s string) simplestreams.DataSource {
 }
 
 func newTestDataSourceFunc(s string) func() simplestreams.DataSource {
-	f := func() simplestreams.DataSource {
+	return func() simplestreams.DataSource {
 		return NewDataSource(s + "/releases/")
 	}
-	return f
 }
 
 func (Suite) TestNewSignedImagesSource(c *gc.C) {
@@ -50,11 +49,13 @@ func (Suite) TestFetchManyDefaultFilter(c *gc.C) {
 	defer ts.Close()
 	tds := []simplestreams.DataSource{
 		newTestDataSource(ts.URL)}
-	constraints := &imagemetadata.ImageConstraint{
+	constraints := imagemetadata.NewImageConstraint(
 		simplestreams.LookupParams{
 			Arches: []string{"amd64", "arm64", "ppc64el"},
 			Series: []string{"xenial"},
-		}}
+			Stream: "released",
+		},
+	)
 	got, resolveInfo, err := Fetch(tds, constraints, nil)
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
@@ -68,7 +69,7 @@ func (Suite) TestFetchManyDefaultFilter(c *gc.C) {
 	}
 }
 
-func (Suite) TestFetchSinglDefaultFilter(c *gc.C) {
+func (Suite) TestFetchSingleDefaultFilter(c *gc.C) {
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
 	tds := []simplestreams.DataSource{
@@ -143,7 +144,7 @@ func (Suite) TestFetchManyWithFilter(c *gc.C) {
 func (Suite) TestOneAmd64PreciseTarGz(c *gc.C) {
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := One("amd64", "precise", "tar.gz", newTestDataSourceFunc(ts.URL))
+	got, err := One("amd64", "precise", "", "tar.gz", newTestDataSourceFunc(ts.URL))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, &Metadata{
 		Arch:    "amd64",
@@ -159,7 +160,7 @@ func (Suite) TestOneAmd64PreciseTarGz(c *gc.C) {
 func (Suite) TestOneArm64TrustyImg(c *gc.C) {
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := One("arm64", "trusty", "disk1.img", newTestDataSourceFunc(ts.URL))
+	got, err := One("arm64", "trusty", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, &Metadata{
 		Arch:    "arm64",
@@ -175,7 +176,7 @@ func (Suite) TestOneArm64TrustyImg(c *gc.C) {
 func (Suite) TestOnePpc64elXenialImg(c *gc.C) {
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := One("ppc64el", "xenial", "disk1.img", newTestDataSourceFunc(ts.URL))
+	got, err := One("ppc64el", "xenial", "", "disk1.img", newTestDataSourceFunc(ts.URL))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, &Metadata{
 		Arch:    "ppc64el",
@@ -190,21 +191,22 @@ func (Suite) TestOnePpc64elXenialImg(c *gc.C) {
 
 func (Suite) TestOneErrors(c *gc.C) {
 	table := []struct {
-		description, arch, series, ftype, errorMatch string
+		description, arch, series, stream, ftype, errorMatch string
 	}{
-		{"empty arch", "", "xenial", "disk1.img", `invalid parameters supplied arch=""`},
-		{"invalid arch", "<F7>", "xenial", "disk1.img", `invalid parameters supplied arch="<F7>"`},
-		{"empty series", "arm64", "", "disk1.img", `invalid parameters supplied series=""`},
-		{"invalid series", "amd64", "rusty", "disk1.img", `invalid parameters supplied series="rusty"`},
-		{"empty ftype", "ppc64el", "xenial", "", `invalid parameters supplied ftype=""`},
-		{"invalid file type", "amd64", "trusty", "tragedy", `invalid parameters supplied ftype="tragedy"`},
-		{"all wrong", "a", "t", "y", `invalid parameters supplied arch="a" series="t" ftype="y"`},
+		{"empty arch", "", "xenial", "", "disk1.img", `invalid parameters supplied arch=""`},
+		{"invalid arch", "<F7>", "xenial", "", "disk1.img", `invalid parameters supplied arch="<F7>"`},
+		{"empty series", "arm64", "", "released", "disk1.img", `invalid parameters supplied series=""`},
+		{"invalid series", "amd64", "rusty", "", "disk1.img", `invalid parameters supplied series="rusty"`},
+		{"empty ftype", "ppc64el", "xenial", "", "", `invalid parameters supplied ftype=""`},
+		{"invalid file type", "amd64", "trusty", "", "tragedy", `invalid parameters supplied ftype="tragedy"`},
+		{"all wrong except stream", "a", "t", "", "y", `invalid parameters supplied arch="a" series="t" ftype="y"`},
+		{"stream not found", "amd64", "xenial", "hourly", "disk1.img", `no results for "amd64", "xenial", "hourly", "disk1.img"`},
 	}
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
 	for i, test := range table {
 		c.Logf("test % 1d: %s\n", i+1, test.description)
-		_, err := One(test.arch, test.series, test.ftype, newTestDataSourceFunc(ts.URL))
+		_, err := One(test.arch, test.series, test.stream, test.ftype, newTestDataSourceFunc(ts.URL))
 		c.Check(err, gc.ErrorMatches, test.errorMatch)
 	}
 }

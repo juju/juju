@@ -80,6 +80,14 @@ const (
 	// AgentMetadataURLKey stores the key for this setting.
 	AgentMetadataURLKey = "agent-metadata-url"
 
+	// ContainerImageStreamKey is the key used to specify the stream
+	// to for container OS images.
+	ContainerImageStreamKey = "container-image-stream"
+
+	// ContainerImageMetadataURLKey is the key used to specify the location
+	// of OS image metadata for containers.
+	ContainerImageMetadataURLKey = "container-image-metadata-url"
+
 	// HTTPProxyKey stores the key for this setting.
 	HTTPProxyKey = "http-proxy"
 
@@ -184,7 +192,7 @@ const (
 	CloudInitUserDataKey = "cloudinit-userdata"
 
 	// ContainerInheritProperiesKey is the key to specify a list of properties
-	// to be copied from a machine to a container during provisioning.  The
+	// to be copied from a machine to a container during provisioning. The
 	// list will be comma separated.
 	ContainerInheritProperiesKey = "container-inherit-properties"
 
@@ -398,10 +406,12 @@ var defaultConfigValues = map[string]interface{}{
 	ContainerInheritProperiesKey: "",
 
 	// Image and agent streams and URLs.
-	"image-stream":       "released",
-	"image-metadata-url": "",
-	AgentStreamKey:       "released",
-	AgentMetadataURLKey:  "",
+	"image-stream":               "released",
+	"image-metadata-url":         "",
+	AgentStreamKey:               "released",
+	AgentMetadataURLKey:          "",
+	ContainerImageStreamKey:      "released",
+	ContainerImageMetadataURLKey: "",
 
 	// Log forward settings.
 	LogForwardEnabled: false,
@@ -939,10 +949,19 @@ func (c *Config) AgentMetadataURL() (string, bool) {
 	return "", false
 }
 
-// ImageMetadataURL returns the URL at which the metadata used to locate image ids is located,
-// and wether it has been set.
+// ImageMetadataURL returns the URL at which the metadata used to locate image
+// ids is located, and whether it has been set.
 func (c *Config) ImageMetadataURL() (string, bool) {
 	if url, ok := c.defined["image-metadata-url"]; ok && url != "" {
+		return url.(string), true
+	}
+	return "", false
+}
+
+// ContainerImageMetadataURL returns the URL at which the metadata used to
+// locate container OS image ids is located, and whether it has been set.
+func (c *Config) ContainerImageMetadataURL() (string, bool) {
+	if url, ok := c.defined[ContainerImageMetadataURLKey]; ok && url != "" {
 		return url.(string), true
 	}
 	return "", false
@@ -1037,6 +1056,16 @@ func (c *Config) ImageStream() string {
 // when bootstrapping or upgrading an environment.
 func (c *Config) AgentStream() string {
 	v, _ := c.defined[AgentStreamKey].(string)
+	if v != "" {
+		return v
+	}
+	return "released"
+}
+
+// ContainerImageStream returns the simplestreams stream used to identify which
+// image ids to search when starting a container.
+func (c *Config) ContainerImageStream() string {
+	v, _ := c.defined[ContainerImageStreamKey].(string)
 	if v != "" {
 		return v
 	}
@@ -1284,6 +1313,8 @@ var alwaysOptional = schema.Defaults{
 	"image-stream":               schema.Omit,
 	"image-metadata-url":         schema.Omit,
 	AgentMetadataURLKey:          schema.Omit,
+	ContainerImageStreamKey:      schema.Omit,
+	ContainerImageMetadataURLKey: schema.Omit,
 	"default-series":             schema.Omit,
 	"development":                schema.Omit,
 	"ssl-hostname-verification":  schema.Omit,
@@ -1576,6 +1607,16 @@ global or per instance security groups.`,
 	},
 	"image-stream": {
 		Description: `The simplestreams stream used to identify which image ids to search when starting an instance.`,
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	ContainerImageMetadataURLKey: {
+		Description: "The URL at which the metadata used to locate container OS image ids is located",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	ContainerImageStreamKey: {
+		Description: `The simplestreams stream used to identify which image ids to search when starting a container.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

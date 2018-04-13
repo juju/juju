@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
@@ -27,7 +28,7 @@ import (
 var (
 	logger = loggo.GetLogger("juju.container.kvm")
 
-	// KvmObjectFactory imlements the container factory interface for kvm
+	// KvmObjectFactory implements the container factory interface for kvm
 	// containers.
 	KvmObjectFactory ContainerFactory = &containerFactory{}
 
@@ -57,7 +58,7 @@ var (
 var kvmPath = "/usr/sbin"
 
 // IsKVMSupported calls into the kvm-ok executable from the cpu-checkers package.
-// It is a variable to allow us to overrid behaviour in the tests.
+// It is a variable to allow us to override behaviour in the tests.
 var IsKVMSupported = func() (bool, error) {
 
 	// Prefer the user's $PATH first, but check /usr/sbin if we can't
@@ -103,17 +104,29 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 		logger.Infof("Availability zone will be empty for this container manager")
 	}
 
+	imageMetaDataURL := conf.PopValue(config.ContainerImageMetadataURLKey)
+	imageStream := conf.PopValue(config.ContainerImageStreamKey)
+
 	conf.WarnAboutUnused()
-	return &containerManager{namespace: namespace, logdir: logDir, availabilityZone: availabilityZone}, nil
+	return &containerManager{
+		namespace:        namespace,
+		logdir:           logDir,
+		availabilityZone: availabilityZone,
+		imageMetadataURL: imageMetaDataURL,
+		imageStream:      imageStream,
+	}, nil
 }
 
 // containerManager handles all of the business logic at the juju specific
 // level. It makes sure that the necessary directories are in place, that the
-// user-data is written out in the right place.
+// user-data is written out in the right place, and that OS images are sourced
+// from the correct location.
 type containerManager struct {
 	namespace        instance.Namespace
 	logdir           string
 	availabilityZone string
+	imageMetadataURL string
+	imageStream      string
 }
 
 var _ container.Manager = (*containerManager)(nil)
@@ -177,12 +190,19 @@ func (manager *containerManager) CreateContainer(
 	startParams.UserDataFile = userDataFilename
 	startParams.NetworkConfigData = containerinit.CloudInitNetworkConfigDisabled
 	startParams.StatusCallback = callback
+	startParams.Stream = manager.imageStream
 
-	// If the Simplestream requested is anything but released, update
-	// our StartParams to request it.
-	if instanceConfig.ImageStream != imagemetadata.ReleasedStream {
-		startParams.ImageDownloadURL = imagemetadata.UbuntuCloudImagesURL + "/" + instanceConfig.ImageStream
+	// Check whether a container image metadata URL was configured.
+	// Default to Ubuntu cloud images if configured stream is not "released".
+	imURL := manager.imageMetadataURL
+	if manager.imageMetadataURL == "" && manager.imageStream != imagemetadata.ReleasedStream {
+		imURL = imagemetadata.UbuntuCloudImagesURL
+		imURL, err = imagemetadata.ImageMetadataURL(imURL, manager.imageStream)
+		if err != nil {
+			return nil, nil, errors.Annotate(err, "generating image metadata source")
+		}
 	}
+	startParams.ImageDownloadURL = imURL
 
 	var hardware instance.HardwareCharacteristics
 	hardware, err = instance.ParseHardware(
@@ -246,7 +266,7 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 	return
 }
 
-// ParseConstraintsToStartParams takes a constrants object and returns a bare
+// ParseConstraintsToStartParams takes a constraints object and returns a bare
 // StartParams object that has Memory, Cpu, and Disk populated.  If there are
 // no defined values in the constraints for those fields, default values are
 // used.  Other constrains cause a warning to be emitted.
