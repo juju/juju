@@ -32,6 +32,12 @@ snap package is then as easy as
 
 You can read about the "classic" confinement policy [here](https://insights.ubuntu.com/2017/01/09/how-to-snap-introducing-classic-confinement/)
 
+If you want to use `apt`, then you can add the [juju-golang PPA](https://launchpad.net/~juju/+archive/ubuntu/golang) and then install by running the following
+
+    sudo add-apt-repository ppa:gophers/archive
+    sudo apt-get update
+    sudo apt install golang-1.10
+
 Alternatively, you can always follow the official [binary installation instructions](https://golang.org/doc/install#install)
 
 Setting GOPATH
