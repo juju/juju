@@ -18,7 +18,6 @@ var logger = loggo.GetLogger("juju.api.credentialvalidator")
 type CredentialValidator interface {
 	ModelCredential() (params.ModelCredential, error)
 	WatchCredential(params.Entity) (params.NotifyWatchResult, error)
-	//WatchCredential(string) (params.NotifyWatchResult, error)
 }
 
 type CredentialValidatorAPI struct {
@@ -45,10 +44,8 @@ func internalNewCredentialValidatorAPI(backend Backend, resources facade.Resourc
 	}, nil
 }
 
-// WatchCredential returns a collection of NotifyWatchers that observe
-// changes to the given cloud credentials.
-// The order of returned watchers is important and corresponds directly to the
-// order of supplied cloud credentials collection.
+// WatchCredential returns a NotifyWatcher that observes
+// changes to a given cloud credential.
 func (api *CredentialValidatorAPI) WatchCredential(tag params.Entity) (params.NotifyWatchResult, error) {
 	fail := func(failure error) (params.NotifyWatchResult, error) {
 		return params.NotifyWatchResult{}, common.ServerError(failure)

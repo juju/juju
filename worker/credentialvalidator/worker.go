@@ -21,7 +21,7 @@ var ErrChanged = errors.New("cloud credential validity has changed")
 
 // ErrModelCredentialChanged indicates that a Worker has bounced
 // because model credential was replaced.
-var ErrModelCredentialChanged = errors.New("unexpected model credential")
+var ErrModelCredentialChanged = errors.New("model credential changed")
 
 // ErrModelDoesNotNeedCredential indicates that a Worker has been uninstalled
 // since the model does not have a cloud credential set as the model is
@@ -144,6 +144,7 @@ func (w *Worker) loop() error {
 				// should have occurred back in the constructor.
 				// If the credential came back as not set here, it could be a bigger problem:
 				// the model must have had a credential at some stage and now it's removed.
+				logger.Warningf("model credential was unexpectedly unset for the model that resides on the cloud that requires auth")
 				return ErrModelDoesNotNeedCredential
 			}
 			if mc.CloudCredential != w.modelCredential.CloudCredential {

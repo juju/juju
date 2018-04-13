@@ -12,6 +12,7 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/base"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/credentialvalidator"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -74,9 +75,6 @@ type mockWatcher struct {
 func (mock *mockWatcher) Changes() watcher.NotifyChannel {
 	return mock.changes
 }
-
-// modelUUID is the model tag we're using in the tests.
-var modelUUID = "01234567-89ab-cdef-0123-456789abcdef"
 
 // credentialTag is the credential tag we're using in the tests.
 // needs to fit fmt.Sprintf("%s/%s/%s", cloudName, userName, credentialName)
@@ -151,5 +149,5 @@ type stubCaller struct {
 
 // ModelTag is part of the base.APICaller interface.
 func (*stubCaller) ModelTag() (names.ModelTag, bool) {
-	return names.NewModelTag(modelUUID), true
+	return coretesting.ModelTag, true
 }

@@ -18,8 +18,7 @@ import (
 type WorkerSuite struct {
 	testing.IsolationSuite
 
-	facade   *mockFacade
-	modelTag names.ModelTag
+	facade *mockFacade
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -34,7 +33,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		},
 		exists: true,
 	}
-	s.modelTag = names.NewModelTag(modelUUID)
 }
 
 func (s *WorkerSuite) TestCredentialValidityPanicOnStartup(c *gc.C) {
