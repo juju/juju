@@ -109,7 +109,7 @@ Add the check script as a git hook:
 
 ```shell
 $ cd $GOPATH/src/github.com/juju/juju
-$ ln -s ../../scripts/pre-push.bash .git/hooks/pre-push
+$ ln -s scripts/pre-push.bash .git/hooks/pre-push
 ```
 
 This will ensure that any changes you commit locally pass a basic sanity
