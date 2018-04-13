@@ -67,7 +67,7 @@ func (s *CredentialValidatorSuite) TestModelCredentialNotNeeded(c *gc.C) {
 }
 
 func (s *CredentialValidatorSuite) TestWatchCredential(c *gc.C) {
-	result, err := s.api.WatchCredential(credentialTag.String())
+	result, err := s.api.WatchCredential(params.Entity{credentialTag.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
 	c.Assert(s.resources.Count(), gc.Equals, 1)
@@ -75,13 +75,13 @@ func (s *CredentialValidatorSuite) TestWatchCredential(c *gc.C) {
 
 func (s *CredentialValidatorSuite) TestWatchCredentialNotUsedInThisModel(c *gc.C) {
 	s.backend.isUsed = false
-	_, err := s.api.WatchCredential(credentialTag.String())
+	_, err := s.api.WatchCredential(params.Entity{credentialTag.String()})
 	c.Assert(err, gc.ErrorMatches, common.ErrPerm.Error())
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 }
 
 func (s *CredentialValidatorSuite) TestWatchCredentialInvalidTag(c *gc.C) {
-	_, err := s.api.WatchCredential("my-tag")
+	_, err := s.api.WatchCredential(params.Entity{"my-tag"})
 	c.Assert(err, gc.ErrorMatches, `"my-tag" is not a valid tag`)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 }
