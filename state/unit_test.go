@@ -2025,7 +2025,8 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitProviderId(c *gc.C) {
 	info, err := existingUnit.ContainerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.ProviderId(), gc.Equals, "another-uuid")
-	c.Assert(info.Address(), gc.Equals, "192.168.1.1")
+	addr := network.NewScopedAddress("192.168.1.1", network.ScopeMachineLocal)
+	c.Assert(info.Address(), gc.DeepEquals, &addr)
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
 }
 
@@ -2045,7 +2046,8 @@ func (s *CAASUnitSuite) TestAddCAASUnitProviderId(c *gc.C) {
 	info, err := existingUnit.ContainerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.ProviderId(), gc.Equals, "another-uuid")
-	c.Assert(info.Address(), gc.Equals, "192.168.1.1")
+	c.Check(info.Address(), gc.NotNil)
+	c.Check(*info.Address(), jc.DeepEquals, network.NewScopedAddress("192.168.1.1", network.ScopeMachineLocal))
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
 }
 
@@ -2066,7 +2068,8 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitAddress(c *gc.C) {
 	info, err := existingUnit.ContainerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.ProviderId(), gc.Equals, "unit-uuid")
-	c.Assert(info.Address(), gc.Equals, "192.168.1.2")
+	addr := network.NewScopedAddress("192.168.1.2", network.ScopeMachineLocal)
+	c.Assert(info.Address(), jc.DeepEquals, &addr)
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
 }
 
@@ -2087,7 +2090,8 @@ func (s *CAASUnitSuite) TestUpdateCAASUnitPorts(c *gc.C) {
 	info, err := existingUnit.ContainerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.ProviderId(), gc.Equals, "unit-uuid")
-	c.Assert(info.Address(), gc.Equals, "192.168.1.1")
+	addr := network.NewScopedAddress("192.168.1.1", network.ScopeMachineLocal)
+	c.Assert(info.Address(), jc.DeepEquals, &addr)
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"443"})
 }
 

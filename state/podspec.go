@@ -13,9 +13,12 @@ import (
 )
 
 type containerSpecDoc struct {
-	Tag       string `bson:"_id"`
-	ModelUUID string `bson:"model-uuid"`
-	Spec      string `bson:"spec"`
+	// Id holds container spec document key.
+	// It is the global key of the application represented
+	// by this container.
+	Id string `bson:"_id"`
+
+	Spec string `bson:"spec"`
 }
 
 // SetPodSpec sets the pod spec for the given application tag.

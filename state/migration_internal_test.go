@@ -71,6 +71,11 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		storageInstancesC,
 		volumesC,
 		volumeAttachmentsC,
+
+		// caas
+		podSpecsC,
+		cloudContainersC,
+		cloudServicesC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -195,11 +200,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		externalControllersC,
 		relationNetworksC,
 		firewallRulesC,
-
-		// TODO(caas)
-		podSpecsC,
-		cloudContainersC,
-		cloudServicesC,
 	)
 
 	envCollections := set.NewStrings()

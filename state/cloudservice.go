@@ -58,7 +58,7 @@ func (a *Application) cloudService() (*cloudServiceDoc, error) {
 	var doc cloudServiceDoc
 	err := coll.FindId(a.globalKey()).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("cloud service for unit %v", a.Name())
+		return nil, errors.NotFoundf("cloud service for application %v", a.Name())
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
