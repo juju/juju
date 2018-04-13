@@ -15,9 +15,10 @@ import (
 
 var logger = loggo.GetLogger("juju.api.credentialvalidator")
 
-// ErrChanged indicates that a Worker has bounced because its
-// Check result has changed.
-var ErrChanged = errors.New("cloud credential validity has changed")
+// ErrValidityChanged indicates that a Worker has bounced because its
+// credential validity has changed: either a valid credential became invalid
+// or invalid credential became valid.
+var ErrValidityChanged = errors.New("cloud credential validity has changed")
 
 // ErrModelCredentialChanged indicates that a Worker has bounced
 // because model credential was replaced.
@@ -156,7 +157,7 @@ func (w *Worker) loop() error {
 				return ErrModelCredentialChanged
 			}
 			if w.Check() != w.config.Check(mc) {
-				return ErrChanged
+				return ErrValidityChanged
 			}
 		}
 	}

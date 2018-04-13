@@ -61,7 +61,7 @@ func (*ManifoldSuite) TestFilterNil(c *gc.C) {
 
 func (*ManifoldSuite) TestFilterErrChanged(c *gc.C) {
 	manifold := credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{})
-	err := manifold.Filter(credentialvalidator.ErrChanged)
+	err := manifold.Filter(credentialvalidator.ErrValidityChanged)
 	c.Check(err, gc.Equals, dependency.ErrBounce)
 }
 

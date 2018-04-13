@@ -101,7 +101,7 @@ func (s *WorkerSuite) TestCredentialChangeToInvalid(c *gc.C) {
 	c.Check(worker.Check(), jc.IsTrue)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.Equals, credentialvalidator.ErrChanged)
+	c.Check(err, gc.Equals, credentialvalidator.ErrValidityChanged)
 	s.facade.CheckCallNames(c, "ModelCredential", "WatchCredential", "ModelCredential")
 }
 
@@ -120,7 +120,7 @@ func (s *WorkerSuite) TestCredentialChangeFromInvalid(c *gc.C) {
 	c.Check(worker.Check(), jc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.Equals, credentialvalidator.ErrChanged)
+	c.Check(err, gc.Equals, credentialvalidator.ErrValidityChanged)
 	s.facade.CheckCallNames(c, "ModelCredential", "WatchCredential", "ModelCredential")
 }
 
