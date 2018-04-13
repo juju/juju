@@ -164,7 +164,7 @@ func (w *wrapper) agentDisconnect(topic string, data apiserver.APIConnection, er
 		w.logger.Errorf("agentDisconnect error %v", err)
 		return
 	}
-	w.logger.Tracef("api disconnect %s (%s)", data.Origin, data.ConnectionID)
+	w.logger.Tracef("api disconnect %s (%v)", data.Origin, data.ConnectionID)
 	w.recorder.Disconnect(data.Origin, data.ConnectionID)
 }
 
