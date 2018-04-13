@@ -36,23 +36,6 @@ func (*ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "expected in to implement Flag; got a .*")
 }
 
-func (*ManifoldSuite) TestOutputBadTarget(c *gc.C) {
-	manifold := credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{})
-	in := &credentialvalidator.Worker{}
-	var out bool
-	err := manifold.Output(in, &out)
-	c.Check(err, gc.ErrorMatches, "expected out to be a \\*Flag; got a .*")
-}
-
-func (*ManifoldSuite) TestOutputBadInput(c *gc.C) {
-	manifold := credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{})
-	in := &credentialvalidator.Worker{}
-	var out engine.Flag
-	err := manifold.Output(in, &out)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(out, gc.Equals, in)
-}
-
 func (*ManifoldSuite) TestFilterNil(c *gc.C) {
 	manifold := credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{})
 	err := manifold.Filter(nil)
@@ -88,12 +71,6 @@ func (*ManifoldSuite) TestStartMissingAPICallerName(c *gc.C) {
 	config := validManifoldConfig()
 	config.APICallerName = ""
 	checkManifoldNotValid(c, config, "empty APICallerName not valid")
-}
-
-func (*ManifoldSuite) TestStartMissingCheck(c *gc.C) {
-	config := validManifoldConfig()
-	config.Check = nil
-	checkManifoldNotValid(c, config, "nil Check not valid")
 }
 
 func (*ManifoldSuite) TestStartMissingNewFacade(c *gc.C) {
@@ -147,7 +124,6 @@ func (*ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 	}
 	config.NewWorker = func(workerConfig credentialvalidator.Config) (worker.Worker, error) {
 		c.Check(workerConfig.Facade, gc.Equals, expectFacade)
-		c.Check(workerConfig.Check, gc.NotNil) // uncomparable
 		return nil, errors.New("snerk")
 	}
 	manifold := credentialvalidator.Manifold(config)

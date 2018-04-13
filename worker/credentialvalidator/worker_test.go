@@ -19,6 +19,7 @@ type WorkerSuite struct {
 	testing.IsolationSuite
 
 	facade *mockFacade
+	config credentialvalidator.Config
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -33,56 +34,47 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		},
 		exists: true,
 	}
+	s.config = credentialvalidator.Config{
+		Facade: s.facade,
+	}
 }
 
-func (s *WorkerSuite) TestCredentialValidityPanicOnStartup(c *gc.C) {
-	s.facade.SetErrors(errors.New("gaah"))
-	config := credentialvalidator.Config{
-		Facade: s.facade,
-		Check:  panicCheck,
-	}
-	worker, err := credentialvalidator.New(config)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "gaah")
+func (s *WorkerSuite) TestModelCredentialError(c *gc.C) {
+	s.facade.SetErrors(errors.New("mc fail"))
+
+	worker, err := testWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	err = workertest.CheckKilled(c, worker)
+	c.Check(err, gc.ErrorMatches, "mc fail")
 	s.facade.CheckCallNames(c, "ModelCredential")
 }
 
 func (s *WorkerSuite) TestWatchError(c *gc.C) {
-	s.facade.SetErrors(nil, errors.New("boff"))
-	config := credentialvalidator.Config{
-		Facade: s.facade,
-		Check:  neverCheck,
-	}
-	worker, err := credentialvalidator.New(config)
-	c.Check(worker, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "boff")
+	s.facade.SetErrors(nil, errors.New("watch fail"))
+
+	worker, err := testWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	err = workertest.CheckKilled(c, worker)
+	c.Check(err, gc.ErrorMatches, "watch fail")
 	s.facade.CheckCallNames(c, "ModelCredential", "WatchCredential")
 }
 
 func (s *WorkerSuite) TestModelCredentialErrorWhileRunning(c *gc.C) {
-	s.facade.SetErrors(nil, nil, errors.New("glug"))
-	config := credentialvalidator.Config{
-		Facade: s.facade,
-		Check:  neverCheck,
-	}
-	worker, err := credentialvalidator.New(config)
+	s.facade.SetErrors(nil, nil, errors.New("mc fail"))
+	worker, err := testWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
-	c.Check(err, gc.ErrorMatches, "glug")
+	c.Check(err, gc.ErrorMatches, "mc fail")
 	s.facade.CheckCallNames(c, "ModelCredential", "WatchCredential", "ModelCredential")
 }
 
 func (s *WorkerSuite) TestModelCredentialNotNeeded(c *gc.C) {
 	s.facade.exists = false
-	config := credentialvalidator.Config{
-		Facade: s.facade,
-		Check:  neverCheck,
-	}
-	worker, err := credentialvalidator.New(config)
+	worker, err := testWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	err = workertest.CheckKilled(c, worker)
 	c.Assert(err, gc.ErrorMatches, "model is on the cloud that does not need auth")
-	c.Assert(worker, gc.IsNil)
 	s.facade.CheckCallNames(c, "ModelCredential")
 }
 
@@ -92,13 +84,8 @@ func (s *WorkerSuite) TestCredentialChangeToInvalid(c *gc.C) {
 		{credentialTag, false},
 	}
 
-	config := credentialvalidator.Config{
-		Facade: s.facade,
-		Check:  credentialvalidator.IsValid,
-	}
-	worker, err := credentialvalidator.New(config)
+	worker, err := testWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsTrue)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, gc.Equals, credentialvalidator.ErrValidityChanged)
@@ -111,13 +98,8 @@ func (s *WorkerSuite) TestCredentialChangeFromInvalid(c *gc.C) {
 		{credentialTag, true},
 	}
 
-	config := credentialvalidator.Config{
-		Facade: s.facade,
-		Check:  credentialvalidator.IsValid,
-	}
-	worker, err := credentialvalidator.New(config)
+	worker, err := testWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsFalse)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, gc.Equals, credentialvalidator.ErrValidityChanged)
@@ -129,13 +111,8 @@ func (s *WorkerSuite) TestModelCredentialReplaced(c *gc.C) {
 		{credentialTag, true},
 		{names.NewCloudCredentialTag("such/different/credential").String(), false},
 	}
-	config := credentialvalidator.Config{
-		Facade: s.facade,
-		Check:  credentialvalidator.IsValid,
-	}
-	worker, err := credentialvalidator.New(config)
+	worker, err := testWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsTrue)
 
 	err = workertest.CheckKilled(c, worker)
 	c.Check(err, gc.Equals, credentialvalidator.ErrModelCredentialChanged)
@@ -149,15 +126,12 @@ func (s *WorkerSuite) TestNoRelevantCredentialChange(c *gc.C) {
 		{credentialTag, true},
 		{credentialTag, true},
 	}
-	config := credentialvalidator.Config{
-		Facade: s.facade,
-		Check:  credentialvalidator.IsValid,
-	}
-	worker, err := credentialvalidator.New(config)
+	worker, err := testWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(worker.Check(), jc.IsTrue)
 
 	workertest.CheckAlive(c, worker)
 	workertest.CleanKill(c, worker)
 	s.facade.CheckCallNames(c, "ModelCredential", "WatchCredential", "ModelCredential", "ModelCredential", "ModelCredential")
 }
+
+var testWorker = credentialvalidator.NewWorker

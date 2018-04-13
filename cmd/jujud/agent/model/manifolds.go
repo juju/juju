@@ -175,7 +175,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// determines if model's cloud credential is valid.
 		credentialValidatorFlagName: ifNotUpgrading(ifNotDead(credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{
 			APICallerName: apiCallerName,
-			Check:         credentialvalidator.IsValid,
 			NewFacade:     credentialvalidator.NewFacade,
 			NewWorker:     credentialvalidator.NewWorker,
 		}))),

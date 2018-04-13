@@ -16,7 +16,6 @@ import (
 // Worker manifold.
 type ManifoldConfig struct {
 	APICallerName string
-	Check         Predicate
 
 	NewFacade func(base.APICaller) (Facade, error)
 	NewWorker func(Config) (worker.Worker, error)
@@ -26,9 +25,6 @@ type ManifoldConfig struct {
 func (config ManifoldConfig) Validate() error {
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
-	}
-	if config.Check == nil {
-		return errors.NotValidf("nil Check")
 	}
 	if config.NewFacade == nil {
 		return errors.NotValidf("nil NewFacade")
@@ -54,7 +50,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 	worker, err := config.NewWorker(Config{
 		Facade: facade,
-		Check:  config.Check,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

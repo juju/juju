@@ -79,12 +79,6 @@ func (mock *mockWatcher) Changes() watcher.NotifyChannel {
 // needs to fit fmt.Sprintf("%s/%s/%s", cloudName, userName, credentialName)
 var credentialTag = names.NewCloudCredentialTag("cloud/user/credential").String()
 
-// panicCheck is a Config.Check value that should not be called.
-func panicCheck(base.StoredCredential) bool { panic("unexpected") }
-
-// neverCheck is a Config.Check value that always returns false.
-func neverCheck(base.StoredCredential) bool { return false }
-
 // panicFacade is a NewFacade that should not be called.
 func panicFacade(base.APICaller) (credentialvalidator.Facade, error) {
 	panic("panicFacade")
@@ -100,7 +94,6 @@ func panicWorker(credentialvalidator.Config) (worker.Worker, error) {
 func validConfig() credentialvalidator.Config {
 	return credentialvalidator.Config{
 		Facade: struct{ credentialvalidator.Facade }{},
-		Check:  panicCheck,
 	}
 }
 
@@ -115,7 +108,7 @@ func checkNotValid(c *gc.C, config credentialvalidator.Config, expect string) {
 	err := config.Validate()
 	check(err)
 
-	worker, err := credentialvalidator.New(config)
+	worker, err := credentialvalidator.NewWorker(config)
 	c.Check(worker, gc.IsNil)
 	check(err)
 }
@@ -125,7 +118,6 @@ func checkNotValid(c *gc.C, config credentialvalidator.Config, expect string) {
 func validManifoldConfig() credentialvalidator.ManifoldConfig {
 	return credentialvalidator.ManifoldConfig{
 		APICallerName: "api-caller",
-		Check:         panicCheck,
 		NewFacade:     panicFacade,
 		NewWorker:     panicWorker,
 	}

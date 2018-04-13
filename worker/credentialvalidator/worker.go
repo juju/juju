@@ -29,9 +29,6 @@ var ErrModelCredentialChanged = errors.New("model credential changed")
 // on the cloud that does not require authentication.
 var ErrModelDoesNotNeedCredential = errors.New("model is on the cloud that does not need auth")
 
-// Predicate defines a predicate.
-type Predicate func(base.StoredCredential) bool
-
 // Facade exposes functionality required by a Worker to access and watch
 // a cloud credential that a model uses.
 type Facade interface {
@@ -45,15 +42,9 @@ type Facade interface {
 	WatchCredential(string) (watcher.NotifyWatcher, error)
 }
 
-// IsValid returns true when the given credential is valid.
-func IsValid(c base.StoredCredential) bool {
-	return c.Valid
-}
-
 // Config holds the dependencies and configuration for a Worker.
 type Config struct {
 	Facade Facade
-	Check  Predicate
 }
 
 // Validate returns an error if the config cannot be expected to
@@ -62,93 +53,78 @@ func (config Config) Validate() error {
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
 	}
-	if config.Check == nil {
-		return errors.NotValidf("nil Check")
-	}
 	return nil
 }
 
-// New returns a Worker that tracks the result of the configured
-// Check on the Model's cloud credential, as exposed by the Facade.
-func New(config Config) (*Worker, error) {
+// NewWorker returns a Worker that tracks the validity of the Model's cloud
+// credential, as exposed by the Facade.
+func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	modelCredential, exists, err := config.Facade.ModelCredential()
+
+	v := &validator{validatorFacade: config.Facade}
+
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &v.catacomb,
+		Work: v.loop,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !exists {
-		return nil, ErrModelDoesNotNeedCredential
-	}
-	watcher, err := config.Facade.WatchCredential(modelCredential.CloudCredential)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	w := &Worker{
-		config:          config,
-		watcher:         watcher,
-		modelCredential: modelCredential,
-	}
-
-	if err := catacomb.Invoke(catacomb.Plan{
-		Site: &w.catacomb,
-		Init: []worker.Worker{watcher},
-		Work: w.loop,
-	}); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return w, nil
+	return v, nil
 }
 
-// Worker implements worker.Worker and util.Flag, and exits
-// with ErrChanged whenever the result of its configured Check of
-// the Model's cloud credential changes.
-type Worker struct {
+type validator struct {
 	catacomb        catacomb.Catacomb
-	config          Config
-	watcher         watcher.NotifyWatcher
-	modelCredential base.StoredCredential
+	validatorFacade Facade
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *Worker) Kill() {
-	w.catacomb.Kill(nil)
+func (v *validator) Kill() {
+	v.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *Worker) Wait() error {
-	return w.catacomb.Wait()
+func (v *validator) Wait() error {
+	return v.catacomb.Wait()
 }
 
-// Check is part of the util.Flag interface.
-func (w *Worker) Check() bool {
-	return w.config.Check(w.modelCredential)
-}
+func (v *validator) loop() error {
+	modelCredential := func() (base.StoredCredential, error) {
+		mc, exists, err := v.validatorFacade.ModelCredential()
+		if err != nil {
+			return base.StoredCredential{}, errors.Trace(err)
+		}
+		if !exists {
+			logger.Warningf("model credential is not set for the model")
+			return base.StoredCredential{}, ErrModelDoesNotNeedCredential
+		}
+		return mc, nil
+	}
 
-func (w *Worker) loop() error {
+	originalCredential, err := modelCredential()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	w, err := v.validatorFacade.WatchCredential(originalCredential.CloudCredential)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	for {
 		select {
-		case <-w.catacomb.Dying():
-			return w.catacomb.ErrDying()
-		case _, ok := <-w.watcher.Changes():
+		case <-v.catacomb.Dying():
+			return v.catacomb.ErrDying()
+		case _, ok := <-w.Changes():
 			if !ok {
-				return w.catacomb.ErrDying()
+				return v.catacomb.ErrDying()
 			}
-			mc, exists, err := w.config.Facade.ModelCredential()
+			updatedCredential, err := modelCredential()
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if !exists {
-				// Really should not happen in practice since the uninstall
-				// should have occurred back in the constructor.
-				// If the credential came back as not set here, it could be a bigger problem:
-				// the model must have had a credential at some stage and now it's removed.
-				logger.Warningf("model credential was unexpectedly unset for the model that resides on the cloud that requires auth")
-				return ErrModelDoesNotNeedCredential
-			}
-			if mc.CloudCredential != w.modelCredential.CloudCredential {
+			if originalCredential.CloudCredential != updatedCredential.CloudCredential {
 				// Model is now using different credential than when this worker was created.
 				// TODO (anastasiamac 2018-04-05) - It cannot happen yet
 				// but when it can, make sure that this worker still behaves...
@@ -156,7 +132,7 @@ func (w *Worker) loop() error {
 				// or just change it's variables to reflect new credential?
 				return ErrModelCredentialChanged
 			}
-			if w.Check() != w.config.Check(mc) {
+			if originalCredential.Valid != updatedCredential.Valid {
 				return ErrValidityChanged
 			}
 		}
