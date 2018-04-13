@@ -37,8 +37,17 @@ var (
 	// mongod.
 	JujuMongod24Path = "/usr/lib/juju/bin/mongod"
 
+	// JujuMongod32Path holds the default path to juju-mongodb3.2
+	JujuMongod32Path = "/usr/lib/juju/mongo3.2/bin/mongod"
+
+	// MongodSystemPath is actually just the system path
+	MongodSystemPath = "/usr/bin/mongod"
+
 	// This is NUMACTL package name for apt-get
 	numaCtlPkg = "numactl"
+
+	// mininmumSystemMongoVersion is the minimum version we would allow to be used from /usr/bin/mongod.
+	minimumSystemMongoVersion = Version{Major: 3, Minor: 4}
 )
 
 // StorageEngine represents the storage used by mongo.
@@ -193,6 +202,18 @@ var (
 		Patch:         "",
 		StorageEngine: WiredTiger,
 	}
+	// Mongo34wt represents 'mongodb-server-core' at version 3.4.x with WiredTiger
+	Mongo34wt = Version{Major: 3,
+		Minor:         4,
+		Patch:         "",
+		StorageEngine: WiredTiger,
+	}
+	// Mongo36wt represents 'mongodb-server-core' at version 3.6.x with WiredTiger
+	Mongo36wt = Version{Major: 3,
+		Minor:         6,
+		Patch:         "",
+		StorageEngine: WiredTiger,
+	}
 	// MongoUpgrade represents a sepacial case where an upgrade is in
 	// progress.
 	MongoUpgrade = Version{Major: 0,
@@ -201,34 +222,6 @@ var (
 		StorageEngine: Upgrading,
 	}
 )
-
-// InstalledVersion returns the version of mongo installed.
-// We look for a specific, known version supported by this Juju,
-// and fall back to the original mongo 2.4.
-func InstalledVersion() Version {
-	mgoVersion := Mongo24
-	if binariesAvailable(Mongo32wt, os.Stat) {
-		mgoVersion = Mongo32wt
-	}
-	return mgoVersion
-}
-
-// binariesAvailable returns true if the binaries for the
-// given Version of mongo are available.
-func binariesAvailable(v Version, statFunc func(string) (os.FileInfo, error)) bool {
-	var path string
-	switch v {
-	case Mongo24:
-		// 2.4 has a fixed path.
-		path = JujuMongod24Path
-	default:
-		path = JujuMongodPath(v)
-	}
-	if _, err := statFunc(path); err == nil {
-		return true
-	}
-	return false
-}
 
 // WithAddresses represents an entity that has a set of
 // addresses. e.g. a state Machine object
@@ -336,6 +329,12 @@ func mongoPath(version Version, stat func(string) (os.FileInfo, error), lookPath
 			return "", err
 		}
 		return path, nil
+	case Mongo36wt:
+		if _, err := stat(MongodSystemPath); err == nil {
+			return MongodSystemPath, nil
+		} else {
+			return "", err
+		}
 	default:
 		path := JujuMongodPath(version)
 		var err error
@@ -484,8 +483,8 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 		// (LP #1441904)
 		logger.Errorf("cannot install/upgrade mongod (will proceed anyway): %v", err)
 	}
-	mgoVersion := InstalledVersion()
-	mongoPath, err := Path(mgoVersion)
+	finder := NewMongodFinder()
+	mongoPath, mgoVersion, err := finder.FindBest()
 	if err != nil {
 		return err
 	}
@@ -650,7 +649,6 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 			return err
 		}
 	}
-
 	mongoPkgs, fallbackPkgs := packagesForSeries(operatingsystem)
 
 	if numaCtl {
@@ -714,9 +712,11 @@ func packagesForSeries(series string) ([]string, []string) {
 		return []string{"mongodb-server"}, []string{}
 	case "trusty":
 		return []string{"juju-mongodb"}, []string{}
-	default:
-		// xenial and onwards
+	case "xenial", "artful":
 		return []string{JujuMongoPackage, JujuMongoToolsPackage}, []string{}
+	default:
+		// Bionic and newer
+		return []string{"mongodb-server-core", "mongodb-clients"}, []string{}
 	}
 }
 

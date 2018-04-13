@@ -93,32 +93,6 @@ func (f fakeFileInfo) ModTime() time.Time { return time.Now() }
 func (f fakeFileInfo) IsDir() bool        { return f.isDir }
 func (f fakeFileInfo) Sys() interface{}   { return nil }
 
-func assertStat(c *gc.C, v Version, result bool, stat error, called string) {
-	var statArg string
-	statFunc := func(p string) (os.FileInfo, error) {
-		statArg = p
-		return fakeFileInfo{}, stat
-	}
-
-	b := binariesAvailable(v, statFunc)
-	c.Assert(b, gc.Equals, result)
-	c.Assert(statArg, gc.Equals, called)
-}
-
-func (m *MongoPathSuite) TestBinaries(c *gc.C) {
-	errMissing := errors.New("missing")
-
-	assertStat(c, Mongo24, true, nil, JujuMongod24Path)
-
-	assertStat(c, Mongo24, false, errMissing, JujuMongod24Path)
-
-	assertStat(c, Mongo32wt, true, nil, "/usr/lib/juju/mongo3.2/bin/mongod")
-
-	assertStat(c, Mongo32wt, false, errMissing, "/usr/lib/juju/mongo3.2/bin/mongod")
-
-	assertStat(c, Version{Major: 4, Minor: 3}, true, nil, "/usr/lib/juju/mongo4.3/bin/mongod")
-}
-
 func assertStatLook(c *gc.C, v Version, statErr, lookErr error, errReg, path, statCall, lookCall string) {
 	var statCalled string
 	stat := func(p string) (os.FileInfo, error) {

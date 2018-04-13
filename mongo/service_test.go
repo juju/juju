@@ -116,6 +116,103 @@ func (s *serviceSuite) TestNewConf32(c *gc.C) {
 	c.Check(strings.Fields(conf.ExecStart), jc.DeepEquals, strings.Fields(expected.ExecStart))
 }
 
+func (s *serviceSuite) TestNewConf32LowMem(c *gc.C) {
+	dataDir := "/var/lib/juju"
+	dbDir := dataDir + "/db"
+	mongodPath := "/mgo/bin/mongod"
+	mongodVersion := mongo.Mongo32wt
+	port := 12345
+	oplogSizeMB := 10
+	conf := mongo.NewConf(mongo.ConfigArgs{
+		DataDir:       dataDir,
+		DBDir:         dbDir,
+		MongoPath:     mongodPath,
+		Port:          port,
+		OplogSizeMB:   oplogSizeMB,
+		WantNUMACtl:   false,
+		Version:       mongodVersion,
+		Auth:          true,
+		MemoryProfile: mongo.MemoryProfileLow,
+	})
+
+	expected := common.Conf{
+		Desc: "juju state database",
+		Limit: map[string]int{
+			"nofile": 65000,
+			"nproc":  20000,
+		},
+		Timeout: 300,
+		ExecStart: "/mgo/bin/mongod" +
+			" --dbpath '/var/lib/juju/db'" +
+			" --sslPEMKeyFile '/var/lib/juju/server.pem'" +
+			" --sslPEMKeyPassword=ignored" +
+			" --port 12345" +
+			" --syslog" +
+			" --journal" +
+			" --replSet juju" +
+			" --quiet" +
+			" --oplogSize 10" +
+			" --auth" +
+			" --keyFile '/var/lib/juju/shared-secret'" +
+			" --sslMode requireSSL" +
+			" --storageEngine wiredTiger" +
+			" --wiredTigerCacheSizeGB 1",
+	}
+
+	c.Check(conf, jc.DeepEquals, expected)
+	c.Check(strings.Fields(conf.ExecStart), jc.DeepEquals, strings.Fields(expected.ExecStart))
+}
+
+func (s *serviceSuite) TestNewConf36(c *gc.C) {
+	dataDir := "/var/lib/juju"
+	dbDir := dataDir + "/db"
+	mongodPath := "/usr/bin/mongod"
+	mongodVersion := mongo.Mongo36wt
+	port := 12345
+	oplogSizeMB := 10
+	conf := mongo.NewConf(mongo.ConfigArgs{
+		DataDir:       dataDir,
+		DBDir:         dbDir,
+		MongoPath:     mongodPath,
+		Port:          port,
+		OplogSizeMB:   oplogSizeMB,
+		WantNUMACtl:   false,
+		Version:       mongodVersion,
+		Auth:          true,
+		IPv6:          true,
+		MemoryProfile: mongo.MemoryProfileLow,
+	})
+
+	expected := common.Conf{
+		Desc: "juju state database",
+		Limit: map[string]int{
+			"nofile": 65000,
+			"nproc":  20000,
+		},
+		Timeout: 300,
+		ExecStart: "/usr/bin/mongod" +
+			" --dbpath '/var/lib/juju/db'" +
+			" --sslPEMKeyFile '/var/lib/juju/server.pem'" +
+			" --sslPEMKeyPassword=ignored" +
+			" --port 12345" +
+			" --syslog" +
+			" --journal" +
+			" --replSet juju" +
+			" --quiet" +
+			" --oplogSize 10" +
+			" --ipv6" +
+			" --auth" +
+			" --keyFile '/var/lib/juju/shared-secret'" +
+			" --sslMode requireSSL" +
+			" --storageEngine wiredTiger" +
+			" --wiredTigerCacheSizeGB 0.25" +
+			" --bind_ip_all",
+	}
+
+	c.Check(conf, jc.DeepEquals, expected)
+	c.Check(strings.Fields(conf.ExecStart), jc.DeepEquals, strings.Fields(expected.ExecStart))
+}
+
 func (s *serviceSuite) TestIsServiceInstalledWhenInstalled(c *gc.C) {
 	svcName := mongo.ServiceName
 	svcData := svctesting.NewFakeServiceData(svcName)

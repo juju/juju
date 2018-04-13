@@ -109,7 +109,9 @@ var getMongodumpPath = func() (string, error) {
 }
 
 var getMongodPath = func() (string, error) {
-	return mongo.Path(mongo.InstalledVersion())
+	finder := mongo.NewMongodFinder()
+	path, _, err := finder.FindBest()
+	return path, err
 }
 
 func getMongoToolPath(toolName string, stat func(name string) (os.FileInfo, error), lookPath func(file string) (string, error)) (string, error) {
@@ -324,7 +326,13 @@ type RestorerArgs struct {
 	StopMongo    func() error
 }
 
-var mongoInstalledVersion = mongo.InstalledVersion
+var mongoInstalledVersion = func() mongo.Version {
+	finder := mongo.NewMongodFinder()
+	// We ignore the error here. The old code always assumed that
+	// InstalledVersion always had a correct answer.
+	_, version, _ := finder.FindBest()
+	return version
+}
 
 // NewDBRestorer returns a new structure that can perform a restore
 // on the db pointed in dialInfo.
