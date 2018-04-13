@@ -15,7 +15,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/credentialvalidator"
-	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/workertest"
 )
 
@@ -135,9 +134,7 @@ func validManifoldConfig() credentialvalidator.ManifoldConfig {
 // checkManifoldNotValid checks that the supplied ManifoldConfig creates
 // a manifold that cannot be started.
 func checkManifoldNotValid(c *gc.C, config credentialvalidator.ManifoldConfig, expect string) {
-	manifold := credentialvalidator.Manifold(config)
-	worker, err := manifold.Start(dt.StubContext(nil, nil))
-	c.Check(worker, gc.IsNil)
+	err := config.Validate()
 	c.Check(err, gc.ErrorMatches, expect)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }

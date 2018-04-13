@@ -22,8 +22,8 @@ type ManifoldConfig struct {
 	NewWorker func(Config) (worker.Worker, error)
 }
 
-// validate is called by start to check for bad configuration.
-func (config ManifoldConfig) validate() error {
+// Validate is called by start to check for bad configuration.
+func (config ManifoldConfig) Validate() error {
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
 	}
@@ -41,7 +41,7 @@ func (config ManifoldConfig) validate() error {
 
 // start is a StartFunc for a Worker manifold.
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
-	if err := config.validate(); err != nil {
+	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	var apiCaller base.APICaller
