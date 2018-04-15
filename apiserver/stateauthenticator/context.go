@@ -11,10 +11,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/bakeryutil"
@@ -237,7 +237,7 @@ func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonA
 	}
 	var auth authentication.ExternalMacaroonAuthenticator
 	auth.Service = svc
-	auth.Macaroon, err = svc.NewMacaroon("api-login", nil, nil)
+	auth.Macaroon, err = svc.NewMacaroon(nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make macaroon")
 	}

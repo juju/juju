@@ -96,7 +96,11 @@ juju-pubsub-report () {
 }
 
 juju-metrics () {
-  jujuMachineOrUnit metrics $@
+  jujuMachineOrUnit metrics/ $@
+}
+
+juju-presence-report () {
+  jujuMachineOrUnit presence/ $@
 }
 
 juju-statetracker-report () {
@@ -114,4 +118,5 @@ export -f juju-metrics
 export -f juju-statepool-report
 export -f juju-statetracker-report
 export -f juju-pubsub-report
+export -f juju-presence-report
 `

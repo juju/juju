@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v2"
+	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/application"

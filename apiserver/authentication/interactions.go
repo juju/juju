@@ -29,7 +29,7 @@ type Interactions struct {
 
 type item struct {
 	c        chan Interaction
-	caveatId string
+	caveatId []byte
 	expiry   time.Time
 	done     bool
 }
@@ -37,7 +37,7 @@ type item struct {
 // Interaction records details of an in-progress interactive
 // macaroon-based login.
 type Interaction struct {
-	CaveatId   string
+	CaveatId   []byte
 	LoginUser  names.UserTag
 	LoginError error
 }
@@ -60,7 +60,7 @@ func newId() (string, error) {
 // Start records the start of an interactive login, and returns a random ID
 // that uniquely identifies it. A call to Wait with the same ID will return
 // the Interaction once it is done.
-func (m *Interactions) Start(caveatId string, expiry time.Time) (string, error) {
+func (m *Interactions) Start(caveatId []byte, expiry time.Time) (string, error) {
 	id, err := newId()
 	if err != nil {
 		return "", err

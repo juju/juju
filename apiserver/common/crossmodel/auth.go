@@ -10,9 +10,9 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -206,29 +206,30 @@ func (a *AuthContext) CreateConsumeOfferMacaroon(offer *params.ApplicationOfferD
 		return nil, errors.Trace(err)
 	}
 	expiryTime := a.clock.Now().Add(localOfferPermissionExpiryTime)
-	bakery, err := a.localOfferBakeryService.ExpireStorageAt(expiryTime)
+	bakery, err := a.localOfferBakeryService.ExpireStorageAfter(localOfferPermissionExpiryTime)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return bakery.NewMacaroon("", nil,
+	return bakery.NewMacaroon(
 		[]checkers.Caveat{
 			checkers.TimeBeforeCaveat(expiryTime),
 			checkers.DeclaredCaveat(sourcemodelKey, sourceModelTag.Id()),
 			checkers.DeclaredCaveat(offeruuidKey, offer.OfferUUID),
 			checkers.DeclaredCaveat(usernameKey, username),
 		})
+
 }
 
 // CreateRemoteRelationMacaroon creates a macaroon that authorises access to the specified relation.
 func (a *AuthContext) CreateRemoteRelationMacaroon(sourceModelUUID, offerUUID string, username string, rel names.Tag) (*macaroon.Macaroon, error) {
 	expiryTime := a.clock.Now().Add(localOfferPermissionExpiryTime)
-	bakery, err := a.localOfferBakeryService.ExpireStorageAt(expiryTime)
+	bakery, err := a.localOfferBakeryService.ExpireStorageAfter(localOfferPermissionExpiryTime)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	offerMacaroon, err := bakery.NewMacaroon("", nil,
+	offerMacaroon, err := bakery.NewMacaroon(
 		[]checkers.Caveat{
 			checkers.TimeBeforeCaveat(expiryTime),
 			checkers.DeclaredCaveat(sourcemodelKey, sourceModelUUID),
@@ -236,6 +237,7 @@ func (a *AuthContext) CreateRemoteRelationMacaroon(sourceModelUUID, offerUUID st
 			checkers.DeclaredCaveat(usernameKey, username),
 			checkers.DeclaredCaveat(relationKey, rel.Id()),
 		})
+
 	return offerMacaroon, err
 }
 
@@ -307,8 +309,7 @@ func (a *authenticator) checkMacaroons(mac macaroon.Slice, requiredValues map[st
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	expiryTime := a.ctxt.clock.Now().Add(localOfferPermissionExpiryTime)
-	bakery, err := a.bakery.ExpireStorageAt(expiryTime)
+	bakery, err := a.bakery.ExpireStorageAfter(localOfferPermissionExpiryTime)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -316,7 +317,7 @@ func (a *authenticator) checkMacaroons(mac macaroon.Slice, requiredValues map[st
 	for k := range requiredValues {
 		keys = append(keys, k)
 	}
-	m, err := bakery.NewMacaroon("", nil, []checkers.Caveat{
+	m, err := bakery.NewMacaroon([]checkers.Caveat{
 		checkers.NeedDeclaredCaveat(
 			checkers.Caveat{
 				Location:  a.offerAccessEndpoint,
@@ -326,6 +327,7 @@ func (a *authenticator) checkMacaroons(mac macaroon.Slice, requiredValues map[st
 		),
 		checkers.TimeBeforeCaveat(a.clock.Now().Add(localOfferPermissionExpiryTime)),
 	})
+
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create macaroon")
 	}

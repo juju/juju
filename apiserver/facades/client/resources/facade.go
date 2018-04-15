@@ -8,9 +8,9 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
+	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"

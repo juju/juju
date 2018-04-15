@@ -26,6 +26,7 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
 	jworker "github.com/juju/juju/worker"
@@ -59,6 +60,7 @@ import (
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/peergrouper"
+	prworker "github.com/juju/juju/worker/presence"
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/raft"
@@ -170,6 +172,9 @@ type ManifoldsConfig struct {
 	// PubSubReporter is the introspection reporter for the pubsub forwarding
 	// worker.
 	PubSubReporter psworker.Reporter
+
+	// PresenceRecorder
+	PresenceRecorder presence.Recorder
 
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
@@ -312,6 +317,18 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:         loggo.GetLogger("juju.worker.pubsub"),
 			NewWorker:      psworker.NewWorker,
 			Reporter:       config.PubSubReporter,
+		}),
+
+		// The presence manifold listens to pubsub messages about the pubsub
+		// forwarding connections and api connection and disconnections to
+		// establish a view on which agents are "alive".
+		presenceName: prworker.Manifold(prworker.ManifoldConfig{
+			AgentName:              agentName,
+			CentralHubName:         centralHubName,
+			StateConfigWatcherName: stateConfigWatcherName,
+			Recorder:               config.PresenceRecorder,
+			Logger:                 loggo.GetLogger("juju.worker.presence"),
+			NewWorker:              prworker.NewWorker,
 		}),
 
 		/* TODO(menn0) - this is currently unused, pending further
@@ -794,6 +811,7 @@ const (
 	apiCallerName          = "api-caller"
 	apiConfigWatcherName   = "api-config-watcher"
 	centralHubName         = "central-hub"
+	presenceName           = "presence"
 	pubSubName             = "pubsub-forwarder"
 	clockName              = "clock"
 

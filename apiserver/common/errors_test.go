@@ -12,7 +12,7 @@ import (
 	"github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -197,7 +197,7 @@ var errorTransformTests = []struct {
 }}
 
 var sampleMacaroon = func() *macaroon.Macaroon {
-	m, err := macaroon.New([]byte("key"), "id", "loc")
+	m, err := macaroon.New([]byte("key"), []byte("id"), "loc")
 	if err != nil {
 		panic(err)
 	}

@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon.v2-unstable"
 )
 
 // newMacaroonJar returns a new macaroonJar wrapping the given cache and

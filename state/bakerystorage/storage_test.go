@@ -4,14 +4,14 @@
 package bakerystorage
 
 import (
-	"errors"
+	"encoding/json"
 	"time" // Only used for time types.
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/mgostorage"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
@@ -22,6 +22,7 @@ type StorageSuite struct {
 	testing.BaseSuite
 	gitjujutesting.Stub
 	collection      mockCollection
+	memStorage      bakery.Storage
 	closeCollection func()
 	config          Config
 }
@@ -36,13 +37,18 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 		s.AddCall("Close")
 		s.PopNoErr()
 	}
+	s.memStorage = bakery.NewMemStorage()
 	s.config = Config{
 		GetCollection: func() (mongo.Collection, func()) {
 			s.AddCall("GetCollection")
 			s.PopNoErr()
 			return &s.collection, s.closeCollection
 		},
-		Clock: clock.WallClock,
+		GetStorage: func(rootKeys *mgostorage.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.Storage {
+			s.AddCall("GetStorage", coll, expireAfter)
+			s.PopNoErr()
+			return s.memStorage
+		},
 	}
 }
 
@@ -52,103 +58,36 @@ func (s *StorageSuite) TestValidateConfigGetCollection(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "validating config: nil GetCollection not valid")
 }
 
-func (s *StorageSuite) TestValidateConfigClock(c *gc.C) {
-	s.config.Clock = nil
+func (s *StorageSuite) TestValidateConfigGetStorage(c *gc.C) {
+	s.config.GetStorage = nil
 	_, err := New(s.config)
-	c.Assert(err, gc.ErrorMatches, "validating config: nil Clock not valid")
-}
-
-func (s *StorageSuite) TestPut(c *gc.C) {
-	store, err := New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = store.Put("foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
-	s.CheckCalls(c, []gitjujutesting.StubCall{
-		{"GetCollection", nil},
-		{"Writeable", nil},
-		{"UpsertId", []interface{}{"foo", storageDoc{
-			Location: "foo",
-			Item:     "bar",
-		}}},
-		{"Close", nil},
-	})
-}
-
-func (s *StorageSuite) TestExpireAt(c *gc.C) {
-	store, err := New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expiryTime := testing.NonZeroTime().Add(24 * time.Hour)
-	store = store.ExpireAt(expiryTime)
-
-	err = store.Put("foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
-	s.CheckCalls(c, []gitjujutesting.StubCall{
-		{"GetCollection", nil},
-		{"Writeable", nil},
-		{"UpsertId", []interface{}{"foo", storageDoc{
-			Location: "foo",
-			Item:     "bar",
-			ExpireAt: expiryTime.Add(-1 * time.Second),
-		}}},
-		{"Close", nil},
-	})
-}
-
-type mockClock struct {
-	clock.Clock
-	now time.Time
-}
-
-func (m *mockClock) Now() time.Time {
-	return m.now
+	c.Assert(err, gc.ErrorMatches, "validating config: nil GetStorage not valid")
 }
 
 func (s *StorageSuite) TestExpireAfter(c *gc.C) {
-	now := time.Now()
-	s.config.Clock = &mockClock{now: now}
 	store, err := New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	store = store.ExpireAfter(24 * time.Hour)
-
-	err = store.Put("foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
-	s.CheckCalls(c, []gitjujutesting.StubCall{
-		{"GetCollection", nil},
-		{"Writeable", nil},
-		{"UpsertId", []interface{}{"foo", storageDoc{
-			Location: "foo",
-			Item:     "bar",
-			ExpireAt: now.Add(24 * time.Hour).Add(-1 * time.Second),
-		}}},
-		{"Close", nil},
-	})
-}
-
-func (s *StorageSuite) TestPutError(c *gc.C) {
-	store, err := New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.SetErrors(nil, nil, errors.New("failed to upsert"))
-	err = store.Put("foo", "bar")
-	c.Assert(err, gc.ErrorMatches, `cannot store item for location "foo": failed to upsert`)
+	c.Assert(ExpireAfter(store), gc.Equals, 24*time.Hour)
 }
 
 func (s *StorageSuite) TestGet(c *gc.C) {
 	store, err := New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	item, err := store.Get("foo")
+
+	rootKey, id, err := store.RootKey()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(item, gc.Equals, "item-value")
+
+	item, err := store.Get(id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(item, jc.DeepEquals, rootKey)
 	s.CheckCalls(c, []gitjujutesting.StubCall{
 		{"GetCollection", nil},
-		{"FindId", []interface{}{"foo"}},
-		{"One", []interface{}{&storageDoc{
-			// Set by mock, not in input. Unimportant anyway.
-			Location: "foo",
-			Item:     "item-value",
-		}}},
+		{"GetStorage", []interface{}{&s.collection, time.Duration(0)}},
+		{"Close", nil},
+		{"GetCollection", nil},
+		{"GetStorage", []interface{}{&s.collection, time.Duration(0)}},
 		{"Close", nil},
 	})
 }
@@ -156,47 +95,36 @@ func (s *StorageSuite) TestGet(c *gc.C) {
 func (s *StorageSuite) TestGetNotFound(c *gc.C) {
 	store, err := New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	s.SetErrors(nil, nil, mgo.ErrNotFound)
-	_, err = store.Get("foo")
+	c.Log("1.")
+	_, err = store.Get([]byte("foo"))
+	c.Log("2.")
 	c.Assert(err, gc.Equals, bakery.ErrNotFound)
 }
 
-func (s *StorageSuite) TestGetError(c *gc.C) {
-	store, err := New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.SetErrors(nil, nil, errors.New("failed to read"))
-	_, err = store.Get("foo")
-	c.Assert(err, gc.ErrorMatches, `cannot get item for location "foo": failed to read`)
-}
-
-func (s *StorageSuite) TestDel(c *gc.C) {
+func (s *StorageSuite) TestGetLegacyFallback(c *gc.C) {
 	store, err := New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = store.Del("foo")
+	var rk legacyRootKey
+	err = json.Unmarshal([]byte("{\"RootKey\":\"ibbhlQv5+yf7UMNI77W4hxQeQjRdMxs0\"}"), &rk)
 	c.Assert(err, jc.ErrorIsNil)
+
+	item, err := store.Get([]byte("oldkey"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(item, jc.DeepEquals, rk.RootKey)
 	s.CheckCalls(c, []gitjujutesting.StubCall{
 		{"GetCollection", nil},
-		{"Writeable", nil},
-		{"RemoveId", []interface{}{"foo"}},
+		{"GetStorage", []interface{}{&s.collection, time.Duration(0)}},
+		{"GetCollection", nil},
+		{"FindId", []interface{}{"oldkey"}},
+		{"One", []interface{}{&storageDoc{
+			// Set by mock, not in input. Unimportant anyway.
+			Location: "oldkey",
+			Item:     "{\"RootKey\":\"ibbhlQv5+yf7UMNI77W4hxQeQjRdMxs0\"}",
+		}}},
+		{"Close", nil},
 		{"Close", nil},
 	})
-}
-
-func (s *StorageSuite) TestDelNotFound(c *gc.C) {
-	store, err := New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.SetErrors(nil, nil, mgo.ErrNotFound)
-	err = store.Del("foo")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *StorageSuite) TestDelError(c *gc.C) {
-	store, err := New(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	s.SetErrors(nil, nil, errors.New("failed to remove"))
-	err = store.Del("foo")
-	c.Assert(err, gc.ErrorMatches, `cannot remove item for location "foo": failed to remove`)
 }
 
 type mockCollection struct {
@@ -208,16 +136,6 @@ func (c *mockCollection) FindId(id interface{}) mongo.Query {
 	c.MethodCall(c, "FindId", id)
 	c.PopNoErr()
 	return &mockQuery{Stub: c.Stub, id: id}
-}
-
-func (c *mockCollection) UpsertId(id, update interface{}) (*mgo.ChangeInfo, error) {
-	c.MethodCall(c, "UpsertId", id, update)
-	return &mgo.ChangeInfo{}, c.NextErr()
-}
-
-func (c *mockCollection) RemoveId(id interface{}) error {
-	c.MethodCall(c, "RemoveId", id)
-	return c.NextErr()
 }
 
 func (c *mockCollection) Writeable() mongo.WriteCollection {
@@ -234,9 +152,14 @@ type mockQuery struct {
 
 func (q *mockQuery) One(result interface{}) error {
 	q.MethodCall(q, "One", result)
+
+	location := q.id.(string)
+	if location != "oldkey" {
+		return mgo.ErrNotFound
+	}
 	*result.(*storageDoc) = storageDoc{
 		Location: q.id.(string),
-		Item:     "item-value",
+		Item:     "{\"RootKey\":\"ibbhlQv5+yf7UMNI77W4hxQeQjRdMxs0\"}",
 	}
 	return q.NextErr()
 }

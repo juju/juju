@@ -4,28 +4,32 @@
 package bakerystorage
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/macaroon-bakery.v1/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/mgostorage"
 	"gopkg.in/mgo.v2"
 )
 
-var expiryTimeIndex = mgo.Index{
-	Key:    []string{"expire-at"},
-	Sparse: true,
-
-	// We expire records when the clock time is one
-	// second older than the record's expire-at field
-	// value. It has to be at least one second, because
-	// mgo uses "omitempty" for this field.
-	ExpireAfter: time.Second,
+// MongoIndexes returns the indexes to apply to the MongoDB collection.
+func MongoIndexes() []mgo.Index {
+	// Note: this second-guesses the underlying document format
+	// used by bakery's mgostorage package.
+	// TODO change things so that we can use EnsureIndex instead.
+	return []mgo.Index{{
+		Key: []string{"-created"},
+	}, {
+		Key:         []string{"expires"},
+		ExpireAfter: time.Second,
+	}}
 }
 
 type storage struct {
 	config      Config
-	expireAt    time.Time
 	expireAfter time.Duration
+	rootKeys    *mgostorage.RootKeys
 }
 
 type storageDoc struct {
@@ -34,70 +38,61 @@ type storageDoc struct {
 	ExpireAt time.Time `bson:"expire-at,omitempty"`
 }
 
-// ExpireAt implements ExpirableStorage.ExpireAt.
-func (s *storage) ExpireAt(expireAt time.Time) ExpirableStorage {
-	return &storage{config: s.config, expireAt: expireAt}
+type legacyRootKey struct {
+	RootKey []byte
 }
 
-// ExpireAfter implements ExpirableStorage.ExpireAt.
+// ExpireAfter implements ExpirableStorage.ExpireAfter.
 func (s *storage) ExpireAfter(expireAfter time.Duration) ExpirableStorage {
-	return &storage{config: s.config, expireAfter: expireAfter}
+	newStorage := *s
+	newStorage.expireAfter = expireAfter
+	return &newStorage
 }
 
-// Put implements bakery.Storage.Put.
-func (s *storage) Put(location, item string) error {
-	coll, closer := s.config.GetCollection()
+// RootKey implements Storage.RootKey
+func (s *storage) RootKey() ([]byte, []byte, error) {
+	storage, closer := s.getStorage()
 	defer closer()
-
-	doc := storageDoc{
-		Location: location,
-		Item:     item,
-	}
-	expireAt := s.expireAt
-	if expireAt.IsZero() && s.expireAfter > 0 {
-		expireAt = s.config.Clock.Now().Add(s.expireAfter)
-	}
-	if !expireAt.IsZero() {
-		// NOTE(axw) we subtract one second from the expiry time, because
-		// the expireAfterSeconds index we create is 1 and not 0 due to
-		// a limitation in the mgo EnsureIndex API.
-		doc.ExpireAt = expireAt.Add(-1 * time.Second)
-	}
-	_, err := coll.Writeable().UpsertId(location, doc)
-	if err != nil {
-		return errors.Annotatef(err, "cannot store item for location %q", location)
-	}
-	return nil
+	return storage.RootKey()
 }
 
-// Get implements bakery.Storage.Get.
-func (s *storage) Get(location string) (string, error) {
+func (s *storage) getStorage() (bakery.Storage, func()) {
+	coll, closer := s.config.GetCollection()
+	return s.config.GetStorage(s.rootKeys, coll, s.expireAfter), closer
+}
+
+// Get implements Storage.Get
+func (s *storage) Get(id []byte) ([]byte, error) {
+	storage, closer := s.getStorage()
+	defer closer()
+	i, err := storage.Get(id)
+	if err != nil {
+		if err == bakery.ErrNotFound {
+			return s.legacyGet(id)
+		}
+		return nil, err
+	}
+	return i, nil
+}
+
+// legacyGet is attempted as the id we're looking for was created in a previous
+// version of Juju while using v1 versions of the macaroon-bakery.
+func (s *storage) legacyGet(location []byte) ([]byte, error) {
 	coll, closer := s.config.GetCollection()
 	defer closer()
 
 	var i storageDoc
-	err := coll.FindId(location).One(&i)
+	err := coll.FindId(string(location)).One(&i)
 	if err != nil {
 		if err == mgo.ErrNotFound {
-			return "", bakery.ErrNotFound
+			return nil, bakery.ErrNotFound
 		}
-		return "", errors.Annotatef(err, "cannot get item for location %q", location)
+		return nil, errors.Annotatef(err, "cannot get item for location %q", location)
 	}
-	return i.Item, nil
-}
-
-// Del implements bakery.Storage.Del.
-func (s *storage) Del(location string) error {
-	coll, closer := s.config.GetCollection()
-	defer closer()
-
-	err := coll.Writeable().RemoveId(location)
+	var rootKey legacyRootKey
+	err = json.Unmarshal([]byte(i.Item), &rootKey)
 	if err != nil {
-		if err == mgo.ErrNotFound {
-			// Not an error to remove an item that doesn't exist.
-			return nil
-		}
-		return errors.Annotatef(err, "cannot remove item for location %q", location)
+		return nil, errors.Annotate(err, "was unable to unmarshal found rootkey")
 	}
-	return nil
+	return rootKey.RootKey, nil
 }

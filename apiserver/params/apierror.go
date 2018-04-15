@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 )
 
 // UpgradeInProgressError signifies an upgrade is in progress.

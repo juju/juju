@@ -9,11 +9,12 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api/crossmodelrelations"
+	apitesting "github.com/juju/juju/api/testing"
 	coretesting "github.com/juju/juju/testing"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 )
 
 const longerThanExpiryTime = 11 * time.Minute
@@ -32,7 +33,7 @@ func (s *MacaroonCacheSuite) TestGetMacaroonMissing(c *gc.C) {
 
 func (s *MacaroonCacheSuite) TestGetMacaroon(c *gc.C) {
 	cache := crossmodelrelations.NewMacaroonCache(testing.NewClock(time.Now()))
-	mac, err := macaroon.New(nil, "", "")
+	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	cache.Upsert("token", macaroon.Slice{mac})
 	ms, ok := cache.Get("token")
@@ -44,7 +45,7 @@ func (s *MacaroonCacheSuite) TestGetMacaroonNotExpired(c *gc.C) {
 	clock := testing.NewClock(time.Now())
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 
-	mac, err := macaroon.New(nil, "", "")
+	mac, err := apitesting.NewMacaroon("id")
 	cav := checkers.TimeBeforeCaveat(clock.Now().Add(10 * time.Second))
 	mac.AddFirstPartyCaveat(cav.Condition)
 	c.Assert(err, jc.ErrorIsNil)
@@ -61,7 +62,7 @@ func (s *MacaroonCacheSuite) TestGetMacaroonExpiredBeforeCleanup(c *gc.C) {
 	clock := testing.NewClock(time.Now())
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 
-	mac, err := macaroon.New(nil, "", "")
+	mac, err := apitesting.NewMacaroon("id")
 	cav := checkers.TimeBeforeCaveat(clock.Now().Add(10 * time.Second))
 	mac.AddFirstPartyCaveat(cav.Condition)
 	c.Assert(err, jc.ErrorIsNil)
@@ -77,7 +78,7 @@ func (s *MacaroonCacheSuite) TestGetMacaroonAfterCleanup(c *gc.C) {
 	clock := testing.NewClock(time.Now())
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 
-	mac, err := macaroon.New(nil, "", "")
+	mac, err := apitesting.NewMacaroon("id")
 	cav := checkers.TimeBeforeCaveat(clock.Now().Add(60 * time.Minute))
 	mac.AddFirstPartyCaveat(cav.Condition)
 	c.Assert(err, jc.ErrorIsNil)
@@ -94,7 +95,7 @@ func (s *MacaroonCacheSuite) TestMacaroonRemovedByCleanup(c *gc.C) {
 	clock := testing.NewClock(time.Now())
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 
-	mac, err := macaroon.New(nil, "", "")
+	mac, err := apitesting.NewMacaroon("id")
 	cav := checkers.TimeBeforeCaveat(clock.Now().Add(2 * time.Minute))
 	mac.AddFirstPartyCaveat(cav.Condition)
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,7 +111,7 @@ func (s *MacaroonCacheSuite) TestCleanupIgnoresMacaroonsWithoutTimeBefore(c *gc.
 	clock := testing.NewClock(time.Now())
 	cache := crossmodelrelations.NewMacaroonCache(clock)
 
-	mac, err := macaroon.New(nil, "", "")
+	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 
 	cache.Upsert("token", macaroon.Slice{mac})

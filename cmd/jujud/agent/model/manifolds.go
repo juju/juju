@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
 	"github.com/juju/juju/worker/cleaner"
+	"github.com/juju/juju/worker/credentialvalidator"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/environ"
 	"github.com/juju/juju/worker/firewaller"
@@ -80,7 +81,7 @@ type ManifoldsConfig struct {
 	Clock clock.Clock
 
 	// InstPollerAggregationDelay is the delay before sending a batch of
-	// requests in the instancpoller.Worker's aggregate loop.
+	// requests in the instancepoller.Worker's aggregate loop.
 	InstPollerAggregationDelay time.Duration
 
 	// RunFlagDuration defines for how long this controller will ask
@@ -170,6 +171,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade: singular.NewFacade,
 			NewWorker: singular.NewWorker,
 		}),
+		// Cloud credential validator runs on all models, and
+		// determines if model's cloud credential is valid.
+		credentialValidatorFlagName: ifNotUpgrading(ifNotDead(credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{
+			APICallerName: apiCallerName,
+			NewFacade:     credentialvalidator.NewFacade,
+			NewWorker:     credentialvalidator.NewWorker,
+		}))),
 
 		// The migration workers collaborate to run migrations;
 		// and to create a mechanism for running other workers
@@ -519,6 +527,14 @@ var (
 			modelUpgradedFlagName,
 		},
 	}.Decorate
+
+	// ifCredentialValid wraps a manifold such that it only runs if
+	// the model has a valid credential.
+	ifCredentialValid = engine.Housing{
+		Flags: []string{
+			credentialValidatorFlagName,
+		},
+	}.Decorate
 )
 
 const (
@@ -560,4 +576,6 @@ const (
 	caasOperatorProvisionerName = "caas-operator-provisioner"
 	caasUnitProvisionerName     = "caas-unit-provisioner"
 	caasBrokerTrackerName       = "caas-broker-tracker"
+
+	credentialValidatorFlagName = "credential-validator-flag"
 )

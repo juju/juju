@@ -11,10 +11,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/applicationoffers"
 	basetesting "github.com/juju/juju/api/base/testing"
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
@@ -596,7 +596,7 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 	controllerInfo := &params.ExternalControllerInfo{
 		Addrs: []string{"1.2.3.4"},
 	}
-	mac, err := macaroon.New(nil, "id", "loc")
+	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	var called bool
 	apiCaller := basetesting.APICallerFunc(

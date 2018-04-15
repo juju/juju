@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
-	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
+	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"

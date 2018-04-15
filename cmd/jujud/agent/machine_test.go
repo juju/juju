@@ -29,7 +29,7 @@ import (
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v2"
+	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -1041,8 +1041,20 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 		return &minModelWorkersEnviron{}, nil
 	})
 
-	st, closer := s.setUpNewModel(c)
-	defer closer()
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		ConfigAttrs: coretesting.Attrs{
+			"max-status-history-age":  "2h",
+			"max-status-history-size": "4M",
+			"max-action-results-age":  "2h",
+			"max-action-results-size": "4M",
+		},
+		CloudCredential: names.NewCloudCredentialTag("dummy/admin/cred"),
+	})
+	defer func() {
+		err := st.Close()
+		c.Check(err, jc.ErrorIsNil)
+	}()
+
 	uuid := st.ModelUUID()
 
 	tracker := agenttest.NewEngineTracker()

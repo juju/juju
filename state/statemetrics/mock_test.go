@@ -20,15 +20,15 @@ func (s poolHelperStub) Release() bool     { return false }
 func (s poolHelperStub) Annotate(_ string) {}
 
 type mockPooledState struct {
-	mockState
+	*mockState
 	release func() bool
 }
 
-func (ps mockPooledState) Release() bool {
+func (ps *mockPooledState) Release() bool {
 	return ps.release()
 }
 
-func (ps mockPooledState) Annotate(_ string) {}
+func (ps *mockPooledState) Annotate(_ string) {}
 
 type mockStatePool struct {
 	testing.Stub
@@ -47,7 +47,7 @@ func (p *mockStatePool) Get(modelUUID string) (statemetrics.PooledState, error) 
 	}
 	for _, m := range p.models {
 		if m.tag.Id() == modelUUID {
-			st := mockState{
+			st := &mockState{
 				model:      m,
 				modelUUIDs: p.modelUUIDs(),
 			}

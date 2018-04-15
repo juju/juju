@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -255,7 +255,7 @@ func makeInitiateMigrationClient(results params.InitiateMigrationResults) (
 }
 
 func makeSpec() controller.MigrationSpec {
-	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location")
 	if err != nil {
 		panic(err)
 	}

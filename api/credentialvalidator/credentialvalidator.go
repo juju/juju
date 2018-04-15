@@ -59,7 +59,7 @@ func (c *Facade) ModelCredential() (base.StoredCredential, bool, error) {
 func (c *Facade) WatchCredential(credentialID string) (watcher.NotifyWatcher, error) {
 	in := names.NewCloudCredentialTag(credentialID).String()
 	var result params.NotifyWatchResult
-	err := c.facade.FacadeCall("WatchCredential", in, &result)
+	err := c.facade.FacadeCall("WatchCredential", params.Entity{in}, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

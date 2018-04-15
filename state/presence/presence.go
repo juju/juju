@@ -147,7 +147,7 @@ type Watcher struct {
 	beingLoads uint64
 }
 
-func (w Watcher) String() string {
+func (w *Watcher) String() string {
 	return fmt.Sprintf("presence.Watcher(%s)", w.modelUUID)
 }
 

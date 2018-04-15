@@ -1,4 +1,4 @@
-// Copyright 2016 Canonical Ltd.
+/// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package introspection_test
@@ -12,6 +12,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -20,6 +21,7 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 
 	// Bring in the state package for the tracker profile.
+	"github.com/juju/juju/core/presence"
 	_ "github.com/juju/juju/state"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/workertest"
@@ -57,6 +59,7 @@ type introspectionSuite struct {
 	worker   worker.Worker
 	reporter introspection.DepEngineReporter
 	gatherer prometheus.Gatherer
+	recorder presence.Recorder
 }
 
 var _ = gc.Suite(&introspectionSuite{})
@@ -68,6 +71,7 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.reporter = nil
 	s.worker = nil
+	s.recorder = nil
 	s.gatherer = newPrometheusGatherer()
 	s.startWorker(c)
 }
@@ -78,6 +82,7 @@ func (s *introspectionSuite) startWorker(c *gc.C) {
 		SocketName:         s.name,
 		DepEngine:          s.reporter,
 		PrometheusGatherer: s.gatherer,
+		Presence:           s.recorder,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.worker = w
@@ -158,8 +163,41 @@ func (s *introspectionSuite) TestEngineReporter(c *gc.C) {
 	matches(c, buf, "working: true")
 }
 
+func (s *introspectionSuite) TestMissingPresenceReporter(c *gc.C) {
+	buf := s.call(c, "/presence/")
+	matches(c, buf, "404 Not Found")
+	matches(c, buf, "page not found")
+}
+
+func (s *introspectionSuite) TestDisabledPresenceReporter(c *gc.C) {
+	// We need to make sure the existing worker is shut down
+	// so we can connect to the socket.
+	workertest.CheckKill(c, s.worker)
+	s.recorder = presence.New(testing.NewClock(time.Now()))
+	s.startWorker(c)
+
+	buf := s.call(c, "/presence/")
+	matches(c, buf, "404 Not Found")
+	matches(c, buf, "agent is not an apiserver")
+}
+
+func (s *introspectionSuite) TestEnabledPresenceReporter(c *gc.C) {
+	// We need to make sure the existing worker is shut down
+	// so we can connect to the socket.
+	workertest.CheckKill(c, s.worker)
+	s.recorder = presence.New(testing.NewClock(time.Now()))
+	s.recorder.Enable()
+	s.recorder.Connect("server", "model-uuid", "agent-1", 42, false, "")
+	s.startWorker(c)
+
+	buf := s.call(c, "/presence/")
+	matches(c, buf, "200 OK")
+	matches(c, buf, "AGENT    SERVER  CONN ID  STATUS")
+	matches(c, buf, "agent-1  server  42       alive")
+}
+
 func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
-	buf := s.call(c, "/metrics")
+	buf := s.call(c, "/metrics/")
 	c.Assert(buf, gc.NotNil)
 	matches(c, buf, "# HELP tau Tau")
 	matches(c, buf, "# TYPE tau counter")

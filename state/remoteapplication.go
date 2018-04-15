@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -640,9 +640,11 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 	var macJSON string
 	if args.Macaroon != nil {
 		b, err := json.Marshal(args.Macaroon)
+		logger.Criticalf("Tried, got error: %s", err)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		logger.Criticalf("It worked: %s", string(b))
 		macJSON = string(b)
 	}
 	applicationID := st.docID(args.Name)

@@ -181,7 +181,7 @@ type FakeEnvironAPI struct {
 	FakeVnicSet
 	FakeShaper
 
-	FakeStorageAPI
+	*FakeStorageAPI
 
 	FakeRules
 	FakeAcl
@@ -812,7 +812,7 @@ var (
 			CreateErr:  nil,
 			DeleteErr:  nil,
 		},
-		FakeStorageAPI:  *DefaultFakeStorageAPI,
+		FakeStorageAPI:  DefaultFakeStorageAPI,
 		FakeRules:       DefaultFakeRules,
 		FakeApplication: DefaultSecApplications,
 		FakeSecIp:       DefaultSecIp,

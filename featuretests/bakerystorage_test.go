@@ -8,10 +8,10 @@ import (
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/mgostorage"
+	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
@@ -22,6 +22,7 @@ import (
 // of the mongo-based bakery storage with the macaroon bakery service.
 type BakeryStorageSuite struct {
 	gitjujutesting.MgoSuite
+	gitjujutesting.LoggingSuite
 
 	store   bakerystorage.ExpirableStorage
 	service *bakery.Service
@@ -31,10 +32,26 @@ type BakeryStorageSuite struct {
 
 func (s *BakeryStorageSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
+	s.LoggingSuite.SetUpTest(c)
 	s.db = s.Session.DB("bakerydb")
 	s.coll = s.db.C("bakedgoods")
 	s.ensureIndexes(c)
 	s.initService(c, false)
+}
+
+func (s *BakeryStorageSuite) TearDownTest(c *gc.C) {
+	s.LoggingSuite.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
+}
+
+func (s *BakeryStorageSuite) SetUpSuite(c *gc.C) {
+	s.LoggingSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
+}
+
+func (s *BakeryStorageSuite) TearDownSuite(c *gc.C) {
+	s.MgoSuite.TearDownSuite(c)
+	s.LoggingSuite.TearDownSuite(c)
 }
 
 func (s *BakeryStorageSuite) initService(c *gc.C, enableExpiry bool) {
@@ -42,11 +59,15 @@ func (s *BakeryStorageSuite) initService(c *gc.C, enableExpiry bool) {
 		GetCollection: func() (mongo.Collection, func()) {
 			return mongo.CollectionFromName(s.db, s.coll.Name)
 		},
-		Clock: clock.WallClock,
+		GetStorage: func(rootKeys *mgostorage.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.Storage {
+			return rootKeys.NewStorage(coll.Writeable().Underlying(), mgostorage.Policy{
+				ExpiryDuration: expireAfter,
+			})
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	if enableExpiry {
-		store = store.ExpireAt(time.Now())
+		store = store.ExpireAfter(10 * time.Second)
 	}
 	s.store = store
 
@@ -66,7 +87,13 @@ func (s *BakeryStorageSuite) ensureIndexes(c *gc.C) {
 }
 
 func (s *BakeryStorageSuite) TestCheckNewMacaroon(c *gc.C) {
-	mac, err := s.service.NewMacaroon("", nil, nil)
+	mac, err := s.service.NewMacaroon(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.service.CheckAny([]macaroon.Slice{{mac}}, nil, nil)
+	c.Assert(err, gc.ErrorMatches, "verification failed: macaroon not found in storage")
+
+	store := s.store.ExpireAfter(10 * time.Second)
+	mac, err = s.service.WithStore(store).NewMacaroon(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.service.CheckAny([]macaroon.Slice{{mac}}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -77,7 +104,7 @@ func (s *BakeryStorageSuite) TestExpiryTime(c *gc.C) {
 	// items immediately.
 	s.initService(c, true)
 
-	mac, err := s.service.NewMacaroon("", nil, nil)
+	mac, err := s.service.NewMacaroon(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The background thread that removes records runs every 60s.

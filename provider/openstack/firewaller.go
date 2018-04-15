@@ -112,11 +112,10 @@ func (f *switchingFirewaller) initFirewaller() error {
 		}
 	}
 
-	base := firewallerBase{environ: f.env}
 	if f.env.supportsNeutron() {
-		f.fw = &neutronFirewaller{base}
+		f.fw = &neutronFirewaller{firewallerBase{environ: f.env}}
 	} else {
-		f.fw = &legacyNovaFirewaller{base}
+		f.fw = &legacyNovaFirewaller{firewallerBase{environ: f.env}}
 	}
 	return nil
 }

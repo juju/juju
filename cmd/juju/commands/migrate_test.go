@@ -12,12 +12,13 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
@@ -93,9 +94,9 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 		}},
 	}
 
-	mac0, err := macaroon.New([]byte("secret0"), "id0", "location0")
+	mac0, err := macaroon.New([]byte("secret0"), []byte("id0"), "location0")
 	c.Assert(err, jc.ErrorIsNil)
-	mac1, err := macaroon.New([]byte("secret1"), "id1", "location1")
+	mac1, err := macaroon.New([]byte("secret1"), []byte("id1"), "location1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	jar, err := s.store.CookieJar("target")
@@ -166,13 +167,17 @@ func (s *MigrateSuite) TestSuccessMacaroons(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
+	// Extract macaroons so we can compare them separately
+	// (as they can't be compared using DeepEquals due to 'UnmarshaledAs')
+	macs := s.api.specSeen.TargetMacaroons
+	s.api.specSeen.TargetMacaroons = nil
+	apitesting.MacaroonsEqual(c, macs, s.targetControllerAPI.macaroons)
 	c.Check(s.api.specSeen, jc.DeepEquals, &controller.MigrationSpec{
 		ModelUUID:            modelUUID,
 		TargetControllerUUID: targetControllerUUID,
 		TargetAddrs:          []string{"1.2.3.4:5"},
 		TargetCACert:         "cert",
 		TargetUser:           "targetuser",
-		TargetMacaroons:      s.targetControllerAPI.macaroons,
 	})
 }
 

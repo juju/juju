@@ -4,7 +4,7 @@
 package listwallets
 
 import (
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 )
 
 var (

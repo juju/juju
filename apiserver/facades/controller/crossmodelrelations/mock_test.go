@@ -11,9 +11,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon.v2-unstable"
 
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/authentication"
 	common "github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
@@ -501,9 +502,9 @@ type mockBakeryService struct {
 	authentication.ExpirableStorageBakeryService
 }
 
-func (s *mockBakeryService) NewMacaroon(id string, key []byte, caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
-	s.MethodCall(s, "NewMacaroon", id, key, caveats)
-	mac, err := macaroon.New(nil, id, "")
+func (s *mockBakeryService) NewMacaroon(caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
+	s.MethodCall(s, "NewMacaroon", caveats)
+	mac, err := apitesting.NewMacaroon("id")
 	if err != nil {
 		return nil, err
 	}
@@ -531,7 +532,7 @@ func (s *mockBakeryService) CheckAny(ms []macaroon.Slice, assert map[string]stri
 	return declared, nil
 }
 
-func (s *mockBakeryService) ExpireStorageAt(when time.Time) (authentication.ExpirableStorageBakeryService, error) {
-	s.MethodCall(s, "ExpireStorageAt", when)
+func (s *mockBakeryService) ExpireStorageAfter(when time.Duration) (authentication.ExpirableStorageBakeryService, error) {
+	s.MethodCall(s, "ExpireStorageAfter", when)
 	return s, nil
 }

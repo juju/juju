@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
@@ -377,7 +377,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	model2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location")
 	c.Assert(err, jc.ErrorIsNil)
 	macsJSON, err := json.Marshal([]macaroon.Slice{{mac}})
 	c.Assert(err, jc.ErrorIsNil)
