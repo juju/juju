@@ -39,7 +39,7 @@ var _ = gc.Suite(&rebootSuite{})
 func (s *rebootSuite) SetUpTest(c *gc.C) {
 	var err error
 	template := state.MachineTemplate{
-		Series: version.SupportedLts(),
+		Series: version.SupportedLTS(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	s.JujuConnSuite.SetUpTest(c)

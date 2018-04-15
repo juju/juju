@@ -92,7 +92,7 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 		return "", err
 	}
 
-	latestLTS := version.SupportedLts()
+	latestLTS := version.SupportedLTS()
 	logger.Infof(msgLatestLTSSeries, latestLTS)
 	return latestLTS, nil
 }
