@@ -161,7 +161,7 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	if len(cfg.PackageSources()) > 0 {
 		// Ensure add-apt-repository is available.
 		cmds = append(cmds, LogProgressCmd("Installing add-apt-repository"))
-		cmds = append(cmds, cfg.paccmder.InstallCmd("python-software-properties"))
+		cmds = append(cmds, cfg.paccmder.InstallCmd("software-properties-common"))
 	}
 	for _, src := range cfg.PackageSources() {
 		// PPA keys are obtained by add-apt-repository, from launchpad.
