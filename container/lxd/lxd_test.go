@@ -22,10 +22,12 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/tools/lxdtools"
 	"github.com/juju/juju/tools/lxdtools/testmock"
 )
 
@@ -37,16 +39,22 @@ type LxdSuite struct{}
 
 var _ = gc.Suite(&LxdSuite{})
 
-func (t *LxdSuite) makeManager(c *gc.C, name string) container.Manager {
-	config := container.ManagerConfig{
+func (t *LxdSuite) makeManager(c *gc.C) container.Manager {
+	return t.makeManagerForConfig(c, getBaseConfig())
+}
+
+func (t *LxdSuite) makeManagerForConfig(c *gc.C, cfg container.ManagerConfig) container.Manager {
+	manager, err := lxd.NewContainerManager(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	return manager
+}
+
+func getBaseConfig() container.ManagerConfig {
+	return container.ManagerConfig{
 		container.ConfigModelUUID:        coretesting.ModelTag.Id(),
 		container.ConfigAvailabilityZone: "test-availability-zone",
+		config.ContainerImageStreamKey:   "released",
 	}
-
-	manager, err := lxd.NewContainerManager(config)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return manager
 }
 
 func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
@@ -105,7 +113,7 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 	lxd.ConnectLocal = func() (lxdclient.ContainerServer, error) {
 		return containerServer, nil
 	}
-	manager := t.makeManager(c, "test")
+	manager := t.makeManager(c)
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error {
 		return nil
 	}
@@ -167,7 +175,7 @@ func (t *LxdSuite) TestCreateContainerCreateFailed(c *gc.C) {
 	lxd.ConnectLocal = func() (lxdclient.ContainerServer, error) {
 		return containerServer, nil
 	}
-	manager := t.makeManager(c, "test")
+	manager := t.makeManager(c)
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error {
 		return nil
 	}
@@ -206,7 +214,7 @@ func (t *LxdSuite) TestCreateContainerStartFailed(c *gc.C) {
 		return containerServer, nil
 	}
 
-	manager := t.makeManager(c, "test")
+	manager := t.makeManager(c)
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error {
 		return nil
 	}
@@ -249,7 +257,7 @@ func (t *LxdSuite) TestListContainers(c *gc.C) {
 	lxd.ConnectLocal = func() (lxdclient.ContainerServer, error) {
 		return containerServer, nil
 	}
-	manager := t.makeManager(c, "test")
+	manager := t.makeManager(c)
 
 	prefix := manager.Namespace().Prefix()
 	wrongPrefix := prefix[:len(prefix)-1] + "j"
@@ -286,7 +294,7 @@ func (t *LxdSuite) TestIsInitialized(c *gc.C) {
 			return containerServer, nil
 		}
 	}
-	manager := t.makeManager(c, "test")
+	manager := t.makeManager(c)
 	c.Check(manager.IsInitialized(), gc.Equals, false)
 	c.Check(manager.IsInitialized(), gc.Equals, true)
 	c.Check(manager.IsInitialized(), gc.Equals, true)
@@ -401,4 +409,72 @@ func (t *LxdSuite) TestNetworkDevicesWithParentDevice(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (t *LxdSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {
+	mgr := t.makeManager(c)
+
+	sources, err := lxd.GetImageSources(mgr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sources, gc.DeepEquals, []lxdtools.RemoteServer{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
+}
+
+func (t *LxdSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C) {
+	cfg := getBaseConfig()
+	cfg[config.ContainerImageStreamKey] = "nope"
+	mgr := t.makeManagerForConfig(c, cfg)
+
+	sources, err := lxd.GetImageSources(mgr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sources, gc.DeepEquals, []lxdtools.RemoteServer{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
+}
+
+func (t *LxdSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
+	cfg := getBaseConfig()
+	cfg[config.ContainerImageStreamKey] = "daily"
+	mgr := t.makeManagerForConfig(c, cfg)
+
+	sources, err := lxd.GetImageSources(mgr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sources, gc.DeepEquals, []lxdtools.RemoteServer{lxd.CloudImagesDailyRemote})
+}
+
+func (t *LxdSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c *gc.C) {
+	cfg := getBaseConfig()
+	cfg[config.ContainerImageMetadataURLKey] = "http://special.container.sauce"
+	mgr := t.makeManagerForConfig(c, cfg)
+
+	sources, err := lxd.GetImageSources(mgr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSources := []lxdtools.RemoteServer{
+		{
+			Name:     "special.container.sauce",
+			Host:     "https://special.container.sauce",
+			Protocol: lxdtools.SimplestreamsProtocol,
+		},
+		lxd.CloudImagesRemote,
+		lxd.CloudImagesDailyRemote,
+	}
+	c.Check(sources, gc.DeepEquals, expectedSources)
+}
+
+func (t *LxdSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *gc.C) {
+	cfg := getBaseConfig()
+	cfg[config.ContainerImageMetadataURLKey] = "http://special.container.sauce"
+	cfg[config.ContainerImageStreamKey] = "daily"
+	mgr := t.makeManagerForConfig(c, cfg)
+
+	sources, err := lxd.GetImageSources(mgr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSources := []lxdtools.RemoteServer{
+		{
+			Name:     "special.container.sauce",
+			Host:     "https://special.container.sauce",
+			Protocol: lxdtools.SimplestreamsProtocol,
+		},
+		lxd.CloudImagesDailyRemote,
+	}
+	c.Check(sources, gc.DeepEquals, expectedSources)
 }
