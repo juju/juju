@@ -149,7 +149,7 @@ func (c *imageMetadataCommand) setParams(context *cmd.Context) error {
 		logger.Infof("no model found, creating image metadata using user supplied data")
 	}
 	if c.Series == "" {
-		c.Series = version.SupportedLts()
+		c.Series = version.SupportedLTS()
 	}
 	if c.ImageId == "" {
 		return errors.Errorf("image id must be specified")
