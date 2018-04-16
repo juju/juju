@@ -121,6 +121,10 @@ func (st *State) SaveSubnetsFromProvider(subnets []network.SubnetInfo, spaceName
 			if modelSubnetIds.Contains(id) {
 				continue
 			}
+			if subnetNet.IP.To4() == nil {
+				logger.Warningf("%s address in not an IPv4 address.", subnetNet.IP)
+				continue
+			}
 			overlaySegment, err := network.CalculateOverlaySegment(subnet.CIDR, fan)
 			if err != nil {
 				return errors.Trace(err)
