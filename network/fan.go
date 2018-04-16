@@ -70,6 +70,9 @@ func CalculateOverlaySegment(underlayCIDR string, fan FanConfigEntry) (*net.IPNe
 		newOverlaySize := overlaySize + (subnetSize - underlaySize)
 		fanSize := uint(underlaySize - overlaySize)
 		newFanIP := underlayNet.IP.To4()
+		if newFanIP == nil {
+			return nil, errors.New("fan address in not an IPv4 address.")
+		}
 		for i := 0; i < 4; i++ {
 			newFanIP[i] &^= fan.Underlay.Mask[i]
 		}
