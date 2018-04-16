@@ -227,6 +227,11 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		return errors.NotValidf("series %q", c.BootstrapSeries)
 	}
 
+	/* controller is the name of controller created for internal juju management */
+	if c.hostedModelName == "controller" {
+		return errors.New(" 'controller' name is already assigned to juju internal management controller ")
+	}
+
 	// Parse the placement directive. Bootstrap currently only
 	// supports provider-specific placement directives.
 	if c.Placement != "" {
