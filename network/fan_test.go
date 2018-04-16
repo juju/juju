@@ -112,5 +112,5 @@ func (*FanConfigSuite) TestCalculateOverlaySegmentNonIPv4FanAddress(c *gc.C) {
 
 	// CalculateOverlaySegment does not support IPv6 addresses.
 	_, err = network.CalculateOverlaySegment("2001:db8::/16", config[0])
-	c.Assert(err, gc.ErrorMatches, "fan address in not an IPv4 address.")
+	c.Assert(err, gc.ErrorMatches, "fan address is not an IPv4 address.")
 }
