@@ -3424,7 +3424,8 @@ func (s *CAASApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
 	info, ok := containerInfoById["unit-uuid"]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(u.Name(), gc.Equals, existingUnit.Name())
-	c.Check(info.Address(), gc.Equals, "192.168.1.2")
+	c.Check(info.Address(), gc.NotNil)
+	c.Check(*info.Address(), gc.DeepEquals, network.NewScopedAddress("192.168.1.2", network.ScopeMachineLocal))
 	c.Check(info.Ports(), jc.DeepEquals, []string{"443"})
 	statusInfo, err := u.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3452,7 +3453,8 @@ func (s *CAASApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
 	info, ok = containerInfoById["new-unit-uuid"]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(u.Name(), gc.Equals, "wordpress/2")
-	c.Assert(info.Address(), gc.Equals, "192.168.1.1")
+	c.Check(info.Address(), gc.NotNil)
+	c.Check(*info.Address(), gc.DeepEquals, network.NewScopedAddress("192.168.1.1", network.ScopeMachineLocal))
 	c.Assert(info.Ports(), jc.DeepEquals, []string{"80"})
 	addr, err := u.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)

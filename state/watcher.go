@@ -3218,12 +3218,12 @@ func (w *containerAddressesWatcher) loop() error {
 	w.watcher.Watch(cloudContainersC, id, revno, containerCh)
 	defer w.watcher.Unwatch(cloudContainersC, id, containerCh)
 
-	var address string
+	var currentAddress *address
 	container, err := w.unit.cloudContainer()
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	} else if err == nil {
-		address = container.Address
+		currentAddress = container.Address
 	}
 	out := w.out
 	for {
@@ -3237,9 +3237,15 @@ func (w *containerAddressesWatcher) loop() error {
 			if err != nil {
 				return err
 			}
+			addressValue := func(addr *address) string {
+				if addr == nil {
+					return ""
+				}
+				return addr.Value
+			}
 			newAddress := container.Address
-			if newAddress != address {
-				address = newAddress
+			if addressValue(newAddress) != addressValue(currentAddress) {
+				currentAddress = newAddress
 				out = w.out
 			}
 		case out <- struct{}{}:

@@ -55,13 +55,8 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	im, err := st.IAASModel()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	export := exporter{
 		st:      st,
-		im:      im,
 		cfg:     cfg,
 		dbModel: dbModel,
 		logger:  loggo.GetLogger("juju.state.export-model"),
@@ -166,9 +161,6 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	if err := export.sshHostKeys(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.storage(); err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	if err := export.actions(); err != nil {
 		return nil, errors.Trace(err)
@@ -176,6 +168,12 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 
 	if err := export.cloudimagemetadata(); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	if dbModel.Type() == ModelTypeIAAS {
+		if err := export.storage(); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	// If we are doing a partial export, it doesn't really make sense
@@ -202,7 +200,6 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 type exporter struct {
 	cfg     ExportConfig
 	st      *State
-	im      *IAASModel
 	dbModel *Model
 	model   description.Model
 	logger  loggo.Logger
@@ -577,6 +574,19 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
+	podSpecs, err := e.readAllPodSpecs()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cloudServices, err := e.readAllCloudServices()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	cloudContainers, err := e.readAllCloudContainers()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	resourcesSt, err := e.st.Resources()
 	if err != nil {
 		return errors.Trace(err)
@@ -593,6 +603,9 @@ func (e *exporter) applications() error {
 			application:      application,
 			units:            applicationUnits,
 			meterStatus:      meterStatus,
+			podSpecs:         podSpecs,
+			cloudServices:    cloudServices,
+			cloudContainers:  cloudContainers,
 			leader:           leader,
 			payloads:         payloads,
 			resources:        resources,
@@ -655,6 +668,11 @@ type addApplicationContext struct {
 	payloads         map[string][]payload.FullPayloadInfo
 	resources        resource.ServiceResources
 	endpoingBindings map[string]bindingsMap
+
+	// CAAS
+	podSpecs        map[string]string
+	cloudServices   map[string]*cloudServiceDoc
+	cloudContainers map[string]*cloudContainerDoc
 }
 
 func (e *exporter) addApplication(ctx addApplicationContext) error {
@@ -700,6 +718,11 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		Leader:               ctx.leader,
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
 		MetricsCredentials:   application.doc.MetricCredentials,
+		PodSpec:              ctx.podSpecs[application.globalKey()],
+	}
+
+	if cloudService, found := ctx.cloudServices[application.globalKey()]; found {
+		args.CloudService = e.cloudService(cloudService)
 	}
 	if constraints, found := e.modelStorageConstraints[storageConstraintsKey]; found {
 		args.StorageConstraints = e.storageConstraints(constraints)
@@ -750,6 +773,9 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			for _, subName := range subs {
 				args.Subordinates = append(args.Subordinates, names.NewUnitTag(subName))
 			}
+		}
+		if cloudContainer, found := ctx.cloudContainers[unit.globalKey()]; found {
+			args.CloudContainer = e.cloudContainer(cloudContainer)
 		}
 		exUnit := exApplication.AddUnit(args)
 
@@ -877,6 +903,9 @@ func findUnitResources(unitName string, allResources []resource.UnitResources) [
 }
 
 func (e *exporter) setUnitPayloads(exUnit description.Unit, payloads []payload.FullPayloadInfo) error {
+	if len(payloads) == 0 {
+		return nil
+	}
 	unitID := exUnit.Tag().Id()
 	machineID := exUnit.Machine().Id()
 	for _, payload := range payloads {
@@ -1234,6 +1263,75 @@ func (e *exporter) readAllMeterStatus() (map[string]*meterStatusDoc, error) {
 		result[e.st.localID(doc.DocID)] = &doc
 	}
 	return result, nil
+}
+
+func (e *exporter) readAllPodSpecs() (map[string]string, error) {
+	specs, closer := e.st.db().GetCollection(podSpecsC)
+	defer closer()
+
+	docs := []containerSpecDoc{}
+	err := specs.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all pod spec docs")
+	}
+	e.logger.Debugf("found %d pod spec docs", len(docs))
+	result := make(map[string]string)
+	for _, doc := range docs {
+		result[e.st.localID(doc.Id)] = doc.Spec
+	}
+	return result, nil
+}
+
+func (e *exporter) readAllCloudServices() (map[string]*cloudServiceDoc, error) {
+	cloudServices, closer := e.st.db().GetCollection(cloudServicesC)
+	defer closer()
+
+	docs := []cloudServiceDoc{}
+	err := cloudServices.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all cloud service docs")
+	}
+	e.logger.Debugf("found %d cloud service docs", len(docs))
+	result := make(map[string]*cloudServiceDoc)
+	for _, doc := range docs {
+		result[e.st.localID(doc.Id)] = &doc
+	}
+	return result, nil
+}
+
+func (e *exporter) cloudService(doc *cloudServiceDoc) *description.CloudServiceArgs {
+	return &description.CloudServiceArgs{
+		ProviderId: doc.ProviderId,
+		Addresses:  e.newAddressArgsSlice(doc.Addresses),
+	}
+}
+
+func (e *exporter) readAllCloudContainers() (map[string]*cloudContainerDoc, error) {
+	cloudContainers, closer := e.st.db().GetCollection(cloudContainersC)
+	defer closer()
+
+	docs := []cloudContainerDoc{}
+	err := cloudContainers.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all cloud container docs")
+	}
+	e.logger.Debugf("found %d cloud container docs", len(docs))
+	result := make(map[string]*cloudContainerDoc)
+	for _, doc := range docs {
+		result[e.st.localID(doc.Id)] = &doc
+	}
+	return result, nil
+}
+
+func (e *exporter) cloudContainer(doc *cloudContainerDoc) *description.CloudContainerArgs {
+	result := &description.CloudContainerArgs{
+		ProviderId: doc.ProviderId,
+		Ports:      doc.Ports,
+	}
+	if doc.Address != nil {
+		result.Address = e.newAddressArgs(*doc.Address)
+	}
+	return result
 }
 
 func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
@@ -1628,6 +1726,11 @@ func (e *exporter) storage() error {
 }
 
 func (e *exporter) volumes() error {
+	im, err := e.dbModel.IAASModel()
+	if err != nil {
+		return errors.NewNotSupported(err, "exporting volumes from CAAS model")
+	}
+
 	coll, closer := e.st.db().GetCollection(volumesC)
 	defer closer()
 
@@ -1639,7 +1742,7 @@ func (e *exporter) volumes() error {
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		vol := &volume{e.im, doc}
+		vol := &volume{im, doc}
 		if err := e.addVolume(vol, attachments[doc.Name]); err != nil {
 			return errors.Trace(err)
 		}
@@ -1737,6 +1840,11 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 }
 
 func (e *exporter) filesystems() error {
+	im, err := e.dbModel.IAASModel()
+	if err != nil {
+		return errors.NewNotSupported(err, "exporting filesystems from CAAS model")
+	}
+
 	coll, closer := e.st.db().GetCollection(filesystemsC)
 	defer closer()
 
@@ -1748,7 +1856,7 @@ func (e *exporter) filesystems() error {
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		fs := &filesystem{e.im, doc}
+		fs := &filesystem{im, doc}
 		if err := e.addFilesystem(fs, attachments[doc.FilesystemId]); err != nil {
 			return errors.Trace(err)
 		}
@@ -1839,6 +1947,11 @@ func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmen
 }
 
 func (e *exporter) storageInstances() error {
+	im, err := e.dbModel.IAASModel()
+	if err != nil {
+		return errors.NewNotSupported(err, "exporting storage from CAAS model")
+	}
+
 	coll, closer := e.st.db().GetCollection(storageInstancesC)
 	defer closer()
 
@@ -1850,7 +1963,7 @@ func (e *exporter) storageInstances() error {
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		instance := &storageInstance{e.im, doc}
+		instance := &storageInstance{im, doc}
 		if err := e.addStorage(instance, attachments[doc.Id]); err != nil {
 			return errors.Trace(err)
 		}

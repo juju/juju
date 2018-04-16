@@ -369,15 +369,27 @@ func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestApplications(c *gc.C) {
-	s.assertMigrateApplications(c, constraints.MustParse("arch=amd64 mem=8G"))
+	s.assertMigrateApplications(c, s.State, constraints.MustParse("arch=amd64 mem=8G"))
+}
+
+func (s *MigrationExportSuite) TestCAASApplications(c *gc.C) {
+	caasSt := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
+
+	s.assertMigrateApplications(c, caasSt, constraints.MustParse("arch=amd64 mem=8G"))
 }
 
 func (s *MigrationExportSuite) TestApplicationsWithVirtConstraint(c *gc.C) {
-	s.assertMigrateApplications(c, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
+	s.assertMigrateApplications(c, s.State, constraints.MustParse("arch=amd64 mem=8G virt-type=kvm"))
 }
 
-func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constraints.Value) {
-	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.State, cons constraints.Value) {
+	f := factory.NewFactory(st)
+
+	application := f.MakeApplication(c, &factory.ApplicationParams{
 		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
@@ -394,11 +406,23 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constrain
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.Model.SetAnnotations(application, testAnnotations)
+	dbModel, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = dbModel.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, application, status.Active, addedHistoryCount)
 
-	model, err := s.State.Export()
+	if dbModel.Type() == state.ModelTypeCAAS {
+		caasModel, err := dbModel.CAASModel()
+		c.Assert(err, jc.ErrorIsNil)
+		err = caasModel.SetPodSpec(application.ApplicationTag(), "pod spec")
+		c.Assert(err, jc.ErrorIsNil)
+		addr := network.NewScopedAddress("192.168.1.1", network.ScopeCloudLocal)
+		err = application.UpdateCloudService("provider-id", []network.Address{addr})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	model, err := st.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
 	applications := model.Applications()
@@ -407,7 +431,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constrain
 	exported := applications[0]
 	c.Assert(exported.Name(), gc.Equals, application.Name())
 	c.Assert(exported.Tag(), gc.Equals, application.ApplicationTag())
-	c.Assert(exported.Type(), gc.Equals, string(s.Model.Type()))
+	c.Assert(exported.Type(), gc.Equals, string(dbModel.Type()))
 	c.Assert(exported.Series(), gc.Equals, application.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
@@ -433,6 +457,20 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, cons constrain
 	history := exported.StatusHistory()
 	c.Assert(history, gc.HasLen, expectedHistoryCount)
 	s.checkStatusHistory(c, history[:addedHistoryCount], status.Active)
+
+	if dbModel.Type() == state.ModelTypeCAAS {
+		c.Assert(exported.PodSpec(), gc.Equals, "pod spec")
+		c.Assert(exported.CloudService().ProviderId(), gc.Equals, "provider-id")
+		addresses := exported.CloudService().Addresses()
+		addr := addresses[0]
+		c.Assert(addr.Value(), gc.Equals, "192.168.1.1")
+		c.Assert(addr.Scope(), gc.Equals, "local-cloud")
+		c.Assert(addr.Type(), gc.Equals, "ipv4")
+		c.Assert(addr.Origin(), gc.Equals, "provider")
+	} else {
+		c.Assert(exported.PodSpec(), gc.Equals, "")
+		c.Assert(exported.CloudService(), gc.IsNil)
+	}
 }
 
 func (s *MigrationExportSuite) TestMultipleApplications(c *gc.C) {
@@ -448,7 +486,23 @@ func (s *MigrationExportSuite) TestMultipleApplications(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
+	s.assertMigrateUnits(c, s.State)
+}
+
+func (s *MigrationExportSuite) TestCAASUnits(c *gc.C) {
+	caasSt := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
+
+	s.assertMigrateUnits(c, caasSt)
+}
+
+func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
+	f := factory.NewFactory(st)
+
+	unit := f.MakeUnit(c, &factory.UnitParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
 	err := unit.SetMeterStatus("GREEN", "some info")
@@ -457,12 +511,28 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 		err = unit.SetWorkloadVersion(version)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	err = s.Model.SetAnnotations(unit, testAnnotations)
+	dbModel, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = dbModel.SetAnnotations(unit, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, unit, status.Active, addedHistoryCount)
 	s.primeStatusHistory(c, unit.Agent(), status.Idle, addedHistoryCount)
 
-	model, err := s.State.Export()
+	if dbModel.Type() == state.ModelTypeCAAS {
+		var updateUnits state.UpdateUnitsOperation
+		updateUnits.Updates = []*state.UpdateUnitOperation{
+			unit.UpdateOperation(state.UnitUpdateProperties{
+				ProviderId: strPtr("provider-id"),
+				Address:    strPtr("192.168.1.1"),
+				Ports:      &[]string{"80"},
+			})}
+		app, err := unit.Application()
+		c.Assert(err, jc.ErrorIsNil)
+		err = app.UpdateUnits(&updateUnits)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	model, err := st.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
 	applications := model.Applications()
@@ -503,6 +573,18 @@ func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	}
 	// The exporter reads history in reverse time order.
 	c.Assert(versions, gc.DeepEquals, []string{"steven", "pearl", "amethyst", "garnet"})
+
+	if dbModel.Type() == state.ModelTypeCAAS {
+		containerInfo := exported.CloudContainer()
+		c.Assert(containerInfo.ProviderId(), gc.Equals, "provider-id")
+		c.Assert(containerInfo.Ports(), jc.DeepEquals, []string{"80"})
+		addr := containerInfo.Address()
+		c.Assert(addr, gc.NotNil)
+		c.Assert(addr.Value(), gc.Equals, "192.168.1.1")
+		c.Assert(addr.Scope(), gc.Equals, "local-machine")
+		c.Assert(addr.Type(), gc.Equals, "ipv4")
+		c.Assert(addr.Origin(), gc.Equals, "provider")
+	}
 }
 
 func (s *MigrationExportSuite) TestServiceLeadership(c *gc.C) {

@@ -353,7 +353,9 @@ func (op *UpdateUnitOperation) Build(attempt int) ([]txn.Op, error) {
 		containerInfo.ProviderId = newProviderId
 	}
 	if op.props.Address != nil {
-		containerInfo.Address = *op.props.Address
+		networkAddr := network.NewScopedAddress(*op.props.Address, network.ScopeMachineLocal)
+		addr := fromNetworkAddress(networkAddr, OriginProvider)
+		containerInfo.Address = &addr
 	}
 	if op.props.Ports != nil {
 		containerInfo.Ports = *op.props.Ports
@@ -990,14 +992,10 @@ func (u *Unit) containerAddress() (network.Address, error) {
 		return network.Address{}, errors.Trace(err)
 	}
 	addr := containerInfo.Address
-	if addr == "" {
+	if addr == nil {
 		return network.Address{}, network.NoAddressError("container")
 	}
-	return network.Address{
-		Value: addr,
-		Scope: network.ScopeMachineLocal,
-		Type:  network.DeriveAddressType(addr),
-	}, nil
+	return addr.networkAddress(), nil
 }
 
 // serviceAddress returns the address of the service

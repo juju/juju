@@ -78,14 +78,16 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 	args := ModelArgs{
-		Type:                    modelType,
-		CloudName:               model.Cloud(),
-		CloudRegion:             model.CloudRegion(),
-		Config:                  cfg,
-		Owner:                   model.Owner(),
-		MigrationMode:           MigrationModeImporting,
-		EnvironVersion:          model.EnvironVersion(),
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
+		Type:           modelType,
+		CloudName:      model.Cloud(),
+		CloudRegion:    model.CloudRegion(),
+		Config:         cfg,
+		Owner:          model.Owner(),
+		MigrationMode:  MigrationModeImporting,
+		EnvironVersion: model.EnvironVersion(),
+	}
+	if modelType != ModelTypeCAAS {
+		args.StorageProviderRegistry = storage.StaticProviderRegistry{}
 	}
 	if creds := model.CloudCredential(); creds != nil {
 		// Need to add credential or make sure an existing credential
@@ -135,11 +137,6 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		}
 	}()
 
-	iaasModel, err := newSt.IAASModel()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
 	// We don't actually care what the old model status was, because we are
 	// going to set it to busy, with a message of migrating.
 	if err := dbModel.SetStatus(status.StatusInfo{
@@ -152,7 +149,6 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
 		st:      newSt,
-		im:      iaasModel,
 		dbModel: dbModel,
 		model:   model,
 		logger:  logger,
@@ -203,8 +199,10 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Annotate(err, "ipaddresses")
 	}
 
-	if err := restore.storage(); err != nil {
-		return nil, nil, errors.Annotate(err, "storage")
+	if dbModel.Type() == ModelTypeIAAS {
+		if err := restore.storage(); err != nil {
+			return nil, nil, errors.Annotate(err, "storage")
+		}
 	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
@@ -234,7 +232,6 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 
 type importer struct {
 	st      *State
-	im      *IAASModel
 	dbModel *Model
 	model   description.Model
 	logger  loggo.Logger
@@ -251,7 +248,7 @@ func (i *importer) modelExtras() error {
 	}
 
 	if annotations := i.model.Annotations(); len(annotations) > 0 {
-		if err := i.im.SetAnnotations(i.dbModel, annotations); err != nil {
+		if err := i.dbModel.SetAnnotations(i.dbModel, annotations); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -430,7 +427,7 @@ func (i *importer) machine(m description.Machine) error {
 
 	machine := newMachine(i.st, mdoc)
 	if annotations := m.Annotations(); len(annotations) > 0 {
-		if err := i.im.SetAnnotations(machine, annotations); err != nil {
+		if err := i.dbModel.SetAnnotations(machine, annotations); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -790,8 +787,29 @@ func (i *importer) application(a description.Application) error {
 		return errors.Trace(err)
 	}
 
+	if a.PodSpec() != "" {
+		cm, err := i.dbModel.CAASModel()
+		if err != nil {
+			return errors.NewNotSupported(err, "adding pod spec to IAAS model")
+		}
+		if err := cm.SetPodSpec(a.Tag(), a.PodSpec()); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	if cs := a.CloudService(); cs != nil {
+		app, err := i.st.Application(a.Name())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		addr := i.makeAddresses(cs.Addresses())
+		if err := app.UpdateCloudService(cs.ProviderId(), networkAddresses(addr)); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	if annotations := a.Annotations(); len(annotations) > 0 {
-		if err := i.im.SetAnnotations(app, annotations); err != nil {
+		if err := i.dbModel.SetAnnotations(app, annotations); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -903,7 +921,6 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	}
 	agentStatusDoc := i.makeStatusDoc(agentStatus)
 
-	// TODO(caas) - don't import workload status or version for CAAS models
 	workloadStatus := u.WorkloadStatus()
 	if workloadStatus == nil {
 		return errors.NotValidf("missing workload status")
@@ -920,6 +937,19 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 		StatusInfo: workloadVersion,
 	}
 
+	var cloudContainer *cloudContainerDoc
+	if cc := u.CloudContainer(); cc != nil {
+		cloudContainer = &cloudContainerDoc{
+			Id:         unitGlobalKey(u.Name()),
+			ProviderId: cc.ProviderId(),
+			Ports:      cc.Ports(),
+		}
+		if cc.Address() != nil {
+			addr := i.makeAddress(cc.Address())
+			cloudContainer.Address = &addr
+		}
+	}
+
 	ops, err := addUnitOps(i.st, addUnitOpsArgs{
 		unitDoc:            udoc,
 		agentStatusDoc:     agentStatusDoc,
@@ -929,13 +959,14 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 			Code: u.MeterStatusCode(),
 			Info: u.MeterStatusInfo(),
 		},
+		containerDoc: cloudContainer,
 	})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// If the unit is a principal, add it to its machine.
-	if u.Principal().Id() == "" {
+	if i.dbModel.Type() == ModelTypeIAAS && u.Principal().Id() == "" {
+		// If the unit is a principal, add it to its machine.
 		ops = append(ops, txn.Op{
 			C:      machinesC,
 			Id:     u.Machine().Id(),
@@ -963,7 +994,7 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	}
 	unit := newUnit(i.st, model.Type(), udoc)
 	if annotations := u.Annotations(); len(annotations) > 0 {
-		if err := i.im.SetAnnotations(unit, annotations); err != nil {
+		if err := i.dbModel.SetAnnotations(unit, annotations); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -976,10 +1007,12 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	if err := i.importStatusHistory(unit.globalWorkloadVersionKey(), u.WorkloadVersionHistory()); err != nil {
 		return errors.Trace(err)
 	}
-	if err := i.importUnitPayloads(unit, u.Payloads()); err != nil {
-		return errors.Trace(err)
-	}
 
+	if i.dbModel.Type() == ModelTypeIAAS {
+		if err := i.importUnitPayloads(unit, u.Payloads()); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return nil
 }
 
@@ -1129,7 +1162,7 @@ func (i *importer) relation(rel description.Relation) error {
 			relStatusDoc.Status = status.Joined
 		}
 	}
-	ops = append(ops, createStatusOp(i.im.mb, relationGlobalScope(rel.Id()), relStatusDoc))
+	ops = append(ops, createStatusOp(i.st, relationGlobalScope(rel.Id()), relStatusDoc))
 
 	dbRelation := newRelation(i.st, relationDoc)
 	// Add an op that adds the relation scope document for each
@@ -1708,8 +1741,12 @@ func (i *importer) storageInstanceConstraints(storage description.Storage) stora
 
 func (i *importer) volumes() error {
 	i.logger.Debugf("importing volumes")
+	im, err := i.dbModel.IAASModel()
+	if err != nil {
+		return errors.NewNotSupported(err, "adding volumes to CAAS model")
+	}
 	for _, volume := range i.model.Volumes() {
-		err := i.addVolume(volume)
+		err := i.addVolume(volume, im)
 		if err != nil {
 			i.logger.Errorf("error importing volume %s: %s", volume.Tag(), err)
 			return errors.Trace(err)
@@ -1719,7 +1756,7 @@ func (i *importer) volumes() error {
 	return nil
 }
 
-func (i *importer) addVolume(volume description.Volume) error {
+func (i *importer) addVolume(volume description.Volume, im *IAASModel) error {
 	attachments := volume.Attachments()
 	tag := volume.Tag()
 	var params *VolumeParams
@@ -1747,13 +1784,13 @@ func (i *importer) addVolume(volume description.Volume) error {
 		Info:            info,
 		AttachmentCount: len(attachments),
 	}
-	if detachable, err := isDetachableVolumePool(i.im, volume.Pool()); err != nil {
+	if detachable, err := isDetachableVolumePool(im, volume.Pool()); err != nil {
 		return errors.Trace(err)
 	} else if !detachable && len(attachments) == 1 {
 		doc.MachineId = attachments[0].Machine().Id()
 	}
 	status := i.makeStatusDoc(volume.Status())
-	ops := i.im.newVolumeOps(doc, status)
+	ops := im.newVolumeOps(doc, status)
 
 	for _, attachment := range attachments {
 		ops = append(ops, i.addVolumeAttachmentOp(tag.Id(), attachment))
@@ -1801,8 +1838,12 @@ func (i *importer) addVolumeAttachmentOp(volID string, attachment description.Vo
 
 func (i *importer) filesystems() error {
 	i.logger.Debugf("importing filesystems")
+	im, err := i.dbModel.IAASModel()
+	if err != nil {
+		return errors.NewNotSupported(err, "adding filesystems to CAAS model")
+	}
 	for _, fs := range i.model.Filesystems() {
-		err := i.addFilesystem(fs)
+		err := i.addFilesystem(fs, im)
 		if err != nil {
 			i.logger.Errorf("error importing filesystem %s: %s", fs.Tag(), err)
 			return errors.Trace(err)
@@ -1812,7 +1853,7 @@ func (i *importer) filesystems() error {
 	return nil
 }
 
-func (i *importer) addFilesystem(filesystem description.Filesystem) error {
+func (i *importer) addFilesystem(filesystem description.Filesystem, im *IAASModel) error {
 
 	attachments := filesystem.Attachments()
 	tag := filesystem.Tag()
@@ -1839,13 +1880,13 @@ func (i *importer) addFilesystem(filesystem description.Filesystem) error {
 		Info:            info,
 		AttachmentCount: len(attachments),
 	}
-	if detachable, err := isDetachableFilesystemPool(i.im, filesystem.Pool()); err != nil {
+	if detachable, err := isDetachableFilesystemPool(im, filesystem.Pool()); err != nil {
 		return errors.Trace(err)
 	} else if !detachable && len(attachments) == 1 {
 		doc.MachineId = attachments[0].Machine().Id()
 	}
 	status := i.makeStatusDoc(filesystem.Status())
-	ops := i.im.newFilesystemOps(doc, status)
+	ops := im.newFilesystemOps(doc, status)
 
 	for _, attachment := range attachments {
 		ops = append(ops, i.addFilesystemAttachmentOp(tag.Id(), attachment))

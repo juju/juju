@@ -1113,7 +1113,10 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 		// For CAAS units we want to provide the container address.
 		container, err := unit.ContainerInfo()
 		if err == nil {
-			result.Address = container.Address()
+			addr := container.Address()
+			if addr != nil {
+				result.Address = addr.Value
+			}
 		} else {
 			logger.Debugf("error fetching container address: %v", err)
 		}
@@ -1156,7 +1159,11 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 		logger.Debugf("error fetching container info: %v", err)
 	} else if err == nil {
 		result.ProviderId = containerInfo.ProviderId()
-		result.Address = containerInfo.Address()
+		addr := containerInfo.Address()
+		if addr != nil {
+			result.Address = addr.Value
+		}
+
 		if len(result.OpenedPorts) == 0 {
 			result.OpenedPorts = containerInfo.Ports()
 		}

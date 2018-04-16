@@ -13,9 +13,9 @@ github.com/dgrijalva/jwt-go	git	01aeca54ebda6e0fbfafd0a524d234159c05ec20	2016-07
 github.com/dustin/go-humanize	git	145fabdb1ab757076a70a886d092a3af27f66f4c	2014-12-28T07:11:48Z
 github.com/ghodss/yaml	git	73d445a93680fa1a78ae23a5839bad48f32ba1ee	2015-09-09T03:16:57Z
 github.com/godbus/dbus	git	32c6cc29c14570de4cf6d7e7737d68fb2d01ad15	2016-05-06T22:25:50Z
-github.com/golang/mock	git	69521b3833175dfcfb1cc1fdb0c9be92e66faa81	2018-04-03T23:54:22Z
 github.com/gogo/protobuf	git	c0656edd0d9eab7c66d1eb0c568f9039345796f7	2017-03-30T07:10:51Z
 github.com/golang/glog	git	23def4e6c14b4da8ac2ed8007337bc5eb5007998	2016-01-26T23:53:08Z
+github.com/golang/mock	git	69521b3833175dfcfb1cc1fdb0c9be92e66faa81	2018-04-03T23:54:22Z
 github.com/golang/protobuf	git	4bd1920723d7b7c925de087aa32e2187708897f7	2016-11-09T07:27:36Z
 github.com/google/go-querystring	git	9235644dd9e52eeae6fa48efd539fdc351a0af53	2016-04-01T23:30:42Z
 github.com/google/gofuzz	git	24818f796faf91cd76ec7bddd72458fbced7a6c1	2017-06-12T17:47:53Z
@@ -36,7 +36,7 @@ github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07
 github.com/juju/blobstore	git	06056004b3d7b54bbb7984d830c537bad00fec21	2015-07-29T11:18:58Z
 github.com/juju/bundlechanges	git	1a6490253bea4ce78594db114d787ca97ee9f527	2018-01-09T11:21:21Z
 github.com/juju/cmd	git	e74f39857ca013cf63947ba2843806f7afdd380d	2017-11-07T07:04:56Z
-github.com/juju/description	git	83beb4e3593c52f6145454291e019f58a5897e47	2018-04-09T06:23:21Z
+github.com/juju/description	git	4005001e8e767301af5abd1768b2f934347f1db3	2018-04-13T05:19:25Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
 github.com/juju/gnuflag	git	2ce1bb71843d6d179b3f1c1c9cb4a72cd067fc65	2017-11-13T08:59:48Z
 github.com/juju/go-oracle-cloud	git	932a8cea00a1cd5cba3829a672c823955db674ae	2017-04-21T13:45:47Z

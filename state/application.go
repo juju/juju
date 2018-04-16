@@ -1386,7 +1386,9 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 				containerDoc.ProviderId = *args.providerId
 			}
 			if args.address != nil {
-				containerDoc.Address = *args.address
+				networkAddr := network.NewScopedAddress(*args.address, network.ScopeMachineLocal)
+				addr := fromNetworkAddress(networkAddr, OriginProvider)
+				containerDoc.Address = &addr
 			}
 			if args.ports != nil {
 				containerDoc.Ports = *args.ports
