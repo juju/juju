@@ -29,6 +29,7 @@ type API struct {
 	pool            migration.Pool
 	authorizer      facade.Authorizer
 	resources       facade.Resources
+	presence        facade.Presence
 }
 
 // NewAPI creates a new API server endpoint for the model migration
@@ -39,6 +40,7 @@ func NewAPI(
 	pool migration.Pool,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	presence facade.Presence,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
@@ -49,6 +51,7 @@ func NewAPI(
 		pool:            pool,
 		authorizer:      authorizer,
 		resources:       resources,
+		presence:        presence,
 	}, nil
 }
 
@@ -155,7 +158,23 @@ func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
 // Prechecks performs pre-migration checks on the model and
 // (source) controller.
 func (api *API) Prechecks() error {
-	return migration.SourcePrecheck(api.precheckBackend)
+	model, err := api.precheckBackend.Model()
+	if err != nil {
+		return errors.Annotate(err, "retrieving model")
+	}
+	backend, err := api.precheckBackend.ControllerBackend()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	controllerModel, err := backend.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return migration.SourcePrecheck(
+		api.precheckBackend,
+		api.presence.ModelPresence(model.UUID()),
+		api.presence.ModelPresence(controllerModel.UUID()),
+	)
 }
 
 // SetStatusMessage sets a human readable status message containing

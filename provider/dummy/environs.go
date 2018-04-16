@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -864,6 +865,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				LogDir:          LogDir,
 				Mux:             estate.mux,
 				Hub:             centralhub.New(machineTag),
+				Presence:        presence.New(clock.WallClock),
 				NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 				RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 				PublicDNSName:   icfg.Controller.Config.AutocertDNSName(),

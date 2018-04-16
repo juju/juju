@@ -16,6 +16,7 @@ import (
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/workertest"
@@ -54,6 +55,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Authenticator:                     s.authenticator,
 		Clock:                             s.clock,
 		Hub:                               &s.hub,
+		Presence:                          presence.New(s.clock),
 		Mux:                               s.mux,
 		StatePool:                         &state.StatePool{},
 		PrometheusRegisterer:              &s.prometheusRegisterer,

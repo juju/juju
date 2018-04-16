@@ -388,6 +388,8 @@ type statusContext struct {
 	providerType string
 	model        *state.Model
 	status       *state.ModelStatus
+	presence     common.ModelPresenceContext
+
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.
 	machines map[string][]*state.Machine
@@ -1253,7 +1255,7 @@ func (c *contextUnit) Status() (status.StatusInfo, error) {
 // processUnitAndAgentStatus retrieves status information for both unit and unitAgents.
 func (c *statusContext) processUnitAndAgentStatus(unit *state.Unit) (agentStatus, workloadStatus params.DetailedStatus) {
 	wrapped := &contextUnit{unit, c}
-	agent, workload := common.UnitStatus(wrapped)
+	agent, workload := c.presence.UnitStatus(wrapped)
 	populateStatusFromStatusInfoAndErr(&agentStatus, agent.Status, agent.Err)
 	populateStatusFromStatusInfoAndErr(&workloadStatus, workload.Status, workload.Err)
 
@@ -1293,7 +1295,7 @@ func (c *contextMachine) Status() (status.StatusInfo, error) {
 // It also returns deprecated legacy status information.
 func (c *statusContext) processMachine(machine *state.Machine) (out params.DetailedStatus) {
 	wrapped := &contextMachine{machine, c}
-	statusInfo, err := common.MachineStatus(wrapped)
+	statusInfo, err := c.presence.MachineStatus(wrapped)
 	populateStatusFromStatusInfoAndErr(&out, statusInfo, err)
 
 	out.Life = processLife(machine)

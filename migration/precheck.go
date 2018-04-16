@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -103,24 +104,35 @@ type PrecheckRelationUnit interface {
 	InScope() (bool, error)
 }
 
+// ModelPresence represents the API server connections for a model.
+type ModelPresence interface {
+	// For a given non controller agent, return the Status for that agent.
+	AgentStatus(agent string) (presence.Status, error)
+}
+
 // SourcePrecheck checks the state of the source controller to make
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the model to be migrated.
-func SourcePrecheck(backend PrecheckBackend) error {
-	if err := checkModel(backend); err != nil {
+func SourcePrecheck(
+	backend PrecheckBackend,
+	modelPresence ModelPresence,
+	controllerPresence ModelPresence,
+) error {
+	ctx := precheckContext{backend, modelPresence}
+	if err := ctx.checkModel(); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := checkMachines(backend); err != nil {
+	if err := ctx.checkMachines(); err != nil {
 		return errors.Trace(err)
 	}
 
-	appUnits, err := checkApplications(backend)
+	appUnits, err := ctx.checkApplications()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := checkRelations(backend, appUnits); err != nil {
+	if err := ctx.checkRelations(appUnits); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -135,14 +147,20 @@ func SourcePrecheck(backend PrecheckBackend) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := checkController(controllerBackend); err != nil {
+	controllerCtx := precheckContext{controllerBackend, controllerPresence}
+	if err := controllerCtx.checkController(); err != nil {
 		return errors.Annotate(err, "controller")
 	}
 	return nil
 }
 
-func checkModel(backend PrecheckBackend) error {
-	model, err := backend.Model()
+type precheckContext struct {
+	backend  PrecheckBackend
+	presence ModelPresence
+}
+
+func (ctx *precheckContext) checkModel() error {
+	model, err := ctx.backend.Model()
 	if err != nil {
 		return errors.Annotate(err, "retrieving model")
 	}
@@ -153,7 +171,7 @@ func checkModel(backend PrecheckBackend) error {
 		return errors.New("model is being imported as part of another migration")
 	}
 	if credTag, found := model.CloudCredential(); found {
-		creds, err := backend.CloudCredential(credTag)
+		creds, err := ctx.backend.CloudCredential(credTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -167,7 +185,7 @@ func checkModel(backend PrecheckBackend) error {
 // TargetPrecheck checks the state of the target controller to make
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the target controller.
-func TargetPrecheck(backend PrecheckBackend, pool Pool, modelInfo coremigration.ModelInfo) error {
+func TargetPrecheck(backend PrecheckBackend, pool Pool, modelInfo coremigration.ModelInfo, presence ModelPresence) error {
 	if err := modelInfo.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -200,7 +218,8 @@ func TargetPrecheck(backend PrecheckBackend, pool Pool, modelInfo coremigration.
 			modelInfo.ControllerAgentVersion, controllerVersion)
 	}
 
-	if err := checkController(backend); err != nil {
+	controllerCtx := precheckContext{backend, presence}
+	if err := controllerCtx.checkController(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -247,8 +266,8 @@ func versionToMajMin(ver version.Number) version.Number {
 	return ver
 }
 
-func checkController(backend PrecheckBackend) error {
-	model, err := backend.Model()
+func (ctx *precheckContext) checkController() error {
+	model, err := ctx.backend.Model()
 	if err != nil {
 		return errors.Annotate(err, "retrieving model")
 	}
@@ -256,26 +275,26 @@ func checkController(backend PrecheckBackend) error {
 		return errors.Errorf("model is %s", model.Life())
 	}
 
-	if upgrading, err := backend.IsUpgrading(); err != nil {
+	if upgrading, err := ctx.backend.IsUpgrading(); err != nil {
 		return errors.Annotate(err, "checking for upgrades")
 	} else if upgrading {
 		return errors.New("upgrade in progress")
 	}
 
-	err = checkMachines(backend)
-	return errors.Trace(err)
+	return errors.Trace(ctx.checkMachines())
 }
 
-func checkMachines(backend PrecheckBackend) error {
-	modelVersion, err := backend.AgentVersion()
+func (ctx *precheckContext) checkMachines() error {
+	modelVersion, err := ctx.backend.AgentVersion()
 	if err != nil {
 		return errors.Annotate(err, "retrieving model version")
 	}
 
-	machines, err := backend.AllMachines()
+	machines, err := ctx.backend.AllMachines()
 	if err != nil {
 		return errors.Annotate(err, "retrieving machines")
 	}
+	modelPresenceContext := common.ModelPresenceContext{ctx.presence}
 	for _, machine := range machines {
 		if machine.Life() != state.Alive {
 			return errors.Errorf("machine %s is %s", machine.Id(), machine.Life())
@@ -287,7 +306,7 @@ func checkMachines(backend PrecheckBackend) error {
 			return newStatusError("machine %s not running", machine.Id(), statusInfo.Status)
 		}
 
-		if statusInfo, err := common.MachineStatus(machine); err != nil {
+		if statusInfo, err := modelPresenceContext.MachineStatus(machine); err != nil {
 			return errors.Annotatef(err, "retrieving machine %s status", machine.Id())
 		} else if statusInfo.Status != status.Started {
 			return newStatusError("machine %s agent not functioning at this time",
@@ -307,12 +326,12 @@ func checkMachines(backend PrecheckBackend) error {
 	return nil
 }
 
-func checkApplications(backend PrecheckBackend) (map[string][]PrecheckUnit, error) {
-	modelVersion, err := backend.AgentVersion()
+func (ctx *precheckContext) checkApplications() (map[string][]PrecheckUnit, error) {
+	modelVersion, err := ctx.backend.AgentVersion()
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving model version")
 	}
-	apps, err := backend.AllApplications()
+	apps, err := ctx.backend.AllApplications()
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving applications")
 	}
@@ -326,7 +345,7 @@ func checkApplications(backend PrecheckBackend) (map[string][]PrecheckUnit, erro
 		if err != nil {
 			return nil, errors.Annotatef(err, "retrieving units for %s", app.Name())
 		}
-		err = checkUnits(app, units, modelVersion)
+		err = ctx.checkUnits(app, units, modelVersion)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -335,7 +354,7 @@ func checkApplications(backend PrecheckBackend) (map[string][]PrecheckUnit, erro
 	return appUnits, nil
 }
 
-func checkUnits(app PrecheckApplication, units []PrecheckUnit, modelVersion version.Number) error {
+func (ctx *precheckContext) checkUnits(app PrecheckApplication, units []PrecheckUnit, modelVersion version.Number) error {
 	if len(units) < app.MinUnits() {
 		return errors.Errorf("application %s is below its minimum units threshold", app.Name())
 	}
@@ -347,7 +366,7 @@ func checkUnits(app PrecheckApplication, units []PrecheckUnit, modelVersion vers
 			return errors.Errorf("unit %s is %s", unit.Name(), unit.Life())
 		}
 
-		if err := checkUnitAgentStatus(unit); err != nil {
+		if err := ctx.checkUnitAgentStatus(unit); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -363,8 +382,9 @@ func checkUnits(app PrecheckApplication, units []PrecheckUnit, modelVersion vers
 	return nil
 }
 
-func checkUnitAgentStatus(unit PrecheckUnit) error {
-	statusData, _ := common.UnitStatus(unit)
+func (ctx *precheckContext) checkUnitAgentStatus(unit PrecheckUnit) error {
+	modelPresenceContext := common.ModelPresenceContext{ctx.presence}
+	statusData, _ := modelPresenceContext.UnitStatus(unit)
 	if statusData.Err != nil {
 		return errors.Annotatef(statusData.Err, "retrieving unit %s status", unit.Name())
 	}
@@ -403,8 +423,8 @@ func newStatusError(format, id string, s status.Status) error {
 	return errors.New(msg)
 }
 
-func checkRelations(backend PrecheckBackend, appUnits map[string][]PrecheckUnit) error {
-	relations, err := backend.AllRelations()
+func (ctx *precheckContext) checkRelations(appUnits map[string][]PrecheckUnit) error {
+	relations, err := ctx.backend.AllRelations()
 	if err != nil {
 		return errors.Annotate(err, "retrieving model relations")
 	}

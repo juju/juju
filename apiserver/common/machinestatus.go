@@ -19,7 +19,7 @@ type MachineStatusGetter interface {
 
 // MachineStatus returns the machine agent status for a given
 // machine, with special handling for agent presence.
-func MachineStatus(machine MachineStatusGetter) (status.StatusInfo, error) {
+func (c *ModelPresenceContext) MachineStatus(machine MachineStatusGetter) (status.StatusInfo, error) {
 	machineStatus, err := machine.Status()
 	if err != nil {
 		return status.StatusInfo{}, err
@@ -31,7 +31,7 @@ func MachineStatus(machine MachineStatusGetter) (status.StatusInfo, error) {
 		return machineStatus, nil
 	}
 
-	agentAlive, err := machine.AgentPresence()
+	agentAlive, err := c.machinePresence(machine)
 	if err != nil {
 		// We don't want any presence errors affecting status.
 		logger.Debugf("error determining presence for machine %s: %v", machine.Id(), err)

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiserver"
@@ -76,6 +77,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:       &s.hub,
+		Presence:  presence.New(s.clock),
 		NewWorker: s.newWorker,
 	})
 }
@@ -160,6 +162,9 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 
 	c.Assert(config.RegisterIntrospectionHTTPHandlers, gc.NotNil)
 	config.RegisterIntrospectionHTTPHandlers = nil
+
+	c.Assert(config.Presence, gc.NotNil)
+	config.Presence = nil
 
 	// NewServer is hard-coded by the manifold to an internal shim.
 	c.Assert(config.NewServer, gc.NotNil)

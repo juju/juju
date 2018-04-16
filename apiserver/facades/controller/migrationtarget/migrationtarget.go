@@ -29,6 +29,7 @@ type API struct {
 	pool       *state.StatePool
 	authorizer facade.Authorizer
 	resources  facade.Resources
+	presence   facade.Presence
 	getEnviron stateenvirons.NewEnvironFunc
 }
 
@@ -50,6 +51,7 @@ func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc) (*API, 
 		pool:       ctx.StatePool(),
 		authorizer: auth,
 		resources:  ctx.Resources(),
+		presence:   ctx.Presence(),
 		getEnviron: getEnviron,
 	}, nil
 }
@@ -75,7 +77,12 @@ func (api *API) Prechecks(model params.MigrationModelInfo) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	backend, err := migration.PrecheckShim(api.state, api.pool.SystemState())
+	controllerState := api.pool.SystemState()
+	// NOTE (thumper): it isn't clear to me why api.state would be different
+	// from the controllerState as I had thought that the Precheck call was
+	// on the controller model, in which case it should be the same as the
+	// controllerState.
+	backend, err := migration.PrecheckShim(api.state, controllerState)
 	if err != nil {
 		return errors.Annotate(err, "creating backend")
 	}
@@ -89,6 +96,7 @@ func (api *API) Prechecks(model params.MigrationModelInfo) error {
 			AgentVersion:           model.AgentVersion,
 			ControllerAgentVersion: model.ControllerAgentVersion,
 		},
+		api.presence.ModelPresence(controllerState.ModelUUID()),
 	)
 }
 

@@ -689,6 +689,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 			Hub:       config.CentralHub,
+			Presence:  config.PresenceRecorder,
 			NewWorker: apiserver.NewWorker,
 		}),
 
