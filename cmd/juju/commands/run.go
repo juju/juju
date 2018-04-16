@@ -99,12 +99,6 @@ func (c *runCommand) Info() *cmd.Info {
 
 func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "default", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
-		// default is used to format a single result specially.
-		"default": cmd.FormatYaml,
-	})
 	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
 	f.DurationVar(&c.timeout, "t", 5*time.Minute, "How long to wait before the remote command is considered to have failed")
 	f.DurationVar(&c.timeout, "timeout", 0, "")
@@ -322,7 +316,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 
 	// If we are just dealing with one result, AND we are using the default
 	// format, then pretend we were running it locally.
-	if len(actionsToQuery) == 0 && len(values) == 1 && c.out.Name() == "default" {
+	if len(actionsToQuery) == 0 && len(values) == 1 {
 		result, ok := values[0].(map[string]interface{})
 		if !ok {
 			return errors.New("couldn't read action output")
@@ -341,12 +335,6 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		}
 
 		return nil
-	}
-
-	if len(values) > 0 {
-		if err := c.out.Write(ctx, values); err != nil {
-			return err
-		}
 	}
 
 	if n := len(actionsToQuery); n > 0 {
