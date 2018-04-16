@@ -14,15 +14,17 @@ import (
 	"github.com/juju/juju/api/base"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/credentialvalidator"
-	"github.com/juju/juju/worker/workertest"
 )
 
 // mockFacade implements credentialvalidator.Facade for use in the tests.
 type mockFacade struct {
 	*testing.Stub
-	credentials []base.StoredCredential
-	exists      bool
+	credential base.StoredCredential
+	exists     bool
+
+	watcher *watchertest.MockNotifyWatcher
 }
 
 // ModelCredential is part of the credentialvalidator.Facade interface.
@@ -31,14 +33,7 @@ func (m *mockFacade) ModelCredential() (base.StoredCredential, bool, error) {
 	if err := m.NextErr(); err != nil {
 		return base.StoredCredential{}, false, err
 	}
-	return m.nextCredential(), m.exists, nil
-}
-
-// nextCredential consumes a credential and returns it, or panics.
-func (m *mockFacade) nextCredential() base.StoredCredential {
-	credential := m.credentials[0]
-	m.credentials = m.credentials[1:]
-	return credential
+	return m.credential, m.exists, nil
 }
 
 // WatchCredential is part of the credentialvalidator.Facade interface.
@@ -47,32 +42,7 @@ func (mock *mockFacade) WatchCredential(id string) (watcher.NotifyWatcher, error
 	if err := mock.NextErr(); err != nil {
 		return nil, err
 	}
-	return newMockWatcher(), nil
-}
-
-// newMockWatcher returns a watcher.NotifyWatcher that always
-// sends 3 changes and then sits quietly until killed.
-func newMockWatcher() *mockWatcher {
-	const count = 3
-	changes := make(chan struct{}, count)
-	for i := 0; i < count; i++ {
-		changes <- struct{}{}
-	}
-	return &mockWatcher{
-		Worker:  workertest.NewErrorWorker(nil),
-		changes: changes,
-	}
-}
-
-// mockWatcher implements watcher.NotifyWatcher for use in the tests.
-type mockWatcher struct {
-	worker.Worker
-	changes chan struct{}
-}
-
-// Changes is part of the watcher.NotifyWatcher interface.
-func (mock *mockWatcher) Changes() watcher.NotifyChannel {
-	return mock.changes
+	return mock.watcher, nil
 }
 
 // credentialTag is the credential tag we're using in the tests.

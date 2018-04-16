@@ -34,7 +34,6 @@ var (
 		"action-pruner",
 		"charm-revision-updater",
 		"compute-provisioner",
-		"credential-validator-flag",
 		"environ-tracker",
 		"firewaller",
 		"instance-poller",

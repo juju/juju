@@ -1026,14 +1026,42 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 	instrumented := TrackModels(c, tracker, iaasModelManifolds)
 	s.PatchValue(&iaasModelManifolds, instrumented)
 
-	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
-		append(alwaysModelWorkers, aliveModelWorkers...))
+	expectedWorkers := append(alwaysModelWorkers, aliveModelWorkers...)
+	// Test infrastructure creates the controller with cloud credential,
+	// so credential validator worker will run too.
+	expectedWorkers = append(expectedWorkers, "credential-validator-flag")
+
+	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, expectedWorkers)
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
 		agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 	})
 }
 
 func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
+	// The dummy provider blows up in the face of multi-model
+	// scenarios so patch in a minimal environs.Environ that's good
+	// enough to allow the model workers to run.
+	s.PatchValue(&newEnvirons, func(environs.OpenParams) (environs.Environ, error) {
+		return &minModelWorkersEnviron{}, nil
+	})
+
+	st, closer := s.setUpNewModel(c)
+	defer closer()
+
+	uuid := st.ModelUUID()
+
+	tracker := agenttest.NewEngineTracker()
+	instrumented := TrackModels(c, tracker, iaasModelManifolds)
+	s.PatchValue(&iaasModelManifolds, instrumented)
+
+	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
+		append(alwaysModelWorkers, aliveModelWorkers...))
+	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
+		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
+	})
+}
+
+func (s *MachineSuite) TestWorkersForHostedModelWithCredential(c *gc.C) {
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
@@ -1061,8 +1089,9 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 	instrumented := TrackModels(c, tracker, iaasModelManifolds)
 	s.PatchValue(&iaasModelManifolds, instrumented)
 
-	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
-		append(alwaysModelWorkers, aliveModelWorkers...))
+	expectedWorkers := append(alwaysModelWorkers, aliveModelWorkers...)
+	expectedWorkers = append(expectedWorkers, "credential-validator-flag")
+	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, expectedWorkers)
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
 		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
 	})

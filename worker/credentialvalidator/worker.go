@@ -63,11 +63,25 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	v := &validator{validatorFacade: config.Facade}
+	mc, err := modelCredential(config.Facade)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	w, err := config.Facade.WatchCredential(mc.CloudCredential)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-	err := catacomb.Invoke(catacomb.Plan{
+	v := &validator{
+		validatorFacade: config.Facade,
+		credential:      mc,
+		watcher:         w,
+	}
+
+	err = catacomb.Invoke(catacomb.Plan{
 		Site: &v.catacomb,
 		Work: v.loop,
+		Init: []worker.Worker{w},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -76,7 +90,11 @@ func NewWorker(config Config) (worker.Worker, error) {
 }
 
 type validator struct {
-	catacomb        catacomb.Catacomb
+	catacomb catacomb.Catacomb
+
+	credential base.StoredCredential
+	watcher    watcher.NotifyWatcher
+
 	validatorFacade Facade
 }
 
@@ -91,40 +109,19 @@ func (v *validator) Wait() error {
 }
 
 func (v *validator) loop() error {
-	modelCredential := func() (base.StoredCredential, error) {
-		mc, exists, err := v.validatorFacade.ModelCredential()
-		if err != nil {
-			return base.StoredCredential{}, errors.Trace(err)
-		}
-		if !exists {
-			logger.Warningf("model credential is not set for the model")
-			return base.StoredCredential{}, ErrModelDoesNotNeedCredential
-		}
-		return mc, nil
-	}
-
-	originalCredential, err := modelCredential()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	w, err := v.validatorFacade.WatchCredential(originalCredential.CloudCredential)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	for {
 		select {
 		case <-v.catacomb.Dying():
 			return v.catacomb.ErrDying()
-		case _, ok := <-w.Changes():
+		case _, ok := <-v.watcher.Changes():
 			if !ok {
 				return v.catacomb.ErrDying()
 			}
-			updatedCredential, err := modelCredential()
+			updatedCredential, err := modelCredential(v.validatorFacade)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if originalCredential.CloudCredential != updatedCredential.CloudCredential {
+			if v.credential.CloudCredential != updatedCredential.CloudCredential {
 				// Model is now using different credential than when this worker was created.
 				// TODO (anastasiamac 2018-04-05) - It cannot happen yet
 				// but when it can, make sure that this worker still behaves...
@@ -132,9 +129,21 @@ func (v *validator) loop() error {
 				// or just change it's variables to reflect new credential?
 				return ErrModelCredentialChanged
 			}
-			if originalCredential.Valid != updatedCredential.Valid {
+			if v.credential.Valid != updatedCredential.Valid {
 				return ErrValidityChanged
 			}
 		}
 	}
+}
+
+func modelCredential(v Facade) (base.StoredCredential, error) {
+	mc, exists, err := v.ModelCredential()
+	if err != nil {
+		return base.StoredCredential{}, errors.Trace(err)
+	}
+	if !exists {
+		logger.Warningf("model credential is not set for the model")
+		return base.StoredCredential{}, ErrModelDoesNotNeedCredential
+	}
+	return mc, nil
 }
