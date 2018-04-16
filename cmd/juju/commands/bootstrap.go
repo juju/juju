@@ -229,7 +229,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 
 	/* controller is the name of controller created for internal juju management */
 	if c.hostedModelName == "controller" {
-		return errors.New(" 'controller' name is already assigned to juju internal management controller ")
+		return errors.New(" 'controller' name is already assigned to juju internal management model")
 	}
 
 	// Parse the placement directive. Bootstrap currently only
