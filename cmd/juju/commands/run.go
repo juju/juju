@@ -59,6 +59,11 @@ comma separated values.
 If the target is a machine, the command is run as the "root" user on
 the remote machine.
 
+Some options are shortened for usabilty purpose in CLI
+--application can also be specified as --app and -a
+--unit can also be specified as -u
+--timeout can also be specified as -t
+
 If the target is an application, the command is run on all units for that
 application. For example, if there was an application "mysql" and that application
 had two units, "mysql/0" and "mysql/1", then
@@ -80,7 +85,7 @@ If you need to pass flags to the command being run, you must precede the
 command and its arguments with "--", to tell "juju run" to stop processing
 those arguments. For example:
 
-    juju run --all -- hostname -f
+    juju run --all --hostname -f
 `
 
 func (c *runCommand) Info() *cmd.Info {
@@ -101,10 +106,14 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 		"default": cmd.FormatYaml,
 	})
 	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
-	f.DurationVar(&c.timeout, "timeout", 5*time.Minute, "How long to wait before the remote command is considered to have failed")
+	f.DurationVar(&c.timeout, "t", 5*time.Minute, "How long to wait before the remote command is considered to have failed")
+	f.DurationVar(&c.timeout, "timeout", 0, "")
 	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "One or more machine ids")
-	f.Var(cmd.NewStringsValue(nil, &c.services), "application", "One or more application names")
-	f.Var(cmd.NewStringsValue(nil, &c.units), "unit", "One or more unit ids")
+	f.Var(cmd.NewStringsValue(nil, &c.services), "a", "One or more application names")
+	f.Var(cmd.NewStringsValue(nil, &c.services), "app", "")
+	f.Var(cmd.NewStringsValue(nil, &c.services), "application", "")
+	f.Var(cmd.NewStringsValue(nil, &c.units), "u", "One or more unit ids")
+	f.Var(cmd.NewStringsValue(nil, &c.units), "unit", "")
 }
 
 func (c *runCommand) Init(args []string) error {

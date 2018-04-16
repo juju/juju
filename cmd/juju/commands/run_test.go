@@ -89,6 +89,11 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		commands: "sudo reboot",
 		services: []string{"wordpress", "mysql"},
 	}, {
+		message:  "command to application mysql",
+                args:     []string{"--app=mysql", "uname -a"},
+		commands: "uname -a",
+		services: []string{"mysql"}
+	}, {
 		message: "bad application names",
 		args:    []string{"--application", "foo,2,foo/0", "sudo reboot"},
 		errMatch: "" +
@@ -96,9 +101,24 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 			"  \"2\" is not a valid application name\n" +
 			"  \"foo/0\" is not a valid application name",
 	}, {
+		message: "command to application mysql",
+		args:     []string{"--app=mysql", "sudo reboot"},
+		commands: "sudo reboot",
+		services: []string{"mysql"},
+	}, {
+		message: "command to application wordpress",
+		args:     []string{"-a","wordpress", "sudo reboot"},
+		commands: "sudo reboot",
+		services: []string{"wordpress"},
+	}, {
 		message:  "all and defined units",
 		args:     []string{"--all", "--unit=wordpress/0,mysql/1", "sudo reboot"},
 		errMatch: `You cannot specify --all and individual units`,
+	}, {
+		message:  "command to valid unit",
+		args:     []string{"-u","mysql/0", "sudo reboot"},
+		commands: "sudo reboot",
+		units:    []string{"mysql/0"},
 	}, {
 		message:  "command to valid units",
 		args:     []string{"--unit=wordpress/0,wordpress/1,mysql/0", "sudo reboot"},
@@ -151,6 +171,10 @@ func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
 		message: "two hours",
 		args:    []string{"--timeout=2h", "--all", "sudo reboot"},
 		timeout: 2 * time.Hour,
+	}, {
+		message: "5 minutes",
+		args:    []string{"-t","5m", "--all", "sudo reboot"},
+		timeout: 5 * time.Minute,
 	}, {
 		message: "3 minutes 30 seconds",
 		args:    []string{"--timeout=3m30s", "--all", "sudo reboot"},
