@@ -287,11 +287,9 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	}
 
 	buff := &bytes.Buffer{}
-	err := cmd.FormatJson(buff, unformatted)
-	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}),
-		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
+		"--machine=0", "--unit=unit/0", "hostname",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -303,7 +301,7 @@ func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
 	// Block operation
 	mock.block = true
 	_, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}),
-		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
+		"--machine=0", "--unit=unit/0", "hostname",
 	)
 	testing.AssertOperationWasBlocked(c, err, ".*To enable changes.*")
 }
@@ -347,10 +345,8 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 	}
 
 	buff := &bytes.Buffer{}
-	err := cmd.FormatJson(buff, unformatted)
-	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}), "--format=json", "--all", "hostname")
+	context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}), "--all", "hostname")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(cmdtesting.Stdout(context), gc.Equals, buff.String())
@@ -388,15 +384,10 @@ func (s *RunSuite) TestTimeout(c *gc.C) {
 	machine0Query := makeActionQuery(mock.receiverIdMap["0"], "MachineId", names.NewMachineTag("0"))
 
 	var buf bytes.Buffer
-	err := cmd.FormatJson(&buf, []interface{}{
-		ConvertActionResults(machine0Result, machine0Query),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
 	var clock mockClock
 	context, err := cmdtesting.RunCommand(
 		c, newTestRunCommand(&clock),
-		"--format=json", "--all", "hostname", "--timeout", "99s",
+		"--all", "hostname", "--timeout", "99s",
 	)
 	c.Assert(err, gc.ErrorMatches, "timed out waiting for results from: machine 1, machine 2")
 
@@ -445,74 +436,8 @@ func (s *RunSuite) TestBlockAllMachines(c *gc.C) {
 	mock := s.setupMockAPI()
 	// Block operation
 	mock.block = true
-	_, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}), "--format=json", "--all", "hostname")
+	_, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}), "--all", "hostname")
 	testing.AssertOperationWasBlocked(c, err, ".*To enable changes.*")
-}
-
-func (s *RunSuite) TestSingleResponse(c *gc.C) {
-	mock := s.setupMockAPI()
-	mock.setMachinesAlive("0")
-	mockResponse := mockResponse{
-		stdout:     "stdout\n",
-		stderr:     "stderr\n",
-		code:       "42",
-		machineTag: "machine-0",
-	}
-	mock.setResponse("0", mockResponse)
-
-	machineResult := mock.runResponses["0"]
-	mock.actionResponses = map[string]params.ActionResult{
-		mock.receiverIdMap["0"]: machineResult,
-	}
-
-	query := makeActionQuery(mock.receiverIdMap["0"], "MachineId", names.NewMachineTag("0"))
-	unformatted := []interface{}{
-		ConvertActionResults(machineResult, query),
-	}
-
-	jsonFormatted := &bytes.Buffer{}
-	err := cmd.FormatJson(jsonFormatted, unformatted)
-	c.Assert(err, jc.ErrorIsNil)
-
-	yamlFormatted := &bytes.Buffer{}
-	err = cmd.FormatYaml(yamlFormatted, unformatted)
-	c.Assert(err, jc.ErrorIsNil)
-
-	for i, test := range []struct {
-		message    string
-		format     string
-		stdout     string
-		stderr     string
-		errorMatch string
-	}{{
-		message:    "smart (default)",
-		stdout:     "stdout\n",
-		stderr:     "stderr\n",
-		errorMatch: "subprocess encountered error code 42",
-	}, {
-		message: "yaml output",
-		format:  "yaml",
-		stdout:  yamlFormatted.String(),
-	}, {
-		message: "json output",
-		format:  "json",
-		stdout:  jsonFormatted.String(),
-	}} {
-		c.Log(fmt.Sprintf("%v: %s", i, test.message))
-		args := []string{}
-		if test.format != "" {
-			args = append(args, "--format", test.format)
-		}
-		args = append(args, "--all", "ignored")
-		context, err := cmdtesting.RunCommand(c, newTestRunCommand(&mockClock{}), args...)
-		if test.errorMatch != "" {
-			c.Check(err, gc.ErrorMatches, test.errorMatch)
-		} else {
-			c.Check(err, jc.ErrorIsNil)
-		}
-		c.Check(cmdtesting.Stdout(context), gc.Equals, test.stdout)
-		c.Check(cmdtesting.Stderr(context), gc.Equals, test.stderr)
-	}
 }
 
 func (s *RunSuite) setupMockAPI() *mockRunAPI {
