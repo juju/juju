@@ -53,13 +53,13 @@ are able to use this command.
 Targets are specified using either machine ids, application names or unit
 names.  At least one target specifier is needed.
 
-Multiple values can be set for --machine, --application and --unit by using
+Multiple values can be set for --machine, --application, and --unit by using
 comma separated values.
 
 If the target is a machine, the command is run as the "root" user on
 the remote machine.
 
-Few options are shorted for usabilty purpose in CLI
+Some options are shortened for usabilty purpose in CLI
 --application can also be specified as --app and -a
 --unit can also be specified as -u
 --timeout can also be specified as -t
@@ -106,16 +106,14 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 		"default": cmd.FormatYaml,
 	})
 	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
-	for _, flag := range[]string{"timeout", "t"} {
-		f.DurationVar(&c.timeout, flag, 5*time.Minute, "How long to wait before the remote command is considered to have failed")
-	}
+	f.DurationVar(&c.timeout, "t", 5*time.Minute, "How long to wait before the remote command is considered to have failed")
+	f.DurationVar(&c.timeout, "timeout", 0, "")
 	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "One or more machine ids")
-	for _, flag := range[]string{"application", "app", "a"} {
-		f.Var(cmd.NewStringsValue(nil, &c.services), flag, "One or more application names")
-	}
-	for _, flag := range[]string{"unit", "u"} {
-		f.Var(cmd.NewStringsValue(nil, &c.units), flag, "One or more unit ids")
-	}
+	f.Var(cmd.NewStringsValue(nil, &c.services), "a", "One or more application names")
+	f.Var(cmd.NewStringsValue(nil, &c.services), "app", "")
+	f.Var(cmd.NewStringsValue(nil, &c.services), "application", "")
+	f.Var(cmd.NewStringsValue(nil, &c.units), "u", "One or more unit ids")
+	f.Var(cmd.NewStringsValue(nil, &c.units), "unit", "")
 }
 
 func (c *runCommand) Init(args []string) error {
