@@ -189,6 +189,18 @@ func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
 		return errors.Trace(err)
 	}
 
+	// TODO(caas) - remove this when upstream charmhelpers are fixed
+	// Charmhelpers expect to see a jujud in a machine-X directory.
+	legacyMachineDir := filepath.Join(agentBinaryDir, "machine-0")
+	err = os.Mkdir(legacyMachineDir, 0600)
+	if err != nil && !os.IsExist(err) {
+		return errors.Trace(err)
+	}
+	err = symlink.New(jujudPath, filepath.Join(legacyMachineDir, jujunames.Jujud))
+	if err != nil && !os.IsExist(err) && !os.IsPermission(err) {
+		return errors.Trace(err)
+	}
+
 	// Second the charm directory.
 	unitAgentDir := filepath.Join(op.config.DataDir, "agents", unitTag.String())
 	err = os.MkdirAll(unitAgentDir, 0600)
