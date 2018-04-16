@@ -48,7 +48,7 @@ type machineInfo struct {
 	Hostname string `yaml:",omitempty"`
 }
 
-var maasDataDir = paths.MustSucceed(paths.DataDir(version.SupportedLts()))
+var maasDataDir = paths.MustSucceed(paths.DataDir(version.SupportedLTS()))
 var _MAASInstanceFilename = path.Join(maasDataDir, "MAASmachine.txt")
 
 // cloudinitRunCmd returns the shell command that, when run, will create the

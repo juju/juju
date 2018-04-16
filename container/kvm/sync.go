@@ -39,8 +39,8 @@ type Oner interface {
 
 // syncParams conveys the information necessary for calling imagedownloads.One.
 type syncParams struct {
-	arch, series, ftype string
-	srcFunc             func() simplestreams.DataSource
+	arch, series, stream, ftype string
+	srcFunc                     func() simplestreams.DataSource
 }
 
 // One implements Oner.
@@ -48,7 +48,7 @@ func (p syncParams) One() (*imagedownloads.Metadata, error) {
 	if err := p.exists(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return imagedownloads.One(p.arch, p.series, p.ftype, p.srcFunc)
+	return imagedownloads.One(p.arch, p.series, p.stream, p.ftype, p.srcFunc)
 }
 
 func (p syncParams) exists() error {

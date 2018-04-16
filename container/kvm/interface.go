@@ -12,6 +12,7 @@ import (
 type StartParams struct {
 	Series            string
 	Arch              string
+	Stream            string
 	UserDataFile      string
 	NetworkConfigData string
 	Network           *container.NetworkConfig

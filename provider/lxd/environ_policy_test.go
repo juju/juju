@@ -25,7 +25,7 @@ type environPolSuite struct {
 var _ = gc.Suite(&environPolSuite{})
 
 func (s *environPolSuite) TestPrecheckInstanceDefaults(c *gc.C) {
-	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: version.SupportedLts()})
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: version.SupportedLTS()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.CheckNoAPI(c)
@@ -33,14 +33,14 @@ func (s *environPolSuite) TestPrecheckInstanceDefaults(c *gc.C) {
 
 func (s *environPolSuite) TestPrecheckInstanceHasInstanceType(c *gc.C) {
 	cons := constraints.MustParse("instance-type=some-instance-type")
-	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: version.SupportedLts(), Constraints: cons})
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: version.SupportedLTS(), Constraints: cons})
 
 	c.Check(err, gc.ErrorMatches, `LXD does not support instance types.*`)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 	cons := constraints.MustParse("root-disk=1G")
-	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: version.SupportedLts(), Constraints: cons})
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: version.SupportedLTS(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -49,14 +49,14 @@ func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	cons := constraints.MustParse("arch=i386")
-	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: version.SupportedLts(), Constraints: cons})
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: version.SupportedLTS(), Constraints: cons})
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	placement := "zone=a-zone"
-	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: version.SupportedLts(), Placement: placement})
+	err := s.Env.PrecheckInstance(environs.PrecheckInstanceParams{Series: version.SupportedLTS(), Placement: placement})
 
 	c.Check(err, gc.ErrorMatches, `unknown placement directive: .*`)
 }

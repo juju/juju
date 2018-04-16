@@ -64,7 +64,7 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.MustHostSeries, func() string { return supportedversion.SupportedLts() })
+	s.PatchValue(&series.MustHostSeries, func() string { return supportedversion.SupportedLTS() })
 }
 
 func (s *baseProviderSuite) TearDownTest(c *gc.C) {

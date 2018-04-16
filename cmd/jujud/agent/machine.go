@@ -1038,7 +1038,12 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 
 	// Mongo is installed, record the version.
 	err = a.ChangeConfig(func(config agent.ConfigSetter) error {
-		config.SetMongoVersion(mongo.InstalledVersion())
+		finder := mongo.NewMongodFinder()
+		_, version, err := finder.FindBest()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		config.SetMongoVersion(version)
 		return nil
 	})
 	if err != nil {

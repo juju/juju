@@ -4,6 +4,8 @@
 package mongo
 
 import (
+	gomock "github.com/golang/mock/gomock"
+
 	"github.com/juju/juju/service/common"
 	svctesting "github.com/juju/juju/service/common/testing"
 )
@@ -44,4 +46,11 @@ func PatchService(patchValue func(interface{}, interface{}), data *svctesting.Fa
 
 func SysctlEditableEnsureServer(args EnsureServerParams, sysctlFiles map[string]string) error {
 	return ensureServer(args, sysctlFiles)
+}
+
+func NewMongodFinderWithMockSearch(ctrl *gomock.Controller) (*MongodFinder, *MockSearchTools) {
+	tools := NewMockSearchTools(ctrl)
+	return &MongodFinder{
+		search: tools,
+	}, tools
 }

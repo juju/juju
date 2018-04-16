@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/container/kvm"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	containertesting "github.com/juju/juju/container/testing"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -32,8 +34,10 @@ var _ = gc.Suite(&KVMSuite{})
 func (s *KVMSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 	var err error
-	s.manager, err = kvm.NewContainerManager(
-		container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()})
+	s.manager, err = kvm.NewContainerManager(container.ManagerConfig{
+		container.ConfigModelUUID:      coretesting.ModelTag.Id(),
+		config.ContainerImageStreamKey: imagemetadata.ReleasedStream,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -123,6 +127,7 @@ func (s *KVMSuite) TestCreateContainerUtilizesReleaseSimpleStream(c *gc.C) {
 	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
 
 	c.Assert(kvm.TestStartParams.ImageDownloadURL, gc.Equals, "")
+	c.Assert(kvm.TestStartParams.Stream, gc.Equals, "released")
 }
 
 // Test that CreateContainer creates proper startParams.
@@ -131,13 +136,38 @@ func (s *KVMSuite) TestCreateContainerUtilizesDailySimpleStream(c *gc.C) {
 	// Mock machineConfig with a mocked simple stream URL.
 	instanceConfig, err := containertesting.MockMachineConfig("1/kvm/0")
 	c.Assert(err, jc.ErrorIsNil)
-	instanceConfig.ImageStream = "daily"
 
-	// CreateContainer sets TestStartParams internally; we call this
-	// purely for the side-effect.
+	s.manager, err = kvm.NewContainerManager(container.ManagerConfig{
+		container.ConfigModelUUID:      coretesting.ModelTag.Id(),
+		config.ContainerImageStreamKey: "daily",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// CreateContainer sets TestStartParams internally;
+	// we call this purely for the side-effect.
 	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
 
 	c.Assert(kvm.TestStartParams.ImageDownloadURL, gc.Equals, "http://cloud-images.ubuntu.com/daily")
+	c.Assert(kvm.TestStartParams.Stream, gc.Equals, "daily")
+}
+
+func (s *KVMSuite) TestCreateContainerUtilizesSetImageMetadataURL(c *gc.C) {
+
+	// Mock machineConfig with a mocked simple stream URL.
+	instanceConfig, err := containertesting.MockMachineConfig("1/kvm/0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.manager, err = kvm.NewContainerManager(container.ManagerConfig{
+		container.ConfigModelUUID:           coretesting.ModelTag.Id(),
+		config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// CreateContainer sets TestStartParams internally;
+	// we call this purely for the side-effect.
+	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
+
+	c.Assert(kvm.TestStartParams.ImageDownloadURL, gc.Equals, "https://images.linuxcontainers.org")
 }
 
 func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
@@ -145,15 +175,17 @@ func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
 	startParams := kvm.StartParams{
 		Series:           "mocked-series",
 		Arch:             "mocked-arch",
+		Stream:           "released",
 		ImageDownloadURL: "mocked-url",
 	}
 	mockedContainer := kvm.NewEmptyKvmContainer()
 	mockedContainer.Start(startParams)
 
 	expectedArgs := fmt.Sprintf(
-		"synchronise images for %s %s %s",
+		"synchronise images for %s %s %s %s",
 		startParams.Arch,
 		startParams.Series,
+		startParams.Stream,
 		startParams.ImageDownloadURL,
 	)
 	c.Assert(c.GetTestLog(), jc.Contains, expectedArgs)

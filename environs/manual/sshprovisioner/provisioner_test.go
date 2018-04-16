@@ -46,7 +46,7 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 }
 
 func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
-	var series = jujuversion.SupportedLts()
+	var series = jujuversion.SupportedLTS()
 	const arch = "amd64"
 
 	args := s.getArgs(c)
@@ -128,7 +128,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestFinishInstancConfig(c *gc.C) {
-	var series = jujuversion.SupportedLts()
+	var series = jujuversion.SupportedLTS()
 	const arch = "amd64"
 	defer fakeSSH{
 		Series:         series,
@@ -150,7 +150,7 @@ func (s *provisionerSuite) TestFinishInstancConfig(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
-	var series = jujuversion.SupportedLts()
+	var series = jujuversion.SupportedLTS()
 	const arch = "amd64"
 	defer fakeSSH{
 		Series:         series,

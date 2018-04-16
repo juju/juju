@@ -55,7 +55,7 @@ var sampleConfig = testing.Attrs{
 	"unknown":                    "my-unknown",
 	"ssl-hostname-verification":  true,
 	"development":                false,
-	"default-series":             jujuversion.SupportedLts(),
+	"default-series":             jujuversion.SupportedLTS(),
 	"disable-network-management": false,
 	"ignore-machine-addresses":   false,
 	"automatically-retry-hooks":  true,
@@ -90,18 +90,20 @@ var configTests = []configTest{
 		useDefaults: config.UseDefaults,
 		attrs:       minimalConfigAttrs,
 	}, {
-		about:       "Agent Stream",
+		about:       "Streams",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"image-metadata-url": "image-url",
-			"agent-stream":       "released",
+			"image-stream":           "released",
+			"agent-stream":           "released",
+			"container-image-stream": "daily",
 		}),
 	}, {
 		about:       "Metadata URLs",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"image-metadata-url": "image-url",
-			"agent-metadata-url": "agent-metadata-url-value",
+			"image-metadata-url":           "image-url",
+			"agent-metadata-url":           "agent-metadata-url-value",
+			"container-image-metadata-url": "container-image-metadata-url-value",
 		}),
 	}, {
 		about:       "Explicit series",
@@ -634,7 +636,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	if seriesAttr != "" {
 		c.Assert(defaultSeries, gc.Equals, seriesAttr)
 	} else {
-		c.Assert(defaultSeries, gc.Equals, jujuversion.SupportedLts())
+		c.Assert(defaultSeries, gc.Equals, jujuversion.SupportedLTS())
 	}
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
@@ -721,6 +723,20 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	}
 	c.Assert(agentStreamValue, gc.Equals, expectedAgentStreamAttr)
 
+	containerURL, urlPresent := cfg.ContainerImageMetadataURL()
+	if v, _ := test.attrs["container-image-metadata-url"].(string); v != "" {
+		c.Assert(containerURL, gc.Equals, v)
+		c.Assert(urlPresent, jc.IsTrue)
+	} else {
+		c.Assert(urlPresent, jc.IsFalse)
+	}
+
+	if v, ok := test.attrs["container-image-stream"]; ok {
+		c.Assert(cfg.ContainerImageStream(), gc.Equals, v)
+	} else {
+		c.Assert(cfg.ContainerImageStream(), gc.Equals, "released")
+	}
+
 	resourceTags, cfgHasResourceTags := cfg.ResourceTags()
 	c.Assert(cfgHasResourceTags, jc.IsTrue)
 	if tags, ok := test.attrs["resource-tags"]; ok {
@@ -766,7 +782,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"firewall-mode":              config.FwInstance,
 		"unknown":                    "my-unknown",
 		"ssl-hostname-verification":  true,
-		"default-series":             jujuversion.SupportedLts(),
+		"default-series":             jujuversion.SupportedLTS(),
 		"disable-network-management": false,
 		"ignore-machine-addresses":   false,
 		"automatically-retry-hooks":  true,
