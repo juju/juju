@@ -5,18 +5,19 @@ package lxdtools_test
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/client/mocks"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools/lxdtools"
+	"github.com/juju/juju/tools/lxdtools/testmock"
 )
 
 func Test(t *testing.T) {
@@ -35,40 +36,41 @@ func (s *lxdtoolsSuite) TestLxdSocketPathLxdDirSet(c *gc.C) {
 		return nil, nil
 	})
 	path := lxdtools.LxdSocketPath()
-	c.Check(path, gc.Equals, "foobar/unix.socket")
+	c.Check(path, gc.Equals, filepath.Join("foobar", "unix.socket"))
 }
 
 func (s *lxdtoolsSuite) TestLxdSocketPathSnapSocketAndDebianSocketExists(c *gc.C) {
 	os.Setenv("LXD_DIR", "")
 	s.PatchValue(lxdtools.OsStat, func(path string) (os.FileInfo, error) {
-		if path == "/var/snap/lxd/common/lxd" || path == "/var/lib/lxd/" {
+		if path == filepath.FromSlash("/var/snap/lxd/common/lxd") ||
+			path == filepath.FromSlash("/var/lib/lxd/") {
 			return nil, nil
 		} else {
 			return nil, errors.New("not found")
 		}
 	})
 	path := lxdtools.LxdSocketPath()
-	c.Check(path, gc.Equals, "/var/snap/lxd/common/lxd/unix.socket")
+	c.Check(path, gc.Equals, filepath.FromSlash("/var/snap/lxd/common/lxd/unix.socket"))
 }
 
 func (s *lxdtoolsSuite) TestLxdSocketPathNoSnapSocket(c *gc.C) {
 	os.Setenv("LXD_DIR", "")
 	s.PatchValue(lxdtools.OsStat, func(path string) (os.FileInfo, error) {
-		if path == "/var/lib/lxd/" {
+		if path == filepath.FromSlash("/var/lib/lxd/") {
 			return nil, nil
 		} else {
 			return nil, errors.New("not found")
 		}
 	})
 	path := lxdtools.LxdSocketPath()
-	c.Check(path, gc.Equals, "/var/lib/lxd/unix.socket")
+	c.Check(path, gc.Equals, filepath.FromSlash("/var/lib/lxd/unix.socket"))
 }
 
 func (s *lxdtoolsSuite) TestGetImageWithServerLocalImage(c *gc.C) {
 	mockCtrl := gomock.NewController(c)
 	defer mockCtrl.Finish()
-	localImageServer := mocks.NewMockImageServer(mockCtrl)
-	//	remoteImageServer := mocks.NewMockImageServer(mockCtrl)
+	localImageServer := testmock.NewMockImageServer(mockCtrl)
+	//	remoteImageServer := testmock.NewMockImageServer(mockCtrl)
 	mockedImage := api.Image{Filename: "this-is-our-image"}
 
 	gomock.InOrder(
@@ -85,7 +87,7 @@ func (s *lxdtoolsSuite) TestGetImageWithServerLocalImage(c *gc.C) {
 func (s *lxdtoolsSuite) TestGetImageWithServerRemoteImageUnknownSeries(c *gc.C) {
 	mockCtrl := gomock.NewController(c)
 	defer mockCtrl.Finish()
-	localImageServer := mocks.NewMockImageServer(mockCtrl)
+	localImageServer := testmock.NewMockImageServer(mockCtrl)
 	gomock.InOrder(
 		localImageServer.EXPECT().GetImageAlias("juju/pldlinux/amd64").Return(nil, "ETAG", nil),
 	)
@@ -96,7 +98,7 @@ func (s *lxdtoolsSuite) TestGetImageWithServerRemoteImageUnknownSeries(c *gc.C) 
 func (s *lxdtoolsSuite) TestGetImageWithServerRemoteImageWrongSeries(c *gc.C) {
 	mockCtrl := gomock.NewController(c)
 	defer mockCtrl.Finish()
-	localImageServer := mocks.NewMockImageServer(mockCtrl)
+	localImageServer := testmock.NewMockImageServer(mockCtrl)
 	gomock.InOrder(
 		localImageServer.EXPECT().GetImageAlias("juju/win2012hvr2/amd64").Return(nil, "ETAG", nil),
 	)
@@ -107,8 +109,8 @@ func (s *lxdtoolsSuite) TestGetImageWithServerRemoteImageWrongSeries(c *gc.C) {
 func (s *lxdtoolsSuite) TestGetImageWithServerRemoteServers(c *gc.C) {
 	mockCtrl := gomock.NewController(c)
 	defer mockCtrl.Finish()
-	localImageServer := mocks.NewMockImageServer(mockCtrl)
-	remoteImageServer := mocks.NewMockImageServer(mockCtrl)
+	localImageServer := testmock.NewMockImageServer(mockCtrl)
+	remoteImageServer := testmock.NewMockImageServer(mockCtrl)
 	mockedImage := api.Image{Filename: "this-is-our-image"}
 
 	remoteServers := []lxdtools.RemoteServer{
@@ -144,8 +146,8 @@ func (s *lxdtoolsSuite) TestGetImageWithServerRemoteServers(c *gc.C) {
 func (s *lxdtoolsSuite) TestGetImageWithServerRemoteServersOtherSeries(c *gc.C) {
 	mockCtrl := gomock.NewController(c)
 	defer mockCtrl.Finish()
-	localImageServer := mocks.NewMockImageServer(mockCtrl)
-	remoteImageServer := mocks.NewMockImageServer(mockCtrl)
+	localImageServer := testmock.NewMockImageServer(mockCtrl)
+	remoteImageServer := testmock.NewMockImageServer(mockCtrl)
 	mockedImage := api.Image{Filename: "this-is-our-image"}
 
 	remoteServers := []lxdtools.RemoteServer{
@@ -186,8 +188,8 @@ func (s *lxdtoolsSuite) TestGetImageWithServerRemoteServersOtherSeries(c *gc.C) 
 func (s *lxdtoolsSuite) TestGetImageWithServerRemoteServersFailure(c *gc.C) {
 	mockCtrl := gomock.NewController(c)
 	defer mockCtrl.Finish()
-	localImageServer := mocks.NewMockImageServer(mockCtrl)
-	remoteImageServer := mocks.NewMockImageServer(mockCtrl)
+	localImageServer := testmock.NewMockImageServer(mockCtrl)
+	remoteImageServer := testmock.NewMockImageServer(mockCtrl)
 
 	remoteServers := []lxdtools.RemoteServer{
 		lxdtools.RemoteServer{Host: "server-that-has-image", Protocol: lxdtools.SimplestreamsProtocol},
