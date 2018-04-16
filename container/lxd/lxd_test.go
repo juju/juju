@@ -1,8 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd_test
 
 import (
@@ -15,7 +13,6 @@ import (
 	"github.com/juju/utils/proxy"
 	"github.com/juju/version"
 	lxdclient "github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/client/mocks"
 	lxdapi "github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -29,6 +26,7 @@ import (
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/tools/lxdtools/testmock"
 )
 
 func Test(t *stdtesting.T) {
@@ -101,7 +99,7 @@ func prepNetworkConfig() *container.NetworkConfig {
 func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 	mockCtrl := gomock.NewController(c)
 	defer mockCtrl.Finish()
-	containerServer := mocks.NewMockContainerServer(mockCtrl)
+	containerServer := testmock.NewMockContainerServer(mockCtrl)
 	mockedImage := lxdapi.Image{Filename: "this-is-our-image"}
 
 	lxd.ConnectLocal = func() (lxdclient.ContainerServer, error) {
@@ -163,7 +161,7 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 func (t *LxdSuite) TestCreateContainerCreateFailed(c *gc.C) {
 	mockCtrl := gomock.NewController(c)
 	defer mockCtrl.Finish()
-	containerServer := mocks.NewMockContainerServer(mockCtrl)
+	containerServer := testmock.NewMockContainerServer(mockCtrl)
 	mockedImage := lxdapi.Image{Filename: "this-is-our-image"}
 
 	lxd.ConnectLocal = func() (lxdclient.ContainerServer, error) {
@@ -201,7 +199,7 @@ func (t *LxdSuite) TestCreateContainerCreateFailed(c *gc.C) {
 func (t *LxdSuite) TestCreateContainerStartFailed(c *gc.C) {
 	mockCtrl := gomock.NewController(c)
 	defer mockCtrl.Finish()
-	containerServer := mocks.NewMockContainerServer(mockCtrl)
+	containerServer := testmock.NewMockContainerServer(mockCtrl)
 	mockedImage := lxdapi.Image{Filename: "this-is-our-image"}
 
 	lxd.ConnectLocal = func() (lxdclient.ContainerServer, error) {
@@ -247,7 +245,7 @@ func (t *LxdSuite) TestCreateContainerStartFailed(c *gc.C) {
 func (t *LxdSuite) TestListContainers(c *gc.C) {
 	mockCtrl := gomock.NewController(c)
 	defer mockCtrl.Finish()
-	containerServer := mocks.NewMockContainerServer(mockCtrl)
+	containerServer := testmock.NewMockContainerServer(mockCtrl)
 	lxd.ConnectLocal = func() (lxdclient.ContainerServer, error) {
 		return containerServer, nil
 	}
@@ -278,7 +276,7 @@ func (t *LxdSuite) TestListContainers(c *gc.C) {
 func (t *LxdSuite) TestIsInitialized(c *gc.C) {
 	mockCtrl := gomock.NewController(c)
 	defer mockCtrl.Finish()
-	containerServer := mocks.NewMockContainerServer(mockCtrl)
+	containerServer := testmock.NewMockContainerServer(mockCtrl)
 	attempt := 0
 	lxd.ConnectLocal = func() (lxdclient.ContainerServer, error) {
 		defer func() { attempt = attempt + 1 }()
