@@ -18,10 +18,12 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -402,6 +404,7 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		nil, // pool
 		s.resources,
 		s.authorizer,
+		&fakePresence{},
 	)
 }
 
@@ -542,4 +545,15 @@ type failingPrecheckBackend struct {
 
 func (b *failingPrecheckBackend) Model() (migration.PrecheckModel, error) {
 	return nil, errors.New("boom")
+}
+
+type fakePresence struct {
+}
+
+func (f *fakePresence) ModelPresence(modelUUID string) facade.ModelPresence {
+	return f
+}
+
+func (f *fakePresence) AgentStatus(agent string) (presence.Status, error) {
+	return presence.Alive, nil
 }

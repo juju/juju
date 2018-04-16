@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -79,6 +80,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 		DataDir:         c.MkDir(),
 		LogDir:          c.MkDir(),
 		Hub:             centralhub.New(machineTag),
+		Presence:        presence.New(clock.WallClock),
 		Mux:             s.mux,
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		RateLimitConfig: apiserver.DefaultRateLimitConfig(),

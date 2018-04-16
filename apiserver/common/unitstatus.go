@@ -32,7 +32,7 @@ type UnitStatusGetter interface {
 
 // UnitStatus returns the unit agent and workload status for a given
 // unit, with special handling for agent presence.
-func UnitStatus(unit UnitStatusGetter) (agent StatusAndErr, workload StatusAndErr) {
+func (c *ModelPresenceContext) UnitStatus(unit UnitStatusGetter) (agent StatusAndErr, workload StatusAndErr) {
 	agent.Status, agent.Err = unit.AgentStatus()
 	workload.Status, workload.Err = unit.Status()
 
@@ -42,7 +42,7 @@ func UnitStatus(unit UnitStatusGetter) (agent StatusAndErr, workload StatusAndEr
 		return
 	}
 
-	agentAlive, err := unit.AgentPresence()
+	agentAlive, err := c.unitPresence(unit)
 	if err != nil {
 		return
 	}

@@ -50,3 +50,14 @@ func (context Context) StatePool() *state.StatePool {
 func (context Context) ID() string {
 	return context.ID_
 }
+
+// Presence implements facade.Context.
+func (context Context) Presence() facade.Presence {
+	return context
+}
+
+// ModelPresence implements facade.Presence.
+func (context Context) ModelPresence(modelUUID string) facade.ModelPresence {
+	// Potentially may need to add stuff here at some stage.
+	return nil
+}

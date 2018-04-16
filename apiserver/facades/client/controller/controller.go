@@ -40,6 +40,7 @@ type ControllerAPI struct {
 	authorizer facade.Authorizer
 	apiUser    names.UserTag
 	resources  facade.Resources
+	presence   facade.Presence
 }
 
 // ControllerAPIv4 provides the v4 Controller API. The only difference
@@ -60,12 +61,14 @@ func NewControllerAPIv5(ctx facade.Context) (*ControllerAPI, error) {
 	authorizer := ctx.Auth()
 	pool := ctx.StatePool()
 	resources := ctx.Resources()
+	presence := ctx.Presence()
 
 	return NewControllerAPI(
 		st,
 		pool,
 		authorizer,
 		resources,
+		presence,
 	)
 }
 
@@ -94,6 +97,7 @@ func NewControllerAPI(
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
 	resources facade.Resources,
+	presence facade.Presence,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(common.ErrPerm)
@@ -123,6 +127,7 @@ func NewControllerAPI(
 		authorizer: authorizer,
 		apiUser:    apiUser,
 		resources:  resources,
+		presence:   presence,
 	}, nil
 }
 
@@ -461,7 +466,7 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 	}
 
 	// Check if the migration is likely to succeed.
-	if err := runMigrationPrechecks(hostedState.State, c.statePool.SystemState(), &targetInfo); err != nil {
+	if err := runMigrationPrechecks(hostedState.State, c.statePool.SystemState(), &targetInfo, c.presence); err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -534,13 +539,15 @@ func (c *ControllerAPIv4) ConfigSet(_, _ struct{}) {}
 // runMigrationPrechecks runs prechecks on the migration and updates
 // information in targetInfo as needed based on information
 // retrieved from the target controller.
-var runMigrationPrechecks = func(st, ctlrSt *state.State, targetInfo *coremigration.TargetInfo) error {
+var runMigrationPrechecks = func(st, ctlrSt *state.State, targetInfo *coremigration.TargetInfo, presence facade.Presence) error {
 	// Check model and source controller.
 	backend, err := migration.PrecheckShim(st, ctlrSt)
 	if err != nil {
 		return errors.Annotate(err, "creating backend")
 	}
-	if err := migration.SourcePrecheck(backend); err != nil {
+	modelPresence := presence.ModelPresence(st.ModelUUID())
+	controllerPresence := presence.ModelPresence(ctlrSt.ModelUUID())
+	if err := migration.SourcePrecheck(backend, modelPresence, controllerPresence); err != nil {
 		return errors.Annotate(err, "source prechecks failed")
 	}
 

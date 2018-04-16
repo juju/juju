@@ -99,6 +99,9 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 	// compare it.
 	config.GetAuditConfig = nil
 
+	c.Assert(config.Presence, gc.NotNil)
+	config.Presence = nil
+
 	rateLimitConfig := coreapiserver.DefaultRateLimitConfig()
 	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
 

@@ -6,6 +6,7 @@ package facade
 import (
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -60,6 +61,10 @@ type Context interface {
 	// StatePool returns the state pool used by the apiserver to minimise the
 	// creation of the expensive *State instances.
 	StatePool() *state.StatePool
+
+	// Presence returns an instance that is able to be asked for
+	// the current model presence.
+	Presence() Presence
 
 	// ID returns a string that should almost always be "", unless
 	// this is a watcher facade, in which case it exists in lieu of
@@ -131,4 +136,16 @@ type Resources interface {
 // all those things to finish.)
 type Resource interface {
 	Stop() error
+}
+
+// Presence represents the current known state of API connections from agents
+// to any of the API servers.
+type Presence interface {
+	ModelPresence(modelUUID string) ModelPresence
+}
+
+// ModelPresence represents the API server connections for a model.
+type ModelPresence interface {
+	// For a given non controller agent, return the Status for that agent.
+	AgentStatus(agent string) (presence.Status, error)
 }

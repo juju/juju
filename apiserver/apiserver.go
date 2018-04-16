@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
@@ -66,6 +67,7 @@ type Server struct {
 	offerAuthCtxt          *crossmodel.AuthContext
 	lastConnectionID       uint64
 	centralHub             *pubsub.StructuredHub
+	presence               presence.Recorder
 	newObserver            observer.ObserverFactory
 	connCount              int64
 	totalConn              int64
@@ -104,6 +106,7 @@ type ServerConfig struct {
 	DataDir       string
 	LogDir        string
 	Hub           *pubsub.StructuredHub
+	Presence      presence.Recorder
 	Mux           *apiserverhttp.Mux
 	Authenticator httpcontext.LocalMacaroonAuthenticator
 
@@ -169,6 +172,9 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.Hub == nil {
 		return errors.NotValidf("missing Hub")
+	}
+	if c.Presence == nil {
+		return errors.NotValidf("missing Presence")
 	}
 	if c.Mux == nil {
 		return errors.NotValidf("missing Mux")
@@ -246,6 +252,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		restoreStatus:                 cfg.RestoreStatus,
 		facades:                       AllFacades(),
 		centralHub:                    cfg.Hub,
+		presence:                      cfg.Presence,
 		mux:                           cfg.Mux,
 		authenticator:                 cfg.Authenticator,
 		allowModelAccess:              cfg.AllowModelAccess,

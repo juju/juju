@@ -27,6 +27,7 @@ func NewFacade(ctx facade.Context) (*API, error) {
 		migration.PoolShim(ctx.StatePool()),
 		ctx.Resources(),
 		ctx.Auth(),
+		ctx.Presence(),
 	)
 }
 

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -36,6 +37,7 @@ func DefaultServerConfig(c *gc.C) apiserver.ServerConfig {
 		Tag:             names.NewMachineTag("0"),
 		LogDir:          c.MkDir(),
 		Hub:             hub,
+		Presence:        presence.New(clock.WallClock),
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{Enabled: false} },

@@ -17,19 +17,23 @@ import (
 
 type MachineStatusSuite struct {
 	testing.IsolationSuite
+	ctx     common.ModelPresenceContext
 	machine *mockMachine
 }
 
 var _ = gc.Suite(&MachineStatusSuite{})
 
 func (s *MachineStatusSuite) SetUpTest(c *gc.C) {
+	s.ctx = common.ModelPresenceContext{
+		Presence: allAlive(),
+	}
 	s.machine = &mockMachine{
 		status: status.Started,
 	}
 }
 
 func (s *MachineStatusSuite) checkUntouched(c *gc.C) {
-	agent, err := common.MachineStatus(s.machine)
+	agent, err := s.ctx.MachineStatus(s.machine)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(agent.Status, jc.DeepEquals, s.machine.status)
 }
@@ -41,13 +45,14 @@ func (s *MachineStatusSuite) TestNormal(c *gc.C) {
 func (s *MachineStatusSuite) TestErrors(c *gc.C) {
 	s.machine.statusErr = errors.New("status error")
 
-	_, err := common.MachineStatus(s.machine)
+	_, err := s.ctx.MachineStatus(s.machine)
 	c.Assert(err, gc.ErrorMatches, "status error")
 }
 
-func (s *MachineStatusSuite) TestDown(c *gc.C) {
+func (s *MachineStatusSuite) TestDownLegacy(c *gc.C) {
+	s.ctx.Presence = nil
 	s.machine.agentDead = true
-	agent, err := common.MachineStatus(s.machine)
+	agent, err := s.ctx.MachineStatus(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(agent, jc.DeepEquals, status.StatusInfo{
 		Status:  status.Down,
@@ -55,22 +60,54 @@ func (s *MachineStatusSuite) TestDown(c *gc.C) {
 	})
 }
 
-func (s *MachineStatusSuite) TestDownAndDead(c *gc.C) {
+func (s *MachineStatusSuite) TestDown(c *gc.C) {
+	s.ctx.Presence = agentsDown()
+	agent, err := s.ctx.MachineStatus(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(agent, jc.DeepEquals, status.StatusInfo{
+		Status:  status.Down,
+		Message: "agent is not communicating with the server",
+	})
+}
+
+func (s *MachineStatusSuite) TestDownAndDeadLegacy(c *gc.C) {
+	s.ctx.Presence = nil
 	s.machine.agentDead = true
 	s.machine.life = state.Dead
 	// Status is untouched if unit is Dead.
 	s.checkUntouched(c)
 }
 
-func (s *MachineStatusSuite) TestPresenceError(c *gc.C) {
+func (s *MachineStatusSuite) TestDownAndDead(c *gc.C) {
+	s.ctx.Presence = agentsDown()
+	s.machine.life = state.Dead
+	// Status is untouched if unit is Dead.
+	s.checkUntouched(c)
+}
+
+func (s *MachineStatusSuite) TestPresenceErrorLegacy(c *gc.C) {
+	s.ctx.Presence = nil
 	s.machine.agentDead = true
 	s.machine.presenceErr = errors.New("boom")
 	// Presence error gets ignored, so no output is unchanged.
 	s.checkUntouched(c)
 }
 
-func (s *MachineStatusSuite) TestNotDownIfPending(c *gc.C) {
+func (s *MachineStatusSuite) TestPresenceError(c *gc.C) {
+	s.ctx.Presence = presenceError()
+	// Presence error gets ignored, so no output is unchanged.
+	s.checkUntouched(c)
+}
+
+func (s *MachineStatusSuite) TestNotDownIfPendingLegacy(c *gc.C) {
+	s.ctx.Presence = nil
 	s.machine.agentDead = true
+	s.machine.status = status.Pending
+	s.checkUntouched(c)
+}
+
+func (s *MachineStatusSuite) TestNotDownIfPending(c *gc.C) {
+	s.ctx.Presence = agentsDown()
 	s.machine.status = status.Pending
 	s.checkUntouched(c)
 }

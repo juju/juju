@@ -17,12 +17,16 @@ import (
 
 type UnitStatusSuite struct {
 	testing.IsolationSuite
+	ctx  common.ModelPresenceContext
 	unit *fakeStatusUnit
 }
 
 var _ = gc.Suite(&UnitStatusSuite{})
 
 func (s *UnitStatusSuite) SetUpTest(c *gc.C) {
+	s.ctx = common.ModelPresenceContext{
+		Presence: allAlive(),
+	}
 	s.unit = &fakeStatusUnit{
 		agentStatus: status.StatusInfo{
 			Status:  status.Started,
@@ -37,29 +41,15 @@ func (s *UnitStatusSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) checkUntouched(c *gc.C) {
-	agent, workload := common.UnitStatus(s.unit)
+	agent, workload := s.ctx.UnitStatus(s.unit)
 	c.Check(agent.Status, jc.DeepEquals, s.unit.agentStatus)
 	c.Check(agent.Err, jc.ErrorIsNil)
 	c.Check(workload.Status, jc.DeepEquals, s.unit.status)
 	c.Check(workload.Err, jc.ErrorIsNil)
 }
 
-func (s *UnitStatusSuite) TestNormal(c *gc.C) {
-	s.checkUntouched(c)
-}
-
-func (s *UnitStatusSuite) TestErrors(c *gc.C) {
-	s.unit.agentStatusErr = errors.New("agent status error")
-	s.unit.statusErr = errors.New("status error")
-
-	agent, workload := common.UnitStatus(s.unit)
-	c.Check(agent.Err, gc.ErrorMatches, "agent status error")
-	c.Check(workload.Err, gc.ErrorMatches, "status error")
-}
-
-func (s *UnitStatusSuite) TestLost(c *gc.C) {
-	s.unit.presence = false
-	agent, workload := common.UnitStatus(s.unit)
+func (s *UnitStatusSuite) checkLost(c *gc.C) {
+	agent, workload := s.ctx.UnitStatus(s.unit)
 	c.Check(agent.Status, jc.DeepEquals, status.StatusInfo{
 		Status:  status.Lost,
 		Message: "agent is not communicating with the server",
@@ -72,35 +62,96 @@ func (s *UnitStatusSuite) TestLost(c *gc.C) {
 	c.Check(workload.Err, jc.ErrorIsNil)
 }
 
-func (s *UnitStatusSuite) TestLostAndDead(c *gc.C) {
+func (s *UnitStatusSuite) TestNormal(c *gc.C) {
+	s.checkUntouched(c)
+}
+
+func (s *UnitStatusSuite) TestErrors(c *gc.C) {
+	s.unit.agentStatusErr = errors.New("agent status error")
+	s.unit.statusErr = errors.New("status error")
+
+	agent, workload := s.ctx.UnitStatus(s.unit)
+	c.Check(agent.Err, gc.ErrorMatches, "agent status error")
+	c.Check(workload.Err, gc.ErrorMatches, "status error")
+}
+
+func (s *UnitStatusSuite) TestLostLegacy(c *gc.C) {
+	s.ctx.Presence = nil
+	s.unit.presence = false
+	s.checkLost(c)
+}
+
+func (s *UnitStatusSuite) TestLost(c *gc.C) {
+	s.ctx.Presence = agentsDown()
+	s.checkLost(c)
+}
+
+func (s *UnitStatusSuite) TestLostAndDeadLegacy(c *gc.C) {
+	s.ctx.Presence = nil
 	s.unit.presence = false
 	s.unit.life = state.Dead
 	// Status is untouched if unit is Dead.
 	s.checkUntouched(c)
 }
 
-func (s *UnitStatusSuite) TestPresenceError(c *gc.C) {
+func (s *UnitStatusSuite) TestLostAndDead(c *gc.C) {
+	s.ctx.Presence = agentsDown()
+	s.unit.life = state.Dead
+	// Status is untouched if unit is Dead.
+	s.checkUntouched(c)
+}
+
+func (s *UnitStatusSuite) TestPresenceErrorLegacy(c *gc.C) {
+	s.ctx.Presence = nil
 	s.unit.presence = false
 	s.unit.presenceErr = errors.New("boom")
 	// Presence error gets ignored, so no output is unchanged.
 	s.checkUntouched(c)
 }
 
-func (s *UnitStatusSuite) TestNotLostIfAllocating(c *gc.C) {
+func (s *UnitStatusSuite) TestPresenceError(c *gc.C) {
+	s.ctx.Presence = presenceError()
+	// Presence error gets ignored, so no output is unchanged.
+	s.checkUntouched(c)
+}
+
+func (s *UnitStatusSuite) TestNotLostIfAllocatingLegacy(c *gc.C) {
+	s.ctx.Presence = nil
 	s.unit.presence = false
 	s.unit.agentStatus.Status = status.Allocating
 	s.checkUntouched(c)
 }
 
-func (s *UnitStatusSuite) TestCantBeLostDuringInstall(c *gc.C) {
+func (s *UnitStatusSuite) TestNotLostIfAllocating(c *gc.C) {
+	s.ctx.Presence = agentsDown()
+	s.unit.agentStatus.Status = status.Allocating
+	s.checkUntouched(c)
+}
+
+func (s *UnitStatusSuite) TestCantBeLostDuringInstallLegacy(c *gc.C) {
+	s.ctx.Presence = nil
 	s.unit.presence = false
 	s.unit.agentStatus.Status = status.Executing
 	s.unit.agentStatus.Message = "running install hook"
 	s.checkUntouched(c)
 }
 
-func (s *UnitStatusSuite) TestCantBeLostDuringWorkloadInstall(c *gc.C) {
+func (s *UnitStatusSuite) TestCantBeLostDuringInstall(c *gc.C) {
+	s.ctx.Presence = agentsDown()
+	s.unit.agentStatus.Status = status.Executing
+	s.unit.agentStatus.Message = "running install hook"
+	s.checkUntouched(c)
+}
+
+func (s *UnitStatusSuite) TestCantBeLostDuringWorkloadInstallLegacy(c *gc.C) {
+	s.ctx.Presence = nil
 	s.unit.presence = false
+	s.unit.status.Status = status.Maintenance
+	s.unit.status.Message = "installing charm software"
+	s.checkUntouched(c)
+}
+func (s *UnitStatusSuite) TestCantBeLostDuringWorkloadInstall(c *gc.C) {
+	s.ctx.Presence = agentsDown()
 	s.unit.status.Status = status.Maintenance
 	s.unit.status.Message = "installing charm software"
 	s.checkUntouched(c)

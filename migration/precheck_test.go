@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
@@ -36,20 +37,20 @@ type SourcePrecheckSuite struct {
 var _ = gc.Suite(&SourcePrecheckSuite{})
 
 func sourcePrecheck(backend migration.PrecheckBackend) error {
-	return migration.SourcePrecheck(backend)
+	return migration.SourcePrecheck(backend, allAlivePresence(), allAlivePresence())
 }
 
 func (*SourcePrecheckSuite) TestSuccess(c *gc.C) {
 	backend := newHappyBackend()
 	backend.controllerBackend = newHappyBackend()
-	err := migration.SourcePrecheck(backend)
+	err := migration.SourcePrecheck(backend, allAlivePresence(), allAlivePresence())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (*SourcePrecheckSuite) TestDyingModel(c *gc.C) {
 	backend := newFakeBackend()
 	backend.model.life = state.Dying
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "model is dying")
 }
 
@@ -66,7 +67,7 @@ func (*SourcePrecheckSuite) TestCharmUpgrades(c *gc.C) {
 			},
 		},
 	}
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "unit spanner/1 is upgrading")
 }
 
@@ -75,7 +76,7 @@ func (*SourcePrecheckSuite) TestPendingResources(c *gc.C) {
 	backend.pendingResources = []resource.Resource{
 		resourcetesting.NewResource(c, nil, "blob", "foo", "body").Resource,
 	}
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	// Pending resources shouldn't prevent a migration. If they exist
 	// alongside an application, they're remains of a previous failed
 	// deploy that haven't been cleaned up (see lp:1705730). If they
@@ -88,35 +89,35 @@ func (*SourcePrecheckSuite) TestPendingResources(c *gc.C) {
 func (*SourcePrecheckSuite) TestImportingModel(c *gc.C) {
 	backend := newFakeBackend()
 	backend.model.migrationMode = state.MigrationModeImporting
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "model is being imported as part of another migration")
 }
 
 func (*SourcePrecheckSuite) TestCleanupsError(c *gc.C) {
 	backend := newFakeBackend()
 	backend.cleanupErr = errors.New("boom")
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "checking cleanups: boom")
 }
 
 func (*SourcePrecheckSuite) TestCleanupsNeeded(c *gc.C) {
 	backend := newFakeBackend()
 	backend.cleanupNeeded = true
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "cleanup needed")
 }
 
 func (s *SourcePrecheckSuite) TestIsUpgradingError(c *gc.C) {
 	backend := newFakeBackend()
 	backend.controllerBackend.isUpgradingErr = errors.New("boom")
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "controller: checking for upgrades: boom")
 }
 
 func (s *SourcePrecheckSuite) TestIsUpgrading(c *gc.C) {
 	backend := newFakeBackend()
 	backend.controllerBackend.isUpgrading = true
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "controller: upgrade in progress")
 }
 
@@ -134,23 +135,31 @@ func (s *SourcePrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
 
 func (s *SourcePrecheckSuite) TestDyingMachine(c *gc.C) {
 	backend := newBackendWithDyingMachine()
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "machine 0 is dying")
 }
 
 func (s *SourcePrecheckSuite) TestNonStartedMachine(c *gc.C) {
 	backend := newBackendWithDownMachine()
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err.Error(), gc.Equals, "machine 0 agent not functioning at this time (down)")
 }
 
 func (s *SourcePrecheckSuite) TestProvisioningMachine(c *gc.C) {
-	err := migration.SourcePrecheck(newBackendWithProvisioningMachine())
+	err := sourcePrecheck(newBackendWithProvisioningMachine())
 	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
 }
 
+func (s *SourcePrecheckSuite) TestDownMachineAgentLegacy(c *gc.C) {
+	err := migration.SourcePrecheck(newBackendWithDownMachineAgent(), nil, nil)
+	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
+}
+
 func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
-	err := migration.SourcePrecheck(newBackendWithDownMachineAgent())
+	backend := newHappyBackend()
+	modelPresence := downAgentPresence("machine-1")
+	controllerPresence := allAlivePresence()
+	err := migration.SourcePrecheck(backend, modelPresence, controllerPresence)
 	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
 }
 
@@ -163,7 +172,7 @@ func (s *SourcePrecheckSuite) TestDyingApplication(c *gc.C) {
 			},
 		},
 	}
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err.Error(), gc.Equals, "application foo is dying")
 }
 
@@ -177,7 +186,7 @@ func (s *SourcePrecheckSuite) TestWithPendingMinUnits(c *gc.C) {
 			},
 		},
 	}
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err.Error(), gc.Equals, "application foo is below its minimum units threshold")
 }
 
@@ -197,7 +206,7 @@ func (s *SourcePrecheckSuite) TestUnitVersionsDontMatch(c *gc.C) {
 			},
 		},
 	}
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err.Error(), gc.Equals, "unit bar/1 agent binaries don't match model (1.2.4 != 1.2.3)")
 }
 
@@ -212,7 +221,7 @@ func (s *SourcePrecheckSuite) TestDeadUnit(c *gc.C) {
 			},
 		},
 	}
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err.Error(), gc.Equals, "unit foo/0 is dead")
 }
 
@@ -227,7 +236,7 @@ func (s *SourcePrecheckSuite) TestUnitExecuting(c *gc.C) {
 			},
 		},
 	}
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -242,11 +251,11 @@ func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
 			},
 		},
 	}
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle or executing (failed)")
 }
 
-func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
+func (s *SourcePrecheckSuite) TestUnitLostLegacy(c *gc.C) {
 	backend := &fakeBackend{
 		apps: []migration.PrecheckApplication{
 			&fakeApp{
@@ -257,21 +266,29 @@ func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
 			},
 		},
 	}
-	err := migration.SourcePrecheck(backend)
+	err := migration.SourcePrecheck(backend, nil, nil)
+	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle or executing (lost)")
+}
+
+func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
+	backend := newHappyBackend()
+	modelPresence := downAgentPresence("unit-foo-0")
+	controllerPresence := allAlivePresence()
+	err := migration.SourcePrecheck(backend, modelPresence, controllerPresence)
 	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle or executing (lost)")
 }
 
 func (*SourcePrecheckSuite) TestDyingControllerModel(c *gc.C) {
 	backend := newFakeBackend()
 	backend.controllerBackend.model.life = state.Dying
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "controller: model is dying")
 }
 
 func (s *SourcePrecheckSuite) TestControllerAgentVersionError(c *gc.C) {
 	backend := newFakeBackend()
 	backend.controllerBackend.agentVersionErr = errors.New("boom")
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "controller: retrieving model version: boom")
 
 }
@@ -279,14 +296,14 @@ func (s *SourcePrecheckSuite) TestControllerAgentVersionError(c *gc.C) {
 func (s *SourcePrecheckSuite) TestControllerMachineVersionsDontMatch(c *gc.C) {
 	backend := newFakeBackend()
 	backend.controllerBackend = newBackendWithMismatchingTools()
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "controller: machine . agent binaries don't match model.+")
 }
 
 func (s *SourcePrecheckSuite) TestControllerMachineRequiresReboot(c *gc.C) {
 	backend := newFakeBackend()
 	backend.controllerBackend = newBackendWithRebootingMachine()
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "controller: machine 0 is scheduled to reboot")
 }
 
@@ -294,7 +311,7 @@ func (s *SourcePrecheckSuite) TestDyingControllerMachine(c *gc.C) {
 	backend := &fakeBackend{
 		controllerBackend: newBackendWithDyingMachine(),
 	}
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "controller: machine 0 is dying")
 }
 
@@ -302,7 +319,7 @@ func (s *SourcePrecheckSuite) TestNonStartedControllerMachine(c *gc.C) {
 	backend := &fakeBackend{
 		controllerBackend: newBackendWithDownMachine(),
 	}
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err.Error(), gc.Equals, "controller: machine 0 agent not functioning at this time (down)")
 }
 
@@ -310,7 +327,7 @@ func (s *SourcePrecheckSuite) TestProvisioningControllerMachine(c *gc.C) {
 	backend := &fakeBackend{
 		controllerBackend: newBackendWithProvisioningMachine(),
 	}
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err.Error(), gc.Equals, "controller: machine 0 not running (allocating)")
 }
 
@@ -327,7 +344,7 @@ func (s *SourcePrecheckSuite) TestUnitsAllInScope(c *gc.C) {
 			"bar/1": {valid: true, inScope: true},
 		},
 	}}
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -345,7 +362,7 @@ func (s *SourcePrecheckSuite) TestSubordinatesNotYetInScope(c *gc.C) {
 			"bar/1": {valid: true, inScope: false},
 		},
 	}}
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "unit bar/1 hasn't joined relation foo:db bar:db yet")
 }
 
@@ -363,7 +380,7 @@ func (s *SourcePrecheckSuite) TestSubordinatesInvalidUnitsNotYetInScope(c *gc.C)
 			"bar/1": {valid: false, inScope: false},
 		},
 	}}
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -380,7 +397,7 @@ func (s *SourcePrecheckSuite) TestCrossModelUnitsNotYetInScope(c *gc.C) {
 			"foo/0": {valid: true, inScope: false},
 		},
 	}}
-	err := migration.SourcePrecheck(backend)
+	err := sourcePrecheck(backend)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -401,11 +418,11 @@ func (s *TargetPrecheckSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) runPrecheck(backend migration.PrecheckBackend) error {
-	return migration.TargetPrecheck(backend, nil, s.modelInfo)
+	return migration.TargetPrecheck(backend, nil, s.modelInfo, allAlivePresence())
 }
 
 func (s *TargetPrecheckSuite) TestSuccess(c *gc.C) {
-	err := migration.TargetPrecheck(newHappyBackend(), nil, s.modelInfo)
+	err := s.runPrecheck(newHappyBackend())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -416,7 +433,7 @@ func (s *TargetPrecheckSuite) TestModelVersionAheadOfTarget(c *gc.C) {
 	sourceVersion.Patch++
 	s.modelInfo.AgentVersion = sourceVersion
 
-	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
+	err := s.runPrecheck(backend)
 	c.Assert(err.Error(), gc.Equals,
 		`model has higher version than target controller (1.2.4 > 1.2.3)`)
 }
@@ -430,7 +447,7 @@ func (s *TargetPrecheckSuite) TestSourceControllerMajorAhead(c *gc.C) {
 	sourceVersion.Patch = 0
 	s.modelInfo.ControllerAgentVersion = sourceVersion
 
-	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
+	err := s.runPrecheck(backend)
 	c.Assert(err.Error(), gc.Equals,
 		`source controller has higher version than target controller (2.0.0 > 1.2.3)`)
 }
@@ -443,7 +460,7 @@ func (s *TargetPrecheckSuite) TestSourceControllerMinorAhead(c *gc.C) {
 	sourceVersion.Patch = 0
 	s.modelInfo.ControllerAgentVersion = sourceVersion
 
-	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
+	err := s.runPrecheck(backend)
 	c.Assert(err.Error(), gc.Equals,
 		`source controller has higher version than target controller (1.3.0 > 1.2.3)`)
 }
@@ -455,7 +472,7 @@ func (s *TargetPrecheckSuite) TestSourceControllerPatchAhead(c *gc.C) {
 	sourceVersion.Patch++
 	s.modelInfo.ControllerAgentVersion = sourceVersion
 
-	c.Assert(migration.TargetPrecheck(backend, nil, s.modelInfo), jc.ErrorIsNil)
+	c.Assert(s.runPrecheck(backend), jc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestSourceControllerBuildAhead(c *gc.C) {
@@ -465,7 +482,7 @@ func (s *TargetPrecheckSuite) TestSourceControllerBuildAhead(c *gc.C) {
 	sourceVersion.Build++
 	s.modelInfo.ControllerAgentVersion = sourceVersion
 
-	c.Assert(migration.TargetPrecheck(backend, nil, s.modelInfo), jc.ErrorIsNil)
+	c.Assert(s.runPrecheck(backend), jc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestSourceControllerTagMismatch(c *gc.C) {
@@ -475,13 +492,13 @@ func (s *TargetPrecheckSuite) TestSourceControllerTagMismatch(c *gc.C) {
 	sourceVersion.Tag = "alpha"
 	s.modelInfo.ControllerAgentVersion = sourceVersion
 
-	c.Assert(migration.TargetPrecheck(backend, nil, s.modelInfo), jc.ErrorIsNil)
+	c.Assert(s.runPrecheck(backend), jc.ErrorIsNil)
 }
 
 func (s *TargetPrecheckSuite) TestDying(c *gc.C) {
 	backend := newFakeBackend()
 	backend.model.life = state.Dying
-	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
+	err := s.runPrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "model is dying")
 }
 
@@ -497,7 +514,7 @@ func (s *TargetPrecheckSuite) TestIsUpgradingError(c *gc.C) {
 	backend := &fakeBackend{
 		isUpgradingErr: errors.New("boom"),
 	}
-	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
+	err := s.runPrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "checking for upgrades: boom")
 }
 
@@ -505,19 +522,19 @@ func (s *TargetPrecheckSuite) TestIsUpgrading(c *gc.C) {
 	backend := &fakeBackend{
 		isUpgrading: true,
 	}
-	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
+	err := s.runPrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "upgrade in progress")
 }
 
 func (s *TargetPrecheckSuite) TestIsMigrationActiveError(c *gc.C) {
 	backend := &fakeBackend{migrationActiveErr: errors.New("boom")}
-	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
+	err := s.runPrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "checking for active migration: boom")
 }
 
 func (s *TargetPrecheckSuite) TestIsMigrationActive(c *gc.C) {
 	backend := &fakeBackend{migrationActive: true}
-	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
+	err := s.runPrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "model is being migrated out of target controller")
 }
 
@@ -527,25 +544,32 @@ func (s *TargetPrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
 
 func (s *TargetPrecheckSuite) TestDyingMachine(c *gc.C) {
 	backend := newBackendWithDyingMachine()
-	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
+	err := s.runPrecheck(backend)
 	c.Assert(err, gc.ErrorMatches, "machine 0 is dying")
 }
 
 func (s *TargetPrecheckSuite) TestNonStartedMachine(c *gc.C) {
 	backend := newBackendWithDownMachine()
-	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
+	err := s.runPrecheck(backend)
 	c.Assert(err.Error(), gc.Equals, "machine 0 agent not functioning at this time (down)")
 }
 
 func (s *TargetPrecheckSuite) TestProvisioningMachine(c *gc.C) {
 	backend := newBackendWithProvisioningMachine()
-	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
+	err := s.runPrecheck(backend)
 	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
 }
 
-func (s *TargetPrecheckSuite) TestDownMachineAgent(c *gc.C) {
+func (s *TargetPrecheckSuite) TestDownMachineAgentLegacy(c *gc.C) {
 	backend := newBackendWithDownMachineAgent()
-	err := migration.TargetPrecheck(backend, nil, s.modelInfo)
+	err := migration.TargetPrecheck(backend, nil, s.modelInfo, nil)
+	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
+}
+
+func (s *TargetPrecheckSuite) TestDownMachineAgent(c *gc.C) {
+	backend := newHappyBackend()
+	modelPresence := downAgentPresence("machine-1")
+	err := migration.TargetPrecheck(backend, nil, s.modelInfo, modelPresence)
 	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
 }
 
@@ -561,7 +585,7 @@ func (s *TargetPrecheckSuite) TestModelNameAlreadyInUse(c *gc.C) {
 	}
 	backend := newFakeBackend()
 	backend.models = pool.uuids()
-	err := migration.TargetPrecheck(backend, pool, s.modelInfo)
+	err := migration.TargetPrecheck(backend, pool, s.modelInfo, allAlivePresence())
 	c.Assert(err, gc.ErrorMatches, "model named \"model-name\" already exists")
 }
 
@@ -573,7 +597,7 @@ func (s *TargetPrecheckSuite) TestModelNameOverlapOkForDifferentOwner(c *gc.C) {
 	}
 	backend := newFakeBackend()
 	backend.models = pool.uuids()
-	err := migration.TargetPrecheck(backend, pool, s.modelInfo)
+	err := migration.TargetPrecheck(backend, pool, s.modelInfo, allAlivePresence())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -585,7 +609,7 @@ func (s *TargetPrecheckSuite) TestUUIDAlreadyExists(c *gc.C) {
 	}
 	backend := newFakeBackend()
 	backend.models = pool.uuids()
-	err := migration.TargetPrecheck(backend, pool, s.modelInfo)
+	err := migration.TargetPrecheck(backend, pool, s.modelInfo, allAlivePresence())
 	c.Assert(err.Error(), gc.Equals, "model with same UUID already exists (model-uuid)")
 }
 
@@ -600,7 +624,7 @@ func (s *TargetPrecheckSuite) TestUUIDAlreadyExistsButImporting(c *gc.C) {
 	}
 	backend := newFakeBackend()
 	backend.models = pool.uuids()
-	err := migration.TargetPrecheck(backend, pool, s.modelInfo)
+	err := migration.TargetPrecheck(backend, pool, s.modelInfo, allAlivePresence())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1031,4 +1055,29 @@ func (ru *fakeRelationUnit) Valid() (bool, error) {
 
 func (ru *fakeRelationUnit) InScope() (bool, error) {
 	return ru.inScope, ru.scopeErr
+}
+
+func allAlivePresence() migration.ModelPresence {
+	return &fakePresence{}
+}
+
+func downAgentPresence(agent ...string) migration.ModelPresence {
+	m := make(map[string]presence.Status)
+	for _, a := range agent {
+		m[a] = presence.Missing
+	}
+	return &fakePresence{
+		agentStatus: m,
+	}
+}
+
+type fakePresence struct {
+	agentStatus map[string]presence.Status
+}
+
+func (f *fakePresence) AgentStatus(agent string) (presence.Status, error) {
+	if value, found := f.agentStatus[agent]; found {
+		return value, nil
+	}
+	return presence.Alive, nil
 }

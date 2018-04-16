@@ -107,7 +107,9 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 			continue
 		}
 		var status string
-		statusInfo, err := MachineStatus(m)
+		// This is suboptimal as if there are many machines,
+		// we are making many calls into the DB for each machine.
+		statusInfo, err := m.Status()
 		if err == nil {
 			status = string(statusInfo.Status)
 		} else {
