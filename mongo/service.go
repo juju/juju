@@ -34,6 +34,9 @@ const (
 	// LowCacheSize expressed in GB sets the max value Mongo WiredTiger cache can
 	// reach.
 	LowCacheSize = 1
+
+	// Mongo34LowCacheSize changed to being a float, and allows you to specify down to 256MB
+	Mongo34LowCacheSize = 0.25
 )
 
 var (
@@ -153,6 +156,8 @@ type ConfigArgs struct {
 
 // newConf returns the init system config for the mongo state service.
 func newConf(args ConfigArgs) common.Conf {
+	logger.Debugf("creating mongo service configuration for mongo version: %d.%d.%s at %q",
+		args.Version.Major, args.Version.Minor, args.Version.Patch, args.MongoPath)
 	mongoCmd := args.MongoPath +
 
 		" --dbpath " + utils.ShQuote(args.DBDir) +
@@ -195,11 +200,19 @@ func newConf(args ConfigArgs) common.Conf {
 	} else {
 		mongoCmd = mongoCmd +
 			" --storageEngine wiredTiger"
-		// TODO(perrito666) make LowCacheSize 0,25 when mongo version goes
+		// TODO(perrito666) make LowCacheSize 0.25 when mongo version goes
 		// to 3.4
 		if args.MemoryProfile == MemoryProfileLow {
-			mongoCmd = mongoCmd + " --wiredTigerCacheSizeGB " + fmt.Sprint(LowCacheSize)
+			if args.Version.Major == 3 && args.Version.Minor >= 4 {
+				mongoCmd = mongoCmd + " --wiredTigerCacheSizeGB " + fmt.Sprint(Mongo34LowCacheSize)
+			} else {
+				mongoCmd = mongoCmd + " --wiredTigerCacheSizeGB " + fmt.Sprint(LowCacheSize)
+			}
 		}
+	}
+	if args.Version.Major == 3 && args.Version.Minor >= 6 {
+		mongoCmd = mongoCmd +
+			" --bind_ip_all"
 	}
 	extraScript := ""
 	if args.WantNUMACtl {

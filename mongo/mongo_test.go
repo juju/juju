@@ -374,7 +374,7 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 		{"precise", [][]string{{"--target-release", "precise-updates/cloud-tools", "mongodb-server"}}},
 		{"trusty", [][]string{{"juju-mongodb"}}},
 		{"xenial", [][]string{{"juju-mongodb3.2"}, {"juju-mongo-tools3.2"}}},
-		{"bionic", [][]string{{"juju-mongodb3.2"}, {"juju-mongo-tools3.2"}}},
+		{"bionic", [][]string{{"mongodb-server-core"}}},
 	}
 
 	testing.PatchExecutableAsEchoArgs(c, s, "add-apt-repository")
@@ -434,7 +434,7 @@ func (s *MongoSuite) TestInstallMongodFallsBack(c *gc.C) {
 		{"precise", "mongodb-server"},
 		{"trusty", "juju-mongodb"},
 		{"xenial", "juju-mongodb3.2"},
-		{"bionic", "juju-mongodb3.2"},
+		{"bionic", "mongodb-server-core"},
 	}
 
 	dataDir := c.MkDir()

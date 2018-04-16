@@ -171,7 +171,7 @@ func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.
 
 	instanceConstraint := &instances.InstanceConstraint{
 		Region:      "test",
-		Series:      version.SupportedLts(),
+		Series:      version.SupportedLTS(),
 		Constraints: constraints.MustParse("instance-type=t2.medium"),
 	}
 
@@ -193,16 +193,16 @@ var findInstanceSpecErrorTests = []struct {
 	err    string
 }{
 	{
-		series: version.SupportedLts(),
+		series: version.SupportedLTS(),
 		arches: []string{"arm"},
-		err:    fmt.Sprintf(`no "%s" images in test with arches \[arm\]`, version.SupportedLts()),
+		err:    fmt.Sprintf(`no "%s" images in test with arches \[arm\]`, version.SupportedLTS()),
 	}, {
 		series: "raring",
 		arches: []string{"amd64", "i386"},
 		cons:   "mem=4G",
 		err:    `no "raring" images in test matching instance types \[.*\]`,
 	}, {
-		series: version.SupportedLts(),
+		series: version.SupportedLTS(),
 		arches: []string{"amd64"},
 		cons:   "instance-type=m1.small mem=4G",
 		err:    `no instance types in test matching constraints "instance-type=m1.small mem=4096M"`,

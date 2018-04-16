@@ -107,7 +107,7 @@ func SampleConfig() testing.Attrs {
 		"firewall-mode":             config.FwInstance,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"default-series":            jujuversion.SupportedLts(),
+		"default-series":            jujuversion.SupportedLTS(),
 
 		"secret":     "pork",
 		"controller": true,

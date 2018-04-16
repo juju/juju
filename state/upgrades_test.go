@@ -2341,3 +2341,44 @@ func (s *upgradesSuite) TestRemoveVotingMachineIds(c *gc.C) {
 	}
 	s.assertUpgradedData(c, RemoveVotingMachineIds, expectUpgradedData{coll: controllerColl, expected: expectedDocs})
 }
+
+func (s *upgradesSuite) TestUpgradeContainerImageStreamDefault(c *gc.C) {
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.Insert(
+		bson.M{
+			"_id":      "foo",
+			"settings": bson.M{"other-setting": "val"},
+		},
+		bson.M{
+			"_id":      "bar",
+			"settings": bson.M{"container-image-stream": "", "other-setting": "val"},
+		},
+		bson.M{
+			"_id":      "baz",
+			"settings": bson.M{"container-image-stream": "daily"},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSettings := []bson.M{
+		{
+			"_id":      "bar",
+			"settings": bson.M{"container-image-stream": "released", "other-setting": "val"},
+		},
+		{
+			"_id":      "baz",
+			"settings": bson.M{"container-image-stream": "daily"},
+		},
+		{
+			"_id":      "foo",
+			"settings": bson.M{"container-image-stream": "released", "other-setting": "val"},
+		},
+	}
+
+	s.assertUpgradedData(c, UpgradeContainerImageStreamDefault,
+		expectUpgradedData{settingsColl, expectedSettings},
+	)
+}

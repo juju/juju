@@ -1506,3 +1506,44 @@ func RemoveVotingMachineIds(st *State) error {
 	}
 	return nil
 }
+
+// UpgradeDefaultContainerImageStreamConfig ensures that the config value for
+// container-image-stream is set to its default value, "released".
+func UpgradeContainerImageStreamDefault(st *State) error {
+	coll, closer := st.db().GetRawCollection(settingsC)
+	defer closer()
+	iter := coll.Find(bson.D{}).Iter()
+	defer iter.Close()
+
+	var ops []txn.Op
+	var doc settingsDoc
+	for iter.Next(&doc) {
+		needsWrite := false
+		ciStreamVal, keySet := doc.Settings[config.ContainerImageStreamKey]
+		if !keySet {
+			needsWrite = true
+		} else {
+			if ciStream, _ := ciStreamVal.(string); ciStream == "" {
+				needsWrite = true
+			}
+		}
+		if !needsWrite {
+			continue
+		}
+
+		doc.Settings[config.ContainerImageStreamKey] = "released"
+		ops = append(ops, txn.Op{
+			C:      settingsC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+		})
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
+	}
+	return nil
+}

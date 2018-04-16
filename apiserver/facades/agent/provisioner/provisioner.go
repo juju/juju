@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/containerizer"
@@ -263,10 +264,16 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 	switch args.Type {
 	case instance.LXD:
 		// TODO(jam): DefaultMTU needs to be handled here
-		// TODO(jam): Do we want to handle ImageStream here, or do we
-		// hide it from them? (all cached images must come from the
-		// same image stream?)
 	}
+
+	mConfig, err := p.m.ModelConfig()
+	if err != nil {
+		return result, err
+	}
+	if url, set := mConfig.ContainerImageMetadataURL(); set {
+		cfg[config.ContainerImageMetadataURLKey] = url
+	}
+	cfg[config.ContainerImageStreamKey] = mConfig.ContainerImageStream()
 
 	result.ManagerConfig = cfg
 	return result, nil

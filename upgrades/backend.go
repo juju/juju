@@ -36,6 +36,7 @@ type StateBackend interface {
 	MoveOldAuditLog() error
 	AddRelationStatus() error
 	DeleteCloudImageMetadata() error
+	EnsureContainerImageStreamDefault() error
 	MoveMongoSpaceToHASpaceConfig() error
 	CreateMissingApplicationConfig() error
 	RemoveVotingMachineIds() error
@@ -171,4 +172,8 @@ func (m *modelShim) CloudSpec() (environs.CloudSpec, error) {
 
 func (s stateBackend) DeleteCloudImageMetadata() error {
 	return state.DeleteCloudImageMetadata(s.st)
+}
+
+func (s stateBackend) EnsureContainerImageStreamDefault() error {
+	return state.UpgradeContainerImageStreamDefault(s.st)
 }
