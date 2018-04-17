@@ -179,7 +179,7 @@ func (s *LifeSuite) TestLifeString(c *gc.C) {
 }
 
 const (
-	notAliveErr = ".*: not found or not alive"
+	notAliveErr = ".*: .* is not found or not alive"
 	deadErr     = ".*: not found or dead"
 	noErr       = ""
 )

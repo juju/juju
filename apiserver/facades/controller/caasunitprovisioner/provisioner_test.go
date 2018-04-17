@@ -231,8 +231,8 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNoTags(c *gc.C) {
 			{&params.Error{Message: "application another not found", Code: "not found"}},
 		},
 	})
-	s.st.application.CheckCallNames(c, "ApplicationConfig", "AddOperation")
-	s.st.application.CheckCall(c, 1, "AddOperation", state.UnitUpdateProperties{
+	s.st.application.CheckCallNames(c, "ApplicationConfig", "Life", "AddOperation")
+	s.st.application.CheckCall(c, 2, "AddOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("really-new-uuid"),
 		Address:    strPtr("really-new-address"), Ports: &[]string{"really-new-port"},
 		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "really new message"},
@@ -295,7 +295,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithTags(c *gc.C) {
 			{&params.Error{Message: "application another not found", Code: "not found"}},
 		},
 	})
-	s.st.application.CheckCallNames(c, "ApplicationConfig")
+	s.st.application.CheckCallNames(c, "ApplicationConfig", "Life")
 	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("uuid"),
@@ -314,6 +314,39 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithTags(c *gc.C) {
 		ProviderId: strPtr(""),
 		UnitStatus: &status.StatusInfo{Status: status.Terminated, Message: "unit stopped by the cloud"},
 	})
+}
+
+func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
+	s.st.application.jujuManagedUnits = true
+	s.st.application.units = []caasunitprovisioner.Unit{
+		&mockUnit{name: "gitlab/0", life: state.Alive},
+		&mockUnit{name: "gitlab/1", life: state.Alive},
+		&mockUnit{name: "gitlab/2", containerInfo: &mockContainerInfo{providerId: "uuid2"}, life: state.Alive},
+	}
+	s.st.application.life = state.Dying
+
+	units := []params.ApplicationUnitParams{
+		{ProviderId: "uuid", UnitTag: "unit-gitlab-0", Address: "address", Ports: []string{"port"},
+			Status: "running", Info: "message"},
+		{ProviderId: "another-uuid", UnitTag: "unit-gitlab-1", Address: "another-address", Ports: []string{"another-port"},
+			Status: "error", Info: "another message"},
+	}
+	args := params.UpdateApplicationUnitArgs{
+		Args: []params.UpdateApplicationUnits{
+			{ApplicationTag: "application-gitlab", Units: units},
+		},
+	}
+	results, err := s.facade.UpdateApplicationsUnits(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+		},
+	})
+	s.st.application.CheckCallNames(c, "ApplicationConfig", "Life", "Name")
+	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life")
+	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life")
+	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life")
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsService(c *gc.C) {

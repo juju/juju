@@ -1582,7 +1582,7 @@ func (s *MachineSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 
 func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 	cons := constraints.MustParse("mem=1G")
-	cannotSet := `updating machine "1": cannot set constraints: not found or not alive`
+	cannotSet := `updating machine "1": cannot set constraints: machine is not found or not alive`
 	testWhenDying(c, s.machine, cannotSet, cannotSet, func() error {
 		err := s.machine.SetConstraints(cons)
 		mcons, err1 := s.machine.Constraints()

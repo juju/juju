@@ -1323,7 +1323,7 @@ func (m *Machine) SetProvisioned(
 	} else if alive, err := isAlive(m.st, machinesC, m.doc.DocID); err != nil {
 		return err
 	} else if !alive {
-		return errNotAlive
+		return machineNotAliveErr
 	}
 	return fmt.Errorf("already set")
 }
@@ -1725,7 +1725,7 @@ func (m *Machine) setConstraintsOps(cons constraints.Value) ([]txn.Op, error) {
 	}
 
 	if m.doc.Life != Alive {
-		return nil, errNotAlive
+		return nil, machineNotAliveErr
 	}
 	if _, err := m.InstanceId(); err == nil {
 		return nil, fmt.Errorf("machine is already provisioned")
