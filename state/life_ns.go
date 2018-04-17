@@ -71,7 +71,7 @@ func (nsLife_) aliveOp(entities mongo.Collection, docID string) (txn.Op, error) 
 	switch errors.Cause(err) {
 	case nil:
 	case errCheckFailed:
-		return txn.Op{}, errNotAlive
+		return txn.Op{}, notAliveErr
 	default:
 		return txn.Op{}, errors.Trace(err)
 	}

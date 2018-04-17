@@ -10,9 +10,6 @@ import (
 	"github.com/juju/juju/mongo"
 )
 
-// NotAliveError is used to indicate an entity is not alive.
-var NotAliveError = errors.New("not alive")
-
 // Life represents the lifecycle state of the entities
 // Relation, Unit, Service and Machine.
 type Life int8

@@ -1543,9 +1543,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 }
 
 var (
-	machineNotAliveErr = errors.New("machine is not alive")
 	machineNotCleanErr = errors.New("machine is dirty")
-	unitNotAliveErr    = errors.New("unit is not alive")
 	alreadyAssignedErr = errors.New("unit is already assigned to a machine")
 	inUseErr           = errors.New("machine is not unused")
 )

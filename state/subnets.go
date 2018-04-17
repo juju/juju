@@ -120,7 +120,7 @@ func (s *Subnet) EnsureDead() (err error) {
 		s.doc.Life = Dead
 		return nil
 	}
-	return onAbort(txnErr, errNotAlive)
+	return onAbort(txnErr, subnetNotAliveErr)
 }
 
 // Remove removes a Dead subnet. If the subnet is not Dead or it is already

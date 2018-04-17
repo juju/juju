@@ -400,7 +400,7 @@ func (a *Application) setExposed(exposed bool) (err error) {
 		Update: bson.D{{"$set", bson.D{{"exposed", exposed}}}},
 	}}
 	if err := a.st.db().RunTransaction(ops); err != nil {
-		return errors.Errorf("cannot set exposed flag for application %q to %v: %v", a, exposed, onAbort(err, errNotAlive))
+		return errors.Errorf("cannot set exposed flag for application %q to %v: %v", a, exposed, onAbort(err, applicationNotAliveErr))
 	}
 	a.doc.Exposed = exposed
 	return nil
@@ -1622,7 +1622,7 @@ func (a *Application) AddUnit(args AddUnitParams) (unit *Unit, err error) {
 		if alive, err := isAlive(a.st, applicationsC, a.doc.DocID); err != nil {
 			return nil, err
 		} else if !alive {
-			return nil, errors.New("application is not alive")
+			return nil, applicationNotAliveErr
 		}
 		return nil, errors.New("inconsistent state")
 	} else if err != nil {
@@ -2008,7 +2008,7 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	}
 	defer errors.DeferredAnnotatef(&err, "cannot set constraints")
 	if a.doc.Life != Alive {
-		return errNotAlive
+		return applicationNotAliveErr
 	}
 	ops := []txn.Op{{
 		C:      applicationsC,
@@ -2016,7 +2016,7 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 		Assert: isAliveDoc,
 	}}
 	ops = append(ops, setConstraintsOp(a.globalKey(), cons))
-	return onAbort(a.st.db().RunTransaction(ops), errNotAlive)
+	return onAbort(a.st.db().RunTransaction(ops), applicationNotAliveErr)
 }
 
 // EndpointBindings returns the mapping for each endpoint name and the space
@@ -2066,7 +2066,7 @@ func (a *Application) SetMetricCredentials(b []byte) error {
 			if err != nil {
 				return nil, errors.Trace(err)
 			} else if !alive {
-				return nil, errNotAlive
+				return nil, applicationNotAliveErr
 			}
 		}
 		ops := []txn.Op{
@@ -2080,9 +2080,6 @@ func (a *Application) SetMetricCredentials(b []byte) error {
 		return ops, nil
 	}
 	if err := a.st.db().Run(buildTxn); err != nil {
-		if err == errNotAlive {
-			return errors.New("cannot update metric credentials: application " + err.Error())
-		}
 		return errors.Annotatef(err, "cannot update metric credentials")
 	}
 	a.doc.MetricCredentials = b
@@ -2390,7 +2387,7 @@ func (op *AddUnitOperation) Build(attempt int) ([]txn.Op, error) {
 	if alive, err := isAlive(op.application.st, applicationsC, op.application.doc.DocID); err != nil {
 		return nil, err
 	} else if !alive {
-		return nil, NotAliveError
+		return nil, applicationNotAliveErr
 	}
 
 	var ops []txn.Op

@@ -358,11 +358,9 @@ func (c *Charm) Refresh() error {
 func (c *Charm) Destroy() error {
 	buildTxn := func(_ int) ([]txn.Op, error) {
 		ops, err := charmDestroyOps(c.st, c.doc.URL)
-		switch errors.Cause(err) {
-		case nil:
-		case errNotAlive:
+		if IsNotAlive(err) {
 			return nil, jujutxn.ErrNoOperations
-		default:
+		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return ops, nil

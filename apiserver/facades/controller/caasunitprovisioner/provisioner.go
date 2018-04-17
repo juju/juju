@@ -594,7 +594,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 	}
 	err := app.UpdateUnits(&unitUpdate)
 	// We ignore any updates for dying applications.
-	if errors.Cause(err) == state.NotAliveError {
+	if state.IsNotAlive(err) {
 		return nil
 	}
 	return err

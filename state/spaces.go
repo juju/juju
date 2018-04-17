@@ -201,7 +201,7 @@ func (s *Space) EnsureDead() (err error) {
 		s.doc.Life = Dead
 		return nil
 	}
-	return onAbort(txnErr, errNotAlive)
+	return onAbort(txnErr, spaceNotAliveErr)
 }
 
 // Remove removes a Dead space. If the space is not Dead or it is already

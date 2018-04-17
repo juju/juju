@@ -272,10 +272,10 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *gc.C) {
 		}
 		return err
 	}
-	expect := ".*: unit is not alive"
+	expect := ".*: unit is not found or not alive"
 	testWhenDying(c, unit, expect, expect, assignTest)
 
-	expect = ".*: machine is not alive"
+	expect = ".*: machine is not found or not alive"
 	unit, err = s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	testWhenDying(c, machine, expect, expect, assignTest)
@@ -477,7 +477,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineUnitNotAlive(c *gc.C) {
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToNewMachine()
-	c.Assert(err, gc.ErrorMatches, `cannot assign unit "wordpress/0" to new machine: unit is not alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot assign unit "wordpress/0" to new machine: unit is not found or not alive`)
 
 	// ...and a dead one.
 	err = subUnit.EnsureDead()
@@ -487,7 +487,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineUnitNotAlive(c *gc.C) {
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToNewMachine()
-	c.Assert(err, gc.ErrorMatches, `cannot assign unit "wordpress/0" to new machine: unit is not alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot assign unit "wordpress/0" to new machine: unit is not found or not alive`)
 }
 
 func (s *AssignSuite) TestAssignUnitToNewMachineUnitRemoved(c *gc.C) {

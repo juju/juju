@@ -208,7 +208,7 @@ func (s *storageAddSuite) TestAddStorageToDyingUnitFails(c *gc.C) {
 	}).Check()
 
 	_, err := s.IAASModel.AddStorageForUnit(s.unitTag, "multi1to10", makeStorageCons("loop-pool", 1024, 1))
-	c.Assert(err, gc.ErrorMatches, `adding "multi1to10" storage to storage-block2/0: unit is not alive`)
+	c.Assert(err, gc.ErrorMatches, `adding "multi1to10" storage to storage-block2/0: unit is not found or not alive`)
 
 	s.assertStorageCount(c, s.originalStorageCount)
 }

@@ -47,7 +47,32 @@ func IsCharmAlreadyUploadedError(err interface{}) bool {
 var ErrCharmRevisionAlreadyModified = fmt.Errorf("charm revision already modified")
 
 var ErrDead = fmt.Errorf("not found or dead")
-var errNotAlive = fmt.Errorf("not found or not alive")
+
+type notAliveError struct {
+	entity string
+}
+
+func (e notAliveError) Error() string {
+	if e.entity == "" {
+		return "not found or not alive"
+	}
+	return fmt.Sprintf("%v is not found or not alive", e.entity)
+}
+
+// IsNotAlive returns true if err is cause by a not alive error.
+func IsNotAlive(err error) bool {
+	_, ok := errors.Cause(err).(notAliveError)
+	return ok
+}
+
+var (
+	machineNotAliveErr     = notAliveError{"machine"}
+	applicationNotAliveErr = notAliveError{"application"}
+	unitNotAliveErr        = notAliveError{"unit"}
+	spaceNotAliveErr       = notAliveError{"space"}
+	subnetNotAliveErr      = notAliveError{"subnet"}
+	notAliveErr            = notAliveError{""}
+)
 
 func onAbort(txnErr, err error) error {
 	if txnErr == txn.ErrAborted ||

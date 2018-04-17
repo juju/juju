@@ -1870,7 +1870,7 @@ func (s *ApplicationSuite) TestAddUnitWhenNotAlive(c *gc.C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.mysql.AddUnit(state.AddUnitParams{})
-	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application is not alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application is not found or not alive`)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Remove()
@@ -2387,7 +2387,7 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cons1 := constraints.MustParse("mem=1G")
 	err = s.mysql.SetConstraints(cons1)
-	c.Assert(err, gc.ErrorMatches, `cannot set constraints: not found or not alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot set constraints: application is not found or not alive`)
 	scons, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&scons, jc.Satisfies, constraints.IsEmpty)
@@ -2398,7 +2398,7 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 	err = unit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.SetConstraints(cons1)
-	c.Assert(err, gc.ErrorMatches, `cannot set constraints: not found or not alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot set constraints: application is not found or not alive`)
 	_, err = s.mysql.Constraints()
 	c.Assert(err, gc.ErrorMatches, `constraints not found`)
 }
@@ -2672,7 +2672,7 @@ func (s *ApplicationSuite) TestMetricCredentialsOnDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	err = s.mysql.SetMetricCredentials([]byte("set after dying"))
-	c.Assert(err, gc.ErrorMatches, "cannot update metric credentials: application not found or not alive")
+	c.Assert(err, gc.ErrorMatches, "cannot update metric credentials: application is not found or not alive")
 }
 
 func (s *ApplicationSuite) testStatus(c *gc.C, status1, status2, expected status.Status) {
@@ -3416,7 +3416,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	})}
 	err = s.app.UpdateUnits(&updateUnits)
 	if !aliveApp {
-		c.Assert(errors.Cause(err), jc.DeepEquals, state.NotAliveError)
+		c.Assert(err, jc.Satisfies, state.IsNotAlive)
 		return
 	}
 	c.Assert(err, jc.ErrorIsNil)
