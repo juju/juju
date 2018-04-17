@@ -101,7 +101,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 			"  \"2\" is not a valid application name\n" +
 			"  \"foo/0\" is not a valid application name",
 	}, {
-		message: "command to application mysql",
+		message:  "command to application mysql",
 		args:     []string{"--app", "mysql", "sudo reboot"},
 		commands: "sudo reboot",
 		services: []string{"mysql"},
