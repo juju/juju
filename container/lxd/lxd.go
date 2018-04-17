@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -46,6 +48,9 @@ type containerManager struct {
 	server    lxd.ContainerServer
 	// a host machine's availability zone
 	availabilityZone string
+
+	imageMetadataURL string
+	imageStream      string
 }
 
 // containerManager implements container.Manager.
@@ -72,7 +77,6 @@ var CloudImagesDailyRemote = lxdtools.RemoteServer{
 }
 
 var generateCertificate = func() ([]byte, []byte, error) { return lxdshared.GenerateMemCert(true) }
-var DefaultImageSources = []lxdtools.RemoteServer{CloudImagesRemote, CloudImagesDailyRemote}
 
 var ConnectLocal = connectLocal
 
@@ -105,11 +109,16 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 		logger.Infof("Availability zone will be empty for this container manager")
 	}
 
+	imageMetaDataURL := conf.PopValue(config.ContainerImageMetadataURLKey)
+	imageStream := conf.PopValue(config.ContainerImageStreamKey)
+
 	conf.WarnAboutUnused()
 	return &containerManager{
 		modelUUID:        modelUUID,
 		namespace:        namespace,
 		availabilityZone: availabilityZone,
+		imageMetadataURL: imageMetaDataURL,
+		imageStream:      imageStream,
 	}, nil
 }
 
@@ -248,11 +257,16 @@ func (manager *containerManager) createInstance(
 		}
 	}
 
+	imageSources, err := manager.getImageSources()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
 	imageServer, image, imageName, err := lxdtools.GetImageWithServer(
 		manager.server,
 		series,
 		jujuarch.HostArch(),
-		DefaultImageSources,
+		imageSources,
 	)
 	if err != nil {
 		return "", errors.Annotatef(err, "failed to ensure LXD image")
@@ -339,6 +353,42 @@ func (manager *containerManager) createInstance(
 		return "", fmt.Errorf("LXD error: %s", opInfo.Err)
 	}
 	return name, nil
+}
+
+// getImageSources returns a list of LXD remote image sources based on the
+// configuration that was passed into the container manager.
+func (manager *containerManager) getImageSources() ([]lxdtools.RemoteServer, error) {
+	imURL := manager.imageMetadataURL
+
+	// Unless the configuration explicitly requests the daily stream,
+	// an empty image metadata URL results in a search of the default sources.
+	if imURL == "" && manager.imageStream != "daily" {
+		logger.Debugf("checking default image metadata sources")
+		return []lxdtools.RemoteServer{CloudImagesRemote, CloudImagesDailyRemote}, nil
+	}
+	// Otherwise only check the daily stream.
+	if imURL == "" {
+		return []lxdtools.RemoteServer{CloudImagesDailyRemote}, nil
+	}
+
+	imURL, err := imagemetadata.ImageMetadataURL(imURL, manager.imageStream)
+	if err != nil {
+		return nil, errors.Annotatef(err, "generating image metadata source")
+	}
+	// LXD requires HTTPS.
+	imURL = strings.Replace(imURL, "http:", "https:", 1)
+	remote := lxdtools.RemoteServer{
+		Name:     strings.Replace(imURL, "https://", "", 1),
+		Host:     imURL,
+		Protocol: lxdtools.SimplestreamsProtocol,
+	}
+
+	// If the daily stream was configured with custom image metadata URL,
+	// only use the Ubuntu daily as a fallback.
+	if manager.imageStream == "daily" {
+		return []lxdtools.RemoteServer{remote, CloudImagesDailyRemote}, nil
+	}
+	return []lxdtools.RemoteServer{remote, CloudImagesRemote, CloudImagesDailyRemote}, nil
 }
 
 func (manager *containerManager) removeInstance(name string) error {
