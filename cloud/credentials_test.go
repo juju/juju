@@ -587,23 +587,19 @@ func (s *credentialsSuite) TestFinalizeCredentialRelativeFilePath(c *gc.C) {
 	err := ioutil.WriteFile(absFilename, []byte{}, 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	filename := "~/filename"
-
 	cred := cloud.NewCredential(
 		cloud.JSONFileAuthType,
 		map[string]string{
-			"file": filename,
+			"file": "~/filename",
 		},
 	)
 	schema := cloud.CredentialSchema{{
 		"file", cloud.CredentialAttr{FilePath: true},
 	}}
-
 	readFile := func(path string) ([]byte, error) {
 		c.Assert(path, gc.Equals, absFilename)
 		return []byte("file-contents"), nil
 	}
-
 	newCred, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.JSONFileAuthType: schema,
 	}, readFile)
