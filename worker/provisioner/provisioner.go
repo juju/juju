@@ -88,9 +88,9 @@ func NewRetryStrategy(delay time.Duration, count int) RetryStrategy {
 
 // configObserver is implemented so that tests can see when the environment
 // configuration changes.
-// The dying function should be set by the outer provider to return its
-// catacomb. This is used to prevent notify from blocking a provisioner
-// that has had its Kill method invoked.
+// The catacomb is set in export_test to the provider's member.
+// This is used to prevent notify from blocking a provisioner that has had its
+// Kill method invoked.
 type configObserver struct {
 	sync.Mutex
 	observer chan<- *config.Config
