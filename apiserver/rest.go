@@ -92,7 +92,7 @@ func (h *modelRestHandler) processRemoteApplication(r *http.Request, w http.Resp
 	// Get the backend state for the source model so we can lookup the app in that model to get the charm details.
 	offerUUID := remoteApp.OfferUUID()
 	sourceModelUUID := remoteApp.SourceModel().Id()
-	sourceSt, err := h.ctxt.srv.statePool.Get(sourceModelUUID)
+	sourceSt, err := h.ctxt.srv.shared.statePool.Get(sourceModelUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}

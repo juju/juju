@@ -40,3 +40,8 @@ const StrictMigration = "strict-migration"
 
 // CAAS enables creating models on CAAS infrastructure (k8s, etc)
 const CAAS = "caas"
+
+// NewPresence indicates that the new in-memory presence implementation
+// should be used by the API server to determine agent presence.
+// This value is only checked using the controller config "features" attrubite.
+const NewPresence = "new-presence"

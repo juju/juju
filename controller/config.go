@@ -160,6 +160,9 @@ const (
 	// JujuManagementSpace is the network space that agents should use to
 	// communicate with controllers.
 	JujuManagementSpace = "juju-mgmt-space"
+
+	// Features allows a list of runtime changable features to be updated.
+	Features = "features"
 )
 
 var (
@@ -187,6 +190,7 @@ var (
 		AuditLogMaxSize,
 		AuditLogMaxBackups,
 		AuditLogExcludeMethods,
+		Features,
 	}
 
 	// AllowedUpdateConfigAttributes contains all of the controller
@@ -201,6 +205,7 @@ var (
 		AuditLogExcludeMethods,
 		JujuHASpace,
 		JujuManagementSpace,
+		Features,
 	)
 
 	// DefaultAuditLogExcludeMethods is the default list of methods to
@@ -346,6 +351,18 @@ func (c Config) AuditLogExcludeMethods() set.Strings {
 		return items
 	}
 	return set.NewStrings(DefaultAuditLogExcludeMethods...)
+}
+
+// Features returns the controller config set features flags.
+func (c Config) Features() set.Strings {
+	features := set.NewStrings()
+	if value, ok := c[Features]; ok {
+		value := value.([]interface{})
+		for _, item := range value {
+			features.Add(item.(string))
+		}
+	}
+	return features
 }
 
 // ControllerUUID returns the uuid for the model's controller.
@@ -632,6 +649,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxTxnLogSize:           schema.String(),
 	JujuHASpace:             schema.String(),
 	JujuManagementSpace:     schema.String(),
+	Features:                schema.List(schema.String()),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
@@ -652,4 +670,5 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
 	JujuHASpace:             schema.Omit,
 	JujuManagementSpace:     schema.Omit,
+	Features:                schema.Omit,
 })

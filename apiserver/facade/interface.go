@@ -66,6 +66,10 @@ type Context interface {
 	// the current model presence.
 	Presence() Presence
 
+	// Hub returns the central hub that the API server holds.
+	// At least at this stage, facades only need to publish events.
+	Hub() Hub
+
 	// ID returns a string that should almost always be "", unless
 	// this is a watcher facade, in which case it exists in lieu of
 	// actual arguments in the Next() call, and is used as a key
@@ -148,4 +152,9 @@ type Presence interface {
 type ModelPresence interface {
 	// For a given non controller agent, return the Status for that agent.
 	AgentStatus(agent string) (presence.Status, error)
+}
+
+// Hub represents the central hub that the API server has.
+type Hub interface {
+	Publish(topic string, data interface{}) (<-chan struct{}, error)
 }

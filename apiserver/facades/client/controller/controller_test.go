@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -23,9 +24,11 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/permission"
+	pscontroller "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
@@ -39,6 +42,7 @@ type controllerSuite struct {
 	controller *controller.ControllerAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
+	hub        *pubsub.StructuredHub
 }
 
 var _ = gc.Suite(&controllerSuite{})
@@ -58,6 +62,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
+	s.hub = pubsub.NewStructuredHub(nil)
 
 	controller, err := controller.NewControllerAPIv5(
 		facadetest.Context{
@@ -65,6 +70,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 			StatePool_: s.StatePool,
 			Resources_: s.resources,
 			Auth_:      s.authorizer,
+			Hub_:       s.hub,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
@@ -938,4 +944,27 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 	}})
 
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *controllerSuite) TestConfigSetPublishesEvent(c *gc.C) {
+	done := make(chan struct{})
+	var config corecontroller.Config
+	s.hub.Subscribe(pscontroller.ConfigChanged, func(topic string, data pscontroller.ConfigChangedMessage, err error) {
+		c.Check(err, jc.ErrorIsNil)
+		config = data.Config
+		close(done)
+	})
+
+	err := s.controller.ConfigSet(params.ControllerConfigSet{Config: map[string]interface{}{
+		"features": []string{"foo", "bar"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatal("no event sent}")
+	}
+
+	c.Assert(config.Features().SortedValues(), jc.DeepEquals, []string{"bar", "foo"})
 }

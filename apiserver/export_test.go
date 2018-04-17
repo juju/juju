@@ -44,7 +44,7 @@ func NewErrRoot(err error) *errRoot {
 // *barely* connected to anything.  Just enough to let you probe some
 // of the interfaces, but not enough to actually do any RPC calls.
 func TestingAPIRoot(facades *facade.Registry) rpc.Root {
-	return newAPIRoot(nil, state.NewStatePool(nil), facades, common.NewResources(), nil, nil)
+	return newAPIRoot(nil, nil, facades, common.NewResources(), nil)
 }
 
 // TestingAPIHandler gives you an APIHandler that isn't connected to
@@ -57,7 +57,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHan
 	srv := &Server{
 		authenticator: authenticator,
 		offerAuthCtxt: offerAuthCtxt,
-		statePool:     pool,
+		shared:        &sharedServerContext{statePool: pool},
 		tag:           names.NewMachineTag("0"),
 	}
 	h, err := newAPIHandler(srv, st, nil, st.ModelUUID(), 6543, "testing.invalid:1234")

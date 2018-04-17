@@ -177,6 +177,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if err != nil {
 		return noStatus, errors.Annotate(err, "cannot get model")
 	}
+	context.presence.Presence = c.api.presence.ModelPresence(m.UUID())
 	cfg, err := m.Config()
 	if err != nil {
 		return noStatus, errors.Annotate(err, "cannot obtain current model config")

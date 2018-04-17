@@ -37,6 +37,7 @@ func (ctx *charmsSuiteContext) State() *state.State         { return ctx.cs.Stat
 func (ctx *charmsSuiteContext) StatePool() *state.StatePool { return nil }
 func (ctx *charmsSuiteContext) ID() string                  { return "" }
 func (ctx *charmsSuiteContext) Presence() facade.Presence   { return nil }
+func (ctx *charmsSuiteContext) Hub() facade.Hub             { return nil }
 
 func (s *charmsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)

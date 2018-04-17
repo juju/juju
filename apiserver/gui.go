@@ -137,7 +137,7 @@ func (gr *guiRouter) ensureFileHandler(h func(gh *guiHandler, w http.ResponseWri
 // and archive hash.
 func (gr *guiRouter) ensureFiles(req *http.Request) (rootDir string, hash string, err error) {
 	// Retrieve the Juju GUI info from the GUI storage.
-	st := gr.ctxt.srv.statePool.SystemState()
+	st := gr.ctxt.srv.shared.statePool.SystemState()
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return "", "", errors.Annotate(err, "cannot open GUI storage")
@@ -361,7 +361,7 @@ func getConfigPath(path string, ctxt httpContext) string {
 	if uuid != "" {
 		return fmt.Sprintf("%[1]s?model-uuid=%[2]s&base-postfix=%[2]s/", configPath, uuid)
 	}
-	st := ctxt.srv.statePool.SystemState()
+	st := ctxt.srv.shared.statePool.SystemState()
 	if isNewGUI(st) {
 		// This is the proper case in which a new GUI is being served from a
 		// new URL. No query must be included in the config path.
@@ -370,7 +370,7 @@ func getConfigPath(path string, ctxt httpContext) string {
 	// Possibly handle requests to the new "/u/{user}/{model}" path, but
 	// made from an old version of the GUI, which didn't connect to the
 	// model based on the path.
-	uuid, user, model := modelInfoFromPath(path, st, ctxt.srv.statePool)
+	uuid, user, model := modelInfoFromPath(path, st, ctxt.srv.shared.statePool)
 	if uuid != "" {
 		return fmt.Sprintf("%s?model-uuid=%s&base-postfix=u/%s/%s/", configPath, uuid, user, model)
 	}
