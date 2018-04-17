@@ -49,7 +49,7 @@ github.com/juju/mutex	git	1fe2a4bf0a3a2c10881501233ff7c6aed7790082	2017-11-10T02
 github.com/juju/persistent-cookiejar	git	d67418f14c93a698e37b52468958d5d4dcf8a7dd	2017-04-28T16:15:59Z
 github.com/juju/pubsub	git	091412f84753115324ce870066ffbb6bb55c4ef4	2017-11-22T01:43:26Z
 github.com/juju/ratelimit	git	5b9ff866471762aa2ab2dced63c9fb6f53921342	2017-05-23T01:21:41Z
-github.com/juju/replicaset	git	bf02e03d799f45665e33b486c5c7fecd544a1322	2018-04-17T07:04:59Z
+github.com/juju/replicaset	git	86037679224858cd82666e4877a8ac4c42cbda8b	2018-04-17T12:35:43Z
 github.com/juju/retry	git	62c62032529169c7ec02fa48f93349604c345e1f	2015-10-29T02:48:21Z
 github.com/juju/rfc	git	ebdbbdb950cd039a531d15cdc2ac2cbd94f068ee	2016-07-11T02:42:13Z
 github.com/juju/romulus	git	5b6f449d5c36ed6927c417c68379ab5acb7d7b46	2018-03-27T20:54:18Z
