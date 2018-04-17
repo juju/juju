@@ -36,6 +36,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.JujuHASpace,
 		controller.JujuManagementSpace,
 		controller.AuditLogExcludeMethods,
+		controller.Features,
 	)
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)

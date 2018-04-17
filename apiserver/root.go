@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -46,7 +46,7 @@ type apiHandler struct {
 	model     *state.Model
 	rpcConn   *rpc.Conn
 	resources *common.Resources
-	presence  presence.Recorder
+	shared    *sharedServerContext
 	entity    state.Entity
 
 	// An empty modelUUID means that the user has logged in through the
@@ -76,7 +76,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		state:        st,
 		model:        m,
 		resources:    common.NewResources(),
-		presence:     srv.presence,
+		shared:       srv.shared,
 		rpcConn:      rpcConn,
 		modelUUID:    modelUUID,
 		connectionID: connectionID,
@@ -159,24 +159,22 @@ func (s *srvCaller) Call(ctx context.Context, objId string, arg reflect.Value) (
 // apiRoot implements basic method dispatching to the facade registry.
 type apiRoot struct {
 	state       *state.State
-	pool        *state.StatePool
+	shared      *sharedServerContext
 	facades     *facade.Registry
 	resources   *common.Resources
 	authorizer  facade.Authorizer
-	presence    presence.Recorder
 	objectMutex sync.RWMutex
 	objectCache map[objectKey]reflect.Value
 }
 
 // newAPIRoot returns a new apiRoot.
-func newAPIRoot(st *state.State, pool *state.StatePool, facades *facade.Registry, resources *common.Resources, authorizer facade.Authorizer, presence presence.Recorder) *apiRoot {
+func newAPIRoot(st *state.State, shared *sharedServerContext, facades *facade.Registry, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
 	r := &apiRoot{
 		state:       st,
-		pool:        pool,
+		shared:      shared,
 		facades:     facades,
 		resources:   resources,
 		authorizer:  authorizer,
-		presence:    presence,
 		objectCache: make(map[objectKey]reflect.Value),
 	}
 	return r
@@ -408,13 +406,15 @@ func (ctx *facadeContext) Presence() facade.Presence {
 
 // ModelPresence implements facade.ModelPresence.
 func (ctx *facadeContext) ModelPresence(modelUUID string) facade.ModelPresence {
-	// TODO(thumper): return the global apiserver.presence connections
-	// limited to the specified modelUUID if the presence implementation
-	// is set to be through the new presence code. Returning nil will use
-	// the state presence through the AgentPresence function on machines and
-	// units.
-	// return ctx.r.presence.Connections().ForModel(modelUUID)
+	if ctx.r.shared.featureEnabled(feature.NewPresence) {
+		return ctx.r.shared.presence.Connections().ForModel(modelUUID)
+	}
 	return nil
+}
+
+// Hub implements facade.Context.
+func (ctx *facadeContext) Hub() facade.Hub {
+	return ctx.r.shared.centralHub
 }
 
 // State is part of of the facade.Context interface.
@@ -424,7 +424,7 @@ func (ctx *facadeContext) State() *state.State {
 
 // StatePool is part of of the facade.Context interface.
 func (ctx *facadeContext) StatePool() *state.StatePool {
-	return ctx.r.pool
+	return ctx.r.shared.statePool
 }
 
 // ID is part of of the facade.Context interface.

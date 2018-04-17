@@ -24,6 +24,7 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
 )
 
@@ -41,6 +42,7 @@ type ControllerAPI struct {
 	apiUser    names.UserTag
 	resources  facade.Resources
 	presence   facade.Presence
+	hub        facade.Hub
 }
 
 // ControllerAPIv4 provides the v4 Controller API. The only difference
@@ -62,6 +64,7 @@ func NewControllerAPIv5(ctx facade.Context) (*ControllerAPI, error) {
 	pool := ctx.StatePool()
 	resources := ctx.Resources()
 	presence := ctx.Presence()
+	hub := ctx.Hub()
 
 	return NewControllerAPI(
 		st,
@@ -69,6 +72,7 @@ func NewControllerAPIv5(ctx facade.Context) (*ControllerAPI, error) {
 		authorizer,
 		resources,
 		presence,
+		hub,
 	)
 }
 
@@ -98,6 +102,7 @@ func NewControllerAPI(
 	authorizer facade.Authorizer,
 	resources facade.Resources,
 	presence facade.Presence,
+	hub facade.Hub,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(common.ErrPerm)
@@ -128,6 +133,7 @@ func NewControllerAPI(
 		apiUser:    apiUser,
 		resources:  resources,
 		presence:   presence,
+		hub:        hub,
 	}, nil
 }
 
@@ -526,7 +532,22 @@ func (c *ControllerAPI) ConfigSet(args params.ControllerConfigSet) error {
 	if err := c.checkHasAdmin(); err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(c.state.UpdateControllerConfig(args.Config, nil))
+	if err := c.state.UpdateControllerConfig(args.Config, nil); err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(thumper): add a version to controller config to allow for
+	// simultaneous updates and races in publishing, potentially across
+	// HA servers.
+	cfg, err := c.state.ControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if _, err := c.hub.Publish(
+		controller.ConfigChanged,
+		controller.ConfigChangedMessage{cfg}); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // Mask the ConfigSet method from the v4 API. The API reflection code

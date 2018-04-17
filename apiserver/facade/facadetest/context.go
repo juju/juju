@@ -12,6 +12,7 @@ import (
 type Context struct {
 	Auth_      facade.Authorizer
 	Dispose_   func()
+	Hub_       facade.Hub
 	Resources_ facade.Resources
 	State_     *state.State
 	StatePool_ *state.StatePool
@@ -29,6 +30,11 @@ func (context Context) Auth() facade.Authorizer {
 // Dispose is part of the facade.Context interface.
 func (context Context) Dispose() {
 	context.Dispose_()
+}
+
+// Hub is part of the facade.Context interface.
+func (context Context) Hub() facade.Hub {
+	return context.Hub_
 }
 
 // Resources is part of the facade.Context interface.

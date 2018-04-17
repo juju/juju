@@ -53,7 +53,8 @@ type Server struct {
 	clock     clock.Clock
 	pingClock clock.Clock
 	wg        sync.WaitGroup
-	statePool *state.StatePool
+
+	shared *sharedServerContext
 
 	// tag of the machine where the API server is running.
 	tag                    names.Tag
@@ -66,8 +67,6 @@ type Server struct {
 	authenticator          httpcontext.LocalMacaroonAuthenticator
 	offerAuthCtxt          *crossmodel.AuthContext
 	lastConnectionID       uint64
-	centralHub             *pubsub.StructuredHub
-	presence               presence.Recorder
 	newObserver            observer.ObserverFactory
 	connCount              int64
 	totalConn              int64
@@ -238,11 +237,20 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	limiter := utils.NewLimiterWithPause(
 		cfg.RateLimitConfig.LoginRateLimit, cfg.RateLimitConfig.LoginMinPause,
 		cfg.RateLimitConfig.LoginMaxPause, clock.WallClock)
+	shared, err := newSharedServerContex(sharedServerConfig{
+		statePool:  cfg.StatePool,
+		centralHub: cfg.Hub,
+		presence:   cfg.Presence,
+		logger:     loggo.GetLogger("juju.apiserver"),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	srv := &Server{
 		clock:                         cfg.Clock,
 		pingClock:                     cfg.pingClock(),
 		newObserver:                   cfg.NewObserver,
-		statePool:                     cfg.StatePool,
+		shared:                        shared,
 		tag:                           cfg.Tag,
 		dataDir:                       cfg.DataDir,
 		logDir:                        cfg.LogDir,
@@ -251,8 +259,6 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		upgradeComplete:               cfg.UpgradeComplete,
 		restoreStatus:                 cfg.RestoreStatus,
 		facades:                       AllFacades(),
-		centralHub:                    cfg.Hub,
-		presence:                      cfg.Presence,
 		mux:                           cfg.Mux,
 		authenticator:                 cfg.Authenticator,
 		allowModelAccess:              cfg.AllowModelAccess,
@@ -296,6 +302,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		defer srv.tomb.Done()
 		defer srv.dbloggers.dispose()
 		defer srv.logSinkWriter.Close()
+		defer srv.shared.Close()
 		srv.tomb.Kill(srv.loop(ready))
 	}()
 
@@ -414,7 +421,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		noModelUUID     bool
 	}
 	var endpoints []apihttp.Endpoint
-	controllerModelUUID := srv.statePool.SystemState().ModelUUID()
+	controllerModelUUID := srv.shared.statePool.SystemState().ModelUUID()
 	addHandler := func(handler handler) {
 		methods := handler.methods
 		if methods == nil {
@@ -459,7 +466,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	debugLogHandler := newDebugLogDBHandler(
 		httpCtxt, srv.authenticator,
 		tagKindAuthorizer{names.MachineTagKind, names.UserTagKind})
-	pubsubHandler := newPubSubHandler(httpCtxt, srv.centralHub)
+	pubsubHandler := newPubSubHandler(httpCtxt, srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.dbloggers),
 		httpCtxt.stop(),
@@ -530,7 +537,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			return opener, st, nil
 		},
 	}
-	controllerAdminAuthorizer := controllerAdminAuthorizer{srv.statePool.SystemState()}
+	controllerAdminAuthorizer := controllerAdminAuthorizer{srv.shared.statePool.SystemState()}
 	migrateCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
 		dataDir:       srv.dataDir,
@@ -811,15 +818,16 @@ func (srv *Server) serveConn(
 	// newAPIHandler treats an empty modelUUID as signifying
 	// the API version used.
 	resolvedModelUUID := modelUUID
+	statePool := srv.shared.statePool
 	if modelUUID == "" {
-		resolvedModelUUID = srv.statePool.SystemState().ModelUUID()
+		resolvedModelUUID = statePool.SystemState().ModelUUID()
 	}
 	var (
 		st *state.PooledState
 		h  *apiHandler
 	)
 
-	st, err := srv.statePool.Get(resolvedModelUUID)
+	st, err := statePool.Get(resolvedModelUUID)
 	if err == nil {
 		defer st.Release()
 		h, err = newAPIHandler(srv, st.State, conn, modelUUID, connectionID, host)

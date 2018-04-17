@@ -28,7 +28,7 @@ type httpContext struct {
 // without checking any authentication information.
 func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state.PooledState, error) {
 	modelUUID := httpcontext.RequestModelUUID(r)
-	st, err := ctxt.srv.statePool.Get(modelUUID)
+	st, err := ctxt.srv.shared.statePool.Get(modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -82,7 +82,7 @@ func (ctxt *httpContext) stateForMigration(
 	requiredMode state.MigrationMode,
 ) (_ *state.PooledState, err error) {
 	modelUUID := r.Header.Get(params.MigrationModelHTTPHeader)
-	migrationSt, err := ctxt.srv.statePool.Get(modelUUID)
+	migrationSt, err := ctxt.srv.shared.statePool.Get(modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

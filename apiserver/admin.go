@@ -114,11 +114,10 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	// apiRoot is the API root exposed to the client after login.
 	var apiRoot rpc.Root = newAPIRoot(
 		a.root.state,
-		a.srv.statePool,
+		a.root.shared,
 		a.srv.facades,
 		a.root.resources,
 		a.root,
-		a.root.presence,
 	)
 	apiRoot, err = restrictAPIRoot(
 		a.srv,
@@ -263,17 +262,21 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 			return nil, a.handleAuthError(err)
 		}
 		result.controllerMachineLogin = authInfo.Controller
+		// controllerConn is used to indicate a connection from the controller
+		// to a non-controller model.
+		controllerConn := false
 		if authInfo.Controller && !a.root.state.IsController() {
 			// We only need to run a pinger for controller machine
 			// agents when logging into the controller model.
 			startPinger = false
+			controllerConn = true
 		}
 		a.root.entity = authInfo.Entity
 		// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
 		a.apiObserver.Login(
 			authInfo.Entity.Tag(),
 			a.root.model.ModelTag(),
-			authInfo.Controller,
+			controllerConn,
 			req.UserData,
 		)
 	}

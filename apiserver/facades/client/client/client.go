@@ -36,7 +36,9 @@ type API struct {
 	pool          Pool
 	auth          facade.Authorizer
 	resources     facade.Resources
-	client        *Client
+	presence      facade.Presence
+
+	client *Client
 	// statusSetter provides common methods for updating an entity's provisioning status.
 	statusSetter *common.StatusSetter
 	toolsFinder  *common.ToolsFinder
@@ -114,6 +116,7 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	st := ctx.State()
 	resources := ctx.Resources()
 	authorizer := ctx.Auth()
+	presence := ctx.Presence()
 
 	model, err := st.Model()
 	if err != nil {
@@ -139,6 +142,7 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 		modelConfigAPI,
 		resources,
 		authorizer,
+		presence,
 		statusSetter,
 		toolsFinder,
 		newEnviron,
@@ -153,6 +157,7 @@ func NewClient(
 	modelConfigAPI *modelconfig.ModelConfigAPI,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	presence facade.Presence,
 	statusSetter *common.StatusSetter,
 	toolsFinder *common.ToolsFinder,
 	newEnviron func() (environs.Environ, error),
@@ -168,6 +173,7 @@ func NewClient(
 			pool:          pool,
 			auth:          authorizer,
 			resources:     resources,
+			presence:      presence,
 			statusSetter:  statusSetter,
 			toolsFinder:   toolsFinder,
 		},
