@@ -4,12 +4,14 @@
 package cloud_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -580,6 +582,33 @@ func (s *credentialsSuite) TestFinalizeCredentialFilePath(c *gc.C) {
 	})
 }
 
+func (s *credentialsSuite) TestFinalizeCredentialRelativeFilePath(c *gc.C) {
+	absFilename := filepath.Join(utils.Home(), "filename")
+	err := ioutil.WriteFile(absFilename, []byte{}, 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cred := cloud.NewCredential(
+		cloud.JSONFileAuthType,
+		map[string]string{
+			"file": "~/filename",
+		},
+	)
+	schema := cloud.CredentialSchema{{
+		"file", cloud.CredentialAttr{FilePath: true},
+	}}
+	readFile := func(path string) ([]byte, error) {
+		c.Assert(path, gc.Equals, absFilename)
+		return []byte("file-contents"), nil
+	}
+	newCred, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.JSONFileAuthType: schema,
+	}, readFile)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newCred.Attributes(), jc.DeepEquals, map[string]string{
+		"file": "file-contents",
+	})
+}
+
 func (s *credentialsSuite) TestFinalizeCredentialInvalidFilePath(c *gc.C) {
 	cred := cloud.NewCredential(
 		cloud.JSONFileAuthType,
@@ -594,22 +623,6 @@ func (s *credentialsSuite) TestFinalizeCredentialInvalidFilePath(c *gc.C) {
 		cloud.JSONFileAuthType: schema,
 	}, nil)
 	c.Assert(err, gc.ErrorMatches, "invalid file path: .*")
-}
-
-func (s *credentialsSuite) TestFinalizeCredentialRelativeFilePath(c *gc.C) {
-	cred := cloud.NewCredential(
-		cloud.JSONFileAuthType,
-		map[string]string{
-			"file": "file",
-		},
-	)
-	schema := cloud.CredentialSchema{{
-		"file", cloud.CredentialAttr{FilePath: true},
-	}}
-	_, err := cloud.FinalizeCredential(cred, map[cloud.AuthType]cloud.CredentialSchema{
-		cloud.JSONFileAuthType: schema,
-	}, nil)
-	c.Assert(err, gc.ErrorMatches, "file path must be an absolute path: file")
 }
 
 func (s *credentialsSuite) TestRemoveSecrets(c *gc.C) {
@@ -633,4 +646,20 @@ func (s *credentialsSuite) TestRemoveSecrets(c *gc.C) {
 	c.Assert(sanitisedCred.Attributes(), jc.DeepEquals, map[string]string{
 		"username": "user",
 	})
+}
+
+func (s *credentialsSuite) TestValidateFileAttrValue(c *gc.C) {
+	_, err := cloud.ValidateFileAttrValue("/xyz/nothing.blah")
+	c.Assert(err, gc.ErrorMatches, "invalid file path: /xyz/nothing.blah")
+
+	absPathNewFile := filepath.Join(utils.Home(), "new-creds.json")
+	err = ioutil.WriteFile(absPathNewFile, []byte("abc"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+
+	absPath, err := cloud.ValidateFileAttrValue("~/new-creds.json")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(absPath, gc.Equals, absPathNewFile)
+
+	_, err = cloud.ValidateFileAttrValue(utils.Home())
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("file path must be a file: %s", utils.Home()))
 }

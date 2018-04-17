@@ -6,7 +6,6 @@ package cloud
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
@@ -144,7 +143,7 @@ func (s CredentialSchema) Attribute(name string) (*CredentialAttr, bool) {
 // provided credential schemas, and reading any file attributes into their
 // corresponding non-file attributes. This will also validate the credential.
 //
-// If there is no schema with the matching auth-type, and error satisfying
+// If there is no schema with the matching auth-type, an error satisfying
 // errors.IsNotSupported will be returned.
 func FinalizeCredential(
 	credential Credential,
@@ -225,10 +224,7 @@ func (s CredentialSchema) Finalize(
 // ValidateFileAttrValue returns the normalised file path, so
 // long as the specified path is valid and not a directory.
 func ValidateFileAttrValue(path string) (string, error) {
-	if !filepath.IsAbs(path) && !strings.HasPrefix(path, "~") {
-		return "", errors.Errorf("file path must be an absolute path: %s", path)
-	}
-	absPath, err := utils.NormalizePath(path)
+	absPath, err := utils.ExpandPath(path)
 	if err != nil {
 		return "", err
 	}
