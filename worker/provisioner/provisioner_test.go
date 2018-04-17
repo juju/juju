@@ -67,7 +67,7 @@ type CommonProvisionerSuite struct {
 
 func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C, p provisioner.Provisioner) {
 	// Inject our observer into the provisioner
-	cfgObserver := make(chan *config.Config, 1)
+	cfgObserver := make(chan *config.Config)
 	provisioner.SetObserver(p, cfgObserver)
 
 	// Switch to reaping on All machines.
