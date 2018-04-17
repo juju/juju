@@ -44,17 +44,17 @@ type Provisioner interface {
 // belonging to an environment.
 type environProvisioner struct {
 	provisioner
-	environ environs.Environ
-	configObserver
+	environ        environs.Environ
+	configObserver configObserver
 }
 
 // containerProvisioner represents a running provisioning worker for containers
 // hosted on a machine.
 type containerProvisioner struct {
 	provisioner
-	containerType instance.ContainerType
-	machine       *apiprovisioner.Machine
-	configObserver
+	containerType  instance.ContainerType
+	machine        *apiprovisioner.Machine
+	configObserver configObserver
 }
 
 // provisioner providers common behaviour for a running provisioning worker.
@@ -94,18 +94,16 @@ func NewRetryStrategy(delay time.Duration, count int) RetryStrategy {
 type configObserver struct {
 	sync.Mutex
 	observer chan<- *config.Config
-	dying    func() <-chan struct{}
+	catacomb *catacomb.Catacomb
 }
 
 // notify notifies the observer of a configuration change.
 func (o *configObserver) notify(cfg *config.Config) {
 	o.Lock()
 	if o.observer != nil {
-		if o.observer != nil {
-			select {
-			case o.observer <- cfg:
-			case <-o.dying():
-			}
+		select {
+		case o.observer <- cfg:
+		case <-o.catacomb.Dying():
 		}
 	}
 	o.Unlock()
@@ -202,7 +200,6 @@ func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config, e
 	p.broker = environ
 	logger.Tracef("Starting environ provisioner for %q", p.agentConfig.Tag())
 
-	p.configObserver.dying = p.catacomb.Dying
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
 		Work: p.loop,
@@ -302,7 +299,6 @@ func NewContainerProvisioner(
 	p.Provisioner = p
 	logger.Tracef("Starting %s provisioner for %q", p.containerType, p.agentConfig.Tag())
 
-	p.configObserver.dying = p.catacomb.Dying
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
 		Work: p.loop,
