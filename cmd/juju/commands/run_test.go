@@ -92,7 +92,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		message:  "command to application mysql",
                 args:     []string{"--app=mysql", "uname -a"},
 		commands: "uname -a",
-		services: []string{"mysql"}
+		services: []string{"mysql"},
 	}, {
 		message: "bad application names",
 		args:    []string{"--application", "foo,2,foo/0", "sudo reboot"},
@@ -171,10 +171,6 @@ func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
 		message: "two hours",
 		args:    []string{"--timeout=2h", "--all", "sudo reboot"},
 		timeout: 2 * time.Hour,
-	}, {
-		message: "5 minutes",
-		args:    []string{"-t","5m", "--all", "sudo reboot"},
-		timeout: 5 * time.Minute,
 	}, {
 		message: "3 minutes 30 seconds",
 		args:    []string{"--timeout=3m30s", "--all", "sudo reboot"},
