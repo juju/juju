@@ -81,6 +81,15 @@ func NewWorker(config Config) (worker.Worker, error) {
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &v.catacomb,
 		Work: v.loop,
+		// The watcher needs to be added to the worker's catacomb plan
+		// here in order to be controlled by this worker lifecycle events:
+		// for example, to be destroyed when this worker is destroyed, etc.
+		// We also add the watcher to the Plan.Init collection to ensure that
+		// the worker's Plan.Work method is executed after the watcher
+		// is initialised and watcher's changes collection obtains the changes.
+		// Watchers that are added using catacomb.Add method
+		// miss out on a first call of Worker's Plan.Work method and can, thus,
+		// be missing out on an initial change.
 		Init: []worker.Worker{w},
 	})
 	if err != nil {
