@@ -86,18 +86,27 @@ func NewRetryStrategy(delay time.Duration, count int) RetryStrategy {
 	}
 }
 
-// configObserver is implemented so that tests can see
-// when the environment configuration changes.
+// configObserver is implemented so that tests can see when the environment
+// configuration changes.
+// The dying function should be set by the outer provider to return its
+// catacomb. This is used to prevent notify from blocking a provisioner
+// that has had its Kill method invoked.
 type configObserver struct {
 	sync.Mutex
 	observer chan<- *config.Config
+	dying    func() <-chan struct{}
 }
 
 // notify notifies the observer of a configuration change.
 func (o *configObserver) notify(cfg *config.Config) {
 	o.Lock()
 	if o.observer != nil {
-		o.observer <- cfg
+		if o.observer != nil {
+			select {
+			case o.observer <- cfg:
+			case <-o.dying():
+			}
+		}
 	}
 	o.Unlock()
 }
@@ -193,6 +202,7 @@ func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config, e
 	p.broker = environ
 	logger.Tracef("Starting environ provisioner for %q", p.agentConfig.Tag())
 
+	p.configObserver.dying = p.catacomb.Dying
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
 		Work: p.loop,
@@ -292,6 +302,7 @@ func NewContainerProvisioner(
 	p.Provisioner = p
 	logger.Tracef("Starting %s provisioner for %q", p.containerType, p.agentConfig.Tag())
 
+	p.configObserver.dying = p.catacomb.Dying
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
 		Work: p.loop,
