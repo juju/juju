@@ -90,7 +90,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		services: []string{"wordpress", "mysql"},
 	}, {
 		message:  "command to application mysql",
-                args:     []string{"--app=mysql", "uname -a"},
+		args:     []string{"--app", "mysql", "uname -a"},
 		commands: "uname -a",
 		services: []string{"mysql"},
 	}, {
@@ -106,7 +106,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		commands: "sudo reboot",
 		services: []string{"mysql"},
 	}, {
-		message: "command to application wordpress",
+		message:  "command to application wordpress",
 		args:     []string{"-a", "wordpress", "sudo reboot"},
 		commands: "sudo reboot",
 		services: []string{"wordpress"},
