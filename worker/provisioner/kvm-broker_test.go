@@ -484,8 +484,3 @@ func (s *kvmProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *gc.C) {
 	defer workertest.CleanKill(c, p)
 	s.assertProvisionerObservesConfigChanges(c, p)
 }
-
-type kvmFakeBridger struct {
-	brokerSuite      *kvmBrokerSuite
-	provisionerSuite *kvmProvisionerSuite
-}

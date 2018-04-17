@@ -44,17 +44,17 @@ type Provisioner interface {
 // belonging to an environment.
 type environProvisioner struct {
 	provisioner
-	environ environs.Environ
-	configObserver
+	environ        environs.Environ
+	configObserver configObserver
 }
 
 // containerProvisioner represents a running provisioning worker for containers
 // hosted on a machine.
 type containerProvisioner struct {
 	provisioner
-	containerType instance.ContainerType
-	machine       *apiprovisioner.Machine
-	configObserver
+	containerType  instance.ContainerType
+	machine        *apiprovisioner.Machine
+	configObserver configObserver
 }
 
 // provisioner providers common behaviour for a running provisioning worker.
@@ -86,18 +86,25 @@ func NewRetryStrategy(delay time.Duration, count int) RetryStrategy {
 	}
 }
 
-// configObserver is implemented so that tests can see
-// when the environment configuration changes.
+// configObserver is implemented so that tests can see when the environment
+// configuration changes.
+// The catacomb is set in export_test to the provider's member.
+// This is used to prevent notify from blocking a provisioner that has had its
+// Kill method invoked.
 type configObserver struct {
 	sync.Mutex
 	observer chan<- *config.Config
+	catacomb *catacomb.Catacomb
 }
 
 // notify notifies the observer of a configuration change.
 func (o *configObserver) notify(cfg *config.Config) {
 	o.Lock()
 	if o.observer != nil {
-		o.observer <- cfg
+		select {
+		case o.observer <- cfg:
+		case <-o.catacomb.Dying():
+		}
 	}
 	o.Unlock()
 }

@@ -18,9 +18,11 @@ func SetObserver(p Provisioner, observer chan<- *config.Config) {
 	var configObserver *configObserver
 	if ep, ok := p.(*environProvisioner); ok {
 		configObserver = &ep.configObserver
+		configObserver.catacomb = &ep.catacomb
 	} else {
 		cp := p.(*containerProvisioner)
 		configObserver = &cp.configObserver
+		configObserver.catacomb = &cp.catacomb
 	}
 	configObserver.Lock()
 	configObserver.observer = observer
