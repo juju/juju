@@ -101,13 +101,13 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 			"  \"2\" is not a valid application name\n" +
 			"  \"foo/0\" is not a valid application name",
 	}, {
-		message: "command to application mysql",
-		args:     []string{"--app=mysql", "sudo reboot"},
+		message:  "command to application mysql",
+		args:     []string{"--app", "mysql", "sudo reboot"},
 		commands: "sudo reboot",
 		services: []string{"mysql"},
 	}, {
 		message: "command to application wordpress",
-		args:     []string{"-a","wordpress", "sudo reboot"},
+		args:     []string{"-a", "wordpress", "sudo reboot"},
 		commands: "sudo reboot",
 		services: []string{"wordpress"},
 	}, {
@@ -116,7 +116,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		errMatch: `You cannot specify --all and individual units`,
 	}, {
 		message:  "command to valid unit",
-		args:     []string{"-u","mysql/0", "sudo reboot"},
+		args:     []string{"-u", "mysql/0", "sudo reboot"},
 		commands: "sudo reboot",
 		units:    []string{"mysql/0"},
 	}, {
