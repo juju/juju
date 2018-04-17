@@ -321,6 +321,33 @@ class WaitAgentsStarted(BaseCondition):
         raise AgentsNotStarted(model_name, status)
 
 
+class UnitInstallCondition(BaseCondition):
+
+    def __init__(self, unit, current, message, *args, **kwargs):
+        """Base condition for unit workload status."""
+        self.unit = unit
+        self.current = current
+        self.message = message
+        super(UnitInstallCondition, self).__init__(*args, **kwargs)
+
+    def iter_blocking_state(self, status):
+        """Wait until 'current' status and message matches supplied values."""
+        try:
+            unit = status.get_unit(self.unit)
+            unit_status = unit['workload-status']
+            cond_met = unit_status['current'] == self.current \
+                and unit_status['message'] == self.message
+        except KeyError:
+            cond_met = False
+        if not cond_met:
+            yield 'unit-workload', 'not-{}'.format(self.current)
+
+    def do_raise(self, model_name, status):
+        raise Exception(
+            'Model {} never reached {{ workload: {}, message: {} }}'.format(
+                model_name, self.current, self.message))
+
+
 class CommandComplete(BaseCondition):
     """Wraps a CommandTime and gives the ability to wait_for completion."""
 
