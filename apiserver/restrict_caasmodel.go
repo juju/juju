@@ -21,6 +21,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"Cleaner",
 	"Client",
 	"Cloud",
+	"CredentialValidator",
 	"LeadershipService",
 	"LifeFlag",
 	"MeterStatus",

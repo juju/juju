@@ -2387,6 +2387,12 @@ type AddUnitOperation struct {
 
 // Build is part of the ModelOperation interface.
 func (op *AddUnitOperation) Build(attempt int) ([]txn.Op, error) {
+	if alive, err := isAlive(op.application.st, applicationsC, op.application.doc.DocID); err != nil {
+		return nil, err
+	} else if !alive {
+		return nil, NotAliveError
+	}
+
 	var ops []txn.Op
 
 	addUnitArgs := AddUnitParams{

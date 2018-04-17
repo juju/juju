@@ -98,6 +98,11 @@ func (*mockApplication) Tag() names.Tag {
 	panic("should not be called")
 }
 
+func (a *mockApplication) Name() string {
+	a.MethodCall(a, "Name")
+	return a.tag.Id()
+}
+
 func (a *mockApplication) Life() state.Life {
 	a.MethodCall(a, "Life")
 	return a.life

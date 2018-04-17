@@ -3369,10 +3369,22 @@ func strPtr(s string) *string {
 }
 
 func (s *CAASApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
+	s.assertUpdateCAASUnits(c, true)
+}
+
+func (s *CAASApplicationSuite) TestUpdateCAASUnitsApplicationNotALive(c *gc.C) {
+	s.assertUpdateCAASUnits(c, false)
+}
+
+func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	existingUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("unit-uuid")})
 	c.Assert(err, jc.ErrorIsNil)
 	removedUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("removed-unit-uuid")})
 	c.Assert(err, jc.ErrorIsNil)
+	if !aliveApp {
+		err := s.app.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	var updateUnits state.UpdateUnitsOperation
 	updateUnits.Deletes = []*state.DestroyUnitOperation{removedUnit.DestroyOperation()}
@@ -3403,6 +3415,10 @@ func (s *CAASApplicationSuite) TestUpdateCAASUnits(c *gc.C) {
 		},
 	})}
 	err = s.app.UpdateUnits(&updateUnits)
+	if !aliveApp {
+		c.Assert(errors.Cause(err), jc.DeepEquals, state.NotAliveError)
+		return
+	}
 	c.Assert(err, jc.ErrorIsNil)
 
 	units, err := s.app.AllUnits()

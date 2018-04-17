@@ -501,6 +501,12 @@ type updateStateUnitParams struct {
 
 func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitParams) error {
 
+	if app.Life() != state.Alive {
+		// We ignore any updates for dying applications.
+		logger.Debugf("ignoring unit updates for dying application: %v", app.Name())
+		return nil
+	}
+
 	logger.Tracef("added cloud units: %+v", unitInfo.addedCloudUnits)
 	logger.Tracef("existing cloud units: %+v", unitInfo.existingCloudUnits)
 	logger.Tracef("removed units: %+v", unitInfo.removedUnits)
@@ -586,7 +592,12 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 		unitUpdate.Adds = append(unitUpdate.Adds,
 			app.AddOperation(updateProps))
 	}
-	return app.UpdateUnits(&unitUpdate)
+	err := app.UpdateUnits(&unitUpdate)
+	// We ignore any updates for dying applications.
+	if errors.Cause(err) == state.NotAliveError {
+		return nil
+	}
+	return err
 }
 
 // UpdateApplicationsService updates the Juju data model to reflect the given
