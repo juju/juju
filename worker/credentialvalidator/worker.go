@@ -82,7 +82,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		Site: &v.catacomb,
 		Work: v.loop,
 		// The watcher needs to be added to the worker's catacomb plan
-		// here in order to be controlled by this worker lifecycle events:
+		// here in order to be controlled by this worker's lifecycle events:
 		// for example, to be destroyed when this worker is destroyed, etc.
 		// We also add the watcher to the Plan.Init collection to ensure that
 		// the worker's Plan.Work method is executed after the watcher
