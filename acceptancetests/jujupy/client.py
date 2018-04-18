@@ -873,6 +873,7 @@ class ModelClient:
             'audit-log-max-size',
             'audit-log-max-backups',
             'auditing-enabled',
+            'audit-log-exclude-methods',
             'auth-url',
             'bootstrap-host',
             'client-email',

@@ -21,13 +21,14 @@ from subprocess import CalledProcessError
 from jujupy.exceptions import (
     VersionsNotUpdated,
     AgentsNotStarted,
+    StatusNotMet,
     )
 from jujupy.status import (
     Status,
     )
 from utility import (
     until_timeout,
-)
+    )
 
 
 log = logging.getLogger(__name__)
@@ -319,6 +320,32 @@ class WaitAgentsStarted(BaseCondition):
 
     def do_raise(self, model_name, status):
         raise AgentsNotStarted(model_name, status)
+
+
+class UnitInstallCondition(BaseCondition):
+
+    def __init__(self, unit, current, message, *args, **kwargs):
+        """Base condition for unit workload status."""
+        self.unit = unit
+        self.current = current
+        self.message = message
+        super(UnitInstallCondition, self).__init__(*args, **kwargs)
+
+    def iter_blocking_state(self, status):
+        """Wait until 'current' status and message matches supplied values."""
+        try:
+            unit = status.get_unit(self.unit)
+            unit_status = unit['workload-status']
+            cond_met = (unit_status['current'] == self.current
+                        and unit_status['message'] == self.message)
+        except KeyError:
+            cond_met = False
+        if not cond_met:
+            yield ('unit-workload ({})'.format(self.unit),
+                   'not-{}'.format(self.current))
+
+    def do_raise(self, model_name, status):
+        raise StatusNotMet('{} ({})'.format(model_name, self.unit), status)
 
 
 class CommandComplete(BaseCondition):
