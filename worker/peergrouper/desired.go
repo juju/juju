@@ -142,12 +142,12 @@ func (info *peerGroupInfo) getLogMessage() string {
 
 // initNewReplicaSet creates a new machine ID indexed map of known replica-set
 // members to use as the basis for a newly calculated replica-set.
-func (info *peerGroupInfo) initNewReplicaSet() map[string]*replicaset.Member {
-	rs := make(map[string]*replicaset.Member, len(info.recognised))
-	for id := range info.recognised {
+func (p *peerGroupChanges) initNewReplicaSet() map[string]*replicaset.Member {
+	rs := make(map[string]*replicaset.Member, len(p.info.recognised))
+	for id := range p.info.recognised {
 		// Local-scoped variable required here,
 		// or the same pointer to the loop variable is used each time.
-		m := info.recognised[id]
+		m := p.info.recognised[id]
 		rs[id] = &m
 	}
 	return rs
@@ -197,7 +197,7 @@ func (p *peerGroupChanges) computeDesiredPeerGroup() (desiredChanges, error) {
 		return desiredChanges{}, errors.Trace(err)
 	}
 
-	p.desired.members = p.info.initNewReplicaSet()
+	p.desired.members = p.initNewReplicaSet()
 	p.possiblePeerGroupChanges()
 	p.reviewPeerGroupChanges()
 	p.createNonVotingMember()
@@ -207,7 +207,7 @@ func (p *peerGroupChanges) computeDesiredPeerGroup() (desiredChanges, error) {
 	p.getMachinesVoting()
 	p.adjustVotes()
 
-	if err := p.updateAddresses(p.info); err != nil {
+	if err := p.updateAddresses(); err != nil {
 		return desiredChanges{}, errors.Trace(err)
 	}
 
@@ -417,12 +417,12 @@ func (p *peerGroupChanges) getMachinesVoting() {
 
 // updateAddresses updates the member addresses in the new replica-set, using
 // the HA space if one is configured.
-func (p *peerGroupChanges) updateAddresses(info *peerGroupInfo) error {
+func (p *peerGroupChanges) updateAddresses() error {
 	var err error
-	if info.haSpace == "" {
-		err = p.updateAddressesFromInternal(info)
+	if p.info.haSpace == "" {
+		err = p.updateAddressesFromInternal()
 	} else {
-		err = p.updateAddressesFromSpace(info)
+		err = p.updateAddressesFromSpace()
 	}
 	return errors.Annotate(err, "updating member addresses")
 }
@@ -440,12 +440,12 @@ const multiAddressMessage = "multiple usable addresses found" +
 // Otherwise an error is returned to indicate that a HA space must be
 // configured in order to proceed. Such machines have their status set to
 // indicate that they require intervention.
-func (p *peerGroupChanges) updateAddressesFromInternal(info *peerGroupInfo) error {
+func (p *peerGroupChanges) updateAddressesFromInternal() error {
 	var multipleAddresses []string
 
 	for id := range p.desired.members {
-		m := info.machines[id]
-		hostPorts := m.GetPotentialMongoHostPorts(info.mongoPort)
+		m := p.info.machines[id]
+		hostPorts := m.GetPotentialMongoHostPorts(p.info.mongoPort)
 		addrs := network.SelectInternalHostPorts(hostPorts, false)
 
 		// This should not happen because SelectInternalHostPorts will choose a
@@ -472,7 +472,7 @@ func (p *peerGroupChanges) updateAddressesFromInternal(info *peerGroupInfo) erro
 		// Multiple potential Mongo addresses.
 		// Checks are required in order to use it as a peer.
 		unchanged := false
-		if _, ok := info.recognised[id]; ok {
+		if _, ok := p.info.recognised[id]; ok {
 			for _, addr := range addrs {
 				if member.Address == addr {
 					logger.Warningf("%s\npreserving member with unchanged address %q", multiAddressMessage, addr)
@@ -505,13 +505,13 @@ func (p *peerGroupChanges) updateAddressesFromInternal(info *peerGroupInfo) erro
 // configured HA space.
 // If no addresses are available for any of the machines, then such machines
 // have their status set and are included in the detail of the returned error.
-func (p *peerGroupChanges) updateAddressesFromSpace(info *peerGroupInfo) error {
-	space := info.haSpace
+func (p *peerGroupChanges) updateAddressesFromSpace() error {
+	space := p.info.haSpace
 	var noAddresses []string
 
 	for id := range p.desired.members {
-		m := info.machines[id]
-		addr, err := m.SelectMongoAddressFromSpace(info.mongoPort, space)
+		m := p.info.machines[id]
+		addr, err := m.SelectMongoAddressFromSpace(p.info.mongoPort, space)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				noAddresses = append(noAddresses, id)
