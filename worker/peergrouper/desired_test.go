@@ -11,15 +11,15 @@ import (
 	"strings"
 
 	"github.com/juju/replicaset"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/testing"
 )
 
 type desiredPeerGroupSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&desiredPeerGroupSuite{})
@@ -35,10 +35,11 @@ type desiredPeerGroupTest struct {
 	statuses []replicaset.MemberStatus
 	members  []replicaset.Member
 
-	expectChanged bool
-	expectMembers []replicaset.Member
-	expectVoting  []bool
-	expectErr     string
+	expectChanged  bool
+	expectStepDown bool
+	expectMembers  []replicaset.Member
+	expectVoting   []bool
+	expectErr      string
 }
 
 // TestMember mirrors replicaset.Member but simplifies the structure
@@ -319,6 +320,15 @@ func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 			expectVoting:  []bool{true, true, true, false},
 			expectMembers: mkMembers("1v 2v 3v 4", ipVersion),
 			expectChanged: true,
+		}, {
+			about:          "remove primary machine",
+			machines:       mkMachines("11 12v 13v", ipVersion),
+			members:        mkMembers("1v 2v 3v", ipVersion),
+			statuses:       mkStatuses("1p 2s 3s", ipVersion),
+			expectVoting:   []bool{false, false, true},
+			expectMembers:  mkMembers("1 2 3v", ipVersion),
+			expectStepDown: true,
+			expectChanged:  true,
 		},
 	}
 }
@@ -360,6 +370,7 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 
 		sort.Sort(membersById(members))
 		c.Assert(desired.isChanged, gc.Equals, test.expectChanged)
+		c.Assert(desired.stepDownPrimary, gc.Equals, test.expectStepDown)
 		c.Assert(membersToTestMembers(members), jc.DeepEquals, membersToTestMembers(test.expectMembers))
 		for i, m := range test.machines {
 			vote, votePresent := desired.machineVoting[m.Id()]
@@ -379,6 +390,7 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 
 		desired, err = desiredPeerGroup(info)
 		c.Assert(desired.isChanged, jc.IsFalse)
+		c.Assert(desired.stepDownPrimary, jc.IsFalse)
 		countPrimaries := 0
 		c.Assert(err, gc.IsNil)
 		for i, m := range test.machines {
@@ -648,4 +660,30 @@ func (h hostPortSliceByHostPort) Less(i, j int) bool {
 		}
 	}
 	return false
+}
+
+type sortAsIntsSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&sortAsIntsSuite{})
+
+func checkIntSorted(c *gc.C, vals, expected []string) {
+	// we sort in place, so leave 'vals' alone and copy to another slice
+	copied := append([]string(nil), vals...)
+	sortAsInts(copied)
+	c.Check(copied, gc.DeepEquals, expected)
+}
+
+func (*sortAsIntsSuite) TestAllInts(c *gc.C) {
+	checkIntSorted(c, []string{"1", "10", "2", "20"}, []string{"1", "2", "10", "20"})
+}
+
+func (*sortAsIntsSuite) TestStrings(c *gc.C) {
+	checkIntSorted(c, []string{"a", "c", "b", "X"}, []string{"X", "a", "b", "c"})
+}
+
+func (*sortAsIntsSuite) TestMixed(c *gc.C) {
+	checkIntSorted(c, []string{"1", "20", "10", "2", "2d", "c", "b", "X"},
+		[]string{"1", "2", "10", "20", "2d", "X", "b", "c"})
 }
