@@ -42,6 +42,7 @@ type peerGroupInfo struct {
 }
 
 type peerGroupChanges struct {
+	info                        *peerGroupInfo
 	isChanged                   bool
 	toRemoveVote                []string
 	toAddVote                   []string
@@ -141,6 +142,12 @@ func (info *peerGroupInfo) initNewReplicaSet() map[string]*replicaset.Member {
 	return rs
 }
 
+type desiredChanges struct {
+	isChanged     bool
+	members       map[string]*replicaset.Member
+	machineVoting map[string]bool
+}
+
 // desiredPeerGroup returns a new Mongo peer-group calculated from the input
 // peerGroupInfo.
 // Returned are the new members indexed by machine ID, and a map indicating
@@ -153,14 +160,19 @@ func (info *peerGroupInfo) initNewReplicaSet() map[string]*replicaset.Member {
 //      and any of these are set as voters.
 //   2) There is no HA space configured and any machines have multiple
 //      cloud-local addresses.
-func desiredPeerGroup(info *peerGroupInfo) (bool, map[string]*replicaset.Member, map[string]bool, error) {
+func desiredPeerGroup(info *peerGroupInfo) (desiredChanges, error) {
 	logger.Debugf(info.getLogMessage())
 
 	peerChanges := peerGroupChanges{
+		info:          info,
 		isChanged:     false,
 		machineVoting: map[string]bool{},
 		members:       map[string]*replicaset.Member{},
 	}
+	return peerChanges.computeDesiredPeerGroup()
+}
+
+func (p *peerGroupChanges) computeDesiredPeerGroup() (desiredChanges, error) {
 
 	// We may find extra peer group members if the machines have been removed
 	// or their controller status removed.
@@ -173,26 +185,30 @@ func desiredPeerGroup(info *peerGroupInfo) (bool, map[string]*replicaset.Member,
 	//    are not eligible to be primary.
 	// 3) Remove them.
 	// 4) Do nothing.
-	err := peerChanges.checkExtraMembers(info.extra)
+	err := p.checkExtraMembers(p.info.extra)
 	if err != nil {
-		return false, nil, nil, errors.Trace(err)
+		return desiredChanges{}, errors.Trace(err)
 	}
 
-	peerChanges.members = info.initNewReplicaSet()
-	peerChanges.possiblePeerGroupChanges(info)
-	peerChanges.reviewPeerGroupChanges(info)
-	peerChanges.createNonVotingMember(&info.maxMemberId)
+	p.members = p.info.initNewReplicaSet()
+	p.possiblePeerGroupChanges(p.info)
+	p.reviewPeerGroupChanges(p.info)
+	p.createNonVotingMember(&p.info.maxMemberId)
 
 	// Set up initial record of machine votes. Any changes after
 	// this will trigger a peer group election.
-	peerChanges.getMachinesVoting()
-	peerChanges.adjustVotes()
+	p.getMachinesVoting()
+	p.adjustVotes()
 
-	if err := peerChanges.updateAddresses(info); err != nil {
-		return false, nil, nil, errors.Trace(err)
+	if err := p.updateAddresses(p.info); err != nil {
+		return desiredChanges{}, errors.Trace(err)
 	}
 
-	return peerChanges.isChanged, peerChanges.members, peerChanges.machineVoting, nil
+	return desiredChanges{
+		isChanged:     p.isChanged,
+		members:       p.members,
+		machineVoting: p.machineVoting,
+	}, nil
 }
 
 // checkExtraMembers checks to see if any of the input members, identified as
@@ -200,6 +216,11 @@ func desiredPeerGroup(info *peerGroupInfo) (bool, map[string]*replicaset.Member,
 // If any have, an error is returned.
 // The boolean indicates whether any extra members were present at all.
 func (p *peerGroupChanges) checkExtraMembers(extra []replicaset.Member) error {
+	// Note: (jam 2018-04-18) With the new "juju remove-machine --force" it is much easier to get into this situation
+	// because an active controller that is in the replicaset would get removed while it still had voting rights.
+	// Given that Juju is in control of the replicaset we don't really just 'accept' that some other machine has a vote.
+	// *maybe* we could allow non-voting members that would be used by 3rd parties to provide a warm database backup.
+	// But I think the right answer is probably to downgrade unknown members from voting.
 	for _, member := range extra {
 		if isVotingMember(&member) {
 			return fmt.Errorf("voting non-machine member %v found in peer group", member)
