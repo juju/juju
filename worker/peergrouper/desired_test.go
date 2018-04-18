@@ -400,24 +400,30 @@ func (s *desiredPeerGroupSuite) TestNewPeerGroupInfoErrWhenNoMembers(c *gc.C) {
 }
 
 func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsErrorWhenVoterFound(c *gc.C) {
-	peerChanges := peerGroupChanges{isChanged: false}
 	v := 1
-	err := peerChanges.checkExtraMembers([]replicaset.Member{{Votes: &v}})
+	peerChanges := peerGroupChanges{
+		info: &peerGroupInfo{extra: []replicaset.Member{{Votes: &v}}},
+	}
+	err := peerChanges.checkExtraMembers()
 	c.Check(err, gc.ErrorMatches, "voting non-machine member .+ found in peer group")
 }
 
 func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsTrueWhenCheckMade(c *gc.C) {
-	peerChanges := peerGroupChanges{isChanged: false}
 	v := 0
-	err := peerChanges.checkExtraMembers([]replicaset.Member{{Votes: &v}})
-	c.Check(peerChanges.isChanged, jc.IsTrue)
+	peerChanges := peerGroupChanges{
+		info: &peerGroupInfo{extra: []replicaset.Member{{Votes: &v}}},
+	}
+	err := peerChanges.checkExtraMembers()
+	c.Check(peerChanges.desired.isChanged, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsFalseWhenEmpty(c *gc.C) {
-	peerChanges := peerGroupChanges{isChanged: false}
-	err := peerChanges.checkExtraMembers([]replicaset.Member{})
-	c.Check(peerChanges.isChanged, jc.IsFalse)
+	peerChanges := peerGroupChanges{
+		info: &peerGroupInfo{},
+	}
+	err := peerChanges.checkExtraMembers()
+	c.Check(peerChanges.desired.isChanged, jc.IsFalse)
 	c.Check(err, jc.ErrorIsNil)
 }
 
