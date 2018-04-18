@@ -21,13 +21,14 @@ from subprocess import CalledProcessError
 from jujupy.exceptions import (
     VersionsNotUpdated,
     AgentsNotStarted,
+    StatusNotMet,
     )
 from jujupy.status import (
     Status,
     )
 from utility import (
     until_timeout,
-)
+    )
 
 
 log = logging.getLogger(__name__)
@@ -340,12 +341,11 @@ class UnitInstallCondition(BaseCondition):
         except KeyError:
             cond_met = False
         if not cond_met:
-            yield 'unit-workload', 'not-{}'.format(self.current)
+            yield ('unit-workload ({})'.format(self.unit),
+                   'not-{}'.format(self.current))
 
     def do_raise(self, model_name, status):
-        raise Exception(
-            'Model {} never reached {{ workload: {}, message: {} }}'.format(
-                model_name, self.current, self.message))
+        raise StatusNotMet('{} ({})'.format(model_name, self.unit), status)
 
 
 class CommandComplete(BaseCondition):

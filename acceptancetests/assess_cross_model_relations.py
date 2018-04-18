@@ -42,7 +42,7 @@ from jujupy.client import (
     )
 from jujupy.models import (
     temporary_model
-)
+    )
 from jujucharm import local_charm_path
 from utility import (
     add_basic_testing_arguments,

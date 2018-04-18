@@ -22,10 +22,10 @@ from deploy_stack import (
     )
 from jujupy.models import (
     temporary_model,
-)
+    )
 from jujupy.wait_condition import (
     UnitInstallCondition,
-)
+    )
 from jujucharm import local_charm_path
 from utility import (
     add_basic_testing_arguments,
@@ -58,19 +58,31 @@ def ensure_retry_does_not_rerun_failed_hook(client, resolve_charm):
             temp_client.deploy(resolve_charm)
             temp_client.wait_for(UnitInstallError(unit_name))
             temp_client.juju('resolve', ('--no-retry', unit_name))
+            # simple-resolve start hook sets a message when active to indicate
+            # it ran and if the install hook ran successfully or not.
+            # Here we make sure it's active and no install hook success.
             temp_client.wait_for(
                 UnitInstallActive(
                     unit_name, ResolveCharmMessage.ACTIVE_NO_INSTALL_HOOK))
 
 
 class UnitInstallError(UnitInstallCondition):
+    """Wait until `unit` is in error state with message status `message`.
 
+    Useful to determine when a unit is in an expected error state (the message
+    check allows further confirmation the error reason is the one we're looking
+    for)
+    """
     def __init__(self, unit, *args, **kwargs):
         super(UnitInstallError, self).__init__(
             unit, 'error', ResolveCharmMessage.INSTALL_FAIL, *args, **kwargs)
 
 
 class UnitInstallActive(UnitInstallCondition):
+    """Wait until `unit` is in active state with message status `message`
+
+    Useful to determine when a unit is active for a specific reason.
+    """
 
     def __init__(self, unit, message, *args, **kwargs):
         super(UnitInstallActive, self).__init__(

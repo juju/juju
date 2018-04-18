@@ -6,7 +6,7 @@ description: |
 categories:
   - misc
 series:
-  - trusty
   - xenial
-  - artful
   - bionic
+  - trusty
+  - artful
