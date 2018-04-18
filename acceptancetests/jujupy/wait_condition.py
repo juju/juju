@@ -335,8 +335,8 @@ class UnitInstallCondition(BaseCondition):
         try:
             unit = status.get_unit(self.unit)
             unit_status = unit['workload-status']
-            cond_met = unit_status['current'] == self.current \
-                and unit_status['message'] == self.message
+            cond_met = (unit_status['current'] == self.current
+                        and unit_status['message'] == self.message)
         except KeyError:
             cond_met = False
         if not cond_met:
