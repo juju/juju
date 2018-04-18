@@ -60,7 +60,11 @@ release-build: godeps add-patches go-build
 
 release-install: godeps add-patches go-install remove-patches
 
-check: godeps
+pre-check:
+	@echo running pre-test checks
+	@$(PROJECT_DIR)/scripts/verify.bash
+
+check: godeps pre-check
 	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/...
 
 install: godeps go-install
