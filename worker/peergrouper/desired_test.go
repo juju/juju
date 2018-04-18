@@ -343,26 +343,26 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 		info, err := newPeerGroupInfo(trackerMap, test.statuses, test.members, mongoPort, network.SpaceName(""))
 		c.Assert(err, jc.ErrorIsNil)
 
-		changed, peers, voting, err := desiredPeerGroup(info)
+		desired, err := desiredPeerGroup(info)
 		if test.expectErr != "" {
 			c.Assert(err, gc.ErrorMatches, test.expectErr)
-			c.Assert(peers, gc.IsNil)
-			c.Assert(changed, jc.IsFalse)
+			c.Assert(desired.members, gc.IsNil)
+			c.Assert(desired.isChanged, jc.IsFalse)
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(info, gc.NotNil)
 
-		members := make([]replicaset.Member, 0, len(peers))
-		for _, m := range peers {
+		members := make([]replicaset.Member, 0, len(desired.members))
+		for _, m := range desired.members {
 			members = append(members, *m)
 		}
 
 		sort.Sort(membersById(members))
-		c.Assert(changed, gc.Equals, test.expectChanged)
+		c.Assert(desired.isChanged, gc.Equals, test.expectChanged)
 		c.Assert(membersToTestMembers(members), jc.DeepEquals, membersToTestMembers(test.expectMembers))
 		for i, m := range test.machines {
-			vote, votePresent := voting[m.Id()]
+			vote, votePresent := desired.machineVoting[m.Id()]
 			c.Check(votePresent, jc.IsTrue)
 			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.Id()))
 		}
@@ -377,12 +377,12 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(info, gc.NotNil)
 
-		changed, peers, voting, err = desiredPeerGroup(info)
-		c.Assert(changed, jc.IsFalse)
+		desired, err = desiredPeerGroup(info)
+		c.Assert(desired.isChanged, jc.IsFalse)
 		countPrimaries := 0
 		c.Assert(err, gc.IsNil)
 		for i, m := range test.machines {
-			vote, votePresent := voting[m.Id()]
+			vote, votePresent := desired.machineVoting[m.Id()]
 			c.Check(votePresent, jc.IsTrue)
 			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.Id()))
 			if isPrimaryMember(info, m.Id()) {
@@ -400,24 +400,30 @@ func (s *desiredPeerGroupSuite) TestNewPeerGroupInfoErrWhenNoMembers(c *gc.C) {
 }
 
 func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsErrorWhenVoterFound(c *gc.C) {
-	peerChanges := peerGroupChanges{isChanged: false}
 	v := 1
-	err := peerChanges.checkExtraMembers([]replicaset.Member{{Votes: &v}})
+	peerChanges := peerGroupChanges{
+		info: &peerGroupInfo{extra: []replicaset.Member{{Votes: &v}}},
+	}
+	err := peerChanges.checkExtraMembers()
 	c.Check(err, gc.ErrorMatches, "voting non-machine member .+ found in peer group")
 }
 
 func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsTrueWhenCheckMade(c *gc.C) {
-	peerChanges := peerGroupChanges{isChanged: false}
 	v := 0
-	err := peerChanges.checkExtraMembers([]replicaset.Member{{Votes: &v}})
-	c.Check(peerChanges.isChanged, jc.IsTrue)
+	peerChanges := peerGroupChanges{
+		info: &peerGroupInfo{extra: []replicaset.Member{{Votes: &v}}},
+	}
+	err := peerChanges.checkExtraMembers()
+	c.Check(peerChanges.desired.isChanged, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *desiredPeerGroupSuite) TestCheckExtraMembersReturnsFalseWhenEmpty(c *gc.C) {
-	peerChanges := peerGroupChanges{isChanged: false}
-	err := peerChanges.checkExtraMembers([]replicaset.Member{})
-	c.Check(peerChanges.isChanged, jc.IsFalse)
+	peerChanges := peerGroupChanges{
+		info: &peerGroupInfo{},
+	}
+	err := peerChanges.checkExtraMembers()
+	c.Check(peerChanges.desired.isChanged, jc.IsFalse)
 	c.Check(err, jc.ErrorIsNil)
 }
 

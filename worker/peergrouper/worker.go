@@ -496,16 +496,17 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "creating peer group info")
 	}
-	membersChanged, members, voting, err := desiredPeerGroup(info)
+	desired, err := desiredPeerGroup(info)
+	// membersChanged, members, voting, err
 	if err != nil {
 		return nil, errors.Annotate(err, "computing desired peer group")
 	}
 	if logger.IsDebugEnabled() {
-		if membersChanged {
-			logger.Debugf("desired peer group members: \n%s", prettyReplicaSetMembers(members))
+		if desired.isChanged {
+			logger.Debugf("desired peer group members: \n%s", prettyReplicaSetMembers(desired.members))
 		} else {
 			var output []string
-			for id, v := range voting {
+			for id, v := range desired.machineVoting {
 				output = append(output, fmt.Sprintf("  %s: %v", id, v))
 			}
 			logger.Debugf("no change in desired peer group, voting: \n%s", strings.Join(output, "\n"))
@@ -535,7 +536,7 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	// Note that we potentially update the HasVote status of the machines even
 	// if the members have not changed.
 	var added, removed []*machineTracker
-	for id, hasVote := range voting {
+	for id, hasVote := range desired.machineVoting {
 		m := info.machines[id]
 		switch {
 		case hasVote && !m.stm.HasVote():
@@ -547,9 +548,9 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	if err := setHasVote(added, true); err != nil {
 		return nil, errors.Annotate(err, "adding new voters")
 	}
-	if membersChanged {
-		ms := make([]replicaset.Member, 0, len(members))
-		for _, m := range members {
+	if desired.isChanged {
+		ms := make([]replicaset.Member, 0, len(desired.members))
+		for _, m := range desired.members {
 			ms = append(ms, *m)
 		}
 		if err := w.config.MongoSession.Set(ms); err != nil {
@@ -570,13 +571,13 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	// Any previous peer-group determination errors result in status
 	// warning messages.
 	// Remove members from the return that are not voters.
-	for id := range members {
+	for id := range desired.members {
 		if err := w.machineTrackers[id].stm.SetStatus(getStatusInfo("")); err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		if !voting[id] {
-			delete(members, id)
+		if !desired.machineVoting[id] {
+			delete(desired.members, id)
 		}
 	}
 	for _, removedTracker := range removed {
@@ -589,7 +590,7 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 			logger.Debugf("vote removed from %v but machine is %s", removedTracker.Id(), state.Alive)
 		}
 	}
-	return members, nil
+	return desired.members, nil
 }
 
 func prettyReplicaSetMembers(members map[string]*replicaset.Member) string {
