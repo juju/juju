@@ -122,7 +122,7 @@ func (st *State) SaveSubnetsFromProvider(subnets []network.SubnetInfo, spaceName
 				continue
 			}
 			if subnetNet.IP.To4() == nil {
-				logger.Warningf("%s address is not an IPv4 address.", subnetNet.IP)
+				logger.Debugf("%s address is not an IPv4 address.", subnetNet.IP)
 				continue
 			}
 			overlaySegment, err := network.CalculateOverlaySegment(subnet.CIDR, fan)
