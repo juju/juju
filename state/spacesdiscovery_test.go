@@ -429,6 +429,27 @@ func (s *SpacesDiscoverySuite) TestReloadSubnetsWithFAN(c *gc.C) {
 	checkSubnetsEqual(c, subnets, twoSubnetsAfterFAN)
 }
 
+func (s *SpacesDiscoverySuite) TestReloadSubnetsIgnoredWithFAN(c *gc.C) {
+	s.environ = networkedEnviron{
+		stub:           &testing.Stub{},
+		spaceDiscovery: false,
+		subnets:        twoSubnetsAndIgnored,
+	}
+	s.usedEnviron = &s.environ
+
+	// This is just a test configuration. This configuration may be
+	// considered invalid in the future. Here we show that this
+	// configuration is ignored.
+	s.IAASModel.UpdateModelConfig(map[string]interface{}{"fan-config": "fe80:dead:beef::/48=fe80:dead:beef::/24"}, nil)
+	err := s.State.ReloadSpaces(s.usedEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnets, err := s.State.AllSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkSubnetsEqual(c, subnets, twoSubnets)
+}
+
 func (s *SpacesDiscoverySuite) TestReloadSpacesWithFAN(c *gc.C) {
 	s.environ = networkedEnviron{
 		stub:           &testing.Stub{},
