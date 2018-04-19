@@ -47,3 +47,11 @@ func (s MongoSessionShim) CurrentMembers() ([]replicaset.Member, error) {
 func (s MongoSessionShim) Set(members []replicaset.Member) error {
 	return replicaset.Set(s.Session, members)
 }
+
+func (s MongoSessionShim) StepDownPrimary() error {
+	return replicaset.StepDownPrimary(s.Session)
+}
+
+func (s MongoSessionShim) Refresh() {
+	s.Session.Refresh()
+}

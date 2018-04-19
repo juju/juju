@@ -6,6 +6,7 @@ package peergrouper
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,8 +44,19 @@ type peerGroupInfo struct {
 
 // desiredChanges tracks the specific changes we are asking to be made to the peer group.
 type desiredChanges struct {
-	isChanged     bool
-	members       map[string]*replicaset.Member
+	// isChanged is set False if the existing peer group is already in a valid configuration.
+	isChanged bool
+
+	// stepDownPrimary is set if we want to remove the vote from the Mongo Primary. This is specially flagged,
+	// because you have to ask the primary to step down before you can remove its vote.
+	stepDownPrimary bool
+
+	// members is the map of Id to replicaset.Member for the desired list of machines in the replicaset.
+	members map[string]*replicaset.Member
+
+	// machineVoting tracks which of the members should be set to vote. We should preseve an odd number of voters at all
+	// time. Also, when machines are first added to the replicaset, we wait to give them voting rights for when they
+	// have managed to sync the data from the current primary.
 	machineVoting map[string]bool
 }
 
@@ -171,9 +183,10 @@ func desiredPeerGroup(info *peerGroupInfo) (desiredChanges, error) {
 	peerChanges := peerGroupChanges{
 		info: info,
 		desired: desiredChanges{
-			isChanged:     false,
-			machineVoting: map[string]bool{},
-			members:       map[string]*replicaset.Member{},
+			isChanged:       false,
+			stepDownPrimary: false,
+			machineVoting:   map[string]bool{},
+			members:         map[string]*replicaset.Member{},
 		},
 	}
 	return peerChanges.computeDesiredPeerGroup()
@@ -235,6 +248,35 @@ func (p *peerGroupChanges) checkExtraMembers() error {
 	return nil
 }
 
+// sortAsInts converts all the vals to an integer to sort them as numbers instead of strings
+// If any of the values are not valid integers, they will be sorted as stirngs, and added to the end
+// the slice will be sorted in place.
+// (generally this should only be used for strings we expect to represent ints, but we don't want to error if
+// something isn't an int.)
+func sortAsInts(vals []string) {
+	asInts := make([]int, 0, len(vals))
+	extra := []string{}
+	for _, val := range vals {
+		asInt, err := strconv.Atoi(val)
+		if err != nil {
+			extra = append(extra, val)
+		} else {
+			asInts = append(asInts, asInt)
+		}
+	}
+	sort.Ints(asInts)
+	sort.Strings(extra)
+	i := 0
+	for _, asInt := range asInts {
+		vals[i] = strconv.Itoa(asInt)
+		i++
+	}
+	for _, val := range extra {
+		vals[i] = val
+		i++
+	}
+}
+
 // possiblePeerGroupChanges returns a set of slices classifying all the
 // existing machines according to how their vote might move.
 // toRemoveVote holds machines whose vote should be removed;
@@ -246,7 +288,7 @@ func (p *peerGroupChanges) possiblePeerGroupChanges() {
 	for id := range p.info.machines {
 		machineIds = append(machineIds, id)
 	}
-	sort.Strings(machineIds)
+	sortAsInts(machineIds)
 	logger.Debugf("assessing possible peer group changes:")
 	for _, id := range machineIds {
 		m := p.info.machines[id]
@@ -271,8 +313,13 @@ func (p *peerGroupChanges) possiblePeerGroupChanges() {
 				p.toKeepCreateNonVotingMember = append(p.toKeepCreateNonVotingMember, id)
 			}
 		case !wantsVote && isVoting:
-			logger.Debugf("machine %q is a potential non-voter", id)
 			p.toRemoveVote = append(p.toRemoveVote, id)
+			if isPrimaryMember(p.info, id) {
+				p.desired.stepDownPrimary = true
+				logger.Debugf("primary machine %q is a potential non-voter", id)
+			} else {
+				logger.Debugf("machine %q is a potential non-voter", id)
+			}
 		case !wantsVote && !isVoting:
 			logger.Debugf("machine %q does not want the vote", id)
 			p.toKeepNonVoting = append(p.toKeepNonVoting, id)
@@ -304,7 +351,8 @@ func (p *peerGroupChanges) reviewPeerGroupChanges() {
 		return
 	}
 	if len(p.toAddVote) > 0 {
-		logger.Debugf("number of voters is even, trim last member from toAddVote")
+		last := p.toAddVote[len(p.toAddVote)-1]
+		logger.Debugf("number of voters would be even, not adding %q to maintain odd", last)
 		p.toAddVote = p.toAddVote[:len(p.toAddVote)-1]
 		return
 	}
@@ -319,6 +367,9 @@ func (p *peerGroupChanges) reviewPeerGroupChanges() {
 			isPrimary := isPrimaryMember(p.info, id)
 			if !isPrimary {
 				tempToRemove = append(tempToRemove, id)
+			} else {
+				logger.Debugf("preserving primary %q as the last voter", id)
+				p.desired.stepDownPrimary = false
 			}
 		}
 		p.toRemoveVote = tempToRemove
@@ -326,6 +377,7 @@ func (p *peerGroupChanges) reviewPeerGroupChanges() {
 		for i, id := range p.toKeepVoting {
 			if !isPrimaryMember(p.info, id) {
 				p.toRemoveVote = append(p.toRemoveVote, id)
+				logger.Debugf("removing vote from %q to maintain odd number of voters", id)
 				if i == len(p.toKeepVoting)-1 {
 					p.toKeepVoting = p.toKeepVoting[:i]
 				} else {
@@ -443,7 +495,7 @@ const multiAddressMessage = "multiple usable addresses found" +
 func (p *peerGroupChanges) updateAddressesFromInternal() error {
 	var multipleAddresses []string
 
-	for id := range p.desired.members {
+	for _, id := range p.sortedMemberIds() {
 		m := p.info.machines[id]
 		hostPorts := m.GetPotentialMongoHostPorts(p.info.mongoPort)
 		addrs := network.SelectInternalHostPorts(hostPorts, false)
@@ -509,7 +561,7 @@ func (p *peerGroupChanges) updateAddressesFromSpace() error {
 	space := p.info.haSpace
 	var noAddresses []string
 
-	for id := range p.desired.members {
+	for _, id := range p.sortedMemberIds() {
 		m := p.info.machines[id]
 		addr, err := m.SelectMongoAddressFromSpace(p.info.mongoPort, space)
 		if err != nil {
@@ -534,6 +586,16 @@ func (p *peerGroupChanges) updateAddressesFromSpace() error {
 		return fmt.Errorf("no usable Mongo addresses found in configured juju-ha-space %q for machines: %s", space, ids)
 	}
 	return nil
+}
+
+// sortedMemberIds returns the list of p.desired.members in integer-sorted order
+func (p *peerGroupChanges) sortedMemberIds() []string {
+	memberIds := make([]string, 0, len(p.desired.members))
+	for id := range p.desired.members {
+		memberIds = append(memberIds, id)
+	}
+	sortAsInts(memberIds)
+	return memberIds
 }
 
 // getStatusInfo creates and returns a StatusInfo instance for use as a machine

@@ -6,6 +6,7 @@ package peergrouper
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"path"
 	"reflect"
 	"strconv"
@@ -472,6 +473,41 @@ func (session *fakeMongoSession) Set(members []replicaset.Member) error {
 	}
 	session.checker.checkInvariants()
 	return nil
+}
+
+func (session *fakeMongoSession) StepDownPrimary() error {
+	logger.Debugf("StepDownPrimary")
+	if err := session.errors.errorFor("Session.StepDownPrimary"); err != nil {
+		return err
+	}
+	status := session.status.Get().(*replicaset.Status)
+	members := session.members.Get().([]replicaset.Member)
+	// We use a simple algorithm, find the primary, and all the secondaries that don't have 0 priority. And then pick a
+	// random secondary and swap their states
+	primaryIndex := -1
+	secondaryIndexes := []int{}
+	for i, member := range status.Members {
+		if member.State == replicaset.PrimaryState {
+			primaryIndex = i
+		} else if member.State == replicaset.SecondaryState && (members[i].Priority == nil || *members[i].Priority > 0) {
+			secondaryIndexes = append(secondaryIndexes, i)
+		}
+	}
+	if primaryIndex == -1 {
+		return errors.Errorf("no primary to step down, broken config?")
+	}
+	if len(secondaryIndexes) < 1 {
+		return errors.Errorf("no secondaries to switch to")
+	}
+	secondaryIndex := secondaryIndexes[rand.Intn(len(secondaryIndexes))]
+	status.Members[primaryIndex].State = replicaset.SecondaryState
+	status.Members[secondaryIndex].State = replicaset.PrimaryState
+	session.setStatus(status.Members)
+	return nil
+}
+
+func (session *fakeMongoSession) Refresh() {
+	// If this was a testing.Stub we would track that Refresh was called.
 }
 
 // prettyReplicaSetMembersSlice wraps prettyReplicaSetMembers for testing

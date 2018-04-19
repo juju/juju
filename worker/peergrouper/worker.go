@@ -60,6 +60,8 @@ type MongoSession interface {
 	CurrentStatus() (*replicaset.Status, error)
 	CurrentMembers() ([]replicaset.Member, error)
 	Set([]replicaset.Member) error
+	StepDownPrimary() error
+	Refresh()
 }
 
 type APIHostPortsSetter interface {
@@ -269,10 +271,13 @@ func (w *pgWorker) loop() error {
 
 		members, err := w.updateReplicaSet()
 		if err != nil {
-			if _, isReplicaSetError := err.(*replicaSetError); !isReplicaSetError {
-				return err
+			if _, isReplicaSetError := err.(*replicaSetError); isReplicaSetError {
+				logger.Errorf("cannot set replicaset: %v", err)
+			} else if _, isStepDownPrimary := err.(*stepDownPrimaryError); !isStepDownPrimary {
+				return errors.Trace(err)
 			}
-			logger.Errorf("cannot set replicaset: %v", err)
+			// both replicaset errors and stepping down the primary are both considered fast-retry 'failures'.
+			// we need to re-read the state after a short timeout and re-evaluate the replicaset.
 			failed = true
 		}
 		w.publishAPIServerDetails(servers, members)
@@ -488,6 +493,12 @@ type replicaSetError struct {
 	error
 }
 
+// stepDownPrimaryError means we needed to ask the primary to step down, so we should come back and re-evaluate the
+// replicaset once the new primary is voted in
+type stepDownPrimaryError struct {
+	error
+}
+
 // updateReplicaSet sets the current replica set members, and applies the
 // given voting status to machines in the state. A mapping of machine ID
 // to replicaset.Member structures is returned.
@@ -510,6 +521,22 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 				output = append(output, fmt.Sprintf("  %s: %v", id, v))
 			}
 			logger.Debugf("no change in desired peer group, voting: \n%s", strings.Join(output, "\n"))
+		}
+	}
+
+	if desired.stepDownPrimary {
+		logger.Infof("mongo primary machine needs to be removed, first requesting it to step down")
+		if err := w.config.MongoSession.StepDownPrimary(); err != nil {
+			// StepDownPrimary should have already handled the io.EOF that mongo might give, so any error we
+			// get is unknown
+			return nil, errors.Annotate(err, "asking primary to step down")
+		}
+		// Asking the Primary to step down forces us to disconnect from Mongo, but session.Refresh() should get us
+		// reconnected so we can keep operating
+		w.config.MongoSession.Refresh()
+		// However, we no longer know who the primary is, so we have to error out and have it reevaluated
+		return nil, &stepDownPrimaryError{
+			error: errors.Errorf("primary is stepping down, must reevaluate peer group"),
 		}
 	}
 

@@ -842,14 +842,21 @@ func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *gc.C, ipVersi
 	}
 }
 
-func (s *workerSuite) TestDyingMachinesAreRemoved(c *gc.C) {
+func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *voyeur.Watcher) {
 	st := NewFakeState()
 	InitState(c, st, 3, testIPv4)
 	st.machine("10").SetHasVote(true)
 	st.session.setStatus(mkStatuses("0p", testIPv4))
 
 	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{})
-	defer workertest.CleanKill(c, w)
+	defer func() {
+		if r := recover(); r != nil {
+			// we aren't exiting cleanly, so kill the worker
+			workertest.CleanKill(c, w)
+			// but let the stack trace continue
+			panic(r)
+		}
+	}()
 
 	memberWatcher := st.session.members.Watch()
 	mustNext(c, memberWatcher, "init")
@@ -865,6 +872,14 @@ func (s *workerSuite) TestDyingMachinesAreRemoved(c *gc.C) {
 	c.Assert(s.clock.WaitAdvance(2*pollInterval, coretesting.ShortWait, 1), jc.ErrorIsNil)
 	mustNext(c, memberWatcher, "status ok")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", testIPv4))
+	st.machine("11").SetHasVote(true)
+	st.machine("12").SetHasVote(true)
+	return st, w, memberWatcher
+}
+
+func (s *workerSuite) TestDyingMachinesAreRemoved(c *gc.C) {
+	st, w, memberWatcher := s.initialize3Voters(c)
+	defer workertest.CleanKill(c, w)
 	// Now we have gotten to a prepared replicaset.
 
 	// When we advance the lifecycle (aka machine.Destroy()), we should notice that the machine no longer wants a vote
@@ -876,6 +891,39 @@ func (s *workerSuite) TestDyingMachinesAreRemoved(c *gc.C) {
 	// And once we don't have the vote, and we see the machine is Dying we should remove it
 	mustNext(c, memberWatcher, "remove dying machine")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 2", testIPv4))
+}
+
+func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
+	st, w, memberWatcher := s.initialize3Voters(c)
+	defer workertest.CleanKill(c, w)
+	statusWatcher := st.session.status.Watch()
+	status := mustNextStatus(c, statusWatcher, "init")
+	c.Check(status.Members, gc.DeepEquals, mkStatuses("0p 1s 2s", testIPv4))
+	primaryMemberIndex := 0
+
+	st.machine("10").setWantsVote(false)
+	// we should notice that the primary has failed, and have called StepDownPrimary which should ultimately cause
+	// a change in the Status.
+	status = mustNextStatus(c, statusWatcher, "stepping down primary")
+	// find out which one is primary, should only be one of 1 or 2
+	c.Assert(status.Members, gc.HasLen, 3)
+	c.Check(status.Members[0].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
+	if status.Members[1].State == replicaset.PrimaryState {
+		primaryMemberIndex = 1
+		c.Check(status.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
+	} else {
+		primaryMemberIndex = 2
+		c.Check(status.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
+	}
+	// Now we have to wait for time to advance for us to reevaluate the system
+	c.Assert(s.clock.WaitAdvance(2*pollInterval, coretesting.ShortWait, 2), jc.ErrorIsNil)
+	mustNext(c, memberWatcher, "reevaluting member post-step-down")
+	// we should now have switch the vote over to whoever became the primary
+	if primaryMemberIndex == 1 {
+		assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2", testIPv4))
+	} else {
+		assertMembers(c, memberWatcher.Value(), mkMembers("0 1 2v", testIPv4))
+	}
 }
 
 // mustNext waits for w's value to be set and returns it.
@@ -895,6 +943,33 @@ func mustNext(c *gc.C, w *voyeur.Watcher, context string) (val interface{}) {
 		}
 		c.Logf("mustNext %v done, ok: %v, val: %v", context, ok, val)
 		done <- voyeurResult{ok, val}
+	}()
+	select {
+	case result := <-done:
+		c.Assert(result.ok, jc.IsTrue)
+		return result.val
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for value to be set %v", context)
+	}
+	panic("unreachable")
+}
+
+func mustNextStatus(c *gc.C, w *voyeur.Watcher, context string) *replicaset.Status {
+	type voyeurResult struct {
+		ok  bool
+		val *replicaset.Status
+	}
+	done := make(chan voyeurResult)
+	go func() {
+		c.Logf("mustNextStatus %v", context)
+		var result voyeurResult
+		result.ok = w.Next()
+		if result.ok {
+			val := w.Value()
+			result.val = val.(*replicaset.Status)
+		}
+		c.Logf("mustNextStatus %v done, ok: %v, val: %v", context, result.ok, result.val)
+		done <- result
 	}()
 	select {
 	case result := <-done:
