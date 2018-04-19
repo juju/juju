@@ -254,15 +254,6 @@ func (st *State) enableHAIntentionOps(
 	return ops, change, nil
 }
 
-// controllerAvailable returns true if the specified controller machine is
-// available.
-var controllerAvailable = func(m *Machine) (bool, error) {
-	// TODO(axw) #1271504 2014-01-22
-	// Check the controller's associated mongo health;
-	// requires coordination with worker/peergrouper.
-	return m.AgentPresence()
-}
-
 type enableHAIntent struct {
 	newCount  int
 	placement []string
@@ -315,41 +306,11 @@ func (st *State) enableHAIntentions(info *ControllerInfo, placement []string, ma
 		if err != nil {
 			return nil, err
 		}
-		available, err := controllerAvailable(m)
-		if err != nil {
-			return nil, err
-		}
-		logger.Infof("machine %q, available %v, wants vote %v, has vote %v", m, available, m.WantsVote(), m.HasVote())
-		if available {
-			if m.WantsVote() {
-				intent.maintain = append(intent.maintain, m)
-			} else {
-				intent.promote = append(intent.promote, m)
-			}
-			continue
-		}
-
-		switch {
-		case m.WantsVote() && m.HasVote() && m.Id() == machineId:
-			// lp:1748275 - Shortly after bootstrap, it's possible that the
-			// controller hasn't pinged with agent presence yet, thereby
-			// failing the controllerAvailable check. So, don't demote the
-			// machine we're running on, if we're here, the agent must be running.
+		logger.Infof("machine %q, wants vote %v, has vote %v", m, m.WantsVote(), m.HasVote())
+		if m.WantsVote() {
 			intent.maintain = append(intent.maintain, m)
-		case m.WantsVote():
-			// The machine wants to vote, so we simply set novote and allow it
-			// to run its course to have its vote removed by the worker that
-			// maintains the replicaset. We will replace it with an existing
-			// non-voting controller if there is one, starting a new one if
-			// not.
-			intent.demote = append(intent.demote, m)
-		case m.HasVote():
-			// The machine still has a vote, so keep it around for now.
-			intent.maintain = append(intent.maintain, m)
-		default:
-			// The machine neither wants to nor has a vote, so remove its
-			// JobManageModel job immediately.
-			intent.remove = append(intent.remove, m)
+		} else {
+			intent.promote = append(intent.promote, m)
 		}
 	}
 	logger.Infof("initial intentions: promote %v; maintain %v; demote %v; remove %v; convert: %v",
