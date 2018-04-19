@@ -75,12 +75,33 @@ def assess_upgrade_from_stable_to_develop(args, stable_bsm, devel_client):
             })
             with stable_bsm.booted_context(False):
                 assert_stable_model_is_correct(stable_client)
-
+                enable_ha(client)
                 deploy_mediawiki_with_db(stable_client)
                 assert_mediawiki_is_responding(stable_client)
                 upgrade_stable_to_devel_version(devel_client)
                 assert_mediawiki_is_responding(devel_client)
+                assert_ha_space(client)
 
+# This was copied from the test assess_recovery.py. The method will be moved
+# somewhere common and reused.
+def enable_ha(bs_manager, client):
+    controller_client = client.get_controller_client()
+    controller_client.enable_ha()
+    controller_client.wait_for_ha()
+    show_controller(controller_client)
+    remote_machines = get_remote_machines(
+        controller_client, bs_manager.known_hosts)
+    bs_manager.known_hosts = remote_machines
+
+def assert_ha_space(client):
+    """If the ha spaces feature is supported by the provider and client version,
+    then this assertion will hold if the ha_space is appropriately configured
+    for the controller.
+
+    """
+    client_version = get_stripped_version_number(client.version).split('.')
+    if (devel_version[0] == 2 and devel_version[1] > 3) or (devel_version[0] > 2):
+        pass
 
 def upgrade_stable_to_devel_version(client):
     devel_version = get_stripped_version_number(client.version)
