@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
@@ -27,13 +29,18 @@ func (kubernetesEnvironProvider) Version() int {
 	return 0
 }
 
+func newK8sClient(c *rest.Config) (kubernetes.Interface, error) {
+	client, err := kubernetes.NewForConfig(c)
+	return client, err
+}
+
 // Open is part of the ContainerEnvironProvider interface.
 func (kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, error) {
 	logger.Debugf("opening model %q.", args.Config.Name())
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	broker, err := NewK8sBroker(args.Cloud, args.Config.Name())
+	broker, err := NewK8sBroker(args.Cloud, args.Config.Name(), newK8sClient)
 	if err != nil {
 		return nil, err
 	}
