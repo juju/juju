@@ -6,6 +6,7 @@ package provider
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"text/template"
@@ -902,7 +903,11 @@ func operatorPod(appName, agentPath string) *core.Pod {
 	appTag := names.NewApplicationTag(appName)
 	vers := version.Current
 	vers.Build = 0
-	operatorImage := fmt.Sprintf("jujusolutions/caas-jujud-operator:%s", vers.String())
+	dockerUserName := os.Getenv("DOCKER_USERNAME")
+	if dockerUserName == "" {
+		dockerUserName = "jujusolutions"
+	}
+	operatorImage := fmt.Sprintf("%s/caas-jujud-operator:%s", dockerUserName, vers.String())
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   podName,
