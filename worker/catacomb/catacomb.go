@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 )
 
 // Catacomb is a variant of tomb.Tomb with its own internal goroutine, designed
@@ -110,11 +110,11 @@ func Invoke(plan Plan) (err error) {
 	// This goroutine runs the work func and stops the catacomb with its error;
 	// and waits for for the listen goroutine and all added workers to complete
 	// before marking the catacomb's tomb Dead.
-	go func() {
-		defer catacomb.tomb.Done()
+	catacomb.tomb.Go(func() error {
 		defer catacomb.wg.Wait()
 		catacomb.Kill(runSafely(plan.Work))
-	}()
+		return nil
+	})
 	return nil
 }
 
