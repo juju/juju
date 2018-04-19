@@ -116,7 +116,8 @@ func (st *State) EnableHA(
 			return nil, errors.Trace(err)
 		}
 		if desiredControllerCount == 0 {
-			desiredControllerCount = votingCount
+			// Make sure we go to add odd number of desired voters. Even if HA was currently at 2 desired voters
+			desiredControllerCount = votingCount + (votingCount+1)%2
 			if desiredControllerCount <= 1 {
 				desiredControllerCount = 3
 			}
@@ -410,17 +411,44 @@ func removeControllerOps(m *Machine) []txn.Op {
 	}}
 }
 
-// RemoveControllerMachine will remove Machine from being part of the set of Controllers for this
+// RemoveControllerMachine will remove Machine from being part of the set of Controllers.
+// It must not have or want to vote, and it must not be the last controller.
 func (st *State) RemoveControllerMachine(m *Machine) error {
-	if m.WantsVote() {
-		return errors.Errorf("machine %s cannot be removed as a controller as it still wants to vote", m.Id())
+	logger.Infof("removing controller machine %q", m.doc.Id)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt != 0 {
+			// Something changed, make sure we're still up to date
+			m.Refresh()
+		}
+		if m.WantsVote() {
+			return nil, errors.Errorf("machine %s cannot be removed as a controller as it still wants to vote", m.Id())
+		}
+		if m.HasVote() {
+			return nil, errors.Errorf("machine %s cannot be removed as a controller as it still has a vote", m.Id())
+		}
+		controllerInfo, err := st.ControllerInfo()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(controllerInfo.MachineIds) <= 1 {
+			return nil, errors.Errorf("machine %s cannot be removed as it is the last controller", m.Id())
+		}
+		txnLogger.Debugf("txn for removing controller machine %q", m.doc.Id)
+		return []txn.Op{{
+			C:      machinesC,
+			Id:     m.doc.DocID,
+			Assert: bson.D{{"novote", true}, {"hasvote", false}},
+			Update: bson.D{
+				{"$pull", bson.D{{"jobs", JobManageModel}}},
+			},
+		}, {
+			C:      controllersC,
+			Id:     modelGlobalKey,
+			Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
+			Update: bson.D{{"$pull", bson.D{{"machineids", m.doc.Id}}}},
+		}}, nil
 	}
-	if m.HasVote() {
-		return errors.Errorf("machine %s cannot be removed as a controller as it still has a vote", m.Id())
-	}
-	// TODO: Ensure that there are other controllers
-	// Note: we treat removing a machine that is not there as 'convergence' rather than illegal.
-	if err := st.runRawTransaction(removeControllerOps(m)); err != nil {
+	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

@@ -811,6 +811,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 				}
 				ops[0].Assert = append(asserts, checkUnits)
 				ops = append(ops, cleanupOp)
+				txnLogger.Debugf("txn moving machine %q to %s", m.Id(), life)
 				return ops, nil
 			}
 		}

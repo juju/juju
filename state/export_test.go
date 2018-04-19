@@ -16,6 +16,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	jutils "github.com/juju/utils"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -112,6 +113,10 @@ func newRunnerForHooks(st *State) jujutxn.Runner {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database: db.raw,
 		Clock:    st.stateClock,
+		RunTransactionObserver: func(t jujutxn.ObservedTransaction) {
+			txnLogger.Tracef("ran transaction in %.3fs %# v\nerr: %v",
+				t.Duration.Seconds(), pretty.Formatter(t.Ops), t.Error)
+		},
 	})
 	db.runner = runner
 	return runner
