@@ -32,3 +32,6 @@ ipaddress>=1.0.16
 python-novaclient>=6.0.2
 pyOpenSSL>=17.5.0
 boto3>=1.5.18
+
+PyYAML==3.12
+python-dateutil==2.7.2

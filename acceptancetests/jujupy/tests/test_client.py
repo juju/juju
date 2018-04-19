@@ -2857,8 +2857,9 @@ class TestModelClient(ClientTest):
                           'get_juju_output', return_value=ret):
             with self.assertRaisesRegexp(
                 Exception,
-                "Timed out waiting for action to complete during fetch with status: pending."):
-                    client.action_fetch("123")
+                "Timed out waiting for action to complete during fetch with status: pending."
+            ):
+                client.action_fetch("123")
 
     def test_action_do_fetch(self):
         client = ModelClient(JujuData(None, {'type': 'lxd'}),
@@ -3209,7 +3210,8 @@ class TestModelClient(ClientTest):
         clouds = {'foo': {
             'type': 'maas',
             'endpoint': 'http://bar.example.com',
-            }}
+            }
+        }
         client.add_cloud_interactive('foo', clouds['foo'])
         self.assertEqual(client._backend.clouds, clouds)
 

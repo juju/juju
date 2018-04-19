@@ -1,31 +1,51 @@
-mkfile_dir := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-p=test*.py
-py3="assess_model_change_watcher.py"
-test:
-	TMPDIR=/tmp python -m unittest discover -vv . -p "$(p)"
+mkfile_dir          := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+p                   = test*.py
+py3                 = assess_model_change_watcher.py
+python_base_path    = $(shell which python3)
+
+.PHONY: test
+test: ensure-venv
+	TMPDIR=/tmp python3 -m unittest discover -vv . -p "$(p)"
 	TMPDIR=/tmp python3 -m unittest discover -vv jujupy -t . -p "$(p)"
-lint:
-	python3 -m flake8 --builtins xrange,basestring $(py3) --exclude=repository
-	flake8 --builtins xrange,basestring --exclude=$(py3),repository
-cover:
+
+.PHONY: lint
+lint: ensure-venv
+	python3 -m flake8 --builtins xrange,basestring $(py3) --exclude=repository,venv
+	flake8 --builtins xrange,basestring --exclude=$(py3),repository,venv
+
+.PHONY: cover
+cover: ensure-venv
 	python -m coverage run --source="./" --omit "./tests/*" -m unittest discover -vv ./tests
 	python -m coverage report
+
+.PHONY: clean
 clean:
 	find . -name '*.pyc' -delete
 
+.PHONY: apt-update
 apt-update:
 	sudo apt-get -qq update
+
 juju-ci-tools.common_0.1.4-0_all.deb: apt-update
 	find . -name '*.deb' -delete
 	sudo apt-get install -y equivs
 	equivs-build juju-ci-tools-common
+
+.PHONY: install-deps
 install-deps: juju-ci-tools.common_0.1.4-0_all.deb apt-update
 	sudo dpkg -i juju-ci-tools.common_0.1.4-0_all.deb || true
 	sudo apt-get install -y -f
-	pip install --user -r $(mkfile_dir)/requirements.txt
-name=NAMEHERE
-assess_file=assess_$(name).py
-new-assess:
+	pip3 install -r $(mkfile_dir)requirements-dev.txt
+
+name        = NAMEHERE
+assess_file = assess_$(name).py
+
+.PHONY: new-assess
+new-assess: ensure-venv
 	install -m 755 template_assess.py.tmpl $(assess_file)
 	sed -i -e "s/TEMPLATE/$(name)/g" $(assess_file) $(test_assess_file)
-.PHONY: lint test cover clean new-assess apt-update install-deps
+
+.PHONY: ensure-venv
+ensure-venv:
+	test -d venv || virtualenv -p $(python_base_path) $(mkfile_dir)venv
+	. $(mkfile_dir)venv/bin/activate

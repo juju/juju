@@ -292,7 +292,7 @@ def delete_instance(client, name_id, resource_group=None):
         if deployment:
             log.debug('Found {} {}'.format(resource_group.name, deployment.name))
             if not client.read_only:
-                poller = rgd.delete_vm(deployment.name)
+                poller = rgd.delete_vm(deployment.name)  # noqa ?? ./winazurearm.py:295:26: F821 undefined name 'rgd'
                 log.debug('Waiting for {} to be deleted'.format(deployment.name))
                 if not poller.done():
                     poller.result()

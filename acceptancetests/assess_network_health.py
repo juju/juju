@@ -16,22 +16,22 @@ from collections import defaultdict
 
 from jujupy import (
     client_for_existing
-    )
+)
 from jujupy.wait_condition import (
     WaitApplicationNotPresent
-    )
+)
 from deploy_stack import (
     BootstrapManager
-    )
+)
 from utility import (
     add_basic_testing_arguments,
     generate_default_clean_dir,
     configure_logging,
     wait_for_port
-    )
+)
 from substrate import (
     maas_account_from_boot_config,
-    )
+)
 
 __metaclass__ = type
 
@@ -49,7 +49,7 @@ class AssessNetworkHealth:
             self.log_dir = args.logs
         else:
             self.log_dir = generate_default_clean_dir(
-                            args.temp_env_name)
+                args.temp_env_name)
         self.expose_client = None
         self.existing_series = set([])
         self.expose_test_charms = set([])
@@ -428,12 +428,12 @@ class AssessNetworkHealth:
         log.info('Parsing final results.')
         error_string = []
         for nh_source, service_result in visibility.items():
-                for service, unit_res in service_result.items():
-                    if False in unit_res.values():
-                        failed = [u for u, r in unit_res.items() if r is False]
-                        error = ('Unit {0} failed to contact '
-                                 'targets(s): {1}'.format(nh_source, failed))
-                        error_string.append(error)
+            for service, unit_res in service_result.items():
+                if False in unit_res.values():
+                    failed = [u for u, r in unit_res.items() if r is False]
+                    error = ('Unit {0} failed to contact '
+                             'targets(s): {1}'.format(nh_source, failed))
+                    error_string.append(error)
         for unit, res in internet.items():
             if not res:
                 error = 'Machine {} failed internet connection.'.format(unit)
@@ -451,7 +451,7 @@ class AssessNetworkHealth:
                 cont_ids = []
                 try:
                     cont_ids.extend([c['instance-id'] for c in
-                                    m_info.get('containers').values()])
+                                     m_info.get('containers').values()])
                 except KeyError:
                     log.info('No containers for machine: {}'.format(machine))
                 if cont_ids:

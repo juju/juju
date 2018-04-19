@@ -2239,15 +2239,15 @@ class TestErrorIfUnclean(FakeHomeTestCase):
 
     def test_contain_unclean_resources(self):
         uncleaned_resources = [
-                {
-                    'resource': 'instances',
-                    'errors': [('ifoo', 'err-msg'), ('ibar', 'err-msg')]
-                },
-                {
-                    'resource': 'security groups',
-                    'errors': [('sg-bar', 'err-msg')]
-                }
-            ]
+            {
+                'resource': 'instances',
+                'errors': [('ifoo', 'err-msg'), ('ibar', 'err-msg')]
+            },
+            {
+                'resource': 'security groups',
+                'errors': [('sg-bar', 'err-msg')]
+            }
+        ]
         error_if_unclean(uncleaned_resources)
         self.assertListEqual(self.log_stream.getvalue().splitlines(), [
             "CRITICAL Following resource requires manual cleanup",
@@ -2260,10 +2260,10 @@ class TestErrorIfUnclean(FakeHomeTestCase):
 
     def test_unclean_resources_without_sg_error(self):
         uncleaned_resources = [
-                {
-                    'resource': 'instances',
-                    'errors': [('ifoo', 'err-msg'), ('ibar', 'err-msg')]
-                },
+            {
+                'resource': 'instances',
+                'errors': [('ifoo', 'err-msg'), ('ibar', 'err-msg')]
+            },
         ]
         error_if_unclean(uncleaned_resources)
         self.assertListEqual(self.log_stream.getvalue().splitlines(), [
@@ -2275,11 +2275,11 @@ class TestErrorIfUnclean(FakeHomeTestCase):
 
     def test_unclean_resources_without_instances_error(self):
         uncleaned_resources = [
-                {
-                    'resource': 'security groups',
-                    'errors': [('sg-bar', 'err-msg')]
-                }
-            ]
+            {
+                'resource': 'security groups',
+                'errors': [('sg-bar', 'err-msg')]
+            }
+        ]
         error_if_unclean(uncleaned_resources)
         self.assertListEqual(self.log_stream.getvalue().splitlines(), [
             "CRITICAL Following resource requires manual cleanup",

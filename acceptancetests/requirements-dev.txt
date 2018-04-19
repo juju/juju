@@ -1,0 +1,7 @@
+-r requirements.txt
+
+# dev deps
+flake8
+isort
+mock==0.7.2  # it's builtin > py3.3, install here for better compatibility
+

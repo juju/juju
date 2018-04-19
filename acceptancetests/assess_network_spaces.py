@@ -13,14 +13,14 @@ import boto3
 
 from jujupy.exceptions import (
     ProvisioningError
-    )
+)
 from deploy_stack import (
     BootstrapManager
-    )
+)
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-    )
+)
 
 __metaclass__ = type
 
@@ -87,7 +87,7 @@ class AssessNetworkSpaces:
         """
         log.info('Assigning network spaces on {}.'.format(client.env.provider))
         subnets = yaml.safe_load(
-                client.get_juju_output('list-subnets', '--format=yaml'))
+            client.get_juju_output('list-subnets', '--format=yaml'))
         if not subnets:
             raise SubnetsNotReady(
                 'No subnets defined in {}'.format(client.env.provider))
@@ -97,8 +97,8 @@ class AssessNetworkSpaces:
             client.juju('add-space', ('space{}'.format(subnet_count), subnet))
         if subnet_count < 3:
             raise SubnetsNotReady(
-                    '3 subnets required for spaces assignment. '
-                    '{} found.'.format(subnet_count))
+                '3 subnets required for spaces assignment. '
+                '{} found.'.format(subnet_count))
 
     def assert_machines_in_correct_spaces(self, client):
         """Check all the machines to verify they are in the expected spaces
@@ -122,10 +122,10 @@ class AssessNetworkSpaces:
             ip = get_machine_ip_in_space(client, machine, expected_space)
             if not ip:
                 raise TestFailure(
-                        'Machine {machine} has NO IPs in '
-                        '{space}'.format(
-                            machine=machine,
-                            space=expected_space))
+                    'Machine {machine} has NO IPs in '
+                    '{space}'.format(
+                        machine=machine,
+                        space=expected_space))
         log.info('PASSED')
 
     def assert_machine_connectivity(self, client):
@@ -169,8 +169,8 @@ class AssessNetworkSpaces:
             container = machine['containers']['2/lxd/0']
             if container['juju-status']['current'] == 'started':
                 raise TestFailure(
-                        'Encountered no conflict when launching a container '
-                        'on a machine with a different spaces constraint.')
+                    'Encountered no conflict when launching a container '
+                    'on a machine with a different spaces constraint.')
         except ProvisioningError:
             log.info('Container correctly failed to provision.')
         finally:
@@ -195,13 +195,13 @@ class AssessNetworkSpaces:
                 routes = client.run(['ip route show'], machines=[unit[0]])
             except subprocess.CalledProcessError:
                 raise TestFailure(
-                        'Could not connect to address for unit: {0}, '
-                        'unable to find default route.'.format(unit[0]))
+                    'Could not connect to address for unit: {0}, '
+                    'unable to find default route.'.format(unit[0]))
             default_route = re.search(r'(default via )+([\d\.]+)\s+',
                                       json.dumps(routes[0]))
             if not default_route:
                 raise TestFailure(
-                        'Default route not found for {}'.format(unit[0]))
+                    'Default route not found for {}'.format(unit[0]))
         log.info('PASSED')
 
     def deploy_spaces_machines(self, client, series=None):
@@ -310,7 +310,7 @@ def machine_can_ping_ip(client, machine, ip):
     :returns: success of ping
     """
     rc, _ = client.juju(
-            'ssh', ('--proxy', machine, 'ping -c1 -q ' + ip), check=False)
+        'ssh', ('--proxy', machine, 'ping -c1 -q ' + ip), check=False)
     return rc == 0
 
 
@@ -371,10 +371,10 @@ class SpacesAWS(Spaces):
             client.env.get_region()))
         creds = client.env.get_cloud_credentials()
         ec2 = boto3.resource(
-                'ec2',
-                region_name=client.env.get_region(),
-                aws_access_key_id=creds['access-key'],
-                aws_secret_access_key=creds['secret-key'])
+            'ec2',
+            region_name=client.env.get_region(),
+            aws_access_key_id=creds['access-key'],
+            aws_secret_access_key=creds['secret-key'])
         # set up vpc
         vpc = ec2.create_vpc(CidrBlock='10.0.0.0/16')
         self.vpcid = vpc.id
@@ -422,10 +422,10 @@ class SpacesAWS(Spaces):
             vpcid=self.vpcid))
         creds = client.env.get_cloud_credentials()
         ec2 = boto3.resource(
-                'ec2',
-                region_name=client.env.get_region(),
-                aws_access_key_id=creds['access-key'],
-                aws_secret_access_key=creds['secret-key'])
+            'ec2',
+            region_name=client.env.get_region(),
+            aws_access_key_id=creds['access-key'],
+            aws_secret_access_key=creds['secret-key'])
         ec2client = ec2.meta.client
         vpc = ec2.Vpc(self.vpcid)
         # detach and delete all gateways
@@ -440,7 +440,7 @@ class SpacesAWS(Spaces):
             main = False
             for attrib in rt.associations_attribute:
                 if attrib['Main']:
-                        main = True
+                    main = True
             if not main:
                 rt.delete()
         # delete any instances
@@ -454,7 +454,7 @@ class SpacesAWS(Spaces):
                     'Values': [self.vpcid]
                 }])['VpcEndpoints']:
             ec2client.delete_vpc_endpoints(
-                    VpcEndpointIds=[ep['VpcEndpointId']])
+                VpcEndpointIds=[ep['VpcEndpointId']])
         # delete our security groups
         for sg in vpc.security_groups.all():
             if sg.group_name != 'default':
@@ -466,7 +466,7 @@ class SpacesAWS(Spaces):
                     'Values': [self.vpcid]
                 }])['VpcPeeringConnections']:
             ec2.VpcPeeringConnection(
-                    vpcpeer['VpcPeeringConnectionId']).delete()
+                vpcpeer['VpcPeeringConnectionId']).delete()
         # delete non-default network acls
         for netacl in vpc.network_acls.all():
             if not netacl.is_default:

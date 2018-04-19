@@ -19,10 +19,10 @@ from __future__ import print_function
 from collections import (
     defaultdict,
     namedtuple,
-    )
+)
 from contextlib import (
     contextmanager,
-    )
+)
 from copy import deepcopy
 import errno
 from itertools import chain
@@ -46,7 +46,7 @@ from jujupy.configuration import (
     get_bootstrap_config_path,
     get_juju_home,
     get_selected_environment,
-    )
+)
 from jujupy.exceptions import (
     AgentsNotStarted,
     ApplicationsNotStarted,
@@ -59,12 +59,12 @@ from jujupy.exceptions import (
     TypeNotAccepted,
     VotingNotEnabled,
     WorkloadsNotReady,
-    )
+)
 from jujupy.status import (
     AGENTS_READY,
     coalesce_agent_status,
     Status,
-    )
+)
 from jujupy.utility import (
     _dns_name_for_machine,
     JujuResourceTimeout,
@@ -75,14 +75,14 @@ from jujupy.utility import (
     temp_yaml_file,
     unqualified_model_name,
     until_timeout,
-    )
+)
 from jujupy.wait_condition import (
     CommandComplete,
     NoopCondition,
     WaitAgentsStarted,
     WaitMachineNotPresent,
     WaitVersion,
-    )
+)
 
 
 __metaclass__ = type
@@ -333,7 +333,7 @@ class JujuData:
         data = cls(
             model_name, config, juju_data_dir, Controller(controller_name),
             ctrl_config['cloud']
-            )
+        )
         data.set_region(ctrl_config['region'])
         data.load_yaml()
         return data
@@ -1689,7 +1689,7 @@ class ModelClient:
 
     def restore_backup_async(self, backup_file):
         return self.juju_async('restore-backup', ('-b', '--constraints',
-                               'mem=2G', '--file', backup_file))
+                                                  'mem=2G', '--file', backup_file))
 
     def enable_ha(self):
         self.juju(
@@ -1854,7 +1854,7 @@ class ModelClient:
             log.error('Buffer: {}'.format(session.buffer))
             log.error('Before: {}'.format(session.before))
             raise Exception('pexpect process exited with {}'.format(
-                    session.exitstatus))
+                session.exitstatus))
 
     def register_user(self, user, juju_home, controller_name=None):
         """Register `user` for the `client` return the cloned client used."""
