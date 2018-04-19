@@ -8,6 +8,12 @@ endif
 PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
+# Allow the tests to take longer on arm platforms.
+ifeq ($(shell uname -p | sed -r 's/.*(armel|armhf|aarch64).*/golang/'), golang)
+	TEST_TIMEOUT := 2400s
+else
+	TEST_TIMEOUT := 1500s
+endif
 
 ifneq ($(shell uname -p | sed -r 's/.*(86|armel|armhf|aarch64|ppc64le|s390x).*/golang/'), golang)
 	$(error Unsupported CPU architecture.) 
