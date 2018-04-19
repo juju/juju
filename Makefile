@@ -23,6 +23,7 @@ endif
 define DEPENDENCIES
   ca-certificates
   bzip2
+  bzr
   distro-info-data
   git
   juju-local
