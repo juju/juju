@@ -379,18 +379,16 @@ func (s *EnableHASuite) TestEnableHAGoesToNextOdd(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		m.SetHasVote(true)
 	}
+	// Remove machine 0, so that we are down to 2 machines that want to vote. Requesting a count of '0' should
+	// still bring us back to 3
 	s.progressControllerToDead(c, "0")
-	// If m0 was 'available' we would be trying to promote it (which would be wrong), but as long as it looks like it
-	// isn't, we should try to replace it
-	// If the Peergrouper had run, then we should have gone down to a single voting machine, but for now we'll do this
-	// in absence of the peergrouper
 	s.assertControllerInfo(c, []string{"1", "2"}, []string{"1", "2"}, nil)
-	changes, err = s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "1")
+	changes, err = s.State.EnableHA(0, constraints.Value{}, "quantal", nil, "1")
 	c.Assert(err, jc.ErrorIsNil)
 	// We should try to get back to 3 again, since we only have 2 voting machines
 	c.Check(changes.Added, gc.DeepEquals, []string{"3"})
 	s.assertControllerInfo(c, []string{"1", "2", "3"}, []string{"1", "2", "3"}, nil)
-	// Doing it again with 0, should be a no-op
+	// Doing it again with 0, should be a no-op, still going to '3'
 	changes, err = s.State.EnableHA(0, constraints.Value{}, "quantal", nil, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.HasLen, 0)
@@ -403,9 +401,14 @@ func (s *EnableHASuite) TestEnableHAGoesToNextOdd(c *gc.C) {
 	s.assertControllerInfo(c, []string{"1", "2", "3", "4", "5"}, []string{"1", "2", "3", "4", "5"}, nil)
 	s.progressControllerToDead(c, "1")
 	s.assertControllerInfo(c, []string{"2", "3", "4", "5"}, []string{"2", "3", "4", "5"}, nil)
-	changes, err = s.State.EnableHA(5, constraints.Value{}, "quantal", nil, "0")
+	changes, err = s.State.EnableHA(0, constraints.Value{}, "quantal", nil, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.DeepEquals, []string{"6"})
+	s.assertControllerInfo(c, []string{"2", "3", "4", "5", "6"}, []string{"2", "3", "4", "5", "6"}, nil)
+	// And again 0 should be treated as 5, and thus a no-op
+	changes, err = s.State.EnableHA(0, constraints.Value{}, "quantal", nil, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(changes.Added, gc.HasLen, 0)
 	s.assertControllerInfo(c, []string{"2", "3", "4", "5", "6"}, []string{"2", "3", "4", "5", "6"}, nil)
 }
 

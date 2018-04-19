@@ -117,7 +117,7 @@ func (st *State) EnableHA(
 		}
 		if desiredControllerCount == 0 {
 			// Make sure we go to add odd number of desired voters. Even if HA was currently at 2 desired voters
-			desiredControllerCount = votingCount + (votingCount+1)%1
+			desiredControllerCount = votingCount + (votingCount+1)%2
 			if desiredControllerCount <= 1 {
 				desiredControllerCount = 3
 			}
