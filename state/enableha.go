@@ -95,7 +95,7 @@ func (st *State) maintainControllersOps(mdocs []*machineDoc, currentInfo *Contro
 // exhausted; thereafter any new machines are started according to the constraints and series.
 // MachineID is the id of the machine where the apiserver is running.
 func (st *State) EnableHA(
-	numControllers int, cons constraints.Value, series string, placement []string, machineId string,
+	numControllers int, cons constraints.Value, series string, placement []string,
 ) (ControllersChanges, error) {
 
 	if numControllers < 0 || (numControllers != 0 && numControllers%2 != 1) {
@@ -126,7 +126,7 @@ func (st *State) EnableHA(
 			return nil, errors.New("cannot reduce controller count")
 		}
 
-		intent, err := st.enableHAIntentions(currentInfo, placement, machineId)
+		intent, err := st.enableHAIntentions(currentInfo, placement)
 		if err != nil {
 			return nil, err
 		}
@@ -267,7 +267,7 @@ type enableHAIntent struct {
 //   demoting unavailable, voting machines;
 //   removing unavailable, non-voting, non-vote-holding machines;
 //   gathering available, non-voting machines that may be promoted;
-func (st *State) enableHAIntentions(info *ControllerInfo, placement []string, machineId string) (*enableHAIntent, error) {
+func (st *State) enableHAIntentions(info *ControllerInfo, placement []string) (*enableHAIntent, error) {
 	var intent enableHAIntent
 	for _, s := range placement {
 		// TODO(natefinch): unscoped placements shouldn't ever get here (though
