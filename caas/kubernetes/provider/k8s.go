@@ -51,27 +51,35 @@ const (
 	operatorStorageSize = "10Mi"
 )
 
-// TODO(caas) - add unit tests
-
 type kubernetesClient struct {
-	*kubernetes.Clientset
+	kubernetes.Interface
 
 	// namespace is the k8s namespace to use when
 	// creating k8s resources.
 	namespace string
 }
 
+// To regenerate the mocks for the kubernetes Client used by this broker,
+// run "go generate" from the package directory.
+//go:generate mockgen -package mocks -destination mocks/k8sclient_mock.go k8s.io/client-go/kubernetes Interface
+//go:generate mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 CoreV1Interface,NamespaceInterface,PodInterface,ServiceInterface,ConfigMapInterface,PersistentVolumeInterface,PersistentVolumeClaimInterface
+//go:generate mockgen -package mocks -destination mocks/extenstionsv1_mock.go k8s.io/client-go/kubernetes/typed/extensions/v1beta1 ExtensionsV1beta1Interface,DeploymentInterface,IngressInterface
+//go:generate mockgen -package mocks -destination mocks/storagev1_mock.go k8s.io/client-go/kubernetes/typed/storage/v1 StorageV1Interface,StorageClassInterface
+
+// NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
+type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, error)
+
 // NewK8sBroker returns a kubernetes client for the specified k8s cluster.
-func NewK8sBroker(cloudSpec environs.CloudSpec, namespace string) (caas.Broker, error) {
+func NewK8sBroker(cloudSpec environs.CloudSpec, namespace string, newClient NewK8sClientFunc) (caas.Broker, error) {
 	config, err := newK8sConfig(cloudSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	client, err := kubernetes.NewForConfig(config)
+	client, err := newClient(config)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &kubernetesClient{Clientset: client, namespace: namespace}, nil
+	return &kubernetesClient{Interface: client, namespace: namespace}, nil
 }
 
 func newK8sConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
