@@ -2,16 +2,18 @@ mkfile_dir          := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 p                   = test*.py
 py3                 = assess_model_change_watcher.py
 python_base_path    = $(shell which python3)
+python_path         = $(mkfile_dir)venv
+python_bin_path     = $(python_path)/bin
 
 .PHONY: test
 test: ensure-venv
-	TMPDIR=/tmp python3 -m unittest discover -vv . -p "$(p)"
-	TMPDIR=/tmp python3 -m unittest discover -vv jujupy -t . -p "$(p)"
+	TMPDIR=/tmp $(python_bin_path)/python3 -m unittest discover -vv . -p "$(p)"
+	TMPDIR=/tmp $(python_bin_path)/python3 -m unittest discover -vv jujupy -t . -p "$(p)"
 
 .PHONY: lint
 lint: ensure-venv
-	python3 -m flake8 --builtins xrange,basestring $(py3) --exclude=repository,venv
-	flake8 --builtins xrange,basestring --exclude=$(py3),repository,venv
+	$(python_bin_path)/python3 -m flake8 --builtins xrange,basestring $(py3) --exclude=repository,venv
+	$(python_bin_path)/flake8 --builtins xrange,basestring --exclude=$(py3),repository,venv
 
 .PHONY: cover
 cover: ensure-venv
@@ -35,7 +37,7 @@ juju-ci-tools.common_0.1.4-0_all.deb: apt-update
 install-deps: juju-ci-tools.common_0.1.4-0_all.deb apt-update
 	sudo dpkg -i juju-ci-tools.common_0.1.4-0_all.deb || true
 	sudo apt-get install -y -f
-	pip3 install -r $(mkfile_dir)requirements-dev.txt
+	$(python_bin_path)/pip3 install -r $(mkfile_dir)requirements-dev.txt
 
 name        = NAMEHERE
 assess_file = assess_$(name).py
@@ -47,5 +49,5 @@ new-assess: ensure-venv
 
 .PHONY: ensure-venv
 ensure-venv:
-	test -d venv || virtualenv -p $(python_base_path) $(mkfile_dir)venv
-	. $(mkfile_dir)venv/bin/activate
+	test -d venv || virtualenv -p $(python_base_path) $(python_path)
+	. $(python_bin_path)/activate

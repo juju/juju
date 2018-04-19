@@ -108,8 +108,8 @@ def upgrade_release(client, unit_num, from_series, to_series, reboot):
     assert_correct_series(client, unit, to_series)
 
     cmd = build_ssh_cmd(
-            client, unit, 'sudo juju-updateseries --to-series '
-            '{} --from-series {}'.format(to_series, from_series))
+        client, unit, 'sudo juju-updateseries --to-series '
+        '{} --from-series {}'.format(to_series, from_series))
     try:
         output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
@@ -123,8 +123,8 @@ def upgrade_release(client, unit_num, from_series, to_series, reboot):
         raise JujuAssertionError("failure in juju-updateseries")
 
     cmd = build_ssh_cmd(
-            client, unit, 'sudo juju-updateseries --to-series '
-            '{} --from-series {} --start-agents'.format(
+        client, unit, 'sudo juju-updateseries --to-series '
+        '{} --from-series {} --start-agents'.format(
             to_series, from_series))
     try:
         output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
@@ -138,10 +138,10 @@ def upgrade_release(client, unit_num, from_series, to_series, reboot):
             # with --start-agents, and ERROR will be returned, but that's
             # expected, look for it here
             if 'systemd is not fully running, please reboot to start agents'\
-                            not in e.output:
+                    not in e.output:
                 raise JujuAssertionError(
                     "error running juju-updateseries on {}: {}".format(
-                    unit, e))
+                        unit, e))
         else:
             log.critical("test failure: reboot no longer before or after")
             raise

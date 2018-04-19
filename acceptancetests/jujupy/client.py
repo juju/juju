@@ -2122,6 +2122,14 @@ class ModelClient:
         self.juju('switch', (':'.join(args),), include_e=False)
 
 
+class K8sClient(ModelClient):
+    ...
+
+
+class CaasClient(ModelClient):
+    ...
+
+
 def register_user_interactively(client, token, controller_name):
     """Register a user with the supplied token and controller name.
 
