@@ -604,14 +604,9 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	// Reset machine status for members of the changed peer-group.
 	// Any previous peer-group determination errors result in status
 	// warning messages.
-	// Remove members from the return that are not voters.
 	for id := range desired.members {
 		if err := w.machineTrackers[id].stm.SetStatus(getStatusInfo("")); err != nil {
 			return nil, errors.Trace(err)
-		}
-
-		if !desired.machineVoting[id] {
-			delete(desired.members, id)
 		}
 	}
 	for _, tracker := range info.machines {

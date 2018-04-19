@@ -490,8 +490,8 @@ func (s *workerSuite) TestControllersArePublishedOverHub(c *gc.C) {
 	expected := apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"10": {ID: "10", Addresses: []string{"0.1.2.10:5678"}, InternalAddress: "0.1.2.10:5678"},
-			"11": {ID: "11", Addresses: []string{"0.1.2.11:5678"}},
-			"12": {ID: "12", Addresses: []string{"0.1.2.12:5678"}},
+			"11": {ID: "11", Addresses: []string{"0.1.2.11:5678"}, InternalAddress: "0.1.2.11:5678"},
+			"12": {ID: "12", Addresses: []string{"0.1.2.12:5678"}, InternalAddress: "0.1.2.12:5678"},
 		},
 		LocalOnly: true,
 	}
