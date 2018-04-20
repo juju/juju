@@ -6,7 +6,6 @@ package provider
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"text/template"
@@ -167,7 +166,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotate(err, "finding operator volume")
 	}
-	pod := operatorPod(appName, agentPath)
+	pod := operatorPod(appName, agentPath, config.OperatorImagePath)
 	if storageVol != nil {
 		logger.Debugf("using persistent volume for operator: %+v", storageVol)
 		pod.Spec.Volumes = append(pod.Spec.Volumes, *storageVol)
@@ -895,19 +894,12 @@ func (k *kubernetesClient) deletePod(podName string) error {
 
 // operatorPod returns a *core.Pod for the operator pod
 // of the specified application.
-func operatorPod(appName, agentPath string) *core.Pod {
+func operatorPod(appName, agentPath, operatorImagePath string) *core.Pod {
 	podName := operatorPodName(appName)
 	configMapName := operatorConfigMapName(appName)
 	configVolName := configMapName + "-volume"
 
 	appTag := names.NewApplicationTag(appName)
-	vers := version.Current
-	vers.Build = 0
-	dockerUserName := os.Getenv("DOCKER_USERNAME")
-	if dockerUserName == "" {
-		dockerUserName = "jujusolutions"
-	}
-	operatorImage := fmt.Sprintf("%s/caas-jujud-operator:%s", dockerUserName, vers.String())
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   podName,
@@ -917,7 +909,7 @@ func operatorPod(appName, agentPath string) *core.Pod {
 			Containers: []core.Container{{
 				Name:            "juju-operator",
 				ImagePullPolicy: core.PullIfNotPresent,
-				Image:           operatorImage,
+				Image:           operatorImagePath,
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
 				},

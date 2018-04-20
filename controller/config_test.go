@@ -186,6 +186,48 @@ var validateTests = []struct {
 		controller.AuditLogExcludeMethods: []interface{}{"Dap.Kings", "ReadOnlyMethods", "Sharon Jones"},
 	},
 	expectError: `invalid audit log exclude methods: should be a list of "Facade.Method" names \(or "ReadOnlyMethods"\), got "Sharon Jones" at position 3`,
+}, {
+	about: "invalid CAAS operator docker image path",
+	config: controller.Config{
+		controller.CACertKey:             testing.CACert,
+		controller.CAASOperatorImagePath: "foo?bar",
+	},
+	expectError: `docker image path "foo\?bar" not valid`,
+}, {
+	about: "invalid CAAS operator docker image path - leading colon",
+	config: controller.Config{
+		controller.CACertKey:             testing.CACert,
+		controller.CAASOperatorImagePath: ":foo",
+	},
+	expectError: `docker image path ":foo" not valid`,
+}, {
+	about: "invalid CAAS operator docker image path - trailing colon",
+	config: controller.Config{
+		controller.CACertKey:             testing.CACert,
+		controller.CAASOperatorImagePath: "foo:",
+	},
+	expectError: `docker image path "foo:" not valid`,
+}, {
+	about: "invalid CAAS operator docker image path - extra colon",
+	config: controller.Config{
+		controller.CACertKey:             testing.CACert,
+		controller.CAASOperatorImagePath: "foo::bar",
+	},
+	expectError: `docker image path "foo::bar" not valid`,
+}, {
+	about: "invalid CAAS operator docker image path - leading /",
+	config: controller.Config{
+		controller.CACertKey:             testing.CACert,
+		controller.CAASOperatorImagePath: "/foo",
+	},
+	expectError: `docker image path "/foo" not valid`,
+}, {
+	about: "invalid CAAS operator docker image path - extra /",
+	config: controller.Config{
+		controller.CACertKey:             testing.CACert,
+		controller.CAASOperatorImagePath: "foo//bar",
+	},
+	expectError: `docker image path "foo//bar" not valid`,
 }}
 
 func (s *ConfigSuite) TestValidate(c *gc.C) {
@@ -370,4 +412,26 @@ func (s *ConfigSuite) TestConfigNoSpacesNilSpaceConfigPreserved(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cfg.AsSpaceConstraints(nil), gc.IsNil)
+}
+
+func (s *ConfigSuite) TestCAASOperatorImagePath(c *gc.C) {
+	for _, imagePath := range []string{
+		"juju-operator-image",
+		"registry.foo.com/juju-operator-image",
+		"registry.foo.com/me/juju-operator-image",
+		"juju-operator-image:latest",
+		"juju-operator-image:2.4-beta1",
+		"registry.foo.com/juju-operator-image:2.4-beta1",
+		"registry.foo.com/me/juju-operator-image:2.4-beta1",
+	} {
+		cfg, err := controller.NewConfig(
+			testing.ControllerTag.Id(),
+			testing.CACert,
+			map[string]interface{}{
+				controller.CAASOperatorImagePath: imagePath,
+			},
+		)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(cfg.CAASOperatorImagePath(), gc.Equals, imagePath)
+	}
 }

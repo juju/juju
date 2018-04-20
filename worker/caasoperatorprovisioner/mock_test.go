@@ -45,6 +45,18 @@ func (m *mockProvisionerFacade) WatchApplications() (watcher.StringsWatcher, err
 	return m.applicationsWatcher, nil
 }
 
+func (m *mockProvisionerFacade) OperatorProvisioningInfo() (apicaasprovisioner.OperatorProvisioningInfo, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "OperatorProvisioningInfo")
+	if err := m.stub.NextErr(); err != nil {
+		return apicaasprovisioner.OperatorProvisioningInfo{}, err
+	}
+	return apicaasprovisioner.OperatorProvisioningInfo{
+		ImagePath: "juju-operator-image",
+	}, nil
+}
+
 func (m *mockProvisionerFacade) Life(entityName string) (life.Value, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

@@ -98,3 +98,19 @@ func (c *Client) Life(appName string) (life.Value, error) {
 	}
 	return life.Value(results.Results[0].Life), nil
 }
+
+// OperatorProvisioningInfo holds the info needed to provision an operator.
+type OperatorProvisioningInfo struct {
+	ImagePath string
+}
+
+// OperatorProvisioningInfo returns the info needed to provision an operator.
+func (c *Client) OperatorProvisioningInfo() (OperatorProvisioningInfo, error) {
+	var result params.OperatorProvisioningInfo
+	if err := c.facade.FacadeCall("OperatorProvisioningInfo", nil, &result); err != nil {
+		return OperatorProvisioningInfo{}, err
+	}
+	return OperatorProvisioningInfo{
+		ImagePath: result.ImagePath,
+	}, nil
+}
