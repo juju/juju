@@ -9,13 +9,16 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type mockState struct {
 	testing.Stub
 	applicationWatcher *mockStringsWatcher
 	app                *mockApplication
+	operatorImage      string
 }
 
 func newMockState() *mockState {
@@ -34,6 +37,12 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 		return st.app, nil
 	}
 	return nil, errors.NotFoundf("entity %v", tag)
+}
+
+func (st *mockState) ControllerConfig() (controller.Config, error) {
+	cfg := coretesting.FakeControllerConfig()
+	cfg[controller.CAASOperatorImagePath] = st.operatorImage
+	return cfg, nil
 }
 
 type mockApplication struct {
