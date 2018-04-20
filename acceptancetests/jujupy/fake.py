@@ -676,6 +676,13 @@ class FakeBackend:
         self.clouds = {}
         self.action_results = {}
         self.action_queue = {}
+        self.added_models = []
+
+    def track_model(self, client):
+        pass
+
+    def untrack_model(self, client):
+        pass
 
     def clone(self, full_path=None, version=None, debug=None,
               feature_flags=None):
@@ -988,7 +995,9 @@ class FakeBackend:
                 parser.add_argument('model_name')
                 parser.add_argument('cloud-region', nargs='?')
                 parsed = parser.parse_args(args)
-                self.controller_state.add_model(parsed.model_name)
+                model_client = self.controller_state.add_model(
+                    parsed.model_name)
+                self.added_models.append(model_client)
             if command == 'revoke':
                 user_name = args[2]
                 permissions = args[3]

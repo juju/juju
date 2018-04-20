@@ -13,18 +13,68 @@
 # You should have received a copy of the Lesser GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 from datetime import datetime
+from time import sleep
+from subprocess import CalledProcessError
 
 from jujupy.exceptions import (
     VersionsNotUpdated,
     AgentsNotStarted,
+    StatusNotMet,
     )
 from jujupy.status import (
     Status,
     )
+from utility import (
+    until_timeout,
+    )
 
+
+log = logging.getLogger(__name__)
 
 __metaclass__ = type
+
+
+class ModelCheckFailed(Exception):
+    """Exception used to signify a model status check failed or timed out."""
+
+
+def wait_for_model_check(client, model_check, timeout):
+    """Wrapper to have a client wait for a model_check callable to succeed.
+
+    :param client: ModelClient object to act on and pass into model_check
+    :param model_check: Callable that takes a ModelClient object. When the
+      callable reaches a success state it returns True. If model_check never
+      returns True within `timeout`, the exception ModelCheckFailed will be
+      raised.
+    """
+    with client.check_timeouts():
+        with client.ignore_soft_deadline():
+            for _ in until_timeout(timeout):
+                if model_check(client):
+                    return
+                sleep(1)
+    raise ModelCheckFailed()
+
+
+def wait_until_model_upgrades(client, timeout=300):
+    # Poll using a command that will fail until the upgrade is complete.
+    def model_upgrade_status_check(client):
+        try:
+            log.info('Attempting API connection, failure is not fatal.')
+            client.juju('list-users', (), include_e=False)
+            return True
+        except CalledProcessError:
+            # Upgrade will still be in progress and thus refuse the api call.
+            return False
+    try:
+        wait_for_model_check(client, model_upgrade_status_check, timeout)
+    except ModelCheckFailed:
+        raise AssertionError(
+            'Upgrade for model {} failed to complete within the alloted '
+            'timeout ({} seconds)'.format(
+                client.model_name, timeout))
 
 
 class BaseCondition:
@@ -86,6 +136,64 @@ class NoopCondition(BaseCondition):
 
     def do_raise(self, model_name, status):
         raise Exception('NoopCondition failed: {}'.format(model_name))
+
+
+class AllApplicationActive(BaseCondition):
+    """Ensure all applications (incl. subordinates) are 'active' state."""
+
+    def iter_blocking_state(self, status):
+        applications = status.get_applications()
+        all_app_status = [
+            state['application-status']['current']
+            for name, state in applications.items()]
+        apps_active = [state == 'active' for state in all_app_status]
+        if not all(apps_active):
+            yield 'applications', 'not-all-active'
+
+    def do_raise(self, model_name, status):
+        raise Exception('Timed out waiting for all applications to be active.')
+
+
+class AllApplicationWorkloads(BaseCondition):
+    """Ensure all applications (incl. subordinates) are workload 'active'."""
+
+    def iter_blocking_state(self, status):
+        app_workloads_active = []
+        for name, unit in status.iter_units():
+            try:
+                state = unit['workload-status']['current'] == 'active'
+            except KeyError:
+                state = False
+            app_workloads_active.append(state)
+        if not all(app_workloads_active):
+            yield 'application-workloads', 'not-all-active'
+
+    def do_raise(self, model_name, status):
+        raise Exception(
+            'Timed out waiting for all application workloads to be active.')
+
+
+class AgentsIdle(BaseCondition):
+    """Ensure all specified agents are finished doing setup work."""
+
+    def __init__(self, units, *args, **kws):
+        self.units = units
+        super(AgentsIdle, self).__init__(*args, **kws)
+
+    def iter_blocking_state(self, status):
+        idles = []
+        for name in self.units:
+            try:
+                unit = status.get_unit(name)
+                state = unit['juju-status']['current'] == 'idle'
+            except KeyError:
+                state = False
+            idles.append(state)
+        if not all(idles):
+            yield 'application-agents', 'not-all-idle'
+
+    def do_raise(self, model_name, status):
+        raise Exception("Timed out waiting for all agents to be idle.")
 
 
 class WaitMachineNotPresent(BaseCondition):
@@ -182,6 +290,21 @@ class WaitVersion(BaseCondition):
         raise VersionsNotUpdated(model_name, status)
 
 
+class WaitModelVersion(BaseCondition):
+
+    def __init__(self, target_version, timeout=300):
+        super(WaitModelVersion, self).__init__(timeout)
+        self.target_version = target_version
+
+    def iter_blocking_state(self, status):
+        model_version = status.status['model']['version']
+        if model_version != self.target_version:
+            yield status.model_name, model_version
+
+    def do_raise(self, model_name, status):
+        raise VersionsNotUpdated(model_name, status)
+
+
 class WaitAgentsStarted(BaseCondition):
     """Wait until all agents are idle or started."""
 
@@ -197,6 +320,32 @@ class WaitAgentsStarted(BaseCondition):
 
     def do_raise(self, model_name, status):
         raise AgentsNotStarted(model_name, status)
+
+
+class UnitInstallCondition(BaseCondition):
+
+    def __init__(self, unit, current, message, *args, **kwargs):
+        """Base condition for unit workload status."""
+        self.unit = unit
+        self.current = current
+        self.message = message
+        super(UnitInstallCondition, self).__init__(*args, **kwargs)
+
+    def iter_blocking_state(self, status):
+        """Wait until 'current' status and message matches supplied values."""
+        try:
+            unit = status.get_unit(self.unit)
+            unit_status = unit['workload-status']
+            cond_met = (unit_status['current'] == self.current
+                        and unit_status['message'] == self.message)
+        except KeyError:
+            cond_met = False
+        if not cond_met:
+            yield ('unit-workload ({})'.format(self.unit),
+                   'not-{}'.format(self.current))
+
+    def do_raise(self, model_name, status):
+        raise StatusNotMet('{} ({})'.format(model_name, self.unit), status)
 
 
 class CommandComplete(BaseCondition):

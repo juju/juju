@@ -31,8 +31,6 @@ import argparse
 import logging
 import sys
 import yaml
-from contextlib import contextmanager
-from subprocess import CalledProcessError
 from textwrap import dedent
 
 from deploy_stack import (
@@ -41,6 +39,9 @@ from deploy_stack import (
 from jujupy.client import (
     Controller,
     register_user_interactively,
+    )
+from jujupy.models import (
+    temporary_model
     )
 from jujucharm import local_charm_path
 from utility import (
@@ -288,20 +289,6 @@ def deploy_local_charm(client, app_name):
         charm=app_name, juju_ver=client.version)
     client.deploy(charm_path)
     client.wait_for_started()
-
-
-@contextmanager
-def temporary_model(client, model_name):
-    """Create a new model that is cleaned up once it's done with."""
-    try:
-        new_client = client.add_model(model_name)
-        yield new_client
-    finally:
-        try:
-            log.info('Destroying temp model "{}"'.format(model_name))
-            new_client.destroy_model()
-        except CalledProcessError:
-            log.info('Failed to cleanup model.')
 
 
 def extract_second_provider_details(args):

@@ -337,7 +337,7 @@ class Status:
                 yield StatusItem(StatusItem.JUJU, unit_name, unit_value)
 
     def iter_errors(self, ignore_recoverable=False):
-        """Iterate through every error, repersented by exceptions."""
+        """Iterate through every error, represented by exceptions."""
         for sub_status in self.iter_status():
             error = sub_status.to_exception()
             if error is not None:

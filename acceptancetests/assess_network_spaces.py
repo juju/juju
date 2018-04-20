@@ -110,10 +110,6 @@ class AssessNetworkSpaces:
         :param client: Juju client object with machines and spaces
         """
         log.info('Assessing machines are in the correct spaces.')
-        spaces = non_infan_subnets(
-            yaml.safe_load(
-                client.get_juju_output(
-                    'list-spaces', '--format=yaml')))
         machines = yaml.safe_load(
             client.get_juju_output(
                 'list-machines', '--format=yaml'))['machines']
@@ -123,46 +119,37 @@ class AssessNetworkSpaces:
                 expected_space = 'space1'
             else:
                 expected_space = 'space{}'.format(machine)
-            eth0 = machines[machine]['network-interfaces']['eth0']
-            subnet = spaces['spaces'][expected_space].keys()[0]
-            if not any(
-                    [ip for ip in eth0['ip-addresses']
-                        if ip_in_cidr(ip, subnet)]):
+            ip = get_machine_ip_in_space(client, machine, expected_space)
+            if not ip:
                 raise TestFailure(
-                        'Machine {machine} eth0 is NOT in '
-                        '{space}({subnet})'.format(
+                        'Machine {machine} has NO IPs in '
+                        '{space}'.format(
                             machine=machine,
-                            space=expected_space,
-                            subnet=subnet))
+                            space=expected_space))
         log.info('PASSED')
 
     def assert_machine_connectivity(self, client):
         """Check to make sure machines in the same space can ping
         and that machines in different spaces cannot.
         Machines 0 and 1 are in space1. Ping should succeed.
-        Machines 2 and 3 are in space2 and space3. Ping should fail.
-        (The second case is not yet implemented in juju spaces.)
+        Machines 2 and 3 are in space2 and space3. Ping should succeed.
+        We don't currently have access control between spaces.
+        In the future, pinging between different spaces may be
+        restrictable.
 
         :param client: Juju client object with machines and spaces
         """
         log.info('Assessing interconnectivity between machines.')
-        machines = yaml.safe_load(
-            client.get_juju_output(
-                'list-machines', '--format=yaml'))['machines']
         # try 0 to 1
-        log.info('Testing ping from Machine 0 Machine 1 (same space)')
-        if not machine_can_ping_ip(
-                client, '0',
-                machines['1']['network-interfaces']['eth0']
-                        ['ip-addresses'][0]):
+        log.info('Testing ping from Machine 0 to Machine 1 (same space)')
+        ip_to_ping = get_machine_ip_in_space(client, '1', 'space1')
+        if not machine_can_ping_ip(client, '0', ip_to_ping):
             raise TestFailure('Ping from 0 to 1 Failed.')
-        """Restrictions and access control between spaces is not yet enforced
         # try 2 to 3
-        log.info('Testing ping from Machine 2 Machine 3 (diff spaces)')
-        if machine_can_ping_ip(client, '2',
-            machines['3']['network-interfaces']['eth0']['ip-addresses'][0]):
-            raise TestFailure('Ping from 2 to 3 should have failed.')
-        """
+        log.info('Testing ping from Machine 2 to Machine 3 (diff spaces)')
+        ip_to_ping = get_machine_ip_in_space(client, '3', 'space3')
+        if not machine_can_ping_ip(client, '2', ip_to_ping):
+            raise TestFailure('Ping from 2 to 3 Failed.')
         log.info('PASSED')
 
     def assert_add_container_with_wrong_space_errs(self, client):
@@ -182,7 +169,7 @@ class AssessNetworkSpaces:
             container = machine['containers']['2/lxd/0']
             if container['juju-status']['current'] == 'started':
                 raise TestFailure(
-                        'Encountered no conflit when launching a container '
+                        'Encountered no conflict when launching a container '
                         'on a machine with a different spaces constraint.')
         except ProvisioningError:
             log.info('Container correctly failed to provision.')
@@ -231,11 +218,6 @@ class AssessNetworkSpaces:
                     '--series={}'.format(series),
                     '--constraints', 'spaces=space{}'.format(space)))
         client.wait_for_started()
-
-    def cleanup(self, client):
-        log.info('Cleaning up launched machines.')
-        for unit in client.get_status().iter_machines(containers=False):
-            client.remove_machine(unit[0], force=True)
 
 
 class SubnetsNotReady(Exception):
@@ -297,6 +279,28 @@ def non_infan_subnets(subnets):
     return newsubnets
 
 
+def get_machine_ip_in_space(client, machine, space):
+    """Given a machine id and a space name, will return an IP that
+    the machine has in the given space.
+
+    :param client:  juju client object with machines and spaces
+    :param machine: string. ID of machine to check.
+    :param space:   string. Name of space to look for.
+    :return ip:     string. IP address of machine in requested space.
+    """
+    machines = yaml.safe_load(
+        client.get_juju_output(
+            'list-machines', '--format=yaml'))['machines']
+    spaces = non_infan_subnets(
+        yaml.safe_load(
+            client.get_juju_output(
+                'list-spaces', '--format=yaml')))
+    subnet = spaces['spaces'][space].keys()[0]
+    for ip in machines[machine]['ip-addresses']:
+        if ip_in_cidr(ip, subnet):
+            return ip
+
+
 def machine_can_ping_ip(client, machine, ip):
     """SSH to the machine and attempt to ping the given IP.
 
@@ -327,16 +331,6 @@ def parse_args(argv):
     add_basic_testing_arguments(parser)
     parser.set_defaults(series='xenial')
     return parser.parse_args(argv)
-
-
-def start_test(client, args):
-    """Launch the test and perform some cleanup."""
-    test = AssessNetworkSpaces()
-    try:
-        test.assess_network_spaces(client, args.series)
-    finally:
-        test.cleanup(client)
-        log.info('Cleanup complete.')
 
 
 def get_spaces_object(client):
@@ -491,12 +485,16 @@ def main(argv=None):
     configure_logging(args.verbose)
 
     bs_manager = BootstrapManager.from_args(args)
+    # The bs_manager.client env's region doesn't normally get updated
+    # until we've bootstrapped. Let's force an early update.
+    bs_manager.client.env.set_region(bs_manager.region)
     spaces = get_spaces_object(bs_manager.client)
     if not spaces.pre_bootstrap(bs_manager.client):
         return 0
     try:
         with bs_manager.booted_context(args.upload_tools):
-            start_test(bs_manager.client, args)
+            test = AssessNetworkSpaces()
+            test.assess_network_spaces(bs_manager.client, args.series)
     finally:
         spaces.cleanup(bs_manager.client)
     return 0
