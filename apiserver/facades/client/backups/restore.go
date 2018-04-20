@@ -20,7 +20,7 @@ import (
 var bootstrapNode = names.NewMachineTag("0")
 
 // Restore implements the server side of Backups.Restore.
-func (a *API) Restore(p params.RestoreArgs) error {
+func (a *APIv2) Restore(p params.RestoreArgs) error {
 	logger.Infof("Starting server side restore")
 
 	// Get hold of a backup file Reader
