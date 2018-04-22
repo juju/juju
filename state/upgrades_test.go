@@ -2155,40 +2155,76 @@ func (s *upgradesSuite) TestDeleteCloudImageMetadata(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestUpgradeContainerImageStreamDefault(c *gc.C) {
+	// Value not set
+	m1 := s.makeModel(c, "m1", coretesting.Attrs{
+		"other-setting": "val",
+	})
+	defer m1.Close()
+	// Value set to the empty string
+	m2 := s.makeModel(c, "m2", coretesting.Attrs{
+		"container-image-stream": "",
+		"other-setting": "val",
+	})
+	defer m2.Close()
+	// Value set to something other that default
+	m3 := s.makeModel(c, "m3", coretesting.Attrs{
+		"container-image-stream": "daily",
+	})
+	defer m3.Close()
+
 	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
-	_, err := settingsColl.RemoveAll(nil)
+	// To simulate a 2.3.5 without any setting, delete the record from it.
+	err := settingsColl.UpdateId(m1.ModelUUID()+":e",
+		bson.M{"$unset": bson.M{"settings.container-image-stream": 1}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
+	// And an extra document from somewhere else that we shouldn't touch
 	err = settingsColl.Insert(
 		bson.M{
-			"_id":      "foo",
+			"_id":      "not-a-model",
 			"settings": bson.M{"other-setting": "val"},
-		},
-		bson.M{
-			"_id":      "bar",
-			"settings": bson.M{"container-image-stream": "", "other-setting": "val"},
-		},
-		bson.M{
-			"_id":      "baz",
-			"settings": bson.M{"container-image-stream": "daily"},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedSettings := []bson.M{
-		{
-			"_id":      "bar",
-			"settings": bson.M{"container-image-stream": "released", "other-setting": "val"},
-		},
-		{
-			"_id":      "baz",
-			"settings": bson.M{"container-image-stream": "daily"},
-		},
-		{
-			"_id":      "foo",
-			"settings": bson.M{"container-image-stream": "released", "other-setting": "val"},
-		},
+	// Read all the settings from the database, but make sure to change the
+	// documents we think we're changing, and the rest should go through
+	// unchanged.
+	var rawSettings bson.M
+	iter := settingsColl.Find(nil).Sort("_id").Iter()
+	defer iter.Close()
+
+	expectedSettings := []bson.M{}
+
+	expectedChanges := map[string]bson.M{
+		m1.ModelUUID() + ":e": bson.M{"container-image-stream": "released", "other-setting": "val"},
+		m2.ModelUUID() + ":e": bson.M{"container-image-stream": "released", "other-setting": "val"},
+		m3.ModelUUID() + ":e": bson.M{"container-image-stream": "daily"},
+		"not-a-model": bson.M{"other-setting": "val"},
 	}
+	for iter.Next(&rawSettings) {
+		expSettings := copyMap(rawSettings, nil)
+		delete(expSettings, "txn-queue")
+		delete(expSettings, "txn-revno")
+		delete(expSettings, "version")
+		id, ok := expSettings["_id"]
+		c.Assert(ok, jc.IsTrue)
+		idStr, ok := id.(string)
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(idStr, gc.Not(gc.Equals), "")
+		if changes, ok := expectedChanges[idStr]; ok {
+			raw, ok := expSettings["settings"]
+			c.Assert(ok, jc.IsTrue)
+			settings, ok := raw.(bson.M)
+			c.Assert(ok, jc.IsTrue)
+			for k, v := range changes {
+				settings[k] = v
+			}
+		}
+		expectedSettings = append(expectedSettings, expSettings)
+	}
+	c.Assert(iter.Close(), jc.ErrorIsNil)
 
 	s.assertUpgradedData(c, UpgradeContainerImageStreamDefault,
 		expectUpgradedData{settingsColl, expectedSettings},
