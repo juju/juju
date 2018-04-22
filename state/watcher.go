@@ -17,7 +17,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -465,11 +465,15 @@ func newLifecycleWatcher(
 		life:          make(map[string]Life),
 		out:           make(chan []string),
 	}
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.out)
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -633,11 +637,15 @@ func newMinUnitsWatcher(backend modelBackend) StringsWatcher {
 		known:         make(map[string]int),
 		out:           make(chan []string),
 	}
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.out)
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -789,11 +797,15 @@ func newRelationScopeWatcher(backend modelBackend, scope, ignore string) *Relati
 		ignore:        ignore,
 		out:           make(chan *RelationScopeChange),
 	}
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.out)
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -959,10 +971,14 @@ func newRelationUnitsWatcher(backend modelBackend, sw *RelationScopeWatcher) Rel
 		updates:       make(chan watcher.Change),
 		out:           make(chan params.RelationUnitsChange),
 	}
-	go func() {
+	// go func() {
+	// 	defer w.finish()
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer w.finish()
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -1048,7 +1064,7 @@ func (w *relationUnitsWatcher) finish() {
 	}
 	close(w.updates)
 	close(w.out)
-	w.tomb.Done()
+	// w.tomb.Done()
 }
 
 func (w *relationUnitsWatcher) loop() (err error) {
@@ -1139,11 +1155,15 @@ func newRelationLifeSuspendedWatcher(
 		transform:     transform,
 		lifeSuspended: make(map[string]relationLifeSuspended),
 	}
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.out)
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -1325,11 +1345,15 @@ func newUnitsWatcher(backend modelBackend, tag names.Tag, getUnits func() ([]str
 		in:            make(chan watcher.Change),
 		out:           make(chan []string),
 	}
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.out)
+	// 	w.tomb.Kill(w.loop(coll, id))
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop(coll, id))
-	}()
+		return w.loop(coll, id)
+	})
 	return w
 }
 
@@ -1669,11 +1693,16 @@ func newDocWatcher(backend modelBackend, docKeys []docKey) NotifyWatcher {
 		commonWatcher: newCommonWatcher(backend),
 		out:           make(chan struct{}),
 	}
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.out)
+	// 	w.tomb.Kill(w.loop(docKeys))
+	// }(
+	// )
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop(docKeys))
-	}()
+		return w.loop(docKeys)
+	})
 	return w
 }
 
@@ -1762,11 +1791,15 @@ func newMachineUnitsWatcher(m *Machine) StringsWatcher {
 		known:         make(map[string]Life),
 		machine:       &Machine{st: m.st, doc: m.doc}, // Copy so it may be freely refreshed
 	}
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.out)
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -1912,11 +1945,15 @@ func newMachineAddressesWatcher(m *Machine) NotifyWatcher {
 		out:           make(chan struct{}),
 		machine:       &Machine{st: m.st, doc: m.doc}, // Copy so it may be freely refreshed
 	}
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.out)
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -1989,11 +2026,15 @@ func newActionStatusWatcher(backend modelBackend, receivers []ActionReceiver, st
 		statusFilter:   statusInCollectionOp(statusSet...),
 	}
 
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.sink)
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.sink)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 
 	return w
 }
@@ -2211,12 +2252,17 @@ func newCollectionWatcher(backend modelBackend, cfg colWCfg) StringsWatcher {
 		sink:          make(chan []string),
 	}
 
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.sink)
+	// 	defer close(w.source)
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.sink)
 		defer close(w.source)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 
 	return w
 }
@@ -2492,11 +2538,15 @@ func newOpenedPortsWatcher(backend modelBackend) StringsWatcher {
 		known:         make(map[string]int64),
 		out:           make(chan []string),
 	}
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.out)
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 
 	return w
 }
@@ -2647,11 +2697,15 @@ func newBlockDevicesWatcher(backend modelBackend, machineId string) NotifyWatche
 		machineId:     machineId,
 		out:           make(chan struct{}),
 	}
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.out)
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -2718,11 +2772,15 @@ func newMigrationActiveWatcher(st *State) NotifyWatcher {
 		id:            st.ModelUUID(),
 		sink:          make(chan struct{}),
 	}
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.sink)
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.sink)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -2806,11 +2864,15 @@ func newNotifyCollWatcher(backend modelBackend, collName string, filter func(int
 		filter:        filter,
 		sink:          make(chan struct{}),
 	}
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.sink)
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.sink)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -2975,11 +3037,15 @@ func newrelationNetworksWatcher(st modelBackend, relationKey, direction string) 
 		knownCidrs:    set.NewStrings(),
 		out:           make(chan []string),
 	}
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.out)
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 
 	return w
 }
@@ -3086,11 +3152,15 @@ func newExternalControllersWatcher(st *State) StringsWatcher {
 		coll:          collFactory(st.db(), externalControllersC),
 		out:           make(chan []string),
 	}
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.out)
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -3193,11 +3263,15 @@ func newContainerAddressesWatcher(u *Unit) NotifyWatcher {
 		out:           make(chan struct{}),
 		unit:          u,
 	}
-	go func() {
-		defer w.tomb.Done()
+	// go func() {
+	// 	defer w.tomb.Done()
+	// 	defer close(w.out)
+	// 	w.tomb.Kill(w.loop())
+	// }()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 

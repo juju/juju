@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 )
 
 // RevisionUpdater exposes the "single" capability required by the worker.
@@ -66,10 +66,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	w := &revisionUpdateWorker{
 		config: config,
 	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.loop())
-	}()
+	w.tomb.Go(w.loop)
 	return w, nil
 }
 

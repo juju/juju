@@ -12,7 +12,7 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/pubsub/apiserver"
 )
@@ -64,11 +64,10 @@ func newStreamLayer(
 		return nil, errors.Trace(err)
 	}
 
-	go func() {
+	l.tomb.Go(func() error {
 		defer unsubscribe()
-		defer l.tomb.Done()
-		l.tomb.Kill(l.loop())
-	}()
+		return l.loop()
+	})
 	return l, nil
 }
 

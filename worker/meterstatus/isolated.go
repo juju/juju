@@ -92,6 +92,7 @@ func NewIsolatedStatusWorker(cfg IsolatedConfig) (worker.Worker, error) {
 		defer w.tomb.Done()
 		w.tomb.Kill(w.loop())
 	}()
+	// w.tomb.Go(w.loop)
 	return w, nil
 }
 

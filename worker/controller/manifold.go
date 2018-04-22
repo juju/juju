@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
@@ -77,13 +77,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				tracker:           tracker,
 				mongoPingInterval: mongoPingInterval,
 			}
-			go func() {
-				defer w.tomb.Done()
-				w.tomb.Kill(w.loop())
+			w.tomb.Go(func() error {
+				loopErr := w.loop()
 				if err := tracker.Done(); err != nil {
 					logger.Errorf("error releasing state: %v", err)
 				}
-			}()
+				return loopErr
+			})
 			return w, nil
 		},
 		Output: outputFunc,
