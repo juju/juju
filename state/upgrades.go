@@ -682,7 +682,7 @@ func maybeUpdateSettings(settings map[string]interface{}, key string, value inte
 // database.
 // Note that if there are any problems with updating settings, then none of the
 // changes will be applied, as they are all updated in a single transaction.
-func applyToAllModelSettings(st *State, change func (*settingsDoc) (bool, error)) error {
+func applyToAllModelSettings(st *State, change func(*settingsDoc) (bool, error)) error {
 	uuids, err := st.AllModelUUIDs()
 	if err != nil {
 		return errors.Trace(err)
@@ -727,7 +727,6 @@ func applyToAllModelSettings(st *State, change func (*settingsDoc) (bool, error)
 	}
 	return nil
 }
-
 
 // AddStatusHistoryPruneSettings adds the model settings
 // to control log pruning if they are missing.
@@ -1386,6 +1385,65 @@ func UpgradeContainerImageStreamDefault(st *State) error {
 	})
 	if err != nil {
 		return errors.Trace(err)
+	}
+	return nil
+}
+
+// RemoveContainerImageStreamFromNonModelSettings
+// In 2.3.6 we accidentally had an upgrade step that added
+// "container-image-stream": "released" to all settings documents, not just the
+// ones relating to Model data.
+// This removes it from all the ones that aren't model docs if it is exactly
+// what we would have added in 2.3.6
+func RemoveContainerImageStreamFromNonModelSettings(st *State) error {
+	uuids, err := st.AllModelUUIDs()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	modelDocIDs := set.NewStrings()
+	for _, uuid := range uuids {
+		modelDocIDs.Add(uuid + ":e")
+	}
+	coll, closer := st.db().GetRawCollection(settingsC)
+	defer closer()
+
+	iter := coll.Find(nil).Iter()
+	defer iter.Close()
+
+	// This is the key for the field that was accidentally added in 2.3.6
+	// settings.container-image-stream
+	const dbSettingsKey = "settings." + config.ContainerImageStreamKey
+
+	var ops []txn.Op
+	var doc settingsDoc
+	for iter.Next(&doc) {
+		if modelDocIDs.Contains(doc.DocID) {
+			// this is a model document, whatever was set here should stay
+			continue
+		}
+		if stream, ok := doc.Settings[config.ContainerImageStreamKey]; !ok {
+			// doesn't contain ContainerImageStreamKey
+			continue
+		} else if stream != "released" {
+			// definitely wasn't set by the 2.3.6 upgrade step
+			continue
+		}
+		// We just unset the one field that we accidentally set before, so we
+		// don't have to worry about serialization of the other keys in the
+		// document.
+		ops = append(ops, txn.Op{
+			C:      settingsC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$unset": bson.M{dbSettingsKey: 1}},
+		})
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
 }

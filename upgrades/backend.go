@@ -36,6 +36,7 @@ type StateBackend interface {
 	MoveOldAuditLog() error
 	DeleteCloudImageMetadata() error
 	EnsureContainerImageStreamDefault() error
+	RemoveContainerImageStreamFromNonModelSettings()
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -144,4 +145,8 @@ func (s stateBackend) DeleteCloudImageMetadata() error {
 
 func (s stateBackend) EnsureContainerImageStreamDefault() error {
 	return state.UpgradeContainerImageStreamDefault(s.st)
+}
+
+func (s stateBackend) RemoveContainerImageStreamFromNonModelSettings() error {
+	return state.RemoveContainerImageStreamFromNonModelSettings(s.st)
 }

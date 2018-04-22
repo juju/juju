@@ -7,10 +7,10 @@ package upgrades
 func stateStepsFor237() []Step {
 	return []Step{
 		&upgradeStep{
-			description: "ensure container-image-stream config defaults to released",
+			description: "ensure container-image-stream isn't set in applications",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return context.State().EnsureContainerImageStreamDefault()
+				return context.State().RemoveContainerImageStreamFromNonModelSettings()
 			},
 		},
 	}

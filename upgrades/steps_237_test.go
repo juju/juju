@@ -20,8 +20,8 @@ type steps237Suite struct {
 
 var _ = gc.Suite(&steps237Suite{})
 
-func (s *steps236Suite) TestEnsureContainerImageStreamDefault237(c *gc.C) {
-	step := findStateStep(c, v237, "ensure container-image-stream config defaults to released")
+func (s *steps236Suite) TestRemoveContainerImageStreamFromNonModelSettings(c *gc.C) {
+	step := findStateStep(c, v237, "ensure container-image-stream isn't set in applications")
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
