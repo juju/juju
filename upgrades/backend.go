@@ -36,7 +36,7 @@ type StateBackend interface {
 	MoveOldAuditLog() error
 	DeleteCloudImageMetadata() error
 	EnsureContainerImageStreamDefault() error
-	RemoveContainerImageStreamFromNonModelSettings()
+	RemoveContainerImageStreamFromNonModelSettings() error
 }
 
 // Model is an interface providing access to the details of a model within the
