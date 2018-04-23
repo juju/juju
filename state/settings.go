@@ -60,6 +60,11 @@ func (m *settingsMap) SetBSON(raw bson.Raw) error {
 	return nil
 }
 
+func (m settingsMap) GetBSON() (interface{}, error) {
+	escapedMap := copyMap(m, escapeReplacer.Replace)
+	return escapedMap, nil
+}
+
 // ItemChange represents the change of an item in a settings.
 type ItemChange struct {
 	Type     int

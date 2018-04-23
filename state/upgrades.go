@@ -681,16 +681,21 @@ func maybeUpdateSettings(settings map[string]interface{}, key string, value inte
 	return false
 }
 
-// AddStatusHistoryPruneSettings adds the model settings
-// to control log pruning if they are missing.
-func AddStatusHistoryPruneSettings(st *State) error {
-	coll, closer := st.db().GetRawCollection(settingsC)
-	defer closer()
-
+// applyToAllModelSettings iterates the model settings documents and applys the
+// passed in function to them.  If the function returns 'true' it indicates the
+// settings have been modified, and they should be written back to the
+// database.
+// Note that if there are any problems with updating settings, then none of the
+// changes will be applied, as they are all updated in a single transaction.
+func applyToAllModelSettings(st *State, change func(*settingsDoc) (bool, error)) error {
 	uuids, err := st.AllModelUUIDs()
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	coll, closer := st.db().GetRawCollection(settingsC)
+	defer closer()
+
 	var ids []string
 	for _, uuid := range uuids {
 		ids = append(ids, uuid+":e")
@@ -702,10 +707,10 @@ func AddStatusHistoryPruneSettings(st *State) error {
 	var ops []txn.Op
 	var doc settingsDoc
 	for iter.Next(&doc) {
-		settingsChanged :=
-			maybeUpdateSettings(doc.Settings, config.MaxStatusHistoryAge, config.DefaultStatusHistoryAge)
-		settingsChanged =
-			maybeUpdateSettings(doc.Settings, config.MaxStatusHistorySize, config.DefaultStatusHistorySize) || settingsChanged
+		settingsChanged, err := change(&doc)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		if settingsChanged {
 			ops = append(ops, txn.Op{
 				C:      settingsC,
@@ -724,44 +729,34 @@ func AddStatusHistoryPruneSettings(st *State) error {
 	return nil
 }
 
-// AddActionPruneSettings adds the model settings
+// AddStatusHistoryPruneSettings adds the model settings
 // to control log pruning if they are missing.
-func AddActionPruneSettings(st *State) error {
-	coll, closer := st.db().GetRawCollection(settingsC)
-	defer closer()
-
-	uuids, err := st.AllModelUUIDs()
+func AddStatusHistoryPruneSettings(st *State) error {
+	err := applyToAllModelSettings(st, func(doc *settingsDoc) (bool, error) {
+		settingsChanged :=
+			maybeUpdateSettings(doc.Settings, config.MaxStatusHistoryAge, config.DefaultStatusHistoryAge)
+		settingsChanged =
+			maybeUpdateSettings(doc.Settings, config.MaxStatusHistorySize, config.DefaultStatusHistorySize) || settingsChanged
+		return settingsChanged, nil
+	})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	var ids []string
-	for _, uuid := range uuids {
-		ids = append(ids, uuid+":e")
-	}
+	return nil
+}
 
-	iter := coll.Find(bson.M{"_id": bson.M{"$in": ids}}).Iter()
-	defer iter.Close()
-	var ops []txn.Op
-	var doc settingsDoc
-	for iter.Next(&doc) {
+// AddActionPruneSettings adds the model settings
+// to control log pruning if they are missing.
+func AddActionPruneSettings(st *State) error {
+	err := applyToAllModelSettings(st, func(doc *settingsDoc) (bool, error) {
 		settingsChanged :=
 			maybeUpdateSettings(doc.Settings, config.MaxActionResultsAge, config.DefaultActionResultsAge)
 		settingsChanged =
 			maybeUpdateSettings(doc.Settings, config.MaxActionResultsSize, config.DefaultActionResultsSize) || settingsChanged
-		if settingsChanged {
-			ops = append(ops, txn.Op{
-				C:      settingsC,
-				Id:     doc.DocID,
-				Assert: txn.DocExists,
-				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
-			})
-		}
-	}
-	if err := iter.Close(); err != nil {
+		return settingsChanged, nil
+	})
+	if err != nil {
 		return errors.Trace(err)
-	}
-	if len(ops) > 0 {
-		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
 }
@@ -770,39 +765,13 @@ func AddActionPruneSettings(st *State) error {
 // to control how often to run the update-status hook
 // if they are missing.
 func AddUpdateStatusHookSettings(st *State) error {
-	coll, closer := st.db().GetRawCollection(settingsC)
-	defer closer()
-
-	uuids, err := st.AllModelUUIDs()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	var ids []string
-	for _, uuid := range uuids {
-		ids = append(ids, uuid+":e")
-	}
-
-	iter := coll.Find(bson.M{"_id": bson.M{"$in": ids}}).Iter()
-	defer iter.Close()
-	var ops []txn.Op
-	var doc settingsDoc
-	for iter.Next(&doc) {
+	err := applyToAllModelSettings(st, func(doc *settingsDoc) (bool, error) {
 		settingsChanged :=
 			maybeUpdateSettings(doc.Settings, config.UpdateStatusHookInterval, config.DefaultUpdateStatusHookInterval)
-		if settingsChanged {
-			ops = append(ops, txn.Op{
-				C:      settingsC,
-				Id:     doc.DocID,
-				Assert: txn.DocExists,
-				Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
-			})
-		}
-	}
-	if err := iter.Close(); err != nil {
+		return settingsChanged, nil
+	})
+	if err != nil {
 		return errors.Trace(err)
-	}
-	if len(ops) > 0 {
-		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
 }
@@ -1510,33 +1479,70 @@ func RemoveVotingMachineIds(st *State) error {
 // UpgradeDefaultContainerImageStreamConfig ensures that the config value for
 // container-image-stream is set to its default value, "released".
 func UpgradeContainerImageStreamDefault(st *State) error {
+	err := applyToAllModelSettings(st, func(doc *settingsDoc) (bool, error) {
+		ciStreamVal, keySet := doc.Settings[config.ContainerImageStreamKey]
+		if keySet {
+			if ciStream, _ := ciStreamVal.(string); ciStream != "" {
+				return false, nil
+			}
+		}
+		doc.Settings[config.ContainerImageStreamKey] = "released"
+		return true, nil
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// RemoveContainerImageStreamFromNonModelSettings
+// In 2.3.6 we accidentally had an upgrade step that added
+// "container-image-stream": "released" to all settings documents, not just the
+// ones relating to Model data.
+// This removes it from all the ones that aren't model docs if it is exactly
+// what we would have added in 2.3.6
+func RemoveContainerImageStreamFromNonModelSettings(st *State) error {
+	uuids, err := st.AllModelUUIDs()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	modelDocIDs := set.NewStrings()
+	for _, uuid := range uuids {
+		modelDocIDs.Add(uuid + ":e")
+	}
 	coll, closer := st.db().GetRawCollection(settingsC)
 	defer closer()
-	iter := coll.Find(bson.D{}).Iter()
+
+	iter := coll.Find(nil).Iter()
 	defer iter.Close()
+
+	// This is the key for the field that was accidentally added in 2.3.6
+	// settings.container-image-stream
+	const dbSettingsKey = "settings." + config.ContainerImageStreamKey
 
 	var ops []txn.Op
 	var doc settingsDoc
 	for iter.Next(&doc) {
-		needsWrite := false
-		ciStreamVal, keySet := doc.Settings[config.ContainerImageStreamKey]
-		if !keySet {
-			needsWrite = true
-		} else {
-			if ciStream, _ := ciStreamVal.(string); ciStream == "" {
-				needsWrite = true
-			}
-		}
-		if !needsWrite {
+		if modelDocIDs.Contains(doc.DocID) {
+			// this is a model document, whatever was set here should stay
 			continue
 		}
-
-		doc.Settings[config.ContainerImageStreamKey] = "released"
+		if stream, ok := doc.Settings[config.ContainerImageStreamKey]; !ok {
+			// doesn't contain ContainerImageStreamKey
+			continue
+		} else if stream != "released" {
+			// definitely wasn't set by the 2.3.6 upgrade step
+			continue
+		}
+		// We just unset the one field that we accidentally set before, so we
+		// don't have to worry about serialization of the other keys in the
+		// document.
 		ops = append(ops, txn.Op{
 			C:      settingsC,
 			Id:     doc.DocID,
 			Assert: txn.DocExists,
-			Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+			Update: bson.M{"$unset": bson.M{dbSettingsKey: 1}},
 		})
 	}
 	if err := iter.Close(); err != nil {

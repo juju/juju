@@ -37,6 +37,7 @@ type StateBackend interface {
 	AddRelationStatus() error
 	DeleteCloudImageMetadata() error
 	EnsureContainerImageStreamDefault() error
+	RemoveContainerImageStreamFromNonModelSettings() error
 	MoveMongoSpaceToHASpaceConfig() error
 	CreateMissingApplicationConfig() error
 	RemoveVotingMachineIds() error
@@ -176,4 +177,8 @@ func (s stateBackend) DeleteCloudImageMetadata() error {
 
 func (s stateBackend) EnsureContainerImageStreamDefault() error {
 	return state.UpgradeContainerImageStreamDefault(s.st)
+}
+
+func (s stateBackend) RemoveContainerImageStreamFromNonModelSettings() error {
+	return state.RemoveContainerImageStreamFromNonModelSettings(s.st)
 }
