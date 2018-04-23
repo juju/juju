@@ -136,7 +136,7 @@ func (st *State) EnableHA(
 				voteCount++
 			}
 		}
-		if voteCount == desiredControllerCount && len(intent.remove) == 0 {
+		if voteCount == desiredControllerCount {
 			return nil, jujutxn.ErrNoOperations
 		}
 		// Promote as many machines as we can to fulfil the shortfall.
@@ -188,10 +188,6 @@ func (st *State) enableHAIntentionOps(
 		ops = append(ops, promoteControllerOps(m)...)
 		change.Promoted = append(change.Promoted, m.doc.Id)
 	}
-	for _, m := range intent.demote {
-		ops = append(ops, demoteControllerOps(m)...)
-		change.Demoted = append(change.Demoted, m.doc.Id)
-	}
 	for _, m := range intent.convert {
 		ops = append(ops, convertControllerOps(m)...)
 		change.Converted = append(change.Converted, m.doc.Id)
@@ -211,14 +207,14 @@ func (st *State) enableHAIntentionOps(
 	}
 	mdocs := make([]*machineDoc, intent.newCount)
 	for i := range mdocs {
-		placement, constraints := getPlacementConstraints()
+		placement, cons := getPlacementConstraints()
 		template := MachineTemplate{
 			Series: series,
 			Jobs: []MachineJob{
 				JobHostUnits,
 				JobManageModel,
 			},
-			Constraints: constraints,
+			Constraints: cons,
 			Placement:   placement,
 		}
 		mdoc, addOps, err := st.addMachineOps(template)
@@ -230,12 +226,6 @@ func (st *State) enableHAIntentionOps(
 		change.Added = append(change.Added, mdoc.Id)
 
 	}
-	for _, m := range intent.remove {
-		ops = append(ops, removeControllerOps(m)...)
-		change.Removed = append(change.Removed, m.doc.Id)
-
-	}
-
 	for _, m := range intent.maintain {
 		tag, err := names.ParseTag(m.Tag().String())
 		if err != nil {
@@ -258,14 +248,12 @@ type enableHAIntent struct {
 	newCount  int
 	placement []string
 
-	promote, maintain, demote, remove, convert []*Machine
+	promote, maintain, convert []*Machine
 }
 
 // enableHAIntentions returns what we would like
 // to do to maintain the availability of the existing servers
 // mentioned in the given info, including:
-//   demoting unavailable, voting machines;
-//   removing unavailable, non-voting, non-vote-holding machines;
 //   gathering available, non-voting machines that may be promoted;
 func (st *State) enableHAIntentions(info *ControllerInfo, placement []string) (*enableHAIntent, error) {
 	var intent enableHAIntent
@@ -280,9 +268,6 @@ func (st *State) enableHAIntentions(info *ControllerInfo, placement []string) (*
 			continue
 		}
 		if err == nil && p.Scope == instance.MachineScope {
-			// TODO(natefinch) add env provider policy to check if conversion is
-			// possible (e.g. cannot be supported by Azure in HA mode).
-
 			if names.IsContainerMachine(p.Directive) {
 				return nil, errors.New("container placement directives not supported")
 			}
@@ -313,8 +298,8 @@ func (st *State) enableHAIntentions(info *ControllerInfo, placement []string) (*
 			intent.promote = append(intent.promote, m)
 		}
 	}
-	logger.Infof("initial intentions: promote %v; maintain %v; demote %v; remove %v; convert: %v",
-		intent.promote, intent.maintain, intent.demote, intent.remove, intent.convert)
+	logger.Infof("initial intentions: promote %v; maintain %v; convert: %v",
+		intent.promote, intent.maintain, intent.convert)
 	return &intent, nil
 }
 
@@ -347,27 +332,21 @@ func promoteControllerOps(m *Machine) []txn.Op {
 	}}
 }
 
-func demoteControllerOps(m *Machine) []txn.Op {
+func removeControllerOps(m *Machine, controllerInfo *ControllerInfo) []txn.Op {
 	return []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: bson.D{{"novote", false}},
-		Update: bson.D{{"$set", bson.D{{"novote", true}}}},
-	}}
-}
-
-func removeControllerOps(m *Machine) []txn.Op {
-	return []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: bson.D{{"novote", true}, {"hasvote", false}},
+		C:  machinesC,
+		Id: m.doc.DocID,
+		Assert: bson.D{
+			{"novote", true},
+			{"hasvote", false},
+		},
 		Update: bson.D{
 			{"$pull", bson.D{{"jobs", JobManageModel}}},
-			{"$set", bson.D{{"novote", false}}},
 		},
 	}, {
 		C:      controllersC,
 		Id:     modelGlobalKey,
+		Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
 		Update: bson.D{{"$pull", bson.D{{"machineids", m.doc.Id}}}},
 	}}
 }
@@ -395,19 +374,7 @@ func (st *State) RemoveControllerMachine(m *Machine) error {
 			return nil, errors.Errorf("machine %s cannot be removed as it is the last controller", m.Id())
 		}
 		txnLogger.Debugf("txn for removing controller machine %q", m.doc.Id)
-		return []txn.Op{{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: bson.D{{"novote", true}, {"hasvote", false}},
-			Update: bson.D{
-				{"$pull", bson.D{{"jobs", JobManageModel}}},
-			},
-		}, {
-			C:      controllersC,
-			Id:     modelGlobalKey,
-			Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
-			Update: bson.D{{"$pull", bson.D{{"machineids", m.doc.Id}}}},
-		}}, nil
+		return removeControllerOps(m, controllerInfo), nil
 	}
 	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
