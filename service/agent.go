@@ -15,34 +15,34 @@ import (
 )
 
 const (
-        maxAgentFiles = 20000
+	maxAgentFiles = 20000
 
-        agentServiceTimeout = 300 // 5 minutes
+	agentServiceTimeout = 300 // 5 minutes
 )
 
 // AgentConf returns the data that defines an init service config
 // for the identified agent.
 func AgentConf(info agent.AgentInfo, renderer shell.Renderer) common.Conf {
-        conf := common.Conf{
-                Desc:          fmt.Sprintf("juju agent for %s", info.Name),
-                ExecStart:     info.Cmd(renderer),
-                Logfile:       info.LogFile(renderer),
-                Env:           osenv.FeatureFlags(),
-                Timeout:       agentServiceTimeout,
-                ServiceBinary: info.Jujud(renderer),
-                ServiceArgs:   info.ExecArgs(renderer),
-        }
+	conf := common.Conf{
+		Desc:          fmt.Sprintf("juju agent for %s", info.Name),
+		ExecStart:     info.Cmd(renderer),
+		Logfile:       info.LogFile(renderer),
+		Env:           osenv.FeatureFlags(),
+		Timeout:       agentServiceTimeout,
+		ServiceBinary: info.Jujud(renderer),
+		ServiceArgs:   info.ExecArgs(renderer),
+	}
 
-        switch info.Kind {
-        case agent.AgentKindMachine:
-                conf.Limit = map[string]int{
-                        "nofile": maxAgentFiles,
-                }
-        case agent.AgentKindUnit:
-                conf.Desc = "juju unit agent for " + info.ID
-        }
+	switch info.Kind {
+	case agent.AgentKindMachine:
+		conf.Limit = map[string]int{
+			"nofile": maxAgentFiles,
+		}
+	case agent.AgentKindUnit:
+		conf.Desc = "juju unit agent for " + info.ID
+	}
 
-        return conf
+	return conf
 }
 
 // TODO(ericsnow) Eliminate ContainerAgentConf once it is no longer
