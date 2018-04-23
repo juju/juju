@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 
+	agentinfo "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
@@ -291,4 +292,46 @@ func restart(svc Service) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+//WriteServiceFile write the service life in standard '/lib/systemd/' location
+func WriteServiceFile() error {
+	/* find the agents available */
+	var machineAgent string
+	var unitAgents []string
+	var dataDir string
+	var lastError error
+
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return err
+	}
+	dataDir, err = paths.DataDir(hostSeries)
+	if err != nil {
+		return err
+	}
+	err = agentinfo.FindAgents(&machineAgent, &unitAgents, dataDir)
+	if err != nil {
+		return err
+	}
+
+	for _, agentName := range append(unitAgents, machineAgent) {
+		//Need to verify this
+		conf, er := agentinfo.CreateAgentConf(agentName, dataDir, hostSeries)
+		if er != nil {
+			errors.Trace(err)
+			lastError = er
+			continue
+		}
+
+		svcName := "jujud-" + agentName
+		_, err := NewService(svcName, conf, hostSeries)
+		if err != nil {
+			errors.Trace(err)
+			lastError = err
+			continue
+		}
+
+	}
+	return lastError
 }

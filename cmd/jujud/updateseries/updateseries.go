@@ -4,7 +4,6 @@
 package updateseries
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"strings"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cmd/jujud/agent"
@@ -29,7 +27,6 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
 )
 
