@@ -19,9 +19,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
-	agentinfo "github.com/juju/juju/core/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	agentinfo "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"

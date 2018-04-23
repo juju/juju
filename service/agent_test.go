@@ -44,7 +44,7 @@ func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
 	info := agentinfo.NewMachineAgentInfo("0", dataDir, logDir)
 	renderer, err := shell.NewRenderer("")
 	c.Assert(err, jc.ErrorIsNil)
-	conf := service.AgentConf(info, renderer)
+	conf := agentinfo.AgentConf(info, renderer)
 
 	jujud := filepath.Join(dataDir, "tools", "machine-0", "jujud"+cmdSuffix)
 	cmd := strings.Join([]string{
@@ -81,7 +81,7 @@ func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
 	info := agentinfo.NewMachineAgentInfo("0", dataDir, logDir)
 	renderer, err := shell.NewRenderer("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
-	conf := service.AgentConf(info, renderer)
+	conf := agentinfo.AgentConf(info, renderer)
 
 	jujud := dataDir + "/tools/machine-0/jujud"
 	cmd := strings.Join([]string{
@@ -118,7 +118,7 @@ func (*agentSuite) TestAgentConfMachineWindows(c *gc.C) {
 	info := agentinfo.NewMachineAgentInfo("0", dataDir, logDir)
 	renderer, err := shell.NewRenderer("windows")
 	c.Assert(err, jc.ErrorIsNil)
-	conf := service.AgentConf(info, renderer)
+	conf := agentinfo.AgentConf(info, renderer)
 
 	jujud := dataDir + `\tools\machine-0\jujud.exe`
 	cmd := strings.Join([]string{
@@ -155,7 +155,7 @@ func (*agentSuite) TestAgentConfUnit(c *gc.C) {
 	info := agentinfo.NewUnitAgentInfo("wordpress/0", dataDir, logDir)
 	renderer, err := shell.NewRenderer("")
 	c.Assert(err, jc.ErrorIsNil)
-	conf := service.AgentConf(info, renderer)
+	conf := agentinfo.AgentConf(info, renderer)
 
 	jujud := filepath.Join(dataDir, "tools", "unit-wordpress-0", "jujud"+cmdSuffix)
 	cmd := strings.Join([]string{

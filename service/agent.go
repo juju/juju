@@ -51,7 +51,7 @@ func AgentConf(info agent.AgentInfo, renderer shell.Renderer) common.Conf {
 // ContainerAgentConf returns the data that defines an init service config
 // for the identified agent running in a container.
 func ContainerAgentConf(info agent.AgentInfo, renderer shell.Renderer, containerType string) common.Conf {
-	conf := AgentConf(info, renderer)
+	conf := agent.AgentConf(info, renderer)
 
 	// TODO(thumper): 2013-09-02 bug 1219630
 	// As much as I'd like to remove JujuContainerType now, it is still
