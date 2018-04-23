@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/shell"
 	gc "gopkg.in/check.v1"
 
+	agentinfo "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
@@ -40,7 +41,7 @@ func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
 	// mixed up during the call.
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
-	info := service.NewMachineAgentInfo("0", dataDir, logDir)
+	info := agentinfo.NewMachineAgentInfo("0", dataDir, logDir)
 	renderer, err := shell.NewRenderer("")
 	c.Assert(err, jc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
@@ -77,7 +78,7 @@ func (*agentSuite) TestAgentConfMachineLocal(c *gc.C) {
 func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
 	dataDir := "/var/lib/juju"
 	logDir := "/var/log/juju"
-	info := service.NewMachineAgentInfo("0", dataDir, logDir)
+	info := agentinfo.NewMachineAgentInfo("0", dataDir, logDir)
 	renderer, err := shell.NewRenderer("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
@@ -114,7 +115,7 @@ func (*agentSuite) TestAgentConfMachineUbuntu(c *gc.C) {
 func (*agentSuite) TestAgentConfMachineWindows(c *gc.C) {
 	dataDir := `C:\Juju\lib\juju`
 	logDir := `C:\Juju\logs\juju`
-	info := service.NewMachineAgentInfo("0", dataDir, logDir)
+	info := agentinfo.NewMachineAgentInfo("0", dataDir, logDir)
 	renderer, err := shell.NewRenderer("windows")
 	c.Assert(err, jc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
@@ -151,7 +152,7 @@ func (*agentSuite) TestAgentConfMachineWindows(c *gc.C) {
 func (*agentSuite) TestAgentConfUnit(c *gc.C) {
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
-	info := service.NewUnitAgentInfo("wordpress/0", dataDir, logDir)
+	info := agentinfo.NewUnitAgentInfo("wordpress/0", dataDir, logDir)
 	renderer, err := shell.NewRenderer("")
 	c.Assert(err, jc.ErrorIsNil)
 	conf := service.AgentConf(info, renderer)
@@ -185,7 +186,7 @@ func (*agentSuite) TestAgentConfUnit(c *gc.C) {
 func (*agentSuite) TestContainerAgentConf(c *gc.C) {
 	dataDir := c.MkDir()
 	logDir := c.MkDir()
-	info := service.NewUnitAgentInfo("wordpress/0", dataDir, logDir)
+	info := agentinfo.NewUnitAgentInfo("wordpress/0", dataDir, logDir)
 	renderer, err := shell.NewRenderer("")
 	c.Assert(err, jc.ErrorIsNil)
 	conf := service.ContainerAgentConf(info, renderer, "cont")

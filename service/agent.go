@@ -9,39 +9,40 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/shell"
 
+	"github.com/juju/juju/core/agent"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service/common"
 )
 
 const (
-	maxAgentFiles = 20000
+        maxAgentFiles = 20000
 
-	agentServiceTimeout = 300 // 5 minutes
+        agentServiceTimeout = 300 // 5 minutes
 )
 
 // AgentConf returns the data that defines an init service config
 // for the identified agent.
-func AgentConf(info AgentInfo, renderer shell.Renderer) common.Conf {
-	conf := common.Conf{
-		Desc:          fmt.Sprintf("juju agent for %s", info.name),
-		ExecStart:     info.cmd(renderer),
-		Logfile:       info.logFile(renderer),
-		Env:           osenv.FeatureFlags(),
-		Timeout:       agentServiceTimeout,
-		ServiceBinary: info.jujud(renderer),
-		ServiceArgs:   info.execArgs(renderer),
-	}
+func AgentConf(info agent.AgentInfo, renderer shell.Renderer) common.Conf {
+        conf := common.Conf{
+                Desc:          fmt.Sprintf("juju agent for %s", info.Name),
+                ExecStart:     info.Cmd(renderer),
+                Logfile:       info.LogFile(renderer),
+                Env:           osenv.FeatureFlags(),
+                Timeout:       agentServiceTimeout,
+                ServiceBinary: info.Jujud(renderer),
+                ServiceArgs:   info.ExecArgs(renderer),
+        }
 
-	switch info.Kind {
-	case AgentKindMachine:
-		conf.Limit = map[string]int{
-			"nofile": maxAgentFiles,
-		}
-	case AgentKindUnit:
-		conf.Desc = "juju unit agent for " + info.ID
-	}
+        switch info.Kind {
+        case agent.AgentKindMachine:
+                conf.Limit = map[string]int{
+                        "nofile": maxAgentFiles,
+                }
+        case agent.AgentKindUnit:
+                conf.Desc = "juju unit agent for " + info.ID
+        }
 
-	return conf
+        return conf
 }
 
 // TODO(ericsnow) Eliminate ContainerAgentConf once it is no longer
@@ -49,7 +50,7 @@ func AgentConf(info AgentInfo, renderer shell.Renderer) common.Conf {
 
 // ContainerAgentConf returns the data that defines an init service config
 // for the identified agent running in a container.
-func ContainerAgentConf(info AgentInfo, renderer shell.Renderer, containerType string) common.Conf {
+func ContainerAgentConf(info agent.AgentInfo, renderer shell.Renderer, containerType string) common.Conf {
 	conf := AgentConf(info, renderer)
 
 	// TODO(thumper): 2013-09-02 bug 1219630

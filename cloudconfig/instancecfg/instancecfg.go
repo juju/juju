@@ -23,6 +23,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
+	agentinfo "github.com/juju/juju/core/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -379,8 +380,8 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 	return nil
 }
 
-func (cfg *InstanceConfig) agentInfo() service.AgentInfo {
-	return service.NewMachineAgentInfo(
+func (cfg *InstanceConfig) agentInfo() agentinfo.AgentInfo {
+	return agentinfo.NewMachineAgentInfo(
 		cfg.MachineId,
 		cfg.DataDir,
 		cfg.LogDir,

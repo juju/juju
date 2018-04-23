@@ -19,6 +19,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
+	agentinfo "github.com/juju/juju/core/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/mongo"
@@ -268,7 +269,7 @@ func (s *updateSeriesCmdSuite) assertSetupAgentsForTest(c *gc.C) {
 
 func (s *updateSeriesCmdSuite) TestFindAgents(c *gc.C) {
 	cmd := &UpdateSeriesCommand{toSeries: "xenial", fromSeries: "trusty", dataDir: s.dataDir}
-	err := cmd.findAgents(cmdtesting.Context(c))
+	err := agentinfo.FindAgents(&cmd.machineAgent, &cmd.unitAgents, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cmd.machineAgent, gc.Equals, s.machineName)
@@ -280,7 +281,7 @@ func (s *updateSeriesCmdSuite) TestFindAgentsFail(c *gc.C) {
 	err := os.MkdirAll(path.Join(agentsDir, names.ApplicationTagKind+"-failme-0"), os.ModeDir|os.ModePerm)
 
 	cmd := &UpdateSeriesCommand{toSeries: "xenial", fromSeries: "trusty", dataDir: s.dataDir}
-	err = cmd.findAgents(cmdtesting.Context(c))
+	err = agentinfo.FindAgents(&cmd.machineAgent, &cmd.unitAgents, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cmd.machineAgent, gc.Equals, s.machineName)
@@ -304,7 +305,7 @@ func (s *updateSeriesCmdSuite) TestCreateAgentConfFailAgentKind(c *gc.C) {
 func (s *updateSeriesCmdSuite) TestStartAllAgents(c *gc.C) {
 	cmd := &UpdateSeriesCommand{toSeries: "xenial", fromSeries: "trusty", dataDir: s.dataDir}
 	ctx := cmdtesting.Context(c)
-	err := cmd.findAgents(ctx)
+	err := agentinfo.FindAgents(&cmd.machineAgent, &cmd.unitAgents, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.startAllAgents(ctx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -326,7 +327,7 @@ func (s *updateSeriesCmdSuite) TestStartAllAgentsFailUnit(c *gc.C) {
 
 	cmd := &UpdateSeriesCommand{toSeries: "xenial", fromSeries: "trusty", dataDir: s.dataDir}
 	ctx := cmdtesting.Context(c)
-	err := cmd.findAgents(ctx)
+	err := agentinfo.FindAgents(&s.machineName, &s.unitNames, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.startAllAgents(ctx)
 	c.Assert(err, gc.ErrorMatches, "failed to start .* service: fail me")

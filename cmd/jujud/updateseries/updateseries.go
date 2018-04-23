@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -24,13 +23,14 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent/tools"
+	agentinfo "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
+	"github.com/juju/juju/service/common"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud.updateseries")
@@ -104,7 +104,7 @@ func (c *UpdateSeriesCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *UpdateSeriesCommand) Run(ctx *cmd.Context) error {
-	if err := c.findAgents(ctx); err != nil {
+	if err := agentinfo.FindAgents(&c.machineAgent, &c.unitAgents, c.dataDir); err != nil {
 		return err
 	}
 
@@ -157,36 +157,6 @@ func (c *UpdateSeriesCommand) Run(ctx *cmd.Context) error {
 		}
 	default:
 		return errors.Errorf("Failed to migrate from %s to %s", fromInitSys, toInitSys)
-	}
-	return nil
-}
-
-func (c *UpdateSeriesCommand) findAgents(ctx *cmd.Context) error {
-	agentsDir := filepath.Join(c.dataDir, "agents")
-	dir, err := os.Open(agentsDir)
-	if err != nil {
-		return errors.Annotate(err, "opening agents dir")
-	}
-	defer dir.Close()
-
-	entries, err := dir.Readdir(-1)
-	if err != nil {
-		return errors.Annotate(err, "reading agents dir")
-	}
-	for _, info := range entries {
-		name := info.Name()
-		tag, err := names.ParseTag(name)
-		if err != nil {
-			continue
-		}
-		switch tag.Kind() {
-		case names.MachineTagKind:
-			c.machineAgent = name
-		case names.UnitTagKind:
-			c.unitAgents = append(c.unitAgents, name)
-		default:
-			ctx.Warningf("%s is not of type Machine nor Unit, ignoring", name)
-		}
 	}
 	return nil
 }
@@ -281,17 +251,17 @@ func (c *UpdateSeriesCommand) createAgentConf(agentName string) (_ common.Conf, 
 	}
 	name := tag.Id()
 
-	var kind service.AgentKind
+	var kind agentinfo.AgentKind
 	switch tag.Kind() {
 	case names.MachineTagKind:
-		kind = service.AgentKindMachine
+		kind = agentinfo.AgentKindMachine
 	case names.UnitTagKind:
-		kind = service.AgentKindUnit
+		kind = agentinfo.AgentKindUnit
 	default:
 		return common.Conf{}, errors.NewNotValid(nil, fmt.Sprintf("agent %q is neither a machine nor a unit", agentName))
 	}
 
-	info := service.NewAgentInfo(
+	info := agentinfo.NewAgentInfo(
 		kind,
 		name,
 		c.dataDir,
@@ -310,25 +280,25 @@ func (c *UpdateSeriesCommand) startAllAgents(ctx *cmd.Context) error {
 	}
 
 	for _, unit := range c.unitAgents {
-		if err = c.startAgent(unit, service.AgentKindUnit); err != nil {
+		if err = c.startAgent(unit, agentinfo.AgentKindUnit); err != nil {
 			return errors.Annotatef(err, "failed to start %s service", "jujud-"+unit)
 		}
 		ctx.Infof("started %s service", "jujud-"+unit)
 	}
 
-	err = c.startAgent(c.machineAgent, service.AgentKindMachine)
+	err = c.startAgent(c.machineAgent, agentinfo.AgentKindMachine)
 	if err == nil {
 		ctx.Infof("started %s service", "jujud-"+c.machineAgent)
 	}
 	return errors.Annotatef(err, "failed to start %s service", "jujud-"+c.machineAgent)
 }
 
-func (c *UpdateSeriesCommand) startAgent(name string, kind service.AgentKind) (err error) {
+func (c *UpdateSeriesCommand) startAgent(name string, kind agentinfo.AgentKind) (err error) {
 	renderer, err := shell.NewRenderer("")
 	if err != nil {
 		return err
 	}
-	info := service.NewAgentInfo(
+	info := agentinfo.NewAgentInfo(
 		kind,
 		name,
 		c.dataDir,

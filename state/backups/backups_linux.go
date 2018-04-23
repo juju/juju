@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
+	agentinfo "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -148,7 +149,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 	if backupMachine.Id() != "0" {
 		logger.Infof("extra work needed backup belongs to %q machine", backupMachine.String())
 		serviceName := "jujud-" + agentConfig.Tag().String()
-		aInfo := service.NewMachineAgentInfo(
+		aInfo := agentinfo.NewMachineAgentInfo(
 			agentConfig.Tag().Id(),
 			dataDir,
 			paths.MustSucceed(paths.LogDir(args.NewInstSeries)),
