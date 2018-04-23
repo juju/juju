@@ -2345,7 +2345,7 @@ func (s *upgradesSuite) TestRemoveVotingMachineIds(c *gc.C) {
 func (s *upgradesSuite) TestUpgradeContainerImageStreamDefault(c *gc.C) {
 	// Value not set
 	m1 := s.makeModel(c, "m1", coretesting.Attrs{
-		"other-setting": "val",
+		"other-setting":                            "val",
 		unescapeReplacer.Replace("dotted.setting"): "value",
 		unescapeReplacer.Replace("dollar$setting"): "value",
 	})

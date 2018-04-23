@@ -214,7 +214,7 @@ func (s *SettingsSuite) TestSetItemEscape(c *gc.C) {
 
 func (s *SettingsSuite) TestRawSettingsMapEncodeDecode(c *gc.C) {
 	smap := &settingsMap{
-		"$dollar": 1,
+		"$dollar":    1,
 		"dotted.key": 2,
 	}
 	asBSON, err := bson.Marshal(smap)
@@ -224,7 +224,7 @@ func (s *SettingsSuite) TestRawSettingsMapEncodeDecode(c *gc.C) {
 	err = bson.Unmarshal(asBSON, &asMap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(asMap, gc.DeepEquals, map[string]interface{}{
-		"\uff04dollar": 1,
+		"\uff04dollar":    1,
 		"dotted\uff0ekey": 2,
 	})
 	// unmarshalling into a settingsMap will give us the right decoded keys
@@ -232,7 +232,7 @@ func (s *SettingsSuite) TestRawSettingsMapEncodeDecode(c *gc.C) {
 	err = bson.Unmarshal(asBSON, &asSettingsMap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(map[string]interface{}(asSettingsMap), gc.DeepEquals, map[string]interface{}{
-		"$dollar": 1,
+		"$dollar":    1,
 		"dotted.key": 2,
 	})
 }
