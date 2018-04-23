@@ -36,7 +36,7 @@ type Context interface {
 	APIContext() Context
 
 	//ServiceConfig
-	ServiceConfig service.UpgradableService
+	ServiceConfig() service.UpgradableService
 }
 
 // NewContext returns a new upgrade context.

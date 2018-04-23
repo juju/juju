@@ -91,8 +91,9 @@ func LogDir(series string) (string, error) {
 	return osVal(series, logDir)
 }
 
-//SystemdDir retrun the filesyatem path where the service files are saved
-fun SystemdDir(series string) (string, error) {
+//SystemdDir retrun the filesyatem path where 
+//the service files are saved
+func SystemdDir(series string) (string, error) {
 	return osVal(series, systemdDir)
 }
 

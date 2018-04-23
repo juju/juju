@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/core/agent"
 )
 
 var (
