@@ -8,16 +8,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher/legacy"
 )
+
+var logger = loggo.GetLogger("juju.watcher.legacy")
 
 type NotifyWorkerSuite struct {
 	coretesting.BaseSuite
@@ -143,9 +146,11 @@ func (tnw *testNotifyWatcher) Err() error {
 }
 
 func (tnw *testNotifyWatcher) Stop() error {
+	logger.Criticalf(">> Stop!")
 	tnw.mu.Lock()
 	defer tnw.mu.Unlock()
 	if !tnw.stopped {
+		logger.Criticalf(">> Stopping changes.")
 		close(tnw.changes)
 	}
 	tnw.stopped = true
@@ -154,6 +159,7 @@ func (tnw *testNotifyWatcher) Stop() error {
 
 func (tnw *testNotifyWatcher) SetStopError(err error) {
 	tnw.mu.Lock()
+	logger.Criticalf(">> setting error: %s", err)
 	tnw.stopError = err
 	tnw.mu.Unlock()
 }

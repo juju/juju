@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -54,13 +54,12 @@ func (fw Watchers) WatchMachineManagedFilesystems(m names.MachineTag) state.Stri
 		modelVolumesAttached:   make(set.Tags),
 		modelVolumeFilesystems: make(map[names.VolumeTag]names.FilesystemTag),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer watcher.Stop(w.machineFilesystems, &w.tomb)
 		defer watcher.Stop(w.modelFilesystems, &w.tomb)
 		defer watcher.Stop(w.modelVolumeAttachments, &w.tomb)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -232,13 +231,13 @@ func (fw Watchers) WatchMachineManagedFilesystemAttachments(m names.MachineTag) 
 		modelVolumesAttached:             make(set.Tags),
 		modelVolumeFilesystemAttachments: make(map[names.VolumeTag]string),
 	}
-	go func() {
-		defer w.tomb.Done()
+
+	w.tomb.Go(func() error {
 		defer watcher.Stop(w.machineFilesystemAttachments, &w.tomb)
 		defer watcher.Stop(w.modelFilesystemAttachments, &w.tomb)
 		defer watcher.Stop(w.modelVolumeAttachments, &w.tomb)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -396,11 +395,10 @@ func newFilteredStringsWatcher(w state.StringsWatcher, filter func(string) (bool
 		w:                  w,
 		filter:             filter,
 	}
-	go func() {
-		defer fw.tomb.Done()
+	fw.tomb.Go(func() error {
 		defer watcher.Stop(fw.w, &fw.tomb)
-		fw.tomb.Kill(fw.loop())
-	}()
+		return fw.loop()
+	})
 	return fw
 }
 
