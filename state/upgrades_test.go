@@ -2346,6 +2346,8 @@ func (s *upgradesSuite) TestUpgradeContainerImageStreamDefault(c *gc.C) {
 	// Value not set
 	m1 := s.makeModel(c, "m1", coretesting.Attrs{
 		"other-setting": "val",
+		unescapeReplacer.Replace("dotted.setting"): "value",
+		unescapeReplacer.Replace("dollar$setting"): "value",
 	})
 	defer m1.Close()
 	// Value set to the empty string

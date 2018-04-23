@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
 
@@ -209,6 +210,31 @@ func (s *SettingsSuite) TestSetItemEscape(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(nodeTwo.disk, gc.DeepEquals, options)
 	c.Assert(nodeTwo.core, gc.DeepEquals, options)
+}
+
+func (s *SettingsSuite) TestRawSettingsMapEncodeDecode(c *gc.C) {
+	smap := &settingsMap{
+		"$dollar": 1,
+		"dotted.key": 2,
+	}
+	asBSON, err := bson.Marshal(smap)
+	c.Assert(err, jc.ErrorIsNil)
+	var asMap map[string]interface{}
+	// unmarshalling into a map doesn't do the custom decoding so we get the raw escaped keys
+	err = bson.Unmarshal(asBSON, &asMap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(asMap, gc.DeepEquals, map[string]interface{}{
+		"\uff04dollar": 1,
+		"dotted\uff0ekey": 2,
+	})
+	// unmarshalling into a settingsMap will give us the right decoded keys
+	var asSettingsMap settingsMap
+	err = bson.Unmarshal(asBSON, &asSettingsMap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(map[string]interface{}(asSettingsMap), gc.DeepEquals, map[string]interface{}{
+		"$dollar": 1,
+		"dotted.key": 2,
+	})
 }
 
 func (s *SettingsSuite) TestReplaceSettingsEscape(c *gc.C) {

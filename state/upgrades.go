@@ -712,10 +712,6 @@ func applyToAllModelSettings(st *State, change func(*settingsDoc) (bool, error))
 			return errors.Trace(err)
 		}
 		if settingsChanged {
-			// Note: some settings contain embedded '.' or '$' characters and
-			// need to be encoded to save back to the database. We don't need
-			// to do that here, only because we don't use those keys in our
-			// Model and Controller settings documents.
 			ops = append(ops, txn.Op{
 				C:      settingsC,
 				Id:     doc.DocID,
