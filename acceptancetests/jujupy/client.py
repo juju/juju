@@ -1287,10 +1287,11 @@ class ModelClient:
     def format_bundle(cls, bundle_template):
         return bundle_template.format(container=cls.preferred_container())
 
-    def deploy_bundle(self, bundle_template, timeout=_DEFAULT_BUNDLE_TIMEOUT):
+    def deploy_bundle(self, bundle_template, timeout=_DEFAULT_BUNDLE_TIMEOUT, static_bundle=False):
         """Deploy bundle using native juju 2.0 deploy command."""
-        bundle = self.format_bundle(bundle_template)
-        self.juju('deploy', bundle, timeout=timeout)
+        if static_bundle is False:
+            bundle_template = self.format_bundle(bundle_template)
+        self.juju('deploy', bundle_template, timeout=timeout)
 
     def deployer(self, bundle_template, name=None, deploy_delay=10,
                  timeout=3600):
@@ -2120,6 +2121,11 @@ class ModelClient:
         if not args:
             raise ValueError('No target to switch to has been given.')
         self.juju('switch', (':'.join(args),), include_e=False)
+
+    def scp(self, _from, _to):
+        args = ('-m', self.model_name)
+        args += (_from, _to)
+        self.juju('scp', args)
 
 
 class K8sClient(ModelClient):

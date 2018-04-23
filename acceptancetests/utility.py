@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from datetime import (
     datetime,
     timedelta,
-    )
+)
 import errno
 import json
 import logging
@@ -14,7 +14,7 @@ import sys
 from time import (
     sleep,
     time,
-    )
+)
 import warnings
 from jujupy.utility import (
     ensure_deleted,
@@ -30,7 +30,7 @@ from jujupy.utility import (
     temp_dir,
     temp_yaml_file,
     until_timeout
-    )
+)
 
 # Imported for other call sites to use.
 __all__ = [
@@ -44,7 +44,7 @@ __all__ = [
     'skip_on_missing_file',
     'temp_dir',
     'temp_yaml_file',
-    ]
+]
 
 
 # Equivalent of socket.EAI_NODATA when using windows sockets
@@ -62,6 +62,7 @@ class LoggedException(BaseException):
     This is a wrapper to avoid double-printing real Exceptions while still
     unwinding the stack appropriately.
     """
+
     def __init__(self, exception):
         self.exception = exception
 

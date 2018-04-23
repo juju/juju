@@ -29,13 +29,22 @@ log = logging.getLogger("assess_caas_bootstrap")
 
 
 def assess_caas_bootstrap(client):
-    # Deploy charms, there are several under ./repository
+    # Deploy k8s bundle to spin up k8s cluster
     repository_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'repository')
-    bundle = local_charm_path(charm='bundles-kubernetes-core-lxd', repository=repository_dir)
+    bundle = local_charm_path(charm='bundles-kubernetes-core-lxd.yaml',
+                              repository=repository_dir, juju_ver=client.version)
     client.deploy_bundle(bundle, static_bundle=True)
     # Wait for the deployment to finish.
     client.wait_for_started()
-    # TODO: Add specific functional testing actions here.
+
+    # ensure kube credentials
+    client.scp(_from='kubernetes-master/0:config', _to='~/.kube/config')
+
+    # TODO:
+    # 0. assert cluster healthy
+    # 1. add cloud
+    # 2. add k8s model
+    # 3. deploy charms
 
 
 def parse_args(argv):

@@ -32,7 +32,7 @@ from jujupy import (
     juju_home_path,
     JujuData,
     temp_bootstrap_env,
-    )
+)
 from jujupy.configuration import (
     get_juju_data,
 )
@@ -603,6 +603,7 @@ class PublicController:
 
     The user registers with the controller, and adds the initial model.
     """
+
     def __init__(self, controller_host, email, password, client,
                  tear_down_client):
         self.controller_host = controller_host
