@@ -45,3 +45,7 @@ const CAAS = "caas"
 // should be used by the API server to determine agent presence.
 // This value is only checked using the controller config "features" attrubite.
 const NewPresence = "new-presence"
+
+// NewProxyOnly is a temporary traditional feature flag that will disable writing
+// the proxy information into the /etc locations (for users and systemd).
+const NewProxyOnly = "new-proxy-only"
