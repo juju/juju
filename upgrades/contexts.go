@@ -6,6 +6,7 @@ package upgrades
 import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/service"
 )
 
 // Context provides the dependencies used when executing upgrade steps.
@@ -33,6 +34,9 @@ type Context interface {
 	// APIContext returns a new Context suitable for API-based upgrade
 	// steps.
 	APIContext() Context
+
+	//ServiceConfig
+	ServiceConfig service.UpgradableService
 }
 
 // NewContext returns a new upgrade context.
@@ -40,11 +44,13 @@ func NewContext(
 	agentConfig agent.ConfigSetter,
 	api api.Connection,
 	st StateBackend,
+	serviceConfig service.UpgradableService,
 ) Context {
 	return &upgradeContext{
 		agentConfig: agentConfig,
 		api:         api,
 		st:          st,
+		serviceConfig: serviceConfig,
 	}
 }
 
@@ -53,6 +59,7 @@ type upgradeContext struct {
 	agentConfig agent.ConfigSetter
 	api         api.Connection
 	st          StateBackend
+	serviceConfig service.UpgradableService
 }
 
 // APIState is defined on the Context interface.
@@ -94,4 +101,9 @@ func (c *upgradeContext) APIContext() Context {
 		agentConfig: c.agentConfig,
 		api:         c.api,
 	}
+}
+
+//ServiceConfig is defined on Context interface
+func (c *upgradeContext) ServiceConfig() service.UpgradableService {
+	return c.serviceConfig
 }

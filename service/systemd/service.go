@@ -77,7 +77,7 @@ func NewService(name string, conf common.Conf, dataDir string, newDBus DBusAPIFa
 	if conf.ExecStart != "" {
 		volName = renderer.VolumeName(common.Unquote(strings.Fields(conf.ExecStart)[0]))
 	}
-	dirName := volName + renderer.Join(dataDir, "init", name)
+	dirName := volName + renderer.Join(dataDir, "juju-init", name)
 
 	service := &Service{
 		Service: common.Service{

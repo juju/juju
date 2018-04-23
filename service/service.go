@@ -98,6 +98,10 @@ type UpgradableService interface {
 	// running add links to allow for manual and automatic start
 	// of the service.
 	WriteService() error
+
+	//WriteServiceFile writes the service file in '/lib/systemd'
+	//this is done as part of upgrade step
+	WriteServiceFile() error
 }
 
 // TODO(ericsnow) bug #1426458
@@ -129,12 +133,12 @@ func newService(name string, conf common.Conf, initSystem, series string) (Servi
 	case InitSystemUpstart:
 		return upstart.NewService(name, conf), nil
 	case InitSystemSystemd:
-		dataDir, err := paths.DataDir(series)
+		systemdDir, err := paths.systemdDir(series)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to find juju data dir for application %q", name)
 		}
 
-		svc, err := systemd.NewService(name, conf, dataDir, systemd.NewDBusAPI)
+		svc, err := systemd.NewService(name, conf, systemdDir, systemd.NewDBusAPI)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
 		}
