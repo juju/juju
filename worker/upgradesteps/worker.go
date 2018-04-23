@@ -16,7 +16,6 @@ import (
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/service"
 	"github.com/juju/juju/api"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
@@ -118,7 +117,6 @@ type upgradesteps struct {
 	upgradeComplete gate.Lock
 	agent           agent.Agent
 	apiConn         api.Connection
-	serviceUpgrade	service.UpgradableService
 	jobs            []multiwatcher.MachineJob
 	openState       func() (*state.State, error)
 	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMaster bool) error
@@ -348,7 +346,7 @@ func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	w.machine.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
 
 	stBackend := upgrades.NewStateBackend(w.st)
-	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend, w.serviceUpgrade)
+	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend)
 	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
 
 	targets := jobsToTargets(w.jobs, w.isMaster)
