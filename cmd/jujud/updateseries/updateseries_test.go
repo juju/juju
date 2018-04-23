@@ -37,6 +37,7 @@ type updateSeriesCmdSuite struct {
 	dataDir     string
 	machineName string
 	unitNames   []string
+	manager     service.SystemdServiceManager
 
 	services    []*svctesting.FakeService
 	serviceData *svctesting.FakeServiceData
@@ -67,7 +68,7 @@ func (s *updateSeriesCmdSuite) SetUpTest(c *gc.C) {
 	s.unitNames = []string{"unit-ubuntu-0", "unit-mysql-0"}
 
 	// Equalivent to reboot after upgrade
-	s.PatchValue(&sysdIsRunning, func() (bool, error) { return true, nil })
+	s.manager = service.NewSystemdServiceManager(func() (bool, error) { return true, nil })
 
 	s.assertSetupAgentsForTest(c)
 	s.setUpAgentConf(c)
@@ -85,7 +86,7 @@ func (s *updateSeriesCmdSuite) TearDownTest(c *gc.C) {
 var _ = gc.Suite(&updateSeriesCmdSuite{})
 
 func (s *updateSeriesCmdSuite) setUpAgentConf(c *gc.C) {
-	// Read in copyTools()
+	// Read in copyAgentBinary() to get the version of agent.
 	configParams := agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: s.dataDir},
 		Tag:               names.NewMachineTag("0"),
@@ -266,76 +267,8 @@ func (s *updateSeriesCmdSuite) assertSetupAgentsForTest(c *gc.C) {
 	}
 }
 
-func (s *updateSeriesCmdSuite) TestFindAgents(c *gc.C) {
-	cmd := &UpdateSeriesCommand{toSeries: "xenial", fromSeries: "trusty", dataDir: s.dataDir}
-	err := cmd.findAgents(cmdtesting.Context(c))
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(cmd.machineAgent, gc.Equals, s.machineName)
-	c.Assert(cmd.unitAgents, jc.SameContents, s.unitNames)
-}
-
-func (s *updateSeriesCmdSuite) TestFindAgentsFail(c *gc.C) {
-	agentsDir := path.Join(s.dataDir, "agents")
-	err := os.MkdirAll(path.Join(agentsDir, names.ApplicationTagKind+"-failme-0"), os.ModeDir|os.ModePerm)
-
-	cmd := &UpdateSeriesCommand{toSeries: "xenial", fromSeries: "trusty", dataDir: s.dataDir}
-	err = cmd.findAgents(cmdtesting.Context(c))
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(cmd.machineAgent, gc.Equals, s.machineName)
-	c.Assert(cmd.unitAgents, jc.SameContents, s.unitNames)
-}
-
-func (s *updateSeriesCmdSuite) TestCreateAgentConf(c *gc.C) {
-	cmd := &UpdateSeriesCommand{toSeries: "xenial", fromSeries: "trusty", dataDir: s.dataDir}
-	conf, err := cmd.createAgentConf("machine-2")
-	c.Assert(err, jc.ErrorIsNil)
-	// Spot check Conf
-	c.Assert(conf.Desc, gc.Equals, "juju agent for machine-2")
-}
-
-func (s *updateSeriesCmdSuite) TestCreateAgentConfFailAgentKind(c *gc.C) {
-	cmd := &UpdateSeriesCommand{toSeries: "xenial", fromSeries: "trusty", dataDir: s.dataDir}
-	_, err := cmd.createAgentConf("application-fail")
-	c.Assert(err, gc.ErrorMatches, `agent "application-fail" is neither a machine nor a unit`)
-}
-
-func (s *updateSeriesCmdSuite) TestStartAllAgents(c *gc.C) {
-	cmd := &UpdateSeriesCommand{toSeries: "xenial", fromSeries: "trusty", dataDir: s.dataDir}
-	ctx := cmdtesting.Context(c)
-	err := cmd.findAgents(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.startAllAgents(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.assertServicesCalls(c, "Start", len(s.services))
-}
-
-func (s *updateSeriesCmdSuite) TestStartAllAgentsFailPreReboot(c *gc.C) {
-	s.PatchValue(&sysdIsRunning, func() (bool, error) { return false, nil })
-	cmd := &UpdateSeriesCommand{toSeries: "xenial", fromSeries: "trusty", dataDir: s.dataDir}
-	err := cmd.startAllAgents(cmdtesting.Context(c))
-	c.Assert(err, gc.ErrorMatches, "systemd is not fully running, please reboot to start agents")
-}
-
-func (s *updateSeriesCmdSuite) TestStartAllAgentsFailUnit(c *gc.C) {
-	s.services[0].SetErrors(
-		errors.New("fail me"),
-	)
-
-	cmd := &UpdateSeriesCommand{toSeries: "xenial", fromSeries: "trusty", dataDir: s.dataDir}
-	ctx := cmdtesting.Context(c)
-	err := cmd.findAgents(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.startAllAgents(ctx)
-	c.Assert(err, gc.ErrorMatches, "failed to start .* service: fail me")
-
-	s.assertServicesCalls(c, "Start", 1)
-}
-
 func (s *updateSeriesCmdSuite) TestRunPreUpstartToSystemdUpgradeReboot(c *gc.C) {
-	s.PatchValue(&sysdIsRunning, func() (bool, error) { return false, nil })
+	s.manager = service.NewSystemdServiceManager(func() (bool, error) { return false, nil })
 	s.assertRunTest(c)
 	s.assertServiceSymLinks(c)
 	// Check idempotence
@@ -345,7 +278,7 @@ func (s *updateSeriesCmdSuite) TestRunPreUpstartToSystemdUpgradeReboot(c *gc.C) 
 		"wrote jujud-unit-.*-0 agent, enabled and linked by symlink\n"+
 		"wrote jujud-unit-.*-0 agent, enabled and linked by symlink\n"+
 		"wrote jujud-machine-0 agent, enabled and linked by symlink\n"+
-		"successfully copied tools and relinked agent tools\n")
+		"successfully copied and relinked agent binaries\n")
 	s.assertServiceSymLinks(c)
 }
 
@@ -358,7 +291,7 @@ func (s *updateSeriesCmdSuite) TestRunPostUpstartToSystemdUpgradeReboot(c *gc.C)
 		"wrote jujud-unit-.*-0 agent, enabled and linked by systemd\n"+
 		"wrote jujud-unit-.*-0 agent, enabled and linked by systemd\n"+
 		"wrote jujud-machine-0 agent, enabled and linked by systemd\n"+
-		"successfully copied tools and relinked agent tools\n")
+		"successfully copied and relinked agent binaries\n")
 }
 
 func (s *updateSeriesCmdSuite) TestRunPostUpstartToSystemdUpgradeStartAllAgents(c *gc.C) {
@@ -371,7 +304,7 @@ func (s *updateSeriesCmdSuite) TestRunPostUpstartToSystemdUpgradeStartAllAgents(
 		"wrote jujud-unit-.*-0 agent, enabled and linked by systemd\n"+
 		"wrote jujud-unit-.*-0 agent, enabled and linked by systemd\n"+
 		"wrote jujud-machine-0 agent, enabled and linked by systemd\n"+
-		"successfully copied tools and relinked agent tools\n"+
+		"successfully copied and relinked agent binaries\n"+
 		"started jujud-unit-.*-0 service\n"+
 		"started jujud-unit-.*-0 service\n"+
 		"started jujud-machine-0 service\n"+
@@ -386,7 +319,7 @@ func (s *updateSeriesCmdSuite) TestSystemdToSystemdUpgrade(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	s.assertToolsCopySymlink(c, "yakkety")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, ""+
-		"successfully copied tools and relinked agent tools\n")
+		"successfully copied and relinked agent binaries\n")
 }
 
 func (s *updateSeriesCmdSuite) TestSystemdToSystemdUpgradeStartAllAgents(c *gc.C) {
@@ -397,15 +330,15 @@ func (s *updateSeriesCmdSuite) TestSystemdToSystemdUpgradeStartAllAgents(c *gc.C
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	s.assertToolsCopySymlink(c, "yakkety")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, ""+
-		"successfully copied tools and relinked agent tools\n"+
+		"successfully copied and relinked agent binaries\n"+
 		"started jujud-unit-.*-0 service\n"+
 		"started jujud-unit-.*-0 service\n"+
 		"started jujud-machine-0 service\n"+
 		"all agents successfully restarted\n")
 }
 
-func (s *updateSeriesCmdSuite) TestRunTwiceFailFirstWriteService(c *gc.C) {
-	s.PatchValue(&sysdIsRunning, func() (bool, error) { return false, nil })
+func (s *updateSeriesCmdSuite) TestRunTwiceFailFirstSystemdWriteService(c *gc.C) {
+	s.manager = service.NewSystemdServiceManager(func() (bool, error) { return false, nil })
 	s.services[0].SetErrors(
 		errors.New("fail me"),
 	)
@@ -418,7 +351,7 @@ func (s *updateSeriesCmdSuite) TestRunTwiceFailFirstWriteService(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, ""+
 		"wrote jujud-unit-.*-0 agent, enabled and linked by symlink\n"+
 		"wrote jujud-machine-0 agent, enabled and linked by symlink\n"+
-		"successfully copied tools and relinked agent tools\n")
+		"successfully copied and relinked agent binaries\n")
 
 	// Check idempotence
 	s.services[0].ResetCalls()
@@ -427,12 +360,38 @@ func (s *updateSeriesCmdSuite) TestRunTwiceFailFirstWriteService(c *gc.C) {
 		"wrote jujud-unit-.*-0 agent, enabled and linked by symlink\n"+
 		"wrote jujud-unit-.*-0 agent, enabled and linked by symlink\n"+
 		"wrote jujud-machine-0 agent, enabled and linked by symlink\n"+
-		"successfully copied tools and relinked agent tools\n")
+		"successfully copied and relinked agent binaries\n")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *updateSeriesCmdSuite) TestRunTwiceFailFirstWriteService(c *gc.C) {
+	s.services[0].SetErrors(
+		errors.New("fail me"),
+	)
+
+	args := []string{"--to-series", "xenial", "--from-series", "trusty"}
+	ctx, err := s.run(c, args...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertServicesCalls(c, "WriteService", len(s.services))
+	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, ""+
+		"wrote jujud-unit-.*-0 agent, enabled and linked by systemd\n"+
+		"wrote jujud-machine-0 agent, enabled and linked by systemd\n"+
+		"successfully copied and relinked agent binaries\n")
+
+	// Check idempotence
+	s.services[0].ResetCalls()
+	ctx = s.assertRunTest(c)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, ""+
+		"wrote jujud-unit-.*-0 agent, enabled and linked by systemd\n"+
+		"wrote jujud-unit-.*-0 agent, enabled and linked by systemd\n"+
+		"wrote jujud-machine-0 agent, enabled and linked by systemd\n"+
+		"successfully copied and relinked agent binaries\n")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *updateSeriesCmdSuite) TestRunTwiceRewriteToolsLink(c *gc.C) {
-	s.PatchValue(&sysdIsRunning, func() (bool, error) { return false, nil })
+	s.manager = service.NewSystemdServiceManager(func() (bool, error) { return false, nil })
 	s.assertRunTest(c)
 	s.assertServiceSymLinks(c)
 
@@ -460,7 +419,7 @@ func (s *updateSeriesCmdSuite) assertRunTest(c *gc.C) *cmd.Context {
 }
 
 func (s *updateSeriesCmdSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, &UpdateSeriesCommand{}, args...)
+	return cmdtesting.RunCommand(c, &UpdateSeriesCommand{manager: s.manager}, args...)
 }
 
 func (s *updateSeriesCmdSuite) assertVerifyCmdResults(c *gc.C) {
