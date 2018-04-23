@@ -158,7 +158,7 @@ func (b *backups) Restore(backupId string, args RestoreArgs) (names.Tag, error) 
 		// TODO(perrito666) renderer should have a RendererForSeries, for the moment
 		// restore only works on linuxes.
 		renderer, _ := shell.NewRenderer("bash")
-		serviceAgentConf := service.AgentConf(aInfo, renderer)
+		serviceAgentConf := agentinfo.AgentConf(aInfo, renderer)
 		svc, err := service.NewService(serviceName, serviceAgentConf, args.NewInstSeries)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot generate service for the restored agent.")

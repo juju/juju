@@ -23,14 +23,14 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent/tools"
-	agentinfo "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	agentinfo "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/systemd"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud.updateseries")
@@ -185,7 +185,7 @@ var sysdIsRunning = systemd.IsRunning
 func (c *UpdateSeriesCommand) writeSystemdAgents(ctx *cmd.Context) error {
 	var lastError error
 	for _, agentName := range append(c.unitAgents, c.machineAgent) {
-		conf, err := c.createAgentConf(agentName)
+		conf, err := agentinfo.CreateAgentConf(agentName, c.dataDir, c.toSeries)
 		if err != nil {
 			ctx.Warningf("%s", err)
 			lastError = err
@@ -233,43 +233,6 @@ func (c *UpdateSeriesCommand) writeSystemdAgents(ctx *cmd.Context) error {
 	return lastError
 }
 
-func (c *UpdateSeriesCommand) createAgentConf(agentName string) (_ common.Conf, err error) {
-	defer func() {
-		if err != nil {
-			logger.Infof("Failed create agent conf for %s: %s", agentName, err)
-		}
-	}()
-
-	renderer, err := shell.NewRenderer("")
-	if err != nil {
-		return common.Conf{}, err
-	}
-
-	tag, err := names.ParseTag(agentName)
-	if err != nil {
-		return common.Conf{}, err
-	}
-	name := tag.Id()
-
-	var kind agentinfo.AgentKind
-	switch tag.Kind() {
-	case names.MachineTagKind:
-		kind = agentinfo.AgentKindMachine
-	case names.UnitTagKind:
-		kind = agentinfo.AgentKindUnit
-	default:
-		return common.Conf{}, errors.NewNotValid(nil, fmt.Sprintf("agent %q is neither a machine nor a unit", agentName))
-	}
-
-	info := agentinfo.NewAgentInfo(
-		kind,
-		name,
-		c.dataDir,
-		paths.MustSucceed(paths.LogDir(c.toSeries)),
-	)
-	return service.AgentConf(info, renderer), nil
-}
-
 func (c *UpdateSeriesCommand) startAllAgents(ctx *cmd.Context) error {
 	running, err := sysdIsRunning()
 	switch {
@@ -304,7 +267,7 @@ func (c *UpdateSeriesCommand) startAgent(name string, kind agentinfo.AgentKind) 
 		c.dataDir,
 		paths.MustSucceed(paths.LogDir(c.toSeries)),
 	)
-	conf := service.AgentConf(info, renderer)
+	conf := agentinfo.AgentConf(info, renderer)
 	svcName := "jujud-" + name
 	svc, err := service.NewService(svcName, conf, c.toSeries)
 	if err = svc.Start(); err != nil {

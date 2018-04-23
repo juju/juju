@@ -393,7 +393,7 @@ func (cfg *InstanceConfig) ToolsDir(renderer shell.Renderer) string {
 }
 
 func (cfg *InstanceConfig) InitService(renderer shell.Renderer) (service.Service, error) {
-	conf := service.AgentConf(cfg.agentInfo(), renderer)
+	conf := agentinfo.AgentConf(cfg.agentInfo(), renderer)
 
 	name := cfg.MachineAgentServiceName
 	svc, err := newService(name, conf, cfg.Series)

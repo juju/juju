@@ -1,14 +1,14 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package agent 
+package agent
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/utils/shell"
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/utils/shell"
 )
 
 // AgentKind identifies the kind of agent.
