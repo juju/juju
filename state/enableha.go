@@ -373,7 +373,6 @@ func (st *State) RemoveControllerMachine(m *Machine) error {
 		if len(controllerInfo.MachineIds) <= 1 {
 			return nil, errors.Errorf("machine %s cannot be removed as it is the last controller", m.Id())
 		}
-		txnLogger.Debugf("txn for removing controller machine %q", m.doc.Id)
 		return removeControllerOps(m, controllerInfo), nil
 	}
 	if err := st.db().Run(buildTxn); err != nil {
