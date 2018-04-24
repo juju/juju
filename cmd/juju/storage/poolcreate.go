@@ -60,8 +60,8 @@ type poolCreateCommand struct {
 
 // Init implements Command.Init.
 func (c *poolCreateCommand) Init(args []string) (err error) {
-	if len(args) < 3 {
-		return errors.New("pool creation requires names, provider type and attrs for configuration")
+	if len(args) < 2 {
+		return errors.New("pool creation requires names, provider type and optional attrs for configuration")
 	}
 
 	c.poolName = args[0]
@@ -72,10 +72,10 @@ func (c *poolCreateCommand) Init(args []string) (err error) {
 		return err
 	}
 
-	if len(options) == 0 {
-		return errors.New("pool creation requires attrs for configuration")
-	}
 	c.attrs = make(map[string]interface{})
+	if len(options) == 0 {
+		return nil
+	}
 	for key, value := range options {
 		c.attrs[key] = value
 	}

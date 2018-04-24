@@ -32,17 +32,17 @@ func (s *PoolCreateSuite) runPoolCreate(c *gc.C, args []string) (*cmd.Context, e
 
 func (s *PoolCreateSuite) TestPoolCreateOneArg(c *gc.C) {
 	_, err := s.runPoolCreate(c, []string{"sunshine"})
-	c.Check(err, gc.ErrorMatches, "pool creation requires names, provider type and attrs for configuration")
+	c.Check(err, gc.ErrorMatches, "pool creation requires names, provider type and optional attrs for configuration")
 }
 
 func (s *PoolCreateSuite) TestPoolCreateNoArgs(c *gc.C) {
 	_, err := s.runPoolCreate(c, []string{""})
-	c.Check(err, gc.ErrorMatches, "pool creation requires names, provider type and attrs for configuration")
+	c.Check(err, gc.ErrorMatches, "pool creation requires names, provider type and optional attrs for configuration")
 }
 
 func (s *PoolCreateSuite) TestPoolCreateTwoArgs(c *gc.C) {
 	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop"})
-	c.Check(err, gc.ErrorMatches, "pool creation requires names, provider type and attrs for configuration")
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *PoolCreateSuite) TestPoolCreateAttrMissingKey(c *gc.C) {
