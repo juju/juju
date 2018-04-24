@@ -16,11 +16,11 @@ import (
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/service"
 	"github.com/juju/juju/api"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
@@ -118,7 +118,7 @@ type upgradesteps struct {
 	upgradeComplete gate.Lock
 	agent           agent.Agent
 	apiConn         api.Connection
-	serviceUpgrade	service.UpgradableService
+	serviceUpgrade  service.UpgradableService
 	jobs            []multiwatcher.MachineJob
 	openState       func() (*state.State, error)
 	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMaster bool) error

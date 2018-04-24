@@ -47,18 +47,18 @@ func NewContext(
 	serviceConfig service.UpgradableService,
 ) Context {
 	return &upgradeContext{
-		agentConfig: agentConfig,
-		api:         api,
-		st:          st,
+		agentConfig:   agentConfig,
+		api:           api,
+		st:            st,
 		serviceConfig: serviceConfig,
 	}
 }
 
 // upgradeContext is a default Context implementation.
 type upgradeContext struct {
-	agentConfig agent.ConfigSetter
-	api         api.Connection
-	st          StateBackend
+	agentConfig   agent.ConfigSetter
+	api           api.Connection
+	st            StateBackend
 	serviceConfig service.UpgradableService
 }
 

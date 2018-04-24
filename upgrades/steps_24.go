@@ -67,7 +67,7 @@ func installServiceFile(context Context) error {
 			logger.Errorf("Unsuccessfull installing the servie files in /lib/systemd/...")
 			return err
 		} else {
-		if initName == service.InitSystemSystemd {
+			if initName == service.InitSystemSystemd {
 				oldDataDir := context.AgentConfig().DataDir()
 				oldInitDataDir := filepath.Join(oldDataDir, "init")
 
