@@ -218,6 +218,10 @@ func (m *mockBackend) ModelConfigValues() (config.ConfigValues, error) {
 	return m.cfg, nil
 }
 
+func (m *mockBackend) Sequences() (map[string]int, error) {
+	return nil, nil
+}
+
 func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []string, validate ...state.ValidateConfigFunc) error {
 	for _, validateFunc := range validate {
 		if err := validateFunc(update, remove, m.old); err != nil {

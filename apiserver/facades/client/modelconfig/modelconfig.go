@@ -197,3 +197,19 @@ func (c *ModelConfigAPI) SLALevel() (params.StringResult, error) {
 	result.Result = level
 	return result, nil
 }
+
+// Sequences returns the model's sequence names and next values.
+func (c *ModelConfigAPI) Sequences() (params.ModelSequencesResult, error) {
+	result := params.ModelSequencesResult{}
+	if err := c.canReadModel(); err != nil {
+		return result, errors.Trace(err)
+	}
+
+	values, err := c.backend.Sequences()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	result.Sequences = values
+	return result, nil
+}
