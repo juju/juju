@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/packaging/commands"
 	"github.com/juju/utils/packaging/config"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/utils/series"
 	worker "gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/watcher"
 )
 
@@ -139,6 +141,9 @@ func (w *proxyWorker) handleProxyValues(proxySettings proxyutils.Settings) {
 	proxySettings.SetEnvironmentValues()
 	if err := w.config.InProcessUpdate(proxySettings); err != nil {
 		logger.Errorf("error updating in-process proxy settings: %v", err)
+	}
+	if featureflag.Enabled(feature.NewProxyOnly) {
+		return
 	}
 	if proxySettings != w.proxy || w.first {
 		logger.Debugf("new proxy settings %#v", proxySettings)

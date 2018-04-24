@@ -614,13 +614,16 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 			delete(desired.members, id)
 		}
 	}
-	for _, removedTracker := range removed {
-		if removedTracker.stm.Life() != state.Alive {
-			logger.Debugf("removing dying controller machine %s", removedTracker.Id())
-			if err := w.config.State.RemoveControllerMachine(removedTracker.stm); err != nil {
+	for _, tracker := range info.machines {
+		if tracker.stm.Life() != state.Alive && !tracker.stm.HasVote() {
+			logger.Debugf("removing dying controller machine %s", tracker.Id())
+			if err := w.config.State.RemoveControllerMachine(tracker.stm); err != nil {
 				logger.Errorf("failed to remove dying machine as a controller after removing its vote: %v", err)
 			}
-		} else {
+		}
+	}
+	for _, removedTracker := range removed {
+		if removedTracker.stm.Life() == state.Alive {
 			logger.Debugf("vote removed from %v but machine is %s", removedTracker.Id(), state.Alive)
 		}
 	}

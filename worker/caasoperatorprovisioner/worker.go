@@ -26,6 +26,7 @@ var logger = loggo.GetLogger("juju.workers.caasprovisioner")
 
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
 type CAASProvisionerFacade interface {
+	OperatorProvisioningInfo() (apicaasprovisioner.OperatorProvisioningInfo, error)
 	WatchApplications() (watcher.StringsWatcher, error)
 	SetPasswords([]apicaasprovisioner.ApplicationPassword) (params.ErrorResults, error)
 	Life(string) (life.Value, error)
@@ -185,5 +186,11 @@ func (p *provisioner) newOperatorConfig(appName string, password string) (*caas.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &caas.OperatorConfig{AgentConf: confBytes}, nil
+
+	info, err := p.provisionerFacade.OperatorProvisioningInfo()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Debugf("using caas operator info %+v", info)
+	return &caas.OperatorConfig{AgentConf: confBytes, OperatorImagePath: info.ImagePath}, nil
 }

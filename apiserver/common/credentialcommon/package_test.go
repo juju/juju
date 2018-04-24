@@ -1,7 +1,7 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package migrationmaster_test
+package credentialcommon_test
 
 import (
 	stdtesting "testing"
@@ -9,6 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-func TestPackage(t *stdtesting.T) {
+func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)
 }

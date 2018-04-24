@@ -8,8 +8,8 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/tomb.v2"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/catacomb"
@@ -88,11 +88,11 @@ func (fix *fixture) assertAddAlive(c *gc.C, w *errorWorker) {
 
 func (fix *fixture) startErrorWorker(c *gc.C, err error) *errorWorker {
 	ew := &errorWorker{}
-	go func() {
-		defer ew.tomb.Done()
+	ew.tomb.Go(func() error {
 		defer ew.tomb.Kill(err)
 		<-ew.tomb.Dying()
-	}()
+		return nil
+	})
 	fix.cleaner.AddCleanup(func(_ *gc.C) {
 		ew.stop()
 	})

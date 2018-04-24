@@ -1751,11 +1751,11 @@ class ModelClient:
         if units is not None:
             args.extend(['--unit', ','.join(units)])
         args.extend(commands)
-        responces = self.get_juju_output('run', *args)
+        responses = self.get_juju_output('run', *args)
         if use_json:
-            return json.loads(responces)
+            return json.loads(responses)
         else:
-            return responces
+            return responses
 
     def list_space(self):
         return yaml.safe_load(self.get_juju_output('list-space'))

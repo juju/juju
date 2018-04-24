@@ -98,6 +98,7 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C) {
 	c.Assert(args[1], gc.Equals, "/var/lib/juju")
 	c.Assert(args[2], gc.FitsTypeOf, &caas.OperatorConfig{})
 	config := args[2].(*caas.OperatorConfig)
+	c.Assert(config.OperatorImagePath, gc.Equals, "juju-operator-image")
 
 	agentFile := filepath.Join(c.MkDir(), "agent.config")
 	err := ioutil.WriteFile(agentFile, []byte(config.AgentConf), 0644)
@@ -114,7 +115,7 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C) {
 			break
 		}
 	}
-	s.provisionerFacade.stub.CheckCallNames(c, "Life", "SetPasswords")
+	s.provisionerFacade.stub.CheckCallNames(c, "Life", "SetPasswords", "OperatorProvisioningInfo")
 	c.Assert(s.provisionerFacade.stub.Calls()[0].Args[0], gc.Equals, "myapp")
 	passwords := s.provisionerFacade.stub.Calls()[1].Args[0].([]apicaasprovisioner.ApplicationPassword)
 

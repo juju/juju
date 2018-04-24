@@ -116,6 +116,9 @@ type Unit struct {
 
 // OperatorConfig is the config to use when creating an operator.
 type OperatorConfig struct {
+	// OperatorImagePath is the docker registry URL for the image.
+	OperatorImagePath string
+
 	// AgentConf is the contents of the agent.conf file.
 	AgentConf []byte
 }

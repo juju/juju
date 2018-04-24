@@ -4,12 +4,15 @@
 package caasoperatorprovisioner
 
 import (
+	"fmt"
+
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/version"
 )
 
 type API struct {
@@ -60,4 +63,23 @@ func (a *API) WatchApplications() (params.StringsWatchResult, error) {
 		}, nil
 	}
 	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
+}
+
+// OperatorProvisioningInfo returns the info needed to provision an operator.
+func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error) {
+	cfg, err := a.state.ControllerConfig()
+	if err != nil {
+		return params.OperatorProvisioningInfo{}, err
+	}
+
+	imagePath := cfg.CAASOperatorImagePath()
+	if imagePath == "" {
+		vers := version.Current
+		vers.Build = 0
+		imagePath = fmt.Sprintf("%s/caas-jujud-operator:%s", "jujusolutions", vers.String())
+	}
+
+	return params.OperatorProvisioningInfo{
+		ImagePath: imagePath,
+	}, nil
 }

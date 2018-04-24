@@ -428,6 +428,11 @@ type ConfigResult struct {
 	Error  *Error                 `json:"error,omitempty"`
 }
 
+// OperatorProvisioningInfo holds info need to provision an operator.
+type OperatorProvisioningInfo struct {
+	ImagePath string `json:"image-path"`
+}
+
 // PublicAddress holds parameters for the PublicAddress call.
 type PublicAddress struct {
 	Target string `json:"target"`

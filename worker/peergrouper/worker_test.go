@@ -891,6 +891,12 @@ func (s *workerSuite) TestDyingMachinesAreRemoved(c *gc.C) {
 	// And once we don't have the vote, and we see the machine is Dying we should remove it
 	mustNext(c, memberWatcher, "remove dying machine")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 2", testIPv4))
+
+	// Now, machine 2 no longer has the vote, but if we now flag it as dying,
+	// then it should also get progressed to dead as well.
+	st.machine("12").advanceLifecycle(state.Dying, false)
+	mustNext(c, memberWatcher, "removing dying machine")
+	assertMembers(c, memberWatcher.Value(), mkMembers("0v", testIPv4))
 }
 
 func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
