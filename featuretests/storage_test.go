@@ -406,7 +406,7 @@ func (s *cmdStorageSuite) TestCreatePoolNoAttrs(c *gc.C) {
 }
 
 func (s *cmdStorageSuite) TestCreatePoolErrorNoProvider(c *gc.C) {
-	s.assertCreatePoolError(c, "pool creation requires names and provider type before optional attrs for configuration", "", "oops provider", "smth=one")
+	s.assertCreatePoolError(c, "pool creation requires names and provider type before optional attributes for configuration", "", "oops provider", "smth=one")
 }
 
 func (s *cmdStorageSuite) TestCreatePoolErrorProviderType(c *gc.C) {

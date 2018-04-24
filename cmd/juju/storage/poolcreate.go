@@ -62,7 +62,7 @@ type poolCreateCommand struct {
 // Init implements Command.Init.
 func (c *poolCreateCommand) Init(args []string) (err error) {
 	if len(args) < 2 {
-		return errors.New("pool creation requires names, provider type and optional attrs for configuration")
+		return errors.New("pool creation requires names, provider type and optional attributes for configuration")
 	}
 
 	c.poolName = args[0]
@@ -77,7 +77,7 @@ func (c *poolCreateCommand) Init(args []string) (err error) {
 	// as either a provider or a pool name are missing.
 
 	if strings.Contains(c.poolName, "=") || strings.Contains(c.provider, "=") {
-		return errors.New("pool creation requires names and provider type before optional attrs for configuration")
+		return errors.New("pool creation requires names and provider type before optional attributes for configuration")
 	}
 
 	options, err := keyvalues.Parse(args[2:], false)
