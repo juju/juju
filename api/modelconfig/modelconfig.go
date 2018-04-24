@@ -90,3 +90,13 @@ func (c *Client) SLALevel() (string, error) {
 	}
 	return result.Result, nil
 }
+
+// Sequences returns all sequence names and next values.
+func (c *Client) Sequences() (map[string]int, error) {
+	var result params.ModelSequencesResult
+	err := c.facade.FacadeCall("Sequences", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result.Sequences, nil
+}
