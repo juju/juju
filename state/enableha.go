@@ -95,7 +95,7 @@ func (st *State) maintainControllersOps(mdocs []*machineDoc, currentInfo *Contro
 // exhausted; thereafter any new machines are started according to the constraints and series.
 // MachineID is the id of the machine where the apiserver is running.
 func (st *State) EnableHA(
-	numControllers int, cons constraints.Value, series string, placement []string, machineId string,
+	numControllers int, cons constraints.Value, series string, placement []string,
 ) (ControllersChanges, error) {
 
 	if numControllers < 0 || (numControllers != 0 && numControllers%2 != 1) {
@@ -126,7 +126,7 @@ func (st *State) EnableHA(
 			return nil, errors.New("cannot reduce controller count")
 		}
 
-		intent, err := st.enableHAIntentions(currentInfo, placement, machineId)
+		intent, err := st.enableHAIntentions(currentInfo, placement)
 		if err != nil {
 			return nil, err
 		}
@@ -136,7 +136,7 @@ func (st *State) EnableHA(
 				voteCount++
 			}
 		}
-		if voteCount == desiredControllerCount && len(intent.remove) == 0 {
+		if voteCount == desiredControllerCount {
 			return nil, jujutxn.ErrNoOperations
 		}
 		// Promote as many machines as we can to fulfil the shortfall.
@@ -188,10 +188,6 @@ func (st *State) enableHAIntentionOps(
 		ops = append(ops, promoteControllerOps(m)...)
 		change.Promoted = append(change.Promoted, m.doc.Id)
 	}
-	for _, m := range intent.demote {
-		ops = append(ops, demoteControllerOps(m)...)
-		change.Demoted = append(change.Demoted, m.doc.Id)
-	}
 	for _, m := range intent.convert {
 		ops = append(ops, convertControllerOps(m)...)
 		change.Converted = append(change.Converted, m.doc.Id)
@@ -211,14 +207,14 @@ func (st *State) enableHAIntentionOps(
 	}
 	mdocs := make([]*machineDoc, intent.newCount)
 	for i := range mdocs {
-		placement, constraints := getPlacementConstraints()
+		placement, cons := getPlacementConstraints()
 		template := MachineTemplate{
 			Series: series,
 			Jobs: []MachineJob{
 				JobHostUnits,
 				JobManageModel,
 			},
-			Constraints: constraints,
+			Constraints: cons,
 			Placement:   placement,
 		}
 		mdoc, addOps, err := st.addMachineOps(template)
@@ -230,12 +226,6 @@ func (st *State) enableHAIntentionOps(
 		change.Added = append(change.Added, mdoc.Id)
 
 	}
-	for _, m := range intent.remove {
-		ops = append(ops, removeControllerOps(m)...)
-		change.Removed = append(change.Removed, m.doc.Id)
-
-	}
-
 	for _, m := range intent.maintain {
 		tag, err := names.ParseTag(m.Tag().String())
 		if err != nil {
@@ -254,29 +244,18 @@ func (st *State) enableHAIntentionOps(
 	return ops, change, nil
 }
 
-// controllerAvailable returns true if the specified controller machine is
-// available.
-var controllerAvailable = func(m *Machine) (bool, error) {
-	// TODO(axw) #1271504 2014-01-22
-	// Check the controller's associated mongo health;
-	// requires coordination with worker/peergrouper.
-	return m.AgentPresence()
-}
-
 type enableHAIntent struct {
 	newCount  int
 	placement []string
 
-	promote, maintain, demote, remove, convert []*Machine
+	promote, maintain, convert []*Machine
 }
 
 // enableHAIntentions returns what we would like
 // to do to maintain the availability of the existing servers
 // mentioned in the given info, including:
-//   demoting unavailable, voting machines;
-//   removing unavailable, non-voting, non-vote-holding machines;
 //   gathering available, non-voting machines that may be promoted;
-func (st *State) enableHAIntentions(info *ControllerInfo, placement []string, machineId string) (*enableHAIntent, error) {
+func (st *State) enableHAIntentions(info *ControllerInfo, placement []string) (*enableHAIntent, error) {
 	var intent enableHAIntent
 	for _, s := range placement {
 		// TODO(natefinch): unscoped placements shouldn't ever get here (though
@@ -289,9 +268,6 @@ func (st *State) enableHAIntentions(info *ControllerInfo, placement []string, ma
 			continue
 		}
 		if err == nil && p.Scope == instance.MachineScope {
-			// TODO(natefinch) add env provider policy to check if conversion is
-			// possible (e.g. cannot be supported by Azure in HA mode).
-
 			if names.IsContainerMachine(p.Directive) {
 				return nil, errors.New("container placement directives not supported")
 			}
@@ -315,45 +291,15 @@ func (st *State) enableHAIntentions(info *ControllerInfo, placement []string, ma
 		if err != nil {
 			return nil, err
 		}
-		available, err := controllerAvailable(m)
-		if err != nil {
-			return nil, err
-		}
-		logger.Infof("machine %q, available %v, wants vote %v, has vote %v", m, available, m.WantsVote(), m.HasVote())
-		if available {
-			if m.WantsVote() {
-				intent.maintain = append(intent.maintain, m)
-			} else {
-				intent.promote = append(intent.promote, m)
-			}
-			continue
-		}
-
-		switch {
-		case m.WantsVote() && m.HasVote() && m.Id() == machineId:
-			// lp:1748275 - Shortly after bootstrap, it's possible that the
-			// controller hasn't pinged with agent presence yet, thereby
-			// failing the controllerAvailable check. So, don't demote the
-			// machine we're running on, if we're here, the agent must be running.
+		logger.Infof("machine %q, wants vote %v, has vote %v", m, m.WantsVote(), m.HasVote())
+		if m.WantsVote() {
 			intent.maintain = append(intent.maintain, m)
-		case m.WantsVote():
-			// The machine wants to vote, so we simply set novote and allow it
-			// to run its course to have its vote removed by the worker that
-			// maintains the replicaset. We will replace it with an existing
-			// non-voting controller if there is one, starting a new one if
-			// not.
-			intent.demote = append(intent.demote, m)
-		case m.HasVote():
-			// The machine still has a vote, so keep it around for now.
-			intent.maintain = append(intent.maintain, m)
-		default:
-			// The machine neither wants to nor has a vote, so remove its
-			// JobManageModel job immediately.
-			intent.remove = append(intent.remove, m)
+		} else {
+			intent.promote = append(intent.promote, m)
 		}
 	}
-	logger.Infof("initial intentions: promote %v; maintain %v; demote %v; remove %v; convert: %v",
-		intent.promote, intent.maintain, intent.demote, intent.remove, intent.convert)
+	logger.Infof("initial intentions: promote %v; maintain %v; convert: %v",
+		intent.promote, intent.maintain, intent.convert)
 	return &intent, nil
 }
 
@@ -386,27 +332,21 @@ func promoteControllerOps(m *Machine) []txn.Op {
 	}}
 }
 
-func demoteControllerOps(m *Machine) []txn.Op {
+func removeControllerOps(m *Machine, controllerInfo *ControllerInfo) []txn.Op {
 	return []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: bson.D{{"novote", false}},
-		Update: bson.D{{"$set", bson.D{{"novote", true}}}},
-	}}
-}
-
-func removeControllerOps(m *Machine) []txn.Op {
-	return []txn.Op{{
-		C:      machinesC,
-		Id:     m.doc.DocID,
-		Assert: bson.D{{"novote", true}, {"hasvote", false}},
+		C:  machinesC,
+		Id: m.doc.DocID,
+		Assert: bson.D{
+			{"novote", true},
+			{"hasvote", false},
+		},
 		Update: bson.D{
 			{"$pull", bson.D{{"jobs", JobManageModel}}},
-			{"$set", bson.D{{"novote", false}}},
 		},
 	}, {
 		C:      controllersC,
 		Id:     modelGlobalKey,
+		Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
 		Update: bson.D{{"$pull", bson.D{{"machineids", m.doc.Id}}}},
 	}}
 }
@@ -433,20 +373,7 @@ func (st *State) RemoveControllerMachine(m *Machine) error {
 		if len(controllerInfo.MachineIds) <= 1 {
 			return nil, errors.Errorf("machine %s cannot be removed as it is the last controller", m.Id())
 		}
-		txnLogger.Debugf("txn for removing controller machine %q", m.doc.Id)
-		return []txn.Op{{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: bson.D{{"novote", true}, {"hasvote", false}},
-			Update: bson.D{
-				{"$pull", bson.D{{"jobs", JobManageModel}}},
-			},
-		}, {
-			C:      controllersC,
-			Id:     modelGlobalKey,
-			Assert: bson.D{{"machineids", controllerInfo.MachineIds}},
-			Update: bson.D{{"$pull", bson.D{{"machineids", m.doc.Id}}}},
-		}}, nil
+		return removeControllerOps(m, controllerInfo), nil
 	}
 	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)

@@ -491,7 +491,7 @@ func (s *CommonProvisionerSuite) addMachines(number int) ([]*state.Machine, erro
 }
 
 func (s *CommonProvisionerSuite) enableHA(c *gc.C, n int) []*state.Machine {
-	changes, err := s.BackingState.EnableHA(n, s.defaultConstraints, supportedversion.SupportedLTS(), nil, "")
+	changes, err := s.BackingState.EnableHA(n, s.defaultConstraints, supportedversion.SupportedLTS(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	added := make([]*state.Machine, len(changes.Added))
 	for i, mid := range changes.Added {

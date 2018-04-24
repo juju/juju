@@ -563,8 +563,14 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	// Note that we potentially update the HasVote status of the machines even
 	// if the members have not changed.
 	var added, removed []*machineTracker
-	// TODO: sortAsInts
-	for id, hasVote := range desired.machineVoting {
+	// Iterate in obvious order so we don't get weird log messages
+	votingIds := make([]string, 0, len(desired.machineVoting))
+	for id := range desired.machineVoting {
+		votingIds = append(votingIds, id)
+	}
+	sortAsInts(votingIds)
+	for _, id := range votingIds {
+		hasVote := desired.machineVoting[id]
 		m := info.machines[id]
 		switch {
 		case hasVote && !m.stm.HasVote():

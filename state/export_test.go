@@ -53,7 +53,6 @@ var (
 	BinarystorageNew                     = &binarystorageNew
 	ImageStorageNewStorage               = &imageStorageNewStorage
 	MachineIdLessThan                    = machineIdLessThan
-	ControllerAvailable                  = &controllerAvailable
 	GetOrCreatePorts                     = getOrCreatePorts
 	GetPorts                             = getPorts
 	CombineMeterStatus                   = combineMeterStatus

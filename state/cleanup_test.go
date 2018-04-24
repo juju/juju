@@ -342,7 +342,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.HasLen, 2)
 	c.Check(changes.Removed, gc.HasLen, 0)
@@ -368,6 +368,11 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	controllerInfo, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(controllerInfo.MachineIds, gc.DeepEquals, append([]string{machine.Id()}, changes.Added...))
+	// ForceDestroy still won't kill the controller if it is flagged as having a vote
+	// We don't see the error because it is logged, but not returned.
+	s.assertCleanupRuns(c)
+	c.Assert(machine.SetHasVote(false), jc.ErrorIsNil)
+	// However, if we remove the vote, it can be cleaned up.
 	// ForceDestroy sets up a cleanupForceDestroyedMachine, which calls EnsureDead which sets up a cleanupDyingMachine
 	// so it takes 2 cleanup runs to run clear
 	s.assertCleanupCount(c, 2)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 type EnableHASuite struct {
@@ -24,20 +25,15 @@ var _ = gc.Suite(&EnableHASuite{})
 
 func (s *EnableHASuite) TestEnableHAFailsWithBadCount(c *gc.C) {
 	for _, n := range []int{-1, 2, 6} {
-		changes, err := s.State.EnableHA(n, constraints.Value{}, "", nil, "")
+		changes, err := s.State.EnableHA(n, constraints.Value{}, "", nil)
 		c.Assert(err, gc.ErrorMatches, "number of controllers must be odd and non-negative")
 		c.Assert(changes.Added, gc.HasLen, 0)
 	}
-	_, err := s.State.EnableHA(replicaset.MaxPeers+2, constraints.Value{}, "", nil, "")
+	_, err := s.State.EnableHA(replicaset.MaxPeers+2, constraints.Value{}, "", nil)
 	c.Assert(err, gc.ErrorMatches, `controller count is too large \(allowed \d+\)`)
 }
 
 func (s *EnableHASuite) TestEnableHAAddsNewMachines(c *gc.C) {
-	// Don't use agent presence to decide on machine availability.
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return true, nil
-	})
-
 	ids := make([]string, 3)
 	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -52,7 +48,7 @@ func (s *EnableHASuite) TestEnableHAAddsNewMachines(c *gc.C) {
 	cons := constraints.Value{
 		Mem: newUint64(100),
 	}
-	changes, err := s.State.EnableHA(3, cons, "quantal", nil, m0.Id())
+	changes, err := s.State.EnableHA(3, cons, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 
@@ -73,11 +69,6 @@ func (s *EnableHASuite) TestEnableHAAddsNewMachines(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestEnableHATo(c *gc.C) {
-	// Don't use agent presence to decide on machine availability.
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return true, nil
-	})
-
 	ids := make([]string, 3)
 	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -92,7 +83,7 @@ func (s *EnableHASuite) TestEnableHATo(c *gc.C) {
 
 	s.assertControllerInfo(c, []string{"0"}, []string{"0"}, nil)
 
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", []string{"1", "2"}, m0.Id())
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", []string{"1", "2"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 0)
 	c.Assert(changes.Converted, gc.HasLen, 2)
@@ -141,7 +132,7 @@ func (s *EnableHASuite) assertControllerInfo(c *gc.C, machineIds []string, wantV
 
 func (s *EnableHASuite) TestEnableHASamePlacementAsNewCount(c *gc.C) {
 	placement := []string{"p1", "p2", "p3"}
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", placement, "0")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", placement)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, []string{"p1", "p2", "p3"})
@@ -149,7 +140,7 @@ func (s *EnableHASuite) TestEnableHASamePlacementAsNewCount(c *gc.C) {
 
 func (s *EnableHASuite) TestEnableHAMorePlacementThanNewCount(c *gc.C) {
 	placement := []string{"p1", "p2", "p3", "p4"}
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", placement, "0")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", placement)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, []string{"p1", "p2", "p3"})
@@ -157,191 +148,43 @@ func (s *EnableHASuite) TestEnableHAMorePlacementThanNewCount(c *gc.C) {
 
 func (s *EnableHASuite) TestEnableHALessPlacementThanNewCount(c *gc.C) {
 	placement := []string{"p1", "p2"}
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", placement, "0")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", placement)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, []string{"p1", "p2"})
 }
 
-func (s *EnableHASuite) TestEnableHADemotesUnavailableMachines(c *gc.C) {
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 3)
-	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return m.Id() != "0", nil
-	})
-	// If EnableHA run on machine 0, it won't be demoted.
-	changes, err = s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 1)
-	c.Assert(changes.Maintained, gc.HasLen, 2)
-
-	// New controller machine "3" is created; "0" still exists in MachineIds,
-	// but no longer WantsVote.
-	s.assertControllerInfo(c, []string{"0", "1", "2", "3"}, []string{"1", "2", "3"}, nil)
-	m0, err := s.State.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m0.WantsVote(), jc.IsFalse)
-	c.Assert(m0.IsManager(), jc.IsTrue) // job still intact for now
-	m3, err := s.State.Machine("3")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m3.WantsVote(), jc.IsTrue)
-	c.Assert(m3.IsManager(), jc.IsTrue)
-}
-
 func (s *EnableHASuite) TestEnableHAMockBootstrap(c *gc.C) {
 	// Testing based on lp:1748275 - Juju HA fails due to demotion of Machine 0
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return m.Id() != "0", nil
-	})
 	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m0.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, m0.Id())
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	c.Assert(changes.Maintained, gc.DeepEquals, []string{"0"})
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return m.Id() != "0", nil
-	})
-}
-
-func (s *EnableHASuite) TestEnableHAPromotesAvailableMachines(c *gc.C) {
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 3)
-	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return m.Id() != "0", nil
-	})
-	// If EnableHA run on machine 0, it won't be demoted.
-	changes, err = s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 1)
-	c.Assert(changes.Demoted, gc.DeepEquals, []string{"0"})
-	c.Assert(changes.Maintained, gc.HasLen, 2)
-
-	// New controller machine "3" is created; "0" still exists in MachineIds,
-	// but no longer in WantsVote.
-	s.assertControllerInfo(c, []string{"0", "1", "2", "3"}, []string{"1", "2", "3"}, nil)
-	m0, err := s.State.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m0.WantsVote(), jc.IsFalse)
-
-	// Mark machine 0 as having a vote, so it doesn't get removed, and make it
-	// available once more.
-	err = m0.SetHasVote(true)
-	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return true, nil
-	})
-	changes, err = s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 0)
-
-	// No change; we've got as many voting machines as we need.
-	s.assertControllerInfo(c, []string{"0", "1", "2", "3"}, []string{"1", "2", "3"}, nil)
-
-	// Make machine 3 unavailable; machine 0 should be promoted, and two new
-	// machines created.
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return m.Id() != "3", nil
-	})
-	changes, err = s.State.EnableHA(5, constraints.Value{}, "quantal", nil, "1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 2)
-	c.Assert(changes.Demoted, gc.DeepEquals, []string{"3"})
-	s.assertControllerInfo(c, []string{"0", "1", "2", "3", "4", "5"}, []string{"0", "1", "2", "4", "5"}, nil)
-	err = m0.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m0.WantsVote(), jc.IsTrue)
-}
-
-func (s *EnableHASuite) TestEnableHARemovesUnavailableMachines(c *gc.C) {
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 3)
-
-	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return m.Id() != "0", nil
-	})
-	// If EnableHA run on machine 0, it won't be demoted.
-	changes, err = s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 1)
-	s.assertControllerInfo(c, []string{"0", "1", "2", "3"}, []string{"1", "2", "3"}, nil)
-	// machine 0 does not have a vote, so another call to EnableHA
-	// will remove machine 0's JobEnvironManager job.
-	changes, err = s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "1")
-	c.Assert(changes.Removed, gc.HasLen, 1)
-	c.Assert(changes.Maintained, gc.HasLen, 3)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertControllerInfo(c, []string{"1", "2", "3"}, []string{"1", "2", "3"}, nil)
-	m0, err := s.State.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m0.IsManager(), jc.IsFalse)
-}
-
-func (s *EnableHASuite) TestEnableHAMaintainsVoteList(c *gc.C) {
-	changes, err := s.State.EnableHA(5, constraints.Value{}, "quantal", nil, "0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 5)
-
-	s.assertControllerInfo(c,
-		[]string{"0", "1", "2", "3", "4"},
-		[]string{"0", "1", "2", "3", "4"}, nil)
-	// Mark machine-0 as dead, so we'll want to create another one again
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return m.Id() != "0", nil
-	})
-	// If EnableHA run on machine 0, it won't be demoted.
-	changes, err = s.State.EnableHA(0, constraints.Value{}, "quantal", nil, "1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 1)
-
-	// New controller machine "5" is created; "0" still exists in MachineIds,
-	// but no longer in WantsVote.
-	s.assertControllerInfo(c,
-		[]string{"0", "1", "2", "3", "4", "5"},
-		[]string{"1", "2", "3", "4", "5"}, nil)
-	m0, err := s.State.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m0.WantsVote(), jc.IsFalse)
-	c.Assert(m0.IsManager(), jc.IsTrue) // job still intact for now
-	m3, err := s.State.Machine("5")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m3.WantsVote(), jc.IsTrue)
-	c.Assert(m3.IsManager(), jc.IsTrue)
 }
 
 func (s *EnableHASuite) TestEnableHADefaultsTo3(c *gc.C) {
-	changes, err := s.State.EnableHA(0, constraints.Value{}, "quantal", nil, "0")
+	changes, err := s.State.EnableHA(0, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
-	// Mark machine-0 as dead, so we'll want to create it again
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return m.Id() != "0", nil
-	})
-	// If EnableHA run on machine 0, it won't be demoted.
-	changes, err = s.State.EnableHA(0, constraints.Value{}, "quantal", nil, "1")
+	// Mark machine 0 as being removed, and then run it again
+	s.progressControllerToDead(c, "0")
+	changes, err = s.State.EnableHA(0, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 1)
+	c.Assert(changes.Added, gc.DeepEquals, []string{"3"})
 
-	// New controller machine "3" is created; "0" still exists in MachineIds,
-	// but no longer in WantsVote.
-	s.assertControllerInfo(c,
-		[]string{"0", "1", "2", "3"},
-		[]string{"1", "2", "3"}, nil)
+	// New controller machine "3" is created
+	s.assertControllerInfo(c, []string{"1", "2", "3"}, []string{"1", "2", "3"}, nil)
 	m0, err := s.State.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.WantsVote(), jc.IsFalse)
-	c.Assert(m0.IsManager(), jc.IsTrue) // job still intact for now
+	c.Assert(m0.IsManager(), jc.IsFalse) // job still intact for now
 	m3, err := s.State.Machine("3")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m3.WantsVote(), jc.IsTrue)
@@ -366,13 +209,10 @@ func (s *EnableHASuite) progressControllerToDead(c *gc.C, id string) {
 }
 
 func (s *EnableHASuite) TestEnableHAGoesToNextOdd(c *gc.C) {
-	changes, err := s.State.EnableHA(0, constraints.Value{}, "quantal", nil, "0")
+	changes, err := s.State.EnableHA(0, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return true, nil
-	})
 	// "run the peergrouper" and give all the controllers the vote
 	for _, id := range []string{"0", "1", "2"} {
 		m, err := s.State.Machine(id)
@@ -383,42 +223,38 @@ func (s *EnableHASuite) TestEnableHAGoesToNextOdd(c *gc.C) {
 	// still bring us back to 3
 	s.progressControllerToDead(c, "0")
 	s.assertControllerInfo(c, []string{"1", "2"}, []string{"1", "2"}, nil)
-	changes, err = s.State.EnableHA(0, constraints.Value{}, "quantal", nil, "1")
+	changes, err = s.State.EnableHA(0, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// We should try to get back to 3 again, since we only have 2 voting machines
 	c.Check(changes.Added, gc.DeepEquals, []string{"3"})
 	s.assertControllerInfo(c, []string{"1", "2", "3"}, []string{"1", "2", "3"}, nil)
 	// Doing it again with 0, should be a no-op, still going to '3'
-	changes, err = s.State.EnableHA(0, constraints.Value{}, "quantal", nil, "0")
+	changes, err = s.State.EnableHA(0, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.HasLen, 0)
 	s.assertControllerInfo(c, []string{"1", "2", "3"}, []string{"1", "2", "3"}, nil)
 	// Now if we go up to 5, and drop down to 4, we should again go to 5
-	changes, err = s.State.EnableHA(5, constraints.Value{}, "quantal", nil, "0")
+	changes, err = s.State.EnableHA(5, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(changes.Added)
 	c.Check(changes.Added, gc.DeepEquals, []string{"4", "5"})
 	s.assertControllerInfo(c, []string{"1", "2", "3", "4", "5"}, []string{"1", "2", "3", "4", "5"}, nil)
 	s.progressControllerToDead(c, "1")
 	s.assertControllerInfo(c, []string{"2", "3", "4", "5"}, []string{"2", "3", "4", "5"}, nil)
-	changes, err = s.State.EnableHA(0, constraints.Value{}, "quantal", nil, "0")
+	changes, err = s.State.EnableHA(0, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.DeepEquals, []string{"6"})
 	s.assertControllerInfo(c, []string{"2", "3", "4", "5", "6"}, []string{"2", "3", "4", "5", "6"}, nil)
 	// And again 0 should be treated as 5, and thus a no-op
-	changes, err = s.State.EnableHA(0, constraints.Value{}, "quantal", nil, "0")
+	changes, err = s.State.EnableHA(0, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.HasLen, 0)
 	s.assertControllerInfo(c, []string{"2", "3", "4", "5", "6"}, []string{"2", "3", "4", "5", "6"}, nil)
 }
 
 func (s *EnableHASuite) TestEnableHAConcurrentSame(c *gc.C) {
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return true, nil
-	})
-
 	defer state.SetBeforeHooks(c, s.State, func() {
-		changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "")
+		changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		// The outer EnableHA call will allocate IDs 0..2,
 		// and the inner one 3..5.
@@ -427,7 +263,7 @@ func (s *EnableHASuite) TestEnableHAConcurrentSame(c *gc.C) {
 		s.assertControllerInfo(c, expected, expected, nil)
 	}).Check()
 
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.DeepEquals, []string{"0", "1", "2"})
 	s.assertControllerInfo(c, []string{"3", "4", "5"}, []string{"3", "4", "5"}, nil)
@@ -438,12 +274,8 @@ func (s *EnableHASuite) TestEnableHAConcurrentSame(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestEnableHAConcurrentLess(c *gc.C) {
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return true, nil
-	})
-
 	defer state.SetBeforeHooks(c, s.State, func() {
-		changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "")
+		changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(changes.Added, gc.HasLen, 3)
 		// The outer EnableHA call will initially allocate IDs 0..4,
@@ -456,7 +288,7 @@ func (s *EnableHASuite) TestEnableHAConcurrentLess(c *gc.C) {
 	// machines 0..4, and fail due to the concurrent change. It will then
 	// allocate machines 8..9 to make up the difference from the concurrent
 	// EnableHA call.
-	changes, err := s.State.EnableHA(5, constraints.Value{}, "quantal", nil, "")
+	changes, err := s.State.EnableHA(5, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	expected := []string{"5", "6", "7", "8", "9"}
@@ -468,12 +300,8 @@ func (s *EnableHASuite) TestEnableHAConcurrentLess(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestEnableHAConcurrentMore(c *gc.C) {
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return true, nil
-	})
-
 	defer state.SetBeforeHooks(c, s.State, func() {
-		changes, err := s.State.EnableHA(5, constraints.Value{}, "quantal", nil, "")
+		changes, err := s.State.EnableHA(5, constraints.Value{}, "quantal", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(changes.Added, gc.HasLen, 5)
 		// The outer EnableHA call will allocate IDs 0..2,
@@ -486,7 +314,7 @@ func (s *EnableHASuite) TestEnableHAConcurrentMore(c *gc.C) {
 	// machines 0..2, and fail due to the concurrent change. It will then
 	// find that the number of voting machines in state is greater than
 	// what we're attempting to ensure, and fail.
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, gc.ErrorMatches, "failed to create new controller machines: cannot reduce controller count")
 	c.Assert(changes.Added, gc.HasLen, 0)
 
@@ -495,16 +323,46 @@ func (s *EnableHASuite) TestEnableHAConcurrentMore(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *EnableHASuite) TestDestroyFromHA(c *gc.C) {
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return true, nil
+func (s *EnableHASuite) TestWatchControllerInfo(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := s.State.WatchControllerInfo()
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	info, err := s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{
+		CloudName:  "dummy",
+		ModelTag:   s.modelTag,
+		MachineIds: []string{"0"},
 	})
 
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 2)
+
+	wc.AssertOneChange()
+
+	info, err = s.State.ControllerInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{
+		CloudName:  "dummy",
+		ModelTag:   s.modelTag,
+		MachineIds: []string{"0", "1", "2"},
+	})
+}
+
+func (s *EnableHASuite) TestDestroyFromHA(c *gc.C) {
 	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m0.Destroy()
 	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
@@ -516,10 +374,6 @@ func (s *EnableHASuite) TestDestroyFromHA(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return true, nil
-	})
-
 	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m0.SetHasVote(true)
@@ -527,7 +381,7 @@ func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
 	// ForceDestroy must be blocked if there is only 1 machine.
 	err = m0.ForceDestroy()
 	c.Assert(err, gc.ErrorMatches, "machine 0 is the only controller machine")
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
@@ -540,12 +394,9 @@ func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestDestroyRaceLastController(c *gc.C) {
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return true, nil
-	})
 	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
@@ -596,7 +447,7 @@ func (s *EnableHASuite) TestRemoveControllerMachineOneMachine(c *gc.C) {
 func (s *EnableHASuite) TestRemoveControllerMachine(c *gc.C) {
 	m0, err := s.State.AddMachine("quantal", state.JobManageModel)
 	m0.SetHasVote(true)
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.HasLen, 2)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
@@ -612,7 +463,7 @@ func (s *EnableHASuite) TestRemoveControllerMachine(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestRemoveControllerMachineVoteRace(c *gc.C) {
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
@@ -637,7 +488,7 @@ func (s *EnableHASuite) TestRemoveControllerMachineVoteRace(c *gc.C) {
 }
 
 func (s *EnableHASuite) TestRemoveControllerMachineRace(c *gc.C) {
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)

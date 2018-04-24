@@ -435,6 +435,11 @@ func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 
 	// Now, we keep agent 1 alive, but not agent 2, calling
 	// EnableHA(0) again will cause us to start another machine
+	c.Assert(machines[2].Destroy(), jc.ErrorIsNil)
+	c.Assert(machines[2].Refresh(), jc.ErrorIsNil)
+	c.Assert(machines[2].SetHasVote(false), jc.ErrorIsNil)
+	c.Assert(s.State.RemoveControllerMachine(machines[2]), jc.ErrorIsNil)
+	c.Assert(machines[2].EnsureDead(), jc.ErrorIsNil)
 	enableHAResult, err = s.enableHA(c, 0, emptyCons, defaultSeries, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0", "machine-1"})
@@ -459,14 +464,19 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 5)
-	s.setAgentPresence(c, "1")
-	s.setAgentPresence(c, "2")
-	s.setAgentPresence(c, "3")
+	for _, m := range machines {
+		m.SetHasVote(true)
+	}
 
 	s.setMachineAddresses(c, "1")
 	s.setMachineAddresses(c, "2")
 	s.setMachineAddresses(c, "3")
 	s.setMachineAddresses(c, "4")
+	c.Assert(machines[4].SetHasVote(false), jc.ErrorIsNil)
+	c.Assert(machines[4].Destroy(), jc.ErrorIsNil)
+	c.Assert(machines[4].Refresh(), jc.ErrorIsNil)
+	c.Assert(s.State.RemoveControllerMachine(machines[4]), jc.ErrorIsNil)
+	c.Assert(machines[4].EnsureDead(), jc.ErrorIsNil)
 
 	// Keeping all alive but one, will bring up 1 more server to preserve 5
 	enableHAResult, err = s.enableHA(c, 0, emptyCons, defaultSeries, nil)

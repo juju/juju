@@ -802,7 +802,7 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 
 	err = machines[0].SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, machines[0].Id())
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.DeepEquals, []string{"2", "3"})
 	c.Assert(changes.Maintained, gc.DeepEquals, []string{machines[0].Id()})
@@ -2560,44 +2560,6 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	err = machine.SetAgentVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-}
-
-func (s *StateSuite) TestWatchControllerInfo(c *gc.C) {
-	m, err := s.State.AddMachine("quantal", state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-
-	w := s.State.WatchControllerInfo()
-	defer statetesting.AssertStop(c, w)
-
-	// Initial event.
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
-	wc.AssertOneChange()
-
-	info, err := s.State.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{
-		CloudName:  "dummy",
-		ModelTag:   s.modelTag,
-		MachineIds: []string{"0"},
-	})
-
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return true, nil
-	})
-
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, m.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 2)
-
-	wc.AssertOneChange()
-
-	info, err = s.State.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{
-		CloudName:  "dummy",
-		ModelTag:   s.modelTag,
-		MachineIds: []string{"0", "1", "2"},
-	})
 }
 
 func (s *StateSuite) TestWatchControllerConfig(c *gc.C) {
