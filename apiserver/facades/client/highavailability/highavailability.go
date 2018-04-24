@@ -184,7 +184,12 @@ func validateCurrentControllers(st *state.State, cfg controller.Config, machineI
 		if err != nil {
 			return errors.Annotatef(err, "reading controller id %v", id)
 		}
-		internal := network.SelectInternalAddresses(controller.Addresses(), false)
+		addresses := controller.Addresses()
+		if len(addresses) == 0 {
+			// machines without any address are essentially not started yet
+			continue
+		}
+		internal := network.SelectInternalAddresses(addresses, false)
 		if len(internal) != 1 {
 			badIds = append(badIds, id)
 		}

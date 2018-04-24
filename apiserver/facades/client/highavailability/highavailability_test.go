@@ -205,6 +205,38 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 			"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication")
 }
 
+func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *gc.C) {
+	m0, err := s.State.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m0.Series(), gc.Equals, "quantal")
+
+	// remove the extra provider addresses, so we have no valid CloudLocal addresses
+	c.Assert(m0.SetProviderAddresses(
+		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
+	), jc.ErrorIsNil)
+
+	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, nil)
+	c.Assert(err, gc.ErrorMatches,
+		"juju-ha-space is not set and a unique usable address was not found for machines: 0"+
+			"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication")
+}
+
+func (s *clientSuite) TestEnableHANoErrorForNoAddresses(c *gc.C) {
+	enableHAResult, err := s.enableHA(c, 0, emptyCons, defaultSeries, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
+	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+
+	s.setMachineAddresses(c, "0")
+	s.setMachineAddresses(c, "1")
+	// 0 and 1 are up, but 2 hasn't finished booting yet, so has no addresses set
+
+	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
