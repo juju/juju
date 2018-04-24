@@ -54,7 +54,7 @@ services:
     options:
       channel: 1.10/stable
       docker_runtime: apt
-      proxy-mode: userspace
+      proxy-extra-args: proxy-mode=userspace
     to:
     - '1'
 relations:

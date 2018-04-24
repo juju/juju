@@ -848,7 +848,7 @@ class ModelClient:
             args.append('--no-gui')
         return tuple(args)
 
-    def add_model(self, env):
+    def add_model(self, env, cloud_region=None):
         """Add a model to this model's controller and return its client.
 
         :param env: Either a class representing the new model/environment
@@ -858,7 +858,7 @@ class ModelClient:
             env = self.env.clone(env)
         model_client = self.clone(env)
         with model_client._bootstrap_config() as config_file:
-            self._add_model(env.environment, config_file)
+            self._add_model(env.environment, config_file, cloud_region=None)
         # Make sure we track this in case it needs special cleanup (i.e. using
         # an existing controller).
         self._backend.track_model(model_client)
@@ -957,15 +957,14 @@ class ModelClient:
                 log.info('Waiting for bootstrap of {}.'.format(
                     self.env.environment))
 
-    def _add_model(self, model_name, config_file):
+    def _add_model(self, model_name, config_file, cloud_region=None):
         explicit_region = self.env.controller.explicit_region
-        if explicit_region:
+        region_args = cloud_region or ()
+        if explicit_region and not region_args:
             credential_name = self.env.get_cloud_credentials_item()[0]
             cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                                  self.env.get_region())
             region_args = (cloud_region, '--credential', credential_name)
-        else:
-            region_args = ()
         self.controller_juju('add-model', (model_name,) + region_args +
                              ('--config', config_file,))
 
@@ -2130,13 +2129,72 @@ class ModelClient:
         self.juju('switch', (':'.join(args),), include_e=False)
 
     def scp(self, _from, _to):
-        args = ('-m', self.model_name)
-        args += (_from, _to)
-        self.juju('scp', args)
+        self.juju('scp', (_from, _to))
 
 
 class CaasClient(ModelClient):
-    ...
+
+    cloud_name = 'k8cloud'
+    kubectl_path = None
+    kube_home = None
+    kube_config_path = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.kubectl_path = os.path.join(self.env.juju_home, 'kubectl')
+        self.kube_home = os.path.join(self.env.juju_home, '.kube')
+        self.kube_config_path = os.path.join(self.kube_home, 'config')
+
+    def _ensure_dir(self, path):
+        try:
+            os.makedirs(path)
+        except OSError:
+            if not os.path.isdir(path):
+                raise
+
+    def cluster_up(self, bundle_path):
+        self.deploy_bundle(bundle_path, static_bundle=True)
+        # Wait for the deployment to finish.
+        self.wait_for_started()
+
+        # ensure kube home
+        self._ensure_dir(self.kube_home)
+        # ensure kube credentials
+        self.scp(_from='kubernetes-master/0:config', _to=self.kube_config_path)
+
+        # ensure k8s cloud
+        self.add_caas_cloud()
+        log.debug('added caas cloud, now all clouds are -> \n%s', self.list_clouds())
+
+    def add_caas_cloud(self):
+        self.juju('add-k8s', self.cloud_name)
+
+    def add_caas_model(self, caas_model_name):
+        return self.add_model(env=self.env.clone(caas_model_name), cloud_region=self.cloud_name)
+
+    def check_healthy(self):
+        cluster_info = self._kubectl_cmd('cluster-info')
+        log.info('cluster_info -> \n%s', cluster_info)
+        nodes_info = self._kubectl_cmd('get nodes -o yaml')
+        log.info('nodes_info -> \n%s', nodes_info)
+
+    def _kubectl_cmd(self, args):
+        args = args if isinstance(args, (list, tuple)) else [args]
+        args = [sub_flag for flag in args for sub_flag in flag.split(' ') if sub_flag]
+        args = (self.kubectl_path, '--kubeconfig={}'.format(self.kube_config_path)) + args
+        return self._sh(args)
+
+    def _sh(self, cmd):
+        cmd = cmd if isinstance(cmd, (list, tuple)) else [cmd]
+        cmd_str = ' '.join(cmd)
+        log.debug('_sh: cmd -> `%s`, \n\tcmd_splitted -> %s', cmd, cmd_str)
+        exitcode, data = subprocess.getstatusoutput(cmd_str)
+        log.debug('exitcode -> %s, data -> %s', exitcode, data)
+        if exitcode != 0:
+            log.error('cmd -> %s, exitcode -> %s', cmd_str, exitcode)
+            raise RuntimeError(data)
+        return data
 
 
 def register_user_interactively(client, token, controller_name):
