@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// CloudCredentialInterface is an interface for manipulating cloud credential.
-type CloudCredentialInterface interface {
+// Backend is an interface for manipulating cloud credential.
+type Backend interface {
 
 	// CloudCredential returns the cloud credential for the given tag.
 	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
@@ -24,7 +24,7 @@ type CloudCredentialInterface interface {
 
 // ChangeCloudCredentialsValidity marks given cloud credentials as valid/invalid according
 // to supplied validity indicators using given persistence interface.
-func ChangeCloudCredentialsValidity(st CloudCredentialInterface, creds params.ValidateCredentialArgs) ([]params.ErrorResult, error) {
+func ChangeCloudCredentialsValidity(b Backend, creds params.ValidateCredentialArgs) ([]params.ErrorResult, error) {
 	if len(creds.All) == 0 {
 		return nil, nil
 	}
@@ -35,7 +35,7 @@ func ChangeCloudCredentialsValidity(st CloudCredentialInterface, creds params.Va
 			all[i].Error = common.ServerError(err)
 			continue
 		}
-		storedCredential, err := st.CloudCredential(tag)
+		storedCredential, err := b.CloudCredential(tag)
 		if err != nil {
 			all[i].Error = common.ServerError(err)
 			continue
@@ -50,7 +50,7 @@ func ChangeCloudCredentialsValidity(st CloudCredentialInterface, creds params.Va
 		cloudCredential.Invalid = !one.Valid
 		cloudCredential.InvalidReason = one.Reason
 
-		err = st.UpdateCloudCredential(tag, cloudCredential)
+		err = b.UpdateCloudCredential(tag, cloudCredential)
 		if err != nil {
 			all[i].Error = common.ServerError(err)
 		}
