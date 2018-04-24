@@ -9,6 +9,7 @@ import (
 	"github.com/juju/utils/keyvalues"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"strings"
 )
 
 // PoolCreateAPI defines the API methods that pool create command uses.
@@ -66,6 +67,18 @@ func (c *poolCreateCommand) Init(args []string) (err error) {
 
 	c.poolName = args[0]
 	c.provider = args[1]
+
+	// poolName and provider can contain any character, except for '='.
+	// However, the last arguments are always expected to be key=value pairs.
+	// Since it's possible for users to mistype, we want to check here for cases
+	// such as:
+	//    $ juju create-storage-pool poolName key=value
+	//    $ juju create-storage-pool key=value poolName
+	// as either a provider or a pool name are missing.
+
+	if strings.Contains(c.poolName, "=") || strings.Contains(c.provider, "=") {
+		return errors.New("pool creation requires names and provider type before optional attrs for configuration")
+	}
 
 	options, err := keyvalues.Parse(args[2:], false)
 	if err != nil {

@@ -50,6 +50,16 @@ func (s *PoolCreateSuite) TestPoolCreateAttrMissingKey(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `expected "key=value", got "=too"`)
 }
 
+func (s *PoolCreateSuite) TestPoolCreateAttrMissingPoolName(c *gc.C) {
+	_, err := s.runPoolCreate(c, []string{"sunshine=again", "lollypop"})
+	c.Check(err, gc.ErrorMatches, `pool creation requires names and provider type before optional attrs for configuration`)
+}
+
+func (s *PoolCreateSuite) TestPoolCreateAttrMissingProvider(c *gc.C) {
+	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop=again"})
+	c.Check(err, gc.ErrorMatches, `pool creation requires names and provider type before optional attrs for configuration`)
+}
+
 func (s *PoolCreateSuite) TestPoolCreateAttrMissingValue(c *gc.C) {
 	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop", "something="})
 	c.Check(err, gc.ErrorMatches, `expected "key=value", got "something="`)
