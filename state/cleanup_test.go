@@ -368,6 +368,11 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	controllerInfo, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(controllerInfo.MachineIds, gc.DeepEquals, append([]string{machine.Id()}, changes.Added...))
+	// ForceDestroy still won't kill the controller if it is flagged as having a vote
+	// We don't see the error because it is logged, but not returned.
+	s.assertCleanupRuns(c)
+	c.Assert(machine.SetHasVote(false), jc.ErrorIsNil)
+	// However, if we remove the vote, it can be cleaned up.
 	// ForceDestroy sets up a cleanupForceDestroyedMachine, which calls EnsureDead which sets up a cleanupDyingMachine
 	// so it takes 2 cleanup runs to run clear
 	s.assertCleanupCount(c, 2)
