@@ -176,3 +176,16 @@ type CredentialContentResult struct {
 type CredentialContentResults struct {
 	Results []CredentialContentResult `json:"results,omitempty"`
 }
+
+// ValidateCredentialArg contains collection of cloud credentials
+// identified by their tags to mark as valid or not.
+type ValidateCredentialArg struct {
+	CredentialTag string `json:"tag"`
+	Valid         bool   `json:"valid"`
+	Reason        string `json:"reason,omitempty"`
+}
+
+// ValidateCredentialArgs contains a set of ValidateCredentialArg.
+type ValidateCredentialArgs struct {
+	All []ValidateCredentialArg `json:"credentials,omitempty"`
+}
