@@ -5,6 +5,7 @@ package common_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/naturalsort"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -155,7 +156,7 @@ func (st *mockState) AllMachines() (machines []common.Machine, _ error) {
 	for id := range st.machines {
 		ids = append(ids, id)
 	}
-	utils.SortStringsNaturally(ids)
+	naturalsort.Sort(ids)
 	for _, id := range ids {
 		machines = append(machines, st.machines[id])
 	}
