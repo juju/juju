@@ -190,18 +190,18 @@ func (st *fakeState) addMachine(id string, wantsVote bool) *fakeMachine {
 	if st.machines[id] != nil {
 		panic(fmt.Errorf("id %q already used", id))
 	}
+	doc := machineDoc{
+		id:         id,
+		wantsVote:  wantsVote,
+		statusInfo: status.StatusInfo{Status: status.Started},
+		life:       state.Alive,
+	}
 	m := &fakeMachine{
 		errors:  &st.errors,
 		checker: st,
-		doc: machineDoc{
-			id:         id,
-			wantsVote:  wantsVote,
-			statusInfo: status.StatusInfo{Status: status.Started},
-			life:       state.Alive,
-		},
 	}
 	st.machines[id] = m
-	m.val.Set(m.doc)
+	m.val.Set(doc)
 	return m
 }
 
@@ -285,7 +285,6 @@ type fakeMachine struct {
 	mu      sync.Mutex
 	errors  *errorPatterns
 	val     voyeur.Value // of machineDoc
-	doc     machineDoc
 	checker invariantChecker
 }
 
@@ -299,32 +298,36 @@ type machineDoc struct {
 	life       state.Life
 }
 
+func (m *fakeMachine) doc() machineDoc {
+	return m.val.Get().(machineDoc)
+}
+
 func (m *fakeMachine) Refresh() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if err := m.errors.errorFor("Machine.Refresh", m.doc.id); err != nil {
+	doc := m.doc()
+	if err := m.errors.errorFor("Machine.Refresh", doc.id); err != nil {
 		return err
 	}
-	m.doc = m.val.Get().(machineDoc)
 	return nil
 }
 
 func (m *fakeMachine) GoString() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return fmt.Sprintf("&fakeMachine{%#v}", m.doc)
+	return fmt.Sprintf("&fakeMachine{%#v}", m.doc())
 }
 
 func (m *fakeMachine) Id() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.doc.id
+	return m.doc().id
 }
 
 func (m *fakeMachine) Life() state.Life {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.doc.life
+	return m.doc().life
 }
 
 func (m *fakeMachine) Watch() state.NotifyWatcher {
@@ -336,25 +339,25 @@ func (m *fakeMachine) Watch() state.NotifyWatcher {
 func (m *fakeMachine) WantsVote() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.doc.wantsVote
+	return m.doc().wantsVote
 }
 
 func (m *fakeMachine) HasVote() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.doc.hasVote
+	return m.doc().hasVote
 }
 
 func (m *fakeMachine) Addresses() []network.Address {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.doc.addresses
+	return m.doc().addresses
 }
 
 func (m *fakeMachine) Status() (status.StatusInfo, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.doc.statusInfo, nil
+	return m.doc().statusInfo, nil
 }
 
 func (m *fakeMachine) SetStatus(sInfo status.StatusInfo) error {
@@ -368,10 +371,9 @@ func (m *fakeMachine) SetStatus(sInfo status.StatusInfo) error {
 // the receiver by mutating it with the provided function.
 func (m *fakeMachine) mutate(f func(*machineDoc)) {
 	m.mu.Lock()
-	doc := m.val.Get().(machineDoc)
+	doc := m.doc()
 	f(&doc)
 	m.val.Set(doc)
-	f(&m.doc)
 	m.mu.Unlock()
 	m.checker.checkInvariants()
 }
@@ -384,7 +386,8 @@ func (m *fakeMachine) setAddresses(addrs ...network.Address) {
 
 // SetHasVote implements Machine.SetHasVote.
 func (m *fakeMachine) SetHasVote(hasVote bool) error {
-	if err := m.errors.errorFor("Machine.SetHasVote", m.doc.id, hasVote); err != nil {
+	doc := m.doc()
+	if err := m.errors.errorFor("Machine.SetHasVote", doc.id, hasVote); err != nil {
 		return err
 	}
 	m.mutate(func(doc *machineDoc) {
