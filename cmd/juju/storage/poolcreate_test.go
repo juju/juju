@@ -32,22 +32,32 @@ func (s *PoolCreateSuite) runPoolCreate(c *gc.C, args []string) (*cmd.Context, e
 
 func (s *PoolCreateSuite) TestPoolCreateOneArg(c *gc.C) {
 	_, err := s.runPoolCreate(c, []string{"sunshine"})
-	c.Check(err, gc.ErrorMatches, "pool creation requires names, provider type and attrs for configuration")
+	c.Check(err, gc.ErrorMatches, "pool creation requires names, provider type and optional attributes for configuration")
 }
 
 func (s *PoolCreateSuite) TestPoolCreateNoArgs(c *gc.C) {
 	_, err := s.runPoolCreate(c, []string{""})
-	c.Check(err, gc.ErrorMatches, "pool creation requires names, provider type and attrs for configuration")
+	c.Check(err, gc.ErrorMatches, "pool creation requires names, provider type and optional attributes for configuration")
 }
 
 func (s *PoolCreateSuite) TestPoolCreateTwoArgs(c *gc.C) {
 	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop"})
-	c.Check(err, gc.ErrorMatches, "pool creation requires names, provider type and attrs for configuration")
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *PoolCreateSuite) TestPoolCreateAttrMissingKey(c *gc.C) {
 	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop", "=too"})
 	c.Check(err, gc.ErrorMatches, `expected "key=value", got "=too"`)
+}
+
+func (s *PoolCreateSuite) TestPoolCreateAttrMissingPoolName(c *gc.C) {
+	_, err := s.runPoolCreate(c, []string{"sunshine=again", "lollypop"})
+	c.Check(err, gc.ErrorMatches, `pool creation requires names and provider type before optional attributes for configuration`)
+}
+
+func (s *PoolCreateSuite) TestPoolCreateAttrMissingProvider(c *gc.C) {
+	_, err := s.runPoolCreate(c, []string{"sunshine", "lollypop=again"})
+	c.Check(err, gc.ErrorMatches, `pool creation requires names and provider type before optional attributes for configuration`)
 }
 
 func (s *PoolCreateSuite) TestPoolCreateAttrMissingValue(c *gc.C) {
