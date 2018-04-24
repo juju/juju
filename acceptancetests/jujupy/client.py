@@ -35,6 +35,7 @@ import shutil
 import subprocess
 import sys
 import time
+from enum import Enum
 
 import pexpect
 import yaml
@@ -99,6 +100,12 @@ LXC_MACHINE = 'lxc'
 LXD_MACHINE = 'lxd'
 
 _DEFAULT_BUNDLE_TIMEOUT = 3600
+
+
+class ClientType(Enum):
+    Normal = 'normal'
+    Caas = 'caas'
+    Fake = 'fake'
 
 
 log = logging.getLogger("jujupy")
@@ -2128,10 +2135,6 @@ class ModelClient:
         self.juju('scp', args)
 
 
-class K8sClient(ModelClient):
-    ...
-
-
 class CaasClient(ModelClient):
     ...
 
@@ -2276,7 +2279,24 @@ def _get_full_path(juju_path):
         return os.path.abspath(juju_path)
 
 
-def client_from_config(config, juju_path, debug=False, soft_deadline=None):
+def decide_client(client_type):
+    """Decide which client should be used according to `ClientType`
+
+    :param client_type: ClientType
+    """
+
+    if client_type == ClientType.Normal:
+        return ModelClient
+    if client_type == ClientType.Caas:
+        return CaasClient
+    if client_type == ClientType.Fake:
+        # TODO: refactor fake_juju_client and decide here
+        raise NotImplementedError('{} is still TODO'.format(client_type))
+
+    raise TypeError('client_type has to be in `{}`'.format(ClientType.__members__.values()))
+
+
+def client_from_config(config, juju_path, debug=False, soft_deadline=None, client_type=ClientType.Normal):
     """Create a client from an environment's configuration.
 
     :param config: Name of the environment to use the config from.
@@ -2286,13 +2306,15 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
         normal operations should complete.  If None, no deadline is
         enforced.
     """
-    version = ModelClient.get_version(juju_path)
+    client_cls = decide_client(client_type)
+
+    version = client_cls.get_version(juju_path)
     if config is None:
-        env = ModelClient.config_class('', {})
+        env = client_cls.config_class('', {})
     else:
-        env = ModelClient.config_class.from_config(config)
+        env = client_cls.config_class.from_config(config)
     full_path = _get_full_path(juju_path)
-    return ModelClient(
+    return client_cls(
         env, version, full_path, debug=debug, soft_deadline=soft_deadline)
 
 
