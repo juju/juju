@@ -4,12 +4,13 @@
 package storage
 
 import (
+	"strings"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
 
 	"github.com/juju/juju/cmd/modelcmd"
-	"strings"
 )
 
 // PoolCreateAPI defines the API methods that pool create command uses.
