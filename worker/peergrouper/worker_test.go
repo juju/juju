@@ -844,7 +844,7 @@ func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *gc.C, ipVersi
 
 func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *voyeur.Watcher) {
 	st := NewFakeState()
-	InitState(c, st, 3, testIPv4)
+	InitState(c, st, 1, testIPv4)
 	st.machine("10").SetHasVote(true)
 	st.session.setStatus(mkStatuses("0p", testIPv4))
 
@@ -861,8 +861,17 @@ func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *vo
 	memberWatcher := st.session.members.Watch()
 	mustNext(c, memberWatcher, "init")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v", testIPv4))
+	// Now that 1 has come up successfully, bring in the next 2
+	for i := 11; i < 13; i++ {
+		id := fmt.Sprint(i)
+		m := st.addMachine(id, true)
+		m.setAddresses(network.NewAddress(fmt.Sprintf(testIPv4.formatHost, i)))
+		c.Check(m.Addresses(), gc.HasLen, 1)
+	}
+	// Now that we've added 2 more, flag them as started and mark them as participating
 	st.session.setStatus(mkStatuses("0p 1 2", testIPv4))
-	mustNext(c, memberWatcher, "initial members")
+	st.setControllers("10", "11", "12")
+	mustNext(c, memberWatcher, "nonvoting members")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", testIPv4))
 	// Changes to the replicaset status are discovered via polling mongo, so advance the clock so we'll check again
 	// we might be racing with a configChanged which can *just* miss the setStatus here.
