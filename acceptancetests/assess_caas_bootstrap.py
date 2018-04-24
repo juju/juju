@@ -20,7 +20,7 @@ from utility import (
 from jujucharm import (
     local_charm_path
 )
-
+from jujupy import ClientType
 
 __metaclass__ = type
 
@@ -50,11 +50,9 @@ def assess_caas_bootstrap(client):
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser()
-    # TODO: Add additional positional arguments.
-    # NOTE: If this test does *not* support running on an existing bootstrapped
-    #   controller, pass `existing=False` to add_basic_testing_arguments.
+    parser.add_argument('--client_type', default=ClientType.Caas)
+
     add_basic_testing_arguments(parser, existing=False)
-    # TODO: Add additional optional arguments.
     return parser.parse_args(argv)
 
 
