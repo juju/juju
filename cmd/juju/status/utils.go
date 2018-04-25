@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/juju/utils"
+	"github.com/juju/naturalsort"
 )
 
 // stringKeysFromMap takes a map with keys which are strings and returns
@@ -25,7 +25,7 @@ func recurseUnits(u unitStatus, il int, recurseMap func(string, unitStatus, int)
 	if len(u.Subordinates) == 0 {
 		return
 	}
-	for _, uName := range utils.SortStringsNaturally(stringKeysFromMap(u.Subordinates)) {
+	for _, uName := range naturalsort.Sort(stringKeysFromMap(u.Subordinates)) {
 		unit := u.Subordinates[uName]
 		recurseMap(uName, unit, il)
 		recurseUnits(unit, il+1, recurseMap)

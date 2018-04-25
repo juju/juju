@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/naturalsort"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
 
@@ -73,7 +73,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 
 	if len(fs.RemoteApplications) > 0 {
 		outputHeaders("SAAS", "Status", "Store", "URL")
-		for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.RemoteApplications)) {
+		for _, appName := range naturalsort.Sort(stringKeysFromMap(fs.RemoteApplications)) {
 			app := fs.RemoteApplications[appName]
 			var store, urlPath string
 			url, err := crossmodel.ParseOfferURL(app.OfferURL)
@@ -101,7 +101,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
 	tw.SetColumnAlignRight(3)
 	tw.SetColumnAlignRight(6)
-	for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
+	for _, appName := range naturalsort.Sort(stringKeysFromMap(fs.Applications)) {
 		app := fs.Applications[appName]
 		version := app.Version
 		// Don't let a long version push out the version column.
@@ -156,7 +156,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	outputHeaders("Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
-	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
+	for _, name := range naturalsort.Sort(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
 		const indentationLevel = 1
@@ -172,7 +172,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 			w.PrintColor(outputColor, fs.Model.MeterStatus.Message)
 			w.Println()
 		}
-		for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
+		for _, name := range naturalsort.Sort(stringKeysFromMap(units)) {
 			u := units[name]
 			if u.MeterStatus != nil {
 				w.Print(name)
@@ -227,7 +227,7 @@ func printOffers(tw *ansiterm.TabWriter, offers map[string]offerStatus) error {
 	w.Println()
 
 	w.Println("Offer", "Application", "Charm", "Rev", "Connected", "Endpoint", "Interface", "Role")
-	for _, offerName := range utils.SortStringsNaturally(stringKeysFromMap(offers)) {
+	for _, offerName := range naturalsort.Sort(stringKeysFromMap(offers)) {
 		offer := offers[offerName]
 		// Sort endpoints alphabetically.
 		endpoints := []string{}
@@ -287,7 +287,7 @@ func getModelMessage(model modelStatus) string {
 func printMachines(tw *ansiterm.TabWriter, machines map[string]machineStatus) {
 	w := output.Wrapper{tw}
 	w.Println("Machine", "State", "DNS", "Inst id", "Series", "AZ", "Message")
-	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(machines)) {
+	for _, name := range naturalsort.Sort(stringKeysFromMap(machines)) {
 		printMachine(w, machines[name])
 	}
 }
@@ -305,7 +305,7 @@ func printMachine(w output.Wrapper, m machineStatus) {
 	w.Print(m.Id)
 	w.PrintStatus(m.JujuStatus.Current)
 	w.Println(m.DNSName, m.InstanceId, m.Series, az, m.MachineStatus.Message)
-	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(m.Containers)) {
+	for _, name := range naturalsort.Sort(stringKeysFromMap(m.Containers)) {
 		printMachine(w, m.Containers[name])
 	}
 }
