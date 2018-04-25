@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -142,9 +143,10 @@ func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*rafttransport
 
 type WorkerSuite struct {
 	workerFixture
-	server *httptest.Server
-	worker *rafttransport.Worker
-	reqs   chan apiserver.DetailsRequest
+	server  *httptest.Server
+	worker  *rafttransport.Worker
+	reqsMtx sync.Mutex
+	reqs    chan apiserver.DetailsRequest
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -159,11 +161,14 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	clientTransport := s.server.Client().Transport.(*http.Transport)
 	s.config.TLSConfig = clientTransport.TLSClientConfig
 
+	s.reqsMtx.Lock()
 	s.reqs = make(chan apiserver.DetailsRequest, 10)
+	s.reqsMtx.Unlock()
+
 	s.config.Hub.Subscribe(apiserver.DetailsRequestTopic,
 		func(_ string, req apiserver.DetailsRequest, err error) {
 			c.Check(err, jc.ErrorIsNil)
-			s.reqs <- req
+			s.detailsRequest() <- req
 		},
 	)
 	s.worker = s.newWorker(c, s.config)
@@ -277,7 +282,7 @@ func (s *WorkerSuite) TestRoundTrip(c *gc.C) {
 func (s *WorkerSuite) TestRequestsDetails(c *gc.C) {
 	// The worker gets started in SetUpTest.
 	select {
-	case req := <-s.reqs:
+	case req := <-s.detailsRequest():
 		c.Assert(req, gc.Equals, apiserver.DetailsRequest{
 			Requester: "raft-transport-stream-layer",
 			LocalOnly: true,
@@ -285,6 +290,15 @@ func (s *WorkerSuite) TestRequestsDetails(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for details request")
 	}
+}
+
+// detailsRequest getter is required as the underlying channel is swapped when
+// WorkerSuite.SetupTest is called, causing a race condition to triggered.
+func (s *WorkerSuite) detailsRequest() chan apiserver.DetailsRequest {
+	s.reqsMtx.Lock()
+	defer s.reqsMtx.Unlock()
+
+	return s.reqs
 }
 
 type WorkerTimeoutSuite struct {
