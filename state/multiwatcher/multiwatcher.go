@@ -1,6 +1,11 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// TODO(rogpeppe) move everything in this package to apiserver/params
+// because all the types are part of the public API server interface.
+// Then params would not need to import this package and we would
+// not need to duplicate types like Life and ModelSLAInfo.
+
 package multiwatcher
 
 import (
@@ -436,6 +441,13 @@ const (
 	BlockChange BlockType = "BlockChange"
 )
 
+// ModelSLAInfo describes the SLA info for a model.
+// Note: this replicates the type of the same name in the params package.
+type ModelSLAInfo struct {
+	Level string `json:"level"`
+	Owner string `json:"owner"`
+}
+
 // ModelInfo holds the information about an model that is
 // tracked by multiwatcherStore.
 type ModelInfo struct {
@@ -447,6 +459,7 @@ type ModelInfo struct {
 	Config         map[string]interface{} `json:"config,omitempty"`
 	Status         StatusInfo             `json:"status"`
 	Constraints    constraints.Value      `json:"constraints"`
+	SLA            ModelSLAInfo           `json:"sla"`
 }
 
 // EntityId returns a unique identifier for an model.
