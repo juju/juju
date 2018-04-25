@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
@@ -78,12 +79,12 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (str
 	return arch, nil
 }
 
-func (env *environ) getImageSources() ([]lxdclient.Remote, error) {
+func (env *environ) getImageSources() ([]lxd.RemoteServer, error) {
 	metadataSources, err := environs.ImageMetadataSources(env)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	remotes := make([]lxdclient.Remote, 0)
+	remotes := make([]lxd.RemoteServer, 0)
 	for _, source := range metadataSources {
 		url, err := source.URL("")
 		if err != nil {
@@ -106,12 +107,10 @@ func (env *environ) getImageSources() ([]lxdclient.Remote, error) {
 			url = "https://" + url
 			logger.Debugf("LXD requires https://, using: %s", url)
 		}
-		remotes = append(remotes, lxdclient.Remote{
-			Name:          source.Description(),
-			Host:          url,
-			Protocol:      lxdclient.SimplestreamsProtocol,
-			Cert:          nil,
-			ServerPEMCert: "",
+		remotes = append(remotes, lxd.RemoteServer{
+			Name:     source.Description(),
+			Host:     url,
+			Protocol: lxd.SimpleStreamsProtocol,
 		})
 	}
 	return remotes, nil
@@ -161,11 +160,17 @@ func (env *environ) newRawInstance(
 	}
 	defer cleanupCallback()
 
-	imageCallback := func(copyProgress string) {
-		statusCallback(status.Allocating, copyProgress)
-	}
+	// TODO (manadart 2018-04-25): The callback for copying an image is not
+	// used anymore. A remote image is cached when used to create a container.
+	// The code that currently does this in the LXD container manager should
+	// be factored into a common area and used.
+	//imageCallback := func(copyProgress string) {
+	//	statusCallback(status.Allocating, copyProgress)
+	//}
+
+	statusCallback(status.Allocating, "acquiring LXD image")
 	series := args.InstanceConfig.Series
-	image, err := env.raw.EnsureImageExists(series, arch, imageSources, imageCallback)
+	image, err := env.raw.FindImage(series, arch, imageSources)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -187,7 +192,7 @@ func (env *environ) newRawInstance(
 	// TODO(ericsnow) Use a different net interface name? Configurable?
 	instSpec := lxdclient.InstanceSpec{
 		Name:  hostname,
-		Image: image,
+		Image: image.Alias,
 		//Type:              spec.InstanceType.Name,
 		//Disks:             getDisks(spec, args.Constraints),
 		//NetworkInterfaces: []string{"ExternalNAT"},
@@ -200,6 +205,7 @@ func (env *environ) newRawInstance(
 			"default",
 			env.profileName(),
 		},
+		ImageData: image,
 		// Network is omitted (left empty).
 	}
 
@@ -255,7 +261,9 @@ func getMetadata(cloudcfg cloudinit.CloudConfig, args environs.StartInstancePara
 
 // getHardwareCharacteristics compiles hardware-related details about
 // the given instance and relative to the provided spec and returns it.
-func (env *environ) getHardwareCharacteristics(args environs.StartInstanceParams, inst *environInstance) *instance.HardwareCharacteristics {
+func (env *environ) getHardwareCharacteristics(
+	args environs.StartInstanceParams, inst *environInstance,
+) *instance.HardwareCharacteristics {
 	raw := inst.raw.Hardware
 
 	archStr := raw.Architecture
