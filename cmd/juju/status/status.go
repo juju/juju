@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -39,7 +40,8 @@ type statusCommand struct {
 	isoTime  bool
 	api      statusAPI
 
-	color bool
+	color    bool
+	execTime time.Time
 }
 
 var usageSummary = `
@@ -115,6 +117,8 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *statusCommand) Init(args []string) error {
 	c.patterns = args
+	// execTime is defined when the status command is initialized for execution.
+	c.execTime = time.Now()
 	// If use of ISO time not specified on command line,
 	// check env var.
 	if !c.isoTime {
@@ -165,5 +169,5 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error {
-	return FormatTabular(writer, c.color, value)
+	return FormatTabular(writer, c.color, c.isoTime, c.execTime, value)
 }

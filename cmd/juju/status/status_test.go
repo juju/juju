@@ -23,6 +23,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -3789,14 +3790,16 @@ Unit  Workload  Agent  Machine  Public address  Ports  Message
 
 Machine  State  DNS  Inst id  Series  AZ  Message
 
-`[1:]
+Status Time`[1:]
 
 	st := s.setupMigrationTest(c)
 	defer st.Close()
 	code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", "tabular")
 	c.Check(code, gc.Equals, 0)
 	c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
-	c.Assert(string(stdout), gc.Equals, expected)
+
+	_, output := s.popStatusTime(string(stdout))
+	c.Assert(output, gc.Equals, expected)
 }
 
 func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
@@ -3810,7 +3813,7 @@ Unit  Workload  Agent  Machine  Public address  Ports  Message
 
 Machine  State  DNS  Inst id  Series  AZ  Message
 
-`[1:]
+Status Time`[1:]
 
 	st := s.setupMigrationTest(c)
 	defer st.Close()
@@ -3823,7 +3826,9 @@ Machine  State  DNS  Inst id  Series  AZ  Message
 	code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", "tabular")
 	c.Check(code, gc.Equals, 0)
 	c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
-	c.Assert(string(stdout), gc.Equals, expected)
+
+	_, output := s.popStatusTime(string(stdout))
+	c.Assert(output, gc.Equals, expected)
 }
 
 func (s *StatusSuite) setupMigrationTest(c *gc.C) *state.State {
@@ -4123,11 +4128,22 @@ mysql:juju-info        logging:info               juju-info  subordinate
 mysql:server           wordpress:db               mysql      regular      suspended  
 wordpress:logging-dir  logging:logging-directory  logging    subordinate  
 
-`[1:]
-	c.Assert(string(stdout), gc.Equals, expected)
+Status Time`[1:]
+
+	// we have to pop the status time as there is no way to reliably know what
+	// the time is 100% of the time. To prevent failing tests, we pop the time
+	// and parse it against a time layout, to make sure it's valid.
+	strStatusTime, output := s.popStatusTime(string(stdout))
+	c.Assert(output, gc.Equals, expected)
+
+	statusTime, err := time.Parse("02 Jan 2006 15:04:05Z07:00", strStatusTime)
+	c.Assert(err, gc.IsNil)
+	c.Assert(statusTime, gc.Not(gc.Equals), time.Time{})
 }
 
 func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
+	now := time.Now()
+	isoTime := false
 	status := formattedStatus{
 		Applications: map[string]applicationStatus{
 			"foo": {
@@ -4157,9 +4173,9 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 		},
 	}
 	out := &bytes.Buffer{}
-	err := FormatTabular(out, false, status)
+	err := FormatTabular(out, false, isoTime, now, status)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out.String(), gc.Equals, `
+	c.Assert(out.String(), gc.Equals, fmt.Sprintf(`
 Model  Controller  Cloud/Region  Version
                                  
 
@@ -4171,10 +4187,14 @@ foo/0  maintenance  executing                                  (config-changed) 
 foo/1  maintenance  executing                                  (backup database) doing some work
 
 Machine  State  DNS  Inst id  Series  AZ  Message
-`[1:])
+
+Status Time
+%s`[1:], common.FormatTime(&now, isoTime)))
 }
 
 func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
+	now := time.Now()
+	isoTime := false
 	status := formattedStatus{
 		Model: modelStatus{
 			Type: "caas",
@@ -4206,9 +4226,9 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 		},
 	}
 	out := &bytes.Buffer{}
-	err := FormatTabular(out, false, status)
+	err := FormatTabular(out, false, isoTime, now, status)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out.String(), gc.Equals, `
+	c.Assert(out.String(), gc.Equals, fmt.Sprintf(`
 Model  Controller  Cloud/Region  Version
                                  
 
@@ -4218,7 +4238,9 @@ foo                     1/2                  0      54.32.1.2
 Unit   Workload  Agent       Address   Ports   Message
 foo/0  active    allocating                    
 foo/1  active    running     10.0.0.1  80/TCP  
-`[1:])
+
+Status Time
+%s`[1:], common.FormatTime(&now, isoTime)))
 }
 
 func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
@@ -4250,6 +4272,8 @@ func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 }
 
 func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
+	now := time.Now()
+	isoTime := false
 	status := formattedStatus{
 		Applications: map[string]applicationStatus{
 			"foo": {
@@ -4271,24 +4295,27 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 		},
 	}
 	out := &bytes.Buffer{}
-	err := FormatTabular(out, false, status)
+	err := FormatTabular(out, false, isoTime, now, status)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out.String(), gc.Equals, ""+
-		"Model  Controller  Cloud/Region  Version\n"+
-		"                                 \n"+
-		"\n"+
-		"App  Version  Status  Scale  Charm  Store  Rev  OS  Notes\n"+
-		"foo                     0/2                  0      \n"+
-		"\n"+
-		"Unit   Workload  Agent  Machine  Public address  Ports  Message\n"+
-		"foo/0                                                   \n"+
-		"foo/1                                                   \n"+
-		"\n"+
-		"Entity  Meter status  Message\n"+
-		"foo/0   strange       warning: stable strangelets  \n"+
-		"foo/1   up            things are looking up        \n"+
-		"\n"+
-		"Machine  State  DNS  Inst id  Series  AZ  Message\n")
+	c.Assert(out.String(), gc.Equals, fmt.Sprintf(`
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
+foo                     0/2                  0      
+
+Unit   Workload  Agent  Machine  Public address  Ports  Message
+foo/0                                                   
+foo/1                                                   
+
+Entity  Meter status  Message
+foo/0   strange       warning: stable strangelets  
+foo/1   up            things are looking up        
+
+Machine  State  DNS  Inst id  Series  AZ  Message
+
+Status Time
+%s`[1:], common.FormatTime(&now, isoTime)))
 }
 
 //
@@ -4678,6 +4705,15 @@ func (s *StatusSuite) TestSummaryStatusWithUnresolvableDns(c *gc.C) {
 	formatter := &summaryFormatter{}
 	formatter.resolveAndTrackIp("invalidDns")
 	// Test should not panic.
+}
+
+// popStatusTime removes the status time date string from the end of a block.
+func (s *StatusSuite) popStatusTime(str string) (string, string) {
+	lines := strings.Split(str, "\n")
+	if len(lines) < 1 {
+		return "", ""
+	}
+	return lines[len(lines)-2], strings.Join(lines[:len(lines)-2], "\n")
 }
 
 func initStatusCommand(args ...string) (*statusCommand, error) {
