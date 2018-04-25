@@ -160,12 +160,18 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.config.TLSConfig = clientTransport.TLSClientConfig
 
 	s.reqs = make(chan apiserver.DetailsRequest, 10)
-	s.config.Hub.Subscribe(apiserver.DetailsRequestTopic,
-		func(_ string, req apiserver.DetailsRequest, err error) {
-			c.Check(err, jc.ErrorIsNil)
-			s.reqs <- req
-		},
+	unsubscribe, _ := s.config.Hub.Subscribe(apiserver.DetailsRequestTopic,
+		func(reqs chan apiserver.DetailsRequest) func(_ string, req apiserver.DetailsRequest, err error) {
+			return func(_ string, req apiserver.DetailsRequest, err error) {
+				c.Check(err, jc.ErrorIsNil)
+				reqs <- req
+			}
+		}(s.reqs),
 	)
+	s.AddCleanup(func(c *gc.C) {
+		unsubscribe()
+	})
+
 	s.worker = s.newWorker(c, s.config)
 	s.config.Hub.Publish(apiserver.DetailsTopic, apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
