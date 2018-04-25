@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/naturalsort"
-	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"

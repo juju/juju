@@ -14,7 +14,6 @@ import (
 	"github.com/juju/ansiterm/tabwriter"
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
-	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/cmd/output"

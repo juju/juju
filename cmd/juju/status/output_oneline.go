@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
-	"github.com/juju/utils"
 )
 
 // FormatOneline writes a brief list of units and their subordinates.

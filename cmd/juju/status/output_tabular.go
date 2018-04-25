@@ -13,7 +13,6 @@ import (
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
-	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
 

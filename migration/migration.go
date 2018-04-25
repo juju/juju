@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/naturalsort"
-	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 
