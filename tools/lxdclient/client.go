@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -20,11 +19,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/lxc/lxd"
+	lxdclient "github.com/lxc/lxd/client"
 	lxdshared "github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 	lxdlogger "github.com/lxc/lxd/shared/logger"
 
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/utils/proxy"
 )
@@ -105,7 +105,7 @@ type Client struct {
 	*certClient
 	*profileClient
 	*instanceClient
-	*imageClient
+	*lxd.JujuImageServer
 	*networkClient
 	*storageClient
 	baseURL                  string
@@ -138,20 +138,20 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 	storageAPISupported := false
 	var defaultProfile *api.Profile
 	if cfg.Remote.Protocol != SimplestreamsProtocol {
-		status, err := raw.ServerStatus()
+		resources, _, err := raw.GetServer()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		if lxdshared.StringInSlice("network", status.APIExtensions) {
+		if lxdshared.StringInSlice("network", resources.APIExtensions) {
 			networkAPISupported = true
 		}
 
-		if lxdshared.StringInSlice("storage", status.APIExtensions) {
+		if lxdshared.StringInSlice("storage", resources.APIExtensions) {
 			storageAPISupported = true
 		}
 
-		defaultProfile, err = raw.ProfileConfig("default")
+		defaultProfile, _, err = raw.GetProfile("default")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -176,21 +176,26 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 		}
 	}
 
+	cInfo, err := raw.GetConnectionInfo()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	conn := &Client{
 		configClient:             &configClient{raw},
 		certClient:               &certClient{raw},
 		profileClient:            &profileClient{raw},
 		instanceClient:           &instanceClient{raw, remoteID},
-		imageClient:              &imageClient{raw, connectToRaw},
+		JujuImageServer:          &lxd.JujuImageServer{raw},
 		networkClient:            &networkClient{raw, networkAPISupported},
 		storageClient:            &storageClient{raw, storageAPISupported},
-		baseURL:                  raw.BaseURL,
+		baseURL:                  cInfo.URL,
 		defaultProfileBridgeName: bridgeName,
 	}
 	return conn, nil
 }
 
-var lxdNewClientFromInfo = lxd.NewClientFromInfo
+var newHostClientFromInfo = lxdclient.ConnectLXD
+var newSocketClientFromInfo = lxdclient.ConnectLXDUnix
 
 func isSupportedAPIVersion(version string) bool {
 	versionParts := strings.Split(version, ".")
@@ -214,7 +219,7 @@ func isSupportedAPIVersion(version string) bool {
 }
 
 // newRawClient connects to the LXD host that is defined in Config.
-func newRawClient(remote Remote) (*lxd.Client, error) {
+func newRawClient(remote Remote) (lxdclient.ContainerServer, error) {
 	host := remote.Host
 
 	// LXD socket is different depending on installation method
@@ -238,20 +243,6 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 		}
 	}
 
-	if remote.ID() == remoteIDForLocal && host == "" {
-		host = "unix://" + lxdshared.VarPath("unix.socket")
-	} else {
-		// If it's a URL, leave it alone. Otherwise, we
-		// assume it's a hostname, optionally with port.
-		url, err := url.Parse(host)
-		if err != nil || url.Scheme == "" {
-			if _, _, err := net.SplitHostPort(host); err != nil {
-				host = net.JoinHostPort(host, lxdshared.DefaultPort)
-			}
-		}
-	}
-	logger.Debugf("connecting to LXD remote %q: %q", remote.ID(), host)
-
 	clientCert := ""
 	if remote.Cert != nil && remote.Cert.CertPEM != nil {
 		clientCert = string(remote.Cert.CertPEM)
@@ -262,25 +253,36 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 		clientKey = string(remote.Cert.KeyPEM)
 	}
 
-	static := false
-	public := false
-	if remote.Protocol == SimplestreamsProtocol {
-		static = true
-		public = true
+	args := &lxdclient.ConnectionArgs{
+		TLSClientCert: clientCert,
+		TLSClientKey:  clientKey,
+		TLSServerCert: remote.ServerPEMCert,
 	}
 
-	client, err := lxdNewClientFromInfo(lxd.ConnectInfo{
-		Name: remote.ID(),
-		RemoteConfig: lxd.RemoteConfig{
-			Addr:     host,
-			Static:   static,
-			Public:   public,
-			Protocol: string(remote.Protocol),
-		},
-		ClientPEMCert: clientCert,
-		ClientPEMKey:  clientKey,
-		ServerPEMCert: remote.ServerPEMCert,
-	})
+	newClient := newHostClientFromInfo
+	if remote.ID() == remoteIDForLocal {
+		newClient = newSocketClientFromInfo
+		if host == "" {
+			host = lxdshared.VarPath("unix.socket")
+		}
+	} else {
+		// If it's a URL, leave it alone. Otherwise, we
+		// assume it's a hostname, optionally with port.
+		url, err := url.Parse(host)
+		if err != nil || url.Scheme == "" {
+			if _, _, err := net.SplitHostPort(host); err != nil {
+				host = net.JoinHostPort(host, lxdshared.DefaultPort)
+			}
+			host = "https://" + host
+		}
+
+		// Replace the proxy handler with the one managed
+		// by Juju's worker/proxyupdater.
+		args.Proxy = proxy.DefaultConfig.GetProxy
+	}
+
+	logger.Debugf("connecting to LXD remote %q: %q", remote.ID(), host)
+	client, err := newClient(host, args)
 	if err != nil {
 		if remote.ID() == remoteIDForLocal {
 			err = hoistLocalConnectErr(err)
@@ -289,18 +291,11 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// Replace the proxy handler with the one managed
-	// by Juju's worker/proxyupdater.
-	if tr, ok := client.Http.Transport.(*http.Transport); ok {
-		tr.Proxy = proxy.DefaultConfig.GetProxy
-	}
-
 	if remote.Protocol != SimplestreamsProtocol {
-		status, err := client.ServerStatus()
+		status, _, err := client.GetServer()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
 		if !isSupportedAPIVersion(status.APIVersion) {
 			logger.Warningf("trying to use unsupported LXD API version %q", status.APIVersion)
 		} else {
@@ -315,7 +310,7 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 // network bridge configured on the "default" profile. Additionally, if the
 // default bridge bridge is used, its configuration in LXDBridgeFile is also
 // inspected to make sure it has a chance to work.
-func verifyDefaultProfileBridgeConfig(client *lxd.Client, networkAPISupported bool, config *api.Profile) (string, error) {
+func verifyDefaultProfileBridgeConfig(client lxdclient.ContainerServer, networkAPISupported bool, config *api.Profile) (string, error) {
 	const (
 		defaultProfileName = "default"
 		configTypeKey      = "type"
@@ -510,7 +505,7 @@ and then configure it with:
 	return errors.Trace(fmt.Errorf("%s\n%s", msg, hint))
 }
 
-func verifyStorageConfiguration(client *lxd.Client, defaultProfile *api.Profile) error {
+func verifyStorageConfiguration(client lxdclient.ContainerServer, defaultProfile *api.Profile) error {
 	// If the default profile already has a / device, it's all good
 	for _, dev := range defaultProfile.Devices {
 		if dev["path"] == "/" {
@@ -519,7 +514,7 @@ func verifyStorageConfiguration(client *lxd.Client, defaultProfile *api.Profile)
 	}
 
 	// Otherwise, we need to add one
-	pools, err := client.ListStoragePools()
+	pools, err := client.GetStoragePools()
 	if err != nil {
 		return err
 	}
@@ -538,7 +533,11 @@ func verifyStorageConfiguration(client *lxd.Client, defaultProfile *api.Profile)
 
 	if poolName == "" {
 		poolName = "default"
-		err := client.StoragePoolCreate(poolName, "dir", nil)
+		req := api.StoragePoolsPost{
+			Name:   poolName,
+			Driver: "dir",
+		}
+		err := client.CreateStoragePool(req)
 		if err != nil {
 			return err
 		}
@@ -547,7 +546,6 @@ func verifyStorageConfiguration(client *lxd.Client, defaultProfile *api.Profile)
 	if defaultProfile.Devices == nil {
 		defaultProfile.Devices = map[string]map[string]string{}
 	}
-
 	defaultProfile.Devices["root"] = map[string]string{
 		"type": "disk",
 		"path": "/",
@@ -555,5 +553,9 @@ func verifyStorageConfiguration(client *lxd.Client, defaultProfile *api.Profile)
 	}
 
 	// Now, create a disk device that uses the pool
-	return client.PutProfile("default", defaultProfile.ProfilePut)
+	return client.UpdateProfile("default", defaultProfile.Writable(), "")
+}
+
+func isLXDNotFound(err error) bool {
+	return err.Error() == "not found"
 }

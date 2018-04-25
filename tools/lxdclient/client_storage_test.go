@@ -5,6 +5,7 @@
 
 package lxdclient_test
 
+/*
 import (
 	"net/http"
 
@@ -253,3 +254,4 @@ func (c *mockRawStorageClient) StoragePoolCreate(name, driver string, attrs map[
 	c.MethodCall(c, "StoragePoolCreate", name, driver, attrs)
 	return c.NextErr()
 }
+*/
