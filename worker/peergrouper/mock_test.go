@@ -38,6 +38,7 @@ type fakeState struct {
 	statuses         voyeur.Value // of statuses collection
 	controllerConfig voyeur.Value // of controller.Config
 	session          *fakeMongoSession
+	checkMu          sync.Mutex
 	check            func(st *fakeState) error
 }
 
@@ -116,11 +117,25 @@ func NewFakeState() *fakeState {
 	return st
 }
 
+func (st *fakeState) getCheck() func(st *fakeState) error {
+	st.checkMu.Lock()
+	check := st.check
+	st.checkMu.Unlock()
+	return check
+}
+
+func (st *fakeState) setCheck(check func(st *fakeState) error) {
+	st.checkMu.Lock()
+	st.check = check
+	st.checkMu.Unlock()
+}
+
 func (st *fakeState) checkInvariants() {
-	if st.check == nil {
+	check := st.getCheck()
+	if check == nil {
 		return
 	}
-	if err := st.check(st); err != nil {
+	if err := check(st); err != nil {
 		// Force a panic, otherwise we can deadlock
 		// when called from within the worker.
 		go panic(err)

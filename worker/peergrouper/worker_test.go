@@ -99,7 +99,7 @@ func InitState(c *gc.C, st *fakeState, numMachines int, ipVersion TestIPVersion)
 	st.session.Set(mkMembers("0v", ipVersion))
 	st.session.setStatus(mkStatuses("0p", ipVersion))
 	st.machine("10").SetHasVote(true)
-	st.check = checkInvariants
+	st.setCheck(checkInvariants)
 }
 
 // ExpectedAPIHostPorts returns the expected addresses
@@ -518,7 +518,7 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 	st.setControllers(ids...)
 	st.session.Set(mkMembers("0v 1 2", testIPv4))
 	st.session.setStatus(mkStatuses("0p 1s 2s", testIPv4))
-	st.check = checkInvariants
+	st.setCheck(checkInvariants)
 
 	hub := pubsub.NewStructuredHub(nil)
 	event := make(chan apiserver.Details)
@@ -943,7 +943,7 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	// Now we ask the primary to step down again, and we should first reconfigure the group to include
 	// the other secondary. We first unset the invariant checker, because we are intentionally going to an even number
 	// of voters, but this is not the normal condition
-	st.check = nil
+	st.setCheck(nil)
 	if primaryMemberIndex == 1 {
 		st.machine("11").setWantsVote(false)
 	} else {
