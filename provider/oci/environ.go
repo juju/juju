@@ -4,7 +4,10 @@
 package oci
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/constraints"
@@ -13,10 +16,31 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
+	providerCommon "github.com/juju/juju/provider/oci/common"
 	"github.com/juju/juju/storage"
+
+	ociCore "github.com/oracle/oci-go-sdk/core"
 )
 
-type Environ struct{}
+type Environ struct {
+	compute    providerCommon.OCIComputeClient
+	networking providerCommon.OCINetworkingClient
+	storage    providerCommon.OCIStorageClient
+	firewall   providerCommon.OCIFirewallClient
+	identity   providerCommon.OCIIdentityClient
+	p          *EnvironProvider
+	clock      clock.Clock
+	ecfgMutex  sync.Mutex
+	ecfgObj    *environConfig
+	namespace  instance.Namespace
+
+	vcn     ociCore.Vcn
+	seclist ociCore.SecurityList
+	// subnets contains one subnet for each availability domain
+	// these will get created once the environment is spun up, and
+	// will never change.
+	subnets map[string][]ociCore.Subnet
+}
 
 var _ common.ZonedEnviron = (*Environ)(nil)
 var _ storage.ProviderRegistry = (*Environ)(nil)
@@ -24,6 +48,12 @@ var _ environs.Environ = (*Environ)(nil)
 var _ environs.Firewaller = (*Environ)(nil)
 var _ environs.Networking = (*Environ)(nil)
 var _ environs.NetworkingEnviron = (*Environ)(nil)
+
+func (e *Environ) ecfg() *environConfig {
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	return e.ecfgObj
+}
 
 // AvailabilityZones is defined in the common.ZonedEnviron interface
 func (e *Environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
@@ -72,7 +102,16 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 
 // SetConfig implements environs.Environ.
 func (e *Environ) SetConfig(cfg *config.Config) error {
-	return errors.NotImplementedf("SetConfig")
+	ecfg, err := e.p.newConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	e.ecfgObj = ecfg
+
+	return nil
 }
 
 // ControllerInstances implements environs.Environ.
@@ -127,7 +166,12 @@ func (e *Environ) MaintainInstance(args environs.StartInstanceParams) error {
 
 // Config implements environs.ConfigGetter.
 func (e *Environ) Config() *config.Config {
-	return nil
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+	if e.ecfgObj == nil {
+		return nil
+	}
+	return e.ecfgObj.Config
 }
 
 // PrecheckInstance implements environs.InstancePrechecker.
