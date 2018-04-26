@@ -1393,14 +1393,9 @@ func buildModelRepresentation(
 	// Add in the model sequences.
 	sequences, err := apiRoot.Sequences()
 	if err == nil {
-		// Sequences are only supported by version 2.3.8 or later.
-		// If sequences isn't implemented, we get an error response, in which
-		// case we just use the default, which is an empty map. This means
-		// that the bundlechanges library just uses its inference to determine
-		// the next values based on what is in the model. If sequences are there, they
-		// are used in addition to what is deployed.
-		// There is no down side here to ignoring the error.
 		model.Sequence = sequences
+	} else if !errors.IsNotSupported(err) {
+		return nil, errors.Annotate(err, "getting model sequences")
 	}
 	// Now get all the application config.
 	configValues, err := apiRoot.GetConfig(appNames...)

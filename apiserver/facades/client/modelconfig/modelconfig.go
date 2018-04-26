@@ -12,27 +12,48 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
 )
 
 // NewFacade is used for API registration.
-func NewFacade(st *state.State, _ facade.Resources, auth facade.Authorizer) (*ModelConfigAPI, error) {
-	model, err := st.Model()
+func NewFacadeV2(ctx facade.Context) (*ModelConfigAPIV2, error) {
+	auth := ctx.Auth()
+
+	model, err := ctx.State().Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return NewModelConfigAPI(NewStateBackend(model), auth)
 }
 
-// ModelConfigAPI is the endpoint which implements the model config facade.
+// NewFacadeV1 is used for API registration.
+func NewFacadeV1(ctx facade.Context) (*ModelConfigAPIV1, error) {
+	api, err := NewFacadeV2(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ModelConfigAPIV1{api}, nil
+}
+
+// ModelConfigAPI provides the base implementation of the methods
+// for the V2 and V1 api calls.
 type ModelConfigAPI struct {
 	backend Backend
 	auth    facade.Authorizer
 	check   *common.BlockChecker
 }
 
+// ModelConfigAPIV2 is currently the latest.
+type ModelConfigAPIV2 struct {
+	*ModelConfigAPI
+}
+
+// ModelConfigAPIV1 hides V2 functionality
+type ModelConfigAPIV1 struct {
+	*ModelConfigAPIV2
+}
+
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
-func NewModelConfigAPI(backend Backend, authorizer facade.Authorizer) (*ModelConfigAPI, error) {
+func NewModelConfigAPI(backend Backend, authorizer facade.Authorizer) (*ModelConfigAPIV2, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -41,7 +62,7 @@ func NewModelConfigAPI(backend Backend, authorizer facade.Authorizer) (*ModelCon
 		auth:    authorizer,
 		check:   common.NewBlockChecker(backend),
 	}
-	return client, nil
+	return &ModelConfigAPIV2{client}, nil
 }
 
 func (c *ModelConfigAPI) checkCanWrite() error {
@@ -213,3 +234,10 @@ func (c *ModelConfigAPI) Sequences() (params.ModelSequencesResult, error) {
 	result.Sequences = values
 	return result, nil
 }
+
+// Mask the new methods from the V1 API. The API reflection code in
+// rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so this
+// removes the method as far as the RPC machinery is concerned.
+
+// Sequences isn't on the V1 API.
+func (a *ModelConfigAPIV1) Sequences(_, _ struct{}) {}
