@@ -9,6 +9,7 @@ github.com/coreos/go-systemd	git	7b2428fec40033549c68f54e26e89e7ca9a9ce31	2016-0
 github.com/dgrijalva/jwt-go	git	01aeca54ebda6e0fbfafd0a524d234159c05ec20	2016-07-05T20:30:06Z
 github.com/dustin/go-humanize	git	145fabdb1ab757076a70a886d092a3af27f66f4c	2014-12-28T07:11:48Z
 github.com/godbus/dbus	git	32c6cc29c14570de4cf6d7e7737d68fb2d01ad15	2016-05-06T22:25:50Z
+github.com/golang/mock	git	69521b3833175dfcfb1cc1fdb0c9be92e66faa81	2018-04-03T23:54:22Z
 github.com/golang/protobuf	git	4bd1920723d7b7c925de087aa32e2187708897f7	2016-11-09T07:27:36Z
 github.com/google/go-querystring	git	9235644dd9e52eeae6fa48efd539fdc351a0af53	2016-04-01T23:30:42Z
 github.com/gorilla/handlers	git	13d73096a474cac93275c679c7b8a2dc17ddba82	2017-02-24T19:39:55Z
@@ -20,7 +21,7 @@ github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
 github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07T23:45:32Z
 github.com/juju/blobstore	git	06056004b3d7b54bbb7984d830c537bad00fec21	2015-07-29T11:18:58Z
-github.com/juju/bundlechanges	git	1a6490253bea4ce78594db114d787ca97ee9f527	2018-01-09T11:21:21Z
+github.com/juju/bundlechanges	git	6e161783b56db0f558218579fa6a76fec55eacc8	2018-04-23T05:15:47Z
 github.com/juju/cmd	git	e74f39857ca013cf63947ba2843806f7afdd380d	2017-11-07T07:04:56Z
 github.com/juju/description	git	7ee30d2bc01ef20938adea2efeb991eb817c1f2a	2018-02-21T00:58:49Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
@@ -38,6 +39,7 @@ github.com/juju/jsonschema	git	a0ef8b74ebcffeeff9fc374854deb4af388f037e	2016-11-
 github.com/juju/loggo	git	8232ab8918d91c72af1a9fb94d3edbe31d88b790	2017-06-05T01:46:07Z
 github.com/juju/mempool	git	24974d6c264fe5a29716e7d56ea24c4bd904b7cc	2016-02-05T10:49:27Z
 github.com/juju/mutex	git	1fe2a4bf0a3a2c10881501233ff7c6aed7790082	2017-11-10T02:00:13Z
+github.com/juju/naturalsort	git	5b81707e882b8293e6cf77854b4cd49f29776e11	2018-04-23T03:48:42Z
 github.com/juju/persistent-cookiejar	git	d67418f14c93a698e37b52468958d5d4dcf8a7dd	2017-04-28T16:15:59Z
 github.com/juju/pubsub	git	f4dfa62f30adc6955341b3dd73dde7c8d9b23b9e	2017-03-31T03:24:24Z
 github.com/juju/ratelimit	git	5b9ff866471762aa2ab2dced63c9fb6f53921342	2017-05-23T01:21:41Z

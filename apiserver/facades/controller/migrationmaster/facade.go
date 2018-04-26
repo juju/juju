@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/description"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/naturalsort"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -258,7 +258,7 @@ func (api *API) MinionReports() (params.MinionReports, error) {
 	for i := 0; i < len(out.Failed); i++ {
 		out.Failed[i] = reports.Failed[i].String()
 	}
-	utils.SortStringsNaturally(out.Failed)
+	naturalsort.Sort(out.Failed)
 
 	out.UnknownCount = len(reports.Unknown)
 
@@ -266,7 +266,7 @@ func (api *API) MinionReports() (params.MinionReports, error) {
 	for i := 0; i < len(unknown); i++ {
 		unknown[i] = reports.Unknown[i].String()
 	}
-	utils.SortStringsNaturally(unknown)
+	naturalsort.Sort(unknown)
 
 	// Limit the number of unknowns reported
 	numSamples := out.UnknownCount
