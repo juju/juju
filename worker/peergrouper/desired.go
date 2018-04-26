@@ -400,11 +400,6 @@ func isVotingMember(m *replicaset.Member) bool {
 	return v == nil || *v > 0
 }
 
-func hasPriority(m *replicaset.Member) bool {
-	p := m.Priority
-	return p == nil || *p > 0
-}
-
 func isPrimaryMember(info *peerGroupInfo, id string) bool {
 	return info.statuses[id].State == replicaset.PrimaryState
 }
