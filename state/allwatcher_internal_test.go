@@ -1443,6 +1443,8 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 		func(c *gc.C, st *State) changeTestCase {
 			model, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
+			err = model.SetSLA("essential", "test-sla-owner", nil)
+			c.Assert(err, jc.ErrorIsNil)
 			cfg, err := model.Config()
 			c.Assert(err, jc.ErrorIsNil)
 			status, err := model.Status()
@@ -1471,6 +1473,10 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 							Data:    status.Data,
 							Since:   status.Since,
 						},
+						SLA: multiwatcher.ModelSLAInfo{
+							Level: "essential",
+							Owner: "test-sla-owner",
+						},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -1496,6 +1502,9 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 							Data:    status.Data,
 							Since:   status.Since,
 						},
+						SLA: multiwatcher.ModelSLAInfo{
+							Level: "unsupported",
+						},
 					},
 				},
 				change: watcher.Change{
@@ -1515,6 +1524,9 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 							Message: status.Message,
 							Data:    status.Data,
 							Since:   status.Since,
+						},
+						SLA: multiwatcher.ModelSLAInfo{
+							Level: "unsupported",
 						},
 					}}}
 		},
@@ -1605,6 +1617,9 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 				Data:    status.Data,
 				Since:   status.Since,
 			},
+			SLA: multiwatcher.ModelSLAInfo{
+				Level: "unsupported",
+			},
 		},
 		&multiwatcher.ModelInfo{
 			ModelUUID:      model1.UUID(),
@@ -1618,6 +1633,9 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 				Message: status1.Message,
 				Data:    status1.Data,
 				Since:   status1.Since,
+			},
+			SLA: multiwatcher.ModelSLAInfo{
+				Level: "unsupported",
 			},
 		},
 	)
@@ -1756,6 +1774,9 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    status0.Data,
 				Since:   status0.Since,
 			},
+			SLA: multiwatcher.ModelSLAInfo{
+				Level: "unsupported",
+			},
 		},
 	}, {
 		Entity: &multiwatcher.ModelInfo{
@@ -1770,6 +1791,9 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Message: status1.Message,
 				Data:    status1.Data,
 				Since:   status1.Since,
+			},
+			SLA: multiwatcher.ModelSLAInfo{
+				Level: "unsupported",
 			},
 		},
 	}, {
@@ -1985,6 +2009,9 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Current: "available",
 				Message: "",
 				Data:    map[string]interface{}{},
+			},
+			SLA: multiwatcher.ModelSLAInfo{
+				Level: "unsupported",
 			},
 		},
 	}, {

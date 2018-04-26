@@ -142,6 +142,10 @@ func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) e
 		Owner:          e.Owner,
 		ControllerUUID: e.ControllerUUID,
 		Config:         cfg.AllAttrs(),
+		SLA: multiwatcher.ModelSLAInfo{
+			Level: e.SLA.Level.String(),
+			Owner: e.SLA.Owner,
+		},
 	}
 	c, err := readConstraints(st, modelGlobalKey)
 	// Treat it as if the model is removed.
