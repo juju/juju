@@ -443,6 +443,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"status-time":  "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -486,6 +487,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"status-time":  "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -525,6 +527,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"status-time":  "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -565,6 +568,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"status-time":  "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -613,6 +617,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"status-time":  "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -643,6 +648,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"status-time":  "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -669,6 +675,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"status-time":  "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -695,6 +702,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"status-time":  "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -719,6 +727,7 @@ var statusTests = []testCase{
 					"dummy-application":   unexposedService,
 					"exposed-application": unexposedService,
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -735,6 +744,7 @@ var statusTests = []testCase{
 					"dummy-application":   unexposedService,
 					"exposed-application": exposedService,
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -760,6 +770,7 @@ var statusTests = []testCase{
 					"dummy-application":   unexposedService,
 					"exposed-application": exposedService,
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -836,6 +847,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -968,6 +980,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -1002,6 +1015,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 		scopedExpect{
@@ -1040,6 +1054,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 		scopedExpect{
@@ -1072,6 +1087,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 		scopedExpect{
@@ -1110,6 +1126,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 		scopedExpect{
@@ -1169,6 +1186,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -1258,6 +1276,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -1347,6 +1366,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -1400,6 +1420,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -1456,6 +1477,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -1632,6 +1654,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -1737,6 +1760,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -1883,6 +1907,7 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -1979,6 +2004,7 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -2033,6 +2059,7 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2115,6 +2142,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -2196,6 +2224,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2249,6 +2278,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2304,6 +2334,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2361,6 +2392,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2417,6 +2449,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2561,6 +2594,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2586,6 +2620,7 @@ var statusTests = []testCase{
 				},
 				"machines":     M{},
 				"applications": M{},
+				"status-time":  "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2639,6 +2674,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2713,6 +2749,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2737,6 +2774,7 @@ var statusTests = []testCase{
 					"0": machine0,
 				},
 				"applications": M{},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2783,6 +2821,7 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"status-time":  "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2858,6 +2897,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"status-time": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2886,6 +2926,7 @@ var statusTests = []testCase{
 				},
 				"machines":     M{},
 				"applications": M{},
+				"status-time":  "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2910,6 +2951,7 @@ var statusTests = []testCase{
 				},
 				"machines":     M{},
 				"applications": M{},
+				"status-time":  "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -3647,12 +3689,12 @@ type expect struct {
 	output M
 }
 
-// substituteFakeTime replaces all "since" values
+// substituteFakeTime replaces all key values
 // in actual status output with a known fake value.
-func substituteFakeSinceTime(c *gc.C, in []byte, expectIsoTime bool) []byte {
+func substituteFakeTime(c *gc.C, key string, in []byte, expectIsoTime bool) []byte {
 	// This regexp will work for yaml and json.
-	exp := regexp.MustCompile(`(?P<since>"?since"?:\ ?)(?P<quote>"?)(?P<timestamp>[^("|\n)]*)*"?`)
-	// Before the substritution is done, check that the timestamp produced
+	exp := regexp.MustCompile(`(?P<key>"?` + key + `"?:\ ?)(?P<quote>"?)(?P<timestamp>[^("|\n)]*)*"?`)
+	// Before the substitution is done, check that the timestamp produced
 	// by status is in the correct format.
 	if matches := exp.FindStringSubmatch(string(in)); matches != nil {
 		for i, name := range exp.SubexpNames() {
@@ -3668,7 +3710,7 @@ func substituteFakeSinceTime(c *gc.C, in []byte, expectIsoTime bool) []byte {
 		}
 	}
 
-	out := exp.ReplaceAllString(string(in), `$since$quote<timestamp>$quote`)
+	out := exp.ReplaceAllString(string(in), `$key$quote<timestamp>$quote`)
 	// Substitute a made up time used in our expected output.
 	out = strings.Replace(out, "<timestamp>", "01 Apr 15 01:23+10:00", -1)
 	return []byte(out)
@@ -3702,7 +3744,8 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 
 		// Check the output is as expected.
 		actual := make(M)
-		out := substituteFakeSinceTime(c, stdout, ctx.expectIsoTime)
+		out := substituteFakeTime(c, "since", stdout, ctx.expectIsoTime)
+		out = substituteFakeTime(c, "status-time", out, ctx.expectIsoTime)
 		err = format.unmarshal(out, &actual)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(actual, jc.DeepEquals, expected)
@@ -3757,6 +3800,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 		},
 		"machines":     M{},
 		"applications": M{},
+		"status-time":  "01 Apr 15 01:23+10:00",
 	}
 
 	for _, format := range statusFormats {
@@ -3764,7 +3808,8 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 		c.Check(code, gc.Equals, 0)
 		c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
 
-		stdout = substituteFakeSinceTime(c, stdout, false)
+		stdout = substituteFakeTime(c, "since", stdout, false)
+		stdout = substituteFakeTime(c, "status-time", stdout, false)
 
 		// Roundtrip expected through format so that types will match.
 		buf, err := format.marshal(expected)
@@ -4143,7 +4188,7 @@ Status Time`[1:]
 
 func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 	now := time.Now()
-	isoTime := false
+	statusTime := common.FormatTime(&now, false)
 	status := formattedStatus{
 		Applications: map[string]applicationStatus{
 			"foo": {
@@ -4171,9 +4216,10 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 				},
 			},
 		},
+		StatusTime: statusTime,
 	}
 	out := &bytes.Buffer{}
-	err := FormatTabular(out, false, isoTime, now, status)
+	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.String(), gc.Equals, fmt.Sprintf(`
 Model  Controller  Cloud/Region  Version
@@ -4189,12 +4235,12 @@ foo/1  maintenance  executing                                  (backup database)
 Machine  State  DNS  Inst id  Series  AZ  Message
 
 Status Time
-%s`[1:], common.FormatTime(&now, isoTime)))
+%s`[1:], statusTime))
 }
 
 func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 	now := time.Now()
-	isoTime := false
+	statusTime := common.FormatTime(&now, false)
 	status := formattedStatus{
 		Model: modelStatus{
 			Type: "caas",
@@ -4224,9 +4270,10 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 				},
 			},
 		},
+		StatusTime: statusTime,
 	}
 	out := &bytes.Buffer{}
-	err := FormatTabular(out, false, isoTime, now, status)
+	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.String(), gc.Equals, fmt.Sprintf(`
 Model  Controller  Cloud/Region  Version
@@ -4240,7 +4287,7 @@ foo/0  active    allocating
 foo/1  active    running     10.0.0.1  80/TCP  
 
 Status Time
-%s`[1:], common.FormatTime(&now, isoTime)))
+%s`[1:], statusTime))
 }
 
 func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
@@ -4273,7 +4320,7 @@ func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 
 func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 	now := time.Now()
-	isoTime := false
+	statusTime := common.FormatTime(&now, false)
 	status := formattedStatus{
 		Applications: map[string]applicationStatus{
 			"foo": {
@@ -4293,9 +4340,10 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 				},
 			},
 		},
+		StatusTime: statusTime,
 	}
 	out := &bytes.Buffer{}
-	err := FormatTabular(out, false, isoTime, now, status)
+	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.String(), gc.Equals, fmt.Sprintf(`
 Model  Controller  Cloud/Region  Version
@@ -4315,7 +4363,7 @@ foo/1   up            things are looking up
 Machine  State  DNS  Inst id  Series  AZ  Message
 
 Status Time
-%s`[1:], common.FormatTime(&now, isoTime)))
+%s`[1:], statusTime))
 }
 
 //
@@ -4458,7 +4506,8 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 	// When I run juju status --format yaml 0/lxd/0
 	_, stdout, stderr := runStatus(c, "--format", "yaml", "0/lxd/0")
 	c.Assert(string(stderr), gc.Equals, "")
-	out := substituteFakeSinceTime(c, stdout, ctx.expectIsoTime)
+	out := substituteFakeTime(c, "since", stdout, ctx.expectIsoTime)
+	out = substituteFakeTime(c, "status-time", out, ctx.expectIsoTime)
 	const expected = "" +
 		"model:\n" +
 		"  name: controller\n" +
@@ -4502,7 +4551,8 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"        series: quantal\n" +
 		"    hardware: arch=amd64 cores=1 mem=1024M root-disk=8192M\n" +
 		"    controller-member-status: adding-vote\n" +
-		"applications: {}\n"
+		"applications: {}\n" +
+		"status-time: 01 Apr 15 01:23+10:00\n"
 
 	c.Assert(string(out), gc.Equals, expected)
 }
@@ -4816,6 +4866,7 @@ var statusTimeTest = test(
 					},
 				}),
 			},
+			"status-time": "01 Apr 15 01:23+10:00",
 		},
 	},
 )
@@ -4849,7 +4900,9 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 			},
 		},
 	}
-	formatter := NewStatusFormatter(status, true)
+	now := time.Now()
+	isoTime := true
+	formatter := NewStatusFormatter(status, isoTime, now)
 	formatted, err := formatter.format()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -4870,5 +4923,6 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		Applications:       map[string]applicationStatus{},
 		RemoteApplications: map[string]remoteApplicationStatus{},
 		Offers:             map[string]offerStatus{},
+		StatusTime:         common.FormatTime(&now, isoTime),
 	})
 }

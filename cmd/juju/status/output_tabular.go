@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
@@ -17,7 +16,6 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
 
-	"github.com/juju/juju/cmd/juju/common"
 	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/core/crossmodel"
@@ -31,7 +29,7 @@ const caasModelType = "caas"
 // FormatTabular writes a tabular summary of machines, applications, and
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
-func FormatTabular(writer io.Writer, forceColor, isoTime bool, execTime time.Time, value interface{}) error {
+func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	const ellipsis = "..."
 	const iaasMaxVersionWidth = 15
 	const caasMaxVersionWidth = 30
@@ -251,7 +249,7 @@ func FormatTabular(writer io.Writer, forceColor, isoTime bool, execTime time.Tim
 	}
 
 	outputHeaders("Status Time")
-	w.Print(common.FormatTime(&execTime, isoTime))
+	w.Print(fs.StatusTime)
 
 	tw.Flush()
 	return nil

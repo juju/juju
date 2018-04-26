@@ -20,6 +20,7 @@ type formattedStatus struct {
 	RemoteApplications map[string]remoteApplicationStatus `json:"application-endpoints,omitempty" yaml:"application-endpoints,omitempty"`
 	Offers             map[string]offerStatus             `json:"offers,omitempty" yaml:"offers,omitempty"`
 	Relations          []relationStatus                   `json:"-" yaml:"-"`
+	StatusTime         string                             `json:"status-time" yaml:"status-time"`
 }
 
 type formattedMachineStatus struct {

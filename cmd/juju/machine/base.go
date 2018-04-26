@@ -6,6 +6,7 @@ package machine
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -59,6 +60,9 @@ var newAPIClientForMachines = func(c *baselistMachinesCommand) (statusAPI, error
 
 // Run implements Command.Run for baseMachinesCommand.
 func (c *baselistMachinesCommand) Run(ctx *cmd.Context) error {
+	// statusTime is defined when the status command is executed
+	statusTime := time.Now()
+
 	apiclient, err := newAPIClientForMachines(c)
 	if err != nil {
 		return errors.Trace(err)
@@ -77,7 +81,7 @@ func (c *baselistMachinesCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("unable to obtain the current status")
 	}
 
-	formatter := status.NewStatusFormatter(fullStatus, c.isoTime)
+	formatter := status.NewStatusFormatter(fullStatus, c.isoTime, statusTime)
 	formatted := formatter.MachineFormat(c.machineIds)
 	return c.out.Write(ctx, formatted)
 }

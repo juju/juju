@@ -40,8 +40,7 @@ type statusCommand struct {
 	isoTime  bool
 	api      statusAPI
 
-	color    bool
-	execTime time.Time
+	color bool
 }
 
 var usageSummary = `
@@ -117,8 +116,6 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *statusCommand) Init(args []string) error {
 	c.patterns = args
-	// execTime is defined when the status command is initialized for execution.
-	c.execTime = time.Now()
 	// If use of ISO time not specified on command line,
 	// check env var.
 	if !c.isoTime {
@@ -138,6 +135,9 @@ var newAPIClientForStatus = func(c *statusCommand) (statusAPI, error) {
 }
 
 func (c *statusCommand) Run(ctx *cmd.Context) error {
+	// statusTime is defined when the status command is executed
+	statusTime := time.Now()
+
 	apiclient, err := newAPIClientForStatus(c)
 	if err != nil {
 		return errors.Trace(err)
@@ -160,7 +160,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	formatter := newStatusFormatter(status, controllerName, c.isoTime)
+	formatter := newStatusFormatter(status, controllerName, c.isoTime, statusTime)
 	formatted, err := formatter.format()
 	if err != nil {
 		return errors.Trace(err)
@@ -169,5 +169,5 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error {
-	return FormatTabular(writer, c.color, c.isoTime, c.execTime, value)
+	return FormatTabular(writer, c.color, value)
 }
