@@ -1608,6 +1608,10 @@ func (f *fakeDeployAPI) Close() error {
 	return jujutesting.TypeAssertError(results[0])
 }
 
+func (f *fakeDeployAPI) Sequences() (map[string]int, error) {
+	return nil, nil
+}
+
 func (f *fakeDeployAPI) ModelGet() (map[string]interface{}, error) {
 	results := f.MethodCall(f, "ModelGet")
 	return results[0].(map[string]interface{}), jujutesting.TypeAssertError(results[1])

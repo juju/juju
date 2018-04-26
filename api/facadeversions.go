@@ -65,7 +65,7 @@ var facadeVersions = map[string]int{
 	"MigrationMinion":              1,
 	"MigrationStatusWatcher":       1,
 	"MigrationTarget":              1,
-	"ModelConfig":                  1,
+	"ModelConfig":                  2,
 	"ModelManager":                 4,
 	"ModelUpgrader":                1,
 	"NotifyWatcher":                1,

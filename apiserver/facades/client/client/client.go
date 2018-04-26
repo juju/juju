@@ -60,7 +60,7 @@ type caCerter interface {
 type Client struct {
 	// TODO(wallyworld) - we'll retain model config facade methods
 	// on the client facade until GUI and Python client library are updated.
-	*modelconfig.ModelConfigAPI
+	*modelconfig.ModelConfigAPIV1
 	caCerter
 
 	api        *API
@@ -136,6 +136,7 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	}
 	blockChecker := common.NewBlockChecker(st)
 	backend := modelconfig.NewStateBackend(model)
+	// The modelConfigAPI exposed here is V1.
 	modelConfigAPI, err := modelconfig.NewModelConfigAPI(backend, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -144,7 +145,7 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	return NewClient(
 		&stateShim{st, model},
 		&poolShim{ctx.StatePool()},
-		modelConfigAPI,
+		&modelconfig.ModelConfigAPIV1{modelConfigAPI},
 		resources,
 		authorizer,
 		statusSetter,
@@ -159,7 +160,7 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 func NewClient(
 	backend Backend,
 	pool Pool,
-	modelConfigAPI *modelconfig.ModelConfigAPI,
+	modelConfigAPI *modelconfig.ModelConfigAPIV1,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	statusSetter *common.StatusSetter,
@@ -172,8 +173,8 @@ func NewClient(
 		return nil, common.ErrPerm
 	}
 	client := &Client{
-		ModelConfigAPI: modelConfigAPI,
-		caCerter:       caCerter,
+		ModelConfigAPIV1: modelConfigAPI,
+		caCerter:         caCerter,
 		api: &API{
 			stateAccessor: backend,
 			pool:          pool,

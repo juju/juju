@@ -219,16 +219,13 @@ type exporter struct {
 }
 
 func (e *exporter) sequences() error {
-	sequences, closer := e.st.db().GetCollection(sequenceC)
-	defer closer()
-
-	var docs []sequenceDoc
-	if err := sequences.Find(nil).All(&docs); err != nil {
+	sequences, err := e.st.Sequences()
+	if err != nil {
 		return errors.Trace(err)
 	}
 
-	for _, doc := range docs {
-		e.model.SetSequence(doc.Name, doc.Counter)
+	for name, value := range sequences {
+		e.model.SetSequence(name, value)
 	}
 	return nil
 }
