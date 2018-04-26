@@ -38,6 +38,7 @@ type fakeState struct {
 	statuses         voyeur.Value // of statuses collection
 	controllerConfig voyeur.Value // of controller.Config
 	session          *fakeMongoSession
+	checkMu          sync.Mutex
 	check            func(st *fakeState) error
 }
 
@@ -116,11 +117,25 @@ func NewFakeState() *fakeState {
 	return st
 }
 
+func (st *fakeState) getCheck() func(st *fakeState) error {
+	st.checkMu.Lock()
+	check := st.check
+	st.checkMu.Unlock()
+	return check
+}
+
+func (st *fakeState) setCheck(check func(st *fakeState) error) {
+	st.checkMu.Lock()
+	st.check = check
+	st.checkMu.Unlock()
+}
+
 func (st *fakeState) checkInvariants() {
-	if st.check == nil {
+	check := st.getCheck()
+	if check == nil {
 		return
 	}
-	if err := st.check(st); err != nil {
+	if err := check(st); err != nil {
 		// Force a panic, otherwise we can deadlock
 		// when called from within the worker.
 		go panic(err)
@@ -479,21 +494,34 @@ func (session *fakeMongoSession) Set(members []replicaset.Member) error {
 }
 
 func (session *fakeMongoSession) StepDownPrimary() error {
-	logger.Debugf("StepDownPrimary")
 	if err := session.errors.errorFor("Session.StepDownPrimary"); err != nil {
+		logger.Debugf("StepDownPrimary error: %v", err)
 		return err
 	}
+	logger.Debugf("StepDownPrimary")
 	status := session.status.Get().(*replicaset.Status)
 	members := session.members.Get().([]replicaset.Member)
+	membersById := make(map[int]replicaset.Member, len(members))
+	for _, member := range members {
+		membersById[member.Id] = member
+	}
 	// We use a simple algorithm, find the primary, and all the secondaries that don't have 0 priority. And then pick a
 	// random secondary and swap their states
 	primaryIndex := -1
 	secondaryIndexes := []int{}
-	for i, member := range status.Members {
-		if member.State == replicaset.PrimaryState {
+	var info []string
+	for i, statusMember := range status.Members {
+		if statusMember.State == replicaset.PrimaryState {
 			primaryIndex = i
-		} else if member.State == replicaset.SecondaryState && (members[i].Priority == nil || *members[i].Priority > 0) {
-			secondaryIndexes = append(secondaryIndexes, i)
+			info = append(info, fmt.Sprintf("%d: current primary", statusMember.Id))
+		} else if statusMember.State == replicaset.SecondaryState {
+			confMember := membersById[statusMember.Id]
+			if confMember.Priority == nil || *confMember.Priority > 0 {
+				secondaryIndexes = append(secondaryIndexes, i)
+				info = append(info, fmt.Sprintf("%d: eligible secondary", statusMember.Id))
+			} else {
+				info = append(info, fmt.Sprintf("%d: ineligible secondary", statusMember.Id))
+			}
 		}
 	}
 	if primaryIndex == -1 {
@@ -505,6 +533,8 @@ func (session *fakeMongoSession) StepDownPrimary() error {
 	secondaryIndex := secondaryIndexes[rand.Intn(len(secondaryIndexes))]
 	status.Members[primaryIndex].State = replicaset.SecondaryState
 	status.Members[secondaryIndex].State = replicaset.PrimaryState
+	logger.Debugf("StepDownPrimary nominated %d to be the new primary from: %v",
+		status.Members[secondaryIndex].Id, info)
 	session.setStatus(status.Members)
 	return nil
 }
@@ -519,7 +549,7 @@ func prettyReplicaSetMembersSlice(members []replicaset.Member) string {
 	vrm := make(map[string]*replicaset.Member, len(members))
 	for i := range members {
 		m := members[i]
-		vrm[strconv.Itoa(i)] = &m
+		vrm[strconv.Itoa(m.Id)] = &m
 	}
 	return prettyReplicaSetMembers(vrm)
 }

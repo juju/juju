@@ -135,7 +135,13 @@ func (info *peerGroupInfo) getLogMessage() string {
 	}
 
 	template := "\n   %#v: rs_id=%d, rs_addr=%s"
-	for id, rm := range info.recognised {
+	ids := make([]string, 0, len(info.recognised))
+	for id := range info.recognised {
+		ids = append(ids, id)
+	}
+	sortAsInts(ids)
+	for _, id := range ids {
+		rm := info.recognised[id]
 		lines = append(lines, fmt.Sprintf(template, info.machines[id], rm.Id, rm.Address))
 	}
 
@@ -345,7 +351,24 @@ func (p *peerGroupChanges) reviewPeerGroupChanges() {
 		}
 	}
 	keptVoters := currVoters - len(p.toRemoveVote)
-	if (keptVoters+len(p.toAddVote))%2 == 1 {
+	if keptVoters == 0 {
+		// to keep no voters means to step down the primary without a replacement, which is not possible.
+		// So restore the current primary. Once there is another member to work with after reconfiguring, we will then
+		// be able to ask the current primary to step down, and then we can finally remove it.
+		var tempToRemove []string
+		for _, id := range p.toRemoveVote {
+			isPrimary := isPrimaryMember(p.info, id)
+			if !isPrimary {
+				tempToRemove = append(tempToRemove, id)
+			} else {
+				logger.Debugf("asked to remove all voters, preserving primary voter %q", id)
+				p.desired.stepDownPrimary = false
+			}
+		}
+		p.toRemoveVote = tempToRemove
+	}
+	newCount := keptVoters + len(p.toAddVote)
+	if (newCount)%2 == 1 {
 		logger.Debugf("number of voters is odd")
 		// if this is true we will create an odd number of voters
 		return
@@ -358,33 +381,16 @@ func (p *peerGroupChanges) reviewPeerGroupChanges() {
 	}
 	// we must remove an extra peer
 	// make sure we don't pick the primary to be removed.
-	if keptVoters == 0 {
-		// we are asking to remove all voters, a clear 'odd' number of voters
-		// to preserve is to just keep the current primary.
-		logger.Debugf("remove all voters, preserve primary voter")
-		var tempToRemove []string
-		for _, id := range p.toRemoveVote {
-			isPrimary := isPrimaryMember(p.info, id)
-			if !isPrimary {
-				tempToRemove = append(tempToRemove, id)
+	for i, id := range p.toKeepVoting {
+		if !isPrimaryMember(p.info, id) {
+			p.toRemoveVote = append(p.toRemoveVote, id)
+			logger.Debugf("removing vote from %q to maintain odd number of voters", id)
+			if i == len(p.toKeepVoting)-1 {
+				p.toKeepVoting = p.toKeepVoting[:i]
 			} else {
-				logger.Debugf("preserving primary %q as the last voter", id)
-				p.desired.stepDownPrimary = false
+				p.toKeepVoting = append(p.toKeepVoting[:i], p.toKeepVoting[i+1:]...)
 			}
-		}
-		p.toRemoveVote = tempToRemove
-	} else {
-		for i, id := range p.toKeepVoting {
-			if !isPrimaryMember(p.info, id) {
-				p.toRemoveVote = append(p.toRemoveVote, id)
-				logger.Debugf("removing vote from %q to maintain odd number of voters", id)
-				if i == len(p.toKeepVoting)-1 {
-					p.toKeepVoting = p.toKeepVoting[:i]
-				} else {
-					p.toKeepVoting = append(p.toKeepVoting[:i], p.toKeepVoting[i+1:]...)
-				}
-				break
-			}
+			break
 		}
 	}
 }
