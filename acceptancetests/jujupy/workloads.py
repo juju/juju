@@ -14,10 +14,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import print_function
-try:
-    from urllib2 import urlopen  # py2
-except ImportError:
-    from urllib.request import urlopen  # py3
+
+from urllib2 import urlopen
 from jujucharm import local_charm_path
 import logging
 import os

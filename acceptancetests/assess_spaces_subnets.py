@@ -149,7 +149,7 @@ def ipv4_in_cidr(ipv4, cidr):
     ipv4 = ipv4_to_int(ipv4)
     value, bits = cidr.split('/')
     subnet = ipv4_to_int(value)
-    mask = 0xFFFFFFFF & (0xFFFFFFFF << (32 - int(bits)))
+    mask = 0xFFFFFFFF & (0xFFFFFFFF << (32-int(bits)))
     return (ipv4 & mask) == subnet
 
 

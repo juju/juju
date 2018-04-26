@@ -1,9 +1,0 @@
--r requirements.txt
-
-# dev deps
-flake8
-autopep8
-pylint
-isort
-mock==0.7.2  # it's builtin > py3.3, install here for better compatibility
-

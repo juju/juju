@@ -76,6 +76,7 @@ from jujupy.utility import (
     temp_yaml_file,
     unqualified_model_name,
     until_timeout,
+    ensure_dir,
 )
 from jujupy.wait_condition import (
     CommandComplete,
@@ -858,7 +859,7 @@ class ModelClient:
             env = self.env.clone(env)
         model_client = self.clone(env)
         with model_client._bootstrap_config() as config_file:
-            self._add_model(env.environment, config_file, cloud_region=None)
+            self._add_model(env.environment, config_file, cloud_region=cloud_region)
         # Make sure we track this in case it needs special cleanup (i.e. using
         # an existing controller).
         self._backend.track_model(model_client)
@@ -1294,7 +1295,10 @@ class ModelClient:
         return bundle_template.format(container=cls.preferred_container())
 
     def deploy_bundle(self, bundle_template, timeout=_DEFAULT_BUNDLE_TIMEOUT, static_bundle=False):
-        """Deploy bundle using native juju 2.0 deploy command."""
+        """Deploy bundle using native juju 2.0 deploy command.
+
+        :param static_bundle: render `bundle_template` if it's not static
+        """
         if static_bundle is False:
             bundle_template = self.format_bundle(bundle_template)
         self.juju('deploy', bundle_template, timeout=timeout)
@@ -2128,8 +2132,10 @@ class ModelClient:
             raise ValueError('No target to switch to has been given.')
         self.juju('switch', (':'.join(args),), include_e=False)
 
-    def scp(self, _from, _to):
-        self.juju('scp', (_from, _to))
+
+# caas `add-k8s` did not implement parsing kube config path via flag,
+# so parse it via env var ->  https://github.com/kubernetes/client-go/blob/master/tools/clientcmd/loader.go#L44
+KUBE_CONFIG_PATH_ENV_VAR = 'KUBECONFIG'
 
 
 class CaasClient(ModelClient):
@@ -2139,30 +2145,29 @@ class CaasClient(ModelClient):
     kube_home = None
     kube_config_path = None
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
+    def __prepare(self):
+        # to pick up the new tmp juju_home, have to do this!
         self.kubectl_path = os.path.join(self.env.juju_home, 'kubectl')
         self.kube_home = os.path.join(self.env.juju_home, '.kube')
         self.kube_config_path = os.path.join(self.kube_home, 'config')
 
-    def _ensure_dir(self, path):
-        try:
-            os.makedirs(path)
-        except OSError:
-            if not os.path.isdir(path):
-                raise
-
     def cluster_up(self, bundle_path):
+        self.__prepare()
+
         self.deploy_bundle(bundle_path, static_bundle=True)
         # Wait for the deployment to finish.
         self.wait_for_started()
 
         # ensure kube home
-        self._ensure_dir(self.kube_home)
+        ensure_dir(self.kube_home)
         # ensure kube credentials
-        self.scp(_from='kubernetes-master/0:config', _to=self.kube_config_path)
+        self.juju('scp', ('kubernetes-master/0:config', self.kube_config_path))
 
+        # ensure kubectl by scp from master
+        self.juju('scp', ('kubernetes-master/0:/snap/bin/kubectl', self.kubectl_path))
+
+        # ensure kube config env var
+        os.environ[KUBE_CONFIG_PATH_ENV_VAR] = self.kube_config_path
         # ensure k8s cloud
         self.add_caas_cloud()
         log.debug('added caas cloud, now all clouds are -> \n%s', self.list_clouds())
@@ -2173,20 +2178,25 @@ class CaasClient(ModelClient):
     def add_caas_model(self, caas_model_name):
         return self.add_model(env=self.env.clone(caas_model_name), cloud_region=self.cloud_name)
 
-    def check_healthy(self):
-        cluster_info = self._kubectl_cmd('cluster-info')
-        log.info('cluster_info -> \n%s', cluster_info)
-        nodes_info = self._kubectl_cmd('get nodes -o yaml')
-        log.info('nodes_info -> \n%s', nodes_info)
+    @property
+    def is_cluster_healthy(self):
+        try:
+            cluster_info = self._kubectl_cmd('cluster-info')
+            log.debug('cluster_info -> \n%s', cluster_info)
+            nodes_info = self._kubectl_cmd('get nodes')
+            log.debug('nodes_info -> \n%s', nodes_info)
+            return True
+        except RuntimeError:
+            return False
 
     def _kubectl_cmd(self, args):
-        args = args if isinstance(args, (list, tuple)) else [args]
+        args = args if isinstance(args, list) else [args]
         args = [sub_flag for flag in args for sub_flag in flag.split(' ') if sub_flag]
-        args = (self.kubectl_path, '--kubeconfig={}'.format(self.kube_config_path)) + args
+        args = [self.kubectl_path, '--kubeconfig={}'.format(self.kube_config_path)] + args
         return self._sh(args)
 
     def _sh(self, cmd):
-        cmd = cmd if isinstance(cmd, (list, tuple)) else [cmd]
+        cmd = cmd if isinstance(cmd, list) else [cmd]
         cmd_str = ' '.join(cmd)
         log.debug('_sh: cmd -> `%s`, \n\tcmd_splitted -> %s', cmd, cmd_str)
         exitcode, data = subprocess.getstatusoutput(cmd_str)

@@ -15,15 +15,15 @@ from deploy_stack import (
     dump_env_logs,
     get_random_string,
     safe_print_status,
-)
+    )
 from jujupy import (
     client_from_config,
-)
+    )
 from utility import (
     add_basic_testing_arguments,
     ensure_dir,
     print_now,
-)
+    )
 
 
 def assess_multimodel_deploy(client, charm_series, log_dir, base_env):
@@ -78,7 +78,7 @@ def multimodel_setup(args):
             args.logs, args.keep_env,
             upload_tools=False,
             region=args.region,
-    ):
+            ):
         yield client, charm_series, base_env
 
 
@@ -107,7 +107,7 @@ def hosted_environment(system_client, log_dir, suffix):
 
 def check_services(client):
     token = env_token(client.env.environment)
-    client.set_config('dummy-source', {'token': token})
+    client.set_config('dummy-source', {'token':  token})
     print_now("checking services in " + client.env.environment)
     check_token(client, token)
 

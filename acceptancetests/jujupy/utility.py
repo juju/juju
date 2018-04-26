@@ -17,7 +17,7 @@
 from contextlib import contextmanager
 from datetime import (
     datetime,
-)
+    )
 import errno
 import os
 import logging
@@ -26,17 +26,19 @@ import socket
 import sys
 from time import (
     sleep,
-)
+    )
 from tempfile import (
     mkdtemp,
     NamedTemporaryFile,
-)
+    )
 # Export shell quoting function which has moved in newer python versions
 try:
     from shlex import quote
 except ImportError:
-    from pipes import quote  # noqa
+    from pipes import quote
 import yaml
+
+quote
 
 
 log = logging.getLogger("jujupy.utility")
@@ -65,7 +67,6 @@ class until_timeout:
 
     :ivar timeout: Number of seconds to wait.
     """
-
     def __init__(self, timeout, start=None):
         self.timeout = timeout
         if start is None:

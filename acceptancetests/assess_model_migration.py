@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from distutils.version import (
     LooseVersion,
     StrictVersion
-)
+    )
 import logging
 import os
 from subprocess import CalledProcessError
@@ -20,7 +20,7 @@ from assess_user_grant_revoke import User
 from deploy_stack import (
     BootstrapManager,
     get_random_string
-)
+    )
 from jujupy.client import (
     get_stripped_version_number,
 )
@@ -32,7 +32,7 @@ from jujupy.workloads import (
     assert_deployed_charm_is_responding,
     deploy_dummy_source_to_new_model,
     deploy_simple_server_to_new_model,
-)
+    )
 from remote import remote_from_address
 from utility import (
     JujuAssertionError,
@@ -41,7 +41,7 @@ from utility import (
     qualified_model_name,
     temp_dir,
     until_timeout,
-)
+    )
 
 
 __metaclass__ = type
@@ -92,7 +92,7 @@ def assess_user_permission_model_migrations(source_client, dest_client):
 def assess_development_branch_migrations(source_client, dest_client):
     with temp_dir() as temp:
         ensure_superuser_can_migrate_other_user_models(
-            source_client, dest_client, temp)
+                source_client, dest_client, temp)
     ensure_migration_rolls_back_on_failure(source_client, dest_client)
     ensure_api_login_redirects(source_client, dest_client)
 

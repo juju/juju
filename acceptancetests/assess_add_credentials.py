@@ -13,13 +13,13 @@ import shutil
 
 from deploy_stack import (
     BootstrapManager,
-)
+    )
 from utility import (
     configure_logging,
     add_basic_testing_arguments,
     JujuAssertionError,
     temp_dir,
-)
+    )
 
 __metaclass__ = type
 
@@ -76,7 +76,7 @@ def verify_add_credentials(args, env, cred):
         'maas': add_maas,
         'joyent': add_joyent,
         'azure': add_azure
-    }
+        }
 
     log.info("Adding {} credential from /cloud-city/credentials.yaml "
              "into testing instance".format(args.env))
@@ -137,7 +137,7 @@ def end_session(session):
         log.error('Buffer: {}'.format(session.buffer))
         log.error('Before: {}'.format(session.before))
         raise Exception('pexpect process exited with {}'.format(
-            session.exitstatus))
+                session.exitstatus))
 
 
 def add_aws(child, env, cred):

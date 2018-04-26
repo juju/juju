@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 """ Test caas k8s cluster bootstrap
+
+    Spining up k8s cluster and asserting the cluster is `healthy`
 """
 
 from __future__ import print_function
@@ -15,6 +17,7 @@ from deploy_stack import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    JujuAssertionError,
 )
 
 from jujucharm import (
@@ -30,14 +33,16 @@ log = logging.getLogger("assess_caas_bootstrap")
 
 def assess_caas_bootstrap(client):
     # Deploy k8s bundle to spin up k8s cluster
-    bundle = local_charm_path(charm='bundles-kubernetes-core-lxd.yaml',
-                              repository=os.environ['JUJU_REPOSITORY'], juju_ver=client.version)
+    bundle = local_charm_path(
+        charm='bundles-kubernetes-core-lxd.yaml',
+        repository=os.environ['JUJU_REPOSITORY'],
+        juju_ver=client.version
+    )
     client.cluster_up(bundle)
 
     k8s_model = client.add_caas_model('testcaas')  # noqa
-    client.check_healthy()
-
-    # TODO: deploy charms
+    if not client.is_cluster_healthy:
+        raise JujuAssertionError('k8s cluster is not healthy coz kubectl is not accessible')
 
 
 def parse_args(argv):

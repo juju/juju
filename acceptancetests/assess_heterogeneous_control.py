@@ -14,12 +14,12 @@ from jujupy import (
     client_from_config,
     fake_juju_client,
     JujuData,
-)
+    )
 from deploy_stack import (
     BootstrapManager,
     check_token,
     get_random_string,
-)
+    )
 from jujuci import add_credential_args
 from utility import (
     configure_logging,
@@ -207,7 +207,7 @@ def wait_until_removed(client, agent_id):
         raise AssertionError('Machine not destroyed: {}.'.format(agent_id))
 
 
-def check_series(client, machine='0', series=None):
+def check_series(client,  machine='0', series=None):
     """Use 'juju ssh' to check that the deployed series meets expectations."""
     result = client.get_juju_output('ssh', machine, 'lsb_release', '-c')
     label, codename = result.rstrip().split('\t')
