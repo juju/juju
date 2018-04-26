@@ -1,12 +1,14 @@
 mkfile_dir := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 p=test*.py
 py3="assess_model_change_watcher.py"
+
+# ""-W ignore::DeprecationWarning" should be removed once moved to py3 only.
 test:
-	TMPDIR=/tmp python -m unittest discover -vv . -p "$(p)"
-	TMPDIR=/tmp python3 -m unittest discover -vv jujupy -t . -p "$(p)"
+	TMPDIR=/tmp python -m unittest discover . -p "$(p)"
+	TMPDIR=/tmp python3 -W ignore::DeprecationWarning -m unittest discover jujupy -t . -p "$(p)"
 lint:
-	python3 -m flake8 --builtins xrange,basestring $(py3) --exclude=repository
-	flake8 --builtins xrange,basestring --exclude=$(py3),repository
+	python3 -m flake8 --builtins xrange,basestring $(py3) --exclude=repository $(mkfile_dir)
+	flake8 --builtins xrange,basestring --exclude=$(py3),repository $(mkfile_dir)
 cover:
 	python -m coverage run --source="./" --omit "./tests/*" -m unittest discover -vv ./tests
 	python -m coverage report

@@ -17,8 +17,16 @@
 
 from __future__ import print_function
 
-import BaseHTTPServer
-import SimpleHTTPServer
+try:
+    from BaseHTTPServer import HTTPServer
+except ImportError:
+    from http.server import HTTPServer
+
+try:
+    from SimpleHTTPServer import SimpleHTTPRequestHandler
+except ImportError:
+    from http.server import SimpleHTTPRequestHandler
+
 from datetime import datetime
 import multiprocessing
 import hashlib
@@ -274,7 +282,7 @@ def _get_server_address(httpd_server):
         s.close()
 
 
-class _QuietHttpRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+class _QuietHttpRequestHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, format, *args):
         # Lessen the output
@@ -286,7 +294,7 @@ class _QuietHttpRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
 def _create_stream_server():
     server_details = ("", 0)
-    httpd = BaseHTTPServer.HTTPServer(server_details, _QuietHttpRequestHandler)
+    httpd = HTTPServer(server_details, _QuietHttpRequestHandler)
     return httpd
 
 

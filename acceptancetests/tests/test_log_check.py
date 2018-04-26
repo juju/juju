@@ -12,14 +12,16 @@ class TestCheckFile(TestCase):
     regex = 'test123'
     file_path = '/tmp/file.log'
 
-    def test_calls_check_call(self):
+    @patch('sys.stdout')
+    def test_calls_check_call(self, _):
         with patch.object(lc.subprocess, 'check_call') as m_checkcall:
             lc.check_file(self.regex, self.file_path)
 
             m_checkcall.assert_called_once_with(
                 ['sudo', 'egrep', self.regex, self.file_path])
 
-    def test_fails_after_attempting_multiple_times(self):
+    @patch('sys.stdout')
+    def test_fails_after_attempting_multiple_times(self, _):
         with patch.object(lc.subprocess, 'check_call') as m_checkcall:
             m_checkcall.side_effect = subprocess.CalledProcessError(
                 1, ['sudo', 'egrep', self.regex, self.file_path])
@@ -29,7 +31,8 @@ class TestCheckFile(TestCase):
                     lc.check_result.failure)
                 self.assertEqual(m_sleep.call_count, 10)
 
-    def test_fails_when_meeting_unexpected_outcome(self):
+    @patch('sys.stdout')
+    def test_fails_when_meeting_unexpected_outcome(self, _):
         with patch.object(lc.subprocess, 'check_call') as m_checkcall:
             m_checkcall.side_effect = subprocess.CalledProcessError(
                 -1, ['sudo', 'egrep', self.regex, self.file_path])
@@ -37,7 +40,8 @@ class TestCheckFile(TestCase):
                 lc.check_file(self.regex, self.file_path),
                 lc.check_result.exception)
 
-    def test_succeeds_when_regex_found(self):
+    @patch('sys.stdout')
+    def test_succeeds_when_regex_found(self, _):
         with patch.object(lc.subprocess, 'check_call'):
             self.assertEqual(
                 lc.check_file(self.regex, self.file_path),

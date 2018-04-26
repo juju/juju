@@ -125,7 +125,7 @@ def upgrade_release(client, unit_num, from_series, to_series, reboot):
     cmd = build_ssh_cmd(
             client, unit, 'sudo juju-updateseries --to-series '
             '{} --from-series {} --start-agents'.format(
-            to_series, from_series))
+                to_series, from_series))
     try:
         output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
@@ -141,7 +141,7 @@ def upgrade_release(client, unit_num, from_series, to_series, reboot):
                             not in e.output:
                 raise JujuAssertionError(
                     "error running juju-updateseries on {}: {}".format(
-                    unit, e))
+                        unit, e))
         else:
             log.critical("test failure: reboot no longer before or after")
             raise
@@ -318,7 +318,7 @@ def update_application_series_verify(client, series):
 
     try:
         lsb_release = client.run(["lsb_release -c"], units=[unit])
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError:
         log.warning("Could not get series of {} from machine".format(unit))
 
     if series not in lsb_release[0]['Stdout']:

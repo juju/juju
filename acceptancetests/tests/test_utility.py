@@ -10,9 +10,7 @@ import json
 import logging
 import os
 import socket
-from tempfile import mkdtemp
 from time import time
-import warnings
 
 from mock import (
     call,
@@ -319,53 +317,28 @@ class TestAddBasicTestingArguments(TestCase):
         self.assertEqual(args.juju_bin, 'c:\\juju.exe')
 
     def test_warns_on_dirty_logs(self):
-        with warnings.catch_warnings(record=True) as warned:
-            with temp_dir() as log_dir:
-                open(os.path.join(log_dir, "existing.log"), "w").close()
-                cmd_line = ['lxd', '/a/juju', log_dir, 'testtest']
-                parser = add_basic_testing_arguments(ArgumentParser())
-                parser.parse_args(cmd_line)
-            self.assertEqual(len(warned), 1)
-            self.assertRegexpMatches(
-                str(warned[0].message),
-                r"^Directory '.*' has existing contents.$")
-        self.assertEqual("", self.log_stream.getvalue())
+        with temp_dir() as log_dir:
+            open(os.path.join(log_dir, "existing.log"), "w").close()
+            cmd_line = ['lxd', '/a/juju', log_dir, 'testtest']
+            parser = add_basic_testing_arguments(ArgumentParser())
+            parser.parse_args(cmd_line)
+        self.assertIn('has existing contents', self.log_stream.getvalue())
 
     def test_no_warn_on_empty_logs(self):
         """Special case a file named 'empty' doesn't make log dir dirty"""
-        with warnings.catch_warnings(record=True) as warned:
-            with temp_dir() as log_dir:
-                open(os.path.join(log_dir, "empty"), "w").close()
-                cmd_line = ['lxd', '/a/juju', log_dir, 'testtest']
-                parser = add_basic_testing_arguments(ArgumentParser())
-                parser.parse_args(cmd_line)
-            self.assertEqual(warned, [])
-        self.assertEqual("", self.log_stream.getvalue())
-
-    def test_no_warn_on_help(self):
-        """Special case help should not generate a warning"""
-        with warnings.catch_warnings(record=True) as warned:
-            with patch('utility.sys.exit'):
-                parser = add_basic_testing_arguments(ArgumentParser())
-                cmd_line = ['-h']
-                parser.parse_args(cmd_line)
-                cmd_line = ['--help']
-                parser.parse_args(cmd_line)
-
-            self.assertEqual(warned, [])
-
-    def test_warn_on_nonexistent_directory_creation(self):
-        with warnings.catch_warnings(record=True) as warned:
-            log_dir = mkdtemp()
-            os.rmdir(log_dir)
-            cmd_line = ['lxd', '/foo/juju', log_dir, 'testtest']
+        with temp_dir() as log_dir:
+            open(os.path.join(log_dir, "empty"), "w").close()
+            cmd_line = ['lxd', '/a/juju', log_dir, 'testtest']
             parser = add_basic_testing_arguments(ArgumentParser())
             parser.parse_args(cmd_line)
-            self.assertEqual(len(warned), 1)
-            self.assertRegexpMatches(
-                str(warned[0].message),
-                r"Not a directory " + log_dir)
-            self.assertEqual("", self.log_stream.getvalue())
+        self.assertEqual("", self.log_stream.getvalue())
+
+    def test_warn_on_nonexistent_directory_creation(self):
+        log_dir = '/x/y/nothing'
+        cmd_line = ['lxd', '/foo/juju', log_dir, 'testtest']
+        parser = add_basic_testing_arguments(ArgumentParser())
+        parser.parse_args(cmd_line)
+        self.assertIn('Not a directory', self.log_stream.getvalue())
 
     def test_debug(self):
         cmd_line = ['lxd', '/foo/juju', '/tmp/logs', 'testtest', '--debug']

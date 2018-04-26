@@ -26,7 +26,7 @@ from jujupy.exceptions import (
 from jujupy.status import (
     Status,
     )
-from utility import (
+from jujupy.utility import (
     until_timeout,
     )
 
