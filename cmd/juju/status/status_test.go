@@ -2774,7 +2774,7 @@ var statusTests = []testCase{
 					"0": machine0,
 				},
 				"applications": M{},
-				"status-time": "01 Apr 15 01:23+10:00",
+				"status-time":  "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -3716,6 +3716,14 @@ func substituteFakeTime(c *gc.C, key string, in []byte, expectIsoTime bool) []by
 	return []byte(out)
 }
 
+// popStatusTime removes the status time date string from the end of a output
+// block.
+func popStatusTime(c *gc.C, str string) (string, string) {
+	lines := strings.Split(str, "\n")
+	c.Assert(len(lines), jc.GreaterThan, 1)
+	return lines[len(lines)-2], strings.Join(lines[:len(lines)-2], "\n")
+}
+
 func (e scopedExpect) step(c *gc.C, ctx *context) {
 	c.Logf("\nexpect: %s %s\n", e.what, strings.Join(e.scope, " "))
 
@@ -3843,7 +3851,7 @@ Status Time`[1:]
 	c.Check(code, gc.Equals, 0)
 	c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
 
-	_, output := s.popStatusTime(string(stdout))
+	_, output := popStatusTime(c, string(stdout))
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -3872,7 +3880,7 @@ Status Time`[1:]
 	c.Check(code, gc.Equals, 0)
 	c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
 
-	_, output := s.popStatusTime(string(stdout))
+	_, output := popStatusTime(c, string(stdout))
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -4178,7 +4186,7 @@ Status Time`[1:]
 	// we have to pop the status time as there is no way to reliably know what
 	// the time is 100% of the time. To prevent failing tests, we pop the time
 	// and parse it against a time layout, to make sure it's valid.
-	strStatusTime, output := s.popStatusTime(string(stdout))
+	strStatusTime, output := popStatusTime(c, string(stdout))
 	c.Assert(output, gc.Equals, expected)
 
 	statusTime, err := time.Parse("02 Jan 2006 15:04:05Z07:00", strStatusTime)
@@ -4755,15 +4763,6 @@ func (s *StatusSuite) TestSummaryStatusWithUnresolvableDns(c *gc.C) {
 	formatter := &summaryFormatter{}
 	formatter.resolveAndTrackIp("invalidDns")
 	// Test should not panic.
-}
-
-// popStatusTime removes the status time date string from the end of a block.
-func (s *StatusSuite) popStatusTime(str string) (string, string) {
-	lines := strings.Split(str, "\n")
-	if len(lines) < 1 {
-		return "", ""
-	}
-	return lines[len(lines)-2], strings.Join(lines[:len(lines)-2], "\n")
 }
 
 func initStatusCommand(args ...string) (*statusCommand, error) {
