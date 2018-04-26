@@ -24,7 +24,7 @@ type modelconfigSuite struct {
 	gitjujutesting.IsolationSuite
 	backend    *mockBackend
 	authorizer apiservertesting.FakeAuthorizer
-	api        *modelconfig.ModelConfigAPI
+	api        *modelconfig.ModelConfigAPIV2
 }
 
 var _ = gc.Suite(&modelconfigSuite{})
