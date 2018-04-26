@@ -37,7 +37,7 @@ var (
 	ContainerManagerConfig   = containerManagerConfig
 	GetContainerInitialiser  = &getContainerInitialiser
 	GetToolsFinder           = &getToolsFinder
-	ResolvConf               = &resolvConf
+	ResolvConfFiles          = &resolvConfFiles
 	RetryStrategyDelay       = &retryStrategyDelay
 	RetryStrategyCount       = &retryStrategyCount
 	GetObservedNetworkConfig = &getObservedNetworkConfig
