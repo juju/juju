@@ -640,7 +640,15 @@ func prettyReplicaSetMembers(members map[string]*replicaset.Member) string {
 	sort.Strings(keys)
 	for _, key := range keys {
 		m := members[key]
-		result = append(result, fmt.Sprintf("    Id: %d, Tags: %v, Vote: %v", m.Id, m.Tags, isVotingMember(m)))
+		voting := "not-voting"
+		if isVotingMember(m) {
+			voting = "voting"
+		}
+		priority := "<nil>"
+		if m.Priority != nil {
+			priority = fmt.Sprintf("%f", *m.Priority)
+		}
+		result = append(result, fmt.Sprintf("    Id: %d, Tags: %v, %s, Priority: %v", m.Id, m.Tags, voting, priority))
 	}
 	return strings.Join(result, "\n")
 }
