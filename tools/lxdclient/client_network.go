@@ -81,7 +81,7 @@ func CreateDefaultBridgeInDefaultProfile(client creator) error {
 				"ipv6.nat":     "false",
 			}},
 		}
-		return client.CreateNetwork(req)
+		err := client.CreateNetwork(req)
 		if err != nil {
 			return err
 		}
