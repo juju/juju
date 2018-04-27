@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -37,6 +38,7 @@ func (suite *PluginSuite) SetUpTest(c *gc.C) {
 	suite.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	suite.oldPath = os.Getenv("PATH")
 	os.Setenv("PATH", "/bin:"+gitjujutesting.HomePath())
+	jujuclienttesting.SetupMinimalFileStore(c)
 }
 
 func (suite *PluginSuite) TearDownTest(c *gc.C) {

@@ -15,11 +15,13 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -56,7 +58,9 @@ var validateInitImageErrorTests = []struct {
 func (s *ValidateImageMetadataSuite) TestInitErrors(c *gc.C) {
 	for i, t := range validateInitImageErrorTests {
 		c.Logf("test %d", i)
-		err := cmdtesting.InitCommand(newValidateImageMetadataCommand(), t.args)
+		cmd := &validateImageMetadataCommand{}
+		cmd.SetClientStore(jujuclienttesting.MinimalStore())
+		err := cmdtesting.InitCommand(modelcmd.Wrap(cmd), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
@@ -106,9 +110,28 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclient.MemStore) {
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		CACert:         coretesting.CACert,
 	}
+	store.Controllers["ec2-controller-lts"] = jujuclient.ControllerDetails{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		CACert:         coretesting.CACert,
+	}
+	store.Models["ec2-controller"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{
+			"admin/ec2": {
+				ModelType: model.IAAS,
+			},
+			"admin/ec2-latest-lts": {
+				ModelType: model.IAAS,
+			},
+		},
+		CurrentModel: "admin/controller",
+	}
 	store.Accounts["ec2-controller"] = jujuclient.AccountDetails{
 		User: "admin",
 	}
+	store.Accounts["ec2-controller-lts"] = jujuclient.AccountDetails{
+		User: "admin",
+	}
+
 	store.BootstrapConfig["ec2-controller"] = jujuclient.BootstrapConfig{
 		ControllerConfig:    coretesting.FakeControllerConfig(),
 		ControllerModelUUID: ec2UUID,
@@ -131,6 +154,14 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclient.MemStore) {
 	store.Controllers["azure-controller"] = jujuclient.ControllerDetails{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		CACert:         coretesting.CACert,
+	}
+	store.Models["azure-controller"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{
+			"admin/azure": {
+				ModelType: model.IAAS,
+			},
+		},
+		CurrentModel: "admin/controller",
 	}
 	store.Accounts["azure-controller"] = jujuclient.AccountDetails{
 		User: "admin",
@@ -164,7 +195,7 @@ func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
 
-	s.store = jujuclient.NewMemStore()
+	s.store = jujuclienttesting.MinimalStore()
 	cacheTestEnvConfig(c, s.store)
 
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")

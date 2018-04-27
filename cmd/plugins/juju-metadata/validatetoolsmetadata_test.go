@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -99,7 +100,7 @@ func (s *ValidateToolsMetadataSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
 
-	s.store = jujuclient.NewMemStore()
+	s.store = jujuclienttesting.MinimalStore()
 	cacheTestEnvConfig(c, s.store)
 
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")

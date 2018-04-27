@@ -5,6 +5,7 @@ package block
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/juju/jujuclient"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -12,22 +13,26 @@ import (
 
 // NewDisableCommandForTest returns a new disable command with the
 // apiFunc specified to return the args.
-func NewDisableCommandForTest(api blockClientAPI, err error) cmd.Command {
-	return modelcmd.Wrap(&disableCommand{
+func NewDisableCommandForTest(store jujuclient.ClientStore, api blockClientAPI, err error) cmd.Command {
+	cmd := &disableCommand{
 		apiFunc: func(_ newAPIRoot) (blockClientAPI, error) {
 			return api, err
 		},
-	})
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
 }
 
 // NewEnableCommandForTest returns a new enable command with the
 // apiFunc specified to return the args.
-func NewEnableCommandForTest(api unblockClientAPI, err error) cmd.Command {
-	return modelcmd.Wrap(&enableCommand{
+func NewEnableCommandForTest(store jujuclient.ClientStore, api unblockClientAPI, err error) cmd.Command {
+	cmd := &enableCommand{
 		apiFunc: func(_ newAPIRoot) (unblockClientAPI, error) {
 			return api, err
 		},
-	})
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
 }
 
 type listMockAPI interface {
@@ -38,13 +43,15 @@ type listMockAPI interface {
 
 // NewListCommandForTest returns a new list command with the
 // apiFunc specified to return the args.
-func NewListCommandForTest(api listMockAPI, err error) cmd.Command {
-	return modelcmd.Wrap(&listCommand{
+func NewListCommandForTest(store jujuclient.ClientStore, api listMockAPI, err error) cmd.Command {
+	cmd := &listCommand{
 		apiFunc: func(_ newAPIRoot) (blockListAPI, error) {
 			return api, err
 		},
 		controllerAPIFunc: func(_ newControllerAPIRoot) (controllerListAPI, error) {
 			return api, err
 		},
-	})
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
 }

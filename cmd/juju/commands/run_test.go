@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -33,7 +34,7 @@ type RunSuite struct {
 var _ = gc.Suite(&RunSuite{})
 
 func newTestRunCommand(clock clock.Clock) cmd.Command {
-	return newRunCommand(clock.After)
+	return newRunCommand(jujuclienttesting.MinimalStore(), clock.After)
 }
 
 func (*RunSuite) TestTargetArgParsing(c *gc.C) {
@@ -141,6 +142,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		cmd := &runCommand{}
+		cmd.SetClientStore(jujuclienttesting.MinimalStore())
 		runCmd := modelcmd.Wrap(cmd)
 		cmdtesting.TestInit(c, runCmd, test.args, test.errMatch)
 		if test.errMatch == "" {
@@ -178,6 +180,7 @@ func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		cmd := &runCommand{}
+		cmd.SetClientStore(jujuclienttesting.MinimalStore())
 		runCmd := modelcmd.Wrap(cmd)
 		cmdtesting.TestInit(c, runCmd, test.args, test.errMatch)
 		if test.errMatch == "" {

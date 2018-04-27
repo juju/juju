@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/jujuclient"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -62,11 +63,13 @@ Examples:
 See also: 
     sync-agent-binaries`
 
-func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number, options ...modelcmd.WrapOption) cmd.Command {
+func newUpgradeJujuCommand(store jujuclient.ClientStore, minUpgradeVers map[int]version.Number, options ...modelcmd.WrapOption) cmd.Command {
 	if minUpgradeVers == nil {
 		minUpgradeVers = minMajorUpgradeVersion
 	}
-	return modelcmd.Wrap(&upgradeJujuCommand{minMajorUpgradeVersion: minUpgradeVers}, options...)
+	cmd := &upgradeJujuCommand{minMajorUpgradeVersion: minUpgradeVers}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd, options...)
 }
 
 // upgradeJujuCommand upgrades the agents in a juju installation.

@@ -23,14 +23,6 @@ func NewRemoveStorageCommandWithAPI() cmd.Command {
 	return modelcmd.Wrap(cmd)
 }
 
-// NewRemoveStorageCommand returns a command
-// used to remove storage from the model.
-func NewRemoveStorageCommand(new NewStorageRemoverCloserFunc) cmd.Command {
-	cmd := &removeStorageCommand{}
-	cmd.newStorageRemoverCloser = new
-	return modelcmd.Wrap(cmd)
-}
-
 const (
 	removeStorageCommandDoc = `
 Removes storage from the model. Specify one or more

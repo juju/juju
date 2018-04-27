@@ -14,6 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type addImageSuite struct {
@@ -132,7 +134,9 @@ func (s *addImageSuite) assertValidAddImageMetadata(c *gc.C, m params.CloudImage
 }
 
 func runAddImageMetadata(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, newAddImageMetadataCommand(), args...)
+	cmd := &addImageMetadataCommand{}
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
+	return cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
 }
 
 func (s *addImageSuite) assertAddImageMetadataErr(c *gc.C, m params.CloudImageMetadata, msg string) {
