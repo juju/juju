@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 func NewListRulesCommandForTest(
@@ -17,6 +18,7 @@ func NewListRulesCommandForTest(
 			return api, nil
 		},
 	}
+	aCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(aCmd)
 }
 
@@ -28,5 +30,6 @@ func NewSetRulesCommandForTest(
 			return api, nil
 		},
 	}
+	aCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(aCmd)
 }

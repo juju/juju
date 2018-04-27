@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 const deleteTestId = "tst12345"
@@ -61,6 +62,7 @@ func (s *deleteImageSuite) TestDeleteImageMetadataFailed(c *gc.C) {
 
 func (s *deleteImageSuite) runDeleteImageMetadata(c *gc.C, args ...string) error {
 	tstDelete := &deleteImageMetadataCommand{}
+	tstDelete.SetClientStore(jujuclienttesting.MinimalStore())
 	tstDelete.newAPIFunc = func() (MetadataDeleteAPI, error) {
 		return s.mockAPI, nil
 	}

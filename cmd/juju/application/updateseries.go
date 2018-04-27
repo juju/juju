@@ -40,6 +40,7 @@ type updateMachineSeriesAPI interface {
 // updateSeriesCommand is responsible for updating the series of an application or machine.
 type updateSeriesCommand struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 
 	updateApplicationSeriesClient updateApplicationSeriesAPI
 	updateMachineSeriesClient     updateMachineSeriesAPI

@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -77,7 +77,7 @@ func (s *CmdSuite) TestDeployCommandInit(c *gc.C) {
 	for i, t := range deployTests {
 		c.Logf("\ntest %d: %s", i, t.about)
 		wrappedDeployCmd := NewDeployCommandForTest(nil, nil)
-		wrappedDeployCmd.SetClientStore(jujuclient.NewMemStore())
+		wrappedDeployCmd.SetClientStore(jujuclienttesting.MinimalStore())
 		err := cmdtesting.InitCommand(wrappedDeployCmd, t.args)
 		if t.expectError != "" {
 			c.Assert(err, gc.ErrorMatches, t.expectError)
@@ -100,7 +100,7 @@ func (s *CmdSuite) TestDeployCommandInit(c *gc.C) {
 
 func (*CmdSuite) TestExposeCommandInitWithMissingArgs(c *gc.C) {
 	cmd := NewExposeCommand()
-	cmd.SetClientStore(NewMockStore())
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	err := cmdtesting.InitCommand(cmd, nil)
 	c.Assert(err, gc.ErrorMatches, "no application name specified")
 
@@ -109,34 +109,21 @@ func (*CmdSuite) TestExposeCommandInitWithMissingArgs(c *gc.C) {
 
 func (*CmdSuite) TestUnexposeCommandInitWithMissingArgs(c *gc.C) {
 	cmd := NewUnexposeCommand()
-	cmd.SetClientStore(NewMockStore())
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	err := cmdtesting.InitCommand(cmd, nil)
 	c.Assert(err, gc.ErrorMatches, "no application name specified")
 }
 
 func (*CmdSuite) TestRemoveUnitCommandInitMissingArgs(c *gc.C) {
 	cmd := NewRemoveUnitCommand()
-	cmd.SetClientStore(NewMockStore())
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	err := cmdtesting.InitCommand(cmd, nil)
 	c.Assert(err, gc.ErrorMatches, "no units specified")
 }
 
 func (*CmdSuite) TestRemoveUnitCommandInitInvalidUnit(c *gc.C) {
 	cmd := NewRemoveUnitCommand()
-	cmd.SetClientStore(NewMockStore())
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	err := cmdtesting.InitCommand(cmd, []string{"seven/nine"})
 	c.Assert(err, gc.ErrorMatches, `invalid unit name "seven/nine"`)
-}
-
-func NewMockStore() *jujuclient.MemStore {
-	store := jujuclient.NewMemStore()
-	store.CurrentControllerName = "foo"
-	store.Controllers["foo"] = jujuclient.ControllerDetails{
-		APIEndpoints: []string{"0.1.2.3:1234"},
-	}
-	store.Models["foo"] = &jujuclient.ControllerModels{
-		CurrentModel: "admin/bar",
-		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {}},
-	}
-	return store
 }

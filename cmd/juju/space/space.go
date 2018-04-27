@@ -58,6 +58,7 @@ var logger = loggo.GetLogger("juju.cmd.juju.space")
 // subcommands.
 type SpaceCommandBase struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	api SpaceAPI
 }
 

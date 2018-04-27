@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -107,6 +108,7 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 	} {
 		c.Logf("test %v", i)
 		command := &debugLogCommand{}
+		command.SetClientStore(jujuclienttesting.MinimalStore())
 		err := cmdtesting.InitCommand(modelcmd.Wrap(command), test.args)
 		if test.errMatch == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -122,7 +124,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 	s.PatchValue(&getDebugLogAPI, func(_ *debugLogCommand) (DebugLogAPI, error) {
 		return fake, nil
 	})
-	_, err := cmdtesting.RunCommand(c, newDebugLogCommand(),
+	_, err := cmdtesting.RunCommand(c, newDebugLogCommand(jujuclienttesting.MinimalStore()),
 		"-i", "machine-1*", "-x", "machine-1-lxd-1",
 		"--include-module=juju.provisioner",
 		"--lines=500",
@@ -158,7 +160,7 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 	checkOutput := func(args ...string) {
 		count := len(args)
 		args, expected := args[:count-1], args[count-1]
-		ctx, err := cmdtesting.RunCommand(c, newDebugLogCommandTZ(tz), args...)
+		ctx, err := cmdtesting.RunCommand(c, newDebugLogCommandTZ(jujuclienttesting.MinimalStore(), tz), args...)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(cmdtesting.Stdout(ctx), gc.Equals, expected)
 

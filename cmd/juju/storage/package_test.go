@@ -42,6 +42,12 @@ func (s *SubStorageSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
+	s.store.Models["testing"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{
+			"admin/controller": {},
+		},
+		CurrentModel: "admin/controller",
+	}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
 		User: "admin",
 	}

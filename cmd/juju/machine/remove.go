@@ -23,7 +23,7 @@ func NewRemoveCommand() cmd.Command {
 
 // removeCommand causes an existing machine to be destroyed.
 type removeCommand struct {
-	modelcmd.ModelCommandBase
+	baseMachinesCommand
 	apiRoot      api.Connection
 	machineAPI   RemoveMachineAPI
 	MachineIds   []string

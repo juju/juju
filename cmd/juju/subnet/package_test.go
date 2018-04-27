@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -85,9 +85,7 @@ func (s *BaseSubnetSuite) RunCommand(c *gc.C, args ...string) (string, string, e
 
 func (s *BaseSubnetSuite) newCommandForTest() modelcmd.ModelCommand {
 	cmd := s.newCommand()
-	// The client store shouldn't be used, but mock it
-	// out to make sure.
-	cmd.SetClientStore(jujuclient.NewMemStore())
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	cmd1 := modelcmd.InnerCommand(cmd).(interface {
 		SetAPI(subnet.SubnetAPI)
 	})

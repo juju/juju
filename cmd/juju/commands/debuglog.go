@@ -13,6 +13,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/loggo"
 	"github.com/juju/loggo/loggocolor"
 	"github.com/mattn/go-isatty"
@@ -105,12 +106,14 @@ func (c *debugLogCommand) Info() *cmd.Info {
 	}
 }
 
-func newDebugLogCommand() cmd.Command {
-	return newDebugLogCommandTZ(time.Local)
+func newDebugLogCommand(store jujuclient.ClientStore) cmd.Command {
+	return newDebugLogCommandTZ(store, time.Local)
 }
 
-func newDebugLogCommandTZ(tz *time.Location) cmd.Command {
-	return modelcmd.Wrap(&debugLogCommand{tz: tz})
+func newDebugLogCommandTZ(store jujuclient.ClientStore, tz *time.Location) cmd.Command {
+	cmd := &debugLogCommand{tz: tz}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
 }
 
 type debugLogCommand struct {

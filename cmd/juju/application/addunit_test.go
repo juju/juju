@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -107,13 +108,13 @@ var initAddUnitErrorTests = []struct {
 func (s *AddUnitSuite) TestInitErrors(c *gc.C) {
 	for i, t := range initAddUnitErrorTests {
 		c.Logf("test %d", i)
-		err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake), t.args)
+		err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, jujuclienttesting.MinimalStore()), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
 func (s *AddUnitSuite) runAddUnit(c *gc.C, args ...string) error {
-	_, err := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(s.fake), args...)
+	_, err := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(s.fake, jujuclienttesting.MinimalStore()), args...)
 	return err
 }
 
@@ -176,7 +177,8 @@ func (s *AddUnitSuite) TestUnauthorizedMentionsJujuGrant(c *gc.C) {
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	}
-	ctx, _ := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(s.fake), "some-application-name")
+	ctx, _ := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(
+		s.fake, jujuclienttesting.MinimalStore()), "some-application-name")
 	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
 	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }

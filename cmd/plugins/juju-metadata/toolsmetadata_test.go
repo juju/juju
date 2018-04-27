@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -118,11 +119,17 @@ var expectedOutputDirectoryTemplate = expectedOutputCommon + `
 .*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
 `
 
+func newToolsMetadataCommandForTest() cmd.Command {
+	cmd := &toolsMetadataCommand{}
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
+	return modelcmd.Wrap(cmd)
+}
+
 func (s *ToolsMetadataSuite) TestGenerateToDirectory(c *gc.C) {
 	metadataDir := c.MkDir()
 	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir})
+	code := cmd.Main(newToolsMetadataCommandForTest(), ctx, []string{"-d", metadataDir})
 	c.Check(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 
@@ -147,7 +154,7 @@ func (s *ToolsMetadataSuite) TestGenerateStream(c *gc.C) {
 	metadataDir := c.MkDir()
 	toolstesting.MakeTools(c, metadataDir, "proposed", versionStrings)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir, "--stream", "proposed"})
+	code := cmd.Main(newToolsMetadataCommandForTest(), ctx, []string{"-d", metadataDir, "--stream", "proposed"})
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(output, gc.Matches, makeExpectedOutput(expectedOutputDirectoryTemplate, "proposed", "proposed"))
@@ -167,9 +174,9 @@ func (s *ToolsMetadataSuite) TestGenerateMultipleStreams(c *gc.C) {
 	toolstesting.MakeTools(c, metadataDir, "released", currentVersionStrings)
 
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir, "--stream", "proposed"})
+	code := cmd.Main(newToolsMetadataCommandForTest(), ctx, []string{"-d", metadataDir, "--stream", "proposed"})
 	c.Assert(code, gc.Equals, 0)
-	code = cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir, "--stream", "released"})
+	code = cmd.Main(newToolsMetadataCommandForTest(), ctx, []string{"-d", metadataDir, "--stream", "released"})
 	c.Assert(code, gc.Equals, 0)
 
 	metadata := toolstesting.ParseMetadataFromDir(c, metadataDir, "proposed", false)
@@ -207,9 +214,9 @@ func (s *ToolsMetadataSuite) TestGenerateDeleteExisting(c *gc.C) {
 	toolstesting.MakeTools(c, metadataDir, "released", currentVersionStrings)
 
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir, "--stream", "proposed"})
+	code := cmd.Main(newToolsMetadataCommandForTest(), ctx, []string{"-d", metadataDir, "--stream", "proposed"})
 	c.Assert(code, gc.Equals, 0)
-	code = cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir, "--stream", "released"})
+	code = cmd.Main(newToolsMetadataCommandForTest(), ctx, []string{"-d", metadataDir, "--stream", "released"})
 	c.Assert(code, gc.Equals, 0)
 
 	// Remove existing proposed tarballs, and create some different ones.
@@ -218,7 +225,7 @@ func (s *ToolsMetadataSuite) TestGenerateDeleteExisting(c *gc.C) {
 	toolstesting.MakeTools(c, metadataDir, "proposed", currentVersionStrings)
 
 	// Generate proposed metadata again, using --clean.
-	code = cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir, "--stream", "proposed", "--clean"})
+	code = cmd.Main(newToolsMetadataCommandForTest(), ctx, []string{"-d", metadataDir, "--stream", "proposed", "--clean"})
 	c.Assert(code, gc.Equals, 0)
 
 	// Proposed metadata should just list the tarballs that were there, not the merged set.
@@ -249,7 +256,7 @@ func (s *ToolsMetadataSuite) TestGenerateWithPublicFallback(c *gc.C) {
 	// Run the command with no local metadata.
 	ctx := cmdtesting.Context(c)
 	metadataDir := c.MkDir()
-	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir, "--stream", "released"})
+	code := cmd.Main(newToolsMetadataCommandForTest(), ctx, []string{"-d", metadataDir, "--stream", "released"})
 	c.Assert(code, gc.Equals, 0)
 	metadata := toolstesting.ParseMetadataFromDir(c, metadataDir, "released", false)
 	c.Assert(metadata, gc.HasLen, len(versionStrings))
@@ -266,7 +273,7 @@ func (s *ToolsMetadataSuite) TestGenerateWithMirrors(c *gc.C) {
 	metadataDir := c.MkDir()
 	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"--public", "-d", metadataDir, "--stream", "released"})
+	code := cmd.Main(newToolsMetadataCommandForTest(), ctx, []string{"--public", "-d", metadataDir, "--stream", "released"})
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 
@@ -293,7 +300,7 @@ func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
 		c.Skip("Skipping on windows, test only set up for Linux tools")
 	}
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(newToolsMetadataCommand(), ctx, nil)
+	code := cmd.Main(newToolsMetadataCommandForTest(), ctx, nil)
 	c.Assert(code, gc.Equals, 1)
 	stdout := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(stdout, gc.Matches, ".*Finding agent binaries in .*\n")
@@ -314,7 +321,7 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 	metadataDir := osenv.JujuXDGDataHomeDir() // default metadata dir
 	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
 	ctx := cmdtesting.Context(c)
-	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"--stream", "released"})
+	code := cmd.Main(newToolsMetadataCommandForTest(), ctx, []string{"--stream", "released"})
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	expectedOutput := fmt.Sprintf(`

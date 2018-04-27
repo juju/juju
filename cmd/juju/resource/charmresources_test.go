@@ -69,7 +69,7 @@ func (s *CharmResourcesSuite) TestOkay(c *gc.C) {
 	resources[0].Revision = 2
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
 
-	command := resourcecmd.NewCharmResourcesCommand(s.client)
+	command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
@@ -94,7 +94,7 @@ website   2
 func (s *CharmResourcesSuite) TestNoResources(c *gc.C) {
 	s.client.ReturnListResources = [][]charmresource.Resource{{}}
 
-	command := resourcecmd.NewCharmResourcesCommand(s.client)
+	command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
@@ -165,7 +165,7 @@ website   1
 	}
 	for format, expected := range formats {
 		c.Logf("checking format %q", format)
-		command := resourcecmd.NewCharmResourcesCommand(s.client)
+		command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
 		args := []string{
 			"--format", format,
 			"cs:a-charm",
@@ -188,7 +188,7 @@ func (s *CharmResourcesSuite) TestChannelFlag(c *gc.C) {
 		charmRes(c, "music", ".mp3", "mp3 of your backing vocals", string(fp2.Bytes())),
 	}
 	s.client.ReturnListResources = [][]charmresource.Resource{resources}
-	command := resourcecmd.NewCharmResourcesCommand(s.client)
+	command := resourcecmd.NewCharmResourcesCommandForTest(s.client)
 
 	code, _, stderr := runCmd(c, command,
 		"--channel", "development",

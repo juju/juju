@@ -300,18 +300,18 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(status.NewStatusHistoryCommand())
 
 	// Error resolution and debugging commands.
-	r.Register(newDefaultRunCommand())
+	r.Register(newDefaultRunCommand(nil))
 	r.Register(newSCPCommand(nil))
 	r.Register(newSSHCommand(nil, nil))
 	r.Register(application.NewResolvedCommand())
-	r.Register(newDebugLogCommand())
+	r.Register(newDebugLogCommand(nil))
 	r.Register(newDebugHooksCommand(nil))
 
 	// Configuration commands.
 	r.Register(model.NewModelGetConstraintsCommand())
 	r.Register(model.NewModelSetConstraintsCommand())
 	r.Register(newSyncToolsCommand())
-	r.Register(newUpgradeJujuCommand(nil))
+	r.Register(newUpgradeJujuCommand(nil, nil))
 	r.Register(application.NewUpgradeCharmCommand())
 	r.Register(application.NewUpdateSeriesCommand())
 

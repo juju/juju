@@ -6,11 +6,13 @@ package block_test
 import (
 	"errors"
 
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -18,6 +20,11 @@ var _ = gc.Suite(&enableCommandSuite{})
 
 type enableCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
+}
+
+func (*enableCommandSuite) enableCommand(api *mockUnblockClient, err error) cmd.Command {
+	store := jujuclienttesting.MinimalStore()
+	return block.NewEnableCommandForTest(store, api, err)
 }
 
 func (s *enableCommandSuite) TestInit(c *gc.C) {
@@ -41,7 +48,7 @@ func (s *enableCommandSuite) TestInit(c *gc.C) {
 			err:  `unrecognized args: ["extra"]`,
 		},
 	} {
-		cmd := block.NewEnableCommand()
+		cmd := s.enableCommand(nil, nil)
 		err := cmdtesting.InitCommand(cmd, test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -52,7 +59,7 @@ func (s *enableCommandSuite) TestInit(c *gc.C) {
 }
 
 func (s *enableCommandSuite) TestRunGetAPIError(c *gc.C) {
-	cmd := block.NewEnableCommandForTest(nil, errors.New("boom"))
+	cmd := s.enableCommand(nil, errors.New("boom"))
 	_, err := cmdtesting.RunCommand(c, cmd, "all")
 	c.Assert(err.Error(), gc.Equals, "cannot connect to the API: boom")
 }
@@ -72,7 +79,7 @@ func (s *enableCommandSuite) TestRun(c *gc.C) {
 		type_: "BlockRemove",
 	}} {
 		mockClient := &mockUnblockClient{}
-		cmd := block.NewEnableCommandForTest(mockClient, nil)
+		cmd := s.enableCommand(mockClient, nil)
 		_, err := cmdtesting.RunCommand(c, cmd, test.args...)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(mockClient.blockType, gc.Equals, test.type_)
@@ -81,7 +88,7 @@ func (s *enableCommandSuite) TestRun(c *gc.C) {
 
 func (s *enableCommandSuite) TestRunError(c *gc.C) {
 	mockClient := &mockUnblockClient{err: errors.New("boom")}
-	cmd := block.NewEnableCommandForTest(mockClient, nil)
+	cmd := s.enableCommand(mockClient, nil)
 	_, err := cmdtesting.RunCommand(c, cmd, "all")
 	c.Check(err, gc.ErrorMatches, "boom")
 }

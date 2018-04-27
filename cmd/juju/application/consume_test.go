@@ -39,7 +39,7 @@ func (s *ConsumeSuite) SetUpTest(c *gc.C) {
 	s.store.CurrentControllerName = controllerName
 	s.store.Controllers[controllerName] = jujuclient.ControllerDetails{}
 	s.store.Models[controllerName] = &jujuclient.ControllerModels{
-		CurrentModel: "fred/test",
+		CurrentModel: "bob/test",
 		Models: map[string]jujuclient.ModelDetails{
 			"bob/test": {ModelUUID: "test-uuid", ModelType: model.IAAS},
 			"bob/prod": {ModelUUID: "prod-uuid", ModelType: model.IAAS},

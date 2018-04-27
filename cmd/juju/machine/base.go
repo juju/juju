@@ -22,9 +22,14 @@ type statusAPI interface {
 	Close() error
 }
 
+type baseMachinesCommand struct {
+	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
+}
+
 // baseMachineCommand provides access to information about machines in a model.
 type baselistMachinesCommand struct {
-	modelcmd.ModelCommandBase
+	baseMachinesCommand
 	out           cmd.Output
 	isoTime       bool
 	api           statusAPI
@@ -35,7 +40,7 @@ type baselistMachinesCommand struct {
 
 // SetFlags sets utc and format flags based on user specified options.
 func (c *baselistMachinesCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
+	c.baseMachinesCommand.SetFlags(f)
 	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
 	f.BoolVar(&c.color, "color", false, "Force use of ANSI color codes")
 	c.out.AddFlags(f, c.defaultFormat, map[string]cmd.Formatter{

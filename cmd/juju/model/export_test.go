@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 // NewConfigCommandForTest returns a configCommand with the api
@@ -20,6 +21,7 @@ func NewConfigCommandForTest(api configCommandAPI) cmd.Command {
 	cmd := &configCommand{
 		api: api,
 	}
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(cmd)
 }
 
@@ -39,6 +41,7 @@ func NewRetryProvisioningCommandForTest(api RetryProvisioningAPI) cmd.Command {
 	cmd := &retryProvisioningCommand{
 		api: api,
 	}
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(cmd)
 }
 
@@ -113,6 +116,18 @@ func NewRevokeCommandForTest(modelsApi RevokeModelAPI, offersAPI RevokeOfferAPI,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.WrapController(cmd), &RevokeCommand{cmd}
+}
+
+func NewModelSetConstraintsCommandForTest() cmd.Command {
+	cmd := &modelSetConstraintsCommand{}
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
+	return modelcmd.Wrap(cmd)
+}
+
+func NewModelGetConstraintsCommandForTest() cmd.Command {
+	cmd := &modelGetConstraintsCommand{}
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
+	return modelcmd.Wrap(cmd)
 }
 
 var GetBudgetAPIClient = &getBudgetAPIClient

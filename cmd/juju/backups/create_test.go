@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/backups"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type createSuite struct {
@@ -27,7 +28,7 @@ var _ = gc.Suite(&createSuite{})
 
 func (s *createSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
-	s.wrappedCommand, s.command = backups.NewCreateCommandForTest()
+	s.wrappedCommand, s.command = backups.NewCreateCommandForTest(jujuclienttesting.MinimalStore())
 	s.defaultFilename = "juju-backup-<date>-<time>.tar.gz"
 }
 

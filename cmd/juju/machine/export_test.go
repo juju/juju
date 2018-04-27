@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/storage"
 )
 
@@ -26,18 +27,21 @@ func NewAddCommandForTest(api AddMachineAPI, mcAPI ModelConfigAPI, mmAPI Machine
 		machineManagerAPI: mmAPI,
 		modelConfigAPI:    mcAPI,
 	}
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(cmd), &AddCommand{cmd}
 }
 
 // NewListCommandForTest returns a listMachineCommand with specified api
 func NewListCommandForTest(api statusAPI) cmd.Command {
 	cmd := newListMachinesCommand(api)
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(cmd)
 }
 
 // NewShowCommandForTest returns a showMachineCommand with specified api
 func NewShowCommandForTest(api statusAPI) cmd.Command {
 	cmd := newShowMachineCommand(api)
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(cmd)
 }
 
@@ -51,6 +55,7 @@ func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI
 		apiRoot:    apiRoot,
 		machineAPI: machineAPI,
 	}
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(cmd), &RemoveCommand{cmd}
 }
 
