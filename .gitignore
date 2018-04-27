@@ -19,3 +19,4 @@ stage/
 *.sw[nop]
 .idea/
 *.pyc
+.vscode/
