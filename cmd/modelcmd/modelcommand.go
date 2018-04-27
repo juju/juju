@@ -72,10 +72,10 @@ type ModelCommand interface {
 	// the model returned by ModelName().
 	ControllerName() (string, error)
 
-	// initModel initializes the model name, resolving empty
+	// maybeInitModel initializes the model name, resolving empty
 	// model or controller parts to the current model or controller if
 	// needed. It fails a model cannot be determined.
-	initModel() error
+	maybeInitModel() error
 }
 
 // ModelCommandBase is a convenience type for embedding in commands
@@ -89,7 +89,7 @@ type ModelCommandBase struct {
 
 	// _modelName, _modelType, and _controllerName hold the current
 	// model and controller names and model type. They are only valid
-	// after initModel is called, and should in general
+	// after maybeInitModel is called, and should in general
 	// not be accessed directly, but through ModelName and
 	// ControllerName respectively.
 	_modelName      string
@@ -98,10 +98,10 @@ type ModelCommandBase struct {
 
 	allowDefaultModel bool
 
-	// doneInitModel holds whether initModel has been called.
+	// doneInitModel holds whether maybeInitModel has been called.
 	doneInitModel bool
 
-	// initModelError holds the result of the initModel call.
+	// initModelError holds the result of the maybeInitModel call.
 	initModelError error
 }
 
@@ -112,19 +112,19 @@ func (c *ModelCommandBase) SetClientStore(store jujuclient.ClientStore) {
 
 // ClientStore implements the ModelCommand interface.
 func (c *ModelCommandBase) ClientStore() jujuclient.ClientStore {
-	// c.store is set in initModel() below.
+	// c.store is set in maybeInitModel() below.
 	if c.store == nil && !c.runStarted {
 		panic("inappropriate method called before init finished")
 	}
 	return c.store
 }
 
-func (c *ModelCommandBase) initModelRequired() bool {
-	return !c.doneInitModel || c.initModelError != nil
-}
+//func (c *ModelCommandBase) initModelRequired() bool {
+//	return !c.doneInitModel || c.initModelError != nil
+//}
 
-func (c *ModelCommandBase) initModel() error {
-	// initModel() might have been called previously before the actual command's
+func (c *ModelCommandBase) maybeInitModel() error {
+	// maybeInitModel() might have been called previously before the actual command's
 	// Init() method was invoked. If allowDefaultModel = false, then we would have
 	// returned ErrNoModelSpecified at that point and so need to try again.
 	// If any other error result was returned, we bail early here.
@@ -132,7 +132,7 @@ func (c *ModelCommandBase) initModel() error {
 		return errors.Trace(c.initModelError)
 	}
 
-	// A previous call to initModel returned ErrNoModelSpecified so we try again
+	// A previous call to maybeInitModel returned ErrNoModelSpecified so we try again
 	// because the model should now have been set.
 
 	// Set up the client store if not already done.
@@ -186,10 +186,8 @@ func (c *ModelCommandBase) SetModelName(modelName string, allowDefault bool) err
 
 	// After setting the model name, we may need to ensure we have access to the
 	// other model details if not already done.
-	if c.initModelRequired() {
-		if err := c.initModel(); err != nil {
-			return errors.Trace(err)
-		}
+	if err := c.maybeInitModel(); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -197,7 +195,7 @@ func (c *ModelCommandBase) SetModelName(modelName string, allowDefault bool) err
 // ModelName implements the ModelCommand interface.
 func (c *ModelCommandBase) ModelName() (string, error) {
 	c.assertRunStarted()
-	if err := c.initModel(); err != nil {
+	if err := c.maybeInitModel(); err != nil {
 		return "", errors.Trace(err)
 	}
 	return c._modelName, nil
@@ -210,10 +208,8 @@ func (c *ModelCommandBase) ModelType() (model.ModelType, error) {
 	}
 	// If we need to look up the model type, we need to ensure we
 	// have access to the model details.
-	if c.initModelRequired() {
-		if err := c.initModel(); err != nil {
-			return "", errors.Trace(err)
-		}
+	if err := c.maybeInitModel(); err != nil {
+		return "", errors.Trace(err)
 	}
 	details, err := c.store.ModelByName(c._controllerName, c._modelName)
 	if err != nil {
@@ -232,7 +228,7 @@ func (c *ModelCommandBase) ModelType() (model.ModelType, error) {
 // ControllerName implements the ModelCommand interface.
 func (c *ModelCommandBase) ControllerName() (string, error) {
 	c.assertRunStarted()
-	if err := c.initModel(); err != nil {
+	if err := c.maybeInitModel(); err != nil {
 		return "", errors.Trace(err)
 	}
 	return c._controllerName, nil
@@ -425,9 +421,9 @@ type IAASOnlyCommand interface {
 	_iaasonly() // not implemented, marker only.
 }
 
-// validateIAASOnyCommand returns an error if an IAAS-only command
+// validateCommandForModelType returns an error if an IAAS-only command
 // is run on a CAAS model.
-func (w *modelCommandWrapper) validateIAASOnyCommand(runStarted bool) error {
+func (w *modelCommandWrapper) validateCommandForModelType(runStarted bool) error {
 	if _, ok := w.inner().(IAASOnlyCommand); !ok {
 		return nil
 	}
@@ -460,7 +456,7 @@ func (w *modelCommandWrapper) Init(args []string) error {
 	// command's Init(), we can bail early if the command is not supported for the
 	// specific model type. Otherwise, if the command is one which doesn't allow a
 	// default model, we need to wait till Run() is invoked.
-	if err := w.validateIAASOnyCommand(false); err != nil {
+	if err := w.validateCommandForModelType(false); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -480,7 +476,7 @@ func (w *modelCommandWrapper) Run(ctx *cmd.Context) error {
 	w.SetClientStore(store)
 
 	// Some commands are only supported on IAAS models.
-	if err := w.validateIAASOnyCommand(true); err != nil {
+	if err := w.validateCommandForModelType(true); err != nil {
 		return errors.Trace(err)
 	}
 	return w.ModelCommand.Run(ctx)

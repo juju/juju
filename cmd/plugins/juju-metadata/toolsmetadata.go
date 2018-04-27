@@ -29,6 +29,7 @@ func newToolsMetadataCommand() cmd.Command {
 // toolsMetadataCommand is used to generate simplestreams metadata for juju agents.
 type toolsMetadataCommand struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	fetch       bool
 	metadataDir string
 	stream      string
