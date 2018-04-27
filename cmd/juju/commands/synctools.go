@@ -31,6 +31,7 @@ func newSyncToolsCommand() cmd.Command {
 // bucket.
 type syncToolsCommand struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	allVersions  bool
 	versionStr   string
 	majorVersion int
