@@ -527,10 +527,17 @@ func clearSinceTimes(status *params.FullStatus) {
 	status.Model.ModelStatus.Since = nil
 }
 
+// clearContollerTimestamp zeros out the controller timestamps inside
+// status, so we can easily check the results.
+func clearContollerTimestamp(status *params.FullStatus) {
+	status.ControllerTimestamp = nil
+}
+
 func (s *clientSuite) TestClientStatus(c *gc.C) {
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status(nil)
 	clearSinceTimes(status)
+	clearContollerTimestamp(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, jc.DeepEquals, scenarioStatus)
 }

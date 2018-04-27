@@ -6,7 +6,6 @@ package status
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
@@ -24,22 +23,20 @@ type statusFormatter struct {
 	controllerName string
 	relations      map[int]params.RelationStatus
 	isoTime        bool
-	statusTime     time.Time
 }
 
 // NewStatusFormatter takes stored model information (params.FullStatus) and populates
 // the statusFormatter struct used in various status formatting methods
-func NewStatusFormatter(status *params.FullStatus, isoTime bool, statusTime time.Time) *statusFormatter {
-	return newStatusFormatter(status, "", isoTime, statusTime)
+func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
+	return newStatusFormatter(status, "", isoTime)
 }
 
-func newStatusFormatter(status *params.FullStatus, controllerName string, isoTime bool, statusTime time.Time) *statusFormatter {
+func newStatusFormatter(status *params.FullStatus, controllerName string, isoTime bool) *statusFormatter {
 	sf := statusFormatter{
 		status:         status,
 		controllerName: controllerName,
 		relations:      make(map[int]params.RelationStatus),
 		isoTime:        isoTime,
-		statusTime:     statusTime,
 	}
 	for _, relation := range status.Relations {
 		sf.relations[relation.Id] = relation
@@ -72,7 +69,6 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 		RemoteApplications: make(map[string]remoteApplicationStatus),
 		Offers:             make(map[string]offerStatus),
 		Relations:          make([]relationStatus, len(sf.relations)),
-		StatusTime:         common.FormatTime(&sf.statusTime, sf.isoTime),
 	}
 	if sf.status.Model.MeterStatus.Color != "" {
 		out.Model.MeterStatus = &meterStatus{
@@ -96,6 +92,9 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 	for _, rel := range sf.relations {
 		out.Relations[i] = sf.formatRelation(rel)
 		i++
+	}
+	if sf.status.ControllerTimestamp != nil {
+		out.ControllerTimestamp = common.FormatTime(sf.status.ControllerTimestamp, sf.isoTime)
 	}
 	return out, nil
 }

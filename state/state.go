@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -143,6 +144,11 @@ func (st *State) ControllerUUID() string {
 // ControllerUUID.
 func (st *State) ControllerTag() names.ControllerTag {
 	return st.controllerTag
+}
+
+func (st *State) ControllerTimestamp() (*time.Time, error) {
+	now := st.clock().Now()
+	return &now, nil
 }
 
 // ControllerModelUUID returns the UUID of the model that was

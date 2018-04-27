@@ -14,13 +14,13 @@ import (
 )
 
 type formattedStatus struct {
-	Model              modelStatus                        `json:"model"`
-	Machines           map[string]machineStatus           `json:"machines"`
-	Applications       map[string]applicationStatus       `json:"applications"`
-	RemoteApplications map[string]remoteApplicationStatus `json:"application-endpoints,omitempty" yaml:"application-endpoints,omitempty"`
-	Offers             map[string]offerStatus             `json:"offers,omitempty" yaml:"offers,omitempty"`
-	Relations          []relationStatus                   `json:"-" yaml:"-"`
-	StatusTime         string                             `json:"status-time" yaml:"status-time"`
+	Model               modelStatus                        `json:"model"`
+	Machines            map[string]machineStatus           `json:"machines"`
+	Applications        map[string]applicationStatus       `json:"applications"`
+	RemoteApplications  map[string]remoteApplicationStatus `json:"application-endpoints,omitempty" yaml:"application-endpoints,omitempty"`
+	Offers              map[string]offerStatus             `json:"offers,omitempty" yaml:"offers,omitempty"`
+	Relations           []relationStatus                   `json:"-" yaml:"-"`
+	ControllerTimestamp string                             `json:"controller-timestamp,omitempty" yaml:"controller-timestamp,omitempty"`
 }
 
 type formattedMachineStatus struct {

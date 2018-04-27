@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -218,8 +219,11 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	}
 	if len(context.applications) > 0 {
 		if context.leaders, err = c.api.stateAccessor.ApplicationLeaders(); err != nil {
-			return noStatus, errors.Annotate(err, " could not fetch leaders")
+			return noStatus, errors.Annotate(err, "could not fetch leaders")
 		}
+	}
+	if context.controllerTimestamp, err = c.api.stateAccessor.ControllerTimestamp(); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch controller timestamp")
 	}
 
 	logger.Debugf("Applications: %v", context.applications)
@@ -327,12 +331,13 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "cannot determine model status")
 	}
 	return params.FullStatus{
-		Model:              modelStatus,
-		Machines:           context.processMachines(),
-		Applications:       context.processApplications(),
-		RemoteApplications: context.processRemoteApplications(),
-		Offers:             context.processOffers(),
-		Relations:          context.processRelations(),
+		Model:               modelStatus,
+		Machines:            context.processMachines(),
+		Applications:        context.processApplications(),
+		RemoteApplications:  context.processRemoteApplications(),
+		Offers:              context.processOffers(),
+		Relations:           context.processRelations(),
+		ControllerTimestamp: context.controllerTimestamp,
 	}, nil
 }
 
@@ -412,6 +417,9 @@ type statusContext struct {
 
 	// offers: offer name -> offer
 	offers map[string]offerStatus
+
+	// controller current timestamp
+	controllerTimestamp *time.Time
 
 	relations     map[string][]*state.Relation
 	relationsById map[int]*state.Relation

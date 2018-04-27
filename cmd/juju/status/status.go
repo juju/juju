@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -135,9 +134,6 @@ var newAPIClientForStatus = func(c *statusCommand) (statusAPI, error) {
 }
 
 func (c *statusCommand) Run(ctx *cmd.Context) error {
-	// statusTime is defined when the status command is executed
-	statusTime := time.Now()
-
 	apiclient, err := newAPIClientForStatus(c)
 	if err != nil {
 		return errors.Trace(err)
@@ -160,7 +156,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	formatter := newStatusFormatter(status, controllerName, c.isoTime, statusTime)
+	formatter := newStatusFormatter(status, controllerName, c.isoTime)
 	formatted, err := formatter.format()
 	if err != nil {
 		return errors.Trace(err)
