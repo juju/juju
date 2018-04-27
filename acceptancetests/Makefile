@@ -7,8 +7,8 @@ python_bin_path     = $(python_path)/bin
 
 .PHONY: test
 test: ensure-venv lint
-	TMPDIR=/tmp $(python_bin_path)/python -m unittest discover -vv . -p "$(p)"
-	TMPDIR=/tmp $(python_bin_path)/python -m unittest discover -vv jujupy -t . -p "$(p)"
+	TMPDIR=/tmp $(python_bin_path)/python3 -m unittest discover -vv . -p "$(p)"
+	TMPDIR=/tmp $(python_bin_path)/python3 -m unittest discover -vv jujupy -t . -p "$(p)"
 
 .PHONY: lint
 lint: ensure-venv
@@ -62,7 +62,7 @@ name        = NAMEHERE
 assess_file = assess_$(name).py
 
 .PHONY: new-assess
-new-assess: ensure-venv
+new-assess:
 	install -m 755 template_assess.py.tmpl $(assess_file)
 	sed -i -e "s/TEMPLATE/$(name)/g" $(assess_file) $(test_assess_file)
 
