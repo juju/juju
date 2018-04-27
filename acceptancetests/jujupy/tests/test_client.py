@@ -16,10 +16,17 @@ import subprocess
 import sys
 from textwrap import dedent
 
-from mock import (
-    call,
-    Mock,
-    patch,
+try:
+    from mock import (
+        call,
+        Mock,
+        patch,
+    )
+except ImportError:
+    from unittest.mock import (
+        call,
+        Mock,
+        patch,
     )
 import yaml
 

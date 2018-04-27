@@ -1,6 +1,9 @@
 """Tests for log_check script."""
 
-from mock import patch
+try:
+    from mock import patch
+except ImportError:
+    from unittest.mock import patch
 import subprocess
 
 import log_check as lc

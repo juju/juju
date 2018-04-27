@@ -12,12 +12,18 @@ import os
 import socket
 from time import time
 
-from mock import (
-    call,
-    Mock,
-    patch,
+try:
+    from mock import (
+        call,
+        Mock,
+        patch,
     )
-
+except ImportError:
+    from unittest.mock import (
+        call,
+        Mock,
+        patch,
+    )
 from jujupy.utility import (
     temp_dir,
     )

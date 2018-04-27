@@ -7,9 +7,10 @@ import errno
 import os
 import socket
 
-from mock import (
-    patch,
-    )
+try:
+    from mock import patch
+except ImportError:
+    from unittest.mock import patch
 
 from tests import (
     TestCase,

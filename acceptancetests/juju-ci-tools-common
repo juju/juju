@@ -6,16 +6,9 @@ Package: juju-ci-tools.common
 Version: 0.1.4-0
 Depends: distro-info-data,
          euca2ools,
-         python-coverage,
-         python-fixtures,
          python-jenkins,
-         python-jinja2,
          python-launchpadlib,
-         python-mock,
          python-pip,
-         python-rrdtool,
-         python-tz,
-         python-yaml,
          s3cmd,
          uvtool,
          uvtool-libvirt

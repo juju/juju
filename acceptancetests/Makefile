@@ -1,14 +1,31 @@
 mkfile_dir := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 p=test*.py
 py3="assess_model_change_watcher.py"
+flake8_ignore="W503,E121,E722,E123,E126"
 
-# ""-W ignore::DeprecationWarning" should be removed once moved to py3 only.
+define TEST_DEPENDENCIES
+	libssl-dev
+	python-pip
+	python3-pip
+	python-tz
+	python-yaml
+endef
+
+.PHONY: install-test-dependencies
+install-test-dependencies: apt-update
+	@echo Installing test dependecies
+	@sudo apt-get --yes install \
+	$(strip $(TEST_DEPENDENCIES))
+	pip install --user -r $(mkfile_dir)/requirements.txt
+	pip3 install --user -r $(mkfile_dir)/requirements.txt
+
+# "-W ignore::DeprecationWarning" should be removed once moved to py3 only.
 test:
 	TMPDIR=/tmp python -m unittest discover . -p "$(p)"
 	TMPDIR=/tmp python3 -W ignore::DeprecationWarning -m unittest discover jujupy -t . -p "$(p)"
 lint:
-	python3 -m flake8 --builtins xrange,basestring $(py3) --exclude=repository $(mkfile_dir)
-	flake8 --builtins xrange,basestring --exclude=$(py3),repository $(mkfile_dir)
+	python3 -m flake8 --ignore=$(flake8_ignore) --builtins xrange,basestring $(py3) --exclude=repository $(mkfile_dir)
+	flake8 --ignore=$(flake8_ignore) --builtins xrange,basestring --exclude=$(py3),repository $(mkfile_dir)
 cover:
 	python -m coverage run --source="./" --omit "./tests/*" -m unittest discover -vv ./tests
 	python -m coverage report
