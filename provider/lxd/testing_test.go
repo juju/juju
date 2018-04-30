@@ -8,7 +8,6 @@ package lxd
 import (
 	"net"
 	"os"
-	"path"
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
@@ -506,14 +505,12 @@ func (conn *StubClient) RemoveInstances(prefix string, ids ...string) error {
 func (conn *StubClient) FindImage(
 	series, arch string, sources []lxd.RemoteServer, copyLocal bool, callback environs.StatusCallbackFunc,
 ) (lxd.SourcedImage, error) {
-	conn.AddCall("EnsureImageExists", series, arch)
+	conn.AddCall("FindImage", series, arch)
 	if err := conn.NextErr(); err != nil {
 		return lxd.SourcedImage{}, errors.Trace(err)
 	}
 
-	return lxd.SourcedImage{
-		Alias: path.Join("juju", series, arch),
-	}, nil
+	return lxd.SourcedImage{}, nil
 }
 
 func (conn *StubClient) Addresses(name string) ([]network.Address, error) {
