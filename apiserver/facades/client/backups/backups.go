@@ -38,7 +38,7 @@ type Backend interface {
 	RestoreInfo() *state.RestoreInfo
 }
 
-// API provides backup-specific API methods for version 2.
+// API provides backup-specific API methods.
 type API struct {
 	backend Backend
 	paths   *backups.Paths
@@ -47,7 +47,7 @@ type API struct {
 	machineID string
 }
 
-// API serves backup-specific API methods.
+// APIv2 serves backup-specific API methods for version 2.
 type APIv2 struct {
 	*API
 }

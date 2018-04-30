@@ -17,9 +17,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 		func(*mgo.Session, int) error { return nil },
 	)
 	s.setBackups(c, s.meta, "")
-	//apiv2 := &backups.APIv2{s.api}
 	var args params.BackupsCreateArgs
-	//result, err := apiv2.Create(args)
 	result, err := s.api.Create(args)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := backups.CreateResult(s.meta, "test-filename")

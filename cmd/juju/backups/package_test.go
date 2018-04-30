@@ -127,6 +127,8 @@ func (s *BaseBackupsSuite) checkStd(c *gc.C, ctx *cmd.Context, out, err string) 
 	jujutesting.CheckString(c, ctx.Stderr.(*bytes.Buffer).String(), err)
 }
 
+// TODO (hml) 2018-05-01
+// Replace this fakeAPIClient with MockAPIClient for all tests.
 type fakeAPIClient struct {
 	metaresult *params.BackupsMetadataResult
 	archive    io.ReadCloser
@@ -201,13 +203,16 @@ func (c *fakeAPIClient) Upload(ar io.ReadSeeker, meta params.BackupsMetadataResu
 	return c.metaresult.ID, nil
 }
 
-func (c *fakeAPIClient) Remove(id string) error {
+func (c *fakeAPIClient) Remove(id ...string) ([]params.ErrorResult, error) {
 	c.calls = append(c.calls, "Remove")
-	c.args = append(c.args, id)
+	c.args = append(c.args, "id")
+	c.idArg = id[0]
 	if c.err != nil {
-		return c.err
+		return []params.ErrorResult{
+			{Error: &params.Error{Message: c.err.Error()}},
+		}, nil
 	}
-	return nil
+	return nil, nil
 }
 
 func (c *fakeAPIClient) Close() error {

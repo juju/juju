@@ -161,15 +161,20 @@ func (mr *MockAPIClientMockRecorder) List() *gomock.Call {
 }
 
 // Remove mocks base method
-func (m *MockAPIClient) Remove(arg0 string) error {
-	ret := m.ctrl.Call(m, "Remove", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+func (m *MockAPIClient) Remove(arg0 ...string) ([]params.ErrorResult, error) {
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Remove", varargs...)
+	ret0, _ := ret[0].([]params.ErrorResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Remove indicates an expected call of Remove
-func (mr *MockAPIClientMockRecorder) Remove(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockAPIClient)(nil).Remove), arg0)
+func (mr *MockAPIClientMockRecorder) Remove(arg0 ...interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockAPIClient)(nil).Remove), arg0...)
 }
 
 // Restore mocks base method

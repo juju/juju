@@ -4,15 +4,18 @@
 package backups
 
 import (
-	"github.com/juju/errors"
-
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 )
 
-func (a *API) Remove(args params.BackupsRemoveArgs) error {
+// Remove deletes the backups defined by ID from the database.
+func (a *APIv2) Remove(args params.BackupsRemoveArgs) (params.ErrorResults, error) {
 	backups, closer := newBackups(a.backend)
 	defer closer.Close()
-
-	err := backups.Remove(args.ID)
-	return errors.Trace(err)
+	results := make([]params.ErrorResult, len(args.IDs))
+	for i, id := range args.IDs {
+		err := backups.Remove(id)
+		results[i].Error = common.ServerError(err)
+	}
+	return params.ErrorResults{results}, nil
 }
