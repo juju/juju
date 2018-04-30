@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
@@ -599,7 +600,7 @@ type StubZonedEnviron struct {
 
 var _ providercommon.ZonedEnviron = (*StubZonedEnviron)(nil)
 
-func (se *StubZonedEnviron) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {
+func (se *StubZonedEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]providercommon.AvailabilityZone, error) {
 	se.MethodCall(se, "AvailabilityZones")
 	if err := se.NextErr(); err != nil {
 		return nil, err
@@ -622,16 +623,16 @@ type StubNetworkingEnviron struct {
 
 var _ environs.NetworkingEnviron = (*StubNetworkingEnviron)(nil)
 
-func (se *StubNetworkingEnviron) Subnets(instId instance.Id, subIds []network.Id) ([]network.SubnetInfo, error) {
-	se.MethodCall(se, "Subnets", instId, subIds)
+func (se *StubNetworkingEnviron) Subnets(ctx context.ProviderCallContext, instId instance.Id, subIds []network.Id) ([]network.SubnetInfo, error) {
+	se.MethodCall(se, "Subnets", ctx, instId, subIds)
 	if err := se.NextErr(); err != nil {
 		return nil, err
 	}
 	return ProviderInstance.Subnets, nil
 }
 
-func (se *StubNetworkingEnviron) SupportsSpaces() (bool, error) {
-	se.MethodCall(se, "SupportsSpaces")
+func (se *StubNetworkingEnviron) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
+	se.MethodCall(se, "SupportsSpaces", ctx)
 	if err := se.NextErr(); err != nil {
 		return false, err
 	}

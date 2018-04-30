@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
@@ -23,12 +24,12 @@ import (
 )
 
 // MaintainInstance is specified in the InstanceBroker interface.
-func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
+func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
 	return nil
 }
 
 // StartInstance implements environs.InstanceBroker.
-func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// Start a new instance.
 
 	series := args.Tools.OneSeries()
@@ -273,7 +274,7 @@ func (env *environ) getHardwareCharacteristics(args environs.StartInstanceParams
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *environ) AllInstances() ([]instance.Instance, error) {
+func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
 	environInstances, err := env.allInstances()
 	instances := make([]instance.Instance, len(environInstances))
 	for i, inst := range environInstances {
@@ -286,7 +287,7 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *environ) StopInstances(instances ...instance.Id) error {
+func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...instance.Id) error {
 	var ids []string
 	for _, id := range instances {
 		ids = append(ids, string(id))

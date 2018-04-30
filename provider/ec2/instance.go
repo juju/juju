@@ -9,6 +9,7 @@ import (
 	"gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -30,7 +31,7 @@ func (inst *ec2Instance) Id() instance.Id {
 	return instance.Id(inst.InstanceId)
 }
 
-func (inst *ec2Instance) Status() instance.InstanceStatus {
+func (inst *ec2Instance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	// pending | running | shutting-down | terminated | stopping | stopped
 	jujuStatus := status.Pending
 	switch inst.State.Name {
@@ -52,7 +53,7 @@ func (inst *ec2Instance) Status() instance.InstanceStatus {
 
 // Addresses implements network.Addresses() returning generic address
 // details for the instance, and requerying the ec2 api if required.
-func (inst *ec2Instance) Addresses() ([]network.Address, error) {
+func (inst *ec2Instance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	var addresses []network.Address
 	possibleAddresses := []network.Address{
 		{
@@ -74,7 +75,7 @@ func (inst *ec2Instance) Addresses() ([]network.Address, error) {
 	return addresses, nil
 }
 
-func (inst *ec2Instance) OpenPorts(machineId string, rules []network.IngressRule) error {
+func (inst *ec2Instance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
@@ -87,7 +88,7 @@ func (inst *ec2Instance) OpenPorts(machineId string, rules []network.IngressRule
 	return nil
 }
 
-func (inst *ec2Instance) ClosePorts(machineId string, ports []network.IngressRule) error {
+func (inst *ec2Instance) ClosePorts(ctx context.ProviderCallContext, machineId string, ports []network.IngressRule) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
@@ -100,7 +101,7 @@ func (inst *ec2Instance) ClosePorts(machineId string, ports []network.IngressRul
 	return nil
 }
 
-func (inst *ec2Instance) IngressRules(machineId string) ([]network.IngressRule, error) {
+func (inst *ec2Instance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
 			inst.e.Config().FirewallMode())

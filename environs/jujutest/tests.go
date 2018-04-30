@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -44,6 +45,10 @@ type Tests struct {
 	// the environment. This is initialized by SetUpSuite.
 	ControllerStore jujuclient.ClientStore
 	toolsStorage    storage.Storage
+
+	// ProviderCallContext holds the context to be used to make
+	// calls to a cloud provider.
+	ProviderCallContext context.ProviderCallContext
 }
 
 // Open opens an instance of the testing environment.
@@ -119,6 +124,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.toolsStorage = stor
 	t.ControllerStore = jujuclient.NewMemStore()
 	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
+	t.ProviderCallContext = &providerCallContext{}
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {
@@ -134,11 +140,11 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	err = e.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	insts, err := e.Instances(nil)
+	insts, err := e.Instances(t.ProviderCallContext, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 0)
 
-	inst0, hc := testing.AssertStartInstance(c, e, t.ControllerUUID, "0")
+	inst0, hc := testing.AssertStartInstance(c, e, t.ProviderCallContext, t.ControllerUUID, "0")
 	c.Assert(inst0, gc.NotNil)
 	id0 := inst0.Id()
 	// Sanity check for hardware characteristics.
@@ -146,31 +152,31 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	c.Assert(hc.Mem, gc.NotNil)
 	c.Assert(hc.CpuCores, gc.NotNil)
 
-	inst1, _ := testing.AssertStartInstance(c, e, t.ControllerUUID, "1")
+	inst1, _ := testing.AssertStartInstance(c, e, t.ProviderCallContext, t.ControllerUUID, "1")
 	c.Assert(inst1, gc.NotNil)
 	id1 := inst1.Id()
 
-	insts, err = e.Instances([]instance.Id{id0, id1})
+	insts, err = e.Instances(t.ProviderCallContext, []instance.Id{id0, id1})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 2)
 	c.Assert(insts[0].Id(), gc.Equals, id0)
 	c.Assert(insts[1].Id(), gc.Equals, id1)
 
 	// order of results is not specified
-	insts, err = e.AllInstances()
+	insts, err = e.AllInstances(t.ProviderCallContext)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 2)
 	c.Assert(insts[0].Id(), gc.Not(gc.Equals), insts[1].Id())
 
-	err = e.StopInstances(inst0.Id())
+	err = e.StopInstances(t.ProviderCallContext, inst0.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	insts, err = e.Instances([]instance.Id{id0, id1})
+	insts, err = e.Instances(t.ProviderCallContext, []instance.Id{id0, id1})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(insts[0], gc.IsNil)
 	c.Assert(insts[1].Id(), gc.Equals, id1)
 
-	insts, err = e.AllInstances()
+	insts, err = e.AllInstances(t.ProviderCallContext)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts[0].Id(), gc.Equals, id1)
 }
@@ -209,17 +215,17 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerInstances, err := e.ControllerInstances(t.ControllerUUID)
+	controllerInstances, err := e.ControllerInstances(t.ProviderCallContext, t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInstances, gc.Not(gc.HasLen), 0)
 
 	e2 := t.Open(c, e.Config())
-	controllerInstances2, err := e2.ControllerInstances(t.ControllerUUID)
+	controllerInstances2, err := e2.ControllerInstances(t.ProviderCallContext, t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInstances2, gc.Not(gc.HasLen), 0)
 	c.Assert(controllerInstances2, jc.SameContents, controllerInstances)
 
-	err = environs.Destroy(e2.Config().Name(), e2, t.ControllerStore)
+	err = environs.Destroy(e2.Config().Name(), e2, t.ProviderCallContext, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Prepare again because Destroy invalidates old environments.
@@ -228,6 +234,6 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e3, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = environs.Destroy(e3.Config().Name(), e3, t.ControllerStore)
+	err = environs.Destroy(e3.Config().Name(), e3, t.ProviderCallContext, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 }

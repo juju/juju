@@ -586,7 +586,9 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := environs.CheckProviderAPI(env); err != nil {
+	ctx := common.ProviderCallContext()
+
+	if err := environs.CheckProviderAPI(env, ctx); err != nil {
 		return err
 	}
 	// If this is the controller model, also check to make sure that there are

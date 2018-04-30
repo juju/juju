@@ -10,8 +10,10 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/common"
 )
 
 var logger = loggo.GetLogger("juju.worker.machineundertaker")
@@ -28,14 +30,15 @@ type Facade interface {
 // AddressReleaser defines the interface we need from the environment
 // networking.
 type AddressReleaser interface {
-	ReleaseContainerAddresses([]network.ProviderInterfaceInfo) error
+	ReleaseContainerAddresses(context.ProviderCallContext, []network.ProviderInterfaceInfo) error
 }
 
-// MachineUndertaker is responsible for doing any provider-level
+// Undertaker is responsible for doing any provider-level
 // cleanup needed and then removing the machine.
 type Undertaker struct {
-	API      Facade
-	Releaser AddressReleaser
+	API         Facade
+	Releaser    AddressReleaser
+	CallContext context.ProviderCallContext
 }
 
 // NewWorker returns a machine undertaker worker that will watch for
@@ -43,8 +46,13 @@ type Undertaker struct {
 // necessary provider-level resources first.
 func NewWorker(api Facade, env environs.Environ) (worker.Worker, error) {
 	envNetworking, _ := environs.SupportsNetworking(env)
+	callCtx := &common.CallContext{}
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
-		Handler: &Undertaker{API: api, Releaser: envNetworking},
+		Handler: &Undertaker{
+			API:         api,
+			Releaser:    envNetworking,
+			CallContext: callCtx,
+		},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -105,7 +113,7 @@ func (u *Undertaker) MaybeReleaseAddresses(machine names.MachineTag) error {
 		logger.Debugf("%s has no addresses to release", machine)
 		return nil
 	}
-	err = u.Releaser.ReleaseContainerAddresses(interfaceInfos)
+	err = u.Releaser.ReleaseContainerAddresses(u.CallContext, interfaceInfos)
 	// Some providers say they support networking but don't
 	// actually support container addressing; don't freak out
 	// about those.

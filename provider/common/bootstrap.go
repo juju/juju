@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
@@ -43,9 +44,13 @@ var logger = loggo.GetLogger("juju.provider.common")
 // Bootstrap is a common implementation of the Bootstrap method defined on
 // environs.Environ; we strongly recommend that this implementation be used
 // when writing a new provider.
-func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
+func Bootstrap(
+	ctx environs.BootstrapContext,
+	env environs.Environ,
+	callCtx context.ProviderCallContext,
+	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
-	result, series, finalizer, err := BootstrapInstance(ctx, env, args)
+	result, series, finalizer, err := BootstrapInstance(ctx, env, callCtx, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -65,7 +70,11 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 // the tools and installing the initial Juju controller.
 // This method is called by Bootstrap above, which implements environs.Bootstrap, but
 // is also exported so that providers can manipulate the started instance.
-func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
+func BootstrapInstance(
+	ctx environs.BootstrapContext,
+	env environs.Environ,
+	callCtx context.ProviderCallContext,
+	args environs.BootstrapParams,
 ) (_ *environs.StartInstanceResult, selectedSeries string, _ environs.BootstrapFinalizer, err error) {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
@@ -182,7 +191,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		StatusCallback:  instanceStatus,
 		CleanupCallback: statusCleanup,
 	}
-	zones, err := startInstanceZones(env, startInstanceArgs)
+	zones, err := startInstanceZones(env, callCtx, startInstanceArgs)
 	if errors.IsNotImplemented(err) {
 		// No zone support, so just call StartInstance with
 		// a blank StartInstanceParams.AvailabilityZone.
@@ -194,7 +203,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	var result *environs.StartInstanceResult
 	for i, zone := range zones {
 		startInstanceArgs.AvailabilityZone = zone
-		result, err = env.StartInstance(startInstanceArgs)
+		result, err = env.StartInstance(callCtx, startInstanceArgs)
 		if err == nil {
 			break
 		}
@@ -240,12 +249,12 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 			return err
 		}
 		maybeSetBridge(icfg)
-		return FinishBootstrap(ctx, client, env, result.Instance, icfg, opts)
+		return FinishBootstrap(ctx, client, env, callCtx, result.Instance, icfg, opts)
 	}
 	return result, selectedSeries, finalize, nil
 }
 
-func startInstanceZones(env environs.Environ, args environs.StartInstanceParams) ([]string, error) {
+func startInstanceZones(env environs.Environ, ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
 	zonedEnviron, ok := env.(ZonedEnviron)
 	if !ok {
 		return nil, errors.NotImplementedf("ZonedEnviron")
@@ -253,14 +262,14 @@ func startInstanceZones(env environs.Environ, args environs.StartInstanceParams)
 
 	// Attempt creating the instance in each of the availability
 	// zones, unless the args imply a specific zone.
-	zones, err := zonedEnviron.DeriveAvailabilityZones(args)
+	zones, err := zonedEnviron.DeriveAvailabilityZones(ctx, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(zones) > 0 {
 		return zones, nil
 	}
-	allZones, err := zonedEnviron.AvailabilityZones()
+	allZones, err := zonedEnviron.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -309,6 +318,7 @@ var FinishBootstrap = func(
 	ctx environs.BootstrapContext,
 	client ssh.Client,
 	env environs.Environ,
+	callCtx context.ProviderCallContext,
 	inst instance.Instance,
 	instanceConfig *instancecfg.InstanceConfig,
 	opts environs.BootstrapDialOpts,
@@ -324,6 +334,7 @@ var FinishBootstrap = func(
 		client,
 		GetCheckNonceCommand(instanceConfig),
 		&RefreshableInstance{inst, env},
+		callCtx,
 		opts,
 		hostSSHOptions,
 	)
@@ -483,16 +494,16 @@ func hostBootstrapSSHOptions(
 // for waiting for SSH access to become availble.
 type InstanceRefresher interface {
 	// Refresh refreshes the addresses for the instance.
-	Refresh() error
+	Refresh(ctx context.ProviderCallContext) error
 
 	// Addresses returns the addresses for the instance.
 	// To ensure that the results are up to date, call
 	// Refresh first.
-	Addresses() ([]network.Address, error)
+	Addresses(ctx context.ProviderCallContext) ([]network.Address, error)
 
 	// Status returns the provider-specific status for the
 	// instance.
-	Status() instance.InstanceStatus
+	Status(ctx context.ProviderCallContext) instance.InstanceStatus
 }
 
 type RefreshableInstance struct {
@@ -501,8 +512,8 @@ type RefreshableInstance struct {
 }
 
 // Refresh refreshes the addresses for the instance.
-func (i *RefreshableInstance) Refresh() error {
-	instances, err := i.Env.Instances([]instance.Id{i.Id()})
+func (i *RefreshableInstance) Refresh(ctx context.ProviderCallContext) error {
+	instances, err := i.Env.Instances(ctx, []instance.Id{i.Id()})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -656,6 +667,7 @@ func WaitSSH(
 	client ssh.Client,
 	checkHostScript string,
 	inst InstanceRefresher,
+	ctx context.ProviderCallContext,
 	opts environs.BootstrapDialOpts,
 	hostSSHOptions HostSSHOptionsFunc,
 ) (addr string, err error) {
@@ -682,17 +694,17 @@ func WaitSSH(
 		select {
 		case <-pollAddresses.C:
 			pollAddresses.Reset(opts.AddressesDelay)
-			if err := inst.Refresh(); err != nil {
+			if err := inst.Refresh(ctx); err != nil {
 				return "", fmt.Errorf("refreshing addresses: %v", err)
 			}
-			instanceStatus := inst.Status()
+			instanceStatus := inst.Status(ctx)
 			if instanceStatus.Status == status.ProvisioningError {
 				if instanceStatus.Message != "" {
 					return "", errors.Errorf("instance provisioning failed (%v)", instanceStatus.Message)
 				}
 				return "", errors.Errorf("instance provisioning failed")
 			}
-			addresses, err := inst.Addresses()
+			addresses, err := inst.Addresses(ctx)
 			if err != nil {
 				return "", fmt.Errorf("getting addresses: %v", err)
 			}

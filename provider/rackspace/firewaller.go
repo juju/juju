@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -28,72 +29,72 @@ type rackspaceFirewaller struct{}
 var _ openstack.Firewaller = (*rackspaceFirewaller)(nil)
 
 // OpenPorts is not supported.
-func (c *rackspaceFirewaller) OpenPorts(rules []network.IngressRule) error {
+func (c *rackspaceFirewaller) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
 	return errors.NotSupportedf("OpenPorts")
 }
 
 // ClosePorts is not supported.
-func (c *rackspaceFirewaller) ClosePorts(rules []network.IngressRule) error {
+func (c *rackspaceFirewaller) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
 	return errors.NotSupportedf("ClosePorts")
 }
 
 // IngressRules returns the port ranges opened for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
-func (c *rackspaceFirewaller) IngressRules() ([]network.IngressRule, error) {
+func (c *rackspaceFirewaller) IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
 	return nil, errors.NotSupportedf("Ports")
 }
 
 // DeleteGroups implements OpenstackFirewaller interface.
-func (c *rackspaceFirewaller) DeleteGroups(names ...string) error {
+func (c *rackspaceFirewaller) DeleteGroups(ctx context.ProviderCallContext, names ...string) error {
 	return nil
 }
 
 // DeleteAllModelGroups implements OpenstackFirewaller interface.
-func (c *rackspaceFirewaller) DeleteAllModelGroups() error {
+func (c *rackspaceFirewaller) DeleteAllModelGroups(ctx context.ProviderCallContext) error {
 	return nil
 }
 
 // DeleteAllControllerGroups implements OpenstackFirewaller interface.
-func (c *rackspaceFirewaller) DeleteAllControllerGroups(controllerUUID string) error {
+func (c *rackspaceFirewaller) DeleteAllControllerGroups(ctx context.ProviderCallContext, controllerUUID string) error {
 	return nil
 }
 
-func (c *rackspaceFirewaller) UpdateGroupController(controllerUUID string) error {
+func (c *rackspaceFirewaller) UpdateGroupController(ctx context.ProviderCallContext, controllerUUID string) error {
 	return nil
 }
 
 // GetSecurityGroups implements OpenstackFirewaller interface.
-func (c *rackspaceFirewaller) GetSecurityGroups(ids ...instance.Id) ([]string, error) {
+func (c *rackspaceFirewaller) GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.Id) ([]string, error) {
 	return nil, nil
 }
 
 // SetUpGroups implements OpenstackFirewaller interface.
-func (c *rackspaceFirewaller) SetUpGroups(controllerUUID, machineId string, apiPort int) ([]string, error) {
+func (c *rackspaceFirewaller) SetUpGroups(ctx context.ProviderCallContext, controllerUUID, machineId string, apiPort int) ([]string, error) {
 	return nil, nil
 }
 
 // OpenInstancePorts implements Firewaller interface.
-func (c *rackspaceFirewaller) OpenInstancePorts(inst instance.Instance, machineId string, rules []network.IngressRule) error {
-	return c.changeIngressRules(inst, true, rules)
+func (c *rackspaceFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instance.Instance, machineId string, rules []network.IngressRule) error {
+	return c.changeIngressRules(ctx, inst, true, rules)
 }
 
 // CloseInstancePorts implements Firewaller interface.
-func (c *rackspaceFirewaller) CloseInstancePorts(inst instance.Instance, machineId string, rules []network.IngressRule) error {
-	return c.changeIngressRules(inst, false, rules)
+func (c *rackspaceFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instance.Instance, machineId string, rules []network.IngressRule) error {
+	return c.changeIngressRules(ctx, inst, false, rules)
 }
 
 // InstanceIngressRules implements Firewaller interface.
-func (c *rackspaceFirewaller) InstanceIngressRules(inst instance.Instance, machineId string) ([]network.IngressRule, error) {
-	_, configurator, err := c.getInstanceConfigurator(inst)
+func (c *rackspaceFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instance.Instance, machineId string) ([]network.IngressRule, error) {
+	_, configurator, err := c.getInstanceConfigurator(ctx, inst)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return configurator.FindIngressRules()
 }
 
-func (c *rackspaceFirewaller) changeIngressRules(inst instance.Instance, insert bool, rules []network.IngressRule) error {
-	addresses, sshClient, err := c.getInstanceConfigurator(inst)
+func (c *rackspaceFirewaller) changeIngressRules(ctx context.ProviderCallContext, inst instance.Instance, insert bool, rules []network.IngressRule) error {
+	addresses, sshClient, err := c.getInstanceConfigurator(ctx, inst)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -109,8 +110,8 @@ func (c *rackspaceFirewaller) changeIngressRules(inst instance.Instance, insert 
 	return nil
 }
 
-func (c *rackspaceFirewaller) getInstanceConfigurator(inst instance.Instance) ([]network.Address, common.InstanceConfigurator, error) {
-	addresses, err := inst.Addresses()
+func (c *rackspaceFirewaller) getInstanceConfigurator(ctx context.ProviderCallContext, inst instance.Instance) ([]network.Address, common.InstanceConfigurator, error) {
+	addresses, err := inst.Addresses(ctx)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

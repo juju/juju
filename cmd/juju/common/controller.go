@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
 
@@ -116,17 +117,29 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 }
 
 // BootstrapEndpointAddresses returns the addresses of the bootstrapped instance.
-func BootstrapEndpointAddresses(environ environs.Environ) ([]network.Address, error) {
-	instances, err := environ.AllInstances()
+func BootstrapEndpointAddresses(environ environs.Environ, callContext context.ProviderCallContext) ([]network.Address, error) {
+	instances, err := environ.AllInstances(callContext)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if n := len(instances); n != 1 {
 		return nil, errors.Errorf("expected one instance, got %d", n)
 	}
-	netAddrs, err := instances[0].Addresses()
+	netAddrs, err := instances[0].Addresses(callContext)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get bootstrap instance addresses")
 	}
 	return netAddrs, nil
+}
+
+// CallContext is a placeholder for a provider call context that will provide useful
+// callbacks and other functions. For example, there will be a callback to invalid cloud
+// credential that a controller uses if provider will receive some errors
+// that will indicate tht cloud considers that credential invalid.
+// TODO (anastasiamac 2018-04-27) flesh it out.
+type CallContext struct{}
+
+// InvalidateCredentialCallback implements context.InvalidateCredentialCallback.
+func (*CallContext) InvalidateCredentialCallback() error {
+	return errors.NotImplementedf("InvalidateCredentialCallback")
 }

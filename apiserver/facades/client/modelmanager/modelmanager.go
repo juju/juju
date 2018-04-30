@@ -488,9 +488,14 @@ func (m *ModelManagerAPI) newIAASModel(
 		return nil, errors.Trace(err)
 	}
 
-	if err := env.Create(environs.CreateParams{
-		ControllerUUID: controllerCfg.ControllerUUID(),
-	}); err != nil {
+	ctx := common.ProviderCallContext()
+	err = env.Create(
+		ctx,
+		environs.CreateParams{
+			ControllerUUID: controllerCfg.ControllerUUID(),
+		},
+	)
+	if err != nil {
 		return nil, errors.Annotate(err, "failed to create environ")
 	}
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)

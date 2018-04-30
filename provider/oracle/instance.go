@@ -14,6 +14,7 @@ import (
 	"github.com/juju/go-oracle-cloud/response"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -108,7 +109,7 @@ func (o *oracleInstance) Id() instance.Id {
 }
 
 // Status is defined on the instance.Instance interface.
-func (o *oracleInstance) Status() instance.InstanceStatus {
+func (o *oracleInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	return o.status
 }
 
@@ -366,7 +367,7 @@ func (o *oracleInstance) publicAddressesAssociations() ([]response.IpAssociation
 }
 
 // Addresses is defined on the instance.Instance interface.
-func (o *oracleInstance) Addresses() ([]network.Address, error) {
+func (o *oracleInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	addresses := []network.Address{}
 
 	ips, err := o.publicAddressesAssociations()
@@ -394,7 +395,7 @@ func (o *oracleInstance) Addresses() ([]network.Address, error) {
 }
 
 // OpenPorts is defined on the instance.Instance interface.
-func (o *oracleInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
+func (o *oracleInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	if o.env.Config().FirewallMode() != config.FwInstance {
 		return errors.Errorf(
 			"invalid firewall mode %q for opening ports on instance",
@@ -402,11 +403,11 @@ func (o *oracleInstance) OpenPorts(machineId string, rules []network.IngressRule
 		)
 	}
 
-	return o.env.OpenPortsOnInstance(machineId, rules)
+	return o.env.OpenPortsOnInstance(ctx, machineId, rules)
 }
 
 // ClosePorts is defined on the instance.Instance interface.
-func (o *oracleInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
+func (o *oracleInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	if o.env.Config().FirewallMode() != config.FwInstance {
 		return errors.Errorf(
 			"invalid firewall mode %q for closing ports on instance",
@@ -414,10 +415,10 @@ func (o *oracleInstance) ClosePorts(machineId string, rules []network.IngressRul
 		)
 	}
 
-	return o.env.ClosePortsOnInstance(machineId, rules)
+	return o.env.ClosePortsOnInstance(ctx, machineId, rules)
 }
 
 // IngressRules is defined on the instance.Instance interface.
-func (o *oracleInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
-	return o.env.MachineIngressRules(machineId)
+func (o *oracleInstance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
+	return o.env.MachineIngressRules(ctx, machineId)
 }

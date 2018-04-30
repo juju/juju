@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -213,6 +214,8 @@ upgrade the controller to version 2.3 or greater.
 		return errors.Annotate(err, "getting controller environ")
 	}
 
+	cloudCallCtx := &common.CallContext{}
+
 	for {
 		// Attempt to destroy the controller.
 		ctx.Infof("Destroying controller")
@@ -279,7 +282,7 @@ upgrade the controller to version 2.3 or greater.
 			}
 		}
 		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
-		return environs.Destroy(controllerName, controllerEnviron, store)
+		return environs.Destroy(controllerName, controllerEnviron, cloudCallCtx, store)
 	}
 }
 

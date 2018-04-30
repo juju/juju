@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 )
 
 var logger = loggo.GetLogger("juju.provider.oracle")
@@ -48,8 +49,8 @@ func (e EnvironProvider) CloudSchema() *jsonschema.Schema {
 	return cloudSchema
 }
 
-// Ping is defined on the environs.EnvironProvider interface.
-func (e EnvironProvider) Ping(endpoint string) error {
+// Ping implements environs.EnvironProvider.
+func (e *EnvironProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
 	return nil
 }
 
@@ -96,7 +97,7 @@ func (EnvironProvider) Version() int {
 }
 
 // Open is defined on the environs.EnvironProvider interface.
-func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, error) {
+func (e *EnvironProvider) Open(ctx context.ProviderCallContext, params environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", params.Config.Name())
 	if err := e.validateCloudSpec(params.Cloud); err != nil {
 		return nil, errors.Annotatef(err, "validating cloud spec")

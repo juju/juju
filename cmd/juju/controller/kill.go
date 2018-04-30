@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/common"
+	cmdcommon "github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -119,11 +120,12 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
 	}
+	cloudCallCtx := &cmdcommon.CallContext{}
 	// If we were unable to connect to the API, just destroy the controller through
 	// the environs interface.
 	if api == nil {
 		ctx.Infof("Unable to connect to the API server, destroying through provider")
-		return environs.Destroy(controllerName, controllerEnviron, store)
+		return environs.Destroy(controllerName, controllerEnviron, cloudCallCtx, store)
 	}
 
 	// Attempt to destroy the controller and all models and storage.
@@ -134,7 +136,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	})
 	if err != nil {
 		ctx.Infof("Unable to destroy controller through the API: %s\nDestroying through provider", err)
-		return environs.Destroy(controllerName, controllerEnviron, store)
+		return environs.Destroy(controllerName, controllerEnviron, cloudCallCtx, store)
 	}
 
 	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", controllerName)
@@ -143,7 +145,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if err := c.WaitForModels(ctx, api, uuid); err != nil {
 		c.DirectDestroyRemaining(ctx, api)
 	}
-	return environs.Destroy(controllerName, controllerEnviron, store)
+	return environs.Destroy(controllerName, controllerEnviron, cloudCallCtx, store)
 }
 
 func (c *killCommand) getControllerAPIWithTimeout(timeout time.Duration) (destroyControllerAPI, error) {
@@ -216,7 +218,8 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 				hasErrors = true
 				continue
 			}
-			if err := env.Destroy(); err != nil {
+			cloudCallCtx := &cmdcommon.CallContext{}
+			if err := env.Destroy(cloudCallCtx); err != nil {
 				logger.Errorf(err.Error())
 				hasErrors = true
 				continue

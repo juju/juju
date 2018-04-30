@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 )
 
@@ -35,10 +36,11 @@ func toParamsInstanceTypeResult(itypes []instances.InstanceType) []params.Instan
 
 // NewInstanceTypeConstraints returns an instanceTypeConstraints with the passed
 // parameters.
-func NewInstanceTypeConstraints(env environs.Environ, constraints constraints.Value) instanceTypeConstraints {
+func NewInstanceTypeConstraints(env environs.Environ, ctx context.ProviderCallContext, constraints constraints.Value) instanceTypeConstraints {
 	return instanceTypeConstraints{
 		environ:     env,
 		constraints: constraints,
+		context:     ctx,
 	}
 }
 
@@ -46,12 +48,13 @@ func NewInstanceTypeConstraints(env environs.Environ, constraints constraints.Va
 type instanceTypeConstraints struct {
 	constraints constraints.Value
 	environ     environs.Environ
+	context     context.ProviderCallContext
 }
 
 // InstanceTypes returns a list of the available instance types in the provider according
 // to the passed constraints.
 func InstanceTypes(cons instanceTypeConstraints) (params.InstanceTypesResult, error) {
-	instanceTypes, err := cons.environ.InstanceTypes(cons.constraints)
+	instanceTypes, err := cons.environ.InstanceTypes(cons.context, cons.constraints)
 	if err != nil {
 		return params.InstanceTypesResult{}, errors.Trace(err)
 	}

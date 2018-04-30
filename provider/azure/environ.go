@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
 	internalazureresources "github.com/juju/juju/provider/azure/internal/azureresources"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
@@ -217,7 +218,7 @@ func (env *azureEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) erro
 }
 
 // Create is part of the Environ interface.
-func (env *azureEnviron) Create(args environs.CreateParams) error {
+func (env *azureEnviron) Create(ctx context.ProviderCallContext, args environs.CreateParams) error {
 	if err := verifyCredentials(env); err != nil {
 		return errors.Trace(err)
 	}
@@ -227,15 +228,16 @@ func (env *azureEnviron) Create(args environs.CreateParams) error {
 // Bootstrap is part of the Environ interface.
 func (env *azureEnviron) Bootstrap(
 	ctx environs.BootstrapContext,
+	callCtx context.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
 	if err := env.initResourceGroup(args.ControllerConfig.ControllerUUID(), true); err != nil {
 		return nil, errors.Annotate(err, "creating controller resource group")
 	}
-	result, err := common.Bootstrap(ctx, env, args)
+	result, err := common.Bootstrap(ctx, env, callCtx, args)
 	if err != nil {
 		logger.Errorf("bootstrap failed, destroying model: %v", err)
-		if err := env.Destroy(); err != nil {
+		if err := env.Destroy(callCtx); err != nil {
 			logger.Errorf("failed to destroy model: %v", err)
 		}
 		return nil, errors.Trace(err)
@@ -314,8 +316,8 @@ func (env *azureEnviron) createCommonResourceDeployment(
 }
 
 // ControllerInstances is specified in the Environ interface.
-func (env *azureEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
-	instances, err := env.allInstances(env.resourceGroup, false, true)
+func (env *azureEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+	instances, err := env.allInstances(ctx, env.resourceGroup, false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -392,7 +394,7 @@ func (env *azureEnviron) ConstraintsValidator() (constraints.Validator, error) {
 }
 
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
-func (env *azureEnviron) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+func (env *azureEnviron) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
 	if args.Placement != "" {
 		return fmt.Errorf("unknown placement directive: %s", args.Placement)
 	}
@@ -413,12 +415,12 @@ func (env *azureEnviron) PrecheckInstance(args environs.PrecheckInstanceParams) 
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.
-func (*azureEnviron) MaintainInstance(args environs.StartInstanceParams) error {
+func (*azureEnviron) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
 	return nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	if args.ControllerUUID == "" {
 		return nil, errors.New("missing controller UUID")
 	}
@@ -525,7 +527,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 		storageAccountType,
 	); err != nil {
 		logger.Errorf("creating instance failed, destroying: %v", err)
-		if err := env.StopInstances(instance.Id(vmName)); err != nil {
+		if err := env.StopInstances(ctx, instance.Id(vmName)); err != nil {
 			logger.Errorf("could not destroy failed virtual machine: %v", err)
 		}
 		return nil, errors.Annotatef(err, "creating virtual machine %q", vmName)
@@ -1096,7 +1098,7 @@ func newOSProfile(
 }
 
 // StopInstances is specified in the InstanceBroker interface.
-func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
+func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -1297,11 +1299,12 @@ func (env *azureEnviron) deleteVirtualMachine(
 }
 
 // Instances is specified in the Environ interface.
-func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	return env.instances(env.resourceGroup, ids, true /* refresh addresses */)
+func (env *azureEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+	return env.instances(ctx, env.resourceGroup, ids, true /* refresh addresses */)
 }
 
 func (env *azureEnviron) instances(
+	ctx context.ProviderCallContext,
 	resourceGroup string,
 	ids []instance.Id,
 	refreshAddresses bool,
@@ -1309,7 +1312,7 @@ func (env *azureEnviron) instances(
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	all, err := env.allInstances(resourceGroup, refreshAddresses, false)
+	all, err := env.allInstances(ctx, resourceGroup, refreshAddresses, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1336,7 +1339,7 @@ func (env *azureEnviron) instances(
 }
 
 // AdoptResources is part of the Environ interface.
-func (env *azureEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+func (env *azureEnviron) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	groupClient := resources.GroupsClient{env.resources}
 
 	err := env.updateGroupControllerTag(&groupClient, env.resourceGroup, controllerUUID)
@@ -1440,13 +1443,14 @@ func (env *azureEnviron) updateResourceControllerTag(
 }
 
 // AllInstances is specified in the InstanceBroker interface.
-func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
-	return env.allInstances(env.resourceGroup, true /* refresh addresses */, false /* all instances */)
+func (env *azureEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+	return env.allInstances(ctx, env.resourceGroup, true /* refresh addresses */, false /* all instances */)
 }
 
 // allInstances returns all of the instances in the given resource group,
 // and optionally ensures that each instance's addresses are up-to-date.
 func (env *azureEnviron) allInstances(
+	ctx context.ProviderCallContext,
 	resourceGroup string,
 	refreshAddresses bool,
 	controllerOnly bool,
@@ -1525,7 +1529,7 @@ func isControllerDeployment(deployment resources.DeploymentExtended) bool {
 }
 
 // Destroy is specified in the Environ interface.
-func (env *azureEnviron) Destroy() error {
+func (env *azureEnviron) Destroy(ctx context.ProviderCallContext) error {
 	logger.Debugf("destroying model %q", env.envName)
 	logger.Debugf("- deleting resource group %q", env.resourceGroup)
 	if err := env.deleteResourceGroup(env.resourceGroup); err != nil {
@@ -1538,7 +1542,7 @@ func (env *azureEnviron) Destroy() error {
 }
 
 // DestroyController is specified in the Environ interface.
-func (env *azureEnviron) DestroyController(controllerUUID string) error {
+func (env *azureEnviron) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
 	logger.Debugf("destroying model %q", env.envName)
 	logger.Debugf("- deleting resource groups")
 	if err := env.deleteControllerManagedResourceGroups(controllerUUID); err != nil {

@@ -12,6 +12,7 @@ import (
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -33,12 +34,12 @@ func (*lxdInstance) Refresh() error {
 	return nil
 }
 
-func (lxd *lxdInstance) Addresses() ([]network.Address, error) {
+func (lxd *lxdInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	return nil, errors.NotImplementedf("lxdInstance.Addresses")
 }
 
 // Status implements instance.Instance.Status.
-func (lxd *lxdInstance) Status() instance.InstanceStatus {
+func (lxd *lxdInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	jujuStatus := status.Pending
 	instStatus, _, err := lxd.server.GetContainerState(lxd.id)
 	if err != nil {
@@ -64,17 +65,17 @@ func (lxd *lxdInstance) Status() instance.InstanceStatus {
 }
 
 // OpenPorts implements instance.Instance.OpenPorts.
-func (lxd *lxdInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
+func (lxd *lxdInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	return fmt.Errorf("not implemented")
 }
 
 // ClosePorts implements instance.Instance.ClosePorts.
-func (lxd *lxdInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
+func (lxd *lxdInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	return fmt.Errorf("not implemented")
 }
 
 // IngressRules implements instance.Instance.IngressRules.
-func (lxd *lxdInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
+func (lxd *lxdInstance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

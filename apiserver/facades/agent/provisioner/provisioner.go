@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/containerizer"
@@ -60,6 +61,7 @@ type ProvisionerAPI struct {
 	configGetter            environs.EnvironConfigGetter
 	getAuthFunc             common.GetAuthFunc
 	getCanModify            common.GetAuthFunc
+	providerCallContext     context.ProviderCallContext
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
@@ -138,6 +140,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		storagePoolManager:      poolmanager.New(state.NewStateSettings(st), storageProviderRegistry),
 		getAuthFunc:             getAuthFunc,
 		getCanModify:            getCanModify,
+		providerCallContext:     common.ProviderCallContext(),
 	}, nil
 }
 
@@ -748,7 +751,7 @@ type perContainerHandler interface {
 	// machine that is hosting the container.
 	// Any errors that are returned from ProcessOneContainer will be turned
 	// into ServerError and handed to SetError
-	ProcessOneContainer(env environs.Environ, idx int, host, container *state.Machine) error
+	ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, container *state.Machine) error
 	// SetError will be called whenever there is a problem with the a given
 	// request. Generally this just does result.Results[i].Error = error
 	// but the Result type is opaque so we can't do it ourselves.
@@ -788,7 +791,7 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 			continue
 		}
 
-		if err := handler.ProcessOneContainer(env, i, hostMachine, container); err != nil {
+		if err := handler.ProcessOneContainer(env, p.providerCallContext, i, hostMachine, container); err != nil {
 			handler.SetError(i, common.ServerError(err))
 			continue
 		}
@@ -805,7 +808,7 @@ func (ctx *prepareOrGetContext) SetError(idx int, err *params.Error) {
 	ctx.result.Results[idx].Error = err
 }
 
-func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx int, host, container *state.Machine) error {
+func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, container *state.Machine) error {
 	containerId, err := container.InstanceId()
 	if ctx.maintain {
 		if err == nil {
@@ -820,7 +823,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 		return err
 	}
 
-	supportContainerAddresses := environs.SupportsContainerAddresses(env)
+	supportContainerAddresses := environs.SupportsContainerAddresses(callContext, env)
 	bridgePolicy := containerizer.BridgePolicy{
 		NetBondReconfigureDelay:   env.Config().NetBondReconfigureDelay(),
 		ContainerNetworkingMethod: env.Config().ContainerNetworkingMethod(),
@@ -908,7 +911,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 	if supportContainerAddresses {
 		// supportContainerAddresses already checks that we can cast to an environ.Networking
 		networking := env.(environs.Networking)
-		allocatedInfo, err = networking.AllocateContainerAddresses(hostInstanceId, container.MachineTag(), preparedInfo)
+		allocatedInfo, err = networking.AllocateContainerAddresses(callContext, hostInstanceId, container.MachineTag(), preparedInfo)
 		if err != nil {
 			return err
 		}
@@ -972,7 +975,7 @@ type hostChangesContext struct {
 	result params.HostNetworkChangeResults
 }
 
-func (ctx *hostChangesContext) ProcessOneContainer(env environs.Environ, idx int, host, container *state.Machine) error {
+func (ctx *hostChangesContext) ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, container *state.Machine) error {
 	bridgePolicy := containerizer.BridgePolicy{
 		NetBondReconfigureDelay:   env.Config().NetBondReconfigureDelay(),
 		ContainerNetworkingMethod: env.Config().ContainerNetworkingMethod(),
@@ -1131,7 +1134,7 @@ func (p *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess c
 }
 
 func (p *ProvisionerAPI) SetHostMachineNetworkConfig(args params.SetMachineNetworkConfig) error {
-	return p.SetObservedNetworkConfig(args)
+	return p.SetObservedNetworkConfig(common.ProviderCallContext(), args)
 }
 
 // CACert returns the certificate used to validate the state connection.

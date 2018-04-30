@@ -497,6 +497,8 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (m
 		return nil, errors.Trace(err)
 	}
 
+	ctx := common.ProviderCallContext()
+
 	netEnv, ok := environs.SupportsNetworking(env)
 	if !ok {
 		logger.Debugf("cloud provider doesn't support networking, not getting space info")
@@ -516,7 +518,7 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (m
 				return nil, errors.Trace(err)
 			}
 		}
-		providerSpace, err := netEnv.ProviderSpaceInfo(space)
+		providerSpace, err := netEnv.ProviderSpaceInfo(ctx, space)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}

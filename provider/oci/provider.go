@@ -23,6 +23,7 @@ import (
 	ociCore "github.com/oracle/oci-go-sdk/core"
 	ociIdentity "github.com/oracle/oci-go-sdk/identity"
 
+	"github.com/juju/juju/environs/context"
 	"gopkg.in/ini.v1"
 )
 
@@ -173,7 +174,7 @@ func (e EnvironProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping implements environs.EnvironProvider.
-func (e *EnvironProvider) Ping(endpoint string) error {
+func (e *EnvironProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 

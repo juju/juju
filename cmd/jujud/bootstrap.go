@@ -176,11 +176,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
-	instances, err := env.Instances([]instance.Id{args.BootstrapMachineInstanceId})
+	callCtx := &agentcmd.CallContext{}
+	instances, err := env.Instances(callCtx, []instance.Id{args.BootstrapMachineInstanceId})
 	if err != nil {
 		return errors.Annotate(err, "getting bootstrap instance")
 	}
-	addrs, err := instances[0].Addresses()
+	addrs, err := instances[0].Addresses(callCtx)
 	if err != nil {
 		return errors.Annotate(err, "bootstrap instance addresses")
 	}

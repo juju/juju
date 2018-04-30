@@ -81,6 +81,7 @@ func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesRes
 	}
 
 	environ, supportsNetworking := environs.SupportsNetworking(env)
+	ctx := common.ProviderCallContext()
 	getter := func(m SSHMachine) ([]network.Address, error) {
 		devicesAddresses, err := m.AllNetworkAddresses()
 		if err != nil {
@@ -98,7 +99,7 @@ func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesRes
 			}
 		}
 		if supportsNetworking {
-			return environ.SSHAddresses(uniqueAddresses)
+			return environ.SSHAddresses(ctx, uniqueAddresses)
 		} else {
 			return uniqueAddresses, nil
 		}

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	callcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 )
@@ -109,14 +110,14 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 }
 
 // Create implements environs.Environ.
-func (env *environ) Create(args environs.CreateParams) error {
+func (env *environ) Create(ctx callcontext.ProviderCallContext, args environs.CreateParams) error {
 	return env.withSession(func(env *sessionEnviron) error {
-		return env.Create(args)
+		return env.Create(ctx, args)
 	})
 }
 
 // Create implements environs.Environ.
-func (env *sessionEnviron) Create(args environs.CreateParams) error {
+func (env *sessionEnviron) Create(ctx callcontext.ProviderCallContext, args environs.CreateParams) error {
 	return env.ensureVMFolder(args.ControllerUUID)
 }
 
@@ -126,6 +127,7 @@ var Bootstrap = common.Bootstrap
 // Bootstrap is part of the environs.Environ interface.
 func (env *environ) Bootstrap(
 	ctx environs.BootstrapContext,
+	callCtx callcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (result *environs.BootstrapResult, err error) {
 	// NOTE(axw) we must not pass a sessionEnviron to common.Bootstrap,
@@ -136,11 +138,12 @@ func (env *environ) Bootstrap(
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return Bootstrap(ctx, env, args)
+	return Bootstrap(ctx, env, callCtx, args)
 }
 
 func (env *sessionEnviron) Bootstrap(
 	ctx environs.BootstrapContext,
+	callCtx callcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (result *environs.BootstrapResult, err error) {
 	return nil, errors.Errorf("sessionEnviron.Bootstrap should never be called")
@@ -158,15 +161,15 @@ func (env *sessionEnviron) ensureVMFolder(controllerUUID string) error {
 var DestroyEnv = common.Destroy
 
 // AdoptResources is part of the Environ interface.
-func (env *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+func (env *environ) AdoptResources(ctx callcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	// Move model folder into the controller's folder.
 	return env.withSession(func(env *sessionEnviron) error {
-		return env.AdoptResources(controllerUUID, fromVersion)
+		return env.AdoptResources(ctx, controllerUUID, fromVersion)
 	})
 }
 
 // AdoptResources is part of the Environ interface.
-func (env *sessionEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+func (env *sessionEnviron) AdoptResources(ctx callcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	return env.client.MoveVMFolderInto(env.ctx,
 		controllerFolderName(controllerUUID),
 		path.Join(
@@ -177,15 +180,15 @@ func (env *sessionEnviron) AdoptResources(controllerUUID string, fromVersion ver
 }
 
 // Destroy is part of the environs.Environ interface.
-func (env *environ) Destroy() error {
+func (env *environ) Destroy(ctx callcontext.ProviderCallContext) error {
 	return env.withSession(func(env *sessionEnviron) error {
-		return env.Destroy()
+		return env.Destroy(ctx)
 	})
 }
 
 // Destroy is part of the environs.Environ interface.
-func (env *sessionEnviron) Destroy() error {
-	if err := DestroyEnv(env); err != nil {
+func (env *sessionEnviron) Destroy(ctx callcontext.ProviderCallContext) error {
+	if err := DestroyEnv(env, ctx); err != nil {
 		return errors.Trace(err)
 	}
 	return env.client.DestroyVMFolder(env.ctx, path.Join(
@@ -195,15 +198,15 @@ func (env *sessionEnviron) Destroy() error {
 }
 
 // DestroyController implements the Environ interface.
-func (env *environ) DestroyController(controllerUUID string) error {
+func (env *environ) DestroyController(ctx callcontext.ProviderCallContext, controllerUUID string) error {
 	return env.withSession(func(env *sessionEnviron) error {
-		return env.DestroyController(controllerUUID)
+		return env.DestroyController(ctx, controllerUUID)
 	})
 }
 
 // DestroyController implements the Environ interface.
-func (env *sessionEnviron) DestroyController(controllerUUID string) error {
-	if err := env.Destroy(); err != nil {
+func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext, controllerUUID string) error {
+	if err := env.Destroy(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	controllerFolderName := controllerFolderName(controllerUUID)

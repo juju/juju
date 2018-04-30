@@ -6,6 +6,7 @@ package joyent
 import (
 	"github.com/joyent/gosdc/cloudapi"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -22,7 +23,7 @@ func (inst *joyentInstance) Id() instance.Id {
 	return instance.Id(inst.machine.Id)
 }
 
-func (inst *joyentInstance) Status() instance.InstanceStatus {
+func (inst *joyentInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	instStatus := inst.machine.State
 	jujuStatus := status.Pending
 	switch instStatus {
@@ -43,7 +44,7 @@ func (inst *joyentInstance) Status() instance.InstanceStatus {
 	}
 }
 
-func (inst *joyentInstance) Addresses() ([]network.Address, error) {
+func (inst *joyentInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	addresses := make([]network.Address, 0, len(inst.machine.IPs))
 	for _, ip := range inst.machine.IPs {
 		address := network.NewAddress(ip)

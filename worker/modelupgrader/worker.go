@@ -12,10 +12,12 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	jujuworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/wrench"
 )
@@ -161,6 +163,9 @@ func newUpgradeWorker(config Config, targetVersion int) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	callContext := &common.CallContext{}
+
 	return jujuworker.NewSimpleWorker(func(<-chan struct{}) error {
 		// NOTE(axw) the abort channel is ignored, because upgrade
 		// steps are not interruptible. If we find they need to be
@@ -188,6 +193,7 @@ func newUpgradeWorker(config Config, targetVersion int) (worker.Worker, error) {
 			currentVersion,
 			targetVersion,
 			setVersion,
+			callContext,
 		); err != nil {
 			info := fmt.Sprintf("failed to upgrade environ: %s", err)
 			if err := setStatus(status.Error, info); err != nil {
@@ -210,6 +216,7 @@ func runEnvironUpgradeSteps(
 	currentVersion int,
 	targetVersion int,
 	setVersion func(int) error,
+	callCtx context.ProviderCallContext,
 ) error {
 	if wrench.IsActive("modelupgrader", "fail-all") ||
 		wrench.IsActive("modelupgrader", "fail-model-"+modelTag.Id()) {
@@ -223,7 +230,7 @@ func runEnvironUpgradeSteps(
 	args := environs.UpgradeOperationsParams{
 		ControllerUUID: controllerTag.Id(),
 	}
-	for _, op := range upgrader.UpgradeOperations(args) {
+	for _, op := range upgrader.UpgradeOperations(callCtx, args) {
 		if op.TargetVersion <= currentVersion {
 			// The operation is for the same as or older
 			// than the current environ version.
@@ -249,7 +256,7 @@ func runEnvironUpgradeSteps(
 		)
 		for _, step := range op.Steps {
 			logger.Debugf("running step %q", step.Description())
-			if err := step.Run(); err != nil {
+			if err := step.Run(callCtx); err != nil {
 				return errors.Trace(err)
 			}
 		}

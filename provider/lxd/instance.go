@@ -6,6 +6,7 @@
 package lxd
 
 import (
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -32,7 +33,7 @@ func (inst *environInstance) Id() instance.Id {
 }
 
 // Status implements instance.Instance.
-func (inst *environInstance) Status() instance.InstanceStatus {
+func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	jujuStatus := status.Pending
 	instStatus := inst.raw.Status()
 	switch instStatus {
@@ -53,6 +54,6 @@ func (inst *environInstance) Status() instance.InstanceStatus {
 }
 
 // Addresses implements instance.Instance.
-func (inst *environInstance) Addresses() ([]network.Address, error) {
+func (inst *environInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	return inst.env.raw.Addresses(inst.raw.Name)
 }

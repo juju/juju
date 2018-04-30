@@ -93,7 +93,7 @@ func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob)
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg, err := s.jcSuite.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	inst, hc := jujutesting.AssertStartInstanceWithConstraints(c, s.jcSuite.Environ, controllerCfg.ControllerUUID(), m.Id(), cons)
+	inst, hc := jujutesting.AssertStartInstanceWithConstraints(c, s.jcSuite.Environ, s.jcSuite.ProviderCallContext, controllerCfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 }

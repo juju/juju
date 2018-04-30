@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -123,7 +124,7 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 }
 
 // Create is part of the Environ interface.
-func (env *environ) Create(args environs.CreateParams) error {
+func (env *environ) Create(ctx context.ProviderCallContext, args environs.CreateParams) error {
 	if err := verifyCredentials(env); err != nil {
 		return err
 	}
@@ -137,23 +138,23 @@ func (env *environ) Create(args environs.CreateParams) error {
 }
 
 // Bootstrap is part of the Environ interface.
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	r, err := common.Bootstrap(ctx, e, args)
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	r, err := common.Bootstrap(ctx, e, callCtx, args)
 	return r, maybeConvertCredentialError(err)
 }
 
 // SupportsSpaces is specified on environs.Networking.
-func (e *environ) SupportsSpaces() (bool, error) {
+func (e *environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
 	return true, nil
 }
 
 // SupportsContainerAddresses is specified on environs.Networking.
-func (e *environ) SupportsContainerAddresses() (bool, error) {
+func (e *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
 	return false, errors.NotSupportedf("container address allocation")
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
-func (e *environ) SupportsSpaceDiscovery() (bool, error) {
+func (e *environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error) {
 	return false, nil
 }
 
@@ -211,7 +212,7 @@ func (z *ec2AvailabilityZone) Available() bool {
 
 // AvailabilityZones returns a slice of availability zones
 // for the configured region.
-func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
+func (e *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
 	e.availabilityZonesMutex.Lock()
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
@@ -232,8 +233,8 @@ func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 
 // InstanceAvailabilityZoneNames returns the availability zone names for each
 // of the specified instances.
-func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
-	instances, err := e.Instances(ids)
+func (e *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+	instances, err := e.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		return nil, err
 	}
@@ -248,8 +249,8 @@ func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, er
 }
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
-func (e *environ) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
-	availabilityZone, err := e.deriveAvailabilityZone(args)
+func (e *environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
+	availabilityZone, err := e.deriveAvailabilityZone(ctx, args)
 	if availabilityZone != "" {
 		return []string{availabilityZone}, errors.Trace(err)
 	}
@@ -261,7 +262,7 @@ type ec2Placement struct {
 	subnet           *ec2.Subnet
 }
 
-func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
+func (e *environ) parsePlacement(ctx context.ProviderCallContext, placement string) (*ec2Placement, error) {
 	pos := strings.IndexRune(placement, '=')
 	if pos == -1 {
 		return nil, fmt.Errorf("unknown placement directive: %v", placement)
@@ -269,7 +270,7 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
 		availabilityZone := value
-		zones, err := e.AvailabilityZones()
+		zones, err := e.AvailabilityZones(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -292,7 +293,7 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 			return nil, errors.Trace(err)
 		}
 		// we'll also need info about this zone, we don't have a way right now to ask about a single AZ, so punt
-		zones, err := e.AvailabilityZones()
+		zones, err := e.AvailabilityZones(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -318,8 +319,8 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 }
 
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
-func (e *environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
-	if _, _, err := e.deriveAvailabilityZoneAndSubnetID(
+func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+	if _, _, err := e.deriveAvailabilityZoneAndSubnetID(ctx,
 		environs.StartInstanceParams{
 			Placement:         args.Placement,
 			VolumeAttachments: args.VolumeAttachments,
@@ -386,12 +387,12 @@ const (
 )
 
 // DistributeInstances implements the state.InstanceDistributor policy.
-func (e *environ) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
-	return common.DistributeInstances(e, candidates, distributionGroup)
+func (e *environ) DistributeInstances(ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
+	return common.DistributeInstances(e, ctx, candidates, distributionGroup)
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.
-func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
+func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
 	return nil
 }
 
@@ -402,14 +403,14 @@ func resourceName(tag names.Tag, envName string) string {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.StartInstanceResult, resultErr error) {
+func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (_ *environs.StartInstanceResult, resultErr error) {
 	var inst *ec2Instance
 	callback := args.StatusCallback
 	defer func() {
 		if resultErr == nil || inst == nil {
 			return
 		}
-		if err := e.StopInstances(inst.Id()); err != nil {
+		if err := e.StopInstances(ctx, inst.Id()); err != nil {
 			callback(status.Error, fmt.Sprintf("error stopping failed instance: %v", err), nil)
 			logger.Errorf("error stopping failed instance: %v", err)
 		}
@@ -441,7 +442,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	// The availability zone of existing volumes that are to be
 	// attached to the machine must all match, and must be the same
 	// as specified zone (if any).
-	availabilityZone, placementSubnetID, err := e.deriveAvailabilityZoneAndSubnetID(args)
+	availabilityZone, placementSubnetID, err := e.deriveAvailabilityZoneAndSubnetID(ctx, args)
 	if err != nil {
 		// An IsNotValid error is returned if the zone is invalid;
 		// this is a zone-specific error.
@@ -657,12 +658,12 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 	}, nil
 }
 
-func (e *environ) deriveAvailabilityZone(args environs.StartInstanceParams) (string, error) {
-	availabilityZone, _, err := e.deriveAvailabilityZoneAndSubnetID(args)
+func (e *environ) deriveAvailabilityZone(ctx context.ProviderCallContext, args environs.StartInstanceParams) (string, error) {
+	availabilityZone, _, err := e.deriveAvailabilityZoneAndSubnetID(ctx, args)
 	return availabilityZone, err
 }
 
-func (e *environ) deriveAvailabilityZoneAndSubnetID(args environs.StartInstanceParams) (string, string, error) {
+func (e *environ) deriveAvailabilityZoneAndSubnetID(ctx context.ProviderCallContext, args environs.StartInstanceParams) (string, string, error) {
 	// Determine the availability zones of existing volumes that are to be
 	// attached to the machine. They must all match, and must be the same
 	// as specified zone (if any).
@@ -670,7 +671,7 @@ func (e *environ) deriveAvailabilityZoneAndSubnetID(args environs.StartInstanceP
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
-	placementZone, placementSubnetID, err := e.instancePlacementZone(args.Placement, volumeAttachmentsZone)
+	placementZone, placementSubnetID, err := e.instancePlacementZone(ctx, args.Placement, volumeAttachmentsZone)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -679,7 +680,7 @@ func (e *environ) deriveAvailabilityZoneAndSubnetID(args environs.StartInstanceP
 		availabilityZone = placementZone
 	} else if args.AvailabilityZone != "" {
 		// Validate and check state of the AvailabilityZone
-		zones, err := e.AvailabilityZones()
+		zones, err := e.AvailabilityZones(ctx)
 		if err != nil {
 			return "", "", err
 		}
@@ -705,12 +706,12 @@ func (e *environ) deriveAvailabilityZoneAndSubnetID(args environs.StartInstanceP
 	return availabilityZone, placementSubnetID, nil
 }
 
-func (e *environ) instancePlacementZone(placement, volumeAttachmentsZone string) (zone, subnet string, _ error) {
+func (e *environ) instancePlacementZone(ctx context.ProviderCallContext, placement, volumeAttachmentsZone string) (zone, subnet string, _ error) {
 	if placement == "" {
 		return volumeAttachmentsZone, "", nil
 	}
 	var placementSubnetID string
-	instPlacement, err := e.parsePlacement(placement)
+	instPlacement, err := e.parsePlacement(ctx, placement)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -850,8 +851,8 @@ func _runInstances(e *ec2.EC2, ri *ec2.RunInstances, c environs.StatusCallbackFu
 	return resp, maybeConvertCredentialError(err)
 }
 
-func (e *environ) StopInstances(ids ...instance.Id) error {
-	return errors.Trace(e.terminateInstances(ids))
+func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+	return errors.Trace(e.terminateInstances(ctx, ids))
 }
 
 // groupInfoByName returns information on the security group
@@ -885,7 +886,7 @@ func isNotFoundError(err error) bool {
 }
 
 // Instances is part of the environs.Environ interface.
-func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
+func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -966,7 +967,7 @@ func (e *environ) gatherInstances(
 }
 
 // NetworkInterfaces implements NetworkingEnviron.NetworkInterfaces.
-func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	var err error
 	var networkInterfacesResp *ec2.NetworkInterfacesResp
 	for a := shortAttempt.Start(); a.Next(); {
@@ -1049,7 +1050,7 @@ func makeSubnetInfo(cidr string, subnetId, providerNetworkId network.Id, availZo
 
 // Spaces is not implemented by the ec2 provider as we don't currently have
 // provider level spaces.
-func (e *environ) Spaces() ([]network.SpaceInfo, error) {
+func (e *environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
 	return nil, errors.NotSupportedf("Spaces")
 }
 
@@ -1057,7 +1058,7 @@ func (e *environ) Spaces() ([]network.SpaceInfo, error) {
 // by the provider for the specified instance or list of ids. subnetIds can be
 // empty, in which case all known are returned. Implements
 // NetworkingEnviron.Subnets.
-func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (e *environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	var results []network.SubnetInfo
 	subIdSet := make(map[string]bool)
 	for _, subId := range subnetIds {
@@ -1065,7 +1066,7 @@ func (e *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network
 	}
 
 	if instId != instance.UnknownId {
-		interfaces, err := e.NetworkInterfaces(instId)
+		interfaces, err := e.NetworkInterfaces(ctx, instId)
 		if err != nil {
 			return results, errors.Trace(err)
 		}
@@ -1144,9 +1145,9 @@ func (e *environ) subnetsForVPC() (resp *ec2.SubnetsResp, vpcId string, err erro
 }
 
 // AdoptResources is part of the Environ interface.
-func (e *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	// Gather resource ids for instances, volumes and security groups tagged with this model.
-	instances, err := e.AllInstances()
+	instances, err := e.AllInstances(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1174,13 +1175,13 @@ func (e *environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 }
 
 // AllInstances is part of the environs.InstanceBroker interface.
-func (e *environ) AllInstances() ([]instance.Instance, error) {
-	return e.AllInstancesByState("pending", "running")
+func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+	return e.AllInstancesByState(ctx, "pending", "running")
 }
 
 // AllInstancesByState returns all instances in the environment
 // with one of the specified instance states.
-func (e *environ) AllInstancesByState(states ...string) ([]instance.Instance, error) {
+func (e *environ) AllInstancesByState(ctx context.ProviderCallContext, states ...string) ([]instance.Instance, error) {
 	// NOTE(axw) we use security group filtering here because instances
 	// start out untagged. If Juju were to abort after starting an instance,
 	// but before tagging it, it would be leaked. We only need to do this
@@ -1216,7 +1217,7 @@ func (e *environ) AllInstancesByState(states ...string) ([]instance.Instance, er
 }
 
 // ControllerInstances is part of the environs.Environ interface.
-func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
+func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", aliveInstanceStates...)
 	filter.Add(fmt.Sprintf("tag:%s", tags.JujuIsController), "true")
@@ -1272,8 +1273,8 @@ func (e *environ) allInstances(filter *ec2.Filter) ([]instance.Instance, error) 
 }
 
 // Destroy is part of the environs.Environ interface.
-func (e *environ) Destroy() error {
-	if err := common.Destroy(e); err != nil {
+func (e *environ) Destroy(ctx context.ProviderCallContext) error {
+	if err := common.Destroy(e, ctx); err != nil {
 		return errors.Trace(maybeConvertCredentialError(err))
 	}
 	if err := e.cleanEnvironmentSecurityGroups(); err != nil {
@@ -1283,26 +1284,26 @@ func (e *environ) Destroy() error {
 }
 
 // DestroyController implements the Environ interface.
-func (e *environ) DestroyController(controllerUUID string) error {
+func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
 	// In case any hosted environment hasn't been cleaned up yet,
 	// we also attempt to delete their resources when the controller
 	// environment is destroyed.
-	if err := e.destroyControllerManagedEnvirons(controllerUUID); err != nil {
+	if err := e.destroyControllerManagedEnvirons(ctx, controllerUUID); err != nil {
 		return errors.Annotate(err, "destroying managed environs")
 	}
-	return e.Destroy()
+	return e.Destroy(ctx)
 }
 
 // destroyControllerManagedEnvirons destroys all environments managed by this
 // environment's controller.
-func (e *environ) destroyControllerManagedEnvirons(controllerUUID string) error {
+func (e *environ) destroyControllerManagedEnvirons(ctx context.ProviderCallContext, controllerUUID string) error {
 
 	// Terminate all instances managed by the controller.
 	instIds, err := e.allControllerManagedInstances(controllerUUID)
 	if err != nil {
 		return errors.Annotate(err, "listing instances")
 	}
-	if err := e.terminateInstances(instIds); err != nil {
+	if err := e.terminateInstances(ctx, instIds); err != nil {
 		return errors.Annotate(err, "terminating instances")
 	}
 
@@ -1439,7 +1440,7 @@ func (e *environ) ingressRulesInGroup(name string) (rules []network.IngressRule,
 	return rules, nil
 }
 
-func (e *environ) OpenPorts(rules []network.IngressRule) error {
+func (e *environ) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for opening ports on model", e.Config().FirewallMode())
 	}
@@ -1450,7 +1451,7 @@ func (e *environ) OpenPorts(rules []network.IngressRule) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(rules []network.IngressRule) error {
+func (e *environ) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return errors.Errorf("invalid firewall mode %q for closing ports on model", e.Config().FirewallMode())
 	}
@@ -1461,7 +1462,7 @@ func (e *environ) ClosePorts(rules []network.IngressRule) error {
 	return nil
 }
 
-func (e *environ) IngressRules() ([]network.IngressRule, error) {
+func (e *environ) IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, errors.Errorf("invalid firewall mode %q for retrieving ingress rules from model", e.Config().FirewallMode())
 	}
@@ -1545,7 +1546,7 @@ func (e *environ) cleanEnvironmentSecurityGroups() error {
 	return nil
 }
 
-func (e *environ) terminateInstances(ids []instance.Id) error {
+func (e *environ) terminateInstances(ctx context.ProviderCallContext, ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -1984,11 +1985,11 @@ func ec2ErrCode(err error) string {
 	return ec2err.Code
 }
 
-func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }
 
-func (e *environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
+func (e *environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
 }
 
@@ -2037,22 +2038,22 @@ func (e *environ) hasDefaultVPC() (bool, error) {
 }
 
 // ProviderSpaceInfo implements NetworkingEnviron.
-func (*environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (*environ) ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 
 // AreSpacesRoutable implements NetworkingEnviron.
-func (*environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }
 
 // SSHAddresses implements environs.SSHAddresses.
-func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses []network.Address) ([]network.Address, error) {
 	return addresses, nil
 }
 
 // SuperSubnets implements NetworkingEnviron.SuperSubnets
-func (e *environ) SuperSubnets() ([]string, error) {
+func (e *environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
 	vpcId := e.ecfg().vpcID()
 	if !isVPCIDSet(vpcId) {
 		if hasDefaultVPC, err := e.hasDefaultVPC(); err == nil && hasDefaultVPC {

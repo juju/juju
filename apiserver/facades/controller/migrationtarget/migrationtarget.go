@@ -226,7 +226,8 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(env.AdoptResources(st.ControllerUUID(), args.SourceControllerVersion))
+	ctx := common.ProviderCallContext()
+	return errors.Trace(env.AdoptResources(ctx, st.ControllerUUID(), args.SourceControllerVersion))
 }
 
 // CheckMachines compares the machines in state with the ones reported
@@ -271,7 +272,9 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	instances, err := env.AllInstances()
+	ctx := common.ProviderCallContext()
+
+	instances, err := env.AllInstances(ctx)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}

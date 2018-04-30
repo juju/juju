@@ -77,7 +77,11 @@ func instanceTypes(api *CloudAPI,
 			return params.InstanceTypesResults{}, errors.Trace(err)
 		}
 
-		itCons := common.NewInstanceTypeConstraints(env, value)
+		itCons := common.NewInstanceTypeConstraints(
+			env,
+			common.ProviderCallContext(),
+			value,
+		)
 		it, err := common.InstanceTypes(itCons)
 		if err != nil {
 			result[i] = params.InstanceTypesResult{Error: common.ServerError(err)}

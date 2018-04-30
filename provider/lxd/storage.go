@@ -415,7 +415,7 @@ func (s *lxdFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachm
 		instanceIdsSeen.Add(string(arg.InstanceId))
 		instanceIds = append(instanceIds, arg.InstanceId)
 	}
-	instances, err := s.env.Instances(instanceIds)
+	instances, err := s.env.Instances(&callContext{}, instanceIds)
 	switch err {
 	case nil, environs.ErrPartialInstances, environs.ErrNoInstances:
 	default:
@@ -498,7 +498,7 @@ func (s *lxdFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachm
 		instanceIdsSeen.Add(string(arg.InstanceId))
 		instanceIds = append(instanceIds, arg.InstanceId)
 	}
-	instances, err := s.env.Instances(instanceIds)
+	instances, err := s.env.Instances(&callContext{}, instanceIds)
 	switch err {
 	case nil, environs.ErrPartialInstances, environs.ErrNoInstances:
 	default:
@@ -593,4 +593,14 @@ func (s *lxdFilesystemSource) ImportFilesystem(
 		FilesystemId: filesystemId,
 		Size:         size,
 	}, nil
+}
+
+// callContext is placeholder implementation of context.ProviderCallContext.
+// TODO (anastasiamac 2018-04-27) reall implementation might need to be put on storage interface calls.
+type callContext struct {
+}
+
+// InvalidateCredentialCallback implements context.InvalidateCredentialCallback
+func (*callContext) InvalidateCredentialCallback() error {
+	return errors.NotImplementedf("InvalidateCredentialCallback")
 }

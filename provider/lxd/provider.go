@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd/lxdnames"
 	"github.com/juju/juju/tools/lxdclient"
 )
@@ -47,7 +48,7 @@ func (*environProvider) Version() int {
 }
 
 // Open implements environs.EnvironProvider.
-func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+func (p *environProvider) Open(ctx context.ProviderCallContext, args environs.OpenParams) (environs.Environ, error) {
 	local, err := p.validateCloudSpec(args.Cloud)
 	if err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
@@ -69,7 +70,7 @@ func (p *environProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p *environProvider) Ping(endpoint string) error {
+func (p *environProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 

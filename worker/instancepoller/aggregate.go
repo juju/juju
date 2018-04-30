@@ -10,12 +10,14 @@ import (
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/common"
 )
 
 type InstanceGetter interface {
-	Instances(ids []instance.Id) ([]instance.Instance, error)
+	Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error)
 }
 
 type aggregatorConfig struct {
@@ -42,15 +44,19 @@ type aggregator struct {
 	config   aggregatorConfig
 	catacomb catacomb.Catacomb
 	reqc     chan instanceInfoReq
+
+	callContext context.ProviderCallContext
 }
 
 func newAggregator(config aggregatorConfig) (*aggregator, error) {
 	if err := config.validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	callCtx := &common.CallContext{}
 	a := &aggregator{
-		config: config,
-		reqc:   make(chan instanceInfoReq),
+		config:      config,
+		reqc:        make(chan instanceInfoReq),
+		callContext: callCtx,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &a.catacomb,
@@ -125,7 +131,7 @@ func (a *aggregator) doRequests(reqs []instanceInfoReq) error {
 	for i, req := range reqs {
 		ids[i] = req.instId
 	}
-	insts, err := a.config.Environ.Instances(ids)
+	insts, err := a.config.Environ.Instances(a.callContext, ids)
 	for i, req := range reqs {
 		var reply instanceInfoReply
 		if err != nil && err != environs.ErrPartialInstances {
@@ -146,17 +152,17 @@ func (a *aggregator) doRequests(reqs []instanceInfoReq) error {
 
 // instInfo returns the instance info for the given id
 // and instance. If inst is nil, it returns a not-found error.
-func (*aggregator) instInfo(id instance.Id, inst instance.Instance) (instanceInfo, error) {
+func (a *aggregator) instInfo(id instance.Id, inst instance.Instance) (instanceInfo, error) {
 	if inst == nil {
 		return instanceInfo{}, errors.NotFoundf("instance %v", id)
 	}
-	addr, err := inst.Addresses()
+	addr, err := inst.Addresses(a.callContext)
 	if err != nil {
 		return instanceInfo{}, err
 	}
 	return instanceInfo{
 		addr,
-		inst.Status(),
+		inst.Status(a.callContext),
 	}, nil
 }
 

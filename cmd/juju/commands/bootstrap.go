@@ -485,6 +485,8 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
+	cloudCallCtx := &common.CallContext{}
+
 	hostedModelUUID, err := utils.NewUUID()
 	if err != nil {
 		return errors.Trace(err)
@@ -539,7 +541,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 				resultErr = cmd.ErrSilent
 				handleBootstrapError(ctx, func() error {
 					return environsDestroy(
-						c.controllerName, environ, store,
+						c.controllerName, environ, cloudCallCtx, store,
 					)
 				})
 			}
@@ -641,7 +643,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	if c.AgentVersion != nil {
 		agentVersion = *c.AgentVersion
 	}
-	addrs, err := common.BootstrapEndpointAddresses(environ)
+	addrs, err := common.BootstrapEndpointAddresses(environ, cloudCallCtx)
 	if err != nil {
 		return errors.Trace(err)
 	}

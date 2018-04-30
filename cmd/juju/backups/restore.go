@@ -283,12 +283,14 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 		return errors.Annotate(err, "opening environ for rebootstrapping")
 	}
 
-	instanceIds, err := env.ControllerInstances(params.ControllerConfig.ControllerUUID())
+	cloudCallCtx := &common.CallContext{}
+
+	instanceIds, err := env.ControllerInstances(cloudCallCtx, params.ControllerConfig.ControllerUUID())
 	if err != nil && errors.Cause(err) != environs.ErrNotBootstrapped && !errors.IsNotFound(err) {
 		return errors.Annotatef(err, "cannot determine controller instances")
 	}
 	if len(instanceIds) > 0 {
-		inst, err := env.Instances(instanceIds)
+		inst, err := env.Instances(cloudCallCtx, instanceIds)
 		if err == nil {
 			return errors.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
 		}
@@ -350,7 +352,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 
 	// New controller is bootstrapped, so now record the API address so
 	// we can connect.
-	addrs, err := common.BootstrapEndpointAddresses(env)
+	addrs, err := common.BootstrapEndpointAddresses(env, cloudCallCtx)
 	if err != nil {
 		return errors.Trace(err)
 	}
