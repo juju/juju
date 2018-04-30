@@ -124,26 +124,19 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Operation arrangements.
-	createRemoteOp := lxdtesting.NewMockRemoteOperation(ctrl)
-	createRemoteOp.EXPECT().Wait().Return(nil).AnyTimes()
-	createRemoteOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
+	startOp := lxdtesting.NewMockOperation(ctrl)
+	startOp.EXPECT().Wait().Return(nil)
 
-	updateOp := lxdtesting.NewMockOperation(ctrl)
-	updateOp.EXPECT().Wait().Return(nil).AnyTimes()
+	stopOp := lxdtesting.NewMockOperation(ctrl)
+	stopOp.EXPECT().Wait().Return(nil)
 
 	deleteOp := lxdtesting.NewMockOperation(ctrl)
-	deleteOp.EXPECT().Wait().Return(nil).AnyTimes()
+	deleteOp.EXPECT().Wait().Return(nil)
 
 	// Arrangements for the container creation.
-	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-target"}}
-	image := lxdapi.Image{Filename: "this-is-our-image"}
-	gomock.InOrder(
-		cSvr.EXPECT().GetImageAlias("juju/xenial/amd64").Return(alias, "ETAG", nil),
-		cSvr.EXPECT().GetImage("foo-target").Return(&image, "ETAG", nil),
-		cSvr.EXPECT().CreateContainerFromImage(cSvr, image, gomock.Any()).Return(createRemoteOp, nil),
-		cSvr.EXPECT().UpdateContainerState(
-			hostname, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(updateOp, nil),
-	)
+	expectCreateContainer(ctrl, cSvr, "juju/xenial/amd64", "foo-target")
+	cSvr.EXPECT().UpdateContainerState(
+		hostname, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(startOp, nil)
 
 	cSvr.EXPECT().GetContainerState(hostname).Return(
 		&lxdapi.ContainerState{StatusCode: lxdapi.Running}, "ETAG", nil).Times(2)
@@ -151,7 +144,7 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 	// Arrangements for the container destruction.
 	gomock.InOrder(
 		cSvr.EXPECT().UpdateContainerState(
-			hostname, lxdapi.ContainerStatePut{Action: "stop", Timeout: -1}, "ETAG").Return(updateOp, nil),
+			hostname, lxdapi.ContainerStatePut{Action: "stop", Timeout: -1}, "ETAG").Return(stopOp, nil),
 		cSvr.EXPECT().DeleteContainer(hostname).Return(deleteOp, nil),
 	)
 
@@ -210,22 +203,14 @@ func (t *LxdSuite) TestCreateContainerStartFailed(c *gc.C) {
 	hostname, err := manager.Namespace().Hostname(iCfg.MachineId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	createRemoteOp := lxdtesting.NewMockRemoteOperation(ctrl)
-	createRemoteOp.EXPECT().Wait().Return(nil).AnyTimes()
-	createRemoteOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
-
 	updateOp := lxdtesting.NewMockOperation(ctrl)
 	updateOp.EXPECT().Wait().Return(errors.New("start failed"))
 
 	deleteOp := lxdtesting.NewMockOperation(ctrl)
 	deleteOp.EXPECT().Wait().Return(nil).AnyTimes()
 
-	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-target"}}
-	image := lxdapi.Image{Filename: "this-is-our-image"}
+	expectCreateContainer(ctrl, cSvr, "juju/xenial/amd64", "foo-target")
 	gomock.InOrder(
-		cSvr.EXPECT().GetImageAlias("juju/xenial/amd64").Return(alias, "ETAG", nil),
-		cSvr.EXPECT().GetImage("foo-target").Return(&image, "ETAG", nil),
-		cSvr.EXPECT().CreateContainerFromImage(cSvr, image, gomock.Any()).Return(createRemoteOp, nil),
 		cSvr.EXPECT().UpdateContainerState(
 			hostname, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(updateOp, nil),
 		cSvr.EXPECT().DeleteContainer(hostname).Return(deleteOp, nil),
@@ -240,6 +225,23 @@ func (t *LxdSuite) TestCreateContainerStartFailed(c *gc.C) {
 		noOpCallback,
 	)
 	c.Assert(err, gc.ErrorMatches, ".*start failed")
+}
+
+// expectCreateContainer is a convenience function for the expectations
+// concerning a successful container creation based on a cached local
+// image.
+func expectCreateContainer(ctrl *gomock.Controller, svr *lxdtesting.MockContainerServer, aliasName, target string) {
+	createRemoteOp := lxdtesting.NewMockRemoteOperation(ctrl)
+	createRemoteOp.EXPECT().Wait().Return(nil).AnyTimes()
+	createRemoteOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
+
+	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: target}}
+	image := lxdapi.Image{Filename: "this-is-our-image"}
+	gomock.InOrder(
+		svr.EXPECT().GetImageAlias(aliasName).Return(alias, "ETAG", nil),
+		svr.EXPECT().GetImage("foo-target").Return(&image, "ETAG", nil),
+		svr.EXPECT().CreateContainerFromImage(svr, image, gomock.Any()).Return(createRemoteOp, nil),
+	)
 }
 
 func (t *LxdSuite) TestListContainers(c *gc.C) {
