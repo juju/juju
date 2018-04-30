@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared"
-	"strings"
 )
 
 type Protocol string
