@@ -12,7 +12,6 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -222,27 +221,6 @@ func isSupportedAPIVersion(version string) bool {
 func newRawClient(remote Remote) (lxdclient.ContainerServer, error) {
 	host := remote.Host
 
-	// LXD socket is different depending on installation method
-	// We prefer upstream's preference of snap installed LXD
-	debianSocket := filepath.FromSlash("/var/lib/lxd")
-	snapSocket := filepath.FromSlash("/var/snap/lxd/common/lxd")
-	envSocket := os.Getenv("LXD_DIR")
-
-	// The current lxdclient code ONLY looks at LXD_DIR, as it has no understanding
-	// of snaps. This forces us to set LXD_DIR to set the socket path.
-	// This should be updated once lxdclient dependency is updated
-	if envSocket != "" {
-		logger.Debugf("Using environment LXD_DIR as socket path: %q", envSocket)
-	} else {
-		if _, err := os.Stat(snapSocket); err == nil {
-			logger.Debugf("Using LXD snap socket: %q", snapSocket)
-			os.Setenv("LXD_DIR", snapSocket)
-		} else {
-			logger.Debugf("LXD snap socket not found, falling back to debian socket: %q", debianSocket)
-			os.Setenv("LXD_DIR", debianSocket)
-		}
-	}
-
 	clientCert := ""
 	if remote.Cert != nil && remote.Cert.CertPEM != nil {
 		clientCert = string(remote.Cert.CertPEM)
@@ -263,7 +241,7 @@ func newRawClient(remote Remote) (lxdclient.ContainerServer, error) {
 	if remote.ID() == remoteIDForLocal {
 		newClient = newSocketClientFromInfo
 		if host == "" {
-			host = lxdshared.VarPath("unix.socket")
+			host = lxd.SocketPath(nil)
 		}
 	} else {
 		// If it's a URL, leave it alone. Otherwise, we
@@ -281,7 +259,7 @@ func newRawClient(remote Remote) (lxdclient.ContainerServer, error) {
 		args.Proxy = proxy.DefaultConfig.GetProxy
 	}
 
-	logger.Debugf("connecting to LXD remote %q: %q", remote.ID(), host)
+	logger.Debugf("connecting to LXD server %q: %q", remote.ID(), host)
 	client, err := newClient(host, args)
 	if err != nil {
 		if remote.ID() == remoteIDForLocal {

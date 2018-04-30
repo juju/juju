@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/client"
+	"github.com/lxc/lxd/shared"
 )
 
 type Protocol string
@@ -59,11 +60,9 @@ func connectImageRemote(remote RemoteServer) (lxd.ImageServer, error) {
 
 // ConnectLocal connects to LXD on a local socket.
 func ConnectLocal() (lxd.ContainerServer, error) {
-	client, err := lxd.ConnectLXDUnix(SocketPath(), &lxd.ConnectionArgs{})
+	client, err := lxd.ConnectLXDUnix(SocketPath(nil), &lxd.ConnectionArgs{})
 	return client, errors.Trace(err)
 }
-
-var osStat = os.Stat
 
 // SocketPath returns the path to the local LXD socket.
 // The following are tried in order of preference:
@@ -71,19 +70,24 @@ var osStat = os.Stat
 //   - Snap socket.
 //   - Debian socket.
 // We give preference to LXD installed via Snap.
-func SocketPath() string {
+// isSocket defaults to socket detection from the LXD shared package.
+// TODO (manadart 2018-04-30) This looks like it can be achieved by using a
+// combination of VarPath and HostPath from lxd.shared, in which case this
+// can be deprecated in their favour.
+func SocketPath(isSocket func(path string) bool) string {
 	path := os.Getenv("LXD_DIR")
 	if path != "" {
 		logger.Debugf("using environment LXD_DIR as socket path: %q", path)
 	} else {
-		snapSocket := filepath.FromSlash("/var/snap/lxd/common/lxd")
-		if _, err := osStat(snapSocket); err == nil {
-			logger.Debugf("using LXD snap socket: %q", snapSocket)
-			path = snapSocket
+		path = filepath.FromSlash("/var/snap/lxd/common/lxd")
+		if isSocket == nil {
+			isSocket = shared.IsUnixSocket
+		}
+		if isSocket(filepath.Join(path, "unix.socket")) {
+			logger.Debugf("using LXD snap socket: %q", path)
 		} else {
-			debSocket := filepath.FromSlash("/var/lib/lxd")
-			logger.Debugf("LXD snap socket not found, falling back to debian socket: %q", debSocket)
-			path = debSocket
+			path = filepath.FromSlash("/var/lib/lxd")
+			logger.Debugf("LXD snap socket not found, falling back to debian socket: %q", path)
 		}
 	}
 	return filepath.Join(path, "unix.socket")

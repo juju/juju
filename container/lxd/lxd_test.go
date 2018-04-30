@@ -40,7 +40,7 @@ type LxdSuite struct {
 var _ = gc.Suite(&LxdSuite{})
 
 func (t *LxdSuite) patch(svr lxdclient.ImageServer) {
-	lxd.PatchConnectRemote(t, svr)
+	lxd.PatchConnectRemote(t, map[string]lxdclient.ImageServer{"cloud-images.ubuntu.com": svr})
 }
 
 func (t *LxdSuite) makeManager(c *gc.C, svr lxdclient.ContainerServer) container.Manager {

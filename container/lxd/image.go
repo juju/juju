@@ -27,12 +27,8 @@ type JujuImageServer struct {
 type SourcedImage struct {
 	// Image is the actual image data that was located.
 	Image *api.Image
-	// Alias is the alias that correctly identified the image.
-	Alias string
 	// LXDServer is the image server that supplied the image.
 	LXDServer lxd.ImageServer
-	// Remote is our description of the server where the image was found.
-	Remote *RemoteServer
 }
 
 // FindImage searches the input sources in supplied order, looking for an OS
@@ -61,9 +57,7 @@ func (s *JujuImageServer) FindImage(
 			logger.Debugf("Found image locally - %q %q", image.Filename, target)
 			return SourcedImage{
 				Image:     image,
-				Alias:     localAlias,
 				LXDServer: s.ContainerServer,
-				Remote:    nil,
 			}, nil
 		}
 	}
@@ -85,10 +79,8 @@ func (s *JujuImageServer) FindImage(
 			lastErr = errors.Trace(err)
 			continue
 		}
-		var foundAlias string
 		for _, alias := range aliases {
 			if result, _, err := source.GetImageAlias(alias); err == nil && result != nil && result.Target != "" {
-				foundAlias = alias
 				target = result.Target
 				break
 			}
@@ -98,9 +90,7 @@ func (s *JujuImageServer) FindImage(
 			if err == nil {
 				logger.Debugf("Found image remotely - %q %q %q", remote.Name, image.Filename, target)
 				sourced.Image = image
-				sourced.Alias = foundAlias
 				sourced.LXDServer = source
-				sourced.Remote = &remote
 				break
 			} else {
 				lastErr = errors.Trace(err)

@@ -6,12 +6,12 @@
 package lxd
 
 import (
+	"errors"
 	"github.com/juju/juju/container"
 	lxdclient "github.com/lxc/lxd/client"
 )
 
 var (
-	OsStat = &osStat
 	//LxdConnectPublicLXD     = &lxdConnectPublicLXD
 	//LxdConnectSimpleStreams = &lxdConnectSimpleStreams
 	NICDevice       = nicDevice
@@ -27,6 +27,11 @@ type patcher interface {
 
 // PatchConnectRemote ensures that the ConnectImageRemote function always returns
 // the supplied (mock) image server.
-func PatchConnectRemote(patcher patcher, svr lxdclient.ImageServer) {
-	patcher.PatchValue(&ConnectImageRemote, func(_ RemoteServer) (lxdclient.ImageServer, error) { return svr, nil })
+func PatchConnectRemote(patcher patcher, remotes map[string]lxdclient.ImageServer) {
+	patcher.PatchValue(&ConnectImageRemote, func(remote RemoteServer) (lxdclient.ImageServer, error) {
+		if svr, ok := remotes[remote.Name]; ok {
+			return svr, nil
+		}
+		return nil, errors.New("unrecognised remote server")
+	})
 }
