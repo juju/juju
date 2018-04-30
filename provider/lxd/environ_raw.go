@@ -55,7 +55,7 @@ type lxdProfiles interface {
 }
 
 type lxdImages interface {
-	FindImage(series, arch string, sources []lxd.RemoteServer) (lxd.SourcedImage, error)
+	FindImage(string, string, []lxd.RemoteServer, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
 }
 
 type lxdStorage interface {

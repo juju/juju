@@ -503,7 +503,9 @@ func (conn *StubClient) RemoveInstances(prefix string, ids ...string) error {
 	return nil
 }
 
-func (conn *StubClient) FindImage(series, arch string, sources []lxd.RemoteServer) (lxd.SourcedImage, error) {
+func (conn *StubClient) FindImage(
+	series, arch string, sources []lxd.RemoteServer, copyLocal bool, callback environs.StatusCallbackFunc,
+) (lxd.SourcedImage, error) {
 	conn.AddCall("EnsureImageExists", series, arch)
 	if err := conn.NextErr(); err != nil {
 		return lxd.SourcedImage{}, errors.Trace(err)

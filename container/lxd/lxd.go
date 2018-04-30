@@ -132,7 +132,8 @@ func (manager *containerManager) CreateContainer(
 	}
 
 	callback(status.Running, "Container started", nil)
-	return &lxdInstance{name, manager.server}, &instance.HardwareCharacteristics{AvailabilityZone: &manager.availabilityZone}, nil
+	return &lxdInstance{name, manager.server},
+		&instance.HardwareCharacteristics{AvailabilityZone: &manager.availabilityZone}, nil
 }
 
 // ListContainers implements container.Manager.
@@ -211,7 +212,7 @@ func (manager *containerManager) createInstance(
 		return "", errors.Trace(err)
 	}
 
-	found, err := manager.imageServer.FindImage(series, jujuarch.HostArch(), imageSources)
+	found, err := manager.imageServer.FindImage(series, jujuarch.HostArch(), imageSources, true, callback)
 	if err != nil {
 		return "", errors.Annotatef(err, "failed to ensure LXD image")
 	}
@@ -268,30 +269,15 @@ func (manager *containerManager) createInstance(
 		return "", errors.Trace(err)
 	}
 
-	progress := func(op api.Operation) {
-		if op.Metadata == nil {
-			return
-		}
-		for _, key := range []string{"fs_progress", "download_progress"} {
-			value, ok := op.Metadata[key]
-			if ok {
-				callback(status.Provisioning, fmt.Sprintf("Retrieving image: %s", value.(string)), nil)
-				return
-			}
-		}
-	}
-	_, err = op.AddHandler(progress)
-	if err != nil {
+	if err := op.Wait(); err != nil {
 		return "", errors.Trace(err)
 	}
-
-	op.Wait()
 	opInfo, err := op.GetTarget()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	if opInfo.StatusCode != api.Success {
-		return "", fmt.Errorf("LXD error: %s", opInfo.Err)
+		return "", fmt.Errorf("container creation failed: %s", opInfo.Err)
 	}
 	return name, nil
 }

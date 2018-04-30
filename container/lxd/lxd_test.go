@@ -125,7 +125,6 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 
 	// Operation arrangements.
 	createRemoteOp := lxdtesting.NewMockRemoteOperation(ctrl)
-	createRemoteOp.EXPECT().AddHandler(gomock.Any()).Return(nil, nil)
 	createRemoteOp.EXPECT().Wait().Return(nil).AnyTimes()
 	createRemoteOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
 
@@ -178,7 +177,6 @@ func (t *LxdSuite) TestCreateContainerCreateFailed(c *gc.C) {
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
 
 	createRemoteOp := lxdtesting.NewMockRemoteOperation(ctrl)
-	createRemoteOp.EXPECT().AddHandler(gomock.Any()).Return(&lxdclient.EventTarget{}, nil)
 	createRemoteOp.EXPECT().Wait().Return(nil).AnyTimes()
 	createRemoteOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Failure, Err: "create failed"}, nil)
 
@@ -213,7 +211,6 @@ func (t *LxdSuite) TestCreateContainerStartFailed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	createRemoteOp := lxdtesting.NewMockRemoteOperation(ctrl)
-	createRemoteOp.EXPECT().AddHandler(gomock.Any()).Return(nil, nil)
 	createRemoteOp.EXPECT().Wait().Return(nil).AnyTimes()
 	createRemoteOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
 

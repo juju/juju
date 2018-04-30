@@ -145,13 +145,14 @@ func (env *environ) newRawInstance(
 	// assume that all providers will have the same need to be implemented
 	// in the same way.
 	longestMsg := 0
-	statusCallback := func(currentStatus status.Status, msg string) {
+	statusCallback := func(currentStatus status.Status, msg string, data map[string]interface{}) error {
 		if args.StatusCallback != nil {
 			args.StatusCallback(currentStatus, msg, nil)
 		}
 		if len(msg) > longestMsg {
 			longestMsg = len(msg)
 		}
+		return nil
 	}
 	cleanupCallback := func() {
 		if args.CleanupCallback != nil {
@@ -160,17 +161,9 @@ func (env *environ) newRawInstance(
 	}
 	defer cleanupCallback()
 
-	// TODO (manadart 2018-04-25): The callback for copying an image is not
-	// used anymore. A remote image is cached when used to create a container.
-	// The code that currently does this in the LXD container manager should
-	// be factored into a common area and used.
-	//imageCallback := func(copyProgress string) {
-	//	statusCallback(status.Allocating, copyProgress)
-	//}
-
-	statusCallback(status.Allocating, "acquiring LXD image")
+	statusCallback(status.Allocating, "acquiring LXD image", nil)
 	series := args.InstanceConfig.Series
-	image, err := env.raw.FindImage(series, arch, imageSources)
+	image, err := env.raw.FindImage(series, arch, imageSources, true, statusCallback)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -211,12 +204,12 @@ func (env *environ) newRawInstance(
 
 	logger.Infof("starting instance %q (image %q)...", instSpec.Name, instSpec.Image)
 
-	statusCallback(status.Allocating, "preparing image")
+	statusCallback(status.Allocating, "preparing image", nil)
 	inst, err := env.raw.AddInstance(instSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	statusCallback(status.Running, "container started")
+	statusCallback(status.Running, "container started", nil)
 	return inst, nil
 }
 
