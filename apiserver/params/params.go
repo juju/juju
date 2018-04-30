@@ -950,6 +950,9 @@ type FindToolsParams struct {
 
 	// Series will be used to match tools by series if non-empty.
 	Series string `json:"series"`
+
+	// AgentStream will be used to set agent stream to search
+	AgentStream string `json:"agentstream"`
 }
 
 // FindToolsResult holds a list of tools from FindTools and any error.
