@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared"
+	"strings"
 )
 
 type Protocol string
@@ -91,4 +92,16 @@ func SocketPath(isSocket func(path string) bool) string {
 		}
 	}
 	return filepath.Join(path, "unix.socket")
+}
+
+// EnsureHTTPS takes a URI and ensures that it is a HTTPS URL.
+// LXD Requires HTTPS.
+func EnsureHTTPS(address string) string {
+	if strings.HasPrefix(address, "https://") {
+		return address
+	}
+	if strings.HasPrefix(address, "http://") {
+		return strings.Replace(address, "http://", "https://", 1)
+	}
+	return "https://" + address
 }

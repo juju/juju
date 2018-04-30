@@ -49,3 +49,16 @@ func (s *connectionSuite) TestConnectRemoteBadProtocol(c *gc.C) {
 	c.Check(svr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "bad protocol supplied for connection: FOOBAR")
 }
+
+func (s *connectionSuite) TestEnsureHTTPSUnchangedWhenCorrect(c *gc.C) {
+	addr := "https://somewhere"
+	c.Check(lxd.EnsureHTTPS(addr), gc.Equals, addr)
+}
+
+func (s *connectionSuite) TestEnsureHTTPSForHTTP(c *gc.C) {
+	c.Check(lxd.EnsureHTTPS("http://somewhere"), gc.Equals, "https://somewhere")
+}
+
+func (s *connectionSuite) TestEnsureHTTPSForNoProtocol(c *gc.C) {
+	c.Check(lxd.EnsureHTTPS("somewhere"), gc.Equals, "https://somewhere")
+}

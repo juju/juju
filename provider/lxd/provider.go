@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/lxd/lxdnames"
@@ -161,7 +162,7 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	hostAddress = "https://" + hostAddress
+	hostAddress = lxd.EnsureHTTPS(hostAddress)
 
 	// LXD itself reports the host:ports that it listens on.
 	// Cross-check the address we have with the values reported by LXD.

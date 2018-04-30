@@ -251,7 +251,7 @@ func newRawClient(remote Remote) (lxdclient.ContainerServer, error) {
 			if _, _, err := net.SplitHostPort(host); err != nil {
 				host = net.JoinHostPort(host, lxdshared.DefaultPort)
 			}
-			host = "https://" + host
+			host = lxd.EnsureHTTPS(host)
 		}
 
 		// Replace the proxy handler with the one managed
