@@ -5,7 +5,6 @@ package lxd_test
 
 import (
 	"errors"
-	"sync"
 	stdtesting "testing"
 
 	"github.com/golang/mock/gomock"
@@ -22,29 +21,36 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxd"
+	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/tools/lxdtools"
-	"github.com/juju/juju/tools/lxdtools/testmock"
 )
 
 func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
-type LxdSuite struct{}
+type LxdSuite struct {
+	coretesting.BaseSuite
+}
 
 var _ = gc.Suite(&LxdSuite{})
 
-func (t *LxdSuite) makeManager(c *gc.C) container.Manager {
-	return t.makeManagerForConfig(c, getBaseConfig())
+func (t *LxdSuite) patch(svr lxdclient.ImageServer) {
+	lxd.PatchConnectRemote(t, map[string]lxdclient.ImageServer{"cloud-images.ubuntu.com": svr})
 }
 
-func (t *LxdSuite) makeManagerForConfig(c *gc.C, cfg container.ManagerConfig) container.Manager {
-	manager, err := lxd.NewContainerManager(cfg)
+func (t *LxdSuite) makeManager(c *gc.C, svr lxdclient.ContainerServer) container.Manager {
+	return t.makeManagerForConfig(c, getBaseConfig(), svr)
+}
+
+func (t *LxdSuite) makeManagerForConfig(
+	c *gc.C, cfg container.ManagerConfig, svr lxdclient.ContainerServer,
+) container.Manager {
+	manager, err := lxd.NewContainerManager(cfg, svr)
 	c.Assert(err, jc.ErrorIsNil)
 	return manager
 }
@@ -104,176 +110,162 @@ func prepNetworkConfig() *container.NetworkConfig {
 	}})
 }
 
+var noOpCallback = func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
+
 func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
-	mockCtrl := gomock.NewController(c)
-	defer mockCtrl.Finish()
-	containerServer := testmock.NewMockContainerServer(mockCtrl)
-	mockedImage := lxdapi.Image{Filename: "this-is-our-image"}
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	t.patch(cSvr)
 
-	lxd.ConnectLocal = func() (lxdclient.ContainerServer, error) {
-		return containerServer, nil
-	}
-	manager := t.makeManager(c)
-	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error {
-		return nil
-	}
-	icfg := prepInstanceConfig(c)
-	ncfg := prepNetworkConfig()
-	hostname, err := manager.Namespace().Hostname(icfg.MachineId)
+	manager := t.makeManager(c, cSvr)
+	iCfg := prepInstanceConfig(c)
+	hostname, err := manager.Namespace().Hostname(iCfg.MachineId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// launch instance
-	chDone := make(chan bool, 1)
-	chDone <- true
-	createOperation := lxdclient.NewOperation(lxdapi.Operation{StatusCode: lxdapi.Success}, nil, &lxdclient.EventListener{}, true, sync.Mutex{}, nil)
-	remoteCreateOperation := lxdclient.NewRemoteOperation(&createOperation, []func(lxdapi.Operation){}, chDone, nil, nil)
-	updateOperation := lxdclient.NewOperation(lxdapi.Operation{StatusCode: lxdapi.Success}, nil, &lxdclient.EventListener{}, true, sync.Mutex{}, nil)
+	// Operation arrangements.
+	startOp := lxdtesting.NewMockOperation(ctrl)
+	startOp.EXPECT().Wait().Return(nil)
 
+	stopOp := lxdtesting.NewMockOperation(ctrl)
+	stopOp.EXPECT().Wait().Return(nil)
+
+	deleteOp := lxdtesting.NewMockOperation(ctrl)
+	deleteOp.EXPECT().Wait().Return(nil)
+
+	// Arrangements for the container creation.
+	expectCreateContainer(ctrl, cSvr, "juju/xenial/amd64", "foo-target")
+	cSvr.EXPECT().UpdateContainerState(
+		hostname, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(startOp, nil)
+
+	cSvr.EXPECT().GetContainerState(hostname).Return(
+		&lxdapi.ContainerState{StatusCode: lxdapi.Running}, "ETAG", nil).Times(2)
+
+	// Arrangements for the container destruction.
 	gomock.InOrder(
-		containerServer.EXPECT().GetImageAlias("juju/xenial/amd64").Return(&lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-target"}}, "ETAG", nil),
-		containerServer.EXPECT().GetImage("foo-target").Return(&mockedImage, "ETAG", nil),
-		containerServer.EXPECT().CreateContainerFromImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(&remoteCreateOperation, nil),
-		containerServer.EXPECT().UpdateContainerState(hostname, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(&updateOperation, nil),
+		cSvr.EXPECT().UpdateContainerState(
+			hostname, lxdapi.ContainerStatePut{Action: "stop", Timeout: -1}, "ETAG").Return(stopOp, nil),
+		cSvr.EXPECT().DeleteContainer(hostname).Return(deleteOp, nil),
 	)
+
 	instance, hc, err := manager.CreateContainer(
-		icfg,
-		constraints.Value{},
-		"xenial",
-		ncfg,
-		&container.StorageConfig{},
-		callback,
+		iCfg, constraints.Value{}, "xenial", prepNetworkConfig(), &container.StorageConfig{}, noOpCallback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check status
 	instanceId := instance.Id()
 	c.Check(string(instanceId), gc.Equals, hostname)
-	gomock.InOrder(
-		containerServer.EXPECT().GetContainerState(hostname).Return(&lxdapi.ContainerState{StatusCode: lxdapi.Running}, "ETAG", nil),
-	)
+
 	instanceStatus := instance.Status()
 	c.Check(instanceStatus.Status, gc.Equals, status.Running)
 	c.Check(*hc.AvailabilityZone, gc.Equals, "test-availability-zone")
 
-	// Remove instance
-	deleteOperation := lxdclient.NewOperation(lxdapi.Operation{StatusCode: lxdapi.Success}, nil, &lxdclient.EventListener{}, true, sync.Mutex{}, nil)
-	gomock.InOrder(
-		containerServer.EXPECT().GetContainerState(hostname).Return(&lxdapi.ContainerState{StatusCode: lxdapi.Running}, "ETAG", nil),
-		containerServer.EXPECT().UpdateContainerState(hostname, lxdapi.ContainerStatePut{Action: "stop", Timeout: -1}, "ETAG").Return(&updateOperation, nil),
-		containerServer.EXPECT().DeleteContainer(hostname).Return(&deleteOperation, nil),
-	)
 	err = manager.DestroyContainer(instanceId)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *LxdSuite) TestCreateContainerCreateFailed(c *gc.C) {
-	mockCtrl := gomock.NewController(c)
-	defer mockCtrl.Finish()
-	containerServer := testmock.NewMockContainerServer(mockCtrl)
-	mockedImage := lxdapi.Image{Filename: "this-is-our-image"}
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := lxdtesting.NewMockContainerServer(ctrl)
 
-	lxd.ConnectLocal = func() (lxdclient.ContainerServer, error) {
-		return containerServer, nil
-	}
-	manager := t.makeManager(c)
-	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error {
-		return nil
-	}
-	icfg := prepInstanceConfig(c)
-	ncfg := prepNetworkConfig()
+	createRemoteOp := lxdtesting.NewMockRemoteOperation(ctrl)
+	createRemoteOp.EXPECT().Wait().Return(nil).AnyTimes()
+	createRemoteOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Failure, Err: "create failed"}, nil)
 
-	chDone := make(chan bool, 1)
-	chDone <- true
-	createOperation := lxdclient.NewOperation(lxdapi.Operation{StatusCode: lxdapi.Failure, Err: "create failed"}, nil, &lxdclient.EventListener{}, true, sync.Mutex{}, nil)
-	remoteCreateOperation := lxdclient.NewRemoteOperation(&createOperation, []func(lxdapi.Operation){}, chDone, nil, nil)
-
+	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-target"}}
+	image := lxdapi.Image{Filename: "this-is-our-image"}
 	gomock.InOrder(
-		containerServer.EXPECT().GetImageAlias("juju/xenial/amd64").Return(&lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-target"}}, "ETAG", nil),
-		containerServer.EXPECT().GetImage("foo-target").Return(&mockedImage, "ETAG", nil),
-		containerServer.EXPECT().CreateContainerFromImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(&remoteCreateOperation, nil),
+		cSvr.EXPECT().GetImageAlias("juju/xenial/amd64").Return(alias, "ETAG", nil),
+		cSvr.EXPECT().GetImage("foo-target").Return(&image, "ETAG", nil),
+		cSvr.EXPECT().CreateContainerFromImage(cSvr, image, gomock.Any()).Return(createRemoteOp, nil),
 	)
 
-	_, _, err := manager.CreateContainer(
-		icfg,
+	_, _, err := t.makeManager(c, cSvr).CreateContainer(
+		prepInstanceConfig(c),
 		constraints.Value{},
 		"xenial",
-		ncfg,
+		prepNetworkConfig(),
 		&container.StorageConfig{},
-		callback,
+		noOpCallback,
 	)
 	c.Assert(err, gc.ErrorMatches, ".*create failed")
 }
 
 func (t *LxdSuite) TestCreateContainerStartFailed(c *gc.C) {
-	mockCtrl := gomock.NewController(c)
-	defer mockCtrl.Finish()
-	containerServer := testmock.NewMockContainerServer(mockCtrl)
-	mockedImage := lxdapi.Image{Filename: "this-is-our-image"}
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	t.patch(cSvr)
 
-	lxd.ConnectLocal = func() (lxdclient.ContainerServer, error) {
-		return containerServer, nil
-	}
-
-	manager := t.makeManager(c)
-	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error {
-		return nil
-	}
-
-	icfg := prepInstanceConfig(c)
-	ncfg := prepNetworkConfig()
-	hostname, err := manager.Namespace().Hostname(icfg.MachineId)
+	manager := t.makeManager(c, cSvr)
+	iCfg := prepInstanceConfig(c)
+	hostname, err := manager.Namespace().Hostname(iCfg.MachineId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	chDone := make(chan bool, 1)
-	chDone <- true
-	createOperation := lxdclient.NewOperation(lxdapi.Operation{StatusCode: lxdapi.Success}, nil, &lxdclient.EventListener{}, true, sync.Mutex{}, nil)
-	remoteCreateOperation := lxdclient.NewRemoteOperation(&createOperation, []func(lxdapi.Operation){}, chDone, nil, nil)
-	updateOperation := lxdclient.NewOperation(lxdapi.Operation{StatusCode: lxdapi.Failure, Err: "start failed"}, nil, &lxdclient.EventListener{}, true, sync.Mutex{}, nil)
-	deleteOperation := lxdclient.NewOperation(lxdapi.Operation{StatusCode: lxdapi.Success}, nil, &lxdclient.EventListener{}, true, sync.Mutex{}, nil)
+	updateOp := lxdtesting.NewMockOperation(ctrl)
+	updateOp.EXPECT().Wait().Return(errors.New("start failed"))
 
+	deleteOp := lxdtesting.NewMockOperation(ctrl)
+	deleteOp.EXPECT().Wait().Return(nil).AnyTimes()
+
+	expectCreateContainer(ctrl, cSvr, "juju/xenial/amd64", "foo-target")
 	gomock.InOrder(
-		containerServer.EXPECT().GetImageAlias("juju/xenial/amd64").Return(&lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-target"}}, "ETAG", nil),
-		containerServer.EXPECT().GetImage("foo-target").Return(&mockedImage, "ETAG", nil),
-		containerServer.EXPECT().CreateContainerFromImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(&remoteCreateOperation, nil),
-		containerServer.EXPECT().UpdateContainerState(hostname, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(&updateOperation, nil),
-		containerServer.EXPECT().DeleteContainer(hostname).Return(&deleteOperation, nil),
+		cSvr.EXPECT().UpdateContainerState(
+			hostname, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(updateOp, nil),
+		cSvr.EXPECT().DeleteContainer(hostname).Return(deleteOp, nil),
 	)
 
 	_, _, err = manager.CreateContainer(
-		icfg,
+		iCfg,
 		constraints.Value{},
 		"xenial",
-		ncfg,
+		prepNetworkConfig(),
 		&container.StorageConfig{},
-		callback,
+		noOpCallback,
 	)
 	c.Assert(err, gc.ErrorMatches, ".*start failed")
 }
 
+// expectCreateContainer is a convenience function for the expectations
+// concerning a successful container creation based on a cached local
+// image.
+func expectCreateContainer(ctrl *gomock.Controller, svr *lxdtesting.MockContainerServer, aliasName, target string) {
+	createRemoteOp := lxdtesting.NewMockRemoteOperation(ctrl)
+	createRemoteOp.EXPECT().Wait().Return(nil).AnyTimes()
+	createRemoteOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
+
+	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: target}}
+	image := lxdapi.Image{Filename: "this-is-our-image"}
+	gomock.InOrder(
+		svr.EXPECT().GetImageAlias(aliasName).Return(alias, "ETAG", nil),
+		svr.EXPECT().GetImage("foo-target").Return(&image, "ETAG", nil),
+		svr.EXPECT().CreateContainerFromImage(svr, image, gomock.Any()).Return(createRemoteOp, nil),
+	)
+}
+
 func (t *LxdSuite) TestListContainers(c *gc.C) {
-	mockCtrl := gomock.NewController(c)
-	defer mockCtrl.Finish()
-	containerServer := testmock.NewMockContainerServer(mockCtrl)
-	lxd.ConnectLocal = func() (lxdclient.ContainerServer, error) {
-		return containerServer, nil
-	}
-	manager := t.makeManager(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	manager := t.makeManager(c, cSvr)
 
 	prefix := manager.Namespace().Prefix()
 	wrongPrefix := prefix[:len(prefix)-1] + "j"
 
 	containers := []lxdapi.Container{
-		lxdapi.Container{Name: "foobar"},
-		lxdapi.Container{Name: "definitely-not-a-juju-container"},
-		lxdapi.Container{Name: wrongPrefix + "-0"},
-		lxdapi.Container{Name: prefix + "-0"},
-		lxdapi.Container{Name: "please-disperse"},
-		lxdapi.Container{Name: prefix + "-1"},
-		lxdapi.Container{Name: "nothing-to-see-here-please"},
+		{Name: "foobar"},
+		{Name: "definitely-not-a-juju-container"},
+		{Name: wrongPrefix + "-0"},
+		{Name: prefix + "-0"},
+		{Name: "please-disperse"},
+		{Name: prefix + "-1"},
+		{Name: "nothing-to-see-here-please"},
 	}
 	gomock.InOrder(
-		containerServer.EXPECT().GetContainers().Return(containers, nil),
+		cSvr.EXPECT().GetContainers().Return(containers, nil),
 	)
+
 	result, err := manager.ListContainers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.HasLen, 2)
@@ -282,24 +274,14 @@ func (t *LxdSuite) TestListContainers(c *gc.C) {
 }
 
 func (t *LxdSuite) TestIsInitialized(c *gc.C) {
-	mockCtrl := gomock.NewController(c)
-	defer mockCtrl.Finish()
-	containerServer := testmock.NewMockContainerServer(mockCtrl)
-	attempt := 0
-	lxd.ConnectLocal = func() (lxdclient.ContainerServer, error) {
-		defer func() { attempt = attempt + 1 }()
-		if attempt == 0 {
-			return nil, errors.New("failed to connect")
-		} else {
-			return containerServer, nil
-		}
-	}
-	manager := t.makeManager(c)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	manager := t.makeManager(c, nil)
 	c.Check(manager.IsInitialized(), gc.Equals, false)
+
+	manager = t.makeManager(c, lxdtesting.NewMockContainerServer(ctrl))
 	c.Check(manager.IsInitialized(), gc.Equals, true)
-	c.Check(manager.IsInitialized(), gc.Equals, true)
-	// We check that we connected only once
-	c.Check(attempt, gc.Equals, 2)
 }
 
 func (t *LxdSuite) TestNICDeviceWithInvalidDeviceName(c *gc.C) {
@@ -393,7 +375,7 @@ func (t *LxdSuite) TestNetworkDevicesWithParentDevice(c *gc.C) {
 	}}
 
 	expected := map[string]map[string]string{
-		"eth0": map[string]string{
+		"eth0": {
 			"hwaddr":  "aa:bb:cc:dd:ee:f0",
 			"name":    "eth0",
 			"nictype": "bridged",
@@ -412,46 +394,46 @@ func (t *LxdSuite) TestNetworkDevicesWithParentDevice(c *gc.C) {
 }
 
 func (t *LxdSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {
-	mgr := t.makeManager(c)
+	mgr := t.makeManager(c, nil)
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, []lxdtools.RemoteServer{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
+	c.Check(sources, gc.DeepEquals, []lxd.RemoteServer{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
 }
 
 func (t *LxdSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C) {
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageStreamKey] = "nope"
-	mgr := t.makeManagerForConfig(c, cfg)
+	mgr := t.makeManagerForConfig(c, cfg, nil)
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, []lxdtools.RemoteServer{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
+	c.Check(sources, gc.DeepEquals, []lxd.RemoteServer{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
 }
 
 func (t *LxdSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageStreamKey] = "daily"
-	mgr := t.makeManagerForConfig(c, cfg)
+	mgr := t.makeManagerForConfig(c, cfg, nil)
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, []lxdtools.RemoteServer{lxd.CloudImagesDailyRemote})
+	c.Check(sources, gc.DeepEquals, []lxd.RemoteServer{lxd.CloudImagesDailyRemote})
 }
 
 func (t *LxdSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c *gc.C) {
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageMetadataURLKey] = "http://special.container.sauce"
-	mgr := t.makeManagerForConfig(c, cfg)
+	mgr := t.makeManagerForConfig(c, cfg, nil)
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedSources := []lxdtools.RemoteServer{
+	expectedSources := []lxd.RemoteServer{
 		{
 			Name:     "special.container.sauce",
 			Host:     "https://special.container.sauce",
-			Protocol: lxdtools.SimplestreamsProtocol,
+			Protocol: lxd.SimpleStreamsProtocol,
 		},
 		lxd.CloudImagesRemote,
 		lxd.CloudImagesDailyRemote,
@@ -463,16 +445,16 @@ func (t *LxdSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *gc.C) {
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageMetadataURLKey] = "http://special.container.sauce"
 	cfg[config.ContainerImageStreamKey] = "daily"
-	mgr := t.makeManagerForConfig(c, cfg)
+	mgr := t.makeManagerForConfig(c, cfg, nil)
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedSources := []lxdtools.RemoteServer{
+	expectedSources := []lxd.RemoteServer{
 		{
 			Name:     "special.container.sauce",
 			Host:     "https://special.container.sauce",
-			Protocol: lxdtools.SimplestreamsProtocol,
+			Protocol: lxd.SimpleStreamsProtocol,
 		},
 		lxd.CloudImagesDailyRemote,
 	}

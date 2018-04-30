@@ -140,9 +140,6 @@ func (s *configSuite) TestNewModelConfig(c *gc.C) {
 		c.Skip("LXD not running locally")
 	}
 
-	// TODO(redir): Remove after wily or in yakkety.
-	skipIfWily(c)
-
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
@@ -241,9 +238,6 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 	if !s.IsRunningLocally(c) {
 		c.Skip("LXD not running locally")
 	}
-
-	// TODO(redir): Remove after wily or in yakkety.
-	skipIfWily(c)
 
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)

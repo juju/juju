@@ -21,6 +21,7 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
@@ -271,12 +272,13 @@ func (cs *ContainerSetup) getContainerArtifacts(
 	// pass host machine's availability zone to the container manager config
 	managerConfig[container.ConfigAvailabilityZone] = availabilityZone
 
+	manager, err := factory.NewContainerManager(containerType, managerConfig)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	switch containerType {
 	case instance.KVM:
-		manager, err := kvm.NewContainerManager(managerConfig)
-		if err != nil {
-			return nil, nil, nil, err
-		}
 		broker, err = NewKVMBroker(
 			cs.prepareHost,
 			cs.provisioner,
@@ -293,10 +295,6 @@ func (cs *ContainerSetup) getContainerArtifacts(
 			return nil, nil, nil, err
 		}
 
-		manager, err := lxd.NewContainerManager(managerConfig)
-		if err != nil {
-			return nil, nil, nil, err
-		}
 		broker, err = NewLXDBroker(
 			cs.prepareHost,
 			cs.provisioner,

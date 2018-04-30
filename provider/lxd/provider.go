@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/lxd/lxdnames"
@@ -161,9 +162,10 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	// LXD itself reports the host:ports that is listens on.
-	// Cross-check the address we have with the values
-	// reported by LXD.
+	hostAddress = lxd.EnsureHTTPS(hostAddress)
+
+	// LXD itself reports the host:ports that it listens on.
+	// Cross-check the address we have with the values reported by LXD.
 	if err := lxdclient.EnableHTTPSListener(raw); err != nil {
 		return "", errors.Annotate(err, "enabling HTTPS listener")
 	}
@@ -181,8 +183,7 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 	}
 	if !found {
 		return "", errors.Errorf(
-			"LXD is not listening on address %s ("+
-				"reported addresses: %s)",
+			"LXD is not listening on address %s (reported addresses: %s)",
 			hostAddress, serverAddresses,
 		)
 	}

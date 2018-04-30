@@ -36,8 +36,8 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Check(result.Hardware, gc.DeepEquals, s.HWC)
 	c.Assert(s.StartInstArgs.InstanceConfig.AgentVersion().Arch, gc.Equals, arch.ARM64)
 
-	s.Stub.CheckCallNames(c, "EnsureImageExists", "AddInstance")
-	s.Stub.CheckCall(c, 0, "EnsureImageExists", "trusty", "arm64")
+	s.Stub.CheckCallNames(c, "FindImage", "AddInstance")
+	s.Stub.CheckCall(c, 0, "FindImage", "trusty", "arm64")
 }
 
 func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {
