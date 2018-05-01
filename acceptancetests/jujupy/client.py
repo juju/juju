@@ -2162,30 +2162,21 @@ class CaasClient(object):
     @property
     def is_cluster_healthy(self):
         try:
-            cluster_info = self._kubectl_cmd('cluster-info')
+            cluster_info = self.kubectl('cluster-info')
             log.debug('cluster_info -> \n%s', cluster_info)
-            nodes_info = self._kubectl_cmd('get nodes')
+            nodes_info = self.kubectl('get', 'nodes')
             log.debug('nodes_info -> \n%s', nodes_info)
             return True
-        except RuntimeError:
+        except subprocess.CalledProcessError as e:
+            log.error('error -> %s', e)
             return False
 
-    def _kubectl_cmd(self, args):
-        args = args if isinstance(args, list) else [args]
-        args = [sub_flag for flag in args for sub_flag in flag.split(' ') if sub_flag]
-        args = [self.kubectl_path, '--kubeconfig={}'.format(self.kube_config_path)] + args
+    def kubectl(self, *args):
+        args = [self.kubectl_path, '--kubeconfig', self.kube_config_path] + args
         return self._sh(args)
 
-    def _sh(self, cmd):
-        cmd = cmd if isinstance(cmd, list) else [cmd]
-        cmd_str = ' '.join(cmd)
-        log.debug('_sh: cmd -> `%s`, \n\tcmd_splitted -> %s', cmd, cmd_str)
-        exitcode, data = subprocess.getstatusoutput(cmd_str)
-        log.debug('exitcode -> %s, data -> %s', exitcode, data)
-        if exitcode != 0:
-            log.error('cmd -> %s, exitcode -> %s', cmd_str, exitcode)
-            raise RuntimeError(data)
-        return data
+    def _sh(self, args):
+        return subprocess.check_output(args)
 
 
 def register_user_interactively(client, token, controller_name):
