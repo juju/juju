@@ -2135,8 +2135,8 @@ class CaasClient(object):
 
     def __init__(self, client):
         self.client = client
-
         self.juju_home = self.client.env.juju_home
+
         self.kubectl_path = os.path.join(self.juju_home, 'kubectl')
         self.kube_home = os.path.join(self.juju_home, '.kube')
         self.kube_config_path = os.path.join(self.kube_home, 'config')
@@ -2176,7 +2176,7 @@ class CaasClient(object):
         return self._sh(args)
 
     def _sh(self, args):
-        return subprocess.check_output(args)
+        return subprocess.check_output(args, stderr=subprocess.STDOUT).decode('UTF-8').strip()
 
 
 def register_user_interactively(client, token, controller_name):
