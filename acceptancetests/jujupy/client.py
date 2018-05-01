@@ -35,8 +35,6 @@ import shutil
 import subprocess
 import sys
 import time
-from enum import Enum
-
 import pexpect
 import yaml
 
@@ -101,13 +99,6 @@ LXC_MACHINE = 'lxc'
 LXD_MACHINE = 'lxd'
 
 _DEFAULT_BUNDLE_TIMEOUT = 3600
-
-
-class ClientType(Enum):
-    Normal = 'normal'
-    Caas = 'caas'
-    Fake = 'fake'
-
 
 log = logging.getLogger("jujupy")
 
@@ -2138,45 +2129,35 @@ class ModelClient:
 KUBE_CONFIG_PATH_ENV_VAR = 'KUBECONFIG'
 
 
-class CaasClient(ModelClient):
+class CaasClient(object):
 
     cloud_name = 'k8cloud'
-    kubectl_path = None
-    kube_home = None
-    kube_config_path = None
 
-    def __prepare(self):
-        # to pick up the new tmp juju_home, have to do this!
-        self.kubectl_path = os.path.join(self.env.juju_home, 'kubectl')
-        self.kube_home = os.path.join(self.env.juju_home, '.kube')
+    def __init__(self, client):
+        self.client = client
+
+        self.juju_home = self.client.env.juju_home
+        self.kubectl_path = os.path.join(self.juju_home, 'kubectl')
+        self.kube_home = os.path.join(self.juju_home, '.kube')
         self.kube_config_path = os.path.join(self.kube_home, 'config')
-
-    def cluster_up(self, bundle_path):
-        self.__prepare()
-
-        self.deploy_bundle(bundle_path, static_bundle=True)
-        # Wait for the deployment to finish.
-        self.wait_for_started()
 
         # ensure kube home
         ensure_dir(self.kube_home)
-        # ensure kube credentials
-        self.juju('scp', ('kubernetes-master/0:config', self.kube_config_path))
-
-        # ensure kubectl by scp from master
-        self.juju('scp', ('kubernetes-master/0:/snap/bin/kubectl', self.kubectl_path))
 
         # ensure kube config env var
         os.environ[KUBE_CONFIG_PATH_ENV_VAR] = self.kube_config_path
-        # ensure k8s cloud
-        self.add_caas_cloud()
-        log.debug('added caas cloud, now all clouds are -> \n%s', self.list_clouds())
 
-    def add_caas_cloud(self):
-        self.juju('add-k8s', self.cloud_name)
+        # ensure kube credentials
+        self.client.juju('scp', ('kubernetes-master/0:config', self.kube_config_path))
 
-    def add_caas_model(self, caas_model_name):
-        return self.add_model(env=self.env.clone(caas_model_name), cloud_region=self.cloud_name)
+        # ensure kubectl by scp from master
+        self.client.juju('scp', ('kubernetes-master/0:/snap/bin/kubectl', self.kubectl_path))
+
+        self.client.juju('add-k8s', self.cloud_name)
+        log.debug('added caas cloud, now all clouds are -> \n%s', self.client.list_clouds())
+
+    def add_model(self, model_name):
+        return self.client.add_model(env=self.client.env.clone(model_name), cloud_region=self.cloud_name)
 
     @property
     def is_cluster_healthy(self):
@@ -2347,24 +2328,7 @@ def _get_full_path(juju_path):
         return os.path.abspath(juju_path)
 
 
-def decide_client(client_type):
-    """Decide which client should be used according to `ClientType`
-
-    :param client_type: ClientType
-    """
-
-    if client_type == ClientType.Normal:
-        return ModelClient
-    if client_type == ClientType.Caas:
-        return CaasClient
-    if client_type == ClientType.Fake:
-        # TODO: refactor fake_juju_client and decide here
-        raise NotImplementedError('{} is still TODO'.format(client_type))
-
-    raise TypeError('client_type has to be in `{}`'.format(ClientType.__members__.values()))
-
-
-def client_from_config(config, juju_path, debug=False, soft_deadline=None, client_type=ClientType.Normal):
+def client_from_config(config, juju_path, debug=False, soft_deadline=None):
     """Create a client from an environment's configuration.
 
     :param config: Name of the environment to use the config from.
@@ -2374,15 +2338,14 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None, clien
         normal operations should complete.  If None, no deadline is
         enforced.
     """
-    client_cls = decide_client(client_type)
 
-    version = client_cls.get_version(juju_path)
+    version = ModelClient.get_version(juju_path)
     if config is None:
-        env = client_cls.config_class('', {})
+        env = ModelClient.config_class('', {})
     else:
-        env = client_cls.config_class.from_config(config)
+        env = ModelClient.config_class.from_config(config)
     full_path = _get_full_path(juju_path)
-    return client_cls(
+    return ModelClient(
         env, version, full_path, debug=debug, soft_deadline=soft_deadline)
 
 

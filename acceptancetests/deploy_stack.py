@@ -32,7 +32,7 @@ from jujupy import (
     juju_home_path,
     JujuData,
     temp_bootstrap_env,
-    ClientType,
+    CaasClient,
 )
 from jujupy.configuration import (
     get_juju_data,
@@ -109,6 +109,16 @@ def deploy_dummy_stack(client, charm_series, use_charmstore=False):
         client.wait_for_started(7200)
     else:
         client.wait_for_started(3600)
+
+
+def deploy_caas_stack(bundle_path, client):
+
+    client.deploy_bundle(bundle_path, static_bundle=True)
+
+    # Wait for the deployment to finish.
+    client.wait_for_started()
+
+    return CaasClient(client)
 
 
 def assess_juju_relations(client):
@@ -753,15 +763,14 @@ class BootstrapManager:
         if 'existing' in args and args.existing:
             return cls._for_existing_controller(args)
 
-        client_type = args.client_type or ClientType.Normal
-
-        # TODO: refactor fake_juju_client and decide @decide_client
+        # GZ 2016-08-11: Move this logic into client_from_config maybe?
         if args.juju_bin == 'FAKE':
             env = JujuData.from_config(args.env)
             client = fake_juju_client(env=env)
         else:
-            client = client_from_config(args.env, args.juju_bin, debug=args.debug,
-                                        soft_deadline=args.deadline, client_type=client_type)
+            client = client_from_config(args.env, args.juju_bin,
+                                        debug=args.debug,
+                                        soft_deadline=args.deadline)
             if args.to is not None:
                 client.env.bootstrap_to = args.to
         return cls.from_client(args, client)

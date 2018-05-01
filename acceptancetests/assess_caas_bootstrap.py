@@ -13,6 +13,7 @@ import os
 
 from deploy_stack import (
     BootstrapManager,
+    deploy_caas_stack,
 )
 from utility import (
     add_basic_testing_arguments,
@@ -23,7 +24,6 @@ from utility import (
 from jujucharm import (
     local_charm_path
 )
-from jujupy import ClientType
 
 __metaclass__ = type
 
@@ -38,17 +38,17 @@ def assess_caas_bootstrap(client):
         repository=os.environ['JUJU_REPOSITORY'],
         juju_ver=client.version
     )
-    client.cluster_up(bundle)
 
-    k8s_model = client.add_caas_model('testcaas')  # noqa
-    if not client.is_cluster_healthy:
+    caas_client = deploy_caas_stack(bundle_path=bundle, client=client)
+
+    k8s_model = caas_client.add_model('testcaas')  # noqa
+    if not caas_client.is_cluster_healthy:
         raise JujuAssertionError('k8s cluster is not healthy coz kubectl is not accessible')
 
 
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument('--client_type', default=ClientType.Caas)
 
     add_basic_testing_arguments(parser, existing=False)
     return parser.parse_args(argv)
