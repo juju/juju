@@ -660,24 +660,24 @@ func (se *StubZonedNetworkingEnviron) GoString() string {
 	return "&StubZonedNetworkingEnviron{}"
 }
 
-func (se *StubZonedNetworkingEnviron) SupportsSpaces() (bool, error) {
-	se.MethodCall(se, "SupportsSpaces")
+func (se *StubZonedNetworkingEnviron) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
+	se.MethodCall(se, "SupportsSpaces", ctx)
 	if err := se.NextErr(); err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-func (se *StubZonedNetworkingEnviron) Subnets(instId instance.Id, subIds []network.Id) ([]network.SubnetInfo, error) {
-	se.MethodCall(se, "Subnets", instId, subIds)
+func (se *StubZonedNetworkingEnviron) Subnets(ctx context.ProviderCallContext, instId instance.Id, subIds []network.Id) ([]network.SubnetInfo, error) {
+	se.MethodCall(se, "Subnets", ctx, instId, subIds)
 	if err := se.NextErr(); err != nil {
 		return nil, err
 	}
 	return ProviderInstance.Subnets, nil
 }
 
-func (se *StubZonedNetworkingEnviron) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {
-	se.MethodCall(se, "AvailabilityZones")
+func (se *StubZonedNetworkingEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]providercommon.AvailabilityZone, error) {
+	se.MethodCall(se, "AvailabilityZones", ctx)
 	if err := se.NextErr(); err != nil {
 		return nil, err
 	}

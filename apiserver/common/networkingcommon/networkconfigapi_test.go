@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs/context"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -70,7 +71,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfig(c *gc.C) {
 		Config: observedConfig,
 	}
 
-	err = s.networkconfig.SetObservedNetworkConfig(common.ProviderCallContext(), args)
+	err = s.networkconfig.SetObservedNetworkConfig(context.NewCloudCallContext(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	devices, err = s.machine.AllLinkLayerDevices()
@@ -90,7 +91,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigPermissions(c *gc.C) {
 		Config: nil,
 	}
 
-	err := s.networkconfig.SetObservedNetworkConfig(common.ProviderCallContext(), args)
+	err := s.networkconfig.SetObservedNetworkConfig(context.NewCloudCallContext(), args)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -106,7 +107,7 @@ func (s *networkConfigSuite) TestSetProviderNetworkConfig(c *gc.C) {
 		{Tag: s.machine.Tag().String()},
 	}}
 
-	result, err := s.networkconfig.SetProviderNetworkConfig(common.ProviderCallContext(), args)
+	result, err := s.networkconfig.SetProviderNetworkConfig(context.NewCloudCallContext(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{nil}},
@@ -133,7 +134,7 @@ func (s *networkConfigSuite) TestSetProviderNetworkConfigPermissions(c *gc.C) {
 		{Tag: "machine-42"},
 	}}
 
-	result, err := s.networkconfig.SetProviderNetworkConfig(common.ProviderCallContext(), args)
+	result, err := s.networkconfig.SetProviderNetworkConfig(context.NewCloudCallContext(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
