@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/testing"
 )
@@ -54,7 +55,7 @@ func (s *environSuite) TestBase(c *gc.C) {
 	c.Assert(cfg, gc.NotNil)
 	c.Check(cfg.Name(), gc.Equals, "testname")
 
-	c.Check(env.PrecheckInstance(environs.PrecheckInstanceParams{}), gc.IsNil)
+	c.Check(env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{}), gc.IsNil)
 
 	hasRegion, ok := env.(simplestreams.HasRegion)
 	c.Check(ok, gc.Equals, true)
