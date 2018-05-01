@@ -2,9 +2,15 @@ from datetime import (
     datetime,
     timedelta,
     )
-from mock import (
-    Mock,
-    patch,
+try:
+    from mock import (
+        Mock,
+        patch,
+    )
+except ImportError:
+    from unittest.mock import (
+        Mock,
+        patch,
     )
 
 from jujupy import (
