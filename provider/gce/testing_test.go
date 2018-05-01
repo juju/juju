@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -307,6 +308,8 @@ type BaseSuite struct {
 	FakeConn    *fakeConn
 	FakeCommon  *fakeCommon
 	FakeEnviron *fakeEnviron
+
+	CallCtx context.ProviderCallContext
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -329,6 +332,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&newRawInstance, s.FakeEnviron.NewRawInstance)
 	s.PatchValue(&findInstanceSpec, s.FakeEnviron.FindInstanceSpec)
 	s.PatchValue(&getInstances, s.FakeEnviron.GetInstances)
+
+	s.CallCtx = context.NewCloudCallContext()
 }
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
@@ -378,7 +383,7 @@ type fakeCommon struct {
 	AZInstances []common.AvailabilityZoneInstances
 }
 
-func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, callCtx context.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	fc.addCall("Bootstrap", FakeCallArgs{
 		"ctx":    ctx,
 		"switch": env,
@@ -393,14 +398,14 @@ func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Envi
 	return result, fc.err()
 }
 
-func (fc *fakeCommon) Destroy(env environs.Environ) error {
+func (fc *fakeCommon) Destroy(env environs.Environ, ctx context.ProviderCallContext) error {
 	fc.addCall("Destroy", FakeCallArgs{
 		"switch": env,
 	})
 	return fc.err()
 }
 
-func (fc *fakeCommon) AvailabilityZoneAllocations(env common.ZonedEnviron, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
+func (fc *fakeCommon) AvailabilityZoneAllocations(env common.ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
 	fc.addCall("AvailabilityZoneAllocations", FakeCallArgs{
 		"switch": env,
 		"group":  group,

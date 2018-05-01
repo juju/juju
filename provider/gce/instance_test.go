@@ -34,14 +34,14 @@ func (s *instanceSuite) TestID(c *gc.C) {
 }
 
 func (s *instanceSuite) TestStatus(c *gc.C) {
-	status := s.Instance.Status().Message
+	status := s.Instance.Status(s.CallCtx).Message
 
 	c.Check(status, gc.Equals, google.StatusRunning)
 	s.CheckNoAPI(c)
 }
 
 func (s *instanceSuite) TestAddresses(c *gc.C) {
-	addresses, err := s.Instance.Addresses()
+	addresses, err := s.Instance.Addresses(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(addresses, jc.DeepEquals, s.Addresses)
@@ -49,7 +49,7 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 }
 
 func (s *instanceSuite) TestOpenPortsAPI(c *gc.C) {
-	err := s.Instance.OpenPorts("42", s.Rules)
+	err := s.Instance.OpenPorts(s.CallCtx, "42", s.Rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
@@ -59,7 +59,7 @@ func (s *instanceSuite) TestOpenPortsAPI(c *gc.C) {
 }
 
 func (s *instanceSuite) TestClosePortsAPI(c *gc.C) {
-	err := s.Instance.ClosePorts("42", s.Rules)
+	err := s.Instance.ClosePorts(s.CallCtx, "42", s.Rules)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
@@ -71,14 +71,14 @@ func (s *instanceSuite) TestClosePortsAPI(c *gc.C) {
 func (s *instanceSuite) TestPorts(c *gc.C) {
 	s.FakeConn.Rules = s.Rules
 
-	ports, err := s.Instance.IngressRules("42")
+	ports, err := s.Instance.IngressRules(s.CallCtx, "42")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ports, jc.DeepEquals, s.Rules)
 }
 
 func (s *instanceSuite) TestPortsAPI(c *gc.C) {
-	_, err := s.Instance.IngressRules("42")
+	_, err := s.Instance.IngressRules(s.CallCtx, "42")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
