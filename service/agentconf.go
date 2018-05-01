@@ -20,6 +20,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/fs"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
@@ -28,7 +29,7 @@ import (
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
-	//	"github.com/juju/juju/service/systemd"
+	"github.com/juju/juju/service/systemd"
 )
 
 type SystemdServiceManager interface {
@@ -46,6 +47,10 @@ type SystemdServiceManager interface {
 
 	// StartAllAgents starts all the agents in the machine with specified series.
 	StartAllAgents(machineAgent string, unitAgents []string, dataDir string, series string) (string, []string, error)
+
+	// WriteServiceFile writes the service file in '/lib/systemd/system' path.
+	// this is done as part of upgrade step.
+	WriteServiceFile() error
 }
 
 type systemdServiceManager struct {
@@ -322,4 +327,52 @@ func startAgent(name string, kind AgentKind, dataDir string, series string) (err
 
 func serviceName(agent string) string {
 	return "jujud-" + agent
+}
+
+// WriteServiceFile writes the service life in standard '/lib/systemd/system' path.
+func (s *systemdServiceManager) WriteServiceFile() error {
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return err
+	}
+	dataDir, err := paths.DataDir(hostSeries)
+	if err != nil {
+		return err
+	}
+
+	// find the agents.
+	machineAgent, unitAgents, failedAgentNames, err := s.FindAgents(dataDir)
+	if err != nil {
+		return err
+	}
+
+	startedSysdServiceNames, startedSymServiceNames, failedAgentNames, err := s.WriteSystemdAgents(
+		machineAgent,
+		unitAgents,
+		dataDir,
+		"/etc/systemd/system",
+		"/etc/systemd/system/multi-user.target.wants",
+		hostSeries,
+	)
+	if err != nil {
+		for _, agentName := range failedAgentNames {
+			logger.Errorf("failed to write service for %s: %s", agentName, err)
+		}
+		logger.Errorf("%s", err)
+		return err
+	}
+	for _, sysSvcName := range startedSysdServiceNames {
+		logger.Infof("wrote %s agent, enabled and linked by systemd", sysSvcName)
+	}
+	for _, symSvcName := range startedSymServiceNames {
+		logger.Infof("wrote %s agent, enabled and linked by symlink", symSvcName)
+	}
+
+	// reload the services.
+	err = systemd.SysdReload()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

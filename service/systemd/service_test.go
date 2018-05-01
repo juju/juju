@@ -108,7 +108,7 @@ func (s *initSystemSuite) newService(c *gc.C) *systemd.Service {
 		fac = func() (systemd.DBusAPI, error) { return s.dBus, nil }
 	}
 
-	svc, err := systemd.NewService(s.name, s.conf, s.dataDir, fac)
+	svc, err := systemd.NewService(s.name, s.conf, "/lib/systemd/system", fac, renderer.Join(s.dataDir, "init"))
 	c.Assert(err, jc.ErrorIsNil)
 	return svc
 }
@@ -119,7 +119,7 @@ func (s *initSystemSuite) expectConf(c *gc.C, conf common.Conf) *gomock.Call {
 
 	return s.exec.EXPECT().RunCommands(
 		exec.RunParams{
-			Commands: "cat /var/lib/juju/init/jujud-machine-0/jujud-machine-0.service",
+			Commands: "cat /lib/systemd/system/jujud-machine-0/jujud-machine-0.service",
 		},
 	).Return(&exec.ExecResponse{Stdout: data}, nil)
 }
@@ -176,7 +176,7 @@ func (s *initSystemSuite) TestNewService(c *gc.C) {
 	c.Check(svc.Service, jc.DeepEquals, common.Service{Name: s.name, Conf: s.conf})
 	c.Check(svc.ConfName, gc.Equals, s.name+".service")
 	c.Check(svc.UnitName, gc.Equals, s.name+".service")
-	c.Check(svc.DirName, gc.Equals, fmt.Sprintf("%s/init/%s", s.dataDir, s.name))
+	c.Check(svc.DirName, gc.Equals, fmt.Sprintf("%s/%s", "/lib/systemd/system", s.name))
 }
 
 func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
@@ -184,7 +184,7 @@ func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 	svc := s.newService(c)
 
 	user, group := systemd.SyslogUserGroup()
-	dirName := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	dirName := fmt.Sprintf("%s/%s", "/lib/systemd/system", s.name)
 	script := `
 #!/usr/bin/env bash
 
@@ -217,12 +217,12 @@ exec 2>&1
 }
 
 func (s *initSystemSuite) TestNewServiceEmptyConf(c *gc.C) {
-	svc, err := systemd.NewService(s.name, common.Conf{}, s.dataDir, systemd.NewDBusAPI)
+	svc, err := systemd.NewService(s.name, common.Conf{}, "/lib/systemd/system", systemd.NewDBusAPI, renderer.Join(s.dataDir, "init"))
 	c.Assert(err, gc.IsNil)
 	c.Check(svc.Service, jc.DeepEquals, common.Service{Name: s.name})
 	c.Check(svc.ConfName, gc.Equals, s.name+".service")
 	c.Check(svc.UnitName, gc.Equals, s.name+".service")
-	c.Check(svc.DirName, gc.Equals, fmt.Sprintf("%s/init/%s", s.dataDir, s.name))
+	c.Check(svc.DirName, gc.Equals, fmt.Sprintf("%s/%s", "/lib/systemd/system", s.name))
 }
 
 func (s *initSystemSuite) TestNewServiceBasic(c *gc.C) {
@@ -231,14 +231,14 @@ func (s *initSystemSuite) TestNewServiceBasic(c *gc.C) {
 	c.Check(svc.Service, jc.DeepEquals, common.Service{Name: s.name, Conf: s.conf})
 	c.Check(svc.ConfName, gc.Equals, s.name+".service")
 	c.Check(svc.UnitName, gc.Equals, s.name+".service")
-	c.Check(svc.DirName, gc.Equals, fmt.Sprintf("%s/init/%s", s.dataDir, s.name))
+	c.Check(svc.DirName, gc.Equals, fmt.Sprintf("%s/%s", "/lib/systemd/system", s.name))
 }
 
 func (s *initSystemSuite) TestNewServiceExtraScript(c *gc.C) {
 	s.conf.ExtraScript = "'/path/to/another/command'"
 	svc := s.newService(c)
 
-	dirName := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	dirName := fmt.Sprintf("%s/%s", "/lib/systemd/system", s.name)
 	script := `
 #!/usr/bin/env bash
 
@@ -263,7 +263,7 @@ func (s *initSystemSuite) TestNewServiceMultiLine(c *gc.C) {
 	s.conf.ExecStart = "a\nb\nc"
 	svc := s.newService(c)
 
-	dirName := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	dirName := fmt.Sprintf("%s/%s", "/lib/systemd/system", s.name)
 	script := `
 #!/usr/bin/env bash
 
@@ -358,7 +358,7 @@ func (s *initSystemSuite) TestExistsError(c *gc.C) {
 
 	s.exec.EXPECT().RunCommands(
 		exec.RunParams{
-			Commands: "cat /var/lib/juju/init/jujud-machine-0/jujud-machine-0.service",
+			Commands: "cat /lib/systemd/system/jujud-machine-0/jujud-machine-0.service",
 		},
 	).Return(nil, errFailure)
 
@@ -582,7 +582,7 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
-	dirName := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	dirName := fmt.Sprintf("%s/%s", "/lib/systemd/system", s.name)
 	fileName := fmt.Sprintf("%s/%s.service", dirName, s.name)
 
 	gomock.InOrder(
@@ -627,9 +627,9 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	}
 	s.expectConf(c, conf)
 	conf.Env["a"] = "c"
-	svc, err := systemd.NewService(s.name, conf, s.dataDir, func() (systemd.DBusAPI, error) { return s.dBus, nil })
+	svc, err := systemd.NewService(s.name, conf, "/lib/systemd/system", func() (systemd.DBusAPI, error) { return s.dBus, nil }, renderer.Join(s.dataDir, "init"))
 
-	dirName := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	dirName := fmt.Sprintf("%s/%s", "/lib/systemd/system", s.name)
 	fileName := fmt.Sprintf("%s/%s.service", dirName, s.name)
 
 	s.exec.EXPECT().RunCommands(listCmdArg).Return(&exec.ExecResponse{Stdout: []byte(svc.Name())}, nil).Times(2)
@@ -655,7 +655,7 @@ func (s *initSystemSuite) TestInstallMultiLine(c *gc.C) {
 	ctrl := s.patch(c)
 	defer ctrl.Finish()
 
-	dirName := fmt.Sprintf("%s/init/%s", s.dataDir, s.name)
+	dirName := fmt.Sprintf("%s/%s", "/lib/systemd/system", s.name)
 	fileName := fmt.Sprintf("%s/%s.service", dirName, s.name)
 	scriptPath := fmt.Sprintf("%s/exec-start.sh", dirName)
 	cmd := "a\nb\nc"
@@ -693,7 +693,7 @@ func (s *initSystemSuite) TestInstallCommands(c *gc.C) {
 
 	test := systemdtesting.WriteConfTest{
 		Service:  name,
-		DataDir:  s.dataDir,
+		DataDir:  "/lib/systemd/system",
 		Expected: s.newConfStr(name),
 	}
 	test.CheckCommands(c, commands)
@@ -709,11 +709,11 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 	user, group := systemd.SyslogUserGroup()
 	test := systemdtesting.WriteConfTest{
 		Service: name,
-		DataDir: s.dataDir,
+		DataDir: "/lib/systemd/system",
 		Expected: strings.Replace(
 			s.newConfStr(name),
 			"ExecStart=/var/lib/juju/bin/jujud machine-0",
-			"ExecStart=/var/lib/juju/init/jujud-machine-0/exec-start.sh",
+			"ExecStart=/lib/systemd/system/jujud-machine-0/exec-start.sh",
 			-1),
 		Script: `
 # Set up logging.
@@ -735,7 +735,7 @@ func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
 	conf, err := service.ShutdownAfterConf("cloud-final")
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc, err := systemd.NewService(name, conf, s.dataDir, systemd.NewDBusAPI)
+	svc, err := systemd.NewService(name, conf, "/lib/systemd/system", systemd.NewDBusAPI, renderer.Join(s.dataDir, "init"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	commands, err := svc.InstallCommands()
@@ -743,7 +743,7 @@ func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
 
 	test := systemdtesting.WriteConfTest{
 		Service: name,
-		DataDir: s.dataDir,
+		DataDir: "/lib/systemd/system",
 		Expected: `
 [Unit]
 Description=juju shutdown job

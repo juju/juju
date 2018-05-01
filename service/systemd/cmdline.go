@@ -131,6 +131,18 @@ func (cl Cmdline) conf(name, dirname string) ([]byte, error) {
 	return []byte(out), nil
 }
 
+func (cl Cmdline) reload() error {
+	cmd := cl.commands.reload()
+
+	_, err := cl.runCommand(cmd, "")
+	if err != nil {
+		err = errors.Trace(err)
+		return err
+	}
+
+	return err
+}
+
 const runCommandMsg = "%s failed (%s)"
 
 func (Cmdline) runCommand(cmd, label string) (string, error) {
