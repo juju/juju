@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
@@ -114,6 +115,8 @@ type localServerSuite struct {
 	baseSuite
 	jujutest.Tests
 	cSrv localCloudAPIServer
+
+	callCtx context.ProviderCallContext
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
@@ -148,6 +151,8 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	creds := joyent.MakeCredentials(c, s.CloudEndpoint, s.Credential)
 	joyent.UseExternalTestImageMetadata(c, creds)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
+
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
@@ -171,8 +176,8 @@ func (s *localServerSuite) TestStartInstance(c *gc.C) {
 		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
-	err = env.StopInstances(inst.Id())
+	inst, _ := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, "100")
+	err = env.StopInstances(s.callCtx, inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -184,8 +189,8 @@ func (s *localServerSuite) TestStartInstanceAvailabilityZone(c *gc.C) {
 		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	inst, hwc := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
-	err = env.StopInstances(inst.Id())
+	inst, hwc := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, "100")
+	err = env.StopInstances(s.callCtx, inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(hwc.AvailabilityZone, gc.IsNil)
@@ -199,7 +204,7 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.ControllerUUID, "100", constraints.MustParse("mem=1024"))
+	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.callCtx, s.ControllerUUID, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1024))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
@@ -255,25 +260,25 @@ var instanceGathering = []struct {
 
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := s.Prepare(c)
-	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
-	c.Assert(inst.Status().Message, gc.Equals, "running")
-	err := env.StopInstances(inst.Id())
+	inst, _ := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, "100")
+	c.Assert(inst.Status(s.callCtx).Message, gc.Equals, "running")
+	err := env.StopInstances(s.callCtx, inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	env := s.Prepare(c)
-	inst0, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
+	inst0, _ := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, "100")
 	id0 := inst0.Id()
-	inst1, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "101")
+	inst1, _ := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, "101")
 	id1 := inst1.Id()
 	c.Logf("id0: %s, id1: %s", id0, id1)
 	defer func() {
 		// StopInstances deletes machines in parallel but the Joyent
 		// API test double isn't goroutine-safe so stop them one at a
 		// time. See https://pad.lv/1604514
-		c.Check(env.StopInstances(inst0.Id()), jc.ErrorIsNil)
-		c.Check(env.StopInstances(inst1.Id()), jc.ErrorIsNil)
+		c.Check(env.StopInstances(s.callCtx, inst0.Id()), jc.ErrorIsNil)
+		c.Check(env.StopInstances(s.callCtx, inst1.Id()), jc.ErrorIsNil)
 	}()
 
 	for i, test := range instanceGathering {
@@ -287,7 +292,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 				ids[j] = id1
 			}
 		}
-		insts, err := env.Instances(ids)
+		insts, err := env.Instances(s.callCtx, ids)
 		c.Assert(err, gc.Equals, test.err)
 		if err == environs.ErrNoInstances {
 			c.Assert(insts, gc.HasLen, 0)
@@ -315,16 +320,16 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check that ControllerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.ControllerInstances(s.ControllerUUID)
+	instanceIds, err := env.ControllerInstances(s.callCtx, s.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 
-	insts, err := env.AllInstances()
+	insts, err := env.AllInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(instanceIds[0], gc.Equals, insts[0].Id())
 
-	addresses, err := insts[0].Addresses()
+	addresses, err := insts[0].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.HasLen, 2)
 }
@@ -394,12 +399,12 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 
 func (t *localServerSuite) TestInstanceInformation(c *gc.C) {
 	env := t.Prepare(c)
-	types, err := env.InstanceTypes(constraints.Value{})
+	types, err := env.InstanceTypes(t.callCtx, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, gc.HasLen, 3)
 
 	cons := constraints.MustParse("mem=4G")
-	types, err = env.InstanceTypes(cons)
+	types, err = env.InstanceTypes(t.callCtx, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, gc.HasLen, 1)
 }
