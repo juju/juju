@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/controller"
+	agentinfo "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tags"
@@ -379,8 +380,8 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 	return nil
 }
 
-func (cfg *InstanceConfig) agentInfo() service.AgentInfo {
-	return service.NewMachineAgentInfo(
+func (cfg *InstanceConfig) agentInfo() agentinfo.AgentInfo {
+	return agentinfo.NewMachineAgentInfo(
 		cfg.MachineId,
 		cfg.DataDir,
 		cfg.LogDir,
@@ -392,7 +393,7 @@ func (cfg *InstanceConfig) ToolsDir(renderer shell.Renderer) string {
 }
 
 func (cfg *InstanceConfig) InitService(renderer shell.Renderer) (service.Service, error) {
-	conf := service.AgentConf(cfg.agentInfo(), renderer)
+	conf := agentinfo.AgentConf(cfg.agentInfo(), renderer)
 
 	name := cfg.MachineAgentServiceName
 	svc, err := newService(name, conf, cfg.Series)

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
+	agentinfo "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	jujuversion "github.com/juju/juju/version"
@@ -273,8 +274,8 @@ func (ctx *SimpleContext) service(unitName string, renderer shell.Renderer) (dep
 
 	svcName := "jujud-" + tag
 
-	info := service.NewAgentInfo(
-		service.AgentKindUnit,
+	info := agentinfo.NewAgentInfo(
+		agentinfo.AgentKindUnit,
 		unitName,
 		ctx.agentConfig.DataDir(),
 		ctx.agentConfig.LogDir(),

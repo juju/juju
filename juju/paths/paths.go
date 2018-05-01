@@ -15,6 +15,7 @@ const (
 	tmpDir osVarType = iota
 	logDir
 	dataDir
+	systemdDir
 	storageDir
 	confDir
 	jujuRun
@@ -31,6 +32,7 @@ const (
 var nixVals = map[osVarType]string{
 	tmpDir:               "/tmp",
 	logDir:               "/var/log",
+	systemdDir:           "/lib/systemd",
 	dataDir:              "/var/lib/juju",
 	storageDir:           "/var/lib/juju/storage",
 	confDir:              "/etc/juju",
@@ -87,6 +89,12 @@ func TempDir(series string) (string, error) {
 // save log files.
 func LogDir(series string) (string, error) {
 	return osVal(series, logDir)
+}
+
+//SystemdDir retrun the filesyatem path where
+//the service files are saved
+func SystemdDir(series string) (string, error) {
+	return osVal(series, systemdDir)
 }
 
 // DataDir returns a filesystem path to the folder used by juju to

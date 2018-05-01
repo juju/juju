@@ -20,6 +20,7 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/status"
@@ -117,6 +118,7 @@ type upgradesteps struct {
 	upgradeComplete gate.Lock
 	agent           agent.Agent
 	apiConn         api.Connection
+	serviceUpgrade  service.UpgradableService
 	jobs            []multiwatcher.MachineJob
 	openState       func() (*state.State, error)
 	preUpgradeSteps func(st *state.State, agentConf agent.Config, isController, isMaster bool) error
@@ -346,7 +348,7 @@ func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	w.machine.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
 
 	stBackend := upgrades.NewStateBackend(w.st)
-	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend)
+	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend, w.serviceUpgrade)
 	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
 
 	targets := jobsToTargets(w.jobs, w.isMaster)

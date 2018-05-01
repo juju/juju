@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/shell"
 
+	"github.com/juju/juju/core/agent"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service/common"
 )
@@ -21,23 +22,23 @@ const (
 
 // AgentConf returns the data that defines an init service config
 // for the identified agent.
-func AgentConf(info AgentInfo, renderer shell.Renderer) common.Conf {
+func AgentConf(info agent.AgentInfo, renderer shell.Renderer) common.Conf {
 	conf := common.Conf{
-		Desc:          fmt.Sprintf("juju agent for %s", info.name),
-		ExecStart:     info.cmd(renderer),
-		Logfile:       info.logFile(renderer),
+		Desc:          fmt.Sprintf("juju agent for %s", info.Name),
+		ExecStart:     info.Cmd(renderer),
+		Logfile:       info.LogFile(renderer),
 		Env:           osenv.FeatureFlags(),
 		Timeout:       agentServiceTimeout,
-		ServiceBinary: info.jujud(renderer),
-		ServiceArgs:   info.execArgs(renderer),
+		ServiceBinary: info.Jujud(renderer),
+		ServiceArgs:   info.ExecArgs(renderer),
 	}
 
 	switch info.Kind {
-	case AgentKindMachine:
+	case agent.AgentKindMachine:
 		conf.Limit = map[string]int{
 			"nofile": maxAgentFiles,
 		}
-	case AgentKindUnit:
+	case agent.AgentKindUnit:
 		conf.Desc = "juju unit agent for " + info.ID
 	}
 
@@ -49,8 +50,8 @@ func AgentConf(info AgentInfo, renderer shell.Renderer) common.Conf {
 
 // ContainerAgentConf returns the data that defines an init service config
 // for the identified agent running in a container.
-func ContainerAgentConf(info AgentInfo, renderer shell.Renderer, containerType string) common.Conf {
-	conf := AgentConf(info, renderer)
+func ContainerAgentConf(info agent.AgentInfo, renderer shell.Renderer, containerType string) common.Conf {
+	conf := agent.AgentConf(info, renderer)
 
 	// TODO(thumper): 2013-09-02 bug 1219630
 	// As much as I'd like to remove JujuContainerType now, it is still
