@@ -90,7 +90,8 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *gc.C) {
 		apiservertesting.WithSpaces,
 		apiservertesting.WithSubnets)
 
-	results, err := networkingcommon.AllZones(context.NewCloudCallContext(), apiservertesting.BackingInstance)
+	callCtx := context.NewCloudCallContext()
+	results, err := networkingcommon.AllZones(callCtx, apiservertesting.BackingInstance)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertAllZonesResult(c, results, apiservertesting.ProviderInstance.Zones)
 
@@ -99,7 +100,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *gc.C) {
 		apiservertesting.BackingCall("ModelConfig"),
 		apiservertesting.BackingCall("CloudSpec"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-		apiservertesting.ZonedEnvironCall("AvailabilityZones"),
+		apiservertesting.ZonedEnvironCall("AvailabilityZones", callCtx),
 		apiservertesting.BackingCall("SetAvailabilityZones", apiservertesting.ProviderInstance.Zones),
 	)
 }
@@ -121,7 +122,8 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 		errors.NotSupportedf("setting"), // Backing.SetAvailabilityZones
 	)
 
-	results, err := networkingcommon.AllZones(context.NewCloudCallContext(), apiservertesting.BackingInstance)
+	callCtx := context.NewCloudCallContext()
+	results, err := networkingcommon.AllZones(callCtx, apiservertesting.BackingInstance)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot update known zones: setting not supported`,
 	)
@@ -134,7 +136,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 		apiservertesting.BackingCall("ModelConfig"),
 		apiservertesting.BackingCall("CloudSpec"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-		apiservertesting.ZonedEnvironCall("AvailabilityZones"),
+		apiservertesting.ZonedEnvironCall("AvailabilityZones", callCtx),
 		apiservertesting.BackingCall("SetAvailabilityZones", apiservertesting.ProviderInstance.Zones),
 	)
 }
@@ -155,7 +157,8 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 		errors.NotValidf("foo"), // ZonedEnviron.AvailabilityZones
 	)
 
-	results, err := networkingcommon.AllZones(context.NewCloudCallContext(), apiservertesting.BackingInstance)
+	callCtx := context.NewCloudCallContext()
+	results, err := networkingcommon.AllZones(callCtx, apiservertesting.BackingInstance)
 	c.Assert(err, gc.ErrorMatches,
 		`cannot update known zones: foo not valid`,
 	)
@@ -168,7 +171,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 		apiservertesting.BackingCall("ModelConfig"),
 		apiservertesting.BackingCall("CloudSpec"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-		apiservertesting.ZonedEnvironCall("AvailabilityZones"),
+		apiservertesting.ZonedEnvironCall("AvailabilityZones", callCtx),
 	)
 }
 
