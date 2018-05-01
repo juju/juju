@@ -116,12 +116,12 @@ func (c *Client) checkIsAdmin() error {
 	return nil
 }
 
-// NewFacade provides the required signature for facade registration.
+// NewFacade creates a version 1 Client facade to handle API requests.
 func NewFacade(ctx facade.Context) (*Client, error) {
 	return newFacade(ctx)
 }
 
-// NewFacadeV1 provides the required signature for facade registration.
+// NewFacadeV1 creates a version 1 Client facade to handle API requests.
 func NewFacadeV1(ctx facade.Context) (*ClientV1, error) {
 	client, err := newFacade(ctx)
 	if err != nil {
