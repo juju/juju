@@ -529,6 +529,7 @@ def get_version_string_parts(version_string):
     # strip the series and arch from the built version.
     version_parts = version_string.split('-')
     if len(version_parts) == 4:
+        # Version contains "-<patchname>", reconstruct it after the split.
         return '-'.join(version_parts[0:2]), version_parts[2], version_parts[3]
     else:
         try:
