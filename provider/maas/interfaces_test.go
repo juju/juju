@@ -792,7 +792,7 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 	subnetsMap["192.168.1.0/24"] = network.Id("0")
 	subnetsMap["192.168.20.0/24"] = network.Id("4")
 
-	infos, err := maasObjectNetworkInterfaces(&obj, subnetsMap)
+	infos, err := maasObjectNetworkInterfaces(s.callCtx, &obj, subnetsMap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, exampleParsedInterfaceSetJSON)
 }
@@ -810,7 +810,7 @@ func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesWithExampleMAAS1In
 	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
 
 	inst := &maas1Instance{maasObject: &obj}
-	names, err := instanceConfiguredInterfaceNames(notUsingMAAS2, inst, nil)
+	names, err := instanceConfiguredInterfaceNames(s.callCtx, notUsingMAAS2, inst, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(names, jc.DeepEquals, []string{"eth0", "eth0:1", "eth0.50", "eth0.100", "eth0.250", "br-ens3"})
 }
@@ -820,7 +820,7 @@ func (s *interfacesSuite) TestInstanceConfiguredNamesWithoutInterfaceSetMAAS1(c 
 	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
 
 	inst := &maas1Instance{maasObject: &obj}
-	names, err := instanceConfiguredInterfaceNames(notUsingMAAS2, inst, nil)
+	names, err := instanceConfiguredInterfaceNames(s.callCtx, notUsingMAAS2, inst, nil)
 	c.Assert(err, gc.ErrorMatches, "interface_set not supported")
 	c.Check(err, jc.Satisfies, errors.IsNotSupported)
 	c.Check(names, gc.HasLen, 0)
@@ -846,7 +846,7 @@ func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesPartiallyConfigure
 	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
 
 	inst := &maas1Instance{maasObject: &obj}
-	names, err := instanceConfiguredInterfaceNames(notUsingMAAS2, inst, nil)
+	names, err := instanceConfiguredInterfaceNames(s.callCtx, notUsingMAAS2, inst, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(names, jc.DeepEquals, []string{"eth0", "eth0:1", "eth0:2", "eth1.99"})
 }
@@ -854,7 +854,7 @@ func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesPartiallyConfigure
 func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesWithoutInterfaceSetMAAS2(c *gc.C) {
 	inst := &maas2Instance{machine: &fakeMachine{interfaceSet: nil}}
 
-	names, err := instanceConfiguredInterfaceNames(notUsingMAAS1, inst, nil)
+	names, err := instanceConfiguredInterfaceNames(s.callCtx, notUsingMAAS1, inst, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(names, gc.HasLen, 0)
 }
@@ -909,7 +909,7 @@ func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesPartiallyConfigure
 
 	inst := &maas2Instance{machine: &fakeMachine{interfaceSet: interfaces}}
 
-	names, err := instanceConfiguredInterfaceNames(notUsingMAAS1, inst, nil)
+	names, err := instanceConfiguredInterfaceNames(s.callCtx, notUsingMAAS1, inst, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(names, jc.DeepEquals, []string{"eth0.50", "eth0.50:1", "eth0.50:2", "eth0.250"})
 }
@@ -1162,7 +1162,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 	machine := &fakeMachine{interfaceSet: exampleInterfaces}
 	instance := &maas2Instance{machine: machine}
 
-	infos, err := maas2NetworkInterfaces(instance, subnetsMap)
+	infos, err := maas2NetworkInterfaces(s.callCtx, instance, subnetsMap)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, expected)
 }
@@ -1226,7 +1226,7 @@ func (s *interfacesSuite) TestMAAS2InterfacesNilVLAN(c *gc.C) {
 		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
 	}}
 
-	infos, err := maas2NetworkInterfaces(instance, map[string]network.Id{})
+	infos, err := maas2NetworkInterfaces(s.callCtx, instance, map[string]network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(infos, jc.DeepEquals, expected)
 }

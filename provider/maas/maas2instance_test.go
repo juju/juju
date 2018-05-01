@@ -73,7 +73,7 @@ func (s *maas2InstanceSuite) TestAddresses(c *gc.C) {
 		machines: []gomaasapi.Machine{machine},
 	}
 	instance := &maas2Instance{machine: machine, environ: s.makeEnviron(c, controller)}
-	addresses, err := instance.Addresses()
+	addresses, err := instance.Addresses(s.callCtx)
 
 	expectedAddresses := []network.Address{
 		newAddressOnSpaceWithId("freckles", network.Id("4567"), "192.168.10.1"),
@@ -94,14 +94,14 @@ func (s *maas2InstanceSuite) TestZone(c *gc.C) {
 func (s *maas2InstanceSuite) TestStatusSuccess(c *gc.C) {
 	machine := &fakeMachine{statusMessage: "Wexler", statusName: "Deploying"}
 	thing := &maas2Instance{machine: machine}
-	result := thing.Status()
+	result := thing.Status(s.callCtx)
 	c.Assert(result, jc.DeepEquals, instance.InstanceStatus{status.Allocating, "Deploying: Wexler"})
 }
 
 func (s *maas2InstanceSuite) TestStatusError(c *gc.C) {
 	machine := &fakeMachine{statusMessage: "", statusName: ""}
 	thing := &maas2Instance{machine: machine}
-	result := thing.Status()
+	result := thing.Status(s.callCtx)
 	c.Assert(result, jc.DeepEquals, instance.InstanceStatus{"", "error in getting status"})
 }
 

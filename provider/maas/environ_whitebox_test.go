@@ -70,7 +70,7 @@ func (suite *environSuite) addNode(jsonText string) instance.Id {
 
 func (suite *environSuite) TestInstancesReturnsInstances(c *gc.C) {
 	id := suite.addNode(allocatedNode)
-	instances, err := suite.makeEnviron().Instances([]instance.Id{id})
+	instances, err := suite.makeEnviron().Instances(suite.callCtx, []instance.Id{id})
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
@@ -79,7 +79,7 @@ func (suite *environSuite) TestInstancesReturnsInstances(c *gc.C) {
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfEmptyParameter(c *gc.C) {
 	suite.addNode(allocatedNode)
-	instances, err := suite.makeEnviron().Instances([]instance.Id{})
+	instances, err := suite.makeEnviron().Instances(suite.callCtx, []instance.Id{})
 
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
 	c.Check(instances, gc.IsNil)
@@ -87,21 +87,21 @@ func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfEmptyParameter(c 
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNilParameter(c *gc.C) {
 	suite.addNode(allocatedNode)
-	instances, err := suite.makeEnviron().Instances(nil)
+	instances, err := suite.makeEnviron().Instances(suite.callCtx, nil)
 
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
 	c.Check(instances, gc.IsNil)
 }
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoneFound(c *gc.C) {
-	instances, err := suite.makeEnviron().Instances([]instance.Id{"unknown"})
+	instances, err := suite.makeEnviron().Instances(suite.callCtx, []instance.Id{"unknown"})
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
 	c.Check(instances, gc.IsNil)
 }
 
 func (suite *environSuite) TestAllInstances(c *gc.C) {
 	id := suite.addNode(allocatedNode)
-	instances, err := suite.makeEnviron().AllInstances()
+	instances, err := suite.makeEnviron().AllInstances(suite.callCtx)
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
@@ -109,7 +109,7 @@ func (suite *environSuite) TestAllInstances(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllInstancesReturnsEmptySliceIfNoInstance(c *gc.C) {
-	instances, err := suite.makeEnviron().AllInstances()
+	instances, err := suite.makeEnviron().AllInstances(suite.callCtx)
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(instances, gc.HasLen, 0)
@@ -119,7 +119,7 @@ func (suite *environSuite) TestInstancesReturnsErrorIfPartialInstances(c *gc.C) 
 	known := suite.addNode(allocatedNode)
 	suite.addNode(`{"system_id": "test2"}`)
 	unknown := instance.Id("unknown systemID")
-	instances, err := suite.makeEnviron().Instances([]instance.Id{known, unknown})
+	instances, err := suite.makeEnviron().Instances(suite.callCtx, []instance.Id{known, unknown})
 
 	c.Check(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(instances, gc.HasLen, 2)
@@ -166,10 +166,10 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 
 	// Test the instance id is correctly recorded for the bootstrap node.
 	// Check that ControllerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.ControllerInstances(suite.controllerUUID)
+	instanceIds, err := env.ControllerInstances(suite.callCtx, suite.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
-	insts, err := env.AllInstances()
+	insts, err := env.AllInstances(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
@@ -177,7 +177,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	// Create node 1: it will be used as instance number 1.
 	suite.newNode(c, "node1", "host1", nil)
 	suite.addSubnet(c, 8, 8, "node1")
-	instance, hc := testing.AssertStartInstance(c, env, suite.controllerUUID, "1")
+	instance, hc := testing.AssertStartInstance(c, env, suite.callCtx, suite.controllerUUID, "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instance, gc.NotNil)
 	c.Assert(hc, gc.NotNil)
@@ -209,7 +209,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 
 	// Trash the tools and try to start another instance.
 	suite.PatchValue(&envtools.DefaultBaseURL, "")
-	instance, _, _, err = testing.StartInstance(env, suite.controllerUUID, "2")
+	instance, _, _, err = testing.StartInstance(env, suite.callCtx, suite.controllerUUID, "2")
 	c.Check(instance, gc.IsNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -227,7 +227,7 @@ func (suite *environSuite) getInstance(systemId string) *maas1Instance {
 func (suite *environSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
 	suite.getInstance("test1")
 
-	err := suite.makeEnviron().StopInstances()
+	err := suite.makeEnviron().StopInstances(suite.callCtx)
 	c.Check(err, jc.ErrorIsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	c.Check(operations, gc.DeepEquals, map[string][]string{})
@@ -242,7 +242,7 @@ func (suite *environSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
 	suite.testMAASObject.TestServer.OwnedNodes()["test1"] = true
 	suite.testMAASObject.TestServer.OwnedNodes()["test2"] = true
 
-	err := suite.makeEnviron().StopInstances("test1", "test2", "test3")
+	err := suite.makeEnviron().StopInstances(suite.callCtx, "test1", "test2", "test3")
 	c.Check(err, jc.ErrorIsNil)
 	operations := suite.testMAASObject.TestServer.NodesOperations()
 	c.Check(operations, gc.DeepEquals, []string{"release"})
@@ -256,7 +256,7 @@ func (suite *environSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
 	}
 	suite.PatchValue(&ReleaseNodes, releaseNodes)
 	env := suite.makeEnviron()
-	err := env.StopInstances("test1")
+	err := env.StopInstances(suite.callCtx, "test1")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -268,7 +268,7 @@ func (suite *environSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c *gc.
 	}
 	suite.PatchValue(&ReleaseNodes, releaseNodes)
 	env := suite.makeEnviron()
-	err := env.StopInstances("test1", "test2")
+	err := env.StopInstances(suite.callCtx, "test1", "test2")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedNodes := [][]string{{"test1", "test2"}, {"test1"}, {"test2"}}
@@ -281,7 +281,7 @@ func (suite *environSuite) TestStopInstancesReturnsUnexpectedMAASError(c *gc.C) 
 	}
 	suite.PatchValue(&ReleaseNodes, releaseNodes)
 	env := suite.makeEnviron()
-	err := env.StopInstances("test1")
+	err := env.StopInstances(suite.callCtx, "test1")
 	c.Assert(err, gc.NotNil)
 	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
 	c.Assert(ok, jc.IsTrue)
@@ -294,14 +294,14 @@ func (suite *environSuite) TestStopInstancesReturnsUnexpectedError(c *gc.C) {
 	}
 	suite.PatchValue(&ReleaseNodes, releaseNodes)
 	env := suite.makeEnviron()
-	err := env.StopInstances("test1")
+	err := env.StopInstances(suite.callCtx, "test1")
 	c.Assert(err, gc.NotNil)
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
 }
 
 func (suite *environSuite) TestControllerInstances(c *gc.C) {
 	env := suite.makeEnviron()
-	_, err := env.ControllerInstances(suite.controllerUUID)
+	_, err := env.ControllerInstances(suite.callCtx, suite.controllerUUID)
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 
 	tests := [][]instance.Id{{}, {"inst-0"}, {"inst-0", "inst-1"}}
@@ -310,7 +310,7 @@ func (suite *environSuite) TestControllerInstances(c *gc.C) {
 			StateInstances: expected,
 		})
 		c.Assert(err, jc.ErrorIsNil)
-		controllerInstances, err := env.ControllerInstances(suite.controllerUUID)
+		controllerInstances, err := env.ControllerInstances(suite.callCtx, suite.controllerUUID)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(controllerInstances, jc.SameContents, expected)
 	}
@@ -318,7 +318,7 @@ func (suite *environSuite) TestControllerInstances(c *gc.C) {
 
 func (suite *environSuite) TestControllerInstancesFailsIfNoStateInstances(c *gc.C) {
 	env := suite.makeEnviron()
-	_, err := env.ControllerInstances(suite.controllerUUID)
+	_, err := env.ControllerInstances(suite.callCtx, suite.controllerUUID)
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
@@ -330,7 +330,7 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 	suite.testMAASObject.TestServer.NewFile("filename", data)
 	stor := env.Storage()
 
-	err := env.Destroy()
+	err := env.Destroy(suite.callCtx)
 	c.Check(err, jc.ErrorIsNil)
 
 	// Instances have been stopped.
@@ -460,25 +460,25 @@ func (suite *environSuite) TestSupportsNetworking(c *gc.C) {
 
 func (suite *environSuite) TestSupportsSpaces(c *gc.C) {
 	env := suite.makeEnviron()
-	supported, err := env.SupportsSpaces()
+	supported, err := env.SupportsSpaces(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supported, jc.IsTrue)
-	c.Check(env, jc.Satisfies, environs.SupportsSpaces)
+	c.Check(environs.SupportsSpaces(suite.callCtx, env), jc.IsTrue)
 }
 
 func (suite *environSuite) TestSupportsSpaceDiscovery(c *gc.C) {
 	env := suite.makeEnviron()
-	supported, err := env.SupportsSpaceDiscovery()
+	supported, err := env.SupportsSpaceDiscovery(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supported, jc.IsTrue)
 }
 
 func (suite *environSuite) TestSupportsContainerAddresses(c *gc.C) {
 	env := suite.makeEnviron()
-	supported, err := env.SupportsContainerAddresses()
+	supported, err := env.SupportsContainerAddresses(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(supported, jc.IsTrue)
-	c.Check(env, jc.Satisfies, environs.SupportsContainerAddresses)
+	c.Check(environs.SupportsContainerAddresses(suite.callCtx, env), jc.IsTrue)
 }
 
 func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIds(c *gc.C) {
@@ -496,7 +496,7 @@ func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIds(c *gc.C) {
 	testInstance := suite.getInstance("node1")
 	env := suite.makeEnviron()
 
-	subnetsInfo, err := env.Subnets(testInstance.Id(), subnetIDs)
+	subnetsInfo, err := env.Subnets(suite.callCtx, testInstance.Id(), subnetIDs)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedInfo := []network.SubnetInfo{
 		createSubnetInfo(uintIDs[0], 2, 1),
@@ -505,7 +505,7 @@ func (suite *environSuite) TestSubnetsWithInstanceIdAndSubnetIds(c *gc.C) {
 	}
 	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
 
-	subnetsInfo, err = env.Subnets(testInstance.Id(), subnetIDs[1:])
+	subnetsInfo, err = env.Subnets(suite.callCtx, testInstance.Id(), subnetIDs[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo[1:])
 }
@@ -525,7 +525,7 @@ func (suite *environSuite) TestSubnetsWithInstaceIdNoSubnetIds(c *gc.C) {
 	testInstance := suite.getInstance("node1")
 	env := suite.makeEnviron()
 
-	subnetsInfo, err := env.Subnets(testInstance.Id(), []network.Id{})
+	subnetsInfo, err := env.Subnets(suite.callCtx, testInstance.Id(), []network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedInfo := []network.SubnetInfo{
 		createSubnetInfo(id1, 2, 1),
@@ -533,7 +533,7 @@ func (suite *environSuite) TestSubnetsWithInstaceIdNoSubnetIds(c *gc.C) {
 	}
 	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
 
-	subnetsInfo, err = env.Subnets(testInstance.Id(), nil)
+	subnetsInfo, err = env.Subnets(suite.callCtx, testInstance.Id(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
 }
@@ -543,7 +543,7 @@ func (suite *environSuite) TestSubnetsInvalidInstaceIdAnySubnetIds(c *gc.C) {
 	suite.addSubnet(c, 1, 1, "node1")
 	suite.addSubnet(c, 2, 2, "node2")
 
-	_, err := suite.makeEnviron().Subnets("invalid", []network.Id{"anything"})
+	_, err := suite.makeEnviron().Subnets(suite.callCtx, "invalid", []network.Id{"anything"})
 	c.Assert(err, gc.ErrorMatches, `instance "invalid" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -557,7 +557,7 @@ func (suite *environSuite) TestSubnetsNoInstanceIdWithSubnetIds(c *gc.C) {
 		network.Id(fmt.Sprintf("%v", id2)),
 	}
 
-	subnetsInfo, err := suite.makeEnviron().Subnets(instance.UnknownId, subnetIDs)
+	subnetsInfo, err := suite.makeEnviron().Subnets(suite.callCtx, instance.UnknownId, subnetIDs)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedInfo := []network.SubnetInfo{
 		createSubnetInfo(id1, 2, 1),
@@ -572,7 +572,7 @@ func (suite *environSuite) TestSubnetsNoInstanceIdNoSubnetIds(c *gc.C) {
 	id2 := suite.addSubnet(c, 2, 2, "node2")
 	env := suite.makeEnviron()
 
-	subnetsInfo, err := suite.makeEnviron().Subnets(instance.UnknownId, []network.Id{})
+	subnetsInfo, err := suite.makeEnviron().Subnets(suite.callCtx, instance.UnknownId, []network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedInfo := []network.SubnetInfo{
 		createSubnetInfo(id1, 2, 1),
@@ -580,7 +580,7 @@ func (suite *environSuite) TestSubnetsNoInstanceIdNoSubnetIds(c *gc.C) {
 	}
 	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
 
-	subnetsInfo, err = env.Subnets(instance.UnknownId, nil)
+	subnetsInfo, err = env.Subnets(suite.callCtx, instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnetsInfo, jc.DeepEquals, expectedInfo)
 }
@@ -593,7 +593,7 @@ func (suite *environSuite) TestSpaces(c *gc.C) {
 		suite.addSubnet(c, i+5, i, "node1")
 	}
 
-	spaces, err := suite.makeEnviron().Spaces()
+	spaces, err := suite.makeEnviron().Spaces(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedSpaces := []network.SpaceInfo{{
 		Name:       "space-1",
@@ -635,7 +635,7 @@ func (suite *environSuite) assertSpaces(c *gc.C, numberOfSubnets int, filters []
 		suite.addSubnet(c, uint(i), uint(i), systemID)
 	}
 
-	subnets, err := suite.makeEnviron().Subnets(testInstance.Id(), filters)
+	subnets, err := suite.makeEnviron().Subnets(suite.callCtx, testInstance.Id(), filters)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedSubnets := []network.SubnetInfo{
 		createSubnetInfo(1, 2, 1),
@@ -659,7 +659,7 @@ func (suite *environSuite) TestSubnetsMissingSubnet(c *gc.C) {
 		suite.addSubnet(c, i, i, "node1")
 	}
 
-	_, err := suite.makeEnviron().Subnets(testInstance.Id(), []network.Id{"1", "3", "6"})
+	_, err := suite.makeEnviron().Subnets(suite.callCtx, testInstance.Id(), []network.Id{"1", "3", "6"})
 	errorRe := regexp.MustCompile("failed to find the following subnets: (\\d), (\\d)$")
 	errorText := err.Error()
 	c.Assert(errorRe.MatchString(errorText), jc.IsTrue)
@@ -671,39 +671,39 @@ func (suite *environSuite) TestSubnetsMissingSubnet(c *gc.C) {
 func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
-	err := env.PrecheckInstance(environs.PrecheckInstanceParams{Series: jujuversion.SupportedLTS(), Placement: "zone=zone1"})
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.SupportedLTS(), Placement: "zone=zone1"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *environSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
-	err := env.PrecheckInstance(environs.PrecheckInstanceParams{Series: jujuversion.SupportedLTS(), Placement: "zone=zone2"})
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.SupportedLTS(), Placement: "zone=zone2"})
 	c.Assert(err, gc.ErrorMatches, `availability zone "zone2" not valid`)
 }
 
 func (s *environSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 	env := s.makeEnviron()
-	err := env.PrecheckInstance(environs.PrecheckInstanceParams{Series: jujuversion.SupportedLTS(), Placement: "zone=test-unknown"})
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.SupportedLTS(), Placement: "zone=test-unknown"})
 	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 }
 
 func (s *environSuite) TestPrecheckInvalidPlacement(c *gc.C) {
 	env := s.makeEnviron()
-	err := env.PrecheckInstance(environs.PrecheckInstanceParams{Series: jujuversion.SupportedLTS(), Placement: "notzone=anything"})
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.SupportedLTS(), Placement: "notzone=anything"})
 	c.Assert(err, gc.ErrorMatches, "unknown placement directive: notzone=anything")
 }
 
 func (s *environSuite) TestPrecheckNodePlacement(c *gc.C) {
 	env := s.makeEnviron()
-	err := env.PrecheckInstance(environs.PrecheckInstanceParams{Series: jujuversion.SupportedLTS(), Placement: "assumed_node_name"})
+	err := env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Series: jujuversion.SupportedLTS(), Placement: "assumed_node_name"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *environSuite) TestDeriveAvailabilityZones(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
-	zones, err := env.DeriveAvailabilityZones(environs.StartInstanceParams{Placement: "zone=zone1"})
+	zones, err := env.DeriveAvailabilityZones(s.callCtx, environs.StartInstanceParams{Placement: "zone=zone1"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.DeepEquals, []string{"zone1"})
 }
@@ -711,14 +711,14 @@ func (s *environSuite) TestDeriveAvailabilityZones(c *gc.C) {
 func (s *environSuite) TestDeriveAvailabilityZonesUnknown(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
-	zones, err := env.DeriveAvailabilityZones(environs.StartInstanceParams{Placement: "zone=zone2"})
+	zones, err := env.DeriveAvailabilityZones(s.callCtx, environs.StartInstanceParams{Placement: "zone=zone2"})
 	c.Assert(err, gc.ErrorMatches, `availability zone "zone2" not valid`)
 	c.Assert(zones, gc.HasLen, 0)
 }
 
 func (s *environSuite) TestDeriveAvailabilityZonesInvalidPlacement(c *gc.C) {
 	env := s.makeEnviron()
-	zones, err := env.DeriveAvailabilityZones(environs.StartInstanceParams{Placement: "notzone=anything"})
+	zones, err := env.DeriveAvailabilityZones(s.callCtx, environs.StartInstanceParams{Placement: "notzone=anything"})
 	c.Assert(err, gc.ErrorMatches, "unknown placement directive: notzone=anything")
 	c.Assert(zones, gc.HasLen, 0)
 }
@@ -726,7 +726,7 @@ func (s *environSuite) TestDeriveAvailabilityZonesInvalidPlacement(c *gc.C) {
 func (s *environSuite) TestDeriveAvailabilityZonesNoPlacement(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
-	zones, err := env.DeriveAvailabilityZones(environs.StartInstanceParams{})
+	zones, err := env.DeriveAvailabilityZones(s.callCtx, environs.StartInstanceParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 0)
 }
@@ -752,7 +752,7 @@ func (s *environSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := s.bootstrap(c)
 	params := environs.StartInstanceParams{ControllerUUID: s.controllerUUID, AvailabilityZone: zone}
-	result, err := testing.StartInstanceWithParams(env, "1", params)
+	result, err := testing.StartInstanceWithParams(env, s.callCtx, "1", params)
 	if err != nil {
 		return nil, err
 	}
@@ -766,7 +766,7 @@ func (s *environSuite) TestStartInstanceZoneIndependentError(c *gc.C) {
 		ControllerUUID: s.controllerUUID,
 		Placement:      "foo=bar",
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	_, err := testing.StartInstanceWithParams(env, s.callCtx, "1", params)
 	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
 }
 
@@ -775,7 +775,7 @@ func (s *environSuite) TestStartInstanceUnmetConstraints(c *gc.C) {
 	s.newNode(c, "thenode1", "host1", nil)
 	s.addSubnet(c, 1, 1, "thenode1")
 	params := environs.StartInstanceParams{ControllerUUID: s.controllerUUID, Constraints: constraints.MustParse("mem=8G")}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	_, err := testing.StartInstanceWithParams(env, s.callCtx, "1", params)
 	c.Assert(err, gc.ErrorMatches, "failed to acquire node: .* 409.*")
 }
 
@@ -786,7 +786,7 @@ func (s *environSuite) TestStartInstanceConstraints(c *gc.C) {
 	s.newNode(c, "thenode2", "host2", map[string]interface{}{"memory": 8192})
 	s.addSubnet(c, 2, 2, "thenode2")
 	params := environs.StartInstanceParams{ControllerUUID: s.controllerUUID, Constraints: constraints.MustParse("mem=8G")}
-	result, err := testing.StartInstanceWithParams(env, "1", params)
+	result, err := testing.StartInstanceWithParams(env, s.callCtx, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*result.Hardware.Mem, gc.Equals, uint64(8192))
 }
@@ -841,7 +841,7 @@ func (s *environSuite) TestStartInstanceStorage(c *gc.C) {
 			{Tag: names.NewVolumeTag("1"), Size: 2000000},
 			{Tag: names.NewVolumeTag("3"), Size: 2000000},
 		}}
-	result, err := testing.StartInstanceWithParams(env, "1", params)
+	result, err := testing.StartInstanceWithParams(env, s.callCtx, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Volumes, jc.DeepEquals, []storage.Volume{
 		{
@@ -892,7 +892,7 @@ func (s *environSuite) TestStartInstanceUnsupportedStorage(c *gc.C) {
 			{Tag: names.NewVolumeTag("1"), Size: 2000000},
 			{Tag: names.NewVolumeTag("3"), Size: 2000000},
 		}}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	_, err := testing.StartInstanceWithParams(env, s.callCtx, "1", params)
 	c.Assert(err, gc.ErrorMatches, "requested 2 storage volumes. 0 returned")
 	operations := s.testMAASObject.TestServer.NodesOperations()
 	c.Check(operations, gc.DeepEquals, []string{"acquire", "acquire", "release"})
@@ -903,12 +903,12 @@ func (s *environSuite) TestStartInstanceUnsupportedStorage(c *gc.C) {
 func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {
 	env := s.makeEnviron()
 
-	zones, err := env.AvailabilityZones()
+	zones, err := env.AvailabilityZones(s.callCtx)
 	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 	c.Assert(zones, gc.IsNil)
 
 	s.testMAASObject.TestServer.AddZone("whatever", "andever")
-	zones, err = env.AvailabilityZones()
+	zones, err = env.AvailabilityZones(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 1)
 	c.Assert(zones[0].Name(), gc.Equals, "whatever")
@@ -918,7 +918,7 @@ func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {
 	// of the Environ. This will change if/when we have long-lived
 	// Environs to cut down repeated IaaS requests.
 	s.testMAASObject.TestServer.AddZone("somewhere", "outthere")
-	zones, err = env.AvailabilityZones()
+	zones, err = env.AvailabilityZones(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 1)
 	c.Assert(zones[0].Name(), gc.Equals, "whatever")
@@ -976,11 +976,12 @@ func (s *environSuite) TestReleaseContainerAddresses(c *gc.C) {
 	})
 
 	env := s.makeEnviron()
-	err := env.ReleaseContainerAddresses([]network.ProviderInterfaceInfo{
-		{MACAddress: "mac1"},
-		{MACAddress: "mac3"},
-		{MACAddress: "mac4"},
-	})
+	err := env.ReleaseContainerAddresses(s.callCtx,
+		[]network.ProviderInterfaceInfo{
+			{MACAddress: "mac1"},
+			{MACAddress: "mac3"},
+			{MACAddress: "mac4"},
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var systemIds []string
@@ -1001,10 +1002,11 @@ func (s *environSuite) TestReleaseContainerAddresses_HandlesDupes(c *gc.C) {
 	})
 
 	env := s.makeEnviron()
-	err := env.ReleaseContainerAddresses([]network.ProviderInterfaceInfo{
-		{MACAddress: "mac1"},
-		{MACAddress: "mac2"},
-	})
+	err := env.ReleaseContainerAddresses(s.callCtx,
+		[]network.ProviderInterfaceInfo{
+			{MACAddress: "mac1"},
+			{MACAddress: "mac2"},
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var systemIds []string
@@ -1018,7 +1020,7 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 	s.addNode(allocatedNode)
 	env := s.makeEnviron()
 	// Shouldn't do anything in MAAS1.
-	err := env.AdoptResources("other-controller", version.MustParse("3.2.1"))
+	err := env.AdoptResources(s.callCtx, "other-controller", version.MustParse("3.2.1"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
