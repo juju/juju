@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
@@ -151,7 +152,7 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 	gomock.InOrder(
 		containerServer.EXPECT().GetContainerState(hostname).Return(&lxdapi.ContainerState{StatusCode: lxdapi.Running}, "ETAG", nil),
 	)
-	instanceStatus := instance.Status()
+	instanceStatus := instance.Status(context.NewCloudCallContext())
 	c.Check(instanceStatus.Status, gc.Equals, status.Running)
 	c.Check(*hc.AvailabilityZone, gc.Equals, "test-availability-zone")
 
