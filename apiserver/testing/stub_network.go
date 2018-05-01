@@ -601,7 +601,7 @@ type StubZonedEnviron struct {
 var _ providercommon.ZonedEnviron = (*StubZonedEnviron)(nil)
 
 func (se *StubZonedEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]providercommon.AvailabilityZone, error) {
-	se.MethodCall(se, "AvailabilityZones")
+	se.MethodCall(se, "AvailabilityZones", ctx)
 	if err := se.NextErr(); err != nil {
 		return nil, err
 	}
