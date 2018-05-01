@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -79,7 +80,7 @@ func instanceTypes(api *CloudAPI,
 
 		itCons := common.NewInstanceTypeConstraints(
 			env,
-			common.ProviderCallContext(),
+			context.NewCloudCallContext(),
 			value,
 		)
 		it, err := common.InstanceTypes(itCons)

@@ -4,11 +4,8 @@
 package common
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
 )
 
 // EnvironConfigGetterFuncs holds implements environs.EnvironConfigGetter
@@ -26,20 +23,4 @@ func (f EnvironConfigGetterFuncs) ModelConfig() (*config.Config, error) {
 // CloudSpec implements environs.EnvironConfigGetter.
 func (f EnvironConfigGetterFuncs) CloudSpec() (environs.CloudSpec, error) {
 	return f.CloudSpecFunc()
-}
-
-// ProviderCallContext returns the context with all necessary functionality,
-// including call backs, to make a call to a cloud provider.
-// TODO (anastasiamac 2018-04-30) make it real
-func ProviderCallContext() context.ProviderCallContext {
-	return &ProviderContext{}
-}
-
-// ProviderContext contains cloud provider call context for provider calls from
-// within apiserver layer.
-type ProviderContext struct{}
-
-// InvalidateCredentialCallback implements ProviderCallContext.InvalidateCredentialCallback.
-func (*ProviderContext) InvalidateCredentialCallback() error {
-	return errors.NotImplementedf("InvalidateCredentialCallback")
 }

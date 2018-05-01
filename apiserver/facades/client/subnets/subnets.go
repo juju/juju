@@ -49,9 +49,7 @@ func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (Subn
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctx := common.ProviderCallContext()
-
-	return newAPIWithBacking(stateshim, ctx, res, auth)
+	return newAPIWithBacking(stateshim, context.NewCloudCallContext(), res, auth)
 }
 
 func (api *subnetsAPI) checkCanRead() error {

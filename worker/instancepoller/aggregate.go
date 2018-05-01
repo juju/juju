@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/worker/catacomb"
-	"github.com/juju/juju/worker/common"
 )
 
 type InstanceGetter interface {
@@ -52,7 +51,7 @@ func newAggregator(config aggregatorConfig) (*aggregator, error) {
 	if err := config.validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	callCtx := &common.CallContext{}
+	callCtx := context.NewCloudCallContext()
 	a := &aggregator{
 		config:      config,
 		reqc:        make(chan instanceInfoReq),

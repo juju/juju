@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
-	"github.com/juju/juju/worker/common"
 )
 
 // FirewallerAPI exposes functionality off the firewaller API facade to a worker.
@@ -155,7 +154,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		clk = clock.WallClock
 	}
 
-	cloudCallCtx := &common.CallContext{}
+	cloudCallCtx := context.NewCloudCallContext()
 	fw := &Firewaller{
 		firewallerApi:              cfg.FirewallerAPI,
 		remoteRelationsApi:         cfg.RemoteRelationsApi,

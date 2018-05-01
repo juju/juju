@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
-	"github.com/juju/juju/worker/common"
 )
 
 var logger = loggo.GetLogger("juju.provisioner")
@@ -191,7 +190,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 // When new machines are added to the state, it allocates instances
 // from the environment and allocates them to the new machines.
 func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config, environ environs.Environ) (Provisioner, error) {
-	callCtx := &common.CallContext{}
+	callCtx := context.NewCloudCallContext()
 
 	p := &environProvisioner{
 		provisioner: provisioner{
@@ -292,7 +291,7 @@ func NewContainerProvisioner(
 	toolsFinder ToolsFinder,
 	distributionGroupFinder DistributionGroupFinder,
 ) (Provisioner, error) {
-	callCtx := &common.CallContext{}
+	callCtx := context.NewCloudCallContext()
 
 	p := &containerProvisioner{
 		provisioner: provisioner{

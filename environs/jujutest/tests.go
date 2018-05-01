@@ -124,7 +124,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	t.toolsStorage = stor
 	t.ControllerStore = jujuclient.NewMemStore()
 	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
-	t.ProviderCallContext = &providerCallContext{}
+	t.ProviderCallContext = context.NewCloudCallContext()
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {

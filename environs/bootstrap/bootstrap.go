@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -395,7 +396,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	ctx.Verbosef("Starting new instance for initial controller")
 
 	result, err := environ.Bootstrap(ctx,
-		&callContext{},
+		context.NewCloudCallContext(),
 		environs.BootstrapParams{
 			CloudName:            args.Cloud.Name,
 			CloudRegion:          args.CloudRegion,
@@ -873,13 +874,4 @@ func hashAndSize(path string) (hash string, size int64, err error) {
 		return "", 0, errors.Mask(err)
 	}
 	return fmt.Sprintf("%x", h.Sum(nil)), size, nil
-}
-
-// callContext is a WIP for call context for bootstrapping.
-type callContext struct {
-}
-
-// InvalidateCredentialCallback implements context.ProviderCallContext
-func (*callContext) InvalidateCredentialCallback() error {
-	return errors.NotImplementedf("InvalidateCredentialCallback")
 }

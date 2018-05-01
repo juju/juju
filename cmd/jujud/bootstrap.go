@@ -31,6 +31,7 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
@@ -176,7 +177,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
-	callCtx := &agentcmd.CallContext{}
+	callCtx := context.NewCloudCallContext()
 	instances, err := env.Instances(callCtx, []instance.Id{args.BootstrapMachineInstanceId})
 	if err != nil {
 		return errors.Annotate(err, "getting bootstrap instance")

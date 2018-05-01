@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
 )
 
@@ -497,7 +498,7 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (m
 		return nil, errors.Trace(err)
 	}
 
-	ctx := common.ProviderCallContext()
+	ctx := context.NewCloudCallContext()
 
 	netEnv, ok := environs.SupportsNetworking(env)
 	if !ok {

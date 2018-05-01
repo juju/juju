@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker/common"
 )
 
 var logger = loggo.GetLogger("juju.worker.machineundertaker")
@@ -46,7 +45,7 @@ type Undertaker struct {
 // necessary provider-level resources first.
 func NewWorker(api Facade, env environs.Environ) (worker.Worker, error) {
 	envNetworking, _ := environs.SupportsNetworking(env)
-	callCtx := &common.CallContext{}
+	callCtx := context.NewCloudCallContext()
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: &Undertaker{
 			API:         api,

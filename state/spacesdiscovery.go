@@ -37,8 +37,7 @@ func (st *State) ReloadSpaces(environ environs.Environ) error {
 		return errors.NotSupportedf("spaces discovery in a non-networking environ")
 	}
 
-	ctx := &callContext{st}
-
+	ctx := createEnvironCallContext(st)
 	canDiscoverSpaces, err := netEnviron.SupportsSpaceDiscovery(ctx)
 	if err != nil {
 		return errors.Trace(err)

@@ -22,10 +22,10 @@ import (
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -214,7 +214,7 @@ upgrade the controller to version 2.3 or greater.
 		return errors.Annotate(err, "getting controller environ")
 	}
 
-	cloudCallCtx := &common.CallContext{}
+	cloudCallCtx := context.NewCloudCallContext()
 
 	for {
 		// Attempt to destroy the controller.

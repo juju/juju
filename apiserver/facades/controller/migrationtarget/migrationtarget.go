@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -226,8 +227,7 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ctx := common.ProviderCallContext()
-	return errors.Trace(env.AdoptResources(ctx, st.ControllerUUID(), args.SourceControllerVersion))
+	return errors.Trace(env.AdoptResources(context.NewCloudCallContext(), st.ControllerUUID(), args.SourceControllerVersion))
 }
 
 // CheckMachines compares the machines in state with the ones reported
@@ -272,9 +272,8 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	ctx := common.ProviderCallContext()
 
-	instances, err := env.AllInstances(ctx)
+	instances, err := env.AllInstances(context.NewCloudCallContext())
 	if err != nil {
 		return empty, errors.Trace(err)
 	}

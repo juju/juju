@@ -369,7 +369,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	// Dummy provider uses a random port, which is added to cfg used to create environment.
 	apiPort := dummy.APIPort(environ.Provider())
 	s.ControllerConfig["api-port"] = apiPort
-	s.ProviderCallContext = &providerCallContext{}
+	s.ProviderCallContext = context.NewCloudCallContext()
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ControllerConfig: s.ControllerConfig,
 		CloudRegion:      "dummy-region",
@@ -752,10 +752,4 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 func (s *JujuConnSuite) AssertConfigParameterUpdated(c *gc.C, key string, value interface{}) {
 	err := s.Model.UpdateModelConfig(map[string]interface{}{key: value}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-type providerCallContext struct{}
-
-func (*providerCallContext) InvalidateCredentialCallback() error {
-	return errors.NotImplementedf("InvalidateCredentialCallback")
 }

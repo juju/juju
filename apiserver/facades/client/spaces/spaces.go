@@ -44,8 +44,7 @@ func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (API,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctx := common.ProviderCallContext()
-	return newAPIWithBacking(stateShim, ctx, res, auth)
+	return newAPIWithBacking(stateShim, context.NewCloudCallContext(), res, auth)
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with

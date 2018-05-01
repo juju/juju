@@ -129,7 +129,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
 	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c, nil))
-	t.ProviderCallContext = &providerCallContext{}
+	t.ProviderCallContext = context.NewCloudCallContext()
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -990,10 +990,4 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	defer mw0.Stop()
 
 	waitAgentTools(c, mw0, other)
-}
-
-type providerCallContext struct{}
-
-func (*providerCallContext) InvalidateCredentialCallback() error {
-	return errors.NotImplementedf("InvalidateCredentialCallback")
 }

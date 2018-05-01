@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/watcher"
 	jujuworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
-	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/wrench"
 )
@@ -164,8 +163,7 @@ func newUpgradeWorker(config Config, targetVersion int) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	callContext := &common.CallContext{}
-
+	callContext := context.NewCloudCallContext()
 	return jujuworker.NewSimpleWorker(func(<-chan struct{}) error {
 		// NOTE(axw) the abort channel is ignored, because upgrade
 		// steps are not interruptible. If we find they need to be

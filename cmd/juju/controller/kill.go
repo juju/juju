@@ -14,10 +14,10 @@ import (
 
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/common"
-	cmdcommon "github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 )
 
 const killDoc = `
@@ -120,7 +120,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
 	}
-	cloudCallCtx := &cmdcommon.CallContext{}
+	cloudCallCtx := context.NewCloudCallContext()
 	// If we were unable to connect to the API, just destroy the controller through
 	// the environs interface.
 	if api == nil {
@@ -218,7 +218,7 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 				hasErrors = true
 				continue
 			}
-			cloudCallCtx := &cmdcommon.CallContext{}
+			cloudCallCtx := context.NewCloudCallContext()
 			if err := env.Destroy(cloudCallCtx); err != nil {
 				logger.Errorf(err.Error())
 				hasErrors = true

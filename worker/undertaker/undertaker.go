@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
-	"github.com/juju/juju/worker/common"
 )
 
 // Facade covers the parts of the api/undertaker.UndertakerClient that we
@@ -52,7 +51,7 @@ func NewUndertaker(config Config) (*Undertaker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	callCtx := &common.CallContext{}
+	callCtx := context.NewCloudCallContext()
 	u := &Undertaker{
 		config:  config,
 		callCtx: callCtx,

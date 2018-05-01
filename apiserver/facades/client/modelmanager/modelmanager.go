@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -488,9 +489,8 @@ func (m *ModelManagerAPI) newIAASModel(
 		return nil, errors.Trace(err)
 	}
 
-	ctx := common.ProviderCallContext()
 	err = env.Create(
-		ctx,
+		context.NewCloudCallContext(),
 		environs.CreateParams{
 			ControllerUUID: controllerCfg.ControllerUUID(),
 		},

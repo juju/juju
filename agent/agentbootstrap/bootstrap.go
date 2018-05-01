@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -205,8 +206,8 @@ func InitializeState(
 		return nil, nil, errors.Annotate(err, "opening hosted model environment")
 	}
 
-	callCtx := &CallContext{}
-	if err := hostedModelEnv.Create(callCtx,
+	if err := hostedModelEnv.Create(
+		context.NewCloudCallContext(),
 		environs.CreateParams{
 			ControllerUUID: controllerUUID,
 		}); err != nil {
@@ -358,16 +359,4 @@ func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error)
 	default:
 		return -1, errors.Errorf("invalid machine job %q", job)
 	}
-}
-
-// CallContext is a placeholder for a provider call context that will provide useful
-// callbacks and other functions. For example, there will be a callback to invalid cloud
-// credential that a controller uses if provider will receive some errors
-// that will indicate tht cloud considers that credential invalid.
-// TODO (anastasiamac 2018-04-27) flesh it out.
-type CallContext struct{}
-
-// InvalidateCredentialCallback implements context.InvalidateCredentialCallback.
-func (*CallContext) InvalidateCredentialCallback() error {
-	return errors.NotImplementedf("InvalidateCredentialCallback")
 }
