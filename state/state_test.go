@@ -4664,3 +4664,12 @@ func (s *StateSuite) testOpenParams() state.OpenParams {
 		MongoSession:       s.Session,
 	}
 }
+
+func (s *StateSuite) TestControllerTimestamp(c *gc.C) {
+	clock := gitjujutesting.NewClock(testing.NonZeroTime())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	got, err := s.State.ControllerTimestamp()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.NotNil)
+}

@@ -542,6 +542,14 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	c.Assert(status, jc.DeepEquals, scenarioStatus)
 }
 
+func (s *clientSuite) TestClientStatusControllerTimestamp(c *gc.C) {
+	s.setUpScenario(c)
+	status, err := s.APIState.Client().Status(nil)
+	clearSinceTimes(status)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.ControllerTimestamp, gc.NotNil)
+}
+
 func assertLife(c *gc.C, entity state.Living, life state.Life) {
 	err := entity.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
