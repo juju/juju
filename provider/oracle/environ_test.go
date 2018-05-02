@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/oracle"
@@ -26,6 +27,8 @@ import (
 type environSuite struct {
 	gitjujutesting.IsolationSuite
 	env *oracle.OracleEnviron
+
+	callCtx context.ProviderCallContext
 }
 
 func (e *environSuite) SetUpTest(c *gc.C) {
@@ -49,6 +52,7 @@ func (e *environSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	testEnvironAPI.FakeInstance.All.Result[0].Name = fmt.Sprintf("/Compute-a432100/sgiulitti@cloudbase.com/%s/ebc4ce91-56bb-4120-ba78-13762597f837", hostname)
 	oracle.SetEnvironAPI(e.env, testEnvironAPI)
+	e.callCtx = context.NewCloudCallContext()
 }
 
 var _ = gc.Suite(&environSuite{})
@@ -58,13 +62,13 @@ var clk = gitjujutesting.NewClock(time.Time{})
 var advancingClock = gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
 
 func (e *environSuite) TestAvailabilityZone(c *gc.C) {
-	zones, err := e.env.AvailabilityZones()
+	zones, err := e.env.AvailabilityZones(e.callCtx)
 	c.Assert(err, gc.IsNil)
 	c.Assert(zones, gc.NotNil)
 }
 
 func (e *environSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
-	zones, err := e.env.InstanceAvailabilityZoneNames([]instance.Id{
+	zones, err := e.env.InstanceAvailabilityZoneNames(e.callCtx, []instance.Id{
 		instance.Id("0"),
 	})
 	c.Assert(err, gc.IsNil)
@@ -87,7 +91,7 @@ func (e *environSuite) TestInstanceAvailabilityZoneNamesWithErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
 
-	_, err = environ.InstanceAvailabilityZoneNames([]instance.Id{instance.Id("0")})
+	_, err = environ.InstanceAvailabilityZoneNames(e.callCtx, []instance.Id{instance.Id("0")})
 	c.Assert(err, gc.NotNil)
 
 	environ, err = oracle.NewOracleEnviron(
@@ -105,7 +109,7 @@ func (e *environSuite) TestInstanceAvailabilityZoneNamesWithErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
 
-	_, err = environ.InstanceAvailabilityZoneNames([]instance.Id{
+	_, err = environ.InstanceAvailabilityZoneNames(e.callCtx, []instance.Id{
 		instance.Id("0"),
 		instance.Id("1"),
 	})
@@ -165,7 +169,7 @@ func (e *environSuite) TestBootstrap(c *gc.C) {
 	c.Assert(environ, gc.NotNil)
 
 	ctx := envtesting.BootstrapContext(c)
-	_, err = environ.Bootstrap(ctx,
+	_, err = environ.Bootstrap(ctx, e.callCtx,
 		environs.BootstrapParams{
 			ControllerConfig:     testing.FakeControllerConfig(),
 			AvailableTools:       makeToolsList("xenial"),
@@ -176,7 +180,7 @@ func (e *environSuite) TestBootstrap(c *gc.C) {
 }
 
 func (e *environSuite) TestCreate(c *gc.C) {
-	err := e.env.Create(environs.CreateParams{
+	err := e.env.Create(e.callCtx, environs.CreateParams{
 		ControllerUUID: "dsauhdiuashd",
 	})
 	c.Assert(err, gc.IsNil)
@@ -198,14 +202,14 @@ func (e *environSuite) TestCreateWithErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ, gc.NotNil)
 
-	err = environ.Create(environs.CreateParams{
+	err = environ.Create(e.callCtx, environs.CreateParams{
 		ControllerUUID: "daushdasd",
 	})
 	c.Assert(err, gc.NotNil)
 }
 
 func (e *environSuite) TestAdoptResources(c *gc.C) {
-	err := e.env.AdoptResources("", version.Number{})
+	err := e.env.AdoptResources(e.callCtx, "", version.Number{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -213,17 +217,17 @@ func (e *environSuite) TestStopInstances(c *gc.C) {
 	hostname, err := oracle.CreateHostname(e.env, "0")
 	c.Assert(err, gc.IsNil)
 	ids := []instance.Id{instance.Id(hostname)}
-	err = e.env.StopInstances(ids...)
+	err = e.env.StopInstances(e.callCtx, ids...)
 	c.Assert(err, gc.IsNil)
 }
 
 func (e *environSuite) TestAllInstances(c *gc.C) {
-	_, err := e.env.AllInstances()
+	_, err := e.env.AllInstances(e.callCtx)
 	c.Assert(err, gc.IsNil)
 }
 
 func (e *environSuite) TestMaintainInstance(c *gc.C) {
-	err := e.env.MaintainInstance(environs.StartInstanceParams{})
+	err := e.env.MaintainInstance(e.callCtx, environs.StartInstanceParams{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -246,24 +250,24 @@ func (e *environSuite) TestSetConfig(c *gc.C) {
 func (e *environSuite) TestInstances(c *gc.C) {
 	hostname, err := oracle.CreateHostname(e.env, "0")
 	c.Assert(err, gc.IsNil)
-	instances, err := e.env.Instances([]instance.Id{instance.Id(hostname)})
+	instances, err := e.env.Instances(e.callCtx, []instance.Id{instance.Id(hostname)})
 	c.Assert(err, gc.IsNil)
 	c.Assert(instances, gc.NotNil)
 }
 
 func (e *environSuite) TestConstrollerInstances(c *gc.C) {
-	instances, err := e.env.ControllerInstances("23123-3123-12312")
+	instances, err := e.env.ControllerInstances(e.callCtx, "23123-3123-12312")
 	c.Assert(err, gc.Equals, environs.ErrNoInstances)
 	c.Assert(instances, gc.IsNil)
 }
 
 func (e *environSuite) TestDestroy(c *gc.C) {
-	err := e.env.Destroy()
+	err := e.env.Destroy(e.callCtx)
 	c.Assert(err, gc.IsNil)
 }
 
 func (e *environSuite) TestDestroyController(c *gc.C) {
-	err := e.env.DestroyController("231233-312-321-3312")
+	err := e.env.DestroyController(e.callCtx, "231233-312-321-3312")
 	c.Assert(err, gc.IsNil)
 }
 
@@ -273,12 +277,12 @@ func (e *environSuite) TestProvider(c *gc.C) {
 }
 
 func (e *environSuite) TestPrecheckInstance(c *gc.C) {
-	err := e.env.PrecheckInstance(environs.PrecheckInstanceParams{})
+	err := e.env.PrecheckInstance(e.callCtx, environs.PrecheckInstanceParams{})
 	c.Assert(err, gc.IsNil)
 }
 
 func (e *environSuite) TestInstanceTypes(c *gc.C) {
-	types, err := e.env.InstanceTypes(constraints.Value{})
+	types, err := e.env.InstanceTypes(e.callCtx, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(types, gc.NotNil)
 }
