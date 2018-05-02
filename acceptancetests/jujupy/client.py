@@ -951,7 +951,7 @@ class ModelClient:
 
     def _add_model(self, model_name, config_file, cloud_region=None):
         explicit_region = self.env.controller.explicit_region
-        region_args = cloud_region or ()
+        region_args = (cloud_region, ) if cloud_region else ()
         if explicit_region and not region_args:
             credential_name = self.env.get_cloud_credentials_item()[0]
             cloud_region = self.get_cloud_region(self.env.get_cloud(),
@@ -2154,7 +2154,7 @@ class CaasClient(object):
         self.client.juju('scp', ('kubernetes-master/0:/snap/bin/kubectl', self.kubectl_path))
 
         self.client.juju('add-k8s', self.cloud_name)
-        log.debug('added caas cloud, now all clouds are -> \n%s', self.client.list_clouds())
+        log.debug('added caas cloud, now all clouds are -> \n%s', self.client.list_clouds(format='yaml'))
 
     def add_model(self, model_name):
         return self.client.add_model(env=self.client.env.clone(model_name), cloud_region=self.cloud_name)
