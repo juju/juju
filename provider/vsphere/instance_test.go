@@ -26,7 +26,7 @@ func (s *InstanceSuite) TestInstances(c *gc.C) {
 		buildVM("inst-1").vm(),
 		buildVM("inst-2").vm(),
 	}
-	instances, err := s.env.Instances([]instance.Id{"inst-0", "inst-1"})
+	instances, err := s.env.Instances(s.callCtx, []instance.Id{"inst-0", "inst-1"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 2)
 	c.Assert(instances[0], gc.NotNil)
@@ -36,7 +36,7 @@ func (s *InstanceSuite) TestInstances(c *gc.C) {
 }
 
 func (s *InstanceSuite) TestInstancesNoInstances(c *gc.C) {
-	_, err := s.env.Instances([]instance.Id{"inst-0"})
+	_, err := s.env.Instances(s.callCtx, []instance.Id{"inst-0"})
 	c.Assert(err, gc.Equals, environs.ErrNoInstances)
 }
 
@@ -45,7 +45,7 @@ func (s *InstanceSuite) TestInstancesPartialInstances(c *gc.C) {
 		buildVM("inst-0").vm(),
 		buildVM("inst-1").vm(),
 	}
-	instances, err := s.env.Instances([]instance.Id{"inst-1", "inst-2"})
+	instances, err := s.env.Instances(s.callCtx, []instance.Id{"inst-1", "inst-2"})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(instances[0], gc.NotNil)
 	c.Assert(instances[1], gc.IsNil)
@@ -57,13 +57,13 @@ func (s *InstanceSuite) TestInstanceStatus(c *gc.C) {
 		buildVM("inst-0").vm(),
 		buildVM("inst-1").powerOff().vm(),
 	}
-	instances, err := s.env.Instances([]instance.Id{"inst-0", "inst-1"})
+	instances, err := s.env.Instances(s.callCtx, []instance.Id{"inst-0", "inst-1"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instances[0].Status(), jc.DeepEquals, instance.InstanceStatus{
+	c.Assert(instances[0].Status(s.callCtx), jc.DeepEquals, instance.InstanceStatus{
 		Status:  status.Running,
 		Message: "poweredOn",
 	})
-	c.Assert(instances[1].Status(), jc.DeepEquals, instance.InstanceStatus{
+	c.Assert(instances[1].Status(s.callCtx), jc.DeepEquals, instance.InstanceStatus{
 		Status:  status.Empty,
 		Message: "poweredOff",
 	})
@@ -79,10 +79,10 @@ func (s *InstanceSuite) TestInstanceAddresses(c *gc.C) {
 	vm2.Guest = nil
 
 	s.client.virtualMachines = []*mo.VirtualMachine{vm0, vm1, vm2}
-	instances, err := s.env.Instances([]instance.Id{"inst-0", "inst-1", "inst-2"})
+	instances, err := s.env.Instances(s.callCtx, []instance.Id{"inst-0", "inst-1", "inst-2"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	addrs, err := instances[0].Addresses()
+	addrs, err := instances[0].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, jc.DeepEquals, []network.Address{
 		network.NewAddress("10.1.1.1"),
@@ -90,11 +90,11 @@ func (s *InstanceSuite) TestInstanceAddresses(c *gc.C) {
 		network.NewAddress("10.1.1.3"),
 	})
 
-	addrs, err = instances[1].Addresses()
+	addrs, err = instances[1].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
-	addrs, err = instances[2].Addresses()
+	addrs, err = instances[2].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 }
@@ -104,7 +104,7 @@ func (s *InstanceSuite) TestControllerInstances(c *gc.C) {
 		buildVM("inst-0").vm(),
 		buildVM("inst-1").extraConfig("juju-is-controller", "true").vm(),
 	}
-	ids, err := s.env.ControllerInstances("foo")
+	ids, err := s.env.ControllerInstances(s.callCtx, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, jc.DeepEquals, []instance.Id{"inst-1"})
 }

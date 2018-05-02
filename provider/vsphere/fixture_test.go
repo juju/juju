@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/provider/vsphere/internal/ovatest"
@@ -24,6 +25,7 @@ type ProviderFixture struct {
 	dialStub testing.Stub
 	client   *mockClient
 	provider environs.CloudEnvironProvider
+	callCtx  context.ProviderCallContext
 }
 
 func (s *ProviderFixture) SetUpTest(c *gc.C) {
@@ -33,6 +35,7 @@ func (s *ProviderFixture) SetUpTest(c *gc.C) {
 	s.provider = vsphere.NewEnvironProvider(vsphere.EnvironProviderConfig{
 		Dial: newMockDialFunc(&s.dialStub, s.client),
 	})
+	s.callCtx = context.NewCloudCallContext()
 }
 
 type EnvironFixture struct {
@@ -40,6 +43,7 @@ type EnvironFixture struct {
 	imageServer         *httptest.Server
 	imageServerRequests []*http.Request
 	env                 environs.Environ
+	callCtx             context.ProviderCallContext
 }
 
 func (s *EnvironFixture) SetUpTest(c *gc.C) {
@@ -63,6 +67,7 @@ func (s *EnvironFixture) SetUpTest(c *gc.C) {
 	// Make sure we don't fall back to the public image sources.
 	s.PatchValue(&imagemetadata.DefaultUbuntuBaseURL, "")
 	s.PatchValue(&imagemetadata.DefaultJujuBaseURL, "")
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func serveImageMetadata(requests *[]*http.Request) *httptest.Server {
