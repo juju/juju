@@ -2172,7 +2172,7 @@ class CaasClient(object):
             return False
 
     def kubectl(self, *args):
-        args = [self.kubectl_path, '--kubeconfig', self.kube_config_path] + args
+        args = (self.kubectl_path, '--kubeconfig', self.kube_config_path) + args
         return self._sh(args)
 
     def _sh(self, args):
