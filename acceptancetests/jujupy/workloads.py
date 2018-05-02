@@ -15,7 +15,11 @@
 
 from __future__ import print_function
 
-from urllib2 import urlopen
+try:
+    from urllib2 import urlopen
+except ImportError:
+    from urllib.request import urlopen
+
 from jujucharm import local_charm_path
 import logging
 import os
@@ -138,4 +142,18 @@ def assert_deployed_charm_is_responding(client, expected_output=None):
 
 
 def get_server_response(ipaddress):
-    return urlopen('http://{}'.format(ipaddress)).read().rstrip()
+    resp = urlopen('http://{}'.format(ipaddress))
+    charset = response_charset(resp)
+    return resp.read().decode(charset).rstrip()
+
+
+def response_charset(resp):
+    try:
+        charset = [
+            h for h in resp.headers['content-type'].split('; ')
+            if h.startswith('charset')][0]
+        charset = charset.split('=')[1]
+    except (IndexError, KeyError):
+        charset = 'utf-8'
+
+    return charset

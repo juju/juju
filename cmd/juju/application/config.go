@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/jujuclient"
 )
 
 const maxValueSize = 5242880 // Max size for a config file.
@@ -55,10 +56,12 @@ func NewConfigCommand() cmd.Command {
 }
 
 // NewConfigCommandForTest returns a SetCommand with the api provided as specified.
-func NewConfigCommandForTest(api applicationAPI) modelcmd.ModelCommand {
-	return modelcmd.Wrap(&configCommand{
+func NewConfigCommandForTest(api applicationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := modelcmd.Wrap(&configCommand{
 		api: api,
 	})
+	cmd.SetClientStore(store)
+	return cmd
 }
 
 type attributes map[string]string

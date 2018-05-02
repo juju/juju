@@ -33,7 +33,7 @@ func (s *ModelConstraintsCommandsSuite) TestSetInit(c *gc.C) {
 			args: []string{"cpu-power=250"},
 		},
 	} {
-		err := cmdtesting.InitCommand(model.NewModelSetConstraintsCommand(), test.args)
+		err := cmdtesting.InitCommand(model.NewModelSetConstraintsCommandForTest(), test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
@@ -57,7 +57,7 @@ func (s *ModelConstraintsCommandsSuite) TestGetInit(c *gc.C) {
 			args: []string{},
 		},
 	} {
-		err := cmdtesting.InitCommand(model.NewModelGetConstraintsCommand(), test.args)
+		err := cmdtesting.InitCommand(model.NewModelGetConstraintsCommandForTest(), test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {

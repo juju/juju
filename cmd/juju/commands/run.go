@@ -21,21 +21,25 @@ import (
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
-func newDefaultRunCommand() cmd.Command {
-	return newRunCommand(time.After)
+func newDefaultRunCommand(store jujuclient.ClientStore) cmd.Command {
+	return newRunCommand(store, time.After)
 }
 
-func newRunCommand(timeAfter func(time.Duration) <-chan time.Time) cmd.Command {
-	return modelcmd.Wrap(&runCommand{
+func newRunCommand(store jujuclient.ClientStore, timeAfter func(time.Duration) <-chan time.Time) cmd.Command {
+	cmd := modelcmd.Wrap(&runCommand{
 		timeAfter: timeAfter,
 	})
+	cmd.SetClientStore(store)
+	return cmd
 }
 
 // runCommand is responsible for running arbitrary commands on remote machines.
 type runCommand struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	out       cmd.Output
 	all       bool
 	timeout   time.Duration

@@ -20,6 +20,7 @@ import (
 // storage managing client.
 type StorageCommandBase struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 }
 
 // NewStorageAPI returns a storage api for the root api endpoint

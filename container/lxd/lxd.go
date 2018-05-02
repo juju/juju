@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/tools/lxdtools"
 )
 
 var (
@@ -43,10 +42,11 @@ const AutoStartKey = "boot.autostart"
 // the local provider, so the APIs probably need to be changed to pass extra
 // args around. I'm punting for now.
 type containerManager struct {
-	modelUUID string
-	namespace instance.Namespace
-	server    lxd.ContainerServer
-	// a host machine's availability zone
+	server      lxd.ContainerServer
+	imageServer *JujuImageServer
+
+	modelUUID        string
+	namespace        instance.Namespace
 	availabilityZone string
 
 	imageMetadataURL string
@@ -56,46 +56,14 @@ type containerManager struct {
 // containerManager implements container.Manager.
 var _ container.Manager = (*containerManager)(nil)
 
-/* The "releases" stream for images. This consists of blessed releases by the
- * Canonical team.
- */
-var CloudImagesRemote = lxdtools.RemoteServer{
-	Name:     "cloud-images.ubuntu.com",
-	Host:     "https://cloud-images.ubuntu.com/releases",
-	Protocol: lxdtools.SimplestreamsProtocol,
-}
-
-/* The "daily" stream. This consists of images that are built from the daily
- * package builds. These images have not been independently tested, but in
- * theory "should" be good, since they're build from packages from the released
- * archive.
- */
-var CloudImagesDailyRemote = lxdtools.RemoteServer{
-	Name:     "cloud-images.ubuntu.com",
-	Host:     "https://cloud-images.ubuntu.com/daily",
-	Protocol: lxdtools.SimplestreamsProtocol,
-}
-
 var generateCertificate = func() ([]byte, []byte, error) { return lxdshared.GenerateMemCert(true) }
-
-var ConnectLocal = connectLocal
-
-func connectLocal() (lxd.ContainerServer, error) {
-	client, err := lxd.ConnectLXDUnix(lxdtools.LxdSocketPath(), &lxd.ConnectionArgs{})
-
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return client, nil
-}
 
 // NewContainerManager creates the entity that knows how to create and manage
 // LXD containers.
 // TODO(jam): This needs to grow support for things like LXC's ImageURLGetter
 // functionality.
-func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
-	modelUUID := conf.PopValue(container.ConfigModelUUID)
+func NewContainerManager(cfg container.ManagerConfig, server lxd.ContainerServer) (container.Manager, error) {
+	modelUUID := cfg.PopValue(container.ConfigModelUUID)
 	if modelUUID == "" {
 		return nil, errors.Errorf("model UUID is required")
 	}
@@ -104,16 +72,18 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 		return nil, errors.Trace(err)
 	}
 
-	availabilityZone := conf.PopValue(container.ConfigAvailabilityZone)
+	availabilityZone := cfg.PopValue(container.ConfigAvailabilityZone)
 	if availabilityZone == "" {
 		logger.Infof("Availability zone will be empty for this container manager")
 	}
 
-	imageMetaDataURL := conf.PopValue(config.ContainerImageMetadataURLKey)
-	imageStream := conf.PopValue(config.ContainerImageStreamKey)
+	imageMetaDataURL := cfg.PopValue(config.ContainerImageMetadataURLKey)
+	imageStream := cfg.PopValue(config.ContainerImageStreamKey)
 
-	conf.WarnAboutUnused()
+	cfg.WarnAboutUnused()
 	return &containerManager{
+		server:           server,
+		imageServer:      &JujuImageServer{server},
 		modelUUID:        modelUUID,
 		namespace:        namespace,
 		availabilityZone: availabilityZone,
@@ -162,20 +132,14 @@ func (manager *containerManager) CreateContainer(
 	}
 
 	callback(status.Running, "Container started", nil)
-	return &lxdInstance{name, manager.server}, &instance.HardwareCharacteristics{AvailabilityZone: &manager.availabilityZone}, nil
+	return &lxdInstance{name, manager.server},
+		&instance.HardwareCharacteristics{AvailabilityZone: &manager.availabilityZone}, nil
 }
 
 // ListContainers implements container.Manager.
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
 	result = []instance.Instance{}
-	if manager.server == nil {
-		manager.server, err = ConnectLocal()
-		if err != nil {
-			return
-		}
-	}
 	lxdInstances, err := manager.server.GetContainers()
-
 	if err != nil {
 		return
 	}
@@ -191,15 +155,7 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 
 // IsInitialized implements container.Manager.
 func (manager *containerManager) IsInitialized() bool {
-	if manager.server != nil {
-		return true
-	}
-
-	// NewClient does a roundtrip to the server to make sure it understands
-	// the versions, so all we need to do is connect above and we're done.
-	var err error
-	manager.server, err = ConnectLocal()
-	return err == nil
+	return manager.server != nil
 }
 
 // startInstance starts previously created instance.
@@ -250,24 +206,13 @@ func (manager *containerManager) createInstance(
 	callback environs.StatusCallbackFunc,
 ) (string, error) {
 	var err error
-	if manager.server == nil {
-		manager.server, err = ConnectLocal()
-		if err != nil {
-			return "", errors.Annotatef(err, "failed to connect to local LXD")
-		}
-	}
 
 	imageSources, err := manager.getImageSources()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	imageServer, image, imageName, err := lxdtools.GetImageWithServer(
-		manager.server,
-		series,
-		jujuarch.HostArch(),
-		imageSources,
-	)
+	found, err := manager.imageServer.FindImage(series, jujuarch.HostArch(), imageSources, true, callback)
 	if err != nil {
 		return "", errors.Annotatef(err, "failed to ensure LXD image")
 	}
@@ -284,14 +229,14 @@ func (manager *containerManager) createInstance(
 		return "", errors.Trace(err)
 	}
 
-	metadata := map[string]string{
-		lxdtools.UserDataKey:      string(userData),
-		lxdtools.NetworkConfigKey: cloudinit.CloudInitNetworkConfigDisabled,
+	cfg := map[string]string{
+		UserDataKey:      string(userData),
+		NetworkConfigKey: cloudinit.CloudInitNetworkConfigDisabled,
 		// An extra piece of info to let people figure out where this
 		// thing came from.
-		lxdtools.JujuModelKey: manager.modelUUID,
+		JujuModelKey: manager.modelUUID,
 		// Make sure these come back up on host reboot.
-		lxdtools.AutoStartKey: "true",
+		AutoStartKey: "true",
 	}
 
 	nics, err := networkDevices(networkConfig)
@@ -299,76 +244,58 @@ func (manager *containerManager) createInstance(
 		return "", errors.Trace(err)
 	}
 
-	// TODO(macgreagoir) This might be dead code. Do we always get
-	// len(nics) > 0?
-	profiles := []string{}
-
+	var profiles []string
 	if len(nics) == 0 {
 		logger.Infof("instance %q configured with %q profile", name, lxdDefaultProfileName)
-		profiles = append(profiles, lxdDefaultProfileName)
+		profiles = []string{lxdDefaultProfileName}
 	} else {
 		logger.Infof("instance %q configured with %v network devices", name, nics)
 	}
 
+	logger.Infof("starting instance %q (image %q)...", name, found.Image.Fingerprint)
 	spec := api.ContainersPost{
 		Name: name,
 		ContainerPut: api.ContainerPut{
 			Profiles: profiles,
 			Devices:  nics,
-			Config:   metadata,
+			Config:   cfg,
 		},
 	}
 
-	logger.Infof("starting instance %q (image %q)...", spec.Name, imageName)
 	callback(status.Provisioning, "Creating container", nil)
-	op, err := manager.server.CreateContainerFromImage(imageServer, *image, spec)
+	op, err := manager.server.CreateContainerFromImage(found.LXDServer, *found.Image, spec)
 	if err != nil {
 		logger.Errorf("CreateContainer failed with %s", err)
 		return "", errors.Trace(err)
 	}
 
-	progress := func(op api.Operation) {
-		if op.Metadata == nil {
-			return
-		}
-		for _, key := range []string{"fs_progress", "download_progress"} {
-			value, ok := op.Metadata[key]
-			if ok {
-				callback(status.Provisioning, fmt.Sprintf("Retrieving image: %s", value.(string)), nil)
-				return
-			}
-		}
-	}
-	_, err = op.AddHandler(progress)
-	if err != nil {
+	if err := op.Wait(); err != nil {
 		return "", errors.Trace(err)
 	}
-
-	op.Wait()
 	opInfo, err := op.GetTarget()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	if opInfo.StatusCode != api.Success {
-		return "", fmt.Errorf("LXD error: %s", opInfo.Err)
+		return "", fmt.Errorf("container creation failed: %s", opInfo.Err)
 	}
 	return name, nil
 }
 
 // getImageSources returns a list of LXD remote image sources based on the
 // configuration that was passed into the container manager.
-func (manager *containerManager) getImageSources() ([]lxdtools.RemoteServer, error) {
+func (manager *containerManager) getImageSources() ([]RemoteServer, error) {
 	imURL := manager.imageMetadataURL
 
 	// Unless the configuration explicitly requests the daily stream,
 	// an empty image metadata URL results in a search of the default sources.
 	if imURL == "" && manager.imageStream != "daily" {
 		logger.Debugf("checking default image metadata sources")
-		return []lxdtools.RemoteServer{CloudImagesRemote, CloudImagesDailyRemote}, nil
+		return []RemoteServer{CloudImagesRemote, CloudImagesDailyRemote}, nil
 	}
 	// Otherwise only check the daily stream.
 	if imURL == "" {
-		return []lxdtools.RemoteServer{CloudImagesDailyRemote}, nil
+		return []RemoteServer{CloudImagesDailyRemote}, nil
 	}
 
 	imURL, err := imagemetadata.ImageMetadataURL(imURL, manager.imageStream)
@@ -377,18 +304,18 @@ func (manager *containerManager) getImageSources() ([]lxdtools.RemoteServer, err
 	}
 	// LXD requires HTTPS.
 	imURL = strings.Replace(imURL, "http:", "https:", 1)
-	remote := lxdtools.RemoteServer{
+	remote := RemoteServer{
 		Name:     strings.Replace(imURL, "https://", "", 1),
 		Host:     imURL,
-		Protocol: lxdtools.SimplestreamsProtocol,
+		Protocol: SimpleStreamsProtocol,
 	}
 
 	// If the daily stream was configured with custom image metadata URL,
 	// only use the Ubuntu daily as a fallback.
 	if manager.imageStream == "daily" {
-		return []lxdtools.RemoteServer{remote, CloudImagesDailyRemote}, nil
+		return []RemoteServer{remote, CloudImagesDailyRemote}, nil
 	}
-	return []lxdtools.RemoteServer{remote, CloudImagesRemote, CloudImagesDailyRemote}, nil
+	return []RemoteServer{remote, CloudImagesRemote, CloudImagesDailyRemote}, nil
 }
 
 func (manager *containerManager) removeInstance(name string) error {

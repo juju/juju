@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/backups"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type removeSuite struct {
@@ -22,7 +23,7 @@ var _ = gc.Suite(&removeSuite{})
 
 func (s *removeSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
-	s.command = backups.NewRemoveCommandForTest()
+	s.command = backups.NewRemoveCommandForTest(jujuclienttesting.MinimalStore())
 }
 
 func (s *removeSuite) TestOkay(c *gc.C) {

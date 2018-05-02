@@ -6,8 +6,6 @@
 package lxdclient
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/shared/api"
 
@@ -15,8 +13,8 @@ import (
 )
 
 type rawNetworkClient interface {
-	NetworkCreate(name string, config map[string]string) error
-	NetworkGet(name string) (api.Network, error)
+	CreateNetwork(post api.NetworksPost) error
+	GetNetwork(name string) (network *api.Network, ETag string, err error)
 }
 
 type networkClient struct {
@@ -30,7 +28,11 @@ func (c *networkClient) NetworkCreate(name string, config map[string]string) err
 		return errors.NotSupportedf("network API not supported on this remote")
 	}
 
-	return c.raw.NetworkCreate(name, config)
+	req := api.NetworksPost{
+		Name:       name,
+		NetworkPut: api.NetworkPut{Config: config},
+	}
+	return c.raw.CreateNetwork(req)
 }
 
 // NetworkGet returns the specified network's configuration.
@@ -39,17 +41,18 @@ func (c *networkClient) NetworkGet(name string) (api.Network, error) {
 		return api.Network{}, errors.NotSupportedf("network API not supported on this remote")
 	}
 
-	return c.raw.NetworkGet(name)
+	n, _, err := c.raw.GetNetwork(name)
+	return *n, err
 }
 
 type creator interface {
 	rawNetworkClient
-	ProfileDeviceAdd(profile, devname, devtype string, props []string) (*api.Response, error)
-	ProfileConfig(profile string) (*api.Profile, error)
+	GetProfile(name string) (profile *api.Profile, ETag string, err error)
+	CreateProfile(profile api.ProfilesPost) (err error)
 }
 
 func checkBridgeConfig(client rawNetworkClient, bridge string) error {
-	n, err := client.NetworkGet(bridge)
+	n, _, err := client.GetNetwork(bridge)
 	if err != nil {
 		return errors.Annotatef(err, "LXD %s network config", bridge)
 	}
@@ -69,17 +72,21 @@ and rebootstrap`, bridge)
 // exist and (if necessary) inserts it into the default profile.
 func CreateDefaultBridgeInDefaultProfile(client creator) error {
 	/* create the default bridge if it doesn't exist */
-	n, err := client.NetworkGet(network.DefaultLXDBridge)
+	n, _, err := client.GetNetwork(network.DefaultLXDBridge)
 	if err != nil {
-		err := client.NetworkCreate(network.DefaultLXDBridge, map[string]string{
-			"ipv6.address": "none",
-			"ipv6.nat":     "false",
-		})
+		req := api.NetworksPost{
+			Name: network.DefaultLXDBridge,
+			NetworkPut: api.NetworkPut{Config: map[string]string{
+				"ipv6.address": "none",
+				"ipv6.nat":     "false",
+			}},
+		}
+		err := client.CreateNetwork(req)
 		if err != nil {
 			return err
 		}
 
-		n, err = client.NetworkGet(network.DefaultLXDBridge)
+		n, _, err = client.GetNetwork(network.DefaultLXDBridge)
 		if err != nil {
 			return err
 		}
@@ -94,20 +101,28 @@ func CreateDefaultBridgeInDefaultProfile(client creator) error {
 		nicType = "bridged"
 	}
 
-	props := []string{fmt.Sprintf("nictype=%s", nicType), fmt.Sprintf("parent=%s", network.DefaultLXDBridge)}
-
-	config, err := client.ProfileConfig("default")
+	config, _, err := client.GetProfile("default")
 	if err != nil {
 		return err
 	}
-
 	_, ok := config.Devices["eth0"]
 	if ok {
 		/* don't configure an eth0 if it already exists */
 		return nil
 	}
 
-	_, err = client.ProfileDeviceAdd("default", "eth0", "nic", props)
+	req := api.ProfilesPost{
+		Name: "default",
+		ProfilePut: api.ProfilePut{
+			Devices: map[string]map[string]string{
+				"eth0": {
+					"nictype": nicType,
+					"parent":  network.DefaultLXDBridge,
+				},
+			},
+		},
+	}
+	err = client.CreateProfile(req)
 	if err != nil {
 		return err
 	}

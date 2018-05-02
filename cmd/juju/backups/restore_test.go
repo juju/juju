@@ -62,9 +62,9 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 	s.store.CurrentControllerName = "testing"
 	s.store.Models["testing"] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
-			"admin": {ModelUUID: "test1-uuid", ModelType: model.IAAS},
+			"current-user/test1": {ModelUUID: "test1-uuid", ModelType: model.IAAS},
 		},
-		CurrentModel: "admin",
+		CurrentModel: "test1",
 	}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
 		User:     "current-user",

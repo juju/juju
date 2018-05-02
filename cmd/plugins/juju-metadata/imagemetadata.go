@@ -25,6 +25,7 @@ import (
 
 type imageMetadataCommandBase struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 }
 
 func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Environ, error) {

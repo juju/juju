@@ -4,12 +4,14 @@
 package block_test
 
 import (
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -17,6 +19,11 @@ var _ = gc.Suite(&disableCommandSuite{})
 
 type disableCommandSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
+}
+
+func (*disableCommandSuite) disableCommand(api *mockBlockClient, err error) cmd.Command {
+	store := jujuclienttesting.MinimalStore()
+	return block.NewDisableCommandForTest(store, api, err)
 }
 
 func (s *disableCommandSuite) TestInit(c *gc.C) {
@@ -39,7 +46,7 @@ func (s *disableCommandSuite) TestInit(c *gc.C) {
 			args: []string{"all", "lots", "of", "args"},
 		},
 	} {
-		cmd := block.NewDisableCommand()
+		cmd := s.disableCommand(&mockBlockClient{}, nil)
 		err := cmdtesting.InitCommand(cmd, test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -50,7 +57,7 @@ func (s *disableCommandSuite) TestInit(c *gc.C) {
 }
 
 func (s *disableCommandSuite) TestRunGetAPIError(c *gc.C) {
-	cmd := block.NewDisableCommandForTest(nil, errors.New("boom"))
+	cmd := s.disableCommand(nil, errors.New("boom"))
 	_, err := cmdtesting.RunCommand(c, cmd, "all")
 	c.Assert(err.Error(), gc.Equals, "cannot connect to the API: boom")
 }
@@ -74,7 +81,7 @@ func (s *disableCommandSuite) TestRun(c *gc.C) {
 		message: "this is a mix",
 	}} {
 		mockClient := &mockBlockClient{}
-		cmd := block.NewDisableCommandForTest(mockClient, nil)
+		cmd := s.disableCommand(mockClient, nil)
 		_, err := cmdtesting.RunCommand(c, cmd, test.args...)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(mockClient.blockType, gc.Equals, test.type_)
@@ -84,7 +91,7 @@ func (s *disableCommandSuite) TestRun(c *gc.C) {
 
 func (s *disableCommandSuite) TestRunError(c *gc.C) {
 	mockClient := &mockBlockClient{err: errors.New("boom")}
-	cmd := block.NewDisableCommandForTest(mockClient, nil)
+	cmd := s.disableCommand(mockClient, nil)
 	_, err := cmdtesting.RunCommand(c, cmd, "all")
 	c.Check(err, gc.ErrorMatches, "boom")
 }

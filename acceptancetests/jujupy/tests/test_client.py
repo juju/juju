@@ -16,10 +16,17 @@ import subprocess
 import sys
 from textwrap import dedent
 
-from mock import (
-    call,
-    Mock,
-    patch,
+try:
+    from mock import (
+        call,
+        Mock,
+        patch,
+    )
+except ImportError:
+    from unittest.mock import (
+        call,
+        Mock,
+        patch,
     )
 import yaml
 
@@ -1329,7 +1336,8 @@ class TestModelClient(ClientTest):
                             StatusNotMet,
                             'Timed out waiting for agents to start in lxd'):
                         with patch('jujupy.client.time.sleep'):
-                            client.wait_for_started(start=now - timedelta(1200))
+                            client.wait_for_started(
+                                start=now - timedelta(1200))
                 self.assertEqual(writes, ['pending: jenkins/0', '\n'])
 
     def make_ha_status(self, voting='has-vote'):
@@ -2857,7 +2865,9 @@ class TestModelClient(ClientTest):
                           'get_juju_output', return_value=ret):
             with self.assertRaisesRegexp(
                 Exception,
-                "Timed out waiting for action to complete during fetch with status: pending."):
+                "Timed out waiting for action to complete during fetch with "
+                "status: pending."
+            ):
                     client.action_fetch("123")
 
     def test_action_do_fetch(self):

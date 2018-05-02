@@ -120,7 +120,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	})
 
 	// TODO(wallyworld) - add test data when tests are improved
-	s.store = jujuclient.NewMemStore()
+	s.store = jujuclienttesting.MinimalStore()
 
 	// Write bootstrap command logs to an in-memory buffer,
 	// so we can inspect the output in tests.
@@ -222,7 +222,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	s.tw.Clear()
 
 	var restore testing.Restorer = func() {
-		s.store = jujuclient.NewMemStore()
+		s.store = jujuclienttesting.MinimalStore()
 	}
 	bootstrapVersion := v100p64
 	if test.version != "" {
@@ -529,7 +529,7 @@ func (s *BootstrapSuite) TestNoSwitch(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--no-switch")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.store.CurrentControllerName, gc.Equals, "")
+	c.Assert(s.store.CurrentControllerName, gc.Equals, "arthur")
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsControllerDetails(c *gc.C) {
@@ -906,6 +906,18 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 
 	store := jujuclienttesting.NewStubStore()
+	store.CurrentControllerFunc = func() (string, error) {
+		return "arthur", nil
+	}
+	store.CurrentModelFunc = func(controller string) (string, error) {
+		c.Assert(controller, gc.Equals, "arthur")
+		return "sword", nil
+	}
+	store.ModelByNameFunc = func(controller, model string) (*jujuclient.ModelDetails, error) {
+		c.Assert(controller, gc.Equals, "arthur")
+		c.Assert(model, gc.Equals, "sword")
+		return &jujuclient.ModelDetails{}, nil
+	}
 	store.SetErrors(errors.New("oh noes"))
 	cmd := &bootstrapCommand{}
 	cmd.SetClientStore(store)
@@ -1838,9 +1850,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 
 	// Record the controller name seen by ModelCommandBase at the end of bootstrap.
 	var seenControllerName string
-	s.PatchValue(&waitForAgentInitialisation, func(_ *cmd.Context, base *modelcmd.ModelCommandBase, _, _ string) error {
-		controllerName, err := base.ControllerName()
-		c.Check(err, jc.ErrorIsNil)
+	s.PatchValue(&waitForAgentInitialisation, func(_ *cmd.Context, base *modelcmd.ModelCommandBase, controllerName, _ string) error {
 		seenControllerName = controllerName
 		return nil
 	})

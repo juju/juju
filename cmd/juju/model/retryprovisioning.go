@@ -23,6 +23,7 @@ func NewRetryProvisioningCommand() cmd.Command {
 // the provisoner that it should try to re-provision the machine.
 type retryProvisioningCommand struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	Machines []names.MachineTag
 	api      RetryProvisioningAPI
 }

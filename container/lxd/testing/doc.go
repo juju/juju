@@ -4,6 +4,6 @@
 // This package contains the testing infrastructure to mock out the lxd API.
 // run 'go generate' to regenerate the mock interfaces
 
-package testmock
+package testing
 
-//go:generate mockgen -package testmock -destination lxdmock.go github.com/lxc/lxd/client Server,ImageServer,ContainerServer
+//go:generate mockgen -package testing -destination lxd_mock.go github.com/lxc/lxd/client Operation,RemoteOperation,Server,ImageServer,ContainerServer

@@ -31,6 +31,7 @@ import (
 // and DebugHooksCommand.
 type SSHCommon struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	proxy           bool
 	noHostKeyChecks bool
 	Target          string

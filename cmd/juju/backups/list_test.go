@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/backups"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type listSuite struct {
@@ -22,7 +23,7 @@ var _ = gc.Suite(&listSuite{})
 
 func (s *listSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
-	s.subcommand = backups.NewListCommandForTest()
+	s.subcommand = backups.NewListCommandForTest(jujuclienttesting.MinimalStore())
 }
 
 func (s *listSuite) TestOkay(c *gc.C) {

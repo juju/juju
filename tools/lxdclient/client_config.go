@@ -7,16 +7,16 @@ package lxdclient
 
 import (
 	"github.com/juju/errors"
+	lxdclient "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 )
 
 type rawConfigClient interface {
-	Addresses() ([]string, error)
-	SetServerConfig(key, value string) (*api.Response, error)
-	SetContainerConfig(container, key, value string) error
-
-	WaitForSuccess(waitURL string) error
-	ServerStatus() (*api.Server, error)
+	GetConnectionInfo() (info *lxdclient.ConnectionInfo, err error)
+	GetContainer(name string) (container *api.Container, ETag string, err error)
+	UpdateContainer(name string, container api.ContainerPut, ETag string) (op lxdclient.Operation, err error)
+	GetServer() (server *api.Server, ETag string, err error)
+	UpdateServer(server api.ServerPut, ETag string) (err error)
 }
 
 type configClient struct {
@@ -25,34 +25,43 @@ type configClient struct {
 
 // SetServerConfig sets the given value in the server's config.
 func (c configClient) SetServerConfig(key, value string) error {
-	resp, err := c.raw.SetServerConfig(key, value)
+	server, _, err := c.raw.GetServer()
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	if resp.Operation != "" {
-		if err := c.raw.WaitForSuccess(resp.Operation); err != nil {
-			// TODO(ericsnow) Handle different failures (from the async
-			// operation) differently?
-			return errors.Trace(err)
-		}
-	}
-
-	return nil
+	server.Config[key] = value
+	return errors.Trace(c.raw.UpdateServer(server.Writable(), ""))
 }
 
 // SetContainerConfig sets the given config value for the specified
 // container.
-func (c configClient) SetContainerConfig(container, key, value string) error {
-	return errors.Trace(c.raw.SetContainerConfig(container, key, value))
+func (c configClient) SetContainerConfig(name, key, value string) error {
+	container, _, err := c.raw.GetContainer(name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	container.Config[key] = value
+	resp, err := c.raw.UpdateContainer(name, container.Writable(), "")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := resp.Wait(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // ServerStatus reports the state of the server.
 func (c configClient) ServerStatus() (*api.Server, error) {
-	return c.raw.ServerStatus()
+	server, _, err := c.raw.GetServer()
+	return server, errors.Trace(err)
 }
 
 // ServerAddresses reports the addresses that the server is listening on.
 func (c configClient) ServerAddresses() ([]string, error) {
-	return c.raw.Addresses()
+	info, err := c.raw.GetConnectionInfo()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return info.Addresses, nil
 }

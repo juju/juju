@@ -7,10 +7,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type updateSeriesSuite struct {
@@ -28,7 +29,8 @@ func (s *updateSeriesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *updateSeriesSuite) runUpdateSeries(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, NewUpdateSeriesCommandForTest(s.mockApplicationAPI, s.mockMachineAPI), args...)
+	store := jujuclienttesting.MinimalStore()
+	return cmdtesting.RunCommand(c, NewUpdateSeriesCommandForTest(s.mockApplicationAPI, s.mockMachineAPI, store), args...)
 }
 
 func (s *updateSeriesSuite) TestUpdateSeriesApplicationGoodPath(c *gc.C) {

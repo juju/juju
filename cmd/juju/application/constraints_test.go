@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -41,7 +42,7 @@ func (s *ServiceConstraintsCommandsSuite) TestSetInit(c *gc.C) {
 		args: []string{"mysql", "cpu-power=250"},
 	}} {
 		cmd := application.NewServiceSetConstraintsCommand()
-		cmd.SetClientStore(application.NewMockStore())
+		cmd.SetClientStore(jujuclienttesting.MinimalStore())
 		err := cmdtesting.InitCommand(cmd, test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -73,7 +74,7 @@ func (s *ServiceConstraintsCommandsSuite) TestGetInit(c *gc.C) {
 		},
 	} {
 		cmd := application.NewServiceGetConstraintsCommand()
-		cmd.SetClientStore(application.NewMockStore())
+		cmd.SetClientStore(jujuclienttesting.MinimalStore())
 		err := cmdtesting.InitCommand(cmd, test.args)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)

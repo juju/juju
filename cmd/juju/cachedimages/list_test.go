@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/cachedimages"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -54,7 +55,7 @@ func (s *listImagesCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func runListCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, cachedimages.NewListCommandForTest(), args...)
+	return cmdtesting.RunCommand(c, cachedimages.NewListCommandForTest(jujuclienttesting.MinimalStore()), args...)
 }
 
 func (*listImagesCommandSuite) TestListImagesNone(c *gc.C) {

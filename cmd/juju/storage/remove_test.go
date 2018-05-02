@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type RemoveStorageSuite struct {
@@ -25,7 +26,7 @@ func (s *RemoveStorageSuite) TestRemoveStorage(c *gc.C) {
 		{},
 		{},
 	}}
-	cmd := storage.NewRemoveStorageCommand(fake.new)
+	cmd := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	ctx, err := cmdtesting.RunCommand(c, cmd, "pgdata/0", "pgdata/1")
 	c.Assert(err, jc.ErrorIsNil)
 	fake.CheckCallNames(c, "NewStorageRemoverCloser", "Remove", "Close")
@@ -41,7 +42,7 @@ func (s *RemoveStorageSuite) TestRemoveStorageForce(c *gc.C) {
 		{},
 		{},
 	}}
-	cmd := storage.NewRemoveStorageCommand(fake.new)
+	cmd := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, "--force", "pgdata/0", "pgdata/1")
 	c.Assert(err, jc.ErrorIsNil)
 	fake.CheckCall(c, 1, "Remove", []string{"pgdata/0", "pgdata/1"}, true, true)
@@ -52,7 +53,7 @@ func (s *RemoveStorageSuite) TestRemoveStorageNoDestroy(c *gc.C) {
 		{},
 		{},
 	}}
-	cmd := storage.NewRemoveStorageCommand(fake.new)
+	cmd := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, "--no-destroy", "--force", "pgdata/0", "pgdata/1")
 	c.Assert(err, jc.ErrorIsNil)
 	fake.CheckCall(c, 1, "Remove", []string{"pgdata/0", "pgdata/1"}, true, false)
@@ -63,7 +64,7 @@ func (s *RemoveStorageSuite) TestRemoveStorageError(c *gc.C) {
 		{Error: &params.Error{Message: "foo"}},
 		{Error: &params.Error{Message: "storage is attached", Code: params.CodeStorageAttached}},
 	}}
-	removeCmd := storage.NewRemoveStorageCommand(fake.new)
+	removeCmd := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	ctx, err := cmdtesting.RunCommand(c, removeCmd, "pgdata/0", "pgdata/1")
 	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `failed to remove pgdata/0: foo
@@ -79,7 +80,7 @@ before removing.
 func (s *RemoveStorageSuite) TestRemoveStorageUnauthorizedError(c *gc.C) {
 	var fake fakeStorageRemover
 	fake.SetErrors(nil, &params.Error{Code: params.CodeUnauthorized, Message: "nope"})
-	cmd := storage.NewRemoveStorageCommand(fake.new)
+	cmd := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	ctx, err := cmdtesting.RunCommand(c, cmd, "pgdata/0")
 	c.Assert(err, gc.ErrorMatches, "nope")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
@@ -95,7 +96,7 @@ func (s *RemoveStorageSuite) TestRemoveStorageInitErrors(c *gc.C) {
 
 func (s *RemoveStorageSuite) testRemoveStorageInitError(c *gc.C, args []string, expect string) {
 	var fake fakeStorageRemover
-	cmd := storage.NewRemoveStorageCommand(fake.new)
+	cmd := storage.NewRemoveStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	c.Assert(err, gc.ErrorMatches, expect)
 }

@@ -4,7 +4,10 @@ import os
 from StringIO import StringIO
 import urllib2
 
-from mock import patch
+try:
+    from mock import patch
+except ImportError:
+    from unittest.mock import patch
 
 from jujuci import (
     acquire_binary,

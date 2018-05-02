@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -51,6 +52,8 @@ func syncToolsHelpText() string {
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
+	jujuclienttesting.SetupMinimalFileStore(c)
+
 	// The test array structure needs to be inline here as some of the
 	// expected values below use deployHelpText().  This constructs the deploy
 	// command and runs gets the help for it.  When the deploy command is
