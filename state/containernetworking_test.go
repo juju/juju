@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 )
 
 type containerTestNetworkLessEnviron struct {
@@ -29,13 +30,13 @@ type ContainerNetworkingSuite struct {
 
 var _ = gc.Suite(&ContainerNetworkingSuite{})
 
-func (e *containerTestNetworkedEnviron) SuperSubnets() ([]string, error) {
-	e.stub.AddCall("SuperSubnets")
+func (e *containerTestNetworkedEnviron) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
+	e.stub.AddCall("SuperSubnets", ctx)
 	return e.superSubnets, e.stub.NextErr()
 }
 
-func (e *containerTestNetworkedEnviron) SupportsContainerAddresses() (bool, error) {
-	e.stub.AddCall("SupportsContainerAddresses")
+func (e *containerTestNetworkedEnviron) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
+	e.stub.AddCall("SupportsContainerAddresses", ctx)
 	return e.supportsContainerAddresses, e.stub.NextErr()
 }
 
