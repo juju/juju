@@ -114,7 +114,7 @@ func (c *syncToolsCommand) Init(args []string) error {
 // syncToolsAPI provides an interface with a subset of the
 // api.Client API. This exists to enable mocking.
 type syncToolsAPI interface {
-	FindTools(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error)
+	FindTools(majorVersion, minorVersion int, series, arch, agentStream string) (params.FindToolsResult, error)
 	UploadTools(r io.ReadSeeker, v version.Binary, series ...string) (coretools.List, error)
 	Close() error
 }
@@ -180,7 +180,7 @@ type syncToolsAPIAdapter struct {
 }
 
 func (s syncToolsAPIAdapter) FindTools(majorVersion int, stream string) (coretools.List, error) {
-	result, err := s.syncToolsAPI.FindTools(majorVersion, -1, "", "")
+	result, err := s.syncToolsAPI.FindTools(majorVersion, -1, "", "", "")
 	if err != nil {
 		return nil, err
 	}
