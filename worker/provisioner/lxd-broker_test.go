@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -137,7 +138,7 @@ func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {
 	broker, brokerErr := s.newLXDBroker(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 
-	_, err := broker.StartInstance(environs.StartInstanceParams{
+	_, err := broker.StartInstance(context.NewCloudCallContext(), environs.StartInstanceParams{
 		Tools: coretools.List{{
 			// non-host-arch tools should be filtered out by StartInstance
 			Version: version.MustParseBinary("2.3.4-quantal-arm64"),
