@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujuos "github.com/juju/utils/os"
 	proxyutils "github.com/juju/utils/proxy"
-	"github.com/lxc/lxd"
+	lxdclient "github.com/lxc/lxd/client"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/utils/proxy"
@@ -41,7 +41,7 @@ func (cs *ConnectSuite) TestLocalConnectError(c *gc.C) {
 	cfg, err := Config{
 		Remote: Remote{
 			Name: "local",
-			Host: "unix://" + f.Name(),
+			Host: f.Name(),
 		},
 	}.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,7 +81,7 @@ and then configure it with:
 
 	// Yes, the error message actually matters here... this is being displayed
 	// to the user.
-	cs.PatchValue(&lxdNewClientFromInfo, fakeNewClientFromInfo)
+	cs.PatchValue(&newSocketClientFromInfo, fakeNewClientFromInfo)
 	_, err = Connect(cfg, false)
 	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: boo!
 
@@ -196,7 +196,7 @@ and then bootstrap again.`)
 }
 
 func (cs *ConnectSuite) TestRemoteConnectError(c *gc.C) {
-	cs.PatchValue(&lxdNewClientFromInfo, fakeNewClientFromInfo)
+	cs.PatchValue(&newHostClientFromInfo, fakeNewClientFromInfo)
 
 	cfg, err := Config{
 		Remote: Remote{
@@ -248,7 +248,7 @@ func (cs *ConnectSuite) TestProxySettings(c *gc.C) {
 
 	cfg, err := Config{Remote: Remote{
 		Name: "foo",
-		Host: "host.invalid",
+		Host: "https://host.invalid",
 	}}.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -259,7 +259,7 @@ func (cs *ConnectSuite) TestProxySettings(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*host\.invalid.*`)
 
 	// Configure a proxy, expect it to be used.
-	err = proxy.DefaultConfig.Set(proxyutils.Settings{Https: "proxy.invalid"})
+	err = proxy.DefaultConfig.Set(proxyutils.Settings{Https: "https://proxy.invalid"})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = Connect(cfg, false)
 	c.Assert(err, gc.ErrorMatches, `.*proxy\.invalid.*`)
@@ -267,6 +267,6 @@ func (cs *ConnectSuite) TestProxySettings(c *gc.C) {
 
 var testerr = errors.Errorf("boo!")
 
-func fakeNewClientFromInfo(info lxd.ConnectInfo) (*lxd.Client, error) {
+func fakeNewClientFromInfo(_ string, _ *lxdclient.ConnectionArgs) (lxdclient.ContainerServer, error) {
 	return nil, testerr
 }

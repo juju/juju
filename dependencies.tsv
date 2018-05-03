@@ -73,7 +73,7 @@ github.com/lestrrat/go-jsval	git	b1258a10419fe0693f7b35ad65cd5074bc0ba1e5	2016-1
 github.com/lestrrat/go-pdebug	git	2e6eaaa5717f81bda41d27070d3c966f40a1e75f	2016-08-17T06:33:33Z
 github.com/lestrrat/go-structinfo	git	f74c056fe41f860aa6264478c664a6fff8a64298	2016-03-08T13:11:05Z
 github.com/lunixbochs/vtclean	git	4fbf7632a2c6d3fbdb9931439bdbbeded02cbe36	2016-01-25T03:51:06Z
-github.com/lxc/lxd	git	4b2236160bc2b226ebf79a1e12e4b87b86d3cb7b	2017-07-25T22:31:26Z
+github.com/lxc/lxd	git	5a7c2f21e91b14dd1b47c7763c60869921b172f0	2018-04-17T20:25:13Z
 github.com/masterzen/azure-sdk-for-go	git	ee4f0065d00cd12b542f18f5bc45799e88163b12	2016-10-14T13:56:28Z
 github.com/masterzen/simplexml	git	4572e39b1ab9fe03ee513ce6fc7e289e98482190	2016-06-08T18:30:07Z
 github.com/masterzen/winrm	git	7a535cd943fccaeed196718896beec3fb51aff41	2016-10-14T15:10:40Z
@@ -115,8 +115,10 @@ gopkg.in/juju/jujusvg.v3	git	6f7342099e20c84f560bd9fc8afe96ff7486613e	2017-11-14
 gopkg.in/juju/names.v2	git	54f00845ae470a362430a966fe17f35f8784ac92	2017-11-13T11:20:47Z
 gopkg.in/juju/worker.v1	git	6965b9d826717287bb002e02d1fd4d079978083e	2017-03-08T00:24:58Z
 gopkg.in/macaroon-bakery.v1	git	469b44e6f1f9479e115c8ae879ef80695be624d5	2016-06-22T12:14:21Z
+gopkg.in/macaroon-bakery.v2	git	ec9d2ad6796100720c154f614b6dea8798ec1181	2017-11-03T09:26:24Z
 gopkg.in/macaroon-bakery.v2-unstable	git	5a131df02b2333d5d75c501743cbc2948ee9bbf0	2016-06-23T14:27:47Z
 gopkg.in/macaroon.v1	git	ab3940c6c16510a850e1c2dd628b919f0f3f1464	2015-01-21T11:42:31Z
+gopkg.in/macaroon.v2	git	bed2a428da6e56d950bed5b41fcbae3141e5b0d0	2017-10-17T15:30:37Z
 gopkg.in/macaroon.v2-unstable	git	66ab28d0d56f39a383f7cf5cf3ac9a4e9ab32865	2018-03-09T13:12:17Z
 gopkg.in/mgo.v2	git	f2b6f6c918c452ad107eec89615f074e3bd80e33	2016-08-18T01:52:18Z
 gopkg.in/natefinch/lumberjack.v2	git	df99d62fd42d8b3752c8a42c6723555372c02a03	2017-05-31T18:08:50Z

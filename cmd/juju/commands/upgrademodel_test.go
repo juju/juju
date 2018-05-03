@@ -1010,7 +1010,7 @@ func (a *fakeUpgradeJujuAPI) ModelGet() (map[string]interface{}, error) {
 	return config.AllAttrs(), nil
 }
 
-func (a *fakeUpgradeJujuAPI) FindTools(majorVersion, minorVersion int, series, arch string) (
+func (a *fakeUpgradeJujuAPI) FindTools(majorVersion, minorVersion int, series, arch, stream string) (
 	result params.FindToolsResult, err error,
 ) {
 	a.findToolsCalled = true
@@ -1057,7 +1057,7 @@ func (a *fakeUpgradeJujuAPINoState) Close() error {
 	return nil
 }
 
-func (a *fakeUpgradeJujuAPINoState) FindTools(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error) {
+func (a *fakeUpgradeJujuAPINoState) FindTools(majorVersion, minorVersion int, series, arch, stream string) (params.FindToolsResult, error) {
 	var result params.FindToolsResult
 	if len(a.tools) == 0 {
 		result.Error = common.ServerError(errors.NotFoundf("tools"))

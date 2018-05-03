@@ -15,7 +15,6 @@ from time import (
     sleep,
     time,
     )
-import warnings
 from jujupy.utility import (
     ensure_deleted,
     ensure_dir,
@@ -81,12 +80,12 @@ def _clean_dir(maybe_dir):
     except OSError as e:
         if e.errno == errno.ENOENT:
             # we don't raise this error due to tests abusing /tmp/logs
-            warnings.warn('Not a directory {}'.format(maybe_dir))
+            logging.warning('Not a directory {}'.format(maybe_dir))
         if e.errno == errno.EEXIST:
-            warnings.warn('Directory {} already exists'.format(maybe_dir))
+            logging.warnings('Directory {} already exists'.format(maybe_dir))
     else:
         if contents and contents != ["empty"]:
-            warnings.warn(
+            logging.warning(
                 'Directory {!r} has existing contents.'.format(maybe_dir))
     return maybe_dir
 

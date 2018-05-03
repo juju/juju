@@ -156,53 +156,65 @@ func (s *toolsSuite) TestToolsSetError(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindTools(c *gc.C) {
-	envtoolsList := coretools.List{
-		&coretools.Tools{
-			Version: version.MustParseBinary("123.456.0-win81-alpha"),
-			Size:    2048,
-			SHA256:  "badf00d",
-		},
-		&coretools.Tools{
-			Version: version.MustParseBinary("123.456.1-win81-alpha"),
-		},
-	}
-	storageMetadata := []binarystorage.Metadata{{
-		Version: "123.456.0-win81-alpha",
-		Size:    1024,
-		SHA256:  "feedface",
-	}}
+	for i, test := range []struct {
+		agentStreamRequested string
+		agentStreamsUsed     []string
+	}{{
+		agentStreamsUsed: []string{"released"},
+	}, {
+		agentStreamRequested: "pretend",
+		agentStreamsUsed:     []string{"pretend"},
+	}} {
+		c.Logf("test %d", i)
+		envtoolsList := coretools.List{
+			&coretools.Tools{
+				Version: version.MustParseBinary("123.456.0-win81-alpha"),
+				Size:    2048,
+				SHA256:  "badf00d",
+			},
+			&coretools.Tools{
+				Version: version.MustParseBinary("123.456.1-win81-alpha"),
+			},
+		}
+		storageMetadata := []binarystorage.Metadata{{
+			Version: "123.456.0-win81-alpha",
+			Size:    1024,
+			SHA256:  "feedface",
+		}}
 
-	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, streams []string, filter coretools.Filter) (coretools.List, error) {
-		c.Assert(major, gc.Equals, 123)
-		c.Assert(minor, gc.Equals, 456)
-		c.Assert(streams, gc.DeepEquals, []string{"released"})
-		c.Assert(filter.Series, gc.Equals, "win81")
-		c.Assert(filter.Arch, gc.Equals, "alpha")
-		return envtoolsList, nil
-	})
-	toolsFinder := common.NewToolsFinder(
-		stateenvirons.EnvironConfigGetter{s.State, s.IAASModel.Model}, &mockToolsStorage{metadata: storageMetadata}, sprintfURLGetter("tools:%s"),
-	)
-	result, err := toolsFinder.FindTools(params.FindToolsParams{
-		MajorVersion: 123,
-		MinorVersion: 456,
-		Series:       "win81",
-		Arch:         "alpha",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Check(result.List, jc.DeepEquals, coretools.List{
-		&coretools.Tools{
-			Version: version.MustParseBinary(storageMetadata[0].Version),
-			Size:    storageMetadata[0].Size,
-			SHA256:  storageMetadata[0].SHA256,
-			URL:     "tools:" + storageMetadata[0].Version,
-		},
-		&coretools.Tools{
-			Version: version.MustParseBinary("123.456.1-win81-alpha"),
-			URL:     "tools:123.456.1-win81-alpha",
-		},
-	})
+		s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, streams []string, filter coretools.Filter) (coretools.List, error) {
+			c.Assert(major, gc.Equals, 123)
+			c.Assert(minor, gc.Equals, 456)
+			c.Assert(streams, gc.DeepEquals, test.agentStreamsUsed)
+			c.Assert(filter.Series, gc.Equals, "win81")
+			c.Assert(filter.Arch, gc.Equals, "alpha")
+			return envtoolsList, nil
+		})
+		toolsFinder := common.NewToolsFinder(
+			stateenvirons.EnvironConfigGetter{s.State, s.IAASModel.Model}, &mockToolsStorage{metadata: storageMetadata}, sprintfURLGetter("tools:%s"),
+		)
+		result, err := toolsFinder.FindTools(params.FindToolsParams{
+			MajorVersion: 123,
+			MinorVersion: 456,
+			Series:       "win81",
+			Arch:         "alpha",
+			AgentStream:  test.agentStreamRequested,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(result.Error, gc.IsNil)
+		c.Check(result.List, jc.DeepEquals, coretools.List{
+			&coretools.Tools{
+				Version: version.MustParseBinary(storageMetadata[0].Version),
+				Size:    storageMetadata[0].Size,
+				SHA256:  storageMetadata[0].SHA256,
+				URL:     "tools:" + storageMetadata[0].Version,
+			},
+			&coretools.Tools{
+				Version: version.MustParseBinary("123.456.1-win81-alpha"),
+				URL:     "tools:123.456.1-win81-alpha",
+			},
+		})
+	}
 }
 
 func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {

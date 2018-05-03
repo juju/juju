@@ -101,6 +101,13 @@ func NewTestingState(params TestingStateParams) Connection {
 	return st
 }
 
+// APIClient returns a 'barebones' api.Client suitable for calling FindTools in
+// an error state (anything else is likely to panic.)
+func APIClient(apiCaller base.APICallCloser) *Client {
+	frontend, backend := base.NewClientFacade(apiCaller, "Client")
+	return &Client{ClientFacade: frontend, facade: backend, st: &state{}}
+}
+
 // PatchClientFacadeCall changes the internal FacadeCaller to one that lets
 // you mock out the FacadeCall method. The function returned by
 // PatchClientFacadeCall is a cleanup function that returns the client to its

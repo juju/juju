@@ -6,18 +6,17 @@
 package lxdclient
 
 import (
-	"crypto/x509"
-	"net/http"
+	"encoding/base64"
+	"encoding/pem"
 
 	"github.com/juju/errors"
-	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared/api"
 )
 
 type rawCertClient interface {
-	CertificateList() ([]api.Certificate, error)
-	CertificateAdd(cert *x509.Certificate, name string) error
-	CertificateRemove(fingerprint string) error
+	GetCertificates() (certificates []api.Certificate, err error)
+	CreateCertificate(certificate api.CertificatesPost) (err error)
+	DeleteCertificate(fingerprint string) (err error)
 }
 
 type certClient struct {
@@ -26,12 +25,18 @@ type certClient struct {
 
 // AddCert adds the given certificate to the server.
 func (c certClient) AddCert(cert Cert) error {
-	x509Cert, err := cert.X509()
-	if err != nil {
-		return errors.Trace(err)
+	block, _ := pem.Decode([]byte(cert.CertPEM))
+	if block == nil {
+		return errors.New("failed to decode certificate PEM")
 	}
 
-	if err := c.raw.CertificateAdd(x509Cert, cert.Name); err != nil {
+	req := api.CertificatesPost{
+		Certificate: base64.StdEncoding.EncodeToString(block.Bytes),
+		CertificatePut: api.CertificatePut{
+			Name: cert.Name,
+		},
+	}
+	if err := c.raw.CreateCertificate(req); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -40,8 +45,8 @@ func (c certClient) AddCert(cert Cert) error {
 
 // RemoveCertByFingerprint removes the cert from the server.
 func (c certClient) RemoveCertByFingerprint(fingerprint string) error {
-	if err := c.raw.CertificateRemove(fingerprint); err != nil {
-		if err == lxd.LXDErrors[http.StatusNotFound] {
+	if err := c.raw.DeleteCertificate(fingerprint); err != nil {
+		if isLXDNotFound(err) {
 			return errors.NotFoundf("certificate with fingerprint %q", fingerprint)
 		}
 		return errors.Trace(err)
@@ -53,7 +58,7 @@ func (c certClient) RemoveCertByFingerprint(fingerprint string) error {
 // matching fingerprint. If there is no such certificate, an error
 // satisfying errors.IsNotFound is returned.
 func (c certClient) CertByFingerprint(fingerprint string) (api.Certificate, error) {
-	certs, err := c.raw.CertificateList()
+	certs, err := c.raw.GetCertificates()
 	if err != nil {
 		return api.Certificate{}, errors.Trace(err)
 	}

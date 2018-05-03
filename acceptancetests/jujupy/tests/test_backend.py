@@ -4,9 +4,10 @@ from datetime import (
     datetime,
     timedelta,
     )
-from mock import (
-    patch,
-    )
+try:
+    from mock import patch
+except ImportError:
+    from unittest.mock import patch
 
 from jujupy.backend import (
     JUJU_DEV_FEATURE_FLAGS,

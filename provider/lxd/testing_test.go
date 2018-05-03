@@ -8,7 +8,6 @@ package lxd
 import (
 	"net"
 	"os"
-	"path"
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/tools/lxdclient"
+	jujulxdclient "github.com/juju/juju/tools/lxdclient"
 )
 
 // Ensure LXD provider supports the expected interfaces.
@@ -102,9 +102,9 @@ type BaseSuiteUnpatched struct {
 
 	Addresses     []network.Address
 	Instance      *environInstance
-	RawInstance   *lxdclient.Instance
+	RawInstance   *jujulxdclient.Instance
 	InstName      string
-	Hardware      *lxdclient.InstanceHardware
+	Hardware      *jujulxdclient.InstanceHardware
 	HWC           *instance.HardwareCharacteristics
 	Metadata      map[string]string
 	StartInstArgs environs.StartInstanceParams
@@ -199,7 +199,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	userData, err := providerinit.ComposeUserData(instanceConfig, nil, lxdRenderer{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Hardware = &lxdclient.InstanceHardware{
+	s.Hardware = &jujulxdclient.InstanceHardware{
 		Architecture: arch.ARM64,
 		NumCores:     1,
 		MemoryMB:     3750,
@@ -276,24 +276,24 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 	s.setConfig(c, cfg)
 }
 
-func (s *BaseSuiteUnpatched) NewRawInstance(c *gc.C, name string) *lxdclient.Instance {
+func (s *BaseSuiteUnpatched) NewRawInstance(c *gc.C, name string) *jujulxdclient.Instance {
 	metadata := make(map[string]string)
 	for k, v := range s.Metadata {
 		metadata[k] = v
 	}
-	summary := lxdclient.InstanceSummary{
+	summary := jujulxdclient.InstanceSummary{
 		Name:     name,
-		Status:   lxdclient.StatusRunning,
+		Status:   jujulxdclient.StatusRunning,
 		Hardware: *s.Hardware,
 		Metadata: metadata,
 	}
-	instanceSpec := lxdclient.InstanceSpec{
+	instanceSpec := jujulxdclient.InstanceSpec{
 		Name:      name,
 		Profiles:  []string{},
 		Ephemeral: false,
 		Metadata:  metadata,
 	}
-	return lxdclient.NewInstance(summary, &instanceSpec)
+	return jujulxdclient.NewInstance(summary, &instanceSpec)
 }
 
 func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, name string) *environInstance {
@@ -305,7 +305,7 @@ func (s *BaseSuiteUnpatched) IsRunningLocally(c *gc.C) bool {
 	restore := gitjujutesting.PatchEnvPathPrepend(s.osPathOrig)
 	defer restore()
 
-	running, err := lxdclient.IsRunningLocally()
+	running, err := jujulxdclient.IsRunningLocally()
 	c.Assert(err, jc.ErrorIsNil)
 	return running
 }
@@ -349,8 +349,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		lxdProfiles:  s.Client,
 		lxdImages:    s.Client,
 		lxdStorage:   s.Client,
-		remote: lxdclient.Remote{
-			Cert: &lxdclient.Cert{
+		remote: jujulxdclient.Remote{
+			Cert: &jujulxdclient.Cert{
 				Name:    "juju",
 				CertPEM: []byte(testing.CACert),
 				KeyPEM:  []byte(testing.CAKey),
@@ -382,8 +382,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Env.base = s.Common
 }
 
-func (s *BaseSuite) TestingCert(c *gc.C) (lxdclient.Cert, string) {
-	cert := lxdclient.Cert{
+func (s *BaseSuite) TestingCert(c *gc.C) (jujulxdclient.Cert, string) {
+	cert := jujulxdclient.Cert{
 		Name:    "juju",
 		CertPEM: []byte(testing.CACert),
 		KeyPEM:  []byte(testing.CAKey),
@@ -469,14 +469,14 @@ func (sc *stubCommon) DestroyEnv(callCtx context.ProviderCallContext) error {
 type StubClient struct {
 	*gitjujutesting.Stub
 
-	Insts              []lxdclient.Instance
-	Inst               *lxdclient.Instance
+	Insts              []jujulxdclient.Instance
+	Inst               *jujulxdclient.Instance
 	Server             *api.Server
 	StorageIsSupported bool
 	Volumes            map[string][]api.StorageVolume
 }
 
-func (conn *StubClient) Instances(prefix string, statuses ...string) ([]lxdclient.Instance, error) {
+func (conn *StubClient) Instances(prefix string, statuses ...string) ([]jujulxdclient.Instance, error) {
 	conn.AddCall("Instances", prefix, statuses)
 	if err := conn.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -485,7 +485,7 @@ func (conn *StubClient) Instances(prefix string, statuses ...string) ([]lxdclien
 	return conn.Insts, nil
 }
 
-func (conn *StubClient) AddInstance(spec lxdclient.InstanceSpec) (*lxdclient.Instance, error) {
+func (conn *StubClient) AddInstance(spec jujulxdclient.InstanceSpec) (*jujulxdclient.Instance, error) {
 	conn.AddCall("AddInstance", spec)
 	if err := conn.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -503,13 +503,15 @@ func (conn *StubClient) RemoveInstances(prefix string, ids ...string) error {
 	return nil
 }
 
-func (conn *StubClient) EnsureImageExists(series, arch string, _ []lxdclient.Remote, _ func(string)) (string, error) {
-	conn.AddCall("EnsureImageExists", series, arch)
+func (conn *StubClient) FindImage(
+	series, arch string, sources []lxd.RemoteServer, copyLocal bool, callback environs.StatusCallbackFunc,
+) (lxd.SourcedImage, error) {
+	conn.AddCall("FindImage", series, arch)
 	if err := conn.NextErr(); err != nil {
-		return "", errors.Trace(err)
+		return lxd.SourcedImage{}, errors.Trace(err)
 	}
 
-	return path.Join("juju", series, arch), nil
+	return lxd.SourcedImage{}, nil
 }
 
 func (conn *StubClient) Addresses(name string) ([]network.Address, error) {
@@ -525,7 +527,7 @@ func (conn *StubClient) Addresses(name string) ([]network.Address, error) {
 	}}, nil
 }
 
-func (conn *StubClient) AddCert(cert lxdclient.Cert) error {
+func (conn *StubClient) AddCert(cert jujulxdclient.Cert) error {
 	conn.AddCall("AddCert", cert)
 	return conn.NextErr()
 }
@@ -585,7 +587,7 @@ func (conn *StubClient) HasProfile(name string) (bool, error) {
 	return false, conn.NextErr()
 }
 
-func (conn *StubClient) AttachDisk(container, device string, disk lxdclient.DiskDevice) error {
+func (conn *StubClient) AttachDisk(container, device string, disk jujulxdclient.DiskDevice) error {
 	conn.AddCall("AttachDisk", container, device, disk)
 	return conn.NextErr()
 }

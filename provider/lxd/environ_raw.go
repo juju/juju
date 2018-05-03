@@ -9,9 +9,10 @@ import (
 	"github.com/juju/errors"
 	lxdapi "github.com/lxc/lxd/shared/api"
 
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/tools/lxdclient"
+	jujulxdclient "github.com/juju/juju/tools/lxdclient"
 )
 
 type rawProvider struct {
@@ -22,11 +23,11 @@ type rawProvider struct {
 	lxdImages
 	lxdStorage
 
-	remote lxdclient.Remote
+	remote jujulxdclient.Remote
 }
 
 type lxdCerts interface {
-	AddCert(lxdclient.Cert) error
+	AddCert(jujulxdclient.Cert) error
 	CertByFingerprint(string) (lxdapi.Certificate, error)
 	RemoveCertByFingerprint(string) error
 }
@@ -39,11 +40,11 @@ type lxdConfig interface {
 }
 
 type lxdInstances interface {
-	Instances(string, ...string) ([]lxdclient.Instance, error)
-	AddInstance(lxdclient.InstanceSpec) (*lxdclient.Instance, error)
+	Instances(string, ...string) ([]jujulxdclient.Instance, error)
+	AddInstance(jujulxdclient.InstanceSpec) (*jujulxdclient.Instance, error)
 	RemoveInstances(string, ...string) error
 	Addresses(string) ([]network.Address, error)
-	AttachDisk(string, string, lxdclient.DiskDevice) error
+	AttachDisk(string, string, jujulxdclient.DiskDevice) error
 	RemoveDevice(string, string) error
 }
 
@@ -54,7 +55,7 @@ type lxdProfiles interface {
 }
 
 type lxdImages interface {
-	EnsureImageExists(series, arch string, sources []lxdclient.Remote, copyProgressHandler func(string)) (string, error)
+	FindImage(string, string, []lxd.RemoteServer, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
 }
 
 type lxdStorage interface {
@@ -79,7 +80,7 @@ func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {
 }
 
 func newLocalRawProvider() (*rawProvider, error) {
-	config := lxdclient.Config{Remote: lxdclient.Local}
+	config := jujulxdclient.Config{Remote: jujulxdclient.Local}
 	return newRawProviderFromConfig(config)
 }
 
@@ -91,8 +92,8 @@ func newRemoteRawProvider(spec environs.CloudSpec) (*rawProvider, error) {
 	return newRawProviderFromConfig(*config)
 }
 
-func newRawProviderFromConfig(config lxdclient.Config) (*rawProvider, error) {
-	client, err := lxdclient.Connect(config, true)
+func newRawProviderFromConfig(config jujulxdclient.Config) (*rawProvider, error) {
+	client, err := jujulxdclient.Connect(config, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -107,24 +108,24 @@ func newRawProviderFromConfig(config lxdclient.Config) (*rawProvider, error) {
 	}, nil
 }
 
-// getRemoteConfig returns a lxdclient.Config using a TCP-based remote.
-func getRemoteConfig(spec environs.CloudSpec) (*lxdclient.Config, error) {
+// getRemoteConfig returns a jujulxdclient.Config using a TCP-based remote.
+func getRemoteConfig(spec environs.CloudSpec) (*jujulxdclient.Config, error) {
 	clientCert, serverCert, ok := getCerts(spec)
 	if !ok {
 		return nil, errors.NotValidf("credentials")
 	}
-	return &lxdclient.Config{
-		lxdclient.Remote{
+	return &jujulxdclient.Config{
+		jujulxdclient.Remote{
 			Name:          "remote",
 			Host:          spec.Endpoint,
-			Protocol:      lxdclient.LXDProtocol,
+			Protocol:      jujulxdclient.LXDProtocol,
 			Cert:          clientCert,
 			ServerPEMCert: serverCert,
 		},
 	}, nil
 }
 
-func getCerts(spec environs.CloudSpec) (client *lxdclient.Cert, server string, ok bool) {
+func getCerts(spec environs.CloudSpec) (client *jujulxdclient.Cert, server string, ok bool) {
 	if spec.Credential == nil {
 		return nil, "", false
 	}
@@ -141,7 +142,7 @@ func getCerts(spec environs.CloudSpec) (client *lxdclient.Cert, server string, o
 	if !ok {
 		return nil, "", false
 	}
-	clientCert := &lxdclient.Cert{
+	clientCert := &jujulxdclient.Cert{
 		Name:    "juju",
 		CertPEM: []byte(clientCertPEM),
 		KeyPEM:  []byte(clientKeyPEM),

@@ -5,6 +5,7 @@
 
 package lxdclient_test
 
+/*
 import (
 	"errors"
 
@@ -256,3 +257,4 @@ func (s *devicesSuite) TestRemoveDeviceAsyncError(c *gc.C) {
 	err := client.RemoveDevice("instance", "device")
 	c.Assert(err, gc.ErrorMatches, "async error")
 }
+*/

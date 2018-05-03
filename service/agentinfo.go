@@ -12,8 +12,6 @@ import (
 	"github.com/juju/juju/agent/tools"
 )
 
-// TODO(ericsnow) Move this file to the agent package.
-
 // AgentKind identifies the kind of agent.
 type AgentKind string
 

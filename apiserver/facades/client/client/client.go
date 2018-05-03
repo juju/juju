@@ -64,6 +64,11 @@ type Client struct {
 	check      *common.BlockChecker
 }
 
+// ClientV1 serves the (v1) client-specific API methods.
+type ClientV1 struct {
+	*Client
+}
+
 func (c *Client) checkCanRead() error {
 	isAdmin, err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
 	if err != nil {
@@ -112,8 +117,21 @@ func (c *Client) checkIsAdmin() error {
 	return nil
 }
 
-// NewFacade provides the required signature for facade registration.
+// NewFacade creates a version 1 Client facade to handle API requests.
 func NewFacade(ctx facade.Context) (*Client, error) {
+	return newFacade(ctx)
+}
+
+// NewFacadeV1 creates a version 1 Client facade to handle API requests.
+func NewFacadeV1(ctx facade.Context) (*ClientV1, error) {
+	client, err := newFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ClientV1{client}, nil
+}
+
+func newFacade(ctx facade.Context) (*Client, error) {
 	st := ctx.State()
 	resources := ctx.Resources()
 	authorizer := ctx.Auth()
@@ -712,4 +730,16 @@ func (c *Client) CACert() (params.BytesResult, error) {
 	}
 	caCert, _ := cfg.CACert()
 	return params.BytesResult{Result: []byte(caCert)}, nil
+}
+
+// FindTools returns a List containing all tools matching the given parameters.
+func (c *ClientV1) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
+	if err := c.checkCanWrite(); err != nil {
+		return params.FindToolsResult{}, err
+	}
+
+	if args.AgentStream != "" {
+		return params.FindToolsResult{}, errors.New("requesting agent-stream not supported by model")
+	}
+	return c.api.toolsFinder.FindTools(args)
 }

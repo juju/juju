@@ -295,7 +295,7 @@ nameserver ns2.dummy
 	fakeResolvConf := filepath.Join(c.MkDir(), "fakeresolv.conf")
 	err := ioutil.WriteFile(fakeResolvConf, []byte(fakeConf), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(provisioner.ResolvConf, fakeResolvConf)
+	s.PatchValue(provisioner.ResolvConfFiles, []string{fakeResolvConf})
 }
 
 func instancesFromResults(results ...*environs.StartInstanceResult) []instance.Instance {
