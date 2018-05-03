@@ -49,7 +49,7 @@ func (*environProvider) Version() int {
 }
 
 // Open implements environs.EnvironProvider.
-func (p *environProvider) Open(ctx context.ProviderCallContext, args environs.OpenParams) (environs.Environ, error) {
+func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	local, err := p.validateCloudSpec(args.Cloud)
 	if err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
