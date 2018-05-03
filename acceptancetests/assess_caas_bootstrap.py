@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 """ Test caas k8s cluster bootstrap
 
-    Spining up k8s cluster and asserting the cluster is `healthy`
+    Spinning up k8s cluster and asserting the cluster is `healthy` - in this case, healthy means the k8s api server
+    is functionally working well, further health check needs to be done by charm deployment in next step
 """
 
 from __future__ import print_function
@@ -41,14 +42,15 @@ def assess_caas_bootstrap(client):
 
     caas_client = deploy_caas_stack(bundle_path=bundle, client=client)
 
-    k8s_model = caas_client.add_model('testcaas')  # noqa
+    # add caas model like below to create k8s new namespace then deploy charm on top of it
+    # k8s_model = caas_client.add_model('testcaas')
     if not caas_client.is_cluster_healthy:
         raise JujuAssertionError('k8s cluster is not healthy coz kubectl is not accessible')
 
 
 def parse_args(argv):
     """Parse all arguments."""
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Cass Bootstrap CI test")
 
     add_basic_testing_arguments(parser, existing=False)
     return parser.parse_args(argv)

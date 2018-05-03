@@ -2129,7 +2129,7 @@ class ModelClient:
 KUBE_CONFIG_PATH_ENV_VAR = 'KUBECONFIG'
 
 
-class CaasClient(object):
+class CaasClient:
 
     cloud_name = 'k8cloud'
 
@@ -2173,9 +2173,6 @@ class CaasClient(object):
 
     def kubectl(self, *args):
         args = (self.kubectl_path, '--kubeconfig', self.kube_config_path) + args
-        return self._sh(args)
-
-    def _sh(self, args):
         return subprocess.check_output(args, stderr=subprocess.STDOUT).decode('UTF-8').strip()
 
 
