@@ -32,7 +32,8 @@ from jujupy import (
     juju_home_path,
     JujuData,
     temp_bootstrap_env,
-    )
+    CaasClient,
+)
 from jujupy.configuration import (
     get_juju_data,
 )
@@ -108,6 +109,13 @@ def deploy_dummy_stack(client, charm_series, use_charmstore=False):
         client.wait_for_started(7200)
     else:
         client.wait_for_started(3600)
+
+
+def deploy_caas_stack(bundle_path, client):
+    client.deploy_bundle(bundle_path, static_bundle=True)
+    # Wait for the deployment to finish.
+    client.wait_for_started()
+    return CaasClient(client)
 
 
 def assess_juju_relations(client):
@@ -603,6 +611,7 @@ class PublicController:
 
     The user registers with the controller, and adds the initial model.
     """
+
     def __init__(self, controller_host, email, password, client,
                  tear_down_client):
         self.controller_host = controller_host
