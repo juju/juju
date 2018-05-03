@@ -38,9 +38,10 @@ log = logging.getLogger(__name__)
 
 
 def deploy_mediawiki_with_db(client):
-    client.deploy('cs:mysql')
+    client.deploy('cs:percona-cluster')
     client.wait_for_started()
     client.wait_for_workloads()
+    client.juju('run', ('--unit', 'percona-cluster/0', 'leader-get'))
 
     # Using local mediawiki charm due to db connect bug.
     # Once that's fixed we can use from the charmstore.
@@ -50,7 +51,7 @@ def deploy_mediawiki_with_db(client):
     client.wait_for_started()
     # mediawiki workload is blocked ('Database needed') until a db
     # relation is successfully made.
-    client.juju('relate', ('mediawiki:db', 'mysql:db'))
+    client.juju('relate', ('mediawiki:db', 'percona-cluster:db'))
     client.wait_for_workloads()
     client.wait_for_started()
     client.juju('expose', 'mediawiki')
@@ -71,7 +72,7 @@ def assert_mediawiki_is_responding(client):
             resp.status_code, resp.reason
         ))
     if '<title>Please set name of wiki</title>' not in resp.content:
-        raise AssertionError('Got unexpected mediawiki page content.')
+        raise AssertionError('Got unexpected mediawiki page content: {}'.format(resp.content))
 
 
 def deploy_simple_server_to_new_model(
