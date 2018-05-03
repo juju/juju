@@ -5,10 +5,13 @@ package jujuc
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+
+	"github.com/juju/juju/apiserver/params"
 )
 
 // NetworkGetCommand implements the network-get command.
@@ -118,6 +121,8 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(ni.Error)
 	}
 
+	ni = resolveNetworkInfoAddresses(ni)
+
 	// If no specific attributes asked for,
 	// print everything we know.
 	if !c.primaryAddress && len(c.keys) == 0 {
@@ -160,4 +165,28 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 		return c.out.Write(ctx, keyValues[c.keys[0]])
 	}
 	return c.out.Write(ctx, keyValues)
+}
+
+// This addresses the immediate problem of
+// https://bugs.launchpad.net/juju/+bug/1721368, but the hostname can populate
+// both the egress subnet cidr and the ingress addreses. These too should be
+// resolved. In addition these values probably should not be stored as hostnames
+// but rather the IP, that is, it might be better to do the resolution on input
+// rather than output (network-get) as we do here.
+func resolveNetworkInfoAddresses(networkInfoResult params.NetworkInfoResult) params.NetworkInfoResult {
+	logger.Debugf("Resolving Addresses")
+	for i, networkInfo := range networkInfoResult.Info {
+		for j, interfaceAddress := range networkInfo.Addresses {
+			if ip := net.ParseIP(interfaceAddress.Address); ip != nil {
+				continue
+			}
+			resolvedAddress, err := net.LookupHost(interfaceAddress.Address)
+			if err != nil {
+				logger.Warningf("The address %q is neither an IP address or a resolvable hostname", interfaceAddress.Address)
+			} else {
+				networkInfoResult.Info[i].Addresses[j].Address = resolvedAddress[0]
+			}
+		}
+	}
+	return networkInfoResult
 }
