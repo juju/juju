@@ -118,22 +118,25 @@ func (w *Worker) loop() error {
 	}
 }
 
-func (w *Worker) getConfiguration() (map[raft.ServerID]raft.ServerAddress, uint64, error) {
+func (w *Worker) getConfiguration() (map[raft.ServerID]*raft.Server, uint64, error) {
 	future := w.config.Raft.GetConfiguration()
 	prevIndex, err := w.waitIndexFuture(future)
 	if err != nil {
 		return nil, 0, errors.Trace(err)
 	}
-	servers := make(map[raft.ServerID]raft.ServerAddress)
+	servers := make(map[raft.ServerID]*raft.Server)
 	config := future.Configuration()
-	for _, server := range config.Servers {
-		servers[server.ID] = server.Address
+	for i := range config.Servers {
+		// Use a local var so we don't get all entries pointing to
+		// the loop variable.
+		server := config.Servers[i]
+		servers[server.ID] = &server
 	}
 	return servers, prevIndex, nil
 }
 
 func (w *Worker) updateConfiguration(
-	configuredServers map[raft.ServerID]raft.ServerAddress,
+	configuredServers map[raft.ServerID]*raft.Server,
 	prevIndex uint64,
 	details apiserver.Details,
 ) (uint64, error) {
@@ -157,7 +160,7 @@ func (w *Worker) updateConfiguration(
 	return prevIndex, nil
 }
 
-func (w *Worker) configOps(configuredServers, newServers map[raft.ServerID]raft.ServerAddress) []configOp {
+func (w *Worker) configOps(configuredServers map[raft.ServerID]*raft.Server, newServers map[raft.ServerID]raft.ServerAddress) []configOp {
 	if len(newServers) == 0 {
 		logger.Infof("peergrouper reported 0 API server addresses; not removing all servers from cluster")
 		return nil
@@ -166,48 +169,106 @@ func (w *Worker) configOps(configuredServers, newServers map[raft.ServerID]raft.
 	// returns the local address.
 	localAddr := w.config.Raft.Leader()
 
-	// Add new servers first, then remove old servers,
-	// and finish by changing addresses. If the local
-	// server is to be removed, we do that last, to
-	// ensure that the other servers can communicate
-	// amongst themselves.
+	// Add new servers and update addresses first, then remove old
+	// servers. If the local server is to be removed, we demote it
+	// last, to ensure that the other servers can elect a leader
+	// amongst themselves and then remove this server.
 	var ops []configOp
 	for id, newAddr := range newServers {
-		if oldAddr, ok := configuredServers[id]; ok {
-			if oldAddr == newAddr {
+		if server, ok := configuredServers[id]; ok {
+			if server.Address == newAddr {
 				continue
 			}
-			logger.Infof("server %q address changed from %q to %q", id, oldAddr, newAddr)
+			logger.Infof("server %q (%s) address changed from %q to %q", id, server.Suffrage, server.Address, newAddr)
+			// Update the address of the server but take care not to
+			// change its suffrage.
+			server.Address = newAddr
+			if server.Suffrage == raft.Voter {
+				ops = append(ops, w.addVoterOp(id, newAddr))
+			} else {
+				ops = append(ops, w.addNonvoterOp(id, newAddr))
+			}
 		} else {
 			logger.Infof("server %q added with address %q", id, newAddr)
+			ops = append(ops, w.addVoterOp(id, newAddr))
+			configuredServers[id] = &raft.Server{
+				ID:       id,
+				Address:  newAddr,
+				Suffrage: raft.Voter,
+			}
 		}
-		// NOTE(axw) the docs for AddVoter say that it is ineffective
-		// if the server is already a voting member, but that is not
-		// correct. Calling AddVoter will update the address for an
-		// existing entry.
-		ops = append(ops, w.addVoterOp(id, newAddr))
-		configuredServers[id] = newAddr
 	}
-	var removeLocal raft.ServerID
-	for id, oldAddr := range configuredServers {
+	var demoteLocal *raft.Server
+	for id, server := range configuredServers {
 		if _, ok := newServers[id]; ok {
 			continue
 		}
-		logger.Infof("server %q removed", id)
-		delete(configuredServers, id)
-		if oldAddr == localAddr {
-			removeLocal = id
+		if server.Address == localAddr {
+			demoteLocal = server
 			continue
 		}
+		delete(configuredServers, id)
+		logger.Infof("server %q removed", id)
 		ops = append(ops, w.removeServerOp(id))
 	}
-	if removeLocal != "" {
-		// The local (leader) server was removed, so we remove
-		// it from the raft configuration. This will prompt
-		// another server to become leader.
-		ops = append(ops, w.removeServerOp(removeLocal))
+	if demoteLocal != nil {
+		// The local (leader) server was removed, so we demote it in
+		// the raft configuration. This will prompt another server to
+		// become leader, and they can then remove it and make any
+		// other changes needed (like ensuring an odd number of
+		// voters).
+		logger.Infof("leader %q being removed - demoting so the new leader can remove it", demoteLocal.ID)
+		demoteLocal.Suffrage = raft.Nonvoter
+		ops = append(ops, w.demoteVoterOp(demoteLocal.ID))
+		return ops
 	}
+
+	// Prevent there from being an even number of voters, to avoid
+	// problems from having a split quorum (especially in the case of
+	// 2).
+	correctionOps := w.correctVoterCountOps(configuredServers, localAddr)
+	ops = append(ops, correctionOps...)
 	return ops
+}
+
+func (w *Worker) correctVoterCountOps(configuredServers map[raft.ServerID]*raft.Server, localAddr raft.ServerAddress) []configOp {
+	var voters, nonvoters []*raft.Server
+	for _, server := range configuredServers {
+		if server.Suffrage == raft.Nonvoter {
+			nonvoters = append(nonvoters, server)
+		} else {
+			voters = append(voters, server)
+		}
+	}
+
+	// We should have at most one nonvoter, bail if we have more than
+	// expected.
+	if len(nonvoters) > 1 {
+		logger.Errorf("expected at most one nonvoter, found %d: %#v", len(nonvoters), nonvoters)
+		return nil
+	}
+
+	needNonvoter := len(configuredServers)%2 == 0
+	if !needNonvoter && len(nonvoters) == 1 {
+		promote := nonvoters[0]
+		logger.Infof("promoting nonvoter %q to maintain odd voter count", promote.ID)
+		promote.Suffrage = raft.Voter
+		return []configOp{w.addVoterOp(promote.ID, promote.Address)}
+	}
+	if needNonvoter && len(nonvoters) == 0 {
+		// Find a voter that isn't us and demote it.
+		for _, voter := range voters {
+			if voter.Address == localAddr {
+				continue
+			}
+			logger.Infof("demoting voter %q to maintain odd voter count", voter.ID)
+			voter.Suffrage = raft.Nonvoter
+			return []configOp{w.demoteVoterOp(voter.ID)}
+		}
+	}
+
+	// No correction needed.
+	return nil
 }
 
 type configOp func(prevIndex uint64) raft.IndexFuture
@@ -221,6 +282,18 @@ func (w *Worker) removeServerOp(id raft.ServerID) configOp {
 func (w *Worker) addVoterOp(id raft.ServerID, addr raft.ServerAddress) configOp {
 	return func(prevIndex uint64) raft.IndexFuture {
 		return w.config.Raft.AddVoter(id, addr, prevIndex, 0)
+	}
+}
+
+func (w *Worker) addNonvoterOp(id raft.ServerID, addr raft.ServerAddress) configOp {
+	return func(prevIndex uint64) raft.IndexFuture {
+		return w.config.Raft.AddNonvoter(id, addr, prevIndex, 0)
+	}
+}
+
+func (w *Worker) demoteVoterOp(id raft.ServerID) configOp {
+	return func(prevIndex uint64) raft.IndexFuture {
+		return w.config.Raft.DemoteVoter(id, prevIndex, 0)
 	}
 }
 
