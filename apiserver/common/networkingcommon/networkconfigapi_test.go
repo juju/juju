@@ -36,6 +36,7 @@ func (s *networkConfigSuite) SetUpTest(c *gc.C) {
 
 	s.networkconfig = networkingcommon.NewNetworkConfigAPI(
 		s.State,
+		context.NewCloudCallContext(),
 		common.AuthAlways(),
 	)
 }
@@ -71,7 +72,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfig(c *gc.C) {
 		Config: observedConfig,
 	}
 
-	err = s.networkconfig.SetObservedNetworkConfig(context.NewCloudCallContext(), args)
+	err = s.networkconfig.SetObservedNetworkConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	devices, err = s.machine.AllLinkLayerDevices()
@@ -91,7 +92,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigPermissions(c *gc.C) {
 		Config: nil,
 	}
 
-	err := s.networkconfig.SetObservedNetworkConfig(context.NewCloudCallContext(), args)
+	err := s.networkconfig.SetObservedNetworkConfig(args)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -107,7 +108,7 @@ func (s *networkConfigSuite) TestSetProviderNetworkConfig(c *gc.C) {
 		{Tag: s.machine.Tag().String()},
 	}}
 
-	result, err := s.networkconfig.SetProviderNetworkConfig(context.NewCloudCallContext(), args)
+	result, err := s.networkconfig.SetProviderNetworkConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{nil}},
@@ -134,7 +135,7 @@ func (s *networkConfigSuite) TestSetProviderNetworkConfigPermissions(c *gc.C) {
 		{Tag: "machine-42"},
 	}}
 
-	result, err := s.networkconfig.SetProviderNetworkConfig(context.NewCloudCallContext(), args)
+	result, err := s.networkconfig.SetProviderNetworkConfig(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
