@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
@@ -55,8 +56,8 @@ func (m *mockMachine) SetMachineAddresses(addresses []network.Address) error {
 	return m.NextErr()
 }
 
-func (m *mockMachine) SetObservedNetworkConfig(netConfig []params.NetworkConfig) error {
-	m.MethodCall(m, "SetObservedNetworkConfig", netConfig)
+func (m *mockMachine) SetObservedNetworkConfig(ctx context.ProviderCallContext, netConfig []params.NetworkConfig) error {
+	m.MethodCall(m, "SetObservedNetworkConfig", ctx, netConfig)
 	return m.NextErr()
 }
 

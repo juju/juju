@@ -22,19 +22,22 @@ import (
 type NetworkConfigAPI struct {
 	st           *state.State
 	getCanModify common.GetAuthFunc
+
+	callContext context.ProviderCallContext
 }
 
-func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) *NetworkConfigAPI {
+func NewNetworkConfigAPI(st *state.State, callCtx context.ProviderCallContext, getCanModify common.GetAuthFunc) *NetworkConfigAPI {
 	return &NetworkConfigAPI{
 		st:           st,
 		getCanModify: getCanModify,
+		callContext:  callCtx,
 	}
 }
 
 // SetObservedNetworkConfig reads the network config for the machine identified
 // by the input args. This config is merged with the new network config supplied
 // in the same args and updated if it has changed.
-func (api *NetworkConfigAPI) SetObservedNetworkConfig(ctx context.ProviderCallContext, args params.SetMachineNetworkConfig) error {
+func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetworkConfig) error {
 	m, err := api.getMachineForSettingNetworkConfig(args.Tag)
 	if err != nil {
 		return errors.Trace(err)
@@ -49,7 +52,7 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(ctx context.ProviderCallCo
 		return nil
 	}
 
-	providerConfig, err := api.getOneMachineProviderNetworkConfig(ctx, m)
+	providerConfig, err := api.getOneMachineProviderNetworkConfig(m)
 	if errors.IsNotProvisioned(err) {
 		logger.Infof("not updating machine %q network config: %v", m.Id(), err)
 		return nil
@@ -108,7 +111,7 @@ func (api *NetworkConfigAPI) fixUpFanSubnets(networkConfig []params.NetworkConfi
 
 // SetProviderNetworkConfig sets the provider supplied network configuration
 // contained in the input args against each machine supplied with said args.
-func (api *NetworkConfigAPI) SetProviderNetworkConfig(ctx context.ProviderCallContext, args params.Entities) (params.ErrorResults, error) {
+func (api *NetworkConfigAPI) SetProviderNetworkConfig(args params.Entities) (params.ErrorResults, error) {
 	logger.Tracef("SetProviderNetworkConfig %+v", args)
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
@@ -125,7 +128,7 @@ func (api *NetworkConfigAPI) SetProviderNetworkConfig(ctx context.ProviderCallCo
 			continue
 		}
 
-		providerConfig, err := api.getOneMachineProviderNetworkConfig(ctx, m)
+		providerConfig, err := api.getOneMachineProviderNetworkConfig(m)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -178,7 +181,7 @@ func (api *NetworkConfigAPI) getMachine(tag names.MachineTag) (*state.Machine, e
 	return entity.(*state.Machine), nil
 }
 
-func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(ctx context.ProviderCallContext, m *state.Machine) ([]params.NetworkConfig, error) {
+func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine) ([]params.NetworkConfig, error) {
 	manual, err := m.IsManual()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -211,7 +214,7 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(ctx context.Prov
 		return nil, errors.Trace(err)
 	}
 
-	interfaceInfos, err := netEnviron.NetworkInterfaces(ctx, instId)
+	interfaceInfos, err := netEnviron.NetworkInterfaces(api.callContext, instId)
 	if errors.IsNotSupported(err) {
 		// It's possible to have a networking environ, but not support
 		// NetworkInterfaces(). In leiu of adding SupportsNetworkInterfaces():

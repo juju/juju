@@ -115,6 +115,8 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
+
+	callCtx := context.NewCloudCallContext()
 	return &ProvisionerAPI{
 		Remover:                 common.NewRemover(st, false, getAuthFunc),
 		StatusSetter:            common.NewStatusSetter(st, getAuthFunc),
@@ -130,7 +132,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		InstanceIdGetter:        common.NewInstanceIdGetter(st, getAuthFunc),
 		ToolsFinder:             common.NewToolsFinder(configGetter, st, urlGetter),
 		ToolsGetter:             common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),
-		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, getCanModify),
+		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, callCtx, getCanModify),
 		st:                      st,
 		m:                       model,
 		resources:               resources,
@@ -140,7 +142,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		storagePoolManager:      poolmanager.New(state.NewStateSettings(st), storageProviderRegistry),
 		getAuthFunc:             getAuthFunc,
 		getCanModify:            getCanModify,
-		providerCallContext:     context.NewCloudCallContext(),
+		providerCallContext:     callCtx,
 	}, nil
 }
 
@@ -1134,7 +1136,7 @@ func (p *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess c
 }
 
 func (p *ProvisionerAPI) SetHostMachineNetworkConfig(args params.SetMachineNetworkConfig) error {
-	return p.SetObservedNetworkConfig(p.providerCallContext, args)
+	return p.SetObservedNetworkConfig(args)
 }
 
 // CACert returns the certificate used to validate the state connection.
