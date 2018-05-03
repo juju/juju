@@ -3,7 +3,7 @@
 set -xe
 
 juju-log "db relation removed, shutting down"
-rm -f db-connected
+rm -f "${CHARM_DIR}/db-connected"
 rm -f /etc/mediawiki/LocalSettings.php
 
 

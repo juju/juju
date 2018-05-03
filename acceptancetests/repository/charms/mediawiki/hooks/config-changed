@@ -101,7 +101,7 @@ service apache2 reload
 
 application-version-set $(dpkg -s mediawiki | grep '^Version:' | awk -F':' '{print $3}' | cut -d+ -f1)
 
-if [ -f db-connected ]; then
+if [ -f "${CHARM_DIR}/db-connected" ]; then
     status-set active "Ready"
 else
     status-set blocked "Database required"
