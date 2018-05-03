@@ -6,6 +6,7 @@ package environs
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -35,6 +36,7 @@ func Open(p EnvironProvider, args OpenParams) (Environ, error) {
 func Destroy(
 	controllerName string,
 	env Environ,
+	ctx context.ProviderCallContext,
 	store jujuclient.ControllerStore,
 ) error {
 	details, err := store.ControllerByName(controllerName)
@@ -44,7 +46,7 @@ func Destroy(
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	if err := env.DestroyController(details.ControllerUUID); err != nil {
+	if err := env.DestroyController(ctx, details.ControllerUUID); err != nil {
 		return errors.Trace(err)
 	}
 	err = store.RemoveController(controllerName)

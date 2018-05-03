@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api"
 	apiinstancepoller "github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -181,7 +182,7 @@ func (s *workerSuite) setupScenario(c *gc.C) ([]*apiinstancepoller.Machine, []in
 		apiMachine, err := s.api.Machine(names.NewMachineTag(m.Id()))
 		c.Assert(err, jc.ErrorIsNil)
 		machines = append(machines, apiMachine)
-		inst, _ := testing.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), m.Id())
+		inst, _ := testing.AssertStartInstance(c, s.Environ, context.NewCloudCallContext(), s.ControllerConfig.ControllerUUID(), m.Id())
 		insts = append(insts, inst)
 	}
 	// Associate the odd-numbered machines with an instance.

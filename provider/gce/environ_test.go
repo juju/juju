@@ -76,7 +76,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	params := environs.BootstrapParams{
 		ControllerConfig: testing.FakeControllerConfig(),
 	}
-	result, err := s.Env.Bootstrap(ctx, params)
+	result, err := s.Env.Bootstrap(ctx, s.CallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Arch, gc.Equals, "amd64")
@@ -107,7 +107,7 @@ func (s *environSuite) checkAPIPorts(c *gc.C, config controller.Config, expected
 	params := environs.BootstrapParams{
 		ControllerConfig: config,
 	}
-	_, err := s.Env.Bootstrap(ctx, params)
+	_, err := s.Env.Bootstrap(ctx, s.CallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	called, calls := s.FakeConn.WasCalled("OpenPorts")
@@ -127,7 +127,7 @@ func (s *environSuite) TestBootstrapCommon(c *gc.C) {
 	params := environs.BootstrapParams{
 		ControllerConfig: testing.FakeControllerConfig(),
 	}
-	_, err := s.Env.Bootstrap(ctx, params)
+	_, err := s.Env.Bootstrap(ctx, s.CallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
@@ -141,13 +141,13 @@ func (s *environSuite) TestBootstrapCommon(c *gc.C) {
 }
 
 func (s *environSuite) TestDestroy(c *gc.C) {
-	err := s.Env.Destroy()
+	err := s.Env.Destroy(s.CallCtx)
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environSuite) TestDestroyAPI(c *gc.C) {
-	err := s.Env.Destroy()
+	err := s.Env.Destroy(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)

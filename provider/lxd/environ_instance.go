@@ -10,6 +10,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/tools/lxdclient"
@@ -20,7 +21,7 @@ import (
 // instances, the result at the corresponding index will be nil. In that
 // case the error will be environs.ErrPartialInstances (or
 // ErrNoInstances if none of the IDs match an instance).
-func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
+func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -94,7 +95,7 @@ func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error)
 
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
-func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
+func (env *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	instances, err := env.raw.Instances("juju-", lxdclient.AliveStatuses...)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -127,8 +128,8 @@ func (env *environ) parsePlacement(placement string) (*instPlacement, error) {
 
 // AdoptResources updates the controller tags on all instances to have the
 // new controller id. It's part of the Environ interface.
-func (env *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
-	instances, err := env.AllInstances()
+func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+	instances, err := env.AllInstances(ctx)
 	if err != nil {
 		return errors.Annotate(err, "all instances")
 	}

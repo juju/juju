@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -38,6 +39,7 @@ type subnetsAPI struct {
 	backing    networkingcommon.NetworkBacking
 	resources  facade.Resources
 	authorizer facade.Authorizer
+	context    context.ProviderCallContext
 }
 
 // NewAPI creates a new Subnets API server-side facade with a
@@ -47,7 +49,7 @@ func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (Subn
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newAPIWithBacking(stateshim, res, auth)
+	return newAPIWithBacking(stateshim, context.NewCloudCallContext(), res, auth)
 }
 
 func (api *subnetsAPI) checkCanRead() error {
@@ -74,7 +76,7 @@ func (api *subnetsAPI) checkCanWrite() error {
 
 // newAPIWithBacking creates a new server-side Subnets API facade with
 // a common.NetworkBacking
-func newAPIWithBacking(backing networkingcommon.NetworkBacking, resources facade.Resources, authorizer facade.Authorizer) (SubnetsAPI, error) {
+func newAPIWithBacking(backing networkingcommon.NetworkBacking, ctx context.ProviderCallContext, resources facade.Resources, authorizer facade.Authorizer) (SubnetsAPI, error) {
 	// Only clients can access the Subnets facade.
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -83,6 +85,7 @@ func newAPIWithBacking(backing networkingcommon.NetworkBacking, resources facade
 		backing:    backing,
 		resources:  resources,
 		authorizer: authorizer,
+		context:    ctx,
 	}, nil
 }
 
@@ -91,7 +94,7 @@ func (api *subnetsAPI) AllZones() (params.ZoneResults, error) {
 	if err := api.checkCanRead(); err != nil {
 		return params.ZoneResults{}, err
 	}
-	return networkingcommon.AllZones(api.backing)
+	return networkingcommon.AllZones(api.context, api.backing)
 }
 
 // AllSpaces is defined on the API interface.
@@ -122,7 +125,7 @@ func (api *subnetsAPI) AddSubnets(args params.AddSubnetsParams) (params.ErrorRes
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
-	return networkingcommon.AddSubnets(api.backing, args)
+	return networkingcommon.AddSubnets(api.context, api.backing, args)
 }
 
 // ListSubnets lists all the available subnets or only those matching

@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
@@ -63,6 +64,7 @@ type CommonProvisionerSuite struct {
 
 	st          api.Connection
 	provisioner *apiprovisioner.State
+	callCtx     context.ProviderCallContext
 }
 
 func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C, p provisioner.Provisioner) {
@@ -146,11 +148,13 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg
 
+	s.callCtx = context.NewCloudCallContext()
+
 	// Create a machine for the dummy bootstrap instance,
 	// so the provisioner doesn't destroy it.
-	insts, err := s.Environ.Instances([]instance.Id{dummy.BootstrapInstanceId})
+	insts, err := s.Environ.Instances(s.callCtx, []instance.Id{dummy.BootstrapInstanceId})
 	c.Assert(err, jc.ErrorIsNil)
-	addrs, err := insts[0].Addresses()
+	addrs, err := insts[0].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Addresses:  addrs,
@@ -180,10 +184,11 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Logf("API: login as %q successful", machine.Tag())
 	s.provisioner = apiprovisioner.NewState(s.st)
 	c.Assert(s.provisioner, gc.NotNil)
+
 }
 
 func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instance.Instance {
-	instance, _ := testing.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), id)
+	instance, _ := testing.AssertStartInstance(c, s.Environ, s.callCtx, s.ControllerConfig.ControllerUUID(), id)
 	select {
 	case o := <-s.op:
 		switch o := o.(type) {
@@ -1356,6 +1361,7 @@ func (s *ProvisionerSuite) newProvisionerTaskWithRetryStrategy(
 		auth,
 		imagemetadata.ReleasedStream,
 		retryStrategy,
+		s.callCtx,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
@@ -1964,8 +1970,8 @@ type mockNoZonedEnvironBroker struct {
 	environs.Environ
 }
 
-func (b *mockNoZonedEnvironBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	return b.Environ.StartInstance(args)
+func (b *mockNoZonedEnvironBroker) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	return b.Environ.StartInstance(ctx, args)
 }
 
 type mockBroker struct {
@@ -1982,7 +1988,7 @@ type mockBrokerFailures struct {
 	whenSucceed int
 }
 
-func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (b *mockBroker) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// All machines are provisioned successfully the first time unless
 	// mock.startInstanceFailureInfo is configured.
 	//
@@ -1997,7 +2003,7 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (*environs
 		returnError = failureInfo.err
 	}
 	if retries == whenSucceed {
-		return b.Environ.StartInstance(args)
+		return b.Environ.StartInstance(ctx, args)
 	} else {
 		b.retryCount[id] = retries + 1
 	}
@@ -2014,22 +2020,22 @@ func (b *mockBroker) getRetryCount(id string) int {
 // ZonedEnviron necessary for provisionerTask.populateAvailabilityZoneMachines where
 // mockBroker used.
 
-func (b *mockBroker) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {
-	return b.Environ.(providercommon.ZonedEnviron).AvailabilityZones()
+func (b *mockBroker) AvailabilityZones(ctx context.ProviderCallContext) ([]providercommon.AvailabilityZone, error) {
+	return b.Environ.(providercommon.ZonedEnviron).AvailabilityZones(ctx)
 }
 
-func (b *mockBroker) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
-	return b.Environ.(providercommon.ZonedEnviron).InstanceAvailabilityZoneNames(ids)
+func (b *mockBroker) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+	return b.Environ.(providercommon.ZonedEnviron).InstanceAvailabilityZoneNames(ctx, ids)
 }
 
-func (b *mockBroker) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+func (b *mockBroker) DeriveAvailabilityZones(ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
 	id := args.InstanceConfig.MachineId
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if derivedAZ, ok := b.derivedAZ[id]; ok {
 		return derivedAZ, nil
 	}
-	return b.Environ.(providercommon.ZonedEnviron).DeriveAvailabilityZones(args)
+	return b.Environ.(providercommon.ZonedEnviron).DeriveAvailabilityZones(ctx, args)
 }
 
 type mockToolsFinder struct {

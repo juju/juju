@@ -29,6 +29,7 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo/mongotest"
@@ -154,7 +155,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a machine and ensure it is provisioned.
-	inst, md := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), machineId)
+	inst, md := jujutesting.AssertStartInstance(c, s.Environ, context.NewCloudCallContext(), s.ControllerConfig.ControllerUUID(), machineId)
 	c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), jc.ErrorIsNil)
 
 	// Add an address for the tests in case the initiateMongoServer
@@ -250,7 +251,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	// runs it won't overwrite them.
 	instId, err := machine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
-	insts, err := s.Environ.Instances([]instance.Id{instId})
+	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 	dummy.SetInstanceAddresses(insts[0], addrs)
 }
@@ -413,6 +414,6 @@ func (e *minModelWorkersEnviron) SetConfig(*config.Config) error {
 	return nil
 }
 
-func (e *minModelWorkersEnviron) AllInstances() ([]instance.Instance, error) {
+func (e *minModelWorkersEnviron) AllInstances(context.ProviderCallContext) ([]instance.Instance, error) {
 	return nil, nil
 }

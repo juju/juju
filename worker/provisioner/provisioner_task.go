@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
@@ -81,6 +82,7 @@ func NewProvisionerTask(
 	auth authentication.AuthenticationProvider,
 	imageStream string,
 	retryStartInstanceStrategy RetryStrategy,
+	cloudCallContext context.ProviderCallContext,
 ) (ProvisionerTask, error) {
 	machineChanges := machineWatcher.Changes()
 	workers := []worker.Worker{machineWatcher}
@@ -105,6 +107,7 @@ func NewProvisionerTask(
 		availabilityZoneMachines:   make([]*AvailabilityZoneMachine, 0),
 		imageStream:                imageStream,
 		retryStartInstanceStrategy: retryStartInstanceStrategy,
+		cloudCallCtx:               cloudCallContext,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &task.catacomb,
@@ -144,6 +147,7 @@ type provisionerTask struct {
 	machines                 map[string]*apiprovisioner.Machine
 	machinesMutex            sync.RWMutex
 	availabilityZoneMachines []*AvailabilityZoneMachine
+	cloudCallCtx             context.ProviderCallContext
 }
 
 // Kill implements worker.Worker.Kill.
@@ -326,7 +330,7 @@ func instanceIds(instances []instance.Instance) []string {
 func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	task.instances = make(map[instance.Id]instance.Instance)
 
-	instances, err := task.broker.AllInstances()
+	instances, err := task.broker.AllInstances(task.cloudCallCtx)
 	if err != nil {
 		return errors.Annotate(err, "failed to get all instances from broker")
 	}
@@ -528,7 +532,7 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 	for i, inst := range instances {
 		ids[i] = inst.Id()
 	}
-	if err := task.broker.StopInstances(ids...); err != nil {
+	if err := task.broker.StopInstances(task.cloudCallCtx, ids...); err != nil {
 		return errors.Annotate(err, "broker failed to stop instances")
 	}
 	return nil
@@ -716,7 +720,7 @@ func (task *provisionerTask) maintainMachines(machines []*apiprovisioner.Machine
 		startInstanceParams := environs.StartInstanceParams{}
 		startInstanceParams.InstanceConfig = &instancecfg.InstanceConfig{}
 		startInstanceParams.InstanceConfig.MachineId = m.Id()
-		if err := task.broker.MaintainInstance(startInstanceParams); err != nil {
+		if err := task.broker.MaintainInstance(task.cloudCallCtx, startInstanceParams); err != nil {
 			return errors.Annotatef(err, "cannot maintain machine %v", m)
 		}
 	}
@@ -756,7 +760,7 @@ func (task *provisionerTask) populateAvailabilityZoneMachines() error {
 
 	// In this case, AvailabilityZoneAllocations() will return all of the "available"
 	// availability zones and their instance allocations.
-	availabilityZoneInstances, err := providercommon.AvailabilityZoneAllocations(zonedEnv, []instance.Id{})
+	availabilityZoneInstances, err := providercommon.AvailabilityZoneAllocations(zonedEnv, task.cloudCallCtx, []instance.Id{})
 	if err != nil {
 		return err
 	}
@@ -1002,7 +1006,7 @@ func (task *provisionerTask) populateExcludedMachines(machineId string, startIns
 	if !ok {
 		return nil
 	}
-	derivedZones, err := zonedEnv.DeriveAvailabilityZones(startInstanceParams)
+	derivedZones, err := zonedEnv.DeriveAvailabilityZones(task.cloudCallCtx, startInstanceParams)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1064,7 +1068,7 @@ func (task *provisionerTask) startMachine(
 			logger.Infof("trying machine %s StartInstance in availability zone %s", machine, startInstanceParams.AvailabilityZone)
 		}
 
-		attemptResult, err := task.broker.StartInstance(startInstanceParams)
+		attemptResult, err := task.broker.StartInstance(task.cloudCallCtx, startInstanceParams)
 		if err == nil {
 			result = attemptResult
 			break
@@ -1139,7 +1143,7 @@ func (task *provisionerTask) startMachine(
 		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {
 			logger.Errorf("%v", errors.Annotate(err2, "cannot set machine's status"))
 		}
-		if err2 := task.broker.StopInstances(result.Instance.Id()); err2 != nil {
+		if err2 := task.broker.StopInstances(task.cloudCallCtx, result.Instance.Id()); err2 != nil {
 			logger.Errorf("%v", errors.Annotate(err2, "after failing to set instance info"))
 		}
 		return errors.Annotate(err, "cannot set instance info")

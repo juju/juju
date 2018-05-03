@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -931,7 +932,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 // bootstrap will stop immediately. Nothing will be destroyed.
 func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	destroyed := false
-	s.PatchValue(&environsDestroy, func(name string, _ environs.Environ, _ jujuclient.ControllerStore) error {
+	s.PatchValue(&environsDestroy, func(name string, _ environs.Environ, _ context.ProviderCallContext, _ jujuclient.ControllerStore) error {
 		c.Assert(name, gc.Equals, "decontroller")
 		destroyed = true
 		return nil

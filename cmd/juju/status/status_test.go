@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
@@ -3032,7 +3033,7 @@ func (sm startMachine) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := ctx.st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, environscontext.NewCloudCallContext(), cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -3048,7 +3049,7 @@ func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := ctx.st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
+	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, environscontext.NewCloudCallContext(), cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned("i-missing", "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	// lp:1558657
@@ -3074,7 +3075,7 @@ func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := ctx.st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, environscontext.NewCloudCallContext(), cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.pingers[m.Id()] = pinger
@@ -3093,7 +3094,7 @@ func (sm startMachineWithHardware) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := ctx.st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
+	inst, _ := testing.AssertStartInstanceWithConstraints(c, ctx.env, environscontext.NewCloudCallContext(), cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", &sm.hc)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.pingers[m.Id()] = pinger

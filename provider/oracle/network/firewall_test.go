@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oracle/network"
 	providertest "github.com/juju/juju/provider/oracle/testing"
@@ -22,9 +23,17 @@ import (
 
 type firewallSuite struct {
 	gitjujutesting.IsolationSuite
+
+	callCtx context.ProviderCallContext
 }
 
 var _ = gc.Suite(&firewallSuite{})
+
+func (f *firewallSuite) SetUpTest(c *gc.C) {
+	f.IsolationSuite.SetUpTest(c)
+	f.callCtx = context.NewCloudCallContext()
+}
+
 var clk = gitjujutesting.NewClock(time.Time{})
 var advancingClock = gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
 
@@ -52,7 +61,7 @@ func (f *firewallSuite) TestGlobalIngressRules(c *gc.C) {
 	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
 	c.Assert(firewall, gc.NotNil)
 
-	rule, err := firewall.GlobalIngressRules()
+	rule, err := firewall.GlobalIngressRules(f.callCtx)
 	c.Assert(err, gc.IsNil)
 	c.Assert(rule, gc.NotNil)
 }
@@ -63,7 +72,7 @@ func (f *firewallSuite) TestIngressRules(c *gc.C) {
 	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
 	c.Assert(firewall, gc.NotNil)
 
-	rule, err := firewall.IngressRules()
+	rule, err := firewall.IngressRules(f.callCtx)
 	c.Assert(err, gc.IsNil)
 	c.Assert(rule, gc.NotNil)
 }
@@ -107,7 +116,7 @@ func (f *firewallSuite) TestIngressRulesWithErrors(c *gc.C) {
 		firewall := network.NewFirewall(cfg, fake, &advancingClock)
 		c.Assert(firewall, gc.NotNil)
 
-		rule, err := firewall.IngressRules()
+		rule, err := firewall.IngressRules(f.callCtx)
 		c.Assert(err, gc.NotNil)
 		c.Assert(rule, gc.IsNil)
 	}
@@ -150,7 +159,7 @@ func (f *firewallSuite) TestGlobalIngressRulesWithErrors(c *gc.C) {
 		firewall := network.NewFirewall(cfg, fake, &advancingClock)
 		c.Assert(firewall, gc.NotNil)
 
-		rule, err := firewall.GlobalIngressRules()
+		rule, err := firewall.GlobalIngressRules(f.callCtx)
 		c.Assert(err, gc.NotNil)
 		c.Assert(rule, gc.IsNil)
 	}
@@ -166,7 +175,7 @@ func (f *firewallSuite) TestOpenPorts(c *gc.C) {
 	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
 	c.Assert(firewall, gc.NotNil)
 
-	err := firewall.OpenPorts([]jujunetwork.IngressRule{})
+	err := firewall.OpenPorts(f.callCtx, []jujunetwork.IngressRule{})
 	c.Assert(err, gc.IsNil)
 
 }
@@ -227,7 +236,7 @@ func (f *firewallSuite) TestOpenPortsWithErrors(c *gc.C) {
 		firewall := network.NewFirewall(cfg, fake, &advancingClock)
 		c.Assert(firewall, gc.NotNil)
 
-		err := firewall.OpenPorts([]jujunetwork.IngressRule{})
+		err := firewall.OpenPorts(f.callCtx, []jujunetwork.IngressRule{})
 		c.Assert(err, gc.NotNil)
 	}
 
@@ -236,7 +245,7 @@ func (f *firewallSuite) TestOpenPortsWithErrors(c *gc.C) {
 	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
 	c.Assert(firewall, gc.NotNil)
 
-	err := firewall.OpenPorts([]jujunetwork.IngressRule{})
+	err := firewall.OpenPorts(f.callCtx, []jujunetwork.IngressRule{})
 	c.Assert(err, gc.NotNil)
 }
 
@@ -246,7 +255,7 @@ func (f *firewallSuite) TestClosePorts(c *gc.C) {
 	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
 	c.Assert(firewall, gc.NotNil)
 
-	err := firewall.ClosePorts([]jujunetwork.IngressRule{})
+	err := firewall.ClosePorts(f.callCtx, []jujunetwork.IngressRule{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -427,7 +436,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 		firewall := network.NewFirewall(cfg, fake, &advancingClock)
 		c.Assert(firewall, gc.NotNil)
 
-		err := firewall.ClosePorts([]jujunetwork.IngressRule{
+		err := firewall.ClosePorts(f.callCtx, []jujunetwork.IngressRule{
 			jujunetwork.IngressRule{
 				PortRange: jujunetwork.PortRange{
 					FromPort: 0,
@@ -617,7 +626,7 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 		firewall := network.NewFirewall(cfg, fake, &advancingClock)
 		c.Assert(firewall, gc.NotNil)
 
-		err := firewall.ClosePortsOnInstance("0,", []jujunetwork.IngressRule{
+		err := firewall.ClosePortsOnInstance(f.callCtx, "0,", []jujunetwork.IngressRule{
 			jujunetwork.IngressRule{
 				PortRange: jujunetwork.PortRange{
 					FromPort: 0,
@@ -636,7 +645,7 @@ func (f *firewallSuite) TestMachineIngressRules(c *gc.C) {
 	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
 	c.Assert(firewall, gc.NotNil)
 
-	rules, err := firewall.MachineIngressRules("0")
+	rules, err := firewall.MachineIngressRules(f.callCtx, "0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(rules, gc.NotNil)
 }
@@ -685,7 +694,7 @@ func (f *firewallSuite) TestMachineIngressRulesWithErrors(c *gc.C) {
 		firewall := network.NewFirewall(cfg, fake, &advancingClock)
 		c.Assert(firewall, gc.NotNil)
 
-		_, err := firewall.MachineIngressRules("0")
+		_, err := firewall.MachineIngressRules(f.callCtx, "0")
 		c.Assert(err, gc.NotNil)
 	}
 }
@@ -695,7 +704,7 @@ func (f *firewallSuite) TestOpenPortsOnInstance(c *gc.C) {
 	firewall := network.NewFirewall(cfg, providertest.DefaultFakeFirewallAPI, &advancingClock)
 	c.Assert(firewall, gc.NotNil)
 
-	err := firewall.OpenPortsOnInstance("0", []jujunetwork.IngressRule{})
+	err := firewall.OpenPortsOnInstance(f.callCtx, "0", []jujunetwork.IngressRule{})
 	c.Assert(err, gc.IsNil)
 
 }
@@ -753,7 +762,7 @@ func (f *firewallSuite) TestOpenPortsOnInstanceWithErrors(c *gc.C) {
 		firewall := network.NewFirewall(cfg, fake, &advancingClock)
 		c.Assert(firewall, gc.NotNil)
 
-		err := firewall.OpenPortsOnInstance("0", []jujunetwork.IngressRule{})
+		err := firewall.OpenPortsOnInstance(f.callCtx, "0", []jujunetwork.IngressRule{})
 		c.Assert(err, gc.NotNil)
 	}
 }

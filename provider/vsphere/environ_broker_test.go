@@ -100,7 +100,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 		"k1": "v1",
 	}
 
-	result, err := s.env.StartInstance(startInstArgs)
+	result, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Instance, gc.NotNil)
@@ -156,7 +156,7 @@ func (s *environBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := env.StartInstance(s.createStartInstanceArgs(c))
+	result, err := env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
@@ -177,7 +177,7 @@ func (s *environBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	startInstArgs := s.createStartInstanceArgs(c)
-	_, err = env.StartInstance(startInstArgs)
+	_, err = env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	call := s.client.Calls()[1]
 	createVMArgs := call.Args[1].(vsphereclient.CreateVirtualMachineParams)
@@ -192,7 +192,7 @@ func (s *environBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	startInstArgs.Tools[0].Version.Arch = "someArch"
-	_, err := s.env.StartInstance(startInstArgs)
+	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, gc.ErrorMatches, "no matching images found for given constraints: .*")
 	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
 }
@@ -216,7 +216,7 @@ func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	res, err := s.env.StartInstance(startInstArgs)
+	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*res.Hardware.Arch, gc.Equals, arch.AMD64)
 	c.Assert(startInstArgs.InstanceConfig.AgentVersion().Arch, gc.Equals, arch.AMD64)
@@ -224,7 +224,7 @@ func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 
 func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
-	res, err := s.env.StartInstance(startInstArgs)
+	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
@@ -250,7 +250,7 @@ func (s *environBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) 
 	startInstArgs.Constraints.Mem = &mem
 	startInstArgs.Constraints.RootDisk = &rootDisk
 
-	res, err := s.env.StartInstance(startInstArgs)
+	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := "amd64"
@@ -268,7 +268,7 @@ func (s *environBrokerSuite) TestStartInstanceCallsFinishMachineConfig(c *gc.C) 
 	s.PatchValue(&vsphere.FinishInstanceConfig, func(mcfg *instancecfg.InstanceConfig, cfg *config.Config) (err error) {
 		return errors.New("FinishMachineConfig called")
 	})
-	_, err := s.env.StartInstance(startInstArgs)
+	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, gc.ErrorMatches, "FinishMachineConfig called")
 }
 
@@ -276,7 +276,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConst
 	startInstArgs := s.createStartInstanceArgs(c)
 	rootDisk := uint64(1000)
 	startInstArgs.Constraints.RootDisk = &rootDisk
-	res, err := s.env.StartInstance(startInstArgs)
+	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB("trusty")*uint64(1024))
 }
@@ -284,7 +284,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConst
 func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	startInstArgs.AvailabilityZone = "z2"
-	_, err := s.env.StartInstance(startInstArgs)
+	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.client.CheckCallNames(c, "ComputeResources", "CreateVirtualMachine", "Close")
@@ -300,7 +300,7 @@ func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 func (s *environBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C) {
 	s.client.SetErrors(nil, errors.New("nope"))
 	startInstArgs := s.createStartInstanceArgs(c)
-	_, err := s.env.StartInstance(startInstArgs)
+	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 
 	s.client.CheckCallNames(c, "ComputeResources", "CreateVirtualMachine", "Close")
@@ -318,7 +318,7 @@ func (s *environBrokerSuite) TestStartInstanceDatastore(c *gc.C) {
 	err = s.env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.env.StartInstance(s.createStartInstanceArgs(c))
+	_, err = s.env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	call := s.client.Calls()[1]
@@ -327,7 +327,7 @@ func (s *environBrokerSuite) TestStartInstanceDatastore(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
-	err := s.env.StopInstances("vm-0", "vm-1")
+	err := s.env.StopInstances(s.callCtx, "vm-0", "vm-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	var paths []string
@@ -347,7 +347,7 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 
 func (s *environBrokerSuite) TestStopInstancesOneFailure(c *gc.C) {
 	s.client.SetErrors(errors.New("bah"))
-	err := s.env.StopInstances("vm-0", "vm-1")
+	err := s.env.StopInstances(s.callCtx, "vm-0", "vm-1")
 
 	s.client.CheckCallNames(c, "RemoveVirtualMachines", "RemoveVirtualMachines", "Close")
 	vmName := path.Base(s.client.Calls()[0].Args[1].(string))
@@ -358,7 +358,7 @@ func (s *environBrokerSuite) TestStopInstancesMultipleFailures(c *gc.C) {
 	err1 := errors.New("bah")
 	err2 := errors.New("bleh")
 	s.client.SetErrors(err1, err2)
-	err := s.env.StopInstances("vm-0", "vm-1")
+	err := s.env.StopInstances(s.callCtx, "vm-0", "vm-1")
 
 	s.client.CheckCallNames(c, "RemoveVirtualMachines", "RemoveVirtualMachines", "Close")
 	vmName1 := path.Base(s.client.Calls()[0].Args[1].(string))

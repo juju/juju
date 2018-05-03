@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -91,23 +92,24 @@ type JujuConnSuite struct {
 	DefaultToolsStorageDir string
 	DefaultToolsStorage    storage.Storage
 
-	ControllerConfig   controller.Config
-	State              *state.State
-	StatePool          *state.StatePool
-	Model              *state.Model
-	IAASModel          *state.IAASModel
-	Environ            environs.Environ
-	APIState           api.Connection
-	apiStates          []api.Connection // additional api.Connections to close on teardown
-	ControllerStore    jujuclient.ClientStore
-	BackingState       *state.State     // The State being used by the API server
-	BackingStatePool   *state.StatePool // The StatePool being used by the API server
-	RootDir            string           // The faked-up root directory.
-	LogDir             string
-	oldHome            string
-	oldJujuXDGDataHome string
-	DummyConfig        testing.Attrs
-	Factory            *factory.Factory
+	ControllerConfig    controller.Config
+	State               *state.State
+	StatePool           *state.StatePool
+	Model               *state.Model
+	IAASModel           *state.IAASModel
+	Environ             environs.Environ
+	APIState            api.Connection
+	apiStates           []api.Connection // additional api.Connections to close on teardown
+	ControllerStore     jujuclient.ClientStore
+	BackingState        *state.State     // The State being used by the API server
+	BackingStatePool    *state.StatePool // The StatePool being used by the API server
+	RootDir             string           // The faked-up root directory.
+	LogDir              string
+	oldHome             string
+	oldJujuXDGDataHome  string
+	DummyConfig         testing.Attrs
+	Factory             *factory.Factory
+	ProviderCallContext context.ProviderCallContext
 }
 
 const AdminSecret = "dummy-secret"
@@ -160,7 +162,7 @@ func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
 }
 
 func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
-	apiInfo, err := environs.APIInfo(s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), s.Environ)
+	apiInfo, err := environs.APIInfo(s.ProviderCallContext, s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), s.Environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
@@ -367,6 +369,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	// Dummy provider uses a random port, which is added to cfg used to create environment.
 	apiPort := dummy.APIPort(environ.Provider())
 	s.ControllerConfig["api-port"] = apiPort
+	s.ProviderCallContext = context.NewCloudCallContext()
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ControllerConfig: s.ControllerConfig,
 		CloudRegion:      "dummy-region",
@@ -408,7 +411,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.IAASModel, err = s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiInfo, err := environs.APIInfo(s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), environ)
+	apiInfo, err := environs.APIInfo(s.ProviderCallContext, s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = AdminSecret

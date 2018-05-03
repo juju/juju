@@ -23,7 +23,7 @@ func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *gc.C) {
 }
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
-	ops := s.Env.UpgradeOperations(environs.UpgradeOperationsParams{})
+	ops := s.Env.UpgradeOperations(s.CallCtx, environs.UpgradeOperationsParams{})
 	c.Assert(ops, gc.HasLen, 1)
 	c.Assert(ops[0].TargetVersion, gc.Equals, 1)
 	c.Assert(ops[0].Steps, gc.HasLen, 1)
@@ -35,10 +35,10 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabels(c *gc.C) 
 	delete(s.BaseDisk.Labels, "juju-controller-uuid")
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
 
-	op0 := s.Env.UpgradeOperations(environs.UpgradeOperationsParams{
+	op0 := s.Env.UpgradeOperations(s.CallCtx, environs.UpgradeOperationsParams{
 		ControllerUUID: "yup",
 	})[0]
-	c.Assert(op0.Steps[0].Run(), jc.ErrorIsNil)
+	c.Assert(op0.Steps[0].Run(s.CallCtx), jc.ErrorIsNil)
 
 	setDiskLabelsCalled, calls := s.FakeConn.WasCalled("SetDiskLabels")
 	c.Assert(setDiskLabelsCalled, jc.IsTrue)
@@ -59,10 +59,10 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabelsNoDescript
 	s.BaseDisk.Description = ""
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
 
-	op0 := s.Env.UpgradeOperations(environs.UpgradeOperationsParams{
+	op0 := s.Env.UpgradeOperations(s.CallCtx, environs.UpgradeOperationsParams{
 		ControllerUUID: "yup",
 	})[0]
-	c.Assert(op0.Steps[0].Run(), jc.ErrorIsNil)
+	c.Assert(op0.Steps[0].Run(s.CallCtx), jc.ErrorIsNil)
 
 	setDiskLabelsCalled, _ := s.FakeConn.WasCalled("SetDiskLabels")
 	c.Assert(setDiskLabelsCalled, jc.IsTrue)
@@ -73,10 +73,10 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationSetDiskLabelsIdempotent
 	// so we should not see a call to SetDiskLabels.
 	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk}
 
-	op0 := s.Env.UpgradeOperations(environs.UpgradeOperationsParams{
+	op0 := s.Env.UpgradeOperations(s.CallCtx, environs.UpgradeOperationsParams{
 		ControllerUUID: "yup",
 	})[0]
-	c.Assert(op0.Steps[0].Run(), jc.ErrorIsNil)
+	c.Assert(op0.Steps[0].Run(s.CallCtx), jc.ErrorIsNil)
 
 	setDiskLabelsCalled, _ := s.FakeConn.WasCalled("SetDiskLabels")
 	c.Assert(setDiskLabelsCalled, jc.IsFalse)

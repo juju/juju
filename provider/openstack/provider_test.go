@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
 
@@ -433,8 +434,9 @@ func (localTests) TestPingInvalidHost(c *gc.C) {
 
 	p, err := environs.Provider("openstack")
 	c.Assert(err, jc.ErrorIsNil)
+	callCtx := context.NewCloudCallContext()
 	for _, t := range tests {
-		err = p.Ping(t)
+		err = p.Ping(callCtx, t)
 		if err == nil {
 			c.Errorf("ping %q: expected error, but got nil.", t)
 			continue
@@ -450,7 +452,7 @@ func (localTests) TestPingNoEndpoint(c *gc.C) {
 	defer server.Close()
 	p, err := environs.Provider("openstack")
 	c.Assert(err, jc.ErrorIsNil)
-	err = p.Ping(server.URL)
+	err = p.Ping(context.NewCloudCallContext(), server.URL)
 	c.Assert(err, gc.ErrorMatches, "No Openstack server running at "+server.URL)
 }
 
@@ -461,7 +463,7 @@ func (localTests) TestPingInvalidResponse(c *gc.C) {
 	defer server.Close()
 	p, err := environs.Provider("openstack")
 	c.Assert(err, jc.ErrorIsNil)
-	err = p.Ping(server.URL)
+	err = p.Ping(context.NewCloudCallContext(), server.URL)
 	c.Assert(err, gc.ErrorMatches, "No Openstack server running at "+server.URL)
 }
 
@@ -534,7 +536,7 @@ func (localTests) TestPingOK(c *gc.C) {
 	defer server.Close()
 	p, err := environs.Provider("openstack")
 	c.Assert(err, jc.ErrorIsNil)
-	err = p.Ping(server.URL)
+	err = p.Ping(context.NewCloudCallContext(), server.URL)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

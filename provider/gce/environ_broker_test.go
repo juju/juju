@@ -88,7 +88,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	s.FakeEnviron.Inst = s.BaseInstance
 	s.FakeEnviron.Hwc = s.hardware
 
-	result, err := s.Env.StartInstance(s.StartInstArgs)
+	result, err := s.Env.StartInstance(s.CallCtx, s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Instance, jc.DeepEquals, s.Instance)
@@ -98,7 +98,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 func (s *environBrokerSuite) TestStartInstanceAvailabilityZoneIndependentError(c *gc.C) {
 	s.FakeEnviron.Err = errors.New("blargh")
 
-	_, err := s.Env.StartInstance(s.StartInstArgs)
+	_, err := s.Env.StartInstance(s.CallCtx, s.StartInstArgs)
 	c.Assert(err, gc.ErrorMatches, "blargh")
 	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
 }
@@ -111,12 +111,12 @@ func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *gc.C) {
 	s.StartInstArgs.VolumeAttachments = []storage.VolumeAttachmentParams{{
 		VolumeId: "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
 	}}
-	derivedZones, err := s.Env.DeriveAvailabilityZones(s.StartInstArgs)
+	derivedZones, err := s.Env.DeriveAvailabilityZones(s.CallCtx, s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(derivedZones, gc.HasLen, 1)
 	s.StartInstArgs.AvailabilityZone = derivedZones[0]
 
-	result, err := s.Env.StartInstance(s.StartInstArgs)
+	result, err := s.Env.StartInstance(s.CallCtx, s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*result.Hardware.AvailabilityZone, gc.Equals, derivedZones[0])
@@ -246,13 +246,13 @@ func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {
 func (s *environBrokerSuite) TestAllInstances(c *gc.C) {
 	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
 
-	insts, err := s.Env.AllInstances()
+	insts, err := s.Env.AllInstances(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(insts, jc.DeepEquals, []instance.Instance{s.Instance})
 }
 
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
-	err := s.Env.StopInstances(s.Instance.Id())
+	err := s.Env.StopInstances(s.CallCtx, s.Instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	called, calls := s.FakeConn.WasCalled("RemoveInstances")

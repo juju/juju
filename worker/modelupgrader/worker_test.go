@@ -14,6 +14,7 @@ import (
 	tomb "gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
@@ -132,9 +133,12 @@ func (*WorkerSuite) TestRunUpgradeOperations(c *gc.C) {
 		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Available, "", nilData}},
 	})
 	mockEnviron.CheckCalls(c, []testing.StubCall{
-		{"UpgradeOperations", []interface{}{environs.UpgradeOperationsParams{
-			ControllerUUID: coretesting.ControllerTag.Id(),
-		}}},
+		{"UpgradeOperations", []interface{}{
+			mockEnviron.callCtxUsed,
+			environs.UpgradeOperationsParams{
+				ControllerUUID: coretesting.ControllerTag.Id(),
+			}},
+		},
 	})
 	mockGateUnlocker.CheckCallNames(c, "Unlock")
 	stepsStub.CheckCallNames(c, "step124_0", "step124_1", "step125")
@@ -242,7 +246,7 @@ func (s mockUpgradeStep) Description() string {
 	return s.description
 }
 
-func (s mockUpgradeStep) Run() error {
+func (s mockUpgradeStep) Run(ctx context.ProviderCallContext) error {
 	return s.run()
 }
 
@@ -300,10 +304,13 @@ type mockEnviron struct {
 	environs.Environ
 	testing.Stub
 	ops []environs.UpgradeOperation
+
+	callCtxUsed context.ProviderCallContext
 }
 
-func (e *mockEnviron) UpgradeOperations(args environs.UpgradeOperationsParams) []environs.UpgradeOperation {
-	e.MethodCall(e, "UpgradeOperations", args)
+func (e *mockEnviron) UpgradeOperations(ctx context.ProviderCallContext, args environs.UpgradeOperationsParams) []environs.UpgradeOperation {
+	e.MethodCall(e, "UpgradeOperations", ctx, args)
+	e.callCtxUsed = ctx
 	e.PopNoErr()
 	return e.ops
 }

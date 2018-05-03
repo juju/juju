@@ -11,6 +11,7 @@ import (
 	"github.com/juju/gomaasapi"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -85,13 +86,13 @@ func convertInstanceStatus(statusMsg, substatus string, id instance.Id) instance
 
 // Status returns a juju status based on the maas instance returned
 // status message.
-func (mi *maas1Instance) Status() instance.InstanceStatus {
+func (mi *maas1Instance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	statusMsg, substatus := mi.statusGetter(mi.Id())
 	return convertInstanceStatus(statusMsg, substatus, mi.Id())
 }
 
-func (mi *maas1Instance) Addresses() ([]network.Address, error) {
-	interfaceAddresses, err := mi.interfaceAddresses()
+func (mi *maas1Instance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+	interfaceAddresses, err := mi.interfaceAddresses(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting node interfaces")
 	}
@@ -110,19 +111,19 @@ var refreshMAASObject = func(maasObject *gomaasapi.MAASObject) (gomaasapi.MAASOb
 // extracts all addresses from the node's interfaces. Returns an error
 // satisfying errors.IsNotSupported() if MAAS API does not report interfaces
 // information.
-func (mi *maas1Instance) interfaceAddresses() ([]network.Address, error) {
+func (mi *maas1Instance) interfaceAddresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	// Fetch a fresh copy of the instance JSON first.
 	obj, err := refreshMAASObject(mi.maasObject)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting instance details")
 	}
 
-	subnetsMap, err := mi.environ.subnetToSpaceIds()
+	subnetsMap, err := mi.environ.subnetToSpaceIds(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Get all the interface details and extract the addresses.
-	interfaces, err := maasObjectNetworkInterfaces(&obj, subnetsMap)
+	interfaces, err := maasObjectNetworkInterfaces(ctx, &obj, subnetsMap)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

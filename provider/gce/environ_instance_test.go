@@ -30,14 +30,14 @@ func (s *environInstSuite) TestInstances(c *gc.C) {
 	s.FakeEnviron.Insts = []instance.Instance{spam, ham, eggs}
 
 	ids := []instance.Id{"spam", "eggs", "ham"}
-	insts, err := s.Env.Instances(ids)
+	insts, err := s.Env.Instances(s.CallCtx, ids)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(insts, jc.DeepEquals, []instance.Instance{spam, eggs, ham})
 }
 
 func (s *environInstSuite) TestInstancesEmptyArg(c *gc.C) {
-	_, err := s.Env.Instances(nil)
+	_, err := s.Env.Instances(s.CallCtx, nil)
 
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
 }
@@ -47,7 +47,7 @@ func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
 	s.FakeEnviron.Err = failure
 
 	ids := []instance.Id{"spam"}
-	insts, err := s.Env.Instances(ids)
+	insts, err := s.Env.Instances(s.CallCtx, ids)
 
 	c.Check(insts, jc.DeepEquals, []instance.Instance{nil})
 	c.Check(errors.Cause(err), gc.Equals, failure)
@@ -57,7 +57,7 @@ func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
 	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
 
 	ids := []instance.Id{"spam", "eggs"}
-	insts, err := s.Env.Instances(ids)
+	insts, err := s.Env.Instances(s.CallCtx, ids)
 
 	c.Check(insts, jc.DeepEquals, []instance.Instance{s.Instance, nil})
 	c.Check(errors.Cause(err), gc.Equals, environs.ErrPartialInstances)
@@ -67,7 +67,7 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
 
 	ids := []instance.Id{"eggs"}
-	insts, err := s.Env.Instances(ids)
+	insts, err := s.Env.Instances(s.CallCtx, ids)
 
 	c.Check(insts, jc.DeepEquals, []instance.Instance{nil})
 	c.Check(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
@@ -104,7 +104,7 @@ func (s *environInstSuite) TestBasicInstancesAPI(c *gc.C) {
 func (s *environInstSuite) TestControllerInstances(c *gc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
 
-	ids, err := s.Env.ControllerInstances(s.ControllerUUID)
+	ids, err := s.Env.ControllerInstances(s.CallCtx, s.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
@@ -113,7 +113,7 @@ func (s *environInstSuite) TestControllerInstances(c *gc.C) {
 func (s *environInstSuite) TestControllerInstancesAPI(c *gc.C) {
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
 
-	_, err := s.Env.ControllerInstances(s.ControllerUUID)
+	_, err := s.Env.ControllerInstances(s.CallCtx, s.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
@@ -123,7 +123,7 @@ func (s *environInstSuite) TestControllerInstancesAPI(c *gc.C) {
 }
 
 func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {
-	_, err := s.Env.ControllerInstances(s.ControllerUUID)
+	_, err := s.Env.ControllerInstances(s.CallCtx, s.ControllerUUID)
 
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
@@ -132,7 +132,7 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 	other := google.NewInstance(google.InstanceSummary{}, nil)
 	s.FakeConn.Insts = []google.Instance{*s.BaseInstance, *other}
 
-	ids, err := s.Env.ControllerInstances(s.ControllerUUID)
+	ids, err := s.Env.ControllerInstances(s.CallCtx, s.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
@@ -190,14 +190,14 @@ func (s *environInstSuite) TestCheckInstanceTypeUnknown(c *gc.C) {
 }
 
 func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
-	_, err := s.Env.InstanceTypes(constraints.Value{})
+	_, err := s.Env.InstanceTypes(s.CallCtx, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "no instance types in  matching constraints \"\"")
 
 	zone := google.NewZone("a-zone", google.StatusUp, "", "")
 	s.FakeConn.Zones = []google.AvailabilityZone{zone}
 
 	mem := uint64(1025)
-	types, err := s.Env.InstanceTypes(constraints.Value{Mem: &mem})
+	types, err := s.Env.InstanceTypes(s.CallCtx, constraints.Value{Mem: &mem})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, gc.HasLen, 1)
 
@@ -208,7 +208,7 @@ func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 	misty := s.NewInstance(c, "misty")
 	s.FakeEnviron.Insts = []instance.Instance{john, misty}
 
-	err := s.Env.AdoptResources("other-uuid", version.MustParse("1.2.3"))
+	err := s.Env.AdoptResources(s.CallCtx, "other-uuid", version.MustParse("1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.FakeConn.Calls, gc.HasLen, 1)
 	call := s.FakeConn.Calls[0]

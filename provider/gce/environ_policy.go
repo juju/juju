@@ -8,11 +8,12 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 )
 
 // PrecheckInstance verifies that the provided series and constraints
 // are valid for use in creating an instance in this environment.
-func (env *environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
 	volumeAttachmentsZone, err := volumeAttachmentsZone(args.VolumeAttachments)
 	if err != nil {
 		return errors.Trace(err)
@@ -77,6 +78,6 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 
 // SupportNetworks returns whether the environment has support to
 // specify networks for applications and machines.
-func (env *environ) SupportNetworks() bool {
+func (env *environ) SupportNetworks(ctx context.ProviderCallContext) bool {
 	return false
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -331,7 +332,7 @@ LXC_BRIDGE="ignored"`[1:])
 		"Provider",
 		"Version",
 	)
-	// Those attritbutes are configured during initialization, after "Open".
+	// Those attributes are configured during initialization, after "Open".
 	expectedCalledCfg, err := hostedCfg.Apply(map[string]interface{}{"container-networking-method": ""})
 	c.Assert(err, jc.ErrorIsNil)
 	envProvider.CheckCall(c, 2, "Open", environs.OpenParams{
@@ -342,9 +343,11 @@ LXC_BRIDGE="ignored"`[1:])
 		},
 		Config: expectedCalledCfg,
 	})
-	envProvider.CheckCall(c, 3, "Create", environs.CreateParams{
-		ControllerUUID: controllerCfg.ControllerUUID(),
-	})
+	envProvider.CheckCall(c, 3, "Create",
+		envProvider.environ.callCtxUsed,
+		environs.CreateParams{
+			ControllerUUID: controllerCfg.ControllerUUID(),
+		})
 }
 
 func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *gc.C) {
@@ -483,6 +486,7 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag,
 type fakeProvider struct {
 	environs.EnvironProvider
 	gitjujutesting.Stub
+	environ *fakeEnviron
 }
 
 func (p *fakeProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
@@ -497,7 +501,8 @@ func (p *fakeProvider) Validate(newCfg, oldCfg *config.Config) (*config.Config, 
 
 func (p *fakeProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	p.MethodCall(p, "Open", args)
-	return &fakeEnviron{Stub: &p.Stub, provider: p}, p.NextErr()
+	p.environ = &fakeEnviron{Stub: &p.Stub, provider: p}
+	return p.environ, p.NextErr()
 }
 
 func (p *fakeProvider) Version() int {
@@ -510,10 +515,13 @@ type fakeEnviron struct {
 	environs.Environ
 	*gitjujutesting.Stub
 	provider *fakeProvider
+
+	callCtxUsed context.ProviderCallContext
 }
 
-func (e *fakeEnviron) Create(args environs.CreateParams) error {
-	e.MethodCall(e, "Create", args)
+func (e *fakeEnviron) Create(ctx context.ProviderCallContext, args environs.CreateParams) error {
+	e.MethodCall(e, "Create", ctx, args)
+	e.callCtxUsed = ctx
 	return e.NextErr()
 }
 

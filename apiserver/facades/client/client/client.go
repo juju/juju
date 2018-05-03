@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
 	"github.com/juju/juju/instance"
@@ -604,7 +605,8 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := environs.CheckProviderAPI(env); err != nil {
+
+	if err := environs.CheckProviderAPI(env, context.NewCloudCallContext()); err != nil {
 		return err
 	}
 	// If this is the controller model, also check to make sure that there are

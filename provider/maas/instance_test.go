@@ -161,7 +161,7 @@ func (s *instanceTest) TestAddressesViaInterfaces(c *gc.C) {
 		newAddressOnSpaceWithId("db", idFromUint(dbSpace.ID), "fc00::123"),
 	}
 
-	addr, err := inst.Addresses()
+	addr, err := inst.Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(addr, jc.DeepEquals, expected)
 }
@@ -179,7 +179,7 @@ func (s *instanceTest) TestAddressesInvalid(c *gc.C) {
 
 	inst := maas1Instance{&obj, s.makeEnviron(), statusGetter}
 
-	_, err := inst.Addresses()
+	_, err := inst.Addresses(s.callCtx)
 	c.Assert(err, gc.NotNil)
 }
 
@@ -196,7 +196,7 @@ func (s *instanceTest) TestAddressesInvalidContents(c *gc.C) {
 
 	inst := maas1Instance{&obj, s.makeEnviron(), statusGetter}
 
-	_, err := inst.Addresses()
+	_, err := inst.Addresses(s.callCtx)
 	c.Assert(err, gc.NotNil)
 }
 

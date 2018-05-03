@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/lxd"
 	coretesting "github.com/juju/juju/testing"
@@ -35,7 +36,7 @@ func (s *environInstSuite) TestInstancesOkay(c *gc.C) {
 	}
 	s.Client.Insts = raw
 
-	insts, err := s.Env.Instances(ids)
+	insts, err := s.Env.Instances(context.NewCloudCallContext(), ids)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(insts, jc.DeepEquals, expected)
@@ -43,7 +44,7 @@ func (s *environInstSuite) TestInstancesOkay(c *gc.C) {
 
 func (s *environInstSuite) TestInstancesAPI(c *gc.C) {
 	ids := []instance.Id{"spam", "eggs", "ham"}
-	s.Env.Instances(ids)
+	s.Env.Instances(context.NewCloudCallContext(), ids)
 
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "Instances",
@@ -55,7 +56,7 @@ func (s *environInstSuite) TestInstancesAPI(c *gc.C) {
 }
 
 func (s *environInstSuite) TestInstancesEmptyArg(c *gc.C) {
-	insts, err := s.Env.Instances(nil)
+	insts, err := s.Env.Instances(context.NewCloudCallContext(), nil)
 
 	c.Check(insts, gc.HasLen, 0)
 	c.Check(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
@@ -66,7 +67,7 @@ func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
 	s.Stub.SetErrors(failure)
 
 	ids := []instance.Id{"spam"}
-	insts, err := s.Env.Instances(ids)
+	insts, err := s.Env.Instances(context.NewCloudCallContext(), ids)
 
 	c.Check(insts, jc.DeepEquals, []instance.Instance{nil})
 	c.Check(errors.Cause(err), gc.Equals, failure)
@@ -78,7 +79,7 @@ func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
 	s.Client.Insts = []lxdclient.Instance{*raw}
 
 	ids := []instance.Id{"spam", "eggs"}
-	insts, err := s.Env.Instances(ids)
+	insts, err := s.Env.Instances(context.NewCloudCallContext(), ids)
 
 	c.Check(insts, jc.DeepEquals, []instance.Instance{expected, nil})
 	c.Check(errors.Cause(err), gc.Equals, environs.ErrPartialInstances)
@@ -89,7 +90,7 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 	s.Client.Insts = []lxdclient.Instance{*raw}
 
 	ids := []instance.Id{"eggs"}
-	insts, err := s.Env.Instances(ids)
+	insts, err := s.Env.Instances(context.NewCloudCallContext(), ids)
 
 	c.Check(insts, jc.DeepEquals, []instance.Instance{nil})
 	c.Check(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
@@ -98,7 +99,7 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
 	s.Client.Insts = []lxdclient.Instance{*s.RawInstance}
 
-	ids, err := s.Env.ControllerInstances(coretesting.ControllerTag.Id())
+	ids, err := s.Env.ControllerInstances(context.NewCloudCallContext(), coretesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
@@ -111,7 +112,7 @@ func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
 }
 
 func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {
-	_, err := s.Env.ControllerInstances("not-used")
+	_, err := s.Env.ControllerInstances(context.NewCloudCallContext(), "not-used")
 
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
@@ -120,7 +121,7 @@ func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 	other := lxdclient.NewInstance(lxdclient.InstanceSummary{}, nil)
 	s.Client.Insts = []lxdclient.Instance{*s.RawInstance, *other}
 
-	ids, err := s.Env.ControllerInstances(coretesting.ControllerTag.Id())
+	ids, err := s.Env.ControllerInstances(context.NewCloudCallContext(), coretesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
@@ -132,7 +133,7 @@ func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 	three := s.NewRawInstance(c, "tall-dwarfs")
 	s.Client.Insts = []lxdclient.Instance{*one, *two, *three}
 
-	err := s.Env.AdoptResources("target-uuid", version.MustParse("3.4.5"))
+	err := s.Env.AdoptResources(context.NewCloudCallContext(), "target-uuid", version.MustParse("3.4.5"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 4)
 	s.BaseSuite.Client.CheckCall(c, 0, "Instances", "juju-f75cba-", []string{"Starting", "Started", "Running", "Stopping", "Stopped"})
@@ -148,7 +149,7 @@ func (s *environInstSuite) TestAdoptResourcesError(c *gc.C) {
 	s.Client.Insts = []lxdclient.Instance{*one, *two, *three}
 	s.Client.SetErrors(nil, nil, errors.New("blammo"))
 
-	err := s.Env.AdoptResources("target-uuid", version.MustParse("5.3.3"))
+	err := s.Env.AdoptResources(context.NewCloudCallContext(), "target-uuid", version.MustParse("5.3.3"))
 	c.Assert(err, gc.ErrorMatches, `failed to update controller for some instances: \[guild-league\]`)
 	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 4)
 	s.BaseSuite.Client.CheckCall(c, 0, "Instances", "juju-f75cba-", []string{"Starting", "Started", "Running", "Stopping", "Stopped"})

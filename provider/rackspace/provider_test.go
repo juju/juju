@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/rackspace"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -97,7 +98,7 @@ func (p *fakeProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p *fakeProvider) Ping(endpoint string) error {
+func (p *fakeProvider) Ping(callCtx context.ProviderCallContext, endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 

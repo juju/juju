@@ -36,19 +36,21 @@ func (st *State) ReloadSpaces(environ environs.Environ) error {
 	if !ok {
 		return errors.NotSupportedf("spaces discovery in a non-networking environ")
 	}
-	canDiscoverSpaces, err := netEnviron.SupportsSpaceDiscovery()
+
+	ctx := createEnvironCallContext(st)
+	canDiscoverSpaces, err := netEnviron.SupportsSpaceDiscovery(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if canDiscoverSpaces {
-		spaces, err := netEnviron.Spaces()
+		spaces, err := netEnviron.Spaces(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return errors.Trace(st.SaveSpacesFromProvider(spaces))
 	} else {
 		logger.Debugf("environ does not support space discovery, falling back to subnet discovery")
-		subnets, err := netEnviron.Subnets(instance.UnknownId, nil)
+		subnets, err := netEnviron.Subnets(ctx, instance.UnknownId, nil)
 		if err != nil {
 			return errors.Trace(err)
 		}

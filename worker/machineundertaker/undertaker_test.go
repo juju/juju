@@ -13,6 +13,7 @@ import (
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/machineundertaker"
@@ -276,7 +277,7 @@ type fakeReleaser struct {
 	*testing.Stub
 }
 
-func (r *fakeReleaser) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
+func (r *fakeReleaser) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
 	r.Stub.AddCall("ReleaseContainerAddresses", interfaces)
 	return r.Stub.NextErr()
 }

@@ -10,11 +10,12 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 )
 
 // UpgradeOperations is part of the upgrades.OperationSource interface.
-func (env *environ) UpgradeOperations(args environs.UpgradeOperationsParams) []environs.UpgradeOperation {
+func (env *environ) UpgradeOperations(ctx context.ProviderCallContext, args environs.UpgradeOperationsParams) []environs.UpgradeOperation {
 	return []environs.UpgradeOperation{{
 		providerVersion1,
 		[]environs.UpgradeStep{
@@ -37,7 +38,7 @@ func (extraConfigUpgradeStep) Description() string {
 }
 
 // Run is part of the environs.UpgradeStep interface.
-func (step extraConfigUpgradeStep) Run() error {
+func (step extraConfigUpgradeStep) Run(ctx context.ProviderCallContext) error {
 	const (
 		legacyControllerTag   = "juju_controller_uuid_key"
 		legacyIsControllerTag = "juju_is_controller_key"
@@ -92,7 +93,7 @@ func (modelFoldersUpgradeStep) Description() string {
 }
 
 // Run is part of the environs.UpgradeStep interface.
-func (step modelFoldersUpgradeStep) Run() error {
+func (step modelFoldersUpgradeStep) Run(ctx context.ProviderCallContext) error {
 	return step.env.withSession(func(env *sessionEnviron) error {
 		// We must create the folder even if there are no VMs in the model.
 		modelFolderPath := path.Join(

@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -272,7 +273,7 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, instId := s.waitProvisioned(c, unit)
-	insts, err := s.Environ.Instances([]instance.Id{instId})
+	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 	addrs := network.NewAddresses("1.2.3.4")
 	dummy.SetInstanceAddresses(insts[0], addrs)

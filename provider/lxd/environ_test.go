@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
 	coretesting "github.com/juju/juju/testing"
@@ -23,9 +24,16 @@ import (
 
 type environSuite struct {
 	lxd.BaseSuite
+
+	callCtx context.ProviderCallContext
 }
 
 var _ = gc.Suite(&environSuite{})
+
+func (s *environSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.callCtx = context.NewCloudCallContext()
+}
 
 func (s *environSuite) TestName(c *gc.C) {
 	name := s.Env.Name()
@@ -71,7 +79,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 	params := environs.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 	}
-	result, err := s.Env.Bootstrap(modelcmd.BootstrapContext(ctx), params)
+	result, err := s.Env.Bootstrap(modelcmd.BootstrapContext(ctx), s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Arch, gc.Equals, "amd64")
@@ -88,13 +96,14 @@ func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 	params := environs.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 	}
-	_, err := s.Env.Bootstrap(ctx, params)
+	_, err := s.Env.Bootstrap(ctx, s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "Bootstrap",
 		Args: []interface{}{
 			ctx,
+			s.callCtx,
 			params,
 		},
 	}})
@@ -119,11 +128,11 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 		}},
 	}
 
-	err := s.Env.Destroy()
+	err := s.Env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
-		{"Destroy", nil},
+		{"Destroy", []interface{}{s.callCtx}},
 		{"StorageSupported", nil},
 		{"StoragePools", nil},
 		{"VolumeList", []interface{}{"juju"}},
@@ -171,11 +180,11 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	machine2.InstanceSummary.Metadata["juju-controller-uuid"] = "not-" + s.Config.UUID()
 	s.Client.Insts = append(s.Client.Insts, *machine0, *machine1, *machine2)
 
-	err := s.Env.DestroyController(s.Config.UUID())
+	err := s.Env.DestroyController(s.callCtx, s.Config.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
-		{"Destroy", nil},
+		{"Destroy", []interface{}{s.callCtx}},
 		{"StorageSupported", nil},
 		{"StoragePools", nil},
 		{"VolumeList", []interface{}{"juju"}},

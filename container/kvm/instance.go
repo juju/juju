@@ -6,6 +6,7 @@ package kvm
 import (
 	"fmt"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -24,7 +25,7 @@ func (kvm *kvmInstance) Id() instance.Id {
 }
 
 // Status implements instance.Instance.Status.
-func (kvm *kvmInstance) Status() instance.InstanceStatus {
+func (kvm *kvmInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	if kvm.container.IsRunning() {
 		return instance.InstanceStatus{
 			Status:  status.Running,
@@ -41,23 +42,23 @@ func (*kvmInstance) Refresh() error {
 	return nil
 }
 
-func (kvm *kvmInstance) Addresses() ([]network.Address, error) {
+func (kvm *kvmInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	logger.Errorf("kvmInstance.Addresses not implemented")
 	return nil, nil
 }
 
 // OpenPorts implements instance.Instance.OpenPorts.
-func (kvm *kvmInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
+func (kvm *kvmInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	return fmt.Errorf("not implemented")
 }
 
 // ClosePorts implements instance.Instance.ClosePorts.
-func (kvm *kvmInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
+func (kvm *kvmInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	return fmt.Errorf("not implemented")
 }
 
 // IngressRules implements instance.Instance.IngressRules.
-func (kvm *kvmInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
+func (kvm *kvmInstance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

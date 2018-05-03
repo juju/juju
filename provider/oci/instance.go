@@ -6,6 +6,7 @@ package oci
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -21,26 +22,26 @@ func (o *ociInstance) Id() instance.Id {
 }
 
 // Status implements instance.Instance
-func (o *ociInstance) Status() instance.InstanceStatus {
+func (o *ociInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	return instance.InstanceStatus{}
 }
 
 // Addresses implements instance.Instance
-func (o *ociInstance) Addresses() ([]network.Address, error) {
+func (o *ociInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	return nil, errors.NotImplementedf("Addresses")
 }
 
 // OpenPorts implements instance.InstanceFirewaller
-func (o *ociInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
+func (o *ociInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	return errors.NotImplementedf("OpenPorts")
 }
 
 // ClosePorts implements instance.InstanceFirewaller
-func (o *ociInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
+func (o *ociInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	return errors.NotImplementedf("ClosePorts")
 }
 
 // IngressRules implements instance.InstanceFirewaller
-func (o *ociInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
+func (o *ociInstance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
 	return nil, errors.NotImplementedf("IngressRules")
 }

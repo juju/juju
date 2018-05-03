@@ -8,6 +8,7 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -34,7 +35,7 @@ func (inst *environInstance) Id() instance.Id {
 }
 
 // Status implements instance.Instance.
-func (inst *environInstance) Status() instance.InstanceStatus {
+func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	instanceStatus := instance.InstanceStatus{
 		Status:  status.Empty,
 		Message: string(inst.base.Runtime.PowerState),
@@ -47,7 +48,7 @@ func (inst *environInstance) Status() instance.InstanceStatus {
 }
 
 // Addresses implements instance.Instance.
-func (inst *environInstance) Addresses() ([]network.Address, error) {
+func (inst *environInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	if inst.base.Guest == nil {
 		return nil, nil
 	}
@@ -64,31 +65,31 @@ func (inst *environInstance) Addresses() ([]network.Address, error) {
 
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) OpenPorts(machineID string, rules []network.IngressRule) error {
-	return inst.changeIngressRules(true, rules)
+func (inst *environInstance) OpenPorts(ctx context.ProviderCallContext, machineID string, rules []network.IngressRule) error {
+	return inst.changeIngressRules(ctx, true, rules)
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) ClosePorts(machineID string, rules []network.IngressRule) error {
-	return inst.changeIngressRules(false, rules)
+func (inst *environInstance) ClosePorts(ctx context.ProviderCallContext, machineID string, rules []network.IngressRule) error {
+	return inst.changeIngressRules(ctx, false, rules)
 }
 
 // IngressRules returns the set of ports open on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) IngressRules(machineID string) ([]network.IngressRule, error) {
-	_, client, err := inst.getInstanceConfigurator()
+func (inst *environInstance) IngressRules(ctx context.ProviderCallContext, machineID string) ([]network.IngressRule, error) {
+	_, client, err := inst.getInstanceConfigurator(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return client.FindIngressRules()
 }
 
-func (inst *environInstance) changeIngressRules(insert bool, rules []network.IngressRule) error {
+func (inst *environInstance) changeIngressRules(ctx context.ProviderCallContext, insert bool, rules []network.IngressRule) error {
 	if inst.env.ecfg.externalNetwork() == "" {
 		return errors.New("Can't close/open ports without external network")
 	}
-	addresses, client, err := inst.getInstanceConfigurator()
+	addresses, client, err := inst.getInstanceConfigurator(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -105,8 +106,8 @@ func (inst *environInstance) changeIngressRules(insert bool, rules []network.Ing
 	return nil
 }
 
-func (inst *environInstance) getInstanceConfigurator() ([]network.Address, common.InstanceConfigurator, error) {
-	addresses, err := inst.Addresses()
+func (inst *environInstance) getInstanceConfigurator(ctx context.ProviderCallContext) ([]network.Address, common.InstanceConfigurator, error) {
+	addresses, err := inst.Addresses(ctx)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

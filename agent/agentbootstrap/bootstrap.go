@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -204,9 +205,12 @@ func InitializeState(
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "opening hosted model environment")
 	}
-	if err := hostedModelEnv.Create(environs.CreateParams{
-		ControllerUUID: controllerUUID,
-	}); err != nil {
+
+	if err := hostedModelEnv.Create(
+		context.NewCloudCallContext(),
+		environs.CreateParams{
+			ControllerUUID: controllerUUID,
+		}); err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model environment")
 	}
 

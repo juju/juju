@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -3089,7 +3090,7 @@ func (s *uniterSuite) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASMode
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiInfo, err := environs.APIInfo(s.ControllerConfig.ControllerUUID(), st.ModelUUID(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
+	apiInfo, err := environs.APIInfo(context.NewCloudCallContext(), s.ControllerConfig.ControllerUUID(), st.ModelUUID(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = unit.Tag()
 	apiInfo.Password = password

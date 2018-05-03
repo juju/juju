@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -488,9 +489,13 @@ func (m *ModelManagerAPI) newIAASModel(
 		return nil, errors.Trace(err)
 	}
 
-	if err := env.Create(environs.CreateParams{
-		ControllerUUID: controllerCfg.ControllerUUID(),
-	}); err != nil {
+	err = env.Create(
+		context.NewCloudCallContext(),
+		environs.CreateParams{
+			ControllerUUID: controllerCfg.ControllerUUID(),
+		},
+	)
+	if err != nil {
 		return nil, errors.Annotate(err, "failed to create environ")
 	}
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)

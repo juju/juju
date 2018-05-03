@@ -58,6 +58,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	jujuversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/mongo"
@@ -643,7 +644,7 @@ func (p *environProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p *environProvider) Ping(endpoint string) error {
+func (p *environProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 
@@ -676,7 +677,7 @@ func (e *environ) checkBroken(method string) error {
 }
 
 // PrecheckInstance is specified in the environs.InstancePrechecker interface.
-func (*environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+func (*environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
 	if args.Placement != "" && args.Placement != "valid" {
 		return fmt.Errorf("%s placement is invalid", args.Placement)
 	}
@@ -684,7 +685,7 @@ func (*environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
 }
 
 // Create is part of the Environ interface.
-func (e *environ) Create(args environs.CreateParams) error {
+func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreateParams) error {
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
 	dummy.state[e.modelUUID] = newState(e.name, dummy.ops, dummy.newStatePolicy)
@@ -717,7 +718,7 @@ func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	return nil
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	series := config.PreferredSeries(e.Config())
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
 	if err != nil {
@@ -904,7 +905,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return bsResult, nil
 }
 
-func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
+func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	estate, err := e.state()
 	if err != nil {
 		return nil, err
@@ -945,12 +946,12 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 }
 
 // AdoptResources is part of the Environ interface.
-func (e *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }
 
-func (e *environ) Destroy() (res error) {
+func (e *environ) Destroy(ctx context.ProviderCallContext) (res error) {
 	defer delay()
 	estate, err := e.state()
 	if err != nil {
@@ -986,8 +987,8 @@ func (e *environ) Destroy() (res error) {
 	return nil
 }
 
-func (e *environ) DestroyController(controllerUUID string) error {
-	if err := e.Destroy(); err != nil {
+func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+	if err := e.Destroy(ctx); err != nil {
 		return err
 	}
 	dummy.mu.Lock()
@@ -1006,12 +1007,12 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.
-func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
+func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
 	return nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 
 	defer delay()
 	machineId := args.InstanceConfig.MachineId
@@ -1173,7 +1174,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}, nil
 }
 
-func (e *environ) StopInstances(ids ...instance.Id) error {
+func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	defer delay()
 	if err := e.checkBroken("StopInstance"); err != nil {
 		return err
@@ -1194,7 +1195,7 @@ func (e *environ) StopInstances(ids ...instance.Id) error {
 	return nil
 }
 
-func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err error) {
+func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) (insts []instance.Instance, err error) {
 	defer delay()
 	if err := e.checkBroken("Instances"); err != nil {
 		return nil, err
@@ -1226,7 +1227,7 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 }
 
 // SupportsSpaces is specified on environs.Networking.
-func (env *environ) SupportsSpaces() (bool, error) {
+func (env *environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
 	dummy.mu.Lock()
 	defer dummy.mu.Unlock()
 	if !dummy.supportsSpaces {
@@ -1236,7 +1237,7 @@ func (env *environ) SupportsSpaces() (bool, error) {
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
-func (env *environ) SupportsSpaceDiscovery() (bool, error) {
+func (env *environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error) {
 	if err := env.checkBroken("SupportsSpaceDiscovery"); err != nil {
 		return false, err
 	}
@@ -1249,12 +1250,12 @@ func (env *environ) SupportsSpaceDiscovery() (bool, error) {
 }
 
 // SupportsContainerAddresses is specified on environs.Networking.
-func (env *environ) SupportsContainerAddresses() (bool, error) {
+func (env *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
 	return false, errors.NotSupportedf("container addresses")
 }
 
 // Spaces is specified on environs.Networking.
-func (env *environ) Spaces() ([]network.SpaceInfo, error) {
+func (env *environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
 	if err := env.checkBroken("Spaces"); err != nil {
 		return []network.SpaceInfo{}, err
 	}
@@ -1289,7 +1290,7 @@ func (env *environ) Spaces() ([]network.SpaceInfo, error) {
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces().
-func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	if err := env.checkBroken("NetworkInterfaces"); err != nil {
 		return nil, err
 	}
@@ -1350,7 +1351,7 @@ func (az azShim) Available() bool {
 }
 
 // AvailabilityZones implements environs.ZonedEnviron.
-func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
+func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
 	// TODO(dimitern): Fix this properly.
 	return []common.AvailabilityZone{
 		azShim{"zone1", true},
@@ -1361,11 +1362,11 @@ func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 }
 
 // InstanceAvailabilityZoneNames implements environs.ZonedEnviron.
-func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
 	if err := env.checkBroken("InstanceAvailabilityZoneNames"); err != nil {
 		return nil, errors.NotSupportedf("instance availability zones")
 	}
-	availabilityZones, err := env.AvailabilityZones()
+	availabilityZones, err := env.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1390,12 +1391,12 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 }
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *environ) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+func (env *environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
 	return nil, nil
 }
 
 // Subnets implements environs.Environ.Subnets.
-func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (env *environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
 		return nil, err
 	}
@@ -1407,7 +1408,7 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 
-	if ok, _ := env.SupportsSpaceDiscovery(); ok {
+	if ok, _ := env.SupportsSpaceDiscovery(ctx); ok {
 		// Space discovery needs more subnets to work with.
 		return env.subnetsForSpaceDiscovery(estate)
 	}
@@ -1486,7 +1487,7 @@ func (env *environ) subnetsForSpaceDiscovery(estate *environState) ([]network.Su
 	return result, nil
 }
 
-func (e *environ) AllInstances() ([]instance.Instance, error) {
+func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
 	defer delay()
 	if err := e.checkBroken("AllInstances"); err != nil {
 		return nil, err
@@ -1504,7 +1505,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	return insts, nil
 }
 
-func (e *environ) OpenPorts(rules []network.IngressRule) error {
+func (e *environ) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on model", mode)
 	}
@@ -1532,7 +1533,7 @@ func (e *environ) OpenPorts(rules []network.IngressRule) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(rules []network.IngressRule) error {
+func (e *environ) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on model", mode)
 	}
@@ -1552,7 +1553,7 @@ func (e *environ) ClosePorts(rules []network.IngressRule) error {
 	return nil
 }
 
-func (e *environ) IngressRules() (rules []network.IngressRule, err error) {
+func (e *environ) IngressRules(ctx context.ProviderCallContext) (rules []network.IngressRule, err error) {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from model", mode)
 	}
@@ -1592,7 +1593,7 @@ func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
 }
 
-func (inst *dummyInstance) Status() instance.InstanceStatus {
+func (inst *dummyInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
 	// TODO(perrito666) add a provider status -> juju status mapping.
@@ -1648,7 +1649,7 @@ func (inst *dummyInstance) checkBroken(method string) error {
 	return nil
 }
 
-func (inst *dummyInstance) Addresses() ([]network.Address, error) {
+func (inst *dummyInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
 	if err := inst.checkBroken("Addresses"); err != nil {
@@ -1657,7 +1658,7 @@ func (inst *dummyInstance) Addresses() ([]network.Address, error) {
 	return append([]network.Address{}, inst.addresses...), nil
 }
 
-func (inst *dummyInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
+func (inst *dummyInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	defer delay()
 	logger.Infof("openPorts %s, %#v", machineId, rules)
 	if inst.firewallMode != config.FwInstance {
@@ -1702,7 +1703,7 @@ func (inst *dummyInstance) OpenPorts(machineId string, rules []network.IngressRu
 	return nil
 }
 
-func (inst *dummyInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
+func (inst *dummyInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
@@ -1732,7 +1733,7 @@ func (inst *dummyInstance) ClosePorts(machineId string, rules []network.IngressR
 	return nil
 }
 
-func (inst *dummyInstance) IngressRules(machineId string) (rules []network.IngressRule, err error) {
+func (inst *dummyInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (rules []network.IngressRule, err error) {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from instance",
@@ -1766,27 +1767,27 @@ func delay() {
 	}
 }
 
-func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }
 
-func (e *environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
+func (e *environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
 }
 
 // ProviderSpaceInfo implements NetworkingEnviron.
-func (*environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (*environ) ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 
 // AreSpacesRoutable implements NetworkingEnviron.
-func (*environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }
 
 // SSHAddresses implements environs.SSHAddresses.
 // For testing we cut "100.100.100.100" out of this list.
-func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses []network.Address) ([]network.Address, error) {
 	var rv []network.Address
 	for _, addr := range addresses {
 		if addr.Value != "100.100.100.100" {
@@ -1797,6 +1798,6 @@ func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, er
 }
 
 // SuperSubnets implements environs.SuperSubnets
-func (*environ) SuperSubnets() ([]string, error) {
+func (*environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
 	return nil, errors.NotSupportedf("super subnets")
 }

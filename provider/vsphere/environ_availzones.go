@@ -8,6 +8,7 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 )
@@ -27,16 +28,16 @@ func (z *vmwareAvailZone) Available() bool {
 }
 
 // AvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *environ) AvailabilityZones() (zones []common.AvailabilityZone, err error) {
+func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (zones []common.AvailabilityZone, err error) {
 	err = env.withSession(func(env *sessionEnviron) error {
-		zones, err = env.AvailabilityZones()
+		zones, err = env.AvailabilityZones(ctx)
 		return err
 	})
 	return zones, err
 }
 
 // AvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *sessionEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
+func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
 	if env.zones == nil {
 		computeResources, err := env.client.ComputeResources(env.ctx)
 		if err != nil {
@@ -52,21 +53,21 @@ func (env *sessionEnviron) AvailabilityZones() ([]common.AvailabilityZone, error
 }
 
 // InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.
-func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) (names []string, err error) {
+func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (names []string, err error) {
 	err = env.withSession(func(env *sessionEnviron) error {
-		names, err = env.InstanceAvailabilityZoneNames(ids)
+		names, err = env.InstanceAvailabilityZoneNames(ctx, ids)
 		return err
 	})
 	return names, err
 }
 
 // InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.
-func (env *sessionEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
-	zones, err := env.AvailabilityZones()
+func (env *sessionEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+	zones, err := env.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	instances, err := env.Instances(ids)
+	instances, err := env.Instances(ctx, ids)
 	switch err {
 	case nil, environs.ErrPartialInstances:
 		break
@@ -94,19 +95,19 @@ func (env *sessionEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]s
 }
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *environ) DeriveAvailabilityZones(args environs.StartInstanceParams) (names []string, err error) {
+func (env *environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, args environs.StartInstanceParams) (names []string, err error) {
 	err = env.withSession(func(env *sessionEnviron) error {
-		names, err = env.DeriveAvailabilityZones(args)
+		names, err = env.DeriveAvailabilityZones(ctx, args)
 		return err
 	})
 	return names, err
 }
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *sessionEnviron) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+func (env *sessionEnviron) DeriveAvailabilityZones(ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
 	if args.Placement != "" {
 		// args.Placement will always be a zone name or empty.
-		placement, err := env.parsePlacement(args.Placement)
+		placement, err := env.parsePlacement(ctx, args.Placement)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -117,8 +118,8 @@ func (env *sessionEnviron) DeriveAvailabilityZones(args environs.StartInstancePa
 	return nil, nil
 }
 
-func (env *sessionEnviron) availZone(name string) (common.AvailabilityZone, error) {
-	zones, err := env.AvailabilityZones()
+func (env *sessionEnviron) availZone(ctx context.ProviderCallContext, name string) (common.AvailabilityZone, error) {
+	zones, err := env.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

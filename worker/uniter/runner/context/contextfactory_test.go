@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
@@ -261,6 +262,7 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo, err := environs.APIInfo(
+		environscontext.NewCloudCallContext(),
 		s.ControllerConfig.ControllerUUID(), st.ModelUUID(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
 	apiInfo.Tag = unit.Tag()
 	apiInfo.Password = password

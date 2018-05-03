@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -39,6 +40,8 @@ type baseProviderSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 	controllerUUID string
+
+	callCtx context.ProviderCallContext
 }
 
 func (suite *baseProviderSuite) setupFakeTools(c *gc.C) {
@@ -65,6 +68,7 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&series.MustHostSeries, func() string { return supportedversion.SupportedLTS() })
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func (s *baseProviderSuite) TearDownTest(c *gc.C) {

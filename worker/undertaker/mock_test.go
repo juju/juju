@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/undertaker"
@@ -61,7 +62,7 @@ func (mock *mockFacade) RemoveModel() error {
 }
 
 type cloudDestroyer interface {
-	Destroy() error
+	Destroy(context.ProviderCallContext) error
 }
 
 type mockDestroyer struct {
@@ -69,8 +70,8 @@ type mockDestroyer struct {
 	stub *testing.Stub
 }
 
-func (mock *mockDestroyer) Destroy() error {
-	mock.stub.AddCall("Destroy")
+func (mock *mockDestroyer) Destroy(ctx context.ProviderCallContext) error {
+	mock.stub.AddCall("Destroy", ctx)
 	return mock.stub.NextErr()
 }
 

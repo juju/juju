@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
@@ -415,7 +416,7 @@ func (s *lxdFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachm
 		instanceIdsSeen.Add(string(arg.InstanceId))
 		instanceIds = append(instanceIds, arg.InstanceId)
 	}
-	instances, err := s.env.Instances(instanceIds)
+	instances, err := s.env.Instances(context.NewCloudCallContext(), instanceIds)
 	switch err {
 	case nil, environs.ErrPartialInstances, environs.ErrNoInstances:
 	default:
@@ -498,7 +499,7 @@ func (s *lxdFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachm
 		instanceIdsSeen.Add(string(arg.InstanceId))
 		instanceIds = append(instanceIds, arg.InstanceId)
 	}
-	instances, err := s.env.Instances(instanceIds)
+	instances, err := s.env.Instances(context.NewCloudCallContext(), instanceIds)
 	switch err {
 	case nil, environs.ErrPartialInstances, environs.ErrNoInstances:
 	default:

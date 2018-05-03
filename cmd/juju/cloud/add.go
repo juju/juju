@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 )
 
 type CloudMetadataStore interface {
@@ -78,12 +79,13 @@ type AddCloudCommand struct {
 
 // NewAddCloudCommand returns a command to add cloud information.
 func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) *AddCloudCommand {
+	cloudCallCtx := context.NewCloudCallContext()
 	// Ping is provider.Ping except in tests where we don't actually want to
 	// require a valid cloud.
 	return &AddCloudCommand{
 		cloudMetadataStore: cloudMetadataStore,
 		Ping: func(p environs.EnvironProvider, endpoint string) error {
-			return p.Ping(endpoint)
+			return p.Ping(cloudCallCtx, endpoint)
 		},
 	}
 }

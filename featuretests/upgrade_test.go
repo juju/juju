@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
@@ -271,7 +272,7 @@ func (s *upgradeSuite) configureMachine(c *gc.C, machineId string, vers version.
 
 	// Provision the machine if it isn't already
 	if _, err := m.InstanceId(); err != nil {
-		inst, md := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), machineId)
+		inst, md := jujutesting.AssertStartInstance(c, s.Environ, context.NewCloudCallContext(), s.ControllerConfig.ControllerUUID(), machineId)
 		c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), jc.ErrorIsNil)
 	}
 

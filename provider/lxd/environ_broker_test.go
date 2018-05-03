@@ -11,17 +11,21 @@ import (
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
 )
 
 type environBrokerSuite struct {
 	lxd.BaseSuite
+
+	callCtx context.ProviderCallContext
 }
 
 var _ = gc.Suite(&environBrokerSuite{})
 
 func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
@@ -30,7 +34,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	// Patch the host's arch, so the broker will filter tools.
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 
-	result, err := s.Env.StartInstance(s.StartInstArgs)
+	result, err := s.Env.StartInstance(s.callCtx, s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Instance, gc.DeepEquals, s.Instance)
 	c.Check(result.Hardware, gc.DeepEquals, s.HWC)
@@ -46,12 +50,12 @@ func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {
 	// Patch the host's arch, so the broker will filter tools.
 	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
 
-	_, err := s.Env.StartInstance(s.StartInstArgs)
+	_, err := s.Env.StartInstance(s.callCtx, s.StartInstArgs)
 	c.Assert(err, gc.ErrorMatches, "no matching agent binaries available")
 }
 
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
-	err := s.Env.StopInstances(s.Instance.Id())
+	err := s.Env.StopInstances(s.callCtx, s.Instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{

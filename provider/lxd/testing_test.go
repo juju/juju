@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -447,8 +448,8 @@ type stubCommon struct {
 	BootstrapResult *environs.BootstrapResult
 }
 
-func (sc *stubCommon) BootstrapEnv(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	sc.stub.AddCall("Bootstrap", ctx, params)
+func (sc *stubCommon) BootstrapEnv(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	sc.stub.AddCall("Bootstrap", ctx, callCtx, params)
 	if err := sc.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -456,8 +457,8 @@ func (sc *stubCommon) BootstrapEnv(ctx environs.BootstrapContext, params environ
 	return sc.BootstrapResult, nil
 }
 
-func (sc *stubCommon) DestroyEnv() error {
-	sc.stub.AddCall("Destroy")
+func (sc *stubCommon) DestroyEnv(callCtx context.ProviderCallContext) error {
+	sc.stub.AddCall("Destroy", callCtx)
 	if err := sc.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

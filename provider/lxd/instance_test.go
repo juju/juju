@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/tools/lxdclient"
@@ -36,14 +37,14 @@ func (s *instanceSuite) TestID(c *gc.C) {
 }
 
 func (s *instanceSuite) TestStatus(c *gc.C) {
-	instanceStatus := s.Instance.Status()
+	instanceStatus := s.Instance.Status(context.NewCloudCallContext())
 
 	c.Check(instanceStatus.Message, gc.Equals, lxdclient.StatusRunning)
 	s.CheckNoAPI(c)
 }
 
 func (s *instanceSuite) TestAddresses(c *gc.C) {
-	addresses, err := s.Instance.Addresses()
+	addresses, err := s.Instance.Addresses(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(addresses, jc.DeepEquals, s.Addresses)
