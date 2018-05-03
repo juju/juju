@@ -42,7 +42,11 @@ def deploy_mediawiki_with_db(client):
     client.wait_for_started()
     client.wait_for_workloads()
 
-    client.deploy('cs:mediawiki')
+    # Using local mediawiki charm due to db connect bug.
+    # Once that's fixed we can use from the charmstore.
+    charm_path = local_charm_path(
+        charm='mediawiki', juju_ver=client.version)
+    client.deploy(charm_path)
     client.wait_for_started()
     # mediawiki workload is blocked ('Database needed') until a db
     # relation is successfully made.

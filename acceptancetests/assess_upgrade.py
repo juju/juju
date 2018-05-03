@@ -135,6 +135,9 @@ def upgrade_stable_to_devel_version(client, extra_args):
     assert_model_is_version(client, devel_version)
     wait_until_model_upgrades(client)
 
+    client.wait_for_started()
+    client.wait_for_workloads()
+
 
 def assert_stable_model_is_correct(stable_client):
     assert_model_is_version(
