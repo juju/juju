@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
@@ -156,7 +157,7 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 	instanceId := instance.Id()
 	c.Check(string(instanceId), gc.Equals, hostname)
 
-	instanceStatus := instance.Status()
+	instanceStatus := instance.Status(context.NewCloudCallContext())
 	c.Check(instanceStatus.Status, gc.Equals, status.Running)
 	c.Check(*hc.AvailabilityZone, gc.Equals, "test-availability-zone")
 
