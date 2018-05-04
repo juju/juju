@@ -37,6 +37,9 @@ package backups
 
 import (
 	"io"
+	"os"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -83,9 +86,9 @@ func StoreArchive(stor filestorage.FileStorage, meta *Metadata, file io.Reader) 
 
 // Backups is an abstraction around all juju backup-related functionality.
 type Backups interface {
-	// Create creates and stores a new juju backup archive. It updates
+	// Create creates a new juju backup archive. It updates
 	// the provided metadata.
-	Create(meta *Metadata, paths *Paths, dbInfo *DBInfo) error
+	Create(meta *Metadata, paths *Paths, dbInfo *DBInfo, keepCopy, noDownload bool) (string, error)
 
 	// Add stores the backup archive and returns its new ID.
 	Add(archive io.Reader, meta *Metadata) (string, error)
@@ -117,9 +120,9 @@ func NewBackups(stor filestorage.FileStorage) Backups {
 	return &b
 }
 
-// Create creates and stores a new juju backup archive and updates the
-// provided metadata.
-func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo) error {
+// Create creates and stores a new juju backup archive (based on arguments)
+// and updates the provided metadata.  A filename to download the backup is provided.
+func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo, keepCopy, noDownload bool) (string, error) {
 	// TODO(fwereade): 2016-03-17 lp:1558657
 	meta.Started = time.Now().UTC()
 
@@ -130,40 +133,42 @@ func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo) error {
 	// them in afterward.  Neither is particularly trivial.
 	metadataFile, err := meta.AsJSONBuffer()
 	if err != nil {
-		return errors.Annotate(err, "while preparing the metadata")
+		return "", errors.Annotate(err, "while preparing the metadata")
 	}
 
 	// Create the archive.
 	filesToBackUp, err := getFilesToBackUp("", paths, meta.Origin.Machine)
 	if err != nil {
-		return errors.Annotate(err, "while listing files to back up")
+		return "", errors.Annotate(err, "while listing files to back up")
 	}
 
 	dumper, err := getDBDumper(dbInfo)
 	if err != nil {
-		return errors.Annotate(err, "while preparing for DB dump")
+		return "", errors.Annotate(err, "while preparing for DB dump")
 	}
 
-	args := createArgs{paths.BackupDir, filesToBackUp, dumper, metadataFile}
+	args := createArgs{paths.BackupDir, filesToBackUp, dumper, metadataFile, noDownload}
 	result, err := runCreate(&args)
 	if err != nil {
-		return errors.Annotate(err, "while creating backup archive")
+		return "", errors.Annotate(err, "while creating backup archive")
 	}
 	defer result.archiveFile.Close()
 
 	// Finalize the metadata.
 	err = finishMeta(meta, result)
 	if err != nil {
-		return errors.Annotate(err, "while updating metadata")
+		return "", errors.Annotate(err, "while updating metadata")
 	}
 
-	// Store the archive.
-	err = storeArchive(b.storage, meta, result.archiveFile)
-	if err != nil {
-		return errors.Annotate(err, "while storing backup archive")
+	// Store the archive if asked by user
+	if keepCopy {
+		err = storeArchive(b.storage, meta, result.archiveFile)
+		if err != nil {
+			return "", errors.Annotate(err, "while storing backup archive")
+		}
 	}
 
-	return nil
+	return result.filename, nil
 }
 
 // Add stores the backup archive and returns its new ID.
@@ -178,7 +183,12 @@ func (b *backups) Add(archive io.Reader, meta *Metadata) (string, error) {
 }
 
 // Get retrieves the associated metadata and archive file from model storage.
+// There are two cases, the archive file can be in the juju database or
+// a file on the machine.
 func (b *backups) Get(id string) (*Metadata, io.ReadCloser, error) {
+	if strings.Contains(id, TempFilename) {
+		return b.getArchiveFromFilename(id)
+	}
 	rawmeta, archiveFile, err := b.storage.Get(id)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -190,6 +200,37 @@ func (b *backups) Get(id string) (*Metadata, io.ReadCloser, error) {
 	}
 
 	return meta, archiveFile, nil
+}
+
+func (b *backups) getArchiveFromFilename(name string) (_ *Metadata, _ io.ReadCloser, err error) {
+	dir, _ := path.Split(name)
+	build := builder{rootDir: dir}
+	defer func() {
+		if err2 := build.removeRootDir(); err2 != nil {
+			logger.Errorf(err2.Error())
+			if err != nil {
+				err = errors.Annotatef(err2, "getArchiveFromFilename(%s)", name)
+			}
+		}
+	}()
+
+	readCloser, err := os.Open(name)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "while opening archive file for download")
+	}
+
+	meta, err := BuildMetadata(readCloser)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "while creating metadata for archive file to download")
+	}
+
+	// BuildMetadata copied readCloser, so reset handle to beginning of the file
+	_, err = readCloser.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "while resetting archive file to download")
+	}
+
+	return meta, readCloser, nil
 }
 
 // List returns the metadata for all stored backups.

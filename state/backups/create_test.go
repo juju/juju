@@ -5,6 +5,7 @@ package backups_test
 
 import (
 	"os"
+	"path"
 	"runtime"
 
 	jc "github.com/juju/testing/checkers"
@@ -40,12 +41,12 @@ func (s *createSuite) TestLegacy(c *gc.C) {
 	_, testFiles, expected := s.createTestFiles(c)
 
 	dumper := &TestDBDumper{}
-	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, metadataFile)
+	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, metadataFile, true)
 	result, err := backups.Create(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
-	archiveFile, size, checksum := backups.ExposeCreateResult(result)
+	archiveFile, size, checksum, _ := backups.ExposeCreateResult(result)
 	c.Assert(archiveFile, gc.NotNil)
 
 	// Check the result.
@@ -62,8 +63,40 @@ func (s *createSuite) TestMetadataFileMissing(c *gc.C) {
 	var testFiles []string
 	dumper := &TestDBDumper{}
 
-	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, nil)
+	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, nil, true)
 	_, err := backups.Create(args)
 
 	c.Check(err, gc.ErrorMatches, "missing metadataReader")
+}
+
+func (s *createSuite) TestNoDownloadTrue(c *gc.C) {
+	s.testCreateNoDownload(c, true)
+}
+
+func (s *createSuite) TestNoDownloadFalse(c *gc.C) {
+	s.testCreateNoDownload(c, false)
+}
+
+func (s *createSuite) testCreateNoDownload(c *gc.C, noDownload bool) {
+	meta := backupstesting.NewMetadataStarted()
+	metadataFile, err := meta.AsJSONBuffer()
+	c.Assert(err, jc.ErrorIsNil)
+	backupDir := c.MkDir()
+	_, testFiles, _ := s.createTestFiles(c)
+
+	dumper := &TestDBDumper{}
+	args := backups.NewTestCreateArgs(backupDir, testFiles, dumper, metadataFile, noDownload)
+	result, err := backups.Create(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.NotNil)
+	_, _, _, resultFilename := backups.ExposeCreateResult(result)
+	dir, filename := path.Split(resultFilename)
+	c.Assert(filename, gc.Equals, backups.TempFilename)
+	c.Assert(dir, jc.Contains, backupDir)
+	_, err = os.Stat(resultFilename)
+	if noDownload {
+		c.Assert(err, jc.Satisfies, os.IsNotExist)
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }

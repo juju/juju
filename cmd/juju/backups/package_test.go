@@ -5,6 +5,7 @@ package backups_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -48,6 +49,7 @@ type BaseBackupsSuite struct {
 	command    cmd.Command
 	metaresult *params.BackupsMetadataResult
 	data       string
+	apiVersion int
 
 	filename string
 }
@@ -59,6 +61,8 @@ func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 		ID: "spam",
 	}
 	s.data = "<compressed archive data>"
+
+	s.apiVersion = 2
 }
 
 func (s *BaseBackupsSuite) TearDownTest(c *gc.C) {
@@ -76,6 +80,14 @@ func (s *BaseBackupsSuite) patchAPIClient(client backups.APIClient) {
 	s.PatchValue(backups.NewAPIClient,
 		func(c *backups.CommandBase) (backups.APIClient, error) {
 			return client, nil
+		},
+	)
+}
+
+func (s *BaseBackupsSuite) patchGetAPI(client backups.APIClient) {
+	s.PatchValue(backups.NewGetAPI,
+		func(c *backups.CommandBase) (backups.APIClient, int, error) {
+			return client, s.apiVersion, nil
 		},
 	)
 }
@@ -131,9 +143,17 @@ func (f *fakeAPIClient) Check(c *gc.C, id, notes string, calls ...string) {
 	c.Check(f.notes, gc.Equals, notes)
 }
 
-func (c *fakeAPIClient) Create(notes string) (*params.BackupsMetadataResult, error) {
-	c.calls = append(c.calls, "Create")
-	c.args = append(c.args, "notes")
+func (f *fakeAPIClient) CheckCalls(c *gc.C, calls ...string) {
+	c.Check(f.calls, jc.DeepEquals, calls)
+}
+
+func (f *fakeAPIClient) CheckArgs(c *gc.C, args ...string) {
+	c.Check(f.args, jc.DeepEquals, args)
+}
+
+func (c *fakeAPIClient) CreateDeprecated(notes string) (*params.BackupsMetadataResult, error) {
+	c.calls = append(c.calls, "CreateDeprecated")
+	c.args = append(c.args, notes)
 	c.notes = notes
 	if c.err != nil {
 		return nil, c.err
@@ -141,9 +161,23 @@ func (c *fakeAPIClient) Create(notes string) (*params.BackupsMetadataResult, err
 	return c.metaresult, nil
 }
 
+func (c *fakeAPIClient) Create(notes string, keepCopy, noDownload bool) (*params.BackupsCreateResult, error) {
+	c.calls = append(c.calls, "Create")
+	c.args = append(c.args, notes, fmt.Sprintf("%t", keepCopy), fmt.Sprintf("%t", noDownload))
+	c.notes = notes
+	if c.err != nil {
+		return nil, c.err
+	}
+	createResult := params.BackupsCreateResult{
+		Metadata: *c.metaresult,
+		Filename: "filename",
+	}
+	return &createResult, nil
+}
+
 func (c *fakeAPIClient) Info(id string) (*params.BackupsMetadataResult, error) {
 	c.calls = append(c.calls, "Info")
-	c.args = append(c.args, "id")
+	c.args = append(c.args, id)
 	c.idArg = id
 	if c.err != nil {
 		return nil, c.err
@@ -163,8 +197,7 @@ func (c *fakeAPIClient) List() (*params.BackupsListResult, error) {
 
 func (c *fakeAPIClient) Download(id string) (io.ReadCloser, error) {
 	c.calls = append(c.calls, "Download")
-	c.args = append(c.args, "id")
-	c.idArg = id
+	c.args = append(c.args, id)
 	if c.err != nil {
 		return nil, c.err
 	}
@@ -181,8 +214,7 @@ func (c *fakeAPIClient) Upload(ar io.ReadSeeker, meta params.BackupsMetadataResu
 
 func (c *fakeAPIClient) Remove(id string) error {
 	c.calls = append(c.calls, "Remove")
-	c.args = append(c.args, "id")
-	c.idArg = id
+	c.args = append(c.args, id)
 	if c.err != nil {
 		return c.err
 	}

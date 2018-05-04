@@ -24,7 +24,10 @@ import (
 type APIClient interface {
 	io.Closer
 	// Create sends an RPC request to create a new backup.
-	Create(notes string) (*params.BackupsMetadataResult, error)
+	Create(notes string, keepCopy, noDownload bool) (*params.BackupsCreateResult, error)
+	// CreateDeprecated sends an RPC request in the old style to
+	// create a new backup.
+	CreateDeprecated(notes string) (*params.BackupsMetadataResult, error)
 	// Info gets the backup's metadata.
 	Info(id string) (*params.BackupsMetadataResult, error)
 	// List gets all stored metadata.
@@ -53,6 +56,11 @@ func (c *CommandBase) NewAPIClient() (APIClient, error) {
 	return newAPIClient(c)
 }
 
+// NewAPIClient returns a client for the backups api endpoint.
+func (c *CommandBase) NewGetAPI() (APIClient, int, error) {
+	return getAPI(c)
+}
+
 // SetFlags implements Command.SetFlags.
 func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
@@ -69,8 +77,22 @@ var newAPIClient = func(c *CommandBase) (APIClient, error) {
 	return backups.NewClient(root)
 }
 
+// GetAPI returns a client and the api version of the controller
+var getAPI = func(c *CommandBase) (APIClient, int, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, -1, errors.Trace(err)
+	}
+	version := root.BestFacadeVersion("Backups")
+	client, err := backups.NewClient(root)
+	return client, version, nil
+}
+
 // dumpMetadata writes the formatted backup metadata to stdout.
 func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetadataResult) {
+	// TODO: (hml) 2018-04-26
+	// fix how --quiet and --verbose are handled with backup/restore commands
+	// should be ctx.Verbosef() here
 	fmt.Fprintf(ctx.Stdout, "backup ID:       %q\n", result.ID)
 	fmt.Fprintf(ctx.Stdout, "checksum:        %q\n", result.Checksum)
 	fmt.Fprintf(ctx.Stdout, "checksum format: %q\n", result.ChecksumFormat)

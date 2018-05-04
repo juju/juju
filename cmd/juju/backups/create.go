@@ -4,7 +4,6 @@
 package backups
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"time"
@@ -13,13 +12,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/state/backups"
 )
 
 const (
 	notset          = backups.FilenamePrefix + "<date>-<time>.tar.gz"
-	downloadWarning = "WARNING: downloading backup archives is recommended; " +
+	downloadWarning = "downloading backup archives is recommended; " +
 		"backups stored remotely are not guaranteed to be available"
 )
 
@@ -50,6 +50,8 @@ type createCommand struct {
 	Filename string
 	// Notes is the custom message to associated with the new backup.
 	Notes string
+	// KeepCopy means the backup archive should be stored in the controller db.
+	KeepCopy bool
 }
 
 // Info implements Command.Info.
@@ -65,7 +67,8 @@ func (c *createCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.NoDownload, "no-download", false, "Do not download the archive")
+	f.BoolVar(&c.NoDownload, "no-download", false, "Do not download the archive, implies keep-copy")
+	f.BoolVar(&c.KeepCopy, "keep-copy", false, "Keep a copy of the archive on the controller")
 	f.StringVar(&c.Filename, "filename", notset, "Download to this file")
 }
 
@@ -80,10 +83,10 @@ func (c *createCommand) Init(args []string) error {
 	if c.Filename != notset && c.NoDownload {
 		return errors.Errorf("cannot mix --no-download and --filename")
 	}
+
 	if c.Filename == "" {
 		return errors.Errorf("missing filename")
 	}
-
 	return nil
 }
 
@@ -94,30 +97,47 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	client, err := c.NewAPIClient()
+
+	if c.NoDownload {
+		ctx.Warningf(downloadWarning)
+	}
+
+	client, apiVersion, err := c.NewGetAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer client.Close()
 
-	result, err := client.Create(c.Notes)
+	if apiVersion < 2 {
+		if c.KeepCopy {
+			return errors.New("--keep-copy is not supported by this controller")
+		}
+		// for API v1, keepCopy is the default and only choice, so set it here
+		c.KeepCopy = true
+	}
+
+	if c.NoDownload {
+		c.KeepCopy = true
+	}
+
+	metadataResult, copyFrom, err := c.create(client, apiVersion)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	// TODO: (hml) 2018-04-25
+	// fix to dump the metadata when --verbose used
 	if c.Log != nil && !c.Log.Quiet {
-		if c.NoDownload {
-			fmt.Fprintln(ctx.Stderr, downloadWarning)
-		}
-		c.dumpMetadata(ctx, result)
+		c.dumpMetadata(ctx, metadataResult)
+	}
+	if c.KeepCopy {
+		ctx.Infof(metadataResult.ID)
 	}
 
-	fmt.Fprintln(ctx.Stdout, result.ID)
-
 	// Handle download.
-	filename := c.decideFilename(ctx, c.Filename, result.Started)
-	if filename != "" {
-		if err := c.download(ctx, result.ID, filename); err != nil {
+	if !c.NoDownload {
+		filename := c.decideFilename(ctx, c.Filename, metadataResult.Started)
+		if err := c.download(ctx, client, copyFrom, filename); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -129,39 +149,46 @@ func (c *createCommand) decideFilename(ctx *cmd.Context, filename string, timest
 	if filename != notset {
 		return filename
 	}
-	if c.NoDownload {
-		return ""
-	}
-
 	// Downloading but no filename given, so generate one.
 	return timestamp.Format(backups.FilenameTemplate)
 }
 
-func (c *createCommand) download(ctx *cmd.Context, id string, filename string) error {
-	fmt.Fprintln(ctx.Stdout, "downloading to "+filename)
+func (c *createCommand) download(ctx *cmd.Context, client APIClient, copyFrom string, archiveFilename string) error {
+	ctx.Infof("downloading to " + archiveFilename)
 
-	// TODO(ericsnow) lp-1399722 This needs further investigation:
-	// There is at least anecdotal evidence that we cannot use an API
-	// client for more than a single request. So we use a new client
-	// for download.
-	client, err := c.NewAPIClient()
+	resultArchive, err := client.Download(copyFrom)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer client.Close()
+	defer resultArchive.Close()
 
-	archive, err := client.Download(id)
+	archive, err := os.Create(archiveFilename)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "while creating local archive file")
 	}
 	defer archive.Close()
 
-	outfile, err := os.Create(filename)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer outfile.Close()
+	_, err = io.Copy(archive, resultArchive)
+	return errors.Annotate(err, "while copying to local archive file")
+}
 
-	_, err = io.Copy(outfile, archive)
-	return errors.Trace(err)
+// TODO (hml) 2018-05-02
+// Fix in 3.0 to drop client.CreateDeprecated, it's here for backwards compatibility
+func (c *createCommand) create(client APIClient, apiVersion int) (metadataResult *params.BackupsMetadataResult, copyFrom string, err error) {
+	if apiVersion >= 2 {
+		result, err := client.Create(c.Notes, c.KeepCopy, c.NoDownload)
+		if err != nil {
+			return metadataResult, copyFrom, errors.Trace(err)
+		}
+		metadataResult = &result.Metadata
+		copyFrom = result.Filename
+	} else {
+		result, err := client.CreateDeprecated(c.Notes)
+		if err != nil {
+			return nil, copyFrom, errors.Trace(err)
+		}
+		metadataResult = result
+		copyFrom = metadataResult.ID
+	}
+	return metadataResult, copyFrom, err
 }

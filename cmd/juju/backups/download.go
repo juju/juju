@@ -97,7 +97,7 @@ func (c *downloadCommand) Run(ctx *cmd.Context) error {
 	// Write out the archive.
 	_, err = io.Copy(archive, resultArchive)
 	if err != nil {
-		return errors.Annotate(err, "while creating local archive file")
+		return errors.Annotate(err, "while copying local archive file")
 	}
 
 	// Print the local filename.

@@ -10,7 +10,7 @@ import (
 )
 
 // List provides the implementation of the API method.
-func (a *API) List(args params.BackupsListArgs) (params.BackupsListResult, error) {
+func (a *APIv2) List(args params.BackupsListArgs) (params.BackupsListResult, error) {
 	var result params.BackupsListResult
 
 	backups, closer := newBackups(a.backend)

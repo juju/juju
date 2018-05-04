@@ -22,6 +22,35 @@ var _ = gc.Suite(&createSuite{})
 func (s *createSuite) TestCreate(c *gc.C) {
 	cleanup := backups.PatchClientFacadeCall(s.client,
 		func(req string, paramsIn interface{}, resp interface{}) error {
+			c.Check(req, gc.Equals, "CreateBackup")
+
+			c.Assert(paramsIn, gc.FitsTypeOf, params.BackupsCreateArgs{})
+			p := paramsIn.(params.BackupsCreateArgs)
+			c.Check(p.Notes, gc.Equals, "important")
+			c.Check(p.KeepCopy, jc.IsFalse)
+			c.Check(p.NoDownload, jc.IsFalse)
+
+			if result, ok := resp.(*params.BackupsCreateResult); ok {
+				result.Metadata = apiserverbackups.ResultFromMetadata(s.Meta)
+				result.Metadata.Notes = p.Notes
+			} else {
+				c.Fatalf("wrong output structure")
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+
+	result, err := s.client.Create("important", false, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	meta := backupstesting.UpdateNotes(s.Meta, "important")
+	s.checkMetadataResult(c, &result.Metadata, meta)
+}
+
+func (s *createSuite) TestCreateDeprecated(c *gc.C) {
+	cleanup := backups.PatchClientFacadeCall(s.client,
+		func(req string, paramsIn interface{}, resp interface{}) error {
 			c.Check(req, gc.Equals, "Create")
 
 			c.Assert(paramsIn, gc.FitsTypeOf, params.BackupsCreateArgs{})
@@ -39,7 +68,7 @@ func (s *createSuite) TestCreate(c *gc.C) {
 	)
 	defer cleanup()
 
-	result, err := s.client.Create("important")
+	result, err := s.client.CreateDeprecated("important")
 	c.Assert(err, jc.ErrorIsNil)
 
 	meta := backupstesting.UpdateNotes(s.Meta, "important")

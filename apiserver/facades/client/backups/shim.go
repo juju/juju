@@ -41,6 +41,15 @@ func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Au
 	return NewAPI(&stateShim{st, model}, resources, authorizer)
 }
 
+// NewFacadeV2 provides the required signature for version 2 facade registration.
+func NewFacadeV2(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*APIv2, error) {
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewAPIv2(&stateShim{st, model}, resources, authorizer)
+}
+
 // ControllerTag disambiguates the ControllerTag method pending further
 // refactoring to separate model functionality from state functionality.
 func (s *stateShim) ControllerTag() names.ControllerTag {

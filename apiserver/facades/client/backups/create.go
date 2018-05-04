@@ -16,7 +16,34 @@ var waitUntilReady = replicaset.WaitUntilReady
 
 // Create is the API method that requests juju to create a new backup
 // of its state.  It returns the metadata for that backup.
+//
+// NOTE(hml) this exists only for backwards compatibility,
+// for API facade versions 1; clients should prefer its
+// successor, CreateBackup, below. Until all consumers
+// have been updated, or we bump a major version, we can't
+// drop this.
+//
+// TODO(hml) 2017-05-03
+// Drop this in Juju 3.0.
+func (a *APIv2) Create(args params.BackupsCreateArgs) (p params.BackupsCreateResult, _ error) {
+	return a.CreateBackup(args)
+}
+
+// Create is the API method that requests juju to create a new backup
+// of its state.  It returns the metadata for that backup.
+//
+// NOTE(hml) this provides backwards compatibility for facade version 1.
 func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataResult, err error) {
+	args.KeepCopy = true
+	args.NoDownload = true
+	result, err := a.APIv2.Create(args)
+	if err != nil {
+		return p, errors.Trace(err)
+	}
+	return result.Metadata, nil
+}
+
+func (a *APIv2) CreateBackup(args params.BackupsCreateArgs) (p params.BackupsCreateResult, _ error) {
 	backupsMethods, closer := newBackups(a.backend)
 	defer closer.Close()
 
@@ -24,7 +51,7 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 	defer session.Close()
 
 	// Don't go if HA isn't ready.
-	err = waitUntilReady(session, 60)
+	err := waitUntilReady(session, 60)
 	if err != nil {
 		return p, errors.Annotatef(err, "HA not ready; try again later")
 	}
@@ -56,10 +83,13 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 	}
 	meta.Notes = args.Notes
 
-	err = backupsMethods.Create(meta, a.paths, dbInfo)
+	fileName, err := backupsMethods.Create(meta, a.paths, dbInfo, args.KeepCopy, args.NoDownload)
 	if err != nil {
 		return p, errors.Trace(err)
 	}
 
-	return ResultFromMetadata(meta), nil
+	return params.BackupsCreateResult{
+		Metadata: ResultFromMetadata(meta),
+		Filename: fileName,
+	}, nil
 }

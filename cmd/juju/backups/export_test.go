@@ -21,6 +21,7 @@ const (
 
 var (
 	NewAPIClient = &newAPIClient
+	NewGetAPI    = &getAPI
 )
 
 type CreateCommand struct {

@@ -26,7 +26,7 @@ type backupsSuite struct {
 	testing.JujuConnSuite
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
-	api        *backupsAPI.API
+	api        *backupsAPI.APIv2
 	meta       *backups.Metadata
 	machineTag names.MachineTag
 }
@@ -57,14 +57,15 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 
 	tag := names.NewLocalUserTag("admin")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
-	s.api, err = backupsAPI.NewAPI(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
+	s.api, err = backupsAPI.NewAPIv2(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.meta = backupstesting.NewMetadataStarted()
 }
 
 func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *backupstesting.FakeBackups {
 	fake := backupstesting.FakeBackups{
-		Meta: meta,
+		Meta:     meta,
+		Filename: "test-filename",
 	}
 	if meta != nil {
 		fake.MetaList = append(fake.MetaList, meta)
