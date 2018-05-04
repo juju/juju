@@ -166,7 +166,8 @@ application-config:
     value: ext-host
   juju-managed-units:
     default: false
-    description: whether Juju manages unit lifecycle or the CAAS substrate
+    description: DEPRECATED - whether Juju manages unit lifecycle or the CAAS substrate(it
+      is always set to false now)
     source: default
     type: bool
     value: false

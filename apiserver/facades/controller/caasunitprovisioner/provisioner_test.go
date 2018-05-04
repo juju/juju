@@ -267,57 +267,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNoTags(c *gc.C) {
 	})
 }
 
-func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithTags(c *gc.C) {
-	s.st.application.jujuManagedUnits = true
-	s.st.application.units = []caasunitprovisioner.Unit{
-		&mockUnit{name: "gitlab/0", life: state.Alive},
-		&mockUnit{name: "gitlab/1", life: state.Alive},
-		&mockUnit{name: "gitlab/2", containerInfo: &mockContainerInfo{providerId: "uuid2"}, life: state.Alive},
-	}
-
-	units := []params.ApplicationUnitParams{
-		{ProviderId: "uuid", UnitTag: "unit-gitlab-0", Address: "address", Ports: []string{"port"},
-			Status: "running", Info: "message"},
-		{ProviderId: "another-uuid", UnitTag: "unit-gitlab-1", Address: "another-address", Ports: []string{"another-port"},
-			Status: "error", Info: "another message"},
-	}
-	args := params.UpdateApplicationUnitArgs{
-		Args: []params.UpdateApplicationUnits{
-			{ApplicationTag: "application-gitlab", Units: units},
-			{ApplicationTag: "application-another", Units: []params.ApplicationUnitParams{}},
-		},
-	}
-	results, err := s.facade.UpdateApplicationsUnits(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{nil},
-			{&params.Error{Message: "application another not found", Code: "not found"}},
-		},
-	})
-	s.st.application.CheckCallNames(c, "ApplicationConfig", "Life")
-	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
-	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
-		ProviderId: strPtr("uuid"),
-		Address:    strPtr("address"), Ports: &[]string{"port"},
-		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "message"},
-		AgentStatus: &status.StatusInfo{Status: status.Idle},
-	})
-	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
-	s.st.application.units[1].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
-		ProviderId: strPtr("another-uuid"),
-		Address:    strPtr("another-address"), Ports: &[]string{"another-port"},
-		AgentStatus: &status.StatusInfo{Status: status.Error, Message: "another message"},
-	})
-	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
-	s.st.application.units[2].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
-		ProviderId: strPtr(""),
-		UnitStatus: &status.StatusInfo{Status: status.Terminated, Message: "unit stopped by the cloud"},
-	})
-}
-
 func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
-	s.st.application.jujuManagedUnits = true
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", life: state.Alive},
 		&mockUnit{name: "gitlab/1", life: state.Alive},

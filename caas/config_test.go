@@ -15,7 +15,7 @@ import (
 
 var baseFields = environschema.Fields{
 	caas.JujuManagedUnits: {
-		Description: "whether Juju manages unit lifecycle or the CAAS substrate",
+		Description: "DEPRECATED - whether Juju manages unit lifecycle or the CAAS substrate(it is always set to false now)",
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
