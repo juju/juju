@@ -4,8 +4,6 @@
 package raftclusterer
 
 import (
-	"sync"
-
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -84,7 +82,6 @@ type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
 
-	mu            sync.Mutex
 	serverDetails chan apiserver.Details
 }
 

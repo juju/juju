@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	humanize "github.com/dustin/go-humanize"
 	"github.com/hashicorp/raft"
 	"github.com/hashicorp/raft-boltdb"
 	"github.com/juju/errors"
@@ -40,6 +41,17 @@ const (
 	// was. If it crashes instead the logging will give a path to the
 	// problem.
 	LoopTimeout = 1 * time.Minute
+
+	// noLeaderTimeout is how long a follower will wait for contact
+	// from the leader before restarting. This allows us to see config
+	// changes (force-appended by the raft-backstop worker) to allow
+	// us to become voting again if the leader was removed leaving a
+	// 2-node cluster without quorum.
+	noLeaderTimeout = 1 * time.Minute
+
+	// noLeaderFrequency is how long the raft worker wait between
+	// checking whether it's in contact with the leader.
+	noLeaderFrequency = 10 * time.Second
 )
 
 var (
@@ -50,7 +62,20 @@ var (
 	// ErrStartTimeout is returned by NewWorker if the worker loop
 	// didn't start within LoopTimeout.
 	ErrStartTimeout = errors.New("timed out waiting for worker loop")
+
+	// ErrNoLeaderTimeout is returned by the worker loop if we've gone
+	// too long without contact from the leader. It gives the worker a
+	// chance to see any configuration changes the backstop worker
+	// might have force-appended to the raft log.
+	ErrNoLeaderTimeout = errors.New("timed out waiting for leader contact")
 )
+
+// Logger represents the logging methods called.
+type Logger interface {
+	Warningf(message string, args ...interface{})
+	Errorf(message string, args ...interface{})
+	Logf(level loggo.Level, message string, args ...interface{})
+}
 
 // Config is the configuration required for running a raft worker.
 type Config struct {
@@ -59,7 +84,7 @@ type Config struct {
 	FSM raft.FSM
 
 	// Logger is the logger for this worker.
-	Logger loggo.Logger
+	Logger Logger
 
 	// StorageDir is the directory in which to store raft
 	// artifacts: logs, snapshots, etc. It is expected that
@@ -85,6 +110,10 @@ type Config struct {
 	// raft).
 	Clock clock.Clock
 
+	// NoLeaderTimeout, if non-zero, will override the default
+	// timeout for leader contact before restarting.
+	NoLeaderTimeout time.Duration
+
 	// ElectionTimeout, if non-zero, will override the default
 	// raft election timeout.
 	ElectionTimeout time.Duration
@@ -106,6 +135,9 @@ type Config struct {
 func (config Config) Validate() error {
 	if config.FSM == nil {
 		return errors.NotValidf("nil FSM")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	if config.StorageDir == "" {
 		return errors.NotValidf("empty StorageDir")
@@ -178,13 +210,17 @@ func newWorker(config Config) (*Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if config.NoLeaderTimeout == 0 {
+		config.NoLeaderTimeout = noLeaderTimeout
+	}
 	raftConfig, err := newRaftConfig(config)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	w := &Worker{
-		config: config,
-		raftCh: make(chan *raft.Raft),
+		config:     config,
+		raftCh:     make(chan *raft.Raft),
+		logStoreCh: make(chan raft.LogStore),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -209,27 +245,38 @@ type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
 
-	raftCh chan *raft.Raft
+	raftCh     chan *raft.Raft
+	logStoreCh chan raft.LogStore
 }
 
 // Raft returns the raft.Raft managed by this worker, or
 // an error if the worker has stopped.
 func (w *Worker) Raft() (*raft.Raft, error) {
-	// Give precedence to the worker dying.
 	select {
 	case <-w.catacomb.Dying():
-	default:
-		select {
-		case raft := <-w.raftCh:
-			return raft, nil
-		case <-w.catacomb.Dying():
+		err := w.catacomb.Err()
+		if err != nil {
+			return nil, err
 		}
+		return nil, ErrWorkerStopped
+	case raft := <-w.raftCh:
+		return raft, nil
 	}
-	err := w.catacomb.Err()
-	if err != nil && err != w.catacomb.ErrDying() {
-		return nil, err
+}
+
+// LogStore returns the raft.LogStore managed by this worker, or
+// an error if the worker has stopped.
+func (w *Worker) LogStore() (raft.LogStore, error) {
+	select {
+	case <-w.catacomb.Dying():
+		err := w.catacomb.Err()
+		if err != nil {
+			return nil, err
+		}
+		return nil, ErrWorkerStopped
+	case logStore := <-w.logStoreCh:
+		return logStore, nil
 	}
-	return nil, ErrWorkerStopped
 }
 
 // Kill is part of the worker.Worker interface.
@@ -246,10 +293,15 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	if err := os.MkdirAll(w.config.StorageDir, 0700); err != nil {
 		return errors.Trace(err)
 	}
-	logStore, err := newLogStore(w.config.StorageDir)
+	rawLogStore, err := newLogStore(w.config.StorageDir)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// We need to make sure access to the LogStore methods (+ closing)
+	// is synchronised, but we don't need to synchronise the
+	// StableStore methods, because we aren't giving out a reference
+	// to the StableStore - only the raft instance uses it.
+	logStore := &syncLogStore{store: rawLogStore}
 	defer logStore.Close()
 
 	snapshotRetention := w.config.SnapshotRetention
@@ -261,7 +313,7 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 		return errors.Trace(err)
 	}
 
-	r, err := raft.NewRaft(raftConfig, w.config.FSM, logStore, logStore, snapshotStore, w.config.Transport)
+	r, err := raft.NewRaft(raftConfig, w.config.FSM, logStore, rawLogStore, snapshotStore, w.config.Transport)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -282,6 +334,11 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	r.RegisterObserver(observer)
 	defer r.DeregisterObserver(observer)
 
+	// Every 10 seconds we check whether the no-leader timeout should
+	// trip.
+	noLeaderCheck := w.config.Clock.After(noLeaderFrequency)
+	lastContact := w.config.Clock.Now()
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -292,7 +349,22 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 			// the local node was removed from the cluster
 			// configuration, causing it to shutdown.
 			return errors.New("raft shutdown")
+		case now := <-noLeaderCheck:
+			noLeaderCheck = w.config.Clock.After(noLeaderFrequency)
+			if r.State() == raft.Leader {
+				lastContact = now
+				continue
+			}
+			var zeroTime time.Time
+			if latest := r.LastContact(); latest != zeroTime {
+				lastContact = latest
+			}
+			if now.After(lastContact.Add(w.config.NoLeaderTimeout)) {
+				w.config.Logger.Errorf("last leader contact earlier than %s", humanize.Time(lastContact))
+				return ErrNoLeaderTimeout
+			}
 		case w.raftCh <- r:
+		case w.logStoreCh <- logStore:
 		}
 	}
 }
@@ -335,7 +407,7 @@ func newLogStore(dir string) (*raftboltdb.BoltStore, error) {
 func newSnapshotStore(
 	dir string,
 	retain int,
-	logger loggo.Logger,
+	logger Logger,
 ) (raft.SnapshotStore, error) {
 	const logPrefix = "[snapshot] "
 	logWriter := &raftutil.LoggoWriter{logger, loggo.DEBUG}

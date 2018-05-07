@@ -38,10 +38,20 @@ func (c *mockAgentConfig) DataDir() string {
 type mockRaftWorker struct {
 	worker.Worker
 	testing.Stub
-	r *raft.Raft
+	r  *raft.Raft
+	ls raft.LogStore
 }
 
 func (r *mockRaftWorker) Raft() (*raft.Raft, error) {
 	r.MethodCall(r, "Raft")
 	return r.r, r.NextErr()
+}
+
+func (r *mockRaftWorker) LogStore() (raft.LogStore, error) {
+	r.MethodCall(r, "LogStore")
+	return r.ls, r.NextErr()
+}
+
+type mockLogStore struct {
+	raft.LogStore
 }
