@@ -14,7 +14,6 @@ import os
 from subprocess import CalledProcessError
 import sys
 from time import sleep
-from urllib2 import urlopen
 import yaml
 
 from assess_user_grant_revoke import User
@@ -26,16 +25,20 @@ from jujupy.client import (
     get_stripped_version_number,
 )
 from jujupy.wait_condition import (
-    BaseCondition,
+    ModelCheckFailed,
+    wait_for_model_check,
+)
+from jujupy.workloads import (
+    assert_deployed_charm_is_responding,
+    deploy_dummy_source_to_new_model,
+    deploy_simple_server_to_new_model,
     )
-from jujucharm import local_charm_path
 from remote import remote_from_address
 from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
     qualified_model_name,
-    get_unit_ipaddress,
     temp_dir,
     until_timeout,
     )
@@ -138,28 +141,6 @@ def _new_log_dir(log_dir, post_fix):
     return new_log_dir
 
 
-class ModelCheckFailed(Exception):
-    """Exception used to signify a model status check failed or timed out."""
-
-
-def _wait_for_model_check(client, model_check, timeout):
-    """Wrapper to have a client wait for a model_check callable to succeed.
-
-    :param client: ModelClient object to act on and pass into model_check
-    :param model_check: Callable that takes a ModelClient object. When the
-      callable reaches a success state it returns True. If model_check never
-      returns True within `timeout`, the exception ModelCheckFailed will be
-      raised.
-    """
-    with client.check_timeouts():
-        with client.ignore_soft_deadline():
-            for _ in until_timeout(timeout):
-                if model_check(client):
-                    return
-                sleep(1)
-    raise ModelCheckFailed()
-
-
 def wait_until_model_disappears(client, model_name, timeout=120):
     """Waits for a while for 'model_name' model to no longer be listed.
 
@@ -184,7 +165,7 @@ def wait_until_model_disappears(client, model_name, timeout=120):
                 return True
 
     try:
-        _wait_for_model_check(client, model_check, timeout)
+        wait_for_model_check(client, model_check, timeout)
     except ModelCheckFailed:
         raise JujuAssertionError(
             'Model "{}" failed to be removed after {} seconds'.format(
@@ -205,7 +186,7 @@ def wait_for_model(client, model_name, timeout=120):
         if model_name in all_model_names:
             return True
     try:
-        _wait_for_model_check(client, model_check, timeout)
+        wait_for_model_check(client, model_check, timeout)
     except ModelCheckFailed:
         raise JujuAssertionError(
             'Model "{}" failed to appear after {} seconds'.format(
@@ -233,20 +214,6 @@ def wait_for_migrating(client, timeout=120):
                 '{} seconds'.format(
                     model_name, timeout
                 ))
-
-
-def assert_deployed_charm_is_responding(client, expected_output=None):
-    """Ensure that the deployed simple-server charm is still responding."""
-    # Set default value if needed.
-    if expected_output is None:
-        expected_output = 'simple-server.'
-    ipaddress = get_unit_ipaddress(client, 'simple-resource-http/0')
-    if expected_output != get_server_response(ipaddress):
-        raise JujuAssertionError('Server charm is not responding as expected.')
-
-
-def get_server_response(ipaddress):
-    return urlopen('http://{}'.format(ipaddress)).read().rstrip()
 
 
 def ensure_api_login_redirects(source_client, dest_client):
@@ -373,121 +340,6 @@ def ensure_superuser_can_migrate_other_user_models(
         migration_client, user_qualified_model_name)
     migration_client.wait_for_started()
     wait_until_model_disappears(source_client, user_qualified_model_name)
-
-
-def deploy_simple_server_to_new_model(
-        client, model_name, resource_contents=None, series='xenial'):
-    # As per bug LP:1709773 deploy 2 primary apps and have a subordinate
-    #  related to both
-    new_model = client.add_model(client.env.clone(model_name))
-    application = deploy_simple_resource_server(
-        new_model, resource_contents, series)
-    _, deploy_complete = new_model.deploy('cs:ubuntu', series=series)
-    new_model.wait_for(deploy_complete)
-    new_model.deploy('cs:nrpe', series=series)
-    new_model.juju('add-relation', ('nrpe', application))
-    new_model.juju('add-relation', ('nrpe', 'ubuntu'))
-    # Need to wait for the subordinate charms too.
-    new_model.wait_for(AllApplicationActive())
-    new_model.wait_for(AllApplicationWorkloads())
-    new_model.wait_for(AgentsIdle(['nrpe/0', 'nrpe/1']))
-    assert_deployed_charm_is_responding(new_model, resource_contents)
-
-    return new_model, application
-
-
-class AllApplicationActive(BaseCondition):
-    """Ensure all applications (incl. subordinates) are 'active' state."""
-
-    def iter_blocking_state(self, status):
-        applications = status.get_applications()
-        all_app_status = [
-            state['application-status']['current']
-            for name, state in applications.items()]
-        apps_active = [state == 'active' for state in all_app_status]
-        if not all(apps_active):
-            yield 'applications', 'not-all-active'
-
-    def do_raise(self, model_name, status):
-        raise Exception('Timed out waiting for all applications to be active.')
-
-
-class AllApplicationWorkloads(BaseCondition):
-    """Ensure all applications (incl. subordinates) are workload 'active'."""
-
-    def iter_blocking_state(self, status):
-        app_workloads_active = []
-        for name, unit in status.iter_units():
-            try:
-                state = unit['workload-status']['current'] == 'active'
-            except KeyError:
-                state = False
-            app_workloads_active.append(state)
-        if not all(app_workloads_active):
-            yield 'application-workloads', 'not-all-active'
-
-    def do_raise(self, model_name, status):
-        raise Exception(
-            'Timed out waiting for all application workloads to be active.')
-
-
-class AgentsIdle(BaseCondition):
-    """Ensure all specified agents are finished doing setup work."""
-
-    def __init__(self, units, *args, **kws):
-        self.units = units
-        super(AgentsIdle, self).__init__(*args, **kws)
-
-    def iter_blocking_state(self, status):
-        idles = []
-        for name in self.units:
-            try:
-                unit = status.get_unit(name)
-                state = unit['juju-status']['current'] == 'idle'
-            except KeyError:
-                state = False
-            idles.append(state)
-        if not all(idles):
-            yield 'application-agents', 'not-all-idle'
-
-    def do_raise(self, model_name, status):
-        raise Exception("Timed out waiting for all agents to be idle.")
-
-
-def deploy_dummy_source_to_new_model(client, model_name):
-    new_model_client = client.add_model(client.env.clone(model_name))
-    charm_path = local_charm_path(
-        charm='dummy-source', juju_ver=new_model_client.version)
-    new_model_client.deploy(charm_path)
-    new_model_client.wait_for_started()
-    new_model_client.set_config('dummy-source', {'token': 'one'})
-    new_model_client.wait_for_workloads()
-    return new_model_client
-
-
-def deploy_simple_resource_server(
-        client, resource_contents=None, series='xenial'):
-    application_name = 'simple-resource-http'
-    log.info('Deploying charm: '.format(application_name))
-    charm_path = local_charm_path(
-        charm=application_name, juju_ver=client.version)
-    # Create a temp file which we'll use as the resource.
-    if resource_contents is not None:
-        with temp_dir() as temp:
-            index_file = os.path.join(temp, 'index.html')
-            with open(index_file, 'wt') as f:
-                f.write(resource_contents)
-            client.deploy(
-                charm_path,
-                series=series,
-                resource='index={}'.format(index_file))
-    else:
-        client.deploy(charm_path, series=series)
-
-    client.wait_for_started()
-    client.wait_for_workloads()
-    client.juju('expose', (application_name))
-    return application_name
 
 
 def migrate_model_to_controller(

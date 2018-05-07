@@ -522,13 +522,21 @@ def describe_substrate(env):
 
 
 def get_stripped_version_number(version_string):
+    return get_version_string_parts(version_string)[0]
+
+
+def get_version_string_parts(version_string):
     # strip the series and arch from the built version.
     version_parts = version_string.split('-')
     if len(version_parts) == 4:
-        version_number = '-'.join(version_parts[0:2])
+        return '-'.join(version_parts[0:2]), version_parts[2], version_parts[3]
     else:
-        version_number = version_parts[0]
-    return version_number
+        try:
+            return version_parts[0], version_parts[1], version_parts[2]
+        except IndexError:
+            # Possible version_string was only version (i.e. 2.0.0),
+            #  namely tests.
+            return version_parts
 
 
 class ModelClient:
@@ -680,7 +688,7 @@ class ModelClient:
         """Create a new juju client.
 
         Required Arguments
-        :param env: Object representing a model in a data directory.
+        :param env: JujuData object representing a model in a data directory.
         :param version: Version of juju the client wraps.
         :param full_path: Full path to juju binary.
 
@@ -865,6 +873,7 @@ class ModelClient:
             'audit-log-max-size',
             'audit-log-max-backups',
             'auditing-enabled',
+            'audit-log-exclude-methods',
             'auth-url',
             'bootstrap-host',
             'client-email',
@@ -1742,11 +1751,11 @@ class ModelClient:
         if units is not None:
             args.extend(['--unit', ','.join(units)])
         args.extend(commands)
-        responces = self.get_juju_output('run', *args)
+        responses = self.get_juju_output('run', *args)
         if use_json:
-            return json.loads(responces)
+            return json.loads(responses)
         else:
-            return responces
+            return responses
 
     def list_space(self):
         return yaml.safe_load(self.get_juju_output('list-space'))
