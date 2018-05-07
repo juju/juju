@@ -68,9 +68,8 @@ func (ci *containerInitialiser) Initialise() error {
 		return err
 	}
 
-	// Well... this will need to change soon once we are passed 17.04 as who
-	// knows what the series name will be.
-	if ci.series < "xenial" {
+	switch ci.series {
+	case "quantal", "raring", "saucy", "trusty", "utopic", "vivid", "wily":
 		return nil
 	}
 
