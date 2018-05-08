@@ -146,6 +146,8 @@ func (st *State) ControllerTag() names.ControllerTag {
 	return st.controllerTag
 }
 
+// ControllerTimestamp returns the current timestamp of the backend
+// controller.
 func (st *State) ControllerTimestamp() (*time.Time, error) {
 	now := st.clock().Now()
 	return &now, nil

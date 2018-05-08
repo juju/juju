@@ -4666,10 +4666,15 @@ func (s *StateSuite) testOpenParams() state.OpenParams {
 }
 
 func (s *StateSuite) TestControllerTimestamp(c *gc.C) {
-	clock := gitjujutesting.NewClock(testing.NonZeroTime())
+	now := testing.NonZeroTime()
+	clock := gitjujutesting.NewClock(now)
+
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
+
 	got, err := s.State.ControllerTimestamp()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.NotNil)
+
+	c.Assert(*got, jc.DeepEquals, now)
 }
