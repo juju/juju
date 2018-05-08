@@ -206,7 +206,7 @@ func InitializeState(
 	}
 
 	if err := hostedModelEnv.Create(
-		state.CreateCallContext(st),
+		state.CallContext(st),
 		environs.CreateParams{
 			ControllerUUID: controllerUUID,
 		}); err != nil {

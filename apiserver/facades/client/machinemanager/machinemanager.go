@@ -44,7 +44,7 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 	}
 	backend := &stateShim{State: st, IAASModel: im}
 	pool := &poolShim{ctx.StatePool()}
-	return NewMachineManagerAPI(backend, pool, ctx.Auth(), state.CreateCallContext(st))
+	return NewMachineManagerAPI(backend, pool, ctx.Auth(), state.CallContext(st))
 }
 
 type MachineManagerAPIV4 struct {

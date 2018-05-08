@@ -5,10 +5,8 @@ package state
 
 import "github.com/juju/juju/environs/context"
 
-func CreateCallContext(st *State) context.ProviderCallContext {
+func CallContext(st *State) context.ProviderCallContext {
 	callCtx := context.NewCloudCallContext()
-	callCtx.InvalidateCredentialF = func(reason string) error {
-		return st.InvalidateModelCredential(reason)
-	}
+	callCtx.InvalidateCredentialF = st.InvalidateModelCredential
 	return callCtx
 }

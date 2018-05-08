@@ -133,7 +133,7 @@ func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 		configGetter,
 		auth,
 		model,
-		state.CreateCallContext(st),
+		state.CallContext(st),
 	)
 }
 

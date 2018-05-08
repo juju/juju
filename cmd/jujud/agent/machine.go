@@ -524,7 +524,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			if err != nil {
 				return false, errors.Annotate(err, "getting environ from state")
 			}
-			return environs.SupportsSpaces(state.CreateCallContext(st), env), nil
+			return environs.SupportsSpaces(state.CallContext(st), env), nil
 		}
 
 		manifolds := machineManifolds(machine.ManifoldsConfig{

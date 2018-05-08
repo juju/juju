@@ -98,7 +98,7 @@ func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 		return common.StateControllerInfo(st)
 	}
 
-	callCtx := state.CreateCallContext(st)
+	callCtx := state.CallContext(st)
 	authContext := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
 	return createOffersAPI(
 		GetApplicationOffers,

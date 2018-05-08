@@ -59,13 +59,13 @@ var (
 func NewFacade(context facade.Context) (*CloudAPI, error) {
 	st := NewStateBackend(context.State())
 	ctlrSt := NewStateBackend(context.StatePool().SystemState())
-	return NewCloudAPI(st, ctlrSt, context.Auth(), state.CreateCallContext(context.State()))
+	return NewCloudAPI(st, ctlrSt, context.Auth(), state.CallContext(context.State()))
 }
 
 func NewFacadeV2(context facade.Context) (*CloudAPIV2, error) {
 	st := NewStateBackend(context.State())
 	ctlrSt := NewStateBackend(context.StatePool().SystemState())
-	return NewCloudAPIV2(st, ctlrSt, context.Auth(), state.CreateCallContext(context.State()))
+	return NewCloudAPIV2(st, ctlrSt, context.Auth(), state.CallContext(context.State()))
 }
 
 // NewCloudAPI creates a new API server endpoint for managing the controller's
