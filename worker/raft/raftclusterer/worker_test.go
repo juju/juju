@@ -255,6 +255,92 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 	c.Assert(future.Error(), jc.ErrorIsNil)
 }
 
+func (s *WorkerSuite) TestDisappearingAddresses(c *gc.C) {
+	// If we had 3 servers but the peergrouper publishes an update
+	// that sets all of their addresses to "", ignore that change.
+	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
+	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &jujuraft.SimpleFSM{})
+	connectTransports(s.Transport, transport1, transport2)
+	machine0Address := string(s.Transport.LocalAddr())
+	machine1Address := string(transport1.LocalAddr())
+	machine2Address := string(transport2.LocalAddr())
+
+	s.publishDetails(c, apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"0": {
+				ID:              "0",
+				InternalAddress: machine0Address,
+			},
+			"1": {
+				ID:              "1",
+				InternalAddress: machine1Address,
+			},
+			"2": {
+				ID:              "2",
+				InternalAddress: machine2Address,
+			},
+		},
+	})
+	expectedConfiguration := []raft.Server{{
+		ID:       "machine-0",
+		Address:  raft.ServerAddress(machine0Address),
+		Suffrage: raft.Voter,
+	}, {
+		ID:       "machine-1",
+		Address:  raft.ServerAddress(machine1Address),
+		Suffrage: raft.Voter,
+	}, {
+		ID:       "machine-2",
+		Address:  raft.ServerAddress(machine2Address),
+		Suffrage: raft.Voter,
+	}}
+	rafttest.CheckConfiguration(c, raft1, expectedConfiguration)
+
+	s.publishDetails(c, apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"0": {
+				ID:              "0",
+				InternalAddress: "",
+			},
+			"1": {
+				ID:              "1",
+				InternalAddress: "",
+			},
+			"2": {
+				ID:              "2",
+				InternalAddress: "",
+			},
+		},
+	})
+
+	// Check that it ignores the update - removing all servers isn't
+	// something that we should allow.
+	rafttest.CheckConfiguration(c, raft1, expectedConfiguration)
+
+	// But publishing an update with one machines with a blank address
+	// should still remove it.
+	s.publishDetails(c, apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"0": {
+				ID:              "0",
+				InternalAddress: machine0Address,
+			},
+			"1": {
+				ID:              "1",
+				InternalAddress: "",
+			},
+			"2": {
+				ID:              "2",
+				InternalAddress: machine2Address,
+			},
+		},
+	})
+	rafttest.CheckConfiguration(c, raft1, []raft.Server{
+		expectedConfiguration[0],
+		expectedConfiguration[2],
+	})
+}
+
 func (s *WorkerSuite) TestRequestsDetails(c *gc.C) {
 	// The worker is started in SetUpTest.
 	select {
