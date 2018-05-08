@@ -16,6 +16,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -28,6 +29,8 @@ type facadeSuite struct {
 	authorizer       *apiservertesting.FakeAuthorizer
 	facade           *sshclient.Facade
 	m0, uFoo, uOther string
+
+	callContext context.ProviderCallContext
 }
 
 var _ = gc.Suite(&facadeSuite{})
@@ -46,20 +49,22 @@ func (s *facadeSuite) SetUpTest(c *gc.C) {
 	s.authorizer = new(apiservertesting.FakeAuthorizer)
 	s.authorizer.Tag = names.NewUserTag("igor")
 	s.authorizer.AdminTag = names.NewUserTag("igor")
-	facade, err := sshclient.New(s.backend, nil, s.authorizer)
+
+	s.callContext = context.NewCloudCallContext()
+	facade, err := sshclient.InternalFacade(s.backend, s.authorizer, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
 
 func (s *facadeSuite) TestMachineAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("0")
-	_, err := sshclient.New(s.backend, nil, s.authorizer)
+	_, err := sshclient.InternalFacade(s.backend, s.authorizer, s.callContext)
 	c.Assert(err, gc.Equals, common.ErrPerm)
 }
 
 func (s *facadeSuite) TestUnitAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewUnitTag("foo/0")
-	_, err := sshclient.New(s.backend, nil, s.authorizer)
+	_, err := sshclient.InternalFacade(s.backend, s.authorizer, s.callContext)
 	c.Assert(err, gc.Equals, common.ErrPerm)
 }
 

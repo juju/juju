@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs/context"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -62,7 +63,7 @@ func (s *cloudSuite) setTestAPIForUser(c *gc.C, user names.UserTag) {
 		Tag: user,
 	}
 	var err error
-	s.api, err = cloudfacade.NewCloudAPI(s.backend, s.ctlrBackend, s.authorizer)
+	s.api, err = cloudfacade.NewCloudAPI(s.backend, s.ctlrBackend, s.authorizer, context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

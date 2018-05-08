@@ -29,6 +29,7 @@ type BaseAPI struct {
 	StatePool            StatePool
 	getEnviron           environFromModelFunc
 	getControllerInfo    func() (apiAddrs []string, caCert string, _ error)
+	callContext          context.ProviderCallContext
 }
 
 // checkPermission ensures that the logged in user holds the given permission on an entity.
@@ -498,8 +499,6 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (m
 		return nil, errors.Trace(err)
 	}
 
-	ctx := context.NewCloudCallContext()
-
 	netEnv, ok := environs.SupportsNetworking(env)
 	if !ok {
 		logger.Debugf("cloud provider doesn't support networking, not getting space info")
@@ -519,7 +518,7 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (m
 				return nil, errors.Trace(err)
 			}
 		}
-		providerSpace, err := netEnv.ProviderSpaceInfo(ctx, space)
+		providerSpace, err := netEnv.ProviderSpaceInfo(api.callContext, space)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}

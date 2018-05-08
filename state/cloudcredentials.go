@@ -147,6 +147,31 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 	return nil
 }
 
+// InvalidateCloudCredential marks a cloud credential with the given tag as invalid.
+func (st *State) InvalidateCloudCredential(tag names.CloudCredentialTag, reason string) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		_, err := st.CloudCredential(tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		ops := []txn.Op{{
+			C:      cloudCredentialsC,
+			Id:     cloudCredentialDocID(tag),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"invalid", true},
+				{"invalid-reason", reason},
+			}}},
+		}}
+		return ops, nil
+	}
+	if err := st.db().Run(buildTxn); err != nil {
+		return errors.Annotatef(err, "invalidating cloud credential %v", tag.Id())
+	}
+	return nil
+}
+
 // RemoveCloudCredential removes a cloud credential with the given tag.
 func (st *State) RemoveCloudCredential(tag names.CloudCredentialTag) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {

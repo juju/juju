@@ -39,7 +39,7 @@ func distributeUnit(u *Unit, candidates []instance.Id) ([]instance.Id, error) {
 	if len(distributionGroup) == 0 {
 		return candidates, nil
 	}
-	return distributor.DistributeInstances(createEnvironCallContext(u.st), candidates, distributionGroup)
+	return distributor.DistributeInstances(CreateCallContext(u.st), candidates, distributionGroup)
 }
 
 // ServiceInstances returns the instance IDs of provisioned

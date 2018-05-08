@@ -69,7 +69,7 @@ func (st *State) precheckInstance(
 		return errors.New("policy returned nil prechecker without an error")
 	}
 	return prechecker.PrecheckInstance(
-		createEnvironCallContext(st),
+		CreateCallContext(st),
 		environs.PrecheckInstanceParams{
 			Series:            series,
 			Constraints:       cons,

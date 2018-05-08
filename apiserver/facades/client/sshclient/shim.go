@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
@@ -32,15 +31,6 @@ type SSHMachine interface {
 	PrivateAddress() (network.Address, error)
 	Addresses() []network.Address
 	AllNetworkAddresses() ([]network.Address, error)
-}
-
-// NewFacade wraps New to express the supplied *state.State as a Backend.
-func NewFacade(st *state.State, res facade.Resources, auth facade.Authorizer) (*Facade, error) {
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return New(&backend{stateenvirons.EnvironConfigGetter{st, m}}, res, auth)
 }
 
 type backend struct {
