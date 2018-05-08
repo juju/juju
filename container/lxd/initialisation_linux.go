@@ -68,9 +68,8 @@ func (ci *containerInitialiser) Initialise() error {
 		return err
 	}
 
-	// Well... this will need to change soon once we are passed 17.04 as who
-	// knows what the series name will be.
-	if ci.series < "xenial" {
+	// LXD init is only run on Xenial and later.
+	if ci.series == "trusty" {
 		return nil
 	}
 

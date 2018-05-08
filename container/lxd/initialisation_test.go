@@ -8,7 +8,9 @@ package lxd
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os/exec"
 	"runtime"
 
 	"github.com/juju/testing"
@@ -129,26 +131,32 @@ func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
 	})
 }
 
-func (s *InitialiserSuite) TestLXDInit(c *gc.C) {
-	// Patch df so it always returns 100GB
-	df100 := func(path string) (uint64, error) {
-		return 100 * 1024 * 1024 * 1024, nil
-	}
-	s.PatchValue(&df, df100)
+func (s *InitialiserSuite) TestLXDInitBionic(c *gc.C) {
+	s.patchDF100GB()
 
-	container := NewContainerInitialiser("xenial")
+	container := NewContainerInitialiser("bionic")
 	err := container.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
 
 	testing.AssertEchoArgs(c, "lxd", "init", "--auto")
 }
 
+func (s *InitialiserSuite) TestLXDInitTrusty(c *gc.C) {
+	s.patchDF100GB()
+
+	container := NewContainerInitialiser("trusty")
+	err := container.Initialise()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that our patched call has no recorded args.
+	execPath, err := exec.LookPath("lxd")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = ioutil.ReadFile(execPath + ".out")
+	c.Assert(err, gc.ErrorMatches, "*. no such file or directory$")
+}
+
 func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
-	// Patch df so it always returns 100GB
-	df100 := func(path string) (uint64, error) {
-		return 100 * 1024 * 1024 * 1024, nil
-	}
-	s.PatchValue(&df, df100)
+	s.patchDF100GB()
 
 	container := NewContainerInitialiser("xenial")
 	cont, ok := container.(*containerInitialiser)
@@ -167,6 +175,14 @@ error: You have existing containers or images. lxd init requires an empty LXD.`,
 	// the above error should be ignored by the code that calls lxd init.
 	err := container.Initialise()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// patchDF100GB ensures that df always returns 100GB.
+func (s *InitialiserSuite) patchDF100GB() {
+	df100 := func(path string) (uint64, error) {
+		return 100 * 1024 * 1024 * 1024, nil
+	}
+	s.PatchValue(&df, df100)
 }
 
 type mockConfigSetter struct {
