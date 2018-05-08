@@ -68,8 +68,8 @@ func (ci *containerInitialiser) Initialise() error {
 		return err
 	}
 
-	switch ci.series {
-	case "quantal", "raring", "saucy", "trusty", "utopic", "vivid", "wily":
+	// LXD init is only run on Xenial and later.
+	if ci.series == "trusty" {
 		return nil
 	}
 
