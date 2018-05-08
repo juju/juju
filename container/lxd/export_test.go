@@ -5,6 +5,7 @@ package lxd
 
 import (
 	"errors"
+
 	"github.com/juju/juju/container"
 	lxdclient "github.com/lxc/lxd/client"
 )

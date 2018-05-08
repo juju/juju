@@ -4,12 +4,13 @@
 package fanconfigurer_test
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"fmt"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/fanconfigurer"
 	"github.com/juju/juju/apiserver/params"

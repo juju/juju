@@ -60,6 +60,16 @@ go tool vet \
     . || [ -n "$IGNORE_VET_WARNINGS" ]
 
 
+echo "checking: gometalinter ..."
+
+go get -u github.com/alecthomas/gometalinter
+gometalinter --install
+gometalinter --disable-all \
+   --enable=vet \
+   --enable=goimports \
+   --deadline=120s \
+   ./...
+
 echo "checking: go build ..."
 go build github.com/juju/juju/...
 
