@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/naturalsort"
 )
 
 // FormatOneline writes a brief list of units and their subordinates.
@@ -47,9 +47,9 @@ func formatOneline(writer io.Writer, value interface{}, printf onelinePrintf) er
 		printf(writer, format, uName, u, level)
 	}
 
-	for _, svcName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
+	for _, svcName := range naturalsort.Sort(stringKeysFromMap(fs.Applications)) {
 		svc := fs.Applications[svcName]
-		for _, uName := range utils.SortStringsNaturally(stringKeysFromMap(svc.Units)) {
+		for _, uName := range naturalsort.Sort(stringKeysFromMap(svc.Units)) {
 			unit := svc.Units[uName]
 			pprint(uName, unit, 0)
 			recurseUnits(unit, 1, pprint)

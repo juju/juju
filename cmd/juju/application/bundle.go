@@ -1390,6 +1390,13 @@ func buildModelRepresentation(
 			return nil, errors.Errorf("unexpected tag kind for annotations: %q", kind)
 		}
 	}
+	// Add in the model sequences.
+	sequences, err := apiRoot.Sequences()
+	if err == nil {
+		model.Sequence = sequences
+	} else if !errors.IsNotSupported(err) {
+		return nil, errors.Annotate(err, "getting model sequences")
+	}
 	// Now get all the application config.
 	configValues, err := apiRoot.GetConfig(appNames...)
 	if err != nil {
