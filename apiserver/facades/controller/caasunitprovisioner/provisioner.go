@@ -218,19 +218,18 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 			continue
 		}
 
-		// Get the app config so we know how to handle the update.
-		// It depends on whether Juju or the cloud manage the units.
 		appConfig, err := app.ApplicationConfig()
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 
+		// Ignore `jujuManagedUnits`, log warning if it's still set to true.
 		if appConfig.GetBool(caas.JujuManagedUnits, caas.JujuDefaultJujuManagedUnits) {
-			err = a.updateJujuManagedUnitsFromCloud(app, appUpdate.Units)
-		} else {
-			err = a.updateUnitsFromCloud(app, appUpdate.Units)
+			logger.Warningf("config value %q is deprecated - although it is set to true, juju will not manage kubernetes units", caas.JujuManagedUnits)
 		}
+		// `jujuManagedUnits` has been ignored from now (always treat it as `false`).
+		err = a.updateUnitsFromCloud(app, appUpdate.Units)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 		}

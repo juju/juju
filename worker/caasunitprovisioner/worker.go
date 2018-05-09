@@ -184,7 +184,11 @@ func (p *provisioner) loop() error {
 				if err != nil {
 					return errors.Trace(err)
 				}
-				jujuManagedUnits := cfg.GetBool(caas.JujuManagedUnits, false)
+				jujuManagedUnits := cfg.GetBool(caas.JujuManagedUnits, caas.JujuDefaultJujuManagedUnits)
+				if jujuManagedUnits {
+					logger.Warningf("config value %q is deprecated - although it is set to true, juju will not manage kubernetes units", caas.JujuManagedUnits)
+					jujuManagedUnits = false // always set `jujuManagedUnits` to false
+				}
 				w, err := newApplicationWorker(
 					appId,
 					make(chan struct{}),
