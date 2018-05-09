@@ -28,7 +28,7 @@ func (s *NetworkGetSuite) SetUpSuite(c *gc.C) {
 	lookupHost := func(host string) (addrs []string, err error) {
 		return []string{"10.3.3.3"}, nil
 	}
-	testing.PatchValue(jujuc.LookupHost, lookupHost)
+	testing.PatchValue(&jujuc.LookupHost, lookupHost)
 }
 
 func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {

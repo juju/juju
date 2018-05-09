@@ -35,11 +35,9 @@ type NetworkGetCommand struct {
 	out cmd.Output
 }
 
-// Type alias for Domain resolution function for testing
 type resolver = func(host string) (addrs []string, err error)
 
-var lookupFunc = net.LookupHost
-var LookupHost = &lookupFunc
+var LookupHost resolver = net.LookupHost
 
 func NewNetworkGetCommand(ctx Context) (_ cmd.Command, err error) {
 	cmd := &NetworkGetCommand{ctx: ctx}
@@ -127,7 +125,7 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(ni.Error)
 	}
 
-	ni = resolveNetworkInfoAddresses(ni, *LookupHost)
+	ni = resolveNetworkInfoAddresses(ni, LookupHost)
 
 	// If no specific attributes asked for,
 	// print everything we know.
