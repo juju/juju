@@ -43,13 +43,15 @@ var usageAddCAASSummary = `
 Adds a k8s endpoint and credential to Juju.`[1:]
 
 var usageAddCAASDetails = `
+Creates a user-defined cloud and populate the selected controller with the k8s
+cloud details.
 
 Examples:
     juju add-k8s myk8scloud`
 
 // AddCAASCommand is the command that allows you to add a caas and credential
 type AddCAASCommand struct {
-	modelcmd.ModelCommandBase
+	modelcmd.ControllerCommandBase
 
 	// caasName is the name of the caas to add.
 	caasName string
@@ -79,8 +81,9 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 			return clientconfig.NewClientConfigReader(caasType)
 		},
 	}
-	return modelcmd.Wrap(cmd)
+	return modelcmd.WrapController(cmd)
 }
+
 func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, fileCredentialStore jujuclient.CredentialStore, clientStore jujuclient.ClientStore, apiRoot api.Connection, newCloudAPIFunc func(base.APICallCloser) CloudAPI, newClientConfigReaderFunc func(string) (clientconfig.ClientConfigFunc, error)) cmd.Command {
 	cmd := &AddCAASCommand{
 		cloudMetadataStore:    cloudMetadataStore,
@@ -90,7 +93,7 @@ func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, fileCredent
 		newClientConfigReader: newClientConfigReaderFunc,
 	}
 	cmd.SetClientStore(clientStore)
-	return modelcmd.Wrap(cmd)
+	return modelcmd.WrapController(cmd)
 }
 
 // Info returns help information about the command.
@@ -122,7 +125,7 @@ func (c *AddCAASCommand) newAPIRoot() (api.Connection, error) {
 	if c.apiRoot != nil {
 		return c.apiRoot, nil
 	}
-	return c.NewControllerAPIRoot()
+	return c.NewAPIRoot()
 }
 
 func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
