@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuarch "github.com/juju/utils/arch"
-	lxd "github.com/lxc/lxd/client"
+	"github.com/lxc/lxd/client"
 	lxdshared "github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 

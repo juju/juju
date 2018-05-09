@@ -74,10 +74,7 @@ func (s *imageSuite) TestFindImageLocalServerUnknownSeries(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	iSvr := lxdtesting.NewMockContainerServer(ctrl)
-
-	gomock.InOrder(
-		iSvr.EXPECT().GetImageAlias("juju/pldlinux/amd64").Return(nil, "ETAG", nil),
-	)
+	iSvr.EXPECT().GetImageAlias("juju/pldlinux/amd64").Return(nil, "ETAG", nil)
 
 	jSvr := lxd.JujuImageServer{iSvr}
 	_, err := jSvr.FindImage("pldlinux", "amd64", []lxd.RemoteServer{{}}, false, nil)
