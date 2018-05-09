@@ -100,11 +100,10 @@ const LXDBridgeFile = "/etc/default/lxd-bridge"
 
 // Client is a high-level wrapper around the LXD API client.
 type Client struct {
-	*configClient
+	*lxd.Client
 	*certClient
 	*profileClient
 	*instanceClient
-	*lxd.JujuImageServer
 	*networkClient
 	*storageClient
 	baseURL                  string
@@ -180,11 +179,10 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 	conn := &Client{
-		configClient:             &configClient{raw},
+		Client:                   lxd.NewClient(raw),
 		certClient:               &certClient{raw},
 		profileClient:            &profileClient{raw},
 		instanceClient:           &instanceClient{raw, remoteID},
-		JujuImageServer:          &lxd.JujuImageServer{raw},
 		networkClient:            &networkClient{raw, networkAPISupported},
 		storageClient:            &storageClient{raw, storageAPISupported},
 		baseURL:                  cInfo.URL,

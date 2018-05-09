@@ -137,9 +137,12 @@ func (s *environInstSuite) TestAdoptResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 4)
 	s.BaseSuite.Client.CheckCall(c, 0, "Instances", "juju-f75cba-", []string{"Starting", "Started", "Running", "Stopping", "Stopped"})
-	s.BaseSuite.Client.CheckCall(c, 1, "SetContainerConfig", "smoosh", "user.juju-controller-uuid", "target-uuid")
-	s.BaseSuite.Client.CheckCall(c, 2, "SetContainerConfig", "guild-league", "user.juju-controller-uuid", "target-uuid")
-	s.BaseSuite.Client.CheckCall(c, 3, "SetContainerConfig", "tall-dwarfs", "user.juju-controller-uuid", "target-uuid")
+	s.BaseSuite.Client.CheckCall(
+		c, 1, "UpdateContainerConfig", "smoosh", map[string]string{"user.juju-controller-uuid": "target-uuid"})
+	s.BaseSuite.Client.CheckCall(
+		c, 2, "UpdateContainerConfig", "guild-league", map[string]string{"user.juju-controller-uuid": "target-uuid"})
+	s.BaseSuite.Client.CheckCall(
+		c, 3, "UpdateContainerConfig", "tall-dwarfs", map[string]string{"user.juju-controller-uuid": "target-uuid"})
 }
 
 func (s *environInstSuite) TestAdoptResourcesError(c *gc.C) {
@@ -153,7 +156,10 @@ func (s *environInstSuite) TestAdoptResourcesError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `failed to update controller for some instances: \[guild-league\]`)
 	c.Assert(s.BaseSuite.Client.Calls(), gc.HasLen, 4)
 	s.BaseSuite.Client.CheckCall(c, 0, "Instances", "juju-f75cba-", []string{"Starting", "Started", "Running", "Stopping", "Stopped"})
-	s.BaseSuite.Client.CheckCall(c, 1, "SetContainerConfig", "smoosh", "user.juju-controller-uuid", "target-uuid")
-	s.BaseSuite.Client.CheckCall(c, 2, "SetContainerConfig", "guild-league", "user.juju-controller-uuid", "target-uuid")
-	s.BaseSuite.Client.CheckCall(c, 3, "SetContainerConfig", "tall-dwarfs", "user.juju-controller-uuid", "target-uuid")
+	s.BaseSuite.Client.CheckCall(
+		c, 1, "UpdateContainerConfig", "smoosh", map[string]string{"user.juju-controller-uuid": "target-uuid"})
+	s.BaseSuite.Client.CheckCall(
+		c, 2, "UpdateContainerConfig", "guild-league", map[string]string{"user.juju-controller-uuid": "target-uuid"})
+	s.BaseSuite.Client.CheckCall(
+		c, 3, "UpdateContainerConfig", "tall-dwarfs", map[string]string{"user.juju-controller-uuid": "target-uuid"})
 }

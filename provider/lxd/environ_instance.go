@@ -138,7 +138,7 @@ func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUU
 	qualifiedKey := lxdclient.ResolveConfigKey(tags.JujuController, lxdclient.MetadataNamespace)
 	for _, instance := range instances {
 		id := instance.Id()
-		err := env.raw.SetContainerConfig(string(id), qualifiedKey, controllerUUID)
+		err := env.raw.UpdateContainerConfig(string(id), map[string]string{qualifiedKey: controllerUUID})
 		if err != nil {
 			logger.Errorf("error setting controller uuid tag for %q: %v", id, err)
 			failed = append(failed, id)

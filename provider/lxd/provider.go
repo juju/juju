@@ -170,12 +170,12 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 	if err := lxdclient.EnableHTTPSListener(raw); err != nil {
 		return "", errors.Annotate(err, "enabling HTTPS listener")
 	}
-	serverAddresses, err := raw.ServerAddresses()
+	cInfo, err := raw.GetConnectionInfo()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	var found bool
-	for _, addr := range serverAddresses {
+	for _, addr := range cInfo.Addresses {
 		if strings.HasPrefix(addr, hostAddress+":") {
 			hostAddress = addr
 			found = true
@@ -185,7 +185,7 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 	if !found {
 		return "", errors.Errorf(
 			"LXD is not listening on address %s (reported addresses: %s)",
-			hostAddress, serverAddresses,
+			hostAddress, cInfo.Addresses,
 		)
 	}
 	ctx.Verbosef(

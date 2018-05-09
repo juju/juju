@@ -10,14 +10,14 @@ import (
 
 // Client extends the upstream LXD client.
 type Client struct {
-	JujuImageServer
+	ImageServer
 }
 
 // NewClient builds and returns a Client for high-level interaction with the
 // input LXD container server.
 func NewClient(svr lxd.ContainerServer) *Client {
 	return &Client{
-		JujuImageServer: JujuImageServer{svr},
+		ImageServer: ImageServer{svr},
 	}
 }
 

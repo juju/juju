@@ -295,14 +295,14 @@ func (p environProviderCredentials) finalizeLocalCertificateCredential(
 	}
 
 	// Store the server's certificate in the credential.
-	serverState, err := raw.ServerStatus()
+	svr, _, err := raw.GetServer()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting server status")
 	}
 	out := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		credAttrClientCert: certPEM,
 		credAttrClientKey:  keyPEM,
-		credAttrServerCert: serverState.Environment.Certificate,
+		credAttrServerCert: svr.Environment.Certificate,
 	})
 	out.Label = label
 	return &out, nil

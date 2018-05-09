@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"github.com/juju/errors"
+	lxdclient "github.com/lxc/lxd/client"
 	lxdapi "github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/container/lxd"
@@ -15,28 +16,35 @@ import (
 	jujulxdclient "github.com/juju/juju/tools/lxdclient"
 )
 
+// TODO (manadart 2018-05-09) This is really nothing but an LXD client and does
+// not need its own type.
+// As the LXD facility is refactored, this will be removed altogether.
+// As an interim measure, the new and old client implementations will be have
+// interface shims.
+// After the old client is removed, provider tests can be rewritten using
+// GoMock, at which point rawProvider is replaced with the new client.
 type rawProvider struct {
+	newClient
 	lxdCerts
-	lxdConfig
 	lxdInstances
 	lxdProfiles
-	lxdImages
 	lxdStorage
 
 	remote jujulxdclient.Remote
+}
+
+type newClient interface {
+	FindImage(string, string, []lxd.RemoteServer, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
+	GetServer() (server *lxdapi.Server, ETag string, err error)
+	GetConnectionInfo() (info *lxdclient.ConnectionInfo, err error)
+	UpdateServerConfig(map[string]interface{}) error
+	UpdateContainerConfig(string, map[string]string) error
 }
 
 type lxdCerts interface {
 	AddCert(jujulxdclient.Cert) error
 	CertByFingerprint(string) (lxdapi.Certificate, error)
 	RemoveCertByFingerprint(string) error
-}
-
-type lxdConfig interface {
-	ServerAddresses() ([]string, error)
-	ServerStatus() (*lxdapi.Server, error)
-	SetServerConfig(k, v string) error
-	SetContainerConfig(container, key, value string) error
 }
 
 type lxdInstances interface {
@@ -52,10 +60,6 @@ type lxdProfiles interface {
 	DefaultProfileBridgeName() string
 	CreateProfile(string, map[string]string) error
 	HasProfile(string) (bool, error)
-}
-
-type lxdImages interface {
-	FindImage(string, string, []lxd.RemoteServer, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
 }
 
 type lxdStorage interface {
@@ -98,11 +102,10 @@ func newRawProviderFromConfig(config jujulxdclient.Config) (*rawProvider, error)
 		return nil, errors.Trace(err)
 	}
 	return &rawProvider{
+		newClient:    client,
 		lxdCerts:     client,
-		lxdConfig:    client,
 		lxdInstances: client,
 		lxdProfiles:  client,
-		lxdImages:    client,
 		lxdStorage:   client,
 		remote:       config.Remote,
 	}, nil
