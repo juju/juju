@@ -248,6 +248,11 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		}
 	}
 
+	if fs.ControllerTimestamp != "" {
+		outputHeaders("Controller Timestamp")
+		w.Print(fs.ControllerTimestamp)
+	}
+
 	tw.Flush()
 	return nil
 }
@@ -267,7 +272,7 @@ func printOffers(tw *ansiterm.TabWriter, offers map[string]offerStatus) error {
 		offer := offers[offerName]
 		// Sort endpoints alphabetically.
 		endpoints := []string{}
-		for endpoint, _ := range offer.Endpoints {
+		for endpoint := range offer.Endpoints {
 			endpoints = append(endpoints, endpoint)
 		}
 		sort.Strings(endpoints)

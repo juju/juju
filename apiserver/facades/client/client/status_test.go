@@ -53,6 +53,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	c.Check(status.RemoteApplications, gc.HasLen, 0)
 	c.Check(status.Offers, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
+	c.Check(status.ControllerTimestamp, gc.NotNil)
 	resultMachine, ok := status.Machines[machine.Id()]
 	if !ok {
 		c.Fatalf("Missing machine with id %q", machine.Id())

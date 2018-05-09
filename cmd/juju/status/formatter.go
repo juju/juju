@@ -93,6 +93,9 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 		out.Relations[i] = sf.formatRelation(rel)
 		i++
 	}
+	if sf.status.ControllerTimestamp != nil {
+		out.ControllerTimestamp = common.FormatTime(sf.status.ControllerTimestamp, sf.isoTime)
+	}
 	return out, nil
 }
 

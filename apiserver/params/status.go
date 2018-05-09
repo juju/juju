@@ -22,12 +22,13 @@ type StatusParams struct {
 
 // FullStatus holds information about the status of a juju model.
 type FullStatus struct {
-	Model              ModelStatusInfo                    `json:"model"`
-	Machines           map[string]MachineStatus           `json:"machines"`
-	Applications       map[string]ApplicationStatus       `json:"applications"`
-	RemoteApplications map[string]RemoteApplicationStatus `json:"remote-applications"`
-	Offers             map[string]ApplicationOfferStatus  `json:"offers"`
-	Relations          []RelationStatus                   `json:"relations"`
+	Model               ModelStatusInfo                    `json:"model"`
+	Machines            map[string]MachineStatus           `json:"machines"`
+	Applications        map[string]ApplicationStatus       `json:"applications"`
+	RemoteApplications  map[string]RemoteApplicationStatus `json:"remote-applications"`
+	Offers              map[string]ApplicationOfferStatus  `json:"offers"`
+	Relations           []RelationStatus                   `json:"relations"`
+	ControllerTimestamp *time.Time                         `json:"controller-timestamp"`
 }
 
 // ModelStatusInfo holds status information about the model itself.

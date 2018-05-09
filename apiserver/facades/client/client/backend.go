@@ -4,6 +4,8 @@
 package client
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
@@ -45,6 +47,7 @@ type Backend interface {
 	Charm(*charm.URL) (*state.Charm, error)
 	ControllerConfig() (controller.Config, error)
 	ControllerTag() names.ControllerTag
+	ControllerTimestamp() (*time.Time, error)
 	EndpointsRelation(...state.Endpoint) (*state.Relation, error)
 	FindEntity(names.Tag) (state.Entity, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)

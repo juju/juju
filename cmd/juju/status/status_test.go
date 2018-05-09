@@ -23,6 +23,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -442,7 +443,8 @@ var statusTests = []testCase{
 						"controller-member-status": "adding-vote",
 					},
 				},
-				"applications": M{},
+				"applications":         M{},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -485,7 +487,8 @@ var statusTests = []testCase{
 						"controller-member-status": "adding-vote",
 					},
 				},
-				"applications": M{},
+				"applications":         M{},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -524,7 +527,8 @@ var statusTests = []testCase{
 						"controller-member-status": "adding-vote",
 					},
 				},
-				"applications": M{},
+				"applications":         M{},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -564,7 +568,8 @@ var statusTests = []testCase{
 						"controller-member-status": "adding-vote",
 					},
 				},
-				"applications": M{},
+				"applications":         M{},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -612,7 +617,8 @@ var statusTests = []testCase{
 						"controller-member-status": "adding-vote",
 					},
 				},
-				"applications": M{},
+				"applications":         M{},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -642,7 +648,8 @@ var statusTests = []testCase{
 						"controller-member-status": "adding-vote",
 					},
 				},
-				"applications": M{},
+				"applications":         M{},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -668,7 +675,8 @@ var statusTests = []testCase{
 						"controller-member-status": "adding-vote",
 					},
 				},
-				"applications": M{},
+				"applications":         M{},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -694,7 +702,8 @@ var statusTests = []testCase{
 						"controller-member-status": "adding-vote",
 					},
 				},
-				"applications": M{},
+				"applications":         M{},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -719,6 +728,7 @@ var statusTests = []testCase{
 					"dummy-application":   unexposedService,
 					"exposed-application": unexposedService,
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -735,6 +745,7 @@ var statusTests = []testCase{
 					"dummy-application":   unexposedService,
 					"exposed-application": exposedService,
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -760,6 +771,7 @@ var statusTests = []testCase{
 					"dummy-application":   unexposedService,
 					"exposed-application": exposedService,
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -836,6 +848,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -968,6 +981,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -1002,6 +1016,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 		scopedExpect{
@@ -1040,6 +1055,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 		scopedExpect{
@@ -1072,6 +1088,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 		scopedExpect{
@@ -1110,6 +1127,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 		scopedExpect{
@@ -1169,6 +1187,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -1258,6 +1277,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -1347,6 +1367,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -1400,6 +1421,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -1456,6 +1478,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -1632,6 +1655,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -1737,6 +1761,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -1883,6 +1908,7 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -1979,6 +2005,7 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -2033,6 +2060,7 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2115,6 +2143,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 
@@ -2196,6 +2225,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2249,6 +2279,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2304,6 +2335,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2361,6 +2393,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2417,6 +2450,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2561,6 +2595,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2584,8 +2619,9 @@ var statusTests = []testCase{
 					},
 					"sla": "unsupported",
 				},
-				"machines":     M{},
-				"applications": M{},
+				"machines":             M{},
+				"applications":         M{},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2639,6 +2675,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2713,6 +2750,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2736,7 +2774,8 @@ var statusTests = []testCase{
 				"machines": M{
 					"0": machine0,
 				},
-				"applications": M{},
+				"applications":         M{},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2782,7 +2821,8 @@ var statusTests = []testCase{
 						"controller-member-status": "adding-vote",
 					},
 				},
-				"applications": M{},
+				"applications":         M{},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2858,6 +2898,7 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2884,8 +2925,9 @@ var statusTests = []testCase{
 					},
 					"sla": "unsupported",
 				},
-				"machines":     M{},
-				"applications": M{},
+				"machines":             M{},
+				"applications":         M{},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -2908,8 +2950,9 @@ var statusTests = []testCase{
 					},
 					"sla": "advanced",
 				},
-				"machines":     M{},
-				"applications": M{},
+				"machines":             M{},
+				"applications":         M{},
+				"controller-timestamp": "01 Apr 15 01:23+10:00",
 			},
 		},
 	),
@@ -3647,12 +3690,12 @@ type expect struct {
 	output M
 }
 
-// substituteFakeTime replaces all "since" values
+// substituteFakeTime replaces all key values
 // in actual status output with a known fake value.
-func substituteFakeSinceTime(c *gc.C, in []byte, expectIsoTime bool) []byte {
+func substituteFakeTime(c *gc.C, key string, in []byte, expectIsoTime bool) []byte {
 	// This regexp will work for yaml and json.
-	exp := regexp.MustCompile(`(?P<since>"?since"?:\ ?)(?P<quote>"?)(?P<timestamp>[^("|\n)]*)*"?`)
-	// Before the substritution is done, check that the timestamp produced
+	exp := regexp.MustCompile(`(?P<key>"?` + key + `"?:\ ?)(?P<quote>"?)(?P<timestamp>[^("|\n)]*)*"?`)
+	// Before the substitution is done, check that the timestamp produced
 	// by status is in the correct format.
 	if matches := exp.FindStringSubmatch(string(in)); matches != nil {
 		for i, name := range exp.SubexpNames() {
@@ -3668,10 +3711,18 @@ func substituteFakeSinceTime(c *gc.C, in []byte, expectIsoTime bool) []byte {
 		}
 	}
 
-	out := exp.ReplaceAllString(string(in), `$since$quote<timestamp>$quote`)
+	out := exp.ReplaceAllString(string(in), `$key$quote<timestamp>$quote`)
 	// Substitute a made up time used in our expected output.
 	out = strings.Replace(out, "<timestamp>", "01 Apr 15 01:23+10:00", -1)
 	return []byte(out)
+}
+
+// popControllerTimestamp removes the status time date string from the end of a output
+// block.
+func popControllerTimestamp(c *gc.C, str string) (string, string) {
+	lines := strings.Split(str, "\n")
+	c.Assert(len(lines), jc.GreaterThan, 1)
+	return lines[len(lines)-2], strings.Join(lines[:len(lines)-2], "\n")
 }
 
 func (e scopedExpect) step(c *gc.C, ctx *context) {
@@ -3702,7 +3753,8 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 
 		// Check the output is as expected.
 		actual := make(M)
-		out := substituteFakeSinceTime(c, stdout, ctx.expectIsoTime)
+		out := substituteFakeTime(c, "since", stdout, ctx.expectIsoTime)
+		out = substituteFakeTime(c, "controller-timestamp", out, ctx.expectIsoTime)
 		err = format.unmarshal(out, &actual)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(actual, jc.DeepEquals, expected)
@@ -3755,8 +3807,9 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 			},
 			"sla": "unsupported",
 		},
-		"machines":     M{},
-		"applications": M{},
+		"machines":             M{},
+		"applications":         M{},
+		"controller-timestamp": "01 Apr 15 01:23+10:00",
 	}
 
 	for _, format := range statusFormats {
@@ -3764,7 +3817,8 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 		c.Check(code, gc.Equals, 0)
 		c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
 
-		stdout = substituteFakeSinceTime(c, stdout, false)
+		stdout = substituteFakeTime(c, "since", stdout, false)
+		stdout = substituteFakeTime(c, "controller-timestamp", stdout, false)
 
 		// Roundtrip expected through format so that types will match.
 		buf, err := format.marshal(expected)
@@ -3790,14 +3844,16 @@ Unit  Workload  Agent  Machine  Public address  Ports  Message
 
 Machine  State  DNS  Inst id  Series  AZ  Message
 
-`[1:]
+Controller Timestamp`[1:]
 
 	st := s.setupMigrationTest(c)
 	defer st.Close()
 	code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", "tabular")
 	c.Check(code, gc.Equals, 0)
 	c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
-	c.Assert(string(stdout), gc.Equals, expected)
+
+	_, output := popControllerTimestamp(c, string(stdout))
+	c.Assert(output, gc.Equals, expected)
 }
 
 func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
@@ -3811,7 +3867,7 @@ Unit  Workload  Agent  Machine  Public address  Ports  Message
 
 Machine  State  DNS  Inst id  Series  AZ  Message
 
-`[1:]
+Controller Timestamp`[1:]
 
 	st := s.setupMigrationTest(c)
 	defer st.Close()
@@ -3824,7 +3880,9 @@ Machine  State  DNS  Inst id  Series  AZ  Message
 	code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", "tabular")
 	c.Check(code, gc.Equals, 0)
 	c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
-	c.Assert(string(stdout), gc.Equals, expected)
+
+	_, output := popControllerTimestamp(c, string(stdout))
+	c.Assert(output, gc.Equals, expected)
 }
 
 func (s *StatusSuite) setupMigrationTest(c *gc.C) *state.State {
@@ -4124,11 +4182,22 @@ mysql:juju-info        logging:info               juju-info  subordinate
 mysql:server           wordpress:db               mysql      regular      suspended  
 wordpress:logging-dir  logging:logging-directory  logging    subordinate  
 
-`[1:]
-	c.Assert(string(stdout), gc.Equals, expected)
+Controller Timestamp`[1:]
+
+	// we have to pop the status time as there is no way to reliably know what
+	// the time is 100% of the time. To prevent failing tests, we pop the time
+	// and parse it against a time layout, to make sure it's valid.
+	strControllerTimestamp, output := popControllerTimestamp(c, string(stdout))
+	c.Assert(output, gc.Equals, expected)
+
+	controllerTimestamp, err := time.Parse("02 Jan 2006 15:04:05Z07:00", strControllerTimestamp)
+	c.Assert(err, gc.IsNil)
+	c.Assert(controllerTimestamp, gc.Not(gc.Equals), time.Time{})
 }
 
 func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
+	now := time.Now()
+	controllerTimestamp := common.FormatTime(&now, false)
 	status := formattedStatus{
 		Applications: map[string]applicationStatus{
 			"foo": {
@@ -4156,11 +4225,12 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 				},
 			},
 		},
+		ControllerTimestamp: controllerTimestamp,
 	}
 	out := &bytes.Buffer{}
 	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out.String(), gc.Equals, `
+	c.Assert(out.String(), gc.Equals, fmt.Sprintf(`
 Model  Controller  Cloud/Region  Version
                                  
 
@@ -4172,10 +4242,14 @@ foo/0  maintenance  executing                                  (config-changed) 
 foo/1  maintenance  executing                                  (backup database) doing some work
 
 Machine  State  DNS  Inst id  Series  AZ  Message
-`[1:])
+
+Controller Timestamp
+%s`[1:], controllerTimestamp))
 }
 
 func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
+	now := time.Now()
+	controllerTimestamp := common.FormatTime(&now, false)
 	status := formattedStatus{
 		Model: modelStatus{
 			Type: "caas",
@@ -4205,11 +4279,12 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 				},
 			},
 		},
+		ControllerTimestamp: controllerTimestamp,
 	}
 	out := &bytes.Buffer{}
 	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out.String(), gc.Equals, `
+	c.Assert(out.String(), gc.Equals, fmt.Sprintf(`
 Model  Controller  Cloud/Region  Version
                                  
 
@@ -4219,7 +4294,9 @@ foo                     1/2                  0      54.32.1.2
 Unit   Workload  Agent       Address   Ports   Message
 foo/0  active    allocating                    
 foo/1  active    running     10.0.0.1  80/TCP  
-`[1:])
+
+Controller Timestamp
+%s`[1:], controllerTimestamp))
 }
 
 func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
@@ -4251,6 +4328,8 @@ func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 }
 
 func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
+	now := time.Now()
+	controllerTimestamp := common.FormatTime(&now, false)
 	status := formattedStatus{
 		Applications: map[string]applicationStatus{
 			"foo": {
@@ -4270,26 +4349,30 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 				},
 			},
 		},
+		ControllerTimestamp: controllerTimestamp,
 	}
 	out := &bytes.Buffer{}
 	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out.String(), gc.Equals, ""+
-		"Model  Controller  Cloud/Region  Version\n"+
-		"                                 \n"+
-		"\n"+
-		"App  Version  Status  Scale  Charm  Store  Rev  OS  Notes\n"+
-		"foo                     0/2                  0      \n"+
-		"\n"+
-		"Unit   Workload  Agent  Machine  Public address  Ports  Message\n"+
-		"foo/0                                                   \n"+
-		"foo/1                                                   \n"+
-		"\n"+
-		"Entity  Meter status  Message\n"+
-		"foo/0   strange       warning: stable strangelets  \n"+
-		"foo/1   up            things are looking up        \n"+
-		"\n"+
-		"Machine  State  DNS  Inst id  Series  AZ  Message\n")
+	c.Assert(out.String(), gc.Equals, fmt.Sprintf(`
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
+foo                     0/2                  0      
+
+Unit   Workload  Agent  Machine  Public address  Ports  Message
+foo/0                                                   
+foo/1                                                   
+
+Entity  Meter status  Message
+foo/0   strange       warning: stable strangelets  
+foo/1   up            things are looking up        
+
+Machine  State  DNS  Inst id  Series  AZ  Message
+
+Controller Timestamp
+%s`[1:], controllerTimestamp))
 }
 
 //
@@ -4432,7 +4515,8 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 	// When I run juju status --format yaml 0/lxd/0
 	_, stdout, stderr := runStatus(c, "--format", "yaml", "0/lxd/0")
 	c.Assert(string(stderr), gc.Equals, "")
-	out := substituteFakeSinceTime(c, stdout, ctx.expectIsoTime)
+	out := substituteFakeTime(c, "since", stdout, ctx.expectIsoTime)
+	out = substituteFakeTime(c, "controller-timestamp", out, ctx.expectIsoTime)
 	const expected = "" +
 		"model:\n" +
 		"  name: controller\n" +
@@ -4476,7 +4560,8 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"        series: quantal\n" +
 		"    hardware: arch=amd64 cores=1 mem=1024M root-disk=8192M\n" +
 		"    controller-member-status: adding-vote\n" +
-		"applications: {}\n"
+		"applications: {}\n" +
+		"controller-timestamp: 01 Apr 15 01:23+10:00\n"
 
 	c.Assert(string(out), gc.Equals, expected)
 }
@@ -4781,6 +4866,7 @@ var statusTimeTest = test(
 					},
 				}),
 			},
+			"controller-timestamp": "01 Apr 15 01:23+10:00",
 		},
 	},
 )
@@ -4796,6 +4882,53 @@ func (s *StatusSuite) TestIsoTimeFormat(c *gc.C) {
 }
 
 func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
+	now := time.Now()
+	status := &params.FullStatus{
+		Model: params.ModelStatusInfo{
+			CloudTag: "cloud-dummy",
+		},
+		Machines: map[string]params.MachineStatus{
+			"1": {
+				AgentStatus: params.DetailedStatus{
+					Status: "error",
+					Info:   "<error while provisioning>",
+				},
+				InstanceId:     "pending",
+				InstanceStatus: params.DetailedStatus{},
+				Series:         "trusty",
+				Id:             "1",
+				Jobs:           []multiwatcher.MachineJob{"JobHostUnits"},
+			},
+		},
+		ControllerTimestamp: &now,
+	}
+	isoTime := true
+	formatter := NewStatusFormatter(status, isoTime)
+	formatted, err := formatter.format()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(formatted, jc.DeepEquals, formattedStatus{
+		Model: modelStatus{
+			Cloud: "dummy",
+		},
+		Machines: map[string]machineStatus{
+			"1": {
+				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
+				InstanceId:        "pending",
+				Series:            "trusty",
+				Id:                "1",
+				Containers:        map[string]machineStatus{},
+				NetworkInterfaces: map[string]networkInterface{},
+			},
+		},
+		Applications:        map[string]applicationStatus{},
+		RemoteApplications:  map[string]remoteApplicationStatus{},
+		Offers:              map[string]offerStatus{},
+		ControllerTimestamp: common.FormatTime(&now, isoTime),
+	})
+}
+
+func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 	status := &params.FullStatus{
 		Model: params.ModelStatusInfo{
 			CloudTag: "cloud-dummy",
@@ -4814,7 +4947,8 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 			},
 		},
 	}
-	formatter := NewStatusFormatter(status, true)
+	isoTime := true
+	formatter := NewStatusFormatter(status, isoTime)
 	formatted, err := formatter.format()
 	c.Assert(err, jc.ErrorIsNil)
 
