@@ -5,6 +5,8 @@ package caas
 
 import (
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -32,7 +34,7 @@ type CloudMetadataStore interface {
 	WritePersonalCloudMetadata(cloudsMap map[string]cloud.Cloud) error
 }
 
-// Implemented by cloudapi.Client
+// CloudAPI - Implemented by cloudapi.Client
 type CloudAPI interface {
 	AddCloud(cloud.Cloud) error
 	AddCredential(tag string, credential cloud.Credential) error
@@ -44,10 +46,16 @@ Adds a k8s endpoint and credential to Juju.`[1:]
 
 var usageAddCAASDetails = `
 Creates a user-defined cloud and populate the selected controller with the k8s
-cloud details.
+cloud details. Speficify non default kubeconfig file location using $KUBECONFIG
+environment variable or pipe in file content from stdin. The config file
+can contain definitions for different k8s clusters, use --context-name to pick
+which one to use.
 
 Examples:
-    juju add-k8s myk8scloud`
+	juju add-k8s myk8scloud
+	KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --context-name=my_context_name
+	kubectl config view --raw | juju add-k8s myk8scloud --context-name=my_context_name
+`
 
 // AddCAASCommand is the command that allows you to add a caas and credential
 type AddCAASCommand struct {
@@ -56,11 +64,11 @@ type AddCAASCommand struct {
 	// caasName is the name of the caas to add.
 	caasName string
 
-	// CAASType is the type of CAAS being added
+	// caasType is the type of CAAS being added
 	caasType string
 
-	// Context is the name of the context (k8s) or credential to import
-	context string
+	// contextName is the name of the context (k8s) or credential to import
+	contextName string
 
 	cloudMetadataStore    CloudMetadataStore
 	fileCredentialStore   jujuclient.CredentialStore
@@ -84,18 +92,6 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	return modelcmd.WrapController(cmd)
 }
 
-func NewAddCAASCommandForTest(cloudMetadataStore CloudMetadataStore, fileCredentialStore jujuclient.CredentialStore, clientStore jujuclient.ClientStore, apiRoot api.Connection, newCloudAPIFunc func(base.APICallCloser) CloudAPI, newClientConfigReaderFunc func(string) (clientconfig.ClientConfigFunc, error)) cmd.Command {
-	cmd := &AddCAASCommand{
-		cloudMetadataStore:    cloudMetadataStore,
-		fileCredentialStore:   fileCredentialStore,
-		apiRoot:               apiRoot,
-		newCloudAPI:           newCloudAPIFunc,
-		newClientConfigReader: newClientConfigReaderFunc,
-	}
-	cmd.SetClientStore(clientStore)
-	return modelcmd.WrapController(cmd)
-}
-
 // Info returns help information about the command.
 func (c *AddCAASCommand) Info() *cmd.Info {
 	return &cmd.Info{
@@ -109,6 +105,7 @@ func (c *AddCAASCommand) Info() *cmd.Info {
 // SetFlags initializes the flags supported by the command.
 func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
+	f.StringVar(&c.contextName, "context-name", "", "Specify the k8s context to import")
 }
 
 // Init populates the command with the args from the command line.
@@ -128,6 +125,20 @@ func (c *AddCAASCommand) newAPIRoot() (api.Connection, error) {
 	return c.NewAPIRoot()
 }
 
+// getStdinPipe trys to get the stdIn pipe from the context
+func getStdinPipe(ctxt *cmd.Context) (io.Reader, error) {
+	if stdIn, ok := ctxt.Stdin.(*os.File); ok {
+		stat, err := stdIn.Stat()
+		if err != nil {
+			return nil, err
+		}
+		if stat.Mode()&os.ModeNamedPipe != 0 {
+			return stdIn, nil
+		}
+	}
+	return nil, nil
+}
+
 func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 	api, err := c.newAPIRoot()
 	if err != nil {
@@ -143,8 +154,11 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	caasConfig, err := clientConfigFunc()
+	stdIn, err := getStdinPipe(ctxt)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	caasConfig, err := clientConfigFunc(stdIn)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -152,12 +166,21 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 	if len(caasConfig.Contexts) == 0 {
 		return errors.Errorf("No k8s cluster definitions found in config")
 	}
-	defaultContext := caasConfig.Contexts[caasConfig.CurrentContext]
 
-	defaultCredential := caasConfig.Credentials[defaultContext.CredentialName]
-	defaultCloud := caasConfig.Clouds[defaultContext.CloudName]
+	contextName := c.contextName
+	if contextName == "" {
+		contextName = caasConfig.CurrentContext
+		logger.Debugf("No context name specified, so use current context -> %q", contextName)
+	}
+	context, ok := caasConfig.Contexts[contextName]
+	if !ok {
+		return errors.NotFoundf("contextName %q", contextName)
+	}
 
-	defaultCloudCAData, ok := defaultCloud.Attributes["CAData"].(string)
+	credential := caasConfig.Credentials[context.CredentialName]
+	currentCloud := caasConfig.Clouds[context.CloudName]
+
+	cloudCAData, ok := currentCloud.Attributes["CAData"].(string)
 	if !ok {
 		return errors.Errorf("CAData attribute should be a string")
 	}
@@ -165,9 +188,9 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 	newCloud := cloud.Cloud{
 		Name:           c.caasName,
 		Type:           c.caasType,
-		Endpoint:       defaultCloud.Endpoint,
-		AuthTypes:      []cloud.AuthType{defaultCredential.AuthType()},
-		CACertificates: []string{defaultCloudCAData},
+		Endpoint:       currentCloud.Endpoint,
+		AuthTypes:      []cloud.AuthType{credential.AuthType()},
+		CACertificates: []string{cloudCAData},
 	}
 
 	if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
@@ -180,11 +203,11 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if err := c.addCredentialToLocal(c.caasName, defaultCredential, defaultContext.CredentialName); err != nil {
+	if err := c.addCredentialToLocal(c.caasName, credential, context.CredentialName); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := c.addCredentialToController(cloudClient, defaultCredential, defaultContext.CredentialName); err != nil {
+	if err := c.addCredentialToController(cloudClient, credential, context.CredentialName); err != nil {
 		return errors.Trace(err)
 	}
 
