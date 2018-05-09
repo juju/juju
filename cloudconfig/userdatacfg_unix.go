@@ -424,7 +424,7 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 		if err != nil {
 			return err
 		}
-		w.conf.AddRunBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
+		w.conf.AddRunBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), toolsData, 0644)
 	} else {
 		curlCommand := curlCommand
 		var urls []string

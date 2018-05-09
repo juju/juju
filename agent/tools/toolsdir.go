@@ -219,5 +219,5 @@ func WriteToolsMetadataData(dir string, tools *coretools.Tools) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path.Join(dir, toolsFile), []byte(toolsMetadataData), filePerm)
+	return ioutil.WriteFile(path.Join(dir, toolsFile), toolsMetadataData, filePerm)
 }

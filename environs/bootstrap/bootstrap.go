@@ -502,8 +502,8 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.StateServingInfo = params.StateServingInfo{
 		StatePort:    controllerCfg.StatePort(),
 		APIPort:      controllerCfg.APIPort(),
-		Cert:         string(cert),
-		PrivateKey:   string(key),
+		Cert:         cert,
+		PrivateKey:   key,
 		CAPrivateKey: args.CAPrivateKey,
 	}
 	if _, ok := cfg.AgentVersion(); !ok {

@@ -168,7 +168,7 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		Nonce:             config.nonce,
 		Controller:        controllerTag,
 		Model:             modelTag,
-		CACert:            string(config.caCert),
+		CACert:            config.caCert,
 		OldPassword:       config.oldPassword,
 		LoggingConfig:     config.loggingConfig,
 		Values:            config.values,
@@ -188,7 +188,7 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		format.APIPassword = config.apiDetails.password
 	}
 	if config.mongoVersion != "" {
-		format.MongoVersion = string(config.mongoVersion)
+		format.MongoVersion = config.mongoVersion
 	}
 	if config.mongoMemoryProfile != "" {
 		format.MongoMemoryProfile = config.mongoMemoryProfile

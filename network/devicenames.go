@@ -126,7 +126,7 @@ func (s *deviceNameScanner) scanNumber() string {
 		s.next()
 	}
 
-	return string(s.src[cur:s.offset])
+	return s.src[cur:s.offset]
 }
 
 func (s *deviceNameScanner) scan() (tok token, lit string) {

@@ -151,7 +151,7 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err = cloud.ValidateCloudSet([]byte(data)); err != nil {
+	if err = cloud.ValidateCloudSet(data); err != nil {
 		ctxt.Warningf(err.Error())
 	}
 

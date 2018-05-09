@@ -196,7 +196,7 @@ func (v Value) String() string {
 		strs = append(strs, "cpu-power="+uintStr(*v.CpuPower))
 	}
 	if v.InstanceType != nil {
-		strs = append(strs, "instance-type="+string(*v.InstanceType))
+		strs = append(strs, "instance-type="+(*v.InstanceType))
 	}
 	if v.Mem != nil {
 		s := uintStr(*v.Mem)
@@ -221,7 +221,7 @@ func (v Value) String() string {
 		strs = append(strs, "spaces="+s)
 	}
 	if v.VirtType != nil {
-		strs = append(strs, "virt-type="+string(*v.VirtType))
+		strs = append(strs, "virt-type="+(*v.VirtType))
 	}
 	return strings.Join(strs, " ")
 }
@@ -610,11 +610,11 @@ func (v *Value) setVirtType(str string) error {
 func parseUint64(str string) (*uint64, error) {
 	var value uint64
 	if str != "" {
-		if val, err := strconv.ParseUint(str, 10, 64); err != nil {
+		val, err := strconv.ParseUint(str, 10, 64)
+		if err != nil {
 			return nil, errors.Errorf("must be a non-negative integer")
-		} else {
-			value = uint64(val)
 		}
+		value = val
 	}
 	return &value, nil
 }

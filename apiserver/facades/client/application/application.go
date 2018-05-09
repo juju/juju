@@ -1339,7 +1339,7 @@ func (api *APIv5) SetRelationsSuspended(args params.RelationSuspendedArgs) (para
 			statusValue = status.Suspending
 		}
 		return rel.SetStatus(status.StatusInfo{
-			Status:  status.Status(statusValue),
+			Status:  statusValue,
 			Message: arg.Message,
 		})
 	}

@@ -11,7 +11,7 @@ go get -u github.com/alecthomas/gometalinter
 gometalinter --install > /dev/null
 gometalinter --disable-all \
     --enable=goimports \
-    --enable=unused \
+    --enable=unconvert \
     --enable=vet \
     --enable=vetshadow \
     --deadline=240s \
@@ -19,7 +19,7 @@ gometalinter --disable-all \
 
 # go through each gometalinter error and check to see if it's related 
 # to a mock file.
-invalidLines=`cat $OUTPUT_FILE | grep -v '\(.*\/[^\/]*\.go\):[[:digit:]]::\(.*\)' | wc -l`
+invalidLines=`cat $OUTPUT_FILE | grep -v '\(.*\/[^\/]*\.go\):[[:digit:]]*:[[:digit:]]*:.*' | wc -l`
 if [ $invalidLines -ne 0 ]; then
     # there was a parse error when reading the gometalinter output
     exitstatus=1

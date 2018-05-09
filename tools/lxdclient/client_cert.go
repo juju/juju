@@ -23,7 +23,7 @@ type certClient struct {
 
 // AddCert adds the given certificate to the server.
 func (c certClient) AddCert(cert Cert) error {
-	block, _ := pem.Decode([]byte(cert.CertPEM))
+	block, _ := pem.Decode(cert.CertPEM)
 	if block == nil {
 		return errors.New("failed to decode certificate PEM")
 	}
