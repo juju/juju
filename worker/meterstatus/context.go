@@ -70,7 +70,7 @@ func (ctx *limitedContext) ActionData() (*context.ActionData, error) {
 	return nil, jujuc.ErrRestrictedContext
 }
 
-// Flush implementes runner.Context.
+// Flush implements runner.Context.
 func (ctx *limitedContext) Flush(_ string, err error) error {
 	return err
 }

@@ -17,7 +17,7 @@ import (
 // results from machine- and model-scoped watchers, to conform to the behaviour
 // of the storageprovisioner worker. The model-level storageprovisioner watches
 // model-scoped filesystems that have no backing volume. The machine-level worker
-// watches both machine-scoped filesytems, and model-scoped filesystems whose
+// watches both machine-scoped filesystems, and model-scoped filesystems whose
 // backing volumes are attached to the machine.
 type Watchers struct {
 	Backend Backend

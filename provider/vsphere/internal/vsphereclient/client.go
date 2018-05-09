@@ -157,7 +157,7 @@ func (c *Client) VirtualMachines(ctx context.Context, path string) ([]*mo.Virtua
 	return vms, nil
 }
 
-// ComputeResources retuns list of all root compute resources in the system.
+// ComputeResources returns list of all root compute resources in the system.
 func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, error) {
 	_, datacenter, err := c.finder(ctx)
 	if err != nil {
@@ -185,7 +185,7 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 	return cprs, nil
 }
 
-// Datastores retuns list of all datastores in the system.
+// Datastores returns list of all datastores in the system.
 func (c *Client) Datastores(ctx context.Context) ([]*mo.Datastore, error) {
 	_, datacenter, err := c.finder(ctx)
 	if err != nil {

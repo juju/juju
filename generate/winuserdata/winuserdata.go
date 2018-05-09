@@ -50,7 +50,7 @@ func compoundWinPowershellFuncs() (string, error) {
 	return winPowershellFunc.String(), nil
 }
 
-// CompoundJujuUser retuns the windows powershell funcs with c# bindings
+// CompoundJujuUser returns the windows powershell funcs with c# bindings
 // declared under the windowsuserdatafiles/ dir
 func compoundJujuUser() (string, error) {
 

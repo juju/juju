@@ -40,7 +40,7 @@ type Tests struct {
 	envtesting.ToolsFixture
 	sstesting.TestDataSuite
 
-	// ControllerStore holds the controller related informtion
+	// ControllerStore holds the controller related information
 	// such as controllers, accounts, etc., used when preparing
 	// the environment. This is initialized by SetUpSuite.
 	ControllerStore jujuclient.ClientStore

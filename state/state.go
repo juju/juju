@@ -110,11 +110,11 @@ type State struct {
 
 // StateServingInfo holds information needed by a controller.
 // This type is a copy of the type of the same name from the api/params package.
-// It is replicated here to avoid the state pacakge depending on api/params.
+// It is replicated here to avoid the state package depending on api/params.
 //
 // NOTE(fwereade): the api/params type exists *purely* for representing
 // this data over the wire, and has a legitimate reason to exist. This
-// type does not: it's non-implementation-specific and shoudl be defined
+// type does not: it's non-implementation-specific and should be defined
 // under core/ somewhere, so it can be used both here and in the agent
 // without dragging unnecessary/irrelevant packages into scope.
 type StateServingInfo struct {

@@ -222,7 +222,7 @@ func maasObjectNetworkInterfaces(ctx context.ProviderCallContext, maasObject *go
 			nicInfo.MTU = sub.VLAN.MTU
 
 			// Each link we represent as a separate InterfaceInfo, but with the
-			// same name and device index, just different addres, subnet, etc.
+			// same name and device index, just different address, subnet, etc.
 			infos = append(infos, nicInfo)
 		}
 	}

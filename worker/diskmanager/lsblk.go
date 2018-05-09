@@ -218,7 +218,7 @@ func addHardwareInfo(dev *storage.BlockDevice) error {
 
 	if idBus != "" && idSerial != "" {
 		// ID_BUS will be something like "scsi" or "ata";
-		// ID_SERIAL will be soemthing like ${MODEL}_${SERIALNO};
+		// ID_SERIAL will be something like ${MODEL}_${SERIALNO};
 		// and together they make up the symlink in /dev/disk/by-id.
 		dev.HardwareId = idBus + "-" + idSerial
 	}

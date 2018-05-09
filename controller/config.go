@@ -165,7 +165,7 @@ const (
 	// used for the application operator.
 	CAASOperatorImagePath = "caas-operator-image-path"
 
-	// Features allows a list of runtime changable features to be updated.
+	// Features allows a list of runtime changeable features to be updated.
 	Features = "features"
 )
 

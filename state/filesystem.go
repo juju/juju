@@ -536,7 +536,7 @@ func isDetachableFilesystemPool(im *IAASModel, pool string) (bool, error) {
 		return false, nil
 	}
 	if !provider.Dynamic() {
-		// The storage provider only accomodates provisioning storage
+		// The storage provider only accommodates provisioning storage
 		// statically along with the machine. Such storage is bound
 		// to the machine.
 		return false, nil

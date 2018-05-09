@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/pubsub/forwarder"
 )
 
-// RemoteServer represents the public interace of the worker
+// RemoteServer represents the public interface of the worker
 // responsible for forwarding messages to a single other API server.
 type RemoteServer interface {
 	worker.Worker

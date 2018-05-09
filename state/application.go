@@ -355,7 +355,7 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 	}
 	ops = append(ops, charmOps...)
 	// By the time we get to here, all units and charm refs have been removed,
-	// so it's safe to do this additonal cleanup.
+	// so it's safe to do this additional cleanup.
 	ops = append(ops, finalAppCharmRemoveOps(name, curl)...)
 
 	ops = append(ops, a.removeCloudServiceOps()...)

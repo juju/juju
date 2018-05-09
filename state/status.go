@@ -276,7 +276,7 @@ type setStatusParams struct {
 	// and will prevent any change if it becomes invalid.
 	token leadership.Token
 
-	// udpated, the time the status was set.
+	// updated, the time the status was set.
 	updated *time.Time
 }
 

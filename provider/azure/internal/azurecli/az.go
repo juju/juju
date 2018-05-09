@@ -21,7 +21,7 @@ var logger = loggo.GetLogger("juju.provider.azure.internal.azurecli")
 // AzureCLI
 type AzureCLI struct {
 	// Exec is a function that executes system commands and returns
-	// the output. If this is nil then a default implentation using
+	// the output. If this is nil then a default implementation using
 	// os.exec will be used.
 	Exec func(cmd string, args []string) (stdout []byte, err error)
 }

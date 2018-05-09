@@ -148,15 +148,15 @@ func (s *handlerSuite) TestHandlerError(c *gc.C) {
 	c.Assert(worker, gc.NotNil)
 	c.Assert(s.listener.Calls(), gc.HasLen, 0)
 
-	s.recorder.err = "well, this is embarassing"
+	s.recorder.err = "well, this is embarrassing"
 
 	conn, err := s.listener.trigger()
-	c.Assert(err, gc.ErrorMatches, "failed to collect metrics: error adding 'juju-units' metric: well, this is embarassing")
+	c.Assert(err, gc.ErrorMatches, "failed to collect metrics: error adding 'juju-units' metric: well, this is embarrassing")
 	conn.CheckCallNames(c, "SetDeadline", "Write", "Close")
 
 	responseString := strings.Trim(string(conn.data), " \n\t")
-	//c.Assert(responseString, gc.Matches, ".*well, this is embarassing")
-	c.Assert(responseString, gc.Equals, `error: failed to collect metrics: error adding 'juju-units' metric: well, this is embarassing`)
+	//c.Assert(responseString, gc.Matches, ".*well, this is embarrassing")
+	c.Assert(responseString, gc.Equals, `error: failed to collect metrics: error adding 'juju-units' metric: well, this is embarrassing`)
 	c.Assert(s.recorder.batches, gc.HasLen, 0)
 
 	workertest.CleanKill(c, worker)

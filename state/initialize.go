@@ -181,7 +181,7 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 	st.controllerModelTag = modelTag
 
 	// A valid model is used as a signal that the
-	// state has already been initalized. If this is the case
+	// state has already been initialized. If this is the case
 	// do nothing.
 	if _, err := st.Model(); err == nil {
 		return nil, nil, errors.New("already initialized")

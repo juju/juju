@@ -20,7 +20,7 @@ func (manualBootstrapInstance) Id() instance.Id {
 }
 
 func (manualBootstrapInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
-	// We asume that if we are deploying in manual provider the
+	// We assume that if we are deploying in manual provider the
 	// underlying machine is clearly running.
 	return instance.InstanceStatus{
 		Status: status.Running,

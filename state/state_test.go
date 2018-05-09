@@ -2001,7 +2001,7 @@ var inferEndpointsTests = []struct {
 			},
 		}},
 	}, {
-		summary: "implict relations can be chosen explicitly",
+		summary: "implicit relations can be chosen explicitly",
 		inputs: [][]string{
 			{"lg:info", "wp"},
 			{"lg", "wp:juju-info"},
@@ -3844,7 +3844,7 @@ type waiter interface {
 // The watcher should already have consumed the first
 // event, otherwise the watcher's initialisation logic may
 // interact with the closed state, causing it to return an
-// unexpected error (often "Closed explictly").
+// unexpected error (often "Closed explicitly").
 func testWatcherDiesWhenStateCloses(
 	c *gc.C,
 	session *mgo.Session,

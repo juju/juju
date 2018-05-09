@@ -36,13 +36,11 @@ func (a *APIv2) Restore(p params.RestoreArgs) error {
 	addr, err := machine.PrivateAddress()
 	if err != nil {
 		return errors.Annotatef(err, "error fetching internal address for machine %q", machine)
-
 	}
 
 	publicAddress, err := machine.PublicAddress()
 	if err != nil {
 		return errors.Annotatef(err, "error fetching public address for machine %q", machine)
-
 	}
 
 	info := a.backend.RestoreInfo()
@@ -52,7 +50,7 @@ func (a *APIv2) Restore(p params.RestoreArgs) error {
 		return errors.Annotatef(err, "cannot set the server to %q mode", state.RestoreInProgress)
 	}
 	// Any abnormal termination of this function will mark restore as failed,
-	// succesful termination will call Exit and never run this.
+	// successful termination will call Exit and never run this.
 	defer info.SetStatus(state.RestoreFailed)
 
 	instanceId, err := machine.InstanceId()

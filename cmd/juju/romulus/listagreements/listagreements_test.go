@@ -75,10 +75,10 @@ func (s *listAgreementsSuite) TestGetUsersAgreements(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No agreements to display.\n")
 	c.Assert(s.client.called, jc.IsTrue)
 
-	s.client.setError("well, this is embarassing")
+	s.client.setError("well, this is embarrassing")
 
 	ctx, err = s.runCommand(c)
-	c.Assert(err, gc.ErrorMatches, "failed to list user agreements: well, this is embarassing")
+	c.Assert(err, gc.ErrorMatches, "failed to list user agreements: well, this is embarrassing")
 	c.Assert(s.client.called, jc.IsTrue)
 
 	agreements := []wireformat.AgreementResponse{{
@@ -109,9 +109,9 @@ func (s *listAgreementsSuite) TestGetUsersAgreements(c *gc.C) {
 }
 
 func (s *listAgreementsSuite) TestGetUsersAgreementsWithTermOwner(c *gc.C) {
-	s.client.setError("well, this is embarassing")
+	s.client.setError("well, this is embarrassing")
 	ctx, err := s.runCommand(c)
-	c.Assert(err, gc.ErrorMatches, "failed to list user agreements: well, this is embarassing")
+	c.Assert(err, gc.ErrorMatches, "failed to list user agreements: well, this is embarrassing")
 	c.Assert(s.client.called, jc.IsTrue)
 
 	agreements := []wireformat.AgreementResponse{{

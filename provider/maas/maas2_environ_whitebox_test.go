@@ -686,7 +686,7 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 }
 
 func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentRetry(c *gc.C) {
-	machine := newFakeMachine("Inaccessable machine", arch.HostArch(), "")
+	machine := newFakeMachine("Inaccessible machine", arch.HostArch(), "")
 	controller := newFakeController()
 	controller.allocateMachine = machine
 	controller.allocateMachineMatches = gomaasapi.ConstraintMatches{

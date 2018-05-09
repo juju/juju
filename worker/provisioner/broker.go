@@ -39,7 +39,7 @@ func (h hostArchToolsFinder) FindTools(v version.Number, series, _ string) (tool
 }
 
 // resolvConf contains the full path to common resolv.conf files on the local
-// system. Defined here so it can be overriden for testing.
+// system. Defined here so it can be overridden for testing.
 var resolvConfFiles = []string{"/etc/resolv.conf", "/etc/systemd/resolved.conf", "/run/systemd/resolve/resolv.conf"}
 
 func prepareOrGetContainerInterfaceInfo(

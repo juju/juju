@@ -487,7 +487,7 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D) ([]txn.Op, err
 			volumesC, volume.Tag().Id(),
 		))
 		// If the storage instance has a filesystem, it may also
-		// have a volume (i.e. for volume-backed filesytems). In
+		// have a volume (i.e. for volume-backed filesystem). In
 		// this case, we want to destroy only the filesystem; when
 		// the filesystem is removed, the volume will be destroyed.
 		if !haveFilesystem {
@@ -1750,7 +1750,7 @@ func poolStorageProvider(im *IAASModel, poolName string) (storage.ProviderType, 
 
 // ErrNoDefaultStoragePool is returned when a storage pool is required but none
 // is specified nor available as a default.
-var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specifed and no default available")
+var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specified and no default available")
 
 // addDefaultStorageConstraints fills in default constraint values, replacing any empty/missing values
 // in the specified constraints.

@@ -44,7 +44,7 @@ func NewInstanceTypeConstraints(env environs.Environ, ctx context.ProviderCallCo
 	}
 }
 
-// instanceTypeConstraints holds necesary params to filter instance types.
+// instanceTypeConstraints holds necessary params to filter instance types.
 type instanceTypeConstraints struct {
 	constraints constraints.Value
 	environ     environs.Environ

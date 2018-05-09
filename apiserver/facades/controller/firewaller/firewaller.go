@@ -115,7 +115,7 @@ func NewFirewallerAPI(
 		accessUnitApplicationOrMachineOrRelation,
 	)
 	// ModelConfig() and WatchForModelConfigChanges() are allowed
-	// with unrestriced access.
+	// with unrestricted access.
 	modelWatcher := common.NewModelWatcher(
 		st,
 		resources,

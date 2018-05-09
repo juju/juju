@@ -290,7 +290,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	_, err = charm.ReadCharmArchiveBytes(buf.Bytes())
 	c.Assert(err, gc.ErrorMatches, `archive file "metadata.yaml" not found`)
 
-	// Now try uploading it - should succeeed and be repackaged.
+	// Now try uploading it - should succeed and be repackaged.
 	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &buf)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
 	s.assertUploadResponse(c, resp, expectedURL.String())

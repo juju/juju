@@ -11,6 +11,7 @@ go get -u github.com/alecthomas/gometalinter
 gometalinter --install > /dev/null
 gometalinter --disable-all \
     --enable=goimports \
+    --enable=misspell \
     --enable=unconvert \
     --enable=vet \
     --enable=vetshadow \

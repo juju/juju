@@ -729,7 +729,7 @@ func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, mig
 		if err := retry.Call(restoreCallArgs); err != nil {
 			return errors.Annotatef(err, "cannot restore db %q got: %s", dbs[i], out)
 		}
-		logger.Infof("Succesfully restored db %q", dbs[i])
+		logger.Infof("Successfully restored db %q", dbs[i])
 	}
 	return nil
 }

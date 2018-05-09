@@ -369,7 +369,7 @@ func (c *ControllerAPI) WatchAllModels() (params.AllWatcherId, error) {
 	}, nil
 }
 
-// GetControllerAccess returns the level of access the specifed users
+// GetControllerAccess returns the level of access the specified users
 // have on the controller.
 func (c *ControllerAPI) GetControllerAccess(req params.Entities) (params.UserAccessResults, error) {
 	results := params.UserAccessResults{}

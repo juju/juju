@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/core/lease"
 )
 
-// Secretary is reponsible for validating the sanity of lease and holder names
+// Secretary is responsible for validating the sanity of lease and holder names
 // before bothering the manager with them.
 type Secretary interface {
 
@@ -36,7 +36,7 @@ type ManagerConfig struct {
 	// Client is responsible for recording, retrieving, and expiring leases.
 	Client lease.Client
 
-	// Clock is reponsible for reporting the passage of time.
+	// Clock is responsible for reporting the passage of time.
 	Clock clock.Clock
 
 	// MaxSleep is the longest time the Manager should sleep before

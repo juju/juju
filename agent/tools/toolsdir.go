@@ -122,7 +122,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 	}
 
 	// The tempdir is created with 0700, so we need to make it more
-	// accessable for juju-run.
+	// accessible for juju-run.
 	err = os.Chmod(dir, dirPerm)
 	if err != nil {
 		return err
@@ -201,7 +201,7 @@ func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*c
 		return nil, err
 	}
 	// build absolute path to toolsDir. Windows implementation of symlink
-	// will check for the existance of the source file and error if it does
+	// will check for the existence of the source file and error if it does
 	// not exists. This is a limitation of junction points (symlinks) on NTFS
 	toolPath := ToolsDir(dataDir, tools.Version.String())
 	toolsDir := ToolsDir(dataDir, agentName)

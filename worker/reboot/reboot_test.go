@@ -76,7 +76,7 @@ func (s *rebootSuite) TearDownTest(c *gc.C) {
 // This is due to the behaviour of the reboot worker. What it does is acquires
 // the named process lock and never releases it. This is fine(ish) on linux as the
 // garbage collector will eventually clean up the old lock which will release the
-// domain socket, but on windows, the actual lock is a system level semaphore wich
+// domain socket, but on windows, the actual lock is a system level semaphore which
 // isn't cleaned up by the golang garbage collector, but instead relies on the process
 // dying to release the semaphore handle.
 //

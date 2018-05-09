@@ -79,7 +79,7 @@ var setConstraintsTests = []struct {
 	effectiveUnitCons:    "instance-type=foo-42 cpu-power=9001 spaces=bar",
 	effectiveMachineCons: "instance-type=foo-42 cpu-power=9001 spaces=bar",
 }, {
-	about:        "(implicitly) empty constraints never override explictly set fallbacks",
+	about:        "(implicitly) empty constraints never override explicitly set fallbacks",
 	consToSet:    "",
 	consFallback: "arch=amd64 cores=42 mem=2G tags=foo",
 
@@ -160,7 +160,7 @@ var setConstraintsTests = []struct {
 	effectiveUnitCons:    "mem=8G arch=amd64 cores=4 tags=bar cpu-power=1000",
 	effectiveMachineCons: "mem=8G arch=amd64 cores=4 tags=bar cpu-power=1000",
 }, {
-	about:        "set fallbacks are overriden the same way for provisioning and deployment",
+	about:        "set fallbacks are overridden the same way for provisioning and deployment",
 	consToSet:    "tags= cpu-power= spaces=bar",
 	consFallback: "tags=foo cpu-power=42",
 

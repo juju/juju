@@ -115,7 +115,7 @@ func (p ManualProvider) Open(args environs.OpenParams) (environs.Environ, error)
 		return nil, err
 	}
 	// validate adds missing manual-specific config attributes
-	// with their defaults in the result; we don't wnat that in
+	// with their defaults in the result; we don't want that in
 	// Open.
 	envConfig := newModelConfig(args.Config, args.Config.UnknownAttrs())
 	host, user := args.Cloud.Endpoint, ""
