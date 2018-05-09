@@ -168,7 +168,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		toolsFinder,
 		newEnviron,
 		blockChecker,
-		state.CreateCallContext(st),
+		state.CallContext(st),
 	)
 }
 
