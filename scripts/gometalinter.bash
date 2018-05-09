@@ -10,9 +10,11 @@ go get -u github.com/alecthomas/gometalinter
 
 gometalinter --install > /dev/null
 gometalinter --disable-all \
-    --enable=vet \
     --enable=goimports \
-    --deadline=120s \
+    --enable=unused \
+    --enable=vet \
+    --enable=vetshadow \
+    --deadline=240s \
     ./... &> $OUTPUT_FILE
 
 # go through each gometalinter error and check to see if it's related 
