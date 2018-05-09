@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
 )
 
 // AutoConfigureContainerNetworking tries to set up best container networking available
@@ -30,7 +29,7 @@ func (m *Model) AutoConfigureContainerNetworking(environ environs.Environ) error
 
 	if modelConfig.ContainerNetworkingMethod() != "" {
 		// Do nothing, user has decided what to do
-	} else if environs.SupportsContainerAddresses(createEnvironCallContext(m.st), environ) {
+	} else if environs.SupportsContainerAddresses(CallContext(m.st), environ) {
 		updateAttrs["container-networking-method"] = "provider"
 	} else if fanConfigured {
 		updateAttrs["container-networking-method"] = "fan"
@@ -39,10 +38,6 @@ func (m *Model) AutoConfigureContainerNetworking(environ environs.Environ) error
 	}
 	err = m.UpdateModelConfig(updateAttrs, nil)
 	return err
-}
-
-func createEnvironCallContext(st *State) context.ProviderCallContext {
-	return context.NewCloudCallContext()
 }
 
 func (m *Model) discoverFan(environ environs.Environ, modelConfig *config.Config, updateAttrs map[string]interface{}) (bool, error) {
@@ -59,7 +54,7 @@ func (m *Model) discoverFan(environ environs.Environ, modelConfig *config.Config
 		logger.Debugf("Not trying to autoconfigure FAN - configured already")
 		return false, nil
 	}
-	subnets, err := netEnviron.SuperSubnets(createEnvironCallContext(m.st))
+	subnets, err := netEnviron.SuperSubnets(CallContext(m.st))
 	if errors.IsNotSupported(err) || (err == nil && len(subnets) == 0) {
 		logger.Debugf("Not trying to autoconfigure FAN - SuperSubnets not supported or empty")
 		return false, nil

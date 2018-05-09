@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 )
@@ -53,7 +52,7 @@ func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer faca
 		DeadEnsurer:        common.NewDeadEnsurer(st, getCanModify),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanRead),
 		APIAddresser:       common.NewAPIAddresser(st, resources),
-		NetworkConfigAPI:   networkingcommon.NewNetworkConfigAPI(st, context.NewCloudCallContext(), getCanModify),
+		NetworkConfigAPI:   networkingcommon.NewNetworkConfigAPI(st, state.CallContext(st), getCanModify),
 		st:                 st,
 		auth:               authorizer,
 		getCanModify:       getCanModify,

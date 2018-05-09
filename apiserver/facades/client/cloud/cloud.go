@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -42,6 +43,7 @@ type CloudAPI struct {
 	authorizer             facade.Authorizer
 	apiUser                names.UserTag
 	getCredentialsAuthFunc common.GetAuthFunc
+	callContext            environscontext.ProviderCallContext
 }
 
 type CloudAPIV2 struct {
@@ -57,18 +59,18 @@ var (
 func NewFacade(context facade.Context) (*CloudAPI, error) {
 	st := NewStateBackend(context.State())
 	ctlrSt := NewStateBackend(context.StatePool().SystemState())
-	return NewCloudAPI(st, ctlrSt, context.Auth())
+	return NewCloudAPI(st, ctlrSt, context.Auth(), state.CallContext(context.State()))
 }
 
 func NewFacadeV2(context facade.Context) (*CloudAPIV2, error) {
 	st := NewStateBackend(context.State())
 	ctlrSt := NewStateBackend(context.StatePool().SystemState())
-	return NewCloudAPIV2(st, ctlrSt, context.Auth())
+	return NewCloudAPIV2(st, ctlrSt, context.Auth(), state.CallContext(context.State()))
 }
 
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
-func NewCloudAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer) (*CloudAPI, error) {
+func NewCloudAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer, callCtx environscontext.ProviderCallContext) (*CloudAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -93,11 +95,12 @@ func NewCloudAPI(backend, ctlrBackend Backend, authorizer facade.Authorizer) (*C
 		authorizer:             authorizer,
 		getCredentialsAuthFunc: getUserAuthFunc,
 		apiUser:                authUser,
+		callContext:            callCtx,
 	}, nil
 }
 
-func NewCloudAPIV2(backend, ctlrBackend Backend, authorizer facade.Authorizer) (*CloudAPIV2, error) {
-	cloudAPI, err := NewCloudAPI(backend, ctlrBackend, authorizer)
+func NewCloudAPIV2(backend, ctlrBackend Backend, authorizer facade.Authorizer, callCtx environscontext.ProviderCallContext) (*CloudAPIV2, error) {
+	cloudAPI, err := NewCloudAPI(backend, ctlrBackend, authorizer, callCtx)
 	if err != nil {
 		return nil, err
 	}

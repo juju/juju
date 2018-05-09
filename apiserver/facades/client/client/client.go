@@ -59,9 +59,10 @@ type Client struct {
 	// on the client facade until GUI and Python client library are updated.
 	*modelconfig.ModelConfigAPIV1
 
-	api        *API
-	newEnviron func() (environs.Environ, error)
-	check      *common.BlockChecker
+	api         *API
+	newEnviron  func() (environs.Environ, error)
+	check       *common.BlockChecker
+	callContext context.ProviderCallContext
 }
 
 // ClientV1 serves the (v1) client-specific API methods.
@@ -156,6 +157,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return NewClient(
 		&stateShim{st, model},
 		&poolShim{ctx.StatePool()},
@@ -167,6 +169,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		toolsFinder,
 		newEnviron,
 		blockChecker,
+		state.CallContext(st),
 	)
 }
 
@@ -182,6 +185,7 @@ func NewClient(
 	toolsFinder *common.ToolsFinder,
 	newEnviron func() (environs.Environ, error),
 	blockChecker *common.BlockChecker,
+	callCtx context.ProviderCallContext,
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -197,8 +201,9 @@ func NewClient(
 			statusSetter:  statusSetter,
 			toolsFinder:   toolsFinder,
 		},
-		newEnviron: newEnviron,
-		check:      blockChecker,
+		newEnviron:  newEnviron,
+		check:       blockChecker,
+		callContext: callCtx,
 	}
 	return client, nil
 }
@@ -607,7 +612,7 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 		return errors.Trace(err)
 	}
 
-	if err := environs.CheckProviderAPI(env, context.NewCloudCallContext()); err != nil {
+	if err := environs.CheckProviderAPI(env, c.callContext); err != nil {
 		return err
 	}
 	// If this is the controller model, also check to make sure that there are

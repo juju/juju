@@ -16,22 +16,35 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.sshclient")
 
 // Facade implements the API required by the sshclient worker.
 type Facade struct {
-	backend    Backend
-	authorizer facade.Authorizer
+	backend     Backend
+	authorizer  facade.Authorizer
+	callContext context.ProviderCallContext
 }
 
-// New returns a new API facade for the sshclient worker.
-func New(backend Backend, _ facade.Resources, authorizer facade.Authorizer) (*Facade, error) {
-	if !authorizer.AuthClient() {
+// NewFacade is used for API registration.
+func NewFacade(ctx facade.Context) (*Facade, error) {
+	st := ctx.State()
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return internalFacade(&backend{stateenvirons.EnvironConfigGetter{st, m}}, ctx.Auth(), state.CallContext(st))
+}
+
+func internalFacade(backend Backend, auth facade.Authorizer, callCtx context.ProviderCallContext) (*Facade, error) {
+	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	return &Facade{backend: backend, authorizer: authorizer}, nil
+
+	return &Facade{backend: backend, authorizer: auth, callContext: callCtx}, nil
 }
 
 func (facade *Facade) checkIsModelAdmin() error {
@@ -82,7 +95,6 @@ func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesRes
 	}
 
 	environ, supportsNetworking := environs.SupportsNetworking(env)
-	ctx := context.NewCloudCallContext()
 	getter := func(m SSHMachine) ([]network.Address, error) {
 		devicesAddresses, err := m.AllNetworkAddresses()
 		if err != nil {
@@ -100,7 +112,7 @@ func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesRes
 			}
 		}
 		if supportsNetworking {
-			return environ.SSHAddresses(ctx, uniqueAddresses)
+			return environ.SSHAddresses(facade.callContext, uniqueAddresses)
 		} else {
 			return uniqueAddresses, nil
 		}

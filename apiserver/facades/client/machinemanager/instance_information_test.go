@@ -49,7 +49,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 			},
 		},
 	}
-	api, err := machinemanager.NewMachineManagerAPI(backend, pool, authorizer)
+	api, err := machinemanager.NewMachineManagerAPI(backend, pool, authorizer, context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := params.ModelInstanceTypesConstraints{

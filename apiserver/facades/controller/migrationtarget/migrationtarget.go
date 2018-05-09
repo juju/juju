@@ -37,7 +37,7 @@ type API struct {
 
 // NewFacade is used for API registration.
 func NewFacade(ctx facade.Context) (*API, error) {
-	return NewAPI(ctx, stateenvirons.GetNewEnvironFunc(environs.New), context.NewCloudCallContext())
+	return NewAPI(ctx, stateenvirons.GetNewEnvironFunc(environs.New), state.CallContext(ctx.State()))
 }
 
 // NewAPI returns a new API. Accepts a NewEnvironFunc and context.ProviderCallContext

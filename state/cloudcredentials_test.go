@@ -395,3 +395,23 @@ func (s *CloudCredentialsSuite) TestAllCloudCredentials(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, []state.Credential{one, two})
 }
+
+func (s *CloudCredentialsSuite) TestInvalidateCloudCredential(c *gc.C) {
+	oneTag, one := s.createCloudCredential(c, "cirrus", "bob", "foobar")
+	c.Assert(one.IsValid(), jc.IsTrue)
+
+	reason := "testing, testing 1,2,3"
+	err := s.State.InvalidateCloudCredential(oneTag, reason)
+	c.Assert(err, jc.ErrorIsNil)
+
+	updated, err := s.State.CloudCredential(oneTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(updated.IsValid(), jc.IsFalse)
+	c.Assert(updated.InvalidReason, gc.DeepEquals, reason)
+}
+
+func (s *CloudCredentialsSuite) TestInvalidateCloudCredentialNotFound(c *gc.C) {
+	tag := names.NewCloudCredentialTag("cloud/user/credential")
+	err := s.State.InvalidateCloudCredential(tag, "just does not matter")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}

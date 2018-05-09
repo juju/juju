@@ -86,6 +86,7 @@ type ModelManagerAPI struct {
 	apiUser     names.UserTag
 	isAdmin     bool
 	model       common.Model
+	callContext context.ProviderCallContext
 }
 
 // ModelManagerAPIV2 provides a way to wrap the different calls between
@@ -132,6 +133,7 @@ func NewFacadeV4(ctx facade.Context) (*ModelManagerAPI, error) {
 		configGetter,
 		auth,
 		model,
+		state.CallContext(st),
 	)
 }
 
@@ -161,6 +163,7 @@ func NewModelManagerAPI(
 	configGetter environs.EnvironConfigGetter,
 	authorizer facade.Authorizer,
 	m common.Model,
+	callCtx context.ProviderCallContext,
 ) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -185,6 +188,7 @@ func NewModelManagerAPI(
 		apiUser:        apiUser,
 		isAdmin:        isAdmin,
 		model:          m,
+		callContext:    callCtx,
 	}, nil
 }
 
@@ -490,7 +494,7 @@ func (m *ModelManagerAPI) newIAASModel(
 	}
 
 	err = env.Create(
-		context.NewCloudCallContext(),
+		m.callContext,
 		environs.CreateParams{
 			ControllerUUID: controllerCfg.ControllerUUID(),
 		},

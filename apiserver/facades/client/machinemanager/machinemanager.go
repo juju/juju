@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -29,6 +30,8 @@ type MachineManagerAPI struct {
 	pool       Pool
 	authorizer facade.Authorizer
 	check      *common.BlockChecker
+
+	callContext context.ProviderCallContext
 }
 
 // NewFacade create a new server-side MachineManager API facade. This
@@ -41,7 +44,7 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 	}
 	backend := &stateShim{State: st, IAASModel: im}
 	pool := &poolShim{ctx.StatePool()}
-	return NewMachineManagerAPI(backend, pool, ctx.Auth())
+	return NewMachineManagerAPI(backend, pool, ctx.Auth(), state.CallContext(st))
 }
 
 type MachineManagerAPIV4 struct {
@@ -58,15 +61,16 @@ func NewFacadeV4(ctx facade.Context) (*MachineManagerAPIV4, error) {
 }
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
-func NewMachineManagerAPI(backend Backend, pool Pool, auth facade.Authorizer) (*MachineManagerAPI, error) {
+func NewMachineManagerAPI(backend Backend, pool Pool, auth facade.Authorizer, callCtx context.ProviderCallContext) (*MachineManagerAPI, error) {
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	return &MachineManagerAPI{
-		st:         backend,
-		pool:       pool,
-		authorizer: auth,
-		check:      common.NewBlockChecker(backend),
+		st:          backend,
+		pool:        pool,
+		authorizer:  auth,
+		check:       common.NewBlockChecker(backend),
+		callContext: callCtx,
 	}, nil
 }
 
