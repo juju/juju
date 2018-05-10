@@ -99,7 +99,7 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 	if err == nil {
 		logf("Loaded client cert/key from %q", jujuLXDDir)
 		return certPEM, keyPEM, nil
-	} else if !os.IsNotExist(err) {
+	} else if !os.IsNotExist(errors.Cause(err)) {
 		return nil, nil, errors.Trace(err)
 	}
 
@@ -111,7 +111,7 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 	if err == nil {
 		logf("Loaded client cert/key from %q", lxdConfigDir)
 		return certPEM, keyPEM, nil
-	} else if !os.IsNotExist(err) {
+	} else if !os.IsNotExist(errors.Cause(err)) {
 		return nil, nil, errors.Trace(err)
 	}
 

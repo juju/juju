@@ -106,7 +106,7 @@ func CreateDefaultBridgeInDefaultProfile(client creator) error {
 	_, ok := config.Devices["eth0"]
 	if ok {
 		/* don't configure an eth0 if it already exists */
-		return errors.Trace(err)
+		return nil
 	}
 
 	req := api.ProfilesPost{
