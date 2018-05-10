@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
@@ -72,7 +70,8 @@ func findInst(id instance.Id, instances []*environInstance) instance.Instance {
 // is necessary to isolate multiple models within the same LXD.
 func (env *environ) allInstances() ([]*environInstance, error) {
 	prefix := env.namespace.Prefix()
-	return env.prefixedInstances(prefix)
+	insts, err := env.prefixedInstances(prefix)
+	return insts, errors.Trace(err)
 }
 
 // prefixedInstances returns instances with the specified prefix.

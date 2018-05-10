@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxdclient
 
 import (
@@ -313,7 +311,7 @@ func verifyDefaultProfileBridgeConfig(client lxdclient.ContainerServer, networkA
 		return "", errors.Errorf("unexpected LXD %q profile config without eth0: %+v", defaultProfileName, config)
 	} else if networkAPISupported {
 		if err := checkBridgeConfig(client, eth0[configParentKey]); err != nil {
-			return "", err
+			return "", errors.Trace(err)
 		}
 	}
 
@@ -384,7 +382,7 @@ func checkLXDBridgeConfiguration(conf string) error {
 			}
 
 			if !b {
-				return bridgeConfigError("lxdbr0 not enabled but required")
+				return errors.Trace(bridgeConfigError("lxdbr0 not enabled but required"))
 			}
 		} else if strings.HasPrefix(line, "LXD_BRIDGE=") {
 			name := strings.Trim(line[len("LXD_BRIDGE="):], " \"")
@@ -393,7 +391,7 @@ func checkLXDBridgeConfiguration(conf string) error {
 			 * lxdbr0. So let's fail if it doesn't.
 			 */
 			if name != network.DefaultLXDBridge {
-				return bridgeConfigError(fmt.Sprintf(LXDBridgeFile+" has a bridge named %s, not lxdbr0", name))
+				return errors.Trace(bridgeConfigError(fmt.Sprintf(LXDBridgeFile+" has a bridge named %s, not lxdbr0", name)))
 			}
 		} else if strings.HasPrefix(line, "LXD_IPV4_ADDR=") {
 			contents := strings.Trim(line[len("LXD_IPV4_ADDR="):], " \"")
@@ -403,13 +401,13 @@ func checkLXDBridgeConfiguration(conf string) error {
 		} else if strings.HasPrefix(line, "LXD_IPV6_ADDR=") {
 			contents := strings.Trim(line[len("LXD_IPV6_ADDR="):], " \"")
 			if len(contents) > 0 {
-				return ipv6BridgeConfigError(LXDBridgeFile)
+				return errors.Trace(ipv6BridgeConfigError(LXDBridgeFile))
 			}
 		}
 	}
 
 	if !foundSubnetConfig {
-		return bridgeConfigError("lxdbr0 has no ipv4 or ipv6 subnet enabled")
+		return errors.Trace(bridgeConfigError("lxdbr0 has no ipv4 or ipv6 subnet enabled"))
 	}
 
 	return nil
@@ -492,7 +490,7 @@ func verifyStorageConfiguration(client lxdclient.ContainerServer, defaultProfile
 	// Otherwise, we need to add one
 	pools, err := client.GetStoragePools()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	poolName := ""
@@ -515,7 +513,7 @@ func verifyStorageConfiguration(client lxdclient.ContainerServer, defaultProfile
 		}
 		err := client.CreateStoragePool(req)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 
@@ -529,7 +527,7 @@ func verifyStorageConfiguration(client lxdclient.ContainerServer, defaultProfile
 	}
 
 	// Now, create a disk device that uses the pool
-	return client.UpdateProfile("default", defaultProfile.Writable(), "")
+	return errors.Trace(client.UpdateProfile("default", defaultProfile.Writable(), ""))
 }
 
 func isLXDNotFound(err error) bool {

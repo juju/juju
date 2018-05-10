@@ -1,8 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxdclient
 
 import (
@@ -32,7 +30,7 @@ func (c *networkClient) NetworkCreate(name string, config map[string]string) err
 		Name:       name,
 		NetworkPut: api.NetworkPut{Config: config},
 	}
-	return c.raw.CreateNetwork(req)
+	return errors.Trace(c.raw.CreateNetwork(req))
 }
 
 // NetworkGet returns the specified network's configuration.
@@ -42,7 +40,7 @@ func (c *networkClient) NetworkGet(name string) (api.Network, error) {
 	}
 
 	n, _, err := c.raw.GetNetwork(name)
-	return *n, err
+	return *n, errors.Trace(err)
 }
 
 type creator interface {
@@ -83,16 +81,16 @@ func CreateDefaultBridgeInDefaultProfile(client creator) error {
 		}
 		err := client.CreateNetwork(req)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 
 		n, _, err = client.GetNetwork(network.DefaultLXDBridge)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	} else {
 		if err := checkBridgeConfig(client, network.DefaultLXDBridge); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 
@@ -103,12 +101,12 @@ func CreateDefaultBridgeInDefaultProfile(client creator) error {
 
 	config, _, err := client.GetProfile("default")
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	_, ok := config.Devices["eth0"]
 	if ok {
 		/* don't configure an eth0 if it already exists */
-		return nil
+		return errors.Trace(err)
 	}
 
 	req := api.ProfilesPost{
@@ -124,7 +122,7 @@ func CreateDefaultBridgeInDefaultProfile(client creator) error {
 	}
 	err = client.CreateProfile(req)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	return nil

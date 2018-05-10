@@ -310,15 +310,15 @@ func parseFilesystemId(id string) (lxdPool, volumeName string, _ error) {
 }
 
 func destroyControllerFilesystems(env *environ, controllerUUID string) error {
-	return destroyFilesystems(env, func(v api.StorageVolume) bool {
+	return errors.Trace(destroyFilesystems(env, func(v api.StorageVolume) bool {
 		return v.Config["user."+tags.JujuController] == env.Config().UUID()
-	})
+	}))
 }
 
 func destroyModelFilesystems(env *environ) error {
-	return destroyFilesystems(env, func(v api.StorageVolume) bool {
+	return errors.Trace(destroyFilesystems(env, func(v api.StorageVolume) bool {
 		return v.Config["user."+tags.JujuModel] == env.Config().UUID()
-	})
+	}))
 }
 
 func destroyFilesystems(env *environ, match func(api.StorageVolume) bool) error {
