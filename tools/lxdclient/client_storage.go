@@ -1,8 +1,6 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxdclient
 
 import (
@@ -57,7 +55,7 @@ func (c *storageClient) VolumeCreate(pool, volume string, config map[string]stri
 		StorageVolumePut: api.StorageVolumePut{Config: config},
 	}
 
-	return c.raw.CreateStoragePoolVolume(pool, req)
+	return errors.Trace(c.raw.CreateStoragePoolVolume(pool, req))
 }
 
 // VolumeUpdate updates a volume in a storage pool.
@@ -66,7 +64,7 @@ func (c *storageClient) VolumeUpdate(pool, volume string, update api.StorageVolu
 		return errors.NotSupportedf("storage API on this remote")
 	}
 
-	return c.raw.UpdateStoragePoolVolume(pool, "custom", volume, update.Writable(), "")
+	return errors.Trace(c.raw.UpdateStoragePoolVolume(pool, "custom", volume, update.Writable(), ""))
 }
 
 // VolumeDelete deletes a volume from a storage pool.
@@ -78,7 +76,7 @@ func (c *storageClient) VolumeDelete(pool, volume string) error {
 		if isLXDNotFound(err) {
 			return errors.NotFoundf("volume %q in pool %q", volume, pool)
 		}
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }

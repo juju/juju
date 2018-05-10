@@ -1,11 +1,11 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -55,5 +55,6 @@ func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.In
 
 // Addresses implements instance.Instance.
 func (inst *environInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
-	return inst.env.raw.Addresses(inst.raw.Name)
+	addrs, err := inst.env.raw.Addresses(inst.raw.Name)
+	return addrs, errors.Trace(err)
 }

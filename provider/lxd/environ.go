@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
@@ -47,7 +45,7 @@ type environ struct {
 type newRawProviderFunc func(environs.CloudSpec, bool) (*rawProvider, error)
 
 func newEnviron(
-	provider *environProvider,
+	_ *environProvider,
 	local bool,
 	spec environs.CloudSpec,
 	cfg *config.Config,

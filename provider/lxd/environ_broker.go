@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
@@ -283,7 +281,7 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.In
 		}
 		instances[i] = inst
 	}
-	return instances, err
+	return instances, errors.Trace(err)
 }
 
 // StopInstances implements environs.InstanceBroker.

@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
@@ -89,7 +87,8 @@ func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*con
 	if len(attrs) == 0 {
 		return args.Config, nil
 	}
-	return args.Config.Apply(attrs)
+	cfg, err := args.Config.Apply(attrs)
+	return cfg, errors.Trace(err)
 }
 
 // Validate implements environs.EnvironProvider.
@@ -134,7 +133,7 @@ func (p *environProvider) FinalizeCloud(
 			var err error
 			hostAddress, err := p.getLocalHostAddress(ctx)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			endpoint = hostAddress
 		}

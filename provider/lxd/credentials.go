@@ -1,8 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
@@ -101,7 +99,7 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 	if err == nil {
 		logf("Loaded client cert/key from %q", jujuLXDDir)
 		return certPEM, keyPEM, nil
-	} else if !os.IsNotExist(err) {
+	} else if !os.IsNotExist(errors.Cause(err)) {
 		return nil, nil, errors.Trace(err)
 	}
 
@@ -113,7 +111,7 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 	if err == nil {
 		logf("Loaded client cert/key from %q", lxdConfigDir)
 		return certPEM, keyPEM, nil
-	} else if !os.IsNotExist(err) {
+	} else if !os.IsNotExist(errors.Cause(err)) {
 		return nil, nil, errors.Trace(err)
 	}
 
@@ -136,11 +134,11 @@ func readCert(dir string) (certPEM, keyPEM []byte, _ error) {
 	clientKeyPath := filepath.Join(dir, "client.key")
 	certPEM, err := ioutil.ReadFile(clientCertPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 	keyPEM, err = ioutil.ReadFile(clientKeyPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 	return certPEM, keyPEM, nil
 }
@@ -152,10 +150,10 @@ func writeCert(dir string, certPEM, keyPEM []byte) error {
 		return errors.Trace(err)
 	}
 	if err := ioutil.WriteFile(clientCertPath, certPEM, 0600); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := ioutil.WriteFile(clientKeyPath, keyPEM, 0600); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -246,10 +244,11 @@ See: https://jujucharms.com/docs/stable/clouds-LXD
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.finalizeLocalCertificateCredential(
+	cred, err := p.finalizeLocalCertificateCredential(
 		stderr, raw, certPEM, keyPEM,
 		args.Credential.Label,
 	)
+	return cred, errors.Trace(err)
 }
 
 func (p environProviderCredentials) finalizeLocalCertificateCredential(

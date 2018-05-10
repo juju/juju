@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
@@ -78,14 +76,17 @@ type lxdStorage interface {
 
 func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {
 	if local {
-		return newLocalRawProvider()
+		prov, err := newLocalRawProvider()
+		return prov, errors.Trace(err)
 	}
-	return newRemoteRawProvider(spec)
+	prov, err := newRemoteRawProvider(spec)
+	return prov, errors.Trace(err)
 }
 
 func newLocalRawProvider() (*rawProvider, error) {
 	config := jujulxdclient.Config{Remote: jujulxdclient.Local}
-	return newRawProviderFromConfig(config)
+	raw, err := newRawProviderFromConfig(config)
+	return raw, errors.Trace(err)
 }
 
 func newRemoteRawProvider(spec environs.CloudSpec) (*rawProvider, error) {
@@ -93,7 +94,8 @@ func newRemoteRawProvider(spec environs.CloudSpec) (*rawProvider, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newRawProviderFromConfig(*config)
+	raw, err := newRawProviderFromConfig(*config)
+	return raw, errors.Trace(err)
 }
 
 func newRawProviderFromConfig(config jujulxdclient.Config) (*rawProvider, error) {

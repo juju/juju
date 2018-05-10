@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxdclient
 
 import (
@@ -36,7 +34,10 @@ const (
 	SimplestreamsProtocol Protocol = "simplestreams"
 )
 
-var generateCertificate = func() ([]byte, []byte, error) { return lxdshared.GenerateMemCert(true) }
+var generateCertificate = func() ([]byte, []byte, error) {
+	b1, b2, err := lxdshared.GenerateMemCert(true)
+	return b1, b2, errors.Trace(err)
+}
 
 // Remote describes a LXD "remote" server for a client. In
 // particular it holds the information needed for the client
