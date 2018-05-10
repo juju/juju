@@ -42,7 +42,7 @@ func (s *imageSuite) TestCopyImageUsesPassedCallback(c *gc.C) {
 	req := &lxdclient.ImageCopyArgs{Aliases: aliases}
 	iSvr.EXPECT().CopyImage(iSvr, image, req).Return(copyOp, nil)
 
-	jSvr := lxd.JujuImageServer{iSvr}
+	jSvr := lxd.ImageServer{iSvr}
 	sourced := lxd.SourcedImage{
 		Image:     &image,
 		LXDServer: iSvr,
@@ -63,7 +63,7 @@ func (s *imageSuite) TestFindImageLocalServer(c *gc.C) {
 		iSvr.EXPECT().GetImage("foo-target").Return(&image, "ETAG", nil),
 	)
 
-	jSvr := lxd.JujuImageServer{iSvr}
+	jSvr := lxd.ImageServer{iSvr}
 	found, err := jSvr.FindImage("xenial", "amd64", []lxd.RemoteServer{{}}, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.LXDServer, gc.Equals, iSvr)
@@ -74,12 +74,9 @@ func (s *imageSuite) TestFindImageLocalServerUnknownSeries(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	iSvr := lxdtesting.NewMockContainerServer(ctrl)
+	iSvr.EXPECT().GetImageAlias("juju/pldlinux/amd64").Return(nil, "ETAG", nil)
 
-	gomock.InOrder(
-		iSvr.EXPECT().GetImageAlias("juju/pldlinux/amd64").Return(nil, "ETAG", nil),
-	)
-
-	jSvr := lxd.JujuImageServer{iSvr}
+	jSvr := lxd.ImageServer{iSvr}
 	_, err := jSvr.FindImage("pldlinux", "amd64", []lxd.RemoteServer{{}}, false, nil)
 	c.Check(err, gc.ErrorMatches, `.*series: "pldlinux".*`)
 }
@@ -105,7 +102,7 @@ func (s *imageSuite) TestFindImageRemoteServers(c *gc.C) {
 		rSvr2.EXPECT().GetImage("foo-remote-target").Return(&image, "ETAG", nil),
 	)
 
-	jSvr := lxd.JujuImageServer{iSvr}
+	jSvr := lxd.ImageServer{iSvr}
 	remotes := []lxd.RemoteServer{
 		{Name: "server-that-wont-work", Protocol: lxd.LXDProtocol},
 		{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol},
@@ -142,7 +139,7 @@ func (s *imageSuite) TestFindImageRemoteServersCopyLocalNoCallback(c *gc.C) {
 		iSvr.EXPECT().CopyImage(rSvr, image, copyReq).Return(copyOp, nil),
 	)
 
-	jSvr := lxd.JujuImageServer{iSvr}
+	jSvr := lxd.ImageServer{iSvr}
 	remotes := []lxd.RemoteServer{
 		{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol},
 	}
@@ -169,7 +166,7 @@ func (s *imageSuite) TestFindImageRemoteServersNotFound(c *gc.C) {
 		rSvr.EXPECT().GetImage("foo-remote-target").Return(nil, "ETAG", errors.New("failed to retrieve image")),
 	)
 
-	jSvr := lxd.JujuImageServer{iSvr}
+	jSvr := lxd.ImageServer{iSvr}
 	remotes := []lxd.RemoteServer{{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol}}
 	_, err := jSvr.FindImage("centos7", "amd64", remotes, false, nil)
 	c.Assert(err, gc.ErrorMatches, ".*failed to retrieve image.*")

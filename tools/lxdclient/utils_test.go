@@ -28,8 +28,8 @@ func (s *utilsSuite) TestEnableHTTPSListener(c *gc.C) {
 	client := newMockConfigSetter()
 	err := lxdclient.EnableHTTPSListener(client)
 	c.Assert(err, jc.ErrorIsNil)
-	client.CheckCall(c, 0, "ServerStatus")
-	client.CheckCall(c, 1, "SetServerConfig", "core.https_address", "[::]")
+	client.CheckCall(c, 0, "GetServer")
+	client.CheckCall(c, 1, "UpdateServerConfig", map[string]string{"core.https_address": "[::]"})
 }
 
 func (s *utilsSuite) TestEnableHTTPSListenerAlreadyEnabled(c *gc.C) {
@@ -37,7 +37,7 @@ func (s *utilsSuite) TestEnableHTTPSListenerAlreadyEnabled(c *gc.C) {
 	client.ServerState.Config["core.https_address"] = "foo"
 	err := lxdclient.EnableHTTPSListener(client)
 	c.Assert(err, jc.ErrorIsNil)
-	client.CheckCallNames(c, "ServerStatus")
+	client.CheckCallNames(c, "GetServer")
 }
 
 func (s *utilsSuite) TestEnableHTTPSListenerError(c *gc.C) {
@@ -52,9 +52,9 @@ func (s *utilsSuite) TestEnableHTTPSListenerIPV4Fallback(c *gc.C) {
 	client.SetErrors(nil, errors.New("any error string added by lxd: socket: address family not supported by protocol"))
 	err := lxdclient.EnableHTTPSListener(client)
 	c.Assert(err, jc.ErrorIsNil)
-	client.CheckCall(c, 0, "ServerStatus")
-	client.CheckCall(c, 1, "SetServerConfig", "core.https_address", "[::]")
-	client.CheckCall(c, 2, "SetServerConfig", "core.https_address", "0.0.0.0")
+	client.CheckCall(c, 0, "GetServer")
+	client.CheckCall(c, 1, "UpdateServerConfig", map[string]string{"core.https_address": "[::]"})
+	client.CheckCall(c, 2, "UpdateServerConfig", map[string]string{"core.https_address": "0.0.0.0"})
 }
 
 type mockConfigSetter struct {
@@ -72,12 +72,12 @@ func newMockConfigSetter() *mockConfigSetter {
 	}
 }
 
-func (m *mockConfigSetter) ServerStatus() (*api.Server, error) {
-	m.MethodCall(m, "ServerStatus")
-	return m.ServerState, m.NextErr()
+func (m *mockConfigSetter) GetServer() (*api.Server, string, error) {
+	m.MethodCall(m, "GetServer")
+	return m.ServerState, "etag", m.NextErr()
 }
 
-func (m *mockConfigSetter) SetServerConfig(k, v string) error {
-	m.MethodCall(m, "SetServerConfig", k, v)
+func (m *mockConfigSetter) UpdateServerConfig(cfg map[string]string) error {
+	m.MethodCall(m, "UpdateServerConfig", cfg)
 	return m.NextErr()
 }

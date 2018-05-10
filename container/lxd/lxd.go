@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuarch "github.com/juju/utils/arch"
-	lxd "github.com/lxc/lxd/client"
+	"github.com/lxc/lxd/client"
 	lxdshared "github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
@@ -43,7 +43,7 @@ const AutoStartKey = "boot.autostart"
 // args around. I'm punting for now.
 type containerManager struct {
 	server      lxd.ContainerServer
-	imageServer *JujuImageServer
+	imageServer *ImageServer
 
 	modelUUID        string
 	namespace        instance.Namespace
@@ -83,7 +83,7 @@ func NewContainerManager(cfg container.ManagerConfig, server lxd.ContainerServer
 	cfg.WarnAboutUnused()
 	return &containerManager{
 		server:           server,
-		imageServer:      &JujuImageServer{server},
+		imageServer:      &ImageServer{server},
 		modelUUID:        modelUUID,
 		namespace:        namespace,
 		availabilityZone: availabilityZone,

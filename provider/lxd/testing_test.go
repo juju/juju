@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	lxdclient "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
@@ -343,11 +344,10 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	// Patch out all expensive external deps.
 	raw := &rawProvider{
+		newClient:    s.Client,
 		lxdCerts:     s.Client,
-		lxdConfig:    s.Client,
 		lxdInstances: s.Client,
 		lxdProfiles:  s.Client,
-		lxdImages:    s.Client,
 		lxdStorage:   s.Client,
 		remote: jujulxdclient.Remote{
 			Cert: &jujulxdclient.Cert{
@@ -542,33 +542,32 @@ func (conn *StubClient) CertByFingerprint(fingerprint string) (api.Certificate, 
 	return api.Certificate{}, conn.NextErr()
 }
 
-func (conn *StubClient) ServerStatus() (*api.Server, error) {
+func (conn *StubClient) GetServer() (*api.Server, string, error) {
 	conn.AddCall("ServerStatus")
 	if err := conn.NextErr(); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	return &api.Server{
 		Environment: api.ServerEnvironment{
 			Certificate: "server-cert",
 		},
-	}, nil
+	}, "etag", nil
 }
 
-func (conn *StubClient) ServerAddresses() ([]string, error) {
+func (conn *StubClient) GetConnectionInfo() (info *lxdclient.ConnectionInfo, err error) {
 	conn.AddCall("ServerAddresses")
-	return []string{
-		"127.0.0.1:1234",
-		"1.2.3.4:1234",
+	return &lxdclient.ConnectionInfo{
+		Addresses: []string{"127.0.0.1:1234", "1.2.3.4:1234"},
 	}, conn.NextErr()
 }
 
-func (conn *StubClient) SetServerConfig(k, v string) error {
-	conn.AddCall("SetServerConfig", k, v)
+func (conn *StubClient) UpdateServerConfig(cfg map[string]string) error {
+	conn.AddCall("UpdateServerConfig", cfg)
 	return conn.NextErr()
 }
 
-func (conn *StubClient) SetContainerConfig(container, k, v string) error {
-	conn.AddCall("SetContainerConfig", container, k, v)
+func (conn *StubClient) UpdateContainerConfig(container string, cfg map[string]string) error {
+	conn.AddCall("UpdateContainerConfig", container, cfg)
 	return conn.NextErr()
 }
 

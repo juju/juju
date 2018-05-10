@@ -17,8 +17,8 @@ import (
 	"github.com/lxc/lxd/shared/api"
 )
 
-// JujuImageServer extends the upstream LXD client.
-type JujuImageServer struct {
+// ImageServer extends the upstream LXD client.
+type ImageServer struct {
 	lxd.ContainerServer
 }
 
@@ -39,7 +39,7 @@ type SourcedImage struct {
 // Supplying true for copyLocal will copy the image to the local cache.
 // Copied images will have the juju/series/arch alias added to them.
 // The callback argument is used to report copy progress.
-func (s *JujuImageServer) FindImage(
+func (s *ImageServer) FindImage(
 	series, arch string,
 	sources []RemoteServer,
 	copyLocal bool,
@@ -118,7 +118,7 @@ func (s *JujuImageServer) FindImage(
 
 // CopyRemoteImage accepts an image sourced from a remote server and copies it
 // to the local cache
-func (s *JujuImageServer) CopyRemoteImage(
+func (s *ImageServer) CopyRemoteImage(
 	sourced SourcedImage, aliases []string, callback environs.StatusCallbackFunc,
 ) error {
 	logger.Debugf("Copying image from remote server")
