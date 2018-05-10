@@ -90,7 +90,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv6 {
 	backend, err := application.NewStateBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(s.State)
-	api, err := application.NewAPIV5(
+	api, err := application.NewAPIBase(
 		backend,
 		s.authorizer,
 		blockChecker,
