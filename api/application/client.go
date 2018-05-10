@@ -350,6 +350,10 @@ type AddUnitsParams struct {
 	// created.
 	Placement []*instance.Placement
 
+	// Policy represents how a machine for the unit is determined.
+	// This value is ignored on any Juju server before 2.4.
+	Policy string
+
 	// AttachStorage contains IDs of existing storage that should be
 	// attached to the application unit that will be deployed. This
 	// may be non-empty only if NumUnits is 1.
@@ -379,6 +383,7 @@ func (c *Client) AddUnits(args AddUnitsParams) ([]string, error) {
 		ApplicationName: args.ApplicationName,
 		NumUnits:        args.NumUnits,
 		Placement:       args.Placement,
+		Policy:          args.Policy,
 		AttachStorage:   attachStorage,
 	}, results)
 	return results.Units, err

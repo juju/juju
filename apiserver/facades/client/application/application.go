@@ -186,6 +186,33 @@ func (api *APIBase) SetMetricCredentials(args params.ApplicationMetricCredential
 
 // Deploy fetches the charms from the charm store and deploys them
 // using the specified placement directives.
+// V5 deploy did not support policy, so pass through an empty string.
+func (api *APIv5) Deploy(args params.ApplicationsDeployV5) (params.ErrorResults, error) {
+	noDefinedPolicy := ""
+	var newArgs params.ApplicationsDeploy
+	for _, value := range args.Applications {
+		newArgs.Applications = append(newArgs.Applications, params.ApplicationDeploy{
+			ApplicationName:  value.ApplicationName,
+			Series:           value.Series,
+			CharmURL:         value.CharmURL,
+			Channel:          value.Channel,
+			NumUnits:         value.NumUnits,
+			Config:           value.Config,
+			ConfigYAML:       value.ConfigYAML,
+			Constraints:      value.Constraints,
+			Placement:        value.Placement,
+			Policy:           noDefinedPolicy,
+			Storage:          value.Storage,
+			AttachStorage:    value.AttachStorage,
+			EndpointBindings: value.EndpointBindings,
+			Resources:        value.Resources,
+		})
+	}
+	return api.APIBase.Deploy(newArgs)
+}
+
+// Deploy fetches the charms from the charm store and deploys them
+// using the specified placement directives.
 func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -839,6 +866,18 @@ func (api *APIBase) Unexpose(args params.ApplicationUnexpose) error {
 		return err
 	}
 	return app.ClearExposed()
+}
+
+// AddUnits adds a given number of units to an application.
+func (api *APIv5) AddUnits(args params.AddApplicationUnitsV5) (params.AddApplicationUnitsResults, error) {
+	noDefinedPolicy := ""
+	return api.APIBase.AddUnits(params.AddApplicationUnits{
+		ApplicationName: args.ApplicationName,
+		NumUnits:        args.NumUnits,
+		Placement:       args.Placement,
+		Policy:          noDefinedPolicy,
+		AttachStorage:   args.AttachStorage,
+	})
 }
 
 // AddUnits adds a given number of units to an application.
