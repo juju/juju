@@ -561,7 +561,7 @@ func (conn *StubClient) GetConnectionInfo() (info *lxdclient.ConnectionInfo, err
 	}, conn.NextErr()
 }
 
-func (conn *StubClient) UpdateServerConfig(cfg map[string]interface{}) error {
+func (conn *StubClient) UpdateServerConfig(cfg map[string]string) error {
 	conn.AddCall("UpdateServerConfig", cfg)
 	return conn.NextErr()
 }

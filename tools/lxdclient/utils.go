@@ -65,7 +65,7 @@ const errIPV6NotSupported = `socket: address family not supported by protocol`
 // rather than only via the Unix socket.
 func EnableHTTPSListener(client interface {
 	GetServer() (*api.Server, string, error)
-	UpdateServerConfig(map[string]interface{}) error
+	UpdateServerConfig(map[string]string) error
 }) error {
 	// First check that the server is not already listening for HTTPS.
 	state, _, err := client.GetServer()
@@ -82,13 +82,13 @@ func EnableHTTPSListener(client interface {
 	//      which does expose the LXD to outside requests. It would
 	//      probably be better to only tell LXD to listen for requests on
 	//      the loopback and LXC bridges that we are using.
-	if err := client.UpdateServerConfig(map[string]interface{}{"core.https_address": "[::]"}); err != nil {
+	if err := client.UpdateServerConfig(map[string]string{"core.https_address": "[::]"}); err != nil {
 		// if the error hints that the problem might be a protocol unsupported
 		// such as what happens when IPV6 is disabled in kernel, we try IPV4
 		// as a fallback.
 		cause := errors.Cause(err)
 		if strings.HasSuffix(cause.Error(), errIPV6NotSupported) {
-			return errors.Trace(client.UpdateServerConfig(map[string]interface{}{"core.https_address": "0.0.0.0"}))
+			return errors.Trace(client.UpdateServerConfig(map[string]string{"core.https_address": "0.0.0.0"}))
 		}
 		return errors.Trace(err)
 	}

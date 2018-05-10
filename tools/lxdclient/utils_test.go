@@ -29,7 +29,7 @@ func (s *utilsSuite) TestEnableHTTPSListener(c *gc.C) {
 	err := lxdclient.EnableHTTPSListener(client)
 	c.Assert(err, jc.ErrorIsNil)
 	client.CheckCall(c, 0, "GetServer")
-	client.CheckCall(c, 1, "UpdateServerConfig", map[string]interface{}{"core.https_address": "[::]"})
+	client.CheckCall(c, 1, "UpdateServerConfig", map[string]string{"core.https_address": "[::]"})
 }
 
 func (s *utilsSuite) TestEnableHTTPSListenerAlreadyEnabled(c *gc.C) {
@@ -53,8 +53,8 @@ func (s *utilsSuite) TestEnableHTTPSListenerIPV4Fallback(c *gc.C) {
 	err := lxdclient.EnableHTTPSListener(client)
 	c.Assert(err, jc.ErrorIsNil)
 	client.CheckCall(c, 0, "GetServer")
-	client.CheckCall(c, 1, "UpdateServerConfig", map[string]interface{}{"core.https_address": "[::]"})
-	client.CheckCall(c, 2, "UpdateServerConfig", map[string]interface{}{"core.https_address": "0.0.0.0"})
+	client.CheckCall(c, 1, "UpdateServerConfig", map[string]string{"core.https_address": "[::]"})
+	client.CheckCall(c, 2, "UpdateServerConfig", map[string]string{"core.https_address": "0.0.0.0"})
 }
 
 type mockConfigSetter struct {
@@ -77,7 +77,7 @@ func (m *mockConfigSetter) GetServer() (*api.Server, string, error) {
 	return m.ServerState, "etag", m.NextErr()
 }
 
-func (m *mockConfigSetter) UpdateServerConfig(cfg map[string]interface{}) error {
+func (m *mockConfigSetter) UpdateServerConfig(cfg map[string]string) error {
 	m.MethodCall(m, "UpdateServerConfig", cfg)
 	return m.NextErr()
 }

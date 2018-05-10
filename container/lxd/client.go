@@ -22,17 +22,16 @@ func NewClient(svr lxd.ContainerServer) *Client {
 }
 
 // UpdateServerConfig updates the server configuration with the input values.
-func (c *Client) UpdateServerConfig(cfg map[string]interface{}) error {
+func (c *Client) UpdateServerConfig(cfg map[string]string) error {
 	svr, eTag, err := c.GetServer()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if svr.Config == nil {
-		svr.Config = cfg
-	} else {
-		for k, v := range cfg {
-			svr.Config[k] = v
-		}
+		svr.Config = make(map[string]interface{})
+	}
+	for k, v := range cfg {
+		svr.Config[k] = v
 	}
 	return errors.Trace(c.UpdateServer(svr.Writable(), eTag))
 }
@@ -45,12 +44,12 @@ func (c *Client) UpdateContainerConfig(name string, cfg map[string]string) error
 		return errors.Trace(err)
 	}
 	if container.Config == nil {
-		container.Config = cfg
-	} else {
-		for k, v := range cfg {
-			container.Config[k] = v
-		}
+		container.Config = make(map[string]string)
 	}
+	for k, v := range cfg {
+		container.Config[k] = v
+	}
+
 	resp, err := c.UpdateContainer(name, container.Writable(), eTag)
 	if err != nil {
 		return errors.Trace(err)
