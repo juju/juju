@@ -77,7 +77,8 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"pubsub-forwarder",
 		"raft",
 		"raft-clusterer",
-		"raft-flag",
+		"raft-enabled-flag",
+		"raft-leader-flag",
 		"raft-transport",
 		"reboot-executor",
 		"restore-watcher",
@@ -148,7 +149,8 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"upgrader",
 		"raft",
 		"raft-clusterer",
-		"raft-flag",
+		"raft-enabled-flag",
+		"raft-leader-flag",
 		"raft-transport",
 	)
 	manifolds := machine.Manifolds(machine.ManifoldsConfig{
@@ -171,7 +173,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"certificate-watcher",
 		"audit-config-updater",
 		"is-primary-controller-flag",
-		"raft-transport",
+		"raft-enabled-flag",
 	)
 	primaryControllerWorkers := set.NewStrings(
 		"external-controller-updater",

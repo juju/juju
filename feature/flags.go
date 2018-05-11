@@ -49,3 +49,9 @@ const NewPresence = "new-presence"
 // NewProxyOnly is a temporary traditional feature flag that will disable writing
 // the proxy information into the /etc locations (for users and systemd).
 const NewProxyOnly = "new-proxy-only"
+
+// DisableRaft will prevent the raft workers from running. At the
+// moment the raft cluster isn't managing leadership, so we want the
+// ability to stop the workers from running if they cause any issues
+// (or just unwanted noise).
+const DisableRaft = "disable-raft"
