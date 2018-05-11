@@ -17,7 +17,8 @@ import (
 	"github.com/lxc/lxd/shared/api"
 )
 
-// ImageServer extends the upstream LXD client.
+// ImageServer extends the upstream LXD container server with Juju
+// functionality for working with container OX images.
 type ImageServer struct {
 	lxd.ContainerServer
 }

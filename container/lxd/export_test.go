@@ -12,9 +12,10 @@ import (
 var (
 	//LxdConnectPublicLXD     = &lxdConnectPublicLXD
 	//LxdConnectSimpleStreams = &lxdConnectSimpleStreams
-	NICDevice       = nicDevice
-	NetworkDevices  = networkDevices
-	GetImageSources = func(mgr container.Manager) ([]RemoteServer, error) {
+	NICDevice             = nicDevice
+	NetworkDevices        = networkDevices
+	CheckBridgeConfigFile = checkBridgeConfigFile
+	GetImageSources       = func(mgr container.Manager) ([]RemoteServer, error) {
 		return mgr.(*containerManager).getImageSources()
 	}
 )
