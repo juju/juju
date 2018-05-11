@@ -8,38 +8,17 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/network"
 )
 
-// NetworkServer extends the upstream LXD container server with Juju networking
-// functionality.
-type NetworkServer struct {
-	lxd.ContainerServer
-
-	networkAPISupport bool
-	clusterAPISupport bool
-
-	localBridgeName string
-}
-
-func NewNetworkServer(svr lxd.ContainerServer, apis []string) NetworkServer {
-	return NetworkServer{
-		ContainerServer:   svr,
-		networkAPISupport: shared.StringInSlice("network", apis),
-		clusterAPISupport: shared.StringInSlice("clustering", apis),
-	}
-}
-
 // LocalBridgeName returns the name of the local LXD network bridge.
-func (s *NetworkServer) LocalBridgeName() string {
+func (s *Client) LocalBridgeName() string {
 	return s.localBridgeName
 }
 
-func (s *NetworkServer) VerifyDefaultBridge(profile *api.Profile) error {
+func (s *Client) VerifyDefaultBridge(profile *api.Profile) error {
 	eth0, ok := profile.Devices["eth0"]
 	if !ok {
 		// On LXD >= 2.3 there is no bridge config by default.
@@ -82,7 +61,7 @@ func (s *NetworkServer) VerifyDefaultBridge(profile *api.Profile) error {
 // the input profile.
 // An error is returned if the bridge exists with IPv6 configuration.
 // If the bridge does not exist, it is created.
-func (s *NetworkServer) ensureDefaultBridge(profile *api.Profile) error {
+func (s *Client) ensureDefaultBridge(profile *api.Profile) error {
 	net, eTag, err := s.GetNetwork(network.DefaultLXDBridge)
 	if err != nil {
 		if !isLXDNotFound(err) {

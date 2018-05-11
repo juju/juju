@@ -56,6 +56,14 @@ func (t *LxdSuite) makeManagerForConfig(
 	return manager
 }
 
+// newMockServer initialises a mock container server and adds an expectation
+// for the GetServer function, which is call each to it is used in NewClient.
+func newMockServer(ctrl *gomock.Controller) *lxdtesting.MockContainerServer {
+	svr := lxdtesting.NewMockContainerServer(ctrl)
+	svr.EXPECT().GetServer().Return(&lxdapi.Server{}, eTag, nil)
+	return svr
+}
+
 func getBaseConfig() container.ManagerConfig {
 	return container.ManagerConfig{
 		container.ConfigModelUUID:        coretesting.ModelTag.Id(),
@@ -116,7 +124,7 @@ var noOpCallback = func(settableStatus status.Status, info string, data map[stri
 func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := newMockServer(ctrl)
 	t.patch(cSvr)
 
 	manager := t.makeManager(c, cSvr)
@@ -168,7 +176,7 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 func (t *LxdSuite) TestCreateContainerCreateFailed(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := newMockServer(ctrl)
 
 	createRemoteOp := lxdtesting.NewMockRemoteOperation(ctrl)
 	createRemoteOp.EXPECT().Wait().Return(nil).AnyTimes()
@@ -196,7 +204,7 @@ func (t *LxdSuite) TestCreateContainerCreateFailed(c *gc.C) {
 func (t *LxdSuite) TestCreateContainerStartFailed(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := newMockServer(ctrl)
 	t.patch(cSvr)
 
 	manager := t.makeManager(c, cSvr)
@@ -248,7 +256,7 @@ func expectCreateContainer(ctrl *gomock.Controller, svr *lxdtesting.MockContaine
 func (t *LxdSuite) TestListContainers(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	cSvr := newMockServer(ctrl)
 	manager := t.makeManager(c, cSvr)
 
 	prefix := manager.Namespace().Prefix()
@@ -263,9 +271,8 @@ func (t *LxdSuite) TestListContainers(c *gc.C) {
 		{Name: prefix + "-1"},
 		{Name: "nothing-to-see-here-please"},
 	}
-	gomock.InOrder(
-		cSvr.EXPECT().GetContainers().Return(containers, nil),
-	)
+
+	cSvr.EXPECT().GetContainers().Return(containers, nil)
 
 	result, err := manager.ListContainers()
 	c.Assert(err, jc.ErrorIsNil)
@@ -277,11 +284,9 @@ func (t *LxdSuite) TestListContainers(c *gc.C) {
 func (t *LxdSuite) TestIsInitialized(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+	cSvr := newMockServer(ctrl)
 
-	manager := t.makeManager(c, nil)
-	c.Check(manager.IsInitialized(), gc.Equals, false)
-
-	manager = t.makeManager(c, lxdtesting.NewMockContainerServer(ctrl))
+	manager := t.makeManager(c, cSvr)
 	c.Check(manager.IsInitialized(), gc.Equals, true)
 }
 
@@ -395,7 +400,11 @@ func (t *LxdSuite) TestNetworkDevicesWithParentDevice(c *gc.C) {
 }
 
 func (t *LxdSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {
-	mgr := t.makeManager(c, nil)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := newMockServer(ctrl)
+
+	mgr := t.makeManager(c, cSvr)
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -403,9 +412,13 @@ func (t *LxdSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {
 }
 
 func (t *LxdSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := newMockServer(ctrl)
+
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageStreamKey] = "nope"
-	mgr := t.makeManagerForConfig(c, cfg, nil)
+	mgr := t.makeManagerForConfig(c, cfg, cSvr)
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -413,9 +426,13 @@ func (t *LxdSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C) {
 }
 
 func (t *LxdSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := newMockServer(ctrl)
+
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageStreamKey] = "daily"
-	mgr := t.makeManagerForConfig(c, cfg, nil)
+	mgr := t.makeManagerForConfig(c, cfg, cSvr)
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -423,9 +440,13 @@ func (t *LxdSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
 }
 
 func (t *LxdSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := newMockServer(ctrl)
+
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageMetadataURLKey] = "http://special.container.sauce"
-	mgr := t.makeManagerForConfig(c, cfg, nil)
+	mgr := t.makeManagerForConfig(c, cfg, cSvr)
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -443,10 +464,14 @@ func (t *LxdSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c *gc
 }
 
 func (t *LxdSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := newMockServer(ctrl)
+
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageMetadataURLKey] = "http://special.container.sauce"
 	cfg[config.ContainerImageStreamKey] = "daily"
-	mgr := t.makeManagerForConfig(c, cfg, nil)
+	mgr := t.makeManagerForConfig(c, cfg, cSvr)
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)

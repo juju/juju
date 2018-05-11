@@ -6,12 +6,17 @@ package lxd
 import (
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/client"
+	"github.com/lxc/lxd/shared"
 )
 
 // Client extends the upstream LXD container server.
 type Client struct {
-	ImageServer
-	NetworkServer
+	lxd.ContainerServer
+
+	networkAPISupport bool
+	clusterAPISupport bool
+
+	localBridgeName string
 }
 
 // NewClient builds and returns a Client for high-level interaction with the
@@ -20,14 +25,15 @@ func NewClient(svr lxd.ContainerServer) *Client {
 	info, _, _ := svr.GetServer()
 	apiExt := info.APIExtensions
 	return &Client{
-		ImageServer:   ImageServer{svr},
-		NetworkServer: NewNetworkServer(svr, apiExt),
+		ContainerServer:   svr,
+		networkAPISupport: shared.StringInSlice("network", apiExt),
+		clusterAPISupport: shared.StringInSlice("clustering", apiExt),
 	}
 }
 
 // UpdateServerConfig updates the server configuration with the input values.
 func (c *Client) UpdateServerConfig(cfg map[string]string) error {
-	svr, eTag, err := c.ImageServer.GetServer()
+	svr, eTag, err := c.GetServer()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -37,13 +43,13 @@ func (c *Client) UpdateServerConfig(cfg map[string]string) error {
 	for k, v := range cfg {
 		svr.Config[k] = v
 	}
-	return errors.Trace(c.ImageServer.UpdateServer(svr.Writable(), eTag))
+	return errors.Trace(c.UpdateServer(svr.Writable(), eTag))
 }
 
 // UpdateContainerConfig updates the configuration for the container with the
 // input name, using the input values.
 func (c *Client) UpdateContainerConfig(name string, cfg map[string]string) error {
-	container, eTag, err := c.ImageServer.GetContainer(name)
+	container, eTag, err := c.GetContainer(name)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -54,7 +60,7 @@ func (c *Client) UpdateContainerConfig(name string, cfg map[string]string) error
 		container.Config[k] = v
 	}
 
-	resp, err := c.ImageServer.UpdateContainer(name, container.Writable(), eTag)
+	resp, err := c.UpdateContainer(name, container.Writable(), eTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
