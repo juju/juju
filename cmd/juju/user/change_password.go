@@ -28,13 +28,15 @@ const userChangePasswordDoc = `
 The user is, by default, the current user. The latter can be confirmed with
 the ` + "`juju show-user`" + ` command.
 
-A controller administrator can change the password for another user 
-on the specified controller. If no controller is specified, 
-the current controller will be used.
+If no controller is specified, the current controller will be used.
 
-A controller administrator can also reset the password for another user.
-This will invalidate any password or registration string 
-that was previously issued, and issue a new registration string to be used with
+A controller administrator can change the password for another user 
+by providing desired username as an argument. 
+
+A controller administrator can also reset the password with a --reset option. 
+This will invalidate any passwords that were previously set 
+and registration strings that were previously issued for a user.
+This option will issue a new registration string to be used with
 ` + "`juju register`" + `.  
 
 
