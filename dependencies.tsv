@@ -52,7 +52,7 @@ github.com/juju/pubsub	git	091412f84753115324ce870066ffbb6bb55c4ef4	2017-11-22T0
 github.com/juju/ratelimit	git	5b9ff866471762aa2ab2dced63c9fb6f53921342	2017-05-23T01:21:41Z
 github.com/juju/replicaset	git	86037679224858cd82666e4877a8ac4c42cbda8b	2018-04-17T12:35:43Z
 github.com/juju/retry	git	62c62032529169c7ec02fa48f93349604c345e1f	2015-10-29T02:48:21Z
-github.com/juju/rfc	git	ebdbbdb950cd039a531d15cdc2ac2cbd94f068ee	2016-07-11T02:42:13Z
+github.com/juju/rfc	git	b058ad085c9480f110200bfe2309189aff5780b8	2018-05-10T11:21:17Z
 github.com/juju/romulus	git	5b6f449d5c36ed6927c417c68379ab5acb7d7b46	2018-03-27T20:54:18Z
 github.com/juju/schema	git	075de04f9b7d7580d60a1e12a0b3f50bb18e6998	2016-04-20T04:42:03Z
 github.com/juju/terms-client	git	9b925afd677234e4146dde3cb1a11e187cbed64e	2016-08-09T13:19:00Z
