@@ -62,32 +62,34 @@ type DBusAPIFactory = func() (DBusAPI, error)
 type Service struct {
 	common.Service
 
-	ConfName string
-	UnitName string
-	DirName  string
-	Script   []byte
+	ConfName        string
+	UnitName        string
+	DirName         string
+	FallBackDirName string
+	Script          []byte
 
 	newDBus DBusAPIFactory
 }
 
 // NewService returns a new value that implements Service for systemd.
-func NewService(name string, conf common.Conf, dataDir string, newDBus DBusAPIFactory) (*Service, error) {
+func NewService(name string, conf common.Conf, dataDir string, newDBus DBusAPIFactory, fallBackDirName string) (*Service, error) {
 	confName := name + ".service"
 	var volName string
 	if conf.ExecStart != "" {
 		volName = renderer.VolumeName(common.Unquote(strings.Fields(conf.ExecStart)[0]))
 	}
-	dirName := volName + renderer.Join(dataDir, "init", name)
+	dirName := volName + renderer.Join(dataDir, name)
 
 	service := &Service{
 		Service: common.Service{
 			Name: name,
 			// Conf is set in setConf.
 		},
-		ConfName: confName,
-		UnitName: confName,
-		DirName:  dirName,
-		newDBus:  newDBus,
+		ConfName:        confName,
+		UnitName:        confName,
+		DirName:         dirName,
+		FallBackDirName: fallBackDirName,
+		newDBus:         newDBus,
 	}
 
 	if err := service.setConf(conf); err != nil {
@@ -230,8 +232,17 @@ func (s *Service) readConf() (common.Conf, error) {
 	var conf common.Conf
 
 	data, err := Cmdline{}.conf(s.Service.Name, s.DirName)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "No such file or directory") {
 		return conf, s.errorf(err, "failed to read conf from systemd")
+	} else if err != nil && strings.Contains(err.Error(), "No such file or directory") {
+		// give another try to check if db service exists in /var/lib/juju/init.
+		// this check can be useful for installing mongoDB during upgrade.
+		data, err = Cmdline{}.conf(s.Service.Name, renderer.Join(s.FallBackDirName, s.Service.Name))
+		if err != nil {
+			return conf, s.errorf(err, "failed to read conf from systemd")
+		} else {
+			return common.Conf{}, nil
+		}
 	}
 
 	conf, err = s.deserialize(data)
@@ -579,6 +590,16 @@ func (s *Service) WriteService() error {
 	if _, _, err = conn.EnableUnitFiles([]string{filename}, runtime, force); err != nil {
 		return s.errorf(err, "dbus enable request failed")
 
+	}
+	return nil
+}
+
+// SysdReload reloads Service daemon.
+func SysdReload() error {
+	err := Cmdline{}.reload()
+	if err != nil {
+		logger.Errorf("services not reloaded %v\n", err)
+		return err
 	}
 	return nil
 }

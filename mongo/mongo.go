@@ -525,6 +525,7 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 			if err != nil {
 				return errors.Trace(err)
 			}
+
 			if !running {
 				return svc.Start()
 			}
