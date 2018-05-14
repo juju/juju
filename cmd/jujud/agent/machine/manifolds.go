@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
 	jworker "github.com/juju/juju/worker"
@@ -46,6 +47,7 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/externalcontrollerupdater"
 	"github.com/juju/juju/worker/fanconfigurer"
+	"github.com/juju/juju/worker/featureflag"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/globalclockupdater"
@@ -726,7 +728,17 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: auditconfigupdater.New,
 		})),
 
-		raftTransportName: ifController(rafttransport.Manifold(rafttransport.ManifoldConfig{
+		raftEnabledName: ifController(featureflag.Manifold(featureflag.ManifoldConfig{
+			StateName: stateName,
+			FlagName:  feature.DisableRaft,
+			Invert:    true,
+			Logger:    loggo.GetLogger("juju.worker.raft.raftenabled"),
+			NewWorker: featureflag.NewWorker,
+		})),
+
+		// All the other raft workers hang off the raft transport, so
+		// it's the only one that needs to be gated by the enabled flag.
+		raftTransportName: ifRaftEnabled(rafttransport.Manifold(rafttransport.ManifoldConfig{
 			ClockName:         clockName,
 			AgentName:         agentName,
 			AuthenticatorName: httpServerName,
@@ -803,6 +815,12 @@ var ifRaftLeader = engine.Housing{
 	},
 }.Decorate
 
+var ifRaftEnabled = engine.Housing{
+	Flags: []string{
+		raftEnabledName,
+	},
+}.Decorate
+
 const (
 	agentName              = "agent"
 	terminationName        = "termination-signal-handler"
@@ -864,5 +882,6 @@ const (
 	raftTransportName = "raft-transport"
 	raftName          = "raft"
 	raftClustererName = "raft-clusterer"
-	raftFlagName      = "raft-flag"
+	raftFlagName      = "raft-leader-flag"
+	raftEnabledName   = "raft-enabled-flag"
 )
