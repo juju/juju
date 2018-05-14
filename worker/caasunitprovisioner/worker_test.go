@@ -192,8 +192,7 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) setupNewBrokerManagedUnitScenario(c *gc.C) worker.Worker {
-	s.applicationGetter.jujuManagedUnits = false
+func (s *WorkerSuite) setupNewUnitScenario(c *gc.C) worker.Worker {
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -236,11 +235,11 @@ func (s *WorkerSuite) setupNewBrokerManagedUnitScenario(c *gc.C) worker.Worker {
 	return w
 }
 
-func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
-	w := s.setupNewBrokerManagedUnitScenario(c)
+func (s *WorkerSuite) TestUnitChanged(c *gc.C) {
+	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
-	s.applicationGetter.CheckCallNames(c, "WatchApplications", "ApplicationConfig", "ApplicationConfig")
+	s.applicationGetter.CheckCallNames(c, "WatchApplications", "ApplicationConfig")
 	s.podSpecGetter.CheckCallNames(c, "WatchPodSpec", "PodSpec", "PodSpec")
 	s.podSpecGetter.CheckCall(c, 0, "WatchPodSpec", "gitlab")
 	s.podSpecGetter.CheckCall(c, 1, "PodSpec", "gitlab") // not found
@@ -250,7 +249,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 	s.lifeGetter.CheckCall(c, 1, "Life", "gitlab/0")
 	s.serviceBroker.CheckCallNames(c, "EnsureService", "Service")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost", "juju-managed-units": false})
+		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 	s.serviceBroker.CheckCall(c, 1, "Service", "gitlab")
 
 	s.serviceBroker.ResetCalls()
@@ -269,7 +268,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 2, application.ConfigAttributes{"juju-external-hostname": "exthost", "juju-managed-units": false})
+		"gitlab", &parsedSpec, 2, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 
 	s.serviceBroker.ResetCalls()
 	// Delete a unit.
@@ -288,11 +287,11 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost", "juju-managed-units": false})
+		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
-func (s *WorkerSuite) TestNewBrokerManagedPodSpecChange(c *gc.C) {
-	w := s.setupNewBrokerManagedUnitScenario(c)
+func (s *WorkerSuite) TestNewPodSpecChange(c *gc.C) {
+	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
 	s.serviceBroker.ResetCalls()
@@ -334,11 +333,11 @@ containers:
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &anotherParsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost", "juju-managed-units": false})
+		"gitlab", &anotherParsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
-func (s *WorkerSuite) TestNewBrokerManagedUnitAllRemoved(c *gc.C) {
-	w := s.setupNewBrokerManagedUnitScenario(c)
+func (s *WorkerSuite) TestUnitAllRemoved(c *gc.C) {
+	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
 	s.serviceBroker.ResetCalls()
@@ -371,8 +370,8 @@ func (s *WorkerSuite) TestNewBrokerManagedUnitAllRemoved(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestBrokerManagedUnitApplicationDeadRemovesService(c *gc.C) {
-	w := s.setupNewBrokerManagedUnitScenario(c)
+func (s *WorkerSuite) TestApplicationDeadRemovesService(c *gc.C) {
+	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
 	s.serviceBroker.ResetCalls()
