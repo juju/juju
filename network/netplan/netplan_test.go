@@ -507,7 +507,7 @@ network:
         addresses: [8.8.8.8]
 `)
 	err := np.BridgeEthernetById("id0", "juju-bridge")
-	c.Check(err, gc.ErrorMatches, `Cannot bridge device "id0" on bridge "juju-bridge" - bridge named "juju-bridge" already exists`)
+	c.Check(err, gc.ErrorMatches, `cannot create bridge "juju-bridge" with device "id0" - bridge "juju-bridge" w/ interfaces "id1" already exists`)
 }
 
 func (s *NetplanSuite) TestBridgerDeviceBridged(c *gc.C) {
@@ -540,10 +540,10 @@ network:
         addresses: [8.8.8.8]
 `)
 	err := np.BridgeEthernetById("id0", "juju-bridge")
-	c.Check(err, gc.ErrorMatches, `.*Device "id0" is already bridged in bridge "not-juju-bridge" instead of "juju-bridge".*`)
+	c.Check(err, gc.ErrorMatches, `cannot create bridge "juju-bridge", device "id0" in bridge "not-juju-bridge" already exists`)
 }
 
-func (s *NetplanSuite) TestBridgerDeviceMissing(c *gc.C) {
+func (s *NetplanSuite) TestBridgerEthernetMissing(c *gc.C) {
 	np := MustNetplanFromYaml(c, `
 network:
   version: 2
@@ -552,14 +552,6 @@ network:
     id0:
       match:
         macaddress: "00:11:22:33:44:55"
-      addresses:
-      - 1.2.3.4/24
-      - 2000::1/64
-      gateway4: 1.2.3.5
-      gateway6: 2000::2
-      nameservers:
-        search: [foo.local, bar.local]
-        addresses: [8.8.8.8]
   bridges:
     not-juju-bridge:
       interfaces: [id0]
@@ -573,7 +565,205 @@ network:
         addresses: [8.8.8.8]
 `)
 	err := np.BridgeEthernetById("id7", "juju-bridge")
-	c.Check(err, gc.ErrorMatches, `Device with id "id7" for bridge "juju-bridge" not found`)
+	c.Check(err, gc.ErrorMatches, `ethernet device with id "id7" for bridge "juju-bridge" not found`)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *NetplanSuite) TestBridgeVLAN(c *gc.C) {
+	np := MustNetplanFromYaml(c, `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+  vlans:
+    id0.1234:
+      link: id0
+      id: 1234
+      addresses:
+      - 1.2.3.4/24
+      - 2000::1/64
+      gateway4: 1.2.3.5
+      gateway6: 2000::2
+      nameservers:
+        search: [foo.local, bar.local]
+        addresses: [8.8.8.8]
+      routes:
+      - to: 100.0.0.0/8
+        via: 1.2.3.10
+        metric: 5
+`)
+	expected := `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+  bridges:
+    br-id0.1234:
+      interfaces: [id0.1234]
+      addresses:
+      - 1.2.3.4/24
+      - 2000::1/64
+      gateway4: 1.2.3.5
+      gateway6: 2000::2
+      nameservers:
+        search: [foo.local, bar.local]
+        addresses: [8.8.8.8]
+      routes:
+      - to: 100.0.0.0/8
+        via: 1.2.3.10
+        metric: 5
+  vlans:
+    id0.1234:
+      id: 1234
+      link: id0
+`[1:]
+	err := np.BridgeVLANById("id0.1234", "br-id0.1234")
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := netplan.Marshal(np)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(out), gc.Equals, expected)
+}
+
+func (s *NetplanSuite) TestBridgerVLANMissing(c *gc.C) {
+	np := MustNetplanFromYaml(c, `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+  vlans:
+    id0.1234:
+      link: id0
+      id: 1234
+  bridges:
+    not-juju-bridge:
+      interfaces: [id0]
+      addresses:
+      - 1.2.3.4/24
+      - 2000::1/64
+      gateway4: 1.2.3.5
+      gateway6: 2000::2
+      nameservers:
+        search: [foo.local, bar.local]
+        addresses: [8.8.8.8]
+`)
+	err := np.BridgeVLANById("id0.1235", "br-id0.1235")
+	c.Check(err, gc.ErrorMatches, `VLAN device with id "id0.1235" for bridge "br-id0.1235" not found`)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *NetplanSuite) TestBridgeBond(c *gc.C) {
+	np := MustNetplanFromYaml(c, `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: de:ad:22:33:44:55
+    id1:
+      match:
+        macaddress: de:ad:22:33:44:66
+  bonds:
+    bond0:
+      interfaces: [id0, id1]
+      addresses:
+      - 1.2.3.4/24
+      - 2000::1/64
+      gateway4: 1.2.3.5
+      gateway6: 2000::2
+      nameservers:
+        search: [foo.local, bar.local]
+        addresses: [8.8.8.8]
+      routes:
+      - to: 100.0.0.0/8
+        via: 1.2.3.10
+        metric: 5
+      parameters:
+        lacp-rate: fast
+`)
+	expected := `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: de:ad:22:33:44:55
+    id1:
+      match:
+        macaddress: de:ad:22:33:44:66
+  bridges:
+    br-bond0:
+      interfaces: [bond0]
+      addresses:
+      - 1.2.3.4/24
+      - 2000::1/64
+      gateway4: 1.2.3.5
+      gateway6: 2000::2
+      nameservers:
+        search: [foo.local, bar.local]
+        addresses: [8.8.8.8]
+      routes:
+      - to: 100.0.0.0/8
+        via: 1.2.3.10
+        metric: 5
+  bonds:
+    bond0:
+      interfaces: [id0, id1]
+      parameters:
+        lacp-rate: fast
+`[1:]
+	err := np.BridgeBondById("bond0", "br-bond0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := netplan.Marshal(np)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(out), gc.Equals, expected)
+}
+
+func (s *NetplanSuite) TestBridgerBondMissing(c *gc.C) {
+	np := MustNetplanFromYaml(c, `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:66"
+  vlans:
+    id0.1234:
+      link: id0
+      id: 1234
+  bonds:
+    bond0:
+      interfaces: [id0, id1]
+  bridges:
+    not-juju-bridge:
+      interfaces: [bond0]
+      addresses:
+      - 1.2.3.4/24
+      - 2000::1/64
+      gateway4: 1.2.3.5
+      gateway6: 2000::2
+      nameservers:
+        search: [foo.local, bar.local]
+        addresses: [8.8.8.8]
+`)
+	err := np.BridgeBondById("bond1", "br-bond1")
+	c.Check(err, gc.ErrorMatches, `bond device with id "bond1" for bridge "br-bond1" not found`)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -796,12 +986,12 @@ network:
 	c.Check(device, gc.Equals, "bond1")
 
 	device, err = np.FindBondByName("bond3")
-	c.Check(err, gc.ErrorMatches, "Bond device with name \"bond3\" not found")
+	c.Check(err, gc.ErrorMatches, "bond device with name \"bond3\" not found")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 
 	// eno4 is an Ethernet, not a Bond
 	device, err = np.FindBondByName("eno4")
-	c.Check(err, gc.ErrorMatches, "Bond device with name \"eno4\" not found")
+	c.Check(err, gc.ErrorMatches, "bond device with name \"eno4\" not found")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -845,12 +1035,12 @@ network:
 	c.Check(device, gc.Equals, "bond1")
 
 	device, err = np.FindBondByMAC("00:11:22:33:44:99")
-	c.Check(err, gc.ErrorMatches, `Bond device with MAC "00:11:22:33:44:99" not found`)
+	c.Check(err, gc.ErrorMatches, `bond device with MAC "00:11:22:33:44:99" not found`)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 
 	// This is an Ethernet, not a Bond
 	device, err = np.FindBondByMAC("00:11:22:33:44:55")
-	c.Check(err, gc.ErrorMatches, `Bond device with MAC "00:11:22:33:44:55" not found`)
+	c.Check(err, gc.ErrorMatches, `bond device with MAC "00:11:22:33:44:55" not found`)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 

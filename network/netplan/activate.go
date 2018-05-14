@@ -58,10 +58,18 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 			if err != nil {
 				return nil, err
 			}
-		// case TypeBond:
-		// case TypeVLAN:
+		case TypeBond:
+			err = netplan.BridgeBondById(deviceId, device.BridgeName)
+			if err != nil {
+				return nil, err
+			}
+		case TypeVLAN:
+			err = netplan.BridgeVLANById(deviceId, device.BridgeName)
+			if err != nil {
+				return nil, err
+			}
 		default:
-			return nil, errors.Errorf("don't know how to bridge the device %q of type %q", deviceId, deviceType)
+			return nil, errors.Errorf("unable to create bridge for %q, unknown device type %q", deviceId, deviceType)
 		}
 	}
 	_, err = netplan.Write("")

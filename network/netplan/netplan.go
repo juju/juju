@@ -185,41 +185,91 @@ type BondParameters struct {
 	Primary             string `yaml:"primary,omitempty"`
 }
 
-// BridgeDeviceById takes a deviceId and creates a bridge with this device
+// BridgeEthernetById takes a deviceId and creates a bridge with this device
 // using this devices config
 func (np *Netplan) BridgeEthernetById(deviceId string, bridgeName string) (err error) {
 	ethernet, ok := np.Network.Ethernets[deviceId]
 	if !ok {
-		return errors.NotFoundf("Device with id %q for bridge %q", deviceId, bridgeName)
+		return errors.NotFoundf("ethernet device with id %q for bridge %q", deviceId, bridgeName)
 	}
+	shouldCreate, err := np.shouldCreateBridge(deviceId, bridgeName)
+	if !shouldCreate {
+		// err may be nil, but we shouldn't continue creating
+		return errors.Trace(err)
+	}
+	np.createBridgeFromInterface(bridgeName, deviceId, &ethernet.Interface)
+	np.Network.Ethernets[deviceId] = ethernet
+	return nil
+}
+
+// BridgeVLANById takes a deviceId and creates a bridge with this device
+// using this devices config
+func (np *Netplan) BridgeVLANById(deviceId string, bridgeName string) (err error) {
+	vlan, ok := np.Network.VLANs[deviceId]
+	if !ok {
+		return errors.NotFoundf("VLAN device with id %q for bridge %q", deviceId, bridgeName)
+	}
+	shouldCreate, err := np.shouldCreateBridge(deviceId, bridgeName)
+	if !shouldCreate {
+		// err may be nil, but we shouldn't continue creating
+		return errors.Trace(err)
+	}
+	np.createBridgeFromInterface(bridgeName, deviceId, &vlan.Interface)
+	np.Network.VLANs[deviceId] = vlan
+	return nil
+}
+
+// BridgeBondById takes a deviceId and creates a bridge with this device
+// using this devices config
+func (np *Netplan) BridgeBondById(deviceId string, bridgeName string) (err error) {
+	bond, ok := np.Network.Bonds[deviceId]
+	if !ok {
+		return errors.NotFoundf("bond device with id %q for bridge %q", deviceId, bridgeName)
+	}
+	shouldCreate, err := np.shouldCreateBridge(deviceId, bridgeName)
+	if !shouldCreate {
+		// err may be nil, but we shouldn't continue creating
+		return errors.Trace(err)
+	}
+	np.createBridgeFromInterface(bridgeName, deviceId, &bond.Interface)
+	np.Network.Bonds[deviceId] = bond
+	return nil
+}
+
+// shouldCreateBridge returns true only if it is clear the bridge doesn't already exist, and that the existing device
+// isn't in a different bridge.
+func (np *Netplan) shouldCreateBridge(deviceId string, bridgeName string) (bool, error) {
 	for bName, bridge := range np.Network.Bridges {
 		for _, i := range bridge.Interfaces {
 			if i == deviceId {
-				// The device is already properly bridged, we're not doing anything
+				// The device is already properly bridged, nothing to do
 				if bridgeName == bName {
-					return nil
+					return false, nil
 				} else {
-					return errors.AlreadyExistsf("Device %q is already bridged in bridge %q instead of %q", deviceId, bName, bridgeName)
+					return false, errors.AlreadyExistsf("cannot create bridge %q, device %q in bridge %q", bridgeName, deviceId, bName)
 				}
 			}
 		}
 		if bridgeName == bName {
-			return errors.AlreadyExistsf("Cannot bridge device %q on bridge %q - bridge named %q", deviceId, bridgeName, bridgeName)
+			return false, errors.AlreadyExistsf(
+				"cannot create bridge %q with device %q - bridge %q w/ interfaces %q",
+				bridgeName, deviceId, bridgeName, strings.Join(bridge.Interfaces, ", "))
 		}
 	}
-	// copy aside and clear the IP settings from the original Ethernet device, except for MTU
-	intf := ethernet.Interface
-	ethernet.Interface = Interface{MTU: intf.MTU}
-	// create a bridge
+	return true, nil
+}
+
+// createBridgeFromInterface will create a bridge stealing the interface details, and wiping the existing interface
+// except for MTU so that IP Address information is never duplicated.
+func (np *Netplan) createBridgeFromInterface(bridgeName, deviceId string, intf *Interface) {
 	if np.Network.Bridges == nil {
 		np.Network.Bridges = make(map[string]Bridge)
 	}
 	np.Network.Bridges[bridgeName] = Bridge{
 		Interfaces: []string{deviceId},
-		Interface:  intf,
+		Interface:  *intf,
 	}
-	np.Network.Ethernets[deviceId] = ethernet
-	return nil
+	*intf = Interface{MTU: intf.MTU}
 }
 
 func Unmarshal(in []byte, out interface{}) (err error) {
@@ -410,14 +460,14 @@ func (np *Netplan) FindBondByMAC(mac string) (device string, err error) {
 			return id, nil
 		}
 	}
-	return "", errors.NotFoundf("Bond device with MAC %q", mac)
+	return "", errors.NotFoundf("bond device with MAC %q", mac)
 }
 
 func (np *Netplan) FindBondByName(name string) (device string, err error) {
 	if _, ok := np.Network.Bonds[name]; ok {
 		return name, nil
 	}
-	return "", errors.NotFoundf("Bond device with name %q", name)
+	return "", errors.NotFoundf("bond device with name %q", name)
 }
 
 type DeviceType string
