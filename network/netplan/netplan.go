@@ -110,7 +110,6 @@ type Netplan struct {
 
 // VLAN represents the structures for defining VLAN sections
 type VLAN struct {
-	// TODO: more attributes, like VLAN ID ?
 	Id        *int   `yaml:"id,omitempty"`
 	Link      string `yaml:"link,omitempty"`
 	Interface `yaml:",inline"`
@@ -118,7 +117,7 @@ type VLAN struct {
 
 // Bond is the interface definition of the bonds: section of netplan
 type Bond struct {
-	Interfaces []string `yaml:"interfaces"`
+	Interfaces []string `yaml:"interfaces,omitempty,flow"`
 	Interface  `yaml:",inline"`
 	Parameters BondParameters `yaml:"parameters,omitempty"`
 }
@@ -364,8 +363,11 @@ func (np *Netplan) FindEthernetByMAC(mac string) (device string, err error) {
 		if v, ok := ethernet.Match["macaddress"]; ok && v == mac {
 			return id, nil
 		}
+		if ethernet.MACAddress == mac {
+			return id, nil
+		}
 	}
-	return "", errors.NotFoundf("Ethernet device with mac %q", mac)
+	return "", errors.NotFoundf("Ethernet device with MAC %q", mac)
 }
 
 func (np *Netplan) FindEthernetByName(name string) (device string, err error) {
@@ -380,5 +382,89 @@ func (np *Netplan) FindEthernetByName(name string) (device string, err error) {
 			return id, nil
 		}
 	}
+	if _, ok := np.Network.Ethernets[name]; ok {
+		return name, nil
+	}
 	return "", errors.NotFoundf("Ethernet device with name %q", name)
+}
+
+func (np *Netplan) FindVLANByMAC(mac string) (device string, err error) {
+	for id, vlan := range np.Network.VLANs {
+		if vlan.MACAddress == mac {
+			return id, nil
+		}
+	}
+	return "", errors.NotFoundf("VLAN device with MAC %q", mac)
+}
+
+func (np *Netplan) FindVLANByName(name string) (device string, err error) {
+	if _, ok := np.Network.VLANs[name]; ok {
+		return name, nil
+	}
+	return "", errors.NotFoundf("VLAN device with name %q", name)
+}
+
+func (np *Netplan) FindBondByMAC(mac string) (device string, err error) {
+	for id, bonds := range np.Network.Bonds {
+		if bonds.MACAddress == mac {
+			return id, nil
+		}
+	}
+	return "", errors.NotFoundf("Bond device with MAC %q", mac)
+}
+
+func (np *Netplan) FindBondByName(name string) (device string, err error) {
+	if _, ok := np.Network.Bonds[name]; ok {
+		return name, nil
+	}
+	return "", errors.NotFoundf("Bond device with name %q", name)
+}
+
+type DeviceType string
+
+const (
+	TypeEthernet = DeviceType("ethernet")
+	TypeVLAN     = DeviceType("vlan")
+	TypeBond     = DeviceType("bond")
+)
+
+// FindDeviceByMACOrName will look for an Ethernet, VLAN or Bond matching the MAC address or the Name of the device.
+// If MAC Address is supplied we check for matches there first, and then fall back to by name.
+func (np *Netplan) FindDeviceByMACOrName(mac, name string) (string, DeviceType, error) {
+	if mac != "" {
+		bond, err := np.FindBondByMAC(mac)
+		if err == nil {
+			return bond, TypeBond, nil
+		}
+		if !errors.IsNotFound(err) {
+			return "", "", errors.Trace(err)
+		}
+		vlan, err := np.FindVLANByMAC(mac)
+		if err == nil {
+			return vlan, TypeVLAN, nil
+		}
+		ethernet, err := np.FindEthernetByMAC(mac)
+		if err == nil {
+			return ethernet, TypeEthernet, nil
+		}
+	}
+	if name != "" {
+		bond, err := np.FindBondByName(name)
+		if err == nil {
+			return bond, TypeBond, nil
+		}
+		if !errors.IsNotFound(err) {
+			return "", "", errors.Trace(err)
+		}
+		vlan, err := np.FindVLANByName(name)
+		if err == nil {
+			return vlan, TypeVLAN, nil
+		}
+		ethernet, err := np.FindEthernetByName(name)
+		if err == nil {
+			return ethernet, TypeEthernet, nil
+		}
+
+	}
+	return "", "", errors.NotFoundf("device - name %q MAC %q", name, mac)
 }

@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
@@ -23,6 +24,16 @@ type NetplanSuite struct {
 }
 
 var _ = gc.Suite(&NetplanSuite{})
+
+func MustNetplanFromYaml(c *gc.C, input string) *netplan.Netplan {
+	var np netplan.Netplan
+	if strings.HasPrefix(input, "\n") {
+		input = input[1:]
+	}
+	err := netplan.Unmarshal([]byte(input), &np)
+	c.Assert(err, jc.ErrorIsNil)
+	return &np
+}
 
 func checkNetplanRoundTrips(c *gc.C, input string) {
 	if strings.HasPrefix(input, "\n") {
@@ -111,9 +122,7 @@ network:
       dhcp4: true
   bonds:
     bond0:
-      interfaces:
-      - id0
-      - id1
+      interfaces: [id0, id1]
       parameters:
         mode: 802.3ad
         lacp-rate: fast
@@ -144,9 +153,7 @@ network:
       dhcp4: true
   bonds:
     bond0:
-      interfaces:
-      - id0
-      - id1
+      interfaces: [id0, id1]
       parameters:
         mode: 802.3ad
         lacp-rate: fast
@@ -175,9 +182,7 @@ network:
         set-name: id1
   bonds:
     bond0:
-      interfaces:
-      - id0
-      - id1
+      interfaces: [id0, id1]
       parameters:
         mode: 0
         lacp-rate: 1
@@ -202,9 +207,7 @@ network:
         set-name: id1
   bonds:
     bond0:
-      interfaces:
-      - id0
-      - id1
+      interfaces: [id0, id1]
       parameters:
         mode: balance-rr
         lacp-rate: fast
@@ -232,9 +235,7 @@ network:
         set-name: id1
   bonds:
     bond0:
-      interfaces:
-      - id0
-      - id1
+      interfaces: [id0, id1]
       parameters:
         mode: 802.3ad
         lacp-rate: fast
@@ -270,9 +271,7 @@ network:
         set-name: id1
   bonds:
     bond0:
-      interfaces:
-      - id0
-      - id1
+      interfaces: [id0, id1]
       parameters:
         mode: 802.3ad
         lacp-rate: fast
@@ -390,7 +389,7 @@ network:
 }
 
 func (s *NetplanSuite) TestSimpleBridger(c *gc.C) {
-	input := `
+	np := MustNetplanFromYaml(c, `
 network:
   version: 2
   renderer: NetworkManager
@@ -410,7 +409,7 @@ network:
       - to: 100.0.0.0/8
         via: 1.2.3.10
         metric: 5
-`[1:]
+`)
 	expected := `
 network:
   version: 2
@@ -435,12 +434,7 @@ network:
         via: 1.2.3.10
         metric: 5
 `[1:]
-	var np netplan.Netplan
-
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = np.BridgeEthernetById("id0", "juju-bridge")
+	err := np.BridgeEthernetById("id0", "juju-bridge")
 	c.Assert(err, jc.ErrorIsNil)
 
 	out, err := netplan.Marshal(np)
@@ -473,17 +467,15 @@ network:
         via: 1.2.3.10
         metric: 5
 `[1:]
-	var np netplan.Netplan
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Assert(err, jc.ErrorIsNil)
-	err = np.BridgeEthernetById("id0", "juju-bridge")
-	c.Assert(err, jc.ErrorIsNil)
+	np := MustNetplanFromYaml(c, input)
+	c.Assert(np.BridgeEthernetById("id0", "juju-bridge"), jc.ErrorIsNil)
 	out, err := netplan.Marshal(np)
 	c.Check(string(out), gc.Equals, input)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *NetplanSuite) TestBridgerBridgeExists(c *gc.C) {
-	input := `
+	np := MustNetplanFromYaml(c, `
 network:
   version: 2
   renderer: NetworkManager
@@ -513,16 +505,13 @@ network:
       nameservers:
         search: [foo.local, bar.local]
         addresses: [8.8.8.8]
-`[1:]
-	var np netplan.Netplan
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Assert(err, jc.ErrorIsNil)
-	err = np.BridgeEthernetById("id0", "juju-bridge")
+`)
+	err := np.BridgeEthernetById("id0", "juju-bridge")
 	c.Check(err, gc.ErrorMatches, `Cannot bridge device "id0" on bridge "juju-bridge" - bridge named "juju-bridge" already exists`)
 }
 
 func (s *NetplanSuite) TestBridgerDeviceBridged(c *gc.C) {
-	input := `
+	np := MustNetplanFromYaml(c, `
 network:
   version: 2
   renderer: NetworkManager
@@ -549,16 +538,13 @@ network:
       nameservers:
         search: [foo.local, bar.local]
         addresses: [8.8.8.8]
-`[1:]
-	var np netplan.Netplan
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Assert(err, jc.ErrorIsNil)
-	err = np.BridgeEthernetById("id0", "juju-bridge")
+`)
+	err := np.BridgeEthernetById("id0", "juju-bridge")
 	c.Check(err, gc.ErrorMatches, `.*Device "id0" is already bridged in bridge "not-juju-bridge" instead of "juju-bridge".*`)
 }
 
 func (s *NetplanSuite) TestBridgerDeviceMissing(c *gc.C) {
-	input := `
+	np := MustNetplanFromYaml(c, `
 network:
   version: 2
   renderer: NetworkManager
@@ -585,16 +571,14 @@ network:
       nameservers:
         search: [foo.local, bar.local]
         addresses: [8.8.8.8]
-`[1:]
-	var np netplan.Netplan
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Assert(err, jc.ErrorIsNil)
-	err = np.BridgeEthernetById("id7", "juju-bridge")
+`)
+	err := np.BridgeEthernetById("id7", "juju-bridge")
 	c.Check(err, gc.ErrorMatches, `Device with id "id7" for bridge "juju-bridge" not found`)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *NetplanSuite) TestFindEthernetBySetName(c *gc.C) {
-	input := `
+func (s *NetplanSuite) TestFindEthernetByName(c *gc.C) {
+	np := MustNetplanFromYaml(c, `
 network:
   version: 2
   renderer: NetworkManager
@@ -623,11 +607,10 @@ network:
       nameservers:
         search: [baz.local]
         addresses: [8.8.4.4]
-`[1:]
-	var np netplan.Netplan
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Assert(err, jc.ErrorIsNil)
-
+    eno7:
+      addresses:
+      - 3.4.5.6/24
+`)
 	device, err := np.FindEthernetByName("eno1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(device, gc.Equals, "id0")
@@ -636,12 +619,17 @@ network:
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(device, gc.Equals, "id1")
 
+	device, err = np.FindEthernetByName("eno7")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(device, gc.Equals, "eno7")
+
 	device, err = np.FindEthernetByName("eno5")
 	c.Check(err, gc.ErrorMatches, "Ethernet device with name \"eno5\" not found")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *NetplanSuite) TestFindEthernetByMAC(c *gc.C) {
-	input := `
+	np := MustNetplanFromYaml(c, `
 network:
   version: 2
   renderer: NetworkManager
@@ -669,17 +657,263 @@ network:
       nameservers:
         search: [baz.local]
         addresses: [8.8.4.4]
-`[1:]
-	var np netplan.Netplan
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Assert(err, jc.ErrorIsNil)
-
+    id2:
+      addresses:
+      - 2.3.4.5/24
+      macaddress: 00:11:22:33:44:77
+`)
 	device, err := np.FindEthernetByMAC("00:11:22:33:44:66")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(device, gc.Equals, "id1")
 
 	device, err = np.FindEthernetByMAC("00:11:22:33:44:88")
-	c.Check(err, gc.ErrorMatches, "Ethernet device with mac \"00:11:22:33:44:88\" not found")
+	c.Check(err, gc.ErrorMatches, "Ethernet device with MAC \"00:11:22:33:44:88\" not found")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+
+	device, err = np.FindEthernetByMAC("00:11:22:33:44:77")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(device, gc.Equals, "id2")
+}
+
+func (s *NetplanSuite) TestFindVLANByName(c *gc.C) {
+	input := `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+      addresses:
+      - 1.2.3.4/24
+      - 2000::1/64
+      gateway4: 1.2.3.5
+      gateway6: 2000::2
+      set-name: eno1
+      nameservers:
+        search: [foo.local, bar.local]
+        addresses: [8.8.8.8]
+  vlans:
+    id0.123:
+      link: id0
+      addresses:
+      - 2.3.4.5/24
+`[1:]
+	var np netplan.Netplan
+	err := netplan.Unmarshal([]byte(input), &np)
+	c.Assert(err, jc.ErrorIsNil)
+
+	device, err := np.FindVLANByName("id0.123")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(device, gc.Equals, "id0.123")
+
+	device, err = np.FindVLANByName("id0")
+	c.Check(err, gc.ErrorMatches, "VLAN device with name \"id0\" not found")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *NetplanSuite) TestFindVLANByMAC(c *gc.C) {
+	input := `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+      addresses:
+      - 1.2.3.4/24
+      - 2000::1/64
+      gateway4: 1.2.3.5
+      gateway6: 2000::2
+      set-name: eno1
+      nameservers:
+        search: [foo.local, bar.local]
+        addresses: [8.8.8.8]
+  vlans:
+    id0.123:
+      id: 123
+      link: id0
+      addresses:
+      - 2.3.4.5/24
+      macaddress: 00:11:22:33:44:77
+`[1:]
+	var np netplan.Netplan
+	err := netplan.Unmarshal([]byte(input), &np)
+	c.Assert(err, jc.ErrorIsNil)
+
+	device, err := np.FindVLANByMAC("00:11:22:33:44:77")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(device, gc.Equals, "id0.123")
+
+	// This is an Ethernet, not a VLAN
+	device, err = np.FindVLANByMAC("00:11:22:33:44:55")
+	c.Check(err, gc.ErrorMatches, `VLAN device with MAC "00:11:22:33:44:55" not found`)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *NetplanSuite) TestFindBondByName(c *gc.C) {
+	input := `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    eno1:
+      match:
+        macaddress: "00:11:22:33:44:55"
+      set-name: eno1
+    eno2:
+      match:
+        macaddress: "00:11:22:33:44:66"
+      set-name: eno2
+    eno3:
+      match:
+        macaddress: "00:11:22:33:44:77"
+      set-name: eno3
+    eno4:
+      match:
+        macaddress: "00:11:22:33:44:88"
+      set-name: eno4
+  bonds:
+    bond0:
+      interfaces: [eno1, eno2]
+    bond1:
+      interfaces: [eno3, eno4]
+      macaddress: "00:11:22:33:44:77"
+      parameters:
+        primary: eno3
+`[1:]
+	var np netplan.Netplan
+	err := netplan.Unmarshal([]byte(input), &np)
+	c.Assert(err, jc.ErrorIsNil)
+
+	device, err := np.FindBondByName("bond0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(device, gc.Equals, "bond0")
+
+	device, err = np.FindBondByName("bond1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(device, gc.Equals, "bond1")
+
+	device, err = np.FindBondByName("bond3")
+	c.Check(err, gc.ErrorMatches, "Bond device with name \"bond3\" not found")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+
+	// eno4 is an Ethernet, not a Bond
+	device, err = np.FindBondByName("eno4")
+	c.Check(err, gc.ErrorMatches, "Bond device with name \"eno4\" not found")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *NetplanSuite) TestFindBondByMAC(c *gc.C) {
+	input := `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    eno1:
+      match:
+        macaddress: "00:11:22:33:44:55"
+      set-name: eno1
+    eno2:
+      match:
+        macaddress: "00:11:22:33:44:66"
+      set-name: eno2
+    eno3:
+      match:
+        macaddress: "00:11:22:33:44:77"
+      set-name: eno3
+    eno4:
+      match:
+        macaddress: "00:11:22:33:44:88"
+      set-name: eno4
+  bonds:
+    bond0:
+      interfaces: [eno1, eno2]
+    bond1:
+      interfaces: [eno3, eno4]
+      macaddress: "00:11:22:33:44:77"
+      parameters:
+        primary: eno3
+`[1:]
+	var np netplan.Netplan
+	err := netplan.Unmarshal([]byte(input), &np)
+	c.Assert(err, jc.ErrorIsNil)
+
+	device, err := np.FindBondByMAC("00:11:22:33:44:77")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(device, gc.Equals, "bond1")
+
+	device, err = np.FindBondByMAC("00:11:22:33:44:99")
+	c.Check(err, gc.ErrorMatches, `Bond device with MAC "00:11:22:33:44:99" not found`)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+
+	// This is an Ethernet, not a Bond
+	device, err = np.FindBondByMAC("00:11:22:33:44:55")
+	c.Check(err, gc.ErrorMatches, `Bond device with MAC "00:11:22:33:44:55" not found`)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func checkFindDevice(c *gc.C, np *netplan.Netplan, mac, name, device string, dtype netplan.DeviceType, expErr string) {
+	foundDev, foundType, foundErr := np.FindDeviceByMACOrName(mac, name)
+	if expErr != "" {
+		c.Check(foundErr, gc.ErrorMatches, expErr)
+		c.Check(foundErr, jc.Satisfies, errors.IsNotFound)
+	} else {
+		c.Assert(foundErr, jc.ErrorIsNil)
+		c.Check(foundDev, gc.Equals, device)
+		c.Check(foundType, gc.Equals, dtype)
+	}
+}
+
+func (s *NetplanSuite) TestFindDeviceByMACOrName(c *gc.C) {
+	np := MustNetplanFromYaml(c, `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+        set-name: id0
+    id1:
+      match:
+        macaddress: de:ad:be:ef:01:02
+        set-name: id1
+    eno3:
+      match:
+        macaddress: de:ad:be:ef:01:03
+        set-name: eno3
+  bonds:
+    bond0:
+      interfaces: [id0, id1]
+      parameters:
+        mode: 802.3ad
+        lacp-rate: fast
+        mii-monitor-interval: 100
+        transmit-hash-policy: layer2
+        up-delay: 0
+        down-delay: 0
+  vlans:
+    bond0.209:
+      id: 209
+      link: bond0
+      addresses:
+      - 123.123.123.123/24
+      nameservers:
+        addresses: [8.8.8.8]
+`)
+	checkFindDevice(c, np, "", "missing", "missing", "",
+		`device - name "missing" MAC "" not found`)
+	checkFindDevice(c, np, "dd:ee:ff:00:11:22", "missing", "missing", "",
+		`device - name "missing" MAC "dd:ee:ff:00:11:22" not found`)
+	checkFindDevice(c, np, "dd:ee:ff:00:11:22", "", "missing", "",
+		`device - name "" MAC "dd:ee:ff:00:11:22" not found`)
+	checkFindDevice(c, np, "", "eno3", "eno3", netplan.TypeEthernet, "")
+	checkFindDevice(c, np, "de:ad:be:ef:01:03", "eno3", "eno3", netplan.TypeEthernet, "")
+	checkFindDevice(c, np, "de:ad:be:ef:01:03", "", "eno3", netplan.TypeEthernet, "")
+	checkFindDevice(c, np, "", "bond0", "bond0", netplan.TypeBond, "")
+	checkFindDevice(c, np, "", "bond0.209", "bond0.209", netplan.TypeVLAN, "")
 }
 
 func (s *NetplanSuite) TestReadDirectory(c *gc.C) {

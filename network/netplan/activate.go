@@ -48,19 +48,20 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 
 	for _, device := range params.Devices {
 		var deviceId string
-		err := errors.NotFoundf("No such device - name %q MAC %q", device.DeviceName, device.MACAddress)
-		if device.MACAddress != "" {
-			deviceId, err = netplan.FindEthernetByMAC(device.MACAddress)
-		}
-		if err != nil && device.DeviceName != "" {
-			deviceId, err = netplan.FindEthernetByName(device.DeviceName)
-		}
+		deviceId, deviceType, err := netplan.FindDeviceByMACOrName(device.MACAddress, device.DeviceName)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
-		err = netplan.BridgeEthernetById(deviceId, device.BridgeName)
-		if err != nil {
-			return nil, err
+		switch deviceType {
+		case TypeEthernet:
+			err = netplan.BridgeEthernetById(deviceId, device.BridgeName)
+			if err != nil {
+				return nil, err
+			}
+		// case TypeBond:
+		// case TypeVLAN:
+		default:
+			return nil, errors.Errorf("don't know how to bridge the device %q of type %q", deviceId, deviceType)
 		}
 	}
 	_, err = netplan.Write("")
