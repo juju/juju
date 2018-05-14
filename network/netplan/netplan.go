@@ -23,7 +23,7 @@ type Nameservers struct {
 
 // Interface includes all the fields that are common between all interfaces (ethernet, wifi, bridge, bond)
 type Interface struct {
-	AcceptRA  bool     `yaml:"accept-ra,omitempty"`
+	AcceptRA  *bool    `yaml:"accept-ra,omitempty"`
 	Addresses []string `yaml:"addresses,omitempty"`
 	// Critical doesn't have to be *bool because it is only used if True
 	Critical bool `yaml:"critical,omitempty"`

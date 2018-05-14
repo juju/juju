@@ -216,7 +216,7 @@ network:
 `)
 }
 
-func (s *NetplanSuite) DONTTestBondWithVLAN(c *gc.C) {
+func (s *NetplanSuite) TestBondWithVLAN(c *gc.C) {
 	checkNetplanRoundTrips(c, `
 network:
   version: 2
@@ -236,21 +236,20 @@ network:
       - id0
       - id1
       parameters:
-        down-delay: 0
+        mode: 802.3ad
         lacp-rate: fast
         mii-monitor-interval: 100
-        mode: 802.3ad
         transmit-hash-policy: layer2
         up-delay: 0
+        down-delay: 0
   vlans:
     bond0.209:
-      addresses:
-      - 123.123.123.123/24
       id: 209
       link: bond0
+      addresses:
+      - 123.123.123.123/24
       nameservers:
-        addresses:
-        - 8.8.8.8
+        addresses: [8.8.8.8]
 `)
 }
 
@@ -383,6 +382,10 @@ network:
       - from: 192.168.5.0/24
         table: 103
       optional: true
+    id0.456:
+      id: 456
+      link: id0
+      accept-ra: false
 `)
 }
 
@@ -993,7 +996,7 @@ func readExampleStrings(c *gc.C) []Example {
 	}
 	// Make sure we find all the example files, if we change the count, update this number, but we don't allow the test
 	// suite to find the wrong number of files.
-	c.Assert(len(examples), gc.Equals, 14)
+	c.Assert(len(examples), gc.Equals, 13)
 	return examples
 }
 
