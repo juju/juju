@@ -46,12 +46,12 @@ network:
       match:
         macaddress: "00:11:22:33:44:55"
       wakeonlan: true
-      critical: true
-      dhcp4: true
-      dhcp-identifier: mac
       addresses:
       - 192.168.14.2/24
       - 2001:1::1/64
+      critical: true
+      dhcp4: true
+      dhcp-identifier: mac
       gateway4: 192.168.14.1
       gateway6: 2001:1::2
       nameservers:
@@ -304,8 +304,86 @@ func (s *NetplanSuite) TestAllEthernetParams(c *gc.C) {
 	// Make sure we can handle any fields in Ethernet stanzas
 }
 
-func (s *NetplanSuite) TestAllVLANParams(c *gc.C) {
+func (s *NetplanSuite) TestAllRoutesParams(c *gc.C) {
+	checkNetplanRoundTrips(c, `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+        set-name: id0
+      routes:
+      - from: 192.168.0.0/24
+        on-link: true
+        scope: global
+        table: 1234
+        to: 192.168.3.1/24
+        type: unicast
+        via: 192.168.3.1
+        metric: 1234567
+      - on-link: false
+        to: 192.168.5.1/24
+        via: 192.168.5.1
+        metric: 0
+      - to: 192.168.5.1/24
+        type: unreachable
+        via: 192.168.5.1
+      routing-policy:
+      - from: 192.168.10.0/24
+        mark: 123
+        priority: 10
+        table: 1234
+        to: 192.168.3.1/24
+        type-of-service: 0
+      - from: 192.168.12.0/24
+        mark: 0
+        priority: 0
+        table: 0
+        to: 192.168.3.1/24
+        type-of-service: 255
+`)
+}
 
+func (s *NetplanSuite) TestAllVLANParams(c *gc.C) {
+	checkNetplanRoundTrips(c, `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+        set-name: id0
+  vlans:
+    id0.123:
+      id: 123
+      link: id0
+      accept-ra: true
+      addresses:
+      - 123.123.123.123/24
+      critical: true
+      dhcp4: false
+      dhcp6: false
+      dhcp-identifier: duid
+      gateway4: 123.123.123.123
+      gateway6: dead::beef
+      nameservers:
+        addresses: [8.8.8.8]
+      macaddress: de:ad:be:ef:12:34
+      mtu: 9000
+      renderer: NetworkManager
+      routes:
+      - table: 102
+        to: 100.0.0.0/8
+        via: 1.2.3.10
+        metric: 5
+      routing-policy:
+      - from: 192.168.5.0/24
+        table: 103
+      optional: true
+`)
 }
 
 func (s *NetplanSuite) TestSimpleBridger(c *gc.C) {

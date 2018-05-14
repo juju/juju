@@ -23,23 +23,24 @@ type Nameservers struct {
 
 // Interface includes all the fields that are common between all interfaces (ethernet, wifi, bridge, bond)
 type Interface struct {
-	AcceptRA bool `yaml:"accept-ra,omitempty"`
+	AcceptRA  bool     `yaml:"accept-ra,omitempty"`
+	Addresses []string `yaml:"addresses,omitempty"`
+	// Critical doesn't have to be *bool because it is only used if True
 	Critical bool `yaml:"critical,omitempty"`
 	// DHCP4 defaults to true, so we must use a pointer to know if it was specified as false
-	DHCP4          *bool       `yaml:"dhcp4,omitempty"`
-	DHCP6          *bool       `yaml:"dhcp6,omitempty"`
-	DHCPIdentifier string      `yaml:"dhcp-identifier,omitempty"` // "duid" or  "mac"
-	Addresses      []string    `yaml:"addresses,omitempty"`
-	Gateway4       string      `yaml:"gateway4,omitempty"`
-	Gateway6       string      `yaml:"gateway6,omitempty"`
-	Nameservers    Nameservers `yaml:"nameservers,omitempty"`
-	MACAddress     string      `yaml:"macaddress,omitempty"`
-	MTU            int         `yaml:"mtu,omitempty"`
-	Renderer       string      `yaml:"renderer,omitempty"` // NetworkManager or networkd
-	Routes         []Route     `yaml:"routes,omitempty"`
-	// TODO: Should Optional be a *bool so we know if someone explicitly set 'false' ?
+	DHCP4          *bool         `yaml:"dhcp4,omitempty"`
+	DHCP6          *bool         `yaml:"dhcp6,omitempty"`
+	DHCPIdentifier string        `yaml:"dhcp-identifier,omitempty"` // "duid" or  "mac"
+	Gateway4       string        `yaml:"gateway4,omitempty"`
+	Gateway6       string        `yaml:"gateway6,omitempty"`
+	Nameservers    Nameservers   `yaml:"nameservers,omitempty"`
+	MACAddress     string        `yaml:"macaddress,omitempty"`
+	MTU            int           `yaml:"mtu,omitempty"`
+	Renderer       string        `yaml:"renderer,omitempty"` // NetworkManager or networkd
+	Routes         []Route       `yaml:"routes,omitempty"`
+	RoutingPolicy  []RoutePolicy `yaml:"routing-policy,omitempty"`
+	// Optional doesn't have to be *bool because it is only used if True
 	Optional bool `yaml:"optional,omitempty"`
-	// RoutingPolicy []Blah   `yaml:"routing-policy,omitempty"`
 }
 
 // Ethernet defines fields for just Ethernet devices
@@ -69,9 +70,23 @@ type Bridge struct {
 }
 
 type Route struct {
+	From   string `yaml:"from,omitempty"`
+	OnLink *bool  `yaml:"on-link,omitempty"`
+	Scope  string `yaml:"scope,omitempty"`
+	Table  *int   `yaml:"table,omitempty"`
 	To     string `yaml:"to,omitempty"`
+	Type   string `yaml:"type,omitempty"`
 	Via    string `yaml:"via,omitempty"`
-	Metric int    `yaml:"metric,omitempty"`
+	Metric *int   `yaml:"metric,omitempty"`
+}
+
+type RoutePolicy struct {
+	From          string `yaml:"from,omitempty"`
+	Mark          *int   `yaml:"mark,omitempty"`
+	Priority      *int   `yaml:"priority,omitempty"`
+	Table         *int   `yaml:"table,omitempty"`
+	To            string `yaml:"to,omitempty"`
+	TypeOfService *int   `yaml:"type-of-service,omitempty"`
 }
 
 type Network struct {
@@ -95,8 +110,10 @@ type Netplan struct {
 
 // VLAN represents the structures for defining VLAN sections
 type VLAN struct {
-	Interface `yaml:",inline"`
 	// TODO: more attributes, like VLAN ID ?
+	Id        *int   `yaml:"id,omitempty"`
+	Link      string `yaml:"link,omitempty"`
+	Interface `yaml:",inline"`
 }
 
 // Bond is the interface definition of the bonds: section of netplan
