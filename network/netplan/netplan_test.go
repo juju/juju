@@ -6,10 +6,12 @@ import (
 	"math/rand"
 	"os"
 	"path"
+	"reflect"
 	"strings"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network/netplan"
@@ -81,7 +83,7 @@ network:
   bridges:
     br0:
       interfaces: [wlp1s0, switchports]
-      dhcp4: true
+      dhcp4: false
   routes:
   - to: 0.0.0.0/0
     via: 11.0.0.1
@@ -122,7 +124,7 @@ network:
 `)
 }
 
-func (s *NetplanSuite) TestBridgedBond(c *gc.C) {
+func (s *NetplanSuite) TestParseBridgedBond(c *gc.C) {
 	checkNetplanRoundTrips(c, `
 network:
   version: 2
@@ -146,12 +148,12 @@ network:
       - id0
       - id1
       parameters:
-        down-delay: 0
+        mode: 802.3ad
         lacp-rate: fast
         mii-monitor-interval: 100
-        mode: 802.3ad
         transmit-hash-policy: layer2
         up-delay: 0
+        down-delay: 0
 `)
 }
 
@@ -655,7 +657,6 @@ network:
   renderer: NetworkManager
   ethernets:
     id0:
-      match: {}
       gateway4: 1.2.3.8
     id1:
       match:
@@ -860,7 +861,6 @@ network:
 `[1:]
 	var template = `
     id%d:
-      match: {}
       set-name: foo.%d.%d
 `[1:]
 	tempDir := c.MkDir()
@@ -924,8 +924,22 @@ func (s *NetplanSuite) TestNetplanExamples(c *gc.C) {
 	examples := readExampleStrings(c)
 	for _, example := range examples {
 		c.Logf("example: %s", example.filename)
+		var orig map[interface{}]interface{}
+		err := netplan.Unmarshal([]byte(example.content), &orig)
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf("failed to unmarshal as map %s", example.filename))
 		var np netplan.Netplan
-		err := netplan.Unmarshal([]byte(example.content), &np)
+		err = netplan.Unmarshal([]byte(example.content), &np)
 		c.Check(err, jc.ErrorIsNil, gc.Commentf("failed to unmarshal %s", example.filename))
+		// We don't assert that we exactly match the serialized form (we may output fields in a different order),
+		// but we do check that if we Marshal and then Unmarshal again, we get the same map contents.
+		// (We might also change boolean 'no' to 'false', etc.
+		out, err := netplan.Marshal(np)
+		c.Check(err, jc.ErrorIsNil, gc.Commentf("failed to marshal %s", example.filename))
+		var roundtripped map[interface{}]interface{}
+		err = netplan.Unmarshal(out, &roundtripped)
+		if !reflect.DeepEqual(orig, roundtripped) {
+			pretty.Ldiff(c, orig, roundtripped)
+			c.Errorf("marshalling and unmarshalling %s did not contain the same content", example.filename)
+		}
 	}
 }

@@ -23,10 +23,11 @@ type Nameservers struct {
 
 // Interface includes all the fields that are common between all interfaces (ethernet, wifi, bridge, bond)
 type Interface struct {
-	AcceptRA       bool        `yaml:"accept-ra,omitempty"`
-	Critical       bool        `yaml:"critical,omitempty"`
-	DHCP4          bool        `yaml:"dhcp4,omitempty"`
-	DHCP6          bool        `yaml:"dhcp6,omitempty"`
+	AcceptRA bool `yaml:"accept-ra,omitempty"`
+	Critical bool `yaml:"critical,omitempty"`
+	// DHCP4 defaults to true, so we must use a pointer to know if it was specified as false
+	DHCP4          *bool       `yaml:"dhcp4,omitempty"`
+	DHCP6          *bool       `yaml:"dhcp6,omitempty"`
 	DHCPIdentifier string      `yaml:"dhcp-identifier,omitempty"` // "duid" or  "mac"
 	Addresses      []string    `yaml:"addresses,omitempty"`
 	Gateway4       string      `yaml:"gateway4,omitempty"`
@@ -43,7 +44,7 @@ type Interface struct {
 
 // Ethernet defines fields for just Ethernet devices
 type Ethernet struct {
-	Match     map[string]string `yaml:"match"`
+	Match     map[string]string `yaml:"match,omitempty"`
 	Wakeonlan bool              `yaml:"wakeonlan,omitempty"`
 	SetName   string            `yaml:"set-name,omitempty"`
 	Interface `yaml:",inline"`
@@ -141,6 +142,7 @@ func (i IntString) MarshalYAML() (interface{}, error) {
 // https://www.kernel.org/doc/Documentation/networking/bonding.txt
 // Note that most parameters can be specified as integers or as strings, which you need to be careful with YAML
 // as it defaults to strongly typing them.
+// TODO: (jam 2018-05-14) Should we be sorting the attributes alphabetically?
 type BondParameters struct {
 	Mode               IntString `yaml:"mode,omitempty"`
 	LACPRate           IntString `yaml:"lacp-rate,omitempty"`
