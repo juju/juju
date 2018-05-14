@@ -316,7 +316,12 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 }
 
 func (h *bundleHandler) getChanges() error {
-	changes, err := bundlechanges.FromData(h.data, h.model)
+	changes, err := bundlechanges.FromData(
+		bundlechanges.ChangesConfig{
+			Bundle: h.data,
+			Model:  h.model,
+			Logger: logger,
+		})
 	if err != nil {
 		return errors.Trace(err)
 	}
