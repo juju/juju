@@ -188,7 +188,7 @@ func GenerateNetplan(networkConfig *container.NetworkConfig) (string, error) {
 		if cidr := info.CIDRAddress(); cidr != "" {
 			iface.Addresses = append(iface.Addresses, cidr)
 		} else if info.ConfigType == network.ConfigDHCP {
-			iface.Dhcp4 = true
+			iface.DHCP4 = true
 		}
 
 		for _, dns := range info.DNSServers {

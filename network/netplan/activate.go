@@ -26,8 +26,8 @@ type ActivationParams struct {
 // ActivationResult captures the result of actively bridging the
 // interfaces using ifup/ifdown.
 type ActivationResult struct {
-	Stdout []byte
-	Stderr []byte
+	Stdout string
+	Stderr string
 	Code   int
 }
 
@@ -82,8 +82,8 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 	result, err := scriptrunner.RunCommand(command, environ, params.Clock, params.Timeout)
 
 	activationResult := ActivationResult{
-		Stderr: result.Stderr,
-		Stdout: result.Stdout,
+		Stderr: string(result.Stderr),
+		Stdout: string(result.Stdout),
 		Code:   result.Code,
 	}
 

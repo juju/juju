@@ -1,0 +1,9 @@
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    addresses: [ "10.10.10.1/24" ]
+    routes:
+      - to: 0.0.0.0/0
+        via: 9.9.9.9
+        on-link: true

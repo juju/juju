@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network/netplan"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type ActivateSuite struct {
@@ -39,6 +40,7 @@ func (s *ActivateSuite) TestNoDirectory(c *gc.C) {
 }
 
 func (s *ActivateSuite) TestActivateSuccess(c *gc.C) {
+	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	tempDir := c.MkDir()
 	params := netplan.ActivationParams{
 		Devices: []netplan.DeviceToBridge{
@@ -71,6 +73,7 @@ func (s *ActivateSuite) TestActivateSuccess(c *gc.C) {
 }
 
 func (s *ActivateSuite) TestActivateFailure(c *gc.C) {
+	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	tempDir := c.MkDir()
 	params := netplan.ActivationParams{
 		Devices: []netplan.DeviceToBridge{
@@ -99,8 +102,8 @@ func (s *ActivateSuite) TestActivateFailure(c *gc.C) {
 	}
 	result, err := netplan.BridgeAndActivate(params)
 	c.Assert(result, gc.NotNil)
-	c.Check(result.Stdout, gc.DeepEquals, []byte("This is stdout"))
-	c.Check(result.Stderr, gc.DeepEquals, []byte("This is stderr"))
+	c.Check(string(result.Stdout), gc.DeepEquals, "This is stdout")
+	c.Check(string(result.Stderr), gc.DeepEquals, "This is stderr")
 	c.Check(result.Code, gc.Equals, 1)
 	c.Check(err, gc.ErrorMatches, "bridge activation error code 1")
 

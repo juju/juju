@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network/netplan"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type NetplanSuite struct {
@@ -28,10 +29,12 @@ network:
   renderer: NetworkManager
   ethernets:
     id0:
+      critical: true
       match:
         macaddress: "00:11:22:33:44:55"
       wakeonlan: true
       dhcp4: true
+      dhcp-identifier: mac
       addresses:
       - 192.168.14.2/24
       - 2001:1::1/64
@@ -71,6 +74,141 @@ network:
   - to: 0.0.0.0/0
     via: 11.0.0.1
     metric: 3
+`[1:]
+	var np netplan.Netplan
+	err := netplan.Unmarshal([]byte(input), &np)
+	c.Check(err, jc.ErrorIsNil)
+	out, err := netplan.Marshal(np)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(string(out), gc.Equals, input)
+}
+
+func (s *NetplanSuite) TestBridgedBond(c *gc.C) {
+	input := `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+        set-name: id0
+    id1:
+      match:
+        macaddress: "de:ad:be:ef:01:02"
+        set-name: id1
+  bonds:
+    bond0:
+      interfaces:
+      - id0
+      - id1
+      parameters:
+        down-delay: 0
+        lacp-rate: fast
+        mii-monitor-interval: 100
+        mode: 802.3ad
+        transmit-hash-policy: layer2
+        up-delay: 0
+  bridges:
+    br-bond0:
+      interfaces: [bond0]
+      dhcp4: true
+`[1:]
+	var np netplan.Netplan
+	err := netplan.Unmarshal([]byte(input), &np)
+	c.Check(err, jc.ErrorIsNil)
+	out, err := netplan.Marshal(np)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(string(out), gc.Equals, input)
+}
+
+func (s *NetplanSuite) TestBondWithVlan(c *gc.C) {
+	input := `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+        set-name: id0
+    id1:
+      match:
+        macaddress: "de:ad:be:ef:01:02"
+        set-name: id1
+  bonds:
+    bond0:
+      interfaces:
+      - id0
+      - id1
+      parameters:
+        down-delay: 0
+        lacp-rate: fast
+        mii-monitor-interval: 100
+        mode: 802.3ad
+        transmit-hash-policy: layer2
+        up-delay: 0
+  vlans:
+    bond0.209:
+      addressses:
+      - 123.123.123.123/24
+      id: 209
+      link: bond0
+      nameservers:
+        addresses:
+        - 8.8.8.8
+`[1:]
+	var np netplan.Netplan
+	err := netplan.Unmarshal([]byte(input), &np)
+	c.Check(err, jc.ErrorIsNil)
+	out, err := netplan.Marshal(np)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(string(out), gc.Equals, input)
+}
+
+func (s *NetplanSuite) TestBondsAllParameters(c *gc.C) {
+	// All parameters don't inherently make sense at the same time, but we should be able to parse all of them.
+	input := `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+        set-name: id0
+    id1:
+      match:
+        macaddress: "de:ad:be:ef:01:02"
+        set-name: id1
+  bonds:
+    bond0:
+      interfaces:
+      - id0
+      - id1
+      parameters:
+        down-delay: 0
+        lacp-rate: fast
+        mii-monitor-interval: 100
+        mode: 802.3ad
+        transmit-hash-policy: layer2
+        up-delay: 0
+        min-links: 1
+        ad-select: 1
+        all-slaves-active: true
+        arp-interval: 100
+        arp-ip-targets: 1
+        arp-validate: blah
+        arp-all-targets: boo
+        up-delay: something
+        down-delay: something
+        fail-over-mac-policy: something
+        gratuitious-arp: 100
+        packets-per-slave: 100
+        primary-reselect-policy: blah
+        resend-igmp: 20
+        learn-packet-interval: blah
+		primary: id1
 `[1:]
 	var np netplan.Netplan
 	err := netplan.Unmarshal([]byte(input), &np)
@@ -580,6 +718,8 @@ network:
 }
 
 func (s *NetplanSuite) TestReadDirectoryMissing(c *gc.C) {
+	coretesting.SkipIfWindowsBug(c, "lp:1771077")
+	// On Windows the error is something like: "The system cannot find the file specified"
 	tempDir := c.MkDir()
 	os.RemoveAll(tempDir)
 	_, err := netplan.ReadDirectory(tempDir)
@@ -587,6 +727,7 @@ func (s *NetplanSuite) TestReadDirectoryMissing(c *gc.C) {
 }
 
 func (s *NetplanSuite) TestReadDirectoryAccessDenied(c *gc.C) {
+	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	tempDir := c.MkDir()
 	err := ioutil.WriteFile(path.Join(tempDir, "00-file.yaml"), []byte("network:\n"), 00000)
 	_, err = netplan.ReadDirectory(tempDir)
@@ -601,6 +742,7 @@ func (s *NetplanSuite) TestReadDirectoryBrokenYaml(c *gc.C) {
 }
 
 func (s *NetplanSuite) TestWritePermissionDenied(c *gc.C) {
+	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	tempDir := c.MkDir()
 	np, err := netplan.ReadDirectory(tempDir)
 	c.Assert(err, jc.ErrorIsNil)
@@ -656,4 +798,46 @@ network:
 		content += fmt.Sprintf(template, n, n, 100-n-1)
 	}
 	c.Check(string(writtenContent), gc.Equals, content)
+}
+
+type Example struct {
+	filename string
+	content  string
+}
+
+func readExampleStrings(c *gc.C) []Example {
+	fileInfos, err := ioutil.ReadDir("testdata/examples")
+	c.Assert(err, jc.ErrorIsNil)
+	var examples []Example
+	for _, finfo := range fileInfos {
+		if finfo.IsDir() {
+			continue
+		}
+		if strings.HasSuffix(finfo.Name(), ".yaml") {
+			f, err := os.Open("testdata/examples/" + finfo.Name())
+			c.Assert(err, jc.ErrorIsNil)
+			content, err := ioutil.ReadAll(f)
+			f.Close()
+			c.Assert(err, jc.ErrorIsNil)
+			examples = append(examples, Example{
+				filename: finfo.Name(),
+				content:  string(content),
+			})
+		}
+	}
+	// Make sure we find all the example files, if we change the count, update this number, but we don't allow the test
+	// suite to find the wrong number of files.
+	c.Assert(len(examples), gc.Equals, 14)
+	return examples
+}
+
+func (s *NetplanSuite) TestNetplanExamples(c *gc.C) {
+	// these are the examples shipped by netplan, we should be able to read all of them
+	examples := readExampleStrings(c)
+	for _, example := range examples {
+		c.Logf("example: %s", example.filename)
+		var np netplan.Netplan
+		err := netplan.Unmarshal([]byte(example.content), &np)
+		c.Check(err, jc.ErrorIsNil, gc.Commentf("failed to unmarshal %s", example.filename))
+	}
 }

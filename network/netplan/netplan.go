@@ -20,16 +20,28 @@ type Nameservers struct {
 	Search    []string `yaml:"search,omitempty,flow"`
 	Addresses []string `yaml:"addresses,omitempty,flow"`
 }
+
+// Interface includes all the fields that are common between all interfaces (ethernet, wifi, bridge, bond)
 type Interface struct {
-	Dhcp4       bool        `yaml:"dhcp4,omitempty"`
-	Dhcp6       bool        `yaml:"dhcp6,omitempty"`
-	Addresses   []string    `yaml:"addresses,omitempty"`
-	Gateway4    string      `yaml:"gateway4,omitempty"`
-	Gateway6    string      `yaml:"gateway6,omitempty"`
-	Nameservers Nameservers `yaml:"nameservers,omitempty"`
-	MTU         int         `yaml:"mtu,omitempty"`
-	Routes      []Route     `yaml:"routes,omitempty"`
+	AcceptRA       bool        `yaml:"accept-ra,omitempty"`
+	Critical       bool        `yaml:"critical,omitempty"`
+	DHCP4          bool        `yaml:"dhcp4,omitempty"`
+	DHCP6          bool        `yaml:"dhcp6,omitempty"`
+	DHCPIdentifier string      `yaml:"dhcp-identifier,omitempty"` // "duid" or  "mac"
+	Addresses      []string    `yaml:"addresses,omitempty"`
+	Gateway4       string      `yaml:"gateway4,omitempty"`
+	Gateway6       string      `yaml:"gateway6,omitempty"`
+	Nameservers    Nameservers `yaml:"nameservers,omitempty"`
+	MACAddress     string      `yaml:"macaddress,omitempty"`
+	MTU            int         `yaml:"mtu,omitempty"`
+	Renderer       string      `yaml:"renderer,omitempty"` // NetworkManager or networkd
+	Routes         []Route     `yaml:"routes,omitempty"`
+	// TODO: Should Optional be a *bool so we know if someone explicitly set 'false' ?
+	Optional bool `yaml:"optional,omitempty"`
+	// RoutingPolicy []Blah   `yaml:"routing-policy,omitempty"`
 }
+
+// Ethernet defines fields for just Ethernet devices
 type Ethernet struct {
 	Match     map[string]string `yaml:"match"`
 	Wakeonlan bool              `yaml:"wakeonlan,omitempty"`
@@ -44,6 +56,7 @@ type AccessPoint struct {
 type Wifi struct {
 	Match        map[string]string      `yaml:"match,omitempty"`
 	SetName      string                 `yaml:"set-name,omitempty"`
+	Wakeonlan    bool                   `yaml:"wakeonlan,omitempty"`
 	AccessPoints map[string]AccessPoint `yaml:"access-points,omitempty"`
 	Interface    `yaml:",inline"`
 }
@@ -51,6 +64,7 @@ type Wifi struct {
 type Bridge struct {
 	Interfaces []string `yaml:"interfaces,omitempty,flow"`
 	Interface  `yaml:",inline"`
+	// TODO: parameters
 }
 
 type Route struct {
@@ -74,6 +88,48 @@ type Netplan struct {
 	sourceFiles     []string
 	backedFiles     map[string]string
 	writtenFile     string
+}
+
+// VLan represents the structures for defining VLAN sections
+type VLan struct {
+	Interface `yaml:",inline"`
+}
+
+// Bond is the interface definition of the bonds: section of netplan
+type Bond struct {
+	Interface `yaml:",inline"`
+	// TODO: parameters
+}
+
+// For a definition of what netplan supports see here:
+// https://github.com/CanonicalLtd/netplan/blob/7afef6af053794a400d96f89a81c938c08420783/src/parse.c#L1180
+// For a definition of what the parameters mean or what values they can contain, see here:
+// https://www.kernel.org/doc/Documentation/networking/bonding.txt
+// Note that most parameters can be specified as integers or as strings, which you need to be careful with YAML
+// as it defaults to strongly typing them.
+type BondParams struct {
+	Mode               string `yaml:"mode,omitempty"`
+	LACPRate           string `yaml:"lacp-rat,omitempty"`
+	MIIMonitorInterval string `yaml:"mii-monitor-interval,omitempty"`
+	MinLinks           int    `yaml:"min-links,omitempty"`
+	TransmitHashPolicy string `yaml:"transmit-hash-policy,omitempty"`
+	ADSelect           string `yaml:"ad-select,omitempty"`
+	AllSlavesActive    bool   `yaml:"all-slaves-active,omitempty"`
+	ARPInterval        string `yaml:"arp-interval,omitempty"`
+	ARPIPTargets       string `yaml:"arp-ip-targets,omitempty"`
+	ARPValidate        string `yaml:"arp-all-targets,omitempty"`
+	ARPAllTargets      string `yaml:"arp-all-targets,omitempty"`
+	UpDelay            string `yaml:"up-delay,omitempty"`
+	DownDelay          string `yaml:"down-delay,omitempty"`
+	FailOverMACPolicy  string `yaml:"fail-over-mac-policy,omitempty"`
+	// Netplan misspelled this as 'gratuitious-arp', not sure if it works with that name.
+	// We may need custom handling of both spellings.
+	GratuitousARP         int    `yaml:"gratuitious-arp,omitempty"`
+	PacketsPerSlave       int    `yaml:"packets-per-slave,omitempty"`
+	PrimaryReselectPolicy string `yaml:"primary-reselect-policy,omitempty"`
+	ResendIGMP            int    `yaml:"resend-igmp,omitempty"`
+	LearnPacketInterval   string `yaml:"learn-packet-interval,omitempty"`
+	Primary               string `yaml:"primary,omitempty"`
 }
 
 // BridgeDeviceById takes a deviceId and creates a bridge with this device
