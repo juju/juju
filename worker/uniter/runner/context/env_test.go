@@ -49,6 +49,22 @@ func (s *EnvSuite) getPaths() (paths context.Paths, expectVars []string) {
 }
 
 func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expectVars []string) {
+	var (
+		legacyProxy proxy.Settings
+		jujuProxy   proxy.Settings
+		proxy       = proxy.Settings{
+			Http:    "some-http-proxy",
+			Https:   "some-https-proxy",
+			Ftp:     "some-ftp-proxy",
+			NoProxy: "some-no-proxy",
+		}
+	)
+	if newProxyOnly {
+		jujuProxy = proxy
+	} else {
+		legacyProxy = proxy
+	}
+
 	expected := []string{
 		"JUJU_CONTEXT_ID=some-context-id",
 		"JUJU_MODEL_UUID=model-uuid-deadbeef",
@@ -62,11 +78,15 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 		"JUJU_MACHINE_ID=42",
 		"JUJU_AVAILABILITY_ZONE=some-zone",
 		"JUJU_VERSION=1.2.3",
-		"JUJU_CHARM_HTTP_PROXY=some-http-proxy",
-		"JUJU_CHARM_HTTPS_PROXY=some-https-proxy",
-		"JUJU_CHARM_FTP_PROXY=some-ftp-proxy",
 	}
-	if !newProxyOnly {
+	if newProxyOnly {
+		expected = append(expected,
+			"JUJU_CHARM_HTTP_PROXY=some-http-proxy",
+			"JUJU_CHARM_HTTPS_PROXY=some-https-proxy",
+			"JUJU_CHARM_FTP_PROXY=some-ftp-proxy",
+			"JUJU_CHARM_NO_PROXY=some-no-proxy",
+		)
+	} else {
 		expected = append(expected,
 			"http_proxy=some-http-proxy",
 			"HTTP_PROXY=some-http-proxy",
@@ -76,8 +96,17 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 			"FTP_PROXY=some-ftp-proxy",
 			"no_proxy=some-no-proxy",
 			"NO_PROXY=some-no-proxy",
+			// JUJU_CHARM prefixed proxy values are always specified
+			// even if empty.
+			"JUJU_CHARM_HTTP_PROXY=",
+			"JUJU_CHARM_HTTPS_PROXY=",
+			"JUJU_CHARM_FTP_PROXY=",
+			"JUJU_CHARM_NO_PROXY=",
 		)
 	}
+	// It doesn't make sense that we set both legacy and juju proxy
+	// settings, but by setting both to different values, we can see
+	// what the environment values are.
 	return context.NewModelHookContext(
 		"some-context-id",
 		"model-uuid-deadbeef",
@@ -88,12 +117,7 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 		"essential",
 		"some-zone",
 		[]string{"he.re:12345", "the.re:23456"},
-		proxy.Settings{
-			Http:    "some-http-proxy",
-			Https:   "some-https-proxy",
-			Ftp:     "some-ftp-proxy",
-			NoProxy: "some-no-proxy",
-		},
+		legacyProxy, jujuProxy,
 		names.NewMachineTag("42"),
 	), expected
 }

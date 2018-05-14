@@ -300,7 +300,8 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.ProviderType = config.Type()
 	result.AuthorizedKeys = config.AuthorizedKeys()
 	result.SSLHostnameVerification = config.SSLHostnameVerification()
-	result.Proxy = config.ProxySettings()
+	// FIXME before proposing
+	result.Proxy = config.LegacyProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	result.AptMirror = config.AptMirror()
 	result.CloudInitUserData = config.CloudInitUserData()

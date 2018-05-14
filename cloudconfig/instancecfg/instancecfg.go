@@ -820,7 +820,7 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 		cfg.Type(),
 		cfg.AuthorizedKeys(),
 		cfg.SSLHostnameVerification(),
-		cfg.ProxySettings(),
+		cfg.LegacyProxySettings(),
 		cfg.AptProxySettings(),
 		cfg.AptMirror(),
 		cfg.EnableOSRefreshUpdate(),
