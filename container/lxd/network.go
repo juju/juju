@@ -62,14 +62,18 @@ func (s *Client) VerifyDefaultBridge(profile *api.Profile) error {
 // An error is returned if the bridge exists with IPv6 configuration.
 // If the bridge does not exist, it is created.
 func (s *Client) ensureDefaultBridge(profile *api.Profile) error {
-	net, eTag, err := s.GetNetwork(network.DefaultLXDBridge)
+	net, _, err := s.GetNetwork(network.DefaultLXDBridge)
 	if err != nil {
 		if !isLXDNotFound(err) {
 			return errors.Trace(err)
 		}
 		req := api.NetworksPost{
-			Name: network.DefaultLXDBridge,
+			Name:    network.DefaultLXDBridge,
+			Type:    "bridge",
+			Managed: true,
 			NetworkPut: api.NetworkPut{Config: map[string]string{
+				"ipv4.address": "auto",
+				"ipv4.nat":     "true",
 				"ipv6.address": "none",
 				"ipv6.nat":     "false",
 			}},
@@ -78,7 +82,7 @@ func (s *Client) ensureDefaultBridge(profile *api.Profile) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		net, eTag, err = s.GetNetwork(network.DefaultLXDBridge)
+		net, _, err = s.GetNetwork(network.DefaultLXDBridge)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -96,10 +100,11 @@ func (s *Client) ensureDefaultBridge(profile *api.Profile) error {
 		nicType = "bridged"
 	}
 	profile.Devices["eth0"] = map[string]string{
+		"type":    "nic",
 		"nictype": nicType,
 		"parent":  network.DefaultLXDBridge,
 	}
-	return errors.Trace(s.UpdateProfile(profile.Name, profile.Writable(), eTag))
+	return errors.Trace(s.UpdateProfile(profile.Name, profile.Writable(), ""))
 }
 
 // ensureNoIPv6 checks that the input network has no IPv6 configuration.
