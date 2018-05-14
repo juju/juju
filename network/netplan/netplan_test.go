@@ -22,17 +22,29 @@ type NetplanSuite struct {
 
 var _ = gc.Suite(&NetplanSuite{})
 
+func checkNetplanRoundTrips(c *gc.C, input string) {
+	if strings.HasPrefix(input, "\n") {
+		input = input[1:]
+	}
+	var np netplan.Netplan
+	err := netplan.Unmarshal([]byte(input), &np)
+	c.Assert(err, jc.ErrorIsNil)
+	out, err := netplan.Marshal(np)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(out), gc.Equals, input)
+}
+
 func (s *NetplanSuite) TestStructures(c *gc.C) {
-	input := `
+	checkNetplanRoundTrips(c, `
 network:
   version: 2
   renderer: NetworkManager
   ethernets:
     id0:
-      critical: true
       match:
         macaddress: "00:11:22:33:44:55"
       wakeonlan: true
+      critical: true
       dhcp4: true
       dhcp-identifier: mac
       addresses:
@@ -74,17 +86,11 @@ network:
   - to: 0.0.0.0/0
     via: 11.0.0.1
     metric: 3
-`[1:]
-	var np netplan.Netplan
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Check(err, jc.ErrorIsNil)
-	out, err := netplan.Marshal(np)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(string(out), gc.Equals, input)
+`)
 }
 
-func (s *NetplanSuite) TestBridgedBond(c *gc.C) {
-	input := `
+func (s *NetplanSuite) TestBasicBond(c *gc.C) {
+	checkNetplanRoundTrips(c, `
 network:
   version: 2
   renderer: NetworkManager
@@ -95,8 +101,45 @@ network:
         set-name: id0
     id1:
       match:
-        macaddress: "de:ad:be:ef:01:02"
+        macaddress: de:ad:be:ef:01:02
         set-name: id1
+  bridges:
+    br-bond0:
+      interfaces: [bond0]
+      dhcp4: true
+  bonds:
+    bond0:
+      interfaces:
+      - id0
+      - id1
+      parameters:
+        mode: 802.3ad
+        lacp-rate: fast
+        mii-monitor-interval: 100
+        transmit-hash-policy: layer2
+        up-delay: 0
+        down-delay: 0
+`)
+}
+
+func (s *NetplanSuite) TestBridgedBond(c *gc.C) {
+	checkNetplanRoundTrips(c, `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+        set-name: id0
+    id1:
+      match:
+        macaddress: de:ad:be:ef:01:02
+        set-name: id1
+  bridges:
+    br-bond0:
+      interfaces: [bond0]
+      dhcp4: true
   bonds:
     bond0:
       interfaces:
@@ -109,21 +152,13 @@ network:
         mode: 802.3ad
         transmit-hash-policy: layer2
         up-delay: 0
-  bridges:
-    br-bond0:
-      interfaces: [bond0]
-      dhcp4: true
-`[1:]
-	var np netplan.Netplan
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Check(err, jc.ErrorIsNil)
-	out, err := netplan.Marshal(np)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(string(out), gc.Equals, input)
+`)
 }
 
-func (s *NetplanSuite) TestBondWithVlan(c *gc.C) {
-	input := `
+func (s *NetplanSuite) TestBondIntValues(c *gc.C) {
+	// several parameters can be specified as an integer or a string
+	// such as 'mode: 0' is the same as 'balance-rr'
+	checkNetplanRoundTrips(c, `
 network:
   version: 2
   renderer: NetworkManager
@@ -134,7 +169,64 @@ network:
         set-name: id0
     id1:
       match:
-        macaddress: "de:ad:be:ef:01:02"
+        macaddress: de:ad:be:ef:01:02
+        set-name: id1
+  bonds:
+    bond0:
+      interfaces:
+      - id0
+      - id1
+      parameters:
+        mode: 0
+        lacp-rate: 1
+        ad-select: 1
+        arp-validate: 0
+        arp-all-targets: 0
+        fail-over-mac-policy: 1
+        primary-reselect-policy: 1
+`)
+	checkNetplanRoundTrips(c, `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+        set-name: id0
+    id1:
+      match:
+        macaddress: de:ad:be:ef:01:02
+        set-name: id1
+  bonds:
+    bond0:
+      interfaces:
+      - id0
+      - id1
+      parameters:
+        mode: balance-rr
+        lacp-rate: fast
+        ad-select: bandwidth
+        arp-validate: filter
+        arp-all-targets: all
+        fail-over-mac-policy: follow
+        primary-reselect-policy: always
+`)
+}
+
+func (s *NetplanSuite) DONTTestBondWithVLAN(c *gc.C) {
+	checkNetplanRoundTrips(c, `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+        set-name: id0
+    id1:
+      match:
+        macaddress: de:ad:be:ef:01:02
         set-name: id1
   bonds:
     bond0:
@@ -150,25 +242,19 @@ network:
         up-delay: 0
   vlans:
     bond0.209:
-      addressses:
+      addresses:
       - 123.123.123.123/24
       id: 209
       link: bond0
       nameservers:
         addresses:
         - 8.8.8.8
-`[1:]
-	var np netplan.Netplan
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Check(err, jc.ErrorIsNil)
-	out, err := netplan.Marshal(np)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(string(out), gc.Equals, input)
+`)
 }
 
 func (s *NetplanSuite) TestBondsAllParameters(c *gc.C) {
 	// All parameters don't inherently make sense at the same time, but we should be able to parse all of them.
-	input := `
+	checkNetplanRoundTrips(c, `
 network:
   version: 2
   renderer: NetworkManager
@@ -179,7 +265,7 @@ network:
         set-name: id0
     id1:
       match:
-        macaddress: "de:ad:be:ef:01:02"
+        macaddress: de:ad:be:ef:01:02
         set-name: id1
   bonds:
     bond0:
@@ -187,35 +273,37 @@ network:
       - id0
       - id1
       parameters:
-        down-delay: 0
+        mode: 802.3ad
         lacp-rate: fast
         mii-monitor-interval: 100
-        mode: 802.3ad
+        min-links: 0
         transmit-hash-policy: layer2
-        up-delay: 0
-        min-links: 1
         ad-select: 1
         all-slaves-active: true
         arp-interval: 100
-        arp-ip-targets: 1
-        arp-validate: blah
+        arp-ip-targets:
+        - 192.168.0.1
+        - 192.168.10.20
+        arp-validate: none
         arp-all-targets: boo
-        up-delay: something
-        down-delay: something
-        fail-over-mac-policy: something
-        gratuitious-arp: 100
-        packets-per-slave: 100
-        primary-reselect-policy: blah
-        resend-igmp: 20
-        learn-packet-interval: blah
-		primary: id1
-`[1:]
-	var np netplan.Netplan
-	err := netplan.Unmarshal([]byte(input), &np)
-	c.Check(err, jc.ErrorIsNil)
-	out, err := netplan.Marshal(np)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(string(out), gc.Equals, input)
+        up-delay: 0
+        down-delay: 0
+        fail-over-mac-policy: follow
+        gratuitious-arp: 0
+        packets-per-slave: 0
+        primary-reselect-policy: better
+        resend-igmp: 0
+        learn-packet-interval: 4660
+        primary: id1
+`)
+}
+
+func (s *NetplanSuite) TestAllEthernetParams(c *gc.C) {
+	// Make sure we can handle any fields in Ethernet stanzas
+}
+
+func (s *NetplanSuite) TestAllVLANParams(c *gc.C) {
+
 }
 
 func (s *NetplanSuite) TestSimpleBridger(c *gc.C) {
@@ -267,10 +355,10 @@ network:
 	var np netplan.Netplan
 
 	err := netplan.Unmarshal([]byte(input), &np)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = np.BridgeEthernetById("id0", "juju-bridge")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	out, err := netplan.Marshal(np)
 	c.Assert(err, jc.ErrorIsNil)
@@ -304,9 +392,9 @@ network:
 `[1:]
 	var np netplan.Netplan
 	err := netplan.Unmarshal([]byte(input), &np)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = np.BridgeEthernetById("id0", "juju-bridge")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	out, err := netplan.Marshal(np)
 	c.Check(string(out), gc.Equals, input)
 }
@@ -345,7 +433,7 @@ network:
 `[1:]
 	var np netplan.Netplan
 	err := netplan.Unmarshal([]byte(input), &np)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = np.BridgeEthernetById("id0", "juju-bridge")
 	c.Check(err, gc.ErrorMatches, `Cannot bridge device "id0" on bridge "juju-bridge" - bridge named "juju-bridge" already exists`)
 }
@@ -381,7 +469,7 @@ network:
 `[1:]
 	var np netplan.Netplan
 	err := netplan.Unmarshal([]byte(input), &np)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = np.BridgeEthernetById("id0", "juju-bridge")
 	c.Check(err, gc.ErrorMatches, `.*Device "id0" is already bridged in bridge "not-juju-bridge" instead of "juju-bridge".*`)
 }
@@ -417,7 +505,7 @@ network:
 `[1:]
 	var np netplan.Netplan
 	err := netplan.Unmarshal([]byte(input), &np)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = np.BridgeEthernetById("id7", "juju-bridge")
 	c.Check(err, gc.ErrorMatches, `Device with id "id7" for bridge "juju-bridge" not found`)
 }
@@ -455,7 +543,7 @@ network:
 `[1:]
 	var np netplan.Netplan
 	err := netplan.Unmarshal([]byte(input), &np)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	device, err := np.FindEthernetByName("eno1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -501,7 +589,7 @@ network:
 `[1:]
 	var np netplan.Netplan
 	err := netplan.Unmarshal([]byte(input), &np)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	device, err := np.FindEthernetByMAC("00:11:22:33:44:66")
 	c.Assert(err, jc.ErrorIsNil)
@@ -554,7 +642,7 @@ network:
 	c.Assert(err, jc.ErrorIsNil)
 
 	out, err := netplan.Marshal(np)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(out), gc.Equals, expected)
 }
 
@@ -594,7 +682,7 @@ network:
 	c.Assert(err, jc.ErrorIsNil)
 
 	out, err := netplan.Marshal(np)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(out), gc.Equals, expected)
 }
 
@@ -652,16 +740,16 @@ network:
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = np.BridgeEthernetById("id0", "juju-bridge")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	generatedFile, err := np.Write("")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = np.Write("")
 	c.Check(err, gc.ErrorMatches, "Cannot write the same netplan twice")
 
 	err = np.MoveYamlsToBak()
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = np.MoveYamlsToBak()
 	c.Check(err, gc.ErrorMatches, "Cannot backup netplan yamls twice")
@@ -686,7 +774,7 @@ network:
 	c.Check(string(data), gc.Equals, expected)
 
 	err = np.Rollback()
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	fileInfos, err = ioutil.ReadDir(tempDir)
 	c.Assert(err, jc.ErrorIsNil)
@@ -708,13 +796,13 @@ network:
 	// We also check if writing to an explicit file works
 	myPath := path.Join(tempDir, "my-own-path.yaml")
 	outPath, err := np.Write(myPath)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(outPath, gc.Equals, myPath)
 	data, err = ioutil.ReadFile(outPath)
 	c.Check(string(data), gc.Equals, expected)
 
 	err = np.MoveYamlsToBak()
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *NetplanSuite) TestReadDirectoryMissing(c *gc.C) {

@@ -79,6 +79,8 @@ type Network struct {
 	Ethernets map[string]Ethernet `yaml:"ethernets,omitempty"`
 	Wifis     map[string]Wifi     `yaml:"wifis,omitempty"`
 	Bridges   map[string]Bridge   `yaml:"bridges,omitempty"`
+	Bonds     map[string]Bond     `yaml:"bonds,omitempty"`
+	VLANs     map[string]VLAN     `yaml:"vlans,omitempty"`
 	Routes    []Route             `yaml:"routes,omitempty"`
 }
 
@@ -90,15 +92,47 @@ type Netplan struct {
 	writtenFile     string
 }
 
-// VLan represents the structures for defining VLAN sections
-type VLan struct {
+// VLAN represents the structures for defining VLAN sections
+type VLAN struct {
 	Interface `yaml:",inline"`
+	// TODO: more attributes, like VLAN ID ?
 }
 
 // Bond is the interface definition of the bonds: section of netplan
 type Bond struct {
-	Interface `yaml:",inline"`
-	// TODO: parameters
+	Interfaces []string `yaml:"interfaces"`
+	Interface  `yaml:",inline"`
+	Parameters BondParameters `yaml:"parameters,omitempty"`
+}
+
+// IntString is used to specialize values that can be integers or strings
+type IntString struct {
+	Int    *int
+	String *string
+}
+
+func (i *IntString) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var asInt int
+	var err error
+	if err = unmarshal(&asInt); err == nil {
+		i.Int = &asInt
+		return nil
+	}
+	var asString string
+	if err = unmarshal(&asString); err == nil {
+		i.String = &asString
+		return nil
+	}
+	return errors.Annotatef(err, "not valid as an int or a string")
+}
+
+func (i IntString) MarshalYAML() (interface{}, error) {
+	if i.Int != nil {
+		return *i.Int, nil
+	} else if i.String != nil {
+		return *i.String, nil
+	}
+	return nil, nil
 }
 
 // For a definition of what netplan supports see here:
@@ -107,29 +141,30 @@ type Bond struct {
 // https://www.kernel.org/doc/Documentation/networking/bonding.txt
 // Note that most parameters can be specified as integers or as strings, which you need to be careful with YAML
 // as it defaults to strongly typing them.
-type BondParams struct {
-	Mode               string `yaml:"mode,omitempty"`
-	LACPRate           string `yaml:"lacp-rat,omitempty"`
-	MIIMonitorInterval string `yaml:"mii-monitor-interval,omitempty"`
-	MinLinks           int    `yaml:"min-links,omitempty"`
-	TransmitHashPolicy string `yaml:"transmit-hash-policy,omitempty"`
-	ADSelect           string `yaml:"ad-select,omitempty"`
-	AllSlavesActive    bool   `yaml:"all-slaves-active,omitempty"`
-	ARPInterval        string `yaml:"arp-interval,omitempty"`
-	ARPIPTargets       string `yaml:"arp-ip-targets,omitempty"`
-	ARPValidate        string `yaml:"arp-all-targets,omitempty"`
-	ARPAllTargets      string `yaml:"arp-all-targets,omitempty"`
-	UpDelay            string `yaml:"up-delay,omitempty"`
-	DownDelay          string `yaml:"down-delay,omitempty"`
-	FailOverMACPolicy  string `yaml:"fail-over-mac-policy,omitempty"`
+type BondParameters struct {
+	Mode               IntString `yaml:"mode,omitempty"`
+	LACPRate           IntString `yaml:"lacp-rate,omitempty"`
+	MIIMonitorInterval *int      `yaml:"mii-monitor-interval,omitempty"`
+	MinLinks           *int      `yaml:"min-links,omitempty"`
+	TransmitHashPolicy string    `yaml:"transmit-hash-policy,omitempty"`
+	ADSelect           IntString `yaml:"ad-select,omitempty"`
+	AllSlavesActive    bool      `yaml:"all-slaves-active,omitempty"`
+	ARPInterval        *int      `yaml:"arp-interval,omitempty"`
+	ARPIPTargets       []string  `yaml:"arp-ip-targets,omitempty"`
+	ARPValidate        IntString `yaml:"arp-validate,omitempty"`
+	ARPAllTargets      IntString `yaml:"arp-all-targets,omitempty"`
+	UpDelay            *int      `yaml:"up-delay,omitempty"`
+	DownDelay          *int      `yaml:"down-delay,omitempty"`
+	FailOverMACPolicy  IntString `yaml:"fail-over-mac-policy,omitempty"`
 	// Netplan misspelled this as 'gratuitious-arp', not sure if it works with that name.
 	// We may need custom handling of both spellings.
-	GratuitousARP         int    `yaml:"gratuitious-arp,omitempty"`
-	PacketsPerSlave       int    `yaml:"packets-per-slave,omitempty"`
-	PrimaryReselectPolicy string `yaml:"primary-reselect-policy,omitempty"`
-	ResendIGMP            int    `yaml:"resend-igmp,omitempty"`
-	LearnPacketInterval   string `yaml:"learn-packet-interval,omitempty"`
-	Primary               string `yaml:"primary,omitempty"`
+	GratuitousARP         *int      `yaml:"gratuitious-arp,omitempty"`
+	PacketsPerSlave       *int      `yaml:"packets-per-slave,omitempty"`
+	PrimaryReselectPolicy IntString `yaml:"primary-reselect-policy,omitempty"`
+	ResendIGMP            *int      `yaml:"resend-igmp,omitempty"`
+	// bonding.txt says that this can be a value from 1-0x7fffffff, should we be forcing it to be a hex value?
+	LearnPacketInterval *int   `yaml:"learn-packet-interval,omitempty"`
+	Primary             string `yaml:"primary,omitempty"`
 }
 
 // BridgeDeviceById takes a deviceId and creates a bridge with this device
