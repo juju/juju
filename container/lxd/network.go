@@ -18,13 +18,13 @@ func (s *Client) LocalBridgeName() string {
 	return s.localBridgeName
 }
 
-func (s *Client) VerifyDefaultBridge(profile *api.Profile) error {
+func (s *Client) VerifyDefaultBridge(profile *api.Profile, eTag string) error {
 	eth0, ok := profile.Devices["eth0"]
 	if !ok {
 		// On LXD >= 2.3 there is no bridge config by default.
 		// Ensure that the network bridge and eth0 device both exist.
 		if s.networkAPISupport {
-			return errors.Annotate(s.ensureDefaultBridge(profile), "ensuring default bridge config")
+			return errors.Annotate(s.ensureDefaultBridge(profile, eTag), "ensuring default bridge config")
 		}
 		return errors.Errorf("unexpected LXD %q profile without eth0 device: %+v", profile.Name, profile)
 	}
@@ -42,7 +42,7 @@ func (s *Client) VerifyDefaultBridge(profile *api.Profile) error {
 	}
 
 	if eth0["type"] != "nic" || eth0["nictype"] != "bridged" {
-		return errors.Errorf("eth0 is not configured as a bridge in %q profile: %v", profile.Name, eth0)
+		return errors.Errorf("eth0 is not configured as part of a bridge in %q profile: %v", profile.Name, eth0)
 	}
 
 	s.localBridgeName = netName
@@ -61,7 +61,7 @@ func (s *Client) VerifyDefaultBridge(profile *api.Profile) error {
 // the input profile.
 // An error is returned if the bridge exists with IPv6 configuration.
 // If the bridge does not exist, it is created.
-func (s *Client) ensureDefaultBridge(profile *api.Profile) error {
+func (s *Client) ensureDefaultBridge(profile *api.Profile, eTag string) error {
 	net, _, err := s.GetNetwork(network.DefaultLXDBridge)
 	if err != nil {
 		if !isLXDNotFound(err) {
@@ -104,7 +104,7 @@ func (s *Client) ensureDefaultBridge(profile *api.Profile) error {
 		"nictype": nicType,
 		"parent":  network.DefaultLXDBridge,
 	}
-	return errors.Trace(s.UpdateProfile(profile.Name, profile.Writable(), ""))
+	return errors.Trace(s.UpdateProfile(profile.Name, profile.Writable(), eTag))
 }
 
 // ensureNoIPv6 checks that the input network has no IPv6 configuration.
@@ -141,7 +141,7 @@ func checkBridgeConfigFile(reader func(string) ([]byte, error)) error {
 		if strings.HasPrefix(line, "USE_LXD_BRIDGE=") {
 			b, err := strconv.ParseBool(strings.Trim(line[len("USE_LXD_BRIDGE="):], " \""))
 			if err != nil {
-				logger.Debugf("unable ot parse bool, skipping USE_LXD_BRIDGE check: %s", err)
+				logger.Debugf("unable to parse bool, skipping USE_LXD_BRIDGE check: %s", err)
 				continue
 			}
 			if !b {

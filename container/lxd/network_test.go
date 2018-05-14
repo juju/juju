@@ -8,7 +8,6 @@ import (
 
 	"errors"
 	"github.com/juju/juju/container/lxd"
-	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -18,20 +17,6 @@ type networkSuite struct {
 }
 
 var _ = gc.Suite(&networkSuite{})
-
-// newMockServer initialises a mock container server and adds an expectation
-// for the GetServer function, which is call each to it is used in NewClient.
-// The return from GetServer indicates the input supported API extensions.
-func newMockServerWithExtensions(ctrl *gomock.Controller, extensions []string) *lxdtesting.MockContainerServer {
-	svr := lxdtesting.NewMockContainerServer(ctrl)
-	cfg := &lxdapi.Server{
-		ServerUntrusted: lxdapi.ServerUntrusted{
-			APIExtensions: extensions,
-		},
-	}
-	svr.EXPECT().GetServer().Return(cfg, eTag, nil)
-	return svr
-}
 
 func defaultProfile() *lxdapi.Profile {
 	return &lxdapi.Profile{
@@ -51,31 +36,31 @@ func defaultProfile() *lxdapi.Profile {
 func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDevicePresent(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServerWithExtensions(ctrl, []string{"network"})
+	cSvr := newMockServer(ctrl, "network")
 
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, "", nil)
 
-	err := lxd.NewClient(cSvr).VerifyDefaultBridge(defaultProfile())
+	err := lxd.NewClient(cSvr).VerifyDefaultBridge(defaultProfile(), "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDeviceNotBridged(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServerWithExtensions(ctrl, []string{"network"})
+	cSvr := newMockServer(ctrl, "network")
 
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, "", nil)
 
 	profile := defaultProfile()
 	profile.Devices["eth0"]["nictype"] = "something else"
-	err := lxd.NewClient(cSvr).VerifyDefaultBridge(profile)
-	c.Assert(err, gc.ErrorMatches, ".*eth0 is not configured as a bridge.*")
+	err := lxd.NewClient(cSvr).VerifyDefaultBridge(profile, "")
+	c.Assert(err, gc.ErrorMatches, ".*eth0 is not configured as part of a bridge.*")
 }
 
 func (s *networkSuite) TestVerifyDefaultBridgeNetSupportIPv6Present(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServerWithExtensions(ctrl, []string{"network"})
+	cSvr := newMockServer(ctrl, "network")
 
 	net := &lxdapi.Network{
 		Name:    network.DefaultLXDBridge,
@@ -88,14 +73,14 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportIPv6Present(c *gc.C) {
 	}
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(net, "", nil)
 
-	err := lxd.NewClient(cSvr).VerifyDefaultBridge(defaultProfile())
+	err := lxd.NewClient(cSvr).VerifyDefaultBridge(defaultProfile(), "")
 	c.Assert(err, gc.ErrorMatches, "^juju does not support IPv6((.|\n|\t)*)")
 }
 
 func (s *networkSuite) TestVerifyDefaultBridgeNetSupportNoBridge(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServerWithExtensions(ctrl, []string{"network"})
+	cSvr := newMockServer(ctrl, "network")
 
 	netConf := map[string]string{
 		"ipv4.address": "auto",
@@ -116,15 +101,15 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportNoBridge(c *gc.C) {
 		NetworkPut: lxdapi.NetworkPut{Config: netConf},
 	}
 	gomock.InOrder(
-		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(nil, eTag, errors.New("not found")),
+		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(nil, "", errors.New("not found")),
 		cSvr.EXPECT().CreateNetwork(netCreateReq).Return(nil),
-		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(newNet, eTag, nil),
-		cSvr.EXPECT().UpdateProfile("default", defaultProfile().Writable(), "").Return(nil),
+		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(newNet, "", nil),
+		cSvr.EXPECT().UpdateProfile("default", defaultProfile().Writable(), eTag).Return(nil),
 	)
 
 	profile := defaultProfile()
 	delete(profile.Devices, "eth0")
-	err := lxd.NewClient(cSvr).VerifyDefaultBridge(profile)
+	err := lxd.NewClient(cSvr).VerifyDefaultBridge(profile, eTag)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

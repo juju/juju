@@ -57,10 +57,19 @@ func (t *LxdSuite) makeManagerForConfig(
 }
 
 // newMockServer initialises a mock container server and adds an expectation
-// for the GetServer function, which is call each to it is used in NewClient.
-func newMockServer(ctrl *gomock.Controller) *lxdtesting.MockContainerServer {
+// for the GetServer function, which is called each time NewClient is used to
+// instantiate our wrapper.
+// The return from GetServer indicates the input supported API extensions.
+func newMockServer(ctrl *gomock.Controller, extensions ...string) *lxdtesting.MockContainerServer {
 	svr := lxdtesting.NewMockContainerServer(ctrl)
-	svr.EXPECT().GetServer().Return(&lxdapi.Server{}, eTag, nil)
+
+	cfg := &lxdapi.Server{
+		ServerUntrusted: lxdapi.ServerUntrusted{
+			APIExtensions: extensions,
+		},
+	}
+	svr.EXPECT().GetServer().Return(cfg, eTag, nil)
+
 	return svr
 }
 

@@ -128,6 +128,7 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 
 	storageAPISupported := false
 	var defaultProfile *api.Profile
+	var profileETag string
 	if cfg.Remote.Protocol != SimplestreamsProtocol {
 		resources, _, err := raw.GetServer()
 		if err != nil {
@@ -138,7 +139,7 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 			storageAPISupported = true
 		}
 
-		defaultProfile, _, err = raw.GetProfile("default")
+		defaultProfile, profileETag, err = raw.GetProfile("default")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -149,7 +150,7 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 		// If this is the LXD provider on the localhost, let's do an extra check to
 		// make sure the default profile has a correctly configured bridge, and
 		// which one is it.
-		if err := newClient.VerifyDefaultBridge(defaultProfile); err != nil {
+		if err := newClient.VerifyDefaultBridge(defaultProfile, profileETag); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
