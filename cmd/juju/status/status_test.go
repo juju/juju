@@ -4782,3 +4782,39 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		Offers:             map[string]offerStatus{},
 	})
 }
+
+func (s *StatusSuite) TestTabularNoRelations(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c)
+	c.Assert(stderr, gc.IsNil)
+	c.Assert(strings.Contains(string(stdout), "Relation provider"), jc.IsFalse)
+}
+
+func (s *StatusSuite) TestTabularDisplayRelations(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--relations")
+	c.Assert(stderr, gc.IsNil)
+	c.Assert(strings.Contains(string(stdout), "Relation provider"), jc.IsTrue)
+}
+
+func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations")
+	c.Assert(string(stderr), gc.Equals, "provided --relations option is ignored\n")
+	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+}
+
+func (s *StatusSuite) TestNonTabularNoRelations(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations=false")
+	c.Assert(string(stderr), gc.Equals, "provided --relations option is ignored\n")
+	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+}

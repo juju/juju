@@ -22,23 +22,27 @@ type statusFormatter struct {
 	controllerName string
 	relations      map[int]params.RelationStatus
 	isoTime        bool
+	showRelations  bool
 }
 
 // NewStatusFormatter takes stored model information (params.FullStatus) and populates
 // the statusFormatter struct used in various status formatting methods
 func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
-	return newStatusFormatter(status, "", isoTime)
+	return newStatusFormatter(status, "", isoTime, true)
 }
 
-func newStatusFormatter(status *params.FullStatus, controllerName string, isoTime bool) *statusFormatter {
+func newStatusFormatter(status *params.FullStatus, controllerName string, isoTime, showRelations bool) *statusFormatter {
 	sf := statusFormatter{
 		status:         status,
 		controllerName: controllerName,
 		relations:      make(map[int]params.RelationStatus),
 		isoTime:        isoTime,
+		showRelations:  showRelations,
 	}
-	for _, relation := range status.Relations {
-		sf.relations[relation.Id] = relation
+	if showRelations {
+		for _, relation := range status.Relations {
+			sf.relations[relation.Id] = relation
+		}
 	}
 	return &sf
 }
