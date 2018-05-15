@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/bundlechanges"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/common"
@@ -71,7 +72,11 @@ func (b *bundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 		// This should never happen as Verify only returns verification errors.
 		return results, errors.Annotate(err, "cannot verify bundle")
 	}
-	changes, err := bundlechanges.FromData(data, nil)
+	changes, err := bundlechanges.FromData(
+		bundlechanges.ChangesConfig{
+			Bundle: data,
+			Logger: loggo.GetLogger("juju.apiserver.bundlechanges"),
+		})
 	if err != nil {
 		return results, err
 	}
