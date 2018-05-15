@@ -158,6 +158,10 @@ func (w *Worker) updateConfiguration(
 }
 
 func (w *Worker) configOps(configuredServers, newServers map[raft.ServerID]raft.ServerAddress) []configOp {
+	if len(newServers) == 0 {
+		logger.Infof("peergrouper reported 0 API server addresses; not removing all servers from cluster")
+		return nil
+	}
 	// This worker can only run on the raft leader, ergo Leader
 	// returns the local address.
 	localAddr := w.config.Raft.Leader()
