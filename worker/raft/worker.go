@@ -300,6 +300,9 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 func newRaftConfig(config Config) (*raft.Config, error) {
 	raftConfig := raft.DefaultConfig()
 	raftConfig.LocalID = raft.ServerID(config.Tag.String())
+	// Having ShutdownOnRemove true means that the raft node also
+	// stops when it's demoted if it's the leader.
+	raftConfig.ShutdownOnRemove = false
 
 	logWriter := &raftutil.LoggoWriter{config.Logger, loggo.DEBUG}
 	raftConfig.Logger = log.New(logWriter, "", 0)

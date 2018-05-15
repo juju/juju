@@ -135,21 +135,10 @@ func (s *WorkerSuite) TestAddRemoveServers(c *gc.C) {
 	defer raft1.DeregisterObserver(raft1Observer)
 
 	// Add machine-1, machine-2.
-	s.publishDetails(c, apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {
-				ID:              "0",
-				InternalAddress: machine0Address,
-			},
-			"1": {
-				ID:              "1",
-				InternalAddress: machine1Address,
-			},
-			"2": {
-				ID:              "2",
-				InternalAddress: machine2Address,
-			},
-		},
+	s.publishDetails(c, map[string]string{
+		"0": machine0Address,
+		"1": machine1Address,
+		"2": machine2Address,
 	})
 	rafttest.CheckConfiguration(c, s.Raft, []raft.Server{{
 		ID:       "machine-0",
@@ -173,21 +162,10 @@ func (s *WorkerSuite) TestAddRemoveServers(c *gc.C) {
 	}
 
 	// Remove machine-1, add machine-3.
-	s.publishDetails(c, apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {
-				ID:              "0",
-				InternalAddress: machine0Address,
-			},
-			"2": {
-				ID:              "2",
-				InternalAddress: machine2Address,
-			},
-			"3": {
-				ID:              "3",
-				InternalAddress: machine3Address,
-			},
-		},
+	s.publishDetails(c, map[string]string{
+		"0": machine0Address,
+		"2": machine2Address,
+		"3": machine3Address,
 	})
 	rafttest.CheckConfiguration(c, raft1, []raft.Server{{
 		ID:       "machine-0",
@@ -205,9 +183,8 @@ func (s *WorkerSuite) TestAddRemoveServers(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
-	// This test asserts that a
-	// configuration change which updates a raft leader's address does not
-	// result in a leadership change.
+	// This test asserts that a configuration change which updates a
+	// raft leader's address does not result in a leadership change.
 
 	// Machine-0's address will be updated to a non-localhost address, and
 	// two new servers are added.
@@ -223,21 +200,10 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 
 	alternateAddress := "testing.invalid:1234"
 	c.Assert(s.Raft.Leader(), gc.Not(gc.Equals), alternateAddress)
-	s.publishDetails(c, apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {
-				ID:              "0",
-				InternalAddress: alternateAddress,
-			},
-			"1": {
-				ID:              "1",
-				InternalAddress: machine1Address,
-			},
-			"2": {
-				ID:              "2",
-				InternalAddress: machine2Address,
-			},
-		},
+	s.publishDetails(c, map[string]string{
+		"0": alternateAddress,
+		"1": machine1Address,
+		"2": machine2Address,
 	})
 	//Check configuration asserts that the raft configuration should have
 	//been updated to reflect the two added machines and that the address of
@@ -271,21 +237,10 @@ func (s *WorkerSuite) TestDisappearingAddresses(c *gc.C) {
 	machine1Address := string(transport1.LocalAddr())
 	machine2Address := string(transport2.LocalAddr())
 
-	s.publishDetails(c, apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {
-				ID:              "0",
-				InternalAddress: machine0Address,
-			},
-			"1": {
-				ID:              "1",
-				InternalAddress: machine1Address,
-			},
-			"2": {
-				ID:              "2",
-				InternalAddress: machine2Address,
-			},
-		},
+	s.publishDetails(c, map[string]string{
+		"0": machine0Address,
+		"1": machine1Address,
+		"2": machine2Address,
 	})
 	expectedConfiguration := []raft.Server{{
 		ID:       "machine-0",
@@ -302,44 +257,21 @@ func (s *WorkerSuite) TestDisappearingAddresses(c *gc.C) {
 	}}
 	rafttest.CheckConfiguration(c, raft1, expectedConfiguration)
 
-	s.publishDetails(c, apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {
-				ID:              "0",
-				InternalAddress: "",
-			},
-			"1": {
-				ID:              "1",
-				InternalAddress: "",
-			},
-			"2": {
-				ID:              "2",
-				InternalAddress: "",
-			},
-		},
+	s.publishDetails(c, map[string]string{
+		"0": "",
+		"1": "",
+		"2": "",
 	})
-
 	// Check that it ignores the update - removing all servers isn't
 	// something that we should allow.
 	rafttest.CheckConfiguration(c, raft1, expectedConfiguration)
 
 	// But publishing an update with one machines with a blank address
 	// should still remove it.
-	s.publishDetails(c, apiserver.Details{
-		Servers: map[string]apiserver.APIServer{
-			"0": {
-				ID:              "0",
-				InternalAddress: machine0Address,
-			},
-			"1": {
-				ID:              "1",
-				InternalAddress: "",
-			},
-			"2": {
-				ID:              "2",
-				InternalAddress: machine2Address,
-			},
-		},
+	s.publishDetails(c, map[string]string{
+		"0": machine0Address,
+		"1": "",
+		"2": machine2Address,
 	})
 	rafttest.CheckConfiguration(c, raft1, []raft.Server{
 		expectedConfiguration[0],
@@ -360,7 +292,261 @@ func (s *WorkerSuite) TestRequestsDetails(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) publishDetails(c *gc.C, details apiserver.Details) {
+func (s *WorkerSuite) TestDemotesAServerWhenThereAre2(c *gc.C) {
+	// Create 3 servers: machine-0, machine-1 and machine-2, where all
+	// servers can connect bidirectionally.
+	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
+	raft2, _, transport2, _, _ := s.NewRaft(c, "machine-2", &jujuraft.SimpleFSM{})
+	connectTransports(s.Transport, transport1, transport2)
+
+	machine0Address := string(s.Transport.LocalAddr())
+	machine1Address := string(transport1.LocalAddr())
+	machine2Address := string(transport2.LocalAddr())
+
+	raft1Observations := make(chan raft.Observation, 1)
+	raft1Observer := raft.NewObserver(raft1Observations, false, func(o *raft.Observation) bool {
+		_, ok := o.Data.(raft.LeaderObservation)
+		return ok
+	})
+	raft1.RegisterObserver(raft1Observer)
+	defer raft1.DeregisterObserver(raft1Observer)
+
+	// Add machine-1, machine-2.
+	s.publishDetails(c, map[string]string{
+		"0": machine0Address,
+		"1": machine1Address,
+		"2": machine2Address,
+	})
+	rafttest.CheckConfiguration(c, s.Raft, []raft.Server{{
+		ID:       "machine-0",
+		Address:  raft.ServerAddress(machine0Address),
+		Suffrage: raft.Voter,
+	}, {
+		ID:       "machine-1",
+		Address:  raft.ServerAddress(machine1Address),
+		Suffrage: raft.Voter,
+	}, {
+		ID:       "machine-2",
+		Address:  raft.ServerAddress(machine2Address),
+		Suffrage: raft.Voter,
+	}})
+
+	select {
+	case <-raft1Observations:
+		c.Assert(raft1.Leader(), gc.Equals, s.Transport.LocalAddr())
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for leader observation")
+	}
+
+	// Remove machine-1.
+	s.publishDetails(c, map[string]string{
+		"0": machine0Address,
+		"2": machine2Address,
+	})
+	f := raft1.Shutdown()
+	c.Assert(f.Error(), jc.ErrorIsNil)
+	rafttest.CheckConfiguration(c, raft2, []raft.Server{{
+		ID:       "machine-0",
+		Address:  raft.ServerAddress(machine0Address),
+		Suffrage: raft.Voter,
+	}, {
+		ID:       "machine-2",
+		Address:  raft.ServerAddress(machine2Address),
+		Suffrage: raft.Nonvoter,
+	}})
+}
+
+func (s *WorkerSuite) TestPromotesAServerWhenThereAre3Again(c *gc.C) {
+	// Create 2 servers: machine-0 and machine-1, where both servers
+	// can connect bidirectionally.
+	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
+	connectTransports(s.Transport, transport1)
+
+	machine0Address := string(s.Transport.LocalAddr())
+	machine1Address := string(transport1.LocalAddr())
+
+	raft1Observations := make(chan raft.Observation, 1)
+	raft1Observer := raft.NewObserver(raft1Observations, false, func(o *raft.Observation) bool {
+		_, ok := o.Data.(raft.LeaderObservation)
+		return ok
+	})
+	raft1.RegisterObserver(raft1Observer)
+	defer raft1.DeregisterObserver(raft1Observer)
+
+	// Add machine-1.
+	s.publishDetails(c, map[string]string{
+		"0": machine0Address,
+		"1": machine1Address,
+	})
+	rafttest.CheckConfiguration(c, s.Raft, []raft.Server{{
+		ID:       "machine-0",
+		Address:  raft.ServerAddress(machine0Address),
+		Suffrage: raft.Voter,
+	}, {
+		ID:       "machine-1",
+		Address:  raft.ServerAddress(machine1Address),
+		Suffrage: raft.Nonvoter,
+	}})
+
+	select {
+	case <-raft1Observations:
+		c.Assert(raft1.Leader(), gc.Equals, s.Transport.LocalAddr())
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for leader observation")
+	}
+
+	// Add machine-2.
+	raft2, _, transport2, _, _ := s.NewRaft(c, "machine-2", &jujuraft.SimpleFSM{})
+	connectTransports(s.Transport, transport1, transport2)
+	machine2Address := string(transport2.LocalAddr())
+
+	s.publishDetails(c, map[string]string{
+		"0": machine0Address,
+		"1": machine1Address,
+		"2": machine2Address,
+	})
+	rafttest.CheckConfiguration(c, raft2, []raft.Server{{
+		ID:       "machine-0",
+		Address:  raft.ServerAddress(machine0Address),
+		Suffrage: raft.Voter,
+	}, {
+		ID:       "machine-1",
+		Address:  raft.ServerAddress(machine1Address),
+		Suffrage: raft.Voter,
+	}, {
+		ID:       "machine-2",
+		Address:  raft.ServerAddress(machine2Address),
+		Suffrage: raft.Voter,
+	}})
+}
+
+func (s *WorkerSuite) TestKeepsNonvoterIfAddressChanges(c *gc.C) {
+	// Create 2 servers: machine-0 and machine-1, where both servers
+	// can connect bidirectionally.
+	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
+	connectTransports(s.Transport, transport1)
+
+	machine0Address := string(s.Transport.LocalAddr())
+	machine1Address := string(transport1.LocalAddr())
+
+	raft1Observations := make(chan raft.Observation, 1)
+	raft1Observer := raft.NewObserver(raft1Observations, false, func(o *raft.Observation) bool {
+		_, ok := o.Data.(raft.LeaderObservation)
+		return ok
+	})
+	raft1.RegisterObserver(raft1Observer)
+	defer raft1.DeregisterObserver(raft1Observer)
+
+	// Add machine-1.
+	s.publishDetails(c, map[string]string{
+		"0": machine0Address,
+		"1": machine1Address,
+	})
+	rafttest.CheckConfiguration(c, s.Raft, []raft.Server{{
+		ID:       "machine-0",
+		Address:  raft.ServerAddress(machine0Address),
+		Suffrage: raft.Voter,
+	}, {
+		ID:       "machine-1",
+		Address:  raft.ServerAddress(machine1Address),
+		Suffrage: raft.Nonvoter,
+	}})
+
+	select {
+	case <-raft1Observations:
+		c.Assert(raft1.Leader(), gc.Equals, s.Transport.LocalAddr())
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for leader observation")
+	}
+
+	// Update the non-voting server's address - ensure it doesn't
+	// accidentally get promoted to voting at the same time.
+	alternateAddress := "testing.invalid:1234"
+	s.publishDetails(c, map[string]string{
+		"0": machine0Address,
+		"1": alternateAddress,
+	})
+	rafttest.CheckConfiguration(c, s.Raft, []raft.Server{{
+		ID:       "machine-0",
+		Address:  raft.ServerAddress(machine0Address),
+		Suffrage: raft.Voter,
+	}, {
+		ID:       "machine-1",
+		Address:  raft.ServerAddress(alternateAddress),
+		Suffrage: raft.Nonvoter,
+	}})
+}
+
+func (s *WorkerSuite) TestDemotesLeaderIfRemoved(c *gc.C) {
+	// Create 3 servers: machine-0, machine-1 and machine-2, where all
+	// servers can connect bidirectionally.
+	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
+	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &jujuraft.SimpleFSM{})
+	connectTransports(s.Transport, transport1, transport2)
+
+	machine0Address := string(s.Transport.LocalAddr())
+	machine1Address := string(transport1.LocalAddr())
+	machine2Address := string(transport2.LocalAddr())
+
+	raft1Observations := make(chan raft.Observation, 1)
+	raft1Observer := raft.NewObserver(raft1Observations, false, func(o *raft.Observation) bool {
+		_, ok := o.Data.(raft.LeaderObservation)
+		return ok
+	})
+	raft1.RegisterObserver(raft1Observer)
+	defer raft1.DeregisterObserver(raft1Observer)
+
+	// Add machine-1, machine-2.
+	s.publishDetails(c, map[string]string{
+		"0": machine0Address,
+		"1": machine1Address,
+		"2": machine2Address,
+	})
+	rafttest.CheckConfiguration(c, s.Raft, []raft.Server{{
+		ID:       "machine-0",
+		Address:  raft.ServerAddress(machine0Address),
+		Suffrage: raft.Voter,
+	}, {
+		ID:       "machine-1",
+		Address:  raft.ServerAddress(machine1Address),
+		Suffrage: raft.Voter,
+	}, {
+		ID:       "machine-2",
+		Address:  raft.ServerAddress(machine2Address),
+		Suffrage: raft.Voter,
+	}})
+
+	select {
+	case <-raft1Observations:
+		c.Assert(raft1.Leader(), gc.Equals, s.Transport.LocalAddr())
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for leader observation")
+	}
+
+	// Remove machine-0. This should prompt the clusterer to demote
+	// the leader but not remove it - the new leader after the
+	// election will remove it instead.
+	s.publishDetails(c, map[string]string{
+		"1": machine1Address,
+		"2": machine2Address,
+	})
+	rafttest.CheckConfiguration(c, raft1, []raft.Server{{
+		ID:       "machine-0",
+		Address:  raft.ServerAddress(machine0Address),
+		Suffrage: raft.Nonvoter,
+	}, {
+		ID:       "machine-1",
+		Address:  raft.ServerAddress(machine1Address),
+		Suffrage: raft.Voter,
+	}, {
+		ID:       "machine-2",
+		Address:  raft.ServerAddress(machine2Address),
+		Suffrage: raft.Voter,
+	}})
+}
+
+func (s *WorkerSuite) publishDetails(c *gc.C, serverAddrs map[string]string) {
+	details := makeDetails(serverAddrs)
 	received, err := s.hub.Publish(apiserver.DetailsTopic, details)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
@@ -380,4 +566,15 @@ func connectTransports(transports ...raft.LoopbackTransport) {
 			t1.Connect(t2.LocalAddr(), t2)
 		}
 	}
+}
+
+func makeDetails(serverInfo map[string]string) apiserver.Details {
+	servers := make(map[string]apiserver.APIServer)
+	for id, address := range serverInfo {
+		servers[id] = apiserver.APIServer{
+			ID:              id,
+			InternalAddress: address,
+		}
+	}
+	return apiserver.Details{Servers: servers}
 }
