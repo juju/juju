@@ -8,12 +8,12 @@ import (
 
 	"errors"
 	"github.com/juju/juju/container/lxd"
+	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/network"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type networkSuite struct {
-	coretesting.BaseSuite
+	lxdtesting.BaseSuite
 }
 
 var _ = gc.Suite(&networkSuite{})
@@ -36,7 +36,7 @@ func defaultProfile() *lxdapi.Profile {
 func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDevicePresent(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServer(ctrl, "network")
+	cSvr := s.NewMockServer(ctrl, "network")
 
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, "", nil)
 
@@ -47,7 +47,7 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDevicePresent(c *gc.C) {
 func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDeviceNotBridged(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServer(ctrl, "network")
+	cSvr := s.NewMockServer(ctrl, "network")
 
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, "", nil)
 
@@ -60,7 +60,7 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDeviceNotBridged(c *gc.C
 func (s *networkSuite) TestVerifyDefaultBridgeNetSupportIPv6Present(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServer(ctrl, "network")
+	cSvr := s.NewMockServer(ctrl, "network")
 
 	net := &lxdapi.Network{
 		Name:    network.DefaultLXDBridge,
@@ -80,7 +80,7 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportIPv6Present(c *gc.C) {
 func (s *networkSuite) TestVerifyDefaultBridgeNetSupportNoBridge(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServer(ctrl, "network")
+	cSvr := s.NewMockServer(ctrl, "network")
 
 	netConf := map[string]string{
 		"ipv4.address": "auto",
@@ -104,12 +104,12 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportNoBridge(c *gc.C) {
 		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(nil, "", errors.New("not found")),
 		cSvr.EXPECT().CreateNetwork(netCreateReq).Return(nil),
 		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(newNet, "", nil),
-		cSvr.EXPECT().UpdateProfile("default", defaultProfile().Writable(), eTag).Return(nil),
+		cSvr.EXPECT().UpdateProfile("default", defaultProfile().Writable(), lxdtesting.ETag).Return(nil),
 	)
 
 	profile := defaultProfile()
 	delete(profile.Devices, "eth0")
-	err := lxd.NewClient(cSvr).VerifyDefaultBridge(profile, eTag)
+	err := lxd.NewClient(cSvr).VerifyDefaultBridge(profile, lxdtesting.ETag)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

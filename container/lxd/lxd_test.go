@@ -35,7 +35,7 @@ func Test(t *stdtesting.T) {
 }
 
 type LxdSuite struct {
-	coretesting.BaseSuite
+	lxdtesting.BaseSuite
 }
 
 var _ = gc.Suite(&LxdSuite{})
@@ -54,23 +54,6 @@ func (t *LxdSuite) makeManagerForConfig(
 	manager, err := lxd.NewContainerManager(cfg, svr)
 	c.Assert(err, jc.ErrorIsNil)
 	return manager
-}
-
-// newMockServer initialises a mock container server and adds an expectation
-// for the GetServer function, which is called each time NewClient is used to
-// instantiate our wrapper.
-// The return from GetServer indicates the input supported API extensions.
-func newMockServer(ctrl *gomock.Controller, extensions ...string) *lxdtesting.MockContainerServer {
-	svr := lxdtesting.NewMockContainerServer(ctrl)
-
-	cfg := &lxdapi.Server{
-		ServerUntrusted: lxdapi.ServerUntrusted{
-			APIExtensions: extensions,
-		},
-	}
-	svr.EXPECT().GetServer().Return(cfg, eTag, nil)
-
-	return svr
 }
 
 func getBaseConfig() container.ManagerConfig {
@@ -133,7 +116,7 @@ var noOpCallback = func(settableStatus status.Status, info string, data map[stri
 func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServer(ctrl)
+	cSvr := t.NewMockServer(ctrl)
 	t.patch(cSvr)
 
 	manager := t.makeManager(c, cSvr)
@@ -152,17 +135,17 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 	deleteOp.EXPECT().Wait().Return(nil)
 
 	// Arrangements for the container creation.
-	expectCreateContainer(ctrl, cSvr, "juju/xenial/amd64", "foo-target")
+	expectCreateContainer(ctrl, cSvr, "juju/xenial/"+t.Arch(), "foo-target")
 	cSvr.EXPECT().UpdateContainerState(
 		hostname, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(startOp, nil)
 
 	cSvr.EXPECT().GetContainerState(hostname).Return(
-		&lxdapi.ContainerState{StatusCode: lxdapi.Running}, "ETAG", nil).Times(2)
+		&lxdapi.ContainerState{StatusCode: lxdapi.Running}, lxdtesting.ETag, nil).Times(2)
 
 	// Arrangements for the container destruction.
 	gomock.InOrder(
 		cSvr.EXPECT().UpdateContainerState(
-			hostname, lxdapi.ContainerStatePut{Action: "stop", Timeout: -1}, "ETAG").Return(stopOp, nil),
+			hostname, lxdapi.ContainerStatePut{Action: "stop", Timeout: -1}, lxdtesting.ETag).Return(stopOp, nil),
 		cSvr.EXPECT().DeleteContainer(hostname).Return(deleteOp, nil),
 	)
 
@@ -185,7 +168,7 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 func (t *LxdSuite) TestCreateContainerCreateFailed(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServer(ctrl)
+	cSvr := t.NewMockServer(ctrl)
 
 	createRemoteOp := lxdtesting.NewMockRemoteOperation(ctrl)
 	createRemoteOp.EXPECT().Wait().Return(nil).AnyTimes()
@@ -194,8 +177,8 @@ func (t *LxdSuite) TestCreateContainerCreateFailed(c *gc.C) {
 	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-target"}}
 	image := lxdapi.Image{Filename: "this-is-our-image"}
 	gomock.InOrder(
-		cSvr.EXPECT().GetImageAlias("juju/xenial/amd64").Return(alias, "ETAG", nil),
-		cSvr.EXPECT().GetImage("foo-target").Return(&image, "ETAG", nil),
+		cSvr.EXPECT().GetImageAlias("juju/xenial/"+t.Arch()).Return(alias, lxdtesting.ETag, nil),
+		cSvr.EXPECT().GetImage("foo-target").Return(&image, lxdtesting.ETag, nil),
 		cSvr.EXPECT().CreateContainerFromImage(cSvr, image, gomock.Any()).Return(createRemoteOp, nil),
 	)
 
@@ -213,7 +196,7 @@ func (t *LxdSuite) TestCreateContainerCreateFailed(c *gc.C) {
 func (t *LxdSuite) TestCreateContainerStartFailed(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServer(ctrl)
+	cSvr := t.NewMockServer(ctrl)
 	t.patch(cSvr)
 
 	manager := t.makeManager(c, cSvr)
@@ -227,7 +210,7 @@ func (t *LxdSuite) TestCreateContainerStartFailed(c *gc.C) {
 	deleteOp := lxdtesting.NewMockOperation(ctrl)
 	deleteOp.EXPECT().Wait().Return(nil).AnyTimes()
 
-	expectCreateContainer(ctrl, cSvr, "juju/xenial/amd64", "foo-target")
+	expectCreateContainer(ctrl, cSvr, "juju/xenial/"+t.Arch(), "foo-target")
 	gomock.InOrder(
 		cSvr.EXPECT().UpdateContainerState(
 			hostname, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(updateOp, nil),
@@ -256,8 +239,8 @@ func expectCreateContainer(ctrl *gomock.Controller, svr *lxdtesting.MockContaine
 	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: target}}
 	image := lxdapi.Image{Filename: "this-is-our-image"}
 	gomock.InOrder(
-		svr.EXPECT().GetImageAlias(aliasName).Return(alias, "ETAG", nil),
-		svr.EXPECT().GetImage("foo-target").Return(&image, "ETAG", nil),
+		svr.EXPECT().GetImageAlias(aliasName).Return(alias, lxdtesting.ETag, nil),
+		svr.EXPECT().GetImage("foo-target").Return(&image, lxdtesting.ETag, nil),
 		svr.EXPECT().CreateContainerFromImage(svr, image, gomock.Any()).Return(createRemoteOp, nil),
 	)
 }
@@ -265,7 +248,7 @@ func expectCreateContainer(ctrl *gomock.Controller, svr *lxdtesting.MockContaine
 func (t *LxdSuite) TestListContainers(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServer(ctrl)
+	cSvr := t.NewMockServer(ctrl)
 	manager := t.makeManager(c, cSvr)
 
 	prefix := manager.Namespace().Prefix()
@@ -293,7 +276,7 @@ func (t *LxdSuite) TestListContainers(c *gc.C) {
 func (t *LxdSuite) TestIsInitialized(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServer(ctrl)
+	cSvr := t.NewMockServer(ctrl)
 
 	manager := t.makeManager(c, cSvr)
 	c.Check(manager.IsInitialized(), gc.Equals, true)
@@ -411,7 +394,7 @@ func (t *LxdSuite) TestNetworkDevicesWithParentDevice(c *gc.C) {
 func (t *LxdSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServer(ctrl)
+	cSvr := t.NewMockServer(ctrl)
 
 	mgr := t.makeManager(c, cSvr)
 
@@ -423,7 +406,7 @@ func (t *LxdSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {
 func (t *LxdSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServer(ctrl)
+	cSvr := t.NewMockServer(ctrl)
 
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageStreamKey] = "nope"
@@ -437,7 +420,7 @@ func (t *LxdSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C) {
 func (t *LxdSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServer(ctrl)
+	cSvr := t.NewMockServer(ctrl)
 
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageStreamKey] = "daily"
@@ -451,7 +434,7 @@ func (t *LxdSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
 func (t *LxdSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServer(ctrl)
+	cSvr := t.NewMockServer(ctrl)
 
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageMetadataURLKey] = "http://special.container.sauce"
@@ -475,7 +458,7 @@ func (t *LxdSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c *gc
 func (t *LxdSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := newMockServer(ctrl)
+	cSvr := t.NewMockServer(ctrl)
 
 	cfg := getBaseConfig()
 	cfg[config.ContainerImageMetadataURLKey] = "http://special.container.sauce"
