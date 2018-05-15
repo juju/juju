@@ -84,15 +84,21 @@ var _ = gc.Suite(&WorkerSuite{})
 
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.workerFixture.SetUpTest(c)
-
 	s.reqs = make(chan apiserver.DetailsRequest, 10)
-	s.hub.Subscribe(
+
+	// Use a local variable to send to the channel in the callback, so
+	// we don't get races when a subsequent test overwrites s.reqs
+	// with a new channel.
+	reqs := s.reqs
+	unsubscribe, err := s.hub.Subscribe(
 		apiserver.DetailsRequestTopic,
 		func(topic string, req apiserver.DetailsRequest, err error) {
 			c.Check(err, jc.ErrorIsNil)
-			s.reqs <- req
+			reqs <- req
 		},
 	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { unsubscribe() })
 
 	worker, err := raftclusterer.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
