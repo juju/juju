@@ -104,12 +104,12 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportNoBridge(c *gc.C) {
 		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(nil, "", errors.New("not found")),
 		cSvr.EXPECT().CreateNetwork(netCreateReq).Return(nil),
 		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(newNet, "", nil),
-		cSvr.EXPECT().UpdateProfile("default", defaultProfile().Writable(), eTag).Return(nil),
+		cSvr.EXPECT().UpdateProfile("default", defaultProfile().Writable(), lxdtesting.ETag).Return(nil),
 	)
 
 	profile := defaultProfile()
 	delete(profile.Devices, "eth0")
-	err := lxd.NewClient(cSvr).VerifyDefaultBridge(profile, eTag)
+	err := lxd.NewClient(cSvr).VerifyDefaultBridge(profile, lxdtesting.ETag)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
