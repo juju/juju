@@ -1476,6 +1476,38 @@ func RemoveVotingMachineIds(st *State) error {
 	return nil
 }
 
+// AddCloudModelCounts updates cloud docs to ensure the model count field is set.
+func AddCloudModelCounts(st *State) error {
+	cloudsColl, closer := st.db().GetCollection(cloudsC)
+	defer closer()
+
+	var clouds []cloudDoc
+	err := cloudsColl.Find(nil).All(&clouds)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	modelsColl, closer := st.db().GetCollection(modelsC)
+	defer closer()
+
+	var updateOps []txn.Op
+	for _, c := range clouds {
+		n, err := modelsColl.Find(bson.D{{"cloud", c.Name}}).Count()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if n != c.ModelCount {
+			updateOps = append(updateOps, txn.Op{
+				C:      cloudsC,
+				Id:     c.Name,
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{{"modelcount", n}}}},
+			})
+		}
+	}
+	return st.db().RunTransaction(updateOps)
+}
+
 // UpgradeDefaultContainerImageStreamConfig ensures that the config value for
 // container-image-stream is set to its default value, "released".
 func UpgradeContainerImageStreamDefault(st *State) error {

@@ -45,6 +45,13 @@ func stateStepsFor24() []Step {
 				return context.State().RemoveVotingMachineIds()
 			},
 		},
+		&upgradeStep{
+			description: "add cloud model counts",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().AddCloudModelCounts()
+			},
+		},
 	}
 }
 
