@@ -4083,7 +4083,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
-	code, stdout, stderr := runStatus(c, "--format", "tabular")
+	code, stdout, stderr := runStatus(c, "--format", "tabular", "--relations")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
