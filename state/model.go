@@ -396,8 +396,19 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}
 
 	ops := append(prereqOps, modelOps...)
+
+	// Increment the model count for the cloud to which this model belongs.
+	ops = append(ops, updateCloudModelCountOp(args.CloudName, 1))
+
 	err = newSt.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
+		// Check that the cloud exists.
+		// TODO(wallyworld) - this can't yet be tested since we check that the
+		// model cloud is the same as the controller cloud, and hooks can't be
+		// used because a new state is created.
+		if _, err := newSt.Cloud(args.CloudName); err != nil {
+			return nil, nil, errors.Trace(err)
+		}
 
 		// We have a  unique key restriction on the "owner" and "name" fields,
 		// which will cause the insert to fail if there is another record with
@@ -1510,6 +1521,15 @@ func createModelEntityRefsOp(uuid string) txn.Op {
 		Id:     uuid,
 		Assert: txn.DocMissing,
 		Insert: &modelEntityRefsDoc{UUID: uuid},
+	}
+}
+
+func updateCloudModelCountOp(cloud string, inc int) txn.Op {
+	return txn.Op{
+		C:      cloudsC,
+		Id:     cloud,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$inc", bson.D{{"modelcount", inc}}}},
 	}
 }
 

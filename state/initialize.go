@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
-	names "gopkg.in/juju/names.v2"
-	mgo "gopkg.in/mgo.v2"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
@@ -214,6 +214,10 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 		salt,
 		dateCreated,
 	)
+
+	// The controller cloud is initially used by 1 model (the controller model).
+	args.Cloud.ModelCount = 1
+
 	ops = append(ops,
 		txn.Op{
 			C:      controllersC,

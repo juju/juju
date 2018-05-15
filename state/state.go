@@ -297,6 +297,10 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		Assert: modelAssertion,
 		Remove: true,
 	}}
+
+	// Decrement the model count for the cloud to which this model belongs.
+	ops = append(ops, updateCloudModelCountOp(model.Cloud(), -1))
+
 	if !st.IsController() {
 		ops = append(ops, decHostedModelCountOp())
 	}

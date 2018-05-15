@@ -103,6 +103,9 @@ type Cloud struct {
 	// Description describes the type of cloud.
 	Description string
 
+	// ModelCount is the number of models using this cloud.
+	ModelCount int
+
 	// AuthTypes are the authentication modes supported by the cloud.
 	AuthTypes AuthTypes
 
