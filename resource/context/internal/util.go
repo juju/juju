@@ -22,13 +22,3 @@ func CloseAndLog(closer io.Closer, label string, logger Logger) {
 		logger.Errorf("while closing %s: %v", label, err)
 	}
 }
-
-// ReplaceDirectoryDeps exposes the functionality needed by ReplaceDirectory.
-type ReplaceDirectoryDeps interface {
-	// RemoveDir deletes the directory at the given path.
-	RemoveDir(dirname string) error
-
-	//XXXXXX
-	// Move moves the directory at the source path to the target path.
-	Move(target, source string) error
-}

@@ -91,10 +91,6 @@ func (deps *contextDeps) Download(target internal.DownloadTarget, remote interna
 	return internal.Download(target, remote)
 }
 
-func (deps *contextDeps) DownloadDirect(target internal.DownloadTarget, remote internal.ContentSource) error {
-	return internal.Download(target, remote)
-}
-
 func (deps *contextDeps) WriteContent(target io.Writer, content internal.Content) error {
 	return internal.WriteContent(target, content, deps)
 }
