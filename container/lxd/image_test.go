@@ -14,13 +14,12 @@ import (
 
 	"github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&imageSuite{})
 
 type imageSuite struct {
-	coretesting.BaseSuite
+	lxdtesting.BaseSuite
 }
 
 func (t *imageSuite) patch(remotes map[string]lxdclient.ImageServer) {
@@ -30,7 +29,7 @@ func (t *imageSuite) patch(remotes map[string]lxdclient.ImageServer) {
 func (s *imageSuite) TestCopyImageUsesPassedCallback(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	iSvr := newMockServer(ctrl)
+	iSvr := s.NewMockServer(ctrl)
 
 	copyOp := lxdtesting.NewMockRemoteOperation(ctrl)
 	copyOp.EXPECT().Wait().Return(nil).AnyTimes()
@@ -54,17 +53,17 @@ func (s *imageSuite) TestCopyImageUsesPassedCallback(c *gc.C) {
 func (s *imageSuite) TestFindImageLocalServer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	iSvr := newMockServer(ctrl)
+	iSvr := s.NewMockServer(ctrl)
 
 	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-target"}}
 	image := lxdapi.Image{Filename: "this-is-our-image"}
 	gomock.InOrder(
-		iSvr.EXPECT().GetImageAlias("juju/xenial/amd64").Return(alias, "ETAG", nil),
-		iSvr.EXPECT().GetImage("foo-target").Return(&image, "ETAG", nil),
+		iSvr.EXPECT().GetImageAlias("juju/xenial/"+s.Arch()).Return(alias, lxdtesting.ETag, nil),
+		iSvr.EXPECT().GetImage("foo-target").Return(&image, lxdtesting.ETag, nil),
 	)
 
 	jSvr := lxd.NewClient(iSvr)
-	found, err := jSvr.FindImage("xenial", "amd64", []lxd.RemoteServer{{}}, false, nil)
+	found, err := jSvr.FindImage("xenial", s.Arch(), []lxd.RemoteServer{{}}, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.LXDServer, gc.Equals, iSvr)
 	c.Check(*found.Image, gc.DeepEquals, image)
@@ -73,18 +72,18 @@ func (s *imageSuite) TestFindImageLocalServer(c *gc.C) {
 func (s *imageSuite) TestFindImageLocalServerUnknownSeries(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	iSvr := newMockServer(ctrl)
-	iSvr.EXPECT().GetImageAlias("juju/pldlinux/amd64").Return(nil, "ETAG", nil)
+	iSvr := s.NewMockServer(ctrl)
+	iSvr.EXPECT().GetImageAlias("juju/pldlinux/"+s.Arch()).Return(nil, lxdtesting.ETag, nil)
 
 	jSvr := lxd.NewClient(iSvr)
-	_, err := jSvr.FindImage("pldlinux", "amd64", []lxd.RemoteServer{{}}, false, nil)
+	_, err := jSvr.FindImage("pldlinux", s.Arch(), []lxd.RemoteServer{{}}, false, nil)
 	c.Check(err, gc.ErrorMatches, `.*series: "pldlinux".*`)
 }
 
 func (s *imageSuite) TestFindImageRemoteServers(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	iSvr := newMockServer(ctrl)
+	iSvr := s.NewMockServer(ctrl)
 
 	rSvr1 := lxdtesting.NewMockImageServer(ctrl)
 	rSvr2 := lxdtesting.NewMockImageServer(ctrl)
@@ -96,10 +95,10 @@ func (s *imageSuite) TestFindImageRemoteServers(c *gc.C) {
 	image := lxdapi.Image{Filename: "this-is-our-image"}
 	alias := lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-remote-target"}}
 	gomock.InOrder(
-		iSvr.EXPECT().GetImageAlias("juju/xenial/amd64").Return(nil, "ETAG", nil),
-		rSvr1.EXPECT().GetImageAlias("xenial/amd64").Return(nil, "ETAG", nil),
-		rSvr2.EXPECT().GetImageAlias("xenial/amd64").Return(&alias, "ETAG", nil),
-		rSvr2.EXPECT().GetImage("foo-remote-target").Return(&image, "ETAG", nil),
+		iSvr.EXPECT().GetImageAlias("juju/xenial/"+s.Arch()).Return(nil, lxdtesting.ETag, nil),
+		rSvr1.EXPECT().GetImageAlias("xenial/"+s.Arch()).Return(nil, lxdtesting.ETag, nil),
+		rSvr2.EXPECT().GetImageAlias("xenial/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
+		rSvr2.EXPECT().GetImage("foo-remote-target").Return(&image, lxdtesting.ETag, nil),
 	)
 
 	jSvr := lxd.NewClient(iSvr)
@@ -108,7 +107,7 @@ func (s *imageSuite) TestFindImageRemoteServers(c *gc.C) {
 		{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol},
 		{Name: "server-that-should-not-be-touched", Protocol: lxd.LXDProtocol},
 	}
-	found, err := jSvr.FindImage("xenial", "amd64", remotes, false, nil)
+	found, err := jSvr.FindImage("xenial", s.Arch(), remotes, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.LXDServer, gc.Equals, rSvr2)
 	c.Check(*found.Image, gc.DeepEquals, image)
@@ -117,7 +116,7 @@ func (s *imageSuite) TestFindImageRemoteServers(c *gc.C) {
 func (s *imageSuite) TestFindImageRemoteServersCopyLocalNoCallback(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	iSvr := newMockServer(ctrl)
+	iSvr := s.NewMockServer(ctrl)
 
 	rSvr := lxdtesting.NewMockImageServer(ctrl)
 	s.patch(map[string]lxdclient.ImageServer{
@@ -128,14 +127,14 @@ func (s *imageSuite) TestFindImageRemoteServersCopyLocalNoCallback(c *gc.C) {
 	copyOp.EXPECT().Wait().Return(nil).AnyTimes()
 	copyOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
 
-	localAlias := "juju/xenial/amd64"
+	localAlias := "juju/xenial/" + s.Arch()
 	image := lxdapi.Image{Filename: "this-is-our-image"}
 	alias := lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-remote-target"}}
 	copyReq := &lxdclient.ImageCopyArgs{Aliases: []lxdapi.ImageAlias{{Name: localAlias}}}
 	gomock.InOrder(
-		iSvr.EXPECT().GetImageAlias(localAlias).Return(nil, "ETAG", nil),
-		rSvr.EXPECT().GetImageAlias("xenial/amd64").Return(&alias, "ETAG", nil),
-		rSvr.EXPECT().GetImage("foo-remote-target").Return(&image, "ETAG", nil),
+		iSvr.EXPECT().GetImageAlias(localAlias).Return(nil, lxdtesting.ETag, nil),
+		rSvr.EXPECT().GetImageAlias("xenial/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
+		rSvr.EXPECT().GetImage("foo-remote-target").Return(&image, lxdtesting.ETag, nil),
 		iSvr.EXPECT().CopyImage(rSvr, image, copyReq).Return(copyOp, nil),
 	)
 
@@ -143,7 +142,7 @@ func (s *imageSuite) TestFindImageRemoteServersCopyLocalNoCallback(c *gc.C) {
 	remotes := []lxd.RemoteServer{
 		{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol},
 	}
-	found, err := jSvr.FindImage("xenial", "amd64", remotes, true, nil)
+	found, err := jSvr.FindImage("xenial", s.Arch(), remotes, true, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.LXDServer, gc.Equals, iSvr)
 	c.Check(*found.Image, gc.DeepEquals, image)
@@ -152,7 +151,7 @@ func (s *imageSuite) TestFindImageRemoteServersCopyLocalNoCallback(c *gc.C) {
 func (s *imageSuite) TestFindImageRemoteServersNotFound(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	iSvr := newMockServer(ctrl)
+	iSvr := s.NewMockServer(ctrl)
 
 	rSvr := lxdtesting.NewMockImageServer(ctrl)
 	s.patch(map[string]lxdclient.ImageServer{
@@ -161,13 +160,14 @@ func (s *imageSuite) TestFindImageRemoteServersNotFound(c *gc.C) {
 
 	alias := lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-remote-target"}}
 	gomock.InOrder(
-		iSvr.EXPECT().GetImageAlias("juju/centos7/amd64").Return(nil, "ETAG", nil),
-		rSvr.EXPECT().GetImageAlias("centos/7/amd64").Return(&alias, "ETAG", nil),
-		rSvr.EXPECT().GetImage("foo-remote-target").Return(nil, "ETAG", errors.New("failed to retrieve image")),
+		iSvr.EXPECT().GetImageAlias("juju/centos7/"+s.Arch()).Return(nil, lxdtesting.ETag, nil),
+		rSvr.EXPECT().GetImageAlias("centos/7/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
+		rSvr.EXPECT().GetImage("foo-remote-target").Return(
+			nil, lxdtesting.ETag, errors.New("failed to retrieve image")),
 	)
 
 	jSvr := lxd.NewClient(iSvr)
 	remotes := []lxd.RemoteServer{{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol}}
-	_, err := jSvr.FindImage("centos7", "amd64", remotes, false, nil)
+	_, err := jSvr.FindImage("centos7", s.Arch(), remotes, false, nil)
 	c.Assert(err, gc.ErrorMatches, ".*failed to retrieve image.*")
 }
