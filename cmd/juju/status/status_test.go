@@ -4147,7 +4147,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
-	code, stdout, stderr := runStatus(c, "--format", "tabular")
+	code, stdout, stderr := runStatus(c, "--format", "tabular", "--relations")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
@@ -4970,4 +4970,39 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 		RemoteApplications: map[string]remoteApplicationStatus{},
 		Offers:             map[string]offerStatus{},
 	})
+}
+func (s *StatusSuite) TestTabularNoRelations(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c)
+	c.Assert(stderr, gc.IsNil)
+	c.Assert(strings.Contains(string(stdout), "Relation provider"), jc.IsFalse)
+}
+
+func (s *StatusSuite) TestTabularDisplayRelations(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--relations")
+	c.Assert(stderr, gc.IsNil)
+	c.Assert(strings.Contains(string(stdout), "Relation provider"), jc.IsTrue)
+}
+
+func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations")
+	c.Assert(string(stderr), gc.Equals, "provided --relations option is ignored\n")
+	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+}
+
+func (s *StatusSuite) TestNonTabularRelations(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--format=yaml")
+	c.Assert(stderr, gc.IsNil)
+	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
 }
