@@ -164,7 +164,7 @@ network:
 `)
 }
 
-func (s *NetplanSuite) TestBondIntValues(c *gc.C) {
+func (s *NetplanSuite) TestBondsIntParameters(c *gc.C) {
 	// several parameters can be specified as an integer or a string
 	// such as 'mode: 0' is the same as 'balance-rr'
 	checkNetplanRoundTrips(c, `
@@ -187,6 +187,7 @@ network:
         mode: 0
         lacp-rate: 1
         ad-select: 1
+        all-slaves-active: true
         arp-validate: 0
         arp-all-targets: 0
         fail-over-mac-policy: 1
@@ -212,6 +213,7 @@ network:
         mode: balance-rr
         lacp-rate: fast
         ad-select: bandwidth
+        all-slaves-active: false
         arp-validate: filter
         arp-all-targets: all
         fail-over-mac-policy: follow
@@ -269,6 +271,12 @@ network:
       match:
         macaddress: de:ad:be:ef:01:02
         set-name: id1
+    id2:
+      match:
+        macaddress: de:ad:be:ef:01:03
+    id3:
+      match:
+        macaddress: de:ad:be:ef:01:04
   bonds:
     bond0:
       interfaces: [id0, id1]
@@ -285,7 +293,7 @@ network:
         - 192.168.0.1
         - 192.168.10.20
         arp-validate: none
-        arp-all-targets: boo
+        arp-all-targets: all
         up-delay: 0
         down-delay: 0
         fail-over-mac-policy: follow
@@ -298,8 +306,71 @@ network:
 `)
 }
 
-func (s *NetplanSuite) TestAllEthernetParams(c *gc.C) {
-	// Make sure we can handle any fields in Ethernet stanzas
+func (s *NetplanSuite) TestBridgesAllParameters(c *gc.C) {
+	// All parameters don't inherently make sense at the same time, but we should be able to parse all of them.
+	checkNetplanRoundTrips(c, `
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    id0:
+      match:
+        macaddress: "00:11:22:33:44:55"
+        set-name: id0
+    id1:
+      match:
+        macaddress: de:ad:be:ef:01:02
+        set-name: id1
+    id2:
+      match:
+        macaddress: de:ad:be:ef:01:03
+        set-name: id2
+  bridges:
+    br-id0:
+      interfaces: [id0]
+      accept-ra: true
+      addresses:
+      - 123.123.123.123/24
+      dhcp4: false
+      dhcp6: true
+      dhcp-identifier: duid
+      parameters:
+        ageing-time: 0
+        forward-delay: 0
+        hello-time: 0
+        max-age: 0
+        path-cost:
+          id0: 0
+        port-priority:
+          id0: 0
+        priority: 0
+        stp: false
+    br-id1:
+      interfaces: [id1]
+      accept-ra: false
+      addresses:
+      - 2001::1/64
+      dhcp4: true
+      dhcp6: true
+      dhcp-identifier: mac
+      parameters:
+        ageing-time: 100
+        forward-delay: 10
+        hello-time: 20
+        max-age: 10
+        path-cost:
+          id1: 50
+        port-priority:
+          id1: 50
+        priority: 20000
+        stp: true
+    br-id2:
+      interfaces: [id2]
+    br-id3:
+      interfaces: [id2]
+      parameters:
+        ageing-time: 10
+`)
 }
 
 func (s *NetplanSuite) TestAllRoutesParams(c *gc.C) {

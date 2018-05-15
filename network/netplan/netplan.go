@@ -63,10 +63,21 @@ type Wifi struct {
 	Interface    `yaml:",inline"`
 }
 
+type BridgeParameters struct {
+	AgeingTime   *int           `yaml:"ageing-time,omitempty"`
+	ForwardDelay *int           `yaml:"forward-delay,omitempty"`
+	HelloTime    *int           `yaml:"hello-time,omitempty"`
+	MaxAge       *int           `yaml:"max-age,omitempty"`
+	PathCost     map[string]int `yaml:"path-cost,omitempty"`
+	PortPriority map[string]int `yaml:"port-priority,omitempty"`
+	Priority     *int           `yaml:"priority,omitempty"`
+	STP          *bool          `yaml:"stp,omitempty"`
+}
+
 type Bridge struct {
 	Interfaces []string `yaml:"interfaces,omitempty,flow"`
 	Interface  `yaml:",inline"`
-	// TODO: parameters
+	Parameters BridgeParameters `yaml:"parameters,omitempty"`
 }
 
 type Route struct {
@@ -166,7 +177,7 @@ type BondParameters struct {
 	MinLinks           *int      `yaml:"min-links,omitempty"`
 	TransmitHashPolicy string    `yaml:"transmit-hash-policy,omitempty"`
 	ADSelect           IntString `yaml:"ad-select,omitempty"`
-	AllSlavesActive    bool      `yaml:"all-slaves-active,omitempty"`
+	AllSlavesActive    *bool     `yaml:"all-slaves-active,omitempty"`
 	ARPInterval        *int      `yaml:"arp-interval,omitempty"`
 	ARPIPTargets       []string  `yaml:"arp-ip-targets,omitempty"`
 	ARPValidate        IntString `yaml:"arp-validate,omitempty"`
