@@ -37,7 +37,7 @@ func ContextDownload(deps ContextDownloadDeps) (path string, err error) {
 		return path, nil
 	}
 
-	if err := deps.Download(resDirSpec, remote); err != nil {
+	if err := Download(resDirSpec, remote); err != nil {
 		return "", errors.Trace(err)
 	}
 

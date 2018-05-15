@@ -5,7 +5,6 @@ package context
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -89,26 +88,11 @@ func (deps *contextDeps) OpenResource() (internal.ContextOpenedResource, error) 
 }
 
 func (deps *contextDeps) Download(target internal.DownloadTarget, remote internal.ContextOpenedResource) error {
-	return internal.DownloadIndirect(target, remote, deps)
+	return internal.Download(target, remote)
 }
 
 func (deps *contextDeps) DownloadDirect(target internal.DownloadTarget, remote internal.ContentSource) error {
 	return internal.Download(target, remote)
-}
-
-func (deps *contextDeps) ReplaceDirectory(tgt, src string) error {
-	return internal.ReplaceDirectory(tgt, src, deps)
-}
-
-func (deps *contextDeps) NewTempDirSpec() (internal.DownloadTempTarget, error) {
-	spec, err := internal.NewTempDirectorySpec(deps.name, deps)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	dir := &internal.ContextDownloadDirectory{
-		spec,
-	}
-	return dir, nil
 }
 
 func (deps *contextDeps) WriteContent(target io.Writer, content internal.Content) error {
@@ -128,18 +112,8 @@ func (deps contextDeps) CreateWriter(filename string) (io.WriteCloser, error) {
 	return os.Create(filename)
 }
 
-func (deps contextDeps) NewTempDir() (string, error) {
-	return ioutil.TempDir("", "juju-resource-")
-}
-
 func (deps contextDeps) RemoveDir(dirname string) error {
 	return os.RemoveAll(dirname)
-}
-
-func (deps contextDeps) Move(target, source string) error {
-	// Note that we follow the io.Copy() argument arder here
-	// (os.Rename does not).
-	return os.Rename(source, target)
 }
 
 func (deps contextDeps) Copy(target io.Writer, source io.Reader) error {
