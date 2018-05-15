@@ -4810,11 +4810,11 @@ func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
 }
 
-func (s *StatusSuite) TestNonTabularNoRelations(c *gc.C) {
+func (s *StatusSuite) TestNonTabularRelations(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations=false")
-	c.Assert(string(stderr), gc.Equals, "provided --relations option is ignored\n")
+	_, stdout, stderr := runStatus(c, "--format=yaml")
+	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
 }
