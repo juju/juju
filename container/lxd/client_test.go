@@ -28,7 +28,7 @@ func (s *connectionSuite) TestUpdateServerConfig(c *gc.C) {
 
 	updateReq := api.ServerPut{Config: map[string]interface{}{"key1": "val1"}}
 	gomock.InOrder(
-		cSvr.EXPECT().GetServer().Return(&api.Server{}, eTag, nil),
+		cSvr.EXPECT().GetServer().Return(&api.Server{}, eTag, nil).Times(2),
 		cSvr.EXPECT().UpdateServer(updateReq, eTag).Return(nil),
 	)
 
@@ -47,6 +47,7 @@ func (s *connectionSuite) TestUpdateContainerConfig(c *gc.C) {
 	updateReq := api.ContainerPut{Config: newConfig}
 	op := lxdtesting.NewMockOperation(ctrl)
 	gomock.InOrder(
+		cSvr.EXPECT().GetServer().Return(&api.Server{}, eTag, nil),
 		cSvr.EXPECT().GetContainer(cName).Return(&api.Container{}, eTag, nil),
 		cSvr.EXPECT().UpdateContainer(cName, updateReq, eTag).Return(op, nil),
 		op.EXPECT().Wait().Return(nil),

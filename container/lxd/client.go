@@ -6,18 +6,28 @@ package lxd
 import (
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/client"
+	"github.com/lxc/lxd/shared"
 )
 
-// Client extends the upstream LXD client.
+// Client extends the upstream LXD container server.
 type Client struct {
-	ImageServer
+	lxd.ContainerServer
+
+	networkAPISupport bool
+	clusterAPISupport bool
+
+	localBridgeName string
 }
 
 // NewClient builds and returns a Client for high-level interaction with the
 // input LXD container server.
 func NewClient(svr lxd.ContainerServer) *Client {
+	info, _, _ := svr.GetServer()
+	apiExt := info.APIExtensions
 	return &Client{
-		ImageServer: ImageServer{svr},
+		ContainerServer:   svr,
+		networkAPISupport: shared.StringInSlice("network", apiExt),
+		clusterAPISupport: shared.StringInSlice("clustering", apiExt),
 	}
 }
 
@@ -55,4 +65,8 @@ func (c *Client) UpdateContainerConfig(name string, cfg map[string]string) error
 		return errors.Trace(err)
 	}
 	return errors.Trace(resp.Wait())
+}
+
+func isLXDNotFound(err error) bool {
+	return err.Error() == "not found"
 }

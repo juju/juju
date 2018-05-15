@@ -42,8 +42,7 @@ const AutoStartKey = "boot.autostart"
 // the local provider, so the APIs probably need to be changed to pass extra
 // args around. I'm punting for now.
 type containerManager struct {
-	server      lxd.ContainerServer
-	imageServer *ImageServer
+	client *Client
 
 	modelUUID        string
 	namespace        instance.Namespace
@@ -82,8 +81,7 @@ func NewContainerManager(cfg container.ManagerConfig, server lxd.ContainerServer
 
 	cfg.WarnAboutUnused()
 	return &containerManager{
-		server:           server,
-		imageServer:      &ImageServer{server},
+		client:           NewClient(server),
 		modelUUID:        modelUUID,
 		namespace:        namespace,
 		availabilityZone: availabilityZone,
@@ -132,21 +130,21 @@ func (manager *containerManager) CreateContainer(
 	}
 
 	callback(status.Running, "Container started", nil)
-	return &lxdInstance{name, manager.server},
+	return &lxdInstance{name, manager.client.ContainerServer},
 		&instance.HardwareCharacteristics{AvailabilityZone: &manager.availabilityZone}, nil
 }
 
 // ListContainers implements container.Manager.
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
 	result = []instance.Instance{}
-	lxdInstances, err := manager.server.GetContainers()
+	lxdInstances, err := manager.client.GetContainers()
 	if err != nil {
 		return
 	}
 
 	for _, i := range lxdInstances {
 		if strings.HasPrefix(i.Name, manager.namespace.Prefix()) {
-			result = append(result, &lxdInstance{i.Name, manager.server})
+			result = append(result, &lxdInstance{i.Name, manager.client.ContainerServer})
 		}
 	}
 
@@ -155,7 +153,7 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 
 // IsInitialized implements container.Manager.
 func (manager *containerManager) IsInitialized() bool {
-	return manager.server != nil
+	return manager.client.ContainerServer != nil
 }
 
 // startInstance starts previously created instance.
@@ -164,7 +162,7 @@ func (manager *containerManager) startInstance(name string) error {
 		Action:  "start",
 		Timeout: -1,
 	}
-	op, err := manager.server.UpdateContainerState(name, req, "")
+	op, err := manager.client.UpdateContainerState(name, req, "")
 	if err != nil {
 		return err
 	}
@@ -174,7 +172,7 @@ func (manager *containerManager) startInstance(name string) error {
 
 // stopInstance stops instance if it's not stopped.
 func (manager *containerManager) stopInstance(name string) error {
-	state, etag, err := manager.server.GetContainerState(name)
+	state, etag, err := manager.client.GetContainerState(name)
 	if err != nil {
 		return err
 	}
@@ -187,7 +185,7 @@ func (manager *containerManager) stopInstance(name string) error {
 		Action:  "stop",
 		Timeout: -1,
 	}
-	op, err := manager.server.UpdateContainerState(name, req, etag)
+	op, err := manager.client.UpdateContainerState(name, req, etag)
 	if err != nil {
 		return err
 	}
@@ -212,7 +210,7 @@ func (manager *containerManager) createInstance(
 		return "", errors.Trace(err)
 	}
 
-	found, err := manager.imageServer.FindImage(series, jujuarch.HostArch(), imageSources, true, callback)
+	found, err := manager.client.FindImage(series, jujuarch.HostArch(), imageSources, true, callback)
 	if err != nil {
 		return "", errors.Annotatef(err, "failed to ensure LXD image")
 	}
@@ -263,7 +261,7 @@ func (manager *containerManager) createInstance(
 	}
 
 	callback(status.Provisioning, "Creating container", nil)
-	op, err := manager.server.CreateContainerFromImage(found.LXDServer, *found.Image, spec)
+	op, err := manager.client.CreateContainerFromImage(found.LXDServer, *found.Image, spec)
 	if err != nil {
 		logger.Errorf("CreateContainer failed with %s", err)
 		return "", errors.Trace(err)
@@ -319,7 +317,7 @@ func (manager *containerManager) getImageSources() ([]RemoteServer, error) {
 }
 
 func (manager *containerManager) removeInstance(name string) error {
-	op, err := manager.server.DeleteContainer(name)
+	op, err := manager.client.DeleteContainer(name)
 	if err != nil {
 		return err
 	}
