@@ -120,7 +120,7 @@ install-dependencies:
 	@echo Installing dependencies
 	@sudo apt-get --yes install  \
 	$(strip $(DEPENDENCIES)) \
-	$(shell apt-cache madison juju-mongodb3.2 juju-mongodb mongodb-server | head -1 | cut -d '|' -f1)
+	$(shell apt-cache madison mongodb-server-core juju-mongodb3.2 juju-mongodb mongodb-server | head -1 | cut -d '|' -f1)
 
 # Install bash_completion
 install-etc:
