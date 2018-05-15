@@ -72,6 +72,39 @@ func (s *ActivateSuite) TestActivateSuccess(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
+func (s *ActivateSuite) TestActivateDeviceAndVLAN(c *gc.C) {
+	coretesting.SkipIfWindowsBug(c, "lp:1771077")
+	tempDir := c.MkDir()
+	params := netplan.ActivationParams{
+		Devices: []netplan.DeviceToBridge{
+			{
+				DeviceName: "eno1",
+				MACAddress: "00:11:22:33:44:99", // That's a wrong MAC, we should fall back to name
+				BridgeName: "br-eno1",
+			},
+			{
+				DeviceName: "eno1.123",
+				MACAddress: "00:11:22:33:44:99",
+				BridgeName: "br-eno1.123",
+			},
+		},
+		Directory: tempDir,
+		RunPrefix: "exit 0 &&",
+	}
+	files := []string{"00.yaml", "01.yaml"}
+	contents := make([][]byte, len(files))
+	for i, file := range files {
+		var err error
+		contents[i], err = ioutil.ReadFile(path.Join("testdata/TestReadWriteBackup", file))
+		c.Assert(err, jc.ErrorIsNil)
+		err = ioutil.WriteFile(path.Join(tempDir, file), contents[i], 0644)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	result, err := netplan.BridgeAndActivate(params)
+	c.Check(result, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
+}
+
 func (s *ActivateSuite) TestActivateFailure(c *gc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	tempDir := c.MkDir()
@@ -127,6 +160,7 @@ func (s *ActivateSuite) TestActivateFailure(c *gc.C) {
 }
 
 func (s *ActivateSuite) TestActivateTimeout(c *gc.C) {
+	//	coretesting.SkipIfWindowsBug(c, "lp:1771077")
 	tempDir := c.MkDir()
 	params := netplan.ActivationParams{
 		Devices: []netplan.DeviceToBridge{
@@ -156,6 +190,6 @@ func (s *ActivateSuite) TestActivateTimeout(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	result, err := netplan.BridgeAndActivate(params)
-	c.Assert(result, gc.NotNil)
+	c.Check(result, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "bridge activation error: command cancelled")
 }

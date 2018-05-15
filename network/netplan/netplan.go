@@ -489,26 +489,9 @@ const (
 	TypeBond     = DeviceType("bond")
 )
 
-// FindDeviceByMACOrName will look for an Ethernet, VLAN or Bond matching the MAC address or the Name of the device.
-// If MAC Address is supplied we check for matches there first, and then fall back to by name.
-func (np *Netplan) FindDeviceByMACOrName(mac, name string) (string, DeviceType, error) {
-	if mac != "" {
-		bond, err := np.FindBondByMAC(mac)
-		if err == nil {
-			return bond, TypeBond, nil
-		}
-		if !errors.IsNotFound(err) {
-			return "", "", errors.Trace(err)
-		}
-		vlan, err := np.FindVLANByMAC(mac)
-		if err == nil {
-			return vlan, TypeVLAN, nil
-		}
-		ethernet, err := np.FindEthernetByMAC(mac)
-		if err == nil {
-			return ethernet, TypeEthernet, nil
-		}
-	}
+// FindDeviceByMACOrName will look for an Ethernet, VLAN or Bond matching the Name of the device or its MAC address.
+// Name is preferred to MAC address.
+func (np *Netplan) FindDeviceByNameOrMAC(name, mac string) (string, DeviceType, error) {
 	if name != "" {
 		bond, err := np.FindBondByName(name)
 		if err == nil {
@@ -526,6 +509,24 @@ func (np *Netplan) FindDeviceByMACOrName(mac, name string) (string, DeviceType, 
 			return ethernet, TypeEthernet, nil
 		}
 
+	}
+	// by MAC is less reliable because things like vlans often have the same MAC address
+	if mac != "" {
+		bond, err := np.FindBondByMAC(mac)
+		if err == nil {
+			return bond, TypeBond, nil
+		}
+		if !errors.IsNotFound(err) {
+			return "", "", errors.Trace(err)
+		}
+		vlan, err := np.FindVLANByMAC(mac)
+		if err == nil {
+			return vlan, TypeVLAN, nil
+		}
+		ethernet, err := np.FindEthernetByMAC(mac)
+		if err == nil {
+			return ethernet, TypeEthernet, nil
+		}
 	}
 	return "", "", errors.NotFoundf("device - name %q MAC %q", name, mac)
 }

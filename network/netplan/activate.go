@@ -48,7 +48,7 @@ func BridgeAndActivate(params ActivationParams) (*ActivationResult, error) {
 
 	for _, device := range params.Devices {
 		var deviceId string
-		deviceId, deviceType, err := netplan.FindDeviceByMACOrName(device.MACAddress, device.DeviceName)
+		deviceId, deviceType, err := netplan.FindDeviceByNameOrMAC(device.DeviceName, device.MACAddress)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
