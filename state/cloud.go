@@ -218,41 +218,32 @@ func (st *State) RemoveCloud(name string) error {
 			}
 			return nil, errors.Trace(err)
 		}
-		ops := removeCloudOps(name)
+		ops, err := st.removeCloudOps(name)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		return ops, nil
 	}
-	if err := st.db().Run(buildTxn); err != nil {
-		return err
-	}
-
-	// Cloud has been removed, now bulk remove any credentials for that cloud.
-	// We could use removeInCollectionOps to generate a slice of ops to
-	// use in the previous Run() call but on large systems there could be
-	// many user credentials to remove and so a bulk op is better. There's
-	// a small risk of orphaned credentials if an error occurs but there'll
-	// be no adverse effects.
-	return st.removeCloudCredentials(name)
+	return st.db().Run(buildTxn)
 }
 
 // removeCloudOp returns a list of txn.Ops that will remove
-// the specified cloud.
-func removeCloudOps(name string) []txn.Op {
+// the specified cloud and any associated credentials.
+func (st *State) removeCloudOps(name string) ([]txn.Op, error) {
 	ops := []txn.Op{{
 		C:      cloudsC,
 		Id:     name,
 		Assert: bson.D{{"modelcount", 0}},
 		Remove: true,
 	}}
-	return ops
-}
+	credPattern := bson.M{
+		"_id": bson.M{"$regex": "^" + name + "#"},
+	}
 
-func (st *State) removeCloudCredentials(cloud string) error {
-	coll, closer := st.db().GetRawCollection(cloudCredentialsC)
-	defer closer()
-
-	bulk := coll.Bulk()
-	bulk.Unordered()
-	bulk.RemoveAll(bson.D{{"_id", bson.D{{"$regex", "^" + cloud + "#"}}}})
-	_, err := bulk.Run()
-	return errors.Annotate(err, "deleting cloud credentials")
+	credOps, err := st.removeInCollectionOps(cloudCredentialsC, credPattern)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, credOps...)
+	return ops, nil
 }

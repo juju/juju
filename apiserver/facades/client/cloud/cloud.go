@@ -393,6 +393,24 @@ func (api *CloudAPIV2) AddCloud(cloudArgs params.AddCloudArgs) error {
 	return nil
 }
 
+// RemoveClouds removes the specified clouds from the controller.
+// If a cloud is in use (has models deployed to it), the removal will fail.
+func (api *CloudAPIV2) RemoveClouds(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseCloudTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = api.backend.RemoveCloud(tag.Id())
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // CredentialContents returns the specified cloud credentials,
 // including the secrets if requested.
 // If no specific credential name/cloud was passed in, all credentials for this user
