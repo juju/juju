@@ -342,7 +342,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	// Patch out all expensive external deps.
 	raw := &rawProvider{
-		newClient:    s.Client,
+		newServer:    s.Client,
 		lxdCerts:     s.Client,
 		lxdInstances: s.Client,
 		lxdProfiles:  s.Client,

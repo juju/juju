@@ -92,11 +92,9 @@ func init() {
 	lxdlogger.Log = &lxdLogProxy{loggo.GetLogger("lxd")}
 }
 
-const LXDBridgeFile = "/etc/default/lxd-bridge"
-
 // Client is a high-level wrapper around the LXD API client.
 type Client struct {
-	*lxd.Client
+	*lxd.Server
 	*certClient
 	*profileClient
 	*instanceClient
@@ -145,12 +143,12 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 		}
 	}
 
-	newClient := lxd.NewClient(raw)
+	newServer := lxd.NewServer(raw)
 	if remoteID == remoteIDForLocal && verifyBridgeConfig {
 		// If this is the LXD provider on the localhost, let's do an extra check to
 		// make sure the default profile has a correctly configured bridge, and
 		// which one is it.
-		if err := newClient.VerifyDefaultBridge(defaultProfile, profileETag); err != nil {
+		if err := newServer.VerifyDefaultBridge(defaultProfile, profileETag); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -168,7 +166,7 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 	conn := &Client{
-		Client:         newClient,
+		Server:         newServer,
 		certClient:     &certClient{raw},
 		profileClient:  &profileClient{raw},
 		instanceClient: &instanceClient{raw, remoteID},

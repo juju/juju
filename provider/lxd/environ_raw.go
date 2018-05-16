@@ -14,15 +14,20 @@ import (
 	jujulxdclient "github.com/juju/juju/tools/lxdclient"
 )
 
-// TODO (manadart 2018-05-09) This is really nothing but an LXD client and does
+// TODO (manadart 2018-05-09) This is really nothing but an LXD server and does
 // not need its own type.
+//
+// Side-note on terms: what used to be called a client will be our new "server".
+// This is for congruence with the LXD package, which presents things like
+// "ContainerServer" and "ImageServer" for interaction with LXD.
+//
 // As the LXD facility is refactored, this will be removed altogether.
 // As an interim measure, the new and old client implementations will be have
 // interface shims.
 // After the old client is removed, provider tests can be rewritten using
-// GoMock, at which point rawProvider is replaced with the new client.
+// GoMock, at which point rawProvider is replaced with the new server.
 type rawProvider struct {
-	newClient
+	newServer
 	lxdCerts
 	lxdInstances
 	lxdProfiles
@@ -31,7 +36,7 @@ type rawProvider struct {
 	remote jujulxdclient.Remote
 }
 
-type newClient interface {
+type newServer interface {
 	FindImage(string, string, []lxd.RemoteServer, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
 	GetServer() (server *lxdapi.Server, ETag string, err error)
 	GetConnectionInfo() (info *lxdclient.ConnectionInfo, err error)
@@ -104,7 +109,7 @@ func newRawProviderFromConfig(config jujulxdclient.Config) (*rawProvider, error)
 		return nil, errors.Trace(err)
 	}
 	return &rawProvider{
-		newClient:    client,
+		newServer:    client,
 		lxdCerts:     client,
 		lxdInstances: client,
 		lxdProfiles:  client,

@@ -34,7 +34,7 @@ type SourcedImage struct {
 // Supplying true for copyLocal will copy the image to the local cache.
 // Copied images will have the juju/series/arch alias added to them.
 // The callback argument is used to report copy progress.
-func (c *Client) FindImage(
+func (s *Server) FindImage(
 	series, arch string,
 	sources []RemoteServer,
 	copyLocal bool,
@@ -43,16 +43,16 @@ func (c *Client) FindImage(
 	// First we check if we have the image locally.
 	localAlias := seriesLocalAlias(series, arch)
 	var target string
-	entry, _, err := c.GetImageAlias(localAlias)
+	entry, _, err := s.GetImageAlias(localAlias)
 	if entry != nil {
 		// We already have an image with the given alias, so just use that.
 		target = entry.Target
-		image, _, err := c.GetImage(target)
+		image, _, err := s.GetImage(target)
 		if err == nil {
 			logger.Debugf("Found image locally - %q %q", image.Filename, target)
 			return SourcedImage{
 				Image:     image,
-				LXDServer: c.ContainerServer,
+				LXDServer: s.ContainerServer,
 			}, nil
 		}
 	}
@@ -99,13 +99,13 @@ func (c *Client) FindImage(
 
 	// If requested, copy the image to the local cache, adding the local alias.
 	if copyLocal {
-		if err := c.CopyRemoteImage(sourced, []string{localAlias}, callback); err != nil {
+		if err := s.CopyRemoteImage(sourced, []string{localAlias}, callback); err != nil {
 			return sourced, errors.Trace(err)
 		}
 
 		// Now that we have the image cached locally, we indicate in the return
 		// that the source is local instead of the remote where we found it.
-		sourced.LXDServer = c.ContainerServer
+		sourced.LXDServer = s.ContainerServer
 	}
 
 	return sourced, nil
@@ -113,7 +113,7 @@ func (c *Client) FindImage(
 
 // CopyRemoteImage accepts an image sourced from a remote server and copies it
 // to the local cache
-func (c *Client) CopyRemoteImage(
+func (s *Server) CopyRemoteImage(
 	sourced SourcedImage, aliases []string, callback environs.StatusCallbackFunc,
 ) error {
 	logger.Debugf("Copying image from remote server")
@@ -124,7 +124,7 @@ func (c *Client) CopyRemoteImage(
 	}
 
 	req := &lxd.ImageCopyArgs{Aliases: newAliases}
-	op, err := c.CopyImage(sourced.LXDServer, *sourced.Image, req)
+	op, err := s.CopyImage(sourced.LXDServer, *sourced.Image, req)
 	if err != nil {
 		return errors.Trace(err)
 	}

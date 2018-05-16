@@ -40,7 +40,7 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDevicePresent(c *gc.C) {
 
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, "", nil)
 
-	err := lxd.NewClient(cSvr).VerifyDefaultBridge(defaultProfile(), "")
+	err := lxd.NewServer(cSvr).VerifyDefaultBridge(defaultProfile(), "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -53,7 +53,7 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDeviceNotBridged(c *gc.C
 
 	profile := defaultProfile()
 	profile.Devices["eth0"]["nictype"] = "something else"
-	err := lxd.NewClient(cSvr).VerifyDefaultBridge(profile, "")
+	err := lxd.NewServer(cSvr).VerifyDefaultBridge(profile, "")
 	c.Assert(err, gc.ErrorMatches, ".*eth0 is not configured as part of a bridge.*")
 }
 
@@ -73,7 +73,7 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportIPv6Present(c *gc.C) {
 	}
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(net, "", nil)
 
-	err := lxd.NewClient(cSvr).VerifyDefaultBridge(defaultProfile(), "")
+	err := lxd.NewServer(cSvr).VerifyDefaultBridge(defaultProfile(), "")
 	c.Assert(err, gc.ErrorMatches, "^juju does not support IPv6((.|\n|\t)*)")
 }
 
@@ -109,7 +109,7 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportNoBridge(c *gc.C) {
 
 	profile := defaultProfile()
 	delete(profile.Devices, "eth0")
-	err := lxd.NewClient(cSvr).VerifyDefaultBridge(profile, lxdtesting.ETag)
+	err := lxd.NewServer(cSvr).VerifyDefaultBridge(profile, lxdtesting.ETag)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

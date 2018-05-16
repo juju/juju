@@ -9,8 +9,8 @@ import (
 	"github.com/lxc/lxd/shared"
 )
 
-// Client extends the upstream LXD container server.
-type Client struct {
+// Server extends the upstream LXD container server.
+type Server struct {
 	lxd.ContainerServer
 
 	networkAPISupport bool
@@ -19,12 +19,12 @@ type Client struct {
 	localBridgeName string
 }
 
-// NewClient builds and returns a Client for high-level interaction with the
+// NewServer builds and returns a Server for high-level interaction with the
 // input LXD container server.
-func NewClient(svr lxd.ContainerServer) *Client {
+func NewServer(svr lxd.ContainerServer) *Server {
 	info, _, _ := svr.GetServer()
 	apiExt := info.APIExtensions
-	return &Client{
+	return &Server{
 		ContainerServer:   svr,
 		networkAPISupport: shared.StringInSlice("network", apiExt),
 		clusterAPISupport: shared.StringInSlice("clustering", apiExt),
@@ -32,8 +32,8 @@ func NewClient(svr lxd.ContainerServer) *Client {
 }
 
 // UpdateServerConfig updates the server configuration with the input values.
-func (c *Client) UpdateServerConfig(cfg map[string]string) error {
-	svr, eTag, err := c.GetServer()
+func (s *Server) UpdateServerConfig(cfg map[string]string) error {
+	svr, eTag, err := s.GetServer()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -43,13 +43,13 @@ func (c *Client) UpdateServerConfig(cfg map[string]string) error {
 	for k, v := range cfg {
 		svr.Config[k] = v
 	}
-	return errors.Trace(c.UpdateServer(svr.Writable(), eTag))
+	return errors.Trace(s.UpdateServer(svr.Writable(), eTag))
 }
 
 // UpdateContainerConfig updates the configuration for the container with the
 // input name, using the input values.
-func (c *Client) UpdateContainerConfig(name string, cfg map[string]string) error {
-	container, eTag, err := c.GetContainer(name)
+func (s *Server) UpdateContainerConfig(name string, cfg map[string]string) error {
+	container, eTag, err := s.GetContainer(name)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -60,7 +60,7 @@ func (c *Client) UpdateContainerConfig(name string, cfg map[string]string) error
 		container.Config[k] = v
 	}
 
-	resp, err := c.UpdateContainer(name, container.Writable(), eTag)
+	resp, err := s.UpdateContainer(name, container.Writable(), eTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
