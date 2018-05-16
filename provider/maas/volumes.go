@@ -9,9 +9,9 @@ import (
 	"unicode"
 
 	"github.com/dustin/go-humanize"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"

@@ -4,7 +4,7 @@
 package filesystemwatcher
 
 import (
-	"github.com/juju/collections"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"

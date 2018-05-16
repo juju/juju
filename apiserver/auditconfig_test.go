@@ -6,9 +6,9 @@ package apiserver_test
 import (
 	"net"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"

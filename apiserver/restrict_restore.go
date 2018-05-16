@@ -4,8 +4,8 @@
 package apiserver
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 )
 
 var aboutToRestoreError = errors.New("juju restore is in progress - functionality is limited to avoid data loss")

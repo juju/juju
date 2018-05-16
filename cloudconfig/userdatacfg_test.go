@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	pacconf "github.com/juju/utils/packaging/config"
-	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"

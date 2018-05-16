@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 	goyaml "gopkg.in/yaml.v2"
