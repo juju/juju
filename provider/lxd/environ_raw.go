@@ -28,7 +28,6 @@ import (
 // GoMock, at which point rawProvider is replaced with the new server.
 type rawProvider struct {
 	newServer
-	lxdCerts
 	lxdInstances
 	lxdProfiles
 	lxdStorage
@@ -42,12 +41,9 @@ type newServer interface {
 	GetConnectionInfo() (info *lxdclient.ConnectionInfo, err error)
 	UpdateServerConfig(map[string]string) error
 	UpdateContainerConfig(string, map[string]string) error
-}
-
-type lxdCerts interface {
-	AddCert(jujulxdclient.Cert) error
-	CertByFingerprint(string) (lxdapi.Certificate, error)
-	RemoveCertByFingerprint(string) error
+	GetCertificate(fingerprint string) (certificate *lxdapi.Certificate, ETag string, err error)
+	DeleteCertificate(fingerprint string) (err error)
+	CreateClientCertificate(certificate *lxd.Certificate) error
 }
 
 type lxdInstances interface {
@@ -110,7 +106,6 @@ func newRawProviderFromConfig(config jujulxdclient.Config) (*rawProvider, error)
 	}
 	return &rawProvider{
 		newServer:    client,
-		lxdCerts:     client,
 		lxdInstances: client,
 		lxdProfiles:  client,
 		lxdStorage:   client,
@@ -135,7 +130,7 @@ func getRemoteConfig(spec environs.CloudSpec) (*jujulxdclient.Config, error) {
 	}, nil
 }
 
-func getCerts(spec environs.CloudSpec) (client *jujulxdclient.Cert, server string, ok bool) {
+func getCerts(spec environs.CloudSpec) (client *lxd.Certificate, server string, ok bool) {
 	if spec.Credential == nil {
 		return nil, "", false
 	}
@@ -152,7 +147,7 @@ func getCerts(spec environs.CloudSpec) (client *jujulxdclient.Cert, server strin
 	if !ok {
 		return nil, "", false
 	}
-	clientCert := &jujulxdclient.Cert{
+	clientCert := &lxd.Certificate{
 		Name:    "juju",
 		CertPEM: []byte(clientCertPEM),
 		KeyPEM:  []byte(clientKeyPEM),

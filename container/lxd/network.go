@@ -1,3 +1,6 @@
+// Copyright 2018 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package lxd
 
 import (
@@ -64,7 +67,7 @@ func (s *Server) VerifyDefaultBridge(profile *api.Profile, eTag string) error {
 func (s *Server) ensureDefaultBridge(profile *api.Profile, eTag string) error {
 	net, _, err := s.GetNetwork(network.DefaultLXDBridge)
 	if err != nil {
-		if !isLXDNotFound(err) {
+		if !IsLXDNotFound(err) {
 			return errors.Trace(err)
 		}
 		req := api.NetworksPost{

@@ -16,9 +16,9 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 const (
@@ -258,7 +258,7 @@ func (p environProviderCredentials) finalizeLocalCertificateCredential(
 ) (*cloud.Credential, error) {
 
 	// Upload the certificate to the server if necessary.
-	clientCert := lxdclient.Cert{
+	clientCert := &lxd.Certificate{
 		Name:    "juju",
 		CertPEM: []byte(certPEM),
 		KeyPEM:  []byte(keyPEM),
@@ -267,15 +267,15 @@ func (p environProviderCredentials) finalizeLocalCertificateCredential(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if _, err := raw.CertByFingerprint(fingerprint); errors.IsNotFound(err) {
-		if addCertErr := raw.AddCert(clientCert); addCertErr != nil {
+	if _, _, err := raw.GetCertificate(fingerprint); lxd.IsLXDNotFound(err) {
+		if addCertErr := raw.CreateClientCertificate(clientCert); addCertErr != nil {
 			// There is no specific error code returned when
 			// attempting to add a certificate that already
 			// exists in the database. We can just check
 			// again to see if another process added the
 			// certificate concurrently with us checking the
 			// first time.
-			if _, err := raw.CertByFingerprint(fingerprint); errors.IsNotFound(err) {
+			if _, _, err := raw.GetCertificate(fingerprint); lxd.IsLXDNotFound(err) {
 				// The cert still isn't there, so report the AddCert error.
 				return nil, errors.Annotatef(
 					addCertErr, "adding certificate %q", clientCert.Name,

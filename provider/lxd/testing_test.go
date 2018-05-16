@@ -343,12 +343,11 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	// Patch out all expensive external deps.
 	raw := &rawProvider{
 		newServer:    s.Client,
-		lxdCerts:     s.Client,
 		lxdInstances: s.Client,
 		lxdProfiles:  s.Client,
 		lxdStorage:   s.Client,
 		remote: jujulxdclient.Remote{
-			Cert: &jujulxdclient.Cert{
+			Cert: &lxd.Certificate{
 				Name:    "juju",
 				CertPEM: []byte(testing.CACert),
 				KeyPEM:  []byte(testing.CAKey),
@@ -380,8 +379,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Env.base = s.Common
 }
 
-func (s *BaseSuite) TestingCert(c *gc.C) (jujulxdclient.Cert, string) {
-	cert := jujulxdclient.Cert{
+func (s *BaseSuite) TestingCert(c *gc.C) (lxd.Certificate, string) {
+	cert := lxd.Certificate{
 		Name:    "juju",
 		CertPEM: []byte(testing.CACert),
 		KeyPEM:  []byte(testing.CAKey),
@@ -518,26 +517,26 @@ func (conn *StubClient) Addresses(name string) ([]network.Address, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return []network.Address{network.Address{
+	return []network.Address{{
 		Value: "10.0.0.1",
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
 	}}, nil
 }
 
-func (conn *StubClient) AddCert(cert jujulxdclient.Cert) error {
-	conn.AddCall("AddCert", cert)
+func (conn *StubClient) CreateClientCertificate(cert *lxd.Certificate) error {
+	conn.AddCall("CreateClientCertificate", cert)
 	return conn.NextErr()
 }
 
-func (conn *StubClient) RemoveCertByFingerprint(fingerprint string) error {
+func (conn *StubClient) DeleteCertificate(fingerprint string) error {
 	conn.AddCall("RemoveCertByFingerprint", fingerprint)
 	return conn.NextErr()
 }
 
-func (conn *StubClient) CertByFingerprint(fingerprint string) (api.Certificate, error) {
-	conn.AddCall("CertByFingerprint", fingerprint)
-	return api.Certificate{}, conn.NextErr()
+func (conn *StubClient) GetCertificate(fingerprint string) (*api.Certificate, string, error) {
+	conn.AddCall("GetCertificate", fingerprint)
+	return &api.Certificate{}, "", conn.NextErr()
 }
 
 func (conn *StubClient) GetServer() (*api.Server, string, error) {

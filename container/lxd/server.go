@@ -67,6 +67,16 @@ func (s *Server) UpdateContainerConfig(name string, cfg map[string]string) error
 	return errors.Trace(resp.Wait())
 }
 
-func isLXDNotFound(err error) bool {
-	return err.Error() == "not found"
+// CreateClientCertificate adds the input certificate to the server,
+// indicating that is for use in client communication.
+func (s *Server) CreateClientCertificate(cert *Certificate) error {
+	req, err := cert.AsCreateRequest()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(s.CreateCertificate(req))
+}
+
+func IsLXDNotFound(err error) bool {
+	return err != nil && err.Error() == "not found"
 }

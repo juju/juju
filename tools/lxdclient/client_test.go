@@ -17,6 +17,7 @@ import (
 	lxdclient "github.com/lxc/lxd/client"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/utils/proxy"
 )
 
@@ -100,7 +101,7 @@ func (cs *ConnectSuite) TestRemoteConnectError(c *gc.C) {
 		Remote: Remote{
 			Name: "foo",
 			Host: "a.b.c",
-			Cert: &Cert{
+			Cert: &lxd.Certificate{
 				Name:    "really-valid",
 				CertPEM: []byte("kinda-public"),
 				KeyPEM:  []byte("super-secret"),

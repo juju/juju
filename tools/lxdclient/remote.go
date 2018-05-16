@@ -6,6 +6,8 @@ package lxdclient
 import (
 	"github.com/juju/errors"
 	lxdshared "github.com/lxc/lxd/shared"
+
+	"github.com/juju/juju/container/lxd"
 )
 
 const (
@@ -57,7 +59,7 @@ type Remote struct {
 	Protocol Protocol
 
 	// Cert holds the TLS certificate data for the client to use.
-	Cert *Cert
+	Cert *lxd.Certificate
 
 	// ServerPEMCert is the certificate to be supplied as the acceptable
 	// server certificate when connecting to the remote.
@@ -94,19 +96,13 @@ func (r Remote) WithDefaults() (Remote, error) {
 	}
 
 	if r.Cert == nil {
-		certPEM, keyPEM, err := generateCertificate()
+		cert, err := lxd.GenerateClientCertificate()
 		if err != nil {
 			return r, errors.Trace(err)
 		}
-		cert := NewCert(certPEM, keyPEM)
-		r.Cert = &cert
+		cert.Name = "juju-client-certificate"
+		r.Cert = cert
 	}
-
-	cert, err := r.Cert.WithDefaults()
-	if err != nil {
-		return r, errors.Trace(err)
-	}
-	r.Cert = &cert
 
 	return r, nil
 }

@@ -56,7 +56,7 @@ func (s *credentialsSuite) TestDetectCredentialsUsesLXCCert(c *gc.C) {
 			"localhost": credential,
 		},
 	})
-	s.Stub.CheckCallNames(c, "CertByFingerprint", "ServerStatus")
+	s.Stub.CheckCallNames(c, "GetCertificate", "ServerStatus")
 }
 
 func (s *credentialsSuite) TestDetectCredentialsUsesJujuLXDCert(c *gc.C) {
@@ -87,7 +87,7 @@ func (s *credentialsSuite) TestDetectCredentialsUsesJujuLXDCert(c *gc.C) {
 			"localhost": credential,
 		},
 	})
-	s.Stub.CheckCallNames(c, "CertByFingerprint", "ServerStatus")
+	s.Stub.CheckCallNames(c, "GetCertificate", "ServerStatus")
 }
 
 func (S *credentialsSuite) writeFile(c *gc.C, path, content string) {
@@ -115,7 +115,7 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCert(c *gc.C) {
 			"localhost": credential,
 		},
 	})
-	s.Stub.CheckCallNames(c, "GenerateMemCert", "CertByFingerprint", "ServerStatus")
+	s.Stub.CheckCallNames(c, "GenerateMemCert", "GetCertificate", "ServerStatus")
 
 	// The cert/key pair should have been cached in the juju/lxd dir.
 	xdg := osenv.JujuXDGDataHomeDir()
@@ -147,13 +147,13 @@ func (s *credentialsSuite) TestFinalizeCredentialLocal(c *gc.C) {
 	s.Stub.CheckCallNames(c,
 		"LookupHost",
 		"InterfaceAddrs",
-		"CertByFingerprint",
+		"GetCertificate",
 		"ServerStatus",
 	)
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialLocalAddCert(c *gc.C) {
-	s.Stub.SetErrors(errors.NotFoundf("certificate"))
+	s.Stub.SetErrors(errors.New("not found"))
 	cert, _ := s.TestingCert(c)
 	out, err := s.Provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "", // skips host lookup
@@ -171,18 +171,18 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCert(c *gc.C) {
 		"server-cert": "server-cert",
 	})
 	s.Stub.CheckCallNames(c,
-		"CertByFingerprint",
-		"AddCert",
+		"GetCertificate",
+		"CreateClientCertificate",
 		"ServerStatus",
 	)
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertAlreadyThere(c *gc.C) {
-	// If we get back an error from AddCert, we'll make another call
-	// to CertByFingerprint. If that call succeeds, then we assume
-	// that the AddCert failure was due to a concurrent AddCert.
+	// If we get back an error from CreateClientCertificate, we'll make another
+	// call to GetCertificate. If that call succeeds, then we assume
+	// that the CreateClientCertificate failure was due to a concurrent call.
 	s.Stub.SetErrors(
-		errors.NotFoundf("certificate"),
+		errors.New("not found"),
 		errors.New("UNIQUE constraint failed: certificates.fingerprint"),
 	)
 	cert, _ := s.TestingCert(c)
@@ -202,21 +202,21 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertAlreadyThere(c *gc.
 		"server-cert": "server-cert",
 	})
 	s.Stub.CheckCallNames(c,
-		"CertByFingerprint",
-		"AddCert",
-		"CertByFingerprint",
+		"GetCertificate",
+		"CreateClientCertificate",
+		"GetCertificate",
 		"ServerStatus",
 	)
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertFatal(c *gc.C) {
-	// If we get back an error from AddCert, we'll make another call
-	// to CertByFingerprint. If that call fails with "not found", then
-	// we assume that the AddCert failure is fatal.
+	// If we get back an error from CreateClientCertificate, we'll make another
+	// call to GetCertificate. If that call fails with "not found", then
+	// we assume that the CreateClientCertificate failure is fatal.
 	s.Stub.SetErrors(
-		errors.NotFoundf("certificate"),
+		errors.New("not found"),
 		errors.New("some fatal error"),
-		errors.NotFoundf("certificate"),
+		errors.New("not found"),
 	)
 	cert, _ := s.TestingCert(c)
 	_, err := s.Provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
@@ -275,7 +275,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalInteractive(c *gc.C) {
 	s.Stub.CheckCallNames(c,
 		"LookupHost",
 		"InterfaceAddrs",
-		"CertByFingerprint",
+		"GetCertificate",
 		"ServerStatus",
 	)
 }

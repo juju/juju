@@ -95,7 +95,6 @@ func init() {
 // Client is a high-level wrapper around the LXD API client.
 type Client struct {
 	*lxd.Server
-	*certClient
 	*profileClient
 	*instanceClient
 	*storageClient
@@ -167,7 +166,6 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 	}
 	conn := &Client{
 		Server:         newServer,
-		certClient:     &certClient{raw},
 		profileClient:  &profileClient{raw},
 		instanceClient: &instanceClient{raw, remoteID},
 		storageClient:  &storageClient{raw, storageAPISupported},
@@ -384,6 +382,6 @@ func verifyStorageConfiguration(client lxdclient.ContainerServer, defaultProfile
 	return errors.Trace(client.UpdateProfile("default", defaultProfile.Writable(), ""))
 }
 
-func isLXDNotFound(err error) bool {
+func IsLXDNotFound(err error) bool {
 	return err.Error() == "not found"
 }
