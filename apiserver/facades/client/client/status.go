@@ -285,13 +285,24 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 
 		// Filter applications
 		for appName, app := range context.applications {
-			if matchedSvcs.Contains(appName) {
-				// There are matched units for this application.
-				continue
-			} else if matches, err := predicate(app); err != nil {
+			matches, err := predicate(app)
+			if err != nil {
 				return noStatus, errors.Annotate(err, "could not filter applications")
-			} else if !matches {
+			}
+
+			// There are matched units for this application
+			// or the application matched the given criteria.
+			deleted := false
+			if !matchedSvcs.Contains(appName) && !matches {
 				delete(context.applications, appName)
+				deleted = true
+			}
+
+			// Filter relations:
+			// Remove relations for applications that were deleted and
+			// for the applications that did not match the
+			// given criteria.
+			if deleted || !matches {
 				// delete relations for this app
 				if relations, ok := context.relations[appName]; ok {
 					for _, r := range relations {
