@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -86,7 +85,7 @@ type ContextStorage struct {
 func (c *ContextStorage) StorageTags() ([]names.StorageTag, error) {
 	c.stub.AddCall("StorageTags")
 
-	tags := set.NewTags()
+	tags := names.NewSet()
 	for tag := range c.info.Storage {
 		tags.Add(tag)
 	}

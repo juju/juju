@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/ansiterm/tabwriter"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/status"

@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/proxy"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/proxy"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v3"

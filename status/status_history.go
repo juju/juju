@@ -6,8 +6,8 @@ package status
 import (
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 )
 
 // StatusHistoryFilter holds arguments that can be use to filter a status history backlog.

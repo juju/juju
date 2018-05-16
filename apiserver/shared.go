@@ -6,10 +6,10 @@ package apiserver
 import (
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/controller"

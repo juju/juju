@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"

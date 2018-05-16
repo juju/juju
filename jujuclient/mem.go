@@ -6,9 +6,9 @@ package jujuclient
 import (
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/persistent-cookiejar"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/cloud"
 )

@@ -11,8 +11,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/state/backups"
 )

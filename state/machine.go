@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"github.com/kr/pretty"
 	"gopkg.in/juju/names.v2"
@@ -856,7 +856,7 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	attachments := make(set.Tags)
+	attachments := names.NewSet()
 	for _, v := range m.doc.Volumes {
 		tag := names.NewVolumeTag(v)
 		detachable, err := isDetachableVolumeTag(im.mb.db(), tag)

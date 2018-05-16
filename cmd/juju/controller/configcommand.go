@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/set"
 
 	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/juju/common"

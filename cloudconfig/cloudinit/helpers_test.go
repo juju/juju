@@ -4,7 +4,7 @@
 package cloudinit
 
 import (
-	"github.com/juju/utils/proxy"
+	"github.com/juju/proxy"
 	gc "gopkg.in/check.v1"
 )
 

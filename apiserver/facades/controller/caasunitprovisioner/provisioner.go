@@ -6,9 +6,9 @@ package caasunitprovisioner
 import (
 	"sort"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -311,11 +311,11 @@ func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.Appl
 	}
 	var (
 		// aliveStateIds holds the provider ids of alive units in state.
-		aliveStateIds = make(set.Strings)
+		aliveStateIds = set.NewStrings()
 
 		// extraStateIds holds the provider ids of units in state which
 		// no longer exist in the cloud.
-		extraStateIds = make(set.Strings)
+		extraStateIds = set.NewStrings()
 	)
 
 	// Loop over any existing state units and record those which do not yet have

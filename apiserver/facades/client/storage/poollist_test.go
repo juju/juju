@@ -6,8 +6,8 @@ package storage_test
 import (
 	"fmt"
 
+	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	apiserverstorage "github.com/juju/juju/apiserver/facades/client/storage"

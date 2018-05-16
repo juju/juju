@@ -6,8 +6,8 @@ package caasunitprovisioner
 import (
 	"reflect"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -102,7 +102,7 @@ func (aw *applicationWorker) loop() error {
 	}
 	aw.catacomb.Add(deploymentWorker)
 	unitWorkers := make(map[string]worker.Worker)
-	aliveUnits := make(set.Strings)
+	aliveUnits := set.NewStrings()
 	var (
 		aliveUnitsChan     chan []string
 		brokerUnitsWatcher watcher.NotifyWatcher

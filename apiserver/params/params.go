@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/proxy"
 	"github.com/juju/replicaset"
-	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	"gopkg.in/macaroon.v2-unstable"

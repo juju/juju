@@ -14,9 +14,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/featureflag"
 	utilsos "github.com/juju/utils/os"
-	proxyutils "github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
