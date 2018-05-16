@@ -226,10 +226,10 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "could not fetch controller timestamp")
 	}
 
-	logger.Debugf("Applications: %v", context.applications)
-	logger.Debugf("Remote applications: %v", context.consumerRemoteApplications)
-	logger.Debugf("Offers: %v", context.offers)
-	logger.Debugf("Relations: %v", context.relations)
+	logger.Tracef("Applications: %v", context.applications)
+	logger.Tracef("Remote applications: %v", context.consumerRemoteApplications)
+	logger.Tracef("Offers: %v", context.offers)
+	logger.Tracef("Relations: %v", context.relations)
 
 	if len(args.Patterns) > 0 {
 		predicate := BuildPredicateFor(args.Patterns)
@@ -801,7 +801,7 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine) (status params
 				IsUp:           llDev.IsUp(),
 			}
 		}
-		logger.Debugf("NetworkInterfaces: %+v", status.NetworkInterfaces)
+		logger.Tracef("NetworkInterfaces: %+v", status.NetworkInterfaces)
 	} else {
 		if errors.IsNotProvisioned(err) {
 			status.InstanceId = "pending"
