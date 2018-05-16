@@ -22,8 +22,8 @@ type imageSuite struct {
 	lxdtesting.BaseSuite
 }
 
-func (t *imageSuite) patch(remotes map[string]lxdclient.ImageServer) {
-	lxd.PatchConnectRemote(t, remotes)
+func (s *imageSuite) patch(remotes map[string]lxdclient.ImageServer) {
+	lxd.PatchConnectRemote(s, remotes)
 }
 
 func (s *imageSuite) TestCopyImageUsesPassedCallback(c *gc.C) {
@@ -160,14 +160,22 @@ func (s *imageSuite) TestFindImageRemoteServersNotFound(c *gc.C) {
 
 	alias := lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-remote-target"}}
 	gomock.InOrder(
-		iSvr.EXPECT().GetImageAlias("juju/centos7/"+s.Arch()).Return(nil, lxdtesting.ETag, nil),
-		rSvr.EXPECT().GetImageAlias("centos/7/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
+		iSvr.EXPECT().GetImageAlias("juju/bionic/"+s.Arch()).Return(nil, lxdtesting.ETag, nil),
+		rSvr.EXPECT().GetImageAlias("bionic/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
 		rSvr.EXPECT().GetImage("foo-remote-target").Return(
 			nil, lxdtesting.ETag, errors.New("failed to retrieve image")),
 	)
 
 	jSvr := lxd.NewClient(iSvr)
 	remotes := []lxd.RemoteServer{{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol}}
-	_, err := jSvr.FindImage("centos7", s.Arch(), remotes, false, nil)
+	_, err := jSvr.FindImage("bionic", s.Arch(), remotes, false, nil)
 	c.Assert(err, gc.ErrorMatches, ".*failed to retrieve image.*")
+}
+
+func (s *imageSuite) TestSeriesRemoteAliasesNotSupported(c *gc.C) {
+	_, err := lxd.SeriesRemoteAliases("centos7", "arm64")
+	c.Assert(err, gc.ErrorMatches, `series "centos7" not supported`)
+
+	_, err = lxd.SeriesRemoteAliases("opensuseleap", "s390x")
+	c.Assert(err, gc.ErrorMatches, `series "opensuseleap" not supported`)
 }
