@@ -2,7 +2,7 @@ network:
   version: 2
   renderer: NetworkManager
   ethernets:
-    id0:
+    eno1:
       match:
         macaddress: "00:11:22:33:44:55"
       addresses:
@@ -25,3 +25,8 @@ network:
       nameservers:
         search: [baz.local]
         addresses: [8.8.4.4]
+  vlans:
+    eno1.123:
+      id: 123
+      link: eno1
+      macaddress: "00:11:22:33:44:55"

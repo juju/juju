@@ -4971,6 +4971,7 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 		Offers:             map[string]offerStatus{},
 	})
 }
+
 func (s *StatusSuite) TestTabularNoRelations(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
