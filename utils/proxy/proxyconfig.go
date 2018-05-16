@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	proxyutils "github.com/juju/utils/proxy"
+	proxyutils "github.com/juju/proxy"
 )
 
 // ProxyConfig stores the proxy settings that should be used for web

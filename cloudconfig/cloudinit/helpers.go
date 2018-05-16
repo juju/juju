@@ -7,8 +7,8 @@ package cloudinit
 import (
 	"strings"
 
+	"github.com/juju/proxy"
 	"github.com/juju/utils/packaging/config"
-	"github.com/juju/utils/proxy"
 )
 
 // addPackageCommandsCommon is a helper function which applies the given

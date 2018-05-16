@@ -5,8 +5,8 @@
 package cloudinit
 
 import (
+	"github.com/juju/proxy"
 	"github.com/juju/utils/packaging"
-	"github.com/juju/utils/proxy"
 )
 
 // windowsCloudConfig is the cloudconfig type specific to Windows machines.

@@ -10,10 +10,10 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	proxyutils "github.com/juju/proxy"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	jujuos "github.com/juju/utils/os"
-	proxyutils "github.com/juju/utils/proxy"
 	"github.com/lxc/lxd"
 	gc "gopkg.in/check.v1"
 
