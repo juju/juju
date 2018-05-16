@@ -13,11 +13,11 @@ import (
 	"os/exec"
 	"runtime"
 
+	"github.com/juju/packaging/commands"
+	"github.com/juju/packaging/manager"
+	"github.com/juju/proxy"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/packaging/commands"
-	"github.com/juju/utils/packaging/manager"
-	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 

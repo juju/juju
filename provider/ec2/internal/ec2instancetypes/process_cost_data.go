@@ -20,9 +20,9 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 )
 
 const (

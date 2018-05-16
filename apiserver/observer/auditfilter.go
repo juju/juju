@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"

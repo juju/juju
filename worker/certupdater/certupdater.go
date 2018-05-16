@@ -6,10 +6,10 @@ package certupdater
 import (
 	"reflect"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/cert"
-	"github.com/juju/utils/set"
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"

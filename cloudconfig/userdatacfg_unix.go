@@ -17,9 +17,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/proxy"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
-	"github.com/juju/utils/proxy"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 

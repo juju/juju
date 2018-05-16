@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/EvilSuperstars/go-cidrman"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"

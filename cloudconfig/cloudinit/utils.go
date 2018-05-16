@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/juju/packaging"
+	"github.com/juju/packaging/config"
 	"github.com/juju/utils"
-	"github.com/juju/utils/packaging"
-	"github.com/juju/utils/packaging/config"
 )
 
 // addPackageSourceCmds is a helper function that returns the corresponding

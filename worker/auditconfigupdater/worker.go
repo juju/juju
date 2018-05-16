@@ -4,8 +4,8 @@
 package auditconfigupdater
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/controller"

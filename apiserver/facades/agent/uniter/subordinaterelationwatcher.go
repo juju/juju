@@ -4,8 +4,8 @@
 package uniter
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/state"

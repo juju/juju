@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/juju/packaging"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/packaging"
 	sshtesting "github.com/juju/utils/ssh/testing"
 	gc "gopkg.in/check.v1"
 

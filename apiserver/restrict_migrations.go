@@ -4,7 +4,7 @@
 package apiserver
 
 import (
-	"github.com/juju/utils/set"
+	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/apiserver/params"
 )

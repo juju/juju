@@ -8,8 +8,8 @@ import (
 	"math/rand"
 	"sort"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/network"

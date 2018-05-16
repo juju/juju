@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/network"

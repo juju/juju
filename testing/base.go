@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/utils/featureflag"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/osenv"

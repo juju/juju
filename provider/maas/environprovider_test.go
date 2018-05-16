@@ -12,10 +12,10 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
