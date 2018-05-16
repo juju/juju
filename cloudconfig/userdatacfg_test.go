@@ -17,8 +17,8 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
+	pacconf "github.com/juju/packaging/config"
 	jc "github.com/juju/testing/checkers"
-	pacconf "github.com/juju/utils/packaging/config"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"

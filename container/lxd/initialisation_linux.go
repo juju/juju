@@ -19,9 +19,9 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/packaging/config"
+	"github.com/juju/packaging/manager"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/packaging/config"
-	"github.com/juju/utils/packaging/manager"
 	"github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/container"

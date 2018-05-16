@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/packaging"
+	"github.com/juju/packaging/config"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/packaging"
-	"github.com/juju/utils/packaging/config"
 	"gopkg.in/yaml.v2"
 )
 

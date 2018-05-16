@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/packaging/commands"
+	"github.com/juju/packaging/config"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/os"
-	"github.com/juju/utils/packaging/commands"
-	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/series"
 	worker "gopkg.in/juju/worker.v1"
 
