@@ -6,7 +6,6 @@ package cloudinit_test
 
 import (
 	"fmt"
-	"testing"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/packaging"
@@ -24,10 +23,6 @@ type S struct {
 }
 
 var _ = gc.Suite(S{})
-
-func Test1(t *testing.T) {
-	gc.TestingT(t)
-}
 
 var ctests = []struct {
 	name      string
