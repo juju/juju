@@ -350,7 +350,7 @@ func assertMachineStorageRefs(c *gc.C, im *state.IAASModel, m names.MachineTag) 
 	err := machines.FindId(state.DocID(mb, m.Id())).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 
-	have := make(set.Tags)
+	have := names.NewSet()
 	for _, v := range doc.Volumes {
 		have.Add(names.NewVolumeTag(v))
 	}
@@ -358,7 +358,7 @@ func assertMachineStorageRefs(c *gc.C, im *state.IAASModel, m names.MachineTag) 
 		have.Add(names.NewFilesystemTag(f))
 	}
 
-	expect := make(set.Tags)
+	expect := names.NewSet()
 	volumeAttachments, err := im.MachineVolumeAttachments(m)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range volumeAttachments {

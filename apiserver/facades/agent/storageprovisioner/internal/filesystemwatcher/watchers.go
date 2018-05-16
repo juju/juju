@@ -4,8 +4,8 @@
 package filesystemwatcher
 
 import (
+	"github.com/juju/collections"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
@@ -47,11 +47,11 @@ func (fw Watchers) WatchMachineManagedFilesystems(m names.MachineTag) state.Stri
 		stringsWatcherBase:     stringsWatcherBase{out: make(chan []string)},
 		backend:                fw.Backend,
 		machine:                m,
-		changes:                make(set.Strings),
+		changes:                set.NewStrings(),
 		machineFilesystems:     fw.Backend.WatchMachineFilesystems(m),
 		modelFilesystems:       fw.Backend.WatchModelFilesystems(),
 		modelVolumeAttachments: fw.Backend.WatchModelVolumeAttachments(),
-		modelVolumesAttached:   make(set.Tags),
+		modelVolumesAttached:   names.NewSet(),
 		modelVolumeFilesystems: make(map[names.VolumeTag]names.FilesystemTag),
 	}
 	go func() {
@@ -79,7 +79,7 @@ type machineFilesystemsWatcher struct {
 	machineFilesystems     state.StringsWatcher
 	modelFilesystems       state.StringsWatcher
 	modelVolumeAttachments state.StringsWatcher
-	modelVolumesAttached   set.Tags
+	modelVolumesAttached   names.Set
 	modelVolumeFilesystems map[names.VolumeTag]names.FilesystemTag
 }
 
@@ -131,7 +131,7 @@ func (w *machineFilesystemsWatcher) loop() error {
 				}
 			}
 		case out <- w.changes.SortedValues():
-			w.changes = make(set.Strings)
+			w.changes = set.NewStrings()
 			out = nil
 		}
 		// NOTE(axw) we don't send any changes until we have received
@@ -225,11 +225,11 @@ func (fw Watchers) WatchMachineManagedFilesystemAttachments(m names.MachineTag) 
 		stringsWatcherBase: stringsWatcherBase{out: make(chan []string)},
 		backend:            fw.Backend,
 		machine:            m,
-		changes:            make(set.Strings),
+		changes:            set.NewStrings(),
 		machineFilesystemAttachments:     fw.Backend.WatchMachineFilesystemAttachments(m),
 		modelFilesystemAttachments:       fw.Backend.WatchModelFilesystemAttachments(),
 		modelVolumeAttachments:           fw.Backend.WatchModelVolumeAttachments(),
-		modelVolumesAttached:             make(set.Tags),
+		modelVolumesAttached:             names.NewSet(),
 		modelVolumeFilesystemAttachments: make(map[names.VolumeTag]string),
 	}
 	go func() {
@@ -258,7 +258,7 @@ type machineFilesystemAttachmentsWatcher struct {
 	machineFilesystemAttachments     state.StringsWatcher
 	modelFilesystemAttachments       state.StringsWatcher
 	modelVolumeAttachments           state.StringsWatcher
-	modelVolumesAttached             set.Tags
+	modelVolumesAttached             names.Set
 	modelVolumeFilesystemAttachments map[names.VolumeTag]string
 }
 
@@ -316,7 +316,7 @@ func (w *machineFilesystemAttachmentsWatcher) loop() error {
 				}
 			}
 		case out <- w.changes.SortedValues():
-			w.changes = make(set.Strings)
+			w.changes = set.NewStrings()
 			out = nil
 		}
 		// NOTE(axw) we don't send any changes until we have received

@@ -792,7 +792,7 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	attachments := make(set.Tags)
+	attachments := names.NewSet()
 	for _, v := range m.doc.Volumes {
 		tag := names.NewVolumeTag(v)
 		detachable, err := isDetachableVolumeTag(im.mb.db(), tag)

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 
@@ -61,7 +60,7 @@ type Attachments struct {
 
 	// pending is the set of tags for storage attachments
 	// for which no hooks have been run.
-	pending set.Tags
+	pending names.Set
 
 	// current storage attachments
 	storageAttachments map[names.StorageTag]storageAttachment
@@ -80,7 +79,7 @@ func NewAttachments(
 		abort:              abort,
 		storageAttachments: make(map[names.StorageTag]storageAttachment),
 		storageStateDir:    storageStateDir,
-		pending:            make(set.Tags),
+		pending:            names.NewSet(),
 	}
 	if err := a.init(); err != nil {
 		return nil, err
@@ -183,7 +182,7 @@ func (a *Attachments) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachm
 
 // StorageTags returns the names.StorageTags for the active storage attachments.
 func (a *Attachments) StorageTags() ([]names.StorageTag, error) {
-	tags := set.NewTags()
+	tags := names.NewSet()
 	for tag := range a.storageAttachments {
 		tags.Add(tag)
 	}

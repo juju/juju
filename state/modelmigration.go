@@ -478,8 +478,8 @@ func (mig *modelMigration) MinionReports() (*MinionReports, error) {
 		return nil, errors.Annotate(err, "retrieving minion reports")
 	}
 
-	succeeded := set.NewTags()
-	failed := set.NewTags()
+	succeeded := names.NewSet()
+	failed := names.NewSet()
 	for _, doc := range docs {
 		entityKey, ok := doc["entity-key"].(string)
 		if !ok {
@@ -530,7 +530,7 @@ func (mig *modelMigration) minionReportId(phase migration.Phase, globalKey strin
 	return fmt.Sprintf("%s:%s:%s", mig.Id(), phase.String(), globalKey)
 }
 
-func (mig *modelMigration) getAllAgents() (set.Tags, error) {
+func (mig *modelMigration) getAllAgents() (names.Set, error) {
 	machineTags, err := mig.loadAgentTags(machinesC, "machineid",
 		func(id string) names.Tag { return names.NewMachineTag(id) },
 	)
@@ -549,7 +549,7 @@ func (mig *modelMigration) getAllAgents() (set.Tags, error) {
 }
 
 func (mig *modelMigration) loadAgentTags(collName, fieldName string, convert func(string) names.Tag) (
-	set.Tags, error,
+	names.Set, error,
 ) {
 	// During migrations we know that nothing there are no machines or
 	// units being provisioned or destroyed so a simple query of the
@@ -562,7 +562,7 @@ func (mig *modelMigration) loadAgentTags(collName, fieldName string, convert fun
 		return nil, errors.Trace(err)
 	}
 
-	out := set.NewTags()
+	out := names.NewSet()
 	for _, doc := range docs {
 		v, ok := doc[fieldName].(string)
 		if !ok {

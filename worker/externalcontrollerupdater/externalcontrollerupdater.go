@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
@@ -136,7 +135,7 @@ func (w *updaterWorker) loop() error {
 				tags[i] = names.NewControllerTag(id)
 			}
 
-			watchers := make(set.Tags)
+			watchers := names.NewSet()
 			for _, tag := range tags {
 				// We're informed when an external controller
 				// is added or removed, so treat as a toggle.
