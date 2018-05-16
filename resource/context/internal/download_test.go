@@ -40,54 +40,6 @@ func (s *DownloadSuite) TestDownload(c *gc.C) {
 	s.stub.CheckCall(c, 1, "Write", remote)
 }
 
-func (s *DownloadSuite) TestDownloadIndirectOkay(c *gc.C) {
-	stub := &stubDownload{
-		internalStub: s.stub,
-	}
-	stub.ReturnNewTempDirSpec = stub
-	stub.ReturnResolve = []string{
-		"/tmp/xyz/eggs",
-		"/var/lib/juju/agents/unit-spam-1/resources/eggs",
-	}
-	target := stub
-	remote := stub
-	deps := stub
-
-	err := internal.DownloadIndirect(target, remote, deps)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c,
-		"NewTempDirSpec",
-		"DownloadDirect",
-		"Initialize",
-		"Resolve",
-		"Resolve",
-		"ReplaceDirectory",
-		"CloseAndLog",
-	)
-	s.stub.CheckCall(c, 1, "DownloadDirect", stub, remote)
-}
-
-func (s *DownloadSuite) TestDownloadIndirectTempDirFailure(c *gc.C) {
-	stub := &stubDownload{
-		internalStub: s.stub,
-	}
-	stub.ReturnNewTempDirSpec = stub
-	failure := errors.New("<failure>")
-	stub.SetErrors(failure)
-	target := stub
-	remote := stub
-	deps := stub
-
-	err := internal.DownloadIndirect(target, remote, deps)
-
-	c.Check(errors.Cause(err), gc.Equals, failure)
-	s.stub.CheckCallNames(c,
-		"NewTempDirSpec",
-		"CloseAndLog",
-	)
-}
-
 type stubDownload struct {
 	*internalStub
 	internal.ContentSource
