@@ -46,7 +46,7 @@ var _ = gc.Suite(&ApplicationSuite{})
 
 func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
-	api, err := application.NewAPIV5(
+	api, err := application.NewAPIBase(
 		&s.backend,
 		s.authorizer,
 		&s.blockChecker,
@@ -161,19 +161,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.blockChecker = mockBlockChecker{}
-	api, err := application.NewAPIV5(
-		&s.backend,
-		s.authorizer,
-		&s.blockChecker,
-		func(application.Charm) *state.Charm {
-			return &state.Charm{}
-		},
-		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
-			return nil, nil
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	s.api = &application.APIv6{api}
+	s.setAPIUser(c, names.NewUserTag("admin"))
 }
 
 func (s *ApplicationSuite) TearDownTest(c *gc.C) {
@@ -666,21 +654,8 @@ func (s *ApplicationSuite) TestBlockSetRelationSuspended(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestSetRelationSuspendedPermissionDenied(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("fred")
-	apiv5, err := application.NewAPIV5(
-		&s.backend,
-		s.authorizer,
-		&s.blockChecker,
-		func(application.Charm) *state.Charm {
-			return &state.Charm{}
-		},
-		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
-			return nil, nil
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	api := &application.APIv6{apiv5}
-	_, err = api.SetRelationsSuspended(params.RelationSuspendedArgs{
+	s.setAPIUser(c, names.NewUserTag("fred"))
+	_, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
 		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
 			Suspended:  true,
@@ -1099,21 +1074,8 @@ func (s *ApplicationSuite) TestBlockSetApplicationConfig(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestSetApplicationConfigPermissionDenied(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("fred")
-	apiv5, err := application.NewAPIV5(
-		&s.backend,
-		s.authorizer,
-		&s.blockChecker,
-		func(application.Charm) *state.Charm {
-			return &state.Charm{}
-		},
-		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
-			return nil, nil
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	api := &application.APIv6{apiv5}
-	_, err = api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
+	s.setAPIUser(c, names.NewUserTag("fred"))
+	_, err := s.api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: "postgresql",
 		}}})
@@ -1155,21 +1117,8 @@ func (s *ApplicationSuite) TestBlockUnsetApplicationConfig(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestUnsetApplicationConfigPermissionDenied(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("fred")
-	apiv5, err := application.NewAPIV5(
-		&s.backend,
-		s.authorizer,
-		&s.blockChecker,
-		func(application.Charm) *state.Charm {
-			return &state.Charm{}
-		},
-		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
-			return nil, nil
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	api := &application.APIv6{apiv5}
-	_, err = api.UnsetApplicationsConfig(params.ApplicationConfigUnsetArgs{
+	s.setAPIUser(c, names.NewUserTag("fred"))
+	_, err := s.api.UnsetApplicationsConfig(params.ApplicationConfigUnsetArgs{
 		Args: []params.ApplicationUnset{{
 			ApplicationName: "postgresql",
 			Options:         []string{"option"},
@@ -1219,20 +1168,7 @@ func (s *ApplicationSuite) TestBlockResolveUnitErrors(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestResolveUnitErrorsPermissionDenied(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("fred")
-	apiv5, err := application.NewAPIV5(
-		&s.backend,
-		s.authorizer,
-		&s.blockChecker,
-		func(application.Charm) *state.Charm {
-			return &state.Charm{}
-		},
-		func(application.ApplicationDeployer, application.DeployApplicationParams) (application.Application, error) {
-			return nil, nil
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	api := &application.APIv6{apiv5}
+	s.setAPIUser(c, names.NewUserTag("fred"))
 
 	entities := []params.Entity{{Tag: "unit-postgresql-0"}}
 	p := params.UnitsResolved{
@@ -1241,7 +1177,7 @@ func (s *ApplicationSuite) TestResolveUnitErrorsPermissionDenied(c *gc.C) {
 			Entities: entities,
 		},
 	}
-	_, err = api.ResolveUnitErrors(p)
+	_, err := s.api.ResolveUnitErrors(p)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	s.application.CheckNoCalls(c)
 }
