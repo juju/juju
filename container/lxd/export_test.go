@@ -15,6 +15,7 @@ var (
 	NICDevice             = nicDevice
 	NetworkDevices        = networkDevices
 	CheckBridgeConfigFile = checkBridgeConfigFile
+	SeriesRemoteAliases   = seriesRemoteAliases
 	GetImageSources       = func(mgr container.Manager) ([]RemoteServer, error) {
 		return mgr.(*containerManager).getImageSources()
 	}
