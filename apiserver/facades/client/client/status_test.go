@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -489,15 +490,25 @@ func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDo
 		Machine:     machine,
 	})
 
-	// Filtering status on application A should get:
-	// * no relations;
-	// * two applications.
-	client := s.APIState.Client()
-	status, err := client.Status([]string{applicationA.Name()})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
-	c.Assert(status.Applications, gc.HasLen, 2)
-	c.Assert(status.Relations, gc.HasLen, 0)
+	// Need to wait for system to stabilise since we have added units and a machine
+	// which in turn need to have everything else running that the
+	// testing infrastructure starts for us, like workers, watchers, etc..
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		// Filtering status on application A should get:
+		// * no relations;
+		// * two applications.
+		client := s.APIState.Client()
+		status, err := client.Status([]string{applicationA.Name()})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(status, gc.NotNil)
+		applications := len(status.Applications) == 2
+		relations := len(status.Relations) == 0
+		if applications && relations {
+			return
+		}
+	}
+	c.Logf("timed out waiting for test system to stabilise to test status")
+	c.Fail()
 }
 
 func assertApplicationRelations(c *gc.C, appName string, expectedNumber int, relations []params.RelationStatus) {
