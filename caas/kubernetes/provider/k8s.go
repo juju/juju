@@ -400,8 +400,8 @@ func (k *kubernetesClient) EnsureService(
 ) (err error) {
 	logger.Debugf("creating/updating application %s", appName)
 
-	if numUnits < 0 {
-		return errors.Errorf("number of units must be >= 0")
+	if numUnits <= 0 {
+		return errors.Errorf("number of units must be > 0")
 	}
 	if spec == nil {
 		return errors.Errorf("missing pod spec")
@@ -422,15 +422,12 @@ func (k *kubernetesClient) EnsureService(
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
 
-	// See if a deployment controller is required. If num units is > 0 then
-	// a deployment controller set to create that number of units is required.
-	if numUnits > 0 {
-		numPods := int32(numUnits)
-		if err := k.configureDeployment(appName, unitSpec, spec.Containers, &numPods); err != nil {
-			return errors.Annotate(err, "creating or updating deployment controller")
-		}
-		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
+	// Add a deployment controller configured to create the specified number of units/pods.
+	numPods := int32(numUnits)
+	if err := k.configureDeployment(appName, unitSpec, spec.Containers, &numPods); err != nil {
+		return errors.Annotate(err, "creating or updating deployment controller")
 	}
+	cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 
 	var ports []core.ContainerPort
 	for _, c := range unitSpec.Pod.Containers {

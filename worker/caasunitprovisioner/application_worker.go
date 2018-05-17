@@ -19,11 +19,10 @@ import (
 )
 
 type applicationWorker struct {
-	catacomb         catacomb.Catacomb
-	application      string
-	jujuManagedUnits bool
-	serviceBroker    ServiceBroker
-	containerBroker  ContainerBroker
+	catacomb        catacomb.Catacomb
+	application     string
+	serviceBroker   ServiceBroker
+	containerBroker ContainerBroker
 
 	podSpecGetter      PodSpecGetter
 	lifeGetter         LifeGetter
@@ -33,13 +32,10 @@ type applicationWorker struct {
 	unitUpdater        UnitUpdater
 
 	aliveUnitsChan chan []string
-	appRemoved     chan struct{}
 }
 
 func newApplicationWorker(
 	application string,
-	appRemoved chan struct{},
-	jujuManagedUnits bool,
 	serviceBroker ServiceBroker,
 	containerBroker ContainerBroker,
 	podSpecGetter PodSpecGetter,
@@ -51,7 +47,6 @@ func newApplicationWorker(
 ) (*applicationWorker, error) {
 	w := &applicationWorker{
 		application:        application,
-		jujuManagedUnits:   jujuManagedUnits,
 		serviceBroker:      serviceBroker,
 		containerBroker:    containerBroker,
 		podSpecGetter:      podSpecGetter,
@@ -61,7 +56,6 @@ func newApplicationWorker(
 		unitGetter:         unitGetter,
 		unitUpdater:        unitUpdater,
 		aliveUnitsChan:     make(chan []string),
-		appRemoved:         appRemoved,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -91,7 +85,6 @@ func (aw *applicationWorker) loop() error {
 
 	deploymentWorker, err := newDeploymentWorker(
 		aw.application,
-		aw.jujuManagedUnits,
 		aw.serviceBroker,
 		aw.podSpecGetter,
 		aw.applicationGetter,
@@ -131,18 +124,6 @@ func (aw *applicationWorker) loop() error {
 		select {
 		// We must handle any processing due to application being removed prior
 		// to shutdown so that we don't leave stuff running in the cloud.
-		case <-aw.appRemoved:
-			if !aw.jujuManagedUnits {
-				continue
-			}
-			// Application has been removed, ensure all units are stopped
-			// before this worker is killed.
-			for unitId, w := range unitWorkers {
-				if err := aw.containerBroker.DeleteUnit(unitId); err != nil {
-					logger.Errorf("error deleting unit %v of removed application: %v", unitId, err)
-				}
-				worker.Stop(w)
-			}
 		case <-aw.catacomb.Dying():
 			return aw.catacomb.ErrDying()
 		case aliveUnitsChan <- aliveUnits.Values():
@@ -166,7 +147,7 @@ func (aw *applicationWorker) loop() error {
 			for _, u := range units {
 				// For pods managed by the substrate, any marked as dying
 				// are treated as non-existing.
-				if u.Dying && !aw.jujuManagedUnits {
+				if u.Dying {
 					continue
 				}
 				unitStatus := u.Status
@@ -218,29 +199,6 @@ func (aw *applicationWorker) loop() error {
 					}
 				} else {
 					aliveUnits.Add(unitId)
-				}
-				if aw.jujuManagedUnits {
-					// Remove any deleted unit.
-					if !aliveUnits.Contains(unitId) {
-						if err := aw.containerBroker.DeleteUnit(unitId); err != nil {
-							return errors.Trace(err)
-						}
-						logger.Debugf("deleted unit %s", unitId)
-						continue
-					}
-					// Start a worker to manage any new units.
-					if _, ok := unitWorkers[unitId]; ok || unitLife == life.Dead {
-						// Already watching the unit. or we're
-						// not yet watching it and it's dead.
-						continue
-					}
-					w, err := newUnitWorker(
-						aw.application, unitId, aw.containerBroker, aw.podSpecGetter, aw.lifeGetter)
-					if err != nil {
-						return errors.Trace(err)
-					}
-					unitWorkers[unitId] = w
-					aw.catacomb.Add(w)
 				}
 			}
 		}
