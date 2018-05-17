@@ -9,11 +9,11 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 

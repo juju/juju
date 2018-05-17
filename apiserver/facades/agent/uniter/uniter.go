@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/loggo"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
-	"github.com/juju/utils/set"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")

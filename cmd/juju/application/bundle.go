@@ -15,9 +15,9 @@ import (
 
 	"github.com/juju/bundlechanges"
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"

@@ -7,8 +7,8 @@ package cloudinit
 import (
 	"strings"
 
-	"github.com/juju/utils/packaging/commands"
-	"github.com/juju/utils/packaging/config"
+	"github.com/juju/packaging/commands"
+	"github.com/juju/packaging/config"
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/ssh"
 )

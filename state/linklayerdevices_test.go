@@ -6,10 +6,10 @@ package state_test
 import (
 	"fmt"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container"

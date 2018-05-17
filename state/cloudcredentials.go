@@ -6,9 +6,9 @@ package state
 import (
 	"fmt"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"

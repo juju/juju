@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/gce/google"

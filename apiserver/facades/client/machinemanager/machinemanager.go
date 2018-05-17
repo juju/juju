@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -243,7 +242,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 		if err != nil {
 			return nil, err
 		}
-		storageSeen := make(set.Tags)
+		storageSeen := names.NewSet()
 		for _, unit := range units {
 			info.DestroyedUnits = append(
 				info.DestroyedUnits,

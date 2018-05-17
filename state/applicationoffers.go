@@ -8,10 +8,10 @@ import (
 	"regexp"
 	"sort"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"

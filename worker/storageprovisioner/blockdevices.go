@@ -5,7 +5,6 @@ package storageprovisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -77,7 +76,7 @@ func processPendingVolumeBlockDevices(ctx *context) error {
 		volumeTags[i] = tag.(names.VolumeTag)
 	}
 	// Clear out the pending set, so we don't force-refresh again.
-	ctx.pendingVolumeBlockDevices = set.NewTags()
+	ctx.pendingVolumeBlockDevices = names.NewSet()
 	return refreshVolumeBlockDevices(ctx, volumeTags)
 }
 

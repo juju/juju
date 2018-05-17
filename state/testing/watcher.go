@@ -6,8 +6,8 @@ package testing
 import (
 	"time"
 
+	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	tomb "gopkg.in/tomb.v1"
 

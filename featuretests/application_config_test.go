@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"

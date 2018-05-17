@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -1127,7 +1126,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 		if err != nil {
 			return nil, err
 		}
-		storageSeen := make(set.Tags)
+		storageSeen := names.NewSet()
 		for _, unit := range units {
 			info.DestroyedUnits = append(
 				info.DestroyedUnits,

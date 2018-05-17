@@ -8,8 +8,8 @@ import (
 	stdtesting "testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/proxy"
 	"github.com/juju/version"
 	lxdclient "github.com/lxc/lxd/client"
 	lxdapi "github.com/lxc/lxd/shared/api"

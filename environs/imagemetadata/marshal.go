@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/juju/utils/set"
+	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/environs/simplestreams"
 )

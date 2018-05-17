@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	pacman "github.com/juju/packaging/manager"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	pacman "github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"

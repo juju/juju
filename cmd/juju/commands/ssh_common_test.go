@@ -10,9 +10,9 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
 
