@@ -186,21 +186,22 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 	}
 
 	out := applicationStatus{
-		Err:           application.Err,
-		Charm:         application.Charm,
-		Series:        application.Series,
-		OS:            strings.ToLower(appOS.String()),
-		CharmOrigin:   charmOrigin,
-		CharmName:     charmName,
-		CharmRev:      charmRev,
-		Exposed:       application.Exposed,
-		Life:          application.Life,
-		Relations:     application.Relations,
-		CanUpgradeTo:  application.CanUpgradeTo,
-		SubordinateTo: application.SubordinateTo,
-		Units:         make(map[string]unitStatus),
-		StatusInfo:    sf.getApplicationStatusInfo(application),
-		Version:       application.WorkloadVersion,
+		Err:              application.Err,
+		Charm:            application.Charm,
+		Series:           application.Series,
+		OS:               strings.ToLower(appOS.String()),
+		CharmOrigin:      charmOrigin,
+		CharmName:        charmName,
+		CharmRev:         charmRev,
+		Exposed:          application.Exposed,
+		Life:             application.Life,
+		Relations:        application.Relations,
+		CanUpgradeTo:     application.CanUpgradeTo,
+		SubordinateTo:    application.SubordinateTo,
+		Units:            make(map[string]unitStatus),
+		StatusInfo:       sf.getApplicationStatusInfo(application),
+		Version:          application.WorkloadVersion,
+		EndpointBindings: application.EndpointBindings,
 	}
 	for k, m := range application.Units {
 		out.Units[k] = sf.formatUnit(unitFormatInfo{

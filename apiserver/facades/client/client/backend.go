@@ -29,6 +29,7 @@ type Backend interface {
 	AddOneMachine(state.MachineTemplate) (*state.Machine, error)
 	AddRelation(...state.Endpoint) (*state.Relation, error)
 	AllApplications() ([]*state.Application, error)
+	AllBindings() (map[string]string, error)
 	AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error)
 	AllRemoteApplications() ([]*state.RemoteApplication, error)
 	AllMachines() ([]*state.Machine, error)

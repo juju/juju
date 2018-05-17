@@ -1574,6 +1574,20 @@ func (st *State) AllApplications() (applications []*Application, err error) {
 	return applications, nil
 }
 
+// AllBindings return all endpoint - space bindings deployed.
+func (st *State) AllBindings() (bindings map[string]string, err error) {
+	endpointBindings, closer := st.db().GetCollection(endpointBindingsC)
+	defer closer()
+
+	var doc endpointBindingsDoc
+	err = endpointBindings.FindId(bson.D{}).All(&doc)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get endpoint bindings")
+	}
+
+	return doc.Bindings, nil
+}
+
 // InferEndpoints returns the endpoints corresponding to the supplied names.
 // There must be 1 or 2 supplied names, of the form <application>[:<relation>].
 // If the supplied names uniquely specify a possible relation, or if they

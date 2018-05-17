@@ -105,18 +105,19 @@ type MachineStatus struct {
 
 // ApplicationStatus holds status info about an application.
 type ApplicationStatus struct {
-	Err             error                  `json:"err,omitempty"`
-	Charm           string                 `json:"charm"`
-	Series          string                 `json:"series"`
-	Exposed         bool                   `json:"exposed"`
-	Life            string                 `json:"life"`
-	Relations       map[string][]string    `json:"relations"`
-	CanUpgradeTo    string                 `json:"can-upgrade-to"`
-	SubordinateTo   []string               `json:"subordinate-to"`
-	Units           map[string]UnitStatus  `json:"units"`
-	MeterStatuses   map[string]MeterStatus `json:"meter-statuses"`
-	Status          DetailedStatus         `json:"status"`
-	WorkloadVersion string                 `json:"workload-version"`
+	Err              error                  `json:"err,omitempty"`
+	Charm            string                 `json:"charm"`
+	Series           string                 `json:"series"`
+	Exposed          bool                   `json:"exposed"`
+	Life             string                 `json:"life"`
+	Relations        map[string][]string    `json:"relations"`
+	CanUpgradeTo     string                 `json:"can-upgrade-to"`
+	SubordinateTo    []string               `json:"subordinate-to"`
+	Units            map[string]UnitStatus  `json:"units"`
+	MeterStatuses    map[string]MeterStatus `json:"meter-statuses"`
+	Status           DetailedStatus         `json:"status"`
+	WorkloadVersion  string                 `json:"workload-version"`
+	EndpointBindings map[string]string      `json:"endpointbinding"`
 }
 
 // RemoteApplicationStatus holds status info about a remote application.

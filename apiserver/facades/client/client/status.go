@@ -177,7 +177,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if context.status, err = context.model.LoadModelStatus(); err != nil {
 		return noStatus, errors.Annotate(err, "could not load model status values")
 	}
-	if context.applications, context.units, context.latestCharms, err =
+	if context.applications, context.units, context.latestCharms, context.endpointBindings, err =
 		fetchAllApplicationsAndUnits(c.api.stateAccessor, context.model); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch applications and units")
 	}
@@ -401,6 +401,9 @@ type statusContext struct {
 	// applications: application name -> application
 	applications map[string]*state.Application
 
+	// endpointBinding: bindingName - > spaceName
+	endpointBindings map[string]string
+
 	// remote applications: application name -> application
 	consumerRemoteApplications map[string]*state.RemoteApplication
 
@@ -530,18 +533,19 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 func fetchAllApplicationsAndUnits(
 	st Backend,
 	model *state.Model,
-) (map[string]*state.Application, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
+) (map[string]*state.Application, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, map[string]string, error) {
 
 	appMap := make(map[string]*state.Application)
 	unitMap := make(map[string]map[string]*state.Unit)
 	latestCharms := make(map[charm.URL]*state.Charm)
 	applications, err := st.AllApplications()
+	endpointBindings, err := st.AllBindings()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	units, err := model.AllUnits()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	allUnitsByApp := make(map[string]map[string]*state.Unit)
 	for _, unit := range units {
@@ -574,12 +578,12 @@ func fetchAllApplicationsAndUnits(
 			continue
 		}
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		latestCharms[baseURL] = ch
 	}
 
-	return appMap, unitMap, latestCharms, nil
+	return appMap, unitMap, latestCharms, endpointBindings, nil
 }
 
 // fetchConsumerRemoteApplications returns a map from application name to remote application.
