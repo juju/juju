@@ -208,6 +208,11 @@ var scenarioStatus = &params.FullStatus{
 				Info:   "waiting for machine",
 				Data:   map[string]interface{}{},
 			},
+			EndpointBindings: map[string]string{
+				"info": "",
+				"logging-client": "",
+				"logging-directory": "",
+			},
 		},
 		"mysql": {
 			Charm:         "local:quantal/mysql-1",
@@ -219,6 +224,10 @@ var scenarioStatus = &params.FullStatus{
 				Status: "waiting",
 				Info:   "waiting for machine",
 				Data:   map[string]interface{}{},
+			},
+			EndpointBindings: map[string]string{
+				"server": "",
+				"server-admin": "",
 			},
 		},
 		"wordpress": {
@@ -287,6 +296,16 @@ var scenarioStatus = &params.FullStatus{
 						},
 					},
 				},
+			},
+			EndpointBindings: map[string]string{
+				"foo-bar": "",
+				"logging-dir": "",
+				"monitoring-port": "",
+				"url": "",
+				"admin-api": "",
+				"cache": "",
+				"db": "",
+				"db-client": "",
 			},
 		},
 	},

@@ -396,6 +396,11 @@ var (
 			"logging-directory": L{"wordpress"},
 			"info":              L{"mysql"},
 		},
+		"endpoint-bindings": M{
+			"info":              "",
+			"logging-client":    "",
+			"logging-directory": "",
+		},
 		"subordinate-to": L{"mysql", "wordpress"},
 	}
 )
@@ -704,8 +709,8 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"dummy"},
-		addService{name: "dummy-application", charm: "dummy"},
-		addService{name: "exposed-application", charm: "dummy"},
+		addApplication{name: "dummy-application", charm: "dummy"},
+		addApplication{name: "exposed-application", charm: "dummy"},
 		expect{
 			what: "no applications exposed yet",
 			output: M{
@@ -1183,11 +1188,11 @@ var statusTests = []testCase{
 		setMachineStatus{"1", status.Started, ""},
 
 		addCharm{"wordpress"},
-		addService{name: "wordpress", charm: "wordpress"},
+		addApplication{name: "wordpress", charm: "wordpress"},
 		addAliveUnit{"wordpress", "1"},
 
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		addAliveUnit{"mysql", "1"},
 
 		relateServices{"wordpress", "mysql", ""},
@@ -1229,6 +1234,16 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"logging-dir":     "",
+							"monitoring-port": "",
+							"url":             "",
+							"admin-api":       "",
+							"cache":           "",
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+						},
 					}),
 					"mysql": mysqlCharm(M{
 						"relations": M{
@@ -1254,6 +1269,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
+						},
 					}),
 				},
 			},
@@ -1272,11 +1291,11 @@ var statusTests = []testCase{
 		setMachineStatus{"1", status.Started, ""},
 
 		addCharm{"wordpress"},
-		addService{name: "wordpress", charm: "wordpress"},
+		addApplication{name: "wordpress", charm: "wordpress"},
 		addAliveUnit{"wordpress", "1"},
 
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		addAliveUnit{"mysql", "1"},
 
 		relateServices{"wordpress", "mysql", ""},
@@ -1318,6 +1337,16 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"admin-api":       "",
+							"cache":           "",
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+							"logging-dir":     "",
+							"monitoring-port": "",
+							"url":             "",
+						},
 					}),
 					"mysql": mysqlCharm(M{
 						"relations": M{
@@ -1343,6 +1372,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
+						},
 					}),
 				},
 			},
@@ -1351,7 +1384,7 @@ var statusTests = []testCase{
 	test( // 7
 		"add a dying application",
 		addCharm{"dummy"},
-		addService{name: "dummy-application", charm: "dummy"},
+		addApplication{name: "dummy-application", charm: "dummy"},
 		addMachine{machineId: "0", job: state.JobHostUnits},
 		addAliveUnit{"dummy-application", "0"},
 		ensureDyingService{"dummy-application"},
@@ -1404,7 +1437,7 @@ var statusTests = []testCase{
 	test( // 8
 		"a unit where the agent is down shows as lost",
 		addCharm{"dummy"},
-		addService{name: "dummy-application", charm: "dummy"},
+		addApplication{name: "dummy-application", charm: "dummy"},
 		addMachine{machineId: "0", job: state.JobHostUnits},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
@@ -1469,7 +1502,7 @@ var statusTests = []testCase{
 		addCharm{"mysql"},
 		addCharm{"varnish"},
 
-		addService{name: "project", charm: "wordpress"},
+		addApplication{name: "project", charm: "wordpress"},
 		setServiceExposed{"project", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("10.0.1.1")},
@@ -1479,7 +1512,7 @@ var statusTests = []testCase{
 		setAgentStatus{"project/0", status.Idle, "", nil},
 		setUnitStatus{"project/0", status.Active, "", nil},
 
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("10.0.2.1")},
@@ -1489,7 +1522,7 @@ var statusTests = []testCase{
 		setAgentStatus{"mysql/0", status.Idle, "", nil},
 		setUnitStatus{"mysql/0", status.Active, "", nil},
 
-		addService{name: "varnish", charm: "varnish"},
+		addApplication{name: "varnish", charm: "varnish"},
 		setServiceExposed{"varnish", true},
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		setAddresses{"3", network.NewAddresses("10.0.3.1")},
@@ -1498,7 +1531,7 @@ var statusTests = []testCase{
 		setMachineInstanceStatus{"3", status.Started, "I am number three"},
 		addAliveUnit{"varnish", "3"},
 
-		addService{name: "private", charm: "wordpress"},
+		addApplication{name: "private", charm: "wordpress"},
 		setServiceExposed{"private", true},
 		addMachine{machineId: "4", job: state.JobHostUnits},
 		setAddresses{"4", network.NewAddresses("10.0.4.1")},
@@ -1542,6 +1575,16 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+							"logging-dir":     "",
+							"monitoring-port": "",
+							"url":             "",
+							"admin-api":       "",
+							"cache":           "",
+						},
 						"relations": M{
 							"db":    L{"mysql"},
 							"cache": L{"varnish"},
@@ -1566,6 +1609,10 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.2.1",
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 						"relations": M{
 							"server": L{"private", "project"},
@@ -1599,6 +1646,9 @@ var statusTests = []testCase{
 								"public-address": "10.0.3.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"webcache": "",
+						},
 						"relations": M{
 							"webcache": L{"project"},
 						},
@@ -1625,6 +1675,16 @@ var statusTests = []testCase{
 								"public-address": "10.0.4.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"logging-dir":     "",
+							"monitoring-port": "",
+							"url":             "",
+							"admin-api":       "",
+							"cache":           "",
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+						},
 						"relations": M{
 							"db": L{"mysql"},
 						},
@@ -1642,7 +1702,7 @@ var statusTests = []testCase{
 		addCharm{"riak"},
 		addCharm{"wordpress"},
 
-		addService{name: "riak", charm: "riak"},
+		addApplication{name: "riak", charm: "riak"},
 		setServiceExposed{"riak", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("10.0.1.1")},
@@ -1730,6 +1790,11 @@ var statusTests = []testCase{
 								"public-address": "10.0.3.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"admin":    "",
+							"endpoint": "",
+							"ring":     "",
+						},
 						"relations": M{
 							"ring": L{"riak"},
 						},
@@ -1750,7 +1815,7 @@ var statusTests = []testCase{
 		addCharm{"mysql"},
 		addCharm{"logging"},
 
-		addService{name: "wordpress", charm: "wordpress"},
+		addApplication{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("10.0.1.1")},
@@ -1760,7 +1825,7 @@ var statusTests = []testCase{
 		setAgentStatus{"wordpress/0", status.Idle, "", nil},
 		setUnitStatus{"wordpress/0", status.Active, "", nil},
 
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("10.0.2.1")},
@@ -1770,7 +1835,7 @@ var statusTests = []testCase{
 		setAgentStatus{"mysql/0", status.Idle, "", nil},
 		setUnitStatus{"mysql/0", status.Active, "", nil},
 
-		addService{name: "logging", charm: "logging"},
+		addApplication{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
 
 		relateServices{"wordpress", "mysql", ""},
@@ -1833,6 +1898,16 @@ var statusTests = []testCase{
 								"leader":         true,
 							},
 						},
+						"endpoint-bindings": M{
+							"monitoring-port": "",
+							"url":             "",
+							"admin-api":       "",
+							"cache":           "",
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+							"logging-dir":     "",
+						},
 						"relations": M{
 							"db":          L{"mysql"},
 							"logging-dir": L{"logging"},
@@ -1873,6 +1948,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.2.1",
 								"leader":         true,
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 						"relations": M{
 							"server":    L{"wordpress"},
@@ -1929,6 +2008,16 @@ var statusTests = []testCase{
 								"leader":         true,
 							},
 						},
+						"endpoint-bindings": M{
+							"monitoring-port": "",
+							"url":             "",
+							"admin-api":       "",
+							"cache":           "",
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+							"logging-dir":     "",
+						},
 						"relations": M{
 							"db":          L{"mysql"},
 							"logging-dir": L{"logging"},
@@ -1969,6 +2058,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.2.1",
 								"leader":         true,
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 						"relations": M{
 							"server":    L{"wordpress"},
@@ -2024,6 +2117,16 @@ var statusTests = []testCase{
 								"leader":         true,
 							},
 						},
+						"endpoint-bindings": M{
+							"admin-api":       "",
+							"cache":           "",
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+							"logging-dir":     "",
+							"monitoring-port": "",
+							"url":             "",
+						},
 						"relations": M{
 							"db":          L{"mysql"},
 							"logging-dir": L{"logging"},
@@ -2042,7 +2145,7 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 
 		// step 7
@@ -2110,6 +2213,10 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.2.1",
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 					}),
 				},
@@ -2192,6 +2299,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.2.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
+						},
 					}),
 				},
 			},
@@ -2208,7 +2319,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addCharmPlaceholder{"mysql", 23},
 		addAliveUnit{"mysql", "1"},
@@ -2245,6 +2356,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
+						},
 					}),
 				},
 			},
@@ -2261,7 +2376,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addAliveUnit{"mysql", "1"},
 		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
@@ -2300,6 +2415,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
+						},
 					}),
 				},
 			},
@@ -2316,7 +2435,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addAliveUnit{"mysql", "1"},
 		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
@@ -2357,6 +2476,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
+						},
 					}),
 				},
 			},
@@ -2373,7 +2496,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addAliveUnit{"mysql", "1"},
 		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
@@ -2413,6 +2536,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
+						},
 					}),
 				},
 			},
@@ -2447,11 +2574,11 @@ var statusTests = []testCase{
 		setMachineStatus{"4", status.Started, ""},
 
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 
 		addCharm{"metered"},
-		addService{name: "servicewithmeterstatus", charm: "metered"},
+		addApplication{name: "servicewithmeterstatus", charm: "metered"},
 
 		addAliveUnit{"mysql", "1"},
 		addAliveUnit{"servicewithmeterstatus", "2"},
@@ -2503,6 +2630,10 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.1.1",
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 					}),
 
@@ -2595,7 +2726,7 @@ var statusTests = []testCase{
 		setMachineStatus{"0", status.Started, ""},
 
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("10.0.1.1")},
@@ -2635,6 +2766,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
+						},
 					}),
 				},
 			},
@@ -2648,7 +2783,7 @@ var statusTests = []testCase{
 		setMachineStatus{"0", status.Started, ""},
 
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("10.0.1.1")},
@@ -2708,6 +2843,10 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.2.1",
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 					}),
 				},
@@ -2796,7 +2935,7 @@ var statusTests = []testCase{
 		setMachineStatus{"1", status.Started, ""},
 
 		addCharm{"wordpress"},
-		addService{name: "wordpress", charm: "wordpress"},
+		addApplication{name: "wordpress", charm: "wordpress"},
 		addAliveUnit{"wordpress", "1"},
 
 		addCharm{"mysql"},
@@ -2854,6 +2993,16 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"monitoring-port": "",
+							"url":             "",
+							"admin-api":       "",
+							"cache":           "",
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+							"logging-dir":     "",
+						},
 					}),
 				},
 			},
@@ -2909,6 +3058,128 @@ var statusTests = []testCase{
 				"applications": M{},
 			},
 			stderr: "Model \"controller\" is empty.\n",
+		},
+	),
+	test( //26
+		"deploy application with endpoint bound to space",
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", status.Started, ""},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", status.Started, ""},
+
+		addSpace{"myspace1"},
+
+		addCharm{"wordpress"},
+		addApplication{name: "wordpress", charm: "wordpress", binding: map[string]string{"db-client": "", "logging-dir": "", "cache": "", "db": "myspace1", "monitoring-port": "", "url": "", "admin-api": "", "foo-bar": ""}},
+		addAliveUnit{"wordpress", "1"},
+
+		scopedExpect{
+			output: M{
+				"model": M{
+					"region":  "dummy-region",
+					"version": "1.2.3",
+					"model-status": M{
+						"current": "available",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
+					"sla":        "unsupported",
+					"name":       "controller",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+				},
+				"machines": M{
+					"1": M{
+						"juju-status": M{
+							"current": "started",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"dns-name":     "10.0.1.1",
+						"ip-addresses": []string{"10.0.1.1"},
+						"instance-id":  "controller-1",
+						"machine-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.1.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        bool(true),
+							},
+						},
+						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
+					},
+					"0": M{
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.0.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        bool(true),
+							},
+						},
+						"controller-member-status": "adding-vote",
+						"dns-name":                 "10.0.0.1",
+						"ip-addresses":             []string{"10.0.0.1"},
+						"instance-id":              "controller-0",
+						"machine-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"juju-status": M{
+							"current": "started",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
+					},
+				},
+				"applications": M{
+					"wordpress": M{
+						"series":     "quantal",
+						"os":         "ubuntu",
+						"charm-name": "wordpress",
+						"exposed":    bool(false),
+						"units": M{
+							"wordpress/0": M{
+								"public-address": "10.0.1.1",
+								"workload-status": M{
+									"current": "waiting",
+									"message": "waiting for machine",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"juju-status": M{
+									"current": "allocating",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"machine": "1",
+							},
+						},
+						"charm":        "cs:quantal/wordpress-3",
+						"charm-origin": "jujucharms",
+						"charm-rev":    int(3),
+						"application-status": M{
+							"current": "waiting",
+							"message": "waiting for machine",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"endpoint-bindings": M{
+							"cache":           "",
+							"db":              "myspace1",
+							"db-client":       "",
+							"foo-bar":         "",
+							"logging-dir":     "",
+							"monitoring-port": "",
+							"url":             "",
+							"admin-api":       "",
+						},
+					},
+				},
+			},
 		},
 	),
 }
@@ -3117,6 +3388,16 @@ func (sm setMachineInstanceStatus) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+type addSpace struct {
+	spaceName string
+}
+
+func (sp addSpace) step(c *gc.C, ctx *context) {
+	f := factory.NewFactory(ctx.st)
+	f.MakeSpace(c, &factory.SpaceParams{
+		Name: sp.spaceName, ProviderID: network.Id("provider"), IsPublic: true})
+}
+
 type setAddresses struct {
 	machineId string
 	addresses []network.Address
@@ -3222,19 +3503,20 @@ func (ac addCharmWithRevision) step(c *gc.C, ctx *context) {
 	ac.addCharmStep(c, ctx, ac.scheme, ac.rev)
 }
 
-type addService struct {
-	name  string
-	charm string
-	cons  constraints.Value
+type addApplication struct {
+	name    string
+	charm   string
+	binding map[string]string
+	cons    constraints.Value
 }
 
-func (as addService) step(c *gc.C, ctx *context) {
+func (as addApplication) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
-	svc, err := ctx.st.AddApplication(state.AddApplicationArgs{Name: as.name, Charm: ch})
+	app, err := ctx.st.AddApplication(state.AddApplicationArgs{Name: as.name, Charm: ch, EndpointBindings: as.binding})
 	c.Assert(err, jc.ErrorIsNil)
-	if svc.IsPrincipal() {
-		err = svc.SetConstraints(as.cons)
+	if app.IsPrincipal() {
+		err = app.SetConstraints(as.cons)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -3867,7 +4149,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addCharm{"logging"},
 		addCharm{"riak"},
 		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
-		addService{name: "wordpress", charm: "wordpress"},
+		addApplication{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("localhost")},
@@ -3876,7 +4158,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addAliveUnit{"wordpress", "1"},
 		setAgentStatus{"wordpress/0", status.Idle, "", nil},
 		setUnitStatus{"wordpress/0", status.Active, "", nil},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("10.0.2.1")},
@@ -3885,7 +4167,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addAliveUnit{"mysql", "2"},
 		setAgentStatus{"mysql/0", status.Idle, "", nil},
 		setUnitStatus{"mysql/0", status.Active, "", nil},
-		addService{name: "logging", charm: "logging"},
+		addApplication{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
 		relateServices{"wordpress", "mysql", ""},
 		relateServices{"wordpress", "logging", ""},
@@ -3935,7 +4217,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addCharm{"mysql"},
 		addCharm{"logging"},
 
-		addService{name: "wordpress", charm: "wordpress"},
+		addApplication{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("10.0.1.1")},
@@ -3945,7 +4227,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		setAgentStatus{"wordpress/0", status.Idle, "", nil},
 		setUnitStatus{"wordpress/0", status.Active, "", nil},
 
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("10.0.2.1")},
@@ -3955,7 +4237,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		setAgentStatus{"mysql/0", status.Idle, "", nil},
 		setUnitStatus{"mysql/0", status.Active, "", nil},
 
-		addService{name: "logging", charm: "logging"},
+		addApplication{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
 
 		relateServices{"wordpress", "mysql", ""},
@@ -4014,7 +4296,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addCharm{"logging"},
 		addCharm{"riak"},
 		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
-		addService{name: "wordpress", charm: "wordpress"},
+		addApplication{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("10.0.1.1")},
@@ -4024,7 +4306,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		setAgentStatus{"wordpress/0", status.Idle, "", nil},
 		setUnitStatus{"wordpress/0", status.Active, "", nil},
 		setUnitTools{"wordpress/0", version.MustParseBinary("1.2.3-trusty-ppc")},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("10.0.2.1")},
@@ -4037,7 +4319,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 			status.Maintenance,
 			"installing all the things", nil},
 		setUnitTools{"mysql/0", version.MustParseBinary("1.2.3-trusty-ppc")},
-		addService{name: "logging", charm: "logging"},
+		addApplication{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
 		relateServices{"wordpress", "mysql", "suspended"},
 		relateServices{"wordpress", "logging", ""},
@@ -4248,10 +4530,10 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 
 		// And the "wordpress" charm is available
 		addCharm{"wordpress"},
-		addService{name: "wordpress", charm: "wordpress"},
+		addApplication{name: "wordpress", charm: "wordpress"},
 		// And the "mysql" charm is available
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		// And the "logging" charm is available
 		addCharm{"logging"},
 
@@ -4283,7 +4565,7 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		setAgentStatus{"mysql/0", status.Idle, "", nil},
 		setUnitStatus{"mysql/0", status.Active, "", nil},
 		// And the "logging" service is added
-		addService{name: "logging", charm: "logging"},
+		addApplication{name: "logging", charm: "logging"},
 		// And the service is exposed
 		setServiceExposed{"logging", true},
 		// And the "wordpress" service is related to the "mysql" service
@@ -4662,7 +4944,7 @@ var statusTimeTest = test(
 	startAliveMachine{"0"},
 	setMachineStatus{"0", status.Started, ""},
 	addCharm{"dummy"},
-	addService{name: "dummy-application", charm: "dummy"},
+	addApplication{name: "dummy-application", charm: "dummy"},
 
 	addMachine{machineId: "1", job: state.JobHostUnits},
 	startAliveMachine{"1"},
