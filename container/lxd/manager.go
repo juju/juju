@@ -11,7 +11,6 @@ import (
 	"github.com/juju/loggo"
 	jujuarch "github.com/juju/utils/arch"
 	"github.com/lxc/lxd/client"
-	lxdshared "github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -54,8 +53,6 @@ type containerManager struct {
 
 // containerManager implements container.Manager.
 var _ container.Manager = (*containerManager)(nil)
-
-var generateCertificate = func() ([]byte, []byte, error) { return lxdshared.GenerateMemCert(true) }
 
 // NewContainerManager creates the entity that knows how to create and manage
 // LXD containers.
