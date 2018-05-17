@@ -115,7 +115,7 @@ func newRawProviderFromConfig(config jujulxdclient.Config) (*rawProvider, error)
 
 // getRemoteConfig returns a jujulxdclient.Config using a TCP-based remote.
 func getRemoteConfig(spec environs.CloudSpec) (*jujulxdclient.Config, error) {
-	clientCert, serverCert, ok := getCerts(spec)
+	clientCert, serverCert, ok := getCertificates(spec)
 	if !ok {
 		return nil, errors.NotValidf("credentials")
 	}
@@ -130,7 +130,7 @@ func getRemoteConfig(spec environs.CloudSpec) (*jujulxdclient.Config, error) {
 	}, nil
 }
 
-func getCerts(spec environs.CloudSpec) (client *lxd.Certificate, server string, ok bool) {
+func getCertificates(spec environs.CloudSpec) (client *lxd.Certificate, server string, ok bool) {
 	if spec.Credential == nil {
 		return nil, "", false
 	}

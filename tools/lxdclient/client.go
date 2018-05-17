@@ -381,7 +381,3 @@ func verifyStorageConfiguration(client lxdclient.ContainerServer, defaultProfile
 	// Now, create a disk device that uses the pool
 	return errors.Trace(client.UpdateProfile("default", defaultProfile.Writable(), ""))
 }
-
-func IsLXDNotFound(err error) bool {
-	return err.Error() == "not found"
-}

@@ -77,6 +77,8 @@ func (s *Server) CreateClientCertificate(cert *Certificate) error {
 	return errors.Trace(s.CreateCertificate(req))
 }
 
+// IsLXDNotFound checks if an error from the LXD API indicates that a requested
+// entity was not found.
 func IsLXDNotFound(err error) bool {
 	return err != nil && err.Error() == "not found"
 }

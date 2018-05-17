@@ -6,6 +6,8 @@ package lxdclient
 import (
 	"github.com/juju/errors"
 	"github.com/lxc/lxd/shared/api"
+
+	"github.com/juju/juju/container/lxd"
 )
 
 type rawStorageClient interface {
@@ -36,7 +38,7 @@ func (c *storageClient) Volume(pool, volumeName string) (api.StorageVolume, erro
 	}
 	volume, _, err := c.raw.GetStoragePoolVolume(pool, "custom", volumeName)
 	if err != nil {
-		if IsLXDNotFound(err) {
+		if lxd.IsLXDNotFound(err) {
 			return api.StorageVolume{}, errors.NotFoundf("volume %q in pool %q", volumeName, pool)
 		}
 		return api.StorageVolume{}, errors.Trace(err)
@@ -73,7 +75,7 @@ func (c *storageClient) VolumeDelete(pool, volume string) error {
 		return errors.NotSupportedf("storage API on this remote")
 	}
 	if err := c.raw.DeleteStoragePoolVolume(pool, "custom", volume); err != nil {
-		if IsLXDNotFound(err) {
+		if lxd.IsLXDNotFound(err) {
 			return errors.NotFoundf("volume %q in pool %q", volume, pool)
 		}
 		return errors.Trace(err)
@@ -107,7 +109,7 @@ func (c *storageClient) StoragePool(name string) (api.StoragePool, error) {
 	}
 	pool, _, err := c.raw.GetStoragePool(name)
 	if err != nil {
-		if IsLXDNotFound(err) {
+		if lxd.IsLXDNotFound(err) {
 			return api.StoragePool{}, errors.NotFoundf("storage pool %q", name)
 		}
 		return api.StoragePool{}, errors.Annotatef(err, "getting storage pool %q", name)
