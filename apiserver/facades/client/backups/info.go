@@ -24,5 +24,5 @@ func (a *APIv2) Info(args params.BackupsInfoArgs) (params.BackupsMetadataResult,
 		defer file.Close()
 	}
 
-	return ResultFromMetadata(meta), nil
+	return CreateResult(meta, ""), nil
 }

@@ -23,7 +23,7 @@ func (a *APIv2) List(args params.BackupsListArgs) (params.BackupsListResult, err
 
 	result.List = make([]params.BackupsMetadataResult, len(metaList))
 	for i, meta := range metaList {
-		result.List[i] = ResultFromMetadata(meta)
+		result.List[i] = CreateResult(meta, "")
 	}
 
 	return result, nil

@@ -130,6 +130,7 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	if c.Log != nil && !c.Log.Quiet {
 		c.dumpMetadata(ctx, metadataResult)
 	}
+
 	if c.KeepCopy {
 		ctx.Infof(metadataResult.ID)
 	}
@@ -172,23 +173,16 @@ func (c *createCommand) download(ctx *cmd.Context, client APIClient, copyFrom st
 	return errors.Annotate(err, "while copying to local archive file")
 }
 
-// TODO (hml) 2018-05-02
-// Fix in 3.0 to drop client.CreateDeprecated, it's here for backwards compatibility
-func (c *createCommand) create(client APIClient, apiVersion int) (metadataResult *params.BackupsMetadataResult, copyFrom string, err error) {
-	if apiVersion >= 2 {
-		result, err := client.Create(c.Notes, c.KeepCopy, c.NoDownload)
-		if err != nil {
-			return metadataResult, copyFrom, errors.Trace(err)
-		}
-		metadataResult = &result.Metadata
-		copyFrom = result.Filename
-	} else {
-		result, err := client.CreateDeprecated(c.Notes)
-		if err != nil {
-			return nil, copyFrom, errors.Trace(err)
-		}
-		metadataResult = result
-		copyFrom = metadataResult.ID
+func (c *createCommand) create(client APIClient, apiVersion int) (*params.BackupsMetadataResult, string, error) {
+	result, err := client.Create(c.Notes, c.KeepCopy, c.NoDownload)
+	if err != nil {
+		return nil, "", errors.Trace(err)
 	}
-	return metadataResult, copyFrom, err
+	copyFrom := result.ID
+
+	if apiVersion >= 2 {
+		copyFrom = result.Filename
+	}
+
+	return result, copyFrom, err
 }

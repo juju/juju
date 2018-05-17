@@ -39,7 +39,7 @@ type Backend interface {
 }
 
 // APIv2 provides backup-specific API methods for version 2.
-type APIv2 struct {
+type API struct {
 	backend Backend
 	paths   *backups.Paths
 
@@ -48,20 +48,20 @@ type APIv2 struct {
 }
 
 // API serves backup-specific API methods.
-type API struct {
-	*APIv2
+type APIv2 struct {
+	*API
 }
 
-func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
-	api, err := NewAPIv2(backend, resources, authorizer)
+func NewAPIv2(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*APIv2, error) {
+	api, err := NewAPI(backend, resources, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &API{api}, nil
+	return &APIv2{api}, nil
 }
 
 // NewAPI creates a new instance of the Backups API facade.
-func NewAPIv2(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*APIv2, error) {
+func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
 	isControllerAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -103,7 +103,7 @@ func NewAPIv2(backend Backend, resources facade.Resources, authorizer facade.Aut
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	b := APIv2{
+	b := API{
 		backend:   backend,
 		paths:     &paths,
 		machineID: machineID,
@@ -129,9 +129,9 @@ var newBackups = func(backend Backend) (backups.Backups, io.Closer) {
 	return backups.NewBackups(stor), stor
 }
 
-// ResultFromMetadata updates the result with the information in the
+// CreateResult updates the result with the information in the
 // metadata value.
-func ResultFromMetadata(meta *backups.Metadata) params.BackupsMetadataResult {
+func CreateResult(meta *backups.Metadata, filename string) params.BackupsMetadataResult {
 	var result params.BackupsMetadataResult
 
 	result.ID = meta.ID()
@@ -163,6 +163,7 @@ func ResultFromMetadata(meta *backups.Metadata) params.BackupsMetadataResult {
 	// with these keys to address the issue.
 	result.CACert = meta.CACert
 	result.CAPrivateKey = meta.CAPrivateKey
+	result.Filename = filename
 
 	return result
 }

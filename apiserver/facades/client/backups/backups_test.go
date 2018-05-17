@@ -82,14 +82,13 @@ func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *
 }
 
 func (s *backupsSuite) TestNewAPIOkay(c *gc.C) {
-	_, err := backupsAPI.NewAPI(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
+	_, err := backupsAPI.NewAPIv2(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
 	s.authorizer.Tag = names.NewApplicationTag("eggs")
-	_, err := backupsAPI.NewAPI(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
-
+	_, err := backupsAPI.NewAPIv2(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
 	c.Check(errors.Cause(err), gc.Equals, common.ErrPerm)
 }
 
@@ -98,6 +97,6 @@ func (s *backupsSuite) TestNewAPIHostedEnvironmentFails(c *gc.C) {
 	defer otherState.Close()
 	otherModel, err := otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = backupsAPI.NewAPI(&stateShim{otherState, otherModel}, s.resources, s.authorizer)
+	_, err = backupsAPI.NewAPIv2(&stateShim{otherState, otherModel}, s.resources, s.authorizer)
 	c.Check(err, gc.ErrorMatches, "backups are only supported from the controller model\nUse juju switch to select the controller model")
 }
