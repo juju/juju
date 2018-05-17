@@ -49,7 +49,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.fsm = &raft.SimpleFSM{}
 	s.logger = loggo.GetLogger("juju.worker.raft_test")
 	s.worker = &mockRaftWorker{
-		r: &coreraft.Raft{},
+		r:  &coreraft.Raft{},
+		ls: &mockLogStore{},
 	}
 	s.stub.ResetCalls()
 
@@ -140,6 +141,17 @@ func (s *ManifoldSuite) TestOutput(c *gc.C) {
 	c.Assert(r, gc.Equals, s.worker.r)
 
 	s.worker.CheckCallNames(c, "Raft")
+}
+
+func (s *ManifoldSuite) TestLogStoreOutput(c *gc.C) {
+	w := s.startWorkerClean(c)
+
+	var ls coreraft.LogStore
+	err := s.manifold.Output(w, &ls)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ls, gc.Equals, s.worker.ls)
+
+	s.worker.CheckCallNames(c, "LogStore")
 }
 
 func (s *ManifoldSuite) TestOutputRaftError(c *gc.C) {

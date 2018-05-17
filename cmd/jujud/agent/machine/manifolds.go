@@ -66,6 +66,7 @@ import (
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/raft"
+	"github.com/juju/juju/worker/raft/raftbackstop"
 	"github.com/juju/juju/worker/raft/raftclusterer"
 	"github.com/juju/juju/worker/raft/raftflag"
 	"github.com/juju/juju/worker/raft/rafttransport"
@@ -771,6 +772,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			CentralHubName: centralHubName,
 			NewWorker:      raftclusterer.NewWorker,
 		})),
+
+		raftBackstopName: raftbackstop.Manifold(raftbackstop.ManifoldConfig{
+			RaftName:       raftName,
+			CentralHubName: centralHubName,
+			AgentName:      agentName,
+			Logger:         loggo.GetLogger("juju.worker.raft.raftbackstop"),
+			NewWorker:      raftbackstop.NewWorker,
+		}),
 	}
 }
 
@@ -884,4 +893,5 @@ const (
 	raftClustererName = "raft-clusterer"
 	raftFlagName      = "raft-leader-flag"
 	raftEnabledName   = "raft-enabled-flag"
+	raftBackstopName  = "raft-backstop"
 )

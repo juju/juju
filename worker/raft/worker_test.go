@@ -4,6 +4,7 @@
 package raft_test
 
 import (
+	"log"
 	"time"
 
 	coreraft "github.com/hashicorp/raft"
@@ -16,6 +17,8 @@ import (
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/raft"
+	"github.com/juju/juju/worker/raft/rafttest"
+	"github.com/juju/juju/worker/raft/raftutil"
 	"github.com/juju/juju/worker/workertest"
 )
 
@@ -28,18 +31,22 @@ type workerFixture struct {
 func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.fsm = &raft.SimpleFSM{}
-	_, transport := coreraft.NewInmemTransport("machine-123")
-	s.AddCleanup(func(c *gc.C) {
-		c.Assert(transport.Close(), jc.ErrorIsNil)
-	})
 	s.config = raft.Config{
 		FSM:        s.fsm,
 		Logger:     loggo.GetLogger("juju.worker.raft_test"),
 		StorageDir: c.MkDir(),
 		Tag:        names.NewMachineTag("123"),
-		Transport:  transport,
+		Transport:  s.newTransport("machine-123"),
 		Clock:      testing.NewClock(time.Time{}),
 	}
+}
+
+func (s *workerFixture) newTransport(address coreraft.ServerAddress) *coreraft.InmemTransport {
+	_, transport := coreraft.NewInmemTransport(address)
+	s.AddCleanup(func(c *gc.C) {
+		c.Assert(transport.Close(), jc.ErrorIsNil)
+	})
+	return transport
 }
 
 type WorkerValidationSuite struct {
@@ -56,6 +63,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	tests := []test{{
 		func(cfg *raft.Config) { cfg.FSM = nil },
 		"nil FSM not valid",
+	}, {
+		func(cfg *raft.Config) { cfg.Logger = nil },
+		"nil Logger not valid",
 	}, {
 		func(cfg *raft.Config) { cfg.StorageDir = "" },
 		"empty StorageDir not valid",
@@ -105,6 +115,7 @@ func (s *WorkerValidationSuite) TestBootstrapTransport(c *gc.C) {
 type WorkerSuite struct {
 	workerFixture
 	worker *raft.Worker
+	clock  *testing.Clock
 }
 
 var _ = gc.Suite(&WorkerSuite{})
@@ -124,6 +135,13 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.config.FSM = nil
 	err := raft.Bootstrap(s.config)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Make a new clock so the waits from the bootstrap aren't hanging
+	// around. Use time.Now() as the start so the time can be compared
+	// to raft.LastContact(), which unfortunately uses wallclock time.
+	s.clock = testing.NewClock(time.Now())
+	s.config.Clock = s.clock
+	s.config.NoLeaderTimeout = 4 * time.Second
 
 	s.config.Transport = transport
 	s.config.FSM = fsm
@@ -224,6 +242,107 @@ func (s *WorkerSuite) TestShutdownRaftKillsWorker(c *gc.C) {
 
 	err := workertest.CheckKilled(c, s.worker)
 	c.Assert(err, gc.ErrorMatches, "raft shutdown")
+}
+
+func (s *WorkerSuite) TestLogStore(c *gc.C) {
+	_, err := s.worker.LogStore()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *WorkerSuite) newRaft(c *gc.C, id coreraft.ServerID) (
+	*coreraft.Raft, *coreraft.InmemTransport,
+) {
+	transport := s.newTransport("")
+	store := coreraft.NewInmemStore()
+	raftConfig := coreraft.DefaultConfig()
+	raftConfig.LocalID = id
+	raftConfig.HeartbeatTimeout = 100 * time.Millisecond
+	raftConfig.ElectionTimeout = raftConfig.HeartbeatTimeout
+	raftConfig.LeaderLeaseTimeout = raftConfig.HeartbeatTimeout
+	raftConfig.Logger = log.New(&raftutil.LoggoWriter{
+		loggo.GetLogger("juju.worker.raft_test_" + string(id)),
+		loggo.DEBUG,
+	}, "", 0)
+	r, err := coreraft.NewRaft(
+		raftConfig,
+		&raft.SimpleFSM{},
+		store,
+		store,
+		coreraft.NewInmemSnapshotStore(),
+		transport,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		c.Assert(r.Shutdown().Error(), jc.ErrorIsNil)
+	})
+	return r, transport
+}
+
+func (s *WorkerSuite) TestNoLeaderTimeout(c *gc.C) {
+	// Get the raft node into a state where it has no contact with the
+	// leader by adding 2 more nodes, demoting the local one so that
+	// it isn't the leader, then stopping the other nodes.
+	transport0 := s.config.Transport.(coreraft.LoopbackTransport)
+	raft1, transport1 := s.newRaft(c, "machine-1")
+	raft2, transport2 := s.newRaft(c, "machine-2")
+	connectTransports(transport0, transport1, transport2)
+
+	raft0 := s.waitLeader(c)
+	f1 := raft0.AddVoter("machine-1", transport1.LocalAddr(), 0, 0)
+	f2 := raft0.AddVoter("machine-2", transport2.LocalAddr(), 0, 0)
+	c.Assert(f1.Error(), jc.ErrorIsNil)
+	c.Assert(f2.Error(), jc.ErrorIsNil)
+
+	rafttest.CheckConfiguration(c, raft0, []coreraft.Server{{
+		ID:       "machine-123",
+		Address:  coreraft.ServerAddress("localhost"),
+		Suffrage: coreraft.Voter,
+	}, {
+		ID:       "machine-1",
+		Address:  transport1.LocalAddr(),
+		Suffrage: coreraft.Voter,
+	}, {
+		ID:       "machine-2",
+		Address:  transport2.LocalAddr(),
+		Suffrage: coreraft.Voter,
+	}})
+
+	f3 := raft0.DemoteVoter("machine-123", 0, 0)
+	c.Assert(f3.Error(), jc.ErrorIsNil)
+
+	// Wait until raft0 isn't the leader anymore.
+	leader := true
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		leader = raft0.Leader() == coreraft.ServerAddress("localhost")
+		if !leader {
+			break
+		}
+	}
+	c.Assert(leader, jc.IsFalse)
+
+	f4 := raft1.Shutdown()
+	f5 := raft2.Shutdown()
+	c.Assert(f4.Error(), jc.ErrorIsNil)
+	c.Assert(f5.Error(), jc.ErrorIsNil)
+
+	// Now advance time to trigger the timeout. There should be 2
+	// waits when we advance:
+	// * the loop timeout wait from starting the worker
+	// * the no leader timeout check in loop.
+	c.Assert(s.clock.WaitAdvance(10*time.Second, coretesting.LongWait, 2), jc.ErrorIsNil)
+	c.Assert(workertest.CheckKilled(c, s.worker), gc.Equals, raft.ErrNoLeaderTimeout)
+}
+
+// Connect the provided transport bidirectionally.
+func connectTransports(transports ...coreraft.LoopbackTransport) {
+	for _, t1 := range transports {
+		for _, t2 := range transports {
+			if t1 == t2 {
+				continue
+			}
+			t1.Connect(t2.LocalAddr(), t2)
+		}
+	}
 }
 
 type WorkerTimeoutSuite struct {
