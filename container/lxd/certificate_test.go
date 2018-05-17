@@ -1,7 +1,7 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package lxdclient_test
+package lxd_test
 
 import (
 	"bytes"
@@ -11,88 +11,52 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/tools/lxdclient"
+	"github.com/juju/juju/container/lxd"
+	lxdtesting "github.com/juju/juju/container/lxd/testing"
 )
 
-var (
-	_ = gc.Suite(&certSuite{})
-	_ = gc.Suite(&certFunctionalSuite{})
-)
+var _ = gc.Suite(&certSuite{})
 
 type certSuite struct {
-	lxdclient.BaseSuite
-
-	certPEM []byte
-	keyPEM  []byte
+	lxdtesting.BaseSuite
 }
 
-func (s *certSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	s.certPEM = []byte("<a valid PEM-encoded x.509 cert>")
-	s.keyPEM = []byte("<a valid PEM-encoded x.509 key>")
-}
-
-func (s *certSuite) TestNewCert(c *gc.C) {
-	cert := lxdclient.NewCert(s.certPEM, s.keyPEM)
-
-	checkCert(c, cert, s.certPEM, s.keyPEM)
-}
-
-func (s *certSuite) TestValidateOkay(c *gc.C) {
-	cert := lxdclient.NewCert(s.certPEM, s.keyPEM)
-	err := cert.Validate()
-
-	c.Check(err, jc.ErrorIsNil)
+func (s *certSuite) TestGenerateClientCertificate(c *gc.C) {
+	cert, err := lxd.GenerateClientCertificate()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cert.Validate(), jc.ErrorIsNil)
 }
 
 func (s *certSuite) TestValidateMissingCertPEM(c *gc.C) {
-	cert := lxdclient.NewCert(nil, s.keyPEM)
-	err := cert.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	cert := lxd.NewCertificate([]byte(testCertPEM), nil)
+	c.Check(cert.Validate(), jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *certSuite) TestValidateMissingKeyPEM(c *gc.C) {
-	cert := lxdclient.NewCert(s.certPEM, nil)
-	err := cert.Validate()
-
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	cert := lxd.NewCertificate(nil, []byte(testKeyPEM))
+	c.Check(cert.Validate(), jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *certSuite) TestWriteCertPEM(c *gc.C) {
-	cert := lxdclient.NewCert(s.certPEM, s.keyPEM)
-	var pemfile bytes.Buffer
-	err := cert.WriteCertPEM(&pemfile)
-	c.Assert(err, jc.ErrorIsNil)
+	cert := lxd.NewCertificate([]byte(testCertPEM), []byte(testKeyPEM))
 
-	c.Check(pemfile.String(), gc.Equals, string(s.certPEM))
+	var buf bytes.Buffer
+	err := cert.WriteCertPEM(&buf)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(buf.String(), gc.Equals, testCertPEM)
 }
 
 func (s *certSuite) TestWriteKeyPEM(c *gc.C) {
-	cert := lxdclient.NewCert(s.certPEM, s.keyPEM)
-	var pemfile bytes.Buffer
-	err := cert.WriteKeyPEM(&pemfile)
-	c.Assert(err, jc.ErrorIsNil)
+	cert := lxd.NewCertificate([]byte(testCertPEM), []byte(testKeyPEM))
 
-	c.Check(pemfile.String(), gc.Equals, string(s.keyPEM))
-}
-
-func (s *certSuite) TestWritePEMs(c *gc.C) {
-	cert := lxdclient.NewCert(s.certPEM, s.keyPEM)
-	var pemfile bytes.Buffer
-	err := cert.WriteCertPEM(&pemfile)
+	var buf bytes.Buffer
+	err := cert.WriteKeyPEM(&buf)
 	c.Assert(err, jc.ErrorIsNil)
-	err = cert.WriteKeyPEM(&pemfile)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expected := string(s.certPEM) + string(s.keyPEM)
-	c.Check(pemfile.String(), gc.Equals, expected)
+	c.Check(buf.String(), gc.Equals, testKeyPEM)
 }
 
 func (s *certSuite) TestFingerprint(c *gc.C) {
-	certPEM := []byte(testCertPEM)
-	cert := lxdclient.NewCert(certPEM, nil)
+	cert := lxd.NewCertificate([]byte(testCertPEM), []byte(testKeyPEM))
 	fingerprint, err := cert.Fingerprint()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -100,41 +64,46 @@ func (s *certSuite) TestFingerprint(c *gc.C) {
 }
 
 func (s *certSuite) TestX509Okay(c *gc.C) {
-	certPEM := []byte(testCertPEM)
-	cert := lxdclient.NewCert(certPEM, nil)
+	cert := lxd.NewCertificate([]byte(testCertPEM), []byte(testKeyPEM))
 	x509Cert, err := cert.X509()
 	c.Assert(err, jc.ErrorIsNil)
 
-	block, _ := pem.Decode(certPEM)
+	block, _ := pem.Decode([]byte(testCertPEM))
 	c.Assert(block, gc.NotNil)
 	c.Check(string(x509Cert.Raw), gc.Equals, string(block.Bytes))
 }
 
 func (s *certSuite) TestX509ZeroValue(c *gc.C) {
-	var cert lxdclient.Cert
+	cert := &lxd.Certificate{}
 	_, err := cert.X509()
-
 	c.Check(err, gc.ErrorMatches, `invalid cert PEM \(0 bytes\)`)
 }
 
 func (s *certSuite) TestX509BadPEM(c *gc.C) {
-	cert := lxdclient.NewCert(s.certPEM, s.keyPEM)
+	cert := lxd.NewCertificate([]byte("some-invalid-pem"), nil)
 	_, err := cert.X509()
-
 	c.Check(err, gc.ErrorMatches, `invalid cert PEM \(\d+ bytes\)`)
 }
 
-type certFunctionalSuite struct {
-	lxdclient.BaseSuite
+func (s *certSuite) TestAsCreateRequestValidCert(c *gc.C) {
+	cert, err := lxd.GenerateClientCertificate()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cert.Name = "juju-client-cert"
+	req, err := cert.AsCreateRequest()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(req.Name, gc.Equals, "juju-client-cert")
+	c.Check(req.Type, gc.Equals, "client")
+	c.Check(req.Certificate, gc.Not(gc.Equals), "")
 }
 
-func checkCert(c *gc.C, cert lxdclient.Cert, certPEM, keyPEM []byte) {
-	c.Check(cert, jc.DeepEquals, lxdclient.Cert{
-		CertPEM: certPEM,
-		KeyPEM:  keyPEM,
-	})
-	c.Check(string(cert.CertPEM), gc.Equals, string(certPEM))
-	c.Check(string(cert.KeyPEM), gc.Equals, string(keyPEM))
+func (s *certSuite) TestAsCreateReqInvalidCert(c *gc.C) {
+	cert := lxd.NewCertificate([]byte("some-invalid-pem"), nil)
+	cert.Name = "juju-client-cert"
+
+	_, err := cert.AsCreateRequest()
+	c.Assert(err, gc.ErrorMatches, "failed to decode certificate PEM")
 }
 
 const (
@@ -168,6 +137,22 @@ w09x/auAcvOl87bQXOduRl6xVoXu+mXwhjoK1rMrcqlPW6xcVn6yTWLODPNbAyx8
 xvaeHwKf67sIF/IBeRNoeVvuw6fANEGINB/JIaW5l6TwHakGaXBLOCe1dC6f7t5O
 Zj9Kb5IS6YMbxUVKnzFLtEty4vPN/pDeLPrJt00wvvbA0SrMpM+M8gspKrQsJ3Oz
 GiuXnLorumhOUXT7UQqw2gZ4FE/WA3W0LlIlpPuAbgZKRecJjilmnRPHa9+9hSXX
+BmxTLbEvz87PrrsoVR9K5R261ciAFdFiE7Jbh15qUm4qXYHT9QgJeXnDtV/bxO+Y
+Rrh9WfSP8x0SKrAoO7uhjI9Y276c8+etF0EY8u/+joqS8cZbOLXMuafgtF5E1trd
+QNRHwiIhEUVqctdguzMHbhFfKthq6vP8qhWNOF6FowZgSg+Q5Tvm1jaU++BNPqWi
+Zxy0qbMLRW8i/ABuTmzqtS3AHTtIFgdHx+BeT4W9LwU2dsO3Ijni2Rutmuz04rT+
+zxBNMbP3
+-----END CERTIFICATE-----
+`
+	testKeyPEM = `
+-----BEGIN CERTIFICATE-----
+MIIF0jCCA7qgAwIBAgIQEFjWOkN8qXNbWKtveG5ddTANBgkqhkiG9w0BAQsFADA2
+MRwwGgYDVQQKExNsaW51eGNvbnRhaW5lcnMub3JnMRYwFAYDVQQDDA1lc25vd0Bm
+dXJpb3VzMB4XDTE1MTAwMTIxMjAyMloXDTI1MDkyODIxMjAyMlowNjEcMBoGA1UE
+ChMTbGludXhjb250YWluZXJzLm9yZzEWMBQGA1UEAwwNZXNub3dAZnVyaW91czCC
+AiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAMQgSXXaZMWImOP6IFBy/3E6
+JFHwrgy5YMqRikoernt5cMr838nNdNLW9woBIVRZfZIFbAjf38PGBQYAs/4G/WIt
+not+used+for+anything+really+just+make+sure+it+differs+from+cert
 BmxTLbEvz87PrrsoVR9K5R261ciAFdFiE7Jbh15qUm4qXYHT9QgJeXnDtV/bxO+Y
 Rrh9WfSP8x0SKrAoO7uhjI9Y276c8+etF0EY8u/+joqS8cZbOLXMuafgtF5E1trd
 QNRHwiIhEUVqctdguzMHbhFfKthq6vP8qhWNOF6FowZgSg+Q5Tvm1jaU++BNPqWi

@@ -29,8 +29,8 @@ func (s *connectionSuite) TestUpdateServerConfig(c *gc.C) {
 		cSvr.EXPECT().UpdateServer(updateReq, lxdtesting.ETag).Return(nil),
 	)
 
-	client := lxd.NewClient(cSvr)
-	err := client.UpdateServerConfig(map[string]string{"key1": "val1"})
+	jujuSvr := lxd.NewServer(cSvr)
+	err := jujuSvr.UpdateServerConfig(map[string]string{"key1": "val1"})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -50,7 +50,7 @@ func (s *connectionSuite) TestUpdateContainerConfig(c *gc.C) {
 		op.EXPECT().Wait().Return(nil),
 	)
 
-	client := lxd.NewClient(cSvr)
-	err := client.UpdateContainerConfig("juju-lxd-1", newConfig)
+	jujuSvr := lxd.NewServer(cSvr)
+	err := jujuSvr.UpdateContainerConfig("juju-lxd-1", newConfig)
 	c.Assert(err, gc.IsNil)
 }

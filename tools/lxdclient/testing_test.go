@@ -9,6 +9,7 @@ import (
 	"runtime"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/testing"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
@@ -20,7 +21,7 @@ type BaseSuite struct {
 
 	Stub   *testing.Stub
 	Client *stubClient
-	Cert   *Cert
+	Cert   *lxd.Certificate
 }
 
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
@@ -35,7 +36,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.Stub = &testing.Stub{}
 	s.Client = &stubClient{stub: s.Stub}
-	s.Cert = &Cert{
+	s.Cert = &lxd.Certificate{
 		Name:    "some cert",
 		CertPEM: []byte("<a valid PEM-encoded x.509 cert>"),
 		KeyPEM:  []byte("<a valid PEM-encoded x.509 key>"),

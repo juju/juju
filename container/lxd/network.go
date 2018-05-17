@@ -1,3 +1,6 @@
+// Copyright 2018 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package lxd
 
 import (
@@ -14,11 +17,11 @@ import (
 )
 
 // LocalBridgeName returns the name of the local LXD network bridge.
-func (s *Client) LocalBridgeName() string {
+func (s *Server) LocalBridgeName() string {
 	return s.localBridgeName
 }
 
-func (s *Client) VerifyDefaultBridge(profile *api.Profile, eTag string) error {
+func (s *Server) VerifyDefaultBridge(profile *api.Profile, eTag string) error {
 	eth0, ok := profile.Devices["eth0"]
 	if !ok {
 		// On LXD >= 2.3 there is no bridge config by default.
@@ -61,10 +64,10 @@ func (s *Client) VerifyDefaultBridge(profile *api.Profile, eTag string) error {
 // the input profile.
 // An error is returned if the bridge exists with IPv6 configuration.
 // If the bridge does not exist, it is created.
-func (s *Client) ensureDefaultBridge(profile *api.Profile, eTag string) error {
+func (s *Server) ensureDefaultBridge(profile *api.Profile, eTag string) error {
 	net, _, err := s.GetNetwork(network.DefaultLXDBridge)
 	if err != nil {
-		if !isLXDNotFound(err) {
+		if !IsLXDNotFound(err) {
 			return errors.Trace(err)
 		}
 		req := api.NetworksPost{

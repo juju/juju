@@ -41,12 +41,12 @@ func (s *imageSuite) TestCopyImageUsesPassedCallback(c *gc.C) {
 	req := &lxdclient.ImageCopyArgs{Aliases: aliases}
 	iSvr.EXPECT().CopyImage(iSvr, image, req).Return(copyOp, nil)
 
-	jSvr := lxd.NewClient(iSvr)
+	jujuSvr := lxd.NewServer(iSvr)
 	sourced := lxd.SourcedImage{
 		Image:     &image,
 		LXDServer: iSvr,
 	}
-	err := jSvr.CopyRemoteImage(sourced, []string{"local/image/alias"}, noOpCallback)
+	err := jujuSvr.CopyRemoteImage(sourced, []string{"local/image/alias"}, noOpCallback)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -62,8 +62,8 @@ func (s *imageSuite) TestFindImageLocalServer(c *gc.C) {
 		iSvr.EXPECT().GetImage("foo-target").Return(&image, lxdtesting.ETag, nil),
 	)
 
-	jSvr := lxd.NewClient(iSvr)
-	found, err := jSvr.FindImage("xenial", s.Arch(), []lxd.RemoteServer{{}}, false, nil)
+	jujuSvr := lxd.NewServer(iSvr)
+	found, err := jujuSvr.FindImage("xenial", s.Arch(), []lxd.RemoteServer{{}}, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.LXDServer, gc.Equals, iSvr)
 	c.Check(*found.Image, gc.DeepEquals, image)
@@ -75,8 +75,8 @@ func (s *imageSuite) TestFindImageLocalServerUnknownSeries(c *gc.C) {
 	iSvr := s.NewMockServer(ctrl)
 	iSvr.EXPECT().GetImageAlias("juju/pldlinux/"+s.Arch()).Return(nil, lxdtesting.ETag, nil)
 
-	jSvr := lxd.NewClient(iSvr)
-	_, err := jSvr.FindImage("pldlinux", s.Arch(), []lxd.RemoteServer{{}}, false, nil)
+	jujuSvr := lxd.NewServer(iSvr)
+	_, err := jujuSvr.FindImage("pldlinux", s.Arch(), []lxd.RemoteServer{{}}, false, nil)
 	c.Check(err, gc.ErrorMatches, `.*series: "pldlinux".*`)
 }
 
@@ -101,13 +101,13 @@ func (s *imageSuite) TestFindImageRemoteServers(c *gc.C) {
 		rSvr2.EXPECT().GetImage("foo-remote-target").Return(&image, lxdtesting.ETag, nil),
 	)
 
-	jSvr := lxd.NewClient(iSvr)
+	jujuSvr := lxd.NewServer(iSvr)
 	remotes := []lxd.RemoteServer{
 		{Name: "server-that-wont-work", Protocol: lxd.LXDProtocol},
 		{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol},
 		{Name: "server-that-should-not-be-touched", Protocol: lxd.LXDProtocol},
 	}
-	found, err := jSvr.FindImage("xenial", s.Arch(), remotes, false, nil)
+	found, err := jujuSvr.FindImage("xenial", s.Arch(), remotes, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.LXDServer, gc.Equals, rSvr2)
 	c.Check(*found.Image, gc.DeepEquals, image)
@@ -138,11 +138,11 @@ func (s *imageSuite) TestFindImageRemoteServersCopyLocalNoCallback(c *gc.C) {
 		iSvr.EXPECT().CopyImage(rSvr, image, copyReq).Return(copyOp, nil),
 	)
 
-	jSvr := lxd.NewClient(iSvr)
+	jujuSvr := lxd.NewServer(iSvr)
 	remotes := []lxd.RemoteServer{
 		{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol},
 	}
-	found, err := jSvr.FindImage("xenial", s.Arch(), remotes, true, nil)
+	found, err := jujuSvr.FindImage("xenial", s.Arch(), remotes, true, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.LXDServer, gc.Equals, iSvr)
 	c.Check(*found.Image, gc.DeepEquals, image)
@@ -166,9 +166,9 @@ func (s *imageSuite) TestFindImageRemoteServersNotFound(c *gc.C) {
 			nil, lxdtesting.ETag, errors.New("failed to retrieve image")),
 	)
 
-	jSvr := lxd.NewClient(iSvr)
+	jujuSvr := lxd.NewServer(iSvr)
 	remotes := []lxd.RemoteServer{{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol}}
-	_, err := jSvr.FindImage("bionic", s.Arch(), remotes, false, nil)
+	_, err := jujuSvr.FindImage("bionic", s.Arch(), remotes, false, nil)
 	c.Assert(err, gc.ErrorMatches, ".*failed to retrieve image.*")
 }
 
