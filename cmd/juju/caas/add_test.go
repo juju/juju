@@ -279,10 +279,10 @@ func (s *addCAASSuite) TestMissingArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `missing k8s name.`)
 }
 
-func (s *addCAASSuite) TestNonExistContextName(c *gc.C) {
+func (s *addCAASSuite) TestNonExistClusterName(c *gc.C) {
 	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "myk8s", "--context-name", "non existing context name")
-	c.Assert(err, gc.ErrorMatches, `contextName \"non existing context name\" not found`)
+	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "non existing cluster name")
+	c.Assert(err, gc.ErrorMatches, `clusterName \"non existing cluster name\" not found`)
 }
 
 func mockStdinPipe(content string) (*os.File, error) {
@@ -396,7 +396,7 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *gc.C) {
 
 func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
 	cmd := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, cmd, "myk8s", "--context-name", "key2")
+	_, err := s.runCommand(c, nil, cmd, "myk8s", "--cluster-name", "mrcloud2")
 	c.Assert(err, jc.ErrorIsNil)
 	s.store.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{

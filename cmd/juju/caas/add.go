@@ -48,13 +48,13 @@ var usageAddCAASDetails = `
 Creates a user-defined cloud and populate the selected controller with the k8s
 cloud details. Speficify non default kubeconfig file location using $KUBECONFIG
 environment variable or pipe in file content from stdin. The config file
-can contain definitions for different k8s clusters, use --context-name to pick
+can contain definitions for different k8s clusters, use --cluster-name to pick
 which one to use.
 
 Examples:
 	juju add-k8s myk8scloud
-	KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --context-name=my_context_name
-	kubectl config view --raw | juju add-k8s myk8scloud --context-name=my_context_name
+	KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
+	kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
 `
 
 // AddCAASCommand is the command that allows you to add a caas and credential
@@ -67,8 +67,8 @@ type AddCAASCommand struct {
 	// caasType is the type of CAAS being added
 	caasType string
 
-	// contextName is the name of the context (k8s) or credential to import
-	contextName string
+	// clusterName is the name of the cluster (k8s) or credential to import
+	clusterName string
 
 	cloudMetadataStore    CloudMetadataStore
 	fileCredentialStore   jujuclient.CredentialStore
@@ -105,7 +105,7 @@ func (c *AddCAASCommand) Info() *cmd.Info {
 // SetFlags initializes the flags supported by the command.
 func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.StringVar(&c.contextName, "context-name", "", "Specify the k8s context to import")
+	f.StringVar(&c.clusterName, "cluster-name", "", "Specify the k8s cluster to import")
 }
 
 // Init populates the command with the args from the command line.
@@ -125,7 +125,7 @@ func (c *AddCAASCommand) newAPIRoot() (api.Connection, error) {
 	return c.NewAPIRoot()
 }
 
-// getStdinPipe trys to get the stdIn pipe from the context
+// getStdinPipe returns nil if the context's stdin is not a pipe.
 func getStdinPipe(ctxt *cmd.Context) (io.Reader, error) {
 	if stdIn, ok := ctxt.Stdin.(*os.File); ok {
 		stat, err := stdIn.Stat()
@@ -167,16 +167,23 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 		return errors.Errorf("No k8s cluster definitions found in config")
 	}
 
-	contextName := c.contextName
-	if contextName == "" {
-		contextName = caasConfig.CurrentContext
-		logger.Debugf("No context name specified, so use current context -> %q", contextName)
-	}
-	context, ok := caasConfig.Contexts[contextName]
-	if !ok {
-		return errors.NotFoundf("contextName %q", contextName)
+	var context clientconfig.Context
+	clusterName := c.clusterName
+	if clusterName != "" {
+		for _, c := range caasConfig.Contexts {
+			if clusterName == c.CloudName {
+				context = c
+				break
+			}
+		}
+	} else {
+		context, _ = caasConfig.Contexts[caasConfig.CurrentContext]
+		logger.Debugf("No cluster name specified, so use current context %q", caasConfig.CurrentContext)
 	}
 
+	if (clientconfig.Context{}) == context {
+		return errors.NotFoundf("clusterName %q", clusterName)
+	}
 	credential := caasConfig.Credentials[context.CredentialName]
 	currentCloud := caasConfig.Clouds[context.CloudName]
 
