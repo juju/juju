@@ -15,7 +15,7 @@ func NewAddCAASCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
 	fileCredentialStore jujuclient.CredentialStore,
 	clientStore jujuclient.ClientStore,
-	addCloudAPIFunc func() (CloudAPI, error),
+	addCloudAPIFunc func() (AddCloudAPI, error),
 	newClientConfigReaderFunc func(string) (clientconfig.ClientConfigFunc, error),
 ) cmd.Command {
 	cmd := &AddCAASCommand{

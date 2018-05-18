@@ -32,8 +32,8 @@ type CloudMetadataStore interface {
 	WritePersonalCloudMetadata(cloudsMap map[string]cloud.Cloud) error
 }
 
-// CloudAPI - Implemented by cloudapi.Client
-type CloudAPI interface {
+// AddCloudAPI - Implemented by cloudapi.Client
+type AddCloudAPI interface {
 	AddCloud(cloud.Cloud) error
 	AddCredential(tag string, credential cloud.Credential) error
 	Close() error
@@ -50,9 +50,11 @@ can contain definitions for different k8s clusters, use --cluster-name to pick
 which one to use.
 
 Examples:
-	juju add-k8s myk8scloud
-	KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
-	kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
+    juju add-k8s myk8scloud
+    
+    KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
+    
+    kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
 
 See also:
     remove-k8s
@@ -73,7 +75,7 @@ type AddCAASCommand struct {
 
 	cloudMetadataStore    CloudMetadataStore
 	fileCredentialStore   jujuclient.CredentialStore
-	apiFunc               func() (CloudAPI, error)
+	apiFunc               func() (AddCloudAPI, error)
 	newClientConfigReader func(string) (clientconfig.ClientConfigFunc, error)
 }
 
@@ -86,7 +88,7 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 			return clientconfig.NewClientConfigReader(caasType)
 		},
 	}
-	cmd.apiFunc = func() (CloudAPI, error) {
+	cmd.apiFunc = func() (AddCloudAPI, error) {
 		root, err := cmd.NewAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -136,6 +138,7 @@ func getStdinPipe(ctxt *cmd.Context) (io.Reader, error) {
 	return nil, nil
 }
 
+// Run is defined on the Command interface.
 func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 	if err := c.verifyName(c.caasName); err != nil {
 		return errors.Trace(err)
@@ -259,7 +262,7 @@ func addCloudToLocal(cloudMetadataStore CloudMetadataStore, newCloud cloud.Cloud
 	return cloudMetadataStore.WritePersonalCloudMetadata(personalClouds)
 }
 
-func addCloudToController(apiClient CloudAPI, newCloud cloud.Cloud) error {
+func addCloudToController(apiClient AddCloudAPI, newCloud cloud.Cloud) error {
 	err := apiClient.AddCloud(newCloud)
 	if err != nil {
 		return errors.Trace(err)
@@ -279,7 +282,7 @@ func (c *AddCAASCommand) addCredentialToLocal(cloudName string, newCredential cl
 	return nil
 }
 
-func (c *AddCAASCommand) addCredentialToController(apiClient CloudAPI, newCredential cloud.Credential, credentialName string) error {
+func (c *AddCAASCommand) addCredentialToController(apiClient AddCloudAPI, newCredential cloud.Credential, credentialName string) error {
 	currentAccountDetails, err := c.CurrentAccountDetails()
 	if err != nil {
 		return errors.Trace(err)

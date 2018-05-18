@@ -27,7 +27,7 @@ import (
 type addCAASSuite struct {
 	jujutesting.IsolationSuite
 	dir                 string
-	fakeCloudAPI        *fakeCloudAPI
+	fakeCloudAPI        *fakeAddCloudAPI
 	store               *fakeCloudMetadataStore
 	fileCredentialStore *fakeCredentialStore
 	fakeK8SConfigFunc   clientconfig.ClientConfigFunc
@@ -86,22 +86,22 @@ func (f *fakeCloudMetadataStore) WritePersonalCloudMetadata(cloudsMap map[string
 	return jujutesting.TypeAssertError(results[0])
 }
 
-type fakeCloudAPI struct {
-	caas.CloudAPI
+type fakeAddCloudAPI struct {
+	caas.AddCloudAPI
 	jujutesting.Stub
 	authTypes   []cloud.AuthType
 	credentials []names.CloudCredentialTag
 }
 
-func (api *fakeCloudAPI) Close() error {
+func (api *fakeAddCloudAPI) Close() error {
 	return nil
 }
 
-func (api *fakeCloudAPI) AddCloud(cloud.Cloud) error {
+func (api *fakeAddCloudAPI) AddCloud(cloud.Cloud) error {
 	return nil
 }
 
-func (api *fakeCloudAPI) AddCredential(tag string, credential cloud.Credential) error {
+func (api *fakeAddCloudAPI) AddCredential(tag string, credential cloud.Credential) error {
 	return nil
 }
 
@@ -160,7 +160,7 @@ func (fcs *fakeCredentialStore) UpdateCredential(cloudName string, details cloud
 func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.dir = c.MkDir()
-	s.fakeCloudAPI = &fakeCloudAPI{
+	s.fakeCloudAPI = &fakeAddCloudAPI{
 		authTypes: []cloud.AuthType{
 			cloud.EmptyAuthType,
 			cloud.AccessKeyAuthType,
@@ -211,7 +211,7 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool, emptyClientCon
 	addcmd := caas.NewAddCAASCommandForTest(s.store,
 		&fakeCredentialStore{},
 		NewMockClientStore(),
-		func() (caas.CloudAPI, error) {
+		func() (caas.AddCloudAPI, error) {
 			return s.fakeCloudAPI, nil
 		},
 		func(caasType string) (clientconfig.ClientConfigFunc, error) {
