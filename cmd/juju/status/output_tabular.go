@@ -24,13 +24,16 @@ import (
 	"github.com/juju/juju/status"
 )
 
+const (
+	maxVersionWidth = 15
+	ellipsis        = "..."
+	truncatedWidth  = maxVersionWidth - len(ellipsis)
+)
+
 // FormatTabular writes a tabular summary of machines, applications, and
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
 func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
-	const maxVersionWidth = 15
-	const ellipsis = "..."
-	const truncatedWidth = maxVersionWidth - len(ellipsis)
 
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
@@ -41,19 +44,11 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	if forceColor {
 		tw.SetColorCapable(forceColor)
 	}
-	w := output.Wrapper{tw}
-	p := w.Println
-	outputHeaders := func(values ...interface{}) {
-		p()
-		p(values...)
-	}
 
 	cloudRegion := fs.Model.Cloud
 	if fs.Model.CloudRegion != "" {
 		cloudRegion += "/" + fs.Model.CloudRegion
 	}
-
-	metering := fs.Model.MeterStatus != nil
 
 	header := []interface{}{"Model", "Controller", "Cloud/Region", "Version"}
 	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion, fs.Model.Version}
@@ -68,34 +63,42 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	// The first set of headers don't use outputHeaders because it adds the blank line.
-	p(header...)
-	p(values...)
+	w := output.Wrapper{tw}
+	w.Println(header...)
+	w.Println(values...)
 
 	if len(fs.RemoteApplications) > 0 {
-		outputHeaders("SAAS", "Status", "Store", "URL")
-		for _, appName := range naturalsort.Sort(stringKeysFromMap(fs.RemoteApplications)) {
-			app := fs.RemoteApplications[appName]
-			var store, urlPath string
-			url, err := crossmodel.ParseOfferURL(app.OfferURL)
-			if err == nil {
-				store = url.Source
-				url.Source = ""
-				urlPath = url.Path()
-				if store == "" {
-					store = "local"
-				}
-			} else {
-				// This is not expected.
-				logger.Errorf("invalid offer URL %q: %v", app.OfferURL, err)
-				store = "unknown"
-				urlPath = app.OfferURL
-			}
-			w.Print(appName)
-			w.PrintStatus(app.StatusInfo.Current)
-			p(store, urlPath)
-		}
-		tw.Flush()
+		printRemoteApplications(tw, fs.RemoteApplications)
 	}
+
+	if len(fs.Applications) > 0 {
+		printApplications(tw, fs)
+	}
+
+	if len(fs.Machines) > 0 {
+		printMachines(tw, fs.Machines)
+	}
+
+	if err := printOffers(tw, fs.Offers); err != nil {
+		w.Println(err.Error())
+	}
+
+	if len(fs.Relations) > 0 {
+		printRelations(tw, fs.Relations)
+	}
+
+	tw.Flush()
+	return nil
+}
+
+func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
+	w := output.Wrapper{tw}
+	outputHeaders := func(values ...interface{}) {
+		w.Println()
+		w.Println(values...)
+	}
+
+	metering := fs.Model.MeterStatus != nil
 
 	units := make(map[string]unitStatus)
 	outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
@@ -121,7 +124,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		} else {
 			w.Print(scale)
 		}
-		p(app.CharmName,
+		w.Println(app.CharmName,
 			app.CharmOrigin,
 			app.CharmRev,
 			app.OS,
@@ -147,7 +150,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		w.Print(indent("", level*2, name))
 		w.PrintStatus(u.WorkloadStatusInfo.Current)
 		w.PrintStatus(u.JujuStatusInfo.Current)
-		p(
+		w.Println(
 			u.Machine,
 			u.PublicAddress,
 			strings.Join(u.OpenedPorts, ","),
@@ -183,37 +186,60 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 			}
 		}
 	}
+	w.Println()
+}
 
-	p()
-	printMachines(tw, fs.Machines)
-
-	if err := printOffers(tw, fs.Offers); err != nil {
-		w.Println(err.Error())
-	}
-
-	if len(fs.Relations) > 0 {
-		sort.Slice(fs.Relations, func(i, j int) bool {
-			a, b := fs.Relations[i], fs.Relations[j]
-			if a.Provider == b.Provider {
-				return a.Requirer < b.Requirer
+func printRemoteApplications(tw *ansiterm.TabWriter, remoteApplications map[string]remoteApplicationStatus) {
+	w := output.Wrapper{tw}
+	w.Println()
+	w.Println("SAAS", "Status", "Store", "URL")
+	for _, appName := range naturalsort.Sort(stringKeysFromMap(remoteApplications)) {
+		app := remoteApplications[appName]
+		var store, urlPath string
+		url, err := crossmodel.ParseOfferURL(app.OfferURL)
+		if err == nil {
+			store = url.Source
+			url.Source = ""
+			urlPath = url.Path()
+			if store == "" {
+				store = "local"
 			}
-			return a.Provider < b.Provider
-		})
-		outputHeaders("Relation provider", "Requirer", "Interface", "Type", "Message")
-		for _, r := range fs.Relations {
-			w.Print(r.Provider, r.Requirer, r.Interface, r.Type)
-			if r.Status != string(relation.Joined) {
-				w.PrintColor(cmdcrossmodel.RelationStatusColor(relation.Status(r.Status)), r.Status)
-				if r.Message != "" {
-					w.Print(" - " + r.Message)
-				}
-			}
-			w.Println()
+		} else {
+			// This is not expected.
+			logger.Errorf("invalid offer URL %q: %v", app.OfferURL, err)
+			store = "unknown"
+			urlPath = app.OfferURL
 		}
+		w.Print(appName)
+		w.PrintStatus(app.StatusInfo.Current)
+		w.Println(store, urlPath)
 	}
-
 	tw.Flush()
-	return nil
+}
+
+func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
+	sort.Slice(relations, func(i, j int) bool {
+		a, b := relations[i], relations[j]
+		if a.Provider == b.Provider {
+			return a.Requirer < b.Requirer
+		}
+		return a.Provider < b.Provider
+	})
+
+	w := output.Wrapper{tw}
+	w.Println()
+	w.Println("Relation provider", "Requirer", "Interface", "Type", "Message")
+
+	for _, r := range relations {
+		w.Print(r.Provider, r.Requirer, r.Interface, r.Type)
+		if r.Status != string(relation.Joined) {
+			w.PrintColor(cmdcrossmodel.RelationStatusColor(relation.Status(r.Status)), r.Status)
+			if r.Message != "" {
+				w.Print(" - " + r.Message)
+			}
+		}
+		w.Println()
+	}
 }
 
 type offerItems []offerStatus
