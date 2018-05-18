@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 var lxdLogger = loggo.GetLogger("juju.provisioner.lxd")
@@ -82,13 +83,13 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 	// much.
 	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
 	if bridgeDevice == "" {
-		bridgeDevice = container.DefaultLxdBridge
+		bridgeDevice = network.DefaultLXDBridge
 	}
 	interfaces, err := finishNetworkConfig(bridgeDevice, preparedInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	network := container.BridgeNetworkConfig(bridgeDevice, 0, interfaces)
+	net := container.BridgeNetworkConfig(bridgeDevice, 0, interfaces)
 
 	// The provisioner worker will provide all tools it knows about
 	// (after applying explicitly specified constraints), which may
@@ -131,8 +132,7 @@ func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args env
 
 	storageConfig := &container.StorageConfig{}
 	inst, hardware, err := broker.manager.CreateContainer(
-		args.InstanceConfig, args.Constraints,
-		series, network, storageConfig, args.StatusCallback,
+		args.InstanceConfig, args.Constraints, series, net, storageConfig, args.StatusCallback,
 	)
 	if err != nil {
 		return nil, err
