@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -104,20 +105,23 @@ func (s *StatusSuite) assertServeralUnitsOnAMachines(c *gc.C) {
 	// Application A will have a unit on the same machine is a unit of an application B.
 	applicationA := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
-			Name: "mysql",
+			Name:     "mysql",
+			Revision: "1",
 		}),
 	})
 
 	// Application B will have a unit on the same machine as a unit of an application A.
 	applicationB := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
-			Name: "wordpress",
+			Name:     "wordpress",
+			Revision: "3",
 		}),
 	})
 
 	// Put a unit from each, application A and B, on the same machine.
 	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobHostUnits},
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: instance.Id("id0"),
 	})
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: applicationA,
@@ -135,11 +139,15 @@ func (s *StatusSuite) TestStatusWhenFilteringByMachine(c *gc.C) {
 
 	// Put a unit from the application C on a different machine.
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobHostUnits},
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: instance.Id("id1"),
 	})
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "another",
-		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql"}),
+		Name: "another",
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name:     "mysql",
+			Revision: "5",
+		}),
 	})
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: application,
@@ -159,8 +167,8 @@ mysql/0      waiting   allocating  0                               waiting for m
 wordpress/0  waiting   allocating  0                               waiting for machine
 
 Machine  State    DNS  Inst id  Series   AZ  Message
-0        pending       id-7     quantal      
-1        pending       id-8     quantal      
+0        pending       id0      quantal      
+1        pending       id1      quantal      
 `)
 
 	context = s.run(c, "status", "0")
@@ -174,7 +182,7 @@ mysql/0      waiting   allocating  0                               waiting for m
 wordpress/0  waiting   allocating  0                               waiting for machine
 
 Machine  State    DNS  Inst id  Series   AZ  Message
-0        pending       id-7     quantal      
+0        pending       id0      quantal      
 `)
 }
 
@@ -188,7 +196,8 @@ func (s *StatusSuite) TestStatusFilteringByMachineIDMatchesExactly(c *gc.C) {
 
 	// Put a unit from an application on the 1st machine.
 	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobHostUnits},
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: instance.Id("id1"),
 	})
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: application,
@@ -207,7 +216,8 @@ func (s *StatusSuite) TestStatusFilteringByMachineIDMatchesExactly(c *gc.C) {
 
 	// Put a unit from an application on the 10th machine.
 	machine10 := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobHostUnits},
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: instance.Id("id10"),
 	})
 
 	s.Factory.MakeUnit(c, &factory.UnitParams{
@@ -221,7 +231,7 @@ Unit       Workload  Agent       Machine  Public address  Ports  Message
 another/0  waiting   allocating  1                               waiting for machine
 
 Machine  State    DNS  Inst id  Series   AZ  Message
-1        pending       id-8     quantal      
+1        pending       id1      quantal      
 
 `)
 
