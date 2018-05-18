@@ -20,9 +20,7 @@ type StatusSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-func (s *StatusSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-
+func (s *StatusSuite) assertMultipleRelationsBetweenApplications(c *gc.C) {
 	// make an application with 2 endpoints
 	application1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
@@ -68,6 +66,7 @@ func (s *StatusSuite) run(c *gc.C, args ...string) *cmd.Context {
 }
 
 func (s *StatusSuite) TestMultipleRelationsInYamlFormat(c *gc.C) {
+	s.assertMultipleRelationsBetweenApplications(c)
 	context := s.run(c, "status", "--format=yaml")
 	out := cmdtesting.Stdout(context)
 
@@ -92,10 +91,138 @@ func (s *StatusSuite) TestMultipleRelationsInYamlFormat(c *gc.C) {
 }
 
 func (s *StatusSuite) TestMultipleRelationsInTabularFormat(c *gc.C) {
+	s.assertMultipleRelationsBetweenApplications(c)
 	context := s.run(c, "status", "--relations")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
 Relation provider      Requirer                   Interface  Type         Message
 wordpress:juju-info    logging:info               juju-info  subordinate  joining  
 wordpress:logging-dir  logging:logging-directory  logging    subordinate  joining  
 `[1:])
+}
+
+func (s *StatusSuite) assertServeralUnitsOnAMachines(c *gc.C) {
+	// Application A will have a unit on the same machine is a unit of an application B.
+	applicationA := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "mysql",
+		}),
+	})
+
+	// Application B will have a unit on the same machine as a unit of an application A.
+	applicationB := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+
+	// Put a unit from each, application A and B, on the same machine.
+	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	})
+	s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: applicationA,
+		Machine:     machine1,
+	})
+	s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: applicationB,
+		Machine:     machine1,
+	})
+
+}
+
+func (s *StatusSuite) TestStatusWhenFilteringByMachine(c *gc.C) {
+	s.assertServeralUnitsOnAMachines(c)
+
+	// Put a unit from the application C on a different machine.
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	})
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "another",
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql"}),
+	})
+	s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: application,
+		Machine:     machine,
+	})
+
+	context := s.run(c, "status")
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
+App        Version  Status   Scale  Charm      Store       Rev  OS      Notes
+another             waiting    0/1  mysql      jujucharms    5  ubuntu  
+mysql               waiting    0/1  mysql      jujucharms    1  ubuntu  
+wordpress           waiting    0/1  wordpress  jujucharms    3  ubuntu  
+
+Unit         Workload  Agent       Machine  Public address  Ports  Message
+another/0    waiting   allocating  1                               waiting for machine
+mysql/0      waiting   allocating  0                               waiting for machine
+wordpress/0  waiting   allocating  0                               waiting for machine
+
+Machine  State    DNS  Inst id  Series   AZ  Message
+0        pending       id-7     quantal      
+1        pending       id-8     quantal      
+`)
+
+	context = s.run(c, "status", "0")
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
+App        Version  Status   Scale  Charm      Store       Rev  OS      Notes
+mysql               waiting    0/1  mysql      jujucharms    1  ubuntu  
+wordpress           waiting    0/1  wordpress  jujucharms    3  ubuntu  
+
+Unit         Workload  Agent       Machine  Public address  Ports  Message
+mysql/0      waiting   allocating  0                               waiting for machine
+wordpress/0  waiting   allocating  0                               waiting for machine
+
+Machine  State    DNS  Inst id  Series   AZ  Message
+0        pending       id-7     quantal      
+`)
+}
+
+func (s *StatusSuite) TestStatusFilteringByMachineIDMatchesExactly(c *gc.C) {
+	s.assertServeralUnitsOnAMachines(c)
+
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "another",
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql"}),
+	})
+
+	// Put a unit from an application on the 1st machine.
+	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	})
+	s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: application,
+		Machine:     machine1,
+	})
+
+	// Burn machine numbers until we reach 10.
+
+	// Since machine 0 and 1 were created beforehand, we just need to
+	// create 7 machines here.
+	for i := 0; i < 8; i++ {
+		s.Factory.MakeMachine(c, &factory.MachineParams{
+			Jobs: []state.MachineJob{state.JobHostUnits},
+		})
+	}
+
+	// Put a unit from an application on the 10th machine.
+	machine10 := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	})
+
+	s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: application,
+		Machine:     machine10,
+	})
+	context := s.run(c, "status", "1")
+	// Should not have matched anything from machine 10.
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
+Unit       Workload  Agent       Machine  Public address  Ports  Message
+another/0  waiting   allocating  1                               waiting for machine
+
+Machine  State    DNS  Inst id  Series   AZ  Message
+1        pending       id-8     quantal      
+
+`)
+
 }
