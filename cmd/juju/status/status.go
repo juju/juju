@@ -63,6 +63,10 @@ machines, applications, and units will also be displayed. If a subordinate unit
 is matched, then its principal unit will be displayed. If a principal unit is
 matched, then all of its subordinates will be displayed.
 
+Machine numbers may also be used as output filters. This will only display data 
+in each section relevant to the specified machines. For example, application 
+section will only contain the applications that have units on these machines, etc.
+
 The available output formats are:
 
 - tabular (default): Displays status in a tabular format with a separate table
@@ -196,7 +200,29 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return c.out.Write(ctx, formatted)
+	err = c.out.Write(ctx, formatted)
+	if err != nil {
+		return err
+	}
+
+	if status.IsEmpty() {
+		if len(c.patterns) == 0 {
+			modelName, err := c.ModelName()
+			if err != nil {
+				return err
+			}
+			ctx.Infof("Model %q is empty.", modelName)
+		} else {
+			plural := func() string {
+				if len(c.patterns) == 1 {
+					return ""
+				}
+				return "s"
+			}
+			ctx.Infof("Nothing matched specified filter%v.", plural())
+		}
+	}
+	return nil
 }
 
 func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error {

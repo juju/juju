@@ -30,6 +30,14 @@ type FullStatus struct {
 	Relations          []RelationStatus                   `json:"relations"`
 }
 
+func (fs *FullStatus) IsEmpty() bool {
+	return len(fs.Applications) == 0 &&
+		len(fs.Machines) == 0 &&
+		len(fs.Offers) == 0 &&
+		len(fs.RemoteApplications) == 0 &&
+		len(fs.Relations) == 0
+}
+
 // ModelStatusInfo holds status information about the model itself.
 type ModelStatusInfo struct {
 	Name             string         `json:"name"`

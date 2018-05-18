@@ -97,95 +97,98 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		tw.Flush()
 	}
 
-	units := make(map[string]unitStatus)
-	outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
-	tw.SetColumnAlignRight(3)
-	tw.SetColumnAlignRight(6)
-	for _, appName := range naturalsort.Sort(stringKeysFromMap(fs.Applications)) {
-		app := fs.Applications[appName]
-		version := app.Version
-		// Don't let a long version push out the version column.
-		if len(version) > maxVersionWidth {
-			version = version[:truncatedWidth] + ellipsis
-		}
-		// Notes may well contain other things later.
-		notes := ""
-		if app.Exposed {
-			notes = "exposed"
-		}
-		w.Print(appName, version)
-		w.PrintStatus(app.StatusInfo.Current)
-		scale, warn := fs.applicationScale(appName)
-		if warn {
-			w.PrintColor(output.WarningHighlight, scale)
-		} else {
-			w.Print(scale)
-		}
-		p(app.CharmName,
-			app.CharmOrigin,
-			app.CharmRev,
-			app.OS,
-			notes)
+	if len(fs.Applications) > 0 {
+		units := make(map[string]unitStatus)
+		outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
+		tw.SetColumnAlignRight(3)
+		tw.SetColumnAlignRight(6)
+		for _, appName := range naturalsort.Sort(stringKeysFromMap(fs.Applications)) {
+			app := fs.Applications[appName]
+			version := app.Version
+			// Don't let a long version push out the version column.
+			if len(version) > maxVersionWidth {
+				version = version[:truncatedWidth] + ellipsis
+			}
+			// Notes may well contain other things later.
+			notes := ""
+			if app.Exposed {
+				notes = "exposed"
+			}
+			w.Print(appName, version)
+			w.PrintStatus(app.StatusInfo.Current)
+			scale, warn := fs.applicationScale(appName)
+			if warn {
+				w.PrintColor(output.WarningHighlight, scale)
+			} else {
+				w.Print(scale)
+			}
+			p(app.CharmName,
+				app.CharmOrigin,
+				app.CharmRev,
+				app.OS,
+				notes)
 
-		for un, u := range app.Units {
-			units[un] = u
-			if u.MeterStatus != nil {
-				metering = true
+			for un, u := range app.Units {
+				units[un] = u
+				if u.MeterStatus != nil {
+					metering = true
+				}
 			}
 		}
-	}
 
-	pUnit := func(name string, u unitStatus, level int) {
-		message := u.WorkloadStatusInfo.Message
-		agentDoing := agentDoing(u.JujuStatusInfo)
-		if agentDoing != "" {
-			message = fmt.Sprintf("(%s) %s", agentDoing, message)
+		pUnit := func(name string, u unitStatus, level int) {
+			message := u.WorkloadStatusInfo.Message
+			agentDoing := agentDoing(u.JujuStatusInfo)
+			if agentDoing != "" {
+				message = fmt.Sprintf("(%s) %s", agentDoing, message)
+			}
+			if u.Leader {
+				name += "*"
+			}
+			w.Print(indent("", level*2, name))
+			w.PrintStatus(u.WorkloadStatusInfo.Current)
+			w.PrintStatus(u.JujuStatusInfo.Current)
+			p(
+				u.Machine,
+				u.PublicAddress,
+				strings.Join(u.OpenedPorts, ","),
+				message,
+			)
 		}
-		if u.Leader {
-			name += "*"
-		}
-		w.Print(indent("", level*2, name))
-		w.PrintStatus(u.WorkloadStatusInfo.Current)
-		w.PrintStatus(u.JujuStatusInfo.Current)
-		p(
-			u.Machine,
-			u.PublicAddress,
-			strings.Join(u.OpenedPorts, ","),
-			message,
-		)
-	}
 
-	outputHeaders("Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
-	for _, name := range naturalsort.Sort(stringKeysFromMap(units)) {
-		u := units[name]
-		pUnit(name, u, 0)
-		const indentationLevel = 1
-		recurseUnits(u, indentationLevel, pUnit)
-	}
-
-	if metering {
-		outputHeaders("Entity", "Meter status", "Message")
-		if fs.Model.MeterStatus != nil {
-			w.Print("model")
-			outputColor := fromMeterStatusColor(fs.Model.MeterStatus.Color)
-			w.PrintColor(outputColor, fs.Model.MeterStatus.Color)
-			w.PrintColor(outputColor, fs.Model.MeterStatus.Message)
-			w.Println()
-		}
+		outputHeaders("Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
 		for _, name := range naturalsort.Sort(stringKeysFromMap(units)) {
 			u := units[name]
-			if u.MeterStatus != nil {
-				w.Print(name)
-				outputColor := fromMeterStatusColor(u.MeterStatus.Color)
-				w.PrintColor(outputColor, u.MeterStatus.Color)
-				w.PrintColor(outputColor, u.MeterStatus.Message)
+			pUnit(name, u, 0)
+			const indentationLevel = 1
+			recurseUnits(u, indentationLevel, pUnit)
+		}
+
+		if metering {
+			outputHeaders("Entity", "Meter status", "Message")
+			if fs.Model.MeterStatus != nil {
+				w.Print("model")
+				outputColor := fromMeterStatusColor(fs.Model.MeterStatus.Color)
+				w.PrintColor(outputColor, fs.Model.MeterStatus.Color)
+				w.PrintColor(outputColor, fs.Model.MeterStatus.Message)
 				w.Println()
 			}
+			for _, name := range naturalsort.Sort(stringKeysFromMap(units)) {
+				u := units[name]
+				if u.MeterStatus != nil {
+					w.Print(name)
+					outputColor := fromMeterStatusColor(u.MeterStatus.Color)
+					w.PrintColor(outputColor, u.MeterStatus.Color)
+					w.PrintColor(outputColor, u.MeterStatus.Message)
+					w.Println()
+				}
+			}
 		}
+		p()
 	}
-
-	p()
-	printMachines(tw, fs.Machines)
+	if len(fs.Machines) > 0 {
+		printMachines(tw, fs.Machines)
+	}
 
 	if err := printOffers(tw, fs.Offers); err != nil {
 		w.Println(err.Error())

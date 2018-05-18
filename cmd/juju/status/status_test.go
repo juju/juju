@@ -4818,3 +4818,30 @@ func (s *StatusSuite) TestNonTabularRelations(c *gc.C) {
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
 }
+
+func (s *StatusSuite) TestStatusFormatTabularEmptyModel(c *gc.C) {
+	code, stdout, stderr := runStatus(c)
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, "Model \"controller\" is empty.\n")
+	expected := `
+Model       Controller  Cloud/Region        Version  SLA
+controller  kontroll    dummy/dummy-region  1.2.3    unsupported
+
+`[1:]
+	c.Assert(string(stdout), gc.Equals, expected)
+}
+
+func (s *StatusSuite) TestStatusFormatTabularForUnmatchedFilter(c *gc.C) {
+	code, stdout, stderr := runStatus(c, "unmatched")
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, "Nothing matched specified filter.\n")
+	expected := `
+Model       Controller  Cloud/Region        Version  SLA
+controller  kontroll    dummy/dummy-region  1.2.3    unsupported
+
+`[1:]
+	c.Assert(string(stdout), gc.Equals, expected)
+
+	_, _, stderr = runStatus(c, "cannot", "match", "me")
+	c.Check(string(stderr), gc.Equals, "Nothing matched specified filters.\n")
+}
