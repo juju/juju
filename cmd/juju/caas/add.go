@@ -14,8 +14,6 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	cloudapi "github.com/juju/juju/api/cloud"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
@@ -55,6 +53,9 @@ Examples:
 	juju add-k8s myk8scloud
 	KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
 	kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
+
+See also:
+    remove-k8s
 `
 
 // AddCAASCommand is the command that allows you to add a caas and credential
@@ -72,8 +73,7 @@ type AddCAASCommand struct {
 
 	cloudMetadataStore    CloudMetadataStore
 	fileCredentialStore   jujuclient.CredentialStore
-	apiRoot               api.Connection
-	newCloudAPI           func(base.APICallCloser) CloudAPI
+	apiFunc               func() (CloudAPI, error)
 	newClientConfigReader func(string) (clientconfig.ClientConfigFunc, error)
 }
 
@@ -82,12 +82,16 @@ func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	cmd := &AddCAASCommand{
 		cloudMetadataStore:  cloudMetadataStore,
 		fileCredentialStore: jujuclient.NewFileCredentialStore(),
-		newCloudAPI: func(caller base.APICallCloser) CloudAPI {
-			return cloudapi.NewClient(caller)
-		},
 		newClientConfigReader: func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			return clientconfig.NewClientConfigReader(caasType)
 		},
+	}
+	cmd.apiFunc = func() (CloudAPI, error) {
+		root, err := cmd.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return cloudapi.NewClient(root), nil
 	}
 	return modelcmd.WrapController(cmd)
 }
@@ -118,13 +122,6 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args[1:])
 }
 
-func (c *AddCAASCommand) newAPIRoot() (api.Connection, error) {
-	if c.apiRoot != nil {
-		return c.apiRoot, nil
-	}
-	return c.NewAPIRoot()
-}
-
 // getStdinPipe returns nil if the context's stdin is not a pipe.
 func getStdinPipe(ctxt *cmd.Context) (io.Reader, error) {
 	if stdIn, ok := ctxt.Stdin.(*os.File); ok {
@@ -140,12 +137,6 @@ func getStdinPipe(ctxt *cmd.Context) (io.Reader, error) {
 }
 
 func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
-	api, err := c.newAPIRoot()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer api.Close()
-
 	if err := c.verifyName(c.caasName); err != nil {
 		return errors.Trace(err)
 	}
@@ -204,7 +195,11 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	cloudClient := c.newCloudAPI(api)
+	cloudClient, err := c.apiFunc()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer cloudClient.Close()
 
 	if err := addCloudToController(cloudClient, newCloud); err != nil {
 		return errors.Trace(err)

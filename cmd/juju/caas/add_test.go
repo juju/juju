@@ -18,8 +18,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
@@ -59,14 +57,6 @@ users:
     username: theuser
 `
 
-type fakeAPIConnection struct {
-	api.Connection
-}
-
-func (*fakeAPIConnection) Close() error {
-	return nil
-}
-
 type fakeCloudMetadataStore struct {
 	*jujutesting.CallMocker
 }
@@ -101,6 +91,10 @@ type fakeCloudAPI struct {
 	jujutesting.Stub
 	authTypes   []cloud.AuthType
 	credentials []names.CloudCredentialTag
+}
+
+func (api *fakeCloudAPI) Close() error {
+	return nil
 }
 
 func (api *fakeCloudAPI) AddCloud(cloud.Cloud) error {
@@ -150,14 +144,16 @@ type fakeCredentialStore struct {
 }
 
 func (fcs *fakeCredentialStore) CredentialForCloud(string) (*cloud.CloudCredential, error) {
-	return nil, nil
+	panic("unexpected call to CredentialForCloud")
 }
 
 func (fcs *fakeCredentialStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
+	fcs.AddCall("AllCredentials")
 	return map[string]cloud.CloudCredential{}, nil
 }
 
 func (fcs *fakeCredentialStore) UpdateCredential(cloudName string, details cloud.CloudCredential) error {
+	fcs.AddCall("UpdateCredential", cloudName, details)
 	return nil
 }
 
@@ -215,9 +211,8 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists bool, emptyClientCon
 	addcmd := caas.NewAddCAASCommandForTest(s.store,
 		&fakeCredentialStore{},
 		NewMockClientStore(),
-		&fakeAPIConnection{},
-		func(caller base.APICallCloser) caas.CloudAPI {
-			return s.fakeCloudAPI
+		func() (caas.CloudAPI, error) {
+			return s.fakeCloudAPI, nil
 		},
 		func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			if !cloudTypeExists {
