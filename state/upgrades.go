@@ -1489,6 +1489,8 @@ func AddCloudModelCounts(st *State) error {
 
 	modelsColl, closer := st.db().GetCollection(modelsC)
 	defer closer()
+	refCountColl, closer := st.db().GetCollection(globalRefcountsC)
+	defer closer()
 
 	var updateOps []txn.Op
 	for _, c := range clouds {
@@ -1496,13 +1498,16 @@ func AddCloudModelCounts(st *State) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if n != c.ModelCount {
-			updateOps = append(updateOps, txn.Op{
-				C:      cloudsC,
-				Id:     c.Name,
-				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{{"modelcount", n}}}},
-			})
+		_, currentCount, err := countCloudModelRefOp(st, c.Name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if n != currentCount {
+			op, err := nsRefcounts.CreateOrIncRefOp(refCountColl, cloudModelRefCountKey(c.Name), n-currentCount)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			updateOps = append(updateOps, op)
 		}
 	}
 	return st.db().RunTransaction(updateOps)

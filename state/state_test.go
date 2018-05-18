@@ -2698,14 +2698,17 @@ func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
 
 	cloud, err := s.State.Cloud(model.Cloud())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloud.ModelCount, gc.Equals, 1)
+	refCount, err := state.CloudModelRefCount(st, cloud.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(refCount, gc.Equals, 1)
 
 	err = st.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloud, err = s.State.Cloud(model.Cloud())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloud.ModelCount, gc.Equals, 0)
+	_, err = state.CloudModelRefCount(st, cloud.Name)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// test that we can not find the user:envName unique index
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})

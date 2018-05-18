@@ -299,7 +299,11 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	}}
 
 	// Decrement the model count for the cloud to which this model belongs.
-	ops = append(ops, updateCloudModelCountOp(model.Cloud(), -1))
+	decCloudRefOp, err := decCloudModelRefOp(st, model.Cloud())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ops = append(ops, decCloudRefOp)
 
 	if !st.IsController() {
 		ops = append(ops, decHostedModelCountOp())

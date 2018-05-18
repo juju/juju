@@ -276,7 +276,14 @@ func allCollections() collectionSchema {
 
 		// meterStatusC is the collection used to store meter status information.
 		meterStatusC: {},
-		refcountsC:   {},
+
+		// These collections hold reference counts which are used
+		// by the nsRefcounts struct.
+		refcountsC: {}, // Per model.
+		globalRefcountsC: {
+			global: true,
+		},
+
 		relationsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "endpoints.relationname"},
@@ -510,6 +517,7 @@ const (
 	filesystemAttachmentsC   = "filesystemAttachments"
 	filesystemsC             = "filesystems"
 	globalClockC             = "globalclock"
+	globalRefcountsC         = "globalRefcounts"
 	globalSettingsC          = "globalSettings"
 	guimetadataC             = "guimetadata"
 	guisettingsC             = "guisettings"

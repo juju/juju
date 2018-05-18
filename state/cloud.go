@@ -4,9 +4,10 @@
 package state
 
 import (
+	"fmt"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -27,7 +28,6 @@ type cloudDoc struct {
 	StorageEndpoint  string                       `bson:"storage-endpoint,omitempty"`
 	Regions          map[string]cloudRegionSubdoc `bson:"regions,omitempty"`
 	CACertificates   []string                     `bson:"ca-certificates,omitempty"`
-	ModelCount       int                          `bson:"modelcount"`
 }
 
 // cloudRegionSubdoc records information about cloud regions.
@@ -37,7 +37,7 @@ type cloudRegionSubdoc struct {
 	StorageEndpoint  string `bson:"storage-endpoint,omitempty"`
 }
 
-// createCloudOp returns a list of txn.Ops that will initialize
+// createCloudOp returns a txn.Op that will initialize
 // the cloud definition for the controller.
 func createCloudOp(cloud cloud.Cloud) txn.Op {
 	authTypes := make([]string, len(cloud.AuthTypes))
@@ -65,9 +65,47 @@ func createCloudOp(cloud cloud.Cloud) txn.Op {
 			StorageEndpoint:  cloud.StorageEndpoint,
 			Regions:          regions,
 			CACertificates:   cloud.CACertificates,
-			ModelCount:       cloud.ModelCount,
 		},
 	}
+}
+
+// cloudModelRefCountKey returns a key for refcounting models
+// for the specified cloud. Each time a model for the cloud is created,
+// the refcount is incremented, and the opposite happens on removal.
+func cloudModelRefCountKey(cloudName string) string {
+	return fmt.Sprintf("cloudModel#%s", cloudName)
+}
+
+// incApplicationOffersRefOp returns a txn.Op that increments the reference
+// count for a cloud model.
+func incCloudModelRefOp(mb modelBackend, cloudName string) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(globalRefcountsC)
+	defer closer()
+	cloudModelRefCountKey := cloudModelRefCountKey(cloudName)
+	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, cloudModelRefCountKey, 1)
+	return incRefOp, errors.Trace(err)
+}
+
+// countCloudModelRefOp returns the number of models for a cloud,
+// along with a txn.Op that ensures that that does not change.
+func countCloudModelRefOp(mb modelBackend, cloudName string) (txn.Op, int, error) {
+	refcounts, closer := mb.db().GetCollection(globalRefcountsC)
+	defer closer()
+	key := cloudModelRefCountKey(cloudName)
+	return nsRefcounts.CurrentOp(refcounts, key)
+}
+
+// decCloudModelRefOp returns a txn.Op that decrements the reference
+// count for a cloud model.
+func decCloudModelRefOp(mb modelBackend, cloudName string) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(globalRefcountsC)
+	defer closer()
+	cloudModelRefCountKey := cloudModelRefCountKey(cloudName)
+	decRefOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, cloudModelRefCountKey)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
+	return decRefOp, nil
 }
 
 func (d cloudDoc) toCloud() cloud.Cloud {
@@ -92,7 +130,6 @@ func (d cloudDoc) toCloud() cloud.Cloud {
 	return cloud.Cloud{
 		Name:             d.Name,
 		Type:             d.Type,
-		ModelCount:       d.ModelCount,
 		AuthTypes:        authTypes,
 		Endpoint:         d.Endpoint,
 		IdentityEndpoint: d.IdentityEndpoint,
@@ -160,9 +197,6 @@ func validateCloud(cloud cloud.Cloud) error {
 	if cloud.Type == "" {
 		return errors.NotValidf("empty Type")
 	}
-	if cloud.ModelCount > 0 {
-		return errors.NotValidf("model count (%d) > 0", cloud.ModelCount)
-	}
 	if len(cloud.AuthTypes) == 0 {
 		return errors.NotValidf("empty auth-types")
 	}
@@ -180,49 +214,8 @@ func regionSettingsGlobalKey(cloud, region string) string {
 // RemoveCloud removes a cloud and any credentials for that cloud.
 // If the cloud is in use, ie has models deployed to it, the operation fails.
 func (st *State) RemoveCloud(name string) error {
-
-	checkUnused := func() error {
-		c, err := st.Cloud(name)
-		if errors.IsNotFound(err) {
-			return nil
-		}
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if c.ModelCount > 0 {
-			return errors.Errorf("cloud is used by %d model%s", c.ModelCount, plural(c.ModelCount))
-		}
-		return nil
-	}
-	// Check that the cloud is not used by any models.
-	if err := checkUnused(); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Check that the cloud is not the primary controller cloud.
-	// This shouldn't be needed since the above model check will
-	// pick it up, but just in case....
-	ci, err := st.ControllerInfo()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if ci.CloudName == name {
-		return errors.Errorf("cloud is used by controller")
-	}
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			err := checkUnused()
-			if err == nil {
-				return nil, jujutxn.ErrNoOperations
-			}
-			return nil, errors.Trace(err)
-		}
-		ops, err := st.removeCloudOps(name)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return ops, nil
+		return st.removeCloudOps(name)
 	}
 	return st.db().Run(buildTxn)
 }
@@ -230,12 +223,19 @@ func (st *State) RemoveCloud(name string) error {
 // removeCloudOp returns a list of txn.Ops that will remove
 // the specified cloud and any associated credentials.
 func (st *State) removeCloudOps(name string) ([]txn.Op, error) {
+	countOp, n, err := countCloudModelRefOp(st, name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n != 0 {
+		return nil, errors.Errorf("cloud is used by %d model%s", n, plural(n))
+	}
+
 	ops := []txn.Op{{
 		C:      cloudsC,
 		Id:     name,
-		Assert: bson.D{{"modelcount", 0}},
 		Remove: true,
-	}}
+	}, countOp}
 	credPattern := bson.M{
 		"_id": bson.M{"$regex": "^" + name + "#"},
 	}

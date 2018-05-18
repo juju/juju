@@ -210,7 +210,10 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	// Check that the cloud's model count is initially 1.
 	cloud, err := s.State.Cloud("dummy")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloud.ModelCount, gc.Equals, 1)
+
+	refCount, err := state.CloudModelRefCount(s.State, cloud.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(refCount, gc.Equals, 1)
 }
 
 func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {

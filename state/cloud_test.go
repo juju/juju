@@ -111,16 +111,6 @@ func (s *CloudSuite) TestAddCloudNoAuthTypes(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid cloud: empty auth-types not valid`)
 }
 
-func (s *CloudSuite) TestAddCloudNonZeroModelCount(c *gc.C) {
-	err := s.State.AddCloud(cloud.Cloud{
-		Name:       "stratus",
-		Type:       "foo",
-		AuthTypes:  cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-		ModelCount: 1,
-	})
-	c.Assert(err, gc.ErrorMatches, `invalid cloud: model count \(1\) > 0 not valid`)
-}
-
 func (s *CloudSuite) TestRemoveCloud(c *gc.C) {
 	// Doesn't exist already is a no-op.
 	err := s.State.RemoveCloud(lowCloud.Name)

@@ -398,7 +398,11 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	ops := append(prereqOps, modelOps...)
 
 	// Increment the model count for the cloud to which this model belongs.
-	ops = append(ops, updateCloudModelCountOp(args.CloudName, 1))
+	incCloudRefOp, err := incCloudModelRefOp(st, args.CloudName)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	ops = append(ops, incCloudRefOp)
 
 	err = newSt.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
@@ -1521,15 +1525,6 @@ func createModelEntityRefsOp(uuid string) txn.Op {
 		Id:     uuid,
 		Assert: txn.DocMissing,
 		Insert: &modelEntityRefsDoc{UUID: uuid},
-	}
-}
-
-func updateCloudModelCountOp(cloud string, inc int) txn.Op {
-	return txn.Op{
-		C:      cloudsC,
-		Id:     cloud,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$inc", bson.D{{"modelcount", inc}}}},
 	}
 }
 

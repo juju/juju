@@ -216,7 +216,10 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 	)
 
 	// The controller cloud is initially used by 1 model (the controller model).
-	args.Cloud.ModelCount = 1
+	cloudRefCountOp, err := incCloudModelRefOp(st, args.Cloud.Name)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	ops = append(ops,
 		txn.Op{
@@ -229,6 +232,7 @@ func Initialize(args InitializeParams) (_ *Controller, _ *State, err error) {
 			},
 		},
 		createCloudOp(args.Cloud),
+		cloudRefCountOp,
 		txn.Op{
 			C:      controllersC,
 			Id:     apiHostPortsKey,

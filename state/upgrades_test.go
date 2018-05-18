@@ -2548,21 +2548,14 @@ func (s *upgradesSuite) TestAddCloudModelCounts(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	refCountColl, closer := s.state.db().GetRawCollection(globalRefcountsC)
+	defer closer()
 	expected := []bson.M{{
-		"_id":        "cloud-foo",
-		"name":       "cloud-foo",
-		"type":       "dummy",
-		"auth-types": []interface{}{"empty"},
-		"endpoint":   "here",
-		"modelcount": 2,
+		"_id":      "cloudModel#cloud-foo",
+		"refcount": 2,
 	}, {
-		"_id":        "dummy",
-		"name":       "dummy",
-		"type":       "dummy",
-		"auth-types": []interface{}{"empty"},
-		"regions":    bson.M{"dummy-region": bson.M{}},
-		"endpoint":   "",
-		"modelcount": 1, // unchanged
+		"_id":      "cloudModel#dummy",
+		"refcount": 1, // unchanged
 	}}
-	s.assertUpgradedData(c, AddCloudModelCounts, expectUpgradedData{cloudsColl, expected})
+	s.assertUpgradedData(c, AddCloudModelCounts, expectUpgradedData{refCountColl, expected})
 }

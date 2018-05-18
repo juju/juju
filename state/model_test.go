@@ -190,7 +190,9 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	// Check that the cloud's model count is incremented.
 	cloud, err := s.State.Cloud("dummy")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloud.ModelCount, gc.Equals, 2)
+	refCount, err := state.CloudModelRefCount(st, cloud.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(refCount, gc.Equals, 2)
 
 	// Since the model tag for the State connection is different,
 	// asking for this model through FindEntity returns a not found error.
