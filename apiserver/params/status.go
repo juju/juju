@@ -30,6 +30,8 @@ type FullStatus struct {
 	Relations          []RelationStatus                   `json:"relations"`
 }
 
+// IsEmpty checks all collections on FullStatus to determine if the status is empty.
+// Note that only the collections are checked here as Model information will always be populated.
 func (fs *FullStatus) IsEmpty() bool {
 	return len(fs.Applications) == 0 &&
 		len(fs.Machines) == 0 &&
