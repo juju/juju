@@ -79,7 +79,7 @@ func (s *networkSuite) TestEnsureIPv4Modified(c *gc.C) {
 func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDevicePresent(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl, "network")
+	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
 
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, "", nil)
 
@@ -90,7 +90,7 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDevicePresent(c *gc.C) {
 func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDeviceNotBridged(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl, "network")
+	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
 
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, "", nil)
 
@@ -103,7 +103,7 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDeviceNotBridged(c *gc.C
 func (s *networkSuite) TestVerifyDefaultBridgeNetSupportIPv6Present(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl, "network")
+	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
 
 	net := &lxdapi.Network{
 		Name:    network.DefaultLXDBridge,
@@ -123,7 +123,7 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportIPv6Present(c *gc.C) {
 func (s *networkSuite) TestVerifyDefaultBridgeNetSupportNoBridge(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl, "network")
+	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
 
 	netConf := map[string]string{
 		"ipv4.address": "auto",

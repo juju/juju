@@ -13,6 +13,9 @@ import (
 type Server struct {
 	lxd.ContainerServer
 
+	name      string
+	clustered bool
+
 	networkAPISupport bool
 	clusterAPISupport bool
 
@@ -24,8 +27,17 @@ type Server struct {
 func NewServer(svr lxd.ContainerServer) *Server {
 	info, _, _ := svr.GetServer()
 	apiExt := info.APIExtensions
+
+	name := info.Environment.ServerName
+	clustered := info.Environment.ServerClustered
+	if clustered {
+		logger.Debugf("creating LXD server for cluster node %q", name)
+	}
+
 	return &Server{
 		ContainerServer:   svr,
+		name:              name,
+		clustered:         clustered,
 		networkAPISupport: shared.StringInSlice("network", apiExt),
 		clusterAPISupport: shared.StringInSlice("clustering", apiExt),
 	}
