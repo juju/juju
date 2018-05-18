@@ -205,22 +205,23 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	if status.IsEmpty() {
-		if len(c.patterns) == 0 {
-			modelName, err := c.ModelName()
-			if err != nil {
-				return err
-			}
-			ctx.Infof("Model %q is empty.", modelName)
-		} else {
-			plural := func() string {
-				if len(c.patterns) == 1 {
-					return ""
-				}
-				return "s"
-			}
-			ctx.Infof("Nothing matched specified filter%v.", plural())
+	if !status.IsEmpty() {
+		return nil
+	}
+	if len(c.patterns) == 0 {
+		modelName, err := c.ModelName()
+		if err != nil {
+			return err
 		}
+		ctx.Infof("Model %q is empty.", modelName)
+	} else {
+		plural := func() string {
+			if len(c.patterns) == 1 {
+				return ""
+			}
+			return "s"
+		}
+		ctx.Infof("Nothing matched specified filter%v.", plural())
 	}
 	return nil
 }
