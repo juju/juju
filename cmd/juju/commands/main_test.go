@@ -501,6 +501,7 @@ var commandNames = []string{
 	"remove-cloud",
 	"remove-consumed-application",
 	"remove-credential",
+	"remove-k8s",
 	"remove-machine",
 	"remove-offer",
 	"remove-relation",

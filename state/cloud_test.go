@@ -111,21 +111,18 @@ func (s *CloudSuite) TestAddCloudNoAuthTypes(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid cloud: empty auth-types not valid`)
 }
 
-func (s *CloudSuite) TestRemoveCloud(c *gc.C) {
-	// Doesn't exist already is a no-op.
-	err := s.State.RemoveCloud(lowCloud.Name)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *CloudSuite) TestRemoveNonExistentCloud(c *gc.C) {
+	err := s.State.RemoveCloud("foo")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
 
-	err = s.State.AddCloud(lowCloud)
+func (s *CloudSuite) TestRemoveCloud(c *gc.C) {
+	err := s.State.AddCloud(lowCloud)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveCloud(lowCloud.Name)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.Cloud(lowCloud.Name)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-	// Idempotent.
-	err = s.State.RemoveCloud(lowCloud.Name)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *CloudSuite) TestRemoveCloudAlsoRemovesCredentials(c *gc.C) {
@@ -197,7 +194,7 @@ func (s *CloudSuite) TestRemoveInUseCloudNotAllowed(c *gc.C) {
 
 }
 
-func (s *CloudSuite) TestRemoveCloudRace(c *gc.C) {
+func (s *CloudSuite) TestRemoveCloudNewModelRace(c *gc.C) {
 	err := s.State.AddCloud(lowCloud)
 	c.Assert(err, jc.ErrorIsNil)
 	otherModelOwner := s.Factory.MakeModelUser(c, nil)
@@ -221,4 +218,19 @@ func (s *CloudSuite) TestRemoveCloudRace(c *gc.C) {
 
 	err = s.State.RemoveCloud(lowCloud.Name)
 	c.Assert(err, gc.ErrorMatches, "cloud is used by 1 model")
+}
+
+func (s *CloudSuite) TestRemoveCloudRace(c *gc.C) {
+	err := s.State.AddCloud(lowCloud)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err = s.State.RemoveCloud(lowCloud.Name)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err = s.State.RemoveCloud(lowCloud.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.Cloud(lowCloud.Name)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
