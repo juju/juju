@@ -134,6 +134,14 @@ func (doc *MachineDoc) String() string {
 	return m.String()
 }
 
+func CloudModelRefCount(st *State, cloudName string) (int, error) {
+	refcounts, closer := st.db().GetCollection(globalRefcountsC)
+	defer closer()
+
+	key := cloudModelRefCountKey(cloudName)
+	return nsRefcounts.read(refcounts, key)
+}
+
 func ApplicationSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {
 	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()

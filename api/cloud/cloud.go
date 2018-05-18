@@ -191,6 +191,20 @@ func (c *Client) AddCloud(cloud jujucloud.Cloud) error {
 	return nil
 }
 
+// RemoveCloud removes a cloud from the current controller.
+func (c *Client) RemoveCloud(cloud string) error {
+	if bestVer := c.BestAPIVersion(); bestVer < 2 {
+		return errors.NotImplementedf("RemoveCloud() (need v2+, have v%d)", bestVer)
+	}
+	args := params.Entities{Entities: []params.Entity{{Tag: names.NewCloudTag(cloud).String()}}}
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("RemoveClouds", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return result.OneError()
+}
+
 // CredentialContents returns contents of the credential values for the specified
 // cloud and credential name. Secrets will be included if requested.
 func (c *Client) CredentialContents(cloud, credential string, withSecrets bool) ([]params.CredentialContentResult, error) {

@@ -338,6 +338,11 @@ func (st *mockBackend) AddCloud(cloud cloud.Cloud) error {
 	return errors.NewNotImplemented(nil, "This mock is used for v1, so AddCloud")
 }
 
+func (st *mockBackend) RemoveCloud(name string) error {
+	st.MethodCall(st, "RemoveCloud", name)
+	return errors.NewNotImplemented(nil, "This mock is used for v1, so RemoveCloud")
+}
+
 func (st *mockBackend) AllCloudCredentials(user names.UserTag) ([]state.Credential, error) {
 	st.MethodCall(st, "AllCloudCredentials", user)
 	return nil, errors.NewNotImplemented(nil, "This mock is used for v1, so AllCloudCredentials")

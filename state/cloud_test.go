@@ -8,8 +8,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type CloudSuite struct {
@@ -105,4 +109,116 @@ func (s *CloudSuite) TestAddCloudNoAuthTypes(c *gc.C) {
 		Type: "foo",
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid cloud: empty auth-types not valid`)
+}
+
+func (s *CloudSuite) TestRemoveCloud(c *gc.C) {
+	// Doesn't exist already is a no-op.
+	err := s.State.RemoveCloud(lowCloud.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.AddCloud(lowCloud)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.RemoveCloud(lowCloud.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.Cloud(lowCloud.Name)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// Idempotent.
+	err = s.State.RemoveCloud(lowCloud.Name)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *CloudSuite) TestRemoveCloudAlsoRemovesCredentials(c *gc.C) {
+	err := s.State.AddCloud(lowCloud)
+	c.Assert(err, jc.ErrorIsNil)
+
+	credTag := names.NewCloudCredentialTag(lowCloud.Name + "/admin/cred")
+	err = s.State.UpdateCloudCredential(credTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
+	c.Assert(err, jc.ErrorIsNil)
+	credTag = names.NewCloudCredentialTag(lowCloud.Name + "/bob/cred")
+	err = s.State.UpdateCloudCredential(credTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add credential for a different cloud, shouldn't be touched.
+	otherCredTag := names.NewCloudCredentialTag("dummy/mary/cred")
+	err = s.State.UpdateCloudCredential(otherCredTag, cloud.NewEmptyCredential())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.RemoveCloud(lowCloud.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	coll, closer := state.GetCollection(s.State, "cloudCredentials")
+	defer closer()
+
+	// Creds for removed cloud are gone.
+	n, err := coll.Find(bson.D{{"_id", bson.D{{"$regex", "^" + lowCloud.Name + "#"}}}}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 0)
+
+	// Creds for other clouds are not affected.
+	n, err = coll.Find(bson.D{{"_id", bson.D{{"$regex", "^dummy#"}}}}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
+	_, err = s.State.CloudCredential(otherCredTag)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *CloudSuite) TestRemoveControllerModelCloudNotAllowed(c *gc.C) {
+	err := s.State.RemoveCloud("dummy")
+	c.Assert(err, gc.ErrorMatches, "cloud is used by 1 model")
+	_, err = s.State.Cloud("dummy")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *CloudSuite) TestRemoveInUseCloudNotAllowed(c *gc.C) {
+	err := s.State.AddCloud(lowCloud)
+	c.Assert(err, jc.ErrorIsNil)
+	otherModelOwner := s.Factory.MakeModelUser(c, nil)
+	credTag := names.NewCloudCredentialTag(lowCloud.Name + "/" + otherModelOwner.UserName + "/cred")
+	err = s.State.UpdateCloudCredential(credTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
+	c.Assert(err, jc.ErrorIsNil)
+
+	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		CloudName:       lowCloud.Name,
+		CloudCredential: credTag,
+		Owner:           otherModelOwner.UserTag,
+		ConfigAttrs: testing.Attrs{
+			"controller": false,
+		},
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer otherSt.Close()
+
+	err = otherSt.RemoveCloud(lowCloud.Name)
+	c.Assert(err, gc.ErrorMatches, "cloud is used by 1 model")
+	_, err = s.State.Cloud(lowCloud.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+}
+
+func (s *CloudSuite) TestRemoveCloudRace(c *gc.C) {
+	err := s.State.AddCloud(lowCloud)
+	c.Assert(err, jc.ErrorIsNil)
+	otherModelOwner := s.Factory.MakeModelUser(c, nil)
+	credTag := names.NewCloudCredentialTag(lowCloud.Name + "/" + otherModelOwner.UserName + "/cred")
+	err = s.State.UpdateCloudCredential(credTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
+			Name: "caas-model",
+			Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+			CloudName:       lowCloud.Name,
+			CloudCredential: credTag,
+			Owner:           otherModelOwner.UserTag,
+			ConfigAttrs: testing.Attrs{
+				"controller": false,
+			},
+			StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+		defer otherSt.Close()
+	}).Check()
+
+	err = s.State.RemoveCloud(lowCloud.Name)
+	c.Assert(err, gc.ErrorMatches, "cloud is used by 1 model")
 }

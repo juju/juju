@@ -2509,3 +2509,53 @@ func (s *upgradesSuite) TestRemoveContainerImageStreamFromNonModelSettings(c *gc
 		expectUpgradedData{settingsColl, expectedSettings},
 	)
 }
+
+func (s *upgradesSuite) TestAddCloudModelCounts(c *gc.C) {
+	modelsColl, closer := s.state.db().GetRawCollection(modelsC)
+	defer closer()
+
+	err := modelsColl.Insert(
+		modelDoc{
+			Type:           ModelTypeIAAS,
+			UUID:           "0000-dead-beaf-0001",
+			Owner:          "user-admin@local",
+			Name:           "controller",
+			ControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+			Cloud:          "cloud-foo",
+		},
+		modelDoc{
+			Type:           ModelTypeIAAS,
+			UUID:           "0000-dead-beaf-0002",
+			Owner:          "user-mary@external",
+			Name:           "default",
+			ControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+			Cloud:          "cloud-foo",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cloudsColl, closer := s.state.db().GetRawCollection(cloudsC)
+	defer closer()
+
+	err = cloudsColl.Insert(
+		bson.M{
+			"_id":        "cloud-foo",
+			"name":       "cloud-foo",
+			"type":       "dummy",
+			"auth-types": []string{"empty"},
+			"endpoint":   "here",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	refCountColl, closer := s.state.db().GetRawCollection(globalRefcountsC)
+	defer closer()
+	expected := []bson.M{{
+		"_id":      "cloudModel#cloud-foo",
+		"refcount": 2,
+	}, {
+		"_id":      "cloudModel#dummy",
+		"refcount": 1, // unchanged
+	}}
+	s.assertUpgradedData(c, AddCloudModelCounts, expectUpgradedData{refCountColl, expected})
+}
