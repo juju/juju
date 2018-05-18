@@ -74,6 +74,7 @@ func (s *RaftFixture) NewRaft(c *gc.C, id raft.ServerID, fsm raft.FSM) (
 
 func (s *RaftFixture) DefaultConfig(id raft.ServerID) *raft.Config {
 	raftConfig := raft.DefaultConfig()
+	raftConfig.ShutdownOnRemove = false
 	raftConfig.LocalID = id
 	raftConfig.HeartbeatTimeout = 100 * time.Millisecond
 	raftConfig.ElectionTimeout = raftConfig.HeartbeatTimeout
