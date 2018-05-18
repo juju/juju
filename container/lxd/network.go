@@ -21,6 +21,34 @@ func (s *Server) LocalBridgeName() string {
 	return s.localBridgeName
 }
 
+// EnsureIPv4 retrieves the network for the input name and checks its IPv4
+// configuration. If none is detected, it is set to "auto".
+// The boolean return indicates if modification was necessary.
+func (s *Server) EnsureIPv4(netName string) (bool, error) {
+	var modified bool
+
+	net, eTag, err := s.GetNetwork(network.DefaultLXDBridge)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	cfg, ok := net.Config["ipv4.address"]
+	if !ok || cfg == "none" {
+		if net.Config == nil {
+			net.Config = make(map[string]string, 2)
+		}
+		net.Config["ipv4.address"] = "auto"
+		net.Config["ipv4.nat"] = "true"
+
+		if err := s.UpdateNetwork(netName, net.Writable(), eTag); err != nil {
+			return false, errors.Trace(err)
+		}
+		modified = true
+	}
+
+	return modified, nil
+}
+
 func (s *Server) VerifyDefaultBridge(profile *api.Profile, eTag string) error {
 	eth0, ok := profile.Devices["eth0"]
 	if !ok {

@@ -36,6 +36,46 @@ func defaultProfile() *lxdapi.Profile {
 	}
 }
 
+func (s *networkSuite) TestEnsureIPv4NoChange(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl, "network")
+
+	net := &lxdapi.Network{
+		NetworkPut: lxdapi.NetworkPut{
+			Config: map[string]string{
+				"ipv4.address": "10.5.3.1",
+			},
+		},
+	}
+	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(net, lxdtesting.ETag, nil)
+
+	mod, err := lxd.NewServer(cSvr).EnsureIPv4(network.DefaultLXDBridge)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mod, jc.IsFalse)
+}
+
+func (s *networkSuite) TestEnsureIPv4Modified(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl, "network")
+
+	req := lxdapi.NetworkPut{
+		Config: map[string]string{
+			"ipv4.address": "auto",
+			"ipv4.nat":     "true",
+		},
+	}
+	gomock.InOrder(
+		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, lxdtesting.ETag, nil),
+		cSvr.EXPECT().UpdateNetwork(network.DefaultLXDBridge, req, lxdtesting.ETag).Return(nil),
+	)
+
+	mod, err := lxd.NewServer(cSvr).EnsureIPv4(network.DefaultLXDBridge)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mod, jc.IsTrue)
+}
+
 func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDevicePresent(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -224,5 +264,4 @@ Disable IPv6 via:
 	sudo dpkg-reconfigure -p medium lxd
 
 and run the command again.`)
-
 }
