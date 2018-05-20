@@ -96,7 +96,11 @@ func (environ *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, i
 		return nil, errors.Trace(err)
 	}
 	if environ.usingMAAS2() {
-		return maas2NetworkInterfaces(ctx, inst.(*maas2Instance), subnetsMap)
+		dnsSearchDomains, err := environ.Domains(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return maas2NetworkInterfaces(ctx, inst.(*maas2Instance), subnetsMap, dnsSearchDomains...)
 	} else {
 		mi := inst.(*maas1Instance)
 		return maasObjectNetworkInterfaces(ctx, mi.maasObject, subnetsMap)
@@ -229,7 +233,7 @@ func maasObjectNetworkInterfaces(ctx context.ProviderCallContext, maasObject *go
 	return infos, nil
 }
 
-func maas2NetworkInterfaces(ctx context.ProviderCallContext, instance *maas2Instance, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {
+func maas2NetworkInterfaces(ctx context.ProviderCallContext, instance *maas2Instance, subnetsMap map[string]network.Id, dnsSearchDomains ...string) ([]network.InterfaceInfo, error) {
 	interfaces := instance.machine.InterfaceSet()
 	infos := make([]network.InterfaceInfo, 0, len(interfaces))
 	for i, iface := range interfaces {
@@ -323,6 +327,7 @@ func maas2NetworkInterfaces(ctx context.ProviderCallContext, instance *maas2Inst
 					nicInfo.DNSServers[i].SpaceProviderId = spaceId
 				}
 			}
+			nicInfo.DNSSearchDomains = dnsSearchDomains
 			nicInfo.GatewayAddress = gwAddr
 			nicInfo.MTU = sub.VLAN().MTU()
 
