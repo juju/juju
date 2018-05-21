@@ -147,7 +147,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Mux:           s.mux,
 		Authenticator: s.auth,
 		Path:          "raft/path",
-		Tag:           s.agent.conf.tag,
+		LocalID:       "123",
 		Clock:         s.clock,
 	})
 }

@@ -117,7 +117,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Raft:     s.raft,
 		Hub:      s.hub,
 		LogStore: s.logStore,
-		Tag:      names.NewMachineTag("3"),
+		LocalID:  "3",
 		Logger:   s.logger,
 	})
 }

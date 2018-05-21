@@ -6,13 +6,12 @@ package raftbackstop
 import (
 	"bytes"
 
+	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -43,7 +42,7 @@ type Config struct {
 	LogStore raft.LogStore
 	Hub      *pubsub.StructuredHub
 	Logger   Logger
-	Tag      names.Tag
+	LocalID  raft.ServerID
 }
 
 // Validate validates the raft worker configuration.
@@ -60,8 +59,8 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if config.Tag == nil {
-		return errors.NotValidf("nil Tag")
+	if config.LocalID == "" {
+		return errors.NotValidf("empty LocalID")
 	}
 	return nil
 }
@@ -151,8 +150,7 @@ func (w *backstopWorker) maybeRecoverCluster(details apiserver.Details) error {
 	if len(details.Servers) != 1 {
 		return nil
 	}
-	machineId := w.config.Tag.Id()
-	if _, found := details.Servers[machineId]; !found {
+	if _, found := details.Servers[string(w.config.LocalID)]; !found {
 		return nil
 	}
 	if w.config.Raft.State() == raft.Leader {
@@ -165,7 +163,7 @@ func (w *backstopWorker) maybeRecoverCluster(details apiserver.Details) error {
 	}
 
 	numServers := len(raftServers)
-	localServer := raftServers[raft.ServerID(machineId)]
+	localServer := raftServers[w.config.LocalID]
 	if localServer == nil {
 		return nil
 	}

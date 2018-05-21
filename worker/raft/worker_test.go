@@ -13,7 +13,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/raft"
@@ -35,7 +34,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		FSM:        s.fsm,
 		Logger:     loggo.GetLogger("juju.worker.raft_test"),
 		StorageDir: c.MkDir(),
-		Tag:        names.NewMachineTag("123"),
+		LocalID:    "123",
 		Transport:  s.newTransport("123"),
 		Clock:      testing.NewClock(time.Time{}),
 	}
@@ -70,8 +69,8 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *raft.Config) { cfg.StorageDir = "" },
 		"empty StorageDir not valid",
 	}, {
-		func(cfg *raft.Config) { cfg.Tag = nil },
-		"nil Tag not valid",
+		func(cfg *raft.Config) { cfg.LocalID = "" },
+		"empty LocalID not valid",
 	}, {
 		func(cfg *raft.Config) { cfg.HeartbeatTimeout = time.Millisecond },
 		"validating raft config: Heartbeat timeout is too low",

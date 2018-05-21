@@ -126,7 +126,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		FSM:        s.fsm,
 		Logger:     s.logger,
 		StorageDir: filepath.Join(s.agent.conf.dataDir, "raft"),
-		Tag:        s.agent.conf.tag,
+		LocalID:    "99",
 		Transport:  s.transport,
 		Clock:      s.clock,
 	})

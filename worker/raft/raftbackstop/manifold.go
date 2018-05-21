@@ -50,7 +50,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		LogStore: logStore,
 		Hub:      hub,
 		Logger:   config.Logger,
-		Tag:      agent.CurrentConfig().Tag(),
+		LocalID:  raft.ServerID(agent.CurrentConfig().Tag().Id()),
 	})
 }
 

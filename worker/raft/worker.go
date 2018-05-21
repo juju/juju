@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/worker/catacomb"
@@ -92,8 +91,8 @@ type Config struct {
 	// worker.
 	StorageDir string
 
-	// Tag is the tag of the agent running this worker.
-	Tag names.Tag
+	// LocalID is the raft.ServerID of this worker.
+	LocalID raft.ServerID
 
 	// Transport is the raft.Transport to use for communication
 	// between raft servers. This must be non-nil for NewWorker,
@@ -142,8 +141,8 @@ func (config Config) Validate() error {
 	if config.StorageDir == "" {
 		return errors.NotValidf("empty StorageDir")
 	}
-	if config.Tag == nil {
-		return errors.NotValidf("nil Tag")
+	if config.LocalID == "" {
+		return errors.NotValidf("empty LocalID")
 	}
 	if config.SnapshotRetention < 0 {
 		return errors.NotValidf("negative SnapshotRetention")
@@ -171,7 +170,6 @@ func Bootstrap(config Config) error {
 
 	// During bootstrap we use an in-memory transport. We just need
 	// to make sure we use the same local address as we'll use later.
-	localID := raft.ServerID(config.Tag.Id())
 	_, transport := raft.NewInmemTransport(bootstrapAddress)
 	defer transport.Close()
 	config.Transport = transport
@@ -192,7 +190,7 @@ func Bootstrap(config Config) error {
 
 	if err := r.BootstrapCluster(raft.Configuration{
 		Servers: []raft.Server{{
-			ID:      localID,
+			ID:      config.LocalID,
 			Address: bootstrapAddress,
 		}},
 	}).Error(); err != nil {
@@ -371,7 +369,7 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 
 func newRaftConfig(config Config) (*raft.Config, error) {
 	raftConfig := raft.DefaultConfig()
-	raftConfig.LocalID = raft.ServerID(config.Tag.Id())
+	raftConfig.LocalID = config.LocalID
 	// Having ShutdownOnRemove true means that the raft node also
 	// stops when it's demoted if it's the leader.
 	raftConfig.ShutdownOnRemove = false

@@ -54,7 +54,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Mux:           apiserverhttp.NewMux(),
 		Authenticator: &mockAuthenticator{auth: s.auth},
 		Path:          "/raft/path",
-		Tag:           tag,
+		LocalID:       "123",
 		Timeout:       coretesting.LongWait,
 		TLSConfig:     &tls.Config{},
 		Clock:         s.clock,
@@ -116,8 +116,8 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *rafttransport.Config) { cfg.Path = "" },
 		"empty Path not valid",
 	}, {
-		func(cfg *rafttransport.Config) { cfg.Tag = nil },
-		"nil Tag not valid",
+		func(cfg *rafttransport.Config) { cfg.LocalID = "" },
+		"empty LocalID not valid",
 	}, {
 		func(cfg *rafttransport.Config) { cfg.TLSConfig = nil },
 		"nil TLSConfig not valid",

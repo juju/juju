@@ -43,7 +43,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Raft:     s.raft,
 		LogStore: s.logStore,
 		Hub:      s.hub,
-		Tag:      tag,
+		LocalID:  "23",
 		Logger:   loggo.GetLogger("raftbackstop_test"),
 	}
 }
@@ -69,8 +69,8 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *raftbackstop.Config) { cfg.LogStore = nil },
 		"nil LogStore not valid",
 	}, {
-		func(cfg *raftbackstop.Config) { cfg.Tag = nil },
-		"nil Tag not valid",
+		func(cfg *raftbackstop.Config) { cfg.LocalID = "" },
+		"empty LocalID not valid",
 	}, {
 		func(cfg *raftbackstop.Config) { cfg.Logger = nil },
 		"nil Logger not valid",
