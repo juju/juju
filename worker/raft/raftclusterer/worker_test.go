@@ -113,12 +113,11 @@ func (s *WorkerSuite) TestCleanKill(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestAddRemoveServers(c *gc.C) {
-	// Create 4 servers: machine-0, machine-1, machine-2,
-	// and machine-3, where all servers can connect
+	// Create 4 servers: 0, 1, 2, and 3, where all servers can connect
 	// bidirectionally.
-	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
-	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &jujuraft.SimpleFSM{})
-	_, _, transport3, _, _ := s.NewRaft(c, "machine-3", &jujuraft.SimpleFSM{})
+	raft1, _, transport1, _, _ := s.NewRaft(c, "1", &jujuraft.SimpleFSM{})
+	_, _, transport2, _, _ := s.NewRaft(c, "2", &jujuraft.SimpleFSM{})
+	_, _, transport3, _, _ := s.NewRaft(c, "3", &jujuraft.SimpleFSM{})
 	connectTransports(s.Transport, transport1, transport2, transport3)
 
 	machine0Address := string(s.Transport.LocalAddr())
@@ -134,22 +133,22 @@ func (s *WorkerSuite) TestAddRemoveServers(c *gc.C) {
 	raft1.RegisterObserver(raft1Observer)
 	defer raft1.DeregisterObserver(raft1Observer)
 
-	// Add machine-1, machine-2.
+	// Add machines 1 and 2.
 	s.publishDetails(c, map[string]string{
 		"0": machine0Address,
 		"1": machine1Address,
 		"2": machine2Address,
 	})
 	rafttest.CheckConfiguration(c, s.Raft, []raft.Server{{
-		ID:       "machine-0",
+		ID:       "0",
 		Address:  raft.ServerAddress(machine0Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-1",
+		ID:       "1",
 		Address:  raft.ServerAddress(machine1Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-2",
+		ID:       "2",
 		Address:  raft.ServerAddress(machine2Address),
 		Suffrage: raft.Voter,
 	}})
@@ -161,22 +160,22 @@ func (s *WorkerSuite) TestAddRemoveServers(c *gc.C) {
 		c.Fatal("timed out waiting for leader observation")
 	}
 
-	// Remove machine-1, add machine-3.
+	// Remove machine 1, add machine 3.
 	s.publishDetails(c, map[string]string{
 		"0": machine0Address,
 		"2": machine2Address,
 		"3": machine3Address,
 	})
 	rafttest.CheckConfiguration(c, raft1, []raft.Server{{
-		ID:       "machine-0",
+		ID:       "0",
 		Address:  raft.ServerAddress(machine0Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-2",
+		ID:       "2",
 		Address:  raft.ServerAddress(machine2Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-3",
+		ID:       "3",
 		Address:  raft.ServerAddress(machine3Address),
 		Suffrage: raft.Voter,
 	}})
@@ -186,14 +185,13 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 	// This test asserts that a configuration change which updates a
 	// raft leader's address does not result in a leadership change.
 
-	// Machine-0's address will be updated to a non-localhost address, and
+	// Machine 0's address will be updated to a non-localhost address, and
 	// two new servers are added.
 
-	// We add machine-1 and machine-2, and change machine-0's
-	// address. Changing machine-0's address should not affect
-	// its leadership.
-	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
-	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &jujuraft.SimpleFSM{})
+	// We add 1 and 2, and change 0's address. Changing machine 0's
+	// address should not affect its leadership.
+	raft1, _, transport1, _, _ := s.NewRaft(c, "1", &jujuraft.SimpleFSM{})
+	_, _, transport2, _, _ := s.NewRaft(c, "2", &jujuraft.SimpleFSM{})
 	connectTransports(s.Transport, transport1, transport2)
 	machine1Address := string(transport1.LocalAddr())
 	machine2Address := string(transport2.LocalAddr())
@@ -209,20 +207,20 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 	//been updated to reflect the two added machines and that the address of
 	//the leader has been changed.
 	rafttest.CheckConfiguration(c, raft1, []raft.Server{{
-		ID:       "machine-0",
+		ID:       "0",
 		Address:  raft.ServerAddress(alternateAddress),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-1",
+		ID:       "1",
 		Address:  raft.ServerAddress(machine1Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-2",
+		ID:       "2",
 		Address:  raft.ServerAddress(machine2Address),
 		Suffrage: raft.Voter,
 	}})
 
-	// machine-0 should still be the leader
+	// Machine 0 should still be the leader.
 	future := s.Raft.VerifyLeader()
 	c.Assert(future.Error(), jc.ErrorIsNil)
 }
@@ -230,8 +228,8 @@ func (s *WorkerSuite) TestChangeLocalServer(c *gc.C) {
 func (s *WorkerSuite) TestDisappearingAddresses(c *gc.C) {
 	// If we had 3 servers but the peergrouper publishes an update
 	// that sets all of their addresses to "", ignore that change.
-	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
-	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &jujuraft.SimpleFSM{})
+	raft1, _, transport1, _, _ := s.NewRaft(c, "1", &jujuraft.SimpleFSM{})
+	_, _, transport2, _, _ := s.NewRaft(c, "2", &jujuraft.SimpleFSM{})
 	connectTransports(s.Transport, transport1, transport2)
 	machine0Address := string(s.Transport.LocalAddr())
 	machine1Address := string(transport1.LocalAddr())
@@ -243,15 +241,15 @@ func (s *WorkerSuite) TestDisappearingAddresses(c *gc.C) {
 		"2": machine2Address,
 	})
 	expectedConfiguration := []raft.Server{{
-		ID:       "machine-0",
+		ID:       "0",
 		Address:  raft.ServerAddress(machine0Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-1",
+		ID:       "1",
 		Address:  raft.ServerAddress(machine1Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-2",
+		ID:       "2",
 		Address:  raft.ServerAddress(machine2Address),
 		Suffrage: raft.Voter,
 	}}
@@ -293,10 +291,10 @@ func (s *WorkerSuite) TestRequestsDetails(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestDemotesAServerWhenThereAre2(c *gc.C) {
-	// Create 3 servers: machine-0, machine-1 and machine-2, where all
-	// servers can connect bidirectionally.
-	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
-	raft2, _, transport2, _, _ := s.NewRaft(c, "machine-2", &jujuraft.SimpleFSM{})
+	// Create 3 servers: 0, 1 and 2, where all servers can connect
+	// bidirectionally.
+	raft1, _, transport1, _, _ := s.NewRaft(c, "1", &jujuraft.SimpleFSM{})
+	raft2, _, transport2, _, _ := s.NewRaft(c, "2", &jujuraft.SimpleFSM{})
 	connectTransports(s.Transport, transport1, transport2)
 
 	machine0Address := string(s.Transport.LocalAddr())
@@ -311,22 +309,22 @@ func (s *WorkerSuite) TestDemotesAServerWhenThereAre2(c *gc.C) {
 	raft1.RegisterObserver(raft1Observer)
 	defer raft1.DeregisterObserver(raft1Observer)
 
-	// Add machine-1, machine-2.
+	// Add machines 1 and 2.
 	s.publishDetails(c, map[string]string{
 		"0": machine0Address,
 		"1": machine1Address,
 		"2": machine2Address,
 	})
 	rafttest.CheckConfiguration(c, s.Raft, []raft.Server{{
-		ID:       "machine-0",
+		ID:       "0",
 		Address:  raft.ServerAddress(machine0Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-1",
+		ID:       "1",
 		Address:  raft.ServerAddress(machine1Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-2",
+		ID:       "2",
 		Address:  raft.ServerAddress(machine2Address),
 		Suffrage: raft.Voter,
 	}})
@@ -338,7 +336,7 @@ func (s *WorkerSuite) TestDemotesAServerWhenThereAre2(c *gc.C) {
 		c.Fatal("timed out waiting for leader observation")
 	}
 
-	// Remove machine-1.
+	// Remove machine 1.
 	s.publishDetails(c, map[string]string{
 		"0": machine0Address,
 		"2": machine2Address,
@@ -346,20 +344,20 @@ func (s *WorkerSuite) TestDemotesAServerWhenThereAre2(c *gc.C) {
 	f := raft1.Shutdown()
 	c.Assert(f.Error(), jc.ErrorIsNil)
 	rafttest.CheckConfiguration(c, raft2, []raft.Server{{
-		ID:       "machine-0",
+		ID:       "0",
 		Address:  raft.ServerAddress(machine0Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-2",
+		ID:       "2",
 		Address:  raft.ServerAddress(machine2Address),
 		Suffrage: raft.Nonvoter,
 	}})
 }
 
 func (s *WorkerSuite) TestPromotesAServerWhenThereAre3Again(c *gc.C) {
-	// Create 2 servers: machine-0 and machine-1, where both servers
-	// can connect bidirectionally.
-	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
+	// Create 2 servers: 0 and 1, where both servers can connect
+	// bidirectionally.
+	raft1, _, transport1, _, _ := s.NewRaft(c, "1", &jujuraft.SimpleFSM{})
 	connectTransports(s.Transport, transport1)
 
 	machine0Address := string(s.Transport.LocalAddr())
@@ -373,17 +371,17 @@ func (s *WorkerSuite) TestPromotesAServerWhenThereAre3Again(c *gc.C) {
 	raft1.RegisterObserver(raft1Observer)
 	defer raft1.DeregisterObserver(raft1Observer)
 
-	// Add machine-1.
+	// Add machine 1.
 	s.publishDetails(c, map[string]string{
 		"0": machine0Address,
 		"1": machine1Address,
 	})
 	rafttest.CheckConfiguration(c, s.Raft, []raft.Server{{
-		ID:       "machine-0",
+		ID:       "0",
 		Address:  raft.ServerAddress(machine0Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-1",
+		ID:       "1",
 		Address:  raft.ServerAddress(machine1Address),
 		Suffrage: raft.Nonvoter,
 	}})
@@ -395,8 +393,8 @@ func (s *WorkerSuite) TestPromotesAServerWhenThereAre3Again(c *gc.C) {
 		c.Fatal("timed out waiting for leader observation")
 	}
 
-	// Add machine-2.
-	raft2, _, transport2, _, _ := s.NewRaft(c, "machine-2", &jujuraft.SimpleFSM{})
+	// Add machine 2.
+	raft2, _, transport2, _, _ := s.NewRaft(c, "2", &jujuraft.SimpleFSM{})
 	connectTransports(s.Transport, transport1, transport2)
 	machine2Address := string(transport2.LocalAddr())
 
@@ -406,24 +404,24 @@ func (s *WorkerSuite) TestPromotesAServerWhenThereAre3Again(c *gc.C) {
 		"2": machine2Address,
 	})
 	rafttest.CheckConfiguration(c, raft2, []raft.Server{{
-		ID:       "machine-0",
+		ID:       "0",
 		Address:  raft.ServerAddress(machine0Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-1",
+		ID:       "1",
 		Address:  raft.ServerAddress(machine1Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-2",
+		ID:       "2",
 		Address:  raft.ServerAddress(machine2Address),
 		Suffrage: raft.Voter,
 	}})
 }
 
 func (s *WorkerSuite) TestKeepsNonvoterIfAddressChanges(c *gc.C) {
-	// Create 2 servers: machine-0 and machine-1, where both servers
-	// can connect bidirectionally.
-	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
+	// Create 2 servers: 0 and 1, where both servers can connect
+	// bidirectionally.
+	raft1, _, transport1, _, _ := s.NewRaft(c, "1", &jujuraft.SimpleFSM{})
 	connectTransports(s.Transport, transport1)
 
 	machine0Address := string(s.Transport.LocalAddr())
@@ -437,17 +435,17 @@ func (s *WorkerSuite) TestKeepsNonvoterIfAddressChanges(c *gc.C) {
 	raft1.RegisterObserver(raft1Observer)
 	defer raft1.DeregisterObserver(raft1Observer)
 
-	// Add machine-1.
+	// Add machine 1.
 	s.publishDetails(c, map[string]string{
 		"0": machine0Address,
 		"1": machine1Address,
 	})
 	rafttest.CheckConfiguration(c, s.Raft, []raft.Server{{
-		ID:       "machine-0",
+		ID:       "0",
 		Address:  raft.ServerAddress(machine0Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-1",
+		ID:       "1",
 		Address:  raft.ServerAddress(machine1Address),
 		Suffrage: raft.Nonvoter,
 	}})
@@ -467,21 +465,21 @@ func (s *WorkerSuite) TestKeepsNonvoterIfAddressChanges(c *gc.C) {
 		"1": alternateAddress,
 	})
 	rafttest.CheckConfiguration(c, s.Raft, []raft.Server{{
-		ID:       "machine-0",
+		ID:       "0",
 		Address:  raft.ServerAddress(machine0Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-1",
+		ID:       "1",
 		Address:  raft.ServerAddress(alternateAddress),
 		Suffrage: raft.Nonvoter,
 	}})
 }
 
 func (s *WorkerSuite) TestDemotesLeaderIfRemoved(c *gc.C) {
-	// Create 3 servers: machine-0, machine-1 and machine-2, where all
-	// servers can connect bidirectionally.
-	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &jujuraft.SimpleFSM{})
-	_, _, transport2, _, _ := s.NewRaft(c, "machine-2", &jujuraft.SimpleFSM{})
+	// Create 3 servers: 0, 1 and 2, where all servers can connect
+	// bidirectionally.
+	raft1, _, transport1, _, _ := s.NewRaft(c, "1", &jujuraft.SimpleFSM{})
+	_, _, transport2, _, _ := s.NewRaft(c, "2", &jujuraft.SimpleFSM{})
 	connectTransports(s.Transport, transport1, transport2)
 
 	machine0Address := string(s.Transport.LocalAddr())
@@ -496,22 +494,22 @@ func (s *WorkerSuite) TestDemotesLeaderIfRemoved(c *gc.C) {
 	raft1.RegisterObserver(raft1Observer)
 	defer raft1.DeregisterObserver(raft1Observer)
 
-	// Add machine-1, machine-2.
+	// Add machines 1 and 2.
 	s.publishDetails(c, map[string]string{
 		"0": machine0Address,
 		"1": machine1Address,
 		"2": machine2Address,
 	})
 	rafttest.CheckConfiguration(c, s.Raft, []raft.Server{{
-		ID:       "machine-0",
+		ID:       "0",
 		Address:  raft.ServerAddress(machine0Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-1",
+		ID:       "1",
 		Address:  raft.ServerAddress(machine1Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-2",
+		ID:       "2",
 		Address:  raft.ServerAddress(machine2Address),
 		Suffrage: raft.Voter,
 	}})
@@ -523,7 +521,7 @@ func (s *WorkerSuite) TestDemotesLeaderIfRemoved(c *gc.C) {
 		c.Fatal("timed out waiting for leader observation")
 	}
 
-	// Remove machine-0. This should prompt the clusterer to demote
+	// Remove machine 0. This should prompt the clusterer to demote
 	// the leader but not remove it - the new leader after the
 	// election will remove it instead.
 	s.publishDetails(c, map[string]string{
@@ -531,15 +529,15 @@ func (s *WorkerSuite) TestDemotesLeaderIfRemoved(c *gc.C) {
 		"2": machine2Address,
 	})
 	rafttest.CheckConfiguration(c, raft1, []raft.Server{{
-		ID:       "machine-0",
+		ID:       "0",
 		Address:  raft.ServerAddress(machine0Address),
 		Suffrage: raft.Nonvoter,
 	}, {
-		ID:       "machine-1",
+		ID:       "1",
 		Address:  raft.ServerAddress(machine1Address),
 		Suffrage: raft.Voter,
 	}, {
-		ID:       "machine-2",
+		ID:       "2",
 		Address:  raft.ServerAddress(machine2Address),
 		Suffrage: raft.Voter,
 	}})

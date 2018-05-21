@@ -94,7 +94,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		FSM:        config.FSM,
 		Logger:     config.Logger,
 		StorageDir: raftDir,
-		Tag:        agentConfig.Tag(),
+		LocalID:    raft.ServerID(agentConfig.Tag().Id()),
 		Transport:  transport,
 		Clock:      clk,
 	})

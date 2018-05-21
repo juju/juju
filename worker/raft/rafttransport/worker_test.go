@@ -54,7 +54,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Mux:           apiserverhttp.NewMux(),
 		Authenticator: &mockAuthenticator{auth: s.auth},
 		Path:          "/raft/path",
-		Tag:           tag,
+		LocalID:       "123",
 		Timeout:       coretesting.LongWait,
 		TLSConfig:     &tls.Config{},
 		Clock:         s.clock,
@@ -116,8 +116,8 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *rafttransport.Config) { cfg.Path = "" },
 		"empty Path not valid",
 	}, {
-		func(cfg *rafttransport.Config) { cfg.Tag = nil },
-		"nil Tag not valid",
+		func(cfg *rafttransport.Config) { cfg.LocalID = "" },
+		"empty LocalID not valid",
 	}, {
 		func(cfg *rafttransport.Config) { cfg.TLSConfig = nil },
 		"nil TLSConfig not valid",
@@ -197,7 +197,7 @@ func (s *WorkerSuite) newWorker(c *gc.C, config rafttransport.Config) *rafttrans
 func (s *WorkerSuite) requestVote(t raft.Transport) (raft.RequestVoteResponse, error) {
 	var resp raft.RequestVoteResponse
 	req := &raft.RequestVoteRequest{}
-	serverID := raft.ServerID("machine-123")
+	serverID := raft.ServerID("123")
 	serverAddress := raft.ServerAddress(s.server.Listener.Addr().String())
 	return resp, t.RequestVote(serverID, serverAddress, req, &resp)
 }
@@ -256,7 +256,7 @@ func (s *WorkerSuite) TestTransportTimeout(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	var resp raft.RequestVoteResponse
 	req := &raft.RequestVoteRequest{}
-	serverID := raft.ServerID("machine-123")
+	serverID := raft.ServerID("123")
 	serverAddress := raft.ServerAddress(noAcceptListener.Addr().String())
 	_, err = resp, worker.RequestVote(serverID, serverAddress, req, &resp)
 

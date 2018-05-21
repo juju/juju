@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	coreraft "github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -264,7 +265,7 @@ func initRaft(agentConfig agent.Config) error {
 		Clock:      clock.WallClock,
 		StorageDir: raftDir,
 		Logger:     logger,
-		Tag:        agentConfig.Tag(),
+		LocalID:    coreraft.ServerID(agentConfig.Tag().Id()),
 	})
 }
 

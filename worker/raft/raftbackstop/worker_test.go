@@ -43,7 +43,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Raft:     s.raft,
 		LogStore: s.logStore,
 		Hub:      s.hub,
-		Tag:      tag,
+		LocalID:  "23",
 		Logger:   loggo.GetLogger("raftbackstop_test"),
 	}
 }
@@ -69,8 +69,8 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *raftbackstop.Config) { cfg.LogStore = nil },
 		"nil LogStore not valid",
 	}, {
-		func(cfg *raftbackstop.Config) { cfg.Tag = nil },
-		"nil Tag not valid",
+		func(cfg *raftbackstop.Config) { cfg.LocalID = "" },
+		"empty LocalID not valid",
 	}, {
 		func(cfg *raftbackstop.Config) { cfg.Logger = nil },
 		"nil Logger not valid",
@@ -175,7 +175,7 @@ func (s *WorkerSuite) assertRecovery(c *gc.C, index, term uint64, server raft.Se
 func (s *WorkerSuite) TestRecoversClusterOneNonvoter(c *gc.C) {
 	s.raft.setValues(raft.Follower, &mockConfigFuture{conf: raft.Configuration{
 		Servers: []raft.Server{{
-			ID:       "machine-23",
+			ID:       "23",
 			Address:  "address",
 			Suffrage: raft.Nonvoter,
 		}},
@@ -187,7 +187,7 @@ func (s *WorkerSuite) TestRecoversClusterOneNonvoter(c *gc.C) {
 	})
 	s.publishDetails(c, map[string]string{"23": "address"})
 	s.assertRecovery(c, 452, 66, raft.Server{
-		ID:       "machine-23",
+		ID:       "23",
 		Address:  "address",
 		Suffrage: raft.Voter,
 	})
@@ -196,11 +196,11 @@ func (s *WorkerSuite) TestRecoversClusterOneNonvoter(c *gc.C) {
 func (s *WorkerSuite) TestRecoversClusterTwoVoters(c *gc.C) {
 	s.raft.setValues(raft.Follower, &mockConfigFuture{conf: raft.Configuration{
 		Servers: []raft.Server{{
-			ID:       "machine-23",
+			ID:       "23",
 			Address:  "address",
 			Suffrage: raft.Voter,
 		}, {
-			ID:       "machine-100",
+			ID:       "100",
 			Address:  "otheraddress",
 			Suffrage: raft.Voter,
 		}},
@@ -211,7 +211,7 @@ func (s *WorkerSuite) TestRecoversClusterTwoVoters(c *gc.C) {
 	})
 	s.publishDetails(c, map[string]string{"23": "address"})
 	s.assertRecovery(c, 452, 66, raft.Server{
-		ID:       "machine-23",
+		ID:       "23",
 		Address:  "address",
 		Suffrage: raft.Voter,
 	})
@@ -225,7 +225,7 @@ func (s *WorkerSuite) assertNoRecovery(c *gc.C) {
 func (s *WorkerSuite) TestOnlyRecoversClusterOnce(c *gc.C) {
 	s.raft.setValues(raft.Follower, &mockConfigFuture{conf: raft.Configuration{
 		Servers: []raft.Server{{
-			ID:       "machine-23",
+			ID:       "23",
 			Address:  "address",
 			Suffrage: raft.Nonvoter,
 		}},
@@ -237,7 +237,7 @@ func (s *WorkerSuite) TestOnlyRecoversClusterOnce(c *gc.C) {
 	})
 	s.publishDetails(c, map[string]string{"23": "address"})
 	s.assertRecovery(c, 452, 66, raft.Server{
-		ID:       "machine-23",
+		ID:       "23",
 		Address:  "address",
 		Suffrage: raft.Voter,
 	})
@@ -249,11 +249,11 @@ func (s *WorkerSuite) TestOnlyRecoversClusterOnce(c *gc.C) {
 func (s *WorkerSuite) TestNoRecoveryIfMultipleMachines(c *gc.C) {
 	s.raft.setValues(raft.Follower, &mockConfigFuture{conf: raft.Configuration{
 		Servers: []raft.Server{{
-			ID:       "machine-23",
+			ID:       "23",
 			Address:  "address",
 			Suffrage: raft.Voter,
 		}, {
-			ID:       "machine-100",
+			ID:       "100",
 			Address:  "otheraddress",
 			Suffrage: raft.Voter,
 		}},
@@ -272,11 +272,11 @@ func (s *WorkerSuite) TestNoRecoveryIfMultipleMachines(c *gc.C) {
 func (s *WorkerSuite) TestNoRecoveryIfNotInServerDetails(c *gc.C) {
 	s.raft.setValues(raft.Follower, &mockConfigFuture{conf: raft.Configuration{
 		Servers: []raft.Server{{
-			ID:       "machine-23",
+			ID:       "23",
 			Address:  "address",
 			Suffrage: raft.Voter,
 		}, {
-			ID:       "machine-100",
+			ID:       "100",
 			Address:  "otheraddress",
 			Suffrage: raft.Voter,
 		}},
@@ -292,7 +292,7 @@ func (s *WorkerSuite) TestNoRecoveryIfNotInServerDetails(c *gc.C) {
 func (s *WorkerSuite) TestNoRecoveryIfNotInRaftConfig(c *gc.C) {
 	s.raft.setValues(raft.Follower, &mockConfigFuture{conf: raft.Configuration{
 		Servers: []raft.Server{{
-			ID:       "machine-100",
+			ID:       "100",
 			Address:  "otheraddress",
 			Suffrage: raft.Voter,
 		}},
@@ -310,7 +310,7 @@ func (s *WorkerSuite) TestNoRecoveryIfNotInRaftConfig(c *gc.C) {
 func (s *WorkerSuite) TestNoRecoveryIfOneRaftNodeAndVoter(c *gc.C) {
 	s.raft.setValues(raft.Follower, &mockConfigFuture{conf: raft.Configuration{
 		Servers: []raft.Server{{
-			ID:       "machine-23",
+			ID:       "23",
 			Address:  "address",
 			Suffrage: raft.Voter,
 		}},

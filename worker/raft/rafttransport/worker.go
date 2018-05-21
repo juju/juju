@@ -17,7 +17,6 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/clock"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api"
@@ -61,8 +60,8 @@ type Config struct {
 	// Path is the path of the raft HTTP endpoint.
 	Path string
 
-	// Tag is the tag of the agent running this worker.
-	Tag names.Tag
+	// LocalID is the raft.ServerID of the agent running this worker.
+	LocalID raft.ServerID
 
 	// Timeout, if non-zero, is the timeout to apply to transport
 	// operations. See raft.NetworkTransportConfig.Timeout for more
@@ -104,8 +103,8 @@ func (config Config) Validate() error {
 	if config.Path == "" {
 		return errors.NotValidf("empty Path")
 	}
-	if config.Tag == nil {
-		return errors.NotValidf("nil Tag")
+	if config.LocalID == "" {
+		return errors.NotValidf("empty LocalID")
 	}
 	if config.TLSConfig == nil {
 		return errors.NotValidf("nil TLSConfig")
@@ -136,7 +135,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	const logPrefix = "[transport] "
 	logWriter := &raftutil.LoggoWriter{logger, loggo.DEBUG}
 	logLogger := log.New(logWriter, logPrefix, 0)
-	stream, err := newStreamLayer(config.Tag, config.Hub, w.connections, config.Clock, &Dialer{
+	stream, err := newStreamLayer(config.LocalID, config.Hub, w.connections, config.Clock, &Dialer{
 		APIInfo: config.APIInfo,
 		DialRaw: w.dialRaw,
 		Path:    config.Path,

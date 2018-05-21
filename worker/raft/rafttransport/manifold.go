@@ -122,7 +122,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Hub:           hub,
 		Mux:           mux,
 		Path:          config.Path,
-		Tag:           agent.CurrentConfig().Tag(),
+		LocalID:       raft.ServerID(agent.CurrentConfig().Tag().Id()),
 		TLSConfig:     api.NewTLSConfig(certPool),
 		Clock:         clk,
 	})
