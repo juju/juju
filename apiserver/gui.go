@@ -268,9 +268,7 @@ func (h *guiHandler) serveCombo(w http.ResponseWriter, req *http.Request) {
 	for _, p := range parts {
 		fpath, err := getGUIComboPath(h.rootDir, p)
 		if err != nil {
-			if err := sendError(w, errors.Annotate(err, "cannot combine files")); err != nil {
-				logger.Errorf("%v", err)
-			}
+			writeError(w, errors.Annotate(err, "cannot combine files"))
 			return
 		}
 		if fpath == "" {
@@ -328,9 +326,7 @@ func (h *guiHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
 	spriteFile := filepath.Join(h.rootDir, spritePath)
 	spriteContent, err := ioutil.ReadFile(spriteFile)
 	if err != nil {
-		if err := sendError(w, errors.Annotate(err, "cannot read sprite file")); err != nil {
-			logger.Errorf("%v", err)
-		}
+		writeError(w, errors.Annotate(err, "cannot read sprite file"))
 		return
 	}
 	tmpl := filepath.Join(h.rootDir, "templates", "index.html.go")
@@ -344,9 +340,7 @@ func (h *guiHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
 		"debug":         false,
 		"spriteContent": string(spriteContent),
 	}); err != nil {
-		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", errors.Annotate(err, "cannot send error to client from rendering GUI template"))
-		}
+		writeError(w, err)
 	}
 }
 
@@ -429,6 +423,16 @@ func isNewGUI(st *state.State) bool {
 // serveConfig serves the Juju GUI JavaScript configuration file.
 func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 	logger.Debugf("serving Juju GUI configuration")
+	st, err := h.ctxt.stateForRequestUnauthenticated(req)
+	if err != nil {
+		writeError(w, errors.Annotate(err, "cannot open state"))
+		return
+	}
+	ctrl, err := st.ControllerConfig()
+	if err != nil {
+		writeError(w, errors.Annotate(err, "cannot open controller config"))
+		return
+	}
 	w.Header().Set("Content-Type", jsMimeType)
 	base := h.basePath
 	// These query parameters may be set by the index handler.
@@ -439,8 +443,9 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 	tmpl := filepath.Join(h.rootDir, "templates", "config.js.go")
 	if err := renderGUITemplate(w, tmpl, map[string]interface{}{
 		"base":             base,
-		"host":             req.Host,
+		"bakeryEnabled":    ctrl.IdentityURL() != "",
 		"controllerSocket": "/api",
+		"host":             req.Host,
 		"socket":           "/model/$uuid/api",
 		// staticURL holds the root of the static hierarchy, hence why the
 		// empty string is used here.
@@ -448,9 +453,13 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 		"uuid":      uuid,
 		"version":   jujuversion.Current.String(),
 	}); err != nil {
-		if err := sendError(w, err); err != nil {
-			logger.Errorf("%v", errors.Annotate(err, "cannot send error to client from rendering GUI template"))
-		}
+		writeError(w, err)
+	}
+}
+
+func writeError(w http.ResponseWriter, err error) {
+	if err2 := sendError(w, err); err2 != nil {
+		logger.Errorf("%v", errors.Annotatef(err2, "gui handler: cannot send %q error to client", err))
 	}
 }
 
