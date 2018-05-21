@@ -43,6 +43,7 @@ func (suite *maas2EnvironSuite) getEnvWithServer(c *gc.C) (*maasEnviron, error) 
 	testServer := gomaasapi.NewSimpleServer()
 	testServer.AddGetResponse("/api/2.0/version/", http.StatusOK, maas2VersionResponse)
 	testServer.AddGetResponse("/api/2.0/users/?op=whoami", http.StatusOK, "{}")
+	testServer.AddGetResponse("/api/2.0/domains", http.StatusOK, maas2DomainsResponse)
 	// Weirdly, rather than returning a 404 when the version is
 	// unknown, MAAS2 returns some HTML (the login page).
 	testServer.AddGetResponse("/api/1.0/version/", http.StatusOK, "<html></html>")
