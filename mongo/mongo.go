@@ -432,11 +432,12 @@ type EnsureServerParams struct {
 //
 // This method will remove old versions of the mongo init service as necessary
 // before installing the new version.
-func EnsureServer(args EnsureServerParams) error {
+func EnsureServer(args EnsureServerParams) (Version, error) {
 	return ensureServer(args, mongoKernelTweaks)
 }
 
-func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) error {
+func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) (Version, error) {
+	var zeroVersion Version
 	tweakSysctlForMongo(mongoKernelTweaks)
 	logger.Infof(
 		"Ensuring mongo server is running; data directory %s; port %d",
@@ -445,14 +446,14 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 
 	dbDir := filepath.Join(args.DataDir, "db")
 	if err := os.MkdirAll(dbDir, 0700); err != nil {
-		return fmt.Errorf("cannot create mongo database directory: %v", err)
+		return zeroVersion, errors.Errorf("cannot create mongo database directory: %v", err)
 	}
 
 	oplogSizeMB := args.OplogSize
 	if oplogSizeMB == 0 {
 		var err error
 		if oplogSizeMB, err = defaultOplogSize(dbDir); err != nil {
-			return err
+			return zeroVersion, errors.Trace(err)
 		}
 	}
 
@@ -465,19 +466,19 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 		logger.Errorf("cannot install/upgrade mongod (will proceed anyway): %v", err)
 	}
 	finder := NewMongodFinder()
-	mongoPath, mgoVersion, err := finder.FindBest()
+	mongoPath, mongodVersion, err := finder.FindBest()
 	if err != nil {
-		return err
+		return zeroVersion, errors.Trace(err)
 	}
 	logVersion(mongoPath)
 
 	if err := UpdateSSLKey(args.DataDir, args.Cert, args.PrivateKey); err != nil {
-		return err
+		return zeroVersion, errors.Trace(err)
 	}
 
 	err = utils.AtomicWriteFile(sharedSecretPath(args.DataDir), []byte(args.SharedSecret), 0600)
 	if err != nil {
-		return fmt.Errorf("cannot write mongod shared secret: %v", err)
+		return zeroVersion, errors.Errorf("cannot write mongod shared secret: %v", err)
 	}
 
 	// Disable the default mongodb installed by the mongodb-server package.
@@ -490,7 +491,7 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 			0644,
 		)
 		if err != nil {
-			return err
+			return zeroVersion, errors.Trace(err)
 		}
 	}
 
@@ -501,52 +502,52 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 		Port:          args.StatePort,
 		OplogSizeMB:   oplogSizeMB,
 		WantNUMACtl:   args.SetNUMAControlPolicy,
-		Version:       mgoVersion,
+		Version:       mongodVersion,
 		Auth:          true,
 		IPv6:          network.SupportsIPv6(),
 		MemoryProfile: args.MemoryProfile,
 	})
 	svc, err := newService(ServiceName, svcConf)
 	if err != nil {
-		return err
+		return zeroVersion, errors.Trace(err)
 	}
 	installed, err := svc.Installed()
 	if err != nil {
-		return errors.Trace(err)
+		return zeroVersion, errors.Trace(err)
 	}
 	if installed {
 		exists, err := svc.Exists()
 		if err != nil {
-			return errors.Trace(err)
+			return zeroVersion, errors.Trace(err)
 		}
 		if exists {
 			logger.Debugf("mongo exists as expected")
 			running, err := svc.Running()
 			if err != nil {
-				return errors.Trace(err)
+				return zeroVersion, errors.Trace(err)
 			}
 
 			if !running {
-				return svc.Start()
+				return mongodVersion, errors.Trace(svc.Start())
 			}
-			return nil
+			return mongodVersion, nil
 		}
 	}
 
 	if err := svc.Stop(); err != nil {
-		return errors.Annotatef(err, "failed to stop mongo")
+		return zeroVersion, errors.Annotatef(err, "failed to stop mongo")
 	}
 	if err := makeJournalDirs(dbDir); err != nil {
-		return fmt.Errorf("error creating journal directories: %v", err)
+		return zeroVersion, fmt.Errorf("error creating journal directories: %v", err)
 	}
 	if err := preallocOplog(dbDir, oplogSizeMB); err != nil {
-		return fmt.Errorf("error creating oplog files: %v", err)
+		return zeroVersion, fmt.Errorf("error creating oplog files: %v", err)
 	}
 
 	if err := service.InstallAndStart(svc); err != nil {
-		return errors.Trace(err)
+		return zeroVersion, errors.Trace(err)
 	}
-	return nil
+	return mongodVersion, nil
 }
 
 func truncateAndWriteIfExists(procFile, value string) error {

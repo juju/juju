@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
@@ -90,10 +89,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 		}
 	}()
 
-	// TODO(mjs) - the following should maybe be part of AgentSuite.SetUpTest()
-	s.PatchValue(&cmdutil.EnsureMongoServer, func(mongo.EnsureServerParams) error {
-		return nil
-	})
+	agenttest.InstallFakeEnsureMongo(s)
 	s.PatchValue(&agentcmd.ProductionMongoWriteConcern, false)
 
 }
