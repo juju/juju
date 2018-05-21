@@ -48,9 +48,9 @@ func (s *networkSuite) TestEnsureIPv4NoChange(c *gc.C) {
 			},
 		},
 	}
-	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(net, lxdtesting.ETag, nil)
+	cSvr.EXPECT().GetNetwork("some-net-name").Return(net, lxdtesting.ETag, nil)
 
-	mod, err := lxd.NewServer(cSvr).EnsureIPv4(network.DefaultLXDBridge)
+	mod, err := lxd.NewServer(cSvr).EnsureIPv4("some-net-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mod, jc.IsFalse)
 }

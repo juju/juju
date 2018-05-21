@@ -27,7 +27,7 @@ func (s *Server) LocalBridgeName() string {
 func (s *Server) EnsureIPv4(netName string) (bool, error) {
 	var modified bool
 
-	net, eTag, err := s.GetNetwork(network.DefaultLXDBridge)
+	net, eTag, err := s.GetNetwork(netName)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
