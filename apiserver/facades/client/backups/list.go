@@ -10,7 +10,7 @@ import (
 )
 
 // List provides the implementation of the API method.
-func (a *APIv2) List(args params.BackupsListArgs) (params.BackupsListResult, error) {
+func (a *API) List(args params.BackupsListArgs) (params.BackupsListResult, error) {
 	var result params.BackupsListResult
 
 	backups, closer := newBackups(a.backend)
@@ -23,7 +23,7 @@ func (a *APIv2) List(args params.BackupsListArgs) (params.BackupsListResult, err
 
 	result.List = make([]params.BackupsMetadataResult, len(metaList))
 	for i, meta := range metaList {
-		result.List[i] = ResultFromMetadata(meta)
+		result.List[i] = CreateResult(meta, "")
 	}
 
 	return result, nil

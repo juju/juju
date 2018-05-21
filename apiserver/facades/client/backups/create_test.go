@@ -22,10 +22,9 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	//result, err := apiv2.Create(args)
 	result, err := s.api.Create(args)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := backups.ResultFromMetadata(s.meta)
+	expected := backups.CreateResult(s.meta, "test-filename")
 
-	c.Check(result.Metadata, gc.DeepEquals, expected)
-	c.Check(result.Filename, jc.Contains, "test-filename")
+	c.Check(result, gc.DeepEquals, expected)
 }
 
 func (s *backupsSuite) TestCreateNotes(c *gc.C) {
@@ -37,15 +36,13 @@ func (s *backupsSuite) TestCreateNotes(c *gc.C) {
 	args := params.BackupsCreateArgs{
 		Notes: "this backup is important",
 	}
-	//apiv2 := &backups.APIv2{s.api}
-	//result, err := apiv2.Create(args)
+
 	result, err := s.api.Create(args)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := backups.ResultFromMetadata(s.meta)
+	expected := backups.CreateResult(s.meta, "test-filename")
 	expected.Notes = "this backup is important"
 
-	c.Check(result.Metadata, gc.DeepEquals, expected)
-	c.Check(result.Filename, jc.Contains, "test-filename")
+	c.Check(result, gc.DeepEquals, expected)
 }
 
 func (s *backupsSuite) TestCreateError(c *gc.C) {
@@ -53,9 +50,7 @@ func (s *backupsSuite) TestCreateError(c *gc.C) {
 	s.PatchValue(backups.WaitUntilReady,
 		func(*mgo.Session, int) error { return nil },
 	)
-	//apiv2 := &backups.APIv2{s.api}
 	var args params.BackupsCreateArgs
-	//_, err := apiv2.Create(args)
 	_, err := s.api.Create(args)
 
 	c.Logf("%v", err)

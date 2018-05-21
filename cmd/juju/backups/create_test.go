@@ -176,8 +176,8 @@ func (s *createSuite) TestDefaultV1(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
 	c.Assert(err, jc.ErrorIsNil)
 
-	client.CheckCalls(c, "CreateDeprecated", "Download")
-	client.CheckArgs(c, "", "spam")
+	client.CheckCalls(c, "Create", "Download")
+	client.CheckArgs(c, "", "true", "false", "spam")
 	c.Assert(s.command.KeepCopy, jc.IsTrue)
 	s.checkDownload(c, ctx)
 	c.Check(s.command.Filename, gc.Equals, backups.NotSet)

@@ -72,15 +72,11 @@ type BackupsMetadataResult struct {
 
 	CACert       string `json:"ca-cert"`
 	CAPrivateKey string `json:"ca-private-key"`
+	Filename     string `json:"filename"`
 }
 
 // RestoreArgs Holds the backup file or id
 type RestoreArgs struct {
 	// BackupId holds the id of the backup in server if any
 	BackupId string `json:"backup-id"`
-}
-
-type BackupsCreateResult struct {
-	Metadata BackupsMetadataResult `json:"metadata"`
-	Filename string                `json:"filename"`
 }
