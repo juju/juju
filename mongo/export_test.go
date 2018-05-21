@@ -44,7 +44,7 @@ func PatchService(patchValue func(interface{}, interface{}), data *svctesting.Fa
 	})
 }
 
-func SysctlEditableEnsureServer(args EnsureServerParams, sysctlFiles map[string]string) error {
+func SysctlEditableEnsureServer(args EnsureServerParams, sysctlFiles map[string]string) (Version, error) {
 	return ensureServer(args, sysctlFiles)
 }
 

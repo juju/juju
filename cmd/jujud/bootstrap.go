@@ -366,7 +366,7 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	if err != nil {
 		return err
 	}
-	err = cmdutil.EnsureMongoServer(ensureServerParams)
+	_, err = cmdutil.EnsureMongoServer(ensureServerParams)
 	if err != nil {
 		return err
 	}
