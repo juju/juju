@@ -278,7 +278,7 @@ func (s *MongoSuite) TestEnsureServerSetsSysctlValues(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(contents), gc.Equals, "original value")
 
-	err = mongo.SysctlEditableEnsureServer(makeEnsureServerParams(dataDir),
+	_, err = mongo.SysctlEditableEnsureServer(makeEnsureServerParams(dataDir),
 		map[string]string{dataFilePath: "new value"})
 	c.Assert(err, jc.ErrorIsNil)
 
