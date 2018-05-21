@@ -143,7 +143,7 @@ func (t *LxdSuite) TestNewNICDeviceWithMACAddressAndMTUGreaterThanZero(c *gc.C) 
 	c.Assert(device, gc.DeepEquals, expected)
 }
 
-func (t *LxdSuite) TestNetworkDevicesWithEmptyParentDevice(c *gc.C) {
+func (t *LxdSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C) {
 	interfaces := []network.InterfaceInfo{{
 		InterfaceName: "eth1",
 		InterfaceType: "ethernet",
@@ -159,7 +159,7 @@ func (t *LxdSuite) TestNetworkDevicesWithEmptyParentDevice(c *gc.C) {
 	c.Assert(result, gc.IsNil)
 }
 
-func (t *LxdSuite) TestNetworkDevicesWithParentDevice(c *gc.C) {
+func (t *LxdSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 	interfaces := []network.InterfaceInfo{{
 		ParentInterfaceName: "br-eth0",
 		InterfaceName:       "eth0",
@@ -188,7 +188,7 @@ func (t *LxdSuite) TestNetworkDevicesWithParentDevice(c *gc.C) {
 	c.Check(unknown, gc.HasLen, 0)
 }
 
-func (t *LxdSuite) TestNetworkDevicesUnknownCIDR(c *gc.C) {
+func (t *LxdSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *gc.C) {
 	interfaces := []network.InterfaceInfo{{
 		ParentInterfaceName: "br-eth0",
 		InterfaceName:       "eth0",
