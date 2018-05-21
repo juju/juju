@@ -165,6 +165,49 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (t *LxdSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := t.NewMockServer(ctrl, "network")
+	t.patch(cSvr)
+
+	manager := t.makeManager(c, cSvr)
+	iCfg := prepInstanceConfig(c)
+	hostname, err := manager.Namespace().Hostname(iCfg.MachineId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	req := lxdapi.NetworkPut{
+		Config: map[string]string{
+			"ipv4.address": "auto",
+			"ipv4.nat":     "true",
+		},
+	}
+	gomock.InOrder(
+		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, lxdtesting.ETag, nil),
+		cSvr.EXPECT().UpdateNetwork(network.DefaultLXDBridge, req, lxdtesting.ETag).Return(nil),
+	)
+
+	expectCreateContainer(ctrl, cSvr, "juju/xenial/"+t.Arch(), "foo-target")
+
+	startOp := lxdtesting.NewMockOperation(ctrl)
+	startOp.EXPECT().Wait().Return(nil)
+	cSvr.EXPECT().UpdateContainerState(
+		hostname, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(startOp, nil)
+
+	// Supplying config for a single device with default bridge and without a
+	// CIDR will cause the default bridge to be updated with IPv4 config.
+	netConfig := container.BridgeNetworkConfig("eth0", 1500, []network.InterfaceInfo{{
+		InterfaceName:       "eth0",
+		InterfaceType:       network.EthernetInterface,
+		ConfigType:          network.ConfigDHCP,
+		ParentInterfaceName: network.DefaultLXDBridge,
+	}})
+	_, _, err = manager.CreateContainer(
+		iCfg, constraints.Value{}, "xenial", netConfig, &container.StorageConfig{}, noOpCallback,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (t *LxdSuite) TestCreateContainerCreateFailed(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -237,12 +280,11 @@ func expectCreateContainer(ctrl *gomock.Controller, svr *lxdtesting.MockContaine
 	createRemoteOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
 
 	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: target}}
+	svr.EXPECT().GetImageAlias(aliasName).Return(alias, lxdtesting.ETag, nil)
+
 	image := lxdapi.Image{Filename: "this-is-our-image"}
-	gomock.InOrder(
-		svr.EXPECT().GetImageAlias(aliasName).Return(alias, lxdtesting.ETag, nil),
-		svr.EXPECT().GetImage("foo-target").Return(&image, lxdtesting.ETag, nil),
-		svr.EXPECT().CreateContainerFromImage(svr, image, gomock.Any()).Return(createRemoteOp, nil),
-	)
+	svr.EXPECT().GetImage("foo-target").Return(&image, lxdtesting.ETag, nil)
+	svr.EXPECT().CreateContainerFromImage(svr, image, gomock.Any()).Return(createRemoteOp, nil)
 }
 
 func (t *LxdSuite) TestListContainers(c *gc.C) {
@@ -282,21 +324,8 @@ func (t *LxdSuite) TestIsInitialized(c *gc.C) {
 	c.Check(manager.IsInitialized(), gc.Equals, true)
 }
 
-func (t *LxdSuite) TestNICDeviceWithInvalidDeviceName(c *gc.C) {
-	device, err := lxd.NICDevice("", "br-eth1", "", 0)
-	c.Assert(device, gc.IsNil)
-	c.Assert(err.Error(), gc.Equals, "invalid device name")
-}
-
-func (t *LxdSuite) TestNICDeviceWithInvalidParentDeviceName(c *gc.C) {
-	device, err := lxd.NICDevice("eth0", "", "", 0)
-	c.Assert(device, gc.IsNil)
-	c.Assert(err.Error(), gc.Equals, "invalid parent device name")
-}
-
-func (t *LxdSuite) TestNICDeviceWithoutMACAddressOrMTUGreaterThanZero(c *gc.C) {
-	device, err := lxd.NICDevice("eth1", "br-eth1", "", 0)
-	c.Assert(err, gc.IsNil)
+func (t *LxdSuite) TestNewNICDeviceWithoutMACAddressOrMTUGreaterThanZero(c *gc.C) {
+	device := lxd.NewNicDevice("eth1", "br-eth1", "", 0)
 	expected := map[string]string{
 		"name":    "eth1",
 		"nictype": "bridged",
@@ -306,9 +335,8 @@ func (t *LxdSuite) TestNICDeviceWithoutMACAddressOrMTUGreaterThanZero(c *gc.C) {
 	c.Assert(device, gc.DeepEquals, expected)
 }
 
-func (t *LxdSuite) TestNICDeviceWithMACAddressButNoMTU(c *gc.C) {
-	device, err := lxd.NICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 0)
-	c.Assert(err, gc.IsNil)
+func (t *LxdSuite) TestNewNICDeviceWithMACAddressButNoMTU(c *gc.C) {
+	device := lxd.NewNicDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 0)
 	expected := map[string]string{
 		"hwaddr":  "aa:bb:cc:dd:ee:f0",
 		"name":    "eth1",
@@ -319,9 +347,8 @@ func (t *LxdSuite) TestNICDeviceWithMACAddressButNoMTU(c *gc.C) {
 	c.Assert(device, gc.DeepEquals, expected)
 }
 
-func (t *LxdSuite) TestNICDeviceWithoutMACAddressButMTUGreaterThanZero(c *gc.C) {
-	device, err := lxd.NICDevice("eth1", "br-eth1", "", 1492)
-	c.Assert(err, gc.IsNil)
+func (t *LxdSuite) TestNewNICDeviceWithoutMACAddressButMTUGreaterThanZero(c *gc.C) {
+	device := lxd.NewNicDevice("eth1", "br-eth1", "", 1492)
 	expected := map[string]string{
 		"mtu":     "1492",
 		"name":    "eth1",
@@ -332,9 +359,8 @@ func (t *LxdSuite) TestNICDeviceWithoutMACAddressButMTUGreaterThanZero(c *gc.C) 
 	c.Assert(device, gc.DeepEquals, expected)
 }
 
-func (t *LxdSuite) TestNICDeviceWithMACAddressAndMTUGreaterThanZero(c *gc.C) {
-	device, err := lxd.NICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 9000)
-	c.Assert(err, gc.IsNil)
+func (t *LxdSuite) TestNewNICDeviceWithMACAddressAndMTUGreaterThanZero(c *gc.C) {
+	device := lxd.NewNicDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 9000)
 	expected := map[string]string{
 		"hwaddr":  "aa:bb:cc:dd:ee:f0",
 		"mtu":     "9000",
@@ -350,16 +376,15 @@ func (t *LxdSuite) TestNetworkDevicesWithEmptyParentDevice(c *gc.C) {
 	interfaces := []network.InterfaceInfo{{
 		InterfaceName: "eth1",
 		InterfaceType: "ethernet",
-		Address:       network.NewAddress("0.10.0.21"),
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		MTU:           9000,
 	}}
 
-	result, err := lxd.NetworkDevices(&container.NetworkConfig{
+	result, _, err := lxd.NetworkDevicesFromConfig(&container.NetworkConfig{
 		Interfaces: interfaces,
 	})
 
-	c.Assert(err, gc.ErrorMatches, "invalid parent device name")
+	c.Assert(err, gc.ErrorMatches, "parent interface name is empty")
 	c.Assert(result, gc.IsNil)
 }
 
@@ -368,7 +393,7 @@ func (t *LxdSuite) TestNetworkDevicesWithParentDevice(c *gc.C) {
 		ParentInterfaceName: "br-eth0",
 		InterfaceName:       "eth0",
 		InterfaceType:       "ethernet",
-		Address:             network.NewAddress("0.10.0.20"),
+		CIDR:                "10.10.0.0/24",
 		MACAddress:          "aa:bb:cc:dd:ee:f0",
 	}}
 
@@ -382,13 +407,31 @@ func (t *LxdSuite) TestNetworkDevicesWithParentDevice(c *gc.C) {
 		},
 	}
 
-	result, err := lxd.NetworkDevices(&container.NetworkConfig{
+	result, unknown, err := lxd.NetworkDevicesFromConfig(&container.NetworkConfig{
 		Device:     "lxdbr0",
 		Interfaces: interfaces,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expected)
+	c.Check(result, jc.DeepEquals, expected)
+	c.Check(unknown, gc.HasLen, 0)
+}
+
+func (t *LxdSuite) TestNetworkDevicesUnknownCIDR(c *gc.C) {
+	interfaces := []network.InterfaceInfo{{
+		ParentInterfaceName: "br-eth0",
+		InterfaceName:       "eth0",
+		InterfaceType:       "ethernet",
+		MACAddress:          "aa:bb:cc:dd:ee:f0",
+	}}
+
+	_, unknown, err := lxd.NetworkDevicesFromConfig(&container.NetworkConfig{
+		Device:     "lxdbr0",
+		Interfaces: interfaces,
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(unknown, gc.DeepEquals, []string{"br-eth0"})
 }
 
 func (t *LxdSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {
