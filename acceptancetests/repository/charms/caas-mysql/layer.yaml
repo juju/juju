@@ -1,0 +1,10 @@
+"tactics":
+- "tactics.wheelhouse.WheelhouseTactic"
+"options":
+  "caas-base": {}
+  "mysql": {}
+"includes":
+- "layer:caas-base"
+- "interface:juju-relation-mysql"
+"repo": "https://github.com/wallyworld/caas.git"
+"is": "mysql"

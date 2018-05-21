@@ -2176,6 +2176,13 @@ class CaasClient:
         args = (self.kubectl_path, '--kubeconfig', self.kube_config_path) + args
         return subprocess.check_output(args, stderr=subprocess.STDOUT).decode('UTF-8').strip()
 
+    def get_external_hostname(self):
+        status = self.client.get_status()
+        # assume here always use single node cdk core or microk8s
+        unit = status.get_unit('kubernetes-worker/{}'.format(0))
+        ip = status.get_machine_dns_name(unit['machine'])
+        return '{}.xip.io'.format(ip)
+
 
 def register_user_interactively(client, token, controller_name):
     """Register a user with the supplied token and controller name.
