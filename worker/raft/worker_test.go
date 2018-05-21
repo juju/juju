@@ -36,7 +36,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Logger:     loggo.GetLogger("juju.worker.raft_test"),
 		StorageDir: c.MkDir(),
 		Tag:        names.NewMachineTag("123"),
-		Transport:  s.newTransport("machine-123"),
+		Transport:  s.newTransport("123"),
 		Clock:      testing.NewClock(time.Time{}),
 	}
 }
@@ -174,7 +174,7 @@ func (s *WorkerSuite) TestBootstrapAddress(c *gc.C) {
 	c.Assert(f.Error(), jc.ErrorIsNil)
 	c.Assert(f.Configuration().Servers, jc.DeepEquals, []coreraft.Server{{
 		Suffrage: coreraft.Voter,
-		ID:       "machine-123",
+		ID:       "123",
 		Address:  "localhost",
 	}})
 }
@@ -283,31 +283,31 @@ func (s *WorkerSuite) TestNoLeaderTimeout(c *gc.C) {
 	// leader by adding 2 more nodes, demoting the local one so that
 	// it isn't the leader, then stopping the other nodes.
 	transport0 := s.config.Transport.(coreraft.LoopbackTransport)
-	raft1, transport1 := s.newRaft(c, "machine-1")
-	raft2, transport2 := s.newRaft(c, "machine-2")
+	raft1, transport1 := s.newRaft(c, "1")
+	raft2, transport2 := s.newRaft(c, "2")
 	connectTransports(transport0, transport1, transport2)
 
 	raft0 := s.waitLeader(c)
-	f1 := raft0.AddVoter("machine-1", transport1.LocalAddr(), 0, 0)
-	f2 := raft0.AddVoter("machine-2", transport2.LocalAddr(), 0, 0)
+	f1 := raft0.AddVoter("1", transport1.LocalAddr(), 0, 0)
+	f2 := raft0.AddVoter("2", transport2.LocalAddr(), 0, 0)
 	c.Assert(f1.Error(), jc.ErrorIsNil)
 	c.Assert(f2.Error(), jc.ErrorIsNil)
 
 	rafttest.CheckConfiguration(c, raft0, []coreraft.Server{{
-		ID:       "machine-123",
+		ID:       "123",
 		Address:  coreraft.ServerAddress("localhost"),
 		Suffrage: coreraft.Voter,
 	}, {
-		ID:       "machine-1",
+		ID:       "1",
 		Address:  transport1.LocalAddr(),
 		Suffrage: coreraft.Voter,
 	}, {
-		ID:       "machine-2",
+		ID:       "2",
 		Address:  transport2.LocalAddr(),
 		Suffrage: coreraft.Voter,
 	}})
 
-	f3 := raft0.DemoteVoter("machine-123", 0, 0)
+	f3 := raft0.DemoteVoter("123", 0, 0)
 	c.Assert(f3.Error(), jc.ErrorIsNil)
 
 	// Wait until raft0 isn't the leader anymore.

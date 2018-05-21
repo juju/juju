@@ -151,7 +151,8 @@ func (w *backstopWorker) maybeRecoverCluster(details apiserver.Details) error {
 	if len(details.Servers) != 1 {
 		return nil
 	}
-	if _, found := details.Servers[w.config.Tag.Id()]; !found {
+	machineId := w.config.Tag.Id()
+	if _, found := details.Servers[machineId]; !found {
 		return nil
 	}
 	if w.config.Raft.State() == raft.Leader {
@@ -164,7 +165,7 @@ func (w *backstopWorker) maybeRecoverCluster(details apiserver.Details) error {
 	}
 
 	numServers := len(raftServers)
-	localServer := raftServers[raft.ServerID(w.config.Tag.String())]
+	localServer := raftServers[raft.ServerID(machineId)]
 	if localServer == nil {
 		return nil
 	}

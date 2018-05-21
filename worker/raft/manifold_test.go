@@ -55,7 +55,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stub.ResetCalls()
 
 	_, transport := coreraft.NewInmemTransport(coreraft.ServerAddress(
-		s.agent.conf.tag.String(),
+		s.agent.conf.tag.Id(),
 	))
 	s.transport = transport
 	s.AddCleanup(func(c *gc.C) {

@@ -171,7 +171,7 @@ func Bootstrap(config Config) error {
 
 	// During bootstrap we use an in-memory transport. We just need
 	// to make sure we use the same local address as we'll use later.
-	localID := raft.ServerID(config.Tag.String())
+	localID := raft.ServerID(config.Tag.Id())
 	_, transport := raft.NewInmemTransport(bootstrapAddress)
 	defer transport.Close()
 	config.Transport = transport
@@ -371,7 +371,7 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 
 func newRaftConfig(config Config) (*raft.Config, error) {
 	raftConfig := raft.DefaultConfig()
-	raftConfig.LocalID = raft.ServerID(config.Tag.String())
+	raftConfig.LocalID = raft.ServerID(config.Tag.Id())
 	// Having ShutdownOnRemove true means that the raft node also
 	// stops when it's demoted if it's the leader.
 	raftConfig.ShutdownOnRemove = false
