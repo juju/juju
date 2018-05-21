@@ -95,21 +95,8 @@ func (t *LxdSuite) TestNotAllContainersAreDeleted(c *gc.C) {
 	}
 }
 
-func (t *LxdSuite) TestNICDeviceWithInvalidDeviceName(c *gc.C) {
-	device, err := lxd.NICDevice("", "br-eth1", "", 0)
-	c.Assert(device, gc.IsNil)
-	c.Assert(err.Error(), gc.Equals, "invalid device name")
-}
-
-func (t *LxdSuite) TestNICDeviceWithInvalidParentDeviceName(c *gc.C) {
-	device, err := lxd.NICDevice("eth0", "", "", 0)
-	c.Assert(device, gc.IsNil)
-	c.Assert(err.Error(), gc.Equals, "invalid parent device name")
-}
-
-func (t *LxdSuite) TestNICDeviceWithoutMACAddressOrMTUGreaterThanZero(c *gc.C) {
-	device, err := lxd.NICDevice("eth1", "br-eth1", "", 0)
-	c.Assert(err, gc.IsNil)
+func (t *LxdSuite) TestNewNICDeviceWithoutMACAddressOrMTUGreaterThanZero(c *gc.C) {
+	device := lxd.NewNICDevice("eth1", "br-eth1", "", 0)
 	expected := lxdclient.Device{
 		"name":    "eth1",
 		"nictype": "bridged",
@@ -119,9 +106,8 @@ func (t *LxdSuite) TestNICDeviceWithoutMACAddressOrMTUGreaterThanZero(c *gc.C) {
 	c.Assert(device, gc.DeepEquals, expected)
 }
 
-func (t *LxdSuite) TestNICDeviceWithMACAddressButNoMTU(c *gc.C) {
-	device, err := lxd.NICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 0)
-	c.Assert(err, gc.IsNil)
+func (t *LxdSuite) TestNewNICDeviceWithMACAddressButNoMTU(c *gc.C) {
+	device := lxd.NewNICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 0)
 	expected := lxdclient.Device{
 		"hwaddr":  "aa:bb:cc:dd:ee:f0",
 		"name":    "eth1",
@@ -132,9 +118,8 @@ func (t *LxdSuite) TestNICDeviceWithMACAddressButNoMTU(c *gc.C) {
 	c.Assert(device, gc.DeepEquals, expected)
 }
 
-func (t *LxdSuite) TestNICDeviceWithoutMACAddressButMTUGreaterThanZero(c *gc.C) {
-	device, err := lxd.NICDevice("eth1", "br-eth1", "", 1492)
-	c.Assert(err, gc.IsNil)
+func (t *LxdSuite) TestNewNICDeviceWithoutMACAddressButMTUGreaterThanZero(c *gc.C) {
+	device := lxd.NewNICDevice("eth1", "br-eth1", "", 1492)
 	expected := lxdclient.Device{
 		"mtu":     "1492",
 		"name":    "eth1",
@@ -145,9 +130,8 @@ func (t *LxdSuite) TestNICDeviceWithoutMACAddressButMTUGreaterThanZero(c *gc.C) 
 	c.Assert(device, gc.DeepEquals, expected)
 }
 
-func (t *LxdSuite) TestNICDeviceWithMACAddressAndMTUGreaterThanZero(c *gc.C) {
-	device, err := lxd.NICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 9000)
-	c.Assert(err, gc.IsNil)
+func (t *LxdSuite) TestNewNICDeviceWithMACAddressAndMTUGreaterThanZero(c *gc.C) {
+	device := lxd.NewNICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 9000)
 	expected := lxdclient.Device{
 		"hwaddr":  "aa:bb:cc:dd:ee:f0",
 		"mtu":     "9000",
@@ -163,16 +147,15 @@ func (t *LxdSuite) TestNetworkDevicesWithEmptyParentDevice(c *gc.C) {
 	interfaces := []network.InterfaceInfo{{
 		InterfaceName: "eth1",
 		InterfaceType: "ethernet",
-		Address:       network.NewAddress("0.10.0.21"),
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		MTU:           9000,
 	}}
 
-	result, err := lxd.NetworkDevices(&container.NetworkConfig{
+	result, _, err := lxd.NetworkDevicesFromConfig(&container.NetworkConfig{
 		Interfaces: interfaces,
 	})
 
-	c.Assert(err, gc.ErrorMatches, "invalid parent device name")
+	c.Assert(err, gc.ErrorMatches, "parent interface name is empty")
 	c.Assert(result, gc.IsNil)
 }
 
@@ -181,12 +164,12 @@ func (t *LxdSuite) TestNetworkDevicesWithParentDevice(c *gc.C) {
 		ParentInterfaceName: "br-eth0",
 		InterfaceName:       "eth0",
 		InterfaceType:       "ethernet",
-		Address:             network.NewAddress("0.10.0.20"),
+		CIDR:                "10.10.0.0/24",
 		MACAddress:          "aa:bb:cc:dd:ee:f0",
 	}}
 
 	expected := lxdclient.Devices{
-		"eth0": lxdclient.Device{
+		"eth0": {
 			"hwaddr":  "aa:bb:cc:dd:ee:f0",
 			"name":    "eth0",
 			"nictype": "bridged",
@@ -195,13 +178,31 @@ func (t *LxdSuite) TestNetworkDevicesWithParentDevice(c *gc.C) {
 		},
 	}
 
-	result, err := lxd.NetworkDevices(&container.NetworkConfig{
+	result, unknown, err := lxd.NetworkDevicesFromConfig(&container.NetworkConfig{
 		Device:     "lxdbr0",
 		Interfaces: interfaces,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, expected)
+	c.Check(result, jc.DeepEquals, expected)
+	c.Check(unknown, gc.HasLen, 0)
+}
+
+func (t *LxdSuite) TestNetworkDevicesUnknownCIDR(c *gc.C) {
+	interfaces := []network.InterfaceInfo{{
+		ParentInterfaceName: "br-eth0",
+		InterfaceName:       "eth0",
+		InterfaceType:       "ethernet",
+		MACAddress:          "aa:bb:cc:dd:ee:f0",
+	}}
+
+	_, unknown, err := lxd.NetworkDevicesFromConfig(&container.NetworkConfig{
+		Device:     "lxdbr0",
+		Interfaces: interfaces,
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(unknown, gc.DeepEquals, []string{"br-eth0"})
 }
 
 func (t *LxdSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {

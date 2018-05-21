@@ -11,9 +11,9 @@ import (
 )
 
 var (
-	NICDevice       = nicDevice
-	NetworkDevices  = networkDevices
-	GetImageSources = func(mgr container.Manager) ([]lxdclient.Remote, error) {
+	NewNicDevice             = newNICDevice
+	NetworkDevicesFromConfig = networkDevicesFromConfig
+	GetImageSources          = func(mgr container.Manager) ([]lxdclient.Remote, error) {
 		return mgr.(*containerManager).getImageSources()
 	}
 )

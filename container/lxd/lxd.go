@@ -176,20 +176,39 @@ func (manager *containerManager) CreateContainer(
 		"boot.autostart": "true",
 	}
 
-	nics, err := networkDevices(networkConfig)
+	nics, unknown, err := networkDevicesFromConfig(networkConfig)
 	if err != nil {
-		return
+		return nil, nil, errors.Trace(err)
 	}
 
-	// TODO(macgreagoir) This might be dead code. Do we always get
-	// len(nics) > 0?
-	profiles := []string{}
-
+	var profiles []string
 	if len(nics) == 0 {
-		logger.Infof("instance %q configured with %q profile", name, lxdDefaultProfileName)
-		profiles = append(profiles, lxdDefaultProfileName)
+		logger.Infof("configuring container %q with %q profile", name, lxdDefaultProfileName)
+		profiles = []string{lxdDefaultProfileName}
 	} else {
-		logger.Infof("instance %q configured with %v network devices", name, nics)
+		logger.Infof("configuring container %q with network devices: %v", name, nics)
+
+		// If the default LXD bridge was supplied in network config,
+		// but without a CIDR, attempt to ensure it is configured for IPv4.
+		// If there are others with incomplete info, or if the network API is
+		// not available for us to modify the network config, then log a
+		// warning.
+		if len(unknown) > 0 {
+			logWarning := true
+			if len(unknown) == 1 && unknown[0] == network.DefaultLXDBridge {
+				mod, err := manager.ensureIPv4(network.DefaultLXDBridge)
+				if err != nil && !errors.IsNotSupported(err) {
+					return nil, nil, errors.Annotate(err, "ensuring default bridge IPv4 config")
+				}
+				if mod {
+					logWarning = false
+					logger.Infof(`added "auto" IPv4 configuration to default LXD bridge`)
+				}
+			}
+			if logWarning {
+				logger.Warningf("no CIDR was detected for the following networks: %v", unknown)
+			}
+		}
 	}
 
 	spec := lxdclient.InstanceSpec{
@@ -250,6 +269,34 @@ func (manager *containerManager) getImageSources() ([]lxdclient.Remote, error) {
 	return []lxdclient.Remote{remote, lxdclient.CloudImagesRemote, lxdclient.CloudImagesDailyRemote}, nil
 }
 
+// ensureIPv4 retrieves the network for the input name and checks its IPv4
+// configuration. If none is detected, it is set to "auto".
+// The boolean return indicates if modification was necessary.
+func (manager *containerManager) ensureIPv4(netName string) (bool, error) {
+	var modified bool
+
+	net, err := manager.client.NetworkGet(netName)
+	if err != nil {
+		return false, err
+	}
+
+	cfg, ok := net.Config["ipv4.address"]
+	if !ok || cfg == "none" {
+		if net.Config == nil {
+			net.Config = make(map[string]string, 2)
+		}
+		net.Config["ipv4.address"] = "auto"
+		net.Config["ipv4.nat"] = "true"
+
+		if err := manager.client.NetworkPut(netName, net.Writable()); err != nil {
+			return false, err
+		}
+		modified = true
+	}
+
+	return modified, nil
+}
+
 func (manager *containerManager) DestroyContainer(id instance.Id) error {
 	if manager.client == nil {
 		var err error
@@ -300,21 +347,48 @@ func HasLXDSupport() bool {
 	return true
 }
 
-func nicDevice(deviceName, parentDevice, hwAddr string, mtu int) (lxdclient.Device, error) {
-	device := make(lxdclient.Device)
+// networkDevicesFromConfig uses the input container network configuration to
+// create a map of network device configuration in the LXD format.
+// Names for any networks without a known CIDR are returned in a slice.
+func networkDevicesFromConfig(networkConfig *container.NetworkConfig) (
+	lxdclient.Devices, []string, error,
+) {
+	nics := make(lxdclient.Devices)
+	var unknownNetworks []string
 
-	device["type"] = "nic"
-	device["nictype"] = "bridged"
-
-	if deviceName == "" {
-		return nil, errors.Errorf("invalid device name")
+	if len(networkConfig.Interfaces) > 0 {
+		for _, v := range networkConfig.Interfaces {
+			if v.InterfaceType == network.LoopbackInterface {
+				continue
+			}
+			if v.InterfaceType != network.EthernetInterface {
+				return nil, nil, errors.Errorf("interface type %q not supported", v.InterfaceType)
+			}
+			if v.ParentInterfaceName == "" {
+				return nil, nil, errors.Errorf("parent interface name is empty")
+			}
+			if v.CIDR == "" {
+				unknownNetworks = append(unknownNetworks, v.ParentInterfaceName)
+			}
+			nics[v.InterfaceName] = newNICDevice(v.InterfaceName, v.ParentInterfaceName, v.MACAddress, v.MTU)
+		}
+	} else if networkConfig.Device != "" {
+		unknownNetworks = []string{networkConfig.Device}
+		nics["eth0"] = newNICDevice("eth0", networkConfig.Device, "", networkConfig.MTU)
 	}
-	device["name"] = deviceName
 
-	if parentDevice == "" {
-		return nil, errors.Errorf("invalid parent device name")
+	return nics, unknownNetworks, nil
+}
+
+// newNICDevice creates and returns a LXD-compatible config for a network
+// device, from the input arguments.
+func newNICDevice(deviceName, parentDevice, hwAddr string, mtu int) lxdclient.Device {
+	device := map[string]string{
+		"type":    "nic",
+		"nictype": "bridged",
+		"name":    deviceName,
+		"parent":  parentDevice,
 	}
-	device["parent"] = parentDevice
 
 	if hwAddr != "" {
 		device["hwaddr"] = hwAddr
@@ -324,34 +398,5 @@ func nicDevice(deviceName, parentDevice, hwAddr string, mtu int) (lxdclient.Devi
 		device["mtu"] = fmt.Sprintf("%v", mtu)
 	}
 
-	return device, nil
-}
-
-func networkDevices(networkConfig *container.NetworkConfig) (lxdclient.Devices, error) {
-	nics := make(lxdclient.Devices)
-
-	if len(networkConfig.Interfaces) > 0 {
-		for _, v := range networkConfig.Interfaces {
-			if v.InterfaceType == network.LoopbackInterface {
-				continue
-			}
-			if v.InterfaceType != network.EthernetInterface {
-				return nil, errors.Errorf("interface type %q not supported", v.InterfaceType)
-			}
-			parentDevice := v.ParentInterfaceName
-			device, err := nicDevice(v.InterfaceName, parentDevice, v.MACAddress, v.MTU)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			nics[v.InterfaceName] = device
-		}
-	} else if networkConfig.Device != "" {
-		device, err := nicDevice("eth0", networkConfig.Device, "", networkConfig.MTU)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		nics["eth0"] = device
-	}
-
-	return nics, nil
+	return device
 }
