@@ -2003,10 +2003,10 @@ func (environ *maasEnviron) filteredSubnets2(ctx context.ProviderCallContext, in
 }
 
 func checkNotFound(subnetIdSet map[string]bool) error {
-	notFound := []string{}
+	var notFound []string
 	for subnetId, found := range subnetIdSet {
 		if !found {
-			notFound = append(notFound, string(subnetId))
+			notFound = append(notFound, subnetId)
 		}
 	}
 	if len(notFound) != 0 {

@@ -1656,7 +1656,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 	obtainedRulesSecondTime := ruleToRuleInfo(group.Rules)
 	c.Check(obtainedRulesSecondTime, jc.SameContents, expectedRules)
 
-	// 3rd time with same name, should be back to the orginal now
+	// 3rd time with same name, should be back to the original now
 	group, err = openstack.EnsureGroup(s.env, "test group", rule)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(group.Id, gc.Equals, id)

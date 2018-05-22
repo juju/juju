@@ -337,8 +337,7 @@ func (e Environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, e
 				},
 			}
 		} else {
-			logger.Infof("appending subnet %s to %s",
-				string(val.ProviderId), string(space.Name))
+			logger.Infof("appending subnet %s to %s", string(val.ProviderId), space.Name)
 			space.Subnets = append(space.Subnets, val)
 			exchanges[name] = space
 		}

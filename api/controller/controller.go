@@ -315,7 +315,7 @@ func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 				CACert:        spec.TargetCACert,
 				AuthTag:       names.NewUserTag(spec.TargetUser).String(),
 				Password:      spec.TargetPassword,
-				Macaroons:     string(macsJSON),
+				Macaroons:     macsJSON,
 			},
 		}},
 	}

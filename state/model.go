@@ -175,7 +175,7 @@ type modelEntityRefsDoc struct {
 	// Machines contains the names of the top-level machines in the model.
 	Machines []string `bson:"machines"`
 
-	// Applicatons contains the names of the applications in the model.
+	// Applications contains the names of the applications in the model.
 	Applications []string `bson:"applications"`
 
 	// Volumes contains the IDs of the volumes in the model.

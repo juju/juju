@@ -1390,7 +1390,7 @@ func (api *APIBase) SetRelationsSuspended(args params.RelationSuspendedArgs) (pa
 			statusValue = status.Suspending
 		}
 		return rel.SetStatus(status.StatusInfo{
-			Status:  status.Status(statusValue),
+			Status:  statusValue,
 			Message: arg.Message,
 		})
 	}

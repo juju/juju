@@ -123,7 +123,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *configCommand) Init(args []string) error {
 	// If there are arguments provided to reset, we turn it into a slice of
 	// strings and verify them. If there is one or more valid keys to reset and
-	// no other errors initalizing the command, c.resetDefaults will be called
+	// no other errors initializing the command, c.resetDefaults will be called
 	// in c.Run.
 	if err := c.parseResetKeys(); err != nil {
 		return errors.Trace(err)

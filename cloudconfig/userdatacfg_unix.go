@@ -128,7 +128,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 			// Mask and stop firewalld, if enabled, so it cannot start. See
 			// http://pad.lv/1492066. firewalld might be missing, in which case
 			// is-enabled and is-active prints an error, which is why the output
-			// is surpressed.
+			// is suppressed.
 			"systemctl is-enabled firewalld &> /dev/null && systemctl mask firewalld || true",
 			"systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true",
 
@@ -140,7 +140,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 			// Mask and stop firewalld, if enabled, so it cannot start. See
 			// http://pad.lv/1492066. firewalld might be missing, in which case
 			// is-enabled and is-active prints an error, which is why the output
-			// is surpressed.
+			// is suppressed.
 			"systemctl is-enabled firewalld &> /dev/null && systemctl mask firewalld || true",
 			"systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true",
 			`sed -i "s/^.*requiretty/#Defaults requiretty/" /etc/sudoers`,
@@ -424,7 +424,7 @@ func (w *unixConfigure) addDownloadToolsCmds() error {
 		if err != nil {
 			return err
 		}
-		w.conf.AddRunBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
+		w.conf.AddRunBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), toolsData, 0644)
 	} else {
 		curlCommand := curlCommand
 		var urls []string

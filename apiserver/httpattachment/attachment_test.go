@@ -15,5 +15,5 @@ type requestSuite struct {
 
 var _ = gc.Suite(&requestSuite{})
 
-// TODO the functions in this pacakge should be tested directly.
+// TODO the functions in this package should be tested directly.
 // https://bugs.launchpad.net/juju-core/+bug/1503990

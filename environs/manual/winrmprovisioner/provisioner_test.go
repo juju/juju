@@ -63,7 +63,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	}
 
 	// this should return this error
-	// No hardware fields on runing the powershell deteciton script
+	// No hardware fields on running the powershell deteciton script
 	machineId, err := winrmprovisioner.ProvisionMachine(args)
 	c.Assert(err, gc.NotNil)
 	c.Assert(machineId, jc.DeepEquals, "")

@@ -61,7 +61,7 @@ Please configure LXD by running:
 	/* EACCESS because we can't read/write */
 	c.Assert(f.Chmod(0400), jc.ErrorIsNil)
 	_, err = Connect(cfg, false)
-	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: Permisson denied, are you in the lxd group?
+	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: Permission denied, are you in the lxd group?
 
 Please configure LXD by running:
 	$ newgrp lxd

@@ -41,7 +41,7 @@ type ControllerItem struct {
 	AgentVersion       string              `yaml:"agent-version,omitempty" json:"agent-version,omitempty"`
 	ModelCount         *int                `yaml:"model-count,omitempty" json:"model-count,omitempty"`
 	MachineCount       *int                `yaml:"machine-count,omitempty" json:"machine-count,omitempty"`
-	ControllerMachines *ControllerMachines `yaml:"controller-machines,omitempty" json:"controller-machins,omitempty"`
+	ControllerMachines *ControllerMachines `yaml:"controller-machines,omitempty" json:"controller-machines,omitempty"`
 }
 
 // convertControllerDetails takes a map of Controllers and

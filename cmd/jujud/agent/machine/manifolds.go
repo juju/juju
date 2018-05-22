@@ -107,7 +107,7 @@ type ManifoldsConfig struct {
 
 	// RootDir is the root directory that any worker that needs to
 	// access local filesystems should use as a base. In actual use it
-	// will be "" but it may be overriden in tests.
+	// will be "" but it may be overridden in tests.
 	RootDir string
 
 	// PreviousAgentVersion passes through the version the machine

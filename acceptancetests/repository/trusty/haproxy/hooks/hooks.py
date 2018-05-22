@@ -1058,7 +1058,7 @@ def notify_relation(relation, changed=False, relation_ids=None):
                 "Falling back to default host/port.")
 
         if service_name is not None:
-            # If a specfic service has been asked for then return the ip:port
+            # If a specific service has been asked for then return the ip:port
             # for that service, else pass back the default
             requestedservice = get_config_service(service_name)
             my_host = get_hostname(requestedservice['service_host'])

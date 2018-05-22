@@ -308,7 +308,7 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 			return nil, err
 		}
 		ctx.status = &jujuc.StatusInfo{
-			Status: string(status.Status),
+			Status: status.Status,
 			Info:   status.Info,
 			Data:   status.Data,
 		}
@@ -341,7 +341,7 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 	for t, s := range status.Units {
 		us[i] = jujuc.StatusInfo{
 			Tag:    t,
-			Status: string(s.Status),
+			Status: s.Status,
 			Info:   s.Info,
 			Data:   s.Data,
 		}
@@ -350,7 +350,7 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 	return jujuc.ApplicationStatusInfo{
 		Application: jujuc.StatusInfo{
 			Tag:    service.Tag().String(),
-			Status: string(status.Application.Status),
+			Status: status.Application.Status,
 			Info:   status.Application.Info,
 			Data:   status.Application.Data,
 		},

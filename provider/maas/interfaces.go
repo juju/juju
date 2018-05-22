@@ -204,7 +204,7 @@ func maasObjectNetworkInterfaces(ctx context.ProviderCallContext, maasObject *go
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
 			nicInfo.Address = network.NewAddressOnSpace(sub.Space, link.IPAddress)
-			spaceId, ok := subnetsMap[string(sub.CIDR)]
+			spaceId, ok := subnetsMap[sub.CIDR]
 			if !ok {
 				// The space we found is not recognised.
 				// No provider space info is available.
@@ -226,7 +226,7 @@ func maasObjectNetworkInterfaces(ctx context.ProviderCallContext, maasObject *go
 			nicInfo.MTU = sub.VLAN.MTU
 
 			// Each link we represent as a separate InterfaceInfo, but with the
-			// same name and device index, just different addres, subnet, etc.
+			// same name and device index, just different address, subnet, etc.
 			infos = append(infos, nicInfo)
 		}
 	}
@@ -309,7 +309,7 @@ func maas2NetworkInterfaces(ctx context.ProviderCallContext, instance *maas2Inst
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
 			nicInfo.Address = network.NewAddressOnSpace(sub.Space(), link.IPAddress())
-			spaceId, ok := subnetsMap[string(sub.CIDR())]
+			spaceId, ok := subnetsMap[sub.CIDR()]
 			if !ok {
 				// The space we found is not recognised.
 				// No provider space info is available.

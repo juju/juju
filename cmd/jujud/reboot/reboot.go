@@ -28,7 +28,7 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud.reboot")
-var timeout = time.Duration(10 * time.Minute)
+var timeout = 10 * time.Minute
 var rebootAfter = 15
 
 func runCommand(args []string) error {
@@ -122,8 +122,9 @@ func (r *Reboot) runningContainers() ([]instance.Instance, error) {
 	modelUUID := r.acfg.Model().Id()
 	for _, val := range instance.ContainerTypes {
 		managerConfig := container.ManagerConfig{
-			container.ConfigModelUUID: modelUUID}
-		cfg := container.ManagerConfig(managerConfig)
+			container.ConfigModelUUID: modelUUID,
+		}
+		cfg := managerConfig
 		manager, err := factory.NewContainerManager(val, cfg)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to get manager for container type %v", val)

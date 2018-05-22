@@ -53,9 +53,9 @@ sequence of: POOL, COUNT, and SIZE, where
     the set (M, G, T, P, E, Z, Y), which are all treated as
     powers of 1024.
 
-Storage constraints can be optionally ommitted.
-Model default values will be used for all ommitted constraint values.
-There is no need to comma-separate ommitted constraints. 
+Storage constraints can be optionally omitted.
+Model default values will be used for all omitted constraint values.
+There is no need to comma-separate omitted constraints. 
 
 Examples:
     # Add 3 ebs storage instances for "data" storage to unit u/0:

@@ -134,7 +134,7 @@ func (st *mockState) SaveIngressNetworks(relationKey string, cidrs []string) (st
 func (st *mockState) OfferConnectionForRelation(relationKey string) (crossmodelrelations.OfferConnection, error) {
 	oc, ok := st.offerConnectionsByKey[relationKey]
 	if !ok {
-		return nil, errors.NotFoundf("offer connection details for realtion %v", relationKey)
+		return nil, errors.NotFoundf("offer connection details for relation %v", relationKey)
 	}
 	return oc, nil
 }

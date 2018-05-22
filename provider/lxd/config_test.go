@@ -46,7 +46,7 @@ func (s *configSuite) TestDefaults(c *gc.C) {
 
 // TODO(ericsnow) Each test only deals with a single field, so having
 // multiple values in insert and remove (in configTestSpec) is a little
-// misleading and unecessary.
+// misleading and unnecessary.
 
 // configTestSpec defines a subtest to run in a table driven test.
 type configTestSpec struct {

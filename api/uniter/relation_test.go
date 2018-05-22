@@ -132,7 +132,7 @@ func (s *relationSuite) TestRelationById(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiRel, gc.DeepEquals, s.apiRelation)
 
-	// Add a relation to mysql application, which cannot be retrived.
+	// Add a relation to mysql application, which cannot be retrieved.
 	otherRel, _, _ := s.addRelatedApplication(c, "mysql", "logging", s.mysqlUnit)
 
 	// Test some invalid cases.

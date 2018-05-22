@@ -105,7 +105,7 @@ func (u *urlDataSource) GoString() string {
 	return fmt.Sprintf("%v: urlDataSource(%q)", u.description, u.baseURL)
 }
 
-// urlJoin returns baseURL + relpath making sure to have a '/' inbetween them
+// urlJoin returns baseURL + relpath making sure to have a '/' between them
 // This doesn't try to do anything fancy with URL query or parameter bits
 // It also doesn't use path.Join because that normalizes slashes, and you need
 // to keep both slashes in 'http://'.

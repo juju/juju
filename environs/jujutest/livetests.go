@@ -93,7 +93,7 @@ type LiveTests struct {
 	// This is set by PrepareOnce and BootstrapOnce.
 	Env environs.Environ
 
-	// ControllerStore holds the controller related informtion
+	// ControllerStore holds the controller related information
 	// such as controllers, accounts, etc., used when preparing
 	// the environment. This is initialized by SetUpSuite.
 	ControllerStore jujuclient.ClientStore

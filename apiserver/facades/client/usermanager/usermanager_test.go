@@ -101,7 +101,7 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 		}}}
 
 	result, err := s.usermanager.AddUser(args)
-	// Check that the call is succesful
+	// Check that the call is successful
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	foobarTag := names.NewLocalUserTag("foobar")

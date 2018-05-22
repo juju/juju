@@ -90,7 +90,7 @@ func NewImageVersion(img ociCore.Image) (ImageVersion, error) {
 // InstanceImage aggregates information pertinent to provider supplied
 // images (eg: shapes it ca run on, type of instance it can run on, etc)
 type InstanceImage struct {
-	// ImageType determins which type of image this is. Valid values are:
+	// ImageType determines which type of image this is. Valid values are:
 	// vm, baremetal and generic
 	ImageType ImageType
 	// Id is the provider ID of the image

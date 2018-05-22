@@ -129,7 +129,7 @@ func (s *RelationUnitSuite) TestPeerSettings(c *gc.C) {
 	assertSettings(pr.u0, normal)
 	assertNotInScope(c, pr.ru0)
 
-	// Re-enter scope wih changed settings, and check they completely overwrite
+	// Re-enter scope with changed settings, and check they completely overwrite
 	// the old ones.
 	err = pr.ru0.EnterScope(changed)
 	c.Assert(err, jc.ErrorIsNil)

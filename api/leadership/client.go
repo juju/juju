@@ -68,7 +68,7 @@ func (c *client) BlockUntilLeadershipReleased(serviceId string, cancel <-chan st
 //
 
 // prepareClaimLeadership creates a single set of params in
-// preperation for making a bulk call.
+// preparation for making a bulk call.
 func (c *client) prepareClaimLeadership(serviceId, unitId string, duration time.Duration) params.ClaimLeadershipParams {
 	return params.ClaimLeadershipParams{
 		names.NewApplicationTag(serviceId).String(),

@@ -286,7 +286,7 @@ func validateCloudCredentials(
 				tag.Id(), credential.AuthType, cloud.AuthTypes,
 			))
 		}
-		requiredAuthTypes.Add(string(credential.AuthType))
+		requiredAuthTypes.Add(credential.AuthType)
 	}
 	ops := make([]txn.Op, len(requiredAuthTypes))
 	for i, authType := range requiredAuthTypes.SortedValues() {

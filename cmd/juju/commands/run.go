@@ -174,7 +174,7 @@ func (c *runCommand) Init(args []string) error {
 }
 
 // ConvertActionResults takes the results from the api and creates a map
-// suitable for format converstion to YAML or JSON.
+// suitable for format conversion to YAML or JSON.
 func ConvertActionResults(result params.ActionResult, query actionQuery) map[string]interface{} {
 	values := make(map[string]interface{})
 	values[query.receiver.receiverType] = query.receiver.tag.Id()

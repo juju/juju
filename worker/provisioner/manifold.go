@@ -27,7 +27,7 @@ type ManifoldConfig struct {
 	NewProvisionerFunc func(*apiprovisioner.State, agent.Config, environs.Environ) (Provisioner, error)
 }
 
-// Manifold creates a manifold that runs an environemnt provisioner. See the
+// Manifold creates a manifold that runs an environment provisioner. See the
 // ManifoldConfig type for discussion about how this can/should evolve.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{

@@ -19,7 +19,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.websocket")
 
 // Use a 64k frame size for the websockets while we need to deal
-// with x/net/websocket connections that don't deal with recieving
+// with x/net/websocket connections that don't deal with receiving
 // fragmented messages.
 const websocketFrameSize = 65536
 

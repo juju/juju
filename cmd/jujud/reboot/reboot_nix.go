@@ -41,7 +41,7 @@ sleep %d
 }
 
 // scheduleAction will do a reboot or shutdown after given number of seconds
-// this function executes the operating system's reboot binary with apropriate
+// this function executes the operating system's reboot binary with appropriate
 // parameters to schedule the reboot
 // If action is params.ShouldDoNothing, it will return immediately.
 func scheduleAction(action params.RebootAction, after int) error {

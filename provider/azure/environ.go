@@ -471,7 +471,7 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 	if err != nil {
 		return nil, err
 	}
-	if rootDisk < uint64(instanceSpec.InstanceType.RootDisk) {
+	if rootDisk < instanceSpec.InstanceType.RootDisk {
 		// The InstanceType's RootDisk is set to the maximum
 		// OS disk size; override it with the user-specified
 		// or default root disk size.

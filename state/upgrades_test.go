@@ -267,8 +267,8 @@ func (s *upgradesSuite) TestStripLocalUserDomainPermissions(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	for i, inital := range initialPermissions {
-		perm := inital
+	for i, initial := range initialPermissions {
+		perm := initial
 		delete(perm, "txn-queue")
 		delete(perm, "txn-revno")
 		initialPermissions[i] = perm
@@ -382,8 +382,8 @@ func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	for i, inital := range initialPermissions {
-		perm := inital
+	for i, initial := range initialPermissions {
+		perm := initial
 		delete(perm, "txn-queue")
 		delete(perm, "txn-revno")
 		initialPermissions[i] = perm
