@@ -21,6 +21,10 @@ import (
 
 // APIClient represents the backups API client functionality used by
 // the backups command.
+//
+// To regenerate the mocks for the APIClient used by this package,
+// run "go generate" from the package directory.
+//go:generate mockgen -package backups_test -destination mock_test.go github.com/juju/juju/cmd/juju/backups ArchiveReader,APIClient
 type APIClient interface {
 	io.Closer
 	// Create sends an RPC request to create a new backup.
@@ -107,12 +111,16 @@ func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetad
 }
 
 // ArchiveReader can read a backup archive.
+//
+// To regenerate the mocks for the ArchiveReader used by this package,
+// run "go generate" from the package directory.
+//go:generate mockgen -package backups_test -destination mock_test.go github.com/juju/juju/cmd/juju/backups ArchiveReader,APIClient
 type ArchiveReader interface {
 	io.ReadSeeker
 	io.Closer
 }
 
-func getArchive(filename string) (rc ArchiveReader, metaResult *params.BackupsMetadataResult, err error) {
+var getArchive = func(filename string) (rc ArchiveReader, metaResult *params.BackupsMetadataResult, err error) {
 	defer func() {
 		if err != nil && rc != nil {
 			rc.Close()
