@@ -10,8 +10,10 @@ import (
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxd"
@@ -275,4 +277,49 @@ func (t *LxdSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *gc.C) {
 		lxdclient.CloudImagesDailyRemote,
 	}
 	c.Check(sources, gc.DeepEquals, expectedSources)
+}
+
+type updaterNoSupport struct{}
+
+func (u *updaterNoSupport) NetworkGet(name string) (api.Network, error) {
+	return api.Network{}, errors.NotSupportedf("")
+}
+
+func (u *updaterNoSupport) NetworkPut(name string, network api.NetworkPut) error {
+	return errors.NotSupportedf("")
+}
+
+func (t *LxdSuite) TestEnsureIPv4NoSupport(c *gc.C) {
+	_, err := lxd.EnsureIPv4(container.DefaultLxdBridge, &updaterNoSupport{})
+	c.Check(errors.IsNotSupported(err), jc.IsTrue)
+}
+
+type updaterWithSupport struct {
+	netConfig map[string]string
+}
+
+func (u *updaterWithSupport) NetworkGet(name string) (api.Network, error) {
+	return api.Network{NetworkPut: api.NetworkPut{Config: u.netConfig}}, nil
+}
+
+func (u *updaterWithSupport) NetworkPut(name string, network api.NetworkPut) error {
+	if network.Config["ipv4.address"] != "auto" {
+		return errors.New(`ipv4.address was not updated to "auto"`)
+	}
+	return nil
+}
+
+func (t *LxdSuite) TestEnsureIPv4APISupportedUpdated(c *gc.C) {
+	mod, err := lxd.EnsureIPv4(container.DefaultLxdBridge, &updaterWithSupport{})
+	c.Assert(err, gc.IsNil)
+	c.Check(mod, jc.IsTrue)
+}
+
+func (t *LxdSuite) TestEnsureIPv4APISupportedNotUpdated(c *gc.C) {
+	updater := &updaterWithSupport{
+		netConfig: map[string]string{"ipv4.address": "10.5.6.7"},
+	}
+	mod, err := lxd.EnsureIPv4(container.DefaultLxdBridge, updater)
+	c.Assert(err, gc.IsNil)
+	c.Check(mod, jc.IsFalse)
 }

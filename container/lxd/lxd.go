@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
+	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -196,7 +197,7 @@ func (manager *containerManager) CreateContainer(
 		if len(unknown) > 0 {
 			logWarning := true
 			if len(unknown) == 1 && unknown[0] == network.DefaultLXDBridge {
-				mod, err := manager.ensureIPv4(network.DefaultLXDBridge)
+				mod, err := ensureIPv4(network.DefaultLXDBridge, manager.client)
 				if err != nil && !errors.IsNotSupported(err) {
 					return nil, nil, errors.Annotate(err, "ensuring default bridge IPv4 config")
 				}
@@ -267,34 +268,6 @@ func (manager *containerManager) getImageSources() ([]lxdclient.Remote, error) {
 		return []lxdclient.Remote{remote, lxdclient.CloudImagesDailyRemote}, nil
 	}
 	return []lxdclient.Remote{remote, lxdclient.CloudImagesRemote, lxdclient.CloudImagesDailyRemote}, nil
-}
-
-// ensureIPv4 retrieves the network for the input name and checks its IPv4
-// configuration. If none is detected, it is set to "auto".
-// The boolean return indicates if modification was necessary.
-func (manager *containerManager) ensureIPv4(netName string) (bool, error) {
-	var modified bool
-
-	net, err := manager.client.NetworkGet(netName)
-	if err != nil {
-		return false, err
-	}
-
-	cfg, ok := net.Config["ipv4.address"]
-	if !ok || cfg == "none" {
-		if net.Config == nil {
-			net.Config = make(map[string]string, 2)
-		}
-		net.Config["ipv4.address"] = "auto"
-		net.Config["ipv4.nat"] = "true"
-
-		if err := manager.client.NetworkPut(netName, net.Writable()); err != nil {
-			return false, err
-		}
-		modified = true
-	}
-
-	return modified, nil
 }
 
 func (manager *containerManager) DestroyContainer(id instance.Id) error {
@@ -399,4 +372,37 @@ func newNICDevice(deviceName, parentDevice, hwAddr string, mtu int) lxdclient.De
 	}
 
 	return device
+}
+
+type networkUpdater interface {
+	NetworkGet(name string) (api.Network, error)
+	NetworkPut(name string, network api.NetworkPut) error
+}
+
+// ensureIPv4 retrieves the network for the input name and checks its IPv4
+// configuration. If none is detected, it is set to "auto".
+// The boolean return indicates if modification was necessary.
+func ensureIPv4(netName string, updater networkUpdater) (bool, error) {
+	var modified bool
+
+	net, err := updater.NetworkGet(netName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	cfg, ok := net.Config["ipv4.address"]
+	if !ok || cfg == "none" {
+		if net.Config == nil {
+			net.Config = make(map[string]string, 2)
+		}
+		net.Config["ipv4.address"] = "auto"
+		net.Config["ipv4.nat"] = "true"
+
+		if err := updater.NetworkPut(netName, net.Writable()); err != nil {
+			return false, errors.Trace(err)
+		}
+		modified = true
+	}
+
+	return modified, nil
 }
