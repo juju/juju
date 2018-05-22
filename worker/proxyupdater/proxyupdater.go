@@ -13,12 +13,10 @@ import (
 	"github.com/juju/packaging/config"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/exec"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/watcher"
 )
 
@@ -38,7 +36,7 @@ type Config struct {
 // API is an interface that is provided to New
 // which can be used to fetch the API host ports
 type API interface {
-	ProxyConfig() (proxyutils.Settings, proxyutils.Settings, error)
+	ProxyConfig() (proxyutils.Settings, proxyutils.Settings, proxyutils.Settings, proxyutils.Settings, error)
 	WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error)
 }
 
@@ -137,26 +135,37 @@ func (w *proxyWorker) saveProxySettings() error {
 	}
 }
 
-func (w *proxyWorker) handleProxyValues(proxySettings proxyutils.Settings) {
-	proxySettings.SetEnvironmentValues()
-	if err := w.config.InProcessUpdate(proxySettings); err != nil {
+func (w *proxyWorker) handleProxyValues(legacyProxySettings, jujuProxySettings proxyutils.Settings) {
+	// Legacy proxy settings update the environment, and also call the
+	// InProcessUpdate, which installs the proxy into the default HTTP
+	// transport. The same occurs for jujuProxySettings.
+	settings := jujuProxySettings
+	if legacyProxySettings.HasProxySet() {
+		settings = legacyProxySettings
+	}
+
+	settings.SetEnvironmentValues()
+	if err := w.config.InProcessUpdate(settings); err != nil {
 		logger.Errorf("error updating in-process proxy settings: %v", err)
 	}
-	if featureflag.Enabled(feature.NewProxyOnly) {
-		return
+
+	// If the external update function is passed in, it is to update the LXD
+	// proxies. We want to set this to the proxy specified regardless of whether
+	// it was set with the legacy fields or the new juju fields.
+	if externalFunc := w.config.ExternalUpdate; externalFunc != nil {
+		if err := externalFunc(settings); err != nil {
+			// It isn't really fatal, but we should record it.
+			logger.Errorf("%v", err)
+		}
 	}
-	if proxySettings != w.proxy || w.first {
-		logger.Debugf("new proxy settings %#v", proxySettings)
-		w.proxy = proxySettings
+
+	// Here we write files to disk. This is done only for legacyProxySettings.
+	if legacyProxySettings != w.proxy || w.first {
+		logger.Debugf("new legacy proxy settings %#v", legacyProxySettings)
+		w.proxy = legacyProxySettings
 		if err := w.saveProxySettings(); err != nil {
 			// It isn't really fatal, but we should record it.
 			logger.Errorf("error saving proxy settings: %v", err)
-		}
-		if externalFunc := w.config.ExternalUpdate; externalFunc != nil {
-			if err := externalFunc(proxySettings); err != nil {
-				// It isn't really fatal, but we should record it.
-				logger.Errorf("%v", err)
-			}
 		}
 	}
 }
@@ -192,13 +201,15 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) erro
 }
 
 func (w *proxyWorker) onChange() error {
-	proxySettings, APTProxySettings, err := w.config.API.ProxyConfig()
+	legacyProxySettings, jujuProxySettings, aptProxySettings, snapProxySettings, err := w.config.API.ProxyConfig()
 	if err != nil {
 		return err
 	}
 
-	w.handleProxyValues(proxySettings)
-	return w.handleAptProxyValues(APTProxySettings)
+	w.handleProxyValues(legacyProxySettings, jujuProxySettings)
+	// TODO: handle snapProxySettings
+	_ = snapProxySettings
+	return w.handleAptProxyValues(aptProxySettings)
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.
