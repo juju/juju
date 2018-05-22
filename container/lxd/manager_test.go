@@ -168,7 +168,7 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 func (t *LxdSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := t.NewMockServer(ctrl, "network")
+	cSvr := t.NewMockServerWithExtensions(ctrl, "network")
 	t.patch(cSvr)
 
 	manager := t.makeManager(c, cSvr)

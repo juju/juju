@@ -39,7 +39,7 @@ func defaultProfile() *lxdapi.Profile {
 func (s *networkSuite) TestEnsureIPv4NoChange(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl, "network")
+	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
 
 	net := &lxdapi.Network{
 		NetworkPut: lxdapi.NetworkPut{
@@ -58,7 +58,7 @@ func (s *networkSuite) TestEnsureIPv4NoChange(c *gc.C) {
 func (s *networkSuite) TestEnsureIPv4Modified(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := s.NewMockServer(ctrl, "network")
+	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
 
 	req := lxdapi.NetworkPut{
 		Config: map[string]string{
