@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -35,6 +35,19 @@ import (
 )
 
 const maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabilities": ["networks-management", "static-ipaddresses", "ipv6-deployment-ubuntu", "devices-management", "storage-deployment-ubuntu", "network-deployment-ubuntu"]}`
+
+const maas2DomainsResponse = `
+[
+    {
+        "authoritative": "true",
+        "resource_uri": "/MAAS/api/2.0/domains/0/",
+        "name": "maas",
+        "id": 0,
+        "ttl": null,
+        "resource_record_count": 3
+    }
+]
+`
 
 type baseProviderSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite

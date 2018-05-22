@@ -241,11 +241,11 @@ func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, er
 	}
 
 	env := &Environ{
-		compute:    compute,
-		networking: networking,
-		storage:    storage,
-		firewall:   networking,
-		identity:   identity,
+		Compute:    compute,
+		Networking: networking,
+		Storage:    storage,
+		Firewall:   networking,
+		Identity:   identity,
 		p:          e,
 		clock:      clock.WallClock,
 	}

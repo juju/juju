@@ -66,9 +66,9 @@ func (s *handlerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.resources = dt.StubResources{
-		"agent-name":        dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
-		"metric-spool-name": dt.StubResource{Output: &mockMetricFactory{recorder: s.recorder}},
-		"charmdir-name":     dt.StubResource{Output: &dummyCharmdir{aborted: false}},
+		"agent-name":        dt.NewStubResource(&dummyAgent{dataDir: s.dataDir}),
+		"metric-spool-name": dt.NewStubResource(&mockMetricFactory{recorder: s.recorder}),
+		"charmdir-name":     dt.NewStubResource(&dummyCharmdir{aborted: false}),
 	}
 
 	s.PatchValue(collect.NewRecorder,

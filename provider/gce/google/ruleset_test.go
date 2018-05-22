@@ -4,8 +4,8 @@
 package google
 
 import (
+	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 

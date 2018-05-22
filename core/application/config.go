@@ -4,9 +4,9 @@
 package application
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/environschema.v1"
 )
 

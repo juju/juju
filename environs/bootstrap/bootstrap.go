@@ -14,12 +14,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"

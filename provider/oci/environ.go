@@ -4,6 +4,7 @@
 package oci
 
 import (
+	"net/http"
 	"sync"
 
 	"github.com/juju/errors"
@@ -24,11 +25,11 @@ import (
 )
 
 type Environ struct {
-	compute    providerCommon.OCIComputeClient
-	networking providerCommon.OCINetworkingClient
-	storage    providerCommon.OCIStorageClient
-	firewall   providerCommon.OCIFirewallClient
-	identity   providerCommon.OCIIdentityClient
+	Compute    providerCommon.OCIComputeClient
+	Networking providerCommon.OCINetworkingClient
+	Storage    providerCommon.OCIStorageClient
+	Firewall   providerCommon.OCIFirewallClient
+	Identity   providerCommon.OCIIdentityClient
 	p          *EnvironProvider
 	clock      clock.Clock
 	ecfgMutex  sync.Mutex
@@ -54,6 +55,13 @@ func (e *Environ) ecfg() *environConfig {
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 	return e.ecfgObj
+}
+
+func (e *Environ) isNotFound(response *http.Response) bool {
+	if response.StatusCode == http.StatusNotFound {
+		return true
+	}
+	return false
 }
 
 // AvailabilityZones is defined in the common.ZonedEnviron interface

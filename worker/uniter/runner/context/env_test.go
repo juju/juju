@@ -9,10 +9,10 @@ import (
 	"runtime"
 	"sort"
 
+	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/keyvalues"
 	jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/proxy"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"

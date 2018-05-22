@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"github.com/juju/utils/clock"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/pubsub/apiserver"
@@ -30,14 +29,14 @@ var (
 )
 
 func newStreamLayer(
-	tag names.Tag,
+	localID raft.ServerID,
 	hub *pubsub.StructuredHub,
 	connections <-chan net.Conn,
 	clk clock.Clock,
 	dialer *Dialer,
 ) (*streamLayer, error) {
 	l := &streamLayer{
-		tag:         tag,
+		localID:     localID,
 		hub:         hub,
 		connections: connections,
 		dialer:      dialer,
@@ -77,7 +76,7 @@ func newStreamLayer(
 // Partially based on code from https://github.com/CanonicalLtd/raft-http.
 type streamLayer struct {
 	tomb        tomb.Tomb
-	tag         names.Tag
+	localID     raft.ServerID
 	hub         *pubsub.StructuredHub
 	connections <-chan net.Conn
 	dialer      *Dialer
@@ -161,7 +160,7 @@ func (l *streamLayer) apiserverDetailsChanged(topic string, details apiserver.De
 	}
 	var addr string
 	for _, server := range details.Servers {
-		if server.ID != l.tag.Id() {
+		if raft.ServerID(server.ID) != l.localID {
 			continue
 		}
 		addr = server.InternalAddress

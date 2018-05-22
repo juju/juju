@@ -6,15 +6,14 @@ package caasunitprovisioner
 import (
 	"sort"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
@@ -217,18 +216,6 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-
-		appConfig, err := app.ApplicationConfig()
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-
-		// Ignore `jujuManagedUnits`, log warning if it's still set to true.
-		if appConfig.GetBool(caas.JujuManagedUnits, caas.JujuDefaultJujuManagedUnits) {
-			logger.Warningf("config value %q is deprecated - although it is set to true, juju will not manage kubernetes units", caas.JujuManagedUnits)
-		}
-		// `jujuManagedUnits` has been ignored from now (always treat it as `false`).
 		err = a.updateUnitsFromCloud(app, appUpdate.Units)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
@@ -311,11 +298,11 @@ func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.Appl
 	}
 	var (
 		// aliveStateIds holds the provider ids of alive units in state.
-		aliveStateIds = make(set.Strings)
+		aliveStateIds = set.NewStrings()
 
 		// extraStateIds holds the provider ids of units in state which
 		// no longer exist in the cloud.
-		extraStateIds = make(set.Strings)
+		extraStateIds = set.NewStrings()
 	)
 
 	// Loop over any existing state units and record those which do not yet have
@@ -404,88 +391,6 @@ func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.Appl
 		unitInfo.removedUnits = append(unitInfo.removedUnits, u)
 	}
 
-	return a.updateStateUnits(app, unitInfo)
-}
-
-// updateUnitsFromCloud takes a slice of unit information provided by an external
-// source (typically a cloud update event) and merges that with the existing unit
-// data model in state. The passed in units are the complete set for the cloud, so
-// any existing units in state with provider ids which aren't in the set will be
-// marked as terminated. This method is used when the Juju manages the units.
-func (a *Facade) updateJujuManagedUnitsFromCloud(app Application, unitUpdates []params.ApplicationUnitParams) error {
-	// Set up the initial data structures.
-	existingStateUnits, err := app.AllUnits()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	aliveCloudUnits := make(map[string]params.ApplicationUnitParams)
-
-	// Record all unit details known to exist in the cloud.
-	// We initially assume the corresponding Juju unit is alive
-	// and will remove dying/dead ones below.
-	for _, u := range unitUpdates {
-		if u.UnitTag == "" {
-			logger.Warningf("ignoring cloud unit %v without a Juju unit tag", u.ProviderId)
-			continue
-		}
-		aliveCloudUnits[u.UnitTag] = u
-	}
-
-	unitInfo := &updateStateUnitParams{
-		stateUnitsInCloud: make(map[string]Unit),
-	}
-
-	// Loop over any existing state units and record those which
-	// have been removed or updated.
-	for _, u := range existingStateUnits {
-		var providerId string
-		info, err := u.ContainerInfo()
-		if err != nil && !errors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
-		if err == nil {
-			providerId = info.ProviderId()
-		}
-
-		unitAlive := u.Life() == state.Alive
-		if !unitAlive {
-			delete(aliveCloudUnits, u.UnitTag().String())
-			continue
-		}
-
-		_, stateUnitInCloud := aliveCloudUnits[u.UnitTag().String()]
-		if stateUnitInCloud {
-			unitInfo.stateUnitsInCloud[u.UnitTag().String()] = u
-		}
-		if providerId == "" {
-			logger.Debugf("unit %q is not associated with any pod", u.Name())
-			continue
-		}
-		if stateUnitInCloud {
-			logger.Debugf("unit %q (%v) has changed in the cloud", u.Name(), providerId)
-		} else {
-			logger.Debugf("unit %q (%v) has been removed from the cloud", u.Name(), providerId)
-			unitInfo.removedUnits = append(unitInfo.removedUnits, u)
-		}
-	}
-
-	// Do it in sorted order so it's deterministic for tests.
-	var tags []string
-	for tag := range aliveCloudUnits {
-		tags = append(tags, tag)
-	}
-	sort.Strings(tags)
-
-	for _, tag := range tags {
-		u := aliveCloudUnits[tag]
-		if _, ok := unitInfo.stateUnitsInCloud[tag]; ok {
-			unitInfo.existingCloudUnits = append(unitInfo.existingCloudUnits, u)
-		} else {
-			logger.Warningf("ignoring pod %v added outside of Juju", u.ProviderId)
-			continue
-		}
-	}
 	return a.updateStateUnits(app, unitInfo)
 }
 

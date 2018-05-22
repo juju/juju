@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 )
 
 // The Juju-recognized states in which a payload might be.

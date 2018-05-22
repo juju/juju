@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-func (a *APIv2) Remove(args params.BackupsRemoveArgs) error {
+func (a *API) Remove(args params.BackupsRemoveArgs) error {
 	backups, closer := newBackups(a.backend)
 	defer closer.Close()
 

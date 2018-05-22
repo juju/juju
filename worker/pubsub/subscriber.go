@@ -9,10 +9,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 

@@ -8,12 +8,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/network"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"

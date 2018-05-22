@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 )
 
 // Recorder records the presence status of every apiserver connection

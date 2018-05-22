@@ -10,7 +10,6 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -155,16 +154,6 @@ func (p *provisioner) loop() error {
 						// the app is gone so it has a chance to clean up.
 						// The worker will act on the removal prior to processing the
 						// Stop() request.
-						// We have to use a channel send here, rather than just closing the select, otherwise we
-						// effectively send the Stop() at the same time as the appRemoved signal.
-						// By sending a message, we block until it at least starts that routine
-						select {
-						case w.appRemoved <- struct{}{}:
-						case <-w.catacomb.Dying():
-							// If the catacomb is already dying, there is no guarantee that w.appRemoved will ever be
-							// seen. But we can still at least close the channel
-							close(w.appRemoved)
-						}
 						if err := worker.Stop(w); err != nil {
 							logger.Errorf("stopping application worker for %v: %v", appId, err)
 						}
@@ -180,19 +169,8 @@ func (p *provisioner) loop() error {
 					// not yet watching it and it's dead.
 					continue
 				}
-				cfg, err := p.config.ApplicationGetter.ApplicationConfig(appId)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				jujuManagedUnits := cfg.GetBool(caas.JujuManagedUnits, caas.JujuDefaultJujuManagedUnits)
-				if jujuManagedUnits {
-					logger.Warningf("config value %q is deprecated - although it is set to true, juju will not manage kubernetes units", caas.JujuManagedUnits)
-					jujuManagedUnits = false // always set `jujuManagedUnits` to false
-				}
 				w, err := newApplicationWorker(
 					appId,
-					make(chan struct{}),
-					jujuManagedUnits,
 					p.config.ServiceBroker,
 					p.config.ContainerBroker,
 					p.config.PodSpecGetter,

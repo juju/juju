@@ -144,9 +144,9 @@ func (s *manifoldSuite) TestNewWorkerSuccess(c *gc.C) {
 
 func resourcesMissing(missing ...string) dt.StubResources {
 	resources := dt.StubResources{
-		"api-caller": dt.StubResource{Output: &fakeAPICaller{}},
-		"environ":    dt.StubResource{Output: &fakeEnviron{}},
-		"broker":     dt.StubResource{Output: &fakeBroker{}},
+		"api-caller": dt.NewStubResource(&fakeAPICaller{}),
+		"environ":    dt.NewStubResource(&fakeEnviron{}),
+		"broker":     dt.NewStubResource(&fakeBroker{}),
 	}
 	for _, name := range missing {
 		resources[name] = dt.StubResource{Error: dependency.ErrMissing}
@@ -155,7 +155,7 @@ func resourcesMissing(missing ...string) dt.StubResources {
 }
 
 func checkResource(c *gc.C, actual interface{}, resources dt.StubResources, name string) {
-	c.Check(actual, gc.Equals, resources[name].Output)
+	c.Check(actual, gc.Equals, resources[name].Outputs[0])
 }
 
 type fakeAPICaller struct {

@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	jc "github.com/juju/testing/checkers"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/cert"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	sshtesting "github.com/juju/utils/ssh/testing"
 	"github.com/juju/utils/symlink"

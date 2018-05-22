@@ -8,9 +8,9 @@ import (
 	"net"
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	"gopkg.in/goose.v2/neutron"
 	"gopkg.in/goose.v2/nova"
 

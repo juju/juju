@@ -111,10 +111,10 @@ def deploy_dummy_stack(client, charm_series, use_charmstore=False):
         client.wait_for_started(3600)
 
 
-def deploy_caas_stack(bundle_path, client):
+def deploy_caas_stack(bundle_path, client, timeout=3600):
     client.deploy_bundle(bundle_path, static_bundle=True)
     # Wait for the deployment to finish.
-    client.wait_for_started()
+    client.wait_for_started(timeout=timeout)
     return CaasClient(client)
 
 

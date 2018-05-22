@@ -10,10 +10,10 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/httprequest"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"

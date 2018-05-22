@@ -58,7 +58,8 @@ func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.metaresult = &params.BackupsMetadataResult{
-		ID: "spam",
+		ID:       "spam",
+		Filename: "filename",
 	}
 	s.data = "<compressed archive data>"
 
@@ -151,28 +152,16 @@ func (f *fakeAPIClient) CheckArgs(c *gc.C, args ...string) {
 	c.Check(f.args, jc.DeepEquals, args)
 }
 
-func (c *fakeAPIClient) CreateDeprecated(notes string) (*params.BackupsMetadataResult, error) {
-	c.calls = append(c.calls, "CreateDeprecated")
-	c.args = append(c.args, notes)
-	c.notes = notes
-	if c.err != nil {
-		return nil, c.err
-	}
-	return c.metaresult, nil
-}
-
-func (c *fakeAPIClient) Create(notes string, keepCopy, noDownload bool) (*params.BackupsCreateResult, error) {
+func (c *fakeAPIClient) Create(notes string, keepCopy, noDownload bool) (*params.BackupsMetadataResult, error) {
 	c.calls = append(c.calls, "Create")
 	c.args = append(c.args, notes, fmt.Sprintf("%t", keepCopy), fmt.Sprintf("%t", noDownload))
 	c.notes = notes
 	if c.err != nil {
 		return nil, c.err
 	}
-	createResult := params.BackupsCreateResult{
-		Metadata: *c.metaresult,
-		Filename: "filename",
-	}
-	return &createResult, nil
+	createResult := c.metaresult
+
+	return createResult, nil
 }
 
 func (c *fakeAPIClient) Info(id string) (*params.BackupsMetadataResult, error) {

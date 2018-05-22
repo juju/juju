@@ -29,7 +29,6 @@ package storageprovisioner
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
@@ -278,7 +277,7 @@ func (w *storageProvisioner) loop() error {
 		incompleteVolumeAttachmentParams:     make(map[params.MachineStorageId]storage.VolumeAttachmentParams),
 		incompleteFilesystemParams:           make(map[names.FilesystemTag]storage.FilesystemParams),
 		incompleteFilesystemAttachmentParams: make(map[params.MachineStorageId]storage.FilesystemAttachmentParams),
-		pendingVolumeBlockDevices:            make(set.Tags),
+		pendingVolumeBlockDevices:            names.NewSet(),
 	}
 	ctx.managedFilesystemSource = newManagedFilesystemSource(
 		ctx.volumeBlockDevices, ctx.filesystems,
@@ -486,7 +485,7 @@ type context struct {
 
 	// pendingVolumeBlockDevices contains the tags of volumes about whose
 	// block devices we wish to enquire.
-	pendingVolumeBlockDevices set.Tags
+	pendingVolumeBlockDevices names.Set
 
 	// managedFilesystemSource is a storage.FilesystemSource that
 	// manages filesystems backed by volumes attached to the host

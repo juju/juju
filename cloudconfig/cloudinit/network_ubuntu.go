@@ -10,9 +10,9 @@ import (
 	"net"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/netplan"
@@ -150,7 +150,8 @@ func GenerateNetplan(interfaces []network.InterfaceInfo) (string, error) {
 		if cidr := info.CIDRAddress(); cidr != "" {
 			iface.Addresses = append(iface.Addresses, cidr)
 		} else if info.ConfigType == network.ConfigDHCP {
-			iface.Dhcp4 = true
+			t := true
+			iface.DHCP4 = &t
 		}
 
 		for _, dns := range info.DNSServers {
@@ -179,7 +180,7 @@ func GenerateNetplan(interfaces []network.InterfaceInfo) (string, error) {
 			route := netplan.Route{
 				To:     route.DestinationCIDR,
 				Via:    route.GatewayIP,
-				Metric: route.Metric,
+				Metric: &route.Metric,
 			}
 			iface.Routes = append(iface.Routes, route)
 		}

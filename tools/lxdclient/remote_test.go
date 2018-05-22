@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
@@ -290,7 +291,7 @@ func (s *remoteSuite) TestValidateBadCert(c *gc.C) {
 		Name:     "my-remote",
 		Host:     "some-host",
 		Protocol: lxdclient.LXDProtocol,
-		Cert:     &lxdclient.Cert{},
+		Cert:     &lxd.Certificate{},
 	}
 	err := remote.Validate()
 
@@ -338,7 +339,7 @@ func (s *remoteSuite) TestValidateLocalWithCert(c *gc.C) {
 		Name:     "my-local",
 		Host:     "",
 		Protocol: lxdclient.LXDProtocol,
-		Cert:     &lxdclient.Cert{},
+		Cert:     &lxd.Certificate{},
 	}
 	err := remote.Validate()
 

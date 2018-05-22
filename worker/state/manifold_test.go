@@ -63,8 +63,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 	s.manifold = workerstate.Manifold(s.config)
 	s.resources = dt.StubResources{
-		"agent":                dt.StubResource{Output: new(mockAgent)},
-		"state-config-watcher": dt.StubResource{Output: true},
+		"agent":                dt.NewStubResource(new(mockAgent)),
+		"state-config-watcher": dt.NewStubResource(true),
 	}
 }
 
@@ -121,7 +121,7 @@ func (s *ManifoldSuite) startManifoldInvalidConfig(c *gc.C, config workerstate.M
 }
 
 func (s *ManifoldSuite) TestStartNotStateServer(c *gc.C) {
-	s.resources["state-config-watcher"] = dt.StubResource{Output: false}
+	s.resources["state-config-watcher"] = dt.NewStubResource(false)
 	w, err := s.startManifold(c)
 	c.Check(w, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)

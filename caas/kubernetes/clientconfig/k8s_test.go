@@ -102,7 +102,7 @@ users:
     client-key-data: Qg==
     username: "fifth-user"
     password: "userpasscertpass"
- 
+
 `
 )
 
@@ -115,7 +115,7 @@ func (s *k8sConfigSuite) SetUpTest(c *gc.C) {
 // KUBECONFIG environment variable so that the clientconfig code reads
 // it instead of the default.
 // The caller must close and remove the returned file.
-func (s *k8sConfigSuite) writeTempKubeConfig(c *gc.C, filename string, data string) string {
+func (s *k8sConfigSuite) writeTempKubeConfig(c *gc.C, filename string, data string) (*os.File, error) {
 	fullpath := filepath.Join(s.dir, filename)
 	err := ioutil.WriteFile(fullpath, []byte(data), 0644)
 	if err != nil {
@@ -123,13 +123,15 @@ func (s *k8sConfigSuite) writeTempKubeConfig(c *gc.C, filename string, data stri
 	}
 	os.Setenv("KUBECONFIG", fullpath)
 
-	return fullpath
+	f, err := os.Open(fullpath)
+	return f, err
 }
 
 func (s *k8sConfigSuite) TestGetEmptyConfig(c *gc.C) {
-	s.writeTempKubeConfig(c, "emptyConfig", emptyConfigYAML)
-
-	cfg, err := clientconfig.K8SClientConfig()
+	f, err := s.writeTempKubeConfig(c, "emptyConfig", emptyConfigYAML)
+	defer f.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err := clientconfig.NewK8sClientConfig(f)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals,
 		&clientconfig.ClientConfig{
@@ -142,12 +144,14 @@ func (s *k8sConfigSuite) TestGetEmptyConfig(c *gc.C) {
 }
 
 func (s *k8sConfigSuite) TestGetSingleConfig(c *gc.C) {
-	s.writeTempKubeConfig(c, "singleConfig", singleConfigYAML)
-	s.assertSingleConfig(c)
+	f, err := s.writeTempKubeConfig(c, "singleConfig", singleConfigYAML)
+	defer f.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertSingleConfig(c, f)
 }
 
-func (s *k8sConfigSuite) assertSingleConfig(c *gc.C) {
-	cfg, err := clientconfig.K8SClientConfig()
+func (s *k8sConfigSuite) assertSingleConfig(c *gc.C, f *os.File) {
+	cfg, err := clientconfig.NewK8sClientConfig(f)
 	c.Assert(err, jc.ErrorIsNil)
 	cred := cloud.NewCredential(
 		cloud.UserPassAuthType,
@@ -173,9 +177,10 @@ func (s *k8sConfigSuite) assertSingleConfig(c *gc.C) {
 }
 
 func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
-	s.writeTempKubeConfig(c, "multiConfig", multiConfigYAML)
-
-	cfg, err := clientconfig.K8SClientConfig()
+	f, err := s.writeTempKubeConfig(c, "multiConfig", multiConfigYAML)
+	defer f.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err := clientconfig.NewK8sClientConfig(f)
 	c.Assert(err, jc.ErrorIsNil)
 	firstCred := cloud.NewCredential(
 		cloud.UserPassAuthType,
@@ -266,6 +271,8 @@ func (s *k8sConfigSuite) TestGetSingleConfigReadsFilePaths(c *gc.C) {
 
 	singleConfigWithPathsYAML, err := clientcmd.Write(*singleConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	s.writeTempKubeConfig(c, "singleConfigWithPaths", string(singleConfigWithPathsYAML))
-	s.assertSingleConfig(c)
+	f, err := s.writeTempKubeConfig(c, "singleConfigWithPaths", string(singleConfigWithPathsYAML))
+	defer f.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertSingleConfig(c, f)
 }

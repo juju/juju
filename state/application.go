@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"

@@ -6,10 +6,10 @@ package migrationmaster
 import (
 	"encoding/json"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
-	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 

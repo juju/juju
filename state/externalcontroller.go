@@ -4,8 +4,8 @@
 package state
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"

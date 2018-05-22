@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/proxy"
 	"github.com/juju/testing"
-	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 

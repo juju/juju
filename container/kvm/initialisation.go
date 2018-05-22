@@ -8,8 +8,8 @@ import (
 	"runtime"
 
 	"github.com/juju/errors"
+	"github.com/juju/packaging/manager"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/container"

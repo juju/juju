@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 )
 
 // Private and special use network ranges for IPv4 and IPv6.

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
@@ -297,6 +297,14 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		Assert: modelAssertion,
 		Remove: true,
 	}}
+
+	// Decrement the model count for the cloud to which this model belongs.
+	decCloudRefOp, err := decCloudModelRefOp(st, model.Cloud())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ops = append(ops, decCloudRefOp)
+
 	if !st.IsController() {
 		ops = append(ops, decHostedModelCountOp())
 	}

@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	names "gopkg.in/juju/names.v2"
 

@@ -13,9 +13,9 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
 

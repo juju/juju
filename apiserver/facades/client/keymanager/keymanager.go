@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/names.v2"
 

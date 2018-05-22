@@ -6,9 +6,9 @@ package state
 import (
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/set"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"

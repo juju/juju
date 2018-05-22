@@ -16,8 +16,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/exec"
-	proxyutils "github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"

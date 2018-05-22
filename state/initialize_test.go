@@ -206,6 +206,14 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 		"dummy/initialize-admin/some-credential":  expectedUserpassCredential,
 		"dummy/initialize-admin/empty-credential": expectedEmptyCredential,
 	})
+
+	// Check that the cloud's model count is initially 1.
+	cloud, err := s.State.Cloud("dummy")
+	c.Assert(err, jc.ErrorIsNil)
+
+	refCount, err := state.CloudModelRefCount(s.State, cloud.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(refCount, gc.Equals, 1)
 }
 
 func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {

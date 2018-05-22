@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/usermanager"

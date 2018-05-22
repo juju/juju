@@ -4,10 +4,14 @@
 package state
 
 import (
+	"fmt"
+
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
@@ -34,7 +38,7 @@ type cloudRegionSubdoc struct {
 	StorageEndpoint  string `bson:"storage-endpoint,omitempty"`
 }
 
-// createCloudOp returns a list of txn.Ops that will initialize
+// createCloudOp returns a txn.Op that will initialize
 // the cloud definition for the controller.
 func createCloudOp(cloud cloud.Cloud) txn.Op {
 	authTypes := make([]string, len(cloud.AuthTypes))
@@ -64,6 +68,45 @@ func createCloudOp(cloud cloud.Cloud) txn.Op {
 			CACertificates:   cloud.CACertificates,
 		},
 	}
+}
+
+// cloudModelRefCountKey returns a key for refcounting models
+// for the specified cloud. Each time a model for the cloud is created,
+// the refcount is incremented, and the opposite happens on removal.
+func cloudModelRefCountKey(cloudName string) string {
+	return fmt.Sprintf("cloudModel#%s", cloudName)
+}
+
+// incApplicationOffersRefOp returns a txn.Op that increments the reference
+// count for a cloud model.
+func incCloudModelRefOp(mb modelBackend, cloudName string) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(globalRefcountsC)
+	defer closer()
+	cloudModelRefCountKey := cloudModelRefCountKey(cloudName)
+	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, cloudModelRefCountKey, 1)
+	return incRefOp, errors.Trace(err)
+}
+
+// countCloudModelRefOp returns the number of models for a cloud,
+// along with a txn.Op that ensures that that does not change.
+func countCloudModelRefOp(mb modelBackend, cloudName string) (txn.Op, int, error) {
+	refcounts, closer := mb.db().GetCollection(globalRefcountsC)
+	defer closer()
+	key := cloudModelRefCountKey(cloudName)
+	return nsRefcounts.CurrentOp(refcounts, key)
+}
+
+// decCloudModelRefOp returns a txn.Op that decrements the reference
+// count for a cloud model.
+func decCloudModelRefOp(mb modelBackend, cloudName string) (txn.Op, error) {
+	refcounts, closer := mb.db().GetCollection(globalRefcountsC)
+	defer closer()
+	cloudModelRefCountKey := cloudModelRefCountKey(cloudName)
+	decRefOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, cloudModelRefCountKey)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
+	return decRefOp, nil
 }
 
 func (d cloudDoc) toCloud() cloud.Cloud {
@@ -167,4 +210,50 @@ func validateCloud(cloud cloud.Cloud) error {
 // regionSettingsGlobalKey concatenates the cloud a hash and the region string.
 func regionSettingsGlobalKey(cloud, region string) string {
 	return cloud + "#" + region
+}
+
+// RemoveCloud removes a cloud and any credentials for that cloud.
+// If the cloud is in use, ie has models deployed to it, the operation fails.
+func (st *State) RemoveCloud(name string) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if _, err := st.Cloud(name); err != nil {
+			// Fail with not found error on first attempt if cloud doesn't exist.
+			// On subsequent attempts, if cloud not found then
+			// it was deleted by someone else and that's a no-op.
+			if attempt > 1 && errors.IsNotFound(err) {
+				return nil, jujutxn.ErrNoOperations
+			}
+			return nil, errors.Trace(err)
+		}
+		return st.removeCloudOps(name)
+	}
+	return st.db().Run(buildTxn)
+}
+
+// removeCloudOp returns a list of txn.Ops that will remove
+// the specified cloud and any associated credentials.
+func (st *State) removeCloudOps(name string) ([]txn.Op, error) {
+	countOp, n, err := countCloudModelRefOp(st, name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if n != 0 {
+		return nil, errors.Errorf("cloud is used by %d model%s", n, plural(n))
+	}
+
+	ops := []txn.Op{{
+		C:      cloudsC,
+		Id:     name,
+		Remove: true,
+	}, countOp}
+	credPattern := bson.M{
+		"_id": bson.M{"$regex": "^" + name + "#"},
+	}
+
+	credOps, err := st.removeInCollectionOps(cloudCredentialsC, credPattern)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, credOps...)
+	return ops, nil
 }

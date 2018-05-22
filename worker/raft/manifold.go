@@ -8,7 +8,6 @@ import (
 
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
 
@@ -24,7 +23,7 @@ type ManifoldConfig struct {
 	TransportName string
 
 	FSM       raft.FSM
-	Logger    loggo.Logger
+	Logger    Logger
 	NewWorker func(Config) (worker.Worker, error)
 }
 
@@ -41,6 +40,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.FSM == nil {
 		return errors.NotValidf("nil FSM")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -92,29 +94,37 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		FSM:        config.FSM,
 		Logger:     config.Logger,
 		StorageDir: raftDir,
-		Tag:        agentConfig.Tag(),
+		LocalID:    raft.ServerID(agentConfig.Tag().Id()),
 		Transport:  transport,
 		Clock:      clk,
 	})
 }
 
 func raftOutput(in worker.Worker, out interface{}) error {
-	w, ok := in.(withRaft)
+	w, ok := in.(withRaftOutputs)
 	if !ok {
-		return errors.Errorf("expected input of type %T, got %T", w, in)
+		return errors.Errorf("expected input of type withRaftOutputs, got %T", in)
 	}
-	rout, ok := out.(**raft.Raft)
-	if ok {
+	switch out := out.(type) {
+	case **raft.Raft:
 		r, err := w.Raft()
 		if err != nil {
 			return err
 		}
-		*rout = r
-		return nil
+		*out = r
+	case *raft.LogStore:
+		store, err := w.LogStore()
+		if err != nil {
+			return err
+		}
+		*out = store
+	default:
+		return errors.Errorf("expected output of **raft.Raft or *raft.LogStore, got %T", out)
 	}
-	return errors.Errorf("expected output of type %T, got %T", rout, out)
+	return nil
 }
 
-type withRaft interface {
+type withRaftOutputs interface {
 	Raft() (*raft.Raft, error)
+	LogStore() (raft.LogStore, error)
 }

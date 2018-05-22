@@ -4,7 +4,7 @@
 package state
 
 import (
-	"github.com/juju/utils/set"
+	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 
@@ -114,6 +114,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// reference counts are implementation details that should be
 		// reconstructed on the other side.
 		refcountsC,
+		globalRefcountsC,
 		// upgradeInfoC is used to coordinate upgrades and schema migrations,
 		// and aren't needed for model migrations.
 		upgradeInfoC,

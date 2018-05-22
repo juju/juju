@@ -4,7 +4,7 @@
 package proxyupdater
 
 import (
-	"github.com/juju/utils/proxy"
+	"github.com/juju/proxy"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/service/common"
 )

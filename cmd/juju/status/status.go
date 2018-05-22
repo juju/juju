@@ -29,7 +29,9 @@ type statusAPI interface {
 // NewStatusCommand returns a new command, which reports on the
 // runtime state of various system entities.
 func NewStatusCommand() cmd.Command {
-	return modelcmd.Wrap(&statusCommand{})
+	return modelcmd.Wrap(&statusCommand{
+		relationsFlagProvidedF: func() bool { return false },
+	})
 }
 
 type statusCommand struct {
@@ -40,6 +42,12 @@ type statusCommand struct {
 	api      statusAPI
 
 	color bool
+
+	// relations indicates if 'relations' section is displayed
+	relations bool
+
+	// relationsFlagProvidedF indicates whether 'relations' option was provided by the user.
+	relationsFlagProvidedF func() bool
 }
 
 var usageSummary = `
@@ -54,6 +62,10 @@ a wildcard character). In addition to matched applications and units, related
 machines, applications, and units will also be displayed. If a subordinate unit
 is matched, then its principal unit will be displayed. If a principal unit is
 matched, then all of its subordinates will be displayed.
+
+Machine numbers may also be used as output filters. This will only display data 
+in each section relevant to the specified machines. For example, application 
+section will only contain the applications that have units on these machines, etc.
 
 The available output formats are:
 
@@ -72,11 +84,16 @@ The available output formats are:
       in structured YAML format.
 - json: Displays information about the model, machines, applications, and units
       in structured JSON format.
+      
+In tabular format, 'Relations' section is not displayed by default. 
+Use --relations option to see this section. This option is ignored in all other 
+formats.
 
 Examples:
     juju show-status
     juju show-status mysql
     juju show-status nova-*
+    juju show-status --relations
 
 See also:
     machines
@@ -99,6 +116,18 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
 	f.BoolVar(&c.color, "color", false, "Force use of ANSI color codes")
+
+	f.BoolVar(&c.relations, "relations", false, "Show 'relations' section")
+
+	c.relationsFlagProvidedF = func() bool {
+		provided := false
+		f.Visit(func(flag *gnuflag.Flag) {
+			if flag.Name == "relations" {
+				provided = true
+			}
+		})
+		return provided
+	}
 
 	defaultFormat := "tabular"
 
@@ -156,12 +185,45 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	formatter := newStatusFormatter(status, controllerName, c.isoTime)
+
+	showRelations := true
+	if c.out.Name() != "tabular" {
+		if c.relationsFlagProvidedF() {
+			// For non-tabular formats this is redundant and needs to be mentioned to the user.
+			ctx.Infof("provided --relations option is ignored")
+		}
+	} else {
+		showRelations = c.relations
+	}
+	formatter := newStatusFormatter(status, controllerName, c.isoTime, showRelations)
 	formatted, err := formatter.format()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return c.out.Write(ctx, formatted)
+	err = c.out.Write(ctx, formatted)
+	if err != nil {
+		return err
+	}
+
+	if !status.IsEmpty() {
+		return nil
+	}
+	if len(c.patterns) == 0 {
+		modelName, err := c.ModelName()
+		if err != nil {
+			return err
+		}
+		ctx.Infof("Model %q is empty.", modelName)
+	} else {
+		plural := func() string {
+			if len(c.patterns) == 1 {
+				return ""
+			}
+			return "s"
+		}
+		ctx.Infof("Nothing matched specified filter%v.", plural())
+	}
+	return nil
 }
 
 func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error {

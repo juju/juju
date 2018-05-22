@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/juju/mutex"
+	"github.com/juju/packaging/manager"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
 	jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"

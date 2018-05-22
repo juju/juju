@@ -6,9 +6,9 @@ package firewaller_test
 import (
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/tomb.v1"

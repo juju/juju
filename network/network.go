@@ -12,9 +12,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 )
 
 var logger = loggo.GetLogger("juju.network")

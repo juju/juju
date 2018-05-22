@@ -15,9 +15,9 @@ import (
 
 	"github.com/juju/bundlechanges"
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
@@ -316,7 +316,12 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 }
 
 func (h *bundleHandler) getChanges() error {
-	changes, err := bundlechanges.FromData(h.data, h.model)
+	changes, err := bundlechanges.FromData(
+		bundlechanges.ChangesConfig{
+			Bundle: h.data,
+			Model:  h.model,
+			Logger: logger,
+		})
 	if err != nil {
 		return errors.Trace(err)
 	}
