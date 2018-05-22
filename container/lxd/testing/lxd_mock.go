@@ -540,6 +540,19 @@ func (mr *MockContainerServerMockRecorder) CreateContainer(arg0 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainer", reflect.TypeOf((*MockContainerServer)(nil).CreateContainer), arg0)
 }
 
+// CreateContainerBackup mocks base method
+func (m *MockContainerServer) CreateContainerBackup(arg0 string, arg1 api.ContainerBackupsPost) (client.Operation, error) {
+	ret := m.ctrl.Call(m, "CreateContainerBackup", arg0, arg1)
+	ret0, _ := ret[0].(client.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateContainerBackup indicates an expected call of CreateContainerBackup
+func (mr *MockContainerServerMockRecorder) CreateContainerBackup(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainerBackup", reflect.TypeOf((*MockContainerServer)(nil).CreateContainerBackup), arg0, arg1)
+}
+
 // CreateContainerFile mocks base method
 func (m *MockContainerServer) CreateContainerFile(arg0, arg1 string, arg2 client.ContainerFileArgs) error {
 	ret := m.ctrl.Call(m, "CreateContainerFile", arg0, arg1, arg2)
@@ -550,6 +563,19 @@ func (m *MockContainerServer) CreateContainerFile(arg0, arg1 string, arg2 client
 // CreateContainerFile indicates an expected call of CreateContainerFile
 func (mr *MockContainerServerMockRecorder) CreateContainerFile(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainerFile", reflect.TypeOf((*MockContainerServer)(nil).CreateContainerFile), arg0, arg1, arg2)
+}
+
+// CreateContainerFromBackup mocks base method
+func (m *MockContainerServer) CreateContainerFromBackup(arg0 client.ContainerBackupArgs) (client.Operation, error) {
+	ret := m.ctrl.Call(m, "CreateContainerFromBackup", arg0)
+	ret0, _ := ret[0].(client.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateContainerFromBackup indicates an expected call of CreateContainerFromBackup
+func (mr *MockContainerServerMockRecorder) CreateContainerFromBackup(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainerFromBackup", reflect.TypeOf((*MockContainerServer)(nil).CreateContainerFromBackup), arg0)
 }
 
 // CreateContainerFromImage mocks base method
@@ -711,6 +737,19 @@ func (m *MockContainerServer) DeleteContainer(arg0 string) (client.Operation, er
 // DeleteContainer indicates an expected call of DeleteContainer
 func (mr *MockContainerServerMockRecorder) DeleteContainer(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteContainer", reflect.TypeOf((*MockContainerServer)(nil).DeleteContainer), arg0)
+}
+
+// DeleteContainerBackup mocks base method
+func (m *MockContainerServer) DeleteContainerBackup(arg0, arg1 string) (client.Operation, error) {
+	ret := m.ctrl.Call(m, "DeleteContainerBackup", arg0, arg1)
+	ret0, _ := ret[0].(client.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteContainerBackup indicates an expected call of DeleteContainerBackup
+func (mr *MockContainerServerMockRecorder) DeleteContainerBackup(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteContainerBackup", reflect.TypeOf((*MockContainerServer)(nil).DeleteContainerBackup), arg0, arg1)
 }
 
 // DeleteContainerConsoleLog mocks base method
@@ -991,6 +1030,59 @@ func (m *MockContainerServer) GetContainer(arg0 string) (*api.Container, string,
 // GetContainer indicates an expected call of GetContainer
 func (mr *MockContainerServerMockRecorder) GetContainer(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainer", reflect.TypeOf((*MockContainerServer)(nil).GetContainer), arg0)
+}
+
+// GetContainerBackup mocks base method
+func (m *MockContainerServer) GetContainerBackup(arg0, arg1 string) (*api.ContainerBackup, string, error) {
+	ret := m.ctrl.Call(m, "GetContainerBackup", arg0, arg1)
+	ret0, _ := ret[0].(*api.ContainerBackup)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetContainerBackup indicates an expected call of GetContainerBackup
+func (mr *MockContainerServerMockRecorder) GetContainerBackup(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerBackup", reflect.TypeOf((*MockContainerServer)(nil).GetContainerBackup), arg0, arg1)
+}
+
+// GetContainerBackupFile mocks base method
+func (m *MockContainerServer) GetContainerBackupFile(arg0, arg1 string, arg2 *client.BackupFileRequest) (*client.BackupFileResponse, error) {
+	ret := m.ctrl.Call(m, "GetContainerBackupFile", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*client.BackupFileResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetContainerBackupFile indicates an expected call of GetContainerBackupFile
+func (mr *MockContainerServerMockRecorder) GetContainerBackupFile(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerBackupFile", reflect.TypeOf((*MockContainerServer)(nil).GetContainerBackupFile), arg0, arg1, arg2)
+}
+
+// GetContainerBackupNames mocks base method
+func (m *MockContainerServer) GetContainerBackupNames(arg0 string) ([]string, error) {
+	ret := m.ctrl.Call(m, "GetContainerBackupNames", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetContainerBackupNames indicates an expected call of GetContainerBackupNames
+func (mr *MockContainerServerMockRecorder) GetContainerBackupNames(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerBackupNames", reflect.TypeOf((*MockContainerServer)(nil).GetContainerBackupNames), arg0)
+}
+
+// GetContainerBackups mocks base method
+func (m *MockContainerServer) GetContainerBackups(arg0 string) ([]api.ContainerBackup, error) {
+	ret := m.ctrl.Call(m, "GetContainerBackups", arg0)
+	ret0, _ := ret[0].([]api.ContainerBackup)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetContainerBackups indicates an expected call of GetContainerBackups
+func (mr *MockContainerServerMockRecorder) GetContainerBackups(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerBackups", reflect.TypeOf((*MockContainerServer)(nil).GetContainerBackups), arg0)
 }
 
 // GetContainerConsoleLog mocks base method
@@ -1744,6 +1836,19 @@ func (m *MockContainerServer) RenameContainer(arg0 string, arg1 api.ContainerPos
 // RenameContainer indicates an expected call of RenameContainer
 func (mr *MockContainerServerMockRecorder) RenameContainer(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameContainer", reflect.TypeOf((*MockContainerServer)(nil).RenameContainer), arg0, arg1)
+}
+
+// RenameContainerBackup mocks base method
+func (m *MockContainerServer) RenameContainerBackup(arg0, arg1 string, arg2 api.ContainerBackupPost) (client.Operation, error) {
+	ret := m.ctrl.Call(m, "RenameContainerBackup", arg0, arg1, arg2)
+	ret0, _ := ret[0].(client.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RenameContainerBackup indicates an expected call of RenameContainerBackup
+func (mr *MockContainerServerMockRecorder) RenameContainerBackup(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameContainerBackup", reflect.TypeOf((*MockContainerServer)(nil).RenameContainerBackup), arg0, arg1, arg2)
 }
 
 // RenameContainerSnapshot mocks base method
