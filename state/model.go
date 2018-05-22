@@ -1268,7 +1268,8 @@ func (m *Model) destroyOps(
 		ops = append(ops,
 			newCleanupOp(cleanupApplicationsForDyingModel, modelUUID),
 		)
-		if m.Type() == ModelTypeIAAS {
+		switch m.Type() {
+		case ModelTypeIAAS:
 			ops = append(ops, newCleanupOp(cleanupMachinesForDyingModel, modelUUID))
 			if args.DestroyStorage != nil {
 				// The user has specified that the storage should be destroyed
@@ -1283,6 +1284,8 @@ func (m *Model) destroyOps(
 					*args.DestroyStorage,
 				))
 			}
+		case ModelTypeCAAS:
+			ops = append(ops, newCleanupOp(cleanupUnitsForDyingModel, modelUUID))
 		}
 	}
 	return append(prereqOps, ops...), nil
