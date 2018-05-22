@@ -47,7 +47,7 @@ type provisionerSuite struct {
 
 	authorizer  apiservertesting.FakeAuthorizer
 	resources   *common.Resources
-	provisioner *provisioner.ProvisionerAPI
+	provisioner *provisioner.ProvisionerAPIV6
 }
 
 var _ = gc.Suite(&provisionerSuite{})
@@ -88,7 +88,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	s.resources = common.NewResources()
 
 	// Create a provisioner API for the machine.
-	provisionerAPI, err := provisioner.NewProvisionerAPI(
+	provisionerAPI, err := provisioner.NewProvisionerAPIV6(
 		s.State,
 		s.resources,
 		s.authorizer,
@@ -1374,8 +1374,47 @@ func (s *withImageMetadataSuite) TestContainerManagerConfigImageMetadata(c *gc.C
 		config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org/",
 	})
 }
-
 func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
+	attrs := map[string]interface{}{
+		"juju-http-proxy":              "http://proxy.example.com:9000",
+		"apt-https-proxy":              "https://proxy.example.com:9000",
+		"allow-lxd-loop-mounts":        true,
+		"apt-mirror":                   "http://example.mirror.com",
+		"cloudinit-userdata":           validCloudInitUserData,
+		"container-inherit-properties": "ca-certs,apt-primary",
+	}
+	err := s.Model.UpdateModelConfig(attrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedAPTProxy := proxy.Settings{
+		Http:    "http://proxy.example.com:9000",
+		Https:   "https://proxy.example.com:9000",
+		NoProxy: "127.0.0.1,localhost,::1",
+	}
+
+	expectedProxy := proxy.Settings{
+		Http:    "http://proxy.example.com:9000",
+		NoProxy: "127.0.0.1,localhost,::1",
+	}
+
+	results, err := s.provisioner.ContainerConfig()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(results.UpdateBehavior, gc.Not(gc.IsNil))
+	c.Check(results.ProviderType, gc.Equals, "dummy")
+	c.Check(results.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
+	c.Check(results.SSLHostnameVerification, jc.IsTrue)
+	c.Check(results.LegacyProxy.HasProxySet(), jc.IsFalse)
+	c.Check(results.JujuProxy, gc.DeepEquals, expectedProxy)
+	c.Check(results.AptProxy, gc.DeepEquals, expectedAPTProxy)
+	c.Check(results.AptMirror, gc.DeepEquals, "http://example.mirror.com")
+	c.Check(results.CloudInitUserData, gc.DeepEquals, map[string]interface{}{
+		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+		"package_upgrade": false})
+	c.Check(results.ContainerInheritProperties, gc.DeepEquals, "ca-certs,apt-primary")
+}
+
+func (s *withoutControllerSuite) TestContainerConfigLegacy(c *gc.C) {
 	attrs := map[string]interface{}{
 		"http-proxy":                   "http://proxy.example.com:9000",
 		"apt-https-proxy":              "https://proxy.example.com:9000",
@@ -1399,6 +1438,51 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 
 	results, err := s.provisioner.ContainerConfig()
 	c.Check(err, jc.ErrorIsNil)
+	c.Check(results.UpdateBehavior, gc.Not(gc.IsNil))
+	c.Check(results.ProviderType, gc.Equals, "dummy")
+	c.Check(results.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
+	c.Check(results.SSLHostnameVerification, jc.IsTrue)
+	c.Check(results.LegacyProxy, gc.DeepEquals, expectedProxy)
+	c.Check(results.JujuProxy.HasProxySet(), jc.IsFalse)
+	c.Check(results.AptProxy, gc.DeepEquals, expectedAPTProxy)
+	c.Check(results.AptMirror, gc.DeepEquals, "http://example.mirror.com")
+	c.Check(results.CloudInitUserData, gc.DeepEquals, map[string]interface{}{
+		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+		"package_upgrade": false})
+	c.Check(results.ContainerInheritProperties, gc.DeepEquals, "ca-certs,apt-primary")
+}
+
+func (s *withoutControllerSuite) TestContainerConfigV5(c *gc.C) {
+	attrs := map[string]interface{}{
+		"http-proxy":                   "http://proxy.example.com:9000",
+		"apt-https-proxy":              "https://proxy.example.com:9000",
+		"allow-lxd-loop-mounts":        true,
+		"apt-mirror":                   "http://example.mirror.com",
+		"cloudinit-userdata":           validCloudInitUserData,
+		"container-inherit-properties": "ca-certs,apt-primary",
+	}
+	err := s.Model.UpdateModelConfig(attrs, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedAPTProxy := proxy.Settings{
+		Http:    "http://proxy.example.com:9000",
+		Https:   "https://proxy.example.com:9000",
+		NoProxy: "127.0.0.1,localhost,::1",
+	}
+
+	expectedProxy := proxy.Settings{
+		Http:    "http://proxy.example.com:9000",
+		NoProxy: "127.0.0.1,localhost,::1",
+	}
+
+	provisionerV5, err := provisioner.NewProvisionerAPIV5(s.State, s.resources, s.authorizer)
+	c.Check(err, jc.ErrorIsNil)
+
+	var results params.ContainerConfigV5
+	results, err = provisionerV5.ContainerConfig()
+	c.Check(err, jc.ErrorIsNil)
+
 	c.Check(results.UpdateBehavior, gc.Not(gc.IsNil))
 	c.Check(results.ProviderType, gc.Equals, "dummy")
 	c.Check(results.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
