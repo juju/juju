@@ -74,8 +74,37 @@ func proxySettingsParamToProxySettings(cfg params.ProxyConfig) proxy.Settings {
 }
 
 // ProxyConfig returns the proxy settings for the current environment
-func (api *API) ProxyConfig() (proxySettings, APTProxySettings proxy.Settings, err error) {
+func (api *API) ProxyConfig() (legacyProxySettings, jujuProxySettings, aptProxySettings, snapProxySettings proxy.Settings, err error) {
+	var empty proxy.Settings
+	if api.facade.BestAPIVersion() <= 1 {
+		legacyProxySettings, aptProxySettings, err = api.proxyConfigV1()
+		if err != nil {
+			return empty, empty, empty, empty, err
+		}
+		return legacyProxySettings, empty, aptProxySettings, empty, nil
+	}
+
 	var results params.ProxyConfigResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: api.tag.String()}},
+	}
+	err = api.facade.FacadeCall("ProxyConfig", args, &results)
+	if err != nil {
+		return empty, empty, empty, empty, err
+	}
+	if len(results.Results) != 1 {
+		return empty, empty, empty, empty, errors.NotFoundf("ProxyConfig for %q", api.tag)
+	}
+	result := results.Results[0]
+	legacyProxySettings = proxySettingsParamToProxySettings(result.LegacyProxySettings)
+	jujuProxySettings = proxySettingsParamToProxySettings(result.JujuProxySettings)
+	aptProxySettings = proxySettingsParamToProxySettings(result.APTProxySettings)
+	snapProxySettings = proxySettingsParamToProxySettings(result.SnapProxySettings)
+	return legacyProxySettings, jujuProxySettings, aptProxySettings, snapProxySettings, nil
+}
+
+func (api *API) proxyConfigV1() (proxySettings, APTProxySettings proxy.Settings, err error) {
+	var results params.ProxyConfigResultsV1
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: api.tag.String()}},
 	}
