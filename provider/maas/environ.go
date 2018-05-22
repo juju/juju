@@ -1042,7 +1042,11 @@ func (environ *maasEnviron) StartInstance(
 		if err != nil {
 			return nil, common.ZoneIndependentError(err)
 		}
-		interfaces, err = maas2NetworkInterfaces(startedInst, subnetsMap)
+		domains, err := environ.Domains()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		interfaces, err = maas2NetworkInterfaces(startedInst, subnetsMap, domains...)
 		if err != nil {
 			return nil, common.ZoneIndependentError(err)
 		}
@@ -2338,4 +2342,18 @@ func (*maasEnviron) SSHAddresses(addresses []network.Address) ([]network.Address
 // SuperSubnets implements environs.SuperSubnets
 func (*maasEnviron) SuperSubnets() ([]string, error) {
 	return nil, errors.NotSupportedf("super subnets")
+}
+
+// Get the domains managed by MAAS. Currently we only need the name of the domain. If more information is needed
+// This function can be updated to parse and return a structure. Client code would need to be updated.
+func (env *maasEnviron) Domains() ([]string, error) {
+	maasDomains, err := env.maasController.Domains()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := []string{}
+	for _, domain := range maasDomains {
+		result = append(result, domain.Name())
+	}
+	return result, nil
 }

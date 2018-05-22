@@ -35,6 +35,19 @@ import (
 
 const maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabilities": ["networks-management", "static-ipaddresses", "ipv6-deployment-ubuntu", "devices-management", "storage-deployment-ubuntu", "network-deployment-ubuntu"]}`
 
+const maas2DomainsResponse = `
+[
+    {
+        "authoritative": "true",
+        "resource_uri": "/MAAS/api/2.0/domains/0/",
+        "name": "maas",
+        "id": 0,
+        "ttl": null,
+        "resource_record_count": 3
+    }
+]
+`
+
 type baseProviderSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture

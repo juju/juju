@@ -218,7 +218,7 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 	return infos, nil
 }
 
-func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {
+func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]network.Id, dnsSearchDomains ...string) ([]network.InterfaceInfo, error) {
 	interfaces := instance.machine.InterfaceSet()
 	infos := make([]network.InterfaceInfo, 0, len(interfaces))
 	for i, iface := range interfaces {
@@ -312,6 +312,7 @@ func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]netwo
 					nicInfo.DNSServers[i].SpaceProviderId = spaceId
 				}
 			}
+			nicInfo.DNSSearchDomains = dnsSearchDomains
 			nicInfo.GatewayAddress = gwAddr
 			nicInfo.MTU = sub.VLAN().MTU()
 
@@ -334,7 +335,11 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 		return nil, errors.Trace(err)
 	}
 	if environ.usingMAAS2() {
-		return maas2NetworkInterfaces(inst.(*maas2Instance), subnetsMap)
+		dnsSearchDomains, err := environ.Domains()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return maas2NetworkInterfaces(inst.(*maas2Instance), subnetsMap, dnsSearchDomains...)
 	} else {
 		mi := inst.(*maas1Instance)
 		return maasObjectNetworkInterfaces(mi.maasObject, subnetsMap)
