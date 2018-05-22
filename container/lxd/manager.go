@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuarch "github.com/juju/utils/arch"
-	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -54,7 +53,7 @@ var _ container.Manager = (*containerManager)(nil)
 // LXD containers.
 // TODO(jam): This needs to grow support for things like LXC's ImageURLGetter
 // functionality.
-func NewContainerManager(cfg container.ManagerConfig, cSvr lxd.ContainerServer) (container.Manager, error) {
+func NewContainerManager(cfg container.ManagerConfig, svr *Server) (container.Manager, error) {
 	modelUUID := cfg.PopValue(container.ConfigModelUUID)
 	if modelUUID == "" {
 		return nil, errors.Errorf("model UUID is required")
@@ -74,7 +73,7 @@ func NewContainerManager(cfg container.ManagerConfig, cSvr lxd.ContainerServer) 
 
 	cfg.WarnAboutUnused()
 	return &containerManager{
-		server:           NewServer(cSvr),
+		server:           svr,
 		modelUUID:        modelUUID,
 		namespace:        namespace,
 		availabilityZone: availabilityZone,
@@ -146,7 +145,7 @@ func (m *containerManager) ListContainers() (result []instance.Instance, err err
 
 // IsInitialized implements container.Manager.
 func (m *containerManager) IsInitialized() bool {
-	return m.server.ContainerServer != nil
+	return m.server != nil
 }
 
 // startContainer starts previously created container.

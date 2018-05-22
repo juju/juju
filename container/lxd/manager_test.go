@@ -51,7 +51,7 @@ func (t *LxdSuite) makeManager(c *gc.C, svr lxdclient.ContainerServer) container
 func (t *LxdSuite) makeManagerForConfig(
 	c *gc.C, cfg container.ManagerConfig, svr lxdclient.ContainerServer,
 ) container.Manager {
-	manager, err := lxd.NewContainerManager(cfg, svr)
+	manager, err := lxd.NewContainerManager(cfg, lxd.NewServer(svr))
 	c.Assert(err, jc.ErrorIsNil)
 	return manager
 }
