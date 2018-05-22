@@ -14,9 +14,12 @@ import (
 	"github.com/juju/juju/network"
 )
 
+var errNotSupported = errors.NotSupportedf("network API not supported on this remote")
+
 type rawNetworkClient interface {
 	NetworkCreate(name string, config map[string]string) error
 	NetworkGet(name string) (api.Network, error)
+	NetworkPut(name string, network api.NetworkPut) error
 }
 
 type networkClient struct {
@@ -27,19 +30,25 @@ type networkClient struct {
 // NetworkCreate creates the specified network.
 func (c *networkClient) NetworkCreate(name string, config map[string]string) error {
 	if !c.supported {
-		return errors.NotSupportedf("network API not supported on this remote")
+		return errNotSupported
 	}
-
 	return c.raw.NetworkCreate(name, config)
 }
 
 // NetworkGet returns the specified network's configuration.
 func (c *networkClient) NetworkGet(name string) (api.Network, error) {
 	if !c.supported {
-		return api.Network{}, errors.NotSupportedf("network API not supported on this remote")
+		return api.Network{}, errNotSupported
 	}
-
 	return c.raw.NetworkGet(name)
+}
+
+// NetworkPut updates a network's configuration
+func (c *networkClient) NetworkPut(name string, network api.NetworkPut) error {
+	if !c.supported {
+		return errNotSupported
+	}
+	return c.raw.NetworkPut(name, network)
 }
 
 type creator interface {
