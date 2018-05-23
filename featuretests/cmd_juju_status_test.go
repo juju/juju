@@ -245,3 +245,31 @@ Machine  State    DNS  Inst id  Series   AZ  Message
 `)
 
 }
+
+// TestStatusMachineFilteringWithUnassignedUnits ensures that machine filtering
+// functions even if there are unassigned units. Reproduces scenario
+// described in lp#1684718.
+func (s *StatusSuite) TestStatusMachineFilteringWithUnassignedUnits(c *gc.C) {
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "another",
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql"}),
+	})
+	u := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: application,
+	})
+	err := u.UnassignFromMachine()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: instance.Id("id1"),
+	})
+
+	context := s.run(c, "status", "1")
+	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
+Machine  State    DNS  Inst id  Series   AZ  Message
+1        pending       id1      quantal      
+
+`)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, ``)
+}

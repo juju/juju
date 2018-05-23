@@ -186,6 +186,9 @@ func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
 func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
 	portRanges, err := u.OpenedPorts()
 	if err != nil {
+		if errors.IsNotAssigned(err) {
+			return false, false, nil
+		}
 		return false, false, err
 	}
 	return matchPortRanges(patterns, portRanges...)
