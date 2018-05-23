@@ -82,6 +82,9 @@ type Config struct {
 	// UnitGetter is an interface for getting a unit.
 	UnitGetter UnitGetter
 
+	// UnitRemover is an interface for removing a unit.
+	UnitRemover UnitRemover
+
 	// CharmApplication is an interface for getting info about an application's charm.
 	ApplicationWatcher ApplicationWatcher
 
@@ -110,6 +113,9 @@ func (config Config) Validate() error {
 	}
 	if config.UnitGetter == nil {
 		return errors.NotValidf("missing UnitGetter")
+	}
+	if config.UnitRemover == nil {
+		return errors.NotValidf("missing UnitRemover")
 	}
 	if config.LeadershipTrackerFunc == nil {
 		return errors.NotValidf("missing LeadershipTrackerFunc")
@@ -215,6 +221,11 @@ func (op *caasOperator) makeAgentSymlinks(unitTag names.UnitTag) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (op *caasOperator) removeUnitDir(unitTag names.UnitTag) error {
+	unitAgentDir := filepath.Join(op.config.DataDir, "agents", unitTag.String())
+	return os.RemoveAll(unitAgentDir)
 }
 
 func (op *caasOperator) loop() (err error) {
@@ -324,9 +335,18 @@ func (op *caasOperator) loop() (err error) {
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
 				}
+				unitTag := names.NewUnitTag(unitId)
 				if errors.IsNotFound(err) || unitLife == life.Dead {
 					delete(aliveUnits, unitId)
 					if err := op.runner.StopWorker(unitId); err != nil {
+						return err
+					}
+					// Remove the unit's directory
+					if err := op.removeUnitDir(unitTag); err != nil {
+						return err
+					}
+					// Remove the unit from state.
+					if err := op.config.UnitRemover.RemoveUnit(unitId); err != nil {
 						return err
 					}
 				} else {
@@ -340,7 +360,6 @@ func (op *caasOperator) loop() (err error) {
 				}
 
 				// Make all the required symlinks.
-				unitTag := names.NewUnitTag(unitId)
 				if err := op.makeAgentSymlinks(unitTag); err != nil {
 					return errors.Trace(err)
 				}
@@ -370,6 +389,10 @@ func charmModified(local LocalState, remote remotestate.Snapshot) bool {
 
 	if local.CharmModifiedVersion != remote.CharmModifiedVersion {
 		logger.Debugf("upgrade from CharmModifiedVersion %v to %v", local.CharmModifiedVersion, remote.CharmModifiedVersion)
+		return true
+	}
+	if remote.ForceCharmUpgrade {
+		logger.Debugf("force charm upgrade to %v", remote.CharmURL)
 		return true
 	}
 	return false

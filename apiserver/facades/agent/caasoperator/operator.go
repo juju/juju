@@ -22,6 +22,7 @@ type Facade struct {
 	state     CAASOperatorState
 	*common.LifeGetter
 	*common.AgentEntityWatcher
+	*common.Remover
 
 	model Model
 }
@@ -50,9 +51,11 @@ func NewFacade(
 		common.AuthFuncForTagKind(names.ApplicationTagKind),
 		common.AuthFuncForTagKind(names.UnitTagKind),
 	)
+	canWrite := canRead
 	return &Facade{
 		LifeGetter:         common.NewLifeGetter(st, canRead),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, canRead),
+		Remover:            common.NewRemover(st, true, canWrite),
 		auth:               authorizer,
 		resources:          resources,
 		state:              st,

@@ -173,6 +173,22 @@ func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) 
 	return w, nil
 }
 
+// RemoveUnit removes the specified unit from the current model.
+func (c *Client) RemoveUnit(unitName string) error {
+	if !names.IsValidUnit(unitName) {
+		return errors.NotValidf("unit name %q", unitName)
+	}
+	var result params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewUnitTag(unitName).String()}},
+	}
+	err := c.facade.FacadeCall("Remove", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
 // Life returns the lifecycle state for the specified CAAS application
 // or unit in the current model.
 func (c *Client) Life(entityName string) (life.Value, error) {

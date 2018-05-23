@@ -5,6 +5,7 @@ package caasunitprovisioner
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -118,6 +119,10 @@ func (aw *applicationWorker) loop() error {
 		if brokerUnitsWatcher == nil {
 			brokerUnitsWatcher, err = aw.containerBroker.WatchUnits(aw.application)
 			if err != nil {
+				if strings.Contains(err.Error(), "unexpected EOF") {
+					logger.Warningf("k8s cloud hosting %q has disappeared", aw.application)
+					return nil
+				}
 				return errors.Annotatef(err, "failed to start unit watcher for %q", aw.application)
 			}
 		}
