@@ -6,7 +6,6 @@ package provider
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"text/template"
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/version"
@@ -112,7 +112,7 @@ func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
 }
 
 // Destroy is part of the Broker interface.
-func (k *kubernetesClient) Destroy() error {
+func (k *kubernetesClient) Destroy(context.ProviderCallContext) error {
 	return k.deleteNamespace()
 }
 
@@ -167,7 +167,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotate(err, "finding operator volume")
 	}
-	pod := operatorPod(appName, agentPath)
+	pod := operatorPod(appName, agentPath, config.OperatorImagePath)
 	if storageVol != nil {
 		logger.Debugf("using persistent volume for operator: %+v", storageVol)
 		pod.Spec.Volumes = append(pod.Spec.Volumes, *storageVol)
@@ -400,8 +400,8 @@ func (k *kubernetesClient) EnsureService(
 ) (err error) {
 	logger.Debugf("creating/updating application %s", appName)
 
-	if numUnits < 0 {
-		return errors.Errorf("number of units must be >= 0")
+	if numUnits <= 0 {
+		return errors.Errorf("number of units must be > 0")
 	}
 	if spec == nil {
 		return errors.Errorf("missing pod spec")
@@ -422,15 +422,12 @@ func (k *kubernetesClient) EnsureService(
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
 
-	// See if a deployment controller is required. If num units is > 0 then
-	// a deployment controller set to create that number of units is required.
-	if numUnits > 0 {
-		numPods := int32(numUnits)
-		if err := k.configureDeployment(appName, unitSpec, spec.Containers, &numPods); err != nil {
-			return errors.Annotate(err, "creating or updating deployment controller")
-		}
-		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
+	// Add a deployment controller configured to create the specified number of units/pods.
+	numPods := int32(numUnits)
+	if err := k.configureDeployment(appName, unitSpec, spec.Containers, &numPods); err != nil {
+		return errors.Annotate(err, "creating or updating deployment controller")
 	}
+	cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 
 	var ports []core.ContainerPort
 	for _, c := range unitSpec.Pod.Containers {
@@ -895,19 +892,12 @@ func (k *kubernetesClient) deletePod(podName string) error {
 
 // operatorPod returns a *core.Pod for the operator pod
 // of the specified application.
-func operatorPod(appName, agentPath string) *core.Pod {
+func operatorPod(appName, agentPath, operatorImagePath string) *core.Pod {
 	podName := operatorPodName(appName)
 	configMapName := operatorConfigMapName(appName)
 	configVolName := configMapName + "-volume"
 
 	appTag := names.NewApplicationTag(appName)
-	vers := version.Current
-	vers.Build = 0
-	dockerUserName := os.Getenv("DOCKER_USERNAME")
-	if dockerUserName == "" {
-		dockerUserName = "jujusolutions"
-	}
-	operatorImage := fmt.Sprintf("%s/caas-jujud-operator:%s", dockerUserName, vers.String())
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   podName,
@@ -917,7 +907,7 @@ func operatorPod(appName, agentPath string) *core.Pod {
 			Containers: []core.Container{{
 				Name:            "juju-operator",
 				ImagePullPolicy: core.PullIfNotPresent,
-				Image:           operatorImage,
+				Image:           operatorImagePath,
 				Env: []core.EnvVar{
 					{Name: "JUJU_APPLICATION", Value: appName},
 				},

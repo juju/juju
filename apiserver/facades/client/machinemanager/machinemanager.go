@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -29,6 +29,8 @@ type MachineManagerAPI struct {
 	pool       Pool
 	authorizer facade.Authorizer
 	check      *common.BlockChecker
+
+	callContext context.ProviderCallContext
 }
 
 // NewFacade create a new server-side MachineManager API facade. This
@@ -41,7 +43,7 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 	}
 	backend := &stateShim{State: st, IAASModel: im}
 	pool := &poolShim{ctx.StatePool()}
-	return NewMachineManagerAPI(backend, pool, ctx.Auth())
+	return NewMachineManagerAPI(backend, pool, ctx.Auth(), state.CallContext(st))
 }
 
 type MachineManagerAPIV4 struct {
@@ -58,15 +60,16 @@ func NewFacadeV4(ctx facade.Context) (*MachineManagerAPIV4, error) {
 }
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
-func NewMachineManagerAPI(backend Backend, pool Pool, auth facade.Authorizer) (*MachineManagerAPI, error) {
+func NewMachineManagerAPI(backend Backend, pool Pool, auth facade.Authorizer, callCtx context.ProviderCallContext) (*MachineManagerAPI, error) {
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	return &MachineManagerAPI{
-		st:         backend,
-		pool:       pool,
-		authorizer: auth,
-		check:      common.NewBlockChecker(backend),
+		st:          backend,
+		pool:        pool,
+		authorizer:  auth,
+		check:       common.NewBlockChecker(backend),
+		callContext: callCtx,
 	}, nil
 }
 
@@ -239,7 +242,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 		if err != nil {
 			return nil, err
 		}
-		storageSeen := make(set.Tags)
+		storageSeen := names.NewSet()
 		for _, unit := range units {
 			info.DestroyedUnits = append(
 				info.DestroyedUnits,

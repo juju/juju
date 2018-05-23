@@ -15,6 +15,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
 	_ "github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/ec2"
@@ -86,7 +87,7 @@ func (s *cloudSuiteV2) SetUpTest(c *gc.C) {
 		},
 	}
 
-	client, err := cloudfacade.NewCloudAPIV2(s.backend, s.backend, s.authorizer)
+	client, err := cloudfacade.NewCloudAPIV2(s.backend, s.backend, s.authorizer, context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	s.apiv2 = client
 }
@@ -207,6 +208,18 @@ func (s *cloudSuiteV2) TestAddCloudInV2(c *gc.C) {
 	})
 }
 
+func (s *cloudSuiteV2) TestRemoveCloudInV2(c *gc.C) {
+	s.authorizer.Tag = names.NewUserTag("admin")
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: "cloud-foo"}, {Tag: "cloud-bar"}}}
+	result, err := s.apiv2.RemoveClouds(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}, {}}})
+	s.backend.CheckCallNames(c, "RemoveCloud", "RemoveCloud")
+	s.backend.CheckCall(c, 0, "RemoveCloud", "foo")
+	s.backend.CheckCall(c, 1, "RemoveCloud", "bar")
+}
+
 func (s *cloudSuiteV2) TestAddCredentialInV2(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin")
 	paramsCreds := params.TaggedCredentials{Credentials: []params.TaggedCredential{{
@@ -305,6 +318,11 @@ func (st *mockBackendV2) UpdateCloudCredential(tag names.CloudCredentialTag, cre
 
 func (st *mockBackendV2) AddCloud(cloud cloud.Cloud) error {
 	st.MethodCall(st, "AddCloud", cloud)
+	return st.NextErr()
+}
+
+func (st *mockBackendV2) RemoveCloud(name string) error {
+	st.MethodCall(st, "RemoveCloud", name)
 	return st.NextErr()
 }
 

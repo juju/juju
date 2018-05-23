@@ -828,7 +828,7 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add two environ manager machines and check they are not chosen.
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "0")
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	c.Assert(changes.Maintained, gc.HasLen, 1)

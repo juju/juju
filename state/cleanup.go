@@ -646,7 +646,7 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 				return errors.Trace(err)
 			}
 		}
-		if err := st.db().RunRawTransaction(removeControllerOps(machine)); err != nil {
+		if err := st.RemoveControllerMachine(machine); err != nil {
 			return errors.Trace(err)
 		}
 	}

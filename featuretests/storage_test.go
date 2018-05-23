@@ -397,12 +397,16 @@ func (s *cmdStorageSuite) assertCreatePoolError(c *gc.C, errString, expected str
 	c.Assert(stderr, jc.Contains, expected)
 }
 
-func (s *cmdStorageSuite) TestCreatePoolErrorNoAttrs(c *gc.C) {
-	s.assertCreatePoolError(c, "pool creation requires names, provider type and attrs for configuration", "", "loop", "ftPool")
+func (s *cmdStorageSuite) TestCreatePoolNoAttrs(c *gc.C) {
+	pname := "ftPool"
+	stdout, _, err := runPoolCreate(c, pname, "loop")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdout, gc.Equals, "")
+	assertPoolExists(c, s.State, pname, "loop", "")
 }
 
 func (s *cmdStorageSuite) TestCreatePoolErrorNoProvider(c *gc.C) {
-	s.assertCreatePoolError(c, "pool creation requires names, provider type and attrs for configuration", "", "oops provider", "smth=one")
+	s.assertCreatePoolError(c, "pool creation requires names and provider type before optional attributes for configuration", "", "oops provider", "smth=one")
 }
 
 func (s *cmdStorageSuite) TestCreatePoolErrorProviderType(c *gc.C) {
@@ -434,6 +438,10 @@ func assertPoolExists(c *gc.C, st *state.State, pname, providerType, attr string
 		if one.Name() == pname {
 			exists = true
 			c.Assert(string(one.Provider()), gc.Equals, providerType)
+			if attr == "" {
+				c.Check(one.Attrs(), gc.HasLen, 0)
+				continue
+			}
 			// At this stage, only 1 attr is expected and checked
 			expectedAttrs := strings.Split(attr, "=")
 			value, ok := one.Attrs()[expectedAttrs[0]]

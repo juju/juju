@@ -4,30 +4,45 @@
 package testing
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/worker/dependency"
 )
 
-// StubResource is used to define the behaviour of a StubGetResource func for a
-// particular resource name.
-type StubResource struct {
-	Output interface{}
-	Error  error
+// NewStubResource creates a single StubResource with the given
+// outputs. (If you need to specify an error result, use the
+// StubResource type directly.)
+func NewStubResource(outputs ...interface{}) StubResource {
+	return StubResource{Outputs: outputs}
 }
 
-// NewStubResources converts raw into a StubResources by assuming that any non-error
-// value is intended to be an output.
+// StubResource is used to define the behaviour of a StubGetResource
+// func for a particular resource name.
+type StubResource struct {
+	Outputs []interface{}
+	Error   error
+}
+
+// NewStubResources converts raw into a StubResources by assuming that
+// any non-error value is intended to be an output. Multiple outputs
+// can set by specifying a slice of interface{}s.
 func NewStubResources(raw map[string]interface{}) StubResources {
 	resources := StubResources{}
 	for name, value := range raw {
-		if err, ok := value.(error); ok {
-			resources[name] = StubResource{Error: err}
-		} else {
-			resources[name] = StubResource{Output: value}
+		var resource StubResource
+		switch value := value.(type) {
+		case error:
+			resource = StubResource{Error: value}
+		case []interface{}:
+			resource = StubResource{Outputs: value}
+		default:
+			resource = StubResource{Outputs: []interface{}{value}}
 		}
+		resources[name] = resource
 	}
 	return resources
 }
@@ -69,19 +84,25 @@ func (ctx *Context) Get(name string, outPtr interface{}) error {
 	} else if resource.Error != nil {
 		return resource.Error
 	}
-	if outPtr != nil {
-		outPtrV := reflect.ValueOf(outPtr)
-		if outPtrV.Kind() != reflect.Ptr {
-			return errors.Errorf("outPtr should be a pointer; is %#v", outPtr)
-		}
-		outV := outPtrV.Elem()
-		outT := outV.Type()
-		setV := reflect.ValueOf(resource.Output)
-		setT := setV.Type()
-		if !setT.ConvertibleTo(outT) {
-			return errors.Errorf("cannot set %#v into %T", resource.Output, outPtr)
-		}
-		outV.Set(setV.Convert(outT))
+	if outPtr == nil {
+		return nil
 	}
-	return nil
+	outPtrV := reflect.ValueOf(outPtr)
+	if outPtrV.Kind() != reflect.Ptr {
+		return errors.Errorf("outPtr should be a pointer; is %#v", outPtr)
+	}
+	outV := outPtrV.Elem()
+	outT := outV.Type()
+
+	var errorOutputs []string
+	for _, output := range resource.Outputs {
+		setV := reflect.ValueOf(output)
+		setT := setV.Type()
+		if setT.ConvertibleTo(outT) {
+			outV.Set(setV.Convert(outT))
+			return nil
+		}
+		errorOutputs = append(errorOutputs, fmt.Sprintf("%#v", output))
+	}
+	return errors.Errorf("cannot set %s into %T", strings.Join(errorOutputs, ", "), outPtr)
 }

@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
@@ -12,6 +10,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
@@ -21,10 +20,10 @@ const bootstrapMessage = `To configure your system to better support LXD contain
 
 type baseProvider interface {
 	// BootstrapEnv bootstraps a Juju environment.
-	BootstrapEnv(environs.BootstrapContext, environs.BootstrapParams) (*environs.BootstrapResult, error)
+	BootstrapEnv(environs.BootstrapContext, context.ProviderCallContext, environs.BootstrapParams) (*environs.BootstrapResult, error)
 
 	// DestroyEnv destroys the provided Juju environment.
-	DestroyEnv() error
+	DestroyEnv(ctx context.ProviderCallContext) error
 }
 
 type environ struct {
@@ -46,7 +45,7 @@ type environ struct {
 type newRawProviderFunc func(environs.CloudSpec, bool) (*rawProvider, error)
 
 func newEnviron(
-	provider *environProvider,
+	_ *environProvider,
 	local bool,
 	spec environs.CloudSpec,
 	cfg *config.Config,
@@ -143,20 +142,20 @@ func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 }
 
 // Create implements environs.Environ.
-func (env *environ) Create(environs.CreateParams) error {
+func (env *environ) Create(context.ProviderCallContext, environs.CreateParams) error {
 	return nil
 }
 
 // Bootstrap implements environs.Environ.
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (env *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	ctx.Infof("%s", bootstrapMessage)
-	return env.base.BootstrapEnv(ctx, params)
+	return env.base.BootstrapEnv(ctx, callCtx, params)
 }
 
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.
-func (env *environ) Destroy() error {
-	if err := env.base.DestroyEnv(); err != nil {
+func (env *environ) Destroy(ctx context.ProviderCallContext) error {
+	if err := env.base.DestroyEnv(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	if env.storageSupported() {
@@ -168,8 +167,8 @@ func (env *environ) Destroy() error {
 }
 
 // DestroyController implements the Environ interface.
-func (env *environ) DestroyController(controllerUUID string) error {
-	if err := env.Destroy(); err != nil {
+func (env *environ) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+	if err := env.Destroy(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	if err := env.destroyHostedModelResources(controllerUUID); err != nil {

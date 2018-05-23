@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
 
@@ -95,7 +96,7 @@ func getRules(envName string, fwrules []cloudapi.FirewallRule) ([]network.Ingres
 	return rules, nil
 }
 
-func (env *joyentEnviron) OpenPorts(ports []network.IngressRule) error {
+func (env *joyentEnviron) OpenPorts(ctx context.ProviderCallContext, ports []network.IngressRule) error {
 	if env.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on model", env.Config().FirewallMode())
 	}
@@ -128,7 +129,7 @@ func (env *joyentEnviron) OpenPorts(ports []network.IngressRule) error {
 	return nil
 }
 
-func (env *joyentEnviron) ClosePorts(ports []network.IngressRule) error {
+func (env *joyentEnviron) ClosePorts(ctx context.ProviderCallContext, ports []network.IngressRule) error {
 	if env.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on model", env.Config().FirewallMode())
 	}
@@ -161,7 +162,7 @@ func (env *joyentEnviron) ClosePorts(ports []network.IngressRule) error {
 	return nil
 }
 
-func (env *joyentEnviron) IngressRules() ([]network.IngressRule, error) {
+func (env *joyentEnviron) IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
 	if env.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from model", env.Config().FirewallMode())
 	}

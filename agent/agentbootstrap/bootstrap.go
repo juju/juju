@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	coreraft "github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -204,9 +205,12 @@ func InitializeState(
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "opening hosted model environment")
 	}
-	if err := hostedModelEnv.Create(environs.CreateParams{
-		ControllerUUID: controllerUUID,
-	}); err != nil {
+
+	if err := hostedModelEnv.Create(
+		state.CallContext(st),
+		environs.CreateParams{
+			ControllerUUID: controllerUUID,
+		}); err != nil {
 		return nil, nil, errors.Annotate(err, "creating hosted model environment")
 	}
 
@@ -261,7 +265,7 @@ func initRaft(agentConfig agent.Config) error {
 		Clock:      clock.WallClock,
 		StorageDir: raftDir,
 		Logger:     logger,
-		Tag:        agentConfig.Tag(),
+		LocalID:    coreraft.ServerID(agentConfig.Tag().Id()),
 	})
 }
 

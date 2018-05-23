@@ -671,8 +671,9 @@ type ProxyConfigResults struct {
 
 // InterfaceAddress represents a single address attached to the interface.
 type InterfaceAddress struct {
-	Address string `json:"value"`
-	CIDR    string `json:"cidr"`
+	Hostname string `json:"hostname"`
+	Address  string `json:"value"`
+	CIDR     string `json:"cidr"`
 }
 
 // NetworkInfo describes one interface with IP addresses.

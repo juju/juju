@@ -4,10 +4,10 @@
 package auditconfigupdater_test
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 

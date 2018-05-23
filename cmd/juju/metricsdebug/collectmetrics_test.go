@@ -310,7 +310,7 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 			runClient.results = test.results
 		}
 		metricsdebug.PatchGetActionResult(s.PatchValue, test.actionMap)
-		ctx, err := cmdtesting.RunCommand(c, metricsdebug.NewCollectMetricsCommand(), test.args...)
+		ctx, err := cmdtesting.RunCommand(c, metricsdebug.NewCollectMetricsCommandForTest(), test.args...)
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		} else {
@@ -327,7 +327,7 @@ func (s *collectMetricsSuite) TestCollectMetricsFailsOnNonLocalCharm(c *gc.C) {
 	s.PatchValue(metricsdebug.NewAPIConn, noConn)
 	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
 	s.PatchValue(metricsdebug.NewServiceClient, metricsdebug.NewServiceClientFnc(serviceClient))
-	_, err := cmdtesting.RunCommand(c, metricsdebug.NewCollectMetricsCommand(), "foobar")
+	_, err := cmdtesting.RunCommand(c, metricsdebug.NewCollectMetricsCommandForTest(), "foobar")
 	c.Assert(err, gc.ErrorMatches, `"foobar" is not a local charm`)
 	runClient.CheckCallNames(c, "Close")
 }

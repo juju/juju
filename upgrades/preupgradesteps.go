@@ -6,8 +6,8 @@ package upgrades
 import (
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
+	"github.com/juju/packaging/manager"
 	"github.com/juju/utils/du"
-	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/agent"
@@ -36,13 +36,14 @@ func PreUpgradeSteps(st *state.State, agentConf agent.Config, isController, isMa
 	return nil
 }
 
+// MinDiskSpaceMib defines the minimum disk space required
 // We'll be conservative and require at least 250MiB of disk space for an upgrade.
 var MinDiskSpaceMib = uint64(250)
 
 func checkDiskSpace(dir string) error {
 	usage := du.NewDiskUsage(dir)
 	free := usage.Free()
-	if free < uint64(MinDiskSpaceMib*humanize.MiByte) {
+	if free < MinDiskSpaceMib*humanize.MiByte {
 		return errors.Errorf("not enough free disk space for upgrade: %s available, require %dMiB",
 			humanize.IBytes(free), MinDiskSpaceMib)
 	}

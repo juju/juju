@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
@@ -30,7 +31,7 @@ type mockInstanceDistributor struct {
 	err               error
 }
 
-func (p *mockInstanceDistributor) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
+func (p *mockInstanceDistributor) DistributeInstances(ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
 	p.candidates = candidates
 	p.distributionGroup = distributionGroup
 	result := p.result

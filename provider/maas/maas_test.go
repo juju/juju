@@ -10,18 +10,19 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -35,10 +36,25 @@ import (
 
 const maas2VersionResponse = `{"version": "unknown", "subversion": "", "capabilities": ["networks-management", "static-ipaddresses", "ipv6-deployment-ubuntu", "devices-management", "storage-deployment-ubuntu", "network-deployment-ubuntu"]}`
 
+const maas2DomainsResponse = `
+[
+    {
+        "authoritative": "true",
+        "resource_uri": "/MAAS/api/2.0/domains/0/",
+        "name": "maas",
+        "id": 0,
+        "ttl": null,
+        "resource_record_count": 3
+    }
+]
+`
+
 type baseProviderSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 	controllerUUID string
+
+	callCtx context.ProviderCallContext
 }
 
 func (suite *baseProviderSuite) setupFakeTools(c *gc.C) {
@@ -65,6 +81,7 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&series.MustHostSeries, func() string { return supportedversion.SupportedLTS() })
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func (s *baseProviderSuite) TearDownTest(c *gc.C) {

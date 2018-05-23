@@ -4,6 +4,8 @@
 package caasoperatorprovisioner_test
 
 import (
+	"fmt"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -14,6 +16,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&CAASProvisionerSuite{})
@@ -110,5 +113,22 @@ func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
 				Message: "permission denied",
 			},
 		}},
+	})
+}
+
+func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
+	result, err := s.api.OperatorProvisioningInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
+		ImagePath: fmt.Sprintf("jujusolutions/caas-jujud-operator:%s", version.Current.String()),
+	})
+}
+
+func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
+	s.st.operatorImage = "jujusolutions/caas-jujud-operator"
+	result, err := s.api.OperatorProvisioningInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
+		ImagePath: s.st.operatorImage,
 	})
 }

@@ -44,7 +44,7 @@ func (s *UpgradeSuite) provision(c *gc.C, machineIds ...string) {
 }
 
 func (s *UpgradeSuite) addControllers(c *gc.C) (machineId1, machineId2 string) {
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, s.serverIdA)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return changes.Added[0], changes.Added[1]
 }

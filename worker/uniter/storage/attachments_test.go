@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
@@ -153,7 +152,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 	storageTag0 := names.NewStorageTag("data/0")
 	storageTag1 := names.NewStorageTag("data/1")
 
-	removed := set.NewTags()
+	removed := names.NewSet()
 	st := &mockStorageAccessor{
 		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
 			return nil, nil

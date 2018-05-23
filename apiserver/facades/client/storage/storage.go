@@ -6,8 +6,8 @@
 package storage
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -308,10 +308,10 @@ func buildFilter(filter params.StoragePoolFilter) func(n, p string) bool {
 		}
 		// if at least 1 name and type are supplied, use AND to match
 		if !providerSet.IsEmpty() && !nameSet.IsEmpty() {
-			return nameSet.Contains(n) && providerSet.Contains(string(p))
+			return nameSet.Contains(n) && providerSet.Contains(p)
 		}
 		// Otherwise, if only names or types are supplied, use OR to match
-		return nameSet.Contains(n) || providerSet.Contains(string(p))
+		return nameSet.Contains(n) || providerSet.Contains(p)
 	}
 	return matches
 }

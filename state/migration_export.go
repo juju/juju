@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -216,16 +216,13 @@ type exporter struct {
 }
 
 func (e *exporter) sequences() error {
-	sequences, closer := e.st.db().GetCollection(sequenceC)
-	defer closer()
-
-	var docs []sequenceDoc
-	if err := sequences.Find(nil).All(&docs); err != nil {
+	sequences, err := e.st.Sequences()
+	if err != nil {
 		return errors.Trace(err)
 	}
 
-	for _, doc := range docs {
-		e.model.SetSequence(doc.Name, doc.Counter)
+	for name, value := range sequences {
+		e.model.SetSequence(name, value)
 	}
 	return nil
 }

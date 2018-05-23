@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/utils/set"
+	"github.com/juju/collections/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/storage"

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -53,6 +54,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	c.Check(status.RemoteApplications, gc.HasLen, 0)
 	c.Check(status.Offers, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
+	c.Check(status.ControllerTimestamp, gc.NotNil)
 	resultMachine, ok := status.Machines[machine.Id()]
 	if !ok {
 		c.Fatalf("Missing machine with id %q", machine.Id())
@@ -432,6 +434,83 @@ func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	assertApplicationRelations(c, a3.Name(), 1, status.Relations)
+}
+
+// TestFilterOutRelationsForRelatedApplicationsThatDoNotMatchCriteriaDirectly
+// tests scenario where applications are returned as part of the status because
+// they are related to an application that matches given filter.
+// However, the relations for these applications should not be returned.
+// In other words, if there are two applications, A and B, such that:
+//
+// * an application A matches the supplied filter directly;
+// * an application B has units on the same machine as units of an application A and, thus,
+// qualifies to be returned by the status result;
+//
+// application B's relations should not be returned.
+func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDoNotMatchCriteriaDirectly(c *gc.C) {
+	// Application A has no touch points with application C
+	// but will have a unit on the same machine is a unit of an application B.
+	applicationA := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "mysql",
+		}),
+	})
+
+	// Application B will have a unit on the same machine as a unit of an application A
+	// and will have a relation to an application C.
+	applicationB := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	endpoint1, err := applicationB.Endpoint("juju-info")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Application C has a relation to application B but has no touch points with
+	// an application A.
+	applicationC := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
+	})
+	endpoint2, err := applicationC.Endpoint("info")
+	c.Assert(err, jc.ErrorIsNil)
+	s.Factory.MakeRelation(c, &factory.RelationParams{
+		Endpoints: []state.Endpoint{endpoint2, endpoint1},
+	})
+
+	// Put a unit from each, application A and B, on the same machine.
+	// This will be enough to ensure that the application B qualifies to be
+	// in the status result filtered by the application A.
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	})
+	s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: applicationA,
+		Machine:     machine,
+	})
+	s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: applicationB,
+		Machine:     machine,
+	})
+
+	// Need to wait for system to stabilise since we have added units and a machine
+	// which in turn need to have everything else running that the
+	// testing infrastructure starts for us, like workers, watchers, etc..
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		// Filtering status on application A should get:
+		// * no relations;
+		// * two applications.
+		client := s.APIState.Client()
+		status, err := client.Status([]string{applicationA.Name()})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(status, gc.NotNil)
+		applications := len(status.Applications) == 2
+		relations := len(status.Relations) == 0
+		if applications && relations {
+			return
+		}
+	}
+	c.Logf("timed out waiting for test system to stabilise to test status")
+	c.Fail()
 }
 
 func assertApplicationRelations(c *gc.C, appName string, expectedNumber int, relations []params.RelationStatus) {

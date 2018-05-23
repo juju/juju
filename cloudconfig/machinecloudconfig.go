@@ -163,7 +163,7 @@ func getMachineData(series, file string) (map[string]interface{}, error) {
 
 func unmarshallContainerCloudInit(raw []byte) (map[string]interface{}, error) {
 	dataMap := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(raw), &dataMap)
+	err := yaml.Unmarshal(raw, &dataMap)
 	if err != nil {
 		return nil, err
 	}

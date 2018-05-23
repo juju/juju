@@ -19,6 +19,7 @@ type Backend interface {
 	ModelTag() names.ModelTag
 	ModelConfigValues() (config.ConfigValues, error)
 	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
+	Sequences() (map[string]int, error)
 	SetSLA(level, owner string, credentials []byte) error
 	SLALevel() (string, error)
 }

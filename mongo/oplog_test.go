@@ -47,6 +47,12 @@ func (s *oplogSuite) TestWithRealOplog(c *gc.C) {
 		var actualObj bson.D
 		err := doc.UnmarshalObject(&actualObj)
 		c.Assert(err, jc.ErrorIsNil)
+		// In Mongo 3.6, the documents add a "$V" to every document
+		// https://jira.mongodb.org/browse/SERVER-32240
+		// It seems to track the client information about what created the doc.
+		if len(actualObj) > 1 && actualObj[0].Name == "$v" {
+			actualObj = actualObj[1:]
+		}
 		c.Assert(actualObj, jc.DeepEquals, expectedObj)
 
 		var actualUpdate bson.D

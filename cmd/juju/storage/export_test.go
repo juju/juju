@@ -54,3 +54,24 @@ func NewAddCommandForTest(api StorageAddAPI, store jujuclient.ClientStore) cmd.C
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
+
+func NewRemoveStorageCommandForTest(new NewStorageRemoverCloserFunc, store jujuclient.ClientStore) cmd.Command {
+	cmd := &removeStorageCommand{}
+	cmd.SetClientStore(store)
+	cmd.newStorageRemoverCloser = new
+	return modelcmd.Wrap(cmd)
+}
+
+func NewAttachStorageCommandForTest(new NewEntityAttacherCloserFunc, store jujuclient.ClientStore) cmd.Command {
+	cmd := &attachStorageCommand{}
+	cmd.SetClientStore(store)
+	cmd.newEntityAttacherCloser = new
+	return modelcmd.Wrap(cmd)
+}
+
+func NewDetachStorageCommandForTest(new NewEntityDetacherCloserFunc, store jujuclient.ClientStore) cmd.Command {
+	cmd := &detachStorageCommand{}
+	cmd.SetClientStore(store)
+	cmd.newEntityDetacherCloser = new
+	return modelcmd.Wrap(cmd)
+}

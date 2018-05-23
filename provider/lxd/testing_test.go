@@ -1,20 +1,18 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
 	"net"
 	"os"
-	"path"
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	lxdclient "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
@@ -22,14 +20,16 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/tools/lxdclient"
+	jujulxdclient "github.com/juju/juju/tools/lxdclient"
 )
 
 // Ensure LXD provider supports the expected interfaces.
@@ -101,9 +101,9 @@ type BaseSuiteUnpatched struct {
 
 	Addresses     []network.Address
 	Instance      *environInstance
-	RawInstance   *lxdclient.Instance
+	RawInstance   *jujulxdclient.Instance
 	InstName      string
-	Hardware      *lxdclient.InstanceHardware
+	Hardware      *jujulxdclient.InstanceHardware
 	HWC           *instance.HardwareCharacteristics
 	Metadata      map[string]string
 	StartInstArgs environs.StartInstanceParams
@@ -198,7 +198,7 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	userData, err := providerinit.ComposeUserData(instanceConfig, nil, lxdRenderer{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Hardware = &lxdclient.InstanceHardware{
+	s.Hardware = &jujulxdclient.InstanceHardware{
 		Architecture: arch.ARM64,
 		NumCores:     1,
 		MemoryMB:     3750,
@@ -275,24 +275,24 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 	s.setConfig(c, cfg)
 }
 
-func (s *BaseSuiteUnpatched) NewRawInstance(c *gc.C, name string) *lxdclient.Instance {
+func (s *BaseSuiteUnpatched) NewRawInstance(c *gc.C, name string) *jujulxdclient.Instance {
 	metadata := make(map[string]string)
 	for k, v := range s.Metadata {
 		metadata[k] = v
 	}
-	summary := lxdclient.InstanceSummary{
+	summary := jujulxdclient.InstanceSummary{
 		Name:     name,
-		Status:   lxdclient.StatusRunning,
+		Status:   jujulxdclient.StatusRunning,
 		Hardware: *s.Hardware,
 		Metadata: metadata,
 	}
-	instanceSpec := lxdclient.InstanceSpec{
+	instanceSpec := jujulxdclient.InstanceSpec{
 		Name:      name,
 		Profiles:  []string{},
 		Ephemeral: false,
 		Metadata:  metadata,
 	}
-	return lxdclient.NewInstance(summary, &instanceSpec)
+	return jujulxdclient.NewInstance(summary, &instanceSpec)
 }
 
 func (s *BaseSuiteUnpatched) NewInstance(c *gc.C, name string) *environInstance {
@@ -304,7 +304,7 @@ func (s *BaseSuiteUnpatched) IsRunningLocally(c *gc.C) bool {
 	restore := gitjujutesting.PatchEnvPathPrepend(s.osPathOrig)
 	defer restore()
 
-	running, err := lxdclient.IsRunningLocally()
+	running, err := jujulxdclient.IsRunningLocally()
 	c.Assert(err, jc.ErrorIsNil)
 	return running
 }
@@ -342,14 +342,12 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	// Patch out all expensive external deps.
 	raw := &rawProvider{
-		lxdCerts:     s.Client,
-		lxdConfig:    s.Client,
+		newServer:    s.Client,
 		lxdInstances: s.Client,
 		lxdProfiles:  s.Client,
-		lxdImages:    s.Client,
 		lxdStorage:   s.Client,
-		remote: lxdclient.Remote{
-			Cert: &lxdclient.Cert{
+		remote: jujulxdclient.Remote{
+			Cert: &lxd.Certificate{
 				Name:    "juju",
 				CertPEM: []byte(testing.CACert),
 				KeyPEM:  []byte(testing.CAKey),
@@ -381,8 +379,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Env.base = s.Common
 }
 
-func (s *BaseSuite) TestingCert(c *gc.C) (lxdclient.Cert, string) {
-	cert := lxdclient.Cert{
+func (s *BaseSuite) TestingCert(c *gc.C) (lxd.Certificate, string) {
+	cert := lxd.Certificate{
 		Name:    "juju",
 		CertPEM: []byte(testing.CACert),
 		KeyPEM:  []byte(testing.CAKey),
@@ -447,8 +445,8 @@ type stubCommon struct {
 	BootstrapResult *environs.BootstrapResult
 }
 
-func (sc *stubCommon) BootstrapEnv(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	sc.stub.AddCall("Bootstrap", ctx, params)
+func (sc *stubCommon) BootstrapEnv(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	sc.stub.AddCall("Bootstrap", ctx, callCtx, params)
 	if err := sc.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -456,8 +454,8 @@ func (sc *stubCommon) BootstrapEnv(ctx environs.BootstrapContext, params environ
 	return sc.BootstrapResult, nil
 }
 
-func (sc *stubCommon) DestroyEnv() error {
-	sc.stub.AddCall("Destroy")
+func (sc *stubCommon) DestroyEnv(callCtx context.ProviderCallContext) error {
+	sc.stub.AddCall("Destroy", callCtx)
 	if err := sc.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
@@ -468,14 +466,14 @@ func (sc *stubCommon) DestroyEnv() error {
 type StubClient struct {
 	*gitjujutesting.Stub
 
-	Insts              []lxdclient.Instance
-	Inst               *lxdclient.Instance
+	Insts              []jujulxdclient.Instance
+	Inst               *jujulxdclient.Instance
 	Server             *api.Server
 	StorageIsSupported bool
 	Volumes            map[string][]api.StorageVolume
 }
 
-func (conn *StubClient) Instances(prefix string, statuses ...string) ([]lxdclient.Instance, error) {
+func (conn *StubClient) Instances(prefix string, statuses ...string) ([]jujulxdclient.Instance, error) {
 	conn.AddCall("Instances", prefix, statuses)
 	if err := conn.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -484,7 +482,7 @@ func (conn *StubClient) Instances(prefix string, statuses ...string) ([]lxdclien
 	return conn.Insts, nil
 }
 
-func (conn *StubClient) AddInstance(spec lxdclient.InstanceSpec) (*lxdclient.Instance, error) {
+func (conn *StubClient) AddInstance(spec jujulxdclient.InstanceSpec) (*jujulxdclient.Instance, error) {
 	conn.AddCall("AddInstance", spec)
 	if err := conn.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -502,13 +500,15 @@ func (conn *StubClient) RemoveInstances(prefix string, ids ...string) error {
 	return nil
 }
 
-func (conn *StubClient) EnsureImageExists(series, arch string, _ []lxdclient.Remote, _ func(string)) (string, error) {
-	conn.AddCall("EnsureImageExists", series, arch)
+func (conn *StubClient) FindImage(
+	series, arch string, sources []lxd.RemoteServer, copyLocal bool, callback environs.StatusCallbackFunc,
+) (lxd.SourcedImage, error) {
+	conn.AddCall("FindImage", series, arch)
 	if err := conn.NextErr(); err != nil {
-		return "", errors.Trace(err)
+		return lxd.SourcedImage{}, errors.Trace(err)
 	}
 
-	return path.Join("juju", series, arch), nil
+	return lxd.SourcedImage{}, nil
 }
 
 func (conn *StubClient) Addresses(name string) ([]network.Address, error) {
@@ -517,55 +517,54 @@ func (conn *StubClient) Addresses(name string) ([]network.Address, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return []network.Address{network.Address{
+	return []network.Address{{
 		Value: "10.0.0.1",
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
 	}}, nil
 }
 
-func (conn *StubClient) AddCert(cert lxdclient.Cert) error {
-	conn.AddCall("AddCert", cert)
+func (conn *StubClient) CreateClientCertificate(cert *lxd.Certificate) error {
+	conn.AddCall("CreateClientCertificate", cert)
 	return conn.NextErr()
 }
 
-func (conn *StubClient) RemoveCertByFingerprint(fingerprint string) error {
+func (conn *StubClient) DeleteCertificate(fingerprint string) error {
 	conn.AddCall("RemoveCertByFingerprint", fingerprint)
 	return conn.NextErr()
 }
 
-func (conn *StubClient) CertByFingerprint(fingerprint string) (api.Certificate, error) {
-	conn.AddCall("CertByFingerprint", fingerprint)
-	return api.Certificate{}, conn.NextErr()
+func (conn *StubClient) GetCertificate(fingerprint string) (*api.Certificate, string, error) {
+	conn.AddCall("GetCertificate", fingerprint)
+	return &api.Certificate{}, "", conn.NextErr()
 }
 
-func (conn *StubClient) ServerStatus() (*api.Server, error) {
+func (conn *StubClient) GetServer() (*api.Server, string, error) {
 	conn.AddCall("ServerStatus")
 	if err := conn.NextErr(); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	return &api.Server{
 		Environment: api.ServerEnvironment{
 			Certificate: "server-cert",
 		},
-	}, nil
+	}, "etag", nil
 }
 
-func (conn *StubClient) ServerAddresses() ([]string, error) {
+func (conn *StubClient) GetConnectionInfo() (info *lxdclient.ConnectionInfo, err error) {
 	conn.AddCall("ServerAddresses")
-	return []string{
-		"127.0.0.1:1234",
-		"1.2.3.4:1234",
+	return &lxdclient.ConnectionInfo{
+		Addresses: []string{"127.0.0.1:1234", "1.2.3.4:1234"},
 	}, conn.NextErr()
 }
 
-func (conn *StubClient) SetServerConfig(k, v string) error {
-	conn.AddCall("SetServerConfig", k, v)
+func (conn *StubClient) UpdateServerConfig(cfg map[string]string) error {
+	conn.AddCall("UpdateServerConfig", cfg)
 	return conn.NextErr()
 }
 
-func (conn *StubClient) SetContainerConfig(container, k, v string) error {
-	conn.AddCall("SetContainerConfig", container, k, v)
+func (conn *StubClient) UpdateContainerConfig(container string, cfg map[string]string) error {
+	conn.AddCall("UpdateContainerConfig", container, cfg)
 	return conn.NextErr()
 }
 
@@ -584,7 +583,7 @@ func (conn *StubClient) HasProfile(name string) (bool, error) {
 	return false, conn.NextErr()
 }
 
-func (conn *StubClient) AttachDisk(container, device string, disk lxdclient.DiskDevice) error {
+func (conn *StubClient) AttachDisk(container, device string, disk jujulxdclient.DiskDevice) error {
 	conn.AddCall("AttachDisk", container, device, disk)
 	return conn.NextErr()
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
@@ -44,13 +45,13 @@ func FakeAPIInfo(machineId string) *api.Info {
 }
 
 // WaitAddresses waits until the specified instance has addresses, and returns them.
-func WaitInstanceAddresses(env environs.Environ, instId instance.Id) ([]network.Address, error) {
+func WaitInstanceAddresses(env environs.Environ, ctx context.ProviderCallContext, instId instance.Id) ([]network.Address, error) {
 	for a := testing.LongAttempt.Start(); a.Next(); {
-		insts, err := env.Instances([]instance.Id{instId})
+		insts, err := env.Instances(ctx, []instance.Id{instId})
 		if err != nil {
 			return nil, err
 		}
-		addresses, err := insts[0].Addresses()
+		addresses, err := insts[0].Addresses(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -65,14 +66,14 @@ func WaitInstanceAddresses(env environs.Environ, instId instance.Id) ([]network.
 // controller instance with a plausible but invalid configuration, and
 // checks that it succeeds.
 func AssertStartControllerInstance(
-	c *gc.C, env environs.Environ, controllerUUID, machineId string,
+	c *gc.C, env environs.Environ, ctx context.ProviderCallContext, controllerUUID, machineId string,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
 	params := environs.StartInstanceParams{ControllerUUID: controllerUUID}
 	err := FillInStartInstanceParams(env, machineId, true, &params)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := env.StartInstance(params)
+	result, err := env.StartInstance(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	return result.Instance, result.Hardware
 }
@@ -80,11 +81,11 @@ func AssertStartControllerInstance(
 // AssertStartInstance is a test helper function that starts an instance with a
 // plausible but invalid configuration, and checks that it succeeds.
 func AssertStartInstance(
-	c *gc.C, env environs.Environ, controllerUUID, machineId string,
+	c *gc.C, env environs.Environ, ctx context.ProviderCallContext, controllerUUID, machineId string,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
-	inst, hc, _, err := StartInstance(env, controllerUUID, machineId)
+	inst, hc, _, err := StartInstance(env, ctx, controllerUUID, machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	return inst, hc
 }
@@ -92,22 +93,23 @@ func AssertStartInstance(
 // StartInstance is a test helper function that starts an instance with a plausible
 // but invalid configuration, and returns the result of Environ.StartInstance.
 func StartInstance(
-	env environs.Environ, controllerUUID, machineId string,
+	env environs.Environ, ctx context.ProviderCallContext, controllerUUID, machineId string,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
-	return StartInstanceWithConstraints(env, controllerUUID, machineId, constraints.Value{})
+	return StartInstanceWithConstraints(env, ctx, controllerUUID, machineId, constraints.Value{})
 }
 
 // AssertStartInstanceWithConstraints is a test helper function that starts an instance
 // with the given constraints, and a plausible but invalid configuration, and returns
 // the result of Environ.StartInstance.
 func AssertStartInstanceWithConstraints(
-	c *gc.C, env environs.Environ, controllerUUID, machineId string, cons constraints.Value,
+	c *gc.C, env environs.Environ, ctx context.ProviderCallContext,
+	controllerUUID, machineId string, cons constraints.Value,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
-	inst, hc, _, err := StartInstanceWithConstraints(env, controllerUUID, machineId, cons)
+	inst, hc, _, err := StartInstanceWithConstraints(env, ctx, controllerUUID, machineId, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	return inst, hc
 }
@@ -116,12 +118,14 @@ func AssertStartInstanceWithConstraints(
 // with the given constraints, and a plausible but invalid configuration, and returns
 // the result of Environ.StartInstance.
 func StartInstanceWithConstraints(
-	env environs.Environ, controllerUUID, machineId string, cons constraints.Value,
+	env environs.Environ,
+	ctx context.ProviderCallContext,
+	controllerUUID, machineId string, cons constraints.Value,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
 	params := environs.StartInstanceParams{ControllerUUID: controllerUUID, Constraints: cons, StatusCallback: fakeCallback}
-	result, err := StartInstanceWithParams(env, machineId, params)
+	result, err := StartInstanceWithParams(env, ctx, machineId, params)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
@@ -133,7 +137,8 @@ func StartInstanceWithConstraints(
 // returns the result of Environ.StartInstance. The provided params's
 // InstanceConfig and Tools field values will be ignored.
 func StartInstanceWithParams(
-	env environs.Environ, machineId string,
+	env environs.Environ, ctx context.ProviderCallContext,
+	machineId string,
 	params environs.StartInstanceParams,
 ) (
 	*environs.StartInstanceResult, error,
@@ -141,7 +146,7 @@ func StartInstanceWithParams(
 	if err := FillInStartInstanceParams(env, machineId, false, &params); err != nil {
 		return nil, err
 	}
-	return env.StartInstance(params)
+	return env.StartInstance(ctx, params)
 }
 
 // FillInStartInstanceParams prepares the instance parameters for starting

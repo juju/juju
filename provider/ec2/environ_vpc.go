@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/environs"
@@ -65,7 +65,7 @@ subnets).
 Error details`[1:]
 
 	cannotValidateVPCErrorPrefix = `
-Juju could not verify whether the given vpc-id meets the minumum Juju
+Juju could not verify whether the given vpc-id meets the minimum Juju
 connectivity requirements. Please, double check the VPC ID is correct,
 you have a working connection to the Internet, your AWS credentials are
 sufficient to access VPC features, or simply retry bootstrapping again.
@@ -527,7 +527,7 @@ func validateBootstrapVPC(apiClient vpcAPIClient, region, vpcID string, forceVPC
 		// VPC missing or has no subnets at all.
 		return errors.Annotate(err, vpcNotUsableForBootstrapErrorPrefix)
 	case isVPCNotRecommendedError(err):
-		// VPC does not meet minumum validation criteria.
+		// VPC does not meet minimum validation criteria.
 		if !forceVPCID {
 			return errors.Annotatef(err, vpcNotRecommendedErrorPrefix, vpcID)
 		}
@@ -553,7 +553,7 @@ func validateModelVPC(apiClient vpcAPIClient, modelName, vpcID string) error {
 		// VPC missing or has no subnets at all.
 		return errors.Annotate(err, vpcNotUsableForModelErrorPrefix)
 	case isVPCNotRecommendedError(err):
-		// VPC does not meet minumum validation criteria, but that's less
+		// VPC does not meet minimum validation criteria, but that's less
 		// important for hosted models, as the controller is already accessible.
 		logger.Infof(
 			"Juju will use, but does not recommend using VPC %q: %v",

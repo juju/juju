@@ -227,7 +227,7 @@ bandwidth to the backends.
 ### active-active mode
 
 If the peering\_mode option is set to "active-active", then any haproxy unit
-will be independant from each other and will simply load-balance the traffic to
+will be independent from each other and will simply load-balance the traffic to
 the backends. In this case, the indirection layer described above is not
 created in this case.
 

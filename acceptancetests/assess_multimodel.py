@@ -107,7 +107,7 @@ def hosted_environment(system_client, log_dir, suffix):
 
 def check_services(client):
     token = env_token(client.env.environment)
-    client.set_config('dummy-source', {'token':  token})
+    client.set_config('dummy-source', {'token': token})
     print_now("checking services in " + client.env.environment)
     check_token(client, token)
 

@@ -187,6 +187,13 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertModelMatches(model)
 
+	// Check that the cloud's model count is incremented.
+	cloud, err := s.State.Cloud("dummy")
+	c.Assert(err, jc.ErrorIsNil)
+	refCount, err := state.CloudModelRefCount(st, cloud.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(refCount, gc.Equals, 2)
+
 	// Since the model tag for the State connection is different,
 	// asking for this model through FindEntity returns a not found error.
 	_, err = s.State.FindEntity(modelTag)
@@ -958,7 +965,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndServicesNoOp(c *gc.C) {
 		c.Assert(services, gc.HasLen, expectedServices)
 	}
 
-	// Simulate processing a dying envrionment after an envrionment is set to
+	// Simulate processing a dying environment after an environment is set to
 	// dying, but before the cleanup has removed machines and services.
 	defer state.SetAfterHooks(c, st, func() {
 		assertModel(state.Dying, 1, 1)

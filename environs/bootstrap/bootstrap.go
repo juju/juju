@@ -14,12 +14,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -394,17 +395,19 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 
 	ctx.Verbosef("Starting new instance for initial controller")
 
-	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
-		CloudName:            args.Cloud.Name,
-		CloudRegion:          args.CloudRegion,
-		ControllerConfig:     args.ControllerConfig,
-		ModelConstraints:     args.ModelConstraints,
-		BootstrapConstraints: bootstrapConstraints,
-		BootstrapSeries:      args.BootstrapSeries,
-		Placement:            args.Placement,
-		AvailableTools:       availableTools,
-		ImageMetadata:        imageMetadata,
-	})
+	result, err := environ.Bootstrap(ctx,
+		context.NewCloudCallContext(),
+		environs.BootstrapParams{
+			CloudName:            args.Cloud.Name,
+			CloudRegion:          args.CloudRegion,
+			ControllerConfig:     args.ControllerConfig,
+			ModelConstraints:     args.ModelConstraints,
+			BootstrapConstraints: bootstrapConstraints,
+			BootstrapSeries:      args.BootstrapSeries,
+			Placement:            args.Placement,
+			AvailableTools:       availableTools,
+			ImageMetadata:        imageMetadata,
+		})
 	if err != nil {
 		return err
 	}
@@ -499,8 +502,8 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.StateServingInfo = params.StateServingInfo{
 		StatePort:    controllerCfg.StatePort(),
 		APIPort:      controllerCfg.APIPort(),
-		Cert:         string(cert),
-		PrivateKey:   string(key),
+		Cert:         cert,
+		PrivateKey:   key,
 		CAPrivateKey: args.CAPrivateKey,
 	}
 	if _, ok := cfg.AgentVersion(); !ok {

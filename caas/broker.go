@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
@@ -57,7 +58,7 @@ type Broker interface {
 	Provider() ContainerEnvironProvider
 
 	// Destroy terminates all containers and other resources in this broker's namespace.
-	Destroy() error
+	Destroy(context.ProviderCallContext) error
 
 	// EnsureNamespace ensures this broker's namespace is created.
 	EnsureNamespace() error
@@ -116,6 +117,9 @@ type Unit struct {
 
 // OperatorConfig is the config to use when creating an operator.
 type OperatorConfig struct {
+	// OperatorImagePath is the docker registry URL for the image.
+	OperatorImagePath string
+
 	// AgentConf is the contents of the agent.conf file.
 	AgentConf []byte
 }

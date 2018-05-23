@@ -14,12 +14,13 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/collections/set"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -51,6 +52,8 @@ func syncToolsHelpText() string {
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
+	jujuclienttesting.SetupMinimalFileStore(c)
+
 	// The test array structure needs to be inline here as some of the
 	// expected values below use deployHelpText().  This constructs the deploy
 	// command and runs gets the help for it.  When the deploy command is
@@ -498,6 +501,7 @@ var commandNames = []string{
 	"remove-cloud",
 	"remove-consumed-application",
 	"remove-credential",
+	"remove-k8s",
 	"remove-machine",
 	"remove-offer",
 	"remove-relation",

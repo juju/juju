@@ -68,12 +68,14 @@ func (st *State) precheckInstance(
 	if prechecker == nil {
 		return errors.New("policy returned nil prechecker without an error")
 	}
-	return prechecker.PrecheckInstance(environs.PrecheckInstanceParams{
-		Series:            series,
-		Constraints:       cons,
-		Placement:         placement,
-		VolumeAttachments: volumeAttachments,
-	})
+	return prechecker.PrecheckInstance(
+		CallContext(st),
+		environs.PrecheckInstanceParams{
+			Series:            series,
+			Constraints:       cons,
+			Placement:         placement,
+			VolumeAttachments: volumeAttachments,
+		})
 }
 
 func (st *State) constraintsValidator() (constraints.Validator, error) {

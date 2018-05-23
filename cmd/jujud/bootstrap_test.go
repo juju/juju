@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -840,17 +841,19 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.PrepareForBootstrap(nullContext())
 	c.Assert(err, jc.ErrorIsNil)
+
+	callCtx := context.NewCloudCallContext()
 	s.AddCleanup(func(c *gc.C) {
-		err := env.DestroyController(controllerCfg.ControllerUUID())
+		err := env.DestroyController(callCtx, controllerCfg.ControllerUUID())
 		c.Assert(err, jc.ErrorIsNil)
 	})
 
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	envtesting.MustUploadFakeTools(s.toolsStorage, cfg.AgentStream(), cfg.AgentStream())
-	inst, _, _, err := jujutesting.StartInstance(env, testing.FakeControllerConfig().ControllerUUID(), "0")
+	inst, _, _, err := jujutesting.StartInstance(env, callCtx, testing.FakeControllerConfig().ControllerUUID(), "0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	addresses, err := inst.Addresses()
+	addresses, err := inst.Addresses(callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	addr, _ := network.SelectPublicAddress(addresses)
 	s.bootstrapName = addr.Value

@@ -6,8 +6,8 @@ package migrationtarget
 import (
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -25,34 +26,36 @@ import (
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
-	state      *state.State
-	pool       *state.StatePool
-	authorizer facade.Authorizer
-	resources  facade.Resources
-	presence   facade.Presence
-	getEnviron stateenvirons.NewEnvironFunc
+	state       *state.State
+	pool        *state.StatePool
+	authorizer  facade.Authorizer
+	resources   facade.Resources
+	presence    facade.Presence
+	getEnviron  stateenvirons.NewEnvironFunc
+	callContext context.ProviderCallContext
 }
 
 // NewFacade is used for API registration.
 func NewFacade(ctx facade.Context) (*API, error) {
-	return NewAPI(ctx, stateenvirons.GetNewEnvironFunc(environs.New))
+	return NewAPI(ctx, stateenvirons.GetNewEnvironFunc(environs.New), state.CallContext(ctx.State()))
 }
 
-// NewAPI returns a new API. Accepts a NewEnvironFunc for testing
-// purposes.
-func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc) (*API, error) {
+// NewAPI returns a new API. Accepts a NewEnvironFunc and context.ProviderCallContext
+// for testing purposes.
+func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, callCtx context.ProviderCallContext) (*API, error) {
 	auth := ctx.Auth()
 	st := ctx.State()
 	if err := checkAuth(auth, st); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &API{
-		state:      st,
-		pool:       ctx.StatePool(),
-		authorizer: auth,
-		resources:  ctx.Resources(),
-		presence:   ctx.Presence(),
-		getEnviron: getEnviron,
+		state:       st,
+		pool:        ctx.StatePool(),
+		authorizer:  auth,
+		resources:   ctx.Resources(),
+		presence:    ctx.Presence(),
+		getEnviron:  getEnviron,
+		callContext: callCtx,
 	}, nil
 }
 
@@ -226,7 +229,7 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(env.AdoptResources(st.ControllerUUID(), args.SourceControllerVersion))
+	return errors.Trace(env.AdoptResources(api.callContext, st.ControllerUUID(), args.SourceControllerVersion))
 }
 
 // CheckMachines compares the machines in state with the ones reported
@@ -271,7 +274,8 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	instances, err := env.AllInstances()
+
+	instances, err := env.AllInstances(api.callContext)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}

@@ -146,7 +146,7 @@ type ServerConfig struct {
 	// "/introspection" prefix.
 	RegisterIntrospectionHandlers func(func(string, http.Handler))
 
-	// RateLimitConfig holds paramaters to control
+	// RateLimitConfig holds parameters to control
 	// aspects of rate limiting connections and logins.
 	RateLimitConfig RateLimitConfig
 
@@ -656,7 +656,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		unauthenticated: true,
 		noModelUUID:     true,
 	}, {
-		// Serve the API at / for backward compatiblity. Note that the
+		// Serve the API at / for backward compatibility. Note that the
 		// pat muxer special-cases / so that it does not serve all
 		// possible endpoints, but only / itself.
 		pattern:         "/",

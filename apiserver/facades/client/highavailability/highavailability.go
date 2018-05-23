@@ -38,9 +38,6 @@ type HighAvailabilityAPI struct {
 	state      *state.State
 	resources  facade.Resources
 	authorizer facade.Authorizer
-
-	// machineID is the ID of the machine where the API server is running.
-	machineID string
 }
 
 var _ HighAvailability = (*HighAvailabilityAPI)(nil)
@@ -51,29 +48,11 @@ func NewHighAvailabilityAPI(st *state.State, resources facade.Resources, authori
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	machineID, err := extractResourceValue(resources, "machineID")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return &HighAvailabilityAPI{
 		state:      st,
 		resources:  resources,
 		authorizer: authorizer,
-		machineID:  machineID,
 	}, nil
-}
-
-func extractResourceValue(resources facade.Resources, key string) (string, error) {
-	res := resources.Get(key)
-	strRes, ok := res.(common.StringResource)
-	if !ok {
-		if res == nil {
-			strRes = ""
-		} else {
-			return "", errors.Errorf("invalid %s resource: %v", key, res)
-		}
-	}
-	return strRes.String(), nil
 }
 
 // EnableHA adds controller machines as necessary to ensure the
@@ -155,7 +134,7 @@ func (api *HighAvailabilityAPI) enableHASingle(st *state.State, spec params.Cont
 	}
 
 	// Might be nicer to pass the spec itself to this method.
-	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, spec.Series, spec.Placement, api.machineID)
+	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, spec.Series, spec.Placement)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}
@@ -205,7 +184,12 @@ func validateCurrentControllers(st *state.State, cfg controller.Config, machineI
 		if err != nil {
 			return errors.Annotatef(err, "reading controller id %v", id)
 		}
-		internal := network.SelectInternalAddresses(controller.Addresses(), false)
+		addresses := controller.Addresses()
+		if len(addresses) == 0 {
+			// machines without any address are essentially not started yet
+			continue
+		}
+		internal := network.SelectInternalAddresses(addresses, false)
 		if len(internal) != 1 {
 			badIds = append(badIds, id)
 		}
@@ -307,7 +291,7 @@ func (api *HighAvailabilityAPI) StopHAReplicationForUpgrade(args params.UpgradeM
 		StorageEngine: mongo.StorageEngine(args.Target.StorageEngine),
 	})
 	if err != nil {
-		return params.MongoUpgradeResults{}, errors.Annotate(err, "cannot stop HA for ugprade")
+		return params.MongoUpgradeResults{}, errors.Annotate(err, "cannot stop HA for upgrade")
 	}
 	members := make([]params.HAMember, len(ha.Members))
 	for i, m := range ha.Members {

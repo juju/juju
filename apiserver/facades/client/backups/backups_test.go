@@ -26,7 +26,7 @@ type backupsSuite struct {
 	testing.JujuConnSuite
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
-	api        *backupsAPI.API
+	api        *backupsAPI.APIv2
 	meta       *backups.Metadata
 	machineTag names.MachineTag
 }
@@ -57,14 +57,15 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 
 	tag := names.NewLocalUserTag("admin")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
-	s.api, err = backupsAPI.NewAPI(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
+	s.api, err = backupsAPI.NewAPIv2(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.meta = backupstesting.NewMetadataStarted()
 }
 
 func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *backupstesting.FakeBackups {
 	fake := backupstesting.FakeBackups{
-		Meta: meta,
+		Meta:     meta,
+		Filename: "test-filename",
 	}
 	if meta != nil {
 		fake.MetaList = append(fake.MetaList, meta)
@@ -81,14 +82,13 @@ func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *
 }
 
 func (s *backupsSuite) TestNewAPIOkay(c *gc.C) {
-	_, err := backupsAPI.NewAPI(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
+	_, err := backupsAPI.NewAPIv2(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
 	s.authorizer.Tag = names.NewApplicationTag("eggs")
-	_, err := backupsAPI.NewAPI(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
-
+	_, err := backupsAPI.NewAPIv2(&stateShim{s.State, s.IAASModel.Model}, s.resources, s.authorizer)
 	c.Check(errors.Cause(err), gc.Equals, common.ErrPerm)
 }
 
@@ -97,6 +97,6 @@ func (s *backupsSuite) TestNewAPIHostedEnvironmentFails(c *gc.C) {
 	defer otherState.Close()
 	otherModel, err := otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = backupsAPI.NewAPI(&stateShim{otherState, otherModel}, s.resources, s.authorizer)
+	_, err = backupsAPI.NewAPIv2(&stateShim{otherState, otherModel}, s.resources, s.authorizer)
 	c.Check(err, gc.ErrorMatches, "backups are only supported from the controller model\nUse juju switch to select the controller model")
 }

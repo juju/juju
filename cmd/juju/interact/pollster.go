@@ -15,9 +15,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	"github.com/juju/utils/set"
 	"golang.org/x/crypto/ssh/terminal"
 )
 

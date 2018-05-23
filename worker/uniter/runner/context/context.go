@@ -13,8 +13,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/proxy"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/version"
@@ -306,7 +308,7 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 			return nil, err
 		}
 		ctx.status = &jujuc.StatusInfo{
-			Status: string(status.Status),
+			Status: status.Status,
 			Info:   status.Info,
 			Data:   status.Data,
 		}
@@ -339,7 +341,7 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 	for t, s := range status.Units {
 		us[i] = jujuc.StatusInfo{
 			Tag:    t,
-			Status: string(s.Status),
+			Status: s.Status,
 			Info:   s.Info,
 			Data:   s.Data,
 		}
@@ -348,7 +350,7 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 	return jujuc.ApplicationStatusInfo{
 		Application: jujuc.StatusInfo{
 			Tag:    service.Tag().String(),
-			Status: string(status.Application.Status),
+			Status: status.Application.Status,
 			Info:   status.Application.Info,
 			Data:   status.Application.Data,
 		},
@@ -622,7 +624,13 @@ func (c *HookContext) ActionData() (*ActionData, error) {
 // such that it can know what environment it's operating in, and can call back
 // into context.
 func (context *HookContext) HookVars(paths Paths) ([]string, error) {
-	vars := context.proxySettings.AsEnvironmentValues()
+	var vars []string
+
+	if !featureflag.Enabled(feature.NewProxyOnly) {
+		vars = context.proxySettings.AsEnvironmentValues()
+	}
+	// TODO(thumper): as work on proxies progress, there will be additional
+	// proxy settings to be added.
 	vars = append(vars,
 		"CHARM_DIR="+paths.GetCharmDir(), // legacy, embarrassing
 		"JUJU_CHARM_DIR="+paths.GetCharmDir(),
@@ -637,6 +645,11 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"JUJU_PRINCIPAL_UNIT="+context.principal,
 		"JUJU_AVAILABILITY_ZONE="+context.availabilityzone,
 		"JUJU_VERSION="+version.Current.String(),
+		// Some of these will be empty, but that is fine, better
+		// to explicitly export them as empty.
+		"JUJU_CHARM_HTTP_PROXY="+context.proxySettings.Http,
+		"JUJU_CHARM_HTTPS_PROXY="+context.proxySettings.Https,
+		"JUJU_CHARM_FTP_PROXY="+context.proxySettings.Ftp,
 	)
 	if context.meterStatus != nil {
 		vars = append(vars,

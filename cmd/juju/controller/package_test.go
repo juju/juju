@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -29,7 +30,7 @@ func (s *baseControllerSuite) SetUpTest(c *gc.C) {
 	s.controllersYaml = testControllersYaml
 	s.modelsYaml = testModelsYaml
 	s.accountsYaml = testAccountsYaml
-	s.store = nil
+	s.store = jujuclienttesting.MinimalStore()
 }
 
 func (s *baseControllerSuite) createTestClientStore(c *gc.C) *jujuclient.MemStore {

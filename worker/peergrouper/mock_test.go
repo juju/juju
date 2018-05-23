@@ -38,6 +38,7 @@ type fakeState struct {
 	statuses         voyeur.Value // of statuses collection
 	controllerConfig voyeur.Value // of controller.Config
 	session          *fakeMongoSession
+	checkMu          sync.Mutex
 	check            func(st *fakeState) error
 }
 
@@ -116,11 +117,25 @@ func NewFakeState() *fakeState {
 	return st
 }
 
+func (st *fakeState) getCheck() func(st *fakeState) error {
+	st.checkMu.Lock()
+	check := st.check
+	st.checkMu.Unlock()
+	return check
+}
+
+func (st *fakeState) setCheck(check func(st *fakeState) error) {
+	st.checkMu.Lock()
+	st.check = check
+	st.checkMu.Unlock()
+}
+
 func (st *fakeState) checkInvariants() {
-	if st.check == nil {
+	check := st.getCheck()
+	if check == nil {
 		return
 	}
-	if err := st.check(st); err != nil {
+	if err := check(st); err != nil {
 		// Force a panic, otherwise we can deadlock
 		// when called from within the worker.
 		go panic(err)
@@ -190,18 +205,18 @@ func (st *fakeState) addMachine(id string, wantsVote bool) *fakeMachine {
 	if st.machines[id] != nil {
 		panic(fmt.Errorf("id %q already used", id))
 	}
+	doc := machineDoc{
+		id:         id,
+		wantsVote:  wantsVote,
+		statusInfo: status.StatusInfo{Status: status.Started},
+		life:       state.Alive,
+	}
 	m := &fakeMachine{
 		errors:  &st.errors,
 		checker: st,
-		doc: machineDoc{
-			id:         id,
-			wantsVote:  wantsVote,
-			statusInfo: status.StatusInfo{Status: status.Started},
-			life:       state.Alive,
-		},
 	}
 	st.machines[id] = m
-	m.val.Set(m.doc)
+	m.val.Set(doc)
 	return m
 }
 
@@ -285,7 +300,6 @@ type fakeMachine struct {
 	mu      sync.Mutex
 	errors  *errorPatterns
 	val     voyeur.Value // of machineDoc
-	doc     machineDoc
 	checker invariantChecker
 }
 
@@ -299,32 +313,36 @@ type machineDoc struct {
 	life       state.Life
 }
 
+func (m *fakeMachine) doc() machineDoc {
+	return m.val.Get().(machineDoc)
+}
+
 func (m *fakeMachine) Refresh() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if err := m.errors.errorFor("Machine.Refresh", m.doc.id); err != nil {
+	doc := m.doc()
+	if err := m.errors.errorFor("Machine.Refresh", doc.id); err != nil {
 		return err
 	}
-	m.doc = m.val.Get().(machineDoc)
 	return nil
 }
 
 func (m *fakeMachine) GoString() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return fmt.Sprintf("&fakeMachine{%#v}", m.doc)
+	return fmt.Sprintf("&fakeMachine{%#v}", m.doc())
 }
 
 func (m *fakeMachine) Id() string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.doc.id
+	return m.doc().id
 }
 
 func (m *fakeMachine) Life() state.Life {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.doc.life
+	return m.doc().life
 }
 
 func (m *fakeMachine) Watch() state.NotifyWatcher {
@@ -336,25 +354,25 @@ func (m *fakeMachine) Watch() state.NotifyWatcher {
 func (m *fakeMachine) WantsVote() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.doc.wantsVote
+	return m.doc().wantsVote
 }
 
 func (m *fakeMachine) HasVote() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.doc.hasVote
+	return m.doc().hasVote
 }
 
 func (m *fakeMachine) Addresses() []network.Address {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.doc.addresses
+	return m.doc().addresses
 }
 
 func (m *fakeMachine) Status() (status.StatusInfo, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.doc.statusInfo, nil
+	return m.doc().statusInfo, nil
 }
 
 func (m *fakeMachine) SetStatus(sInfo status.StatusInfo) error {
@@ -368,10 +386,9 @@ func (m *fakeMachine) SetStatus(sInfo status.StatusInfo) error {
 // the receiver by mutating it with the provided function.
 func (m *fakeMachine) mutate(f func(*machineDoc)) {
 	m.mu.Lock()
-	doc := m.val.Get().(machineDoc)
+	doc := m.doc()
 	f(&doc)
 	m.val.Set(doc)
-	f(&m.doc)
 	m.mu.Unlock()
 	m.checker.checkInvariants()
 }
@@ -384,7 +401,8 @@ func (m *fakeMachine) setAddresses(addrs ...network.Address) {
 
 // SetHasVote implements Machine.SetHasVote.
 func (m *fakeMachine) SetHasVote(hasVote bool) error {
-	if err := m.errors.errorFor("Machine.SetHasVote", m.doc.id, hasVote); err != nil {
+	doc := m.doc()
+	if err := m.errors.errorFor("Machine.SetHasVote", doc.id, hasVote); err != nil {
 		return err
 	}
 	m.mutate(func(doc *machineDoc) {
@@ -476,21 +494,34 @@ func (session *fakeMongoSession) Set(members []replicaset.Member) error {
 }
 
 func (session *fakeMongoSession) StepDownPrimary() error {
-	logger.Debugf("StepDownPrimary")
 	if err := session.errors.errorFor("Session.StepDownPrimary"); err != nil {
+		logger.Debugf("StepDownPrimary error: %v", err)
 		return err
 	}
+	logger.Debugf("StepDownPrimary")
 	status := session.status.Get().(*replicaset.Status)
 	members := session.members.Get().([]replicaset.Member)
+	membersById := make(map[int]replicaset.Member, len(members))
+	for _, member := range members {
+		membersById[member.Id] = member
+	}
 	// We use a simple algorithm, find the primary, and all the secondaries that don't have 0 priority. And then pick a
 	// random secondary and swap their states
 	primaryIndex := -1
 	secondaryIndexes := []int{}
-	for i, member := range status.Members {
-		if member.State == replicaset.PrimaryState {
+	var info []string
+	for i, statusMember := range status.Members {
+		if statusMember.State == replicaset.PrimaryState {
 			primaryIndex = i
-		} else if member.State == replicaset.SecondaryState && (members[i].Priority == nil || *members[i].Priority > 0) {
-			secondaryIndexes = append(secondaryIndexes, i)
+			info = append(info, fmt.Sprintf("%d: current primary", statusMember.Id))
+		} else if statusMember.State == replicaset.SecondaryState {
+			confMember := membersById[statusMember.Id]
+			if confMember.Priority == nil || *confMember.Priority > 0 {
+				secondaryIndexes = append(secondaryIndexes, i)
+				info = append(info, fmt.Sprintf("%d: eligible secondary", statusMember.Id))
+			} else {
+				info = append(info, fmt.Sprintf("%d: ineligible secondary", statusMember.Id))
+			}
 		}
 	}
 	if primaryIndex == -1 {
@@ -502,6 +533,8 @@ func (session *fakeMongoSession) StepDownPrimary() error {
 	secondaryIndex := secondaryIndexes[rand.Intn(len(secondaryIndexes))]
 	status.Members[primaryIndex].State = replicaset.SecondaryState
 	status.Members[secondaryIndex].State = replicaset.PrimaryState
+	logger.Debugf("StepDownPrimary nominated %d to be the new primary from: %v",
+		status.Members[secondaryIndex].Id, info)
 	session.setStatus(status.Members)
 	return nil
 }
@@ -516,7 +549,7 @@ func prettyReplicaSetMembersSlice(members []replicaset.Member) string {
 	vrm := make(map[string]*replicaset.Member, len(members))
 	for i := range members {
 		m := members[i]
-		vrm[strconv.Itoa(i)] = &m
+		vrm[strconv.Itoa(m.Id)] = &m
 	}
 	return prettyReplicaSetMembers(vrm)
 }

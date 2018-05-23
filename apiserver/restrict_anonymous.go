@@ -6,8 +6,8 @@ package apiserver
 import (
 	"fmt"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 )
 
 // The anonymousFacadeNames are the root names that can be accessed

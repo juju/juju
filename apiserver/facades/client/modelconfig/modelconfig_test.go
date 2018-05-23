@@ -24,7 +24,7 @@ type modelconfigSuite struct {
 	gitjujutesting.IsolationSuite
 	backend    *mockBackend
 	authorizer apiservertesting.FakeAuthorizer
-	api        *modelconfig.ModelConfigAPI
+	api        *modelconfig.ModelConfigAPIV2
 }
 
 var _ = gc.Suite(&modelconfigSuite{})
@@ -216,6 +216,10 @@ type mockBackend struct {
 
 func (m *mockBackend) ModelConfigValues() (config.ConfigValues, error) {
 	return m.cfg, nil
+}
+
+func (m *mockBackend) Sequences() (map[string]int, error) {
+	return nil, nil
 }
 
 func (m *mockBackend) UpdateModelConfig(update map[string]interface{}, remove []string, validate ...state.ValidateConfigFunc) error {

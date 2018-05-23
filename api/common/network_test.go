@@ -1105,7 +1105,7 @@ func (s *NetworkSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *g
 func (s *NetworkSuite) TestGetObservedNetworkConfigAddressNotInCIDRFormat(c *gc.C) {
 	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
 	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
-	// Simluate running on Windows, where net.InterfaceAddrs() returns
+	// Simulate running on Windows, where net.InterfaceAddrs() returns
 	// non-CIDR-formatted addresses.
 	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
 		"eth0": []net.Addr{fakeAddr("10.20.19.42")},

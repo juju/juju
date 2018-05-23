@@ -553,7 +553,7 @@ func validateExistingDevice(netInfo []network.InterfaceInfo, device gomaasapi.De
 			// No such network interface
 			return false, nil
 		}
-		// TODO: we should have a way to know what space we are targetting, rather than a desired subnet CIDR
+		// TODO: we should have a way to know what space we are targeting, rather than a desired subnet CIDR
 		foundCIDR := false
 		for _, link := range actual.Links() {
 			subnet := link.Subnet()

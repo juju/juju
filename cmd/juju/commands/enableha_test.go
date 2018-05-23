@@ -249,10 +249,11 @@ func (s *EnableHASuite) TestEnableHAEndToEnd(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, newEnableHACommand(), "-n", "3")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Machine 0 is demoted because it has not reported its presence.
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
-		"adding machines: 1, 2, 3\n"+
-			"demoting machines: 0\n\n")
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, `
+maintaining machines: 0
+adding machines: 1, 2
+
+`[1:])
 }
 
 func (s *EnableHASuite) TestEnableHAToExisting(c *gc.C) {

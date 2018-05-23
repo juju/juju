@@ -175,7 +175,7 @@ func (c *upgradeMongoCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if err := runViaJujuSSH(migratables.master.ip.Value, buf.String(), &stdout, &stderr); err != nil {
-		return errors.Annotate(err, "migration to mongo 3 unsuccesful, your database is left in the same state.")
+		return errors.Annotate(err, "migration to mongo 3 unsuccessful, your database is left in the same state.")
 	}
 	ts := template.New("")
 	tmpl = template.Must(ts.Parse(jujuSlaveUpgradeScript))

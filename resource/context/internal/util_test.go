@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 
@@ -48,15 +47,6 @@ func (s *UtilSuite) TestCloseAndLog(c *gc.C) {
 
 	s.stub.CheckCallNames(c, "Close", "Errorf")
 	c.Check(logger.logged, gc.Equals, "while closing a thing: <failure>")
-}
-
-func (s *UtilSuite) TestReplaceDirectory(c *gc.C) {
-	deps := s.stub
-
-	err := internal.ReplaceDirectory("target_dir", "source_dir", deps)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c, "RemoveDir", "Move")
 }
 
 type stubLogger struct {

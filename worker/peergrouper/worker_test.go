@@ -17,6 +17,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/voyeur"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 
@@ -98,7 +99,7 @@ func InitState(c *gc.C, st *fakeState, numMachines int, ipVersion TestIPVersion)
 	st.session.Set(mkMembers("0v", ipVersion))
 	st.session.setStatus(mkStatuses("0p", ipVersion))
 	st.machine("10").SetHasVote(true)
-	st.check = checkInvariants
+	st.setCheck(checkInvariants)
 }
 
 // ExpectedAPIHostPorts returns the expected addresses
@@ -489,8 +490,8 @@ func (s *workerSuite) TestControllersArePublishedOverHub(c *gc.C) {
 	expected := apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"10": {ID: "10", Addresses: []string{"0.1.2.10:5678"}, InternalAddress: "0.1.2.10:5678"},
-			"11": {ID: "11", Addresses: []string{"0.1.2.11:5678"}},
-			"12": {ID: "12", Addresses: []string{"0.1.2.12:5678"}},
+			"11": {ID: "11", Addresses: []string{"0.1.2.11:5678"}, InternalAddress: "0.1.2.11:5678"},
+			"12": {ID: "12", Addresses: []string{"0.1.2.12:5678"}, InternalAddress: "0.1.2.12:5678"},
 		},
 		LocalOnly: true,
 	}
@@ -517,7 +518,7 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 	st.setControllers(ids...)
 	st.session.Set(mkMembers("0v 1 2", testIPv4))
 	st.session.setStatus(mkStatuses("0p 1s 2s", testIPv4))
-	st.check = checkInvariants
+	st.setCheck(checkInvariants)
 
 	hub := pubsub.NewStructuredHub(nil)
 	event := make(chan apiserver.Details)
@@ -844,7 +845,7 @@ func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *gc.C, ipVersi
 
 func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *voyeur.Watcher) {
 	st := NewFakeState()
-	InitState(c, st, 3, testIPv4)
+	InitState(c, st, 1, testIPv4)
 	st.machine("10").SetHasVote(true)
 	st.session.setStatus(mkStatuses("0p", testIPv4))
 
@@ -861,8 +862,17 @@ func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *vo
 	memberWatcher := st.session.members.Watch()
 	mustNext(c, memberWatcher, "init")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v", testIPv4))
+	// Now that 1 has come up successfully, bring in the next 2
+	for i := 11; i < 13; i++ {
+		id := fmt.Sprint(i)
+		m := st.addMachine(id, true)
+		m.setAddresses(network.NewAddress(fmt.Sprintf(testIPv4.formatHost, i)))
+		c.Check(m.Addresses(), gc.HasLen, 1)
+	}
+	// Now that we've added 2 more, flag them as started and mark them as participating
 	st.session.setStatus(mkStatuses("0p 1 2", testIPv4))
-	mustNext(c, memberWatcher, "initial members")
+	st.setControllers("10", "11", "12")
+	mustNext(c, memberWatcher, "nonvoting members")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", testIPv4))
 	// Changes to the replicaset status are discovered via polling mongo, so advance the clock so we'll check again
 	// we might be racing with a configChanged which can *just* miss the setStatus here.
@@ -930,6 +940,42 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	} else {
 		assertMembers(c, memberWatcher.Value(), mkMembers("0 1 2v", testIPv4))
 	}
+	// Now we ask the primary to step down again, and we should first reconfigure the group to include
+	// the other secondary. We first unset the invariant checker, because we are intentionally going to an even number
+	// of voters, but this is not the normal condition
+	st.setCheck(nil)
+	if primaryMemberIndex == 1 {
+		st.machine("11").setWantsVote(false)
+	} else {
+		st.machine("12").setWantsVote(false)
+	}
+	// member watcher must fire first
+	mustNext(c, memberWatcher, "observing member step down")
+	assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v", testIPv4))
+	// as part of stepping down the only primary, we re-enable the vote for the other secondary, and then can call
+	// StepDownPrimary and then can remove its vote.
+	// now we timeout so that the system will notice we really do still want to step down the primary, and ask
+	// for it to revote.
+	c.Assert(s.clock.WaitAdvance(2*pollInterval, coretesting.ShortWait, 2), jc.ErrorIsNil)
+	status = mustNextStatus(c, statusWatcher, "stepping down new primary")
+	if primaryMemberIndex == 1 {
+		// 11 was the primary, now 12 is
+		c.Check(status.Members[1].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
+		c.Check(status.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
+	} else {
+		c.Check(status.Members[1].State, gc.Equals, replicaset.MemberState(replicaset.PrimaryState))
+		c.Check(status.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
+	}
+	// and then we again notice that the primary has been rescheduled and changed the member votes again
+	c.Assert(s.clock.WaitAdvance(2*pollInterval, coretesting.ShortWait, 1), jc.ErrorIsNil)
+	mustNext(c, memberWatcher, "reevaluting member post-step-down")
+	if primaryMemberIndex == 1 {
+		// primary was 11, now it is 12 as the only voter
+		assertMembers(c, memberWatcher.Value(), mkMembers("0 1 2v", testIPv4))
+	} else {
+		// primary was 12, now it is 11 as the only voter
+		assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2", testIPv4))
+	}
 }
 
 // mustNext waits for w's value to be set and returns it.
@@ -974,7 +1020,7 @@ func mustNextStatus(c *gc.C, w *voyeur.Watcher, context string) *replicaset.Stat
 			val := w.Value()
 			result.val = val.(*replicaset.Status)
 		}
-		c.Logf("mustNextStatus %v done, ok: %v, val: %v", context, result.ok, result.val)
+		c.Logf("mustNextStatus %v done, ok: %v, val: %v", context, result.ok, pretty.Sprint(result.val))
 		done <- result
 	}()
 	select {

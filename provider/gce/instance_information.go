@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 )
 
@@ -18,7 +19,7 @@ var _ environs.InstanceTypesFetcher = (*environ)(nil)
 var virtType = "kvm"
 
 // InstanceTypes implements InstanceTypesFetcher
-func (env *environ) InstanceTypes(c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	reg, err := env.Region()
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)

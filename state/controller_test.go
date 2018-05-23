@@ -4,9 +4,9 @@
 package state_test
 
 import (
+	"github.com/juju/collections/set"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
@@ -36,6 +36,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.JujuHASpace,
 		controller.JujuManagementSpace,
 		controller.AuditLogExcludeMethods,
+		controller.CAASOperatorImagePath,
 		controller.Features,
 	)
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {

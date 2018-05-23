@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -26,6 +27,8 @@ type networkedEnviron struct {
 	spaceDiscovery bool
 	spaces         []network.SpaceInfo
 	subnets        []network.SubnetInfo
+
+	callCtxUsed context.ProviderCallContext
 }
 
 type SpacesDiscoverySuite struct {
@@ -201,17 +204,20 @@ func checkSpacesEqual(c *gc.C, spaces []*state.Space, spaceInfos []network.Space
 	}
 }
 
-func (e *networkedEnviron) Subnets(inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	e.stub.AddCall("Subnets", inst, subnetIds)
+func (e *networkedEnviron) Subnets(ctx context.ProviderCallContext, inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	e.stub.AddCall("Subnets", ctx, inst, subnetIds)
+	e.callCtxUsed = ctx
 	return e.subnets, e.stub.NextErr()
 }
-func (e *networkedEnviron) Spaces() ([]network.SpaceInfo, error) {
-	e.stub.AddCall("Spaces")
+func (e *networkedEnviron) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
+	e.stub.AddCall("Spaces", ctx)
+	e.callCtxUsed = ctx
 	return e.spaces, e.stub.NextErr()
 }
 
-func (e *networkedEnviron) SupportsSpaceDiscovery() (bool, error) {
-	e.stub.AddCall("SupportsSpaceDiscovery")
+func (e *networkedEnviron) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error) {
+	e.stub.AddCall("SupportsSpaceDiscovery", ctx)
+	e.callCtxUsed = ctx
 	return e.spaceDiscovery, e.stub.NextErr()
 }
 
@@ -240,7 +246,7 @@ func (s *SpacesDiscoverySuite) TestReloadSpacesSubnetsOnly(c *gc.C) {
 	err := s.State.ReloadSpaces(s.usedEnviron)
 	c.Check(err, jc.ErrorIsNil)
 	s.environ.stub.CheckCallNames(c, "SupportsSpaceDiscovery", "Subnets")
-	s.environ.stub.CheckCall(c, 1, "Subnets", instance.UnknownId, []network.Id{})
+	s.environ.stub.CheckCall(c, 1, "Subnets", s.environ.callCtxUsed, instance.UnknownId, []network.Id{})
 
 	subnets, err := s.State.AllSubnets()
 	c.Assert(err, jc.ErrorIsNil)
@@ -256,7 +262,7 @@ func (s *SpacesDiscoverySuite) TestReloadSpacesSubnetsOnlySubnetsBroken(c *gc.C)
 	err := s.State.ReloadSpaces(s.usedEnviron)
 	c.Check(err, gc.ErrorMatches, "Subnets is broken")
 	s.environ.stub.CheckCallNames(c, "SupportsSpaceDiscovery", "Subnets")
-	s.environ.stub.CheckCall(c, 1, "Subnets", instance.UnknownId, []network.Id{})
+	s.environ.stub.CheckCall(c, 1, "Subnets", s.environ.callCtxUsed, instance.UnknownId, []network.Id{})
 }
 
 // TODO(wpk) 2017-05-24 this test will have to be rewritten when we support removing spaces/subnets in discovery.

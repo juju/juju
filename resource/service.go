@@ -23,7 +23,7 @@ type ServiceResources struct {
 	// in the Resources field.
 	CharmStoreResources []resource.Resource
 
-	// UnitResources reports the currenly-in-use version of resources for each
+	// UnitResources reports the currently-in-use version of resources for each
 	// unit.
 	UnitResources []UnitResources
 }

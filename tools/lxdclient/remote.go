@@ -1,13 +1,13 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxdclient
 
 import (
 	"github.com/juju/errors"
 	lxdshared "github.com/lxc/lxd/shared"
+
+	"github.com/juju/juju/container/lxd"
 )
 
 const (
@@ -36,31 +36,10 @@ const (
 	SimplestreamsProtocol Protocol = "simplestreams"
 )
 
-/* The "releases" stream for images. This consists of blessed releases by the
- * Canonical team.
- */
-var CloudImagesRemote = Remote{
-	Name:          "cloud-images.ubuntu.com",
-	Host:          "https://cloud-images.ubuntu.com/releases",
-	Protocol:      SimplestreamsProtocol,
-	Cert:          nil,
-	ServerPEMCert: "",
+var generateCertificate = func() ([]byte, []byte, error) {
+	b1, b2, err := lxdshared.GenerateMemCert(true)
+	return b1, b2, errors.Trace(err)
 }
-
-/* The "daily" stream. This consists of images that are built from the daily
- * package builds. These images have not been independently tested, but in
- * theory "should" be good, since they're build from packages from the released
- * archive.
- */
-var CloudImagesDailyRemote = Remote{
-	Name:          "cloud-images.ubuntu.com",
-	Host:          "https://cloud-images.ubuntu.com/daily",
-	Protocol:      SimplestreamsProtocol,
-	Cert:          nil,
-	ServerPEMCert: "",
-}
-
-var generateCertificate = func() ([]byte, []byte, error) { return lxdshared.GenerateMemCert(true) }
 
 // Remote describes a LXD "remote" server for a client. In
 // particular it holds the information needed for the client
@@ -80,7 +59,7 @@ type Remote struct {
 	Protocol Protocol
 
 	// Cert holds the TLS certificate data for the client to use.
-	Cert *Cert
+	Cert *lxd.Certificate
 
 	// ServerPEMCert is the certificate to be supplied as the acceptable
 	// server certificate when connecting to the remote.
@@ -117,19 +96,13 @@ func (r Remote) WithDefaults() (Remote, error) {
 	}
 
 	if r.Cert == nil {
-		certPEM, keyPEM, err := generateCertificate()
+		cert, err := lxd.GenerateClientCertificate()
 		if err != nil {
 			return r, errors.Trace(err)
 		}
-		cert := NewCert(certPEM, keyPEM)
-		r.Cert = &cert
+		cert.Name = "juju-client-certificate"
+		r.Cert = cert
 	}
-
-	cert, err := r.Cert.WithDefaults()
-	if err != nil {
-		return r, errors.Trace(err)
-	}
-	r.Cert = &cert
 
 	return r, nil
 }

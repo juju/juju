@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -918,7 +918,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	setProvisioned("3")
 
 	// Add a few controllers, provision two of them.
-	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "")
+	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")
@@ -1043,7 +1043,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	setProvisioned("3")
 
 	// Add a few controllers, provision two of them.
-	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", nil, "")
+	_, err = s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")

@@ -10,12 +10,19 @@ import (
 )
 
 // Create sends a request to create a backup of juju's state.  It
-// returns the metadata associated with the resulting backup.
-func (c *Client) Create(notes string) (*params.BackupsMetadataResult, error) {
+// returns the metadata associated with the resulting backup and a
+// filename for download.
+func (c *Client) Create(notes string, keepCopy, noDownload bool) (*params.BackupsMetadataResult, error) {
 	var result params.BackupsMetadataResult
-	args := params.BackupsCreateArgs{Notes: notes}
+	args := params.BackupsCreateArgs{
+		Notes:      notes,
+		KeepCopy:   keepCopy,
+		NoDownload: noDownload,
+	}
+
 	if err := c.facade.FacadeCall("Create", args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return &result, nil
 }

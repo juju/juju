@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/jujutest"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -86,6 +87,8 @@ type suite struct {
 	testing.BaseSuite
 	gitjujutesting.MgoSuite
 	jujutest.Tests
+
+	callCtx context.ProviderCallContext
 }
 
 func (s *suite) SetUpSuite(c *gc.C) {
@@ -104,6 +107,7 @@ func (s *suite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
 	s.PatchValue(&dummy.LogDir, c.MkDir())
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func (s *suite) TearDownTest(c *gc.C) {
@@ -147,11 +151,11 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 func (s *suite) TestAvailabilityZone(c *gc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
-		err := e.Destroy()
+		err := e.Destroy(s.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, hwc := jujutesting.AssertStartInstance(c, e, s.ControllerUUID, "0")
+	inst, hwc := jujutesting.AssertStartInstance(c, e, s.callCtx, s.ControllerUUID, "0")
 	c.Assert(inst, gc.NotNil)
 	c.Check(hwc.AvailabilityZone, gc.NotNil)
 }
@@ -159,26 +163,26 @@ func (s *suite) TestAvailabilityZone(c *gc.C) {
 func (s *suite) TestSupportsSpaces(c *gc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
-		err := e.Destroy()
+		err := e.Destroy(s.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
 	// Without change spaces are supported.
-	ok, err := e.SupportsSpaces()
+	ok, err := e.SupportsSpaces(s.callCtx)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now turn it off.
 	isEnabled := dummy.SetSupportsSpaces(false)
 	c.Assert(isEnabled, jc.IsTrue)
-	ok, err = e.SupportsSpaces()
+	ok, err = e.SupportsSpaces(s.callCtx)
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 
 	// And finally turn it on again.
 	isEnabled = dummy.SetSupportsSpaces(true)
 	c.Assert(isEnabled, jc.IsFalse)
-	ok, err = e.SupportsSpaces()
+	ok, err = e.SupportsSpaces(s.callCtx)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -186,26 +190,26 @@ func (s *suite) TestSupportsSpaces(c *gc.C) {
 func (s *suite) TestSupportsSpaceDiscovery(c *gc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
-		err := e.Destroy()
+		err := e.Destroy(s.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
 	// Without change space discovery is not supported.
-	ok, err := e.SupportsSpaceDiscovery()
+	ok, err := e.SupportsSpaceDiscovery(s.callCtx)
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now turn it on.
 	isEnabled := dummy.SetSupportsSpaceDiscovery(true)
 	c.Assert(isEnabled, jc.IsFalse)
-	ok, err = e.SupportsSpaceDiscovery()
+	ok, err = e.SupportsSpaceDiscovery(s.callCtx)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// And finally turn it off again.
 	isEnabled = dummy.SetSupportsSpaceDiscovery(false)
 	c.Assert(isEnabled, jc.IsTrue)
-	ok, err = e.SupportsSpaceDiscovery()
+	ok, err = e.SupportsSpaceDiscovery(s.callCtx)
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -223,7 +227,7 @@ func (s *suite) breakMethods(c *gc.C, e environs.NetworkingEnviron, names ...str
 func (s *suite) TestNetworkInterfaces(c *gc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
-		err := e.Destroy()
+		err := e.Destroy(s.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
@@ -276,14 +280,14 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		DNSServers:       network.NewAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   network.NewAddress("0.30.0.1"),
 	}}
-	info, err := e.NetworkInterfaces("i-42")
+	info, err := e.NetworkInterfaces(s.callCtx, "i-42")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expectInfo)
 	assertInterfaces(c, e, opc, "i-42", expectInfo)
 
 	// Test we can induce errors.
 	s.breakMethods(c, e, "NetworkInterfaces")
-	info, err = e.NetworkInterfaces("i-any")
+	info, err = e.NetworkInterfaces(s.callCtx, "i-any")
 	c.Assert(err, gc.ErrorMatches, `dummy\.NetworkInterfaces is broken`)
 	c.Assert(info, gc.HasLen, 0)
 }
@@ -291,7 +295,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 func (s *suite) TestSubnets(c *gc.C) {
 	e := s.bootstrapTestEnviron(c)
 	defer func() {
-		err := e.Destroy()
+		err := e.Destroy(s.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
@@ -308,28 +312,28 @@ func (s *suite) TestSubnets(c *gc.C) {
 	}}
 
 	ids := []network.Id{"dummy-private", "dummy-public", "foo-bar"}
-	netInfo, err := e.Subnets("i-foo", ids)
+	netInfo, err := e.Subnets(s.callCtx, "i-foo", ids)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(netInfo, jc.DeepEquals, expectInfo)
 	assertSubnets(c, e, opc, "i-foo", ids, expectInfo)
 
 	// Test filtering by id(s).
-	netInfo, err = e.Subnets("i-foo", nil)
+	netInfo, err = e.Subnets(s.callCtx, "i-foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(netInfo, jc.DeepEquals, expectInfo)
 	assertSubnets(c, e, opc, "i-foo", nil, expectInfo)
-	netInfo, err = e.Subnets("i-foo", ids[0:1])
+	netInfo, err = e.Subnets(s.callCtx, "i-foo", ids[0:1])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(netInfo, jc.DeepEquals, expectInfo[0:1])
 	assertSubnets(c, e, opc, "i-foo", ids[0:1], expectInfo[0:1])
-	netInfo, err = e.Subnets("i-foo", ids[1:])
+	netInfo, err = e.Subnets(s.callCtx, "i-foo", ids[1:])
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(netInfo, jc.DeepEquals, expectInfo[1:])
 	assertSubnets(c, e, opc, "i-foo", ids[1:], expectInfo[1:])
 
 	// Test we can induce errors.
 	s.breakMethods(c, e, "Subnets")
-	netInfo, err = e.Subnets("i-any", nil)
+	netInfo, err = e.Subnets(s.callCtx, "i-any", nil)
 	c.Assert(err, gc.ErrorMatches, `dummy\.Subnets is broken`)
 	c.Assert(netInfo, gc.HasLen, 0)
 }

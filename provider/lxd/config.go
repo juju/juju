@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
@@ -62,7 +60,7 @@ func newValidConfig(cfg *config.Config) (*environConfig, error) {
 func (c *environConfig) validate() error {
 	_, err := c.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// There are currently no known extra fields for LXD
 	return nil

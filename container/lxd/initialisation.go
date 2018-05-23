@@ -6,7 +6,7 @@
 package lxd
 
 import (
-	"github.com/juju/utils/proxy"
+	"github.com/juju/proxy"
 
 	"github.com/juju/juju/container"
 )
@@ -31,4 +31,9 @@ func (ci *containerInitialiser) Initialise() error {
 // ConfigureLXDProxies - on anything but Linux this is a NOP
 func ConfigureLXDProxies(proxies proxy.Settings) error {
 	return nil
+}
+
+// NewLocalServer returns a nil Server.
+func NewLocalServer() (*Server, error) {
+	return nil, nil
 }

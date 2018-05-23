@@ -40,7 +40,7 @@ func runAsLibvirt(command string, args ...string) (string, error) {
 }
 
 // getUserUIDGID returns integervals for uid and gid for the user. It returns
-// -1 when there's an error so no one accidently thinks 0 is the appropriate
+// -1 when there's an error so no one accidentally thinks 0 is the appropriate
 // uid/gid when there's an error.
 func getUserUIDGID(name string) (int, int, error) {
 	u, err := user.Lookup(libvirtUser)

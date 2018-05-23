@@ -13,10 +13,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/names.v2"
 
@@ -31,6 +31,7 @@ import (
 // and DebugHooksCommand.
 type SSHCommon struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	proxy           bool
 	noHostKeyChecks bool
 	Target          string
@@ -248,7 +249,7 @@ func (c *SSHCommon) generateKnownHosts(targets []*resolvedTarget) (string, error
 // configuration are false -- otherwise it returns true.
 func (c *SSHCommon) proxySSH() (bool, error) {
 	if c.proxy {
-		// No need to check the API if user explictly requested
+		// No need to check the API if user explicitly requested
 		// proxying.
 		return true, nil
 	}

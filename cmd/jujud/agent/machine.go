@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -22,7 +23,6 @@ import (
 	utilscert "github.com/juju/utils/cert"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
@@ -524,7 +524,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			if err != nil {
 				return false, errors.Annotate(err, "getting environ from state")
 			}
-			return environs.SupportsSpaces(env), nil
+			return environs.SupportsSpaces(state.CallContext(st), env), nil
 		}
 
 		manifolds := machineManifolds(machine.ManifoldsConfig{
@@ -1031,19 +1031,15 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	if err != nil {
 		return err
 	}
-	if err := cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
+	var mongodVersion mongo.Version
+	if mongodVersion, err = cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
 		return err
 	}
 	logger.Debugf("mongodb service is installed")
 
 	// Mongo is installed, record the version.
 	err = a.ChangeConfig(func(config agent.ConfigSetter) error {
-		finder := mongo.NewMongodFinder()
-		_, version, err := finder.FindBest()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		config.SetMongoVersion(version)
+		config.SetMongoVersion(mongodVersion)
 		return nil
 	})
 	if err != nil {

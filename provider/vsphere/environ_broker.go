@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -60,21 +61,21 @@ func vmdkDirectoryName(controllerUUID string) string {
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.
-func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
+func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
 	return nil
 }
 
 // StartInstance implements environs.InstanceBroker.
-func (env *environ) StartInstance(args environs.StartInstanceParams) (result *environs.StartInstanceResult, err error) {
+func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (result *environs.StartInstanceResult, err error) {
 	err = env.withSession(func(env *sessionEnviron) error {
-		result, err = env.StartInstance(args)
+		result, err = env.StartInstance(ctx, args)
 		return err
 	})
 	return result, err
 }
 
 // StartInstance implements environs.InstanceBroker.
-func (env *sessionEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (env *sessionEnviron) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	img, err := findImageMetadata(env, args)
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
@@ -83,7 +84,7 @@ func (env *sessionEnviron) StartInstance(args environs.StartInstanceParams) (*en
 		return nil, common.ZoneIndependentError(err)
 	}
 
-	vm, hw, err := env.newRawInstance(args, img)
+	vm, hw, err := env.newRawInstance(ctx, args, img)
 	if err != nil {
 		args.StatusCallback(status.ProvisioningError, fmt.Sprint(err), nil)
 		return nil, errors.Trace(err)
@@ -119,6 +120,7 @@ func (env *sessionEnviron) finishMachineConfig(args environs.StartInstanceParams
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *sessionEnviron) newRawInstance(
+	ctx context.ProviderCallContext,
 	args environs.StartInstanceParams,
 	img *OvaFileMetadata,
 ) (_ *mo.VirtualMachine, _ *instance.HardwareCharacteristics, err error) {
@@ -229,7 +231,7 @@ func (env *sessionEnviron) newRawInstance(
 
 	// Attempt to create a VM in each of the AZs in turn.
 	logger.Debugf("attempting to create VM in availability zone %s", args.AvailabilityZone)
-	availZone, err := env.availZone(args.AvailabilityZone)
+	availZone, err := env.availZone(ctx, args.AvailabilityZone)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -251,16 +253,16 @@ func (env *sessionEnviron) newRawInstance(
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *environ) AllInstances() (instances []instance.Instance, err error) {
+func (env *environ) AllInstances(ctx context.ProviderCallContext) (instances []instance.Instance, err error) {
 	err = env.withSession(func(env *sessionEnviron) error {
-		instances, err = env.AllInstances()
+		instances, err = env.AllInstances(ctx)
 		return err
 	})
 	return instances, err
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *sessionEnviron) AllInstances() ([]instance.Instance, error) {
+func (env *sessionEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
 	modelFolderPath := path.Join(
 		controllerFolderName("*"),
 		env.modelFolderName(),
@@ -280,14 +282,14 @@ func (env *sessionEnviron) AllInstances() ([]instance.Instance, error) {
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *environ) StopInstances(ids ...instance.Id) error {
+func (env *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	return env.withSession(func(env *sessionEnviron) error {
-		return env.StopInstances(ids...)
+		return env.StopInstances(ctx, ids...)
 	})
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *sessionEnviron) StopInstances(ids ...instance.Id) error {
+func (env *sessionEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	modelFolderPath := path.Join(
 		controllerFolderName("*"),
 		env.modelFolderName(),

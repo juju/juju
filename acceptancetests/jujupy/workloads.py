@@ -15,7 +15,11 @@
 
 from __future__ import print_function
 
-from urllib2 import urlopen
+try:
+    from urllib2 import urlopen
+except ImportError:
+    from urllib.request import urlopen
+
 from jujucharm import local_charm_path
 import logging
 import os
@@ -38,15 +42,20 @@ log = logging.getLogger(__name__)
 
 
 def deploy_mediawiki_with_db(client):
-    client.deploy('cs:mysql')
+    client.deploy('cs:percona-cluster')
     client.wait_for_started()
     client.wait_for_workloads()
+    client.juju('run', ('--unit', 'percona-cluster/0', 'leader-get'))
 
-    client.deploy('cs:mediawiki')
+    # Using local mediawiki charm due to db connect bug.
+    # Once that's fixed we can use from the charmstore.
+    charm_path = local_charm_path(
+        charm='mediawiki', juju_ver=client.version)
+    client.deploy(charm_path)
     client.wait_for_started()
     # mediawiki workload is blocked ('Database needed') until a db
     # relation is successfully made.
-    client.juju('relate', ('mediawiki:db', 'mysql:db'))
+    client.juju('relate', ('mediawiki:db', 'percona-cluster:db'))
     client.wait_for_workloads()
     client.wait_for_started()
     client.juju('expose', 'mediawiki')
@@ -67,7 +76,7 @@ def assert_mediawiki_is_responding(client):
             resp.status_code, resp.reason
         ))
     if '<title>Please set name of wiki</title>' not in resp.content:
-        raise AssertionError('Got unexpected mediawiki page content.')
+        raise AssertionError('Got unexpected mediawiki page content: {}'.format(resp.content))
 
 
 def deploy_simple_server_to_new_model(
@@ -138,4 +147,18 @@ def assert_deployed_charm_is_responding(client, expected_output=None):
 
 
 def get_server_response(ipaddress):
-    return urlopen('http://{}'.format(ipaddress)).read().rstrip()
+    resp = urlopen('http://{}'.format(ipaddress))
+    charset = response_charset(resp)
+    return resp.read().decode(charset).rstrip()
+
+
+def response_charset(resp):
+    try:
+        charset = [
+            h for h in resp.headers['content-type'].split('; ')
+            if h.startswith('charset')][0]
+        charset = charset.split('=')[1]
+    except (IndexError, KeyError):
+        charset = 'utf-8'
+
+    return charset

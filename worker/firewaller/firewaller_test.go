@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -56,6 +57,8 @@ type firewallerBaseSuite struct {
 	remoteRelations      *remoterelations.Client
 	crossmodelFirewaller *crossmodelrelations.Client
 	clock                clock.Clock
+
+	callCtx context.ProviderCallContext
 }
 
 func (s *firewallerBaseSuite) SetUpSuite(c *gc.C) {
@@ -71,6 +74,8 @@ func (s *firewallerBaseSuite) TearDownSuite(c *gc.C) {
 func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 	s.OsEnvSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
+
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func (s *firewallerBaseSuite) TearDownTest(c *gc.C) {
@@ -117,7 +122,7 @@ func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instance.Instance, machi
 	s.BackingState.StartSync()
 	start := time.Now()
 	for {
-		got, err := fwInst.IngressRules(machineId)
+		got, err := fwInst.IngressRules(s.callCtx, machineId)
 		if err != nil {
 			c.Fatal(err)
 			return
@@ -145,7 +150,7 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.Ing
 	s.BackingState.StartSync()
 	start := time.Now()
 	for {
-		got, err := fwEnv.IngressRules()
+		got, err := fwEnv.IngressRules(s.callCtx)
 		if err != nil {
 			c.Fatal(err)
 			return
@@ -178,7 +183,7 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, app *state.Application) (*state.U
 
 // startInstance starts a new instance for the given machine.
 func (s *firewallerBaseSuite) startInstance(c *gc.C, m *state.Machine) instance.Instance {
-	inst, hc := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), m.Id())
+	inst, hc := jujutesting.AssertStartInstance(c, s.Environ, s.callCtx, s.ControllerConfig.ControllerUUID(), m.Id())
 	err := m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	return inst

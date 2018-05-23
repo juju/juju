@@ -2,6 +2,7 @@ package clientconfig
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 
@@ -15,15 +16,26 @@ import (
 
 var logger = loggo.GetLogger("juju.caas.kubernetes.clientconfig")
 
-// K8SClientConfig parses Kubernetes client configuration from the default location or $KUBECONFIG.
-func K8SClientConfig() (*ClientConfig, error) {
-
-	configPath := getKubeConfigPath()
-
-	config, err := clientcmd.LoadFromFile(configPath)
-	if err != nil {
-		return nil, errors.Annotatef(err, "failed to read kubernetes config from '%s'", configPath)
+// NewK8sClientConfig returns a new Kubernetes client, reading the config from the specified reader.
+func NewK8sClientConfig(reader io.Reader) (*ClientConfig, error) {
+	if reader == nil {
+		var err error
+		reader, err = readKubeConfigFile()
+		if err != nil {
+			return nil, errors.Annotate(err, "failed to read Kubernetes config file")
+		}
 	}
+
+	content, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to read Kubernetes config")
+	}
+
+	config, err := parseKubeConfig(content)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to parse Kubernetes config")
+	}
+
 	contexts, err := contextsFromConfig(config)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read contexts from kubernetes config.")
@@ -155,10 +167,44 @@ func credentialsFromConfig(config *clientcmdapi.Config) (map[string]cloud.Creden
 	return rv, nil
 }
 
+// getKubeConfigPath - define kubeconfig file path to use
 func getKubeConfigPath() string {
 	envPath := os.Getenv(clientcmd.RecommendedConfigPathEnvVar)
 	if envPath == "" {
 		return clientcmd.RecommendedHomeFile
 	}
 	return envPath
+}
+
+func readKubeConfigFile() (reader io.Reader, err error) {
+	// Try to read from kubeconfig file.
+	filename := getKubeConfigPath()
+	reader, err = os.Open(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, errors.NotFoundf(filename)
+		}
+		return nil, errors.Trace(errors.Annotatef(err, "failed to read kubernetes config from '%s'", filename))
+	}
+	return reader, nil
+}
+
+func parseKubeConfig(data []byte) (*clientcmdapi.Config, error) {
+
+	config, err := clientcmd.Load(data)
+	if err != nil {
+		return nil, err
+	}
+
+	if config.AuthInfos == nil {
+		config.AuthInfos = map[string]*clientcmdapi.AuthInfo{}
+	}
+	if config.Clusters == nil {
+		config.Clusters = map[string]*clientcmdapi.Cluster{}
+	}
+	if config.Contexts == nil {
+		config.Contexts = map[string]*clientcmdapi.Context{}
+	}
+
+	return config, nil
 }

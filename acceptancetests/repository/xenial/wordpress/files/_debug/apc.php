@@ -243,7 +243,7 @@ if (isset($MYREQUEST['IMG']))
 
     
     if (function_exists("imagefilledarc")) {
-      // exists only if GD 2.0.1 is avaliable
+      // exists only if GD 2.0.1 is available
       imagefilledarc($im, $centerX+1, $centerY+1, $diameter, $diameter, $start, $end, $color1, IMG_ARC_PIE);
       imagefilledarc($im, $centerX, $centerY, $diameter, $diameter, $start, $end, $color2, IMG_ARC_PIE);
       imagefilledarc($im, $centerX, $centerY, $diameter, $diameter, $start, $end, $color1, IMG_ARC_NOFILL|IMG_ARC_EDGED);

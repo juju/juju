@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/juju/version"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -1418,7 +1419,7 @@ func (s *DeployUnitTestSuite) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ..
 	cmd := NewDeployCommandForTest(func() (DeployAPI, error) {
 		return fakeAPI, nil
 	}, nil)
-	cmd.SetClientStore(NewMockStore())
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return cmdtesting.RunCommand(c, cmd, args...)
 }
 
@@ -1447,7 +1448,7 @@ func (s *DeployUnitTestSuite) TestDeployApplicationConfig(c *gc.C) {
 	)
 
 	cmd := NewDeployCommandForTest(func() (DeployAPI, error) { return fakeAPI, nil }, nil)
-	cmd.SetClientStore(NewMockStore())
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, dummyURL.String(),
 		"--config", "foo=bar",
 	)
@@ -1570,7 +1571,7 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 	deployCmd := NewDeployCommandForTest(func() (DeployAPI, error) {
 		return fakeAPI, nil
 	}, nil)
-	deployCmd.SetClientStore(NewMockStore())
+	deployCmd.SetClientStore(jujuclienttesting.MinimalStore())
 	context, err := cmdtesting.RunCommand(c, deployCmd, "cs:bundle/wordpress-simple")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1610,7 +1611,7 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorage(c *gc.C) {
 	)
 
 	cmd := NewDeployCommandForTest(func() (DeployAPI, error) { return fakeAPI, nil }, nil)
-	cmd.SetClientStore(NewMockStore())
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, dummyURL.String(),
 		"--attach-storage", "foo/0",
 		"--attach-storage", "bar/1,baz/2",
@@ -1635,7 +1636,7 @@ func (s *DeployUnitTestSuite) TestDeployAttachStorageNotSupported(c *gc.C) {
 	)
 
 	cmd := NewDeployCommandForTest(func() (DeployAPI, error) { return fakeAPI, nil }, nil)
-	cmd.SetClientStore(NewMockStore())
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, dummyURL.String(), "--attach-storage", "foo/0")
 	c.Assert(err, gc.ErrorMatches, "this juju controller does not support --attach-storage")
 }
@@ -1661,6 +1662,10 @@ func (f *fakeDeployAPI) SetMetricCredentials(service string, credentials []byte)
 func (f *fakeDeployAPI) Close() error {
 	results := f.MethodCall(f, "Close")
 	return jujutesting.TypeAssertError(results[0])
+}
+
+func (f *fakeDeployAPI) Sequences() (map[string]int, error) {
+	return nil, nil
 }
 
 func (f *fakeDeployAPI) ModelGet() (map[string]interface{}, error) {

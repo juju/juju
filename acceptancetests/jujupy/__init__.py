@@ -21,11 +21,11 @@ from jujupy.exceptions import (
     NoProvider,
     SoftDeadlineExceeded,
     TypeNotAccepted,
-    )
+)
 from jujupy.backend import (
     JUJU_DEV_FEATURE_FLAGS,
     JujuBackend,
-    )
+)
 from jujupy.client import (
     client_from_config,
     client_for_existing,
@@ -39,28 +39,29 @@ from jujupy.client import (
     LXD_MACHINE,
     Machine,
     ModelClient,
+    CaasClient,
     parse_new_state_server_from_error,
     temp_bootstrap_env,
-    )
+)
 from jujupy.configuration import (
     get_juju_data,
     get_juju_home,
     NoSuchEnvironment,
-    )
+)
 from jujupy.fake import (
     FakeBackend,
     FakeControllerState,
     fake_juju_client,
-    )
+)
 from jujupy.status import (
     Status,
-    )
+)
 from jujupy.utility import (
     get_timeout_prefix,
-    )
+)
 from jujupy.wait_condition import (
     ConditionList,
-    )
+)
 
 __all__ = [
     'AgentsNotStarted',
@@ -87,6 +88,7 @@ __all__ = [
     'LXD_MACHINE',
     'Machine',
     'ModelClient',
+    'CaasClient',
     'NameNotAccepted',
     'NoProvider',
     'NoSuchEnvironment',
@@ -95,4 +97,4 @@ __all__ = [
     'Status',
     'temp_bootstrap_env',
     'TypeNotAccepted',
-    ]
+]

@@ -12,9 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	goyaml "gopkg.in/yaml.v2"
 )
 

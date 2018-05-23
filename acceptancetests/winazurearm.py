@@ -120,7 +120,8 @@ class ResourceGroupDetails:
         return self.group.name
 
     def load_details(self):
-        self.deployments = list(self.client.resource.deployments.list(self.name))
+        self.deployments = list(
+            self.client.resource.deployments.list(self.name))
         self.is_loaded = True
 
     def print_out(self, recursive=False):
@@ -142,9 +143,9 @@ class ResourceGroupDetails:
         ago = timedelta(hours=old_age)
         if not self.deployments:
             # Juju resource groups have at least one deployment, so we can use
-            # the timestamp of the oldest deployment in the group as the group's
-            # age. If there are no deployments, we don't consider it to be a
-            # valid group.
+            # the timestamp of the oldest deployment in the group as the
+            # group's age. If there are no deployments, we don't consider it to
+            # be a valid group.
             log.debug('{} has no deployments'.format(self.name))
             return False
         creation_time = min([d.properties.timestamp for d in self.deployments])
@@ -290,10 +291,12 @@ def delete_instance(client, name_id, resource_group=None):
         group_names.append(resource_group.name)
         deployment = find_vm_deployment(resource_group, name_id)
         if deployment:
-            log.debug('Found {} {}'.format(resource_group.name, deployment.name))
+            log.debug(
+                'Found {} {}'.format(resource_group.name, deployment.name))
             if not client.read_only:
-                poller = rgd.delete_vm(deployment.name)
-                log.debug('Waiting for {} to be deleted'.format(deployment.name))
+                poller = resource_group.delete_vm(deployment.name)
+                log.debug(
+                    'Waiting for {} to be deleted'.format(deployment.name))
                 if not poller.done():
                     poller.result()
             return

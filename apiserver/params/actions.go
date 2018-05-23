@@ -63,7 +63,7 @@ type ActionsByReceivers struct {
 }
 
 // ActionsByReceiver is a bulk API call wrapper containing Actions,
-// either as input paramters or as results.
+// either as input parameters or as results.
 type ActionsByReceiver struct {
 	Receiver string         `json:"receiver,omitempty"`
 	Actions  []ActionResult `json:"actions,omitempty"`

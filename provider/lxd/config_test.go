@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd_test
 
 import (
@@ -48,7 +46,7 @@ func (s *configSuite) TestDefaults(c *gc.C) {
 
 // TODO(ericsnow) Each test only deals with a single field, so having
 // multiple values in insert and remove (in configTestSpec) is a little
-// misleading and unecessary.
+// misleading and unnecessary.
 
 // configTestSpec defines a subtest to run in a table driven test.
 type configTestSpec struct {
@@ -139,9 +137,6 @@ func (s *configSuite) TestNewModelConfig(c *gc.C) {
 	if !s.IsRunningLocally(c) {
 		c.Skip("LXD not running locally")
 	}
-
-	// TODO(redir): Remove after wily or in yakkety.
-	skipIfWily(c)
 
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
@@ -241,9 +236,6 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 	if !s.IsRunningLocally(c) {
 		c.Skip("LXD not running locally")
 	}
-
-	// TODO(redir): Remove after wily or in yakkety.
-	skipIfWily(c)
 
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)

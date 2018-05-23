@@ -1,8 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
@@ -17,11 +15,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/packaging/config"
-	"github.com/juju/utils/packaging/manager"
-	"github.com/juju/utils/proxy"
-	"github.com/juju/utils/set"
+	"github.com/juju/packaging/config"
+	"github.com/juju/packaging/manager"
+	"github.com/juju/proxy"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/container"
@@ -68,9 +66,8 @@ func (ci *containerInitialiser) Initialise() error {
 		return errors.Trace(err)
 	}
 
-	// Well... this will need to change soon once we are passed 17.04 as who
-	// knows what the series name will be.
-	if ci.series < "xenial" {
+	// LXD init is only run on Xenial and later.
+	if ci.series == "trusty" {
 		return nil
 	}
 
@@ -519,4 +516,13 @@ func bridgeConfiguration(input string) (string, error) {
 		return editLXDBridgeFile(input, subnet), nil
 	}
 	return input, nil
+}
+
+// NewLocalServer returns a Server based on a local socket connection.
+func NewLocalServer() (*Server, error) {
+	cSvr, err := ConnectLocal()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewServer(cSvr), nil
 }

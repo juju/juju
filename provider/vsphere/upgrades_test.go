@@ -24,7 +24,7 @@ func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *gc.C) {
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	ops := upgrader.UpgradeOperations(environs.UpgradeOperationsParams{})
+	ops := upgrader.UpgradeOperations(s.callCtx, environs.UpgradeOperationsParams{})
 	c.Assert(ops, gc.HasLen, 1)
 	c.Assert(ops[0].TargetVersion, gc.Equals, 1)
 	c.Assert(ops[0].Steps, gc.HasLen, 2)
@@ -34,16 +34,17 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationUpdateExtraConfig(c *gc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	step := upgrader.UpgradeOperations(environs.UpgradeOperationsParams{
-		ControllerUUID: "foo",
-	})[0].Steps[0]
+	step := upgrader.UpgradeOperations(s.callCtx,
+		environs.UpgradeOperationsParams{
+			ControllerUUID: "foo",
+		})[0].Steps[0]
 
 	vm1 := buildVM("vm-1").extraConfig("juju_controller_uuid_key", "old").vm()
 	vm2 := buildVM("vm-1").extraConfig("juju_controller_uuid_key", "old").extraConfig("juju_is_controller_key", "yep").vm()
 	vm3 := buildVM("vm-2").vm()
 	s.client.virtualMachines = []*mo.VirtualMachine{vm1, vm2, vm3}
 
-	err := step.Run()
+	err := step.Run(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.client.CheckCallNames(c, "VirtualMachines", "UpdateVirtualMachineExtraConfig", "UpdateVirtualMachineExtraConfig", "Close")
@@ -66,16 +67,17 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationUpdateExtraConfig(c *gc
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationModelFolders(c *gc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	step := upgrader.UpgradeOperations(environs.UpgradeOperationsParams{
-		ControllerUUID: "foo",
-	})[0].Steps[1]
+	step := upgrader.UpgradeOperations(s.callCtx,
+		environs.UpgradeOperationsParams{
+			ControllerUUID: "foo",
+		})[0].Steps[1]
 
 	vm1 := buildVM("vm-1").vm()
 	vm2 := buildVM("vm-2").vm()
 	vm3 := buildVM("vm-3").vm()
 	s.client.virtualMachines = []*mo.VirtualMachine{vm1, vm2, vm3}
 
-	err := step.Run()
+	err := step.Run(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.client.CheckCallNames(c, "EnsureVMFolder", "VirtualMachines", "MoveVMsInto", "Close")

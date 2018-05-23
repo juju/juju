@@ -89,17 +89,18 @@ func SetBackupStoredTime(st *state.State, id string, stored time.Time) error {
 }
 
 // ExposeCreateResult extracts the values in a create() result.
-func ExposeCreateResult(result *createResult) (io.ReadCloser, int64, string) {
-	return result.archiveFile, result.size, result.checksum
+func ExposeCreateResult(result *createResult) (io.ReadCloser, int64, string, string) {
+	return result.archiveFile, result.size, result.checksum, result.filename
 }
 
 // NewTestCreateArgs builds a new args value for create() calls.
-func NewTestCreateArgs(backupDir string, filesToBackUp []string, db DBDumper, metar io.Reader) *createArgs {
+func NewTestCreateArgs(backupDir string, filesToBackUp []string, db DBDumper, metar io.Reader, noDownload bool) *createArgs {
 	args := createArgs{
 		backupDir:      backupDir,
 		filesToBackUp:  filesToBackUp,
 		db:             db,
 		metadataReader: metar,
+		noDownload:     noDownload,
 	}
 	return &args
 }
@@ -110,11 +111,12 @@ func ExposeCreateArgs(args *createArgs) (string, []string, DBDumper) {
 }
 
 // NewTestCreateResult builds a new create() result.
-func NewTestCreateResult(file io.ReadCloser, size int64, checksum string) *createResult {
+func NewTestCreateResult(file io.ReadCloser, size int64, checksum, filename string) *createResult {
 	result := createResult{
 		archiveFile: file,
 		size:        size,
 		checksum:    checksum,
+		filename:    filename,
 	}
 	return &result
 }
@@ -125,7 +127,7 @@ func NewTestCreate(result *createResult) (*createArgs, func(*createArgs) (*creat
 
 	if result == nil {
 		archiveFile := ioutil.NopCloser(bytes.NewBufferString("<archive>"))
-		result = NewTestCreateResult(archiveFile, 10, "<checksum>")
+		result = NewTestCreateResult(archiveFile, 10, "<checksum>", "")
 	}
 
 	testCreate := func(args *createArgs) (*createResult, error) {

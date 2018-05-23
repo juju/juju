@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
@@ -17,8 +15,10 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd/lxdnames"
 	"github.com/juju/juju/tools/lxdclient"
 )
@@ -69,7 +69,7 @@ func (p *environProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p *environProvider) Ping(endpoint string) error {
+func (p *environProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 
@@ -87,7 +87,8 @@ func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*con
 	if len(attrs) == 0 {
 		return args.Config, nil
 	}
-	return args.Config.Apply(attrs)
+	cfg, err := args.Config.Apply(attrs)
+	return cfg, errors.Trace(err)
 }
 
 // Validate implements environs.EnvironProvider.
@@ -132,7 +133,7 @@ func (p *environProvider) FinalizeCloud(
 			var err error
 			hostAddress, err := p.getLocalHostAddress(ctx)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			endpoint = hostAddress
 		}
@@ -161,18 +162,19 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	// LXD itself reports the host:ports that is listens on.
-	// Cross-check the address we have with the values
-	// reported by LXD.
+	hostAddress = lxd.EnsureHTTPS(hostAddress)
+
+	// LXD itself reports the host:ports that it listens on.
+	// Cross-check the address we have with the values reported by LXD.
 	if err := lxdclient.EnableHTTPSListener(raw); err != nil {
 		return "", errors.Annotate(err, "enabling HTTPS listener")
 	}
-	serverAddresses, err := raw.ServerAddresses()
+	cInfo, err := raw.GetConnectionInfo()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	var found bool
-	for _, addr := range serverAddresses {
+	for _, addr := range cInfo.Addresses {
 		if strings.HasPrefix(addr, hostAddress+":") {
 			hostAddress = addr
 			found = true
@@ -181,9 +183,8 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 	}
 	if !found {
 		return "", errors.Errorf(
-			"LXD is not listening on address %s ("+
-				"reported addresses: %s)",
-			hostAddress, serverAddresses,
+			"LXD is not listening on address %s (reported addresses: %s)",
+			hostAddress, cInfo.Addresses,
 		)
 	}
 	ctx.Verbosef(
@@ -248,7 +249,7 @@ func (p *environProvider) validateCloudSpec(spec environs.CloudSpec) (local bool
 	}
 	switch authType := spec.Credential.AuthType(); authType {
 	case cloud.CertificateAuthType:
-		if _, _, ok := getCerts(spec); !ok {
+		if _, _, ok := getCertificates(spec); !ok {
 			return false, errors.NotValidf("certificate credentials")
 		}
 	default:

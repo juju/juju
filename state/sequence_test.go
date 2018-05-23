@@ -57,6 +57,26 @@ func (s *sequenceSuite) TestSequenceWithMultipleEnvs(c *gc.C) {
 	s.checkDoc(c, state2.ModelUUID(), "foo", 2)
 }
 
+func (s *sequenceSuite) TestSequences(c *gc.C) {
+	state1 := s.State
+	state2 := s.Factory.MakeModel(c, nil)
+	defer state2.Close()
+
+	s.incAndCheck(c, state1, "foo", 0)
+	s.incAndCheck(c, state2, "foo", 0)
+	s.incAndCheck(c, state1, "foo", 1)
+	s.incAndCheck(c, state2, "foo", 1)
+	s.incAndCheck(c, state1, "foo", 2)
+	s.incAndCheck(c, state1, "bar", 0)
+	s.incAndCheck(c, state2, "baz", 0)
+
+	sequences, err := state1.Sequences()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sequences, jc.DeepEquals, map[string]int{
+		"foo": 3, "bar": 1,
+	})
+}
+
 func (s *sequenceSuite) TestSequenceWithMin(c *gc.C) {
 	st := s.State
 	modelUUID := st.ModelUUID()

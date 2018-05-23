@@ -1,19 +1,15 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxdclient
 
 import (
-	"io"
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/lxc/lxd/shared"
+	lxdclient "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/juju/container"
 	"github.com/juju/juju/network"
 )
 
@@ -31,17 +27,14 @@ type DiskDevice struct {
 // get handled in container/lxc/clonetemplate.go.
 
 type rawInstanceClient interface {
-	ListContainers() ([]api.Container, error)
-	ContainerInfo(name string) (*api.Container, error)
-	Init(name string, imgremote string, image string, profiles *[]string, config map[string]string, devices map[string]map[string]string, ephem bool) (*api.Response, error)
-	Action(name string, action shared.ContainerAction, timeout int, force bool, stateful bool) (*api.Response, error)
-	Delete(name string) (*api.Response, error)
-
-	WaitForSuccess(waitURL string) error
-	ContainerState(name string) (*api.ContainerState, error)
-	ContainerDeviceAdd(container, devname, devtype string, props []string) (*api.Response, error)
-	ContainerDeviceDelete(container, devname string) (*api.Response, error)
-	PushFile(container, path string, gid int, uid int, mode string, buf io.ReadSeeker) error
+	GetContainers() (containers []api.Container, err error)
+	GetContainer(name string) (container *api.Container, ETag string, err error)
+	DeleteContainer(name string) (op lxdclient.Operation, err error)
+	GetContainerState(name string) (state *api.ContainerState, ETag string, err error)
+	CreateContainerFile(containerName string, path string, args lxdclient.ContainerFileArgs) (err error)
+	UpdateContainerState(name string, state api.ContainerStatePut, ETag string) (op lxdclient.Operation, err error)
+	CreateContainerFromImage(source lxdclient.ImageServer, image api.Image, imgcontainer api.ContainersPost) (op lxdclient.RemoteOperation, err error)
+	UpdateContainer(name string, container api.ContainerPut, ETag string) (op lxdclient.Operation, err error)
 }
 
 type instanceClient struct {
@@ -50,18 +43,6 @@ type instanceClient struct {
 }
 
 func (client *instanceClient) addInstance(spec InstanceSpec) error {
-	imageRemote := spec.ImageRemote
-	if imageRemote == "" {
-		imageRemote = client.remote
-	}
-
-	imageAlias := spec.Image
-
-	var profiles *[]string
-	if len(spec.Profiles) > 0 {
-		profiles = &spec.Profiles
-	}
-
 	// TODO(ericsnow) Copy the image first?
 
 	lxdDevices := make(map[string]map[string]string, len(spec.Devices))
@@ -73,8 +54,16 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 		lxdDevices[name] = lxdDevice
 	}
 
-	config := spec.config()
-	resp, err := client.raw.Init(spec.Name, imageRemote, imageAlias, profiles, config, lxdDevices, spec.Ephemeral)
+	req := api.ContainersPost{
+		Name: spec.Name,
+		ContainerPut: api.ContainerPut{
+			Ephemeral: spec.Ephemeral,
+			Devices:   lxdDevices,
+			Profiles:  spec.Profiles,
+			Config:    spec.config(),
+		},
+	}
+	resp, err := client.raw.CreateContainerFromImage(spec.ImageData.LXDServer, *spec.ImageData.Image, req)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -82,7 +71,7 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 	// Init is an async operation, since the tar -xvf (or whatever) might
 	// take a while; the result is an LXD operation id, which we can just
 	// wait on until it is finished.
-	if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
+	if err := resp.Wait(); err != nil {
 		// TODO(ericsnow) Handle different failures (from the async
 		// operation) differently?
 		return errors.Trace(err)
@@ -92,15 +81,18 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 }
 
 func (client *instanceClient) startInstance(spec InstanceSpec) error {
-	timeout := -1
-	force := false
-	stateful := false
-	resp, err := client.raw.Action(spec.Name, shared.Start, timeout, force, stateful)
+	req := api.ContainerStatePut{
+		Action:   "start",
+		Timeout:  -1,
+		Force:    false,
+		Stateful: false,
+	}
+	resp, err := client.raw.UpdateContainerState(spec.Name, req, "")
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
+	if err := resp.Wait(); err != nil {
 		// TODO(ericsnow) Handle different failures (from the async
 		// operation) differently?
 		return errors.Trace(err)
@@ -135,7 +127,7 @@ func (client *instanceClient) AddInstance(spec InstanceSpec) (*Instance, error) 
 // Instance gets the up-to-date info about the given instance
 // and returns it.
 func (client *instanceClient) Instance(name string) (*Instance, error) {
-	info, err := client.raw.ContainerInfo(name)
+	info, _, err := client.raw.GetContainer(name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -145,7 +137,7 @@ func (client *instanceClient) Instance(name string) (*Instance, error) {
 }
 
 func (client *instanceClient) Status(name string) (string, error) {
-	info, err := client.raw.ContainerInfo(name)
+	info, _, err := client.raw.GetContainer(name)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -158,7 +150,7 @@ func (client *instanceClient) Status(name string) (string, error) {
 // provided prefix. The result is also limited to those instances with
 // one of the specified statuses (if any).
 func (client *instanceClient) Instances(prefix string, statuses ...string) ([]Instance, error) {
-	infos, err := client.raw.ListContainers()
+	infos, err := client.raw.GetContainers()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -193,34 +185,37 @@ func checkStatus(info api.Container, statuses []string) bool {
 // with the provided ID. The call blocks until the instance is removed
 // (or the request fails).
 func (client *instanceClient) removeInstance(name string) error {
-	info, err := client.raw.ContainerInfo(name)
+	info, _, err := client.raw.GetContainer(name)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	//if info.Status.StatusCode != 0 && info.Status.StatusCode != shared.Stopped {
 	if info.StatusCode != api.Stopped {
-		timeout := -1
-		force := true
-		stateful := false
-		resp, err := client.raw.Action(name, shared.Stop, timeout, force, stateful)
+		req := api.ContainerStatePut{
+			Action:   "stop",
+			Timeout:  -1,
+			Force:    true,
+			Stateful: false,
+		}
+		resp, err := client.raw.UpdateContainerState(name, req, "")
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
+		if err := resp.Wait(); err != nil {
 			// TODO(ericsnow) Handle different failures (from the async
 			// operation) differently?
 			return errors.Trace(err)
 		}
 	}
 
-	resp, err := client.raw.Delete(name)
+	resp, err := client.raw.DeleteContainer(name)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
+	if err := resp.Wait(); err != nil {
 		// TODO(ericsnow) Handle different failures (from the async
 		// operation) differently?
 		return errors.Trace(err)
@@ -274,7 +269,7 @@ func checkInstanceName(name string, instances []Instance) bool {
 // Addresses returns the list of network.Addresses for this instance. It
 // converts the information that LXD tracks into the Juju network model.
 func (client *instanceClient) Addresses(name string) ([]network.Address, error) {
-	state, err := client.raw.ContainerState(name)
+	state, _, err := client.raw.GetContainerState(name)
 	if err != nil {
 		return nil, err
 	}
@@ -285,9 +280,8 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 	}
 
 	addrs := []network.Address{}
-
 	for name, net := range networks {
-		if name == container.DefaultLxcBridge || name == container.DefaultLxdBridge {
+		if name == network.DefaultLXCBridge || name == network.DefaultLXDBridge {
 			continue
 		}
 		for _, addr := range net.Addresses {
@@ -308,18 +302,25 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 
 // AttachDisk attaches a disk to an instance.
 func (client *instanceClient) AttachDisk(instanceName, deviceName string, disk DiskDevice) error {
-	props := []string{"path=" + disk.Path, "source=" + disk.Source}
-	if disk.Pool != "" {
-		props = append(props, "pool="+disk.Pool)
-	}
-	if disk.ReadOnly {
-		props = append(props, "readonly=true")
-	}
-	resp, err := client.raw.ContainerDeviceAdd(instanceName, deviceName, "disk", props)
+	container, _, err := client.raw.GetContainer(instanceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
+	container.Devices[deviceName] = map[string]string{
+		"path":   disk.Path,
+		"source": disk.Source,
+	}
+	if disk.Pool != "" {
+		container.Devices[deviceName]["pool"] = disk.Pool
+	}
+	if disk.ReadOnly {
+		container.Devices[deviceName]["readonly"] = "true"
+	}
+	resp, err := client.raw.UpdateContainer(instanceName, container.Writable(), "")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := resp.Wait(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -327,11 +328,16 @@ func (client *instanceClient) AttachDisk(instanceName, deviceName string, disk D
 
 // RemoveDevice removes a device from an instance.
 func (client *instanceClient) RemoveDevice(instanceName, deviceName string) error {
-	resp, err := client.raw.ContainerDeviceDelete(instanceName, deviceName)
+	container, _, err := client.raw.GetContainer(instanceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := client.raw.WaitForSuccess(resp.Operation); err != nil {
+	delete(container.Devices, deviceName)
+	resp, err := client.raw.UpdateContainer(instanceName, container.Writable(), "")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := resp.Wait(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

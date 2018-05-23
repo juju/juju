@@ -10,14 +10,6 @@ import (
 const (
 	// BridgeNetwork will have the container use the network bridge.
 	BridgeNetwork = "bridge"
-	// PhyscialNetwork will have the container use a specified network device.
-	PhysicalNetwork = "physical"
-	// DefaultLxdBridge is the default name for the lxd bridge.
-	DefaultLxdBridge = "lxdbr0"
-	// DefaultLxcBridge is the package created container bridge.
-	DefaultLxcBridge = "lxcbr0"
-	// DefaultKvmBridge is the default bridge for KVM instances.
-	DefaultKvmBridge = "virbr0"
 )
 
 // NetworkConfig defines how the container network will be configured.

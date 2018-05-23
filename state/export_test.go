@@ -53,7 +53,6 @@ var (
 	BinarystorageNew                     = &binarystorageNew
 	ImageStorageNewStorage               = &imageStorageNewStorage
 	MachineIdLessThan                    = machineIdLessThan
-	ControllerAvailable                  = &controllerAvailable
 	GetOrCreatePorts                     = getOrCreatePorts
 	GetPorts                             = getPorts
 	CombineMeterStatus                   = combineMeterStatus
@@ -133,6 +132,14 @@ func SetPolicy(st *State, p Policy) Policy {
 func (doc *MachineDoc) String() string {
 	m := &Machine{doc: machineDoc(*doc)}
 	return m.String()
+}
+
+func CloudModelRefCount(st *State, cloudName string) (int, error) {
+	refcounts, closer := st.db().GetCollection(globalRefcountsC)
+	defer closer()
+
+	key := cloudModelRefCountKey(cloudName)
+	return nsRefcounts.read(refcounts, key)
 }
 
 func ApplicationSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {

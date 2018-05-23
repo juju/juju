@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3,linux
+// +build linux
 
 package lxdclient
 
@@ -10,13 +10,14 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	proxyutils "github.com/juju/proxy"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	jujuos "github.com/juju/utils/os"
-	proxyutils "github.com/juju/utils/proxy"
-	"github.com/lxc/lxd"
+	lxdclient "github.com/lxc/lxd/client"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/utils/proxy"
 )
 
@@ -41,7 +42,7 @@ func (cs *ConnectSuite) TestLocalConnectError(c *gc.C) {
 	cfg, err := Config{
 		Remote: Remote{
 			Name: "local",
-			Host: "unix://" + f.Name(),
+			Host: f.Name(),
 		},
 	}.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
@@ -60,7 +61,7 @@ Please configure LXD by running:
 	/* EACCESS because we can't read/write */
 	c.Assert(f.Chmod(0400), jc.ErrorIsNil)
 	_, err = Connect(cfg, false)
-	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: Permisson denied, are you in the lxd group?
+	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: Permission denied, are you in the lxd group?
 
 Please configure LXD by running:
 	$ newgrp lxd
@@ -81,7 +82,7 @@ and then configure it with:
 
 	// Yes, the error message actually matters here... this is being displayed
 	// to the user.
-	cs.PatchValue(&lxdNewClientFromInfo, fakeNewClientFromInfo)
+	cs.PatchValue(&newSocketClientFromInfo, fakeNewClientFromInfo)
 	_, err = Connect(cfg, false)
 	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: boo!
 
@@ -93,116 +94,14 @@ and then configure it with:
 `)
 }
 
-func (cs *ConnectSuite) TestCheckLXDBridgeConfiguration(c *gc.C) {
-	var err error
-
-	valid := `
-# Whether to setup a new bridge or use an existing one
-USE_LXD_BRIDGE="true"
-
-# Bridge name
-# This is still used even if USE_LXD_BRIDGE is set to false
-# set to an empty value to fully disable
-LXD_BRIDGE="lxdbr0"
-
-# Path to an extra dnsmasq configuration file
-LXD_CONFILE=""
-
-# DNS domain for the bridge
-LXD_DOMAIN="lxd"
-
-# IPv4
-## IPv4 address (e.g. 10.0.4.1)
-LXD_IPV4_ADDR="10.0.4.1"
-
-## IPv4 netmask (e.g. 255.255.255.0)
-LXD_IPV4_NETMASK="255.255.255.0"
-
-## IPv4 network (e.g. 10.0.4.0/24)
-LXD_IPV4_NETWORK="10.0.4.1/24"
-
-## IPv4 DHCP range (e.g. 10.0.4.2,10.0.4.254)
-LXD_IPV4_DHCP_RANGE="10.0.4.2,10.0.4.254"
-
-## IPv4 DHCP number of hosts (e.g. 250)
-LXD_IPV4_DHCP_MAX="253"
-
-## NAT IPv4 traffic
-LXD_IPV4_NAT="true"
-
-# IPv6
-## IPv6 address (e.g. 2001:470:b368:4242::1)
-LXD_IPV6_ADDR=""
-
-## IPv6 CIDR mask (e.g. 64)
-LXD_IPV6_MASK=""
-LXD_IPV6_NETWORK=""
-`
-
-	err = checkLXDBridgeConfiguration(valid)
-	c.Assert(err, jc.ErrorIsNil)
-
-	noBridge := `
-USE_LXD_BRIDGE="false"
-`
-	err = checkLXDBridgeConfiguration(noBridge)
-	c.Assert(err.Error(), gc.Equals, `lxdbr0 not enabled but required
-It looks like your lxdbr0 has not yet been configured. Please configure it via:
-
-	sudo dpkg-reconfigure -p medium lxd
-
-and then bootstrap again.`)
-
-	badName := `
-USE_LXD_BRIDGE="true"
-LXD_BRIDGE="meshuggahrocks"
-`
-	err = checkLXDBridgeConfiguration(badName)
-	c.Assert(err.Error(), gc.Equals, LXDBridgeFile+` has a bridge named meshuggahrocks, not lxdbr0
-It looks like your lxdbr0 has not yet been configured. Please configure it via:
-
-	sudo dpkg-reconfigure -p medium lxd
-
-and then bootstrap again.`)
-
-	noSubnets := `
-USE_LXD_BRIDGE="true"
-LXD_BRIDGE="lxdbr0"
-`
-	err = checkLXDBridgeConfiguration(noSubnets)
-	c.Assert(err.Error(), gc.Equals, `lxdbr0 has no ipv4 or ipv6 subnet enabled
-It looks like your lxdbr0 has not yet been configured. Please configure it via:
-
-	sudo dpkg-reconfigure -p medium lxd
-
-and then bootstrap again.`)
-
-	ipv6 := `
-USE_LXD_BRIDGE="true"
-LXD_BRIDGE="lxdbr0"
-LXD_IPV6_ADDR="2001:470:b368:4242::1"
-`
-
-	err = checkLXDBridgeConfiguration(ipv6)
-	c.Assert(err.Error(), gc.Equals, LXDBridgeFile+` has IPv6 enabled.
-Juju doesn't currently support IPv6.
-
-IPv6 can be disabled by running:
-
-       sudo dpkg-reconfigure -p medium lxd
-
-and then bootstrap again.`)
-
-}
-
 func (cs *ConnectSuite) TestRemoteConnectError(c *gc.C) {
-	cs.PatchValue(&lxdNewClientFromInfo, fakeNewClientFromInfo)
+	cs.PatchValue(&newHostClientFromInfo, fakeNewClientFromInfo)
 
 	cfg, err := Config{
 		Remote: Remote{
 			Name: "foo",
 			Host: "a.b.c",
-			Cert: &Cert{
+			Cert: &lxd.Certificate{
 				Name:    "really-valid",
 				CertPEM: []byte("kinda-public"),
 				KeyPEM:  []byte("super-secret"),
@@ -248,7 +147,7 @@ func (cs *ConnectSuite) TestProxySettings(c *gc.C) {
 
 	cfg, err := Config{Remote: Remote{
 		Name: "foo",
-		Host: "host.invalid",
+		Host: "https://host.invalid",
 	}}.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -259,7 +158,7 @@ func (cs *ConnectSuite) TestProxySettings(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*host\.invalid.*`)
 
 	// Configure a proxy, expect it to be used.
-	err = proxy.DefaultConfig.Set(proxyutils.Settings{Https: "proxy.invalid"})
+	err = proxy.DefaultConfig.Set(proxyutils.Settings{Https: "https://proxy.invalid"})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = Connect(cfg, false)
 	c.Assert(err, gc.ErrorMatches, `.*proxy\.invalid.*`)
@@ -267,6 +166,6 @@ func (cs *ConnectSuite) TestProxySettings(c *gc.C) {
 
 var testerr = errors.Errorf("boo!")
 
-func fakeNewClientFromInfo(info lxd.ConnectInfo) (*lxd.Client, error) {
+func fakeNewClientFromInfo(_ string, _ *lxdclient.ConnectionArgs) (lxdclient.ContainerServer, error) {
 	return nil, testerr
 }

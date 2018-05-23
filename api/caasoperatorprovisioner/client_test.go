@@ -152,3 +152,22 @@ func (s *provisionerSuite) TestLifeCount(c *gc.C) {
 	_, err := client.Life("gitlab")
 	c.Check(err, gc.ErrorMatches, `expected 1 result, got 2`)
 }
+
+func (s *provisionerSuite) OperatorProvisioningInfo(c *gc.C) {
+	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
+		c.Check(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, "OperatorProvisioningInfo")
+		c.Assert(a, gc.IsNil)
+		c.Assert(result, gc.FitsTypeOf, &params.OperatorProvisioningInfo{})
+		*(result.(*params.OperatorProvisioningInfo)) = params.OperatorProvisioningInfo{
+			ImagePath: "juju-operator-image",
+		}
+		return nil
+	})
+	info, err := client.OperatorProvisioningInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, caasoperatorprovisioner.OperatorProvisioningInfo{
+		ImagePath: "juju-operator-image",
+	})
+}

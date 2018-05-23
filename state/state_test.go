@@ -802,7 +802,7 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 
 	err = machines[0].SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, machines[0].Id())
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.DeepEquals, []string{"2", "3"})
 	c.Assert(changes.Maintained, gc.DeepEquals, []string{machines[0].Id()})
@@ -2001,7 +2001,7 @@ var inferEndpointsTests = []struct {
 			},
 		}},
 	}, {
-		summary: "implict relations can be chosen explicitly",
+		summary: "implicit relations can be chosen explicitly",
 		inputs: [][]string{
 			{"lg:info", "wp"},
 			{"lg", "wp:juju-info"},
@@ -2562,44 +2562,6 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *StateSuite) TestWatchControllerInfo(c *gc.C) {
-	m, err := s.State.AddMachine("quantal", state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-
-	w := s.State.WatchControllerInfo()
-	defer statetesting.AssertStop(c, w)
-
-	// Initial event.
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
-	wc.AssertOneChange()
-
-	info, err := s.State.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{
-		CloudName:  "dummy",
-		ModelTag:   s.modelTag,
-		MachineIds: []string{"0"},
-	})
-
-	s.PatchValue(state.ControllerAvailable, func(m *state.Machine) (bool, error) {
-		return true, nil
-	})
-
-	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil, m.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 2)
-
-	wc.AssertOneChange()
-
-	info, err = s.State.ControllerInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, &state.ControllerInfo{
-		CloudName:  "dummy",
-		ModelTag:   s.modelTag,
-		MachineIds: []string{"0", "1", "2"},
-	})
-}
-
 func (s *StateSuite) TestWatchControllerConfig(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2734,8 +2696,19 @@ func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
 	err = model.SetDead()
 	c.Assert(err, jc.ErrorIsNil)
 
+	cloud, err := s.State.Cloud(model.Cloud())
+	c.Assert(err, jc.ErrorIsNil)
+	refCount, err := state.CloudModelRefCount(st, cloud.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(refCount, gc.Equals, 1)
+
 	err = st.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
+
+	cloud, err = s.State.Cloud(model.Cloud())
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = state.CloudModelRefCount(st, cloud.Name)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// test that we can not find the user:envName unique index
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
@@ -3882,7 +3855,7 @@ type waiter interface {
 // The watcher should already have consumed the first
 // event, otherwise the watcher's initialisation logic may
 // interact with the closed state, causing it to return an
-// unexpected error (often "Closed explictly").
+// unexpected error (often "Closed explicitly").
 func testWatcherDiesWhenStateCloses(
 	c *gc.C,
 	session *mgo.Session,
@@ -4701,4 +4674,18 @@ func (s *StateSuite) testOpenParams() state.OpenParams {
 		ControllerModelTag: s.modelTag,
 		MongoSession:       s.Session,
 	}
+}
+
+func (s *StateSuite) TestControllerTimestamp(c *gc.C) {
+	now := testing.NonZeroTime()
+	clock := gitjujutesting.NewClock(now)
+
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := s.State.ControllerTimestamp()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.NotNil)
+
+	c.Assert(*got, jc.DeepEquals, now)
 }

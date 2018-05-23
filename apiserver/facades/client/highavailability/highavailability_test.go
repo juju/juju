@@ -205,6 +205,38 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 			"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication")
 }
 
+func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *gc.C) {
+	m0, err := s.State.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m0.Series(), gc.Equals, "quantal")
+
+	// remove the extra provider addresses, so we have no valid CloudLocal addresses
+	c.Assert(m0.SetProviderAddresses(
+		network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
+	), jc.ErrorIsNil)
+
+	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, nil)
+	c.Assert(err, gc.ErrorMatches,
+		"juju-ha-space is not set and a unique usable address was not found for machines: 0"+
+			"\nrun \"juju config juju-ha-space=<name>\" to set a space for Mongo peer communication")
+}
+
+func (s *clientSuite) TestEnableHANoErrorForNoAddresses(c *gc.C) {
+	enableHAResult, err := s.enableHA(c, 0, emptyCons, defaultSeries, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0"})
+	c.Assert(enableHAResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
+	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
+
+	s.setMachineAddresses(c, "0")
+	s.setMachineAddresses(c, "1")
+	// 0 and 1 are up, but 2 hasn't finished booting yet, so has no addresses set
+
+	_, err = s.enableHA(c, 3, emptyCons, defaultSeries, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -435,6 +467,11 @@ func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 
 	// Now, we keep agent 1 alive, but not agent 2, calling
 	// EnableHA(0) again will cause us to start another machine
+	c.Assert(machines[2].Destroy(), jc.ErrorIsNil)
+	c.Assert(machines[2].Refresh(), jc.ErrorIsNil)
+	c.Assert(machines[2].SetHasVote(false), jc.ErrorIsNil)
+	c.Assert(s.State.RemoveControllerMachine(machines[2]), jc.ErrorIsNil)
+	c.Assert(machines[2].EnsureDead(), jc.ErrorIsNil)
 	enableHAResult, err = s.enableHA(c, 0, emptyCons, defaultSeries, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(enableHAResult.Maintained, gc.DeepEquals, []string{"machine-0", "machine-1"})
@@ -459,14 +496,19 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 	machines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 5)
-	s.setAgentPresence(c, "1")
-	s.setAgentPresence(c, "2")
-	s.setAgentPresence(c, "3")
+	for _, m := range machines {
+		m.SetHasVote(true)
+	}
 
 	s.setMachineAddresses(c, "1")
 	s.setMachineAddresses(c, "2")
 	s.setMachineAddresses(c, "3")
 	s.setMachineAddresses(c, "4")
+	c.Assert(machines[4].SetHasVote(false), jc.ErrorIsNil)
+	c.Assert(machines[4].Destroy(), jc.ErrorIsNil)
+	c.Assert(machines[4].Refresh(), jc.ErrorIsNil)
+	c.Assert(s.State.RemoveControllerMachine(machines[4]), jc.ErrorIsNil)
+	c.Assert(machines[4].EnsureDead(), jc.ErrorIsNil)
 
 	// Keeping all alive but one, will bring up 1 more server to preserve 5
 	enableHAResult, err = s.enableHA(c, 0, emptyCons, defaultSeries, nil)

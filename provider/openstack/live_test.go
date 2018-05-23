@@ -14,6 +14,7 @@ import (
 	"gopkg.in/goose.v2/client"
 	"gopkg.in/goose.v2/identity"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -192,7 +193,7 @@ func (s *LiveTests) assertStartInstanceDefaultSecurityGroup(c *gc.C, useDefault 
 	s.Destroy(c)
 	s.BootstrapOnce(c)
 
-	inst, _ := jujutesting.AssertStartInstance(c, s.Env, s.ControllerUUID, "100")
+	inst, _ := jujutesting.AssertStartInstance(c, s.Env, context.NewCloudCallContext(), s.ControllerUUID, "100")
 	// Check whether the instance has the default security group assigned.
 	novaClient := openstack.GetNovaClient(s.Env)
 	groups, err := novaClient.GetServerSecurityGroups(string(inst.Id()))

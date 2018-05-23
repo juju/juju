@@ -133,7 +133,7 @@ func (s *resourcesUploadSuite) makeUploadArgs(c *gc.C) url.Values {
 	c.Assert(err, jc.ErrorIsNil)
 	q := make(url.Values)
 	q.Add("application", s.appName)
-	q.Add("user", "napolean")
+	q.Add("user", "napoleon")
 	q.Add("name", "bin")
 	q.Add("path", "blob.zip")
 	q.Add("description", "hmm")

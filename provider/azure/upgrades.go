@@ -12,11 +12,12 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 )
 
 // UpgradeOperations is part of the upgrades.OperationSource interface.
-func (env *azureEnviron) UpgradeOperations(environs.UpgradeOperationsParams) []environs.UpgradeOperation {
+func (env *azureEnviron) UpgradeOperations(context.ProviderCallContext, environs.UpgradeOperationsParams) []environs.UpgradeOperation {
 	return []environs.UpgradeOperation{{
 		providerVersion1,
 		[]environs.UpgradeStep{
@@ -37,7 +38,7 @@ func (commonDeploymentUpgradeStep) Description() string {
 }
 
 // Run is part of the environs.UpgradeStep interface.
-func (step commonDeploymentUpgradeStep) Run() error {
+func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) error {
 	env := step.env
 	isControllerEnviron, err := isControllerEnviron(env)
 	if err != nil {

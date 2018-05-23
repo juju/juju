@@ -43,13 +43,13 @@ func NewMockState() *mockState {
 
 var _ instancepoller.StateInterface = (*mockState)(nil)
 
-// CheckFindEntityCall is a helper wrapper aroud
+// CheckFindEntityCall is a helper wrapper around
 // testing.Stub.CheckCall for FindEntity.
 func (m *mockState) CheckFindEntityCall(c *gc.C, index int, machineId string) {
 	m.CheckCall(c, index, "FindEntity", interface{}(names.NewMachineTag(machineId)))
 }
 
-// CheckSetProviderAddressesCall is a helper wrapper aroud
+// CheckSetProviderAddressesCall is a helper wrapper around
 // testing.Stub.CheckCall for SetProviderAddresses.
 func (m *mockState) CheckSetProviderAddressesCall(c *gc.C, index int, addrs []network.Address) {
 	args := make([]interface{}, len(addrs))

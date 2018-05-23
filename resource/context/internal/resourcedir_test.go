@@ -157,38 +157,6 @@ func (s *TempDirectorySpecSuite) SetUpTest(c *gc.C) {
 	s.stub = newInternalStub()
 }
 
-func (s *TempDirectorySpecSuite) TestNewTempDirectorySpec(c *gc.C) {
-	s.stub.ReturnNewTempDir = "/tmp/juju-resource-xyz"
-	deps := s.stub
-
-	spec, err := internal.NewTempDirectorySpec("eggs", deps)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c, "NewTempDir", "Join")
-	c.Check(spec.CleanUp, gc.NotNil) // We can't compare functions.
-	spec.CleanUp = nil
-	c.Check(spec, jc.DeepEquals, &internal.TempDirectorySpec{
-		DirectorySpec: &internal.DirectorySpec{
-			Name:    "eggs",
-			Dirname: "/tmp/juju-resource-xyz/eggs",
-			Deps:    deps,
-		},
-	})
-}
-
-func (s *TempDirectorySpecSuite) TestClose(c *gc.C) {
-	s.stub.ReturnNewTempDir = "/tmp/juju-resource-xyz"
-	deps := s.stub
-	spec, err := internal.NewTempDirectorySpec("eggs", deps)
-	c.Assert(err, jc.ErrorIsNil)
-	s.stub.ResetCalls()
-
-	err = spec.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.stub.CheckCallNames(c, "RemoveDir")
-}
-
 var _ = gc.Suite(&DirectorySuite{})
 
 type DirectorySuite struct {

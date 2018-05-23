@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	jc "github.com/juju/testing/checkers"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/cert"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	sshtesting "github.com/juju/utils/ssh/testing"
 	"github.com/juju/utils/symlink"
@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -272,7 +273,7 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, instId := s.waitProvisioned(c, unit)
-	insts, err := s.Environ.Instances([]instance.Id{instId})
+	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 	addrs := network.NewAddresses("1.2.3.4")
 	dummy.SetInstanceAddresses(insts[0], addrs)

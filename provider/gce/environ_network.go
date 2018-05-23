@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"google.golang.org/api/compute/v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -21,9 +22,9 @@ type subnetMap map[string]network.SubnetInfo
 type networkMap map[string]*compute.Network
 
 // Subnets implements environs.NetworkingEnviron.
-func (e *environ) Subnets(inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	// In GCE all the subnets are in all AZs.
-	zones, err := e.zoneNames()
+	zones, err := e.zoneNames(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -32,7 +33,7 @@ func (e *environ) Subnets(inst instance.Id, subnetIds []network.Id) ([]network.S
 	if inst == instance.UnknownId {
 		results, err = e.getMatchingSubnets(ids, zones)
 	} else {
-		results, err = e.getInstanceSubnets(inst, ids, zones)
+		results, err = e.getInstanceSubnets(ctx, inst, ids, zones)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -45,8 +46,8 @@ func (e *environ) Subnets(inst instance.Id, subnetIds []network.Id) ([]network.S
 	return results, nil
 }
 
-func (e *environ) zoneNames() ([]string, error) {
-	zones, err := e.AvailabilityZones()
+func (e *environ) zoneNames(ctx context.ProviderCallContext) ([]string, error) {
+	zones, err := e.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -107,8 +108,8 @@ func (e *environ) getMatchingSubnets(subnetIds IncludeSet, zones []string) ([]ne
 	return results, nil
 }
 
-func (e *environ) getInstanceSubnets(inst instance.Id, subnetIds IncludeSet, zones []string) ([]network.SubnetInfo, error) {
-	ifaces, err := e.NetworkInterfaces(inst)
+func (e *environ) getInstanceSubnets(ctx context.ProviderCallContext, inst instance.Id, subnetIds IncludeSet, zones []string) ([]network.SubnetInfo, error) {
+	ifaces, err := e.NetworkInterfaces(ctx, inst)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -127,8 +128,8 @@ func (e *environ) getInstanceSubnets(inst instance.Id, subnetIds IncludeSet, zon
 }
 
 // NetworkInterfaces implements environs.NetworkingEnviron.
-func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
-	insts, err := e.Instances([]instance.Id{instId})
+func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+	insts, err := e.Instances(ctx, []instance.Id{instId})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -138,7 +139,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 		return nil, errors.Errorf("couldn't extract google instance for %q", instId)
 	}
 	// In GCE all the subnets are in all AZs.
-	zones, err := e.zoneNames()
+	zones, err := e.zoneNames(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -252,49 +253,49 @@ func (e *environ) subnetsByURL(urls []string, networks networkMap, zones []strin
 }
 
 // SupportsSpaces implements environs.NetworkingEnviron.
-func (e *environ) SupportsSpaces() (bool, error) {
+func (e *environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
 	return false, nil
 }
 
 // SupportsSpaceDiscovery implements environs.NetworkingEnviron.
-func (e *environ) SupportsSpaceDiscovery() (bool, error) {
+func (e *environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error) {
 	return false, nil
 }
 
 // Spaces implements environs.NetworkingEnviron.
-func (e *environ) Spaces() ([]network.SpaceInfo, error) {
+func (e *environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
 	return nil, errors.NotSupportedf("spaces")
 }
 
 // SupportsContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) SupportsContainerAddresses() (bool, error) {
+func (e *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
 	return false, nil
 }
 
 // AllocateContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) AllocateContainerAddresses(instance.Id, names.MachineTag, []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e *environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container addresses")
 }
 
 // ReleaseContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) ReleaseContainerAddresses([]network.ProviderInterfaceInfo) error {
+func (e *environ) ReleaseContainerAddresses(context.ProviderCallContext, []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container addresses")
 }
 
 // ProviderSpaceInfo implements environs.NetworkingEnviron.
-func (*environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (*environ) ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 
 // AreSpacesRoutable implements environs.NetworkingEnviron.
-func (*environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }
 
 // SSHAddresses implements environs.SSHAddresses.
 // For GCE we want to make sure we're returning only one public address, so that probing won't
 // cause SSHGuard to lock us out
-func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+func (*environ) SSHAddresses(ctx context.ProviderCallContext, addresses []network.Address) ([]network.Address, error) {
 	bestAddress, ok := network.SelectPublicAddress(addresses)
 	if ok {
 		return []network.Address{bestAddress}, nil
@@ -305,8 +306,8 @@ func (*environ) SSHAddresses(addresses []network.Address) ([]network.Address, er
 }
 
 // SuperSubnets implements environs.SuperSubnets
-func (e *environ) SuperSubnets() ([]string, error) {
-	subnets, err := e.Subnets("", nil)
+func (e *environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
+	subnets, err := e.Subnets(ctx, "", nil)
 	if err != nil {
 		return nil, err
 	}

@@ -11,6 +11,7 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/oracle"
 	"github.com/juju/juju/testing"
 )
@@ -37,7 +38,7 @@ func (e *environProviderSuite) TestCloudSchma(c *gc.C) {
 
 func (e *environProviderSuite) TestPing(c *gc.C) {
 	provider := e.NewProvider(c)
-	err := provider.Ping("")
+	err := provider.Ping(context.NewCloudCallContext(), "")
 	c.Assert(err, gc.IsNil)
 }
 
@@ -78,7 +79,7 @@ func (e *environProviderSuite) TestOpen(c *gc.C) {
 		map[string]string{
 			"identity-domain": "bretdd",
 			"username":        "some-friendly-username",
-			"password":        "some-firendly-password",
+			"password":        "some-friendly-password",
 		},
 	)
 	_, err := environs.Open(provider, environs.OpenParams{
@@ -130,7 +131,7 @@ func (e *environProviderSuite) TestFinalizeCredential(c *gc.C) {
 		map[string]string{
 			"identity-domain": "bretdd",
 			"username":        "some-friendly-username",
-			"password":        "some-firendly-password",
+			"password":        "some-friendly-password",
 		},
 	)
 

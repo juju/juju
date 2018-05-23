@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	jtesting "github.com/juju/juju/testing"
 )
 
@@ -37,7 +38,7 @@ var _ = gc.Suite(&AddRelationSuite{})
 
 func (s *AddRelationSuite) runAddRelation(c *gc.C, args ...string) error {
 	cmd := NewAddRelationCommandForTest(s.mockAPI, s.mockAPI)
-	cmd.SetClientStore(NewMockStore())
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	return err
 }
@@ -86,7 +87,7 @@ func (s *AddRelationSuite) TestAddRelationUnauthorizedMentionsJujuGrant(c *gc.C)
 		Code:    params.CodeUnauthorized,
 	})
 	cmd := NewAddRelationCommandForTest(s.mockAPI, s.mockAPI)
-	cmd.SetClientStore(NewMockStore())
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	ctx, _ := cmdtesting.RunCommand(c, cmd, "application1", "application2")
 	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
 	c.Assert(errString, gc.Matches, `.*juju grant.*`)

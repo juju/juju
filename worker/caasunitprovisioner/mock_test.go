@@ -126,8 +126,7 @@ func (m *mockContainerBroker) Units(appName string) ([]caas.Unit, error) {
 
 type mockApplicationGetter struct {
 	testing.Stub
-	watcher          *watchertest.MockStringsWatcher
-	jujuManagedUnits bool
+	watcher *watchertest.MockStringsWatcher
 }
 
 func (m *mockApplicationGetter) WatchApplications() (watcher.StringsWatcher, error) {
@@ -142,7 +141,6 @@ func (a *mockApplicationGetter) ApplicationConfig(appName string) (application.C
 	a.MethodCall(a, "ApplicationConfig", appName)
 	return application.ConfigAttributes{
 		"juju-external-hostname": "exthost",
-		"juju-managed-units":     a.jujuManagedUnits,
 	}, a.NextErr()
 }
 

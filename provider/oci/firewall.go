@@ -6,17 +6,18 @@ package oci
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
 
-func (e *Environ) OpenPorts(rules []network.IngressRule) error {
+func (e *Environ) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
 	return errors.NotImplementedf("OpenPorts")
 }
 
-func (e *Environ) ClosePorts(rules []network.IngressRule) error {
+func (e *Environ) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
 	return errors.NotImplementedf("ClosePorts")
 }
 
-func (e *Environ) IngressRules() ([]network.IngressRule, error) {
+func (e *Environ) IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
 	return nil, errors.NotImplementedf("IngressRules")
 }

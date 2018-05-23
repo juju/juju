@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -213,7 +214,7 @@ func (p EnvironProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p EnvironProvider) Ping(endpoint string) error {
+func (p EnvironProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
 	c := p.ClientFromEndpoint(endpoint)
 	if _, err := c.IdentityAuthOptions(); err != nil {
 		return errors.Wrap(err, errors.Errorf("No Openstack server running at %s", endpoint))
@@ -321,7 +322,7 @@ func (inst *openstackInstance) String() string {
 
 var _ instance.Instance = (*openstackInstance)(nil)
 
-func (inst *openstackInstance) Refresh() error {
+func (inst *openstackInstance) Refresh(ctx context.ProviderCallContext) error {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
 	server, err := inst.e.nova().GetServer(inst.serverDetail.Id)
@@ -342,7 +343,7 @@ func (inst *openstackInstance) Id() instance.Id {
 	return instance.Id(inst.getServerDetail().Id)
 }
 
-func (inst *openstackInstance) Status() instance.InstanceStatus {
+func (inst *openstackInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	instStatus := inst.getServerDetail().Status
 	jujuStatus := status.Pending
 	switch instStatus {
@@ -392,7 +393,7 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 
 // getAddresses returns the existing server information on addresses,
 // but fetches the details over the api again if no addresses exist.
-func (inst *openstackInstance) getAddresses() (map[string][]nova.IPAddress, error) {
+func (inst *openstackInstance) getAddresses(ctx context.ProviderCallContext) (map[string][]nova.IPAddress, error) {
 	addrs := inst.getServerDetail().Addresses
 	if len(addrs) == 0 {
 		server, err := inst.e.nova().GetServer(string(inst.Id()))
@@ -406,8 +407,8 @@ func (inst *openstackInstance) getAddresses() (map[string][]nova.IPAddress, erro
 
 // Addresses implements network.Addresses() returning generic address
 // details for the instances, and calling the openstack api if needed.
-func (inst *openstackInstance) Addresses() ([]network.Address, error) {
-	addresses, err := inst.getAddresses()
+func (inst *openstackInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+	addresses, err := inst.getAddresses(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -454,16 +455,16 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 	return machineAddresses
 }
 
-func (inst *openstackInstance) OpenPorts(machineId string, rules []network.IngressRule) error {
-	return inst.e.firewaller.OpenInstancePorts(inst, machineId, rules)
+func (inst *openstackInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+	return inst.e.firewaller.OpenInstancePorts(ctx, inst, machineId, rules)
 }
 
-func (inst *openstackInstance) ClosePorts(machineId string, rules []network.IngressRule) error {
-	return inst.e.firewaller.CloseInstancePorts(inst, machineId, rules)
+func (inst *openstackInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
+	return inst.e.firewaller.CloseInstancePorts(ctx, inst, machineId, rules)
 }
 
-func (inst *openstackInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
-	return inst.e.firewaller.InstanceIngressRules(inst, machineId)
+func (inst *openstackInstance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
+	return inst.e.firewaller.InstanceIngressRules(ctx, inst, machineId)
 }
 
 func (e *Environ) ecfg() *environConfig {
@@ -535,7 +536,7 @@ func (z *openstackAvailabilityZone) Available() bool {
 }
 
 // AvailabilityZones returns a slice of availability zones.
-func (e *Environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
+func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
 	e.availabilityZonesMutex.Lock()
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
@@ -556,8 +557,8 @@ func (e *Environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 
 // InstanceAvailabilityZoneNames returns the availability zone names for each
 // of the specified instances.
-func (e *Environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
-	instances, err := e.Instances(ids)
+func (e *Environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+	instances, err := e.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
 		return nil, err
 	}
@@ -576,8 +577,8 @@ type openstackPlacement struct {
 }
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
-func (e *Environ) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
-	availabilityZone, err := e.deriveAvailabilityZone(args.Placement, args.VolumeAttachments)
+func (e *Environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
+	availabilityZone, err := e.deriveAvailabilityZone(ctx, args.Placement, args.VolumeAttachments)
 	if err != nil && !errors.IsNotImplemented(err) {
 		return nil, errors.Trace(err)
 	}
@@ -587,7 +588,7 @@ func (e *Environ) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]
 	return nil, nil
 }
 
-func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) {
+func (e *Environ) parsePlacement(ctx context.ProviderCallContext, placement string) (*openstackPlacement, error) {
 	pos := strings.IndexRune(placement, '=')
 	if pos == -1 {
 		return nil, errors.Errorf("unknown placement directive: %v", placement)
@@ -595,7 +596,7 @@ func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) 
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
 		availabilityZone := value
-		err := common.ValidateAvailabilityZone(e, availabilityZone)
+		err := common.ValidateAvailabilityZone(e, ctx, availabilityZone)
 		if err != nil {
 			return nil, err
 		}
@@ -605,8 +606,8 @@ func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) 
 }
 
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
-func (e *Environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
-	if _, err := e.deriveAvailabilityZone(args.Placement, args.VolumeAttachments); err != nil {
+func (e *Environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+	if _, err := e.deriveAvailabilityZone(ctx, args.Placement, args.VolumeAttachments); err != nil {
 		return errors.Trace(err)
 	}
 	if !args.Constraints.HasInstanceType() {
@@ -649,7 +650,7 @@ func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 }
 
 // Create is part of the Environ interface.
-func (e *Environ) Create(environs.CreateParams) error {
+func (e *Environ) Create(context.ProviderCallContext, environs.CreateParams) error {
 	// Verify credentials.
 	if err := authenticateClient(e.client()); err != nil {
 		return err
@@ -659,14 +660,14 @@ func (e *Environ) Create(environs.CreateParams) error {
 	return nil
 }
 
-func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (e *Environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
 	if err := authenticateClient(e.client()); err != nil {
 		return nil, err
 	}
-	return common.Bootstrap(ctx, e, args)
+	return common.Bootstrap(ctx, e, callCtx, args)
 }
 
 func (e *Environ) supportsNeutron() bool {
@@ -676,7 +677,7 @@ func (e *Environ) supportsNeutron() bool {
 	return ok
 }
 
-func (e *Environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
+func (e *Environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	// Find all instances tagged with tags.JujuIsController.
 	instances, err := e.allControllerManagedInstances(controllerUUID, e.ecfg().useFloatingIP())
 	if err != nil {
@@ -840,7 +841,7 @@ func identityClientVersion(authURL string) (int, error) {
 		return 0, errors.Errorf("url %s is malformed", authURL)
 	}
 	if url.Path == "" || url.Path == "/" {
-		// User explicitely did not provide any version, it is empty.
+		// User explicitly did not provide any version, it is empty.
 		return -1, nil
 	}
 	// The last part of the path should be the version #, prefixed with a 'v' or 'V'
@@ -929,19 +930,19 @@ func (e *Environ) assignPublicIP(fip *string, serverId string) (err error) {
 }
 
 // DistributeInstances implements the state.InstanceDistributor policy.
-func (e *Environ) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
-	return common.DistributeInstances(e, candidates, distributionGroup)
+func (e *Environ) DistributeInstances(ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
+	return common.DistributeInstances(e, ctx, candidates, distributionGroup)
 }
 
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // MaintainInstance is specified in the InstanceBroker interface.
-func (*Environ) MaintainInstance(args environs.StartInstanceParams) error {
+func (*Environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
 	return nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *Environ) StartInstance(args environs.StartInstanceParams) (_ *environs.StartInstanceResult, err error) {
+func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (_ *environs.StartInstanceResult, err error) {
 	if args.AvailabilityZone != "" {
 		// args.AvailabilityZone should only be set if this OpenStack
 		// supports zones; validate the zone.
@@ -952,7 +953,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		if err := validateAvailabilityZoneConsistency(args.AvailabilityZone, volumeAttachmentsZone); err != nil {
 			return nil, common.ZoneIndependentError(err)
 		}
-		if err := common.ValidateAvailabilityZone(e, args.AvailabilityZone); err != nil {
+		if err := common.ValidateAvailabilityZone(e, ctx, args.AvailabilityZone); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -1059,7 +1060,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 			// All ports are the same so pick the first.
 			apiPort = args.InstanceConfig.APIInfo.Ports()[0]
 		}
-		groupNames, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
+		groupNames, err := e.firewaller.SetUpGroups(ctx, args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
 		if err != nil {
 			return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot set up groups"))
 		}
@@ -1208,6 +1209,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 }
 
 func (e *Environ) deriveAvailabilityZone(
+	ctx context.ProviderCallContext,
 	placement string,
 	volumeAttachments []storage.VolumeAttachmentParams,
 ) (string, error) {
@@ -1218,7 +1220,7 @@ func (e *Environ) deriveAvailabilityZone(
 	if placement == "" {
 		return volumeAttachmentsZone, nil
 	}
-	instPlacement, err := e.parsePlacement(placement)
+	instPlacement, err := e.parsePlacement(ctx, placement)
 	if err != nil {
 		return "", err
 	}
@@ -1284,9 +1286,9 @@ func isNoValidHostsError(err error) bool {
 	return false
 }
 
-func (e *Environ) StopInstances(ids ...instance.Id) error {
+func (e *Environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	// If in instance firewall mode, gather the security group names.
-	securityGroupNames, err := e.firewaller.GetSecurityGroups(ids...)
+	securityGroupNames, err := e.firewaller.GetSecurityGroups(ctx, ids...)
 	if err == environs.ErrNoInstances {
 		return nil
 	}
@@ -1298,7 +1300,7 @@ func (e *Environ) StopInstances(ids ...instance.Id) error {
 		return err
 	}
 	if securityGroupNames != nil {
-		return e.firewaller.DeleteGroups(securityGroupNames...)
+		return e.firewaller.DeleteGroups(ctx, securityGroupNames...)
 	}
 	return nil
 }
@@ -1311,7 +1313,7 @@ func (e *Environ) isAliveServer(server nova.ServerDetail) bool {
 	return false
 }
 
-func (e *Environ) listServers(ids []instance.Id) ([]nova.ServerDetail, error) {
+func (e *Environ) listServers(ctx context.ProviderCallContext, ids []instance.Id) ([]nova.ServerDetail, error) {
 	wantedServers := make([]nova.ServerDetail, 0, len(ids))
 	if len(ids) == 1 {
 		// Common case, single instance, may return NotFound
@@ -1327,7 +1329,7 @@ func (e *Environ) listServers(ids []instance.Id) ([]nova.ServerDetail, error) {
 		return wantedServers, nil
 	}
 	// List all instances in the environment.
-	instances, err := e.AllInstances()
+	instances, err := e.AllInstances(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1373,7 +1375,7 @@ func (e *Environ) updateFloatingIPAddresses(instances map[string]instance.Instan
 	return nil
 }
 
-func (e *Environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
+func (e *Environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -1383,7 +1385,7 @@ func (e *Environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	var foundServers []nova.ServerDetail
 	for a := shortAttempt.Start(); a.Next(); {
 		var err error
-		foundServers, err = e.listServers(ids)
+		foundServers, err = e.listServers(ctx, ids)
 		if err != nil {
 			logger.Debugf("error listing servers: %v", err)
 			if !gooseerrors.IsNotFound(err) {
@@ -1429,16 +1431,16 @@ func (e *Environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 }
 
 // AdoptResources is part of the Environ interface.
-func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+func (e *Environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	var failed []string
 	controllerTag := map[string]string{tags.JujuController: controllerUUID}
 
-	instances, err := e.AllInstances()
+	instances, err := e.AllInstances(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, instance := range instances {
-		err := e.TagInstance(instance.Id(), controllerTag)
+		err := e.TagInstance(ctx, instance.Id(), controllerTag)
 		if err != nil {
 			logger.Errorf("error updating controller tag for instance %s: %v", instance.Id(), err)
 			failed = append(failed, string(instance.Id()))
@@ -1451,7 +1453,7 @@ func (e *Environ) AdoptResources(controllerUUID string, fromVersion version.Numb
 	}
 	failed = append(failed, failedVolumes...)
 
-	err = e.firewaller.UpdateGroupController(controllerUUID)
+	err = e.firewaller.UpdateGroupController(ctx, controllerUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1496,7 +1498,7 @@ func (e *Environ) adoptVolumes(controllerTag map[string]string) ([]string, error
 }
 
 // AllInstances returns all instances in this environment.
-func (e *Environ) AllInstances() ([]instance.Instance, error) {
+func (e *Environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
 	tagFilter := tagValue{tags.JujuModel, e.ecfg().UUID()}
 	return e.allInstances(tagFilter, e.ecfg().useFloatingIP())
 }
@@ -1542,18 +1544,18 @@ func (e *Environ) allInstances(tagFilter tagValue, updateFloatingIPAddresses boo
 	return insts, nil
 }
 
-func (e *Environ) Destroy() error {
-	err := common.Destroy(e)
+func (e *Environ) Destroy(ctx context.ProviderCallContext) error {
+	err := common.Destroy(e, ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	// Delete all security groups remaining in the model.
-	return e.firewaller.DeleteAllModelGroups()
+	return e.firewaller.DeleteAllModelGroups(ctx)
 }
 
 // DestroyController implements the Environ interface.
-func (e *Environ) DestroyController(controllerUUID string) error {
-	if err := e.Destroy(); err != nil {
+func (e *Environ) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+	if err := e.Destroy(ctx); err != nil {
 		return errors.Annotate(err, "destroying controller model")
 	}
 	// In case any hosted environment hasn't been cleaned up yet,
@@ -1562,7 +1564,7 @@ func (e *Environ) DestroyController(controllerUUID string) error {
 	if err := e.destroyControllerManagedEnvirons(controllerUUID); err != nil {
 		return errors.Annotate(err, "destroying managed models")
 	}
-	return e.firewaller.DeleteAllControllerGroups(controllerUUID)
+	return e.firewaller.DeleteAllControllerGroups(ctx, controllerUUID)
 }
 
 // destroyControllerManagedEnvirons destroys all environments managed by this
@@ -1641,16 +1643,16 @@ func rulesToRuleInfo(groupId string, rules []network.IngressRule) []neutron.Rule
 	return result
 }
 
-func (e *Environ) OpenPorts(rules []network.IngressRule) error {
-	return e.firewaller.OpenPorts(rules)
+func (e *Environ) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
+	return e.firewaller.OpenPorts(ctx, rules)
 }
 
-func (e *Environ) ClosePorts(rules []network.IngressRule) error {
-	return e.firewaller.ClosePorts(rules)
+func (e *Environ) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
+	return e.firewaller.ClosePorts(ctx, rules)
 }
 
-func (e *Environ) IngressRules() ([]network.IngressRule, error) {
-	return e.firewaller.IngressRules()
+func (e *Environ) IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
+	return e.firewaller.IngressRules(ctx)
 }
 
 func (e *Environ) Provider() environs.EnvironProvider {
@@ -1705,7 +1707,7 @@ func (e *Environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 }
 
 // TagInstance implements environs.InstanceTagger.
-func (e *Environ) TagInstance(id instance.Id, tags map[string]string) error {
+func (e *Environ) TagInstance(ctx context.ProviderCallContext, id instance.Id, tags map[string]string) error {
 	if err := e.nova().SetServerMetadata(string(id), tags); err != nil {
 		return errors.Annotate(err, "setting server metadata")
 	}
@@ -1744,37 +1746,37 @@ func validateAuthURL(authURL string) error {
 }
 
 // Subnets is specified on environs.Networking.
-func (e *Environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+func (e *Environ) Subnets(ctx context.ProviderCallContext, instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	return e.networking.Subnets(instId, subnetIds)
 }
 
 // NetworkInterfaces is specified on environs.Networking.
-func (e *Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	return e.networking.NetworkInterfaces(instId)
 }
 
 // SupportsSpaces is specified on environs.Networking.
-func (e *Environ) SupportsSpaces() (bool, error) {
+func (e *Environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
 	return false, nil
 }
 
 // SupportsSpaceDiscovery is specified on environs.Networking.
-func (e *Environ) SupportsSpaceDiscovery() (bool, error) {
+func (e *Environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error) {
 	return false, nil
 }
 
 // Spaces is specified on environs.Networking.
-func (e *Environ) Spaces() ([]network.SpaceInfo, error) {
+func (e *Environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
 	return nil, errors.NotSupportedf("spaces")
 }
 
 // SupportsContainerAddresses is specified on environs.Networking.
-func (e *Environ) SupportsContainerAddresses() (bool, error) {
+func (e *Environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
 	return false, errors.NotSupportedf("container address")
 }
 
 // SuperSubnets is specified on environs.Networking
-func (e *Environ) SuperSubnets() ([]string, error) {
+func (e *Environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
 	subnets, err := e.networking.Subnets("", nil)
 	if err != nil {
 		return nil, err
@@ -1787,26 +1789,26 @@ func (e *Environ) SuperSubnets() ([]string, error) {
 }
 
 // AllocateContainerAddresses is specified on environs.Networking.
-func (e *Environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e *Environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("allocate container address")
 }
 
 // ReleaseContainerAddresses is specified on environs.Networking.
-func (e *Environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
+func (e *Environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("release container address")
 }
 
 // ProviderSpaceInfo is specified on environs.NetworkingEnviron.
-func (*Environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (*Environ) ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 
 // AreSpacesRoutable is specified on environs.NetworkingEnviron.
-func (*Environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+func (*Environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }
 
 // SSHAddresses is specified on environs.SSHAddresses.
-func (*Environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses []network.Address) ([]network.Address, error) {
 	return addresses, nil
 }

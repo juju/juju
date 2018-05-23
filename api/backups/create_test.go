@@ -27,9 +27,11 @@ func (s *createSuite) TestCreate(c *gc.C) {
 			c.Assert(paramsIn, gc.FitsTypeOf, params.BackupsCreateArgs{})
 			p := paramsIn.(params.BackupsCreateArgs)
 			c.Check(p.Notes, gc.Equals, "important")
+			c.Check(p.KeepCopy, jc.IsFalse)
+			c.Check(p.NoDownload, jc.IsFalse)
 
 			if result, ok := resp.(*params.BackupsMetadataResult); ok {
-				*result = apiserverbackups.ResultFromMetadata(s.Meta)
+				*result = apiserverbackups.CreateResult(s.Meta, "test-filename")
 				result.Notes = p.Notes
 			} else {
 				c.Fatalf("wrong output structure")
@@ -39,9 +41,9 @@ func (s *createSuite) TestCreate(c *gc.C) {
 	)
 	defer cleanup()
 
-	result, err := s.client.Create("important")
+	result, err := s.client.Create("important", false, false)
 	c.Assert(err, jc.ErrorIsNil)
-
+	c.Log(result)
 	meta := backupstesting.UpdateNotes(s.Meta, "important")
 	s.checkMetadataResult(c, result, meta)
 }

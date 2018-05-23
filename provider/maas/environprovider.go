@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 )
 
 var cloudSchema = &jsonschema.Schema{
@@ -78,7 +79,7 @@ func (p MaasEnvironProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p MaasEnvironProvider) Ping(endpoint string) error {
+func (p MaasEnvironProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
 	base, version, includesVersion := gomaasapi.SplitVersionedURL(endpoint)
 	if includesVersion {
 		err := p.checkMaas(base, version)

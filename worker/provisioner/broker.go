@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
-	//"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
@@ -38,9 +37,9 @@ func (h hostArchToolsFinder) FindTools(v version.Number, series, _ string) (tool
 	return h.f.FindTools(v, series, arch.HostArch())
 }
 
-// resolvConf is the full path to the resolv.conf file on the local
-// system. Defined here so it can be overriden for testing.
-var resolvConf = "/etc/resolv.conf"
+// resolvConf contains the full path to common resolv.conf files on the local
+// system. Defined here so it can be overridden for testing.
+var resolvConfFiles = []string{"/etc/resolv.conf", "/etc/systemd/resolved.conf", "/run/systemd/resolve/resolv.conf"}
 
 func prepareOrGetContainerInterfaceInfo(
 	api APICalls,
@@ -100,7 +99,7 @@ func finishNetworkConfig(bridgeDevice string, interfaces []network.InterfaceInfo
 
 	if !haveNameservers || !haveSearchDomains {
 		logger.Warningf("incomplete DNS config found, discovering host's DNS config")
-		dnsConfig, err := network.ParseResolvConf(resolvConf)
+		dnsConfig, err := findDNSServerConfig()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -116,6 +115,26 @@ func finishNetworkConfig(bridgeDevice string, interfaces []network.InterfaceInfo
 	}
 
 	return results, nil
+}
+
+// findDNSServerConfig is a heuristic method to find an adequate DNS
+// configuration. Currently the only rule that is implemented is that common
+// configuration files are parsed until a configuration is found that is not a
+// loopback address (i.e systemd/resolved stub address).
+func findDNSServerConfig() (*network.DNSConfig, error) {
+	for _, dnsConfigFile := range resolvConfFiles {
+		dnsConfig, err := network.ParseResolvConf(dnsConfigFile)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, nameServer := range dnsConfig.Nameservers {
+			if nameServer.Scope != network.ScopeMachineLocal {
+				logger.Debugf("The DNS configuration from %s has been selected for use", dnsConfigFile)
+				return dnsConfig, nil
+			}
+		}
+	}
+	return nil, errors.New("A DNS configuration could not be found.")
 }
 
 func releaseContainerAddresses(

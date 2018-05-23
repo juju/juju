@@ -563,8 +563,14 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	// Note that we potentially update the HasVote status of the machines even
 	// if the members have not changed.
 	var added, removed []*machineTracker
-	// TODO: sortAsInts
-	for id, hasVote := range desired.machineVoting {
+	// Iterate in obvious order so we don't get weird log messages
+	votingIds := make([]string, 0, len(desired.machineVoting))
+	for id := range desired.machineVoting {
+		votingIds = append(votingIds, id)
+	}
+	sortAsInts(votingIds)
+	for _, id := range votingIds {
+		hasVote := desired.machineVoting[id]
 		m := info.machines[id]
 		switch {
 		case hasVote && !m.stm.HasVote():
@@ -598,14 +604,9 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	// Reset machine status for members of the changed peer-group.
 	// Any previous peer-group determination errors result in status
 	// warning messages.
-	// Remove members from the return that are not voters.
 	for id := range desired.members {
 		if err := w.machineTrackers[id].stm.SetStatus(getStatusInfo("")); err != nil {
 			return nil, errors.Trace(err)
-		}
-
-		if !desired.machineVoting[id] {
-			delete(desired.members, id)
 		}
 	}
 	for _, tracker := range info.machines {
@@ -634,7 +635,11 @@ func prettyReplicaSetMembers(members map[string]*replicaset.Member) string {
 	sort.Strings(keys)
 	for _, key := range keys {
 		m := members[key]
-		result = append(result, fmt.Sprintf("    Id: %d, Tags: %v, Vote: %v", m.Id, m.Tags, isVotingMember(m)))
+		voting := "not-voting"
+		if isVotingMember(m) {
+			voting = "voting"
+		}
+		result = append(result, fmt.Sprintf("    Id: %d, Tags: %v, %s", m.Id, m.Tags, voting))
 	}
 	return strings.Join(result, "\n")
 }

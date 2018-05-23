@@ -24,7 +24,7 @@ import (
 
 const (
 	tempPrefix   = "jujuBackup-"
-	tempFilename = "juju-backup.tar.gz"
+	TempFilename = "juju-backup.tar.gz"
 )
 
 type createArgs struct {
@@ -32,12 +32,14 @@ type createArgs struct {
 	filesToBackUp  []string
 	db             DBDumper
 	metadataReader io.Reader
+	noDownload     bool
 }
 
 type createResult struct {
 	archiveFile io.ReadCloser
 	size        int64
 	checksum    string
+	filename    string
 }
 
 // create builds a new backup archive file and returns it.  It also
@@ -49,14 +51,13 @@ func create(args *createArgs) (_ *createResult, err error) {
 		return nil, errors.Trace(err)
 	}
 	defer func() {
-		if cerr := builder.cleanUp(); cerr != nil {
+		if cerr := builder.cleanUp(args.noDownload); cerr != nil {
 			cerr.Log(logger)
 			if err == nil {
 				err = cerr
 			}
 		}
 	}()
-
 	// Inject the metadata file.
 	if args.metadataReader == nil {
 		return nil, errors.New("missing metadataReader")
@@ -121,13 +122,13 @@ func newBuilder(backupDir string, filesToBackUp []string, db DBDumper) (b *build
 	b = &builder{
 		rootDir:       rootDir,
 		archivePaths:  NewNonCanonicalArchivePaths(rootDir),
-		filename:      filepath.Join(rootDir, tempFilename),
+		filename:      filepath.Join(rootDir, TempFilename),
 		filesToBackUp: filesToBackUp,
 		db:            db,
 	}
 	defer func() {
 		if err != nil {
-			if cerr := b.cleanUp(); cerr != nil {
+			if cerr := b.cleanUp(true); cerr != nil {
 				cerr.Log(logger)
 			}
 		}
@@ -187,7 +188,7 @@ func (b *builder) closeBundleFile() error {
 func (b *builder) removeRootDir() error {
 	// Currently this method isn't thread-safe (doesn't need to be).
 	if b.rootDir == "" {
-		panic("rootDir is unexpected empty")
+		panic(fmt.Sprintf("rootDir is unexpected empty, filename(%s)", b.filename))
 	}
 
 	if err := os.RemoveAll(b.rootDir); err != nil {
@@ -216,7 +217,7 @@ func (e cleanupErrors) Log(logger loggo.Logger) {
 	}
 }
 
-func (b *builder) cleanUp() *cleanupErrors {
+func (b *builder) cleanUp(removeDir bool) *cleanupErrors {
 	var errors []error
 
 	if err := b.closeBundleFile(); err != nil {
@@ -225,8 +226,10 @@ func (b *builder) cleanUp() *cleanupErrors {
 	if err := b.closeArchiveFile(); err != nil {
 		errors = append(errors, err)
 	}
-	if err := b.removeRootDir(); err != nil {
-		errors = append(errors, err)
+	if removeDir {
+		if err := b.removeRootDir(); err != nil {
+			errors = append(errors, err)
+		}
 	}
 
 	if errors != nil {
@@ -385,6 +388,7 @@ func (b *builder) result() (*createResult, error) {
 		archiveFile: file,
 		size:        size,
 		checksum:    checksum,
+		filename:    b.filename,
 	}
 	return &result, nil
 }

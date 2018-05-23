@@ -83,7 +83,7 @@ func (s *metricsSuite) TestSort(c *gc.C) {
 		Labels: map[string]string{"foo": "bar"},
 		Time:   time.Date(2016, 8, 22, 12, 02, 04, 0, time.UTC),
 	}}
-	ctx, err := cmdtesting.RunCommand(c, metricsdebug.New(), "metered/0")
+	ctx, err := cmdtesting.RunCommand(c, metricsdebug.NewMetricsCommandForTest(), "metered/0")
 	c.Assert(err, jc.ErrorIsNil)
 	s.client.CheckCall(c, 0, "GetMetrics", []string{"unit-metered-0"})
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `UNIT          	           TIMESTAMP	METRIC	VALUE	  LABELS
@@ -107,7 +107,7 @@ func (s *metricsSuite) TestDefaultTabularFormat(c *gc.C) {
 		Value: "5.0",
 		Time:  time.Date(2016, 8, 22, 12, 02, 03, 0, time.UTC),
 	}}
-	ctx, err := cmdtesting.RunCommand(c, metricsdebug.New(), "metered/0")
+	ctx, err := cmdtesting.RunCommand(c, metricsdebug.NewMetricsCommandForTest(), "metered/0")
 	c.Assert(err, jc.ErrorIsNil)
 	s.client.CheckCall(c, 0, "GetMetrics", []string{"unit-metered-0"})
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `UNIT          	           TIMESTAMP	METRIC	VALUE	LABELS
@@ -134,7 +134,7 @@ func (s *metricsSuite) TestJSONFormat(c *gc.C) {
 		Time:   time.Date(2016, 8, 22, 12, 02, 04, 0, time.UTC),
 		Labels: map[string]string{"foo": "bar"},
 	}}
-	ctx, err := cmdtesting.RunCommand(c, metricsdebug.New(), "metered", "--format", "json")
+	ctx, err := cmdtesting.RunCommand(c, metricsdebug.NewMetricsCommandForTest(), "metered", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	s.client.CheckCall(c, 0, "GetMetrics", []string{"application-metered"})
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `[{"unit":"unit-metered-0","timestamp":"2016-08-22T12:02:03Z","metric":"pings","value":"5.0"},{"unit":"unit-metered-0","timestamp":"2016-08-22T12:02:04Z","metric":"pongs","value":"15.0"},{"unit":"unit-metered-0","timestamp":"2016-08-22T12:02:04Z","metric":"pongs","value":"10.0","labels":{"foo":"bar"}}]
@@ -159,7 +159,7 @@ func (s *metricsSuite) TestYAMLFormat(c *gc.C) {
 		Time:   time.Date(2016, 8, 22, 12, 02, 04, 0, time.UTC),
 		Labels: map[string]string{"foo": "bar"},
 	}}
-	ctx, err := cmdtesting.RunCommand(c, metricsdebug.New(), "metered", "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, metricsdebug.NewMetricsCommandForTest(), "metered", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	s.client.CheckCall(c, 0, "GetMetrics", []string{"application-metered"})
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `- unit: unit-metered-0
@@ -180,28 +180,28 @@ func (s *metricsSuite) TestYAMLFormat(c *gc.C) {
 }
 
 func (s *metricsSuite) TestAll(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, metricsdebug.New(), "--all")
+	_, err := cmdtesting.RunCommand(c, metricsdebug.NewMetricsCommandForTest(), "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	s.client.CheckCall(c, 0, "GetMetrics", []string(nil))
 }
 
 func (s *metricsSuite) TestAllWithExtraArgs(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, metricsdebug.New(), "--all", "metered")
+	_, err := cmdtesting.RunCommand(c, metricsdebug.NewMetricsCommandForTest(), "--all", "metered")
 	c.Assert(err, gc.ErrorMatches, "cannot use --all with additional entities")
 }
 
 func (s *metricsSuite) TestInvalidUnitName(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, metricsdebug.New(), "metered-/0")
+	_, err := cmdtesting.RunCommand(c, metricsdebug.NewMetricsCommandForTest(), "metered-/0")
 	c.Assert(err, gc.ErrorMatches, `"metered-/0" is not a valid unit or application`)
 }
 
 func (s *metricsSuite) TestAPIClientError(c *gc.C) {
 	s.client.SetErrors(errors.New("a silly error"))
-	_, err := cmdtesting.RunCommand(c, metricsdebug.New(), "metered/0")
+	_, err := cmdtesting.RunCommand(c, metricsdebug.NewMetricsCommandForTest(), "metered/0")
 	c.Assert(err, gc.ErrorMatches, `a silly error`)
 }
 
 func (s *metricsSuite) TestNoArgs(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, metricsdebug.New())
+	_, err := cmdtesting.RunCommand(c, metricsdebug.NewMetricsCommandForTest())
 	c.Assert(err, gc.ErrorMatches, "you need to specify at least one unit or application")
 }

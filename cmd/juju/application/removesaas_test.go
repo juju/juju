@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -30,7 +31,8 @@ func (s *RemoveSaasSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *RemoveSaasSuite) runRemoveSaas(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, NewRemoveSaasCommandForTest(s.mockAPI), args...)
+	store := jujuclienttesting.MinimalStore()
+	return cmdtesting.RunCommand(c, NewRemoveSaasCommandForTest(s.mockAPI, store), args...)
 }
 
 func (s *RemoveSaasSuite) TestRemove(c *gc.C) {

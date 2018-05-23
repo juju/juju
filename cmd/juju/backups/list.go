@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -35,6 +36,11 @@ func (c *listCommand) Info() *cmd.Info {
 		Doc:     listDoc,
 		Aliases: []string{"list-backups"},
 	}
+}
+
+// SetFlags implements Command.SetFlags.
+func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
 }
 
 // Init implements Command.Init.

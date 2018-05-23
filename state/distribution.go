@@ -6,8 +6,8 @@ package state
 import (
 	"fmt"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/instance"
 )
@@ -39,7 +39,7 @@ func distributeUnit(u *Unit, candidates []instance.Id) ([]instance.Id, error) {
 	if len(distributionGroup) == 0 {
 		return candidates, nil
 	}
-	return distributor.DistributeInstances(candidates, distributionGroup)
+	return distributor.DistributeInstances(CallContext(u.st), candidates, distributionGroup)
 }
 
 // ServiceInstances returns the instance IDs of provisioned

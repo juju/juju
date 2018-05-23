@@ -142,6 +142,10 @@ func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) e
 		Owner:          e.Owner,
 		ControllerUUID: e.ControllerUUID,
 		Config:         cfg.AllAttrs(),
+		SLA: multiwatcher.ModelSLAInfo{
+			Level: e.SLA.Level.String(),
+			Owner: e.SLA.Owner,
+		},
 	}
 	c, err := readConstraints(st, modelGlobalKey)
 	// Treat it as if the model is removed.
@@ -841,7 +845,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 
 func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, id string, unitStatus status.StatusInfo, newInfo *multiwatcher.UnitInfo) error {
 	// Unit or workload status - display the agent status or any error.
-	// NOTE: thumper 2016-06-27, this is truely horrible, and we are lying to our users.
+	// NOTE: thumper 2016-06-27, this is truly horrible, and we are lying to our users.
 	// however, this is explicitly what has been asked for as much as we dislike it.
 	if strings.HasSuffix(id, "#charm") || s.Status == status.Error {
 		newInfo.WorkloadStatus = s.toStatusInfo()

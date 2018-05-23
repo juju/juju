@@ -175,7 +175,7 @@ type modelEntityRefsDoc struct {
 	// Machines contains the names of the top-level machines in the model.
 	Machines []string `bson:"machines"`
 
-	// Applicatons contains the names of the applications in the model.
+	// Applications contains the names of the applications in the model.
 	Applications []string `bson:"applications"`
 
 	// Volumes contains the IDs of the volumes in the model.
@@ -396,8 +396,23 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}
 
 	ops := append(prereqOps, modelOps...)
+
+	// Increment the model count for the cloud to which this model belongs.
+	incCloudRefOp, err := incCloudModelRefOp(st, args.CloudName)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	ops = append(ops, incCloudRefOp)
+
 	err = newSt.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
+		// Check that the cloud exists.
+		// TODO(wallyworld) - this can't yet be tested since we check that the
+		// model cloud is the same as the controller cloud, and hooks can't be
+		// used because a new state is created.
+		if _, err := newSt.Cloud(args.CloudName); err != nil {
+			return nil, nil, errors.Trace(err)
+		}
 
 		// We have a  unique key restriction on the "owner" and "name" fields,
 		// which will cause the insert to fail if there is another record with

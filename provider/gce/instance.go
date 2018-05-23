@@ -6,6 +6,7 @@ package gce
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce/google"
@@ -32,7 +33,7 @@ func (inst *environInstance) Id() instance.Id {
 }
 
 // Status implements instance.Instance.
-func (inst *environInstance) Status() instance.InstanceStatus {
+func (inst *environInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	instStatus := inst.base.Status()
 	jujuStatus := status.Provisioning
 	switch instStatus {
@@ -52,7 +53,7 @@ func (inst *environInstance) Status() instance.InstanceStatus {
 }
 
 // Addresses implements instance.Instance.
-func (inst *environInstance) Addresses() ([]network.Address, error) {
+func (inst *environInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	return inst.base.Addresses(), nil
 }
 
@@ -69,7 +70,7 @@ func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
 
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) OpenPorts(machineID string, rules []network.IngressRule) error {
+func (inst *environInstance) OpenPorts(ctx context.ProviderCallContext, machineID string, rules []network.IngressRule) error {
 	// TODO(ericsnow) Make sure machineId matches inst.Id()?
 	name, err := inst.env.namespace.Hostname(machineID)
 	if err != nil {
@@ -81,7 +82,7 @@ func (inst *environInstance) OpenPorts(machineID string, rules []network.Ingress
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
-func (inst *environInstance) ClosePorts(machineID string, rules []network.IngressRule) error {
+func (inst *environInstance) ClosePorts(ctx context.ProviderCallContext, machineID string, rules []network.IngressRule) error {
 	name, err := inst.env.namespace.Hostname(machineID)
 	if err != nil {
 		return errors.Trace(err)
@@ -93,7 +94,7 @@ func (inst *environInstance) ClosePorts(machineID string, rules []network.Ingres
 // IngressRules returns the set of ingress rules applicable to the instance, which
 // should have been started with the given machine id.
 // The rules are returned as sorted by SortIngressRules.
-func (inst *environInstance) IngressRules(machineID string) ([]network.IngressRule, error) {
+func (inst *environInstance) IngressRules(ctx context.ProviderCallContext, machineID string) ([]network.IngressRule, error) {
 	name, err := inst.env.namespace.Hostname(machineID)
 	if err != nil {
 		return nil, errors.Trace(err)

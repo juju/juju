@@ -9,6 +9,7 @@ import (
 	ociResponse "github.com/juju/go-oracle-cloud/response"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 )
 
 var _ environs.NetworkingEnviron = (*OracleEnviron)(nil)
@@ -51,8 +52,8 @@ func (o *OracleEnviron) DeleteMachineVnicSet(machineId string) error {
 	return nil
 }
 
-func (o *OracleEnviron) ensureVnicSet(machineId string, tags []string) (ociResponse.VnicSet, error) {
-	if access, err := o.SupportsSpaces(); err != nil || access == false {
+func (o *OracleEnviron) ensureVnicSet(ctx context.ProviderCallContext, machineId string, tags []string) (ociResponse.VnicSet, error) {
+	if access, err := o.SupportsSpaces(ctx); err != nil || access == false {
 		logger.Debugf("Spaces is not supported on this API endpoint.")
 		return ociResponse.VnicSet{}, nil
 	}

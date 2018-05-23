@@ -120,7 +120,7 @@ install-dependencies:
 	@echo Installing dependencies
 	@sudo apt-get --yes install  \
 	$(strip $(DEPENDENCIES)) \
-	$(shell apt-cache madison juju-mongodb3.2 juju-mongodb mongodb-server | head -1 | cut -d '|' -f1)
+	$(shell apt-cache madison mongodb-server-core juju-mongodb3.2 juju-mongodb mongodb-server | head -1 | cut -d '|' -f1)
 
 # Install bash_completion
 install-etc:
@@ -144,7 +144,7 @@ check-deps:
 
 # CAAS related targets
 DOCKER_USERNAME?=jujusolutions
-JUJUD_STAGING_DIR=/tmp/jujud-operator
+JUJUD_STAGING_DIR?=/tmp/jujud-operator
 JUJUD_BIN_DIR=${GOPATH}/bin
 OPERATOR_IMAGE_TAG = $(shell jujud version | cut -d- -f1,2)
 
@@ -155,6 +155,7 @@ operator-image: install caas/jujud-operator-dockerfile caas/jujud-operator-requi
 	cp caas/jujud-operator-dockerfile ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-requirements.txt ${JUJUD_STAGING_DIR}
 	docker build -f ${JUJUD_STAGING_DIR}/jujud-operator-dockerfile -t ${DOCKER_USERNAME}/caas-jujud-operator:${OPERATOR_IMAGE_TAG} ${JUJUD_STAGING_DIR}
+	rm -rf ${JUJUD_STAGING_DIR}
 
 push-operator-image: operator-image
 	docker push ${DOCKER_USERNAME}/caas-jujud-operator

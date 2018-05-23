@@ -31,6 +31,7 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
@@ -176,11 +177,12 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 
-	instances, err := env.Instances([]instance.Id{args.BootstrapMachineInstanceId})
+	callCtx := context.NewCloudCallContext()
+	instances, err := env.Instances(callCtx, []instance.Id{args.BootstrapMachineInstanceId})
 	if err != nil {
 		return errors.Annotate(err, "getting bootstrap instance")
 	}
-	addrs, err := instances[0].Addresses()
+	addrs, err := instances[0].Addresses(callCtx)
 	if err != nil {
 		return errors.Annotate(err, "bootstrap instance addresses")
 	}
@@ -366,7 +368,7 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	if err != nil {
 		return err
 	}
-	err = cmdutil.EnsureMongoServer(ensureServerParams)
+	_, err = cmdutil.EnsureMongoServer(ensureServerParams)
 	if err != nil {
 		return err
 	}

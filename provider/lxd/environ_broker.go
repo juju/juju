@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
@@ -14,7 +12,9 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
@@ -23,12 +23,12 @@ import (
 )
 
 // MaintainInstance is specified in the InstanceBroker interface.
-func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
+func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
 	return nil
 }
 
 // StartInstance implements environs.InstanceBroker.
-func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// Start a new instance.
 
 	series := args.Tools.OneSeries()
@@ -78,12 +78,12 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (str
 	return arch, nil
 }
 
-func (env *environ) getImageSources() ([]lxdclient.Remote, error) {
+func (env *environ) getImageSources() ([]lxd.RemoteServer, error) {
 	metadataSources, err := environs.ImageMetadataSources(env)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	remotes := make([]lxdclient.Remote, 0)
+	remotes := make([]lxd.RemoteServer, 0)
 	for _, source := range metadataSources {
 		url, err := source.URL("")
 		if err != nil {
@@ -106,12 +106,10 @@ func (env *environ) getImageSources() ([]lxdclient.Remote, error) {
 			url = "https://" + url
 			logger.Debugf("LXD requires https://, using: %s", url)
 		}
-		remotes = append(remotes, lxdclient.Remote{
-			Name:          source.Description(),
-			Host:          url,
-			Protocol:      lxdclient.SimplestreamsProtocol,
-			Cert:          nil,
-			ServerPEMCert: "",
+		remotes = append(remotes, lxd.RemoteServer{
+			Name:     source.Description(),
+			Host:     url,
+			Protocol: lxd.SimpleStreamsProtocol,
 		})
 	}
 	return remotes, nil
@@ -146,13 +144,14 @@ func (env *environ) newRawInstance(
 	// assume that all providers will have the same need to be implemented
 	// in the same way.
 	longestMsg := 0
-	statusCallback := func(currentStatus status.Status, msg string) {
+	statusCallback := func(currentStatus status.Status, msg string, data map[string]interface{}) error {
 		if args.StatusCallback != nil {
 			args.StatusCallback(currentStatus, msg, nil)
 		}
 		if len(msg) > longestMsg {
 			longestMsg = len(msg)
 		}
+		return nil
 	}
 	cleanupCallback := func() {
 		if args.CleanupCallback != nil {
@@ -161,11 +160,9 @@ func (env *environ) newRawInstance(
 	}
 	defer cleanupCallback()
 
-	imageCallback := func(copyProgress string) {
-		statusCallback(status.Allocating, copyProgress)
-	}
+	statusCallback(status.Allocating, "acquiring LXD image", nil)
 	series := args.InstanceConfig.Series
-	image, err := env.raw.EnsureImageExists(series, arch, imageSources, imageCallback)
+	image, err := env.raw.FindImage(series, arch, imageSources, true, statusCallback)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -186,8 +183,7 @@ func (env *environ) newRawInstance(
 	// TODO(ericsnow) Support multiple networks?
 	// TODO(ericsnow) Use a different net interface name? Configurable?
 	instSpec := lxdclient.InstanceSpec{
-		Name:  hostname,
-		Image: image,
+		Name: hostname,
 		//Type:              spec.InstanceType.Name,
 		//Disks:             getDisks(spec, args.Constraints),
 		//NetworkInterfaces: []string{"ExternalNAT"},
@@ -200,17 +196,18 @@ func (env *environ) newRawInstance(
 			"default",
 			env.profileName(),
 		},
+		ImageData: image,
 		// Network is omitted (left empty).
 	}
 
 	logger.Infof("starting instance %q (image %q)...", instSpec.Name, instSpec.Image)
 
-	statusCallback(status.Allocating, "preparing image")
+	statusCallback(status.Allocating, "preparing image", nil)
 	inst, err := env.raw.AddInstance(instSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	statusCallback(status.Running, "container started")
+	statusCallback(status.Running, "container started", nil)
 	return inst, nil
 }
 
@@ -255,7 +252,9 @@ func getMetadata(cloudcfg cloudinit.CloudConfig, args environs.StartInstancePara
 
 // getHardwareCharacteristics compiles hardware-related details about
 // the given instance and relative to the provided spec and returns it.
-func (env *environ) getHardwareCharacteristics(args environs.StartInstanceParams, inst *environInstance) *instance.HardwareCharacteristics {
+func (env *environ) getHardwareCharacteristics(
+	args environs.StartInstanceParams, inst *environInstance,
+) *instance.HardwareCharacteristics {
 	raw := inst.raw.Hardware
 
 	archStr := raw.Architecture
@@ -273,7 +272,7 @@ func (env *environ) getHardwareCharacteristics(args environs.StartInstanceParams
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *environ) AllInstances() ([]instance.Instance, error) {
+func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
 	environInstances, err := env.allInstances()
 	instances := make([]instance.Instance, len(environInstances))
 	for i, inst := range environInstances {
@@ -282,11 +281,11 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 		}
 		instances[i] = inst
 	}
-	return instances, err
+	return instances, errors.Trace(err)
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *environ) StopInstances(instances ...instance.Id) error {
+func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...instance.Id) error {
 	var ids []string
 	for _, id := range instances {
 		ids = append(ids, string(id))

@@ -4,9 +4,9 @@
 package apiserver_test
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	coreapiserver "github.com/juju/juju/apiserver"

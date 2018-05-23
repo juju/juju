@@ -8,7 +8,6 @@ import (
 	"runtime"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -80,7 +79,7 @@ type StorageContextAccessor struct {
 }
 
 func (s *StorageContextAccessor) StorageTags() ([]names.StorageTag, error) {
-	tags := set.NewTags()
+	tags := names.NewSet()
 	for tag := range s.CStorage {
 		tags.Add(tag)
 	}

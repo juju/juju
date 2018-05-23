@@ -1,8 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
@@ -11,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/tools/lxdclient"
 )
@@ -48,7 +47,7 @@ func (s *environRawSuite) TestGetRemoteConfig(c *gc.C) {
 			Name:     "remote",
 			Host:     "10.0.8.1",
 			Protocol: "lxd",
-			Cert: &lxdclient.Cert{
+			Cert: &lxd.Certificate{
 				Name:    "juju",
 				CertPEM: []byte("client.crt"),
 				KeyPEM:  []byte("client.key"),

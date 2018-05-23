@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 )
@@ -16,9 +17,9 @@ import (
 // Destroy is a common implementation of the Destroy method defined on
 // environs.Environ; we strongly recommend that this implementation be
 // used when writing a new provider.
-func Destroy(env environs.Environ) error {
+func Destroy(env environs.Environ, ctx context.ProviderCallContext) error {
 	logger.Infof("destroying model %q", env.Config().Name())
-	if err := destroyInstances(env); err != nil {
+	if err := destroyInstances(env, ctx); err != nil {
 		return errors.Annotate(err, "destroying instances")
 	}
 	if err := destroyStorage(env); err != nil {
@@ -27,16 +28,16 @@ func Destroy(env environs.Environ) error {
 	return nil
 }
 
-func destroyInstances(env environs.Environ) error {
+func destroyInstances(env environs.Environ, ctx context.ProviderCallContext) error {
 	logger.Infof("destroying instances")
-	instances, err := env.AllInstances()
+	instances, err := env.AllInstances(ctx)
 	switch err {
 	case nil:
 		ids := make([]instance.Id, len(instances))
 		for i, inst := range instances {
 			ids[i] = inst.Id()
 		}
-		if err := env.StopInstances(ids...); err != nil {
+		if err := env.StopInstances(ctx, ids...); err != nil {
 			return err
 		}
 		fallthrough

@@ -38,13 +38,26 @@ type Backend interface {
 	RestoreInfo() *state.RestoreInfo
 }
 
-// API serves backup-specific API methods.
+// API provides backup-specific API methods for version 2.
 type API struct {
 	backend Backend
 	paths   *backups.Paths
 
 	// machineID is the ID of the machine where the API server is running.
 	machineID string
+}
+
+// API serves backup-specific API methods.
+type APIv2 struct {
+	*API
+}
+
+func NewAPIv2(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*APIv2, error) {
+	api, err := NewAPI(backend, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv2{api}, nil
 }
 
 // NewAPI creates a new instance of the Backups API facade.
@@ -116,9 +129,9 @@ var newBackups = func(backend Backend) (backups.Backups, io.Closer) {
 	return backups.NewBackups(stor), stor
 }
 
-// ResultFromMetadata updates the result with the information in the
+// CreateResult updates the result with the information in the
 // metadata value.
-func ResultFromMetadata(meta *backups.Metadata) params.BackupsMetadataResult {
+func CreateResult(meta *backups.Metadata, filename string) params.BackupsMetadataResult {
 	var result params.BackupsMetadataResult
 
 	result.ID = meta.ID()
@@ -146,10 +159,11 @@ func ResultFromMetadata(meta *backups.Metadata) params.BackupsMetadataResult {
 	// These are only used by the restore CLI when re-bootstrapping.
 	// We will use a better solution but the way restore currently
 	// works, we need them and they are no longer available via
-	// bootstrap config. We will need to ifx how re-bootstrap deals
+	// bootstrap config. We will need to fix how re-bootstrap deals
 	// with these keys to address the issue.
 	result.CACert = meta.CACert
 	result.CAPrivateKey = meta.CAPrivateKey
+	result.Filename = filename
 
 	return result
 }

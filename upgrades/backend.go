@@ -37,9 +37,11 @@ type StateBackend interface {
 	AddRelationStatus() error
 	DeleteCloudImageMetadata() error
 	EnsureContainerImageStreamDefault() error
+	RemoveContainerImageStreamFromNonModelSettings() error
 	MoveMongoSpaceToHASpaceConfig() error
 	CreateMissingApplicationConfig() error
 	RemoveVotingMachineIds() error
+	AddCloudModelCounts() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -154,6 +156,10 @@ func (s stateBackend) RemoveVotingMachineIds() error {
 	return state.RemoveVotingMachineIds(s.st)
 }
 
+func (s stateBackend) AddCloudModelCounts() error {
+	return state.AddCloudModelCounts(s.st)
+}
+
 type modelShim struct {
 	st *state.State
 	m  *state.Model
@@ -176,4 +182,8 @@ func (s stateBackend) DeleteCloudImageMetadata() error {
 
 func (s stateBackend) EnsureContainerImageStreamDefault() error {
 	return state.UpgradeContainerImageStreamDefault(s.st)
+}
+
+func (s stateBackend) RemoveContainerImageStreamFromNonModelSettings() error {
+	return state.RemoveContainerImageStreamFromNonModelSettings(s.st)
 }

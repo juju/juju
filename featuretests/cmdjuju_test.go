@@ -164,12 +164,6 @@ application-config:
     source: user
     type: string
     value: ext-host
-  juju-managed-units:
-    default: false
-    description: whether Juju manages unit lifecycle or the CAAS substrate
-    source: default
-    type: bool
-    value: false
   kubernetes-ingress-allow-http:
     default: false
     description: whether to allow HTTP traffic to the ingress controller

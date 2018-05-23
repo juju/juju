@@ -547,7 +547,7 @@ func (s *crossmodelSuite) TestConsumeWithPermission(c *gc.C) {
 	s.createTestUser(c)
 	s.loginTestUser(c)
 	ctx, err := cmdtesting.RunCommand(c, application.NewConsumeCommand(),
-		"otheruser/othermodel.hosted-mysql")
+		"-m", "admin/controller", "otheruser/othermodel.hosted-mysql")
 	c.Assert(err, gc.ErrorMatches, `application offer "otheruser/othermodel.hosted-mysql" not found`)
 
 	s.loginAdminUser(c)
@@ -569,6 +569,7 @@ func (s *crossmodelSuite) TestRemoveSaas(c *gc.C) {
 	s.addOtherModelApplication(c)
 	_, err := cmdtesting.RunCommand(c, application.NewConsumeCommand(),
 		"otheruser/othermodel.hosted-mysql")
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = cmdtesting.RunCommand(c, application.NewRemoveSaasCommand(),
 		"-m", "admin/controller", "hosted-mysql")

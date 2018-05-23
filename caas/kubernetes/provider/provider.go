@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 )
 
 type kubernetesEnvironProvider struct {
@@ -62,7 +63,7 @@ func (p kubernetesEnvironProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p kubernetesEnvironProvider) Ping(endpoint string) error {
+func (p kubernetesEnvironProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 

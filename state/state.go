@@ -12,7 +12,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
@@ -21,7 +23,6 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
@@ -109,11 +110,11 @@ type State struct {
 
 // StateServingInfo holds information needed by a controller.
 // This type is a copy of the type of the same name from the api/params package.
-// It is replicated here to avoid the state pacakge depending on api/params.
+// It is replicated here to avoid the state package depending on api/params.
 //
 // NOTE(fwereade): the api/params type exists *purely* for representing
 // this data over the wire, and has a legitimate reason to exist. This
-// type does not: it's non-implementation-specific and shoudl be defined
+// type does not: it's non-implementation-specific and should be defined
 // under core/ somewhere, so it can be used both here and in the agent
 // without dragging unnecessary/irrelevant packages into scope.
 type StateServingInfo struct {
@@ -143,6 +144,13 @@ func (st *State) ControllerUUID() string {
 // ControllerUUID.
 func (st *State) ControllerTag() names.ControllerTag {
 	return st.controllerTag
+}
+
+// ControllerTimestamp returns the current timestamp of the backend
+// controller.
+func (st *State) ControllerTimestamp() (*time.Time, error) {
+	now := st.clock().Now()
+	return &now, nil
 }
 
 // ControllerModelUUID returns the UUID of the model that was
@@ -289,6 +297,14 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		Assert: modelAssertion,
 		Remove: true,
 	}}
+
+	// Decrement the model count for the cloud to which this model belongs.
+	decCloudRefOp, err := decCloudModelRefOp(st, model.Cloud())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ops = append(ops, decCloudRefOp)
+
 	if !st.IsController() {
 		ops = append(ops, decHostedModelCountOp())
 	}

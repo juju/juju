@@ -9,11 +9,11 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 
@@ -161,7 +161,11 @@ const (
 	// communicate with controllers.
 	JujuManagementSpace = "juju-mgmt-space"
 
-	// Features allows a list of runtime changable features to be updated.
+	// CAASOperatorImagePath sets the url of the docker image
+	// used for the application operator.
+	CAASOperatorImagePath = "caas-operator-image-path"
+
+	// Features allows a list of runtime changeable features to be updated.
 	Features = "features"
 )
 
@@ -190,21 +194,20 @@ var (
 		AuditLogMaxSize,
 		AuditLogMaxBackups,
 		AuditLogExcludeMethods,
+		CAASOperatorImagePath,
 		Features,
 	}
 
 	// AllowedUpdateConfigAttributes contains all of the controller
 	// config attributes that are allowed to be updated after the
 	// controller has been created.
-	// TODO(babbageclunk): initially this will only be audit log
-	// values, but we should work out which others can also be changed
-	// safely.
 	AllowedUpdateConfigAttributes = set.NewStrings(
 		AuditingEnabled,
 		AuditLogCaptureArgs,
 		AuditLogExcludeMethods,
 		JujuHASpace,
 		JujuManagementSpace,
+		CAASOperatorImagePath,
 		Features,
 	)
 
@@ -474,6 +477,12 @@ func (c Config) JujuManagementSpace() string {
 	return c.asString(JujuManagementSpace)
 }
 
+// CAASOperatorImagePath sets the url of the docker image
+// used for the application operator.
+func (c Config) CAASOperatorImagePath() string {
+	return c.asString(CAASOperatorImagePath)
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -539,6 +548,12 @@ func Validate(c Config) error {
 
 	if err := c.validateSpaceConfig(JujuManagementSpace, "juju mgmt"); err != nil {
 		return errors.Trace(err)
+	}
+
+	if v, ok := c[CAASOperatorImagePath].(string); ok {
+		if err := c.validateCAASOperatorImagePath(v); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	var auditLogMaxSize int
@@ -623,6 +638,15 @@ func (c Config) AsSpaceConstraints(spaces *[]string) *[]string {
 	return &ns
 }
 
+var validDockerImageRegExp = regexp.MustCompile(`^([A-Za-z\.]+/)?(([A-Za-z-_\.])+/?)+(:[A-Za-z0-9-_\.]+)?$`)
+
+func (c Config) validateCAASOperatorImagePath(path string) error {
+	if ok := validDockerImageRegExp.MatchString(path); !ok {
+		return errors.NotValidf("docker image path %q", path)
+	}
+	return nil
+}
+
 // GenerateControllerCertAndKey makes sure that the config has a CACert and
 // CAPrivateKey, generates and returns new certificate and key.
 func GenerateControllerCertAndKey(caCert, caKey string, hostAddresses []string) (string, string, error) {
@@ -649,6 +673,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxTxnLogSize:           schema.String(),
 	JujuHASpace:             schema.String(),
 	JujuManagementSpace:     schema.String(),
+	CAASOperatorImagePath:   schema.String(),
 	Features:                schema.List(schema.String()),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
@@ -670,5 +695,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
 	JujuHASpace:             schema.Omit,
 	JujuManagementSpace:     schema.Omit,
+	CAASOperatorImagePath:   schema.Omit,
 	Features:                schema.Omit,
 })

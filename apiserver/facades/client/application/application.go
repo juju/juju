@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -46,16 +45,21 @@ type APIv4 struct {
 	*APIv5
 }
 
-// APIv6 provides the Application API facade for version 6.
-type APIv6 struct {
-	*APIv5
+// APIv5 provides the Application API facade for version 5.
+type APIv5 struct {
+	*APIv6
 }
 
-// API implements the application interface and is the concrete
+// APIv6 provides the Application API facade for version 6.
+type APIv6 struct {
+	*APIBase
+}
+
+// APIBase implements the shared application interface and is the concrete
 // implementation of the api end point.
 //
 // API provides the Application API facade for version 5.
-type APIv5 struct {
+type APIBase struct {
 	backend    Backend
 	authorizer facade.Authorizer
 	check      BlockChecker
@@ -80,25 +84,33 @@ func NewFacadeV4(ctx facade.Context) (*APIv4, error) {
 	return &APIv4{api}, nil
 }
 
-// NewFacadeV6 provides the signature required for facade registration
-// for versions 6.
-func NewFacadeV6(ctx facade.Context) (*APIv6, error) {
-	apiV5, err := NewFacadeV5(ctx)
+// NewFacade provides the signature required for facade registration.
+func NewFacadeV5(ctx facade.Context) (*APIv5, error) {
+	api, err := NewFacadeV6(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &APIv6{apiV5}, nil
+	return &APIv5{api}, nil
 }
 
-// NewFacade provides the signature required for facade registration.
-func NewFacadeV5(ctx facade.Context) (*APIv5, error) {
+// NewFacadeV6 provides the signature required for facade registration
+// for versions 6.
+func NewFacadeV6(ctx facade.Context) (*APIv6, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv6{api}, nil
+}
+
+func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	backend, err := NewStateBackend(ctx.State())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state")
 	}
 	blockChecker := common.NewBlockChecker(ctx.State())
 	stateCharm := CharmToStateCharm
-	return NewAPIV5(
+	return NewAPIBase(
 		backend,
 		ctx.Auth(),
 		blockChecker,
@@ -107,18 +119,18 @@ func NewFacadeV5(ctx facade.Context) (*APIv5, error) {
 	)
 }
 
-// NewAPI returns a new application API facade.
-func NewAPIV5(
+// NewAPIBase returns a new application API facade.
+func NewAPIBase(
 	backend Backend,
 	authorizer facade.Authorizer,
 	blockChecker BlockChecker,
 	stateCharm func(Charm) *state.Charm,
 	deployApplication func(ApplicationDeployer, DeployApplicationParams) (Application, error),
-) (*APIv5, error) {
+) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	return &APIv5{
+	return &APIBase{
 		backend:               backend,
 		authorizer:            authorizer,
 		check:                 blockChecker,
@@ -127,7 +139,7 @@ func NewAPIV5(
 	}, nil
 }
 
-func (api *APIv5) checkPermission(tag names.Tag, perm permission.Access) error {
+func (api *APIBase) checkPermission(tag names.Tag, perm permission.Access) error {
 	allowed, err := api.authorizer.HasPermission(perm, tag)
 	if err != nil {
 		return errors.Trace(err)
@@ -138,16 +150,16 @@ func (api *APIv5) checkPermission(tag names.Tag, perm permission.Access) error {
 	return nil
 }
 
-func (api *APIv5) checkCanRead() error {
+func (api *APIBase) checkCanRead() error {
 	return api.checkPermission(api.backend.ModelTag(), permission.ReadAccess)
 }
 
-func (api *APIv5) checkCanWrite() error {
+func (api *APIBase) checkCanWrite() error {
 	return api.checkPermission(api.backend.ModelTag(), permission.WriteAccess)
 }
 
 // SetMetricCredentials sets credentials on the application.
-func (api *APIv5) SetMetricCredentials(args params.ApplicationMetricCredentials) (params.ErrorResults, error) {
+func (api *APIBase) SetMetricCredentials(args params.ApplicationMetricCredentials) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -173,7 +185,34 @@ func (api *APIv5) SetMetricCredentials(args params.ApplicationMetricCredentials)
 
 // Deploy fetches the charms from the charm store and deploys them
 // using the specified placement directives.
-func (api *APIv5) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, error) {
+// V5 deploy did not support policy, so pass through an empty string.
+func (api *APIv5) Deploy(args params.ApplicationsDeployV5) (params.ErrorResults, error) {
+	noDefinedPolicy := ""
+	var newArgs params.ApplicationsDeploy
+	for _, value := range args.Applications {
+		newArgs.Applications = append(newArgs.Applications, params.ApplicationDeploy{
+			ApplicationName:  value.ApplicationName,
+			Series:           value.Series,
+			CharmURL:         value.CharmURL,
+			Channel:          value.Channel,
+			NumUnits:         value.NumUnits,
+			Config:           value.Config,
+			ConfigYAML:       value.ConfigYAML,
+			Constraints:      value.Constraints,
+			Placement:        value.Placement,
+			Policy:           noDefinedPolicy,
+			Storage:          value.Storage,
+			AttachStorage:    value.AttachStorage,
+			EndpointBindings: value.EndpointBindings,
+			Resources:        value.Resources,
+		})
+	}
+	return api.APIBase.Deploy(newArgs)
+}
+
+// Deploy fetches the charms from the charm store and deploys them
+// using the specified placement directives.
+func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -415,7 +454,7 @@ func parseSettingsCompatible(charmConfig *charm.Config, settings map[string]stri
 // Update updates the application attributes, including charm URL,
 // minimum number of units, charm config and constraints.
 // All parameters in params.ApplicationUpdate except the application name are optional.
-func (api *APIv5) Update(args params.ApplicationUpdate) error {
+func (api *APIBase) Update(args params.ApplicationUpdate) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
@@ -473,7 +512,7 @@ func (api *APIv5) Update(args params.ApplicationUpdate) error {
 
 // UpdateApplicationSeries updates the application series. Series for
 // subordinates updated too.
-func (api *APIv5) UpdateApplicationSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
+func (api *APIBase) UpdateApplicationSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -490,7 +529,7 @@ func (api *APIv5) UpdateApplicationSeries(args params.UpdateSeriesArgs) (params.
 	return results, nil
 }
 
-func (api *APIv5) updateOneApplicationSeries(arg params.UpdateSeriesArg) error {
+func (api *APIBase) updateOneApplicationSeries(arg params.UpdateSeriesArg) error {
 	if arg.Series == "" {
 		return &params.Error{
 			Message: "series missing from args",
@@ -518,7 +557,7 @@ func (api *APIv5) updateOneApplicationSeries(arg params.UpdateSeriesArg) error {
 }
 
 // SetCharm sets the charm for a given for the application.
-func (api *APIv5) SetCharm(args params.ApplicationSetCharm) error {
+func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
@@ -549,7 +588,7 @@ func (api *APIv5) SetCharm(args params.ApplicationSetCharm) error {
 
 // GetConfig returns the charm config for each of the
 // applications asked for.
-func (api *APIv5) GetConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
+func (api *APIBase) GetConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
 	if err := api.checkCanRead(); err != nil {
 		return params.ApplicationGetConfigResults{}, err
 	}
@@ -564,7 +603,7 @@ func (api *APIv5) GetConfig(args params.Entities) (params.ApplicationGetConfigRe
 	return results, nil
 }
 
-func (api *APIv5) getCharmConfig(entity string) (map[string]interface{}, error) {
+func (api *APIBase) getCharmConfig(entity string) (map[string]interface{}, error) {
 	tag, err := names.ParseTag(entity)
 	if err != nil {
 		return nil, err
@@ -590,7 +629,7 @@ func (api *APIv5) getCharmConfig(entity string) (map[string]interface{}, error) 
 }
 
 // applicationSetCharm sets the charm for the given for the application.
-func (api *APIv5) applicationSetCharm(
+func (api *APIBase) applicationSetCharm(
 	appName string,
 	application Application,
 	url string,
@@ -704,7 +743,7 @@ func applicationSetCharmConfigYAML(appName string, application Application, sett
 
 // GetCharmURL returns the charm URL the given application is
 // running at present.
-func (api *APIv5) GetCharmURL(args params.ApplicationGet) (params.StringResult, error) {
+func (api *APIBase) GetCharmURL(args params.ApplicationGet) (params.StringResult, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.StringResult{}, errors.Trace(err)
 	}
@@ -719,7 +758,7 @@ func (api *APIv5) GetCharmURL(args params.ApplicationGet) (params.StringResult, 
 // Set implements the server side of Application.Set.
 // It does not unset values that are set to an empty string.
 // Unset should be used for that.
-func (api *APIv5) Set(p params.ApplicationSet) error {
+func (api *APIBase) Set(p params.ApplicationSet) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
@@ -745,7 +784,7 @@ func (api *APIv5) Set(p params.ApplicationSet) error {
 }
 
 // Unset implements the server side of Client.Unset.
-func (api *APIv5) Unset(p params.ApplicationUnset) error {
+func (api *APIBase) Unset(p params.ApplicationUnset) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
@@ -764,7 +803,7 @@ func (api *APIv5) Unset(p params.ApplicationUnset) error {
 }
 
 // CharmRelations implements the server side of Application.CharmRelations.
-func (api *APIv5) CharmRelations(p params.ApplicationCharmRelations) (params.ApplicationCharmRelationsResults, error) {
+func (api *APIBase) CharmRelations(p params.ApplicationCharmRelations) (params.ApplicationCharmRelationsResults, error) {
 	var results params.ApplicationCharmRelationsResults
 	if err := api.checkCanRead(); err != nil {
 		return results, errors.Trace(err)
@@ -787,7 +826,7 @@ func (api *APIv5) CharmRelations(p params.ApplicationCharmRelations) (params.App
 
 // Expose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
-func (api *APIv5) Expose(args params.ApplicationExpose) error {
+func (api *APIBase) Expose(args params.ApplicationExpose) error {
 	if err := api.checkCanWrite(); err != nil {
 		return errors.Trace(err)
 	}
@@ -814,7 +853,7 @@ func (api *APIv5) Expose(args params.ApplicationExpose) error {
 
 // Unexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
-func (api *APIv5) Unexpose(args params.ApplicationUnexpose) error {
+func (api *APIBase) Unexpose(args params.ApplicationUnexpose) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
@@ -829,7 +868,19 @@ func (api *APIv5) Unexpose(args params.ApplicationUnexpose) error {
 }
 
 // AddUnits adds a given number of units to an application.
-func (api *APIv5) AddUnits(args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
+func (api *APIv5) AddUnits(args params.AddApplicationUnitsV5) (params.AddApplicationUnitsResults, error) {
+	noDefinedPolicy := ""
+	return api.APIBase.AddUnits(params.AddApplicationUnits{
+		ApplicationName: args.ApplicationName,
+		NumUnits:        args.NumUnits,
+		Placement:       args.Placement,
+		Policy:          noDefinedPolicy,
+		AttachStorage:   args.AttachStorage,
+	})
+}
+
+// AddUnits adds a given number of units to an application.
+func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -908,7 +959,7 @@ func addApplicationUnits(backend Backend, args params.AddApplicationUnits) ([]Un
 //
 // TODO(axw) 2017-03-16 #1673323
 // Drop this in Juju 3.0.
-func (api *APIv5) DestroyUnits(args params.DestroyApplicationUnits) error {
+func (api *APIBase) DestroyUnits(args params.DestroyApplicationUnits) error {
 	var errs []error
 	entities := params.DestroyUnitsParams{
 		Units: make([]params.DestroyUnitParams, 0, len(args.UnitNames)),
@@ -944,11 +995,11 @@ func (api *APIv4) DestroyUnit(args params.Entities) (params.DestroyUnitResults, 
 	for i, arg := range args.Entities {
 		v5args.Units[i].UnitTag = arg.Tag
 	}
-	return api.APIv5.DestroyUnit(v5args)
+	return api.APIBase.DestroyUnit(v5args)
 }
 
 // DestroyUnit removes a given set of application units.
-func (api *APIv5) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
+func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.DestroyUnitResults{}, errors.Trace(err)
 	}
@@ -1021,7 +1072,7 @@ func (api *APIv5) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyUni
 //
 // TODO(axw) 2017-03-16 #1673323
 // Drop this in Juju 3.0.
-func (api *APIv5) Destroy(in params.ApplicationDestroy) error {
+func (api *APIBase) Destroy(in params.ApplicationDestroy) error {
 	if !names.IsValidApplication(in.ApplicationName) {
 		return errors.NotValidf("application name %q", in.ApplicationName)
 	}
@@ -1050,11 +1101,11 @@ func (api *APIv4) DestroyApplication(args params.Entities) (params.DestroyApplic
 	for i, arg := range args.Entities {
 		v5args.Applications[i].ApplicationTag = arg.Tag
 	}
-	return api.APIv5.DestroyApplication(v5args)
+	return api.APIBase.DestroyApplication(v5args)
 }
 
 // DestroyApplication removes a given set of applications.
-func (api *APIv5) DestroyApplication(args params.DestroyApplicationsParams) (params.DestroyApplicationResults, error) {
+func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (params.DestroyApplicationResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.DestroyApplicationResults{}, err
 	}
@@ -1075,7 +1126,7 @@ func (api *APIv5) DestroyApplication(args params.DestroyApplicationsParams) (par
 		if err != nil {
 			return nil, err
 		}
-		storageSeen := make(set.Tags)
+		storageSeen := names.NewSet()
 		for _, unit := range units {
 			info.DestroyedUnits = append(
 				info.DestroyedUnits,
@@ -1142,7 +1193,7 @@ func (api *APIv5) DestroyApplication(args params.DestroyApplicationsParams) (par
 }
 
 // DestroyConsumedApplications removes a given set of consumed (remote) applications.
-func (api *APIv5) DestroyConsumedApplications(args params.DestroyConsumedApplicationsParams) (params.ErrorResults, error) {
+func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedApplicationsParams) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -1171,7 +1222,7 @@ func (api *APIv5) DestroyConsumedApplications(args params.DestroyConsumedApplica
 }
 
 // GetConstraints returns the constraints for a given application.
-func (api *APIv5) GetConstraints(args params.Entities) (params.ApplicationGetConstraintsResults, error) {
+func (api *APIBase) GetConstraints(args params.Entities) (params.ApplicationGetConstraintsResults, error) {
 	if err := api.checkCanRead(); err != nil {
 		return params.ApplicationGetConstraintsResults{}, errors.Trace(err)
 	}
@@ -1186,7 +1237,7 @@ func (api *APIv5) GetConstraints(args params.Entities) (params.ApplicationGetCon
 	return results, nil
 }
 
-func (api *APIv5) getConstraints(entity string) (constraints.Value, error) {
+func (api *APIBase) getConstraints(entity string) (constraints.Value, error) {
 	tag, err := names.ParseTag(entity)
 	if err != nil {
 		return constraints.Value{}, err
@@ -1204,7 +1255,7 @@ func (api *APIv5) getConstraints(entity string) (constraints.Value, error) {
 }
 
 // SetConstraints sets the constraints for a given application.
-func (api *APIv5) SetConstraints(args params.SetConstraints) error {
+func (api *APIBase) SetConstraints(args params.SetConstraints) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
@@ -1219,7 +1270,7 @@ func (api *APIv5) SetConstraints(args params.SetConstraints) error {
 }
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
-func (api *APIv5) AddRelation(args params.AddRelation) (_ params.AddRelationResults, err error) {
+func (api *APIBase) AddRelation(args params.AddRelation) (_ params.AddRelationResults, err error) {
 	var rel Relation
 	defer func() {
 		if err != nil && rel != nil {
@@ -1277,7 +1328,7 @@ func (api *APIv5) AddRelation(args params.AddRelation) (_ params.AddRelationResu
 
 // DestroyRelation removes the relation between the
 // specified endpoints or an id.
-func (api *APIv5) DestroyRelation(args params.DestroyRelation) (err error) {
+func (api *APIBase) DestroyRelation(args params.DestroyRelation) (err error) {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
@@ -1304,7 +1355,7 @@ func (api *APIv5) DestroyRelation(args params.DestroyRelation) (err error) {
 }
 
 // SetRelationsSuspended sets the suspended status of the specified relations.
-func (api *APIv5) SetRelationsSuspended(args params.RelationSuspendedArgs) (params.ErrorResults, error) {
+func (api *APIBase) SetRelationsSuspended(args params.RelationSuspendedArgs) (params.ErrorResults, error) {
 	var statusResults params.ErrorResults
 	if err := api.checkCanWrite(); err != nil {
 		return statusResults, errors.Trace(err)
@@ -1339,7 +1390,7 @@ func (api *APIv5) SetRelationsSuspended(args params.RelationSuspendedArgs) (para
 			statusValue = status.Suspending
 		}
 		return rel.SetStatus(status.StatusInfo{
-			Status:  status.Status(statusValue),
+			Status:  statusValue,
 			Message: arg.Message,
 		})
 	}
@@ -1354,7 +1405,7 @@ func (api *APIv5) SetRelationsSuspended(args params.RelationSuspendedArgs) (para
 
 // Consume adds remote applications to the model without creating any
 // relations.
-func (api *APIv5) Consume(args params.ConsumeApplicationArgs) (params.ErrorResults, error) {
+func (api *APIBase) Consume(args params.ConsumeApplicationArgs) (params.ErrorResults, error) {
 	var consumeResults params.ErrorResults
 	if err := api.checkCanWrite(); err != nil {
 		return consumeResults, errors.Trace(err)
@@ -1372,7 +1423,7 @@ func (api *APIv5) Consume(args params.ConsumeApplicationArgs) (params.ErrorResul
 	return consumeResults, nil
 }
 
-func (api *APIv5) consumeOne(arg params.ConsumeApplicationArg) error {
+func (api *APIBase) consumeOne(arg params.ConsumeApplicationArg) error {
 	sourceModelTag, err := names.ParseModelTag(arg.SourceModelTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -1408,7 +1459,7 @@ func (api *APIv5) consumeOne(arg params.ConsumeApplicationArg) error {
 
 // saveRemoteApplication saves the details of the specified remote application and its endpoints
 // to the state model so relations to the remote application can be created.
-func (api *APIv5) saveRemoteApplication(
+func (api *APIBase) saveRemoteApplication(
 	sourceModelTag names.ModelTag,
 	applicationName string,
 	offer params.ApplicationOfferDetails,
@@ -1478,7 +1529,7 @@ func providerSpaceInfoFromParams(space params.RemoteSpace) *environs.ProviderSpa
 // specified name and source model tag and tries to update its endpoints with the
 // new ones specified. If the endpoints are compatible, the newly updated remote
 // application is returned.
-func (api *APIv5) maybeUpdateExistingApplicationEndpoints(
+func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
 	applicationName string, sourceModelTag names.ModelTag, remoteEps []charm.Relation,
 ) (RemoteApplication, error) {
 	existingRemoteApp, err := api.backend.RemoteApplication(applicationName)
@@ -1554,15 +1605,28 @@ func (api *APIv4) GetConstraints(args params.GetApplicationConstraints) (params.
 	return params.GetConstraintsResults{cons}, errors.Trace(err)
 }
 
+// Mask the new methods from the v4 and v5 API. The API reflection code in
+// rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so this
+// removes the method as far as the RPC machinery is concerned.
+//
+// Since the v4 builds on v5, we can just make the methods unavailable on v5
+// and they will also be unavailable on v4.
+
+// CharmConfig isn't on the v5 API.
+func (u *APIv5) CharmConfig(_, _ struct{}) {}
+
 // CharmConfig is a shim to GetConfig on APIv5. It returns just the charm config.
-func (api *APIv6) CharmConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
+func (api *APIBase) CharmConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
 	return api.GetConfig(args)
 }
+
+// SetApplicationsConfig isn't on the v5 API.
+func (u *APIv5) SetApplicationsConfig(_, _ struct{}) {}
 
 // SetApplicationsConfig implements the server side of Application.SetApplicationsConfig.
 // It does not unset values that are set to an empty string.
 // Unset should be used for that.
-func (api *APIv6) SetApplicationsConfig(args params.ApplicationConfigSetArgs) (params.ErrorResults, error) {
+func (api *APIBase) SetApplicationsConfig(args params.ApplicationConfigSetArgs) (params.ErrorResults, error) {
 	var result params.ErrorResults
 	if err := api.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
@@ -1578,7 +1642,7 @@ func (api *APIv6) SetApplicationsConfig(args params.ApplicationConfigSetArgs) (p
 	return result, nil
 }
 
-func (api *APIv6) setApplicationConfig(arg params.ApplicationConfigSet) error {
+func (api *APIBase) setApplicationConfig(arg params.ApplicationConfigSet) error {
 	app, err := api.backend.Application(arg.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
@@ -1615,8 +1679,11 @@ func (api *APIv6) setApplicationConfig(arg params.ApplicationConfigSet) error {
 	return nil
 }
 
+// UnsetApplicationsConfig isn't on the v5 API.
+func (u *APIv5) UnsetApplicationsConfig(_, _ struct{}) {}
+
 // UnsetApplicationsConfig implements the server side of Application.UnsetApplicationsConfig.
-func (api *APIv6) UnsetApplicationsConfig(args params.ApplicationConfigUnsetArgs) (params.ErrorResults, error) {
+func (api *APIBase) UnsetApplicationsConfig(args params.ApplicationConfigUnsetArgs) (params.ErrorResults, error) {
 	var result params.ErrorResults
 	if err := api.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
@@ -1632,7 +1699,7 @@ func (api *APIv6) UnsetApplicationsConfig(args params.ApplicationConfigUnsetArgs
 	return result, nil
 }
 
-func (api *APIv6) unsetApplicationConfig(arg params.ApplicationUnset) error {
+func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 	app, err := api.backend.Application(arg.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
@@ -1667,8 +1734,11 @@ func (api *APIv6) unsetApplicationConfig(arg params.ApplicationUnset) error {
 	return nil
 }
 
+// ResolveUnitErrors isn't on the v5 API.
+func (u *APIv5) ResolveUnitErrors(_, _ struct{}) {}
+
 // ResolveUnitErrors marks errors on the specified units as resolved.
-func (api *APIv6) ResolveUnitErrors(p params.UnitsResolved) (params.ErrorResults, error) {
+func (api *APIBase) ResolveUnitErrors(p params.UnitsResolved) (params.ErrorResults, error) {
 	if p.All {
 		unitsWithErrors, err := api.backend.UnitsInError()
 		if err != nil {

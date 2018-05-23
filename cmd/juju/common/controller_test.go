@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -148,7 +148,7 @@ func runInCommand(c *gc.C, run func(ctx *cmd.Context, base *modelcmd.ModelComman
 	cmd := &testCommand{
 		run: run,
 	}
-	cmd.SetClientStore(jujuclient.NewMemStore())
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	cmd.SetAPIOpen(func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return nil, errors.New("no API available")
 	})
@@ -168,5 +168,7 @@ func (c *testCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *testCommand) Info() *cmd.Info {
-	panic("unexpected call to Info")
+	return &cmd.Info{
+		Name: "test",
+	}
 }

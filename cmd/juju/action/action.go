@@ -61,6 +61,7 @@ type APIClient interface {
 // ActionCommandBase is the base type for action sub-commands.
 type ActionCommandBase struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 }
 
 // NewActionAPIClient returns a client for the action api endpoint.

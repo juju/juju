@@ -96,7 +96,7 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		// tag in the names package from the cloud, owner and name.
 		credID := fmt.Sprintf("%s/%s/%s", creds.Cloud(), creds.Owner(), creds.Name())
 		if !names.IsValidCloudCredential(credID) {
-			return nil, nil, errors.Errorf("model credentails id not valid: %q", credID)
+			return nil, nil, errors.Errorf("model credentials id not valid: %q", credID)
 		}
 		credTag := names.NewCloudCredentialTag(credID)
 
@@ -1079,7 +1079,7 @@ func (i *importer) relationCount(application string) int {
 
 func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*unitDoc, error) {
 	// NOTE: if we want to support units having different charms deployed
-	// than the application recomments and migrate that, then we should serialize
+	// than the application recommends and migrate that, then we should serialize
 	// the charm url for each unit rather than grabbing the applications charm url.
 	// Currently the units charm url matching the application is a precondiation
 	// to migration.

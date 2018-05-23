@@ -16,6 +16,7 @@ import (
 	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	commonProvider "github.com/juju/juju/provider/oracle/common"
@@ -55,11 +56,11 @@ func NewEnviron(api NetworkingAPI, env commonProvider.OracleInstancer) *Environ 
 }
 
 // Subnets is defined on the environs.Networking interface.
-func (e Environ) Subnets(id instance.Id, subnets []network.Id) ([]network.SubnetInfo, error) {
+func (e Environ) Subnets(ctx context.ProviderCallContext, id instance.Id, subnets []network.Id) ([]network.SubnetInfo, error) {
 	ret := []network.SubnetInfo{}
 	found := make(map[string]bool)
 	if id != instance.UnknownId {
-		instanceNets, err := e.NetworkInterfaces(id)
+		instanceNets, err := e.NetworkInterfaces(ctx, id)
 		if err != nil {
 			return ret, errors.Trace(err)
 		}
@@ -154,7 +155,7 @@ func (e Environ) getSubnetInfo() ([]network.SubnetInfo, error) {
 }
 
 // NetworkInterfaces is defined on the environs.Networking interface.
-func (e Environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+func (e Environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	instance, err := e.env.Details(instId)
 	if err != nil {
 		return nil, err
@@ -257,7 +258,7 @@ func (e *Environ) canAccessNetworkAPI() (bool, error) {
 }
 
 // SupportsSpaces is defined on the environs.Networking interface.
-func (e Environ) SupportsSpaces() (bool, error) {
+func (e Environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
 	logger.Infof("checking for spaces support")
 	access, err := e.canAccessNetworkAPI()
 	if err != nil {
@@ -270,7 +271,7 @@ func (e Environ) SupportsSpaces() (bool, error) {
 }
 
 // SupportsSpaceDiscovery is defined on the environs.Networking interface.
-func (e Environ) SupportsSpaceDiscovery() (bool, error) {
+func (e Environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error) {
 	access, err := e.canAccessNetworkAPI()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -282,12 +283,13 @@ func (e Environ) SupportsSpaceDiscovery() (bool, error) {
 }
 
 // SupportsContainerAddresses is defined on the environs.Networking interface.
-func (e Environ) SupportsContainerAddresses() (bool, error) {
+func (e Environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
 	return false, errors.NotSupportedf("container address allocation")
 }
 
 // AllocateContainerAddresses is defined on the environs.Networking interface.
 func (e Environ) AllocateContainerAddresses(
+	ctx context.ProviderCallContext,
 	hostInstanceID instance.Id,
 	containerTag names.MachineTag,
 	preparedInfo []network.InterfaceInfo,
@@ -296,12 +298,12 @@ func (e Environ) AllocateContainerAddresses(
 }
 
 // ReleaseContainerAddresses is defined on the environs.Networking interface.
-func (e Environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
+func (e Environ) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container")
 }
 
 // Spaces is defined on the environs.Networking interface.
-func (e Environ) Spaces() ([]network.SpaceInfo, error) {
+func (e Environ) Spaces(ctx context.ProviderCallContext) ([]network.SpaceInfo, error) {
 	networks, err := e.getSubnetInfo()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -335,8 +337,7 @@ func (e Environ) Spaces() ([]network.SpaceInfo, error) {
 				},
 			}
 		} else {
-			logger.Infof("appending subnet %s to %s",
-				string(val.ProviderId), string(space.Name))
+			logger.Infof("appending subnet %s to %s", string(val.ProviderId), space.Name)
 			space.Subnets = append(space.Subnets, val)
 			exchanges[name] = space
 		}
@@ -352,21 +353,21 @@ func (e Environ) Spaces() ([]network.SpaceInfo, error) {
 }
 
 // ProviderSpaceInfo is defined on the environs.NetworkingEnviron interface.
-func (Environ) ProviderSpaceInfo(space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (Environ) ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("provider space info")
 }
 
 // AreSpacesRoutable is defined on the environs.NetworkingEnviron interface.
-func (Environ) AreSpacesRoutable(space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+func (Environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }
 
 // SSHAddresses is defined on the environs.SSHAddresses interface.
-func (*Environ) SSHAddresses(addresses []network.Address) ([]network.Address, error) {
+func (*Environ) SSHAddresses(ctx context.ProviderCallContext, addresses []network.Address) ([]network.Address, error) {
 	return addresses, nil
 }
 
 // SuperSubnets implements environs.SuperSubnets
-func (*Environ) SuperSubnets() ([]string, error) {
+func (*Environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
 	return nil, errors.NotSupportedf("super subnets")
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/altoros/gosigma/mock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
@@ -20,6 +21,8 @@ type instanceSuite struct {
 	testing.BaseSuite
 	inst          *sigmaInstance
 	instWithoutIP *sigmaInstance
+
+	callCtx context.ProviderCallContext
 }
 
 var _ = gc.Suite(&instanceSuite{})
@@ -59,6 +62,8 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(server, gc.NotNil)
 	s.instWithoutIP = &sigmaInstance{server}
+
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func (s *instanceSuite) TearDownTest(c *gc.C) {
@@ -71,11 +76,11 @@ func (s *instanceSuite) TestInstanceId(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstanceStatus(c *gc.C) {
-	c.Check(s.inst.Status().Message, gc.Equals, "running")
+	c.Check(s.inst.Status(s.callCtx).Message, gc.Equals, "running")
 }
 
 func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
-	addrs, err := s.inst.Addresses()
+	addrs, err := s.inst.Addresses(s.callCtx)
 	c.Check(addrs, gc.HasLen, 1)
 	c.Check(err, gc.IsNil)
 	a := addrs[0]
@@ -83,16 +88,16 @@ func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
 	c.Check(a.Type, gc.Equals, network.IPv4Address)
 	c.Check(a.Scope, gc.Equals, network.ScopePublic)
 
-	addrs, err = s.instWithoutIP.Addresses()
+	addrs, err = s.instWithoutIP.Addresses(s.callCtx)
 	c.Check(err, gc.IsNil)
 	c.Check(len(addrs), gc.Equals, 0)
 }
 
 func (s *instanceSuite) TestIngressRules(c *gc.C) {
-	c.Check(s.inst.OpenPorts("", nil), gc.ErrorMatches, "OpenPorts not implemented")
-	c.Check(s.inst.ClosePorts("", nil), gc.ErrorMatches, "ClosePorts not implemented")
+	c.Check(s.inst.OpenPorts(s.callCtx, "", nil), gc.ErrorMatches, "OpenPorts not implemented")
+	c.Check(s.inst.ClosePorts(s.callCtx, "", nil), gc.ErrorMatches, "ClosePorts not implemented")
 
-	_, err := s.inst.IngressRules("")
+	_, err := s.inst.IngressRules(s.callCtx, "")
 	c.Check(err, gc.ErrorMatches, "InstanceRules not implemented")
 }
 

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -2088,7 +2088,7 @@ func (w *actionStatusWatcher) filterAndMergeIds(changes *[]string, updates map[i
 			} else {
 				if idAlreadyInChangeset {
 					// remove id from changes
-					*changes = append([]string(*changes)[:chIx], []string(*changes)[chIx+1:]...)
+					*changes = append((*changes)[:chIx], (*changes)[chIx+1:]...)
 				}
 			}
 		default:
@@ -2358,7 +2358,7 @@ func mergeIds(st modelBackend, changes *[]string, updates map[interface{}]bool, 
 		} else {
 			if idAlreadyInChangeset {
 				// remove id from changes
-				*changes = append([]string(*changes)[:chIx], []string(*changes)[chIx+1:]...)
+				*changes = append((*changes)[:chIx], (*changes)[chIx+1:]...)
 			}
 		}
 	}

@@ -40,16 +40,17 @@ func NewUpgradeCharmCommandForTest(
 }
 
 // NewResolvedCommandForTest returns a ResolvedCommand with the api provided as specified.
-func NewResolvedCommandForTest(applicationResolveAPI applicationResolveAPI, clientAPI clientAPI) modelcmd.ModelCommand {
+func NewResolvedCommandForTest(applicationResolveAPI applicationResolveAPI, clientAPI clientAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
 	cmd := &resolvedCommand{applicationResolveAPI: applicationResolveAPI, clientAPI: clientAPI}
+	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
 
 // NewAddUnitCommandForTest returns an AddUnitCommand with the api provided as specified.
-func NewAddUnitCommandForTest(api serviceAddUnitAPI) cmd.Command {
-	return modelcmd.Wrap(&addUnitCommand{
-		api: api,
-	})
+func NewAddUnitCommandForTest(api serviceAddUnitAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
+	cmd := &addUnitCommand{api: api}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
 }
 
 // NewAddRelationCommandForTest returns an AddRelationCommand with the api provided as specified.
@@ -59,10 +60,11 @@ func NewAddRelationCommandForTest(addAPI applicationAddRelationAPI, consumeAPI a
 }
 
 // NewRemoveRelationCommandForTest returns an RemoveRelationCommand with the api provided as specified.
-func NewRemoveRelationCommandForTest(api ApplicationDestroyRelationAPI) modelcmd.ModelCommand {
+func NewRemoveRelationCommandForTest(api ApplicationDestroyRelationAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
 	cmd := &removeRelationCommand{newAPIFunc: func() (ApplicationDestroyRelationAPI, error) {
 		return api, nil
 	}}
+	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
 
@@ -80,35 +82,40 @@ func NewConsumeCommandForTest(
 func NewUpdateSeriesCommandForTest(
 	appAPI updateApplicationSeriesAPI,
 	machAPI updateMachineSeriesAPI,
+	store jujuclient.ClientStore,
 ) modelcmd.ModelCommand {
 	cmd := &updateSeriesCommand{
 		updateApplicationSeriesClient: appAPI,
 		updateMachineSeriesClient:     machAPI,
 	}
+	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
 
 // NewSuspendRelationCommandForTest returns a SuspendRelationCommand with the api provided as specified.
-func NewSuspendRelationCommandForTest(api SetRelationSuspendedAPI) modelcmd.ModelCommand {
+func NewSuspendRelationCommandForTest(api SetRelationSuspendedAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
 	cmd := &suspendRelationCommand{newAPIFunc: func() (SetRelationSuspendedAPI, error) {
 		return api, nil
 	}}
+	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
 
 // NewResumeRelationCommandForTest returns a ResumeRelationCommand with the api provided as specified.
-func NewResumeRelationCommandForTest(api SetRelationSuspendedAPI) modelcmd.ModelCommand {
+func NewResumeRelationCommandForTest(api SetRelationSuspendedAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
 	cmd := &resumeRelationCommand{newAPIFunc: func() (SetRelationSuspendedAPI, error) {
 		return api, nil
 	}}
+	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
 
 // NewRemoveSaasCommandForTest returns a RemoveSaasCommand with the api provided as specified.
-func NewRemoveSaasCommandForTest(api RemoveSaasAPI) modelcmd.ModelCommand {
+func NewRemoveSaasCommandForTest(api RemoveSaasAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
 	cmd := &removeSaasCommand{newAPIFunc: func() (RemoveSaasAPI, error) {
 		return api, nil
 	}}
+	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
 

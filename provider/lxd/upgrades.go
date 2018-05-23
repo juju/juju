@@ -1,8 +1,6 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
@@ -35,7 +33,7 @@ func ReadLegacyCloudCredentials(readFile func(string) ([]byte, error)) (cloud.Cr
 			if os.IsNotExist(err) {
 				err = errors.NotFoundf("%s", path)
 			}
-			return "", err
+			return "", errors.Trace(err)
 		}
 		return string(data), nil
 	}

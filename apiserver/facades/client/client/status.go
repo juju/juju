@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
@@ -218,14 +219,17 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	}
 	if len(context.applications) > 0 {
 		if context.leaders, err = c.api.stateAccessor.ApplicationLeaders(); err != nil {
-			return noStatus, errors.Annotate(err, " could not fetch leaders")
+			return noStatus, errors.Annotate(err, "could not fetch leaders")
 		}
 	}
+	if context.controllerTimestamp, err = c.api.stateAccessor.ControllerTimestamp(); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch controller timestamp")
+	}
 
-	logger.Debugf("Applications: %v", context.applications)
-	logger.Debugf("Remote applications: %v", context.consumerRemoteApplications)
-	logger.Debugf("Offers: %v", context.offers)
-	logger.Debugf("Relations: %v", context.relations)
+	logger.Tracef("Applications: %v", context.applications)
+	logger.Tracef("Remote applications: %v", context.consumerRemoteApplications)
+	logger.Tracef("Offers: %v", context.offers)
+	logger.Tracef("Relations: %v", context.relations)
 
 	if len(args.Patterns) > 0 {
 		predicate := BuildPredicateFor(args.Patterns)
@@ -281,13 +285,24 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 
 		// Filter applications
 		for appName, app := range context.applications {
-			if matchedSvcs.Contains(appName) {
-				// There are matched units for this application.
-				continue
-			} else if matches, err := predicate(app); err != nil {
+			matches, err := predicate(app)
+			if err != nil {
 				return noStatus, errors.Annotate(err, "could not filter applications")
-			} else if !matches {
+			}
+
+			// There are matched units for this application
+			// or the application matched the given criteria.
+			deleted := false
+			if !matchedSvcs.Contains(appName) && !matches {
 				delete(context.applications, appName)
+				deleted = true
+			}
+
+			// Filter relations:
+			// Remove relations for applications that were deleted and
+			// for the applications that did not match the
+			// given criteria.
+			if deleted || !matches {
 				// delete relations for this app
 				if relations, ok := context.relations[appName]; ok {
 					for _, r := range relations {
@@ -327,12 +342,13 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "cannot determine model status")
 	}
 	return params.FullStatus{
-		Model:              modelStatus,
-		Machines:           context.processMachines(),
-		Applications:       context.processApplications(),
-		RemoteApplications: context.processRemoteApplications(),
-		Offers:             context.processOffers(),
-		Relations:          context.processRelations(),
+		Model:               modelStatus,
+		Machines:            context.processMachines(),
+		Applications:        context.processApplications(),
+		RemoteApplications:  context.processRemoteApplications(),
+		Offers:              context.processOffers(),
+		Relations:           context.processRelations(),
+		ControllerTimestamp: context.controllerTimestamp,
 	}, nil
 }
 
@@ -412,6 +428,9 @@ type statusContext struct {
 
 	// offers: offer name -> offer
 	offers map[string]offerStatus
+
+	// controller current timestamp
+	controllerTimestamp *time.Time
 
 	relations     map[string][]*state.Relation
 	relationsById map[int]*state.Relation
@@ -793,7 +812,7 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine) (status params
 				IsUp:           llDev.IsUp(),
 			}
 		}
-		logger.Debugf("NetworkInterfaces: %+v", status.NetworkInterfaces)
+		logger.Tracef("NetworkInterfaces: %+v", status.NetworkInterfaces)
 	} else {
 		if errors.IsNotProvisioned(err) {
 			status.InstanceId = "pending"

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -31,7 +32,7 @@ type mockPrechecker struct {
 	precheckInstanceArgs  environs.PrecheckInstanceParams
 }
 
-func (p *mockPrechecker) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+func (p *mockPrechecker) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
 	p.precheckInstanceArgs = args
 	return p.precheckInstanceError
 }

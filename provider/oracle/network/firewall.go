@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	commonProvider "github.com/juju/juju/provider/oracle/common"
 )
@@ -30,15 +31,15 @@ type Firewaller interface {
 	environs.Firewaller
 
 	// Return all machine ingress rules for a given machine id
-	MachineIngressRules(id string) ([]network.IngressRule, error)
+	MachineIngressRules(ctx context.ProviderCallContext, id string) ([]network.IngressRule, error)
 
 	// OpenPortsOnInstance will open ports corresponding to the supplied rules
 	// on the given instance
-	OpenPortsOnInstance(machineId string, rules []network.IngressRule) error
+	OpenPortsOnInstance(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error
 
 	// ClosePortsOnInstnace will close ports corresponding to the supplied rules
 	// for a given instance.
-	ClosePortsOnInstance(machineId string, rules []network.IngressRule) error
+	ClosePortsOnInstance(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error
 
 	// CreateMachineSecLists creates a security list for the given instance.
 	// It's worth noting that this function also ensures that the default environment
@@ -96,7 +97,7 @@ func NewFirewall(cfg environs.ConfigGetter, client FirewallerAPI, c clock.Clock)
 }
 
 // OpenPorts is specified on the environ.Firewaller interface.
-func (f Firewall) OpenPorts(rules []network.IngressRule) error {
+func (f Firewall) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
 	mode := f.environ.Config().FirewallMode()
 	if mode != config.FwGlobal {
 		return fmt.Errorf(
@@ -118,25 +119,25 @@ func (f Firewall) OpenPorts(rules []network.IngressRule) error {
 }
 
 // ClosePorts is specified on the environ.Firewaller interface.
-func (f Firewall) ClosePorts(rules []network.IngressRule) error {
+func (f Firewall) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
 	groupName := f.globalGroupName()
-	return f.closePortsOnList(f.client.ComposeName(groupName), rules)
+	return f.closePortsOnList(ctx, f.client.ComposeName(groupName), rules)
 }
 
 // IngressRules is specified on the environ.Firewaller interface.
-func (f Firewall) IngressRules() ([]network.IngressRule, error) {
-	return f.GlobalIngressRules()
+func (f Firewall) IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
+	return f.GlobalIngressRules(ctx)
 }
 
 // MachineIngressRules returns all ingress rules from the machine specific sec list
-func (f Firewall) MachineIngressRules(machineId string) ([]network.IngressRule, error) {
+func (f Firewall) MachineIngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
 	seclist := f.machineGroupName(machineId)
-	return f.getIngressRules(f.client.ComposeName(seclist))
+	return f.getIngressRules(ctx, f.client.ComposeName(seclist))
 }
 
 // OpenPortsOnInstance will open ports corresponding to the supplied rules
 // on the given instance
-func (f Firewall) OpenPortsOnInstance(machineId string, rules []network.IngressRule) error {
+func (f Firewall) OpenPortsOnInstance(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	machineGroup := f.machineGroupName(machineId)
 	seclist, err := f.ensureSecList(f.client.ComposeName(machineGroup))
 	if err != nil {
@@ -151,10 +152,10 @@ func (f Firewall) OpenPortsOnInstance(machineId string, rules []network.IngressR
 
 // ClosePortsOnInstnace will close ports corresponding to the supplied rules
 // for a given instance.
-func (f Firewall) ClosePortsOnInstance(machineId string, rules []network.IngressRule) error {
+func (f Firewall) ClosePortsOnInstance(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	// fetch the group name based on the machine id provided
 	groupName := f.machineGroupName(machineId)
-	return f.closePortsOnList(f.client.ComposeName(groupName), rules)
+	return f.closePortsOnList(ctx, f.client.ComposeName(groupName), rules)
 }
 
 // CreateMachineSecLists creates a security list for the given instance.
@@ -300,9 +301,9 @@ func (f Firewall) RemoveACLAndRules(machineId string) error {
 }
 
 // GlobalIngressRules returns the ingress rules applied to the whole environment.
-func (f Firewall) GlobalIngressRules() ([]network.IngressRule, error) {
+func (f Firewall) GlobalIngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
 	seclist := f.globalGroupName()
-	return f.getIngressRules(f.client.ComposeName(seclist))
+	return f.getIngressRules(ctx, f.client.ComposeName(seclist))
 }
 
 // getDefaultIngressRules will create the default ingressRules given an api port
@@ -386,7 +387,7 @@ func (f Firewall) createDefaultGroupAndRules(apiPort int) (response.SecList, err
 
 // closePortsOnList on list will close all ports corresponding to the supplied ingress rules
 // on a particular list
-func (f Firewall) closePortsOnList(list string, rules []network.IngressRule) error {
+func (f Firewall) closePortsOnList(ctx context.ProviderCallContext, list string, rules []network.IngressRule) error {
 	// get all security rules based on the dst_list=list
 	secrules, err := f.getSecRules(list)
 	if err != nil {
@@ -491,7 +492,7 @@ func (f *Firewall) maybeDeleteList(list string) error {
 
 // getIngressRules returns all rules associated with the given sec list
 // values are converted and returned as []network.IngressRule
-func (f Firewall) getIngressRules(seclist string) ([]network.IngressRule, error) {
+func (f Firewall) getIngressRules(ctx context.ProviderCallContext, seclist string) ([]network.IngressRule, error) {
 	// get all security rules associated with the seclist
 	secrules, err := f.getSecRules(seclist)
 	if err != nil {

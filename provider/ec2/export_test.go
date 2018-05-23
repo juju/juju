@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/instance"
@@ -38,7 +39,7 @@ func InstanceEC2(inst instance.Instance) *ec2.Instance {
 }
 
 func TerminatedInstances(e environs.Environ) ([]instance.Instance, error) {
-	return e.(*environ).AllInstancesByState("shutting-down", "terminated")
+	return e.(*environ).AllInstancesByState(context.NewCloudCallContext(), "shutting-down", "terminated")
 }
 
 func InstanceSecurityGroups(e environs.Environ, ids []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {

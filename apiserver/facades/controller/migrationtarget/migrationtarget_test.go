@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -35,6 +36,8 @@ type Suite struct {
 	statetesting.StateSuite
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
+
+	callContext context.ProviderCallContext
 }
 
 var _ = gc.Suite(&Suite{})
@@ -55,6 +58,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
+	s.callContext = context.NewCloudCallContext()
 }
 
 func (s *Suite) TestFacadeRegistered(c *gc.C) {
@@ -260,7 +264,7 @@ func (s *Suite) TestAdoptResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(env.Stub.Calls(), gc.HasLen, 1)
-	env.Stub.CheckCall(c, 0, "AdoptResources", st.ControllerUUID(), version.MustParse("3.2.1"))
+	env.Stub.CheckCall(c, 0, "AdoptResources", s.callContext, st.ControllerUUID(), version.MustParse("3.2.1"))
 }
 
 func (s *Suite) TestCheckMachinesInstancesMissing(c *gc.C) {
@@ -419,7 +423,7 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc) (*migrationtarg
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	}
-	api, err := migrationtarget.NewAPI(ctx, environFunc)
+	api, err := migrationtarget.NewAPI(ctx, environFunc, s.callContext)
 	return api, err
 }
 
@@ -467,13 +471,13 @@ type mockEnviron struct {
 	instances []*mockInstance
 }
 
-func (e *mockEnviron) AdoptResources(controllerUUID string, sourceVersion version.Number) error {
-	e.MethodCall(e, "AdoptResources", controllerUUID, sourceVersion)
+func (e *mockEnviron) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
+	e.MethodCall(e, "AdoptResources", ctx, controllerUUID, sourceVersion)
 	return e.NextErr()
 }
 
-func (e *mockEnviron) AllInstances() ([]instance.Instance, error) {
-	e.MethodCall(e, "AllInstances")
+func (e *mockEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+	e.MethodCall(e, "AllInstances", ctx)
 	results := make([]instance.Instance, len(e.instances))
 	for i, instance := range e.instances {
 		results[i] = instance

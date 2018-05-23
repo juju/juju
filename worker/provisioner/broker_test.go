@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -271,12 +272,12 @@ func (m *mockInstance) Id() instance.Id {
 }
 
 // Status implements instance.Instance.Status.
-func (m *mockInstance) Status() instance.InstanceStatus {
+func (m *mockInstance) Status(context.ProviderCallContext) instance.InstanceStatus {
 	return instance.InstanceStatus{}
 }
 
 // Addresses implements instance.Instance.Addresses.
-func (m *mockInstance) Addresses() ([]network.Address, error) {
+func (m *mockInstance) Addresses(context.ProviderCallContext) ([]network.Address, error) {
 	return nil, nil
 }
 
@@ -294,7 +295,7 @@ nameserver ns2.dummy
 	fakeResolvConf := filepath.Join(c.MkDir(), "fakeresolv.conf")
 	err := ioutil.WriteFile(fakeResolvConf, []byte(fakeConf), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(provisioner.ResolvConf, fakeResolvConf)
+	s.PatchValue(provisioner.ResolvConfFiles, []string{fakeResolvConf})
 }
 
 func instancesFromResults(results ...*environs.StartInstanceResult) []instance.Instance {
@@ -306,7 +307,7 @@ func instancesFromResults(results ...*environs.StartInstanceResult) []instance.I
 }
 
 func assertInstancesStarted(c *gc.C, broker environs.InstanceBroker, results ...*environs.StartInstanceResult) {
-	allInstances, err := broker.AllInstances()
+	allInstances, err := broker.AllInstances(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	instancetest.MatchInstances(c, allInstances, instancesFromResults(results...)...)
 }
@@ -339,7 +340,7 @@ func makeNoOpStatusCallback() func(settableStatus status.Status, info string, da
 }
 
 func callStartInstance(c *gc.C, s patcher, broker environs.InstanceBroker, machineId string) (*environs.StartInstanceResult, error) {
-	return broker.StartInstance(environs.StartInstanceParams{
+	return broker.StartInstance(context.NewCloudCallContext(), environs.StartInstanceParams{
 		Constraints:    constraints.Value{},
 		Tools:          makePossibleTools(),
 		InstanceConfig: makeInstanceConfig(c, s, machineId),
@@ -348,7 +349,7 @@ func callStartInstance(c *gc.C, s patcher, broker environs.InstanceBroker, machi
 }
 
 func callMaintainInstance(c *gc.C, s patcher, broker environs.InstanceBroker, machineId string) {
-	err := broker.MaintainInstance(environs.StartInstanceParams{
+	err := broker.MaintainInstance(context.NewCloudCallContext(), environs.StartInstanceParams{
 		Constraints:    constraints.Value{},
 		Tools:          makePossibleTools(),
 		InstanceConfig: makeInstanceConfig(c, s, machineId),

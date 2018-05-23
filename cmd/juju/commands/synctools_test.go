@@ -45,6 +45,8 @@ func (s *syncToolsSuite) SetUpTest(c *gc.C) {
 	})
 	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "ctrl"
+	s.store.Models["ctrl"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{"admin/test-target": {ModelType: "iaas"}}}
 	s.store.Accounts["ctrl"] = jujuclient.AccountDetails{
 		User: "admin",
 	}
@@ -216,12 +218,13 @@ func (s *syncToolsSuite) TestAPIAdapterFindTools(c *gc.C) {
 	var called bool
 	result := coretools.List{&coretools.Tools{}}
 	fake := fakeSyncToolsAPI{
-		findTools: func(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error) {
+		findTools: func(majorVersion, minorVersion int, series, arch, stream string) (params.FindToolsResult, error) {
 			called = true
 			c.Assert(majorVersion, gc.Equals, 2)
 			c.Assert(minorVersion, gc.Equals, -1)
 			c.Assert(series, gc.Equals, "")
 			c.Assert(arch, gc.Equals, "")
+			c.Assert(stream, gc.Equals, "")
 			return params.FindToolsResult{List: result}, nil
 		},
 	}
@@ -234,7 +237,7 @@ func (s *syncToolsSuite) TestAPIAdapterFindTools(c *gc.C) {
 
 func (s *syncToolsSuite) TestAPIAdapterFindToolsNotFound(c *gc.C) {
 	fake := fakeSyncToolsAPI{
-		findTools: func(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error) {
+		findTools: func(majorVersion, minorVersion int, series, arch, stream string) (params.FindToolsResult, error) {
 			err := common.ServerError(errors.NotFoundf("tools"))
 			return params.FindToolsResult{Error: err}, nil
 		},
@@ -248,7 +251,7 @@ func (s *syncToolsSuite) TestAPIAdapterFindToolsNotFound(c *gc.C) {
 func (s *syncToolsSuite) TestAPIAdapterFindToolsAPIError(c *gc.C) {
 	findToolsErr := common.ServerError(errors.NotFoundf("tools"))
 	fake := fakeSyncToolsAPI{
-		findTools: func(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error) {
+		findTools: func(majorVersion, minorVersion int, series, arch, stream string) (params.FindToolsResult, error) {
 			return params.FindToolsResult{Error: findToolsErr}, findToolsErr
 		},
 	}
@@ -289,12 +292,12 @@ func (s *syncToolsSuite) TestAPIAdapterBlockUploadTools(c *gc.C) {
 }
 
 type fakeSyncToolsAPI struct {
-	findTools   func(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error)
+	findTools   func(majorVersion, minorVersion int, series, arch, stream string) (params.FindToolsResult, error)
 	uploadTools func(r io.Reader, v version.Binary, additionalSeries ...string) (coretools.List, error)
 }
 
-func (f *fakeSyncToolsAPI) FindTools(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error) {
-	return f.findTools(majorVersion, minorVersion, series, arch)
+func (f *fakeSyncToolsAPI) FindTools(majorVersion, minorVersion int, series, arch, stream string) (params.FindToolsResult, error) {
+	return f.findTools(majorVersion, minorVersion, series, arch, stream)
 }
 
 func (f *fakeSyncToolsAPI) UploadTools(r io.ReadSeeker, v version.Binary, additionalSeries ...string) (coretools.List, error) {

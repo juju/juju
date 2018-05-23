@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
@@ -62,9 +63,9 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 	s.store.CurrentControllerName = "testing"
 	s.store.Models["testing"] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
-			"admin": {ModelUUID: "test1-uuid", ModelType: model.IAAS},
+			"current-user/test1": {ModelUUID: "test1-uuid", ModelType: model.IAAS},
 		},
-		CurrentModel: "admin",
+		CurrentModel: "test1",
 	}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
 		User:     "current-user",
@@ -345,7 +346,7 @@ type fakeInstance struct {
 	id instance.Id
 }
 
-func (f fakeInstance) Addresses() ([]network.Address, error) {
+func (f fakeInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	return []network.Address{
 		{Value: "10.0.0.1"},
 	}, nil
@@ -356,14 +357,14 @@ type fakeEnviron struct {
 	controllerInstances []instance.Id
 }
 
-func (f fakeEnviron) ControllerInstances(_ string) ([]instance.Id, error) {
+func (f fakeEnviron) ControllerInstances(ctx context.ProviderCallContext, _ string) ([]instance.Id, error) {
 	return f.controllerInstances, nil
 }
 
-func (f fakeEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+func (f fakeEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
 	return []instance.Instance{fakeInstance{id: "1"}}, nil
 }
 
-func (f fakeEnviron) AllInstances() ([]instance.Instance, error) {
+func (f fakeEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
 	return []instance.Instance{fakeInstance{id: "1"}}, nil
 }

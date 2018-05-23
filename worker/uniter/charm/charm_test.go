@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
+	"github.com/juju/utils/set" // Needs to be utils due to charm.v6 dep.
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6"
 

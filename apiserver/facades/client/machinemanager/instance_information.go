@@ -49,7 +49,11 @@ func instanceTypes(mm *MachineManagerAPI,
 		if c.Value != nil {
 			value = *c.Value
 		}
-		itCons := common.NewInstanceTypeConstraints(env, value)
+		itCons := common.NewInstanceTypeConstraints(
+			env,
+			mm.callContext,
+			value,
+		)
 		it, err := common.InstanceTypes(itCons)
 		if err != nil {
 			it = params.InstanceTypesResult{Error: common.ServerError(err)}

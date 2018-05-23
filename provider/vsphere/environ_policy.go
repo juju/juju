@@ -8,21 +8,22 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 )
 
 // PrecheckInstance is part of the environs.Environ interface.
-func (env *environ) PrecheckInstance(args environs.PrecheckInstanceParams) error {
+func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
 	if args.Placement == "" {
 		return nil
 	}
 	return env.withSession(func(env *sessionEnviron) error {
-		return env.PrecheckInstance(args)
+		return env.PrecheckInstance(ctx, args)
 	})
 }
 
 // PrecheckInstance is part of the environs.Environ interface.
-func (env *sessionEnviron) PrecheckInstance(args environs.PrecheckInstanceParams) error {
-	_, err := env.parsePlacement(args.Placement)
+func (env *sessionEnviron) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+	_, err := env.parsePlacement(ctx, args.Placement)
 	return err
 }
 

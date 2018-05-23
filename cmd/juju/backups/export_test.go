@@ -21,6 +21,7 @@ const (
 
 var (
 	NewAPIClient = &newAPIClient
+	NewGetAPI    = &getAPI
 )
 
 type CreateCommand struct {
@@ -31,39 +32,45 @@ type DownloadCommand struct {
 	*downloadCommand
 }
 
-func NewCreateCommandForTest() (cmd.Command, *CreateCommand) {
+func NewCreateCommandForTest(store jujuclient.ClientStore) (cmd.Command, *CreateCommand) {
 	c := &createCommand{}
+	c.SetClientStore(store)
 	c.Log = &cmd.Log{}
 	return modelcmd.Wrap(c), &CreateCommand{c}
 }
 
-func NewDownloadCommandForTest() (cmd.Command, *DownloadCommand) {
+func NewDownloadCommandForTest(store jujuclient.ClientStore) (cmd.Command, *DownloadCommand) {
 	c := &downloadCommand{}
 	c.Log = &cmd.Log{}
+	c.SetClientStore(store)
 	return modelcmd.Wrap(c), &DownloadCommand{c}
 }
 
-func NewListCommandForTest() cmd.Command {
+func NewListCommandForTest(store jujuclient.ClientStore) cmd.Command {
 	c := &listCommand{}
 	c.Log = &cmd.Log{}
+	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
 }
 
-func NewShowCommandForTest() cmd.Command {
+func NewShowCommandForTest(store jujuclient.ClientStore) cmd.Command {
 	c := &showCommand{}
 	c.Log = &cmd.Log{}
+	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
 }
 
-func NewUploadCommandForTest() cmd.Command {
+func NewUploadCommandForTest(store jujuclient.ClientStore) cmd.Command {
 	c := &uploadCommand{}
 	c.Log = &cmd.Log{}
+	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
 }
 
-func NewRemoveCommandForTest() cmd.Command {
+func NewRemoveCommandForTest(store jujuclient.ClientStore) cmd.Command {
 	c := &removeCommand{}
 	c.Log = &cmd.Log{}
+	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
 }
 

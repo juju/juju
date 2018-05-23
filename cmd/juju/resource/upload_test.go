@@ -40,46 +40,46 @@ func (*UploadSuite) TestInitEmpty(c *gc.C) {
 }
 
 func (*UploadSuite) TestInitOneArg(c *gc.C) {
-	var u resourcecmd.UploadCommand
+	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{})
 	err := u.Init([]string{"foo"})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
 func (*UploadSuite) TestInitJustName(c *gc.C) {
-	var u resourcecmd.UploadCommand
+	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{})
 
 	err := u.Init([]string{"foo", "bar"})
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (*UploadSuite) TestInitNoName(c *gc.C) {
-	var u resourcecmd.UploadCommand
+	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{})
 
 	err := u.Init([]string{"foo", "=foobar"})
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
 }
 
 func (*UploadSuite) TestInitNoPath(c *gc.C) {
-	var u resourcecmd.UploadCommand
+	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{})
 
 	err := u.Init([]string{"foo", "foobar="})
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
 }
 
 func (*UploadSuite) TestInitGood(c *gc.C) {
-	var u resourcecmd.UploadCommand
+	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{})
 
 	err := u.Init([]string{"foo", "bar=baz"})
 	c.Assert(err, jc.ErrorIsNil)
-	svc, name, filename := resourcecmd.UploadCommandResourceFile(&u)
+	svc, name, filename := resourcecmd.UploadCommandResourceFile(u)
 	c.Assert(svc, gc.Equals, "foo")
 	c.Assert(name, gc.Equals, "bar")
 	c.Assert(filename, gc.Equals, "baz")
-	c.Assert(resourcecmd.UploadCommandService(&u), gc.Equals, "foo")
+	c.Assert(resourcecmd.UploadCommandService(u), gc.Equals, "foo")
 }
 
 func (*UploadSuite) TestInitTwoResources(c *gc.C) {
-	var u resourcecmd.UploadCommand
+	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{})
 
 	err := u.Init([]string{"foo", "bar=baz", "fizz=buzz"})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
@@ -104,7 +104,7 @@ used as a resource for an application.
 func (s *UploadSuite) TestRun(c *gc.C) {
 	file := &stubFile{stub: s.stub}
 	s.stubDeps.file = file
-	u := resourcecmd.NewUploadCommand(resourcecmd.UploadDeps{
+	u := resourcecmd.NewUploadCommandForTest(resourcecmd.UploadDeps{
 		NewClient:    s.stubDeps.NewClient,
 		OpenResource: s.stubDeps.OpenResource,
 	},

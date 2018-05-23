@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -85,20 +86,24 @@ type maasSubnet struct {
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces.
-func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
-	inst, err := environ.getInstance(instId)
+func (environ *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+	inst, err := environ.getInstance(ctx, instId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	subnetsMap, err := environ.subnetToSpaceIds()
+	subnetsMap, err := environ.subnetToSpaceIds(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if environ.usingMAAS2() {
-		return maas2NetworkInterfaces(inst.(*maas2Instance), subnetsMap)
+		dnsSearchDomains, err := environ.Domains(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return maas2NetworkInterfaces(ctx, inst.(*maas2Instance), subnetsMap, dnsSearchDomains...)
 	} else {
 		mi := inst.(*maas1Instance)
-		return maasObjectNetworkInterfaces(mi.maasObject, subnetsMap)
+		return maasObjectNetworkInterfaces(ctx, mi.maasObject, subnetsMap)
 	}
 }
 
@@ -107,7 +112,7 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 // maasObject to extract all the relevant InterfaceInfo fields. It returns an
 // error satisfying errors.IsNotSupported() if it cannot find the required
 // "interface_set" node details field.
-func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {
+func maasObjectNetworkInterfaces(ctx context.ProviderCallContext, maasObject *gomaasapi.MAASObject, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {
 	interfaceSet, ok := maasObject.GetMap()["interface_set"]
 	if !ok || interfaceSet.IsNil() {
 		// This means we're using an older MAAS API.
@@ -199,7 +204,7 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
 			nicInfo.Address = network.NewAddressOnSpace(sub.Space, link.IPAddress)
-			spaceId, ok := subnetsMap[string(sub.CIDR)]
+			spaceId, ok := subnetsMap[sub.CIDR]
 			if !ok {
 				// The space we found is not recognised.
 				// No provider space info is available.
@@ -221,14 +226,14 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 			nicInfo.MTU = sub.VLAN.MTU
 
 			// Each link we represent as a separate InterfaceInfo, but with the
-			// same name and device index, just different addres, subnet, etc.
+			// same name and device index, just different address, subnet, etc.
 			infos = append(infos, nicInfo)
 		}
 	}
 	return infos, nil
 }
 
-func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {
+func maas2NetworkInterfaces(ctx context.ProviderCallContext, instance *maas2Instance, subnetsMap map[string]network.Id, dnsSearchDomains ...string) ([]network.InterfaceInfo, error) {
 	interfaces := instance.machine.InterfaceSet()
 	infos := make([]network.InterfaceInfo, 0, len(interfaces))
 	for i, iface := range interfaces {
@@ -304,7 +309,7 @@ func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]netwo
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
 			nicInfo.Address = network.NewAddressOnSpace(sub.Space(), link.IPAddress())
-			spaceId, ok := subnetsMap[string(sub.CIDR())]
+			spaceId, ok := subnetsMap[sub.CIDR()]
 			if !ok {
 				// The space we found is not recognised.
 				// No provider space info is available.
@@ -322,6 +327,7 @@ func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]netwo
 					nicInfo.DNSServers[i].SpaceProviderId = spaceId
 				}
 			}
+			nicInfo.DNSSearchDomains = dnsSearchDomains
 			nicInfo.GatewayAddress = gwAddr
 			nicInfo.MTU = sub.VLAN().MTU()
 

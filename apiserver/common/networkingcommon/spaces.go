@@ -10,17 +10,18 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
 
 // SupportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
-func SupportsSpaces(backing environs.EnvironConfigGetter) error {
+func SupportsSpaces(backing environs.EnvironConfigGetter, ctx context.ProviderCallContext) error {
 	env, err := environs.GetEnviron(backing, environs.New)
 	if err != nil {
 		return errors.Annotate(err, "getting environ")
 	}
-	if !environs.SupportsSpaces(env) {
+	if !environs.SupportsSpaces(ctx, env) {
 		return errors.NotSupportedf("spaces")
 	}
 	return nil
@@ -28,8 +29,8 @@ func SupportsSpaces(backing environs.EnvironConfigGetter) error {
 
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
-func CreateSpaces(backing NetworkBacking, args params.CreateSpacesParams) (results params.ErrorResults, err error) {
-	err = SupportsSpaces(backing)
+func CreateSpaces(backing NetworkBacking, ctx context.ProviderCallContext, args params.CreateSpacesParams) (results params.ErrorResults, err error) {
+	err = SupportsSpaces(backing, ctx)
 	if err != nil {
 		return results, common.ServerError(errors.Trace(err))
 	}

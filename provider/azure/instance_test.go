@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/azure"
@@ -33,6 +34,8 @@ type instanceSuite struct {
 	deployments       []resources.DeploymentExtended
 	networkInterfaces []network.Interface
 	publicIPAddresses []network.PublicIPAddress
+
+	callCtx context.ProviderCallContext
 }
 
 var _ = gc.Suite(&instanceSuite{})
@@ -55,6 +58,7 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 		makeDeployment("machine-0"),
 		makeDeployment("machine-1"),
 	}
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func makeDeployment(name string) resources.DeploymentExtended {
@@ -139,7 +143,7 @@ func (s *instanceSuite) getInstance(c *gc.C) instance.Instance {
 
 func (s *instanceSuite) getInstances(c *gc.C, ids ...instance.Id) []instance.Instance {
 	s.sender = s.getInstancesSender()
-	instances, err := s.env.Instances(ids)
+	instances, err := s.env.Instances(s.callCtx, ids)
 	c.Assert(err, jc.ErrorIsNil)
 	s.sender = azuretesting.Senders{}
 	s.requests = nil
@@ -174,25 +178,25 @@ func networkSecurityGroupSender(rules []network.SecurityRule) *azuretesting.Mock
 
 func (s *instanceSuite) TestInstanceStatus(c *gc.C) {
 	inst := s.getInstance(c)
-	assertInstanceStatus(c, inst.Status(), status.Running, "")
+	assertInstanceStatus(c, inst.Status(s.callCtx), status.Running, "")
 }
 
 func (s *instanceSuite) TestInstanceStatusDeploymentFailed(c *gc.C) {
 	s.deployments[0].Properties.ProvisioningState = to.StringPtr("Failed")
 	inst := s.getInstance(c)
-	assertInstanceStatus(c, inst.Status(), status.ProvisioningError, "Failed")
+	assertInstanceStatus(c, inst.Status(s.callCtx), status.ProvisioningError, "Failed")
 }
 
 func (s *instanceSuite) TestInstanceStatusDeploymentCanceled(c *gc.C) {
 	s.deployments[0].Properties.ProvisioningState = to.StringPtr("Canceled")
 	inst := s.getInstance(c)
-	assertInstanceStatus(c, inst.Status(), status.ProvisioningError, "Canceled")
+	assertInstanceStatus(c, inst.Status(s.callCtx), status.ProvisioningError, "Canceled")
 }
 
 func (s *instanceSuite) TestInstanceStatusNilProvisioningState(c *gc.C) {
 	s.deployments[0].Properties.ProvisioningState = nil
 	inst := s.getInstance(c)
-	assertInstanceStatus(c, inst.Status(), status.Allocating, "")
+	assertInstanceStatus(c, inst.Status(s.callCtx), status.Allocating, "")
 }
 
 func assertInstanceStatus(c *gc.C, actual instance.InstanceStatus, status status.Status, message string) {
@@ -203,7 +207,7 @@ func assertInstanceStatus(c *gc.C, actual instance.InstanceStatus, status status
 }
 
 func (s *instanceSuite) TestInstanceAddressesEmpty(c *gc.C) {
-	addresses, err := s.getInstance(c).Addresses()
+	addresses, err := s.getInstance(c).Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.HasLen, 0)
 }
@@ -229,7 +233,7 @@ func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
 		// unrelated PIP
 		makePublicIPAddress("pip-2", "machine-1", "1.2.3.6"),
 	}
-	addresses, err := s.getInstance(c).Addresses()
+	addresses, err := s.getInstance(c).Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, jc.DeepEquals, jujunetwork.NewAddresses(
 		"10.0.0.4", "10.0.0.5", "1.2.3.4", "1.2.3.5",
@@ -250,13 +254,13 @@ func (s *instanceSuite) TestMultipleInstanceAddresses(c *gc.C) {
 	instances := s.getInstances(c, "machine-0", "machine-1")
 	c.Assert(instances, gc.HasLen, 2)
 
-	inst0Addresses, err := instances[0].Addresses()
+	inst0Addresses, err := instances[0].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inst0Addresses, jc.DeepEquals, jujunetwork.NewAddresses(
 		"10.0.0.4", "1.2.3.4",
 	))
 
-	inst1Addresses, err := instances[1].Addresses()
+	inst1Addresses, err := instances[1].Addresses(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inst1Addresses, jc.DeepEquals, jujunetwork.NewAddresses(
 		"10.0.0.5", "1.2.3.5",
@@ -269,7 +273,7 @@ func (s *instanceSuite) TestIngressRulesEmpty(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 	nsgSender := networkSecurityGroupSender(nil)
 	s.sender = azuretesting.Senders{nsgSender}
-	rules, err := fwInst.IngressRules("0")
+	rules, err := fwInst.IngressRules(s.callCtx, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.HasLen, 0)
 }
@@ -365,7 +369,7 @@ func (s *instanceSuite) TestIngressRules(c *gc.C) {
 	fwInst, ok := inst.(instance.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
-	rules, err := fwInst.IngressRules("0")
+	rules, err := fwInst.IngressRules(s.callCtx, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, jc.DeepEquals, []jujunetwork.IngressRule{
 		jujunetwork.MustNewIngressRule("tcp", 80, 80, "0.0.0.0/0"),
@@ -387,7 +391,7 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 	))
 	s.sender = azuretesting.Senders{sender, notFoundSender, notFoundSender, notFoundSender}
 
-	err := fwInst.ClosePorts("0", []jujunetwork.IngressRule{
+	err := fwInst.ClosePorts(s.callCtx, "0", []jujunetwork.IngressRule{
 		jujunetwork.MustNewIngressRule("tcp", 1000, 1000),
 		jujunetwork.MustNewIngressRule("udp", 1000, 2000),
 		jujunetwork.MustNewIngressRule("udp", 1000, 2000, "192.168.1.0/24", "10.0.0.0/24"),
@@ -433,7 +437,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	nsgSender := networkSecurityGroupSender(nil)
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender, okSender, okSender}
 
-	err := fwInst.OpenPorts("0", []jujunetwork.IngressRule{
+	err := fwInst.OpenPorts(s.callCtx, "0", []jujunetwork.IngressRule{
 		jujunetwork.MustNewIngressRule("tcp", 1000, 1000),
 		jujunetwork.MustNewIngressRule("udp", 1000, 2000),
 		jujunetwork.MustNewIngressRule("tcp", 1000, 2000, "192.168.1.0/24", "10.0.0.0/24"),
@@ -542,7 +546,7 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	}})
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
 
-	err := fwInst.OpenPorts("0", []jujunetwork.IngressRule{
+	err := fwInst.OpenPorts(s.callCtx, "0", []jujunetwork.IngressRule{
 		jujunetwork.MustNewIngressRule("tcp", 1000, 1000),
 		jujunetwork.MustNewIngressRule("udp", 1000, 2000),
 	})
@@ -572,13 +576,13 @@ func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *gc.C) {
 	inst := s.getInstance(c)
 	fwInst, ok := inst.(instance.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
-	err := fwInst.OpenPorts("0", nil)
+	err := fwInst.OpenPorts(s.callCtx, "0", nil)
 	c.Assert(err, gc.ErrorMatches, "internal network address not found")
 }
 
 func (s *instanceSuite) TestAllInstances(c *gc.C) {
 	s.sender = s.getInstancesSender()
-	instances, err := s.env.AllInstances()
+	instances, err := s.env.AllInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 2)
 	c.Assert(instances[0].Id(), gc.Equals, instance.Id("machine-0"))
@@ -588,7 +592,7 @@ func (s *instanceSuite) TestAllInstances(c *gc.C) {
 func (s *instanceSuite) TestControllerInstances(c *gc.C) {
 	*(*(*s.deployments[0].Properties.Dependencies)[0].DependsOn)[0].ResourceName = "juju-controller"
 	s.sender = s.getInstancesSender()
-	ids, err := s.env.ControllerInstances("foo")
+	ids, err := s.env.ControllerInstances(s.callCtx, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.HasLen, 1)
 	c.Assert(ids[0], gc.Equals, instance.Id("machine-0"))

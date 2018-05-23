@@ -3,7 +3,7 @@
 
 package agree
 
-// These two var are exported becuase they are useful in tests outside of this
+// These two var are exported because they are useful in tests outside of this
 // package. Unless you are writing a test you shouldn't be using either of these
 // values.
 var (

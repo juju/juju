@@ -60,6 +60,9 @@ go tool vet \
     . || [ -n "$IGNORE_VET_WARNINGS" ]
 
 
+echo "checking: gometalinter ..."
+./scripts/gometalinter.bash
+
 echo "checking: go build ..."
 go build github.com/juju/juju/...
 

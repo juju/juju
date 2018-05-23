@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -355,7 +355,7 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 	}
 	ops = append(ops, charmOps...)
 	// By the time we get to here, all units and charm refs have been removed,
-	// so it's safe to do this additonal cleanup.
+	// so it's safe to do this additional cleanup.
 	ops = append(ops, finalAppCharmRemoveOps(name, curl)...)
 
 	ops = append(ops, a.removeCloudServiceOps()...)
