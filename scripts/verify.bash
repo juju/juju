@@ -59,9 +59,13 @@ go tool vet \
    -printfuncs=$all_prints \
     . || [ -n "$IGNORE_VET_WARNINGS" ]
 
-
-echo "checking: gometalinter ..."
-./scripts/gometalinter.bash
+# Allow the ignoring of the gometalinter
+if [ -z "$IGNORE_GOMETALINTER" ]; then
+    echo "checking: gometalinter ..."
+    ./scripts/gometalinter.bash
+else
+    echo "ignoring: gometalinter ..."
+fi
 
 echo "checking: go build ..."
 go build github.com/juju/juju/...
