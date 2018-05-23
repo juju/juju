@@ -160,6 +160,16 @@ func (u *mockUnit) Life() state.Life {
 	return u.life
 }
 
+func (u *mockUnit) Remove() error {
+	u.MethodCall(u, "Remove")
+	return nil
+}
+
+func (u *mockUnit) EnsureDead() error {
+	u.MethodCall(u, "EnsureDead")
+	return nil
+}
+
 type mockCharm struct {
 	url    *charm.URL
 	sha256 string

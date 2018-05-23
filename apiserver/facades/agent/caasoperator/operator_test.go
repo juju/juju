@@ -172,6 +172,26 @@ func (s *CAASOperatorSuite) TestLife(c *gc.C) {
 	})
 }
 
+func (s *CAASOperatorSuite) TestRemove(c *gc.C) {
+	results, err := s.facade.Remove(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "unit-gitlab-0"},
+			{Tag: "machine-0"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+			{
+				Error: &params.Error{
+					Code:    "unauthorized access",
+					Message: "permission denied",
+				},
+			}},
+	})
+}
+
 func (s *CAASOperatorSuite) TestSetPodSpec(c *gc.C) {
 	validSpecStr := `
 containers:

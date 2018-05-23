@@ -17,6 +17,7 @@ import (
 type Client interface {
 	CharmGetter
 	UnitGetter
+	UnitRemover
 	ApplicationWatcher
 	PodSpecSetter
 	StatusSetter
@@ -37,6 +38,12 @@ type CharmGetter interface {
 type UnitGetter interface {
 	WatchUnits(string) (watcher.StringsWatcher, error)
 	Life(string) (life.Value, error)
+}
+
+// UnitRemover provides an interface for
+// removing a unit.
+type UnitRemover interface {
+	RemoveUnit(string) error
 }
 
 // ApplicationWatcher provides an interface watching

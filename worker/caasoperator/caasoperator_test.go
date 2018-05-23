@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -42,6 +43,7 @@ type WorkerSuite struct {
 	unitsChanges          chan []string
 	appChanges            chan struct{}
 	appWatched            chan struct{}
+	unitRemoved           chan struct{}
 	client                fakeClient
 	charmDownloader       fakeDownloader
 	charmSHA256           string
@@ -74,7 +76,12 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 
 	s.clock = testing.NewClock(time.Time{})
 	s.appWatched = make(chan struct{}, 1)
-	s.client = fakeClient{applicationWatched: s.appWatched}
+	s.unitRemoved = make(chan struct{}, 1)
+	s.client = fakeClient{
+		applicationWatched: s.appWatched,
+		unitRemoved:        s.unitRemoved,
+		life:               life.Alive,
+	}
 	s.unitsChanges = make(chan []string)
 	s.appChanges = make(chan struct{})
 	s.client.unitsWatcher = watchertest.NewMockStringsWatcher(s.unitsChanges)
@@ -97,6 +104,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		StatusSetter:          &s.client,
 		ApplicationWatcher:    &s.client,
 		UnitGetter:            &s.client,
+		UnitRemover:           &s.client,
 		UniterParams:          s.uniterParams,
 		LeadershipTrackerFunc: s.leadershipTrackerFunc,
 		UniterFacadeFunc:      s.uniterFacadeFunc,
@@ -122,6 +130,10 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.UnitGetter = nil
 	}, `missing UnitGetter not valid`)
+
+	s.testValidateConfig(c, func(config *caasoperator.Config) {
+		config.UnitRemover = nil
+	}, `missing UnitRemover not valid`)
 
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.LeadershipTrackerFunc = nil
@@ -253,7 +265,7 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	c.Fatalf("timeout while waiting for uniter to start")
 }
 
-func (s *WorkerSuite) TestUpgradeCharm(c *gc.C) {
+func (s *WorkerSuite) assertUniterStarted(c *gc.C) (worker.Worker, watcher.NotifyChannel) {
 	var (
 		uniterStarted      int32
 		applicationChannel watcher.NotifyChannel
@@ -267,7 +279,6 @@ func (s *WorkerSuite) TestUpgradeCharm(c *gc.C) {
 
 	w, err := caasoperator.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
 
 	select {
 	case s.appChanges <- struct{}{}:
@@ -282,10 +293,16 @@ func (s *WorkerSuite) TestUpgradeCharm(c *gc.C) {
 
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		if atomic.LoadInt32(&uniterStarted) > 0 {
-			return
+			return w, applicationChannel
 		}
 	}
 	c.Fatalf("timeout while waiting for uniter to start")
+	panic("not reachable")
+}
+
+func (s *WorkerSuite) TestUpgradeCharm(c *gc.C) {
+	w, applicationChannel := s.assertUniterStarted(c)
+	defer workertest.CleanKill(c, w)
 
 	select {
 	case <-applicationChannel:
@@ -322,4 +339,25 @@ func (s *WorkerSuite) TestWatcherFailureStopsWorker(c *gc.C) {
 	s.client.unitsWatcher.KillErr(errors.New("splat"))
 	err = workertest.CheckKilled(c, w)
 	c.Assert(err, gc.ErrorMatches, "splat")
+}
+
+func (s *WorkerSuite) TestRemovedUnit(c *gc.C) {
+	w, _ := s.assertUniterStarted(c)
+	defer workertest.CleanKill(c, w)
+
+	s.client.ResetCalls()
+	s.client.life = life.Dead
+	select {
+	case s.unitsChanges <- []string{"gitlab/0"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending unit change")
+	}
+	select {
+	case <-s.unitRemoved:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for unit to be removed")
+	}
+	s.client.CheckCallNames(c, "Life", "RemoveUnit")
+	s.client.CheckCall(c, 0, "Life", "gitlab/0")
+	s.client.CheckCall(c, 1, "RemoveUnit", "gitlab/0")
 }

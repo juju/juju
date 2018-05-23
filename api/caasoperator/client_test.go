@@ -194,6 +194,42 @@ func (s *operatorSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
+func (s *operatorSuite) TestRemoveUnit(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperator")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "Remove")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "unit-gitlab-0",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		called = true
+		return nil
+	})
+
+	client := caasoperator.NewClient(apiCaller)
+	err := client.RemoveUnit("gitlab/0")
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *operatorSuite) TestRemoveUnitInvalidUnitame(c *gc.C) {
+	client := caasoperator.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
+		return errors.New("should not be called")
+	}))
+	err := client.RemoveUnit("")
+	c.Assert(err, gc.ErrorMatches, `unit name "" not valid`)
+}
+
 func (s *operatorSuite) TestLife(c *gc.C) {
 	s.testLife(c, names.NewApplicationTag("gitlab"))
 	s.testLife(c, names.NewUnitTag("gitlab/0"))

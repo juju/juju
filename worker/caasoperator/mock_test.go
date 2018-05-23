@@ -68,6 +68,8 @@ type fakeClient struct {
 	unitsWatcher       *watchertest.MockStringsWatcher
 	watcher            *watchertest.MockNotifyWatcher
 	applicationWatched chan struct{}
+	unitRemoved        chan struct{}
+	life               life.Value
 }
 
 func (c *fakeClient) SetStatus(application string, status status.Status, message string, data map[string]interface{}) error {
@@ -117,12 +119,18 @@ func (c *fakeClient) Watch(application string) (watcher.NotifyWatcher, error) {
 	return c.watcher, nil
 }
 
+func (c *fakeClient) RemoveUnit(unit string) error {
+	c.MethodCall(c, "RemoveUnit", unit)
+	c.unitRemoved <- struct{}{}
+	return c.NextErr()
+}
+
 func (c *fakeClient) Life(entity string) (life.Value, error) {
 	c.MethodCall(c, "Life", entity)
 	if err := c.NextErr(); err != nil {
 		return life.Dead, err
 	}
-	return life.Alive, nil
+	return c.life, nil
 }
 
 func (c *fakeClient) APIAddresses() ([]string, error) {
