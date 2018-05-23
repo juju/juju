@@ -175,7 +175,7 @@ type modelEntityRefsDoc struct {
 	// Machines contains the names of the top-level machines in the model.
 	Machines []string `bson:"machines"`
 
-	// Applicatons contains the names of the applications in the model.
+	// Applications contains the names of the applications in the model.
 	Applications []string `bson:"applications"`
 
 	// Volumes contains the IDs of the volumes in the model.
@@ -1268,7 +1268,8 @@ func (m *Model) destroyOps(
 		ops = append(ops,
 			newCleanupOp(cleanupApplicationsForDyingModel, modelUUID),
 		)
-		if m.Type() == ModelTypeIAAS {
+		switch m.Type() {
+		case ModelTypeIAAS:
 			ops = append(ops, newCleanupOp(cleanupMachinesForDyingModel, modelUUID))
 			if args.DestroyStorage != nil {
 				// The user has specified that the storage should be destroyed
@@ -1283,6 +1284,8 @@ func (m *Model) destroyOps(
 					*args.DestroyStorage,
 				))
 			}
+		case ModelTypeCAAS:
+			ops = append(ops, newCleanupOp(cleanupUnitsForDyingModel, modelUUID))
 		}
 	}
 	return append(prereqOps, ops...), nil

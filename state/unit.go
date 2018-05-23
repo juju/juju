@@ -543,15 +543,13 @@ func (u *Unit) destroyOps(destroyStorage bool) ([]txn.Op, error) {
 	} else if agentErr != nil {
 		return nil, errors.Trace(agentErr)
 	}
-	if isAssigned && agentStatusInfo.Status != status.Allocating {
+	if (isAssigned || !shouldBeAssigned) && agentStatusInfo.Status != status.Allocating {
 		return setDyingOps, nil
 	}
-	if shouldBeAssigned {
-		switch agentStatusInfo.Status {
-		case status.Error, status.Allocating, status.Running:
-		default:
-			return nil, errors.Errorf("unexpected unit state - unit with status %v is not assigned to a machine", agentStatusInfo.Status)
-		}
+	switch agentStatusInfo.Status {
+	case status.Error, status.Allocating:
+	default:
+		return nil, errors.Errorf("unexpected unit state - unit with status %v is not deployed", agentStatusInfo.Status)
 	}
 
 	statusOp := txn.Op{

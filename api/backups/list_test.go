@@ -27,7 +27,7 @@ func (s *listSuite) TestList(c *gc.C) {
 
 			if result, ok := resp.(*params.BackupsListResult); ok {
 				result.List = make([]params.BackupsMetadataResult, 1)
-				result.List[0] = apiserverbackups.ResultFromMetadata(s.Meta)
+				result.List[0] = apiserverbackups.CreateResult(s.Meta, "test-filename")
 			} else {
 				c.Fatalf("wrong output structure")
 			}

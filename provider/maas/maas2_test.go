@@ -63,6 +63,7 @@ type fakeController struct {
 	gomaasapi.Controller
 	*testing.Stub
 
+	domains            []gomaasapi.Domain
 	bootResources      []gomaasapi.BootResource
 	bootResourcesError error
 	machines           []gomaasapi.Machine
@@ -91,6 +92,9 @@ func newFakeController() *fakeController {
 		zones: []gomaasapi.Zone{
 			&fakeZone{name: "mossack"},
 			&fakeZone{name: "fonseca"},
+		},
+		domains: []gomaasapi.Domain{
+			&fakeDomain{},
 		},
 	}
 }
@@ -130,6 +134,10 @@ func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Mach
 		return result, nil
 	}
 	return c.machines, nil
+}
+
+func (c *fakeController) Domains() ([]gomaasapi.Domain, error) {
+	return c.domains, nil
 }
 
 func (c *fakeController) AllocateMachine(args gomaasapi.AllocateMachineArgs) (gomaasapi.Machine, gomaasapi.ConstraintMatches, error) {
@@ -645,4 +653,10 @@ func (d *fakeDevice) Delete() error {
 		d.deleteCB()
 	}
 	return d.NextErr()
+}
+
+type fakeDomain struct{}
+
+func (*fakeDomain) Name() string {
+	return "maas"
 }

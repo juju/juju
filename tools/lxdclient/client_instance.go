@@ -10,7 +10,6 @@ import (
 	lxdclient "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/juju/container"
 	"github.com/juju/juju/network"
 )
 
@@ -282,7 +281,7 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 
 	addrs := []network.Address{}
 	for name, net := range networks {
-		if name == container.DefaultLxcBridge || name == container.DefaultLxdBridge {
+		if name == network.DefaultLXCBridge || name == network.DefaultLXDBridge {
 			continue
 		}
 		for _, addr := range net.Addresses {

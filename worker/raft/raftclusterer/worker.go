@@ -8,7 +8,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/pubsub/apiserver"
@@ -124,8 +123,6 @@ func (w *Worker) getConfiguration() (map[raft.ServerID]*raft.Server, uint64, err
 	servers := make(map[raft.ServerID]*raft.Server)
 	config := future.Configuration()
 	for i := range config.Servers {
-		// Use a local var so we don't get all entries pointing to
-		// the loop variable.
 		server := config.Servers[i]
 		servers[server.ID] = &server
 	}
@@ -142,7 +139,7 @@ func (w *Worker) updateConfiguration(
 		if server.InternalAddress == "" {
 			continue
 		}
-		serverID := raft.ServerID(names.NewMachineTag(server.ID).String())
+		serverID := raft.ServerID(server.ID)
 		serverAddress := raft.ServerAddress(server.InternalAddress)
 		newServers[serverID] = serverAddress
 	}

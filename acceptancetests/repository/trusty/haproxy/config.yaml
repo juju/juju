@@ -212,7 +212,7 @@ options:
     default: ""
     type: string
     description: |
-        Key ID to import to the apt keyring to support use with arbitary source
+        Key ID to import to the apt keyring to support use with arbitrary source
         configuration from outside of Launchpad archives or PPA's.
   peering_mode:
     default: "active-passive"

@@ -95,7 +95,7 @@ func (c *Certificate) X509() (*x509.Certificate, error) {
 // AsCreateRequest creates a payload for the LXD API, suitable for posting the
 // client certificate to an LXD server.
 func (c *Certificate) AsCreateRequest() (api.CertificatesPost, error) {
-	block, _ := pem.Decode([]byte(c.CertPEM))
+	block, _ := pem.Decode(c.CertPEM)
 	if block == nil {
 		return api.CertificatesPost{}, errors.New("failed to decode certificate PEM")
 	}

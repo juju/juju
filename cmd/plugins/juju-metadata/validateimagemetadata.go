@@ -48,7 +48,7 @@ the usual way from either the -m option, or JUJU_MODEL. Series, Region, and
 Endpoint are the key attributes.
 
 The key model attributes may be overridden using command arguments, so
-that the validation may be peformed on arbitary metadata.
+that the validation may be performed on arbitrary metadata.
 
 Examples:
 

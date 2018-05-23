@@ -24,10 +24,7 @@ import (
 type APIClient interface {
 	io.Closer
 	// Create sends an RPC request to create a new backup.
-	Create(notes string, keepCopy, noDownload bool) (*params.BackupsCreateResult, error)
-	// CreateDeprecated sends an RPC request in the old style to
-	// create a new backup.
-	CreateDeprecated(notes string) (*params.BackupsMetadataResult, error)
+	Create(notes string, keepCopy, noDownload bool) (*params.BackupsMetadataResult, error)
 	// Info gets the backup's metadata.
 	Info(id string) (*params.BackupsMetadataResult, error)
 	// List gets all stored metadata.
@@ -173,7 +170,7 @@ func getArchive(filename string) (rc ArchiveReader, metaResult *params.BackupsMe
 	// Pack the metadata into a result.
 	// TODO(perrito666) change the identity of ResultfromMetadata to
 	// return a pointer.
-	mResult := apiserverbackups.ResultFromMetadata(meta)
+	mResult := apiserverbackups.CreateResult(meta, "")
 	metaResult = &mResult
 
 	return archive, metaResult, nil

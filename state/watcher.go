@@ -2097,7 +2097,7 @@ func (w *actionStatusWatcher) filterAndMergeIds(changes *[]string, updates map[i
 			} else {
 				if idAlreadyInChangeset {
 					// remove id from changes
-					*changes = append([]string(*changes)[:chIx], []string(*changes)[chIx+1:]...)
+					*changes = append((*changes)[:chIx], (*changes)[chIx+1:]...)
 				}
 			}
 		default:
@@ -2368,7 +2368,7 @@ func mergeIds(st modelBackend, changes *[]string, updates map[interface{}]bool, 
 		} else {
 			if idAlreadyInChangeset {
 				// remove id from changes
-				*changes = append([]string(*changes)[:chIx], []string(*changes)[chIx+1:]...)
+				*changes = append((*changes)[:chIx], (*changes)[chIx+1:]...)
 			}
 		}
 	}

@@ -491,7 +491,7 @@ func hostBootstrapSSHOptions(
 }
 
 // InstanceRefresher is the subet of the Instance interface required
-// for waiting for SSH access to become availble.
+// for waiting for SSH access to become available.
 type InstanceRefresher interface {
 	// Refresh refreshes the addresses for the instance.
 	Refresh(ctx context.ProviderCallContext) error

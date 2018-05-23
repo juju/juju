@@ -70,7 +70,7 @@ func removeNilObservers(observers []Observer) []Observer {
 	return validatedObservers
 }
 
-// Multiplexer multiplexes calls to an arbitray number of observers.
+// Multiplexer multiplexes calls to an arbitrary number of observers.
 type Multiplexer struct {
 	observers []Observer
 }

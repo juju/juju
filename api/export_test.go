@@ -61,7 +61,7 @@ func UnderlyingConn(c Connection) jsoncodec.JSONConn {
 }
 
 // TestingStateParams is the parameters for NewTestingState, so that you can
-// only set the bits that you acutally want to test.
+// only set the bits that you actually want to test.
 type TestingStateParams struct {
 	Address        string
 	ModelTag       string

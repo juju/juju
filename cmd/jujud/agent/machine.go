@@ -1031,19 +1031,15 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	if err != nil {
 		return err
 	}
-	if err := cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
+	var mongodVersion mongo.Version
+	if mongodVersion, err = cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
 		return err
 	}
 	logger.Debugf("mongodb service is installed")
 
 	// Mongo is installed, record the version.
 	err = a.ChangeConfig(func(config agent.ConfigSetter) error {
-		finder := mongo.NewMongodFinder()
-		_, version, err := finder.FindBest()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		config.SetMongoVersion(version)
+		config.SetMongoVersion(mongodVersion)
 		return nil
 	})
 	if err != nil {

@@ -64,7 +64,7 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	// TODO(fwereade): this functionality should be on the
 	// machiner facade instead -- or, better yet, separate
 	// the networking concerns from the lifecycle ones and
-	// have completey separate workers.
+	// have completely separate workers.
 	//
 	// (With their own facades.)
 	agentFacade, err := apiagent.NewState(apiCaller)

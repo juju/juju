@@ -344,15 +344,15 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 		}
 		if len(subnetIds) == 0 {
 			for _, subnet := range subnets {
-				subIdSet.Add(string(subnet.Id))
+				subIdSet.Add(subnet.Id)
 			}
 		}
 		for _, subnet := range subnets {
-			if !subIdSet.Contains(string(subnet.Id)) {
+			if !subIdSet.Contains(subnet.Id) {
 				logger.Tracef("subnet %q not in %v, skipping", subnet.Id, subnetIds)
 				continue
 			}
-			subIdSet.Remove(string(subnet.Id))
+			subIdSet.Remove(subnet.Id)
 			if info, err := makeSubnetInfo(neutron, subnet); err == nil {
 				// Error will already have been logged.
 				results = append(results, info)

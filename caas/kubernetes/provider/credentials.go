@@ -40,7 +40,7 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	caasConfig, err := clientConfigFunc()
+	caasConfig, err := clientConfigFunc(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

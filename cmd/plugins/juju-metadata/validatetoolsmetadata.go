@@ -58,7 +58,7 @@ It is possible to specify a local directory containing agent metadata,
 in which case cloud attributes like provider type, region etc are optional.
 
 The key model attributes may be overridden using command arguments, so
-that the validation may be peformed on arbitary metadata.
+that the validation may be performed on arbitrary metadata.
 
 Examples:
 

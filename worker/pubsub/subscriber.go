@@ -223,7 +223,7 @@ func (s *subscriber) forwardMessage(topic string, data map[string]interface{}) {
 	}
 
 	s.config.Logger.Tracef("forward message %q", topic)
-	message := &params.PubSubMessage{Topic: string(topic), Data: data}
+	message := &params.PubSubMessage{Topic: topic, Data: data}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	for _, remote := range s.servers {

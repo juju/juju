@@ -60,7 +60,7 @@ func mustNewCA() (string, string) {
 	if err != nil {
 		panic(err)
 	}
-	return string(caCert), string(caKey)
+	return caCert, caKey
 }
 
 func mustNewServer() (*tls.Certificate, string, string) {

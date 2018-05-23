@@ -249,7 +249,7 @@ func (c *SSHCommon) generateKnownHosts(targets []*resolvedTarget) (string, error
 // configuration are false -- otherwise it returns true.
 func (c *SSHCommon) proxySSH() (bool, error) {
 	if c.proxy {
-		// No need to check the API if user explictly requested
+		// No need to check the API if user explicitly requested
 		// proxying.
 		return true, nil
 	}

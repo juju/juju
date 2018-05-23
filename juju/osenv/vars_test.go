@@ -60,7 +60,7 @@ func (s *varsSuite) TestMergeEnvWin(c *gc.C) {
 
 	created := osenv.MergeEnvWin(initial, newValues)
 	expected := map[string]string{"a": "baz", "b": "bar", "c": "omg", "foo": "val2", "d": "another"}
-	// The returned value is the inital map.
+	// The returned value is the initial map.
 	c.Check(created, jc.DeepEquals, expected)
 	c.Check(initial, jc.DeepEquals, expected)
 }
@@ -71,7 +71,7 @@ func (s *varsSuite) TestMergeEnvUnix(c *gc.C) {
 
 	created := osenv.MergeEnvUnix(initial, newValues)
 	expected := map[string]string{"a": "baz", "b": "bar", "c": "omg", "d": "another"}
-	// The returned value is the inital map.
+	// The returned value is the initial map.
 	c.Check(created, jc.DeepEquals, expected)
 	c.Check(initial, jc.DeepEquals, expected)
 }

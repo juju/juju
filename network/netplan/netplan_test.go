@@ -258,6 +258,7 @@ network:
 
 func (s *NetplanSuite) TestBondsAllParameters(c *gc.C) {
 	// All parameters don't inherently make sense at the same time, but we should be able to parse all of them.
+	// nolint: misspell
 	checkNetplanRoundTrips(c, `
 network:
   version: 2

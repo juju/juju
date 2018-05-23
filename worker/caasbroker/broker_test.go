@@ -52,7 +52,7 @@ func (s *TrackerSuite) testValidate(c *gc.C, config caasbroker.Config, check fun
 func (s *TrackerSuite) TestCloudSpecFails(c *gc.C) {
 	fix := &fixture{
 		observerErrs: []error{
-			errors.New("no yuo"),
+			errors.New("no you"),
 		},
 	}
 	fix.Run(c, func(context *runContext) {
@@ -60,7 +60,7 @@ func (s *TrackerSuite) TestCloudSpecFails(c *gc.C) {
 			ConfigAPI:              context,
 			NewContainerBrokerFunc: newMockBroker,
 		})
-		c.Check(err, gc.ErrorMatches, "cannot get cloud information: no yuo")
+		c.Check(err, gc.ErrorMatches, "cannot get cloud information: no you")
 		c.Check(tracker, gc.IsNil)
 		context.CheckCallNames(c, "CloudSpec")
 	})

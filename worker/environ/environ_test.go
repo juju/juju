@@ -52,7 +52,7 @@ func (s *TrackerSuite) testValidate(c *gc.C, config environ.Config, check func(e
 func (s *TrackerSuite) TestModelConfigFails(c *gc.C) {
 	fix := &fixture{
 		observerErrs: []error{
-			errors.New("no yuo"),
+			errors.New("no you"),
 		},
 	}
 	fix.Run(c, func(context *runContext) {
@@ -60,7 +60,7 @@ func (s *TrackerSuite) TestModelConfigFails(c *gc.C) {
 			Observer:       context,
 			NewEnvironFunc: newMockEnviron,
 		})
-		c.Check(err, gc.ErrorMatches, "cannot create environ: no yuo")
+		c.Check(err, gc.ErrorMatches, "cannot create environ: no you")
 		c.Check(tracker, gc.IsNil)
 		context.CheckCallNames(c, "ModelConfig")
 	})

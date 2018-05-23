@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -215,6 +216,15 @@ func regionSettingsGlobalKey(cloud, region string) string {
 // If the cloud is in use, ie has models deployed to it, the operation fails.
 func (st *State) RemoveCloud(name string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if _, err := st.Cloud(name); err != nil {
+			// Fail with not found error on first attempt if cloud doesn't exist.
+			// On subsequent attempts, if cloud not found then
+			// it was deleted by someone else and that's a no-op.
+			if attempt > 1 && errors.IsNotFound(err) {
+				return nil, jujutxn.ErrNoOperations
+			}
+			return nil, errors.Trace(err)
+		}
 		return st.removeCloudOps(name)
 	}
 	return st.db().Run(buildTxn)

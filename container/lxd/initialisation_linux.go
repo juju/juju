@@ -517,3 +517,12 @@ func bridgeConfiguration(input string) (string, error) {
 	}
 	return input, nil
 }
+
+// NewLocalServer returns a Server based on a local socket connection.
+func NewLocalServer() (*Server, error) {
+	cSvr, err := ConnectLocal()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewServer(cSvr), nil
+}

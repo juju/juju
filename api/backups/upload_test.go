@@ -24,7 +24,7 @@ func (s *uploadSuite) TestSuccessfulRequest(c *gc.C) {
 	data := "<compressed archive data>"
 	archive := strings.NewReader(data)
 
-	meta := apiserverbackups.ResultFromMetadata(s.Meta)
+	meta := apiserverbackups.CreateResult(s.Meta, "")
 	meta.ID = ""
 	meta.Stored = time.Time{}
 	meta.Size = int64(len(data))
@@ -53,7 +53,7 @@ func (s *uploadSuite) TestFailedRequest(c *gc.C) {
 	data := "<compressed archive data>"
 	archive := strings.NewReader(data)
 
-	meta := apiserverbackups.ResultFromMetadata(s.Meta)
+	meta := apiserverbackups.CreateResult(s.Meta, "test-filename")
 	meta.ID = ""
 	meta.Size = int64(len(data))
 	// The Model field is required, so zero it so that

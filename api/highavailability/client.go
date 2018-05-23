@@ -68,7 +68,7 @@ func (c *Client) MongoUpgradeMode(v mongo.Version) (params.MongoUpgradeResults, 
 	}
 	results := params.MongoUpgradeResults{}
 	if err := c.facade.FacadeCall("StopHAReplicationForUpgrade", arg, &results); err != nil {
-		return results, errors.Annotate(err, "cannnot enter mongo upgrade mode")
+		return results, errors.Annotate(err, "can not enter mongo upgrade mode")
 	}
 	return results, nil
 }
@@ -79,7 +79,7 @@ func (c *Client) ResumeHAReplicationAfterUpgrade(members []replicaset.Member) er
 		Members: members,
 	}
 	if err := c.facade.FacadeCall("ResumeHAReplicationAfterUpgrad", arg, nil); err != nil {
-		return errors.Annotate(err, "cannnot resume ha")
+		return errors.Annotate(err, "can not resume ha")
 	}
 	return nil
 }

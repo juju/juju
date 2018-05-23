@@ -103,7 +103,7 @@ func (i sigmaInstance) findIPv4() string {
 
 func (i *sigmaInstance) hardware(arch string, driveSize uint64) (*instance.HardwareCharacteristics, error) {
 	memory := i.server.Mem() / gosigma.Megabyte
-	cores := uint64(i.server.SMP())
+	cores := i.server.SMP()
 	cpu := i.server.CPU()
 	hw := instance.HardwareCharacteristics{
 		Mem:      &memory,

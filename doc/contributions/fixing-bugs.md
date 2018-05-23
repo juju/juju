@@ -14,7 +14,7 @@ was merged in to R2, you would apply the fix to current master.
 
 How To Backport
 ================
-Once your inital fix has been merged by the bot (the back port) the process
+Once your initial fix has been merged by the bot (the back port) the process
 of applying your patch can be done with a few git commands. In this example I will show
 you applying the fix in to master.
 

@@ -5,18 +5,17 @@ package lxd
 
 import (
 	"errors"
+
 	"github.com/juju/juju/container"
 	lxdclient "github.com/lxc/lxd/client"
 )
 
 var (
-	//LxdConnectPublicLXD     = &lxdConnectPublicLXD
-	//LxdConnectSimpleStreams = &lxdConnectSimpleStreams
-	NICDevice             = nicDevice
-	NetworkDevices        = networkDevices
-	CheckBridgeConfigFile = checkBridgeConfigFile
-	SeriesRemoteAliases   = seriesRemoteAliases
-	GetImageSources       = func(mgr container.Manager) ([]RemoteServer, error) {
+	NewNicDevice             = newNICDevice
+	NetworkDevicesFromConfig = networkDevicesFromConfig
+	CheckBridgeConfigFile    = checkBridgeConfigFile
+	SeriesRemoteAliases      = seriesRemoteAliases
+	GetImageSources          = func(mgr container.Manager) ([]RemoteServer, error) {
 		return mgr.(*containerManager).getImageSources()
 	}
 )

@@ -35,7 +35,7 @@ func newListMachinesCommand(api statusAPI) *listMachinesCommand {
 	return listCmd
 }
 
-// listMachineCommand holds infomation about machines in a model.
+// listMachineCommand holds information about machines in a model.
 type listMachinesCommand struct {
 	baselistMachinesCommand
 }

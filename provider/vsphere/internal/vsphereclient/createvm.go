@@ -293,8 +293,8 @@ func (c *Client) createImportSpec(
 	cisp := types.OvfCreateImportSpecParams{
 		EntityName: args.Name,
 		PropertyMapping: []types.KeyValue{
-			{Key: "user-data", Value: string(args.UserData)},
-			{Key: "hostname", Value: string(args.Name)},
+			{Key: "user-data", Value: args.UserData},
+			{Key: "hostname", Value: args.Name},
 		},
 	}
 

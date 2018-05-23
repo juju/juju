@@ -260,7 +260,7 @@ func newOutMsgV0(hdr *rpc.Header, body interface{}) outMsgV0 {
 
 // newOutMsgV1 fills out a outMsgV1 with information from the given header and
 // body. This might look a lot like the v0 method, and that is because it is.
-// However, since Go determins structs to be sufficiently different if the
+// However, since Go determines structs to be sufficiently different if the
 // tags are different, we can't use the same code. Theoretically we could use
 // reflect, but no.
 func newOutMsgV1(hdr *rpc.Header, body interface{}) outMsgV1 {

@@ -34,7 +34,7 @@ func (s *RaftFixture) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	c.Assert(s.FSM, gc.NotNil, gc.Commentf("FSM must be set by embedding test suite"))
 
-	s.Raft, s.Config, s.Transport, s.Store, s.SnapshotStore = s.NewRaft(c, "machine-0", s.FSM)
+	s.Raft, s.Config, s.Transport, s.Store, s.SnapshotStore = s.NewRaft(c, "0", s.FSM)
 	c.Assert(s.Raft.BootstrapCluster(raft.Configuration{
 		Servers: []raft.Server{{
 			ID:      s.Config.LocalID,
@@ -74,6 +74,7 @@ func (s *RaftFixture) NewRaft(c *gc.C, id raft.ServerID, fsm raft.FSM) (
 
 func (s *RaftFixture) DefaultConfig(id raft.ServerID) *raft.Config {
 	raftConfig := raft.DefaultConfig()
+	raftConfig.ShutdownOnRemove = false
 	raftConfig.LocalID = id
 	raftConfig.HeartbeatTimeout = 100 * time.Millisecond
 	raftConfig.ElectionTimeout = raftConfig.HeartbeatTimeout

@@ -26,7 +26,7 @@ type RemoveCommand struct {
 
 const removeCommandDoc = `
 Removes an existing Juju network space with the given name. Any subnets
-associated with the space will be transfered to the default space.
+associated with the space will be transferred to the default space.
 `
 
 // Info is defined on the cmd.Command interface.

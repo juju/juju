@@ -69,7 +69,7 @@ LXD_IPV6_PROXY="true"
 
 // getMockRunCommandWithRetry is a helper function which returns a function
 // with an identical signature to manager.RunCommandWithRetry which saves each
-// command it recieves in a slice and always returns no output, error code 0
+// command it receives in a slice and always returns no output, error code 0
 // and a nil error.
 func getMockRunCommandWithRetry(calledCmds *[]string) func(string, func(string) error) (string, int, error) {
 	return func(cmd string, fatalError func(string) error) (string, int, error) {

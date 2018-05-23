@@ -2,7 +2,7 @@
 
 # This Amulet based tests
 # The goal is to ensure the Ubuntu charm
-# sucessfully deploys and can be accessed.
+# successfully deploys and can be accessed.
 # Note the Ubuntu charm does not have any 
 # relations or config options.
 

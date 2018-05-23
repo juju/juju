@@ -10,7 +10,7 @@ type CloudInstanceTypesConstraints struct {
 	Constraints []CloudInstanceTypesConstraint `json:"constraints"`
 }
 
-// CloudInstanceTypesConstraint contains the cloud information and constraits
+// CloudInstanceTypesConstraint contains the cloud information and constraints
 // necessary to query for instance types on a given cloud.
 type CloudInstanceTypesConstraint struct {
 	// CloudTag is the tag of the cloud for which instances types

@@ -96,7 +96,11 @@ func (environ *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, i
 		return nil, errors.Trace(err)
 	}
 	if environ.usingMAAS2() {
-		return maas2NetworkInterfaces(ctx, inst.(*maas2Instance), subnetsMap)
+		dnsSearchDomains, err := environ.Domains(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return maas2NetworkInterfaces(ctx, inst.(*maas2Instance), subnetsMap, dnsSearchDomains...)
 	} else {
 		mi := inst.(*maas1Instance)
 		return maasObjectNetworkInterfaces(ctx, mi.maasObject, subnetsMap)
@@ -200,7 +204,7 @@ func maasObjectNetworkInterfaces(ctx context.ProviderCallContext, maasObject *go
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
 			nicInfo.Address = network.NewAddressOnSpace(sub.Space, link.IPAddress)
-			spaceId, ok := subnetsMap[string(sub.CIDR)]
+			spaceId, ok := subnetsMap[sub.CIDR]
 			if !ok {
 				// The space we found is not recognised.
 				// No provider space info is available.
@@ -222,14 +226,14 @@ func maasObjectNetworkInterfaces(ctx context.ProviderCallContext, maasObject *go
 			nicInfo.MTU = sub.VLAN.MTU
 
 			// Each link we represent as a separate InterfaceInfo, but with the
-			// same name and device index, just different addres, subnet, etc.
+			// same name and device index, just different address, subnet, etc.
 			infos = append(infos, nicInfo)
 		}
 	}
 	return infos, nil
 }
 
-func maas2NetworkInterfaces(ctx context.ProviderCallContext, instance *maas2Instance, subnetsMap map[string]network.Id) ([]network.InterfaceInfo, error) {
+func maas2NetworkInterfaces(ctx context.ProviderCallContext, instance *maas2Instance, subnetsMap map[string]network.Id, dnsSearchDomains ...string) ([]network.InterfaceInfo, error) {
 	interfaces := instance.machine.InterfaceSet()
 	infos := make([]network.InterfaceInfo, 0, len(interfaces))
 	for i, iface := range interfaces {
@@ -305,7 +309,7 @@ func maas2NetworkInterfaces(ctx context.ProviderCallContext, instance *maas2Inst
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
 			nicInfo.Address = network.NewAddressOnSpace(sub.Space(), link.IPAddress())
-			spaceId, ok := subnetsMap[string(sub.CIDR())]
+			spaceId, ok := subnetsMap[sub.CIDR()]
 			if !ok {
 				// The space we found is not recognised.
 				// No provider space info is available.
@@ -323,6 +327,7 @@ func maas2NetworkInterfaces(ctx context.ProviderCallContext, instance *maas2Inst
 					nicInfo.DNSServers[i].SpaceProviderId = spaceId
 				}
 			}
+			nicInfo.DNSSearchDomains = dnsSearchDomains
 			nicInfo.GatewayAddress = gwAddr
 			nicInfo.MTU = sub.VLAN().MTU()
 

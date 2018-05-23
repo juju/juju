@@ -79,7 +79,7 @@ func (e *environProviderSuite) TestOpen(c *gc.C) {
 		map[string]string{
 			"identity-domain": "bretdd",
 			"username":        "some-friendly-username",
-			"password":        "some-firendly-password",
+			"password":        "some-friendly-password",
 		},
 	)
 	_, err := environs.Open(provider, environs.OpenParams{
@@ -131,7 +131,7 @@ func (e *environProviderSuite) TestFinalizeCredential(c *gc.C) {
 		map[string]string{
 			"identity-domain": "bretdd",
 			"username":        "some-friendly-username",
-			"password":        "some-firendly-password",
+			"password":        "some-friendly-password",
 		},
 	)
 

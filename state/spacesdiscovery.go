@@ -191,7 +191,7 @@ func (st *State) SaveSpacesFromProvider(providerSpaces []network.SpaceInfo) erro
 		} else {
 			// The space is new, we need to create a valid name for it
 			// in state.
-			spaceName := string(space.Name)
+			spaceName := space.Name
 			// Convert the name into a valid name that isn't already in
 			// use.
 			spaceName = network.ConvertSpaceName(spaceName, spaceNames)

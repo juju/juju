@@ -532,7 +532,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	// instances when adding a machine manually) will still be evenly
 	// distributed across AZs, but only within subnets of the space constraint.
 	//
-	// TODO(dimitern): This should be done in a provider-independant way.
+	// TODO(dimitern): This should be done in a provider-independent way.
 	if spaces := args.Constraints.IncludeSpaces(); len(spaces) > 1 {
 		logger.Infof("ignoring all but the first positive space from constraints: %v", spaces)
 	}

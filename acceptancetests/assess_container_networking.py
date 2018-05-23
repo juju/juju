@@ -386,7 +386,7 @@ def _get_container_types(client, machine_type):
     """
     Give list of container types to run testing against.
 
-    If a machine_type was explictly specified, only test against those kind
+    If a machine_type was explicitly specified, only test against those kind
     of containers. Otherwise, test all possible containers for the given
     juju version.
     """

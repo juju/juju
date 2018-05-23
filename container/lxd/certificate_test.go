@@ -86,9 +86,7 @@ func (s *certSuite) TestX509BadPEM(c *gc.C) {
 }
 
 func (s *certSuite) TestAsCreateRequestValidCert(c *gc.C) {
-	cert, err := lxd.GenerateClientCertificate()
-	c.Assert(err, jc.ErrorIsNil)
-
+	cert := lxd.NewCertificate([]byte(testCertPEM), []byte(testKeyPEM))
 	cert.Name = "juju-client-cert"
 	req, err := cert.AsCreateRequest()
 	c.Assert(err, jc.ErrorIsNil)
