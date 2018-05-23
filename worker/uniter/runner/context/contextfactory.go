@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v2"
 
@@ -74,7 +73,7 @@ type contextFactory struct {
 	modelType  model.ModelType
 	machineTag names.MachineTag
 	storage    StorageContextAccessor
-	clock      clock.Clock
+	clock      Clock
 	zone       string
 	principal  string
 
@@ -95,7 +94,7 @@ type FactoryConfig struct {
 	GetRelationInfos RelationsFunc
 	Storage          StorageContextAccessor
 	Paths            Paths
-	Clock            clock.Clock
+	Clock            Clock
 }
 
 // NewContextFactory returns a ContextFactory capable of creating execution contexts backed
@@ -304,7 +303,8 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	if err != nil {
 		return err
 	}
-	ctx.proxySettings = modelConfig.ProxySettings()
+	ctx.legacyProxySettings = modelConfig.LegacyProxySettings()
+	ctx.jujuProxySettings = modelConfig.JujuProxySettings()
 
 	statusCode, statusInfo, err := f.unit.MeterStatus()
 	if err != nil {

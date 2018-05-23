@@ -678,6 +678,21 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	c.Assert(result.SSLHostnameVerification, jc.IsTrue)
 }
 
+func (s *provisionerSuite) TestContainerConfigV5(c *gc.C) {
+	caller := apibasetesting.BestVersionCaller{
+		APICallerFunc: s.st.APICall,
+		BestVersion:   5,
+	}
+
+	provAPI := provisioner.NewState(caller)
+
+	result, err := provAPI.ContainerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.ProviderType, gc.Equals, "dummy")
+	c.Assert(result.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
+	c.Assert(result.SSLHostnameVerification, jc.IsTrue)
+}
+
 func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
 	apiMachine := s.assertGetOneMachine(c, s.machine.MachineTag())
 	err := apiMachine.SetSupportedContainers(instance.LXD, instance.KVM)

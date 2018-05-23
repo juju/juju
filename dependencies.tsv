@@ -50,7 +50,7 @@ github.com/juju/mutex	git	1fe2a4bf0a3a2c10881501233ff7c6aed7790082	2017-11-10T02
 github.com/juju/naturalsort	git	5b81707e882b8293e6cf77854b4cd49f29776e11	2018-04-23T03:48:42Z
 github.com/juju/packaging	git	ba21344fff207f4fa06b0a08bac386b179a2e6a1	2018-05-16T20:30:43Z
 github.com/juju/persistent-cookiejar	git	d67418f14c93a698e37b52468958d5d4dcf8a7dd	2017-04-28T16:15:59Z
-github.com/juju/proxy	git	df38202e4713f1e6d0fecd8344ff601288ef6e7f	2018-05-16T02:38:28Z
+github.com/juju/proxy	git	5f8741c297b47cba29f747c67f2e31e7c2a36ecb	2018-05-23T02:57:33Z
 github.com/juju/pubsub	git	091412f84753115324ce870066ffbb6bb55c4ef4	2017-11-22T01:43:26Z
 github.com/juju/ratelimit	git	5b9ff866471762aa2ab2dced63c9fb6f53921342	2017-05-23T01:21:41Z
 github.com/juju/replicaset	git	86037679224858cd82666e4877a8ac4c42cbda8b	2018-04-17T12:35:43Z

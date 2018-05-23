@@ -122,9 +122,7 @@ func (s *HookContextSuite) GetContext(
 ) jujuc.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	return s.getHookContext(
-		c, uuid.String(), relId, remoteName, noProxies,
-	)
+	return s.getHookContext(c, uuid.String(), relId, remoteName)
 }
 
 func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Application) *state.Unit {
@@ -178,8 +176,7 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.apiRelunits[rel.Id()] = apiRelUnit
 }
 
-func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
-	remote string, proxies proxy.Settings) *context.HookContext {
+func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remote string) *context.HookContext {
 	if relid != -1 {
 		_, found := s.apiRelunits[relid]
 		c.Assert(found, jc.IsTrue)
@@ -198,14 +195,14 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 
 	context, err := context.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
 		env.Name(), relid, remote, relctxs, apiAddrs,
-		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag),
+		noProxies, noProxies, false, nil, nil, s.machine.Tag().(names.MachineTag),
 		runnertesting.NewRealPaths(c), s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
 
 func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int,
-	remote string, proxies proxy.Settings, canAddMetrics bool, metrics *charm.Metrics, paths runnertesting.RealPaths) *context.HookContext {
+	remote string, canAddMetrics bool, metrics *charm.Metrics, paths runnertesting.RealPaths) *context.HookContext {
 	if relid != -1 {
 		_, found := s.apiRelunits[relid]
 		c.Assert(found, jc.IsTrue)
@@ -221,7 +218,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 
 	context, err := context.NewHookContext(s.meteredAPIUnit, facade, "TestCtx", uuid,
 		"test-model-name", relid, remote, relctxs, apiAddrs,
-		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag),
+		noProxies, noProxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag),
 		paths, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
