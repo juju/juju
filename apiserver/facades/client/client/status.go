@@ -260,12 +260,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 					continue
 				}
 				if machineId != "" {
-					_, ok := machineUnits[machineId]
-					if !ok {
-						machineUnits[machineId] = []string{unit.ApplicationName()}
-					} else {
-						machineUnits[machineId] = append(machineUnits[machineId], unit.ApplicationName())
-					}
+					machineUnits[machineId] = append(machineUnits[machineId], unit.ApplicationName())
 				}
 
 				// Always start examining at the top-level. This
