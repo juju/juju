@@ -237,6 +237,18 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		// Filter units
 		matchedSvcs := make(set.Strings)
 		unitChainPredicate := UnitChainPredicateFn(predicate, context.unitByName)
+
+		// It's possible that we will discover a unit that matches given filter
+		// half way through units collection. In that case, it may be that the machine
+		// for that unit has other applications' units on it that have already been examined
+		// prior. This means that we may miss these other application(s).
+		// This behavior has been inconsistent since we get units in a map where
+		// the order is not guaranteed.
+		// To cater for this scenario, we need to gather all units
+		// in a temporary collection keyed on machine to allow for the later
+		// pass. This fixes situations similar to inconsistencies
+		// observed in lp#1592872.
+		machineUnits := map[string][]string{}
 		for _, unitMap := range context.units {
 			for name, unit := range unitMap {
 				machineId, err := unit.AssignedMachineId()
@@ -246,6 +258,14 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 					// Unit is on a matching machine.
 					matchedSvcs.Add(unit.ApplicationName())
 					continue
+				}
+				if machineId != "" {
+					_, ok := machineUnits[machineId]
+					if !ok {
+						machineUnits[machineId] = []string{unit.ApplicationName()}
+					} else {
+						machineUnits[machineId] = append(machineUnits[machineId], unit.ApplicationName())
+					}
 				}
 
 				// Always start examining at the top-level. This
@@ -262,6 +282,13 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 				matchedSvcs.Add(unit.ApplicationName())
 				if machineId != "" {
 					matchedMachines.Add(machineId)
+				}
+			}
+		}
+		for _, m := range matchedMachines.SortedValues() {
+			for _, a := range machineUnits[m] {
+				if !matchedSvcs.Contains(a) {
+					matchedSvcs.Add(a)
 				}
 			}
 		}
@@ -295,7 +322,6 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 				}
 			}
 		}
-
 		// TODO(wallyworld) - filter remote applications
 
 		// Filter machines
