@@ -128,7 +128,6 @@ func (s *StatusSuite) setupSeveralUnitsOnAMachine(c *gc.C) {
 		Application: applicationB,
 		Machine:     machine1,
 	})
-
 }
 
 func (s *StatusSuite) TestStatusWhenFilteringByMachine(c *gc.C) {
