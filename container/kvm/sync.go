@@ -28,7 +28,7 @@ import (
 // boot using a legacy BIOS boot loader.
 const BIOSFType = "disk1.img"
 
-// UEFIFType is teh file type we want to fetch and use for kvm instances which
+// UEFIFType is the file type we want to fetch and use for kvm instances which
 // boot using UEFI. In our case this is ARM64.
 const UEFIFType = "uefi1.img"
 

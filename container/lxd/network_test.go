@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"errors"
+
 	"github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/network"

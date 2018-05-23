@@ -1347,7 +1347,7 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 	defer assertStop(c, srv)
 	srv.Info.ModelTag = s.IAASModel.ModelTag()
 
-	// If we have a remote user which has explict model access, but neither
+	// If we have a remote user which has explicit model access, but neither
 	// controller access nor 'everyone' access, the user will have access
 	// only if the AllowModelAccess configuration flag is true.
 	const remoteUser = "test@somewhere"

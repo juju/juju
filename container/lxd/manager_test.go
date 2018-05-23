@@ -92,6 +92,7 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 		false,
 		proxy.Settings{},
 		proxy.Settings{},
+		proxy.Settings{},
 		"",
 		false,
 		false,

@@ -376,7 +376,7 @@ func (s *getSuite) TestApplicationGet(c *gc.C) {
 
 func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
 	// See the bug http://pad.lv/1217742
-	// Get ends up pushing a map[string]interface{} which containts
+	// Get ends up pushing a map[string]interface{} which contains
 	// an int64 through a JSON Marshal & Unmarshal which ends up changing
 	// the int64 into a float64. We will fix it if we find it is actually a
 	// problem.

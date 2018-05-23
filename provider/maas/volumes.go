@@ -344,7 +344,7 @@ func (mi *maas2Instance) volumes(
 			volumeTag,
 			storage.VolumeInfo{
 				VolumeId:   volumeTag.String(),
-				Size:       uint64(device.Size() / humanize.MiByte),
+				Size:       device.Size() / humanize.MiByte,
 				Persistent: false,
 			},
 		}

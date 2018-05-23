@@ -36,9 +36,9 @@ func getDefaultGateway() (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if !strings.HasPrefix(string(out), "default via") {
+	if !strings.HasPrefix(out, "default via") {
 		return "", errors.Errorf(`unexpected output from "ip route": %s`, out)
 	}
-	fields := strings.Fields(string(out))
+	fields := strings.Fields(out)
 	return fields[2], nil
 }

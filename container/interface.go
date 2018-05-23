@@ -33,7 +33,7 @@ type Manager interface {
 		storage *StorageConfig,
 		callback environs.StatusCallbackFunc) (instance.Instance, *instance.HardwareCharacteristics, error)
 
-	// DestroyContainer stops and destroyes the container identified by
+	// DestroyContainer stops and destroys the container identified by
 	// instance id.
 	DestroyContainer(instance.Id) error
 

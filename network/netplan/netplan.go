@@ -187,7 +187,7 @@ type BondParameters struct {
 	FailOverMACPolicy  IntString `yaml:"fail-over-mac-policy,omitempty"`
 	// Netplan misspelled this as 'gratuitious-arp', not sure if it works with that name.
 	// We may need custom handling of both spellings.
-	GratuitousARP         *int      `yaml:"gratuitious-arp,omitempty"`
+	GratuitousARP         *int      `yaml:"gratuitious-arp,omitempty"` // nolint: misspell
 	PacketsPerSlave       *int      `yaml:"packets-per-slave,omitempty"`
 	PrimaryReselectPolicy IntString `yaml:"primary-reselect-policy,omitempty"`
 	ResendIGMP            *int      `yaml:"resend-igmp,omitempty"`

@@ -149,6 +149,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Downloader:         downloader,
 				StatusSetter:       client,
 				UnitGetter:         client,
+				UnitRemover:        client,
 				ApplicationWatcher: client,
 				StartUniterFunc:    uniter.StartUniter,
 

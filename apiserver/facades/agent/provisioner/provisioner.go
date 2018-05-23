@@ -146,17 +146,46 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	}, nil
 }
 
+// ProvisionerAPIV4 provides v4 (and v3 for some reason) of the provisioner facade.
+type ProvisionerAPIV4 struct {
+	*ProvisionerAPIV5
+}
+
+// ProvisionerAPIV5 provides v5 of the provisioner facade.
 type ProvisionerAPIV5 struct {
+	*ProvisionerAPIV6
+}
+
+// ProvisionerAPIV6 provides v6 of the provisioner facade.
+type ProvisionerAPIV6 struct {
 	*ProvisionerAPI
+}
+
+// NewProvisionerAPIV4 creates a new server-side version 4 Provisioner API facade.
+func NewProvisionerAPIV4(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV4, error) {
+	provisionerAPI, err := NewProvisionerAPIV5(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ProvisionerAPIV4{provisionerAPI}, nil
 }
 
 // NewProvisionerAPIV5 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV5(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV5, error) {
-	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	provisionerAPI, err := NewProvisionerAPIV6(st, resources, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &ProvisionerAPIV5{provisionerAPI}, nil
+}
+
+// NewProvisionerAPIV6 creates a new server-side Provisioner API facade.
+func NewProvisionerAPIV6(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV6, error) {
+	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ProvisionerAPIV6{provisionerAPI}, nil
 }
 
 func (p *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
@@ -300,12 +329,35 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.ProviderType = config.Type()
 	result.AuthorizedKeys = config.AuthorizedKeys()
 	result.SSLHostnameVerification = config.SSLHostnameVerification()
-	result.Proxy = config.ProxySettings()
+	result.LegacyProxy = config.LegacyProxySettings()
+	result.JujuProxy = config.JujuProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	result.AptMirror = config.AptMirror()
 	result.CloudInitUserData = config.CloudInitUserData()
 	result.ContainerInheritProperties = config.ContainerInheritProperies()
 	return result, nil
+}
+
+// ContainerConfig returns information from the environment config that is
+// needed for container cloud-init.
+func (p *ProvisionerAPIV5) ContainerConfig() (params.ContainerConfigV5, error) {
+	var empty params.ContainerConfigV5
+	cfg, err := p.ProvisionerAPI.ContainerConfig()
+	if err != nil {
+		return empty, err
+	}
+
+	return params.ContainerConfigV5{
+		ProviderType:            cfg.ProviderType,
+		AuthorizedKeys:          cfg.AuthorizedKeys,
+		SSLHostnameVerification: cfg.SSLHostnameVerification,
+		Proxy:                      cfg.LegacyProxy,
+		AptProxy:                   cfg.AptProxy,
+		AptMirror:                  cfg.AptMirror,
+		CloudInitUserData:          cfg.CloudInitUserData,
+		ContainerInheritProperties: cfg.ContainerInheritProperties,
+		UpdateBehavior:             cfg.UpdateBehavior,
+	}, nil
 }
 
 // MachinesWithTransientErrors returns status data for machines with provisioning
@@ -520,11 +572,14 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, e
 	return instanceIds, nil
 }
 
+// DistributionGroupByMachineId isn't on the v4 API.
+func (p *ProvisionerAPIV4) DistributionGroupByMachineId(_, _ struct{}) {}
+
 // DistributionGroupByMachineId returns, for each given machine entity,
 // a slice of machine.Ids that belong to the same distribution
 // group as that machine. This information may be used to
 // distribute instances for high availability.
-func (p *ProvisionerAPIV5) DistributionGroupByMachineId(args params.Entities) (params.StringsResults, error) {
+func (p *ProvisionerAPI) DistributionGroupByMachineId(args params.Entities) (params.StringsResults, error) {
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.Entities)),
 	}

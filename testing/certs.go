@@ -152,6 +152,7 @@ Kcs23fA9rJu1nmwICge1tVcaHwc2L9mFuxvwK/LYj7fJLcKSoJgX5hhiO4VGblkF
 KWOhPUkGqyUbfAEnLHBEu2Pas7LSlus=
 -----END CERTIFICATE-----
 `,
+		// nolint: misspell
 		keyPEM: `-----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAle4HnHjMUALRRsGguXkmEYGWh8t0vqKcjp2D4/oK2q93dpH3
 XL8jOwrmsCMWjZMzfKvQpVHYu+blR3cgN8Il9ZZ34SVVDmqSz2dOFj73Lb2TRmnX

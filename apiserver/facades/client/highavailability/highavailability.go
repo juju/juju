@@ -291,7 +291,7 @@ func (api *HighAvailabilityAPI) StopHAReplicationForUpgrade(args params.UpgradeM
 		StorageEngine: mongo.StorageEngine(args.Target.StorageEngine),
 	})
 	if err != nil {
-		return params.MongoUpgradeResults{}, errors.Annotate(err, "cannot stop HA for ugprade")
+		return params.MongoUpgradeResults{}, errors.Annotate(err, "cannot stop HA for upgrade")
 	}
 	members := make([]params.HAMember, len(ha.Members))
 	for i, m := range ha.Members {

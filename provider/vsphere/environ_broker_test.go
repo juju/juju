@@ -197,7 +197,7 @@ func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C
 	c.Assert(err, jc.Satisfies, environs.IsAvailabilityZoneIndependent)
 }
 
-// if tools for multiple architectures are avaliable, provider should filter tools by arch of the selected image
+// if tools for multiple architectures are available, provider should filter tools by arch of the selected image
 func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	tools := []*coretools.Tools{{

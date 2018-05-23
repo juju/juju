@@ -304,6 +304,7 @@ func (ru *RelationUnit) LeaveScope() error {
 	// Destroy changes the Life attribute in memory (units could join before
 	// the database is actually changed).
 	desc := fmt.Sprintf("unit %q in relation %q", ru.unitName, ru.relation)
+	logger.Debugf("%v leaving scope", desc)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := ru.relation.Refresh(); errors.IsNotFound(err) {

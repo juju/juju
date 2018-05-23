@@ -965,7 +965,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndServicesNoOp(c *gc.C) {
 		c.Assert(services, gc.HasLen, expectedServices)
 	}
 
-	// Simulate processing a dying envrionment after an envrionment is set to
+	// Simulate processing a dying environment after an environment is set to
 	// dying, but before the cleanup has removed machines and services.
 	defer state.SetAfterHooks(c, st, func() {
 		assertModel(state.Dying, 1, 1)

@@ -246,11 +246,11 @@ func parseTags(s string) *[]string {
 func parseUint64(str string) (*uint64, error) {
 	var value uint64
 	if str != "" {
-		if val, err := strconv.ParseUint(str, 10, 64); err != nil {
+		val, err := strconv.ParseUint(str, 10, 64)
+		if err != nil {
 			return nil, fmt.Errorf("must be a non-negative integer")
-		} else {
-			value = uint64(val)
 		}
+		value = val
 	}
 	return &value, nil
 }

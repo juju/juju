@@ -841,7 +841,7 @@ func identityClientVersion(authURL string) (int, error) {
 		return 0, errors.Errorf("url %s is malformed", authURL)
 	}
 	if url.Path == "" || url.Path == "/" {
-		// User explicitely did not provide any version, it is empty.
+		// User explicitly did not provide any version, it is empty.
 		return -1, nil
 	}
 	// The last part of the path should be the version #, prefixed with a 'v' or 'V'

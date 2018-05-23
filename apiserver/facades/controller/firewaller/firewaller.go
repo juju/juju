@@ -115,7 +115,7 @@ func NewFirewallerAPI(
 		accessUnitApplicationOrMachineOrRelation,
 	)
 	// ModelConfig() and WatchForModelConfigChanges() are allowed
-	// with unrestriced access.
+	// with unrestricted access.
 	modelWatcher := common.NewModelWatcher(
 		st,
 		resources,
@@ -501,7 +501,7 @@ func (f *FirewallerAPIV4) FirewallRules(args params.KnownServiceArgs) (params.Li
 			continue
 		}
 		result.Rules = append(result.Rules, params.FirewallRule{
-			KnownService:   params.KnownServiceValue(knownService),
+			KnownService:   knownService,
 			WhitelistCIDRS: rule.WhitelistCIDRs,
 		})
 	}

@@ -16,7 +16,7 @@ type HubSource interface {
 	SubscribeMatch(matcher func(string) bool, handler func(string, interface{})) func()
 }
 
-// HubWatcher listents to events from the hub and passes them on to the registered
+// HubWatcher listens to events from the hub and passes them on to the registered
 // watchers.
 type HubWatcher struct {
 	hub    HubSource

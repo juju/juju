@@ -302,7 +302,7 @@ func getMessageFromErr(err error) (bool, string) {
 		case syscall.ECONNREFUSED:
 			return true, "LXD refused connections; is LXD running?"
 		case syscall.EACCES:
-			return true, "Permisson denied, are you in the lxd group?"
+			return true, "Permission denied, are you in the lxd group?"
 		}
 	}
 

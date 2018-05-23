@@ -5,7 +5,10 @@ package backups_test
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
+	"os"
+	"path"
 	"time" // Only used for time types.
 
 	"github.com/juju/collections/set"
@@ -13,13 +16,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"fmt"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
 	"github.com/juju/juju/testing"
-	"os"
-	"path"
 )
 
 type backupsSuite struct {

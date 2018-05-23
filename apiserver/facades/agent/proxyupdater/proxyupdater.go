@@ -4,6 +4,7 @@
 package proxyupdater
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/proxy"
 	"gopkg.in/juju/names.v2"
 
@@ -16,6 +17,71 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+// ProxyUpdaterV1 defines the pubic methods for the v1 facade.
+type ProxyUpdaterV1 interface {
+	ProxyConfig(args params.Entities) params.ProxyConfigResultsV1
+	WatchForProxyConfigAndAPIHostPortChanges(args params.Entities) params.NotifyWatchResults
+}
+
+var _ ProxyUpdaterV1 = (*APIv1)(nil)
+
+// ProxyUpdaterV2 defines the pubic methods for the v2 facade.
+type ProxyUpdaterV2 interface {
+	ProxyConfig(args params.Entities) params.ProxyConfigResults
+	WatchForProxyConfigAndAPIHostPortChanges(args params.Entities) params.NotifyWatchResults
+}
+
+var _ ProxyUpdaterV2 = (*APIv2)(nil)
+
+// NewFacadeV1 provides the signature required for facade registration
+// and creates a v1 facade.
+func NewFacadeV1(ctx facade.Context) (*APIv1, error) {
+	api, err := NewFacadeV2(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv1{api}, nil
+}
+
+// NewFacadeV2 provides the signature required for facade registration
+// and creates a v2 facade.
+func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv2{api}, nil
+}
+
+func newFacadeBase(ctx facade.Context) (*APIBase, error) {
+	st := ctx.State()
+	m, err := st.Model()
+	if err != nil {
+		return nil, err
+	}
+	return NewAPIBase(
+		&stateShim{st: st, m: m},
+		ctx.Resources(),
+		ctx.Auth(),
+	)
+}
+
+// APIv1 provides the ProxyUpdater version 1 facade.
+type APIv1 struct {
+	*APIv2
+}
+
+// APIv2 provides the ProxyUpdater version 2 facade.
+type APIv2 struct {
+	*APIBase
+}
+
+type APIBase struct {
+	backend    Backend
+	resources  facade.Resources
+	authorizer facade.Authorizer
+}
+
 // Backend defines the state methods this facade needs, so they can be
 // mocked for testing.
 type Backend interface {
@@ -25,25 +91,19 @@ type Backend interface {
 	WatchForModelConfigChanges() state.NotifyWatcher
 }
 
-type ProxyUpdaterAPI struct {
-	backend    Backend
-	resources  facade.Resources
-	authorizer facade.Authorizer
-}
-
-// NewAPIWithBacking creates a new server-side API facade with the given Backing.
-func NewAPIWithBacking(st Backend, resources facade.Resources, authorizer facade.Authorizer) (*ProxyUpdaterAPI, error) {
+// NewAPIBase creates a new server-side API facade with the given Backing.
+func NewAPIBase(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*APIBase, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent()) {
-		return &ProxyUpdaterAPI{}, common.ErrPerm
+		return nil, common.ErrPerm
 	}
-	return &ProxyUpdaterAPI{
-		backend:    st,
+	return &APIBase{
+		backend:    backend,
 		resources:  resources,
 		authorizer: authorizer,
 	}, nil
 }
 
-func (api *ProxyUpdaterAPI) oneWatch() params.NotifyWatchResult {
+func (api *APIBase) oneWatch() params.NotifyWatchResult {
 	var result params.NotifyWatchResult
 
 	watch := common.NewMultiNotifyWatcher(
@@ -61,7 +121,7 @@ func (api *ProxyUpdaterAPI) oneWatch() params.NotifyWatchResult {
 }
 
 // WatchForProxyConfigAndAPIHostPortChanges watches for cleanups to be perfomed in state
-func (api *ProxyUpdaterAPI) WatchForProxyConfigAndAPIHostPortChanges(args params.Entities) params.NotifyWatchResults {
+func (api *APIBase) WatchForProxyConfigAndAPIHostPortChanges(args params.Entities) params.NotifyWatchResults {
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -78,7 +138,7 @@ func (api *ProxyUpdaterAPI) WatchForProxyConfigAndAPIHostPortChanges(args params
 	return results
 }
 
-func proxyUtilsSettingsToProxySettingsParam(settings proxy.Settings) params.ProxyConfig {
+func toParams(settings proxy.Settings) params.ProxyConfig {
 	return params.ProxyConfig{
 		HTTP:    settings.Http,
 		HTTPS:   settings.Https,
@@ -87,7 +147,7 @@ func proxyUtilsSettingsToProxySettingsParam(settings proxy.Settings) params.Prox
 	}
 }
 
-func (api *ProxyUpdaterAPI) authEntities(args params.Entities) (params.ErrorResults, bool) {
+func (api *APIBase) authEntities(args params.Entities) (params.ErrorResults, bool) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -110,9 +170,9 @@ func (api *ProxyUpdaterAPI) authEntities(args params.Entities) (params.ErrorResu
 	return result, ok
 }
 
-func (api *ProxyUpdaterAPI) proxyConfig() params.ProxyConfigResult {
+func (api *APIBase) proxyConfig() params.ProxyConfigResult {
 	var result params.ProxyConfigResult
-	env, err := api.backend.ModelConfig()
+	config, err := api.backend.ModelConfig()
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result
@@ -124,15 +184,22 @@ func (api *ProxyUpdaterAPI) proxyConfig() params.ProxyConfigResult {
 		return result
 	}
 
-	proxySettings := env.ProxySettings()
+	proxySettings := config.LegacyProxySettings()
 	proxySettings.AutoNoProxy = network.APIHostPortsToNoProxyString(apiHostPorts)
-	result.ProxySettings = proxyUtilsSettingsToProxySettingsParam(proxySettings)
-	result.APTProxySettings = proxyUtilsSettingsToProxySettingsParam(env.AptProxySettings())
+	result.LegacyProxySettings = toParams(proxySettings)
+
+	proxySettings = config.JujuProxySettings()
+	result.JujuProxySettings = toParams(proxySettings)
+
+	result.APTProxySettings = toParams(config.AptProxySettings())
+
+	// TODO: add snap proxy bits.
+
 	return result
 }
 
 // ProxyConfig returns the proxy settings for the current environment
-func (api *ProxyUpdaterAPI) ProxyConfig(args params.Entities) params.ProxyConfigResults {
+func (api *APIBase) ProxyConfig(args params.Entities) params.ProxyConfigResults {
 	var result params.ProxyConfigResult
 	errors, ok := api.authEntities(args)
 
@@ -142,6 +209,32 @@ func (api *ProxyUpdaterAPI) ProxyConfig(args params.Entities) params.ProxyConfig
 
 	results := params.ProxyConfigResults{
 		Results: make([]params.ProxyConfigResult, len(args.Entities)),
+	}
+	for i := range args.Entities {
+		if errors.Results[i].Error == nil {
+			results.Results[i] = result
+		}
+		results.Results[i].Error = errors.Results[i].Error
+	}
+
+	return results
+}
+
+// ProxyConfig returns the proxy settings for the current environment
+func (api *APIv1) ProxyConfig(args params.Entities) params.ProxyConfigResultsV1 {
+	var result params.ProxyConfigResultV1
+	errors, ok := api.authEntities(args)
+
+	if ok {
+		v2 := api.proxyConfig()
+		result = params.ProxyConfigResultV1{
+			ProxySettings:    v2.LegacyProxySettings,
+			APTProxySettings: v2.APTProxySettings,
+		}
+	}
+
+	results := params.ProxyConfigResultsV1{
+		Results: make([]params.ProxyConfigResultV1, len(args.Entities)),
 	}
 	for i := range args.Entities {
 		if errors.Results[i].Error == nil {

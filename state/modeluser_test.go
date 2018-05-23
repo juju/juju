@@ -320,7 +320,7 @@ func (s *ModelUserSuite) TestUpdateLastConnection(c *gc.C) {
 func (s *ModelUserSuite) TestUpdateLastConnectionTwoModelUsers(c *gc.C) {
 	now := state.NowToTheSecond(s.State)
 
-	// Create a user and add them to the inital model.
+	// Create a user and add them to the initial model.
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
 	modelUser, err := s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())

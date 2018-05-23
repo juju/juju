@@ -135,7 +135,7 @@ func (s *filestorageSuite) TestGet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(b, gc.DeepEquals, data)
 
-	// Get on a non-existant path returns errors.NotFound
+	// Get on a non-existent path returns errors.NotFound
 	_, err = s.reader.Get("nowhere")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 

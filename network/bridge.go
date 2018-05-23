@@ -110,7 +110,7 @@ func (b *netplanBridger) Bridge(devices []DeviceToBridge, reconfigureDelay int) 
 		if result.Code != 0 {
 			logger.Errorf("bridger stdout\n%s\n", result.Stdout)
 			logger.Errorf("bridger stderr\n%s\n", result.Stderr)
-			return errors.Errorf("bridger failed: %s", string(result.Stderr))
+			return errors.Errorf("bridger failed: %s", result.Stderr)
 		}
 		logger.Tracef("bridger stdout\n%s\n", result.Stdout)
 		logger.Tracef("bridger stderr\n%s\n", result.Stderr)

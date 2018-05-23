@@ -29,7 +29,7 @@ to scale out an application for improved performance or availability.
 
 Many charms will seamlessly support horizontal scaling while others
 may need an additional application support (e.g. a separate load
-balancer). See the documentation for specfic charms to check how
+balancer). See the documentation for specific charms to check how
 scale-out is supported.
 
 By default, units are deployed to newly provisioned machines in

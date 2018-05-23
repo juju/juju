@@ -1994,8 +1994,7 @@ func (s *CAASUnitSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CAASUnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
-	var err error
-	c.Assert(err, jc.ErrorIsNil)
+	// A unit that has not been allocated is removed directly.
 	unit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Series(), gc.Equals, "quantal")
@@ -2006,6 +2005,23 @@ func (s *CAASUnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Life(), gc.Equals, state.Dying)
 	assertRemoved(c, unit)
+}
+
+func (s *CAASUnitSuite) TestCannotShortCircuitDestroyAllocatedUnit(c *gc.C) {
+	// This test is similar to TestShortCircuitDestroyUnit but
+	// the unit has been allocated and a pod created.
+	unit, err := s.application.AddUnit(state.AddUnitParams{})
+	now := coretesting.NonZeroTime()
+	err = unit.SetAgentStatus(status.StatusInfo{
+		Status:  status.Error,
+		Message: "some error",
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit.Life(), gc.Equals, state.Dying)
+	assertLife(c, unit, state.Dying)
 }
 
 func (s *CAASUnitSuite) TestUpdateCAASUnitProviderId(c *gc.C) {
