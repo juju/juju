@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -434,6 +433,51 @@ func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
 	assertApplicationRelations(c, a3.Name(), 1, status.Relations)
 }
 
+// TestApplicationFilterIndependentOfAlphabeticUnitOrdering ensures we
+// do not regress and are carrying forward fix for lp#1592872.
+func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOrdering(c *gc.C) {
+	// Application A has no touch points with application C
+	// but will have a unit on the same machine is a unit of an application B.
+	applicationA := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "mysql",
+		}),
+		Name: "abc",
+	})
+
+	// Application B will have a unit on the same machine as a unit of an application A
+	// and will have a relation to an application C.
+	applicationB := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+		Name: "def",
+	})
+
+	// Put a unit from each, application A and B, on the same machine.
+	// This will be enough to ensure that the application B qualifies to be
+	// in the status result filtered by the application A.
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	})
+	s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: applicationA,
+		Machine:     machine,
+	})
+	s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: applicationB,
+		Machine:     machine,
+	})
+
+	client := s.APIState.Client()
+	for i := 0; i < 20; i++ {
+		c.Logf("run %d", i)
+		status, err := client.Status([]string{applicationA.Name()})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(status.Applications, gc.HasLen, 2)
+	}
+}
+
 // TestFilterOutRelationsForRelatedApplicationsThatDoNotMatchCriteriaDirectly
 // tests scenario where applications are returned as part of the status because
 // they are related to an application that matches given filter.
@@ -490,25 +534,15 @@ func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDo
 		Machine:     machine,
 	})
 
-	// Need to wait for system to stabilise since we have added units and a machine
-	// which in turn need to have everything else running that the
-	// testing infrastructure starts for us, like workers, watchers, etc..
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		// Filtering status on application A should get:
-		// * no relations;
-		// * two applications.
-		client := s.APIState.Client()
-		status, err := client.Status([]string{applicationA.Name()})
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(status, gc.NotNil)
-		applications := len(status.Applications) == 2
-		relations := len(status.Relations) == 0
-		if applications && relations {
-			return
-		}
-	}
-	c.Logf("timed out waiting for test system to stabilise to test status")
-	c.Fail()
+	// Filtering status on application A should get:
+	// * no relations;
+	// * two applications.
+	client := s.APIState.Client()
+	status, err := client.Status([]string{applicationA.Name()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	c.Assert(status.Applications, gc.HasLen, 2)
+	c.Assert(status.Relations, gc.HasLen, 0)
 }
 
 func assertApplicationRelations(c *gc.C, appName string, expectedNumber int, relations []params.RelationStatus) {
