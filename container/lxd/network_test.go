@@ -50,7 +50,10 @@ func (s *networkSuite) TestEnsureIPv4NoChange(c *gc.C) {
 	}
 	cSvr.EXPECT().GetNetwork("some-net-name").Return(net, lxdtesting.ETag, nil)
 
-	mod, err := lxd.NewServer(cSvr).EnsureIPv4("some-net-name")
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mod, err := jujuSvr.EnsureIPv4("some-net-name")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mod, jc.IsFalse)
 }
@@ -71,7 +74,10 @@ func (s *networkSuite) TestEnsureIPv4Modified(c *gc.C) {
 		cSvr.EXPECT().UpdateNetwork(network.DefaultLXDBridge, req, lxdtesting.ETag).Return(nil),
 	)
 
-	mod, err := lxd.NewServer(cSvr).EnsureIPv4(network.DefaultLXDBridge)
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mod, err := jujuSvr.EnsureIPv4(network.DefaultLXDBridge)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mod, jc.IsTrue)
 }
@@ -83,7 +89,10 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDevicePresent(c *gc.C) {
 
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, "", nil)
 
-	err := lxd.NewServer(cSvr).VerifyDefaultBridge(defaultProfile(), "")
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = jujuSvr.VerifyDefaultBridge(defaultProfile(), "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -96,7 +105,11 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDeviceNotBridged(c *gc.C
 
 	profile := defaultProfile()
 	profile.Devices["eth0"]["nictype"] = "something else"
-	err := lxd.NewServer(cSvr).VerifyDefaultBridge(profile, "")
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = jujuSvr.VerifyDefaultBridge(profile, "")
 	c.Assert(err, gc.ErrorMatches, ".*eth0 is not configured as part of a bridge.*")
 }
 
@@ -116,7 +129,10 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportIPv6Present(c *gc.C) {
 	}
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(net, "", nil)
 
-	err := lxd.NewServer(cSvr).VerifyDefaultBridge(defaultProfile(), "")
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = jujuSvr.VerifyDefaultBridge(defaultProfile(), "")
 	c.Assert(err, gc.ErrorMatches, "^juju does not support IPv6((.|\n|\t)*)")
 }
 
@@ -152,7 +168,11 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportNoBridge(c *gc.C) {
 
 	profile := defaultProfile()
 	delete(profile.Devices, "eth0")
-	err := lxd.NewServer(cSvr).VerifyDefaultBridge(profile, lxdtesting.ETag)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = jujuSvr.VerifyDefaultBridge(profile, lxdtesting.ETag)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

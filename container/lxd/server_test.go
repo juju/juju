@@ -5,6 +5,7 @@ package lxd_test
 
 import (
 	"github.com/golang/mock/gomock"
+	jc "github.com/juju/testing/checkers"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
@@ -29,9 +30,11 @@ func (s *connectionSuite) TestUpdateServerConfig(c *gc.C) {
 		cSvr.EXPECT().UpdateServer(updateReq, lxdtesting.ETag).Return(nil),
 	)
 
-	jujuSvr := lxd.NewServer(cSvr)
-	err := jujuSvr.UpdateServerConfig(map[string]string{"key1": "val1"})
-	c.Assert(err, gc.IsNil)
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = jujuSvr.UpdateServerConfig(map[string]string{"key1": "val1"})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *connectionSuite) TestUpdateContainerConfig(c *gc.C) {
@@ -50,7 +53,9 @@ func (s *connectionSuite) TestUpdateContainerConfig(c *gc.C) {
 		op.EXPECT().Wait().Return(nil),
 	)
 
-	jujuSvr := lxd.NewServer(cSvr)
-	err := jujuSvr.UpdateContainerConfig("juju-lxd-1", newConfig)
-	c.Assert(err, gc.IsNil)
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = jujuSvr.UpdateContainerConfig("juju-lxd-1", newConfig)
+	c.Assert(err, jc.ErrorIsNil)
 }

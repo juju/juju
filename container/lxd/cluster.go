@@ -6,6 +6,6 @@ package lxd
 // UseTargetServer returns a new Server based on the input target node name.
 // It is intended for use when operations must target specific nodes in a
 // cluster.
-func (s Server) UseTargetServer(name string) *Server {
+func (s Server) UseTargetServer(name string) (*Server, error) {
 	return NewServer(s.UseTarget(name))
 }
