@@ -15,7 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
@@ -109,7 +109,6 @@ func (op *CaasOperatorAgent) Stop() error {
 
 // Run implements Command.
 func (op *CaasOperatorAgent) Run(ctx *cmd.Context) error {
-	defer op.tomb.Done()
 	if err := op.ReadConfig(op.Tag().String()); err != nil {
 		return err
 	}

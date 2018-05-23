@@ -4,7 +4,7 @@
 package externalcontrollerupdater_test
 
 import (
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/crossmodel"

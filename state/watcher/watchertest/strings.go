@@ -3,7 +3,7 @@
 
 package watchertest
 
-import "gopkg.in/tomb.v1"
+import "gopkg.in/tomb.v2"
 
 // StringsWatcher is an implementation of state.StringsWatcher that can
 // be manipulated, for testing.
@@ -18,7 +18,6 @@ type StringsWatcher struct {
 func NewStringsWatcher(ch chan []string) *StringsWatcher {
 	w := &StringsWatcher{C: ch}
 	go func() {
-		defer w.T.Done()
 		defer w.T.Kill(nil)
 		defer close(ch)
 		<-w.T.Dying()

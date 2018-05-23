@@ -21,7 +21,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/mongo"
 )
@@ -367,13 +367,12 @@ func NewLogTailer(st LogTailerState, params LogTailerParams) (LogTailer, error) 
 		recentIds:       newRecentIdTracker(maxRecentLogIds),
 		maxInitialLines: maxInitialLines,
 	}
-	go func() {
+	t.tomb.Go(func() error {
+		defer close(t.logCh)
+		defer session.Close()
 		err := t.loop()
-		t.tomb.Kill(errors.Cause(err))
-		close(t.logCh)
-		session.Close()
-		t.tomb.Done()
-	}()
+		return errors.Cause(err)
+	})
 	return t, nil
 }
 

@@ -11,7 +11,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	common "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"

@@ -6,7 +6,7 @@ package agent
 import (
 	"github.com/juju/errors"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/dependency"
@@ -27,7 +27,6 @@ func startFunc(a agent.Agent) dependency.StartFunc {
 	return func(_ dependency.Context) (worker.Worker, error) {
 		w := &agentWorker{agent: a}
 		go func() {
-			defer w.tomb.Done()
 			<-w.tomb.Dying()
 		}()
 		return w, nil

@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/worker/dependency"
 )
@@ -46,7 +46,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				hub: config.Hub,
 			}
 			go func() {
-				defer w.tomb.Done()
 				<-w.tomb.Dying()
 			}()
 			return w, nil

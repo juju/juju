@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -155,10 +155,7 @@ func NewNotifyWatcher(caller base.APICaller, result params.NotifyWatchResult) wa
 		notifyWatcherId: result.NotifyWatcherId,
 		out:             make(chan struct{}),
 	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.loop())
-	}()
+	w.tomb.Go(w.loop)
 	return w
 }
 
@@ -206,10 +203,9 @@ func NewStringsWatcher(caller base.APICaller, result params.StringsWatchResult) 
 		stringsWatcherId: result.StringsWatcherId,
 		out:              make(chan []string),
 	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.loop(result.Changes))
-	}()
+	w.tomb.Go(func() error {
+		return w.loop(result.Changes)
+	})
 	return w
 }
 
@@ -260,10 +256,9 @@ func NewRelationUnitsWatcher(caller base.APICaller, result params.RelationUnitsW
 		relationUnitsWatcherId: result.RelationUnitsWatcherId,
 		out: make(chan watcher.RelationUnitsChange),
 	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.loop(result.Changes))
-	}()
+	w.tomb.Go(func() error {
+		return w.loop(result.Changes)
+	})
 	return w
 }
 
@@ -333,10 +328,9 @@ func NewRelationStatusWatcher(
 		relationStatusWatcherId: result.RelationStatusWatcherId,
 		out: make(chan []watcher.RelationStatusChange),
 	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.loop(result.Changes))
-	}()
+	w.tomb.Go(func() error {
+		return w.loop(result.Changes)
+	})
 	return w
 }
 
@@ -423,10 +417,9 @@ func NewOfferStatusWatcher(
 		offerStatusWatcherId: result.OfferStatusWatcherId,
 		out:                  make(chan []watcher.OfferStatusChange),
 	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.loop(result.Changes))
-	}()
+	w.tomb.Go(func() error {
+		return w.loop(result.Changes)
+	})
 	return w
 }
 
@@ -528,10 +521,9 @@ func newMachineStorageIdsWatcher(facade string, caller base.APICaller, result pa
 		machineAttachmentsWatcherId: result.MachineStorageIdsWatcherId,
 		out: make(chan []watcher.MachineStorageId),
 	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.loop(facade, result.Changes))
-	}()
+	w.tomb.Go(func() error {
+		return w.loop(facade, result.Changes)
+	})
 	return w
 }
 
@@ -587,10 +579,7 @@ func NewMigrationStatusWatcher(caller base.APICaller, watcherId string) watcher.
 		id:     watcherId,
 		out:    make(chan watcher.MigrationStatus),
 	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.loop())
-	}()
+	w.tomb.Go(w.loop)
 	return w
 }
 

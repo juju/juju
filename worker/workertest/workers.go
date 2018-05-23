@@ -5,7 +5,7 @@ package workertest
 
 import (
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 )
 
 // NewErrorWorker returns a Worker that runs until Kill()ed; at which point it
@@ -16,7 +16,6 @@ import (
 func NewErrorWorker(err error) worker.Worker {
 	w := &errorWorker{err: err}
 	go func() {
-		defer w.tomb.Done()
 		<-w.tomb.Dying()
 	}()
 	return w
@@ -61,7 +60,6 @@ func (w *deadWorker) Wait() error {
 func NewForeverWorker(err error) *ForeverWorker {
 	w := &ForeverWorker{err: err}
 	go func() {
-		defer w.tomb.Done()
 		<-w.tomb.Dying()
 	}()
 	return w

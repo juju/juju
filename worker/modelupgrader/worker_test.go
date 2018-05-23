@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	tomb "gopkg.in/tomb.v1"
+	tomb "gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"

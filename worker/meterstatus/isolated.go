@@ -10,7 +10,7 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/worker/common/charmrunner"
 )
@@ -88,11 +88,7 @@ func NewIsolatedStatusWorker(cfg IsolatedConfig) (worker.Worker, error) {
 	w := &isolatedStatusWorker{
 		config: cfg,
 	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.loop())
-	}()
-	// w.tomb.Go(w.loop)
+	w.tomb.Go(w.loop)
 	return w, nil
 }
 

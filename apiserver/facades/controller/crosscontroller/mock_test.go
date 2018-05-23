@@ -3,7 +3,7 @@
 
 package crosscontroller_test
 
-import "gopkg.in/tomb.v1"
+import "gopkg.in/tomb.v2"
 
 type mockNotifyWatcher struct {
 	tomb    tomb.Tomb

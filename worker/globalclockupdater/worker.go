@@ -10,7 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/globalclock"
 )
@@ -65,10 +65,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		config:  config,
 		updater: updater,
 	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.loop())
-	}()
+	w.tomb.Go(w.loop)
 	return w, nil
 }
 

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/worker/dependency"
 )
@@ -34,7 +34,6 @@ func ManifoldEx(lock Lock) dependency.Manifold {
 		Start: func(_ dependency.Context) (worker.Worker, error) {
 			w := &gate{lock: lock}
 			go func() {
-				defer w.tomb.Done()
 				<-w.tomb.Dying()
 			}()
 			return w, nil

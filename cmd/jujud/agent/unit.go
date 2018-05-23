@@ -14,7 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -142,7 +142,6 @@ func (a *UnitAgent) isInitialUpgradeCheckPending() bool {
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
-	defer a.tomb.Done()
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return err
 	}

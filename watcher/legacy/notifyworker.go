@@ -50,10 +50,6 @@ func NewNotifyWorker(handler NotifyWatchHandler) worker.Worker {
 		handler: handler,
 	}
 
-	// go func() {
-	// 	defer nw.tomb.Done()
-	// 	nw.tomb.Kill(nw.loop())
-	// }()
 	nw.tomb.Go(nw.loop)
 	return nw
 }

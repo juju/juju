@@ -8,7 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	tomb "gopkg.in/tomb.v1"
+	tomb "gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
@@ -22,7 +22,6 @@ type MockNotifyWatcher struct {
 func NewMockNotifyWatcher(ch <-chan struct{}) *MockNotifyWatcher {
 	w := &MockNotifyWatcher{ch: ch}
 	go func() {
-		defer w.tomb.Done()
 		<-w.tomb.Dying()
 		w.tomb.Kill(tomb.ErrDying)
 	}()

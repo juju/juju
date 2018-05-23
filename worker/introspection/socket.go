@@ -15,7 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/output"
@@ -126,7 +126,6 @@ func (w *socketListener) serve() {
 }
 
 func (w *socketListener) run() {
-	defer w.tomb.Done()
 	defer logger.Debugf("stats worker finished")
 	<-w.tomb.Dying()
 	logger.Debugf("stats worker closing listener")

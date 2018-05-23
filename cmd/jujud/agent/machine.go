@@ -32,7 +32,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
@@ -422,8 +422,6 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(*cmd.Context) error {
-	defer a.tomb.Done()
-
 	useMultipleCPUs()
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)

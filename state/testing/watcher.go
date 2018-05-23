@@ -9,7 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	tomb "gopkg.in/tomb.v1"
+	tomb "gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
@@ -321,11 +321,11 @@ type MockNotifyWatcher struct {
 
 func NewMockNotifyWatcher(ch <-chan struct{}) *MockNotifyWatcher {
 	w := &MockNotifyWatcher{ch: ch}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-		w.tomb.Kill(tomb.ErrDying)
-	}()
+		// w.tomb.Kill(tomb.ErrDying)
+		return tomb.ErrDying
+	})
 	return w
 }
 
@@ -358,11 +358,10 @@ type MockStringsWatcher struct {
 
 func NewMockStringsWatcher(ch <-chan []string) *MockStringsWatcher {
 	w := &MockStringsWatcher{ch: ch}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-		w.tomb.Kill(tomb.ErrDying)
-	}()
+		return tomb.ErrDying
+	})
 	return w
 }
 

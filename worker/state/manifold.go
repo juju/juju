@@ -259,10 +259,6 @@ func newModelStateWorker(
 		modelUUID:    modelUUID,
 		pingInterval: pingInterval,
 	}
-	// go func() {
-	// 	defer w.tomb.Done()
-	// 	w.tomb.Kill(w.loop())
-	// }()
 	w.tomb.Go(w.loop)
 	return w
 }

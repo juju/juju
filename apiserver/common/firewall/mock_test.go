@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/firewall"
@@ -164,7 +164,6 @@ type mockWatcher struct {
 
 func (w *mockWatcher) doneWhenDying() {
 	<-w.Tomb.Dying()
-	w.Tomb.Done()
 }
 
 func (w *mockWatcher) Kill() {

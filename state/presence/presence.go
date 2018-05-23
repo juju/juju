@@ -20,7 +20,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 )
 
 var logger = loggo.GetLogger("juju.state.presence")
@@ -168,7 +168,6 @@ type Change struct {
 func NewDeadWatcher(err error) *Watcher {
 	var w Watcher
 	w.tomb.Kill(errors.Trace(err))
-	w.tomb.Done()
 	return &w
 }
 
@@ -185,7 +184,7 @@ func NewWatcher(base *mgo.Collection, modelTag names.ModelTag) *Watcher {
 		request:     make(chan interface{}),
 		ignoredSeqs: make(map[int64]string),
 	}
-	go func() {
+	w.tomb.Go(func() error {
 		err := w.loop()
 		cause := errors.Cause(err)
 		// tomb expects ErrDying or ErrStillAlive as
@@ -194,9 +193,8 @@ func NewWatcher(base *mgo.Collection, modelTag names.ModelTag) *Watcher {
 		if err != nil && cause != tomb.ErrDying {
 			logger.Infof("watcher loop failed: %v", err)
 		}
-		w.tomb.Kill(cause)
-		w.tomb.Done()
-	}()
+		return err
+	})
 	return w
 }
 
@@ -740,7 +738,7 @@ func (p *Pinger) Start() error {
 		return errors.Trace(err)
 	}
 	p.started = true
-	go func() {
+	p.tomb.Go(func() error {
 		err := p.loop()
 		cause := errors.Cause(err)
 		// tomb expects ErrDying or ErrStillAlive as
@@ -749,9 +747,8 @@ func (p *Pinger) Start() error {
 		if err != nil && cause != tomb.ErrDying {
 			logger.Infof("pinger loop failed: %v", err)
 		}
-		p.tomb.Kill(cause)
-		p.tomb.Done()
-	}()
+		return cause
+	})
 	return nil
 }
 

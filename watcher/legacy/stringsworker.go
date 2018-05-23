@@ -42,10 +42,6 @@ func NewStringsWorker(handler StringsWatchHandler) worker.Worker {
 	sw := &stringsWorker{
 		handler: handler,
 	}
-	// go func() {
-	// 	defer sw.tomb.Done()
-	// 	sw.tomb.Kill(sw.loop())
-	// }()
 	sw.tomb.Go(sw.loop)
 	return sw
 }
