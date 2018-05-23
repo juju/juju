@@ -140,11 +140,13 @@ def deploy_caas_stack(bundle_path, client, timeout=3600):
     model_name = client.model_name
     profile = LXD_PROFILE.format(model_name=model_name)
     echo = subprocess.Popen(('echo', profile), stdout=subprocess.PIPE)
-    subprocess.check_output(
-        ('lxc', 'profile', 'edit', 'juju-%s' % model_name),
-        stdin=echo.stdout
-    ).decode('UTF-8').strip()
-    echo.wait()
+    try:
+        subprocess.check_output(
+            ('lxc', 'profile', 'edit', 'juju-%s' % model_name),
+            stdin=echo.stdout
+        ).decode('UTF-8').strip()
+    finally:
+        echo.wait()
 
     client.deploy_bundle(bundle_path, static_bundle=True)
     # Wait for the deployment to finish.
