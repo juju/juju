@@ -39,7 +39,7 @@ github.com/juju/go4	git	40d72ab9641a2a8c36a9c46a51e28367115c8e59	2016-02-22T16:3
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
 github.com/juju/gojsonreference	git	f0d24ac5ee330baa21721cdff56d45e4ee42628e	2015-02-04T19:46:33Z
 github.com/juju/gojsonschema	git	e1ad140384f254c82f89450d9a7c8dd38a632838	2015-03-12T17:00:16Z
-github.com/juju/gomaasapi	git	abe11904dd8cd40f0777b7704ae60348a876542e	2018-05-21T08:20:44Z
+github.com/juju/gomaasapi	git	abe11904dd8cd40f0777b7704ae60348a876542e	2018-05-21T08:04:29Z
 github.com/juju/httpprof	git	14bf14c307672fd2456bdbf35d19cf0ccd3cf565	2014-12-17T16:00:36Z
 github.com/juju/httprequest	git	266fd1e9debf09c037a63f074d099a2da4559ece	2016-10-06T15:09:09Z
 github.com/juju/idmclient	git	fb1dc7175251ac8e2dc460897313e05175cbbc0d	2016-11-07T14:02:50Z
@@ -77,7 +77,7 @@ github.com/lestrrat/go-jsval	git	b1258a10419fe0693f7b35ad65cd5074bc0ba1e5	2016-1
 github.com/lestrrat/go-pdebug	git	2e6eaaa5717f81bda41d27070d3c966f40a1e75f	2016-08-17T06:33:33Z
 github.com/lestrrat/go-structinfo	git	f74c056fe41f860aa6264478c664a6fff8a64298	2016-03-08T13:11:05Z
 github.com/lunixbochs/vtclean	git	4fbf7632a2c6d3fbdb9931439bdbbeded02cbe36	2016-01-25T03:51:06Z
-github.com/lxc/lxd	git	5a7c2f21e91b14dd1b47c7763c60869921b172f0	2018-04-17T20:25:13Z
+github.com/lxc/lxd	git	d0d66b4842f459c6c3e039a9e2f25eff02174ab1	2018-05-15T16:43:15Z
 github.com/masterzen/azure-sdk-for-go	git	ee4f0065d00cd12b542f18f5bc45799e88163b12	2016-10-14T13:56:28Z
 github.com/masterzen/simplexml	git	4572e39b1ab9fe03ee513ce6fc7e289e98482190	2016-06-08T18:30:07Z
 github.com/masterzen/winrm	git	7a535cd943fccaeed196718896beec3fb51aff41	2016-10-14T15:10:40Z

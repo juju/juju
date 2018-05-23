@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	NewNicDevice             = newNICDevice
+	NewNICDevice             = newNICDevice
 	NetworkDevicesFromConfig = networkDevicesFromConfig
 	CheckBridgeConfigFile    = checkBridgeConfigFile
 	SeriesRemoteAliases      = seriesRemoteAliases

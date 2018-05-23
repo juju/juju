@@ -19,7 +19,7 @@ import (
 func NewContainerManager(forType instance.ContainerType, conf container.ManagerConfig) (container.Manager, error) {
 	switch forType {
 	case instance.LXD:
-		svr, err := lxd.NewLocalServer()
+		svr, err := lxd.MaybeNewLocalServer()
 		if err != nil {
 			return nil, errors.Annotate(err, "creating LXD container manager")
 		}

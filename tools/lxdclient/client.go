@@ -142,7 +142,11 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 		}
 	}
 
-	newServer := lxd.NewServer(raw)
+	newServer, err := lxd.NewServer(raw)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if remoteID == remoteIDForLocal && verifyBridgeConfig {
 		// If this is the LXD provider on the localhost, let's do an extra check to
 		// make sure the default profile has a correctly configured bridge, and

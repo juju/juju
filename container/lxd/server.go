@@ -5,13 +5,31 @@ package lxd
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/os"
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared"
 )
 
+// osSupport is the list of operating system types for which Juju supports
+// communicating with LXD via a local socket, by default.
+var osSupport = []os.OSType{os.Ubuntu}
+
+func hasSupport() bool {
+	t := os.HostOS()
+	for _, v := range osSupport {
+		if v == t {
+			return true
+		}
+	}
+	return false
+}
+
 // Server extends the upstream LXD container server.
 type Server struct {
 	lxd.ContainerServer
+
+	name      string
+	clustered bool
 
 	networkAPISupport bool
 	clusterAPISupport bool
@@ -19,16 +37,44 @@ type Server struct {
 	localBridgeName string
 }
 
+// MaybeNewLocalServer returns a Server based on a local socket connection,
+// if running on an OS supporting LXD containers by default.
+// Otherwise a nil server is returned.
+func MaybeNewLocalServer() (*Server, error) {
+	if !hasSupport() {
+		return nil, nil
+	}
+	cSvr, err := ConnectLocal()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	svr, err := NewServer(cSvr)
+	return svr, errors.Trace(err)
+}
+
 // NewServer builds and returns a Server for high-level interaction with the
 // input LXD container server.
-func NewServer(svr lxd.ContainerServer) *Server {
-	info, _, _ := svr.GetServer()
+func NewServer(svr lxd.ContainerServer) (*Server, error) {
+	info, _, err := svr.GetServer()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	apiExt := info.APIExtensions
+
+	name := info.Environment.ServerName
+	clustered := info.Environment.ServerClustered
+	if clustered {
+		logger.Debugf("creating LXD server for cluster node %q", name)
+	}
+
 	return &Server{
 		ContainerServer:   svr,
+		name:              name,
+		clustered:         clustered,
 		networkAPISupport: shared.StringInSlice("network", apiExt),
 		clusterAPISupport: shared.StringInSlice("clustering", apiExt),
-	}
+	}, nil
 }
 
 // UpdateServerConfig updates the server configuration with the input values.

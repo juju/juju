@@ -32,8 +32,3 @@ func (ci *containerInitialiser) Initialise() error {
 func ConfigureLXDProxies(proxies proxy.Settings) error {
 	return nil
 }
-
-// NewLocalServer returns a nil Server.
-func NewLocalServer() (*Server, error) {
-	return nil, nil
-}
