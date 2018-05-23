@@ -112,6 +112,38 @@ def deploy_dummy_stack(client, charm_series, use_charmstore=False):
 
 
 def deploy_caas_stack(bundle_path, client, timeout=3600):
+    model_name = client.model_name
+
+    # workaround to ensure lxd profile
+    profile = """
+name: juju-{model_name}
+config:
+  boot.autostart: "true"
+  linux.kernel_modules: ip_tables,ip6_tables,netlink_diag,nf_nat,overlay
+  raw.lxc: |
+    lxc.apparmor.profile=unconfined
+    lxc.mount.auto=proc:rw sys:rw
+    lxc.cap.drop=
+  security.nesting: "true"
+  security.privileged: "true"
+description: ""
+devices:
+  aadisable:
+    path: /sys/module/nf_conntrack/parameters/hashsize
+    source: /dev/null
+    type: disk
+  aadisable1:
+    path: /sys/module/apparmor/parameters/enabled
+    source: /dev/null
+    type: disk
+""".format(model_name=model_name)
+    echo = subprocess.Popen(('echo', profile), stdout=subprocess.PIPE)
+    subprocess.check_output(
+        ('lxc', 'profile', 'edit', 'juju-%s' % model_name),
+        stdin=echo.stdout
+    ).decode('UTF-8').strip()
+    echo.wait()
+
     client.deploy_bundle(bundle_path, static_bundle=True)
     # Wait for the deployment to finish.
     client.wait_for_started(timeout=timeout)
