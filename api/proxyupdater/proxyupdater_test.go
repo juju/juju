@@ -114,27 +114,27 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 		},
 	})
 
-	legacyProxySettings, jujuProxySettings, aptProxySettings, snapProxySettings, err := api.ProxyConfig()
+	config, err := api.ProxyConfig()
 	c.Assert(*called, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(legacyProxySettings, jc.DeepEquals, proxy.Settings{
+	c.Check(config.LegacyProxy, jc.DeepEquals, proxy.Settings{
 		Http:    "http-legacy",
 		Https:   "https-legacy",
 		Ftp:     "ftp-legacy",
 		NoProxy: "no-proxy-legacy",
 	})
-	c.Check(jujuProxySettings, jc.DeepEquals, proxy.Settings{
+	c.Check(config.JujuProxy, jc.DeepEquals, proxy.Settings{
 		Http:    "http-juju",
 		Https:   "https-juju",
 		Ftp:     "ftp-juju",
 		NoProxy: "no-proxy-juju",
 	})
-	c.Check(aptProxySettings, jc.DeepEquals, proxy.Settings{
+	c.Check(config.APTProxy, jc.DeepEquals, proxy.Settings{
 		Http:  "http-apt",
 		Https: "https-apt",
 		Ftp:   "ftp-apt",
 	})
-	c.Check(snapProxySettings, jc.DeepEquals, proxy.Settings{
+	c.Check(config.SnapProxy, jc.DeepEquals, proxy.Settings{
 		Http:  "http-snap",
 		Https: "https-snap",
 	})
@@ -163,20 +163,20 @@ func (s *ProxyUpdaterSuite) TestProxyConfigV1(c *gc.C) {
 		},
 	})
 
-	legacyProxySettings, jujuProxySettings, aptProxySettings, snapProxySettings, err := api.ProxyConfig()
+	config, err := api.ProxyConfig()
 	c.Assert(*called, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(legacyProxySettings, jc.DeepEquals, proxy.Settings{
+	c.Check(config.LegacyProxy, jc.DeepEquals, proxy.Settings{
 		Http:    "http-legacy",
 		Https:   "https-legacy",
 		Ftp:     "ftp-legacy",
 		NoProxy: "no-proxy-legacy",
 	})
-	c.Check(jujuProxySettings, jc.DeepEquals, proxy.Settings{})
-	c.Check(aptProxySettings, jc.DeepEquals, proxy.Settings{
+	c.Check(config.JujuProxy, jc.DeepEquals, proxy.Settings{})
+	c.Check(config.APTProxy, jc.DeepEquals, proxy.Settings{
 		Http:  "http-apt",
 		Https: "https-apt",
 		Ftp:   "ftp-apt",
 	})
-	c.Check(snapProxySettings, jc.DeepEquals, proxy.Settings{})
+	c.Check(config.SnapProxy, jc.DeepEquals, proxy.Settings{})
 }

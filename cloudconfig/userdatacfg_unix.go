@@ -269,7 +269,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 		// or the juju proxy to deal with runtime changes. The proxy updater worker
 		// only modifies /etc/juju-proxy.conf, so if changes are written to that file
 		// we need to make sure the profile.d file exists to reflect these changes.
-		// If the new juju proxies are used, the legacy proxies will be not set, and the
+		// If the new juju proxies are used, the legacy proxies will not be set, and the
 		// /etc/juju-proxy.conf file will be empty.
 		`[ -e /etc/profile.d/juju-proxy.sh ] || ` +
 			`printf '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`)

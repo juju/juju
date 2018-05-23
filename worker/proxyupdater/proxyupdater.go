@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/series"
 	worker "gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/watcher"
 )
 
@@ -36,7 +37,7 @@ type Config struct {
 // API is an interface that is provided to New
 // which can be used to fetch the API host ports
 type API interface {
-	ProxyConfig() (proxyutils.Settings, proxyutils.Settings, proxyutils.Settings, proxyutils.Settings, error)
+	ProxyConfig() (proxyupdater.ProxyConfiguration, error)
 	WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error)
 }
 
@@ -201,15 +202,14 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) erro
 }
 
 func (w *proxyWorker) onChange() error {
-	legacyProxySettings, jujuProxySettings, aptProxySettings, snapProxySettings, err := w.config.API.ProxyConfig()
+	config, err := w.config.API.ProxyConfig()
 	if err != nil {
 		return err
 	}
 
-	w.handleProxyValues(legacyProxySettings, jujuProxySettings)
+	w.handleProxyValues(config.LegacyProxy, config.JujuProxy)
 	// TODO: handle snapProxySettings
-	_ = snapProxySettings
-	return w.handleAptProxyValues(aptProxySettings)
+	return w.handleAptProxyValues(config.APTProxy)
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.

@@ -17,7 +17,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -167,24 +166,6 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars, relationVars)
 }
 
-func (s *EnvSuite) TestEnvWindowsNewProxyOnly(c *gc.C) {
-	s.SetFeatureFlags(feature.NewProxyOnly)
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
-	os.Setenv("Path", "foo;bar")
-	os.Setenv("PSModulePath", "ping;pong")
-	windowsVars := []string{
-		"Path=path-to-tools;foo;bar",
-		"PSModulePath=ping;pong;" + filepath.FromSlash("path-to-charm/lib/Modules"),
-	}
-
-	ctx, contextVars := s.getContext(true)
-	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars)
-}
-
 func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
@@ -205,22 +186,4 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	actualVars, err = ctx.HookVars(paths)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars)
-}
-
-func (s *EnvSuite) TestEnvUbuntuNewProxyOnly(c *gc.C) {
-	s.SetFeatureFlags(feature.NewProxyOnly)
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
-	os.Setenv("PATH", "foo:bar")
-	ubuntuVars := []string{
-		"PATH=path-to-tools:foo:bar",
-		"APT_LISTCHANGES_FRONTEND=none",
-		"DEBIAN_FRONTEND=noninteractive",
-	}
-
-	ctx, contextVars := s.getContext(true)
-	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 }

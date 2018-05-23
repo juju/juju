@@ -125,6 +125,11 @@ const (
 	// JujuNoProxyKey stores the key for this setting.
 	JujuNoProxyKey = "juju-no-proxy"
 
+	// The APT proxy values specified here work with both the
+	// legacy and juju proxy settings. If no value is specified,
+	// the value is determined by the either the legacy or juju value
+	// if one is specified.
+
 	// AptHTTPProxyKey stores the key for this setting.
 	AptHTTPProxyKey = "apt-http-proxy"
 
@@ -867,7 +872,8 @@ func (c *Config) HasJujuProxy() bool {
 }
 
 // JujuProxySettings returns all four proxy settings that have been set using the
-// juju- prefixed proxy settings. These values
+// juju- prefixed proxy settings. These values determine the current best practice
+// for proxies.
 func (c *Config) JujuProxySettings() proxy.Settings {
 	return proxy.Settings{
 		Http:    c.JujuHTTPProxy(),

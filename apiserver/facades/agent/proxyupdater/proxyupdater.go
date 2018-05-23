@@ -189,7 +189,6 @@ func (api *APIBase) proxyConfig() params.ProxyConfigResult {
 	result.LegacyProxySettings = toParams(proxySettings)
 
 	proxySettings = config.JujuProxySettings()
-	// Do we need the AutoNoProxy here?
 	result.JujuProxySettings = toParams(proxySettings)
 
 	result.APTProxySettings = toParams(config.AptProxySettings())

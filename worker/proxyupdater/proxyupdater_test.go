@@ -22,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 
+	proxyupdaterapi "github.com/juju/juju/api/proxyupdater"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -54,12 +55,9 @@ func (w notAWatcher) Changes() watcher.NotifyChannel {
 }
 
 type fakeAPI struct {
-	LegacyProxy proxy.Settings
-	JujuProxy   proxy.Settings
-	APTProxy    proxy.Settings
-	SnapProxy   proxy.Settings
-	Err         error
-	Watcher     *notAWatcher
+	proxies proxyupdaterapi.ProxyConfiguration
+	Err     error
+	Watcher *notAWatcher
 }
 
 func NewFakeAPI() *fakeAPI {
@@ -67,8 +65,8 @@ func NewFakeAPI() *fakeAPI {
 	return f
 }
 
-func (api fakeAPI) ProxyConfig() (proxy.Settings, proxy.Settings, proxy.Settings, proxy.Settings, error) {
-	return api.LegacyProxy, api.JujuProxy, api.APTProxy, api.SnapProxy, api.Err
+func (api fakeAPI) ProxyConfig() (proxyupdaterapi.ProxyConfiguration, error) {
+	return api.proxies, api.Err
 }
 
 func (api fakeAPI) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error) {
@@ -197,38 +195,39 @@ func (s *ProxyUpdaterSuite) TestRunStop(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) useLegacyConfig(c *gc.C) (proxy.Settings, proxy.Settings) {
-	s.api.LegacyProxy = proxy.Settings{
-		Http:    "http legacy proxy",
-		Https:   "https legacy proxy",
-		Ftp:     "ftp legacy proxy",
-		NoProxy: "localhost,no legacy proxy",
-	}
-	s.api.JujuProxy = proxy.Settings{}
-	s.api.APTProxy = proxy.Settings{
-		Http:  "http://apt.http.proxy",
-		Https: "https://apt.https.proxy",
-		Ftp:   "ftp://apt.ftp.proxy",
+	s.api.proxies = proxyupdaterapi.ProxyConfiguration{
+		LegacyProxy: proxy.Settings{
+			Http:    "http legacy proxy",
+			Https:   "https legacy proxy",
+			Ftp:     "ftp legacy proxy",
+			NoProxy: "localhost,no legacy proxy",
+		},
+		APTProxy: proxy.Settings{
+			Http:  "http://apt.http.proxy",
+			Https: "https://apt.https.proxy",
+			Ftp:   "ftp://apt.ftp.proxy",
+		},
 	}
 
-	return s.api.LegacyProxy, s.api.APTProxy
+	return s.api.proxies.LegacyProxy, s.api.proxies.APTProxy
 }
 
 func (s *ProxyUpdaterSuite) useJujuConfig(c *gc.C) (proxy.Settings, proxy.Settings) {
-	s.api.LegacyProxy = proxy.Settings{}
-	s.api.JujuProxy = proxy.Settings{
-		Http:    "http juju proxy",
-		Https:   "https juju proxy",
-		Ftp:     "ftp juju proxy",
-		NoProxy: "localhost,no juju proxy",
+	s.api.proxies = proxyupdaterapi.ProxyConfiguration{
+		JujuProxy: proxy.Settings{
+			Http:    "http juju proxy",
+			Https:   "https juju proxy",
+			Ftp:     "ftp juju proxy",
+			NoProxy: "localhost,no juju proxy",
+		},
+		APTProxy: proxy.Settings{
+			Http:  "http://apt.http.proxy",
+			Https: "https://apt.https.proxy",
+			Ftp:   "ftp://apt.ftp.proxy",
+		},
 	}
 
-	s.api.APTProxy = proxy.Settings{
-		Http:  "http://apt.http.proxy",
-		Https: "https://apt.https.proxy",
-		Ftp:   "ftp://apt.ftp.proxy",
-	}
-
-	return s.api.JujuProxy, s.api.APTProxy
+	return s.api.proxies.JujuProxy, s.api.proxies.APTProxy
 }
 
 func (s *ProxyUpdaterSuite) TestInitialStateLegacyProxy(c *gc.C) {

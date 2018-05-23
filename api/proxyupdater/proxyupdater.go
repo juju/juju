@@ -73,34 +73,46 @@ func proxySettingsParamToProxySettings(cfg params.ProxyConfig) proxy.Settings {
 	}
 }
 
+// ProxyConfiguration contains the various proxy values for the model.
+type ProxyConfiguration struct {
+	LegacyProxy proxy.Settings
+	JujuProxy   proxy.Settings
+	APTProxy    proxy.Settings
+	SnapProxy   proxy.Settings
+}
+
 // ProxyConfig returns the proxy settings for the current environment
-func (api *API) ProxyConfig() (legacyProxySettings, jujuProxySettings, aptProxySettings, snapProxySettings proxy.Settings, err error) {
-	var empty proxy.Settings
+func (api *API) ProxyConfig() (ProxyConfiguration, error) {
+	var empty ProxyConfiguration
 	if api.facade.BestAPIVersion() <= 1 {
-		legacyProxySettings, aptProxySettings, err = api.proxyConfigV1()
+		legacyProxySettings, aptProxySettings, err := api.proxyConfigV1()
 		if err != nil {
-			return empty, empty, empty, empty, err
+			return empty, err
 		}
-		return legacyProxySettings, empty, aptProxySettings, empty, nil
+		return ProxyConfiguration{
+			LegacyProxy: legacyProxySettings,
+			APTProxy:    aptProxySettings,
+		}, nil
 	}
 
 	var results params.ProxyConfigResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: api.tag.String()}},
 	}
-	err = api.facade.FacadeCall("ProxyConfig", args, &results)
+	err := api.facade.FacadeCall("ProxyConfig", args, &results)
 	if err != nil {
-		return empty, empty, empty, empty, err
+		return empty, err
 	}
 	if len(results.Results) != 1 {
-		return empty, empty, empty, empty, errors.NotFoundf("ProxyConfig for %q", api.tag)
+		return empty, errors.NotFoundf("ProxyConfig for %q", api.tag)
 	}
 	result := results.Results[0]
-	legacyProxySettings = proxySettingsParamToProxySettings(result.LegacyProxySettings)
-	jujuProxySettings = proxySettingsParamToProxySettings(result.JujuProxySettings)
-	aptProxySettings = proxySettingsParamToProxySettings(result.APTProxySettings)
-	snapProxySettings = proxySettingsParamToProxySettings(result.SnapProxySettings)
-	return legacyProxySettings, jujuProxySettings, aptProxySettings, snapProxySettings, nil
+	return ProxyConfiguration{
+		LegacyProxy: proxySettingsParamToProxySettings(result.LegacyProxySettings),
+		JujuProxy:   proxySettingsParamToProxySettings(result.JujuProxySettings),
+		APTProxy:    proxySettingsParamToProxySettings(result.APTProxySettings),
+		SnapProxy:   proxySettingsParamToProxySettings(result.SnapProxySettings),
+	}, nil
 }
 
 func (api *API) proxyConfigV1() (proxySettings, APTProxySettings proxy.Settings, err error) {
