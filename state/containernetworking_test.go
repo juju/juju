@@ -125,3 +125,18 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDefault(c
 	c.Check(attrs["container-networking-method"], gc.Equals, "fan")
 	c.Check(attrs["fan-config"], gc.Equals, "172.31.0.0/16=252.0.0.0/8 192.168.1.0/24=253.0.0.0/8")
 }
+
+func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingIgnoresIPv6(c *gc.C) {
+	environ := containerTestNetworkedEnviron{
+		stub: &testing.Stub{},
+		supportsContainerAddresses: true,
+		superSubnets:               []string{"172.31.0.0/16", "2000::dead:beef:1/64"},
+	}
+	err := s.Model.AutoConfigureContainerNetworking(&environ)
+	c.Check(err, jc.ErrorIsNil)
+	config, err := s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	attrs := config.AllAttrs()
+	c.Check(attrs["container-networking-method"], gc.Equals, "provider")
+	c.Check(attrs["fan-config"], gc.Equals, "172.31.0.0/16=252.0.0.0/8")
+}
