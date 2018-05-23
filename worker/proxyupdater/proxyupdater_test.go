@@ -14,12 +14,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"github.com/juju/packaging/commands"
 	pacconfig "github.com/juju/packaging/config"
 	"github.com/juju/proxy"
 	proxyutils "github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 

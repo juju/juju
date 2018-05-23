@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/series"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v2/csclient/params"
 	"gopkg.in/juju/names.v2"
