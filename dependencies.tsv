@@ -2,6 +2,7 @@ github.com/Azure/azure-sdk-for-go	git	03719f665513a71a89cf687d260c39a120ac00e7	2
 github.com/Azure/go-autorest	git	10cfe58defab0c9a33be1f7b3ee656857670b509	2017-08-16T17:19:00Z
 github.com/EvilSuperstars/go-cidrman	git	4e5a4a63d9b78757b4891b8de60be2606d8972ee	2017-02-11T23:11:53Z
 github.com/ajstarks/svgo	git	89e3ac64b5b3e403a5e7c35ea4f98d45db7b4518	2014-10-04T21:11:59Z
+github.com/alecthomas/gometalinter	git	0725fc6d498fd2e3b633d24256604c2fbe161bbc	2018-05-08T11:41:45Z
 github.com/altoros/gosigma	git	31228935eec685587914528585da4eb9b073c76d	2015-04-08T14:52:32Z
 github.com/armon/go-metrics	git	93f237eba9b0602f3e73710416558854a81d9337	2017-01-14T13:47:37Z
 github.com/beorn7/perks	git	3ac7bf7a47d159a033b107610db8a1b6575507a4	2016-02-29T21:34:45Z
@@ -15,6 +16,7 @@ github.com/godbus/dbus	git	32c6cc29c14570de4cf6d7e7737d68fb2d01ad15	2016-05-06T2
 github.com/golang/glog	git	23def4e6c14b4da8ac2ed8007337bc5eb5007998	2016-01-26T23:53:08Z
 github.com/golang/mock	git	69521b3833175dfcfb1cc1fdb0c9be92e66faa81	2018-04-03T23:54:22Z
 github.com/golang/protobuf	git	4bd1920723d7b7c925de087aa32e2187708897f7	2016-11-09T07:27:36Z
+github.com/google/go-cmp	git	5411ab924f9ffa6566244a9e504bc347edacffd3	2018-03-28T20:15:12Z
 github.com/google/go-querystring	git	9235644dd9e52eeae6fa48efd539fdc351a0af53	2016-04-01T23:30:42Z
 github.com/google/gofuzz	git	24818f796faf91cd76ec7bddd72458fbced7a6c1	2017-06-12T17:47:53Z
 github.com/gorilla/handlers	git	13d73096a474cac93275c679c7b8a2dc17ddba82	2017-02-24T19:39:55Z
@@ -96,6 +98,7 @@ github.com/prometheus/common	git	dd586c1c5abb0be59e60f942c22af711a2008cb4	2016-0
 github.com/prometheus/procfs	git	abf152e5f3e97f2fafac028d2cc06c1feb87ffa5	2016-04-11T19:08:41Z
 github.com/rogpeppe/fastuuid	git	6724a57986aff9bff1a1770e9347036def7c89f6	2015-01-06T09:32:20Z
 github.com/satori/uuid	git	5bf94b69c6b68ee1b541973bb8e1144db23a194b	2017-03-21T23:07:31Z
+github.com/stretchr/testify	git	c679ae2cc0cb27ec3293fea7e254e47386f05d69	2018-03-19T22:34:59Z
 github.com/vmware/govmomi	git	05504416e95561e1478196d7058721c827a7bb8c	2018-03-06T20:02:55Z
 golang.org/x/crypto	git	650f4a345ab4e5b245a3034b110ebc7299e68186	2018-02-14T00:00:28Z
 golang.org/x/net	git	61147c48b25b599e5b561d2e9c4f3e1ef489ca41	2018-04-06T21:48:16Z
@@ -132,6 +135,7 @@ gopkg.in/retry.v1	git	01631078ef2fdce601e38cfe5f527fab24c9a6d2	2017-05-31T09:12:
 gopkg.in/tomb.v1	git	dd632973f1e7218eb1089048e0798ec9ae7dceb8	2014-10-24T13:56:13Z
 gopkg.in/tomb.v2	git	14b3d72120e8d10ea6e6b7f87f7175734b1faab8	2014-06-26T14:46:23Z
 gopkg.in/yaml.v2	git	1be3d31502d6eabc0dd7ce5b0daab022e14a5538	2017-07-12T05:45:46Z
+gotest.tools	git	e086e98bf8d9c26d7b1c58e9a884866e134abf10	2018-05-08T23:43:17Z
 k8s.io/api	git	8759fda11383a1087cf16b1500ce5804fa9f32e7	2018-04-06T10:55:33Z
 k8s.io/apimachinery	git	5d4f0da8e5fde7cbadf8ab3ce5cfb76f86dd854e	2018-04-07T06:51:43Z
 k8s.io/client-go	git	b7d03ad8c68365c7c0623d94f74ece73e0cd64d4	2018-04-06T22:59:03Z
