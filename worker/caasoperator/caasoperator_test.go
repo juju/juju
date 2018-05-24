@@ -268,12 +268,12 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 func (s *WorkerSuite) assertUniterStarted(c *gc.C) (worker.Worker, watcher.NotifyChannel) {
 	var (
 		uniterStarted      int32
-		applicationChannel watcher.NotifyChannel
+		applicationChannel atomic.Value
 	)
 	s.config.StartUniterFunc = func(runner *worker.Runner, params *uniter.UniterParams) error {
 		c.Assert(params.UnitTag.Id(), gc.Equals, "gitlab/0")
 		atomic.AddInt32(&uniterStarted, 1)
-		applicationChannel = params.ApplicationChannel
+		applicationChannel.Store(params.ApplicationChannel)
 		return nil
 	}
 
@@ -293,7 +293,7 @@ func (s *WorkerSuite) assertUniterStarted(c *gc.C) (worker.Worker, watcher.Notif
 
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		if atomic.LoadInt32(&uniterStarted) > 0 {
-			return w, applicationChannel
+			return w, applicationChannel.Load().(watcher.NotifyChannel)
 		}
 	}
 	c.Fatalf("timeout while waiting for uniter to start")
