@@ -23,10 +23,7 @@ import (
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/network"
 )
-
-const lxdBridgeFile = "/etc/default/lxd-bridge"
 
 var requiredPackages = []string{
 	"lxd",
@@ -154,117 +151,32 @@ var df = func(path string) (uint64, error) {
 }
 
 var configureLXDBridge = func() error {
-	server, err := ConnectLocal()
+	server, err := NewLocalServer()
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// If LXD itself supports managing networks (added in LXD 2.3) we can allow
 	// it to do all of the network configuration.
-	if server.HasExtension("network") {
-		return createDefaultBridgeInDefaultProfile(server)
+	if server.networkAPISupport {
+		profile, eTag, err := server.GetProfile(lxdDefaultProfileName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return server.ensureDefaultBridge(profile, eTag)
 	}
 	return configureLXDBridgeForOlderLXD()
-}
-
-type networkClient interface {
-	GetNetwork(name string) (network *api.Network, ETag string, err error)
-	CreateNetwork(network api.NetworksPost) (err error)
-	UpdateProfile(name string, profile api.ProfilePut, ETag string) (err error)
-	GetProfile(name string) (profile *api.Profile, ETag string, err error)
-}
-
-func checkBridgeConfig(client networkClient, bridge string) error {
-	n, _, err := client.GetNetwork(bridge)
-	if err != nil {
-		return errors.Annotatef(err, "LXD %s network config", bridge)
-	}
-	ipv6AddressConfig := n.Config["ipv6.address"]
-	if n.Managed && ipv6AddressConfig != "none" && ipv6AddressConfig != "" {
-		return errors.Errorf(`juju doesn't support ipv6. Please disable LXD's IPV6:
-
-	$ lxc network set %s ipv6.address none
-
-and rebootstrap`, bridge)
-	}
-
-	return nil
-}
-
-// CreateDefaultBridgeInDefaultProfile creates a default bridge if it doesn't
-// exist and (if necessary) inserts it into the default profile.
-func createDefaultBridgeInDefaultProfile(client networkClient) error {
-	/* create the default bridge if it doesn't exist */
-	n, _, err := client.GetNetwork(network.DefaultLXDBridge)
-	if err != nil {
-		networksPost := api.NetworksPost{
-			Name: network.DefaultLXDBridge,
-			NetworkPut: api.NetworkPut{
-				Config: map[string]string{
-					"ipv6.address": "none",
-					"ipv6.nat":     "false",
-				},
-			},
-		}
-		err := client.CreateNetwork(networksPost)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		n, _, err = client.GetNetwork(network.DefaultLXDBridge)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	} else {
-		if err := checkBridgeConfig(client, network.DefaultLXDBridge); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	profile, etag, err := client.GetProfile("default")
-	if err != nil {
-		return errors.Trace(err)
-	}
-	config := profile.Writable()
-	_, ok := config.Devices["eth0"]
-	if ok {
-		/* don't configure an eth0 if it already exists */
-		return nil
-	}
-
-	nicType := "macvlan"
-	if n.Type == "bridge" {
-		nicType = "bridged"
-	}
-
-	config.Devices["eth0"] = map[string]string{
-		"type":    "nic",
-		"nictype": nicType,
-		"parent":  network.DefaultLXDBridge,
-	}
-
-	err = client.UpdateProfile("default", config, etag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
 }
 
 // configureLXDBridgeForOlderLXD is used for LXD agents that don't support the
 // Network API (pre 2.3)
 func configureLXDBridgeForOlderLXD() error {
-	f, err := os.OpenFile(lxdBridgeFile, os.O_RDWR, 0777)
+	f, err := os.OpenFile(BridgeConfigFile, os.O_RDWR, 0777)
 	if err != nil {
 		/* We're using an old version of LXD which doesn't have
 		 * lxd-bridge; let's not fail here.
 		 */
 		if os.IsNotExist(err) {
-			logger.Debugf("couldn't find %s, not configuring it", lxdBridgeFile)
+			logger.Debugf("couldn't find %s, not configuring it", BridgeConfigFile)
 			return nil
 		}
 		return errors.Trace(err)
