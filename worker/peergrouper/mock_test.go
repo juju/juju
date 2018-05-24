@@ -389,8 +389,8 @@ func (m *fakeMachine) mutate(f func(*machineDoc)) {
 	doc := m.doc()
 	f(&doc)
 	m.val.Set(doc)
-	m.mu.Unlock()
 	m.checker.checkInvariants()
+	m.mu.Unlock()
 }
 
 func (m *fakeMachine) setAddresses(addrs ...network.Address) {
