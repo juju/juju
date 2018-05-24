@@ -6,7 +6,7 @@ package stateenvirons_test
 import (
 	"testing"
 
-	"github.com/juju/utils/os"
+	"github.com/juju/os"
 
 	coretesting "github.com/juju/juju/testing"
 )

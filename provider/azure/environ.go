@@ -22,10 +22,10 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os"
+	jujuseries "github.com/juju/os/series"
 	"github.com/juju/retry"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/os"
-	jujuseries "github.com/juju/utils/series"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 

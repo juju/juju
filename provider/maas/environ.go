@@ -17,9 +17,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
+	"github.com/juju/os"
+	"github.com/juju/os/series"
 	"github.com/juju/utils"
-	"github.com/juju/utils/os"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
