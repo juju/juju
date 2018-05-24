@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	jujuos "github.com/juju/utils/os"
+	jujuos "github.com/juju/os"
 )
 
 // OSDependentEnvVars returns the OS-dependent environment variables that

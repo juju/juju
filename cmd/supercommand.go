@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/juju/osenv"

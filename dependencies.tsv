@@ -48,6 +48,7 @@ github.com/juju/loggo	git	8232ab8918d91c72af1a9fb94d3edbe31d88b790	2017-06-05T01
 github.com/juju/mempool	git	24974d6c264fe5a29716e7d56ea24c4bd904b7cc	2016-02-05T10:49:27Z
 github.com/juju/mutex	git	1fe2a4bf0a3a2c10881501233ff7c6aed7790082	2017-11-10T02:00:13Z
 github.com/juju/naturalsort	git	5b81707e882b8293e6cf77854b4cd49f29776e11	2018-04-23T03:48:42Z
+github.com/juju/os	git	3017a2f304a8e1dfa3618aebe352fdb231ca6c54	2018-05-17T04:14:27Z
 github.com/juju/packaging	git	ba21344fff207f4fa06b0a08bac386b179a2e6a1	2018-05-16T20:30:43Z
 github.com/juju/persistent-cookiejar	git	d67418f14c93a698e37b52468958d5d4dcf8a7dd	2017-04-28T16:15:59Z
 github.com/juju/proxy	git	5f8741c297b47cba29f747c67f2e31e7c2a36ecb	2018-05-23T02:57:33Z

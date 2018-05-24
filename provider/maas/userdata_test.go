@@ -7,9 +7,9 @@ package maas_test
 import (
 	"encoding/base64"
 
+	"github.com/juju/os"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit/cloudinittest"

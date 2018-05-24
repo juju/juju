@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/series"
+	"github.com/juju/os/series"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"

@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/series"
+	jujuos "github.com/juju/os"
+	"github.com/juju/os/series"
 
 	"github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"

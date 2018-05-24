@@ -14,12 +14,12 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/os"
+	"github.com/juju/os/series"
 	"github.com/juju/rfc/rfc5424/rfc5424test"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/cert"
-	"github.com/juju/utils/os"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"

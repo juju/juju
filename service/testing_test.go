@@ -5,9 +5,9 @@ package service
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	"github.com/juju/utils"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 

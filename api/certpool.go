@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	"github.com/juju/utils/cert"
-	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/juju/paths"
 )
