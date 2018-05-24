@@ -57,10 +57,6 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 
 	// Optional table output if values exist
 	message := getModelMessage(fs.Model)
-	if message != "" {
-		header = append(header, "Notes")
-		values = append(values, message)
-	}
 	if fs.Model.SLA != "" {
 		header = append(header, "SLA")
 		values = append(values, fs.Model.SLA)
@@ -68,6 +64,10 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	if cs := fs.Model.ControllerStatus; cs != nil && cs.Timestamp != "" {
 		header = append(header, "Timestamp")
 		values = append(values, cs.Timestamp)
+	}
+	if message != "" {
+		header = append(header, "Notes")
+		values = append(values, message)
 	}
 
 	// The first set of headers don't use outputHeaders because it adds the blank line.

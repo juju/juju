@@ -3848,8 +3848,8 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 
 func (s *StatusSuite) TestMigrationInProgressTabular(c *gc.C) {
 	expected := `
-Model   Controller  Cloud/Region        Version  Notes               SLA          Timestamp
-hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar  unsupported  15:04:05Z07:00
+Model   Controller  Cloud/Region        Version  SLA          Timestamp       Notes
+hosted  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05Z07:00  migrating: foo bar
 
 `[1:]
 
@@ -3865,8 +3865,8 @@ hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar  unsupported
 
 func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
 	expected := `
-Model   Controller  Cloud/Region        Version  Notes               SLA          Timestamp
-hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar  unsupported  15:04:05Z07:00
+Model   Controller  Cloud/Region        Version  SLA          Timestamp       Notes
+hosted  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05Z07:00  migrating: foo bar
 
 `[1:]
 
@@ -4152,8 +4152,8 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
-Model       Controller  Cloud/Region        Version  Notes                     SLA          Timestamp
-controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4  unsupported  15:04:05Z07:00
+Model       Controller  Cloud/Region        Version  SLA          Timestamp       Notes
+controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05Z07:00  upgrade available: 1.2.4
 
 SAAS         Status   Store  URL
 hosted-riak  unknown  local  me/model.riak
