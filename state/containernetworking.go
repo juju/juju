@@ -70,6 +70,10 @@ func (m *Model) discoverFan(environ environs.Environ, modelConfig *config.Config
 		if err != nil {
 			return ""
 		}
+		// We don't create FAN networks for IPv6 networks
+		if ipNet.IP.To4() == nil {
+			return ""
+		}
 		if ones, _ := ipNet.Mask.Size(); ones <= 8 {
 			return ""
 		}
