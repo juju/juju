@@ -91,17 +91,23 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	return nil
 }
 
-func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
+func startSection(tw *ansiterm.TabWriter, values ...interface{}) output.Wrapper {
 	w := output.Wrapper{tw}
-	outputHeaders := func(values ...interface{}) {
-		w.Println()
-		w.Println(values...)
-	}
+	w.Println()
+	w.Println(values...)
+	return w
+}
+
+func endSection(tw *ansiterm.TabWriter) {
+	tw.Flush()
+}
+
+func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 
 	metering := fs.Model.MeterStatus != nil
 
 	units := make(map[string]unitStatus)
-	outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
+	w := startSection(tw, "App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
 	tw.SetColumnAlignRight(3)
 	tw.SetColumnAlignRight(6)
 	for _, appName := range naturalsort.Sort(stringKeysFromMap(fs.Applications)) {
@@ -137,6 +143,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			}
 		}
 	}
+	endSection(tw)
 
 	pUnit := func(name string, u unitStatus, level int) {
 		message := u.WorkloadStatusInfo.Message
@@ -158,40 +165,44 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		)
 	}
 
-	outputHeaders("Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
-	for _, name := range naturalsort.Sort(stringKeysFromMap(units)) {
-		u := units[name]
-		pUnit(name, u, 0)
-		const indentationLevel = 1
-		recurseUnits(u, indentationLevel, pUnit)
-	}
-
-	if metering {
-		outputHeaders("Entity", "Meter status", "Message")
-		if fs.Model.MeterStatus != nil {
-			w.Print("model")
-			outputColor := fromMeterStatusColor(fs.Model.MeterStatus.Color)
-			w.PrintColor(outputColor, fs.Model.MeterStatus.Color)
-			w.PrintColor(outputColor, fs.Model.MeterStatus.Message)
-			w.Println()
-		}
+	if len(units) > 0 {
+		startSection(tw, "Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
 		for _, name := range naturalsort.Sort(stringKeysFromMap(units)) {
 			u := units[name]
-			if u.MeterStatus != nil {
-				w.Print(name)
-				outputColor := fromMeterStatusColor(u.MeterStatus.Color)
-				w.PrintColor(outputColor, u.MeterStatus.Color)
-				w.PrintColor(outputColor, u.MeterStatus.Message)
-				w.Println()
-			}
+			pUnit(name, u, 0)
+			const indentationLevel = 1
+			recurseUnits(u, indentationLevel, pUnit)
+		}
+		endSection(tw)
+	}
+
+	if !metering {
+		return
+	}
+
+	startSection(tw, "Entity", "Meter status", "Message")
+	if fs.Model.MeterStatus != nil {
+		w.Print("model")
+		outputColor := fromMeterStatusColor(fs.Model.MeterStatus.Color)
+		w.PrintColor(outputColor, fs.Model.MeterStatus.Color)
+		w.PrintColor(outputColor, fs.Model.MeterStatus.Message)
+		w.Println()
+	}
+	for _, name := range naturalsort.Sort(stringKeysFromMap(units)) {
+		u := units[name]
+		if u.MeterStatus != nil {
+			w.Print(name)
+			outputColor := fromMeterStatusColor(u.MeterStatus.Color)
+			w.PrintColor(outputColor, u.MeterStatus.Color)
+			w.PrintColor(outputColor, u.MeterStatus.Message)
+			w.Println()
 		}
 	}
+	endSection(tw)
 }
 
 func printRemoteApplications(tw *ansiterm.TabWriter, remoteApplications map[string]remoteApplicationStatus) {
-	w := output.Wrapper{tw}
-	w.Println()
-	w.Println("SAAS", "Status", "Store", "URL")
+	w := startSection(tw, "SAAS", "Status", "Store", "URL")
 	for _, appName := range naturalsort.Sort(stringKeysFromMap(remoteApplications)) {
 		app := remoteApplications[appName]
 		var store, urlPath string
@@ -213,7 +224,7 @@ func printRemoteApplications(tw *ansiterm.TabWriter, remoteApplications map[stri
 		w.PrintStatus(app.StatusInfo.Current)
 		w.Println(store, urlPath)
 	}
-	tw.Flush()
+	endSection(tw)
 }
 
 func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
@@ -225,9 +236,7 @@ func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
 		return a.Provider < b.Provider
 	})
 
-	w := output.Wrapper{tw}
-	w.Println()
-	w.Println("Relation provider", "Requirer", "Interface", "Type", "Message")
+	w := startSection(tw, "Relation provider", "Requirer", "Interface", "Type", "Message")
 
 	for _, r := range relations {
 		w.Print(r.Provider, r.Requirer, r.Interface, r.Type)
@@ -239,6 +248,7 @@ func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
 		}
 		w.Println()
 	}
+	endSection(tw)
 }
 
 type offerItems []offerStatus
@@ -248,10 +258,7 @@ func printOffers(tw *ansiterm.TabWriter, offers map[string]offerStatus) error {
 	if len(offers) == 0 {
 		return nil
 	}
-	w := output.Wrapper{tw}
-	w.Println()
-
-	w.Println("Offer", "Application", "Charm", "Rev", "Connected", "Endpoint", "Interface", "Role")
+	w := startSection(tw, "Offer", "Application", "Charm", "Rev", "Connected", "Endpoint", "Interface", "Role")
 	for _, offerName := range naturalsort.Sort(stringKeysFromMap(offers)) {
 		offer := offers[offerName]
 		// Sort endpoints alphabetically.
@@ -281,7 +288,7 @@ func printOffers(tw *ansiterm.TabWriter, offers map[string]offerStatus) error {
 			w.Println("", "", "", "", endpointName, endpoint.Interface, endpoint.Role)
 		}
 	}
-	tw.Flush()
+	endSection(tw)
 	return nil
 }
 
@@ -310,12 +317,11 @@ func getModelMessage(model modelStatus) string {
 }
 
 func printMachines(tw *ansiterm.TabWriter, machines map[string]machineStatus) {
-	w := output.Wrapper{tw}
-	w.Println()
-	w.Println("Machine", "State", "DNS", "Inst id", "Series", "AZ", "Message")
+	w := startSection(tw, "Machine", "State", "DNS", "Inst id", "Series", "AZ", "Message")
 	for _, name := range naturalsort.Sort(stringKeysFromMap(machines)) {
 		printMachine(w, machines[name])
 	}
+	endSection(tw)
 }
 
 func printMachine(w output.Wrapper, m machineStatus) {
