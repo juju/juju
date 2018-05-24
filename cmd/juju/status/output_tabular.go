@@ -91,10 +91,10 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	return nil
 }
 
-func startSection(tw *ansiterm.TabWriter, values ...interface{}) output.Wrapper {
+func startSection(tw *ansiterm.TabWriter, headers ...interface{}) output.Wrapper {
 	w := output.Wrapper{tw}
 	w.Println()
-	w.Println(values...)
+	w.Println(headers...)
 	return w
 }
 
