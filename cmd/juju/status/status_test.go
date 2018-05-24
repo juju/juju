@@ -4155,7 +4155,6 @@ foo                       2                  0
 Unit   Workload     Agent      Machine  Public address  Ports  Message
 foo/0  maintenance  executing                                  (config-changed) doing some work
 foo/1  maintenance  executing                                  (backup database) doing some work
-
 `[1:])
 }
 
@@ -4224,8 +4223,7 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 		"\n"+
 		"Entity  Meter status  Message\n"+
 		"foo/0   strange       warning: stable strangelets  \n"+
-		"foo/1   up            things are looking up        \n"+
-		"\n")
+		"foo/1   up            things are looking up        \n")
 }
 
 //
