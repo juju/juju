@@ -186,7 +186,6 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 			}
 		}
 	}
-	w.Println()
 }
 
 func printRemoteApplications(tw *ansiterm.TabWriter, remoteApplications map[string]remoteApplicationStatus) {
@@ -312,6 +311,7 @@ func getModelMessage(model modelStatus) string {
 
 func printMachines(tw *ansiterm.TabWriter, machines map[string]machineStatus) {
 	w := output.Wrapper{tw}
+	w.Println()
 	w.Println("Machine", "State", "DNS", "Inst id", "Series", "AZ", "Message")
 	for _, name := range naturalsort.Sort(stringKeysFromMap(machines)) {
 		printMachine(w, machines[name])

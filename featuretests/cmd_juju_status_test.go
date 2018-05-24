@@ -266,8 +266,8 @@ func (s *StatusSuite) TestStatusMachineFilteringWithUnassignedUnits(c *gc.C) {
 
 	context := s.run(c, "status", "1")
 	c.Assert(cmdtesting.Stdout(context), jc.Contains, `
-Machine     State       DNS                 Inst id  Series   AZ  Message
-1           pending                         id1      quantal      
+Machine  State    DNS  Inst id  Series   AZ  Message
+1        pending       id1      quantal      
 
 `[1:])
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, ``)
