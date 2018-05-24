@@ -51,8 +51,11 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		cloudRegion += "/" + fs.Model.CloudRegion
 	}
 
+	// Default table output
 	header := []interface{}{"Model", "Controller", "Cloud/Region", "Version"}
 	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion, fs.Model.Version}
+
+	// Optional table output if values exist
 	message := getModelMessage(fs.Model)
 	if message != "" {
 		header = append(header, "Notes")
@@ -61,6 +64,10 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	if fs.Model.SLA != "" {
 		header = append(header, "SLA")
 		values = append(values, fs.Model.SLA)
+	}
+	if cs := fs.Model.ControllerStatus; cs != nil && cs.Timestamp != "" {
+		header = append(header, "Timestamp")
+		values = append(values, cs.Timestamp)
 	}
 
 	// The first set of headers don't use outputHeaders because it adds the blank line.
@@ -85,12 +92,6 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 
 	if len(fs.Relations) > 0 {
 		printRelations(tw, fs.Relations)
-	}
-
-	if fs.ControllerTimestamp != "" {
-		w.Println()
-		w.Println("Controller Timestamp")
-		w.Print(fs.ControllerTimestamp)
 	}
 
 	endSection(tw)
