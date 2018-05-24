@@ -342,6 +342,10 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 	} else {
 		netIds.Add(netId)
 		displayIds = fmt.Sprintf("[%q", netId)
+		// Note, there are cases where we will detect an external
+		// network without it being explicitly configured by the user.
+		// When we get to a point where we start detecting spaces for
+		// users on Openstack, we'll probably need to include better logic here.
 		externalNetwork := n.env.ecfg().externalNetwork()
 		if externalNetwork != "" {
 			netId, err := resolveNeutronNetwork(neutron, externalNetwork, true)
@@ -361,7 +365,8 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 		// Implement Subnets() for case where instId is specified
 		return nil, errors.NotSupportedf("neutron subnets with instance Id")
 	} else {
-		// TODO(jam): 2018-05-23 It is likely that ListSubnetsV2 could take a Filter rather that doing the filtering client side.
+		// TODO(jam): 2018-05-23 It is likely that ListSubnetsV2 could
+		// take a Filter rather that doing the filtering client side.
 		subnets, err := neutron.ListSubnetsV2()
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to retrieve subnets")

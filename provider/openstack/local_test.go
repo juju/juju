@@ -1185,7 +1185,7 @@ func (s *localServerSuite) TestSubnetsFindAllWithExternal(c *gc.C) {
 	env := s.prepareNetworkingEnviron(c, cfg)
 	// private_999 is the internal network, 998 is the external network
 	// the environ is opened with network:"private_999" which maps to network id "999"
-	obtainedSubnets, err := env.Subnets(instance.Id(""), []network.Id{})
+	obtainedSubnets, err := env.Subnets(s.callCtx, instance.Id(""), []network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	neutronClient := openstack.GetNeutronClient(s.env)
 	openstackSubnets, err := neutronClient.ListSubnetsV2()
@@ -1225,7 +1225,6 @@ func (s *localServerSuite) TestSubnetsWithMissingSubnet(c *gc.C) {
 func (s *localServerSuite) TestSuperSubnets(c *gc.C) {
 	env := s.prepareNetworkingEnviron(c, s.env.Config())
 	obtainedSubnets, err := env.SuperSubnets(s.callCtx)
-	obtainedSubnets, err := env.SuperSubnets()
 	c.Assert(err, jc.ErrorIsNil)
 	neutronClient := openstack.GetNeutronClient(s.env)
 	openstackSubnets, err := neutronClient.ListSubnetsV2()
