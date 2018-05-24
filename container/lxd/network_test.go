@@ -83,7 +83,7 @@ func (s *networkSuite) TestEnsureIPv4Modified(c *gc.C) {
 	c.Check(mod, jc.IsTrue)
 }
 
-func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDevicePresent(c *gc.C) {
+func (s *networkSuite) TestVerifyNetworkDevicePresentValid(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
@@ -93,11 +93,11 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDevicePresent(c *gc.C) {
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = jujuSvr.VerifyDefaultBridge(defaultProfile(), "")
+	err = jujuSvr.VerifyNetworkDevice(defaultProfile(), "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDeviceNotBridged(c *gc.C) {
+func (s *networkSuite) TestVerifyNetworkDevicePresentBadDeviceType(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
@@ -105,16 +105,33 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportDeviceNotBridged(c *gc.C
 	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, "", nil)
 
 	profile := defaultProfile()
-	profile.Devices["eth0"]["nictype"] = "something else"
+	profile.Devices["eth0"]["type"] = "not-an-nic"
 
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = jujuSvr.VerifyDefaultBridge(profile, "")
-	c.Assert(err, gc.ErrorMatches, ".*eth0 is not configured as part of a bridge.*")
+	err = jujuSvr.VerifyNetworkDevice(profile, "")
+	c.Assert(err, gc.ErrorMatches, ".*is not configured with type=nic")
 }
 
-func (s *networkSuite) TestVerifyDefaultBridgeNetSupportIPv6Present(c *gc.C) {
+func (s *networkSuite) TestVerifyNetworkDevicePresentBadNicType(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
+
+	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, "", nil)
+
+	profile := defaultProfile()
+	profile.Devices["eth0"]["nictype"] = "not-bridge-or-macvlan"
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = jujuSvr.VerifyNetworkDevice(profile, "")
+	c.Assert(err, gc.ErrorMatches, ".*is not configured with nictype.*")
+}
+
+func (s *networkSuite) TestVerifyNetworkDeviceIPv6Present(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
@@ -133,11 +150,11 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportIPv6Present(c *gc.C) {
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = jujuSvr.VerifyDefaultBridge(defaultProfile(), "")
+	err = jujuSvr.VerifyNetworkDevice(defaultProfile(), "")
 	c.Assert(err, gc.ErrorMatches, "^juju does not support IPv6((.|\n|\t)*)")
 }
 
-func (s *networkSuite) TestVerifyDefaultBridgeNetSupportNoBridge(c *gc.C) {
+func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
@@ -173,8 +190,23 @@ func (s *networkSuite) TestVerifyDefaultBridgeNetSupportNoBridge(c *gc.C) {
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = jujuSvr.VerifyDefaultBridge(profile, lxdtesting.ETag)
+	err = jujuSvr.VerifyNetworkDevice(profile, lxdtesting.ETag)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *networkSuite) TestVerifyNetworkDeviceNotPresentErrorForCluster(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServerClustered(ctrl, "cluster-1")
+
+	profile := defaultProfile()
+	delete(profile.Devices, "eth0")
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = jujuSvr.VerifyNetworkDevice(profile, lxdtesting.ETag)
+	c.Assert(err, gc.ErrorMatches, `profile "default" does not have an "eth0" device`)
 }
 
 func (s *networkSuite) TestCheckLXDBridgeConfiguration(c *gc.C) {

@@ -16,6 +16,11 @@ import (
 	"github.com/juju/juju/network"
 )
 
+const (
+	nicTypeBridged = "bridged"
+	nicTypeMACVLAN = "macvlan"
+)
+
 // LocalBridgeName returns the name of the local LXD network bridge.
 func (s *Server) LocalBridgeName() string {
 	return s.localBridgeName
@@ -49,15 +54,23 @@ func (s *Server) EnsureIPv4(netName string) (bool, error) {
 	return modified, nil
 }
 
-func (s *Server) VerifyDefaultBridge(profile *api.Profile, eTag string) error {
+// VerifyNetworkDevice attempts to ensure that there is a network usable by LXD
+// and that there is an eth0 NIC device with said network as its parent.
+// If we are not operating as part of a cluster, an attempt will be made to
+// create a missing eth0 device with the default LXD bridge as its parent.
+// If in clustered mode this attempt is not made - the onus of network
+// configuration falls on the operator.
+// NOTE (manadart): Cluster behaviour is subject to change.
+func (s *Server) VerifyNetworkDevice(profile *api.Profile, eTag string) error {
 	eth0, ok := profile.Devices["eth0"]
 	if !ok {
 		// On LXD >= 2.3 there is no bridge config by default.
-		// Ensure that the network bridge and eth0 device both exist.
-		if s.networkAPISupport {
+		// If not part of a cluster, ensure that the network bridge and eth0
+		// device both exist.
+		if s.networkAPISupport && !s.clustered {
 			return errors.Annotate(s.ensureDefaultBridge(profile, eTag), "ensuring default bridge config")
 		}
-		return errors.Errorf("unexpected LXD %q profile without eth0 device: %+v", profile.Name, profile)
+		return errors.Errorf("profile %q does not have an \"eth0\" device", profile.Name)
 	}
 
 	netName := eth0["parent"]
@@ -67,13 +80,13 @@ func (s *Server) VerifyDefaultBridge(profile *api.Profile, eTag string) error {
 		if err != nil {
 			return errors.Annotatef(err, "retrieving network %q", netName)
 		}
-		if err := ensureNoIPv6(net); err != nil {
+		if err := verifyNoIPv6(net); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
-	if eth0["type"] != "nic" || eth0["nictype"] != "bridged" {
-		return errors.Errorf("eth0 is not configured as part of a bridge in %q profile: %v", profile.Name, eth0)
+	if err := verifyNetworkDeviceType("eth0", eth0); err != nil {
+		return errors.Annotatef(err, "profile %q", profile.Name)
 	}
 
 	s.localBridgeName = netName
@@ -118,7 +131,7 @@ func (s *Server) ensureDefaultBridge(profile *api.Profile, eTag string) error {
 			return errors.Trace(err)
 		}
 	} else {
-		if err := ensureNoIPv6(net); err != nil {
+		if err := verifyNoIPv6(net); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -126,9 +139,9 @@ func (s *Server) ensureDefaultBridge(profile *api.Profile, eTag string) error {
 	s.localBridgeName = network.DefaultLXDBridge
 
 	// Add the eth0 device with the bridge as its parent.
-	nicType := "macvlan"
+	nicType := nicTypeMACVLAN
 	if net.Type == "bridge" {
-		nicType = "bridged"
+		nicType = nicTypeBridged
 	}
 	profile.Devices["eth0"] = map[string]string{
 		"type":    "nic",
@@ -138,9 +151,9 @@ func (s *Server) ensureDefaultBridge(profile *api.Profile, eTag string) error {
 	return errors.Trace(s.UpdateProfile(profile.Name, profile.Writable(), eTag))
 }
 
-// ensureNoIPv6 checks that the input network has no IPv6 configuration.
+// verifyNoIPv6 checks that the input network has no IPv6 configuration.
 // An error is returned when it does.
-func ensureNoIPv6(net *api.Network) error {
+func verifyNoIPv6(net *api.Network) error {
 	if !net.Managed {
 		return nil
 	}
@@ -155,6 +168,18 @@ func ensureNoIPv6(net *api.Network) error {
 	return errors.Errorf("juju does not support IPv6. Disable IPv6 in LXD via:\n"+
 		"\tlxc network set %s ipv6.address none\n"+
 		"and run the command again", net.Name)
+}
+
+// verifyNetworkDeviceType checks that the input device is correctly configured
+// as a NIC. An error is returned if not.
+func verifyNetworkDeviceType(name string, cfg map[string]string) error {
+	if cfg["type"] != "nic" {
+		return errors.Errorf("device %q is not configured with type=nic", name)
+	}
+	if cfg["nictype"] != nicTypeBridged && cfg["nictype"] != nicTypeMACVLAN {
+		return errors.Errorf("device %q is not configured with nictype %q or %q", name, nicTypeBridged, nicTypeMACVLAN)
+	}
+	return nil
 }
 
 const BridgeConfigFile = "/etc/default/lxd-bridge"

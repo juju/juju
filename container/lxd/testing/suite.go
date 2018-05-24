@@ -53,7 +53,6 @@ func (s *BaseSuite) NewMockServer(ctrl *gomock.Controller, svrMutations ...func(
 	for _, f := range svrMutations {
 		f(cfg)
 	}
-
 	svr.EXPECT().GetServer().Return(cfg, ETag, nil)
 
 	return svr
