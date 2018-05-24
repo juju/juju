@@ -62,9 +62,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		values = append(values, fs.Model.SLA)
 	}
 
-	// The first set of headers don't use outputHeaders because it adds the blank line.
-	w := output.Wrapper{tw}
-	w.Println(header...)
+	w := startSection(tw, true, header...)
 	w.Println(values...)
 
 	if len(fs.RemoteApplications) > 0 {
@@ -76,7 +74,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	if len(fs.Machines) > 0 {
-		printMachines(tw, fs.Machines)
+		printMachines(tw, false, fs.Machines)
 	}
 
 	if err := printOffers(tw, fs.Offers); err != nil {
@@ -87,13 +85,15 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		printRelations(tw, fs.Relations)
 	}
 
-	tw.Flush()
+	endSection(tw)
 	return nil
 }
 
-func startSection(tw *ansiterm.TabWriter, headers ...interface{}) output.Wrapper {
+func startSection(tw *ansiterm.TabWriter, top bool, headers ...interface{}) output.Wrapper {
 	w := output.Wrapper{tw}
-	w.Println()
+	if !top {
+		w.Println()
+	}
 	w.Println(headers...)
 	return w
 }
@@ -107,7 +107,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 	metering := fs.Model.MeterStatus != nil
 
 	units := make(map[string]unitStatus)
-	w := startSection(tw, "App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
+	w := startSection(tw, false, "App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
 	tw.SetColumnAlignRight(3)
 	tw.SetColumnAlignRight(6)
 	for _, appName := range naturalsort.Sort(stringKeysFromMap(fs.Applications)) {
@@ -166,7 +166,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 	}
 
 	if len(units) > 0 {
-		startSection(tw, "Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
+		startSection(tw, false, "Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
 		for _, name := range naturalsort.Sort(stringKeysFromMap(units)) {
 			u := units[name]
 			pUnit(name, u, 0)
@@ -180,7 +180,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		return
 	}
 
-	startSection(tw, "Entity", "Meter status", "Message")
+	startSection(tw, false, "Entity", "Meter status", "Message")
 	if fs.Model.MeterStatus != nil {
 		w.Print("model")
 		outputColor := fromMeterStatusColor(fs.Model.MeterStatus.Color)
@@ -202,7 +202,7 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 }
 
 func printRemoteApplications(tw *ansiterm.TabWriter, remoteApplications map[string]remoteApplicationStatus) {
-	w := startSection(tw, "SAAS", "Status", "Store", "URL")
+	w := startSection(tw, false, "SAAS", "Status", "Store", "URL")
 	for _, appName := range naturalsort.Sort(stringKeysFromMap(remoteApplications)) {
 		app := remoteApplications[appName]
 		var store, urlPath string
@@ -236,7 +236,7 @@ func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
 		return a.Provider < b.Provider
 	})
 
-	w := startSection(tw, "Relation provider", "Requirer", "Interface", "Type", "Message")
+	w := startSection(tw, false, "Relation provider", "Requirer", "Interface", "Type", "Message")
 
 	for _, r := range relations {
 		w.Print(r.Provider, r.Requirer, r.Interface, r.Type)
@@ -258,7 +258,7 @@ func printOffers(tw *ansiterm.TabWriter, offers map[string]offerStatus) error {
 	if len(offers) == 0 {
 		return nil
 	}
-	w := startSection(tw, "Offer", "Application", "Charm", "Rev", "Connected", "Endpoint", "Interface", "Role")
+	w := startSection(tw, false, "Offer", "Application", "Charm", "Rev", "Connected", "Endpoint", "Interface", "Role")
 	for _, offerName := range naturalsort.Sort(stringKeysFromMap(offers)) {
 		offer := offers[offerName]
 		// Sort endpoints alphabetically.
@@ -316,8 +316,8 @@ func getModelMessage(model modelStatus) string {
 	}
 }
 
-func printMachines(tw *ansiterm.TabWriter, machines map[string]machineStatus) {
-	w := startSection(tw, "Machine", "State", "DNS", "Inst id", "Series", "AZ", "Message")
+func printMachines(tw *ansiterm.TabWriter, standAlone bool, machines map[string]machineStatus) {
+	w := startSection(tw, standAlone, "Machine", "State", "DNS", "Inst id", "Series", "AZ", "Message")
 	for _, name := range naturalsort.Sort(stringKeysFromMap(machines)) {
 		printMachine(w, machines[name])
 	}
@@ -352,8 +352,7 @@ func FormatMachineTabular(writer io.Writer, forceColor bool, value interface{}) 
 	if forceColor {
 		tw.SetColorCapable(forceColor)
 	}
-	printMachines(tw, fs.Machines)
-	tw.Flush()
+	printMachines(tw, true, fs.Machines)
 
 	return nil
 }
