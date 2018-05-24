@@ -17,8 +17,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os"
 	"github.com/juju/utils/featureflag"
-	"github.com/juju/utils/os"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 

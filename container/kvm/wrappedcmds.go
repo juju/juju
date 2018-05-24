@@ -25,9 +25,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/series"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/container/kvm/libvirt"

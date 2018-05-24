@@ -7,8 +7,8 @@ import (
 	"path"
 
 	"github.com/juju/errors"
-	jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/series"
+	jujuos "github.com/juju/os"
+	"github.com/juju/os/series"
 	"google.golang.org/api/compute/v1"
 )
 

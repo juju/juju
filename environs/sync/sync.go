@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	jujuseries "github.com/juju/os/series"
 	"github.com/juju/utils"
-	jujuseries "github.com/juju/utils/series"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/environs/filestorage"

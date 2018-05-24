@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/juju/loggo"
-	"github.com/juju/utils/series"
+	"github.com/juju/os/series"
 
 	"github.com/juju/juju/juju/paths"
 )

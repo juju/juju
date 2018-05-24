@@ -6,7 +6,7 @@ package backups_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/utils/os"
+	"github.com/juju/os"
 
 	"github.com/juju/juju/testing"
 )
