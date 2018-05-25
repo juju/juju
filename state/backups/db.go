@@ -157,6 +157,7 @@ func NewDBDumper(info *DBInfo) (DBDumper, error) {
 func (md *mongoDumper) options(dumpDir string) []string {
 	options := []string{
 		"--ssl",
+		"--sslAllowInvalidCertificates",
 		"--authenticationDatabase", "admin",
 		"--host", md.Address,
 		"--username", md.Username,
