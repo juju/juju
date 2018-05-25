@@ -298,36 +298,33 @@ func mongoPath(
 	stat func(string) (os.FileInfo, error),
 	lookPath func(string) (string, error),
 ) (string, error) {
-	switch version {
-	case Mongo24:
+	// we don't want to match on patch so we remove it.
+	if version.Major == 2 && version.Minor == 4 {
 		if _, err := stat(JujuMongod24Path); err == nil {
 			return JujuMongod24Path, nil
 		}
-
 		path, err := lookPath("mongod")
 		if err != nil {
 			logger.Infof("could not find %v or mongod in $PATH", JujuMongod24Path)
 			return "", err
 		}
 		return path, nil
-	case Mongo36wt:
+	}
+	if version.Major == 3 && version.Minor == 6 {
 		if _, err := stat(MongodSystemPath); err == nil {
 			return MongodSystemPath, nil
 		} else {
 			return "", err
 		}
-	default:
-		path := JujuMongodPath(version)
-		var err error
-		if _, err = stat(path); err == nil {
-			return path, nil
-		}
 	}
-
+	path := JujuMongodPath(version)
+	var err error
+	if _, err = stat(path); err == nil {
+		return path, nil
+	}
 	logger.Infof("could not find a suitable binary for %q", version)
 	errMsg := fmt.Sprintf("no suitable binary for %q", version)
 	return "", errors.New(errMsg)
-
 }
 
 /*
