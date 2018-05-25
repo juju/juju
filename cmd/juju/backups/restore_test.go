@@ -5,7 +5,7 @@ package backups_test
 
 import (
 	"fmt"
-	"path"
+	"path/filepath"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
@@ -108,8 +108,8 @@ func (s *restoreSuite) TestArgParsing(c *gc.C) {
 		err := cmdtesting.InitCommand(s.wrappedCommand, test.args)
 		if test.errMatch == "" {
 			c.Assert(err, jc.ErrorIsNil)
-			obtainedName := path.Base(s.command.Filename)
-			expectedName := path.Base(test.filename)
+			obtainedName := filepath.Base(s.command.Filename)
+			expectedName := filepath.Base(test.filename)
 			c.Assert(obtainedName, gc.Equals, expectedName)
 			c.Assert(s.command.BackupId, gc.Equals, test.id)
 		} else {
