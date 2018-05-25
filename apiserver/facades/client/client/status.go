@@ -177,7 +177,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if context.status, err = context.model.LoadModelStatus(); err != nil {
 		return noStatus, errors.Annotate(err, "could not load model status values")
 	}
-	if context.applications, context.units, context.latestCharms, err =
+	if context.allAppsUnitsCharmBindings, err =
 		fetchAllApplicationsAndUnits(c.api.stateAccessor, context.model); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch applications and units")
 	}
@@ -188,7 +188,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	// Only admins can see offer details.
 	if err := c.checkIsAdmin(); err == nil {
 		if context.offers, err =
-			fetchOffers(c.api.stateAccessor, context.applications); err != nil {
+			fetchOffers(c.api.stateAccessor, context.allAppsUnitsCharmBindings.applications); err != nil {
 			return noStatus, errors.Annotate(err, "could not fetch application offers")
 		}
 	}
@@ -203,13 +203,13 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if context.relations, context.relationsById, err = fetchRelations(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch relations")
 	}
-	if len(context.applications) > 0 {
+	if len(context.allAppsUnitsCharmBindings.applications) > 0 {
 		if context.leaders, err = c.api.stateAccessor.ApplicationLeaders(); err != nil {
 			return noStatus, errors.Annotate(err, " could not fetch leaders")
 		}
 	}
 
-	logger.Tracef("Applications: %v", context.applications)
+	logger.Tracef("Applications: %v", context.allAppsUnitsCharmBindings.applications)
 	logger.Tracef("Remote applications: %v", context.consumerRemoteApplications)
 	logger.Tracef("Offers: %v", context.offers)
 	logger.Tracef("Relations: %v", context.relations)
@@ -249,7 +249,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		// pass. This fixes situations similar to inconsistencies
 		// observed in lp#1592872.
 		machineUnits := map[string][]string{}
-		for _, unitMap := range context.units {
+		for _, unitMap := range context.allAppsUnitsCharmBindings.units {
 			for name, unit := range unitMap {
 				machineId, err := unit.AssignedMachineId()
 				if err != nil {
@@ -289,7 +289,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		}
 
 		// Filter applications
-		for appName, app := range context.applications {
+		for appName, app := range context.allAppsUnitsCharmBindings.applications {
 			matches, err := predicate(app)
 			if err != nil {
 				return noStatus, errors.Annotate(err, "could not filter applications")
@@ -299,7 +299,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 			// or the application matched the given criteria.
 			deleted := false
 			if !matchedSvcs.Contains(appName) && !matches {
-				delete(context.applications, appName)
+				delete(context.allAppsUnitsCharmBindings.applications, appName)
 				deleted = true
 			}
 
@@ -403,6 +403,20 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 	return info, nil
 }
 
+type applicationStatusInfo struct {
+	// application: application name -> application
+	applications map[string]*state.Application
+
+	// units: units name -> units
+	units map[string]map[string]*state.Unit
+
+	// latestcharm: charm URL -> charm
+	latestCharms map[charm.URL]*state.Charm
+
+	// endpointpointBindings: application name -> endpoint -> space
+	endpointBindings map[string]map[string]string
+}
+
 type statusContext struct {
 	model  *state.Model
 	status *state.ModelStatus
@@ -419,20 +433,16 @@ type statusContext struct {
 	// linkLayerDevices: machine id -> list of linkLayerDevices
 	linkLayerDevices map[string][]*state.LinkLayerDevice
 
-	// applications: application name -> application
-	applications map[string]*state.Application
-
 	// remote applications: application name -> application
 	consumerRemoteApplications map[string]*state.RemoteApplication
 
 	// offers: offer name -> offer
 	offers map[string]offerStatus
 
-	relations     map[string][]*state.Relation
-	relationsById map[int]*state.Relation
-	units         map[string]map[string]*state.Unit
-	latestCharms  map[charm.URL]*state.Charm
-	leaders       map[string]string
+	allAppsUnitsCharmBindings applicationStatusInfo
+	relations                 map[string][]*state.Relation
+	relationsById             map[int]*state.Relation
+	leaders                   map[string]string
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -551,18 +561,14 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 func fetchAllApplicationsAndUnits(
 	st Backend,
 	model *state.Model,
-) (map[string]*state.Application, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
-
+) (applicationStatusInfo, error) {
 	appMap := make(map[string]*state.Application)
 	unitMap := make(map[string]map[string]*state.Unit)
 	latestCharms := make(map[charm.URL]*state.Charm)
 	applications, err := st.AllApplications()
-	if err != nil {
-		return nil, nil, nil, err
-	}
 	units, err := model.AllUnits()
 	if err != nil {
-		return nil, nil, nil, err
+		return applicationStatusInfo{}, err
 	}
 	allUnitsByApp := make(map[string]map[string]*state.Unit)
 	for _, unit := range units {
@@ -576,6 +582,16 @@ func fetchAllApplicationsAndUnits(
 			}
 		}
 	}
+
+	endpointBindings, err := model.AllEndpointBindings()
+	if err != nil {
+		return applicationStatusInfo{}, err
+	}
+	allBindingsByApp := make(map[string]map[string]string)
+	for _, bindings := range endpointBindings {
+		allBindingsByApp[bindings.AppName] = bindings.Bindings
+	}
+
 	for _, app := range applications {
 		appMap[app.Name()] = app
 		appUnits := allUnitsByApp[app.Name()]
@@ -595,12 +611,17 @@ func fetchAllApplicationsAndUnits(
 			continue
 		}
 		if err != nil {
-			return nil, nil, nil, err
+			return applicationStatusInfo{}, err
 		}
 		latestCharms[baseURL] = ch
 	}
 
-	return appMap, unitMap, latestCharms, nil
+	return applicationStatusInfo{
+		applications:     appMap,
+		units:            unitMap,
+		latestCharms:     latestCharms,
+		endpointBindings: allBindingsByApp,
+	}, nil
 }
 
 // fetchConsumerRemoteApplications returns a map from application name to remote application.
@@ -887,7 +908,7 @@ func (context *statusContext) getAllRelations() []*state.Relation {
 }
 
 func (context *statusContext) isSubordinate(ep *state.Endpoint) bool {
-	application := context.applications[ep.ApplicationName]
+	application := context.allAppsUnitsCharmBindings.applications[ep.ApplicationName]
 	if application == nil {
 		return false
 	}
@@ -909,7 +930,7 @@ func paramsJobsFromJobs(jobs []state.MachineJob) []multiwatcher.MachineJob {
 
 func (context *statusContext) processApplications() map[string]params.ApplicationStatus {
 	applicationsMap := make(map[string]params.ApplicationStatus)
-	for _, s := range context.applications {
+	for _, s := range context.allAppsUnitsCharmBindings.applications {
 		applicationsMap[s.Name()] = context.processApplication(s)
 	}
 	return applicationsMap
@@ -928,7 +949,7 @@ func (context *statusContext) processApplication(application *state.Application)
 		Life:    processLife(application),
 	}
 
-	if latestCharm, ok := context.latestCharms[*applicationCharm.URL().WithRevision(-1)]; ok && latestCharm != nil {
+	if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[*applicationCharm.URL().WithRevision(-1)]; ok && latestCharm != nil {
 		if latestCharm.Revision() > applicationCharm.URL().Revision {
 			processedStatus.CanUpgradeTo = latestCharm.String()
 		}
@@ -939,7 +960,7 @@ func (context *statusContext) processApplication(application *state.Application)
 		processedStatus.Err = common.ServerError(err)
 		return processedStatus
 	}
-	units := context.units[application.Name()]
+	units := context.allAppsUnitsCharmBindings.units[application.Name()]
 	if application.IsPrincipal() {
 		processedStatus.Units = context.processUnits(units, applicationCharm.URL().String())
 	}
@@ -976,6 +997,8 @@ func (context *statusContext) processApplication(application *state.Application)
 		sort.Sort(bySinceDescending(versions))
 		processedStatus.WorkloadVersion = versions[0].Message
 	}
+
+	processedStatus.EndpointBindings = context.allAppsUnitsCharmBindings.endpointBindings[application.Name()]
 
 	return processedStatus
 }
@@ -1125,7 +1148,7 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 
 func (context *statusContext) unitByName(name string) *state.Unit {
 	applicationName := strings.Split(name, "/")[0]
-	return context.units[applicationName][name]
+	return context.allAppsUnitsCharmBindings.units[applicationName][name]
 }
 
 func (context *statusContext) processApplicationRelations(application *state.Application) (related map[string][]string, subord []string, err error) {
