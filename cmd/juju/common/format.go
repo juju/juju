@@ -75,7 +75,7 @@ func FormatTime(t *time.Time, formatISO bool) string {
 // drops the date part of the time.Time.
 func FormatTimeAsTimestamp(t *time.Time, formatISO bool) string {
 	if formatISO {
-		return t.UTC().Format("15:04:05Z")
+		return t.UTC().Format("15:04:05")
 	}
 	return t.Local().Format("15:04:05Z07:00")
 }

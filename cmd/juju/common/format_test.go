@@ -58,7 +58,7 @@ var _ = gc.Suite(&FormatTimeAsTimestampSuite{})
 
 func (s *FormatTimeAsTimestampSuite) TestFormatTimeAsTimestamp(c *gc.C) {
 	now := time.Now().Round(time.Second)
-	utcFormat := "15:04:05Z"
+	utcFormat := "15:04:05"
 	localFormat := "15:04:05Z07:00"
 	var tests = []struct {
 		description  string

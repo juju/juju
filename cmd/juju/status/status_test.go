@@ -3814,7 +3814,7 @@ func substituteFakeTimestamp(c *gc.C, in []byte, expectIsoTime bool) []byte {
 		timeFormat = "15:04:05Z"
 	}
 	// This regexp will work for any input type
-	exp := regexp.MustCompile(`(?P<timestamp>[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|(\+[0-9]{2}:[0-9]{2})?))`)
+	exp := regexp.MustCompile(`(?P<timestamp>[0-9]{2}:[0-9]{2}:[0-9]{2}((Z|\+[0-9]{2}:[0-9]{2})?))`)
 	if matches := exp.FindStringSubmatch(string(in)); matches != nil {
 		for i, name := range exp.SubexpNames() {
 			if name != "timestamp" {
@@ -3825,6 +3825,9 @@ func substituteFakeTimestamp(c *gc.C, in []byte, expectIsoTime bool) []byte {
 				if index := strings.IndexRune(value, '+'); index >= 0 {
 					value = fmt.Sprintf("%sZ", value[:index])
 				}
+				if !strings.Contains(value, "R") {
+					value = fmt.Sprintf("%sZ", value)
+				}
 			}
 			_, err := time.Parse(timeFormat, value)
 			c.Assert(err, jc.ErrorIsNil)
@@ -3833,7 +3836,7 @@ func substituteFakeTimestamp(c *gc.C, in []byte, expectIsoTime bool) []byte {
 
 	out := exp.ReplaceAllString(string(in), `<timestamp>`)
 	// Substitute a made up time used in our expected output.
-	out = strings.Replace(out, "<timestamp>", timeFormat, -1)
+	out = strings.Replace(out, "<timestamp>", strings.Replace(timeFormat, "Z", "+", -1), -1)
 	return []byte(out)
 }
 
@@ -3935,7 +3938,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 		"machines":     M{},
 		"applications": M{},
 		"controller": M{
-			"timestamp": "15:04:05Z07:00",
+			"timestamp": "15:04:05+07:00",
 		},
 	}
 
@@ -3963,7 +3966,7 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 func (s *StatusSuite) TestMigrationInProgressTabular(c *gc.C) {
 	expected := `
 Model   Controller  Cloud/Region        Version  SLA          Timestamp       Notes
-hosted  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05Z07:00  migrating: foo bar
+hosted  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00  migrating: foo bar
 
 `[1:]
 
@@ -3981,7 +3984,7 @@ hosted  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05Z07:00  mi
 func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
 	expected := `
 Model   Controller  Cloud/Region        Version  SLA          Timestamp       Notes
-hosted  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05Z07:00  migrating: foo bar
+hosted  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00  migrating: foo bar
 
 `[1:]
 
@@ -4269,7 +4272,7 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
 Model       Controller  Cloud/Region        Version  SLA          Timestamp       Notes
-controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05Z07:00  upgrade available: 1.2.4
+controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00  upgrade available: 1.2.4
 
 SAAS         Status   Store  URL
 hosted-riak  unknown  local  me/model.riak
@@ -4653,7 +4656,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"    controller-member-status: adding-vote\n" +
 		"applications: {}\n" +
 		"controller:\n" +
-		"  timestamp: 15:04:05Z07:00\n"
+		"  timestamp: 15:04:05+07:00\n"
 
 	out := substituteFakeTime(c, "since", stdout, ctx.expectIsoTime)
 	out = substituteFakeTimestamp(c, out, ctx.expectIsoTime)
@@ -4961,7 +4964,7 @@ var statusTimeTest = test(
 				}),
 			},
 			"controller": M{
-				"timestamp": "15:04:05Z",
+				"timestamp": "15:04:05",
 			},
 		},
 	},
@@ -5161,7 +5164,7 @@ func (s *StatusSuite) TestStatusFormatTabularEmptyModel(c *gc.C) {
 	c.Check(string(stderr), gc.Equals, "Model \"controller\" is empty.\n")
 	expected := `
 Model       Controller  Cloud/Region        Version  SLA          Timestamp
-controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05Z07:00
+controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
 
 `[1:]
 	output := substituteFakeTimestamp(c, stdout, false)
@@ -5174,7 +5177,7 @@ func (s *StatusSuite) TestStatusFormatTabularForUnmatchedFilter(c *gc.C) {
 	c.Check(string(stderr), gc.Equals, "Nothing matched specified filter.\n")
 	expected := `
 Model       Controller  Cloud/Region        Version  SLA          Timestamp
-controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05Z07:00
+controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
 
 `[1:]
 	output := substituteFakeTimestamp(c, stdout, false)
