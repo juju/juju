@@ -321,23 +321,29 @@ func (s *ProxyUpdaterSuite) TestExternalFuncCalled(c *gc.C) {
 
 	// Called for both legacy and juju proxy values
 	externalProxySet := func() proxy.Settings {
-		var externalSettings proxy.Settings
-		updated := make(chan struct{})
+		updated := make(chan proxy.Settings)
+		done := make(chan struct{})
 		s.config.ExternalUpdate = func(values proxy.Settings) error {
-			externalSettings = values
-			close(updated)
+			select {
+			case updated <- values:
+			case <-done:
+			}
 			return nil
 		}
 		updater, err := proxyupdater.NewWorker(s.config)
 		c.Assert(err, jc.ErrorIsNil)
 		defer worker.Stop(updater)
+		// We need to close done before stopping the worker, so the
+		// defer comes after the worker stop.
+		defer close(done)
 
 		select {
 		case <-time.After(time.Second):
 			c.Fatal("function not called")
-		case <-updated:
+		case externalSettings := <-updated:
+			return externalSettings
 		}
-		return externalSettings
+		return proxy.Settings{}
 	}
 
 	proxySettings, _ := s.useLegacyConfig(c)
