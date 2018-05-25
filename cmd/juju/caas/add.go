@@ -4,14 +4,17 @@
 package caas
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/juju/names.v2"
 
 	cloudapi "github.com/juju/juju/api/cloud"
@@ -51,9 +54,9 @@ which one to use.
 
 Examples:
     juju add-k8s myk8scloud
-    
+
     KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
-    
+
     kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
 
 See also:
@@ -126,13 +129,19 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 
 // getStdinPipe returns nil if the context's stdin is not a pipe.
 func getStdinPipe(ctxt *cmd.Context) (io.Reader, error) {
-	if stdIn, ok := ctxt.Stdin.(*os.File); ok {
+	if stdIn, ok := ctxt.Stdin.(*os.File); ok && !terminal.IsTerminal(int(stdIn.Fd())) {
+		// stdIn from pipe but not terminal
 		stat, err := stdIn.Stat()
 		if err != nil {
 			return nil, err
 		}
-		if stat.Mode()&os.ModeNamedPipe != 0 {
-			return stdIn, nil
+		content, err := ioutil.ReadAll(stdIn)
+		if err != nil {
+			return nil, err
+		}
+		if (stat.Mode()&os.ModeCharDevice) == 0 && len(content) > 0 {
+			// workaround to get piped stdIn size because stat.Size() always == 0
+			return bytes.NewReader(content), nil
 		}
 	}
 	return nil, nil
@@ -153,6 +162,7 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	caasConfig, err := clientConfigFunc(stdIn)
+	logger.Debugf("caasConfig: %+v", caasConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}

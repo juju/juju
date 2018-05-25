@@ -173,6 +173,7 @@ func getKubeConfigPath() string {
 	if envPath == "" {
 		return clientcmd.RecommendedHomeFile
 	}
+	logger.Debugf("KubuConfig file path: %q", envPath)
 	return envPath
 }
 

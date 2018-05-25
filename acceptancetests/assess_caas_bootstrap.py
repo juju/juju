@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """ Test caas k8s cluster bootstrap
 
     Spinning up k8s cluster and asserting the cluster is `healthy` - in this case, healthy means the k8s api server
