@@ -7,6 +7,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
@@ -21,7 +22,7 @@ type Client interface {
 	ApplicationWatcher
 	PodSpecSetter
 	StatusSetter
-	ModelName() (string, error)
+	Model() (*model.Model, error)
 }
 
 // CharmGetter provides an interface for getting

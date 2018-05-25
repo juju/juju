@@ -112,7 +112,7 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 		machineTag names.MachineTag
 		zone       string
 	)
-	if m.Type() == model.IAAS {
+	if m.ModelType == model.IAAS {
 		machineTag, err = unit.AssignedMachine()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -135,8 +135,8 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 		state:            config.State,
 		tracker:          config.Tracker,
 		paths:            config.Paths,
-		modelUUID:        m.UUID(),
-		modelName:        m.Name(),
+		modelUUID:        m.UUID,
+		modelName:        m.Name,
 		machineTag:       machineTag,
 		getRelationInfos: config.GetRelationInfos,
 		relationCaches:   map[int]*RelationCache{},
@@ -145,7 +145,7 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 		clock:            config.Clock,
 		zone:             zone,
 		principal:        principal,
-		modelType:        m.Type(),
+		modelType:        m.ModelType,
 	}
 	return f, nil
 }

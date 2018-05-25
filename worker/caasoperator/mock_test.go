@@ -6,6 +6,7 @@ package caasoperator_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/proxy"
 	"github.com/juju/testing"
@@ -149,8 +150,10 @@ func (c *fakeClient) ProxySettings() (proxy.Settings, error) {
 	return proxy.Settings{Http: "http.proxy"}, nil
 }
 
-func (c *fakeClient) ModelName() (string, error) {
-	return "gitlab-model", nil
+func (c *fakeClient) Model() (*model.Model, error) {
+	return &model.Model{
+		Name: "gitlab-model",
+	}, nil
 }
 
 type fakeDownloader struct {

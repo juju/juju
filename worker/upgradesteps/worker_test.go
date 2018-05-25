@@ -149,6 +149,20 @@ func (s *UpgradeSuite) TestNoUpgradeNecessary(c *gc.C) {
 	c.Check(doneLock.IsUnlocked(), jc.IsTrue)
 }
 
+func (s *UpgradeSuite) TestNoUpgradeNecessaryIgnoresBuildNumbers(c *gc.C) {
+	attemptsP := s.countUpgradeAttempts(nil)
+	s.captureLogs(c)
+	s.oldVersion.Number = jujuversion.Current
+	s.oldVersion.Build = 1 // Ensure there's a build number mismatch.
+
+	workerErr, config, _, doneLock := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
+
+	c.Check(workerErr, gc.IsNil)
+	c.Check(*attemptsP, gc.Equals, 0)
+	c.Check(config.Version, gc.Equals, s.oldVersion.Number)
+	c.Check(doneLock.IsUnlocked(), jc.IsTrue)
+}
+
 func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
 	// This test checks what happens when every upgrade attempt fails.
 	// A number of retries should be observed and the agent should end

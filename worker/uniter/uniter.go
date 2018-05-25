@@ -498,7 +498,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	u.modelType = m.Type()
+	u.modelType = m.ModelType
 
 	// Only IAAS models require the uniter to install charms.
 	// For CAAS models this is done by the operator.

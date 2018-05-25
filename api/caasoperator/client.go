@@ -13,6 +13,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
@@ -37,17 +38,25 @@ func (c *Client) appTag(application string) (names.ApplicationTag, error) {
 	return names.NewApplicationTag(application), nil
 }
 
-// ModelName returns the name of the model.
-func (c *Client) ModelName() (string, error) {
-	var result params.StringResult
-	err := c.facade.FacadeCall("ModelName", nil, &result)
+// Model returns the model entity.
+func (c *Client) Model() (*model.Model, error) {
+	var result params.ModelResult
+	err := c.facade.FacadeCall("CurrentModel", nil, &result)
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, err
 	}
 	if err := result.Error; err != nil {
-		return "", err
+		return nil, err
 	}
-	return result.Result, nil
+	modelType := model.ModelType(result.Type)
+	if modelType == "" {
+		modelType = model.IAAS
+	}
+	return &model.Model{
+		Name:      result.Name,
+		UUID:      result.UUID,
+		ModelType: modelType,
+	}, nil
 }
 
 // SetStatus sets the status of the specified application.

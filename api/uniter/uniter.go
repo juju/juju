@@ -324,7 +324,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 }
 
 // Model returns the model entity.
-func (st *State) Model() (*Model, error) {
+func (st *State) Model() (*model.Model, error) {
 	var result params.ModelResult
 	err := st.facade.FacadeCall("CurrentModel", nil, &result)
 	if err != nil {
@@ -337,10 +337,10 @@ func (st *State) Model() (*Model, error) {
 	if modelType == "" {
 		modelType = model.IAAS
 	}
-	return &Model{
-		name:      result.Name,
-		uuid:      result.UUID,
-		modelType: modelType,
+	return &model.Model{
+		Name:      result.Name,
+		UUID:      result.UUID,
+		ModelType: modelType,
 	}, nil
 }
 
