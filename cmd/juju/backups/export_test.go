@@ -83,3 +83,7 @@ func NewRestoreCommandForTest(
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c), &RestoreCommand{c}
 }
+
+func (r *RestoreCommand) AssignGetModelStatusAPI(apiFunc func() (ModelStatusAPI, error)) {
+	r.getModelStatusAPI = apiFunc
+}

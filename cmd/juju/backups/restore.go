@@ -12,21 +12,29 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/backups"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/bootstrap"
 )
 
 // NewRestoreCommand returns a command used to restore a backup.
 func NewRestoreCommand() cmd.Command {
-	return modelcmd.Wrap(&restoreCommand{})
+	c := &restoreCommand{}
+	c.getModelStatusAPI = func() (ModelStatusAPI, error) { return c.NewModelManagerAPIClient() }
+	return modelcmd.Wrap(c)
 }
 
 // restoreCommand is a subcommand of backups that implement the restore behavior
 // it is invoked with "juju restore-backup".
 type restoreCommand struct {
 	CommandBase
+	getModelStatusAPI func() (ModelStatusAPI, error)
+
 	Filename string
 	BackupId string
 }
@@ -43,6 +51,15 @@ type RestoreAPI interface {
 	RestoreReader(r io.ReadSeeker, meta *params.BackupsMetadataResult, newClient backups.ClientConnection) error
 }
 
+// ModelStatusAPI is used to invoke common.ModelStatus
+// The interface is used to facilitate testing.
+//
+//go:generate mockgen -package backups_test -destination modelstatusapi_mock_test.go github.com/juju/juju/cmd/juju/backups ModelStatusAPI
+type ModelStatusAPI interface {
+	Close() error
+	ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error)
+}
+
 var restoreDoc = `
 Restores the Juju state database backup that was previously created with
 "juju create-backup", returning an existing controller to a previous state.
@@ -50,6 +67,9 @@ Restores the Juju state database backup that was previously created with
 Note: Only the database will be restored.  Juju will not change the existing
 environment to match the restored database, e.g. no units, relations, nor
 machines will be added or removed during the restore process.
+
+Note: Extra care is needed to restore in an HA environment, please see
+https://docs.jujucharms.com/devel/en/controllers-backup for more information.
 
 If the provided state cannot be restored, this command will fail with
 an explanation.
@@ -72,7 +92,7 @@ func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.BackupId, "id", "", "Provide the name of the backup to be restored")
 }
 
-// Init is where the preconditions for this commands can be checked.
+// Init is where the preconditions for this command can be checked.
 func (c *restoreCommand) Init(args []string) error {
 	if c.Filename == "" && c.BackupId == "" {
 		return errors.Errorf("you must specify either a file or a backup id.")
@@ -88,10 +108,38 @@ func (c *restoreCommand) Init(args []string) error {
 			return errors.Trace(err)
 		}
 	}
+
 	return nil
 }
 
-func (c *restoreCommand) NewClient() (*backups.Client, error) {
+func (c *restoreCommand) modelStatus() (string, []base.ModelStatus, error) {
+	modelUUIDs, err := c.ModelUUIDs([]string{bootstrap.ControllerModelName})
+	if err != nil {
+		return "", nil, errors.Annotatef(err, "cannot get controller model uuid")
+	}
+	if len(modelUUIDs) != 1 {
+		return "", nil, errors.New("cannot get controller model uuid")
+	}
+	controllerModelUUID := modelUUIDs[0]
+
+	modelClient, err := c.getModelStatusAPI()
+	if err != nil {
+		return "", nil, errors.Annotatef(err, "cannot get model status client")
+	}
+	defer modelClient.Close()
+
+	modelStatus, err := modelClient.ModelStatus(names.NewModelTag(controllerModelUUID))
+	if err != nil {
+		return "", nil, errors.Annotatef(err, "cannot refresh controller model")
+	}
+	if len(modelStatus) != 1 {
+		return "", nil, errors.New("could not find controller model status")
+	}
+
+	return controllerModelUUID, modelStatus, nil
+}
+
+func (c *restoreCommand) newClient() (*backups.Client, error) {
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -111,13 +159,21 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
+	// Don't allow restore in an HA environment
+	controllerModelUUID, modelStatus, err := c.modelStatus()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	activeCount, _ := controller.ControllerMachineCounts(controllerModelUUID, modelStatus)
+	if activeCount > 1 {
+		return errors.Errorf("unable to restore backup in HA configuration.  For help see https://docs.jujucharms.com/devel/en/controllers-backup")
+	}
+
 	var archive ArchiveReader
 	var meta *params.BackupsMetadataResult
 	target := c.BackupId
 	if c.Filename != "" {
-		// Read archive specified by the Filename;
-		// we'll need the info later regardless if
-		// we need it now to rebootstrap.
+		// Read archive specified by the Filename
 		target = c.Filename
 		var err error
 		archive, meta, err = getArchive(c.Filename)
@@ -136,9 +192,9 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	// We have a backup client, now use the relevant method
 	// to restore the backup.
 	if c.Filename != "" {
-		err = client.RestoreReader(archive, meta, c.NewClient)
+		err = client.RestoreReader(archive, meta, c.newClient)
 	} else {
-		err = client.Restore(c.BackupId, c.NewClient)
+		err = client.Restore(c.BackupId, c.newClient)
 	}
 	if err != nil {
 		return errors.Trace(err)
