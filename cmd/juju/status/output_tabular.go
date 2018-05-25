@@ -61,7 +61,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		header = append(header, "SLA")
 		values = append(values, fs.Model.SLA)
 	}
-	if cs := fs.Model.ControllerStatus; cs != nil && cs.Timestamp != "" {
+	if cs := fs.Controller; cs != nil && cs.Timestamp != "" {
 		header = append(header, "Timestamp")
 		values = append(values, cs.Timestamp)
 	}

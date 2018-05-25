@@ -173,9 +173,6 @@ var (
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"sla": "unsupported",
-		"controller-status": M{
-			"timestamp": "15:04:05+07:00",
-		},
 	}
 
 	machine0 = M{
@@ -447,6 +444,9 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
@@ -490,6 +490,9 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
@@ -529,6 +532,9 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
@@ -569,6 +575,9 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -617,6 +626,9 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -647,6 +659,9 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -673,6 +688,9 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
@@ -699,6 +717,9 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -723,6 +744,9 @@ var statusTests = []testCase{
 					"dummy-application":   unexposedService,
 					"exposed-application": unexposedService,
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
@@ -738,6 +762,9 @@ var statusTests = []testCase{
 				"applications": M{
 					"dummy-application":   unexposedService,
 					"exposed-application": exposedService,
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -763,6 +790,9 @@ var statusTests = []testCase{
 				"applications": M{
 					"dummy-application":   unexposedService,
 					"exposed-application": exposedService,
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -839,6 +869,9 @@ var statusTests = []testCase{
 							},
 						},
 					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -972,6 +1005,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
@@ -1005,6 +1041,9 @@ var statusTests = []testCase{
 							},
 						},
 					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -1044,6 +1083,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 		scopedExpect{
@@ -1075,6 +1117,9 @@ var statusTests = []testCase{
 							},
 						},
 					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -1113,6 +1158,9 @@ var statusTests = []testCase{
 							},
 						},
 					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -1172,6 +1220,9 @@ var statusTests = []testCase{
 							},
 						},
 					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -1262,6 +1313,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -1351,6 +1405,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -1403,6 +1460,9 @@ var statusTests = []testCase{
 							},
 						},
 					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -1459,6 +1519,9 @@ var statusTests = []testCase{
 							},
 						},
 					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -1636,6 +1699,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -1740,6 +1806,9 @@ var statusTests = []testCase{
 							"ring": L{"riak"},
 						},
 					},
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -1887,6 +1956,9 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
@@ -1983,6 +2055,9 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
@@ -2036,6 +2111,9 @@ var statusTests = []testCase{
 						},
 					}),
 					"logging": loggingCharm,
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -2119,6 +2197,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
@@ -2200,6 +2281,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2252,6 +2336,9 @@ var statusTests = []testCase{
 							},
 						},
 					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -2307,6 +2394,9 @@ var statusTests = []testCase{
 							},
 						},
 					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -2365,6 +2455,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2420,6 +2513,9 @@ var statusTests = []testCase{
 							},
 						},
 					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -2565,6 +2661,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2587,12 +2686,12 @@ var statusTests = []testCase{
 						"since":   "01 Apr 15 01:23+10:00",
 					},
 					"sla": "unsupported",
-					"controller-status": M{
-						"timestamp": "15:04:05+07:00",
-					},
 				},
 				"machines":     M{},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 			stderr: "Model \"controller\" is empty.\n",
 		},
@@ -2646,6 +2745,9 @@ var statusTests = []testCase{
 							},
 						},
 					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -2721,6 +2823,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2745,6 +2850,9 @@ var statusTests = []testCase{
 					"0": machine0,
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2791,6 +2899,9 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2866,6 +2977,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2891,12 +3005,12 @@ var statusTests = []testCase{
 						"message": "status message",
 					},
 					"sla": "unsupported",
-					"controller-status": M{
-						"timestamp": "15:04:05+07:00",
-					},
 				},
 				"machines":     M{},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 			stderr: "Model \"controller\" is empty.\n",
 		},
@@ -2919,12 +3033,12 @@ var statusTests = []testCase{
 						"since":   "01 Apr 15 01:23+10:00",
 					},
 					"sla": "advanced",
-					"controller-status": M{
-						"timestamp": "15:04:05+07:00",
-					},
 				},
 				"machines":     M{},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 			stderr: "Model \"controller\" is empty.\n",
 		},
@@ -3713,9 +3827,7 @@ func substituteFakeTimestamp(c *gc.C, in []byte, expectIsoTime bool) []byte {
 				}
 			}
 			_, err := time.Parse(timeFormat, value)
-			if err != nil {
-				panic(err)
-			}
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 
@@ -3725,12 +3837,14 @@ func substituteFakeTimestamp(c *gc.C, in []byte, expectIsoTime bool) []byte {
 	return []byte(out)
 }
 
-// popControllerTimestamp removes the status time date string from the end of a output
-// block.
-func popControllerTimestamp(c *gc.C, str string) (string, string) {
-	lines := strings.Split(str, "\n")
-	c.Assert(len(lines), jc.GreaterThan, 1)
-	return lines[len(lines)-2], strings.Join(lines[:len(lines)-2], "\n")
+// substituteSpacingBetweenTimestampAndNotes forces the spacing between the
+// headers Timestamp and Notes to be consistent regardless of the time. This
+// happens because we're dealing with the result of the strings of stdout and
+// not with any useable AST
+func substituteSpacingBetweenTimestampAndNotes(c *gc.C, in []byte) []byte {
+	exp := regexp.MustCompile(`Timestamp(?P<spacing>\s+)Notes`)
+	result := exp.ReplaceAllString(string(in), fmt.Sprintf("Timestamp%sNotes", strings.Repeat(" ", 7)))
+	return []byte(result)
 }
 
 func (e scopedExpect) step(c *gc.C, ctx *context) {
@@ -3817,12 +3931,12 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 				"message": "migrating: foo bar",
 			},
 			"sla": "unsupported",
-			"controller-status": M{
-				"timestamp": "15:04:05Z07:00",
-			},
 		},
 		"machines":     M{},
 		"applications": M{},
+		"controller": M{
+			"timestamp": "15:04:05Z07:00",
+		},
 	}
 
 	for _, format := range statusFormats {
@@ -3860,6 +3974,7 @@ hosted  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05Z07:00  mi
 	c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
 
 	output := substituteFakeTimestamp(c, stdout, false)
+	output = substituteSpacingBetweenTimestampAndNotes(c, output)
 	c.Assert(string(output), gc.Equals, expected)
 }
 
@@ -3883,6 +3998,7 @@ hosted  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05Z07:00  mi
 	c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
 
 	output := substituteFakeTimestamp(c, stdout, false)
+	output = substituteSpacingBetweenTimestampAndNotes(c, output)
 	c.Assert(string(output), gc.Equals, expected)
 }
 
@@ -4186,6 +4302,7 @@ wordpress:logging-dir  logging:logging-directory  logging    subordinate
 `[1:]
 
 	output := substituteFakeTimestamp(c, stdout, false)
+	output = substituteSpacingBetweenTimestampAndNotes(c, output)
 	c.Assert(string(output), gc.Equals, expected)
 }
 
@@ -4503,8 +4620,6 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"    current: available\n" +
 		"    since: 01 Apr 15 01:23+10:00\n" +
 		"  sla: unsupported\n" +
-		"  controller-status:\n" +
-		"    timestamp: 15:04:05Z07:00\n" +
 		"machines:\n" +
 		"  \"0\":\n" +
 		"    juju-status:\n" +
@@ -4536,7 +4651,9 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"        series: quantal\n" +
 		"    hardware: arch=amd64 cores=1 mem=1024M root-disk=8192M\n" +
 		"    controller-member-status: adding-vote\n" +
-		"applications: {}\n"
+		"applications: {}\n" +
+		"controller:\n" +
+		"  timestamp: 15:04:05Z07:00\n"
 
 	out := substituteFakeTime(c, "since", stdout, ctx.expectIsoTime)
 	out = substituteFakeTimestamp(c, out, ctx.expectIsoTime)
@@ -4814,9 +4931,6 @@ var statusTimeTest = test(
 					"since":   "01 Apr 15 01:23+10:00",
 				},
 				"sla": "unsupported",
-				"controller-status": M{
-					"timestamp": "15:04:05Z",
-				},
 			},
 			"machines": M{
 				"0": machine0,
@@ -4845,6 +4959,9 @@ var statusTimeTest = test(
 						},
 					},
 				}),
+			},
+			"controller": M{
+				"timestamp": "15:04:05Z",
 			},
 		},
 	},
@@ -4889,9 +5006,6 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 	c.Check(formatted, jc.DeepEquals, formattedStatus{
 		Model: modelStatus{
 			Cloud: "dummy",
-			ControllerStatus: &controllerStatus{
-				Timestamp: common.FormatTimeAsTimestamp(&now, isoTime),
-			},
 		},
 		Machines: map[string]machineStatus{
 			"1": {
@@ -4906,6 +5020,9 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		Applications:       map[string]applicationStatus{},
 		RemoteApplications: map[string]remoteApplicationStatus{},
 		Offers:             map[string]offerStatus{},
+		Controller: &controllerStatus{
+			Timestamp: common.FormatTimeAsTimestamp(&now, isoTime),
+		},
 	})
 }
 
@@ -4982,9 +5099,6 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 	c.Check(formatted, jc.DeepEquals, formattedStatus{
 		Model: modelStatus{
 			Cloud: "dummy",
-			ControllerStatus: &controllerStatus{
-				Timestamp: common.FormatTimeAsTimestamp(&now, isoTime),
-			},
 		},
 		Machines: map[string]machineStatus{
 			"1": {
@@ -4999,6 +5113,9 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 		Applications:       map[string]applicationStatus{},
 		RemoteApplications: map[string]remoteApplicationStatus{},
 		Offers:             map[string]offerStatus{},
+		Controller: &controllerStatus{
+			Timestamp: common.FormatTimeAsTimestamp(&now, isoTime),
+		},
 	})
 }
 

@@ -81,7 +81,7 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 		}
 	}
 	if sf.status.ControllerTimestamp != nil {
-		out.Model.ControllerStatus = &controllerStatus{
+		out.Controller = &controllerStatus{
 			Timestamp: common.FormatTimeAsTimestamp(sf.status.ControllerTimestamp, sf.isoTime),
 		}
 	}

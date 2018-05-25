@@ -20,6 +20,7 @@ type formattedStatus struct {
 	RemoteApplications map[string]remoteApplicationStatus `json:"application-endpoints,omitempty" yaml:"application-endpoints,omitempty"`
 	Offers             map[string]offerStatus             `json:"offers,omitempty" yaml:"offers,omitempty"`
 	Relations          []relationStatus                   `json:"-" yaml:"-"`
+	Controller         *controllerStatus                  `json:"controller,omitempty" yaml:"controller,omitempty"`
 }
 
 type formattedMachineStatus struct {
@@ -42,7 +43,6 @@ type modelStatus struct {
 	Status           statusInfoContents `json:"model-status,omitempty" yaml:"model-status,omitempty"`
 	MeterStatus      *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
 	SLA              string             `json:"sla,omitempty" yaml:"sla,omitempty"`
-	ControllerStatus *controllerStatus  `json:"controller-status,omitempty" yaml:"controller-status,omitempty"`
 }
 
 type controllerStatus struct {
