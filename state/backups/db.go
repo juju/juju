@@ -390,6 +390,7 @@ func (md *mongoRestorer32) options(dumpDir string) []string {
 	// than the "1000" that many report success using in the bug.
 	options := []string{
 		"--ssl",
+		"--sslAllowInvalidCertificates",
 		"--authenticationDatabase", "admin",
 		"--host", md.Addrs[0],
 		"--username", md.Username,
