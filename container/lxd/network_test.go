@@ -213,6 +213,52 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreatedWithUnusedName(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
+
+	defaultBridge := &lxdapi.Network{
+		Name:    network.DefaultLXDBridge,
+		Type:    "bridge",
+		Managed: true,
+		NetworkPut: lxdapi.NetworkPut{
+			Config: map[string]string{
+				"ipv4.address": "auto",
+				"ipv4.nat":     "true",
+				"ipv6.address": "none",
+				"ipv6.nat":     "false",
+			},
+		},
+	}
+	devReq := lxdapi.ProfilePut{
+		Devices: map[string]map[string]string{
+			"eth0": {},
+			"eth1": {},
+			// eth2 will be generated as the first unused device name.
+			"eth2": {
+				"parent":  network.DefaultLXDBridge,
+				"type":    "nic",
+				"nictype": "bridged",
+			},
+		},
+	}
+	gomock.InOrder(
+		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(defaultBridge, "", nil),
+		cSvr.EXPECT().UpdateProfile("default", devReq, lxdtesting.ETag).Return(nil),
+	)
+
+	profile := defaultProfile()
+	profile.Devices["eth0"] = map[string]string{}
+	profile.Devices["eth1"] = map[string]string{}
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = jujuSvr.VerifyNetworkDevice(profile, lxdtesting.ETag)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *networkSuite) TestVerifyNetworkDeviceNotPresentErrorForCluster(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
