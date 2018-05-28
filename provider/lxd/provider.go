@@ -157,7 +157,7 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	bridgeName := raw.DefaultProfileBridgeName()
+	bridgeName := raw.LocalBridgeName()
 	hostAddress, err := p.interfaceAddress(bridgeName)
 	if err != nil {
 		return "", errors.Trace(err)

@@ -105,10 +105,6 @@ func (c Client) String() string {
 	return fmt.Sprintf("Client(%s)", c.baseURL)
 }
 
-func (c Client) DefaultProfileBridgeName() string {
-	return c.LocalBridgeName()
-}
-
 // Connect opens an API connection to LXD and returns a high-level
 // Client wrapper around that connection.
 func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
