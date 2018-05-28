@@ -103,8 +103,8 @@ func (s *networkSuite) TestVerifyNetworkDeviceMultipleNICsOneValid(c *gc.C) {
 	cSvr := s.NewMockServerClustered(ctrl, "cluster-1")
 
 	profile := defaultProfile()
-	profile.Devices["eth9"] = profile.Devices["eth0"]
-	profile.Devices["eth9"]["parent"] = "valid-net"
+	profile.Devices["eno1"] = profile.Devices["eth0"]
+	profile.Devices["eno1"]["parent"] = "valid-net"
 
 	net := &lxdapi.Network{
 		Name:    network.DefaultLXDBridge,

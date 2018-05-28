@@ -22,6 +22,9 @@ const (
 	nicTypeMACVLAN = "macvlan"
 )
 
+// device is a type alias for profile devices.
+type device = map[string]string
+
 // LocalBridgeName returns the name of the local LXD network bridge.
 func (s *Server) LocalBridgeName() string {
 	return s.localBridgeName
@@ -41,7 +44,7 @@ func (s *Server) EnsureIPv4(netName string) (bool, error) {
 	cfg, ok := net.Config["ipv4.address"]
 	if !ok || cfg == "none" {
 		if net.Config == nil {
-			net.Config = make(map[string]string, 2)
+			net.Config = make(device, 2)
 		}
 		net.Config["ipv4.address"] = "auto"
 		net.Config["ipv4.nat"] = "true"
@@ -125,7 +128,7 @@ func (s *Server) ensureDefaultNetworking(profile *api.Profile, eTag string) erro
 	if net.Type == "bridge" {
 		nicType = nicTypeBridged
 	}
-	profile.Devices[nicName] = map[string]string{
+	profile.Devices[nicName] = device{
 		"type":    nic,
 		"nictype": nicType,
 		"parent":  network.DefaultLXDBridge,
@@ -141,7 +144,7 @@ func (s *Server) ensureDefaultNetworking(profile *api.Profile, eTag string) erro
 
 // verifyNICsWithAPI uses the LXD network API to check if one of the input NIC
 // devices is suitable for LXD to work with Juju.
-func (s *Server) verifyNICsWithAPI(nics map[string]map[string]string) error {
+func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 	checked := make([]string, 0, len(nics))
 	for name, nic := range nics {
 		checked = append(checked, name)
@@ -175,9 +178,7 @@ func (s *Server) verifyNICsWithAPI(nics map[string]map[string]string) error {
 // verifyNICsWithConfigFile is recruited for legacy LXD installations.
 // It checks the LXD bridge configuration file and ensure that one of the input
 // devices is suitable for LXD to work with Juju.
-func (s *Server) verifyNICsWithConfigFile(
-	nics map[string]map[string]string, reader func(string) ([]byte, error),
-) error {
+func (s *Server) verifyNICsWithConfigFile(nics map[string]device, reader func(string) ([]byte, error)) error {
 	netName, err := checkBridgeConfigFile(reader)
 	if err != nil {
 		return errors.Trace(err)
@@ -209,7 +210,7 @@ func (s *Server) verifyNICsWithConfigFile(
 // but the name generation aborts to be safe from (theoretical) integer overflow.
 func generateNICDeviceName(profile *api.Profile) string {
 	template := "eth%d"
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		name := fmt.Sprintf(template, i)
 		unique := true
 		for d := range profile.Devices {
@@ -227,8 +228,8 @@ func generateNICDeviceName(profile *api.Profile) string {
 
 // getProfileNICs iterates over the devices in the input profile and returns
 // any that are of type "nic".
-func getProfileNICs(profile *api.Profile) map[string]map[string]string {
-	nics := make(map[string]map[string]string, len(profile.Devices))
+func getProfileNICs(profile *api.Profile) map[string]device {
+	nics := make(map[string]device, len(profile.Devices))
 	for k, v := range profile.Devices {
 		if v["type"] == nic {
 			nics[k] = v
@@ -239,6 +240,8 @@ func getProfileNICs(profile *api.Profile) map[string]map[string]string {
 
 // verifyNoIPv6 checks that the input network has no IPv6 configuration.
 // An error is returned when it does.
+// TODO (manadart 2018-05-28) The intention is to support IPv6, so this
+// restriction is temporary.
 func verifyNoIPv6(net *api.Network) error {
 	if !net.Managed {
 		return nil
@@ -256,12 +259,19 @@ func verifyNoIPv6(net *api.Network) error {
 		"and run the command again", net.Name)
 }
 
-func isValidNICType(nic map[string]string) bool {
+func isValidNICType(nic device) bool {
 	return nic["nictype"] == nicTypeBridged || nic["nictype"] == nicTypeMACVLAN
 }
 
 const BridgeConfigFile = "/etc/default/lxd-bridge"
 
+// checkBridgeConfigFile verifies that the file configuration for the LXD
+// bridge has a a bridge name, that it is set to be used by LXD and that
+// it has (only) IPv4 configuration.
+// TODO (manadart 2018-05-28) The error messages are invalid for LXD
+// installations that pre-date the network API support and that were installed
+// via Snap. The question of the correct user action was posed on the #lxd IRC
+// channel, but has not be answered to-date.
 func checkBridgeConfigFile(reader func(string) ([]byte, error)) (string, error) {
 	bridgeConfig, err := reader(BridgeConfigFile)
 	if os.IsNotExist(err) {
