@@ -18,13 +18,17 @@ import (
 	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
+	apicaasoperator "github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 var (
@@ -44,11 +48,7 @@ type CaasOperatorAgent struct {
 	setupLogging    func(agent.Config) error
 	ctx             *cmd.Context
 
-	// Used to signal that the upgrade worker will not
-	// reboot the agent on startup because there are no
-	// longer any immediately pending agent upgrades.
-	// Channel used as a selectable bool (closed means true).
-	initialUpgradeCheckComplete chan struct{}
+	upgradeComplete gate.Lock
 
 	prometheusRegistry *prometheus.Registry
 }
@@ -60,11 +60,10 @@ func NewCaasOperatorAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLo
 		return nil, errors.Trace(err)
 	}
 	return &CaasOperatorAgent{
-		AgentConf: NewAgentConf(""),
-		ctx:       ctx,
-		initialUpgradeCheckComplete: make(chan struct{}),
-		bufferedLogger:              bufferedLogger,
-		prometheusRegistry:          prometheusRegistry,
+		AgentConf:          NewAgentConf(""),
+		ctx:                ctx,
+		bufferedLogger:     bufferedLogger,
+		prometheusRegistry: prometheusRegistry,
 	}, nil
 }
 
@@ -113,6 +112,9 @@ func (op *CaasOperatorAgent) Run(ctx *cmd.Context) error {
 	if err := op.ReadConfig(op.Tag().String()); err != nil {
 		return err
 	}
+	agentConfig := op.CurrentConfig()
+	op.upgradeComplete = upgradesteps.NewLock(agentConfig)
+
 	logger.Infof("caas operator %v start (%s [%s])", op.Tag().String(), jujuversion.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
@@ -132,6 +134,8 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		LogSource:            op.bufferedLogger.Logs(),
 		PrometheusRegisterer: op.prometheusRegistry,
 		LeadershipGuarantee:  30 * time.Second,
+		UpgradeStepsLock:     op.upgradeComplete,
+		ValidateMigration:    op.validateMigration,
 	})
 
 	config := dependency.EngineConfig{
@@ -169,4 +173,26 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 // Tag implements Agent.
 func (op *CaasOperatorAgent) Tag() names.Tag {
 	return names.NewApplicationTag(op.ApplicationName)
+}
+
+// validateMigration is called by the migrationminion to help check
+// that the agent will be ok when connected to a new controller.
+func (op *CaasOperatorAgent) validateMigration(apiCaller base.APICaller) error {
+	// TODO(wallyworld) - more extensive checks to come.
+	facade := apicaasoperator.NewClient(apiCaller)
+	_, err := facade.Life(op.ApplicationName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	model, err := facade.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	curModelUUID := op.CurrentConfig().Model().Id()
+	newModelUUID := model.UUID
+	if newModelUUID != curModelUUID {
+		return errors.Errorf("model mismatch when validating: got %q, expected %q",
+			newModelUUID, curModelUUID)
+	}
+	return nil
 }

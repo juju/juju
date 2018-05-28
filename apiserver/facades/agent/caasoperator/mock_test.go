@@ -92,6 +92,14 @@ func (st *mockModel) Name() string {
 	return "some-model"
 }
 
+func (st *mockModel) UUID() string {
+	return "deadbeef"
+}
+
+func (st *mockModel) Type() state.ModelType {
+	return state.ModelTypeIAAS
+}
+
 func (st *mockModel) ModelConfig() (*config.Config, error) {
 	cfg := coretesting.FakeConfig()
 	attr := cfg.Merge(coretesting.Attrs{"type": "kubernetes"})

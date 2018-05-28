@@ -39,6 +39,16 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"clock",
 		"hook-retry-strategy",
 		"operator",
+		"migration-fortress",
+		"migration-minion",
+		"migration-inactive-flag",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+		// TODO(caas)
+		//"metric-spool",
+		//"meter-status",
+		//"metric-collect",
+		//"metric-sender",
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {

@@ -254,10 +254,14 @@ containers:
 	s.st.model.CheckCall(c, 0, "SetPodSpec", names.NewApplicationTag("gitlab"), validSpecStr)
 }
 
-func (s *CAASOperatorSuite) TestModelName(c *gc.C) {
-	result, err := s.facade.ModelName()
+func (s *CAASOperatorSuite) TestModel(c *gc.C) {
+	result, err := s.facade.CurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Result, gc.Equals, "some-model")
+	c.Assert(result, jc.DeepEquals, params.ModelResult{
+		Name: "some-model",
+		UUID: "deadbeef",
+		Type: "iaas",
+	})
 }
 
 func (s *CAASOperatorSuite) TestWatch(c *gc.C) {

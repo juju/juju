@@ -237,7 +237,7 @@ func (a *UnitAgent) validateMigration(apiCaller base.APICaller) error {
 		return errors.Trace(err)
 	}
 	curModelUUID := a.CurrentConfig().Model().Id()
-	newModelUUID := model.UUID()
+	newModelUUID := model.UUID
 	if newModelUUID != curModelUUID {
 		return errors.Errorf("model mismatch when validating: got %q, expected %q",
 			newModelUUID, curModelUUID)

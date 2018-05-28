@@ -63,9 +63,13 @@ func NewFacade(
 	}, nil
 }
 
-// ModelName returns the name of the model.
-func (f *Facade) ModelName() (params.StringResult, error) {
-	return params.StringResult{Result: f.model.Name()}, nil
+// CurrentModel returns the name and UUID for the current juju model.
+func (f *Facade) CurrentModel() (params.ModelResult, error) {
+	return params.ModelResult{
+		Name: f.model.Name(),
+		UUID: f.model.UUID(),
+		Type: string(f.model.Type()),
+	}, nil
 }
 
 // SetStatus sets the status of each given entity.

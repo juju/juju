@@ -144,13 +144,18 @@ var (
 	alwaysCAASWorkers = []string{
 		"agent",
 		"api-caller",
-		"charm-dir",
 		"clock",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"migration-minion",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	}
+	notMigratingCAASWorkers = []string{
+		"charm-dir",
 		"hook-retry-strategy",
 		"operator",
 	}
-	// TODO(caas)
-	notMigratingCAASWorkers = []string(nil)
 )
 
 func (s *CAASOperatorSuite) TestWorkers(c *gc.C) {
