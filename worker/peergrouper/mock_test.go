@@ -148,6 +148,8 @@ func (st *fakeState) checkInvariants() {
 // - total number of votes is odd.
 // - member voting status implies that machine has vote.
 func checkInvariants(st *fakeState) error {
+	st.mu.Lock()
+	defer st.mu.Unlock()
 	members := st.session.members.Get().([]replicaset.Member)
 	voteCount := 0
 	for _, m := range members {
@@ -158,11 +160,12 @@ func checkInvariants(st *fakeState) error {
 		voteCount += votes
 		if id, ok := m.Tags[jujuMachineKey]; ok {
 			if votes > 0 {
-				m := st.machine(id)
+				m := st.machines[id]
 				if m == nil {
 					return fmt.Errorf("voting member with machine id %q has no associated Machine", id)
 				}
-				if !m.HasVote() {
+
+				if !m.doc().hasVote {
 					return fmt.Errorf("machine %q should be marked as having the vote, but does not", id)
 				}
 			}
@@ -389,8 +392,8 @@ func (m *fakeMachine) mutate(f func(*machineDoc)) {
 	doc := m.doc()
 	f(&doc)
 	m.val.Set(doc)
-	m.mu.Unlock()
 	m.checker.checkInvariants()
+	m.mu.Unlock()
 }
 
 func (m *fakeMachine) setAddresses(addrs ...network.Address) {
