@@ -44,6 +44,7 @@ type newServer interface {
 	GetCertificate(fingerprint string) (certificate *lxdapi.Certificate, ETag string, err error)
 	DeleteCertificate(fingerprint string) (err error)
 	CreateClientCertificate(certificate *lxd.Certificate) error
+	LocalBridgeName() string
 }
 
 type lxdInstances interface {
@@ -56,7 +57,6 @@ type lxdInstances interface {
 }
 
 type lxdProfiles interface {
-	DefaultProfileBridgeName() string
 	CreateProfile(string, map[string]string) error
 	HasProfile(string) (bool, error)
 }
