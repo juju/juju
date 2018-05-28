@@ -586,7 +586,10 @@ func NetworksForRelation(
 
 	// If no egress subnets defined, We default to the ingress address.
 	if len(egress) == 0 && len(ingress) > 0 {
-		egress = network.FormatAsCIDR([]string{ingress[0]})
+		egress, err = network.FormatAsCIDR([]string{ingress[0]})
+		if err != nil {
+			return "", nil, nil, errors.Trace(err)
+		}
 	}
 	return boundSpace, ingress, egress, nil
 }
