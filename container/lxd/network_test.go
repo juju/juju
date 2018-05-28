@@ -4,12 +4,12 @@
 package lxd_test
 
 import (
+	"errors"
+
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	lxdapi "github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
-
-	"errors"
 
 	"github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
@@ -97,29 +97,42 @@ func (s *networkSuite) TestVerifyNetworkDevicePresentValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *networkSuite) TestVerifyNetworkDevicePresentBadDeviceType(c *gc.C) {
+func (s *networkSuite) TestVerifyNetworkDeviceMultipleNICsOneValid(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
-
-	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, "", nil)
+	cSvr := s.NewMockServerClustered(ctrl, "cluster-1")
 
 	profile := defaultProfile()
-	profile.Devices["eth0"]["type"] = "not-an-nic"
+	profile.Devices["eth9"] = profile.Devices["eth0"]
+	profile.Devices["eth9"]["parent"] = "valid-net"
+
+	net := &lxdapi.Network{
+		Name:    network.DefaultLXDBridge,
+		Managed: true,
+		NetworkPut: lxdapi.NetworkPut{
+			Config: map[string]string{
+				"ipv6.address": "something-not-nothing",
+			},
+		},
+	}
+
+	// Random map iteration may or may not cause this call to be made.
+	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(net, "", nil).MaxTimes(1)
+	cSvr.EXPECT().GetNetwork("valid-net").Return(&lxdapi.Network{}, "", nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = jujuSvr.VerifyNetworkDevice(profile, "")
-	c.Assert(err, gc.ErrorMatches, ".*is not configured with type=nic")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(jujuSvr.LocalBridgeName(), gc.Equals, "valid-net")
 }
 
 func (s *networkSuite) TestVerifyNetworkDevicePresentBadNicType(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
-
-	cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, "", nil)
 
 	profile := defaultProfile()
 	profile.Devices["eth0"]["nictype"] = "not-bridge-or-macvlan"
@@ -128,7 +141,10 @@ func (s *networkSuite) TestVerifyNetworkDevicePresentBadNicType(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = jujuSvr.VerifyNetworkDevice(profile, "")
-	c.Assert(err, gc.ErrorMatches, ".*is not configured with nictype.*")
+	c.Assert(err, gc.ErrorMatches,
+		`profile "default": no network device found with nictype "bridged" or "macvlan", `+
+			`and without IPv6 configured.\n`+
+			`\tthe following devices were checked: \[eth0\]`)
 }
 
 func (s *networkSuite) TestVerifyNetworkDeviceIPv6Present(c *gc.C) {
@@ -151,7 +167,10 @@ func (s *networkSuite) TestVerifyNetworkDeviceIPv6Present(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = jujuSvr.VerifyNetworkDevice(defaultProfile(), "")
-	c.Assert(err, gc.ErrorMatches, "^juju does not support IPv6((.|\n|\t)*)")
+	c.Assert(err, gc.ErrorMatches,
+		`profile "default": no network device found with nictype "bridged" or "macvlan", `+
+			`and without IPv6 configured.\n`+
+			`\tthe following devices were checked: \[eth0\]`)
 }
 
 func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *gc.C) {
@@ -206,14 +225,91 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentErrorForCluster(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = jujuSvr.VerifyNetworkDevice(profile, lxdtesting.ETag)
-	c.Assert(err, gc.ErrorMatches, `profile "default" does not have an "eth0" device`)
+	c.Assert(err, gc.ErrorMatches, `profile "default" does not have any devices configured with type "nic"`)
 }
 
 func (s *networkSuite) TestCheckLXDBridgeConfiguration(c *gc.C) {
-	var err error
+	bridgeName, err := lxd.CheckBridgeConfigFile(validBridgeConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(bridgeName, gc.Equals, "lxdbr0")
 
-	valid := func(string) ([]byte, error) {
+	noBridge := func(string) ([]byte, error) {
 		return []byte(`
+USE_LXD_BRIDGE="false"
+`), nil
+	}
+	_, err = lxd.CheckBridgeConfigFile(noBridge)
+	c.Assert(err.Error(), gc.Equals, `/etc/default/lxd-bridge has USE_LXD_BRIDGE set to false
+It looks like your LXD bridge has not yet been configured. Configure it via:
+
+	sudo dpkg-reconfigure -p medium lxd
+
+and run the command again.`)
+
+	noSubnets := func(string) ([]byte, error) {
+		return []byte(`
+USE_LXD_BRIDGE="true"
+LXD_BRIDGE="br0"
+`), nil
+	}
+	_, err = lxd.CheckBridgeConfigFile(noSubnets)
+	c.Assert(err.Error(), gc.Equals, `br0 has no ipv4 or ipv6 subnet enabled
+It looks like your LXD bridge has not yet been configured. Configure it via:
+
+	sudo dpkg-reconfigure -p medium lxd
+
+and run the command again.`)
+
+	ipv6 := func(string) ([]byte, error) {
+		return []byte(`
+USE_LXD_BRIDGE="true"
+LXD_BRIDGE="lxdbr0"
+LXD_IPV6_ADDR="2001:470:b368:4242::1"
+`), nil
+	}
+
+	_, err = lxd.CheckBridgeConfigFile(ipv6)
+	c.Assert(err.Error(), gc.Equals, lxd.BridgeConfigFile+` has IPv6 enabled.
+Juju doesn't currently support IPv6.
+Disable IPv6 via:
+
+	sudo dpkg-reconfigure -p medium lxd
+
+and run the command again.`)
+}
+
+func (s *networkSuite) TestVerifyNICsWithConfigFileNICFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = lxd.VerifyNICsWithConfigFile(jujuSvr, defaultProfile().Devices, validBridgeConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(jujuSvr.LocalBridgeName(), gc.Equals, "lxdbr0")
+}
+
+func (s *networkSuite) TestVerifyNICsWithConfigFileNICNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	nics := defaultProfile().Devices
+	nics["eth0"]["parent"] = "br0"
+
+	err = lxd.VerifyNICsWithConfigFile(jujuSvr, nics, validBridgeConfig)
+	c.Assert(err, gc.ErrorMatches,
+		`no network device found with nictype "bridged" or "macvlan" that uses the configured bridge in `+
+			lxd.BridgeConfigFile+"\n\tthe following devices were checked: "+`\[eth0\]`)
+}
+
+func validBridgeConfig(_ string) ([]byte, error) {
+	return []byte(`
 # Whether to setup a new bridge or use an existing one
 USE_LXD_BRIDGE="true"
 
@@ -255,66 +351,4 @@ LXD_IPV6_ADDR=""
 LXD_IPV6_MASK=""
 LXD_IPV6_NETWORK=""
 `), nil
-	}
-
-	err = lxd.CheckBridgeConfigFile(valid)
-	c.Assert(err, jc.ErrorIsNil)
-
-	noBridge := func(string) ([]byte, error) {
-		return []byte(`
-USE_LXD_BRIDGE="false"
-`), nil
-	}
-	err = lxd.CheckBridgeConfigFile(noBridge)
-	c.Assert(err.Error(), gc.Equals, `lxdbr0 not enabled but required
-It looks like your lxdbr0 has not yet been configured. Configure it via:
-
-	sudo dpkg-reconfigure -p medium lxd
-
-and run the command again.`)
-
-	badName := func(string) ([]byte, error) {
-		return []byte(`
-USE_LXD_BRIDGE="true"
-LXD_BRIDGE="meshuggahrocks"
-`), nil
-	}
-	err = lxd.CheckBridgeConfigFile(badName)
-	c.Assert(err.Error(), gc.Equals, lxd.BridgeConfigFile+` has a bridge named meshuggahrocks, not lxdbr0
-It looks like your lxdbr0 has not yet been configured. Configure it via:
-
-	sudo dpkg-reconfigure -p medium lxd
-
-and run the command again.`)
-
-	noSubnets := func(string) ([]byte, error) {
-		return []byte(`
-USE_LXD_BRIDGE="true"
-LXD_BRIDGE="lxdbr0"
-`), nil
-	}
-	err = lxd.CheckBridgeConfigFile(noSubnets)
-	c.Assert(err.Error(), gc.Equals, `lxdbr0 has no ipv4 or ipv6 subnet enabled
-It looks like your lxdbr0 has not yet been configured. Configure it via:
-
-	sudo dpkg-reconfigure -p medium lxd
-
-and run the command again.`)
-
-	ipv6 := func(string) ([]byte, error) {
-		return []byte(`
-USE_LXD_BRIDGE="true"
-LXD_BRIDGE="lxdbr0"
-LXD_IPV6_ADDR="2001:470:b368:4242::1"
-`), nil
-	}
-
-	err = lxd.CheckBridgeConfigFile(ipv6)
-	c.Assert(err.Error(), gc.Equals, lxd.BridgeConfigFile+` has IPv6 enabled.
-Juju doesn't currently support IPv6.
-Disable IPv6 via:
-
-	sudo dpkg-reconfigure -p medium lxd
-
-and run the command again.`)
 }

@@ -162,7 +162,7 @@ var configureLXDBridge = func() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		return server.ensureDefaultBridge(profile, eTag)
+		return server.ensureDefaultNetworking(profile, eTag)
 	}
 	return configureLXDBridgeForOlderLXD()
 }
