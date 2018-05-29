@@ -608,22 +608,28 @@ func SubnetInAnyRange(cidrs []*net.IPNet, subnet *net.IPNet) bool {
 	return false
 }
 
-// FormatAsCIDR converts the specified IP addresses to
-// a slice of CIDRs.
-func FormatAsCIDR(addresses []string) []string {
+// Export for testing
+var ResolverFunc = net.ResolveIPAddr
+
+// FormatAsCIDR converts the specified IP addresses to a slice of CIDRs. It
+// attempts to resolve any address represented as hostnames before formatting.
+func FormatAsCIDR(addresses []string) ([]string, error) {
 	result := make([]string, len(addresses))
 	for i, a := range addresses {
 		cidr := a
 		// If address is not already a cidr, add a /32 (ipv4) or /128 (ipv6).
 		if _, _, err := net.ParseCIDR(a); err != nil {
-			ip := net.ParseIP(a)
-			if ip.To4() != nil {
-				cidr = a + "/32"
+			address, err := ResolverFunc("ip", a)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if address.IP.To4() != nil {
+				cidr = address.String() + "/32"
 			} else {
-				cidr = a + "/128"
+				cidr = address.String() + "/128"
 			}
 		}
 		result[i] = cidr
 	}
-	return result
+	return result, nil
 }
