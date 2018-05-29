@@ -608,6 +608,9 @@ func SubnetInAnyRange(cidrs []*net.IPNet, subnet *net.IPNet) bool {
 	return false
 }
 
+// Export for testing
+var ResolverFunc = net.ResolveIPAddr
+
 // FormatAsCIDR converts the specified IP addresses to
 // a slice of CIDRs.
 func FormatAsCIDR(addresses []string) ([]string, error) {
@@ -616,7 +619,7 @@ func FormatAsCIDR(addresses []string) ([]string, error) {
 		cidr := a
 		// If address is not already a cidr, add a /32 (ipv4) or /128 (ipv6).
 		if _, _, err := net.ParseCIDR(a); err != nil {
-			address, err := net.ResolveIPAddr("ip", a)
+			address, err := ResolverFunc("ip", a)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
