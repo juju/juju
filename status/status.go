@@ -12,7 +12,7 @@ import (
 // very clear reason.
 //
 // Status values currently apply to machine (agents), unit (agents), unit
-// (workloads), service (workloads), volumes, filesystems, and models.
+// (workloads), application (workloads), volumes, filesystems, and models.
 type Status string
 
 // String returns a string representation of the Status.
@@ -55,7 +55,7 @@ const (
 	// For unit agents, this is a state we preserve for backwards
 	// compatibility with scripts during the life of Juju 1.x.
 	// In Juju 2.x, the agent-state will remain “active” and scripts
-	// will watch the unit-state instead for signals of service readiness.
+	// will watch the unit-state instead for signals of application readiness.
 	Started Status = "started"
 )
 
@@ -135,7 +135,7 @@ const (
 	Unknown Status = "unknown"
 
 	// Waiting is set when:
-	// The unit is unable to progress to an active state because a service to
+	// The unit is unable to progress to an active state because an application to
 	// which it is related is not running.
 	Waiting Status = "waiting"
 
@@ -275,7 +275,7 @@ func (status Status) KnownWorkloadStatus() bool {
 }
 
 // ValidWorkloadStatus returns true if status has a valid value (that is to say,
-// a value that it's OK to set) for units or services.
+// a value that it's OK to set) for units or applications.
 func ValidWorkloadStatus(status Status) bool {
 	switch status {
 	case

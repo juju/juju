@@ -115,7 +115,7 @@ func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *gc.C) {
 		Life:               string(params.Dying),
 		Owner:              "admin",
 		HostedMachineCount: 2,
-		ServiceCount:       2,
+		ApplicationCount:   2,
 	})
 	wrapped := s.newKillCommand()
 	err := cmdtesting.InitCommand(wrapped, []string{"test1", "--timeout=1m"})
@@ -217,7 +217,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutResetsWithChange(c *gc.C) {
 		Life:               string(params.Dying),
 		Owner:              "admin",
 		HostedMachineCount: 2,
-		ServiceCount:       2,
+		ApplicationCount:   2,
 	})
 	wrapped := s.newKillCommand()
 	err := cmdtesting.InitCommand(wrapped, []string{"test1", "--timeout=20s"})
@@ -268,7 +268,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutWithNoChange(c *gc.C) {
 		Life:               string(params.Dying),
 		Owner:              "admin",
 		HostedMachineCount: 2,
-		ServiceCount:       2,
+		ApplicationCount:   2,
 	})
 	wrapped := s.newKillCommand()
 	err := cmdtesting.InitCommand(wrapped, []string{"test1", "--timeout=1m"})
@@ -496,7 +496,7 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 			UUID:               env.UUID,
 			Life:               string(params.Dying),
 			HostedMachineCount: 2,
-			ServiceCount:       1,
+			ApplicationCount:   1,
 			Owner:              owner.Id(),
 		}
 	}

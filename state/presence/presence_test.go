@@ -483,7 +483,7 @@ func (s *PresenceSuite) TestSync(c *gc.C) {
 	}
 }
 
-func (s *PresenceSuite) TestTwoEnvironments(c *gc.C) {
+func (s *PresenceSuite) TestTwomodels(c *gc.C) {
 	key := "a"
 	w1, p1, ch1 := s.setup(c, key)
 	defer assertStopped(c, w1)

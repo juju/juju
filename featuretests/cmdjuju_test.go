@@ -53,7 +53,7 @@ func (s *cmdJujuSuite) TestGetConstraints(c *gc.C) {
 	err := app.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := cmdtesting.RunCommand(c, application.NewServiceGetConstraintsCommand(), "app")
+	context, err := cmdtesting.RunCommand(c, application.NewApplicationGetConstraintsCommand(), "app")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "cores=64\n")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 }

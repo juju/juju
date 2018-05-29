@@ -935,7 +935,7 @@ func (m *Model) uniqueIndexID() string {
 }
 
 // Destroy sets the models's lifecycle to Dying, preventing
-// addition of services or machines to state. If called on
+// addition of applications or machines to state. If called on
 // an empty hosted model, the lifecycle will be advanced
 // straight to Dead.
 func (m *Model) Destroy(args DestroyModelParams) (err error) {

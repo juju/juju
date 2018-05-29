@@ -32,7 +32,7 @@ const (
 	JujuStorageInstance = JujuTagPrefix + "storage-instance"
 
 	// JujuStorageOwner is the tag name used for identifying
-	// the service or unit that owns the Juju storage instance
+	// the application or unit that owns the Juju storage instance
 	// that an IaaS storage resource is assigned to.
 	JujuStorageOwner = JujuTagPrefix + "storage-owner"
 

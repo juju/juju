@@ -18,14 +18,14 @@ type UnitAssignmentSuite struct {
 
 var _ = gc.Suite(&UnitAssignmentSuite{})
 
-func (s *UnitAssignmentSuite) testAddServiceUnitAssignment(c *gc.C) (*state.Application, []state.UnitAssignment) {
+func (s *UnitAssignmentSuite) testAddApplicationUnitAssignment(c *gc.C) (*state.Application, []state.UnitAssignment) {
 	charm := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddApplication(state.AddApplicationArgs{
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: "dummy", Charm: charm, NumUnits: 2,
 		Placement: []*instance.Placement{{s.State.ModelUUID(), "abc"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	units, err := svc.AllUnits()
+	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 2)
 	for _, u := range units {
@@ -39,15 +39,15 @@ func (s *UnitAssignmentSuite) testAddServiceUnitAssignment(c *gc.C) (*state.Appl
 		{Unit: "dummy/0", Scope: s.State.ModelUUID(), Directive: "abc"},
 		{Unit: "dummy/1"},
 	})
-	return svc, assignments
+	return app, assignments
 }
 
-func (s *UnitAssignmentSuite) TestAddServiceUnitAssignment(c *gc.C) {
-	s.testAddServiceUnitAssignment(c)
+func (s *UnitAssignmentSuite) TestAddApplicationUnitAssignment(c *gc.C) {
+	s.testAddApplicationUnitAssignment(c)
 }
 
 func (s *UnitAssignmentSuite) TestAssignStagedUnits(c *gc.C) {
-	svc, _ := s.testAddServiceUnitAssignment(c)
+	app, _ := s.testAddApplicationUnitAssignment(c)
 
 	results, err := s.State.AssignStagedUnits([]string{
 		"dummy/0", "dummy/1",
@@ -58,7 +58,7 @@ func (s *UnitAssignmentSuite) TestAssignStagedUnits(c *gc.C) {
 		{Unit: "dummy/1"},
 	})
 
-	units, err := svc.AllUnits()
+	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 2)
 	for _, u := range units {
@@ -78,14 +78,14 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 	// https://bugs.launchpad.net/juju-core/+bug/1590960
 	charm := s.AddTestingCharm(c, "dummy")
 	placement := instance.Placement{Scope: "lxd"}
-	svc, err := s.State.AddApplication(state.AddApplicationArgs{
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:      "dummy",
 		Charm:     charm,
 		NumUnits:  1,
 		Placement: []*instance.Placement{&placement},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	units, err := svc.AllUnits()
+	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]

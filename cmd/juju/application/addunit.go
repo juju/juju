@@ -139,7 +139,7 @@ type addUnitCommand struct {
 	modelcmd.ModelCommandBase
 	UnitCommandBase
 	ApplicationName string
-	api             serviceAddUnitAPI
+	api             applicationAddUnitAPI
 }
 
 func (c *addUnitCommand) Info() *cmd.Info {
@@ -169,16 +169,16 @@ func (c *addUnitCommand) Init(args []string) error {
 	return c.UnitCommandBase.Init(args)
 }
 
-// serviceAddUnitAPI defines the methods on the client API
+// applicationAddUnitAPI defines the methods on the client API
 // that the application add-unit command calls.
-type serviceAddUnitAPI interface {
+type applicationAddUnitAPI interface {
 	BestAPIVersion() int
 	Close() error
 	ModelUUID() string
 	AddUnits(application.AddUnitsParams) ([]string, error)
 }
 
-func (c *addUnitCommand) getAPI() (serviceAddUnitAPI, error) {
+func (c *addUnitCommand) getAPI() (applicationAddUnitAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}

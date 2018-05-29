@@ -34,8 +34,8 @@ func (s *StagedResourceSuite) SetUpTest(c *gc.C) {
 	}}
 }
 
-func (s *StagedResourceSuite) newStagedResource(c *gc.C, serviceID, name string) (*StagedResource, resourceDoc) {
-	stored, doc := newPersistenceResource(c, serviceID, name)
+func (s *StagedResourceSuite) newStagedResource(c *gc.C, applicationID, name string) (*StagedResource, resourceDoc) {
+	stored, doc := newPersistenceResource(c, applicationID, name)
 	ignoredErr := errors.New("<never reached>")
 	s.stub.SetErrors(nil, nil, ignoredErr)
 	staged := &StagedResource{

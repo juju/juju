@@ -16,7 +16,7 @@ import (
 // Resources describes the state functionality for resources.
 type Resources interface {
 	// ListResources returns the list of resources for the given application.
-	ListResources(applicationID string) (resource.ServiceResources, error)
+	ListResources(applicationID string) (resource.ApplicationResources, error)
 
 	// ListPendingResources returns the list of pending resources for
 	// the given application.
@@ -50,7 +50,7 @@ type Resources interface {
 	OpenResourceForUniter(unit resource.Unit, name string) (resource.Resource, io.ReadCloser, error)
 
 	// SetCharmStoreResources sets the "polled" resources for the
-	// service to the provided values.
+	// application to the provided values.
 	SetCharmStoreResources(applicationID string, info []charmresource.Resource, lastPolled time.Time) error
 
 	// RemovePendingAppResources removes any pending application-level
@@ -80,7 +80,7 @@ type ResourcesPersistence interface {
 	NewRemoveUnitResourcesOps(unitID string) ([]txn.Op, error)
 
 	// NewRemoveResourcesOps returns mgo transaction operations that
-	// remove all the service's resources from state.
+	// remove all the application's resources from state.
 	NewRemoveResourcesOps(applicationID string) ([]txn.Op, error)
 }
 

@@ -528,7 +528,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	// args.SubnetsToZones map. In AWS a subnet can span only one zone, so here
 	// we build the reverse map zonesToSubnets, which we will use to below in
 	// the RunInstance loop to provide an explicit subnet ID, rather than just
-	// AZ. This ensures instances in the same group (units of a service or all
+	// AZ. This ensures instances in the same group (units of an application or all
 	// instances when adding a machine manually) will still be evenly
 	// distributed across AZs, but only within subnets of the space constraint.
 	//

@@ -44,7 +44,7 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	newFactory := factory.NewFactory(s.State)
-	// Create two machines, two applications and add a unit to each service.
+	// Create two machines, two applications and add a unit to each application.
 	s.machine0 = newFactory.MakeMachine(c, &factory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},

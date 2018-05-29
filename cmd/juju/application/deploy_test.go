@@ -161,7 +161,7 @@ func (s *DeploySuite) TestCharmDir(c *gc.C) {
 	err := runDeploy(c, ch, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
-	s.AssertService(c, "multi-series", curl, 1, 0)
+	s.AssertApplication(c, "multi-series", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFromPathRelativeDir(c *gc.C) {
@@ -183,7 +183,7 @@ func (s *DeploySuite) TestDeployFromPathOldCharm(c *gc.C) {
 	err := runDeploy(c, path, "--series", "precise", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
-	s.AssertService(c, "dummy", curl, 1, 0)
+	s.AssertApplication(c, "dummy", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
@@ -202,7 +202,7 @@ func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c 
 	err := runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", version.SupportedLTS()))
-	s.AssertService(c, "dummy", curl, 1, 0)
+	s.AssertApplication(c, "dummy", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
@@ -216,7 +216,7 @@ func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
 	err = runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
-	s.AssertService(c, "multi-series", curl, 1, 0)
+	s.AssertApplication(c, "multi-series", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
@@ -224,7 +224,7 @@ func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
 	err := runDeploy(c, path, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
-	s.AssertService(c, "multi-series", curl, 1, 0)
+	s.AssertApplication(c, "multi-series", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeries(c *gc.C) {
@@ -238,7 +238,7 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
 	err := runDeploy(c, path, "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/multi-series-1")
-	s.AssertService(c, "multi-series", curl, 1, 0)
+	s.AssertApplication(c, "multi-series", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
@@ -251,7 +251,7 @@ func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	upgradedRev := dummyCharm.Revision() + 1
 	curl := dummyCharm.URL().WithRevision(upgradedRev)
-	s.AssertService(c, "dummy", curl, 1, 0)
+	s.AssertApplication(c, "dummy", curl, 1, 0)
 	// Check the charm dir was left untouched.
 	ch, err := charm.ReadCharmDir(dirPath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -263,7 +263,7 @@ func (s *DeploySuite) TestCharmBundle(c *gc.C) {
 	err := runDeploy(c, ch, "some-application-name", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
-	s.AssertService(c, "some-application-name", curl, 1, 0)
+	s.AssertApplication(c, "some-application-name", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
@@ -271,7 +271,7 @@ func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
 	err := runDeploy(c, ch, "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/logging-1")
-	s.AssertService(c, "logging", curl, 0, 0)
+	s.AssertApplication(c, "logging", curl, 0, 0)
 }
 
 func (s *DeploySuite) combinedSettings(ch charm.Charm, inSettings charm.Settings) charm.Settings {
@@ -362,7 +362,7 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 	err := runDeploy(c, ch, "--constraints", "mem=2G cores=2", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
-	application, _ := s.AssertService(c, "multi-series", curl, 1, 0)
+	application, _ := s.AssertApplication(c, "multi-series", curl, 1, 0)
 	cons, err := application.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cores=2"))
@@ -403,7 +403,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 	err := runDeploy(c, ch, "--storage", "data=machinescoped,1G", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/storage-block-1")
-	application, _ := s.AssertService(c, "storage-block", curl, 1, 0)
+	application, _ := s.AssertApplication(c, "storage-block", curl, 1, 0)
 
 	cons, err := application.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -457,7 +457,7 @@ func (s *DeploySuite) TestNumUnits(c *gc.C) {
 	err := runDeploy(c, ch, "-n", "13", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
-	s.AssertService(c, "multi-series", curl, 13, 0)
+	s.AssertApplication(c, "multi-series", curl, 13, 0)
 }
 
 func (s *DeploySuite) TestNumUnitsSubordinate(c *gc.C) {
@@ -564,7 +564,7 @@ func (s *DeploySuite) TestDeployLocalWithTerms(c *gc.C) {
 	c.Check(stdErr, gc.Equals, `Deploying charm "local:trusty/terms1-1".`)
 
 	curl := charm.MustParseURL("local:trusty/terms1-1")
-	s.AssertService(c, "terms1", curl, 1, 0)
+	s.AssertApplication(c, "terms1", curl, 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFlags(c *gc.C) {
@@ -879,14 +879,14 @@ type applicationInfo struct {
 	endpointBindings map[string]string
 }
 
-// assertDeployedServiceBindings checks that services were deployed into the
-// expected spaces. It is separate to assertServicesDeployed because it is only
+// assertDeployedApplicationBindings checks that applications were deployed into the
+// expected spaces. It is separate to assertApplicationsDeployed because it is only
 // relevant to a couple of tests.
-func (s *charmStoreSuite) assertDeployedServiceBindings(c *gc.C, info map[string]applicationInfo) {
-	services, err := s.State.AllApplications()
+func (s *charmStoreSuite) assertDeployedApplicationBindings(c *gc.C, info map[string]applicationInfo) {
+	applications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
 
-	for _, application := range services {
+	for _, application := range applications {
 		endpointBindings, err := application.EndpointBindings()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(endpointBindings, jc.DeepEquals, info[application.Name()].endpointBindings)
@@ -962,8 +962,8 @@ type testMetricCredentialsSetter struct {
 	err    error
 }
 
-func (t *testMetricCredentialsSetter) SetMetricCredentials(serviceName string, data []byte) error {
-	t.assert(serviceName, data)
+func (t *testMetricCredentialsSetter) SetMetricCredentials(applicationName string, data []byte) error {
+	t.assert(applicationName, data)
 	return t.err
 }
 
@@ -1211,7 +1211,7 @@ func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecified
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"wordpress-extra-bindings": {charm: "cs:quantal/wordpress-extra-bindings-1", config: ch.Config().DefaultSettings()},
 	})
-	s.assertDeployedServiceBindings(c, map[string]applicationInfo{
+	s.assertDeployedApplicationBindings(c, map[string]applicationInfo{
 		"wordpress-extra-bindings": {
 			endpointBindings: map[string]string{
 				"":                "public",
@@ -1281,7 +1281,7 @@ func (s *ParseBindSuite) TestParseSuccessWithEndpointsOnly(c *gc.C) {
 	s.checkParseOKForArgs(c, "foo=a bar=b", map[string]string{"foo": "a", "bar": "b"})
 }
 
-func (s *ParseBindSuite) TestParseSuccessWithServiceDefaultSpaceOnly(c *gc.C) {
+func (s *ParseBindSuite) TestParseSuccessWithApplicationDefaultSpaceOnly(c *gc.C) {
 	s.checkParseOKForArgs(c, "application-default", map[string]string{"": "application-default"})
 }
 
@@ -1654,8 +1654,8 @@ func (f *fakeDeployAPI) IsMetered(charmURL string) (bool, error) {
 	return results[0].(bool), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) SetMetricCredentials(service string, credentials []byte) error {
-	results := f.MethodCall(f, "SetMetricCredentials", service, credentials)
+func (f *fakeDeployAPI) SetMetricCredentials(application string, credentials []byte) error {
+	results := f.MethodCall(f, "SetMetricCredentials", application, credentials)
 	return jujutesting.TypeAssertError(results[0])
 }
 
@@ -1784,8 +1784,8 @@ func (f *fakeDeployAPI) SetAnnotation(annotations map[string]map[string]string) 
 	return results[0].([]params.ErrorResult), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) GetCharmURL(serviceName string) (*charm.URL, error) {
-	results := f.MethodCall(f, "GetCharmURL", serviceName)
+func (f *fakeDeployAPI) GetCharmURL(applicationName string) (*charm.URL, error) {
+	results := f.MethodCall(f, "GetCharmURL", applicationName)
 	return results[0].(*charm.URL), jujutesting.TypeAssertError(results[1])
 }
 

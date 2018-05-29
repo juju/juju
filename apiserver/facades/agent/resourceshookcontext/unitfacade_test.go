@@ -46,7 +46,7 @@ func (s *UnitFacadeSuite) TestGetResourceInfoOkay(c *gc.C) {
 	opened2 := resourcetesting.NewResource(c, s.stub, "eggs", "a-application", "other data")
 	res2 := opened2.Resource
 	store := &stubUnitDataStore{Stub: s.stub}
-	store.ReturnListResources = resource.ServiceResources{
+	store.ReturnListResources = resource.ApplicationResources{
 		Resources: []resource.Resource{res1, res2},
 	}
 	uf := resourceshookcontext.UnitFacade{DataStore: store}
@@ -69,7 +69,7 @@ func (s *UnitFacadeSuite) TestGetResourceInfoOkay(c *gc.C) {
 func (s *UnitFacadeSuite) TestGetResourceInfoEmpty(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	store := &stubUnitDataStore{Stub: s.stub}
-	store.ReturnListResources = resource.ServiceResources{
+	store.ReturnListResources = resource.ApplicationResources{
 		Resources: []resource.Resource{opened.Resource},
 	}
 	uf := resourceshookcontext.UnitFacade{DataStore: store}
@@ -88,7 +88,7 @@ func (s *UnitFacadeSuite) TestGetResourceInfoEmpty(c *gc.C) {
 func (s *UnitFacadeSuite) TestGetResourceInfoNotFound(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	store := &stubUnitDataStore{Stub: s.stub}
-	store.ReturnListResources = resource.ServiceResources{
+	store.ReturnListResources = resource.ApplicationResources{
 		Resources: []resource.Resource{opened.Resource},
 	}
 	uf := resourceshookcontext.UnitFacade{DataStore: store}

@@ -14,13 +14,13 @@ import (
 type LifeSuite struct {
 	ConnSuite
 	charm *state.Charm
-	svc   *state.Application
+	app   *state.Application
 }
 
 func (s *LifeSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
-	s.svc = s.AddTestingApplication(c, "dummysvc", s.charm)
+	s.app = s.AddTestingApplication(c, "dummyapp", s.charm)
 }
 
 var _ = gc.Suite(&LifeSuite{})
@@ -94,7 +94,7 @@ func (l *unitLife) id() (coll string, id interface{}) {
 }
 
 func (l *unitLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
-	unit, err := s.svc.AddUnit(state.AddUnitParams{})
+	unit, err := s.app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 	l.unit = unit

@@ -148,8 +148,8 @@ func setupTestStorageSupport(c *gc.C, s *state.State) {
 
 func (s *unitStorageSuite) createStorageEnabledUnit(c *gc.C) {
 	s.ch = s.AddTestingCharm(c, s.charmName)
-	s.service = s.AddTestingApplicationWithStorage(c, s.charmName, s.ch, s.initCons)
-	s.unit = s.AddUnit(c, s.service)
+	s.application = s.AddTestingApplicationWithStorage(c, s.charmName, s.ch, s.initCons)
+	s.unit = s.AddUnit(c, s.application)
 
 	s.assertStorageCreated(c)
 	s.createHookSupport(c)

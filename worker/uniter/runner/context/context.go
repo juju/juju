@@ -106,7 +106,7 @@ type HookContext struct {
 	unit *uniter.Unit
 
 	// state is the handle to the uniter State so that HookContext can make
-	// API calls on the stateservice.
+	// API calls on the state.
 	// NOTE: We would like to be rid of the fake-remote-Unit and switch
 	// over fully to API calls on State.  This adds that ability, but we're
 	// not fully there yet.
@@ -129,7 +129,7 @@ type HookContext struct {
 	// availabilityzone is the cached value of the unit's availability zone name.
 	availabilityzone string
 
-	// configSettings holds the service configuration.
+	// configSettings holds the application configuration.
 	configSettings charm.Settings
 
 	// goalState holds the goal state struct
@@ -324,7 +324,7 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 }
 
 // ApplicationStatus returns the status for the application and all the units on
-// the service to which this context unit belongs, only if this unit is
+// the application to which this context unit belongs, only if this unit is
 // the leader.
 func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error) {
 	var err error
@@ -335,11 +335,11 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 	if !isLeader {
 		return jujuc.ApplicationStatusInfo{}, ErrIsNotLeader
 	}
-	service, err := ctx.unit.Application()
+	application, err := ctx.unit.Application()
 	if err != nil {
 		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
 	}
-	status, err := service.Status(ctx.unit.Name())
+	status, err := application.Status(ctx.unit.Name())
 	if err != nil {
 		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
 	}
@@ -356,7 +356,7 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 	}
 	return jujuc.ApplicationStatusInfo{
 		Application: jujuc.StatusInfo{
-			Tag:    service.Tag().String(),
+			Tag:    application.Tag().String(),
 			Status: status.Application.Status,
 			Info:   status.Application.Info,
 			Data:   status.Application.Data,
@@ -376,10 +376,10 @@ func (ctx *HookContext) SetUnitStatus(unitStatus jujuc.StatusInfo) error {
 	)
 }
 
-// SetApplicationStatus will set the given status to the service to which this
+// SetApplicationStatus will set the given status to the application to which this
 // unit's belong, only if this unit is the leader.
-func (ctx *HookContext) SetApplicationStatus(serviceStatus jujuc.StatusInfo) error {
-	logger.Tracef("[APPLICATION-STATUS] %s: %s", serviceStatus.Status, serviceStatus.Info)
+func (ctx *HookContext) SetApplicationStatus(applicationStatus jujuc.StatusInfo) error {
+	logger.Tracef("[APPLICATION-STATUS] %s: %s", applicationStatus.Status, applicationStatus.Info)
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
@@ -388,15 +388,15 @@ func (ctx *HookContext) SetApplicationStatus(serviceStatus jujuc.StatusInfo) err
 		return ErrIsNotLeader
 	}
 
-	service, err := ctx.unit.Application()
+	application, err := ctx.unit.Application()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return service.SetStatus(
+	return application.SetStatus(
 		ctx.unit.Name(),
-		status.Status(serviceStatus.Status),
-		serviceStatus.Info,
-		serviceStatus.Data,
+		status.Status(applicationStatus.Status),
+		applicationStatus.Info,
+		applicationStatus.Data,
 	)
 }
 

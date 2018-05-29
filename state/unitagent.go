@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/status"
 )
 
-// UnitAgent represents the state of a service's unit agent.
+// UnitAgent represents the state of an application's unit agent.
 type UnitAgent struct {
 	st   *State
 	tag  names.Tag

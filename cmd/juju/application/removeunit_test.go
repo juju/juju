@@ -41,7 +41,7 @@ func (s *RemoveUnitSuite) setupUnitForRemove(c *gc.C) *state.Application {
 	err := runDeploy(c, "-n", "2", ch, "multi-series", "--series", "precise")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:precise/multi-series-1")
-	svc, _ := s.AssertService(c, "multi-series", curl, 2, 0)
+	svc, _ := s.AssertApplication(c, "multi-series", curl, 2, 0)
 	return svc
 }
 

@@ -74,7 +74,7 @@ func newResource(c *gc.C, name, username, data string) (resource.Resource, param
 type stubDataStore struct {
 	stub *testing.Stub
 
-	ReturnListResources         resource.ServiceResources
+	ReturnListResources         resource.ApplicationResources
 	ReturnAddPendingResource    string
 	ReturnGetResource           resource.Resource
 	ReturnGetPendingResource    resource.Resource
@@ -90,17 +90,17 @@ func (s *stubDataStore) OpenResource(application, name string) (resource.Resourc
 	return s.ReturnGetResource, nil, nil
 }
 
-func (s *stubDataStore) ListResources(service string) (resource.ServiceResources, error) {
-	s.stub.AddCall("ListResources", service)
+func (s *stubDataStore) ListResources(application string) (resource.ApplicationResources, error) {
+	s.stub.AddCall("ListResources", application)
 	if err := s.stub.NextErr(); err != nil {
-		return resource.ServiceResources{}, errors.Trace(err)
+		return resource.ApplicationResources{}, errors.Trace(err)
 	}
 
 	return s.ReturnListResources, nil
 }
 
-func (s *stubDataStore) AddPendingResource(service, userID string, chRes charmresource.Resource) (string, error) {
-	s.stub.AddCall("AddPendingResource", service, userID, chRes)
+func (s *stubDataStore) AddPendingResource(application, userID string, chRes charmresource.Resource) (string, error) {
+	s.stub.AddCall("AddPendingResource", application, userID, chRes)
 	if err := s.stub.NextErr(); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -108,8 +108,8 @@ func (s *stubDataStore) AddPendingResource(service, userID string, chRes charmre
 	return s.ReturnAddPendingResource, nil
 }
 
-func (s *stubDataStore) GetResource(service, name string) (resource.Resource, error) {
-	s.stub.AddCall("GetResource", service, name)
+func (s *stubDataStore) GetResource(application, name string) (resource.Resource, error) {
+	s.stub.AddCall("GetResource", application, name)
 	if err := s.stub.NextErr(); err != nil {
 		return resource.Resource{}, errors.Trace(err)
 	}
@@ -117,8 +117,8 @@ func (s *stubDataStore) GetResource(service, name string) (resource.Resource, er
 	return s.ReturnGetResource, nil
 }
 
-func (s *stubDataStore) GetPendingResource(service, name, pendingID string) (resource.Resource, error) {
-	s.stub.AddCall("GetPendingResource", service, name, pendingID)
+func (s *stubDataStore) GetPendingResource(application, name, pendingID string) (resource.Resource, error) {
+	s.stub.AddCall("GetPendingResource", application, name, pendingID)
 	if err := s.stub.NextErr(); err != nil {
 		return resource.Resource{}, errors.Trace(err)
 	}

@@ -696,7 +696,7 @@ func (*storeManagerSuite) TestEmptyModel(c *gc.C) {
 	checkNext(c, w, nil, "")
 }
 
-func (*storeManagerSuite) TestMultipleEnvironments(c *gc.C) {
+func (*storeManagerSuite) TestMultiplemodels(c *gc.C) {
 	b := newTestBacking([]multiwatcher.EntityInfo{
 		&multiwatcher.MachineInfo{ModelUUID: "uuid0", Id: "0"},
 		&multiwatcher.ApplicationInfo{ModelUUID: "uuid0", Name: "logging"},

@@ -102,7 +102,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	c.Assert(machinePorts, gc.HasLen, 0)
 
 	// Add another unit on the same machine.
-	otherUnit, err := s.service.AddUnit(state.AddUnitParams{})
+	otherUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = otherUnit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)

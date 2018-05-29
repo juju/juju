@@ -26,7 +26,7 @@ var logger = loggo.GetLogger("juju.apiserver.resources")
 // Backend is the functionality of Juju's state needed for the resources API.
 type Backend interface {
 	// ListResources returns the resources for the given application.
-	ListResources(service string) (resource.ServiceResources, error)
+	ListResources(service string) (resource.ApplicationResources, error)
 
 	// AddPendingResource adds the resource to the data store in a
 	// "pending" state. It will stay pending (and unavailable) until
@@ -119,7 +119,7 @@ func (f Facade) ListResources(args params.ListResourcesArgs) (params.ResourcesRe
 			continue
 		}
 
-		r.Results[i] = api.ServiceResources2APIResult(svcRes)
+		r.Results[i] = api.ApplicationResources2APIResult(svcRes)
 	}
 	return r, nil
 }

@@ -331,7 +331,7 @@ func (im *IAASModel) watchMachineStorageAttachments(m names.MachineTag, collecti
 }
 
 // WatchApplications returns a StringsWatcher that notifies of changes to
-// the lifecycles of the services in the model.
+// the lifecycles of the applications in the model.
 func (st *State) WatchApplications() StringsWatcher {
 	return newLifecycleWatcher(st, applicationsC, nil, isLocalID(st), nil)
 }
@@ -614,11 +614,11 @@ func (w *lifecycleWatcher) loop() error {
 	}
 }
 
-// minUnitsWatcher notifies about MinUnits changes of the services requiring
+// minUnitsWatcher notifies about MinUnits changes of the applications requiring
 // a minimum number of units to be alive. The first event returned by the
 // watcher is the set of application names requiring a minimum number of units.
-// Subsequent events are generated when a service increases MinUnits, or when
-// one or more units belonging to a service are destroyed.
+// Subsequent events are generated when an application increases MinUnits, or when
+// one or more units belonging to an application are destroyed.
 type minUnitsWatcher struct {
 	commonWatcher
 	known map[string]int
@@ -931,8 +931,8 @@ func (ru *RelationUnit) Watch() RelationUnitsWatcher {
 // WatchUnits returns a watcher that notifies of changes to the units of the
 // specified application endpoint in the relation. This method will return an error
 // if the endpoint is not globally scoped.
-func (r *Relation) WatchUnits(serviceName string) (RelationUnitsWatcher, error) {
-	return r.watchUnits(serviceName, false)
+func (r *Relation) WatchUnits(appName string) (RelationUnitsWatcher, error) {
+	return r.watchUnits(appName, false)
 }
 
 func (r *Relation) watchUnits(applicationName string, counterpart bool) (RelationUnitsWatcher, error) {
@@ -1518,7 +1518,7 @@ func (a *Application) Watch() NotifyWatcher {
 	return newEntityWatcher(a.st, applicationsC, a.doc.DocID)
 }
 
-// WatchLeaderSettings returns a watcher for observing changed to a service's
+// WatchLeaderSettings returns a watcher for observing changed to an application's
 // leader settings.
 func (a *Application) WatchLeaderSettings() NotifyWatcher {
 	docId := a.st.docID(leadershipSettingsKey(a.Name()))
@@ -1559,7 +1559,7 @@ func (st *State) WatchModelEntityReferences(mUUID string) NotifyWatcher {
 	return newEntityWatcher(st, modelEntityRefsC, mUUID)
 }
 
-// WatchForUnitAssignment watches for new services that request units to be
+// WatchForUnitAssignment watches for new applications that request units to be
 // assigned to machines.
 func (st *State) WatchForUnitAssignment() StringsWatcher {
 	return newCollectionWatcher(st, colWCfg{col: assignUnitC})
@@ -1607,7 +1607,7 @@ func (a *Application) WatchCharmConfig() (NotifyWatcher, error) {
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the
-// unit's service configuration settings. The unit must have a charm URL
+// unit's application configuration settings. The unit must have a charm URL
 // set before this method is called, and the returned watcher will be
 // valid only while the unit's charm URL is not changed.
 // TODO(fwereade): this could be much smarter; if it were, uniter.Filter

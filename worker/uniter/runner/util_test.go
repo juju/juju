@@ -41,14 +41,14 @@ type ContextSuite struct {
 	contextFactory context.ContextFactory
 	membership     map[int][]string
 
-	st      api.Connection
-	model   *state.Model
-	service *state.Application
-	machine *state.Machine
-	unit    *state.Unit
-	uniter  *uniter.State
-	apiUnit *uniter.Unit
-	storage *runnertesting.StorageContextAccessor
+	st          api.Connection
+	model       *state.Model
+	application *state.Application
+	machine     *state.Machine
+	unit        *state.Unit
+	uniter      *uniter.State
+	apiUnit     *uniter.Unit
+	storage     *runnertesting.StorageContextAccessor
 
 	apiRelunits map[int]*uniter.RelationUnit
 	relch       *state.Charm
@@ -61,8 +61,8 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.machine = nil
 
 	ch := s.AddTestingCharm(c, "wordpress")
-	s.service = s.AddTestingApplication(c, "u", ch)
-	s.unit = s.AddUnit(c, s.service)
+	s.application = s.AddTestingApplication(c, "u", ch)
+	s.unit = s.AddUnit(c, s.application)
 
 	storageData0 := names.NewStorageTag("data/0")
 	s.storage = &runnertesting.StorageContextAccessor{

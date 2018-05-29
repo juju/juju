@@ -13,13 +13,13 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type ServiceConstraintsCommandsSuite struct {
+type ApplicationConstraintsCommandsSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 }
 
-var _ = gc.Suite(&ServiceConstraintsCommandsSuite{})
+var _ = gc.Suite(&ApplicationConstraintsCommandsSuite{})
 
-func (s *ServiceConstraintsCommandsSuite) TestSetInit(c *gc.C) {
+func (s *ApplicationConstraintsCommandsSuite) TestSetInit(c *gc.C) {
 	for _, test := range []struct {
 		args []string
 		err  string
@@ -41,7 +41,7 @@ func (s *ServiceConstraintsCommandsSuite) TestSetInit(c *gc.C) {
 	}, {
 		args: []string{"mysql", "cpu-power=250"},
 	}} {
-		cmd := application.NewServiceSetConstraintsCommand()
+		cmd := application.NewApplicationSetConstraintsCommand()
 		cmd.SetClientStore(jujuclienttesting.MinimalStore())
 		err := cmdtesting.InitCommand(cmd, test.args)
 		if test.err == "" {
@@ -52,7 +52,7 @@ func (s *ServiceConstraintsCommandsSuite) TestSetInit(c *gc.C) {
 	}
 }
 
-func (s *ServiceConstraintsCommandsSuite) TestGetInit(c *gc.C) {
+func (s *ApplicationConstraintsCommandsSuite) TestGetInit(c *gc.C) {
 	for _, test := range []struct {
 		args []string
 		err  string
@@ -73,7 +73,7 @@ func (s *ServiceConstraintsCommandsSuite) TestGetInit(c *gc.C) {
 			args: []string{"mysql"},
 		},
 	} {
-		cmd := application.NewServiceGetConstraintsCommand()
+		cmd := application.NewApplicationGetConstraintsCommand()
 		cmd.SetClientStore(jujuclienttesting.MinimalStore())
 		err := cmdtesting.InitCommand(cmd, test.args)
 		if test.err == "" {

@@ -14,42 +14,42 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type ServiceStatusSuite struct {
+type ApplicationStatusSuite struct {
 	ConnSuite
-	service *state.Application
+	application *state.Application
 }
 
-var _ = gc.Suite(&ServiceStatusSuite{})
+var _ = gc.Suite(&ApplicationStatusSuite{})
 
-func (s *ServiceStatusSuite) SetUpTest(c *gc.C) {
+func (s *ApplicationStatusSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.service = s.Factory.MakeApplication(c, nil)
+	s.application = s.Factory.MakeApplication(c, nil)
 }
 
-func (s *ServiceStatusSuite) TestInitialStatus(c *gc.C) {
+func (s *ApplicationStatusSuite) TestInitialStatus(c *gc.C) {
 	s.checkInitialStatus(c)
 }
 
-func (s *ServiceStatusSuite) checkInitialStatus(c *gc.C) {
-	statusInfo, err := s.service.Status()
+func (s *ApplicationStatusSuite) checkInitialStatus(c *gc.C) {
+	statusInfo, err := s.application.Status()
 	c.Check(err, jc.ErrorIsNil)
 	checkInitialWorkloadStatus(c, statusInfo)
 }
 
-func (s *ServiceStatusSuite) TestSetUnknownStatus(c *gc.C) {
+func (s *ApplicationStatusSuite) TestSetUnknownStatus(c *gc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Status("vliegkat"),
 		Message: "orville",
 		Since:   &now,
 	}
-	err := s.service.SetStatus(sInfo)
+	err := s.application.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
 }
 
-func (s *ServiceStatusSuite) TestSetOverwritesData(c *gc.C) {
+func (s *ApplicationStatusSuite) TestSetOverwritesData(c *gc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Active,
@@ -59,17 +59,17 @@ func (s *ServiceStatusSuite) TestSetOverwritesData(c *gc.C) {
 		},
 		Since: &now,
 	}
-	err := s.service.SetStatus(sInfo)
+	err := s.application.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
 }
 
-func (s *ServiceStatusSuite) TestGetSetStatusAlive(c *gc.C) {
+func (s *ApplicationStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 	s.checkGetSetStatus(c)
 }
 
-func (s *ServiceStatusSuite) checkGetSetStatus(c *gc.C) {
+func (s *ApplicationStatusSuite) checkGetSetStatus(c *gc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Active,
@@ -81,13 +81,13 @@ func (s *ServiceStatusSuite) checkGetSetStatus(c *gc.C) {
 		},
 		Since: &now,
 	}
-	err := s.service.SetStatus(sInfo)
+	err := s.application.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
-	service, err := s.State.Application(s.service.Name())
+	application, err := s.State.Application(s.application.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
-	statusInfo, err := service.Status()
+	statusInfo, err := application.Status()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(statusInfo.Status, gc.Equals, status.Active)
 	c.Check(statusInfo.Message, gc.Equals, "healthy")
@@ -99,17 +99,17 @@ func (s *ServiceStatusSuite) checkGetSetStatus(c *gc.C) {
 	c.Check(statusInfo.Since, gc.NotNil)
 }
 
-func (s *ServiceStatusSuite) TestGetSetStatusDying(c *gc.C) {
-	_, err := s.service.AddUnit(state.AddUnitParams{})
+func (s *ApplicationStatusSuite) TestGetSetStatusDying(c *gc.C) {
+	_, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.service.Destroy()
+	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
 }
 
-func (s *ServiceStatusSuite) TestGetSetStatusGone(c *gc.C) {
-	err := s.service.Destroy()
+func (s *ApplicationStatusSuite) TestGetSetStatusGone(c *gc.C) {
+	err := s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := testing.ZeroTime()
@@ -118,24 +118,24 @@ func (s *ServiceStatusSuite) TestGetSetStatusGone(c *gc.C) {
 		Message: "not really",
 		Since:   &now,
 	}
-	err = s.service.SetStatus(sInfo)
+	err = s.application.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set status: application not found`)
 
-	statusInfo, err := s.service.Status()
+	statusInfo, err := s.application.Status()
 	c.Check(err, gc.ErrorMatches, `cannot get status: application not found`)
 	c.Check(statusInfo, gc.DeepEquals, status.StatusInfo{})
 }
 
-func (s *ServiceStatusSuite) TestSetStatusSince(c *gc.C) {
+func (s *ApplicationStatusSuite) TestSetStatusSince(c *gc.C) {
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Maintenance,
 		Message: "",
 		Since:   &now,
 	}
-	err := s.service.SetStatus(sInfo)
+	err := s.application.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err := s.service.Status()
+	statusInfo, err := s.application.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	firstTime := statusInfo.Since
 	c.Assert(firstTime, gc.NotNil)
@@ -148,21 +148,21 @@ func (s *ServiceStatusSuite) TestSetStatusSince(c *gc.C) {
 		Message: "",
 		Since:   &now,
 	}
-	err = s.service.SetStatus(sInfo)
+	err = s.application.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	statusInfo, err = s.service.Status()
+	statusInfo, err = s.application.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(timeBeforeOrEqual(*firstTime, *statusInfo.Since), jc.IsTrue)
 }
 
-func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
+func (s *ApplicationStatusSuite) TestDeriveStatus(c *gc.C) {
 	// NOTE(fwereade): as detailed in the code, this implementation is not sane.
 	// The specified behaviour is arguably sane, but the code is in the wrong
 	// place.
 
 	// Create a unit with each possible status.
 	addUnit := func(unitStatus status.Status) *state.Unit {
-		unit, err := s.service.AddUnit(state.AddUnitParams{})
+		unit, err := s.application.AddUnit(state.AddUnitParams{})
 		c.Assert(err, gc.IsNil)
 		now := testing.ZeroTime()
 		sInfo := status.StatusInfo{
@@ -182,7 +182,7 @@ func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
 	unknownUnit := addUnit(status.Unknown)
 
 	// ...and create one with error status by setting it on the agent :-/.
-	errorUnit, err := s.service.AddUnit(state.AddUnitParams{})
+	errorUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.IsNil)
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
@@ -197,7 +197,7 @@ func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
 	// derived from that unit status; then remove that unit and proceed to
 	// the next severity.
 	checkAndRemove := func(unit *state.Unit, status status.Status) {
-		info, err := s.service.Status()
+		info, err := s.application.Status()
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(info.Status, gc.Equals, status)
 
@@ -217,8 +217,8 @@ func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
 	checkAndRemove(unknownUnit, status.Unknown)
 }
 
-func (s *ServiceStatusSuite) TestServiceStatusOverridesDerivedStatus(c *gc.C) {
-	unit, err := s.service.AddUnit(state.AddUnitParams{})
+func (s *ApplicationStatusSuite) TestApplicationStatusOverridesDerivedStatus(c *gc.C) {
+	unit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.IsNil)
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
@@ -233,10 +233,10 @@ func (s *ServiceStatusSuite) TestServiceStatusOverridesDerivedStatus(c *gc.C) {
 		Message: "zot",
 		Since:   &now,
 	}
-	err = s.service.SetStatus(sInfo)
+	err = s.application.SetStatus(sInfo)
 	c.Assert(err, gc.IsNil)
 
-	info, err := s.service.Status()
+	info, err := s.application.Status()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(info.Status, gc.Equals, status.Maintenance)
 }

@@ -148,15 +148,15 @@ func (s *RemoteApplication) OfferUUID() string {
 	return s.doc.OfferUUID
 }
 
-// URL returns the remote service URL, and a boolean indicating whether or not
-// a URL is known for the remote service. A URL will only be available for the
-// consumer of an offered service.
+// URL returns the remote application URL, and a boolean indicating whether or not
+// a URL is known for the remote application. A URL will only be available for the
+// consumer of an offered application.
 func (s *RemoteApplication) URL() (string, bool) {
 	return s.doc.URL, s.doc.URL != ""
 }
 
 // Token returns the token for the remote application, provided by the remote
-// model to identify the service in future communications.
+// model to identify the application in future communications.
 func (s *RemoteApplication) Token() (string, error) {
 	r := s.st.RemoteEntities()
 	return r.GetToken(s.Tag())
@@ -554,8 +554,8 @@ func (s *RemoteApplication) Relations() (relations []*Relation, err error) {
 	return applicationRelations(s.st, s.doc.Name)
 }
 
-// AddRemoteApplicationParams contains the parameters for adding a remote service
-// to the environment.
+// AddRemoteApplicationParams contains the parameters for adding a remote application
+// to the model.
 type AddRemoteApplicationParams struct {
 	// Name is the name to give the remote application. This does not have to
 	// match the application name in the URL, or the name in the remote model.

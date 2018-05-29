@@ -56,7 +56,7 @@ func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	res.Timestamp = resources.Resources[0].Timestamp
-	c.Check(resources, jc.DeepEquals, resource.ServiceResources{
+	c.Check(resources, jc.DeepEquals, resource.ApplicationResources{
 		Resources:           []resource.Resource{res},
 		CharmStoreResources: csResources,
 	})

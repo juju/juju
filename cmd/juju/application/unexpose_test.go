@@ -48,7 +48,7 @@ func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
-	s.AssertService(c, "some-application-name", curl, 1, 0)
+	s.AssertApplication(c, "some-application-name", curl, 1, 0)
 
 	err = runExpose(c, "some-application-name")
 	c.Assert(err, jc.ErrorIsNil)
@@ -71,7 +71,7 @@ func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/multi-series-1")
-	s.AssertService(c, "some-application-name", curl, 1, 0)
+	s.AssertApplication(c, "some-application-name", curl, 1, 0)
 
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUnexpose")

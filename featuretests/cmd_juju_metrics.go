@@ -58,9 +58,9 @@ func formatTabular(metrics ...tabularMetric) string {
 
 func (s *cmdMetricsCommandSuite) TestUnits(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
-	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 	newTime1 := time.Now().Round(time.Second)
 	newTime2 := newTime1.Add(time.Second)
 	metricA := state.Metric{Key: "pings", Value: "5", Time: newTime1, Labels: map[string]string{"foo": "bar"}}
@@ -98,9 +98,9 @@ func (s *cmdMetricsCommandSuite) TestUnits(c *gc.C) {
 
 func (s *cmdMetricsCommandSuite) TestAll(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
-	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 	newTime1 := time.Now().Round(time.Second)
 	newTime2 := newTime1.Add(time.Second)
 	metricA := state.Metric{Key: "pings", Value: "5", Time: newTime1}
@@ -132,9 +132,9 @@ func (s *cmdMetricsCommandSuite) TestAll(c *gc.C) {
 
 func (s *cmdMetricsCommandSuite) TestFormatJSON(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
-	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 	newTime1 := time.Now().Round(time.Second)
 	newTime2 := newTime1.Add(time.Second)
 	metricA := state.Metric{Key: "pings", Value: "5", Time: newTime1, Labels: map[string]string{"abc": "123"}}
@@ -170,9 +170,9 @@ func (s *cmdMetricsCommandSuite) TestFormatJSON(c *gc.C) {
 
 func (s *cmdMetricsCommandSuite) TestFormatYAML(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
-	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 	newTime1 := time.Now().Round(time.Second)
 	newTime2 := newTime1.Add(time.Second)
 	metricA := state.Metric{Key: "pings", Value: "5", Time: newTime1}
@@ -192,8 +192,8 @@ func (s *cmdMetricsCommandSuite) TestFormatYAML(c *gc.C) {
 
 func (s *cmdMetricsCommandSuite) TestNoMetrics(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 	ctx, err := cmdtesting.RunCommand(c, metricsdebug.New(), "metered")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")

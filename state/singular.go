@@ -18,7 +18,7 @@ import (
 // strings.
 //
 // It would be nicer to have a single controller-level component managing all
-// singular leases for all environments -- and thus be able to validate that
+// singular leases for all models -- and thus be able to validate that
 // proposed holders really are env managers -- but the complexity of threading
 // data from *two* states through a single api connection is excessive by
 // comparison.
@@ -52,7 +52,7 @@ func (s singularSecretary) CheckDuration(duration time.Duration) error {
 }
 
 // SingularClaimer returns a lease.Claimer representing the exclusive right to
-// manage the environment.
+// manage the model.
 func (st *State) SingularClaimer() corelease.Claimer {
 	return lazyLeaseManager{func() *lease.Manager {
 		return st.workers.singularManager()

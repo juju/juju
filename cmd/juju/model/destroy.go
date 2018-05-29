@@ -360,7 +360,7 @@ func newTimedModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelT
 		}
 		return &modelData{
 			machineCount:     status[0].HostedMachineCount,
-			applicationCount: status[0].ServiceCount,
+			applicationCount: status[0].ApplicationCount,
 			volumeCount:      len(status[0].Volumes),
 			filesystemCount:  len(status[0].Filesystems),
 		}

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/payload"
 )
 
-func NewPayload(name, service string, machine, unit int, labels ...string) payload.FullPayloadInfo {
+func NewPayload(name, application string, machine, unit int, labels ...string) payload.FullPayloadInfo {
 	if len(labels) == 0 {
 		labels = nil
 	}
@@ -24,7 +24,7 @@ func NewPayload(name, service string, machine, unit int, labels ...string) paylo
 			ID:     "id" + name,
 			Status: payload.StateRunning,
 			Labels: labels,
-			Unit:   fmt.Sprintf("%s/%d", service, unit),
+			Unit:   fmt.Sprintf("%s/%d", application, unit),
 		},
 		Machine: fmt.Sprintf("%d", machine),
 	}

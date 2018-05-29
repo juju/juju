@@ -14,12 +14,12 @@ import (
 type Facade interface {
 
 	// Watch returns a StringsWatcher reporting names of
-	// services which may have insufficient units.
+	// applications which may have insufficient units.
 	Watch() (watcher.StringsWatcher, error)
 
-	// Rescale scales up any named service observed to be
+	// Rescale scales up any named application observed to be
 	// running too few units.
-	Rescale(services []string) error
+	Rescale(applications []string) error
 }
 
 // Config defines a worker's dependencies.
@@ -37,7 +37,7 @@ func (config Config) Validate() error {
 }
 
 // New returns a worker that will attempt to rescale any
-// services that might be undersized.
+// applications that might be undersized.
 func New(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -60,8 +60,8 @@ func (handler *handler) SetUp() (watcher.StringsWatcher, error) {
 }
 
 // Handle is part of the watcher.StringsHandler interface.
-func (handler *handler) Handle(_ <-chan struct{}, services []string) error {
-	return handler.config.Facade.Rescale(services)
+func (handler *handler) Handle(_ <-chan struct{}, applications []string) error {
+	return handler.config.Facade.Rescale(applications)
 }
 
 // TearDown is part of the watcher.StringsHandler interface.

@@ -844,8 +844,8 @@ func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
 	defer st.Close()
 	f := factory.NewFactory(st)
 	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-1"})
-	service := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	unit := f.MakeUnit(c, &factory.UnitParams{Application: service, SetCharmURL: true})
+	application := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit := f.MakeUnit(c, &factory.UnitParams{Application: application, SetCharmURL: true})
 	_, err = st.AddMetrics(
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
@@ -1079,7 +1079,7 @@ func mustCreateMeteredModel(c *gc.C, stateFactory *factory.Factory) (modelData, 
 	}, cleanup
 }
 
-func (s *CrossModelMetricSuite) TestMetricsAcrossEnvironments(c *gc.C) {
+func (s *CrossModelMetricSuite) TestMetricsAcrossmodels(c *gc.C) {
 	now := state.NowToTheSecond(s.State).Add(-48 * time.Hour)
 	m := state.Metric{Key: "pings", Value: "5", Time: now}
 	m1, err := s.models[0].state.AddMetrics(

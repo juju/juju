@@ -326,7 +326,7 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
-		// environment may have been destroyed.
+		// model may have been destroyed.
 		if attempt > 0 {
 			if err := checkModelActive(s.st); err != nil {
 				return nil, errors.Trace(err)
@@ -410,7 +410,7 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
-		// environment may have been destroyed.
+		// model may have been destroyed.
 		if attempt > 0 {
 			if err := checkModelActive(s.st); err != nil {
 				return nil, errors.Trace(err)

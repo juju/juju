@@ -30,7 +30,7 @@ func (s *LeaderSuite) SetUpTest(c *gc.C) {
 	}
 	s.tracker = &StubTracker{
 		Stub:            &s.Stub,
-		applicationName: "led-service",
+		applicationName: "led-application",
 	}
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "ApplicationName",
@@ -118,7 +118,7 @@ func (s *LeaderSuite) TestIsLeaderFailureAfterSuccess(c *gc.C) {
 func (s *LeaderSuite) TestLeaderSettingsSuccess(c *gc.C) {
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Read",
-		Args:     []interface{}{"led-service"},
+		Args:     []interface{}{"led-application"},
 	}}, func() {
 		// The first call grabs the settings...
 		s.accessor.results = []map[string]string{{
@@ -168,7 +168,7 @@ func (s *LeaderSuite) TestLeaderSettingsCopyMap(c *gc.C) {
 func (s *LeaderSuite) TestLeaderSettingsError(c *gc.C) {
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Read",
-		Args:     []interface{}{"led-service"},
+		Args:     []interface{}{"led-application"},
 	}}, func() {
 		s.accessor.results = []map[string]string{nil}
 		s.Stub.SetErrors(errors.New("blort"))
@@ -183,7 +183,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsSuccess(c *gc.C) {
 		FuncName: "ClaimLeader",
 	}, {
 		FuncName: "Merge",
-		Args: []interface{}{"led-service", "u/0", map[string]string{
+		Args: []interface{}{"led-application", "u/0", map[string]string{
 			"some": "very",
 			"nice": "data",
 		}},
@@ -219,7 +219,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsError(c *gc.C) {
 		FuncName: "ClaimLeader",
 	}, {
 		FuncName: "Merge",
-		Args: []interface{}{"led-service", "u/0", map[string]string{
+		Args: []interface{}{"led-application", "u/0", map[string]string{
 			"some": "very",
 			"nice": "data",
 		}},
@@ -237,7 +237,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsError(c *gc.C) {
 func (s *LeaderSuite) TestWriteLeaderSettingsClearsCache(c *gc.C) {
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Read",
-		Args:     []interface{}{"led-service"},
+		Args:     []interface{}{"led-application"},
 	}}, func() {
 		// Start off by populating the cache...
 		s.accessor.results = []map[string]string{{
@@ -252,7 +252,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsClearsCache(c *gc.C) {
 		FuncName: "ClaimLeader",
 	}, {
 		FuncName: "Merge",
-		Args: []interface{}{"led-service", "u/0", map[string]string{
+		Args: []interface{}{"led-application", "u/0", map[string]string{
 			"some": "very",
 			"nice": "data",
 		}},
@@ -268,7 +268,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsClearsCache(c *gc.C) {
 
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Read",
-		Args:     []interface{}{"led-service"},
+		Args:     []interface{}{"led-application"},
 	}}, func() {
 		s.accessor.results = []map[string]string{{
 			"totally": "different",

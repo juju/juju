@@ -143,12 +143,12 @@ func (h *ResourcesHandler) readResource(backend ResourcesBackend, req *http.Requ
 	}
 	var res resource.Resource
 	if uReq.PendingID != "" {
-		res, err = backend.GetPendingResource(uReq.Service, uReq.Name, uReq.PendingID)
+		res, err = backend.GetPendingResource(uReq.Application, uReq.Name, uReq.PendingID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	} else {
-		res, err = backend.GetResource(uReq.Service, uReq.Name)
+		res, err = backend.GetResource(uReq.Application, uReq.Name)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -164,7 +164,7 @@ func (h *ResourcesHandler) readResource(backend ResourcesBackend, req *http.Requ
 		return nil, errors.Trace(err)
 	}
 	return &uploadedResource{
-		Service:   uReq.Service,
+		Service:   uReq.Application,
 		PendingID: uReq.PendingID,
 		Resource:  chRes,
 		Data:      req.Body,
@@ -224,7 +224,7 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 	}
 
 	ur = api.UploadRequest{
-		Service:     service,
+		Application: service,
 		Name:        name,
 		Filename:    filename,
 		Size:        size,

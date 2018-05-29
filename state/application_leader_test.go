@@ -15,23 +15,23 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type ServiceLeaderSuite struct {
+type ApplicationLeaderSuite struct {
 	ConnSuite
-	service *state.Application
+	application *state.Application
 }
 
-var _ = gc.Suite(&ServiceLeaderSuite{})
+var _ = gc.Suite(&ApplicationLeaderSuite{})
 
-func (s *ServiceLeaderSuite) SetUpTest(c *gc.C) {
+func (s *ApplicationLeaderSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.service = s.Factory.MakeApplication(c, nil)
+	s.application = s.Factory.MakeApplication(c, nil)
 }
 
-func (s *ServiceLeaderSuite) TestReadEmpty(c *gc.C) {
+func (s *ApplicationLeaderSuite) TestReadEmpty(c *gc.C) {
 	s.checkSettings(c, map[string]string{})
 }
 
-func (s *ServiceLeaderSuite) TestWrite(c *gc.C) {
+func (s *ApplicationLeaderSuite) TestWrite(c *gc.C) {
 	s.writeSettings(c, map[string]string{
 		"foo":     "bar",
 		"baz.qux": "ping",
@@ -47,7 +47,7 @@ func (s *ServiceLeaderSuite) TestWrite(c *gc.C) {
 	})
 }
 
-func (s *ServiceLeaderSuite) TestOverwrite(c *gc.C) {
+func (s *ApplicationLeaderSuite) TestOverwrite(c *gc.C) {
 	s.writeSettings(c, map[string]string{
 		"one":    "foo",
 		"2.0":    "bar",
@@ -71,7 +71,7 @@ func (s *ServiceLeaderSuite) TestOverwrite(c *gc.C) {
 	})
 }
 
-func (s *ServiceLeaderSuite) TestTxnRevnoChange(c *gc.C) {
+func (s *ApplicationLeaderSuite) TestTxnRevnoChange(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		s.writeSettings(c, map[string]string{
 			"other":   "values",
@@ -96,19 +96,19 @@ func (s *ServiceLeaderSuite) TestTxnRevnoChange(c *gc.C) {
 	})
 }
 
-func (s *ServiceLeaderSuite) TestTokenError(c *gc.C) {
-	err := s.service.UpdateLeaderSettings(&failToken{}, map[string]string{"blah": "blah"})
+func (s *ApplicationLeaderSuite) TestTokenError(c *gc.C) {
+	err := s.application.UpdateLeaderSettings(&failToken{}, map[string]string{"blah": "blah"})
 	c.Check(err, gc.ErrorMatches, "prerequisites failed: something bad happened")
 }
 
-func (s *ServiceLeaderSuite) TestTokenAssertFailure(c *gc.C) {
-	err := s.service.UpdateLeaderSettings(&raceToken{}, map[string]string{"blah": "blah"})
+func (s *ApplicationLeaderSuite) TestTokenAssertFailure(c *gc.C) {
+	err := s.application.UpdateLeaderSettings(&raceToken{}, map[string]string{"blah": "blah"})
 	c.Check(err, gc.ErrorMatches, "prerequisites failed: too late")
 }
 
-func (s *ServiceLeaderSuite) TestReadWriteDying(c *gc.C) {
+func (s *ApplicationLeaderSuite) TestReadWriteDying(c *gc.C) {
 	s.preventRemove(c)
-	s.destroyService(c)
+	s.destroyApplication(c)
 
 	s.writeSettings(c, map[string]string{
 		"this":  "should",
@@ -120,100 +120,100 @@ func (s *ServiceLeaderSuite) TestReadWriteDying(c *gc.C) {
 	})
 }
 
-func (s *ServiceLeaderSuite) TestReadRemoved(c *gc.C) {
-	s.destroyService(c)
+func (s *ApplicationLeaderSuite) TestReadRemoved(c *gc.C) {
+	s.destroyApplication(c)
 
-	actual, err := s.service.LeaderSettings()
+	actual, err := s.application.LeaderSettings()
 	c.Check(err, gc.ErrorMatches, "application not found")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(actual, gc.IsNil)
 }
 
-func (s *ServiceLeaderSuite) TestWriteRemoved(c *gc.C) {
-	s.destroyService(c)
+func (s *ApplicationLeaderSuite) TestWriteRemoved(c *gc.C) {
+	s.destroyApplication(c)
 
-	err := s.service.UpdateLeaderSettings(&fakeToken{}, map[string]string{
+	err := s.application.UpdateLeaderSettings(&fakeToken{}, map[string]string{
 		"should": "fail",
 	})
 	c.Check(err, gc.ErrorMatches, "application not found")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *ServiceLeaderSuite) TestWatchInitialEvent(c *gc.C) {
-	w := s.service.WatchLeaderSettings()
+func (s *ApplicationLeaderSuite) TestWatchInitialEvent(c *gc.C) {
+	w := s.application.WatchLeaderSettings()
 	defer testing.AssertStop(c, w)
 
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 }
 
-func (s *ServiceLeaderSuite) TestWatchDetectChange(c *gc.C) {
-	w := s.service.WatchLeaderSettings()
+func (s *ApplicationLeaderSuite) TestWatchDetectChange(c *gc.C) {
+	w := s.application.WatchLeaderSettings()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	err := s.service.UpdateLeaderSettings(&fakeToken{}, map[string]string{
+	err := s.application.UpdateLeaderSettings(&fakeToken{}, map[string]string{
 		"something": "changed",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
 
-func (s *ServiceLeaderSuite) TestWatchIgnoreNullChange(c *gc.C) {
-	w := s.service.WatchLeaderSettings()
+func (s *ApplicationLeaderSuite) TestWatchIgnoreNullChange(c *gc.C) {
+	w := s.application.WatchLeaderSettings()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
-	err := s.service.UpdateLeaderSettings(&fakeToken{}, map[string]string{
+	err := s.application.UpdateLeaderSettings(&fakeToken{}, map[string]string{
 		"something": "changed",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	err = s.service.UpdateLeaderSettings(&fakeToken{}, map[string]string{
+	err = s.application.UpdateLeaderSettings(&fakeToken{}, map[string]string{
 		"something": "changed",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
 
-func (s *ServiceLeaderSuite) TestWatchCoalesceChanges(c *gc.C) {
-	w := s.service.WatchLeaderSettings()
+func (s *ApplicationLeaderSuite) TestWatchCoalesceChanges(c *gc.C) {
+	w := s.application.WatchLeaderSettings()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	err := s.service.UpdateLeaderSettings(&fakeToken{}, map[string]string{
+	err := s.application.UpdateLeaderSettings(&fakeToken{}, map[string]string{
 		"something": "changed",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.service.UpdateLeaderSettings(&fakeToken{}, map[string]string{
+	err = s.application.UpdateLeaderSettings(&fakeToken{}, map[string]string{
 		"very": "excitingly",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
 
-func (s *ServiceLeaderSuite) writeSettings(c *gc.C, update map[string]string) {
-	err := s.service.UpdateLeaderSettings(&fakeToken{}, update)
+func (s *ApplicationLeaderSuite) writeSettings(c *gc.C, update map[string]string) {
+	err := s.application.UpdateLeaderSettings(&fakeToken{}, update)
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *ServiceLeaderSuite) checkSettings(c *gc.C, expect map[string]string) {
-	actual, err := s.service.LeaderSettings()
+func (s *ApplicationLeaderSuite) checkSettings(c *gc.C, expect map[string]string) {
+	actual, err := s.application.LeaderSettings()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(actual, gc.DeepEquals, expect)
 }
 
-func (s *ServiceLeaderSuite) preventRemove(c *gc.C) {
-	s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.service})
+func (s *ApplicationLeaderSuite) preventRemove(c *gc.C) {
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application})
 }
 
-func (s *ServiceLeaderSuite) destroyService(c *gc.C) {
-	killService, err := s.State.Application(s.service.Name())
+func (s *ApplicationLeaderSuite) destroyApplication(c *gc.C) {
+	killApplication, err := s.State.Application(s.application.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	err = killService.Destroy()
+	err = killApplication.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 }
 

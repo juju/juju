@@ -652,9 +652,9 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			getWatcher: func(st *state.State) interface{} {
 				f := factory.NewFactory(st)
 				dummyCharm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
-				service := f.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm})
+				application := f.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm})
 
-				unit, err := service.AddUnit(state.AddUnitParams{})
+				unit, err := application.AddUnit(state.AddUnitParams{})
 				c.Assert(err, jc.ErrorIsNil)
 				return unit.WatchActionNotifications()
 			},
@@ -961,7 +961,7 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	c.Assert(string(instId), gc.Equals, "inst-id")
 }
 
-func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
+func (s *StateSuite) TestAddMachinesmodelDying(c *gc.C) {
 	err := s.model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
@@ -969,7 +969,7 @@ func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is no longer alive`)
 }
 
-func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
+func (s *StateSuite) TestAddMachinesmodelDyingAfterInitial(c *gc.C) {
 	// Check that machines cannot be added if the model is initially
 	// Alive but set to Dying immediately before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
@@ -980,7 +980,7 @@ func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is no longer alive`)
 }
 
-func (s *StateSuite) TestAddMachinesEnvironmentMigrating(c *gc.C) {
+func (s *StateSuite) TestAddMachinesmodelMigrating(c *gc.C) {
 	err := s.model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
@@ -1519,7 +1519,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(sInfo.Status, gc.Equals, status.Waiting)
 	c.Assert(sInfo.Message, gc.Equals, "waiting for machine")
 
-	// Check that retrieving the new created services works correctly.
+	// Check that retrieving the new created applications works correctly.
 	wordpress, err = s.State.Application("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
@@ -1607,9 +1607,9 @@ func (s *StateSuite) TestAddApplicationModelDying(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is no longer alive`)
 }
 
-func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
+func (s *StateSuite) TestAddApplicationModelMigrating(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	// Check that services cannot be added if the model is initially Dying.
+	// Check that applications cannot be added if the model is initially Dying.
 	err := s.model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
@@ -1658,10 +1658,10 @@ func (s *StateSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": application already exists`)
 }
 
-func (s *StateSuite) TestAddApplicationEnvironmentDyingAfterInitial(c *gc.C) {
+func (s *StateSuite) TestAddApplicationModelDyingAfterInitial(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	s.AddTestingApplication(c, "s0", charm)
-	// Check that services cannot be added if the model is initially
+	// Check that applications cannot be added if the model is initially
 	// Alive but set to Dying immediately before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(s.model.Life(), gc.Equals, state.Alive)
@@ -1677,9 +1677,9 @@ func (s *StateSuite) TestApplicationNotFound(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *StateSuite) TestAddServiceWithDefaultBindings(c *gc.C) {
+func (s *StateSuite) TestAddApplicationWithDefaultBindings(c *gc.C) {
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
-	svc, err := s.State.AddApplication(state.AddApplicationArgs{
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "yoursql",
 		Charm: ch,
 	})
@@ -1687,7 +1687,7 @@ func (s *StateSuite) TestAddServiceWithDefaultBindings(c *gc.C) {
 
 	// Read them back to verify defaults and given bindings got merged as
 	// expected.
-	bindings, err := svc.EndpointBindings()
+	bindings, err := app.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bindings, jc.DeepEquals, map[string]string{
 		"server":  "",
@@ -1696,14 +1696,14 @@ func (s *StateSuite) TestAddServiceWithDefaultBindings(c *gc.C) {
 	})
 
 	// Removing the application also removes its bindings.
-	err = svc.Destroy()
+	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = svc.Refresh()
+	err = app.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	state.AssertEndpointBindingsNotFoundForService(c, svc)
+	state.AssertEndpointBindingsNotFoundForApplication(c, app)
 }
 
-func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
+func (s *StateSuite) TestAddApplicationWithSpecifiedBindings(c *gc.C) {
 	// Add extra spaces to use in bindings.
 	_, err := s.State.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1712,7 +1712,7 @@ func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
 
 	// Specify some bindings, but not all when adding the application.
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 43)
-	svc, err := s.State.AddApplication(state.AddApplicationArgs{
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "yoursql",
 		Charm: ch,
 		EndpointBindings: map[string]string{
@@ -1724,7 +1724,7 @@ func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
 
 	// Read them back to verify defaults and given bindings got merged as
 	// expected.
-	bindings, err := svc.EndpointBindings()
+	bindings, err := app.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bindings, jc.DeepEquals, map[string]string{
 		"server":  "", // inherited from defaults.
@@ -1733,7 +1733,7 @@ func (s *StateSuite) TestAddServiceWithSpecifiedBindings(c *gc.C) {
 	})
 }
 
-func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
+func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 	charm := s.AddMetaCharm(c, "mysql", metaBase, 44)
 	// Add extra spaces to use in bindings.
 	_, err := s.State.AddSpace("db", "", nil, false)
@@ -1782,7 +1782,7 @@ func (s *StateSuite) TestAddServiceWithInvalidBindings(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestAddServiceMachinePlacementInvalidSeries(c *gc.C) {
+func (s *StateSuite) TestAddApplicationMachinePlacementInvalidSeries(c *gc.C) {
 	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1796,7 +1796,7 @@ func (s *StateSuite) TestAddServiceMachinePlacementInvalidSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot add application \"wordpress\": cannot deploy to machine .*: series does not match")
 }
 
-func (s *StateSuite) TestAddServiceIncompatibleOSWithSeriesInURL(c *gc.C) {
+func (s *StateSuite) TestAddApplicationIncompatibleOSWithSeriesInURL(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	// A charm with a series in its URL is implicitly supported by that
 	// series only.
@@ -1807,7 +1807,7 @@ func (s *StateSuite) TestAddServiceIncompatibleOSWithSeriesInURL(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": series "centos7" \(OS \"CentOS"\) not supported by charm, supported series are "quantal"`)
 }
 
-func (s *StateSuite) TestAddServiceCompatibleOSWithSeriesInURL(c *gc.C) {
+func (s *StateSuite) TestAddApplicationCompatibleOSWithSeriesInURL(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	// A charm with a series in its URL is implicitly supported by that
 	// series only.
@@ -1818,7 +1818,7 @@ func (s *StateSuite) TestAddServiceCompatibleOSWithSeriesInURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *StateSuite) TestAddServiceCompatibleOSWithNoExplicitSupportedSeries(c *gc.C) {
+func (s *StateSuite) TestAddApplicationCompatibleOSWithNoExplicitSupportedSeries(c *gc.C) {
 	// If a charm doesn't declare any series, we can add it with any series we choose.
 	charm := s.AddSeriesCharm(c, "dummy", "")
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
@@ -1828,7 +1828,7 @@ func (s *StateSuite) TestAddServiceCompatibleOSWithNoExplicitSupportedSeries(c *
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *StateSuite) TestAddServiceOSIncompatibleWithSupportedSeries(c *gc.C) {
+func (s *StateSuite) TestAddApplicationOSIncompatibleWithSupportedSeries(c *gc.C) {
 	charm := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	// A charm with supported series can only be force-deployed to series
 	// of the same operating systems as the suppoted series.
@@ -2202,17 +2202,17 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 func (s *StateSuite) TestWatchApplicationsBulkEvents(c *gc.C) {
 	// Alive application...
 	dummyCharm := s.AddTestingCharm(c, "dummy")
-	alive := s.AddTestingApplication(c, "service0", dummyCharm)
+	alive := s.AddTestingApplication(c, "application0", dummyCharm)
 
 	// Dying application...
-	dying := s.AddTestingApplication(c, "service1", dummyCharm)
+	dying := s.AddTestingApplication(c, "application1", dummyCharm)
 	keepDying, err := dying.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = dying.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Dead application (actually, gone, Dead == removed in this case).
-	gone := s.AddTestingApplication(c, "service2", dummyCharm)
+	gone := s.AddTestingApplication(c, "application2", dummyCharm)
 	err = gone.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2233,7 +2233,7 @@ func (s *StateSuite) TestWatchApplicationsBulkEvents(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchApplicationsLifecycle(c *gc.C) {
-	// Initial event is empty when no services.
+	// Initial event is empty when no applications.
 	w := s.State.WatchApplications()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
@@ -2241,17 +2241,17 @@ func (s *StateSuite) TestWatchApplicationsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a application: reported.
-	service := s.AddTestingApplication(c, "application", s.AddTestingCharm(c, "dummy"))
+	application := s.AddTestingApplication(c, "application", s.AddTestingCharm(c, "dummy"))
 	wc.AssertChange("application")
 	wc.AssertNoChange()
 
 	// Change the application: not reported.
-	keepDying, err := service.AddUnit(state.AddUnitParams{})
+	keepDying, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Make it Dying: reported.
-	err = service.Destroy()
+	err = application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("application")
 	wc.AssertNoChange()
@@ -3092,8 +3092,8 @@ type findEntityTest struct {
 }
 
 var findEntityTests = []findEntityTest{{
-	tag: names.NewRelationTag("svc1:rel1 svc2:rel2"),
-	err: `relation "svc1:rel1 svc2:rel2" not found`,
+	tag: names.NewRelationTag("app1:rel1 app2:rel2"),
+	err: `relation "app1:rel1 app2:rel2" not found`,
 }, {
 	tag: names.NewModelTag("9f484882-2f18-4fd2-967d-db9663db7bea"),
 	err: `model "9f484882-2f18-4fd2-967d-db9663db7bea" not found`,
@@ -3202,7 +3202,7 @@ func (s *StateSuite) TestParseApplicationTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestParseUnitTag(c *gc.C) {
-	app := s.AddTestingApplication(c, "service2", s.AddTestingCharm(c, "dummy"))
+	app := s.AddTestingApplication(c, "application2", s.AddTestingCharm(c, "dummy"))
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, u.Tag())
@@ -3212,7 +3212,7 @@ func (s *StateSuite) TestParseUnitTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestParseActionTag(c *gc.C) {
-	app := s.AddTestingApplication(c, "service2", s.AddTestingCharm(c, "dummy"))
+	app := s.AddTestingApplication(c, "application2", s.AddTestingCharm(c, "dummy"))
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	f, err := u.AddAction("snapshot", nil)
@@ -3300,7 +3300,7 @@ func (s *StateSuite) TestWatchCleanupsBulk(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	// Create two peer relations by creating their services.
+	// Create two peer relations by creating their applications.
 	riak := s.AddTestingApplication(c, "riak", s.AddTestingCharm(c, "riak"))
 	_, err := riak.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
@@ -3330,7 +3330,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	// Set up services for later use.
+	// Set up applications for later use.
 	wordpress := s.AddTestingApplication(c,
 		"wordpress", s.AddTestingCharm(c, "wordpress"))
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
@@ -3357,7 +3357,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	// Increase minimum units for two services; a single change should occur.
+	// Increase minimum units for two applications; a single change should occur.
 	err = mysql.SetMinUnits(1)
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.SetMinUnits(3)
@@ -3613,19 +3613,19 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	// Add a application and 4 units: one with a different version, one
 	// with an empty version, one with the current version, and one
 	// with the new version.
-	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress")})
+	application, err := s.State.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress")})
 	c.Assert(err, jc.ErrorIsNil)
-	unit0, err := service.AddUnit(state.AddUnitParams{})
+	unit0, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit0.SetAgentVersion(version.MustParseBinary("6.6.6-quantal-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = service.AddUnit(state.AddUnitParams{})
+	_, err = application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	unit2, err := service.AddUnit(state.AddUnitParams{})
+	unit2, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit2.SetAgentVersion(version.MustParseBinary(stringVersion + "-quantal-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
-	unit3, err := service.AddUnit(state.AddUnitParams{})
+	unit3, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit3.SetAgentVersion(version.MustParseBinary("4.5.6-quantal-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -3665,9 +3665,9 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 	// Add a machine and a unit with the current version.
 	machine, err := st.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	service, err := st.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress")})
+	application, err := st.AddApplication(state.AddApplicationArgs{Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress")})
 	c.Assert(err, jc.ErrorIsNil)
-	unit, err := service.AddUnit(state.AddUnitParams{})
+	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetAgentVersion(version.MustParseBinary(currentVersion + "-quantal-amd64"))
