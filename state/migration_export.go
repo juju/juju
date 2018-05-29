@@ -757,6 +757,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		}
 		args := description.UnitArgs{
 			Tag:             unit.UnitTag(),
+			Type:            string(unit.modelType),
 			Machine:         names.NewMachineTag(unit.doc.MachineId),
 			WorkloadVersion: workloadVersion,
 			PasswordHash:    unit.doc.PasswordHash,
@@ -802,17 +803,19 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		workloadVersionKey := unit.globalWorkloadVersionKey()
 		exUnit.SetWorkloadVersionHistory(e.statusHistoryArgs(workloadVersionKey))
 
-		tools, err := unit.AgentTools()
-		if err != nil {
-			// This means the tools aren't set, but they should be.
-			return errors.Trace(err)
+		if e.dbModel.Type() != ModelTypeCAAS {
+			tools, err := unit.AgentTools()
+			if err != nil {
+				// This means the tools aren't set, but they should be.
+				return errors.Trace(err)
+			}
+			exUnit.SetTools(description.AgentToolsArgs{
+				Version: tools.Version,
+				URL:     tools.URL,
+				SHA256:  tools.SHA256,
+				Size:    tools.Size,
+			})
 		}
-		exUnit.SetTools(description.AgentToolsArgs{
-			Version: tools.Version,
-			URL:     tools.URL,
-			SHA256:  tools.SHA256,
-			Size:    tools.Size,
-		})
 		exUnit.SetAnnotations(e.getAnnotations(globalKey))
 
 		constraintsArgs, err := e.constraintsArgs(agentKey)
@@ -820,6 +823,18 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			return errors.Trace(err)
 		}
 		exUnit.SetConstraints(constraintsArgs)
+	}
+
+	// Set Tools for application - this is only for CAAS models.
+	if e.dbModel.Type() == ModelTypeCAAS {
+		tools, err := ctx.application.AgentTools()
+		if err != nil {
+			// This means the tools aren't set, but they should be.
+			return errors.Trace(err)
+		}
+		exApplication.SetTools(description.AgentToolsArgs{
+			Version: tools.Version,
+		})
 	}
 
 	return nil

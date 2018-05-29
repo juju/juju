@@ -382,6 +382,7 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"MinUnits",
 		"MetricCredentials",
 		"PasswordHash",
+		"Tools",
 	)
 	s.AssertExportedFields(c, applicationDoc{}, migrated.Union(ignored))
 }

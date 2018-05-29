@@ -1059,6 +1059,7 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		RelationCount:        i.relationCount(a.Name()),
 		Exposed:              a.Exposed(),
 		MinUnits:             a.MinUnits(),
+		Tools:                i.makeTools(a.Tools()),
 		MetricCredentials:    a.MetricsCredentials(),
 	}, nil
 }

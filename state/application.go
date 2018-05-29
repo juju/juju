@@ -17,6 +17,7 @@ import (
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/tools"
 )
 
 // Application represents the state of an application.
@@ -42,23 +44,24 @@ type Application struct {
 // applicationDoc represents the internal state of an application in MongoDB.
 // Note the correspondence with ApplicationInfo in apiserver.
 type applicationDoc struct {
-	DocID                string     `bson:"_id"`
-	Name                 string     `bson:"name"`
-	ModelUUID            string     `bson:"model-uuid"`
-	Series               string     `bson:"series"`
-	Subordinate          bool       `bson:"subordinate"`
-	CharmURL             *charm.URL `bson:"charmurl"`
-	Channel              string     `bson:"cs-channel"`
-	CharmModifiedVersion int        `bson:"charmmodifiedversion"`
-	ForceCharm           bool       `bson:"forcecharm"`
-	Life                 Life       `bson:"life"`
-	UnitCount            int        `bson:"unitcount"`
-	RelationCount        int        `bson:"relationcount"`
-	Exposed              bool       `bson:"exposed"`
-	MinUnits             int        `bson:"minunits"`
-	TxnRevno             int64      `bson:"txn-revno"`
-	MetricCredentials    []byte     `bson:"metric-credentials"`
-	PasswordHash         string     `bson:"passwordhash"`
+	DocID                string       `bson:"_id"`
+	Name                 string       `bson:"name"`
+	ModelUUID            string       `bson:"model-uuid"`
+	Series               string       `bson:"series"`
+	Subordinate          bool         `bson:"subordinate"`
+	CharmURL             *charm.URL   `bson:"charmurl"`
+	Channel              string       `bson:"cs-channel"`
+	CharmModifiedVersion int          `bson:"charmmodifiedversion"`
+	ForceCharm           bool         `bson:"forcecharm"`
+	Life                 Life         `bson:"life"`
+	UnitCount            int          `bson:"unitcount"`
+	RelationCount        int          `bson:"relationcount"`
+	Exposed              bool         `bson:"exposed"`
+	MinUnits             int          `bson:"minunits"`
+	Tools                *tools.Tools `bson:",omitempty"`
+	TxnRevno             int64        `bson:"txn-revno"`
+	MetricCredentials    []byte       `bson:"metric-credentials"`
+	PasswordHash         string       `bson:"passwordhash"`
 }
 
 func newApplication(st *State, doc *applicationDoc) *Application {
@@ -141,6 +144,38 @@ func (a *Application) Series() string {
 // Life returns whether the application is Alive, Dying or Dead.
 func (a *Application) Life() Life {
 	return a.doc.Life
+}
+
+// AgentTools returns the tools that the operator is currently running.
+// It an error that satisfies errors.IsNotFound if the tools have not
+// yet been set.
+func (a *Application) AgentTools() (*tools.Tools, error) {
+	if a.doc.Tools == nil {
+		return nil, errors.NotFoundf("operator image metadata for application %q", a)
+	}
+	tools := *a.doc.Tools
+	return &tools, nil
+}
+
+// SetAgentVersion sets the Tools value in applicationDoc.
+func (a *Application) SetAgentVersion(v version.Binary) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set agent version for application %q", a)
+	if err = checkVersionValidity(v); err != nil {
+		return errors.Trace(err)
+	}
+	tools := &tools.Tools{Version: v}
+	ops := []txn.Op{{
+		C:      applicationsC,
+		Id:     a.doc.DocID,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
+	}}
+	if err := a.st.db().RunTransaction(ops); err != nil {
+		return onAbort(err, ErrDead)
+	}
+	a.doc.Tools = tools
+	return nil
+
 }
 
 var errRefresh = stderrors.New("state seems inconsistent, refresh and try again")

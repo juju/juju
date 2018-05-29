@@ -495,6 +495,19 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
+	model, err := factory.st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	if model.Type() == state.ModelTypeCAAS {
+		agentTools := version.Binary{
+			Number: jujuversion.Current,
+			Arch:   arch.HostArch(),
+			Series: application.Series(),
+		}
+		err = application.SetAgentVersion(agentTools)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
 	return application, params.Password
 }
 
@@ -555,13 +568,16 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	agentTools := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.HostArch(),
-		Series: params.Application.Series(),
+	if model.Type() == state.ModelTypeIAAS {
+		agentTools := version.Binary{
+			Number: jujuversion.Current,
+			Arch:   arch.HostArch(),
+			Series: params.Application.Series(),
+		}
+		err = unit.SetAgentVersion(agentTools)
+		c.Assert(err, jc.ErrorIsNil)
 	}
-	err = unit.SetAgentVersion(agentTools)
-	c.Assert(err, jc.ErrorIsNil)
+
 	if params.SetCharmURL {
 		applicationCharmURL, _ := params.Application.CharmURL()
 		err = unit.SetCharmURL(applicationCharmURL)
