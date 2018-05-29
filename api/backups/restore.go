@@ -74,14 +74,28 @@ func (c *Client) RestoreReader(r io.ReadSeeker, meta *params.BackupsMetadataResu
 	}
 	logger.Debugf("Server is now in 'about to restore' mode, proceeding to upload the backup file")
 
+	results, err := c.List()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Do not upload if backup already exists on controller.
+	list := results.List
+	for _, b := range list {
+		if b.Checksum == meta.Checksum {
+			return c.restore(b.ID, newClient)
+		}
+	}
+
 	// Upload.
-	backupId, err := c.Upload(r, *meta)
+	_, err = c.Upload(r, *meta)
 	if err != nil {
 		finishErr := finishRestore(newClient)
 		logger.Errorf("could not clean up after failed backup upload: %v", finishErr)
 		return errors.Annotatef(err, "cannot upload backup file")
 	}
-	return c.restore(backupId, newClient)
+
+	return nil
 }
 
 // Restore performs restore using a backup id corresponding to a backup stored in the server.
