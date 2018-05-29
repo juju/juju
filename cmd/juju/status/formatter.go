@@ -80,6 +80,11 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 			Message: sf.status.Model.MeterStatus.Message,
 		}
 	}
+	if sf.status.ControllerTimestamp != nil {
+		out.Controller = &controllerStatus{
+			Timestamp: common.FormatTimeAsTimestamp(sf.status.ControllerTimestamp, sf.isoTime),
+		}
+	}
 	for k, m := range sf.status.Machines {
 		out.Machines[k] = sf.formatMachine(m)
 	}
@@ -96,9 +101,6 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 	for _, rel := range sf.relations {
 		out.Relations[i] = sf.formatRelation(rel)
 		i++
-	}
-	if sf.status.ControllerTimestamp != nil {
-		out.ControllerTimestamp = common.FormatTime(sf.status.ControllerTimestamp, sf.isoTime)
 	}
 	return out, nil
 }

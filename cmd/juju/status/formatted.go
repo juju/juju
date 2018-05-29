@@ -14,13 +14,13 @@ import (
 )
 
 type formattedStatus struct {
-	Model               modelStatus                        `json:"model"`
-	Machines            map[string]machineStatus           `json:"machines"`
-	Applications        map[string]applicationStatus       `json:"applications"`
-	RemoteApplications  map[string]remoteApplicationStatus `json:"application-endpoints,omitempty" yaml:"application-endpoints,omitempty"`
-	Offers              map[string]offerStatus             `json:"offers,omitempty" yaml:"offers,omitempty"`
-	Relations           []relationStatus                   `json:"-" yaml:"-"`
-	ControllerTimestamp string                             `json:"controller-timestamp,omitempty" yaml:"controller-timestamp,omitempty"`
+	Model              modelStatus                        `json:"model"`
+	Machines           map[string]machineStatus           `json:"machines"`
+	Applications       map[string]applicationStatus       `json:"applications"`
+	RemoteApplications map[string]remoteApplicationStatus `json:"application-endpoints,omitempty" yaml:"application-endpoints,omitempty"`
+	Offers             map[string]offerStatus             `json:"offers,omitempty" yaml:"offers,omitempty"`
+	Relations          []relationStatus                   `json:"-" yaml:"-"`
+	Controller         *controllerStatus                  `json:"controller,omitempty" yaml:"controller,omitempty"`
 }
 
 type formattedMachineStatus struct {
@@ -43,6 +43,10 @@ type modelStatus struct {
 	Status           statusInfoContents `json:"model-status,omitempty" yaml:"model-status,omitempty"`
 	MeterStatus      *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
 	SLA              string             `json:"sla,omitempty" yaml:"sla,omitempty"`
+}
+
+type controllerStatus struct {
+	Timestamp string `json:"timestamp,omitempty" yaml:"timestamp,omitempty"`
 }
 
 type networkInterface struct {

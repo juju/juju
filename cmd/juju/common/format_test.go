@@ -13,6 +13,89 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 )
 
+type FormatTimeSuite struct{}
+
+var _ = gc.Suite(&FormatTimeSuite{})
+
+func (s *FormatTimeSuite) TestFormatTime(c *gc.C) {
+	now := time.Now().Round(time.Second)
+	utcFormat := "2006-01-02 15:04:05Z"
+	localFormat := "02 Jan 2006 15:04:05Z07:00"
+	var tests = []struct {
+		description  string
+		input        time.Time
+		isoTime      bool
+		outputFormat string
+		output       string
+	}{
+		{
+			description:  "ISOTime conforms to the correct layout",
+			input:        now,
+			isoTime:      true,
+			outputFormat: utcFormat,
+			output:       now.UTC().Format(utcFormat),
+		},
+		{
+			description:  "Time conforms to the correct layout",
+			input:        now,
+			isoTime:      false,
+			outputFormat: localFormat,
+			output:       now.Local().Format(localFormat),
+		},
+	}
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.description)
+		formatted := common.FormatTime(&test.input, test.isoTime)
+		parsed, err := time.Parse(test.outputFormat, formatted)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(parsed, jc.DeepEquals, test.input)
+	}
+}
+
+type FormatTimeAsTimestampSuite struct{}
+
+var _ = gc.Suite(&FormatTimeAsTimestampSuite{})
+
+func (s *FormatTimeAsTimestampSuite) TestFormatTimeAsTimestamp(c *gc.C) {
+	now := time.Now().Round(time.Second)
+	utcFormat := "15:04:05"
+	localFormat := "15:04:05Z07:00"
+	var tests = []struct {
+		description  string
+		input        time.Time
+		isoTime      bool
+		outputFormat string
+		output       string
+	}{
+		{
+			description:  "ISOTime conforms to the correct layout",
+			input:        now,
+			isoTime:      true,
+			outputFormat: utcFormat,
+			output:       now.UTC().Format(utcFormat),
+		},
+		{
+			description:  "Time conforms to the correct layout",
+			input:        now,
+			isoTime:      false,
+			outputFormat: localFormat,
+			output:       now.UTC().Format(localFormat),
+		},
+	}
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.description)
+		formatted := common.FormatTimeAsTimestamp(&test.input, test.isoTime)
+		parsed, err := time.Parse(test.outputFormat, formatted)
+		c.Assert(err, jc.ErrorIsNil)
+
+		expected := test.input.Local()
+		if test.isoTime {
+			expected = test.input.UTC()
+		}
+		c.Assert(parsed.Format(test.outputFormat), jc.DeepEquals, expected.Format(test.outputFormat))
+	}
+}
+
 type ConformSuite struct{}
 
 var _ = gc.Suite(&ConformSuite{})
