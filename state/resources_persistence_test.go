@@ -622,31 +622,31 @@ func (s *ResourcePersistenceSuite) TestRemovePendingAppResources(c *gc.C) {
 	c.Assert(ops[1].Insert.(*cleanupDoc).Prefix, gc.Equals, appResource2.storagePath)
 }
 
-func newPersistenceUnitResources(c *gc.C, serviceID, unitID string, resources []resource.Resource) ([]resource.Resource, []resourceDoc) {
+func newPersistenceUnitResources(c *gc.C, applicationID, unitID string, resources []resource.Resource) ([]resource.Resource, []resourceDoc) {
 	var unitResources []resource.Resource
 	var docs []resourceDoc
 	for _, res := range resources {
-		res, doc := newPersistenceUnitResource(c, serviceID, unitID, res.Name)
+		res, doc := newPersistenceUnitResource(c, applicationID, unitID, res.Name)
 		unitResources = append(unitResources, res)
 		docs = append(docs, doc)
 	}
 	return unitResources, docs
 }
 
-func newPersistenceUnitResource(c *gc.C, serviceID, unitID, name string) (resource.Resource, resourceDoc) {
-	res, doc := newPersistenceResource(c, serviceID, name)
+func newPersistenceUnitResource(c *gc.C, applicationID, unitID, name string) (resource.Resource, resourceDoc) {
+	res, doc := newPersistenceResource(c, applicationID, name)
 	doc.DocID += "#unit-" + unitID
 	doc.UnitID = unitID
 	return res.Resource, doc
 }
 
-func newPersistenceResources(c *gc.C, serviceID string, names ...string) (resource.ServiceResources, []resourceDoc) {
-	var svcResources resource.ServiceResources
+func newPersistenceResources(c *gc.C, applicationID string, names ...string) (resource.ApplicationResources, []resourceDoc) {
+	var appResources resource.ApplicationResources
 	var docs []resourceDoc
 	for _, name := range names {
-		res, doc := newPersistenceResource(c, serviceID, name)
-		svcResources.Resources = append(svcResources.Resources, res.Resource)
-		svcResources.CharmStoreResources = append(svcResources.CharmStoreResources, res.Resource.Resource)
+		res, doc := newPersistenceResource(c, applicationID, name)
+		appResources.Resources = append(appResources.Resources, res.Resource)
+		appResources.CharmStoreResources = append(appResources.CharmStoreResources, res.Resource.Resource)
 		docs = append(docs, doc)
 		csDoc := doc // a copy
 		csDoc.DocID += "#charmstore"
@@ -656,17 +656,17 @@ func newPersistenceResources(c *gc.C, serviceID string, names ...string) (resour
 		csDoc.LastPolled = coretesting.NonZeroTime().UTC()
 		docs = append(docs, csDoc)
 	}
-	return svcResources, docs
+	return appResources, docs
 }
 
-func newPersistenceResource(c *gc.C, serviceID, name string) (storedResource, resourceDoc) {
+func newPersistenceResource(c *gc.C, applicationID, name string) (storedResource, resourceDoc) {
 	content := name
-	opened := resourcetesting.NewResource(c, nil, name, serviceID, content)
+	opened := resourcetesting.NewResource(c, nil, name, applicationID, content)
 	res := opened.Resource
 
 	stored := storedResource{
 		Resource:    res,
-		storagePath: "application-" + serviceID + "/resources/" + name,
+		storagePath: "application-" + applicationID + "/resources/" + name,
 	}
 
 	doc := resourceDoc{
@@ -693,7 +693,7 @@ func newPersistenceResource(c *gc.C, serviceID, name string) (storedResource, re
 	return stored, doc
 }
 
-func checkResources(c *gc.C, resources, expected resource.ServiceResources) {
+func checkResources(c *gc.C, resources, expected resource.ApplicationResources) {
 	resMap := make(map[string]resource.Resource)
 	for _, res := range resources.Resources {
 		resMap[res.Name] = res

@@ -817,7 +817,7 @@ func (m *mockMeteredDeployAPI) IsMetered(charmURL string) (bool, error) {
 	return false, m.NextErr()
 
 }
-func (m *mockMeteredDeployAPI) SetMetricCredentials(service string, credentials []byte) error {
-	m.AddCall("SetMetricCredentials", service, credentials)
+func (m *mockMeteredDeployAPI) SetMetricCredentials(application string, credentials []byte) error {
+	m.AddCall("SetMetricCredentials", application, credentials)
 	return m.NextErr()
 }

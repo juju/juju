@@ -199,7 +199,7 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 Deploying charm "cs:trusty/starsay-1".`
 	c.Assert(output, gc.Equals, expectedOutput)
 	s.assertCharmsUploaded(c, "cs:trusty/starsay-1")
-	s.assertServicesDeployed(c, map[string]serviceInfo{
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"starsay": {charm: "cs:trusty/starsay-1"},
 	})
 	_, err = s.State.Unit("starsay/0")
@@ -279,7 +279,7 @@ Deploying charm "cs:trusty/starsay-1".`
 	_, err = cmdtesting.RunCommand(c, application.NewUpgradeCharmCommand(), "starsay")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertServicesDeployed(c, map[string]serviceInfo{
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"starsay": {charm: "cs:trusty/starsay-2"},
 	})
 
@@ -332,12 +332,12 @@ func (s *charmStoreSuite) assertCharmsUploaded(c *gc.C, ids ...string) {
 	c.Assert(uploaded, jc.SameContents, ids)
 }
 
-// assertServicesDeployed checks that the given services have been deployed.
-func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]serviceInfo) {
-	services, err := s.State.AllApplications()
+// assertApplicationsDeployed checks that the given applications have been deployed.
+func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]applicationInfo) {
+	applications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
-	deployed := make(map[string]serviceInfo, len(services))
-	for _, application := range services {
+	deployed := make(map[string]applicationInfo, len(applications))
+	for _, application := range applications {
 		charm, _ := application.CharmURL()
 		config, err := application.CharmConfig()
 		c.Assert(err, jc.ErrorIsNil)
@@ -351,7 +351,7 @@ func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]servic
 		if len(storage) == 0 {
 			storage = nil
 		}
-		deployed[application.Name()] = serviceInfo{
+		deployed[application.Name()] = applicationInfo{
 			charm:       charm.String(),
 			config:      config,
 			constraints: constraints,
@@ -362,8 +362,8 @@ func (s *charmStoreSuite) assertServicesDeployed(c *gc.C, info map[string]servic
 	c.Assert(deployed, jc.DeepEquals, info)
 }
 
-// serviceInfo holds information about a deployed application.
-type serviceInfo struct {
+// applicationInfo holds information about a deployed application.
+type applicationInfo struct {
 	charm            string
 	config           charm.Settings
 	constraints      constraints.Value

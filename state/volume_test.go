@@ -80,7 +80,7 @@ func (s *VolumeStateSuite) assertMachineVolume(c *gc.C, unit *state.Unit) {
 	assertMachineStorageRefs(c, s.IAASModel, machine.MachineTag())
 }
 
-func (s *VolumeStateSuite) TestAddServiceInvalidPool(c *gc.C) {
+func (s *VolumeStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
@@ -89,7 +89,7 @@ func (s *VolumeStateSuite) TestAddServiceInvalidPool(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
-func (s *VolumeStateSuite) TestAddServiceNoUserDefaultPool(c *gc.C) {
+func (s *VolumeStateSuite) TestAddApplicationNoUserDefaultPool(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
@@ -112,7 +112,7 @@ func (s *VolumeStateSuite) TestAddServiceNoUserDefaultPool(c *gc.C) {
 	})
 }
 
-func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
+func (s *VolumeStateSuite) TestAddApplicationDefaultPool(c *gc.C) {
 	// Register a default pool.
 	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
 		dummy.StorageProviders(),

@@ -26,7 +26,7 @@ func (k StorageKind) String() string {
 	}
 }
 
-// StorageInstance describes a storage instance, assigned to a service or
+// StorageInstance describes a storage instance, assigned to an application or
 // unit.
 type StorageInstance struct {
 	// Tag is a unique tag assigned by Juju to the storage instance.

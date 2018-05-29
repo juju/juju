@@ -146,7 +146,7 @@ func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 		), ut(
 			"unknown unit",
 			// We still need to create a unit, because that's when we also
-			// connect to the API, but here we use a different service
+			// connect to the API, but here we use a different application
 			// (and hence unit) name.
 			createCharm{},
 			createApplicationAndUnit{applicationName: "w"},

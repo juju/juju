@@ -663,7 +663,7 @@ type addApplicationContext struct {
 	meterStatus      map[string]*meterStatusDoc
 	leader           string
 	payloads         map[string][]payload.FullPayloadInfo
-	resources        resource.ServiceResources
+	resources        resource.ApplicationResources
 	endpoingBindings map[string]bindingsMap
 
 	// CAAS
@@ -836,7 +836,7 @@ func (e *exporter) unitWorkloadVersion(unit *Unit) (string, error) {
 	return info.Message, nil
 }
 
-func (e *exporter) setResources(exApp description.Application, resources resource.ServiceResources) error {
+func (e *exporter) setResources(exApp description.Application, resources resource.ApplicationResources) error {
 	if len(resources.Resources) != len(resources.CharmStoreResources) {
 		return errors.New("number of resources don't match charm store resources")
 	}

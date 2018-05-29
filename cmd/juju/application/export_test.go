@@ -47,7 +47,7 @@ func NewResolvedCommandForTest(applicationResolveAPI applicationResolveAPI, clie
 }
 
 // NewAddUnitCommandForTest returns an AddUnitCommand with the api provided as specified.
-func NewAddUnitCommandForTest(api serviceAddUnitAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
+func NewAddUnitCommandForTest(api applicationAddUnitAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
 	cmd := &addUnitCommand{api: api}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)

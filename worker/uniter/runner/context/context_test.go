@@ -219,7 +219,7 @@ func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
 
 	// Change remote config.
-	err = s.service.UpdateCharmConfig(charm.Settings{
+	err = s.application.UpdateCharmConfig(charm.Settings{
 		"blog-title": "Something Else",
 	})
 	c.Assert(err, jc.ErrorIsNil)

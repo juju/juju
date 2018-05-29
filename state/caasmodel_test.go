@@ -186,15 +186,15 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	// add some applications
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.Factory.MakeApplication(c, nil)
-	ch, _, err := service.Charm()
+	application := s.Factory.MakeApplication(c, nil)
+	ch, _, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := state.AddApplicationArgs{
-		Name:  service.Name(),
+		Name:  application.Name(),
 		Charm: ch,
 	}
-	service, err = otherSt.AddApplication(args)
+	application, err = otherSt.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()

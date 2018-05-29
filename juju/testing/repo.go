@@ -31,23 +31,23 @@ func (s *RepoSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *RepoSuite) AssertService(c *gc.C, name string, expectCurl *charm.URL, unitCount, relCount int) (*state.Application, []*state.Relation) {
-	svc, err := s.State.Application(name)
+func (s *RepoSuite) AssertApplication(c *gc.C, name string, expectCurl *charm.URL, unitCount, relCount int) (*state.Application, []*state.Relation) {
+	app, err := s.State.Application(name)
 	c.Assert(err, jc.ErrorIsNil)
-	ch, _, err := svc.Charm()
+	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, expectCurl)
 	s.AssertCharmUploaded(c, expectCurl)
 
-	units, err := svc.AllUnits()
-	c.Logf("Service units: %+v", units)
+	units, err := app.AllUnits()
+	c.Logf("Application units: %+v", units)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, unitCount)
 	s.AssertUnitMachines(c, units)
-	rels, err := svc.Relations()
+	rels, err := app.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rels, gc.HasLen, relCount)
-	return svc, rels
+	return app, rels
 }
 
 func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl *charm.URL) {

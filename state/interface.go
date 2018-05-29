@@ -107,7 +107,7 @@ type ControllerAccessor interface {
 }
 
 // UnitsWatcher defines the methods needed to retrieve an entity (a
-// machine or a service) and watch its units.
+// machine or an application) and watch its units.
 type UnitsWatcher interface {
 	Entity
 	WatchUnits() StringsWatcher

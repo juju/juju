@@ -57,9 +57,9 @@ func (s *UnitSuite) TestUnitNotFound(c *gc.C) {
 }
 
 func (s *UnitSuite) TestApplication(c *gc.C) {
-	svc, err := s.unit.Application()
+	app, err := s.unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(svc.Name(), gc.Equals, s.unit.ApplicationName())
+	c.Assert(app.Name(), gc.Equals, s.unit.ApplicationName())
 }
 
 func (s *UnitSuite) TestConfigSettingsNeedCharmURLSet(c *gc.C) {

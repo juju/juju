@@ -88,7 +88,7 @@ func FormatAppResource(res resource.Resource) FormattedAppResource {
 	return result
 }
 
-func formatApplicationResources(sr resource.ServiceResources) (FormattedApplicationInfo, error) {
+func formatApplicationResources(sr resource.ApplicationResources) (FormattedApplicationInfo, error) {
 	var formatted FormattedApplicationInfo
 	updates, err := sr.Updates()
 	if err != nil {
@@ -108,9 +108,9 @@ func formatApplicationResources(sr resource.ServiceResources) (FormattedApplicat
 	return formatted, nil
 }
 
-// FormatApplicationDetails converts a ServiceResources value into a formatted value
+// FormatApplicationDetails converts a ApplicationResources value into a formatted value
 // for display on the command line.
-func FormatApplicationDetails(sr resource.ServiceResources) (FormattedApplicationDetails, error) {
+func FormatApplicationDetails(sr resource.ApplicationResources) (FormattedApplicationDetails, error) {
 	var formatted FormattedApplicationDetails
 	details, err := detailedResources("", sr)
 	if err != nil {
@@ -209,7 +209,7 @@ func unitNum(unit names.UnitTag) (int, error) {
 // detailedResources shows the version of each resource on each unit, with the
 // corresponding version of the resource that exists in the controller. if unit
 // is non-empty, only units matching that unitID will be returned.
-func detailedResources(unit string, sr resource.ServiceResources) ([]FormattedDetailResource, error) {
+func detailedResources(unit string, sr resource.ApplicationResources) ([]FormattedDetailResource, error) {
 	var formatted []FormattedDetailResource
 	for _, ur := range sr.UnitResources {
 		if unit == "" || unit == ur.Tag.Id() {

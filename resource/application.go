@@ -9,9 +9,9 @@ import (
 	"gopkg.in/juju/names.v2"
 )
 
-// ServiceResources contains the list of resources for the application and all its
+// ApplicationResources contains the list of resources for the application and all its
 // units.
-type ServiceResources struct {
+type ApplicationResources struct {
 	// Resources are the current version of the resource for the application that
 	// resource-get will retrieve.
 	Resources []Resource
@@ -32,7 +32,7 @@ type ServiceResources struct {
 // the application's resources that are out of date. Note that there must be
 // a charm store resource for each of the application resources and
 // vice-versa. If they are out of sync then an error is returned.
-func (sr ServiceResources) Updates() ([]resource.Resource, error) {
+func (sr ApplicationResources) Updates() ([]resource.Resource, error) {
 	storeResources, err := sr.alignStoreResources()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -53,7 +53,7 @@ func (sr ServiceResources) Updates() ([]resource.Resource, error) {
 	return updates, nil
 }
 
-func (sr ServiceResources) alignStoreResources() ([]resource.Resource, error) {
+func (sr ApplicationResources) alignStoreResources() ([]resource.Resource, error) {
 	if len(sr.CharmStoreResources) > len(sr.Resources) {
 		return nil, errors.Errorf("have more charm store resources than application resources")
 	}

@@ -23,10 +23,10 @@ import (
 
 type AddUnitSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	fake *fakeServiceAddUnitAPI
+	fake *fakeApplicationAddUnitAPI
 }
 
-type fakeServiceAddUnitAPI struct {
+type fakeApplicationAddUnitAPI struct {
 	envType        string
 	application    string
 	numUnits       int
@@ -36,19 +36,19 @@ type fakeServiceAddUnitAPI struct {
 	err            error
 }
 
-func (f *fakeServiceAddUnitAPI) BestAPIVersion() int {
+func (f *fakeApplicationAddUnitAPI) BestAPIVersion() int {
 	return f.bestAPIVersion
 }
 
-func (f *fakeServiceAddUnitAPI) Close() error {
+func (f *fakeApplicationAddUnitAPI) Close() error {
 	return nil
 }
 
-func (f *fakeServiceAddUnitAPI) ModelUUID() string {
+func (f *fakeApplicationAddUnitAPI) ModelUUID() string {
 	return "fake-uuid"
 }
 
-func (f *fakeServiceAddUnitAPI) AddUnits(args apiapplication.AddUnitsParams) ([]string, error) {
+func (f *fakeApplicationAddUnitAPI) AddUnits(args apiapplication.AddUnitsParams) ([]string, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -62,7 +62,7 @@ func (f *fakeServiceAddUnitAPI) AddUnits(args apiapplication.AddUnitsParams) ([]
 	return nil, nil
 }
 
-func (f *fakeServiceAddUnitAPI) ModelGet() (map[string]interface{}, error) {
+func (f *fakeApplicationAddUnitAPI) ModelGet() (map[string]interface{}, error) {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": f.envType,
 		"name": "dummy",
@@ -76,7 +76,7 @@ func (f *fakeServiceAddUnitAPI) ModelGet() (map[string]interface{}, error) {
 
 func (s *AddUnitSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.fake = &fakeServiceAddUnitAPI{
+	s.fake = &fakeApplicationAddUnitAPI{
 		application:    "some-application-name",
 		numUnits:       1,
 		envType:        "dummy",

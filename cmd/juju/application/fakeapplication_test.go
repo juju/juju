@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// fakeServiceAPI is the fake application API for testing the application
+// fakeApplicationAPI is the fake application API for testing the application
 // update command.
 type fakeApplicationAPI struct {
 	name        string

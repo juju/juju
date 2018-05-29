@@ -26,7 +26,7 @@ type Persistence interface {
 	// function. It may be retried several times.
 	Run(transactions jujutxn.TransactionSource) error
 
-	// NewStorage returns a new blob storage for the environment.
+	// NewStorage returns a new blob storage for the model.
 	NewStorage() storage.Storage
 
 	// ApplicationExistsOps returns the operations that verify that the
@@ -81,7 +81,7 @@ func (sp statePersistence) Run(transactions jujutxn.TransactionSource) error {
 	return nil
 }
 
-// NewStorage returns a new blob storage for the environment.
+// NewStorage returns a new blob storage for the model.
 func (sp *statePersistence) NewStorage() storage.Storage {
 	modelUUID := sp.st.ModelUUID()
 	// TODO(ericsnow) Copy the session?
@@ -91,7 +91,7 @@ func (sp *statePersistence) NewStorage() storage.Storage {
 }
 
 // ApplicationExistsOps returns the operations that verify that the
-// identified service exists.
+// identified application exists.
 func (sp *statePersistence) ApplicationExistsOps(applicationID string) []txn.Op {
 	return []txn.Op{{
 		C:      applicationsC,
@@ -101,7 +101,7 @@ func (sp *statePersistence) ApplicationExistsOps(applicationID string) []txn.Op 
 }
 
 // IncCharmModifiedVersionOps returns the operations necessary to increment the
-// CharmModifiedVersion field for the given service.
+// CharmModifiedVersion field for the given application.
 func (sp *statePersistence) IncCharmModifiedVersionOps(applicationID string) []txn.Op {
 	return incCharmModifiedVersionOps(applicationID)
 }

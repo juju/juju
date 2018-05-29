@@ -43,7 +43,7 @@ type FirewallerAPI interface {
 	ControllerAPIInfoForModel(modelUUID string) (*api.Info, error)
 	MacaroonForRelation(relationKey string) (*macaroon.Macaroon, error)
 	SetRelationStatus(relationKey string, status relation.Status, message string) error
-	FirewallRules(serviceNames ...string) ([]params.FirewallRule, error)
+	FirewallRules(applicationNames ...string) ([]params.FirewallRule, error)
 }
 
 // CrossModelFirewallerFacade exposes firewaller functionality on the

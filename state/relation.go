@@ -49,7 +49,7 @@ type relationDoc struct {
 	SuspendedReason string     `bson:"suspended-reason"`
 }
 
-// Relation represents a relation between one or two service endpoints.
+// Relation represents a relation between one or two application endpoints.
 type Relation struct {
 	st  *State
 	doc relationDoc
@@ -288,15 +288,15 @@ func (r *Relation) Destroy() (err error) {
 
 // destroyOps returns the operations necessary to destroy the relation, and
 // whether those operations will lead to the relation's removal. These
-// operations may include changes to the relation's services; however, if
-// ignoreService is not empty, no operations modifying that service will
+// operations may include changes to the relation's applications; however, if
+// ignoreApplication is not empty, no operations modifying that application will
 // be generated.
-func (r *Relation) destroyOps(ignoreService string) (ops []txn.Op, isRemove bool, err error) {
+func (r *Relation) destroyOps(ignoreApplication string) (ops []txn.Op, isRemove bool, err error) {
 	if r.doc.Life != Alive {
 		return nil, false, errAlreadyDying
 	}
 	if r.doc.UnitCount == 0 {
-		removeOps, err := r.removeOps(ignoreService, "")
+		removeOps, err := r.removeOps(ignoreApplication, "")
 		if err != nil {
 			return nil, false, err
 		}
@@ -311,11 +311,11 @@ func (r *Relation) destroyOps(ignoreService string) (ops []txn.Op, isRemove bool
 }
 
 // removeOps returns the operations necessary to remove the relation. If
-// ignoreService is not empty, no operations affecting that service will be
+// ignoreApplication is not empty, no operations affecting that application will be
 // included; if departingUnitName is non-empty, this implies that the
-// relation's services may be Dying and otherwise unreferenced, and may thus
+// relation's applications may be Dying and otherwise unreferenced, and may thus
 // require removal themselves.
-func (r *Relation) removeOps(ignoreService string, departingUnitName string) ([]txn.Op, error) {
+func (r *Relation) removeOps(ignoreApplication string, departingUnitName string) ([]txn.Op, error) {
 	relOp := txn.Op{
 		C:      relationsC,
 		Id:     r.doc.DocID,
@@ -328,7 +328,7 @@ func (r *Relation) removeOps(ignoreService string, departingUnitName string) ([]
 	}
 	ops := []txn.Op{relOp}
 	for _, ep := range r.doc.Endpoints {
-		if ep.ApplicationName == ignoreService {
+		if ep.ApplicationName == ignoreApplication {
 			continue
 		}
 		app, err := applicationByName(r.st, ep.ApplicationName)
@@ -363,30 +363,30 @@ func (r *Relation) removeOps(ignoreService string, departingUnitName string) ([]
 func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string) ([]txn.Op, error) {
 	var asserts bson.D
 	hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
-	departingUnitServiceMatchesEndpoint := func() bool {
+	departingUnitApplicationMatchesEndpoint := func() bool {
 		s, err := names.UnitApplication(departingUnitName)
 		return err == nil && s == ep.ApplicationName
 	}
 	if departingUnitName == "" {
 		// We're constructing a destroy operation, either of the relation
-		// or one of its services, and can therefore be assured that both
-		// services are Alive.
+		// or one of its applications, and can therefore be assured that both
+		// applications are Alive.
 		asserts = append(hasRelation, isAliveDoc...)
-	} else if departingUnitServiceMatchesEndpoint() {
-		// This service must have at least one unit -- the one that's
+	} else if departingUnitApplicationMatchesEndpoint() {
+		// This application must have at least one unit -- the one that's
 		// departing the relation -- so it cannot be ready for removal.
 		cannotDieYet := bson.D{{"unitcount", bson.D{{"$gt", 0}}}}
 		asserts = append(hasRelation, cannotDieYet...)
 	} else {
-		// This service may require immediate removal.
+		// This application may require immediate removal.
 		applications, closer := r.st.db().GetCollection(applicationsC)
 		defer closer()
 
-		svc := &Application{st: r.st}
+		app := &Application{st: r.st}
 		hasLastRef := bson.D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
 		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
-		if err := applications.Find(removable).One(&svc.doc); err == nil {
-			return svc.removeOps(hasLastRef)
+		if err := applications.Find(removable).One(&app.doc); err == nil {
+			return app.removeOps(hasLastRef)
 		} else if err != mgo.ErrNotFound {
 			return nil, err
 		}
@@ -411,18 +411,18 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 	hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
 	if !unitDying {
 		// We're constructing a destroy operation, either of the relation
-		// or one of its services, and can therefore be assured that both
-		// services are Alive.
+		// or one of its application, and can therefore be assured that both
+		// applications are Alive.
 		asserts = append(hasRelation, isAliveDoc...)
 	} else {
 		// The remote application may require immediate removal.
-		services, closer := r.st.db().GetCollection(remoteApplicationsC)
+		applications, closer := r.st.db().GetCollection(remoteApplicationsC)
 		defer closer()
 
 		app := &RemoteApplication{st: r.st}
 		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 1}}
 		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
-		if err := services.Find(removable).One(&app.doc); err == nil {
+		if err := applications.Find(removable).One(&app.doc); err == nil {
 			removeOps, err := app.removeOps(hasLastRef)
 			if err != nil {
 				return nil, err
@@ -449,13 +449,13 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 // Id returns the integer internal relation key. This is exposed
 // because the unit agent needs to expose a value derived from this
 // (as JUJU_RELATION_ID) to allow relation hooks to differentiate
-// between relations with different services.
+// between relations with different applications.
 func (r *Relation) Id() int {
 	return r.doc.Id
 }
 
-// Endpoint returns the endpoint of the relation for the named service.
-// If the service is not part of the relation, an error will be returned.
+// Endpoint returns the endpoint of the relation for the named application.
+// If the application is not part of the relation, an error will be returned.
 func (r *Relation) Endpoint(applicationname string) (Endpoint, error) {
 	for _, ep := range r.doc.Endpoints {
 		if ep.ApplicationName == applicationname {
@@ -472,7 +472,7 @@ func (r *Relation) Endpoints() []Endpoint {
 }
 
 // RelatedEndpoints returns the endpoints of the relation r with which
-// units of the named service will establish relations. If the service
+// units of the named application will establish relations. If the service
 // is not part of the relation r, an error will be returned.
 func (r *Relation) RelatedEndpoints(applicationname string) ([]Endpoint, error) {
 	local, err := r.Endpoint(applicationname)
@@ -502,14 +502,14 @@ func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
 // of a remote application.
 func (r *Relation) RemoteUnit(unitName string) (*RelationUnit, error) {
 	// Verify that the unit belongs to a remote application.
-	serviceName, err := names.UnitApplication(unitName)
+	appName, err := names.UnitApplication(unitName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if _, err := r.st.RemoteApplication(serviceName); err != nil {
+	if _, err := r.st.RemoteApplication(appName); err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Only non-subordinate services may be offered for remote
+	// Only non-subordinate applications may be offered for remote
 	// relation, so all remote units are principals.
 	const principal = ""
 	const isPrincipal = true
@@ -537,11 +537,11 @@ func (r *Relation) unit(
 	isPrincipal bool,
 	isLocalUnit bool,
 ) (*RelationUnit, error) {
-	serviceName, err := names.UnitApplication(unitName)
+	appName, err := names.UnitApplication(unitName)
 	if err != nil {
 		return nil, err
 	}
-	ep, err := r.Endpoint(serviceName)
+	ep, err := r.Endpoint(appName)
 	if err != nil {
 		return nil, err
 	}

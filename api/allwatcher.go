@@ -76,7 +76,7 @@ func (o orderedDeltas) kindPriority(kind string) int {
 	switch kind {
 	case "machine":
 		return 1
-	case "service":
+	case "application":
 		return 2
 	case "relation":
 		return 3

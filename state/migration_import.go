@@ -35,8 +35,8 @@ import (
 
 // When we import a new model, we need to give the leaders some time to
 // settle. We don't want to have leader switches just because we migrated an
-// environment, so this time needs to be long enough to make sure we cover
-// the time taken to migration a reasonable sized environment. We don't yet
+// model, so this time needs to be long enough to make sure we cover
+// the time taken to migration a reasonable sized model. We don't yet
 // know how long this is going to be, but we need something.
 var initialLeaderClaimTime = time.Minute
 

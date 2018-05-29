@@ -25,8 +25,8 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 	annts := map[string]string{"annotation1": "test"}
 	annts2 := map[string]string{"annotation2": "test"}
 	setParams := map[string]map[string]string{
-		"charmA":   annts,
-		"serviceB": annts2,
+		"charmA":       annts,
+		"applicationB": annts2,
 	}
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,

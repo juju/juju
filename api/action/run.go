@@ -19,7 +19,7 @@ func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]par
 }
 
 // Run the Commands specified on the machines identified through the ids
-// provided in the machines, services and units slices.
+// provided in the machines, applications and units slices.
 func (c *Client) Run(run params.RunParams) ([]params.ActionResult, error) {
 	var results params.ActionResults
 	err := c.facade.FacadeCall("Run", run, &results)

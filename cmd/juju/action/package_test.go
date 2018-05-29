@@ -29,8 +29,8 @@ const (
 	validUnitId            = "mysql/0"
 	validUnitId2           = "mysql/1"
 	invalidUnitId          = "something-strange-"
-	validServiceId         = "mysql"
-	invalidServiceId       = "something-strange-"
+	validApplicationId     = "mysql"
+	invalidApplicationId   = "something-strange-"
 )
 
 func TestPackage(t *testing.T) {

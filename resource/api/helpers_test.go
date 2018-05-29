@@ -74,7 +74,7 @@ func (HelpersSuite) TestResource2API(c *gc.C) {
 	})
 }
 
-func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
+func (HelpersSuite) TestAPIResult2ApplicationResourcesOkay(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
@@ -185,7 +185,7 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 		Size:        11,
 	}
 
-	resources, err := api.APIResult2ServiceResources(params.ResourcesResult{
+	resources, err := api.APIResult2ApplicationResources(params.ResourcesResult{
 		Resources: []params.Resource{
 			apiRes,
 		},
@@ -208,7 +208,7 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceResource := resource.ServiceResources{
+	serviceResource := resource.ApplicationResources{
 		Resources: []resource.Resource{
 			expected,
 		},
@@ -231,7 +231,7 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesOkay(c *gc.C) {
 	c.Check(resources, jc.DeepEquals, serviceResource)
 }
 
-func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
+func (HelpersSuite) TestAPIResult2ApplicationResourcesBadUnitTag(c *gc.C) {
 	fp, err := charmresource.NewFingerprint([]byte(fingerprint))
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
@@ -315,7 +315,7 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 		Timestamp:     now,
 	}
 
-	_, err = api.APIResult2ServiceResources(params.ResourcesResult{
+	_, err = api.APIResult2ApplicationResources(params.ResourcesResult{
 		Resources: []params.Resource{
 			apiRes,
 		},
@@ -333,7 +333,7 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesBadUnitTag(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*got bad data from server.*")
 }
 
-func (HelpersSuite) TestAPIResult2ServiceResourcesFailure(c *gc.C) {
+func (HelpersSuite) TestAPIResult2ApplicationResourcesFailure(c *gc.C) {
 	apiRes := params.Resource{
 		CharmResource: params.CharmResource{
 			Name:        "spam",
@@ -349,7 +349,7 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesFailure(c *gc.C) {
 	}
 	failure := errors.New("<failure>")
 
-	_, err := api.APIResult2ServiceResources(params.ResourcesResult{
+	_, err := api.APIResult2ApplicationResources(params.ResourcesResult{
 		ErrorResult: params.ErrorResult{
 			Error: &params.Error{
 				Message: failure.Error(),
@@ -364,7 +364,7 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesFailure(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Not(gc.Equals), failure)
 }
 
-func (HelpersSuite) TestAPIResult2ServiceResourcesNotFound(c *gc.C) {
+func (HelpersSuite) TestAPIResult2ApplicationResourcesNotFound(c *gc.C) {
 	apiRes := params.Resource{
 		CharmResource: params.CharmResource{
 			Name:        "spam",
@@ -379,7 +379,7 @@ func (HelpersSuite) TestAPIResult2ServiceResourcesNotFound(c *gc.C) {
 		ApplicationID: "a-application",
 	}
 
-	_, err := api.APIResult2ServiceResources(params.ResourcesResult{
+	_, err := api.APIResult2ApplicationResources(params.ResourcesResult{
 		ErrorResult: params.ErrorResult{
 			Error: &params.Error{
 				Message: `application "a-application" not found`,
@@ -518,7 +518,7 @@ func (HelpersSuite) TestServiceResources2API(c *gc.C) {
 	chres1.Revision++
 	chres2.Revision++
 
-	svcRes := resource.ServiceResources{
+	svcRes := resource.ApplicationResources{
 		Resources: []resource.Resource{
 			res1,
 			res2,
@@ -544,7 +544,7 @@ func (HelpersSuite) TestServiceResources2API(c *gc.C) {
 		},
 	}
 
-	result := api.ServiceResources2APIResult(svcRes)
+	result := api.ApplicationResources2APIResult(svcRes)
 
 	apiRes1 := api.Resource2API(res1)
 	apiRes2 := api.Resource2API(res2)

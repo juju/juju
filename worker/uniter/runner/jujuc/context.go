@@ -92,7 +92,7 @@ type ContextUnit interface {
 	// UnitName returns the executing unit's name.
 	UnitName() string
 
-	// Config returns the current service configuration of the executing unit.
+	// Config returns the current application configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
 
 	// GoalState returns the goal state for the current unit.
@@ -113,11 +113,11 @@ type ContextStatus interface {
 	// SetUnitStatus updates the unit's status.
 	SetUnitStatus(StatusInfo) error
 
-	// ApplicationStatus returns the executing unit's service status
+	// ApplicationStatus returns the executing unit's application status
 	// (including all units).
 	ApplicationStatus() (ApplicationStatusInfo, error)
 
-	// SetApplicationStatus updates the status for the unit's service.
+	// SetApplicationStatus updates the status for the unit's application.
 	SetApplicationStatus(StatusInfo) error
 }
 
@@ -146,11 +146,11 @@ type ContextNetworking interface {
 	PrivateAddress() (string, error)
 
 	// OpenPorts marks the supplied port range for opening when the
-	// executing unit's service is exposed.
+	// executing unit's application is exposed.
 	OpenPorts(protocol string, fromPort, toPort int) error
 
 	// ClosePorts ensures the supplied port range is closed even when
-	// the executing unit's service is exposed (unless it is opened
+	// the executing unit's application is exposed (unless it is opened
 	// separately by a co- located unit).
 	ClosePorts(protocol string, fromPort, toPort int) error
 
@@ -176,7 +176,7 @@ type ContextLeadership interface {
 	LeaderSettings() (map[string]string, error)
 
 	// WriteLeaderSettings writes the supplied settings directly to state, or
-	// fails if the local unit is not the service's leader.
+	// fails if the local unit is not the application's leader.
 	WriteLeaderSettings(map[string]string) error
 }
 

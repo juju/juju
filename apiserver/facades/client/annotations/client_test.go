@@ -63,14 +63,14 @@ func (s *annotationSuite) TestCharmAnnotations(c *gc.C) {
 	s.testSetGetEntitiesAnnotations(c, charm.Tag())
 }
 
-func (s *annotationSuite) TestServiceAnnotations(c *gc.C) {
+func (s *annotationSuite) TestApplicationAnnotations(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: charm,
 	})
 	s.testSetGetEntitiesAnnotations(c, wordpress.Tag())
 
-	// on service removal
+	// on application removal
 	err := wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAnnotationsRemoval(c, wordpress.Tag())
@@ -128,7 +128,7 @@ func (s *annotationSuite) TestUnitAnnotations(c *gc.C) {
 
 func (s *annotationSuite) makeRelation(c *gc.C) (*state.Application, *state.Relation) {
 	s1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name: "service1",
+		Name: "application1",
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
 		}),
@@ -137,7 +137,7 @@ func (s *annotationSuite) makeRelation(c *gc.C) (*state.Application, *state.Rela
 	c.Assert(err, jc.ErrorIsNil)
 
 	s2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Name: "service2",
+		Name: "application2",
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "mysql",
 		}),
@@ -196,7 +196,7 @@ func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
 	sEntity := sTag.String()
 
 	entities := []string{
-		sEntity, //service: expect success in set/get
+		sEntity, //application: expect success in set/get
 		rEntity, //relation:expect failure in set/get - cannot annotate relations
 	}
 	annotations := map[string]string{"mykey": "myvalue"}

@@ -164,9 +164,9 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 
 	// The relation or unit might no longer be Alive. (Note that there is no
 	// need for additional checks if we're trying to create a subordinate
-	// unit: this could fail due to the subordinate service's not being Alive,
+	// unit: this could fail due to the subordinate applications not being Alive,
 	// but this case will always be caught by the check for the relation's
-	// life (because a relation cannot be Alive if its services are not).)
+	// life (because a relation cannot be Alive if its applications are not).)
 	relations, closer := db.GetCollection(relationsC)
 	defer closer()
 	if alive, err := isAliveWithSession(relations, relationDocID); err != nil {
@@ -457,7 +457,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 
 // ReadSettings returns a map holding the settings of the unit with the
 // supplied name within this relation. An error will be returned if the
-// relation no longer exists, or if the unit's service is not part of the
+// relation no longer exists, or if the unit's application is not part of the
 // relation, or the settings are invalid; but mere non-existence of the
 // unit is not grounds for an error, because the unit settings are
 // guaranteed to persist for the lifetime of the relation, regardless

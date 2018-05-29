@@ -23,7 +23,7 @@ func (s *ServiceResourcesSuite) TestUpdatesUploaded(c *gc.C) {
 	csRes := newStoreResource(c, "spam", "a-application", 2)
 	res := csRes // a copy
 	res.Origin = charmresource.OriginUpload
-	sr := resource.ServiceResources{
+	sr := resource.ApplicationResources{
 		Resources: []resource.Resource{
 			res,
 		},
@@ -43,7 +43,7 @@ func (s *ServiceResourcesSuite) TestUpdatesDifferent(c *gc.C) {
 	eggs := newStoreResource(c, "eggs", "a-application", 3)
 	expected := eggs.Resource
 	expected.Revision += 1
-	sr := resource.ServiceResources{
+	sr := resource.ApplicationResources{
 		Resources: []resource.Resource{
 			spam,
 			eggs,
@@ -65,7 +65,7 @@ func (s *ServiceResourcesSuite) TestUpdatesBadOrdering(c *gc.C) {
 	eggs := newStoreResource(c, "eggs", "a-application", 3)
 	expected := eggs.Resource
 	expected.Revision += 1
-	sr := resource.ServiceResources{
+	sr := resource.ApplicationResources{
 		Resources: []resource.Resource{
 			spam,
 			eggs,
@@ -85,7 +85,7 @@ func (s *ServiceResourcesSuite) TestUpdatesBadOrdering(c *gc.C) {
 func (s *ServiceResourcesSuite) TestUpdatesNone(c *gc.C) {
 	spam := newStoreResource(c, "spam", "a-application", 2)
 	eggs := newStoreResource(c, "eggs", "a-application", 3)
-	sr := resource.ServiceResources{
+	sr := resource.ApplicationResources{
 		Resources: []resource.Resource{
 			spam,
 			eggs,

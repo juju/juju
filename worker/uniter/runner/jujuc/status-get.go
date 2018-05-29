@@ -14,10 +14,10 @@ import (
 // StatusGetCommand implements the status-get command.
 type StatusGetCommand struct {
 	cmd.CommandBase
-	ctx         Context
-	includeData bool
-	serviceWide bool
-	out         cmd.Output
+	ctx             Context
+	includeData     bool
+	applicationWide bool
+	out             cmd.Output
 }
 
 func NewStatusGetCommand(ctx Context) (cmd.Command, error) {
@@ -40,14 +40,14 @@ If the --include-data flag is passed, the associated data are printed also.
 func (c *StatusGetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.BoolVar(&c.includeData, "include-data", false, "print all status data")
-	f.BoolVar(&c.serviceWide, "application", false, "print status for all units of this application if this unit is the leader")
+	f.BoolVar(&c.applicationWide, "application", false, "print status for all units of this application if this unit is the leader")
 }
 
 func (c *StatusGetCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-// StatusInfo is a record of the status information for a service or a unit's workload.
+// StatusInfo is a record of the status information for a application or a unit's workload.
 type StatusInfo struct {
 	Tag    string
 	Status string
@@ -76,7 +76,7 @@ func toDetails(info StatusInfo, includeData bool) map[string]interface{} {
 }
 
 func (c *StatusGetCommand) ApplicationStatus(ctx *cmd.Context) error {
-	serviceStatus, err := c.ctx.ApplicationStatus()
+	applicationStatus, err := c.ctx.ApplicationStatus()
 	if err != nil {
 		if errors.IsNotImplemented(err) {
 			return c.out.Write(ctx, status.Unknown)
@@ -84,13 +84,13 @@ func (c *StatusGetCommand) ApplicationStatus(ctx *cmd.Context) error {
 		return errors.Annotatef(err, "finding application status")
 	}
 	if !c.includeData && c.out.Name() == "smart" {
-		return c.out.Write(ctx, serviceStatus.Application.Status)
+		return c.out.Write(ctx, applicationStatus.Application.Status)
 	}
 	statusDetails := make(map[string]interface{})
-	details := toDetails(serviceStatus.Application, c.includeData)
+	details := toDetails(applicationStatus.Application, c.includeData)
 
-	units := make(map[string]interface{}, len(serviceStatus.Units))
-	for _, unit := range serviceStatus.Units {
+	units := make(map[string]interface{}, len(applicationStatus.Units))
+	for _, unit := range applicationStatus.Units {
 		units[unit.Tag] = toDetails(unit, c.includeData)
 	}
 	details["units"] = units
@@ -101,10 +101,10 @@ func (c *StatusGetCommand) ApplicationStatus(ctx *cmd.Context) error {
 
 }
 
-func (c *StatusGetCommand) unitOrServiceStatus(ctx *cmd.Context) error {
+func (c *StatusGetCommand) unitOrApplicationStatus(ctx *cmd.Context) error {
 	var err error
 
-	if c.serviceWide {
+	if c.applicationWide {
 		return c.ApplicationStatus(ctx)
 	}
 
@@ -123,5 +123,5 @@ func (c *StatusGetCommand) unitOrServiceStatus(ctx *cmd.Context) error {
 }
 
 func (c *StatusGetCommand) Run(ctx *cmd.Context) error {
-	return c.unitOrServiceStatus(ctx)
+	return c.unitOrApplicationStatus(ctx)
 }

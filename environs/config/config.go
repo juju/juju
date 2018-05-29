@@ -264,7 +264,7 @@ const (
 	HarvestUnknown
 	// HarvestDestroyed signifies that Juju should only harvest
 	// machines which have been explicitly released by the user
-	// through a destroy of a service/model/unit.
+	// through a destroy of an application/model/unit.
 	HarvestDestroyed
 	// HarvestAll signifies that Juju should harvest both unknown and
 	// destroyed instances. ♫ Don't fear the reaper. ♫

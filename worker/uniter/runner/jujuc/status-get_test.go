@@ -52,7 +52,7 @@ func setFakeStatus(ctx *Context) {
 	})
 }
 
-func setFakeServiceStatus(ctx *Context) {
+func setFakeApplicationStatus(ctx *Context) {
 	ctx.info.Status.SetApplicationStatus(
 		jujuc.StatusInfo{
 			Status: "active",
@@ -144,7 +144,7 @@ func (s *statusGetSuite) TestOutputPath(c *gc.C) {
 	c.Assert(out, gc.DeepEquals, statusAttributes)
 }
 
-func (s *statusGetSuite) TestServiceStatus(c *gc.C) {
+func (s *statusGetSuite) TestApplicationStatus(c *gc.C) {
 	expected := map[string]interface{}{
 		"application-status": map[interface{}]interface{}{
 			"status-data": map[interface{}]interface{}{},
@@ -159,7 +159,7 @@ func (s *statusGetSuite) TestServiceStatus(c *gc.C) {
 			"status":  "active"},
 	}
 	hctx := s.GetStatusHookContext(c)
-	setFakeServiceStatus(hctx)
+	setFakeApplicationStatus(hctx)
 	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)

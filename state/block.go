@@ -44,7 +44,7 @@ const (
 	DestroyBlock BlockType = iota
 
 	// RemoveBlock type identifies block that prevents
-	// removal of machines, services, units or relations.
+	// removal of machines, applications, units or relations.
 	RemoveBlock
 
 	// ChangeBlock type identifies block that prevents model changes such

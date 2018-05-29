@@ -38,21 +38,21 @@ var unitLogger = loggo.GetLogger("juju.state.unit")
 type AssignmentPolicy string
 
 const (
-	// AssignLocal indicates that all service units should be assigned
+	// AssignLocal indicates that all application units should be assigned
 	// to machine 0.
 	AssignLocal AssignmentPolicy = "local"
 
-	// AssignClean indicates that every service unit should be assigned
+	// AssignClean indicates that every application unit should be assigned
 	// to a machine which never previously has hosted any units, and that
 	// new machines should be launched if required.
 	AssignClean AssignmentPolicy = "clean"
 
-	// AssignCleanEmpty indicates that every service unit should be assigned
+	// AssignCleanEmpty indicates that every application unit should be assigned
 	// to a machine which never previously has hosted any units, and which is not
 	// currently hosting any containers, and that new machines should be launched if required.
 	AssignCleanEmpty AssignmentPolicy = "clean-empty"
 
-	// AssignNew indicates that every service unit should be assigned to a new
+	// AssignNew indicates that every application unit should be assigned to a new
 	// dedicated machine.  A new machine will be launched for each new unit.
 	AssignNew AssignmentPolicy = "new"
 )
@@ -96,7 +96,7 @@ type unitDoc struct {
 	PasswordHash           string
 }
 
-// Unit represents the state of a service unit.
+// Unit represents the state of an application unit.
 type Unit struct {
 	st  *State
 	doc unitDoc
@@ -136,7 +136,7 @@ func (u *Unit) Application() (*Application, error) {
 	return u.st.Application(u.doc.Application)
 }
 
-// ConfigSettings returns the complete set of service charm config settings
+// ConfigSettings returns the complete set of application charm config settings
 // available to the unit. Unset values will be replaced with the default
 // value for the associated option, and may thus be nil when no default is
 // specified.
@@ -578,7 +578,7 @@ func (u *Unit) destroyOps(destroyStorage bool) ([]txn.Op, error) {
 	return append(ops, removeOps...), nil
 }
 
-// destroyHostOps returns all necessary operations to destroy the service unit's host machine,
+// destroyHostOps returns all necessary operations to destroy the application unit's host machine,
 // or ensure that the conditions preventing its destruction remain stable through the transaction.
 func (u *Unit) destroyHostOps(a *Application) (ops []txn.Op, err error) {
 	if a.doc.Subordinate {
@@ -688,7 +688,7 @@ func (u *Unit) removeOps(asserts bson.D) ([]txn.Op, error) {
 
 // ErrUnitHasSubordinates is a standard error to indicate that a Unit
 // cannot complete an operation to end its life because it still has
-// subordinate services
+// subordinate applications.
 var ErrUnitHasSubordinates = errors.New("unit has subordinates")
 
 var unitHasNoSubordinates = bson.D{{
@@ -754,8 +754,8 @@ func (u *Unit) EnsureDead() (err error) {
 	return ErrUnitHasStorageAttachments
 }
 
-// Remove removes the unit from state, and may remove its service as well, if
-// the service is Dying and no other references to it exist. It will fail if
+// Remove removes the unit from state, and may remove its application as well, if
+// the application is Dying and no other references to it exist. It will fail if
 // the unit is not Dead.
 func (u *Unit) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove unit %q", u)
@@ -813,7 +813,7 @@ func (u *Unit) Resolved() ResolvedMode {
 }
 
 // IsPrincipal returns whether the unit is deployed in its own container,
-// and can therefore have subordinate services deployed alongside it.
+// and can therefore have subordinate applications deployed alongside it.
 func (u *Unit) IsPrincipal() bool {
 	return u.doc.Principal == ""
 }
@@ -1340,7 +1340,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// NOTE: We're explicitly allowing SetCharmURL to succeed
-			// when the unit is Dying, because service/charm upgrades
+			// when the unit is Dying, because application/charm upgrades
 			// should still be allowed to apply to dying units, so
 			// that bugs in departed/broken hooks can be addressed at
 			// runtime.
@@ -1363,7 +1363,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 			return nil, errors.Errorf("unknown charm url %q", curl)
 		}
 
-		// Add a reference to the service settings for the new charm.
+		// Add a reference to the application settings for the new charm.
 		incOps, err := appCharmIncRefOps(u.st, u.doc.Application, curl, false)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1943,7 +1943,7 @@ func (u *Unit) Constraints() (*constraints.Value, error) {
 }
 
 // AssignToNewMachineOrContainer assigns the unit to a new machine,
-// with constraints determined according to the service and
+// with constraints determined according to the application and
 // model constraints at the time of unit creation. If a
 // container is required, a clean, empty machine instance is required
 // on which to create the container. An existing clean, empty instance
@@ -2013,7 +2013,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 }
 
 // AssignToNewMachine assigns the unit to a new machine, with constraints
-// determined according to the service and model constraints at the
+// determined according to the application and model constraints at the
 // time of unit creation.
 func (u *Unit) AssignToNewMachine() (err error) {
 	defer assignContextf(&err, u.Name(), "new machine")
@@ -2403,7 +2403,7 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 }
 
 // assignToCleanMaybeEmptyMachine implements AssignToCleanMachine and AssignToCleanEmptyMachine.
-// A 'machine' may be a machine instance or container depending on the service constraints.
+// A 'machine' may be a machine instance or container depending on the application constraints.
 func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (*Machine, error) {
 	var m *Machine
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -2783,7 +2783,7 @@ type addUnitOpsArgs struct {
 
 // addUnitOps returns the operations required to add a unit to the units
 // collection, along with all the associated expected other unit entries. This
-// method is used by both the *Service.addUnitOpsWithCons method and the
+// method is used by both the *Application.addUnitOpsWithCons method and the
 // migration import code.
 func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 	name := args.unitDoc.Name

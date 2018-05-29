@@ -330,7 +330,7 @@ func (s *applicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
-	app := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, cons)
+	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
 	storageConstraintsOut, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
@@ -406,7 +406,7 @@ func (s *applicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
-	app := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, cons)
+	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
 	storageConstraintsOut, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
@@ -441,7 +441,7 @@ func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
-	app := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, cons)
+	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
@@ -558,7 +558,7 @@ func (s *applicationSuite) TestApplicationDeploymentWithTrust(c *gc.C) {
 		Results: []params.ErrorResult{{Error: nil}},
 	})
 
-	app := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, cons)
+	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
 
 	appConfig, err := app.ApplicationConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -593,7 +593,7 @@ func (s *applicationSuite) TestApplicationDeploymentNoTrust(c *gc.C) {
 		Results: []params.ErrorResult{{Error: nil}},
 	})
 
-	app := apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, cons)
+	app := apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, cons)
 	appConfig, err := app.ApplicationConfig()
 	trust := appConfig.GetBool(application.TrustConfigOptionName, true)
 	c.Assert(trust, jc.IsFalse)
@@ -1220,7 +1220,7 @@ func (s *applicationSuite) assertApplicationDeployPrincipal(c *gc.C, curl *charm
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	apiservertesting.AssertPrincipalServiceDeployed(c, s.State, "application", curl, false, ch, mem4g)
+	apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, mem4g)
 }
 
 func (s *applicationSuite) assertApplicationDeployPrincipalBlocked(c *gc.C, msg string, curl *charm.URL, mem4g constraints.Value) {

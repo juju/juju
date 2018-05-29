@@ -114,7 +114,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Destroy only sets the model to dying and RemoveAllModelDocs can
 	// only be called on a dead model. Normally, the environ's lifecycle
-	// would be set to dead after machines and services have been cleaned up.
+	// would be set to dead after machines and applications have been cleaned up.
 	err = model1.SetDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st1.RemoveAllModelDocs()
@@ -529,7 +529,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
 
-	assertModel := func(model *state.Model, st *state.State, life state.Life, expectedMachines, expectedServices int) {
+	assertModel := func(model *state.Model, st *state.State, life state.Life, expectedMachines, expectedApplications int) {
 		c.Assert(model.Refresh(), jc.ErrorIsNil)
 		c.Assert(model.Life(), gc.Equals, life)
 
@@ -537,25 +537,25 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(machines, gc.HasLen, expectedMachines)
 
-		services, err := st.AllApplications()
+		applications, err := st.AllApplications()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(services, gc.HasLen, expectedServices)
+		c.Assert(applications, gc.HasLen, expectedApplications)
 	}
 
-	// add some machines and services
+	// add some machines and applications
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherSt.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.Factory.MakeApplication(c, nil)
-	ch, _, err := service.Charm()
+	application := s.Factory.MakeApplication(c, nil)
+	ch, _, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := state.AddApplicationArgs{
-		Name:  service.Name(),
+		Name:  application.Name(),
 		Charm: ch,
 	}
-	service, err = otherSt.AddApplication(args)
+	application, err = otherSt.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()
@@ -819,7 +819,7 @@ func (s *ModelSuite) TestDestroyModelReleaseStorageUnreleasable(c *gc.C) {
 	assertDoesNotNeedCleanup(c, s.State)
 }
 
-func (s *ModelSuite) TestDestroyModelAddServiceConcurrently(c *gc.C) {
+func (s *ModelSuite) TestDestroyModelAddApplicationConcurrently(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	m, err := st.Model()
@@ -929,7 +929,7 @@ func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.St
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 }
 
-func (s *ModelSuite) TestProcessDyingModelWithMachinesAndServicesNoOp(c *gc.C) {
+func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -937,22 +937,22 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndServicesNoOp(c *gc.C) {
 	err := st.ProcessDyingModel()
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
-	// add some machines and services
+	// add some machines and applications
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = st.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.Factory.MakeApplication(c, nil)
-	ch, _, err := service.Charm()
+	application := s.Factory.MakeApplication(c, nil)
+	ch, _, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	args := state.AddApplicationArgs{
-		Name:  service.Name(),
+		Name:  application.Name(),
 		Charm: ch,
 	}
-	service, err = st.AddApplication(args)
+	application, err = st.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertModel := func(life state.Life, expectedMachines, expectedServices int) {
+	assertModel := func(life state.Life, expectedMachines, expectedApplications int) {
 		c.Assert(model.Refresh(), jc.ErrorIsNil)
 		c.Assert(model.Life(), gc.Equals, life)
 
@@ -960,13 +960,13 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndServicesNoOp(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(machines, gc.HasLen, expectedMachines)
 
-		services, err := st.AllApplications()
+		applications, err := st.AllApplications()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(services, gc.HasLen, expectedServices)
+		c.Assert(applications, gc.HasLen, expectedApplications)
 	}
 
-	// Simulate processing a dying environment after an environment is set to
-	// dying, but before the cleanup has removed machines and services.
+	// Simulate processing a dying model after an model is set to
+	// dying, but before the cleanup has removed machines and applications.
 	defer state.SetAfterHooks(c, st, func() {
 		assertModel(state.Dying, 1, 1)
 		err := st.ProcessDyingModel()
