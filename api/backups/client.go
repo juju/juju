@@ -20,6 +20,15 @@ type Client struct {
 	client *httprequest.Client
 }
 
+// MakeClient is a direct constructor function for a backups client.
+func MakeClient(frontend base.ClientFacade, backend base.FacadeCaller, client *httprequest.Client) *Client {
+	return &Client{
+		ClientFacade: frontend,
+		facade:       backend,
+		client:       client,
+	}
+}
+
 // NewClient returns a new backups API client.
 func NewClient(st base.APICallCloser) (*Client, error) {
 	frontend, backend := base.NewClientFacade(st, "Backups")
@@ -27,9 +36,5 @@ func NewClient(st base.APICallCloser) (*Client, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &Client{
-		ClientFacade: frontend,
-		facade:       backend,
-		client:       client,
-	}, nil
+	return MakeClient(frontend, backend, client), nil
 }

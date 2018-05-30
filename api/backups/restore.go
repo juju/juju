@@ -88,14 +88,14 @@ func (c *Client) RestoreReader(r io.ReadSeeker, meta *params.BackupsMetadataResu
 	}
 
 	// Upload.
-	_, err = c.Upload(r, *meta)
+	backupId, err := c.Upload(r, *meta)
 	if err != nil {
 		finishErr := finishRestore(newClient)
 		logger.Errorf("could not clean up after failed backup upload: %v", finishErr)
 		return errors.Annotatef(err, "cannot upload backup file")
 	}
 
-	return nil
+	return c.restore(backupId, newClient)
 }
 
 // Restore performs restore using a backup id corresponding to a backup stored in the server.
