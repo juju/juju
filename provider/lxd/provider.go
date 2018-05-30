@@ -6,11 +6,14 @@ package lxd
 import (
 	"net"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
+	"github.com/juju/retry"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/lxc/lxd/shared"
 	"gopkg.in/juju/environschema.v1"
 
@@ -25,6 +28,7 @@ import (
 type environProvider struct {
 	environProviderCredentials
 	interfaceAddress func(string) (string, error)
+	Clock            clock.Clock
 }
 
 // NewProvider returns a new LXD EnvironProvider.
@@ -168,22 +172,40 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 	if err := raw.EnableHTTPSListener(); err != nil {
 		return "", errors.Annotate(err, "enabling HTTPS listener")
 	}
-	cInfo, err := raw.GetConnectionInfo()
-	if err != nil {
-		return "", errors.Trace(err)
+
+	// connInfoAddresses is really useful for debugging, so let's keep that
+	// information around for the debugging errors.
+	var connInfoAddresses []string
+	errNotExists := errors.New("not-exists")
+	retryArgs := retry.CallArgs{
+		Clock: p.clock(),
+		IsFatalError: func(err error) bool {
+			return errors.Cause(err) != errNotExists
+		},
+		Func: func() error {
+			cInfo, err := raw.GetConnectionInfo()
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			connInfoAddresses = cInfo.Addresses
+			for _, addr := range cInfo.Addresses {
+				if strings.HasPrefix(addr, hostAddress+":") {
+					hostAddress = addr
+
+					return nil
+				}
+			}
+
+			return errNotExists
+		},
+		Delay:    1 * time.Second,
+		Attempts: 60,
 	}
-	var found bool
-	for _, addr := range cInfo.Addresses {
-		if strings.HasPrefix(addr, hostAddress+":") {
-			hostAddress = addr
-			found = true
-			break
-		}
-	}
-	if !found {
+	if err := retry.Call(retryArgs); err != nil {
 		return "", errors.Errorf(
 			"LXD is not listening on address %s (reported addresses: %s)",
-			hostAddress, cInfo.Addresses,
+			hostAddress, connInfoAddresses,
 		)
 	}
 	ctx.Verbosef(
@@ -191,6 +213,13 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 		bridgeName, hostAddress,
 	)
 	return hostAddress, nil
+}
+
+func (p *environProvider) clock() clock.Clock {
+	if p.Clock == nil {
+		return clock.WallClock
+	}
+	return p.Clock
 }
 
 // localhostCloud is the predefined "localhost" LXD cloud. We leave the
