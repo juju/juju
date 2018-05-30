@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/api"
 	basetesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/credentialvalidator"
 	"github.com/juju/juju/api/crossmodelrelations"
 	apifirewaller "github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/remoterelations"
@@ -58,7 +59,8 @@ type firewallerBaseSuite struct {
 	crossmodelFirewaller *crossmodelrelations.Client
 	clock                clock.Clock
 
-	callCtx context.ProviderCallContext
+	callCtx     context.ProviderCallContext
+	credentials *credentialvalidator.Facade
 }
 
 func (s *firewallerBaseSuite) SetUpSuite(c *gc.C) {
@@ -111,6 +113,9 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 	s.firewaller = firewallerClient
 	s.remoteRelations = remoterelations.NewClient(s.st)
 	c.Assert(s.remoteRelations, gc.NotNil)
+
+	s.credentials = credentialvalidator.NewFacade(s.st)
+	c.Assert(s.credentials, gc.NotNil)
 }
 
 // assertPorts retrieves the open ports of the instance and compares them
@@ -234,7 +239,8 @@ func (s *InstanceModeSuite) newFirewallerWithClock(c *gc.C, clock clock.Clock) w
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
-		Clock: s.clock,
+		Clock:         s.clock,
+		CredentialAPI: s.credentials,
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1271,6 +1277,7 @@ func (s *GlobalModeSuite) newFirewaller(c *gc.C) worker.Worker {
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
+		CredentialAPI: s.credentials,
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1521,6 +1528,7 @@ func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
+		CredentialAPI: s.credentials,
 	}
 	_, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, gc.ErrorMatches, `invalid firewall-mode "none"`)

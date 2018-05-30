@@ -17,6 +17,7 @@ var logger = loggo.GetLogger("juju.api.credentialvalidator")
 
 // CredentialValidator defines the methods on credentialvalidator API endpoint.
 type CredentialValidator interface {
+	InvalidateModelCredential(reason string) (params.ErrorResult, error)
 	ModelCredential() (params.ModelCredential, error)
 	WatchCredential(params.Entity) (params.NotifyWatchResult, error)
 }
@@ -92,4 +93,13 @@ func (api *CredentialValidatorAPI) ModelCredential() (params.ModelCredential, er
 		Exists:          c.Exists,
 		Valid:           c.Valid,
 	}, nil
+}
+
+// InvalidateModelCredential marks the cloud credential for this model as invalid.
+func (api *CredentialValidatorAPI) InvalidateModelCredential(reason string) (params.ErrorResult, error) {
+	err := api.backend.InvalidateModelCredential(reason)
+	if err != nil {
+		return params.ErrorResult{Error: common.ServerError(err)}, nil
+	}
+	return params.ErrorResult{}, nil
 }

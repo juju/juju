@@ -466,7 +466,7 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Prov
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	apiState := apiprovisioner.NewState(s.st)
-	w, err := provisioner.NewEnvironProvisioner(apiState, agentConfig, s.Environ)
+	w, err := provisioner.NewEnvironProvisioner(apiState, agentConfig, s.Environ, &credentialAPIForTest{})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }

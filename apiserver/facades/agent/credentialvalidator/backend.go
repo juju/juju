@@ -12,9 +12,20 @@ import (
 
 // Backend defines behavior that credential validator needs.
 type Backend interface {
+
+	// ModelUsesCredential determines if the model uses given cloud credential.
 	ModelUsesCredential(tag names.CloudCredentialTag) (bool, error)
+
+	// ModelCredential retrieves the cloud credential that a model uses.
 	ModelCredential() (*ModelCredential, error)
+
+	// WatchCredential returns a watcher that is keeping an eye on all changes to
+	// a given cloud credential.
 	WatchCredential(names.CloudCredentialTag) state.NotifyWatcher
+
+	// InvalidateModelCredential marks the cloud credential that a current model
+	// uses as invalid.
+	InvalidateModelCredential(reason string) error
 }
 
 func NewBackend(st StateAccessor) Backend {
@@ -25,6 +36,7 @@ type backend struct {
 	StateAccessor
 }
 
+// ModelUsesCredential implements Backend.ModelUsesCredential.
 func (b *backend) ModelUsesCredential(tag names.CloudCredentialTag) (bool, error) {
 	m, err := b.Model()
 	if err != nil {
@@ -34,6 +46,7 @@ func (b *backend) ModelUsesCredential(tag names.CloudCredentialTag) (bool, error
 	return exists && tag == modelCredentialTag, nil
 }
 
+// ModelCredential implements Backend.ModelCredential.
 func (b *backend) ModelCredential() (*ModelCredential, error) {
 	m, err := b.Model()
 	if err != nil {
@@ -53,7 +66,6 @@ func (b *backend) ModelCredential() (*ModelCredential, error) {
 	}
 	result.Valid = credential.IsValid()
 	return result, nil
-
 }
 
 // ModelCredential stores model's cloud credential information.

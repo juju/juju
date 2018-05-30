@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/common"
 )
 
 // FirewallerAPI exposes functionality off the firewaller API facade to a worker.
@@ -86,6 +87,8 @@ type Config struct {
 	NewCrossModelFacadeFunc newCrossModelFacadeFunc
 
 	Clock clock.Clock
+
+	CredentialAPI common.CredentialAPI
 }
 
 // Validate returns an error if cfg cannot drive a Worker.
@@ -107,6 +110,9 @@ func (cfg Config) Validate() error {
 	}
 	if cfg.NewCrossModelFacadeFunc == nil {
 		return errors.NotValidf("nil Cross Model Facade func")
+	}
+	if cfg.CredentialAPI == nil {
+		return errors.NotValidf("nil Credential Facade")
 	}
 	return nil
 }
@@ -154,7 +160,6 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		clk = clock.WallClock
 	}
 
-	cloudCallCtx := context.NewCloudCallContext()
 	fw := &Firewaller{
 		firewallerApi:              cfg.FirewallerAPI,
 		remoteRelationsApi:         cfg.RemoteRelationsApi,
@@ -180,7 +185,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 			// For any failures, try again in 1 minute.
 			RestartDelay: time.Minute,
 		}),
-		cloudCallContext: cloudCallCtx,
+		cloudCallContext: common.NewCloudCallContext(cfg.CredentialAPI),
 	}
 
 	switch cfg.Mode {

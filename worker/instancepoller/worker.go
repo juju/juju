@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/common"
 )
 
 type Config struct {
@@ -21,6 +22,8 @@ type Config struct {
 	Delay   time.Duration
 	Facade  *instancepoller.API
 	Environ InstanceGetter
+
+	CredentialAPI common.CredentialAPI
 }
 
 func (config Config) Validate() error {
@@ -35,6 +38,9 @@ func (config Config) Validate() error {
 	}
 	if config.Environ == nil {
 		return errors.NotValidf("nil Environ")
+	}
+	if config.CredentialAPI == nil {
+		return errors.NotValidf("nil CredentialAPI")
 	}
 	return nil
 }
@@ -78,9 +84,10 @@ func (u *updaterWorker) Wait() error {
 func (u *updaterWorker) loop() (err error) {
 	u.aggregator, err = newAggregator(
 		aggregatorConfig{
-			Clock:   u.config.Clock,
-			Delay:   u.config.Delay,
-			Environ: u.config.Environ,
+			Clock:         u.config.Clock,
+			Delay:         u.config.Delay,
+			Environ:       u.config.Environ,
+			CredentialAPI: u.config.CredentialAPI,
 		},
 	)
 	if err != nil {

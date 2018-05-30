@@ -43,6 +43,7 @@ func (*WorkerSuite) TestNewWorker(c *gc.C) {
 		GateUnlocker:  &mockGateUnlocker,
 		ControllerTag: coretesting.ControllerTag,
 		ModelTag:      coretesting.ModelTag,
+		CredentialAPI: &credentialAPIForTest{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckKill(c, w)
@@ -66,6 +67,7 @@ func (*WorkerSuite) TestNonUpgradeable(c *gc.C) {
 		GateUnlocker:  &mockGateUnlocker,
 		ControllerTag: coretesting.ControllerTag,
 		ModelTag:      coretesting.ModelTag,
+		CredentialAPI: &credentialAPIForTest{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckKill(c, w)
@@ -117,6 +119,7 @@ func (*WorkerSuite) TestRunUpgradeOperations(c *gc.C) {
 		GateUnlocker:  &mockGateUnlocker,
 		ControllerTag: coretesting.ControllerTag,
 		ModelTag:      coretesting.ModelTag,
+		CredentialAPI: &credentialAPIForTest{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckKill(c, w)
@@ -163,6 +166,7 @@ func (*WorkerSuite) TestRunUpgradeOperationsStepError(c *gc.C) {
 		GateUnlocker:  &mockGateUnlocker,
 		ControllerTag: coretesting.ControllerTag,
 		ModelTag:      coretesting.ModelTag,
+		CredentialAPI: &credentialAPIForTest{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -192,6 +196,7 @@ func (*WorkerSuite) TestWaitForUpgrade(c *gc.C) {
 		GateUnlocker:  &mockGateUnlocker,
 		ControllerTag: coretesting.ControllerTag,
 		ModelTag:      coretesting.ModelTag,
+		CredentialAPI: &credentialAPIForTest{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -350,4 +355,10 @@ func (w *mockNotifyWatcher) Kill() {
 
 func (w *mockNotifyWatcher) Wait() error {
 	return w.tomb.Wait()
+}
+
+type credentialAPIForTest struct{}
+
+func (*credentialAPIForTest) InvalidateModelCredential(reason string) error {
+	return nil
 }

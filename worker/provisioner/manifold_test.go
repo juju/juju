@@ -14,6 +14,7 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/provisioner"
@@ -31,15 +32,17 @@ func (s *ManifoldSuite) makeManifold() dependency.Manifold {
 		apiSt *apiprovisioner.State,
 		agentConf agent.Config,
 		environ environs.Environ,
+		credentialAPI common.CredentialAPI,
 	) (provisioner.Provisioner, error) {
 		s.stub.AddCall("NewProvisionerFunc")
 		return struct{ provisioner.Provisioner }{}, nil
 	}
 	return provisioner.Manifold(provisioner.ManifoldConfig{
-		AgentName:          "agent",
-		APICallerName:      "api-caller",
-		EnvironName:        "environ",
-		NewProvisionerFunc: fakeNewProvFunc,
+		AgentName:                    "agent",
+		APICallerName:                "api-caller",
+		EnvironName:                  "environ",
+		NewProvisionerFunc:           fakeNewProvFunc,
+		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
 	})
 }
 

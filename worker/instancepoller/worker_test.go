@@ -59,10 +59,11 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	machines, insts := s.setupScenario(c)
 	s.State.StartSync()
 	w, err := NewWorker(Config{
-		Delay:   time.Millisecond * 10,
-		Clock:   clock.WallClock,
-		Facade:  s.api,
-		Environ: s.Environ,
+		Delay:         time.Millisecond * 10,
+		Clock:         clock.WallClock,
+		Facade:        s.api,
+		Environ:       s.Environ,
+		CredentialAPI: &credentialAPIForTest{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {

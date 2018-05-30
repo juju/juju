@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/charmrevision/charmrevisionmanifold"
 	"github.com/juju/juju/worker/cleaner"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/credentialvalidator"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/environ"
@@ -331,16 +332,18 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:      apiCallerName,
 			CloudDestroyerName: environTrackerName,
 
-			NewFacade: undertaker.NewFacade,
-			NewWorker: undertaker.NewWorker,
+			NewFacade:                    undertaker.NewFacade,
+			NewWorker:                    undertaker.NewWorker,
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
 
 		// All the rest depend on ifNotMigrating.
 		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
-			AgentName:          agentName,
-			APICallerName:      apiCallerName,
-			EnvironName:        environTrackerName,
-			NewProvisionerFunc: provisioner.NewEnvironProvisioner,
+			AgentName:                    agentName,
+			APICallerName:                apiCallerName,
+			EnvironName:                  environTrackerName,
+			NewProvisionerFunc:           provisioner.NewEnvironProvisioner,
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		})),
 		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName: apiCallerName,
@@ -354,9 +357,10 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			EnvironName:             environTrackerName,
 			NewControllerConnection: apicaller.NewExternalControllerConnection,
 
-			NewFirewallerWorker:      firewaller.NewWorker,
-			NewFirewallerFacade:      firewaller.NewFirewallerFacade,
-			NewRemoteRelationsFacade: firewaller.NewRemoteRelationsFacade,
+			NewFirewallerWorker:          firewaller.NewWorker,
+			NewFirewallerFacade:          firewaller.NewFirewallerFacade,
+			NewRemoteRelationsFacade:     firewaller.NewRemoteRelationsFacade,
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		})),
 		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -371,6 +375,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			EnvironName:   environTrackerName,
 			ClockName:     clockName,
 			Delay:         config.InstPollerAggregationDelay,
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		})),
 		metricWorkerName: ifNotMigrating(metricworker.Manifold(metricworker.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -381,13 +386,14 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     machineundertaker.NewWorker,
 		})),
 		modelUpgraderName: modelupgrader.Manifold(modelupgrader.ManifoldConfig{
-			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
-			GateName:      modelUpgradeGateName,
-			ControllerTag: controllerTag,
-			ModelTag:      modelTag,
-			NewFacade:     modelupgrader.NewFacade,
-			NewWorker:     modelupgrader.NewWorker,
+			APICallerName:                apiCallerName,
+			EnvironName:                  environTrackerName,
+			GateName:                     modelUpgradeGateName,
+			ControllerTag:                controllerTag,
+			ModelTag:                     modelTag,
+			NewFacade:                    modelupgrader.NewFacade,
+			NewWorker:                    modelupgrader.NewWorker,
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}),
 	}
 	result := commonManifolds(config)
@@ -409,8 +415,9 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:      apiCallerName,
 			CloudDestroyerName: caasBrokerTrackerName,
 
-			NewFacade: undertaker.NewFacade,
-			NewWorker: undertaker.NewWorker,
+			NewFacade:                    undertaker.NewFacade,
+			NewWorker:                    undertaker.NewWorker,
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
 
 		caasBrokerTrackerName: ifResponsible(caasbroker.Manifold(caasbroker.ManifoldConfig{

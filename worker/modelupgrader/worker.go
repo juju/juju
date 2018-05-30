@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/watcher"
 	jujuworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/wrench"
 )
@@ -54,6 +55,11 @@ type Config struct {
 	// if the worker should wait for upgrade steps to be run by
 	// another agent.
 	Environ environs.Environ
+
+	// CredentialAPI holds the API facade used to invalidate credential
+	// whenever the worker makes cloud calls if credential for this model
+	// becomes invalid.
+	CredentialAPI common.CredentialAPI
 }
 
 // Validate returns an error if the config cannot be expected
@@ -70,6 +76,9 @@ func (config Config) Validate() error {
 	}
 	if config.ModelTag == (names.ModelTag{}) {
 		return errors.NotValidf("empty ModelTag")
+	}
+	if config.CredentialAPI == nil {
+		return errors.NotValidf("nil CredentialAPI")
 	}
 	return nil
 }
@@ -163,7 +172,6 @@ func newUpgradeWorker(config Config, targetVersion int) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	callContext := context.NewCloudCallContext()
 	return jujuworker.NewSimpleWorker(func(<-chan struct{}) error {
 		// NOTE(axw) the abort channel is ignored, because upgrade
 		// steps are not interruptible. If we find they need to be
@@ -191,7 +199,7 @@ func newUpgradeWorker(config Config, targetVersion int) (worker.Worker, error) {
 			currentVersion,
 			targetVersion,
 			setVersion,
-			callContext,
+			common.NewCloudCallContext(config.CredentialAPI),
 		); err != nil {
 			info := fmt.Sprintf("failed to upgrade environ: %s", err)
 			if err := setStatus(status.Error, info); err != nil {

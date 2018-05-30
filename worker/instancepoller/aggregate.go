@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/common"
 )
 
 type InstanceGetter interface {
@@ -23,6 +24,8 @@ type aggregatorConfig struct {
 	Clock   clock.Clock
 	Delay   time.Duration
 	Environ InstanceGetter
+
+	CredentialAPI common.CredentialAPI
 }
 
 func (c aggregatorConfig) validate() error {
@@ -34,6 +37,9 @@ func (c aggregatorConfig) validate() error {
 	}
 	if c.Environ == nil {
 		return errors.NotValidf("nil Environ")
+	}
+	if c.CredentialAPI == nil {
+		return errors.NotValidf("nil CredentialAPI")
 	}
 	return nil
 
@@ -51,11 +57,10 @@ func newAggregator(config aggregatorConfig) (*aggregator, error) {
 	if err := config.validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	callCtx := context.NewCloudCallContext()
 	a := &aggregator{
 		config:      config,
 		reqc:        make(chan instanceInfoReq),
-		callContext: callCtx,
+		callContext: common.NewCloudCallContext(config.CredentialAPI),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &a.catacomb,
