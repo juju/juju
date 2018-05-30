@@ -4,8 +4,6 @@
 package common
 
 import (
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/credentialvalidator"
 	"github.com/juju/juju/environs/context"
@@ -18,13 +16,10 @@ type CredentialAPI interface {
 
 // NewCredentialInvalidatorFacade creates an API facade capable of invalidating credential.
 func NewCredentialInvalidatorFacade(apiCaller base.APICaller) (CredentialAPI, error) {
-	f := credentialvalidator.NewFacade(apiCaller)
-	if f == nil {
-		return nil, errors.New("could not create credential validator facade")
-	}
-	return f, nil
+	return credentialvalidator.NewFacade(apiCaller), nil
 }
 
+// NewCloudCallContext creates a cloud call context to be used by workers.
 func NewCloudCallContext(c CredentialAPI) context.ProviderCallContext {
 	return &context.CloudCallContext{
 		InvalidateCredentialF: c.InvalidateModelCredential,
