@@ -109,8 +109,9 @@ func (fix fixture) run(c *gc.C, test func(worker.Worker)) *testing.Stub {
 	}
 	stub.SetErrors(fix.errors...)
 	w, err := undertaker.NewUndertaker(undertaker.Config{
-		Facade:    facade,
-		Destroyer: environOrBroker,
+		Facade:        facade,
+		Destroyer:     environOrBroker,
+		CredentialAPI: &fakeCredentialAPI{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer fix.cleanup(c, w)

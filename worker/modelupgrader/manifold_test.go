@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/gate"
@@ -109,6 +110,7 @@ func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 			c.Check(config.Facade, gc.Equals, expectFacade)
 			return nil, errors.New("boof")
 		},
+		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
 	})
 
 	worker, err := manifold.Start(context)
@@ -136,6 +138,7 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithEnviron(c *gc.C) {
 			newWorkerConfig = config
 			return expectWorker, nil
 		},
+		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
 	})
 
 	worker, err := manifold.Start(context)
@@ -163,6 +166,7 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithoutEnviron(c *gc.C) {
 			newWorkerConfig = config
 			return expectWorker, nil
 		},
+		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
 	})
 
 	worker, err := manifold.Start(context)

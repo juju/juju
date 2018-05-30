@@ -14,6 +14,7 @@ type StateAccessor interface {
 	Model() (*state.Model, error)
 	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
 	WatchCredential(names.CloudCredentialTag) state.NotifyWatcher
+	InvalidateModelCredential(reason string) error
 }
 
 type stateShim struct {

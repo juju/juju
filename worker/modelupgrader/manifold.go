@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/gate"
 )
@@ -23,8 +24,9 @@ type ManifoldConfig struct {
 	ControllerTag names.ControllerTag
 	ModelTag      names.ModelTag
 
-	NewFacade func(base.APICaller) (Facade, error)
-	NewWorker func(Config) (worker.Worker, error)
+	NewFacade                    func(base.APICaller) (Facade, error)
+	NewWorker                    func(Config) (worker.Worker, error)
+	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
@@ -55,12 +57,18 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	credentialAPI, err := config.NewCredentialValidatorFacade(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	worker, err := config.NewWorker(Config{
 		Facade:        facade,
 		Environ:       environ,
 		GateUnlocker:  gate,
 		ControllerTag: config.ControllerTag,
 		ModelTag:      config.ModelTag,
+		CredentialAPI: credentialAPI,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

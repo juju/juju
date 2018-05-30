@@ -4,6 +4,7 @@
 package credentialvalidator_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -86,6 +87,26 @@ func (s *CredentialValidatorSuite) TestWatchCredentialInvalidTag(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 }
 
+func (s *CredentialValidatorSuite) TestInvalidateModelCredential(c *gc.C) {
+	result, err := s.api.InvalidateModelCredential("not again")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
+	s.backend.CheckCalls(c, []testing.StubCall{
+		{"InvalidateModelCredential", []interface{}{"not again"}},
+	})
+}
+
+func (s *CredentialValidatorSuite) TestInvalidateModelCredentialError(c *gc.C) {
+	expected := errors.New("boom")
+	s.backend.SetErrors(expected)
+	result, err := s.api.InvalidateModelCredential("not again")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: common.ServerError(expected)})
+	s.backend.CheckCalls(c, []testing.StubCall{
+		{"InvalidateModelCredential", []interface{}{"not again"}},
+	})
+}
+
 // modelUUID is the model tag we're using in the tests.
 var modelUUID = "01234567-89ab-cdef-0123-456789abcdef"
 
@@ -133,4 +154,9 @@ func (b *testBackend) ModelUsesCredential(tag names.CloudCredentialTag) (bool, e
 func (b *testBackend) WatchCredential(t names.CloudCredentialTag) state.NotifyWatcher {
 	b.AddCall("WatchCredential", t)
 	return apiservertesting.NewFakeNotifyWatcher()
+}
+
+func (b *testBackend) InvalidateModelCredential(reason string) error {
+	b.AddCall("InvalidateModelCredential", reason)
+	return b.NextErr()
 }
