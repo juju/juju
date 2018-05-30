@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd/lxdnames"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environProvider struct {
@@ -166,7 +165,7 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 
 	// LXD itself reports the host:ports that it listens on.
 	// Cross-check the address we have with the values reported by LXD.
-	if err := lxdclient.EnableHTTPSListener(raw); err != nil {
+	if err := raw.EnableHTTPSListener(); err != nil {
 		return "", errors.Annotate(err, "enabling HTTPS listener")
 	}
 	cInfo, err := raw.GetConnectionInfo()
