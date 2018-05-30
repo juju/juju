@@ -37,8 +37,8 @@ type APIClient interface {
 	Download(id string) (io.ReadCloser, error)
 	// Upload pushes a backup archive to storage.
 	Upload(ar io.ReadSeeker, meta params.BackupsMetadataResult) (string, error)
-	// Remove removes the stored backup.
-	Remove(id string) error
+	// Remove removes the stored backups.
+	Remove(ids ...string) ([]params.ErrorResult, error)
 	// Restore will restore a backup with the given id into the controller.
 	Restore(string, backups.ClientConnection) error
 	// RestoreReader will restore a backup file into the controller.

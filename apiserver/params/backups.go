@@ -38,7 +38,7 @@ type BackupsUploadArgs struct {
 
 // BackupsRemoveArgs holds the args for the API Remove method.
 type BackupsRemoveArgs struct {
-	ID string `json:"id"`
+	IDs []string `json:"ids"`
 }
 
 // BackupsListResult holds the list of all stored backups.
