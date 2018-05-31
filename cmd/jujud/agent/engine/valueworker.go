@@ -23,9 +23,10 @@ func NewValueWorker(value interface{}) (worker.Worker, error) {
 	w := &valueWorker{
 		value: value,
 	}
-	go func() {
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-	}()
+		return nil
+	})
 	return w, nil
 }
 

@@ -14,10 +14,10 @@ type NotifyWatcher struct {
 
 func NewNotifyWatcher(ch <-chan struct{}) *NotifyWatcher {
 	w := &NotifyWatcher{ch: ch}
-	go func() {
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-		w.tomb.Kill(tomb.ErrDying)
-	}()
+		return tomb.ErrDying
+	})
 	return w
 }
 
@@ -26,6 +26,9 @@ func (w *NotifyWatcher) Changes() <-chan struct{} {
 }
 
 func (w *NotifyWatcher) Stop() error {
+	if err := w.tomb.Err(); err != tomb.ErrStillAlive {
+		return err
+	}
 	w.Kill()
 	return w.Wait()
 }

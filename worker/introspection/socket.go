@@ -103,7 +103,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		done:               make(chan struct{}),
 	}
 	go w.serve()
-	go w.run()
+	w.tomb.Go(w.run)
 	return w, nil
 }
 
@@ -125,13 +125,14 @@ func (w *socketListener) serve() {
 	srv.Serve(w.listener)
 }
 
-func (w *socketListener) run() {
+func (w *socketListener) run() error {
 	defer logger.Debugf("stats worker finished")
 	<-w.tomb.Dying()
 	logger.Debugf("stats worker closing listener")
 	w.listener.Close()
 	// Don't mark the worker as done until the serve goroutine has finished.
 	<-w.done
+	return nil
 }
 
 // Kill implements worker.Worker.

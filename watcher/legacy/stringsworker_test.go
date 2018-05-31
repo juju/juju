@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -272,26 +271,6 @@ func (s *stringsWorkerSuite) TestNoticesStoppedWatcher(c *gc.C) {
 	s.actor.watcher.Stop()
 	err := waitShort(c, s.worker)
 	c.Check(err, gc.ErrorMatches, "Stopped Watcher")
-	s.actor.CheckActions(c, "setup", "teardown")
-	// Worker is stopped, don't fail TearDownTest
-	s.worker = nil
-}
-
-func (s *stringsWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
-	foundErr := fmt.Errorf("did not get an error")
-	triggeredHandler := func(errer watcher.Errer) error {
-		foundErr = errer.Err()
-		return foundErr
-	}
-	legacy.SetEnsureErr(triggeredHandler)
-	s.actor.watcher.SetStopError(tomb.ErrStillAlive)
-	s.actor.watcher.Stop()
-	err := waitShort(c, s.worker)
-	c.Check(foundErr, gc.Equals, tomb.ErrStillAlive)
-	// ErrStillAlive is trapped by the Stop logic and gets turned into a
-	// 'nil' when stopping. However TestDefaultClosedHandler can assert
-	// that it would have triggered an error.
-	c.Check(err, jc.ErrorIsNil)
 	s.actor.CheckActions(c, "setup", "teardown")
 	// Worker is stopped, don't fail TearDownTest
 	s.worker = nil

@@ -33,9 +33,10 @@ func ManifoldEx(lock Lock) dependency.Manifold {
 	return dependency.Manifold{
 		Start: func(_ dependency.Context) (worker.Worker, error) {
 			w := &gate{lock: lock}
-			go func() {
+			w.tomb.Go(func() error {
 				<-w.tomb.Dying()
-			}()
+				return nil
+			})
 			return w, nil
 		},
 		Output: func(in worker.Worker, out interface{}) error {

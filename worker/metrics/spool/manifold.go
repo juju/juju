@@ -97,9 +97,10 @@ func newWorker(a agent.Agent) (worker.Worker, error) {
 		return nil, errors.Annotatef(err, "error checking spool directory %q", metricsSpoolDir)
 	}
 	w := &spoolWorker{factory: newFactory(metricsSpoolDir)}
-	go func() {
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-	}()
+		return nil
+	})
 	return w, nil
 }
 

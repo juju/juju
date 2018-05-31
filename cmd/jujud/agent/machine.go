@@ -32,7 +32,6 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
@@ -285,6 +284,7 @@ func NewMachineAgent(
 		configChangedVal:            voyeur.NewValue(true),
 		bufferedLogger:              bufferedLogger,
 		workersStarted:              make(chan struct{}),
+		dead:                        make(chan struct{}),
 		runner:                      runner,
 		rootDir:                     rootDir,
 		initialUpgradeCheckComplete: gate.NewLock(),
@@ -331,7 +331,8 @@ func (a *MachineAgent) registerPrometheusCollectors() error {
 type MachineAgent struct {
 	AgentConfigWriter
 
-	tomb             tomb.Tomb
+	dead             chan struct{}
+	errReason        error
 	machineId        string
 	runner           *worker.Runner
 	rootDir          string
@@ -362,13 +363,20 @@ type MachineAgent struct {
 
 // Wait waits for the machine agent to finish.
 func (a *MachineAgent) Wait() error {
-	return a.tomb.Wait()
+	<-a.dead
+	return a.errReason
 }
 
 // Stop stops the machine agent.
 func (a *MachineAgent) Stop() error {
 	a.runner.Kill()
-	return a.tomb.Wait()
+	return a.Wait()
+}
+
+// Finished signals the machine agent is finished
+func (a *MachineAgent) Finished(err error) {
+	a.errReason = err
+	close(a.dead)
 }
 
 // upgradeCertificateDNSNames ensure that the controller certificate
@@ -421,7 +429,8 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 }
 
 // Run runs a machine agent.
-func (a *MachineAgent) Run(*cmd.Context) error {
+func (a *MachineAgent) Run(*cmd.Context) (err error) {
+	defer a.Finished(err)
 	useMultipleCPUs()
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
@@ -458,7 +467,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
-	err := a.runner.Wait()
+	err = a.runner.Wait()
 	switch errors.Cause(err) {
 	case jworker.ErrTerminateAgent:
 		err = a.uninstallAgent()
@@ -469,9 +478,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		logger.Infof("Caught shutdown error")
 		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
-	err = cmdutil.AgentDone(logger, err)
-	a.tomb.Kill(err)
-	return err
+	return cmdutil.AgentDone(logger, err)
 }
 
 func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) func() (worker.Worker, error) {

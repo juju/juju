@@ -68,6 +68,9 @@ func (pt *pingTimeout) Ping() {
 
 // Stop terminates the ping timeout.
 func (pt *pingTimeout) Stop() error {
+	if err := pt.tomb.Err(); err != tomb.ErrStillAlive {
+		return err
+	}
 	pt.tomb.Kill(nil)
 	return pt.tomb.Wait()
 }

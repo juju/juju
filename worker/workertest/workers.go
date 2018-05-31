@@ -15,9 +15,10 @@ import (
 // Wait() for it.
 func NewErrorWorker(err error) worker.Worker {
 	w := &errorWorker{err: err}
-	go func() {
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-	}()
+		return nil
+	})
 	return w
 }
 
@@ -59,9 +60,10 @@ func (w *deadWorker) Wait() error {
 // lest any goroutines trying to manage it be leaked or blocked forever.
 func NewForeverWorker(err error) *ForeverWorker {
 	w := &ForeverWorker{err: err}
-	go func() {
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-	}()
+		return nil
+	})
 	return w
 }
 

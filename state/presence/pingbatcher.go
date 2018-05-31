@@ -141,6 +141,9 @@ func (pb *PingBatcher) Wait() error {
 
 // Stop this PingBatcher, part of the extended Worker interface.
 func (pb *PingBatcher) Stop() error {
+	if err := pb.tomb.Err(); err != tomb.ErrStillAlive {
+		return err
+	}
 	pb.tomb.Kill(nil)
 	err := pb.tomb.Wait()
 	return errors.Trace(err)

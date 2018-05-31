@@ -154,10 +154,11 @@ func (r *RunListener) RunCommands(args RunCommandsArgs) (results *exec.ExecRespo
 // not what I'm fixing here.
 func newRunListenerWrapper(rl *RunListener) worker.Worker {
 	rlw := &runListenerWrapper{rl: rl}
-	go func() {
+	rlw.tomb.Go(func() error {
 		defer rlw.tearDown()
 		<-rlw.tomb.Dying()
-	}()
+		return nil
+	})
 	return rlw
 }
 

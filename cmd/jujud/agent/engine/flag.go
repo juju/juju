@@ -42,10 +42,10 @@ type staticFlagWorker struct {
 // whose Check method always returns the specified value.
 func NewStaticFlagWorker(value bool) worker.Worker {
 	w := &staticFlagWorker{value: value}
-	go func() {
-		defer w.tomb.Kill(tomb.ErrDying)
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-	}()
+		return tomb.ErrDying
+	})
 	return w
 }
 

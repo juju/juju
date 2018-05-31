@@ -115,9 +115,8 @@ func (s *CleanerSuite) newMockNotifyWatcher(err error) *mockNotifyWatcher {
 		err:     err,
 	}
 	m.tomb.Go(func() error {
-		defer m.tomb.Kill(m.err)
 		<-m.tomb.Dying()
-		return nil
+		return m.err
 	})
 	s.AddCleanup(func(c *gc.C) {
 		err := worker.Stop(m)

@@ -17,11 +17,11 @@ type StringsWatcher struct {
 // the channel, closing it when it is stopped.
 func NewStringsWatcher(ch chan []string) *StringsWatcher {
 	w := &StringsWatcher{C: ch}
-	go func() {
-		defer w.T.Kill(nil)
+	w.T.Go(func() error {
 		defer close(ch)
 		<-w.T.Dying()
-	}()
+		return nil
+	})
 	return w
 }
 

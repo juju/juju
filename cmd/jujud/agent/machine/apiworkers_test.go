@@ -81,7 +81,6 @@ type mockWorker struct {
 
 func (w *mockWorker) Kill() {
 	w.tomb.Kill(nil)
-	w.tomb.Done()
 }
 
 func (w *mockWorker) Wait() error {

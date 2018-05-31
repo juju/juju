@@ -193,7 +193,7 @@ func NewWatcher(base *mgo.Collection, modelTag names.ModelTag) *Watcher {
 		if err != nil && cause != tomb.ErrDying {
 			logger.Infof("watcher loop failed: %v", err)
 		}
-		return err
+		return cause
 	})
 	return w
 }

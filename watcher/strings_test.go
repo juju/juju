@@ -123,10 +123,10 @@ func newTestStringsWatcher() *testStringsWatcher {
 	w := &testStringsWatcher{
 		changes: make(chan []string),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-	}()
+		return nil
+	})
 	return w
 }
 

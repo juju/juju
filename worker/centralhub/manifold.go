@@ -45,9 +45,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w := &centralHub{
 				hub: config.Hub,
 			}
-			go func() {
+			w.tomb.Go(func() error {
 				<-w.tomb.Dying()
-			}()
+				return nil
+			})
 			return w, nil
 		},
 		Output: outputFunc,

@@ -71,7 +71,6 @@ type mockWatcher struct {
 
 func (w *mockWatcher) doneWhenDying() {
 	<-w.Tomb.Dying()
-	w.Tomb.Done()
 }
 
 func (w *mockWatcher) Kill() {
@@ -95,7 +94,10 @@ type mockStringsWatcher struct {
 
 func newMockStringsWatcher() *mockStringsWatcher {
 	w := &mockStringsWatcher{changes: make(chan []string, 1)}
-	go w.doneWhenDying()
+	w.Tomb.Go(func() error {
+		w.doneWhenDying()
+		return nil
+	})
 	return w
 }
 

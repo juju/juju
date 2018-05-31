@@ -331,12 +331,11 @@ type mockNotifyWatcher struct {
 
 func newMockNotifyWatcher(ch chan struct{}) *mockNotifyWatcher {
 	w := &mockNotifyWatcher{ch: ch}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(ch)
 		<-w.tomb.Dying()
-		w.tomb.Kill(tomb.ErrDying)
-	}()
+		return tomb.ErrDying
+	})
 	return w
 }
 

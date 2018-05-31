@@ -46,6 +46,9 @@ func NewSocketListener(socketPath string, handler ConnectionHandler) (*socketLis
 // Stop closes the listener and releases all resources
 // used by the socketListener.
 func (l *socketListener) Stop() error {
+	if err := l.t.Err(); err != tomb.ErrStillAlive {
+		return err
+	}
 	l.t.Kill(nil)
 	err := l.listener.Close()
 	if err != nil {

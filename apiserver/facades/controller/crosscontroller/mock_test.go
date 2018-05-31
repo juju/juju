@@ -12,10 +12,10 @@ type mockNotifyWatcher struct {
 
 func newMockNotifyWatcher() *mockNotifyWatcher {
 	w := &mockNotifyWatcher{changes: make(chan struct{}, 1)}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-	}()
+		return nil
+	})
 	return w
 }
 

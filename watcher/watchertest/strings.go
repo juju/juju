@@ -22,10 +22,10 @@ type MockStringsWatcher struct {
 
 func NewMockStringsWatcher(ch <-chan []string) *MockStringsWatcher {
 	w := &MockStringsWatcher{ch: ch}
-	go func() {
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-		w.tomb.Kill(tomb.ErrDying)
-	}()
+		return tomb.ErrDying
+	})
 	return w
 }
 
@@ -34,6 +34,9 @@ func (w *MockStringsWatcher) Changes() watcher.StringsChannel {
 }
 
 func (w *MockStringsWatcher) Stop() error {
+	if err := w.tomb.Err(); err != tomb.ErrStillAlive {
+		return err
+	}
 	w.Kill()
 	return w.Wait()
 }

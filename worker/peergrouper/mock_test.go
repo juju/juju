@@ -581,7 +581,6 @@ type notifier struct {
 }
 
 func (n *notifier) loop() {
-	defer n.tomb.Done()
 	for n.w.Next() {
 		select {
 		case n.changes <- struct{}{}:
@@ -598,7 +597,10 @@ func WatchValue(val *voyeur.Value) state.NotifyWatcher {
 		w:       val.Watch(),
 		changes: make(chan struct{}),
 	}
-	go n.loop()
+	n.tomb.Go(func() error {
+		n.loop()
+		return nil
+	})
 	return n
 }
 
@@ -641,12 +643,14 @@ func WatchStrings(val *voyeur.Value) state.StringsWatcher {
 		w:       val.Watch(),
 		changes: make(chan []string),
 	}
-	go n.loop()
+	n.tomb.Go(func() error {
+		n.loop()
+		return nil
+	})
 	return n
 }
 
 func (n *stringsNotifier) loop() {
-	defer n.tomb.Done()
 	for n.w.Next() {
 		select {
 		case n.changes <- []string{}:

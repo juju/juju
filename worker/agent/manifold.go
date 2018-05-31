@@ -26,9 +26,10 @@ func Manifold(a agent.Agent) dependency.Manifold {
 func startFunc(a agent.Agent) dependency.StartFunc {
 	return func(_ dependency.Context) (worker.Worker, error) {
 		w := &agentWorker{agent: a}
-		go func() {
+		w.tomb.Go(func() error {
 			<-w.tomb.Dying()
-		}()
+			return nil
+		})
 		return w, nil
 	}
 }

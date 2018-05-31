@@ -123,10 +123,10 @@ func newTestNotifyWatcher() *testNotifyWatcher {
 	w := &testNotifyWatcher{
 		changes: make(chan struct{}),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-	}()
+		return nil
+	})
 	return w
 }
 

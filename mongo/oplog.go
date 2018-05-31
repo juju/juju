@@ -199,6 +199,9 @@ func (t *OplogTailer) Dying() <-chan struct{} {
 // Stop shuts down the OplogTailer. It will block until shutdown is
 // complete.
 func (t *OplogTailer) Stop() error {
+	if err := t.tomb.Err(); err != tomb.ErrStillAlive {
+		return err
+	}
 	t.tomb.Kill(nil)
 	return t.tomb.Wait()
 }

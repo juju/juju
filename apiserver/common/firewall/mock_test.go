@@ -192,7 +192,10 @@ type mockStringsWatcher struct {
 
 func newMockStringsWatcher() *mockStringsWatcher {
 	w := &mockStringsWatcher{changes: make(chan []string, 1)}
-	go w.doneWhenDying()
+	w.Tomb.Go(func() error {
+		w.doneWhenDying()
+		return nil
+	})
 	return w
 }
 
@@ -205,7 +208,10 @@ func newMockNotifyWatcher() *mockNotifyWatcher {
 	w := &mockNotifyWatcher{changes: make(chan struct{}, 1)}
 	// Initial event
 	w.changes <- struct{}{}
-	go w.doneWhenDying()
+	w.Tomb.Go(func() error {
+		w.doneWhenDying()
+		return nil
+	})
 	return w
 }
 
@@ -299,7 +305,10 @@ func (r *mockRelation) WatchRelationEgressNetworks() state.StringsWatcher {
 
 func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
 	w := &mockRelationUnitsWatcher{changes: make(chan params.RelationUnitsChange, 1)}
-	go w.doneWhenDying()
+	w.Tomb.Go(func() error {
+		w.doneWhenDying()
+		return nil
+	})
 	return w
 }
 
@@ -423,7 +432,10 @@ type mockAddressWatcher struct {
 
 func newMockAddressWatcher() *mockAddressWatcher {
 	w := &mockAddressWatcher{changes: make(chan struct{}, 1)}
-	go w.doneWhenDying()
+	w.Tomb.Go(func() error {
+		w.doneWhenDying()
+		return nil
+	})
 	return w
 }
 

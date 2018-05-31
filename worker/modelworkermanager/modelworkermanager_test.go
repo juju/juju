@@ -216,10 +216,10 @@ func (s *suite) assertNoWorkers(c *gc.C) {
 
 func newMockWorker(modelUUID string, modelType state.ModelType) *mockWorker {
 	w := &mockWorker{uuid: modelUUID, modelType: modelType}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-	}()
+		return nil
+	})
 	return w
 }
 

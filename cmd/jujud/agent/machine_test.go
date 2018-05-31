@@ -33,7 +33,6 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -1116,7 +1115,7 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	origModelManifolds := iaasModelManifolds
 	modelManifoldsDisablingMigrationMaster := func(config model.ManifoldsConfig) dependency.Manifolds {
 		config.NewMigrationMaster = func(config migrationmaster.Config) (worker.Worker, error) {
-			return &nullWorker{}, nil
+			return &nullWorker{dead: make(chan struct{})}, nil
 		}
 		return origModelManifolds(config)
 	}
@@ -1231,14 +1230,14 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 }
 
 type nullWorker struct {
-	tomb tomb.Tomb
+	dead chan struct{}
 }
 
 func (w *nullWorker) Kill() {
-	w.tomb.Kill(nil)
-	w.tomb.Done()
+	close(w.dead)
 }
 
 func (w *nullWorker) Wait() error {
-	return w.tomb.Wait()
+	<-w.dead
+	return nil
 }
