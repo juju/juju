@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -252,11 +252,10 @@ func (s *undertakerSuite) newMockNotifyWatcher() *mockNotifyWatcher {
 	m := &mockNotifyWatcher{
 		changes: make(chan struct{}, 1),
 	}
-	go func() {
-		defer m.tomb.Done()
-		defer m.tomb.Kill(nil)
+	m.tomb.Go(func() error {
 		<-m.tomb.Dying()
-	}()
+		return nil
+	})
 	s.AddCleanup(func(c *gc.C) {
 		err := worker.Stop(m)
 		c.Check(err, jc.ErrorIsNil)

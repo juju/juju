@@ -10,7 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/leadership"
 )
@@ -57,8 +57,7 @@ func NewTracker(tag names.UnitTag, claimer leadership.Claimer, clock clock.Clock
 		waitMinionTickets: make(chan chan bool),
 		isMinion:          true,
 	}
-	go func() {
-		defer t.tomb.Done()
+	t.tomb.Go(func() error {
 		defer func() {
 			for _, ticketCh := range t.waitingLeader {
 				close(ticketCh)
@@ -87,8 +86,8 @@ func NewTracker(tag names.UnitTag, claimer leadership.Claimer, clock clock.Clock
 		case tomb.ErrDying:
 			err = cause
 		}
-		t.tomb.Kill(err)
-	}()
+		return err
+	})
 	return t
 }
 

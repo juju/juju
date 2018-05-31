@@ -6,7 +6,7 @@ package gate
 import (
 	"github.com/juju/errors"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker/dependency"
@@ -51,10 +51,7 @@ func NewFlag(gate Waiter) (*Flag, error) {
 		gate:     gate,
 		unlocked: gate.IsUnlocked(),
 	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.run())
-	}()
+	w.tomb.Go(w.run)
 	return w, nil
 }
 

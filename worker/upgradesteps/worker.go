@@ -13,7 +13,7 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -110,10 +110,7 @@ func NewWorker(
 		machine:         machine,
 		tag:             agent.CurrentConfig().Tag(),
 	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.run())
-	}()
+	w.tomb.Go(w.run)
 	return w, nil
 }
 

@@ -16,7 +16,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/mongo"
 	jworker "github.com/juju/juju/worker"
@@ -144,7 +144,7 @@ func newWatcher(changelog *mgo.Collection, iteratorFunc func() mongo.Iterator) *
 	if w.iteratorFunc == nil {
 		w.iteratorFunc = w.iter
 	}
-	go func() {
+	w.tomb.Go(func() error {
 		err := w.loop(Period)
 		cause := errors.Cause(err)
 		// tomb expects ErrDying or ErrStillAlive as
@@ -153,9 +153,8 @@ func newWatcher(changelog *mgo.Collection, iteratorFunc func() mongo.Iterator) *
 		if err != nil && cause != tomb.ErrDying {
 			logger.Infof("watcher loop failed: %v", err)
 		}
-		w.tomb.Kill(cause)
-		w.tomb.Done()
-	}()
+		return cause
+	})
 	return w
 }
 
@@ -164,7 +163,6 @@ func newWatcher(changelog *mgo.Collection, iteratorFunc func() mongo.Iterator) *
 func NewDead(err error) *Watcher {
 	var w Watcher
 	w.tomb.Kill(errors.Trace(err))
-	w.tomb.Done()
 	return &w
 }
 

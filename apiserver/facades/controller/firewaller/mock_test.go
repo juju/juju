@@ -11,7 +11,7 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/firewall"
@@ -125,11 +125,6 @@ type mockWatcher struct {
 	tomb.Tomb
 }
 
-func (w *mockWatcher) doneWhenDying() {
-	<-w.Tomb.Dying()
-	w.Tomb.Done()
-}
-
 func (w *mockWatcher) Kill() {
 	w.MethodCall(w, "Kill")
 	w.Tomb.Kill(nil)
@@ -156,7 +151,10 @@ type mockStringsWatcher struct {
 
 func newMockStringsWatcher() *mockStringsWatcher {
 	w := &mockStringsWatcher{changes: make(chan []string, 1)}
-	go w.doneWhenDying()
+	w.Tomb.Go(func() error {
+		<-w.Tomb.Dying()
+		return nil
+	})
 	return w
 }
 
@@ -169,7 +167,10 @@ func newMockNotifyWatcher() *mockNotifyWatcher {
 	w := &mockNotifyWatcher{changes: make(chan struct{}, 1)}
 	// Initial event
 	w.changes <- struct{}{}
-	go w.doneWhenDying()
+	w.Tomb.Go(func() error {
+		<-w.Tomb.Dying()
+		return nil
+	})
 	return w
 }
 
@@ -246,7 +247,10 @@ func (r *mockRelation) SetStatus(info status.StatusInfo) error {
 
 func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
 	w := &mockRelationUnitsWatcher{changes: make(chan params.RelationUnitsChange, 1)}
-	go w.doneWhenDying()
+	w.Tomb.Go(func() error {
+		<-w.Tomb.Dying()
+		return nil
+	})
 	return w
 }
 

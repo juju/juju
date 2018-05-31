@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/worker/dependency"
 )
@@ -47,10 +47,7 @@ func New(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	w := &hostkeyreporter{config: config}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.run())
-	}()
+	w.tomb.Go(w.run)
 	return w, nil
 }
 

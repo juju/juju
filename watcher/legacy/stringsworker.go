@@ -5,7 +5,7 @@ package legacy
 
 import (
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -42,10 +42,7 @@ func NewStringsWorker(handler StringsWatchHandler) worker.Worker {
 	sw := &stringsWorker{
 		handler: handler,
 	}
-	go func() {
-		defer sw.tomb.Done()
-		sw.tomb.Kill(sw.loop())
-	}()
+	sw.tomb.Go(sw.loop)
 	return sw
 }
 

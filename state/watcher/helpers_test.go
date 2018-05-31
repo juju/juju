@@ -7,7 +7,7 @@ import (
 	stderrors "errors"
 
 	gc "gopkg.in/check.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/state/watcher"
 )

@@ -15,7 +15,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -40,13 +39,14 @@ var (
 // CaasOperatorAgent is a cmd.Command responsible for running a CAAS operator agent.
 type CaasOperatorAgent struct {
 	cmd.CommandBase
-	tomb tomb.Tomb
 	AgentConf
 	ApplicationName string
 	runner          *worker.Runner
 	bufferedLogger  *logsender.BufferedLogWriter
 	setupLogging    func(agent.Config) error
 	ctx             *cmd.Context
+	dead            chan struct{}
+	errReason       error
 
 	upgradeComplete gate.Lock
 
@@ -62,6 +62,7 @@ func NewCaasOperatorAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLo
 	return &CaasOperatorAgent{
 		AgentConf:          NewAgentConf(""),
 		ctx:                ctx,
+		dead:               make(chan struct{}),
 		bufferedLogger:     bufferedLogger,
 		prometheusRegistry: prometheusRegistry,
 	}, nil
@@ -100,15 +101,27 @@ func (op *CaasOperatorAgent) Init(args []string) error {
 	return nil
 }
 
+// Wait waits for the CaasOperator agent to finish.
+func (op *CaasOperatorAgent) Wait() error {
+	<-op.dead
+	return op.errReason
+}
+
 // Stop implements Worker.
 func (op *CaasOperatorAgent) Stop() error {
 	op.runner.Kill()
-	return op.tomb.Wait()
+	return op.Wait()
+}
+
+// Done signals the machine agent is finished
+func (op *CaasOperatorAgent) Done(err error) {
+	op.errReason = err
+	close(op.dead)
 }
 
 // Run implements Command.
-func (op *CaasOperatorAgent) Run(ctx *cmd.Context) error {
-	defer op.tomb.Done()
+func (op *CaasOperatorAgent) Run(ctx *cmd.Context) (err error) {
+	defer op.Done(err)
 	if err := op.ReadConfig(op.Tag().String()); err != nil {
 		return err
 	}
@@ -121,9 +134,7 @@ func (op *CaasOperatorAgent) Run(ctx *cmd.Context) error {
 	}
 
 	op.runner.StartWorker("api", op.Workers)
-	err := cmdutil.AgentDone(logger, op.runner.Wait())
-	op.tomb.Kill(err)
-	return err
+	return cmdutil.AgentDone(logger, op.runner.Wait())
 }
 
 // Workers returns a dependency.Engine running the operator's responsibilities.

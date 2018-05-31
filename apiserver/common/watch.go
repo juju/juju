@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -108,18 +108,18 @@ func NewMultiNotifyWatcher(w ...state.NotifyWatcher) *MultiNotifyWatcher {
 	for _, w := range w {
 		// Consume the first event of each watcher.
 		<-w.Changes()
-		go func(w state.NotifyWatcher) {
+		m.tomb.Go(func() error {
 			defer wg.Done()
-			m.tomb.Kill(w.Wait())
-		}(w)
+			return w.Wait()
+		})
 		// Copy events from the watcher to the staging channel.
 		go copyEvents(staging, w.Changes(), &m.tomb)
 	}
-	go func() {
-		defer m.tomb.Done()
+	m.tomb.Go(func() error {
 		m.loop(staging)
 		wg.Wait()
-	}()
+		return nil
+	})
 	return m
 }
 

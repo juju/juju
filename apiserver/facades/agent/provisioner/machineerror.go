@@ -6,7 +6,7 @@ package provisioner
 import (
 	"time"
 
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/state"
 )
@@ -22,11 +22,10 @@ func newWatchMachineErrorRetry() state.NotifyWatcher {
 	w := &machineErrorRetry{
 		out: make(chan struct{}),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 

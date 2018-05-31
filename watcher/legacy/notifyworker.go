@@ -5,7 +5,7 @@ package legacy
 
 import (
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -50,10 +50,7 @@ func NewNotifyWorker(handler NotifyWatchHandler) worker.Worker {
 		handler: handler,
 	}
 
-	go func() {
-		defer nw.tomb.Done()
-		nw.tomb.Kill(nw.loop())
-	}()
+	nw.tomb.Go(nw.loop)
 	return nw
 }
 

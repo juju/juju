@@ -14,7 +14,6 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -38,7 +37,6 @@ var (
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
 	cmd.CommandBase
-	tomb tomb.Tomb
 	AgentConf
 	configChangedVal *voyeur.Value
 	UnitName         string
@@ -47,6 +45,8 @@ type UnitAgent struct {
 	setupLogging     func(agent.Config) error
 	logToStdErr      bool
 	ctx              *cmd.Context
+	dead             chan struct{}
+	errReason        error
 
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
@@ -68,6 +68,7 @@ func NewUnitAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter)
 		AgentConf:        NewAgentConf(""),
 		configChangedVal: voyeur.NewValue(true),
 		ctx:              ctx,
+		dead:             make(chan struct{}),
 		initialUpgradeCheckComplete: gate.NewLock(),
 		bufferedLogger:              bufferedLogger,
 		prometheusRegistry:          prometheusRegistry,
@@ -129,7 +130,19 @@ func (a *UnitAgent) Init(args []string) error {
 // Stop stops the unit agent.
 func (a *UnitAgent) Stop() error {
 	a.runner.Kill()
-	return a.tomb.Wait()
+	return a.Wait()
+}
+
+// Wait waits for the unit agent to finish
+func (a *UnitAgent) Wait() error {
+	<-a.dead
+	return a.errReason
+}
+
+// Done signals the unit agent is finished
+func (a *UnitAgent) Done(err error) {
+	a.errReason = err
+	close(a.dead)
 }
 
 func (a *UnitAgent) isUpgradeRunning() bool {
@@ -141,16 +154,15 @@ func (a *UnitAgent) isInitialUpgradeCheckPending() bool {
 }
 
 // Run runs a unit agent.
-func (a *UnitAgent) Run(ctx *cmd.Context) error {
-	defer a.tomb.Done()
+func (a *UnitAgent) Run(ctx *cmd.Context) (err error) {
+	defer a.Done(err)
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return err
 	}
 	setupAgentLogging(a.CurrentConfig())
 
 	a.runner.StartWorker("api", a.APIWorkers)
-	err := cmdutil.AgentDone(logger, a.runner.Wait())
-	a.tomb.Kill(err)
+	err = cmdutil.AgentDone(logger, a.runner.Wait())
 	return err
 }
 

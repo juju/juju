@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	apicaasprovisioner "github.com/juju/juju/api/caasoperatorprovisioner"
@@ -129,11 +129,6 @@ type mockWatcher struct {
 	terminated bool
 }
 
-func (w *mockWatcher) doneWhenDying() {
-	<-w.Tomb.Dying()
-	w.Tomb.Done()
-}
-
 func (w *mockWatcher) killed() bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -164,7 +159,10 @@ type mockStringsWatcher struct {
 
 func newMockStringsWatcher() *mockStringsWatcher {
 	w := &mockStringsWatcher{changes: make(chan []string, 5)}
-	go w.doneWhenDying()
+	w.Tomb.Go(func() error {
+		<-w.Tomb.Dying()
+		return nil
+	})
 	return w
 }
 

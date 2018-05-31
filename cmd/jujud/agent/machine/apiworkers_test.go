@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
@@ -81,7 +81,6 @@ type mockWorker struct {
 
 func (w *mockWorker) Kill() {
 	w.tomb.Kill(nil)
-	w.tomb.Done()
 }
 
 func (w *mockWorker) Wait() error {

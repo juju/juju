@@ -4,7 +4,7 @@
 package watchertest
 
 import (
-	tomb "gopkg.in/tomb.v1"
+	tomb "gopkg.in/tomb.v2"
 )
 
 type NotifyWatcher struct {
@@ -14,11 +14,10 @@ type NotifyWatcher struct {
 
 func NewNotifyWatcher(ch <-chan struct{}) *NotifyWatcher {
 	w := &NotifyWatcher{ch: ch}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-		w.tomb.Kill(tomb.ErrDying)
-	}()
+		return tomb.ErrDying
+	})
 	return w
 }
 

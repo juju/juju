@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	tomb "gopkg.in/tomb.v1"
+	tomb "gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -336,12 +336,11 @@ type mockNotifyWatcher struct {
 
 func newMockNotifyWatcher(ch chan struct{}) *mockNotifyWatcher {
 	w := &mockNotifyWatcher{ch: ch}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(ch)
 		<-w.tomb.Dying()
-		w.tomb.Kill(tomb.ErrDying)
-	}()
+		return tomb.ErrDying
+	})
 	return w
 }
 

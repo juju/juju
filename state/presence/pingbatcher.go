@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 )
 
 const (
@@ -66,7 +66,6 @@ func NewDeadPingBatcher(err error) *PingBatcher {
 	// we never start the loop, so the timeout doesn't matter.
 	pb := &PingBatcher{}
 	pb.tomb.Kill(err)
-	pb.tomb.Done()
 	return pb
 }
 
@@ -116,7 +115,7 @@ type PingBatcher struct {
 
 // Start the worker loop.
 func (pb *PingBatcher) start() {
-	go func() {
+	pb.tomb.Go(func() error {
 		err := pb.loop()
 		cause := errors.Cause(err)
 		// tomb expects ErrDying or ErrStillAlive as
@@ -125,9 +124,8 @@ func (pb *PingBatcher) start() {
 		if err != nil && cause != tomb.ErrDying {
 			logger.Infof("ping batching loop failed: %v", err)
 		}
-		pb.tomb.Kill(cause)
-		pb.tomb.Done()
-	}()
+		return cause
+	})
 }
 
 // Kill is part of the worker.Worker interface.
@@ -143,6 +141,9 @@ func (pb *PingBatcher) Wait() error {
 
 // Stop this PingBatcher, part of the extended Worker interface.
 func (pb *PingBatcher) Stop() error {
+	if err := pb.tomb.Err(); err != tomb.ErrStillAlive {
+		return err
+	}
 	pb.tomb.Kill(nil)
 	err := pb.tomb.Wait()
 	return errors.Trace(err)

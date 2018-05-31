@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
 )
@@ -24,10 +24,7 @@ var logger = loggo.GetLogger("juju.worker.apicaller")
 // worker.
 func newAPIConnWorker(conn api.Connection) worker.Worker {
 	w := &apiConnWorker{conn: conn}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.loop())
-	}()
+	w.tomb.Go(w.loop)
 	return w
 }
 

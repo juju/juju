@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 )
 
 var logger = loggo.GetLogger("juju.worker.dependency")
@@ -82,10 +82,7 @@ func NewEngine(config EngineConfig) (*Engine, error) {
 		stopped: make(chan stoppedTicket),
 		report:  make(chan reportTicket),
 	}
-	go func() {
-		defer engine.tomb.Done()
-		engine.tomb.Kill(engine.loop())
-	}()
+	engine.tomb.Go(engine.loop)
 	return engine, nil
 }
 

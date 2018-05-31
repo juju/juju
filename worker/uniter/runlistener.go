@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -154,11 +154,11 @@ func (r *RunListener) RunCommands(args RunCommandsArgs) (results *exec.ExecRespo
 // not what I'm fixing here.
 func newRunListenerWrapper(rl *RunListener) worker.Worker {
 	rlw := &runListenerWrapper{rl: rl}
-	go func() {
-		defer rlw.tomb.Done()
+	rlw.tomb.Go(func() error {
 		defer rlw.tearDown()
 		<-rlw.tomb.Dying()
-	}()
+		return nil
+	})
 	return rlw
 }
 

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/prometheus/client_golang/prometheus"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
@@ -259,10 +259,7 @@ func newModelStateWorker(
 		modelUUID:    modelUUID,
 		pingInterval: pingInterval,
 	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.loop())
-	}()
+	w.tomb.Go(w.loop)
 	return w
 }
 

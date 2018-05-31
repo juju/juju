@@ -6,7 +6,7 @@ package agent
 import (
 	"github.com/juju/errors"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/dependency"
@@ -26,10 +26,10 @@ func Manifold(a agent.Agent) dependency.Manifold {
 func startFunc(a agent.Agent) dependency.StartFunc {
 	return func(_ dependency.Context) (worker.Worker, error) {
 		w := &agentWorker{agent: a}
-		go func() {
-			defer w.tomb.Done()
+		w.tomb.Go(func() error {
 			<-w.tomb.Dying()
-		}()
+			return nil
+		})
 		return w, nil
 	}
 }

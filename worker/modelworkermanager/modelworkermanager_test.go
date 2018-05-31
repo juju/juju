@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -216,10 +216,10 @@ func (s *suite) assertNoWorkers(c *gc.C) {
 
 func newMockWorker(modelUUID string, modelType state.ModelType) *mockWorker {
 	w := &mockWorker{uuid: modelUUID, modelType: modelType}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-	}()
+		return nil
+	})
 	return w
 }
 

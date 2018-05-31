@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
@@ -53,10 +53,7 @@ func newPingTimeout(action func(), clock clock.Clock, timeout time.Duration) Pin
 		timeout: timeout,
 		reset:   make(chan struct{}),
 	}
-	go func() {
-		defer pt.tomb.Done()
-		pt.tomb.Kill(pt.loop())
-	}()
+	pt.tomb.Go(pt.loop)
 	return pt
 }
 

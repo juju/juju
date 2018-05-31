@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 )
 
 // NewValueWorker returns a degenerate worker that exposes the supplied value
@@ -23,10 +23,10 @@ func NewValueWorker(value interface{}) (worker.Worker, error) {
 	w := &valueWorker{
 		value: value,
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-	}()
+		return nil
+	})
 	return w, nil
 }
 

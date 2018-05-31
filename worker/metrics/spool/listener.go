@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/juju/sockets"
 	jworker "github.com/juju/juju/worker"
@@ -39,10 +39,7 @@ func NewSocketListener(socketPath string, handler ConnectionHandler) (*socketLis
 		return nil, errors.Trace(err)
 	}
 	sListener := &socketListener{listener: listener, handler: handler}
-	go func() {
-		defer sListener.t.Done()
-		sListener.t.Kill(sListener.loop())
-	}()
+	sListener.t.Go(sListener.loop)
 	return sListener, nil
 }
 
