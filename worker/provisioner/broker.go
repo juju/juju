@@ -98,6 +98,14 @@ func finishNetworkConfig(bridgeDevice string, interfaces []network.InterfaceInfo
 	}
 
 	if !haveNameservers || !haveSearchDomains {
+		warnMissing := func(s string) { logger.Warningf("no %s supplied by provider, using host's %s.", s, s) }
+		if !haveNameservers {
+			warnMissing("name servers")
+		}
+		if !haveSearchDomains {
+			warnMissing("search domains")
+		}
+
 		logger.Warningf("incomplete DNS config found, discovering host's DNS config")
 		dnsConfig, err := findDNSServerConfig()
 		if err != nil {
