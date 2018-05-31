@@ -173,6 +173,10 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 		return "", errors.Annotate(err, "enabling HTTPS listener")
 	}
 
+	// The following retry mechanism is required for bionic, where the new
+	// lxd client doesn't propagate the EnableHTTPSListener quick enough to
+	// get the addresses or on the same existing local provider.
+
 	// connInfoAddresses is really useful for debugging, so let's keep that
 	// information around for the debugging errors.
 	var connInfoAddresses []string
@@ -183,11 +187,17 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 			return errors.Cause(err) != errNotExists
 		},
 		Func: func() error {
-			cInfo, err := raw.GetConnectionInfo()
+			// Requesting a newLocalRawProvider forces a new connection, so
+			// that when we GetConnectionInfo it gets the required addresses.
+			raw, err := p.newLocalRawProvider()
 			if err != nil {
 				return errors.Trace(err)
 			}
 
+			cInfo, err := raw.GetConnectionInfo()
+			if err != nil {
+				return errors.Trace(err)
+			}
 			connInfoAddresses = cInfo.Addresses
 			for _, addr := range cInfo.Addresses {
 				if strings.HasPrefix(addr, hostAddress+":") {
