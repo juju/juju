@@ -41,7 +41,9 @@ func (c *Facade) ModelCredential() (base.StoredCredential, bool, error) {
 	}
 
 	if !out.Exists {
-		return emptyResult, false, nil
+		// On some clouds, model credential may not be required.
+		// So, it may be valid for models to not have a credential set.
+		return base.StoredCredential{Valid: out.Valid}, false, nil
 	}
 
 	credentialTag, err := names.ParseCloudCredentialTag(out.CloudCredential)

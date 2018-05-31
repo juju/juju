@@ -1027,9 +1027,6 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 	s.PatchValue(&iaasModelManifolds, instrumented)
 
 	expectedWorkers := append(alwaysModelWorkers, aliveModelWorkers...)
-	// Test infrastructure creates the controller with cloud credential,
-	// so credential validator worker will run too.
-	expectedWorkers = append(expectedWorkers, "credential-validator-flag")
 
 	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, expectedWorkers)
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
@@ -1061,7 +1058,7 @@ func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
 	})
 }
 
-func (s *MachineSuite) TestWorkersForHostedModelWithCredential(c *gc.C) {
+func (s *MachineSuite) TestWorkersForHostedModelWithInvalidCredential(c *gc.C) {
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
@@ -1085,13 +1082,20 @@ func (s *MachineSuite) TestWorkersForHostedModelWithCredential(c *gc.C) {
 
 	uuid := st.ModelUUID()
 
+	// invalidate cloud credential for this model
+	err := st.InvalidateModelCredential("coz i can")
+	c.Assert(err, jc.ErrorIsNil)
+
 	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackModels(c, tracker, iaasModelManifolds)
 	s.PatchValue(&iaasModelManifolds, instrumented)
 
 	expectedWorkers := append(alwaysModelWorkers, aliveModelWorkers...)
-	expectedWorkers = append(expectedWorkers, "credential-validator-flag")
-	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, expectedWorkers)
+	// only expect workers that don't require valid credential
+	all := set.NewStrings(expectedWorkers...).Difference(
+		set.NewStrings(requireValidCredentialModelWorkers...))
+
+	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, all.SortedValues())
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
 		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
 	})

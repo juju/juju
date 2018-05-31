@@ -174,11 +174,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 		// Cloud credential validator runs on all models, and
 		// determines if model's cloud credential is valid.
-		credentialValidatorFlagName: ifNotUpgrading(ifNotDead(credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{
+		credentialValidatorFlagName: credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{
 			APICallerName: apiCallerName,
 			NewFacade:     credentialvalidator.NewFacade,
 			NewWorker:     credentialvalidator.NewWorker,
-		}))),
+		}),
 
 		// The migration workers collaborate to run migrations;
 		// and to create a mechanism for running other workers
@@ -328,30 +328,30 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// it.
 
 		// The undertaker is currently the only ifNotAlive worker.
-		undertakerName: ifNotUpgrading(ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
+		undertakerName: ifNotUpgrading(ifNotAlive(ifCredentialValid(undertaker.Manifold(undertaker.ManifoldConfig{
 			APICallerName:      apiCallerName,
 			CloudDestroyerName: environTrackerName,
 
 			NewFacade:                    undertaker.NewFacade,
 			NewWorker:                    undertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-		}))),
+		})))),
 
 		// All the rest depend on ifNotMigrating.
-		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
+		computeProvisionerName: ifNotMigrating(ifCredentialValid(provisioner.Manifold(provisioner.ManifoldConfig{
 			AgentName:                    agentName,
 			APICallerName:                apiCallerName,
 			EnvironName:                  environTrackerName,
 			NewProvisionerFunc:           provisioner.NewEnvironProvisioner,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-		})),
+		}))),
 		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
 			EnvironName:   environTrackerName,
 			Scope:         modelTag,
 		})),
-		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
+		firewallerName: ifNotMigrating(ifCredentialValid(firewaller.Manifold(firewaller.ManifoldConfig{
 			AgentName:               agentName,
 			APICallerName:           apiCallerName,
 			EnvironName:             environTrackerName,
@@ -361,7 +361,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFirewallerFacade:          firewaller.NewFirewallerFacade,
 			NewRemoteRelationsFacade:     firewaller.NewRemoteRelationsFacade,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-		})),
+		}))),
 		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
@@ -370,13 +370,13 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:     applicationscaler.NewFacade,
 			NewWorker:     applicationscaler.New,
 		})),
-		instancePollerName: ifNotMigrating(instancepoller.Manifold(instancepoller.ManifoldConfig{
+		instancePollerName: ifNotMigrating(ifCredentialValid(instancepoller.Manifold(instancepoller.ManifoldConfig{
 			APICallerName: apiCallerName,
 			EnvironName:   environTrackerName,
 			ClockName:     clockName,
 			Delay:         config.InstPollerAggregationDelay,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-		})),
+		}))),
 		metricWorkerName: ifNotMigrating(metricworker.Manifold(metricworker.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
@@ -385,7 +385,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			EnvironName:   environTrackerName,
 			NewWorker:     machineundertaker.NewWorker,
 		})),
-		modelUpgraderName: modelupgrader.Manifold(modelupgrader.ManifoldConfig{
+		modelUpgraderName: ifCredentialValid(modelupgrader.Manifold(modelupgrader.ManifoldConfig{
 			APICallerName:                apiCallerName,
 			EnvironName:                  environTrackerName,
 			GateName:                     modelUpgradeGateName,
@@ -394,7 +394,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:                    modelupgrader.NewFacade,
 			NewWorker:                    modelupgrader.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-		}),
+		})),
 	}
 	result := commonManifolds(config)
 	for name, manifold := range manifolds {
@@ -411,14 +411,14 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	manifolds := dependency.Manifolds{
 
 		// The undertaker is currently the only ifNotAlive worker.
-		undertakerName: ifNotUpgrading(ifNotAlive(undertaker.Manifold(undertaker.ManifoldConfig{
+		undertakerName: ifNotUpgrading(ifNotAlive(ifCredentialValid(undertaker.Manifold(undertaker.ManifoldConfig{
 			APICallerName:      apiCallerName,
 			CloudDestroyerName: caasBrokerTrackerName,
 
 			NewFacade:                    undertaker.NewFacade,
 			NewWorker:                    undertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-		}))),
+		})))),
 
 		caasBrokerTrackerName: ifResponsible(caasbroker.Manifold(caasbroker.ManifoldConfig{
 			APICallerName:          apiCallerName,

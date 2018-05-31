@@ -58,8 +58,6 @@ func (s *CredentialValidatorSuite) TestModelCredential(c *gc.C) {
 
 func (s *CredentialValidatorSuite) TestModelCredentialNotNeeded(c *gc.C) {
 	s.backend.mc.Exists = false
-	// In real life, these properties will not be set if Exists is false, so
-	// doing the same in test.
 	s.backend.mc.Credential = names.CloudCredentialTag{}
 	s.backend.mc.Valid = false
 	result, err := s.api.ModelCredential()

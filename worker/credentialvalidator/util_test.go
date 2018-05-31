@@ -21,10 +21,16 @@ import (
 // mockFacade implements credentialvalidator.Facade for use in the tests.
 type mockFacade struct {
 	*testing.Stub
-	credential base.StoredCredential
+	credential *base.StoredCredential
 	exists     bool
 
 	watcher *watchertest.MockNotifyWatcher
+}
+
+func (m *mockFacade) setupModelHasNoCredential() {
+	m.credential.CloudCredential = ""
+	m.exists = false
+	m.watcher = nil
 }
 
 // ModelCredential is part of the credentialvalidator.Facade interface.
@@ -33,7 +39,7 @@ func (m *mockFacade) ModelCredential() (base.StoredCredential, bool, error) {
 	if err := m.NextErr(); err != nil {
 		return base.StoredCredential{}, false, err
 	}
-	return m.credential, m.exists, nil
+	return *m.credential, m.exists, nil
 }
 
 // WatchCredential is part of the credentialvalidator.Facade interface.

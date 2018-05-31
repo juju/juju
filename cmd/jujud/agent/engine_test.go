@@ -24,11 +24,32 @@ var (
 		"api-caller",
 		"api-config-watcher",
 		"clock",
+		"credential-validator-flag",
 		"is-responsible-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
 		"not-alive-flag",
 		"not-dead-flag",
+	}
+	requireValidCredentialModelWorkers = []string{
+		"action-pruner",          // tertiary dependency: will be inactive because migration workers will be inactive
+		"application-scaler",     // tertiary dependency: will be inactive because migration workers will be inactive
+		"charm-revision-updater", // tertiary dependency: will be inactive because migration workers will be inactive
+		"compute-provisioner",
+		"firewaller",
+		"instance-poller",
+		"machine-undertaker",      // tertiary dependency: will be inactive because migration workers will be inactive
+		"metric-worker",           // tertiary dependency: will be inactive because migration workers will be inactive
+		"migration-fortress",      // secondary dependency: will be inactive because depends on model-upgrader
+		"migration-inactive-flag", // secondary dependency: will be inactive because depends on model-upgrader
+		"migration-master",        // secondary dependency: will be inactive because depends on model-upgrader
+		"model-upgrader",
+		"remote-relations",      // tertiary dependency: will be inactive because migration workers will be inactive
+		"state-cleaner",         // tertiary dependency: will be inactive because migration workers will be inactive
+		"status-history-pruner", // tertiary dependency: will be inactive because migration workers will be inactive
+		"storage-provisioner",   // tertiary dependency: will be inactive because migration workers will be inactive
+		"undertaker",
+		"unit-assigner", // tertiary dependency: will be inactive because migration workers will be inactive
 	}
 	aliveModelWorkers = []string{
 		"action-pruner",

@@ -31,7 +31,7 @@ var _ CredentialValidator = (*CredentialValidatorAPI)(nil)
 
 // NewCredentialValidatorAPI creates a new CredentialValidator API endpoint on server-side.
 func NewCredentialValidatorAPI(ctx facade.Context) (*CredentialValidatorAPI, error) {
-	return internalNewCredentialValidatorAPI(NewBackend(ctx.State()), ctx.Resources(), ctx.Auth())
+	return internalNewCredentialValidatorAPI(NewBackend(NewStateShim(ctx.State())), ctx.Resources(), ctx.Auth())
 }
 
 func internalNewCredentialValidatorAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*CredentialValidatorAPI, error) {
