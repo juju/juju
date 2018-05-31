@@ -6,7 +6,7 @@ package apiaddressupdater
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"

@@ -12,8 +12,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/symlink"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -23,6 +26,7 @@ import (
 	"github.com/juju/juju/core/life"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/status"
+	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/caasoperator/remotestate"
 	"github.com/juju/juju/worker/catacomb"
@@ -88,6 +92,9 @@ type Config struct {
 	// CharmApplication is an interface for getting info about an application's charm.
 	ApplicationWatcher ApplicationWatcher
 
+	// VersionSetter is an interface for setting the operator agent version.
+	VersionSetter VersionSetter
+
 	// LeadershipTrackerFunc is a function for getting a leadership tracker.
 	LeadershipTrackerFunc func(unitTag names.UnitTag) leadership.Tracker
 
@@ -140,6 +147,9 @@ func (config Config) Validate() error {
 	}
 	if config.StatusSetter == nil {
 		return errors.NotValidf("missing StatusSetter")
+	}
+	if config.VersionSetter == nil {
+		return errors.NotValidf("missing VersionSetter")
 	}
 	return nil
 }
@@ -228,7 +238,22 @@ func (op *caasOperator) removeUnitDir(unitTag names.UnitTag) error {
 	return os.RemoveAll(unitAgentDir)
 }
 
+func toBinaryVersion(vers version.Number) version.Binary {
+	outVers := version.Binary{
+		Number: vers,
+		Arch:   arch.HostArch(),
+		Series: series.MustHostSeries(),
+	}
+	return outVers
+}
+
 func (op *caasOperator) loop() (err error) {
+	// Start by reporting current tools (which includes arch/series).
+	if err := op.config.VersionSetter.SetVersion(
+		op.config.Application, toBinaryVersion(jujuversion.Current)); err != nil {
+		return errors.Annotate(err, "cannot set agent version")
+	}
+
 	charmURL, charmModifiedVersion, err := op.ensureCharm()
 	if err != nil {
 		if err == jworker.ErrTerminateAgent {

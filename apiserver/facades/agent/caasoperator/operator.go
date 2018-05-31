@@ -23,6 +23,7 @@ type Facade struct {
 	*common.LifeGetter
 	*common.AgentEntityWatcher
 	*common.Remover
+	*common.ToolsSetter
 
 	model Model
 }
@@ -51,11 +52,36 @@ func NewFacade(
 		common.AuthFuncForTagKind(names.ApplicationTagKind),
 		common.AuthFuncForTagKind(names.UnitTagKind),
 	)
-	canWrite := canRead
+	accessUnit := func() (common.AuthFunc, error) {
+		switch tag := authorizer.GetAuthTag().(type) {
+		case names.ApplicationTag:
+			// Any of the units belonging to
+			// the application can be accessed.
+			app, err := st.Application(tag.Name)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			allUnits, err := app.AllUnits()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return func(tag names.Tag) bool {
+				for _, u := range allUnits {
+					if u.Tag() == tag {
+						return true
+					}
+				}
+				return false
+			}, nil
+		default:
+			return nil, errors.Errorf("expected names.ApplicationTag, got %T", tag)
+		}
+	}
 	return &Facade{
 		LifeGetter:         common.NewLifeGetter(st, canRead),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, canRead),
-		Remover:            common.NewRemover(st, true, canWrite),
+		Remover:            common.NewRemover(st, true, accessUnit),
+		ToolsSetter:        common.NewToolsSetter(st, common.AuthFuncForTag(authorizer.GetAuthTag())),
 		auth:               authorizer,
 		resources:          resources,
 		state:              st,

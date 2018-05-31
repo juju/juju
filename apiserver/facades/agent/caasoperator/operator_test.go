@@ -6,6 +6,7 @@ package caasoperator_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -177,12 +178,19 @@ func (s *CAASOperatorSuite) TestRemove(c *gc.C) {
 		Entities: []params.Entity{
 			{Tag: "unit-gitlab-0"},
 			{Tag: "machine-0"},
+			{Tag: "unit-mysql-0"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{},
+			{
+				Error: &params.Error{
+					Code:    "unauthorized access",
+					Message: "permission denied",
+				},
+			},
 			{
 				Error: &params.Error{
 					Code:    "unauthorized access",
@@ -289,4 +297,26 @@ func (s *CAASOperatorSuite) TestWatch(c *gc.C) {
 	c.Assert(result.Results[0].NotifyWatcherId, gc.Equals, "1")
 	resource := s.resources.Get("1")
 	c.Assert(resource, gc.Equals, s.st.app.watcher)
+}
+
+func (s *CAASOperatorSuite) TestSetTools(c *gc.C) {
+	vers := version.MustParseBinary("2.99.0-bionic-amd64")
+	results, err := s.facade.SetTools(params.EntitiesVersion{
+		AgentTools: []params.EntityVersion{
+			{Tag: "application-gitlab", Tools: &params.Version{Version: vers}},
+			{Tag: "machine-0", Tools: &params.Version{Version: vers}},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+			{
+				Error: &params.Error{
+					Code:    "unauthorized access",
+					Message: "permission denied",
+				},
+			}},
+	})
+	s.st.app.CheckCall(c, 0, "SetAgentVersion", vers)
 }

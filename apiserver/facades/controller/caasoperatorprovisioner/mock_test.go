@@ -9,13 +9,17 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/apiserver/common"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type mockState struct {
 	testing.Stub
+	common.AddressAndCertGetter
 	applicationWatcher *mockStringsWatcher
 	app                *mockApplication
 	operatorImage      string
@@ -43,6 +47,16 @@ func (st *mockState) ControllerConfig() (controller.Config, error) {
 	cfg := coretesting.FakeControllerConfig()
 	cfg[controller.CAASOperatorImagePath] = st.operatorImage
 	return cfg, nil
+}
+
+func (st *mockState) APIHostPortsForAgents() ([][]network.HostPort, error) {
+	st.MethodCall(st, "APIHostPortsForAgents")
+	return nil, nil
+}
+
+func (st *mockState) WatchAPIHostPortsForAgents() state.NotifyWatcher {
+	st.MethodCall(st, "WatchAPIHostPortsForAgents")
+	return apiservertesting.NewFakeNotifyWatcher()
 }
 
 type mockApplication struct {

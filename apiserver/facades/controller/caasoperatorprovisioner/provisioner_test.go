@@ -121,6 +121,7 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
 		ImagePath: fmt.Sprintf("jujusolutions/caas-jujud-operator:%s", version.Current.String()),
+		Version:   version.Current,
 	})
 }
 
@@ -130,5 +131,18 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
 		ImagePath: s.st.operatorImage,
+		Version:   version.Current,
 	})
+}
+
+func (s *CAASProvisionerSuite) TestAddresses(c *gc.C) {
+	_, err := s.api.APIAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	s.st.CheckCallNames(c, "APIHostPortsForAgents")
+}
+
+func (s *CAASProvisionerSuite) TestWatchAPIHostPorts(c *gc.C) {
+	_, err := s.api.WatchAPIHostPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	s.st.CheckCallNames(c, "WatchAPIHostPortsForAgents")
 }

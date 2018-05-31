@@ -5,6 +5,7 @@ package caasoperator
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
@@ -232,4 +233,24 @@ func maybeNotFound(err *params.Error) error {
 		return err
 	}
 	return errors.NewNotFound(err, "")
+}
+
+// SetVersion sets the tools version associated with
+// the given application.
+func (c *Client) SetVersion(appName string, v version.Binary) error {
+	if !names.IsValidApplication(appName) {
+		return errors.NotValidf("application name %q", appName)
+	}
+	var results params.ErrorResults
+	args := params.EntitiesVersion{
+		AgentTools: []params.EntityVersion{{
+			Tag:   names.NewApplicationTag(appName).String(),
+			Tools: &params.Version{v},
+		}},
+	}
+	err := c.facade.FacadeCall("SetTools", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
 }

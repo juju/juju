@@ -37,6 +37,7 @@ type Application interface {
 	CharmModifiedVersion() int
 	SetStatus(status.StatusInfo) error
 	WatchUnits() state.StringsWatcher
+	AllUnits() ([]Unit, error)
 }
 
 // Charm provides the subset of charm state required by the
@@ -72,4 +73,20 @@ type applicationShim struct {
 
 func (a applicationShim) Charm() (Charm, bool, error) {
 	return a.Application.Charm()
+}
+
+func (a applicationShim) AllUnits() ([]Unit, error) {
+	all, err := a.Application.AllUnits()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Unit, len(all))
+	for i, u := range all {
+		result[i] = u
+	}
+	return result, nil
+}
+
+type Unit interface {
+	Tag() names.Tag
 }

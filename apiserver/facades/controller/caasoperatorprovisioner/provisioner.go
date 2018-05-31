@@ -18,6 +18,7 @@ import (
 type API struct {
 	*common.PasswordChanger
 	*common.LifeGetter
+	*common.APIAddresser
 
 	auth      facade.Authorizer
 	resources facade.Resources
@@ -45,6 +46,7 @@ func NewCAASOperatorProvisionerAPI(
 	return &API{
 		PasswordChanger: common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		LifeGetter:      common.NewLifeGetter(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
+		APIAddresser:    common.NewAPIAddresser(st, resources),
 		auth:            authorizer,
 		resources:       resources,
 		state:           st,
@@ -81,5 +83,6 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 
 	return params.OperatorProvisioningInfo{
 		ImagePath: imagePath,
+		Version:   version.Current,
 	}, nil
 }

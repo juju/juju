@@ -5,9 +5,11 @@ package caasoperatorprovisioner
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
@@ -16,6 +18,7 @@ import (
 
 // Client allows access to the CAAS operator provisioner API endpoint.
 type Client struct {
+	*common.APIAddresser
 	facade base.FacadeCaller
 }
 
@@ -23,7 +26,8 @@ type Client struct {
 func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, "CAASOperatorProvisioner")
 	return &Client{
-		facade: facadeCaller,
+		facade:       facadeCaller,
+		APIAddresser: common.NewAPIAddresser(facadeCaller),
 	}
 }
 
@@ -102,6 +106,7 @@ func (c *Client) Life(appName string) (life.Value, error) {
 // OperatorProvisioningInfo holds the info needed to provision an operator.
 type OperatorProvisioningInfo struct {
 	ImagePath string
+	Version   version.Number
 }
 
 // OperatorProvisioningInfo returns the info needed to provision an operator.
@@ -112,5 +117,6 @@ func (c *Client) OperatorProvisioningInfo() (OperatorProvisioningInfo, error) {
 	}
 	return OperatorProvisioningInfo{
 		ImagePath: result.ImagePath,
+		Version:   result.Version,
 	}, nil
 }

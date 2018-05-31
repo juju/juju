@@ -13,9 +13,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -27,6 +30,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/watcher/watchertest"
 	"github.com/juju/juju/worker/caasoperator"
@@ -105,6 +109,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		ApplicationWatcher:    &s.client,
 		UnitGetter:            &s.client,
 		UnitRemover:           &s.client,
+		VersionSetter:         &s.client,
 		UniterParams:          s.uniterParams,
 		LeadershipTrackerFunc: s.leadershipTrackerFunc,
 		UniterFacadeFunc:      s.uniterFacadeFunc,
@@ -170,6 +175,11 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.StatusSetter = nil
 	}, `missing StatusSetter not valid`)
+
+	s.testValidateConfig(c, func(config *caasoperator.Config) {
+		config.VersionSetter = nil
+	}, `missing VersionSetter not valid`)
+
 }
 
 func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*caasoperator.Config), expect string) {
@@ -218,9 +228,14 @@ func (s *WorkerSuite) TestWorkerDownloadsCharm(c *gc.C) {
 	}
 
 	c.Assert(len(s.client.Calls()), jc.GreaterThan, 4)
-	s.client.CheckCall(c, 0, "Charm", "gitlab")
-	s.client.CheckCall(c, 2, "WatchUnits", "gitlab")
-	s.client.CheckCall(c, 4, "Watch", "gitlab")
+	s.client.CheckCall(c, 0, "SetVersion", "gitlab", version.Binary{
+		Number: jujuversion.Current,
+		Series: series.MustHostSeries(),
+		Arch:   arch.HostArch(),
+	})
+	s.client.CheckCall(c, 1, "Charm", "gitlab")
+	s.client.CheckCall(c, 3, "WatchUnits", "gitlab")
+	s.client.CheckCall(c, 5, "Watch", "gitlab")
 
 	s.charmDownloader.CheckCallNames(c, "Download")
 	downloadArgs := s.charmDownloader.Calls()[0].Args
@@ -328,7 +343,7 @@ func (s *WorkerSuite) TestWorkerSetsStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 
-	s.client.CheckCall(c, 1, "SetStatus", "gitlab", status.Maintenance, "downloading charm (cs:gitlab-1)", map[string]interface{}(nil))
+	s.client.CheckCall(c, 2, "SetStatus", "gitlab", status.Maintenance, "downloading charm (cs:gitlab-1)", map[string]interface{}(nil))
 }
 
 func (s *WorkerSuite) TestWatcherFailureStopsWorker(c *gc.C) {

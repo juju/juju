@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
 )
 
@@ -167,7 +166,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotate(err, "finding operator volume")
 	}
-	pod := operatorPod(appName, agentPath, config.OperatorImagePath)
+	pod := operatorPod(appName, agentPath, config.OperatorImagePath, config.Version.String())
 	if storageVol != nil {
 		logger.Debugf("using persistent volume for operator: %+v", storageVol)
 		pod.Spec.Volumes = append(pod.Spec.Volumes, *storageVol)
@@ -181,7 +180,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	// delete and create as without deployment controller that's all we can do.
 	// TODO(caas) - consider using a deployment controller for operator for easier management
 	if err := k.maybeUpdatePodImage(
-		operatorSelector(appName), version.Current.String(), pod.Spec.Containers[0].Image); err != nil {
+		operatorSelector(appName), config.Version.String(), pod.Spec.Containers[0].Image); err != nil {
 		return k.ensurePod(pod)
 	}
 	return nil
@@ -830,8 +829,9 @@ func (k *kubernetesClient) maybeUpdatePodImage(selector, jujuVersion, image stri
 	}
 	pod := podList.Items[0]
 
-	// The the pod is for the same Juju version, we know the pod spec
+	// If the pod is for the same Juju version, we know the pod spec
 	// will not have changed so can just update the image.
+	// TODO(caas) - we should compare the old and new pod specs
 	if pod.Labels[jujuVersion] != jujuVersion {
 		return errors.New("version mismatch")
 	}
@@ -892,7 +892,7 @@ func (k *kubernetesClient) deletePod(podName string) error {
 
 // operatorPod returns a *core.Pod for the operator pod
 // of the specified application.
-func operatorPod(appName, agentPath, operatorImagePath string) *core.Pod {
+func operatorPod(appName, agentPath, operatorImagePath, version string) *core.Pod {
 	podName := operatorPodName(appName)
 	configMapName := operatorConfigMapName(appName)
 	configVolName := configMapName + "-volume"
@@ -901,7 +901,7 @@ func operatorPod(appName, agentPath, operatorImagePath string) *core.Pod {
 	return &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   podName,
-			Labels: map[string]string{labelOperator: appName, labelVersion: version.Current.String()},
+			Labels: map[string]string{labelOperator: appName, labelVersion: version},
 		},
 		Spec: core.PodSpec{
 			Containers: []core.Container{{

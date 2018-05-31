@@ -156,6 +156,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		UnitGetter:         &s.client,
 		UnitRemover:        &s.client,
 		ApplicationWatcher: &s.client,
+		VersionSetter:      &s.client,
 		UniterParams: &uniter.UniterParams{
 			DataDir:         s.dataDir,
 			MachineLockName: "machine-lock",

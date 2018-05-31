@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type K8sSuite struct {
@@ -113,10 +112,12 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 }
 
 func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
-	pod := provider.OperatorPod("gitlab", "/var/lib/juju", "jujusolutions/caas-jujud-operator")
-	vers := version.Current
-	vers.Build = 0
+	pod := provider.OperatorPod("gitlab", "/var/lib/juju", "jujusolutions/caas-jujud-operator", "2.99.0")
 	c.Assert(pod.Name, gc.Equals, "juju-operator-gitlab")
+	c.Assert(pod.Labels, jc.DeepEquals, map[string]string{
+		"juju-operator": "gitlab",
+		"juju-version":  "2.99.0",
+	})
 	c.Assert(pod.Spec.Containers, gc.HasLen, 1)
 	c.Assert(pod.Spec.Containers[0].Image, gc.Equals, "jujusolutions/caas-jujud-operator")
 	c.Assert(pod.Spec.Containers[0].VolumeMounts, gc.HasLen, 1)
