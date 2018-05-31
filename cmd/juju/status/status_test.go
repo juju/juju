@@ -3810,24 +3810,23 @@ func substituteFakeTime(c *gc.C, key string, in []byte, expectIsoTime bool) []by
 // in actual status output with a known fake value.
 func substituteFakeTimestamp(c *gc.C, in []byte, expectIsoTime bool) []byte {
 	timeFormat := "15:04:05Z07:00"
+	output := strings.Replace(timeFormat, "Z", "+", -1)
 	if expectIsoTime {
 		timeFormat = "15:04:05Z"
+		output = "15:04:05"
 	}
 	// This regexp will work for any input type
-	exp := regexp.MustCompile(`(?P<timestamp>[0-9]{2}:[0-9]{2}:[0-9]{2}((Z|\+[0-9]{2}:[0-9]{2})?))`)
+	exp := regexp.MustCompile(`(?P<timestamp>[0-9]{2}:[0-9]{2}:[0-9]{2}((Z|\+|\-)([0-9]{2}:[0-9]{2})?)?)`)
 	if matches := exp.FindStringSubmatch(string(in)); matches != nil {
 		for i, name := range exp.SubexpNames() {
 			if name != "timestamp" {
 				continue
 			}
 			value := matches[i]
-			if expectIsoTime {
-				if index := strings.IndexRune(value, '+'); index >= 0 {
-					value = fmt.Sprintf("%sZ", value[:index])
-				}
-				if !strings.Contains(value, "R") {
-					value = fmt.Sprintf("%sZ", value)
-				}
+			if num := len(value); num == 8 {
+				value = fmt.Sprintf("%sZ", value)
+			} else if num == 14 && (expectIsoTime || value[8] == 'Z') {
+				value = fmt.Sprintf("%sZ", value[:8])
 			}
 			_, err := time.Parse(timeFormat, value)
 			c.Assert(err, jc.ErrorIsNil)
@@ -3836,7 +3835,7 @@ func substituteFakeTimestamp(c *gc.C, in []byte, expectIsoTime bool) []byte {
 
 	out := exp.ReplaceAllString(string(in), `<timestamp>`)
 	// Substitute a made up time used in our expected output.
-	out = strings.Replace(out, "<timestamp>", strings.Replace(timeFormat, "Z", "+", -1), -1)
+	out = strings.Replace(out, "<timestamp>", output, -1)
 	return []byte(out)
 }
 
