@@ -156,10 +156,22 @@ func (p *environProvider) FinalizeCloud(
 }
 
 func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext) (string, error) {
-	raw, err := p.newLocalRawProvider()
+	raw, err := lxd.NewLocalServer()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+
+	// We need to get a default profile, so that the local bridge name
+	// can be discovered correctly to then get the host address.
+	defaultProfile, profileETag, err := raw.GetProfile("default")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	if err := raw.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
+		return "", errors.Trace(err)
+	}
+
 	bridgeName := raw.LocalBridgeName()
 	hostAddress, err := p.interfaceAddress(bridgeName)
 	if err != nil {
@@ -187,30 +199,30 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 			return errors.Cause(err) != errNotExists
 		},
 		Func: func() error {
-			// Requesting a newLocalRawProvider forces a new connection, so
-			// that when we GetConnectionInfo it gets the required addresses.
-			raw, err := p.newLocalRawProvider()
-			if err != nil {
-				return errors.Trace(err)
-			}
-
 			cInfo, err := raw.GetConnectionInfo()
 			if err != nil {
 				return errors.Trace(err)
 			}
+
 			connInfoAddresses = cInfo.Addresses
 			for _, addr := range cInfo.Addresses {
 				if strings.HasPrefix(addr, hostAddress+":") {
 					hostAddress = addr
-
 					return nil
 				}
 			}
 
+			// Requesting a NewLocalServer forces a new connection, so that when
+			// we GetConnectionInfo it gets the required addresses.
+			// Note: this modifies the outer raw server.
+			if raw, err = lxd.NewLocalServer(); err != nil {
+				return errors.Trace(err)
+			}
+
 			return errNotExists
 		},
-		Delay:    1 * time.Second,
-		Attempts: 60,
+		Delay:    2 * time.Second,
+		Attempts: 30,
 	}
 	if err := retry.Call(retryArgs); err != nil {
 		return "", errors.Errorf(

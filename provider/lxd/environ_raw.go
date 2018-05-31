@@ -45,7 +45,6 @@ type newServer interface {
 	DeleteCertificate(fingerprint string) (err error)
 	CreateClientCertificate(certificate *lxd.Certificate) error
 	LocalBridgeName() string
-	EnableHTTPSListener() error
 }
 
 type lxdInstances interface {

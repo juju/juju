@@ -583,11 +583,6 @@ func (conn *StubClient) HasProfile(name string) (bool, error) {
 	return false, conn.NextErr()
 }
 
-func (conn *StubClient) EnableHTTPSListener() error {
-	conn.AddCall("EnableHTTPSListener")
-	return conn.NextErr()
-}
-
 func (conn *StubClient) AttachDisk(container, device string, disk jujulxdclient.DiskDevice) error {
 	conn.AddCall("AttachDisk", container, device, disk)
 	return conn.NextErr()

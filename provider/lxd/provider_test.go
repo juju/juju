@@ -124,9 +124,7 @@ func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
 		}},
 	})
 	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals,
-		`LXD is not listening on address https://8.8.8.8 `+
-			`(reported addresses: [127.0.0.1:1234 1.2.3.4:1234])`)
+	c.Assert(err, gc.ErrorMatches, `LXD is not listening on address https:\/\/8\.8\.8\.8 \(reported addresses\: \[.+\]\)`)
 }
 
 func (s *providerSuite) TestFinalizeCloudAlreadyListeningHTTPS(c *gc.C) {
