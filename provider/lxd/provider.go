@@ -156,23 +156,23 @@ func (p *environProvider) FinalizeCloud(
 }
 
 func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext) (string, error) {
-	raw, err := lxd.NewLocalServer()
+	svr, err := lxd.NewLocalServer()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
 	// We need to get a default profile, so that the local bridge name
 	// can be discovered correctly to then get the host address.
-	defaultProfile, profileETag, err := raw.GetProfile("default")
+	defaultProfile, profileETag, err := svr.GetProfile("default")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	if err := raw.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
+	if err := svr.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
 		return "", errors.Trace(err)
 	}
 
-	bridgeName := raw.LocalBridgeName()
+	bridgeName := svr.LocalBridgeName()
 	hostAddress, err := p.interfaceAddress(bridgeName)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -181,13 +181,13 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 
 	// LXD itself reports the host:ports that it listens on.
 	// Cross-check the address we have with the values reported by LXD.
-	if err := raw.EnableHTTPSListener(); err != nil {
+	if err := svr.EnableHTTPSListener(); err != nil {
 		return "", errors.Annotate(err, "enabling HTTPS listener")
 	}
 
-	// The following retry mechanism is required for bionic, where the new
-	// lxd client doesn't propagate the EnableHTTPSListener quick enough to
-	// get the addresses or on the same existing local provider.
+	// The following retry mechanism is required for newer LXD versions, where
+	// the new lxd client doesn't propagate the EnableHTTPSListener quick enough
+	// to get the addresses or on the same existing local provider.
 
 	// connInfoAddresses is really useful for debugging, so let's keep that
 	// information around for the debugging errors.
@@ -199,7 +199,7 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 			return errors.Cause(err) != errNotExists
 		},
 		Func: func() error {
-			cInfo, err := raw.GetConnectionInfo()
+			cInfo, err := svr.GetConnectionInfo()
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -214,8 +214,8 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 
 			// Requesting a NewLocalServer forces a new connection, so that when
 			// we GetConnectionInfo it gets the required addresses.
-			// Note: this modifies the outer raw server.
-			if raw, err = lxd.NewLocalServer(); err != nil {
+			// Note: this modifies the outer svr server.
+			if svr, err = lxd.NewLocalServer(); err != nil {
 				return errors.Trace(err)
 			}
 
