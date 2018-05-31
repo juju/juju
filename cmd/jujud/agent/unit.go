@@ -139,8 +139,8 @@ func (a *UnitAgent) Wait() error {
 	return a.errReason
 }
 
-// Finished signals the unit agent is finished
-func (a *UnitAgent) Finished(err error) {
+// Done signals the unit agent is finished
+func (a *UnitAgent) Done(err error) {
 	a.errReason = err
 	close(a.dead)
 }
@@ -155,7 +155,7 @@ func (a *UnitAgent) isInitialUpgradeCheckPending() bool {
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) (err error) {
-	defer a.Finished(err)
+	defer a.Done(err)
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return err
 	}

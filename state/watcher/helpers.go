@@ -4,8 +4,6 @@
 package watcher
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 )
@@ -30,7 +28,6 @@ func Stop(w Stopper, t *tomb.Tomb) {
 			// wrap any other error.
 			err = errors.Trace(err)
 		}
-		fmt.Printf(">> Error is: %s\n", err)
 		t.Kill(err)
 	}
 }

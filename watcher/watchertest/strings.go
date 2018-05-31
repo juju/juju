@@ -34,9 +34,6 @@ func (w *MockStringsWatcher) Changes() watcher.StringsChannel {
 }
 
 func (w *MockStringsWatcher) Stop() error {
-	if err := w.tomb.Err(); err != tomb.ErrStillAlive {
-		return err
-	}
 	w.Kill()
 	return w.Wait()
 }

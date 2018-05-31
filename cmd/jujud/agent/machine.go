@@ -374,8 +374,8 @@ func (a *MachineAgent) Stop() error {
 	return a.Wait()
 }
 
-// Finished signals the machine agent is finished
-func (a *MachineAgent) Finished(err error) {
+// Done signals the machine agent is finished
+func (a *MachineAgent) Done(err error) {
 	a.errReason = err
 	close(a.dead)
 }
@@ -431,7 +431,7 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(*cmd.Context) (err error) {
-	defer a.Finished(err)
+	defer a.Done(err)
 	useMultipleCPUs()
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)

@@ -117,7 +117,6 @@ func (s *IsolatedWorkerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wrk, gc.NotNil)
 	s.worker = wrk
-	time.Sleep(1 * time.Second)
 }
 
 func (s *IsolatedWorkerSuite) TearDownTest(c *gc.C) {

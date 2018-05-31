@@ -6,7 +6,6 @@ package watchertest
 import (
 	"time"
 
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	tomb "gopkg.in/tomb.v2"
@@ -14,8 +13,6 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 )
-
-var logger = loggo.GetLogger("veebers")
 
 type MockNotifyWatcher struct {
 	tomb tomb.Tomb
@@ -36,9 +33,6 @@ func (w *MockNotifyWatcher) Changes() watcher.NotifyChannel {
 }
 
 func (w *MockNotifyWatcher) Stop() error {
-	if err := w.tomb.Err(); err != tomb.ErrStillAlive {
-		return err
-	}
 	w.Kill()
 	return w.Wait()
 }

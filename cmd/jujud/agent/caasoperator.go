@@ -113,15 +113,15 @@ func (op *CaasOperatorAgent) Stop() error {
 	return op.Wait()
 }
 
-// Finished signals the machine agent is finished
-func (op *CaasOperatorAgent) Finished(err error) {
+// Done signals the machine agent is finished
+func (op *CaasOperatorAgent) Done(err error) {
 	op.errReason = err
 	close(op.dead)
 }
 
 // Run implements Command.
 func (op *CaasOperatorAgent) Run(ctx *cmd.Context) (err error) {
-	defer op.Finished(err)
+	defer op.Done(err)
 	if err := op.ReadConfig(op.Tag().String()); err != nil {
 		return err
 	}

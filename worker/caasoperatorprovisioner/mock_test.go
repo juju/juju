@@ -129,10 +129,6 @@ type mockWatcher struct {
 	terminated bool
 }
 
-func (w *mockWatcher) doneWhenDying() {
-	<-w.Tomb.Dying()
-}
-
 func (w *mockWatcher) killed() bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -164,7 +160,7 @@ type mockStringsWatcher struct {
 func newMockStringsWatcher() *mockStringsWatcher {
 	w := &mockStringsWatcher{changes: make(chan []string, 5)}
 	w.Tomb.Go(func() error {
-		w.doneWhenDying()
+		<-w.Tomb.Dying()
 		return nil
 	})
 	return w

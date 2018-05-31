@@ -333,9 +333,6 @@ func (w *MockNotifyWatcher) Changes() <-chan struct{} {
 }
 
 func (w *MockNotifyWatcher) Stop() error {
-	if err := w.tomb.Err(); err != tomb.ErrStillAlive {
-		return err
-	}
 	w.Kill()
 	return w.Wait()
 }
@@ -372,9 +369,6 @@ func (w *MockStringsWatcher) Changes() <-chan []string {
 }
 
 func (w *MockStringsWatcher) Stop() error {
-	if err := w.tomb.Err(); err != tomb.ErrStillAlive {
-		return err
-	}
 	w.Kill()
 	return w.Wait()
 }

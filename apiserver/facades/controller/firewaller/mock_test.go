@@ -125,10 +125,6 @@ type mockWatcher struct {
 	tomb.Tomb
 }
 
-func (w *mockWatcher) doneWhenDying() {
-	<-w.Tomb.Dying()
-}
-
 func (w *mockWatcher) Kill() {
 	w.MethodCall(w, "Kill")
 	w.Tomb.Kill(nil)
@@ -156,7 +152,7 @@ type mockStringsWatcher struct {
 func newMockStringsWatcher() *mockStringsWatcher {
 	w := &mockStringsWatcher{changes: make(chan []string, 1)}
 	w.Tomb.Go(func() error {
-		w.doneWhenDying()
+		<-w.Tomb.Dying()
 		return nil
 	})
 	return w
@@ -172,7 +168,7 @@ func newMockNotifyWatcher() *mockNotifyWatcher {
 	// Initial event
 	w.changes <- struct{}{}
 	w.Tomb.Go(func() error {
-		w.doneWhenDying()
+		<-w.Tomb.Dying()
 		return nil
 	})
 	return w
@@ -252,7 +248,7 @@ func (r *mockRelation) SetStatus(info status.StatusInfo) error {
 func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
 	w := &mockRelationUnitsWatcher{changes: make(chan params.RelationUnitsChange, 1)}
 	w.Tomb.Go(func() error {
-		w.doneWhenDying()
+		<-w.Tomb.Dying()
 		return nil
 	})
 	return w

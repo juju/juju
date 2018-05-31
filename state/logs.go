@@ -401,9 +401,6 @@ func (t *logTailer) Dying() <-chan struct{} {
 
 // Stop implements the LogTailer interface.
 func (t *logTailer) Stop() error {
-	if err := t.tomb.Err(); err != tomb.ErrStillAlive {
-		return err
-	}
 	t.tomb.Kill(nil)
 	return t.tomb.Wait()
 }

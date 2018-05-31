@@ -26,9 +26,6 @@ func (w *NotifyWatcher) Changes() <-chan struct{} {
 }
 
 func (w *NotifyWatcher) Stop() error {
-	if err := w.tomb.Err(); err != tomb.ErrStillAlive {
-		return err
-	}
 	w.Kill()
 	return w.Wait()
 }
