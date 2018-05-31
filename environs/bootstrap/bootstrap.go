@@ -17,9 +17,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -197,7 +197,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	_, supportsNetworking := environs.SupportsNetworking(environ)
-	logger.Debugf("model %q supports service/machine networks: %v", cfg.Name(), supportsNetworking)
+	logger.Debugf("model %q supports application/machine networks: %v", cfg.Name(), supportsNetworking)
 	disableNetworkManagement, _ := cfg.DisableNetworkManagement()
 	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
 

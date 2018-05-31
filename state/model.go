@@ -935,7 +935,7 @@ func (m *Model) uniqueIndexID() string {
 }
 
 // Destroy sets the models's lifecycle to Dying, preventing
-// addition of services or machines to state. If called on
+// addition of applications or machines to state. If called on
 // an empty hosted model, the lifecycle will be advanced
 // straight to Dead.
 func (m *Model) Destroy(args DestroyModelParams) (err error) {
@@ -1268,7 +1268,8 @@ func (m *Model) destroyOps(
 		ops = append(ops,
 			newCleanupOp(cleanupApplicationsForDyingModel, modelUUID),
 		)
-		if m.Type() == ModelTypeIAAS {
+		switch m.Type() {
+		case ModelTypeIAAS:
 			ops = append(ops, newCleanupOp(cleanupMachinesForDyingModel, modelUUID))
 			if args.DestroyStorage != nil {
 				// The user has specified that the storage should be destroyed
@@ -1283,6 +1284,8 @@ func (m *Model) destroyOps(
 					*args.DestroyStorage,
 				))
 			}
+		case ModelTypeCAAS:
+			ops = append(ops, newCleanupOp(cleanupUnitsForDyingModel, modelUUID))
 		}
 	}
 	return append(prereqOps, ops...), nil

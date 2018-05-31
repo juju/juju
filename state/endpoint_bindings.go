@@ -20,14 +20,14 @@ import (
 // individually.
 const defaultEndpointName = ""
 
-// endpointBindingsDoc represents how a service endpoints are bound to spaces.
-// The DocID field contains the service's global key, so there is always one
-// endpointBindingsDoc per service.
+// endpointBindingsDoc represents how a application's endpoints are bound to spaces.
+// The DocID field contains the applications's global key, so there is always one
+// endpointBindingsDoc per application.
 type endpointBindingsDoc struct {
-	// DocID is always the same as a service's global key.
+	// DocID is always the same as a application's global key.
 	DocID string `bson:"_id"`
 
-	// Bindings maps a service endpoint name to the space name it is bound to.
+	// Bindings maps an application endpoint name to the space name it is bound to.
 	Bindings bindingsMap `bson:"bindings"`
 
 	// TxnRevno is used to assert the collection have not changed since this
@@ -219,7 +219,7 @@ func removeEndpointBindingsOp(key string) txn.Op {
 }
 
 // readEndpointBindings returns the stored bindings and TxnRevno for the given
-// service global key, or an error satisfying errors.IsNotFound() otherwise.
+// application global key, or an error satisfying errors.IsNotFound() otherwise.
 func readEndpointBindings(st *State, key string) (map[string]string, int64, error) {
 	endpointBindings, closer := st.db().GetCollection(endpointBindingsC)
 	defer closer()

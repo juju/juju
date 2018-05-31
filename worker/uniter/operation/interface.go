@@ -107,11 +107,11 @@ type Factory interface {
 	NewCommands(args CommandArgs, sendResponse CommandResponseFunc) (Operation, error)
 
 	// NewAcceptLeadership creates an operation to ensure the uniter acts as
-	// service leader.
+	// application leader.
 	NewAcceptLeadership() (Operation, error)
 
 	// NewResignLeadership creates an operation to ensure the uniter does not
-	// act as service leader.
+	// act as application leader.
 	NewResignLeadership() (Operation, error)
 }
 
@@ -163,7 +163,7 @@ type Callbacks interface {
 	// SetCurrentCharm records intent to deploy a given charm. It must be called
 	// *before* recording local state referencing that charm, to ensure there's
 	// no path by which the controller can legitimately garbage collect that
-	// charm or the service's settings for it. It's only used by Deploy operations.
+	// charm or the application's settings for it. It's only used by Deploy operations.
 	SetCurrentCharm(charmURL *corecharm.URL) error
 }
 

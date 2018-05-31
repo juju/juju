@@ -241,7 +241,7 @@ func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 		},
 	}
 
-	formatted, err := resourcecmd.FormatApplicationResources(resource.ServiceResources{
+	formatted, err := resourcecmd.FormatApplicationResources(resource.ApplicationResources{
 		Resources:           res,
 		CharmStoreResources: charmResources,
 	})

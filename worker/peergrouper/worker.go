@@ -255,6 +255,7 @@ func (w *pgWorker) loop() error {
 		case <-updateChan:
 			// Scheduled update.
 			logger.Tracef("<-updateChan")
+			updateChan = nil
 		}
 
 		servers := w.apiServerHostPorts()
@@ -290,7 +291,9 @@ func (w *pgWorker) loop() error {
 			// Update the replica set members occasionally to keep them up to
 			// date with the current replica-set member statuses.
 			logger.Tracef("succeeded, waking up after: %v", pollInterval)
-			updateChan = w.config.Clock.After(pollInterval)
+			if updateChan == nil {
+				updateChan = w.config.Clock.After(pollInterval)
+			}
 			retryInterval = initialRetryInterval
 		}
 	}

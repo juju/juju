@@ -118,8 +118,8 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	service := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, storage)
-	unit, err := service.AddUnit(state.AddUnitParams{})
+	application := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, storage)
+	unit, err := application.AddUnit(state.AddUnitParams{})
 
 	machine := s.Factory.MakeMachine(c, nil)
 	err = unit.AssignToMachine(machine)
@@ -130,7 +130,7 @@ func (s *MigrationBaseSuite) makeUnitWithStorage(c *gc.C) (*state.Application, *
 	agentVersion := version.MustParseBinary("2.0.1-quantal-and64")
 	err = unit.SetAgentVersion(agentVersion)
 	c.Assert(err, jc.ErrorIsNil)
-	return service, unit, storageTag
+	return application, unit, storageTag
 }
 
 type MigrationExportSuite struct {
@@ -587,7 +587,7 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	}
 }
 
-func (s *MigrationExportSuite) TestServiceLeadership(c *gc.C) {
+func (s *MigrationExportSuite) TestApplicationLeadership(c *gc.C) {
 	s.makeApplicationWithLeader(c, "mysql", 2, 1)
 	s.makeApplicationWithLeader(c, "wordpress", 4, 2)
 

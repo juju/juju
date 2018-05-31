@@ -34,7 +34,7 @@ func (s *actionSuite) TestApplicationCharmActions(c *gc.C) {
 		expectedErr    string
 		expectedResult map[string]params.ActionSpec
 	}{{
-		description: "result from wrong service",
+		description: "result from wrong application",
 		patchResults: []params.ApplicationCharmActionsResult{
 			{
 				ApplicationTag: names.NewApplicationTag("bar").String(),

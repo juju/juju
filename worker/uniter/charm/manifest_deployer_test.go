@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
-	"github.com/juju/utils/set" // Needs to be utils due to charm.v6 dep.
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"

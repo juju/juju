@@ -71,6 +71,30 @@ from utility import (
 __metaclass__ = type
 
 
+LXD_PROFILE = """
+name: juju-{model_name}
+config:
+  boot.autostart: "true"
+  linux.kernel_modules: ip_tables,ip6_tables,netlink_diag,nf_nat,overlay
+  raw.lxc: |
+    lxc.apparmor.profile=unconfined
+    lxc.mount.auto=proc:rw sys:rw
+    lxc.cap.drop=
+  security.nesting: "true"
+  security.privileged: "true"
+description: ""
+devices:
+  aadisable:
+    path: /sys/module/nf_conntrack/parameters/hashsize
+    source: /dev/null
+    type: disk
+  aadisable1:
+    path: /sys/module/apparmor/parameters/enabled
+    source: /dev/null
+    type: disk
+"""
+
+
 class NoExistingController(Exception):
     pass
 
@@ -112,9 +136,22 @@ def deploy_dummy_stack(client, charm_series, use_charmstore=False):
 
 
 def deploy_caas_stack(bundle_path, client, timeout=3600):
+    # workaround to ensure lxd profile
+    model_name = client.model_name
+    profile = LXD_PROFILE.format(model_name=model_name)
+    with subprocess.Popen(('echo', profile), stdout=subprocess.PIPE) as echo:
+        subprocess.check_output(
+            ('lxc', 'profile', 'edit', 'juju-%s' % model_name),
+            stdin=echo.stdout
+        ).decode('UTF-8').strip()
+
     client.deploy_bundle(bundle_path, static_bundle=True)
     # Wait for the deployment to finish.
     client.wait_for_started(timeout=timeout)
+    # wait for cluster to stablize
+    client.wait_for_workloads()
+    # get current status with tabular format for better debugging
+    client.juju(client._show_status, ('--format', 'tabular'))
     return CaasClient(client)
 
 

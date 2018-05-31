@@ -20,7 +20,10 @@ import (
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/migrationflag"
+	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/retrystrategy"
 	"github.com/juju/juju/worker/uniter"
 )
@@ -44,6 +47,16 @@ type ManifoldsConfig struct {
 
 	// LeadershipGuarantee controls the behaviour of the leadership tracker.
 	LeadershipGuarantee time.Duration
+
+	// ValidateMigration is called by the migrationminion during the
+	// migration process to check that the agent will be ok when
+	// connected to the new target controller.
+	ValidateMigration func(base.APICaller) error
+
+	// UpgradeStepsLock is passed to the upgrade steps gate to
+	// coordinate workers that shouldn't do anything until the
+	// upgrade-steps worker is done.
+	UpgradeStepsLock gate.Lock
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various
@@ -68,28 +81,63 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		clockName: clockManifold(config.Clock),
 
-		// TODO(caas) - wrap these with ifNotMigrating()
+		// The upgrade steps gate is used to coordinate workers which
+		// shouldn't do anything until the upgrade-steps worker has
+		// finished running any required upgrade steps. The flag of
+		// similar name is used to implement the isFullyUpgraded func
+		// that keeps upgrade concerns out of unrelated manifolds.
+		upgradeStepsGateName: gate.ManifoldEx(config.UpgradeStepsLock),
+		upgradeStepsFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  upgradeStepsGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
+
+		// The migration workers collaborate to run migrations;
+		// and to create a mechanism for running other workers
+		// so they can't accidentally interfere with a migration
+		// in progress. Such a manifold should (1) depend on the
+		// migration-inactive flag, to know when to start or die;
+		// and (2) occupy the migration-fortress, so as to avoid
+		// possible interference with the minion (which will not
+		// take action until it's gained sole control of the
+		// fortress).
+		migrationFortressName: ifFullyUpgraded(fortress.Manifold()),
+		migrationInactiveFlagName: migrationflag.Manifold(migrationflag.ManifoldConfig{
+			APICallerName: apiCallerName,
+			Check:         migrationflag.IsTerminal,
+			NewFacade:     migrationflag.NewFacade,
+			NewWorker:     migrationflag.NewWorker,
+		}),
+		migrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
+			AgentName:         agentName,
+			APICallerName:     apiCallerName,
+			FortressName:      migrationFortressName,
+			APIOpen:           api.Open,
+			ValidateMigration: config.ValidateMigration,
+			NewFacade:         migrationminion.NewFacade,
+			NewWorker:         migrationminion.NewWorker,
+		}),
 
 		// The charmdir resource coordinates whether the charm directory is
 		// available or not; after 'start' hook and before 'stop' hook
 		// executes, and not during upgrades.
-		charmDirName: fortress.Manifold(),
+		charmDirName: ifNotMigrating(fortress.Manifold()),
 
 		// HookRetryStrategy uses a retrystrategy worker to get a
 		// retry strategy that will be used by the uniter to run its hooks.
-		hookRetryStrategyName: retrystrategy.Manifold(retrystrategy.ManifoldConfig{
+		hookRetryStrategyName: ifNotMigrating(retrystrategy.Manifold(retrystrategy.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			NewFacade:     retrystrategy.NewFacade,
 			NewWorker:     retrystrategy.NewRetryStrategyWorker,
-		}),
+		})),
 
 		// The operator installs and deploys charm containers;
 		// manages the unit's presence in its relations;
 		// creates suboordinate units; runs all the hooks;
 		// sends metrics; etc etc etc.
 
-		operatorName: caasoperator.Manifold(caasoperator.ManifoldConfig{
+		operatorName: ifNotMigrating(caasoperator.Manifold(caasoperator.ManifoldConfig{
 			AgentName:             agentName,
 			APICallerName:         apiCallerName,
 			ClockName:             clockName,
@@ -106,7 +154,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewCharmDownloader: func(caller base.APICaller) caasoperator.Downloader {
 				return api.NewCharmDownloader(caller)
 			},
-		}),
+		})),
 	}
 }
 
@@ -119,6 +167,19 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 	}
 }
 
+var ifFullyUpgraded = engine.Housing{
+	Flags: []string{
+		upgradeStepsFlagName,
+	},
+}.Decorate
+
+var ifNotMigrating = engine.Housing{
+	Flags: []string{
+		migrationInactiveFlagName,
+	},
+	Occupy: migrationFortressName,
+}.Decorate
+
 const (
 	agentName     = "agent"
 	apiCallerName = "api-caller"
@@ -127,4 +188,11 @@ const (
 
 	charmDirName          = "charm-dir"
 	hookRetryStrategyName = "hook-retry-strategy"
+
+	upgradeStepsGateName = "upgrade-steps-gate"
+	upgradeStepsFlagName = "upgrade-steps-flag"
+
+	migrationFortressName     = "migration-fortress"
+	migrationInactiveFlagName = "migration-inactive-flag"
+	migrationMinionName       = "migration-minion"
 )

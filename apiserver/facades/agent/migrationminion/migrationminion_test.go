@@ -57,6 +57,11 @@ func (s *Suite) TestAuthUnitAgent(c *gc.C) {
 	s.mustMakeAPI(c)
 }
 
+func (s *Suite) TestAuthApplicationAgent(c *gc.C) {
+	s.authorizer.Tag = names.NewApplicationTag("foo")
+	s.mustMakeAPI(c)
+}
+
 func (s *Suite) TestAuthNotAgent(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("dorothy")
 	_, err := s.makeAPI()

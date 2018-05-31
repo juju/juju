@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -24,7 +25,8 @@ type ManifoldConfig struct {
 	APICallerName string
 	EnvironName   string
 
-	NewProvisionerFunc func(*apiprovisioner.State, agent.Config, environs.Environ) (Provisioner, error)
+	NewProvisionerFunc           func(*apiprovisioner.State, agent.Config, environs.Environ, common.CredentialAPI) (Provisioner, error)
+	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 
 // Manifold creates a manifold that runs an environment provisioner. See the
@@ -54,7 +56,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			api := apiprovisioner.NewState(apiCaller)
 			agentConfig := agent.CurrentConfig()
-			w, err := config.NewProvisionerFunc(api, agentConfig, environ)
+
+			credentialAPI, err := config.NewCredentialValidatorFacade(apiCaller)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			w, err := config.NewProvisionerFunc(api, agentConfig, environ, credentialAPI)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

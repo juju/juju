@@ -9,7 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/os"
+	"github.com/juju/os"
 	"github.com/juju/utils/ssh"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"

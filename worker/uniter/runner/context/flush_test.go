@@ -102,7 +102,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	c.Assert(machinePorts, gc.HasLen, 0)
 
 	// Add another unit on the same machine.
-	otherUnit, err := s.service.AddUnit(state.AddUnitParams{})
+	otherUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = otherUnit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
@@ -211,13 +211,13 @@ func (s *FlushContextSuite) TestRunHookAddUnitStorageOnSuccess(c *gc.C) {
 func (s *HookContextSuite) context(c *gc.C) *context.HookContext {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	return s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	return s.getHookContext(c, uuid.String(), -1, "")
 }
 
 func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
 	uuid := utils.MustNewUUID()
 	paths := runnertesting.NewRealPaths(c)
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("pings"), paths)
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", true, s.metricsDefinition("pings"), paths)
 	reader, err := spool.NewJSONMetricReader(
 		paths.GetMetricsSpoolDir(),
 	)

@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v3"
@@ -675,8 +675,8 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 
 	mtools0 := waitAgentTools(c, mw0, expectedVersion)
 
-	// Create a new service and deploy a unit of it.
-	c.Logf("deploying service")
+	// Create a new application and deploy a unit of it.
+	c.Logf("deploying application")
 	repoDir := c.MkDir()
 	url := testcharms.Repo.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
 	sch, err := jujutesting.PutCharm(st, url, &charmrepo.LocalRepository{Path: repoDir}, false)

@@ -59,8 +59,8 @@ func (st rawState) Units(applicationID string) (tags []names.UnitTag, err error)
 	return tags, nil
 }
 
-// VerifyService implements resource/state.RawState.
-func (st rawState) VerifyService(id string) error {
+// VerifyApplication implements resource/state.RawState.
+func (st rawState) VerifyApplication(id string) error {
 	app, err := st.base.Application(id)
 	if err != nil {
 		return errors.Trace(err)

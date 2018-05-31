@@ -212,7 +212,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c 
 		"mysql":                    {charm: "cs:xenial/mysql-42", config: mysqlch.Config().DefaultSettings()},
 		"wordpress-extra-bindings": {charm: "cs:xenial/wordpress-extra-bindings-47", config: wpch.Config().DefaultSettings()},
 	})
-	s.assertDeployedServiceBindings(c, map[string]applicationInfo{
+	s.assertDeployedApplicationBindings(c, map[string]applicationInfo{
 		"mysql": {
 			endpointBindings: map[string]string{"server": "db", "server-admin": ""},
 		},
@@ -517,7 +517,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleResources(c *gc.C) {
 	}})
 }
 
-func (s *BundleDeployCharmStoreSuite) checkResources(c *gc.C, serviceName string, expected []resource.Resource) {
+func (s *BundleDeployCharmStoreSuite) checkResources(c *gc.C, serviceapplication string, expected []resource.Resource) {
 	_, err := s.State.Application("starsay")
 	c.Check(err, jc.ErrorIsNil)
 	st, err := s.State.Resources()

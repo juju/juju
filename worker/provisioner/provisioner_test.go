@@ -12,10 +12,10 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -466,7 +466,7 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Prov
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	apiState := apiprovisioner.NewState(s.st)
-	w, err := provisioner.NewEnvironProvisioner(apiState, agentConfig, s.Environ)
+	w, err := provisioner.NewEnvironProvisioner(apiState, agentConfig, s.Environ, &credentialAPIForTest{})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }

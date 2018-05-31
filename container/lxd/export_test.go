@@ -11,12 +11,17 @@ import (
 )
 
 var (
-	NewNicDevice             = newNICDevice
+	NewNICDevice             = newNICDevice
 	NetworkDevicesFromConfig = networkDevicesFromConfig
 	CheckBridgeConfigFile    = checkBridgeConfigFile
 	SeriesRemoteAliases      = seriesRemoteAliases
 	GetImageSources          = func(mgr container.Manager) ([]RemoteServer, error) {
 		return mgr.(*containerManager).getImageSources()
+	}
+	VerifyNICsWithConfigFile = func(
+		svr *Server, nics map[string]map[string]string, reader func(string) ([]byte, error),
+	) error {
+		return svr.verifyNICsWithConfigFile(nics, reader)
 	}
 )
 

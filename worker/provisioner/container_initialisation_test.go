@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"github.com/juju/mutex"
+	jujuos "github.com/juju/os"
+	"github.com/juju/os/series"
 	"github.com/juju/packaging/manager"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
-	jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -36,6 +36,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
+	workercommon "github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/workertest"
 )
@@ -79,7 +80,7 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	// Set up provisioner for the state machine.
 	s.agentConfig = s.AgentConfigForTag(c, names.NewMachineTag("0"))
 	var err error
-	s.p, err = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig, s.Environ)
+	s.p, err = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig, s.Environ, &credentialAPIForTest{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.lockName = "provisioner-test"
 }
@@ -117,6 +118,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 		Provisioner:         pr,
 		Config:              cfg,
 		InitLockName:        s.lockName,
+		CredentialAPI:       &credentialAPIForTest{},
 	}
 	handler := provisioner.NewContainerSetupHandler(params)
 	runner.StartWorker(watcherName, func() (worker.Worker, error) {
@@ -160,7 +162,8 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	var provisionerStarted uint32
 	startProvisionerWorker := func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
-		toolsFinder provisioner.ToolsFinder, distributionGroupFinder provisioner.DistributionGroupFinder) error {
+		toolsFinder provisioner.ToolsFinder, distributionGroupFinder provisioner.DistributionGroupFinder,
+		credentialAPI workercommon.CredentialAPI) error {
 		c.Assert(containerType, gc.Equals, ctype)
 		c.Assert(cfg.Tag(), gc.Equals, host.Tag())
 		atomic.StoreUint32(&provisionerStarted, 1)
@@ -237,7 +240,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 
 	s.PatchValue(&provisioner.StartProvisioner, func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
-		toolsFinder provisioner.ToolsFinder, distributionGroupFinder provisioner.DistributionGroupFinder) error {
+		toolsFinder provisioner.ToolsFinder, distributionGroupFinder provisioner.DistributionGroupFinder, credentialAPI workercommon.CredentialAPI) error {
 		toolsFinder.FindTools(jujuversion.Current, series.MustHostSeries(), arch.AMD64)
 		return nil
 	})
@@ -280,7 +283,8 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	// A noop worker callback.
 	startProvisionerWorker := func(runner *worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
-		toolsFinder provisioner.ToolsFinder, distributionGroupFinder provisioner.DistributionGroupFinder) error {
+		toolsFinder provisioner.ToolsFinder, distributionGroupFinder provisioner.DistributionGroupFinder,
+		credentialAPI workercommon.CredentialAPI) error {
 		return nil
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
@@ -404,4 +408,10 @@ func getContainerInstance() (cont []ContainerInstance, err error) {
 		{instance.KVM, pkgs},
 	}
 	return cont, nil
+}
+
+type credentialAPIForTest struct{}
+
+func (*credentialAPIForTest) InvalidateModelCredential(reason string) error {
+	return nil
 }

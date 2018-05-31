@@ -15,7 +15,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/series"
+	"github.com/juju/os/series"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/api/controller"
@@ -62,7 +62,7 @@ Backups are recommended prior to upgrading.
 Examples:
     juju upgrade-model --dry-run
     juju upgrade-model --agent-version 2.0.1
-    juju upgrade-model --agent-version proposed
+    juju upgrade-model --agent-stream proposed
     
 See also: 
     sync-agent-binaries`

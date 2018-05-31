@@ -302,11 +302,11 @@ func (st *State) MetricBatchesForModel() ([]MetricBatch, error) {
 
 // MetricBatchesForApplication returns metric batches for the given application.
 func (st *State) MetricBatchesForApplication(application string) ([]MetricBatch, error) {
-	svc, err := st.Application(application)
+	app, err := st.Application(application)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	units, err := svc.AllUnits()
+	units, err := app.AllUnits()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

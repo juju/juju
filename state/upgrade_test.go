@@ -667,7 +667,7 @@ func (s *UpgradeSuite) TestClearUpgradeInfo(c *gc.C) {
 	s.assertUpgrading(c, true)
 }
 
-func (s *UpgradeSuite) TestServiceUnitSeqToSequence(c *gc.C) {
+func (s *UpgradeSuite) TestApplicationUnitSeqToSequence(c *gc.C) {
 	v123 := vers("1.2.3")
 	v124 := vers("1.2.4")
 

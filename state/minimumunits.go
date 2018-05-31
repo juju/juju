@@ -22,7 +22,7 @@ import (
 // alive units: new units are added if required.
 type minUnitsDoc struct {
 	// ApplicationName is safe to be used here in place of its globalKey, since
-	// the referred entity type is always the Service.
+	// the referred entity type is always the Application.
 	DocID           string `bson:"_id"`
 	ApplicationName string
 	ModelUUID       string `bson:"model-uuid"`

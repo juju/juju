@@ -49,9 +49,12 @@ func (t *LxdSuite) makeManager(c *gc.C, svr lxdclient.ContainerServer) container
 }
 
 func (t *LxdSuite) makeManagerForConfig(
-	c *gc.C, cfg container.ManagerConfig, svr lxdclient.ContainerServer,
+	c *gc.C, cfg container.ManagerConfig, cSvr lxdclient.ContainerServer,
 ) container.Manager {
-	manager, err := lxd.NewContainerManager(cfg, lxd.NewServer(svr))
+	svr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	manager, err := lxd.NewContainerManager(cfg, svr)
 	c.Assert(err, jc.ErrorIsNil)
 	return manager
 }
@@ -87,6 +90,7 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 		"lxd",
 		"",
 		false,
+		proxy.Settings{},
 		proxy.Settings{},
 		proxy.Settings{},
 		"",
@@ -168,7 +172,7 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 func (t *LxdSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	cSvr := t.NewMockServer(ctrl, "network")
+	cSvr := t.NewMockServerWithExtensions(ctrl, "network")
 	t.patch(cSvr)
 
 	manager := t.makeManager(c, cSvr)
@@ -325,7 +329,7 @@ func (t *LxdSuite) TestIsInitialized(c *gc.C) {
 }
 
 func (t *LxdSuite) TestNewNICDeviceWithoutMACAddressOrMTUGreaterThanZero(c *gc.C) {
-	device := lxd.NewNicDevice("eth1", "br-eth1", "", 0)
+	device := lxd.NewNICDevice("eth1", "br-eth1", "", 0)
 	expected := map[string]string{
 		"name":    "eth1",
 		"nictype": "bridged",
@@ -336,7 +340,7 @@ func (t *LxdSuite) TestNewNICDeviceWithoutMACAddressOrMTUGreaterThanZero(c *gc.C
 }
 
 func (t *LxdSuite) TestNewNICDeviceWithMACAddressButNoMTU(c *gc.C) {
-	device := lxd.NewNicDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 0)
+	device := lxd.NewNICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 0)
 	expected := map[string]string{
 		"hwaddr":  "aa:bb:cc:dd:ee:f0",
 		"name":    "eth1",
@@ -348,7 +352,7 @@ func (t *LxdSuite) TestNewNICDeviceWithMACAddressButNoMTU(c *gc.C) {
 }
 
 func (t *LxdSuite) TestNewNICDeviceWithoutMACAddressButMTUGreaterThanZero(c *gc.C) {
-	device := lxd.NewNicDevice("eth1", "br-eth1", "", 1492)
+	device := lxd.NewNICDevice("eth1", "br-eth1", "", 1492)
 	expected := map[string]string{
 		"mtu":     "1492",
 		"name":    "eth1",
@@ -360,7 +364,7 @@ func (t *LxdSuite) TestNewNICDeviceWithoutMACAddressButMTUGreaterThanZero(c *gc.
 }
 
 func (t *LxdSuite) TestNewNICDeviceWithMACAddressAndMTUGreaterThanZero(c *gc.C) {
-	device := lxd.NewNicDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 9000)
+	device := lxd.NewNICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 9000)
 	expected := map[string]string{
 		"hwaddr":  "aa:bb:cc:dd:ee:f0",
 		"mtu":     "9000",
@@ -372,7 +376,7 @@ func (t *LxdSuite) TestNewNICDeviceWithMACAddressAndMTUGreaterThanZero(c *gc.C) 
 	c.Assert(device, gc.DeepEquals, expected)
 }
 
-func (t *LxdSuite) TestNetworkDevicesWithEmptyParentDevice(c *gc.C) {
+func (t *LxdSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C) {
 	interfaces := []network.InterfaceInfo{{
 		InterfaceName: "eth1",
 		InterfaceType: "ethernet",
@@ -388,7 +392,7 @@ func (t *LxdSuite) TestNetworkDevicesWithEmptyParentDevice(c *gc.C) {
 	c.Assert(result, gc.IsNil)
 }
 
-func (t *LxdSuite) TestNetworkDevicesWithParentDevice(c *gc.C) {
+func (t *LxdSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 	interfaces := []network.InterfaceInfo{{
 		ParentInterfaceName: "br-eth0",
 		InterfaceName:       "eth0",
@@ -417,7 +421,7 @@ func (t *LxdSuite) TestNetworkDevicesWithParentDevice(c *gc.C) {
 	c.Check(unknown, gc.HasLen, 0)
 }
 
-func (t *LxdSuite) TestNetworkDevicesUnknownCIDR(c *gc.C) {
+func (t *LxdSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *gc.C) {
 	interfaces := []network.InterfaceInfo{{
 		ParentInterfaceName: "br-eth0",
 		InterfaceName:       "eth0",

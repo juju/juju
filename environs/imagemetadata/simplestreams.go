@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/juju/os/series"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/keys"

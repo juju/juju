@@ -14,10 +14,10 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	utilsos "github.com/juju/os"
+	"github.com/juju/os/series"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/featureflag"
-	utilsos "github.com/juju/utils/os"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
 	// Import the providers.
@@ -389,8 +389,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(application.NewDeployCommand())
 	r.Register(application.NewExposeCommand())
 	r.Register(application.NewUnexposeCommand())
-	r.Register(application.NewServiceGetConstraintsCommand())
-	r.Register(application.NewServiceSetConstraintsCommand())
+	r.Register(application.NewApplicationGetConstraintsCommand())
+	r.Register(application.NewApplicationSetConstraintsCommand())
 
 	// Operation protection commands
 	r.Register(block.NewDisableCommand())

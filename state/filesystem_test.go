@@ -21,7 +21,7 @@ type FilesystemStateSuite struct {
 
 var _ = gc.Suite(&FilesystemStateSuite{})
 
-func (s *FilesystemStateSuite) TestAddServiceInvalidPool(c *gc.C) {
+func (s *FilesystemStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
@@ -30,38 +30,38 @@ func (s *FilesystemStateSuite) TestAddServiceInvalidPool(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
-func (s *FilesystemStateSuite) TestAddServiceNoPoolNoDefault(c *gc.C) {
+func (s *FilesystemStateSuite) TestAddApplicationNoPoolNoDefault(c *gc.C) {
 	// no pool specified, no default configured: use rootfs.
-	s.testAddServiceDefaultPool(c, "rootfs", 0)
+	s.testAddApplicationDefaultPool(c, "rootfs", 0)
 }
 
-func (s *FilesystemStateSuite) TestAddServiceNoPoolNoDefaultWithUnits(c *gc.C) {
+func (s *FilesystemStateSuite) TestAddApplicationNoPoolNoDefaultWithUnits(c *gc.C) {
 	// no pool specified, no default configured: use rootfs, add a unit during
 	// app deploy.
-	s.testAddServiceDefaultPool(c, "rootfs", 1)
+	s.testAddApplicationDefaultPool(c, "rootfs", 1)
 }
 
-func (s *FilesystemStateSuite) TestAddServiceNoPoolDefaultFilesystem(c *gc.C) {
+func (s *FilesystemStateSuite) TestAddApplicationNoPoolDefaultFilesystem(c *gc.C) {
 	// no pool specified, default filesystem configured: use default
 	// filesystem.
 	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{
 		"storage-default-filesystem-source": "machinescoped",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.testAddServiceDefaultPool(c, "machinescoped", 0)
+	s.testAddApplicationDefaultPool(c, "machinescoped", 0)
 }
 
-func (s *FilesystemStateSuite) TestAddServiceNoPoolDefaultBlock(c *gc.C) {
+func (s *FilesystemStateSuite) TestAddApplicationNoPoolDefaultBlock(c *gc.C) {
 	// no pool specified, default block configured: use default
 	// block with managed fs on top.
 	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "modelscoped-block",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.testAddServiceDefaultPool(c, "modelscoped-block", 0)
+	s.testAddApplicationDefaultPool(c, "modelscoped-block", 0)
 }
 
-func (s *FilesystemStateSuite) testAddServiceDefaultPool(c *gc.C, expectedPool string, numUnits int) {
+func (s *FilesystemStateSuite) testAddApplicationDefaultPool(c *gc.C, expectedPool string, numUnits int) {
 	ch := s.AddTestingCharm(c, "storage-filesystem")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
@@ -73,9 +73,9 @@ func (s *FilesystemStateSuite) testAddServiceDefaultPool(c *gc.C, expectedPool s
 		Storage:  storage,
 		NumUnits: numUnits,
 	}
-	svc, err := s.State.AddApplication(args)
+	app, err := s.State.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
-	cons, err := svc.StorageConstraints()
+	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := map[string]state.StorageConstraints{
 		"data": state.StorageConstraints{
@@ -86,10 +86,10 @@ func (s *FilesystemStateSuite) testAddServiceDefaultPool(c *gc.C, expectedPool s
 	}
 	c.Assert(cons, jc.DeepEquals, expected)
 
-	svc, err = s.State.Application(args.Name)
+	app, err = s.State.Application(args.Name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	units, err := svc.AllUnits()
+	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, numUnits)
 

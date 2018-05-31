@@ -13,18 +13,20 @@ import (
 func (s *backupsSuite) TestRemoveOkay(c *gc.C) {
 	s.setBackups(c, nil, "")
 	args := params.BackupsRemoveArgs{
-		ID: "some-id",
+		IDs: []string{"some-id"},
 	}
-	err := s.api.Remove(args)
+	results, err := s.api.Remove(args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
 }
 
 func (s *backupsSuite) TestRemoveError(c *gc.C) {
 	s.setBackups(c, nil, "failed!")
 	args := params.BackupsRemoveArgs{
-		ID: "some-id",
+		IDs: []string{"some-id"},
 	}
-	err := s.api.Remove(args)
-
-	c.Check(err, gc.ErrorMatches, "failed!")
+	results, err := s.api.Remove(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Check(results.Results[0].Error, gc.ErrorMatches, "failed!")
 }

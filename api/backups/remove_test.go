@@ -21,15 +21,31 @@ func (s *removeSuite) TestRemove(c *gc.C) {
 	cleanup := backups.PatchClientFacadeCall(s.client,
 		func(req string, paramsIn interface{}, resp interface{}) error {
 			c.Check(req, gc.Equals, "Remove")
-
 			c.Assert(paramsIn, gc.FitsTypeOf, params.BackupsRemoveArgs{})
-
-			c.Check(resp, gc.IsNil)
+			c.Assert(resp, gc.FitsTypeOf, &params.ErrorResults{})
+			resp.(*params.ErrorResults).Results = []params.ErrorResult{{Error: nil}}
 			return nil
 		},
 	)
 	defer cleanup()
 
-	err := s.client.Remove(s.Meta.ID())
+	result, err := s.client.Remove(s.Meta.ID())
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.FitsTypeOf, []params.ErrorResult{})
+}
+
+func (s *removeSuite) TestRemoveErrorExpectedResult(c *gc.C) {
+	cleanup := backups.PatchClientFacadeCall(s.client,
+		func(req string, paramsIn interface{}, resp interface{}) error {
+			c.Check(req, gc.Equals, "Remove")
+			c.Assert(paramsIn, gc.FitsTypeOf, params.BackupsRemoveArgs{})
+			c.Assert(resp, gc.FitsTypeOf, &params.ErrorResults{})
+			return nil
+		},
+	)
+	defer cleanup()
+
+	result, err := s.client.Remove(s.Meta.ID())
+	c.Assert(err, gc.ErrorMatches, "expected 1 result\\(s\\), got 0")
+	c.Assert(result, gc.IsNil)
 }

@@ -965,7 +965,7 @@ func (s *assignCleanSuite) TestAssignUsingConstraintsToMachine(c *gc.C) {
 	}
 }
 
-func (s *assignCleanSuite) TestAssignUnitWithRemovedService(c *gc.C) {
+func (s *assignCleanSuite) TestAssignUnitWithRemovedApplication(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
@@ -1016,11 +1016,11 @@ func (s *assignCleanSuite) setupSingleStorage(c *gc.C, kind, pool string) (*stat
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	service := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, storage)
-	unit, err := service.AddUnit(state.AddUnitParams{})
+	application := s.AddTestingApplicationWithStorage(c, "storage-"+kind, ch, storage)
+	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")
-	return service, unit, storageTag
+	return application, unit, storageTag
 }
 
 func (s *assignCleanSuite) TestAssignToMachine(c *gc.C) {

@@ -172,6 +172,26 @@ func (s *CAASOperatorSuite) TestLife(c *gc.C) {
 	})
 }
 
+func (s *CAASOperatorSuite) TestRemove(c *gc.C) {
+	results, err := s.facade.Remove(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "unit-gitlab-0"},
+			{Tag: "machine-0"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+			{
+				Error: &params.Error{
+					Code:    "unauthorized access",
+					Message: "permission denied",
+				},
+			}},
+	})
+}
+
 func (s *CAASOperatorSuite) TestSetPodSpec(c *gc.C) {
 	validSpecStr := `
 containers:
@@ -234,10 +254,14 @@ containers:
 	s.st.model.CheckCall(c, 0, "SetPodSpec", names.NewApplicationTag("gitlab"), validSpecStr)
 }
 
-func (s *CAASOperatorSuite) TestModelName(c *gc.C) {
-	result, err := s.facade.ModelName()
+func (s *CAASOperatorSuite) TestModel(c *gc.C) {
+	result, err := s.facade.CurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Result, gc.Equals, "some-model")
+	c.Assert(result, jc.DeepEquals, params.ModelResult{
+		Name: "some-model",
+		UUID: "deadbeef",
+		Type: "iaas",
+	})
 }
 
 func (s *CAASOperatorSuite) TestWatch(c *gc.C) {

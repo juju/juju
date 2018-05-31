@@ -32,7 +32,7 @@ type ModelStatus struct {
 	TotalMachineCount  int
 	CoreCount          int
 	HostedMachineCount int
-	ServiceCount       int
+	ApplicationCount   int
 	Machines           []Machine
 	Volumes            []Volume
 	Filesystems        []Filesystem

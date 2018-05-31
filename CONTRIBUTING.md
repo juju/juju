@@ -370,6 +370,37 @@ Continuous integration is automated through Jenkins:
 The bot runs on all commits during the PRE process,
 as well as handles merges. Use the `$$merge$$` comment to land PR's.
 
+
+Static Analysis
+---------------
+
+Static Analysis of the code is provided by [gometalinter](https://github.com/alecthomas/gometalinter).
+
+The Static Analysis runs every linter in parallel over the juju code base with
+the aim to spot any potential errors that should be resolved. As a default all
+the linters are disabled and only a selection of linters are run on each pass. 
+The linters that are run, are known to pass with the state of the current code
+base.
+
+You can independantly run the linters on the code base to validate any issues
+before committing or pushing using the following command from the root of the
+repo:
+
+```shell
+./scripts/gometalinter.bash
+```
+
+If you already have the git hook installed for pre-pushing, then the linters 
+will also run during that check.
+
+Adding new linters can be done, by editing the `./scripts/gometalinter.bash` 
+file to also including/removing the desired linters.
+
+Additionally to turn off the linter check for pushing or verifying then 
+setting the environment variable `IGNORE_GOMETALINTER` before hand will cause 
+this to happen.
+
+
 Community
 =========
 

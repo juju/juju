@@ -77,7 +77,7 @@ type CharmClient interface {
 // ResourceLister defines a subset of the resources facade, as required
 // by the upgrade-charm command.
 type ResourceLister interface {
-	ListResources([]string) ([]resource.ServiceResources, error)
+	ListResources([]string) ([]resource.ApplicationResources, error)
 }
 
 // NewCharmAdderFunc is the type of a function used to construct

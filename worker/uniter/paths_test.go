@@ -6,9 +6,9 @@ package uniter_test
 import (
 	"path/filepath"
 
+	"github.com/juju/os"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 

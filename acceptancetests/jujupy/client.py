@@ -2152,7 +2152,7 @@ class CaasClient:
         self.client.juju('scp', ('kubernetes-master/0:config', self.kube_config_path))
 
         # ensure kubectl by scp from master
-        self.client.juju('scp', ('kubernetes-master/0:/snap/bin/kubectl', self.kubectl_path))
+        self.client.juju('scp', ('kubernetes-master/0:/snap/kubectl/current/kubectl', self.kubectl_path))
 
         self.client.controller_juju('add-k8s', (self.cloud_name,))
         log.debug('added caas cloud, now all clouds are -> \n%s', self.client.list_clouds(format='yaml'))

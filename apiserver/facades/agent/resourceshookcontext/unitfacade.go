@@ -30,7 +30,7 @@ type resourcesUnitDataStore struct {
 }
 
 // ListResources implements resource/api/private/server.UnitDataStore.
-func (ds *resourcesUnitDataStore) ListResources() (resource.ServiceResources, error) {
+func (ds *resourcesUnitDataStore) ListResources() (resource.ApplicationResources, error) {
 	return ds.resources.ListResources(ds.unit.ApplicationName())
 }
 
@@ -38,7 +38,7 @@ func (ds *resourcesUnitDataStore) ListResources() (resource.ServiceResources, er
 // All functionality is tied to the unit's application.
 type UnitDataStore interface {
 	// ListResources lists all the resources for the application.
-	ListResources() (resource.ServiceResources, error)
+	ListResources() (resource.ApplicationResources, error)
 }
 
 // NewUnitFacade returns the resources portion of the uniter's API facade.

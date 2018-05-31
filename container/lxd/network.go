@@ -16,6 +16,15 @@ import (
 	"github.com/juju/juju/network"
 )
 
+const (
+	nic            = "nic"
+	nicTypeBridged = "bridged"
+	nicTypeMACVLAN = "macvlan"
+)
+
+// device is a type alias for profile devices.
+type device = map[string]string
+
 // LocalBridgeName returns the name of the local LXD network bridge.
 func (s *Server) LocalBridgeName() string {
 	return s.localBridgeName
@@ -35,7 +44,7 @@ func (s *Server) EnsureIPv4(netName string) (bool, error) {
 	cfg, ok := net.Config["ipv4.address"]
 	if !ok || cfg == "none" {
 		if net.Config == nil {
-			net.Config = make(map[string]string, 2)
+			net.Config = make(device, 2)
 		}
 		net.Config["ipv4.address"] = "auto"
 		net.Config["ipv4.nat"] = "true"
@@ -49,50 +58,34 @@ func (s *Server) EnsureIPv4(netName string) (bool, error) {
 	return modified, nil
 }
 
-func (s *Server) VerifyDefaultBridge(profile *api.Profile, eTag string) error {
-	eth0, ok := profile.Devices["eth0"]
-	if !ok {
-		// On LXD >= 2.3 there is no bridge config by default.
-		// Ensure that the network bridge and eth0 device both exist.
-		if s.networkAPISupport {
-			return errors.Annotate(s.ensureDefaultBridge(profile, eTag), "ensuring default bridge config")
-		}
-		return errors.Errorf("unexpected LXD %q profile without eth0 device: %+v", profile.Name, profile)
-	}
+// VerifyNetworkDevice attempts to ensure that there is a network usable by LXD
+// and that there is a NIC device with said network as its parent.
+// If there are no NIC devices, and this server is *not* in cluster mode,
+// an attempt is made to create an new device in the input profile, with the
+// with the default LXD bridge as its parent.
+func (s *Server) VerifyNetworkDevice(profile *api.Profile, eTag string) error {
+	nics := getProfileNICs(profile)
 
-	netName := eth0["parent"]
+	if len(nics) == 0 {
+		if s.networkAPISupport && !s.clustered {
+			return errors.Annotate(s.ensureDefaultNetworking(profile, eTag), "ensuring default bridge config")
+		}
+		return errors.Errorf("profile %q does not have any devices configured with type %q", profile.Name, nic)
+	}
 
 	if s.networkAPISupport {
-		net, _, err := s.GetNetwork(netName)
-		if err != nil {
-			return errors.Annotatef(err, "retrieving network %q", netName)
-		}
-		if err := ensureNoIPv6(net); err != nil {
-			return errors.Trace(err)
-		}
+		return errors.Annotatef(s.verifyNICsWithAPI(nics), "profile %q", profile.Name)
 	}
 
-	if eth0["type"] != "nic" || eth0["nictype"] != "bridged" {
-		return errors.Errorf("eth0 is not configured as part of a bridge in %q profile: %v", profile.Name, eth0)
-	}
-
-	s.localBridgeName = netName
-	logger.Infof("LXD %q profile uses network bridge %q", profile.Name, netName)
-
-	// If this LXD version supports the network API, we are done.
-	// Otherwise we need to check the legacy lxd-bridge config file.
-	if s.networkAPISupport {
-		return nil
-	}
-	return errors.Trace(checkBridgeConfigFile(ioutil.ReadFile))
+	return errors.Annotatef(s.verifyNICsWithConfigFile(nics, ioutil.ReadFile), "profile %q", profile.Name)
 }
 
-// ensureDefaultBridge ensures that the default LXD bridge exists,
-// that it is not configured to use IPv6, and that the eth0 device exists in
+// ensureDefaultNetworking ensures that the default LXD bridge exists,
+// that it is not configured to use IPv6, and that a NIC device exists in
 // the input profile.
 // An error is returned if the bridge exists with IPv6 configuration.
 // If the bridge does not exist, it is created.
-func (s *Server) ensureDefaultBridge(profile *api.Profile, eTag string) error {
+func (s *Server) ensureDefaultNetworking(profile *api.Profile, eTag string) error {
 	net, _, err := s.GetNetwork(network.DefaultLXDBridge)
 	if err != nil {
 		if !IsLXDNotFound(err) {
@@ -118,29 +111,138 @@ func (s *Server) ensureDefaultBridge(profile *api.Profile, eTag string) error {
 			return errors.Trace(err)
 		}
 	} else {
-		if err := ensureNoIPv6(net); err != nil {
+		if err := verifyNoIPv6(net); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
 	s.localBridgeName = network.DefaultLXDBridge
 
-	// Add the eth0 device with the bridge as its parent.
-	nicType := "macvlan"
-	if net.Type == "bridge" {
-		nicType = "bridged"
+	nicName := generateNICDeviceName(profile)
+	if nicName == "" {
+		return errors.Errorf("failed to generate a unique device name for profile %q", profile.Name)
 	}
-	profile.Devices["eth0"] = map[string]string{
-		"type":    "nic",
+
+	// Add the new device with the bridge as its parent.
+	nicType := nicTypeMACVLAN
+	if net.Type == "bridge" {
+		nicType = nicTypeBridged
+	}
+	profile.Devices[nicName] = device{
+		"type":    nic,
 		"nictype": nicType,
 		"parent":  network.DefaultLXDBridge,
 	}
-	return errors.Trace(s.UpdateProfile(profile.Name, profile.Writable(), eTag))
+
+	if err := s.UpdateProfile(profile.Name, profile.Writable(), eTag); err != nil {
+		return errors.Trace(err)
+	} else {
+		logger.Debugf("created new nic device %q in profile %q", nicName, profile.Name)
+		return nil
+	}
 }
 
-// ensureNoIPv6 checks that the input network has no IPv6 configuration.
+// verifyNICsWithAPI uses the LXD network API to check if one of the input NIC
+// devices is suitable for LXD to work with Juju.
+func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
+	checked := make([]string, 0, len(nics))
+	for name, nic := range nics {
+		checked = append(checked, name)
+
+		if !isValidNICType(nic) {
+			continue
+		}
+
+		netName := nic["parent"]
+		if netName == "" {
+			continue
+		}
+
+		net, _, err := s.GetNetwork(netName)
+		if err != nil {
+			return errors.Annotatef(err, "retrieving network %q", netName)
+		}
+		if err := verifyNoIPv6(net); err != nil {
+			continue
+		}
+
+		logger.Infof("found usable network device %q with parent %q", name, netName)
+		s.localBridgeName = netName
+		return nil
+	}
+
+	return errors.Errorf("no network device found with nictype %q or %q, and without IPv6 configured."+
+		"\n\tthe following devices were checked: %v", nicTypeBridged, nicTypeMACVLAN, checked)
+}
+
+// verifyNICsWithConfigFile is recruited for legacy LXD installations.
+// It checks the LXD bridge configuration file and ensure that one of the input
+// devices is suitable for LXD to work with Juju.
+func (s *Server) verifyNICsWithConfigFile(nics map[string]device, reader func(string) ([]byte, error)) error {
+	netName, err := checkBridgeConfigFile(reader)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	checked := make([]string, 0, len(nics))
+	for name, nic := range nics {
+		checked = append(checked, name)
+
+		if nic["parent"] != netName {
+			continue
+		}
+		if !isValidNICType(nic) {
+			continue
+		}
+
+		logger.Infof("found usable network device %q with parent %q", name, netName)
+		s.localBridgeName = netName
+		return nil
+	}
+
+	return errors.Errorf("no network device found with nictype %q or %q that uses the configured bridge in %s"+
+		"\n\tthe following devices were checked: %v", nicTypeBridged, nicTypeMACVLAN, BridgeConfigFile, checked)
+}
+
+// generateNICDeviceName attempts to generate a new NIC device name that is not
+// already in the input profile. If none can be determined in a reasonable
+// search space, an empty name is returned. This should never really happen,
+// but the name generation aborts to be safe from (theoretical) integer overflow.
+func generateNICDeviceName(profile *api.Profile) string {
+	template := "eth%d"
+	for i := 0; i < 100; i++ {
+		name := fmt.Sprintf(template, i)
+		unique := true
+		for d := range profile.Devices {
+			if d == name {
+				unique = false
+				break
+			}
+		}
+		if unique {
+			return name
+		}
+	}
+	return ""
+}
+
+// getProfileNICs iterates over the devices in the input profile and returns
+// any that are of type "nic".
+func getProfileNICs(profile *api.Profile) map[string]device {
+	nics := make(map[string]device, len(profile.Devices))
+	for k, v := range profile.Devices {
+		if v["type"] == nic {
+			nics[k] = v
+		}
+	}
+	return nics
+}
+
+// verifyNoIPv6 checks that the input network has no IPv6 configuration.
 // An error is returned when it does.
-func ensureNoIPv6(net *api.Network) error {
+// TODO (manadart 2018-05-28) The intention is to support IPv6, so this
+// restriction is temporary.
+func verifyNoIPv6(net *api.Network) error {
 	if !net.Managed {
 		return nil
 	}
@@ -157,17 +259,29 @@ func ensureNoIPv6(net *api.Network) error {
 		"and run the command again", net.Name)
 }
 
+func isValidNICType(nic device) bool {
+	return nic["nictype"] == nicTypeBridged || nic["nictype"] == nicTypeMACVLAN
+}
+
 const BridgeConfigFile = "/etc/default/lxd-bridge"
 
-func checkBridgeConfigFile(reader func(string) ([]byte, error)) error {
+// checkBridgeConfigFile verifies that the file configuration for the LXD
+// bridge has a a bridge name, that it is set to be used by LXD and that
+// it has (only) IPv4 configuration.
+// TODO (manadart 2018-05-28) The error messages are invalid for LXD
+// installations that pre-date the network API support and that were installed
+// via Snap. The question of the correct user action was posed on the #lxd IRC
+// channel, but has not be answered to-date.
+func checkBridgeConfigFile(reader func(string) ([]byte, error)) (string, error) {
 	bridgeConfig, err := reader(BridgeConfigFile)
 	if os.IsNotExist(err) {
-		return bridgeConfigError("lxdbr0 configured but no config file found at " + BridgeConfigFile)
+		return "", bridgeConfigError("no config file found at " + BridgeConfigFile)
 	} else if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	foundSubnetConfig := false
+	bridgeName := ""
 	for _, line := range strings.Split(string(bridgeConfig), "\n") {
 		if strings.HasPrefix(line, "USE_LXD_BRIDGE=") {
 			b, err := strconv.ParseBool(strings.Trim(line[len("USE_LXD_BRIDGE="):], " \""))
@@ -176,12 +290,12 @@ func checkBridgeConfigFile(reader func(string) ([]byte, error)) error {
 				continue
 			}
 			if !b {
-				return bridgeConfigError("lxdbr0 not enabled but required")
+				return "", bridgeConfigError(fmt.Sprintf("%s has USE_LXD_BRIDGE set to false", BridgeConfigFile))
 			}
 		} else if strings.HasPrefix(line, "LXD_BRIDGE=") {
-			name := strings.Trim(line[len("LXD_BRIDGE="):], " \"")
-			if name != network.DefaultLXDBridge {
-				return bridgeConfigError(fmt.Sprintf("%s has a bridge named %s, not lxdbr0", BridgeConfigFile, name))
+			bridgeName = strings.Trim(line[len("LXD_BRIDGE="):], " \"")
+			if bridgeName == "" {
+				return "", bridgeConfigError(fmt.Sprintf("%s has no LXD_BRIDGE set", BridgeConfigFile))
 			}
 		} else if strings.HasPrefix(line, "LXD_IPV4_ADDR=") {
 			contents := strings.Trim(line[len("LXD_IPV4_ADDR="):], " \"")
@@ -191,20 +305,19 @@ func checkBridgeConfigFile(reader func(string) ([]byte, error)) error {
 		} else if strings.HasPrefix(line, "LXD_IPV6_ADDR=") {
 			contents := strings.Trim(line[len("LXD_IPV6_ADDR="):], " \"")
 			if len(contents) > 0 {
-				return ipv6BridgeConfigError(BridgeConfigFile)
+				return "", ipv6BridgeConfigError(BridgeConfigFile)
 			}
 		}
 	}
 
 	if !foundSubnetConfig {
-		return bridgeConfigError("lxdbr0 has no ipv4 or ipv6 subnet enabled")
+		return "", bridgeConfigError(bridgeName + " has no ipv4 or ipv6 subnet enabled")
 	}
-
-	return nil
+	return bridgeName, nil
 }
 
 func bridgeConfigError(err string) error {
-	return errors.Errorf("%s\nIt looks like your lxdbr0 has not yet been configured. Configure it via:\n\n"+
+	return errors.Errorf("%s\nIt looks like your LXD bridge has not yet been configured. Configure it via:\n\n"+
 		"\tsudo dpkg-reconfigure -p medium lxd\n\n"+
 		"and run the command again.", err)
 }

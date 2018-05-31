@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -146,6 +146,20 @@ func (s *UpgradeSuite) TestNoUpgradeNecessary(c *gc.C) {
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 0)
 	c.Check(config.Version, gc.Equals, jujuversion.Current)
+	c.Check(doneLock.IsUnlocked(), jc.IsTrue)
+}
+
+func (s *UpgradeSuite) TestNoUpgradeNecessaryIgnoresBuildNumbers(c *gc.C) {
+	attemptsP := s.countUpgradeAttempts(nil)
+	s.captureLogs(c)
+	s.oldVersion.Number = jujuversion.Current
+	s.oldVersion.Build = 1 // Ensure there's a build number mismatch.
+
+	workerErr, config, _, doneLock := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
+
+	c.Check(workerErr, gc.IsNil)
+	c.Check(*attemptsP, gc.Equals, 0)
+	c.Check(config.Version, gc.Equals, s.oldVersion.Number)
 	c.Check(doneLock.IsUnlocked(), jc.IsTrue)
 }
 

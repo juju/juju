@@ -32,7 +32,7 @@ func NewAPI(caller base.APICaller, newWatcher NewWatcherFunc) *API {
 	}
 }
 
-// Watch returns a StringsWatcher that delivers the names of services
+// Watch returns a StringsWatcher that delivers the names of applications
 // that may need to be rescaled.
 func (api *API) Watch() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
@@ -50,15 +50,15 @@ func (api *API) Watch() (watcher.StringsWatcher, error) {
 // Rescale requests that all supplied application names be rescaled to
 // their minimum configured sizes. It returns the first error it
 // encounters.
-func (api *API) Rescale(services []string) error {
+func (api *API) Rescale(applications []string) error {
 	args := params.Entities{
-		Entities: make([]params.Entity, len(services)),
+		Entities: make([]params.Entity, len(applications)),
 	}
-	for i, service := range services {
-		if !names.IsValidApplication(service) {
-			return errors.NotValidf("application name %q", service)
+	for i, application := range applications {
+		if !names.IsValidApplication(application) {
+			return errors.NotValidf("application name %q", application)
 		}
-		tag := names.NewApplicationTag(service)
+		tag := names.NewApplicationTag(application)
 		args.Entities[i].Tag = tag.String()
 	}
 	var results params.ErrorResults

@@ -25,6 +25,8 @@ type CAASOperatorState interface {
 type Model interface {
 	SetPodSpec(names.ApplicationTag, string) error
 	Name() string
+	UUID() string
+	Type() state.ModelType
 	ModelConfig() (*config.Config, error)
 }
 

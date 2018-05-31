@@ -18,8 +18,8 @@ import (
 
 // UploadRequest defines a single upload request.
 type UploadRequest struct {
-	// Service is the application ID.
-	Service string
+	// Application is the application ID.
+	Application string
 
 	// Name is the resource name.
 	Name string
@@ -38,9 +38,9 @@ type UploadRequest struct {
 }
 
 // NewUploadRequest generates a new upload request for the given resource.
-func NewUploadRequest(service, name, filename string, r io.ReadSeeker) (UploadRequest, error) {
-	if !names.IsValidApplication(service) {
-		return UploadRequest{}, errors.Errorf("invalid application %q", service)
+func NewUploadRequest(application, name, filename string, r io.ReadSeeker) (UploadRequest, error) {
+	if !names.IsValidApplication(application) {
+		return UploadRequest{}, errors.Errorf("invalid application %q", application)
 	}
 
 	content, err := resource.GenerateContent(r)
@@ -49,7 +49,7 @@ func NewUploadRequest(service, name, filename string, r io.ReadSeeker) (UploadRe
 	}
 
 	ur := UploadRequest{
-		Service:     service,
+		Application: application,
 		Name:        name,
 		Filename:    filename,
 		Size:        content.Size,
@@ -82,7 +82,7 @@ const FilenameParamForContentDispositionHeader = "filename"
 // HTTPRequest generates a new HTTP request.
 func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 	// TODO(ericsnow) What about the rest of the URL?
-	urlStr := NewEndpointPath(ur.Service, ur.Name)
+	urlStr := NewEndpointPath(ur.Application, ur.Name)
 
 	// TODO(natefinch): Use http.MethodPut when we upgrade to go1.5+.
 	req, err := http.NewRequest(MethodPut, urlStr, nil)

@@ -9,10 +9,18 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-func (c *Client) Remove(id string) error {
-	args := params.BackupsRemoveArgs{ID: id}
-	if err := c.facade.FacadeCall("Remove", args, nil); err != nil {
-		return errors.Trace(err)
+func (c *Client) Remove(ids ...string) ([]params.ErrorResult, error) {
+	if len(ids) == 0 {
+		return []params.ErrorResult{}, nil
 	}
-	return nil
+	args := params.BackupsRemoveArgs{IDs: ids}
+	results := params.ErrorResults{}
+	err := c.facade.FacadeCall("Remove", args, &results)
+	if len(results.Results) != len(ids) {
+		return nil, errors.Errorf(
+			"expected %d result(s), got %d",
+			len(ids), len(results.Results),
+		)
+	}
+	return results.Results, errors.Trace(err)
 }

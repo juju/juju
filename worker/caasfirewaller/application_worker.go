@@ -4,6 +4,8 @@
 package caasfirewaller
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 
@@ -76,6 +78,9 @@ func (w *applicationWorker) loop() (err error) {
 				return errors.New("application watcher closed")
 			}
 			if err := w.processApplicationChange(); err != nil {
+				if strings.Contains(err.Error(), "unexpected EOF") {
+					return nil
+				}
 				return errors.Trace(err)
 			}
 		}

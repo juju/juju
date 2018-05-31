@@ -111,13 +111,13 @@ func (s *RemoveApplicationSuite) TestRemoveLocalMetered(c *gc.C) {
 	c.Assert(multiSeries.Life(), gc.Equals, state.Dying)
 }
 
-func (s *RemoveApplicationSuite) TestBlockRemoveService(c *gc.C) {
+func (s *RemoveApplicationSuite) TestBlockRemoveApplication(c *gc.C) {
 	s.setupTestApplication(c)
 
 	// block operation
-	s.BlockRemoveObject(c, "TestBlockRemoveService")
+	s.BlockRemoveObject(c, "TestBlockRemoveApplication")
 	_, err := runRemoveApplication(c, "multi-series")
-	s.AssertBlocked(c, err, ".*TestBlockRemoveService.*")
+	s.AssertBlocked(c, err, ".*TestBlockRemoveApplication.*")
 	multiSeries, err := s.State.Application("multi-series")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(multiSeries.Life(), gc.Equals, state.Alive)

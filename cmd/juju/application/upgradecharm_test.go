@@ -276,7 +276,7 @@ func (s *UpgradeCharmErrorsStateSuite) TestInvalidArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["bar"\]`)
 }
 
-func (s *UpgradeCharmErrorsStateSuite) TestInvalidService(c *gc.C) {
+func (s *UpgradeCharmErrorsStateSuite) TestInvalidApplication(c *gc.C) {
 	err := runUpgradeCharm(c, "phony")
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `application "phony" not found`,
@@ -284,14 +284,14 @@ func (s *UpgradeCharmErrorsStateSuite) TestInvalidService(c *gc.C) {
 	})
 }
 
-func (s *UpgradeCharmErrorsStateSuite) deployService(c *gc.C) {
+func (s *UpgradeCharmErrorsStateSuite) deployApplication(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
 	err := runDeploy(c, ch, "riak", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeCharmErrorsStateSuite) TestInvalidSwitchURL(c *gc.C) {
-	s.deployService(c)
+	s.deployApplication(c)
 	err := runUpgradeCharm(c, "riak", "--switch=blah")
 	c.Assert(err, gc.ErrorMatches, `cannot resolve URL "cs:blah": charm or bundle not found`)
 	err = runUpgradeCharm(c, "riak", "--switch=cs:missing/one")
@@ -300,31 +300,31 @@ func (s *UpgradeCharmErrorsStateSuite) TestInvalidSwitchURL(c *gc.C) {
 }
 
 func (s *UpgradeCharmErrorsStateSuite) TestNoPathFails(c *gc.C) {
-	s.deployService(c)
+	s.deployApplication(c)
 	err := runUpgradeCharm(c, "riak")
 	c.Assert(err, gc.ErrorMatches, "upgrading a local charm requires either --path or --switch")
 }
 
 func (s *UpgradeCharmErrorsStateSuite) TestSwitchAndRevisionFails(c *gc.C) {
-	s.deployService(c)
+	s.deployApplication(c)
 	err := runUpgradeCharm(c, "riak", "--switch=riak", "--revision=2")
 	c.Assert(err, gc.ErrorMatches, "--switch and --revision are mutually exclusive")
 }
 
 func (s *UpgradeCharmErrorsStateSuite) TestPathAndRevisionFails(c *gc.C) {
-	s.deployService(c)
+	s.deployApplication(c)
 	err := runUpgradeCharm(c, "riak", "--path=foo", "--revision=2")
 	c.Assert(err, gc.ErrorMatches, "--path and --revision are mutually exclusive")
 }
 
 func (s *UpgradeCharmErrorsStateSuite) TestSwitchAndPathFails(c *gc.C) {
-	s.deployService(c)
+	s.deployApplication(c)
 	err := runUpgradeCharm(c, "riak", "--switch=riak", "--path=foo")
 	c.Assert(err, gc.ErrorMatches, "--switch and --path are mutually exclusive")
 }
 
 func (s *UpgradeCharmErrorsStateSuite) TestInvalidRevision(c *gc.C) {
-	s.deployService(c)
+	s.deployApplication(c)
 	err := runUpgradeCharm(c, "riak", "--revision=blah")
 	c.Assert(err, gc.ErrorMatches, `invalid value "blah" for flag --revision: strconv.(ParseInt|Atoi): parsing "blah": invalid syntax`)
 }

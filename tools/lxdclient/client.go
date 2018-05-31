@@ -105,10 +105,6 @@ func (c Client) String() string {
 	return fmt.Sprintf("Client(%s)", c.baseURL)
 }
 
-func (c Client) DefaultProfileBridgeName() string {
-	return c.LocalBridgeName()
-}
-
 // Connect opens an API connection to LXD and returns a high-level
 // Client wrapper around that connection.
 func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
@@ -142,12 +138,16 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 		}
 	}
 
-	newServer := lxd.NewServer(raw)
+	newServer, err := lxd.NewServer(raw)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if remoteID == remoteIDForLocal && verifyBridgeConfig {
 		// If this is the LXD provider on the localhost, let's do an extra check to
 		// make sure the default profile has a correctly configured bridge, and
 		// which one is it.
-		if err := newServer.VerifyDefaultBridge(defaultProfile, profileETag); err != nil {
+		if err := newServer.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}

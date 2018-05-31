@@ -127,7 +127,7 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 			modelName[model.UUID],
 			model.Life,
 			model.HostedMachineCount,
-			model.ServiceCount,
+			model.ApplicationCount,
 			len(model.Volumes),
 			len(model.Filesystems),
 			persistentVolumeCount,
@@ -144,7 +144,7 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 			aliveModelCount++
 		}
 		hostedMachinesCount += model.HostedMachineCount
-		servicesCount += model.ServiceCount
+		servicesCount += model.ApplicationCount
 		volumeCount += modelData.VolumeCount
 		filesystemCount += modelData.FilesystemCount
 	}

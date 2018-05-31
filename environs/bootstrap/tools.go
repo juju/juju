@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	jujuos "github.com/juju/os"
+	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
-	jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/constraints"

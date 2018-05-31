@@ -17,12 +17,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
@@ -68,6 +68,7 @@ import (
 	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apicaller"
+	workercommon "github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
@@ -852,6 +853,11 @@ func (a *MachineAgent) updateSupportedContainers(
 	}
 	// Start the watcher to fire when a container is first requested on the machine.
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
+
+	credentialAPI, err := workercommon.NewCredentialInvalidatorFacade(st)
+	if err != nil {
+		return errors.Annotatef(err, "cannot get credential invalidator facade")
+	}
 	params := provisioner.ContainerSetupParams{
 		Runner:              runner,
 		WorkerName:          watcherName,
@@ -860,6 +866,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		Provisioner:         pr,
 		Config:              agentConfig,
 		InitLockName:        agent.MachineLockName,
+		CredentialAPI:       credentialAPI,
 	}
 	handler := provisioner.NewContainerSetupHandler(params)
 	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {

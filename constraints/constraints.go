@@ -35,7 +35,7 @@ const (
 )
 
 // Value describes a user's requirements of the hardware on which units
-// of a service will run. Constraints are used to choose an existing machine
+// of an application will run. Constraints are used to choose an existing machine
 // onto which a unit will be deployed, or to provision a new machine if no
 // existing one satisfies the requirements.
 type Value struct {

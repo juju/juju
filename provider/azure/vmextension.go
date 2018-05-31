@@ -7,7 +7,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
-	jujuos "github.com/juju/utils/os"
+	jujuos "github.com/juju/os"
 )
 
 const extensionName = "JujuCustomScriptExtension"

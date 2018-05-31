@@ -37,7 +37,7 @@ func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
 	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check we can't add a relation with services that don't exist.
+	// Check we can't add a relation with application that don't exist.
 	yoursqlEP := mysqlEP
 	yoursqlEP.ApplicationName = "yoursql"
 	_, err = s.State.AddRelation(yoursqlEP, wordpressEP)
@@ -509,7 +509,7 @@ func (s *RelationSuite) TestWatchLifeSuspendedStatus(c *gc.C) {
 }
 
 func (s *RelationSuite) TestWatchLifeSuspendedStatusDead(c *gc.C) {
-	// Create a pair of services and a relation between them.
+	// Create a pair of application and a relation between them.
 	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")

@@ -109,7 +109,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			modelName, err := client.ModelName()
+			model, err := client.Model()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -140,7 +140,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			w, err := config.NewWorker(Config{
 				ModelUUID:          agentConfig.Model().Id(),
-				ModelName:          modelName,
+				ModelName:          model.Name,
 				Application:        applicationTag.Id(),
 				CharmGetter:        client,
 				Clock:              clock,
@@ -149,6 +149,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Downloader:         downloader,
 				StatusSetter:       client,
 				UnitGetter:         client,
+				UnitRemover:        client,
 				ApplicationWatcher: client,
 				StartUniterFunc:    uniter.StartUniter,
 

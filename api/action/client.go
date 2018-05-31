@@ -91,7 +91,7 @@ func (c *Client) Cancel(arg params.Entities) (params.ActionResults, error) {
 }
 
 // applicationsCharmActions is a batched query for the charm.Actions for a slice
-// of services by Entity.
+// of applications by Entity.
 func (c *Client) applicationsCharmActions(arg params.Entities) (params.ApplicationsCharmActionsResults, error) {
 	results := params.ApplicationsCharmActionsResults{}
 	err := c.facade.FacadeCall("ApplicationsCharmsActions", arg, &results)
@@ -99,7 +99,7 @@ func (c *Client) applicationsCharmActions(arg params.Entities) (params.Applicati
 }
 
 // ApplicationCharmActions is a single query which uses ApplicationsCharmsActions to
-// get the charm.Actions for a single Service by tag.
+// get the charm.Actions for a single Application by tag.
 func (c *Client) ApplicationCharmActions(arg params.Entity) (map[string]params.ActionSpec, error) {
 	tags := params.Entities{Entities: []params.Entity{{Tag: arg.Tag}}}
 	results, err := c.applicationsCharmActions(tags)

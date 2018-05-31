@@ -22,7 +22,7 @@ import (
 type resourcePersistence interface {
 	// ListResources returns the resource data for the given application ID.
 	// None of the resources will be pending.
-	ListResources(applicationID string) (resource.ServiceResources, error)
+	ListResources(applicationID string) (resource.ApplicationResources, error)
 
 	// ListPendingResources returns the resource data for the given
 	// application ID.
@@ -82,18 +82,18 @@ type resourceState struct {
 }
 
 // ListResources returns the resource data for the given application ID.
-func (st resourceState) ListResources(applicationID string) (resource.ServiceResources, error) {
+func (st resourceState) ListResources(applicationID string) (resource.ApplicationResources, error) {
 	resources, err := st.persist.ListResources(applicationID)
 	if err != nil {
-		if err := st.raw.VerifyService(applicationID); err != nil {
-			return resource.ServiceResources{}, errors.Trace(err)
+		if err := st.raw.VerifyApplication(applicationID); err != nil {
+			return resource.ApplicationResources{}, errors.Trace(err)
 		}
-		return resource.ServiceResources{}, errors.Trace(err)
+		return resource.ApplicationResources{}, errors.Trace(err)
 	}
 
 	unitIDs, err := st.raw.Units(applicationID)
 	if err != nil {
-		return resource.ServiceResources{}, errors.Trace(err)
+		return resource.ApplicationResources{}, errors.Trace(err)
 	}
 	for _, unitID := range unitIDs {
 		found := false
@@ -136,7 +136,7 @@ func (st resourceState) GetResource(applicationID, name string) (resource.Resour
 	id := newResourceID(applicationID, name)
 	res, _, err := st.persist.GetResource(id)
 	if err != nil {
-		if err := st.raw.VerifyService(applicationID); err != nil {
+		if err := st.raw.VerifyApplication(applicationID); err != nil {
 			return resource.Resource{}, errors.Trace(err)
 		}
 		return res, errors.Trace(err)
@@ -150,7 +150,7 @@ func (st resourceState) GetPendingResource(applicationID, name, pendingID string
 
 	resources, err := st.persist.ListPendingResources(applicationID)
 	if err != nil {
-		// We do not call VerifyService() here because pending resources
+		// We do not call VerifyApplication() here because pending resources
 		// do not have to have an existing application.
 		return res, errors.Trace(err)
 	}
@@ -302,7 +302,7 @@ func (st resourceState) OpenResource(applicationID, name string) (resource.Resou
 	id := newResourceID(applicationID, name)
 	resourceInfo, storagePath, err := st.persist.GetResource(id)
 	if err != nil {
-		if err := st.raw.VerifyService(applicationID); err != nil {
+		if err := st.raw.VerifyApplication(applicationID); err != nil {
 			return resource.Resource{}, nil, errors.Trace(err)
 		}
 		return resource.Resource{}, nil, errors.Annotate(err, "while getting resource info")

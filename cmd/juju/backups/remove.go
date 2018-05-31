@@ -8,8 +8,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/utils/set"
 )
 
 const removeDoc = `
@@ -25,29 +28,42 @@ func NewRemoveCommand() cmd.Command {
 type removeCommand struct {
 	CommandBase
 	// ID refers to the backup to be removed.
-	ID string
+	ID         string
+	KeepLatest bool
 }
 
 // Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-backup",
-		Args:    "<ID>",
+		Args:    "[--keep-latest|<ID>]",
 		Purpose: "Remove the specified backup from remote storage.",
 		Doc:     removeDoc,
 	}
 }
 
+// SetFlags implements Command.SetFlags.
+func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
+	f.BoolVar(&c.KeepLatest, "keep-latest", false,
+		"Remove all backups on remote storage except for the latest.")
+}
+
 // Init implements Command.Init.
 func (c *removeCommand) Init(args []string) error {
-	if len(args) == 0 {
-		return errors.New("missing ID")
+	switch {
+	case len(args) == 0 && !c.KeepLatest:
+		return errors.New("missing ID or --keep-latest flag")
+	case len(args) != 0:
+		id, args := args[0], args[1:]
+		if err := cmd.CheckEmpty(args); err != nil {
+			return errors.Trace(err)
+		}
+		c.ID = id
+	case c.KeepLatest:
+	default:
+		return errors.New("unknown error parsing arguments")
 	}
-	id, args := args[0], args[1:]
-	if err := cmd.CheckEmpty(args); err != nil {
-		return errors.Trace(err)
-	}
-	c.ID = id
 	return nil
 }
 
@@ -58,18 +74,81 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	client, err := c.NewAPIClient()
+
+	client, apiVersion, err := c.NewGetAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer client.Close()
 
-	err = client.Remove(c.ID)
+	if apiVersion < 2 && c.KeepLatest {
+		return errors.New("--keep-latest is not supported by this controller")
+	}
+	//ctx.Infof("apiversion %d", apiVersion)
+
+	ids := []string{}
+	var keep string
+	if c.KeepLatest {
+		list, err := client.List()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		ids, keep, err = parseList(list.List)
+		switch {
+		case err != nil:
+			return errors.Trace(err)
+		case len(ids) > 0:
+			break
+		case keep != "":
+			ctx.Warningf("no backups to remove, %v most current", keep)
+			return nil
+		default:
+			ctx.Warningf("no backups to remove")
+			return nil
+		}
+	} else {
+		ids = append(ids, c.ID)
+	}
+	//ctx.Infof("%s; %+v", keep, ids)
+
+	results, err := client.Remove(ids...)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	output := fmt.Sprintf("successfully removed: %v\n", c.ID)
-	ctx.Stdout.Write([]byte(output))
-	return nil
+	for i, err := range results {
+		if err.Error != nil {
+			// Some errors do not provide enough info, let's try to fix that here.
+			err.Error.Message = fmt.Sprintf("failed to remove %v: %s", ids[i], err.Error.Message)
+			continue
+		}
+		ctx.Infof("successfully removed: %v\n", ids[i])
+	}
+	if c.KeepLatest {
+		ctx.Infof("kept: %v", keep)
+	}
+	return errors.Trace(params.ErrorResults{results}.Combine())
+}
+
+// parseList returns a list of IDs to be removed and the one ID to be kept.
+// Keep the latest ID based on Started.
+func parseList(list []params.BackupsMetadataResult) ([]string, string, error) {
+	if len(list) == 0 {
+		return nil, "", nil
+	}
+	latest := list[0]
+	retList := set.NewStrings()
+	// Start looking for a new latest with the 2nd item in the slice.
+	for _, entry := range list[1:] {
+		if entry.Started.After(latest.Started) {
+			// Found a new latest, add the old one to the set
+			retList.Add(latest.ID)
+			latest = entry
+			continue
+		}
+		// Not the latest, add to the set
+		retList.Add(entry.ID)
+	}
+	return retList.SortedValues(), latest.ID, nil
 }

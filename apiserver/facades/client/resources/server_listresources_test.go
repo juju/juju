@@ -38,7 +38,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	apiChRes1.Revision++
 	apiChRes2.Revision++
 
-	s.data.ReturnListResources = resource.ServiceResources{
+	s.data.ReturnListResources = resource.ApplicationResources{
 		Resources: []resource.Resource{
 			res1,
 			res2,

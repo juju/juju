@@ -102,12 +102,12 @@ func (h *ResourcesHandler) upload(backend ResourcesBackend, req *http.Request, u
 
 	var stored resource.Resource
 	if uploaded.PendingID != "" {
-		stored, err = backend.UpdatePendingResource(uploaded.Service, uploaded.PendingID, username, uploaded.Resource, uploaded.Data)
+		stored, err = backend.UpdatePendingResource(uploaded.Application, uploaded.PendingID, username, uploaded.Resource, uploaded.Data)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	} else {
-		stored, err = backend.SetResource(uploaded.Service, username, uploaded.Resource, uploaded.Data)
+		stored, err = backend.SetResource(uploaded.Application, username, uploaded.Resource, uploaded.Data)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -122,8 +122,8 @@ func (h *ResourcesHandler) upload(backend ResourcesBackend, req *http.Request, u
 // uploadedResource holds both the information about an uploaded
 // resource and the reader containing its data.
 type uploadedResource struct {
-	// Service is the name of the application associated with the resource.
-	Service string
+	// Application is the name of the application associated with the resource.
+	Application string
 
 	// PendingID is the resource-specific sub-ID for a pending resource.
 	PendingID string
@@ -143,12 +143,12 @@ func (h *ResourcesHandler) readResource(backend ResourcesBackend, req *http.Requ
 	}
 	var res resource.Resource
 	if uReq.PendingID != "" {
-		res, err = backend.GetPendingResource(uReq.Service, uReq.Name, uReq.PendingID)
+		res, err = backend.GetPendingResource(uReq.Application, uReq.Name, uReq.PendingID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	} else {
-		res, err = backend.GetResource(uReq.Service, uReq.Name)
+		res, err = backend.GetResource(uReq.Application, uReq.Name)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -164,10 +164,10 @@ func (h *ResourcesHandler) readResource(backend ResourcesBackend, req *http.Requ
 		return nil, errors.Trace(err)
 	}
 	return &uploadedResource{
-		Service:   uReq.Service,
-		PendingID: uReq.PendingID,
-		Resource:  chRes,
-		Data:      req.Body,
+		Application: uReq.Application,
+		PendingID:   uReq.PendingID,
+		Resource:    chRes,
+		Data:        req.Body,
 	}, nil
 }
 
@@ -203,7 +203,7 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 		return ur, errors.Errorf("unsupported content type %q", ctype)
 	}
 
-	service, name := api.ExtractEndpointDetails(req.URL)
+	application, name := api.ExtractEndpointDetails(req.URL)
 	fingerprint := req.Header.Get(api.HeaderContentSha384) // This parallels "Content-MD5".
 	sizeRaw := req.Header.Get(api.HeaderContentLength)
 	pendingID := req.URL.Query().Get(api.QueryParamPendingID)
@@ -224,7 +224,7 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 	}
 
 	ur = api.UploadRequest{
-		Service:     service,
+		Application: application,
 		Name:        name,
 		Filename:    filename,
 		Size:        size,

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/worker/apicaller"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -23,10 +24,11 @@ type ManifoldConfig struct {
 	APICallerName string
 	EnvironName   string
 
-	NewControllerConnection  apicaller.NewExternalControllerConnectionFunc
-	NewRemoteRelationsFacade func(base.APICaller) (*remoterelations.Client, error)
-	NewFirewallerFacade      func(base.APICaller) (FirewallerAPI, error)
-	NewFirewallerWorker      func(Config) (worker.Worker, error)
+	NewControllerConnection      apicaller.NewExternalControllerConnectionFunc
+	NewRemoteRelationsFacade     func(base.APICaller) (*remoterelations.Client, error)
+	NewFirewallerFacade          func(base.APICaller) (FirewallerAPI, error)
+	NewFirewallerWorker          func(Config) (worker.Worker, error)
+	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 
 // Manifold returns a Manifold that encapsulates the firewaller worker.
@@ -63,6 +65,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.NewFirewallerWorker == nil {
 		return errors.NotValidf("nil NewFirewallerWorker")
+	}
+	if cfg.NewCredentialValidatorFacade == nil {
+		return errors.NotValidf("nil NewCredentialValidatorFacade")
 	}
 	return nil
 }
@@ -112,6 +117,11 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		return nil, errors.Trace(err)
 	}
 
+	credentialAPI, err := cfg.NewCredentialValidatorFacade(apiConn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := cfg.NewFirewallerWorker(Config{
 		ModelUUID:          agent.CurrentConfig().Model().Id(),
 		RemoteRelationsApi: remoteRelationsAPI,
@@ -120,6 +130,7 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		EnvironInstances:   environ,
 		Mode:               mode,
 		NewCrossModelFacadeFunc: crossmodelFirewallerFacadeFunc(cfg.NewControllerConnection),
+		CredentialAPI:           credentialAPI,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

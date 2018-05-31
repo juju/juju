@@ -32,7 +32,7 @@ func (staged StagedResource) stage() error {
 			return nil, errors.NewAlreadyExists(nil, "already staged")
 		}
 		if staged.stored.PendingID == "" {
-			// Only non-pending resources must have an existing service.
+			// Only non-pending resources must have an existing application.
 			ops = append(ops, staged.base.ApplicationExistsOps(staged.stored.ApplicationID)...)
 		}
 
@@ -84,7 +84,7 @@ func (staged StagedResource) Activate() error {
 		ops = append(ops, newRemoveStagedResourceOps(staged.id)...)
 
 		// If we are changing the bytes for a resource, we increment the
-		// CharmModifiedVersion on the service, since resources are integral to
+		// CharmModifiedVersion on the application, since resources are integral to
 		// the high level "version" of the charm.
 		if staged.stored.PendingID == "" {
 			hasNewBytes, err := staged.hasNewBytes()

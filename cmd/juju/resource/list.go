@@ -18,7 +18,7 @@ import (
 // ListClient has the API client methods needed by ListCommand.
 type ListClient interface {
 	// ListResources returns info about resources for applications in the model.
-	ListResources(services []string) ([]resource.ServiceResources, error)
+	ListResources(services []string) ([]resource.ApplicationResources, error)
 	// Close closes the connection.
 	Close() error
 }
@@ -132,7 +132,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 
 const noResources = "No resources to display."
 
-func (c *ListCommand) formatApplicationResources(ctx *cmd.Context, sr resource.ServiceResources) error {
+func (c *ListCommand) formatApplicationResources(ctx *cmd.Context, sr resource.ApplicationResources) error {
 	if c.details {
 		formatted, err := FormatApplicationDetails(sr)
 		if err != nil {
@@ -157,7 +157,7 @@ func (c *ListCommand) formatApplicationResources(ctx *cmd.Context, sr resource.S
 	return c.out.Write(ctx, formatted)
 }
 
-func (c *ListCommand) formatUnitResources(ctx *cmd.Context, unit, service string, sr resource.ServiceResources) error {
+func (c *ListCommand) formatUnitResources(ctx *cmd.Context, unit, service string, sr resource.ApplicationResources) error {
 	if len(sr.Resources) == 0 && len(sr.UnitResources) == 0 {
 		ctx.Infof(noResources)
 		return nil
@@ -191,7 +191,7 @@ func (c *ListCommand) formatUnitResources(ctx *cmd.Context, unit, service string
 
 }
 
-func unitResources(unit, service string, sr resource.ServiceResources) map[string]resource.Resource {
+func unitResources(unit, service string, sr resource.ApplicationResources) map[string]resource.Resource {
 	var resources []resource.Resource
 	for _, res := range sr.UnitResources {
 		if res.Tag.Id() == unit {

@@ -9,12 +9,12 @@ package cloudinit
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/os"
+	"github.com/juju/os/series"
 	"github.com/juju/packaging"
 	"github.com/juju/packaging/commands"
 	"github.com/juju/packaging/config"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/os"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/network"

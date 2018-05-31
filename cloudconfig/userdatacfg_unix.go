@@ -17,9 +17,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/proxy"
+	"github.com/juju/os"
 	"github.com/juju/utils/featureflag"
-	"github.com/juju/utils/os"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 
@@ -266,19 +265,25 @@ func (w *unixConfigure) ConfigureJuju() error {
 	w.conf.AddScripts(
 		// We look to see if the proxy line is there already as
 		// the manual provider may have had it already.
+		// We write this file out whether we are using the legacy proxy
+		// or the juju proxy to deal with runtime changes. The proxy updater worker
+		// only modifies /etc/juju-proxy.conf, so if changes are written to that file
+		// we need to make sure the profile.d file exists to reflect these changes.
+		// If the new juju proxies are used, the legacy proxies will not be set, and the
+		// /etc/juju-proxy.conf file will be empty.
 		`[ -e /etc/profile.d/juju-proxy.sh ] || ` +
 			`printf '\n# Added by juju\n[ -f "/etc/juju-proxy.conf" ] && . "/etc/juju-proxy.conf"\n' >> /etc/profile.d/juju-proxy.sh`)
-	if (w.icfg.ProxySettings != proxy.Settings{}) {
-		exportedProxyEnv := w.icfg.ProxySettings.AsScriptEnvironment()
+	if w.icfg.LegacyProxySettings.HasProxySet() {
+		exportedProxyEnv := w.icfg.LegacyProxySettings.AsScriptEnvironment()
 		w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
 		w.conf.AddScripts(
 			fmt.Sprintf(
 				`(printf '%%s\n' %s > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
-				shquote(w.icfg.ProxySettings.AsScriptEnvironment())))
+				shquote(w.icfg.LegacyProxySettings.AsScriptEnvironment())))
 
 		// Write out systemd proxy settings
 		w.conf.AddScripts(fmt.Sprintf(`printf '%%s\n' %[1]s > /etc/juju-proxy-systemd.conf`,
-			shquote(w.icfg.ProxySettings.AsSystemdDefaultEnv())))
+			shquote(w.icfg.LegacyProxySettings.AsSystemdDefaultEnv())))
 	}
 
 	if w.icfg.Controller != nil && w.icfg.Controller.PublicImageSigningKey != "" {

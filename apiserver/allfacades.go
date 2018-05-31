@@ -228,10 +228,13 @@ func AllFacades() *facade.Registry {
 	)
 
 	reg("Pinger", 1, NewPinger)
-	reg("Provisioner", 3, provisioner.NewProvisionerAPI)
-	reg("Provisioner", 4, provisioner.NewProvisionerAPI)
+	reg("Provisioner", 3, provisioner.NewProvisionerAPIV4) // Yes this is weird.
+	reg("Provisioner", 4, provisioner.NewProvisionerAPIV4)
 	reg("Provisioner", 5, provisioner.NewProvisionerAPIV5) // v5 adds DistributionGroupByMachineId()
-	reg("ProxyUpdater", 1, proxyupdater.NewAPI)
+	reg("Provisioner", 6, provisioner.NewProvisionerAPIV6) // v6 adds more proxy settings
+
+	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
+	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)
 	reg("Reboot", 2, reboot.NewRebootAPI)
 	reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
 

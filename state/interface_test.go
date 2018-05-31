@@ -49,12 +49,12 @@ var (
 	_ InstanceIdGetter = (*Machine)(nil)
 
 	_ ActionsWatcher = (*Unit)(nil)
-	// TODO(jcw4): when we implement service level Actions
-	// _ ActionsWatcher = (*Service)(nil)
+	// TODO(jcw4): when we implement application level Actions
+	// _ ActionsWatcher = (*Application)(nil)
 
 	_ ActionReceiver = (*Unit)(nil)
 	// TODO(jcw4) - use when Actions can be queued for applications.
-	//_ ActionReceiver = (*Service)(nil)
+	//_ ActionReceiver = (*Application)(nil)
 
 	_ GlobalEntity = (*Machine)(nil)
 	_ GlobalEntity = (*Unit)(nil)

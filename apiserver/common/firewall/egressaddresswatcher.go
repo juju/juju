@@ -142,7 +142,10 @@ func (w *EgressAddressWatcher) loop() error {
 			}
 			changed = false
 			if !setEquals(addresses, lastAddresses) {
-				addressesCIDR = network.FormatAsCIDR(addresses.Values())
+				addressesCIDR, err = network.FormatAsCIDR(addresses.Values())
+				if err != nil {
+					return errors.Trace(err)
+				}
 				ready = ready || sentInitial
 			}
 		}

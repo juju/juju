@@ -19,11 +19,11 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/cert"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 	sshtesting "github.com/juju/utils/ssh/testing"
 	"github.com/juju/utils/symlink"
@@ -50,7 +50,6 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -230,12 +229,12 @@ func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 	<-a.WorkersStarted()
 	err := m.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	// Tearing down the dependency engine can take a non-trivial amount of
+	// time.
 	select {
 	case err := <-done:
 		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(watcher.Period * 5 / 4):
-		// TODO(rog) Fix this so it doesn't wait for so long.
-		// https://bugs.launchpad.net/juju-core/+bug/1163983
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
 	err = m.Refresh()

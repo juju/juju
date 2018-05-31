@@ -15,10 +15,10 @@ type Status struct {
 	ApplicationStatus jujuc.ApplicationStatusInfo
 }
 
-// SetApplicationStatus builds a service status and sets it on the Status.
-func (s *Status) SetApplicationStatus(service jujuc.StatusInfo, units []jujuc.StatusInfo) {
+// SetApplicationStatus builds a application status and sets it on the Status.
+func (s *Status) SetApplicationStatus(application jujuc.StatusInfo, units []jujuc.StatusInfo) {
 	s.ApplicationStatus = jujuc.ApplicationStatusInfo{
-		Application: service,
+		Application: application,
 		Units:       units,
 	}
 }

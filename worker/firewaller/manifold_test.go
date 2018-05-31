@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/firewaller"
 )
@@ -35,15 +36,7 @@ func (s *ManifoldSuite) TestManifoldFirewallModeNone(c *gc.C) {
 		},
 	}
 
-	manifold := firewaller.Manifold(firewaller.ManifoldConfig{
-		AgentName:                "agent",
-		APICallerName:            "api-caller",
-		EnvironName:              "environ",
-		NewControllerConnection:  func(*api.Info) (api.Connection, error) { return nil, nil },
-		NewFirewallerFacade:      func(base.APICaller) (firewaller.FirewallerAPI, error) { return nil, nil },
-		NewFirewallerWorker:      func(firewaller.Config) (worker.Worker, error) { return nil, nil },
-		NewRemoteRelationsFacade: func(base.APICaller) (*remoterelations.Client, error) { return nil, nil },
-	})
+	manifold := firewaller.Manifold(validConfig())
 	_, err := manifold.Start(ctx)
 	c.Assert(err, gc.Equals, dependency.ErrUninstall)
 }
@@ -78,18 +71,19 @@ var _ = gc.Suite(&ManifoldConfigSuite{})
 
 func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.config = s.validConfig()
+	s.config = validConfig()
 }
 
-func (s *ManifoldConfigSuite) validConfig() firewaller.ManifoldConfig {
+func validConfig() firewaller.ManifoldConfig {
 	return firewaller.ManifoldConfig{
-		AgentName:                "agent",
-		APICallerName:            "api-caller",
-		EnvironName:              "environ",
-		NewControllerConnection:  func(*api.Info) (api.Connection, error) { return nil, nil },
-		NewFirewallerFacade:      func(base.APICaller) (firewaller.FirewallerAPI, error) { return nil, nil },
-		NewFirewallerWorker:      func(firewaller.Config) (worker.Worker, error) { return nil, nil },
-		NewRemoteRelationsFacade: func(base.APICaller) (*remoterelations.Client, error) { return nil, nil },
+		AgentName:                    "agent",
+		APICallerName:                "api-caller",
+		EnvironName:                  "environ",
+		NewControllerConnection:      func(*api.Info) (api.Connection, error) { return nil, nil },
+		NewFirewallerFacade:          func(base.APICaller) (firewaller.FirewallerAPI, error) { return nil, nil },
+		NewFirewallerWorker:          func(firewaller.Config) (worker.Worker, error) { return nil, nil },
+		NewRemoteRelationsFacade:     func(base.APICaller) (*remoterelations.Client, error) { return nil, nil },
+		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
 	}
 }
 
@@ -130,6 +124,11 @@ func (s *ManifoldConfigSuite) TestMissingNewControllerConnection(c *gc.C) {
 func (s *ManifoldConfigSuite) TestMissingNewRemoteRelationsFacade(c *gc.C) {
 	s.config.NewRemoteRelationsFacade = nil
 	s.checkNotValid(c, "nil NewRemoteRelationsFacade not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingNewCredentialValidatorFacade(c *gc.C) {
+	s.config.NewCredentialValidatorFacade = nil
+	s.checkNotValid(c, "nil NewCredentialValidatorFacade not valid")
 }
 
 func (s *ManifoldConfigSuite) checkNotValid(c *gc.C, expect string) {

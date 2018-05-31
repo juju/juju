@@ -47,30 +47,30 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		expectedErr: "no application name specified",
 	}, {
 		should:      "fail with invalid application name",
-		args:        []string{invalidServiceId},
-		expectedErr: "invalid application name \"" + invalidServiceId + "\"",
+		args:        []string{invalidApplicationId},
+		expectedErr: "invalid application name \"" + invalidApplicationId + "\"",
 	}, {
 		should:      "fail with too many args",
 		args:        []string{"two", "things"},
 		expectedErr: "unrecognized args: \\[\"things\"\\]",
 	}, {
 		should:      "init properly with valid application name",
-		args:        []string{validServiceId},
-		expectedSvc: names.NewApplicationTag(validServiceId),
+		args:        []string{validApplicationId},
+		expectedSvc: names.NewApplicationTag(validApplicationId),
 	}, {
 		should:      "schema with tabular output",
-		args:        []string{"--format=tabular", "--schema", validServiceId},
+		args:        []string{"--format=tabular", "--schema", validApplicationId},
 		expectedErr: "full schema not compatible with tabular output",
 	}, {
 		should:               "init properly with valid application name and --schema",
-		args:                 []string{"--format=yaml", "--schema", validServiceId},
+		args:                 []string{"--format=yaml", "--schema", validApplicationId},
 		expectedOutputSchema: true,
-		expectedSvc:          names.NewApplicationTag(validServiceId),
+		expectedSvc:          names.NewApplicationTag(validApplicationId),
 	}, {
 		should:               "default to yaml output when --schema flag is specified",
-		args:                 []string{"--schema", validServiceId},
+		args:                 []string{"--schema", validApplicationId},
 		expectedOutputSchema: true,
-		expectedSvc:          names.NewApplicationTag(validServiceId),
+		expectedSvc:          names.NewApplicationTag(validApplicationId),
 	}}
 
 	for i, t := range tests {
@@ -111,30 +111,30 @@ snapshot        Take a snapshot of the database.
 		expectedErr      string
 	}{{
 		should:      "pass back API error correctly",
-		withArgs:    []string{validServiceId},
+		withArgs:    []string{validApplicationId},
 		withAPIErr:  "an API error",
 		expectedErr: "an API error",
 	}, {
 		should:           "get short results properly",
-		withArgs:         []string{validServiceId},
+		withArgs:         []string{validApplicationId},
 		withCharmActions: someCharmActions,
 	}, {
 		should:           "get full schema results properly",
-		withArgs:         []string{"--format=yaml", "--schema", validServiceId},
+		withArgs:         []string{"--format=yaml", "--schema", validApplicationId},
 		expectFullSchema: true,
 		withCharmActions: someCharmActions,
 	}, {
 		should:          "work properly when no results found",
-		withArgs:        []string{validServiceId},
+		withArgs:        []string{validApplicationId},
 		expectNoResults: true,
-		expectMessage:   fmt.Sprintf("No actions defined for %s.\n", validServiceId),
+		expectMessage:   fmt.Sprintf("No actions defined for %s.\n", validApplicationId),
 	}, {
 		should:           "get tabular default output when --schema is NOT specified",
-		withArgs:         []string{"--format=default", validServiceId},
+		withArgs:         []string{"--format=default", validApplicationId},
 		withCharmActions: someCharmActions,
 	}, {
 		should:           "get full schema default output (YAML) when --schema is specified",
-		withArgs:         []string{"--format=default", "--schema", validServiceId},
+		withArgs:         []string{"--format=default", "--schema", validApplicationId},
 		expectFullSchema: true,
 		withCharmActions: someCharmActions,
 	}}

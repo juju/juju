@@ -431,7 +431,7 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "machine 1 cannot advance lifecycle: state changing too quickly; try again soon")
 }
 
-func (s *MachineSuite) TestDestroyWithServiceDestroyPending(c *gc.C) {
+func (s *MachineSuite) TestDestroyWithApplicationDestroyPending(c *gc.C) {
 	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1093,7 +1093,7 @@ func (s *MachineSuite) TestRefreshWhenNotAlive(c *gc.C) {
 func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 	// Check that Machine.Units and st.UnitsFor work correctly.
 
-	// Make three machines, three services and three units for each application;
+	// Make three machines, three applications and three units for each application;
 	// variously assign units to machines and check that Machine.Units
 	// tells us the right thing.
 
@@ -1201,12 +1201,12 @@ func (s *MachineSuite) TestMachineDirtyAfterUnassigningUnit(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineDirtyAfterRemovingUnit(c *gc.C) {
-	m, svc, unit := s.assertMachineDirtyAfterAddingUnit(c)
+	m, app, unit := s.assertMachineDirtyAfterAddingUnit(c)
 	err := unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	err = svc.Destroy()
+	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Clean(), jc.IsFalse)
 }
@@ -1251,7 +1251,7 @@ func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.entityWatcher, which
 	// is also used by:
 	//  Machine.WatchHardwareCharacteristics
-	//  Service.Watch
+	//  Application.Watch
 	//  Unit.Watch
 	//  State.WatchForModelConfigChanges
 	//  Unit.WatchConfigSettings

@@ -71,9 +71,9 @@ type StartInstanceParams struct {
 	// are present.
 	SubnetsToZones map[network.Id][]string
 
-	// EndpointBindings holds the mapping between service endpoint names to
+	// EndpointBindings holds the mapping between application endpoint names to
 	// provider-specific space IDs. It is populated when provisioning a machine
-	// to host a unit of a service with endpoint bindings.
+	// to host a unit of an application with endpoint bindings.
 	EndpointBindings map[string]network.Id
 
 	// ImageMetadata is a collection of image metadata

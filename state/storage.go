@@ -57,7 +57,7 @@ type StorageInstance interface {
 // StorageAttachment represents the state of a unit's attachment to a storage
 // instance. A non-shared storage instance will have a single attachment for
 // the storage instance's owning unit, whereas a shared storage instance will
-// have an attachment for each unit of the service owning the storage instance.
+// have an attachment for each unit of the application owning the storage instance.
 type StorageAttachment interface {
 	// StorageInstance returns the tag of the corresponding storage
 	// instance.
@@ -624,16 +624,16 @@ type machineAssignable interface {
 }
 
 // createStorageOps returns txn.Ops for creating storage instances
-// and attachments for the newly created unit or service. A map
+// and attachments for the newly created unit or application. A map
 // of storage names to number of storage instances created will
 // be returned, along with the total number of storage attachments
 // made. These should be used to initialise or update refcounts.
 //
 // The entity tag identifies the entity that owns the storage instance
-// either a unit or a service. Shared storage instances are owned by a
-// service, and non-shared storage instances are owned by a unit.
+// either a unit or a application. Shared storage instances are owned by a
+// application, and non-shared storage instances are owned by a unit.
 //
-// The charm metadata corresponds to the charm that the owner (service/unit)
+// The charm metadata corresponds to the charm that the owner (application/unit)
 // is or will be running, and is used to extract storage constraints,
 // default values, etc.
 //
@@ -690,7 +690,7 @@ func createStorageOps(
 			continue
 		}
 		if createdShared != charmStorage.Shared {
-			// services only get shared storage instances,
+			// applications only get shared storage instances,
 			// units only get non-shared storage instances.
 			continue
 		}
@@ -764,11 +764,11 @@ func createStorageOps(
 	}
 
 	// TODO(axw) create storage attachments for each shared storage
-	// instance owned by the service.
+	// instance owned by the application.
 	//
-	// TODO(axw) prevent creation of shared storage after service
+	// TODO(axw) prevent creation of shared storage after application
 	// creation, because the only sane time to add storage attachments
-	// is when units are added to said service.
+	// is when units are added to said application.
 
 	return ops, storageTags, numStorageAttachments, nil
 }
@@ -1501,7 +1501,7 @@ type storageConstraintsDoc struct {
 }
 
 // StorageConstraints contains the user-specified constraints for provisioning
-// storage instances for a service unit.
+// storage instances for an application unit.
 type StorageConstraints struct {
 	// Pool is the name of the storage pool from which to provision the
 	// storage instances.

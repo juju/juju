@@ -17,11 +17,11 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -1138,15 +1138,16 @@ func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 }
 
-func (s *localServerSuite) prepareNetworkingEnviron(c *gc.C) environs.NetworkingEnviron {
-	env := s.Open(c, s.env.Config())
+func (s *localServerSuite) prepareNetworkingEnviron(c *gc.C, cfg *config.Config) environs.NetworkingEnviron {
+	env := s.Open(c, cfg)
 	netenv, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)
 	return netenv
 }
 
 func (s *localServerSuite) TestSubnetsFindAll(c *gc.C) {
-	env := s.prepareNetworkingEnviron(c)
+	env := s.prepareNetworkingEnviron(c, s.env.Config())
+	// the environ is opened with network:"private_999" which maps to network id "999"
 	obtainedSubnets, err := env.Subnets(s.callCtx, instance.Id(""), []network.Id{})
 	c.Assert(err, jc.ErrorIsNil)
 	neutronClient := openstack.GetNeutronClient(s.env)
@@ -1160,6 +1161,46 @@ func (s *localServerSuite) TestSubnetsFindAll(c *gc.C) {
 
 	expectedSubnetMap := make(map[network.Id]network.SubnetInfo)
 	for _, os := range openstackSubnets {
+		if os.NetworkId != "999" {
+			continue
+		}
+		net, err := neutronClient.GetNetworkV2(os.NetworkId)
+		c.Assert(err, jc.ErrorIsNil)
+		expectedSubnetMap[network.Id(os.Id)] = network.SubnetInfo{
+			CIDR:              os.Cidr,
+			ProviderId:        network.Id(os.Id),
+			VLANTag:           0,
+			AvailabilityZones: net.AvailabilityZones,
+			SpaceProviderId:   "",
+		}
+	}
+
+	c.Check(obtainedSubnetMap, jc.DeepEquals, expectedSubnetMap)
+}
+
+func (s *localServerSuite) TestSubnetsFindAllWithExternal(c *gc.C) {
+	cfg := s.env.Config()
+	cfg, err := cfg.Apply(map[string]interface{}{"external-network": "ext-net"})
+	c.Assert(err, jc.ErrorIsNil)
+	env := s.prepareNetworkingEnviron(c, cfg)
+	// private_999 is the internal network, 998 is the external network
+	// the environ is opened with network:"private_999" which maps to network id "999"
+	obtainedSubnets, err := env.Subnets(s.callCtx, instance.Id(""), []network.Id{})
+	c.Assert(err, jc.ErrorIsNil)
+	neutronClient := openstack.GetNeutronClient(s.env)
+	openstackSubnets, err := neutronClient.ListSubnetsV2()
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedSubnetMap := make(map[network.Id]network.SubnetInfo)
+	for _, sub := range obtainedSubnets {
+		obtainedSubnetMap[sub.ProviderId] = sub
+	}
+
+	expectedSubnetMap := make(map[network.Id]network.SubnetInfo)
+	for _, os := range openstackSubnets {
+		if os.NetworkId != "999" && os.NetworkId != "998" {
+			continue
+		}
 		net, err := neutronClient.GetNetworkV2(os.NetworkId)
 		c.Assert(err, jc.ErrorIsNil)
 		expectedSubnetMap[network.Id(os.Id)] = network.SubnetInfo{
@@ -1175,23 +1216,26 @@ func (s *localServerSuite) TestSubnetsFindAll(c *gc.C) {
 }
 
 func (s *localServerSuite) TestSubnetsWithMissingSubnet(c *gc.C) {
-	env := s.prepareNetworkingEnviron(c)
+	env := s.prepareNetworkingEnviron(c, s.env.Config())
 	subnets, err := env.Subnets(s.callCtx, instance.Id(""), []network.Id{"missing"})
 	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[missing\]`)
 	c.Assert(subnets, gc.HasLen, 0)
 }
 
 func (s *localServerSuite) TestSuperSubnets(c *gc.C) {
-	env := s.prepareNetworkingEnviron(c)
+	env := s.prepareNetworkingEnviron(c, s.env.Config())
 	obtainedSubnets, err := env.SuperSubnets(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	neutronClient := openstack.GetNeutronClient(s.env)
 	openstackSubnets, err := neutronClient.ListSubnetsV2()
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedSubnets := make([]string, len(openstackSubnets))
-	for i, os := range openstackSubnets {
-		expectedSubnets[i] = os.Cidr
+	expectedSubnets := make([]string, 0, len(openstackSubnets))
+	for _, os := range openstackSubnets {
+		if os.NetworkId != "999" {
+			continue
+		}
+		expectedSubnets = append(expectedSubnets, os.Cidr)
 	}
 	sort.Strings(obtainedSubnets)
 	sort.Strings(expectedSubnets)

@@ -29,7 +29,7 @@ func (s *minUnitsWorkerSuite) TestMinUnitsWorker(c *gc.C) {
 	mu := minunitsworker.NewMinUnitsWorker(s.State)
 	defer func() { c.Assert(worker.Stop(mu), gc.IsNil) }()
 
-	// Set up services and units for later use.
+	// Set up applications and units for later use.
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	unit, err := wordpress.AddUnit(state.AddUnitParams{})
@@ -43,7 +43,7 @@ func (s *minUnitsWorkerSuite) TestMinUnitsWorker(c *gc.C) {
 	err = mysql.SetMinUnits(2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Remove a unit for a service.
+	// Remove a unit for an application.
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 

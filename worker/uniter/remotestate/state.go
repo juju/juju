@@ -87,7 +87,7 @@ type apiUnit struct {
 	*uniter.Unit
 }
 
-type apiService struct {
+type apiApplication struct {
 	*uniter.Application
 }
 
@@ -107,5 +107,5 @@ func (st apiState) Unit(tag names.UnitTag) (Unit, error) {
 
 func (u apiUnit) Application() (Application, error) {
 	s, err := u.Unit.Application()
-	return apiService{s}, err
+	return apiApplication{s}, err
 }

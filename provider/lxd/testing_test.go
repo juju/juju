@@ -568,8 +568,8 @@ func (conn *StubClient) UpdateContainerConfig(container string, cfg map[string]s
 	return conn.NextErr()
 }
 
-func (conn *StubClient) DefaultProfileBridgeName() string {
-	conn.AddCall("DefaultProfileBridgeName")
+func (conn *StubClient) LocalBridgeName() string {
+	conn.AddCall("LocalBridgeName")
 	return "test-bridge"
 }
 

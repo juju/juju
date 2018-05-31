@@ -233,7 +233,7 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 			{Name: "fakeaction"},
 			// Good.
 			{Receiver: s.wordpressUnit.Tag().String(), Name: expectedName, Parameters: expectedParameters},
-			// Service tag instead of Unit tag.
+			// Application tag instead of Unit tag.
 			{Receiver: s.wordpress.Tag().String(), Name: "fakeaction"},
 			// Missing name.
 			{Receiver: s.mysqlUnit.Tag().String(), Parameters: expectedParameters},

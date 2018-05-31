@@ -37,7 +37,7 @@ func newClientV4(f basetesting.APICallerFunc) *application.Client {
 	return application.NewClient(basetesting.BestVersionCaller{f, 4})
 }
 
-func (s *applicationSuite) TestSetServiceMetricCredentials(c *gc.C) {
+func (s *applicationSuite) TestSetApplicationMetricCredentials(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		called = true
@@ -47,19 +47,19 @@ func (s *applicationSuite) TestSetServiceMetricCredentials(c *gc.C) {
 		args, ok := a.(params.ApplicationMetricCredentials)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.Creds, gc.HasLen, 1)
-		c.Assert(args.Creds[0].ApplicationName, gc.Equals, "serviceA")
+		c.Assert(args.Creds[0].ApplicationName, gc.Equals, "applicationA")
 		c.Assert(args.Creds[0].MetricCredentials, gc.DeepEquals, []byte("creds 1"))
 
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)
 		return nil
 	})
-	err := client.SetMetricCredentials("serviceA", []byte("creds 1"))
+	err := client.SetMetricCredentials("applicationA", []byte("creds 1"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *applicationSuite) TestSetServiceMetricCredentialsFails(c *gc.C) {
+func (s *applicationSuite) TestSetApplicationMetricCredentialsFails(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		called = true
@@ -88,7 +88,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 				c.Assert(args.Applications, gc.HasLen, 1)
 				app := args.Applications[0]
 				c.Assert(app.CharmURL, gc.Equals, "cs:trusty/a-charm-1")
-				c.Assert(app.ApplicationName, gc.Equals, "serviceA")
+				c.Assert(app.ApplicationName, gc.Equals, "applicationA")
 				c.Assert(app.Series, gc.Equals, "series")
 				c.Assert(app.NumUnits, gc.Equals, 1)
 				c.Assert(app.ConfigYAML, gc.Equals, "configYAML")
@@ -112,7 +112,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 		CharmID: charmstore.CharmID{
 			URL: charm.MustParseURL("trusty/a-charm-1"),
 		},
-		ApplicationName:  "serviceA",
+		ApplicationName:  "applicationA",
 		Series:           "series",
 		NumUnits:         1,
 		ConfigYAML:       "configYAML",
@@ -227,7 +227,7 @@ func (s *applicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *gc.C) {
 	c.Assert(called, jc.IsFalse)
 }
 
-func (s *applicationSuite) TestServiceGetCharmURL(c *gc.C) {
+func (s *applicationSuite) TestApplicationGetCharmURL(c *gc.C) {
 	var called bool
 	client := newClient(func(objType string, version int, id, request string, a, response interface{}) error {
 		called = true

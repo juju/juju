@@ -38,13 +38,13 @@ var expectedAPIAddrs = strings.Join(apiAddrs, " ")
 // methods should not be added to this type, because they'll get run repeatedly.
 type HookContextSuite struct {
 	testing.JujuConnSuite
-	service  *state.Application
-	unit     *state.Unit
-	machine  *state.Machine
-	relch    *state.Charm
-	relunits map[int]*state.RelationUnit
-	storage  *runnertesting.StorageContextAccessor
-	clock    *jujutesting.Clock
+	application *state.Application
+	unit        *state.Unit
+	machine     *state.Machine
+	relch       *state.Charm
+	relunits    map[int]*state.RelationUnit
+	storage     *runnertesting.StorageContextAccessor
+	clock       *jujutesting.Clock
 
 	st             api.Connection
 	uniter         *uniter.State
@@ -66,12 +66,12 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.machine = nil
 
 	sch := s.AddTestingCharm(c, "wordpress")
-	s.service = s.AddTestingApplication(c, "u", sch)
-	s.unit = s.AddUnit(c, s.service)
+	s.application = s.AddTestingApplication(c, "u", sch)
+	s.unit = s.AddUnit(c, s.application)
 
 	s.meteredCharm = s.AddTestingCharm(c, "metered")
-	meteredService := s.AddTestingApplication(c, "m", s.meteredCharm)
-	meteredUnit := s.addUnit(c, meteredService)
+	meteredApplication := s.AddTestingApplication(c, "m", s.meteredCharm)
+	meteredUnit := s.addUnit(c, meteredApplication)
 	err = meteredUnit.SetCharmURL(s.meteredCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -122,9 +122,7 @@ func (s *HookContextSuite) GetContext(
 ) jujuc.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	return s.getHookContext(
-		c, uuid.String(), relId, remoteName, noProxies,
-	)
+	return s.getHookContext(c, uuid.String(), relId, remoteName)
 }
 
 func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Application) *state.Unit {
@@ -178,8 +176,7 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.apiRelunits[rel.Id()] = apiRelUnit
 }
 
-func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
-	remote string, proxies proxy.Settings) *context.HookContext {
+func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remote string) *context.HookContext {
 	if relid != -1 {
 		_, found := s.apiRelunits[relid]
 		c.Assert(found, jc.IsTrue)
@@ -198,14 +195,14 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 
 	context, err := context.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
 		env.Name(), relid, remote, relctxs, apiAddrs,
-		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag),
+		noProxies, noProxies, false, nil, nil, s.machine.Tag().(names.MachineTag),
 		runnertesting.NewRealPaths(c), s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
 
 func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int,
-	remote string, proxies proxy.Settings, canAddMetrics bool, metrics *charm.Metrics, paths runnertesting.RealPaths) *context.HookContext {
+	remote string, canAddMetrics bool, metrics *charm.Metrics, paths runnertesting.RealPaths) *context.HookContext {
 	if relid != -1 {
 		_, found := s.apiRelunits[relid]
 		c.Assert(found, jc.IsTrue)
@@ -221,7 +218,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 
 	context, err := context.NewHookContext(s.meteredAPIUnit, facade, "TestCtx", uuid,
 		"test-model-name", relid, remote, relctxs, apiAddrs,
-		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag),
+		noProxies, noProxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag),
 		paths, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return context
