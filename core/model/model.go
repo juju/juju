@@ -3,6 +3,13 @@
 
 package model
 
+import (
+	"github.com/juju/errors"
+	"github.com/juju/os"
+	"github.com/juju/os/series"
+	"github.com/juju/utils/set"
+)
+
 // ModelType indicates a model type.
 type ModelType string
 
@@ -29,4 +36,25 @@ type Model struct {
 
 	// ModelType is the type of model.
 	ModelType ModelType
+}
+
+var caasOS = set.NewStrings(os.Kubernetes.String())
+
+// ValidateSeries ensures the charm series is valid for the model type.
+func ValidateSeries(modelType ModelType, charmSeries string) error {
+	os, err := series.GetOSFromSeries(charmSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	switch modelType {
+	case CAAS:
+		if !caasOS.Contains(os.String()) {
+			return errors.NotValidf("series %q in a kubernetes model", charmSeries)
+		}
+	case IAAS:
+		if caasOS.Contains(os.String()) {
+			return errors.NotValidf("series %q in a non container model", charmSeries)
+		}
+	}
+	return nil
 }

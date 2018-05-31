@@ -375,6 +375,17 @@ func (s *ModelSuite) TestConfigForOtherModel(c *gc.C) {
 	c.Assert(conf.UUID(), gc.Equals, otherModel.UUID())
 }
 
+func (s *ModelSuite) TestDeployCAASApplication(c *gc.C) {
+	ch := s.Factory.MakeCharm(c, nil)
+	args := state.AddApplicationArgs{
+		Name:   "foo",
+		Series: "kubernetes",
+		Charm:  ch,
+	}
+	_, err := s.State.AddApplication(args)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "foo": series "kubernetes" in a non container model not valid`)
+}
+
 func (s *ModelSuite) TestAllUnits(c *gc.C) {
 	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "wordpress",

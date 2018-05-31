@@ -706,20 +706,22 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 }
 
 func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
-	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch, Series: ch.URL().Series})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 
 }
 
 func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch, Storage: storage})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name: name, Charm: ch, Series: ch.URL().Series, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }
 
 func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
-	app, err := s.State.AddApplication(state.AddApplicationArgs{Name: name, Charm: ch, EndpointBindings: bindings})
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name: name, Charm: ch, Series: ch.URL().Series, EndpointBindings: bindings})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }

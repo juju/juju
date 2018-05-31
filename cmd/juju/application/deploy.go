@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -984,6 +985,14 @@ func (c *DeployCommand) validateCharmFlags() error {
 	return nil
 }
 
+func (c *DeployCommand) validateCharmSeries(series string) error {
+	modelType, err := c.ModelType()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return model.ValidateSeries(modelType, series)
+}
+
 func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	// If the charm's schema is local, we should definitively attempt
 	// to deploy a charm that's already deployed in the
@@ -994,6 +1003,11 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 	} else if userCharmURL.Schema != "local" {
 		logger.Debugf("cannot interpret as a redeployment of a local charm from the controller")
 		return nil, nil
+	}
+
+	// Avoid deploying charm if it's not valid for the model.
+	if err := c.validateCharmSeries(userCharmURL.Series); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return func(ctx *cmd.Context, api DeployAPI) error {
@@ -1143,6 +1157,11 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 		return nil, nil
 	}
 
+	// Avoid deploying charm if it's not valid for the model.
+	if err := c.validateCharmSeries(series); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
 		if err := c.validateCharmFlags(); err != nil {
 			return errors.Trace(err)
@@ -1258,6 +1277,15 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 
 		// Get the series to use.
 		series, err := selector.charmSeries()
+
+		// Avoid deploying charm if it's not valid for the model.
+		// We check this first before possibly suggesting --force.
+		if err == nil {
+			if err2 := c.validateCharmSeries(series); err2 != nil {
+				return errors.Trace(err)
+			}
+		}
+
 		if charm.IsUnsupportedSeriesError(err) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		}

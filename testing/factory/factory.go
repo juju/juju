@@ -472,6 +472,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	application, err := factory.st.AddApplication(state.AddApplicationArgs{
 		Name:              params.Name,
 		Charm:             params.Charm,
+		Series:            params.Charm.URL().Series,
 		CharmConfig:       charm.Settings(params.CharmConfig),
 		ApplicationConfig: appConfig,
 		Storage:           params.Storage,

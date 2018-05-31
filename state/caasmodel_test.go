@@ -230,3 +230,18 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	c.Assert(controllerModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(controllerModel.Life(), gc.Equals, state.Dead)
 }
+
+func (s *CAASModelSuite) TestDeployIAASApplication(c *gc.C) {
+	_, st := s.newCAASModel(c)
+	f := factory.NewFactory(st)
+	ch := f.MakeCharm(c, &factory.CharmParams{
+		Series: "kubernetes",
+	})
+	args := state.AddApplicationArgs{
+		Name:   "foo",
+		Series: "bionic",
+		Charm:  ch,
+	}
+	_, err := st.AddApplication(args)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "foo": series "bionic" in a kubernetes model not valid`)
+}
