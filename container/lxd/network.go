@@ -338,6 +338,12 @@ const errIPV6NotSupported = `socket: address family not supported by protocol`
 // IPv4 if that has been disabled with in the kernel.
 // Returns an error if updating the server configuration fails.
 func (s *Server) EnableHTTPSListener() error {
+	// Make sure the LXD service is configured to listen to local https
+	// requests, rather than only via the Unix socket.
+	// TODO: jam 2016-02-25 This tells LXD to listen on all addresses,
+	//      which does expose the LXD to outside requests. It would
+	//      probably be better to only tell LXD to listen for requests on
+	//      the loopback and LXC bridges that we are using.
 	if err := s.UpdateServerConfig(map[string]string{
 		"core.https_address": "[::]",
 	}); err != nil {
