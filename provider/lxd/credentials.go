@@ -68,7 +68,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
 	raw, err := p.newLocalRawProvider()
 	if err != nil {
-		return nil, errors.NewNotFound(err, "failed to connecti to local LXD")
+		return nil, errors.NewNotFound(err, "failed to connect to local LXD")
 	}
 
 	nopLogf := func(string, ...interface{}) {}

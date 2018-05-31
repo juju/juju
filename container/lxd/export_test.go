@@ -23,6 +23,7 @@ var (
 	) error {
 		return svr.verifyNICsWithConfigFile(nics, reader)
 	}
+	ErrIPV6NotSupported = errIPV6NotSupported
 )
 
 type patcher interface {

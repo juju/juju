@@ -4,8 +4,11 @@
 package lxd_test
 
 import (
+	"time"
+
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -109,6 +112,7 @@ func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
 }
 
 func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
+	s.Provider.Clock = &mockClock{now: time.Now()}
 	var ctx mockContext
 	s.PatchValue(&s.InterfaceAddr, "8.8.8.8")
 	_, err := s.Provider.FinalizeCloud(&ctx, cloud.Cloud{
@@ -120,9 +124,7 @@ func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
 		}},
 	})
 	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals,
-		`LXD is not listening on address https://8.8.8.8 `+
-			`(reported addresses: [127.0.0.1:1234 1.2.3.4:1234])`)
+	c.Assert(err, gc.ErrorMatches, `LXD is not listening on address https:\/\/8\.8\.8\.8 \(reported addresses\: \[.+\]\)`)
 }
 
 func (s *providerSuite) TestFinalizeCloudAlreadyListeningHTTPS(c *gc.C) {
@@ -254,4 +256,17 @@ type mockContext struct {
 
 func (c *mockContext) Verbosef(f string, args ...interface{}) {
 	c.MethodCall(c, "Verbosef", f, args)
+}
+
+type mockClock struct {
+	clock.Clock
+	now time.Time
+}
+
+func (m *mockClock) Now() time.Time {
+	return m.now
+}
+
+func (m *mockClock) After(delay time.Duration) <-chan time.Time {
+	return time.After(time.Millisecond)
 }

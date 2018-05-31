@@ -398,3 +398,107 @@ LXD_IPV6_MASK=""
 LXD_IPV6_NETWORK=""
 `), nil
 }
+
+func (s *networkSuite) TestEnableHTTPSListener(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	cfg := &lxdapi.Server{}
+	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+
+	gomock.InOrder(
+		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil).Times(2),
+		cSvr.EXPECT().UpdateServer(lxdapi.ServerPut{
+			Config: map[string]interface{}{
+				"core.https_address": "[::]",
+			},
+		}, lxdtesting.ETag).Return(nil),
+	)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = jujuSvr.EnableHTTPSListener()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *networkSuite) TestEnableHTTPSListenerWithFallbackToIPv4(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	cfg := &lxdapi.Server{}
+	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+
+	gomock.InOrder(
+		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil).Times(2),
+		cSvr.EXPECT().UpdateServer(lxdapi.ServerPut{
+			Config: map[string]interface{}{
+				"core.https_address": "[::]",
+			},
+		}, lxdtesting.ETag).Return(errors.New(lxd.ErrIPV6NotSupported)),
+		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil),
+		cSvr.EXPECT().UpdateServer(lxdapi.ServerPut{
+			Config: map[string]interface{}{
+				"core.https_address": "0.0.0.0",
+			},
+		}, lxdtesting.ETag).Return(nil),
+	)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = jujuSvr.EnableHTTPSListener()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *networkSuite) TestEnableHTTPSListenerWithErrors(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	cfg := &lxdapi.Server{}
+	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+
+	cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// check on the first request
+	cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, errors.New("bad"))
+
+	err = jujuSvr.EnableHTTPSListener()
+	c.Assert(err, gc.ErrorMatches, "bad")
+
+	// check on the second request
+	gomock.InOrder(
+		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil),
+		cSvr.EXPECT().UpdateServer(lxdapi.ServerPut{
+			Config: map[string]interface{}{
+				"core.https_address": "[::]",
+			},
+		}, lxdtesting.ETag).Return(errors.New(lxd.ErrIPV6NotSupported)),
+		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, errors.New("bad")),
+	)
+
+	err = jujuSvr.EnableHTTPSListener()
+	c.Assert(err, gc.ErrorMatches, "bad")
+
+	// check on the third request
+	gomock.InOrder(
+		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil),
+		cSvr.EXPECT().UpdateServer(lxdapi.ServerPut{
+			Config: map[string]interface{}{
+				"core.https_address": "[::]",
+			},
+		}, lxdtesting.ETag).Return(errors.New(lxd.ErrIPV6NotSupported)),
+		cSvr.EXPECT().GetServer().Return(cfg, lxdtesting.ETag, nil),
+		cSvr.EXPECT().UpdateServer(lxdapi.ServerPut{
+			Config: map[string]interface{}{
+				"core.https_address": "0.0.0.0",
+			},
+		}, lxdtesting.ETag).Return(errors.New("bad")),
+	)
+
+	err = jujuSvr.EnableHTTPSListener()
+	c.Assert(err, gc.ErrorMatches, "bad")
+}

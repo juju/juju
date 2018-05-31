@@ -328,3 +328,35 @@ func ipv6BridgeConfigError(fileName string) error {
 		"\tsudo dpkg-reconfigure -p medium lxd\n\n"+
 		"and run the command again.", fileName)
 }
+
+// errIPV6NotSupported is the error returned by glibc for attempts at unsupported
+// protocols.
+const errIPV6NotSupported = `socket: address family not supported by protocol`
+
+// EnableHTTPSListener configures LXD to listen for HTTPS requests, rather than
+// only via a Unix socket. Attempts to connect over IPv6, but falls back to
+// IPv4 if that has been disabled with in the kernel.
+// Returns an error if updating the server configuration fails.
+func (s *Server) EnableHTTPSListener() error {
+	// Make sure the LXD service is configured to listen to local https
+	// requests, rather than only via the Unix socket.
+	// TODO: jam 2016-02-25 This tells LXD to listen on all addresses,
+	//      which does expose the LXD to outside requests. It would
+	//      probably be better to only tell LXD to listen for requests on
+	//      the loopback and LXC bridges that we are using.
+	if err := s.UpdateServerConfig(map[string]string{
+		"core.https_address": "[::]",
+	}); err != nil {
+		// If the error hints that the problem might be a unsupported protocol,
+		// such as what happens when IPv6 is disabled with in the kernel, we
+		// try IPv4 as a fallback.
+		cause := errors.Cause(err)
+		if strings.HasSuffix(cause.Error(), errIPV6NotSupported) {
+			return errors.Trace(s.UpdateServerConfig(map[string]string{
+				"core.https_address": "0.0.0.0",
+			}))
+		}
+		return errors.Trace(err)
+	}
+	return nil
+}
