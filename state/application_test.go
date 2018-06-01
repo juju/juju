@@ -14,6 +14,8 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
@@ -30,6 +32,7 @@ import (
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ApplicationSuite struct {
@@ -1926,6 +1929,46 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 		Status: status.Allocating,
 		Data:   map[string]interface{}{},
 	})
+}
+
+func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer st.Close()
+	f := factory.NewFactory(st)
+	application := f.MakeApplication(c, nil)
+	agentTools := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: application.Series(),
+	}
+
+	tools, err := application.AgentTools()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tools.Version, gc.DeepEquals, agentTools)
+}
+
+func (s *ApplicationSuite) TestSetAgentVersion(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	defer st.Close()
+	f := factory.NewFactory(st)
+	application := f.MakeApplication(c, nil)
+
+	agentVersion := version.MustParseBinary("2.0.1-quantal-and64")
+	err := application.SetAgentVersion(agentVersion)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = application.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	tools, err := application.AgentTools()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tools.Version, gc.DeepEquals, agentVersion)
 }
 
 func (s *ApplicationSuite) TestAddUnitWithProviderIdNonCAASModel(c *gc.C) {

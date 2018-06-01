@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/description"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
@@ -467,9 +468,15 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 		c.Assert(addr.Scope(), gc.Equals, "local-cloud")
 		c.Assert(addr.Type(), gc.Equals, "ipv4")
 		c.Assert(addr.Origin(), gc.Equals, "provider")
+
+		tools, err := application.AgentTools()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(exported.Tools().Version(), gc.Equals, tools.Version)
 	} else {
 		c.Assert(exported.PodSpec(), gc.Equals, "")
 		c.Assert(exported.CloudService(), gc.IsNil)
+		_, err := application.AgentTools()
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 }
 
@@ -584,6 +591,14 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 		c.Assert(addr.Scope(), gc.Equals, "local-machine")
 		c.Assert(addr.Type(), gc.Equals, "ipv4")
 		c.Assert(addr.Origin(), gc.Equals, "provider")
+		_, err := unit.AgentTools()
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	}
+
+	if dbModel.Type() == state.ModelTypeIAAS {
+		tools, err := unit.AgentTools()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(exported.Tools().Version(), gc.Equals, tools.Version)
 	}
 }
 

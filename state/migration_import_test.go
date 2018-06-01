@@ -499,6 +499,18 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	resources, err := rSt.ListResources(imported.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resources.Resources, gc.HasLen, 3)
+
+	if newModel.Type() == state.ModelTypeCAAS {
+		agentTools := version.Binary{
+			Number: jujuversion.Current,
+			Arch:   arch.HostArch(),
+			Series: application.Series(),
+		}
+
+		tools, err := imported.AgentTools()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(tools.Version, gc.Equals, agentTools)
+	}
 }
 
 func (s *MigrationImportSuite) TestApplications(c *gc.C) {
@@ -733,7 +745,6 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 		err = app.UpdateUnits(&updateUnits)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-
 	newModel, newSt := s.importModel(c, st)
 
 	importedApplications, err := newSt.AllApplications()
