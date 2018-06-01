@@ -28,7 +28,7 @@ type ConnSuite struct {
 	machines     *mgo.Collection
 	instanceData *mgo.Collection
 	relations    *mgo.Collection
-	services     *mgo.Collection
+	applications *mgo.Collection
 	units        *mgo.Collection
 	controllers  *mgo.Collection
 	policy       statetesting.MockPolicy
@@ -58,7 +58,7 @@ func (s *ConnSuite) SetUpTest(c *gc.C) {
 	s.machines = jujuDB.C("machines")
 	s.instanceData = jujuDB.C("instanceData")
 	s.relations = jujuDB.C("relations")
-	s.services = jujuDB.C("applications")
+	s.applications = jujuDB.C("applications")
 	s.units = jujuDB.C("units")
 	s.controllers = jujuDB.C("controllers")
 }

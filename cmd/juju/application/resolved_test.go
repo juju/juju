@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type ResolvedSuite struct {
@@ -27,7 +28,8 @@ func (s *ResolvedSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&ResolvedSuite{})
 
 func (s *ResolvedSuite) runResolved(c *gc.C, args []string) error {
-	cmd := application.NewResolvedCommandForTest(s.mockAPI, s.mockAPI)
+	store := jujuclienttesting.MinimalStore()
+	cmd := application.NewResolvedCommandForTest(s.mockAPI, s.mockAPI, store)
 	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	return err
 }

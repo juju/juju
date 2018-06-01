@@ -6,8 +6,8 @@ package apiserver
 import (
 	"fmt"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 )
 
 // commonModelFacadeNames lists facades that are shared between CAAS

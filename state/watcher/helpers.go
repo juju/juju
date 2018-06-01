@@ -5,7 +5,7 @@ package watcher
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 )
 
 // Stopper is implemented by all watchers.

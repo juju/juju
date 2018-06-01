@@ -126,9 +126,9 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	sCons := map[string]state.StorageConstraints{
 		"data": {Pool: "", Size: 1024, Count: 1},
 	}
-	service := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
 	s.machine = nil // allocate a new machine
-	unit := s.AddUnit(c, service)
+	unit := s.AddUnit(c, application)
 
 	storageAttachments, err := s.IAASModel.UnitStorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -296,7 +296,7 @@ func (s *FactorySuite) TestNewActionRunnerMissingAction(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	otherUnit, err := s.service.AddUnit(state.AddUnitParams{})
+	otherUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.model.EnqueueAction(otherUnit.Tag(), "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)

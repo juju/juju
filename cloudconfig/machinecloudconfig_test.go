@@ -7,7 +7,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	utilsseries "github.com/juju/utils/series"
+	utilsseries "github.com/juju/os/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig"

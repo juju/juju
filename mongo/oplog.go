@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 )
 
 // OplogDoc represents a document in the oplog.rs collection.
@@ -166,14 +166,13 @@ func NewOplogTailer(
 		initialTs: NewMongoTimestamp(initialTs),
 		outCh:     make(chan *OplogDoc),
 	}
-	go func() {
+	t.tomb.Go(func() error {
 		defer func() {
 			close(t.outCh)
-			t.tomb.Done()
 			session.Close()
 		}()
-		t.tomb.Kill(t.loop())
-	}()
+		return t.loop()
+	})
 	return t
 }
 

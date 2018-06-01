@@ -19,10 +19,10 @@ from __future__ import print_function
 from collections import (
     defaultdict,
     namedtuple,
-    )
+)
 from contextlib import (
     contextmanager,
-    )
+)
 from copy import deepcopy
 import errno
 from itertools import chain
@@ -35,7 +35,6 @@ import shutil
 import subprocess
 import sys
 import time
-
 import pexpect
 import yaml
 
@@ -46,7 +45,7 @@ from jujupy.configuration import (
     get_bootstrap_config_path,
     get_juju_home,
     get_selected_environment,
-    )
+)
 from jujupy.exceptions import (
     AgentsNotStarted,
     ApplicationsNotStarted,
@@ -59,12 +58,12 @@ from jujupy.exceptions import (
     TypeNotAccepted,
     VotingNotEnabled,
     WorkloadsNotReady,
-    )
+)
 from jujupy.status import (
     AGENTS_READY,
     coalesce_agent_status,
     Status,
-    )
+)
 from jujupy.utility import (
     _dns_name_for_machine,
     JujuResourceTimeout,
@@ -75,14 +74,15 @@ from jujupy.utility import (
     temp_yaml_file,
     unqualified_model_name,
     until_timeout,
-    )
+    ensure_dir,
+)
 from jujupy.wait_condition import (
     CommandComplete,
     NoopCondition,
     WaitAgentsStarted,
     WaitMachineNotPresent,
     WaitVersion,
-    )
+)
 
 
 __metaclass__ = type
@@ -99,7 +99,6 @@ LXC_MACHINE = 'lxc'
 LXD_MACHINE = 'lxd'
 
 _DEFAULT_BUNDLE_TIMEOUT = 3600
-
 
 log = logging.getLogger("jujupy")
 
@@ -333,7 +332,7 @@ class JujuData:
         data = cls(
             model_name, config, juju_data_dir, Controller(controller_name),
             ctrl_config['cloud']
-            )
+        )
         data.set_region(ctrl_config['region'])
         data.load_yaml()
         return data
@@ -529,6 +528,7 @@ def get_version_string_parts(version_string):
     # strip the series and arch from the built version.
     version_parts = version_string.split('-')
     if len(version_parts) == 4:
+        # Version contains "-<patchname>", reconstruct it after the split.
         return '-'.join(version_parts[0:2]), version_parts[2], version_parts[3]
     else:
         try:
@@ -841,7 +841,7 @@ class ModelClient:
             args.append('--no-gui')
         return tuple(args)
 
-    def add_model(self, env):
+    def add_model(self, env, cloud_region=None):
         """Add a model to this model's controller and return its client.
 
         :param env: Either a class representing the new model/environment
@@ -851,7 +851,7 @@ class ModelClient:
             env = self.env.clone(env)
         model_client = self.clone(env)
         with model_client._bootstrap_config() as config_file:
-            self._add_model(env.environment, config_file)
+            self._add_model(env.environment, config_file, cloud_region=cloud_region)
         # Make sure we track this in case it needs special cleanup (i.e. using
         # an existing controller).
         self._backend.track_model(model_client)
@@ -950,15 +950,14 @@ class ModelClient:
                 log.info('Waiting for bootstrap of {}.'.format(
                     self.env.environment))
 
-    def _add_model(self, model_name, config_file):
+    def _add_model(self, model_name, config_file, cloud_region=None):
         explicit_region = self.env.controller.explicit_region
-        if explicit_region:
+        region_args = (cloud_region, ) if cloud_region else ()
+        if explicit_region and not region_args:
             credential_name = self.env.get_cloud_credentials_item()[0]
             cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                                  self.env.get_region())
             region_args = (cloud_region, '--credential', credential_name)
-        else:
-            region_args = ()
         self.controller_juju('add-model', (model_name,) + region_args +
                              ('--config', config_file,))
 
@@ -1287,10 +1286,14 @@ class ModelClient:
     def format_bundle(cls, bundle_template):
         return bundle_template.format(container=cls.preferred_container())
 
-    def deploy_bundle(self, bundle_template, timeout=_DEFAULT_BUNDLE_TIMEOUT):
-        """Deploy bundle using native juju 2.0 deploy command."""
-        bundle = self.format_bundle(bundle_template)
-        self.juju('deploy', bundle, timeout=timeout)
+    def deploy_bundle(self, bundle_template, timeout=_DEFAULT_BUNDLE_TIMEOUT, static_bundle=False):
+        """Deploy bundle using native juju 2.0 deploy command.
+
+        :param static_bundle: render `bundle_template` if it's not static
+        """
+        if static_bundle is False:
+            bundle_template = self.format_bundle(bundle_template)
+        self.juju('deploy', bundle_template, timeout=timeout)
 
     def deployer(self, bundle_template, name=None, deploy_delay=10,
                  timeout=3600):
@@ -1689,7 +1692,7 @@ class ModelClient:
 
     def restore_backup_async(self, backup_file):
         return self.juju_async('restore-backup', ('-b', '--constraints',
-                               'mem=2G', '--file', backup_file))
+                                                  'mem=2G', '--file', backup_file))
 
     def enable_ha(self):
         self.juju(
@@ -1854,7 +1857,7 @@ class ModelClient:
             log.error('Buffer: {}'.format(session.buffer))
             log.error('Before: {}'.format(session.before))
             raise Exception('pexpect process exited with {}'.format(
-                    session.exitstatus))
+                session.exitstatus))
 
     def register_user(self, user, juju_home, controller_name=None):
         """Register `user` for the `client` return the cloned client used."""
@@ -2122,6 +2125,58 @@ class ModelClient:
         self.juju('switch', (':'.join(args),), include_e=False)
 
 
+# caas `add-k8s` did not implement parsing kube config path via flag,
+# so parse it via env var ->  https://github.com/kubernetes/client-go/blob/master/tools/clientcmd/loader.go#L44
+KUBE_CONFIG_PATH_ENV_VAR = 'KUBECONFIG'
+
+
+class CaasClient:
+
+    cloud_name = 'k8cloud'
+
+    def __init__(self, client):
+        self.client = client
+        self.juju_home = self.client.env.juju_home
+
+        self.kubectl_path = os.path.join(self.juju_home, 'kubectl')
+        self.kube_home = os.path.join(self.juju_home, '.kube')
+        self.kube_config_path = os.path.join(self.kube_home, 'config')
+
+        # ensure kube home
+        ensure_dir(self.kube_home)
+
+        # ensure kube config env var
+        os.environ[KUBE_CONFIG_PATH_ENV_VAR] = self.kube_config_path
+
+        # ensure kube credentials
+        self.client.juju('scp', ('kubernetes-master/0:config', self.kube_config_path))
+
+        # ensure kubectl by scp from master
+        self.client.juju('scp', ('kubernetes-master/0:/snap/kubectl/current/kubectl', self.kubectl_path))
+
+        self.client.controller_juju('add-k8s', (self.cloud_name,))
+        log.debug('added caas cloud, now all clouds are -> \n%s', self.client.list_clouds(format='yaml'))
+
+    def add_model(self, model_name):
+        return self.client.add_model(env=self.client.env.clone(model_name), cloud_region=self.cloud_name)
+
+    @property
+    def is_cluster_healthy(self):
+        try:
+            cluster_info = self.kubectl('cluster-info')
+            log.debug('cluster_info -> \n%s', cluster_info)
+            nodes_info = self.kubectl('get', 'nodes')
+            log.debug('nodes_info -> \n%s', nodes_info)
+            return True
+        except subprocess.CalledProcessError as e:
+            log.error('error -> %s', e)
+            return False
+
+    def kubectl(self, *args):
+        args = (self.kubectl_path, '--kubeconfig', self.kube_config_path) + args
+        return subprocess.check_output(args, stderr=subprocess.STDOUT).decode('UTF-8').strip()
+
+
 def register_user_interactively(client, token, controller_name):
     """Register a user with the supplied token and controller name.
 
@@ -2272,6 +2327,7 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
         normal operations should complete.  If None, no deadline is
         enforced.
     """
+
     version = ModelClient.get_version(juju_path)
     if config is None:
         env = ModelClient.config_class('', {})

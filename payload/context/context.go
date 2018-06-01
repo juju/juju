@@ -172,7 +172,7 @@ func (c *Context) Track(pl payload.Payload) error {
 		return errors.Trace(err)
 	}
 
-	// TODO(ericsnow) We are likely missing mechanisim for local persistence.
+	// TODO(ericsnow) We are likely missing mechanism for local persistence.
 	id := pl.FullID()
 	c.updates[id] = pl
 	return nil

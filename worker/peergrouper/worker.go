@@ -255,6 +255,7 @@ func (w *pgWorker) loop() error {
 		case <-updateChan:
 			// Scheduled update.
 			logger.Tracef("<-updateChan")
+			updateChan = nil
 		}
 
 		servers := w.apiServerHostPorts()
@@ -290,7 +291,9 @@ func (w *pgWorker) loop() error {
 			// Update the replica set members occasionally to keep them up to
 			// date with the current replica-set member statuses.
 			logger.Tracef("succeeded, waking up after: %v", pollInterval)
-			updateChan = w.config.Clock.After(pollInterval)
+			if updateChan == nil {
+				updateChan = w.config.Clock.After(pollInterval)
+			}
 			retryInterval = initialRetryInterval
 		}
 	}
@@ -604,14 +607,9 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	// Reset machine status for members of the changed peer-group.
 	// Any previous peer-group determination errors result in status
 	// warning messages.
-	// Remove members from the return that are not voters.
 	for id := range desired.members {
 		if err := w.machineTrackers[id].stm.SetStatus(getStatusInfo("")); err != nil {
 			return nil, errors.Trace(err)
-		}
-
-		if !desired.machineVoting[id] {
-			delete(desired.members, id)
 		}
 	}
 	for _, tracker := range info.machines {

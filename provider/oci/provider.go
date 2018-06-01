@@ -13,17 +13,17 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
 	"github.com/juju/utils/clock"
+	ociCore "github.com/oracle/oci-go-sdk/core"
+	ociIdentity "github.com/oracle/oci-go-sdk/identity"
+	"gopkg.in/ini.v1"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	providerCommon "github.com/juju/juju/provider/oci/common"
-	ociCore "github.com/oracle/oci-go-sdk/core"
-	ociIdentity "github.com/oracle/oci-go-sdk/identity"
-
-	"gopkg.in/ini.v1"
 )
 
 var logger = loggo.GetLogger("juju.provider.oracle")
@@ -173,7 +173,7 @@ func (e EnvironProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping implements environs.EnvironProvider.
-func (e *EnvironProvider) Ping(endpoint string) error {
+func (e *EnvironProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 
@@ -241,11 +241,11 @@ func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, er
 	}
 
 	env := &Environ{
-		compute:    compute,
-		networking: networking,
-		storage:    storage,
-		firewall:   networking,
-		identity:   identity,
+		Compute:    compute,
+		Networking: networking,
+		Storage:    storage,
+		Firewall:   networking,
+		Identity:   identity,
 		p:          e,
 		clock:      clock.WallClock,
 	}

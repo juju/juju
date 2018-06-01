@@ -24,6 +24,52 @@ const (
 	RedGracePeriod   = time.Minute * 5
 )
 
+type IsolatedWorkerConfigSuite struct {
+	coretesting.BaseSuite
+
+	stub *testing.Stub
+
+	dataDir string
+}
+
+var _ = gc.Suite(&IsolatedWorkerConfigSuite{})
+
+func (s *IsolatedWorkerConfigSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.stub = &testing.Stub{}
+	s.dataDir = c.MkDir()
+}
+
+func (s *IsolatedWorkerConfigSuite) TestConfigValidation(c *gc.C) {
+	tests := []struct {
+		cfg      meterstatus.IsolatedConfig
+		expected string
+	}{{
+		cfg: meterstatus.IsolatedConfig{
+			Runner:    &stubRunner{stub: s.stub},
+			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
+		},
+		expected: "clock not provided",
+	}, {
+		cfg: meterstatus.IsolatedConfig{
+			Clock:     testing.NewClock(time.Now()),
+			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
+		},
+		expected: "hook runner not provided",
+	}, {
+		cfg: meterstatus.IsolatedConfig{
+			Clock:  testing.NewClock(time.Now()),
+			Runner: &stubRunner{stub: s.stub},
+		},
+		expected: "state file not provided",
+	}}
+	for i, test := range tests {
+		c.Logf("running test %d", i)
+		err := test.cfg.Validate()
+		c.Assert(err, gc.ErrorMatches, test.expected)
+	}
+}
+
 type IsolatedWorkerSuite struct {
 	coretesting.BaseSuite
 
@@ -77,36 +123,6 @@ func (s *IsolatedWorkerSuite) TearDownTest(c *gc.C) {
 	s.worker.Kill()
 	err := s.worker.Wait()
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *IsolatedWorkerSuite) TestConfigValidation(c *gc.C) {
-	tests := []struct {
-		cfg      meterstatus.IsolatedConfig
-		expected string
-	}{{
-		cfg: meterstatus.IsolatedConfig{
-			Runner:    &stubRunner{stub: s.stub},
-			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
-		},
-		expected: "clock not provided",
-	}, {
-		cfg: meterstatus.IsolatedConfig{
-			Clock:     testing.NewClock(time.Now()),
-			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
-		},
-		expected: "hook runner not provided",
-	}, {
-		cfg: meterstatus.IsolatedConfig{
-			Clock:  testing.NewClock(time.Now()),
-			Runner: &stubRunner{stub: s.stub},
-		},
-		expected: "state file not provided",
-	}}
-	for i, test := range tests {
-		c.Logf("running test %d", i)
-		err := test.cfg.Validate()
-		c.Assert(err, gc.ErrorMatches, test.expected)
-	}
 }
 
 func (s *IsolatedWorkerSuite) TestTriggering(c *gc.C) {

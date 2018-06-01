@@ -53,7 +53,7 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 			errorMatch: `--reset accepts a comma delimited set of keys "a,b,c", received: "c=d"`,
 		}, {
 			// Test get
-			desc:   "get all succeds",
+			desc:   "get all succeeds",
 			args:   nil,
 			nilErr: true,
 		}, {

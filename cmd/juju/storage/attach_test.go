@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 type AttachStorageSuite struct {
@@ -25,7 +26,7 @@ func (s *AttachStorageSuite) TestAttach(c *gc.C) {
 		{},
 		{},
 	}}
-	cmd := storage.NewAttachStorageCommand(fake.new)
+	cmd := storage.NewAttachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	ctx, err := cmdtesting.RunCommand(c, cmd, "foo/0", "bar/1", "baz/2")
 	c.Assert(err, jc.ErrorIsNil)
 	fake.CheckCallNames(c, "NewEntityAttacherCloser", "Attach", "Close")
@@ -41,7 +42,7 @@ func (s *AttachStorageSuite) TestAttachError(c *gc.C) {
 		{Error: &params.Error{Message: "foo"}},
 		{Error: &params.Error{Message: "bar"}},
 	}}
-	attachCmd := storage.NewAttachStorageCommand(fake.new)
+	attachCmd := storage.NewAttachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	ctx, err := cmdtesting.RunCommand(c, attachCmd, "baz/0", "qux/1", "quux/2")
 	stderr := cmdtesting.Stderr(ctx)
 	c.Assert(stderr, gc.Equals, `failed to attach qux/1 to baz/0: foo
@@ -53,7 +54,7 @@ failed to attach quux/2 to baz/0: bar
 func (s *AttachStorageSuite) TestAttachUnauthorizedError(c *gc.C) {
 	var fake fakeEntityAttacher
 	fake.SetErrors(nil, &params.Error{Code: params.CodeUnauthorized, Message: "nope"})
-	cmd := storage.NewAttachStorageCommand(fake.new)
+	cmd := storage.NewAttachStorageCommandForTest(fake.new, jujuclienttesting.MinimalStore())
 	ctx, err := cmdtesting.RunCommand(c, cmd, "foo/0", "bar/1")
 	c.Assert(err, gc.ErrorMatches, "nope")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
@@ -69,7 +70,7 @@ func (s *AttachStorageSuite) TestAttachInitErrors(c *gc.C) {
 }
 
 func (s *AttachStorageSuite) testAttachInitError(c *gc.C, args []string, expect string) {
-	cmd := storage.NewAttachStorageCommand(nil)
+	cmd := storage.NewAttachStorageCommandForTest(nil, jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommand(c, cmd, args...)
 	c.Assert(err, gc.ErrorMatches, expect)
 }

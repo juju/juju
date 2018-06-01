@@ -18,7 +18,7 @@ upload-backup sends a backup archive file to remote storage.
 `
 
 // NewUploadCommand returns a command used to send a backup
-// achive file to remote storage.
+// achieve file to remote storage.
 func NewUploadCommand() cmd.Command {
 	return modelcmd.Wrap(&uploadCommand{})
 }

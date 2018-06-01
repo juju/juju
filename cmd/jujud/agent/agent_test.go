@@ -7,18 +7,16 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/juju/paths"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/proxyupdater"
 )
@@ -63,9 +61,7 @@ type AgentSuite struct {
 func (s *AgentSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 
-	s.PatchValue(&cmdutil.EnsureMongoServer, func(mongo.EnsureServerParams) error {
-		return nil
-	})
+	agenttest.InstallFakeEnsureMongo(s)
 }
 
 func (s *AgentSuite) SetUpTest(c *gc.C) {

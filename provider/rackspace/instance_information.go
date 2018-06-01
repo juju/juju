@@ -8,12 +8,13 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 )
 
 var _ environs.InstanceTypesFetcher = (*environ)(nil)
 
-func (e environ) InstanceTypes(c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+func (e environ) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	result := instances.InstanceTypesWithCostMetadata{}
 	return result, errors.NotSupportedf("InstanceTypes")
 }

@@ -14,10 +14,10 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	utilsos "github.com/juju/os"
+	"github.com/juju/os/series"
+	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/featureflag"
-	utilsos "github.com/juju/utils/os"
-	proxyutils "github.com/juju/utils/proxy"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
 	// Import the providers.
@@ -300,18 +300,18 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(status.NewStatusHistoryCommand())
 
 	// Error resolution and debugging commands.
-	r.Register(newDefaultRunCommand())
+	r.Register(newDefaultRunCommand(nil))
 	r.Register(newSCPCommand(nil))
 	r.Register(newSSHCommand(nil, nil))
 	r.Register(application.NewResolvedCommand())
-	r.Register(newDebugLogCommand())
+	r.Register(newDebugLogCommand(nil))
 	r.Register(newDebugHooksCommand(nil))
 
 	// Configuration commands.
 	r.Register(model.NewModelGetConstraintsCommand())
 	r.Register(model.NewModelSetConstraintsCommand())
 	r.Register(newSyncToolsCommand())
-	r.Register(newUpgradeJujuCommand(nil))
+	r.Register(newUpgradeJujuCommand(nil, nil))
 	r.Register(application.NewUpgradeCharmCommand())
 	r.Register(application.NewUpdateSeriesCommand())
 
@@ -389,8 +389,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(application.NewDeployCommand())
 	r.Register(application.NewExposeCommand())
 	r.Register(application.NewUnexposeCommand())
-	r.Register(application.NewServiceGetConstraintsCommand())
-	r.Register(application.NewServiceSetConstraintsCommand())
+	r.Register(application.NewApplicationGetConstraintsCommand())
+	r.Register(application.NewApplicationSetConstraintsCommand())
 
 	// Operation protection commands
 	r.Register(block.NewDisableCommand())
@@ -461,6 +461,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// CAAS commands
 	r.Register(caas.NewAddCAASCommand(&cloudToCommandAdapter{}))
+	r.Register(caas.NewRemoveCAASCommand(&cloudToCommandAdapter{}))
 
 	// Manage Application Credential Access
 	r.Register(application.NewTrustCommand())

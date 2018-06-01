@@ -304,7 +304,7 @@ func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary,
 	}
 	summary.Counts = map[string]int64{}
 	for _, v := range apiSummary.Counts {
-		summary.Counts[string(v.Entity)] = v.Count
+		summary.Counts[v.Entity] = v.Count
 	}
 
 	// If hasMachinesCounts is not yet set, check if we should set it based on this model summary.

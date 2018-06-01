@@ -14,11 +14,6 @@ import (
 )
 
 var baseFields = environschema.Fields{
-	caas.JujuManagedUnits: {
-		Description: "whether Juju manages unit lifecycle or the CAAS substrate",
-		Type:        environschema.Tbool,
-		Group:       environschema.EnvironGroup,
-	},
 	caas.JujuExternalHostNameKey: {
 		Description: "the external hostname of an exposed application",
 		Type:        environschema.Tstring,
@@ -33,7 +28,6 @@ var baseFields = environschema.Fields{
 
 var baseDefaults = schema.Defaults{
 	caas.JujuApplicationPath: "/",
-	caas.JujuManagedUnits:    false,
 }
 
 type ConfigSuite struct {

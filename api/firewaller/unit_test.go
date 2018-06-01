@@ -70,10 +70,10 @@ func (s *unitSuite) TestAssignedMachine(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotAssigned)
 }
 
-func (s *unitSuite) TestService(c *gc.C) {
-	service, err := s.apiUnit.Application()
+func (s *unitSuite) TestApplication(c *gc.C) {
+	application, err := s.apiUnit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(service.Name(), gc.Equals, s.application.Name())
+	c.Assert(application.Name(), gc.Equals, s.application.Name())
 }
 
 func (s *unitSuite) TestName(c *gc.C) {

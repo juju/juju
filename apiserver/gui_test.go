@@ -586,6 +586,7 @@ func (s *guiSuite) TestGUIConfig(c *gc.C) {
 var config = {
     // This is just an example and does not reflect the real Juju GUI config.
     base: '{{.base}}',
+    bakeryEnabled: {{.bakeryEnabled}},
     host: '{{.host}}',
     controllerSocket: '{{.controllerSocket}}',
     socket: '{{.socket}}',
@@ -606,6 +607,7 @@ var config = {
 var config = {
     // This is just an example and does not reflect the real Juju GUI config.
     base: '%[5]s',
+    bakeryEnabled: false,
     host: '%[2]s',
     controllerSocket: '/api',
     socket: '/model/$uuid/api',
@@ -656,6 +658,50 @@ func (s *guiSuite) TestGUIDirectory(c *gc.C) {
 	b, err := ioutil.ReadFile(indexPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(b), gc.Equals, indexContent)
+}
+
+type guiCandidSuite struct {
+	apiserverBaseSuite
+}
+
+var _ = gc.Suite(&guiCandidSuite{})
+
+func (s *guiCandidSuite) SetUpTest(c *gc.C) {
+	s.ControllerConfig = map[string]interface{}{
+		"identity-url": "https://candid.example.com",
+	}
+	s.apiserverBaseSuite.SetUpTest(c)
+}
+
+func (s *guiCandidSuite) TestGUIConfig(c *gc.C) {
+	storage, err := s.State.GUIStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer storage.Close()
+
+	// Create a Juju GUI archive and save it into the storage.
+	configContent := `
+var config = {
+    // This is just an example and does not reflect the real Juju GUI config.
+    bakeryEnabled: {{.bakeryEnabled}},
+};`
+	vers := version.MustParse("2.0.0")
+	hash := setupGUIArchive(c, storage, vers.String(), map[string]string{
+		guiConfigPath: configContent,
+	})
+	err = s.State.GUISetVersion(vers)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedConfigContent := `
+var config = {
+    // This is just an example and does not reflect the real Juju GUI config.
+    bakeryEnabled: true,
+};`
+	// Make a request for the Juju GUI config.
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		URL: s.URL(apiserver.GUIURLPathPrefix+hash+"/config.js", nil).String(),
+	})
+	body := apitesting.AssertResponse(c, resp, http.StatusOK, apiserver.JSMimeType)
+	c.Assert(string(body), gc.Equals, expectedConfigContent)
 }
 
 type guiArchiveSuite struct {

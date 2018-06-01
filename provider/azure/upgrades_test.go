@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
@@ -28,6 +29,8 @@ type environUpgradeSuite struct {
 	sender   azuretesting.Senders
 	provider environs.EnvironProvider
 	env      environs.Environ
+
+	callCtx context.ProviderCallContext
 }
 
 var _ = gc.Suite(&environUpgradeSuite{})
@@ -43,6 +46,7 @@ func (s *environUpgradeSuite) SetUpTest(c *gc.C) {
 		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
 	s.env = openEnviron(c, s.provider, &s.sender)
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *gc.C) {
@@ -51,7 +55,7 @@ func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *gc.C) {
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	ops := upgrader.UpgradeOperations(environs.UpgradeOperationsParams{})
+	ops := upgrader.UpgradeOperations(s.callCtx, environs.UpgradeOperationsParams{})
 	c.Assert(ops, gc.HasLen, 1)
 	c.Assert(ops[0].TargetVersion, gc.Equals, 1)
 	c.Assert(ops[0].Steps, gc.HasLen, 1)
@@ -60,7 +64,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperations(c *gc.C) {
 
 func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(c *gc.C) {
 	upgrader := s.env.(environs.Upgrader)
-	op0 := upgrader.UpgradeOperations(environs.UpgradeOperationsParams{})[0]
+	op0 := upgrader.UpgradeOperations(s.callCtx, environs.UpgradeOperationsParams{})[0]
 
 	// The existing NSG has two rules: one for Juju API traffic,
 	// and an application-specific rule. Only the latter should
@@ -107,7 +111,7 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeployment(
 	deploymentSender := azuretesting.NewSenderWithValue(&resources.Deployment{})
 	deploymentSender.PathPattern = ".*/deployments/common"
 	s.sender = append(s.sender, vmListSender, nsgSender, deploymentSender)
-	c.Assert(op0.Steps[0].Run(), jc.ErrorIsNil)
+	c.Assert(op0.Steps[0].Run(s.callCtx), jc.ErrorIsNil)
 	c.Assert(s.requests, gc.HasLen, 3)
 
 	expectedSecurityRules := []network.SecurityRule{{
@@ -196,6 +200,6 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationCreateCommonDeploymentC
 	vmListSender.PathPattern = ".*/virtualMachines"
 	s.sender = append(s.sender, vmListSender)
 
-	op0 := upgrader.UpgradeOperations(environs.UpgradeOperationsParams{})[0]
-	c.Assert(op0.Steps[0].Run(), jc.ErrorIsNil)
+	op0 := upgrader.UpgradeOperations(s.callCtx, environs.UpgradeOperationsParams{})[0]
+	c.Assert(op0.Steps[0].Run(s.callCtx), jc.ErrorIsNil)
 }

@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/dependency"
@@ -109,15 +109,15 @@ func (mh *manifoldHarness) start(context dependency.Context) (worker.Worker, err
 		}
 	}
 	w := &minimalWorker{tomb.Tomb{}, mh.ignoreExternalKill}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		mh.starts <- struct{}{}
 		select {
 		case <-w.tombDying():
 		case err := <-mh.errors:
-			w.tomb.Kill(err)
+			return err
 		}
-	}()
+		return nil
+	})
 	return w, nil
 }
 
@@ -178,10 +178,10 @@ func (w *minimalWorker) Report() map[string]interface{} {
 
 func startMinimalWorker(_ dependency.Context) (worker.Worker, error) {
 	w := &minimalWorker{}
-	go func() {
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-		w.tomb.Done()
-	}()
+		return nil
+	})
 	return w, nil
 }
 

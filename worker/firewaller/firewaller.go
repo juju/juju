@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/EvilSuperstars/go-cidrman"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
@@ -24,10 +24,12 @@ import (
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/common"
 )
 
 // FirewallerAPI exposes functionality off the firewaller API facade to a worker.
@@ -42,7 +44,7 @@ type FirewallerAPI interface {
 	ControllerAPIInfoForModel(modelUUID string) (*api.Info, error)
 	MacaroonForRelation(relationKey string) (*macaroon.Macaroon, error)
 	SetRelationStatus(relationKey string, status relation.Status, message string) error
-	FirewallRules(serviceNames ...string) ([]params.FirewallRule, error)
+	FirewallRules(applicationNames ...string) ([]params.FirewallRule, error)
 }
 
 // CrossModelFirewallerFacade exposes firewaller functionality on the
@@ -68,7 +70,7 @@ type EnvironFirewaller interface {
 // EnvironInstances defines methods to allow the worker to perform
 // operations on instances in a Juju cloud environment.
 type EnvironInstances interface {
-	Instances(ids []instance.Id) ([]instance.Instance, error)
+	Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error)
 }
 
 type newCrossModelFacadeFunc func(*api.Info) (CrossModelFirewallerFacadeCloser, error)
@@ -85,6 +87,8 @@ type Config struct {
 	NewCrossModelFacadeFunc newCrossModelFacadeFunc
 
 	Clock clock.Clock
+
+	CredentialAPI common.CredentialAPI
 }
 
 // Validate returns an error if cfg cannot drive a Worker.
@@ -106,6 +110,9 @@ func (cfg Config) Validate() error {
 	}
 	if cfg.NewCrossModelFacadeFunc == nil {
 		return errors.NotValidf("nil Cross Model Facade func")
+	}
+	if cfg.CredentialAPI == nil {
+		return errors.NotValidf("nil Credential Facade")
 	}
 	return nil
 }
@@ -139,6 +146,8 @@ type Firewaller struct {
 	relationIngress            map[names.RelationTag]*remoteRelationData
 	relationWorkerRunner       *worker.Runner
 	pollClock                  clock.Clock
+
+	cloudCallContext context.ProviderCallContext
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -150,6 +159,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 	if clk == nil {
 		clk = clock.WallClock
 	}
+
 	fw := &Firewaller{
 		firewallerApi:              cfg.FirewallerAPI,
 		remoteRelationsApi:         cfg.RemoteRelationsApi,
@@ -175,6 +185,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 			// For any failures, try again in 1 minute.
 			RestartDelay: time.Minute,
 		}),
+		cloudCallContext: common.NewCloudCallContext(cfg.CredentialAPI),
 	}
 
 	switch cfg.Mode {
@@ -493,7 +504,7 @@ func (fw *Firewaller) reconcileGlobal() error {
 		machines = append(machines, machined)
 	}
 	want, err := fw.gatherIngressRules(machines...)
-	initialPortRanges, err := fw.environFirewaller.IngressRules()
+	initialPortRanges, err := fw.environFirewaller.IngressRules(fw.cloudCallContext)
 	if err != nil {
 		return err
 	}
@@ -502,13 +513,13 @@ func (fw *Firewaller) reconcileGlobal() error {
 	toOpen, toClose := diffRanges(initialPortRanges, want)
 	if len(toOpen) > 0 {
 		logger.Infof("opening global ports %v", toOpen)
-		if err := fw.environFirewaller.OpenPorts(toOpen); err != nil {
+		if err := fw.environFirewaller.OpenPorts(fw.cloudCallContext, toOpen); err != nil {
 			return err
 		}
 	}
 	if len(toClose) > 0 {
 		logger.Infof("closing global ports %v", toClose)
-		if err := fw.environFirewaller.ClosePorts(toClose); err != nil {
+		if err := fw.environFirewaller.ClosePorts(fw.cloudCallContext, toClose); err != nil {
 			return err
 		}
 	}
@@ -538,7 +549,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if err != nil {
 			return err
 		}
-		instances, err := fw.environInstances.Instances([]instance.Id{instanceId})
+		instances, err := fw.environInstances.Instances(fw.cloudCallContext, []instance.Id{instanceId})
 		if err == environs.ErrNoInstances {
 			return nil
 		}
@@ -552,7 +563,7 @@ func (fw *Firewaller) reconcileInstances() error {
 			return nil
 		}
 
-		initialRules, err := fwInstance.IngressRules(machineId)
+		initialRules, err := fwInstance.IngressRules(fw.cloudCallContext, machineId)
 		if err != nil {
 			return err
 		}
@@ -562,7 +573,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if len(toOpen) > 0 {
 			logger.Infof("opening instance port ranges %v for %q",
 				toOpen, machined.tag)
-			if err := fwInstance.OpenPorts(machineId, toOpen); err != nil {
+			if err := fwInstance.OpenPorts(fw.cloudCallContext, machineId, toOpen); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
@@ -570,7 +581,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if len(toClose) > 0 {
 			logger.Infof("closing instance port ranges %v for %q",
 				toClose, machined.tag)
-			if err := fwInstance.ClosePorts(machineId, toClose); err != nil {
+			if err := fwInstance.ClosePorts(fw.cloudCallContext, machineId, toClose); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
@@ -846,7 +857,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.IngressRule) 
 	}
 	// Open and close the ports.
 	if len(toOpen) > 0 {
-		if err := fw.environFirewaller.OpenPorts(toOpen); err != nil {
+		if err := fw.environFirewaller.OpenPorts(fw.cloudCallContext, toOpen); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -854,7 +865,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.IngressRule) 
 		logger.Infof("opened port ranges %v in environment", toOpen)
 	}
 	if len(toClose) > 0 {
-		if err := fw.environFirewaller.ClosePorts(toClose); err != nil {
+		if err := fw.environFirewaller.ClosePorts(fw.cloudCallContext, toClose); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -890,7 +901,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
-	instances, err := fw.environInstances.Instances([]instance.Id{instanceId})
+	instances, err := fw.environInstances.Instances(fw.cloudCallContext, []instance.Id{instanceId})
 	if err != nil {
 		return err
 	}
@@ -902,7 +913,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 
 	// Open and close the ports.
 	if len(toOpen) > 0 {
-		if err := fwInstance.OpenPorts(machineId, toOpen); err != nil {
+		if err := fwInstance.OpenPorts(fw.cloudCallContext, machineId, toOpen); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -910,7 +921,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 		logger.Infof("opened port ranges %v on %q", toOpen, machined.tag)
 	}
 	if len(toClose) > 0 {
-		if err := fwInstance.ClosePorts(machineId, toClose); err != nil {
+		if err := fwInstance.ClosePorts(fw.cloudCallContext, machineId, toClose); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}

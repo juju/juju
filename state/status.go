@@ -194,9 +194,9 @@ type statusDoc struct {
 	Updated int64 `bson:"updated"`
 
 	// TODO(fwereade/wallyworld): lp:1479278
-	// NeverSet is a short-term hack to work around a misfeature in service
-	// status. To maintain current behaviour, we create service status docs
-	// (and only service status documents) with NeverSet true; and then, when
+	// NeverSet is a short-term hack to work around a misfeature in application
+	// status. To maintain current behaviour, we create application status docs
+	// (and only application status documents) with NeverSet true; and then, when
 	// reading them, if NeverSet is still true, we aggregate status from the
 	// units instead.
 	NeverSet bool `bson:"neverset"`
@@ -276,7 +276,7 @@ type setStatusParams struct {
 	// and will prevent any change if it becomes invalid.
 	token leadership.Token
 
-	// udpated, the time the status was set.
+	// updated, the time the status was set.
 	updated *time.Time
 }
 

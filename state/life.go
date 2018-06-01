@@ -11,7 +11,7 @@ import (
 )
 
 // Life represents the lifecycle state of the entities
-// Relation, Unit, Service and Machine.
+// Relation, Unit, Application and Machine.
 type Life int8
 
 const (

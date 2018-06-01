@@ -20,7 +20,7 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/testing"
@@ -483,7 +483,7 @@ func (s *PresenceSuite) TestSync(c *gc.C) {
 	}
 }
 
-func (s *PresenceSuite) TestTwoEnvironments(c *gc.C) {
+func (s *PresenceSuite) TestTwoModels(c *gc.C) {
 	key := "a"
 	w1, p1, ch1 := s.setup(c, key)
 	defer assertStopped(c, w1)

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"
@@ -26,6 +27,8 @@ type environInstanceSuite struct {
 	testing.BaseSuite
 	cloud      environs.CloudSpec
 	baseConfig *config.Config
+
+	callCtx context.ProviderCallContext
 }
 
 var _ = gc.Suite(&environInstanceSuite{})
@@ -58,6 +61,7 @@ func (s *environInstanceSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { logger.SetLogLevel(ll) })
 
 	mock.Reset()
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func (s *environInstanceSuite) TearDownTest(c *gc.C) {
@@ -89,7 +93,7 @@ func (s *environInstanceSuite) createEnviron(c *gc.C, cfg *config.Config) enviro
 func (s *environInstanceSuite) TestInstances(c *gc.C) {
 	env := s.createEnviron(c, nil)
 
-	instances, err := env.AllInstances()
+	instances, err := env.AllInstances(s.callCtx)
 	c.Assert(instances, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 	c.Check(instances, gc.HasLen, 0)
@@ -99,19 +103,19 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 	addTestClientServer(c, jujuMetaInstanceServer, "other-model")
 	addTestClientServer(c, jujuMetaInstanceController, "other-model")
 
-	instances, err = env.AllInstances()
+	instances, err = env.AllInstances(s.callCtx)
 	c.Assert(instances, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 	c.Check(instances, gc.HasLen, 2)
 
 	ids := []instance.Id{instance.Id(uuid0), instance.Id(uuid1)}
-	instances, err = env.Instances(ids)
+	instances, err = env.Instances(s.callCtx, ids)
 	c.Assert(instances, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 	c.Check(instances, gc.HasLen, 2)
 
 	ids = append(ids, instance.Id("fake-instance"))
-	instances, err = env.Instances(ids)
+	instances, err = env.Instances(s.callCtx, ids)
 	c.Assert(instances, gc.NotNil)
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrPartialInstances)
 	c.Check(instances, gc.HasLen, 3)
@@ -119,10 +123,10 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 	c.Check(instances[1], gc.NotNil)
 	c.Check(instances[2], gc.IsNil)
 
-	err = env.StopInstances(ids...)
+	err = env.StopInstances(s.callCtx, ids...)
 	c.Assert(err, gc.ErrorMatches, "404 Not Found.*")
 
-	instances, err = env.Instances(ids)
+	instances, err = env.Instances(s.callCtx, ids)
 	c.Assert(instances, gc.NotNil)
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
 	c.Check(instances, gc.HasLen, 3)
@@ -145,11 +149,11 @@ func (s *environInstanceSuite) TestInstancesFail(c *gc.C) {
 
 	environ := s.createEnviron(c, nil)
 
-	instances, err := environ.AllInstances()
+	instances, err := environ.AllInstances(s.callCtx)
 	c.Assert(instances, gc.IsNil)
 	c.Assert(err, gc.NotNil)
 
-	instances, err = environ.Instances([]instance.Id{instance.Id("123"), instance.Id("321")})
+	instances, err = environ.Instances(s.callCtx, []instance.Id{instance.Id("123"), instance.Id("321")})
 	c.Assert(instances, gc.IsNil)
 	c.Assert(err, gc.NotNil)
 }
@@ -157,7 +161,7 @@ func (s *environInstanceSuite) TestInstancesFail(c *gc.C) {
 func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 	environ := s.createEnviron(c, nil)
 
-	res, err := environ.StartInstance(environs.StartInstanceParams{})
+	res, err := environ.StartInstance(s.callCtx, environs.StartInstanceParams{})
 	c.Check(res, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "instance configuration is nil")
 
@@ -168,7 +172,7 @@ func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 		URL: "https://0.1.2.3:2000/x.y.z.tgz",
 	}
 
-	res, err = environ.StartInstance(environs.StartInstanceParams{
+	res, err = environ.StartInstance(s.callCtx, environs.StartInstanceParams{
 		InstanceConfig: &instancecfg.InstanceConfig{},
 	})
 	c.Check(res, gc.IsNil)
@@ -177,7 +181,7 @@ func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 	icfg := &instancecfg.InstanceConfig{}
 	err = icfg.SetTools(tools.List{toolsVal})
 	c.Assert(err, jc.ErrorIsNil)
-	res, err = environ.StartInstance(environs.StartInstanceParams{
+	res, err = environ.StartInstance(s.callCtx, environs.StartInstanceParams{
 		Tools:          tools.List{toolsVal},
 		InstanceConfig: icfg,
 	})

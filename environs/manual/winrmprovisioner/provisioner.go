@@ -29,7 +29,7 @@ func ProvisionMachine(args manual.ProvisionMachineArgs) (machineId string, err e
 
 	if err = InitAdministratorUser(&args); err != nil {
 		return "", errors.Annotatef(err,
-			"Cannot provision machine beacuse no WinRM http/https standard listener is enabled for user %q, on host %q",
+			"Cannot provision machine because no WinRM http/https standard listener is enabled for user %q, on host %q",
 			args.User, args.Host)
 	}
 

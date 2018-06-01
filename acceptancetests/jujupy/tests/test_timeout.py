@@ -5,9 +5,15 @@ import random
 from signal import SIGTERM
 from unittest import TestCase
 
-from mock import (
-    call,
-    patch,
+try:
+    from mock import (
+        call,
+        patch,
+    )
+except ImportError:
+    from unittest.mock import (
+        call,
+        patch,
     )
 
 from jujupy.timeout import (

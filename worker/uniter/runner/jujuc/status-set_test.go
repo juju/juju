@@ -90,7 +90,7 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 	}
 }
 
-func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
+func (s *statusSetSuite) TestApplicationStatus(c *gc.C) {
 	for i, args := range [][]string{
 		[]string{"--application", "maintenance", "doing some work"},
 		[]string{"--application", "active", ""},

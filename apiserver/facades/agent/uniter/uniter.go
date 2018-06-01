@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/loggo"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
-	"github.com/juju/utils/set"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
@@ -2114,7 +2114,10 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		// default to the first ingress address. This matches the behaviour when
 		// there's a relation in place.
 		if len(info.EgressSubnets) == 0 && len(info.IngressAddresses) > 0 {
-			info.EgressSubnets = network.FormatAsCIDR([]string{info.IngressAddresses[0]})
+			info.EgressSubnets, err = network.FormatAsCIDR([]string{info.IngressAddresses[0]})
+			if err != nil {
+				return result, errors.Trace(err)
+			}
 		}
 
 		result.Results[binding] = info

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/instance"
 	coretesting "github.com/juju/juju/testing"
@@ -22,6 +23,8 @@ import (
 type baseEnvironSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	env *manualEnviron
+
+	callCtx context.ProviderCallContext
 }
 
 func (s *baseEnvironSuite) SetUpTest(c *gc.C) {
@@ -32,6 +35,7 @@ func (s *baseEnvironSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(*manualEnviron)
+	s.callCtx = context.NewCloudCallContext()
 }
 
 type environSuite struct {
@@ -43,25 +47,25 @@ var _ = gc.Suite(&environSuite{})
 func (s *environSuite) TestInstances(c *gc.C) {
 	var ids []instance.Id
 
-	instances, err := s.env.Instances(ids)
+	instances, err := s.env.Instances(s.callCtx, ids)
 	c.Assert(err, gc.Equals, environs.ErrNoInstances)
 	c.Assert(instances, gc.HasLen, 0)
 
 	ids = append(ids, BootstrapInstanceId)
-	instances, err = s.env.Instances(ids)
+	instances, err = s.env.Instances(s.callCtx, ids)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 	c.Assert(instances[0], gc.NotNil)
 
 	ids = append(ids, BootstrapInstanceId)
-	instances, err = s.env.Instances(ids)
+	instances, err = s.env.Instances(s.callCtx, ids)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 2)
 	c.Assert(instances[0], gc.NotNil)
 	c.Assert(instances[1], gc.NotNil)
 
 	ids = append(ids, instance.Id("invalid"))
-	instances, err = s.env.Instances(ids)
+	instances, err = s.env.Instances(s.callCtx, ids)
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(instances, gc.HasLen, 3)
 	c.Assert(instances[0], gc.NotNil)
@@ -69,7 +73,7 @@ func (s *environSuite) TestInstances(c *gc.C) {
 	c.Assert(instances[2], gc.IsNil)
 
 	ids = []instance.Id{instance.Id("invalid")}
-	instances, err = s.env.Instances(ids)
+	instances, err = s.env.Instances(s.callCtx, ids)
 	c.Assert(err, gc.Equals, environs.ErrNoInstances)
 	c.Assert(instances, gc.HasLen, 1)
 	c.Assert(instances[0], gc.IsNil)
@@ -141,7 +145,7 @@ exit 0
 	for i, t := range tests {
 		c.Logf("test %d: %v", i, t)
 		resultStdout, resultErr = t.stdout, t.err
-		err := s.env.DestroyController("controller-uuid")
+		err := s.env.DestroyController(s.callCtx, "controller-uuid")
 		if t.match == "" {
 			c.Assert(err, jc.ErrorIsNil)
 		} else {
@@ -222,7 +226,7 @@ func (s *controllerInstancesSuite) TestControllerInstances(c *gc.C) {
 		c.Logf("test %d", i)
 		outputResult = test.output
 		errResult = test.err
-		instances, err := s.env.ControllerInstances("not-used")
+		instances, err := s.env.ControllerInstances(s.callCtx, "not-used")
 		if test.expectedErr == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(instances, gc.DeepEquals, []instance.Id{BootstrapInstanceId})
@@ -236,14 +240,14 @@ func (s *controllerInstancesSuite) TestControllerInstances(c *gc.C) {
 func (s *controllerInstancesSuite) TestControllerInstancesStderr(c *gc.C) {
 	// Stderr should not affect the behaviour of ControllerInstances.
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 0")
-	_, err := s.env.ControllerInstances("not-used")
+	_, err := s.env.ControllerInstances(s.callCtx, "not-used")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *controllerInstancesSuite) TestControllerInstancesError(c *gc.C) {
 	// If the ssh execution fails, its stderr will be captured in the error message.
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
-	_, err := s.env.ControllerInstances("not-used")
+	_, err := s.env.ControllerInstances(s.callCtx, "not-used")
 	c.Assert(err, gc.ErrorMatches, "abc: .*")
 }
 
@@ -253,7 +257,7 @@ func (s *controllerInstancesSuite) TestControllerInstancesInternal(c *gc.C) {
 	// Patch the ssh executable so that it would cause an error if we
 	// were to call it.
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
-	instances, err := s.env.ControllerInstances("not-used")
+	instances, err := s.env.ControllerInstances(s.callCtx, "not-used")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.DeepEquals, []instance.Id{BootstrapInstanceId})
 }

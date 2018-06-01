@@ -13,7 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/voyeur"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/dependency"
@@ -62,10 +62,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Annotate(err, "parsing initial certificate")
 			}
 
-			go func() {
-				defer w.tomb.Done()
-				w.tomb.Kill(w.loop())
-			}()
+			w.tomb.Go(w.loop)
 			return w, nil
 		},
 		Output: outputFunc,

@@ -4,8 +4,8 @@
 package oracle_test
 
 import (
+	jujuos "github.com/juju/os"
 	gitjujutesting "github.com/juju/testing"
-	jujuos "github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"

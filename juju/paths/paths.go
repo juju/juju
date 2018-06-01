@@ -5,8 +5,8 @@
 package paths
 
 import (
-	jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/series"
+	jujuos "github.com/juju/os"
+	"github.com/juju/os/series"
 )
 
 type osVarType int
@@ -61,7 +61,7 @@ var winVals = map[osVarType]string{
 }
 
 // osVal will lookup the value of the key valname
-// in the apropriate map, based on the series. This will
+// in the appropriate map, based on the series. This will
 // help reduce boilerplate code
 func osVal(ser string, valname osVarType) (string, error) {
 	os, err := series.GetOSFromSeries(ser)

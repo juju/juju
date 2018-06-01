@@ -12,7 +12,7 @@ import (
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
+	"github.com/juju/naturalsort"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 
@@ -187,7 +187,7 @@ func uploadCharms(config UploadBinariesConfig) error {
 	// It is critical that charms are uploaded in ascending charm URL
 	// order so that charm revisions end up the same in the target as
 	// they were in the source.
-	utils.SortStringsNaturally(config.Charms)
+	naturalsort.Sort(config.Charms)
 
 	for _, charmURL := range config.Charms {
 		logger.Debugf("sending charm %s to target", charmURL)

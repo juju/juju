@@ -8,8 +8,8 @@ import (
 	"net"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs"
@@ -36,19 +36,21 @@ func (st *State) ReloadSpaces(environ environs.Environ) error {
 	if !ok {
 		return errors.NotSupportedf("spaces discovery in a non-networking environ")
 	}
-	canDiscoverSpaces, err := netEnviron.SupportsSpaceDiscovery()
+
+	ctx := CallContext(st)
+	canDiscoverSpaces, err := netEnviron.SupportsSpaceDiscovery(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if canDiscoverSpaces {
-		spaces, err := netEnviron.Spaces()
+		spaces, err := netEnviron.Spaces(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return errors.Trace(st.SaveSpacesFromProvider(spaces))
 	} else {
 		logger.Debugf("environ does not support space discovery, falling back to subnet discovery")
-		subnets, err := netEnviron.Subnets(instance.UnknownId, nil)
+		subnets, err := netEnviron.Subnets(ctx, instance.UnknownId, nil)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -189,7 +191,7 @@ func (st *State) SaveSpacesFromProvider(providerSpaces []network.SpaceInfo) erro
 		} else {
 			// The space is new, we need to create a valid name for it
 			// in state.
-			spaceName := string(space.Name)
+			spaceName := space.Name
 			// Convert the name into a valid name that isn't already in
 			// use.
 			spaceName = network.ConvertSpaceName(spaceName, spaceNames)

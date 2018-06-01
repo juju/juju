@@ -7,14 +7,15 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"github.com/juju/utils/set"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
@@ -309,15 +310,15 @@ func parseFilesystemId(id string) (lxdPool, volumeName string, _ error) {
 }
 
 func destroyControllerFilesystems(env *environ, controllerUUID string) error {
-	return destroyFilesystems(env, func(v api.StorageVolume) bool {
+	return errors.Trace(destroyFilesystems(env, func(v api.StorageVolume) bool {
 		return v.Config["user."+tags.JujuController] == env.Config().UUID()
-	})
+	}))
 }
 
 func destroyModelFilesystems(env *environ) error {
-	return destroyFilesystems(env, func(v api.StorageVolume) bool {
+	return errors.Trace(destroyFilesystems(env, func(v api.StorageVolume) bool {
 		return v.Config["user."+tags.JujuModel] == env.Config().UUID()
-	})
+	}))
 }
 
 func destroyFilesystems(env *environ, match func(api.StorageVolume) bool) error {
@@ -415,7 +416,7 @@ func (s *lxdFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachm
 		instanceIdsSeen.Add(string(arg.InstanceId))
 		instanceIds = append(instanceIds, arg.InstanceId)
 	}
-	instances, err := s.env.Instances(instanceIds)
+	instances, err := s.env.Instances(context.NewCloudCallContext(), instanceIds)
 	switch err {
 	case nil, environs.ErrPartialInstances, environs.ErrNoInstances:
 	default:
@@ -498,7 +499,7 @@ func (s *lxdFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachm
 		instanceIdsSeen.Add(string(arg.InstanceId))
 		instanceIds = append(instanceIds, arg.InstanceId)
 	}
-	instances, err := s.env.Instances(instanceIds)
+	instances, err := s.env.Instances(context.NewCloudCallContext(), instanceIds)
 	switch err {
 	case nil, environs.ErrPartialInstances, environs.ErrNoInstances:
 	default:

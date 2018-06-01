@@ -17,6 +17,9 @@ import (
 )
 
 // FakeBackups is an implementation of Backups to use for testing.
+// TODO: (hml) 2018-04-25
+// Let's change FakeBackups to using gomock or base.APICaller.
+// Checking calls made and arguments is a pain.
 type FakeBackups struct {
 	// Calls contains the order in which methods were called.
 	Calls []string
@@ -29,6 +32,8 @@ type FakeBackups struct {
 	Archive io.ReadCloser
 	// Error holds the error to return.
 	Error error
+	// Filename holds the name of the file to return.
+	Filename string
 
 	// IDArg holds the ID that was passed in.
 	IDArg string
@@ -40,28 +45,39 @@ type FakeBackups struct {
 	MetaArg *backups.Metadata
 	// PrivateAddr Holds the address for the internal network of the machine.
 	PrivateAddr string
-	// InstanceId Is the id of the machine to be restored.
+	// InstanceId is the id of the machine to be restored.
 	InstanceId instance.Id
 	// ArchiveArg holds the backup archive that was passed in.
 	ArchiveArg io.Reader
+	// KeepCopy holds the keepCopy bool that was passed in.
+	KeepCopy bool
+	// NoDownload holds the noDownload bool that was passed in.
+	NoDownload bool
 }
 
 var _ backups.Backups = (*FakeBackups)(nil)
 
 // Create creates and stores a new juju backup archive and returns
 // its associated metadata.
-func (b *FakeBackups) Create(meta *backups.Metadata, paths *backups.Paths, dbInfo *backups.DBInfo) error {
+func (b *FakeBackups) Create(
+	meta *backups.Metadata,
+	paths *backups.Paths,
+	dbInfo *backups.DBInfo,
+	keepCopy, noDownload bool,
+) (string, error) {
 	b.Calls = append(b.Calls, "Create")
 
 	b.PathsArg = paths
 	b.DBInfoArg = dbInfo
 	b.MetaArg = meta
+	b.KeepCopy = keepCopy
+	b.NoDownload = noDownload
 
 	if b.Meta != nil {
 		*meta = *b.Meta
 	}
 
-	return b.Error
+	return b.Filename, b.Error
 }
 
 // Add stores the backup and returns its new ID.

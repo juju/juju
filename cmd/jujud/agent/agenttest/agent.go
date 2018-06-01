@@ -9,12 +9,13 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -81,7 +82,7 @@ func (f *FakeEnsureMongo) CurrentConfig(*mgo.Session) (*replicaset.Config, error
 	}, nil
 }
 
-func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
+func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) (mongo.Version, error) {
 	f.EnsureCount++
 	f.DataDir, f.OplogSize = args.DataDir, args.OplogSize
 	f.Info = state.StateServingInfo{
@@ -93,7 +94,15 @@ func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
 		SharedSecret:   args.SharedSecret,
 		SystemIdentity: args.SystemIdentity,
 	}
-	return f.Err
+	v, err := gitjujutesting.MongodVersion()
+	if err != nil {
+		return mongo.Version{}, errors.Trace(err)
+	}
+	return mongo.Version{
+		Major: v.Major,
+		Minor: v.Minor,
+		Patch: fmt.Sprint(v.Patch),
+	}, f.Err
 }
 
 func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams) error {

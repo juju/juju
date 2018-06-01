@@ -51,7 +51,7 @@ const pingTimeout = 30 * time.Second
 const modelRoot = "/model/"
 
 // Use a 64k frame size for the websockets while we need to deal
-// with x/net/websocket connections that don't deal with recieving
+// with x/net/websocket connections that don't deal with receiving
 // fragmented messages.
 const websocketFrameSize = 65536
 
@@ -657,8 +657,25 @@ func gorillaDialWebsocket(ctx context.Context, urlStr string, tlsConfig *tls.Con
 // specified addresses will be attempted concurrently, and the first
 // successful connection will be returned.
 func dialWebsocketMulti(ctx context.Context, addrs []string, path string, opts dialOpts) (*dialResult, error) {
+	// Prioritise non-dial errors over the normal "connection refused".
+	isDialError := func(err error) bool {
+		netErr, ok := errors.Cause(err).(*net.OpError)
+		if !ok {
+			return false
+		}
+		return netErr.Op == "dial"
+	}
+	combine := func(initial, other error) error {
+		if initial == nil || isDialError(initial) {
+			return other
+		}
+		if isDialError(other) {
+			return initial
+		}
+		return other
+	}
 	// Dial all addresses at reasonable intervals.
-	try := parallel.NewTry(0, nil)
+	try := parallel.NewTry(0, combine)
 	defer try.Kill()
 	// Make a context that's cancelled when the try
 	// completes so that (for example) a slow DNS

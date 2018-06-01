@@ -62,7 +62,7 @@ type Snapshot struct {
 	UpdateStatusVersion int
 
 	// Actions is the list of pending actions to
-	// be peformed by this unit.
+	// be performed by this unit.
 	Actions []string
 
 	// Commands is the list of IDs of commands to be

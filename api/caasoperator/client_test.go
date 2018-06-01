@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 )
 
 type operatorSuite struct {
@@ -148,24 +149,30 @@ func (s *operatorSuite) TestSetPodSpecInvalidEntityame(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
 
-func (s *operatorSuite) TestModelName(c *gc.C) {
+func (s *operatorSuite) TestModel(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASOperator")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ModelName")
+		c.Check(request, gc.Equals, "CurrentModel")
 		c.Check(arg, gc.IsNil)
-		c.Assert(result, gc.FitsTypeOf, &params.StringResult{})
-		*(result.(*params.StringResult)) = params.StringResult{
-			Result: "some-model",
+		c.Assert(result, gc.FitsTypeOf, &params.ModelResult{})
+		*(result.(*params.ModelResult)) = params.ModelResult{
+			Name: "some-model",
+			UUID: "deadbeef",
+			Type: "iaas",
 		}
 		return nil
 	})
 
 	client := caasoperator.NewClient(apiCaller)
-	name, err := client.ModelName()
+	m, err := client.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, "some-model")
+	c.Assert(m, jc.DeepEquals, &model.Model{
+		Name:      "some-model",
+		UUID:      "deadbeef",
+		ModelType: model.IAAS,
+	})
 }
 
 func (s *operatorSuite) TestWatchUnits(c *gc.C) {
@@ -192,6 +199,42 @@ func (s *operatorSuite) TestWatchUnits(c *gc.C) {
 	watcher, err := client.WatchUnits("gitlab")
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
+}
+
+func (s *operatorSuite) TestRemoveUnit(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperator")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "Remove")
+		c.Check(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "unit-gitlab-0",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		called = true
+		return nil
+	})
+
+	client := caasoperator.NewClient(apiCaller)
+	err := client.RemoveUnit("gitlab/0")
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *operatorSuite) TestRemoveUnitInvalidUnitame(c *gc.C) {
+	client := caasoperator.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
+		return errors.New("should not be called")
+	}))
+	err := client.RemoveUnit("")
+	c.Assert(err, gc.ErrorMatches, `unit name "" not valid`)
 }
 
 func (s *operatorSuite) TestLife(c *gc.C) {

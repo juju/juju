@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/feature"
@@ -60,20 +61,20 @@ var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
 // MaintainInstance is specified in the InstanceBroker interface.
-func (*manualEnviron) MaintainInstance(args environs.StartInstanceParams) error {
+func (*manualEnviron) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
 	return nil
 }
 
-func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (*manualEnviron) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	return nil, errNoStartInstance
 }
 
-func (*manualEnviron) StopInstances(...instance.Id) error {
+func (*manualEnviron) StopInstances(context.ProviderCallContext, ...instance.Id) error {
 	return errNoStopInstance
 }
 
-func (e *manualEnviron) AllInstances() ([]instance.Instance, error) {
-	return e.Instances([]instance.Id{BootstrapInstanceId})
+func (e *manualEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+	return e.Instances(ctx, []instance.Id{BootstrapInstanceId})
 }
 
 func (e *manualEnviron) envConfig() (cfg *environConfig) {
@@ -96,12 +97,12 @@ func (e *manualEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error
 }
 
 // Create is part of the Environ interface.
-func (e *manualEnviron) Create(environs.CreateParams) error {
+func (e *manualEnviron) Create(context.ProviderCallContext, environs.CreateParams) error {
 	return nil
 }
 
 // Bootstrap is part of the Environ interface.
-func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	provisioned, err := sshprovisioner.CheckProvisioned(e.host)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to check provisioned status")
@@ -131,7 +132,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 }
 
 // ControllerInstances is specified in the Environ interface.
-func (e *manualEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
+func (e *manualEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	if !isRunningController() {
 		// Not running inside the controller, so we must
 		// verify the host.
@@ -174,7 +175,7 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 }
 
 // AdoptResources is part of the Environ interface.
-func (e *manualEnviron) AdoptResources(controllerUUID string, fromVersion version.Number) error {
+func (e *manualEnviron) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	// This provider doesn't track instance -> controller.
 	return nil
 }
@@ -190,12 +191,12 @@ func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// Implements environs.Environ.
+// Instances implements environs.Environ.
 //
 // This method will only ever return an Instance for the Id
 // BootstrapInstanceId. If any others are specified, then
 // ErrPartialInstances or ErrNoInstances will result.
-func (e *manualEnviron) Instances(ids []instance.Id) (instances []instance.Instance, err error) {
+func (e *manualEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) (instances []instance.Instance, err error) {
 	instances = make([]instance.Instance, len(ids))
 	var found bool
 	for i, id := range ids {
@@ -228,7 +229,7 @@ var runSSHCommand = func(host string, command []string, stdin string) (stdout, s
 }
 
 // Destroy implements the Environ interface.
-func (e *manualEnviron) Destroy() error {
+func (e *manualEnviron) Destroy(ctx context.ProviderCallContext) error {
 	// There is nothing we can do for manual environments,
 	// except when destroying the controller as a whole
 	// (see DestroyController below).
@@ -236,7 +237,7 @@ func (e *manualEnviron) Destroy() error {
 }
 
 // DestroyController implements the Environ interface.
-func (e *manualEnviron) DestroyController(controllerUUID string) error {
+func (e *manualEnviron) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
 	script := `
 # Signal the jujud process to stop, then check it has done so before cleaning-up
 # after it.
@@ -314,7 +315,7 @@ exit 0
 	return err
 }
 
-func (*manualEnviron) PrecheckInstance(environs.PrecheckInstanceParams) error {
+func (*manualEnviron) PrecheckInstance(context.ProviderCallContext, environs.PrecheckInstanceParams) error {
 	return errors.New(`use "juju add-machine ssh:[user@]<host>" to provision machines`)
 }
 
@@ -357,15 +358,15 @@ func (e *manualEnviron) seriesAndHardwareCharacteristics() (_ *instance.Hardware
 	return e.hw, e.series, nil
 }
 
-func (e *manualEnviron) OpenPorts(rules []network.IngressRule) error {
+func (e *manualEnviron) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
 	return nil
 }
 
-func (e *manualEnviron) ClosePorts(rules []network.IngressRule) error {
+func (e *manualEnviron) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
 	return nil
 }
 
-func (e *manualEnviron) IngressRules() ([]network.IngressRule, error) {
+func (e *manualEnviron) IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
 	return nil, nil
 }
 

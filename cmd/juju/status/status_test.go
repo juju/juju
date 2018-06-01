@@ -23,11 +23,13 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
@@ -423,8 +425,8 @@ var statusTests = []testCase{
 
 		addMachine{machineId: "0", job: state.JobManageModel},
 		expect{
-			"simulate juju bootstrap by adding machine/0 to the state",
-			M{
+			what: "simulate juju bootstrap by adding machine/0 to the state",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": M{
@@ -442,6 +444,9 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
@@ -451,8 +456,8 @@ var statusTests = []testCase{
 			network.NewAddress("10.0.0.2"),
 		}},
 		expect{
-			"simulate the PA starting an instance in response to the state change",
-			M{
+			what: "simulate the PA starting an instance in response to the state change",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": M{
@@ -485,13 +490,16 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
 		setMachineStatus{"0", status.Started, ""},
 		expect{
-			"simulate the MA started and set the machine status",
-			M{
+			what: "simulate the MA started and set the machine status",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": M{
@@ -524,13 +532,16 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
 		setTools{"0", version.MustParseBinary("1.2.3-trusty-ppc")},
 		expect{
-			"simulate the MA setting the version",
-			M{
+			what: "simulate the MA setting the version",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": M{
@@ -564,6 +575,9 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -577,8 +591,8 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		expect{
-			"machine 0 has specific hardware characteristics",
-			M{
+			what: "machine 0 has specific hardware characteristics",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": M{
@@ -612,6 +626,9 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -621,8 +638,8 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		expect{
-			"machine 0 has no dns-name",
-			M{
+			what: "machine 0 has no dns-name",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": M{
@@ -642,6 +659,9 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -649,8 +669,8 @@ var statusTests = []testCase{
 		"test pending and missing machines",
 		addMachine{machineId: "0", job: state.JobManageModel},
 		expect{
-			"machine 0 reports pending",
-			M{
+			what: "machine 0 reports pending",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": M{
@@ -668,13 +688,16 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
 		startMissingMachine{"0"},
 		expect{
-			"machine 0 reports missing",
-			M{
+			what: "machine 0 reports missing",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": M{
@@ -694,6 +717,9 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -708,8 +734,8 @@ var statusTests = []testCase{
 		addService{name: "dummy-application", charm: "dummy"},
 		addService{name: "exposed-application", charm: "dummy"},
 		expect{
-			"no applications exposed yet",
-			M{
+			what: "no applications exposed yet",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -718,14 +744,17 @@ var statusTests = []testCase{
 					"dummy-application":   unexposedService,
 					"exposed-application": unexposedService,
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
 		// step 8
 		setServiceExposed{"exposed-application", true},
 		expect{
-			"one exposed application",
-			M{
+			what: "one exposed application",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -733,6 +762,9 @@ var statusTests = []testCase{
 				"applications": M{
 					"dummy-application":   unexposedService,
 					"exposed-application": exposedService,
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -747,8 +779,8 @@ var statusTests = []testCase{
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.Started, ""},
 		expect{
-			"two more machines added",
-			M{
+			what: "two more machines added",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -758,6 +790,9 @@ var statusTests = []testCase{
 				"applications": M{
 					"dummy-application":   unexposedService,
 					"exposed-application": exposedService,
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -779,8 +814,8 @@ var statusTests = []testCase{
 		setAgentStatus{"dummy-application/0", status.Idle, "", nil},
 
 		expect{
-			"add two units, one alive (in error state), one started",
-			M{
+			what: "add two units, one alive (in error state), one started",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -835,6 +870,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
@@ -852,8 +890,8 @@ var statusTests = []testCase{
 		addMachine{machineId: "5", job: state.JobHostUnits},
 		ensureDeadMachine{"5"},
 		expect{
-			"add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
-			M{
+			what: "add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -967,14 +1005,17 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
 		// step 41
 		scopedExpect{
-			"scope status on dummy-application/0 unit",
-			[]string{"dummy-application/0"},
-			M{
+			what:  "scope status on dummy-application/0 unit",
+			scope: []string{"dummy-application/0"},
+			output: M{
 				"model": model,
 				"machines": M{
 					"1": machine1,
@@ -1001,12 +1042,15 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 		scopedExpect{
-			"scope status on exposed-application application",
-			[]string{"exposed-application"},
-			M{
+			what:  "scope status on exposed-application application",
+			scope: []string{"exposed-application"},
+			output: M{
 				"model": model,
 				"machines": M{
 					"2": machine2,
@@ -1039,12 +1083,15 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 		scopedExpect{
-			"scope status on application pattern",
-			[]string{"d*-application"},
-			M{
+			what:  "scope status on application pattern",
+			scope: []string{"d*-application"},
+			output: M{
 				"model": model,
 				"machines": M{
 					"1": machine1,
@@ -1071,12 +1118,15 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 		scopedExpect{
-			"scope status on unit pattern",
-			[]string{"e*posed-application/*"},
-			M{
+			what:  "scope status on unit pattern",
+			scope: []string{"e*posed-application/*"},
+			output: M{
 				"model": model,
 				"machines": M{
 					"2": machine2,
@@ -1109,12 +1159,15 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 		scopedExpect{
-			"scope status on combination of application and unit patterns",
-			[]string{"exposed-application", "dummy-application", "e*posed-application/*", "dummy-application/*"},
-			M{
+			what:  "scope status on combination of application and unit patterns",
+			scope: []string{"exposed-application", "dummy-application", "e*posed-application/*", "dummy-application/*"},
+			output: M{
 				"model": model,
 				"machines": M{
 					"1": machine1,
@@ -1167,6 +1220,9 @@ var statusTests = []testCase{
 							},
 						},
 					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -1198,8 +1254,8 @@ var statusTests = []testCase{
 			map[string]interface{}{"relation-id": 0}},
 
 		expect{
-			"a unit with a hook relation error",
-			M{
+			what: "a unit with a hook relation error",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -1256,6 +1312,9 @@ var statusTests = []testCase{
 							},
 						},
 					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -1287,8 +1346,8 @@ var statusTests = []testCase{
 			map[string]interface{}{"relation-id": 0}},
 
 		expect{
-			"a unit with a hook relation error when the agent is down",
-			M{
+			what: "a unit with a hook relation error when the agent is down",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -1346,6 +1405,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -1357,8 +1419,8 @@ var statusTests = []testCase{
 		addAliveUnit{"dummy-application", "0"},
 		ensureDyingService{"dummy-application"},
 		expect{
-			"application shows life==dying",
-			M{
+			what: "application shows life==dying",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": M{
@@ -1399,6 +1461,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -1413,8 +1478,8 @@ var statusTests = []testCase{
 		setAgentStatus{"dummy-application/0", status.Idle, "", nil},
 		setUnitStatus{"dummy-application/0", status.Active, "", nil},
 		expect{
-			"unit shows that agent is lost",
-			M{
+			what: "unit shows that agent is lost",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": M{
@@ -1454,6 +1519,9 @@ var statusTests = []testCase{
 							},
 						},
 					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -1512,8 +1580,8 @@ var statusTests = []testCase{
 		relateServices{"private", "mysql", ""},
 
 		expect{
-			"multiples services with relations between some of them",
-			M{
+			what: "multiples services with relations between some of them",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -1631,6 +1699,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -1670,8 +1741,8 @@ var statusTests = []testCase{
 		setUnitAsLeader{"riak/1"},
 
 		expect{
-			"multiples related peer units",
-			M{
+			what: "multiples related peer units",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -1736,6 +1807,9 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -1791,8 +1865,8 @@ var statusTests = []testCase{
 		setUnitAsLeader{"wordpress/0"},
 
 		expect{
-			"multiples related peer units",
-			M{
+			what: "multiples related peer units",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -1882,14 +1956,17 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
 		// scoped on 'logging'
 		scopedExpect{
-			"subordinates scoped on logging",
-			[]string{"logging"},
-			M{
+			what:  "subordinates scoped on logging",
+			scope: []string{"logging"},
+			output: M{
 				"model": model,
 				"machines": M{
 					"1": machine1,
@@ -1978,14 +2055,17 @@ var statusTests = []testCase{
 					}),
 					"logging": loggingCharm,
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
 		// scoped on wordpress/0
 		scopedExpect{
-			"subordinates scoped on wordpress",
-			[]string{"wordpress/0"},
-			M{
+			what:  "subordinates scoped on wordpress",
+			scope: []string{"wordpress/0"},
+			output: M{
 				"model": model,
 				"machines": M{
 					"1": machine1,
@@ -2031,6 +2111,9 @@ var statusTests = []testCase{
 						},
 					}),
 					"logging": loggingCharm,
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -2072,8 +2155,8 @@ var statusTests = []testCase{
 		setMachineStatus{"1/lxd/0/lxd/0", status.Started, ""},
 
 		expect{
-			"machines with nested containers",
-			M{
+			what: "machines with nested containers",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -2114,14 +2197,17 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 
 		// step 27: once again, with a scope on mysql/1
 		scopedExpect{
-			"machines with nested containers 2",
-			[]string{"mysql/1"},
-			M{
+			what:  "machines with nested containers 2",
+			scope: []string{"mysql/1"},
+			output: M{
 				"model": model,
 				"machines": M{
 					"1": M{
@@ -2195,6 +2281,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2215,8 +2304,8 @@ var statusTests = []testCase{
 		addAliveUnit{"mysql", "1"},
 
 		expect{
-			"services and units with correct charm status",
-			M{
+			what: "services and units with correct charm status",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -2248,6 +2337,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2270,8 +2362,8 @@ var statusTests = []testCase{
 		setServiceCharm{"mysql", "local:quantal/mysql-1"},
 
 		expect{
-			"services and units with correct charm status",
-			M{
+			what: "services and units with correct charm status",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -2303,6 +2395,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2326,8 +2421,8 @@ var statusTests = []testCase{
 		addCharmPlaceholder{"mysql", 23},
 
 		expect{
-			"services and units with correct charm status",
-			M{
+			what: "services and units with correct charm status",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -2360,6 +2455,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2383,8 +2481,8 @@ var statusTests = []testCase{
 		addCharmPlaceholder{"mysql", 23},
 
 		expect{
-			"services and units with correct charm status",
-			M{
+			what: "services and units with correct charm status",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -2415,6 +2513,9 @@ var statusTests = []testCase{
 							},
 						},
 					}),
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -2474,8 +2575,8 @@ var statusTests = []testCase{
 		setUnitMeterStatus{"servicewithmeterstatus/2", "RED", "test red status"},
 
 		expect{
-			"simulate just the two services and a bootstrap node",
-			M{
+			what: "simulate just the two services and a bootstrap node",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -2560,6 +2661,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2567,8 +2671,8 @@ var statusTests = []testCase{
 		"upgrade available",
 		setToolsUpgradeAvailable{},
 		expect{
-			"upgrade availability should be shown in model-status",
-			M{
+			what: "upgrade availability should be shown in model-status",
+			output: M{
 				"model": M{
 					"name":              "controller",
 					"type":              "iaas",
@@ -2585,7 +2689,11 @@ var statusTests = []testCase{
 				},
 				"machines":     M{},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
+			stderr: "Model \"controller\" is empty.\n",
 		},
 	),
 	test( // 19
@@ -2606,8 +2714,8 @@ var statusTests = []testCase{
 		setUnitWorkloadVersion{"mysql/0", "the best!"},
 
 		expect{
-			"application and unit with correct workload version",
-			M{
+			what: "application and unit with correct workload version",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -2638,6 +2746,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2666,8 +2777,8 @@ var statusTests = []testCase{
 		setUnitWorkloadVersion{"mysql/1", "not as good"},
 
 		expect{
-			"application and unit with correct workload version",
-			M{
+			what: "application and unit with correct workload version",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -2712,6 +2823,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2729,13 +2843,16 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		expect{
-			"machine 0 has localhost addresses that should not display",
-			M{
+			what: "machine 0 has localhost addresses that should not display",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2752,8 +2869,8 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		expect{
-			"machine 0 has an IPv6 address",
-			M{
+			what: "machine 0 has an IPv6 address",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": M{
@@ -2782,6 +2899,9 @@ var statusTests = []testCase{
 					},
 				},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2805,8 +2925,8 @@ var statusTests = []testCase{
 		relateServices{"wordpress", "hosted-mysql", ""},
 
 		expect{
-			"a remote application",
-			M{
+			what: "a remote application",
+			output: M{
 				"model": model,
 				"machines": M{
 					"0": machine0,
@@ -2857,6 +2977,9 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
 		},
 	),
@@ -2864,8 +2987,8 @@ var statusTests = []testCase{
 		"set meter status on the model",
 		setModelMeterStatus{"RED", "status message"},
 		expect{
-			"simulate just the two services and a bootstrap node",
-			M{
+			what: "simulate just the two services and a bootstrap node",
+			output: M{
 				"model": M{
 					"name":       "controller",
 					"type":       "iaas",
@@ -2885,15 +3008,19 @@ var statusTests = []testCase{
 				},
 				"machines":     M{},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
+			stderr: "Model \"controller\" is empty.\n",
 		},
 	),
 	test( // 25
 		"set sla on the model",
 		setSLA{"advanced"},
 		expect{
-			"set sla on the model",
-			M{
+			what: "set sla on the model",
+			output: M{
 				"model": M{
 					"name":       "controller",
 					"type":       "iaas",
@@ -2909,7 +3036,11 @@ var statusTests = []testCase{
 				},
 				"machines":     M{},
 				"applications": M{},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
 			},
+			stderr: "Model \"controller\" is empty.\n",
 		},
 	),
 }
@@ -3032,7 +3163,7 @@ func (sm startMachine) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := ctx.st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, environscontext.NewCloudCallContext(), cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -3048,7 +3179,7 @@ func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := ctx.st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
+	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, environscontext.NewCloudCallContext(), cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned("i-missing", "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	// lp:1558657
@@ -3074,7 +3205,7 @@ func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := ctx.st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, environscontext.NewCloudCallContext(), cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.pingers[m.Id()] = pinger
@@ -3093,7 +3224,7 @@ func (sm startMachineWithHardware) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := ctx.st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstanceWithConstraints(c, ctx.env, cfg.ControllerUUID(), m.Id(), cons)
+	inst, _ := testing.AssertStartInstanceWithConstraints(c, ctx.env, environscontext.NewCloudCallContext(), cfg.ControllerUUID(), m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", &sm.hc)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.pingers[m.Id()] = pinger
@@ -3639,19 +3770,21 @@ type scopedExpect struct {
 	what   string
 	scope  []string
 	output M
+	stderr string
 }
 
 type expect struct {
 	what   string
 	output M
+	stderr string
 }
 
-// substituteFakeTime replaces all "since" values
+// substituteFakeTime replaces all key values
 // in actual status output with a known fake value.
-func substituteFakeSinceTime(c *gc.C, in []byte, expectIsoTime bool) []byte {
+func substituteFakeTime(c *gc.C, key string, in []byte, expectIsoTime bool) []byte {
 	// This regexp will work for yaml and json.
-	exp := regexp.MustCompile(`(?P<since>"?since"?:\ ?)(?P<quote>"?)(?P<timestamp>[^("|\n)]*)*"?`)
-	// Before the substritution is done, check that the timestamp produced
+	exp := regexp.MustCompile(`(?P<key>"?` + key + `"?:\ ?)(?P<quote>"?)(?P<timestamp>[^("|\n)]*)*"?`)
+	// Before the substitution is done, check that the timestamp produced
 	// by status is in the correct format.
 	if matches := exp.FindStringSubmatch(string(in)); matches != nil {
 		for i, name := range exp.SubexpNames() {
@@ -3667,10 +3800,54 @@ func substituteFakeSinceTime(c *gc.C, in []byte, expectIsoTime bool) []byte {
 		}
 	}
 
-	out := exp.ReplaceAllString(string(in), `$since$quote<timestamp>$quote`)
+	out := exp.ReplaceAllString(string(in), `$key$quote<timestamp>$quote`)
 	// Substitute a made up time used in our expected output.
 	out = strings.Replace(out, "<timestamp>", "01 Apr 15 01:23+10:00", -1)
 	return []byte(out)
+}
+
+// substituteFakeTimestamp replaces all key values for a given timestamp
+// in actual status output with a known fake value.
+func substituteFakeTimestamp(c *gc.C, in []byte, expectIsoTime bool) []byte {
+	timeFormat := "15:04:05Z07:00"
+	if expectIsoTime {
+		timeFormat = "15:04:05Z"
+	}
+	// This regexp will work for any input type
+	exp := regexp.MustCompile(`(?P<timestamp>[0-9]{2}:[0-9]{2}:[0-9]{2}((Z|\+[0-9]{2}:[0-9]{2})?))`)
+	if matches := exp.FindStringSubmatch(string(in)); matches != nil {
+		for i, name := range exp.SubexpNames() {
+			if name != "timestamp" {
+				continue
+			}
+			value := matches[i]
+			if expectIsoTime {
+				if index := strings.IndexRune(value, '+'); index >= 0 {
+					value = fmt.Sprintf("%sZ", value[:index])
+				}
+				if !strings.Contains(value, "R") {
+					value = fmt.Sprintf("%sZ", value)
+				}
+			}
+			_, err := time.Parse(timeFormat, value)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+
+	out := exp.ReplaceAllString(string(in), `<timestamp>`)
+	// Substitute a made up time used in our expected output.
+	out = strings.Replace(out, "<timestamp>", strings.Replace(timeFormat, "Z", "+", -1), -1)
+	return []byte(out)
+}
+
+// substituteSpacingBetweenTimestampAndNotes forces the spacing between the
+// headers Timestamp and Notes to be consistent regardless of the time. This
+// happens because we're dealing with the result of the strings of stdout and
+// not with any useable AST
+func substituteSpacingBetweenTimestampAndNotes(c *gc.C, in []byte) []byte {
+	exp := regexp.MustCompile(`Timestamp(?P<spacing>\s+)Notes`)
+	result := exp.ReplaceAllString(string(in), fmt.Sprintf("Timestamp%sNotes", strings.Repeat(" ", 7)))
+	return []byte(result)
 }
 
 func (e scopedExpect) step(c *gc.C, ctx *context) {
@@ -3688,20 +3865,24 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 		c.Logf("running status %s", strings.Join(args, " "))
 		code, stdout, stderr := runStatus(c, args...)
 		c.Assert(code, gc.Equals, 0)
-		if !c.Check(stderr, gc.HasLen, 0) {
-			c.Fatalf("status failed: %s", string(stderr))
-		}
+		c.Assert(string(stderr), gc.Equals, e.stderr)
 
 		// Prepare the output in the same format.
 		buf, err := format.marshal(e.output)
 		c.Assert(err, jc.ErrorIsNil)
+
+		// we have to force the timestamp into the correct format as the model
+		// is in string.
+		buf = substituteFakeTimestamp(c, buf, ctx.expectIsoTime)
+
 		expected := make(M)
 		err = format.unmarshal(buf, &expected)
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Check the output is as expected.
 		actual := make(M)
-		out := substituteFakeSinceTime(c, stdout, ctx.expectIsoTime)
+		out := substituteFakeTime(c, "since", stdout, ctx.expectIsoTime)
+		out = substituteFakeTimestamp(c, out, ctx.expectIsoTime)
 		err = format.unmarshal(out, &actual)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(actual, jc.DeepEquals, expected)
@@ -3709,7 +3890,7 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 }
 
 func (e expect) step(c *gc.C, ctx *context) {
-	scopedExpect{e.what, nil, e.output}.step(c, ctx)
+	scopedExpect{e.what, nil, e.output, e.stderr}.step(c, ctx)
 }
 
 type setToolsUpgradeAvailable struct{}
@@ -3756,14 +3937,18 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 		},
 		"machines":     M{},
 		"applications": M{},
+		"controller": M{
+			"timestamp": "15:04:05+07:00",
+		},
 	}
 
 	for _, format := range statusFormats {
 		code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", format.name)
 		c.Check(code, gc.Equals, 0)
-		c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
+		c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
 
-		stdout = substituteFakeSinceTime(c, stdout, false)
+		stdout = substituteFakeTime(c, "since", stdout, false)
+		stdout = substituteFakeTimestamp(c, stdout, false)
 
 		// Roundtrip expected through format so that types will match.
 		buf, err := format.marshal(expected)
@@ -3780,35 +3965,26 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 
 func (s *StatusSuite) TestMigrationInProgressTabular(c *gc.C) {
 	expected := `
-Model   Controller  Cloud/Region        Version  Notes               SLA
-hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar  unsupported
-
-App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
-
-Unit  Workload  Agent  Machine  Public address  Ports  Message
-
-Machine  State  DNS  Inst id  Series  AZ  Message
+Model   Controller  Cloud/Region        Version  SLA          Timestamp       Notes
+hosted  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00  migrating: foo bar
 
 `[1:]
 
 	st := s.setupMigrationTest(c)
 	defer st.Close()
 	code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", "tabular")
-	c.Check(code, gc.Equals, 0)
-	c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
-	c.Assert(string(stdout), gc.Equals, expected)
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
+
+	output := substituteFakeTimestamp(c, stdout, false)
+	output = substituteSpacingBetweenTimestampAndNotes(c, output)
+	c.Assert(string(output), gc.Equals, expected)
 }
 
 func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
 	expected := `
-Model   Controller  Cloud/Region        Version  Notes               SLA
-hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar  unsupported
-
-App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
-
-Unit  Workload  Agent  Machine  Public address  Ports  Message
-
-Machine  State  DNS  Inst id  Series  AZ  Message
+Model   Controller  Cloud/Region        Version  SLA          Timestamp       Notes
+hosted  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00  migrating: foo bar
 
 `[1:]
 
@@ -3821,9 +3997,12 @@ Machine  State  DNS  Inst id  Series  AZ  Message
 	c.Assert(err, jc.ErrorIsNil)
 
 	code, stdout, stderr := runStatus(c, "-m", "hosted", "--format", "tabular")
-	c.Check(code, gc.Equals, 0)
-	c.Assert(stderr, gc.HasLen, 0, gc.Commentf("status failed: %s", stderr))
-	c.Assert(string(stdout), gc.Equals, expected)
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(string(stderr), gc.Equals, "Model \"hosted\" is empty.\n")
+
+	output := substituteFakeTimestamp(c, stdout, false)
+	output = substituteSpacingBetweenTimestampAndNotes(c, output)
+	c.Assert(string(output), gc.Equals, expected)
 }
 
 func (s *StatusSuite) setupMigrationTest(c *gc.C) *state.State {
@@ -4088,12 +4267,12 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	ctx := s.prepareTabularData(c)
 	defer s.resetContext(c, ctx)
-	code, stdout, stderr := runStatus(c, "--format", "tabular")
+	code, stdout, stderr := runStatus(c, "--format", "tabular", "--relations")
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
-Model       Controller  Cloud/Region        Version  Notes                     SLA
-controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4  unsupported
+Model       Controller  Cloud/Region        Version  SLA          Timestamp       Notes
+controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00  upgrade available: 1.2.4
 
 SAAS         Status   Store  URL
 hosted-riak  unknown  local  me/model.riak
@@ -4124,7 +4303,10 @@ mysql:server           wordpress:db               mysql      regular      suspen
 wordpress:logging-dir  logging:logging-directory  logging    subordinate  
 
 `[1:]
-	c.Assert(string(stdout), gc.Equals, expected)
+
+	output := substituteFakeTimestamp(c, stdout, false)
+	output = substituteSpacingBetweenTimestampAndNotes(c, output)
+	c.Assert(string(output), gc.Equals, expected)
 }
 
 func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
@@ -4169,8 +4351,6 @@ foo                       2                  0
 Unit   Workload     Agent      Machine  Public address  Ports  Message
 foo/0  maintenance  executing                                  (config-changed) doing some work
 foo/1  maintenance  executing                                  (backup database) doing some work
-
-Machine  State  DNS  Inst id  Series  AZ  Message
 `[1:])
 }
 
@@ -4273,22 +4453,21 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 	out := &bytes.Buffer{}
 	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out.String(), gc.Equals, ""+
-		"Model  Controller  Cloud/Region  Version\n"+
-		"                                 \n"+
-		"\n"+
-		"App  Version  Status  Scale  Charm  Store  Rev  OS  Notes\n"+
-		"foo                     0/2                  0      \n"+
-		"\n"+
-		"Unit   Workload  Agent  Machine  Public address  Ports  Message\n"+
-		"foo/0                                                   \n"+
-		"foo/1                                                   \n"+
-		"\n"+
-		"Entity  Meter status  Message\n"+
-		"foo/0   strange       warning: stable strangelets  \n"+
-		"foo/1   up            things are looking up        \n"+
-		"\n"+
-		"Machine  State  DNS  Inst id  Series  AZ  Message\n")
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
+foo                     0/2                  0      
+
+Unit   Workload  Agent  Machine  Public address  Ports  Message
+foo/0                                                   
+foo/1                                                   
+
+Entity  Meter status  Message
+foo/0   strange       warning: stable strangelets  
+foo/1   up            things are looking up        
+`[1:])
 }
 
 //
@@ -4431,7 +4610,7 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 	// When I run juju status --format yaml 0/lxd/0
 	_, stdout, stderr := runStatus(c, "--format", "yaml", "0/lxd/0")
 	c.Assert(string(stderr), gc.Equals, "")
-	out := substituteFakeSinceTime(c, stdout, ctx.expectIsoTime)
+
 	const expected = "" +
 		"model:\n" +
 		"  name: controller\n" +
@@ -4475,8 +4654,12 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"        series: quantal\n" +
 		"    hardware: arch=amd64 cores=1 mem=1024M root-disk=8192M\n" +
 		"    controller-member-status: adding-vote\n" +
-		"applications: {}\n"
+		"applications: {}\n" +
+		"controller:\n" +
+		"  timestamp: 15:04:05+07:00\n"
 
+	out := substituteFakeTime(c, "since", stdout, ctx.expectIsoTime)
+	out = substituteFakeTimestamp(c, out, ctx.expectIsoTime)
 	c.Assert(string(out), gc.Equals, expected)
 }
 
@@ -4737,8 +4920,8 @@ var statusTimeTest = test(
 
 	addAliveUnit{"dummy-application", "1"},
 	expect{
-		"add two units, one alive (in error state), one started",
-		M{
+		what: "add two units, one alive (in error state), one started",
+		output: M{
 			"model": M{
 				"name":       "controller",
 				"type":       "iaas",
@@ -4780,6 +4963,9 @@ var statusTimeTest = test(
 					},
 				}),
 			},
+			"controller": M{
+				"timestamp": "15:04:05",
+			},
 		},
 	},
 )
@@ -4795,6 +4981,55 @@ func (s *StatusSuite) TestIsoTimeFormat(c *gc.C) {
 }
 
 func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
+	now := time.Now()
+	status := &params.FullStatus{
+		Model: params.ModelStatusInfo{
+			CloudTag: "cloud-dummy",
+		},
+		Machines: map[string]params.MachineStatus{
+			"1": {
+				AgentStatus: params.DetailedStatus{
+					Status: "error",
+					Info:   "<error while provisioning>",
+				},
+				InstanceId:     "pending",
+				InstanceStatus: params.DetailedStatus{},
+				Series:         "trusty",
+				Id:             "1",
+				Jobs:           []multiwatcher.MachineJob{"JobHostUnits"},
+			},
+		},
+		ControllerTimestamp: &now,
+	}
+	isoTime := true
+	formatter := NewStatusFormatter(status, isoTime)
+	formatted, err := formatter.format()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(formatted, jc.DeepEquals, formattedStatus{
+		Model: modelStatus{
+			Cloud: "dummy",
+		},
+		Machines: map[string]machineStatus{
+			"1": {
+				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
+				InstanceId:        "pending",
+				Series:            "trusty",
+				Id:                "1",
+				Containers:        map[string]machineStatus{},
+				NetworkInterfaces: map[string]networkInterface{},
+			},
+		},
+		Applications:       map[string]applicationStatus{},
+		RemoteApplications: map[string]remoteApplicationStatus{},
+		Offers:             map[string]offerStatus{},
+		Controller: &controllerStatus{
+			Timestamp: common.FormatTimeAsTimestamp(&now, isoTime),
+		},
+	})
+}
+
+func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 	status := &params.FullStatus{
 		Model: params.ModelStatusInfo{
 			CloudTag: "cloud-dummy",
@@ -4813,7 +5048,8 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 			},
 		},
 	}
-	formatter := NewStatusFormatter(status, true)
+	isoTime := true
+	formatter := NewStatusFormatter(status, isoTime)
 	formatted, err := formatter.format()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -4835,4 +5071,118 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 		RemoteApplications: map[string]remoteApplicationStatus{},
 		Offers:             map[string]offerStatus{},
 	})
+}
+
+func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
+	now := time.Now()
+	status := &params.FullStatus{
+		Model: params.ModelStatusInfo{
+			CloudTag: "cloud-dummy",
+		},
+		Machines: map[string]params.MachineStatus{
+			"1": {
+				AgentStatus: params.DetailedStatus{
+					Status: "error",
+					Info:   "<error while provisioning>",
+				},
+				InstanceId:     "pending",
+				InstanceStatus: params.DetailedStatus{},
+				Series:         "trusty",
+				Id:             "1",
+				Jobs:           []multiwatcher.MachineJob{"JobHostUnits"},
+			},
+		},
+		ControllerTimestamp: &now,
+	}
+	isoTime := true
+	formatter := NewStatusFormatter(status, isoTime)
+	formatted, err := formatter.format()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(formatted, jc.DeepEquals, formattedStatus{
+		Model: modelStatus{
+			Cloud: "dummy",
+		},
+		Machines: map[string]machineStatus{
+			"1": {
+				JujuStatus:        statusInfoContents{Current: "error", Message: "<error while provisioning>"},
+				InstanceId:        "pending",
+				Series:            "trusty",
+				Id:                "1",
+				Containers:        map[string]machineStatus{},
+				NetworkInterfaces: map[string]networkInterface{},
+			},
+		},
+		Applications:       map[string]applicationStatus{},
+		RemoteApplications: map[string]remoteApplicationStatus{},
+		Offers:             map[string]offerStatus{},
+		Controller: &controllerStatus{
+			Timestamp: common.FormatTimeAsTimestamp(&now, isoTime),
+		},
+	})
+}
+
+func (s *StatusSuite) TestTabularNoRelations(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c)
+	c.Assert(stderr, gc.IsNil)
+	c.Assert(strings.Contains(string(stdout), "Relation provider"), jc.IsFalse)
+}
+
+func (s *StatusSuite) TestTabularDisplayRelations(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--relations")
+	c.Assert(stderr, gc.IsNil)
+	c.Assert(strings.Contains(string(stdout), "Relation provider"), jc.IsTrue)
+}
+
+func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--format=yaml", "--relations")
+	c.Assert(string(stderr), gc.Equals, "provided --relations option is ignored\n")
+	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+}
+
+func (s *StatusSuite) TestNonTabularRelations(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--format=yaml")
+	c.Assert(stderr, gc.IsNil)
+	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
+}
+
+func (s *StatusSuite) TestStatusFormatTabularEmptyModel(c *gc.C) {
+	code, stdout, stderr := runStatus(c)
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, "Model \"controller\" is empty.\n")
+	expected := `
+Model       Controller  Cloud/Region        Version  SLA          Timestamp
+controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
+
+`[1:]
+	output := substituteFakeTimestamp(c, stdout, false)
+	c.Assert(string(output), gc.Equals, expected)
+}
+
+func (s *StatusSuite) TestStatusFormatTabularForUnmatchedFilter(c *gc.C) {
+	code, stdout, stderr := runStatus(c, "unmatched")
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, "Nothing matched specified filter.\n")
+	expected := `
+Model       Controller  Cloud/Region        Version  SLA          Timestamp
+controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
+
+`[1:]
+	output := substituteFakeTimestamp(c, stdout, false)
+	c.Assert(string(output), gc.Equals, expected)
+
+	_, _, stderr = runStatus(c, "cannot", "match", "me")
+	c.Check(string(stderr), gc.Equals, "Nothing matched specified filters.\n")
 }

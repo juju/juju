@@ -11,7 +11,7 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/retry.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/mongo"
 )
@@ -125,7 +125,7 @@ func NewTxnWatcher(config TxnWatcherConfig) (*TxnWatcher, error) {
 	if w.logger == nil {
 		w.logger = noOpLogger{}
 	}
-	go func() {
+	w.tomb.Go(func() error {
 		err := w.loop()
 		cause := errors.Cause(err)
 		// tomb expects ErrDying or ErrStillAlive as
@@ -134,9 +134,8 @@ func NewTxnWatcher(config TxnWatcherConfig) (*TxnWatcher, error) {
 		if err != nil && cause != tomb.ErrDying {
 			w.logger.Infof("watcher loop failed: %v", err)
 		}
-		w.tomb.Kill(cause)
-		w.tomb.Done()
-	}()
+		return cause
+	})
 	return w, nil
 }
 

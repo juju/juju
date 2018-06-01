@@ -7,8 +7,12 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/cmd"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 var (
@@ -43,4 +47,16 @@ func PatchGetActionResult(patchValue func(interface{}, interface{}), actions map
 		}
 		return params.ActionResult{}, errors.New("plm")
 	})
+}
+
+func NewCollectMetricsCommandForTest() cmd.Command {
+	cmd := &collectMetricsCommand{}
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
+	return modelcmd.Wrap(cmd)
+}
+
+func NewMetricsCommandForTest() cmd.Command {
+	cmd := &MetricsCommand{}
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
+	return modelcmd.Wrap(cmd)
 }

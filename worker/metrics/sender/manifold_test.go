@@ -64,9 +64,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.apiCaller = &stubAPICaller{&testing.Stub{}}
 	s.resources = dt.StubResources{
-		"agent":        dt.StubResource{Output: &dummyAgent{dataDir: dataDir}},
-		"api-caller":   dt.StubResource{Output: s.apiCaller},
-		"metric-spool": dt.StubResource{Output: s.factory},
+		"agent":        dt.NewStubResource(&dummyAgent{dataDir: dataDir}),
+		"api-caller":   dt.NewStubResource(s.apiCaller),
+		"metric-spool": dt.NewStubResource(s.factory),
 	}
 }
 

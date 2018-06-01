@@ -18,7 +18,6 @@ import (
 type deploymentWorker struct {
 	catacomb           catacomb.Catacomb
 	application        string
-	jujuManagedUnits   bool
 	broker             ServiceBroker
 	applicationGetter  ApplicationGetter
 	applicationUpdater ApplicationUpdater
@@ -29,7 +28,6 @@ type deploymentWorker struct {
 
 func newDeploymentWorker(
 	application string,
-	jujuManagedUnits bool,
 	broker ServiceBroker,
 	podSpecGetter PodSpecGetter,
 	applicationGetter ApplicationGetter,
@@ -38,7 +36,6 @@ func newDeploymentWorker(
 ) (worker.Worker, error) {
 	w := &deploymentWorker{
 		application:        application,
-		jujuManagedUnits:   jujuManagedUnits,
 		broker:             broker,
 		podSpecGetter:      podSpecGetter,
 		applicationGetter:  applicationGetter,
@@ -121,14 +118,9 @@ func (w *deploymentWorker) loop() error {
 		if numUnits == currentAliveCount && specStr == currentSpec {
 			continue
 		}
-		// For Juju managed units, we only need to create the service once.
-		skipService := currentAliveCount != 0 && w.jujuManagedUnits
 
 		currentAliveCount = numUnits
 		currentSpec = specStr
-		if skipService {
-			continue
-		}
 
 		appConfig, err := w.applicationGetter.ApplicationConfig(w.application)
 		if err != nil {
@@ -138,20 +130,11 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Annotate(err, "cannot parse pod spec")
 		}
-		// When Juju manages the units, we don't ask the
-		// substrate to create any itself.
-		if w.jujuManagedUnits {
-			numUnits = 0
-		}
 		err = w.broker.EnsureService(w.application, spec, numUnits, appConfig)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if w.jujuManagedUnits {
-			logger.Debugf("created/updated service for %s", w.application)
-		} else {
-			logger.Debugf("created/updated deployment for %s for %d units", w.application, numUnits)
-		}
+		logger.Debugf("created/updated deployment for %s for %d units", w.application, numUnits)
 		if !serviceUpdated && !spec.OmitServiceFrontend {
 			// TODO(caas) - add a service watcher
 			service, err := w.broker.Service(w.application)

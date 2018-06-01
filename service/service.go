@@ -9,8 +9,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"github.com/juju/utils"
-	"github.com/juju/utils/series"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
@@ -20,7 +21,8 @@ import (
 )
 
 var (
-	logger = loggo.GetLogger("juju.service")
+	logger   = loggo.GetLogger("juju.service")
+	renderer = shell.BashRenderer{}
 )
 
 // These are the names of the init systems regognized by juju.
@@ -131,10 +133,15 @@ func newService(name string, conf common.Conf, initSystem, series string) (Servi
 	case InitSystemSystemd:
 		dataDir, err := paths.DataDir(series)
 		if err != nil {
-			return nil, errors.Annotatef(err, "failed to find juju data dir for application %q", name)
+			return nil, err
 		}
-
-		svc, err := systemd.NewService(name, conf, dataDir, systemd.NewDBusAPI)
+		svc, err := systemd.NewService(
+			name,
+			conf,
+			"/lib/systemd/system",
+			systemd.NewDBusAPI,
+			renderer.Join(dataDir, "init"),
+		)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
 		}

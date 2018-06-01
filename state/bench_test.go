@@ -82,8 +82,8 @@ func benchmarkAddMetrics(metricsPerBatch, batches int, c *gc.C) {
 	app := s.AddTestingApplication(c, "wordpress", charm)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	serviceCharmURL, _ := app.CharmURL()
-	err = unit.SetCharmURL(serviceCharmURL)
+	applicationCharmURL, _ := app.CharmURL()
+	err = unit.SetCharmURL(applicationCharmURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
@@ -92,7 +92,7 @@ func benchmarkAddMetrics(metricsPerBatch, batches int, c *gc.C) {
 				state.BatchParam{
 					UUID:     utils.MustNewUUID().String(),
 					Created:  now,
-					CharmURL: serviceCharmURL.String(),
+					CharmURL: applicationCharmURL.String(),
 					Metrics:  metrics,
 					Unit:     unit.UnitTag(),
 				},
@@ -116,8 +116,8 @@ func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
 	app := s.AddTestingApplication(c, "wordpress", charm)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	serviceCharmURL, _ := app.CharmURL()
-	err = unit.SetCharmURL(serviceCharmURL)
+	applicationCharmURL, _ := app.CharmURL()
+	err = unit.SetCharmURL(applicationCharmURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
@@ -126,7 +126,7 @@ func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
 				state.BatchParam{
 					UUID:     utils.MustNewUUID().String(),
 					Created:  oldTime,
-					CharmURL: serviceCharmURL.String(),
+					CharmURL: applicationCharmURL.String(),
 					Metrics:  []state.Metric{{}},
 					Unit:     unit.UnitTag(),
 				},

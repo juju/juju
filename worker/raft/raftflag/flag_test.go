@@ -92,20 +92,17 @@ func (s *WorkerSuite) TestCheckLeader(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestErrRefresh(c *gc.C) {
-	raft1, _, transport1, _, _ := s.NewRaft(c, "machine-1", &raft.SimpleFSM{})
-	raft2, _, transport2, _, _ := s.NewRaft(c, "machine-2", &raft.SimpleFSM{})
+	raft1, _, transport1, _, _ := s.NewRaft(c, "1", &raft.SimpleFSM{})
+	raft2, _, transport2, _, _ := s.NewRaft(c, "2", &raft.SimpleFSM{})
 	transports := []coreraft.LoopbackTransport{s.Transport, transport1, transport2}
 	for _, t1 := range transports {
 		for _, t2 := range transports {
-			//if t1 == t2 {
-			//	continue
-			//}
 			t1.Connect(t2.LocalAddr(), t2)
 		}
 	}
-	var f coreraft.Future = s.Raft.AddVoter("machine-1", transport1.LocalAddr(), 0, 0)
+	var f coreraft.Future = s.Raft.AddVoter("1", transport1.LocalAddr(), 0, 0)
 	c.Assert(f.Error(), jc.ErrorIsNil)
-	f = s.Raft.AddVoter("machine-2", transport2.LocalAddr(), 0, 0)
+	f = s.Raft.AddVoter("2", transport2.LocalAddr(), 0, 0)
 	c.Assert(f.Error(), jc.ErrorIsNil)
 
 	// Start a new raftflag worker for the second raft.

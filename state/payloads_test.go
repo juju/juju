@@ -495,10 +495,10 @@ var _ = gc.Suite(&PayloadsFunctionalSuite{})
 func (s *PayloadsFunctionalSuite) TestModelPayloads(c *gc.C) {
 	machine := "0"
 	unit := addUnit(c, s.ConnSuite, unitArgs{
-		charm:    "dummy",
-		service:  "a-application",
-		metadata: payloadsMetaYAML,
-		machine:  machine,
+		charm:       "dummy",
+		application: "a-application",
+		metadata:    payloadsMetaYAML,
+		machine:     machine,
 	})
 
 	ust, err := s.State.UnitPayloads(unit)
@@ -556,10 +556,10 @@ func (s *PayloadsFunctionalSuite) TestModelPayloads(c *gc.C) {
 func (s *PayloadsFunctionalSuite) TestUnitPayloads(c *gc.C) {
 	machine := "0"
 	unit := addUnit(c, s.ConnSuite, unitArgs{
-		charm:    "dummy",
-		service:  "a-application",
-		metadata: payloadsMetaYAML,
-		machine:  machine,
+		charm:       "dummy",
+		application: "a-application",
+		metadata:    payloadsMetaYAML,
+		machine:     machine,
 	})
 
 	st, err := s.State.UnitPayloads(unit)
@@ -656,17 +656,17 @@ payloads:
 `
 
 type unitArgs struct {
-	charm    string
-	service  string
-	metadata string
-	machine  string
+	charm       string
+	application string
+	metadata    string
+	machine     string
 }
 
 func addUnit(c *gc.C, s ConnSuite, args unitArgs) *state.Unit {
 	ch := s.AddTestingCharm(c, args.charm)
 	ch = s.AddMetaCharm(c, args.charm, args.metadata, 2)
 
-	app := s.AddTestingApplication(c, args.service, ch)
+	app := s.AddTestingApplication(c, args.application, ch)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 

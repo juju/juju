@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -22,6 +23,8 @@ type ManifoldConfig struct {
 	ClockName     string
 	Delay         time.Duration
 	EnvironName   string
+
+	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 
 func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
@@ -40,11 +43,17 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 	facade := instancepoller.NewAPI(apiCaller)
 
+	credentialAPI, err := config.NewCredentialValidatorFacade(apiCaller)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := NewWorker(Config{
-		Clock:   clock,
-		Delay:   config.Delay,
-		Facade:  facade,
-		Environ: environ,
+		Clock:         clock,
+		Delay:         config.Delay,
+		Facade:        facade,
+		Environ:       environ,
+		CredentialAPI: credentialAPI,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

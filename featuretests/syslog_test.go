@@ -14,12 +14,12 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/os"
+	"github.com/juju/os/series"
 	"github.com/juju/rfc/rfc5424/rfc5424test"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/cert"
-	"github.com/juju/utils/os"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -200,7 +200,7 @@ func (s *syslogSuite) assertLogRecordForwarded(c *gc.C, received chan rfc5424tes
 	rec.Time = time.Date(2099, time.June, 1, 23, 2, 1, 23, time.UTC)
 	s.sendRecord(c, rec)
 	msg := s.popMessagesUntil(c, `something happened!`, received)
-	expected := `<11>1 2099-06-01T23:02:01.000000023Z machine-0.%s jujud-machine-agent-%s - - [origin enterpriseID="28978" sofware="jujud-machine-agent" swVersion="%s"][model@28978 controller-uuid="%s" model-uuid="%s"][log@28978 module="juju.featuretests.syslog" source="syslog_test.go:99999"] something happened!`
+	expected := `<11>1 2099-06-01T23:02:01.000000023Z machine-0.%s jujud-machine-agent-%s - - [origin enterpriseID="28978" software="jujud-machine-agent" swVersion="%s"][model@28978 controller-uuid="%s" model-uuid="%s"][log@28978 module="juju.featuretests.syslog" source="syslog_test.go:99999"] something happened!`
 	modelID := coretesting.ModelTag.Id()
 	ctlrID := coretesting.ControllerTag.Id()
 	c.Check(msg.Message, gc.Equals, fmt.Sprintf(expected, modelID, modelID[:28], version.Current, ctlrID, modelID))

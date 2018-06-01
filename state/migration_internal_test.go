@@ -4,7 +4,7 @@
 package state
 
 import (
-	"github.com/juju/utils/set"
+	"github.com/juju/collections/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 
@@ -114,6 +114,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// reference counts are implementation details that should be
 		// reconstructed on the other side.
 		refcountsC,
+		globalRefcountsC,
 		// upgradeInfoC is used to coordinate upgrades and schema migrations,
 		// and aren't needed for model migrations.
 		upgradeInfoC,
@@ -139,8 +140,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// uses object containment for this purpose.
 		containerRefsC,
 		// The min units collection is only used to trigger a watcher
-		// in order to have the service add or remove units if the minimum
-		// number of units is changed. The Service doc has all we need
+		// in order to have the application add or remove units if the minimum
+		// number of units is changed. The Application doc has all we need
 		// for migratino.
 		minUnitsC,
 		// This is a transitory collection of units that need to be assigned
@@ -363,7 +364,7 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"Life",
 		// TxnRevno is mgo internals and should not be migrated.
 		"TxnRevno",
-		// UnitCount is handled by the number of units for the exported service.
+		// UnitCount is handled by the number of units for the exported application.
 		"UnitCount",
 		// RelationCount is handled by the number of times the application name
 		// appears in relation endpoints.
@@ -394,7 +395,7 @@ func (s *MigrationSuite) TestUnitDocFields(c *gc.C) {
 		"Application",
 		// Resolved is not migrated as we check that all is good before we start.
 		"Resolved",
-		// Series and CharmURL also come from the service.
+		// Series and CharmURL also come from the application.
 		"Series",
 		"CharmURL",
 		"TxnRevno",

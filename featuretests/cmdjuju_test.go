@@ -53,7 +53,7 @@ func (s *cmdJujuSuite) TestGetConstraints(c *gc.C) {
 	err := app.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := cmdtesting.RunCommand(c, application.NewServiceGetConstraintsCommand(), "app")
+	context, err := cmdtesting.RunCommand(c, application.NewApplicationGetConstraintsCommand(), "app")
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "cores=64\n")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "")
 }
@@ -164,12 +164,6 @@ application-config:
     source: user
     type: string
     value: ext-host
-  juju-managed-units:
-    default: false
-    description: whether Juju manages unit lifecycle or the CAAS substrate
-    source: default
-    type: bool
-    value: false
   kubernetes-ingress-allow-http:
     default: false
     description: whether to allow HTTP traffic to the ingress controller

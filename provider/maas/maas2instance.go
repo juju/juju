@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -54,13 +55,13 @@ func (mi *maas2Instance) Id() instance.Id {
 	return instance.Id(mi.machine.SystemID())
 }
 
-func (mi *maas2Instance) Addresses() ([]network.Address, error) {
-	subnetsMap, err := mi.environ.subnetToSpaceIds()
+func (mi *maas2Instance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
+	subnetsMap, err := mi.environ.subnetToSpaceIds(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Get all the interface details and extract the addresses.
-	interfaces, err := maas2NetworkInterfaces(mi, subnetsMap)
+	interfaces, err := maas2NetworkInterfaces(ctx, mi, subnetsMap)
 
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -81,7 +82,7 @@ func (mi *maas2Instance) Addresses() ([]network.Address, error) {
 
 // Status returns a juju status based on the maas instance returned
 // status message.
-func (mi *maas2Instance) Status() instance.InstanceStatus {
+func (mi *maas2Instance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	// A fresh status is not obtained here because the interface it is intended
 	// to satisfy gets a new maas2Instance before each call, using a fresh status
 	// would cause us to mask errors since this interface does not contemplate
@@ -92,17 +93,17 @@ func (mi *maas2Instance) Status() instance.InstanceStatus {
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (mi *maas2Instance) OpenPorts(machineId string, rules []network.IngressRule) error {
+func (mi *maas2Instance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
-func (mi *maas2Instance) ClosePorts(machineId string, rules []network.IngressRule) error {
+func (mi *maas2Instance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error {
 	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
-func (mi *maas2Instance) IngressRules(machineId string) ([]network.IngressRule, error) {
+func (mi *maas2Instance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
 	logger.Debugf("unimplemented Rules() called")
 	return nil, nil
 }

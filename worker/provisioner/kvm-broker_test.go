@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/container/kvm/mock"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	supportedversion "github.com/juju/juju/juju/version"
 	"github.com/juju/juju/network"
@@ -169,13 +170,14 @@ func (s *kvmBrokerSuite) TestStopInstance(c *gc.C) {
 	result2, err2 := s.startInstance(c, broker, "1/kvm/2")
 	c.Assert(err2, jc.ErrorIsNil)
 
-	err := broker.StopInstances(result0.Instance.Id())
+	callCtx := context.NewCloudCallContext()
+	err := broker.StopInstances(callCtx, result0.Instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertResults(c, broker, result1, result2)
 	c.Assert(s.kvmContainerDir(result0), jc.DoesNotExist)
 	c.Assert(s.kvmRemovedContainerDir(result0), jc.IsDirectory)
 
-	err = broker.StopInstances(result1.Instance.Id(), result2.Instance.Id())
+	err = broker.StopInstances(callCtx, result1.Instance.Id(), result2.Instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNoResults(c, broker)
 }
@@ -191,7 +193,7 @@ func (s *kvmBrokerSuite) TestAllInstances(c *gc.C) {
 	c.Assert(err1, jc.ErrorIsNil)
 	s.assertResults(c, broker, result0, result1)
 
-	err := broker.StopInstances(result1.Instance.Id())
+	err := broker.StopInstances(context.NewCloudCallContext(), result1.Instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	result2, err2 := s.startInstance(c, broker, "1/kvm/2")
 	c.Assert(err2, jc.ErrorIsNil)
@@ -416,7 +418,8 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner
 	broker, brokerErr := provisioner.NewKVMBroker(noopPrepareHostFunc, s.provisioner, manager, agentConfig)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 	toolsFinder := (*provisioner.GetToolsFinder)(s.provisioner)
-	w, err := provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker, toolsFinder, &mockDistributionGroupFinder{})
+	w, err := provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker,
+		toolsFinder, &mockDistributionGroupFinder{}, &credentialAPIForTest{})
 	c.Assert(err, jc.ErrorIsNil)
 	return w
 }

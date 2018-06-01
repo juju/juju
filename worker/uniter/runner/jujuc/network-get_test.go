@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -21,6 +22,14 @@ type NetworkGetSuite struct {
 }
 
 var _ = gc.Suite(&NetworkGetSuite{})
+
+func (s *NetworkGetSuite) SetUpSuite(c *gc.C) {
+	s.ContextSuite.SetUpSuite(c)
+	lookupHost := func(host string) (addrs []string, err error) {
+		return []string{"10.3.3.3"}, nil
+	}
+	testing.PatchValue(&jujuc.LookupHost, lookupHost)
+}
 
 func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 	hctx := s.GetHookContext(c, -1, "")
@@ -104,6 +113,29 @@ func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 		IngressAddresses: []string{"100.1.2.3", "100.4.3.2"},
 		EgressSubnets:    []string{"192.168.1.0/8", "10.0.0.0/8"},
 	}
+
+	// This should not happen. A hostname should never populate the address
+	// field. However, until the code is updated to prevent addresses from
+	// being populated by Hostnames (e.g. Change the Address field type from
+	// `string` to `net.IP` which will ensure all code paths exclude string
+	// population) we will have this check in place to ensure that hostnames
+	// are resolved to IPs and that hostnames populate a distinct field.
+	// `network-get --primary-address` and the like should only ever return
+	// IPs.
+	presetBindings["resolvable-hostname"] = params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{MACAddress: "00:11:22:33:44:33",
+				InterfaceName: "eth3",
+				Addresses: []params.InterfaceAddress{
+					{
+						Address: "resolvable-hostname",
+						CIDR:    "10.33.1.8/24",
+					},
+				},
+			},
+		},
+	}
+
 	hctx.info.NetworkInterface.NetworkInfoResults = presetBindings
 
 	com, err := jujuc.NewCommand(hctx, cmdString("network-get"))
@@ -165,9 +197,11 @@ bind-addresses:
 - macaddress: "00:11:22:33:44:22"
   interfacename: eth2
   addresses:
-  - address: 10.20.1.42
+  - hostname: ""
+    address: 10.20.1.42
     cidr: 10.20.1.42/24
-  - address: fc00::1
+  - hostname: ""
+    address: fc00::1
     cidr: fc00::/64`[1:],
 	}, {
 		summary: "explicitly bound relation name given with single flag arg",
@@ -181,16 +215,20 @@ bind-addresses:
 - macaddress: "00:11:22:33:44:00"
   interfacename: eth0
   addresses:
-  - address: 10.10.0.23
+  - hostname: ""
+    address: 10.10.0.23
     cidr: 10.10.0.0/24
-  - address: 192.168.1.111
+  - hostname: ""
+    address: 192.168.1.111
     cidr: 192.168.1.0/24
 - macaddress: "00:11:22:33:44:11"
   interfacename: eth1
   addresses:
-  - address: 10.10.1.23
+  - hostname: ""
+    address: 10.10.1.23
     cidr: 10.10.1.0/24
-  - address: 192.168.2.111
+  - hostname: ""
+    address: 192.168.2.111
     cidr: 192.168.2.0/24`[1:],
 	}, {
 		summary: "no user requested binding falls back to binding address, with ingress-address arg",
@@ -204,7 +242,8 @@ bind-addresses:
 - macaddress: "00:11:22:33:44:33"
   interfacename: eth3
   addresses:
-  - address: 10.33.1.8
+  - hostname: ""
+    address: 10.33.1.8
     cidr: 10.33.1.8/24`[1:],
 	}, {
 		summary: "explicit ingress and egress information",
@@ -223,7 +262,8 @@ bind-addresses:
 - macaddress: "00:11:22:33:44:33"
   interfacename: eth3
   addresses:
-  - address: 10.33.1.8
+  - hostname: ""
+    address: 10.33.1.8
     cidr: 10.33.1.8/24
 egress-subnets:
 - 192.168.1.0/8
@@ -231,6 +271,17 @@ egress-subnets:
 ingress-addresses:
 - 100.1.2.3
 - 100.4.3.2`[1:],
+	}, {
+		summary: "a resolvable hostname as addresss, no args",
+		args:    []string{"resolvable-hostname"},
+		out: `
+bind-addresses:
+- macaddress: "00:11:22:33:44:33"
+  interfacename: eth3
+  addresses:
+  - hostname: resolvable-hostname
+    address: 10.3.3.3
+    cidr: 10.33.1.8/24`[1:],
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		com := s.createCommand(c)

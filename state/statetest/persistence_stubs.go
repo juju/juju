@@ -107,8 +107,8 @@ func (s *StubPersistence) RunTransaction(ops []txn.Op) error {
 	return nil
 }
 
-func (s *StubPersistence) ApplicationExistsOps(serviceID string) []txn.Op {
-	s.AddCall("ApplicationExistsOps", serviceID)
+func (s *StubPersistence) ApplicationExistsOps(applicationID string) []txn.Op {
+	s.AddCall("ApplicationExistsOps", applicationID)
 	// pop off an error so num errors == num calls, even though this call
 	// doesn't actually use the error.
 	s.NextErr()
@@ -116,8 +116,8 @@ func (s *StubPersistence) ApplicationExistsOps(serviceID string) []txn.Op {
 	return s.ReturnApplicationExistsOps
 }
 
-func (s *StubPersistence) IncCharmModifiedVersionOps(serviceID string) []txn.Op {
-	s.AddCall("IncCharmModifiedVersionOps", serviceID)
+func (s *StubPersistence) IncCharmModifiedVersionOps(applicationID string) []txn.Op {
+	s.AddCall("IncCharmModifiedVersionOps", applicationID)
 	// pop off an error so num errors == num calls, even though this call
 	// doesn't actually use the error.
 	s.NextErr()

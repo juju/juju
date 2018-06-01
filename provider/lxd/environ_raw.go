@@ -1,60 +1,64 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
 	"github.com/juju/errors"
+	lxdclient "github.com/lxc/lxd/client"
 	lxdapi "github.com/lxc/lxd/shared/api"
 
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/tools/lxdclient"
+	jujulxdclient "github.com/juju/juju/tools/lxdclient"
 )
 
+// TODO (manadart 2018-05-09) This is really nothing but an LXD server and does
+// not need its own type.
+//
+// Side-note on terms: what used to be called a client will be our new "server".
+// This is for congruence with the LXD package, which presents things like
+// "ContainerServer" and "ImageServer" for interaction with LXD.
+//
+// As the LXD facility is refactored, this will be removed altogether.
+// As an interim measure, the new and old client implementations will be have
+// interface shims.
+// After the old client is removed, provider tests can be rewritten using
+// GoMock, at which point rawProvider is replaced with the new server.
 type rawProvider struct {
-	lxdCerts
-	lxdConfig
+	newServer
 	lxdInstances
 	lxdProfiles
-	lxdImages
 	lxdStorage
 
-	remote lxdclient.Remote
+	remote jujulxdclient.Remote
 }
 
-type lxdCerts interface {
-	AddCert(lxdclient.Cert) error
-	CertByFingerprint(string) (lxdapi.Certificate, error)
-	RemoveCertByFingerprint(string) error
-}
-
-type lxdConfig interface {
-	ServerAddresses() ([]string, error)
-	ServerStatus() (*lxdapi.Server, error)
-	SetServerConfig(k, v string) error
-	SetContainerConfig(container, key, value string) error
+type newServer interface {
+	FindImage(string, string, []lxd.RemoteServer, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
+	GetServer() (server *lxdapi.Server, ETag string, err error)
+	GetConnectionInfo() (info *lxdclient.ConnectionInfo, err error)
+	UpdateServerConfig(map[string]string) error
+	UpdateContainerConfig(string, map[string]string) error
+	GetCertificate(fingerprint string) (certificate *lxdapi.Certificate, ETag string, err error)
+	DeleteCertificate(fingerprint string) (err error)
+	CreateClientCertificate(certificate *lxd.Certificate) error
+	LocalBridgeName() string
 }
 
 type lxdInstances interface {
-	Instances(string, ...string) ([]lxdclient.Instance, error)
-	AddInstance(lxdclient.InstanceSpec) (*lxdclient.Instance, error)
+	Instances(string, ...string) ([]jujulxdclient.Instance, error)
+	AddInstance(jujulxdclient.InstanceSpec) (*jujulxdclient.Instance, error)
 	RemoveInstances(string, ...string) error
 	Addresses(string) ([]network.Address, error)
-	AttachDisk(string, string, lxdclient.DiskDevice) error
+	AttachDisk(string, string, jujulxdclient.DiskDevice) error
 	RemoveDevice(string, string) error
 }
 
 type lxdProfiles interface {
-	DefaultProfileBridgeName() string
 	CreateProfile(string, map[string]string) error
 	HasProfile(string) (bool, error)
-}
-
-type lxdImages interface {
-	EnsureImageExists(series, arch string, sources []lxdclient.Remote, copyProgressHandler func(string)) (string, error)
 }
 
 type lxdStorage interface {
@@ -73,14 +77,17 @@ type lxdStorage interface {
 
 func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {
 	if local {
-		return newLocalRawProvider()
+		prov, err := newLocalRawProvider()
+		return prov, errors.Trace(err)
 	}
-	return newRemoteRawProvider(spec)
+	prov, err := newRemoteRawProvider(spec)
+	return prov, errors.Trace(err)
 }
 
 func newLocalRawProvider() (*rawProvider, error) {
-	config := lxdclient.Config{Remote: lxdclient.Local}
-	return newRawProviderFromConfig(config)
+	config := jujulxdclient.Config{Remote: jujulxdclient.Local}
+	raw, err := newRawProviderFromConfig(config)
+	return raw, errors.Trace(err)
 }
 
 func newRemoteRawProvider(spec environs.CloudSpec) (*rawProvider, error) {
@@ -88,43 +95,42 @@ func newRemoteRawProvider(spec environs.CloudSpec) (*rawProvider, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newRawProviderFromConfig(*config)
+	raw, err := newRawProviderFromConfig(*config)
+	return raw, errors.Trace(err)
 }
 
-func newRawProviderFromConfig(config lxdclient.Config) (*rawProvider, error) {
-	client, err := lxdclient.Connect(config, true)
+func newRawProviderFromConfig(config jujulxdclient.Config) (*rawProvider, error) {
+	client, err := jujulxdclient.Connect(config, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &rawProvider{
-		lxdCerts:     client,
-		lxdConfig:    client,
+		newServer:    client,
 		lxdInstances: client,
 		lxdProfiles:  client,
-		lxdImages:    client,
 		lxdStorage:   client,
 		remote:       config.Remote,
 	}, nil
 }
 
-// getRemoteConfig returns a lxdclient.Config using a TCP-based remote.
-func getRemoteConfig(spec environs.CloudSpec) (*lxdclient.Config, error) {
-	clientCert, serverCert, ok := getCerts(spec)
+// getRemoteConfig returns a jujulxdclient.Config using a TCP-based remote.
+func getRemoteConfig(spec environs.CloudSpec) (*jujulxdclient.Config, error) {
+	clientCert, serverCert, ok := getCertificates(spec)
 	if !ok {
 		return nil, errors.NotValidf("credentials")
 	}
-	return &lxdclient.Config{
-		lxdclient.Remote{
+	return &jujulxdclient.Config{
+		jujulxdclient.Remote{
 			Name:          "remote",
 			Host:          spec.Endpoint,
-			Protocol:      lxdclient.LXDProtocol,
+			Protocol:      jujulxdclient.LXDProtocol,
 			Cert:          clientCert,
 			ServerPEMCert: serverCert,
 		},
 	}, nil
 }
 
-func getCerts(spec environs.CloudSpec) (client *lxdclient.Cert, server string, ok bool) {
+func getCertificates(spec environs.CloudSpec) (client *lxd.Certificate, server string, ok bool) {
 	if spec.Credential == nil {
 		return nil, "", false
 	}
@@ -141,7 +147,7 @@ func getCerts(spec environs.CloudSpec) (client *lxdclient.Cert, server string, o
 	if !ok {
 		return nil, "", false
 	}
-	clientCert := &lxdclient.Cert{
+	clientCert := &lxd.Certificate{
 		Name:    "juju",
 		CertPEM: []byte(clientCertPEM),
 		KeyPEM:  []byte(clientKeyPEM),

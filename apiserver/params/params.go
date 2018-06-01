@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/proxy"
 	"github.com/juju/replicaset"
-	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
 	"gopkg.in/macaroon.v2-unstable"
@@ -261,6 +261,30 @@ type ApplicationDeploy struct {
 	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
 	Constraints      constraints.Value              `json:"constraints"`
 	Placement        []*instance.Placement          `json:"placement,omitempty"`
+	Policy           string                         `json:"policy,omitempty"`
+	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
+	AttachStorage    []string                       `json:"attach-storage,omitempty"`
+	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
+	Resources        map[string]string              `json:"resources,omitempty"`
+}
+
+// ApplicationsDeployV5 holds the parameters for deploying one or more applications.
+type ApplicationsDeployV5 struct {
+	Applications []ApplicationDeployV5 `json:"applications"`
+}
+
+// ApplicationDeployV5 holds the parameters for making the application Deploy call for
+// application facades older than v6. Missing the newer Policy arg.
+type ApplicationDeployV5 struct {
+	ApplicationName  string                         `json:"application"`
+	Series           string                         `json:"series"`
+	CharmURL         string                         `json:"charm-url"`
+	Channel          string                         `json:"channel"`
+	NumUnits         int                            `json:"num-units"`
+	Config           map[string]string              `json:"config,omitempty"`
+	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
+	Constraints      constraints.Value              `json:"constraints"`
+	Placement        []*instance.Placement          `json:"placement,omitempty"`
 	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
 	AttachStorage    []string                       `json:"attach-storage,omitempty"`
 	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
@@ -481,6 +505,16 @@ type AddApplicationUnitsResults struct {
 
 // AddApplicationUnits holds parameters for the AddUnits call.
 type AddApplicationUnits struct {
+	ApplicationName string                `json:"application"`
+	NumUnits        int                   `json:"num-units"`
+	Placement       []*instance.Placement `json:"placement"`
+	Policy          string                `json:"policy,omitempty"`
+	AttachStorage   []string              `json:"attach-storage,omitempty"`
+}
+
+// AddApplicationUnitsV5 holds parameters for the AddUnits call.
+// V5 is missing the new policy arg.
+type AddApplicationUnitsV5 struct {
 	ApplicationName string                `json:"application"`
 	NumUnits        int                   `json:"num-units"`
 	Placement       []*instance.Placement `json:"placement"`
@@ -742,6 +776,22 @@ type ContainerConfig struct {
 	ProviderType               string                 `json:"provider-type"`
 	AuthorizedKeys             string                 `json:"authorized-keys"`
 	SSLHostnameVerification    bool                   `json:"ssl-hostname-verification"`
+	LegacyProxy                proxy.Settings         `json:"legacy-proxy"`
+	JujuProxy                  proxy.Settings         `json:"juju-proxy"`
+	AptProxy                   proxy.Settings         `json:"apt-proxy"`
+	SnapProxy                  proxy.Settings         `json:"snap-proxy"`
+	AptMirror                  string                 `json:"apt-mirror"`
+	CloudInitUserData          map[string]interface{} `json:"cloudinit-userdata,omitempty"`
+	ContainerInheritProperties string                 `json:"container-inherit-properties,omitempty"`
+	*UpdateBehavior
+}
+
+// ContainerConfigV5 contains information from the model config that is
+// needed for container cloud-init for version 5 provisioner api calls.
+type ContainerConfigV5 struct {
+	ProviderType               string                 `json:"provider-type"`
+	AuthorizedKeys             string                 `json:"authorized-keys"`
+	SSLHostnameVerification    bool                   `json:"ssl-hostname-verification"`
 	Proxy                      proxy.Settings         `json:"proxy"`
 	AptProxy                   proxy.Settings         `json:"apt-proxy"`
 	AptMirror                  string                 `json:"apt-mirror"`
@@ -851,7 +901,7 @@ type LoginResult struct {
 	// DischargeRequired implies that the login request has failed, and none of
 	// the other fields are populated. It contains a macaroon which, when
 	// discharged, will grant access on a subsequent call to Login.
-	// Note: It is OK to use the Macaroon type here as it is explicitely
+	// Note: It is OK to use the Macaroon type here as it is explicitly
 	// designed to provide stable serialisation of macaroons.  It's good
 	// practice to only use primitives in types that will be serialised,
 	// however because of the above it is suitable to use the Macaroon type
@@ -950,6 +1000,9 @@ type FindToolsParams struct {
 
 	// Series will be used to match tools by series if non-empty.
 	Series string `json:"series"`
+
+	// AgentStream will be used to set agent stream to search
+	AgentStream string `json:"agentstream"`
 }
 
 // FindToolsResult holds a list of tools from FindTools and any error.

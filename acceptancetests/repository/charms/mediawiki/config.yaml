@@ -1,0 +1,29 @@
+options:
+  name:
+    default: Please set name of wiki
+    description: The name, or Title of the Wiki
+    type: string
+  skin:
+    default: vector
+    description: skin for the Wiki
+    type: string
+  logo:
+    description: URL to fetch logo from
+    default: ''
+    type: string
+  server_address:
+    description: The server url to set "$wgServer". Useful for reverse proxies
+    default: ''
+    type: string
+  admins:
+    description: Admin users to create, user:pass
+    default: ''
+    type: string
+  use_suffix:
+    default: true
+    type: boolean
+    description: If we should put '/mediawiki' suffix on the url
+  debug:
+    default: false
+    type: boolean
+    description: turn on debugging features of mediawiki

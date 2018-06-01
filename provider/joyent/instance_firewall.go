@@ -10,6 +10,7 @@ import (
 	"github.com/joyent/gosdc/cloudapi"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
 
@@ -32,7 +33,7 @@ func createFirewallRuleVm(envName string, machineId string, portRange network.In
 	return fmt.Sprintf(firewallRuleVm, envName, machineId, strings.ToLower(portRange.Protocol), portList)
 }
 
-func (inst *joyentInstance) OpenPorts(machineId string, ports []network.IngressRule) error {
+func (inst *joyentInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, ports []network.IngressRule) error {
 	if inst.env.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance", inst.env.Config().FirewallMode())
 	}
@@ -66,7 +67,7 @@ func (inst *joyentInstance) OpenPorts(machineId string, ports []network.IngressR
 	return nil
 }
 
-func (inst *joyentInstance) ClosePorts(machineId string, ports []network.IngressRule) error {
+func (inst *joyentInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, ports []network.IngressRule) error {
 	if inst.env.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance", inst.env.Config().FirewallMode())
 	}
@@ -100,7 +101,7 @@ func (inst *joyentInstance) ClosePorts(machineId string, ports []network.Ingress
 	return nil
 }
 
-func (inst *joyentInstance) IngressRules(machineId string) ([]network.IngressRule, error) {
+func (inst *joyentInstance) IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error) {
 	if inst.env.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ingress rules from instance", inst.env.Config().FirewallMode())
 	}

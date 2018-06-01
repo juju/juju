@@ -5,8 +5,8 @@
 package cloudinit
 
 import (
-	"github.com/juju/utils/packaging/commands"
-	"github.com/juju/utils/proxy"
+	"github.com/juju/packaging/commands"
+	"github.com/juju/proxy"
 )
 
 //Implementation of PackageHelper for OpenSUSE

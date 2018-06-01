@@ -7,6 +7,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
@@ -17,10 +18,11 @@ import (
 type Client interface {
 	CharmGetter
 	UnitGetter
+	UnitRemover
 	ApplicationWatcher
 	PodSpecSetter
 	StatusSetter
-	ModelName() (string, error)
+	Model() (*model.Model, error)
 }
 
 // CharmGetter provides an interface for getting
@@ -37,6 +39,12 @@ type CharmGetter interface {
 type UnitGetter interface {
 	WatchUnits(string) (watcher.StringsWatcher, error)
 	Life(string) (life.Value, error)
+}
+
+// UnitRemover provides an interface for
+// removing a unit.
+type UnitRemover interface {
+	RemoveUnit(string) error
 }
 
 // ApplicationWatcher provides an interface watching

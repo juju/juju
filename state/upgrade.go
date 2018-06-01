@@ -39,9 +39,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"

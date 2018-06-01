@@ -3,4 +3,17 @@
 
 package setmeterstatus
 
+import (
+	"github.com/juju/cmd"
+
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
+)
+
 var NewClient = &newClient
+
+func NewCommandForTest(store jujuclient.ClientStore) cmd.Command {
+	cmd := &SetMeterStatusCommand{}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}

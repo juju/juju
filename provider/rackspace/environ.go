@@ -9,12 +9,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/series"
+	jujuos "github.com/juju/os"
+	"github.com/juju/os/series"
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -25,15 +26,15 @@ type environ struct {
 var bootstrap = common.Bootstrap
 
 // Bootstrap implements environs.Environ.
-func (e environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (e environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// can't redirect to openstack provider as ussually, because correct environ should be passed for common.Bootstrap
-	return bootstrap(ctx, e, params)
+	return bootstrap(ctx, e, callCtx, params)
 }
 
 var waitSSH = common.WaitSSH
 
 // StartInstance implements environs.Environ.
-func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (e environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	osString, err := series.GetOSFromSeries(args.Tools.OneSeries())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -43,7 +44,7 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 		return nil, errors.Errorf("rackspace provider doesn't support firewalls for windows instances")
 
 	}
-	r, err := e.Environ.StartInstance(args)
+	r, err := e.Environ.StartInstance(ctx, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -60,6 +61,7 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 			ssh.DefaultClient,
 			common.GetCheckNonceCommand(args.InstanceConfig),
 			&common.RefreshableInstance{r.Instance, e},
+			ctx,
 			timeout,
 			common.DefaultHostSSHOptions,
 		)

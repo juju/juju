@@ -175,7 +175,7 @@ type modelEntityRefsDoc struct {
 	// Machines contains the names of the top-level machines in the model.
 	Machines []string `bson:"machines"`
 
-	// Applicatons contains the names of the applications in the model.
+	// Applications contains the names of the applications in the model.
 	Applications []string `bson:"applications"`
 
 	// Volumes contains the IDs of the volumes in the model.
@@ -396,8 +396,23 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	}
 
 	ops := append(prereqOps, modelOps...)
+
+	// Increment the model count for the cloud to which this model belongs.
+	incCloudRefOp, err := incCloudModelRefOp(st, args.CloudName)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	ops = append(ops, incCloudRefOp)
+
 	err = newSt.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
+		// Check that the cloud exists.
+		// TODO(wallyworld) - this can't yet be tested since we check that the
+		// model cloud is the same as the controller cloud, and hooks can't be
+		// used because a new state is created.
+		if _, err := newSt.Cloud(args.CloudName); err != nil {
+			return nil, nil, errors.Trace(err)
+		}
 
 		// We have a  unique key restriction on the "owner" and "name" fields,
 		// which will cause the insert to fail if there is another record with
@@ -920,7 +935,7 @@ func (m *Model) uniqueIndexID() string {
 }
 
 // Destroy sets the models's lifecycle to Dying, preventing
-// addition of services or machines to state. If called on
+// addition of applications or machines to state. If called on
 // an empty hosted model, the lifecycle will be advanced
 // straight to Dead.
 func (m *Model) Destroy(args DestroyModelParams) (err error) {
@@ -1253,7 +1268,8 @@ func (m *Model) destroyOps(
 		ops = append(ops,
 			newCleanupOp(cleanupApplicationsForDyingModel, modelUUID),
 		)
-		if m.Type() == ModelTypeIAAS {
+		switch m.Type() {
+		case ModelTypeIAAS:
 			ops = append(ops, newCleanupOp(cleanupMachinesForDyingModel, modelUUID))
 			if args.DestroyStorage != nil {
 				// The user has specified that the storage should be destroyed
@@ -1268,6 +1284,8 @@ func (m *Model) destroyOps(
 					*args.DestroyStorage,
 				))
 			}
+		case ModelTypeCAAS:
+			ops = append(ops, newCleanupOp(cleanupUnitsForDyingModel, modelUUID))
 		}
 	}
 	return append(prereqOps, ops...), nil

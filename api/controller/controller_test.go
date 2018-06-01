@@ -332,7 +332,7 @@ func (s *Suite) TestModelStatus(c *gc.C) {
 		UUID:               coretesting.ModelTag.Id(),
 		TotalMachineCount:  1,
 		HostedMachineCount: 2,
-		ServiceCount:       3,
+		ApplicationCount:   3,
 		Owner:              "glenda",
 		Life:               string(params.Alive),
 		Machines:           []base.Machine{{Id: "0", InstanceId: "inst-ance", Status: "pending"}},

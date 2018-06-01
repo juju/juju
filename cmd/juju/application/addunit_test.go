@@ -17,15 +17,16 @@ import (
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type AddUnitSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	fake *fakeServiceAddUnitAPI
+	fake *fakeApplicationAddUnitAPI
 }
 
-type fakeServiceAddUnitAPI struct {
+type fakeApplicationAddUnitAPI struct {
 	envType        string
 	application    string
 	numUnits       int
@@ -35,19 +36,19 @@ type fakeServiceAddUnitAPI struct {
 	err            error
 }
 
-func (f *fakeServiceAddUnitAPI) BestAPIVersion() int {
+func (f *fakeApplicationAddUnitAPI) BestAPIVersion() int {
 	return f.bestAPIVersion
 }
 
-func (f *fakeServiceAddUnitAPI) Close() error {
+func (f *fakeApplicationAddUnitAPI) Close() error {
 	return nil
 }
 
-func (f *fakeServiceAddUnitAPI) ModelUUID() string {
+func (f *fakeApplicationAddUnitAPI) ModelUUID() string {
 	return "fake-uuid"
 }
 
-func (f *fakeServiceAddUnitAPI) AddUnits(args apiapplication.AddUnitsParams) ([]string, error) {
+func (f *fakeApplicationAddUnitAPI) AddUnits(args apiapplication.AddUnitsParams) ([]string, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -61,7 +62,7 @@ func (f *fakeServiceAddUnitAPI) AddUnits(args apiapplication.AddUnitsParams) ([]
 	return nil, nil
 }
 
-func (f *fakeServiceAddUnitAPI) ModelGet() (map[string]interface{}, error) {
+func (f *fakeApplicationAddUnitAPI) ModelGet() (map[string]interface{}, error) {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": f.envType,
 		"name": "dummy",
@@ -75,7 +76,7 @@ func (f *fakeServiceAddUnitAPI) ModelGet() (map[string]interface{}, error) {
 
 func (s *AddUnitSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.fake = &fakeServiceAddUnitAPI{
+	s.fake = &fakeApplicationAddUnitAPI{
 		application:    "some-application-name",
 		numUnits:       1,
 		envType:        "dummy",
@@ -107,13 +108,13 @@ var initAddUnitErrorTests = []struct {
 func (s *AddUnitSuite) TestInitErrors(c *gc.C) {
 	for i, t := range initAddUnitErrorTests {
 		c.Logf("test %d", i)
-		err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake), t.args)
+		err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, jujuclienttesting.MinimalStore()), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
 func (s *AddUnitSuite) runAddUnit(c *gc.C, args ...string) error {
-	_, err := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(s.fake), args...)
+	_, err := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(s.fake, jujuclienttesting.MinimalStore()), args...)
 	return err
 }
 
@@ -176,7 +177,8 @@ func (s *AddUnitSuite) TestUnauthorizedMentionsJujuGrant(c *gc.C) {
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	}
-	ctx, _ := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(s.fake), "some-application-name")
+	ctx, _ := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(
+		s.fake, jujuclienttesting.MinimalStore()), "some-application-name")
 	errString := strings.Replace(cmdtesting.Stderr(ctx), "\n", " ", -1)
 	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }

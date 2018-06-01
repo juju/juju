@@ -68,6 +68,18 @@ func FormatTime(t *time.Time, formatISO bool) string {
 	return t.Local().Format("02 Jan 2006 15:04:05Z07:00")
 }
 
+// FormatTimeAsTimestamp formats a time.Time to a given machine readable format.
+// Returns a string with the local time formatted or uses the localized tz or
+// in UTC timezone.
+// The difference between this and `common.FormatTime` is that this version
+// drops the date part of the time.Time.
+func FormatTimeAsTimestamp(t *time.Time, formatISO bool) string {
+	if formatISO {
+		return t.UTC().Format("15:04:05")
+	}
+	return t.Local().Format("15:04:05Z07:00")
+}
+
 // ConformYAML ensures all keys of any nested maps are strings.  This is
 // necessary because YAML unmarshals map[interface{}]interface{} in nested
 // maps, which cannot be serialized by bson. Also, handle []interface{}.

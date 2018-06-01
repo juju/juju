@@ -5,8 +5,7 @@ package context
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
-	"github.com/juju/utils/proxy"
+	"github.com/juju/proxy"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
@@ -32,30 +31,32 @@ func NewHookContext(
 	remoteUnitName string,
 	relations map[int]*ContextRelation,
 	apiAddrs []string,
-	proxySettings proxy.Settings,
+	legacyProxySettings proxy.Settings,
+	jujuProxySettings proxy.Settings,
 	canAddMetrics bool,
 	charmMetrics *charm.Metrics,
 	actionData *ActionData,
 	assignedMachineTag names.MachineTag,
 	paths Paths,
-	clock clock.Clock,
+	clock Clock,
 ) (*HookContext, error) {
 	ctx := &HookContext{
-		unit:               unit,
-		state:              state,
-		id:                 id,
-		uuid:               uuid,
-		modelName:          modelName,
-		unitName:           unit.Name(),
-		relationId:         relationId,
-		remoteUnitName:     remoteUnitName,
-		relations:          relations,
-		apiAddrs:           apiAddrs,
-		proxySettings:      proxySettings,
-		actionData:         actionData,
-		pendingPorts:       make(map[PortRange]PortRangeInfo),
-		assignedMachineTag: assignedMachineTag,
-		clock:              clock,
+		unit:                unit,
+		state:               state,
+		id:                  id,
+		uuid:                uuid,
+		modelName:           modelName,
+		unitName:            unit.Name(),
+		relationId:          relationId,
+		remoteUnitName:      remoteUnitName,
+		relations:           relations,
+		apiAddrs:            apiAddrs,
+		legacyProxySettings: legacyProxySettings,
+		jujuProxySettings:   jujuProxySettings,
+		actionData:          actionData,
+		pendingPorts:        make(map[PortRange]PortRangeInfo),
+		assignedMachineTag:  assignedMachineTag,
+		clock:               clock,
 	}
 	// Get and cache the addresses.
 	var err error
@@ -140,16 +141,17 @@ func StorageAddConstraints(ctx *HookContext) map[string][]params.StorageConstrai
 // The returned value is not otherwise valid.
 func NewModelHookContext(
 	id, modelUUID, modelName, unitName, meterCode, meterInfo, slaLevel, availZone string,
-	apiAddresses []string, proxySettings proxy.Settings,
+	apiAddresses []string, legacyProxySettings proxy.Settings, jujuProxySettings proxy.Settings,
 	machineTag names.MachineTag,
 ) *HookContext {
 	return &HookContext{
-		id:            id,
-		unitName:      unitName,
-		uuid:          modelUUID,
-		modelName:     modelName,
-		apiAddrs:      apiAddresses,
-		proxySettings: proxySettings,
+		id:                  id,
+		unitName:            unitName,
+		uuid:                modelUUID,
+		modelName:           modelName,
+		apiAddrs:            apiAddresses,
+		legacyProxySettings: legacyProxySettings,
+		jujuProxySettings:   jujuProxySettings,
 		meterStatus: &meterStatus{
 			code: meterCode,
 			info: meterInfo,

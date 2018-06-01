@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -30,7 +31,8 @@ func (s *RemoveRelationSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&RemoveRelationSuite{})
 
 func (s *RemoveRelationSuite) runRemoveRelation(c *gc.C, args ...string) error {
-	_, err := cmdtesting.RunCommand(c, NewRemoveRelationCommandForTest(s.mockAPI), args...)
+	store := jujuclienttesting.MinimalStore()
+	_, err := cmdtesting.RunCommand(c, NewRemoveRelationCommandForTest(s.mockAPI, store), args...)
 	return err
 }
 

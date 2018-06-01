@@ -14,14 +14,14 @@ import (
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/deque"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/pubsub/forwarder"
 )
 
-// RemoteServer represents the public interace of the worker
+// RemoteServer represents the public interface of the worker
 // responsible for forwarding messages to a single other API server.
 type RemoteServer interface {
 	worker.Worker
@@ -91,10 +91,7 @@ func NewRemoteServer(config RemoteServerConfig) (RemoteServer, error) {
 		return nil, errors.Trace(err)
 	}
 	remote.unsubscribe = unsub
-	go func() {
-		defer remote.tomb.Done()
-		remote.tomb.Kill(remote.loop())
-	}()
+	remote.tomb.Go(remote.loop)
 	return remote, nil
 }
 

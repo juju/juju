@@ -58,8 +58,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.dataDir = c.MkDir()
 
 	s.resources = dt.StubResources{
-		"agent-name":     dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
-		"apicaller-name": dt.StubResource{Output: &dummyAPICaller{}},
+		"agent-name":     dt.NewStubResource(&dummyAgent{dataDir: s.dataDir}),
+		"apicaller-name": dt.NewStubResource(&dummyAPICaller{}),
 	}
 }
 

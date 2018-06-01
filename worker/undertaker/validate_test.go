@@ -30,10 +30,17 @@ func (*ValidateSuite) TestNilDestroyer(c *gc.C) {
 	checkInvalid(c, config, "nil Destroyer not valid")
 }
 
+func (*ValidateSuite) TestNilCredentialAPI(c *gc.C) {
+	config := validConfig()
+	config.CredentialAPI = nil
+	checkInvalid(c, config, "nil CredentialAPI not valid")
+}
+
 func validConfig() undertaker.Config {
 	return undertaker.Config{
-		Facade:    &fakeFacade{},
-		Destroyer: &fakeEnviron{},
+		Facade:        &fakeFacade{},
+		Destroyer:     &fakeEnviron{},
+		CredentialAPI: &fakeCredentialAPI{},
 	}
 }
 

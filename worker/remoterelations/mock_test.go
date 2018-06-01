@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
@@ -371,11 +371,6 @@ type mockWatcher struct {
 	terminated bool
 }
 
-func (w *mockWatcher) doneWhenDying() {
-	<-w.Tomb.Dying()
-	w.Tomb.Done()
-}
-
 func (w *mockWatcher) killed() bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -406,7 +401,10 @@ type mockStringsWatcher struct {
 
 func newMockStringsWatcher() *mockStringsWatcher {
 	w := &mockStringsWatcher{changes: make(chan []string, 5)}
-	go w.doneWhenDying()
+	w.Tomb.Go(func() error {
+		<-w.Tomb.Dying()
+		return nil
+	})
 	return w
 }
 
@@ -434,7 +432,10 @@ func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
 	w := &mockRelationUnitsWatcher{
 		changes: make(chan watcher.RelationUnitsChange, 1),
 	}
-	go w.doneWhenDying()
+	w.Tomb.Go(func() error {
+		<-w.Tomb.Dying()
+		return nil
+	})
 	return w
 }
 
@@ -452,7 +453,10 @@ func newMockRelationStatusWatcher() *mockRelationStatusWatcher {
 	w := &mockRelationStatusWatcher{
 		changes: make(chan []watcher.RelationStatusChange, 1),
 	}
-	go w.doneWhenDying()
+	w.Tomb.Go(func() error {
+		<-w.Tomb.Dying()
+		return nil
+	})
 	return w
 }
 
@@ -470,7 +474,10 @@ func newMockOfferStatusWatcher() *mockOfferStatusWatcher {
 	w := &mockOfferStatusWatcher{
 		changes: make(chan []watcher.OfferStatusChange, 1),
 	}
-	go w.doneWhenDying()
+	w.Tomb.Go(func() error {
+		<-w.Tomb.Dying()
+		return nil
+	})
 	return w
 }
 

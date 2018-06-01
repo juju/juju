@@ -68,7 +68,7 @@ func NewInstancePollerAPI(
 		accessMachine,
 	)
 	// ModelConfig() and WatchForModelConfigChanges() are allowed
-	// with unrestriced access.
+	// with unrestricted access.
 	modelWatcher := common.NewModelWatcher(
 		sti,
 		resources,

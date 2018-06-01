@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/proxy"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
-	"github.com/juju/utils/proxy"
-	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/environschema.v1"
@@ -88,6 +88,14 @@ const (
 	// of OS image metadata for containers.
 	ContainerImageMetadataURLKey = "container-image-metadata-url"
 
+	// Proxy behaviour has become something of an annoying thing to define
+	// well. These following four proxy variables are being kept to continue
+	// with the existing behaviour for those deployments that specify them.
+	// With these proxy values set, a file is written to every machine
+	// in /etc/profile.d so the ubuntu user gets the environment variables
+	// set when SSHing in. The OS environment also is set in the juju agents
+	// and charm hook environments.
+
 	// HTTPProxyKey stores the key for this setting.
 	HTTPProxyKey = "http-proxy"
 
@@ -99,6 +107,28 @@ const (
 
 	// NoProxyKey stores the key for this setting.
 	NoProxyKey = "no-proxy"
+
+	// The new proxy keys are passed into hook contexts with the prefix
+	// JUJU_CHARM_ then HTTP_PROXY, HTTPS_PROXY, FTP_PROXY, and NO_PROXY.
+	// This allows the charm to set a proxy when it thinks it needs one.
+	// These values are not set in the general environment.
+
+	// JujuHTTPProxyKey stores the key for this setting.
+	JujuHTTPProxyKey = "juju-http-proxy"
+
+	// JujuHTTPSProxyKey stores the key for this setting.
+	JujuHTTPSProxyKey = "juju-https-proxy"
+
+	// JujuFTPProxyKey stores the key for this setting.
+	JujuFTPProxyKey = "juju-ftp-proxy"
+
+	// JujuNoProxyKey stores the key for this setting.
+	JujuNoProxyKey = "juju-no-proxy"
+
+	// The APT proxy values specified here work with both the
+	// legacy and juju proxy settings. If no value is specified,
+	// the value is determined by the either the legacy or juju value
+	// if one is specified.
 
 	// AptHTTPProxyKey stores the key for this setting.
 	AptHTTPProxyKey = "apt-http-proxy"
@@ -234,7 +264,7 @@ const (
 	HarvestUnknown
 	// HarvestDestroyed signifies that Juju should only harvest
 	// machines which have been explicitly released by the user
-	// through a destroy of a service/model/unit.
+	// through a destroy of an application/model/unit.
 	HarvestDestroyed
 	// HarvestAll signifies that Juju should harvest both unknown and
 	// destroyed instances. ♫ Don't fear the reaper. ♫
@@ -421,10 +451,15 @@ var defaultConfigValues = map[string]interface{}{
 	LogForwardEnabled: false,
 
 	// Proxy settings.
-	HTTPProxyKey:     "",
-	HTTPSProxyKey:    "",
-	FTPProxyKey:      "",
-	NoProxyKey:       "127.0.0.1,localhost,::1",
+	HTTPProxyKey:      "",
+	HTTPSProxyKey:     "",
+	FTPProxyKey:       "",
+	NoProxyKey:        "127.0.0.1,localhost,::1",
+	JujuHTTPProxyKey:  "",
+	JujuHTTPSProxyKey: "",
+	JujuFTPProxyKey:   "",
+	JujuNoProxyKey:    "127.0.0.1,localhost,::1",
+
 	AptHTTPProxyKey:  "",
 	AptHTTPSProxyKey: "",
 	AptFTPProxyKey:   "",
@@ -688,6 +723,11 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
+	// The user shouldn't specify both old and new proxy values.
+	if cfg.HasLegacyProxy() && cfg.HasJujuProxy() {
+		return errors.New("cannot specify both legacy proxy values and juju proxy values")
+	}
+
 	cfg.defined = ProcessDeprecatedAttributes(cfg.defined)
 	return nil
 }
@@ -802,9 +842,11 @@ func (c *Config) ContainerNetworkingMethod() string {
 	return c.asString(ContainerNetworkingMethod)
 }
 
-// ProxySettings returns all four proxy settings; http, https, ftp, and no
-// proxy.
-func (c *Config) ProxySettings() proxy.Settings {
+// LegacyProxySettings returns all four proxy settings; http, https, ftp, and no
+// proxy. These are considered legacy as using these values will cause the environment
+// to be updated, which has shown to not work in many cases. It is being kept to avoid
+// breaking environments where it is sufficient.
+func (c *Config) LegacyProxySettings() proxy.Settings {
 	return proxy.Settings{
 		Http:    c.HTTPProxy(),
 		Https:   c.HTTPSProxy(),
@@ -813,30 +855,82 @@ func (c *Config) ProxySettings() proxy.Settings {
 	}
 }
 
-// HTTPProxy returns the http proxy for the environment.
+// HasLegacyProxy returns true if there is any proxy set using the old legacy proxy keys.
+func (c *Config) HasLegacyProxy() bool {
+	// We exclude the no proxy value as it has default value.
+	return c.HTTPProxy() != "" ||
+		c.HTTPSProxy() != "" ||
+		c.FTPProxy() != ""
+}
+
+// HasJujuProxy returns true if there is any proxy set using the new juju-proxy keys.
+func (c *Config) HasJujuProxy() bool {
+	// We exclude the no proxy value as it has default value.
+	return c.JujuHTTPProxy() != "" ||
+		c.JujuHTTPSProxy() != "" ||
+		c.JujuFTPProxy() != ""
+}
+
+// JujuProxySettings returns all four proxy settings that have been set using the
+// juju- prefixed proxy settings. These values determine the current best practice
+// for proxies.
+func (c *Config) JujuProxySettings() proxy.Settings {
+	return proxy.Settings{
+		Http:    c.JujuHTTPProxy(),
+		Https:   c.JujuHTTPSProxy(),
+		Ftp:     c.JujuFTPProxy(),
+		NoProxy: c.JujuNoProxy(),
+	}
+}
+
+// HTTPProxy returns the legacy http proxy for the environment.
 func (c *Config) HTTPProxy() string {
 	return c.asString(HTTPProxyKey)
 }
 
-// HTTPSProxy returns the https proxy for the environment.
+// HTTPSProxy returns the legacy https proxy for the environment.
 func (c *Config) HTTPSProxy() string {
 	return c.asString(HTTPSProxyKey)
 }
 
-// FTPProxy returns the ftp proxy for the environment.
+// FTPProxy returns the legacy ftp proxy for the environment.
 func (c *Config) FTPProxy() string {
 	return c.asString(FTPProxyKey)
 }
 
-// NoProxy returns the 'no-proxy' for the environment.
+// NoProxy returns the legacy  'no-proxy' for the environment.
 func (c *Config) NoProxy() string {
 	return c.asString(NoProxyKey)
 }
 
-func (c *Config) getWithFallback(key, fallback string) string {
+// JujuHTTPProxy returns the http proxy for the environment.
+func (c *Config) JujuHTTPProxy() string {
+	return c.asString(JujuHTTPProxyKey)
+}
+
+// JujuHTTPSProxy returns the https proxy for the environment.
+func (c *Config) JujuHTTPSProxy() string {
+	return c.asString(JujuHTTPSProxyKey)
+}
+
+// JujuFTPProxy returns the ftp proxy for the environment.
+func (c *Config) JujuFTPProxy() string {
+	return c.asString(JujuFTPProxyKey)
+}
+
+// JujuNoProxy returns the 'no-proxy' for the environment.
+// This value can contain CIDR values.
+func (c *Config) JujuNoProxy() string {
+	return c.asString(JujuNoProxyKey)
+}
+
+func (c *Config) getWithFallback(key, fallback1, fallback2 string) string {
 	value := c.asString(key)
 	if value == "" {
-		value = c.asString(fallback)
+		value = c.asString(fallback1)
+	}
+	if value == "" {
+		value = c.asString(fallback2)
 	}
 	return value
 }
@@ -862,24 +956,32 @@ func (c *Config) AptProxySettings() proxy.Settings {
 // AptHTTPProxy returns the apt http proxy for the environment.
 // Falls back to the default http-proxy if not specified.
 func (c *Config) AptHTTPProxy() string {
-	return addSchemeIfMissing("http", c.getWithFallback(AptHTTPProxyKey, HTTPProxyKey))
+	return addSchemeIfMissing("http", c.getWithFallback(AptHTTPProxyKey, JujuHTTPProxyKey, HTTPProxyKey))
 }
 
 // AptHTTPSProxy returns the apt https proxy for the environment.
 // Falls back to the default https-proxy if not specified.
 func (c *Config) AptHTTPSProxy() string {
-	return addSchemeIfMissing("https", c.getWithFallback(AptHTTPSProxyKey, HTTPSProxyKey))
+	return addSchemeIfMissing("https", c.getWithFallback(AptHTTPSProxyKey, JujuHTTPSProxyKey, HTTPSProxyKey))
 }
 
 // AptFTPProxy returns the apt ftp proxy for the environment.
 // Falls back to the default ftp-proxy if not specified.
 func (c *Config) AptFTPProxy() string {
-	return addSchemeIfMissing("ftp", c.getWithFallback(AptFTPProxyKey, FTPProxyKey))
+	return addSchemeIfMissing("ftp", c.getWithFallback(AptFTPProxyKey, JujuFTPProxyKey, FTPProxyKey))
 }
 
 // AptNoProxy returns the 'apt-no-proxy' for the environment.
 func (c *Config) AptNoProxy() string {
-	return c.getWithFallback(AptNoProxyKey, NoProxyKey)
+	value := c.asString(AptNoProxyKey)
+	if value == "" {
+		if c.HasLegacyProxy() {
+			value = c.asString(NoProxyKey)
+		} else {
+			value = c.asString(JujuNoProxyKey)
+		}
+	}
+	return value
 }
 
 // AptMirror sets the apt mirror for the environment.
@@ -1310,6 +1412,10 @@ var alwaysOptional = schema.Defaults{
 	HTTPSProxyKey:                schema.Omit,
 	FTPProxyKey:                  schema.Omit,
 	NoProxyKey:                   schema.Omit,
+	JujuHTTPProxyKey:             schema.Omit,
+	JujuHTTPSProxyKey:            schema.Omit,
+	JujuFTPProxyKey:              schema.Omit,
+	JujuNoProxyKey:               schema.Omit,
 	AptHTTPProxyKey:              schema.Omit,
 	AptHTTPSProxyKey:             schema.Omit,
 	AptFTPProxyKey:               schema.Omit,
@@ -1626,6 +1732,31 @@ global or per instance security groups.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
+	NoProxyKey: {
+		Description: "List of domain addresses not to be proxied (comma-separated)",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	JujuFTPProxyKey: {
+		Description: "The FTP proxy value to pass to charms in the JUJU_CHARM_FTP_PROXY environment variable",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	JujuHTTPProxyKey: {
+		Description: "The HTTP proxy value to pass to charms in the JUJU_CHARM_HTTP_PROXY environment variable",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	JujuHTTPSProxyKey: {
+		Description: "The HTTPS proxy value to pass to charms in the JUJU_CHARM_HTTPS_PROXY environment variable",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	JujuNoProxyKey: {
+		Description: "List of domain addresses not to be proxied (comma-separated), may contain CIDRs. Passed to charms in the JUJU_CHARM_NO_PROXY environment variable",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
 	"image-metadata-url": {
 		Description: "The URL at which the metadata used to locate OS image ids is located",
 		Type:        environschema.Tstring,
@@ -1656,11 +1787,6 @@ global or per instance security groups.`,
 		Type:        environschema.Tstring,
 		Mandatory:   true,
 		Immutable:   true,
-		Group:       environschema.EnvironGroup,
-	},
-	NoProxyKey: {
-		Description: "List of domain addresses not to be proxied (comma-separated)",
-		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	ProvisionerHarvestModeKey: {

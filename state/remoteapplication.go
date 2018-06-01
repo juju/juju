@@ -9,9 +9,9 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
@@ -148,15 +148,15 @@ func (s *RemoteApplication) OfferUUID() string {
 	return s.doc.OfferUUID
 }
 
-// URL returns the remote service URL, and a boolean indicating whether or not
-// a URL is known for the remote service. A URL will only be available for the
-// consumer of an offered service.
+// URL returns the remote application URL, and a boolean indicating whether or not
+// a URL is known for the remote application. A URL will only be available for the
+// consumer of an offered application.
 func (s *RemoteApplication) URL() (string, bool) {
 	return s.doc.URL, s.doc.URL != ""
 }
 
 // Token returns the token for the remote application, provided by the remote
-// model to identify the service in future communications.
+// model to identify the application in future communications.
 func (s *RemoteApplication) Token() (string, error) {
 	r := s.st.RemoteEntities()
 	return r.GetToken(s.Tag())
@@ -554,8 +554,8 @@ func (s *RemoteApplication) Relations() (relations []*Relation, err error) {
 	return applicationRelations(s.st, s.doc.Name)
 }
 
-// AddRemoteApplicationParams contains the parameters for adding a remote service
-// to the environment.
+// AddRemoteApplicationParams contains the parameters for adding a remote application
+// to the model.
 type AddRemoteApplicationParams struct {
 	// Name is the name to give the remote application. This does not have to
 	// match the application name in the URL, or the name in the remote model.
@@ -640,11 +640,9 @@ func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *Remot
 	var macJSON string
 	if args.Macaroon != nil {
 		b, err := json.Marshal(args.Macaroon)
-		logger.Criticalf("Tried, got error: %s", err)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		logger.Criticalf("It worked: %s", string(b))
 		macJSON = string(b)
 	}
 	applicationID := st.docID(args.Name)

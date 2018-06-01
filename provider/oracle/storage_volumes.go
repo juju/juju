@@ -146,7 +146,7 @@ func (s *oracleVolumeSource) createVolume(p storage.VolumeParams) (_ *storage.Vo
 	logger.Debugf("waiting for resource %v", details.Name)
 	if err := s.waitForResourceStatus(
 		s.fetchVolumeStatus,
-		string(details.Name),
+		details.Name,
 		string(ociCommon.VolumeOnline), 5*time.Minute); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -528,7 +528,7 @@ func (s *oracleVolumeSource) attachVolume(
 		if val.Index == 0 {
 			continue
 		}
-		if val.Storage_volume_name == string(params.VolumeId) && val.Instance_name == string(params.InstanceId) {
+		if val.Storage_volume_name == params.VolumeId && val.Instance_name == string(params.InstanceId) {
 			// volume is already attached to this instance. Simply return it.
 			return storage.AttachVolumesResult{
 				VolumeAttachment: &storage.VolumeAttachment{
@@ -603,7 +603,7 @@ func (s *oracleVolumeSource) DetachVolumes(params []storage.VolumeAttachmentPara
 	for i, val := range params {
 		found := false
 		for _, attach := range attachAsMap[string(val.InstanceId)] {
-			if string(val.VolumeId) == attach.Storage_volume_name {
+			if val.VolumeId == attach.Storage_volume_name {
 				toDelete[i] = attach.Name
 				found = true
 			}

@@ -539,15 +539,15 @@ func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 		logger.Debugf("new remote application %q added to backing state", app.Name)
 		// Fetch the status.
 		key := remoteApplicationGlobalKey(app.Name)
-		serviceStatus, err := getStatus(st.db(), key, "remote application")
+		appStatus, err := getStatus(st.db(), key, "remote application")
 		if err != nil {
 			return errors.Annotatef(err, "reading remote application status for key %s", key)
 		}
 		info.Status = multiwatcher.StatusInfo{
-			Current: serviceStatus.Status,
-			Message: serviceStatus.Message,
-			Data:    normaliseStatusData(serviceStatus.Data),
-			Since:   serviceStatus.Since,
+			Current: appStatus.Status,
+			Message: appStatus.Message,
+			Data:    normaliseStatusData(appStatus.Data),
+			Since:   appStatus.Since,
 		}
 		logger.Debugf("remote application status %#v", info.Status)
 	}
@@ -845,7 +845,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 
 func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, id string, unitStatus status.StatusInfo, newInfo *multiwatcher.UnitInfo) error {
 	// Unit or workload status - display the agent status or any error.
-	// NOTE: thumper 2016-06-27, this is truely horrible, and we are lying to our users.
+	// NOTE: thumper 2016-06-27, this is truly horrible, and we are lying to our users.
 	// however, this is explicitly what has been asked for as much as we dislike it.
 	if strings.HasSuffix(id, "#charm") || s.Status == status.Error {
 		newInfo.WorkloadStatus = s.toStatusInfo()
@@ -968,7 +968,7 @@ func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string
 	case *multiwatcher.ApplicationInfo:
 		// If we're seeing settings for the application with a different
 		// charm URL, we ignore them - we will fetch
-		// them again when the service charm changes.
+		// them again when the application charm changes.
 		// By doing this we make sure that the settings in the
 		// ApplicationInfo are always consistent with the charm URL.
 		if info.CharmURL != url {
@@ -987,7 +987,7 @@ func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string
 func (s *backingSettings) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
 	parentID, url, ok := backingEntityIdForSettingsKey(modelUUID, id)
 	if !ok {
-		// Service is already gone along with its settings.
+		// Application is already gone along with its settings.
 		return nil
 	}
 	parent := store.Get(parentID)

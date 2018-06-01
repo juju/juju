@@ -8,12 +8,12 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/network"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
@@ -171,7 +171,7 @@ func (s *ApplicationSuite) TestSetCharmLegacy(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:precise/precise-mysql-1": cannot change an application's series`)
 }
 
-func (s *ApplicationSuite) TestClientServiceSetCharmUnsupportedSeries(c *gc.C) {
+func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "application", ch)
 
@@ -183,7 +183,7 @@ func (s *ApplicationSuite) TestClientServiceSetCharmUnsupportedSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series2-8": only these series are supported: trusty, wily`)
 }
 
-func (s *ApplicationSuite) TestClientServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
+func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "application", ch)
 
@@ -201,7 +201,7 @@ func (s *ApplicationSuite) TestClientServiceSetCharmUnsupportedSeriesForce(c *gc
 	c.Assert(ch.URL().String(), gc.Equals, "cs:multi-series2-8")
 }
 
-func (s *ApplicationSuite) TestClientServiceSetCharmWrongOS(c *gc.C) {
+func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	app := state.AddTestingApplicationForSeries(c, s.State, "precise", "application", ch)
 
@@ -233,7 +233,7 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	oldCharm := s.AddMetaCharm(c, "mysql", metaBase, 44)
 
-	service, err := s.State.AddApplication(state.AddApplicationArgs{
+	application, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "yoursql",
 		Charm: oldCharm,
 		EndpointBindings: map[string]string{
@@ -245,16 +245,16 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
 	cfg := state.SetCharmConfig{Charm: newCharm}
-	err = service.SetCharm(cfg)
+	err = application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	updatedBindings, err := service.EndpointBindings()
+	updatedBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedBindings, jc.DeepEquals, map[string]string{
 		// Existing bindings are preserved.
 		"":        "db",
 		"server":  "db",
 		"client":  "client",
-		"cluster": "db", // inherited from defaults in AddService.
+		"cluster": "db", // inherited from defaults in AddApplication.
 		// New endpoints use defaults.
 		"foo":  "db",
 		"baz":  "db",
@@ -574,7 +574,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, state.ErrDead)
 }
 
-func (s *ApplicationSuite) TestSetCharmWithRemovedService(c *gc.C) {
+func (s *ApplicationSuite) TestSetCharmWithRemovedApplication(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
 	err := s.mysql.Destroy()
@@ -882,7 +882,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-var serviceUpdateCharmConfigTests = []struct {
+var applicationUpdateCharmConfigTests = []struct {
 	about   string
 	initial charm.Settings
 	update  charm.Settings
@@ -935,7 +935,7 @@ var serviceUpdateCharmConfigTests = []struct {
 
 func (s *ApplicationSuite) TestUpdateCharmConfig(c *gc.C) {
 	sch := s.AddTestingCharm(c, "dummy")
-	for i, t := range serviceUpdateCharmConfigTests {
+	for i, t := range applicationUpdateCharmConfigTests {
 		c.Logf("test %d. %s", i, t.about)
 		app := s.AddTestingApplication(c, "dummy-application", sch)
 		if t.initial != nil {
@@ -1729,7 +1729,7 @@ func (s *ApplicationSuite) TestWordpressEndpoints(c *gc.C) {
 	c.Assert(eps, gc.DeepEquals, []state.Endpoint{cacheEP, dbEP, jiEP, ldEP, mpEP, urlEP})
 }
 
-func (s *ApplicationSuite) TestServiceRefresh(c *gc.C) {
+func (s *ApplicationSuite) TestApplicationRefresh(c *gc.C) {
 	s1, err := s.State.Application(s.mysql.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1765,7 +1765,7 @@ func (s *ApplicationSuite) TestSetPassword(c *gc.C) {
 	})
 }
 
-func (s *ApplicationSuite) TestServiceExposed(c *gc.C) {
+func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	// Check that querying for the exposed flag works correctly.
 	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
 
@@ -2186,7 +2186,7 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	s.assertNoCleanup(c)
 }
 
-func (s *ApplicationSuite) TestRemoveServiceMachine(c *gc.C) {
+func (s *ApplicationSuite) TestRemoveApplicationMachine(c *gc.C) {
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -2196,7 +2196,7 @@ func (s *ApplicationSuite) TestRemoveServiceMachine(c *gc.C) {
 	c.Assert(s.mysql.Destroy(), gc.IsNil)
 	assertLife(c, s.mysql, state.Dying)
 
-	// Service.Destroy adds units to cleanup, make it happen now.
+	// Application.Destroy adds units to cleanup, make it happen now.
 	c.Assert(s.State.Cleanup(), gc.IsNil)
 
 	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
@@ -2344,7 +2344,7 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	// ...but we can check that old constraints do not affect new services
+	// ...but we can check that old constraints do not affect new applications
 	// with matching names.
 	ch, _, err := s.mysql.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2624,21 +2624,21 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Make one change (to a separate instance), check one event.
-	service, err := s.State.Application(s.mysql.Name())
+	application, err := s.State.Application(s.mysql.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	err = service.SetExposed()
+	err = application.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Make two changes, check one event.
-	err = service.ClearExposed()
+	err = application.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := state.SetCharmConfig{
 		Charm:      s.charm,
 		ForceUnits: true,
 	}
-	err = service.SetCharm(cfg)
+	err = application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -2647,7 +2647,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	wc.AssertClosed()
 
 	// Remove application, start new watch, check single event.
-	err = service.Destroy()
+	err = application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	w = s.mysql.Watch()
 	defer testing.AssertStop(c, w)
@@ -2659,8 +2659,8 @@ func (s *ApplicationSuite) TestMetricCredentials(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
 
-	service, err := s.State.Application(s.mysql.Name())
-	c.Assert(service.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
+	application, err := s.State.Application(s.mysql.Name())
+	c.Assert(application.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
 }
 
 func (s *ApplicationSuite) TestMetricCredentialsOnDying(c *gc.C) {
@@ -2995,25 +2995,25 @@ func (s *ApplicationSuite) TestSetCharmStorageWithLocationSingletonToMultipleAdd
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": existing storage "data0" with location changed from single to multiple`)
 }
 
-func (s *ApplicationSuite) assertApplicationRemovedWithItsBindings(c *gc.C, service *state.Application) {
+func (s *ApplicationSuite) assertApplicationRemovedWithItsBindings(c *gc.C, application *state.Application) {
 	// Removing the application removes the bindings with it.
-	err := service.Destroy()
+	err := application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = service.Refresh()
+	err = application.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	state.AssertEndpointBindingsNotFoundForService(c, service)
+	state.AssertEndpointBindingsNotFoundForApplication(c, application)
 }
 
 func (s *ApplicationSuite) TestEndpointBindingsReturnsDefaultsWhenNotFound(c *gc.C) {
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
-	service := s.AddTestingApplicationWithBindings(c, "yoursql", ch, nil)
-	state.RemoveEndpointBindingsForService(c, service)
+	application := s.AddTestingApplicationWithBindings(c, "yoursql", ch, nil)
+	state.RemoveEndpointBindingsForApplication(c, application)
 
-	s.assertApplicationHasOnlyDefaultEndpointBindings(c, service)
+	s.assertApplicationHasOnlyDefaultEndpointBindings(c, application)
 }
 
-func (s *ApplicationSuite) assertApplicationHasOnlyDefaultEndpointBindings(c *gc.C, service *state.Application) {
-	charm, _, err := service.Charm()
+func (s *ApplicationSuite) assertApplicationHasOnlyDefaultEndpointBindings(c *gc.C, application *state.Application) {
+	charm, _, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 
 	knownEndpoints := set.NewStrings()
@@ -3022,7 +3022,7 @@ func (s *ApplicationSuite) assertApplicationHasOnlyDefaultEndpointBindings(c *gc
 		knownEndpoints.Add(endpoint)
 	}
 
-	setBindings, err := service.EndpointBindings()
+	setBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(setBindings, gc.NotNil)
 
@@ -3037,10 +3037,10 @@ func (s *ApplicationSuite) TestEndpointBindingsJustDefaults(c *gc.C) {
 	// With unspecified bindings, all endpoints are explicitly bound to the
 	// default space when saved in state.
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
-	service := s.AddTestingApplicationWithBindings(c, "yoursql", ch, nil)
+	application := s.AddTestingApplicationWithBindings(c, "yoursql", ch, nil)
 
-	s.assertApplicationHasOnlyDefaultEndpointBindings(c, service)
-	s.assertApplicationRemovedWithItsBindings(c, service)
+	s.assertApplicationHasOnlyDefaultEndpointBindings(c, application)
+	s.assertApplicationRemovedWithItsBindings(c, application)
 }
 
 func (s *ApplicationSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
@@ -3054,9 +3054,9 @@ func (s *ApplicationSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
 		"cluster": "ha",
 	}
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
-	service := s.AddTestingApplicationWithBindings(c, "yoursql", ch, bindings)
+	application := s.AddTestingApplicationWithBindings(c, "yoursql", ch, bindings)
 
-	setBindings, err := service.EndpointBindings()
+	setBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(setBindings, jc.DeepEquals, map[string]string{
 		"server":  "db",
@@ -3064,7 +3064,7 @@ func (s *ApplicationSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
 		"cluster": "ha",
 	})
 
-	s.assertApplicationRemovedWithItsBindings(c, service)
+	s.assertApplicationRemovedWithItsBindings(c, application)
 }
 
 func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
@@ -3076,8 +3076,8 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 		"kludge": "db",
 		"client": "db",
 	}
-	service := s.AddTestingApplicationWithBindings(c, "yoursql", oldCharm, oldBindings)
-	setBindings, err := service.EndpointBindings()
+	application := s.AddTestingApplicationWithBindings(c, "yoursql", oldCharm, oldBindings)
+	setBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveOld := map[string]string{
 		"kludge":  "db",
@@ -3089,9 +3089,9 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
 
 	cfg := state.SetCharmConfig{Charm: newCharm}
-	err = service.SetCharm(cfg)
+	err = application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	setBindings, err = service.EndpointBindings()
+	setBindings, err = application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveNew := map[string]string{
 		// These two should be preserved from oldCharm.
@@ -3106,20 +3106,20 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	}
 	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
 
-	s.assertApplicationRemovedWithItsBindings(c, service)
+	s.assertApplicationRemovedWithItsBindings(c, application)
 }
 
 func (s *ApplicationSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C) {
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 69)
-	service := s.AddTestingApplicationWithBindings(c, "theirsql", oldCharm, nil)
-	state.RemoveEndpointBindingsForService(c, service)
+	application := s.AddTestingApplicationWithBindings(c, "theirsql", oldCharm, nil)
+	state.RemoveEndpointBindingsForApplication(c, application)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 70)
 
 	cfg := state.SetCharmConfig{Charm: newCharm}
-	err := service.SetCharm(cfg)
+	err := application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	setBindings, err := service.EndpointBindings()
+	setBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveNew := map[string]string{
 		// The following two exist for both oldCharm and newCharm.
@@ -3134,7 +3134,7 @@ func (s *ApplicationSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C)
 	}
 	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
 
-	s.assertApplicationRemovedWithItsBindings(c, service)
+	s.assertApplicationRemovedWithItsBindings(c, application)
 }
 
 func (s *ApplicationSuite) setupAppicationWithUnitsForUpgradeCharmScenario(c *gc.C, numOfUnits int) (deployedV int, err error) {

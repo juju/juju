@@ -6,9 +6,9 @@ package application_test
 import (
 	"fmt"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
@@ -335,45 +335,45 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 	err := s.State.SetModelConstraints(constraints.MustParse("mem=2G"))
 	c.Assert(err, jc.ErrorIsNil)
-	serviceCons := constraints.MustParse("cores=2")
+	applicationCons := constraints.MustParse("cores=2")
 	app, err := application.DeployApplication(stateDeployer{s.State},
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Constraints:     serviceCons,
+			Constraints:     applicationCons,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertConstraints(c, app, serviceCons)
+	s.assertConstraints(c, app, applicationCons)
 }
 
 func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 	var f fakeDeployer
 
-	serviceCons := constraints.MustParse("cores=2")
+	applicationCons := constraints.MustParse("cores=2")
 	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Constraints:     serviceCons,
+			Constraints:     applicationCons,
 			NumUnits:        2,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(f.args.Name, gc.Equals, "bob")
 	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
-	c.Assert(f.args.Constraints, gc.DeepEquals, serviceCons)
+	c.Assert(f.args.Constraints, gc.DeepEquals, applicationCons)
 	c.Assert(f.args.NumUnits, gc.Equals, 2)
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 	var f fakeDeployer
 
-	serviceCons := constraints.MustParse("cores=2")
+	applicationCons := constraints.MustParse("cores=2")
 	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Constraints:     serviceCons,
+			Constraints:     applicationCons,
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement("0")},
 		})
@@ -381,7 +381,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 
 	c.Assert(f.args.Name, gc.Equals, "bob")
 	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
-	c.Assert(f.args.Constraints, gc.DeepEquals, serviceCons)
+	c.Assert(f.args.Constraints, gc.DeepEquals, applicationCons)
 	c.Assert(f.args.NumUnits, gc.Equals, 1)
 	c.Assert(f.args.Placement, gc.HasLen, 1)
 	c.Assert(*f.args.Placement[0], gc.Equals, instance.Placement{Scope: instance.MachineScope, Directive: "0"})
@@ -390,19 +390,19 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 	var f fakeDeployer
 
-	serviceCons := constraints.MustParse("cores=2")
+	applicationCons := constraints.MustParse("cores=2")
 	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Constraints:     serviceCons,
+			Constraints:     applicationCons,
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement(fmt.Sprintf("%s:0", instance.LXD))},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.args.Name, gc.Equals, "bob")
 	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
-	c.Assert(f.args.Constraints, gc.DeepEquals, serviceCons)
+	c.Assert(f.args.Constraints, gc.DeepEquals, applicationCons)
 	c.Assert(f.args.NumUnits, gc.Equals, 1)
 	c.Assert(f.args.Placement, gc.HasLen, 1)
 	c.Assert(*f.args.Placement[0], gc.Equals, instance.Placement{Scope: string(instance.LXD), Directive: "0"})
@@ -411,7 +411,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 	var f fakeDeployer
 
-	serviceCons := constraints.MustParse("cores=2")
+	applicationCons := constraints.MustParse("cores=2")
 	placement := []*instance.Placement{
 		{Scope: s.State.ModelUUID(), Directive: "valid"},
 		{Scope: "#", Directive: "0"},
@@ -422,7 +422,7 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Constraints:     serviceCons,
+			Constraints:     applicationCons,
 			NumUnits:        4,
 			Placement:       placement,
 		})
@@ -430,27 +430,27 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 
 	c.Assert(f.args.Name, gc.Equals, "bob")
 	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
-	c.Assert(f.args.Constraints, gc.DeepEquals, serviceCons)
+	c.Assert(f.args.Constraints, gc.DeepEquals, applicationCons)
 	c.Assert(f.args.NumUnits, gc.Equals, 4)
 	c.Assert(f.args.Placement, gc.DeepEquals, placement)
 }
 
 func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 	var f fakeDeployer
-	serviceCons := constraints.MustParse("cores=2")
+	applicationCons := constraints.MustParse("cores=2")
 	placement := []*instance.Placement{{Scope: s.State.ModelUUID(), Directive: "valid"}}
 	_, err := application.DeployApplication(&f,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
-			Constraints:     serviceCons,
+			Constraints:     applicationCons,
 			NumUnits:        3,
 			Placement:       placement,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.args.Name, gc.Equals, "bob")
 	c.Assert(f.args.Charm, gc.DeepEquals, s.charm)
-	c.Assert(f.args.Constraints, gc.DeepEquals, serviceCons)
+	c.Assert(f.args.Constraints, gc.DeepEquals, applicationCons)
 	c.Assert(f.args.NumUnits, gc.Equals, 3)
 	c.Assert(f.args.Placement, gc.DeepEquals, placement)
 }

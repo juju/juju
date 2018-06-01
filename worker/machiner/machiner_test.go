@@ -120,7 +120,7 @@ func (s *MachinerSuite) testMachinerMachineRefreshNotFoundOrUnauthorized(c *gc.C
 
 	// the "machineDead" callback should not be invoked
 	// because we don't know whether the agent is
-	// legimitately not found or unauthorized; we err on
+	// legitimately not found or unauthorized; we err on
 	// the side of caution, in case the password got mucked
 	// up, or state got mucked up (e.g. during an upgrade).
 	c.Assert(bool(machineDead), jc.IsFalse)

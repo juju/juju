@@ -1,8 +1,6 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxdclient
 
 import (
@@ -11,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
@@ -105,6 +104,12 @@ type InstanceSpec struct {
 
 	// Devices to be added at container initialisation time.
 	Devices
+
+	// TODO (mandart 2018-04-25) this has been added here to preserve the
+	// method signature in the to-be-deprecated LXD client in tools.
+	// The whole InstanceSpec type is redundant as far as the new upstream
+	// LXD client is concerned and needs to be removed during a refactor.
+	ImageData lxd.SourcedImage
 
 	// TODO(ericsnow) Other possible fields:
 	// Disks

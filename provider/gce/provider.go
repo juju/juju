@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 )
 
 const (
@@ -49,7 +50,7 @@ func (p environProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p environProvider) Ping(endpoint string) error {
+func (p environProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 

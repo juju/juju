@@ -8,15 +8,16 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/series"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -70,6 +71,8 @@ func registerAmazonTests() {
 type LiveTests struct {
 	coretesting.BaseSuite
 	jujutest.LiveTests
+
+	callCtx context.ProviderCallContext
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
@@ -91,6 +94,8 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
+
+	t.callCtx = context.NewCloudCallContext()
 }
 
 func (t *LiveTests) TearDownTest(c *gc.C) {
@@ -102,20 +107,20 @@ func (t *LiveTests) TearDownTest(c *gc.C) {
 
 func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 	t.PrepareOnce(c)
-	inst, hc := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "30")
-	defer t.Env.StopInstances(inst.Id())
+	inst, hc := testing.AssertStartInstance(c, t.Env, t.callCtx, t.ControllerUUID, "30")
+	defer t.Env.StopInstances(t.callCtx, inst.Id())
 	// Sanity check for hardware characteristics.
 	c.Assert(hc.Arch, gc.NotNil)
 	c.Assert(hc.Mem, gc.NotNil)
 	c.Assert(hc.RootDisk, gc.NotNil)
 	c.Assert(hc.CpuCores, gc.NotNil)
 	c.Assert(hc.CpuPower, gc.NotNil)
-	addresses, err := jujutesting.WaitInstanceAddresses(t.Env, inst.Id())
+	addresses, err := jujutesting.WaitInstanceAddresses(t.Env, t.callCtx, inst.Id())
 	// TODO(niemeyer): This assert sometimes fails with "no instances found"
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 
-	insts, err := t.Env.Instances([]instance.Id{inst.Id()})
+	insts, err := t.Env.Instances(t.callCtx, []instance.Id{inst.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(insts), gc.Equals, 1)
 
@@ -127,8 +132,8 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 	t.PrepareOnce(c)
 	cons := constraints.MustParse("mem=4G")
-	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, t.ControllerUUID, "30", cons)
-	defer t.Env.StopInstances(inst.Id())
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, t.callCtx, t.ControllerUUID, "30", cons)
+	defer t.Env.StopInstances(t.callCtx, inst.Id())
 	ec2inst := ec2.InstanceEC2(inst)
 	c.Assert(ec2inst.InstanceType, gc.Equals, "c5.large")
 	c.Assert(*hc.Arch, gc.Equals, "amd64")
@@ -139,25 +144,25 @@ func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 
 func (t *LiveTests) TestControllerInstances(c *gc.C) {
 	t.BootstrapOnce(c)
-	allInsts, err := t.Env.AllInstances()
+	allInsts, err := t.Env.AllInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allInsts, gc.HasLen, 1) // bootstrap instance
 	bootstrapInstId := allInsts[0].Id()
 
-	inst0, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "98")
-	defer t.Env.StopInstances(inst0.Id())
+	inst0, _ := testing.AssertStartInstance(c, t.Env, t.callCtx, t.ControllerUUID, "98")
+	defer t.Env.StopInstances(t.callCtx, inst0.Id())
 
-	inst1, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "99")
-	defer t.Env.StopInstances(inst1.Id())
+	inst1, _ := testing.AssertStartInstance(c, t.Env, t.callCtx, t.ControllerUUID, "99")
+	defer t.Env.StopInstances(t.callCtx, inst1.Id())
 
-	insts, err := t.Env.ControllerInstances(t.ControllerUUID)
+	insts, err := t.Env.ControllerInstances(t.callCtx, t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.DeepEquals, []instance.Id{bootstrapInstId})
 }
 
 func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	t.BootstrapOnce(c)
-	allInsts, err := t.Env.AllInstances()
+	allInsts, err := t.Env.AllInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allInsts, gc.HasLen, 1) // bootstrap instance
 	bootstrapInstId := allInsts[0].Id()
@@ -196,15 +201,15 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst0, _ := testing.AssertStartControllerInstance(c, t.Env, t.ControllerUUID, "98")
-	defer t.Env.StopInstances(inst0.Id())
+	inst0, _ := testing.AssertStartControllerInstance(c, t.Env, t.callCtx, t.ControllerUUID, "98")
+	defer t.Env.StopInstances(t.callCtx, inst0.Id())
 
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
-	inst1, _ := testing.AssertStartControllerInstance(c, t.Env, t.ControllerUUID, "99")
-	defer t.Env.StopInstances(inst1.Id())
+	inst1, _ := testing.AssertStartControllerInstance(c, t.Env, t.callCtx, t.ControllerUUID, "99")
+	defer t.Env.StopInstances(t.callCtx, inst1.Id())
 
 	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -272,10 +277,10 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 		}
 		return ids
 	}
-	insts, err := t.Env.Instances(instIds)
+	insts, err := t.Env.Instances(t.callCtx, instIds)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instIds, jc.SameContents, idsFromInsts(insts))
-	allInsts, err = t.Env.AllInstances()
+	allInsts, err = t.Env.AllInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	// ignore the bootstrap instance
 	for i, inst := range allInsts {
@@ -303,10 +308,10 @@ func (t *LiveTests) TestInstanceGroupsWithAutocert(c *gc.C) {
 	config["autocert-dns-name"] = "example.com"
 
 	// Bootstrap the controller.
-	result, err := t.Env.StartInstance(params)
+	result, err := t.Env.StartInstance(t.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	inst := result.Instance
-	defer t.Env.StopInstances(inst.Id())
+	defer t.Env.StopInstances(t.callCtx, inst.Id())
 
 	// Get security permissions.
 	groups := amzec2.SecurityGroupNames(ec2.JujuGroupName(t.Env))
@@ -368,11 +373,11 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
 	// instance id.
-	inst0, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "40")
+	inst0, _ := testing.AssertStartInstance(c, t.Env, t.callCtx, t.ControllerUUID, "40")
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
-	inst2, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "41")
+	inst2, _ := testing.AssertStartInstance(c, t.Env, t.callCtx, t.ControllerUUID, "41")
 
-	err := t.Env.StopInstances(inst0.Id(), inst1.Id(), inst2.Id())
+	err := t.Env.StopInstances(t.callCtx, inst0.Id(), inst1.Id(), inst2.Id())
 	c.Check(err, jc.ErrorIsNil)
 
 	var insts []instance.Instance
@@ -382,7 +387,7 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	// if it succeeds.
 	gone := false
 	for a := ec2.ShortAttempt.Start(); a.Next(); {
-		insts, err = t.Env.Instances([]instance.Id{inst0.Id(), inst2.Id()})
+		insts, err = t.Env.Instances(t.callCtx, []instance.Id{inst0.Id(), inst2.Id()})
 		if err == environs.ErrPartialInstances {
 			// instances not gone yet.
 			continue

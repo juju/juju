@@ -98,7 +98,7 @@ func NewAddCommand() cmd.Command {
 
 // addCommand starts a new machine and registers it in the model.
 type addCommand struct {
-	modelcmd.ModelCommandBase
+	baseMachinesCommand
 	api               AddMachineAPI
 	modelConfigAPI    ModelConfigAPI
 	machineManagerAPI MachineManagerAPI

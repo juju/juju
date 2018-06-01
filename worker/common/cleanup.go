@@ -4,8 +4,9 @@
 package common
 
 import (
-	"gopkg.in/juju/worker.v1"
 	"sync"
+
+	"gopkg.in/juju/worker.v1"
 )
 
 // NewCleanupWorker returns a worker that ensures a cleanup function

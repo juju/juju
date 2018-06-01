@@ -192,8 +192,7 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) setupNewBrokerManagedUnitScenario(c *gc.C) worker.Worker {
-	s.applicationGetter.jujuManagedUnits = false
+func (s *WorkerSuite) setupNewUnitScenario(c *gc.C) worker.Worker {
 	w, err := caasunitprovisioner.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -236,249 +235,11 @@ func (s *WorkerSuite) setupNewBrokerManagedUnitScenario(c *gc.C) worker.Worker {
 	return w
 }
 
-func (s *WorkerSuite) setupNewJujuManagedUnitScenario(c *gc.C) worker.Worker {
-	s.applicationGetter.jujuManagedUnits = true
-	w, err := caasunitprovisioner.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
-
-	select {
-	case s.jujuUnitChanges <- []string{"gitlab/0"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending units change")
-	}
-
-	select {
-	case <-s.serviceEnsured:
-		c.Fatal("service ensured unexpectedly")
-	case <-time.After(coretesting.ShortWait):
-	}
-	select {
-	case <-s.unitEnsured:
-		c.Fatal("unit ensured unexpectedly")
-	case <-time.After(coretesting.ShortWait):
-	}
-
-	// Send for deployment worker.
-	s.sendContainerSpecChange(c)
-	s.podSpecGetter.assertSpecRetrieved(c)
-	// Send for unit worker.
-	s.sendContainerSpecChange(c)
-	s.podSpecGetter.assertSpecRetrieved(c)
-
-	select {
-	case <-s.serviceEnsured:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for service to be ensured")
-	}
-	select {
-	case <-s.unitEnsured:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for unit to be ensured")
-	}
-	select {
-	case <-s.serviceUpdated:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for service to be updated")
-	}
-	return w
-}
-
-func (s *WorkerSuite) TestNewJujuManagedUnit(c *gc.C) {
-	w := s.setupNewJujuManagedUnitScenario(c)
+func (s *WorkerSuite) TestUnitChanged(c *gc.C) {
+	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
-	s.applicationGetter.CheckCallNames(c, "WatchApplications", "ApplicationConfig", "ApplicationConfig")
-	s.unitGetter.CheckCallNames(c, "WatchUnits")
-	s.unitGetter.CheckCall(c, 0, "WatchUnits", "gitlab")
-	s.podSpecGetter.CheckCallNames(c, "WatchPodSpec", "WatchPodSpec", "PodSpec", "PodSpec")
-	s.podSpecGetter.CheckCall(c, 0, "WatchPodSpec", "gitlab")
-	s.podSpecGetter.CheckCall(c, 1, "WatchPodSpec", "gitlab")
-	s.podSpecGetter.CheckCall(c, 2, "PodSpec", "gitlab")
-	s.podSpecGetter.CheckCall(c, 3, "PodSpec", "gitlab")
-	s.lifeGetter.CheckCallNames(c, "Life", "Life", "Life")
-	s.containerBroker.CheckCallNames(c, "WatchUnits", "EnsureUnit")
-	s.containerBroker.CheckCall(c, 1, "EnsureUnit", "gitlab", "gitlab/0", &parsedSpec)
-	s.serviceBroker.CheckCallNames(c, "EnsureService", "Service")
-	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 0, application.ConfigAttributes{"juju-external-hostname": "exthost", "juju-managed-units": true})
-	s.serviceBroker.CheckCall(c, 1, "Service", "gitlab")
-	s.applicationUpdater.CheckCallNames(c, "UpdateApplicationService")
-
-	s.serviceBroker.ResetCalls()
-	// Add another unit.
-	select {
-	case s.jujuUnitChanges <- []string{"gitlab/1"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending units change")
-	}
-
-	// We don't create the service twice.
-	select {
-	case <-s.serviceEnsured:
-		c.Fatal("service ensured unexpectedly")
-	case <-time.After(coretesting.ShortWait):
-	}
-
-	s.serviceBroker.ResetCalls()
-	s.containerBroker.ResetCalls()
-	// Delete a unit.
-	s.lifeGetter.setLife(life.Dead)
-	select {
-	case s.jujuUnitChanges <- []string{"gitlab/0"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending units change")
-	}
-
-	select {
-	case <-s.unitDeleted:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for unit to be deleted")
-	}
-	s.containerBroker.CheckCallNames(c, "DeleteUnit")
-	s.containerBroker.CheckCall(c, 0, "DeleteUnit", "gitlab/0")
-
-	select {
-	case <-s.serviceEnsured:
-		c.Fatal("service ensured unexpectedly")
-	case <-time.After(coretesting.ShortWait):
-	}
-}
-
-func (s *WorkerSuite) TestNewJujuManagedUnitAllRemoved(c *gc.C) {
-	w := s.setupNewJujuManagedUnitScenario(c)
-	defer workertest.CleanKill(c, w)
-
-	s.serviceBroker.ResetCalls()
-	// Add another unit.
-	select {
-	case s.jujuUnitChanges <- []string{"gitlab/1"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending units change")
-	}
-
-	select {
-	case <-s.unitEnsured:
-		c.Fatal("unit ensured unexpectedly")
-	case <-time.After(coretesting.ShortWait):
-	}
-
-	// Now the units die.
-	s.lifeGetter.setLife(life.Dead)
-	select {
-	case s.jujuUnitChanges <- []string{"gitlab/0", "gitlab/1"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending units change")
-	}
-
-	select {
-	case <-s.unitDeleted:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for unit to be deleted")
-	}
-	select {
-	case <-s.unitDeleted:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for unit to be deleted")
-	}
-
-	select {
-	case <-s.serviceEnsured:
-		c.Fatal("service/unit ensured unexpectedly")
-	case <-time.After(coretesting.ShortWait):
-	}
-}
-
-func (s *WorkerSuite) TestJujuManagedUnitApplicationDeadRemovesService(c *gc.C) {
-	w := s.setupNewJujuManagedUnitScenario(c)
-	defer workertest.CleanKill(c, w)
-
-	s.serviceBroker.ResetCalls()
-	s.containerBroker.ResetCalls()
-
-	s.lifeGetter.SetErrors(errors.NotFoundf("application"))
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending application change")
-	}
-
-	select {
-	case <-s.serviceDeleted:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for service to be deleted")
-	}
-
-	select {
-	case <-s.unitDeleted:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for unit to be deleted")
-	}
-
-	s.containerBroker.CheckCallNames(c, "UnexposeService", "DeleteService", "DeleteUnit")
-	s.containerBroker.CheckCall(c, 0, "UnexposeService", "gitlab")
-	s.containerBroker.CheckCall(c, 1, "DeleteService", "gitlab")
-	s.containerBroker.CheckCall(c, 2, "DeleteUnit", "gitlab/0")
-}
-
-func (s *WorkerSuite) TestNewJujuManagedPodSpecChange(c *gc.C) {
-	w := s.setupNewJujuManagedUnitScenario(c)
-	defer workertest.CleanKill(c, w)
-
-	s.containerBroker.ResetCalls()
-
-	// Same spec, nothing happens.
-	s.sendContainerSpecChange(c)
-	s.podSpecGetter.assertSpecRetrieved(c)
-	select {
-	case <-s.unitEnsured:
-		c.Fatal("unit ensured unexpectedly")
-	case <-time.After(coretesting.ShortWait):
-	}
-
-	var (
-		anotherSpec = `
-containers:
-  - name: gitlab
-    image-name: gitlab/latest
-`[1:]
-
-		anotherParsedSpec = caas.PodSpec{
-			Containers: []caas.ContainerSpec{{
-				Name:  "gitlab",
-				Image: "gitlab/latest",
-			}}}
-	)
-
-	s.containerBroker.podSpec = &anotherParsedSpec
-	s.podSpecGetter.setSpec(anotherSpec)
-	// Send for deployment worker.
-	s.sendContainerSpecChange(c)
-	// Send for unit worker.
-	s.sendContainerSpecChange(c)
-	s.podSpecGetter.assertSpecRetrieved(c)
-
-	select {
-	case <-s.unitEnsured:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for unit to be ensured")
-	}
-
-	s.containerBroker.CheckCallNames(c, "EnsureUnit")
-	s.containerBroker.CheckCall(c, 0, "EnsureUnit",
-		"gitlab", "gitlab/0", &anotherParsedSpec)
-}
-
-func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
-	w := s.setupNewBrokerManagedUnitScenario(c)
-	defer workertest.CleanKill(c, w)
-
-	s.applicationGetter.CheckCallNames(c, "WatchApplications", "ApplicationConfig", "ApplicationConfig")
+	s.applicationGetter.CheckCallNames(c, "WatchApplications", "ApplicationConfig")
 	s.podSpecGetter.CheckCallNames(c, "WatchPodSpec", "PodSpec", "PodSpec")
 	s.podSpecGetter.CheckCall(c, 0, "WatchPodSpec", "gitlab")
 	s.podSpecGetter.CheckCall(c, 1, "PodSpec", "gitlab") // not found
@@ -488,7 +249,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 	s.lifeGetter.CheckCall(c, 1, "Life", "gitlab/0")
 	s.serviceBroker.CheckCallNames(c, "EnsureService", "Service")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost", "juju-managed-units": false})
+		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 	s.serviceBroker.CheckCall(c, 1, "Service", "gitlab")
 
 	s.serviceBroker.ResetCalls()
@@ -507,7 +268,7 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 2, application.ConfigAttributes{"juju-external-hostname": "exthost", "juju-managed-units": false})
+		"gitlab", &parsedSpec, 2, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 
 	s.serviceBroker.ResetCalls()
 	// Delete a unit.
@@ -526,11 +287,11 @@ func (s *WorkerSuite) TestNewBrokerManagedUnit(c *gc.C) {
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost", "juju-managed-units": false})
+		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
-func (s *WorkerSuite) TestNewBrokerManagedPodSpecChange(c *gc.C) {
-	w := s.setupNewBrokerManagedUnitScenario(c)
+func (s *WorkerSuite) TestNewPodSpecChange(c *gc.C) {
+	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
 	s.serviceBroker.ResetCalls()
@@ -572,11 +333,11 @@ containers:
 
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &anotherParsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost", "juju-managed-units": false})
+		"gitlab", &anotherParsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
-func (s *WorkerSuite) TestNewBrokerManagedUnitAllRemoved(c *gc.C) {
-	w := s.setupNewBrokerManagedUnitScenario(c)
+func (s *WorkerSuite) TestUnitAllRemoved(c *gc.C) {
+	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
 	s.serviceBroker.ResetCalls()
@@ -609,8 +370,8 @@ func (s *WorkerSuite) TestNewBrokerManagedUnitAllRemoved(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestBrokerManagedUnitApplicationDeadRemovesService(c *gc.C) {
-	w := s.setupNewBrokerManagedUnitScenario(c)
+func (s *WorkerSuite) TestApplicationDeadRemovesService(c *gc.C) {
+	w := s.setupNewUnitScenario(c)
 	defer workertest.CleanKill(c, w)
 
 	s.serviceBroker.ResetCalls()
@@ -654,37 +415,6 @@ func (s *WorkerSuite) TestWatchApplicationDead(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 	s.unitGetter.CheckNoCalls(c)
-}
-
-func (s *WorkerSuite) TestWatchUnitDead(c *gc.C) {
-	s.applicationGetter.jujuManagedUnits = true
-	w, err := caasunitprovisioner.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
-
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
-	// application is initially alive
-	s.lifeGetter.assertLifeRetrieved(c)
-
-	// unit is initially dead
-	s.lifeGetter.setLife(life.Dead)
-	select {
-	case s.jujuUnitChanges <- []string{"gitlab/0"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending units change")
-	}
-	select {
-	case <-s.unitDeleted:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for unit to be deleted")
-	}
-
-	workertest.CleanKill(c, w)
-	s.podSpecGetter.CheckNoCalls(c)
 }
 
 func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
@@ -743,39 +473,6 @@ func (s *WorkerSuite) TestRemoveApplicationStopsWatchingApplication(c *gc.C) {
 	}
 	c.Assert(running, jc.IsFalse)
 	workertest.CheckKilled(c, s.unitGetter.watcher)
-}
-
-func (s *WorkerSuite) TestRemoveUnitStopsWatchingContainerSpec(c *gc.C) {
-	s.applicationGetter.jujuManagedUnits = true
-	w, err := caasunitprovisioner.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
-
-	select {
-	case s.applicationChanges <- []string{"gitlab"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending applications change")
-	}
-
-	select {
-	case s.jujuUnitChanges <- []string{"gitlab/0"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending units change")
-	}
-
-	s.lifeGetter.SetErrors(errors.NotFoundf("unit"))
-	select {
-	case s.jujuUnitChanges <- []string{"gitlab/0"}:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out sending units change")
-	}
-	select {
-	case <-s.unitDeleted:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for unit to be deleted")
-	}
-
-	workertest.CheckKilled(c, s.podSpecGetter.watcher)
 }
 
 func (s *WorkerSuite) TestWatcherErrorStopsWorker(c *gc.C) {

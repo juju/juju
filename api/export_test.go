@@ -61,7 +61,7 @@ func UnderlyingConn(c Connection) jsoncodec.JSONConn {
 }
 
 // TestingStateParams is the parameters for NewTestingState, so that you can
-// only set the bits that you acutally want to test.
+// only set the bits that you actually want to test.
 type TestingStateParams struct {
 	Address        string
 	ModelTag       string
@@ -99,6 +99,13 @@ func NewTestingState(params TestingStateParams) Connection {
 		closed:            params.Closed,
 	}
 	return st
+}
+
+// APIClient returns a 'barebones' api.Client suitable for calling FindTools in
+// an error state (anything else is likely to panic.)
+func APIClient(apiCaller base.APICallCloser) *Client {
+	frontend, backend := base.NewClientFacade(apiCaller, "Client")
+	return &Client{ClientFacade: frontend, facade: backend, st: &state{}}
 }
 
 // PatchClientFacadeCall changes the internal FacadeCaller to one that lets

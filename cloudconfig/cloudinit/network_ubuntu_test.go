@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
@@ -25,10 +24,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
-
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type NetworkUbuntuSuite struct {
 	testing.BaseSuite

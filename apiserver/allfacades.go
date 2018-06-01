@@ -144,14 +144,16 @@ func AllFacades() *facade.Registry {
 	reg("ApplicationOffers", 2, applicationoffers.NewOffersAPIV2)
 	reg("ApplicationScaler", 1, applicationscaler.NewAPI)
 	reg("Backups", 1, backups.NewFacade)
+	reg("Backups", 2, backups.NewFacadeV2)
 	reg("Block", 2, block.NewAPI)
 	reg("Bundle", 1, bundle.NewFacade)
 	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI)
 	reg("Charms", 2, charms.NewFacade)
 	reg("Cleaner", 2, cleaner.NewCleanerAPI)
-	reg("Client", 1, client.NewFacade)
+	reg("Client", 1, client.NewFacadeV1)
+	reg("Client", 2, client.NewFacade)
 	reg("Cloud", 1, cloud.NewFacade)
-	reg("Cloud", 2, cloud.NewFacadeV2) // adds CredentialContents
+	reg("Cloud", 2, cloud.NewFacadeV2) // adds CredentialContents, RemoveCloud
 
 	// CAAS related facades.
 	// Move these to the correct place above once the feature flag disappears.
@@ -211,7 +213,8 @@ func AllFacades() *facade.Registry {
 	reg("MigrationMinion", 1, migrationminion.NewFacade)
 	reg("MigrationTarget", 1, migrationtarget.NewFacade)
 
-	reg("ModelConfig", 1, modelconfig.NewFacade)
+	reg("ModelConfig", 1, modelconfig.NewFacadeV1)
+	reg("ModelConfig", 2, modelconfig.NewFacadeV2)
 	reg("ModelManager", 2, modelmanager.NewFacadeV2)
 	reg("ModelManager", 3, modelmanager.NewFacadeV3)
 	reg("ModelManager", 4, modelmanager.NewFacadeV4)
@@ -225,10 +228,13 @@ func AllFacades() *facade.Registry {
 	)
 
 	reg("Pinger", 1, NewPinger)
-	reg("Provisioner", 3, provisioner.NewProvisionerAPI)
-	reg("Provisioner", 4, provisioner.NewProvisionerAPI)
+	reg("Provisioner", 3, provisioner.NewProvisionerAPIV4) // Yes this is weird.
+	reg("Provisioner", 4, provisioner.NewProvisionerAPIV4)
 	reg("Provisioner", 5, provisioner.NewProvisionerAPIV5) // v5 adds DistributionGroupByMachineId()
-	reg("ProxyUpdater", 1, proxyupdater.NewAPI)
+	reg("Provisioner", 6, provisioner.NewProvisionerAPIV6) // v6 adds more proxy settings
+
+	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
+	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)
 	reg("Reboot", 2, reboot.NewRebootAPI)
 	reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
 

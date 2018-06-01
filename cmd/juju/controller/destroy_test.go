@@ -232,7 +232,7 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 			UUID:               uuid,
 			Life:               string(params.Dead),
 			HostedMachineCount: 0,
-			ServiceCount:       0,
+			ApplicationCount:   0,
 			Owner:              owner.Id(),
 		}
 	}

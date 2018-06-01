@@ -33,7 +33,7 @@ var listCloudsDoc = "" +
 	"'type', and cloud 'regions'.\n" +
 	"The listing will consist of public clouds and any custom clouds made\n" +
 	"available through the `juju add-cloud` command. The former can be updated\n" +
-	"via the `juju update-cloud` command.\n" +
+	"via the `juju update-clouds` command.\n" +
 	"By default, the tabular format is used.\n" + listCloudsDocExamples
 
 var listCloudsDocExamples = `

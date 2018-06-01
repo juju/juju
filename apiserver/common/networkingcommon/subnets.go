@@ -8,14 +8,15 @@ import (
 	"net"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
@@ -93,14 +94,14 @@ func (cache *addSubnetsCache) validateSpace(spaceTag string) (*names.SpaceTag, e
 
 // cacheZones populates the allZones and availableZones cache, if it's
 // empty.
-func (cache *addSubnetsCache) cacheZones() error {
+func (cache *addSubnetsCache) cacheZones(ctx context.ProviderCallContext) error {
 	if cache.allZones != nil {
 		// Already cached.
 		logger.Tracef("using cached zones: %v", cache.allZones.SortedValues())
 		return nil
 	}
 
-	allZones, err := AllZones(cache.api)
+	allZones, err := AllZones(ctx, cache.api)
 	if err != nil {
 		return errors.Annotate(err, "given Zones cannot be validated")
 	}
@@ -136,7 +137,7 @@ func (cache *addSubnetsCache) cacheZones() error {
 // providerZones and empty givenZones, it returns the providerZones (i.e. trusts
 // the provider to know better). When no providerZones and only givenZones are
 // set, only then the cache is used to validate givenZones.
-func (cache *addSubnetsCache) validateZones(providerZones, givenZones []string) ([]string, error) {
+func (cache *addSubnetsCache) validateZones(ctx context.ProviderCallContext, providerZones, givenZones []string) ([]string, error) {
 	givenSet := set.NewStrings(givenZones...)
 	providerSet := set.NewStrings(providerZones...)
 
@@ -159,7 +160,7 @@ func (cache *addSubnetsCache) validateZones(providerZones, givenZones []string) 
 	}
 
 	// Otherwise we need the cache to validate.
-	if err := cache.cacheZones(); err != nil {
+	if err := cache.cacheZones(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -183,7 +184,7 @@ func (cache *addSubnetsCache) validateZones(providerZones, givenZones []string) 
 // handles the case when subnets have duplicated CIDRs but distinct ProviderIds.
 // It also handles weird edge cases, like no CIDR and/or ProviderId set for a
 // subnet.
-func (cache *addSubnetsCache) cacheSubnets() error {
+func (cache *addSubnetsCache) cacheSubnets(ctx context.ProviderCallContext) error {
 	if cache.allSubnets != nil {
 		// Already cached.
 		logger.Tracef("using %d cached subnets", len(cache.allSubnets))
@@ -194,7 +195,7 @@ func (cache *addSubnetsCache) cacheSubnets() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	subnetInfo, err := netEnv.Subnets(instance.UnknownId, nil)
+	subnetInfo, err := netEnv.Subnets(ctx, instance.UnknownId, nil)
 	if err != nil {
 		return errors.Annotate(err, "cannot get provider subnets")
 	}
@@ -260,7 +261,7 @@ func (cache *addSubnetsCache) cacheSubnets() error {
 // validateSubnet ensures either subnetTag or providerId is valid (not both),
 // then uses the cache to validate and lookup the provider SubnetInfo for the
 // subnet, if found.
-func (cache *addSubnetsCache) validateSubnet(subnetTag, providerId string) (*network.SubnetInfo, error) {
+func (cache *addSubnetsCache) validateSubnet(ctx context.ProviderCallContext, subnetTag, providerId string) (*network.SubnetInfo, error) {
 	haveTag := subnetTag != ""
 	haveProviderId := providerId != ""
 
@@ -279,7 +280,7 @@ func (cache *addSubnetsCache) validateSubnet(subnetTag, providerId string) (*net
 	}
 
 	// Otherwise we need the cache to validate.
-	if err := cache.cacheSubnets(); err != nil {
+	if err := cache.cacheSubnets(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -332,8 +333,8 @@ func (cache *addSubnetsCache) validateSubnet(subnetTag, providerId string) (*net
 
 // addOneSubnet validates the given arguments, using cache for lookups
 // (initialized on first use), then adds it to the backing store, if successful.
-func addOneSubnet(api NetworkBacking, args params.AddSubnetParams, cache *addSubnetsCache) error {
-	subnetInfo, err := cache.validateSubnet(args.SubnetTag, args.SubnetProviderId)
+func addOneSubnet(ctx context.ProviderCallContext, api NetworkBacking, args params.AddSubnetParams, cache *addSubnetsCache) error {
+	subnetInfo, err := cache.validateSubnet(ctx, args.SubnetTag, args.SubnetProviderId)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -341,7 +342,7 @@ func addOneSubnet(api NetworkBacking, args params.AddSubnetParams, cache *addSub
 	if err != nil {
 		return errors.Trace(err)
 	}
-	zones, err := cache.validateZones(subnetInfo.AvailabilityZones, args.Zones)
+	zones, err := cache.validateZones(ctx, subnetInfo.AvailabilityZones, args.Zones)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -362,7 +363,7 @@ func addOneSubnet(api NetworkBacking, args params.AddSubnetParams, cache *addSub
 }
 
 // AddSubnets adds.
-func AddSubnets(api NetworkBacking, args params.AddSubnetsParams) (params.ErrorResults, error) {
+func AddSubnets(ctx context.ProviderCallContext, api NetworkBacking, args params.AddSubnetsParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Subnets)),
 	}
@@ -373,7 +374,7 @@ func AddSubnets(api NetworkBacking, args params.AddSubnetsParams) (params.ErrorR
 
 	cache := NewAddSubnetsCache(api)
 	for i, arg := range args.Subnets {
-		err := addOneSubnet(api, arg, cache)
+		err := addOneSubnet(ctx, api, arg, cache)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		}
@@ -453,7 +454,7 @@ func networkingEnviron(getter environs.EnvironConfigGetter) (environs.Networking
 }
 
 // AllZones is defined on the API interface.
-func AllZones(api NetworkBacking) (params.ZoneResults, error) {
+func AllZones(ctx context.ProviderCallContext, api NetworkBacking) (params.ZoneResults, error) {
 	var results params.ZoneResults
 
 	zonesAsString := func(zones []providercommon.AvailabilityZone) string {
@@ -473,7 +474,7 @@ func AllZones(api NetworkBacking) (params.ZoneResults, error) {
 	if len(zones) == 0 {
 		// This is likely the first time we're called.
 		// Fetch all zones from the provider and update.
-		zones, err = updateZones(api)
+		zones, err = updateZones(ctx, api)
 		if err != nil {
 			return results, errors.Annotate(err, "cannot update known zones")
 		}
@@ -495,12 +496,12 @@ func AllZones(api NetworkBacking) (params.ZoneResults, error) {
 // updateZones attempts to retrieve all availability zones from the environment
 // provider (if supported) and then updates the persisted list of zones in
 // state, returning them as well on success.
-func updateZones(api NetworkBacking) ([]providercommon.AvailabilityZone, error) {
+func updateZones(ctx context.ProviderCallContext, api NetworkBacking) ([]providercommon.AvailabilityZone, error) {
 	zoned, err := zonedEnviron(api)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	zones, err := zoned.AvailabilityZones()
+	zones, err := zoned.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

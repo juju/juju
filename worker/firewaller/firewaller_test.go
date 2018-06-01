@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/api"
 	basetesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/credentialvalidator"
 	"github.com/juju/juju/api/crossmodelrelations"
 	apifirewaller "github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/remoterelations"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -56,6 +58,9 @@ type firewallerBaseSuite struct {
 	remoteRelations      *remoterelations.Client
 	crossmodelFirewaller *crossmodelrelations.Client
 	clock                clock.Clock
+
+	callCtx           context.ProviderCallContext
+	credentialsFacade *credentialvalidator.Facade
 }
 
 func (s *firewallerBaseSuite) SetUpSuite(c *gc.C) {
@@ -71,6 +76,8 @@ func (s *firewallerBaseSuite) TearDownSuite(c *gc.C) {
 func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 	s.OsEnvSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
+
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func (s *firewallerBaseSuite) TearDownTest(c *gc.C) {
@@ -106,6 +113,8 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 	s.firewaller = firewallerClient
 	s.remoteRelations = remoterelations.NewClient(s.st)
 	c.Assert(s.remoteRelations, gc.NotNil)
+
+	s.credentialsFacade = credentialvalidator.NewFacade(s.st)
 }
 
 // assertPorts retrieves the open ports of the instance and compares them
@@ -117,7 +126,7 @@ func (s *firewallerBaseSuite) assertPorts(c *gc.C, inst instance.Instance, machi
 	s.BackingState.StartSync()
 	start := time.Now()
 	for {
-		got, err := fwInst.IngressRules(machineId)
+		got, err := fwInst.IngressRules(s.callCtx, machineId)
 		if err != nil {
 			c.Fatal(err)
 			return
@@ -145,7 +154,7 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.Ing
 	s.BackingState.StartSync()
 	start := time.Now()
 	for {
-		got, err := fwEnv.IngressRules()
+		got, err := fwEnv.IngressRules(s.callCtx)
 		if err != nil {
 			c.Fatal(err)
 			return
@@ -178,7 +187,7 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, app *state.Application) (*state.U
 
 // startInstance starts a new instance for the given machine.
 func (s *firewallerBaseSuite) startInstance(c *gc.C, m *state.Machine) instance.Instance {
-	inst, hc := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), m.Id())
+	inst, hc := jujutesting.AssertStartInstance(c, s.Environ, s.callCtx, s.ControllerConfig.ControllerUUID(), m.Id())
 	err := m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	return inst
@@ -229,7 +238,8 @@ func (s *InstanceModeSuite) newFirewallerWithClock(c *gc.C, clock clock.Clock) w
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
-		Clock: s.clock,
+		Clock:         s.clock,
+		CredentialAPI: s.credentialsFacade,
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1266,6 +1276,7 @@ func (s *GlobalModeSuite) newFirewaller(c *gc.C) worker.Worker {
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
+		CredentialAPI: s.credentialsFacade,
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1516,6 +1527,7 @@ func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
+		CredentialAPI: s.credentialsFacade,
 	}
 	_, err := firewaller.NewFirewaller(cfg)
 	c.Assert(err, gc.ErrorMatches, `invalid firewall-mode "none"`)

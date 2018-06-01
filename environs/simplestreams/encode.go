@@ -40,7 +40,7 @@ func Encode(r io.Reader, armoredPrivateKey, passphrase string) ([]byte, error) {
 	if dataToSign[0] == '\n' {
 		dataToSign = dataToSign[1:]
 	}
-	_, err = plaintext.Write([]byte(dataToSign))
+	_, err = plaintext.Write(dataToSign)
 	if err != nil {
 		return nil, err
 	}

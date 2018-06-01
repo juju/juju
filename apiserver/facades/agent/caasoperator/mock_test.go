@@ -92,6 +92,14 @@ func (st *mockModel) Name() string {
 	return "some-model"
 }
 
+func (st *mockModel) UUID() string {
+	return "deadbeef"
+}
+
+func (st *mockModel) Type() state.ModelType {
+	return state.ModelTypeIAAS
+}
+
 func (st *mockModel) ModelConfig() (*config.Config, error) {
 	cfg := coretesting.FakeConfig()
 	attr := cfg.Merge(coretesting.Attrs{"type": "kubernetes"})
@@ -158,6 +166,16 @@ func (*mockUnit) Tag() names.Tag {
 func (u *mockUnit) Life() state.Life {
 	u.MethodCall(u, "Life")
 	return u.life
+}
+
+func (u *mockUnit) Remove() error {
+	u.MethodCall(u, "Remove")
+	return nil
+}
+
+func (u *mockUnit) EnsureDead() error {
+	u.MethodCall(u, "EnsureDead")
+	return nil
 }
 
 type mockCharm struct {

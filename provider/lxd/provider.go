@@ -1,31 +1,34 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
 	"net"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
+	"github.com/juju/retry"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/lxc/lxd/shared"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd/lxdnames"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environProvider struct {
 	environProviderCredentials
 	interfaceAddress func(string) (string, error)
+	Clock            clock.Clock
 }
 
 // NewProvider returns a new LXD EnvironProvider.
@@ -69,7 +72,7 @@ func (p *environProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p *environProvider) Ping(endpoint string) error {
+func (p *environProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 
@@ -87,7 +90,8 @@ func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*con
 	if len(attrs) == 0 {
 		return args.Config, nil
 	}
-	return args.Config.Apply(attrs)
+	cfg, err := args.Config.Apply(attrs)
+	return cfg, errors.Trace(err)
 }
 
 // Validate implements environs.EnvironProvider.
@@ -132,7 +136,7 @@ func (p *environProvider) FinalizeCloud(
 			var err error
 			hostAddress, err := p.getLocalHostAddress(ctx)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			endpoint = hostAddress
 		}
@@ -152,38 +156,78 @@ func (p *environProvider) FinalizeCloud(
 }
 
 func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext) (string, error) {
-	raw, err := p.newLocalRawProvider()
+	svr, err := lxd.NewLocalServer()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	bridgeName := raw.DefaultProfileBridgeName()
+
+	// We need to get a default profile, so that the local bridge name
+	// can be discovered correctly to then get the host address.
+	defaultProfile, profileETag, err := svr.GetProfile("default")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	if err := svr.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	bridgeName := svr.LocalBridgeName()
 	hostAddress, err := p.interfaceAddress(bridgeName)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	// LXD itself reports the host:ports that is listens on.
-	// Cross-check the address we have with the values
-	// reported by LXD.
-	if err := lxdclient.EnableHTTPSListener(raw); err != nil {
+	hostAddress = lxd.EnsureHTTPS(hostAddress)
+
+	// LXD itself reports the host:ports that it listens on.
+	// Cross-check the address we have with the values reported by LXD.
+	if err := svr.EnableHTTPSListener(); err != nil {
 		return "", errors.Annotate(err, "enabling HTTPS listener")
 	}
-	serverAddresses, err := raw.ServerAddresses()
-	if err != nil {
-		return "", errors.Trace(err)
+
+	// The following retry mechanism is required for newer LXD versions, where
+	// the new lxd client doesn't propagate the EnableHTTPSListener quick enough
+	// to get the addresses or on the same existing local provider.
+
+	// connInfoAddresses is really useful for debugging, so let's keep that
+	// information around for the debugging errors.
+	var connInfoAddresses []string
+	errNotExists := errors.New("not-exists")
+	retryArgs := retry.CallArgs{
+		Clock: p.clock(),
+		IsFatalError: func(err error) bool {
+			return errors.Cause(err) != errNotExists
+		},
+		Func: func() error {
+			cInfo, err := svr.GetConnectionInfo()
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			connInfoAddresses = cInfo.Addresses
+			for _, addr := range cInfo.Addresses {
+				if strings.HasPrefix(addr, hostAddress+":") {
+					hostAddress = addr
+					return nil
+				}
+			}
+
+			// Requesting a NewLocalServer forces a new connection, so that when
+			// we GetConnectionInfo it gets the required addresses.
+			// Note: this modifies the outer svr server.
+			if svr, err = lxd.NewLocalServer(); err != nil {
+				return errors.Trace(err)
+			}
+
+			return errNotExists
+		},
+		Delay:    2 * time.Second,
+		Attempts: 30,
 	}
-	var found bool
-	for _, addr := range serverAddresses {
-		if strings.HasPrefix(addr, hostAddress+":") {
-			hostAddress = addr
-			found = true
-			break
-		}
-	}
-	if !found {
+	if err := retry.Call(retryArgs); err != nil {
 		return "", errors.Errorf(
-			"LXD is not listening on address %s ("+
-				"reported addresses: %s)",
-			hostAddress, serverAddresses,
+			"LXD is not listening on address %s (reported addresses: %s)",
+			hostAddress, connInfoAddresses,
 		)
 	}
 	ctx.Verbosef(
@@ -191,6 +235,13 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 		bridgeName, hostAddress,
 	)
 	return hostAddress, nil
+}
+
+func (p *environProvider) clock() clock.Clock {
+	if p.Clock == nil {
+		return clock.WallClock
+	}
+	return p.Clock
 }
 
 // localhostCloud is the predefined "localhost" LXD cloud. We leave the
@@ -248,7 +299,7 @@ func (p *environProvider) validateCloudSpec(spec environs.CloudSpec) (local bool
 	}
 	switch authType := spec.Credential.AuthType(); authType {
 	case cloud.CertificateAuthType:
-		if _, _, ok := getCerts(spec); !ok {
+		if _, _, ok := getCertificates(spec); !ok {
 			return false, errors.NotValidf("certificate credentials")
 		}
 	default:

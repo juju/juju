@@ -31,9 +31,15 @@ const (
 	cleanupAttachmentsForDyingVolume     cleanupKind = "volumeAttachments"
 	cleanupAttachmentsForDyingFilesystem cleanupKind = "filesystemAttachments"
 	cleanupModelsForDyingController      cleanupKind = "models"
-	cleanupMachinesForDyingModel         cleanupKind = "modelMachines"
-	cleanupResourceBlob                  cleanupKind = "resourceBlob"
-	cleanupStorageForDyingModel          cleanupKind = "modelStorage"
+
+	// IAAS models require machines to be cleaned up.
+	cleanupMachinesForDyingModel cleanupKind = "modelMachines"
+
+	// CAAS models require units to be cleaned up (there are no machines).
+	cleanupUnitsForDyingModel cleanupKind = "modelUnits"
+
+	cleanupResourceBlob         cleanupKind = "resourceBlob"
+	cleanupStorageForDyingModel cleanupKind = "modelStorage"
 )
 
 // cleanupDoc originally represented a set of documents that should be
@@ -140,8 +146,10 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupAttachmentsForDyingFilesystem(doc.Prefix)
 		case cleanupModelsForDyingController:
 			err = st.cleanupModelsForDyingController(args)
-		case cleanupMachinesForDyingModel:
+		case cleanupMachinesForDyingModel: // IAAS models only
 			err = st.cleanupMachinesForDyingModel()
+		case cleanupUnitsForDyingModel: // CAAS models only
+			err = st.cleanupUnitsForDyingModel()
 		case cleanupResourceBlob:
 			err = st.cleanupResourceBlob(doc.Prefix)
 		case cleanupStorageForDyingModel:
@@ -280,6 +288,30 @@ func (st *State) cleanupMachinesForDyingModel() (err error) {
 		}
 		if err := destroy(); err != nil {
 			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+// cleanupUnitsForDyingModel obliterates all units.
+// It's expected to be used when a CAAS model is destroyed.
+func (st *State) cleanupUnitsForDyingModel() (err error) {
+	// This won't miss units, because a Dying model cannot have
+	// units added to it. But we do have to remove the units themselves
+	// via individual transactions, because they could be in any state at all.
+	apps, err := st.AllApplications()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, app := range apps {
+		units, err := app.AllUnits()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, unit := range units {
+			if err := st.obliterateUnit(unit.Name()); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 	return nil

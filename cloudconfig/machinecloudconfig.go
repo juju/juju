@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	utilsos "github.com/juju/os"
+	utilsseries "github.com/juju/os/series"
 	"github.com/juju/utils"
-	utilsos "github.com/juju/utils/os"
-	utilsseries "github.com/juju/utils/series"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/juju/paths"
@@ -163,7 +163,7 @@ func getMachineData(series, file string) (map[string]interface{}, error) {
 
 func unmarshallContainerCloudInit(raw []byte) (map[string]interface{}, error) {
 	dataMap := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(raw), &dataMap)
+	err := yaml.Unmarshal(raw, &dataMap)
 	if err != nil {
 		return nil, err
 	}

@@ -45,8 +45,8 @@ func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.metricsmanager = manager
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
-	meteredService := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredService, SetCharmURL: true})
+	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 }
 
 func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonController(c *gc.C) {

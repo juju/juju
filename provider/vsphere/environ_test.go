@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	environscontext "github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/testing"
@@ -28,12 +29,13 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.PatchValue(&vsphere.Bootstrap, func(
 		ctx environs.BootstrapContext,
 		env environs.Environ,
+		callCtx environscontext.ProviderCallContext,
 		args environs.BootstrapParams,
 	) (*environs.BootstrapResult, error) {
 		return nil, errors.New("Bootstrap called")
 	})
 
-	_, err := s.env.Bootstrap(nil, environs.BootstrapParams{
+	_, err := s.env.Bootstrap(nil, s.callCtx, environs.BootstrapParams{
 		ControllerConfig: testing.FakeControllerConfig(),
 	})
 	c.Assert(err, gc.ErrorMatches, "Bootstrap called")
@@ -52,12 +54,12 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 
 func (s *environSuite) TestDestroy(c *gc.C) {
 	var destroyCalled bool
-	s.PatchValue(&vsphere.DestroyEnv, func(env environs.Environ) error {
+	s.PatchValue(&vsphere.DestroyEnv, func(env environs.Environ, callCtx environscontext.ProviderCallContext) error {
 		destroyCalled = true
 		s.client.CheckNoCalls(c)
 		return nil
 	})
-	err := s.env.Destroy()
+	err := s.env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(destroyCalled, jc.IsTrue)
 	s.client.CheckCallNames(c, "DestroyVMFolder", "Close")
@@ -85,12 +87,12 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	}}
 
 	var destroyCalled bool
-	s.PatchValue(&vsphere.DestroyEnv, func(env environs.Environ) error {
+	s.PatchValue(&vsphere.DestroyEnv, func(env environs.Environ, callCtx environscontext.ProviderCallContext) error {
 		destroyCalled = true
 		s.client.CheckNoCalls(c)
 		return nil
 	})
-	err := s.env.DestroyController("foo")
+	err := s.env.DestroyController(s.callCtx, "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(destroyCalled, jc.IsTrue)
 
@@ -132,7 +134,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 }
 
 func (s *environSuite) TestAdoptResources(c *gc.C) {
-	err := s.env.AdoptResources("foo", version.Number{})
+	err := s.env.AdoptResources(s.callCtx, "foo", version.Number{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.dialStub.CheckCallNames(c, "Dial")

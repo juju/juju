@@ -157,7 +157,7 @@ func newStringsWatcher(context facade.Context) (facade.Facade, error) {
 	}, nil
 }
 
-// Next returns when a change has occured to an entity of the
+// Next returns when a change has occurred to an entity of the
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvStringsWatcher.
 func (w *srvStringsWatcher) Next() (params.StringsWatchResult, error) {
@@ -201,7 +201,7 @@ func newRelationUnitsWatcher(context facade.Context) (facade.Facade, error) {
 	}, nil
 }
 
-// Next returns when a change has occured to an entity of the
+// Next returns when a change has occurred to an entity of the
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvRelationUnitsWatcher.
 func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error) {
@@ -245,7 +245,7 @@ func newRelationStatusWatcher(context facade.Context) (facade.Facade, error) {
 	}, nil
 }
 
-// Next returns when a change has occured to an entity of the
+// Next returns when a change has occurred to an entity of the
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvRelationStatusWatcher.
 func (w *srvRelationStatusWatcher) Next() (params.RelationLifeSuspendedStatusWatchResult, error) {
@@ -299,7 +299,7 @@ func newOfferStatusWatcher(context facade.Context) (facade.Facade, error) {
 	}, nil
 }
 
-// Next returns when a change has occured to an entity of the
+// Next returns when a change has occurred to an entity of the
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvOfferStatusWatcher.
 func (w *srvOfferStatusWatcher) Next() (params.OfferStatusWatchResult, error) {
@@ -369,7 +369,7 @@ func newMachineStorageIdsWatcher(
 	}, nil
 }
 
-// Next returns when a change has occured to an entity of the
+// Next returns when a change has occurred to an entity of the
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvMachineStorageIdsWatcher.
 func (w *srvMachineStorageIdsWatcher) Next() (params.MachineStorageIdsWatchResult, error) {
@@ -429,7 +429,7 @@ func newEntitiesWatcher(context facade.Context) (facade.Facade, error) {
 	}, nil
 }
 
-// Next returns when a change has occured to an entity of the
+// Next returns when a change has occurred to an entity of the
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvEntitiesWatcher.
 func (w *srvEntitiesWatcher) Next() (params.EntitiesWatchResult, error) {

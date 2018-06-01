@@ -21,7 +21,7 @@ func (s *backupsSuite) TestListOkay(c *gc.C) {
 	result, err := s.api.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	item := backups.ResultFromMetadata(s.meta)
+	item := backups.CreateResult(s.meta, "")
 	expected := params.BackupsListResult{
 		List: []params.BackupsMetadataResult{item},
 	}

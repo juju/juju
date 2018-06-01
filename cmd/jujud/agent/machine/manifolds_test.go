@@ -6,8 +6,8 @@ package machine_test
 import (
 	"sort"
 
+	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 
@@ -76,8 +76,10 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"proxy-config-updater",
 		"pubsub-forwarder",
 		"raft",
+		"raft-backstop",
 		"raft-clusterer",
-		"raft-flag",
+		"raft-enabled-flag",
+		"raft-leader-flag",
 		"raft-transport",
 		"reboot-executor",
 		"restore-watcher",
@@ -147,8 +149,10 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"upgrade-steps-runner",
 		"upgrader",
 		"raft",
+		"raft-backstop",
 		"raft-clusterer",
-		"raft-flag",
+		"raft-enabled-flag",
+		"raft-leader-flag",
 		"raft-transport",
 	)
 	manifolds := machine.Manifolds(machine.ManifoldsConfig{
@@ -171,7 +175,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"certificate-watcher",
 		"audit-config-updater",
 		"is-primary-controller-flag",
-		"raft-transport",
+		"raft-enabled-flag",
 	)
 	primaryControllerWorkers := set.NewStrings(
 		"external-controller-updater",

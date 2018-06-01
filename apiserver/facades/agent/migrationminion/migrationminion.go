@@ -27,7 +27,7 @@ func NewAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
-	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent()) {
+	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
 		return nil, common.ErrPerm
 	}
 	return &API{

@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
@@ -1347,7 +1347,7 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 	defer assertStop(c, srv)
 	srv.Info.ModelTag = s.IAASModel.ModelTag()
 
-	// If we have a remote user which has explict model access, but neither
+	// If we have a remote user which has explicit model access, but neither
 	// controller access nor 'everyone' access, the user will have access
 	// only if the AllowModelAccess configuration flag is true.
 	const remoteUser = "test@somewhere"

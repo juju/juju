@@ -43,7 +43,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	backend, err := application.NewStateBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(s.State)
-	api, err := application.NewAPIV5(
+	api, err := application.NewAPIBase(
 		backend,
 		s.authorizer,
 		blockChecker,
@@ -56,7 +56,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 
 func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v4 := &application.APIv4{s.applicationAPI.APIv5}
+	v4 := &application.APIv4{&application.APIv5{s.applicationAPI}}
 	results, err := v4.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
@@ -76,7 +76,7 @@ func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
 
 func (s *getSuite) TestClientApplicationGetSmoketestV5(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v5 := s.applicationAPI.APIv5
+	v5 := &application.APIv5{s.applicationAPI}
 	results, err := v5.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
@@ -180,7 +180,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 	backend, err := application.NewStateBackend(st)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(st)
-	api, err := application.NewAPIV5(
+	api, err := application.NewAPIBase(
 		backend,
 		s.authorizer,
 		blockChecker,
@@ -376,7 +376,7 @@ func (s *getSuite) TestApplicationGet(c *gc.C) {
 
 func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
 	// See the bug http://pad.lv/1217742
-	// Get ends up pushing a map[string]interface{} which containts
+	// Get ends up pushing a map[string]interface{} which contains
 	// an int64 through a JSON Marshal & Unmarshal which ends up changing
 	// the int64 into a float64. We will fix it if we find it is actually a
 	// problem.

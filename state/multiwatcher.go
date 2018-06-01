@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -189,7 +189,6 @@ func newStoreManagerNoRun(backing Backing) *storeManager {
 func newDeadStoreManager(err error) *storeManager {
 	var m storeManager
 	m.tomb.Kill(errors.Trace(err))
-	m.tomb.Done()
 	return &m
 }
 
@@ -197,8 +196,7 @@ func newDeadStoreManager(err error) *storeManager {
 // using the given backing.
 func newStoreManager(backing Backing) *storeManager {
 	sm := newStoreManagerNoRun(backing)
-	go func() {
-		defer sm.tomb.Done()
+	sm.tomb.Go(func() error {
 		// TODO(rog) distinguish between temporary and permanent errors:
 		// if we get an error in loop, this logic kill the state's storeManager
 		// forever. This currently fits the way we go about things,
@@ -213,8 +211,8 @@ func newStoreManager(backing Backing) *storeManager {
 		if err != nil && cause != tomb.ErrDying {
 			logger.Infof("store manager loop failed: %v", err)
 		}
-		sm.tomb.Kill(cause)
-	}()
+		return cause
+	})
 	return sm
 }
 

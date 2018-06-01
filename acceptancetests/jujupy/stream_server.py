@@ -17,8 +17,16 @@
 
 from __future__ import print_function
 
-import BaseHTTPServer
-import SimpleHTTPServer
+try:
+    from BaseHTTPServer import HTTPServer
+except ImportError:
+    from http.server import HTTPServer
+
+try:
+    from SimpleHTTPServer import SimpleHTTPRequestHandler
+except ImportError:
+    from http.server import SimpleHTTPRequestHandler
+
 from datetime import datetime
 import multiprocessing
 import hashlib
@@ -145,7 +153,8 @@ class StreamServer:
             server_process.join()
 
 
-def agent_tgz_from_juju_binary(juju_bin_path, tmp_dir, series=None):
+def agent_tgz_from_juju_binary(
+        juju_bin_path, tmp_dir, series=None, force_version=None):
     """
     Create agent tarball with jujud found with provided juju binary.
 
@@ -189,17 +198,27 @@ def agent_tgz_from_juju_binary(juju_bin_path, tmp_dir, series=None):
             'Unable to determine version, series and arch from version '
             'string: {}'.format(version_output))
 
+    version = force_version or version
     agent_tgz_name = 'juju-{version}-{series}-{arch}.tgz'.format(
         version=version,
         series=series if series else bin_agent_series,
         arch=arch
     )
 
-    log.debug('Creating agent file: {}'.format(agent_tgz_name))
+    # It's possible we're re-generating a file.
     tgz_path = os.path.join(tmp_dir, agent_tgz_name)
+    if os.path.exists(tgz_path):
+        log.debug('Reusing agent file: {}'.format(agent_tgz_name))
+        return tgz_path
+
+    log.debug('Creating agent file: {}'.format(agent_tgz_name))
     with tarfile.open(tgz_path, 'w:gz') as tar:
         tar.add(jujud_path, arcname='jujud')
-
+        if force_version is not None:
+            force_version_file = os.path.join(tmp_dir, 'FORCE-VERSION')
+            with open(force_version_file, 'wt') as f:
+                f.write(version)
+            tar.add(force_version_file, arcname='FORCE-VERSION')
     return tgz_path
 
 
@@ -274,7 +293,7 @@ def _get_server_address(httpd_server):
         s.close()
 
 
-class _QuietHttpRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+class _QuietHttpRequestHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, format, *args):
         # Lessen the output
@@ -286,7 +305,7 @@ class _QuietHttpRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
 def _create_stream_server():
     server_details = ("", 0)
-    httpd = BaseHTTPServer.HTTPServer(server_details, _QuietHttpRequestHandler)
+    httpd = HTTPServer(server_details, _QuietHttpRequestHandler)
     return httpd
 
 

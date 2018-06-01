@@ -13,6 +13,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
@@ -37,17 +38,25 @@ func (c *Client) appTag(application string) (names.ApplicationTag, error) {
 	return names.NewApplicationTag(application), nil
 }
 
-// ModelName returns the name of the model.
-func (c *Client) ModelName() (string, error) {
-	var result params.StringResult
-	err := c.facade.FacadeCall("ModelName", nil, &result)
+// Model returns the model entity.
+func (c *Client) Model() (*model.Model, error) {
+	var result params.ModelResult
+	err := c.facade.FacadeCall("CurrentModel", nil, &result)
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, err
 	}
 	if err := result.Error; err != nil {
-		return "", err
+		return nil, err
 	}
-	return result.Result, nil
+	modelType := model.ModelType(result.Type)
+	if modelType == "" {
+		modelType = model.IAAS
+	}
+	return &model.Model{
+		Name:      result.Name,
+		UUID:      result.UUID,
+		ModelType: modelType,
+	}, nil
 }
 
 // SetStatus sets the status of the specified application.
@@ -171,6 +180,22 @@ func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) 
 	}
 	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), results.Results[0])
 	return w, nil
+}
+
+// RemoveUnit removes the specified unit from the current model.
+func (c *Client) RemoveUnit(unitName string) error {
+	if !names.IsValidUnit(unitName) {
+		return errors.NotValidf("unit name %q", unitName)
+	}
+	var result params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: names.NewUnitTag(unitName).String()}},
+	}
+	err := c.facade.FacadeCall("Remove", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
 }
 
 // Life returns the lifecycle state for the specified CAAS application

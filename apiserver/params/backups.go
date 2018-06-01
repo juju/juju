@@ -11,7 +11,9 @@ import (
 
 // BackupsCreateArgs holds the args for the API Create method.
 type BackupsCreateArgs struct {
-	Notes string `json:"notes"`
+	Notes      string `json:"notes"`
+	KeepCopy   bool   `json:"keep-copy"`
+	NoDownload bool   `json:"no-download"`
 }
 
 // BackupsInfoArgs holds the args for the API Info method.
@@ -36,7 +38,7 @@ type BackupsUploadArgs struct {
 
 // BackupsRemoveArgs holds the args for the API Remove method.
 type BackupsRemoveArgs struct {
-	ID string `json:"id"`
+	IDs []string `json:"ids"`
 }
 
 // BackupsListResult holds the list of all stored backups.
@@ -70,6 +72,7 @@ type BackupsMetadataResult struct {
 
 	CACert       string `json:"ca-cert"`
 	CAPrivateKey string `json:"ca-private-key"`
+	Filename     string `json:"filename"`
 }
 
 // RestoreArgs Holds the backup file or id

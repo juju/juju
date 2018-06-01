@@ -16,14 +16,14 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/cert"
-	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	sshtesting "github.com/juju/utils/ssh/testing"
 	"github.com/juju/utils/symlink"
@@ -33,7 +33,6 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -44,13 +43,13 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -230,12 +229,12 @@ func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 	<-a.WorkersStarted()
 	err := m.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
+	// Tearing down the dependency engine can take a non-trivial amount of
+	// time.
 	select {
 	case err := <-done:
 		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(watcher.Period * 5 / 4):
-		// TODO(rog) Fix this so it doesn't wait for so long.
-		// https://bugs.launchpad.net/juju-core/+bug/1163983
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
 	err = m.Refresh()
@@ -272,7 +271,7 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, instId := s.waitProvisioned(c, unit)
-	insts, err := s.Environ.Instances([]instance.Id{instId})
+	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 	addrs := network.NewAddresses("1.2.3.4")
 	dummy.SetInstanceAddresses(insts[0], addrs)
@@ -1115,7 +1114,7 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	origModelManifolds := iaasModelManifolds
 	modelManifoldsDisablingMigrationMaster := func(config model.ManifoldsConfig) dependency.Manifolds {
 		config.NewMigrationMaster = func(config migrationmaster.Config) (worker.Worker, error) {
-			return &nullWorker{}, nil
+			return &nullWorker{dead: make(chan struct{})}, nil
 		}
 		return origModelManifolds(config)
 	}
@@ -1230,14 +1229,14 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 }
 
 type nullWorker struct {
-	tomb tomb.Tomb
+	dead chan struct{}
 }
 
 func (w *nullWorker) Kill() {
-	w.tomb.Kill(nil)
-	w.tomb.Done()
+	close(w.dead)
 }
 
 func (w *nullWorker) Wait() error {
-	return w.tomb.Wait()
+	<-w.dead
+	return nil
 }

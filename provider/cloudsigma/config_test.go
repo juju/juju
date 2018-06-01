@@ -55,7 +55,7 @@ func (s *configSuite) SetUpSuite(c *gc.C) {
 
 func (s *configSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	// speed up tests, do not create heavy stuff inside providers created withing this test suite
+	// speed up tests, do not create heavy stuff inside providers created within this test suite
 	s.PatchValue(&newClient, func(environs.CloudSpec, string) (*environClient, error) {
 		return nil, nil
 	})

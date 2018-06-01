@@ -16,7 +16,7 @@ import (
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
@@ -148,6 +148,8 @@ func (st *fakeState) checkInvariants() {
 // - total number of votes is odd.
 // - member voting status implies that machine has vote.
 func checkInvariants(st *fakeState) error {
+	st.mu.Lock()
+	defer st.mu.Unlock()
 	members := st.session.members.Get().([]replicaset.Member)
 	voteCount := 0
 	for _, m := range members {
@@ -158,11 +160,12 @@ func checkInvariants(st *fakeState) error {
 		voteCount += votes
 		if id, ok := m.Tags[jujuMachineKey]; ok {
 			if votes > 0 {
-				m := st.machine(id)
+				m := st.machines[id]
 				if m == nil {
 					return fmt.Errorf("voting member with machine id %q has no associated Machine", id)
 				}
-				if !m.HasVote() {
+
+				if !m.doc().hasVote {
 					return fmt.Errorf("machine %q should be marked as having the vote, but does not", id)
 				}
 			}
@@ -389,8 +392,8 @@ func (m *fakeMachine) mutate(f func(*machineDoc)) {
 	doc := m.doc()
 	f(&doc)
 	m.val.Set(doc)
-	m.mu.Unlock()
 	m.checker.checkInvariants()
+	m.mu.Unlock()
 }
 
 func (m *fakeMachine) setAddresses(addrs ...network.Address) {
@@ -581,7 +584,6 @@ type notifier struct {
 }
 
 func (n *notifier) loop() {
-	defer n.tomb.Done()
 	for n.w.Next() {
 		select {
 		case n.changes <- struct{}{}:
@@ -598,7 +600,10 @@ func WatchValue(val *voyeur.Value) state.NotifyWatcher {
 		w:       val.Watch(),
 		changes: make(chan struct{}),
 	}
-	go n.loop()
+	n.tomb.Go(func() error {
+		n.loop()
+		return nil
+	})
 	return n
 }
 
@@ -641,12 +646,14 @@ func WatchStrings(val *voyeur.Value) state.StringsWatcher {
 		w:       val.Watch(),
 		changes: make(chan []string),
 	}
-	go n.loop()
+	n.tomb.Go(func() error {
+		n.loop()
+		return nil
+	})
 	return n
 }
 
 func (n *stringsNotifier) loop() {
-	defer n.tomb.Done()
 	for n.w.Next() {
 		select {
 		case n.changes <- []string{}:

@@ -15,9 +15,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/winrm"
 
@@ -47,7 +47,7 @@ const detectJujudProcess = `
 //		will try to determine the size of a int ptr, we know that any ptr on a x64 is
 //		always 8 bytes and on x32 4 bytes always
 //	- get the amount of ram the machine has
-//		Use a WMI call to fetch the ammount of RAM on the system. See:
+//		Use a WMI call to fetch the amount of RAM on the system. See:
 //		https://msdn.microsoft.com/en-us/library/aa394347%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
 //		for more details
 //  - get the operating system name
@@ -146,7 +146,7 @@ func InitAdministratorUser(args *manual.ProvisionMachineArgs) error {
 	}
 
 	defClient := args.WinRM.Client
-	logger.Infof("Trying to enable https client certificate authenticaion")
+	logger.Infof("Trying to enable https client certificate authentication")
 	if args.WinRM.Client, err = enableCertAuth(args); err != nil {
 		logger.Infof("Cannot enable client auth cert authentication for winrm")
 		logger.Infof("Reverting back to usecure client interaction")
@@ -417,7 +417,7 @@ func DetectSeriesAndHardwareCharacteristics(host string, cli manual.WinrmClientA
 // parsed and checked info slice string
 // info description :
 //  - info[0] the arch of the machine
-//  - info[1] the ammount of memory that the machine has
+//  - info[1] the amount of memory that the machine has
 //  - info[2] the series of the machine
 //  - info[3] the number of cores that the machine has
 // It returns nil if it parsed successfully.
@@ -452,7 +452,7 @@ func splitHardWareScript(script string) ([]string, error) {
 	scr := strings.Split(script, "\n")
 	n := len(scr)
 	if n < 3 {
-		return nil, fmt.Errorf("No hardware fields on runing the powershell deteciton script, %s", script)
+		return nil, fmt.Errorf("No hardware fields on running the powershell deteciton script, %s", script)
 	}
 	for i := 0; i < n; i++ {
 		scr[i] = strings.TrimSpace(scr[i])
@@ -502,13 +502,13 @@ func runProvisionScript(script string, cli manual.WinrmClientAPI, stdin, stderr 
 		}
 	}
 
-	// after the sendAndSave script is sucessfully done
+	// after the sendAndSave script is successfully done
 	// we must execute the newly writed script
 	script, err = shell.NewPSEncodedCommand(runCmdProv)
 	if err != nil {
 		return err
 	}
-	logger.Debugf("Runing the provisioningScript")
+	logger.Debugf("Running the provisioningScript")
 	var outerr bytes.Buffer
 	if err = cli.Run(script, stdin, &outerr); err != nil {
 		return errors.Trace(err)

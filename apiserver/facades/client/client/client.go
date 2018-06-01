@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/os"
-	"github.com/juju/utils/series"
+	"github.com/juju/os"
+	"github.com/juju/os/series"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
 	"github.com/juju/juju/instance"
@@ -56,11 +57,17 @@ func (api *API) state() *state.State {
 type Client struct {
 	// TODO(wallyworld) - we'll retain model config facade methods
 	// on the client facade until GUI and Python client library are updated.
-	*modelconfig.ModelConfigAPI
+	*modelconfig.ModelConfigAPIV1
 
-	api        *API
-	newEnviron func() (environs.Environ, error)
-	check      *common.BlockChecker
+	api         *API
+	newEnviron  func() (environs.Environ, error)
+	check       *common.BlockChecker
+	callContext context.ProviderCallContext
+}
+
+// ClientV1 serves the (v1) client-specific API methods.
+type ClientV1 struct {
+	*Client
 }
 
 func (c *Client) checkCanRead() error {
@@ -111,8 +118,21 @@ func (c *Client) checkIsAdmin() error {
 	return nil
 }
 
-// NewFacade provides the required signature for facade registration.
+// NewFacade creates a version 1 Client facade to handle API requests.
 func NewFacade(ctx facade.Context) (*Client, error) {
+	return newFacade(ctx)
+}
+
+// NewFacadeV1 creates a version 1 Client facade to handle API requests.
+func NewFacadeV1(ctx facade.Context) (*ClientV1, error) {
+	client, err := newFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ClientV1{client}, nil
+}
+
+func newFacade(ctx facade.Context) (*Client, error) {
 	st := ctx.State()
 	resources := ctx.Resources()
 	authorizer := ctx.Auth()
@@ -132,14 +152,16 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	}
 	blockChecker := common.NewBlockChecker(st)
 	backend := modelconfig.NewStateBackend(model)
+	// The modelConfigAPI exposed here is V1.
 	modelConfigAPI, err := modelconfig.NewModelConfigAPI(backend, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return NewClient(
 		&stateShim{st, model},
 		&poolShim{ctx.StatePool()},
-		modelConfigAPI,
+		&modelconfig.ModelConfigAPIV1{modelConfigAPI},
 		resources,
 		authorizer,
 		presence,
@@ -147,6 +169,7 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 		toolsFinder,
 		newEnviron,
 		blockChecker,
+		state.CallContext(st),
 	)
 }
 
@@ -154,7 +177,7 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 func NewClient(
 	backend Backend,
 	pool Pool,
-	modelConfigAPI *modelconfig.ModelConfigAPI,
+	modelConfigAPI *modelconfig.ModelConfigAPIV1,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	presence facade.Presence,
@@ -162,12 +185,13 @@ func NewClient(
 	toolsFinder *common.ToolsFinder,
 	newEnviron func() (environs.Environ, error),
 	blockChecker *common.BlockChecker,
+	callCtx context.ProviderCallContext,
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	client := &Client{
-		ModelConfigAPI: modelConfigAPI,
+		ModelConfigAPIV1: modelConfigAPI,
 		api: &API{
 			stateAccessor: backend,
 			pool:          pool,
@@ -177,8 +201,9 @@ func NewClient(
 			statusSetter:  statusSetter,
 			toolsFinder:   toolsFinder,
 		},
-		newEnviron: newEnviron,
-		check:      blockChecker,
+		newEnviron:  newEnviron,
+		check:       blockChecker,
+		callContext: callCtx,
 	}
 	return client, nil
 }
@@ -586,7 +611,8 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := environs.CheckProviderAPI(env); err != nil {
+
+	if err := environs.CheckProviderAPI(env, c.callContext); err != nil {
 		return err
 	}
 	// If this is the controller model, also check to make sure that there are
@@ -710,4 +736,16 @@ func (c *Client) CACert() (params.BytesResult, error) {
 	}
 	caCert, _ := cfg.CACert()
 	return params.BytesResult{Result: []byte(caCert)}, nil
+}
+
+// FindTools returns a List containing all tools matching the given parameters.
+func (c *ClientV1) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
+	if err := c.checkCanWrite(); err != nil {
+		return params.FindToolsResult{}, err
+	}
+
+	if args.AgentStream != "" {
+		return params.FindToolsResult{}, errors.New("requesting agent-stream not supported by model")
+	}
+	return c.api.toolsFinder.FindTools(args)
 }

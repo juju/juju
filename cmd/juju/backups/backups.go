@@ -21,10 +21,14 @@ import (
 
 // APIClient represents the backups API client functionality used by
 // the backups command.
+//
+// To regenerate the mocks for the APIClient used by this package,
+// run "go generate" from the package directory.
+//go:generate mockgen -package backups_test -destination mock_test.go github.com/juju/juju/cmd/juju/backups ArchiveReader,APIClient
 type APIClient interface {
 	io.Closer
 	// Create sends an RPC request to create a new backup.
-	Create(notes string) (*params.BackupsMetadataResult, error)
+	Create(notes string, keepCopy, noDownload bool) (*params.BackupsMetadataResult, error)
 	// Info gets the backup's metadata.
 	Info(id string) (*params.BackupsMetadataResult, error)
 	// List gets all stored metadata.
@@ -33,8 +37,8 @@ type APIClient interface {
 	Download(id string) (io.ReadCloser, error)
 	// Upload pushes a backup archive to storage.
 	Upload(ar io.ReadSeeker, meta params.BackupsMetadataResult) (string, error)
-	// Remove removes the stored backup.
-	Remove(id string) error
+	// Remove removes the stored backups.
+	Remove(ids ...string) ([]params.ErrorResult, error)
 	// Restore will restore a backup with the given id into the controller.
 	Restore(string, backups.ClientConnection) error
 	// RestoreReader will restore a backup file into the controller.
@@ -53,6 +57,11 @@ func (c *CommandBase) NewAPIClient() (APIClient, error) {
 	return newAPIClient(c)
 }
 
+// NewAPIClient returns a client for the backups api endpoint.
+func (c *CommandBase) NewGetAPI() (APIClient, int, error) {
+	return getAPI(c)
+}
+
 // SetFlags implements Command.SetFlags.
 func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
@@ -69,8 +78,22 @@ var newAPIClient = func(c *CommandBase) (APIClient, error) {
 	return backups.NewClient(root)
 }
 
+// GetAPI returns a client and the api version of the controller
+var getAPI = func(c *CommandBase) (APIClient, int, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, -1, errors.Trace(err)
+	}
+	version := root.BestFacadeVersion("Backups")
+	client, err := backups.NewClient(root)
+	return client, version, nil
+}
+
 // dumpMetadata writes the formatted backup metadata to stdout.
 func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetadataResult) {
+	// TODO: (hml) 2018-04-26
+	// fix how --quiet and --verbose are handled with backup/restore commands
+	// should be ctx.Verbosef() here
 	fmt.Fprintf(ctx.Stdout, "backup ID:       %q\n", result.ID)
 	fmt.Fprintf(ctx.Stdout, "checksum:        %q\n", result.Checksum)
 	fmt.Fprintf(ctx.Stdout, "checksum format: %q\n", result.ChecksumFormat)
@@ -88,12 +111,16 @@ func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetad
 }
 
 // ArchiveReader can read a backup archive.
+//
+// To regenerate the mocks for the ArchiveReader used by this package,
+// run "go generate" from the package directory.
+//go:generate mockgen -package backups_test -destination mock_test.go github.com/juju/juju/cmd/juju/backups ArchiveReader,APIClient
 type ArchiveReader interface {
 	io.ReadSeeker
 	io.Closer
 }
 
-func getArchive(filename string) (rc ArchiveReader, metaResult *params.BackupsMetadataResult, err error) {
+var getArchive = func(filename string) (rc ArchiveReader, metaResult *params.BackupsMetadataResult, err error) {
 	defer func() {
 		if err != nil && rc != nil {
 			rc.Close()
@@ -151,7 +178,7 @@ func getArchive(filename string) (rc ArchiveReader, metaResult *params.BackupsMe
 	// Pack the metadata into a result.
 	// TODO(perrito666) change the identity of ResultfromMetadata to
 	// return a pointer.
-	mResult := apiserverbackups.ResultFromMetadata(meta)
+	mResult := apiserverbackups.CreateResult(meta, "")
 	metaResult = &mResult
 
 	return archive, metaResult, nil

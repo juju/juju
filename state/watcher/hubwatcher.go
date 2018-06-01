@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 )
 
 // HubSource represents the listening aspects of the pubsub hub.
@@ -16,7 +16,7 @@ type HubSource interface {
 	SubscribeMatch(matcher func(string) bool, handler func(string, interface{})) func()
 }
 
-// HubWatcher listents to events from the hub and passes them on to the registered
+// HubWatcher listens to events from the hub and passes them on to the registered
 // watchers.
 type HubWatcher struct {
 	hub    HubSource
@@ -67,7 +67,7 @@ func newHubWatcher(hub HubSource, logger Logger) (*HubWatcher, <-chan struct{}) 
 		request: make(chan interface{}),
 		changes: make(chan Change),
 	}
-	go func() {
+	w.tomb.Go(func() error {
 		unsub := hub.SubscribeMatch(
 			func(string) bool { return true }, w.receiveEvent,
 		)
@@ -81,9 +81,8 @@ func newHubWatcher(hub HubSource, logger Logger) (*HubWatcher, <-chan struct{}) 
 		if err != nil && cause != tomb.ErrDying {
 			logger.Infof("watcher loop failed: %v", err)
 		}
-		w.tomb.Kill(cause)
-		w.tomb.Done()
-	}()
+		return cause
+	})
 	return w, started
 }
 

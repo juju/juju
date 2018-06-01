@@ -14,7 +14,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -33,6 +36,14 @@ func (s *BaseCloudImageMetadataSuite) setupBaseSuite(c *gc.C) {
 	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
+	s.store.Models["testing"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{
+			"admin/controller": {
+				ModelType: model.IAAS,
+			},
+		},
+		CurrentModel: "admin/controller",
+	}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
 		User: "admin",
 	}
@@ -58,7 +69,9 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 }
 
 func runList(c *gc.C, args []string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, newListImagesCommand(), args...)
+	cmd := &listImagesCommand{}
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
+	return cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
 }
 
 func (s *ListSuite) TestListDefault(c *gc.C) {

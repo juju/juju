@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -70,9 +71,9 @@ type StartInstanceParams struct {
 	// are present.
 	SubnetsToZones map[network.Id][]string
 
-	// EndpointBindings holds the mapping between service endpoint names to
+	// EndpointBindings holds the mapping between application endpoint names to
 	// provider-specific space IDs. It is populated when provisioning a machine
-	// to host a unit of a service with endpoint bindings.
+	// to host a unit of an application with endpoint bindings.
 	EndpointBindings map[string]network.Id
 
 	// ImageMetadata is a collection of image metadata
@@ -135,17 +136,17 @@ type InstanceBroker interface {
 	// the StartInstanceParams can never be fulfilled in any zone, then
 	// it may return an error satisfying the IsAvailabilityZoneIndependent
 	// function in this package.
-	StartInstance(args StartInstanceParams) (*StartInstanceResult, error)
+	StartInstance(ctx context.ProviderCallContext, args StartInstanceParams) (*StartInstanceResult, error)
 
 	// StopInstances shuts down the instances with the specified IDs.
 	// Unknown instance IDs are ignored, to enable idempotency.
-	StopInstances(...instance.Id) error
+	StopInstances(context.ProviderCallContext, ...instance.Id) error
 
 	// AllInstances returns all instances currently known to the broker.
-	AllInstances() ([]instance.Instance, error)
+	AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error)
 
 	// MaintainInstance is used to run actions on jujud startup for existing
 	// instances. It is currently only used to ensure that LXC hosts have the
 	// correct network configuration.
-	MaintainInstance(args StartInstanceParams) error
+	MaintainInstance(ctx context.ProviderCallContext, args StartInstanceParams) error
 }

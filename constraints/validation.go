@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/juju/utils/set"
+	"github.com/juju/collections/set"
 )
 
 // Validator defines operations on constraints attributes which are

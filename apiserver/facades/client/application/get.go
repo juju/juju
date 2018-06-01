@@ -15,7 +15,7 @@ import (
 )
 
 // Get returns the charm configuration for an application.
-func (api *APIv6) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
+func (api *APIBase) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
 	return api.getConfig(args, describe)
 }
 
@@ -43,7 +43,7 @@ func (api *APIv4) Get(args params.ApplicationGet) (params.ApplicationGetResults,
 }
 
 // Get returns the charm configuration for an application.
-func (api *APIv5) getConfig(
+func (api *APIBase) getConfig(
 	args params.ApplicationGet,
 	describe func(settings charm.Settings, config *charm.Config) map[string]interface{},
 ) (params.ApplicationGetResults, error) {

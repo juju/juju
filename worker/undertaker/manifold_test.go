@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/undertaker"
@@ -59,6 +60,9 @@ func (s *manifoldSuite) namesConfig() undertaker.ManifoldConfig {
 	return undertaker.ManifoldConfig{
 		APICallerName:      "api-caller",
 		CloudDestroyerName: destroyerName,
+		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) {
+			return &fakeCredentialAPI{}, nil
+		},
 	}
 }
 
@@ -106,6 +110,22 @@ func (s *manifoldSuite) TestNewFacadeError(c *gc.C) {
 	c.Check(worker, gc.IsNil)
 }
 
+func (s *manifoldSuite) TestNewCredentialAPIError(c *gc.C) {
+	config := s.namesConfig()
+	config.NewFacade = func(_ base.APICaller) (undertaker.Facade, error) {
+		return &fakeFacade{}, nil
+	}
+	config.NewCredentialValidatorFacade = func(apiCaller base.APICaller) (common.CredentialAPI, error) {
+		return nil, errors.New("blort")
+	}
+	manifold := undertaker.Manifold(config)
+
+	resources := resourcesMissing()
+	worker, err := manifold.Start(resources.Context())
+	c.Check(err, gc.ErrorMatches, "blort")
+	c.Check(worker, gc.IsNil)
+}
+
 func (s *manifoldSuite) TestNewWorkerError(c *gc.C) {
 	resources := resourcesMissing()
 	expectFacade := &fakeFacade{}
@@ -144,9 +164,9 @@ func (s *manifoldSuite) TestNewWorkerSuccess(c *gc.C) {
 
 func resourcesMissing(missing ...string) dt.StubResources {
 	resources := dt.StubResources{
-		"api-caller": dt.StubResource{Output: &fakeAPICaller{}},
-		"environ":    dt.StubResource{Output: &fakeEnviron{}},
-		"broker":     dt.StubResource{Output: &fakeBroker{}},
+		"api-caller": dt.NewStubResource(&fakeAPICaller{}),
+		"environ":    dt.NewStubResource(&fakeEnviron{}),
+		"broker":     dt.NewStubResource(&fakeBroker{}),
 	}
 	for _, name := range missing {
 		resources[name] = dt.StubResource{Error: dependency.ErrMissing}
@@ -155,7 +175,7 @@ func resourcesMissing(missing ...string) dt.StubResources {
 }
 
 func checkResource(c *gc.C, actual interface{}, resources dt.StubResources, name string) {
-	c.Check(actual, gc.Equals, resources[name].Output)
+	c.Check(actual, gc.Equals, resources[name].Outputs[0])
 }
 
 type fakeAPICaller struct {
@@ -176,4 +196,10 @@ type fakeFacade struct {
 
 type fakeWorker struct {
 	worker.Worker
+}
+
+type fakeCredentialAPI struct{}
+
+func (*fakeCredentialAPI) InvalidateModelCredential(reason string) error {
+	return nil
 }

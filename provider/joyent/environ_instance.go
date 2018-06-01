@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
@@ -67,11 +68,11 @@ func (env *joyentEnviron) ConstraintsValidator() (constraints.Validator, error) 
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.
-func (*joyentEnviron) MaintainInstance(args environs.StartInstanceParams) error {
+func (*joyentEnviron) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
 	return nil
 }
 
-func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (env *joyentEnviron) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := env.FindInstanceSpec(&instances.InstanceConstraint{
@@ -190,7 +191,7 @@ func tagKey(aKey string) string {
 	return "tag." + aKey
 }
 
-func (env *joyentEnviron) AllInstances() ([]instance.Instance, error) {
+func (env *joyentEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
 	instances := []instance.Instance{}
 
 	filter := cloudapi.NewFilter()
@@ -212,7 +213,7 @@ func (env *joyentEnviron) AllInstances() ([]instance.Instance, error) {
 	return instances, nil
 }
 
-func (env *joyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+func (env *joyentEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -222,7 +223,7 @@ func (env *joyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, err
 	instances := make([]instance.Instance, len(ids))
 	found := 0
 
-	allInstances, err := env.AllInstances()
+	allInstances, err := env.AllInstances(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +248,7 @@ func (env *joyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, err
 	return instances, nil
 }
 
-func (env *joyentEnviron) StopInstances(ids ...instance.Id) error {
+func (env *joyentEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	// Remove all the instances in parallel so that we incur less round-trips.
 	var wg sync.WaitGroup
 	//var err error

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -36,7 +37,7 @@ func (inst *azureInstance) Id() instance.Id {
 }
 
 // Status is specified in the Instance interface.
-func (inst *azureInstance) Status() instance.InstanceStatus {
+func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	instanceStatus := status.Empty
 	message := inst.provisioningState
 	switch inst.provisioningState {
@@ -137,7 +138,7 @@ func instancePublicIPAddresses(
 }
 
 // Addresses is specified in the Instance interface.
-func (inst *azureInstance) Addresses() ([]jujunetwork.Address, error) {
+func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) ([]jujunetwork.Address, error) {
 	addresses := make([]jujunetwork.Address, 0, len(inst.networkInterfaces)+len(inst.publicIPAddresses))
 	for _, nic := range inst.networkInterfaces {
 		if nic.IPConfigurations == nil {
@@ -195,7 +196,7 @@ func (inst *azureInstance) primaryNetworkAddress() (jujunetwork.Address, error) 
 }
 
 // OpenPorts is specified in the Instance interface.
-func (inst *azureInstance) OpenPorts(machineId string, rules []jujunetwork.IngressRule) error {
+func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules []jujunetwork.IngressRule) error {
 	nsgClient := network.SecurityGroupsClient{inst.env.network}
 	securityRuleClient := network.SecurityRulesClient{inst.env.network}
 	primaryNetworkAddress, err := inst.primaryNetworkAddress()
@@ -290,7 +291,7 @@ func (inst *azureInstance) OpenPorts(machineId string, rules []jujunetwork.Ingre
 }
 
 // ClosePorts is specified in the Instance interface.
-func (inst *azureInstance) ClosePorts(machineId string, rules []jujunetwork.IngressRule) error {
+func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules []jujunetwork.IngressRule) error {
 	securityRuleClient := network.SecurityRulesClient{inst.env.network}
 	securityGroupName := internalSecurityGroupName
 
@@ -316,7 +317,7 @@ func (inst *azureInstance) ClosePorts(machineId string, rules []jujunetwork.Ingr
 }
 
 // IngressRules is specified in the Instance interface.
-func (inst *azureInstance) IngressRules(machineId string) (rules []jujunetwork.IngressRule, err error) {
+func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (rules []jujunetwork.IngressRule, err error) {
 	nsgClient := network.SecurityGroupsClient{inst.env.network}
 	securityGroupName := internalSecurityGroupName
 	nsg, err := nsgClient.Get(inst.env.resourceGroup, securityGroupName, "")

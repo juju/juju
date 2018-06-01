@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/utils/arch"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 )
@@ -34,22 +35,22 @@ type Instance interface {
 	Id() Id
 
 	// Status returns the provider-specific status for the instance.
-	Status() InstanceStatus
+	Status(context.ProviderCallContext) InstanceStatus
 
 	// Addresses returns a list of hostnames or ip addresses
 	// associated with the instance.
-	Addresses() ([]network.Address, error)
+	Addresses(context.ProviderCallContext) ([]network.Address, error)
 }
 
 // InstanceFirewaller provides instance-level firewall functionality
 type InstanceFirewaller interface {
 	// OpenPorts opens the given port ranges on the instance, which
 	// should have been started with the given machine id.
-	OpenPorts(machineId string, rules []network.IngressRule) error
+	OpenPorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error
 
 	// ClosePorts closes the given port ranges on the instance, which
 	// should have been started with the given machine id.
-	ClosePorts(machineId string, rules []network.IngressRule) error
+	ClosePorts(ctx context.ProviderCallContext, machineId string, rules []network.IngressRule) error
 
 	// IngressRules returns the set of ingress rules for the instance,
 	// which should have been applied to the given machine id. The
@@ -57,7 +58,7 @@ type InstanceFirewaller interface {
 	// It is expected that there be only one ingress rule result for a given
 	// port range - the rule's SourceCIDRs will contain all applicable source
 	// address rules for that port range.
-	IngressRules(machineId string) ([]network.IngressRule, error)
+	IngressRules(ctx context.ProviderCallContext, machineId string) ([]network.IngressRule, error)
 }
 
 // HardwareCharacteristics represents the characteristics of the instance (if known).
@@ -245,11 +246,11 @@ func parseTags(s string) *[]string {
 func parseUint64(str string) (*uint64, error) {
 	var value uint64
 	if str != "" {
-		if val, err := strconv.ParseUint(str, 10, 64); err != nil {
+		val, err := strconv.ParseUint(str, 10, 64)
+		if err != nil {
 			return nil, fmt.Errorf("must be a non-negative integer")
-		} else {
-			value = uint64(val)
 		}
+		value = val
 	}
 	return &value, nil
 }

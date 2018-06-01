@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
@@ -355,7 +355,7 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 	}
 	ops = append(ops, charmOps...)
 	// By the time we get to here, all units and charm refs have been removed,
-	// so it's safe to do this additonal cleanup.
+	// so it's safe to do this additional cleanup.
 	ops = append(ops, finalAppCharmRemoveOps(name, curl)...)
 
 	ops = append(ops, a.removeCloudServiceOps()...)
@@ -1707,15 +1707,15 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		}
 		return append(ops, removeOps...), nil
 	}
-	svcOp := txn.Op{
+	appOp := txn.Op{
 		C:      applicationsC,
 		Id:     a.doc.DocID,
 		Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 	}
 	if a.doc.Life == Alive {
-		svcOp.Assert = bson.D{{"life", Alive}, {"unitcount", bson.D{{"$gt", 0}}}}
+		appOp.Assert = bson.D{{"life", Alive}, {"unitcount", bson.D{{"$gt", 0}}}}
 	} else {
-		svcOp.Assert = bson.D{
+		appOp.Assert = bson.D{
 			{"life", Dying},
 			{"$or", []bson.D{
 				{{"unitcount", bson.D{{"$gt", 1}}}},
@@ -1723,7 +1723,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 			}},
 		}
 	}
-	ops = append(ops, svcOp)
+	ops = append(ops, appOp)
 
 	return ops, nil
 }

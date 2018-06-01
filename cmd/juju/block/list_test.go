@@ -6,7 +6,9 @@ package block_test
 import (
 	"errors"
 
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -22,7 +24,7 @@ type listCommandSuite struct {
 }
 
 func (s *listCommandSuite) TestInit(c *gc.C) {
-	cmd := block.NewListCommand()
+	cmd := s.listCommand(nil, nil)
 	err := cmdtesting.InitCommand(cmd, nil)
 	c.Check(err, jc.ErrorIsNil)
 
@@ -30,14 +32,19 @@ func (s *listCommandSuite) TestInit(c *gc.C) {
 	c.Check(err.Error(), gc.Equals, `unrecognized args: ["anything"]`)
 }
 
+func (*listCommandSuite) listCommand(api *mockListClient, err error) cmd.Command {
+	store := jujuclienttesting.MinimalStore()
+	return block.NewListCommandForTest(store, api, err)
+}
+
 func (s *listCommandSuite) TestListEmpty(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, block.NewListCommandForTest(&mockListClient{}, nil))
+	ctx, err := cmdtesting.RunCommand(c, s.listCommand(&mockListClient{}, nil))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No commands are currently disabled.\n")
 }
 
 func (s *listCommandSuite) TestListError(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, block.NewListCommandForTest(
+	_, err := cmdtesting.RunCommand(c, s.listCommand(
 		&mockListClient{err: errors.New("boom")}, nil))
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
@@ -75,7 +82,7 @@ func (s *listCommandSuite) mock() *mockListClient {
 }
 
 func (s *listCommandSuite) TestList(c *gc.C) {
-	cmd := block.NewListCommandForTest(s.mock(), nil)
+	cmd := s.listCommand(s.mock(), nil)
 	ctx, err := cmdtesting.RunCommand(c, cmd)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
@@ -88,7 +95,7 @@ func (s *listCommandSuite) TestList(c *gc.C) {
 }
 
 func (s *listCommandSuite) TestListYAML(c *gc.C) {
-	cmd := block.NewListCommandForTest(s.mock(), nil)
+	cmd := s.listCommand(s.mock(), nil)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ""+
@@ -100,13 +107,13 @@ func (s *listCommandSuite) TestListYAML(c *gc.C) {
 }
 
 func (s *listCommandSuite) TestListJSONEmpty(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, block.NewListCommandForTest(&mockListClient{}, nil), "--format", "json")
+	ctx, err := cmdtesting.RunCommand(c, s.listCommand(&mockListClient{}, nil), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "[]\n")
 }
 
 func (s *listCommandSuite) TestListJSON(c *gc.C) {
-	cmd := block.NewListCommandForTest(s.mock(), nil)
+	cmd := s.listCommand(s.mock(), nil)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ""+
@@ -115,7 +122,7 @@ func (s *listCommandSuite) TestListJSON(c *gc.C) {
 }
 
 func (s *listCommandSuite) TestListAll(c *gc.C) {
-	cmd := block.NewListCommandForTest(s.mock(), nil)
+	cmd := s.listCommand(s.mock(), nil)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
@@ -128,7 +135,7 @@ func (s *listCommandSuite) TestListAll(c *gc.C) {
 }
 
 func (s *listCommandSuite) TestListAllYAML(c *gc.C) {
-	cmd := block.NewListCommandForTest(s.mock(), nil)
+	cmd := s.listCommand(s.mock(), nil)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "yaml", "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ""+
@@ -152,7 +159,7 @@ func (s *listCommandSuite) TestListAllYAML(c *gc.C) {
 }
 
 func (s *listCommandSuite) TestListAllJSON(c *gc.C) {
-	cmd := block.NewListCommandForTest(s.mock(), nil)
+	cmd := s.listCommand(s.mock(), nil)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "json", "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "["+

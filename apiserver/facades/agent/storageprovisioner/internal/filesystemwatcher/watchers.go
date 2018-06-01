@@ -4,10 +4,10 @@
 package filesystemwatcher
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -17,7 +17,7 @@ import (
 // results from machine- and model-scoped watchers, to conform to the behaviour
 // of the storageprovisioner worker. The model-level storageprovisioner watches
 // model-scoped filesystems that have no backing volume. The machine-level worker
-// watches both machine-scoped filesytems, and model-scoped filesystems whose
+// watches both machine-scoped filesystems, and model-scoped filesystems whose
 // backing volumes are attached to the machine.
 type Watchers struct {
 	Backend Backend
@@ -47,20 +47,19 @@ func (fw Watchers) WatchMachineManagedFilesystems(m names.MachineTag) state.Stri
 		stringsWatcherBase:     stringsWatcherBase{out: make(chan []string)},
 		backend:                fw.Backend,
 		machine:                m,
-		changes:                make(set.Strings),
+		changes:                set.NewStrings(),
 		machineFilesystems:     fw.Backend.WatchMachineFilesystems(m),
 		modelFilesystems:       fw.Backend.WatchModelFilesystems(),
 		modelVolumeAttachments: fw.Backend.WatchModelVolumeAttachments(),
-		modelVolumesAttached:   make(set.Tags),
+		modelVolumesAttached:   names.NewSet(),
 		modelVolumeFilesystems: make(map[names.VolumeTag]names.FilesystemTag),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer watcher.Stop(w.machineFilesystems, &w.tomb)
 		defer watcher.Stop(w.modelFilesystems, &w.tomb)
 		defer watcher.Stop(w.modelVolumeAttachments, &w.tomb)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -79,7 +78,7 @@ type machineFilesystemsWatcher struct {
 	machineFilesystems     state.StringsWatcher
 	modelFilesystems       state.StringsWatcher
 	modelVolumeAttachments state.StringsWatcher
-	modelVolumesAttached   set.Tags
+	modelVolumesAttached   names.Set
 	modelVolumeFilesystems map[names.VolumeTag]names.FilesystemTag
 }
 
@@ -131,7 +130,7 @@ func (w *machineFilesystemsWatcher) loop() error {
 				}
 			}
 		case out <- w.changes.SortedValues():
-			w.changes = make(set.Strings)
+			w.changes = set.NewStrings()
 			out = nil
 		}
 		// NOTE(axw) we don't send any changes until we have received
@@ -225,20 +224,20 @@ func (fw Watchers) WatchMachineManagedFilesystemAttachments(m names.MachineTag) 
 		stringsWatcherBase: stringsWatcherBase{out: make(chan []string)},
 		backend:            fw.Backend,
 		machine:            m,
-		changes:            make(set.Strings),
+		changes:            set.NewStrings(),
 		machineFilesystemAttachments:     fw.Backend.WatchMachineFilesystemAttachments(m),
 		modelFilesystemAttachments:       fw.Backend.WatchModelFilesystemAttachments(),
 		modelVolumeAttachments:           fw.Backend.WatchModelVolumeAttachments(),
-		modelVolumesAttached:             make(set.Tags),
+		modelVolumesAttached:             names.NewSet(),
 		modelVolumeFilesystemAttachments: make(map[names.VolumeTag]string),
 	}
-	go func() {
-		defer w.tomb.Done()
+
+	w.tomb.Go(func() error {
 		defer watcher.Stop(w.machineFilesystemAttachments, &w.tomb)
 		defer watcher.Stop(w.modelFilesystemAttachments, &w.tomb)
 		defer watcher.Stop(w.modelVolumeAttachments, &w.tomb)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -258,7 +257,7 @@ type machineFilesystemAttachmentsWatcher struct {
 	machineFilesystemAttachments     state.StringsWatcher
 	modelFilesystemAttachments       state.StringsWatcher
 	modelVolumeAttachments           state.StringsWatcher
-	modelVolumesAttached             set.Tags
+	modelVolumesAttached             names.Set
 	modelVolumeFilesystemAttachments map[names.VolumeTag]string
 }
 
@@ -316,7 +315,7 @@ func (w *machineFilesystemAttachmentsWatcher) loop() error {
 				}
 			}
 		case out <- w.changes.SortedValues():
-			w.changes = make(set.Strings)
+			w.changes = set.NewStrings()
 			out = nil
 		}
 		// NOTE(axw) we don't send any changes until we have received
@@ -396,11 +395,10 @@ func newFilteredStringsWatcher(w state.StringsWatcher, filter func(string) (bool
 		w:                  w,
 		filter:             filter,
 	}
-	go func() {
-		defer fw.tomb.Done()
+	fw.tomb.Go(func() error {
 		defer watcher.Stop(fw.w, &fw.tomb)
-		fw.tomb.Kill(fw.loop())
-	}()
+		return fw.loop()
+	})
 	return fw
 }
 

@@ -133,3 +133,33 @@ func (m *MongoPathSuite) TestPath(c *gc.C) {
 
 	assertStatLook(c, Mongo32wt, errMissing, nil, "no suitable binary for \"3.2/wiredTiger\"", "", mongo32Path, "")
 }
+
+func (s *MongoPathSuite) TestMongoPath(c *gc.C) {
+	mongoInfo := []struct {
+		version Version
+		path    string
+	}{{
+		// Expected 2.4 wiredTiger version
+		version: Mongo24,
+		path:    JujuMongod24Path,
+	}, {
+		// Expected 3.6 wiredTiger version
+		version: Mongo36wt,
+		path:    MongodSystemPath,
+	}, {
+		// Version with Patch
+		version: Version{Major: 3, Minor: 6, Patch: "3"},
+		path:    MongodSystemPath,
+	}}
+	stat := func(string) (os.FileInfo, error) {
+		return nil, nil
+	}
+	lookPath := func(string) (string, error) {
+		return "", nil
+	}
+	for _, m := range mongoInfo {
+		actualPath, err := mongoPath(m.version, stat, lookPath)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(actualPath, gc.Equals, m.path)
+	}
+}

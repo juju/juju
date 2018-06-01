@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -134,7 +135,7 @@ func (*OpenSuite) TestNew(c *gc.C) {
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = e.ControllerInstances("uuid")
+	_, err = e.ControllerInstances(context.NewCloudCallContext(), "uuid")
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")
 }
 
@@ -162,12 +163,13 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = environs.Destroy("controller-name", e, store)
+	callCtx := context.NewCloudCallContext()
+	err = environs.Destroy("controller-name", e, callCtx, store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the environment has actually been destroyed
 	// and that the controller details been removed too.
-	_, err = e.ControllerInstances(controllerCfg.ControllerUUID())
+	_, err = e.ControllerInstances(callCtx, controllerCfg.ControllerUUID())
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -176,7 +178,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 func (*OpenSuite) TestDestroyNotFound(c *gc.C) {
 	var env destroyControllerEnv
 	store := jujuclient.NewMemStore()
-	err := environs.Destroy("fnord", &env, store)
+	err := environs.Destroy("fnord", &env, context.NewCloudCallContext(), store)
 	c.Assert(err, jc.ErrorIsNil)
 	env.CheckCallNames(c) // no controller details, no call
 }
@@ -186,7 +188,7 @@ type destroyControllerEnv struct {
 	gitjujutesting.Stub
 }
 
-func (e *destroyControllerEnv) DestroyController(uuid string) error {
-	e.MethodCall(e, "DestroyController", uuid)
+func (e *destroyControllerEnv) DestroyController(ctx context.ProviderCallContext, uuid string) error {
+	e.MethodCall(e, "DestroyController", ctx, uuid)
 	return e.NextErr()
 }

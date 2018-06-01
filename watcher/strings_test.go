@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
@@ -123,10 +123,10 @@ func newTestStringsWatcher() *testStringsWatcher {
 	w := &testStringsWatcher{
 		changes: make(chan []string),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-	}()
+		return nil
+	})
 	return w
 }
 

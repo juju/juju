@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"github.com/kr/pretty"
 	"gopkg.in/juju/names.v2"
@@ -744,7 +744,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		}
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
-		// If there are no alive units left on the machine, or all the services are dying,
+		// If there are no alive units left on the machine, or all the applications are dying,
 		// then the machine may be soon destroyed by a cleanup worker.
 		// In that case, we don't want to return any error about not being able to
 		// destroy a machine with units as it will be a lie.
@@ -776,11 +776,11 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 				if err != nil {
 					return nil, errors.Annotatef(err, "reading machine %s principal unit %v", m, m.doc.Principals[0])
 				}
-				svc, err := u.Application()
+				app, err := u.Application()
 				if err != nil {
-					return nil, errors.Annotatef(err, "reading machine %s principal unit service %v", m, u.doc.Application)
+					return nil, errors.Annotatef(err, "reading machine %s principal unit application %v", m, u.doc.Application)
 				}
-				if u.Life() == Alive && svc.Life() == Alive {
+				if u.Life() == Alive && app.Life() == Alive {
 					canDie = false
 					break
 				}
@@ -856,7 +856,7 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	attachments := make(set.Tags)
+	attachments := names.NewSet()
 	for _, v := range m.doc.Volumes {
 		tag := names.NewVolumeTag(v)
 		detachable, err := isDetachableVolumeTag(im.mb.db(), tag)

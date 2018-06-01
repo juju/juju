@@ -54,9 +54,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.resources = dt.StubResources{
-		"agent-name":        dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
-		"metric-spool-name": dt.StubResource{Output: &dummyMetricFactory{}},
-		"charmdir-name":     dt.StubResource{Output: &dummyCharmdir{aborted: false}},
+		"agent-name":        dt.NewStubResource(&dummyAgent{dataDir: s.dataDir}),
+		"metric-spool-name": dt.NewStubResource(&dummyMetricFactory{}),
+		"charmdir-name":     dt.NewStubResource(&dummyCharmdir{aborted: false}),
 	}
 }
 
@@ -212,7 +212,7 @@ func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 			return corecharm.MustParseURL("cs:wordpress-37"), map[string]corecharm.Metric{"pings": corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
 		})
 	charmdir := &dummyCharmdir{}
-	s.resources["charmdir-name"] = dt.StubResource{Output: charmdir}
+	s.resources["charmdir-name"] = dt.NewStubResource(charmdir)
 	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
 	charmdir.aborted = true
@@ -221,7 +221,7 @@ func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 	c.Assert(recorder.batches, gc.HasLen, 0)
 
 	charmdir = &dummyCharmdir{aborted: false}
-	s.resources["charmdir-name"] = dt.StubResource{Output: charmdir}
+	s.resources["charmdir-name"] = dt.NewStubResource(charmdir)
 	collectEntity, err = collect.NewCollect(s.manifoldConfig, s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
@@ -258,7 +258,7 @@ func (s *ManifoldSuite) TestNoMetricsDeclared(c *gc.C) {
 // aborts the collector.
 func (s *ManifoldSuite) TestCharmDirAborted(c *gc.C) {
 	charmdir := &dummyCharmdir{aborted: true}
-	s.resources["charmdir-name"] = dt.StubResource{Output: charmdir}
+	s.resources["charmdir-name"] = dt.NewStubResource(charmdir)
 	_, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
 	c.Assert(errors.Cause(err), gc.Equals, fortress.ErrAborted)
 }

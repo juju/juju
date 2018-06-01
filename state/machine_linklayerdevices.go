@@ -8,9 +8,9 @@ import (
 	"math/rand"
 	"net"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -1117,7 +1117,7 @@ const macAddressTemplate = "00:16:3e:%02x:%02x:%02x"
 // macAddressTemplate above.
 //
 // TODO(dimitern): We should make a best effort to ensure the MAC address we
-// generate is unique at least within the current environment.
+// generate is unique at least within the current model.
 func generateMACAddress() string {
 	digits := make([]interface{}, 3)
 	for i := range digits {
@@ -1221,7 +1221,7 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string](Machin
 		}
 	}
 
-	// For a spaceless environment we won't find a subnet that's linked to privateAddress,
+	// For a spaceless model we won't find a subnet that's linked to privateAddress,
 	// we have to work around that and at least return minimal information.
 	if r, filledPrivateAddress := results[environs.DefaultSpaceName]; !filledPrivateAddress && spaces.Contains(environs.DefaultSpaceName) {
 		r.NetworkInfos = []network.NetworkInfo{{

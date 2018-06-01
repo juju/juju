@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -41,14 +42,14 @@ func (t *testInstance) Id() instance.Id {
 	return t.id
 }
 
-func (t *testInstance) Addresses() ([]network.Address, error) {
+func (t *testInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	if t.err != nil {
 		return nil, t.err
 	}
 	return t.addresses, nil
 }
 
-func (t *testInstance) Status() instance.InstanceStatus {
+func (t *testInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	return instance.InstanceStatus{Status: status.Unknown, Message: t.status}
 }
 
@@ -61,7 +62,7 @@ type testInstanceGetter struct {
 	counter int32
 }
 
-func (tig *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Instance, err error) {
+func (tig *testInstanceGetter) Instances(ctx context.ProviderCallContext, ids []instance.Id) (result []instance.Instance, err error) {
 	tig.ids = ids
 	atomic.AddInt32(&tig.counter, 1)
 	results := make([]instance.Instance, len(ids))
@@ -93,11 +94,7 @@ func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	testGetter := new(testInstanceGetter)
 	clock := jujutesting.NewClock(time.Now())
 	delay := time.Minute
-	cfg := aggregatorConfig{
-		Clock:   clock,
-		Delay:   delay,
-		Environ: testGetter,
-	}
+	cfg := aggregatorConfigForTest(clock, delay, testGetter)
 
 	// Add a new test instance.
 	testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
@@ -132,6 +129,21 @@ func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	c.Assert(ids, gc.DeepEquals, []instance.Id{"foo"})
 }
 
+type credentialAPIForTest struct{}
+
+func (*credentialAPIForTest) InvalidateModelCredential(reason string) error {
+	return nil
+}
+
+func aggregatorConfigForTest(clock *jujutesting.Clock, delay time.Duration, environ InstanceGetter) aggregatorConfig {
+	return aggregatorConfig{
+		Clock:         clock,
+		Delay:         delay,
+		Environ:       environ,
+		CredentialAPI: &credentialAPIForTest{},
+	}
+}
+
 // Test several requests in a short space of time get batched.
 func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 	// We setup a couple variables here so that we can use them locally without
@@ -139,11 +151,7 @@ func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 	testGetter := new(testInstanceGetter)
 	clock := jujutesting.NewClock(time.Now())
 	delay := time.Minute
-	cfg := aggregatorConfig{
-		Clock:   clock,
-		Delay:   delay,
-		Environ: testGetter,
-	}
+	cfg := aggregatorConfigForTest(clock, delay, testGetter)
 
 	// Setup multiple instances to batch
 	testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
@@ -199,11 +207,7 @@ func (s *aggregateSuite) TestKillingWorkerKillsPendinReqs(c *gc.C) {
 	testGetter := new(testInstanceGetter)
 	clock := jujutesting.NewClock(time.Now())
 	delay := time.Minute
-	cfg := aggregatorConfig{
-		Clock:   clock,
-		Delay:   delay,
-		Environ: testGetter,
-	}
+	cfg := aggregatorConfigForTest(clock, delay, testGetter)
 
 	testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
 	testGetter.newTestInstance("foo2", "not foobar", []string{"192.168.1.2"})
@@ -254,11 +258,7 @@ func (s *aggregateSuite) TestMultipleBatches(c *gc.C) {
 	testGetter := new(testInstanceGetter)
 	clock := jujutesting.NewClock(time.Now())
 	delay := time.Second
-	cfg := aggregatorConfig{
-		Clock:   clock,
-		Delay:   delay,
-		Environ: testGetter,
-	}
+	cfg := aggregatorConfigForTest(clock, delay, testGetter)
 
 	testGetter.newTestInstance("foo2", "not foobar", []string{"192.168.1.2"})
 	testGetter.newTestInstance("foo3", "ok-ish", []string{"192.168.1.3"})
@@ -337,11 +337,7 @@ func (s *aggregateSuite) TestInstancesErrors(c *gc.C) {
 	testGetter := new(testInstanceGetter)
 	clock := jujutesting.NewClock(time.Now())
 	delay := time.Millisecond
-	cfg := aggregatorConfig{
-		Clock:   clock,
-		Delay:   delay,
-		Environ: testGetter,
-	}
+	cfg := aggregatorConfigForTest(clock, delay, testGetter)
 
 	testGetter.newTestInstance("foo", "foobar", []string{"192.168.1.2"})
 	testGetter.err = environs.ErrNoInstances
@@ -377,11 +373,7 @@ func (s *aggregateSuite) TestPartialInstanceErrors(c *gc.C) {
 	clock := jujutesting.NewClock(time.Now())
 	delay := time.Second
 
-	cfg := aggregatorConfig{
-		Clock:   clock,
-		Delay:   delay,
-		Environ: testGetter,
-	}
+	cfg := aggregatorConfigForTest(clock, delay, testGetter)
 
 	testGetter.err = environs.ErrPartialInstances
 	testGetter.newTestInstance("foo", "not foobar", []string{"192.168.1.2"})

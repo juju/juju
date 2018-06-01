@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 )
 
 // ErrKilled can be returned by the PeriodicWorkerCall to signify that
@@ -86,10 +86,9 @@ func NewPeriodicWorker(call PeriodicWorkerCall, period time.Duration, timerFunc 
 	for _, option := range options {
 		option(w)
 	}
-	go func() {
-		defer w.tomb.Done()
-		w.tomb.Kill(w.run(call, period))
-	}()
+	w.tomb.Go(func() error {
+		return w.run(call, period)
+	})
 	return w
 }
 

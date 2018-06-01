@@ -241,7 +241,7 @@ var mergeTests = []struct {
 		consFallback: "tags=foo,bar",
 		expected:     "tags=foo,bar",
 	}, {
-		desc:         "tags inital empty",
+		desc:         "tags initial empty",
 		cons:         "tags=",
 		consFallback: "tags=foo,bar",
 		expected:     "tags=",

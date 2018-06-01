@@ -15,11 +15,11 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex"
+	jujuos "github.com/juju/os"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
-	jujuos "github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 

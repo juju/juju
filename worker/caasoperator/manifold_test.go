@@ -154,6 +154,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Downloader:         &s.charmDownloader,
 		StatusSetter:       &s.client,
 		UnitGetter:         &s.client,
+		UnitRemover:        &s.client,
 		ApplicationWatcher: &s.client,
 		UniterParams: &uniter.UniterParams{
 			DataDir:         s.dataDir,

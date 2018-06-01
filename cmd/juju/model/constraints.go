@@ -80,6 +80,7 @@ func NewModelGetConstraintsCommand() cmd.Command {
 // modelGetConstraintsCommand shows the constraints for a model.
 type modelGetConstraintsCommand struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	out cmd.Output
 	api ConstraintsAPI
 }
@@ -139,6 +140,7 @@ func NewModelSetConstraintsCommand() cmd.Command {
 // modelSetConstraintsCommand sets the constraints for a model.
 type modelSetConstraintsCommand struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	api         ConstraintsAPI
 	Constraints constraints.Value
 }

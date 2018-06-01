@@ -8,9 +8,9 @@
 package application
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
@@ -25,7 +25,7 @@ import (
 
 var logger = loggo.GetLogger("juju.api.application")
 
-// Client allows access to the service API end point.
+// Client allows access to the application API end point.
 type Client struct {
 	base.ClientFacade
 	st     base.APICallCloser
@@ -39,9 +39,9 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 // SetMetricCredentials sets the metric credentials for the application specified.
-func (c *Client) SetMetricCredentials(service string, credentials []byte) error {
+func (c *Client) SetMetricCredentials(application string, credentials []byte) error {
 	creds := []params.ApplicationMetricCredential{
-		{service, credentials},
+		{application, credentials},
 	}
 	p := params.ApplicationMetricCredentials{creds}
 	results := new(params.ErrorResults)
@@ -61,7 +61,7 @@ func (c *Client) ModelUUID() string {
 	return tag.Id()
 }
 
-// DeployArgs holds the arguments to be sent to Client.ServiceDeploy.
+// DeployArgs holds the arguments to be sent to Client.ApplicationDeploy.
 type DeployArgs struct {
 
 	// CharmID identifies the charm to deploy.
@@ -154,11 +154,11 @@ func (c *Client) Deploy(args DeployArgs) error {
 	return errors.Trace(results.OneError())
 }
 
-// GetCharmURL returns the charm URL the given service is
+// GetCharmURL returns the charm URL the given application is
 // running at present.
-func (c *Client) GetCharmURL(serviceName string) (*charm.URL, error) {
+func (c *Client) GetCharmURL(applicationName string) (*charm.URL, error) {
 	result := new(params.StringResult)
-	args := params.ApplicationGet{ApplicationName: serviceName}
+	args := params.ApplicationGet{ApplicationName: applicationName}
 	err := c.facade.FacadeCall("GetCharmURL", args, result)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -242,7 +242,7 @@ func describeV5(config map[string]interface{}) (map[string]interface{}, error) {
 }
 
 // SetCharmConfig holds the configuration for setting a new revision of a charm
-// on a service.
+// on a application.
 type SetCharmConfig struct {
 	// ApplicationName is the name of the application to set the charm on.
 	ApplicationName string
@@ -278,7 +278,7 @@ type SetCharmConfig struct {
 	StorageConstraints map[string]storage.Constraints `json:"storage-constraints,omitempty"`
 }
 
-// SetCharm sets the charm for a given service.
+// SetCharm sets the charm for a given application.
 func (c *Client) SetCharm(cfg SetCharmConfig) error {
 	var storageConstraints map[string]params.StorageConstraints
 	if len(cfg.StorageConstraints) > 0 {
@@ -350,6 +350,10 @@ type AddUnitsParams struct {
 	// created.
 	Placement []*instance.Placement
 
+	// Policy represents how a machine for the unit is determined.
+	// This value is ignored on any Juju server before 2.4.
+	Policy string
+
 	// AttachStorage contains IDs of existing storage that should be
 	// attached to the application unit that will be deployed. This
 	// may be non-empty only if NumUnits is 1.
@@ -379,6 +383,7 @@ func (c *Client) AddUnits(args AddUnitsParams) ([]string, error) {
 		ApplicationName: args.ApplicationName,
 		NumUnits:        args.NumUnits,
 		Placement:       args.Placement,
+		Policy:          args.Policy,
 		AttachStorage:   attachStorage,
 	}, results)
 	return results.Units, err

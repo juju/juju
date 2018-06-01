@@ -50,8 +50,8 @@ func NewClient(caller FacadeCaller, doer Doer, closer io.Closer) *Client {
 
 // ListResources calls the ListResources API server method with
 // the given application names.
-func (c Client) ListResources(services []string) ([]resource.ServiceResources, error) {
-	args, err := newListResourcesArgs(services)
+func (c Client) ListResources(applications []string) ([]resource.ApplicationResources, error) {
+	args, err := newListResourcesArgs(applications)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -61,18 +61,18 @@ func (c Client) ListResources(services []string) ([]resource.ServiceResources, e
 		return nil, errors.Trace(err)
 	}
 
-	if len(apiResults.Results) != len(services) {
+	if len(apiResults.Results) != len(applications) {
 		// We don't bother returning the results we *did* get since
 		// something bad happened on the server.
-		return nil, errors.Errorf("got invalid data from server (expected %d results, got %d)", len(services), len(apiResults.Results))
+		return nil, errors.Errorf("got invalid data from server (expected %d results, got %d)", len(applications), len(apiResults.Results))
 	}
 
 	var errs []error
-	results := make([]resource.ServiceResources, len(services))
-	for i := range services {
+	results := make([]resource.ApplicationResources, len(applications))
+	for i := range applications {
 		apiResult := apiResults.Results[i]
 
-		result, err := api.APIResult2ServiceResources(apiResult)
+		result, err := api.APIResult2ApplicationResources(apiResult)
 		if err != nil {
 			errs = append(errs, errors.Trace(err))
 		}
@@ -86,17 +86,17 @@ func (c Client) ListResources(services []string) ([]resource.ServiceResources, e
 }
 
 // newListResourcesArgs returns the arguments for the ListResources endpoint.
-func newListResourcesArgs(services []string) (params.ListResourcesArgs, error) {
+func newListResourcesArgs(applications []string) (params.ListResourcesArgs, error) {
 	var args params.ListResourcesArgs
 	var errs []error
-	for _, service := range services {
-		if !names.IsValidApplication(service) {
-			err := errors.Errorf("invalid application %q", service)
+	for _, application := range applications {
+		if !names.IsValidApplication(application) {
+			err := errors.Errorf("invalid application %q", application)
 			errs = append(errs, err)
 			continue
 		}
 		args.Entities = append(args.Entities, params.Entity{
-			Tag: names.NewApplicationTag(service).String(),
+			Tag: names.NewApplicationTag(application).String(),
 		})
 	}
 	if err := resolveErrors(errs); err != nil {
@@ -106,8 +106,8 @@ func newListResourcesArgs(services []string) (params.ListResourcesArgs, error) {
 }
 
 // Upload sends the provided resource blob up to Juju.
-func (c Client) Upload(service, name, filename string, reader io.ReadSeeker) error {
-	uReq, err := api.NewUploadRequest(service, name, filename, reader)
+func (c Client) Upload(application, name, filename string, reader io.ReadSeeker) error {
+	uReq, err := api.NewUploadRequest(application, name, filename, reader)
 	if err != nil {
 		return errors.Trace(err)
 	}

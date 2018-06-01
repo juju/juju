@@ -21,6 +21,7 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/watcher"
+	workercommon "github.com/juju/juju/worker/common"
 )
 
 var (
@@ -56,6 +58,7 @@ type ContainerSetup struct {
 	// The number of provisioners started. Once all necessary provisioners have
 	// been started, the container watcher can be stopped.
 	numberProvisioners int32
+	credentialAPI      workercommon.CredentialAPI
 }
 
 // ContainerSetupParams are used to initialise a container setup handler.
@@ -67,6 +70,7 @@ type ContainerSetupParams struct {
 	Provisioner         *apiprovisioner.State
 	Config              agent.Config
 	InitLockName        string
+	CredentialAPI       workercommon.CredentialAPI
 }
 
 // NewContainerSetupHandler returns a StringsWatchHandler which is notified when
@@ -80,6 +84,7 @@ func NewContainerSetupHandler(params ContainerSetupParams) watcher.StringsHandle
 		config:              params.Config,
 		workerName:          params.WorkerName,
 		initLockName:        params.InitLockName,
+		credentialAPI:       params.CredentialAPI,
 	}
 }
 
@@ -155,7 +160,7 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(abort <-chan struct{}, c
 	if err := cs.runInitialiser(abort, containerType, initialiser); err != nil {
 		return errors.Annotate(err, "setting up container dependencies on host machine")
 	}
-	return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker, toolsFinder, getDistributionGroupFinder(cs.provisioner))
+	return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker, toolsFinder, getDistributionGroupFinder(cs.provisioner), cs.credentialAPI)
 }
 
 // acquireLock tries to grab the machine lock (initLockName), and either
@@ -271,12 +276,13 @@ func (cs *ContainerSetup) getContainerArtifacts(
 	// pass host machine's availability zone to the container manager config
 	managerConfig[container.ConfigAvailabilityZone] = availabilityZone
 
+	manager, err := factory.NewContainerManager(containerType, managerConfig)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	switch containerType {
 	case instance.KVM:
-		manager, err := kvm.NewContainerManager(managerConfig)
-		if err != nil {
-			return nil, nil, nil, err
-		}
 		broker, err = NewKVMBroker(
 			cs.prepareHost,
 			cs.provisioner,
@@ -293,10 +299,6 @@ func (cs *ContainerSetup) getContainerArtifacts(
 			return nil, nil, nil, err
 		}
 
-		manager, err := lxd.NewContainerManager(managerConfig)
-		if err != nil {
-			return nil, nil, nil, err
-		}
 		broker, err = NewLXDBroker(
 			cs.prepareHost,
 			cs.provisioner,
@@ -351,6 +353,7 @@ func startProvisionerWorker(
 	broker environs.InstanceBroker,
 	toolsFinder ToolsFinder,
 	distributionGroupFinder DistributionGroupFinder,
+	credentialAPI workercommon.CredentialAPI,
 ) error {
 
 	workerName := fmt.Sprintf("%s-provisioner", containerType)
@@ -358,7 +361,14 @@ func startProvisionerWorker(
 	// already been added to the machine. It will see that the
 	// container does not have an instance yet and create one.
 	return runner.StartWorker(workerName, func() (worker.Worker, error) {
-		w, err := NewContainerProvisioner(containerType, provisioner, config, broker, toolsFinder, distributionGroupFinder)
+		w, err := NewContainerProvisioner(containerType,
+			provisioner,
+			config,
+			broker,
+			toolsFinder,
+			distributionGroupFinder,
+			credentialAPI,
+		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

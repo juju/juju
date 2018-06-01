@@ -17,7 +17,7 @@ type stubUnitDataStore struct {
 
 	ReturnOpenResource  resource.Opened
 	ReturnGetResource   resource.Resource
-	ReturnListResources resource.ServiceResources
+	ReturnListResources resource.ApplicationResources
 }
 
 func (s *stubUnitDataStore) OpenResource(name string) (resource.Resource, io.ReadCloser, error) {
@@ -38,10 +38,10 @@ func (s *stubUnitDataStore) GetResource(name string) (resource.Resource, error) 
 	return s.ReturnGetResource, nil
 }
 
-func (s *stubUnitDataStore) ListResources() (resource.ServiceResources, error) {
+func (s *stubUnitDataStore) ListResources() (resource.ApplicationResources, error) {
 	s.AddCall("ListResources")
 	if err := s.NextErr(); err != nil {
-		return resource.ServiceResources{}, errors.Trace(err)
+		return resource.ApplicationResources{}, errors.Trace(err)
 	}
 
 	return s.ReturnListResources, nil

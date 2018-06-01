@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/proxy"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
-	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6/hooks"
 

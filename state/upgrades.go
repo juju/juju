@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -1474,6 +1474,43 @@ func RemoveVotingMachineIds(st *State) error {
 		return errors.Annotate(err, "removing votingmachineids")
 	}
 	return nil
+}
+
+// AddCloudModelCounts updates cloud docs to ensure the model count field is set.
+func AddCloudModelCounts(st *State) error {
+	cloudsColl, closer := st.db().GetCollection(cloudsC)
+	defer closer()
+
+	var clouds []cloudDoc
+	err := cloudsColl.Find(nil).All(&clouds)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	modelsColl, closer := st.db().GetCollection(modelsC)
+	defer closer()
+	refCountColl, closer := st.db().GetCollection(globalRefcountsC)
+	defer closer()
+
+	var updateOps []txn.Op
+	for _, c := range clouds {
+		n, err := modelsColl.Find(bson.D{{"cloud", c.Name}}).Count()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, currentCount, err := countCloudModelRefOp(st, c.Name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if n != currentCount {
+			op, err := nsRefcounts.CreateOrIncRefOp(refCountColl, cloudModelRefCountKey(c.Name), n-currentCount)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			updateOps = append(updateOps, op)
+		}
+	}
+	return st.db().RunTransaction(updateOps)
 }
 
 // UpgradeDefaultContainerImageStreamConfig ensures that the config value for

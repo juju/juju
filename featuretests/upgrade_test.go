@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
+	pacman "github.com/juju/packaging/manager"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	pacman "github.com/juju/utils/packaging/manager"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -27,9 +27,9 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
@@ -89,10 +89,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 		}
 	}()
 
-	// TODO(mjs) - the following should maybe be part of AgentSuite.SetUpTest()
-	s.PatchValue(&cmdutil.EnsureMongoServer, func(mongo.EnsureServerParams) error {
-		return nil
-	})
+	agenttest.InstallFakeEnsureMongo(s)
 	s.PatchValue(&agentcmd.ProductionMongoWriteConcern, false)
 
 }
@@ -271,7 +268,7 @@ func (s *upgradeSuite) configureMachine(c *gc.C, machineId string, vers version.
 
 	// Provision the machine if it isn't already
 	if _, err := m.InstanceId(); err != nil {
-		inst, md := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), machineId)
+		inst, md := jujutesting.AssertStartInstance(c, s.Environ, context.NewCloudCallContext(), s.ControllerConfig.ControllerUUID(), machineId)
 		c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), jc.ErrorIsNil)
 	}
 

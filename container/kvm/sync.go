@@ -16,8 +16,8 @@ import (
 
 	humanize "github.com/dustin/go-humanize"
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/simplestreams"
@@ -28,7 +28,7 @@ import (
 // boot using a legacy BIOS boot loader.
 const BIOSFType = "disk1.img"
 
-// UEFIFType is teh file type we want to fetch and use for kvm instances which
+// UEFIFType is the file type we want to fetch and use for kvm instances which
 // boot using UEFI. In our case this is ARM64.
 const UEFIFType = "uefi1.img"
 

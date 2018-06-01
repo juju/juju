@@ -262,7 +262,11 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.
 	}
 	filter := toolsFilter(args)
 	cfg := env.Config()
-	streams := envtools.PreferredStreams(&args.Number, cfg.Development(), cfg.AgentStream())
+	requestedStream := cfg.AgentStream()
+	if args.AgentStream != "" {
+		requestedStream = args.AgentStream
+	}
+	streams := envtools.PreferredStreams(&args.Number, cfg.Development(), requestedStream)
 	simplestreamsList, err := envtoolsFindTools(
 		env, args.MajorVersion, args.MinorVersion, streams, filter,
 	)

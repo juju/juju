@@ -21,21 +21,25 @@ import (
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
-func newDefaultRunCommand() cmd.Command {
-	return newRunCommand(time.After)
+func newDefaultRunCommand(store jujuclient.ClientStore) cmd.Command {
+	return newRunCommand(store, time.After)
 }
 
-func newRunCommand(timeAfter func(time.Duration) <-chan time.Time) cmd.Command {
-	return modelcmd.Wrap(&runCommand{
+func newRunCommand(store jujuclient.ClientStore, timeAfter func(time.Duration) <-chan time.Time) cmd.Command {
+	cmd := modelcmd.Wrap(&runCommand{
 		timeAfter: timeAfter,
 	})
+	cmd.SetClientStore(store)
+	return cmd
 }
 
 // runCommand is responsible for running arbitrary commands on remote machines.
 type runCommand struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	out       cmd.Output
 	all       bool
 	timeout   time.Duration
@@ -170,7 +174,7 @@ func (c *runCommand) Init(args []string) error {
 }
 
 // ConvertActionResults takes the results from the api and creates a map
-// suitable for format converstion to YAML or JSON.
+// suitable for format conversion to YAML or JSON.
 func ConvertActionResults(result params.ActionResult, query actionQuery) map[string]interface{} {
 	values := make(map[string]interface{})
 	values[query.receiver.receiverType] = query.receiver.tag.Id()

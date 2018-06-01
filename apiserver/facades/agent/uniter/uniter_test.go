@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -56,9 +57,9 @@ type uniterSuiteBase struct {
 	wordpressUnit *state.Unit
 	mysqlUnit     *state.Unit
 
-	meteredService *state.Application
-	meteredCharm   *state.Charm
-	meteredUnit    *state.Unit
+	meteredApplication *state.Application
+	meteredCharm       *state.Charm
+	meteredUnit        *state.Unit
 }
 
 func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
@@ -102,11 +103,11 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	s.meteredService = s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
+	s.meteredApplication = s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{
 		Charm: s.meteredCharm,
 	})
 	s.meteredUnit = s.Factory.MakeUnit(c, &jujufactory.UnitParams{
-		Application: s.meteredService,
+		Application: s.meteredApplication,
 		SetCharmURL: true,
 	})
 
@@ -641,7 +642,7 @@ func (s *uniterSuite) TestClearResolved(c *gc.C) {
 
 func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	// Add a subordinate to wordpressUnit.
-	_, _, subordinate := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
+	_, _, subordinate := s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
 
 	principal, ok := subordinate.PrincipalName()
 	c.Assert(principal, gc.Equals, s.wordpressUnit.Name())
@@ -703,8 +704,8 @@ func (s *uniterSuite) TestHasSubordinates(c *gc.C) {
 	})
 
 	// Add two subordinates to wordpressUnit and try again.
-	s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
-	s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
+	s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
+	s.addRelatedApplication(c, "wordpress", "monitoring", s.wordpressUnit)
 
 	result, err = s.uniter.HasSubordinates(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -743,8 +744,8 @@ func (s *uniterSuite) TestDestroy(c *gc.C) {
 
 func (s *uniterSuite) TestDestroyAllSubordinates(c *gc.C) {
 	// Add two subordinates to wordpressUnit.
-	_, _, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
-	_, _, monitoringSub := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
+	_, _, loggingSub := s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
+	_, _, monitoringSub := s.addRelatedApplication(c, "wordpress", "monitoring", s.wordpressUnit)
 	c.Assert(loggingSub.Life(), gc.Equals, state.Alive)
 	c.Assert(monitoringSub.Life(), gc.Equals, state.Alive)
 
@@ -785,7 +786,7 @@ func (s *uniterSuite) TestCharmURL(c *gc.C) {
 	c.Assert(curl, gc.DeepEquals, s.wpCharm.URL())
 	c.Assert(ok, jc.IsTrue)
 
-	// Make sure wordpress service's charm is what we expect.
+	// Make sure wordpress application's charm is what we expect.
 	curl, force := s.wordpress.CharmURL()
 	c.Assert(curl, gc.DeepEquals, s.wpCharm.URL())
 	c.Assert(force, jc.IsFalse)
@@ -1737,9 +1738,9 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 	wpEp, err := rel.Endpoint("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add another relation to mysql service, so we can see we can't
+	// Add another relation to mysql application, so we can see we can't
 	// get it.
-	otherRel, _, _ := s.addRelatedService(c, "mysql", "logging", s.mysqlUnit)
+	otherRel, _, _ := s.addRelatedApplication(c, "mysql", "logging", s.mysqlUnit)
 
 	args := params.RelationIds{
 		RelationIds: []int{-1, rel.Id(), otherRel.Id(), 42, 234},
@@ -2523,8 +2524,8 @@ func (s *uniterSuite) TestGetMeterStatusBadTag(c *gc.C) {
 	}
 }
 
-func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Application, *state.Unit) {
-	relatedService := s.AddTestingApplication(c, relatedSvc, s.AddTestingCharm(c, relatedSvc))
+func (s *uniterSuite) addRelatedApplication(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Application, *state.Unit) {
+	relatedApplication := s.AddTestingApplication(c, relatedSvc, s.AddTestingCharm(c, relatedSvc))
 	rel := s.addRelation(c, firstSvc, relatedSvc)
 	relUnit, err := rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2532,7 +2533,7 @@ func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, un
 	c.Assert(err, jc.ErrorIsNil)
 	relatedUnit, err := s.State.Unit(relatedSvc + "/0")
 	c.Assert(err, jc.ErrorIsNil)
-	return rel, relatedService, relatedUnit
+	return rel, relatedApplication, relatedUnit
 }
 
 func (s *uniterSuite) TestRequestReboot(c *gc.C) {
@@ -2585,8 +2586,8 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	sCons := map[string]state.StorageConstraints{
 		"data": {Pool: "", Size: 1024, Count: 1},
 	}
-	service := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
-	unit, err := service.AddUnit(state.AddUnitParams{})
+	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, sCons)
+	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3089,7 +3090,7 @@ func (s *uniterSuite) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASMode
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiInfo, err := environs.APIInfo(s.ControllerConfig.ControllerUUID(), st.ModelUUID(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
+	apiInfo, err := environs.APIInfo(context.NewCloudCallContext(), s.ControllerConfig.ControllerUUID(), st.ModelUUID(), coretesting.CACert, s.ControllerConfig.APIPort(), s.Environ)
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = unit.Tag()
 	apiInfo.Password = password
@@ -3202,7 +3203,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 }
 
 func (s *unitMetricBatchesSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
-	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredService, SetCharmURL: true})
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredApplication, SetCharmURL: true})
 
 	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
 	uuid := utils.MustNewUUID().String()

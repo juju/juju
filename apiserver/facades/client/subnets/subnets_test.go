@@ -4,9 +4,9 @@
 package subnets_test
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/subnets"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
@@ -28,6 +29,8 @@ type SubnetsSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 	facade     subnets.SubnetsAPI
+
+	callContext context.ProviderCallContext
 }
 
 var _ = gc.Suite(&SubnetsSuite{})
@@ -51,9 +54,12 @@ func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 		Controller: false,
 	}
 
+	s.callContext = context.NewCloudCallContext()
 	var err error
 	s.facade, err = subnets.NewAPIWithBacking(
-		apiservertesting.BackingInstance, s.resources, s.authorizer,
+		apiservertesting.BackingInstance,
+		s.callContext,
+		s.resources, s.authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)
@@ -95,7 +101,9 @@ func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, e
 func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 	// Clients are allowed.
 	facade, err := subnets.NewAPIWithBacking(
-		apiservertesting.BackingInstance, s.resources, s.authorizer,
+		apiservertesting.BackingInstance,
+		s.callContext,
+		s.resources, s.authorizer,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(facade, gc.NotNil)
@@ -106,7 +114,9 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 	agentAuthorizer := s.authorizer
 	agentAuthorizer.Tag = names.NewMachineTag("42")
 	facade, err = subnets.NewAPIWithBacking(
-		apiservertesting.BackingInstance, s.resources, agentAuthorizer,
+		apiservertesting.BackingInstance,
+		s.callContext,
+		s.resources, agentAuthorizer,
 	)
 	c.Assert(err, jc.DeepEquals, common.ErrPerm)
 	c.Assert(facade, gc.IsNil)
@@ -150,7 +160,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *gc.C) {
 		apiservertesting.BackingCall("ModelConfig"),
 		apiservertesting.BackingCall("CloudSpec"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-		apiservertesting.ZonedEnvironCall("AvailabilityZones"),
+		apiservertesting.ZonedEnvironCall("AvailabilityZones", s.callContext),
 		apiservertesting.BackingCall("SetAvailabilityZones", apiservertesting.ProviderInstance.Zones),
 	)
 }
@@ -179,7 +189,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 		apiservertesting.BackingCall("ModelConfig"),
 		apiservertesting.BackingCall("CloudSpec"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-		apiservertesting.ZonedEnvironCall("AvailabilityZones"),
+		apiservertesting.ZonedEnvironCall("AvailabilityZones", s.callContext),
 		apiservertesting.BackingCall("SetAvailabilityZones", apiservertesting.ProviderInstance.Zones),
 	)
 }
@@ -207,7 +217,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 		apiservertesting.BackingCall("ModelConfig"),
 		apiservertesting.BackingCall("CloudSpec"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-		apiservertesting.ZonedEnvironCall("AvailabilityZones"),
+		apiservertesting.ZonedEnvironCall("AvailabilityZones", s.callContext),
 	)
 }
 
@@ -592,13 +602,13 @@ func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 		apiservertesting.BackingCall("ModelConfig"),
 		apiservertesting.BackingCall("CloudSpec"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-		apiservertesting.NetworkingEnvironCall("Subnets", instance.UnknownId, []network.Id(nil)),
+		apiservertesting.NetworkingEnvironCall("Subnets", s.callContext, instance.UnknownId, []network.Id(nil)),
 
 		// caching subnets (4th attempt): succeeds
 		apiservertesting.BackingCall("ModelConfig"),
 		apiservertesting.BackingCall("CloudSpec"),
 		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-		apiservertesting.NetworkingEnvironCall("Subnets", instance.UnknownId, []network.Id(nil)),
+		apiservertesting.NetworkingEnvironCall("Subnets", s.callContext, instance.UnknownId, []network.Id(nil)),
 
 		// caching spaces (1st and 2nd attempts)
 		apiservertesting.BackingCall("AllSpaces"),
@@ -645,12 +655,12 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 	case apiservertesting.StubNetworkingEnvironName:
 		expectedCalls = append(
 			expectedCalls,
-			apiservertesting.NetworkingEnvironCall("Subnets", instance.UnknownId, []network.Id(nil)),
+			apiservertesting.NetworkingEnvironCall("Subnets", s.callContext, instance.UnknownId, []network.Id(nil)),
 		)
 	case apiservertesting.StubZonedNetworkingEnvironName:
 		expectedCalls = append(
 			expectedCalls,
-			apiservertesting.ZonedNetworkingEnvironCall("Subnets", instance.UnknownId, []network.Id(nil)),
+			apiservertesting.ZonedNetworkingEnvironCall("Subnets", s.callContext, instance.UnknownId, []network.Id(nil)),
 		)
 	}
 
@@ -704,12 +714,12 @@ func (s *SubnetsSuite) CheckAddSubnetsFails(
 		case apiservertesting.StubZonedEnvironName:
 			zoneCalls = append(
 				zoneCalls,
-				apiservertesting.ZonedEnvironCall("AvailabilityZones"),
+				apiservertesting.ZonedEnvironCall("AvailabilityZones", s.callContext),
 			)
 		case apiservertesting.StubZonedNetworkingEnvironName:
 			zoneCalls = append(
 				zoneCalls,
-				apiservertesting.ZonedNetworkingEnvironCall("AvailabilityZones"),
+				apiservertesting.ZonedNetworkingEnvironCall("AvailabilityZones", s.callContext),
 			)
 		}
 		// Finally after caching provider zones backing zones are

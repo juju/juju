@@ -29,7 +29,7 @@ func (m *Model) AutoConfigureContainerNetworking(environ environs.Environ) error
 
 	if modelConfig.ContainerNetworkingMethod() != "" {
 		// Do nothing, user has decided what to do
-	} else if environs.SupportsContainerAddresses(environ) {
+	} else if environs.SupportsContainerAddresses(CallContext(m.st), environ) {
 		updateAttrs["container-networking-method"] = "provider"
 	} else if fanConfigured {
 		updateAttrs["container-networking-method"] = "fan"
@@ -54,7 +54,7 @@ func (m *Model) discoverFan(environ environs.Environ, modelConfig *config.Config
 		logger.Debugf("Not trying to autoconfigure FAN - configured already")
 		return false, nil
 	}
-	subnets, err := netEnviron.SuperSubnets()
+	subnets, err := netEnviron.SuperSubnets(CallContext(m.st))
 	if errors.IsNotSupported(err) || (err == nil && len(subnets) == 0) {
 		logger.Debugf("Not trying to autoconfigure FAN - SuperSubnets not supported or empty")
 		return false, nil
@@ -68,6 +68,10 @@ func (m *Model) discoverFan(environ environs.Environ, modelConfig *config.Config
 	fanOverlayForUnderlay := func(underlay string) string {
 		_, ipNet, err := net.ParseCIDR(underlay)
 		if err != nil {
+			return ""
+		}
+		// We don't create FAN networks for IPv6 networks
+		if ipNet.IP.To4() == nil {
 			return ""
 		}
 		if ones, _ := ipNet.Mask.Size(); ones <= 8 {

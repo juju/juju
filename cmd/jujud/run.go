@@ -14,9 +14,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/mutex"
+	jujuos "github.com/juju/os"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
-	jujuos "github.com/juju/utils/os"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"

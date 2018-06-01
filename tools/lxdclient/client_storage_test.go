@@ -1,10 +1,9 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxdclient_test
 
+/*
 import (
 	"net/http"
 
@@ -253,3 +252,4 @@ func (c *mockRawStorageClient) StoragePoolCreate(name, driver string, attrs map[
 	c.MethodCall(c, "StoragePoolCreate", name, driver, attrs)
 	return c.NextErr()
 }
+*/

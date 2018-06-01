@@ -39,11 +39,11 @@ const (
 	// RestoreInProgress indicates that a Restore is in progress.
 	RestoreInProgress RestoreStatus = "RESTORING"
 
-	// RestoreFinished it is set by restore upon a succesful run.
+	// RestoreFinished it is set by restore upon a successful run.
 	RestoreFinished RestoreStatus = "RESTORED"
 
 	// RestoreChecked is set when the server comes up after a
-	// succesful restore.
+	// successful restore.
 	RestoreChecked RestoreStatus = "CHECKED"
 
 	// RestoreFailed indicates that the process failed in a
@@ -84,7 +84,7 @@ func (info *RestoreInfo) Status() (RestoreStatus, error) {
 	return doc.Status, nil
 }
 
-// PurgeTxn purges missing transation from restoreInfoC collection.
+// PurgeTxn purges missing transition from restoreInfoC collection.
 // These can be caused because this collection is heavy use while backing
 // up and mongo 3.2 does not like this.
 func (info *RestoreInfo) PurgeTxn() error {

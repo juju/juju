@@ -13,16 +13,16 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
@@ -32,7 +32,6 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
@@ -69,6 +68,7 @@ import (
 	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apicaller"
+	workercommon "github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/conv2state"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
@@ -285,6 +285,7 @@ func NewMachineAgent(
 		configChangedVal:            voyeur.NewValue(true),
 		bufferedLogger:              bufferedLogger,
 		workersStarted:              make(chan struct{}),
+		dead:                        make(chan struct{}),
 		runner:                      runner,
 		rootDir:                     rootDir,
 		initialUpgradeCheckComplete: gate.NewLock(),
@@ -331,7 +332,8 @@ func (a *MachineAgent) registerPrometheusCollectors() error {
 type MachineAgent struct {
 	AgentConfigWriter
 
-	tomb             tomb.Tomb
+	dead             chan struct{}
+	errReason        error
 	machineId        string
 	runner           *worker.Runner
 	rootDir          string
@@ -362,13 +364,20 @@ type MachineAgent struct {
 
 // Wait waits for the machine agent to finish.
 func (a *MachineAgent) Wait() error {
-	return a.tomb.Wait()
+	<-a.dead
+	return a.errReason
 }
 
 // Stop stops the machine agent.
 func (a *MachineAgent) Stop() error {
 	a.runner.Kill()
-	return a.tomb.Wait()
+	return a.Wait()
+}
+
+// Done signals the machine agent is finished
+func (a *MachineAgent) Done(err error) {
+	a.errReason = err
+	close(a.dead)
 }
 
 // upgradeCertificateDNSNames ensure that the controller certificate
@@ -421,9 +430,8 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 }
 
 // Run runs a machine agent.
-func (a *MachineAgent) Run(*cmd.Context) error {
-	defer a.tomb.Done()
-
+func (a *MachineAgent) Run(*cmd.Context) (err error) {
+	defer a.Done(err)
 	useMultipleCPUs()
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
@@ -460,7 +468,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
-	err := a.runner.Wait()
+	err = a.runner.Wait()
 	switch errors.Cause(err) {
 	case jworker.ErrTerminateAgent:
 		err = a.uninstallAgent()
@@ -471,9 +479,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		logger.Infof("Caught shutdown error")
 		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
-	err = cmdutil.AgentDone(logger, err)
-	a.tomb.Kill(err)
-	return err
+	return cmdutil.AgentDone(logger, err)
 }
 
 func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) func() (worker.Worker, error) {
@@ -524,7 +530,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			if err != nil {
 				return false, errors.Annotate(err, "getting environ from state")
 			}
-			return environs.SupportsSpaces(env), nil
+			return environs.SupportsSpaces(state.CallContext(st), env), nil
 		}
 
 		manifolds := machineManifolds(machine.ManifoldsConfig{
@@ -847,6 +853,11 @@ func (a *MachineAgent) updateSupportedContainers(
 	}
 	// Start the watcher to fire when a container is first requested on the machine.
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
+
+	credentialAPI, err := workercommon.NewCredentialInvalidatorFacade(st)
+	if err != nil {
+		return errors.Annotatef(err, "cannot get credential invalidator facade")
+	}
 	params := provisioner.ContainerSetupParams{
 		Runner:              runner,
 		WorkerName:          watcherName,
@@ -855,6 +866,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		Provisioner:         pr,
 		Config:              agentConfig,
 		InitLockName:        agent.MachineLockName,
+		CredentialAPI:       credentialAPI,
 	}
 	handler := provisioner.NewContainerSetupHandler(params)
 	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {
@@ -1031,19 +1043,15 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	if err != nil {
 		return err
 	}
-	if err := cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
+	var mongodVersion mongo.Version
+	if mongodVersion, err = cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
 		return err
 	}
 	logger.Debugf("mongodb service is installed")
 
 	// Mongo is installed, record the version.
 	err = a.ChangeConfig(func(config agent.ConfigSetter) error {
-		finder := mongo.NewMongodFinder()
-		_, version, err := finder.FindBest()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		config.SetMongoVersion(version)
+		config.SetMongoVersion(mongodVersion)
 		return nil
 	})
 	if err != nil {

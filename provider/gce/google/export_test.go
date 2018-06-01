@@ -4,7 +4,7 @@
 package google
 
 import (
-	"github.com/juju/utils/set"
+	"github.com/juju/collections/set"
 	"google.golang.org/api/compute/v1"
 )
 

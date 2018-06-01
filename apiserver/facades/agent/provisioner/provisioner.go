@@ -6,9 +6,9 @@ package provisioner
 import (
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/containerizer"
@@ -60,6 +61,7 @@ type ProvisionerAPI struct {
 	configGetter            environs.EnvironConfigGetter
 	getAuthFunc             common.GetAuthFunc
 	getCanModify            common.GetAuthFunc
+	providerCallContext     context.ProviderCallContext
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
@@ -113,6 +115,8 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
+
+	callCtx := state.CallContext(st)
 	return &ProvisionerAPI{
 		Remover:                 common.NewRemover(st, false, getAuthFunc),
 		StatusSetter:            common.NewStatusSetter(st, getAuthFunc),
@@ -128,7 +132,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		InstanceIdGetter:        common.NewInstanceIdGetter(st, getAuthFunc),
 		ToolsFinder:             common.NewToolsFinder(configGetter, st, urlGetter),
 		ToolsGetter:             common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner),
-		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, getCanModify),
+		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, callCtx, getCanModify),
 		st:                      st,
 		m:                       model,
 		resources:               resources,
@@ -138,20 +142,50 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		storagePoolManager:      poolmanager.New(state.NewStateSettings(st), storageProviderRegistry),
 		getAuthFunc:             getAuthFunc,
 		getCanModify:            getCanModify,
+		providerCallContext:     callCtx,
 	}, nil
 }
 
+// ProvisionerAPIV4 provides v4 (and v3 for some reason) of the provisioner facade.
+type ProvisionerAPIV4 struct {
+	*ProvisionerAPIV5
+}
+
+// ProvisionerAPIV5 provides v5 of the provisioner facade.
 type ProvisionerAPIV5 struct {
+	*ProvisionerAPIV6
+}
+
+// ProvisionerAPIV6 provides v6 of the provisioner facade.
+type ProvisionerAPIV6 struct {
 	*ProvisionerAPI
+}
+
+// NewProvisionerAPIV4 creates a new server-side version 4 Provisioner API facade.
+func NewProvisionerAPIV4(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV4, error) {
+	provisionerAPI, err := NewProvisionerAPIV5(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ProvisionerAPIV4{provisionerAPI}, nil
 }
 
 // NewProvisionerAPIV5 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV5(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV5, error) {
-	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	provisionerAPI, err := NewProvisionerAPIV6(st, resources, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &ProvisionerAPIV5{provisionerAPI}, nil
+}
+
+// NewProvisionerAPIV6 creates a new server-side Provisioner API facade.
+func NewProvisionerAPIV6(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV6, error) {
+	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ProvisionerAPIV6{provisionerAPI}, nil
 }
 
 func (p *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
@@ -295,12 +329,35 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.ProviderType = config.Type()
 	result.AuthorizedKeys = config.AuthorizedKeys()
 	result.SSLHostnameVerification = config.SSLHostnameVerification()
-	result.Proxy = config.ProxySettings()
+	result.LegacyProxy = config.LegacyProxySettings()
+	result.JujuProxy = config.JujuProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	result.AptMirror = config.AptMirror()
 	result.CloudInitUserData = config.CloudInitUserData()
 	result.ContainerInheritProperties = config.ContainerInheritProperies()
 	return result, nil
+}
+
+// ContainerConfig returns information from the environment config that is
+// needed for container cloud-init.
+func (p *ProvisionerAPIV5) ContainerConfig() (params.ContainerConfigV5, error) {
+	var empty params.ContainerConfigV5
+	cfg, err := p.ProvisionerAPI.ContainerConfig()
+	if err != nil {
+		return empty, err
+	}
+
+	return params.ContainerConfigV5{
+		ProviderType:            cfg.ProviderType,
+		AuthorizedKeys:          cfg.AuthorizedKeys,
+		SSLHostnameVerification: cfg.SSLHostnameVerification,
+		Proxy:                      cfg.LegacyProxy,
+		AptProxy:                   cfg.AptProxy,
+		AptMirror:                  cfg.AptMirror,
+		CloudInitUserData:          cfg.CloudInitUserData,
+		ContainerInheritProperties: cfg.ContainerInheritProperties,
+		UpdateBehavior:             cfg.UpdateBehavior,
+	}, nil
 }
 
 // MachinesWithTransientErrors returns status data for machines with provisioning
@@ -499,7 +556,7 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, e
 		if !unit.IsPrincipal() {
 			continue
 		}
-		instanceIds, err := state.ServiceInstances(st, unit.ApplicationName())
+		instanceIds, err := state.ApplicationInstances(st, unit.ApplicationName())
 		if err != nil {
 			return nil, err
 		}
@@ -515,11 +572,14 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, e
 	return instanceIds, nil
 }
 
+// DistributionGroupByMachineId isn't on the v4 API.
+func (p *ProvisionerAPIV4) DistributionGroupByMachineId(_, _ struct{}) {}
+
 // DistributionGroupByMachineId returns, for each given machine entity,
 // a slice of machine.Ids that belong to the same distribution
 // group as that machine. This information may be used to
 // distribute instances for high availability.
-func (p *ProvisionerAPIV5) DistributionGroupByMachineId(args params.Entities) (params.StringsResults, error) {
+func (p *ProvisionerAPI) DistributionGroupByMachineId(args params.Entities) (params.StringsResults, error) {
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.Entities)),
 	}
@@ -748,7 +808,7 @@ type perContainerHandler interface {
 	// machine that is hosting the container.
 	// Any errors that are returned from ProcessOneContainer will be turned
 	// into ServerError and handed to SetError
-	ProcessOneContainer(env environs.Environ, idx int, host, container *state.Machine) error
+	ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, container *state.Machine) error
 	// SetError will be called whenever there is a problem with the a given
 	// request. Generally this just does result.Results[i].Error = error
 	// but the Result type is opaque so we can't do it ourselves.
@@ -788,7 +848,7 @@ func (p *ProvisionerAPI) processEachContainer(args params.Entities, handler perC
 			continue
 		}
 
-		if err := handler.ProcessOneContainer(env, i, hostMachine, container); err != nil {
+		if err := handler.ProcessOneContainer(env, p.providerCallContext, i, hostMachine, container); err != nil {
 			handler.SetError(i, common.ServerError(err))
 			continue
 		}
@@ -805,7 +865,7 @@ func (ctx *prepareOrGetContext) SetError(idx int, err *params.Error) {
 	ctx.result.Results[idx].Error = err
 }
 
-func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx int, host, container *state.Machine) error {
+func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, container *state.Machine) error {
 	containerId, err := container.InstanceId()
 	if ctx.maintain {
 		if err == nil {
@@ -820,7 +880,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 		return err
 	}
 
-	supportContainerAddresses := environs.SupportsContainerAddresses(env)
+	supportContainerAddresses := environs.SupportsContainerAddresses(callContext, env)
 	bridgePolicy := containerizer.BridgePolicy{
 		NetBondReconfigureDelay:   env.Config().NetBondReconfigureDelay(),
 		ContainerNetworkingMethod: env.Config().ContainerNetworkingMethod(),
@@ -908,7 +968,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(env environs.Environ, idx in
 	if supportContainerAddresses {
 		// supportContainerAddresses already checks that we can cast to an environ.Networking
 		networking := env.(environs.Networking)
-		allocatedInfo, err = networking.AllocateContainerAddresses(hostInstanceId, container.MachineTag(), preparedInfo)
+		allocatedInfo, err = networking.AllocateContainerAddresses(callContext, hostInstanceId, container.MachineTag(), preparedInfo)
 		if err != nil {
 			return err
 		}
@@ -972,7 +1032,7 @@ type hostChangesContext struct {
 	result params.HostNetworkChangeResults
 }
 
-func (ctx *hostChangesContext) ProcessOneContainer(env environs.Environ, idx int, host, container *state.Machine) error {
+func (ctx *hostChangesContext) ProcessOneContainer(env environs.Environ, callContext context.ProviderCallContext, idx int, host, container *state.Machine) error {
 	bridgePolicy := containerizer.BridgePolicy{
 		NetBondReconfigureDelay:   env.Config().NetBondReconfigureDelay(),
 		ContainerNetworkingMethod: env.Config().ContainerNetworkingMethod(),

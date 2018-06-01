@@ -5,6 +5,7 @@ package backups_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -48,6 +49,7 @@ type BaseBackupsSuite struct {
 	command    cmd.Command
 	metaresult *params.BackupsMetadataResult
 	data       string
+	apiVersion int
 
 	filename string
 }
@@ -56,9 +58,12 @@ func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.metaresult = &params.BackupsMetadataResult{
-		ID: "spam",
+		ID:       "spam",
+		Filename: "filename",
 	}
 	s.data = "<compressed archive data>"
+
+	s.apiVersion = 2
 }
 
 func (s *BaseBackupsSuite) TearDownTest(c *gc.C) {
@@ -76,6 +81,14 @@ func (s *BaseBackupsSuite) patchAPIClient(client backups.APIClient) {
 	s.PatchValue(backups.NewAPIClient,
 		func(c *backups.CommandBase) (backups.APIClient, error) {
 			return client, nil
+		},
+	)
+}
+
+func (s *BaseBackupsSuite) patchGetAPI(client backups.APIClient) {
+	s.PatchValue(backups.NewGetAPI,
+		func(c *backups.CommandBase) (backups.APIClient, int, error) {
+			return client, s.apiVersion, nil
 		},
 	)
 }
@@ -114,6 +127,8 @@ func (s *BaseBackupsSuite) checkStd(c *gc.C, ctx *cmd.Context, out, err string) 
 	jujutesting.CheckString(c, ctx.Stderr.(*bytes.Buffer).String(), err)
 }
 
+// TODO (hml) 2018-05-01
+// Replace this fakeAPIClient with MockAPIClient for all tests.
 type fakeAPIClient struct {
 	metaresult *params.BackupsMetadataResult
 	archive    io.ReadCloser
@@ -131,19 +146,29 @@ func (f *fakeAPIClient) Check(c *gc.C, id, notes string, calls ...string) {
 	c.Check(f.notes, gc.Equals, notes)
 }
 
-func (c *fakeAPIClient) Create(notes string) (*params.BackupsMetadataResult, error) {
+func (f *fakeAPIClient) CheckCalls(c *gc.C, calls ...string) {
+	c.Check(f.calls, jc.DeepEquals, calls)
+}
+
+func (f *fakeAPIClient) CheckArgs(c *gc.C, args ...string) {
+	c.Check(f.args, jc.DeepEquals, args)
+}
+
+func (c *fakeAPIClient) Create(notes string, keepCopy, noDownload bool) (*params.BackupsMetadataResult, error) {
 	c.calls = append(c.calls, "Create")
-	c.args = append(c.args, "notes")
+	c.args = append(c.args, notes, fmt.Sprintf("%t", keepCopy), fmt.Sprintf("%t", noDownload))
 	c.notes = notes
 	if c.err != nil {
 		return nil, c.err
 	}
-	return c.metaresult, nil
+	createResult := c.metaresult
+
+	return createResult, nil
 }
 
 func (c *fakeAPIClient) Info(id string) (*params.BackupsMetadataResult, error) {
 	c.calls = append(c.calls, "Info")
-	c.args = append(c.args, "id")
+	c.args = append(c.args, id)
 	c.idArg = id
 	if c.err != nil {
 		return nil, c.err
@@ -163,8 +188,7 @@ func (c *fakeAPIClient) List() (*params.BackupsListResult, error) {
 
 func (c *fakeAPIClient) Download(id string) (io.ReadCloser, error) {
 	c.calls = append(c.calls, "Download")
-	c.args = append(c.args, "id")
-	c.idArg = id
+	c.args = append(c.args, id)
 	if c.err != nil {
 		return nil, c.err
 	}
@@ -179,14 +203,16 @@ func (c *fakeAPIClient) Upload(ar io.ReadSeeker, meta params.BackupsMetadataResu
 	return c.metaresult.ID, nil
 }
 
-func (c *fakeAPIClient) Remove(id string) error {
+func (c *fakeAPIClient) Remove(id ...string) ([]params.ErrorResult, error) {
 	c.calls = append(c.calls, "Remove")
 	c.args = append(c.args, "id")
-	c.idArg = id
+	c.idArg = id[0]
 	if c.err != nil {
-		return c.err
+		return []params.ErrorResult{
+			{Error: &params.Error{Message: c.err.Error()}},
+		}, nil
 	}
-	return nil
+	return nil, nil
 }
 
 func (c *fakeAPIClient) Close() error {

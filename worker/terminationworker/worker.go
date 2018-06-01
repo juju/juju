@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	jworker "github.com/juju/juju/worker"
 )
@@ -34,11 +34,10 @@ func NewWorker() worker.Worker {
 	var w terminationWorker
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, TerminationSignal)
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer signal.Stop(c)
-		w.tomb.Kill(w.loop(c))
-	}()
+		return w.loop(c)
+	})
 	return &w
 }
 

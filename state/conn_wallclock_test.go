@@ -29,7 +29,7 @@ type ConnWithWallClockSuite struct {
 	machines     *mgo.Collection
 	instanceData *mgo.Collection
 	relations    *mgo.Collection
-	services     *mgo.Collection
+	applications *mgo.Collection
 	units        *mgo.Collection
 	controllers  *mgo.Collection
 	policy       statetesting.MockPolicy
@@ -59,7 +59,7 @@ func (cs *ConnWithWallClockSuite) SetUpTest(c *gc.C) {
 	cs.machines = jujuDB.C("machines")
 	cs.instanceData = jujuDB.C("instanceData")
 	cs.relations = jujuDB.C("relations")
-	cs.services = jujuDB.C("applications")
+	cs.applications = jujuDB.C("applications")
 	cs.units = jujuDB.C("units")
 	cs.controllers = jujuDB.C("controllers")
 }

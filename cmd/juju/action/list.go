@@ -11,7 +11,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils"
+	"github.com/juju/naturalsort"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
@@ -127,7 +127,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		}
 		sortedNames = append(sortedNames, name)
 	}
-	utils.SortStringsNaturally(sortedNames)
+	naturalsort.Sort(sortedNames)
 
 	var output interface{}
 	switch c.out.Name() {

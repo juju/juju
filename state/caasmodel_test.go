@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -72,14 +73,34 @@ func (s *CAASModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(model.CloudRegion(), gc.Equals, "")
 }
 
-func (s *CAASModelSuite) TestModelDestroy(c *gc.C) {
+func (s *CAASModelSuite) TestDestroyEmptyModel(c *gc.C) {
 	model, _ := s.newCAASModel(c)
 	err := model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = model.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	// TODO(caas) - this will be dying when we add cleanup steps.
 	c.Assert(model.Life(), gc.Equals, state.Dead)
+}
+
+func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
+	model, st := s.newCAASModel(c)
+
+	app := factory.NewFactory(st).MakeApplication(c, nil)
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = model.Destroy(state.DestroyModelParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
+
+	assertCleanupCount(c, st, 2)
+	err = app.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = unit.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	assertDoesNotNeedCleanup(c, st)
 }
 
 func (s *CAASModelSuite) TestCAASModelsCantHaveCloudRegion(c *gc.C) {
@@ -165,15 +186,15 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	// add some applications
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	service := s.Factory.MakeApplication(c, nil)
-	ch, _, err := service.Charm()
+	application := s.Factory.MakeApplication(c, nil)
+	ch, _, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := state.AddApplicationArgs{
-		Name:  service.Name(),
+		Name:  application.Name(),
 		Charm: ch,
 	}
-	service, err = otherSt.AddApplication(args)
+	application, err = otherSt.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()

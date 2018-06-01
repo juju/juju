@@ -58,7 +58,7 @@ type Manifold struct {
 	// types. Your `out` param should almost always be a pointer to an interface;
 	// and, furthermore, to an interface that does *not* satisfy `worker.Worker`.
 	//
-	// (Consider the interface segregation principle: the *Engine* is reponsible
+	// (Consider the interface segregation principle: the *Engine* is responsible
 	// for the lifetimes of the backing workers, and for handling their errors.
 	// Exposing those levers to your dependents as well can only encourage them
 	// to use them, and vastly complicate the possible interactions.)

@@ -7,9 +7,9 @@ import (
 	"regexp"
 	"sort"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/set"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 

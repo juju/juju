@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -331,7 +331,7 @@ func (im *IAASModel) watchMachineStorageAttachments(m names.MachineTag, collecti
 }
 
 // WatchApplications returns a StringsWatcher that notifies of changes to
-// the lifecycles of the services in the model.
+// the lifecycles of the applications in the model.
 func (st *State) WatchApplications() StringsWatcher {
 	return newLifecycleWatcher(st, applicationsC, nil, isLocalID(st), nil)
 }
@@ -465,11 +465,10 @@ func newLifecycleWatcher(
 		life:          make(map[string]Life),
 		out:           make(chan []string),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -614,11 +613,11 @@ func (w *lifecycleWatcher) loop() error {
 	}
 }
 
-// minUnitsWatcher notifies about MinUnits changes of the services requiring
+// minUnitsWatcher notifies about MinUnits changes of the applications requiring
 // a minimum number of units to be alive. The first event returned by the
 // watcher is the set of application names requiring a minimum number of units.
-// Subsequent events are generated when a service increases MinUnits, or when
-// one or more units belonging to a service are destroyed.
+// Subsequent events are generated when an application increases MinUnits, or when
+// one or more units belonging to an application are destroyed.
 type minUnitsWatcher struct {
 	commonWatcher
 	known map[string]int
@@ -633,11 +632,10 @@ func newMinUnitsWatcher(backend modelBackend) StringsWatcher {
 		known:         make(map[string]int),
 		out:           make(chan []string),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -789,11 +787,10 @@ func newRelationScopeWatcher(backend modelBackend, scope, ignore string) *Relati
 		ignore:        ignore,
 		out:           make(chan *RelationScopeChange),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -931,8 +928,8 @@ func (ru *RelationUnit) Watch() RelationUnitsWatcher {
 // WatchUnits returns a watcher that notifies of changes to the units of the
 // specified application endpoint in the relation. This method will return an error
 // if the endpoint is not globally scoped.
-func (r *Relation) WatchUnits(serviceName string) (RelationUnitsWatcher, error) {
-	return r.watchUnits(serviceName, false)
+func (r *Relation) WatchUnits(appName string) (RelationUnitsWatcher, error) {
+	return r.watchUnits(appName, false)
 }
 
 func (r *Relation) watchUnits(applicationName string, counterpart bool) (RelationUnitsWatcher, error) {
@@ -959,10 +956,10 @@ func newRelationUnitsWatcher(backend modelBackend, sw *RelationScopeWatcher) Rel
 		updates:       make(chan watcher.Change),
 		out:           make(chan params.RelationUnitsChange),
 	}
-	go func() {
+	w.tomb.Go(func() error {
 		defer w.finish()
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -1048,7 +1045,7 @@ func (w *relationUnitsWatcher) finish() {
 	}
 	close(w.updates)
 	close(w.out)
-	w.tomb.Done()
+	// w.tomb.Done()
 }
 
 func (w *relationUnitsWatcher) loop() (err error) {
@@ -1139,11 +1136,10 @@ func newRelationLifeSuspendedWatcher(
 		transform:     transform,
 		lifeSuspended: make(map[string]relationLifeSuspended),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -1325,11 +1321,10 @@ func newUnitsWatcher(backend modelBackend, tag names.Tag, getUnits func() ([]str
 		in:            make(chan watcher.Change),
 		out:           make(chan []string),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop(coll, id))
-	}()
+		return w.loop(coll, id)
+	})
 	return w
 }
 
@@ -1518,7 +1513,7 @@ func (a *Application) Watch() NotifyWatcher {
 	return newEntityWatcher(a.st, applicationsC, a.doc.DocID)
 }
 
-// WatchLeaderSettings returns a watcher for observing changed to a service's
+// WatchLeaderSettings returns a watcher for observing changed to an application's
 // leader settings.
 func (a *Application) WatchLeaderSettings() NotifyWatcher {
 	docId := a.st.docID(leadershipSettingsKey(a.Name()))
@@ -1559,7 +1554,7 @@ func (st *State) WatchModelEntityReferences(mUUID string) NotifyWatcher {
 	return newEntityWatcher(st, modelEntityRefsC, mUUID)
 }
 
-// WatchForUnitAssignment watches for new services that request units to be
+// WatchForUnitAssignment watches for new applications that request units to be
 // assigned to machines.
 func (st *State) WatchForUnitAssignment() StringsWatcher {
 	return newCollectionWatcher(st, colWCfg{col: assignUnitC})
@@ -1607,7 +1602,7 @@ func (a *Application) WatchCharmConfig() (NotifyWatcher, error) {
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the
-// unit's service configuration settings. The unit must have a charm URL
+// unit's application configuration settings. The unit must have a charm URL
 // set before this method is called, and the returned watcher will be
 // valid only while the unit's charm URL is not changed.
 // TODO(fwereade): this could be much smarter; if it were, uniter.Filter
@@ -1669,11 +1664,10 @@ func newDocWatcher(backend modelBackend, docKeys []docKey) NotifyWatcher {
 		commonWatcher: newCommonWatcher(backend),
 		out:           make(chan struct{}),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop(docKeys))
-	}()
+		return w.loop(docKeys)
+	})
 	return w
 }
 
@@ -1762,11 +1756,10 @@ func newMachineUnitsWatcher(m *Machine) StringsWatcher {
 		known:         make(map[string]Life),
 		machine:       &Machine{st: m.st, doc: m.doc}, // Copy so it may be freely refreshed
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -1912,11 +1905,10 @@ func newMachineAddressesWatcher(m *Machine) NotifyWatcher {
 		out:           make(chan struct{}),
 		machine:       &Machine{st: m.st, doc: m.doc}, // Copy so it may be freely refreshed
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -1989,11 +1981,10 @@ func newActionStatusWatcher(backend modelBackend, receivers []ActionReceiver, st
 		statusFilter:   statusInCollectionOp(statusSet...),
 	}
 
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.sink)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 
 	return w
 }
@@ -2097,7 +2088,7 @@ func (w *actionStatusWatcher) filterAndMergeIds(changes *[]string, updates map[i
 			} else {
 				if idAlreadyInChangeset {
 					// remove id from changes
-					*changes = append([]string(*changes)[:chIx], []string(*changes)[chIx+1:]...)
+					*changes = append((*changes)[:chIx], (*changes)[chIx+1:]...)
 				}
 			}
 		default:
@@ -2211,12 +2202,11 @@ func newCollectionWatcher(backend modelBackend, cfg colWCfg) StringsWatcher {
 		sink:          make(chan []string),
 	}
 
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.sink)
 		defer close(w.source)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 
 	return w
 }
@@ -2368,7 +2358,7 @@ func mergeIds(st modelBackend, changes *[]string, updates map[interface{}]bool, 
 		} else {
 			if idAlreadyInChangeset {
 				// remove id from changes
-				*changes = append([]string(*changes)[:chIx], []string(*changes)[chIx+1:]...)
+				*changes = append((*changes)[:chIx], (*changes)[chIx+1:]...)
 			}
 		}
 	}
@@ -2492,11 +2482,10 @@ func newOpenedPortsWatcher(backend modelBackend) StringsWatcher {
 		known:         make(map[string]int64),
 		out:           make(chan []string),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 
 	return w
 }
@@ -2647,11 +2636,10 @@ func newBlockDevicesWatcher(backend modelBackend, machineId string) NotifyWatche
 		machineId:     machineId,
 		out:           make(chan struct{}),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -2718,11 +2706,10 @@ func newMigrationActiveWatcher(st *State) NotifyWatcher {
 		id:            st.ModelUUID(),
 		sink:          make(chan struct{}),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.sink)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -2806,11 +2793,10 @@ func newNotifyCollWatcher(backend modelBackend, collName string, filter func(int
 		filter:        filter,
 		sink:          make(chan struct{}),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.sink)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -2975,11 +2961,10 @@ func newrelationNetworksWatcher(st modelBackend, relationKey, direction string) 
 		knownCidrs:    set.NewStrings(),
 		out:           make(chan []string),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 
 	return w
 }
@@ -3086,11 +3071,10 @@ func newExternalControllersWatcher(st *State) StringsWatcher {
 		coll:          collFactory(st.db(), externalControllersC),
 		out:           make(chan []string),
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 
@@ -3193,11 +3177,10 @@ func newContainerAddressesWatcher(u *Unit) NotifyWatcher {
 		out:           make(chan struct{}),
 		unit:          u,
 	}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
+		return w.loop()
+	})
 	return w
 }
 

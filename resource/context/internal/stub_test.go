@@ -22,10 +22,8 @@ type internalStub struct {
 	ReturnGetResourceData         io.ReadCloser
 	ReturnNewContextDirectorySpec internal.ContextDirectorySpec
 	ReturnOpenResource            internal.ContextOpenedResource
-	ReturnNewTempDirSpec          internal.DownloadTempTarget
 	ReturnNewChecker              internal.ContentChecker
 	ReturnCreateWriter            io.WriteCloser
-	ReturnNewTempDir              string
 	ReturnFingerprintMatches      bool
 }
 
@@ -88,15 +86,6 @@ func (s *internalStub) ReplaceDirectory(tgt, src string) error {
 	return nil
 }
 
-func (s *internalStub) NewTempDirSpec() (internal.DownloadTempTarget, error) {
-	s.Stub.AddCall("NewTempDirSpec")
-	if err := s.Stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.ReturnNewTempDirSpec, nil
-}
-
 func (s *internalStub) NewChecker(content internal.Content) internal.ContentChecker {
 	s.Stub.AddCall("NewChecker", content)
 	s.Stub.NextErr() // Pop one off.
@@ -134,15 +123,6 @@ func (s *internalStub) CreateWriter(filename string) (io.WriteCloser, error) {
 	}
 
 	return s.ReturnCreateWriter, nil
-}
-
-func (s *internalStub) NewTempDir() (string, error) {
-	s.Stub.AddCall("NewTempDir")
-	if err := s.Stub.NextErr(); err != nil {
-		return "", errors.Trace(err)
-	}
-
-	return s.ReturnNewTempDir, nil
 }
 
 func (s *internalStub) RemoveDir(dirname string) error {

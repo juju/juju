@@ -659,9 +659,11 @@ type ProxyConfig struct {
 
 // ProxyConfigResult contains information needed to configure a clients proxy settings
 type ProxyConfigResult struct {
-	ProxySettings    ProxyConfig `json:"proxy-settings"`
-	APTProxySettings ProxyConfig `json:"apt-proxy-settings"`
-	Error            *Error      `json:"error,omitempty"`
+	LegacyProxySettings ProxyConfig `json:"legacy-proxy-settings"`
+	JujuProxySettings   ProxyConfig `json:"juju-proxy-settings"`
+	APTProxySettings    ProxyConfig `json:"apt-proxy-settings"`
+	SnapProxySettings   ProxyConfig `json:"snap-proxy-settings"`
+	Error               *Error      `json:"error,omitempty"`
 }
 
 // ProxyConfigResults contains information needed to configure multiple clients proxy settings
@@ -669,10 +671,25 @@ type ProxyConfigResults struct {
 	Results []ProxyConfigResult `json:"results"`
 }
 
+// ProxyConfigResultV1 contains information needed to configure a clients proxy settings.
+// Result for facade v1 call.
+type ProxyConfigResultV1 struct {
+	ProxySettings    ProxyConfig `json:"proxy-settings"`
+	APTProxySettings ProxyConfig `json:"apt-proxy-settings"`
+	Error            *Error      `json:"error,omitempty"`
+}
+
+// ProxyConfigResultsV1 contains information needed to configure multiple clients proxy settings.
+// Result for facade v1 call.
+type ProxyConfigResultsV1 struct {
+	Results []ProxyConfigResultV1 `json:"results"`
+}
+
 // InterfaceAddress represents a single address attached to the interface.
 type InterfaceAddress struct {
-	Address string `json:"value"`
-	CIDR    string `json:"cidr"`
+	Hostname string `json:"hostname"`
+	Address  string `json:"value"`
+	CIDR     string `json:"cidr"`
 }
 
 // NetworkInfo describes one interface with IP addresses.

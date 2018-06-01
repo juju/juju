@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/proxy"
 	"github.com/juju/pubsub"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
 	jworker "github.com/juju/juju/worker"
@@ -46,6 +47,7 @@ import (
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/externalcontrollerupdater"
 	"github.com/juju/juju/worker/fanconfigurer"
+	"github.com/juju/juju/worker/featureflag"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/globalclockupdater"
@@ -64,6 +66,7 @@ import (
 	"github.com/juju/juju/worker/proxyupdater"
 	psworker "github.com/juju/juju/worker/pubsub"
 	"github.com/juju/juju/worker/raft"
+	"github.com/juju/juju/worker/raft/raftbackstop"
 	"github.com/juju/juju/worker/raft/raftclusterer"
 	"github.com/juju/juju/worker/raft/raftflag"
 	"github.com/juju/juju/worker/raft/rafttransport"
@@ -104,7 +107,7 @@ type ManifoldsConfig struct {
 
 	// RootDir is the root directory that any worker that needs to
 	// access local filesystems should use as a base. In actual use it
-	// will be "" but it may be overriden in tests.
+	// will be "" but it may be overridden in tests.
 	RootDir string
 
 	// PreviousAgentVersion passes through the version the machine
@@ -726,7 +729,17 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: auditconfigupdater.New,
 		})),
 
-		raftTransportName: ifController(rafttransport.Manifold(rafttransport.ManifoldConfig{
+		raftEnabledName: ifController(featureflag.Manifold(featureflag.ManifoldConfig{
+			StateName: stateName,
+			FlagName:  feature.DisableRaft,
+			Invert:    true,
+			Logger:    loggo.GetLogger("juju.worker.raft.raftenabled"),
+			NewWorker: featureflag.NewWorker,
+		})),
+
+		// All the other raft workers hang off the raft transport, so
+		// it's the only one that needs to be gated by the enabled flag.
+		raftTransportName: ifRaftEnabled(rafttransport.Manifold(rafttransport.ManifoldConfig{
 			ClockName:         clockName,
 			AgentName:         agentName,
 			AuthenticatorName: httpServerName,
@@ -759,6 +772,14 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			CentralHubName: centralHubName,
 			NewWorker:      raftclusterer.NewWorker,
 		})),
+
+		raftBackstopName: raftbackstop.Manifold(raftbackstop.ManifoldConfig{
+			RaftName:       raftName,
+			CentralHubName: centralHubName,
+			AgentName:      agentName,
+			Logger:         loggo.GetLogger("juju.worker.raft.raftbackstop"),
+			NewWorker:      raftbackstop.NewWorker,
+		}),
 	}
 }
 
@@ -800,6 +821,12 @@ var ifController = engine.Housing{
 var ifRaftLeader = engine.Housing{
 	Flags: []string{
 		raftFlagName,
+	},
+}.Decorate
+
+var ifRaftEnabled = engine.Housing{
+	Flags: []string{
+		raftEnabledName,
 	},
 }.Decorate
 
@@ -864,5 +891,7 @@ const (
 	raftTransportName = "raft-transport"
 	raftName          = "raft"
 	raftClustererName = "raft-clusterer"
-	raftFlagName      = "raft-flag"
+	raftFlagName      = "raft-leader-flag"
+	raftEnabledName   = "raft-enabled-flag"
+	raftBackstopName  = "raft-backstop"
 )

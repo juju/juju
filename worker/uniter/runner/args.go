@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	jujuos "github.com/juju/utils/os"
+	jujuos "github.com/juju/os"
 
 	"github.com/juju/juju/worker/common/charmrunner"
 )

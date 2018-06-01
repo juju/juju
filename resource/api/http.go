@@ -63,16 +63,16 @@ const (
 )
 
 // NewEndpointPath returns the API URL path for the identified resource.
-func NewEndpointPath(service, name string) string {
-	return fmt.Sprintf(HTTPEndpointPath, service, name)
+func NewEndpointPath(application, name string) string {
+	return fmt.Sprintf(HTTPEndpointPath, application, name)
 }
 
 // ExtractEndpointDetails pulls the endpoint wildcard values from
 // the provided URL.
-func ExtractEndpointDetails(url *url.URL) (service, name string) {
-	service = url.Query().Get(":application")
+func ExtractEndpointDetails(url *url.URL) (application, name string) {
+	application = url.Query().Get(":application")
 	name = url.Query().Get(":resource")
-	return service, name
+	return application, name
 }
 
 // TODO(ericsnow) These are copied from apiserver/httpcontext.go...

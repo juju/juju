@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/gce/google"
@@ -29,7 +30,7 @@ var instStatuses = []string{
 // instances, the result at the corresponding index will be nil. In that
 // case the error will be environs.ErrPartialInstances (or
 // ErrNoInstances if none of the IDs match an instance).
-func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
+func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -100,7 +101,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
-func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
+func (env *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	instances, err := env.gceInstances()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -124,8 +125,8 @@ func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, e
 }
 
 // AdoptResources is part of the Environ interface.
-func (env *environ) AdoptResources(controllerUUID string, fromVersion version.Number) error {
-	instances, err := env.AllInstances()
+func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+	instances, err := env.AllInstances(ctx)
 	if err != nil {
 		return errors.Annotate(err, "all instances")
 	}

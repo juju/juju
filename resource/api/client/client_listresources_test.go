@@ -29,7 +29,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 	results, err := cl.ListResources(services)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, []resource.ServiceResources{
+	c.Check(results, jc.DeepEquals, []resource.ApplicationResources{
 		{Resources: expected},
 	})
 	c.Check(s.stub.Calls(), gc.HasLen, 1)
@@ -58,7 +58,7 @@ func (s *ListResourcesSuite) TestBulk(c *gc.C) {
 	results, err := cl.ListResources(services)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, []resource.ServiceResources{
+	c.Check(results, jc.DeepEquals, []resource.ApplicationResources{
 		{Resources: expected1},
 		{Resources: expected2},
 	})
@@ -121,7 +121,7 @@ func (s *ListResourcesSuite) TestServiceEmpty(c *gc.C) {
 	results, err := cl.ListResources(services)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(results, jc.DeepEquals, []resource.ServiceResources{
+	c.Check(results, jc.DeepEquals, []resource.ApplicationResources{
 		{},
 	})
 	s.stub.CheckCallNames(c, "FacadeCall")

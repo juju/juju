@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/version"
 	"github.com/juju/juju/permission"
@@ -36,6 +37,8 @@ type modelInfoSuite struct {
 	st           *mockState
 	ctlrSt       *mockState
 	modelmanager *modelmanager.ModelManagerAPI
+
+	callContext context.ProviderCallContext
 }
 
 func pUint64(v uint64) *uint64 {
@@ -142,15 +145,17 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
+	s.callContext = context.NewCloudCallContext()
+
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, &s.authorizer, s.st.model)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, &s.authorizer, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
-	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authorizer, s.st.model)
+	s.modelmanager, err = modelmanager.NewModelManagerAPI(s.st, s.ctlrSt, nil, s.authorizer, s.st.model, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

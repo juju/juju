@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
@@ -14,7 +15,7 @@ import (
 )
 
 // AvailabilityZones returns all availability zones in the environment.
-func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
+func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
 	zones, err := env.gce.AvailabilityZones(env.cloud.Region)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -35,8 +36,8 @@ func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 // InstanceAvailabilityZoneNames returns the names of the availability
 // zones for the specified instances. The error returned follows the same
 // rules as Environ.Instances.
-func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
-	instances, err := env.Instances(ids)
+func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+	instances, err := env.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances && err != environs.ErrNoInstances {
 		return nil, errors.Trace(err)
 	}
@@ -55,7 +56,7 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 }
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *environ) DeriveAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
+func (env *environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
 	zone, err := env.deriveAvailabilityZones(args.Placement, args.VolumeAttachments)
 	if zone != "" {
 		return []string{zone}, errors.Trace(err)

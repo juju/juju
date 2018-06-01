@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 )
 
 type containerTestNetworkLessEnviron struct {
@@ -29,13 +30,13 @@ type ContainerNetworkingSuite struct {
 
 var _ = gc.Suite(&ContainerNetworkingSuite{})
 
-func (e *containerTestNetworkedEnviron) SuperSubnets() ([]string, error) {
-	e.stub.AddCall("SuperSubnets")
+func (e *containerTestNetworkedEnviron) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
+	e.stub.AddCall("SuperSubnets", ctx)
 	return e.superSubnets, e.stub.NextErr()
 }
 
-func (e *containerTestNetworkedEnviron) SupportsContainerAddresses() (bool, error) {
-	e.stub.AddCall("SupportsContainerAddresses")
+func (e *containerTestNetworkedEnviron) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
+	e.stub.AddCall("SupportsContainerAddresses", ctx)
 	return e.supportsContainerAddresses, e.stub.NextErr()
 }
 
@@ -124,4 +125,19 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDefault(c
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "fan")
 	c.Check(attrs["fan-config"], gc.Equals, "172.31.0.0/16=252.0.0.0/8 192.168.1.0/24=253.0.0.0/8")
+}
+
+func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingIgnoresIPv6(c *gc.C) {
+	environ := containerTestNetworkedEnviron{
+		stub: &testing.Stub{},
+		supportsContainerAddresses: true,
+		superSubnets:               []string{"172.31.0.0/16", "2000::dead:beef:1/64"},
+	}
+	err := s.Model.AutoConfigureContainerNetworking(&environ)
+	c.Check(err, jc.ErrorIsNil)
+	config, err := s.Model.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	attrs := config.AllAttrs()
+	c.Check(attrs["container-networking-method"], gc.Equals, "provider")
+	c.Check(attrs["fan-config"], gc.Equals, "172.31.0.0/16=252.0.0.0/8")
 }

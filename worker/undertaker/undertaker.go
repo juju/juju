@@ -10,9 +10,11 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/worker/common"
 )
 
 // Facade covers the parts of the api/undertaker.UndertakerClient that we
@@ -28,8 +30,9 @@ type Facade interface {
 // Config holds the resources and configuration necessary to run an
 // undertaker worker.
 type Config struct {
-	Facade    Facade
-	Destroyer environs.CloudDestroyer
+	Facade        Facade
+	Destroyer     environs.CloudDestroyer
+	CredentialAPI common.CredentialAPI
 }
 
 // Validate returns an error if the config cannot be expected to drive
@@ -37,6 +40,9 @@ type Config struct {
 func (config Config) Validate() error {
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
+	}
+	if config.CredentialAPI == nil {
+		return errors.NotValidf("nil CredentialAPI")
 	}
 	if config.Destroyer == nil {
 		return errors.NotValidf("nil Destroyer")
@@ -49,8 +55,10 @@ func NewUndertaker(config Config) (*Undertaker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	u := &Undertaker{
-		config: config,
+		config:  config,
+		callCtx: common.NewCloudCallContext(config.CredentialAPI),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -65,6 +73,8 @@ func NewUndertaker(config Config) (*Undertaker, error) {
 type Undertaker struct {
 	catacomb catacomb.Catacomb
 	config   Config
+
+	callCtx context.ProviderCallContext
 }
 
 // Kill is part of the worker.Worker interface.
@@ -131,7 +141,7 @@ func (u *Undertaker) run() error {
 	); err != nil {
 		return errors.Trace(err)
 	}
-	if err := u.config.Destroyer.Destroy(); err != nil {
+	if err := u.config.Destroyer.Destroy(u.callCtx); err != nil {
 		return errors.Trace(err)
 	}
 

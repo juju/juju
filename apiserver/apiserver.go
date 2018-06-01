@@ -23,7 +23,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/common"
@@ -146,7 +146,7 @@ type ServerConfig struct {
 	// "/introspection" prefix.
 	RegisterIntrospectionHandlers func(func(string, http.Handler))
 
-	// RateLimitConfig holds paramaters to control
+	// RateLimitConfig holds parameters to control
 	// aspects of rate limiting connections and logins.
 	RateLimitConfig RateLimitConfig
 
@@ -298,13 +298,12 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	}
 
 	ready := make(chan struct{})
-	go func() {
-		defer srv.tomb.Done()
+	srv.tomb.Go(func() error {
 		defer srv.dbloggers.dispose()
 		defer srv.logSinkWriter.Close()
 		defer srv.shared.Close()
-		srv.tomb.Kill(srv.loop(ready))
-	}()
+		return srv.loop(ready)
+	})
 
 	// Don't return until all handlers have been registered.
 	select {
@@ -656,7 +655,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		unauthenticated: true,
 		noModelUUID:     true,
 	}, {
-		// Serve the API at / for backward compatiblity. Note that the
+		// Serve the API at / for backward compatibility. Note that the
 		// pat muxer special-cases / so that it does not serve all
 		// possible endpoints, but only / itself.
 		pattern:         "/",

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/oracle"
@@ -24,6 +25,8 @@ type instanceSuite struct {
 	gitjujutesting.IsolationSuite
 	env   *oracle.OracleEnviron
 	mutex *sync.Mutex
+
+	callCtx context.ProviderCallContext
 }
 
 func (i *instanceSuite) SetUpTest(c *gc.C) {
@@ -39,6 +42,7 @@ func (i *instanceSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(i.env, gc.NotNil)
 	i.mutex = &sync.Mutex{}
+	i.callCtx = context.NewCloudCallContext()
 }
 
 func (i *instanceSuite) setEnvironAPI(client oracle.EnvironAPI) {
@@ -74,7 +78,7 @@ func (i instanceSuite) TestStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 
-	status := instance.Status()
+	status := instance.Status(i.callCtx)
 	ok := (len(status.Status) > 0)
 	c.Assert(ok, gc.Equals, true)
 	ok = (len(status.Message) > 0)
@@ -95,7 +99,7 @@ func (i instanceSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 
-	addrs, err := instance.Addresses()
+	addrs, err := instance.Addresses(i.callCtx)
 	c.Assert(err, gc.IsNil)
 	c.Assert(addrs, gc.NotNil)
 }
@@ -112,7 +116,7 @@ func (i instanceSuite) TestAddressesWithErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 
-	_, err = instance.Addresses()
+	_, err = instance.Addresses(i.callCtx)
 	c.Assert(err, gc.ErrorMatches, "FakeEnvironAPI")
 }
 
@@ -130,7 +134,7 @@ func (i instanceSuite) TestOpenPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 
-	err = instance.OpenPorts("0", []jujunetwork.IngressRule{
+	err = instance.OpenPorts(i.callCtx, "0", []jujunetwork.IngressRule{
 		jujunetwork.IngressRule{
 			PortRange: jujunetwork.PortRange{
 				FromPort: 0,
@@ -156,7 +160,7 @@ func (i instanceSuite) TestClosePorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 
-	err = instance.ClosePorts("0", []jujunetwork.IngressRule{
+	err = instance.ClosePorts(i.callCtx, "0", []jujunetwork.IngressRule{
 		jujunetwork.IngressRule{
 			PortRange: jujunetwork.PortRange{
 				FromPort: 0,
@@ -183,7 +187,7 @@ func (i instanceSuite) TestIngressRules(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance, gc.NotNil)
 
-	rules, err := instance.IngressRules("0")
+	rules, err := instance.IngressRules(i.callCtx, "0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(rules, gc.NotNil)
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -37,7 +38,7 @@ type EnvironProvider interface {
 	CloudSchema() *jsonschema.Schema
 
 	// Ping tests the connection to the cloud, to verify the endpoint is valid.
-	Ping(endpoint string) error
+	Ping(ctx context.ProviderCallContext, endpoint string) error
 
 	// PrepareConfig prepares the configuration for a new model, based on
 	// the provided arguments. PrepareConfig is expected to produce a
@@ -217,6 +218,7 @@ type ModelConfigUpgrader interface {
 	// We should update the upgrade machinery to call this for every
 	// version upgrade, so the upgrades package is not tightly coupled
 	// to provider upgrades.
+	// TODO (anastasiamac 2018-04-27) Since it is only for 1.25, do we still need it?
 	UpgradeConfig(cfg *config.Config) (*config.Config, error)
 }
 
@@ -237,7 +239,7 @@ type CloudDestroyer interface {
 	//
 	// When Destroy has been called, any Environ referring to the
 	// same remote environment may become invalid.
-	Destroy() error
+	Destroy(ctx context.ProviderCallContext) error
 }
 
 // An Environ represents a Juju environment.
@@ -283,7 +285,7 @@ type Environ interface {
 	// using an architecture constraint; this will have the effect of
 	// limiting the available tools to just those matching the specified
 	// architecture.
-	Bootstrap(ctx BootstrapContext, params BootstrapParams) (*BootstrapResult, error)
+	Bootstrap(ctx BootstrapContext, callCtx context.ProviderCallContext, params BootstrapParams) (*BootstrapResult, error)
 
 	// Create creates the environment for a new hosted model.
 	//
@@ -293,7 +295,7 @@ type Environ interface {
 	//
 	// Create is not called for the initial controller model; it is
 	// the Bootstrap method's job to create the controller model.
-	Create(CreateParams) error
+	Create(context.ProviderCallContext, CreateParams) error
 
 	// AdoptResources is called when the model is moved from one
 	// controller to another using model migration. Some providers tag
@@ -306,7 +308,7 @@ type Environ interface {
 	// provided for backwards compatibility - if the technique used to
 	// tag items changes, the version number can be used to decide how
 	// to remove the old tags correctly.
-	AdoptResources(controllerUUID string, fromVersion version.Number) error
+	AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error
 
 	// InstanceBroker defines methods for starting and stopping
 	// instances.
@@ -331,14 +333,14 @@ type Environ interface {
 	// some but not all the instances were found, the returned slice
 	// will have some nil slots, and an ErrPartialInstances error
 	// will be returned.
-	Instances(ids []instance.Id) ([]instance.Instance, error)
+	Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error)
 
 	// ControllerInstances returns the IDs of instances corresponding
 	// to Juju controller, having the specified controller UUID.
 	// If there are no controller instances, ErrNoInstances is returned.
 	// If it can be determined that the environment has not been bootstrapped,
 	// then ErrNotBootstrapped should be returned instead.
-	ControllerInstances(controllerUUID string) ([]instance.Id, error)
+	ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error)
 
 	// DestroyController is similar to Destroy() in that it destroys
 	// the model, which in this case will be the controller model.
@@ -347,7 +349,7 @@ type Environ interface {
 	// to hosted models on the controller on which it is invoked.
 	// This ensures that "kill-controller" can clean up hosted models
 	// when the Juju controller process is unavailable.
-	DestroyController(controllerUUID string) error
+	DestroyController(ctx context.ProviderCallContext, controllerUUID string) error
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
@@ -370,7 +372,7 @@ type InstancePrechecker interface {
 	// all invalid parameters. If PrecheckInstance returns nil, it is not
 	// guaranteed that the constraints are valid; if a non-nil error is
 	// returned, then the constraints are definitely invalid.
-	PrecheckInstance(PrecheckInstanceParams) error
+	PrecheckInstance(context.ProviderCallContext, PrecheckInstanceParams) error
 }
 
 // PrecheckInstanceParams contains the parameters for
@@ -404,12 +406,12 @@ type Firewaller interface {
 	// OpenPorts opens the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	OpenPorts(rules []network.IngressRule) error
+	OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error
 
 	// ClosePorts closes the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	ClosePorts(rules []network.IngressRule) error
+	ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error
 
 	// IngressRules returns the ingress rules applied to the whole environment.
 	// Must only be used if the environment was setup with the
@@ -417,7 +419,7 @@ type Firewaller interface {
 	// It is expected that there be only one ingress rule result for a given
 	// port range - the rule's SourceCIDRs will contain all applicable source
 	// address rules for that port range.
-	IngressRules() ([]network.IngressRule, error)
+	IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error)
 }
 
 // InstanceTagger is an interface that can be used for tagging instances.
@@ -426,13 +428,13 @@ type InstanceTagger interface {
 	//
 	// The specified tags will replace any existing ones with the
 	// same names, but other existing tags will be left alone.
-	TagInstance(id instance.Id, tags map[string]string) error
+	TagInstance(ctx context.ProviderCallContext, id instance.Id, tags map[string]string) error
 }
 
 // InstanceTypesFetcher is an interface that allows for instance information from
 // a provider to be obtained.
 type InstanceTypesFetcher interface {
-	InstanceTypes(constraints.Value) (instances.InstanceTypesWithCostMetadata, error)
+	InstanceTypes(context.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error)
 }
 
 // Upgrader is an interface that can be used for upgrading Environs. If an
@@ -441,7 +443,7 @@ type InstanceTypesFetcher interface {
 type Upgrader interface {
 	// UpgradeOperations returns a list of UpgradeOperations for upgrading
 	// an Environ.
-	UpgradeOperations(UpgradeOperationsParams) []UpgradeOperation
+	UpgradeOperations(context.ProviderCallContext, UpgradeOperationsParams) []UpgradeOperation
 }
 
 // UpgradeOperationsParams contains the parameters for
@@ -475,5 +477,5 @@ type UpgradeStep interface {
 	Description() string
 
 	// Run executes the upgrade business logic.
-	Run() error
+	Run(ctx context.ProviderCallContext) error
 }

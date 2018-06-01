@@ -43,6 +43,7 @@ func NewListFirewallRulesCommand() cmd.Command {
 
 type listFirewallRulesCommand struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	out cmd.Output
 
 	newAPIFunc func() (ListFirewallRulesAPI, error)

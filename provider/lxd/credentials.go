@@ -1,8 +1,6 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build go1.3
-
 package lxd
 
 import (
@@ -18,9 +16,9 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 const (
@@ -70,7 +68,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
 	raw, err := p.newLocalRawProvider()
 	if err != nil {
-		return nil, errors.NewNotFound(err, "failed to connecti to local LXD")
+		return nil, errors.NewNotFound(err, "failed to connect to local LXD")
 	}
 
 	nopLogf := func(string, ...interface{}) {}
@@ -101,7 +99,7 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 	if err == nil {
 		logf("Loaded client cert/key from %q", jujuLXDDir)
 		return certPEM, keyPEM, nil
-	} else if !os.IsNotExist(err) {
+	} else if !os.IsNotExist(errors.Cause(err)) {
 		return nil, nil, errors.Trace(err)
 	}
 
@@ -113,7 +111,7 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 	if err == nil {
 		logf("Loaded client cert/key from %q", lxdConfigDir)
 		return certPEM, keyPEM, nil
-	} else if !os.IsNotExist(err) {
+	} else if !os.IsNotExist(errors.Cause(err)) {
 		return nil, nil, errors.Trace(err)
 	}
 
@@ -136,11 +134,11 @@ func readCert(dir string) (certPEM, keyPEM []byte, _ error) {
 	clientKeyPath := filepath.Join(dir, "client.key")
 	certPEM, err := ioutil.ReadFile(clientCertPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 	keyPEM, err = ioutil.ReadFile(clientKeyPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 	return certPEM, keyPEM, nil
 }
@@ -152,10 +150,10 @@ func writeCert(dir string, certPEM, keyPEM []byte) error {
 		return errors.Trace(err)
 	}
 	if err := ioutil.WriteFile(clientCertPath, certPEM, 0600); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := ioutil.WriteFile(clientKeyPath, keyPEM, 0600); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -246,10 +244,11 @@ See: https://jujucharms.com/docs/stable/clouds-LXD
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return p.finalizeLocalCertificateCredential(
+	cred, err := p.finalizeLocalCertificateCredential(
 		stderr, raw, certPEM, keyPEM,
 		args.Credential.Label,
 	)
+	return cred, errors.Trace(err)
 }
 
 func (p environProviderCredentials) finalizeLocalCertificateCredential(
@@ -259,7 +258,7 @@ func (p environProviderCredentials) finalizeLocalCertificateCredential(
 ) (*cloud.Credential, error) {
 
 	// Upload the certificate to the server if necessary.
-	clientCert := lxdclient.Cert{
+	clientCert := &lxd.Certificate{
 		Name:    "juju",
 		CertPEM: []byte(certPEM),
 		KeyPEM:  []byte(keyPEM),
@@ -268,15 +267,15 @@ func (p environProviderCredentials) finalizeLocalCertificateCredential(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if _, err := raw.CertByFingerprint(fingerprint); errors.IsNotFound(err) {
-		if addCertErr := raw.AddCert(clientCert); addCertErr != nil {
+	if _, _, err := raw.GetCertificate(fingerprint); lxd.IsLXDNotFound(err) {
+		if addCertErr := raw.CreateClientCertificate(clientCert); addCertErr != nil {
 			// There is no specific error code returned when
 			// attempting to add a certificate that already
 			// exists in the database. We can just check
 			// again to see if another process added the
 			// certificate concurrently with us checking the
 			// first time.
-			if _, err := raw.CertByFingerprint(fingerprint); errors.IsNotFound(err) {
+			if _, _, err := raw.GetCertificate(fingerprint); lxd.IsLXDNotFound(err) {
 				// The cert still isn't there, so report the AddCert error.
 				return nil, errors.Annotatef(
 					addCertErr, "adding certificate %q", clientCert.Name,
@@ -295,14 +294,14 @@ func (p environProviderCredentials) finalizeLocalCertificateCredential(
 	}
 
 	// Store the server's certificate in the credential.
-	serverState, err := raw.ServerStatus()
+	svr, _, err := raw.GetServer()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting server status")
 	}
 	out := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		credAttrClientCert: certPEM,
 		credAttrClientKey:  keyPEM,
-		credAttrServerCert: serverState.Environment.Certificate,
+		credAttrServerCert: svr.Environment.Certificate,
 	})
 	out.Label = label
 	return &out, nil

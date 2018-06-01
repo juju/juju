@@ -7,9 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 
 	"github.com/juju/errors"
-	"strconv"
 )
 
 // SearchTools represents the OS functionality we need to find the correct MongoDB executable.

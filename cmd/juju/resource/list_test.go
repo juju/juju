@@ -18,46 +18,46 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-var _ = gc.Suite(&ShowServiceSuite{})
+var _ = gc.Suite(&ShowApplicationSuite{})
 
-type ShowServiceSuite struct {
+type ShowApplicationSuite struct {
 	testing.IsolationSuite
 
-	stubDeps *stubShowServiceDeps
+	stubDeps *stubShowApplicationDeps
 }
 
-func (s *ShowServiceSuite) SetUpTest(c *gc.C) {
+func (s *ShowApplicationSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	stub := &testing.Stub{}
-	s.stubDeps = &stubShowServiceDeps{
+	s.stubDeps = &stubShowApplicationDeps{
 		stub:   stub,
-		client: &stubServiceClient{stub: stub},
+		client: &stubApplicationClient{stub: stub},
 	}
 }
 
-func (*ShowServiceSuite) TestInitEmpty(c *gc.C) {
-	s := resourcecmd.ListCommand{}
+func (*ShowApplicationSuite) TestInitEmpty(c *gc.C) {
+	s := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{})
 
 	err := s.Init([]string{})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
-func (*ShowServiceSuite) TestInitGood(c *gc.C) {
-	s := resourcecmd.ListCommand{}
+func (*ShowApplicationSuite) TestInitGood(c *gc.C) {
+	s := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{})
 	err := s.Init([]string{"foo"})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resourcecmd.ListCommandTarget(&s), gc.Equals, "foo")
+	c.Assert(resourcecmd.ListCommandTarget(s), gc.Equals, "foo")
 }
 
-func (*ShowServiceSuite) TestInitTooManyArgs(c *gc.C) {
-	s := resourcecmd.ListCommand{}
+func (*ShowApplicationSuite) TestInitTooManyArgs(c *gc.C) {
+	s := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{})
 
 	err := s.Init([]string{"foo", "bar"})
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
 }
 
-func (s *ShowServiceSuite) TestInfo(c *gc.C) {
+func (s *ShowApplicationSuite) TestInfo(c *gc.C) {
 	var command resourcecmd.ListCommand
 	info := command.Info()
 
@@ -74,11 +74,11 @@ updates available for resources from the charmstore.
 	})
 }
 
-func (s *ShowServiceSuite) TestRunNoResourcesForService(c *gc.C) {
-	data := []resource.ServiceResources{resource.ServiceResources{}}
+func (s *ShowApplicationSuite) TestRunNoResourcesForApplication(c *gc.C) {
+	data := []resource.ApplicationResources{resource.ApplicationResources{}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
+	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -89,8 +89,8 @@ func (s *ShowServiceSuite) TestRunNoResourcesForService(c *gc.C) {
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
-func (s *ShowServiceSuite) TestRun(c *gc.C) {
-	data := []resource.ServiceResources{
+func (s *ShowApplicationSuite) TestRun(c *gc.C) {
+	data := []resource.ApplicationResources{
 		{
 			Resources: []resource.Resource{
 				{
@@ -179,7 +179,7 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 	}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
+	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -203,11 +203,11 @@ openjdk   10
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
-func (s *ShowServiceSuite) TestRunNoResourcesForUnit(c *gc.C) {
-	data := []resource.ServiceResources{resource.ServiceResources{}}
+func (s *ShowApplicationSuite) TestRunNoResourcesForUnit(c *gc.C) {
+	data := []resource.ApplicationResources{resource.ApplicationResources{}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
+	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -218,10 +218,10 @@ func (s *ShowServiceSuite) TestRunNoResourcesForUnit(c *gc.C) {
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
-func (s *ShowServiceSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc.C) {
+func (s *ShowApplicationSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc.C) {
 	unitName := "svc/0"
 
-	data := []resource.ServiceResources{resource.ServiceResources{
+	data := []resource.ApplicationResources{resource.ApplicationResources{
 		Resources: []resource.Resource{
 			{
 				Resource: charmresource.Resource{
@@ -256,7 +256,7 @@ func (s *ShowServiceSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc.C) 
 	}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
+	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -271,9 +271,9 @@ openjdk   -
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
-func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
-	data := []resource.ServiceResources{
-		resource.ServiceResources{
+func (s *ShowApplicationSuite) TestRunUnit(c *gc.C) {
+	data := []resource.ApplicationResources{
+		resource.ApplicationResources{
 			Resources: []resource.Resource{
 				{
 					Resource: charmresource.Resource{
@@ -337,7 +337,7 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 		}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
+	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -355,8 +355,8 @@ website2  2012-12-12T12:12
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
-func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
-	data := []resource.ServiceResources{{
+func (s *ShowApplicationSuite) TestRunDetails(c *gc.C) {
+	data := []resource.ApplicationResources{{
 		Resources: []resource.Resource{
 			{
 				Resource: charmresource.Resource{
@@ -498,7 +498,7 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 	}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
+	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -520,8 +520,8 @@ svc/10  charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 9%)
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
-func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
-	data := []resource.ServiceResources{{
+func (s *ShowApplicationSuite) TestRunUnitDetails(c *gc.C) {
+	data := []resource.ApplicationResources{{
 		Resources: []resource.Resource{
 			{
 				Resource: charmresource.Resource{
@@ -635,7 +635,7 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 	}}
 	s.stubDeps.client.ReturnResources = data
 
-	cmd := resourcecmd.NewListCommand(resourcecmd.ListDeps{
+	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
 		NewClient: s.stubDeps.NewClient,
 	})
 
@@ -654,12 +654,12 @@ charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 0%)
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
 }
 
-type stubShowServiceDeps struct {
+type stubShowApplicationDeps struct {
 	stub   *testing.Stub
-	client *stubServiceClient
+	client *stubApplicationClient
 }
 
-func (s *stubShowServiceDeps) NewClient(c *resourcecmd.ListCommand) (resourcecmd.ListClient, error) {
+func (s *stubShowApplicationDeps) NewClient(c *resourcecmd.ListCommand) (resourcecmd.ListClient, error) {
 	s.stub.AddCall("NewClient", c)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -668,20 +668,20 @@ func (s *stubShowServiceDeps) NewClient(c *resourcecmd.ListCommand) (resourcecmd
 	return s.client, nil
 }
 
-type stubServiceClient struct {
+type stubApplicationClient struct {
 	stub            *testing.Stub
-	ReturnResources []resource.ServiceResources
+	ReturnResources []resource.ApplicationResources
 }
 
-func (s *stubServiceClient) ListResources(services []string) ([]resource.ServiceResources, error) {
-	s.stub.AddCall("ListResources", services)
+func (s *stubApplicationClient) ListResources(applications []string) ([]resource.ApplicationResources, error) {
+	s.stub.AddCall("ListResources", applications)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return s.ReturnResources, nil
 }
 
-func (s *stubServiceClient) Close() error {
+func (s *stubApplicationClient) Close() error {
 	s.stub.AddCall("Close")
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)

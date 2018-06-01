@@ -16,12 +16,12 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/packaging/manager"
 	"github.com/juju/replicaset"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/fs"
-	"github.com/juju/utils/packaging/manager"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -729,7 +729,7 @@ func mongoRestoreCall(runCommand utilsRun, tmpDir, mongoPath, adminPassword, mig
 		if err := retry.Call(restoreCallArgs); err != nil {
 			return errors.Annotatef(err, "cannot restore db %q got: %s", dbs[i], out)
 		}
-		logger.Infof("Succesfully restored db %q", dbs[i])
+		logger.Infof("Successfully restored db %q", dbs[i])
 	}
 	return nil
 }

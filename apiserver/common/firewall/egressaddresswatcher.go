@@ -4,8 +4,8 @@
 package firewall
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -142,7 +142,10 @@ func (w *EgressAddressWatcher) loop() error {
 			}
 			changed = false
 			if !setEquals(addresses, lastAddresses) {
-				addressesCIDR = network.FormatAsCIDR(addresses.Values())
+				addressesCIDR, err = network.FormatAsCIDR(addresses.Values())
+				if err != nil {
+					return errors.Trace(err)
+				}
 				ready = ready || sentInitial
 			}
 		}

@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/sync"
@@ -114,6 +115,8 @@ type environSuite struct {
 	deployment         *resources.Deployment
 	sshPublicKeys      []compute.SSHPublicKey
 	linuxOsProfile     compute.OSProfile
+
+	callCtx context.ProviderCallContext
 }
 
 var _ = gc.Suite(&environSuite{})
@@ -236,6 +239,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func (s *environSuite) openEnviron(c *gc.C, attrs ...testing.Attrs) environs.Environ {
@@ -482,7 +486,7 @@ func (s *environSuite) TestCloudEndpointManagementURI(c *gc.C) {
 	sender.AppendResponse(mocks.NewResponseWithContent("{}"))
 	s.sender = azuretesting.Senders{sender}
 	s.requests = nil
-	env.AllInstances() // trigger a query
+	env.AllInstances(s.callCtx) // trigger a query
 
 	c.Assert(s.requests, gc.HasLen, 1)
 	c.Assert(s.requests[0].URL.Host, gc.Equals, "api.azurestack.local")
@@ -517,7 +521,7 @@ func (s *environSuite) assertStartInstance(c *gc.C, wantedRootDisk *int) {
 			expectedDiskSize = *wantedRootDisk + 2
 		}
 	}
-	result, err := env.StartInstance(args)
+	result, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Instance, gc.NotNil)
@@ -551,7 +555,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 
 	s.sender = s.startInstanceSenders(false)
 	s.requests = nil
-	_, err = env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "quantal"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&s.sshPublicKeys, []compute.SSHPublicKey{{
@@ -590,7 +594,7 @@ func (s *environSuite) testStartInstanceWindows(
 	s.requests = nil
 	args := makeStartInstanceParams(c, s.controllerUUID, "win2012")
 	args.Constraints = cons
-	result, err := env.StartInstance(args)
+	result, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Hardware.RootDisk, jc.DeepEquals, &expect)
@@ -624,7 +628,7 @@ func (s *environSuite) TestStartInstanceCentOS(c *gc.C) {
 	s.sender = s.startInstanceSenders(false)
 	s.requests = nil
 	args := makeStartInstanceParams(c, s.controllerUUID, "centos7")
-	_, err := env.StartInstance(args)
+	_, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	vmExtensionSettings := map[string]interface{}{
@@ -657,7 +661,7 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
 	s.sender = senders
 	s.requests = nil
 
-	_, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "quantal"))
 	c.Assert(err, gc.ErrorMatches,
 		`creating virtual machine "machine-0": `+
 			`waiting for common resources to be created: `+
@@ -679,7 +683,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentStorageAccount(c *gc.C) 
 	s.sender = senders
 	s.requests = nil
 
-	_, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "quantal"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
 		imageReference:   &quantalImageReference,
@@ -707,7 +711,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	s.sender = senders
 	s.requests = nil
 
-	_, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
+	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, "quantal"))
 	c.Assert(err, gc.ErrorMatches,
 		`creating virtual machine "machine-0": `+
 			`waiting for common resources to be created: `+
@@ -731,7 +735,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	params := makeStartInstanceParams(c, s.controllerUUID, "quantal")
 	params.InstanceConfig.Tags[tags.JujuUnitsDeployed] = unitsDeployed
 
-	_, err := env.StartInstance(params)
+	_, err := env.StartInstance(s.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
 		availabilitySetName: "mysql",
@@ -1117,7 +1121,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.sender = append(s.sender, s.startInstanceSenders(true)...)
 	s.requests = nil
 	result, err := env.Bootstrap(
-		ctx, environs.BootstrapParams{
+		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:     testing.FakeControllerConfig(),
 			AvailableTools:       makeToolsList("quantal"),
 			BootstrapSeries:      "quantal",
@@ -1202,7 +1206,7 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	config["api-port"] = 443
 	config["autocert-dns-name"] = "example.com"
 	result, err := env.Bootstrap(
-		ctx, environs.BootstrapParams{
+		ctx, s.callCtx, environs.BootstrapParams{
 			ControllerConfig:     config,
 			AvailableTools:       makeToolsList("quantal"),
 			BootstrapSeries:      "quantal",
@@ -1232,7 +1236,7 @@ func (s *environSuite) TestAllInstancesResourceGroupNotFound(c *gc.C) {
 		"resource group not found", http.StatusNotFound,
 	))
 	s.sender = azuretesting.Senders{sender}
-	_, err := env.AllInstances()
+	_, err := env.AllInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1255,7 +1259,7 @@ func (s *environSuite) TestAllInstancesIgnoresCommonDeployment(c *gc.C) {
 		s.makeSender("/deployments", result),
 	}
 
-	instances, err := env.AllInstances()
+	instances, err := env.AllInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 0)
 }
@@ -1271,7 +1275,7 @@ func (s *environSuite) TestStopInstancesNotFound(c *gc.C) {
 		"vm not found", http.StatusNotFound,
 	))
 	s.sender = azuretesting.Senders{sender0, sender1}
-	err := env.StopInstances("a", "b")
+	err := env.StopInstances(s.callCtx, "a", "b")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1294,7 +1298,7 @@ func (s *environSuite) TestStopInstancesResourceGroupNotFound(c *gc.C) {
 		nsgSender, // GET with failure
 		s.makeSender(".*/deployments/machine-0", nil), // DELETE
 	}
-	err := env.StopInstances("machine-0")
+	err := env.StopInstances(s.callCtx, "machine-0")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1332,7 +1336,7 @@ func (s *environSuite) TestStopInstances(c *gc.C) {
 	machine0Blob := azuretesting.MockStorageBlob{Name_: "machine-0"}
 	s.osvhdsContainer.Blobs_ = []azurestorage.Blob{&machine0Blob}
 
-	err := env.StopInstances("machine-0")
+	err := env.StopInstances(s.callCtx, "machine-0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.storageClient.CheckCallNames(c, "NewClient", "GetContainerReference")
@@ -1364,7 +1368,7 @@ func (s *environSuite) TestStopInstancesMultiple(c *gc.C) {
 		vmDeleteSender0,
 		vmDeleteSender1,
 	}
-	err := env.StopInstances("machine-0", "machine-1")
+	err := env.StopInstances(s.callCtx, "machine-0", "machine-1")
 	c.Assert(err, gc.ErrorMatches, `deleting instance "machine-[01]":.*blargh`)
 }
 
@@ -1376,7 +1380,7 @@ func (s *environSuite) TestStopInstancesDeploymentNotFound(c *gc.C) {
 		"deployment not found", http.StatusNotFound,
 	))
 	s.sender = azuretesting.Senders{cancelSender}
-	err := env.StopInstances("machine-0")
+	err := env.StopInstances(s.callCtx, "machine-0")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1404,7 +1408,7 @@ func (s *environSuite) testStopInstancesStorageAccountNotFound(c *gc.C) {
 		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", makeSecurityGroup()), // GET: no rules
 		s.makeSender(".*/deployments/machine-0", nil),                                   // DELETE
 	}
-	err := env.StopInstances("machine-0")
+	err := env.StopInstances(s.callCtx, "machine-0")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1416,7 +1420,7 @@ func (s *environSuite) TestStopInstancesStorageAccountError(c *gc.C) {
 		s.makeSender("/deployments/machine-0", s.deployment), // Cancel
 		errorSender,
 	}
-	err := env.StopInstances("machine-0")
+	err := env.StopInstances(s.callCtx, "machine-0")
 	c.Assert(err, gc.ErrorMatches, "getting storage account:.*blargh")
 }
 
@@ -1429,7 +1433,7 @@ func (s *environSuite) TestStopInstancesStorageAccountKeysError(c *gc.C) {
 		s.storageAccountSender(),
 		errorSender,
 	}
-	err := env.StopInstances("machine-0")
+	err := env.StopInstances(s.callCtx, "machine-0")
 	c.Assert(err, gc.ErrorMatches, "getting storage account key:.*blargh")
 }
 
@@ -1488,7 +1492,7 @@ func (s *environSuite) TestDestroyHostedModel(c *gc.C) {
 	s.sender = azuretesting.Senders{
 		s.makeSender(".*/resourcegroups/juju-testenv-model-"+testing.ModelTag.Id(), nil), // DELETE
 	}
-	err := env.Destroy()
+	err := env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.requests, gc.HasLen, 1)
 	c.Assert(s.requests[0].Method, gc.Equals, "DELETE")
@@ -1508,7 +1512,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		s.makeSender(".*/resourcegroups/group[12]", nil), // DELETE
 		s.makeSender(".*/resourcegroups/group[12]", nil), // DELETE
 	}
-	err := env.DestroyController(s.controllerUUID)
+	err := env.DestroyController(s.callCtx, s.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.requests, gc.HasLen, 3)
@@ -1551,7 +1555,7 @@ func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 		makeErrorSender("foo"),                    // DELETE
 		makeErrorSender("bar"),                    // DELETE
 	}
-	destroyErr := env.DestroyController(s.controllerUUID)
+	destroyErr := env.DestroyController(s.callCtx, s.controllerUUID)
 	// checked below, once we know the order of deletions.
 
 	c.Assert(s.requests, gc.HasLen, 3)
@@ -1576,12 +1580,12 @@ func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 func (s *environSuite) TestInstanceInformation(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(false)
-	types, err := env.InstanceTypes(constraints.Value{})
+	types, err := env.InstanceTypes(s.callCtx, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, gc.HasLen, 6)
 
 	cons := constraints.MustParse("mem=4G")
-	types, err = env.InstanceTypes(cons)
+	types, err = env.InstanceTypes(s.callCtx, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, gc.HasLen, 2)
 }
@@ -1615,7 +1619,7 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
-	err := env.AdoptResources("new-controller", version.MustParse("1.2.4"))
+	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that properties and tags are preserved and the correct
@@ -1735,7 +1739,7 @@ func (s *environSuite) TestAdoptResourcesErrorGettingGroup(c *gc.C) {
 	sender.SetError(errors.New("uhoh"))
 	s.sender = azuretesting.Senders{sender}
 
-	err := env.AdoptResources("new-controller", version.MustParse("1.0.0"))
+	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
 	c.Assert(s.requests, gc.HasLen, 1)
 }
@@ -1749,7 +1753,7 @@ func (s *environSuite) TestAdoptResourcesErrorUpdatingGroup(c *gc.C) {
 		errorSender,
 	}
 
-	err := env.AdoptResources("new-controller", version.MustParse("1.0.0"))
+	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
 	c.Assert(s.requests, gc.HasLen, 2)
 }
@@ -1764,7 +1768,7 @@ func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
 		errorSender,
 	}
 
-	err := env.AdoptResources("new-controller", version.MustParse("1.0.0"))
+	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*uhoh$")
 	c.Assert(s.requests, gc.HasLen, 3)
 }
@@ -1780,7 +1784,7 @@ func (s *environSuite) TestAdoptResourcesErrorListingResources(c *gc.C) {
 		errorSender,
 	}
 
-	err := env.AdoptResources("new-controller", version.MustParse("1.0.0"))
+	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.0.0"))
 	c.Assert(err, gc.ErrorMatches, ".*ouch!$")
 	c.Assert(s.requests, gc.HasLen, 4)
 }
@@ -1807,7 +1811,7 @@ func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *gc.C) {
 		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
-	err := env.AdoptResources("new-controller", version.MustParse("1.2.4"))
+	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(s.requests, gc.HasLen, 6)
 }
@@ -1837,7 +1841,7 @@ func (s *environSuite) TestAdoptResourcesErrorGettingFullResource(c *gc.C) {
 		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
-	err := env.AdoptResources("new-controller", version.MustParse("1.2.4"))
+	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
 	c.Check(err, gc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
 	c.Check(s.requests, gc.HasLen, 7)
 }
@@ -1869,7 +1873,7 @@ func (s *environSuite) TestAdoptResourcesErrorUpdating(c *gc.C) {
 		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
 	}
 
-	err := env.AdoptResources("new-controller", version.MustParse("1.2.4"))
+	err := env.AdoptResources(s.callCtx, "new-controller", version.MustParse("1.2.4"))
 	c.Check(err, gc.ErrorMatches, `failed to update controller for some resources: \[boxing-day-blues\]`)
 	c.Check(s.requests, gc.HasLen, 8)
 }

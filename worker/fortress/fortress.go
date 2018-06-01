@@ -6,7 +6,7 @@ package fortress
 import (
 	"sync"
 
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 )
 
 // fortress coordinates between clients that access it as a Guard and as a Guest.
@@ -24,10 +24,7 @@ func newFortress() *fortress {
 		guardTickets: make(chan guardTicket),
 		guestTickets: make(chan guestTicket),
 	}
-	go func() {
-		defer f.tomb.Done()
-		f.tomb.Kill(f.loop())
-	}()
+	f.tomb.Go(f.loop)
 	return f
 }
 

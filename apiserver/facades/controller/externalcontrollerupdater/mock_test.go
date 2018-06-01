@@ -4,7 +4,7 @@
 package externalcontrollerupdater_test
 
 import (
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/crossmodel"
@@ -65,12 +65,14 @@ type mockStringsWatcher struct {
 
 func newMockStringsWatcher() *mockStringsWatcher {
 	w := &mockStringsWatcher{changes: make(chan []string, 1)}
-	go w.loop()
+	w.tomb.Go(func() error {
+		w.loop()
+		return nil
+	})
 	return w
 }
 
 func (w *mockStringsWatcher) loop() {
-	defer w.tomb.Done()
 	<-w.tomb.Dying()
 }
 

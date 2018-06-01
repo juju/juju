@@ -25,7 +25,7 @@ func leadershipSettingsKey(applicationId string) string {
 	return fmt.Sprintf("a#%s#leader", applicationId)
 }
 
-// LeadershipClaimer returns a leadership.Claimer for units and services in the
+// LeadershipClaimer returns a leadership.Claimer for units and applications in the
 // state's model.
 func (st *State) LeadershipClaimer() leadership.Claimer {
 	return leadershipClaimer{
@@ -35,7 +35,7 @@ func (st *State) LeadershipClaimer() leadership.Claimer {
 	}
 }
 
-// LeadershipChecker returns a leadership.Checker for units and services in the
+// LeadershipChecker returns a leadership.Checker for units and applications in the
 // state's model.
 func (st *State) LeadershipChecker() leadership.Checker {
 	return leadershipChecker{

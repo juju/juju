@@ -6,7 +6,7 @@ package engine
 import (
 	"github.com/juju/errors"
 	worker "gopkg.in/juju/worker.v1"
-	tomb "gopkg.in/tomb.v1"
+	tomb "gopkg.in/tomb.v2"
 )
 
 // Flag represents a single boolean used to determine whether a given
@@ -42,11 +42,10 @@ type staticFlagWorker struct {
 // whose Check method always returns the specified value.
 func NewStaticFlagWorker(value bool) worker.Worker {
 	w := &staticFlagWorker{value: value}
-	go func() {
-		defer w.tomb.Done()
-		defer w.tomb.Kill(tomb.ErrDying)
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-	}()
+		return tomb.ErrDying
+	})
 	return w
 }
 

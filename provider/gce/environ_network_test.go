@@ -80,7 +80,7 @@ func (s *environNetSuite) cannedData() {
 func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
 	s.cannedData()
 
-	subnets, err := s.NetEnv.Subnets(instance.UnknownId, nil)
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnets, gc.DeepEquals, []network.SubnetInfo{{
@@ -110,7 +110,7 @@ func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
 func (s *environNetSuite) TestSuperSubnets(c *gc.C) {
 	s.cannedData()
 
-	subnets, err := s.NetEnv.SuperSubnets()
+	subnets, err := s.NetEnv.SuperSubnets(s.CallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnets, gc.DeepEquals, []string{
@@ -123,7 +123,7 @@ func (s *environNetSuite) TestSuperSubnets(c *gc.C) {
 func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
 	s.cannedData()
 
-	subnets, err := s.NetEnv.Subnets(instance.UnknownId, []network.Id{
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, []network.Id{
 		"shellac",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -140,7 +140,7 @@ func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
 func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *gc.C) {
 	s.cannedData()
 
-	subnets, err := s.NetEnv.Subnets(instance.UnknownId, []network.Id{"shellac", "brunettes"})
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, []network.Id{"shellac", "brunettes"})
 	c.Assert(err, gc.ErrorMatches, `subnets \["brunettes"\] not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(subnets, gc.IsNil)
@@ -150,7 +150,7 @@ func (s *environNetSuite) TestSpecificInstance(c *gc.C) {
 	s.cannedData()
 	s.FakeEnviron.Insts = []instance.Instance{s.NewInstance(c, "moana")}
 
-	subnets, err := s.NetEnv.Subnets(instance.Id("moana"), nil)
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.Id("moana"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnets, gc.DeepEquals, []network.SubnetInfo{{
@@ -167,7 +167,7 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnets(c *gc.C) {
 	s.cannedData()
 	s.FakeEnviron.Insts = []instance.Instance{s.NewInstance(c, "moana")}
 
-	subnets, err := s.NetEnv.Subnets(instance.Id("moana"), []network.Id{"go-team"})
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.Id("moana"), []network.Id{"go-team"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnets, gc.DeepEquals, []network.SubnetInfo{{
@@ -184,7 +184,7 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnetsWithMissing(c 
 	s.cannedData()
 	s.FakeEnviron.Insts = []instance.Instance{s.NewInstance(c, "moana")}
 
-	subnets, err := s.NetEnv.Subnets(instance.Id("moana"), []network.Id{"go-team", "shellac"})
+	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.Id("moana"), []network.Id{"go-team", "shellac"})
 	c.Assert(err, gc.ErrorMatches, `subnets \["shellac"\] not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(subnets, gc.IsNil)
@@ -194,7 +194,7 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 	s.cannedData()
 	s.FakeEnviron.Insts = []instance.Instance{s.NewInstance(c, "moana")}
 
-	infos, err := s.NetEnv.NetworkInterfaces(instance.Id("moana"))
+	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
@@ -232,7 +232,7 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 	})
 	s.FakeEnviron.Insts = []instance.Instance{s.NewInstanceFromBase(baseInst)}
 
-	infos, err := s.NetEnv.NetworkInterfaces(instance.Id("moana"))
+	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
@@ -282,7 +282,7 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 	}}
 	s.FakeEnviron.Insts = []instance.Instance{s.NewInstanceFromBase(baseInst)}
 
-	infos, err := s.NetEnv.NetworkInterfaces(instance.Id("moana"))
+	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
@@ -320,7 +320,7 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 	})
 	s.FakeEnviron.Insts = []instance.Instance{s.NewInstanceFromBase(baseInst)}
 
-	infos, err := s.NetEnv.NetworkInterfaces(instance.Id("moana"))
+	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{

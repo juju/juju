@@ -12,6 +12,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"fmt"
+
 	"github.com/juju/juju/api/firewallrules"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
@@ -52,6 +53,7 @@ func NewSetFirewallRuleCommand() cmd.Command {
 
 type setFirewallRuleCommand struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 	service        string
 	whitelistValue string
 

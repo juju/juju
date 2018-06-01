@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
@@ -114,11 +114,10 @@ func (s *CleanerSuite) newMockNotifyWatcher(err error) *mockNotifyWatcher {
 		changes: make(chan struct{}, 1),
 		err:     err,
 	}
-	go func() {
-		defer m.tomb.Done()
-		defer m.tomb.Kill(m.err)
+	m.tomb.Go(func() error {
 		<-m.tomb.Dying()
-	}()
+		return m.err
+	})
 	s.AddCleanup(func(c *gc.C) {
 		err := worker.Stop(m)
 		c.Check(err, jc.ErrorIsNil)

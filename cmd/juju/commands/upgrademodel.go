@@ -15,7 +15,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/series"
+	"github.com/juju/os/series"
 	"github.com/juju/version"
 
 	"github.com/juju/juju/api/controller"
@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/jujuclient"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -51,6 +52,9 @@ the software to the controller's cache via the ` + "`juju sync-agent-binaries`" 
 The command will abort if an upgrade is in progress. It will also abort if
 a previous upgrade was not fully completed (e.g.: if one of the
 controllers in a high availability model failed to upgrade).
+When looking for an agent to upgrade to Juju will check the currently
+configured agent stream for that model. It's possible to overwrite this for
+the lifetime of this upgrade using --agent-stream
 If a failed upgrade has been resolved, '--reset-previous-upgrade' can be
 used to allow the upgrade to proceed.
 Backups are recommended prior to upgrading.
@@ -58,15 +62,18 @@ Backups are recommended prior to upgrading.
 Examples:
     juju upgrade-model --dry-run
     juju upgrade-model --agent-version 2.0.1
+    juju upgrade-model --agent-stream proposed
     
 See also: 
     sync-agent-binaries`
 
-func newUpgradeJujuCommand(minUpgradeVers map[int]version.Number, options ...modelcmd.WrapOption) cmd.Command {
+func newUpgradeJujuCommand(store jujuclient.ClientStore, minUpgradeVers map[int]version.Number, options ...modelcmd.WrapOption) cmd.Command {
 	if minUpgradeVers == nil {
 		minUpgradeVers = minMajorUpgradeVersion
 	}
-	return modelcmd.Wrap(&upgradeJujuCommand{minMajorUpgradeVersion: minUpgradeVers}, options...)
+	cmd := &upgradeJujuCommand{minMajorUpgradeVersion: minUpgradeVers}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd, options...)
 }
 
 // upgradeJujuCommand upgrades the agents in a juju installation.
@@ -78,6 +85,7 @@ type upgradeJujuCommand struct {
 	DryRun        bool
 	ResetPrevious bool
 	AssumeYes     bool
+	AgentStream   string
 
 	// IgnoreAgentVersions is used to allow an admin to request an agent version without waiting for all agents to be at the right
 	// version.
@@ -102,6 +110,7 @@ func (c *upgradeJujuCommand) Info() *cmd.Info {
 func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.vers, "agent-version", "", "Upgrade to specific version")
+	f.StringVar(&c.AgentStream, "agent-stream", "", "Check this agent stream for upgrades")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
 	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
@@ -175,7 +184,7 @@ func formatTools(tools coretools.List) string {
 }
 
 type upgradeJujuAPI interface {
-	FindTools(majorVersion, minorVersion int, series, arch string) (result params.FindToolsResult, err error)
+	FindTools(majorVersion, minorVersion int, series, arch, agentStream string) (result params.FindToolsResult, err error)
 	UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (coretools.List, error)
 	AbortCurrentUpgrade() error
 	SetModelAgentVersion(version version.Number, ignoreAgentVersion bool) error
@@ -465,7 +474,7 @@ func (c *upgradeJujuCommand) initVersions(
 		return nil, false, err
 	}
 	logger.Debugf("searching for agent binaries with major: %d", filterVersion.Major)
-	findResult, err := client.FindTools(filterVersion.Major, -1, "", "")
+	findResult, err := client.FindTools(filterVersion.Major, -1, "", "", c.AgentStream)
 	if err != nil {
 		return nil, false, err
 	}

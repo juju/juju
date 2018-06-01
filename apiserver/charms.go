@@ -385,7 +385,7 @@ func (d byDepth) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
 func (d byDepth) Less(i, j int) bool { return depth(d[i]) < depth(d[j]) }
 
 // repackageAndUploadCharm expands the given charm archive to a
-// temporary directoy, repackages it with the given curl's revision,
+// temporary directory, repackages it with the given curl's revision,
 // then uploads it to storage, and finally updates the state.
 func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl *charm.URL) error {
 	// Create a temp dir to contain the extracted charm dir.

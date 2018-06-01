@@ -46,6 +46,11 @@ type ModelDefaultsResult struct {
 	Config map[string]ModelDefaults `json:"config"`
 }
 
+// ModelSequencesResult holds the map of sequence names to next value.
+type ModelSequencesResult struct {
+	Sequences map[string]int `json:"sequences"`
+}
+
 // ModelDefaults holds the settings for a given ModelDefaultsResult config
 // attribute.
 type ModelDefaults struct {

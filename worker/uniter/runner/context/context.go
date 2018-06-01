@@ -13,9 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/clock"
-	"github.com/juju/utils/featureflag"
-	"github.com/juju/utils/proxy"
+	"github.com/juju/proxy"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
@@ -23,7 +21,6 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/version"
@@ -54,6 +51,13 @@ type Paths interface {
 	// ComponentDir returns the filesystem path to the directory
 	// containing all data files for a component.
 	ComponentDir(name string) string
+}
+
+// Clock defines the methods of the full clock.Clock that are needed here.
+type Clock interface {
+	// After waits for the duration to elapse and then sends the
+	// current time on the returned channel.
+	After(time.Duration) <-chan time.Time
 }
 
 var logger = loggo.GetLogger("juju.worker.uniter.context")
@@ -102,7 +106,7 @@ type HookContext struct {
 	unit *uniter.Unit
 
 	// state is the handle to the uniter State so that HookContext can make
-	// API calls on the stateservice.
+	// API calls on the state.
 	// NOTE: We would like to be rid of the fake-remote-Unit and switch
 	// over fully to API calls on State.  This adds that ability, but we're
 	// not fully there yet.
@@ -125,7 +129,7 @@ type HookContext struct {
 	// availabilityzone is the cached value of the unit's availability zone name.
 	availabilityzone string
 
-	// configSettings holds the service configuration.
+	// configSettings holds the application configuration.
 	configSettings charm.Settings
 
 	// goalState holds the goal state struct
@@ -167,8 +171,11 @@ type HookContext struct {
 	// apiAddrs contains the API server addresses.
 	apiAddrs []string
 
-	// proxySettings are the current proxy settings that the uniter knows about.
-	proxySettings proxy.Settings
+	// legacyProxySettings are the current legacy proxy settings that the uniter knows about.
+	legacyProxySettings proxy.Settings
+
+	// jujuProxySettings are the current juju proxy settings that the uniter knows about.
+	jujuProxySettings proxy.Settings
 
 	// meterStatus is the status of the unit's metering.
 	meterStatus *meterStatus
@@ -214,7 +221,7 @@ type HookContext struct {
 	storageAddConstraints map[string][]params.StorageConstraints
 
 	// clock is used for any time operations.
-	clock clock.Clock
+	clock Clock
 
 	componentDir   func(string) string
 	componentFuncs map[string]ComponentFunc
@@ -308,7 +315,7 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 			return nil, err
 		}
 		ctx.status = &jujuc.StatusInfo{
-			Status: string(status.Status),
+			Status: status.Status,
 			Info:   status.Info,
 			Data:   status.Data,
 		}
@@ -317,7 +324,7 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 }
 
 // ApplicationStatus returns the status for the application and all the units on
-// the service to which this context unit belongs, only if this unit is
+// the application to which this context unit belongs, only if this unit is
 // the leader.
 func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error) {
 	var err error
@@ -328,11 +335,11 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 	if !isLeader {
 		return jujuc.ApplicationStatusInfo{}, ErrIsNotLeader
 	}
-	service, err := ctx.unit.Application()
+	application, err := ctx.unit.Application()
 	if err != nil {
 		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
 	}
-	status, err := service.Status(ctx.unit.Name())
+	status, err := application.Status(ctx.unit.Name())
 	if err != nil {
 		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
 	}
@@ -341,7 +348,7 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 	for t, s := range status.Units {
 		us[i] = jujuc.StatusInfo{
 			Tag:    t,
-			Status: string(s.Status),
+			Status: s.Status,
 			Info:   s.Info,
 			Data:   s.Data,
 		}
@@ -349,8 +356,8 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 	}
 	return jujuc.ApplicationStatusInfo{
 		Application: jujuc.StatusInfo{
-			Tag:    service.Tag().String(),
-			Status: string(status.Application.Status),
+			Tag:    application.Tag().String(),
+			Status: status.Application.Status,
 			Info:   status.Application.Info,
 			Data:   status.Application.Data,
 		},
@@ -369,10 +376,10 @@ func (ctx *HookContext) SetUnitStatus(unitStatus jujuc.StatusInfo) error {
 	)
 }
 
-// SetApplicationStatus will set the given status to the service to which this
+// SetApplicationStatus will set the given status to the application to which this
 // unit's belong, only if this unit is the leader.
-func (ctx *HookContext) SetApplicationStatus(serviceStatus jujuc.StatusInfo) error {
-	logger.Tracef("[APPLICATION-STATUS] %s: %s", serviceStatus.Status, serviceStatus.Info)
+func (ctx *HookContext) SetApplicationStatus(applicationStatus jujuc.StatusInfo) error {
+	logger.Tracef("[APPLICATION-STATUS] %s: %s", applicationStatus.Status, applicationStatus.Info)
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
@@ -381,15 +388,15 @@ func (ctx *HookContext) SetApplicationStatus(serviceStatus jujuc.StatusInfo) err
 		return ErrIsNotLeader
 	}
 
-	service, err := ctx.unit.Application()
+	application, err := ctx.unit.Application()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return service.SetStatus(
+	return application.SetStatus(
 		ctx.unit.Name(),
-		status.Status(serviceStatus.Status),
-		serviceStatus.Info,
-		serviceStatus.Data,
+		status.Status(applicationStatus.Status),
+		applicationStatus.Info,
+		applicationStatus.Data,
 	)
 }
 
@@ -624,11 +631,7 @@ func (c *HookContext) ActionData() (*ActionData, error) {
 // such that it can know what environment it's operating in, and can call back
 // into context.
 func (context *HookContext) HookVars(paths Paths) ([]string, error) {
-	var vars []string
-
-	if !featureflag.Enabled(feature.NewProxyOnly) {
-		vars = context.proxySettings.AsEnvironmentValues()
-	}
+	vars := context.legacyProxySettings.AsEnvironmentValues()
 	// TODO(thumper): as work on proxies progress, there will be additional
 	// proxy settings to be added.
 	vars = append(vars,
@@ -647,9 +650,10 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"JUJU_VERSION="+version.Current.String(),
 		// Some of these will be empty, but that is fine, better
 		// to explicitly export them as empty.
-		"JUJU_CHARM_HTTP_PROXY="+context.proxySettings.Http,
-		"JUJU_CHARM_HTTPS_PROXY="+context.proxySettings.Https,
-		"JUJU_CHARM_FTP_PROXY="+context.proxySettings.Ftp,
+		"JUJU_CHARM_HTTP_PROXY="+context.jujuProxySettings.Http,
+		"JUJU_CHARM_HTTPS_PROXY="+context.jujuProxySettings.Https,
+		"JUJU_CHARM_FTP_PROXY="+context.jujuProxySettings.Ftp,
+		"JUJU_CHARM_NO_PROXY="+context.jujuProxySettings.NoProxy,
 	)
 	if context.meterStatus != nil {
 		vars = append(vars,

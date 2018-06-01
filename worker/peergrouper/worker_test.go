@@ -63,6 +63,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.clock = testing.NewClock(time.Now())
 	s.hub = nopHub{}
+	logger.SetLogLevel(loggo.TRACE)
 }
 
 type testSuite interface {
@@ -490,8 +491,8 @@ func (s *workerSuite) TestControllersArePublishedOverHub(c *gc.C) {
 	expected := apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"10": {ID: "10", Addresses: []string{"0.1.2.10:5678"}, InternalAddress: "0.1.2.10:5678"},
-			"11": {ID: "11", Addresses: []string{"0.1.2.11:5678"}},
-			"12": {ID: "12", Addresses: []string{"0.1.2.12:5678"}},
+			"11": {ID: "11", Addresses: []string{"0.1.2.11:5678"}, InternalAddress: "0.1.2.11:5678"},
+			"12": {ID: "12", Addresses: []string{"0.1.2.12:5678"}, InternalAddress: "0.1.2.12:5678"},
 		},
 		LocalOnly: true,
 	}
@@ -820,27 +821,17 @@ func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *gc.C, ipVersi
 	defer workertest.CleanKill(c, w)
 
 	retryInterval := initialRetryInterval
-	serversPublished := false
-	for i := 0; i < 2; i++ {
-		s.clock.WaitAdvance(retryInterval, coretesting.ShortWait, 1)
-		retryInterval = scaleRetry(retryInterval)
-		select {
-		case servers := <-publishCh:
-			AssertAPIHostPorts(c, servers, ExpectedAPIHostPorts(3, ipVersion))
-			serversPublished = true
-			break
-		default:
-		}
-	}
-	if !serversPublished {
+	s.clock.WaitAdvance(retryInterval, coretesting.ShortWait, 1)
+	select {
+	case servers := <-publishCh:
+		AssertAPIHostPorts(c, servers, ExpectedAPIHostPorts(3, ipVersion))
+		break
+	case <-time.After(coretesting.ShortWait):
 		c.Fatal("APIHostPorts were not published")
 	}
-
-	select {
-	case <-publishCh:
-		c.Errorf("unexpected publish event")
-	case <-time.After(coretesting.ShortWait):
-	}
+	// There isn't any point checking for additional publish
+	// calls as we are also racing against config changed, which
+	// will also call SetAPIHostPorts. But we may not get this.
 }
 
 func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *voyeur.Watcher) {
@@ -874,12 +865,8 @@ func (s *workerSuite) initialize3Voters(c *gc.C) (*fakeState, worker.Worker, *vo
 	st.setControllers("10", "11", "12")
 	mustNext(c, memberWatcher, "nonvoting members")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", testIPv4))
-	// Changes to the replicaset status are discovered via polling mongo, so advance the clock so we'll check again
-	// we might be racing with a configChanged which can *just* miss the setStatus here.
-	// by waiting 2x, we are sure it has seen the change.
 	st.session.setStatus(mkStatuses("0p 1s 2s", testIPv4))
-	s.clock.Advance(2 * pollInterval)
-	c.Assert(s.clock.WaitAdvance(2*pollInterval, coretesting.ShortWait, 1), jc.ErrorIsNil)
+	c.Assert(s.clock.WaitAdvance(pollInterval, time.Second, 1), jc.ErrorIsNil)
 	mustNext(c, memberWatcher, "status ok")
 	assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", testIPv4))
 	st.machine("11").SetHasVote(true)
@@ -956,7 +943,7 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 	// StepDownPrimary and then can remove its vote.
 	// now we timeout so that the system will notice we really do still want to step down the primary, and ask
 	// for it to revote.
-	c.Assert(s.clock.WaitAdvance(2*pollInterval, coretesting.ShortWait, 2), jc.ErrorIsNil)
+	c.Assert(s.clock.WaitAdvance(2*pollInterval, coretesting.ShortWait, 1), jc.ErrorIsNil)
 	status = mustNextStatus(c, statusWatcher, "stepping down new primary")
 	if primaryMemberIndex == 1 {
 		// 11 was the primary, now 12 is
@@ -967,7 +954,7 @@ func (s *workerSuite) TestRemovePrimaryValidSecondaries(c *gc.C) {
 		c.Check(status.Members[2].State, gc.Equals, replicaset.MemberState(replicaset.SecondaryState))
 	}
 	// and then we again notice that the primary has been rescheduled and changed the member votes again
-	c.Assert(s.clock.WaitAdvance(2*pollInterval, coretesting.ShortWait, 1), jc.ErrorIsNil)
+	c.Assert(s.clock.WaitAdvance(pollInterval, coretesting.ShortWait, 1), jc.ErrorIsNil)
 	mustNext(c, memberWatcher, "reevaluting member post-step-down")
 	if primaryMemberIndex == 1 {
 		// primary was 11, now it is 12 as the only voter

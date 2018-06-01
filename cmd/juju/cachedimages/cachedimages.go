@@ -12,6 +12,7 @@ import (
 // image manager client.
 type CachedImagesCommandBase struct {
 	modelcmd.ModelCommandBase
+	modelcmd.IAASOnlyCommand
 }
 
 // NewImagesManagerClient returns a imagemanager client for the root api endpoint

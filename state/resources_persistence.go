@@ -6,9 +6,9 @@ package state
 import (
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"github.com/juju/utils/set"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
@@ -41,7 +41,7 @@ type ResourcePersistenceBase interface {
 }
 
 // ResourcePersistence provides the persistence functionality for the
-// Juju environment as a whole.
+// Juju model as a whole.
 type ResourcePersistence struct {
 	base ResourcePersistenceBase
 }
@@ -54,20 +54,20 @@ func NewResourcePersistence(base ResourcePersistenceBase) *ResourcePersistence {
 }
 
 // ListResources returns the info for each non-pending resource of the
-// identified service.
-func (p ResourcePersistence) ListResources(applicationID string) (resource.ServiceResources, error) {
+// identified application.
+func (p ResourcePersistence) ListResources(applicationID string) (resource.ApplicationResources, error) {
 	logger.Tracef("listing all resources for application %q", applicationID)
 
 	docs, err := p.resources(applicationID)
 	if err != nil {
-		return resource.ServiceResources{}, errors.Trace(err)
+		return resource.ApplicationResources{}, errors.Trace(err)
 	}
 
 	store := map[string]charmresource.Resource{}
 	units := map[names.UnitTag][]resource.Resource{}
 	downloadProgress := make(map[names.UnitTag]map[string]int64)
 
-	var results resource.ServiceResources
+	var results resource.ApplicationResources
 	for _, doc := range docs {
 		if doc.PendingID != "" {
 			continue
@@ -75,7 +75,7 @@ func (p ResourcePersistence) ListResources(applicationID string) (resource.Servi
 
 		res, err := doc2basicResource(doc)
 		if err != nil {
-			return resource.ServiceResources{}, errors.Trace(err)
+			return resource.ApplicationResources{}, errors.Trace(err)
 		}
 		if !doc.LastPolled.IsZero() {
 			store[res.Name] = res.Resource
@@ -111,7 +111,7 @@ func (p ResourcePersistence) ListResources(applicationID string) (resource.Servi
 }
 
 // ListPendingResources returns the extended, model-related info for
-// each pending resource of the identifies service.
+// each pending resource of the identifies application.
 func (p ResourcePersistence) ListPendingResources(applicationID string) ([]resource.Resource, error) {
 	docs, err := p.resources(applicationID)
 	if err != nil {
@@ -208,7 +208,7 @@ func (p ResourcePersistence) SetResource(res resource.Resource) error {
 			return nil, errors.New("setting the resource failed")
 		}
 		if stored.PendingID == "" {
-			// Only non-pending resources must have an existing service.
+			// Only non-pending resources must have an existing application.
 			ops = append(ops, p.base.ApplicationExistsOps(res.ApplicationID)...)
 		}
 		return ops, nil

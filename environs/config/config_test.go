@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/proxy"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/proxy"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v3"
@@ -1114,7 +1114,23 @@ func (s *ConfigSuite) TestAutoHookRetryTrueEnv(c *gc.C) {
 	c.Assert(config.AutomaticallyRetryHooks(), gc.Equals, true)
 }
 
-func (s *ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
+func (s *ConfigSuite) TestNoBothProxy(c *gc.C) {
+	config := newTestConfig(c, testing.Attrs{
+		"http-proxy":  "http://user@10.0.0.1",
+		"https-proxy": "https://user@10.0.0.1",
+		"ftp-proxy":   "ftp://user@10.0.0.1",
+		"no-proxy":    "localhost,10.0.3.1",
+	})
+	_, err := config.Apply(testing.Attrs{
+		"juju-http-proxy":  "http://user@10.0.0.1",
+		"juju-https-proxy": "https://user@10.0.0.1",
+		"juju-ftp-proxy":   "ftp://user@10.0.0.1",
+		"juju-no-proxy":    "localhost,10.0.3.1",
+	})
+	c.Assert(err, gc.ErrorMatches, "cannot specify both legacy proxy values and juju proxy values")
+}
+
+func (s *ConfigSuite) TestLegacyProxyValuesWithFallback(c *gc.C) {
 	s.addJujuFiles(c)
 
 	config := newTestConfig(c, testing.Attrs{
@@ -1131,6 +1147,36 @@ func (s *ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 	c.Assert(config.AptFTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
 	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
 	c.Assert(config.AptNoProxy(), gc.Equals, "localhost,10.0.3.1")
+
+	c.Assert(config.JujuHTTPProxy(), gc.Equals, "")
+	c.Assert(config.JujuHTTPSProxy(), gc.Equals, "")
+	c.Assert(config.JujuFTPProxy(), gc.Equals, "")
+	// Default no-proxy value.
+	c.Assert(config.JujuNoProxy(), gc.Equals, "127.0.0.1,localhost,::1")
+}
+
+func (s *ConfigSuite) TestJujuProxyValuesWithFallback(c *gc.C) {
+	s.addJujuFiles(c)
+	config := newTestConfig(c, testing.Attrs{
+		"juju-http-proxy":  "http://user@10.0.0.1",
+		"juju-https-proxy": "https://user@10.0.0.1",
+		"juju-ftp-proxy":   "ftp://user@10.0.0.1",
+		"juju-no-proxy":    "localhost,10.0.3.1",
+	})
+	c.Assert(config.JujuHTTPProxy(), gc.Equals, "http://user@10.0.0.1")
+	c.Assert(config.AptHTTPProxy(), gc.Equals, "http://user@10.0.0.1")
+	c.Assert(config.JujuHTTPSProxy(), gc.Equals, "https://user@10.0.0.1")
+	c.Assert(config.AptHTTPSProxy(), gc.Equals, "https://user@10.0.0.1")
+	c.Assert(config.JujuFTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
+	c.Assert(config.AptFTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
+	c.Assert(config.JujuNoProxy(), gc.Equals, "localhost,10.0.3.1")
+	c.Assert(config.AptNoProxy(), gc.Equals, "localhost,10.0.3.1")
+
+	c.Assert(config.HTTPProxy(), gc.Equals, "")
+	c.Assert(config.HTTPSProxy(), gc.Equals, "")
+	c.Assert(config.FTPProxy(), gc.Equals, "")
+	// Default no-proxy value.
+	c.Assert(config.NoProxy(), gc.Equals, "127.0.0.1,localhost,::1")
 }
 
 func (s *ConfigSuite) TestProxyValuesWithFallbackNoScheme(c *gc.C) {
@@ -1199,7 +1245,7 @@ func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
 	}
 	cfg, err := cfg.Apply(config.ProxyConfigMap(proxySettings))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxySettings)
+	c.Assert(cfg.LegacyProxySettings(), gc.DeepEquals, proxySettings)
 	cfg, err = cfg.Apply(config.AptProxyConfigMap(proxySettings))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, expectedProxySettings)
@@ -1217,7 +1263,7 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxySettings))
 	c.Assert(err, jc.ErrorIsNil)
 	// The default proxy settings should still be empty.
-	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy.Settings{NoProxy: "127.0.0.1,localhost,::1"})
+	c.Assert(cfg.LegacyProxySettings(), gc.DeepEquals, proxy.Settings{NoProxy: "127.0.0.1,localhost,::1"})
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
 }
 

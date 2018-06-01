@@ -5,7 +5,7 @@ package workertest
 
 import (
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 )
 
 // NewErrorWorker returns a Worker that runs until Kill()ed; at which point it
@@ -15,10 +15,10 @@ import (
 // Wait() for it.
 func NewErrorWorker(err error) worker.Worker {
 	w := &errorWorker{err: err}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-	}()
+		return nil
+	})
 	return w
 }
 
@@ -60,10 +60,10 @@ func (w *deadWorker) Wait() error {
 // lest any goroutines trying to manage it be leaked or blocked forever.
 func NewForeverWorker(err error) *ForeverWorker {
 	w := &ForeverWorker{err: err}
-	go func() {
-		defer w.tomb.Done()
+	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
-	}()
+		return nil
+	})
 	return w
 }
 

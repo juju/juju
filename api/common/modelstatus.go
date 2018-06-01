@@ -89,7 +89,7 @@ func constructModelStatus(model names.ModelTag, owner names.UserTag, r params.Mo
 		Life:               string(r.Life),
 		Owner:              owner.Id(),
 		HostedMachineCount: r.HostedMachineCount,
-		ServiceCount:       r.ApplicationCount,
+		ApplicationCount:   r.ApplicationCount,
 		TotalMachineCount:  len(r.Machines),
 		Volumes:            volumes,
 		Filesystems:        filesystems,

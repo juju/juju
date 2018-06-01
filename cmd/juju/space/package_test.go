@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -91,7 +91,7 @@ func (s *BaseSpaceSuite) newCommandForTest() modelcmd.ModelCommand {
 	cmd := s.newCommand()
 	// The client store shouldn't be used, but mock it
 	// out to make sure.
-	cmd.SetClientStore(jujuclient.NewMemStore())
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	cmd1 := modelcmd.InnerCommand(cmd).(interface {
 		SetAPI(space.SpaceAPI)
 	})

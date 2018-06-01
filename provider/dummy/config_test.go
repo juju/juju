@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/dummy"
@@ -83,7 +84,7 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 			continue
 		}
 		c.Assert(err, jc.ErrorIsNil)
-		defer env.Destroy()
+		defer env.Destroy(context.NewCloudCallContext())
 
 		firewallMode := env.Config().FirewallMode()
 		c.Assert(firewallMode, gc.Equals, test.firewallMode)

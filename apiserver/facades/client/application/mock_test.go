@@ -8,10 +8,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	jtesting "github.com/juju/testing"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"

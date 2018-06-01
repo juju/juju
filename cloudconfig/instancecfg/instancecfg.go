@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/proxy"
+	"github.com/juju/proxy"
 	"github.com/juju/utils/shell"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -131,8 +131,13 @@ type InstanceConfig struct {
 	// MachineAgentServiceName is the init service name for the Juju machine agent.
 	MachineAgentServiceName string
 
-	// ProxySettings define normal http, https and ftp proxies.
-	ProxySettings proxy.Settings
+	// LegacyProxySettings define normal http, https and ftp proxies.
+	// These values are written to the /etc for the user profile and systemd settings.
+	LegacyProxySettings proxy.Settings
+
+	// JujuProxySettings define normal http, https and ftp proxies for accessing
+	// the outside network. These values are not written to disk.
+	JujuProxySettings proxy.Settings
 
 	// AptProxySettings define the http, https and ftp proxy settings to use
 	// for apt, which may or may not be the same as the normal ProxySettings.
@@ -780,7 +785,7 @@ func NewBootstrapInstanceConfig(
 func PopulateInstanceConfig(icfg *InstanceConfig,
 	providerType, authorizedKeys string,
 	sslHostnameVerification bool,
-	proxySettings, aptProxySettings proxy.Settings,
+	legacyProxySettings, jujuProxySettings, aptProxySettings proxy.Settings,
 	aptMirror string,
 	enableOSRefreshUpdates bool,
 	enableOSUpgrade bool,
@@ -793,8 +798,10 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	icfg.AgentEnvironment[agent.ProviderType] = providerType
 	icfg.AgentEnvironment[agent.ContainerType] = string(icfg.MachineContainerType)
 	icfg.DisableSSLHostnameVerification = !sslHostnameVerification
-	icfg.ProxySettings = proxySettings
-	icfg.ProxySettings.AutoNoProxy = strings.Join(icfg.APIHosts(), ",")
+	icfg.LegacyProxySettings = legacyProxySettings
+	icfg.LegacyProxySettings.AutoNoProxy = strings.Join(icfg.APIHosts(), ",")
+	icfg.JujuProxySettings = jujuProxySettings
+	// No AutoNoProxy needed as juju no proxy values are CIDR aware.
 	icfg.AptProxySettings = aptProxySettings
 	icfg.AptMirror = aptMirror
 	icfg.EnableOSRefreshUpdate = enableOSRefreshUpdates
@@ -820,7 +827,8 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 		cfg.Type(),
 		cfg.AuthorizedKeys(),
 		cfg.SSLHostnameVerification(),
-		cfg.ProxySettings(),
+		cfg.LegacyProxySettings(),
+		cfg.JujuProxySettings(),
 		cfg.AptProxySettings(),
 		cfg.AptMirror(),
 		cfg.EnableOSRefreshUpdate(),

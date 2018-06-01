@@ -47,8 +47,8 @@ func (s *runSuite) addMachine(c *gc.C) *state.Machine {
 	return machine
 }
 
-func (s *runSuite) addUnit(c *gc.C, service *state.Application) *state.Unit {
-	unit, err := service.AddUnit(state.AddUnitParams{})
+func (s *runSuite) addUnit(c *gc.C, application *state.Application) *state.Unit {
+	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -85,32 +85,32 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, test := range []struct {
-		message  string
-		expected []string
-		units    []string
-		services []string
-		error    string
+		message      string
+		expected     []string
+		units        []string
+		applications []string
+		error        string
 	}{{
 		message: "no units, expected nil slice",
 	}, {
-		message:  "asking for an empty string service",
-		services: []string{""},
-		error:    `"" is not a valid application name`,
+		message:      "asking for an empty string application",
+		applications: []string{""},
+		error:        `"" is not a valid application name`,
 	}, {
 		message: "asking for an empty string unit",
 		units:   []string{""},
 		error:   `invalid unit name ""`,
 	}, {
-		message:  "asking for a service that isn't there",
-		services: []string{"foo"},
-		error:    `application "foo" not found`,
+		message:      "asking for a application that isn't there",
+		applications: []string{"foo"},
+		error:        `application "foo" not found`,
 	}, {
-		message:  "service with no units is not really an error",
-		services: []string{"no-units"},
+		message:      "application with no units is not really an error",
+		applications: []string{"no-units"},
 	}, {
-		message:  "A service with units",
-		services: []string{"magic"},
-		expected: []string{"magic/0", "magic/1"},
+		message:      "A application with units",
+		applications: []string{"magic"},
+		expected:     []string{"magic/0", "magic/1"},
 	}, {
 		message:  "Asking for just a unit",
 		units:    []string{"magic/0"},
@@ -120,13 +120,13 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 		units:    []string{"logging/0"},
 		expected: []string{"logging/0"},
 	}, {
-		message:  "Asking for a unit, and the service",
-		services: []string{"magic"},
-		units:    []string{"magic/0"},
-		expected: []string{"magic/0", "magic/1"},
+		message:      "Asking for a unit, and the application",
+		applications: []string{"magic"},
+		units:        []string{"magic/0"},
+		expected:     []string{"magic/0", "magic/1"},
 	}} {
 		c.Logf("%v: %s", i, test.message)
-		result, err := action.GetAllUnitNames(s.State, test.units, test.services)
+		result, err := action.GetAllUnitNames(s.State, test.units, test.applications)
 		if test.error == "" {
 			c.Check(err, jc.ErrorIsNil)
 			var units []string
@@ -159,9 +159,9 @@ func (s *runSuite) TestBlockRunOnAllMachines(c *gc.C) {
 	s.AssertBlocked(c, err, "TestBlockRunOnAllMachines")
 }
 
-func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
+func (s *runSuite) TestBlockRunMachineAndApplication(c *gc.C) {
 	// block all changes
-	s.BlockAllChanges(c, "TestBlockRunMachineAndService")
+	s.BlockAllChanges(c, "TestBlockRunMachineAndApplication")
 	_, err := s.client.Run(
 		params.RunParams{
 			Commands:     "hostname",
@@ -169,10 +169,10 @@ func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
 			Machines:     []string{"0"},
 			Applications: []string{"magic"},
 		})
-	s.AssertBlocked(c, err, "TestBlockRunMachineAndService")
+	s.AssertBlocked(c, err, "TestBlockRunMachineAndApplication")
 }
 
-func (s *runSuite) TestRunMachineAndService(c *gc.C) {
+func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 	// We only test that we create the actions correctly
 	// There is no need to test anything else at this level.
 	expectedPayload := map[string]interface{}{

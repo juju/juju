@@ -10,9 +10,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/machineundertaker"
@@ -251,11 +252,10 @@ func (s *undertakerSuite) newMockNotifyWatcher() *mockNotifyWatcher {
 	m := &mockNotifyWatcher{
 		changes: make(chan struct{}, 1),
 	}
-	go func() {
-		defer m.tomb.Done()
-		defer m.tomb.Kill(nil)
+	m.tomb.Go(func() error {
 		<-m.tomb.Dying()
-	}()
+		return nil
+	})
 	s.AddCleanup(func(c *gc.C) {
 		err := worker.Stop(m)
 		c.Check(err, jc.ErrorIsNil)
@@ -276,7 +276,7 @@ type fakeReleaser struct {
 	*testing.Stub
 }
 
-func (r *fakeReleaser) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
+func (r *fakeReleaser) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
 	r.Stub.AddCall("ReleaseContainerAddresses", interfaces)
 	return r.Stub.NextErr()
 }

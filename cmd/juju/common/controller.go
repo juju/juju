@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
 
@@ -116,15 +117,15 @@ func WaitForAgentInitialisation(ctx *cmd.Context, c *modelcmd.ModelCommandBase, 
 }
 
 // BootstrapEndpointAddresses returns the addresses of the bootstrapped instance.
-func BootstrapEndpointAddresses(environ environs.Environ) ([]network.Address, error) {
-	instances, err := environ.AllInstances()
+func BootstrapEndpointAddresses(environ environs.Environ, callContext context.ProviderCallContext) ([]network.Address, error) {
+	instances, err := environ.AllInstances(callContext)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if n := len(instances); n != 1 {
 		return nil, errors.Errorf("expected one instance, got %d", n)
 	}
-	netAddrs, err := instances[0].Addresses()
+	netAddrs, err := instances[0].Addresses(callContext)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get bootstrap instance addresses")
 	}

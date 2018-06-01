@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/utils/os"
-	"github.com/juju/utils/series"
+	"github.com/juju/os"
+	"github.com/juju/os/series"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
@@ -23,23 +23,27 @@ type statusFormatter struct {
 	controllerName string
 	relations      map[int]params.RelationStatus
 	isoTime        bool
+	showRelations  bool
 }
 
 // NewStatusFormatter takes stored model information (params.FullStatus) and populates
 // the statusFormatter struct used in various status formatting methods
 func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
-	return newStatusFormatter(status, "", isoTime)
+	return newStatusFormatter(status, "", isoTime, true)
 }
 
-func newStatusFormatter(status *params.FullStatus, controllerName string, isoTime bool) *statusFormatter {
+func newStatusFormatter(status *params.FullStatus, controllerName string, isoTime, showRelations bool) *statusFormatter {
 	sf := statusFormatter{
 		status:         status,
 		controllerName: controllerName,
 		relations:      make(map[int]params.RelationStatus),
 		isoTime:        isoTime,
+		showRelations:  showRelations,
 	}
-	for _, relation := range status.Relations {
-		sf.relations[relation.Id] = relation
+	if showRelations {
+		for _, relation := range status.Relations {
+			sf.relations[relation.Id] = relation
+		}
 	}
 	return &sf
 }
@@ -74,6 +78,11 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 		out.Model.MeterStatus = &meterStatus{
 			Color:   sf.status.Model.MeterStatus.Color,
 			Message: sf.status.Model.MeterStatus.Message,
+		}
+	}
+	if sf.status.ControllerTimestamp != nil {
+		out.Controller = &controllerStatus{
+			Timestamp: common.FormatTimeAsTimestamp(sf.status.ControllerTimestamp, sf.isoTime),
 		}
 	}
 	for k, m := range sf.status.Machines {

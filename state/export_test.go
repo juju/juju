@@ -134,6 +134,14 @@ func (doc *MachineDoc) String() string {
 	return m.String()
 }
 
+func CloudModelRefCount(st *State, cloudName string) (int, error) {
+	refcounts, closer := st.db().GetCollection(globalRefcountsC)
+	defer closer()
+
+	key := cloudModelRefCountKey(cloudName)
+	return nsRefcounts.read(refcounts, key)
+}
+
 func ApplicationSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {
 	refcounts, closer := st.db().GetCollection(refcountsC)
 	defer closer()
@@ -521,7 +529,7 @@ func RemoveController(c *gc.C, m *Machine) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func RemoveEndpointBindingsForService(c *gc.C, app *Application) {
+func RemoveEndpointBindingsForApplication(c *gc.C, app *Application) {
 	globalKey := app.globalKey()
 	removeOp := removeEndpointBindingsOp(globalKey)
 
@@ -541,7 +549,7 @@ func RelationCount(app *Application) int {
 	return app.doc.RelationCount
 }
 
-func AssertEndpointBindingsNotFoundForService(c *gc.C, app *Application) {
+func AssertEndpointBindingsNotFoundForApplication(c *gc.C, app *Application) {
 	globalKey := app.globalKey()
 	storedBindings, _, err := readEndpointBindings(app.st, globalKey)
 	c.Assert(storedBindings, gc.IsNil)

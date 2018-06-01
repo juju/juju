@@ -10,15 +10,23 @@ import json
 import logging
 import os
 import subprocess
+from tempfile import NamedTemporaryFile
 from unittest import (
     TestCase,
     )
-
-from mock import (
-    call,
-    MagicMock,
-    patch,
-    Mock,
+try:
+    from mock import (
+        call,
+        MagicMock,
+        patch,
+        Mock,
+    )
+except ImportError:
+    from unittest.mock import (
+        call,
+        MagicMock,
+        patch,
+        Mock,
     )
 import yaml
 
@@ -421,6 +429,14 @@ class DeployStackTestCase(FakeHomeTestCase):
             self.log_stream.getvalue().splitlines())
 
 
+@contextmanager
+def _fake_winrm_certs():
+    with NamedTemporaryFile() as cert_file:
+        fake_cert = (cert_file.name, cert_file.name)
+        with patch('utility.get_winrm_certs', return_value=fake_cert):
+            yield
+
+
 class DumpEnvLogsTestCase(FakeHomeTestCase):
 
     log_level = logging.DEBUG
@@ -428,9 +444,10 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
     def assert_machines(self, expected, got):
         self.assertEqual(expected, dict((k, got[k].address) for k in got))
 
-    r0 = remote_from_address('10.10.0.1')
-    r1 = remote_from_address('10.10.0.11')
-    r2 = remote_from_address('10.10.0.22', series='win2012hvr2')
+    with _fake_winrm_certs():
+        r0 = remote_from_address('10.10.0.1')
+        r1 = remote_from_address('10.10.0.11')
+        r2 = remote_from_address('10.10.0.22', series='win2012hvr2')
 
     @classmethod
     def fake_remote_machines(cls):
@@ -604,7 +621,8 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             cc_mock.call_args_list[2][0])
 
     def test_copy_remote_logs_windows(self):
-        remote = remote_from_address('10.10.0.1', series="win2012hvr2")
+        with _fake_winrm_certs():
+            remote = remote_from_address('10.10.0.1', series="win2012hvr2")
         with patch.object(remote, "copy", autospec=True) as copy_mock:
             copy_remote_logs(remote, '/foo')
         paths = [
@@ -753,8 +771,9 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             """)
         with patch.object(client, 'get_status', autospec=True,
                           return_value=status):
-            machines = [(m, r.address, r.series)
-                        for m, r in iter_remote_machines(client)]
+            with _fake_winrm_certs():
+                machines = [(m, r.address, r.series)
+                            for m, r in iter_remote_machines(client)]
         self.assertEqual(
             [('0', '10.11.12.13', 'trusty'),
              ('1', '10.11.12.14', 'win2012hvr2')], machines)

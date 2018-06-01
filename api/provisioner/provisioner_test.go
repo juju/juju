@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -672,6 +672,21 @@ func (s *provisionerSuite) TestContainerManagerConfigPermissive(c *gc.C) {
 
 func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	result, err := s.provisioner.ContainerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.ProviderType, gc.Equals, "dummy")
+	c.Assert(result.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
+	c.Assert(result.SSLHostnameVerification, jc.IsTrue)
+}
+
+func (s *provisionerSuite) TestContainerConfigV5(c *gc.C) {
+	caller := apibasetesting.BestVersionCaller{
+		APICallerFunc: s.st.APICall,
+		BestVersion:   5,
+	}
+
+	provAPI := provisioner.NewState(caller)
+
+	result, err := provAPI.ContainerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.ProviderType, gc.Equals, "dummy")
 	c.Assert(result.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())

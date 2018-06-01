@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -216,16 +216,13 @@ type exporter struct {
 }
 
 func (e *exporter) sequences() error {
-	sequences, closer := e.st.db().GetCollection(sequenceC)
-	defer closer()
-
-	var docs []sequenceDoc
-	if err := sequences.Find(nil).All(&docs); err != nil {
+	sequences, err := e.st.Sequences()
+	if err != nil {
 		return errors.Trace(err)
 	}
 
-	for _, doc := range docs {
-		e.model.SetSequence(doc.Name, doc.Counter)
+	for name, value := range sequences {
+		e.model.SetSequence(name, value)
 	}
 	return nil
 }
@@ -666,7 +663,7 @@ type addApplicationContext struct {
 	meterStatus      map[string]*meterStatusDoc
 	leader           string
 	payloads         map[string][]payload.FullPayloadInfo
-	resources        resource.ServiceResources
+	resources        resource.ApplicationResources
 	endpoingBindings map[string]bindingsMap
 
 	// CAAS
@@ -839,7 +836,7 @@ func (e *exporter) unitWorkloadVersion(unit *Unit) (string, error) {
 	return info.Message, nil
 }
 
-func (e *exporter) setResources(exApp description.Application, resources resource.ServiceResources) error {
+func (e *exporter) setResources(exApp description.Application, resources resource.ApplicationResources) error {
 	if len(resources.Resources) != len(resources.CharmStoreResources) {
 		return errors.New("number of resources don't match charm store resources")
 	}

@@ -10,8 +10,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -157,6 +157,7 @@ func NewDBDumper(info *DBInfo) (DBDumper, error) {
 func (md *mongoDumper) options(dumpDir string) []string {
 	options := []string{
 		"--ssl",
+		"--sslAllowInvalidCertificates",
 		"--authenticationDatabase", "admin",
 		"--host", md.Address,
 		"--username", md.Username,
@@ -389,6 +390,7 @@ func (md *mongoRestorer32) options(dumpDir string) []string {
 	// than the "1000" that many report success using in the bug.
 	options := []string{
 		"--ssl",
+		"--sslAllowInvalidCertificates",
 		"--authenticationDatabase", "admin",
 		"--host", md.Addrs[0],
 		"--username", md.Username,

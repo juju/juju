@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	callcontext "github.com/juju/juju/environs/context"
 )
 
 var logger = loggo.GetLogger("juju.provider.vmware")
@@ -93,7 +94,7 @@ func (p *environProvider) CloudSchema() *jsonschema.Schema {
 const failedLoginMsg = "ServerFaultCode: Cannot complete login due to an incorrect user name or password."
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p *environProvider) Ping(endpoint string) error {
+func (p *environProvider) Ping(callCtx callcontext.ProviderCallContext, endpoint string) error {
 	// try to be smart and not punish people for adding or forgetting http
 	u, err := url.Parse(endpoint)
 	if err != nil {

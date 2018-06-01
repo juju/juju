@@ -9,7 +9,7 @@ import (
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
-	"gopkg.in/tomb.v1"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/dependency"
@@ -55,10 +55,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				agent:              a,
 				agentConfigChanged: config.AgentConfigChanged,
 			}
-			go func() {
-				defer w.tomb.Done()
-				w.tomb.Kill(w.loop())
-			}()
+			w.tomb.Go(w.loop)
 			return w, nil
 		},
 		Output: outputFunc,

@@ -108,8 +108,8 @@ func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *remoteApplicationSuite) assertApplicationRelations(c *gc.C, svc *state.Application, expectedKeys ...string) []*state.Relation {
-	rels, err := svc.Relations()
+func (s *remoteApplicationSuite) assertApplicationRelations(c *gc.C, app *state.Application, expectedKeys ...string) []*state.Relation {
+	rels, err := app.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	if len(rels) == 0 {
 		return nil
@@ -704,9 +704,9 @@ func (s *remoteApplicationSuite) assertAddRemoteRelation(c *gc.C, application1, 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel.String(), gc.Equals, "wordpress:db mysql:db")
 	c.Assert(rel.Endpoints(), jc.DeepEquals, []state.Endpoint{endpoints[application1], endpoints[application2]})
-	remoteSvc, err := s.State.RemoteApplication("mysql")
+	remoteapp, err := s.State.RemoteApplication("mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	relations, err := remoteSvc.Relations()
+	relations, err := remoteapp.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(relations, gc.HasLen, 1)
 	c.Assert(relations[0], jc.DeepEquals, rel)

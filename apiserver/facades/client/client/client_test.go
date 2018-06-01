@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
@@ -335,7 +336,7 @@ type mockEnviron struct {
 	err                error
 }
 
-func (m *mockEnviron) AllInstances() ([]instance.Instance, error) {
+func (m *mockEnviron) AllInstances(context.ProviderCallContext) ([]instance.Instance, error) {
 	m.allInstancesCalled = true
 	return nil, m.err
 }
@@ -527,12 +528,27 @@ func clearSinceTimes(status *params.FullStatus) {
 	status.Model.ModelStatus.Since = nil
 }
 
+// clearContollerTimestamp zeros out the controller timestamps inside
+// status, so we can easily check the results.
+func clearContollerTimestamp(status *params.FullStatus) {
+	status.ControllerTimestamp = nil
+}
+
 func (s *clientSuite) TestClientStatus(c *gc.C) {
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status(nil)
 	clearSinceTimes(status)
+	clearContollerTimestamp(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, jc.DeepEquals, scenarioStatus)
+}
+
+func (s *clientSuite) TestClientStatusControllerTimestamp(c *gc.C) {
+	s.setUpScenario(c)
+	status, err := s.APIState.Client().Status(nil)
+	clearSinceTimes(status)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status.ControllerTimestamp, gc.NotNil)
 }
 
 func assertLife(c *gc.C, entity state.Living, life state.Life) {
@@ -984,16 +1000,26 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
-	result, err := s.APIState.Client().FindTools(99, -1, "", "")
+	result, err := s.APIState.Client().FindTools(99, -1, "", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
 	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "released", version.MustParseBinary("2.99.0-precise-amd64"))
-	result, err = s.APIState.Client().FindTools(2, 99, "precise", "amd64")
+	result, err = s.APIState.Client().FindTools(2, 99, "precise", "amd64", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)
 	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.99.0-precise-amd64"))
 	url := fmt.Sprintf("https://%s/model/%s/tools/%s",
+		s.APIState.Addr(), coretesting.ModelTag.Id(), result.List[0].Version)
+	c.Assert(result.List[0].URL, gc.Equals, url)
+
+	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "pretend", version.MustParseBinary("3.0.1-precise-amd64"))
+	result, err = s.APIState.Client().FindTools(3, 0, "precise", "amd64", "pretend")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.List, gc.HasLen, 1)
+	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("3.0.1-precise-amd64"))
+	url = fmt.Sprintf("https://%s/model/%s/tools/%s",
 		s.APIState.Addr(), coretesting.ModelTag.Id(), result.List[0].Version)
 	c.Assert(result.List[0].URL, gc.Equals, url)
 }

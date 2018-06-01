@@ -13,13 +13,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/series"
-	"github.com/juju/utils/set"
 	"github.com/juju/version"
 	"gopkg.in/amz.v3/aws"
 	amzec2 "gopkg.in/amz.v3/ec2"
@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
@@ -214,6 +215,8 @@ type localServerSuite struct {
 	jujutest.Tests
 	srv    localServer
 	client *amzec2.EC2
+
+	callCtx context.ProviderCallContext
 }
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
@@ -261,6 +264,8 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 	restoreEC2Patching := patchEC2ForTesting(c, region)
 	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 	t.Tests.SetUpTest(c)
+
+	t.callCtx = context.NewCloudCallContext()
 }
 
 func (t *localServerSuite) TearDownTest(c *gc.C) {
@@ -369,11 +374,11 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check that ControllerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.ControllerInstances(t.ControllerUUID)
+	instanceIds, err := env.ControllerInstances(t.callCtx, t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 
-	insts, err := env.AllInstances()
+	insts, err := env.AllInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
@@ -384,7 +389,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	// happens after the machine is brought up.
 	inst := t.srv.ec2srv.Instance(string(insts[0].Id()))
 	c.Assert(inst, gc.NotNil)
-	addresses, err := insts[0].Addresses()
+	addresses, err := insts[0].Addresses(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 	userData, err := utils.Gunzip(inst.UserData)
@@ -407,7 +412,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	})
 
 	// check that a new instance will be started with a machine agent
-	inst1, hc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
+	inst1, hc := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(3.75*1024))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
@@ -425,10 +430,10 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	CheckScripts(c, userDataMap, "/var/lib/juju/agents/machine-1/agent.conf", true)
 	// TODO check for provisioning agent
 
-	err = env.Destroy()
+	err = env.Destroy(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = env.ControllerInstances(t.ControllerUUID)
+	_, err = env.ControllerInstances(t.callCtx, t.ControllerUUID)
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
@@ -446,11 +451,11 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check that ControllerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.ControllerInstances(t.ControllerUUID)
+	instanceIds, err := env.ControllerInstances(t.callCtx, t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 
-	insts, err := env.AllInstances()
+	insts, err := env.AllInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
@@ -461,7 +466,7 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	// happens after the machine is brought up.
 	inst := t.srv.ec2srv.Instance(string(insts[0].Id()))
 	c.Assert(inst, gc.NotNil)
-	addresses, err := insts[0].Addresses()
+	addresses, err := insts[0].Addresses(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 	userData, err := utils.Gunzip(inst.UserData)
@@ -484,7 +489,7 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	})
 
 	// check that a new instance will be started with a machine agent
-	inst1, hc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
+	inst1, hc := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(3.75*1024))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
@@ -502,10 +507,10 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	CheckScripts(c, userDataMap, "/var/lib/juju/agents/machine-1/agent.conf", true)
 	// TODO check for provisioning agent
 
-	err = env.Destroy()
+	err = env.Destroy(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = env.ControllerInstances(t.ControllerUUID)
+	_, err = env.ControllerInstances(t.callCtx, t.ControllerUUID)
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
@@ -519,7 +524,7 @@ func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
-	insts, err := env.AllInstances()
+	insts, err := env.AllInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	idsToStop := make([]instance.Id, len(insts)+1)
 	for i, one := range insts {
@@ -527,7 +532,7 @@ func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
 	}
 	idsToStop[len(insts)] = instance.Id("i-am-not-found")
 
-	err = env.StopInstances(idsToStop...)
+	err = env.StopInstances(t.callCtx, idsToStop...)
 	// NotFound should be ignored
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -540,7 +545,7 @@ func (t *localServerSuite) TestDestroyErr(c *gc.C) {
 		return nil, errors.New(msg)
 	})
 
-	err := env.Destroy()
+	err := env.Destroy(t.callCtx)
 	c.Assert(errors.Cause(err).Error(), jc.Contains, msg)
 }
 
@@ -554,7 +559,7 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// create another instance to terminate
-	inst1, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
+	inst1, _ := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	inst := t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
 	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
@@ -564,7 +569,7 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		return nil, errors.New("terminate instances error")
 	})
-	err = env.Destroy()
+	err = env.Destroy(t.callCtx)
 	c.Assert(err, gc.NotNil)
 
 	terminated, err := ec2.TerminatedInstances(env)
@@ -576,7 +581,7 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 func (t *localServerSuite) TestInstanceSecurityGroupsWitheInstanceStatusFilter(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 
-	insts, err := env.AllInstances()
+	insts, err := env.AllInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	ids := make([]instance.Id, len(insts))
 	for i, one := range insts {
@@ -602,7 +607,7 @@ func (t *localServerSuite) TestDestroyControllerModelDeleteSecurityGroupInsisten
 	) error {
 		return errors.New(msg)
 	})
-	err := env.DestroyController(t.ControllerUUID)
+	err := env.DestroyController(t.callCtx, t.ControllerUUID)
 	c.Assert(err, gc.ErrorMatches, "destroying managed environs: cannot delete security group .*: "+msg)
 }
 
@@ -620,7 +625,7 @@ func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyE
 	) error {
 		return errors.New(msg)
 	})
-	err = hostedEnv.Destroy()
+	err = hostedEnv.Destroy(t.callCtx)
 	c.Assert(err, gc.ErrorMatches, "cannot delete environment security groups: cannot delete default security group: "+msg)
 }
 
@@ -640,7 +645,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "0")
+	inst, _ := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	ebsProvider, err := env.StorageProvider(ec2.EBS_ProviderType)
 	c.Assert(err, jc.ErrorIsNil)
@@ -665,7 +670,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 	c.Assert(volumeResults[0].Error, jc.ErrorIsNil)
 
 	assertInstances := func(expect ...instance.Id) {
-		insts, err := env.AllInstances()
+		insts, err := env.AllInstances(t.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
 		ids := make([]instance.Id, len(insts))
 		for i, inst := range insts {
@@ -700,7 +705,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 
 	// Destroy the controller resources. This should destroy the hosted
 	// environment too.
-	err = controllerEnv.DestroyController(t.ControllerUUID)
+	err = controllerEnv.DestroyController(t.callCtx, t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertInstances()
@@ -717,14 +722,14 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
-	inst, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
+	inst, _ := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inst.Status().Message, gc.Equals, "terminated")
+	c.Assert(inst.Status(t.callCtx).Message, gc.Equals, "terminated")
 }
 
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
-	_, hc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
+	_, hc := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(3.75*1024))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
@@ -751,7 +756,7 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 	env := t.prepareAndBootstrap(c)
 
 	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID, AvailabilityZone: zone, StatusCallback: fakeCallback}
-	result, err := testing.StartInstanceWithParams(env, "1", params)
+	result, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
 	if err != nil {
 		return nil, err
 	}
@@ -779,7 +784,7 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) 
 			VolumeId: resp.Id,
 		}},
 	}
-	result, err := testing.StartInstanceWithParams(env, "1", args)
+	result, err := testing.StartInstanceWithParams(env, t.callCtx, "1", args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ec2.InstanceEC2(result.Instance).AvailZone, gc.Equals, "volume-zone")
 }
@@ -806,7 +811,7 @@ func (t *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZonePlacementC
 			VolumeId: resp.Id,
 		}},
 	}
-	_, err = testing.StartInstanceWithParams(env, "1", args)
+	_, err = testing.StartInstanceWithParams(env, t.callCtx, "1", args)
 	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested EBS volumes in zone "volume-zone"`)
 }
 
@@ -818,7 +823,7 @@ func (t *localServerSuite) TestStartInstanceZoneIndependent(c *gc.C) {
 		AvailabilityZone: "test-available",
 		Placement:        "nonsense",
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	_, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
 	c.Assert(err, gc.ErrorMatches, "unknown placement directive: nonsense")
 	// The returned error should indicate that it is independent
 	// of the availability zone specified.
@@ -858,13 +863,13 @@ func (t *localServerSuite) testStartInstanceSubnet(c *gc.C, subnet string) (inst
 		},
 	}
 	zonedEnviron := env.(common.ZonedEnviron)
-	zones, err := zonedEnviron.DeriveAvailabilityZones(params)
+	zones, err := zonedEnviron.DeriveAvailabilityZones(t.callCtx, params)
 	if err != nil {
 		return nil, err
 	}
 	if len(zones) > 0 {
 		params.AvailabilityZone = zones[0]
-		result, err := testing.StartInstanceWithParams(env, "1", params)
+		result, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
 		if err != nil {
 			return nil, err
 		}
@@ -887,7 +892,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneSubnetWrongVPC(c *gc.C) {
 		},
 	}
 	zonedEnviron := env.(common.ZonedEnviron)
-	_, err := zonedEnviron.DeriveAvailabilityZones(params)
+	_, err := zonedEnviron.DeriveAvailabilityZones(t.callCtx, params)
 	c.Assert(err, gc.ErrorMatches, `unknown placement directive: subnet=0.1.2.0/24`)
 }
 
@@ -903,14 +908,14 @@ func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 	env := t.Prepare(c).(common.ZonedEnviron)
 
 	resultErr = fmt.Errorf("failed to get availability zones")
-	zones, err := env.AvailabilityZones()
+	zones, err := env.AvailabilityZones(t.callCtx)
 	c.Assert(err, gc.Equals, resultErr)
 	c.Assert(zones, gc.IsNil)
 
 	resultErr = nil
 	resultZones = make([]amzec2.AvailabilityZoneInfo, 1)
 	resultZones[0].Name = "whatever"
-	zones, err = env.AvailabilityZones()
+	zones, err = env.AvailabilityZones(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 1)
 	c.Assert(zones[0].Name(), gc.Equals, "whatever")
@@ -920,7 +925,7 @@ func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 	// Environs to cut down repeated IaaS requests.
 	resultErr = fmt.Errorf("failed to get availability zones")
 	resultZones[0].Name = "andever"
-	zones, err = env.AvailabilityZones()
+	zones, err = env.AvailabilityZones(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 1)
 	c.Assert(zones[0].Name(), gc.Equals, "whatever")
@@ -940,7 +945,7 @@ func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 	resultZones[1].Name = "az2"
 	resultZones[0].State = "available"
 	resultZones[1].State = "impaired"
-	zones, err := env.AvailabilityZones()
+	zones, err := env.AvailabilityZones(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 2)
 	c.Assert(zones[0].Name(), gc.Equals, resultZones[0].Name)
@@ -977,7 +982,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZones(c *gc.C) {
 	resultZones[0].State = "available"
 	resultZones[1].State = "impaired"
 
-	zones, err := env.DeriveAvailabilityZones(environs.StartInstanceParams{Placement: "zone=az1"})
+	zones, err := env.DeriveAvailabilityZones(t.callCtx, environs.StartInstanceParams{Placement: "zone=az1"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.DeepEquals, []string{"az1"})
 }
@@ -997,7 +1002,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZonesImpaired(c *gc.C) {
 	resultZones[0].State = "available"
 	resultZones[1].State = "impaired"
 
-	zones, err := env.DeriveAvailabilityZones(environs.StartInstanceParams{Placement: "zone=az2"})
+	zones, err := env.DeriveAvailabilityZones(t.callCtx, environs.StartInstanceParams{Placement: "zone=az2"})
 	c.Assert(err, gc.ErrorMatches, "availability zone \"az2\" is \"impaired\"")
 	c.Assert(zones, gc.HasLen, 0)
 }
@@ -1024,7 +1029,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZonesConflictVolume(c *gc.C) {
 		}},
 	}
 	env := t.Prepare(c).(common.ZonedEnviron)
-	zones, err := env.DeriveAvailabilityZones(args)
+	zones, err := env.DeriveAvailabilityZones(t.callCtx, args)
 	c.Assert(err, gc.ErrorMatches, `cannot create instance with placement "zone=test-available", as this will prevent attaching the requested EBS volumes in zone "volume-zone"`)
 	c.Assert(zones, gc.HasLen, 0)
 }
@@ -1050,7 +1055,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C)
 		}},
 	}
 	env := t.Prepare(c).(common.ZonedEnviron)
-	zones, err := env.DeriveAvailabilityZones(args)
+	zones, err := env.DeriveAvailabilityZones(t.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.DeepEquals, []string{"volume-zone"})
 }
@@ -1108,7 +1113,7 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 		AvailabilityZone: "test-available",
 	}
 
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	_, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
 	// All AZConstrained failures should return an error that does
 	// *not* satisfy environs.IsAvailabilityZoneIndependent,
 	// so the caller knows to try a new zone, rather than fail.
@@ -1189,7 +1194,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) 
 		},
 		StatusCallback: fakeCallback,
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	_, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
 	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 	c.Assert(errors.Details(err), gc.Matches, `.*subnets in AZ "test-available" not found.*`)
 }
@@ -1209,7 +1214,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 		},
 		StatusCallback: fakeCallback,
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params)
+	_, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1236,22 +1241,22 @@ func (t *localServerSuite) assertStartInstanceWithParamsFindAZ(
 	params environs.StartInstanceParams,
 ) {
 	zonedEnviron := env.(common.ZonedEnviron)
-	zones, err := zonedEnviron.DeriveAvailabilityZones(params)
+	zones, err := zonedEnviron.DeriveAvailabilityZones(t.callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	if len(zones) > 0 {
 		params.AvailabilityZone = zones[0]
-		_, err = testing.StartInstanceWithParams(env, "1", params)
+		_, err = testing.StartInstanceWithParams(env, t.callCtx, "1", params)
 		c.Assert(err, jc.ErrorIsNil)
 		return
 	}
-	availabilityZones, err := zonedEnviron.AvailabilityZones()
+	availabilityZones, err := zonedEnviron.AvailabilityZones(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, zone := range availabilityZones {
 		if !zone.Available() {
 			continue
 		}
 		params.AvailabilityZone = zone.Name()
-		_, err = testing.StartInstanceWithParams(env, "1", params)
+		_, err = testing.StartInstanceWithParams(env, t.callCtx, "1", params)
 		if err == nil {
 			return
 		} else if !environs.IsAvailabilityZoneIndependent(err) {
@@ -1278,7 +1283,7 @@ func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 	}
 	//_, err := testing.StartInstanceWithParams(env, "1", params)
 	zonedEnviron := env.(common.ZonedEnviron)
-	_, err := zonedEnviron.DeriveAvailabilityZones(params)
+	_, err := zonedEnviron.DeriveAvailabilityZones(t.callCtx, params)
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
 }
 
@@ -1312,14 +1317,14 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 
 	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID}
 	zonedEnviron := env.(common.ZonedEnviron)
-	availabilityZones, err := zonedEnviron.AvailabilityZones()
+	availabilityZones, err := zonedEnviron.AvailabilityZones(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, zone := range availabilityZones {
 		if !zone.Available() {
 			continue
 		}
 		params.AvailabilityZone = zone.Name()
-		_, err = testing.StartInstanceWithParams(env, "1", params)
+		_, err = testing.StartInstanceWithParams(env, t.callCtx, "1", params)
 		if err == nil {
 			break
 		} else if !environs.IsAvailabilityZoneIndependent(err) {
@@ -1333,8 +1338,8 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
-	inst, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
-	addrs, err := inst.Addresses()
+	inst, _ := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
+	addrs, err := inst.Addresses(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	// Expected values use Address type but really contain a regexp for
 	// the value rather than a valid ip or hostname.
@@ -1428,7 +1433,7 @@ func (t *localServerSuite) TestConstraintsMerge(c *gc.C) {
 func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
-	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
 		Series:      supportedversion.SupportedLTS(),
 		Constraints: cons,
 	})
@@ -1438,7 +1443,7 @@ func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.invalid")
-	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
 		Series:      supportedversion.SupportedLTS(),
 		Constraints: cons,
 	})
@@ -1448,7 +1453,7 @@ func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=i386")
-	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
 		Series:      supportedversion.SupportedLTS(),
 		Constraints: cons,
 	})
@@ -1458,7 +1463,7 @@ func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-available"
-	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
 		Series:    supportedversion.SupportedLTS(),
 		Placement: placement,
 	})
@@ -1468,7 +1473,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
-	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
 		Series:    supportedversion.SupportedLTS(),
 		Placement: placement,
 	})
@@ -1478,7 +1483,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
-	err := env.PrecheckInstance(environs.PrecheckInstanceParams{
+	err := env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
 		Series:    supportedversion.SupportedLTS(),
 		Placement: placement,
 	})
@@ -1502,7 +1507,7 @@ func (t *localServerSuite) testPrecheckInstanceVolumeAvailZone(c *gc.C, placemen
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = env.PrecheckInstance(environs.PrecheckInstanceParams{
+	err = env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
 		Series:    supportedversion.SupportedLTS(),
 		Placement: placement,
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
@@ -1525,7 +1530,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneVolumeConflict(c *gc.C) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = env.PrecheckInstance(environs.PrecheckInstanceParams{
+	err = env.PrecheckInstance(t.callCtx, environs.PrecheckInstanceParams{
 		Series:    supportedversion.SupportedLTS(),
 		Placement: "zone=test-available",
 		VolumeAttachments: []storage.VolumeAttachmentParams{{
@@ -1581,14 +1586,14 @@ func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.Networ
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	instanceIds, err := env.ControllerInstances(t.ControllerUUID)
+	instanceIds, err := env.ControllerInstances(t.callCtx, t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	return env, instanceIds[0]
 }
 
 func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
-	interfaces, err := env.NetworkInterfaces(instId)
+	interfaces, err := env.NetworkInterfaces(t.callCtx, instId)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The CIDR isn't predictable, but it is in the 10.10.x.0/24 format
@@ -1632,12 +1637,12 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 
 func (t *localServerSuite) TestSubnetsWithInstanceId(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
-	subnets, err := env.Subnets(instId, nil)
+	subnets, err := env.Subnets(t.callCtx, instId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
 	validateSubnets(c, subnets, "")
 
-	interfaces, err := env.NetworkInterfaces(instId)
+	interfaces, err := env.NetworkInterfaces(t.callCtx, instId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(interfaces, gc.HasLen, 1)
 	c.Assert(interfaces[0].ProviderSubnetId, gc.Equals, subnets[0].ProviderId)
@@ -1645,11 +1650,11 @@ func (t *localServerSuite) TestSubnetsWithInstanceId(c *gc.C) {
 
 func (t *localServerSuite) TestSubnetsWithInstanceIdAndSubnetId(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
-	interfaces, err := env.NetworkInterfaces(instId)
+	interfaces, err := env.NetworkInterfaces(t.callCtx, instId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(interfaces, gc.HasLen, 1)
 
-	subnets, err := env.Subnets(instId, []network.Id{interfaces[0].ProviderSubnetId})
+	subnets, err := env.Subnets(t.callCtx, instId, []network.Id{interfaces[0].ProviderSubnetId})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
 	c.Assert(subnets[0].ProviderId, gc.Equals, interfaces[0].ProviderSubnetId)
@@ -1658,7 +1663,7 @@ func (t *localServerSuite) TestSubnetsWithInstanceIdAndSubnetId(c *gc.C) {
 
 func (t *localServerSuite) TestSubnetsWithInstanceIdMissingSubnet(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
-	subnets, err := env.Subnets(instId, []network.Id{"missing"})
+	subnets, err := env.Subnets(t.callCtx, instId, []network.Id{"missing"})
 	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[missing\]`)
 	c.Assert(subnets, gc.HasLen, 0)
 }
@@ -1667,12 +1672,12 @@ func (t *localServerSuite) TestInstanceInformation(c *gc.C) {
 	// TODO(macgreagoir) Where do these magic length numbers come from?
 	c.Skip("Hard-coded InstanceTypes counts without explanation")
 	env := t.prepareEnviron(c)
-	types, err := env.InstanceTypes(constraints.Value{})
+	types, err := env.InstanceTypes(t.callCtx, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, gc.HasLen, 53)
 
 	cons := constraints.MustParse("mem=4G")
-	types, err = env.InstanceTypes(cons)
+	types, err = env.InstanceTypes(t.callCtx, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types.InstanceTypes, gc.HasLen, 48)
 }
@@ -1722,12 +1727,12 @@ func validateSubnets(c *gc.C, subnets []network.SubnetInfo, vpcId network.Id) {
 func (t *localServerSuite) TestSubnets(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
-	subnets, err := env.Subnets(instance.UnknownId, []network.Id{"subnet-0"})
+	subnets, err := env.Subnets(t.callCtx, instance.UnknownId, []network.Id{"subnet-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 1)
 	validateSubnets(c, subnets, "vpc-0")
 
-	subnets, err = env.Subnets(instance.UnknownId, nil)
+	subnets, err = env.Subnets(t.callCtx, instance.UnknownId, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, gc.HasLen, 4)
 	validateSubnets(c, subnets, "vpc-0")
@@ -1736,14 +1741,14 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
 
-	_, err := env.Subnets("", []network.Id{"subnet-0", "Missing"})
+	_, err := env.Subnets(t.callCtx, "", []network.Id{"subnet-0", "Missing"})
 	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[Missing\]`)
 }
 
 func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 
-	instances, err := env.AllInstances()
+	instances, err := env.AllInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 
@@ -1759,7 +1764,7 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 
-	instances, err := env.AllInstances()
+	instances, err := env.AllInstances(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 
@@ -1785,7 +1790,7 @@ func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
 
 func (s *localServerSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	env := s.prepareAndBootstrap(c)
-	inst, err := env.AllInstances()
+	inst, err := env.AllInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inst, gc.HasLen, 1)
 	ec2inst := ec2.InstanceEC2(inst[0])
@@ -1802,7 +1807,7 @@ func makeFilter(key string, values ...string) *amzec2.Filter {
 
 func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	controllerEnv := s.prepareAndBootstrap(c)
-	controllerInsts, err := controllerEnv.AllInstances()
+	controllerInsts, err := controllerEnv.AllInstances(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInsts, gc.HasLen, 1)
 
@@ -1825,7 +1830,7 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "0")
+	inst, _ := testing.AssertStartInstance(c, env, s.callCtx, s.ControllerUUID, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	ebsProvider, err := env.StorageProvider(ec2.EBS_ProviderType)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1902,7 +1907,7 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	checkVolumeTags(origController, allVolumes...)
 	checkGroupTags(origController, allGroups...)
 
-	err = env.AdoptResources("new-controller", version.MustParse("0.0.1"))
+	err = env.AdoptResources(s.callCtx, "new-controller", version.MustParse("0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkInstanceTags("new-controller", string(inst.Id()))

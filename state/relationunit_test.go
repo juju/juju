@@ -129,7 +129,7 @@ func (s *RelationUnitSuite) TestPeerSettings(c *gc.C) {
 	assertSettings(pr.u0, normal)
 	assertNotInScope(c, pr.ru0)
 
-	// Re-enter scope wih changed settings, and check they completely overwrite
+	// Re-enter scope with changed settings, and check they completely overwrite
 	// the old ones.
 	err = pr.ru0.EnterScope(changed)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1043,7 +1043,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	c.Assert(ingress, gc.HasLen, 0)
 	c.Assert(egress, gc.HasLen, 0)
 
-	// Add a service address.
+	// Add a application address.
 	err = mysql.UpdateCloudService("", []network.Address{
 		{Value: "1.2.3.4", Scope: network.ScopeCloudLocal},
 	})
@@ -1442,7 +1442,7 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 }
 
 func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
-	// Create a pair of services and a relation between them.
+	// Create a pair of application and a relation between them.
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1452,7 +1452,7 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	rel, err := s.State.AddRelation(mysqlEP, wordpressEP)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add some units to the services and set their private addresses.
+	// Add some units to the application and set their private addresses.
 	addUnit := func(srv *state.Application, sub string, ep state.Endpoint) *state.RelationUnit {
 		unit, err := srv.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -1572,7 +1572,7 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 }
 
 func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
-	// Create a pair of services and a relation between them.
+	// Create a pair of application and a relation between them.
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1585,7 +1585,7 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	// Change mysqlEP to match the endpoint that will actually be used by the relation.
 	mysqlEP.Scope = charm.ScopeContainer
 
-	// Add some units to the services and set their private addresses.
+	// Add some units to the application and set their private addresses.
 	addUnits := func(i int) (*state.RelationUnit, *state.RelationUnit) {
 		msu, err := mysql.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -1719,7 +1719,7 @@ type WatchUnitsSuite struct {
 var _ = gc.Suite(&WatchUnitsSuite{})
 
 func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
-	// Create a pair of services and a relation between them.
+	// Create a pair of applications and a relation between them.
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1729,7 +1729,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	rel, err := s.State.AddRelation(mysqlEP, wordpressEP)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add some units to the services and set their private addresses.
+	// Add some units to the applications and set their private addresses.
 	addUnit := func(srv *state.Application) *state.RelationUnit {
 		unit, err := srv.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -1771,7 +1771,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 }
 
 func (s *WatchUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
-	// Create a pair of services and a relation between them.
+	// Create a pair of applications and a relation between them.
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)

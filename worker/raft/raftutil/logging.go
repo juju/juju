@@ -5,11 +5,16 @@ package raftutil
 
 import "github.com/juju/loggo"
 
+// Logger defines the logging methods the LoggoWriter requires.
+type Logger interface {
+	Logf(loggo.Level, string, ...interface{})
+}
+
 // LoggoWriter is an io.Writer that will call the embedded
 // logger's Log method for each Write, using the specified
 // log level.
 type LoggoWriter struct {
-	Logger loggo.Logger
+	Logger Logger
 	Level  loggo.Level
 }
 

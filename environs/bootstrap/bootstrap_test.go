@@ -17,11 +17,11 @@ import (
 
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	jujuos "github.com/juju/os"
+	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	utilscert "github.com/juju/utils/cert"
-	jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/gui"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -1336,7 +1337,7 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
 }
 
-func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	e.bootstrapCount++
 	e.args = args
 

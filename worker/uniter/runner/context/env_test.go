@@ -9,15 +9,14 @@ import (
 	"runtime"
 	"sort"
 
+	jujuos "github.com/juju/os"
+	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/keyvalues"
-	jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/proxy"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -49,6 +48,22 @@ func (s *EnvSuite) getPaths() (paths context.Paths, expectVars []string) {
 }
 
 func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expectVars []string) {
+	var (
+		legacyProxy proxy.Settings
+		jujuProxy   proxy.Settings
+		proxy       = proxy.Settings{
+			Http:    "some-http-proxy",
+			Https:   "some-https-proxy",
+			Ftp:     "some-ftp-proxy",
+			NoProxy: "some-no-proxy",
+		}
+	)
+	if newProxyOnly {
+		jujuProxy = proxy
+	} else {
+		legacyProxy = proxy
+	}
+
 	expected := []string{
 		"JUJU_CONTEXT_ID=some-context-id",
 		"JUJU_MODEL_UUID=model-uuid-deadbeef",
@@ -62,11 +77,15 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 		"JUJU_MACHINE_ID=42",
 		"JUJU_AVAILABILITY_ZONE=some-zone",
 		"JUJU_VERSION=1.2.3",
-		"JUJU_CHARM_HTTP_PROXY=some-http-proxy",
-		"JUJU_CHARM_HTTPS_PROXY=some-https-proxy",
-		"JUJU_CHARM_FTP_PROXY=some-ftp-proxy",
 	}
-	if !newProxyOnly {
+	if newProxyOnly {
+		expected = append(expected,
+			"JUJU_CHARM_HTTP_PROXY=some-http-proxy",
+			"JUJU_CHARM_HTTPS_PROXY=some-https-proxy",
+			"JUJU_CHARM_FTP_PROXY=some-ftp-proxy",
+			"JUJU_CHARM_NO_PROXY=some-no-proxy",
+		)
+	} else {
 		expected = append(expected,
 			"http_proxy=some-http-proxy",
 			"HTTP_PROXY=some-http-proxy",
@@ -76,8 +95,17 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 			"FTP_PROXY=some-ftp-proxy",
 			"no_proxy=some-no-proxy",
 			"NO_PROXY=some-no-proxy",
+			// JUJU_CHARM prefixed proxy values are always specified
+			// even if empty.
+			"JUJU_CHARM_HTTP_PROXY=",
+			"JUJU_CHARM_HTTPS_PROXY=",
+			"JUJU_CHARM_FTP_PROXY=",
+			"JUJU_CHARM_NO_PROXY=",
 		)
 	}
+	// It doesn't make sense that we set both legacy and juju proxy
+	// settings, but by setting both to different values, we can see
+	// what the environment values are.
 	return context.NewModelHookContext(
 		"some-context-id",
 		"model-uuid-deadbeef",
@@ -88,12 +116,7 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 		"essential",
 		"some-zone",
 		[]string{"he.re:12345", "the.re:23456"},
-		proxy.Settings{
-			Http:    "some-http-proxy",
-			Https:   "some-https-proxy",
-			Ftp:     "some-ftp-proxy",
-			NoProxy: "some-no-proxy",
-		},
+		legacyProxy, jujuProxy,
 		names.NewMachineTag("42"),
 	), expected
 }
@@ -143,24 +166,6 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars, relationVars)
 }
 
-func (s *EnvSuite) TestEnvWindowsNewProxyOnly(c *gc.C) {
-	s.SetFeatureFlags(feature.NewProxyOnly)
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
-	os.Setenv("Path", "foo;bar")
-	os.Setenv("PSModulePath", "ping;pong")
-	windowsVars := []string{
-		"Path=path-to-tools;foo;bar",
-		"PSModulePath=ping;pong;" + filepath.FromSlash("path-to-charm/lib/Modules"),
-	}
-
-	ctx, contextVars := s.getContext(true)
-	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars)
-}
-
 func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
@@ -181,22 +186,4 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	actualVars, err = ctx.HookVars(paths)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars)
-}
-
-func (s *EnvSuite) TestEnvUbuntuNewProxyOnly(c *gc.C) {
-	s.SetFeatureFlags(feature.NewProxyOnly)
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
-	os.Setenv("PATH", "foo:bar")
-	ubuntuVars := []string{
-		"PATH=path-to-tools:foo:bar",
-		"APT_LISTCHANGES_FRONTEND=none",
-		"DEBIAN_FRONTEND=noninteractive",
-	}
-
-	ctx, contextVars := s.getContext(true)
-	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 }

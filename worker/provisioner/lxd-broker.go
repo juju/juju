@@ -12,7 +12,9 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 var lxdLogger = loggo.GetLogger("juju.provisioner.lxd")
@@ -50,7 +52,7 @@ type lxdBroker struct {
 	agentConfig agent.Config
 }
 
-func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (broker *lxdBroker) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	containerMachineID := args.InstanceConfig.MachineId
 
 	config, err := broker.api.ContainerConfig()
@@ -81,13 +83,13 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	// much.
 	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
 	if bridgeDevice == "" {
-		bridgeDevice = container.DefaultLxdBridge
+		bridgeDevice = network.DefaultLXDBridge
 	}
 	interfaces, err := finishNetworkConfig(bridgeDevice, preparedInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	network := container.BridgeNetworkConfig(bridgeDevice, 0, interfaces)
+	net := container.BridgeNetworkConfig(bridgeDevice, 0, interfaces)
 
 	// The provisioner worker will provide all tools it knows about
 	// (after applying explicitly specified constraints), which may
@@ -117,7 +119,8 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		config.ProviderType,
 		config.AuthorizedKeys,
 		config.SSLHostnameVerification,
-		config.Proxy,
+		config.LegacyProxy,
+		config.JujuProxy,
 		config.AptProxy,
 		config.AptMirror,
 		config.EnableOSRefreshUpdate,
@@ -130,8 +133,7 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 
 	storageConfig := &container.StorageConfig{}
 	inst, hardware, err := broker.manager.CreateContainer(
-		args.InstanceConfig, args.Constraints,
-		series, network, storageConfig, args.StatusCallback,
+		args.InstanceConfig, args.Constraints, series, net, storageConfig, args.StatusCallback,
 	)
 	if err != nil {
 		return nil, err
@@ -144,7 +146,7 @@ func (broker *lxdBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	}, nil
 }
 
-func (broker *lxdBroker) StopInstances(ids ...instance.Id) error {
+func (broker *lxdBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	// TODO: potentially parallelise.
 	for _, id := range ids {
 		lxdLogger.Infof("stopping lxd container for instance: %s", id)
@@ -158,14 +160,14 @@ func (broker *lxdBroker) StopInstances(ids ...instance.Id) error {
 }
 
 // AllInstances only returns running containers.
-func (broker *lxdBroker) AllInstances() (result []instance.Instance, err error) {
+func (broker *lxdBroker) AllInstances(ctx context.ProviderCallContext) (result []instance.Instance, err error) {
 	return broker.manager.ListContainers()
 }
 
 // MaintainInstance ensures the container's host has the required iptables and
 // routing rules to make the container visible to both the host and other
 // machines on the same subnet.
-func (broker *lxdBroker) MaintainInstance(args environs.StartInstanceParams) error {
+func (broker *lxdBroker) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
 	machineID := args.InstanceConfig.MachineId
 
 	// There's no InterfaceInfo we expect to get below.

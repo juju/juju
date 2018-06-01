@@ -8,9 +8,9 @@ import (
 	"net"
 	"sync"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 	"gopkg.in/goose.v2/neutron"
 	"gopkg.in/goose.v2/nova"
 
@@ -331,28 +331,61 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 	for _, subId := range subnetIds {
 		subIdSet.Add(string(subId))
 	}
+	netIds := set.NewStrings()
+	displayIds := ""
+	neutron := n.env.neutron()
+	network := n.env.ecfg().network()
+	netId, err := resolveNeutronNetwork(neutron, network, false)
+	if err != nil {
+		logger.Warningf("could not resolve internal network id for %q: %v", network, err)
+		// Note: (jam 2018-05-23) We don't treat this as fatal because we used to never pay attention to it anyway
+	} else {
+		netIds.Add(netId)
+		displayIds = fmt.Sprintf("[%q", netId)
+		// Note, there are cases where we will detect an external
+		// network without it being explicitly configured by the user.
+		// When we get to a point where we start detecting spaces for
+		// users on Openstack, we'll probably need to include better logic here.
+		externalNetwork := n.env.ecfg().externalNetwork()
+		if externalNetwork != "" {
+			netId, err := resolveNeutronNetwork(neutron, externalNetwork, true)
+			if err != nil {
+				logger.Warningf("could not resolve external network id for %q: %v", externalNetwork, err)
+			} else {
+				netIds.Add(netId)
+				displayIds = fmt.Sprintf("%s, %q", displayIds, netId)
+			}
+		}
+		displayIds = displayIds + "]"
+	}
+	logger.Debugf("finding subnets in networks: %s", displayIds)
 
 	if instId != instance.UnknownId {
 		// TODO(hml): 2017-03-20
 		// Implement Subnets() for case where instId is specified
 		return nil, errors.NotSupportedf("neutron subnets with instance Id")
 	} else {
-		neutron := n.env.neutron()
+		// TODO(jam): 2018-05-23 It is likely that ListSubnetsV2 could
+		// take a Filter rather that doing the filtering client side.
 		subnets, err := neutron.ListSubnetsV2()
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to retrieve subnets")
 		}
 		if len(subnetIds) == 0 {
 			for _, subnet := range subnets {
-				subIdSet.Add(string(subnet.Id))
+				if !netIds.IsEmpty() && !netIds.Contains(subnet.NetworkId) {
+					logger.Tracef("ignoring subnet %q, part of network %q not %v", subnet.Id, subnet.NetworkId, displayIds)
+					continue
+				}
+				subIdSet.Add(subnet.Id)
 			}
 		}
 		for _, subnet := range subnets {
-			if !subIdSet.Contains(string(subnet.Id)) {
+			if !subIdSet.Contains(subnet.Id) {
 				logger.Tracef("subnet %q not in %v, skipping", subnet.Id, subnetIds)
 				continue
 			}
-			subIdSet.Remove(string(subnet.Id))
+			subIdSet.Remove(subnet.Id)
 			if info, err := makeSubnetInfo(neutron, subnet); err == nil {
 				// Error will already have been logged.
 				results = append(results, info)

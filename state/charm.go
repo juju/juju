@@ -556,7 +556,7 @@ func validateCharmVersion(ch hasMeta) error {
 	minver := ch.Meta().MinJujuVersion
 	if minver != version.Zero {
 		if minver.Compare(jujuversion.Current) > 0 {
-			return errors.Errorf("Charm's min version (%s) is higher than this juju environment's version (%s)", minver, jujuversion.Current)
+			return errors.Errorf("Charm's min version (%s) is higher than this juju model's version (%s)", minver, jujuversion.Current)
 		}
 	}
 	return nil

@@ -212,7 +212,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c 
 		"mysql":                    {charm: "cs:xenial/mysql-42", config: mysqlch.Config().DefaultSettings()},
 		"wordpress-extra-bindings": {charm: "cs:xenial/wordpress-extra-bindings-47", config: wpch.Config().DefaultSettings()},
 	})
-	s.assertDeployedServiceBindings(c, map[string]applicationInfo{
+	s.assertDeployedApplicationBindings(c, map[string]applicationInfo{
 		"mysql": {
 			endpointBindings: map[string]string{"server": "db", "server-admin": ""},
 		},
@@ -517,7 +517,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleResources(c *gc.C) {
 	}})
 }
 
-func (s *BundleDeployCharmStoreSuite) checkResources(c *gc.C, serviceName string, expected []resource.Resource) {
+func (s *BundleDeployCharmStoreSuite) checkResources(c *gc.C, serviceapplication string, expected []resource.Resource) {
 	_, err := s.State.Application("starsay")
 	c.Check(err, jc.ErrorIsNil)
 	st, err := s.State.Resources()
@@ -2128,6 +2128,69 @@ relations:
 			"name":  "The name override",
 			"skin":  "vector",
 		})
+}
+
+func (s *BundleDeployCharmStoreSuite) TestDeployBundlePassesSequences(c *gc.C) {
+	testcharms.UploadCharm(c, s.client, "xenial/django-42", "dummy")
+
+	// Deploy another django app with two units, this will bump the sequences
+	// for machines and the django application. Then remove them both.
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name: "django"})
+	u1 := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+	})
+	u2 := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+	})
+	var machines []*state.Machine
+	var ids []string
+	destroyUnitsMachine := func(u *state.Unit) {
+		id, err := u.AssignedMachineId()
+		c.Assert(err, jc.ErrorIsNil)
+		ids = append(ids, id)
+		m, err := s.State.Machine(id)
+		c.Assert(err, jc.ErrorIsNil)
+		machines = append(machines, m)
+		c.Assert(m.ForceDestroy(), jc.ErrorIsNil)
+	}
+	// Tear them down. This is somewhat convoluted, but it is what we need
+	// to do to properly cleanly tear down machines.
+	c.Assert(app.Destroy(), jc.ErrorIsNil)
+	destroyUnitsMachine(u1)
+	destroyUnitsMachine(u2)
+	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
+	for _, m := range machines {
+		c.Assert(m.EnsureDead(), jc.ErrorIsNil)
+		c.Assert(m.MarkForRemoval(), jc.ErrorIsNil)
+	}
+	c.Assert(s.State.CompleteMachineRemovals(ids...), jc.ErrorIsNil)
+
+	apps, err := s.State.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(apps, gc.HasLen, 0)
+	machines, err = s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 0)
+
+	stdOut, _, err := s.DeployBundleYAMLWithOutput(c, `
+        applications:
+            django:
+                charm: cs:xenial/django-42
+                num_units: 2
+    `)
+	c.Check(stdOut, gc.Equals, ""+
+		"Executing changes:\n"+
+		"- upload charm cs:xenial/django-42 for series xenial\n"+
+		"- deploy application django on xenial using cs:xenial/django-42\n"+
+		"- add unit django/2 to new machine 2\n"+
+		"- add unit django/3 to new machine 3",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUnitsCreated(c, map[string]string{
+		"django/2": "2",
+		"django/3": "3",
+	})
 }
 
 type removeRelationsSuite struct{}

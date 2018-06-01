@@ -193,7 +193,7 @@ func (s *backupsUploadSuite) sendValid(c *gc.C, id string) *http.Response {
 
 	// Set the metadata part.
 	s.meta = backups.NewMetadata()
-	metaResult := apiserverbackups.ResultFromMetadata(s.meta)
+	metaResult := apiserverbackups.CreateResult(s.meta, "test-filename")
 	header := make(textproto.MIMEHeader)
 	header.Set("Content-Disposition", `form-data; name="metadata"`)
 	header.Set("Content-Type", params.ContentTypeJSON)

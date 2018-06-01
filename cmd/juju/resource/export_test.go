@@ -5,6 +5,7 @@ package resource
 
 import (
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
 func ListCharmResourcesCommandChannel(c modelcmd.Command) string {
@@ -30,3 +31,29 @@ func UploadCommandService(c *UploadCommand) string {
 }
 
 var FormatApplicationResources = formatApplicationResources
+
+func NewCharmResourcesCommandForTest(resourceLister ResourceLister) modelcmd.ModelCommand {
+	var c CharmResourcesCommand
+	c.setResourceLister(resourceLister)
+	c.SetClientStore(jujuclienttesting.MinimalStore())
+	return modelcmd.Wrap(&c)
+}
+
+func NewListCharmResourcesCommandForTest(resourceLister ResourceLister) modelcmd.ModelCommand {
+	var c ListCharmResourcesCommand
+	c.setResourceLister(resourceLister)
+	c.SetClientStore(jujuclienttesting.MinimalStore())
+	return modelcmd.Wrap(&c)
+}
+
+func NewUploadCommandForTest(deps UploadDeps) *UploadCommand {
+	cmd := &UploadCommand{deps: deps}
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
+	return cmd
+}
+
+func NewListCommandForTest(deps ListDeps) *ListCommand {
+	cmd := &ListCommand{deps: deps}
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
+	return cmd
+}

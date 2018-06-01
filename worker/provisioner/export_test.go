@@ -37,7 +37,7 @@ var (
 	ContainerManagerConfig   = containerManagerConfig
 	GetContainerInitialiser  = &getContainerInitialiser
 	GetToolsFinder           = &getToolsFinder
-	ResolvConf               = &resolvConf
+	ResolvConfFiles          = &resolvConfFiles
 	RetryStrategyDelay       = &retryStrategyDelay
 	RetryStrategyCount       = &retryStrategyCount
 	GetObservedNetworkConfig = &getObservedNetworkConfig
@@ -51,7 +51,7 @@ func GetCopyAvailabilityZoneMachines(p ProvisionerTask) []AvailabilityZoneMachin
 	task := p.(*provisionerTask)
 	task.machinesMutex.RLock()
 	defer task.machinesMutex.RUnlock()
-	// sort to make comparisions in the tests easier.
+	// sort to make comparisons in the tests easier.
 	sort.Sort(byPopulationThenNames(task.availabilityZoneMachines))
 	retvalues := make([]AvailabilityZoneMachine, len(task.availabilityZoneMachines))
 	for i, _ := range task.availabilityZoneMachines {

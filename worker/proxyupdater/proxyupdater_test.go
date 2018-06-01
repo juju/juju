@@ -14,16 +14,15 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
+	"github.com/juju/packaging/commands"
+	pacconfig "github.com/juju/packaging/config"
+	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/packaging/commands"
-	pacconfig "github.com/juju/utils/packaging/config"
-	"github.com/juju/utils/proxy"
-	proxyutils "github.com/juju/utils/proxy"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 
-	"github.com/juju/juju/feature"
+	proxyupdaterapi "github.com/juju/juju/api/proxyupdater"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -56,10 +55,9 @@ func (w notAWatcher) Changes() watcher.NotifyChannel {
 }
 
 type fakeAPI struct {
-	Proxy    proxyutils.Settings
-	APTProxy proxyutils.Settings
-	Err      error
-	Watcher  *notAWatcher
+	proxies proxyupdaterapi.ProxyConfiguration
+	Err     error
+	Watcher *notAWatcher
 }
 
 func NewFakeAPI() *fakeAPI {
@@ -67,9 +65,8 @@ func NewFakeAPI() *fakeAPI {
 	return f
 }
 
-func (api fakeAPI) ProxyConfig() (proxyutils.Settings, proxyutils.Settings, error) {
-	return api.Proxy, api.APTProxy, api.Err
-
+func (api fakeAPI) ProxyConfig() (proxyupdaterapi.ProxyConfiguration, error) {
+	return api.proxies, api.Err
 }
 
 func (api fakeAPI) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error) {
@@ -95,7 +92,7 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 		SystemdFiles: []string{s.proxySystemdFile},
 		EnvFiles:     []string{s.proxyEnvFile},
 		API:          s.api,
-		InProcessUpdate: func(newSettings proxyutils.Settings) error {
+		InProcessUpdate: func(newSettings proxy.Settings) error {
 			select {
 			case s.inProcSettings <- newSettings:
 			case <-time.After(coretesting.LongWait):
@@ -197,25 +194,44 @@ func (s *ProxyUpdaterSuite) TestRunStop(c *gc.C) {
 	workertest.CleanKill(c, updater)
 }
 
-func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Settings) {
-	s.api.Proxy = proxy.Settings{
-		Http:    "http proxy",
-		Https:   "https proxy",
-		Ftp:     "ftp proxy",
-		NoProxy: "localhost,no proxy",
+func (s *ProxyUpdaterSuite) useLegacyConfig(c *gc.C) (proxy.Settings, proxy.Settings) {
+	s.api.proxies = proxyupdaterapi.ProxyConfiguration{
+		LegacyProxy: proxy.Settings{
+			Http:    "http legacy proxy",
+			Https:   "https legacy proxy",
+			Ftp:     "ftp legacy proxy",
+			NoProxy: "localhost,no legacy proxy",
+		},
+		APTProxy: proxy.Settings{
+			Http:  "http://apt.http.proxy",
+			Https: "https://apt.https.proxy",
+			Ftp:   "ftp://apt.ftp.proxy",
+		},
 	}
 
-	s.api.APTProxy = proxy.Settings{
-		Http:  "http://apt.http.proxy",
-		Https: "https://apt.https.proxy",
-		Ftp:   "ftp://apt.ftp.proxy",
-	}
-
-	return s.api.Proxy, s.api.APTProxy
+	return s.api.proxies.LegacyProxy, s.api.proxies.APTProxy
 }
 
-func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
-	proxySettings, aptProxySettings := s.updateConfig(c)
+func (s *ProxyUpdaterSuite) useJujuConfig(c *gc.C) (proxy.Settings, proxy.Settings) {
+	s.api.proxies = proxyupdaterapi.ProxyConfiguration{
+		JujuProxy: proxy.Settings{
+			Http:    "http juju proxy",
+			Https:   "https juju proxy",
+			Ftp:     "ftp juju proxy",
+			NoProxy: "localhost,no juju proxy",
+		},
+		APTProxy: proxy.Settings{
+			Http:  "http://apt.http.proxy",
+			Https: "https://apt.https.proxy",
+			Ftp:   "ftp://apt.ftp.proxy",
+		},
+	}
+
+	return s.api.proxies.JujuProxy, s.api.proxies.APTProxy
+}
+
+func (s *ProxyUpdaterSuite) TestInitialStateLegacyProxy(c *gc.C) {
+	proxySettings, aptProxySettings := s.useLegacyConfig(c)
 
 	updater, err := proxyupdater.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -230,41 +246,26 @@ func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 	s.waitForFile(c, pacconfig.AptProxyConfigFile, paccmder.ProxyConfigContents(aptProxySettings)+"\n")
 }
 
-func (s *ProxyUpdaterSuite) TestWriteSystemFiles(c *gc.C) {
-	proxySettings, aptProxySettings := s.updateConfig(c)
+func (s *ProxyUpdaterSuite) TestInitialStateJujuProxy(c *gc.C) {
+	proxySettings, aptProxySettings := s.useJujuConfig(c)
 
 	updater, err := proxyupdater.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
 
 	s.waitProxySettings(c, proxySettings)
-	s.waitForFile(c, s.proxyEnvFile, proxySettings.AsScriptEnvironment())
-	s.waitForFile(c, s.proxySystemdFile, proxySettings.AsSystemdDefaultEnv())
+	var empty proxy.Settings
+	// The environment files are written, but with empty content.
+	// This keeps the symlinks working.
+	s.waitForFile(c, s.proxyEnvFile, empty.AsScriptEnvironment())
+	s.waitForFile(c, s.proxySystemdFile, empty.AsSystemdDefaultEnv())
 
 	paccmder, err := commands.NewPackageCommander(series.MustHostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 	s.waitForFile(c, pacconfig.AptProxyConfigFile, paccmder.ProxyConfigContents(aptProxySettings)+"\n")
 }
 
-func (s *ProxyUpdaterSuite) TestWriteSystemFilesNewProxyOnly(c *gc.C) {
-	s.SetFeatureFlags(feature.NewProxyOnly)
-	proxySettings, aptProxySettings := s.updateConfig(c)
-
-	updater, err := proxyupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	defer worker.Stop(updater)
-
-	s.waitProxySettings(c, proxySettings)
-	s.assertNoFile(c, s.proxyEnvFile)
-	s.assertNoFile(c, s.proxySystemdFile)
-
-	// apt settings still written out.
-	paccmder, err := commands.NewPackageCommander(series.MustHostSeries())
-	c.Assert(err, jc.ErrorIsNil)
-	s.waitForFile(c, pacconfig.AptProxyConfigFile, paccmder.ProxyConfigContents(aptProxySettings)+"\n")
-}
-
-func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestEnvironmentVariablesLegacyProxy(c *gc.C) {
 	setenv := func(proxy, value string) {
 		os.Setenv(proxy, value)
 		os.Setenv(strings.ToUpper(proxy), value)
@@ -274,7 +275,33 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
 	setenv("ftp_proxy", "foo")
 	setenv("no_proxy", "foo")
 
-	proxySettings, _ := s.updateConfig(c)
+	proxySettings, _ := s.useLegacyConfig(c)
+	updater, err := proxyupdater.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer worker.Stop(updater)
+	s.waitProxySettings(c, proxySettings)
+
+	assertEnv := func(proxy, value string) {
+		c.Assert(os.Getenv(proxy), gc.Equals, value)
+		c.Assert(os.Getenv(strings.ToUpper(proxy)), gc.Equals, value)
+	}
+	assertEnv("http_proxy", proxySettings.Http)
+	assertEnv("https_proxy", proxySettings.Https)
+	assertEnv("ftp_proxy", proxySettings.Ftp)
+	assertEnv("no_proxy", proxySettings.NoProxy)
+}
+
+func (s *ProxyUpdaterSuite) TestEnvironmentVariablesJujuProxy(c *gc.C) {
+	setenv := func(proxy, value string) {
+		os.Setenv(proxy, value)
+		os.Setenv(strings.ToUpper(proxy), value)
+	}
+	setenv("http_proxy", "foo")
+	setenv("https_proxy", "foo")
+	setenv("ftp_proxy", "foo")
+	setenv("no_proxy", "foo")
+
+	proxySettings, _ := s.useJujuConfig(c)
 	updater, err := proxyupdater.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(updater)
@@ -291,30 +318,45 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestExternalFuncCalled(c *gc.C) {
-	proxySettings, _ := s.updateConfig(c)
 
-	var externalSettings proxy.Settings
-	updated := make(chan struct{})
-	s.config.ExternalUpdate = func(values proxy.Settings) error {
-		externalSettings = values
-		close(updated)
-		return nil
+	// Called for both legacy and juju proxy values
+	externalProxySet := func() proxy.Settings {
+		updated := make(chan proxy.Settings)
+		done := make(chan struct{})
+		s.config.ExternalUpdate = func(values proxy.Settings) error {
+			select {
+			case updated <- values:
+			case <-done:
+			}
+			return nil
+		}
+		updater, err := proxyupdater.NewWorker(s.config)
+		c.Assert(err, jc.ErrorIsNil)
+		defer worker.Stop(updater)
+		// We need to close done before stopping the worker, so the
+		// defer comes after the worker stop.
+		defer close(done)
+
+		select {
+		case <-time.After(time.Second):
+			c.Fatal("function not called")
+		case externalSettings := <-updated:
+			return externalSettings
+		}
+		return proxy.Settings{}
 	}
-	updater, err := proxyupdater.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	defer worker.Stop(updater)
 
-	select {
-	case <-time.After(time.Second):
-		c.Fatal("function not called")
-	case <-updated:
-	}
+	proxySettings, _ := s.useLegacyConfig(c)
+	externalSettings := externalProxySet()
+	c.Assert(externalSettings, jc.DeepEquals, proxySettings)
 
+	proxySettings, _ = s.useJujuConfig(c)
+	externalSettings = externalProxySet()
 	c.Assert(externalSettings, jc.DeepEquals, proxySettings)
 }
 
 func (s *ProxyUpdaterSuite) TestErrorSettingInProcessLogs(c *gc.C) {
-	proxySettings, _ := s.updateConfig(c)
+	proxySettings, _ := s.useJujuConfig(c)
 
 	s.config.InProcessUpdate = func(newSettings proxy.Settings) error {
 		select {

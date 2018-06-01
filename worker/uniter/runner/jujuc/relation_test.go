@@ -61,7 +61,7 @@ func (ri *relationInfo) setNextRelation(name, unit string, settings jujuctesting
 	return id
 }
 
-func (ri *relationInfo) addRelatedServices(relname string, count int) {
+func (ri *relationInfo) addRelatedApplications(relname string, count int) {
 	if ri.rels == nil {
 		ri.rels = make(map[int]*jujuctesting.Relation)
 	}

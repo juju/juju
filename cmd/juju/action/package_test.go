@@ -29,8 +29,8 @@ const (
 	validUnitId            = "mysql/0"
 	validUnitId2           = "mysql/1"
 	invalidUnitId          = "something-strange-"
-	validServiceId         = "mysql"
-	invalidServiceId       = "something-strange-"
+	validApplicationId     = "mysql"
+	invalidApplicationId   = "something-strange-"
 )
 
 func TestPackage(t *testing.T) {
@@ -52,6 +52,9 @@ func (s *BaseActionSuite) SetUpTest(c *gc.C) {
 
 	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "ctrl"
+	s.store.Controllers["ctrl"] = jujuclient.ControllerDetails{}
+	s.store.Models["ctrl"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{"admin/admin": {ModelType: "iaas"}}}
 	s.store.Accounts["ctrl"] = jujuclient.AccountDetails{
 		User: "admin",
 	}

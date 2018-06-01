@@ -7,6 +7,7 @@ import (
 	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -28,7 +29,7 @@ func (i sigmaInstance) Id() instance.Id {
 }
 
 // Status returns the provider-specific status for the instance.
-func (i sigmaInstance) Status() instance.InstanceStatus {
+func (i sigmaInstance) Status(ctx context.ProviderCallContext) instance.InstanceStatus {
 	entityStatus := i.server.Status()
 	logger.Tracef("sigmaInstance.Status: %s", entityStatus)
 	jujuStatus := status.Pending
@@ -56,7 +57,7 @@ func (i sigmaInstance) Status() instance.InstanceStatus {
 // Addresses returns a list of hostnames or ip addresses
 // associated with the instance. This will supercede DNSName
 // which can be implemented by selecting a preferred address.
-func (i sigmaInstance) Addresses() ([]network.Address, error) {
+func (i sigmaInstance) Addresses(ctx context.ProviderCallContext) ([]network.Address, error) {
 	ip := i.findIPv4()
 
 	if ip != "" {
@@ -75,20 +76,20 @@ func (i sigmaInstance) Addresses() ([]network.Address, error) {
 
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
-func (i sigmaInstance) OpenPorts(machineID string, ports []network.IngressRule) error {
+func (i sigmaInstance) OpenPorts(ctx context.ProviderCallContext, machineID string, ports []network.IngressRule) error {
 	return errors.NotImplementedf("OpenPorts")
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
-func (i sigmaInstance) ClosePorts(machineID string, ports []network.IngressRule) error {
+func (i sigmaInstance) ClosePorts(ctx context.ProviderCallContext, machineID string, ports []network.IngressRule) error {
 	return errors.NotImplementedf("ClosePorts")
 }
 
 // IngressRules returns the set of ports open on the instance, which
 // should have been started with the given machine id.
 // The rules are returned as sorted by SortInstanceRules.
-func (i sigmaInstance) IngressRules(machineID string) ([]network.IngressRule, error) {
+func (i sigmaInstance) IngressRules(ctx context.ProviderCallContext, machineID string) ([]network.IngressRule, error) {
 	return nil, errors.NotImplementedf("InstanceRules")
 }
 
@@ -102,7 +103,7 @@ func (i sigmaInstance) findIPv4() string {
 
 func (i *sigmaInstance) hardware(arch string, driveSize uint64) (*instance.HardwareCharacteristics, error) {
 	memory := i.server.Mem() / gosigma.Megabyte
-	cores := uint64(i.server.SMP())
+	cores := i.server.SMP()
 	cpu := i.server.CPU()
 	hw := instance.HardwareCharacteristics{
 		Mem:      &memory,
