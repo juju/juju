@@ -20,7 +20,7 @@ import (
 type BackendSuite struct {
 	coretesting.BaseSuite
 
-	state   *testState
+	state   *mockState
 	backend credentialvalidator.Backend
 }
 
@@ -80,8 +80,8 @@ func (s *BackendSuite) TestModelCredentialUnsetSupported(c *gc.C) {
 	s.state.CheckCallNames(c, "Model", "CloudCredential", "ModelTag", "Cloud")
 }
 
-func newMockState() *testState {
-	b := &testState{
+func newMockState() *mockState {
+	b := &mockState{
 		Stub:        &testing.Stub{},
 		aCredential: statetesting.NewEmptyCredential(),
 		aCloud: cloud.Cloud{
@@ -98,7 +98,7 @@ func newMockState() *testState {
 	return b
 }
 
-type testState struct {
+type mockState struct {
 	*testing.Stub
 
 	aCloud      cloud.Cloud
@@ -106,7 +106,7 @@ type testState struct {
 	aCredential state.Credential
 }
 
-func (b *testState) Model() (credentialvalidator.ModelAccessor, error) {
+func (b *mockState) Model() (credentialvalidator.ModelAccessor, error) {
 	b.AddCall("Model")
 	if err := b.NextErr(); err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func (b *testState) Model() (credentialvalidator.ModelAccessor, error) {
 	return b.aModel, nil
 }
 
-func (b *testState) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
+func (b *mockState) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
 	b.AddCall("CloudCredential", tag)
 	if err := b.NextErr(); err != nil {
 		return state.Credential{}, err
@@ -122,17 +122,17 @@ func (b *testState) CloudCredential(tag names.CloudCredentialTag) (state.Credent
 	return b.aCredential, nil
 }
 
-func (b *testState) WatchCredential(tag names.CloudCredentialTag) state.NotifyWatcher {
+func (b *mockState) WatchCredential(tag names.CloudCredentialTag) state.NotifyWatcher {
 	b.AddCall("WatchCredential", tag)
 	return apiservertesting.NewFakeNotifyWatcher()
 }
 
-func (b *testState) InvalidateModelCredential(reason string) error {
+func (b *mockState) InvalidateModelCredential(reason string) error {
 	b.AddCall("InvalidateModelCredential", reason)
 	return b.NextErr()
 }
 
-func (b *testState) Cloud(name string) (cloud.Cloud, error) {
+func (b *mockState) Cloud(name string) (cloud.Cloud, error) {
 	b.AddCall("Cloud", name)
 	if err := b.NextErr(); err != nil {
 		return cloud.Cloud{}, err
