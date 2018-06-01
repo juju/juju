@@ -5,6 +5,7 @@ package caas
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs"
@@ -119,6 +120,9 @@ type Unit struct {
 type OperatorConfig struct {
 	// OperatorImagePath is the docker registry URL for the image.
 	OperatorImagePath string
+
+	// Version is the Juju version of the operator image.
+	Version version.Number
 
 	// AgentConf is the contents of the agent.conf file.
 	AgentConf []byte

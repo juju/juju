@@ -6,6 +6,7 @@ package caasoperator_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
@@ -16,6 +17,7 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 )
 
 type mockState struct {
@@ -152,6 +154,23 @@ func (a *mockApplication) WatchUnits() state.StringsWatcher {
 func (a *mockApplication) Watch() state.NotifyWatcher {
 	a.MethodCall(a, "Watch")
 	return a.watcher
+}
+
+func (a *mockApplication) AllUnits() ([]caasoperator.Unit, error) {
+	a.MethodCall(a, "AllUnits")
+	if err := a.NextErr(); err != nil {
+		return nil, err
+	}
+	return []caasoperator.Unit{&mockUnit{}}, nil
+}
+
+func (a *mockApplication) AgentTools() (*tools.Tools, error) {
+	return nil, errors.NotImplementedf("AgentTools")
+}
+
+func (a *mockApplication) SetAgentVersion(vers version.Binary) error {
+	a.MethodCall(a, "SetAgentVersion", vers)
+	return nil
 }
 
 type mockUnit struct {

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -70,6 +71,7 @@ func (s *CAASProvisionerSuite) assertWorker(c *gc.C) worker.Worker {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
 		{"WatchApplications", nil},
+		{"WatchAPIHostPorts", nil},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 	s.stub.ResetCalls()
@@ -99,6 +101,7 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C) {
 	c.Assert(args[2], gc.FitsTypeOf, &caas.OperatorConfig{})
 	config := args[2].(*caas.OperatorConfig)
 	c.Assert(config.OperatorImagePath, gc.Equals, "juju-operator-image")
+	c.Assert(config.Version, gc.Equals, version.MustParse("2.99.0"))
 
 	agentFile := filepath.Join(c.MkDir(), "agent.config")
 	err := ioutil.WriteFile(agentFile, []byte(config.AgentConf), 0644)
@@ -108,14 +111,14 @@ func (s *CAASProvisionerSuite) assertOperatorCreated(c *gc.C) {
 	c.Assert(cfg.CACert(), gc.Equals, coretesting.CACert)
 	addr, err := cfg.APIAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, jc.DeepEquals, []string{"10.0.0.1:17070"})
+	c.Assert(addr, jc.DeepEquals, []string{"10.0.0.1:17070", "192.18.1.1:17070"})
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if len(s.provisionerFacade.stub.Calls()) > 0 {
 			break
 		}
 	}
-	s.provisionerFacade.stub.CheckCallNames(c, "Life", "SetPasswords", "OperatorProvisioningInfo")
+	s.provisionerFacade.stub.CheckCallNames(c, "Life", "SetPasswords", "APIAddresses", "OperatorProvisioningInfo")
 	c.Assert(s.provisionerFacade.stub.Calls()[0].Args[0], gc.Equals, "myapp")
 	passwords := s.provisionerFacade.stub.Calls()[1].Args[0].([]apicaasprovisioner.ApplicationPassword)
 
@@ -148,4 +151,22 @@ func (s *CAASProvisionerSuite) TestApplicationDeletedRemovesOperator(c *gc.C) {
 	}
 	s.caasClient.CheckCallNames(c, "DeleteOperator")
 	c.Assert(s.caasClient.Calls()[0].Args[0], gc.Equals, "myapp")
+}
+
+func (s *CAASProvisionerSuite) TestAddressChanges(c *gc.C) {
+	w := s.assertWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.assertOperatorCreated(c)
+	s.stub.ResetCalls()
+	s.caasClient.ResetCalls()
+
+	s.provisionerFacade.apiWatcher.changes <- struct{}{}
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.caasClient.Calls()) > 0 {
+			break
+		}
+	}
+	s.stub.CheckCallNames(c, "APIAddresses", "OperatorProvisioningInfo")
+	s.caasClient.CheckCallNames(c, "EnsureOperator")
 }

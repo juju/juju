@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -229,7 +230,7 @@ func (s *operatorSuite) TestRemoveUnit(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *operatorSuite) TestRemoveUnitInvalidUnitame(c *gc.C) {
+func (s *operatorSuite) TestRemoveUnitInvalidUnitName(c *gc.C) {
 	client := caasoperator.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
@@ -285,10 +286,48 @@ func (s *operatorSuite) TestLifeError(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *operatorSuite) TestLifeInvalidEntityame(c *gc.C) {
+func (s *operatorSuite) TestLifeInvalidEntityName(c *gc.C) {
 	client := caasoperator.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
 	_, err := client.Life("")
 	c.Assert(err, gc.ErrorMatches, `application or unit name "" not valid`)
+}
+
+func (s *operatorSuite) TestSetVersion(c *gc.C) {
+	called := false
+	vers := version.Binary{}
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperator")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "SetTools")
+		c.Check(arg, jc.DeepEquals, params.EntitiesVersion{
+			AgentTools: []params.EntityVersion{{
+				Tag:   "application-gitlab",
+				Tools: &params.Version{Version: vers},
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		called = true
+		return nil
+	})
+
+	client := caasoperator.NewClient(apiCaller)
+	err := client.SetVersion("gitlab", vers)
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *operatorSuite) TestSetVersionInvalidApplicationName(c *gc.C) {
+	client := caasoperator.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
+		return errors.New("should not be called")
+	}))
+	err := client.SetVersion("", version.Binary{})
+	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }

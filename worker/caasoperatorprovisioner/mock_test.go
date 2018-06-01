@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/juju/testing"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v2"
 
@@ -25,6 +26,7 @@ type mockProvisionerFacade struct {
 	stub *testing.Stub
 	caasoperatorprovisioner.CAASProvisionerFacade
 	applicationsWatcher *mockStringsWatcher
+	apiWatcher          *mockNotifyWatcher
 	life                life.Value
 }
 
@@ -32,6 +34,7 @@ func newMockProvisionerFacade(stub *testing.Stub) *mockProvisionerFacade {
 	return &mockProvisionerFacade{
 		stub:                stub,
 		applicationsWatcher: newMockStringsWatcher(),
+		apiWatcher:          newMockNotifyWatcher(),
 	}
 }
 
@@ -54,6 +57,7 @@ func (m *mockProvisionerFacade) OperatorProvisioningInfo() (apicaasprovisioner.O
 	}
 	return apicaasprovisioner.OperatorProvisioningInfo{
 		ImagePath: "juju-operator-image",
+		Version:   version.MustParse("2.99.0"),
 	}, nil
 }
 
@@ -79,6 +83,26 @@ func (m *mockProvisionerFacade) SetPasswords(passwords []apicaasprovisioner.Appl
 	}, nil
 }
 
+func (m *mockProvisionerFacade) APIAddresses() ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "APIAddresses")
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return []string{"10.0.0.1:17070", "192.18.1.1:17070"}, nil
+}
+
+func (m *mockProvisionerFacade) WatchAPIHostPorts() (watcher.NotifyWatcher, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stub.MethodCall(m, "WatchAPIHostPorts")
+	if err := m.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return m.apiWatcher, nil
+}
+
 type mockAgentConfig struct {
 	agent.Config
 }
@@ -101,10 +125,6 @@ func (m *mockAgentConfig) OldPassword() string {
 
 func (m *mockAgentConfig) CACert() string {
 	return coretesting.CACert
-}
-
-func (m *mockAgentConfig) APIAddresses() ([]string, error) {
-	return []string{"10.0.0.1:17070"}, nil
 }
 
 type mockBroker struct {
@@ -168,4 +188,22 @@ func newMockStringsWatcher() *mockStringsWatcher {
 
 func (w *mockStringsWatcher) Changes() watcher.StringsChannel {
 	return w.changes
+}
+
+type mockNotifyWatcher struct {
+	mockWatcher
+	changes chan struct{}
+}
+
+func newMockNotifyWatcher() *mockNotifyWatcher {
+	w := &mockNotifyWatcher{changes: make(chan struct{}, 5)}
+	w.Tomb.Go(func() error {
+		<-w.Tomb.Dying()
+		return nil
+	})
+	return w
+}
+
+func (m *mockNotifyWatcher) Changes() watcher.NotifyChannel {
+	return m.changes
 }

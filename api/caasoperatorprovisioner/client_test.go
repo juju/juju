@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -154,6 +155,7 @@ func (s *provisionerSuite) TestLifeCount(c *gc.C) {
 }
 
 func (s *provisionerSuite) OperatorProvisioningInfo(c *gc.C) {
+	vers := version.MustParse("2.99.0")
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASOperatorProvisioner")
 		c.Check(id, gc.Equals, "")
@@ -162,6 +164,7 @@ func (s *provisionerSuite) OperatorProvisioningInfo(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.OperatorProvisioningInfo{})
 		*(result.(*params.OperatorProvisioningInfo)) = params.OperatorProvisioningInfo{
 			ImagePath: "juju-operator-image",
+			Version:   vers,
 		}
 		return nil
 	})
@@ -169,5 +172,6 @@ func (s *provisionerSuite) OperatorProvisioningInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, caasoperatorprovisioner.OperatorProvisioningInfo{
 		ImagePath: "juju-operator-image",
+		Version:   vers,
 	})
 }

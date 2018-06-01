@@ -454,7 +454,8 @@ type ConfigResult struct {
 
 // OperatorProvisioningInfo holds info need to provision an operator.
 type OperatorProvisioningInfo struct {
-	ImagePath string `json:"image-path"`
+	ImagePath string         `json:"image-path"`
+	Version   version.Number `json:"version"`
 }
 
 // PublicAddress holds parameters for the PublicAddress call.

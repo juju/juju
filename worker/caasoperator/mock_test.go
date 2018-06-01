@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/proxy"
 	"github.com/juju/testing"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
@@ -123,6 +124,11 @@ func (c *fakeClient) Watch(application string) (watcher.NotifyWatcher, error) {
 func (c *fakeClient) RemoveUnit(unit string) error {
 	c.MethodCall(c, "RemoveUnit", unit)
 	c.unitRemoved <- struct{}{}
+	return c.NextErr()
+}
+
+func (c *fakeClient) SetVersion(appName string, v version.Binary) error {
+	c.MethodCall(c, "SetVersion", appName, v)
 	return c.NextErr()
 }
 

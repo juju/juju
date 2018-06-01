@@ -151,6 +151,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UnitGetter:         client,
 				UnitRemover:        client,
 				ApplicationWatcher: client,
+				VersionSetter:      client,
 				StartUniterFunc:    uniter.StartUniter,
 
 				LeadershipTrackerFunc: leadershipTrackerFunc,

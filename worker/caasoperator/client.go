@@ -4,6 +4,7 @@
 package caasoperator
 
 import (
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/life"
@@ -22,6 +23,7 @@ type Client interface {
 	ApplicationWatcher
 	PodSpecSetter
 	StatusSetter
+	VersionSetter
 	Model() (*model.Model, error)
 }
 
@@ -76,4 +78,10 @@ type StatusSetter interface {
 type CharmConfigGetter interface {
 	CharmConfig(string) (charm.Settings, error)
 	WatchCharmConfig(string) (watcher.NotifyWatcher, error)
+}
+
+// VersionSetter provides an interface for setting
+// the operator agent version.
+type VersionSetter interface {
+	SetVersion(appName string, v version.Binary) error
 }
