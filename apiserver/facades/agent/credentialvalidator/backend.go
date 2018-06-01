@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/state"
 )
 
@@ -56,6 +57,11 @@ func (b *backend) ModelCredential() (*ModelCredential, error) {
 	modelCredentialTag, exists := m.CloudCredential()
 	result := &ModelCredential{Model: m.ModelTag(), Exists: exists}
 	if !exists {
+		supportsEmptyAuth, err := b.cloudSupportsNoAuth(m.Cloud())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.Valid = supportsEmptyAuth
 		return result, nil
 	}
 
@@ -66,6 +72,19 @@ func (b *backend) ModelCredential() (*ModelCredential, error) {
 	}
 	result.Valid = credential.IsValid()
 	return result, nil
+}
+
+func (b *backend) cloudSupportsNoAuth(cloudName string) (bool, error) {
+	cloud, err := b.Cloud(cloudName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	for _, authType := range cloud.AuthTypes {
+		if authType == jujucloud.EmptyAuthType {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // ModelCredential stores model's cloud credential information.
@@ -81,6 +100,17 @@ type ModelCredential struct {
 	// Credential is a cloud credential tag.
 	Credential names.CloudCredentialTag
 
-	// Valid indicates that Juju considers this cloud credential to be valid.
+	// Valid indicates that this model's cloud authentication is valid.
+	//
+	// If this model has a cloud credential setup,
+	// then this property indicates that this credential itself is valid.
+	//
+	// If this model has no cloud credential, then this property indicates
+	// whether or not it is valid for this model to have no credential.
+	// There are some clouds that do not require auth and, hence,
+	// models on these clouds do not require credentials.
+	//
+	// If a model is on the cloud that does require credential and
+	// the model's credential is not set, this property will be set to 'false'.
 	Valid bool
 }

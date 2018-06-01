@@ -48,16 +48,10 @@ func (*ManifoldSuite) TestFilterErrChanged(c *gc.C) {
 	c.Check(err, gc.Equals, dependency.ErrBounce)
 }
 
-func (*ManifoldSuite) TestFilterErrModelCredentialChanged(c *gc.C) {
-	manifold := credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{})
-	err := manifold.Filter(credentialvalidator.ErrModelCredentialChanged)
-	c.Check(err, gc.Equals, dependency.ErrBounce)
-}
-
 func (*ManifoldSuite) TestFilterErrModelDoesNotNeedCredential(c *gc.C) {
 	manifold := credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{})
-	err := manifold.Filter(credentialvalidator.ErrModelDoesNotNeedCredential)
-	c.Check(err, gc.Equals, dependency.ErrUninstall)
+	err := manifold.Filter(credentialvalidator.ErrModelMissingCredentialRequired)
+	c.Check(err, gc.Equals, dependency.ErrBounce)
 }
 
 func (*ManifoldSuite) TestFilterOther(c *gc.C) {
