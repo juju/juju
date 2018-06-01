@@ -21,7 +21,7 @@ var logger = loggo.GetLogger("juju.api.credentialvalidator")
 var ErrValidityChanged = errors.New("cloud credential validity has changed")
 
 // ErrModelMissingCredentialRequired indicates that a Worker has been bounced
-// since the model does not have a cloud credential set but is on the cloud
+// since the model does not have a cloud credential set but is on a cloud
 // that requires authentication.
 var ErrModelMissingCredentialRequired = errors.New("model has no credential set but is on the cloud that requires it")
 
@@ -64,7 +64,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// It is possible that this model is on the cloud that does not
+	// It is possible that this model is on a cloud that does not
 	// necessarily require authentication. Consequently, a model
 	// is created without a set credential. However, later on,
 	// a credential may be added to a model. This worker will need to
@@ -81,7 +81,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 	plan := catacomb.Plan{
 		Site: &v.catacomb,
-		Work: v.loopNoWatcher,
+		Work: v.loop,
 	}
 
 	if mc.CloudCredential != "" {
@@ -90,7 +90,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		plan.Work = v.loop
 		// The watcher needs to be added to the worker's catacomb plan
 		// here in order to be controlled by this worker's lifecycle events:
 		// for example, to be destroyed when this worker is destroyed, etc.
@@ -136,11 +135,16 @@ func (v *validator) Check() bool {
 }
 
 func (v *validator) loop() error {
+	var watcherChanges watcher.NotifyChannel
+	if v.watcher != nil {
+		watcherChanges = v.watcher.Changes()
+	}
+
 	for {
 		select {
 		case <-v.catacomb.Dying():
 			return v.catacomb.ErrDying()
-		case _, ok := <-v.watcher.Changes():
+		case _, ok := <-watcherChanges:
 			if !ok {
 				return v.catacomb.ErrDying()
 			}
@@ -155,15 +159,6 @@ func (v *validator) loop() error {
 			if v.credential.Valid != updatedCredential.Valid {
 				return ErrValidityChanged
 			}
-		}
-	}
-}
-
-func (v *validator) loopNoWatcher() error {
-	for {
-		select {
-		case <-v.catacomb.Dying():
-			return v.catacomb.ErrDying()
 		}
 	}
 }
