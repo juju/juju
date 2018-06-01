@@ -85,7 +85,9 @@ func (s *CAASModelSuite) TestDestroyEmptyModel(c *gc.C) {
 func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 	model, st := s.newCAASModel(c)
 
-	app := factory.NewFactory(st).MakeApplication(c, nil)
+	f := factory.NewFactory(st)
+	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -132,7 +134,10 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, &factory.ModelParams{
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>", StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
 	defer st2.Close()
-	factory.NewFactory(st2).MakeApplication(c, nil)
+
+	f := factory.NewFactory(st2)
+	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
 	controllerModel, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,8 +196,9 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := state.AddApplicationArgs{
-		Name:  application.Name(),
-		Charm: ch,
+		Name:   application.Name(),
+		Series: "kubernetes",
+		Charm:  ch,
 	}
 	application, err = otherSt.AddApplication(args)
 	c.Assert(err, jc.ErrorIsNil)

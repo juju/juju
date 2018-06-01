@@ -552,8 +552,14 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		}
 	}
 	if params.Application == nil {
+		series := "quantal"
+		if model.Type() == state.ModelTypeCAAS {
+			series = "kubernetes"
+		}
+		ch := factory.MakeCharm(c, &CharmParams{Series: series})
 		params.Application = factory.MakeApplication(c, &ApplicationParams{
 			Constraints: params.Constraints,
+			Charm:       ch,
 		})
 	}
 	if params.Password == "" {

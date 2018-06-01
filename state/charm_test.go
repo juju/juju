@@ -726,8 +726,8 @@ func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 		ch := s.AddTestingCharm(c, name)
 		assertCustomCharm(c, ch, "quantal", meta, config, metrics, revision)
 
-		ch = s.AddSeriesCharm(c, name, "anotherseries")
-		assertCustomCharm(c, ch, "anotherseries", meta, config, metrics, revision)
+		ch = s.AddSeriesCharm(c, name, "bionic")
+		assertCustomCharm(c, ch, "bionic", meta, config, metrics, revision)
 	})
 }
 

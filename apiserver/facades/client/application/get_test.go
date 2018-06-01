@@ -131,7 +131,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
 	defer st.Close()
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
 
 	schemaFields, err := caas.ConfigSchema(k8s.ConfigSchema())
@@ -205,7 +205,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 			},
 		},
 		ApplicationConfig: expectedAppConfig,
-		Series:            "quantal",
+		Series:            "kubernetes",
 	})
 }
 

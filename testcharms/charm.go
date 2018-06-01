@@ -19,6 +19,11 @@ import (
 // Repo provides access to the test charm repository.
 var Repo = testing.NewRepo("charm-repo", "quantal")
 
+// RepoForSeries returns a new charm repository for the specified series.
+func RepoForSeries(series string) *testing.Repo {
+	return testing.NewRepo("charm-repo", series)
+}
+
 // UploadCharmWithMeta pushes a new charm to the charmstore.
 // The uploaded charm takes the supplied charmURL with metadata.yaml and metrics.yaml
 // to define the charm, rather than relying on the charm to exist on disk.

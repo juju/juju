@@ -253,7 +253,7 @@ settings:
 		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
 	defer st.Close()
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dummy", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "dummy-application", Charm: ch})
 	schema, err := caas.ConfigSchema(nil)
 	c.Assert(err, jc.ErrorIsNil)

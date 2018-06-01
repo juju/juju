@@ -72,7 +72,7 @@ func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 // primeAgent creates an application, and sets up the application agent's directory.
 // It returns new application and the agent's configuration.
 func (s *CAASOperatorSuite) primeAgent(c *gc.C) (*state.Application, agent.Config, *tools.Tools) {
-	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	app := s.AddTestingApplication(c, "gitlab", s.AddTestingCharmForSeries(c, "gitlab", "kubernetes"))
 	err := app.SetPassword(initialApplicationPassword)
 	c.Assert(err, jc.ErrorIsNil)
 	conf, tools := s.PrimeAgent(c, app.Tag(), initialApplicationPassword)

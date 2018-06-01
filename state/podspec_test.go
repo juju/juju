@@ -21,6 +21,8 @@ type PodSpecSuite struct {
 	Model   *state.CAASModel
 	State   *state.State
 	Factory *factory.Factory
+
+	application *state.Application
 }
 
 var _ = gc.Suite(&PodSpecSuite{})
@@ -30,6 +32,10 @@ func (s *PodSpecSuite) SetUpTest(c *gc.C) {
 	s.Model, s.State = s.newCAASModel(c)
 	s.Factory = factory.NewFactory(s.State)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+
+	ch := s.Factory.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	s.application = s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
+
 }
 
 func (s *PodSpecSuite) assertPodSpec(c *gc.C, tag names.ApplicationTag, expect string) {
@@ -44,64 +50,59 @@ func (s *PodSpecSuite) assertPodSpecNotFound(c *gc.C, tag names.ApplicationTag) 
 }
 
 func (s *PodSpecSuite) TestSetPodSpecApplication(c *gc.C) {
-	app := s.Factory.MakeApplication(c, nil)
-	err := s.Model.SetPodSpec(app.ApplicationTag(), "foo")
+	err := s.Model.SetPodSpec(s.application.ApplicationTag(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPodSpec(c, app.ApplicationTag(), "foo")
+	s.assertPodSpec(c, s.application.ApplicationTag(), "foo")
 }
 
 func (s *PodSpecSuite) TestSetPodSpecApplicationDying(c *gc.C) {
-	app := s.Factory.MakeApplication(c, nil)
 	// create a unit to prevent app from being removed
-	s.Factory.MakeUnit(c, &factory.UnitParams{Application: app})
-	err := app.Destroy()
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application})
+	err := s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.Model.SetPodSpec(app.ApplicationTag(), "foo")
+	err = s.Model.SetPodSpec(s.application.ApplicationTag(), "foo")
 	c.Assert(err, gc.ErrorMatches, "application mysql not alive")
-	s.assertPodSpecNotFound(c, app.ApplicationTag())
+	s.assertPodSpecNotFound(c, s.application.ApplicationTag())
 }
 
 func (s *PodSpecSuite) TestSetPodSpecUpdates(c *gc.C) {
-	app := s.Factory.MakeApplication(c, nil)
 	for _, spec := range []string{"spec0", "spec1"} {
-		err := s.Model.SetPodSpec(app.ApplicationTag(), spec)
+		err := s.Model.SetPodSpec(s.application.ApplicationTag(), spec)
 		c.Assert(err, jc.ErrorIsNil)
-		s.assertPodSpec(c, app.ApplicationTag(), spec)
+		s.assertPodSpec(c, s.application.ApplicationTag(), spec)
 	}
 }
 
 func (s *PodSpecSuite) TestRemoveApplicationRemovesPodSpec(c *gc.C) {
-	app := s.Factory.MakeApplication(c, nil)
-	err := s.Model.SetPodSpec(app.ApplicationTag(), "spec")
+	err := s.Model.SetPodSpec(s.application.ApplicationTag(), "spec")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = app.Destroy()
+	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertPodSpecNotFound(c, app.ApplicationTag())
+	s.assertPodSpecNotFound(c, s.application.ApplicationTag())
 }
 
 func (s *PodSpecSuite) TestWatchPodSpec(c *gc.C) {
-	app := s.Factory.MakeApplication(c, nil)
-	w, err := s.Model.WatchPodSpec(app.ApplicationTag())
+	w, err := s.Model.WatchPodSpec(s.application.ApplicationTag())
 	c.Assert(err, jc.ErrorIsNil)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// No spec -> spec set.
-	err = s.Model.SetPodSpec(app.ApplicationTag(), "spec0")
+	err = s.Model.SetPodSpec(s.application.ApplicationTag(), "spec0")
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// No change.
-	err = s.Model.SetPodSpec(app.ApplicationTag(), "spec0")
+	err = s.Model.SetPodSpec(s.application.ApplicationTag(), "spec0")
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Multiple changes coalesced.
-	err = s.Model.SetPodSpec(app.ApplicationTag(), "spec1")
+	err = s.Model.SetPodSpec(s.application.ApplicationTag(), "spec1")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.Model.SetPodSpec(app.ApplicationTag(), "spec2")
+	err = s.Model.SetPodSpec(s.application.ApplicationTag(), "spec2")
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }

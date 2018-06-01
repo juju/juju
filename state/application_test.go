@@ -101,11 +101,11 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
 	defer st.Close()
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
 
 	// Add a compatible charm and force it.
-	sch := state.AddCustomCharm(c, st, "wordpress", "metadata.yaml", metaBase, "quantal", 2)
+	sch := state.AddCustomCharm(c, st, "wordpress", "metadata.yaml", metaBase, "kubernetes", 2)
 
 	cfg := state.SetCharmConfig{
 		Charm:      sch,
@@ -223,10 +223,10 @@ func (s *ApplicationSuite) TestSetCharmPreconditions(c *gc.C) {
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-logging-1": cannot change an application's subordinacy`)
 
-	othermysql := s.AddSeriesCharm(c, "mysql", "otherseries")
+	othermysql := s.AddSeriesCharm(c, "mysql", "bionic")
 	cfg2 := state.SetCharmConfig{Charm: othermysql}
 	err = s.mysql.SetCharm(cfg2)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:otherseries/otherseries-mysql-1": cannot change an application's series`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:bionic/bionic-mysql-1": cannot change an application's series`)
 }
 
 func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
@@ -1889,7 +1889,7 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
 	defer st.Close()
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
 
 	unitZero, err := app.AddUnit(state.AddUnitParams{})
@@ -1938,14 +1938,15 @@ func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
 	defer st.Close()
 	f := factory.NewFactory(st)
-	application := f.MakeApplication(c, nil)
+	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 	agentTools := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: application.Series(),
+		Series: app.Series(),
 	}
 
-	tools, err := application.AgentTools()
+	tools, err := app.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools.Version, gc.DeepEquals, agentTools)
 }
@@ -1957,16 +1958,17 @@ func (s *ApplicationSuite) TestSetAgentVersion(c *gc.C) {
 		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
 	defer st.Close()
 	f := factory.NewFactory(st)
-	application := f.MakeApplication(c, nil)
+	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
 
 	agentVersion := version.MustParseBinary("2.0.1-quantal-and64")
-	err := application.SetAgentVersion(agentVersion)
+	err := app.SetAgentVersion(agentVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = application.Refresh()
+	err = app.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	tools, err := application.AgentTools()
+	tools, err := app.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools.Version, gc.DeepEquals, agentVersion)
 }
@@ -3403,7 +3405,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.caasSt.Close() })
 
 	f := factory.NewFactory(s.caasSt)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
 	s.app = f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
 }
 

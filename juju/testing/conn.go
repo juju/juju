@@ -692,15 +692,20 @@ func (s *JujuConnSuite) ConfDir() string {
 }
 
 func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
-	ch := testcharms.Repo.CharmDir(name)
+	return s.AddTestingCharmForSeries(c, name, "quantal")
+}
+
+func (s *JujuConnSuite) AddTestingCharmForSeries(c *gc.C, name, series string) *state.Charm {
+	repo := testcharms.RepoForSeries(series)
+	ch := repo.CharmDir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
-	curl := charm.MustParseURL("local:quantal/" + ident)
-	repo, err := charmrepo.InferRepository(
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/%s", series, ident))
+	storerepo, err := charmrepo.InferRepository(
 		curl,
 		charmrepo.NewCharmStoreParams{},
-		testcharms.Repo.Path())
+		repo.Path())
 	c.Assert(err, jc.ErrorIsNil)
-	sch, err := PutCharm(s.State, curl, repo, false)
+	sch, err := PutCharm(s.State, curl, storerepo, false)
 	c.Assert(err, jc.ErrorIsNil)
 	return sch
 }

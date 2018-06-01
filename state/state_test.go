@@ -1541,7 +1541,7 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
 	defer st.Close()
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
 
 	insettings := charm.Settings{"tuning": "optimized"}
 	inconfig, err := application.NewConfig(application.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
