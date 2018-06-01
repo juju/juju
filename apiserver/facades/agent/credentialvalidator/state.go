@@ -37,6 +37,5 @@ func NewStateShim(st *state.State) StateAccessor {
 
 // Model returns model from this shim.
 func (s *stateShim) Model() (ModelAccessor, error) {
-	m, err := s.State.Model()
-	return m, err
+	return s.State.Model()
 }
