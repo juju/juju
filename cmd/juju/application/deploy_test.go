@@ -495,6 +495,12 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	s.assertForceMachine(c, machine.Id())
 }
 
+func (s *DeploySuite) TestInvalidSeriesForModel(c *gc.C) {
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+	err := runDeploy(c, ch, "portlandia", "--series", "kubernetes")
+	c.Assert(err, gc.ErrorMatches, `series "kubernetes" in a non container model not valid`)
+}
+
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
 	template := state.MachineTemplate{

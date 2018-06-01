@@ -443,6 +443,12 @@ func (s *CharmSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 	c.Assert(sch, jc.DeepEquals, schCopy)
 }
 
+func (s *CharmSuite) TestIncompatibleSeries(c *gc.C) {
+	info := s.dummyCharm(c, "cs:kubernetes/dummy-2")
+	_, err := s.State.AddCharm(info)
+	c.Assert(err, gc.ErrorMatches, `series "kubernetes" in a non container model not valid`)
+}
+
 func (s *CharmSuite) TestUpdateUploadedCharm(c *gc.C) {
 	info := s.dummyCharm(c, "")
 	_, err := s.State.AddCharm(info)
@@ -720,8 +726,8 @@ func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 		ch := s.AddTestingCharm(c, name)
 		assertCustomCharm(c, ch, "quantal", meta, config, metrics, revision)
 
-		ch = s.AddSeriesCharm(c, name, "anotherseries")
-		assertCustomCharm(c, ch, "anotherseries", meta, config, metrics, revision)
+		ch = s.AddSeriesCharm(c, name, "bionic")
+		assertCustomCharm(c, ch, "bionic", meta, config, metrics, revision)
 	})
 }
 

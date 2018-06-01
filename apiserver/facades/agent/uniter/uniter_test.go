@@ -3078,7 +3078,7 @@ func (s *uniterSuite) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASMode
 	c.Assert(err, jc.ErrorIsNil)
 
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,
@@ -4064,7 +4064,8 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 
 	st := cm.State()
 	f := factory.NewFactory(st)
-	f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
 	eps, err := st.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := st.AddRelation(eps...)
@@ -4125,7 +4126,8 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 
 	st := cm.State()
 	f := factory.NewFactory(st)
-	f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
+	f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
 
 	var updateUnits state.UpdateUnitsOperation
 	addr := "10.0.0.1"

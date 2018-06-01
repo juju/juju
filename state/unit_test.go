@@ -1989,7 +1989,7 @@ func (s *CAASUnitSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { st.Close() })
 
 	f := factory.NewFactory(st)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
 	s.application = f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: ch})
 }
 
@@ -1997,7 +1997,7 @@ func (s *CAASUnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 	// A unit that has not been allocated is removed directly.
 	unit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.Series(), gc.Equals, "quantal")
+	c.Assert(unit.Series(), gc.Equals, "kubernetes")
 	c.Assert(unit.ShouldBeAssigned(), jc.IsFalse)
 
 	// A unit that has not set any status is removed directly.

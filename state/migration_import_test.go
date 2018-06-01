@@ -420,9 +420,16 @@ func (s *MigrationImportSuite) setupSourceApplications(
 ) (*state.Charm, *state.Application, string) {
 	f := factory.NewFactory(st)
 
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	series := "quantal"
+	if model.Type() == state.ModelTypeCAAS {
+		series = "kubernetes"
+	}
 	// Add a application with charm settings, app config, and leadership settings.
 	charm := f.MakeCharm(c, &factory.CharmParams{
-		Name: "starsay", // it has resources
+		Name:   "starsay", // it has resources
+		Series: series,
 	})
 	c.Assert(charm.Meta().Resources, gc.HasLen, 3)
 	application, pwd := f.MakeApplicationReturningPassword(c, &factory.ApplicationParams{
@@ -437,7 +444,7 @@ func (s *MigrationImportSuite) setupSourceApplications(
 			"app foo": environschema.Attr{Type: environschema.Tstring}},
 		Constraints: cons,
 	})
-	err := application.UpdateLeaderSettings(&goodToken{}, map[string]string{
+	err = application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -445,8 +452,6 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	c.Assert(err, jc.ErrorIsNil)
 	// Expose the application.
 	c.Assert(application.SetExposed(), jc.ErrorIsNil)
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
 	err = model.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, application, status.Active, 5)

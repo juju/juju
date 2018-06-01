@@ -472,6 +472,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	application, err := factory.st.AddApplication(state.AddApplicationArgs{
 		Name:              params.Name,
 		Charm:             params.Charm,
+		Series:            params.Charm.URL().Series,
 		CharmConfig:       charm.Settings(params.CharmConfig),
 		ApplicationConfig: appConfig,
 		Storage:           params.Storage,
@@ -551,8 +552,14 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		}
 	}
 	if params.Application == nil {
+		series := "quantal"
+		if model.Type() == state.ModelTypeCAAS {
+			series = "kubernetes"
+		}
+		ch := factory.MakeCharm(c, &CharmParams{Series: series})
 		params.Application = factory.MakeApplication(c, &ApplicationParams{
 			Constraints: params.Constraints,
+			Charm:       ch,
 		})
 	}
 	if params.Password == "" {

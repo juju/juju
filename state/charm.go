@@ -17,6 +17,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/state/storage"
@@ -516,6 +517,13 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 	if err := validateCharmVersion(info.Charm); err != nil {
 		return nil, errors.Trace(err)
 	}
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := validateCharmSeries(model.Type(), info.ID.Series, info.Charm); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	query := charms.FindId(info.ID.String()).Select(bson.M{
 		"placeholder":   1,
@@ -560,6 +568,21 @@ func validateCharmVersion(ch hasMeta) error {
 		}
 	}
 	return nil
+}
+
+func validateCharmSeries(modelType ModelType, series string, ch hasMeta) error {
+	if series == "" {
+		allSeries := ch.Meta().Series
+		if len(allSeries) > 0 {
+			series = allSeries[0]
+		}
+	}
+	// TODO(wallyworld) - update lots-o-tests
+	// Some tests don't set a series.
+	if series == "" {
+		return nil
+	}
+	return model.ValidateSeries(model.ModelType(modelType), series)
 }
 
 // AllCharms returns all charms in state.

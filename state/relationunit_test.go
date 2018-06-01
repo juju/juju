@@ -1029,8 +1029,8 @@ func (s *RelationUnitSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
 	defer st.Close()
 	f := factory.NewFactory(st)
-	wpch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	mysqlch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql"})
+	wpch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
+	mysqlch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
 	wp := f.MakeApplication(c, &factory.ApplicationParams{Name: "wordpress", Charm: wpch})
 	mysql := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlch})
 

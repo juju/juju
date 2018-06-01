@@ -1045,6 +1045,15 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if args.Charm == nil {
 		return nil, errors.Errorf("charm is nil")
 	}
+
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := validateCharmSeries(model.Type(), args.Series, args.Charm); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
 		return nil, errors.Errorf("AttachStorage is non-empty but NumUnits is %d, must be 1", args.NumUnits)
 	}
@@ -1066,10 +1075,6 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	}
 
 	// Perform model specific arg processing.
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	switch model.Type() {
 	case ModelTypeIAAS:
 		if err := st.processIAASModelApplicationArgs(&args); err != nil {

@@ -390,7 +390,15 @@ func (s *MigrationExportSuite) TestApplicationsWithVirtConstraint(c *gc.C) {
 func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.State, cons constraints.Value) {
 	f := factory.NewFactory(st)
 
+	dbModel, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	series := "quantal"
+	if dbModel.Type() == state.ModelTypeCAAS {
+		series = "kubernetes"
+	}
+	ch := f.MakeCharm(c, &factory.CharmParams{Series: series})
 	application := f.MakeApplication(c, &factory.ApplicationParams{
+		Charm: ch,
 		CharmConfig: map[string]interface{}{
 			"foo": "bar",
 		},
@@ -401,13 +409,11 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 			"app foo": environschema.Attr{Type: environschema.Tstring}},
 		Constraints: cons,
 	})
-	err := application.UpdateLeaderSettings(&goodToken{}, map[string]string{
+	err = application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetMetricCredentials([]byte("sekrit"))
-	c.Assert(err, jc.ErrorIsNil)
-	dbModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = dbModel.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)

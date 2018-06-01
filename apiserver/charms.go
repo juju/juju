@@ -466,7 +466,7 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
 	}
 	charmFileName, err := common.ReadCharmFromStorage(store, h.dataDir, ch.StoragePath())
 	if err != nil {
-		return errRet(errors.Trace(err))
+		return errRet(errors.Annotatef(err, "cannot read charm %q from storage", curl))
 	}
 	return charmFileName, fileArg, serveIcon, nil
 }
