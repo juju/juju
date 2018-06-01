@@ -1091,11 +1091,12 @@ func (s *MachineSuite) TestWorkersForHostedModelWithInvalidCredential(c *gc.C) {
 	s.PatchValue(&iaasModelManifolds, instrumented)
 
 	expectedWorkers := append(alwaysModelWorkers, aliveModelWorkers...)
-	// only expect workers that don't require valid credential
-	all := set.NewStrings(expectedWorkers...).Difference(
+	// Since this model's cloud credential is no longer valid,
+	// only the workers that don't require a valid credential should remain.
+	remainingWorkers := set.NewStrings(expectedWorkers...).Difference(
 		set.NewStrings(requireValidCredentialModelWorkers...))
 
-	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, all.SortedValues())
+	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, remainingWorkers.SortedValues())
 	s.assertJobWithState(c, state.JobManageModel, func(agent.Config, *state.State) {
 		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait, st.StartSync)
 	})
