@@ -78,17 +78,17 @@ func NewUpgraderAPI(
 	getCanReadWrite := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	env, err := st.Model()
+	model, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
-	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
-	configGetter := stateenvirons.EnvironConfigGetter{st, env}
+	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
+	configGetter := stateenvirons.EnvironConfigGetter{st, model}
 	return &UpgraderAPI{
 		ToolsGetter: common.NewToolsGetter(st, configGetter, st, urlGetter, getCanReadWrite),
 		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),
 		st:          st,
-		m:           env,
+		m:           model,
 		resources:   resources,
 		authorizer:  authorizer,
 	}, nil
@@ -125,7 +125,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 }
 
 func (u *UpgraderAPI) getGlobalAgentVersion() (version.Number, *config.Config, error) {
-	// Get the Agent Version requested in the Environment Config
+	// Get the Agent Version requested in the Model Config
 	cfg, err := u.m.ModelConfig()
 	if err != nil {
 		return version.Number{}, nil, err

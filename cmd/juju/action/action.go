@@ -42,7 +42,7 @@ type APIClient interface {
 	Cancel(params.Entities) (params.ActionResults, error)
 
 	// ApplicationCharmActions is a single query which uses ApplicationsCharmsActions to
-	// get the charm.Actions for a single Service by tag.
+	// get the charm.Actions for a single application by tag.
 	ApplicationCharmActions(params.Entity) (map[string]params.ActionSpec, error)
 
 	// Actions fetches actions by tag.  These Actions can be used to get

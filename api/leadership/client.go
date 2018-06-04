@@ -28,9 +28,9 @@ func NewClient(caller base.APICaller) leadership.Claimer {
 }
 
 // ClaimLeadership is part of the leadership.Claimer interface.
-func (c *client) ClaimLeadership(serviceId, unitId string, duration time.Duration) error {
+func (c *client) ClaimLeadership(appId, unitId string, duration time.Duration) error {
 
-	results, err := c.bulkClaimLeadership(c.prepareClaimLeadership(serviceId, unitId, duration))
+	results, err := c.bulkClaimLeadership(c.prepareClaimLeadership(appId, unitId, duration))
 	if err != nil {
 		return err
 	}
@@ -48,13 +48,13 @@ func (c *client) ClaimLeadership(serviceId, unitId string, duration time.Duratio
 }
 
 // BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
-func (c *client) BlockUntilLeadershipReleased(serviceId string, cancel <-chan struct{}) error {
+func (c *client) BlockUntilLeadershipReleased(appId string, cancel <-chan struct{}) error {
 	const friendlyErrMsg = "error blocking on leadership release"
 	var result params.ErrorResult
 	// TODO(axw) make it possible to plumb a context.Context
 	// through the API/RPC client, so we can cancel or abandon
 	// requests.
-	err := c.FacadeCall("BlockUntilLeadershipReleased", names.NewApplicationTag(serviceId), &result)
+	err := c.FacadeCall("BlockUntilLeadershipReleased", names.NewApplicationTag(appId), &result)
 	if err != nil {
 		return errors.Annotate(err, friendlyErrMsg)
 	} else if result.Error != nil {
@@ -69,9 +69,9 @@ func (c *client) BlockUntilLeadershipReleased(serviceId string, cancel <-chan st
 
 // prepareClaimLeadership creates a single set of params in
 // preparation for making a bulk call.
-func (c *client) prepareClaimLeadership(serviceId, unitId string, duration time.Duration) params.ClaimLeadershipParams {
+func (c *client) prepareClaimLeadership(appId, unitId string, duration time.Duration) params.ClaimLeadershipParams {
 	return params.ClaimLeadershipParams{
-		names.NewApplicationTag(serviceId).String(),
+		names.NewApplicationTag(appId).String(),
 		names.NewUnitTag(unitId).String(),
 		duration.Seconds(),
 	}

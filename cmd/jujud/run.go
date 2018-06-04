@@ -80,7 +80,7 @@ func (c *RunCommand) Init(args []string) error {
 		}
 		var unitName string
 		unitName, args = args[0], args[1:]
-		// If the command line param is a unit id (like service/2) we need to
+		// If the command line param is a unit id (like application/2) we need to
 		// change it to the unit tag as that is the format of the agent directory
 		// on disk (unit-application-2).
 		if names.IsValidUnit(unitName) {

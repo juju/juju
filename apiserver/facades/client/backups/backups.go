@@ -71,7 +71,7 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 		return nil, common.ErrPerm
 	}
 
-	// For now, backup operations are only permitted on the controller environment.
+	// For now, backup operations are only permitted on the controller model.
 	if !backend.IsController() {
 		return nil, errors.New("backups are only supported from the controller model\nUse juju switch to select the controller model")
 	}

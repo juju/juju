@@ -81,7 +81,7 @@ type ProxyConfiguration struct {
 	SnapProxy   proxy.Settings
 }
 
-// ProxyConfig returns the proxy settings for the current environment
+// ProxyConfig returns the proxy settings for the current model.
 func (api *API) ProxyConfig() (ProxyConfiguration, error) {
 	var empty ProxyConfiguration
 	if api.facade.BestAPIVersion() <= 1 {

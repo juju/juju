@@ -84,9 +84,9 @@ func (s *environUpgradeSuite) TestEnvironUpgradeOperationModelFolders(c *gc.C) {
 	ensureVMFolderCall := s.client.Calls()[0]
 	moveVMsIntoCall := s.client.Calls()[2]
 	c.Assert(ensureVMFolderCall.Args[1], gc.Equals,
-		`Juju Controller (foo)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`)
+		`Juju Controller (foo)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`)
 	c.Assert(moveVMsIntoCall.Args[1], gc.Equals,
-		`Juju Controller (foo)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`)
+		`Juju Controller (foo)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`)
 	c.Assert(moveVMsIntoCall.Args[2], jc.DeepEquals,
 		[]types.ManagedObjectReference{vm1.Reference(), vm2.Reference(), vm3.Reference()},
 	)

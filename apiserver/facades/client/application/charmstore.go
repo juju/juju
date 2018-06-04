@@ -180,7 +180,7 @@ type minJujuVersionErr struct {
 }
 
 func minVersionError(minver, jujuver version.Number) error {
-	err := errors.NewErr("charm's min version (%s) is higher than this juju environment's version (%s)",
+	err := errors.NewErr("charm's min version (%s) is higher than this juju model's version (%s)",
 		minver, jujuver)
 	err.SetLocation(1)
 	return minJujuVersionErr{&err}

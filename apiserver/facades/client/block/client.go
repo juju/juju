@@ -15,15 +15,15 @@ import (
 
 // Block defines the methods on the block API end point.
 type Block interface {
-	// List returns all current blocks for this environment.
+	// List returns all current blocks for this model.
 	List() (params.BlockResults, error)
 
 	// SwitchBlockOn switches desired block type on for this
-	// environment.
+	// model.
 	SwitchBlockOn(params.BlockSwitchParams) params.ErrorResult
 
 	// SwitchBlockOff switches desired block type off for this
-	// environment.
+	// model.
 	SwitchBlockOff(params.BlockSwitchParams) params.ErrorResult
 }
 

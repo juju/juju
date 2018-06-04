@@ -232,7 +232,7 @@ func (s *AssignSuite) TestDirectAssignIgnoresConstraints(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Unit will take combined application/environ constraints on creation.
+	// Unit will take combined application/model constraints on creation.
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -382,7 +382,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineContainerConstraint(c *gc.C) {
 }
 
 func (s *AssignSuite) TestAssignUnitToNewMachineDefaultContainerConstraint(c *gc.C) {
-	// Set up env constraints.
+	// Set up model constraints.
 	econs := constraints.MustParse("container=lxd")
 	err := s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -411,11 +411,11 @@ func (s *AssignSuite) TestAssignUnitToNewMachineSetsConstraints(c *gc.C) {
 	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Unit will take combined application/environ constraints on creation.
+	// Unit will take combined application/model constraints on creation.
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Change application/env constraints before assigning, to verify this.
+	// Change application/model constraints before assigning, to verify this.
 	scons = constraints.MustParse("mem=6G cpu-power=800")
 	err = s.wordpress.SetConstraints(scons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -642,7 +642,7 @@ func (s *AssignSuite) TestAssignUnitNewPolicyWithContainerConstraint(c *gc.C) {
 func (s *AssignSuite) TestAssignUnitNewPolicyWithDefaultContainerConstraint(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	// Set up env constraints.
+	// Set up model constraints.
 	econs := constraints.MustParse("container=lxd")
 	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -827,7 +827,7 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	err = m0.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add two environ manager machines and check they are not chosen.
+	// Add two controller machines and check they are not chosen.
 	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)

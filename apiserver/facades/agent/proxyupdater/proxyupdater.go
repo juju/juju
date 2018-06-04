@@ -198,7 +198,7 @@ func (api *APIBase) proxyConfig() params.ProxyConfigResult {
 	return result
 }
 
-// ProxyConfig returns the proxy settings for the current environment
+// ProxyConfig returns the proxy settings for the current model.
 func (api *APIBase) ProxyConfig(args params.Entities) params.ProxyConfigResults {
 	var result params.ProxyConfigResult
 	errors, ok := api.authEntities(args)
@@ -220,7 +220,7 @@ func (api *APIBase) ProxyConfig(args params.Entities) params.ProxyConfigResults 
 	return results
 }
 
-// ProxyConfig returns the proxy settings for the current environment
+// ProxyConfig returns the proxy settings for the current model.
 func (api *APIv1) ProxyConfig(args params.Entities) params.ProxyConfigResultsV1 {
 	var result params.ProxyConfigResultV1
 	errors, ok := api.authEntities(args)

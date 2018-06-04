@@ -15,7 +15,7 @@ import (
 // UploadClient has the API client methods needed by UploadCommand.
 type UploadClient interface {
 	// Upload sends the resource to Juju.
-	Upload(service, name, filename string, resource io.ReadSeeker) error
+	Upload(application, name, filename string, resource io.ReadSeeker) error
 
 	// Close closes the client.
 	Close() error
@@ -41,7 +41,7 @@ type UploadDeps struct {
 type UploadCommand struct {
 	deps UploadDeps
 	modelcmd.ModelCommandBase
-	service      string
+	application  string
 	resourceFile resourceFile
 }
 
@@ -75,11 +75,11 @@ func (c *UploadCommand) Init(args []string) error {
 		return errors.BadRequestf("no resource specified")
 	}
 
-	service := args[0]
-	if service == "" { // TODO(ericsnow) names.IsValidApplication
+	application := args[0]
+	if application == "" { // TODO(ericsnow) names.IsValidApplication
 		return errors.NewNotValid(nil, "missing application name")
 	}
-	c.service = service
+	c.application = application
 
 	if err := c.addResourceFile(args[1]); err != nil {
 		return errors.Trace(err)
@@ -99,9 +99,9 @@ func (c *UploadCommand) addResourceFile(arg string) error {
 		return errors.Annotatef(err, "bad resource arg %q", arg)
 	}
 	c.resourceFile = resourceFile{
-		service:  c.service,
-		name:     name,
-		filename: filename,
+		application: c.application,
+		name:        name,
+		filename:    filename,
 	}
 
 	return nil
@@ -129,6 +129,6 @@ func (c *UploadCommand) upload(rf resourceFile, client UploadClient) error {
 		return errors.Trace(err)
 	}
 	defer f.Close()
-	err = client.Upload(rf.service, rf.name, rf.filename, f)
+	err = client.Upload(rf.application, rf.name, rf.filename, f)
 	return errors.Trace(err)
 }

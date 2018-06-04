@@ -424,7 +424,7 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 	}
 	// A "raw" transaction is needed here because this function gets
 	// called before database migrations have run so we don't
-	// necessarily want the env UUID added to the id.
+	// necessarily want the model UUID added to the id.
 	if err := m.st.runRawTransaction(ops); err != nil {
 		return onAbort(err, ErrDead)
 	}

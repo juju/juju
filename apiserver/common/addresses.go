@@ -88,7 +88,7 @@ func apiAddresses(getter APIHostPortsForAgentsGetter) ([]string, error) {
 	return addrs, nil
 }
 
-// ModelUUID returns the model UUID to connect to the environment
+// ModelUUID returns the model UUID to connect to the model
 // that the current connection is for.
 func (a *APIAddresser) ModelUUID() params.StringResult {
 	return params.StringResult{Result: a.getter.ModelUUID()}

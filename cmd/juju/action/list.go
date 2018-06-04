@@ -23,7 +23,7 @@ func NewListCommand() cmd.Command {
 	return modelcmd.Wrap(&listCommand{})
 }
 
-// listCommand lists actions defined by the charm of a given service.
+// listCommand lists actions defined by the charm of a given application.
 type listCommand struct {
 	ActionCommandBase
 	applicationTag names.ApplicationTag

@@ -1441,14 +1441,14 @@ func (s *uniterSuite) TestCharmArchiveSha256(c *gc.C) {
 }
 
 func (s *uniterSuite) TestCurrentModel(c *gc.C) {
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.uniter.CurrentModel()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := params.ModelResult{
-		Name: env.Name(),
-		UUID: env.UUID(),
+		Name: model.Name(),
+		UUID: model.UUID(),
 		Type: "iaas",
 	}
 	c.Assert(result, gc.DeepEquals, expected)

@@ -71,6 +71,7 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 
 	metadata := map[string]string{
 		"environment_uuid": "foouuid",
+		"model_uuid":       "foouuid",
 		"controller_uuid":  "controlleruuid",
 		"cloud":            "foocloud",
 		"cloud_region":     "fooregion",
@@ -81,6 +82,7 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 
 	header := []string{
 		"environment_uuid=foouuid",
+		"model_uuid=foouuid",
 		"controller_uuid=controlleruuid",
 		"cloud=foocloud",
 		"cloud_region=fooregion",

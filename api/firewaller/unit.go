@@ -44,21 +44,21 @@ func (u *Unit) Refresh() error {
 
 // Application returns the application.
 func (u *Unit) Application() (*Application, error) {
-	serviceName, err := names.UnitApplication(u.Name())
+	appName, err := names.UnitApplication(u.Name())
 	if err != nil {
 		return nil, err
 	}
-	applicationTag := names.NewApplicationTag(serviceName)
-	service := &Application{
+	applicationTag := names.NewApplicationTag(appName)
+	app := &Application{
 		st:  u.st,
 		tag: applicationTag,
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
-	if err := service.Refresh(); err != nil {
+	if err := app.Refresh(); err != nil {
 		return nil, err
 	}
-	return service, nil
+	return app, nil
 }
 
 // AssignedMachine returns the tag of this unit's assigned machine (if

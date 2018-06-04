@@ -40,14 +40,14 @@ func newRunCommand(store jujuclient.ClientStore, timeAfter func(time.Duration) <
 type runCommand struct {
 	modelcmd.ModelCommandBase
 	modelcmd.IAASOnlyCommand
-	out       cmd.Output
-	all       bool
-	timeout   time.Duration
-	machines  []string
-	services  []string
-	units     []string
-	commands  string
-	timeAfter func(time.Duration) <-chan time.Time
+	out          cmd.Output
+	all          bool
+	timeout      time.Duration
+	machines     []string
+	applications []string
+	units        []string
+	commands     string
+	timeAfter    func(time.Duration) <-chan time.Time
 }
 
 const runDoc = `
@@ -111,9 +111,9 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
 	f.DurationVar(&c.timeout, "timeout", 5*time.Minute, "How long to wait before the remote command is considered to have failed")
 	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "One or more machine ids")
-	f.Var(cmd.NewStringsValue(nil, &c.services), "a", "One or more application names")
-	f.Var(cmd.NewStringsValue(nil, &c.services), "app", "")
-	f.Var(cmd.NewStringsValue(nil, &c.services), "application", "")
+	f.Var(cmd.NewStringsValue(nil, &c.applications), "a", "One or more application names")
+	f.Var(cmd.NewStringsValue(nil, &c.applications), "app", "")
+	f.Var(cmd.NewStringsValue(nil, &c.applications), "application", "")
 	f.Var(cmd.NewStringsValue(nil, &c.units), "u", "One or more unit ids")
 	f.Var(cmd.NewStringsValue(nil, &c.units), "unit", "")
 }
@@ -137,14 +137,14 @@ func (c *runCommand) Init(args []string) error {
 		if len(c.machines) != 0 {
 			return errors.Errorf("You cannot specify --all and individual machines")
 		}
-		if len(c.services) != 0 {
+		if len(c.applications) != 0 {
 			return errors.Errorf("You cannot specify --all and individual applications")
 		}
 		if len(c.units) != 0 {
 			return errors.Errorf("You cannot specify --all and individual units")
 		}
 	} else {
-		if len(c.machines) == 0 && len(c.services) == 0 && len(c.units) == 0 {
+		if len(c.machines) == 0 && len(c.applications) == 0 && len(c.units) == 0 {
 			return errors.Errorf("You must specify a target, either through --all, --machine, --application or --unit")
 		}
 	}
@@ -155,9 +155,9 @@ func (c *runCommand) Init(args []string) error {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid machine id", machineId))
 		}
 	}
-	for _, service := range c.services {
-		if !names.IsValidApplication(service) {
-			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid application name", service))
+	for _, application := range c.applications {
+		if !names.IsValidApplication(application) {
+			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid application name", application))
 		}
 	}
 	for _, unit := range c.units {
@@ -236,7 +236,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 			Commands:     c.commands,
 			Timeout:      c.timeout,
 			Machines:     c.machines,
-			Applications: c.services,
+			Applications: c.applications,
 			Units:        c.units,
 		}
 		runResults, err = client.Run(params)

@@ -952,7 +952,7 @@ func (s *remoteApplicationSuite) TestAddApplicationModelDiesAfterInitial(c *gc.C
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.IAASModel.ModelTag()})
-	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": model "testenv" is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": model "testmodel" is no longer alive`)
 }
 
 func (s *remoteApplicationSuite) TestWatchRemoteApplications(c *gc.C) {

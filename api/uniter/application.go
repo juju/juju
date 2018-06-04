@@ -51,7 +51,7 @@ func (s *Application) Life() params.Life {
 	return s.life
 }
 
-// Refresh refreshes the contents of the Service from the underlying
+// Refresh refreshes the contents of the application from the underlying
 // state.
 func (s *Application) Refresh() error {
 	life, err := s.st.life(s.tag)
@@ -85,11 +85,11 @@ func (s *Application) CharmModifiedVersion() (int, error) {
 	return result.Result, nil
 }
 
-// CharmURL returns the service's charm URL, and whether units should
+// CharmURL returns the application's charm URL, and whether units should
 // upgrade to the charm with that URL even if they are in an error
 // state (force flag).
 //
-// NOTE: This differs from state.Service.CharmURL() by returning
+// NOTE: This differs from state.Application.CharmURL() by returning
 // an error instead as well, because it needs to make an API call.
 func (s *Application) CharmURL() (*charm.URL, bool, error) {
 	var results params.StringBoolResults
@@ -117,16 +117,16 @@ func (s *Application) CharmURL() (*charm.URL, bool, error) {
 	return nil, false, fmt.Errorf("%q has no charm url set", s.tag)
 }
 
-// SetStatus sets the status of the service if the passed unitName,
+// SetStatus sets the status of the application if the passed unitName,
 // corresponding to the calling unit, is of the leader.
-func (s *Application) SetStatus(unitName string, serviceStatus status.Status, info string, data map[string]interface{}) error {
+func (s *Application) SetStatus(unitName string, appStatus status.Status, info string, data map[string]interface{}) error {
 	tag := names.NewUnitTag(unitName)
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{
 				Tag:    tag.String(),
-				Status: serviceStatus.String(),
+				Status: appStatus.String(),
 				Info:   info,
 				Data:   data,
 			},
@@ -139,7 +139,7 @@ func (s *Application) SetStatus(unitName string, serviceStatus status.Status, in
 	return result.OneError()
 }
 
-// Status returns the status of the service if the passed unitName,
+// Status returns the status of the application if the passed unitName,
 // corresponding to the calling unit, is of the leader.
 func (s *Application) Status(unitName string) (params.ApplicationStatusResult, error) {
 	tag := names.NewUnitTag(unitName)

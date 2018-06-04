@@ -371,7 +371,7 @@ func HasRawAccess(collectionName string) bool {
 	return allCollections()[collectionName].rawAccess
 }
 
-func MultiEnvCollections() []string {
+func MultiModelCollections() []string {
 	var result []string
 	for name, info := range allCollections() {
 		if !info.global {

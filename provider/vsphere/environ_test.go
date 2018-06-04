@@ -48,7 +48,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	c.Assert(ensureVMFolderCall.Args, gc.HasLen, 2)
 	c.Assert(ensureVMFolderCall.Args[0], gc.Implements, new(context.Context))
 	c.Assert(ensureVMFolderCall.Args[1], gc.Equals,
-		`Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
+		`Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
 	)
 }
 
@@ -67,7 +67,7 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 	c.Assert(destroyVMFolderCall.Args, gc.HasLen, 2)
 	c.Assert(destroyVMFolderCall.Args[0], gc.Implements, new(context.Context))
 	c.Assert(destroyVMFolderCall.Args[1], gc.Equals,
-		`Juju Controller (*)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
+		`Juju Controller (*)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
 	)
 }
 
@@ -107,7 +107,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	c.Assert(destroyModelVMFolderCall.Args, gc.HasLen, 2)
 	c.Assert(destroyModelVMFolderCall.Args[0], gc.Implements, new(context.Context))
 	c.Assert(destroyModelVMFolderCall.Args[1], gc.Equals,
-		`Juju Controller (*)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
+		`Juju Controller (*)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
 	)
 
 	removeVirtualMachinesCall := s.client.Calls()[1]
@@ -144,7 +144,7 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 	c.Assert(moveVMFolderIntoCall.Args[0], gc.Implements, new(context.Context))
 	c.Assert(moveVMFolderIntoCall.Args[1], gc.Equals, `Juju Controller (foo)`)
 	c.Assert(moveVMFolderIntoCall.Args[2], gc.Equals,
-		`Juju Controller (*)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
+		`Juju Controller (*)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
 	)
 }
 

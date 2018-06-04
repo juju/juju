@@ -22,7 +22,7 @@ type UndertakerSuite struct {
 
 var _ = gc.Suite(&UndertakerSuite{})
 
-func (s *UndertakerSuite) TestEnvironInfo(c *gc.C) {
+func (s *UndertakerSuite) TestModelInfo(c *gc.C) {
 	var called bool
 	client := s.mockClient(c, "ModelInfo", func(response interface{}) {
 		called = true
@@ -36,7 +36,7 @@ func (s *UndertakerSuite) TestEnvironInfo(c *gc.C) {
 	c.Assert(result, gc.Equals, params.UndertakerModelInfoResult{})
 }
 
-func (s *UndertakerSuite) TestProcessDyingEnviron(c *gc.C) {
+func (s *UndertakerSuite) TestProcessDyingModel(c *gc.C) {
 	var called bool
 	client := s.mockClient(c, "ProcessDyingModel", func(response interface{}) {
 		called = true

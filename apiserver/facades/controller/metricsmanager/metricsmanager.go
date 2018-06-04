@@ -41,11 +41,11 @@ type MetricsManager interface {
 // MetricsManagerAPI implements the metrics manager interface and is the concrete
 // implementation of the api end point.
 type MetricsManagerAPI struct {
-	state         *state.State
-	pool          *state.StatePool
-	model         *state.Model
-	accessEnviron common.GetAuthFunc
-	clock         clock.Clock
+	state       *state.State
+	pool        *state.StatePool
+	model       *state.Model
+	accessModel common.GetAuthFunc
+	clock       clock.Clock
 }
 
 var _ MetricsManager = (*MetricsManagerAPI)(nil)
@@ -83,8 +83,8 @@ func NewMetricsManagerAPI(
 		return nil, errors.Trace(err)
 	}
 
-	// Allow access only to the current environment.
-	accessEnviron := func() (common.AuthFunc, error) {
+	// Allow access only to the current model.
+	accessModel := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			if tag == nil {
 				return false
@@ -94,18 +94,18 @@ func NewMetricsManagerAPI(
 	}
 
 	return &MetricsManagerAPI{
-		state:         st,
-		pool:          pool,
-		model:         m,
-		accessEnviron: accessEnviron,
-		clock:         clock,
+		state:       st,
+		pool:        pool,
+		model:       m,
+		accessModel: accessModel,
+		clock:       clock,
 	}, nil
 }
 
 // CleanupOldMetrics removes old metrics from the collection.
-// The single arg params is expected to contain and environment uuid.
-// Even though the call will delete all metrics across environments
-// it serves to validate that the connection has access to at least one environment.
+// The single arg params is expected to contain and model uuid.
+// Even though the call will delete all metrics across models
+// it serves to validate that the connection has access to at least one model.
 func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
@@ -113,7 +113,7 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := api.accessEnviron()
+	canAccess, err := api.accessModel()
 	if err != nil {
 		return result, err
 	}
@@ -208,7 +208,7 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := api.accessEnviron()
+	canAccess, err := api.accessModel()
 	if err != nil {
 		return result, err
 	}

@@ -62,25 +62,25 @@ func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Au
 // ModelInfo returns information on the model needed by the undertaker worker.
 func (u *UndertakerAPI) ModelInfo() (params.UndertakerModelInfoResult, error) {
 	result := params.UndertakerModelInfoResult{}
-	env, err := u.st.Model()
+	model, err := u.st.Model()
 
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
 	result.Result = params.UndertakerModelInfo{
-		UUID:       env.UUID(),
-		GlobalName: env.Owner().String() + "/" + env.Name(),
-		Name:       env.Name(),
+		UUID:       model.UUID(),
+		GlobalName: model.Owner().String() + "/" + model.Name(),
+		Name:       model.Name(),
 		IsSystem:   u.st.IsController(),
-		Life:       params.Life(env.Life().String()),
+		Life:       params.Life(model.Life().String()),
 	}
 
 	return result, nil
 }
 
-// ProcessDyingModel checks if a dying environment has any machines or services.
-// If there are none, the environment's life is changed from dying to dead.
+// ProcessDyingModel checks if a dying model has any machines or applications.
+// If there are none, the model's life is changed from dying to dead.
 func (u *UndertakerAPI) ProcessDyingModel() error {
 	return u.st.ProcessDyingModel()
 }

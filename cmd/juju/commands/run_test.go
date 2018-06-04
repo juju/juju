@@ -39,14 +39,14 @@ func newTestRunCommand(clock clock.Clock) cmd.Command {
 
 func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 	for i, test := range []struct {
-		message  string
-		args     []string
-		all      bool
-		machines []string
-		units    []string
-		services []string
-		commands string
-		errMatch string
+		message      string
+		args         []string
+		all          bool
+		machines     []string
+		units        []string
+		applications []string
+		commands     string
+		errMatch     string
 	}{{
 		message:  "no args",
 		errMatch: "no commands specified",
@@ -85,15 +85,15 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		args:     []string{"--all", "--application=wordpress,mysql", "sudo reboot"},
 		errMatch: `You cannot specify --all and individual applications`,
 	}, {
-		message:  "command to applications wordpress and mysql",
-		args:     []string{"--application=wordpress,mysql", "sudo reboot"},
-		commands: "sudo reboot",
-		services: []string{"wordpress", "mysql"},
+		message:      "command to applications wordpress and mysql",
+		args:         []string{"--application=wordpress,mysql", "sudo reboot"},
+		commands:     "sudo reboot",
+		applications: []string{"wordpress", "mysql"},
 	}, {
-		message:  "command to application mysql",
-		args:     []string{"--app", "mysql", "uname -a"},
-		commands: "uname -a",
-		services: []string{"mysql"},
+		message:      "command to application mysql",
+		args:         []string{"--app", "mysql", "uname -a"},
+		commands:     "uname -a",
+		applications: []string{"mysql"},
 	}, {
 		message: "bad application names",
 		args:    []string{"--application", "foo,2,foo/0", "sudo reboot"},
@@ -102,15 +102,15 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 			"  \"2\" is not a valid application name\n" +
 			"  \"foo/0\" is not a valid application name",
 	}, {
-		message:  "command to application mysql",
-		args:     []string{"--app", "mysql", "sudo reboot"},
-		commands: "sudo reboot",
-		services: []string{"mysql"},
+		message:      "command to application mysql",
+		args:         []string{"--app", "mysql", "sudo reboot"},
+		commands:     "sudo reboot",
+		applications: []string{"mysql"},
 	}, {
-		message:  "command to application wordpress",
-		args:     []string{"-a", "wordpress", "sudo reboot"},
-		commands: "sudo reboot",
-		services: []string{"wordpress"},
+		message:      "command to application wordpress",
+		args:         []string{"-a", "wordpress", "sudo reboot"},
+		commands:     "sudo reboot",
+		applications: []string{"wordpress"},
 	}, {
 		message:  "all and defined units",
 		args:     []string{"--all", "--unit=wordpress/0,mysql/1", "sudo reboot"},
@@ -133,12 +133,12 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 			"  \"foo\" is not a valid unit name\n" +
 			"  \"2\" is not a valid unit name",
 	}, {
-		message:  "command to mixed valid targets",
-		args:     []string{"--machine=0", "--unit=wordpress/0,wordpress/1", "--application=mysql", "sudo reboot"},
-		commands: "sudo reboot",
-		machines: []string{"0"},
-		services: []string{"mysql"},
-		units:    []string{"wordpress/0", "wordpress/1"},
+		message:      "command to mixed valid targets",
+		args:         []string{"--machine=0", "--unit=wordpress/0,wordpress/1", "--application=mysql", "sudo reboot"},
+		commands:     "sudo reboot",
+		machines:     []string{"0"},
+		applications: []string{"mysql"},
+		units:        []string{"wordpress/0", "wordpress/1"},
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		cmd := &runCommand{}
@@ -148,7 +148,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		if test.errMatch == "" {
 			c.Check(cmd.all, gc.Equals, test.all)
 			c.Check(cmd.machines, gc.DeepEquals, test.machines)
-			c.Check(cmd.services, gc.DeepEquals, test.services)
+			c.Check(cmd.applications, gc.DeepEquals, test.applications)
 			c.Check(cmd.units, gc.DeepEquals, test.units)
 			c.Check(cmd.commands, gc.Equals, test.commands)
 		}
@@ -527,7 +527,7 @@ type mockRunAPI struct {
 	stdout string
 	stderr string
 	code   int
-	// machines, services, units
+	// machines, applications, units
 	machines        map[string]bool
 	runResponses    map[string]params.ActionResult
 	actionResponses map[string]params.ActionResult
@@ -651,7 +651,7 @@ func (m *mockRunAPI) Run(runParams params.RunParams) ([]params.ActionResult, err
 			result = append(result, response)
 		}
 	}
-	// mock ignores services
+	// mock ignores applications
 	for _, id := range runParams.Units {
 		response, found := m.runResponses[id]
 		if found {

@@ -421,13 +421,13 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		name := args.Config.Name()
 		models, closer := st.db().GetCollection(modelsC)
 		defer closer()
-		envCount, countErr := models.Find(bson.D{
+		modelCount, countErr := models.Find(bson.D{
 			{"owner", owner.Id()},
 			{"name", name}},
 		).Count()
 		if countErr != nil {
 			err = errors.Trace(countErr)
-		} else if envCount > 0 {
+		} else if modelCount > 0 {
 			err = errors.AlreadyExistsf("model %q for %s", name, owner.Id())
 		} else {
 			err = errors.Annotate(err, "failed to create new model")
@@ -682,7 +682,7 @@ func (m *Model) Config() (*config.Config, error) {
 }
 
 // UpdateLatestToolsVersion looks up for the latest available version of
-// juju tools and updates environementDoc with it.
+// juju tools and updates modelDoc with it.
 func (m *Model) UpdateLatestToolsVersion(ver version.Number) error {
 	v := ver.String()
 	// TODO(perrito666): I need to assert here that there isn't a newer
@@ -1220,7 +1220,7 @@ func (m *Model) destroyOps(
 			"time-of-death", timeOfDying,
 		})
 		ops = append(ops, txn.Op{
-			// Cleanup the owner:envName unique key.
+			// Cleanup the owner:modelName unique key.
 			C:      usermodelnameC,
 			Id:     m.uniqueIndexID(),
 			Remove: true,
@@ -1579,10 +1579,10 @@ func hostedModelCount(st *State) (int, error) {
 
 // createUniqueOwnerModelNameOp returns the operation needed to create
 // an usermodelnameC document with the given owner and model name.
-func createUniqueOwnerModelNameOp(owner names.UserTag, envName string) txn.Op {
+func createUniqueOwnerModelNameOp(owner names.UserTag, modelName string) txn.Op {
 	return txn.Op{
 		C:      usermodelnameC,
-		Id:     userModelNameIndex(owner.Id(), envName),
+		Id:     userModelNameIndex(owner.Id(), modelName),
 		Assert: txn.DocMissing,
 		Insert: bson.M{},
 	}

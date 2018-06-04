@@ -158,14 +158,14 @@ func (s *Suite) TestAbortNotATag(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
 
-func (s *Suite) TestAbortMissingEnv(c *gc.C) {
+func (s *Suite) TestAbortMissingModel(c *gc.C) {
 	api := s.mustNewAPI(c)
 	newUUID := utils.MustNewUUID().String()
 	err := api.Abort(params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
 	c.Assert(err, gc.ErrorMatches, `model "`+newUUID+`" not found`)
 }
 
-func (s *Suite) TestAbortNotImportingEnv(c *gc.C) {
+func (s *Suite) TestAbortNotImportingModel(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	model, err := st.Model()
@@ -195,14 +195,14 @@ func (s *Suite) TestActivateNotATag(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
 
-func (s *Suite) TestActivateMissingEnv(c *gc.C) {
+func (s *Suite) TestActivateMissingModel(c *gc.C) {
 	api := s.mustNewAPI(c)
 	newUUID := utils.MustNewUUID().String()
 	err := api.Activate(params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
 	c.Assert(err, gc.ErrorMatches, `model "`+newUUID+`" not found`)
 }
 
-func (s *Suite) TestActivateNotImportingEnv(c *gc.C) {
+func (s *Suite) TestActivateNotImportingModel(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	model, err := st.Model()
@@ -247,10 +247,10 @@ func (s *Suite) TestAdoptResources(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	env := mockEnviron{Stub: &testing.Stub{}}
-	api, err := s.newAPI(func(envSt *state.State) (environs.Environ, error) {
-		c.Assert(envSt.ModelUUID(), gc.Equals, st.ModelUUID())
-		return &env, nil
+	model := mockModel{Stub: &testing.Stub{}}
+	api, err := s.newAPI(func(modelSt *state.State) (environs.Environ, error) {
+		c.Assert(modelSt.ModelUUID(), gc.Equals, st.ModelUUID())
+		return &model, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -263,8 +263,8 @@ func (s *Suite) TestAdoptResources(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(env.Stub.Calls(), gc.HasLen, 1)
-	env.Stub.CheckCall(c, 0, "AdoptResources", s.callContext, st.ControllerUUID(), version.MustParse("3.2.1"))
+	c.Assert(model.Stub.Calls(), gc.HasLen, 1)
+	model.Stub.CheckCall(c, 0, "AdoptResources", s.callContext, st.ControllerUUID(), version.MustParse("3.2.1"))
 }
 
 func (s *Suite) TestCheckMachinesInstancesMissing(c *gc.C) {
@@ -280,11 +280,11 @@ func (s *Suite) TestCheckMachinesInstancesMissing(c *gc.C) {
 	})
 	c.Assert(m.Id(), gc.Equals, "1")
 
-	env := mockEnviron{
+	mockModel := mockModel{
 		Stub:      &testing.Stub{},
 		instances: []*mockInstance{{id: "wind-up"}},
 	}
-	api := s.mustNewAPIWithEnviron(c, &env)
+	api := s.mustNewAPIWithModel(c, &mockModel)
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -304,14 +304,14 @@ func (s *Suite) TestCheckMachinesExtraInstances(c *gc.C) {
 	fact.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "judith",
 	})
-	env := mockEnviron{
+	mockModel := mockModel{
 		Stub: &testing.Stub{},
 		instances: []*mockInstance{
 			{id: "judith"},
 			{id: "analyse"},
 		},
 	}
-	api := s.mustNewAPIWithEnviron(c, &env)
+	api := s.mustNewAPIWithModel(c, &mockModel)
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -327,9 +327,9 @@ func (s *Suite) TestCheckMachinesErrorGettingInstances(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	env := mockEnviron{Stub: &testing.Stub{}}
-	env.SetErrors(errors.Errorf("kablooie"))
-	api := s.mustNewAPIWithEnviron(c, &env)
+	mockModel := mockModel{Stub: &testing.Stub{}}
+	mockModel.SetErrors(errors.Errorf("kablooie"))
+	api := s.mustNewAPIWithModel(c, &mockModel)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
@@ -351,14 +351,14 @@ func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
 	})
 	c.Assert(m.Id(), gc.Equals, "1")
 
-	env := mockEnviron{
+	mockModel := mockModel{
 		Stub: &testing.Stub{},
 		instances: []*mockInstance{
 			{id: "volta"},
 			{id: "eriatarka"},
 		},
 	}
-	api := s.mustNewAPIWithEnviron(c, &env)
+	api := s.mustNewAPIWithModel(c, &mockModel)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
@@ -377,11 +377,11 @@ func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
 	})
 	fact.MakeMachineNested(c, m.Id(), nil)
 
-	env := mockEnviron{
+	mockModel := mockModel{
 		Stub:      &testing.Stub{},
 		instances: []*mockInstance{{id: "birds"}},
 	}
-	api := s.mustNewAPIWithEnviron(c, &env)
+	api := s.mustNewAPIWithModel(c, &mockModel)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
@@ -402,11 +402,11 @@ func (s *Suite) TestCheckMachinesHandlesManual(c *gc.C) {
 		Nonce: "manual:flibbertigibbert",
 	})
 
-	env := mockEnviron{
+	mockModel := mockModel{
 		Stub:      &testing.Stub{},
 		instances: []*mockInstance{{id: "birds"}},
 	}
-	api := s.mustNewAPIWithEnviron(c, &env)
+	api := s.mustNewAPIWithModel(c, &mockModel)
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -433,7 +433,7 @@ func (s *Suite) mustNewAPI(c *gc.C) *migrationtarget.API {
 	return api
 }
 
-func (s *Suite) mustNewAPIWithEnviron(c *gc.C, env environs.Environ) *migrationtarget.API {
+func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ) *migrationtarget.API {
 	api, err := s.newAPI(func(*state.State) (environs.Environ, error) {
 		return env, nil
 	})
@@ -464,19 +464,19 @@ func (s *Suite) controllerVersion(c *gc.C) version.Number {
 	return vers
 }
 
-type mockEnviron struct {
+type mockModel struct {
 	environs.Environ
 	*testing.Stub
 
 	instances []*mockInstance
 }
 
-func (e *mockEnviron) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
+func (e *mockModel) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
 	e.MethodCall(e, "AdoptResources", ctx, controllerUUID, sourceVersion)
 	return e.NextErr()
 }
 
-func (e *mockEnviron) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (e *mockModel) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
 	e.MethodCall(e, "AllInstances", ctx)
 	results := make([]instance.Instance, len(e.instances))
 	for i, instance := range e.instances {

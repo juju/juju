@@ -352,7 +352,7 @@ func (s *applicationSuite) TestMinJujuVersionTooHigh(c *gc.C) {
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
 		URL: curl.String(),
 	})
-	match := fmt.Sprintf(`charm's min version (999.999.999) is higher than this juju environment's version (%s)`, jujuversion.Current)
+	match := fmt.Sprintf(`charm's min version (999.999.999) is higher than this juju model's version (%s)`, jujuversion.Current)
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(match))
 }
 
@@ -713,7 +713,7 @@ func (s *applicationSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	err := s.Client.Put("/"+curl.Path()+"/meta/perm/read", []string{"bob"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Try to add a charm to the environment without authorization.
+	// Try to add a charm to the model without authorization.
 	s.DischargeUser = ""
 	err = s.APIState.Client().AddCharm(curl, csparams.StableChannel)
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve charm "cs:~restricted/precise/wordpress-3": cannot get archive: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: discharge denied \(unauthorized access\)`)

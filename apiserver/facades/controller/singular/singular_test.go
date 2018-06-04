@@ -29,14 +29,14 @@ type SingularSuite struct {
 
 var _ = gc.Suite(&SingularSuite{})
 
-func (s *SingularSuite) TestRequiresEnvironManager(c *gc.C) {
-	auth := mockAuth{nonManager: true}
+func (s *SingularSuite) TestRequiresController(c *gc.C) {
+	auth := mockAuth{nonController: true}
 	facade, err := singular.NewFacade(nil, auth)
 	c.Check(facade, gc.IsNil)
 	c.Check(err, gc.Equals, common.ErrPerm)
 }
 
-func (s *SingularSuite) TestAcceptsModelManager(c *gc.C) {
+func (s *SingularSuite) TestAcceptsController(c *gc.C) {
 	backend := &mockBackend{}
 	facade, err := singular.NewFacade(backend, mockAuth{})
 	c.Check(facade, gc.NotNil)

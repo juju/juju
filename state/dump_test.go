@@ -34,7 +34,7 @@ func (s *dumpSuite) TestDumpAll(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	models, ok := value["models"].(map[string]interface{})
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(models["name"], gc.Equals, "testenv")
+	c.Assert(models["name"], gc.Equals, "testmodel")
 
 	initialCollections := set.NewStrings()
 	for name := range value {

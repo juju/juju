@@ -217,8 +217,8 @@ func (c *ControllerAPI) AllModels() (params.UserModelList, error) {
 	return result, nil
 }
 
-// ListBlockedModels returns a list of all environments on the controller
-// which have a block in place.  The resulting slice is sorted by environment
+// ListBlockedModels returns a list of all models on the controller
+// which have a block in place.  The resulting slice is sorted by model
 // name, then owner. Callers must be controller administrators to retrieve the
 // list.
 func (c *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
@@ -258,13 +258,13 @@ func (c *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 		ph.Release()
 	}
 
-	// Sort the resulting sequence by environment name, then owner.
+	// Sort the resulting sequence by model name, then owner.
 	sort.Sort(orderedBlockInfo(results.Models))
 	return results, nil
 }
 
-// ModelConfig returns the environment config for the controller
-// environment.  For information on the current environment, use
+// ModelConfig returns the model config for the controller
+// model.  For information on the current model, use
 // client.ModelGet
 func (c *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
@@ -741,7 +741,7 @@ func (o orderedBlockInfo) Less(i, j int) bool {
 	}
 
 	// Unreachable based on the rules of there not being duplicate
-	// environments of the same name for the same owner, but return false
+	// models of the same name for the same owner, but return false
 	// instead of panicing.
 	return false
 }

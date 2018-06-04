@@ -90,8 +90,8 @@ func (h *RetryStrategyAPI) RetryStrategy(args params.Entities) (params.RetryStra
 		err = common.ErrPerm
 		if canAccess(tag) {
 			// Right now the only real configurable value is ShouldRetry,
-			// which is taken from the environment
-			// The rest are hardcoded
+			// which is taken from the model.
+			// The rest are hardcoded.
 			results.Results[i].Result = &params.RetryStrategy{
 				ShouldRetry:     config.AutomaticallyRetryHooks(),
 				MinRetryTime:    MinRetryTime,
@@ -106,7 +106,7 @@ func (h *RetryStrategyAPI) RetryStrategy(args params.Entities) (params.RetryStra
 	return results, nil
 }
 
-// WatchRetryStrategy watches for changes to the environment. Currently we only allow
+// WatchRetryStrategy watches for changes to the model. Currently we only allow
 // changes to the boolean that determines whether retries should be attempted or not.
 func (h *RetryStrategyAPI) WatchRetryStrategy(args params.Entities) (params.NotifyWatchResults, error) {
 	results := params.NotifyWatchResults{

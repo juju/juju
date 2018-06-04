@@ -57,13 +57,13 @@ func (s *ControllerAddressesSuite) SetUpTest(c *gc.C) {
 	c.Logf("machine addresses: %#v", machine.Addresses())
 }
 
-func (s *ControllerAddressesSuite) TestControllerEnv(c *gc.C) {
+func (s *ControllerAddressesSuite) TestControllerModel(c *gc.C) {
 	addresses, err := s.State.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, jc.SameContents, []string{"10.0.1.2:1234"})
 }
 
-func (s *ControllerAddressesSuite) TestOtherEnv(c *gc.C) {
+func (s *ControllerAddressesSuite) TestOtherModel(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	addresses, err := st.Addresses()

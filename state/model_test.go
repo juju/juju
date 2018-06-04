@@ -38,7 +38,7 @@ func (s *ModelSuite) TestModel(c *gc.C) {
 	expectedTag := names.NewModelTag(model.UUID())
 	c.Assert(model.Tag(), gc.Equals, expectedTag)
 	c.Assert(model.ControllerTag(), gc.Equals, s.State.ControllerTag())
-	c.Assert(model.Name(), gc.Equals, "testenv")
+	c.Assert(model.Name(), gc.Equals, "testmodel")
 	c.Assert(model.Owner(), gc.Equals, s.Owner)
 	c.Assert(model.Life(), gc.Equals, state.Alive)
 	c.Assert(model.MigrationMode(), gc.Equals, state.MigrationModeNone)

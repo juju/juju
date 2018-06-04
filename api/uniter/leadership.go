@@ -33,7 +33,7 @@ type LeadershipSettingsAccessor struct {
 }
 
 // Merge merges the provided settings into the leadership settings for
-// the given application and unit. Only leaders of a given service may perform
+// the given application and unit. Only leaders of a given application may perform
 // this operation.
 func (lsa *LeadershipSettingsAccessor) Merge(appId, unitId string, settings map[string]string) error {
 
@@ -53,15 +53,15 @@ func (lsa *LeadershipSettingsAccessor) Merge(appId, unitId string, settings map[
 	return nil
 }
 
-// Read retrieves the leadership settings for the given service
+// Read retrieves the leadership settings for the given application
 // ID. Anyone may perform this operation.
-func (lsa *LeadershipSettingsAccessor) Read(serviceId string) (map[string]string, error) {
+func (lsa *LeadershipSettingsAccessor) Read(appId string) (map[string]string, error) {
 
 	if err := lsa.checkAPIVersion("Read"); err != nil {
 		return nil, errors.Annotatef(err, "cannot access leadership api")
 	}
 
-	results, err := lsa.bulkRead(lsa.prepareRead(serviceId))
+	results, err := lsa.bulkRead(lsa.prepareRead(appId))
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to call leadership api")
 	}
@@ -75,8 +75,8 @@ func (lsa *LeadershipSettingsAccessor) Read(serviceId string) (map[string]string
 }
 
 // WatchLeadershipSettings returns a watcher which can be used to wait
-// for leadership settings changes to be made for a given service ID.
-func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(serviceId string) (watcher.NotifyWatcher, error) {
+// for leadership settings changes to be made for a given application ID.
+func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(appId string) (watcher.NotifyWatcher, error) {
 
 	if err := lsa.checkAPIVersion("WatchLeadershipSettings"); err != nil {
 		return nil, errors.Annotatef(err, "cannot access leadership api")
@@ -84,7 +84,7 @@ func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(serviceId string)
 	var results params.NotifyWatchResults
 	if err := lsa.facadeCaller(
 		"WatchLeadershipSettings",
-		params.Entities{[]params.Entity{{names.NewApplicationTag(serviceId).String()}}},
+		params.Entities{[]params.Entity{{names.NewApplicationTag(appId).String()}}},
 		&results,
 	); err != nil {
 		return nil, errors.Annotate(err, "failed to call leadership api")
@@ -110,8 +110,8 @@ func (lsa *LeadershipSettingsAccessor) prepareMerge(appId, unitId string, settin
 	}
 }
 
-func (lsa *LeadershipSettingsAccessor) prepareRead(serviceId string) params.Entity {
-	return params.Entity{Tag: names.NewApplicationTag(serviceId).String()}
+func (lsa *LeadershipSettingsAccessor) prepareRead(appId string) params.Entity {
+	return params.Entity{Tag: names.NewApplicationTag(appId).String()}
 }
 
 //

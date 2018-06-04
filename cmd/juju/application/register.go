@@ -228,7 +228,7 @@ func (r *RegisterMeteredCharm) getCharmPlans(client *httpbakery.Client, cURL str
 	return info, nil
 }
 
-func (r *RegisterMeteredCharm) registerMetrics(modelUUID, charmURL, serviceName string, client *httpbakery.Client) ([]byte, error) {
+func (r *RegisterMeteredCharm) registerMetrics(modelUUID, charmURL, applicationName string, client *httpbakery.Client) ([]byte, error) {
 	if r.RegisterURL == "" {
 		return nil, errors.Errorf("no metric registration url is specified")
 	}
@@ -240,7 +240,7 @@ func (r *RegisterMeteredCharm) registerMetrics(modelUUID, charmURL, serviceName 
 	registrationPost := metricRegistrationPost{
 		ModelUUID:       modelUUID,
 		CharmURL:        charmURL,
-		ApplicationName: serviceName,
+		ApplicationName: applicationName,
 		PlanURL:         r.Plan,
 		IncreaseBudget:  r.IncreaseBudget,
 	}

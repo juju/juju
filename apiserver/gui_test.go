@@ -418,7 +418,7 @@ func (s *guiSuite) TestGUIIndex(c *gc.C) {
 	}, {
 		about:      "new GUI, new URL, model path",
 		guiVersion: "2.3.1",
-		path:       "u/admin/testenv/",
+		path:       "u/admin/testmodel/",
 		getURL:     s.guiURL,
 	}, {
 		about:               "new GUI, old URL, root",
@@ -428,7 +428,7 @@ func (s *guiSuite) TestGUIIndex(c *gc.C) {
 	}, {
 		about:               "new GUI, old URL, model path",
 		guiVersion:          "2.3.0",
-		path:                "u/admin/testenv/",
+		path:                "u/admin/testmodel/",
 		getURL:              s.guiOldURL,
 		expectedConfigQuery: "?model-uuid=" + s.State.ModelUUID() + "&base-postfix=" + s.State.ModelUUID(),
 	}, {
@@ -438,9 +438,9 @@ func (s *guiSuite) TestGUIIndex(c *gc.C) {
 	}, {
 		about:               "old GUI, new URL, model path",
 		guiVersion:          "2.0.0",
-		path:                "u/admin/testenv/",
+		path:                "u/admin/testmodel/",
 		getURL:              s.guiURL,
-		expectedConfigQuery: "?model-uuid=" + s.State.ModelUUID() + "&base-postfix=u/admin/testenv",
+		expectedConfigQuery: "?model-uuid=" + s.State.ModelUUID() + "&base-postfix=u/admin/testmodel",
 	}, {
 		about:               "old GUI, old URL, root",
 		guiVersion:          "1.42.47",
@@ -449,12 +449,12 @@ func (s *guiSuite) TestGUIIndex(c *gc.C) {
 	}, {
 		about:               "old GUI, old URL, model path",
 		guiVersion:          "2.2.9",
-		path:                "u/admin/testenv/",
+		path:                "u/admin/testmodel/",
 		getURL:              s.guiOldURL,
 		expectedConfigQuery: "?model-uuid=" + s.State.ModelUUID() + "&base-postfix=" + s.State.ModelUUID(),
 	}}
 
-	// Ensure there's an admin user with access to the testenv model.
+	// Ensure there's an admin user with access to the testmodel model.
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "admin"})
 	storage, err := s.State.GUIStorage()
 	c.Assert(err, jc.ErrorIsNil)

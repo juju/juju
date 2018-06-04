@@ -22,8 +22,8 @@ type ModelWatcher struct {
 // will be stored in the provided Resources. The two GetAuthFunc
 // callbacks will be used on each invocation of the methods to
 // determine current permissions.
-// Right now, environment tags are not used, so both created AuthFuncs
-// are called with "" for tag, which means "the current environment".
+// Right now, model tags are not used, so both created AuthFuncs
+// are called with "" for tag, which means "the current model".
 func NewModelWatcher(st state.ModelAccessor, resources facade.Resources, authorizer facade.Authorizer) *ModelWatcher {
 	return &ModelWatcher{
 		st:         st,
@@ -33,7 +33,7 @@ func NewModelWatcher(st state.ModelAccessor, resources facade.Resources, authori
 }
 
 // WatchForModelConfigChanges returns a NotifyWatcher that observes
-// changes to the environment configuration.
+// changes to the model configuration.
 // Note that although the NotifyWatchResult contains an Error field,
 // it's not used because we are only returning a single watcher,
 // so we use the regular error return.
@@ -52,7 +52,7 @@ func (m *ModelWatcher) WatchForModelConfigChanges() (params.NotifyWatchResult, e
 	return result, nil
 }
 
-// ModelConfig returns the current environment's configuration.
+// ModelConfig returns the current model's configuration.
 func (m *ModelWatcher) ModelConfig() (params.ModelConfigResult, error) {
 	result := params.ModelConfigResult{}
 	config, err := m.st.ModelConfig()

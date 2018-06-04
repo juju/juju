@@ -19,7 +19,7 @@ type ctrData struct {
 	UUID                 string
 	HostedModelCount     int
 	HostedMachineCount   int
-	ServiceCount         int
+	ApplicationCount     int
 	TotalVolumeCount     int
 	TotalFilesystemCount int
 
@@ -34,7 +34,7 @@ type modelData struct {
 	Life  string
 
 	HostedMachineCount        int
-	ServiceCount              int
+	ApplicationCount          int
 	VolumeCount               int
 	FilesystemCount           int
 	PersistentVolumeCount     int
@@ -92,7 +92,7 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 	}
 
 	var hostedMachinesCount int
-	var servicesCount int
+	var applicationsCount int
 	var volumeCount int
 	var filesystemCount int
 	var modelsData []modelData
@@ -144,7 +144,7 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 			aliveModelCount++
 		}
 		hostedMachinesCount += model.HostedMachineCount
-		servicesCount += model.ApplicationCount
+		applicationsCount += model.ApplicationCount
 		volumeCount += modelData.VolumeCount
 		filesystemCount += modelData.FilesystemCount
 	}
@@ -153,7 +153,7 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 		controllerModelUUID,
 		aliveModelCount,
 		hostedMachinesCount,
-		servicesCount,
+		applicationsCount,
 		volumeCount,
 		filesystemCount,
 		ctrModelData,
@@ -200,8 +200,8 @@ func fmtCtrStatus(data ctrData) string {
 		out += fmt.Sprintf(", %d machine%s", machineNo, s(machineNo))
 	}
 
-	if serviceNo := data.ServiceCount; serviceNo > 0 {
-		out += fmt.Sprintf(", %d application%s", serviceNo, s(serviceNo))
+	if applicationNo := data.ApplicationCount; applicationNo > 0 {
+		out += fmt.Sprintf(", %d application%s", applicationNo, s(applicationNo))
 	}
 
 	if n := data.TotalVolumeCount; n > 0 {
@@ -222,8 +222,8 @@ func fmtModelStatus(data modelData) string {
 		out += fmt.Sprintf(", %d machine%s", machineNo, s(machineNo))
 	}
 
-	if serviceNo := data.ServiceCount; serviceNo > 0 {
-		out += fmt.Sprintf(", %d application%s", serviceNo, s(serviceNo))
+	if applicationNo := data.ApplicationCount; applicationNo > 0 {
+		out += fmt.Sprintf(", %d application%s", applicationNo, s(applicationNo))
 	}
 
 	if n := data.VolumeCount; n > 0 {

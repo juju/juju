@@ -71,9 +71,9 @@ func clientError(message string) *params.Error {
 }
 
 func (s *keymanagerSuite) assertModelKeys(c *gc.C, expected []string) {
-	envConfig, err := s.IAASModel.ModelConfig()
+	modelConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	keys := envConfig.AuthorizedKeys()
+	keys := modelConfig.AuthorizedKeys()
 	c.Assert(keys, gc.Equals, strings.Join(expected, "\n"))
 }
 

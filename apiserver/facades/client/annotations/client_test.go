@@ -38,10 +38,10 @@ func (s *annotationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *annotationSuite) TestEnvironmentAnnotations(c *gc.C) {
-	env, err := s.State.Model()
+func (s *annotationSuite) TestModelAnnotations(c *gc.C) {
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	s.testSetGetEntitiesAnnotations(c, env.Tag())
+	s.testSetGetEntitiesAnnotations(c, model.Tag())
 }
 
 func (s *annotationSuite) TestMachineAnnotations(c *gc.C) {

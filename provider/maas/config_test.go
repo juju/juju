@@ -26,7 +26,7 @@ var _ = gc.Suite(&configSuite{})
 // newConfig creates a MAAS environment config from attributes.
 func newConfig(values map[string]interface{}) (*maasModelConfig, error) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"name": "testenv",
+		"name": "testmodel",
 		"type": "maas",
 	}).Merge(values)
 	cfg, err := config.New(config.NoDefaults, attrs)

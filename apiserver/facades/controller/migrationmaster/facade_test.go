@@ -65,7 +65,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *Suite) TestNotEnvironManager(c *gc.C) {
+func (s *Suite) TestNotController(c *gc.C) {
 	s.authorizer.Controller = false
 
 	api, err := s.makeAPI()

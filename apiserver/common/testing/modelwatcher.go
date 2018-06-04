@@ -33,19 +33,19 @@ func NewModelWatcherTest(
 }
 
 // AssertModelConfig provides a method to test the config from the
-// envWatcher.  This allows other tests that embed this type to have
+// modelWatcher.  This allows other tests that embed this type to have
 // more than just the default test.
-func (s *ModelWatcherTest) AssertModelConfig(c *gc.C, envWatcher ModelWatcher) {
+func (s *ModelWatcherTest) AssertModelConfig(c *gc.C, modelWatcher ModelWatcher) {
 	model, err := s.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	envConfig, err := model.ModelConfig()
+	modelConfig, err := model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := envWatcher.ModelConfig()
+	result, err := modelWatcher.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	configAttributes := envConfig.AllAttrs()
+	configAttributes := modelConfig.AllAttrs()
 	c.Assert(result.Config, jc.DeepEquals, params.ModelConfig(configAttributes))
 }
 

@@ -147,7 +147,7 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
 	factory.NewFactory(otherSt).MakeApplication(c, nil)
-	otherEnv, err := otherSt.Model()
+	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertDoesNotNeedCleanup(c)
@@ -165,9 +165,9 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 	// models, the other to destroy the controller model's
 	// applications.
 	s.assertCleanupCount(c, 1)
-	err = otherEnv.Refresh()
+	err = otherModel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(otherEnv.Life(), gc.Equals, state.Dying)
+	c.Assert(otherModel.Life(), gc.Equals, state.Dying)
 
 	s.assertDoesNotNeedCleanup(c)
 }

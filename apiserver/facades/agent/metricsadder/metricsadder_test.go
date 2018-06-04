@@ -218,9 +218,9 @@ func (s *metricsAdderSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 
 func (s *metricsAdderSuite) TestNewMetricsAdderAPIRefusesNonAgent(c *gc.C) {
 	tests := []struct {
-		tag            names.Tag
-		environManager bool
-		expectedError  string
+		tag           names.Tag
+		controller    bool
+		expectedError string
 	}{
 		// TODO(cmars): unit agent should get permission denied when callers are
 		// moved to machine agent.
@@ -234,7 +234,7 @@ func (s *metricsAdderSuite) TestNewMetricsAdderAPIRefusesNonAgent(c *gc.C) {
 		c.Logf("test %d", i)
 
 		anAuthoriser := s.authorizer
-		anAuthoriser.Controller = test.environManager
+		anAuthoriser.Controller = test.controller
 		anAuthoriser.Tag = test.tag
 		endPoint, err := metricsadder.NewMetricsAdderAPI(s.State, nil, anAuthoriser)
 		if test.expectedError == "" {

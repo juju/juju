@@ -12,9 +12,9 @@ import (
 
 // resourceFile associates a resource name to a filename.
 type resourceFile struct {
-	service  string
-	name     string
-	filename string
+	application string
+	name        string
+	filename    string
 }
 
 // parseResourceFileArg converts the provided string into a name and

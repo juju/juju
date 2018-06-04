@@ -42,7 +42,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.api, gc.NotNil)
 }
 
-func (s *CleanerSuite) TestNewCleanerAPIRequiresEnvironManager(c *gc.C) {
+func (s *CleanerSuite) TestNewCleanerAPIRequiresController(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Controller = false
 	api, err := cleaner.NewCleanerAPI(nil, nil, anAuthoriser)

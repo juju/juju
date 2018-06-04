@@ -130,7 +130,7 @@ func FormatApplicationDetails(sr resource.ApplicationResources) (FormattedApplic
 	return formatted, nil
 }
 
-// FormatDetailResource converts the arguments into a FormattedServiceResource.
+// FormatDetailResource converts the arguments into a FormattedApplicationResource.
 func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource, progress int64) (FormattedDetailResource, error) {
 	// note that the unit resource can be a zero value here, to indicate that
 	// the unit has not downloaded that resource yet.

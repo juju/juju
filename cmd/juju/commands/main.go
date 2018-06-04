@@ -383,7 +383,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage controller availability
 	r.Register(newEnableHACommand())
 
-	// Manage and control services
+	// Manage and control applications
 	r.Register(application.NewAddUnitCommand())
 	r.Register(application.NewConfigCommand())
 	r.Register(application.NewDeployCommand())

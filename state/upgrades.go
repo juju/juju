@@ -45,15 +45,15 @@ func runForAllModelStates(st *State, runner func(st *State) error) error {
 	defer pool.Close()
 	for _, modelDoc := range modelDocs {
 		modelUUID := modelDoc["_id"].(string)
-		envSt, err := pool.Get(modelUUID)
+		model, err := pool.Get(modelUUID)
 		if err != nil {
 			return errors.Annotatef(err, "failed to open model %q", modelUUID)
 		}
 		defer func() {
-			envSt.Release()
+			model.Release()
 			pool.Remove(modelUUID)
 		}()
-		if err := runner(envSt.State); err != nil {
+		if err := runner(model.State); err != nil {
 			return errors.Annotatef(err, "model UUID %q", modelUUID)
 		}
 	}

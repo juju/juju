@@ -27,7 +27,7 @@ func NewRemoveSaasCommand() cmd.Command {
 	return modelcmd.Wrap(cmd)
 }
 
-// removeServiceCommand causes an existing application to be destroyed.
+// removeSaasCommand causes an existing remote application to be destroyed.
 type removeSaasCommand struct {
 	modelcmd.ModelCommandBase
 	SaasNames []string

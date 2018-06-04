@@ -73,7 +73,7 @@ func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
 
 	// UploadTools does not use the facades, so instead of patching the
 	// facade call, we set up a fake endpoint to test.
-	defer fakeAPIEndpoint(c, client, envEndpoint(c, otherAPISt, "tools"), "POST",
+	defer fakeAPIEndpoint(c, client, modelEndpoint(c, otherAPISt, "tools"), "POST",
 		func(w http.ResponseWriter, r *http.Request) {
 			called = true
 
@@ -160,7 +160,7 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 
 	// AddLocalCharm does not use the facades, so instead of patching the
 	// facade call, we set up a fake endpoint to test.
-	defer fakeAPIEndpoint(c, client, envEndpoint(c, s.APIState, "charms"), "POST",
+	defer fakeAPIEndpoint(c, client, modelEndpoint(c, s.APIState, "charms"), "POST",
 		func(w http.ResponseWriter, r *http.Request) {
 			httprequest.WriteJSON(w, http.StatusMethodNotAllowed, &params.CharmsResponse{
 				Error:     "the POST method is not allowed",
@@ -312,8 +312,8 @@ func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle
 	return lis
 }
 
-// envEndpoint returns "/model/<model-uuid>/<destination>"
-func envEndpoint(c *gc.C, apiState api.Connection, destination string) string {
+// modelEndpoint returns "/model/<model-uuid>/<destination>"
+func modelEndpoint(c *gc.C, apiState api.Connection, destination string) string {
 	modelTag, ok := apiState.ModelTag()
 	c.Assert(ok, jc.IsTrue)
 	return path.Join("/model", modelTag.Id(), destination)
@@ -520,9 +520,9 @@ func (s *clientSuite) TestSetModelAgentVersionDuringUpgrade(c *gc.C) {
 	// This is an integration test which ensure that a test with the
 	// correct error code is seen by the client from the
 	// SetModelAgentVersion call when an upgrade is in progress.
-	envConfig, err := s.IAASModel.ModelConfig()
+	modelConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, ok := envConfig.AgentVersion()
+	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},

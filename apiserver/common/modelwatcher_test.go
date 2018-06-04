@@ -23,13 +23,13 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type environWatcherSuite struct {
+type modelWatcherSuite struct {
 	testing.BaseSuite
 
 	testingEnvConfig *config.Config
 }
 
-var _ = gc.Suite(&environWatcherSuite{})
+var _ = gc.Suite(&modelWatcherSuite{})
 
 type fakeModelAccessor struct {
 	modelConfig      *config.Config
@@ -47,12 +47,12 @@ func (f *fakeModelAccessor) ModelConfig() (*config.Config, error) {
 	return f.modelConfig, nil
 }
 
-func (s *environWatcherSuite) TearDownTest(c *gc.C) {
+func (s *modelWatcherSuite) TearDownTest(c *gc.C) {
 	dummy.Reset(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *environWatcherSuite) TestWatchSuccess(c *gc.C) {
+func (s *modelWatcherSuite) TestWatchSuccess(c *gc.C) {
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	e := common.NewModelWatcher(
@@ -66,14 +66,14 @@ func (s *environWatcherSuite) TestWatchSuccess(c *gc.C) {
 	c.Assert(resources.Count(), gc.Equals, 1)
 }
 
-func (*environWatcherSuite) TestModelConfigSuccess(c *gc.C) {
+func (*modelWatcherSuite) TestModelConfigSuccess(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	testingEnvConfig := testingEnvConfig(c)
+	testingModelConfig := testingEnvConfig(c)
 	e := common.NewModelWatcher(
-		&fakeModelAccessor{modelConfig: testingEnvConfig},
+		&fakeModelAccessor{modelConfig: testingModelConfig},
 		nil,
 		authorizer,
 	)
@@ -81,10 +81,10 @@ func (*environWatcherSuite) TestModelConfigSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Make sure we can read the secret attribute (i.e. it's not masked).
 	c.Check(result.Config["secret"], gc.Equals, "pork")
-	c.Check(map[string]interface{}(result.Config), jc.DeepEquals, testingEnvConfig.AllAttrs())
+	c.Check(map[string]interface{}(result.Config), jc.DeepEquals, testingModelConfig.AllAttrs())
 }
 
-func (*environWatcherSuite) TestModelConfigFetchError(c *gc.C) {
+func (*modelWatcherSuite) TestModelConfigFetchError(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,

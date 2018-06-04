@@ -62,7 +62,7 @@ func (s *storageAddSuite) TestStorageAddUnitBlocked(c *gc.C) {
 }
 
 func (s *storageAddSuite) TestStorageAddUnitDestroyIgnored(c *gc.C) {
-	s.blockDestroyEnvironment(c, "TestStorageAddUnitDestroyIgnored")
+	s.blockDestroyModel(c, "TestStorageAddUnitDestroyIgnored")
 	s.blockRemoveObject(c, "TestStorageAddUnitDestroyIgnored")
 
 	args := params.StorageAddParams{

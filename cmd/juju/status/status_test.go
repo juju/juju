@@ -367,14 +367,14 @@ var (
 		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
-	unexposedService = dummyCharm(M{
+	unexposedApplication = dummyCharm(M{
 		"application-status": M{
 			"current": "waiting",
 			"message": "waiting for machine",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 	})
-	exposedService = dummyCharm(M{
+	exposedApplication = dummyCharm(M{
 		"application-status": M{
 			"current": "waiting",
 			"message": "waiting for machine",
@@ -724,15 +724,15 @@ var statusTests = []testCase{
 		},
 	),
 	test( // 4
-		"add two services and expose one, then add 2 more machines and some units",
+		"add two applications and expose one, then add 2 more machines and some units",
 		// step 0
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"dummy"},
-		addService{name: "dummy-application", charm: "dummy"},
-		addService{name: "exposed-application", charm: "dummy"},
+		addApplication{name: "dummy-application", charm: "dummy"},
+		addApplication{name: "exposed-application", charm: "dummy"},
 		expect{
 			what: "no applications exposed yet",
 			output: M{
@@ -741,8 +741,8 @@ var statusTests = []testCase{
 					"0": machine0,
 				},
 				"applications": M{
-					"dummy-application":   unexposedService,
-					"exposed-application": unexposedService,
+					"dummy-application":   unexposedApplication,
+					"exposed-application": unexposedApplication,
 				},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
@@ -751,7 +751,7 @@ var statusTests = []testCase{
 		},
 
 		// step 8
-		setServiceExposed{"exposed-application", true},
+		setApplicationExposed{"exposed-application", true},
 		expect{
 			what: "one exposed application",
 			output: M{
@@ -760,8 +760,8 @@ var statusTests = []testCase{
 					"0": machine0,
 				},
 				"applications": M{
-					"dummy-application":   unexposedService,
-					"exposed-application": exposedService,
+					"dummy-application":   unexposedApplication,
+					"exposed-application": exposedApplication,
 				},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
@@ -788,8 +788,8 @@ var statusTests = []testCase{
 					"2": machine2,
 				},
 				"applications": M{
-					"dummy-application":   unexposedService,
-					"exposed-application": exposedService,
+					"dummy-application":   unexposedApplication,
+					"exposed-application": exposedApplication,
 				},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
@@ -1240,14 +1240,14 @@ var statusTests = []testCase{
 		setMachineStatus{"1", status.Started, ""},
 
 		addCharm{"wordpress"},
-		addService{name: "wordpress", charm: "wordpress"},
+		addApplication{name: "wordpress", charm: "wordpress"},
 		addAliveUnit{"wordpress", "1"},
 
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		addAliveUnit{"mysql", "1"},
 
-		relateServices{"wordpress", "mysql", ""},
+		relateApplications{"wordpress", "mysql", ""},
 
 		setAgentStatus{"wordpress/0", status.Error,
 			"hook failed: some-relation-changed",
@@ -1332,14 +1332,14 @@ var statusTests = []testCase{
 		setMachineStatus{"1", status.Started, ""},
 
 		addCharm{"wordpress"},
-		addService{name: "wordpress", charm: "wordpress"},
+		addApplication{name: "wordpress", charm: "wordpress"},
 		addAliveUnit{"wordpress", "1"},
 
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		addAliveUnit{"mysql", "1"},
 
-		relateServices{"wordpress", "mysql", ""},
+		relateApplications{"wordpress", "mysql", ""},
 
 		setAgentStatus{"wordpress/0", status.Error,
 			"hook failed: some-relation-changed",
@@ -1414,10 +1414,10 @@ var statusTests = []testCase{
 	test( // 7
 		"add a dying application",
 		addCharm{"dummy"},
-		addService{name: "dummy-application", charm: "dummy"},
+		addApplication{name: "dummy-application", charm: "dummy"},
 		addMachine{machineId: "0", job: state.JobHostUnits},
 		addAliveUnit{"dummy-application", "0"},
-		ensureDyingService{"dummy-application"},
+		ensureDyingApplication{"dummy-application"},
 		expect{
 			what: "application shows life==dying",
 			output: M{
@@ -1470,7 +1470,7 @@ var statusTests = []testCase{
 	test( // 8
 		"a unit where the agent is down shows as lost",
 		addCharm{"dummy"},
-		addService{name: "dummy-application", charm: "dummy"},
+		addApplication{name: "dummy-application", charm: "dummy"},
 		addMachine{machineId: "0", job: state.JobHostUnits},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
@@ -1529,7 +1529,7 @@ var statusTests = []testCase{
 
 	// Relation tests
 	test( // 9
-		"complex scenario with multiple related services",
+		"complex scenario with multiple related applications",
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
@@ -1538,8 +1538,8 @@ var statusTests = []testCase{
 		addCharm{"mysql"},
 		addCharm{"varnish"},
 
-		addService{name: "project", charm: "wordpress"},
-		setServiceExposed{"project", true},
+		addApplication{name: "project", charm: "wordpress"},
+		setApplicationExposed{"project", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
@@ -1548,8 +1548,8 @@ var statusTests = []testCase{
 		setAgentStatus{"project/0", status.Idle, "", nil},
 		setUnitStatus{"project/0", status.Active, "", nil},
 
-		addService{name: "mysql", charm: "mysql"},
-		setServiceExposed{"mysql", true},
+		addApplication{name: "mysql", charm: "mysql"},
+		setApplicationExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"2"},
@@ -1558,8 +1558,8 @@ var statusTests = []testCase{
 		setAgentStatus{"mysql/0", status.Idle, "", nil},
 		setUnitStatus{"mysql/0", status.Active, "", nil},
 
-		addService{name: "varnish", charm: "varnish"},
-		setServiceExposed{"varnish", true},
+		addApplication{name: "varnish", charm: "varnish"},
+		setApplicationExposed{"varnish", true},
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		setAddresses{"3", network.NewAddresses("10.0.3.1")},
 		startAliveMachine{"3"},
@@ -1567,20 +1567,20 @@ var statusTests = []testCase{
 		setMachineInstanceStatus{"3", status.Started, "I am number three"},
 		addAliveUnit{"varnish", "3"},
 
-		addService{name: "private", charm: "wordpress"},
-		setServiceExposed{"private", true},
+		addApplication{name: "private", charm: "wordpress"},
+		setApplicationExposed{"private", true},
 		addMachine{machineId: "4", job: state.JobHostUnits},
 		setAddresses{"4", network.NewAddresses("10.0.4.1")},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", status.Started, ""},
 		addAliveUnit{"private", "4"},
 
-		relateServices{"project", "mysql", ""},
-		relateServices{"project", "varnish", ""},
-		relateServices{"private", "mysql", ""},
+		relateApplications{"project", "mysql", ""},
+		relateApplications{"project", "varnish", ""},
+		relateApplications{"private", "mysql", ""},
 
 		expect{
-			what: "multiples services with relations between some of them",
+			what: "multiples applications with relations between some of them",
 			output: M{
 				"model": model,
 				"machines": M{
@@ -1714,8 +1714,8 @@ var statusTests = []testCase{
 		addCharm{"riak"},
 		addCharm{"wordpress"},
 
-		addService{name: "riak", charm: "riak"},
-		setServiceExposed{"riak", true},
+		addApplication{name: "riak", charm: "riak"},
+		setApplicationExposed{"riak", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
@@ -1825,8 +1825,8 @@ var statusTests = []testCase{
 		addCharm{"mysql"},
 		addCharm{"logging"},
 
-		addService{name: "wordpress", charm: "wordpress"},
-		setServiceExposed{"wordpress", true},
+		addApplication{name: "wordpress", charm: "wordpress"},
+		setApplicationExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
@@ -1835,8 +1835,8 @@ var statusTests = []testCase{
 		setAgentStatus{"wordpress/0", status.Idle, "", nil},
 		setUnitStatus{"wordpress/0", status.Active, "", nil},
 
-		addService{name: "mysql", charm: "mysql"},
-		setServiceExposed{"mysql", true},
+		addApplication{name: "mysql", charm: "mysql"},
+		setApplicationExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"2"},
@@ -1845,12 +1845,12 @@ var statusTests = []testCase{
 		setAgentStatus{"mysql/0", status.Idle, "", nil},
 		setUnitStatus{"mysql/0", status.Active, "", nil},
 
-		addService{name: "logging", charm: "logging"},
-		setServiceExposed{"logging", true},
+		addApplication{name: "logging", charm: "logging"},
+		setApplicationExposed{"logging", true},
 
-		relateServices{"wordpress", "mysql", ""},
-		relateServices{"wordpress", "logging", ""},
-		relateServices{"mysql", "logging", ""},
+		relateApplications{"wordpress", "mysql", ""},
+		relateApplications{"wordpress", "logging", ""},
+		relateApplications{"mysql", "logging", ""},
 
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
@@ -2126,8 +2126,8 @@ var statusTests = []testCase{
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
-		setServiceExposed{"mysql", true},
+		addApplication{name: "mysql", charm: "mysql"},
+		setApplicationExposed{"mysql", true},
 
 		// step 7
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -2298,13 +2298,13 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
-		setServiceExposed{"mysql", true},
+		addApplication{name: "mysql", charm: "mysql"},
+		setApplicationExposed{"mysql", true},
 		addCharmPlaceholder{"mysql", 23},
 		addAliveUnit{"mysql", "1"},
 
 		expect{
-			what: "services and units with correct charm status",
+			what: "applications and units with correct charm status",
 			output: M{
 				"model": model,
 				"machines": M{
@@ -2354,15 +2354,15 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
-		setServiceExposed{"mysql", true},
+		addApplication{name: "mysql", charm: "mysql"},
+		setApplicationExposed{"mysql", true},
 		addAliveUnit{"mysql", "1"},
 		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
 		addCharmWithRevision{addCharm{"mysql"}, "local", 1},
-		setServiceCharm{"mysql", "local:quantal/mysql-1"},
+		setApplicationCharm{"mysql", "local:quantal/mysql-1"},
 
 		expect{
-			what: "services and units with correct charm status",
+			what: "applications and units with correct charm status",
 			output: M{
 				"model": model,
 				"machines": M{
@@ -2412,16 +2412,16 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
-		setServiceExposed{"mysql", true},
+		addApplication{name: "mysql", charm: "mysql"},
+		setApplicationExposed{"mysql", true},
 		addAliveUnit{"mysql", "1"},
 		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
 		addCharmWithRevision{addCharm{"mysql"}, "cs", 2},
-		setServiceCharm{"mysql", "cs:quantal/mysql-2"},
+		setApplicationCharm{"mysql", "cs:quantal/mysql-2"},
 		addCharmPlaceholder{"mysql", 23},
 
 		expect{
-			what: "services and units with correct charm status",
+			what: "applications and units with correct charm status",
 			output: M{
 				"model": model,
 				"machines": M{
@@ -2472,16 +2472,16 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
-		setServiceExposed{"mysql", true},
+		addApplication{name: "mysql", charm: "mysql"},
+		setApplicationExposed{"mysql", true},
 		addAliveUnit{"mysql", "1"},
 		setUnitCharmURL{"mysql/0", "cs:quantal/mysql-1"},
 		addCharmWithRevision{addCharm{"mysql"}, "local", 1},
-		setServiceCharm{"mysql", "local:quantal/mysql-1"},
+		setApplicationCharm{"mysql", "local:quantal/mysql-1"},
 		addCharmPlaceholder{"mysql", 23},
 
 		expect{
-			what: "services and units with correct charm status",
+			what: "applications and units with correct charm status",
 			output: M{
 				"model": model,
 				"machines": M{
@@ -2521,7 +2521,7 @@ var statusTests = []testCase{
 		},
 	),
 	test( // 17
-		"deploy two services; set meter statuses on one",
+		"deploy two applications; set meter statuses on one",
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
@@ -2549,33 +2549,33 @@ var statusTests = []testCase{
 		setMachineStatus{"4", status.Started, ""},
 
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
-		setServiceExposed{"mysql", true},
+		addApplication{name: "mysql", charm: "mysql"},
+		setApplicationExposed{"mysql", true},
 
 		addCharm{"metered"},
-		addService{name: "servicewithmeterstatus", charm: "metered"},
+		addApplication{name: "applicationwithmeterstatus", charm: "metered"},
 
 		addAliveUnit{"mysql", "1"},
-		addAliveUnit{"servicewithmeterstatus", "2"},
-		addAliveUnit{"servicewithmeterstatus", "3"},
-		addAliveUnit{"servicewithmeterstatus", "4"},
+		addAliveUnit{"applicationwithmeterstatus", "2"},
+		addAliveUnit{"applicationwithmeterstatus", "3"},
+		addAliveUnit{"applicationwithmeterstatus", "4"},
 
-		setServiceExposed{"mysql", true},
+		setApplicationExposed{"mysql", true},
 
 		setAgentStatus{"mysql/0", status.Idle, "", nil},
 		setUnitStatus{"mysql/0", status.Active, "", nil},
-		setAgentStatus{"servicewithmeterstatus/0", status.Idle, "", nil},
-		setUnitStatus{"servicewithmeterstatus/0", status.Active, "", nil},
-		setAgentStatus{"servicewithmeterstatus/1", status.Idle, "", nil},
-		setUnitStatus{"servicewithmeterstatus/1", status.Active, "", nil},
-		setAgentStatus{"servicewithmeterstatus/2", status.Idle, "", nil},
-		setUnitStatus{"servicewithmeterstatus/2", status.Active, "", nil},
+		setAgentStatus{"applicationwithmeterstatus/0", status.Idle, "", nil},
+		setUnitStatus{"applicationwithmeterstatus/0", status.Active, "", nil},
+		setAgentStatus{"applicationwithmeterstatus/1", status.Idle, "", nil},
+		setUnitStatus{"applicationwithmeterstatus/1", status.Active, "", nil},
+		setAgentStatus{"applicationwithmeterstatus/2", status.Idle, "", nil},
+		setUnitStatus{"applicationwithmeterstatus/2", status.Active, "", nil},
 
-		setUnitMeterStatus{"servicewithmeterstatus/1", "GREEN", "test green status"},
-		setUnitMeterStatus{"servicewithmeterstatus/2", "RED", "test red status"},
+		setUnitMeterStatus{"applicationwithmeterstatus/1", "GREEN", "test green status"},
+		setUnitMeterStatus{"applicationwithmeterstatus/2", "RED", "test red status"},
 
 		expect{
-			what: "simulate just the two services and a bootstrap node",
+			what: "simulate just the two applications and a bootstrap node",
 			output: M{
 				"model": model,
 				"machines": M{
@@ -2608,13 +2608,13 @@ var statusTests = []testCase{
 						},
 					}),
 
-					"servicewithmeterstatus": meteredCharm(M{
+					"applicationwithmeterstatus": meteredCharm(M{
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"units": M{
-							"servicewithmeterstatus/0": M{
+							"applicationwithmeterstatus/0": M{
 								"machine": "2",
 								"workload-status": M{
 									"current": "active",
@@ -2626,7 +2626,7 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.2.1",
 							},
-							"servicewithmeterstatus/1": M{
+							"applicationwithmeterstatus/1": M{
 								"machine": "3",
 								"workload-status": M{
 									"current": "active",
@@ -2642,7 +2642,7 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.3.1",
 							},
-							"servicewithmeterstatus/2": M{
+							"applicationwithmeterstatus/2": M{
 								"machine": "4",
 								"workload-status": M{
 									"current": "active",
@@ -2704,7 +2704,7 @@ var statusTests = []testCase{
 		setMachineStatus{"0", status.Started, ""},
 
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("10.0.1.1")},
@@ -2760,7 +2760,7 @@ var statusTests = []testCase{
 		setMachineStatus{"0", status.Started, ""},
 
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("10.0.1.1")},
@@ -2917,12 +2917,12 @@ var statusTests = []testCase{
 		setMachineStatus{"1", status.Started, ""},
 
 		addCharm{"wordpress"},
-		addService{name: "wordpress", charm: "wordpress"},
+		addApplication{name: "wordpress", charm: "wordpress"},
 		addAliveUnit{"wordpress", "1"},
 
 		addCharm{"mysql"},
 		addRemoteApplication{name: "hosted-mysql", url: "me/model.mysql", charm: "mysql", endpoints: []string{"server"}},
-		relateServices{"wordpress", "hosted-mysql", ""},
+		relateApplications{"wordpress", "hosted-mysql", ""},
 
 		expect{
 			what: "a remote application",
@@ -2987,7 +2987,7 @@ var statusTests = []testCase{
 		"set meter status on the model",
 		setModelMeterStatus{"RED", "status message"},
 		expect{
-			what: "simulate just the two services and a bootstrap node",
+			what: "simulate just the two applications and a bootstrap node",
 			output: M{
 				"model": M{
 					"name":       "controller",
@@ -3354,13 +3354,13 @@ func (ac addCharmWithRevision) step(c *gc.C, ctx *context) {
 	ac.addCharmStep(c, ctx, ac.scheme, ac.rev)
 }
 
-type addService struct {
+type addApplication struct {
 	name  string
 	charm string
 	cons  constraints.Value
 }
 
-func (as addService) step(c *gc.C, ctx *context) {
+func (as addApplication) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
 	svc, err := ctx.st.AddApplication(state.AddApplicationArgs{Name: as.name, Charm: ch})
@@ -3445,12 +3445,12 @@ func (oc addOfferConnection) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type setServiceExposed struct {
+type setApplicationExposed struct {
 	name    string
 	exposed bool
 }
 
-func (sse setServiceExposed) step(c *gc.C, ctx *context) {
+func (sse setApplicationExposed) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Application(sse.name)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.ClearExposed()
@@ -3461,12 +3461,12 @@ func (sse setServiceExposed) step(c *gc.C, ctx *context) {
 	}
 }
 
-type setServiceCharm struct {
+type setApplicationCharm struct {
 	name  string
 	charm string
 }
 
-func (ssc setServiceCharm) step(c *gc.C, ctx *context) {
+func (ssc setApplicationCharm) step(c *gc.C, ctx *context) {
 	ch, err := ctx.st.Charm(charm.MustParseURL(ssc.charm))
 	c.Assert(err, jc.ErrorIsNil)
 	s, err := ctx.st.Application(ssc.name)
@@ -3490,12 +3490,12 @@ func (ac addCharmPlaceholder) step(c *gc.C, ctx *context) {
 }
 
 type addUnit struct {
-	serviceName string
-	machineId   string
+	applicationName string
+	machineId       string
 }
 
 func (au addUnit) step(c *gc.C, ctx *context) {
-	s, err := ctx.st.Application(au.serviceName)
+	s, err := ctx.st.Application(au.applicationName)
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3506,12 +3506,12 @@ func (au addUnit) step(c *gc.C, ctx *context) {
 }
 
 type addAliveUnit struct {
-	serviceName string
-	machineId   string
+	applicationName string
+	machineId       string
 }
 
 func (aau addAliveUnit) step(c *gc.C, ctx *context) {
-	s, err := ctx.st.Application(aau.serviceName)
+	s, err := ctx.st.Application(aau.applicationName)
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3524,11 +3524,11 @@ func (aau addAliveUnit) step(c *gc.C, ctx *context) {
 }
 
 type setUnitsAlive struct {
-	serviceName string
+	applicationName string
 }
 
 func (sua setUnitsAlive) step(c *gc.C, ctx *context) {
-	s, err := ctx.st.Application(sua.serviceName)
+	s, err := ctx.st.Application(sua.applicationName)
 	c.Assert(err, jc.ErrorIsNil)
 	us, err := s.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3684,12 +3684,12 @@ func (e ensureDyingUnit) step(c *gc.C, ctx *context) {
 	c.Assert(u.Life(), gc.Equals, state.Dying)
 }
 
-type ensureDyingService struct {
-	serviceName string
+type ensureDyingApplication struct {
+	applicationName string
 }
 
-func (e ensureDyingService) step(c *gc.C, ctx *context) {
-	svc, err := ctx.st.Application(e.serviceName)
+func (e ensureDyingApplication) step(c *gc.C, ctx *context) {
+	svc, err := ctx.st.Application(e.applicationName)
 	c.Assert(err, jc.ErrorIsNil)
 	err = svc.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3730,12 +3730,12 @@ func (sms setMachineStatus) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type relateServices struct {
+type relateApplications struct {
 	ep1, ep2 string
 	status   string
 }
 
-func (rs relateServices) step(c *gc.C, ctx *context) {
+func (rs relateApplications) step(c *gc.C, ctx *context) {
 	eps, err := ctx.st.InferEndpoints(rs.ep1, rs.ep2)
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := ctx.st.AddRelation(eps...)
@@ -3749,14 +3749,14 @@ func (rs relateServices) step(c *gc.C, ctx *context) {
 }
 
 type addSubordinate struct {
-	prinUnit   string
-	subService string
+	prinUnit       string
+	subApplication string
 }
 
 func (as addSubordinate) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(as.prinUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	eps, err := ctx.st.InferEndpoints(u.ApplicationName(), as.subService)
+	eps, err := ctx.st.InferEndpoints(u.ApplicationName(), as.subApplication)
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := ctx.st.EndpointsRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4059,8 +4059,8 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addCharm{"logging"},
 		addCharm{"riak"},
 		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
-		addService{name: "wordpress", charm: "wordpress"},
-		setServiceExposed{"wordpress", true},
+		addApplication{name: "wordpress", charm: "wordpress"},
+		setApplicationExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("localhost")},
 		startAliveMachine{"1"},
@@ -4068,8 +4068,8 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addAliveUnit{"wordpress", "1"},
 		setAgentStatus{"wordpress/0", status.Idle, "", nil},
 		setUnitStatus{"wordpress/0", status.Active, "", nil},
-		addService{name: "mysql", charm: "mysql"},
-		setServiceExposed{"mysql", true},
+		addApplication{name: "mysql", charm: "mysql"},
+		setApplicationExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"2"},
@@ -4077,11 +4077,11 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addAliveUnit{"mysql", "2"},
 		setAgentStatus{"mysql/0", status.Idle, "", nil},
 		setUnitStatus{"mysql/0", status.Active, "", nil},
-		addService{name: "logging", charm: "logging"},
-		setServiceExposed{"logging", true},
-		relateServices{"wordpress", "mysql", ""},
-		relateServices{"wordpress", "logging", ""},
-		relateServices{"mysql", "logging", ""},
+		addApplication{name: "logging", charm: "logging"},
+		setApplicationExposed{"logging", true},
+		relateApplications{"wordpress", "mysql", ""},
+		relateApplications{"wordpress", "logging", ""},
+		relateApplications{"mysql", "logging", ""},
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
 		setUnitsAlive{"logging"},
@@ -4127,8 +4127,8 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addCharm{"mysql"},
 		addCharm{"logging"},
 
-		addService{name: "wordpress", charm: "wordpress"},
-		setServiceExposed{"wordpress", true},
+		addApplication{name: "wordpress", charm: "wordpress"},
+		setApplicationExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
@@ -4137,8 +4137,8 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		setAgentStatus{"wordpress/0", status.Idle, "", nil},
 		setUnitStatus{"wordpress/0", status.Active, "", nil},
 
-		addService{name: "mysql", charm: "mysql"},
-		setServiceExposed{"mysql", true},
+		addApplication{name: "mysql", charm: "mysql"},
+		setApplicationExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"2"},
@@ -4147,12 +4147,12 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		setAgentStatus{"mysql/0", status.Idle, "", nil},
 		setUnitStatus{"mysql/0", status.Active, "", nil},
 
-		addService{name: "logging", charm: "logging"},
-		setServiceExposed{"logging", true},
+		addApplication{name: "logging", charm: "logging"},
+		setApplicationExposed{"logging", true},
 
-		relateServices{"wordpress", "mysql", ""},
-		relateServices{"wordpress", "logging", ""},
-		relateServices{"mysql", "logging", ""},
+		relateApplications{"wordpress", "mysql", ""},
+		relateApplications{"wordpress", "logging", ""},
+		relateApplications{"mysql", "logging", ""},
 
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
@@ -4206,8 +4206,8 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addCharm{"logging"},
 		addCharm{"riak"},
 		addRemoteApplication{name: "hosted-riak", url: "me/model.riak", charm: "riak", endpoints: []string{"endpoint"}},
-		addService{name: "wordpress", charm: "wordpress"},
-		setServiceExposed{"wordpress", true},
+		addApplication{name: "wordpress", charm: "wordpress"},
+		setApplicationExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
@@ -4216,8 +4216,8 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		setAgentStatus{"wordpress/0", status.Idle, "", nil},
 		setUnitStatus{"wordpress/0", status.Active, "", nil},
 		setUnitTools{"wordpress/0", version.MustParseBinary("1.2.3-trusty-ppc")},
-		addService{name: "mysql", charm: "mysql"},
-		setServiceExposed{"mysql", true},
+		addApplication{name: "mysql", charm: "mysql"},
+		setApplicationExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"2"},
@@ -4229,11 +4229,11 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 			status.Maintenance,
 			"installing all the things", nil},
 		setUnitTools{"mysql/0", version.MustParseBinary("1.2.3-trusty-ppc")},
-		addService{name: "logging", charm: "logging"},
-		setServiceExposed{"logging", true},
-		relateServices{"wordpress", "mysql", "suspended"},
-		relateServices{"wordpress", "logging", ""},
-		relateServices{"mysql", "logging", ""},
+		addApplication{name: "logging", charm: "logging"},
+		setApplicationExposed{"logging", true},
+		relateApplications{"wordpress", "mysql", "suspended"},
+		relateApplications{"wordpress", "logging", ""},
+		relateApplications{"mysql", "logging", ""},
 		addSubordinate{"wordpress/0", "logging"},
 		addSubordinate{"mysql/0", "logging"},
 		setUnitsAlive{"logging"},
@@ -4254,7 +4254,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 
 		addApplicationOffer{name: "hosted-mysql", applicationName: "mysql", owner: "admin", endpoints: []string{"server"}},
 		addRemoteApplication{name: "remote-wordpress", charm: "wordpress", endpoints: []string{"db"}, isConsumerProxy: true},
-		relateServices{"remote-wordpress", "mysql", ""},
+		relateApplications{"remote-wordpress", "mysql", ""},
 		addOfferConnection{sourceModelUUID: coretesting.ModelTag.Id(), name: "hosted-mysql", username: "fred", relationKey: "remote-wordpress:db mysql:server"},
 	}
 	for _, s := range steps {
@@ -4491,10 +4491,10 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 
 		// And the "wordpress" charm is available
 		addCharm{"wordpress"},
-		addService{name: "wordpress", charm: "wordpress"},
+		addApplication{name: "wordpress", charm: "wordpress"},
 		// And the "mysql" charm is available
 		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
+		addApplication{name: "mysql", charm: "mysql"},
 		// And the "logging" charm is available
 		addCharm{"logging"},
 
@@ -4525,21 +4525,21 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		// And the unit is started
 		setAgentStatus{"mysql/0", status.Idle, "", nil},
 		setUnitStatus{"mysql/0", status.Active, "", nil},
-		// And the "logging" service is added
-		addService{name: "logging", charm: "logging"},
-		// And the service is exposed
-		setServiceExposed{"logging", true},
-		// And the "wordpress" service is related to the "mysql" service
-		relateServices{"wordpress", "mysql", ""},
-		// And the "wordpress" service is related to the "logging" service
-		relateServices{"wordpress", "logging", ""},
-		// And the "mysql" service is related to the "logging" service
-		relateServices{"mysql", "logging", ""},
-		// And the "logging" service is a subordinate to unit 0 of the "wordpress" service
+		// And the "logging" application is added
+		addApplication{name: "logging", charm: "logging"},
+		// And the application is exposed
+		setApplicationExposed{"logging", true},
+		// And the "wordpress" application is related to the "mysql" application
+		relateApplications{"wordpress", "mysql", ""},
+		// And the "wordpress" application is related to the "logging" application
+		relateApplications{"wordpress", "logging", ""},
+		// And the "mysql" application is related to the "logging" application
+		relateApplications{"mysql", "logging", ""},
+		// And the "logging" application is a subordinate to unit 0 of the "wordpress" application
 		addSubordinate{"wordpress/0", "logging"},
 		setAgentStatus{"logging/0", status.Idle, "", nil},
 		setUnitStatus{"logging/0", status.Active, "", nil},
-		// And the "logging" service is a subordinate to unit 0 of the "mysql" service
+		// And the "logging" application is a subordinate to unit 0 of the "mysql" application
 		addSubordinate{"mysql/0", "logging"},
 		setAgentStatus{"logging/1", status.Idle, "", nil},
 		setUnitStatus{"logging/1", status.Active, "", nil},
@@ -4555,9 +4555,9 @@ func (s *StatusSuite) TestFilterToActive(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	// Given unit 1 of the "logging" service has an error
+	// Given unit 1 of the "logging" application has an error
 	setAgentStatus{"logging/1", status.Error, "mock error", nil}.step(c, ctx)
-	// And unit 0 of the "mysql" service has an error
+	// And unit 0 of the "mysql" application has an error
 	setAgentStatus{"mysql/0", status.Error, "mock error", nil}.step(c, ctx)
 	// When I run juju status --format oneline started
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "active")
@@ -4667,7 +4667,7 @@ func (s *StatusSuite) TestFilterToErrored(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	// Given unit 1 of the "logging" service has an error
+	// Given unit 1 of the "logging" application has an error
 	setAgentStatus{"logging/1", status.Error, "mock error", nil}.step(c, ctx)
 	// When I run juju status --format oneline error
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "error")
@@ -4681,8 +4681,8 @@ func (s *StatusSuite) TestFilterToErrored(c *gc.C) {
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
 
-// Scenario: User filters to mysql service
-func (s *StatusSuite) TestFilterToService(c *gc.C) {
+// Scenario: User filters to mysql application
+func (s *StatusSuite) TestFilterToApplication(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
@@ -4699,17 +4699,17 @@ func (s *StatusSuite) TestFilterToService(c *gc.C) {
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
 
-// Scenario: User filters to exposed services
-func (s *StatusSuite) TestFilterToExposedService(c *gc.C) {
+// Scenario: User filters to exposed applications
+func (s *StatusSuite) TestFilterToExposedApplication(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	// Given unit 1 of the "mysql" service is exposed
-	setServiceExposed{"mysql", true}.step(c, ctx)
-	// And the logging service is not exposed
-	setServiceExposed{"logging", false}.step(c, ctx)
-	// And the wordpress service is not exposed
-	setServiceExposed{"wordpress", false}.step(c, ctx)
+	// Given unit 1 of the "mysql" application is exposed
+	setApplicationExposed{"mysql", true}.step(c, ctx)
+	// And the logging application is not exposed
+	setApplicationExposed{"logging", false}.step(c, ctx)
+	// And the wordpress application is not exposed
+	setApplicationExposed{"wordpress", false}.step(c, ctx)
 	// When I run juju status --format oneline exposed
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "exposed")
 	c.Assert(stderr, gc.IsNil)
@@ -4722,12 +4722,12 @@ func (s *StatusSuite) TestFilterToExposedService(c *gc.C) {
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
 
-// Scenario: User filters to non-exposed services
-func (s *StatusSuite) TestFilterToNotExposedService(c *gc.C) {
+// Scenario: User filters to non-exposed applications
+func (s *StatusSuite) TestFilterToNotExposedApplication(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	setServiceExposed{"mysql", true}.step(c, ctx)
+	setApplicationExposed{"mysql", true}.step(c, ctx)
 	// When I run juju status --format oneline not exposed
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "not", "exposed")
 	c.Assert(stderr, gc.IsNil)
@@ -4807,8 +4807,8 @@ func (s *StatusSuite) TestFilterSubordinateButNotParent(c *gc.C) {
 	ctx := s.FilteringTestSetup(c)
 	defer s.resetContext(c, ctx)
 
-	// Given the wordpress service is exposed
-	setServiceExposed{"wordpress", true}.step(c, ctx)
+	// Given the wordpress application is exposed
+	setApplicationExposed{"wordpress", true}.step(c, ctx)
 	// When I run juju status --format oneline not exposed
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "not", "exposed")
 	c.Assert(stderr, gc.IsNil)
@@ -4910,7 +4910,7 @@ var statusTimeTest = test(
 	startAliveMachine{"0"},
 	setMachineStatus{"0", status.Started, ""},
 	addCharm{"dummy"},
-	addService{name: "dummy-application", charm: "dummy"},
+	addApplication{name: "dummy-application", charm: "dummy"},
 
 	addMachine{machineId: "1", job: state.JobHostUnits},
 	startAliveMachine{"1"},

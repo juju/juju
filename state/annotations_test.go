@@ -134,20 +134,20 @@ func (s *AnnotationsSuite) TestSetAnnotationsConcurrently(c *gc.C) {
 	assertAnnotation(c, s.Model, s.testEntity, key, last)
 }
 
-type AnnotationsEnvSuite struct {
+type AnnotationsModelSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&AnnotationsEnvSuite{})
+var _ = gc.Suite(&AnnotationsModelSuite{})
 
-func (s *AnnotationsEnvSuite) SetUpTest(c *gc.C) {
+func (s *AnnotationsModelSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.ConnSuite.PatchValue(&state.TagToCollectionAndId, func(st *state.State, tag names.Tag) (string, interface{}, error) {
 		return "", nil, errors.Errorf("this error should not be reached with current implementation %v", tag)
 	})
 }
 
-func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedModel(c *gc.C) {
+func (s *AnnotationsModelSuite) TestSetAnnotationsDestroyedModel(c *gc.C) {
 	model, st := s.createTestModel(c)
 	defer st.Close()
 
@@ -172,7 +172,7 @@ func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedModel(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*cannot update annotations.*")
 }
 
-func (s *AnnotationsEnvSuite) createTestModel(c *gc.C) (*state.Model, *state.State) {
+func (s *AnnotationsModelSuite) createTestModel(c *gc.C) (*state.Model, *state.State) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{

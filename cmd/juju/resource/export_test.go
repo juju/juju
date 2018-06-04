@@ -20,14 +20,14 @@ func ListCommandTarget(c *ListCommand) string {
 	return c.target
 }
 
-func UploadCommandResourceFile(c *UploadCommand) (service, name, filename string) {
-	return c.resourceFile.service,
+func UploadCommandResourceFile(c *UploadCommand) (application, name, filename string) {
+	return c.resourceFile.application,
 		c.resourceFile.name,
 		c.resourceFile.filename
 }
 
 func UploadCommandService(c *UploadCommand) string {
-	return c.service
+	return c.application
 }
 
 var FormatApplicationResources = formatApplicationResources

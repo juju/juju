@@ -757,7 +757,7 @@ var (
 
 // AddStoreCharmPlaceholder creates a charm document in state for the given charm URL which
 // must reference a charm from the store. The charm document is marked as a placeholder which
-// means that if the charm is to be deployed, it will need to first be uploaded to env storage.
+// means that if the charm is to be deployed, it will need to first be uploaded to model storage.
 func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 	// Perform sanity checks first.
 	if curl.Schema != "cs" {

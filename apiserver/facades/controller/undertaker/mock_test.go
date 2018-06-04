@@ -18,7 +18,7 @@ import (
 // mockState implements State interface and allows inspection of called
 // methods.
 type mockState struct {
-	env      *mockModel
+	model    *mockModel
 	removed  bool
 	isSystem bool
 
@@ -27,22 +27,22 @@ type mockState struct {
 
 var _ undertaker.State = (*mockState)(nil)
 
-func newMockState(envOwner names.UserTag, envName string, isSystem bool) *mockState {
-	env := mockModel{
-		owner: envOwner,
-		name:  envName,
+func newMockState(modelOwner names.UserTag, modelName string, isSystem bool) *mockState {
+	model := mockModel{
+		owner: modelOwner,
+		name:  modelName,
 		uuid:  "9d3d3b19-2b0c-4a3f-acde-0b1645586a72",
 		life:  state.Alive,
 	}
 
-	m := &mockState{
-		env:      &env,
+	st := &mockState{
+		model:    &model,
 		isSystem: isSystem,
 		watcher: &mockWatcher{
 			changes: make(chan struct{}, 1),
 		},
 	}
-	return m
+	return st
 }
 
 func (m *mockState) EnsureModelRemoved() error {
@@ -53,7 +53,7 @@ func (m *mockState) EnsureModelRemoved() error {
 }
 
 func (m *mockState) RemoveAllModelDocs() error {
-	if m.env.life != state.Dead {
+	if m.model.life != state.Dead {
 		return errors.New("model not dead")
 	}
 	m.removed = true
@@ -61,10 +61,10 @@ func (m *mockState) RemoveAllModelDocs() error {
 }
 
 func (m *mockState) ProcessDyingModel() error {
-	if m.env.life != state.Dying {
+	if m.model.life != state.Dying {
 		return errors.New("model is not dying")
 	}
-	m.env.life = state.Dead
+	m.model.life = state.Dead
 	return nil
 }
 
@@ -73,7 +73,7 @@ func (m *mockState) IsController() bool {
 }
 
 func (m *mockState) Model() (undertaker.Model, error) {
-	return m.env, nil
+	return m.model, nil
 }
 
 func (m *mockState) ModelConfig() (*config.Config, error) {
@@ -81,8 +81,8 @@ func (m *mockState) ModelConfig() (*config.Config, error) {
 }
 
 func (m *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
-	if tag.Kind() == names.ModelTagKind && tag.Id() == m.env.UUID() {
-		return m.env, nil
+	if tag.Kind() == names.ModelTagKind && tag.Id() == m.model.UUID() {
+		return m.model, nil
 	}
 	return nil, errors.NotFoundf("entity with tag %q", tag.String())
 }
@@ -92,7 +92,7 @@ func (m *mockState) WatchModelEntityReferences(mUUID string) state.NotifyWatcher
 }
 
 func (m *mockState) ModelUUID() string {
-	return m.env.UUID()
+	return m.model.UUID()
 }
 
 // mockModel implements Model interface and allows inspection of called

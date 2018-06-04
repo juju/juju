@@ -55,7 +55,7 @@ Examples:
 
 var localEndpointRegEx = regexp.MustCompile("^" + names.RelationSnippet + "$")
 
-// NewAddRelationCommand returns a command to add a relation between 2 services.
+// NewAddRelationCommand returns a command to add a relation between 2 applications.
 func NewAddRelationCommand() cmd.Command {
 	return modelcmd.Wrap(&addRelationCommand{})
 }
@@ -218,7 +218,7 @@ func (c *addRelationCommand) maybeConsumeOffer(targetClient applicationAddRelati
 }
 
 // validateEndpoints determines if all endpoints are valid.
-// Each endpoint is either from local service or remote.
+// Each endpoint is either from local application or remote.
 // If more than one remote endpoint are supplied, the input argument are considered invalid.
 func (c *addRelationCommand) validateEndpoints(all []string) error {
 	for _, endpoint := range all {

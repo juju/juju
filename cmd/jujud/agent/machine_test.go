@@ -262,9 +262,9 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 
-	// Add one unit to a service;
+	// Add one unit to an application;
 	charm := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "test-service", charm)
+	app := s.AddTestingApplication(c, "test-application", charm)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
@@ -642,12 +642,12 @@ func (s *MachineSuite) TestManageModelRunsCleaner(c *gc.C) {
 func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageModel, func(_ agent.Config, agentState *state.State) {
 		// Ensure that the MinUnits worker is alive by doing a simple check
-		// that it responds to state changes: add a service, set its minimum
+		// that it responds to state changes: add an application, set its minimum
 		// number of units to one, wait for the worker to add the missing unit.
-		service := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-		err := service.SetMinUnits(1)
+		app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+		err := app.SetMinUnits(1)
 		c.Assert(err, jc.ErrorIsNil)
-		w := service.Watch()
+		w := app.Watch()
 		defer worker.Stop(w)
 
 		// Trigger a sync on the state used by the agent, and wait for the unit
@@ -661,7 +661,7 @@ func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 			case <-time.After(coretesting.ShortWait):
 				s.State.StartSync()
 			case <-w.Changes():
-				units, err := service.AllUnits()
+				units, err := app.AllUnits()
 				c.Assert(err, jc.ErrorIsNil)
 				if len(units) == 1 {
 					return

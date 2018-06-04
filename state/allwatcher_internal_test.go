@@ -1349,7 +1349,7 @@ func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFu
 			defer b.Release()
 			all := newStore()
 
-			// Do updates and check for first env.
+			// Do updates and check for first model.
 			for _, info := range test0.initialContents {
 				all.Update(info)
 			}
@@ -1359,7 +1359,7 @@ func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFu
 			substNilSinceTimeForEntities(c, entities)
 			assertEntitiesEqual(c, entities, test0.expectContents)
 
-			// Now do the same updates for a second env.
+			// Now do the same updates for a second model.
 			test1 := changeTestFunc(c, s.state1)
 			for _, info := range test1.initialContents {
 				all.Update(info)
@@ -1566,7 +1566,7 @@ func (s *allModelWatcherStateSuite) TestChangeForDeadModel(c *gc.C) {
 	all := newStore()
 
 	// Insert a machine for an model that doesn't actually
-	// exist (mimics env removal).
+	// exist (mimics model removal).
 	all.Update(&multiwatcher.MachineInfo{
 		ModelUUID: "uuid",
 		Id:        "0",
@@ -3402,7 +3402,7 @@ const (
 )
 
 func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []changeTestFunc)) {
-	initEnv := func(c *gc.C, st *State, flag initFlag) {
+	initModel := func(c *gc.C, st *State, flag initFlag) {
 		wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 		u, err := wordpress.AddUnit(AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -3435,7 +3435,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 	}
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
-			initEnv(c, st, assignUnit)
+			initModel(c, st, assignUnit)
 
 			return changeTestCase{
 				about: "don't open ports on unit",
@@ -3465,7 +3465,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			initEnv(c, st, assignUnit|openPorts)
+			initModel(c, st, assignUnit|openPorts)
 
 			return changeTestCase{
 				about: "open a port on unit",
@@ -3497,7 +3497,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			initEnv(c, st, assignUnit|openPorts|closePorts)
+			initModel(c, st, assignUnit|openPorts|closePorts)
 
 			return changeTestCase{
 				about: "open a port on unit and close it again",
@@ -3529,7 +3529,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
-			initEnv(c, st, openPorts)
+			initModel(c, st, openPorts)
 
 			return changeTestCase{
 				about: "open ports on an unassigned unit",

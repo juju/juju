@@ -412,7 +412,7 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	internalSubnetId := path.Join(
 		"/subscriptions", fakeSubscriptionId,
-		"resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"resourceGroups/juju-testmodel-model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"providers/Microsoft.Network/virtualnetworks/juju-internal-network/subnets/juju-internal-subnet",
 	)
 	ipConfiguration := network.InterfaceIPConfiguration{
@@ -512,7 +512,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	internalSubnetId := path.Join(
 		"/subscriptions", fakeSubscriptionId,
-		"resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"resourceGroups/juju-testmodel-model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"providers/Microsoft.Network/virtualnetworks/juju-internal-network/subnets/juju-internal-subnet",
 	)
 	ipConfiguration := network.InterfaceIPConfiguration{
@@ -600,7 +600,7 @@ func (s *instanceSuite) TestControllerInstances(c *gc.C) {
 
 var internalSecurityGroupPath = path.Join(
 	"/subscriptions", fakeSubscriptionId,
-	"resourceGroups", "juju-testenv-model-"+testing.ModelTag.Id(),
+	"resourceGroups", "juju-testmodel-model-"+testing.ModelTag.Id(),
 	"providers/Microsoft.Network/networkSecurityGroups/juju-internal-nsg",
 )
 

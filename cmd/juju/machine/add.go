@@ -296,7 +296,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 
 	var results []params.AddMachinesResult
-	// If storage is specified, we attempt to use a new API on the service facade.
+	// If storage is specified, we attempt to use a new API on the application facade.
 	if len(c.Disks) > 0 {
 		results, err = machineManager.AddMachines(machines)
 	} else {

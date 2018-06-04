@@ -61,7 +61,7 @@ func NewStorageProvisionerAPIv3(
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	canAccessStorageMachine := func(tag names.MachineTag, allowEnvironManager bool) bool {
+	canAccessStorageMachine := func(tag names.MachineTag, allowController bool) bool {
 		authEntityTag := authorizer.GetAuthTag()
 		if tag == authEntityTag {
 			// Machine agents can access volumes
@@ -70,7 +70,7 @@ func NewStorageProvisionerAPIv3(
 		}
 		parentId := state.ParentId(tag.Id())
 		if parentId == "" {
-			return allowEnvironManager && authorizer.AuthController()
+			return allowController && authorizer.AuthController()
 		}
 		// All containers with the authenticated
 		// machine as a parent are accessible by it.
@@ -80,7 +80,7 @@ func NewStorageProvisionerAPIv3(
 		return func(tag names.Tag) bool {
 			switch tag := tag.(type) {
 			case names.ModelTag:
-				// Environment managers can access all volumes
+				// Controllers can access all volumes
 				// and filesystems scoped to the environment.
 				isModelManager := authorizer.AuthController()
 				return isModelManager && tag == st.ModelTag()
@@ -148,7 +148,7 @@ func NewStorageProvisionerAPIv3(
 		// access by the authenticated user to an attachment.
 		return func(machineTag names.MachineTag, attachmentTag names.Tag) bool {
 			// Machine agents can access their own machine, and
-			// machines contained. Environment managers can access
+			// machines contained. Controllers can access
 			// top-level machines.
 			if !canAccessStorageMachine(machineTag, true) {
 				return false

@@ -120,7 +120,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 
 // ReadSettings returns a map holding the settings of the unit with the
 // supplied name within this relation. An error will be returned if the
-// relation no longer exists, or if the unit's service is not part of the
+// relation no longer exists, or if the unit's application is not part of the
 // relation, or the settings are invalid; but mere non-existence of the
 // unit is not grounds for an error, because the unit settings are
 // guaranteed to persist for the lifetime of the relation, regardless

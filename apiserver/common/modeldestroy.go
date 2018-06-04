@@ -111,6 +111,6 @@ func destroyModel(st ModelManagerBackend, args state.DestroyModelParams) error {
 	// provider's Destroy method, which will destroy the controllers, any
 	// straggler instances, and other provider-specific resources. Once all
 	// resources are torn down, the Undertaker worker handles the removal of
-	// the environment.
+	// the model.
 	return nil
 }

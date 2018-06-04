@@ -14,15 +14,15 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-// mockAuth represents a machine which may or may not be an environ manager.
+// mockAuth represents a machine which may or may not be a controller.
 type mockAuth struct {
 	facade.Authorizer
-	nonManager bool
+	nonController bool
 }
 
 // AuthModelManager is part of the facade.Authorizer interface.
 func (mock mockAuth) AuthController() bool {
-	return !mock.nonManager
+	return !mock.nonController
 }
 
 // GetAuthTag is part of the facade.Authorizer interface.

@@ -26,7 +26,7 @@ func NewFacade(st *state.State, resources facade.Resources, authorizer facade.Au
 	return NewAPI(backend), nil
 }
 
-// payloadBackend exposes the State functionality for payloads in an env.
+// payloadBackend exposes the State functionality for payloads in a model.
 type payloadBackend interface {
 	// ListAll returns information on the payload with the id on the unit.
 	ListAll() ([]payload.FullPayloadInfo, error)

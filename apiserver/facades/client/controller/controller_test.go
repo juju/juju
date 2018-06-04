@@ -92,10 +92,10 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *controllerSuite) checkEnvironmentMatches(c *gc.C, env params.Model, expected *state.Model) {
-	c.Check(env.Name, gc.Equals, expected.Name())
-	c.Check(env.UUID, gc.Equals, expected.UUID())
-	c.Check(env.OwnerTag, gc.Equals, expected.Owner().String())
+func (s *controllerSuite) checkModelMatches(c *gc.C, model params.Model, expected *state.Model) {
+	c.Check(model.Name, gc.Equals, expected.Name())
+	c.Check(model.UUID, gc.Equals, expected.UUID())
+	c.Check(model.OwnerTag, gc.Equals, expected.Owner().String())
 }
 
 func (s *controllerSuite) TestAllModels(c *gc.C) {
@@ -131,7 +131,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 		stateModel, ph, err := s.StatePool.GetModel(userModel.UUID)
 		c.Assert(err, jc.ErrorIsNil)
 		defer ph.Release()
-		s.checkEnvironmentMatches(c, userModel.Model, stateModel)
+		s.checkModelMatches(c, userModel.Model, stateModel)
 	}
 	c.Assert(obtained, jc.DeepEquals, expected)
 }
@@ -249,9 +249,9 @@ func (s *controllerSuite) TestListBlockedModelsNoBlocks(c *gc.C) {
 }
 
 func (s *controllerSuite) TestModelConfig(c *gc.C) {
-	env, err := s.controller.ModelConfig()
+	cfg, err := s.controller.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Config["name"], jc.DeepEquals, params.ConfigValue{Value: "controller"})
+	c.Assert(cfg.Config["name"], jc.DeepEquals, params.ConfigValue{Value: "controller"})
 }
 
 func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
@@ -364,8 +364,8 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 		// Expect to see the initial environment be reported.
 		deltas := result.Deltas
 		c.Assert(deltas, gc.HasLen, 1)
-		envInfo := deltas[0].Entity.(*multiwatcher.ModelInfo)
-		c.Assert(envInfo.ModelUUID, gc.Equals, s.State.ModelUUID())
+		modelInfo := deltas[0].Entity.(*multiwatcher.ModelInfo)
+		c.Assert(modelInfo.ModelUUID, gc.Equals, s.State.ModelUUID())
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
