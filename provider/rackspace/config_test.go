@@ -26,5 +26,5 @@ func (s *ConfigSuite) TestDefaultsPassValidation(c *gc.C) {
 	valid, err := providerInstance.Validate(cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(valid.Type(), gc.Equals, "rackspace")
-	c.Assert(valid.Name(), gc.Equals, "testenv")
+	c.Assert(valid.Name(), gc.Equals, "testmodel")
 }

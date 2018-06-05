@@ -32,8 +32,8 @@ type stubAPIClient struct {
 	stub *testing.Stub
 }
 
-func (s *stubAPIClient) Upload(service, name, filename string, resource io.ReadSeeker) error {
-	s.stub.AddCall("Upload", service, name, filename, resource)
+func (s *stubAPIClient) Upload(application, name, filename string, resource io.ReadSeeker) error {
+	s.stub.AddCall("Upload", application, name, filename, resource)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

@@ -340,22 +340,22 @@ func (s *ebsSuite) TestVolumeTags(c *gc.C) {
 	sortBySize(ec2Vols.Volumes)
 	c.Assert(ec2Vols.Volumes[0].Tags, jc.SameContents, []awsec2.Tag{
 		{"juju-model-uuid", "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
-		{"Name", "juju-testenv-volume-0"},
+		{"Name", "juju-testmodel-volume-0"},
 	})
 	c.Assert(ec2Vols.Volumes[1].Tags, jc.SameContents, []awsec2.Tag{
 		{"juju-model-uuid", "something-else"},
-		{"Name", "juju-testenv-volume-1"},
+		{"Name", "juju-testmodel-volume-1"},
 	})
 	c.Assert(ec2Vols.Volumes[2].Tags, jc.SameContents, []awsec2.Tag{
-		{"Name", "juju-testenv-volume-2"},
+		{"Name", "juju-testmodel-volume-2"},
 		{"abc", "123"},
 	})
 	c.Assert(ec2Vols.Volumes[3].Tags, jc.SameContents, []awsec2.Tag{
-		{"Name", "juju-testenv-volume-3"},
+		{"Name", "juju-testmodel-volume-3"},
 		{"volume-type", "st1"},
 	})
 	c.Assert(ec2Vols.Volumes[4].Tags, jc.SameContents, []awsec2.Tag{
-		{"Name", "juju-testenv-volume-4"},
+		{"Name", "juju-testmodel-volume-4"},
 		{"volume-type", "sc1"},
 	})
 }
@@ -484,7 +484,7 @@ func (s *ebsSuite) TestReleaseVolumes(c *gc.C) {
 	c.Assert(ec2Vols.Volumes[0].Tags, jc.SameContents, []awsec2.Tag{
 		{"juju-controller-uuid", ""},
 		{"juju-model-uuid", ""},
-		{"Name", "juju-testenv-volume-0"},
+		{"Name", "juju-testmodel-volume-0"},
 	})
 }
 
@@ -524,7 +524,7 @@ func (s *ebsSuite) TestReleaseVolumesStillAttached(c *gc.C) {
 	c.Assert(ec2Vols.Volumes, gc.HasLen, 1)
 	c.Assert(ec2Vols.Volumes[0].Tags, jc.SameContents, []awsec2.Tag{
 		{"juju-model-uuid", "deadbeef-0bad-400d-8000-4b1d0d06f00d"},
-		{"Name", "juju-testenv-volume-0"},
+		{"Name", "juju-testmodel-volume-0"},
 	})
 }
 

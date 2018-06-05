@@ -167,9 +167,9 @@ func (s *keyManagerSuite) assertKeysForModel(c *gc.C, st *state.State, expected 
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	envConfig, err := m.ModelConfig()
+	modelConfig, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	keys := envConfig.AuthorizedKeys()
+	keys := modelConfig.AuthorizedKeys()
 	c.Assert(keys, gc.Equals, strings.Join(expected, "\n"))
 }
 
@@ -399,7 +399,7 @@ func (s *keyManagerSuite) assertInvalidUserOperation(c *gc.C, runTestLogic func(
 	err := runTestLogic(args)
 	c.Assert(err, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 
-	// No environ changes.
+	// No model changes.
 	s.assertModelKeys(c, []string{initialKey})
 }
 

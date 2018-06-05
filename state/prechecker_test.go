@@ -50,14 +50,14 @@ func (s *PrecheckerSuite) TestPrecheckInstance(c *gc.C) {
 	// series and no placement, and the specified constraints
 	// merged with the model constraints, when attempting
 	// to create an instance.
-	envCons := constraints.MustParse("mem=4G")
+	modelCons := constraints.MustParse("mem=4G")
 	placement := ""
-	template, err := s.addOneMachine(c, envCons, placement)
+	template, err := s.addOneMachine(c, modelCons, placement)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.prechecker.precheckInstanceArgs.Series, gc.Equals, template.Series)
 	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, placement)
 	validator := constraints.NewValidator()
-	cons, err := validator.Merge(envCons, template.Constraints)
+	cons, err := validator.Merge(modelCons, template.Constraints)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.prechecker.precheckInstanceArgs.Constraints, gc.DeepEquals, cons)
 }
@@ -68,9 +68,9 @@ func (s *PrecheckerSuite) TestPrecheckInstanceWithPlacement(c *gc.C) {
 	// model constraints should be ignored, otherwise they
 	// should be merged with provided constraints, when
 	// attempting to create an instance
-	envCons := constraints.MustParse("mem=4G")
+	modelCons := constraints.MustParse("mem=4G")
 	placement := "abc123"
-	template, err := s.addOneMachine(c, envCons, placement)
+	template, err := s.addOneMachine(c, modelCons, placement)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.prechecker.precheckInstanceArgs.Series, gc.Equals, template.Series)
 	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, placement)
@@ -113,8 +113,8 @@ func (s *PrecheckerSuite) TestPrecheckNoPolicy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *PrecheckerSuite) addOneMachine(c *gc.C, envCons constraints.Value, placement string) (state.MachineTemplate, error) {
-	err := s.State.SetModelConstraints(envCons)
+func (s *PrecheckerSuite) addOneMachine(c *gc.C, modelCons constraints.Value, placement string) (state.MachineTemplate, error) {
+	err := s.State.SetModelConstraints(modelCons)
 	c.Assert(err, jc.ErrorIsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cores=4")

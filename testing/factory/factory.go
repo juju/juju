@@ -710,7 +710,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		params.Type = state.ModelTypeIAAS
 	}
 	if params.Name == "" {
-		params.Name = uniqueString("testenv")
+		params.Name = uniqueString("testmodel")
 	}
 	if params.CloudName == "" {
 		params.CloudName = "dummy"

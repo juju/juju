@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-// NOTE: the testing of the general environment destruction code
-// is found in apiserver/common/environdestroy_test.go.
+// NOTE: the testing of the general model destruction code
+// is found in apiserver/common/modeldestroy_test.go.
 //
 // The tests here are around the validation and behaviour of
 // the flags passed in to the destroy controller call.
@@ -34,10 +34,10 @@ type destroyControllerSuite struct {
 	resources  *common.Resources
 	controller *controller.ControllerAPI
 
-	otherState     *state.State
-	otherModel     *state.Model
-	otherEnvOwner  names.UserTag
-	otherModelUUID string
+	otherState      *state.State
+	otherModel      *state.Model
+	otherModelOwner names.UserTag
+	otherModelUUID  string
 }
 
 var _ = gc.Suite(&destroyControllerSuite{})
@@ -64,10 +64,10 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
 
-	s.otherEnvOwner = names.NewUserTag("jess@dummy")
+	s.otherModelOwner = names.NewUserTag("jess@dummy")
 	s.otherState = factory.NewFactory(s.State).MakeModel(c, &factory.ModelParams{
 		Name:  "dummytoo",
-		Owner: s.otherEnvOwner,
+		Owner: s.otherModelOwner,
 		ConfigAttrs: testing.Attrs{
 			"controller": false,
 		},
@@ -79,7 +79,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedEnvsWithBlocks(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedModelsWithBlocks(c *gc.C) {
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
@@ -90,12 +90,12 @@ func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedEnvsWithBl
 	})
 	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
 
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Alive)
+	c.Assert(model.Life(), gc.Equals, state.Alive)
 }
 
-func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedEnvironmentsErr(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedModelErr(c *gc.C) {
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
@@ -114,15 +114,15 @@ func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedEnvironments
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *destroyControllerSuite) TestDestroyControllerKillsHostedEnvs(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerKillsHostedModels(c *gc.C) {
 	err := s.controller.DestroyController(params.DestroyControllerArgs{
 		DestroyModels: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dying)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c *gc.C) {
@@ -139,19 +139,19 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 	c.Assert(len(numBlocks), gc.Equals, 4)
 }
 
-func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvs(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
 	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.controller.DestroyController(params.DestroyControllerArgs{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dying)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
 }
 
-func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedEnvsWithBlock(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBlock(c *gc.C) {
 	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -160,12 +160,12 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedEnvsWithBloc
 
 	err = s.controller.DestroyController(params.DestroyControllerArgs{})
 	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
-	env, err := s.State.Model()
+	models, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Alive)
+	c.Assert(models.Life(), gc.Equals, state.Alive)
 }
 
-func (s *destroyControllerSuite) TestDestroyControllerNoHostedEnvsWithBlockFail(c *gc.C) {
+func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFail(c *gc.C) {
 	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -198,9 +198,9 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 	})
 	c.Assert(err, jc.Satisfies, state.IsHasPersistentStorageError)
 
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Alive)
+	c.Assert(model.Life(), gc.Equals, state.Alive)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c *gc.C) {
@@ -223,9 +223,9 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dying)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecifiedV3(c *gc.C) {
@@ -254,9 +254,9 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Life(), gc.Equals, state.Dying)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecifiedV3(c *gc.C) {

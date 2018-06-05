@@ -203,14 +203,14 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		firewallRulesC,
 	)
 
-	envCollections := set.NewStrings()
+	modelCollections := set.NewStrings()
 	for name := range allCollections() {
-		envCollections.Add(name)
+		modelCollections.Add(name)
 	}
 
 	known := completedCollections.Union(ignoredCollections)
 
-	remainder := envCollections.Difference(known)
+	remainder := modelCollections.Difference(known)
 	remainder = remainder.Difference(todoCollections)
 
 	// If this test fails, it means that a new collection has been added
@@ -272,7 +272,7 @@ func (s *MigrationSuite) TestPermissionDocFields(c *gc.C) {
 	s.AssertExportedFields(c, permissionDoc{}, fields)
 }
 
-func (s *MigrationSuite) TestEnvUserLastConnectionDocFields(c *gc.C) {
+func (s *MigrationSuite) TestModelUserLastConnectionDocFields(c *gc.C) {
 	fields := set.NewStrings(
 		// ID is the same as UserName (but lowercased)
 		"ID",
@@ -288,7 +288,7 @@ func (s *MigrationSuite) TestEnvUserLastConnectionDocFields(c *gc.C) {
 
 func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 	ignored := set.NewStrings(
-		// DocID is the env + machine id
+		// DocID is the model + machine id
 		"DocID",
 		// ID is the machine id
 		"Id",
@@ -334,7 +334,7 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 		"KeepInstance",
 	)
 	migrated := set.NewStrings(
-		// DocID is the env + machine id
+		// DocID is the model + machine id
 		"DocID",
 		"MachineId",
 		// ModelUUID shouldn't be exported, and is inherited
@@ -355,7 +355,7 @@ func (s *MigrationSuite) TestInstanceDataFields(c *gc.C) {
 
 func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 	ignored := set.NewStrings(
-		// DocID is the env + name
+		// DocID is the model + name
 		"DocID",
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
@@ -610,7 +610,7 @@ func (s *MigrationSuite) TestBlockDeviceFields(c *gc.C) {
 
 func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 	ignored := set.NewStrings(
-		// DocID is the env + name
+		// DocID is the model + name
 		"DocID",
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.

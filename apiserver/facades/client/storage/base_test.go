@@ -294,7 +294,7 @@ func (s *baseStorageSuite) blockAllChanges(c *gc.C, msg string) {
 	s.addBlock(c, state.ChangeBlock, msg)
 }
 
-func (s *baseStorageSuite) blockDestroyEnvironment(c *gc.C, msg string) {
+func (s *baseStorageSuite) blockDestroyModel(c *gc.C, msg string) {
 	s.addBlock(c, state.DestroyBlock, msg)
 }
 

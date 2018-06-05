@@ -131,10 +131,10 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 	}
 
 	metadata := map[string]string{
-		"environment_uuid": model.UUID(),
-		"controller_uuid":  st.ControllerUUID(),
-		"cloud":            model.Cloud(),
-		"cloud_region":     model.CloudRegion(),
+		"model_uuid":      model.UUID(),
+		"controller_uuid": st.ControllerUUID(),
+		"cloud":           model.Cloud(),
+		"cloud_region":    model.CloudRegion(),
 	}
 	cloud, err := st.Cloud(model.Cloud())
 	if err != nil {

@@ -136,7 +136,7 @@ func (r *multiModelRunner) updateOps(ops []txn.Op) ([]txn.Op, error) {
 		if !collInfo.global {
 			outOp.Id = ensureModelUUIDIfString(r.modelUUID, op.Id)
 			if op.Insert != nil {
-				newInsert, err := mungeDocForMultiEnv(op.Insert, r.modelUUID, modelUUIDRequired)
+				newInsert, err := mungeDocForMultiModel(op.Insert, r.modelUUID, modelUUIDRequired)
 				if err != nil {
 					return nil, errors.Annotatef(err, "cannot insert into %q", op.C)
 				}
@@ -176,7 +176,7 @@ func (r *multiModelRunner) mungeBsonDUpdate(updateDoc bson.D) (bson.D, error) {
 	outDoc := make(bson.D, 0, len(updateDoc))
 	for _, elem := range updateDoc {
 		if elem.Name == "$set" {
-			newSetDoc, err := mungeDocForMultiEnv(elem.Value, r.modelUUID, 0)
+			newSetDoc, err := mungeDocForMultiModel(elem.Value, r.modelUUID, 0)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -196,7 +196,7 @@ func (r *multiModelRunner) mungeBsonMUpdate(updateDoc bson.M) (bson.M, error) {
 	for name, elem := range updateDoc {
 		if name == "$set" {
 			var err error
-			elem, err = mungeDocForMultiEnv(elem, r.modelUUID, 0)
+			elem, err = mungeDocForMultiModel(elem, r.modelUUID, 0)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

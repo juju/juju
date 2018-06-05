@@ -139,7 +139,7 @@ func (s *MachineSuite) TestAddMachineInsideMachineModelDying(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, s.machine.Id(), instance.LXD)
-	c.Assert(err, gc.ErrorMatches, `model "testenv" is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `model "testmodel" is no longer alive`)
 }
 
 func (s *MachineSuite) TestAddMachineInsideMachineModelMigrating(c *gc.C) {
@@ -151,7 +151,7 @@ func (s *MachineSuite) TestAddMachineInsideMachineModelMigrating(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, s.machine.Id(), instance.LXD)
-	c.Assert(err, gc.ErrorMatches, `model "testenv" is being migrated`)
+	c.Assert(err, gc.ErrorMatches, `model "testmodel" is being migrated`)
 }
 
 func (s *MachineSuite) TestShouldShutdownOrReboot(c *gc.C) {

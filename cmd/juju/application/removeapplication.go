@@ -21,7 +21,7 @@ func NewRemoveApplicationCommand() cmd.Command {
 	return modelcmd.Wrap(&removeApplicationCommand{})
 }
 
-// removeServiceCommand causes an existing application to be destroyed.
+// removeApplicationCommand causes an existing application to be destroyed.
 type removeApplicationCommand struct {
 	modelcmd.ModelCommandBase
 	DestroyStorage   bool

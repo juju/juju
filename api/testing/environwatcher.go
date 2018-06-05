@@ -37,17 +37,17 @@ func NewModelWatcherTests(
 }
 
 func (s *ModelWatcherTests) TestModelConfig(c *gc.C) {
-	envConfig, err := s.model.ModelConfig()
+	modelConfig, err := s.model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	conf, err := s.facade.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(conf, jc.DeepEquals, envConfig)
+	c.Assert(conf, jc.DeepEquals, modelConfig)
 }
 
 func (s *ModelWatcherTests) TestWatchForModelConfigChanges(c *gc.C) {
-	envConfig, err := s.model.ModelConfig()
+	modelConfig, err := s.model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.facade.WatchForModelConfigChanges()
@@ -76,7 +76,7 @@ func (s *ModelWatcherTests) TestWatchForModelConfigChanges(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Change it back to the original config.
-	oldAttrs := map[string]interface{}{"logging-config": envConfig.AllAttrs()["logging-config"]}
+	oldAttrs := map[string]interface{}{"logging-config": modelConfig.AllAttrs()["logging-config"]}
 	err = s.model.UpdateModelConfig(oldAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()

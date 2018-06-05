@@ -98,7 +98,7 @@ func (t configTest) check(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ecfg := e.(*environ).ecfg()
-	c.Assert(ecfg.Name(), gc.Equals, "testenv")
+	c.Assert(ecfg.Name(), gc.Equals, "testmodel")
 	c.Assert(ecfg.vpcID(), gc.Equals, t.vpcID)
 	c.Assert(ecfg.forceVPCID(), gc.Equals, t.forceVPCID)
 

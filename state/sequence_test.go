@@ -41,7 +41,7 @@ func (s *sequenceSuite) TestMultipleSequences(c *gc.C) {
 	s.checkDoc(c, s.State.ModelUUID(), "bar", 3)
 }
 
-func (s *sequenceSuite) TestSequenceWithMultipleEnvs(c *gc.C) {
+func (s *sequenceSuite) TestSequenceWithMultipleModels(c *gc.C) {
 	state1 := s.State
 	state2 := s.Factory.MakeModel(c, nil)
 	defer state2.Close()

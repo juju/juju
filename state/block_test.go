@@ -26,14 +26,14 @@ func (s *blockSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 }
 
-func assertNoEnvBlock(c *gc.C, st *state.State) {
+func assertNoModelBlock(c *gc.C, st *state.State) {
 	all, err := st.AllBlocks()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all, gc.HasLen, 0)
 }
 
 func (s *blockSuite) TestNoInitialBlocks(c *gc.C) {
-	assertNoEnvBlock(c, s.State)
+	assertNoModelBlock(c, s.State)
 }
 
 func (s *blockSuite) assertNoTypedBlock(c *gc.C, t state.BlockType) {
@@ -81,14 +81,14 @@ func (s *blockSuite) switchOffBlock(c *gc.C, t state.BlockType) {
 
 func (s *blockSuite) TestSwitchOffBlockNoBlock(c *gc.C) {
 	s.switchOffBlock(c, state.DestroyBlock)
-	assertNoEnvBlock(c, s.State)
+	assertNoModelBlock(c, s.State)
 	s.assertNoTypedBlock(c, state.DestroyBlock)
 }
 
 func (s *blockSuite) TestSwitchOffBlock(c *gc.C) {
 	s.switchOnBlock(c, state.DestroyBlock)
 	s.switchOffBlock(c, state.DestroyBlock)
-	assertNoEnvBlock(c, s.State)
+	assertNoModelBlock(c, s.State)
 	s.assertNoTypedBlock(c, state.DestroyBlock)
 }
 
@@ -101,20 +101,20 @@ func (s *blockSuite) TestNonsenseBlocked(c *gc.C) {
 	c.Assert(func() { bType.ToParams() }, gc.PanicMatches, ".*unknown block type.*")
 }
 
-func (s *blockSuite) TestMultiEnvBlocked(c *gc.C) {
-	// create another env
+func (s *blockSuite) TestMultiModelBlocked(c *gc.C) {
+	// create another model
 	_, st2 := s.createTestModel(c)
 	defer st2.Close()
 
 	// switch one block type on
 	t := state.ChangeBlock
-	msg := "another env tst"
+	msg := "another model tst"
 	err := st2.SwitchBlockOn(t, msg)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertModelHasBlock(c, st2, t, msg)
 
-	//check correct env has it
-	assertNoEnvBlock(c, s.State)
+	//check correct model has it
+	assertNoModelBlock(c, s.State)
 	s.assertNoTypedBlock(c, t)
 }
 
@@ -181,7 +181,7 @@ func (s *blockSuite) createTestModel(c *gc.C) (*state.Model, *state.State) {
 		"uuid": uuid.String(),
 	})
 	owner := names.NewUserTag("test@remote")
-	env, st, err := s.State.NewModel(state.ModelArgs{
+	model, st, err := s.State.NewModel(state.ModelArgs{
 		Type:        state.ModelTypeIAAS,
 		CloudName:   "dummy",
 		CloudRegion: "dummy-region",
@@ -190,7 +190,7 @@ func (s *blockSuite) createTestModel(c *gc.C) (*state.Model, *state.State) {
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	return env, st
+	return model, st
 }
 
 func (s *blockSuite) TestConcurrentBlocked(c *gc.C) {

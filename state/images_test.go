@@ -39,7 +39,7 @@ func (s *ImageSuite) TestStorage(c *gc.C) {
 }
 
 func (s *ImageSuite) TestStorageParams(c *gc.C) {
-	env, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, gc.IsNil)
 
 	var called bool
@@ -48,7 +48,7 @@ func (s *ImageSuite) TestStorageParams(c *gc.C) {
 		modelUUID string,
 	) imagestorage.Storage {
 		called = true
-		c.Assert(modelUUID, gc.Equals, env.UUID())
+		c.Assert(modelUUID, gc.Equals, model.UUID())
 		c.Assert(session, gc.NotNil)
 		return nil
 	})

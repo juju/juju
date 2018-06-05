@@ -190,6 +190,7 @@ func (s *charmVersionSuite) TestJujuMetadataHeaderIsSent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected_header := []string{
 		"environment_uuid=" + model.UUID(),
+		"model_uuid=" + model.UUID(),
 		"controller_uuid=" + s.State.ControllerUUID(),
 		"cloud=" + model.Cloud(),
 		"cloud_region=" + model.CloudRegion(),

@@ -100,7 +100,7 @@ func (s *TrackerSuite) TestInitialise(c *gc.C) {
 			ConfigAPI: context,
 			NewContainerBrokerFunc: func(args environs.OpenParams) (caas.Broker, error) {
 				c.Assert(args.Cloud, jc.DeepEquals, fix.cloud)
-				c.Assert(args.Config.Name(), jc.DeepEquals, "testenv")
+				c.Assert(args.Config.Name(), jc.DeepEquals, "testmodel")
 				return nil, errors.NotValidf("cloud spec")
 			},
 		})

@@ -28,11 +28,11 @@ var _ = gc.Suite(&collectMetricsSuite{})
 
 func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 	runClient := &testRunClient{}
-	serviceClient := &testServiceClient{}
-	serviceClient.charmURL = "local:quantal/charm"
+	applicationClient := &testApplicationClient{}
+	applicationClient.charmURL = "local:quantal/charm"
 	s.PatchValue(metricsdebug.NewAPIConn, noConn)
 	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
-	s.PatchValue(metricsdebug.NewServiceClient, metricsdebug.NewServiceClientFnc(serviceClient))
+	s.PatchValue(metricsdebug.NewApplicationClient, metricsdebug.NewApplicationClientFnc(applicationClient))
 
 	actionTag1 := names.NewActionTag("01234567-89ab-cdef-0123-456789abcdef")
 	actionTag2 := names.NewActionTag("11234567-89ab-cdef-0123-456789abcdef")
@@ -322,11 +322,11 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 
 func (s *collectMetricsSuite) TestCollectMetricsFailsOnNonLocalCharm(c *gc.C) {
 	runClient := &testRunClient{}
-	serviceClient := &testServiceClient{}
-	serviceClient.charmURL = "cs:quantal/charm"
+	appClient := &testApplicationClient{}
+	appClient.charmURL = "cs:quantal/charm"
 	s.PatchValue(metricsdebug.NewAPIConn, noConn)
 	s.PatchValue(metricsdebug.NewRunClient, metricsdebug.NewRunClientFnc(runClient))
-	s.PatchValue(metricsdebug.NewServiceClient, metricsdebug.NewServiceClientFnc(serviceClient))
+	s.PatchValue(metricsdebug.NewApplicationClient, metricsdebug.NewApplicationClientFnc(appClient))
 	_, err := cmdtesting.RunCommand(c, metricsdebug.NewCollectMetricsCommandForTest(), "foobar")
 	c.Assert(err, gc.ErrorMatches, `"foobar" is not a local charm`)
 	runClient.CheckCallNames(c, "Close")
@@ -366,17 +366,17 @@ func (t *testRunClient) reset() {
 	t.err = ""
 }
 
-type testServiceClient struct {
+type testApplicationClient struct {
 	testing.Stub
 	charmURL string
 }
 
-func (t *testServiceClient) GetCharmURL(service string) (*charm.URL, error) {
+func (t *testApplicationClient) GetCharmURL(service string) (*charm.URL, error) {
 	url := charm.MustParseURL(t.charmURL)
 	return url, t.NextErr()
 }
 
-func (t *testServiceClient) Close() error {
+func (t *testApplicationClient) Close() error {
 	return t.NextErr()
 }
 

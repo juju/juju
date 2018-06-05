@@ -90,20 +90,20 @@ func (s *CharmTabularSuite) TestFormatCharmTabularBadValue(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `expected value of type .*`)
 }
 
-var _ = gc.Suite(&SvcTabularSuite{})
+var _ = gc.Suite(&AppTabularSuite{})
 
-type SvcTabularSuite struct {
+type AppTabularSuite struct {
 	testing.IsolationSuite
 }
 
-func (s *SvcTabularSuite) formatTabular(c *gc.C, value interface{}) string {
+func (s *AppTabularSuite) formatTabular(c *gc.C, value interface{}) string {
 	out := &bytes.Buffer{}
 	err := resourcecmd.FormatAppTabular(out, value)
 	c.Assert(err, jc.ErrorIsNil)
 	return out.String()
 }
 
-func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
+func (s *AppTabularSuite) TestFormatApplicationOkay(c *gc.C) {
 	res := resource.Resource{
 
 		Resource: charmresource.Resource{
@@ -128,7 +128,7 @@ openjdk   charmstore   7
 `[1:])
 }
 
-func (s *SvcTabularSuite) TestFormatUnitOkay(c *gc.C) {
+func (s *AppTabularSuite) TestFormatUnitOkay(c *gc.C) {
 	res := resource.Resource{
 
 		Resource: charmresource.Resource{
@@ -153,7 +153,7 @@ openjdk   7
 `[1:])
 }
 
-func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
+func (s *AppTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 	res := []resource.Resource{
 		{
 			Resource: charmresource.Resource{
@@ -262,13 +262,13 @@ openjdk   10
 `[1:])
 }
 
-func (s *SvcTabularSuite) TestFormatSvcTabularBadValue(c *gc.C) {
+func (s *AppTabularSuite) TestFormatSvcTabularBadValue(c *gc.C) {
 	bogus := "should have been something else"
 	err := resourcecmd.FormatAppTabular(nil, bogus)
 	c.Check(err, gc.ErrorMatches, `unexpected type for data: string`)
 }
 
-func (s *SvcTabularSuite) TestFormatServiceDetailsOkay(c *gc.C) {
+func (s *AppTabularSuite) TestFormatApplicationDetailsOkay(c *gc.C) {
 	res := charmRes(c, "spam", ".tgz", "...", "")
 	updates := []resourcecmd.FormattedCharmResource{resourcecmd.FormatCharmResource(res)}
 
@@ -305,7 +305,7 @@ spam      1
 `[1:])
 }
 
-func (s *SvcTabularSuite) TestFormatUnitDetailsOkay(c *gc.C) {
+func (s *AppTabularSuite) TestFormatUnitDetailsOkay(c *gc.C) {
 	data := resourcecmd.FormattedUnitDetails{
 		{
 			UnitID:      "svc/10",

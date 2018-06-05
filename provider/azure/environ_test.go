@@ -342,7 +342,7 @@ func discoverAuthSender() *azuretesting.MockSender {
 }
 
 func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
-	resourceGroupName := "juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d"
+	resourceGroupName := "juju-testmodel-model-deadbeef-0bad-400d-8000-4b1d0d06f00d"
 	senders := azuretesting.Senders{s.makeSender(".*/resourcegroups/"+resourceGroupName, s.group)}
 	return senders
 }
@@ -1490,7 +1490,7 @@ func (s *environSuite) TestAgentMirror(c *gc.C) {
 func (s *environSuite) TestDestroyHostedModel(c *gc.C) {
 	env := s.openEnviron(c, testing.Attrs{"controller-uuid": utils.MustNewUUID().String()})
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testenv-model-"+testing.ModelTag.Id(), nil), // DELETE
+		s.makeSender(".*/resourcegroups/juju-testmodel-model-"+testing.ModelTag.Id(), nil), // DELETE
 	}
 	err := env.Destroy(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1603,11 +1603,11 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 	env := s.openEnviron(c)
 
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
-		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
+		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
 
 		s.makeSender(".*/providers", providersResult),
-		s.makeSender(".*/resourceGroups/juju-testenv-.*/resources", resourcesResult),
+		s.makeSender(".*/resourceGroups/juju-testmodel-.*/resources", resourcesResult),
 
 		// First request is the get, second is the update. (The
 		// lowercase resourcegroups here is a quirk of the
@@ -1735,7 +1735,7 @@ func makeResourceGroupResult() resources.Group {
 
 func (s *environSuite) TestAdoptResourcesErrorGettingGroup(c *gc.C) {
 	env := s.openEnviron(c)
-	sender := s.makeSender(".*/resourcegroups/juju-testenv-.*", nil)
+	sender := s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil)
 	sender.SetError(errors.New("uhoh"))
 	s.sender = azuretesting.Senders{sender}
 
@@ -1746,10 +1746,10 @@ func (s *environSuite) TestAdoptResourcesErrorGettingGroup(c *gc.C) {
 
 func (s *environSuite) TestAdoptResourcesErrorUpdatingGroup(c *gc.C) {
 	env := s.openEnviron(c)
-	errorSender := s.makeSender(".*/resourcegroups/juju-testenv-.*", nil)
+	errorSender := s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil)
 	errorSender.SetError(errors.New("uhoh"))
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
 		errorSender,
 	}
 
@@ -1763,8 +1763,8 @@ func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
 	errorSender := s.makeSender(".*/providers", nil)
 	errorSender.SetError(errors.New("uhoh"))
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
-		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
+		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
 		errorSender,
 	}
 
@@ -1775,11 +1775,11 @@ func (s *environSuite) TestAdoptResourcesErrorGettingVersions(c *gc.C) {
 
 func (s *environSuite) TestAdoptResourcesErrorListingResources(c *gc.C) {
 	env := s.openEnviron(c)
-	errorSender := s.makeSender(".*/resourceGroups/juju-testenv-.*/resources", nil)
+	errorSender := s.makeSender(".*/resourceGroups/juju-testmodel-.*/resources", nil)
 	errorSender.SetError(errors.New("ouch!"))
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
-		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
+		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
 		s.makeSender(".*/providers", resources.ProviderListResult{}),
 		errorSender,
 	}
@@ -1801,10 +1801,10 @@ func (s *environSuite) TestAdoptResourcesNoUpdateNeeded(c *gc.C) {
 	env := s.openEnviron(c)
 
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
-		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
+		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
 		s.makeSender(".*/providers", providersResult),
-		s.makeSender(".*/resourceGroups/juju-testenv-.*/resources", resourcesResult),
+		s.makeSender(".*/resourceGroups/juju-testmodel-.*/resources", resourcesResult),
 
 		// Doesn't bother updating res1, continues to do res2.
 		s.makeSender(".*/resourcegroups/.*/providers/Tuneyards.Bizness/micachu/drop-dead", res2),
@@ -1829,10 +1829,10 @@ func (s *environSuite) TestAdoptResourcesErrorGettingFullResource(c *gc.C) {
 	errorSender.SetError(errors.New("flagrant error! virus=very yes"))
 
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
-		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
+		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
 		s.makeSender(".*/providers", providersResult),
-		s.makeSender(".*/resourceGroups/juju-testenv-.*/resources", resourcesResult),
+		s.makeSender(".*/resourceGroups/juju-testmodel-.*/resources", resourcesResult),
 
 		// The first resource yields an error but the update continues.
 		errorSender,
@@ -1860,10 +1860,10 @@ func (s *environSuite) TestAdoptResourcesErrorUpdating(c *gc.C) {
 	errorSender.SetError(errors.New("oopsie"))
 
 	s.sender = azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/juju-testenv-.*", makeResourceGroupResult()),
-		s.makeSender(".*/resourcegroups/juju-testenv-.*", nil),
+		s.makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
+		s.makeSender(".*/resourcegroups/juju-testmodel-.*", nil),
 		s.makeSender(".*/providers", providersResult),
-		s.makeSender(".*/resourceGroups/juju-testenv-.*/resources", resourcesResult),
+		s.makeSender(".*/resourceGroups/juju-testmodel-.*/resources", resourcesResult),
 
 		// Updating the first resource yields an error but the update continues.
 		s.makeSender(".*/resourcegroups/.*/providers/Beck.Replica/liars/scissor/boxing-day-blues", res1),

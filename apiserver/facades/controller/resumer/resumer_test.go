@@ -38,7 +38,7 @@ func (s *ResumerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *ResumerSuite) TestNewResumerAPIRequiresEnvironManager(c *gc.C) {
+func (s *ResumerSuite) TestNewResumerAPIRequiresController(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Controller = false
 	api, err := resumer.NewResumerAPI(nil, nil, anAuthoriser)

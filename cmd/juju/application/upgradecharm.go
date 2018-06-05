@@ -389,7 +389,7 @@ func (c *upgradeCharmCommand) upgradeResources(
 func getUpgradeResources(
 	charmsClient CharmClient,
 	resourceLister ResourceLister,
-	serviceID string,
+	applicationID string,
 	charmURL *charm.URL,
 	cliResources map[string]string,
 ) (map[string]charmresource.Meta, error) {
@@ -401,7 +401,7 @@ func getUpgradeResources(
 		return nil, nil
 	}
 
-	current, err := getResources(serviceID, resourceLister)
+	current, err := getResources(applicationID, resourceLister)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -417,8 +417,8 @@ func getMetaResources(charmURL *charm.URL, client CharmClient) (map[string]charm
 	return charmInfo.Meta.Resources, nil
 }
 
-func getResources(serviceID string, resourceLister ResourceLister) (map[string]resource.Resource, error) {
-	svcs, err := resourceLister.ListResources([]string{serviceID})
+func getResources(applicationID string, resourceLister ResourceLister) (map[string]resource.Resource, error) {
+	svcs, err := resourceLister.ListResources([]string{applicationID})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -542,7 +542,7 @@ func (s *clientSuite) TestEnableHAErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed to create new controller machines: cannot reduce controller count")
 }
 
-func (s *clientSuite) TestEnableHAHostedEnvErrors(c *gc.C) {
+func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 	st2 := s.Factory.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"controller": false}})
 	defer st2.Close()
 

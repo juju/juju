@@ -24,14 +24,14 @@ func NewBlockChecker(s BlockGetter) *BlockChecker {
 
 // ChangeAllowed checks if change block is in place.
 // Change block prevents all operations that may change
-// current environment in any way from running successfully.
+// current model in any way from running successfully.
 func (c *BlockChecker) ChangeAllowed() error {
 	return c.checkBlock(state.ChangeBlock)
 }
 
 // RemoveAllowed checks if remove block is in place.
 // Remove block prevents removal of machine, service, unit
-// and relation from current environment.
+// and relation from current model.
 func (c *BlockChecker) RemoveAllowed() error {
 	if err := c.checkBlock(state.RemoveBlock); err != nil {
 		return err
@@ -41,7 +41,7 @@ func (c *BlockChecker) RemoveAllowed() error {
 }
 
 // DestroyAllowed checks if destroy block is in place.
-// Destroy block prevents destruction of current environment.
+// Destroy block prevents destruction of current model.
 func (c *BlockChecker) DestroyAllowed() error {
 	if err := c.checkBlock(state.DestroyBlock); err != nil {
 		return err

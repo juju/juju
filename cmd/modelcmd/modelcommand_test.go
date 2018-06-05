@@ -169,7 +169,7 @@ func (s *ModelCommandSuite) TestBootstrapContextNoVerify(c *gc.C) {
 func (s *ModelCommandSuite) TestWrapWithoutFlags(c *gc.C) {
 	cmd := new(testCommand)
 	wrapped := modelcmd.Wrap(cmd, modelcmd.WrapSkipModelFlags)
-	args := []string{"-m", "testenv"}
+	args := []string{"-m", "testmodel"}
 	err := cmdtesting.InitCommand(wrapped, args)
 	// 1st position is always the flag
 	msg := fmt.Sprintf("flag provided but not defined: %v", args[0])

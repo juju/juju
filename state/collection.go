@@ -68,7 +68,7 @@ func (c *modelStateCollection) FindId(id interface{}) mongo.Query {
 func (c *modelStateCollection) Insert(docs ...interface{}) error {
 	var mungedDocs []interface{}
 	for _, doc := range docs {
-		mungedDoc, err := mungeDocForMultiEnv(doc, c.modelUUID, modelUUIDRequired)
+		mungedDoc, err := mungeDocForMultiModel(doc, c.modelUUID, modelUUIDRequired)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -127,7 +127,7 @@ func (c *modelStateCollection) RemoveAll(query interface{}) (*mgo.ChangeInfo, er
 }
 
 func (c *modelStateCollection) mungeQuery(inq interface{}) bson.D {
-	outq, err := mungeDocForMultiEnv(inq, c.modelUUID, modelUUIDRequired|noModelUUIDInInput)
+	outq, err := mungeDocForMultiModel(inq, c.modelUUID, modelUUIDRequired|noModelUUIDInInput)
 	if err != nil {
 		panic(err)
 	}

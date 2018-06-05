@@ -124,7 +124,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	createVMArgs.NetworkDevices = []vsphereclient.NetworkDevice{}
 	c.Assert(createVMArgs, jc.DeepEquals, vsphereclient.CreateVirtualMachineParams{
 		Name:                   "juju-f75cba-0",
-		Folder:                 `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
+		Folder:                 `Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
 		VMDKDirectory:          "juju-vmdks/deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		Series:                 startInstArgs.Tools.OneSeries(),
 		OVASHA256:              ovatest.FakeOVASHA256(),
@@ -340,8 +340,8 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	// NOTE(axw) we must use SameContents, not DeepEquals, because
 	// we run the RemoveVirtualMachines calls concurrently.
 	c.Assert(paths, jc.SameContents, []string{
-		`Juju Controller (*)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)/vm-0`,
-		`Juju Controller (*)/Model "testenv" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)/vm-1`,
+		`Juju Controller (*)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)/vm-0`,
+		`Juju Controller (*)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)/vm-1`,
 	})
 }
 

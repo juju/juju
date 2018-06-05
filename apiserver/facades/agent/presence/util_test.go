@@ -49,7 +49,7 @@ func NewFixture(errors ...error) *Fixture {
 	return &Fixture{errors}
 }
 
-// Fixture makes it easy to manipulate a running worker's environment
+// Fixture makes it easy to manipulate a running worker's model
 // and test its behaviour in response.
 type Fixture struct {
 	errors []error

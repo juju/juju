@@ -164,7 +164,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	expectedAgentVersion, exists := s.st.model.cfg.AgentVersion()
 	c.Assert(exists, jc.IsTrue)
 	c.Assert(info, jc.DeepEquals, params.ModelInfo{
-		Name:               "testenv",
+		Name:               "testmodel",
 		UUID:               s.st.model.cfg.UUID(),
 		Type:               string(s.st.model.Type()),
 		ControllerUUID:     "deadbeef-1bad-500d-9000-4b1d0d06f00d",

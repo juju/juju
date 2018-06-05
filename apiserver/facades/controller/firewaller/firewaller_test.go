@@ -53,7 +53,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.firewaller, s.State, s.resources)
 }
 
-func (s *firewallerSuite) TestFirewallerFailsWithNonEnvironManagerUser(c *gc.C) {
+func (s *firewallerSuite) TestFirewallerFailsWithNonControllerUser(c *gc.C) {
 	constructor := func(st *state.State, res facade.Resources, auth facade.Authorizer) error {
 		m, err := st.Model()
 		c.Assert(err, jc.ErrorIsNil)
@@ -61,7 +61,7 @@ func (s *firewallerSuite) TestFirewallerFailsWithNonEnvironManagerUser(c *gc.C) 
 		_, err = firewaller.NewFirewallerAPI(firewaller.StateShim(st, m), res, auth, nil)
 		return err
 	}
-	s.testFirewallerFailsWithNonEnvironManagerUser(c, constructor)
+	s.testFirewallerFailsWithNonControllerUser(c, constructor)
 }
 
 func (s *firewallerSuite) TestLife(c *gc.C) {
@@ -112,9 +112,9 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 		"2:",
 	}
 
-	fakeEnvTag := names.NewModelTag("deadbeef-deaf-face-feed-0123456789ab")
+	fakeModelTag := names.NewModelTag("deadbeef-deaf-face-feed-0123456789ab")
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
-		{Tag: fakeEnvTag.String()},
+		{Tag: fakeModelTag.String()},
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: s.application.Tag().String()},
 		{Tag: s.units[0].Tag().String()},

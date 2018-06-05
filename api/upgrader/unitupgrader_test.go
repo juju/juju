@@ -46,7 +46,7 @@ var current = version.Binary{
 func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.rawMachine, _, _, s.rawUnit = s.addMachineServiceCharmAndUnit(c, "wordpress")
+	s.rawMachine, _, _, s.rawUnit = s.addMachineApplicationCharmAndUnit(c, "wordpress")
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.rawUnit.SetPassword(password)
@@ -58,16 +58,16 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.st, gc.NotNil)
 }
 
-func (s *unitUpgraderSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
+func (s *unitUpgraderSuite) addMachineApplicationCharmAndUnit(c *gc.C, appName string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	charm := s.AddTestingCharm(c, serviceName)
-	service := s.AddTestingApplication(c, serviceName, charm)
-	unit, err := service.AddUnit(state.AddUnitParams{})
+	charm := s.AddTestingCharm(c, appName)
+	app := s.AddTestingApplication(c, appName, charm)
+	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
-	return machine, service, charm, unit
+	return machine, app, charm, unit
 }
 
 func (s *unitUpgraderSuite) TestSetVersionWrongUnit(c *gc.C) {

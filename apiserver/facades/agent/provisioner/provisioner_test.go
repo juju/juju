@@ -78,7 +78,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	}
 
 	// Create a FakeAuthorizer so we can check permissions,
-	// set up assuming we logged in as the environment manager.
+	// set up assuming we logged in as the controller.
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Controller: true,
 	}
@@ -112,12 +112,12 @@ func (s *withoutControllerSuite) SetUpTest(c *gc.C) {
 func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = true
-	// Works with an environment manager, which is not a machine agent.
+	// Works with a controller, which is not a machine agent.
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
 
-	// But fails with neither a machine agent or an environment manager.
+	// But fails with neither a machine agent or a controller.
 	anAuthorizer.Controller = false
 	aProvisioner, err = provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
@@ -181,7 +181,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	// different authorization schemes:
 	// 1. Machine agents can access their own machine and
 	// any container that has their own machine as parent;
-	// 2. Environment managers can access any machine without
+	// 2. Controllers can access any machine without
 	// a parent.
 	// There's no need to repeat this test for each method,
 	// because the authorization logic is common.
@@ -239,7 +239,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestLifeAsEnvironManager(c *gc.C) {
+func (s *withoutControllerSuite) TestLifeAsController(c *gc.C) {
 	err := s.machines[1].EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[1].Refresh()
@@ -672,7 +672,7 @@ func (s *withoutControllerSuite) TestWatchAllContainers(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
-	// Now test it with a non-environment manager and make sure
+	// Now test it with a non-controller and make sure
 	// the secret attributes are masked.
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
@@ -954,7 +954,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestDistributionGroupEnvironManagerAuth(c *gc.C) {
+func (s *withoutControllerSuite) TestDistributionGroupControllerAuth(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
@@ -966,7 +966,7 @@ func (s *withoutControllerSuite) TestDistributionGroupEnvironManagerAuth(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.DistributionGroupResults{
 		Results: []params.DistributionGroupResult{
-			// environ manager may access any top-level machines.
+			// controller may access any top-level machines.
 			{Result: []instance.Id{}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			// only a machine agent for the container or its
@@ -1069,7 +1069,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	})
 }
 
-func (s *withoutControllerSuite) TestDistributionGroupByMachineIdEnvironManagerAuth(c *gc.C) {
+func (s *withoutControllerSuite) TestDistributionGroupByMachineIdControllerAuth(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
@@ -1082,7 +1082,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdEnvironManagerA
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
-			// environ manager may access any top-level machines.
+			// controller may access any top-level machines.
 			{Result: []string{}, Error: nil},
 			{Result: nil, Error: apiservertesting.NotFoundError("machine 42")},
 			// only a machine agent for the container or its

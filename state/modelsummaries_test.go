@@ -117,7 +117,7 @@ func (s *ModelSummariesSuite) TestModelsForUserAdmin(c *gc.C) {
 	s.Setup4Models(c)
 	names := s.modelNamesForUser(c, s.Model.Owner().Name())
 	// Admin always gets to see all models
-	c.Check(names, gc.DeepEquals, []string{"shared", "testenv", "user1model", "user2model", "user3model"})
+	c.Check(names, gc.DeepEquals, []string{"shared", "testmodel", "user1model", "user2model", "user3model"})
 }
 
 func (s *ModelSummariesSuite) TestModelsForSuperuserWithoutAll(c *gc.C) {
@@ -129,7 +129,7 @@ func (s *ModelSummariesSuite) TestModelsForSuperuserWithoutAll(c *gc.C) {
 		names[i] = summary.Name
 	}
 	sort.Strings(names)
-	c.Check(names, gc.DeepEquals, []string{"shared", "testenv"})
+	c.Check(names, gc.DeepEquals, []string{"shared", "testmodel"})
 }
 
 func (s *ModelSummariesSuite) TestModelsForSuperuserWithAll(c *gc.C) {
@@ -143,10 +143,10 @@ func (s *ModelSummariesSuite) TestModelsForSuperuserWithAll(c *gc.C) {
 		access[summary.Name] = string(summary.Access)
 	}
 	sort.Strings(names)
-	c.Check(names, gc.DeepEquals, []string{"shared", "testenv", "user1model", "user2model", "user3model"})
+	c.Check(names, gc.DeepEquals, []string{"shared", "testmodel", "user1model", "user2model", "user3model"})
 	c.Check(access, gc.DeepEquals, map[string]string{
 		"shared":     "admin",
-		"testenv":    "admin",
+		"testmodel":  "admin",
 		"user1model": "",
 		"user2model": "",
 		"user3model": "",
@@ -201,7 +201,7 @@ func (s *ModelSummariesSuite) TestModelsForIgnoresImportingModels(c *gc.C) {
 	c.Check(names, gc.DeepEquals, []string{"shared", "user3model"})
 	// Superuser doesn't see importing models, either
 	names = s.modelNamesForUser(c, s.Model.Owner().Name())
-	c.Check(names, gc.DeepEquals, []string{"shared", "testenv", "user1model", "user2model", "user3model"})
+	c.Check(names, gc.DeepEquals, []string{"shared", "testmodel", "user1model", "user2model", "user3model"})
 }
 
 func (s *ModelSummariesSuite) TestContainsConfigInformation(c *gc.C) {

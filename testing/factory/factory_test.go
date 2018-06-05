@@ -502,7 +502,7 @@ func (s *factorySuite) TestMakeModelNil(c *gc.C) {
 
 	env, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	re := regexp.MustCompile(`^testenv-\d+$`)
+	re := regexp.MustCompile(`^testmodel-\d+$`)
 	c.Assert(re.MatchString(env.Name()), jc.IsTrue)
 	c.Assert(env.UUID() == s.State.ModelUUID(), jc.IsFalse)
 	origEnv, err := s.State.Model()

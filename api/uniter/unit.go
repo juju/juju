@@ -236,7 +236,7 @@ func (u *Unit) Application() (*Application, error) {
 	return application, nil
 }
 
-// ConfigSettings returns the complete set of service charm config settings
+// ConfigSettings returns the complete set of application charm config settings
 // available to the unit. Unset values will be replaced with the default
 // value for the associated option, and may thus be nil when no default is
 // specified.
@@ -268,7 +268,7 @@ func (u *Unit) ApplicationName() string {
 	return application
 }
 
-// ApplicationTag returns the service tag.
+// ApplicationTag returns the application tag.
 func (u *Unit) ApplicationTag() names.ApplicationTag {
 	return names.NewApplicationTag(u.ApplicationName())
 }
@@ -557,7 +557,7 @@ func (u *Unit) ClearResolved() error {
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the
-// unit's service configuration settings. The unit must have a charm URL
+// unit's application configuration settings. The unit must have a charm URL
 // set before this method is called, and the returned watcher will be
 // valid only while the unit's charm URL is not changed.
 func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {

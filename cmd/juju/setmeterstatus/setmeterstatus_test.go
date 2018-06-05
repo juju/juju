@@ -58,7 +58,7 @@ func (s *SetMeterStatusSuite) TestUnit(c *gc.C) {
 	client.CheckCall(c, 0, "SetMeterStatus", "unit-metered-0", "RED", "")
 }
 
-func (s *SetMeterStatusSuite) TestService(c *gc.C) {
+func (s *SetMeterStatusSuite) TestApplication(c *gc.C) {
 	client := MockSetMeterStatusClient{testing.Stub{}}
 	s.PatchValue(setmeterstatus.NewClient, func(_ modelcmd.ModelCommandBase) (setmeterstatus.SetMeterStatusClient, error) {
 		return &client, nil
@@ -68,7 +68,7 @@ func (s *SetMeterStatusSuite) TestService(c *gc.C) {
 	client.CheckCall(c, 0, "SetMeterStatus", "application-metered", "RED", "")
 }
 
-func (s *SetMeterStatusSuite) TestNotValidServiceOrUnit(c *gc.C) {
+func (s *SetMeterStatusSuite) TestNotValidApplicationOrUnit(c *gc.C) {
 	client := MockSetMeterStatusClient{testing.Stub{}}
 	s.PatchValue(setmeterstatus.NewClient, func(_ modelcmd.ModelCommandBase) (setmeterstatus.SetMeterStatusClient, error) {
 		return &client, nil
@@ -91,8 +91,8 @@ func (s *DebugMetricsCommandSuite) TestDebugNoArgs(c *gc.C) {
 
 func (s *DebugMetricsCommandSuite) TestUnits(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "local:quantal/mysql-1"})
-	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service, SetCharmURL: true})
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: app, SetCharmURL: true})
 	cmd := setmeterstatus.NewCommandForTest(s.ControllerStore)
 	_, err := cmdtesting.RunCommand(c, cmd, unit.Name(), "RED", "--info", "foobar")
 	c.Assert(err, jc.ErrorIsNil)
@@ -102,12 +102,12 @@ func (s *DebugMetricsCommandSuite) TestUnits(c *gc.C) {
 	c.Assert(status.Info, gc.Equals, "foobar")
 }
 
-func (s *DebugMetricsCommandSuite) TestService(c *gc.C) {
+func (s *DebugMetricsCommandSuite) TestApplication(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "local:quantal/mysql-1"})
-	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
-	unit0, err := service.AddUnit(state.AddUnitParams{})
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
+	unit0, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	unit1, err := service.AddUnit(state.AddUnitParams{})
+	unit1, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	cmd := setmeterstatus.NewCommandForTest(s.ControllerStore)
 	_, err = cmdtesting.RunCommand(c, cmd, "mysql", "RED", "--info", "foobar")

@@ -17,7 +17,7 @@ import (
 // This module implements a subset of the interface provided by
 // state.Relation, as needed by the uniter API.
 
-// Relation represents a relation between one or two service
+// Relation represents a relation between one or two application
 // endpoints.
 type Relation struct {
 	st        *State
@@ -41,7 +41,7 @@ func (r *Relation) String() string {
 // Id returns the integer internal relation key. This is exposed
 // because the unit agent needs to expose a value derived from this
 // (as JUJU_RELATION_ID) to allow relation hooks to differentiate
-// between relations with different services.
+// between relations with different applications.
 func (r *Relation) Id() int {
 	return r.id
 }

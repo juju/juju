@@ -26,12 +26,12 @@ Examples:
 See also: 
     expose`[1:]
 
-// NewUnexposeCommand returns a command to unexpose services.
+// NewUnexposeCommand returns a command to unexpose applications.
 func NewUnexposeCommand() modelcmd.ModelCommand {
 	return modelcmd.Wrap(&unexposeCommand{})
 }
 
-// unexposeCommand is responsible exposing services.
+// unexposeCommand is responsible exposing applications.
 type unexposeCommand struct {
 	modelcmd.ModelCommandBase
 	ApplicationName string
@@ -54,7 +54,7 @@ func (c *unexposeCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
-func (c *unexposeCommand) getAPI() (serviceExposeAPI, error) {
+func (c *unexposeCommand) getAPI() (applicationExposeAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)

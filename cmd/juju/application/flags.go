@@ -28,12 +28,12 @@ func (f storageFlag) Set(s string) error {
 			return errors.New("expected <store>=<constraints>")
 		}
 	}
-	var serviceName, storageName string
+	var applicationName, storageName string
 	if colon := strings.IndexRune(fields[0], ':'); colon >= 0 {
 		if f.bundleStores == nil {
 			return errors.New("expected <store>=<constraints>")
 		}
-		serviceName = fields[0][:colon]
+		applicationName = fields[0][:colon]
 		storageName = fields[0][colon+1:]
 	} else {
 		storageName = fields[0]
@@ -43,14 +43,14 @@ func (f storageFlag) Set(s string) error {
 		return errors.Annotate(err, "cannot parse disk constraints")
 	}
 	var stores map[string]storage.Constraints
-	if serviceName != "" {
+	if applicationName != "" {
 		if *f.bundleStores == nil {
 			*f.bundleStores = make(map[string]map[string]storage.Constraints)
 		}
-		stores = (*f.bundleStores)[serviceName]
+		stores = (*f.bundleStores)[applicationName]
 		if stores == nil {
 			stores = make(map[string]storage.Constraints)
-			(*f.bundleStores)[serviceName] = stores
+			(*f.bundleStores)[applicationName] = stores
 		}
 	} else {
 		if *f.stores == nil {

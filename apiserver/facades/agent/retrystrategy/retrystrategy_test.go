@@ -138,9 +138,9 @@ func (s *retryStrategySuite) assertRetryStrategy(c *gc.C, tag string) {
 func (s *retryStrategySuite) setRetryStrategy(c *gc.C, automaticallyRetryHooks bool) {
 	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{"automatically-retry-hooks": automaticallyRetryHooks}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.IAASModel.ModelConfig()
+	modelConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(envConfig.AutomaticallyRetryHooks(), gc.Equals, automaticallyRetryHooks)
+	c.Assert(modelConfig.AutomaticallyRetryHooks(), gc.Equals, automaticallyRetryHooks)
 }
 
 func (s *retryStrategySuite) TestWatchRetryStrategyUnauthenticated(c *gc.C) {

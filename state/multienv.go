@@ -46,10 +46,10 @@ func splitDocID(id string) (string, string, bool) {
 const modelUUIDRequired = 1
 const noModelUUIDInInput = 2
 
-// mungeDocForMultiEnv takes the value of an txn.Op Insert or $set
+// mungeDocForMultiModel takes the value of an txn.Op Insert or $set
 // Update and modifies it to be multi-model safe, returning the
 // modified document.
-func mungeDocForMultiEnv(doc interface{}, modelUUID string, modelUUIDFlags int) (bson.D, error) {
+func mungeDocForMultiModel(doc interface{}, modelUUID string, modelUUIDFlags int) (bson.D, error) {
 	var bDoc bson.D
 	var err error
 	if doc != nil {
@@ -66,7 +66,7 @@ func mungeDocForMultiEnv(doc interface{}, modelUUID string, modelUUIDFlags int) 
 			if id, ok := elem.Value.(string); ok {
 				bDoc[i].Value = ensureModelUUID(modelUUID, id)
 			} else if subquery, ok := elem.Value.(bson.D); ok {
-				munged, err := mungeIDSubQueryForMultiEnv(subquery, modelUUID)
+				munged, err := mungeIDSubQueryForMultiModel(subquery, modelUUID)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -90,7 +90,7 @@ func mungeDocForMultiEnv(doc interface{}, modelUUID string, modelUUIDFlags int) 
 	return bDoc, nil
 }
 
-func mungeIDSubQueryForMultiEnv(doc interface{}, modelUUID string) (bson.D, error) {
+func mungeIDSubQueryForMultiModel(doc interface{}, modelUUID string) (bson.D, error) {
 	var bDoc bson.D
 	var err error
 	if doc != nil {

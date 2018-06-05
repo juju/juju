@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/watcher"
 )
 
-// Service represents the state of a service.
+// Application represents the state of an application.
 type Application struct {
 	st   *Client
 	tag  names.ApplicationTag
@@ -25,22 +25,22 @@ func (s *Application) Name() string {
 	return s.tag.Id()
 }
 
-// Tag returns the service tag.
+// Tag returns the application tag.
 func (s *Application) Tag() names.ApplicationTag {
 	return s.tag
 }
 
-// Watch returns a watcher for observing changes to a service.
+// Watch returns a watcher for observing changes to an application.
 func (s *Application) Watch() (watcher.NotifyWatcher, error) {
 	return common.Watch(s.st.facade, "Watch", s.tag)
 }
 
-// Life returns the service's current life state.
+// Life returns the application's current life state.
 func (s *Application) Life() params.Life {
 	return s.life
 }
 
-// Refresh refreshes the contents of the Service from the underlying
+// Refresh refreshes the contents of the application from the underlying
 // state.
 func (s *Application) Refresh() error {
 	life, err := s.st.life(s.tag)
@@ -51,11 +51,11 @@ func (s *Application) Refresh() error {
 	return nil
 }
 
-// IsExposed returns whether this service is exposed. The explicitly
-// open ports (with open-port) for exposed services may be accessed
+// IsExposed returns whether this application is exposed. The explicitly
+// open ports (with open-port) for exposed application may be accessed
 // from machines outside of the local deployment network.
 //
-// NOTE: This differs from state.Service.IsExposed() by returning
+// NOTE: This differs from state.Application.IsExposed() by returning
 // an error as well, because it needs to make an API call.
 func (s *Application) IsExposed() (bool, error) {
 	var results params.BoolResults

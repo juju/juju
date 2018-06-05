@@ -62,7 +62,7 @@ func FakeControllerConfig() controller.Config {
 func FakeConfig() Attrs {
 	return Attrs{
 		"type":                      "someprovider",
-		"name":                      "testenv",
+		"name":                      "testmodel",
 		"uuid":                      ModelTag.Id(),
 		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,

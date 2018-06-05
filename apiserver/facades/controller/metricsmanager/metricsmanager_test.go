@@ -51,9 +51,9 @@ func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 
 func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonController(c *gc.C) {
 	tests := []struct {
-		tag            names.Tag
-		environManager bool
-		expectedError  string
+		tag           names.Tag
+		controller    bool
+		expectedError string
 	}{
 		{names.NewUnitTag("mysql/0"), false, "permission denied"},
 		{names.NewLocalUserTag("admin"), false, "permission denied"},
@@ -64,7 +64,7 @@ func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonController(c *gc
 		c.Logf("test %d", i)
 
 		anAuthoriser := s.authorizer
-		anAuthoriser.Controller = test.environManager
+		anAuthoriser.Controller = test.controller
 		anAuthoriser.Tag = test.tag
 		endPoint, err := metricsmanager.NewMetricsManagerAPI(s.State, nil,
 			anAuthoriser, s.StatePool, jujutesting.NewClock(time.Now()))

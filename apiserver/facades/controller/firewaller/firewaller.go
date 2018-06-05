@@ -37,7 +37,7 @@ type FirewallerAPIV3 struct {
 	accessUnit        common.GetAuthFunc
 	accessApplication common.GetAuthFunc
 	accessMachine     common.GetAuthFunc
-	accessEnviron     common.GetAuthFunc
+	accessModel       common.GetAuthFunc
 }
 
 // FirewallerAPIV4 provides access to the Firewaller v4 API facade.
@@ -98,11 +98,11 @@ func NewFirewallerAPI(
 	cloudSpecAPI cloudspec.CloudSpecAPI,
 ) (*FirewallerAPIV3, error) {
 	if !authorizer.AuthController() {
-		// Firewaller must run as environment manager.
+		// Firewaller must run as a controller.
 		return nil, common.ErrPerm
 	}
 	// Set up the various authorization checkers.
-	accessEnviron := common.AuthFuncForTagKind(names.ModelTagKind)
+	accessModel := common.AuthFuncForTagKind(names.ModelTagKind)
 	accessUnit := common.AuthFuncForTagKind(names.UnitTagKind)
 	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
 	accessMachine := common.AuthFuncForTagKind(names.MachineTagKind)
@@ -158,12 +158,12 @@ func NewFirewallerAPI(
 		accessUnit:           accessUnit,
 		accessApplication:    accessApplication,
 		accessMachine:        accessMachine,
-		accessEnviron:        accessEnviron,
+		accessModel:          accessModel,
 	}, nil
 }
 
 // WatchOpenedPorts returns a new StringsWatcher for each given
-// environment tag.
+// model tag.
 func (f *FirewallerAPIV3) WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
@@ -171,7 +171,7 @@ func (f *FirewallerAPIV3) WatchOpenedPorts(args params.Entities) (params.Strings
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canWatch, err := f.accessEnviron()
+	canWatch, err := f.accessModel()
 	if err != nil {
 		return params.StringsWatchResults{}, errors.Trace(err)
 	}
@@ -185,7 +185,7 @@ func (f *FirewallerAPIV3) WatchOpenedPorts(args params.Entities) (params.Strings
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		watcherId, initial, err := f.watchOneEnvironOpenedPorts(tag)
+		watcherId, initial, err := f.watchOneModelOpenedPorts(tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -196,8 +196,8 @@ func (f *FirewallerAPIV3) WatchOpenedPorts(args params.Entities) (params.Strings
 	return result, nil
 }
 
-func (f *FirewallerAPIV3) watchOneEnvironOpenedPorts(tag names.Tag) (string, []string, error) {
-	// NOTE: tag is ignored, as there is only one environment in the
+func (f *FirewallerAPIV3) watchOneModelOpenedPorts(tag names.Tag) (string, []string, error) {
+	// NOTE: tag is ignored, as there is only one model in the
 	// state DB. Once this changes, change the code below accordingly.
 	watch := f.st.WatchOpenedPorts()
 	// Consume the initial event and forward it to the result.

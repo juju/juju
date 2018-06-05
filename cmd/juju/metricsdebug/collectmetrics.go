@@ -42,9 +42,9 @@ var logger = loggo.GetLogger("juju.cmd.juju.collect-metrics")
 // collectMetricsCommand retrieves metrics stored in the juju controller.
 type collectMetricsCommand struct {
 	modelcmd.ModelCommandBase
-	unit    string
-	service string
-	entity  string
+	unit        string
+	application string
+	entity      string
 }
 
 // NewCollectMetricsCommand creates a new collectMetricsCommand.
@@ -71,7 +71,7 @@ func (c *collectMetricsCommand) Init(args []string) error {
 	if names.IsValidUnit(c.entity) {
 		c.unit = c.entity
 	} else if names.IsValidApplication(args[0]) {
-		c.service = c.entity
+		c.application = c.entity
 	} else {
 		return errors.Errorf("%q is not a valid unit or application", args[0])
 	}
@@ -123,29 +123,29 @@ func parseActionResult(result params.ActionResult) (string, error) {
 	return tag.Id(), nil
 }
 
-type serviceClient interface {
-	GetCharmURL(service string) (*charm.URL, error)
+type applicationClient interface {
+	GetCharmURL(application string) (*charm.URL, error)
 }
 
-var newServiceClient = func(root api.Connection) serviceClient {
+var newApplicationClient = func(root api.Connection) applicationClient {
 	return application.NewClient(root)
 }
 
 func isLocalCharmURL(conn api.Connection, entity string) (bool, error) {
-	serviceName := entity
+	applicationName := entity
 	var err error
 	if names.IsValidUnit(entity) {
-		serviceName, err = names.UnitApplication(entity)
+		applicationName, err = names.UnitApplication(entity)
 		if err != nil {
 			return false, errors.Trace(err)
 		}
 	}
 
-	client := newServiceClient(conn)
+	client := newApplicationClient(conn)
 	// TODO (mattyw, anastasiamac) The storage work might lead to an api
 	// allowing us to query charm url for a unit.
 	// When that api exists we should use that here.
-	url, err := client.GetCharmURL(serviceName)
+	url, err := client.GetCharmURL(applicationName)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -174,17 +174,17 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 	}
 
 	units := []string{}
-	services := []string{}
+	applications := []string{}
 	if c.unit != "" {
 		units = []string{c.unit}
 	}
-	if c.service != "" {
-		services = []string{c.service}
+	if c.application != "" {
+		applications = []string{c.application}
 	}
 	runParams := params.RunParams{
 		Timeout:      commandTimeout,
 		Units:        units,
-		Applications: services,
+		Applications: applications,
 		Commands:     "nc -U ../metrics-collect.socket",
 	}
 

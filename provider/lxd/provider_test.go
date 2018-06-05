@@ -191,7 +191,7 @@ func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	envConfig := env.Config()
 
-	c.Check(envConfig.Name(), gc.Equals, "testenv")
+	c.Check(envConfig.Name(), gc.Equals, "testmodel")
 }
 
 func (s *ProviderFunctionalSuite) TestPrepareConfig(c *gc.C) {

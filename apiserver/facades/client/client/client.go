@@ -411,13 +411,13 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 
 	var placementDirective string
 	if p.Placement != nil {
-		env, err := c.api.stateAccessor.Model()
+		model, err := c.api.stateAccessor.Model()
 		if err != nil {
 			return nil, err
 		}
 		// For 1.21 we should support both UUID and name, and with 1.22
 		// just support UUID
-		if p.Placement.Scope != env.Name() && p.Placement.Scope != env.UUID() {
+		if p.Placement.Scope != model.Name() && p.Placement.Scope != model.UUID() {
 			return nil, fmt.Errorf("invalid model name %q", p.Placement.Scope)
 		}
 		placementDirective = p.Placement.Directive
@@ -565,11 +565,11 @@ func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
 		return results, err
 	}
 
-	env, err := c.api.stateAccessor.Model()
+	model, err := c.api.stateAccessor.Model()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
-	users, err := env.Users()
+	users, err := model.Users()
 	if err != nil {
 		return results, errors.Trace(err)
 	}

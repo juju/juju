@@ -92,7 +92,7 @@ func (s *apiAddresserSuite) TestAPIAddressesPrivateFirst(c *gc.C) {
 
 func (s *apiAddresserSuite) TestModelUUID(c *gc.C) {
 	result := s.addresser.ModelUUID()
-	c.Assert(string(result.Result), gc.Equals, "the environ uuid")
+	c.Assert(string(result.Result), gc.Equals, "the model uuid")
 }
 
 var _ common.AddressAndCertGetter = fakeAddresses{}
@@ -110,7 +110,7 @@ func (fakeAddresses) ControllerConfig() (controller.Config, error) {
 }
 
 func (fakeAddresses) ModelUUID() string {
-	return "the environ uuid"
+	return "the model uuid"
 }
 
 func (f fakeAddresses) APIHostPortsForAgents() ([][]network.HostPort, error) {

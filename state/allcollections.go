@@ -398,7 +398,7 @@ func allCollections() collectionSchema {
 		// relevant to multiple other kinds of entities, and are thus generally
 		// indexed by globalKey(). This is unhelpfully named in this context --
 		// it's meant to imply "global within an model", because it was
-		// named before multi-env support.
+		// named before multi-model support.
 
 		// This collection holds user annotations for various entities. They
 		// shouldn't be written or interpreted by juju.

@@ -170,7 +170,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModelNames(c *gc.C) {
 	}, {
 		"_id": "mary@external:test2",
 	}, {
-		"_id": "test-admin:testenv",
+		"_id": "test-admin:testmodel",
 	}}
 
 	s.assertStrippedUserData(c, coll, expected)

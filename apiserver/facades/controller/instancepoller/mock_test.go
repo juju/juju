@@ -84,7 +84,7 @@ func (m *mockState) ModelConfig() (*config.Config, error) {
 	return m.config, nil
 }
 
-// SetConfig updates the environ config stored internally. Triggers a
+// SetConfig updates the model config stored internally. Triggers a
 // change event for all created config watchers.
 func (m *mockState) SetConfig(c *gc.C, newConfig *config.Config) {
 	m.mu.Lock()

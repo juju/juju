@@ -39,7 +39,7 @@ func (s BlockHelper) on(c *gc.C, blockType multiwatcher.BlockType, msg string) {
 	c.Assert(s.client.SwitchBlockOn(fmt.Sprintf("%v", blockType), msg), gc.IsNil)
 }
 
-// BlockAllChanges blocks all operations that could change environment.
+// BlockAllChanges blocks all operations that could change the model.
 func (s BlockHelper) BlockAllChanges(c *gc.C, msg string) {
 	s.on(c, multiwatcher.BlockChange, msg)
 }

@@ -248,15 +248,15 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	err := state.PruneLogs(s.State, tsNoPrune, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Logs for first env should not be touched.
+	// Logs for first model should not be touched.
 	c.Assert(s.countLogs(c, s0), gc.Equals, startingLogsS0)
 
-	// Logs for second env should be pruned.
+	// Logs for second model should be pruned.
 	c.Assert(s.countLogs(c, s1), jc.LessThan, startingLogsS1)
 	c.Assert(s.countLogs(c, s1), jc.GreaterThan, 2000)
 
-	// Logs for third env should be pruned to a similar level as
-	// second env.
+	// Logs for third model should be pruned to a similar level as
+	// second model.
 	c.Assert(s.countLogs(c, s2), jc.LessThan, startingLogsS1)
 	c.Assert(s.countLogs(c, s2), jc.GreaterThan, 2000)
 

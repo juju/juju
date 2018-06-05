@@ -77,7 +77,7 @@ func (s *apiEnvironmentSuite) TestRevokeModel(c *gc.C) {
 	c.Assert(modelUser, gc.DeepEquals, permission.UserAccess{})
 }
 
-func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
+func (s *apiEnvironmentSuite) TestModelUserInfo(c *gc.C) {
 	modelUser := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns"})
 	mod, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)

@@ -227,7 +227,7 @@ type RemoteRelationResults struct {
 }
 
 // RemoteApplication describes the current state of an application involved in a cross-
-// model relation, from the perspective of the local environment.
+// model relation, from the perspective of the local model.
 type RemoteApplication struct {
 	// Name is the name of the application.
 	Name string `json:"name"`

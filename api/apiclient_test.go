@@ -45,7 +45,7 @@ type apiclientSuite struct {
 
 var _ = gc.Suite(&apiclientSuite{})
 
-func (s *apiclientSuite) TestDialAPIToEnv(c *gc.C) {
+func (s *apiclientSuite) TestDialAPIToModel(c *gc.C) {
 	info := s.APIInfo(c)
 	conn, location, err := api.DialAPI(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -176,7 +176,7 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 	// TODO(jam): 2014-06-05 http://pad.lv/1326802
 	// we want to test this eventually, but for now s.APIInfo uses
 	// conn.StateInfo() which doesn't know about ModelTag.
-	// c.Check(info.ModelTag, gc.Equals, env.Tag())
+	// c.Check(info.ModelTag, gc.Equals, model.Tag())
 	// c.Assert(info.ModelTag, gc.Not(gc.Equals), "")
 
 	// We start by ensuring we have an invalid tag, and Open should fail.

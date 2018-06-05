@@ -283,17 +283,17 @@ func (s *StateSuite) TestWatchAllModels(c *gc.C) {
 
 	m := s.Factory.MakeMachine(c, nil)
 
-	envSeen := false
+	modelSeen := false
 	machineSeen := false
 	timeout := time.After(testing.LongWait)
-	for !envSeen || !machineSeen {
+	for !modelSeen || !machineSeen {
 		select {
 		case deltas := <-deltasC:
 			for _, delta := range deltas {
 				switch e := delta.Entity.(type) {
 				case *multiwatcher.ModelInfo:
 					c.Assert(e.ModelUUID, gc.Equals, s.State.ModelUUID())
-					envSeen = true
+					modelSeen = true
 				case *multiwatcher.MachineInfo:
 					c.Assert(e.ModelUUID, gc.Equals, s.State.ModelUUID())
 					c.Assert(e.Id, gc.Equals, m.Id())
@@ -304,7 +304,7 @@ func (s *StateSuite) TestWatchAllModels(c *gc.C) {
 			c.Fatal("timed out")
 		}
 	}
-	c.Assert(envSeen, jc.IsTrue)
+	c.Assert(modelSeen, jc.IsTrue)
 	c.Assert(machineSeen, jc.IsTrue)
 }
 
@@ -966,7 +966,7 @@ func (s *StateSuite) TestAddMachinesmodelDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testmodel" is no longer alive`)
 }
 
 func (s *StateSuite) TestAddMachinesmodelDyingAfterInitial(c *gc.C) {
@@ -977,7 +977,7 @@ func (s *StateSuite) TestAddMachinesmodelDyingAfterInitial(c *gc.C) {
 		c.Assert(s.model.Destroy(state.DestroyModelParams{}), gc.IsNil)
 	}).Check()
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testmodel" is no longer alive`)
 }
 
 func (s *StateSuite) TestAddMachinesmodelMigrating(c *gc.C) {
@@ -985,7 +985,7 @@ func (s *StateSuite) TestAddMachinesmodelMigrating(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testenv" is being migrated`)
+	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testmodel" is being migrated`)
 }
 
 func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
@@ -1604,7 +1604,7 @@ func (s *StateSuite) TestAddApplicationModelDying(c *gc.C) {
 	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testmodel" is no longer alive`)
 }
 
 func (s *StateSuite) TestAddApplicationModelMigrating(c *gc.C) {
@@ -1613,7 +1613,7 @@ func (s *StateSuite) TestAddApplicationModelMigrating(c *gc.C) {
 	err := s.model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is being migrated`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testmodel" is being migrated`)
 }
 
 func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
@@ -1668,7 +1668,7 @@ func (s *StateSuite) TestAddApplicationModelDyingAfterInitial(c *gc.C) {
 		c.Assert(s.model.Destroy(state.DestroyModelParams{}), gc.IsNil)
 	}).Check()
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is no longer alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testmodel" is no longer alive`)
 }
 
 func (s *StateSuite) TestApplicationNotFound(c *gc.C) {
@@ -2592,10 +2592,10 @@ func (s *StateSuite) TestWatchControllerConfig(c *gc.C) {
 }
 
 func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
-	// insert one doc for each multiEnvCollection
+	// insert one doc for each multiModelCollection
 	var ops []mgotxn.Op
 	modelUUID := st.ModelUUID()
-	for _, collName := range state.MultiEnvCollections() {
+	for _, collName := range state.MultiModelCollections() {
 		// skip adding constraints, modelUser and settings as they were added when the
 		// model was created
 		if collName == "constraints" || collName == "modelusers" || collName == "settings" {
@@ -2623,7 +2623,7 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// test that we can find each doc in state
-	for _, collName := range state.MultiEnvCollections() {
+	for _, collName := range state.MultiModelCollections() {
 		coll, closer := state.GetRawCollection(st, collName)
 		defer closer()
 		n, err := coll.Find(bson.D{{"model-uuid", st.ModelUUID()}}).Count()
@@ -2667,8 +2667,8 @@ func (s *StateSuite) AssertModelDeleted(c *gc.C, st *state.State) {
 	_, err := st.Model()
 	c.Assert(err, gc.ErrorMatches, `model "`+st.ModelUUID()+`" not found`)
 
-	// ensure all docs for all multiEnvCollections are removed
-	for _, collName := range state.MultiEnvCollections() {
+	// ensure all docs for all MultiModelCollections are removed
+	for _, collName := range state.MultiModelCollections() {
 		coll, closer := state.GetRawCollection(st, collName)
 		defer closer()
 		n, err := coll.Find(bson.D{{"model-uuid", st.ModelUUID()}}).Count()
@@ -2715,7 +2715,7 @@ func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
 	s.AssertModelDeleted(c, st)
 }
 
-func (s *StateSuite) TestRemoveAllModelDocsAliveEnvFails(c *gc.C) {
+func (s *StateSuite) TestRemoveAllModelDocsAliveModelFails(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -3580,9 +3580,9 @@ func (s *StateSuite) TestIsUpgradeInProgressError(c *gc.C) {
 
 func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	// Get the agent-version set in the model.
-	envConfig, err := s.IAASModel.ModelConfig()
+	modelConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, ok := envConfig.AgentVersion()
+	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	stringVersion := agentVersion.String()
 
@@ -3656,9 +3656,9 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 	// Get the agent-version set in the model.
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := m.ModelConfig()
+	modelConfig, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, ok := envConfig.AgentVersion()
+	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	currentVersion := agentVersion.String()
 
@@ -3675,11 +3675,11 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 	err = unit.SetAgentVersion(version.MustParseBinary(currentVersion + "-quantal-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	return envConfig, currentVersion
+	return modelConfig, currentVersion
 }
 
-func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name string, value interface{}) {
-	attrs := envConfig.AllAttrs()
+func (s *StateSuite) changeEnviron(c *gc.C, modelConfig *config.Config, name string, value interface{}) {
+	attrs := modelConfig.AllAttrs()
 	attrs[name] = value
 	c.Assert(s.IAASModel.UpdateModelConfig(attrs, nil), gc.IsNil)
 }
@@ -3687,21 +3687,21 @@ func (s *StateSuite) changeEnviron(c *gc.C, envConfig *config.Config, name strin
 func assertAgentVersion(c *gc.C, st *state.State, vers string) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := m.ModelConfig()
+	modelConfig, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, ok := envConfig.AgentVersion()
+	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(agentVersion.String(), gc.Equals, vers)
 }
 
 func (s *StateSuite) TestSetModelAgentVersionRetriesOnConfigChange(c *gc.C) {
-	envConfig, _ := s.prepareAgentVersionTests(c, s.State)
+	modelConfig, _ := s.prepareAgentVersionTests(c, s.State)
 
 	// Set up a transaction hook to change something
 	// other than the version, and make sure it retries
 	// and passes.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		s.changeEnviron(c, envConfig, "default-series", "foo")
+		s.changeEnviron(c, modelConfig, "default-series", "foo")
 	}).Check()
 
 	// Change the agent-version and ensure it has changed.
@@ -3711,13 +3711,13 @@ func (s *StateSuite) TestSetModelAgentVersionRetriesOnConfigChange(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetModelAgentVersionSucceedsWithSameVersion(c *gc.C) {
-	envConfig, _ := s.prepareAgentVersionTests(c, s.State)
+	modelConfig, _ := s.prepareAgentVersionTests(c, s.State)
 
 	// Set up a transaction hook to change the version
 	// to the new one, and make sure it retries
 	// and passes.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		s.changeEnviron(c, envConfig, "agent-version", "4.5.6")
+		s.changeEnviron(c, modelConfig, "agent-version", "4.5.6")
 	}).Check()
 
 	// Change the agent-version and verify.
@@ -3758,14 +3758,14 @@ func (s *StateSuite) TestSetModelAgentVersionOnOtherModel(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetModelAgentVersionExcessiveContention(c *gc.C) {
-	envConfig, currentVersion := s.prepareAgentVersionTests(c, s.State)
+	modelConfig, currentVersion := s.prepareAgentVersionTests(c, s.State)
 
 	// Set a hook to change the config 3 times
 	// to test we return ErrExcessiveContention.
 	changeFuncs := []func(){
-		func() { s.changeEnviron(c, envConfig, "default-series", "1") },
-		func() { s.changeEnviron(c, envConfig, "default-series", "2") },
-		func() { s.changeEnviron(c, envConfig, "default-series", "3") },
+		func() { s.changeEnviron(c, modelConfig, "default-series", "1") },
+		func() { s.changeEnviron(c, modelConfig, "default-series", "2") },
+		func() { s.changeEnviron(c, modelConfig, "default-series", "3") },
 	}
 	defer state.SetBeforeHooks(c, s.State, changeFuncs...).Check()
 	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), false)
@@ -3823,9 +3823,9 @@ func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {
 	// SetModelAgentVersion call failing.
 
 	// Get the agent-version set in the model.
-	envConfig, err := s.IAASModel.ModelConfig()
+	modelConfig, err := s.IAASModel.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, ok := envConfig.AgentVersion()
+	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 
 	machine, err := s.State.AddMachine("series", state.JobManageModel)

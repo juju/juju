@@ -372,11 +372,11 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, true)
 }
 
-func (s *serverSuite) TestAPIHandlerTeardownInitialEnviron(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerTeardownInitialModel(c *gc.C) {
 	s.checkAPIHandlerTeardown(c, s.State, s.State)
 }
 
-func (s *serverSuite) TestAPIHandlerTeardownOtherEnviron(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerTeardownOtherModel(c *gc.C) {
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
 	s.checkAPIHandlerTeardown(c, s.State, otherState)

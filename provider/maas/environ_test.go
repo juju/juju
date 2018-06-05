@@ -116,7 +116,7 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	cfg := getSimpleTestConfig(c, origAttrs)
 	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg, fakeGetCapabilities)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(env.Config().Name(), gc.Equals, "testenv")
+	c.Check(env.Config().Name(), gc.Equals, "testmodel")
 
 	newAttrs := coretesting.Attrs{
 		"apt-mirror": "http://testing2.invalid",
@@ -124,7 +124,7 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	cfg2 := getSimpleTestConfig(c, newAttrs)
 	errSetConfig := env.SetConfig(cfg2)
 	c.Check(errSetConfig, gc.IsNil)
-	c.Check(env.Config().Name(), gc.Equals, "testenv")
+	c.Check(env.Config().Name(), gc.Equals, "testmodel")
 	c.Check(env.Config().AptMirror(), gc.Equals, "http://testing2.invalid")
 }
 
@@ -134,7 +134,7 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 	env, err := maas.NewEnviron(getSimpleCloudSpec(), cfg, fakeGetCapabilities)
 
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(env.Config().Name(), gc.Equals, "testenv")
+	c.Check(env.Config().Name(), gc.Equals, "testmodel")
 }
 
 var expectedCloudinitConfig = []string{

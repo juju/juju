@@ -83,8 +83,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 			case names.MachineTag:
 				parentId := state.ParentId(tag.Id())
 				if parentId == "" {
-					// All top-level machines are accessible by the
-					// environment manager.
+					// All top-level machines are accessible by the controller.
 					return isModelManager
 				}
 				// All containers with the authenticated machine as a
@@ -288,7 +287,7 @@ func (p *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersPar
 	return result, nil
 }
 
-// ContainerManagerConfig returns information from the environment config that is
+// ContainerManagerConfig returns information from the model config that is
 // needed for configuring the container manager.
 func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
 	var result params.ContainerManagerConfig
@@ -313,7 +312,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 	return result, nil
 }
 
-// ContainerConfig returns information from the environment config that is
+// ContainerConfig returns information from the model config that is
 // needed for container cloud-init.
 func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result := params.ContainerConfig{}
@@ -338,7 +337,7 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	return result, nil
 }
 
-// ContainerConfig returns information from the environment config that is
+// ContainerConfig returns information from the model config that is
 // needed for container cloud-init.
 func (p *ProvisionerAPIV5) ContainerConfig() (params.ContainerConfigV5, error) {
 	var empty params.ContainerConfigV5
@@ -507,12 +506,12 @@ func (p *ProvisionerAPI) DistributionGroup(args params.Entities) (params.Distrib
 		}
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {
-			// If the machine is an environment manager, return
-			// environment manager instances. Otherwise, return
+			// If the machine is a controller, return
+			// controller instances. Otherwise, return
 			// instances with services in common with the machine
 			// being provisioned.
 			if machine.IsManager() {
-				result.Results[i].Result, err = environManagerInstances(p.st)
+				result.Results[i].Result, err = controllerInstances(p.st)
 			} else {
 				result.Results[i].Result, err = commonServiceInstances(p.st, machine)
 			}
@@ -522,8 +521,8 @@ func (p *ProvisionerAPI) DistributionGroup(args params.Entities) (params.Distrib
 	return result, nil
 }
 
-// environManagerInstances returns all environ manager instances.
-func environManagerInstances(st *state.State) ([]instance.Id, error) {
+// controllerInstances returns all environ manager instances.
+func controllerInstances(st *state.State) ([]instance.Id, error) {
 	info, err := st.ControllerInfo()
 	if err != nil {
 		return nil, err
@@ -595,12 +594,12 @@ func (p *ProvisionerAPI) DistributionGroupByMachineId(args params.Entities) (par
 		}
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {
-			// If the machine is an environment manager, return
-			// environment manager instances. Otherwise, return
+			// If the machine is a controller, return
+			// controller instances. Otherwise, return
 			// instances with services in common with the machine
 			// being provisioned.
 			if machine.IsManager() {
-				result.Results[i].Result, err = environManagerMachineIds(p.st, machine)
+				result.Results[i].Result, err = controllerMachineIds(p.st, machine)
 			} else {
 				result.Results[i].Result, err = commonApplicationMachineId(p.st, machine)
 			}
@@ -610,8 +609,8 @@ func (p *ProvisionerAPI) DistributionGroupByMachineId(args params.Entities) (par
 	return result, nil
 }
 
-// environManagerMachineIds returns a slice of all other environ manager machine.Ids.
-func environManagerMachineIds(st *state.State, m *state.Machine) ([]string, error) {
+// controllerMachineIds returns a slice of all other environ manager machine.Ids.
+func controllerMachineIds(st *state.State, m *state.Machine) ([]string, error) {
 	info, err := st.ControllerInfo()
 	if err != nil {
 		return nil, err

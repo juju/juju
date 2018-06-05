@@ -47,7 +47,7 @@ See also:
     add-relation
     remove-application`
 
-// NewRemoveRelationCommand returns a command to remove a relation between 2 services.
+// NewRemoveRelationCommand returns a command to remove a relation between 2 applications.
 func NewRemoveRelationCommand() cmd.Command {
 	cmd := &removeRelationCommand{}
 	cmd.newAPIFunc = func() (ApplicationDestroyRelationAPI, error) {

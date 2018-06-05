@@ -72,7 +72,7 @@ type multiModelRunnerTestCase struct {
 func getTestCases() []multiModelRunnerTestCase {
 	return []multiModelRunnerTestCase{
 		{
-			"ops for non-multi env collections are left alone",
+			"ops for non-multi model collections are left alone",
 			txn.Op{
 				C:      "other",
 				Id:     "whatever",
@@ -84,7 +84,7 @@ func getTestCases() []multiModelRunnerTestCase {
 				Insert: bson.M{"_id": "whatever"},
 			},
 		}, {
-			"env UUID added to doc",
+			"model UUID added to doc",
 			txn.Op{
 				C:  machinesC,
 				Id: "0",
@@ -329,7 +329,7 @@ func (s *MultiModelRunnerSuite) TestRejectsAttemptToInsertWrongModelUUID(c *gc.C
 }
 
 func (s *MultiModelRunnerSuite) TestRejectsAttemptToChangeModelUUID(c *gc.C) {
-	// Setting to same env UUID is ok.
+	// Setting to same model UUID is ok.
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     "1",
@@ -338,7 +338,7 @@ func (s *MultiModelRunnerSuite) TestRejectsAttemptToChangeModelUUID(c *gc.C) {
 	err := s.multiModelRunner.RunTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Using the wrong env UUID isn't allowed.
+	// Using the wrong model UUID isn't allowed.
 	ops = []txn.Op{{
 		C:      machinesC,
 		Id:     "1",
@@ -348,7 +348,7 @@ func (s *MultiModelRunnerSuite) TestRejectsAttemptToChangeModelUUID(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot update "machines": bad "model-uuid" value.+`)
 }
 
-func (s *MultiModelRunnerSuite) TestDoesNotAssertReferencedEnv(c *gc.C) {
+func (s *MultiModelRunnerSuite) TestDoesNotAssertReferencedModel(c *gc.C) {
 	err := s.multiModelRunner.RunTransaction([]txn.Op{{
 		C:      modelsC,
 		Id:     modelUUID,

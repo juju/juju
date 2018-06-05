@@ -56,7 +56,7 @@ func NewKeyUpdaterAPI(
 
 // WatchAuthorisedKeys starts a watcher to track changes to the authorised ssh keys
 // for the specified machines.
-// The current implementation relies on global authorised keys being stored in the environment config.
+// The current implementation relies on global authorised keys being stored in the model config.
 // This will change as new user management and authorisation functionality is added.
 func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.NotifyWatchResults, error) {
 	results := make([]params.NotifyWatchResult, len(arg.Entities))
@@ -99,7 +99,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.Notif
 }
 
 // AuthorisedKeys reports the authorised ssh keys for the specified machines.
-// The current implementation relies on global authorised keys being stored in the environment config.
+// The current implementation relies on global authorised keys being stored in the model config.
 // This will change as new user management and authorisation functionality is added.
 func (api *KeyUpdaterAPI) AuthorisedKeys(arg params.Entities) (params.StringsResults, error) {
 	if len(arg.Entities) == 0 {

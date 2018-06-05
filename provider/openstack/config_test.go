@@ -90,7 +90,7 @@ func (t configTest) check(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ecfg := e.(*Environ).ecfg()
-	c.Assert(ecfg.Name(), gc.Equals, "testenv")
+	c.Assert(ecfg.Name(), gc.Equals, "testmodel")
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
 	}

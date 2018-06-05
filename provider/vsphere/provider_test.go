@@ -38,7 +38,7 @@ func (s *providerSuite) TestOpen(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	envConfig := env.Config()
-	c.Assert(envConfig.Name(), gc.Equals, "testenv")
+	c.Assert(envConfig.Name(), gc.Equals, "testmodel")
 }
 
 func (s *providerSuite) TestOpenInvalidCloudSpec(c *gc.C) {

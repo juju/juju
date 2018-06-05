@@ -56,7 +56,7 @@ func NewInstancePollerAPI(
 ) (*InstancePollerAPI, error) {
 
 	if !authorizer.AuthController() {
-		// InstancePoller must run as environment manager.
+		// InstancePoller must run as a controller.
 		return nil, common.ErrPerm
 	}
 	accessMachine := common.AuthFuncForTagKind(names.MachineTagKind)

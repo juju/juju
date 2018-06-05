@@ -505,7 +505,7 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctrStatus.HostedModelCount, gc.Equals, 2)
 	c.Assert(ctrStatus.HostedMachineCount, gc.Equals, 6)
-	c.Assert(ctrStatus.ServiceCount, gc.Equals, 3)
+	c.Assert(ctrStatus.ApplicationCount, gc.Equals, 3)
 	c.Assert(envsStatus, gc.HasLen, 2)
 
 	for i, expected := range []struct {
@@ -513,27 +513,27 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 		Name               string
 		Life               params.Life
 		HostedMachineCount int
-		ServiceCount       int
+		ApplicationCount   int
 	}{
 		{
 			Owner:              "bob",
 			Name:               "env1",
 			Life:               params.Dying,
 			HostedMachineCount: 2,
-			ServiceCount:       1,
+			ApplicationCount:   1,
 		}, {
 			Owner:              "jo",
 			Name:               "env2",
 			Life:               params.Dying,
 			HostedMachineCount: 2,
-			ServiceCount:       1,
+			ApplicationCount:   1,
 		},
 	} {
 		c.Assert(envsStatus[i].Owner, gc.Equals, expected.Owner)
 		c.Assert(envsStatus[i].Name, gc.Equals, expected.Name)
 		c.Assert(envsStatus[i].Life, gc.Equals, string(expected.Life))
 		c.Assert(envsStatus[i].HostedMachineCount, gc.Equals, expected.HostedMachineCount)
-		c.Assert(envsStatus[i].ServiceCount, gc.Equals, expected.ServiceCount)
+		c.Assert(envsStatus[i].ApplicationCount, gc.Equals, expected.ApplicationCount)
 	}
 
 }
@@ -543,7 +543,7 @@ func (s *KillSuite) TestFmtControllerStatus(c *gc.C) {
 		UUID:               "uuid",
 		HostedModelCount:   3,
 		HostedMachineCount: 20,
-		ServiceCount:       8,
+		ApplicationCount:   8,
 	}
 	out := controller.FmtCtrStatus(data)
 	c.Assert(out, gc.Equals, "Waiting on 3 models, 20 machines, 8 applications")

@@ -96,7 +96,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 		}}
 }
 
-func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresEnvironManager(c *gc.C) {
+func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresController(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Controller = false
 	api, err := instancepoller.NewInstancePollerAPI(nil, nil, s.resources, anAuthoriser, s.clock)
@@ -115,13 +115,13 @@ func (s *InstancePollerSuite) TestModelConfigFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestModelConfigSuccess(c *gc.C) {
-	envConfig := coretesting.ModelConfig(c)
-	s.st.SetConfig(c, envConfig)
+	modelConfig := coretesting.ModelConfig(c)
+	s.st.SetConfig(c, modelConfig)
 
 	result, err := s.api.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ModelConfigResult{
-		Config: envConfig.AllAttrs(),
+		Config: modelConfig.AllAttrs(),
 	})
 
 	s.st.CheckCallNames(c, "ModelConfig")
@@ -159,8 +159,8 @@ func (s *InstancePollerSuite) TestWatchForModelConfigChangesSuccess(c *gc.C) {
 	s.st.CheckCallNames(c, "WatchForModelConfigChanges")
 
 	// Try changing the config to verify an event is reported.
-	envConfig := coretesting.ModelConfig(c)
-	s.st.SetConfig(c, envConfig)
+	modelConfig := coretesting.ModelConfig(c)
+	s.st.SetConfig(c, modelConfig)
 	wc.AssertOneChange()
 }
 

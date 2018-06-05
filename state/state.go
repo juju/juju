@@ -475,8 +475,8 @@ func (st *State) ModelUUID() string {
 }
 
 // userModelNameIndex returns a string to be used as a usermodelnameC unique index.
-func userModelNameIndex(username, envName string) string {
-	return strings.ToLower(username) + ":" + envName
+func userModelNameIndex(username, modelName string) string {
+	return strings.ToLower(username) + ":" + modelName
 }
 
 // EnsureModelRemoved returns an error if any multi-model

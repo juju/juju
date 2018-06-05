@@ -173,7 +173,7 @@ type bundleHandler struct {
 
 	// unitStatus reflects the environment status and maps unit names to their
 	// corresponding machine identifiers. This is kept updated by both change
-	// handlers (addCharm, addService etc.) and by updateUnitStatus.
+	// handlers (addCharm, addApplication etc.) and by updateUnitStatus.
 	unitStatus map[string]string
 
 	modelConfig *config.Config
@@ -668,7 +668,7 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 	return nil
 }
 
-// addRelation creates a relationship between two services.
+// addRelation creates a relationship between two applications.
 func (h *bundleHandler) addRelation(change *bundlechanges.AddRelationChange) error {
 	if h.dryRun {
 		return nil
@@ -900,7 +900,7 @@ func (h *bundleHandler) setAnnotations(change *bundlechanges.SetAnnotationsChang
 
 // applicationsForMachineChange returns the names of the applications for which an
 // "addMachine" change is required, as adding machines is required to place
-// units, and units belong to services.
+// units, and units belong to applications.
 // Receive the id of the "addMachine" change.
 func (h *bundleHandler) applicationsForMachineChange(changeId string) []string {
 	applications := set.NewStrings()
@@ -1177,7 +1177,7 @@ func processSingleBundleOverlay(data *charm.BundleData, bundleOverlayFile string
 		return errors.Annotate(err, "unable to deserialize config structure")
 	}
 	// Here there is a possibility that the config file uses top level
-	// services, whereas the bundleOverlayValueExists only defines the newer
+	// applications, whereas the bundleOverlayValueExists only defines the newer
 	// applications. If that is the case, we error out and tell the user.
 	if len(configCheck.Applications) == 0 && len(config.Applications) > 0 {
 		return errors.Errorf("bundle overlay file %q used deprecated 'services' key, this is not valid for bundle overlay files", bundleOverlayFile)

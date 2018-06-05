@@ -39,7 +39,7 @@ func FormatSummary(writer io.Writer, value interface{}) error {
 
 	f := newSummaryFormatter(writer)
 	stateToMachine := f.aggregateMachineStates(fs.Machines)
-	svcExposure := f.aggregateServiceAndUnitStates(fs.Applications)
+	appExposure := f.aggregateApplicationAndUnitStates(fs.Applications)
 	p := f.delimitValuesWithTabs
 
 	// Print everything out
@@ -58,9 +58,9 @@ func FormatSummary(writer io.Writer, value interface{}) error {
 	p(" ")
 
 	p("# Applications:", fmt.Sprintf("(%d)", len(fs.Applications)))
-	for _, svcName := range naturalsort.Sort(stringKeysFromMap(svcExposure)) {
-		s := svcExposure[svcName]
-		p(svcName, fmt.Sprintf("%d/%d\texposed", s[true], s[true]+s[false]))
+	for _, appName := range naturalsort.Sort(stringKeysFromMap(appExposure)) {
+		s := appExposure[appName]
+		p(appName, fmt.Sprintf("%d/%d\texposed", s[true], s[true]+s[false]))
 	}
 	p(" ")
 
@@ -179,10 +179,10 @@ func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineSta
 	return stateToMachine
 }
 
-func (f *summaryFormatter) aggregateServiceAndUnitStates(services map[string]applicationStatus) map[string]map[bool]int {
+func (f *summaryFormatter) aggregateApplicationAndUnitStates(applications map[string]applicationStatus) map[string]map[bool]int {
 	svcExposure := make(map[string]map[bool]int)
-	for _, name := range naturalsort.Sort(stringKeysFromMap(services)) {
-		s := services[name]
+	for _, name := range naturalsort.Sort(stringKeysFromMap(applications)) {
+		s := applications[name]
 		// Grab unit states
 		for _, un := range naturalsort.Sort(stringKeysFromMap(s.Units)) {
 			u := s.Units[un]
