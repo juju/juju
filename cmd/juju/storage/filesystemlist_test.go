@@ -185,7 +185,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				Size:         512,
 			},
 			Life:   "alive",
-			Status: createTestStatus(status.Attached, ""),
+			Status: createTestStatus(status.Attached, "", s.time),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
 				"machine-0": {
 					Life: "alive",
@@ -199,7 +199,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				OwnerTag:   "unit-abc-0",
 				Kind:       params.StorageKindBlock,
 				Life:       "alive",
-				Status:     createTestStatus(status.Attached, ""),
+				Status:     createTestStatus(status.Attached, "", s.time),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-abc-0": params.StorageAttachmentDetails{
 						StorageTag: "storage-db-dir-1001",
@@ -218,7 +218,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				FilesystemId: "provider-supplied-filesystem-1",
 				Size:         2048,
 			},
-			Status: createTestStatus(status.Attaching, "failed to attach, will retry"),
+			Status: createTestStatus(status.Attaching, "failed to attach, will retry", s.time),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
 				"machine-0": {},
 			},
@@ -230,7 +230,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 			Info: params.FilesystemInfo{
 				Size: 42,
 			},
-			Status: createTestStatus(status.Pending, ""),
+			Status: createTestStatus(status.Pending, "", s.time),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
 				"machine-1": {},
 			},
@@ -243,7 +243,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				FilesystemId: "provider-supplied-filesystem-2",
 				Size:         3,
 			},
-			Status: createTestStatus(status.Attached, ""),
+			Status: createTestStatus(status.Attached, "", s.time),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
 				"machine-1": {
 					FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
@@ -261,7 +261,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				Pool:         "radiance",
 				Size:         1024,
 			},
-			Status: createTestStatus(status.Attached, ""),
+			Status: createTestStatus(status.Attached, "", s.time),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
 				"machine-0": {
 					FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
@@ -280,7 +280,7 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				StorageTag: "storage-shared-fs-0",
 				OwnerTag:   "application-transcode",
 				Kind:       params.StorageKindBlock,
-				Status:     createTestStatus(status.Attached, ""),
+				Status:     createTestStatus(status.Attached, "", s.time),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-transcode-0": params.StorageAttachmentDetails{
 						StorageTag: "storage-shared-fs-0",
@@ -304,13 +304,13 @@ func (s mockListAPI) ListFilesystems(machines []string) ([]params.FilesystemDeta
 				FilesystemId: "provider-supplied-filesystem-5",
 				Size:         3,
 			},
-			Status: createTestStatus(status.Attached, ""),
+			Status: createTestStatus(status.Attached, "", s.time),
 			Storage: &params.StorageDetails{
 				StorageTag: "storage-db-dir-1100",
 				OwnerTag:   "unit-abc-0",
 				Kind:       params.StorageKindBlock,
 				Life:       "alive",
-				Status:     createTestStatus(status.Attached, ""),
+				Status:     createTestStatus(status.Attached, "", s.time),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-abc-0": params.StorageAttachmentDetails{
 						StorageTag: "storage-db-dir-1100",

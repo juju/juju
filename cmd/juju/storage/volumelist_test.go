@@ -187,7 +187,7 @@ func (s *mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsList
 				Size:     512,
 			},
 			Life:   "alive",
-			Status: createTestStatus(status.Attached, ""),
+			Status: createTestStatus(status.Attached, "", s.time),
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{
 				"machine-0": {
 					Life: "alive",
@@ -201,7 +201,7 @@ func (s *mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsList
 				OwnerTag:   "unit-abc-0",
 				Kind:       params.StorageKindBlock,
 				Life:       "alive",
-				Status:     createTestStatus(status.Attached, ""),
+				Status:     createTestStatus(status.Attached, "", s.time),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-abc-0": params.StorageAttachmentDetails{
 						StorageTag: "storage-db-dir-1001",
@@ -222,7 +222,7 @@ func (s *mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsList
 				Persistent: true,
 				Size:       2048,
 			},
-			Status: createTestStatus(status.Attaching, "failed to attach, will retry"),
+			Status: createTestStatus(status.Attaching, "failed to attach, will retry", s.time),
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{
 				"machine-0": {},
 			},
@@ -234,7 +234,7 @@ func (s *mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsList
 			Info: params.VolumeInfo{
 				Size: 42,
 			},
-			Status: createTestStatus(status.Pending, ""),
+			Status: createTestStatus(status.Pending, "", s.time),
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{
 				"machine-1": {},
 			},
@@ -247,7 +247,7 @@ func (s *mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsList
 				VolumeId: "provider-supplied-volume-2",
 				Size:     3,
 			},
-			Status: createTestStatus(status.Attached, ""),
+			Status: createTestStatus(status.Attached, "", s.time),
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{
 				"machine-1": {
 					VolumeAttachmentInfo: params.VolumeAttachmentInfo{
@@ -265,7 +265,7 @@ func (s *mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsList
 				Persistent: true,
 				Size:       1024,
 			},
-			Status: createTestStatus(status.Attached, ""),
+			Status: createTestStatus(status.Attached, "", s.time),
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{
 				"machine-0": {
 					VolumeAttachmentInfo: params.VolumeAttachmentInfo{
@@ -284,7 +284,7 @@ func (s *mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsList
 				StorageTag: "storage-shared-fs-0",
 				OwnerTag:   "application-transcode",
 				Kind:       params.StorageKindBlock,
-				Status:     createTestStatus(status.Attached, ""),
+				Status:     createTestStatus(status.Attached, "", s.time),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-transcode-0": params.StorageAttachmentDetails{
 						StorageTag: "storage-shared-fs-0",
@@ -313,10 +313,10 @@ func (s *mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsList
 	return results, nil
 }
 
-func createTestStatus(testStatus status.Status, message string) params.EntityStatus {
+func createTestStatus(testStatus status.Status, message string, since time.Time) params.EntityStatus {
 	return params.EntityStatus{
 		Status: testStatus,
 		Info:   message,
-		Since:  &time.Time{},
+		Since:  &since,
 	}
 }

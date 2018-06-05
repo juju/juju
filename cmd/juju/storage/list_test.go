@@ -5,6 +5,8 @@ package storage_test
 
 import (
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -12,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/status"
@@ -40,7 +43,7 @@ func (s *ListSuite) TestList(c *gc.C) {
 		nil,
 		// Default format is tabular
 		`
-\[Storage\]
+[Storage]
 Unit          Id            Type        Pool      Provider id                     Size    Status    Message
               persistent/1  filesystem                                                    detached  
 postgresql/0  db-dir/1100   block                 provider-supplied-filesystem-5  3.0MiB  attached  
@@ -58,7 +61,7 @@ func (s *ListSuite) TestListNoPool(c *gc.C) {
 		nil,
 		// Default format is tabular
 		`
-\[Storage\]
+[Storage]
 Unit          Id            Type        Provider id                     Size    Status    Message
               persistent/1  filesystem                                          detached  
 postgresql/0  db-dir/1100   block       provider-supplied-filesystem-5  3.0MiB  attached  
@@ -70,17 +73,21 @@ transcode/1   shared-fs/0   filesystem  provider-supplied-volume-4      1.0GiB  
 }
 
 func (s *ListSuite) TestListYAML(c *gc.C) {
+	now := time.Now()
+	s.mockAPI.time = now
+	since := common.FormatTime(&now, false)
+
 	s.assertValidList(
 		c,
 		[]string{"--format", "yaml"},
-		`
+		fmt.Sprintf(`
 storage:
   db-dir/1000:
     kind: block
     status:
       current: pending
       message: creating volume
-      since: .*
+      since: %s
     persistent: false
     attachments:
       units:
@@ -91,7 +98,7 @@ storage:
     life: dying
     status:
       current: attached
-      since: .*
+      since: %s
     persistent: true
     attachments:
       units:
@@ -102,13 +109,13 @@ storage:
     kind: filesystem
     status:
       current: detached
-      since: .*
+      since: %s
     persistent: true
   shared-fs/0:
     kind: filesystem
     status:
       current: attached
-      since: .*
+      since: %s
     persistent: true
     attachments:
       units:
@@ -135,7 +142,7 @@ filesystems:
     life: alive
     status:
       current: attached
-      since: .*
+      since: %s
   "1":
     provider-id: provider-supplied-filesystem-1
     attachments:
@@ -147,7 +154,7 @@ filesystems:
     status:
       current: attaching
       message: failed to attach, will retry
-      since: .*
+      since: %s
   "2":
     provider-id: provider-supplied-filesystem-2
     attachments:
@@ -158,7 +165,7 @@ filesystems:
     size: 3
     status:
       current: attached
-      since: .*
+      since: %s
   "3":
     attachments:
       machines:
@@ -168,7 +175,7 @@ filesystems:
     size: 42
     status:
       current: pending
-      since: .*
+      since: %s
   "4":
     provider-id: provider-supplied-filesystem-4
     storage: shared-fs/0
@@ -191,7 +198,7 @@ filesystems:
     size: 1024
     status:
       current: attached
-      since: .*
+      since: %s
   "5":
     provider-id: provider-supplied-filesystem-5
     storage: db-dir/1100
@@ -202,7 +209,7 @@ filesystems:
     size: 3
     status:
       current: attached
-      since: .*
+      since: %s
 volumes:
   0/0:
     provider-id: provider-supplied-volume-0-0
@@ -223,7 +230,7 @@ volumes:
     life: alive
     status:
       current: attached
-      since: .*
+      since: %s
   "1":
     provider-id: provider-supplied-volume-1
     attachments:
@@ -236,7 +243,7 @@ volumes:
     status:
       current: attaching
       message: failed to attach, will retry
-      since: .*
+      since: %s
   "2":
     provider-id: provider-supplied-volume-2
     attachments:
@@ -248,7 +255,7 @@ volumes:
     persistent: false
     status:
       current: attached
-      since: .*
+      since: %s
   "3":
     attachments:
       machines:
@@ -258,7 +265,7 @@ volumes:
     persistent: false
     status:
       current: pending
-      since: .*
+      since: %s
   "4":
     provider-id: provider-supplied-volume-4
     storage: shared-fs/0
@@ -281,8 +288,8 @@ volumes:
     persistent: true
     status:
       current: attached
-      since: .*
-`[1:])
+      since: %s
+`[1:], repeat(since, 15)...))
 }
 
 func (s *ListSuite) TestListInitErrors(c *gc.C) {
@@ -313,7 +320,7 @@ func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid string
 	c.Assert(obtainedErr, gc.Equals, "")
 
 	obtainedValid := cmdtesting.Stdout(context)
-	c.Assert(obtainedValid, gc.Matches, expectedValid)
+	c.Assert(obtainedValid, gc.Equals, expectedValid)
 }
 
 type mockListAPI struct {
@@ -321,6 +328,7 @@ type mockListAPI struct {
 	listFilesystems func([]string) ([]params.FilesystemDetailsListResult, error)
 	listVolumes     func([]string) ([]params.VolumeDetailsListResult, error)
 	omitPool        bool
+	time            time.Time
 }
 
 func (s *mockListAPI) Close() error {
@@ -344,7 +352,7 @@ func (s *mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		Kind:       params.StorageKindBlock,
 		Status: params.EntityStatus{
 			Status: status.Pending,
-			Since:  &epoch,
+			Since:  &s.time,
 			Info:   "creating volume",
 		},
 		Attachments: map[string]params.StorageAttachmentDetails{
@@ -359,7 +367,7 @@ func (s *mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		Life:       "dying",
 		Status: params.EntityStatus{
 			Status: status.Attached,
-			Since:  &epoch,
+			Since:  &s.time,
 		},
 		Persistent: true,
 		Attachments: map[string]params.StorageAttachmentDetails{
@@ -374,7 +382,7 @@ func (s *mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		Kind:       params.StorageKindFilesystem,
 		Status: params.EntityStatus{
 			Status: status.Attached,
-			Since:  &epoch,
+			Since:  &s.time,
 		},
 		Persistent: true,
 		Attachments: map[string]params.StorageAttachmentDetails{
@@ -390,9 +398,18 @@ func (s *mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		Kind:       params.StorageKindFilesystem,
 		Status: params.EntityStatus{
 			Status: status.Detached,
-			Since:  &epoch,
+			Since:  &s.time,
 		},
 		Persistent: true,
 	}}
 	return results, nil
+}
+
+// repeat is used for duplicating the string multiple times.
+func repeat(s string, amount int) []interface{} {
+	var a []interface{}
+	for i := 0; i < amount; i++ {
+		a = append(a, s)
+	}
+	return a
 }

@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -14,14 +15,10 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
 	_ "github.com/juju/juju/provider/dummy"
 )
-
-// epoch is the time we use for "since" in statuses. The time
-// is always shown as a local time, so we override the local
-// location to be UTC+8.
-var epoch = time.Unix(0, 0)
 
 type ShowSuite struct {
 	SubStorageSuite
@@ -34,7 +31,6 @@ func (s *ShowSuite) SetUpTest(c *gc.C) {
 	s.SubStorageSuite.SetUpTest(c)
 
 	s.mockAPI = &mockShowAPI{}
-	s.PatchValue(&time.Local, time.FixedZone("Australia/Perth", 3600*8))
 }
 
 func (s *ShowSuite) runShow(c *gc.C, args []string) (*cmd.Context, error) {
@@ -53,26 +49,28 @@ func (s *ShowSuite) TestShowNoMatch(c *gc.C) {
 }
 
 func (s *ShowSuite) TestShow(c *gc.C) {
+	now := time.Now()
+	s.mockAPI.time = now
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0"},
 		// Default format is yaml
-		`
+		fmt.Sprintf(`
 shared-fs/0:
   kind: filesystem
   status:
     current: attached
-    since: 01 Jan 1970 08:00:00\+08:00
+    since: %s
   persistent: true
   attachments:
     units:
       transcode/0:
-        machine: \"1\"
+        machine: "1"
         location: a location
       transcode/1:
-        machine: \"2\"
+        machine: "2"
         location: b location
-`[1:],
+`[1:], common.FormatTime(&now, false)),
 	)
 }
 
@@ -82,24 +80,30 @@ func (s *ShowSuite) TestShowInvalidId(c *gc.C) {
 }
 
 func (s *ShowSuite) TestShowJSON(c *gc.C) {
+	now := time.Now()
+	s.mockAPI.time = now
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "--format", "json"},
-		`{"shared-fs/0":{"kind":"filesystem","status":{"current":"attached","since":"01 Jan 1970 08:00:00\+08:00"},"persistent":true,"attachments":{"units":{"transcode/0":{"machine":"1","location":"a location"},"transcode/1":{"machine":"2","location":"b location"}}}}}
-`,
+		fmt.Sprintf(`{"shared-fs/0":{"kind":"filesystem","status":{"current":"attached","since":"%s"},"persistent":true,"attachments":{"units":{"transcode/0":{"machine":"1","location":"a location"},"transcode/1":{"machine":"2","location":"b location"}}}}}
+`, common.FormatTime(&now, false)),
 	)
 }
 
 func (s *ShowSuite) TestShowMultipleReturn(c *gc.C) {
+	now := time.Now()
+	s.mockAPI.time = now
+	since := common.FormatTime(&now, false)
+
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "db-dir/1000"},
-		`
+		fmt.Sprintf(`
 db-dir/1000:
   kind: block
   status:
     current: pending
-    since: .*
+    since: %s
   persistent: true
   attachments:
     units:
@@ -108,17 +112,17 @@ shared-fs/0:
   kind: filesystem
   status:
     current: attached
-    since: 01 Jan 1970 08:00:00\+08:00
+    since: %s
   persistent: true
   attachments:
     units:
       transcode/0:
-        machine: \"1\"
+        machine: "1"
         location: a location
       transcode/1:
-        machine: \"2\"
+        machine: "2"
         location: b location
-`[1:],
+`[1:], since, since),
 	)
 }
 
@@ -127,11 +131,12 @@ func (s *ShowSuite) assertValidShow(c *gc.C, args []string, expected string) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained := cmdtesting.Stdout(context)
-	c.Assert(obtained, gc.Matches, expected)
+	c.Assert(obtained, gc.Equals, expected)
 }
 
 type mockShowAPI struct {
 	noMatch bool
+	time    time.Time
 }
 
 func (s mockShowAPI) Close() error {
@@ -151,7 +156,7 @@ func (s mockShowAPI) StorageDetails(tags []names.StorageTag) ([]params.StorageDe
 				Kind:       params.StorageKindFilesystem,
 				Status: params.EntityStatus{
 					Status: "attached",
-					Since:  &epoch,
+					Since:  &s.time,
 				},
 				Persistent: true,
 				Attachments: map[string]params.StorageAttachmentDetails{
@@ -171,7 +176,7 @@ func (s mockShowAPI) StorageDetails(tags []names.StorageTag) ([]params.StorageDe
 				Kind:       params.StorageKindBlock,
 				Status: params.EntityStatus{
 					Status: "pending",
-					Since:  &epoch,
+					Since:  &s.time,
 				},
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-postgresql-0": params.StorageAttachmentDetails{},
