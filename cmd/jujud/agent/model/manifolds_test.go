@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/workertest"
 )
 
@@ -166,3 +167,444 @@ func (s *ManifoldsSuite) TestClockWrapper(c *gc.C) {
 }
 
 type fakeClock struct{ clock.Clock }
+
+func (s *ManifoldsSuite) assertManifoldsDependencies(c *gc.C, manifolds dependency.Manifolds, expected map[string][]string) {
+	dependencies := make(map[string][]string, len(manifolds))
+	manifoldNames := set.NewStrings()
+
+	for name, manifold := range manifolds {
+		manifoldNames.Add(name)
+
+		if len(manifold.Inputs) == 0 {
+			dependencies[name] = []string{}
+			continue
+		}
+		manifoldDependencies := dependency.ManifoldDependencies(name, manifolds[name], manifolds)
+		all := []string{}
+		for _, input := range manifoldDependencies.SortedValues() {
+			all = append(all, input)
+		}
+		dependencies[name] = all
+	}
+	c.Assert(len(dependencies), gc.Equals, len(expected))
+
+	for _, n := range manifoldNames.SortedValues() {
+		c.Assert(dependencies[n], jc.SameContents, expected[n])
+	}
+}
+
+func (s *ManifoldsSuite) TestIAASManifold(c *gc.C) {
+	s.assertManifoldsDependencies(c,
+		model.IAASManifolds(model.ManifoldsConfig{
+			Agent: &mockAgent{},
+		}),
+		expectedIAASModelManifoldsWithDependencies,
+	)
+}
+
+func (s *ManifoldsSuite) TestCAASManifold(c *gc.C) {
+	s.assertManifoldsDependencies(c,
+		model.CAASManifolds(model.ManifoldsConfig{
+			Agent: &mockAgent{},
+		}),
+		expectedCAASModelManifoldsWithDependencies,
+	)
+}
+
+var expectedCAASModelManifoldsWithDependencies = map[string][]string{
+	"action-pruner": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"environ-tracker",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"agent": []string{},
+
+	"api-caller": []string{"agent"},
+
+	"api-config-watcher": []string{"agent"},
+
+	"caas-broker-tracker": []string{"agent", "api-caller", "clock", "is-responsible-flag"},
+
+	"caas-firewaller": []string{
+		"agent",
+		"api-caller",
+		"caas-broker-tracker",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"caas-operator-provisioner": []string{
+		"agent",
+		"api-caller",
+		"caas-broker-tracker",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"caas-unit-provisioner": []string{
+		"agent",
+		"api-caller",
+		"caas-broker-tracker",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"charm-revision-updater": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"clock": []string{},
+
+	"credential-validator-flag": []string{"agent", "api-caller"},
+
+	"is-responsible-flag": []string{"agent", "api-caller", "clock"},
+
+	"log-forwarder": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"not-dead-flag"},
+
+	"migration-fortress": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"migration-inactive-flag": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"migration-master": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"model-upgrade-gate": []string{},
+
+	"model-upgraded-flag": []string{"model-upgrade-gate"},
+
+	"model-upgrader": []string{"agent", "api-caller", "model-upgrade-gate"},
+
+	"not-alive-flag": []string{"agent", "api-caller"},
+
+	"not-dead-flag": []string{"agent", "api-caller"},
+
+	"remote-relations": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"state-cleaner": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"status-history-pruner": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"environ-tracker",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"undertaker": []string{
+		"agent",
+		"api-caller",
+		"caas-broker-tracker",
+		"clock",
+		"credential-validator-flag",
+		"is-responsible-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-alive-flag"},
+}
+
+var expectedIAASModelManifoldsWithDependencies = map[string][]string{
+
+	"action-pruner": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"environ-tracker",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"agent": []string{},
+
+	"api-caller": []string{"agent"},
+
+	"api-config-watcher": []string{"agent"},
+
+	"application-scaler": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"charm-revision-updater": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"clock": []string{},
+
+	"compute-provisioner": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"credential-validator-flag",
+		"environ-tracker",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"credential-validator-flag": []string{"agent", "api-caller"},
+
+	"environ-tracker": []string{"agent", "api-caller", "clock", "is-responsible-flag"},
+
+	"firewaller": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"credential-validator-flag",
+		"environ-tracker",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"instance-poller": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"credential-validator-flag",
+		"environ-tracker",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"is-responsible-flag": []string{"agent", "api-caller", "clock"},
+
+	"log-forwarder": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"not-dead-flag"},
+
+	"machine-undertaker": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"environ-tracker",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"metric-worker": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"migration-fortress": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"migration-inactive-flag": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"migration-master": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"model-upgrade-gate": []string{},
+
+	"model-upgraded-flag": []string{"model-upgrade-gate"},
+
+	"model-upgrader": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"credential-validator-flag",
+		"environ-tracker",
+		"is-responsible-flag",
+		"model-upgrade-gate"},
+
+	"not-alive-flag": []string{"agent", "api-caller"},
+
+	"not-dead-flag": []string{"agent", "api-caller"},
+
+	"remote-relations": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"state-cleaner": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"status-history-pruner": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"environ-tracker",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"storage-provisioner": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"environ-tracker",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+
+	"undertaker": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"credential-validator-flag",
+		"environ-tracker",
+		"is-responsible-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-alive-flag"},
+
+	"unit-assigner": []string{
+		"agent",
+		"api-caller",
+		"clock",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"model-upgrade-gate",
+		"model-upgraded-flag",
+		"not-dead-flag"},
+}
