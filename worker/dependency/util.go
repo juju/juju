@@ -110,7 +110,7 @@ func ManifoldDependencies(name string, manifold Manifold, all Manifolds) set.Str
 	result := set.NewStrings()
 	for _, input := range manifold.Inputs {
 		result.Add(input)
-		deps := ManifoldDepenencies(input, all[input], all)
+		deps := ManifoldDependencies(input, all[input], all)
 		for _, v := range deps.SortedValues() {
 			result.Add(v)
 		}
