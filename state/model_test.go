@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -412,6 +413,39 @@ func (s *ModelSuite) TestAllUnits(c *gc.C) {
 	sort.Strings(names)
 	c.Assert(names, jc.DeepEquals, []string{
 		"mysql/0", "wordpress/0", "wordpress/1",
+	})
+}
+
+func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
+	type mockApplicationEndpointBindings struct {
+		appName string
+		binding map[string]string
+	}
+
+	s.Factory.MakeSpace(c, &factory.SpaceParams{
+		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+	state.AddTestingApplicationWithBindings(
+		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
+		map[string]string{"db": "one"})
+
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	listBindings, err := model.AllEndpointBindings()
+	c.Assert(listBindings, gc.HasLen, 1)
+
+	c.Assert(listBindings[0], jc.DeepEquals, state.ApplicationEndpointBindings{
+		AppName: "wordpress",
+		Bindings: map[string]string{
+			"cache":           "",
+			"foo-bar":         "",
+			"db-client":       "",
+			"admin-api":       "",
+			"url":             "",
+			"logging-dir":     "",
+			"monitoring-port": "",
+			"db":              "one",
+		},
 	})
 }
 

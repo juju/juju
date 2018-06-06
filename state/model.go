@@ -865,6 +865,43 @@ func (m *Model) AllUnits() ([]*Unit, error) {
 	return units, nil
 }
 
+// ApplicationEndpointBindings - endpointBinding->space details for each application
+type ApplicationEndpointBindings struct {
+	AppName  string
+	Bindings map[string]string
+}
+
+// AllEndpointBindings returns all endpoint->space bindings for every application
+func (m *Model) AllEndpointBindings() ([]ApplicationEndpointBindings, error) {
+	endpointBindings, closer := m.st.db().GetCollection(endpointBindingsC)
+	defer closer()
+
+	var docs []endpointBindingsDoc
+	err := endpointBindings.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get endpoint bindings")
+	}
+
+	var appEndpointBindings []ApplicationEndpointBindings
+	for _, doc := range docs {
+		var applicationName string
+		applicationKey := m.localID(doc.DocID)
+		// for each application deployed we have an instance of ApplicationEndpointBindings struct
+		if strings.HasPrefix(applicationKey, "a#") {
+			applicationName = applicationKey[2:]
+		} else {
+			return nil, errors.NotValidf("application key %v", applicationKey)
+		}
+		endpointBindings := ApplicationEndpointBindings{
+			AppName:  applicationName,
+			Bindings: doc.Bindings,
+		}
+
+		appEndpointBindings = append(appEndpointBindings, endpointBindings)
+	}
+	return appEndpointBindings, nil
+}
+
 // Users returns a slice of all users for this model.
 func (m *Model) Users() ([]permission.UserAccess, error) {
 	coll, closer := m.st.db().GetCollection(modelUsersC)

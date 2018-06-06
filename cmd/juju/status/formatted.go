@@ -93,23 +93,24 @@ func (s machineStatus) MarshalYAML() (interface{}, error) {
 }
 
 type applicationStatus struct {
-	Err           error                 `json:"-" yaml:",omitempty"`
-	Charm         string                `json:"charm" yaml:"charm"`
-	Series        string                `json:"series"`
-	OS            string                `json:"os"`
-	CharmOrigin   string                `json:"charm-origin" yaml:"charm-origin"`
-	CharmName     string                `json:"charm-name" yaml:"charm-name"`
-	CharmRev      int                   `json:"charm-rev" yaml:"charm-rev"`
-	CanUpgradeTo  string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
-	ProviderId    string                `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
-	Address       string                `json:"address,omitempty" yaml:"address,omitempty"`
-	Exposed       bool                  `json:"exposed" yaml:"exposed"`
-	Life          string                `json:"life,omitempty" yaml:"life,omitempty"`
-	StatusInfo    statusInfoContents    `json:"application-status,omitempty" yaml:"application-status"`
-	Relations     map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
-	SubordinateTo []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
-	Units         map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
-	Version       string                `json:"version,omitempty" yaml:"version,omitempty"`
+	Err              error                 `json:"-" yaml:",omitempty"`
+	Charm            string                `json:"charm" yaml:"charm"`
+	Series           string                `json:"series"`
+	OS               string                `json:"os"`
+	CharmOrigin      string                `json:"charm-origin" yaml:"charm-origin"`
+	CharmName        string                `json:"charm-name" yaml:"charm-name"`
+	CharmRev         int                   `json:"charm-rev" yaml:"charm-rev"`
+	CanUpgradeTo     string                `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
+	ProviderId       string                `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
+	Address          string                `json:"address,omitempty" yaml:"address,omitempty"`
+	Exposed          bool                  `json:"exposed" yaml:"exposed"`
+	Life             string                `json:"life,omitempty" yaml:"life,omitempty"`
+	StatusInfo       statusInfoContents    `json:"application-status,omitempty" yaml:"application-status"`
+	Relations        map[string][]string   `json:"relations,omitempty" yaml:"relations,omitempty"`
+	SubordinateTo    []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
+	Units            map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
+	Version          string                `json:"version,omitempty" yaml:"version,omitempty"`
+	EndpointBindings map[string]string     `json:"endpoint-bindings,omitempty" yaml:"endpoint-bindings,omitempty"`
 }
 
 type applicationStatusNoMarshal applicationStatus
