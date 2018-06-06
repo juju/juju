@@ -109,9 +109,6 @@ func (all Manifolds) ManifoldDependencies(name string, manifold Manifold) set.St
 	}
 	result := set.NewStrings()
 	for _, input := range manifold.Inputs {
-		if input == "" {
-			continue
-		}
 		result.Add(input)
 		result = result.Union(all.ManifoldDependencies(input, all[input]))
 	}
