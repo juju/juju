@@ -49,5 +49,5 @@ const NewPresence = "new-presence"
 // (or just unwanted noise).
 const DisableRaft = "disable-raft"
 
-// SeriesUpgrade
-const SeriesUpgrade = "series-upgrade"
+// UpgradeSeries is a development feature flag.
+const UpgradeSeries = "upgrade-series"
