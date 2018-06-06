@@ -110,6 +110,7 @@ type applicationStatus struct {
 	SubordinateTo []string              `json:"subordinate-to,omitempty" yaml:"subordinate-to,omitempty"`
 	Units         map[string]unitStatus `json:"units,omitempty" yaml:"units,omitempty"`
 	Version       string                `json:"version,omitempty" yaml:"version,omitempty"`
+	EndpointBindings map[string]string     `json:"endpoint-bindings,omitempty" yaml:"endpoint-bindings,omitempty"`
 }
 
 type applicationStatusNoMarshal applicationStatus

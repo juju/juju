@@ -217,6 +217,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		Units:         make(map[string]unitStatus),
 		StatusInfo:    sf.getApplicationStatusInfo(application),
 		Version:       application.WorkloadVersion,
+		EndpointBindings: application.EndpointBindings,
 	}
 	for k, m := range application.Units {
 		out.Units[k] = sf.formatUnit(unitFormatInfo{
@@ -226,6 +227,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 			meterStatuses:   application.MeterStatuses,
 		})
 	}
+
 	return out
 }
 

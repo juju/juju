@@ -399,6 +399,11 @@ var (
 			"logging-directory": L{"wordpress"},
 			"info":              L{"mysql"},
 		},
+		"endpoint-bindings": M{
+			"info":              "",
+			"logging-client":    "",
+			"logging-directory": "",
+		},
 		"subordinate-to": L{"mysql", "wordpress"},
 	}
 )
@@ -1286,6 +1291,16 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"logging-dir":     "",
+							"monitoring-port": "",
+							"url":             "",
+							"admin-api":       "",
+							"cache":           "",
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+						},
 					}),
 					"mysql": mysqlCharm(M{
 						"relations": M{
@@ -1310,6 +1325,10 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.1.1",
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 					}),
 				},
@@ -1378,6 +1397,16 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"admin-api":       "",
+							"cache":           "",
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+							"logging-dir":     "",
+							"monitoring-port": "",
+							"url":             "",
+						},
 					}),
 					"mysql": mysqlCharm(M{
 						"relations": M{
@@ -1402,6 +1431,10 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.1.1",
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 					}),
 				},
@@ -1611,6 +1644,16 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+							"logging-dir":     "",
+							"monitoring-port": "",
+							"url":             "",
+							"admin-api":       "",
+							"cache":           "",
+						},
 						"relations": M{
 							"db":    L{"mysql"},
 							"cache": L{"varnish"},
@@ -1635,6 +1678,10 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.2.1",
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 						"relations": M{
 							"server": L{"private", "project"},
@@ -1668,6 +1715,9 @@ var statusTests = []testCase{
 								"public-address": "10.0.3.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"webcache": "",
+						},
 						"relations": M{
 							"webcache": L{"project"},
 						},
@@ -1693,6 +1743,16 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.4.1",
 							},
+						},
+						"endpoint-bindings": M{
+							"logging-dir":     "",
+							"monitoring-port": "",
+							"url":             "",
+							"admin-api":       "",
+							"cache":           "",
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
 						},
 						"relations": M{
 							"db": L{"mysql"},
@@ -1802,6 +1862,11 @@ var statusTests = []testCase{
 								"public-address": "10.0.3.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"admin":    "",
+							"endpoint": "",
+							"ring":     "",
+						},
 						"relations": M{
 							"ring": L{"riak"},
 						},
@@ -1908,6 +1973,16 @@ var statusTests = []testCase{
 								"leader":         true,
 							},
 						},
+						"endpoint-bindings": M{
+							"monitoring-port": "",
+							"url":             "",
+							"admin-api":       "",
+							"cache":           "",
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+							"logging-dir":     "",
+						},
 						"relations": M{
 							"db":          L{"mysql"},
 							"logging-dir": L{"logging"},
@@ -1948,6 +2023,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.2.1",
 								"leader":         true,
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 						"relations": M{
 							"server":    L{"wordpress"},
@@ -2007,6 +2086,16 @@ var statusTests = []testCase{
 								"leader":         true,
 							},
 						},
+						"endpoint-bindings": M{
+							"monitoring-port": "",
+							"url":             "",
+							"admin-api":       "",
+							"cache":           "",
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+							"logging-dir":     "",
+						},
 						"relations": M{
 							"db":          L{"mysql"},
 							"logging-dir": L{"logging"},
@@ -2047,6 +2136,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.2.1",
 								"leader":         true,
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 						"relations": M{
 							"server":    L{"wordpress"},
@@ -2104,6 +2197,16 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 								"leader":         true,
 							},
+						},
+						"endpoint-bindings": M{
+							"admin-api":       "",
+							"cache":           "",
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+							"logging-dir":     "",
+							"monitoring-port": "",
+							"url":             "",
 						},
 						"relations": M{
 							"db":          L{"mysql"},
@@ -2195,6 +2298,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.2.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
+						},
 					}),
 				},
 				"controller": M{
@@ -2279,6 +2386,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.2.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
+						},
 					}),
 				},
 				"controller": M{
@@ -2334,6 +2445,10 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.1.1",
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 					}),
 				},
@@ -2392,6 +2507,10 @@ var statusTests = []testCase{
 								"upgrading-from": "cs:quantal/mysql-1",
 								"public-address": "10.0.1.1",
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 					}),
 				},
@@ -2453,6 +2572,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
+						},
 					}),
 				},
 				"controller": M{
@@ -2511,6 +2634,10 @@ var statusTests = []testCase{
 								"upgrading-from": "cs:quantal/mysql-1",
 								"public-address": "10.0.1.1",
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 					}),
 				},
@@ -2605,6 +2732,10 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.1.1",
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 					}),
 
@@ -2744,6 +2875,10 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
+						},
 					}),
 				},
 				"controller": M{
@@ -2820,6 +2955,10 @@ var statusTests = []testCase{
 								},
 								"public-address": "10.0.2.1",
 							},
+						},
+						"endpoint-bindings": M{
+							"server":       "",
+							"server-admin": "",
 						},
 					}),
 				},
@@ -2975,6 +3114,16 @@ var statusTests = []testCase{
 								"public-address": "10.0.1.1",
 							},
 						},
+						"endpoint-bindings": M{
+							"monitoring-port": "",
+							"url":             "",
+							"admin-api":       "",
+							"cache":           "",
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+							"logging-dir":     "",
+						},
 					}),
 				},
 				"controller": M{
@@ -3041,6 +3190,128 @@ var statusTests = []testCase{
 				},
 			},
 			stderr: "Model \"controller\" is empty.\n",
+		},
+	),
+	test( //26
+		"deploy application with endpoint bound to space",
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", status.Started, ""},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", status.Started, ""},
+
+		addSpace{"myspace1"},
+
+		addCharm{"wordpress"},
+		addApplication{name: "wordpress", charm: "wordpress", binding: map[string]string{"db-client": "", "logging-dir": "", "cache": "", "db": "myspace1", "monitoring-port": "", "url": "", "admin-api": "", "foo-bar": ""}},
+		addAliveUnit{"wordpress", "1"},
+
+		scopedExpect{
+			output: M{
+				"model": M{
+					"region":  "dummy-region",
+					"version": "1.2.3",
+					"model-status": M{
+						"current": "available",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
+					"sla":        "unsupported",
+					"name":       "controller",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+				},
+				"machines": M{
+					"1": M{
+						"juju-status": M{
+							"current": "started",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"dns-name":     "10.0.1.1",
+						"ip-addresses": []string{"10.0.1.1"},
+						"instance-id":  "controller-1",
+						"machine-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.1.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        bool(true),
+							},
+						},
+						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
+					},
+					"0": M{
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.0.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        bool(true),
+							},
+						},
+						"controller-member-status": "adding-vote",
+						"dns-name":                 "10.0.0.1",
+						"ip-addresses":             []string{"10.0.0.1"},
+						"instance-id":              "controller-0",
+						"machine-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"juju-status": M{
+							"current": "started",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
+					},
+				},
+				"applications": M{
+					"wordpress": M{
+						"series":     "quantal",
+						"os":         "ubuntu",
+						"charm-name": "wordpress",
+						"exposed":    bool(false),
+						"units": M{
+							"wordpress/0": M{
+								"public-address": "10.0.1.1",
+								"workload-status": M{
+									"current": "waiting",
+									"message": "waiting for machine",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"juju-status": M{
+									"current": "allocating",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"machine": "1",
+							},
+						},
+						"charm":        "cs:quantal/wordpress-3",
+						"charm-origin": "jujucharms",
+						"charm-rev":    int(3),
+						"application-status": M{
+							"current": "waiting",
+							"message": "waiting for machine",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"endpoint-bindings": M{
+							"cache":           "",
+							"db":              "myspace1",
+							"db-client":       "",
+							"foo-bar":         "",
+							"logging-dir":     "",
+							"monitoring-port": "",
+							"url":             "",
+							"admin-api":       "",
+						},
+					},
+				},
+			},
 		},
 	),
 }
@@ -3249,6 +3520,16 @@ func (sm setMachineInstanceStatus) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+type addSpace struct {
+	spaceName string
+}
+
+func (sp addSpace) step(c *gc.C, ctx *context) {
+	f := factory.NewFactory(ctx.st)
+	f.MakeSpace(c, &factory.SpaceParams{
+		Name: sp.spaceName, ProviderID: network.Id("provider"), IsPublic: true})
+}
+
 type setAddresses struct {
 	machineId string
 	addresses []network.Address
@@ -3355,18 +3636,19 @@ func (ac addCharmWithRevision) step(c *gc.C, ctx *context) {
 }
 
 type addApplication struct {
-	name  string
-	charm string
-	cons  constraints.Value
+	name    string
+	charm   string
+	binding map[string]string
+	cons    constraints.Value
 }
 
 func (as addApplication) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
-	svc, err := ctx.st.AddApplication(state.AddApplicationArgs{Name: as.name, Charm: ch})
+	app, err := ctx.st.AddApplication(state.AddApplicationArgs{Name: as.name, Charm: ch, EndpointBindings: as.binding})
 	c.Assert(err, jc.ErrorIsNil)
-	if svc.IsPrincipal() {
-		err = svc.SetConstraints(as.cons)
+	if app.IsPrincipal() {
+		err = app.SetConstraints(as.cons)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
