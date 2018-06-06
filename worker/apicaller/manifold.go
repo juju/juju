@@ -55,11 +55,15 @@ type ManifoldConfig struct {
 // Manifold returns a manifold whose worker wraps an API connection
 // made as configured.
 func Manifold(config ManifoldConfig) dependency.Manifold {
+	inputs := []string{config.AgentName}
+	if config.APIConfigWatcherName != "" {
+		// config.APIConfigWatcherName is only applicable to unit
+		// and machine scoped manifold.
+		// It will be empty for model manifolds.
+		inputs = append(inputs, config.APIConfigWatcherName)
+	}
 	return dependency.Manifold{
-		Inputs: []string{
-			config.AgentName,
-			config.APIConfigWatcherName,
-		},
+		Inputs: inputs,
 		Output: outputFunc,
 		Start:  config.startFunc(),
 		Filter: config.Filter,
