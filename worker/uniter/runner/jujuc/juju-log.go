@@ -71,6 +71,8 @@ func (c *JujuLogCommand) Run(ctx *cmd.Context) error {
 	prefix := ""
 	if r, err := c.ctx.HookRelation(); err == nil {
 		prefix = r.FakeId() + ": "
+	} else if errors.IsNotSupported(err) {
+		// nop
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
