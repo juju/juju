@@ -104,9 +104,6 @@ func SelfManifold(engine *Engine) Manifold {
 
 // ManifoldDependencies returns all manifold dependencies.
 func (all Manifolds) ManifoldDependencies(name string, manifold Manifold) set.Strings {
-	if len(manifold.Inputs) == 0 {
-		return nil
-	}
 	result := set.NewStrings()
 	for _, input := range manifold.Inputs {
 		result.Add(input)

@@ -172,9 +172,9 @@ func (s *ManifoldsSuite) assertManifoldsDependencies(c *gc.C, manifolds dependen
 	dependencies := make(map[string][]string, len(manifolds))
 	manifoldNames := set.NewStrings()
 
-	for name, _ := range manifolds {
+	for name, manifold := range manifolds {
 		manifoldNames.Add(name)
-		dependencies[name] = manifolds.ManifoldDependencies(name, manifolds[name]).SortedValues()
+		dependencies[name] = manifolds.ManifoldDependencies(name, manifold).SortedValues()
 	}
 	c.Assert(len(dependencies), gc.Equals, len(expected))
 
