@@ -315,10 +315,11 @@ func (s *containerSuite) TestCreateContainerFromSpecSuccess(c *gc.C) {
 	}
 
 	// Container created, started and returned.
+	exp := cSvr.EXPECT()
 	gomock.InOrder(
-		cSvr.EXPECT().CreateContainerFromImage(cSvr, image, createReq).Return(createOp, nil),
-		cSvr.EXPECT().UpdateContainerState(spec.Name, startReq, "").Return(startOp, nil),
-		cSvr.EXPECT().GetContainer(spec.Name).Return(&api.Container{}, lxdtesting.ETag, nil),
+		exp.CreateContainerFromImage(cSvr, image, createReq).Return(createOp, nil),
+		exp.UpdateContainerState(spec.Name, startReq, "").Return(startOp, nil),
+		exp.GetContainer(spec.Name).Return(&api.Container{}, lxdtesting.ETag, nil),
 	)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
@@ -381,12 +382,13 @@ func (s *containerSuite) TestCreateContainerFromSpecStartFailed(c *gc.C) {
 	}
 
 	// Container created, starting fails, container state checked, container deleted.
+	exp := cSvr.EXPECT()
 	gomock.InOrder(
-		cSvr.EXPECT().CreateContainerFromImage(cSvr, image, createReq).Return(createOp, nil),
-		cSvr.EXPECT().UpdateContainerState(spec.Name, startReq, "").Return(nil, errors.New("start failed")),
-		cSvr.EXPECT().GetContainerState(spec.Name).Return(
+		exp.CreateContainerFromImage(cSvr, image, createReq).Return(createOp, nil),
+		exp.UpdateContainerState(spec.Name, startReq, "").Return(nil, errors.New("start failed")),
+		exp.GetContainerState(spec.Name).Return(
 			&api.ContainerState{StatusCode: api.Stopped}, lxdtesting.ETag, nil),
-		cSvr.EXPECT().DeleteContainer(spec.Name).Return(deleteOp, nil),
+		exp.DeleteContainer(spec.Name).Return(deleteOp, nil),
 	)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
@@ -416,11 +418,12 @@ func (s *containerSuite) TestRemoveContainersSuccess(c *gc.C) {
 	}
 
 	// Container c1 is already stopped. Container c2 is started and stopped before deletion.
-	cSvr.EXPECT().GetContainerState("c1").Return(&api.ContainerState{StatusCode: api.Stopped}, lxdtesting.ETag, nil)
-	cSvr.EXPECT().DeleteContainer("c1").Return(deleteOp, nil)
-	cSvr.EXPECT().GetContainerState("c2").Return(&api.ContainerState{StatusCode: api.Started}, lxdtesting.ETag, nil)
-	cSvr.EXPECT().UpdateContainerState("c2", stopReq, lxdtesting.ETag).Return(stopOp, nil)
-	cSvr.EXPECT().DeleteContainer("c2").Return(deleteOp, nil)
+	exp := cSvr.EXPECT()
+	exp.GetContainerState("c1").Return(&api.ContainerState{StatusCode: api.Stopped}, lxdtesting.ETag, nil)
+	exp.DeleteContainer("c1").Return(deleteOp, nil)
+	exp.GetContainerState("c2").Return(&api.ContainerState{StatusCode: api.Started}, lxdtesting.ETag, nil)
+	exp.UpdateContainerState("c2", stopReq, lxdtesting.ETag).Return(stopOp, nil)
+	exp.DeleteContainer("c2").Return(deleteOp, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -448,13 +451,14 @@ func (s *containerSuite) TestRemoveContainersPartialFailure(c *gc.C) {
 	}
 
 	// Container c1, c2 already stopped, but delete fails. Container c2 is started and stopped before deletion.
-	cSvr.EXPECT().GetContainerState("c1").Return(&api.ContainerState{StatusCode: api.Stopped}, lxdtesting.ETag, nil)
-	cSvr.EXPECT().DeleteContainer("c1").Return(nil, errors.New("deletion failed"))
-	cSvr.EXPECT().GetContainerState("c2").Return(&api.ContainerState{StatusCode: api.Stopped}, lxdtesting.ETag, nil)
-	cSvr.EXPECT().DeleteContainer("c2").Return(nil, errors.New("deletion failed"))
-	cSvr.EXPECT().GetContainerState("c3").Return(&api.ContainerState{StatusCode: api.Started}, lxdtesting.ETag, nil)
-	cSvr.EXPECT().UpdateContainerState("c3", stopReq, lxdtesting.ETag).Return(stopOp, nil)
-	cSvr.EXPECT().DeleteContainer("c3").Return(deleteOp, nil)
+	exp := cSvr.EXPECT()
+	exp.GetContainerState("c1").Return(&api.ContainerState{StatusCode: api.Stopped}, lxdtesting.ETag, nil)
+	exp.DeleteContainer("c1").Return(nil, errors.New("deletion failed"))
+	exp.GetContainerState("c2").Return(&api.ContainerState{StatusCode: api.Stopped}, lxdtesting.ETag, nil)
+	exp.DeleteContainer("c2").Return(nil, errors.New("deletion failed"))
+	exp.GetContainerState("c3").Return(&api.ContainerState{StatusCode: api.Started}, lxdtesting.ETag, nil)
+	exp.UpdateContainerState("c3", stopReq, lxdtesting.ETag).Return(stopOp, nil)
+	exp.DeleteContainer("c3").Return(deleteOp, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
