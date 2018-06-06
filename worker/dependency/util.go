@@ -103,14 +103,14 @@ func SelfManifold(engine *Engine) Manifold {
 }
 
 // ManifoldDependencies returns all manifold dependencies.
-func ManifoldDependencies(name string, manifold Manifold, all Manifolds) set.Strings {
+func (all Manifolds) ManifoldDependencies(name string, manifold Manifold) set.Strings {
 	if len(manifold.Inputs) == 0 {
 		return set.NewStrings(name)
 	}
 	result := set.NewStrings()
 	for _, input := range manifold.Inputs {
 		result.Add(input)
-		deps := ManifoldDependencies(input, all[input], all)
+		deps := all.ManifoldDependencies(input, all[input])
 		for _, v := range deps.SortedValues() {
 			result.Add(v)
 		}
