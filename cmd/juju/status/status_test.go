@@ -17,6 +17,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -3218,6 +3219,7 @@ var statusTests = []testCase{
 						"current": "available",
 						"since":   "01 Apr 15 01:23+10:00",
 					},
+					"type":       "iaas",
 					"sla":        "unsupported",
 					"name":       "controller",
 					"controller": "kontroll",
@@ -3310,6 +3312,9 @@ var statusTests = []testCase{
 							"admin-api":       "",
 						},
 					},
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
 				},
 			},
 		},
@@ -4166,6 +4171,7 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 		out = substituteFakeTimestamp(c, out, ctx.expectIsoTime)
 		err = format.unmarshal(out, &actual)
 		c.Assert(err, jc.ErrorIsNil)
+		pretty.Ldiff(c, actual, expected)
 		c.Assert(actual, jc.DeepEquals, expected)
 	}
 }
