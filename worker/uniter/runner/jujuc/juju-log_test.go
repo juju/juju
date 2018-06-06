@@ -5,8 +5,10 @@
 package jujuc_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -21,35 +23,65 @@ var _ = gc.Suite(&JujuLogSuite{})
 
 func (s *JujuLogSuite) newJujuLogCommand(c *gc.C) cmd.Command {
 	ctx, _ := s.newHookContext(-1, "")
-	com, err := jujuc.NewCommand(ctx, cmdString("juju-log"))
+	cmd, err := jujuc.NewJujuLogCommand(ctx)
 	c.Assert(err, jc.ErrorIsNil)
-	return com
+	return cmd
+}
+
+func (s *JujuLogSuite) newJujuLogCommandWithMocks(c *gc.C, logger jujuc.JujuLogCommandLogger, ctx jujuc.JujuLogContext) cmd.Command {
+	cmd, err := jujuc.NewJujuLogCommandWithMocks(ctx, logger)
+	c.Assert(err, jc.ErrorIsNil)
+	return cmd
 }
 
 func (s *JujuLogSuite) TestRequiresMessage(c *gc.C) {
-	com := s.newJujuLogCommand(c)
-	cmdtesting.TestInit(c, com, nil, "no message specified")
+	cmd := s.newJujuLogCommand(c)
+	err := cmdtesting.InitCommand(cmd, []string{})
+	c.Assert(err, gc.ErrorMatches, "no message specified")
 }
 
 func (s *JujuLogSuite) TestLogInitMissingLevel(c *gc.C) {
-	com := s.newJujuLogCommand(c)
-	cmdtesting.TestInit(c, com, []string{"-l"}, "flag needs an argument.*")
+	cmd := s.newJujuLogCommand(c)
+	err := cmdtesting.InitCommand(cmd, []string{"-l"})
+	c.Assert(err, gc.ErrorMatches, "flag needs an argument.*")
 
-	com = s.newJujuLogCommand(c)
-	cmdtesting.TestInit(c, com, []string{"--log-level"}, "flag needs an argument.*")
+	err = cmdtesting.InitCommand(cmd, []string{"--log-level"})
+	c.Assert(err, gc.ErrorMatches, "flag needs an argument.*")
 }
 
 func (s *JujuLogSuite) TestLogInitMissingMessage(c *gc.C) {
-	com := s.newJujuLogCommand(c)
-	cmdtesting.TestInit(c, com, []string{"-l", "FATAL"}, "no message specified")
+	cmd := s.newJujuLogCommand(c)
+	err := cmdtesting.InitCommand(cmd, []string{"-l", "FATAL"})
+	c.Assert(err, gc.ErrorMatches, "no message specified")
 
-	com = s.newJujuLogCommand(c)
-	cmdtesting.TestInit(c, com, []string{"--log-level", "FATAL"}, "no message specified")
+	err = cmdtesting.InitCommand(cmd, []string{"--log-level", "FATAL"})
+	c.Assert(err, gc.ErrorMatches, "no message specified")
 }
 
 func (s *JujuLogSuite) TestLogDeprecation(c *gc.C) {
-	com := s.newJujuLogCommand(c)
-	ctx, err := cmdtesting.RunCommand(c, com, "--format", "foo", "msg")
+	cmd := s.newJujuLogCommand(c)
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "foo", "msg")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "--format flag deprecated for command \"juju-log\"")
+}
+
+func (s *JujuLogSuite) TestRunWithNoErrorsLogsOnRun(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	logger := jujuc.NewMockJujuLogCommandLogger(ctrl)
+	logger.EXPECT().Logf(loggo.INFO, "%s%s", ": ", "foo msg")
+
+	relation := jujuc.NewMockContextRelation(ctrl)
+	relation.EXPECT().FakeId().Return("")
+
+	context := jujuc.NewMockJujuLogContext(ctrl)
+	context.EXPECT().HookRelation().Return(relation, nil)
+	context.EXPECT().UnitName().Return("")
+
+	cmd := s.newJujuLogCommandWithMocks(c, logger, context)
+	ctx, err := cmdtesting.RunCommand(c, cmd, "foo", "msg")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }

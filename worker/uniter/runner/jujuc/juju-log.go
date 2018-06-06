@@ -13,14 +13,26 @@ import (
 	"github.com/juju/loggo"
 )
 
+//go:generate mockgen -package jujuc -destination juju-log_mock_test.go github.com/juju/juju/worker/uniter/runner/jujuc JujuLogCommandLogger,JujuLogContext
+type JujuLogCommandLogger interface {
+	Logf(level loggo.Level, message string, args ...interface{})
+	Warningf(message string, args ...interface{})
+}
+
+type JujuLogContext interface {
+	UnitName() string
+	HookRelation() (ContextRelation, error)
+}
+
 // JujuLogCommand implements the juju-log command.
 type JujuLogCommand struct {
 	cmd.CommandBase
-	ctx        Context
+	ctx        JujuLogContext
 	Message    string
 	Debug      bool
 	Level      string
 	formatFlag string // deprecated
+	getLogger  func(string) JujuLogCommandLogger
 }
 
 func NewJujuLogCommand(ctx Context) (cmd.Command, error) {
@@ -47,6 +59,11 @@ func (c *JujuLogCommand) Init(args []string) error {
 		return errors.New("no message specified")
 	}
 	c.Message = strings.Join(args, " ")
+	if c.getLogger == nil {
+		c.getLogger = func(s string) JujuLogCommandLogger {
+			return loggo.GetLogger(s)
+		}
+	}
 	return nil
 }
 
@@ -54,7 +71,7 @@ func (c *JujuLogCommand) Run(ctx *cmd.Context) error {
 	if c.formatFlag != "" {
 		fmt.Fprintf(ctx.Stderr, "--format flag deprecated for command %q", c.Info().Name)
 	}
-	logger := loggo.GetLogger(fmt.Sprintf("unit.%s.juju-log", c.ctx.UnitName()))
+	logger := c.getLogger(fmt.Sprintf("unit.%s.juju-log", c.ctx.UnitName()))
 
 	logLevel := loggo.INFO
 	if c.Debug {
