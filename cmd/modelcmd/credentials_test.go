@@ -25,11 +25,13 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	environs.RegisterProvider("fake", mockProvider{dummyProvider})
+	// dummy does implement CloudEnvironProvider
+	asCloud := dummyProvider.(environs.CloudEnvironProvider)
+	environs.RegisterProvider("fake", mockProvider{asCloud})
 }
 
 type mockProvider struct {
-	environs.EnvironProvider
+	environs.CloudEnvironProvider
 }
 
 func (mockProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
