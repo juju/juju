@@ -35,7 +35,7 @@ type NetworkGetCommand struct {
 	out cmd.Output
 }
 
-type resolver = func(host string) (addrs []string, err error)
+type resolver func(host string) (addrs []string, err error)
 
 var LookupHost resolver = net.LookupHost
 
