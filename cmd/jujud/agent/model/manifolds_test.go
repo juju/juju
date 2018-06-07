@@ -9,9 +9,9 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/workertest"
 )
 
@@ -168,23 +168,8 @@ func (s *ManifoldsSuite) TestClockWrapper(c *gc.C) {
 
 type fakeClock struct{ clock.Clock }
 
-func (s *ManifoldsSuite) assertManifoldsDependencies(c *gc.C, manifolds dependency.Manifolds, expected map[string][]string) {
-	dependencies := make(map[string][]string, len(manifolds))
-	manifoldNames := set.NewStrings()
-
-	for name, manifold := range manifolds {
-		manifoldNames.Add(name)
-		dependencies[name] = manifolds.ManifoldDependencies(name, manifold).SortedValues()
-	}
-	c.Assert(len(dependencies), gc.Equals, len(expected))
-
-	for _, n := range manifoldNames.SortedValues() {
-		c.Assert(dependencies[n], jc.SameContents, expected[n])
-	}
-}
-
 func (s *ManifoldsSuite) TestIAASManifold(c *gc.C) {
-	s.assertManifoldsDependencies(c,
+	agenttest.AssertManifoldsDependencies(c,
 		model.IAASManifolds(model.ManifoldsConfig{
 			Agent: &mockAgent{},
 		}),
@@ -193,7 +178,7 @@ func (s *ManifoldsSuite) TestIAASManifold(c *gc.C) {
 }
 
 func (s *ManifoldsSuite) TestCAASManifold(c *gc.C) {
-	s.assertManifoldsDependencies(c,
+	agenttest.AssertManifoldsDependencies(c,
 		model.CAASManifolds(model.ManifoldsConfig{
 			Agent: &mockAgent{},
 		}),
