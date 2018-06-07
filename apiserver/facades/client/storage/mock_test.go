@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	jujustorage "github.com/juju/juju/storage"
@@ -37,11 +38,10 @@ func (m *mockPoolManager) List() ([]*jujustorage.Config, error) {
 	return m.listPools()
 }
 
-type mockState struct {
+type mockStorageAccessor struct {
 	storageInstance                     func(names.StorageTag) (state.StorageInstance, error)
 	allStorageInstances                 func() ([]state.StorageInstance, error)
 	storageInstanceAttachments          func(names.StorageTag) ([]state.StorageAttachment, error)
-	unitAssignedMachine                 func(u names.UnitTag) (names.MachineTag, error)
 	storageInstanceVolume               func(names.StorageTag) (state.Volume, error)
 	volumeAttachment                    func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 	storageInstanceFilesystem           func(names.StorageTag) (state.Filesystem, error)
@@ -50,8 +50,6 @@ type mockState struct {
 	watchFilesystemAttachment           func(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	watchVolumeAttachment               func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 	watchBlockDevices                   func(names.MachineTag) state.NotifyWatcher
-	modelName                           string
-	modelTag                            names.ModelTag
 	volume                              func(tag names.VolumeTag) (state.Volume, error)
 	machineVolumeAttachments            func(machine names.MachineTag) ([]state.VolumeAttachment, error)
 	volumeAttachments                   func(volume names.VolumeTag) ([]state.VolumeAttachment, error)
@@ -61,7 +59,6 @@ type mockState struct {
 	filesystemAttachments               func(filesystem names.FilesystemTag) ([]state.FilesystemAttachment, error)
 	allFilesystems                      func() ([]state.Filesystem, error)
 	addStorageForUnit                   func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)
-	getBlockForType                     func(t state.BlockType) (state.Block, bool, error)
 	blockDevices                        func(names.MachineTag) ([]state.BlockDeviceInfo, error)
 	destroyStorageInstance              func(names.StorageTag, bool) error
 	releaseStorageInstance              func(names.StorageTag, bool) error
@@ -70,134 +67,114 @@ type mockState struct {
 	addExistingFilesystem               func(state.FilesystemInfo, *state.VolumeInfo, string) (names.StorageTag, error)
 }
 
-func (st *mockState) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
+func (st *mockStorageAccessor) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
 	return st.storageInstance(s)
 }
 
-func (st *mockState) AllStorageInstances() ([]state.StorageInstance, error) {
+func (st *mockStorageAccessor) AllStorageInstances() ([]state.StorageInstance, error) {
 	return st.allStorageInstances()
 }
 
-func (st *mockState) StorageAttachments(tag names.StorageTag) ([]state.StorageAttachment, error) {
+func (st *mockStorageAccessor) StorageAttachments(tag names.StorageTag) ([]state.StorageAttachment, error) {
 	return st.storageInstanceAttachments(tag)
 }
 
-func (st *mockState) UnitAssignedMachine(unit names.UnitTag) (names.MachineTag, error) {
-	return st.unitAssignedMachine(unit)
-}
-
-func (st *mockState) FilesystemAttachment(m names.MachineTag, f names.FilesystemTag) (state.FilesystemAttachment, error) {
+func (st *mockStorageAccessor) FilesystemAttachment(m names.MachineTag, f names.FilesystemTag) (state.FilesystemAttachment, error) {
 	return st.storageInstanceFilesystemAttachment(m, f)
 }
 
-func (st *mockState) StorageInstanceFilesystem(s names.StorageTag) (state.Filesystem, error) {
+func (st *mockStorageAccessor) StorageInstanceFilesystem(s names.StorageTag) (state.Filesystem, error) {
 	return st.storageInstanceFilesystem(s)
 }
 
-func (st *mockState) StorageInstanceVolume(s names.StorageTag) (state.Volume, error) {
+func (st *mockStorageAccessor) StorageInstanceVolume(s names.StorageTag) (state.Volume, error) {
 	return st.storageInstanceVolume(s)
 }
 
-func (st *mockState) VolumeAttachment(m names.MachineTag, v names.VolumeTag) (state.VolumeAttachment, error) {
+func (st *mockStorageAccessor) VolumeAttachment(m names.MachineTag, v names.VolumeTag) (state.VolumeAttachment, error) {
 	return st.volumeAttachment(m, v)
 }
 
-func (st *mockState) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) state.NotifyWatcher {
+func (st *mockStorageAccessor) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) state.NotifyWatcher {
 	return st.watchStorageAttachment(s, u)
 }
 
-func (st *mockState) WatchFilesystemAttachment(mtag names.MachineTag, f names.FilesystemTag) state.NotifyWatcher {
+func (st *mockStorageAccessor) WatchFilesystemAttachment(mtag names.MachineTag, f names.FilesystemTag) state.NotifyWatcher {
 	return st.watchFilesystemAttachment(mtag, f)
 }
 
-func (st *mockState) WatchVolumeAttachment(mtag names.MachineTag, v names.VolumeTag) state.NotifyWatcher {
+func (st *mockStorageAccessor) WatchVolumeAttachment(mtag names.MachineTag, v names.VolumeTag) state.NotifyWatcher {
 	return st.watchVolumeAttachment(mtag, v)
 }
 
-func (st *mockState) WatchBlockDevices(mtag names.MachineTag) state.NotifyWatcher {
+func (st *mockStorageAccessor) WatchBlockDevices(mtag names.MachineTag) state.NotifyWatcher {
 	return st.watchBlockDevices(mtag)
 }
 
-func (st *mockState) ControllerTag() names.ControllerTag {
-	return testing.ControllerTag
-}
-
-func (st *mockState) ModelName() (string, error) {
-	return st.modelName, nil
-}
-
-func (st *mockState) ModelTag() names.ModelTag {
-	return st.modelTag
-}
-
-func (st *mockState) AllVolumes() ([]state.Volume, error) {
+func (st *mockStorageAccessor) AllVolumes() ([]state.Volume, error) {
 	return st.allVolumes()
 }
 
-func (st *mockState) VolumeAttachments(volume names.VolumeTag) ([]state.VolumeAttachment, error) {
+func (st *mockStorageAccessor) VolumeAttachments(volume names.VolumeTag) ([]state.VolumeAttachment, error) {
 	return st.volumeAttachments(volume)
 }
 
-func (st *mockState) MachineVolumeAttachments(machine names.MachineTag) ([]state.VolumeAttachment, error) {
+func (st *mockStorageAccessor) MachineVolumeAttachments(machine names.MachineTag) ([]state.VolumeAttachment, error) {
 	return st.machineVolumeAttachments(machine)
 }
 
-func (st *mockState) Volume(tag names.VolumeTag) (state.Volume, error) {
+func (st *mockStorageAccessor) Volume(tag names.VolumeTag) (state.Volume, error) {
 	return st.volume(tag)
 }
 
-func (st *mockState) AllFilesystems() ([]state.Filesystem, error) {
+func (st *mockStorageAccessor) AllFilesystems() ([]state.Filesystem, error) {
 	return st.allFilesystems()
 }
 
-func (st *mockState) FilesystemAttachments(filesystem names.FilesystemTag) ([]state.FilesystemAttachment, error) {
+func (st *mockStorageAccessor) FilesystemAttachments(filesystem names.FilesystemTag) ([]state.FilesystemAttachment, error) {
 	return st.filesystemAttachments(filesystem)
 }
 
-func (st *mockState) MachineFilesystemAttachments(machine names.MachineTag) ([]state.FilesystemAttachment, error) {
+func (st *mockStorageAccessor) MachineFilesystemAttachments(machine names.MachineTag) ([]state.FilesystemAttachment, error) {
 	return st.machineFilesystemAttachments(machine)
 }
 
-func (st *mockState) Filesystem(tag names.FilesystemTag) (state.Filesystem, error) {
+func (st *mockStorageAccessor) Filesystem(tag names.FilesystemTag) (state.Filesystem, error) {
 	return st.filesystem(tag)
 }
 
-func (st *mockState) AddStorageForUnit(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
+func (st *mockStorageAccessor) AddStorageForUnit(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
 	return st.addStorageForUnit(u, name, cons)
 }
 
-func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
-	return st.getBlockForType(t)
-}
-
-func (st *mockState) BlockDevices(m names.MachineTag) ([]state.BlockDeviceInfo, error) {
+func (st *mockStorageAccessor) BlockDevices(m names.MachineTag) ([]state.BlockDeviceInfo, error) {
 	if st.blockDevices != nil {
 		return st.blockDevices(m)
 	}
 	return []state.BlockDeviceInfo{}, nil
 }
 
-func (st *mockState) AttachStorage(storage names.StorageTag, unit names.UnitTag) error {
+func (st *mockStorageAccessor) AttachStorage(storage names.StorageTag, unit names.UnitTag) error {
 	return st.attachStorage(storage, unit)
 }
 
-func (st *mockState) DetachStorage(storage names.StorageTag, unit names.UnitTag) error {
+func (st *mockStorageAccessor) DetachStorage(storage names.StorageTag, unit names.UnitTag) error {
 	return st.detachStorage(storage, unit)
 }
 
-func (st *mockState) DestroyStorageInstance(tag names.StorageTag, destroyAttached bool) error {
+func (st *mockStorageAccessor) DestroyStorageInstance(tag names.StorageTag, destroyAttached bool) error {
 	return st.destroyStorageInstance(tag, destroyAttached)
 }
 
-func (st *mockState) ReleaseStorageInstance(tag names.StorageTag, destroyAttached bool) error {
+func (st *mockStorageAccessor) ReleaseStorageInstance(tag names.StorageTag, destroyAttached bool) error {
 	return st.releaseStorageInstance(tag, destroyAttached)
 }
 
-func (st *mockState) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {
+func (st *mockStorageAccessor) UnitStorageAttachments(tag names.UnitTag) ([]state.StorageAttachment, error) {
 	panic("should not be called")
 }
 
-func (st *mockState) AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, s string) (names.StorageTag, error) {
+func (st *mockStorageAccessor) AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, s string) (names.StorageTag, error) {
 	return st.addExistingFilesystem(f, v, s)
 }
 
@@ -403,4 +380,42 @@ func (b mockBlock) Type() state.BlockType {
 
 func (b mockBlock) Message() string {
 	return b.msg
+}
+
+type mockUnit struct {
+	assignedMachine string
+}
+
+func (u *mockUnit) AssignedMachineId() (string, error) {
+	return u.assignedMachine, nil
+}
+
+type mockState struct {
+	modelTag        names.ModelTag
+	getBlockForType func(t state.BlockType) (state.Block, bool, error)
+	unitName        string
+	unitErr         string
+	assignedMachine string
+}
+
+func (st *mockState) ControllerTag() names.ControllerTag {
+	return testing.ControllerTag
+}
+
+func (st *mockState) ModelTag() names.ModelTag {
+	return st.modelTag
+}
+
+func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
+	return st.getBlockForType(t)
+}
+
+func (st *mockState) Unit(unitName string) (storage.Unit, error) {
+	if st.unitErr != "" {
+		return nil, errors.New(st.unitErr)
+	}
+	if unitName == st.unitName {
+		return &mockUnit{assignedMachine: st.assignedMachine}, nil
+	}
+	return nil, errors.NotFoundf(unitName)
 }

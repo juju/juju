@@ -12,11 +12,13 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // FilesystemCommandBase is a helper base structure for filesystem commands.
 type FilesystemCommandBase struct {
 	StorageCommandBase
+	modelcmd.IAASOnlyCommand
 }
 
 // FilesystemInfo defines the serialization behaviour for storage filesystem.

@@ -35,6 +35,7 @@ separated when more than one id is desired.
 // showCommand attempts to release storage instance.
 type showCommand struct {
 	StorageCommandBase
+	modelcmd.IAASOnlyCommand
 	ids        []string
 	out        cmd.Output
 	newAPIFunc func() (StorageShowAPI, error)

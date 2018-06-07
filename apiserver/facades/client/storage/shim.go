@@ -8,9 +8,11 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
@@ -25,18 +27,30 @@ func NewFacadeV4(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*APIv4, error) {
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(st)
+	var storageProvider storage.ProviderRegistry
+	model, err := st.Model()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting environ")
+		return nil, errors.Trace(err)
 	}
-	registry := stateenvirons.NewStorageProviderRegistry(env)
+	if model.Type() == state.ModelTypeIAAS {
+		storageProvider, err = stateenvirons.GetNewEnvironFunc(environs.New)(st)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting environ")
+		}
+	} else {
+		storageProvider, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(st)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting environ")
+		}
+	}
+	registry := stateenvirons.NewStorageProviderRegistry(storageProvider)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
 
-	backend, err := getState(st)
+	storageAccessor, err := getStorageAccessor(st)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting backend")
 	}
-	return NewAPIv4(backend, registry, pm, resources, authorizer)
+	return NewAPIv4(stateShim{st}, storageAccessor, registry, pm, resources, authorizer)
 }
 
 // NewFacadeV3 provides the signature required for facade registration.
@@ -52,11 +66,11 @@ func NewFacadeV3(
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
 
-	backend, err := getState(st)
+	storageAccessor, err := getStorageAccessor(st)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting backend")
 	}
-	return NewAPIv3(backend, registry, pm, resources, authorizer)
+	return NewAPIv3(stateShim{st}, storageAccessor, registry, pm, resources, authorizer)
 }
 
 type storageAccess interface {
@@ -68,9 +82,6 @@ type storageAccess interface {
 
 	// StorageAttachments is required for storage functionality.
 	StorageAttachments(names.StorageTag) ([]state.StorageAttachment, error)
-
-	// UnitAssignedMachine is required for storage functionality.
-	UnitAssignedMachine(names.UnitTag) (names.MachineTag, error)
 
 	// FilesystemAttachment is required for storage functionality.
 	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
@@ -99,15 +110,6 @@ type storageAccess interface {
 	// BlockDevices is required for storage functionality.
 	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 
-	// ControllerTag the tag of the controller in which we are operating.
-	ControllerTag() names.ControllerTag
-
-	// ModelTag the tag of the model on which we are operating.
-	ModelTag() names.ModelTag
-
-	// ModelName is required for pool functionality.
-	ModelName() (string, error)
-
 	// AllVolumes is required for volume functionality.
 	AllVolumes() ([]state.Volume, error)
 
@@ -135,9 +137,6 @@ type storageAccess interface {
 	// AddStorageForUnit is required for storage add functionality.
 	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)
 
-	// GetBlockForType is required to block operations.
-	GetBlockForType(t state.BlockType) (state.Block, bool, error)
-
 	// AttachStorage attaches the storage instance with the
 	// specified tag to the unit with the specified tag.
 	AttachStorage(names.StorageTag, names.UnitTag) error
@@ -160,26 +159,29 @@ type storageAccess interface {
 	AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error)
 }
 
-var getState = func(st *state.State) (storageAccess, error) {
-	im, err := st.IAASModel()
+var getStorageAccessor = func(st *state.State) (storageAccess, error) {
+	m, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
-	return stateShim{State: st, IAASModel: im}, nil
+	if m.Type() == state.ModelTypeIAAS {
+		im, _ := m.IAASModel()
+		return &iaasModelShim{Model: m, IAASModel: im}, nil
+	}
+	caasModel, _ := m.CAASModel()
+	return caasModelShim{Model: m, CAASModel: caasModel}, nil
 }
 
-// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
-// removed once all relevant methods are moved from state to model.
-type stateShim struct {
-	*state.State
+type iaasModelShim struct {
+	*state.Model
 	*state.IAASModel
 }
 
-// UnitAssignedMachine returns the tag of the machine that the unit
+// unitAssignedMachine returns the tag of the machine that the unit
 // is assigned to, or an error if the unit cannot be obtained or is
 // not assigned to a machine.
-func (s stateShim) UnitAssignedMachine(tag names.UnitTag) (names.MachineTag, error) {
-	unit, err := s.Unit(tag.Id())
+func unitAssignedMachine(backend backend, tag names.UnitTag) (names.MachineTag, error) {
+	unit, err := backend.Unit(tag.Id())
 	if err != nil {
 		return names.MachineTag{}, errors.Trace(err)
 	}
@@ -190,12 +192,34 @@ func (s stateShim) UnitAssignedMachine(tag names.UnitTag) (names.MachineTag, err
 	return names.NewMachineTag(mid), nil
 }
 
-// ModelName returns the name of Juju environment,
-// or an error if environment configuration is not retrievable.
-func (s stateShim) ModelName() (string, error) {
-	cfg, err := s.IAASModel.ModelConfig()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return cfg.Name(), nil
+type caasModelShim struct {
+	*state.Model
+	*state.CAASModel
+}
+
+type backend interface {
+	ControllerTag() names.ControllerTag
+	ModelTag() names.ModelTag
+	Unit(string) (Unit, error)
+	GetBlockForType(state.BlockType) (state.Block, bool, error)
+}
+
+type Unit interface {
+	AssignedMachineId() (string, error)
+}
+
+type stateShim struct {
+	*state.State
+}
+
+func (s stateShim) ModelTag() names.ModelTag {
+	return names.NewModelTag(s.ModelUUID())
+}
+
+func (s stateShim) GetBlockForType(t state.BlockType) (state.Block, bool, error) {
+	return s.State.GetBlockForType(t)
+}
+
+func (s stateShim) Unit(name string) (Unit, error) {
+	return s.State.Unit(name)
 }

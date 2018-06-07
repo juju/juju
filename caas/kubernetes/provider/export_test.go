@@ -5,8 +5,10 @@ package provider
 
 import (
 	core "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/storage"
 )
 
 var (
@@ -21,4 +23,8 @@ func PodSpec(u *unitSpec) core.PodSpec {
 
 func NewProvider() caas.ContainerEnvironProvider {
 	return kubernetesEnvironProvider{}
+}
+
+func StorageProvider(k8sClient kubernetes.Interface, namespace string) storage.Provider {
+	return &storageProvider{&kubernetesClient{Interface: k8sClient, namespace: namespace}}
 }

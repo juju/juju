@@ -39,6 +39,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"RetryStrategy",
 	"Singular",
 	"StatusHistory",
+	"Storage",
 	"StringsWatcher",
 	"Undertaker",
 	"Uniter",

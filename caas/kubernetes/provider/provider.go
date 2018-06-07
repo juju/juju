@@ -72,7 +72,15 @@ func (p kubernetesEnvironProvider) PrepareConfig(args environs.PrepareConfigPara
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	return args.Config, nil
+	// Set the default storage sources.
+	attrs := make(map[string]interface{})
+	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
+		attrs[config.StorageDefaultBlockSourceKey] = K8s_ProviderType
+	}
+	if _, ok := args.Config.StorageDefaultFilesystemSource(); !ok {
+		attrs[config.StorageDefaultFilesystemSourceKey] = K8s_ProviderType
+	}
+	return args.Config.Apply(attrs)
 }
 
 // DetectRegions is specified in the environs.CloudRegionDetector interface.

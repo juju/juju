@@ -80,6 +80,7 @@ Examples:
 // addCommand adds unit storage instances dynamically.
 type addCommand struct {
 	StorageCommandBase
+	modelcmd.IAASOnlyCommand
 	unitTag names.UnitTag
 
 	// storageCons is a map of storage constraints, keyed on the storage name

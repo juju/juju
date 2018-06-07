@@ -48,6 +48,7 @@ Examples:
 
 type removeStorageCommand struct {
 	StorageCommandBase
+	modelcmd.IAASOnlyCommand
 	newStorageRemoverCloser NewStorageRemoverCloserFunc
 	storageIds              []string
 	force                   bool

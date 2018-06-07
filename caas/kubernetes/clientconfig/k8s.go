@@ -145,7 +145,7 @@ func credentialsFromConfig(config *clientcmdapi.Config) (map[string]cloud.Creden
 			}
 		} else if user.Username != "" {
 			if user.Password == "" {
-				logger.Warningf("empty password")
+				logger.Debugf("credential for user %q has empty password", user.Username)
 			}
 			attrs["username"] = user.Username
 			attrs["password"] = user.Password

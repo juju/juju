@@ -46,6 +46,7 @@ Examples:
 // detachStorageCommand detaches storage instances.
 type detachStorageCommand struct {
 	StorageCommandBase
+	modelcmd.IAASOnlyCommand
 	newEntityDetacherCloser NewEntityDetacherCloserFunc
 	storageIds              []string
 }
