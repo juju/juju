@@ -113,6 +113,6 @@ var (
 		thirdActionTag:  thirdAction,
 	}
 	fakeRunningActions = []params.ActionResult{
-		params.ActionResult{Action: &params.Action{Tag: thirdActionTag.String()}},
+		{Action: &params.Action{Tag: thirdActionTag.String()}},
 	}
 )

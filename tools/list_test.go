@@ -118,10 +118,10 @@ func (s *ListSuite) TestURLs(c *gc.C) {
 		t2001precise,
 	}
 	c.Check(full.URLs(), gc.DeepEquals, map[version.Binary][]string{
-		t100precise.Version:  []string{t100precise.URL},
-		t100quantal.Version:  []string{t100quantal.URL, alt.URL},
-		t190quantal.Version:  []string{t190quantal.URL},
-		t2001precise.Version: []string{t2001precise.URL},
+		t100precise.Version:  {t100precise.URL},
+		t100quantal.Version:  {t100quantal.URL, alt.URL},
+		t190quantal.Version:  {t190quantal.URL},
+		t2001precise.Version: {t2001precise.URL},
 	})
 }
 

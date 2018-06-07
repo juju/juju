@@ -176,7 +176,7 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 	cloudNamesSorted := func(someClouds map[string]*cloudDetails) []string {
 		// For tabular we'll sort alphabetically, user clouds last.
 		var names []string
-		for name, _ := range someClouds {
+		for name := range someClouds {
 			names = append(names, name)
 		}
 		sort.Strings(names)

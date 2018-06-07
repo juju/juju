@@ -131,7 +131,7 @@ func (s *machineSuite) TestOpenedPorts(c *gc.C) {
 	ports, err = s.apiMachine.OpenedPorts(names.SubnetTag{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, jc.DeepEquals, map[network.PortRange]names.UnitTag{
-		network.PortRange{FromPort: 1234, ToPort: 1234, Protocol: "tcp"}: unitTag,
+		{FromPort: 1234, ToPort: 1234, Protocol: "tcp"}: unitTag,
 	})
 }
 

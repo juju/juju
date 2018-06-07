@@ -103,7 +103,7 @@ func quoteStrings(vals []string) string {
 
 func validateGivenBindings(givenBindings map[string]string, defaultBindings map[string]string) error {
 	invalidBindings := make([]string, 0)
-	for name, _ := range givenBindings {
+	for name := range givenBindings {
 		if name == "" {
 			continue
 		}
@@ -115,7 +115,7 @@ func validateGivenBindings(givenBindings map[string]string, defaultBindings map[
 		return nil
 	}
 	possibleBindings := make([]string, 0)
-	for name, _ := range defaultBindings {
+	for name := range defaultBindings {
 		if name == "" {
 			continue
 		}
@@ -147,7 +147,7 @@ func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[s
 	}
 
 	effectiveBindings := make(map[string]string, len(defaultBindings))
-	for endpoint, _ := range defaultBindings {
+	for endpoint := range defaultBindings {
 		if givenSpace, isGiven := givenBindings[endpoint]; isGiven {
 			effectiveBindings[endpoint] = givenSpace
 		} else {

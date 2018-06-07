@@ -2362,7 +2362,7 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	expectChanges := params.RelationUnitsChange{
 		Changed: map[string]params.UnitSettings{
-			"mysql/0": params.UnitSettings{changed.Version},
+			"mysql/0": {changed.Version},
 		},
 	}
 	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{

@@ -158,8 +158,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 					tags.JujuMachine:    "controller-machine-5",
 				},
 				SubnetsToZones: map[string][]string{
-					"subnet-1": []string{"zone1"},
-					"subnet-2": []string{"zone2"},
+					"subnet-1": {"zone1"},
+					"subnet-2": {"zone2"},
 				},
 			},
 		}}}

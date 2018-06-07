@@ -108,24 +108,24 @@ func (api *fakeAddCloudAPI) AddCredential(tag string, credential cloud.Credentia
 func fakeNewK8sClientConfig(io.Reader) (*clientconfig.ClientConfig, error) {
 	return &clientconfig.ClientConfig{
 		Contexts: map[string]clientconfig.Context{
-			"key1": clientconfig.Context{
+			"key1": {
 				CloudName:      "mrcloud1",
 				CredentialName: "credname1",
 			},
-			"key2": clientconfig.Context{
+			"key2": {
 				CloudName:      "mrcloud2",
 				CredentialName: "credname2",
 			},
 		},
 		CurrentContext: "key1",
 		Clouds: map[string]clientconfig.CloudConfig{
-			"mrcloud1": clientconfig.CloudConfig{
+			"mrcloud1": {
 				Endpoint: "fakeendpoint1",
 				Attributes: map[string]interface{}{
 					"CAData": "fakecadata1",
 				},
 			},
-			"mrcloud2": clientconfig.CloudConfig{
+			"mrcloud2": {
 				Endpoint: "fakeendpoint2",
 				Attributes: map[string]interface{}{
 					"CAData": "fakecadata2",
@@ -174,8 +174,8 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	s.store = &fakeCloudMetadataStore{CallMocker: jujutesting.NewCallMocker(logger)}
 
 	initialCloudMap := map[string]cloud.Cloud{
-		"mrcloud1": cloud.Cloud{Name: "mrcloud1", Type: "kubernetes"},
-		"mrcloud2": cloud.Cloud{Name: "mrcloud2", Type: "kubernetes"},
+		"mrcloud1": {Name: "mrcloud1", Type: "kubernetes"},
+		"mrcloud2": {Name: "mrcloud2", Type: "kubernetes"},
 	}
 
 	s.store.Call("PersonalCloudMetadata").Returns(initialCloudMap, nil)

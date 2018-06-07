@@ -82,7 +82,7 @@ func (FlagSuite) TestStorageFlagBundleStorage(c *gc.C) {
 		"foo": {Pool: "bar", Count: 1},
 	})
 	c.Assert(bundleStores, jc.DeepEquals, map[string]map[string]storage.Constraints{
-		"app": map[string]storage.Constraints{
+		"app": {
 			"baz": {Pool: "qux", Count: 1},
 		},
 	})

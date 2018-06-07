@@ -55,19 +55,19 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "all is well",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag2.String(),
 				},
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{
+			actionTag1.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag1.String(),
 					Receiver: "unit-uptime-0",
@@ -77,7 +77,7 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 					"Stderr": "",
 				},
 			},
-			actionTag2.Id(): params.ActionResult{
+			actionTag2.Id(): {
 				Action: &params.Action{
 					Tag: actionTag2.String(),
 				},
@@ -91,7 +91,7 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "invalid tag returned",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: "invalid",
 				},
@@ -102,7 +102,7 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "no action found",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
@@ -113,28 +113,28 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "fail to parse result",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{},
+			actionTag1.Id(): {},
 		},
 		stdout: "failed to collect metrics: could not read stdout\n",
 	}, {
 		about: "no results on sendResults",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{
+			actionTag1.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag2.String(),
 					Receiver: "unit-uptime-0",
@@ -150,12 +150,12 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "too many sendResults",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
@@ -166,7 +166,7 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{
+			actionTag1.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag2.String(),
 					Receiver: "unit-uptime-0",
@@ -182,19 +182,19 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "sendResults error",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
-			[]params.ActionResult{{
+			{{
 				Error: &params.Error{
 					Message: "permission denied",
 				},
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{
+			actionTag1.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag2.String(),
 					Receiver: "unit-uptime-0",
@@ -210,19 +210,19 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "couldn't get sendResults action",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag2.String(),
 				},
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{
+			actionTag1.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag2.String(),
 					Receiver: "unit-uptime-0",
@@ -238,19 +238,19 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 		about: "couldn't parse sendResults action",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag2.String(),
 				},
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{
+			actionTag1.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag2.String(),
 					Receiver: "unit-uptime-0",
@@ -260,26 +260,26 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 					"Stderr": "",
 				},
 			},
-			actionTag2.Id(): params.ActionResult{},
+			actionTag2.Id(): {},
 		},
 		stdout: "failed to send metrics for unit uptime/0: could not read stdout\n",
 	}, {
 		about: "sendResults action stderr",
 		args:  []string{"uptime"},
 		results: [][]params.ActionResult{
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag1.String(),
 				},
 			}},
-			[]params.ActionResult{{
+			{{
 				Action: &params.Action{
 					Tag: actionTag2.String(),
 				},
 			}},
 		},
 		actionMap: map[string]params.ActionResult{
-			actionTag1.Id(): params.ActionResult{
+			actionTag1.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag2.String(),
 					Receiver: "unit-uptime-0",
@@ -289,7 +289,7 @@ func (s *collectMetricsSuite) TestCollectMetrics(c *gc.C) {
 					"Stderr": "",
 				},
 			},
-			actionTag2.Id(): params.ActionResult{
+			actionTag2.Id(): {
 				Action: &params.Action{
 					Tag:      actionTag2.String(),
 					Receiver: "unit-uptime-0",

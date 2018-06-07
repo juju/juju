@@ -232,7 +232,7 @@ credentials:
       access-key: super
       secret-key: sekrit
 `[1:]), map[string]cloud.CloudCredential{
-		"aws": cloud.CloudCredential{
+		"aws": {
 			DefaultCredential: "peter",
 			DefaultRegion:     "us-east-2",
 			AuthCredentials: map[string]cloud.Credential{
@@ -242,7 +242,7 @@ credentials:
 				}),
 			},
 		},
-		"aws-china": cloud.CloudCredential{
+		"aws-china": {
 			DefaultCredential: "zhu8jie",
 			AuthCredentials: map[string]cloud.Credential{
 				"zhu8jie": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
@@ -255,7 +255,7 @@ credentials:
 				}),
 			},
 		},
-		"aws-gov": cloud.CloudCredential{
+		"aws-gov": {
 			DefaultRegion: "us-gov-west-1",
 			AuthCredentials: map[string]cloud.Credential{
 				"supersekrit": cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
@@ -276,7 +276,7 @@ credentials:
     credential-name:
       auth-type: woop
 `[1:]), map[string]cloud.CloudCredential{
-		"cloud-name": cloud.CloudCredential{
+		"cloud-name": {
 			AuthCredentials: map[string]cloud.Credential{
 				"credential-name": cloud.NewCredential("woop", nil),
 			},

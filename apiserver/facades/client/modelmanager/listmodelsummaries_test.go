@@ -90,7 +90,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ModelSummaryResults{
 		Results: []params.ModelSummaryResult{
-			params.ModelSummaryResult{
+			{
 				Result: &params.ModelSummary{
 					Name:               "only",
 					OwnerTag:           s.adminUser.String(),
@@ -168,7 +168,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineAndUserDetail
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ModelSummaryResults{
 		Results: []params.ModelSummaryResult{
-			params.ModelSummaryResult{
+			{
 				Result: &params.ModelSummary{
 					Name:               "only",
 					OwnerTag:           s.adminUser.String(),
@@ -183,8 +183,8 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineAndUserDetail
 					UserAccess:         params.ModelAdminAccess,
 					UserLastConnection: &now,
 					Counts: []params.ModelEntityCount{
-						params.ModelEntityCount{params.Machines, 10},
-						params.ModelEntityCount{params.Cores, 42},
+						{params.Machines, 10},
+						{params.Cores, 42},
 					},
 				},
 			},

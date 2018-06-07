@@ -267,7 +267,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 		}()
 	}
 
-	for _ = range runResults {
+	for range runResults {
 		// The default is to wait forever for the command to finish.
 		select {
 		case <-resultChannel:

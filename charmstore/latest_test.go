@@ -62,8 +62,8 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 
 	s.lowLevel.ReturnListResourcesStable = []resourceResult{
 		oneResourceResult(fakeRes),
-		resourceResult{err: params.ErrNotFound},
-		resourceResult{err: params.ErrUnauthorized},
+		{err: params.ErrNotFound},
+		{err: params.ErrUnauthorized},
 	}
 
 	client, err := newCachingClient(s.cache, nil, s.lowLevel.makeWrapper)

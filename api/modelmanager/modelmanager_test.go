@@ -352,7 +352,7 @@ func (s *modelmanagerSuite) TestModelStatus(c *gc.C) {
 
 			out := result.(*params.ModelStatusResults)
 			out.Results = []params.ModelStatus{
-				params.ModelStatus{
+				{
 					ModelTag:           coretesting.ModelTag.String(),
 					OwnerTag:           "user-glenda",
 					ApplicationCount:   3,
@@ -364,7 +364,7 @@ func (s *modelmanagerSuite) TestModelStatus(c *gc.C) {
 						Status:     "pending",
 					}},
 				},
-				params.ModelStatus{Error: common.ServerError(errors.New("model error"))},
+				{Error: common.ServerError(errors.New("model error"))},
 			}
 			return nil
 		},

@@ -202,7 +202,7 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 		c.Assert(streams, gc.DeepEquals, []string{"released"})
 		findToolsCalled++
 		return []*tools.Tools{
-			&tools.Tools{
+			{
 				Version: currentVersion,
 				URL:     "http://testing.invalid/tools.tar.gz",
 			},

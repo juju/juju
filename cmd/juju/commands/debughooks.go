@@ -146,7 +146,7 @@ func (c *debugHooksCommand) getValidActions(appName string) (set.Strings, error)
 	}
 
 	validActions := set.NewStrings()
-	for name, _ := range allActions {
+	for name := range allActions {
 		validActions.Add(name)
 	}
 	return validActions, nil

@@ -26,7 +26,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 		charmURL: "local:quantal/metered-1",
 		unitTag:  "u/0",
 		metrics: map[string]corecharm.Metric{
-			"pings": corecharm.Metric{
+			"pings": {
 				Type:        corecharm.MetricTypeGauge,
 				Description: "pings-desc",
 			},

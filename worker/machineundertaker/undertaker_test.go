@@ -104,7 +104,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotSupported(c *gc.C) {
 	api := fakeAPI{
 		Stub: &testing.Stub{},
 		interfaces: map[string][]network.ProviderInterfaceInfo{
-			"4/lxd/4": []network.ProviderInterfaceInfo{
+			"4/lxd/4": {
 				{InterfaceName: "chloe"},
 			},
 		},
@@ -126,7 +126,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorReleasing(c *gc.C) {
 	api := fakeAPI{
 		Stub: &testing.Stub{},
 		interfaces: map[string][]network.ProviderInterfaceInfo{
-			"4/lxd/4": []network.ProviderInterfaceInfo{
+			"4/lxd/4": {
 				{InterfaceName: "chloe"},
 			},
 		},
@@ -148,7 +148,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_Success(c *gc.C) {
 	api := fakeAPI{
 		Stub: &testing.Stub{},
 		interfaces: map[string][]network.ProviderInterfaceInfo{
-			"4/lxd/4": []network.ProviderInterfaceInfo{
+			"4/lxd/4": {
 				{InterfaceName: "chloe"},
 			},
 		},
@@ -170,7 +170,7 @@ func (*undertakerSuite) TestHandle_CompletesRemoval(c *gc.C) {
 		Stub:     &testing.Stub{},
 		removals: []string{"3", "4/lxd/4"},
 		interfaces: map[string][]network.ProviderInterfaceInfo{
-			"4/lxd/4": []network.ProviderInterfaceInfo{
+			"4/lxd/4": {
 				{InterfaceName: "chloe"},
 			},
 		},
@@ -196,7 +196,7 @@ func (*undertakerSuite) TestHandle_NoRemovalOnErrorReleasing(c *gc.C) {
 		Stub:     &testing.Stub{},
 		removals: []string{"3", "4/lxd/4", "5"},
 		interfaces: map[string][]network.ProviderInterfaceInfo{
-			"4/lxd/4": []network.ProviderInterfaceInfo{
+			"4/lxd/4": {
 				{InterfaceName: "chloe"},
 			},
 		},

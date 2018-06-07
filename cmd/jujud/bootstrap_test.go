@@ -779,7 +779,7 @@ func assertWrittenToState(c *gc.C, session *mgo.Session, metadata cloudimagemeta
 		metadata.DateCreated = all[metadata.Source][0].DateCreated
 	}
 	c.Assert(all, gc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
-		metadata.Source: []cloudimagemetadata.Metadata{metadata},
+		metadata.Source: {metadata},
 	})
 }
 

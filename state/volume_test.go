@@ -99,12 +99,12 @@ func (s *VolumeStateSuite) TestAddApplicationNoUserDefaultPool(c *gc.C) {
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
-		"data": state.StorageConstraints{
+		"data": {
 			Pool:  "loop",
 			Size:  1024,
 			Count: 1,
 		},
-		"allecto": state.StorageConstraints{
+		"allecto": {
 			Pool:  "loop",
 			Size:  1024,
 			Count: 0,
@@ -133,12 +133,12 @@ func (s *VolumeStateSuite) TestAddApplicationDefaultPool(c *gc.C) {
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
-		"data": state.StorageConstraints{
+		"data": {
 			Pool:  "default-block",
 			Size:  1024,
 			Count: 1,
 		},
-		"allecto": state.StorageConstraints{
+		"allecto": {
 			Pool:  "loop",
 			Size:  1024,
 			Count: 0,

@@ -115,7 +115,7 @@ func (s *ClientSuite) TestListResources(c *gc.C) {
 		Size:        4,
 	}
 
-	s.wrapper.ReturnListResourcesStable = []resourceResult{oneResourceResult(stable), resourceResult{err: params.ErrNotFound}}
+	s.wrapper.ReturnListResourcesStable = []resourceResult{oneResourceResult(stable), {err: params.ErrNotFound}}
 	s.wrapper.ReturnListResourcesDev = []resourceResult{oneResourceResult(dev), oneResourceResult(dev2)}
 
 	client, err := newCachingClient(s.cache, nil, s.wrapper.makeWrapper)
@@ -157,7 +157,7 @@ func (s *ClientSuite) TestListResources(c *gc.C) {
 }
 
 func (s *ClientSuite) TestListResourcesError(c *gc.C) {
-	s.wrapper.ReturnListResourcesStable = []resourceResult{resourceResult{err: errors.NotFoundf("another error")}}
+	s.wrapper.ReturnListResourcesStable = []resourceResult{{err: errors.NotFoundf("another error")}}
 	client, err := newCachingClient(s.cache, nil, s.wrapper.makeWrapper)
 	c.Assert(err, jc.ErrorIsNil)
 

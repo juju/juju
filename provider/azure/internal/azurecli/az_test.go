@@ -22,7 +22,7 @@ func (s *azSuite) TestGetAccessToken(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az account get-access-token -o json": result{
+				"az account get-access-token -o json": {
 					stdout: []byte(`
 {
   "accessToken": "ACCESSTOKEN",
@@ -51,7 +51,7 @@ func (s *azSuite) TestGetAccessTokenWithSubscriptionAndResource(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az account get-access-token --subscription 5544b9a5-0000-0000-0000-fedceb5d3696 --resource resid -o json": result{
+				"az account get-access-token --subscription 5544b9a5-0000-0000-0000-fedceb5d3696 --resource resid -o json": {
 					stdout: []byte(`
 {
   "accessToken": "ACCESSTOKEN",
@@ -80,7 +80,7 @@ func (s *azSuite) TestGetAccessTokenError(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az account get-access-token -o json": result{
+				"az account get-access-token -o json": {
 					error: &exec.ExitError{Stderr: []byte("test error")},
 				},
 			},
@@ -95,7 +95,7 @@ func (s *azSuite) TestGetAccessTokenJSONError(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az account get-access-token -o json": result{
+				"az account get-access-token -o json": {
 					stdout: []byte(`}`),
 				},
 			},
@@ -125,7 +125,7 @@ func (s *azSuite) TestShowAccount(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az account show -o json": result{
+				"az account show -o json": {
 					stdout: []byte(`
 {
   "environmentName": "AzureCloud",
@@ -161,7 +161,7 @@ func (s *azSuite) TestShowAccountWithSubscription(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az account show --subscription 5544b9a5-0000-0000-0000-fedceb5d3696 -o json": result{
+				"az account show --subscription 5544b9a5-0000-0000-0000-fedceb5d3696 -o json": {
 					stdout: []byte(`
 {
   "environmentName": "AzureCloud",
@@ -197,7 +197,7 @@ func (s *azSuite) TestShowAccountError(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az account show -o json": result{
+				"az account show -o json": {
 					error: &exec.ExitError{Stderr: []byte("test error\nusage ...")},
 				},
 			},
@@ -212,7 +212,7 @@ func (s *azSuite) TestListAccounts(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az account list -o json": result{
+				"az account list -o json": {
 					stdout: []byte(`
 [
   {
@@ -268,7 +268,7 @@ func (s *azSuite) TestListAccountsError(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az account list -o json": result{
+				"az account list -o json": {
 					error: errors.New("test error"),
 				},
 			},
@@ -283,7 +283,7 @@ func (s *azSuite) TestFindAccountsWithCloudName(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az account list --query [?cloudName=='AzureCloud'] -o json": result{
+				"az account list --query [?cloudName=='AzureCloud'] -o json": {
 					stdout: []byte(`
 [
   {
@@ -339,7 +339,7 @@ func (s *azSuite) TestFindAccountsWithCloudNameError(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az account list --query [?cloudName=='AzureCloud'] -o json": result{
+				"az account list --query [?cloudName=='AzureCloud'] -o json": {
 					error: errors.New("test error"),
 				},
 			},
@@ -354,7 +354,7 @@ func (s *azSuite) TestShowCloud(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az cloud show -o json": result{
+				"az cloud show -o json": {
 					stdout: []byte(`
 {
   "endpoints": {
@@ -412,7 +412,7 @@ func (s *azSuite) TestShowCloudWithName(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az cloud show --name AzureUSGovernment -o json": result{
+				"az cloud show --name AzureUSGovernment -o json": {
 					stdout: []byte(`
 {
   "endpoints": {
@@ -468,7 +468,7 @@ func (s *azSuite) TestShowCloudError(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az cloud show -o json": result{
+				"az cloud show -o json": {
 					error: errors.New("test error"),
 				},
 			},
@@ -483,7 +483,7 @@ func (s *azSuite) TestFindCloudsWithResourceManagerEndpoint(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az cloud list --query [?endpoints.resourceManager=='https://management.azure.com/'] -o json": result{
+				"az cloud list --query [?endpoints.resourceManager=='https://management.azure.com/'] -o json": {
 					stdout: []byte(`
 [
   {
@@ -543,7 +543,7 @@ func (s *azSuite) TestFindCloudsWithResourceManagerEndpointError(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az cloud list --query [?endpoints.resourceManager=='https://management.azure.com/'] -o json": result{
+				"az cloud list --query [?endpoints.resourceManager=='https://management.azure.com/'] -o json": {
 					error: errors.New("test error"),
 				},
 			},
@@ -558,7 +558,7 @@ func (s *azSuite) TestListClouds(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az cloud list -o json": result{
+				"az cloud list -o json": {
 					stdout: []byte(`
 [
   {
@@ -739,7 +739,7 @@ func (s *azSuite) TestListCloudsError(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
 			commands: map[string]result{
-				"az cloud list -o json": result{
+				"az cloud list -o json": {
 					error: errors.New("test error"),
 				},
 			},

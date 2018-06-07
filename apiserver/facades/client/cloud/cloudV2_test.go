@@ -77,11 +77,11 @@ func (s *cloudSuiteV2) SetUpTest(c *gc.C) {
 			maasCred,
 		},
 		models: map[names.CloudCredentialTag][]state.CredentialOwnerModelAccess{
-			dummyCredTag: []state.CredentialOwnerModelAccess{
+			dummyCredTag: {
 				{ModelName: "abcmodel", OwnerAccess: permission.AdminAccess},
 				{ModelName: "xyzmodel", OwnerAccess: permission.ReadAccess},
 			},
-			awsCredTag: []state.CredentialOwnerModelAccess{
+			awsCredTag: {
 				{ModelName: "whynotmodel", OwnerAccess: permission.NoAccess},
 			},
 		},
@@ -102,7 +102,7 @@ func (s *cloudSuiteV2) TestCredentialContentsAllNoSecrets(c *gc.C) {
 		"Cloud", "CredentialModelsAndOwnerAccess")
 
 	expected := []params.CredentialContentResult{
-		params.CredentialContentResult{
+		{
 			Result: &params.ControllerCredentialInfo{
 				Content: params.CredentialContent{
 					Name:     "onecredential",
@@ -118,7 +118,7 @@ func (s *cloudSuiteV2) TestCredentialContentsAllNoSecrets(c *gc.C) {
 				},
 			},
 		},
-		params.CredentialContentResult{
+		{
 			Result: &params.ControllerCredentialInfo{
 				Content: params.CredentialContent{
 					Name:     "twocredential",
@@ -133,7 +133,7 @@ func (s *cloudSuiteV2) TestCredentialContentsAllNoSecrets(c *gc.C) {
 				},
 			},
 		},
-		params.CredentialContentResult{
+		{
 			Result: &params.ControllerCredentialInfo{
 				Content: params.CredentialContent{
 					Name:       "mcredential",
@@ -166,7 +166,7 @@ func (s *cloudSuiteV2) TestCredentialContentsNamedWithSecrets(c *gc.C) {
 	s.backend.CheckCallNames(c, "CloudCredential", "Cloud", "CredentialModelsAndOwnerAccess")
 
 	expected := []params.CredentialContentResult{
-		params.CredentialContentResult{
+		{
 			Result: &params.ControllerCredentialInfo{
 				Content: params.CredentialContent{
 					Name:     "twocredential",

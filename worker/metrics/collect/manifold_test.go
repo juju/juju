@@ -102,7 +102,7 @@ func (s *ManifoldSuite) TestCollectWorkerStarts(c *gc.C) {
 		})
 	s.PatchValue(collect.ReadCharm,
 		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
-			return corecharm.MustParseURL("cs:ubuntu-1"), map[string]corecharm.Metric{"pings": corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
+			return corecharm.MustParseURL("cs:ubuntu-1"), map[string]corecharm.Metric{"pings": {Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
 		})
 	worker, err := s.manifold.Start(s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
@@ -147,7 +147,7 @@ func (s *ManifoldSuite) TestRecordMetricsError(c *gc.C) {
 		spool.MetricRecorderConfig{
 			SpoolDir: c.MkDir(),
 			Metrics: map[string]corecharm.Metric{
-				"juju-units": corecharm.Metric{},
+				"juju-units": {},
 			},
 			CharmURL: "local:precise/wordpress",
 			UnitTag:  "unit-wordpress-0",
@@ -181,7 +181,7 @@ func (s *ManifoldSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 		})
 	s.PatchValue(collect.ReadCharm,
 		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
-			return corecharm.MustParseURL("cs:wordpress-37"), map[string]corecharm.Metric{"pings": corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
+			return corecharm.MustParseURL("cs:wordpress-37"), map[string]corecharm.Metric{"pings": {Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
 		})
 	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
@@ -209,7 +209,7 @@ func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 		})
 	s.PatchValue(collect.ReadCharm,
 		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
-			return corecharm.MustParseURL("cs:wordpress-37"), map[string]corecharm.Metric{"pings": corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
+			return corecharm.MustParseURL("cs:wordpress-37"), map[string]corecharm.Metric{"pings": {Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
 		})
 	charmdir := &dummyCharmdir{}
 	s.resources["charmdir-name"] = dt.NewStubResource(charmdir)

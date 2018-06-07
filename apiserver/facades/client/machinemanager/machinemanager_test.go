@@ -182,8 +182,8 @@ func (s *MachineManagerSuite) TestDestroyMachineWithParams(c *gc.C) {
 
 func (s *MachineManagerSuite) setupUpdateMachineSeries(c *gc.C) {
 	s.st.machines = map[string]*mockMachine{
-		"0": &mockMachine{series: "trusty"},
-		"1": &mockMachine{series: "trusty"},
+		"0": {series: "trusty"},
+		"1": {series: "trusty"},
 	}
 }
 

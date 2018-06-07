@@ -597,7 +597,7 @@ func (c *neutronFirewaller) ensureGroup(name string, rules []neutron.RuleInfoV2)
 			add[k] = want[k]
 		}
 	}
-	for rule, _ := range add {
+	for rule := range add {
 		rule.ParentGroupId = group.Id
 		// Neutron translates empty RemoteIPPrefix into
 		// 0.0.0.0/0 or ::/0 instead of ParentGroupId

@@ -119,7 +119,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		res.Res = &types.CreateImportSpecResponse{
 			types.OvfCreateImportSpecResult{
 				FileItem: []types.OvfFileItem{
-					types.OvfFileItem{
+					{
 						DeviceId: "key1",
 						Path:     "ubuntu-14.04-server-cloudimg-amd64.vmdk",
 						Size:     14,
@@ -190,7 +190,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 				Val: types.HttpNfcLeaseInfo{
 					Entity: r.importVAppResult,
 					DeviceUrl: []types.HttpNfcLeaseDeviceUrl{
-						types.HttpNfcLeaseDeviceUrl{
+						{
 							ImportKey: "key1",
 							Url:       r.serverURL + "/disk-device/",
 						},

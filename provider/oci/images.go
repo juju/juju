@@ -363,7 +363,7 @@ func refreshImageCache(cli common.OCIComputeClient, compartmentID *string) (*Ima
 		img.SetInstanceTypes(instTypes)
 		images[img.Series] = append(images[img.Series], img)
 	}
-	for v, _ := range images {
+	for v := range images {
 		sort.Sort(byVersion(images[v]))
 	}
 	globalImageCache = &ImageCache{

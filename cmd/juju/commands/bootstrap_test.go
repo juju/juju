@@ -2139,7 +2139,7 @@ func (f fileCredentialProvider) DetectCredentials() (*cloud.CloudCredential, err
 }
 
 func (fileCredentialProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return map[cloud.AuthType]cloud.CredentialSchema{cloud.JSONFileAuthType: cloud.CredentialSchema{cloud.NamedCredentialAttr{
+	return map[cloud.AuthType]cloud.CredentialSchema{cloud.JSONFileAuthType: {cloud.NamedCredentialAttr{
 		Name: "file",
 		CredentialAttr: cloud.CredentialAttr{
 			FilePath: true,

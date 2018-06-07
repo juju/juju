@@ -46,7 +46,7 @@ func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
 				InstanceId: "juju-badd06-0",
 				Series:     "trusty",
 				NetworkInterfaces: map[string]params.NetworkInterface{
-					"eth0": params.NetworkInterface{
+					"eth0": {
 						IPAddresses: []string{
 							"10.0.0.1",
 							"10.0.1.1",
@@ -71,7 +71,7 @@ func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
 				InstanceId: "juju-badd06-1",
 				Series:     "trusty",
 				NetworkInterfaces: map[string]params.NetworkInterface{
-					"eth0": params.NetworkInterface{
+					"eth0": {
 						IPAddresses: []string{
 							"10.0.0.2",
 							"10.0.1.2",
@@ -94,7 +94,7 @@ func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
 						InstanceId: "juju-badd06-1-lxd-0",
 						Series:     "trusty",
 						NetworkInterfaces: map[string]params.NetworkInterface{
-							"eth0": params.NetworkInterface{
+							"eth0": {
 								IPAddresses: []string{
 									"10.0.0.3",
 									"10.0.1.3",

@@ -57,11 +57,11 @@ func (s *handlerSuite) SetUpTest(c *gc.C) {
 		charmURL: "local:trusty/metered-1",
 		unitTag:  "metered/0",
 		metrics: map[string]corecharm.Metric{
-			"pings": corecharm.Metric{
+			"pings": {
 				Description: "test metric",
 				Type:        corecharm.MetricTypeAbsolute,
 			},
-			"juju-units": corecharm.Metric{},
+			"juju-units": {},
 		},
 	}
 
@@ -81,11 +81,11 @@ func (s *handlerSuite) SetUpTest(c *gc.C) {
 				charmURL: "local:trusty/metered-1",
 				unitTag:  "metered/0",
 				metrics: map[string]corecharm.Metric{
-					"pings": corecharm.Metric{
+					"pings": {
 						Description: "test metric",
 						Type:        corecharm.MetricTypeAbsolute,
 					},
-					"juju-units": corecharm.Metric{},
+					"juju-units": {},
 				},
 			}, nil
 		},
@@ -232,7 +232,7 @@ func (m *mockReadCharm) ReadCharm(unitTag names.UnitTag, paths context.Paths) (*
 	m.MethodCall(m, "ReadCharm", unitTag, paths)
 	return corecharm.MustParseURL("local:trusty/metered-1"),
 		map[string]corecharm.Metric{
-			"pings":      corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute},
-			"juju-units": corecharm.Metric{},
+			"pings":      {Description: "test metric", Type: corecharm.MetricTypeAbsolute},
+			"juju-units": {},
 		}, nil
 }

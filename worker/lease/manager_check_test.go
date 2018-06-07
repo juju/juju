@@ -24,7 +24,7 @@ var _ = gc.Suite(&TokenSuite{})
 func (s *TokenSuite) TestSuccess(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+			"redis": {
 				Holder:   "redis/0",
 				Expiry:   offset(time.Second),
 				Trapdoor: corelease.LockedTrapdoor,

@@ -857,9 +857,9 @@ func (t *localServerSuite) testStartInstanceSubnet(c *gc.C, subnet string) (inst
 		ControllerUUID: t.ControllerUUID,
 		Placement:      fmt.Sprintf("subnet=%s", subnet),
 		SubnetsToZones: map[network.Id][]string{
-			subIDs[0]: []string{"test-available"},
-			subIDs[1]: []string{"test-available"},
-			subIDs[2]: []string{"test-unavailable"},
+			subIDs[0]: {"test-available"},
+			subIDs[1]: {"test-available"},
+			subIDs[2]: {"test-unavailable"},
 		},
 	}
 	zonedEnviron := env.(common.ZonedEnviron)
@@ -886,9 +886,9 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneSubnetWrongVPC(c *gc.C) {
 		ControllerUUID: t.ControllerUUID,
 		Placement:      "subnet=0.1.2.0/24",
 		SubnetsToZones: map[network.Id][]string{
-			subIDs[0]: []string{"test-available"},
-			subIDs[1]: []string{"test-available"},
-			subIDs[2]: []string{"test-unavailable"},
+			subIDs[0]: {"test-available"},
+			subIDs[1]: {"test-available"},
+			subIDs[2]: {"test-unavailable"},
 		},
 	}
 	zonedEnviron := env.(common.ZonedEnviron)
@@ -1188,9 +1188,9 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) 
 		Placement:      "zone=test-available",
 		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
 		SubnetsToZones: map[network.Id][]string{
-			subIDs[0]: []string{"zone2"},
-			subIDs[1]: []string{"zone3"},
-			subIDs[2]: []string{"zone4"},
+			subIDs[0]: {"zone2"},
+			subIDs[1]: {"zone3"},
+			subIDs[2]: {"zone4"},
 		},
 		StatusCallback: fakeCallback,
 	}
@@ -1209,8 +1209,8 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 		Placement:      "zone=test-available",
 		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
 		SubnetsToZones: map[network.Id][]string{
-			subIDs[0]: []string{"test-available"},
-			subIDs[1]: []string{"zone3"},
+			subIDs[0]: {"test-available"},
+			subIDs[1]: {"zone3"},
 		},
 		StatusCallback: fakeCallback,
 	}
@@ -1226,8 +1226,8 @@ func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 		ControllerUUID: t.ControllerUUID,
 		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
 		SubnetsToZones: map[network.Id][]string{
-			subIDs[0]: []string{"test-available"},
-			subIDs[1]: []string{"zone3"},
+			subIDs[0]: {"test-available"},
+			subIDs[1]: {"zone3"},
 		},
 		StatusCallback: fakeCallback,
 	}
@@ -1277,7 +1277,7 @@ func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 		ControllerUUID: t.ControllerUUID,
 		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
 		SubnetsToZones: map[network.Id][]string{
-			subIDs[0]: []string{""},
+			subIDs[0]: {""},
 		},
 		StatusCallback: fakeCallback,
 	}

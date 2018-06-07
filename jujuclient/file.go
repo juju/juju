@@ -584,7 +584,7 @@ func (s *store) SetModels(controllerName string, models map[string]ModelDetails)
 			changed = true
 		}
 		// Delete models that are not in the new collection.
-		for modelName, _ := range storedModels.Models {
+		for modelName := range storedModels.Models {
 			if _, ok := models[modelName]; !ok {
 				delete(storedModels.Models, modelName)
 				if storedModels.CurrentModel == modelName {

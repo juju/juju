@@ -559,7 +559,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		if placementSubnetID != "" {
 			allowedSubnetIDs = []string{placementSubnetID}
 		} else {
-			for subnetID, _ := range args.SubnetsToZones {
+			for subnetID := range args.SubnetsToZones {
 				allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
 			}
 		}

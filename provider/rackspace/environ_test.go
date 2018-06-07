@@ -306,7 +306,7 @@ func (e *fakeInstance) Refresh(callCtx context.ProviderCallContext) error {
 
 func (e *fakeInstance) Addresses(callCtx context.ProviderCallContext) ([]network.Address, error) {
 	e.Push("Addresses", callCtx)
-	return []network.Address{network.Address{
+	return []network.Address{{
 		Value: "1.1.1.1",
 		Type:  network.IPv4Address,
 		Scope: network.ScopePublic,

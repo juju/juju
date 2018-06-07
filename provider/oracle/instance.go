@@ -239,11 +239,11 @@ func (o *oracleInstance) deleteInstanceAndResources(cleanup bool) error {
 // unusedPublicIps returns a slice of IpReservation that are currently not used
 func (o *oracleInstance) unusedPublicIps() ([]response.IpReservation, error) {
 	filter := []oci.Filter{
-		oci.Filter{
+		{
 			Arg:   "permanent",
 			Value: "true",
 		},
-		oci.Filter{
+		{
 			Arg:   "used",
 			Value: "false",
 		},
@@ -352,7 +352,7 @@ func (o *oracleInstance) publicAddressesAssociations() ([]response.IpAssociation
 	defer o.mutex.Unlock()
 
 	filter := []oci.Filter{
-		oci.Filter{
+		{
 			Arg:   "vcable",
 			Value: string(o.machine.Vcable_id),
 		},

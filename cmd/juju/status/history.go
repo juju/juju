@@ -73,7 +73,7 @@ func (c *statusHistoryCommand) Info() *cmd.Info {
 
 func supportedHistoryKindTypes() string {
 	supported := set.NewStrings()
-	for k, _ := range status.AllHistoryKind() {
+	for k := range status.AllHistoryKind() {
 		supported.Add(string(k))
 	}
 	return strings.Join(supported.SortedValues(), "|")
@@ -82,7 +82,7 @@ func supportedHistoryKindTypes() string {
 func supportedHistoryKindDescs() string {
 	types := status.AllHistoryKind()
 	supported := set.NewStrings()
-	for k, _ := range types {
+	for k := range types {
 		supported.Add(string(k))
 	}
 	all := ""

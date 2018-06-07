@@ -546,7 +546,7 @@ func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
 func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 	s.api.SetErrors(&params.Error{Code: params.CodeOperationBlocked})
 	s.api.blocks = []params.ModelBlockInfo{
-		params.ModelBlockInfo{
+		{
 			Name:     "test1",
 			UUID:     test1UUID,
 			OwnerTag: "user-cheryl",
@@ -554,7 +554,7 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 				"BlockDestroy",
 			},
 		},
-		params.ModelBlockInfo{
+		{
 			Name:     "test2",
 			UUID:     test2UUID,
 			OwnerTag: "user-bob",

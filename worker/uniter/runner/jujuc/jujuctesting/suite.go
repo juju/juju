@@ -47,10 +47,10 @@ func (s *ContextSuite) NewInfo() *ContextInfo {
 			"mysql/0": gsStatus,
 		},
 		Relations: map[string]application.UnitsGoalState{
-			"db": application.UnitsGoalState{
+			"db": {
 				"mysql/0": gsStatus,
 			},
-			"server": application.UnitsGoalState{
+			"server": {
 				"wordpress/0": gsStatus,
 			},
 		},

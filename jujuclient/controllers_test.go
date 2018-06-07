@@ -223,7 +223,7 @@ func (s *ControllersSuite) getControllers(c *gc.C) map[string]jujuclient.Control
 
 func firstTestControllerName(c *gc.C) string {
 	all := writeTestControllersFile(c)
-	for key, _ := range all.Controllers {
+	for key := range all.Controllers {
 		return key
 	}
 	return ""

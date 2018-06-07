@@ -182,15 +182,15 @@ func (s *SubscriberSuite) TestNoInitialRemotes(c *gc.C) {
 func (s *SubscriberSuite) enableHA(c *gc.C) {
 	done, err := s.hub.Publish(apiserver.DetailsTopic, apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
-			"3": apiserver.APIServer{
+			"3": {
 				ID:        "3",
 				Addresses: []string{"10.1.2.3"},
 			},
-			"5": apiserver.APIServer{
+			"5": {
 				ID:        "5",
 				Addresses: []string{"10.1.2.5"},
 			},
-			"42": apiserver.APIServer{
+			"42": {
 				ID:        "42",
 				Addresses: []string{"10.1.2.42"},
 			},

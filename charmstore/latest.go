@@ -25,7 +25,7 @@ func LatestCharmInfo(client Client, charms []CharmID, metadata map[string]string
 	// Do a bulk call to get the revision info for all charms.
 	logger.Infof("retrieving revision information for %d charms", len(charms))
 	revResults, err := client.LatestRevisions(charms, map[string][]string{
-		jujuMetadataHTTPHeader: []string{
+		jujuMetadataHTTPHeader: {
 			// environment_uuid is deprecated.
 			"environment_uuid=" + metadata["model_uuid"],
 			"model_uuid=" + metadata["model_uuid"],

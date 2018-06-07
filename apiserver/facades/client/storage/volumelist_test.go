@@ -28,7 +28,7 @@ func (s *volumeSuite) expectedVolumeDetails() params.VolumeDetails {
 			Status: "attached",
 		},
 		MachineAttachments: map[string]params.VolumeAttachmentDetails{
-			s.machineTag.String(): params.VolumeAttachmentDetails{
+			s.machineTag.String(): {
 				Life: "alive",
 			},
 		},
@@ -41,7 +41,7 @@ func (s *volumeSuite) expectedVolumeDetails() params.VolumeDetails {
 				Status: "attached",
 			},
 			Attachments: map[string]params.StorageAttachmentDetails{
-				"unit-mysql-0": params.StorageAttachmentDetails{
+				"unit-mysql-0": {
 					StorageTag: "storage-data-0",
 					UnitTag:    "unit-mysql-0",
 					MachineTag: "machine-66",

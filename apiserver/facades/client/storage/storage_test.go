@@ -246,7 +246,7 @@ func (s *storageSuite) createTestStorageDetails() params.StorageDetails {
 			Status: "attached",
 		},
 		Attachments: map[string]params.StorageAttachmentDetails{
-			s.unitTag.String(): params.StorageAttachmentDetails{
+			s.unitTag.String(): {
 				s.storageTag.String(),
 				s.unitTag.String(),
 				s.machineTag.String(),
@@ -304,7 +304,7 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 			Status: "attached",
 		},
 		Attachments: map[string]params.StorageAttachmentDetails{
-			s.unitTag.String(): params.StorageAttachmentDetails{
+			s.unitTag.String(): {
 				s.storageTag.String(),
 				s.unitTag.String(),
 				s.machineTag.String(),

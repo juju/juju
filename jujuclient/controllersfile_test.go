@@ -93,7 +93,7 @@ func writeTestControllersFile(c *gc.C) *jujuclient.Controllers {
 func (s *ControllersFileSuite) TestParseControllerMetadata(c *gc.C) {
 	controllers := parseControllers(c)
 	var names []string
-	for name, _ := range controllers.Controllers {
+	for name := range controllers.Controllers {
 		names = append(names, name)
 	}
 	c.Assert(names, jc.SameContents,
@@ -137,7 +137,7 @@ current-controller: aws-test
 	expectedDetails := jujuclient.ControllerDetails{
 		ControllerUUID: "this-is-the-aws-test-uuid",
 		APIEndpoints:   []string{"this-is-aws-test-of-many-api-endpoints"},
-		DNSCache:       map[string][]string{"example.com": []string{"0.1.1.1", "0.2.2.2"}},
+		DNSCache:       map[string][]string{"example.com": {"0.1.1.1", "0.2.2.2"}},
 		CACert:         "this-is-aws-test-ca-cert",
 		Cloud:          "aws",
 		CloudRegion:    "us-east-1",

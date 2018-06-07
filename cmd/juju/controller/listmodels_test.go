@@ -150,7 +150,7 @@ func (f *fakeModelMgrAPIClient) ListModelSummaries(user string, all bool) ([]bas
 		}
 		if len(info.Result.Machines) > 0 {
 			results[i].Counts = []base.EntityCount{
-				base.EntityCount{string(params.Machines), int64(len(info.Result.Machines))},
+				{string(params.Machines), int64(len(info.Result.Machines))},
 			}
 			cores := uint64(0)
 			for _, machine := range info.Result.Machines {
@@ -402,20 +402,20 @@ func (s *BaseModelsSuite) TestWithIncompleteModels(c *gc.C) {
 
 	basicAndUsersInfo := createBasicModelInfo()
 	basicAndUsersInfo.Users = []params.ModelUserInfo{
-		params.ModelUserInfo{"admin", "display name", nil, params.UserAccessPermission("admin")},
+		{"admin", "display name", nil, params.UserAccessPermission("admin")},
 	}
 
 	basicAndMachinesInfo := createBasicModelInfo()
 	basicAndMachinesInfo.Machines = []params.ModelMachineInfo{
-		params.ModelMachineInfo{Id: "2"},
-		params.ModelMachineInfo{Id: "12"},
+		{Id: "2"},
+		{Id: "12"},
 	}
 
 	s.api.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: createBasicModelInfo()},
-		params.ModelInfoResult{Result: basicAndStatusInfo},
-		params.ModelInfoResult{Result: basicAndUsersInfo},
-		params.ModelInfoResult{Result: basicAndMachinesInfo},
+		{Result: createBasicModelInfo()},
+		{Result: basicAndStatusInfo},
+		{Result: basicAndUsersInfo},
+		{Result: basicAndMachinesInfo},
 	}
 	context, err := cmdtesting.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
@@ -477,7 +477,7 @@ func (s *BaseModelsSuite) newCommand() cmd.Command {
 
 func (s *BaseModelsSuite) assertAgentVersionPresent(c *gc.C, testInfo *params.ModelInfo, checker gc.Checker) {
 	s.api.infos = []params.ModelInfoResult{
-		params.ModelInfoResult{Result: testInfo},
+		{Result: testInfo},
 	}
 	context, err := cmdtesting.RunCommand(c, s.newCommand(), "--format=yaml")
 	c.Assert(err, jc.ErrorIsNil)

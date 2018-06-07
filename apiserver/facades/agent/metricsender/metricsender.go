@@ -158,7 +158,7 @@ func SendMetrics(st ModelBackend, sender MetricSender, clock clock.Clock, batchS
 }
 
 func setHeldBatchUnitMeterStatus(st ModelBackend, units map[string]bool) {
-	for unitID, _ := range units {
+	for unitID := range units {
 		unit, err := st.Unit(unitID)
 		if err != nil {
 			logger.Warningf("failed to get unit for setting held batch meter status: %v", err)

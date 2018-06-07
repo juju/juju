@@ -121,7 +121,7 @@ func writeTestBootstrapConfigFile(c *gc.C) map[string]jujuclient.BootstrapConfig
 func (s *BootstrapConfigFileSuite) TestParseControllerMetadata(c *gc.C) {
 	controllers := parseBootstrapConfig(c)
 	var names []string
-	for name, _ := range controllers {
+	for name := range controllers {
 		names = append(names, name)
 	}
 	c.Assert(names, jc.SameContents, []string{"mallards", "aws-test"})

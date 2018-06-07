@@ -203,7 +203,7 @@ func (s *mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsList
 				Life:       "alive",
 				Status:     createTestStatus(status.Attached, "", s.time),
 				Attachments: map[string]params.StorageAttachmentDetails{
-					"unit-abc-0": params.StorageAttachmentDetails{
+					"unit-abc-0": {
 						StorageTag: "storage-db-dir-1001",
 						UnitTag:    "unit-abc-0",
 						MachineTag: "machine-0",
@@ -286,13 +286,13 @@ func (s *mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsList
 				Kind:       params.StorageKindBlock,
 				Status:     createTestStatus(status.Attached, "", s.time),
 				Attachments: map[string]params.StorageAttachmentDetails{
-					"unit-transcode-0": params.StorageAttachmentDetails{
+					"unit-transcode-0": {
 						StorageTag: "storage-shared-fs-0",
 						UnitTag:    "unit-transcode-0",
 						MachineTag: "machine-0",
 						Location:   "/mnt/bits",
 					},
-					"unit-transcode-1": params.StorageAttachmentDetails{
+					"unit-transcode-1": {
 						StorageTag: "storage-shared-fs-0",
 						UnitTag:    "unit-transcode-1",
 						MachineTag: "machine-1",

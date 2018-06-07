@@ -81,7 +81,7 @@ func (f *firewallSuite) TestIngressRulesWithErrors(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
 	for _, fake := range []*providertest.FakeFirewallAPI{
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -89,7 +89,7 @@ func (f *firewallSuite) TestIngressRulesWithErrors(c *gc.C) {
 				AllErr: errors.New("FakeRulesError"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -97,7 +97,7 @@ func (f *firewallSuite) TestIngressRulesWithErrors(c *gc.C) {
 				AllErr: errors.New("FakeApplicationError"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -105,7 +105,7 @@ func (f *firewallSuite) TestIngressRulesWithErrors(c *gc.C) {
 				DefaultErr: errors.New("FakeApplicationError"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -126,13 +126,13 @@ func (f *firewallSuite) TestGlobalIngressRulesWithErrors(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
 	for _, fake := range []*providertest.FakeFirewallAPI{
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
 			FakeRules: providertest.FakeRules{AllErr: errors.New("FakeRulesError")},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -140,7 +140,7 @@ func (f *firewallSuite) TestGlobalIngressRulesWithErrors(c *gc.C) {
 				AllErr: errors.New("FakeApplicationError"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -148,7 +148,7 @@ func (f *firewallSuite) TestGlobalIngressRulesWithErrors(c *gc.C) {
 				DefaultErr: errors.New("FakeApplicationError"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -187,13 +187,13 @@ func (f *firewallSuite) TestOpenPortsWithErrors(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: fakeConfig}
 
 	for _, fake := range []*providertest.FakeFirewallAPI{
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
 			FakeRules: providertest.FakeRules{AllErr: errors.New("FakeRulesError")},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -201,7 +201,7 @@ func (f *firewallSuite) TestOpenPortsWithErrors(c *gc.C) {
 				AllErr: errors.New("FakeApplicationError"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -209,13 +209,13 @@ func (f *firewallSuite) TestOpenPortsWithErrors(c *gc.C) {
 				DefaultErr: errors.New("FakeApplicationError"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
 			FakeSecIp: providertest.FakeSecIp{AllErr: errors.New("FakeSecIpError")},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -223,7 +223,7 @@ func (f *firewallSuite) TestOpenPortsWithErrors(c *gc.C) {
 				SecListErr: errors.New("FakeSecListErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -262,7 +262,7 @@ func (f *firewallSuite) TestClosePorts(c *gc.C) {
 func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 	for _, fake := range []*providertest.FakeFirewallAPI{
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -270,7 +270,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 				AllErr: errors.New("FakeRulesErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -278,7 +278,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 				AllErr: errors.New("FakeApplicationErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -286,7 +286,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 				DefaultErr: errors.New("FakeApplicationErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -294,7 +294,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 				AllErr: errors.New("FakeSecIpErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -302,14 +302,14 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 				AllDefaultErr: errors.New("FakeSecIpErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
 			FakeRules: providertest.FakeRules{
 				All: response.AllSecRules{
 					Result: []response.SecRule{
-						response.SecRule{
+						{
 							Action:      common.SecRulePermit,
 							Application: "/Compute-acme/jack.jones@example.com/video_streaming_udp",
 							Name:        "/Compute-acme/jack.jones@example.com/es_to_videoservers_stream",
@@ -327,7 +327,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 			FakeApplication: providertest.FakeApplication{
 				All: response.AllSecApplications{
 					Result: []response.SecApplication{
-						response.SecApplication{
+						{
 							Description: "Juju created security application",
 							Dport:       "17070",
 							Icmpcode:    "",
@@ -339,7 +339,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 							Value2:      -1,
 							Id:          "1869cb17-5b12-49c5-a09a-046da8899bc9",
 						},
-						response.SecApplication{
+						{
 							Description: "Juju created security application",
 							Dport:       "37017",
 							Icmpcode:    "",
@@ -356,7 +356,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 				AllErr: nil,
 				Default: response.AllSecApplications{
 					Result: []response.SecApplication{
-						response.SecApplication{
+						{
 							Description: "",
 							Dport:       "",
 							Icmpcode:    "",
@@ -368,7 +368,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 							Value2:      0,
 							Id:          "381c2267-1b38-4bbd-b53d-5149deddb094",
 						},
-						response.SecApplication{
+						{
 							Description: "",
 							Dport:       "",
 							Icmpcode:    "",
@@ -380,7 +380,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 							Value2:      0,
 							Id:          "57b0350b-2f02-4a2d-b5ec-cf731de36027",
 						},
-						response.SecApplication{
+						{
 							Description: "",
 							Dport:       "",
 							Icmpcode:    "",
@@ -392,7 +392,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 							Value2:      255,
 							Id:          "abb27ccd-1872-48f9-86ef-38c72d6f8a38",
 						},
-						response.SecApplication{
+						{
 							Description: "",
 							Dport:       "",
 							Icmpcode:    "",
@@ -404,7 +404,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 							Value2:      0,
 							Id:          "3ad808d4-b740-42c1-805c-57feb7c96d40",
 						},
-						response.SecApplication{
+						{
 							Description: "",
 							Dport:       "3306",
 							Icmpcode:    "",
@@ -416,7 +416,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 							Value2:      -1,
 							Id:          "2fb5eaff-3127-4334-8b03-367a44bb83bd",
 						},
-						response.SecApplication{
+						{
 							Description: "",
 							Dport:       "22",
 							Icmpcode:    "",
@@ -437,7 +437,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 		c.Assert(firewall, gc.NotNil)
 
 		err := firewall.ClosePorts(f.callCtx, []jujunetwork.IngressRule{
-			jujunetwork.IngressRule{
+			{
 				PortRange: jujunetwork.PortRange{
 					FromPort: 0,
 					ToPort:   0,
@@ -452,7 +452,7 @@ func (f *firewallSuite) TestClosePortsWithErrors(c *gc.C) {
 func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 	for _, fake := range []*providertest.FakeFirewallAPI{
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -460,7 +460,7 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 				AllErr: errors.New("FakeRulesErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -468,7 +468,7 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 				AllErr: errors.New("FakeApplicationErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -476,7 +476,7 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 				DefaultErr: errors.New("FakeApplicationErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -484,7 +484,7 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 				AllErr: errors.New("FakeSecIpErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -492,14 +492,14 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 				AllDefaultErr: errors.New("FakeSecIpErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
 			FakeRules: providertest.FakeRules{
 				All: response.AllSecRules{
 					Result: []response.SecRule{
-						response.SecRule{
+						{
 							Action:      common.SecRulePermit,
 							Application: "/Compute-acme/jack.jones@example.com/video_streaming_udp",
 							Name:        "/Compute-acme/jack.jones@example.com/es_to_videoservers_stream",
@@ -517,7 +517,7 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 			FakeApplication: providertest.FakeApplication{
 				All: response.AllSecApplications{
 					Result: []response.SecApplication{
-						response.SecApplication{
+						{
 							Description: "Juju created security application",
 							Dport:       "17070",
 							Icmpcode:    "",
@@ -529,7 +529,7 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 							Value2:      -1,
 							Id:          "1869cb17-5b12-49c5-a09a-046da8899bc9",
 						},
-						response.SecApplication{
+						{
 							Description: "Juju created security application",
 							Dport:       "37017",
 							Icmpcode:    "",
@@ -546,7 +546,7 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 				AllErr: nil,
 				Default: response.AllSecApplications{
 					Result: []response.SecApplication{
-						response.SecApplication{
+						{
 							Description: "",
 							Dport:       "",
 							Icmpcode:    "",
@@ -558,7 +558,7 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 							Value2:      0,
 							Id:          "381c2267-1b38-4bbd-b53d-5149deddb094",
 						},
-						response.SecApplication{
+						{
 							Description: "",
 							Dport:       "",
 							Icmpcode:    "",
@@ -570,7 +570,7 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 							Value2:      0,
 							Id:          "57b0350b-2f02-4a2d-b5ec-cf731de36027",
 						},
-						response.SecApplication{
+						{
 							Description: "",
 							Dport:       "",
 							Icmpcode:    "",
@@ -582,7 +582,7 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 							Value2:      255,
 							Id:          "abb27ccd-1872-48f9-86ef-38c72d6f8a38",
 						},
-						response.SecApplication{
+						{
 							Description: "",
 							Dport:       "",
 							Icmpcode:    "",
@@ -594,7 +594,7 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 							Value2:      0,
 							Id:          "3ad808d4-b740-42c1-805c-57feb7c96d40",
 						},
-						response.SecApplication{
+						{
 							Description: "",
 							Dport:       "3306",
 							Icmpcode:    "",
@@ -606,7 +606,7 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 							Value2:      -1,
 							Id:          "2fb5eaff-3127-4334-8b03-367a44bb83bd",
 						},
-						response.SecApplication{
+						{
 							Description: "",
 							Dport:       "22",
 							Icmpcode:    "",
@@ -627,7 +627,7 @@ func (f *firewallSuite) TestClosePortsOnInstance(c *gc.C) {
 		c.Assert(firewall, gc.NotNil)
 
 		err := firewall.ClosePortsOnInstance(f.callCtx, "0,", []jujunetwork.IngressRule{
-			jujunetwork.IngressRule{
+			{
 				PortRange: jujunetwork.PortRange{
 					FromPort: 0,
 					ToPort:   0,
@@ -654,13 +654,13 @@ func (f *firewallSuite) TestMachineIngressRulesWithErrors(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
 	for _, fake := range []*providertest.FakeFirewallAPI{
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
 			FakeRules: providertest.FakeRules{AllErr: errors.New("FakeRulesError")},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -668,7 +668,7 @@ func (f *firewallSuite) TestMachineIngressRulesWithErrors(c *gc.C) {
 				AllErr: errors.New("FakeApplicationError"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -676,13 +676,13 @@ func (f *firewallSuite) TestMachineIngressRulesWithErrors(c *gc.C) {
 				DefaultErr: errors.New("FakeApplicationError"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
 			FakeSecIp: providertest.FakeSecIp{AllErr: errors.New("FakeSecIpError")},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -713,13 +713,13 @@ func (f *firewallSuite) TestOpenPortsOnInstanceWithErrors(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
 	for _, fake := range []*providertest.FakeFirewallAPI{
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
 			FakeRules: providertest.FakeRules{AllErr: errors.New("FakeRulesError")},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -727,7 +727,7 @@ func (f *firewallSuite) TestOpenPortsOnInstanceWithErrors(c *gc.C) {
 				AllErr: errors.New("FakeApplicationError"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -735,13 +735,13 @@ func (f *firewallSuite) TestOpenPortsOnInstanceWithErrors(c *gc.C) {
 				DefaultErr: errors.New("FakeApplicationError"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
 			FakeSecIp: providertest.FakeSecIp{AllErr: errors.New("FakeSecIpError")},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -749,7 +749,7 @@ func (f *firewallSuite) TestOpenPortsOnInstanceWithErrors(c *gc.C) {
 				SecListErr: errors.New("FakeSecListErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -781,7 +781,7 @@ func (f *firewallSuite) TestCreateMachineSecLists(c *gc.C) {
 func (f *firewallSuite) TestCreateMachineSecListsWithErrors(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 	for _, fake := range []*providertest.FakeFirewallAPI{
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -789,7 +789,7 @@ func (f *firewallSuite) TestCreateMachineSecListsWithErrors(c *gc.C) {
 				SecListErr: errors.New("FakeSecListErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -798,13 +798,13 @@ func (f *firewallSuite) TestCreateMachineSecListsWithErrors(c *gc.C) {
 				CreateErr:  errors.New("FakeSecListErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
 			FakeRules: providertest.FakeRules{AllErr: errors.New("FakeRulesError")},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -812,7 +812,7 @@ func (f *firewallSuite) TestCreateMachineSecListsWithErrors(c *gc.C) {
 				AllErr: errors.New("FakeApplicationError"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -820,7 +820,7 @@ func (f *firewallSuite) TestCreateMachineSecListsWithErrors(c *gc.C) {
 				DefaultErr: errors.New("FakeApplicationError"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -851,7 +851,7 @@ func (f *firewallSuite) TestDeleteMachineSecListWithErrors(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
 	for _, fake := range []*providertest.FakeFirewallAPI{
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -859,20 +859,20 @@ func (f *firewallSuite) TestDeleteMachineSecListWithErrors(c *gc.C) {
 				AllErr: errors.New("FakeAssociationError"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
 			FakeRules: providertest.FakeRules{AllErr: errors.New("FakeRulesError")},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
 			FakeRules: providertest.FakeRules{
 				All: response.AllSecRules{
 					Result: []response.SecRule{
-						response.SecRule{
+						{
 							Action:      common.SecRulePermit,
 							Application: "/Compute-acme/jack.jones@example.com/video_streaming_udp",
 							Name:        "/Compute-acme/jack.jones@example.com/es_to_videoservers_stream",
@@ -888,7 +888,7 @@ func (f *firewallSuite) TestDeleteMachineSecListWithErrors(c *gc.C) {
 				DeleteErr: errors.New("FakeRulesError"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -920,7 +920,7 @@ func (f *firewallSuite) TestCreateDefaultACLAndRulesWithErrors(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 
 	for _, fake := range []*providertest.FakeFirewallAPI{
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -928,7 +928,7 @@ func (f *firewallSuite) TestCreateDefaultACLAndRulesWithErrors(c *gc.C) {
 				AclErr: errors.New("FakeAclErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -937,7 +937,7 @@ func (f *firewallSuite) TestCreateDefaultACLAndRulesWithErrors(c *gc.C) {
 				CreateErr: errors.New("FakeAclErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -945,7 +945,7 @@ func (f *firewallSuite) TestCreateDefaultACLAndRulesWithErrors(c *gc.C) {
 				AllErr: errors.New("FakeAclErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -974,7 +974,7 @@ func (f *firewallSuite) TestRemoveACLAndRules(c *gc.C) {
 func (f *firewallSuite) TestRemoveACLAndRulesWithErrors(c *gc.C) {
 	cfg := &fakeEnvironConfig{cfg: testing.ModelConfig(c)}
 	for _, fake := range []*providertest.FakeFirewallAPI{
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
@@ -982,14 +982,14 @@ func (f *firewallSuite) TestRemoveACLAndRulesWithErrors(c *gc.C) {
 				AllErr: errors.New("FakeSecRulesErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},
 			FakeSecRules: providertest.FakeSecRules{
 				All: response.AllSecurityRules{
 					Result: []response.SecurityRule{
-						response.SecurityRule{
+						{
 							Name:                   "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 							Uri:                    "https://api-z999.compute.us0.oraclecloud.com:443/network/v1/secrule/Compute-acme/jack.jones@example.com/secrule1",
 							Description:            "Sample security rule",
@@ -1009,7 +1009,7 @@ func (f *firewallSuite) TestRemoveACLAndRulesWithErrors(c *gc.C) {
 				DeleteErr: errors.New("FakeSecRulesErr"),
 			},
 		},
-		&providertest.FakeFirewallAPI{
+		{
 			FakeComposer: providertest.FakeComposer{
 				Compose: "/Compute-acme/jack.jones@example.com/allowed_video_servers",
 			},

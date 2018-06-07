@@ -485,7 +485,7 @@ func (s *CommonProvisionerSuite) addMachineWithConstraints(cons constraints.Valu
 
 func (s *CommonProvisionerSuite) addMachines(number int) ([]*state.Machine, error) {
 	templates := make([]state.MachineTemplate, number)
-	for i, _ := range templates {
+	for i := range templates {
 		templates[i] = state.MachineTemplate{
 			Series:      supportedversion.SupportedLTS(),
 			Jobs:        []state.MachineJob{state.JobHostUnits},
@@ -1032,8 +1032,8 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	)
 	// The dummy provider simulates 2 subnets per included space.
 	expectedSubnetsToZones := map[network.Id][]string{
-		"subnet-0": []string{"zone0"},
-		"subnet-1": []string{"zone1"},
+		"subnet-0": {"zone0"},
+		"subnet-1": {"zone1"},
 	}
 	m, err := s.addMachineWithConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
