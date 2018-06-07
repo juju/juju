@@ -99,7 +99,18 @@ func (r *globalProviderRegistry) Provider(providerType string) (EnvironProvider,
 // RegisterProvider will panic if the provider name or any of the aliases
 // are registered more than once.
 // The return function can be used to unregister the provider and is used by tests.
-func RegisterProvider(name string, p EnvironProvider, alias ...string) (unregister func()) {
+func RegisterProvider(name string, p CloudEnvironProvider, alias ...string) (unregister func()) {
+	if err := GlobalProviderRegistry().RegisterProvider(p, name, alias...); err != nil {
+		panic(fmt.Errorf("juju: %v", err))
+	}
+	return func() {
+		GlobalProviderRegistry().unregisterProvider(name)
+	}
+}
+
+// RegisterUnbootstrappableProvider is used for providers that we want to use for managing 'instances',
+// but are not possible sources for 'juju bootstrap'.
+func RegisterUnbootstrappableProvider(name string, p EnvironProvider, alias ...string) (unregister func()) {
 	if err := GlobalProviderRegistry().RegisterProvider(p, name, alias...); err != nil {
 		panic(fmt.Errorf("juju: %v", err))
 	}

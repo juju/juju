@@ -10,5 +10,5 @@ const (
 )
 
 func init() {
-	environs.RegisterProvider(providerType, providerInstance)
+	environs.RegisterUnbootstrappableProvider(providerType, providerInstance)
 }
