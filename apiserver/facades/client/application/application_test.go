@@ -363,7 +363,7 @@ func (s *applicationSuite) TestApplicationDeployWithInvalidStoragePool(c *gc.C) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	storageConstraints := map[string]storage.Constraints{
-		"data": storage.Constraints{
+		"data": {
 			Pool:  "foo",
 			Count: 1,
 			Size:  1024,

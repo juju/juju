@@ -220,7 +220,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(list.Models, jc.DeepEquals, []params.ModelBlockInfo{
-		params.ModelBlockInfo{
+		{
 			Name:     "controller",
 			UUID:     s.State.ModelUUID(),
 			OwnerTag: s.Owner.String(),
@@ -229,7 +229,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 				"BlockChange",
 			},
 		},
-		params.ModelBlockInfo{
+		{
 			Name:     "test",
 			UUID:     st.ModelUUID(),
 			OwnerTag: s.Owner.String(),

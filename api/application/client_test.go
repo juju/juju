@@ -96,7 +96,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 				c.Assert(app.Constraints, gc.DeepEquals, constraints.MustParse("mem=4G"))
 				c.Assert(app.Placement, gc.DeepEquals, []*instance.Placement{{"scope", "directive"}})
 				c.Assert(app.EndpointBindings, gc.DeepEquals, map[string]string{"foo": "bar"})
-				c.Assert(app.Storage, gc.DeepEquals, map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}})
+				c.Assert(app.Storage, gc.DeepEquals, map[string]storage.Constraints{"data": {Pool: "pool"}})
 				c.Assert(app.AttachStorage, gc.DeepEquals, []string{"storage-data-0"})
 				c.Assert(app.Resources, gc.DeepEquals, map[string]string{"foo": "bar"})
 
@@ -119,7 +119,7 @@ func (s *applicationSuite) TestDeploy(c *gc.C) {
 		Config:           map[string]string{"foo": "bar"},
 		Cons:             constraints.MustParse("mem=4G"),
 		Placement:        []*instance.Placement{{"scope", "directive"}},
-		Storage:          map[string]storage.Constraints{"data": storage.Constraints{Pool: "pool"}},
+		Storage:          map[string]storage.Constraints{"data": {Pool: "pool"}},
 		AttachStorage:    []string{"data/0"},
 		Resources:        map[string]string{"foo": "bar"},
 		EndpointBindings: map[string]string{"foo": "bar"},

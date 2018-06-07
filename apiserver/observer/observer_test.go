@@ -37,8 +37,8 @@ func (*multiplexerSuite) TestObserverFactoryMultiplexer_CallsAllFactories(c *gc.
 
 func (*multiplexerSuite) TestJoin_CallsAllObservers(c *gc.C) {
 	observers := []*fakeobserver.Instance{
-		&fakeobserver.Instance{},
-		&fakeobserver.Instance{},
+		{},
+		{},
 	}
 
 	o := observer.NewMultiplexer(observers[0], observers[1])
@@ -52,8 +52,8 @@ func (*multiplexerSuite) TestJoin_CallsAllObservers(c *gc.C) {
 
 func (*multiplexerSuite) TestLeave_CallsAllObservers(c *gc.C) {
 	observers := []*fakeobserver.Instance{
-		&fakeobserver.Instance{},
-		&fakeobserver.Instance{},
+		{},
+		{},
 	}
 
 	o := observer.NewMultiplexer(observers[0], observers[1])
@@ -66,8 +66,8 @@ func (*multiplexerSuite) TestLeave_CallsAllObservers(c *gc.C) {
 
 func (*multiplexerSuite) TestRPCObserver_CallsAllObservers(c *gc.C) {
 	observers := []*fakeobserver.Instance{
-		&fakeobserver.Instance{},
-		&fakeobserver.Instance{},
+		{},
+		{},
 	}
 
 	o := observer.NewMultiplexer(observers[0], observers[1])
@@ -80,8 +80,8 @@ func (*multiplexerSuite) TestRPCObserver_CallsAllObservers(c *gc.C) {
 
 func (*multiplexerSuite) TestLogin_CallsAllObservers(c *gc.C) {
 	observers := []*fakeobserver.Instance{
-		&fakeobserver.Instance{},
-		&fakeobserver.Instance{},
+		{},
+		{},
 	}
 
 	o := observer.NewMultiplexer(observers[0], observers[1])

@@ -71,8 +71,8 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 
 func (s *statusSetSuite) TestStatus(c *gc.C) {
 	for i, args := range [][]string{
-		[]string{"maintenance", "doing some work"},
-		[]string{"active", ""},
+		{"maintenance", "doing some work"},
+		{"active", ""},
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
@@ -92,8 +92,8 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 
 func (s *statusSetSuite) TestApplicationStatus(c *gc.C) {
 	for i, args := range [][]string{
-		[]string{"--application", "maintenance", "doing some work"},
-		[]string{"--application", "active", ""},
+		{"--application", "maintenance", "doing some work"},
+		{"--application", "active", ""},
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)

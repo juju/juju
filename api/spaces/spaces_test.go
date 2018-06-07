@@ -56,7 +56,7 @@ func makeArgs(name string, subnets []string) (string, []string, apitesting.APICa
 
 	expectArgs := params.CreateSpacesParams{
 		Spaces: []params.CreateSpaceParams{
-			params.CreateSpaceParams{
+			{
 				SpaceTag:   spaceTag,
 				SubnetTags: subnetTags,
 				Public:     true,

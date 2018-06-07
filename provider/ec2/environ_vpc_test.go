@@ -598,7 +598,7 @@ func (s *vpcSuite) TestFindDefaultVPCIDNoAttributeOrNoValue(c *gc.C) {
 	checkFailed()
 
 	s.stubAPI.SetAttributesResponse(map[string][]string{
-		"not-default-vpc-attribute": []string{"foo", "bar"}, // wrong name
+		"not-default-vpc-attribute": {"foo", "bar"}, // wrong name
 	})
 	checkFailed()
 
@@ -608,14 +608,14 @@ func (s *vpcSuite) TestFindDefaultVPCIDNoAttributeOrNoValue(c *gc.C) {
 	checkFailed()
 
 	s.stubAPI.SetAttributesResponse(map[string][]string{
-		"default-vpc": []string{}, // name ok, empty values
+		"default-vpc": {}, // name ok, empty values
 	})
 	checkFailed()
 }
 
 func (s *vpcSuite) TestFindDefaultVPCIDWithExplicitNoneValue(c *gc.C) {
 	s.stubAPI.SetAttributesResponse(map[string][]string{
-		"default-vpc": []string{"none"},
+		"default-vpc": {"none"},
 	})
 
 	vpcID, err := findDefaultVPCID(s.stubAPI)
@@ -628,7 +628,7 @@ func (s *vpcSuite) TestFindDefaultVPCIDWithExplicitNoneValue(c *gc.C) {
 
 func (s *vpcSuite) TestFindDefaultVPCIDSuccess(c *gc.C) {
 	s.stubAPI.SetAttributesResponse(map[string][]string{
-		"default-vpc": []string{"vpc-foo", "vpc-bar"},
+		"default-vpc": {"vpc-foo", "vpc-bar"},
 	})
 
 	vpcID, err := findDefaultVPCID(s.stubAPI)
@@ -711,9 +711,9 @@ func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneSuccess(c *gc.C) {
 }
 
 var fakeSubnetsToZones = map[network.Id][]string{
-	"subnet-foo": []string{"az1", "az2"},
-	"subnet-bar": []string{"az1"},
-	"subnet-oof": []string{"az3"},
+	"subnet-foo": {"az1", "az2"},
+	"subnet-bar": {"az1"},
+	"subnet-oof": {"az3"},
 }
 
 func (s *vpcSuite) TestFindSubnetIDsForAvailabilityZoneNoneFound(c *gc.C) {

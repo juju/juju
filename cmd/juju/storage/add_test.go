@@ -102,8 +102,8 @@ func (s *addSuite) TestAddInvalidUnit(c *gc.C) {
 
 func (s *addSuite) TestAddSuccess(c *gc.C) {
 	validArgs := [][]string{
-		[]string{"tst/123", "data=676"},
-		[]string{"tst/123", "data"},
+		{"tst/123", "data=676"},
+		{"tst/123", "data"},
 	}
 	expectedStderr := `
 added storage foo/0 to tst/123
@@ -220,7 +220,7 @@ func (s *addSuite) TestCollapseUnitErrors(c *gc.C) {
 	s.args = []string{"tst/123", "storage0=ebs", "storage2=barf", "storage1=123", "storage42=loop"}
 	s.mockAPI.addToUnitFunc = func(storages []params.StorageAddParams) ([]params.AddStorageResult, error) {
 		result := make([]params.AddStorageResult, len(storages))
-		for i, _ := range storages {
+		for i := range storages {
 			result[i].Error = common.ServerError(errors.New(expectedErr))
 		}
 		return result, nil

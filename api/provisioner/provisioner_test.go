@@ -437,7 +437,7 @@ func (s *provisionerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results, gc.DeepEquals, []provisioner.DistributionGroupResult{
-		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
+		{MachineIds: nil, Err: nil},
 	})
 
 	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -455,8 +455,8 @@ func (s *provisionerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results), gc.Equals, 2)
 	c.Assert(results, gc.DeepEquals, []provisioner.DistributionGroupResult{
-		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
-		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
+		{MachineIds: nil, Err: nil},
+		{MachineIds: nil, Err: nil},
 	})
 
 	machine2, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -474,9 +474,9 @@ func (s *provisionerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results), gc.Equals, 3)
 	c.Assert(results, gc.DeepEquals, []provisioner.DistributionGroupResult{
-		provisioner.DistributionGroupResult{MachineIds: nil, Err: nil},
-		provisioner.DistributionGroupResult{MachineIds: []string{"2"}, Err: nil},
-		provisioner.DistributionGroupResult{MachineIds: []string{"1"}, Err: nil},
+		{MachineIds: nil, Err: nil},
+		{MachineIds: []string{"2"}, Err: nil},
+		{MachineIds: []string{"1"}, Err: nil},
 	})
 }
 
@@ -527,8 +527,8 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(provisioningInfo.Placement, gc.Equals, template.Placement)
 	c.Assert(provisioningInfo.Constraints, jc.DeepEquals, template.Constraints)
 	c.Assert(provisioningInfo.SubnetsToZones, jc.DeepEquals, map[string][]string{
-		"subnet-2": []string{"zone2"},
-		"subnet-3": []string{"zone3"},
+		"subnet-2": {"zone2"},
+		"subnet-3": {"zone3"},
 	})
 }
 

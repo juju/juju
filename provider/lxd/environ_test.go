@@ -109,7 +109,7 @@ func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 
 func (s *environSuite) TestDestroy(c *gc.C) {
 	s.Client.Volumes = map[string][]api.StorageVolume{
-		"juju": []api.StorageVolume{{
+		"juju": {{
 			Name: "not-ours",
 			StorageVolumePut: api.StorageVolumePut{
 				Config: map[string]string{
@@ -146,7 +146,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	s.Stub.ResetCalls()
 
 	s.Client.Volumes = map[string][]api.StorageVolume{
-		"juju": []api.StorageVolume{{
+		"juju": {{
 			Name: "not-ours",
 			StorageVolumePut: api.StorageVolumePut{
 				Config: map[string]string{

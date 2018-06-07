@@ -112,7 +112,7 @@ var cloudSchema = &jsonschema.Schema{
 				Required:      []string{cloud.EndpointKey},
 				MaxProperties: jsonschema.Int(1),
 				Properties: map[string]*jsonschema.Schema{
-					cloud.EndpointKey: &jsonschema.Schema{
+					cloud.EndpointKey: {
 						Singular:      "the API endpoint url for the region",
 						Type:          []jsonschema.Type{jsonschema.StringType},
 						Format:        jsonschema.FormatURI,

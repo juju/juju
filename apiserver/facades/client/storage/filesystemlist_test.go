@@ -26,7 +26,7 @@ func (s *filesystemSuite) expectedFilesystemDetails() params.FilesystemDetails {
 			Status: "attached",
 		},
 		MachineAttachments: map[string]params.FilesystemAttachmentDetails{
-			s.machineTag.String(): params.FilesystemAttachmentDetails{
+			s.machineTag.String(): {
 				Life: "dead",
 			},
 		},
@@ -39,7 +39,7 @@ func (s *filesystemSuite) expectedFilesystemDetails() params.FilesystemDetails {
 				Status: "attached",
 			},
 			Attachments: map[string]params.StorageAttachmentDetails{
-				"unit-mysql-0": params.StorageAttachmentDetails{
+				"unit-mysql-0": {
 					StorageTag: "storage-data-0",
 					UnitTag:    "unit-mysql-0",
 					MachineTag: "machine-66",

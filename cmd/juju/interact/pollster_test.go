@@ -473,7 +473,7 @@ func (PollsterSuite) TestQueryObjectSchema(c *gc.C) {
 	schema := &jsonschema.Schema{
 		Type: []jsonschema.Type{jsonschema.ObjectType},
 		Properties: map[string]*jsonschema.Schema{
-			"numbers": &jsonschema.Schema{
+			"numbers": {
 				Singular: "number",
 				Plural:   "numbers",
 				Type:     []jsonschema.Type{jsonschema.ArrayType},
@@ -488,7 +488,7 @@ func (PollsterSuite) TestQueryObjectSchema(c *gc.C) {
 					}},
 				},
 			},
-			"name": &jsonschema.Schema{
+			"name": {
 				Type:     []jsonschema.Type{jsonschema.StringType},
 				Singular: "the name",
 			},
@@ -513,7 +513,7 @@ func (PollsterSuite) TestQueryObjectSchemaOrder(c *gc.C) {
 		// Order should match up with order of input in strings.NewReader below.
 		Order: []string{"numbers", "name"},
 		Properties: map[string]*jsonschema.Schema{
-			"numbers": &jsonschema.Schema{
+			"numbers": {
 				Singular: "number",
 				Plural:   "numbers",
 				Type:     []jsonschema.Type{jsonschema.ArrayType},
@@ -528,7 +528,7 @@ func (PollsterSuite) TestQueryObjectSchemaOrder(c *gc.C) {
 					}},
 				},
 			},
-			"name": &jsonschema.Schema{
+			"name": {
 				Type:     []jsonschema.Type{jsonschema.StringType},
 				Singular: "the name",
 			},

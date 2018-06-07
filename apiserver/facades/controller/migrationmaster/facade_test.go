@@ -287,7 +287,7 @@ func (s *Suite) TestExport(c *gc.C) {
 			Username:       csRev.Username(),
 		},
 		UnitRevisions: map[string]params.SerializedModelResourceRevision{
-			"foo/0": params.SerializedModelResourceRevision{
+			"foo/0": {
 				Revision:       unitRev.Revision(),
 				Type:           unitRev.Type(),
 				Path:           unitRev.Path(),

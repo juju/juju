@@ -234,7 +234,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *gc.C) {
 				Result: &params.GoalState{
 					Units: expected2UnitsMysql,
 					Relations: map[string]params.UnitsGoalState{
-						"db": params.UnitsGoalState{
+						"db": {
 							"wordpress/0":  charmStatusWaiting,
 							"wordpress1/0": charmStatusWaiting,
 						},

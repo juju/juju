@@ -283,7 +283,7 @@ func init() {
 	// Prime the first ops channel, so that naive clients can use
 	// the testing environment by simply importing it.
 	go func() {
-		for _ = range discardOperations {
+		for range discardOperations {
 		}
 	}()
 }
@@ -1373,7 +1373,7 @@ func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContex
 	azMaxIndex := len(availabilityZones) - 1
 	azIndex := 0
 	returnValue := make([]string, len(ids))
-	for i, _ := range ids {
+	for i := range ids {
 		if availabilityZones[azIndex].Available() {
 			returnValue[i] = availabilityZones[azIndex].Name()
 		} else {

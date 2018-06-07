@@ -75,7 +75,7 @@ updates available for resources from the charmstore.
 }
 
 func (s *ShowApplicationSuite) TestRunNoResourcesForApplication(c *gc.C) {
-	data := []resource.ApplicationResources{resource.ApplicationResources{}}
+	data := []resource.ApplicationResources{{}}
 	s.stubDeps.client.ReturnResources = data
 
 	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
@@ -204,7 +204,7 @@ openjdk   10
 }
 
 func (s *ShowApplicationSuite) TestRunNoResourcesForUnit(c *gc.C) {
-	data := []resource.ApplicationResources{resource.ApplicationResources{}}
+	data := []resource.ApplicationResources{{}}
 	s.stubDeps.client.ReturnResources = data
 
 	cmd := resourcecmd.NewListCommandForTest(resourcecmd.ListDeps{
@@ -221,7 +221,7 @@ func (s *ShowApplicationSuite) TestRunNoResourcesForUnit(c *gc.C) {
 func (s *ShowApplicationSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc.C) {
 	unitName := "svc/0"
 
-	data := []resource.ApplicationResources{resource.ApplicationResources{
+	data := []resource.ApplicationResources{{
 		Resources: []resource.Resource{
 			{
 				Resource: charmresource.Resource{
@@ -249,7 +249,7 @@ func (s *ShowApplicationSuite) TestRunResourcesForAppButNoResourcesForUnit(c *gc
 			},
 		},
 		UnitResources: []resource.UnitResources{
-			resource.UnitResources{
+			{
 				Tag: names.NewUnitTag(unitName),
 			},
 		},
@@ -273,7 +273,7 @@ openjdk   -
 
 func (s *ShowApplicationSuite) TestRunUnit(c *gc.C) {
 	data := []resource.ApplicationResources{
-		resource.ApplicationResources{
+		{
 			Resources: []resource.Resource{
 				{
 					Resource: charmresource.Resource{

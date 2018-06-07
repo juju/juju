@@ -254,7 +254,7 @@ func (s *InterfaceSuite) TestGoalState(c *gc.C) {
 			"u/0": gsStatus,
 		},
 		Relations: map[string]application.UnitsGoalState{
-			"db": application.UnitsGoalState{
+			"db": {
 				"u/0": gsStatus,
 			},
 		},

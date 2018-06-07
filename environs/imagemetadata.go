@@ -44,7 +44,7 @@ func RegisterUserImageDataSourceFunc(id string, f ImageDataSourceFunc) {
 		}
 	}
 	logger.Debugf("new user image datasource registered: %v", id)
-	datasourceFuncs = append([]datasourceFuncId{datasourceFuncId{id, f}}, datasourceFuncs...)
+	datasourceFuncs = append([]datasourceFuncId{{id, f}}, datasourceFuncs...)
 }
 
 // RegisterImageDataSourceFunc registers an ImageDataSourceFunc

@@ -30,7 +30,7 @@ func (s *ActivateSuite) TestNoDevices(c *gc.C) {
 func (s *ActivateSuite) TestNoDirectory(c *gc.C) {
 	params := netplan.ActivationParams{
 		Devices: []netplan.DeviceToBridge{
-			netplan.DeviceToBridge{},
+			{},
 		},
 		Directory: "/quite/for/sure/this/doesnotexists",
 	}

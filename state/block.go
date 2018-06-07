@@ -319,7 +319,7 @@ func RemoveModelBlockOps(st *State, t BlockType) ([]txn.Op, error) {
 		return nil, errors.Annotatef(err, "removing block %v", t.String())
 	}
 	if exists {
-		return []txn.Op{txn.Op{
+		return []txn.Op{{
 			C:      blocksC,
 			Id:     tBlock.Id(),
 			Remove: true,

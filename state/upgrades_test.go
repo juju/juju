@@ -418,15 +418,15 @@ func (s *upgradesSuite) TestAddMigrationAttempt(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []bson.M{
-		bson.M{
+		{
 			"_id":     "uuid:1",
 			"attempt": 1,
 		},
-		bson.M{
+		{
 			"_id":     "uuid:11",
 			"attempt": 11,
 		},
-		bson.M{
+		{
 			"_id":     "uuid:2",
 			"attempt": 2,
 		},
@@ -1903,7 +1903,7 @@ func (s *upgradesSuite) TestMigrateLeasesToGlobalTime(c *gc.C) {
 	expectedLeases := []bson.M{{
 		"_id":        uuid + ":some-garbage",
 		"model-uuid": uuid,
-	}, bson.M{
+	}, {
 		"_id":        uuid + ":some-namespace#some-name#",
 		"model-uuid": uuid,
 		"namespace":  "some-namespace",
@@ -2388,10 +2388,10 @@ func (s *upgradesSuite) TestUpgradeContainerImageStreamDefault(c *gc.C) {
 	expectedSettings := []bson.M{}
 
 	expectedChanges := map[string]bson.M{
-		m1.ModelUUID() + ":e": bson.M{"container-image-stream": "released", "other-setting": "val"},
-		m2.ModelUUID() + ":e": bson.M{"container-image-stream": "released", "other-setting": "val"},
-		m3.ModelUUID() + ":e": bson.M{"container-image-stream": "daily"},
-		"not-a-model":         bson.M{"other-setting": "val"},
+		m1.ModelUUID() + ":e": {"container-image-stream": "released", "other-setting": "val"},
+		m2.ModelUUID() + ":e": {"container-image-stream": "released", "other-setting": "val"},
+		m3.ModelUUID() + ":e": {"container-image-stream": "daily"},
+		"not-a-model":         {"other-setting": "val"},
 	}
 	for iter.Next(&rawSettings) {
 		expSettings := copyMap(rawSettings, nil)

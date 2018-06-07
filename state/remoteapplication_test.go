@@ -677,7 +677,7 @@ func (s *remoteApplicationSuite) TestAddRemoteRelationRemoteFirst(c *gc.C) {
 
 func (s *remoteApplicationSuite) assertAddRemoteRelation(c *gc.C, application1, application2 string) {
 	endpoints := map[string]state.Endpoint{
-		"wordpress": state.Endpoint{
+		"wordpress": {
 			ApplicationName: "wordpress",
 			Relation: charm.Relation{
 				Interface: "mysql",
@@ -687,7 +687,7 @@ func (s *remoteApplicationSuite) assertAddRemoteRelation(c *gc.C, application1, 
 				Limit:     1,
 			},
 		},
-		"mysql": state.Endpoint{
+		"mysql": {
 			ApplicationName: "mysql",
 			Relation: charm.Relation{
 				Interface: "mysql",

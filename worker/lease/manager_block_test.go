@@ -32,7 +32,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipNotHeld(c *gc.C) {
 func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -61,7 +61,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 func (s *WaitUntilExpiredSuite) TestLeadershipChanged(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -93,7 +93,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipChanged(c *gc.C) {
 func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -120,11 +120,11 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
 func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
-			"store": corelease.Info{
+			"store": {
 				Holder: "store/0",
 				Expiry: offset(time.Second),
 			},
@@ -173,7 +173,7 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 func (s *WaitUntilExpiredSuite) TestKillManager(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -192,7 +192,7 @@ func (s *WaitUntilExpiredSuite) TestKillManager(c *gc.C) {
 func (s *WaitUntilExpiredSuite) TestCancelWait(c *gc.C) {
 	fix := &Fixture{
 		leases: map[string]corelease.Info{
-			"redis": corelease.Info{
+			"redis": {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},

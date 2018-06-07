@@ -68,17 +68,17 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				Revision: 1,
 				URL:      "local:quantal/dummy-1",
 				Config: map[string]params.CharmOption{
-					"skill-level": params.CharmOption{
+					"skill-level": {
 						Type:        "int",
 						Description: "A number indicating skill."},
-					"title": params.CharmOption{
+					"title": {
 						Type:        "string",
 						Description: "A descriptive title used for the application.",
 						Default:     "My Title"},
-					"outlook": params.CharmOption{
+					"outlook": {
 						Type:        "string",
 						Description: "No default outlook."},
-					"username": params.CharmOption{
+					"username": {
 						Type:        "string",
 						Description: "The name of the initial account (given admin permissions).",
 						Default:     "admin001"},
@@ -92,7 +92,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				},
 				Actions: &params.CharmActions{
 					ActionSpecs: map[string]params.CharmActionSpec{
-						"snapshot": params.CharmActionSpec{
+						"snapshot": {
 							Description: "Take a snapshot of the database.",
 							Params: map[string]interface{}{
 								"title":       "snapshot",
@@ -120,26 +120,26 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				Revision: 3,
 				URL:      "local:quantal/wordpress-3",
 				Config: map[string]params.CharmOption{
-					"blog-title": params.CharmOption{Type: "string", Description: "A descriptive title used for the blog.", Default: "My Title"}},
+					"blog-title": {Type: "string", Description: "A descriptive title used for the blog.", Default: "My Title"}},
 				Meta: &params.CharmMeta{
 					Name:        "wordpress",
 					Summary:     "Blog engine",
 					Description: "A pretty popular blog engine",
 					Subordinate: false,
 					Provides: map[string]params.CharmRelation{
-						"logging-dir": params.CharmRelation{
+						"logging-dir": {
 							Name:      "logging-dir",
 							Role:      "provider",
 							Interface: "logging",
 							Scope:     "container",
 						},
-						"monitoring-port": params.CharmRelation{
+						"monitoring-port": {
 							Name:      "monitoring-port",
 							Role:      "provider",
 							Interface: "monitoring",
 							Scope:     "container",
 						},
-						"url": params.CharmRelation{
+						"url": {
 							Name:      "url",
 							Role:      "provider",
 							Interface: "http",
@@ -147,7 +147,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 						},
 					},
 					Requires: map[string]params.CharmRelation{
-						"cache": params.CharmRelation{
+						"cache": {
 							Name:      "cache",
 							Role:      "requirer",
 							Interface: "varnish",
@@ -155,7 +155,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 							Limit:     2,
 							Scope:     "global",
 						},
-						"db": params.CharmRelation{
+						"db": {
 							Name:      "db",
 							Role:      "requirer",
 							Interface: "mysql",
@@ -172,7 +172,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 				},
 				Actions: &params.CharmActions{
 					ActionSpecs: map[string]params.CharmActionSpec{
-						"fakeaction": params.CharmActionSpec{
+						"fakeaction": {
 							Description: "No description",
 							Params: map[string]interface{}{
 								"properties":  map[string]interface{}{},
@@ -231,13 +231,13 @@ func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
 			Required: true,
 		},
 		Metrics: map[string]params.CharmMetric{
-			"pings": params.CharmMetric{
+			"pings": {
 				Type:        "gauge",
 				Description: "Description of the metric."},
-			"pongs": params.CharmMetric{
+			"pongs": {
 				Type:        "gauge",
 				Description: "Description of the metric."},
-			"juju-units": params.CharmMetric{
+			"juju-units": {
 				Type:        "",
 				Description: ""}}}
 	c.Assert(info.Metrics, jc.DeepEquals, expected)

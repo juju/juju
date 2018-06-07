@@ -3063,7 +3063,7 @@ func (s *ApplicationSuite) assertApplicationHasOnlyDefaultEndpointBindings(c *gc
 
 	knownEndpoints := set.NewStrings()
 	allBindings := state.DefaultEndpointBindingsForCharm(charm.Meta())
-	for endpoint, _ := range allBindings {
+	for endpoint := range allBindings {
 		knownEndpoints.Add(endpoint)
 	}
 

@@ -606,7 +606,7 @@ func (s *modelManagerSuite) TestSetModelDefaultsAsNormalUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			params.ErrorResult{
+			{
 				Error: &params.Error{
 					Message: "permission denied",
 					Code:    "unauthorized access"}}}})

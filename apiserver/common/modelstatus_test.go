@@ -185,7 +185,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Mem:  &mem,
 	}
 	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{
-		params.ModelStatus{
+		{
 			ModelTag:           controllerModelTag,
 			HostedMachineCount: 1,
 			ApplicationCount:   1,
@@ -204,7 +204,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 				Id: "1/1", Status: "pending", Detachable: false,
 			}},
 		},
-		params.ModelStatus{
+		{
 			ModelTag:           hostedModelTag,
 			HostedMachineCount: 2,
 			ApplicationCount:   1,
@@ -248,14 +248,14 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{
-		params.ModelStatus{
+		{
 			ModelTag:           controllerModelTag,
 			HostedMachineCount: 0,
 			ApplicationCount:   0,
 			OwnerTag:           s.Owner.String(),
 			Life:               params.Alive,
 		},
-		params.ModelStatus{
+		{
 			ModelTag:           hostedModelTag,
 			HostedMachineCount: 0,
 			ApplicationCount:   1,
@@ -274,9 +274,9 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 	}
 	expected := params.ModelStatusResults{
 		Results: []params.ModelStatus{
-			params.ModelStatus{
+			{
 				Error: common.ServerError(errors.New(`"fail.me" is not a valid tag`))},
-			params.ModelStatus{
+			{
 				ModelTag: s.IAASModel.ModelTag().String(),
 				Life:     params.Life(s.IAASModel.Life().String()),
 				OwnerTag: s.IAASModel.Owner().String(),

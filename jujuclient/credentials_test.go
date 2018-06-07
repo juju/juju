@@ -129,7 +129,7 @@ func (s *CredentialsSuite) getCredentials(c *gc.C) map[string]cloud.CloudCredent
 
 func firstTestCloudName(c *gc.C) string {
 	all := writeTestCredentialsFile(c)
-	for key, _ := range all {
+	for key := range all {
 		return key
 	}
 	return ""

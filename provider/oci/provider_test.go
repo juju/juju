@@ -122,7 +122,7 @@ func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
 
 func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 	cfg := map[string]map[string]string{
-		"DEFAULT": map[string]string{
+		"DEFAULT": {
 			"fingerprint": ocitesting.PrivateKeyEncryptedFingerprint,
 			"pass-phrase": ocitesting.PrivateKeyPassphrase,
 			"key":         ocitesting.PrivateKeyEncrypted,
@@ -138,7 +138,7 @@ func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 
 func (s *credentialsSuite) TestDetectCredentialsWrongPassphrase(c *gc.C) {
 	cfg := map[string]map[string]string{
-		"DEFAULT": map[string]string{
+		"DEFAULT": {
 			"fingerprint": ocitesting.PrivateKeyEncryptedFingerprint,
 			"pass-phrase": "bogus",
 			"key":         ocitesting.PrivateKeyEncrypted,
@@ -152,13 +152,13 @@ func (s *credentialsSuite) TestDetectCredentialsWrongPassphrase(c *gc.C) {
 
 func (s *credentialsSuite) TestDetectCredentialsMultiSection(c *gc.C) {
 	cfg := map[string]map[string]string{
-		"DEFAULT": map[string]string{
+		"DEFAULT": {
 			"fingerprint": ocitesting.PrivateKeyEncryptedFingerprint,
 			"pass-phrase": ocitesting.PrivateKeyPassphrase,
 			"key":         ocitesting.PrivateKeyEncrypted,
 			"region":      "us-ashburn-1",
 		},
-		"SECONDARY": map[string]string{
+		"SECONDARY": {
 			"fingerprint": ocitesting.PrivateKeyUnencryptedFingerprint,
 			"pass-phrase": "",
 			"key":         ocitesting.PrivateKeyUnencrypted,
@@ -176,13 +176,13 @@ func (s *credentialsSuite) TestDetectCredentialsMultiSectionInvalidConfig(c *gc.
 	cfg := map[string]map[string]string{
 		// The default section is invalid, due to incorrect password
 		// This section should be skipped by DetectCredentials()
-		"DEFAULT": map[string]string{
+		"DEFAULT": {
 			"fingerprint": ocitesting.PrivateKeyEncryptedFingerprint,
 			"pass-phrase": "bogus",
 			"key":         ocitesting.PrivateKeyEncrypted,
 			"region":      "us-ashburn-1",
 		},
-		"SECONDARY": map[string]string{
+		"SECONDARY": {
 			"fingerprint": ocitesting.PrivateKeyUnencryptedFingerprint,
 			"pass-phrase": "",
 			"key":         ocitesting.PrivateKeyUnencrypted,

@@ -187,7 +187,7 @@ func (s *storageSuite) TestDestroyFilesystems(c *gc.C) {
 func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
 	s.Stub.SetErrors(nil, nil, nil, errors.New("boom"))
 	s.Client.Volumes = map[string][]api.StorageVolume{
-		"foo": []api.StorageVolume{{
+		"foo": {{
 			Name: "filesystem-0",
 			StorageVolumePut: api.StorageVolumePut{
 				Config: map[string]string{
@@ -244,7 +244,7 @@ func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
 func (s *storageSuite) TestAttachFilesystems(c *gc.C) {
 	raw := s.NewRawInstance(c, "inst-0")
 	raw.Devices = map[string]map[string]string{
-		"filesystem-1": map[string]string{
+		"filesystem-1": {
 			"type":     "disk",
 			"source":   "filesystem-1",
 			"pool":     "pool",
@@ -328,7 +328,7 @@ func (s *storageSuite) TestAttachFilesystems(c *gc.C) {
 func (s *storageSuite) TestDetachFilesystems(c *gc.C) {
 	raw := s.NewRawInstance(c, "inst-0")
 	raw.Devices = map[string]map[string]string{
-		"filesystem-0": map[string]string{
+		"filesystem-0": {
 			"type":     "disk",
 			"source":   "filesystem-0",
 			"pool":     "pool",
@@ -384,7 +384,7 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 	importer := source.(storage.FilesystemImporter)
 
 	s.Client.Volumes = map[string][]api.StorageVolume{
-		"foo": []api.StorageVolume{{
+		"foo": {{
 			Name: "bar",
 			StorageVolumePut: api.StorageVolumePut{
 				Config: map[string]string{

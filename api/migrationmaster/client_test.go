@@ -261,7 +261,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 					Username:    "xena",
 				},
 				UnitRevisions: map[string]params.SerializedModelResourceRevision{
-					"fooapp/0": params.SerializedModelResourceRevision{
+					"fooapp/0": {
 						Revision:       1,
 						Type:           "file",
 						Path:           "blink.tar.gz",
@@ -323,7 +323,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 				Username:      "xena",
 			},
 			UnitRevisions: map[string]resource.Resource{
-				"fooapp/0": resource.Resource{
+				"fooapp/0": {
 					Resource: charmresource.Resource{
 						Meta: charmresource.Meta{
 							Name:        "bin",

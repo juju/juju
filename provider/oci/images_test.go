@@ -137,13 +137,13 @@ func (i *imagesSuite) TestInstanceTypes(c *gc.C) {
 
 	response := ociCore.ListShapesResponse{
 		Items: []ociCore.Shape{
-			ociCore.Shape{
+			{
 				Shape: makeStringPointer("VM.Standard1.1"),
 			},
-			ociCore.Shape{
+			{
 				Shape: makeStringPointer("VM.Standard2.1"),
 			},
-			ociCore.Shape{
+			{
 				Shape: makeStringPointer("VM.Standard1.2"),
 			},
 		},
@@ -188,13 +188,13 @@ func (i *imagesSuite) TestInstanceTypesImageWithUnknownShape(c *gc.C) {
 
 	response := ociCore.ListShapesResponse{
 		Items: []ociCore.Shape{
-			ociCore.Shape{
+			{
 				Shape: makeStringPointer("IDontExistInTheOCIProviderWasProbablyAddedLaterAndThatsWhyIHopeTheyWillAddResourceDetailsToShapesAPISoWeDontNeedToMaintainAMapping"),
 			},
-			ociCore.Shape{
+			{
 				Shape: makeStringPointer("VM.Standard2.1"),
 			},
-			ociCore.Shape{
+			{
 				Shape: makeStringPointer("VM.Standard1.2"),
 			},
 		},
@@ -248,19 +248,19 @@ func (i *imagesSuite) TestRefreshImageCache(c *gc.C) {
 
 	listImageRequest, listImageResponse := makeListImageRequestResponse(
 		i.testCompartment, []map[string]string{
-			map[string]string{
+			{
 				"id":      fakeUbuntuID,
 				"os":      "Canonical Ubuntu",
 				"name":    "Canonical-Ubuntu-14.04-2018.01.11-0",
 				"version": "14.04",
 			},
-			map[string]string{
+			{
 				"id":      fakeUbuntuIDSecond,
 				"os":      "Canonical Ubuntu",
 				"name":    "Canonical-Ubuntu-14.04-2018.01.12-0",
 				"version": "14.04",
 			},
-			map[string]string{
+			{
 				"id":      "fakeCentOS",
 				"os":      "CentOS",
 				"name":    "CentOS-7-2017.10.19-0",
@@ -348,13 +348,13 @@ func (i *imagesSuite) TestRefreshImageCacheWithInvalidImage(c *gc.C) {
 
 	listImageRequest, listImageResponse := makeListImageRequestResponse(
 		i.testCompartment, []map[string]string{
-			map[string]string{
+			{
 				"id":      "fakeUbuntu1",
 				"os":      "Canonical Ubuntu",
 				"name":    "Canonical-Ubuntu-14.04-2018.01.11-0",
 				"version": "14.04",
 			},
-			map[string]string{
+			{
 				"id":      "fake image id for bad image",
 				"os":      "CentOS",
 				"name":    "BadlyFormatedDisplayName_IshouldBeIgnored",
@@ -407,7 +407,7 @@ func (i *imagesSuite) TestImageMetadataFromCache(c *gc.C) {
 
 	cache := &oci.ImageCache{}
 	images := map[string][]oci.InstanceImage{
-		"trusty": []oci.InstanceImage{
+		"trusty": {
 			imgType,
 		},
 	}
@@ -437,7 +437,7 @@ func (i *imagesSuite) TestImageMetadataSpecificImageType(c *gc.C) {
 
 	cache := &oci.ImageCache{}
 	images := map[string][]oci.InstanceImage{
-		"trusty": []oci.InstanceImage{
+		"trusty": {
 			imgType,
 		},
 	}

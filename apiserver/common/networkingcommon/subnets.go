@@ -208,7 +208,7 @@ func (cache *addSubnetsCache) cacheSubnets(ctx context.ProviderCallContext) erro
 	cache.providerIdsByCIDR = make(map[string]set.Strings)
 	cache.subnetsByProviderId = make(map[string]*network.SubnetInfo)
 
-	for i, _ := range subnetInfo {
+	for i := range subnetInfo {
 		subnet := subnetInfo[i]
 		cidr := subnet.CIDR
 		providerId := string(subnet.ProviderId)

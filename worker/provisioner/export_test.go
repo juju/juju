@@ -54,7 +54,7 @@ func GetCopyAvailabilityZoneMachines(p ProvisionerTask) []AvailabilityZoneMachin
 	// sort to make comparisons in the tests easier.
 	sort.Sort(byPopulationThenNames(task.availabilityZoneMachines))
 	retvalues := make([]AvailabilityZoneMachine, len(task.availabilityZoneMachines))
-	for i, _ := range task.availabilityZoneMachines {
+	for i := range task.availabilityZoneMachines {
 		retvalues[i] = *task.availabilityZoneMachines[i]
 	}
 	return retvalues

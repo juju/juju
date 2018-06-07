@@ -160,11 +160,11 @@ func (s mockShowAPI) StorageDetails(tags []names.StorageTag) ([]params.StorageDe
 				},
 				Persistent: true,
 				Attachments: map[string]params.StorageAttachmentDetails{
-					"unit-transcode-0": params.StorageAttachmentDetails{
+					"unit-transcode-0": {
 						MachineTag: "machine-1",
 						Location:   "a location",
 					},
-					"unit-transcode-1": params.StorageAttachmentDetails{
+					"unit-transcode-1": {
 						MachineTag: "machine-2",
 						Location:   "b location",
 					},
@@ -179,7 +179,7 @@ func (s mockShowAPI) StorageDetails(tags []names.StorageTag) ([]params.StorageDe
 					Since:  &s.time,
 				},
 				Attachments: map[string]params.StorageAttachmentDetails{
-					"unit-postgresql-0": params.StorageAttachmentDetails{},
+					"unit-postgresql-0": {},
 				},
 			}
 			if i == 1 {

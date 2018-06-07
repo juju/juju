@@ -162,7 +162,7 @@ func (c *ListCommand) printTabular(writer io.Writer, value interface{}) error {
 
 		fmt.Fprintf(tw, "%s\t%s\n", "Space", "Subnets")
 		spaces := []string{}
-		for name, _ := range list.Spaces {
+		for name := range list.Spaces {
 			spaces = append(spaces, name)
 		}
 		sort.Strings(spaces)
@@ -174,7 +174,7 @@ func (c *ListCommand) printTabular(writer io.Writer, value interface{}) error {
 				continue
 			}
 			cidrs := []string{}
-			for subnet, _ := range subnets {
+			for subnet := range subnets {
 				cidrs = append(cidrs, subnet)
 			}
 			sort.Strings(cidrs)

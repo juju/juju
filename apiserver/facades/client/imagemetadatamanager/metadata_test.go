@@ -39,8 +39,8 @@ func (s *metadataSuite) TestFindEmpty(c *gc.C) {
 func (s *metadataSuite) TestFindEmptyGroups(c *gc.C) {
 	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 		return map[string][]cloudimagemetadata.Metadata{
-			"public": []cloudimagemetadata.Metadata{},
-			"custom": []cloudimagemetadata.Metadata{},
+			"public": {},
+			"custom": {},
 		}, nil
 	}
 
@@ -70,13 +70,13 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 
 	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 		return map[string][]cloudimagemetadata.Metadata{
-				"public": []cloudimagemetadata.Metadata{
-					cloudimagemetadata.Metadata{ImageId: publicImageId, Priority: 15},
+				"public": {
+					{ImageId: publicImageId, Priority: 15},
 				},
-				"custom": []cloudimagemetadata.Metadata{
-					cloudimagemetadata.Metadata{ImageId: customImageId, Priority: 87},
-					cloudimagemetadata.Metadata{ImageId: customImageId2, Priority: 20},
-					cloudimagemetadata.Metadata{ImageId: customImageId3, Priority: 56},
+				"custom": {
+					{ImageId: customImageId, Priority: 87},
+					{ImageId: customImageId2, Priority: 20},
+					{ImageId: customImageId3, Priority: 56},
 				},
 			},
 			nil
@@ -87,10 +87,10 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 	c.Assert(found.Result, gc.HasLen, 4)
 
 	c.Assert(found.Result, jc.SameContents, []params.CloudImageMetadata{
-		params.CloudImageMetadata{ImageId: customImageId, Priority: 87},
-		params.CloudImageMetadata{ImageId: customImageId3, Priority: 56},
-		params.CloudImageMetadata{ImageId: customImageId2, Priority: 20},
-		params.CloudImageMetadata{ImageId: publicImageId, Priority: 15},
+		{ImageId: customImageId, Priority: 87},
+		{ImageId: customImageId3, Priority: 56},
+		{ImageId: customImageId2, Priority: 20},
+		{ImageId: publicImageId, Priority: 15},
 	})
 	s.assertCalls(c, controllerTag, findMetadata)
 }

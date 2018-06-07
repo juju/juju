@@ -142,7 +142,7 @@ func (p *Pruner) removeUnusedBeings(memCache map[int64]string) error {
 		return err
 	}
 	// now for the memory cache, also clear out any keys that aren't in the active set.
-	for seq, _ := range memCache {
+	for seq := range memCache {
 		if _, isActive := seqSet[seq]; !isActive {
 			delete(memCache, seq)
 		}

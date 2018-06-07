@@ -149,7 +149,7 @@ func diffClouds(newClouds, oldClouds map[string]jujucloud.Cloud) string {
 	}
 
 	// deleted clouds
-	for cloudName, _ := range oldClouds {
+	for cloudName := range oldClouds {
 		if _, ok := newClouds[cloudName]; !ok {
 			diff.addChange(deleteChange, cloudScope, cloudName)
 		}
@@ -212,7 +212,7 @@ func diffCloudDetails(cloudName string, new, old jujucloud.Cloud, diff *changes)
 	}
 
 	// deleted regions
-	for oldName, _ := range oldRegions {
+	for oldName := range oldRegions {
 		if _, ok := newRegions[oldName]; !ok {
 			diff.addChange(deleteChange, regionScope, formatCloudRegion(oldName))
 		}
@@ -267,7 +267,7 @@ func (c *changes) summary() string {
 
 	// Sort by change types
 	types := []string{}
-	for one, _ := range c.all {
+	for one := range c.all {
 		types = append(types, string(one))
 	}
 	sort.Strings(types)
@@ -282,7 +282,7 @@ func (c *changes) summary() string {
 
 		// Sort by change scopes
 		scopes := []string{}
-		for one, _ := range typeGroup {
+		for one := range typeGroup {
 			scopes = append(scopes, string(one))
 		}
 		sort.Strings(scopes)

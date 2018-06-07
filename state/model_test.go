@@ -1417,7 +1417,7 @@ func (s *ModelCloudValidationSuite) TestNewModelMissingCloudRegion(c *gc.C) {
 }
 
 func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudCredential(c *gc.C) {
-	regions := []cloud.Region{cloud.Region{Name: "dummy-region"}}
+	regions := []cloud.Region{{Name: "dummy-region"}}
 	controllerCredentialTag := names.NewCloudCredentialTag("dummy/test@remote/controller-credential")
 	st, owner := s.initializeState(
 		c, regions, []cloud.AuthType{cloud.UserPassAuthType}, map[names.CloudCredentialTag]cloud.Credential{
@@ -1440,7 +1440,7 @@ func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudCredential(c *gc.C) 
 }
 
 func (s *ModelCloudValidationSuite) TestNewModelMissingCloudCredential(c *gc.C) {
-	regions := []cloud.Region{cloud.Region{Name: "dummy-region"}}
+	regions := []cloud.Region{{Name: "dummy-region"}}
 	controllerCredentialTag := names.NewCloudCredentialTag("dummy/test@remote/controller-credential")
 	st, owner := s.initializeState(
 		c, regions, []cloud.AuthType{cloud.UserPassAuthType}, map[names.CloudCredentialTag]cloud.Credential{
@@ -1462,7 +1462,7 @@ func (s *ModelCloudValidationSuite) TestNewModelMissingCloudCredential(c *gc.C) 
 
 func (s *ModelCloudValidationSuite) TestNewModelMissingCloudCredentialSupportsEmptyAuth(c *gc.C) {
 	regions := []cloud.Region{
-		cloud.Region{
+		{
 			Name:             "dummy-region",
 			Endpoint:         "dummy-endpoint",
 			IdentityEndpoint: "dummy-identity-endpoint",

@@ -88,7 +88,7 @@ func (e Environ) Subnets(ctx context.ProviderCallContext, id instance.Id, subnet
 			return ret, errors.Trace(err)
 		}
 		if len(subnets) == 0 {
-			for key, _ := range subnets {
+			for key := range subnets {
 				found[key] = false
 			}
 		}

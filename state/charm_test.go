@@ -359,13 +359,13 @@ func (s *CharmSuite) TestAddCharmWithInvalidMetaData(c *gc.C) {
 	}
 
 	check(func(meta *charm.Meta) {
-		meta.Provides = map[string]charm.Relation{"$foo": charm.Relation{}}
+		meta.Provides = map[string]charm.Relation{"$foo": {}}
 	})
 	check(func(meta *charm.Meta) {
-		meta.Requires = map[string]charm.Relation{"$foo": charm.Relation{}}
+		meta.Requires = map[string]charm.Relation{"$foo": {}}
 	})
 	check(func(meta *charm.Meta) {
-		meta.Peers = map[string]charm.Relation{"$foo": charm.Relation{}}
+		meta.Peers = map[string]charm.Relation{"$foo": {}}
 	})
 }
 
@@ -562,7 +562,7 @@ func (s *CharmSuite) TestUpdateUploadedCharmRejectsInvalidMetadata(c *gc.C) {
 
 	meta := info.Charm.Meta()
 	meta.Provides = map[string]charm.Relation{
-		"foo.bar": charm.Relation{},
+		"foo.bar": {},
 	}
 	_, err = s.State.UpdateUploadedCharm(info)
 	c.Assert(err, gc.ErrorMatches, `invalid charm data: "foo.bar" is not a valid field name`)

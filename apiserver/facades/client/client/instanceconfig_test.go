@@ -55,7 +55,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	toolsURL := fmt.Sprintf("https://%s/model/%s/tools/%s",
 		apiAddrs[0], jujutesting.ModelTag.Id(), instanceConfig.AgentVersion())
 	c.Assert(instanceConfig.ToolsList().URLs(), jc.DeepEquals, map[version.Binary][]string{
-		instanceConfig.AgentVersion(): []string{toolsURL},
+		instanceConfig.AgentVersion(): {toolsURL},
 	})
 }
 

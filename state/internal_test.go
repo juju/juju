@@ -75,7 +75,7 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			Regions: []cloud.Region{
-				cloud.Region{
+				{
 					Name: "dummy-region",
 				},
 			},

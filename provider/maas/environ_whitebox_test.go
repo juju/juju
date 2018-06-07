@@ -985,7 +985,7 @@ func (s *environSuite) TestReleaseContainerAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var systemIds []string
-	for systemId, _ := range s.testMAASObject.TestServer.Devices() {
+	for systemId := range s.testMAASObject.TestServer.Devices() {
 		systemIds = append(systemIds, systemId)
 	}
 	c.Assert(systemIds, gc.DeepEquals, []string{"device2"})
@@ -1010,7 +1010,7 @@ func (s *environSuite) TestReleaseContainerAddresses_HandlesDupes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var systemIds []string
-	for systemId, _ := range s.testMAASObject.TestServer.Devices() {
+	for systemId := range s.testMAASObject.TestServer.Devices() {
 		systemIds = append(systemIds, systemId)
 	}
 	c.Assert(systemIds, gc.DeepEquals, []string{"device3"})

@@ -78,7 +78,7 @@ func (s *FilesystemStateSuite) testAddApplicationDefaultPool(c *gc.C, expectedPo
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := map[string]state.StorageConstraints{
-		"data": state.StorageConstraints{
+		"data": {
 			Pool:  expectedPool,
 			Size:  1024,
 			Count: 1,

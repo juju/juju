@@ -281,7 +281,7 @@ var SeverityColor = map[string]*ansiterm.Context{
 	"INFO":    ansiterm.Foreground(ansiterm.BrightBlue),
 	"WARNING": ansiterm.Foreground(ansiterm.Yellow),
 	"ERROR":   ansiterm.Foreground(ansiterm.BrightRed),
-	"CRITICAL": &ansiterm.Context{
+	"CRITICAL": {
 		Foreground: ansiterm.White,
 		Background: ansiterm.Red,
 	},

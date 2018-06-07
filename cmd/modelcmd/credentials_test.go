@@ -44,7 +44,7 @@ func (mockProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchem
 	}
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: schema,
-		"interactive": cloud.CredentialSchema{
+		"interactive": {
 			{"username", cloud.CredentialAttr{}},
 		},
 	}

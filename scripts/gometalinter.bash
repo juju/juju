@@ -19,6 +19,7 @@ fi
 $GOPATH/bin/gometalinter --install > /dev/null
 $GOPATH/bin/gometalinter --vendor \
     --disable-all \
+    --enable=gofmt \
     --enable=goimports \
     --enable=misspell \
     --enable=unconvert \

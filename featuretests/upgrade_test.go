@@ -85,7 +85,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	// Consume apt-get commands that get run before upgrades.
 	aptCmds := s.AgentSuite.HookCommandOutput(&pacman.CommandOutput, nil, nil)
 	go func() {
-		for _ = range aptCmds {
+		for range aptCmds {
 		}
 	}()
 

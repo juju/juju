@@ -94,7 +94,7 @@ func (o *OracleEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallCo
 		return nil, err
 	}
 	zones := make([]string, len(instances))
-	for idx, _ := range instances {
+	for idx := range instances {
 		zones[idx] = "default"
 	}
 	return zones, nil
@@ -184,7 +184,7 @@ func (e *OracleEnviron) getCloudInitConfig(series string, networks map[string]oc
 	var scripts []string
 	switch operatingSystem {
 	case os.Ubuntu:
-		for key, _ := range networks {
+		for key := range networks {
 			if key == defaultNicName {
 				continue
 			}
@@ -608,7 +608,7 @@ func (o *OracleEnviron) AllInstances(ctx context.ProviderCallContext) ([]instanc
 
 func (o *OracleEnviron) allInstances(tagFilter tagValue) ([]*oracleInstance, error) {
 	filter := []oci.Filter{
-		oci.Filter{
+		{
 			Arg:   "tags",
 			Value: tagFilter.String(),
 		},

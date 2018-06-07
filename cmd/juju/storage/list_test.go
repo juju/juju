@@ -356,7 +356,7 @@ func (s *mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 			Info:   "creating volume",
 		},
 		Attachments: map[string]params.StorageAttachmentDetails{
-			"unit-transcode-0": params.StorageAttachmentDetails{
+			"unit-transcode-0": {
 				Location: "thither",
 			},
 		},
@@ -371,7 +371,7 @@ func (s *mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		},
 		Persistent: true,
 		Attachments: map[string]params.StorageAttachmentDetails{
-			"unit-postgresql-0": params.StorageAttachmentDetails{
+			"unit-postgresql-0": {
 				Location: "hither",
 				Life:     "dying",
 			},
@@ -386,10 +386,10 @@ func (s *mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		},
 		Persistent: true,
 		Attachments: map[string]params.StorageAttachmentDetails{
-			"unit-transcode-0": params.StorageAttachmentDetails{
+			"unit-transcode-0": {
 				Location: "there",
 			},
-			"unit-transcode-1": params.StorageAttachmentDetails{
+			"unit-transcode-1": {
 				Location: "here",
 			},
 		},

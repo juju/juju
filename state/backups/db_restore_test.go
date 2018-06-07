@@ -133,17 +133,17 @@ func (s *mongoRestoreSuite) assertRestore(c *gc.C) {
 	c.Assert(mgoDb.user, gc.DeepEquals, user)
 	c.Assert(mgoSession.closed, jc.IsTrue)
 	mgoSessionCmd := []bson.D{
-		bson.D{
+		{
 			bson.DocElem{Name: "createRole", Value: "oploger"},
 			bson.DocElem{Name: "privileges", Value: []bson.D{
-				bson.D{
+				{
 					bson.DocElem{Name: "resource", Value: bson.M{"anyResource": true}},
 					bson.DocElem{Name: "actions", Value: []string{"anyAction"}}}}},
 			bson.DocElem{Name: "roles", Value: []string{}}},
-		bson.D{
+		{
 			bson.DocElem{Name: "grantRolesToUser", Value: "fakeUsername"},
 			bson.DocElem{Name: "roles", Value: []string{"oploger"}}},
-		bson.D{
+		{
 			bson.DocElem{Name: "grantRolesToUser", Value: "admin"},
 			bson.DocElem{Name: "roles", Value: []string{"oploger"}}}}
 	c.Assert(mgoSession.cmd, gc.DeepEquals, mgoSessionCmd)

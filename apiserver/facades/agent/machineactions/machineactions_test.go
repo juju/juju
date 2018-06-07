@@ -156,4 +156,4 @@ func (mock *mockBackend) ConvertActions(ar state.ActionReceiver, fn common.GetAc
 	return actions, nil
 }
 
-var actions = []params.ActionResult{params.ActionResult{Action: &params.Action{Name: "foo"}}}
+var actions = []params.ActionResult{{Action: &params.Action{Name: "foo"}}}

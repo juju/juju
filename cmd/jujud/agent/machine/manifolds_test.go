@@ -264,9 +264,9 @@ func (s *ManifoldsSuite) TestManifoldsDependencies(c *gc.C) {
 
 var expectedMachineManifoldsWithDependencies = map[string][]string{
 
-	"agent": []string{},
+	"agent": {},
 
-	"api-address-updater": []string{
+	"api-address-updater": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -277,11 +277,11 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"api-caller": []string{"agent", "api-config-watcher"},
+	"api-caller": {"agent", "api-config-watcher"},
 
-	"api-config-watcher": []string{"agent"},
+	"api-config-watcher": {"agent"},
 
-	"api-server": []string{
+	"api-server": {
 		"agent",
 		"audit-config-updater",
 		"certificate-watcher",
@@ -293,15 +293,15 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"state-config-watcher",
 		"upgrade-steps-gate"},
 
-	"audit-config-updater": []string{
+	"audit-config-updater": {
 		"agent",
 		"is-controller-flag",
 		"state",
 		"state-config-watcher"},
 
-	"central-hub": []string{"agent", "state-config-watcher"},
+	"central-hub": {"agent", "state-config-watcher"},
 
-	"certificate-updater": []string{
+	"certificate-updater": {
 		"agent",
 		"state",
 		"state-config-watcher",
@@ -310,15 +310,15 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"certificate-watcher": []string{
+	"certificate-watcher": {
 		"agent",
 		"is-controller-flag",
 		"state",
 		"state-config-watcher"},
 
-	"clock": []string{},
+	"clock": {},
 
-	"disk-manager": []string{
+	"disk-manager": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -329,7 +329,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"external-controller-updater": []string{
+	"external-controller-updater": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -345,7 +345,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"fan-configurer": []string{
+	"fan-configurer": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -356,13 +356,13 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"global-clock-updater": []string{
+	"global-clock-updater": {
 		"agent",
 		"clock",
 		"state",
 		"state-config-watcher"},
 
-	"host-key-reporter": []string{
+	"host-key-reporter": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -373,7 +373,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"http-server": []string{
+	"http-server": {
 		"agent",
 		"certificate-watcher",
 		"clock",
@@ -381,9 +381,9 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"state",
 		"state-config-watcher"},
 
-	"is-controller-flag": []string{"agent", "state", "state-config-watcher"},
+	"is-controller-flag": {"agent", "state", "state-config-watcher"},
 
-	"is-primary-controller-flag": []string{
+	"is-primary-controller-flag": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -392,7 +392,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"state",
 		"state-config-watcher"},
 
-	"log-pruner": []string{
+	"log-pruner": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -408,7 +408,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"log-sender": []string{
+	"log-sender": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -419,7 +419,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"logging-config-updater": []string{
+	"logging-config-updater": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -430,7 +430,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"machine-action-runner": []string{
+	"machine-action-runner": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -441,7 +441,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"machiner": []string{
+	"machiner": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -453,7 +453,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"mgo-txn-resumer": []string{
+	"mgo-txn-resumer": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -464,18 +464,18 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"migration-fortress": []string{
+	"migration-fortress": {
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"migration-inactive-flag": []string{
+	"migration-inactive-flag": {
 		"agent",
 		"api-caller",
 		"api-config-watcher"},
 
-	"migration-minion": []string{
+	"migration-minion": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -485,7 +485,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"model-worker-manager": []string{
+	"model-worker-manager": {
 		"agent",
 		"state",
 		"state-config-watcher",
@@ -494,7 +494,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"peer-grouper": []string{
+	"peer-grouper": {
 		"agent",
 		"clock",
 		"state",
@@ -504,9 +504,9 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"presence": []string{"agent", "central-hub", "state-config-watcher"},
+	"presence": {"agent", "central-hub", "state-config-watcher"},
 
-	"proxy-config-updater": []string{
+	"proxy-config-updater": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -517,12 +517,12 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"pubsub-forwarder": []string{
+	"pubsub-forwarder": {
 		"agent",
 		"central-hub",
 		"state-config-watcher"},
 
-	"raft": []string{
+	"raft": {
 		"agent",
 		"central-hub",
 		"certificate-watcher",
@@ -534,7 +534,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"state",
 		"state-config-watcher"},
 
-	"raft-backstop": []string{
+	"raft-backstop": {
 		"agent",
 		"central-hub",
 		"certificate-watcher",
@@ -547,7 +547,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"state",
 		"state-config-watcher"},
 
-	"raft-clusterer": []string{
+	"raft-clusterer": {
 		"agent",
 		"central-hub",
 		"certificate-watcher",
@@ -561,13 +561,13 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"state",
 		"state-config-watcher"},
 
-	"raft-enabled-flag": []string{
+	"raft-enabled-flag": {
 		"agent",
 		"is-controller-flag",
 		"state",
 		"state-config-watcher"},
 
-	"raft-leader-flag": []string{
+	"raft-leader-flag": {
 		"agent",
 		"central-hub",
 		"certificate-watcher",
@@ -580,7 +580,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"state",
 		"state-config-watcher"},
 
-	"raft-transport": []string{
+	"raft-transport": {
 		"agent",
 		"central-hub",
 		"certificate-watcher",
@@ -591,7 +591,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"state",
 		"state-config-watcher"},
 
-	"reboot-executor": []string{
+	"reboot-executor": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -602,9 +602,9 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"restore-watcher": []string{"agent", "state", "state-config-watcher"},
+	"restore-watcher": {"agent", "state", "state-config-watcher"},
 
-	"serving-info-setter": []string{
+	"serving-info-setter": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -615,7 +615,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"ssh-authkeys-updater": []string{
+	"ssh-authkeys-updater": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -626,7 +626,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"ssh-identity-writer": []string{
+	"ssh-identity-writer": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -637,11 +637,11 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"state": []string{"agent", "state-config-watcher"},
+	"state": {"agent", "state-config-watcher"},
 
-	"state-config-watcher": []string{"agent"},
+	"state-config-watcher": {"agent"},
 
-	"storage-provisioner": []string{
+	"storage-provisioner": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -652,9 +652,9 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"termination-signal-handler": []string{},
+	"termination-signal-handler": {},
 
-	"tools-version-checker": []string{
+	"tools-version-checker": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -665,7 +665,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"transaction-pruner": []string{
+	"transaction-pruner": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -681,7 +681,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"unconverted-api-workers": []string{
+	"unconverted-api-workers": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -692,7 +692,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"unit-agent-deployer": []string{
+	"unit-agent-deployer": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -703,21 +703,21 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 
-	"upgrade-check-flag": []string{"upgrade-check-gate"},
+	"upgrade-check-flag": {"upgrade-check-gate"},
 
-	"upgrade-check-gate": []string{},
+	"upgrade-check-gate": {},
 
-	"upgrade-steps-flag": []string{"upgrade-steps-gate"},
+	"upgrade-steps-flag": {"upgrade-steps-gate"},
 
-	"upgrade-steps-gate": []string{},
+	"upgrade-steps-gate": {},
 
-	"upgrade-steps-runner": []string{
+	"upgrade-steps-runner": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
 		"upgrade-steps-gate"},
 
-	"upgrader": []string{
+	"upgrader": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",

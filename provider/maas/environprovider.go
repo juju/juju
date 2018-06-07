@@ -25,12 +25,12 @@ var cloudSchema = &jsonschema.Schema{
 	// Order doesn't matter since there's only one thing to ask about.  Add
 	// order if this changes.
 	Properties: map[string]*jsonschema.Schema{
-		cloud.AuthTypesKey: &jsonschema.Schema{
+		cloud.AuthTypesKey: {
 			// don't need a prompt, since there's only one choice.
 			Type: []jsonschema.Type{jsonschema.ArrayType},
 			Enum: []interface{}{[]string{string(cloud.OAuth1AuthType)}},
 		},
-		cloud.EndpointKey: &jsonschema.Schema{
+		cloud.EndpointKey: {
 			Singular: "the API endpoint url",
 			Type:     []jsonschema.Type{jsonschema.StringType},
 			Format:   jsonschema.FormatURI,

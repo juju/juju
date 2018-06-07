@@ -80,7 +80,7 @@ func (s *ApplicationConfigSuite) SetUpTest(c *gc.C) {
 
 	// Ensure both outputs have all charm config keys
 	s.settingKeys = set.NewStrings()
-	for k, _ := range s.charm.Config().Options {
+	for k := range s.charm.Config().Options {
 		s.settingKeys.Add(k)
 	}
 }

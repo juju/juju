@@ -176,14 +176,14 @@ func newMockClientStore() jujuclient.ClientStore {
 
 func (s *mockClientStore) AllControllers() (map[string]jujuclient.ControllerDetails, error) {
 	return map[string]jujuclient.ControllerDetails{
-		"c": jujuclient.ControllerDetails{},
+		"c": {},
 	}, nil
 }
 
 func (s *mockClientStore) AllModels(controllerName string) (map[string]jujuclient.ModelDetails, error) {
 	return map[string]jujuclient.ModelDetails{
-		"m1": jujuclient.ModelDetails{ModelUUID: "uuid1"},
-		"m2": jujuclient.ModelDetails{ModelUUID: "uuid2"},
-		"m3": jujuclient.ModelDetails{ModelUUID: "uuid3"},
+		"m1": {ModelUUID: "uuid1"},
+		"m2": {ModelUUID: "uuid2"},
+		"m3": {ModelUUID: "uuid3"},
 	}, nil
 }

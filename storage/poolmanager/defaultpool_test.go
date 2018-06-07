@@ -37,7 +37,7 @@ func (s *defaultStoragePoolsSuite) TestDefaultStoragePools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(settings.Settings, jc.DeepEquals, map[string]map[string]interface{}{
-		"pool#pool1": map[string]interface{}{"1": "2", "name": "pool1", "type": "whatever"},
-		"pool#pool2": map[string]interface{}{"3": "4", "name": "pool2", "type": "whatever"},
+		"pool#pool1": {"1": "2", "name": "pool1", "type": "whatever"},
+		"pool#pool2": {"3": "4", "name": "pool2", "type": "whatever"},
 	})
 }
