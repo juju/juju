@@ -14,7 +14,8 @@ import (
 // communicating with LXD via a local socket, by default.
 var osSupport = []os.OSType{os.Ubuntu}
 
-// HasSupport defines if the provider has support for a host OS
+// HasSupport returns true if the current OS supports LXD containers by
+// default
 func HasSupport() bool {
 	t := os.HostOS()
 	for _, v := range osSupport {
