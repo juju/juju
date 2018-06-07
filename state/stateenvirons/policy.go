@@ -137,9 +137,9 @@ func (p environStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry,
 }
 
 // NewStorageProviderRegistry returns a storage.ProviderRegistry that chains
-// the provided Environ with the common storage providers.
-func NewStorageProviderRegistry(env environs.Environ) storage.ProviderRegistry {
-	return storage.ChainedProviderRegistry{env, provider.CommonStorageProviders()}
+// the provided registry with the common storage providers.
+func NewStorageProviderRegistry(reg storage.ProviderRegistry) storage.ProviderRegistry {
+	return storage.ChainedProviderRegistry{reg, provider.CommonStorageProviders()}
 }
 
 func environProvider(st *state.State) (environs.EnvironProvider, error) {

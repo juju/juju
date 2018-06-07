@@ -69,7 +69,7 @@ func (s *volumeSuite) TestListVolumesEmptyFilter(c *gc.C) {
 
 func (s *volumeSuite) TestListVolumesError(c *gc.C) {
 	msg := "inventing error"
-	s.state.allVolumes = func() ([]state.Volume, error) {
+	s.storageAccessor.allVolumes = func() ([]state.Volume, error) {
 		return nil, errors.New(msg)
 	}
 	results, err := s.api.ListVolumes(params.VolumeFilters{[]params.VolumeFilter{{}}})
@@ -79,7 +79,7 @@ func (s *volumeSuite) TestListVolumesError(c *gc.C) {
 }
 
 func (s *volumeSuite) TestListVolumesNoVolumes(c *gc.C) {
-	s.state.allVolumes = func() ([]state.Volume, error) {
+	s.storageAccessor.allVolumes = func() ([]state.Volume, error) {
 		return nil, nil
 	}
 	results, err := s.api.ListVolumes(params.VolumeFilters{[]params.VolumeFilter{{}}})
@@ -134,6 +134,7 @@ func (s *volumeSuite) TestListVolumesAttachmentInfo(c *gc.C) {
 		DeviceName: "xvdf1",
 		ReadOnly:   true,
 	}
+	s.state.assignedMachine = s.machineTag.Id()
 	expected := s.expectedVolumeDetails()
 	expected.MachineAttachments[s.machineTag.String()] = params.VolumeAttachmentDetails{
 		VolumeAttachmentInfo: params.VolumeAttachmentInfo{
@@ -172,7 +173,7 @@ func (s *volumeSuite) TestListVolumesStorageLocationNoBlockDevice(c *gc.C) {
 }
 
 func (s *volumeSuite) TestListVolumesStorageLocationBlockDevicePath(c *gc.C) {
-	s.state.blockDevices = func(names.MachineTag) ([]state.BlockDeviceInfo, error) {
+	s.storageAccessor.blockDevices = func(names.MachineTag) ([]state.BlockDeviceInfo, error) {
 		return []state.BlockDeviceInfo{{
 			BusAddress: "bus-addr",
 			DeviceName: "sdd",

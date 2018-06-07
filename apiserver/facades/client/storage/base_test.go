@@ -25,9 +25,10 @@ type baseStorageSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
-	api   *storage.APIv4
-	apiv3 *storage.APIv3
-	state *mockState
+	api             *storage.APIv4
+	apiv3           *storage.APIv3
+	storageAccessor *mockStorageAccessor
+	state           *mockState
 
 	storageTag      names.StorageTag
 	storageInstance *mockStorageInstance
@@ -55,15 +56,16 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin"), Controller: true}
 	s.stub.ResetCalls()
 	s.state = s.constructState()
+	s.storageAccessor = s.constructStorageAccessor()
 
 	s.registry = jujustorage.StaticProviderRegistry{map[jujustorage.ProviderType]jujustorage.Provider{}}
 	s.pools = make(map[string]*jujustorage.Config)
 	s.poolManager = s.constructPoolManager()
 
 	var err error
-	s.api, err = storage.NewAPIv4(s.state, s.registry, s.poolManager, s.resources, s.authorizer)
+	s.api, err = storage.NewAPIv4(s.state, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	s.apiv3, err = storage.NewAPIv3(s.state, s.registry, s.poolManager, s.resources, s.authorizer)
+	s.apiv3, err = storage.NewAPIv3(s.state, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -75,7 +77,6 @@ func (s *baseStorageSuite) assertCalls(c *gc.C, expectedCalls []string) {
 const (
 	allStorageInstancesCall                 = "allStorageInstances"
 	storageInstanceAttachmentsCall          = "storageInstanceAttachments"
-	unitAssignedMachineCall                 = "UnitAssignedMachine"
 	storageInstanceCall                     = "StorageInstance"
 	storageInstanceFilesystemCall           = "StorageInstanceFilesystem"
 	storageInstanceFilesystemAttachmentCall = "storageInstanceFilesystemAttachment"
@@ -100,6 +101,19 @@ const (
 
 func (s *baseStorageSuite) constructState() *mockState {
 	s.unitTag = names.NewUnitTag("mysql/0")
+	s.blocks = make(map[state.BlockType]state.Block)
+	return &mockState{
+		unitName:        s.unitTag.Id(),
+		assignedMachine: s.machineTag.Id(),
+		getBlockForType: func(t state.BlockType) (state.Block, bool, error) {
+			s.stub.AddCall(getBlockForTypeCall, t)
+			val, found := s.blocks[t]
+			return val, found, nil
+		},
+	}
+}
+
+func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 	s.storageTag = names.NewStorageTag("data/0")
 
 	s.storageInstance = &mockStorageInstance{
@@ -134,8 +148,7 @@ func (s *baseStorageSuite) constructState() *mockState {
 		life:       state.Alive,
 	}
 
-	s.blocks = make(map[state.BlockType]state.Block)
-	return &mockState{
+	return &mockStorageAccessor{
 		allStorageInstances: func() ([]state.StorageInstance, error) {
 			s.stub.AddCall(allStorageInstancesCall)
 			return []state.StorageInstance{s.storageInstance}, nil
@@ -178,13 +191,6 @@ func (s *baseStorageSuite) constructState() *mockState {
 		volumeAttachment: func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error) {
 			s.stub.AddCall(volumeAttachmentCall)
 			return s.volumeAttachment, nil
-		},
-		unitAssignedMachine: func(u names.UnitTag) (names.MachineTag, error) {
-			s.stub.AddCall(unitAssignedMachineCall)
-			if u == s.unitTag {
-				return s.machineTag, nil
-			}
-			return names.MachineTag{}, errors.NotFoundf("%s", names.ReadableString(u))
 		},
 		volume: func(tag names.VolumeTag) (state.Volume, error) {
 			s.stub.AddCall(volumeCall)
@@ -236,15 +242,9 @@ func (s *baseStorageSuite) constructState() *mockState {
 			s.stub.AddCall(allFilesystemsCall)
 			return []state.Filesystem{s.filesystem}, nil
 		},
-		modelName: "storagetest",
 		addStorageForUnit: func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
 			s.stub.AddCall(addStorageForUnitCall)
 			return nil, nil
-		},
-		getBlockForType: func(t state.BlockType) (state.Block, bool, error) {
-			s.stub.AddCall(getBlockForTypeCall, t)
-			val, found := s.blocks[t]
-			return val, found, nil
 		},
 		detachStorage: func(storage names.StorageTag, unit names.UnitTag) error {
 			s.stub.AddCall(detachStorageCall, storage, unit)

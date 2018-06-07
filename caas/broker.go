@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/watcher"
 )
 
@@ -98,6 +99,9 @@ type Broker interface {
 
 	// Units returns all units of the specified application.
 	Units(appName string) ([]Unit, error)
+
+	// ProviderRegistry is an interface for obtaining storage providers.
+	storage.ProviderRegistry
 }
 
 // Service represents information about the status of a caas service entity.

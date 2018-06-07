@@ -45,6 +45,7 @@ Examples:
 // attachStorageCommand adds unit storage instances dynamically.
 type attachStorageCommand struct {
 	StorageCommandBase
+	modelcmd.IAASOnlyCommand
 	newEntityAttacherCloser NewEntityAttacherCloserFunc
 	unitId                  string
 	storageIds              []string

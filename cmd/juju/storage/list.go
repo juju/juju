@@ -31,6 +31,7 @@ List information about storage.
 // listCommand returns storage instances.
 type listCommand struct {
 	StorageCommandBase
+	modelcmd.IAASOnlyCommand
 	out        cmd.Output
 	ids        []string
 	filesystem bool

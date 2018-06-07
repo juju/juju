@@ -81,6 +81,7 @@ Examples:
 // importFilesystemCommand imports filesystems into the model.
 type importFilesystemCommand struct {
 	StorageCommandBase
+	modelcmd.IAASOnlyCommand
 	newAPIFunc NewStorageImporterFunc
 
 	storagePool       string

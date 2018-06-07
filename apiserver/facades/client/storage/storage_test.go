@@ -27,7 +27,7 @@ type storageSuite struct {
 var _ = gc.Suite(&storageSuite{})
 
 func (s *storageSuite) TestStorageListEmpty(c *gc.C) {
-	s.state.allStorageInstances = func() ([]state.StorageInstance, error) {
+	s.storageAccessor.allStorageInstances = func() ([]state.StorageInstance, error) {
 		s.stub.AddCall(allStorageInstancesCall)
 		return []state.StorageInstance{}, nil
 	}
@@ -52,7 +52,6 @@ func (s *storageSuite) TestStorageListFilesystem(c *gc.C) {
 		allStorageInstancesCall,
 		storageInstanceFilesystemCall,
 		storageInstanceAttachmentsCall,
-		unitAssignedMachineCall,
 		storageInstanceCall,
 		storageInstanceFilesystemCall,
 		storageInstanceFilesystemAttachmentCall,
@@ -77,7 +76,6 @@ func (s *storageSuite) TestStorageListVolume(c *gc.C) {
 		allStorageInstancesCall,
 		storageInstanceVolumeCall,
 		storageInstanceAttachmentsCall,
-		unitAssignedMachineCall,
 		storageInstanceCall,
 		storageInstanceVolumeCall,
 	}
@@ -94,7 +92,7 @@ func (s *storageSuite) TestStorageListVolume(c *gc.C) {
 
 func (s *storageSuite) TestStorageListError(c *gc.C) {
 	msg := "list test error"
-	s.state.allStorageInstances = func() ([]state.StorageInstance, error) {
+	s.storageAccessor.allStorageInstances = func() ([]state.StorageInstance, error) {
 		s.stub.AddCall(allStorageInstancesCall)
 		return []state.StorageInstance{}, errors.Errorf(msg)
 	}
@@ -112,7 +110,7 @@ func (s *storageSuite) TestStorageListError(c *gc.C) {
 
 func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 	msg := "list test error"
-	s.state.storageInstance = func(sTag names.StorageTag) (state.StorageInstance, error) {
+	s.storageAccessor.storageInstance = func(sTag names.StorageTag) (state.StorageInstance, error) {
 		s.stub.AddCall(storageInstanceCall)
 		c.Assert(sTag, jc.DeepEquals, s.storageTag)
 		return nil, errors.Errorf(msg)
@@ -127,7 +125,6 @@ func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 		allStorageInstancesCall,
 		storageInstanceFilesystemCall,
 		storageInstanceAttachmentsCall,
-		unitAssignedMachineCall,
 		storageInstanceCall,
 	}
 	s.assertCalls(c, expectedCalls)
@@ -138,7 +135,7 @@ func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 }
 
 func (s *storageSuite) TestStorageListAttachmentError(c *gc.C) {
-	s.state.storageInstanceAttachments = func(tag names.StorageTag) ([]state.StorageAttachment, error) {
+	s.storageAccessor.storageInstanceAttachments = func(tag names.StorageTag) ([]state.StorageAttachment, error) {
 		s.stub.AddCall(storageInstanceAttachmentsCall)
 		c.Assert(tag, jc.DeepEquals, s.storageTag)
 		return []state.StorageAttachment{}, errors.Errorf("list test error")
@@ -162,12 +159,7 @@ func (s *storageSuite) TestStorageListAttachmentError(c *gc.C) {
 
 func (s *storageSuite) TestStorageListMachineError(c *gc.C) {
 	msg := "list test error"
-	s.state.unitAssignedMachine = func(u names.UnitTag) (names.MachineTag, error) {
-		s.stub.AddCall(unitAssignedMachineCall)
-		c.Assert(u, jc.DeepEquals, s.unitTag)
-		return names.MachineTag{}, errors.Errorf(msg)
-	}
-
+	s.state.unitErr = msg
 	found, err := s.api.ListStorageDetails(
 		params.StorageFilters{[]params.StorageFilter{{}}},
 	)
@@ -177,7 +169,6 @@ func (s *storageSuite) TestStorageListMachineError(c *gc.C) {
 		allStorageInstancesCall,
 		storageInstanceFilesystemCall,
 		storageInstanceAttachmentsCall,
-		unitAssignedMachineCall,
 	}
 	s.assertCalls(c, expectedCalls)
 	c.Assert(found.Results, gc.HasLen, 1)
@@ -188,7 +179,7 @@ func (s *storageSuite) TestStorageListMachineError(c *gc.C) {
 
 func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
 	msg := "list test error"
-	s.state.storageInstanceFilesystem = func(sTag names.StorageTag) (state.Filesystem, error) {
+	s.storageAccessor.storageInstanceFilesystem = func(sTag names.StorageTag) (state.Filesystem, error) {
 		s.stub.AddCall(storageInstanceFilesystemCall)
 		c.Assert(sTag, jc.DeepEquals, s.storageTag)
 		return nil, errors.Errorf(msg)
@@ -212,11 +203,7 @@ func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
 
 func (s *storageSuite) TestStorageListFilesystemAttachmentError(c *gc.C) {
 	msg := "list test error"
-	s.state.unitAssignedMachine = func(u names.UnitTag) (names.MachineTag, error) {
-		s.stub.AddCall(unitAssignedMachineCall)
-		c.Assert(u, jc.DeepEquals, s.unitTag)
-		return s.machineTag, errors.Errorf(msg)
-	}
+	s.state.unitErr = msg
 
 	found, err := s.api.ListStorageDetails(
 		params.StorageFilters{[]params.StorageFilter{{}}},
@@ -227,7 +214,6 @@ func (s *storageSuite) TestStorageListFilesystemAttachmentError(c *gc.C) {
 		allStorageInstancesCall,
 		storageInstanceFilesystemCall,
 		storageInstanceAttachmentsCall,
-		unitAssignedMachineCall,
 	}
 	s.assertCalls(c, expectedCalls)
 	c.Assert(found.Results, gc.HasLen, 1)
@@ -442,7 +428,7 @@ func (s *storageSuite) TestDetachAttachmentNotFoundConcurrent(c *gc.C) {
 	//     a list of alive attachments
 	//  2. attachment is concurrently destroyed
 	//     and removed by another process
-	s.state.detachStorage = func(sTag names.StorageTag, uTag names.UnitTag) error {
+	s.storageAccessor.detachStorage = func(sTag names.StorageTag, uTag names.UnitTag) error {
 		s.stub.AddCall(detachStorageCall, sTag, uTag)
 		return errors.NotFoundf(
 			"attachment of %s to %s",
