@@ -13,12 +13,14 @@ import (
 	"github.com/juju/loggo"
 )
 
+// JujuLogCommandLogger provides a Logger interface for the juju-log command.
 //go:generate mockgen -package jujuc -destination juju-log_mock_test.go github.com/juju/juju/worker/uniter/runner/jujuc JujuLogCommandLogger,JujuLogContext
 type JujuLogCommandLogger interface {
 	Logf(level loggo.Level, message string, args ...interface{})
 	Warningf(message string, args ...interface{})
 }
 
+// JujuLogContext is the Context for the JujuLogCommand
 type JujuLogContext interface {
 	UnitName() string
 	HookRelation() (ContextRelation, error)
@@ -88,8 +90,9 @@ func (c *JujuLogCommand) Run(ctx *cmd.Context) error {
 	prefix := ""
 	if r, err := c.ctx.HookRelation(); err == nil {
 		prefix = r.FakeId() + ": "
-	} else if errors.IsNotSupported(err) {
-		// nop
+	} else if errors.IsNotImplemented(err) {
+		// if the hook relation is not implemented, then we want to continue
+		// without a FakeId
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}

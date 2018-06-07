@@ -5,9 +5,12 @@
 package jujuc_test
 
 import (
+	"strings"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -69,8 +72,9 @@ func (s *JujuLogSuite) TestRunWithNoErrorsLogsOnRun(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	logger := jujuc.NewMockJujuLogCommandLogger(ctrl)
-	logger.EXPECT().Logf(loggo.INFO, "%s%s", ": ", "foo msg")
+	messages := []string{"foo", "msg"}
+
+	logger := s.expectLogf(ctrl, loggo.INFO, ": ", messages...)
 
 	relation := jujuc.NewMockContextRelation(ctrl)
 	relation.EXPECT().FakeId().Return("")
@@ -80,8 +84,71 @@ func (s *JujuLogSuite) TestRunWithNoErrorsLogsOnRun(c *gc.C) {
 	context.EXPECT().UnitName().Return("")
 
 	cmd := s.newJujuLogCommandWithMocks(c, logger, context)
-	ctx, err := cmdtesting.RunCommand(c, cmd, "foo", "msg")
+	ctx, err := cmdtesting.RunCommand(c, cmd, messages...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+}
+
+func (s *JujuLogSuite) TestRunWithErrorIsNotImplementedLogsOnRun(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	messages := []string{"foo", "msg"}
+
+	logger := s.expectLogf(ctrl, loggo.INFO, "", messages...)
+
+	context := jujuc.NewMockJujuLogContext(ctrl)
+	context.EXPECT().HookRelation().Return(nil, errors.NotImplementedf("not implemented"))
+	context.EXPECT().UnitName().Return("")
+
+	cmd := s.newJujuLogCommandWithMocks(c, logger, context)
+	ctx, err := cmdtesting.RunCommand(c, cmd, messages...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+}
+
+func (s *JujuLogSuite) TestRunWithErrorIsNotFoundLogsOnRun(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	messages := []string{"foo", "msg"}
+
+	logger := s.expectLogf(ctrl, loggo.INFO, "", messages...)
+
+	context := jujuc.NewMockJujuLogContext(ctrl)
+	context.EXPECT().HookRelation().Return(nil, errors.NotFoundf("not found"))
+	context.EXPECT().UnitName().Return("")
+
+	cmd := s.newJujuLogCommandWithMocks(c, logger, context)
+	ctx, err := cmdtesting.RunCommand(c, cmd, messages...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+}
+
+func (s *JujuLogSuite) TestRunWithErrorDoesNotLogOnRun(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	messages := []string{"foo", "msg"}
+
+	logger := jujuc.NewMockJujuLogCommandLogger(ctrl)
+
+	context := jujuc.NewMockJujuLogContext(ctrl)
+	context.EXPECT().HookRelation().Return(nil, errors.New("bad"))
+	context.EXPECT().UnitName().Return("")
+
+	cmd := s.newJujuLogCommandWithMocks(c, logger, context)
+	ctx, err := cmdtesting.RunCommand(c, cmd, messages...)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "bad")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+}
+
+func (s *JujuLogSuite) expectLogf(ctrl *gomock.Controller, level loggo.Level, prefix string, args ...string) jujuc.JujuLogCommandLogger {
+	logger := jujuc.NewMockJujuLogCommandLogger(ctrl)
+	logger.EXPECT().Logf(level, "%s%s", prefix, strings.Join(args, " "))
+	return logger
 }
