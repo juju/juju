@@ -4,7 +4,6 @@
 package dependency
 
 import (
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 )
@@ -100,14 +99,4 @@ func SelfManifold(engine *Engine) Manifold {
 			return nil
 		},
 	}
-}
-
-// ManifoldDependencies returns all manifold dependencies.
-func (all Manifolds) ManifoldDependencies(name string, manifold Manifold) set.Strings {
-	result := set.NewStrings()
-	for _, input := range manifold.Inputs {
-		result.Add(input)
-		result = result.Union(all.ManifoldDependencies(input, all[input]))
-	}
-	return result
 }

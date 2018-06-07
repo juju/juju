@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	goyaml "gopkg.in/yaml.v2"
@@ -186,4 +187,30 @@ func (tracker *EngineTracker) startFunc(id string, names []string) dependency.St
 		}
 		return nil, dependency.ErrMissing
 	}
+}
+
+// AssertManifoldsDependencies asserts that given manifolds have expected dependencies.
+func AssertManifoldsDependencies(c *gc.C, manifolds dependency.Manifolds, expected map[string][]string) {
+	dependencies := make(map[string][]string, len(manifolds))
+	manifoldNames := set.NewStrings()
+
+	for name, manifold := range manifolds {
+		manifoldNames.Add(name)
+		dependencies[name] = ManifoldDependencies(manifolds, name, manifold).SortedValues()
+	}
+	c.Assert(len(dependencies), gc.Equals, len(expected))
+
+	for _, n := range manifoldNames.SortedValues() {
+		c.Assert(dependencies[n], jc.SameContents, expected[n])
+	}
+}
+
+// ManifoldDependencies returns all - direct and indirect - manifold dependencies.
+func ManifoldDependencies(all dependency.Manifolds, name string, manifold dependency.Manifold) set.Strings {
+	result := set.NewStrings()
+	for _, input := range manifold.Inputs {
+		result.Add(input)
+		result = result.Union(ManifoldDependencies(all, input, all[input]))
+	}
+	return result
 }

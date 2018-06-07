@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	worker "gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/dependency"
@@ -250,4 +251,476 @@ func assertGate(c *gc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 	default:
 		c.Fatalf("expected gate to be unlocked")
 	}
+}
+
+func (s *ManifoldsSuite) TestManifoldsDependencies(c *gc.C) {
+	agenttest.AssertManifoldsDependencies(c,
+		machine.Manifolds(machine.ManifoldsConfig{
+			Agent: &mockAgent{},
+		}),
+		expectedMachineManifoldsWithDependencies,
+	)
+}
+
+var expectedMachineManifoldsWithDependencies = map[string][]string{
+
+	"agent": []string{},
+
+	"api-address-updater": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"api-caller": []string{"agent", "api-config-watcher"},
+
+	"api-config-watcher": []string{"agent"},
+
+	"api-server": []string{
+		"agent",
+		"audit-config-updater",
+		"certificate-watcher",
+		"clock",
+		"http-server",
+		"is-controller-flag",
+		"restore-watcher",
+		"state",
+		"state-config-watcher",
+		"upgrade-steps-gate"},
+
+	"audit-config-updater": []string{
+		"agent",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher"},
+
+	"central-hub": []string{"agent", "state-config-watcher"},
+
+	"certificate-updater": []string{
+		"agent",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"certificate-watcher": []string{
+		"agent",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher"},
+
+	"clock": []string{},
+
+	"disk-manager": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"external-controller-updater": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"clock",
+		"is-controller-flag",
+		"is-primary-controller-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"fan-configurer": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"global-clock-updater": []string{
+		"agent",
+		"clock",
+		"state",
+		"state-config-watcher"},
+
+	"host-key-reporter": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"http-server": []string{
+		"agent",
+		"certificate-watcher",
+		"clock",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher"},
+
+	"is-controller-flag": []string{"agent", "state", "state-config-watcher"},
+
+	"is-primary-controller-flag": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"clock",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher"},
+
+	"log-pruner": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"clock",
+		"is-controller-flag",
+		"is-primary-controller-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"log-sender": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"logging-config-updater": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"machine-action-runner": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"machiner": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"fan-configurer",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"mgo-txn-resumer": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"migration-fortress": []string{
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"migration-inactive-flag": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher"},
+
+	"migration-minion": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"model-worker-manager": []string{
+		"agent",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"peer-grouper": []string{
+		"agent",
+		"clock",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"presence": []string{"agent", "central-hub", "state-config-watcher"},
+
+	"proxy-config-updater": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"pubsub-forwarder": []string{
+		"agent",
+		"central-hub",
+		"state-config-watcher"},
+
+	"raft": []string{
+		"agent",
+		"central-hub",
+		"certificate-watcher",
+		"clock",
+		"http-server",
+		"is-controller-flag",
+		"raft-enabled-flag",
+		"raft-transport",
+		"state",
+		"state-config-watcher"},
+
+	"raft-backstop": []string{
+		"agent",
+		"central-hub",
+		"certificate-watcher",
+		"clock",
+		"http-server",
+		"is-controller-flag",
+		"raft",
+		"raft-enabled-flag",
+		"raft-transport",
+		"state",
+		"state-config-watcher"},
+
+	"raft-clusterer": []string{
+		"agent",
+		"central-hub",
+		"certificate-watcher",
+		"clock",
+		"http-server",
+		"is-controller-flag",
+		"raft",
+		"raft-enabled-flag",
+		"raft-leader-flag",
+		"raft-transport",
+		"state",
+		"state-config-watcher"},
+
+	"raft-enabled-flag": []string{
+		"agent",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher"},
+
+	"raft-leader-flag": []string{
+		"agent",
+		"central-hub",
+		"certificate-watcher",
+		"clock",
+		"http-server",
+		"is-controller-flag",
+		"raft",
+		"raft-enabled-flag",
+		"raft-transport",
+		"state",
+		"state-config-watcher"},
+
+	"raft-transport": []string{
+		"agent",
+		"central-hub",
+		"certificate-watcher",
+		"clock",
+		"http-server",
+		"is-controller-flag",
+		"raft-enabled-flag",
+		"state",
+		"state-config-watcher"},
+
+	"reboot-executor": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"restore-watcher": []string{"agent", "state", "state-config-watcher"},
+
+	"serving-info-setter": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"ssh-authkeys-updater": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"ssh-identity-writer": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"state": []string{"agent", "state-config-watcher"},
+
+	"state-config-watcher": []string{"agent"},
+
+	"storage-provisioner": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"termination-signal-handler": []string{},
+
+	"tools-version-checker": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"transaction-pruner": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"clock",
+		"is-controller-flag",
+		"is-primary-controller-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"state",
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"unconverted-api-workers": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"unit-agent-deployer": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"upgrade-check-flag": []string{"upgrade-check-gate"},
+
+	"upgrade-check-gate": []string{},
+
+	"upgrade-steps-flag": []string{"upgrade-steps-gate"},
+
+	"upgrade-steps-gate": []string{},
+
+	"upgrade-steps-runner": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"upgrade-steps-gate"},
+
+	"upgrader": []string{
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"upgrade-check-gate",
+		"upgrade-steps-gate"},
 }
