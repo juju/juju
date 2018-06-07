@@ -1668,7 +1668,7 @@ func (s *modelManagerSuite) TestModelStatus(c *gc.C) {
 }
 
 type fakeProvider struct {
-	environs.EnvironProvider
+	environs.CloudEnvironProvider
 }
 
 func (*fakeProvider) Validate(cfg, old *config.Config) (*config.Config, error) {

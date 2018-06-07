@@ -26,6 +26,8 @@ const (
 // EnvironProvider type implements environs.EnvironProvider interface
 type EnvironProvider struct{}
 
+var _ environs.CloudEnvironProvider = (*EnvironProvider)(nil)
+
 var cloudSchema = &jsonschema.Schema{
 	Type:     []jsonschema.Type{jsonschema.ObjectType},
 	Required: []string{cloud.EndpointKey, cloud.AuthTypesKey},
@@ -97,7 +99,7 @@ func (EnvironProvider) Version() int {
 }
 
 // Open is defined on the environs.EnvironProvider interface.
-func (e *EnvironProvider) Open(ctx context.ProviderCallContext, params environs.OpenParams) (environs.Environ, error) {
+func (e *EnvironProvider) Open(params environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", params.Config.Name())
 	if err := e.validateCloudSpec(params.Cloud); err != nil {
 		return nil, errors.Annotatef(err, "validating cloud spec")

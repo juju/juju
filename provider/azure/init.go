@@ -20,7 +20,7 @@ const (
 
 // NewProvider instantiates and returns the Azure EnvironProvider using the
 // given configuration.
-func NewProvider(config ProviderConfig) (environs.EnvironProvider, error) {
+func NewProvider(config ProviderConfig) (environs.CloudEnvironProvider, error) {
 	environProvider, err := NewEnvironProvider(config)
 	if err != nil {
 		return nil, errors.Trace(err)
