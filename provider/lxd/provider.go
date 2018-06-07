@@ -32,7 +32,7 @@ type environProvider struct {
 }
 
 // NewProvider returns a new LXD EnvironProvider.
-func NewProvider() environs.EnvironProvider {
+func NewProvider() environs.CloudEnvironProvider {
 	return &environProvider{
 		environProviderCredentials: environProviderCredentials{
 			generateMemCert:     shared.GenerateMemCert,

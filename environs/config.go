@@ -63,6 +63,7 @@ func (r *globalProviderRegistry) RegisterProvider(p EnvironProvider, providerTyp
 	return nil
 }
 
+// UnregisterProvider removes the named provider from the list of available providers.
 func (r *globalProviderRegistry) UnregisterProvider(providerType string) {
 	delete(r.providers, providerType)
 	for a, p := range r.aliases {
