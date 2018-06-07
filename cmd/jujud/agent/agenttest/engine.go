@@ -205,7 +205,7 @@ func AssertManifoldsDependencies(c *gc.C, manifolds dependency.Manifolds, expect
 	}
 }
 
-// ManifoldDependencies returns all manifold dependencies.
+// ManifoldDependencies returns all - direct and indirect - manifold dependencies.
 func ManifoldDependencies(all dependency.Manifolds, name string, manifold dependency.Manifold) set.Strings {
 	result := set.NewStrings()
 	for _, input := range manifold.Inputs {
