@@ -20,8 +20,8 @@ type ProviderRegistry interface {
 	// given name or alias, an error will be returned.
 	RegisterProvider(p EnvironProvider, providerType string, providerTypeAliases ...string) error
 
-	// unregisterProvider unregisters the environment provider with the given name.
-	unregisterProvider(providerType string)
+	// UnregisterProvider unregisters the environment provider with the given name.
+	UnregisterProvider(providerType string)
 
 	// RegisteredProviders returns the names of the registered environment
 	// providers.
@@ -63,7 +63,7 @@ func (r *globalProviderRegistry) RegisterProvider(p EnvironProvider, providerTyp
 	return nil
 }
 
-func (r *globalProviderRegistry) unregisterProvider(providerType string) {
+func (r *globalProviderRegistry) UnregisterProvider(providerType string) {
 	delete(r.providers, providerType)
 	for a, p := range r.aliases {
 		if p == providerType {
@@ -104,18 +104,7 @@ func RegisterProvider(name string, p CloudEnvironProvider, alias ...string) (unr
 		panic(fmt.Errorf("juju: %v", err))
 	}
 	return func() {
-		GlobalProviderRegistry().unregisterProvider(name)
-	}
-}
-
-// RegisterUnbootstrappableProvider is used for providers that we want to use for managing 'instances',
-// but are not possible sources for 'juju bootstrap'.
-func RegisterUnbootstrappableProvider(name string, p EnvironProvider, alias ...string) (unregister func()) {
-	if err := GlobalProviderRegistry().RegisterProvider(p, name, alias...); err != nil {
-		panic(fmt.Errorf("juju: %v", err))
-	}
-	return func() {
-		GlobalProviderRegistry().unregisterProvider(name)
+		GlobalProviderRegistry().UnregisterProvider(name)
 	}
 }
 

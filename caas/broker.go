@@ -4,6 +4,8 @@
 package caas
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
@@ -29,6 +31,17 @@ type ContainerEnvironProvider interface {
 
 	// ParsePodSpec unmarshalls the given YAML pod spec.
 	ParsePodSpec(in string) (*PodSpec, error)
+}
+
+// RegisterContainerProvider is used for providers that we want to use for managing 'instances',
+// but are not possible sources for 'juju bootstrap'.
+func RegisterContainerProvider(name string, p ContainerEnvironProvider, alias ...string) (unregister func()) {
+	if err := environs.GlobalProviderRegistry().RegisterProvider(p, name, alias...); err != nil {
+		panic(fmt.Errorf("juju: %v", err))
+	}
+	return func() {
+		environs.GlobalProviderRegistry().UnregisterProvider(name)
+	}
 }
 
 // New returns a new broker based on the provided configuration.
