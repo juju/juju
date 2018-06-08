@@ -22,10 +22,12 @@ import (
 type ManifoldSuite struct {
 	testing.IsolationSuite
 	testing.Stub
-	manifold dependency.Manifold
-	agent    *mockAgent
-	conn     *mockConn
-	context  dependency.Context
+
+	manifold       dependency.Manifold
+	manifoldConfig apicaller.ManifoldConfig
+	agent          *mockAgent
+	conn           *mockConn
+	context        dependency.Context
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -33,7 +35,7 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub = testing.Stub{}
-	s.manifold = apicaller.Manifold(apicaller.ManifoldConfig{
+	s.manifoldConfig = apicaller.ManifoldConfig{
 		AgentName:            "agent-name",
 		APIConfigWatcherName: "api-config-watcher-name",
 		APIOpen: func(*api.Info, api.DialOpts) (api.Connection, error) {
@@ -50,7 +52,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		Filter: func(err error) error {
 			panic(err)
 		},
-	})
+	}
+	s.manifold = apicaller.Manifold(s.manifoldConfig)
 	checkFilter := func() {
 		s.manifold.Filter(errors.New("arrgh"))
 	}
@@ -71,6 +74,13 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		stub:   &testing.Stub{},
 		broken: make(chan struct{}),
 	}
+}
+
+func (s *ManifoldSuite) TestInputsOptionalConfigPropertiesUnset(c *gc.C) {
+	s.manifoldConfig.APIConfigWatcherName = ""
+	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{
+		"agent-name",
+	})
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
