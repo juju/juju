@@ -32,7 +32,7 @@ var _ = gc.Suite(&undertakerSuite{})
 func (s *undertakerSuite) TestErrorWatching(c *gc.C) {
 	api := s.makeAPIWithWatcher()
 	api.SetErrors(errors.New("blam"))
-	w, err := machineundertaker.NewWorker(api, &fakeEnviron{})
+	w, err := machineundertaker.NewWorker(api, &fakeEnviron{}, &fakeCredentialAPI{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, gc.ErrorMatches, "blam")
@@ -42,7 +42,7 @@ func (s *undertakerSuite) TestErrorWatching(c *gc.C) {
 func (s *undertakerSuite) TestErrorGettingRemovals(c *gc.C) {
 	api := s.makeAPIWithWatcher()
 	api.SetErrors(nil, errors.New("explodo"))
-	w, err := machineundertaker.NewWorker(api, &fakeEnviron{})
+	w, err := machineundertaker.NewWorker(api, &fakeEnviron{}, &fakeCredentialAPI{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, gc.ErrorMatches, "explodo")

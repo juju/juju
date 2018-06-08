@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker/common"
 )
 
 var logger = loggo.GetLogger("juju.worker.machineundertaker")
@@ -43,14 +44,13 @@ type Undertaker struct {
 // NewWorker returns a machine undertaker worker that will watch for
 // machines that need to be removed and remove them, cleaning up any
 // necessary provider-level resources first.
-func NewWorker(api Facade, env environs.Environ) (worker.Worker, error) {
+func NewWorker(api Facade, env environs.Environ, credentialAPI common.CredentialAPI) (worker.Worker, error) {
 	envNetworking, _ := environs.SupportsNetworking(env)
-	callCtx := context.NewCloudCallContext()
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: &Undertaker{
 			API:         api,
 			Releaser:    envNetworking,
-			CallContext: callCtx,
+			CallContext: common.NewCloudCallContext(credentialAPI),
 		},
 	})
 	if err != nil {
