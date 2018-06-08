@@ -92,6 +92,18 @@ func NewUpdateSeriesCommandForTest(
 	return modelcmd.Wrap(cmd)
 }
 
+// NewSetSeriesCommandForTest returns a SetSeriesCommand with the specified api.
+func NewSetSeriesCommandForTest(
+	seriesAPI setSeriesAPI,
+	store jujuclient.ClientStore,
+) modelcmd.ModelCommand {
+	cmd := &setSeriesCommand{
+		setSeriesClient: seriesAPI,
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}
+
 // NewSuspendRelationCommandForTest returns a SuspendRelationCommand with the api provided as specified.
 func NewSuspendRelationCommandForTest(api SetRelationSuspendedAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
 	cmd := &suspendRelationCommand{newAPIFunc: func() (SetRelationSuspendedAPI, error) {

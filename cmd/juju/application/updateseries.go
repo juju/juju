@@ -19,6 +19,10 @@ import (
 
 // NewUpdateSeriesCommand returns a command which updates the series of
 // an application or machine.
+//
+// TODO (hml) 2018-06-06
+// This command should be deprecated, it's been replaced with set-series
+// and upgrade-series.
 func NewUpdateSeriesCommand() cmd.Command {
 	return modelcmd.Wrap(&updateSeriesCommand{})
 }
