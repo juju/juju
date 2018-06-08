@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
 	"github.com/juju/juju/worker/machineundertaker"
@@ -80,8 +81,11 @@ func makeManifold(workerResult worker.Worker, workerError error) dependency.Mani
 	return machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 		APICallerName: "the-caller",
 		EnvironName:   "the-environ",
-		NewWorker: func(machineundertaker.Facade, environs.Environ) (worker.Worker, error) {
+		NewWorker: func(machineundertaker.Facade, environs.Environ, common.CredentialAPI) (worker.Worker, error) {
 			return workerResult, workerError
+		},
+		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) {
+			return &fakeCredentialAPI{}, nil
 		},
 	})
 }

@@ -40,7 +40,6 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"charm-revision-updater",
 		"clock",
 		"compute-provisioner",
-		"credential-validator-flag",
 		"environ-tracker",
 		"firewaller",
 		"instance-poller",
@@ -62,6 +61,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"storage-provisioner",
 		"undertaker",
 		"unit-assigner",
+		"valid-credential-flag",
 	})
 }
 
@@ -86,7 +86,6 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"caas-unit-provisioner",
 		"charm-revision-updater",
 		"clock",
-		"credential-validator-flag",
 		"is-responsible-flag",
 		"log-forwarder",
 		"migration-fortress",
@@ -101,6 +100,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"state-cleaner",
 		"status-history-pruner",
 		"undertaker",
+		"valid-credential-flag",
 	})
 }
 
@@ -110,7 +110,6 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 		"api-caller",
 		"api-config-watcher",
 		"clock",
-		"credential-validator-flag",
 		"is-responsible-flag",
 		"not-alive-flag",
 		"not-dead-flag",
@@ -119,6 +118,7 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 		"model-upgrade-gate",
 		"model-upgraded-flag",
 		"model-upgrader",
+		"valid-credential-flag",
 	)
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
 		Agent: &mockAgent{},
@@ -256,8 +256,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"clock": {},
 
-	"credential-validator-flag": {"agent", "api-caller"},
-
 	"is-responsible-flag": {"agent", "api-caller", "clock"},
 
 	"log-forwarder": {
@@ -344,11 +342,14 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"caas-broker-tracker",
 		"clock",
-		"credential-validator-flag",
 		"is-responsible-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
-		"not-alive-flag"},
+		"not-alive-flag",
+		"valid-credential-flag",
+	},
+
+	"valid-credential-flag": {"agent", "api-caller"},
 }
 
 var expectedIAASModelManifoldsWithDependencies = map[string][]string{
@@ -399,16 +400,15 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"clock",
-		"credential-validator-flag",
 		"environ-tracker",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
-		"not-dead-flag"},
-
-	"credential-validator-flag": {"agent", "api-caller"},
+		"not-dead-flag",
+		"valid-credential-flag",
+	},
 
 	"environ-tracker": {"agent", "api-caller", "clock", "is-responsible-flag"},
 
@@ -416,27 +416,29 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"clock",
-		"credential-validator-flag",
 		"environ-tracker",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
-		"not-dead-flag"},
+		"not-dead-flag",
+		"valid-credential-flag",
+	},
 
 	"instance-poller": {
 		"agent",
 		"api-caller",
 		"clock",
-		"credential-validator-flag",
 		"environ-tracker",
 		"is-responsible-flag",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
-		"not-dead-flag"},
+		"not-dead-flag",
+		"valid-credential-flag",
+	},
 
 	"is-responsible-flag": {"agent", "api-caller", "clock"},
 
@@ -457,7 +459,9 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
-		"not-dead-flag"},
+		"not-dead-flag",
+		"valid-credential-flag",
+	},
 
 	"metric-worker": {
 		"agent",
@@ -506,10 +510,11 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"clock",
-		"credential-validator-flag",
 		"environ-tracker",
 		"is-responsible-flag",
-		"model-upgrade-gate"},
+		"model-upgrade-gate",
+		"valid-credential-flag",
+	},
 
 	"not-alive-flag": {"agent", "api-caller"},
 
@@ -565,12 +570,13 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"clock",
-		"credential-validator-flag",
 		"environ-tracker",
 		"is-responsible-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
-		"not-alive-flag"},
+		"not-alive-flag",
+		"valid-credential-flag",
+	},
 
 	"unit-assigner": {
 		"agent",
@@ -582,4 +588,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"model-upgrade-gate",
 		"model-upgraded-flag",
 		"not-dead-flag"},
+
+	"valid-credential-flag": {"agent", "api-caller"},
 }

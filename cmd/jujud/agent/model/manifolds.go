@@ -172,9 +172,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade: singular.NewFacade,
 			NewWorker: singular.NewWorker,
 		}),
-		// Cloud credential validator runs on all models, and
-		// determines if model's cloud credential is valid.
-		credentialValidatorFlagName: credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{
+		// This flag runs on all models, and
+		// indicates if model's cloud credential is valid.
+		validCredentialFlagName: credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{
 			APICallerName: apiCallerName,
 			NewFacade:     credentialvalidator.NewFacade,
 			NewWorker:     credentialvalidator.NewWorker,
@@ -380,11 +380,12 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		metricWorkerName: ifNotMigrating(metricworker.Manifold(metricworker.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
-			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
-			NewWorker:     machineundertaker.NewWorker,
-		})),
+		machineUndertakerName: ifNotMigrating(ifCredentialValid(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
+			APICallerName:                apiCallerName,
+			EnvironName:                  environTrackerName,
+			NewWorker:                    machineundertaker.NewWorker,
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+		}))),
 		modelUpgraderName: ifCredentialValid(modelupgrader.Manifold(modelupgrader.ManifoldConfig{
 			APICallerName:                apiCallerName,
 			EnvironName:                  environTrackerName,
@@ -539,7 +540,7 @@ var (
 	// the model has a valid credential.
 	ifCredentialValid = engine.Housing{
 		Flags: []string{
-			credentialValidatorFlagName,
+			validCredentialFlagName,
 		},
 	}.Decorate
 )
@@ -584,5 +585,5 @@ const (
 	caasUnitProvisionerName     = "caas-unit-provisioner"
 	caasBrokerTrackerName       = "caas-broker-tracker"
 
-	credentialValidatorFlagName = "credential-validator-flag"
+	validCredentialFlagName = "valid-credential-flag"
 )
