@@ -453,7 +453,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"clock",
-		"credential-validator-flag",
 		"environ-tracker",
 		"is-responsible-flag",
 		"migration-fortress",
