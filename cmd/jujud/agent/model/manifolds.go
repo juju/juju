@@ -380,11 +380,12 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		metricWorkerName: ifNotMigrating(metricworker.Manifold(metricworker.ManifoldConfig{
 			APICallerName: apiCallerName,
 		})),
-		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
-			APICallerName: apiCallerName,
-			EnvironName:   environTrackerName,
-			NewWorker:     machineundertaker.NewWorker,
-		})),
+		machineUndertakerName: ifNotMigrating(ifCredentialValid(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
+			APICallerName:                apiCallerName,
+			EnvironName:                  environTrackerName,
+			NewWorker:                    machineundertaker.NewWorker,
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+		}))),
 		modelUpgraderName: ifCredentialValid(modelupgrader.Manifold(modelupgrader.ManifoldConfig{
 			APICallerName:                apiCallerName,
 			EnvironName:                  environTrackerName,

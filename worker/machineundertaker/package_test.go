@@ -12,3 +12,9 @@ import (
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
+
+type fakeCredentialAPI struct{}
+
+func (*fakeCredentialAPI) InvalidateModelCredential(reason string) error {
+	return nil
+}
