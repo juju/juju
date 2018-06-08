@@ -78,7 +78,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) TestInputsOptionalConfigPropertiesUnset(c *gc.C) {
 	s.manifoldConfig.APIConfigWatcherName = ""
-	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{
+	c.Check(apicaller.Manifold(s.manifoldConfig).Inputs, jc.DeepEquals, []string{
 		"agent-name",
 	})
 }
