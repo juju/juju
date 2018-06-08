@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/machineundertaker"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -20,7 +21,8 @@ type ManifoldConfig struct {
 	APICallerName string
 	EnvironName   string
 
-	NewWorker func(Facade, environs.Environ) (worker.Worker, error)
+	NewWorker                    func(Facade, environs.Environ, common.CredentialAPI) (worker.Worker, error)
+	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 
 // Manifold returns a dependency.Manifold that runs a machine
@@ -41,7 +43,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			w, err := config.NewWorker(api, environ)
+
+			credentialAPI, err := config.NewCredentialValidatorFacade(apiCaller)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			w, err := config.NewWorker(api, environ, credentialAPI)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
