@@ -24,12 +24,12 @@ var (
 		"api-caller",
 		"api-config-watcher",
 		"clock",
-		"credential-validator-flag",
 		"is-responsible-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
 		"not-alive-flag",
 		"not-dead-flag",
+		"valid-credential-flag",
 	}
 	requireValidCredentialModelWorkers = []string{
 		"action-pruner",          // tertiary dependency: will be inactive because migration workers will be inactive
