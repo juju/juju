@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package application
+package application_test
 
 import (
 	"github.com/juju/cmd"
@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
@@ -30,7 +31,7 @@ func (s *updateSeriesSuite) SetUpTest(c *gc.C) {
 
 func (s *updateSeriesSuite) runUpdateSeries(c *gc.C, args ...string) (*cmd.Context, error) {
 	store := jujuclienttesting.MinimalStore()
-	return cmdtesting.RunCommand(c, NewUpdateSeriesCommandForTest(s.mockApplicationAPI, s.mockMachineAPI, store), args...)
+	return cmdtesting.RunCommand(c, application.NewUpdateSeriesCommandForTest(s.mockApplicationAPI, s.mockMachineAPI, store), args...)
 }
 
 func (s *updateSeriesSuite) TestUpdateSeriesApplicationGoodPath(c *gc.C) {

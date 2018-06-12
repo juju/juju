@@ -44,7 +44,7 @@ type setSeriesCommand struct {
 }
 
 var setSeriesDoc = `
-When no flags are set, an application series value with be set within juju.
+When no flags are set, an application series value will be set within juju.
 
 The update is disallowed unless the --force flag is used if the requested
 series is not explicitly supported by the application's charm and all

@@ -18,7 +18,7 @@ type cmdSetSeriesSuite struct {
 func (s *cmdSetSeriesSuite) TestSetApplicationSeries(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "multi-series", URL: "local:quantal/multi-series-1"})
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
-	_ = s.Factory.MakeUnit(c, &factory.UnitParams{Application: app, SetCharmURL: true})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Application: app, SetCharmURL: true})
 	c.Assert(app.Series(), gc.Equals, "quantal")
 	runCommandExpectSuccess(c, "set-series", "multi-series", "trusty")
 	err := app.Refresh()
