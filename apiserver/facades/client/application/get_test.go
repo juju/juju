@@ -41,14 +41,14 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	backend, stVolume, stFile, err := application.NewStateBackend(s.State)
+	storageAccess, err := application.GetStorageState(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(s.State)
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := application.NewAPIBase(
-		backend,
-		stVolume, stFile,
+		application.GetState(s.State),
+		storageAccess,
 		s.authorizer,
 		blockChecker,
 		model.ModelTag(),
@@ -183,12 +183,12 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 		expectedAppConfig[name] = info
 	}
 
-	backend, stVolume, stFile, err := application.NewStateBackend(st)
+	storageAccess, err := application.GetStorageState(st)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(st)
 	api, err := application.NewAPIBase(
-		backend,
-		stVolume, stFile,
+		application.GetState(st),
+		storageAccess,
 		s.authorizer,
 		blockChecker,
 		names.NewModelTag(st.ModelUUID()),

@@ -11,6 +11,8 @@ import (
 )
 
 type storageInterface interface {
+	VolumeAccess() storageVolumeInterface
+	FilesystemAccess() storageFilesystemInterface
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 	RemoveStorageAttachment(names.StorageTag, names.UnitTag) error
@@ -35,20 +37,19 @@ type storageFilesystemInterface interface {
 	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 }
 
-var getStorageState = func(st *state.State) (storageInterface, storageVolumeInterface, storageFilesystemInterface, error) {
+var getStorageState = func(st *state.State) (storageInterface, error) {
 	m, err := st.Model()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	if m.Type() == state.ModelTypeIAAS {
 		im, _ := m.IAASModel()
 		storageAccess := &iaasModelShim{Model: m, IAASModel: im}
-		return im, storageAccess, storageAccess, nil
+		return storageAccess, nil
 	}
 	caasModel, _ := m.CAASModel()
-	storageAccess := caasModelShim{Model: m, CAASModel: caasModel}
-	// CAAS models don't support volume storage yet.
-	return caasModel, nil, storageAccess, nil
+	storageAccess := &caasModelShim{Model: m, CAASModel: caasModel}
+	return storageAccess, nil
 }
 
 type iaasModelShim struct {
@@ -56,9 +57,26 @@ type iaasModelShim struct {
 	*state.IAASModel
 }
 
+func (im *iaasModelShim) VolumeAccess() storageVolumeInterface {
+	return im
+}
+
+func (im *iaasModelShim) FilesystemAccess() storageFilesystemInterface {
+	return im
+}
+
 type caasModelShim struct {
 	*state.Model
 	*state.CAASModel
+}
+
+func (cm *caasModelShim) VolumeAccess() storageVolumeInterface {
+	// CAAS models don't support volume storage yet.
+	return nil
+}
+
+func (cm *caasModelShim) FilesystemAccess() storageFilesystemInterface {
+	return cm
 }
 
 type backend interface {

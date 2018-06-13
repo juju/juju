@@ -49,7 +49,6 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	api, err := application.NewAPIBase(
 		&s.backend,
 		&s.backend,
-		&s.backend,
 		s.authorizer,
 		&s.blockChecker,
 		names.NewModelTag(utils.MustNewUUID().String()),

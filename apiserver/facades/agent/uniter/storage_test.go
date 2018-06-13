@@ -39,14 +39,14 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *gc.C) {
 		changes: make(chan []string, 1),
 	}
 	watcher.changes <- []string{"storage/0", "storage/1"}
-	state := &mockStorageState{
+	st := &mockStorageState{
 		watchStorageAttachments: func(u names.UnitTag) state.StringsWatcher {
 			c.Assert(u, gc.DeepEquals, unitTag)
 			return watcher
 		},
 	}
 
-	storage, err := uniter.NewStorageAPI(state, state, state, state, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, st, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	watches, err := storage.WatchUnitStorageAttachments(params.Entities{
 		Entities: []params.Entity{{unitTag.String()}},
@@ -87,7 +87,7 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 	}
 	blockDevicesWatcher.changes <- struct{}{}
 	var calls []string
-	state := &mockStorageState{
+	st := &mockStorageState{
 		assignedMachine: "66",
 		storageInstance: func(s names.StorageTag) (state.StorageInstance, error) {
 			calls = append(calls, "StorageInstance")
@@ -118,7 +118,7 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 		},
 	}
 
-	storage, err := uniter.NewStorageAPI(state, state, state, state, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, st, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	watches, err := storage.WatchStorageAttachments(params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
@@ -163,7 +163,7 @@ func (s *storageSuite) TestWatchStorageAttachmentFilesystem(c *gc.C) {
 	}
 	filesystemWatcher.changes <- struct{}{}
 	var calls []string
-	state := &mockStorageState{
+	st := &mockStorageState{
 		assignedMachine: "66",
 		storageInstance: func(s names.StorageTag) (state.StorageInstance, error) {
 			calls = append(calls, "StorageInstance")
@@ -189,7 +189,7 @@ func (s *storageSuite) TestWatchStorageAttachmentFilesystem(c *gc.C) {
 		},
 	}
 
-	storage, err := uniter.NewStorageAPI(state, state, state, state, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, st, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	watches, err := storage.WatchStorageAttachments(params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
@@ -220,7 +220,7 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 	}
 	unitTag := names.NewUnitTag("mysql/0")
 	var calls []string
-	state := &mockStorageState{
+	st := &mockStorageState{
 		destroyUnitStorageAttachments: func(u names.UnitTag) error {
 			calls = append(calls, "DestroyUnitStorageAttachments")
 			c.Assert(u, gc.DeepEquals, unitTag)
@@ -228,16 +228,16 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 		},
 	}
 
-	storage, err := uniter.NewStorageAPI(state, state, state, state, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, st, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	errors, err := storage.DestroyUnitStorageAttachments(params.Entities{
+	destroyErrors, err := storage.DestroyUnitStorageAttachments(params.Entities{
 		Entities: []params.Entity{{
 			Tag: unitTag.String(),
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(calls, jc.DeepEquals, []string{"DestroyUnitStorageAttachments"})
-	c.Assert(errors, jc.DeepEquals, params.ErrorResults{
+	c.Assert(destroyErrors, jc.DeepEquals, params.ErrorResults{
 		[]params.ErrorResult{{}},
 	})
 }
@@ -259,8 +259,8 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 		}, nil
 	}
 
-	state := &mockStorageState{}
-	setMock(state, func(s names.StorageTag, u names.UnitTag) error {
+	st := &mockStorageState{}
+	setMock(st, func(s names.StorageTag, u names.UnitTag) error {
 		c.Assert(u, gc.DeepEquals, unitTag0)
 		if s == storageTag1 {
 			return errors.New("badness")
@@ -268,9 +268,9 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 		return nil
 	})
 
-	storage, err := uniter.NewStorageAPI(state, state, state, state, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, st, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	errors, err := storage.RemoveStorageAttachments(params.StorageAttachmentIds{
+	removeErrors, err := storage.RemoveStorageAttachments(params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
 			StorageTag: storageTag0.String(),
 			UnitTag:    unitTag0.String(),
@@ -289,7 +289,7 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errors, jc.DeepEquals, params.ErrorResults{
+	c.Assert(removeErrors, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{nil},
 			{&params.Error{Message: "badness"}},
@@ -323,11 +323,11 @@ func (s *storageSuite) TestAddUnitStorageConstraintsErrors(c *gc.C) {
 		},
 	}
 
-	storage, err := uniter.NewStorageAPI(mockState, mockState, mockState, mockState, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(mockState, mockState, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	size := uint64(10)
 	count := uint64(0)
-	errors, err := storage.AddUnitStorage(params.StoragesAddParams{
+	addErrors, err := storage.AddUnitStorage(params.StoragesAddParams{
 		Storages: []params.StorageAddParams{
 			{
 				UnitTag:     unitTag0.String(),
@@ -354,7 +354,7 @@ func (s *storageSuite) TestAddUnitStorageConstraintsErrors(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.called, gc.HasLen, 0)
-	c.Assert(errors, jc.DeepEquals, params.ErrorResults{
+	c.Assert(addErrors, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: `adding storage data for unit-mysql-0: only count can be specified`}},
 			{&params.Error{Message: `adding storage data for unit-mysql-0: only count can be specified`}},
@@ -414,9 +414,9 @@ func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 		return nil
 	})
 
-	storage, err := uniter.NewStorageAPI(mockState, mockState, mockState, mockState, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(mockState, mockState, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	errors, err := storage.AddUnitStorage(params.StoragesAddParams{
+	addErrors, err := storage.AddUnitStorage(params.StoragesAddParams{
 		Storages: []params.StorageAddParams{
 			{
 				UnitTag:     unitTag0.String(),
@@ -434,7 +434,7 @@ func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 		addStorageCall,
 		addStorageCall,
 	})
-	c.Assert(errors, jc.DeepEquals, params.ErrorResults{
+	c.Assert(addErrors, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{nil},
 			{&params.Error{Message: "adding storage store for unit-mysql-0: badness"}},
@@ -474,6 +474,14 @@ type mockStorageState struct {
 	watchVolumeAttachment         func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 	watchBlockDevices             func(names.MachineTag) state.NotifyWatcher
 	addUnitStorage                func(u names.UnitTag, name string, cons state.StorageConstraints) error
+}
+
+func (m *mockStorageState) VolumeAccess() uniter.StorageVolumeInterface {
+	return m
+}
+
+func (m *mockStorageState) FilesystemAccess() uniter.StorageFilesystemInterface {
+	return m
 }
 
 func (m *mockStorageState) Unit(name string) (uniter.Unit, error) {

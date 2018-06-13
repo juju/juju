@@ -19,8 +19,6 @@ import (
 type StorageAPI struct {
 	backend    backend
 	storage    storageInterface
-	stVolume   storageVolumeInterface
-	stFile     storageFilesystemInterface
 	resources  facade.Resources
 	accessUnit common.GetAuthFunc
 }
@@ -29,8 +27,6 @@ type StorageAPI struct {
 func newStorageAPI(
 	backend backend,
 	storage storageInterface,
-	stVolume storageVolumeInterface,
-	stFile storageFilesystemInterface,
 	resources facade.Resources,
 	accessUnit common.GetAuthFunc,
 ) (*StorageAPI, error) {
@@ -38,8 +34,6 @@ func newStorageAPI(
 	return &StorageAPI{
 		backend:    backend,
 		storage:    storage,
-		stVolume:   stVolume,
-		stFile:     stFile,
 		resources:  resources,
 		accessUnit: accessUnit,
 	}, nil
@@ -182,7 +176,8 @@ func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.Sto
 	if err != nil {
 		return params.StorageAttachment{}, err
 	}
-	info, err := storagecommon.StorageAttachmentInfo(s.storage, s.stVolume, s.stFile, stateStorageAttachment, machineTag)
+	info, err := storagecommon.StorageAttachmentInfo(
+		s.storage, s.storage.VolumeAccess(), s.storage.FilesystemAccess(), stateStorageAttachment, machineTag)
 	if err != nil {
 		return params.StorageAttachment{}, err
 	}
@@ -281,7 +276,8 @@ func (s *StorageAPI) watchOneStorageAttachment(id params.StorageAttachmentId, ca
 	if err != nil {
 		return nothing, err
 	}
-	watch, err := watchStorageAttachment(s.storage, s.stVolume, s.stFile, storageTag, machineTag, unitTag)
+	watch, err := watchStorageAttachment(
+		s.storage, s.storage.VolumeAccess(), s.storage.FilesystemAccess(), storageTag, machineTag, unitTag)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
@@ -434,6 +430,9 @@ func watchStorageAttachment(
 	var watchers []state.NotifyWatcher
 	switch storageInstance.Kind() {
 	case state.StorageKindBlock:
+		if stVolume == nil {
+			return nil, errors.NotImplementedf("BlockStorage instance")
+		}
 		volume, err := stVolume.StorageInstanceVolume(storageTag)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting storage volume")
@@ -453,6 +452,9 @@ func watchStorageAttachment(
 			stVolume.WatchBlockDevices(machineTag),
 		}
 	case state.StorageKindFilesystem:
+		if stFile == nil {
+			return nil, errors.NotImplementedf("FilesystemStorage instance")
+		}
 		filesystem, err := stFile.StorageInstanceFilesystem(storageTag)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting storage filesystem")

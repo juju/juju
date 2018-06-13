@@ -60,9 +60,8 @@ type APIv6 struct {
 //
 // API provides the Application API facade for version 5.
 type APIBase struct {
-	backend  Backend
-	stVolume storagecommon.StorageVolumeInterface
-	stFile   storagecommon.StorageFilesystemInterface
+	backend       Backend
+	storageAccess storageInterface
 
 	authorizer facade.Authorizer
 	check      BlockChecker
@@ -110,20 +109,19 @@ func NewFacadeV6(ctx facade.Context) (*APIv6, error) {
 }
 
 func newFacadeBase(ctx facade.Context) (*APIBase, error) {
-	backend, stVolume, stFile, err := NewStateBackend(ctx.State())
-	if err != nil {
-		return nil, errors.Annotate(err, "getting state")
-	}
 	model, err := ctx.State().Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model")
 	}
+	storageAccess, err := getStorageState(ctx.State())
+	if err != nil {
+		return nil, errors.Annotate(err, "getting state")
+	}
 	blockChecker := common.NewBlockChecker(ctx.State())
 	stateCharm := CharmToStateCharm
 	return NewAPIBase(
-		backend,
-		stVolume,
-		stFile,
+		&stateShim{ctx.State()},
+		storageAccess,
 		ctx.Auth(),
 		blockChecker,
 		model.ModelTag(),
@@ -136,8 +134,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
 	backend Backend,
-	stVolume storagecommon.StorageVolumeInterface,
-	stFile storagecommon.StorageFilesystemInterface,
+	storageAccess storageInterface,
 	authorizer facade.Authorizer,
 	blockChecker BlockChecker,
 	modelTag names.ModelTag,
@@ -150,8 +147,7 @@ func NewAPIBase(
 	}
 	return &APIBase{
 		backend:               backend,
-		stVolume:              stVolume,
-		stFile:                stFile,
+		storageAccess:         storageAccess,
 		authorizer:            authorizer,
 		check:                 blockChecker,
 		modelTag:              modelTag,
@@ -1046,7 +1042,7 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 		}
 		var info params.DestroyUnitInfo
 		if api.modelType == state.ModelTypeIAAS {
-			storage, err := storagecommon.UnitStorage(api.backend, unit.UnitTag())
+			storage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1059,7 +1055,7 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 				}
 			} else {
 				info.DestroyedStorage, info.DetachedStorage, err = storagecommon.ClassifyDetachedStorage(
-					api.backend, api.stVolume, api.stFile, storage,
+					api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), storage,
 				)
 				if err != nil {
 					return nil, errors.Trace(err)
@@ -1160,7 +1156,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 				arg.DestroyStorage = false
 				continue
 			}
-			storage, err := storagecommon.UnitStorage(api.backend, unit.UnitTag())
+			storage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
 			if err != nil {
 				return nil, err
 			}
@@ -1187,7 +1183,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 				}
 			} else {
 				destroyed, detached, err := storagecommon.ClassifyDetachedStorage(
-					api.backend, api.stVolume, api.stFile, storage,
+					api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), storage,
 				)
 				if err != nil {
 					return nil, err

@@ -63,6 +63,14 @@ type mockStorageAccessor struct {
 	addExistingFilesystem               func(state.FilesystemInfo, *state.VolumeInfo, string) (names.StorageTag, error)
 }
 
+func (st *mockStorageAccessor) VolumeAccess() storage.StorageVolume {
+	return st
+}
+
+func (st *mockStorageAccessor) FilesystemAccess() storage.StorageFile {
+	return st
+}
+
 func (st *mockStorageAccessor) StorageInstance(s names.StorageTag) (state.StorageInstance, error) {
 	return st.storageInstance(s)
 }

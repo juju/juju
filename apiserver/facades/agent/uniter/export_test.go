@@ -19,17 +19,15 @@ var (
 type (
 	Backend                    backend
 	StorageStateInterface      storageInterface
-	StorageVolumeInterface     storageVolumeInterface
-	StorageFilesystemInterface storageFilesystemInterface
+	StorageVolumeInterface     = storageVolumeInterface
+	StorageFilesystemInterface = storageFilesystemInterface
 )
 
 func NewStorageAPI(
 	backend backend,
 	storage storageInterface,
-	stVolume storageVolumeInterface,
-	stFile storageFilesystemInterface,
 	resources facade.Resources,
 	accessUnit common.GetAuthFunc,
 ) (*StorageAPI, error) {
-	return newStorageAPI(backend, storage, stVolume, stFile, resources, accessUnit)
+	return newStorageAPI(backend, storage, resources, accessUnit)
 }

@@ -226,8 +226,6 @@ func (m *mockRemoteApplication) Destroy() error {
 type mockBackend struct {
 	jtesting.Stub
 	application.Backend
-	storagecommon.StorageVolumeInterface
-	storagecommon.StorageFilesystemInterface
 
 	charm                      *mockCharm
 	allmodels                  []application.Model
@@ -241,6 +239,19 @@ type mockBackend struct {
 	storageInstances           map[string]*mockStorage
 	storageInstanceFilesystems map[string]*mockFilesystem
 	controllers                map[string]crossmodel.ControllerInfo
+}
+
+type mockFilesystemAccess struct {
+	storagecommon.FilesystemAccess
+	*mockBackend
+}
+
+func (m *mockBackend) VolumeAccess() storagecommon.VolumeAccess {
+	return nil
+}
+
+func (m *mockBackend) FilesystemAccess() storagecommon.FilesystemAccess {
+	return &mockFilesystemAccess{mockBackend: m}
 }
 
 func (m *mockBackend) ControllerTag() names.ControllerTag {
@@ -358,7 +369,7 @@ func (m *mockBackend) StorageInstance(tag names.StorageTag) (state.StorageInstan
 	return s, nil
 }
 
-func (m *mockBackend) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
+func (m *mockFilesystemAccess) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
 	m.MethodCall(m, "StorageInstanceFilesystem", tag)
 	if err := m.NextErr(); err != nil {
 		return nil, err

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
@@ -46,13 +47,13 @@ func NewFacadeV4(
 	registry := stateenvirons.NewStorageProviderRegistry(storageProvider)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
 
-	storageAccessor, storageVolume, storageFile, err := getStorageAccessors(st)
+	storageAccessor, err := getStorageAccessor(st)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting backend")
 	}
 	return NewAPIv4(
 		stateShim{st},
-		storageAccessor, storageVolume, storageFile,
+		storageAccessor,
 		registry, pm, resources, authorizer)
 }
 
@@ -69,17 +70,23 @@ func NewFacadeV3(
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
 
-	storageAccessor, storageVolume, storageFile, err := getStorageAccessors(st)
+	storageAccessor, err := getStorageAccessor(st)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting backend")
 	}
 	return NewAPIv3(
 		stateShim{st},
-		storageAccessor, storageVolume, storageFile,
+		storageAccessor,
 		registry, pm, resources, authorizer)
 }
 
 type storageAccess interface {
+	// VolumeAccess is required for storage functionality.
+	VolumeAccess() storageVolume
+
+	// FilesystemAccess is required for storage functionality.
+	FilesystemAccess() storageFile
+
 	// StorageInstance is required for storage functionality.
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 
@@ -112,6 +119,8 @@ type storageAccess interface {
 }
 
 type storageVolume interface {
+	storagecommon.VolumeAccess
+
 	// AllVolumes is required for volume functionality.
 	AllVolumes() ([]state.Volume, error)
 
@@ -121,23 +130,16 @@ type storageVolume interface {
 	// MachineVolumeAttachments is required for volume functionality.
 	MachineVolumeAttachments(machine names.MachineTag) ([]state.VolumeAttachment, error)
 
-	// StorageInstanceVolume is required for storage functionality.
-	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
-
 	// Volume is required for volume functionality.
 	Volume(tag names.VolumeTag) (state.Volume, error)
-
-	// VolumeAttachment is required for storage functionality.
-	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
-
-	// BlockDevices is required for storage functionality.
-	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 
 	// AddExistingFilesystem imports an existing filesystem into the model.
 	AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error)
 }
 
 type storageFile interface {
+	storagecommon.FilesystemAccess
+
 	// AllFilesystems is required for filesystem functionality.
 	AllFilesystems() ([]state.Filesystem, error)
 
@@ -150,35 +152,36 @@ type storageFile interface {
 	// Filesystem is required for filesystem functionality.
 	Filesystem(tag names.FilesystemTag) (state.Filesystem, error)
 
-	// StorageInstanceFilesystem is required for storage functionality.
-	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
-
-	// FilesystemAttachment is required for storage functionality.
-	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
-
 	// AddExistingFilesystem imports an existing filesystem into the model.
 	AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error)
 }
 
-var getStorageAccessors = func(st *state.State) (storageAccess, storageVolume, storageFile, error) {
+var getStorageAccessor = func(st *state.State) (storageAccess, error) {
 	m, err := st.Model()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	if m.Type() == state.ModelTypeIAAS {
 		im, _ := m.IAASModel()
 		storageAccess := &iaasModelShim{Model: m, IAASModel: im}
-		return im, storageAccess, storageAccess, nil
+		return storageAccess, nil
 	}
 	caasModel, _ := m.CAASModel()
-	storageAccess := caasModelShim{Model: m, CAASModel: caasModel}
-	// CAAS models don't support volume storage yet.
-	return caasModel, nil, storageAccess, nil
+	storageAccess := &caasModelShim{Model: m, CAASModel: caasModel}
+	return storageAccess, nil
 }
 
 type iaasModelShim struct {
 	*state.Model
 	*state.IAASModel
+}
+
+func (im *iaasModelShim) VolumeAccess() storageVolume {
+	return im
+}
+
+func (im *iaasModelShim) FilesystemAccess() storageFile {
+	return im
 }
 
 // unitAssignedMachine returns the tag of the machine that the unit
@@ -199,6 +202,15 @@ func unitAssignedMachine(backend backend, tag names.UnitTag) (names.MachineTag, 
 type caasModelShim struct {
 	*state.Model
 	*state.CAASModel
+}
+
+func (cm *caasModelShim) VolumeAccess() storageVolume {
+	// CAAS models don't support volume storage yet.
+	return nil
+}
+
+func (cm *caasModelShim) FilesystemAccess() storageFile {
+	return cm
 }
 
 type backend interface {

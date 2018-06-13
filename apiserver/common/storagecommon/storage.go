@@ -15,9 +15,9 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// StorageInstanceInterface is an interface for obtaining information about storage
-// instances and any associated unit attachments.
-type StorageInstanceInterface interface {
+// StorageAccess is an interface for obtaining information about storage
+// instances and any associated volume and/or filesystem instances.
+type StorageAccess interface {
 	// StorageInstance returns the state.StorageInstance corresponding
 	// to the specified storage tag.
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
@@ -27,9 +27,9 @@ type StorageInstanceInterface interface {
 	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 }
 
-// StorageVolumeInterface is an interface for obtaining information about
+// VolumeAccess is an interface for obtaining information about
 // block storage instances and related entities.
-type StorageVolumeInterface interface {
+type VolumeAccess interface {
 	// StorageInstanceVolume returns the state.Volume assigned to the
 	// storage instance with the specified storage tag.
 	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
@@ -43,9 +43,9 @@ type StorageVolumeInterface interface {
 	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 }
 
-// StorageFilesystemInterface is an interface for obtaining information about
+// FilesystemAccess is an interface for obtaining information about
 // filesystem storage instances and related entities.
-type StorageFilesystemInterface interface {
+type FilesystemAccess interface {
 	// StorageInstanceFilesystem returns the state.Filesystem assigned
 	// to the storage instance with the specified storage tag.
 	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
@@ -66,9 +66,9 @@ type StorageFilesystemInterface interface {
 // if the storage attachment is not yet fully provisioned and ready for use
 // by a charm.
 func StorageAttachmentInfo(
-	st StorageInstanceInterface,
-	stVolume StorageVolumeInterface,
-	stFile StorageFilesystemInterface,
+	st StorageAccess,
+	stVolume VolumeAccess,
+	stFile FilesystemAccess,
 	att state.StorageAttachment,
 	machineTag names.MachineTag,
 ) (*storage.StorageAttachmentInfo, error) {
@@ -92,7 +92,7 @@ func StorageAttachmentInfo(
 }
 
 func volumeStorageAttachmentInfo(
-	st StorageVolumeInterface,
+	st VolumeAccess,
 	storageInstance state.StorageInstance,
 	machineTag names.MachineTag,
 ) (*storage.StorageAttachmentInfo, error) {
@@ -150,7 +150,7 @@ func volumeStorageAttachmentInfo(
 }
 
 func filesystemStorageAttachmentInfo(
-	st StorageFilesystemInterface,
+	st FilesystemAccess,
 	storageInstance state.StorageInstance,
 	machineTag names.MachineTag,
 ) (*storage.StorageAttachmentInfo, error) {
@@ -253,7 +253,7 @@ func storageTags(
 // when destroying models and applications/units.
 
 // UnitStorage returns the storage instances attached to the specified unit.
-func UnitStorage(st StorageInstanceInterface, unit names.UnitTag) ([]state.StorageInstance, error) {
+func UnitStorage(st StorageAccess, unit names.UnitTag) ([]state.StorageInstance, error) {
 	attachments, err := st.UnitStorageAttachments(unit)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -275,9 +275,8 @@ func UnitStorage(st StorageInstanceInterface, unit names.UnitTag) ([]state.Stora
 // be destroyed, and those that will be detached, when their attachment is
 // removed. Any storage that is not found will be omitted.
 func ClassifyDetachedStorage(
-	st StorageInstanceInterface,
-	stVolume StorageVolumeInterface,
-	stFile StorageFilesystemInterface,
+	stVolume VolumeAccess,
+	stFile FilesystemAccess,
 	storage []state.StorageInstance,
 ) (destroyed, detached []params.Entity, _ error) {
 	for _, storage := range storage {

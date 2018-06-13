@@ -16,8 +16,8 @@ import (
 
 type fakeStorage struct {
 	testing.Stub
-	storagecommon.StorageInstanceInterface
-	storagecommon.StorageFilesystemInterface
+	storagecommon.StorageAccess
+	storagecommon.FilesystemAccess
 	storageInstance       func(names.StorageTag) (state.StorageInstance, error)
 	storageInstanceVolume func(names.StorageTag) (state.Volume, error)
 	volumeAttachment      func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)

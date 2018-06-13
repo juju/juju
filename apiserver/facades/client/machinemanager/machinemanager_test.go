@@ -36,7 +36,7 @@ type MachineManagerSuite struct {
 
 func (s *MachineManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
-	mm, err := machinemanager.NewMachineManagerAPI(s.st, s.st, s.st, s.pool, s.authorizer, s.st.ModelTag(), s.callContext)
+	mm, err := machinemanager.NewMachineManagerAPI(s.st, s.st, s.pool, s.authorizer, s.st.ModelTag(), s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
 }
@@ -48,7 +48,7 @@ func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
 	s.callContext = context.NewCloudCallContext()
 	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(s.st, s.st, s.st, s.pool, s.authorizer, s.st.ModelTag(), s.callContext)
+	s.api, err = machinemanager.NewMachineManagerAPI(s.st, s.st, s.pool, s.authorizer, s.st.ModelTag(), s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -105,7 +105,7 @@ func (s *MachineManagerSuite) TestAddMachines(c *gc.C) {
 func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
-	_, err := machinemanager.NewMachineManagerAPI(nil, nil, nil, nil, s.authorizer, names.ModelTag{}, s.callContext)
+	_, err := machinemanager.NewMachineManagerAPI(nil, nil, nil, s.authorizer, names.ModelTag{}, s.callContext)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -320,14 +320,36 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesPermissionDenied(c *gc.C) {
 
 type mockState struct {
 	machinemanager.Backend
-	storagecommon.StorageVolumeInterface
-	storagecommon.StorageFilesystemInterface
 	calls            int
 	machineTemplates []state.MachineTemplate
 	machines         map[string]*mockMachine
 	err              error
 	blockMsg         string
 	block            state.BlockType
+}
+
+type mockVolumeAccess struct {
+	storagecommon.VolumeAccess
+	*mockState
+}
+
+func (st *mockVolumeAccess) StorageInstanceVolume(tag names.StorageTag) (state.Volume, error) {
+	return &mockVolume{
+		detachable: tag.Id() == "disks/0",
+	}, nil
+}
+
+type mockFilesystemAccess struct {
+	storagecommon.FilesystemAccess
+	*mockState
+}
+
+func (st *mockState) VolumeAccess() storagecommon.VolumeAccess {
+	return &mockVolumeAccess{mockState: st}
+}
+
+func (st *mockState) FilesystemAccess() storagecommon.FilesystemAccess {
+	return &mockFilesystemAccess{mockState: st}
 }
 
 func (st *mockState) AddOneMachine(template state.MachineTemplate) (*state.Machine, error) {
@@ -373,12 +395,6 @@ func (st *mockState) StorageInstance(tag names.StorageTag) (state.StorageInstanc
 	return &mockStorage{
 		tag:  tag,
 		kind: state.StorageKindBlock,
-	}, nil
-}
-
-func (st *mockState) StorageInstanceVolume(tag names.StorageTag) (state.Volume, error) {
-	return &mockVolume{
-		detachable: tag.Id() == "disks/0",
 	}, nil
 }
 

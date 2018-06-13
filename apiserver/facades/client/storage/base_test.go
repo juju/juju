@@ -63,9 +63,9 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.poolManager = s.constructPoolManager()
 
 	var err error
-	s.api, err = storage.NewAPIv4(s.state, s.storageAccessor, s.storageAccessor, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer)
+	s.api, err = storage.NewAPIv4(s.state, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	s.apiv3, err = storage.NewAPIv3(s.state, s.storageAccessor, s.storageAccessor, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer)
+	s.apiv3, err = storage.NewAPIv3(s.state, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

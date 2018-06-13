@@ -25,12 +25,11 @@ var logger = loggo.GetLogger("juju.apiserver.machinemanager")
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
-	st         Backend
-	stVolume   storagecommon.StorageVolumeInterface
-	stFile     storagecommon.StorageFilesystemInterface
-	pool       Pool
-	authorizer facade.Authorizer
-	check      *common.BlockChecker
+	st            Backend
+	storageAccess storageInterface
+	pool          Pool
+	authorizer    facade.Authorizer
+	check         *common.BlockChecker
 
 	modelTag    names.ModelTag
 	callContext context.ProviderCallContext
@@ -44,32 +43,13 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var (
-		storage  storagecommon.StorageInstanceInterface
-		stVolume storagecommon.StorageVolumeInterface
-		stFile   storagecommon.StorageFilesystemInterface
-	)
-	if model.Type() == state.ModelTypeIAAS {
-		im, err := model.IAASModel()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		storage = im
-		stVolume = im
-		stFile = im
-	} else {
-		// CAAS models don't support block devices.
-		cm, err := model.CAASModel()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		storage = cm
-		stFile = cm
+	backend := &stateShim{State: st}
+	storageAccess, err := getStorageState(st)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
-	backend := &stateShim{State: st, StorageInstanceInterface: storage}
 	pool := &poolShim{ctx.StatePool()}
-	return NewMachineManagerAPI(backend, stVolume, stFile, pool, ctx.Auth(), model.ModelTag(), state.CallContext(st))
+	return NewMachineManagerAPI(backend, storageAccess, pool, ctx.Auth(), model.ModelTag(), state.CallContext(st))
 }
 
 type MachineManagerAPIV4 struct {
@@ -88,8 +68,7 @@ func NewFacadeV4(ctx facade.Context) (*MachineManagerAPIV4, error) {
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
 func NewMachineManagerAPI(
 	backend Backend,
-	stVolume storagecommon.StorageVolumeInterface,
-	stFile storagecommon.StorageFilesystemInterface,
+	storageAccess storageInterface,
 	pool Pool,
 	auth facade.Authorizer,
 	modelTag names.ModelTag,
@@ -99,14 +78,13 @@ func NewMachineManagerAPI(
 		return nil, common.ErrPerm
 	}
 	return &MachineManagerAPI{
-		st:          backend,
-		stVolume:    stVolume,
-		stFile:      stFile,
-		pool:        pool,
-		authorizer:  auth,
-		check:       common.NewBlockChecker(backend),
-		modelTag:    modelTag,
-		callContext: callCtx,
+		st:            backend,
+		storageAccess: storageAccess,
+		pool:          pool,
+		authorizer:    auth,
+		check:         common.NewBlockChecker(backend),
+		modelTag:      modelTag,
+		callContext:   callCtx,
 	}, nil
 }
 
@@ -289,7 +267,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 				info.DestroyedUnits,
 				params.Entity{unit.UnitTag().String()},
 			)
-			storage, err := storagecommon.UnitStorage(mm.st, unit.UnitTag())
+			storage, err := storagecommon.UnitStorage(mm.storageAccess, unit.UnitTag())
 			if err != nil {
 				return nil, err
 			}
@@ -307,7 +285,8 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 			}
 			storage = unseen
 
-			destroyed, detached, err := storagecommon.ClassifyDetachedStorage(mm.st, mm.stVolume, mm.stFile, storage)
+			destroyed, detached, err := storagecommon.ClassifyDetachedStorage(
+				mm.storageAccess.VolumeAccess(), mm.storageAccess.FilesystemAccess(), storage)
 			if err != nil {
 				return nil, err
 			}

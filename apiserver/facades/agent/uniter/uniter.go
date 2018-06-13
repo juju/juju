@@ -199,9 +199,9 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		return nil, errors.Trace(err)
 	}
 
-	storageAccessor, storageVolume, storageFile, err := getStorageState(st)
+	storageAccessor, err := getStorageState(st)
 	storageAPI, err := newStorageAPI(
-		stateShim{st}, storageAccessor, storageVolume, storageFile, resources, accessUnit)
+		stateShim{st}, storageAccessor, resources, accessUnit)
 	if err != nil {
 		return nil, err
 	}

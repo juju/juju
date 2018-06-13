@@ -8,7 +8,12 @@ import "github.com/juju/juju/state"
 var (
 	ParseSettingsCompatible = parseSettingsCompatible
 	NewStateStorage         = &newStateStorage
+	GetStorageState         = getStorageState
 )
+
+func GetState(st *state.State) Backend {
+	return stateShim{st}
+}
 
 func SetModelType(api *APIv6, modelType state.ModelType) {
 	api.modelType = modelType
