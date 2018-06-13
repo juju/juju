@@ -8,3 +8,8 @@ var (
 	ValidateNameCriteria     = (*APIv4).validateNameCriteria
 	ValidateProviderCriteria = (*APIv4).validateProviderCriteria
 )
+
+type (
+	StorageVolume = storageVolume
+	StorageFile   = storageFile
+)

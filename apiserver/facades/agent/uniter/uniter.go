@@ -199,17 +199,11 @@ func NewUniterAPI(st *state.State, resources facade.Resources, authorizer facade
 		return nil, errors.Trace(err)
 	}
 
-	// // Only IAAS models support storage (for now).
-	var storageAPI *StorageAPI
-	if m.Type() == state.ModelTypeIAAS {
-		ss, err := getStorageState(st)
-		if err != nil {
-			return nil, errors.Annotate(err, "getting storage state")
-		}
-		storageAPI, err = newStorageAPI(ss, resources, accessUnit)
-		if err != nil {
-			return nil, err
-		}
+	storageAccessor, err := getStorageState(st)
+	storageAPI, err := newStorageAPI(
+		stateShim{st}, storageAccessor, resources, accessUnit)
+	if err != nil {
+		return nil, err
 	}
 	msAPI, err := meterstatus.NewMeterStatusAPI(st, resources, authorizer)
 	if err != nil {

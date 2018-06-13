@@ -60,9 +60,14 @@ type APIv6 struct {
 //
 // API provides the Application API facade for version 5.
 type APIBase struct {
-	backend    Backend
+	backend       Backend
+	storageAccess storageInterface
+
 	authorizer facade.Authorizer
 	check      BlockChecker
+
+	modelTag  names.ModelTag
+	modelType state.ModelType
 
 	// TODO(axw) stateCharm only exists because I ran out
 	// of time unwinding all of the tendrils of state. We
@@ -104,16 +109,23 @@ func NewFacadeV6(ctx facade.Context) (*APIv6, error) {
 }
 
 func newFacadeBase(ctx facade.Context) (*APIBase, error) {
-	backend, err := NewStateBackend(ctx.State())
+	model, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting model")
+	}
+	storageAccess, err := getStorageState(ctx.State())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state")
 	}
 	blockChecker := common.NewBlockChecker(ctx.State())
 	stateCharm := CharmToStateCharm
 	return NewAPIBase(
-		backend,
+		&stateShim{ctx.State()},
+		storageAccess,
 		ctx.Auth(),
 		blockChecker,
+		model.ModelTag(),
+		model.Type(),
 		stateCharm,
 		DeployApplication,
 	)
@@ -122,8 +134,11 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
 	backend Backend,
+	storageAccess storageInterface,
 	authorizer facade.Authorizer,
 	blockChecker BlockChecker,
+	modelTag names.ModelTag,
+	modelType state.ModelType,
 	stateCharm func(Charm) *state.Charm,
 	deployApplication func(ApplicationDeployer, DeployApplicationParams) (Application, error),
 ) (*APIBase, error) {
@@ -132,8 +147,11 @@ func NewAPIBase(
 	}
 	return &APIBase{
 		backend:               backend,
+		storageAccess:         storageAccess,
 		authorizer:            authorizer,
 		check:                 blockChecker,
+		modelTag:              modelTag,
+		modelType:             modelType,
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
 	}, nil
@@ -151,11 +169,11 @@ func (api *APIBase) checkPermission(tag names.Tag, perm permission.Access) error
 }
 
 func (api *APIBase) checkCanRead() error {
-	return api.checkPermission(api.backend.ModelTag(), permission.ReadAccess)
+	return api.checkPermission(api.modelTag, permission.ReadAccess)
 }
 
 func (api *APIBase) checkCanWrite() error {
-	return api.checkPermission(api.backend.ModelTag(), permission.WriteAccess)
+	return api.checkPermission(api.modelTag, permission.WriteAccess)
 }
 
 // SetMetricCredentials sets credentials on the application.
@@ -223,7 +241,7 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Applications {
-		err := deployApplication(api.backend, api.stateCharm, arg, api.deployApplicationFunc)
+		err := deployApplication(api.backend, api.modelType, api.stateCharm, arg, api.deployApplicationFunc)
 		result.Results[i].Error = common.ServerError(err)
 
 		if err != nil && len(arg.Resources) != 0 {
@@ -290,6 +308,7 @@ func splitApplicationAndCharmConfig(modelType state.ModelType, inConfig map[stri
 // both the legacy API on the client facade, as well as the new application facade.
 func deployApplication(
 	backend Backend,
+	modelType state.ModelType,
 	stateCharm func(Charm) *state.Charm,
 	args params.ApplicationDeploy,
 	deployApplicationFunc func(ApplicationDeployer, DeployApplicationParams) (Application, error),
@@ -302,17 +321,17 @@ func deployApplication(
 		return errors.Errorf("charm url must include revision")
 	}
 
-	if backend.ModelType() != state.ModelTypeIAAS {
+	if modelType != state.ModelTypeIAAS {
 		if len(args.AttachStorage) > 0 {
 			return errors.Errorf(
 				"AttachStorage may not be specified for %s models",
-				backend.ModelType(),
+				modelType,
 			)
 		}
 		if len(args.Placement) > 0 {
 			return errors.Errorf(
 				"Placement may not be specified for %s models",
-				backend.ModelType(),
+				modelType,
 			)
 		}
 	}
@@ -338,13 +357,13 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
-	appConfigAttrs, charmConfig, err := splitApplicationAndCharmConfig(backend.ModelType(), args.Config)
+	appConfigAttrs, charmConfig, err := splitApplicationAndCharmConfig(modelType, args.Config)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	var applicationConfig *application.Config
-	schema, defaults, err := applicationConfigSchema(backend.ModelType())
+	schema, defaults, err := applicationConfigSchema(modelType)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -837,7 +856,7 @@ func (api *APIBase) Expose(args params.ApplicationExpose) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if api.backend.ModelType() == state.ModelTypeCAAS {
+	if api.modelType == state.ModelTypeCAAS {
 		appConfig, err := app.ApplicationConfig()
 		if err != nil {
 			return errors.Trace(err)
@@ -887,7 +906,7 @@ func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplica
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
-	units, err := addApplicationUnits(api.backend, args)
+	units, err := addApplicationUnits(api.backend, api.modelType, args)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -899,26 +918,26 @@ func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplica
 }
 
 // addApplicationUnits adds a given number of units to an application.
-func addApplicationUnits(backend Backend, args params.AddApplicationUnits) ([]Unit, error) {
+func addApplicationUnits(backend Backend, modelType state.ModelType, args params.AddApplicationUnits) ([]Unit, error) {
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
 	}
 
 	assignUnits := true
-	if backend.ModelType() != state.ModelTypeIAAS {
+	if modelType != state.ModelTypeIAAS {
 		// In a CAAS model, there are no machines for
 		// units to be assigned to.
 		assignUnits = false
 		if len(args.AttachStorage) > 0 {
 			return nil, errors.Errorf(
 				"AttachStorage may not be specified for %s models",
-				backend.ModelType(),
+				modelType,
 			)
 		}
 		if len(args.Placement) > 0 {
 			return nil, errors.Errorf(
 				"Placement may not be specified for %s models",
-				backend.ModelType(),
+				modelType,
 			)
 		}
 	}
@@ -1022,8 +1041,8 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 			return nil, errors.Errorf("unit %q is a subordinate", name)
 		}
 		var info params.DestroyUnitInfo
-		if api.backend.ModelType() == state.ModelTypeIAAS {
-			storage, err := storagecommon.UnitStorage(api.backend, unit.UnitTag())
+		if api.modelType == state.ModelTypeIAAS {
+			storage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1036,7 +1055,7 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 				}
 			} else {
 				info.DestroyedStorage, info.DetachedStorage, err = storagecommon.ClassifyDetachedStorage(
-					api.backend, storage,
+					api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), storage,
 				)
 				if err != nil {
 					return nil, errors.Trace(err)
@@ -1132,12 +1151,12 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 				info.DestroyedUnits,
 				params.Entity{unit.UnitTag().String()},
 			)
-			if api.backend.ModelType() != state.ModelTypeIAAS {
+			if api.modelType != state.ModelTypeIAAS {
 				// Non-IAAS model; no need to deal with storage below.
 				arg.DestroyStorage = false
 				continue
 			}
-			storage, err := storagecommon.UnitStorage(api.backend, unit.UnitTag())
+			storage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
 			if err != nil {
 				return nil, err
 			}
@@ -1164,7 +1183,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 				}
 			} else {
 				destroyed, detached, err := storagecommon.ClassifyDetachedStorage(
-					api.backend, storage,
+					api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), storage,
 				)
 				if err != nil {
 					return nil, err
@@ -1648,11 +1667,11 @@ func (api *APIBase) setApplicationConfig(arg params.ApplicationConfigSet) error 
 		return errors.Trace(err)
 	}
 
-	appConfigAttrs, charmConfig, err := splitApplicationAndCharmConfig(api.backend.ModelType(), arg.Config)
+	appConfigAttrs, charmConfig, err := splitApplicationAndCharmConfig(api.modelType, arg.Config)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	schema, defaults, err := applicationConfigSchema(api.backend.ModelType())
+	schema, defaults, err := applicationConfigSchema(api.modelType)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1705,7 +1724,7 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 		return errors.Trace(err)
 	}
 
-	schema, defaults, err := applicationConfigSchema(api.backend.ModelType())
+	schema, defaults, err := applicationConfigSchema(api.modelType)
 	if err != nil {
 		return errors.Trace(err)
 	}

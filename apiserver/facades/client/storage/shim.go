@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
@@ -50,7 +51,10 @@ func NewFacadeV4(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting backend")
 	}
-	return NewAPIv4(stateShim{st}, storageAccessor, registry, pm, resources, authorizer)
+	return NewAPIv4(
+		stateShim{st},
+		storageAccessor,
+		registry, pm, resources, authorizer)
 }
 
 // NewFacadeV3 provides the signature required for facade registration.
@@ -70,10 +74,19 @@ func NewFacadeV3(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting backend")
 	}
-	return NewAPIv3(stateShim{st}, storageAccessor, registry, pm, resources, authorizer)
+	return NewAPIv3(
+		stateShim{st},
+		storageAccessor,
+		registry, pm, resources, authorizer)
 }
 
 type storageAccess interface {
+	// VolumeAccess is required for storage functionality.
+	VolumeAccess() storageVolume
+
+	// FilesystemAccess is required for storage functionality.
+	FilesystemAccess() storageFile
+
 	// StorageInstance is required for storage functionality.
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 
@@ -83,56 +96,9 @@ type storageAccess interface {
 	// StorageAttachments is required for storage functionality.
 	StorageAttachments(names.StorageTag) ([]state.StorageAttachment, error)
 
-	// FilesystemAttachment is required for storage functionality.
-	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
-
-	// StorageInstanceFilesystem is required for storage functionality.
-	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
-
-	// StorageInstanceVolume is required for storage functionality.
-	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
-
-	// VolumeAttachment is required for storage functionality.
-	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
-
-	// WatchStorageAttachment is required for storage functionality.
-	WatchStorageAttachment(names.StorageTag, names.UnitTag) state.NotifyWatcher
-
-	// WatchFilesystemAttachment is required for storage functionality.
-	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
-
-	// WatchVolumeAttachment is required for storage functionality.
-	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
-
-	// WatchBlockDevices is required for storage functionality.
-	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
-
-	// BlockDevices is required for storage functionality.
-	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
-
-	// AllVolumes is required for volume functionality.
-	AllVolumes() ([]state.Volume, error)
-
-	// VolumeAttachments is required for volume functionality.
-	VolumeAttachments(volume names.VolumeTag) ([]state.VolumeAttachment, error)
-
-	// MachineVolumeAttachments is required for volume functionality.
-	MachineVolumeAttachments(machine names.MachineTag) ([]state.VolumeAttachment, error)
-
-	// Volume is required for volume functionality.
-	Volume(tag names.VolumeTag) (state.Volume, error)
-
-	// AllFilesystems is required for filesystem functionality.
-	AllFilesystems() ([]state.Filesystem, error)
-
-	// FilesystemAttachments is required for filesystem functionality.
-	FilesystemAttachments(filesystem names.FilesystemTag) ([]state.FilesystemAttachment, error)
-
-	// MachineFilesystemAttachments is required for filesystem functionality.
-	MachineFilesystemAttachments(machine names.MachineTag) ([]state.FilesystemAttachment, error)
-
-	// Filesystem is required for filesystem functionality.
-	Filesystem(tag names.FilesystemTag) (state.Filesystem, error)
+	// UnitStorageAttachments returns the storage attachments for the
+	// identified unit.
+	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 
 	// AddStorageForUnit is required for storage add functionality.
 	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)
@@ -150,10 +116,41 @@ type storageAccess interface {
 
 	// ReleaseStorageInstance releases the storage instance with the specified tag.
 	ReleaseStorageInstance(names.StorageTag, bool) error
+}
 
-	// UnitStorageAttachments returns the storage attachments for the
-	// identified unit.
-	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
+type storageVolume interface {
+	storagecommon.VolumeAccess
+
+	// AllVolumes is required for volume functionality.
+	AllVolumes() ([]state.Volume, error)
+
+	// VolumeAttachments is required for volume functionality.
+	VolumeAttachments(volume names.VolumeTag) ([]state.VolumeAttachment, error)
+
+	// MachineVolumeAttachments is required for volume functionality.
+	MachineVolumeAttachments(machine names.MachineTag) ([]state.VolumeAttachment, error)
+
+	// Volume is required for volume functionality.
+	Volume(tag names.VolumeTag) (state.Volume, error)
+
+	// AddExistingFilesystem imports an existing filesystem into the model.
+	AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error)
+}
+
+type storageFile interface {
+	storagecommon.FilesystemAccess
+
+	// AllFilesystems is required for filesystem functionality.
+	AllFilesystems() ([]state.Filesystem, error)
+
+	// FilesystemAttachments is required for filesystem functionality.
+	FilesystemAttachments(filesystem names.FilesystemTag) ([]state.FilesystemAttachment, error)
+
+	// MachineFilesystemAttachments is required for filesystem functionality.
+	MachineFilesystemAttachments(machine names.MachineTag) ([]state.FilesystemAttachment, error)
+
+	// Filesystem is required for filesystem functionality.
+	Filesystem(tag names.FilesystemTag) (state.Filesystem, error)
 
 	// AddExistingFilesystem imports an existing filesystem into the model.
 	AddExistingFilesystem(f state.FilesystemInfo, v *state.VolumeInfo, storageName string) (names.StorageTag, error)
@@ -166,15 +163,25 @@ var getStorageAccessor = func(st *state.State) (storageAccess, error) {
 	}
 	if m.Type() == state.ModelTypeIAAS {
 		im, _ := m.IAASModel()
-		return &iaasModelShim{Model: m, IAASModel: im}, nil
+		storageAccess := &iaasModelShim{Model: m, IAASModel: im}
+		return storageAccess, nil
 	}
 	caasModel, _ := m.CAASModel()
-	return caasModelShim{Model: m, CAASModel: caasModel}, nil
+	storageAccess := &caasModelShim{Model: m, CAASModel: caasModel}
+	return storageAccess, nil
 }
 
 type iaasModelShim struct {
 	*state.Model
 	*state.IAASModel
+}
+
+func (im *iaasModelShim) VolumeAccess() storageVolume {
+	return im
+}
+
+func (im *iaasModelShim) FilesystemAccess() storageFile {
+	return im
 }
 
 // unitAssignedMachine returns the tag of the machine that the unit
@@ -195,6 +202,15 @@ func unitAssignedMachine(backend backend, tag names.UnitTag) (names.MachineTag, 
 type caasModelShim struct {
 	*state.Model
 	*state.CAASModel
+}
+
+func (cm *caasModelShim) VolumeAccess() storageVolume {
+	// CAAS models don't support volume storage yet.
+	return nil
+}
+
+func (cm *caasModelShim) FilesystemAccess() storageFile {
+	return cm
 }
 
 type backend interface {

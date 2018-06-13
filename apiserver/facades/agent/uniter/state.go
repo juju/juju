@@ -10,45 +10,97 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type storageStateInterface interface {
-	RemoveStorageAttachment(names.StorageTag, names.UnitTag) error
+type storageInterface interface {
+	VolumeAccess() storageVolumeInterface
+	FilesystemAccess() storageFilesystemInterface
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
-	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
-	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
 	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
+	RemoveStorageAttachment(names.StorageTag, names.UnitTag) error
 	DestroyUnitStorageAttachments(names.UnitTag) error
 	StorageAttachment(names.StorageTag, names.UnitTag) (state.StorageAttachment, error)
-	UnitAssignedMachine(names.UnitTag) (names.MachineTag, error)
-	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
-	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
+	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)
 	WatchStorageAttachments(names.UnitTag) state.StringsWatcher
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) state.NotifyWatcher
-	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
+}
+
+type storageVolumeInterface interface {
+	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
+	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
-	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)
-	UnitStorageConstraints(u names.UnitTag) (map[string]state.StorageConstraints, error)
-	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
+	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 }
 
-type storageStateShim struct {
-	*state.State
-	*state.IAASModel
+type storageFilesystemInterface interface {
+	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
+	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
+	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 }
 
-var getStorageState = func(st *state.State) (storageStateInterface, error) {
-	im, err := st.IAASModel()
+var getStorageState = func(st *state.State) (storageInterface, error) {
+	m, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
-	return storageStateShim{State: st, IAASModel: im}, nil
+	if m.Type() == state.ModelTypeIAAS {
+		im, _ := m.IAASModel()
+		storageAccess := &iaasModelShim{Model: m, IAASModel: im}
+		return storageAccess, nil
+	}
+	caasModel, _ := m.CAASModel()
+	storageAccess := &caasModelShim{Model: m, CAASModel: caasModel}
+	return storageAccess, nil
 }
 
-// UnitAssignedMachine returns the tag of the machine that the unit
+type iaasModelShim struct {
+	*state.Model
+	*state.IAASModel
+}
+
+func (im *iaasModelShim) VolumeAccess() storageVolumeInterface {
+	return im
+}
+
+func (im *iaasModelShim) FilesystemAccess() storageFilesystemInterface {
+	return im
+}
+
+type caasModelShim struct {
+	*state.Model
+	*state.CAASModel
+}
+
+func (cm *caasModelShim) VolumeAccess() storageVolumeInterface {
+	// CAAS models don't support volume storage yet.
+	return nil
+}
+
+func (cm *caasModelShim) FilesystemAccess() storageFilesystemInterface {
+	return cm
+}
+
+type backend interface {
+	Unit(string) (Unit, error)
+}
+
+type Unit interface {
+	AssignedMachineId() (string, error)
+	StorageConstraints() (map[string]state.StorageConstraints, error)
+}
+
+type stateShim struct {
+	*state.State
+}
+
+func (s stateShim) Unit(name string) (Unit, error) {
+	return s.State.Unit(name)
+}
+
+// unitAssignedMachine returns the tag of the machine that the unit
 // is assigned to, or an error if the unit cannot be obtained or is
 // not assigned to a machine.
-func (s storageStateShim) UnitAssignedMachine(tag names.UnitTag) (names.MachineTag, error) {
-	unit, err := s.Unit(tag.Id())
+func unitAssignedMachine(backend backend, tag names.UnitTag) (names.MachineTag, error) {
+	unit, err := backend.Unit(tag.Id())
 	if err != nil {
 		return names.MachineTag{}, errors.Trace(err)
 	}
@@ -59,10 +111,10 @@ func (s storageStateShim) UnitAssignedMachine(tag names.UnitTag) (names.MachineT
 	return names.NewMachineTag(mid), nil
 }
 
-// UnitStorageConstraints returns storage constraints for this unit,
+// unitStorageConstraints returns storage constraints for this unit,
 // or an error if the unit or its constraints cannot be obtained.
-func (s storageStateShim) UnitStorageConstraints(u names.UnitTag) (map[string]state.StorageConstraints, error) {
-	unit, err := s.Unit(u.Id())
+func unitStorageConstraints(backend backend, u names.UnitTag) (map[string]state.StorageConstraints, error) {
+	unit, err := backend.Unit(u.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

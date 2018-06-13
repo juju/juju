@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v2-unstable"
 
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
@@ -222,56 +223,15 @@ func (m *mockRemoteApplication) Destroy() error {
 	return nil
 }
 
-type mockSpace struct {
-	name       string
-	providerId network.Id
-	subnets    []application.Subnet
-}
-
-func (m *mockSpace) Name() string {
-	return m.name
-}
-
-func (m *mockSpace) ProviderId() network.Id {
-	return m.providerId
-}
-
-type mockSubnet struct {
-	cidr              string
-	vlantag           int
-	providerId        network.Id
-	providerNetworkId network.Id
-	zones             []string
-}
-
-func (m *mockSubnet) CIDR() string {
-	return m.cidr
-}
-
-func (m *mockSubnet) VLANTag() int {
-	return m.vlantag
-}
-
-func (m *mockSubnet) ProviderId() network.Id {
-	return m.providerId
-}
-
-func (m *mockSubnet) ProviderNetworkId() network.Id {
-	return m.providerNetworkId
-}
-
 type mockBackend struct {
 	jtesting.Stub
 	application.Backend
 
-	modelUUID                  string
-	modelType                  state.ModelType
 	charm                      *mockCharm
 	allmodels                  []application.Model
 	users                      set.Strings
 	applications               map[string]*mockApplication
 	remoteApplications         map[string]application.RemoteApplication
-	spaces                     map[string]application.Space
 	endpoints                  *[]state.Endpoint
 	relations                  map[int]*mockRelation
 	offerConnections           map[string]application.OfferConnection
@@ -279,6 +239,19 @@ type mockBackend struct {
 	storageInstances           map[string]*mockStorage
 	storageInstanceFilesystems map[string]*mockFilesystem
 	controllers                map[string]crossmodel.ControllerInfo
+}
+
+type mockFilesystemAccess struct {
+	storagecommon.FilesystemAccess
+	*mockBackend
+}
+
+func (m *mockBackend) VolumeAccess() storagecommon.VolumeAccess {
+	return nil
+}
+
+func (m *mockBackend) FilesystemAccess() storagecommon.FilesystemAccess {
+	return &mockFilesystemAccess{mockBackend: m}
 }
 
 func (m *mockBackend) ControllerTag() names.ControllerTag {
@@ -396,7 +369,7 @@ func (m *mockBackend) StorageInstance(tag names.StorageTag) (state.StorageInstan
 	return s, nil
 }
 
-func (m *mockBackend) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
+func (m *mockFilesystemAccess) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
 	m.MethodCall(m, "StorageInstanceFilesystem", tag)
 	if err := m.NextErr(); err != nil {
 		return nil, err
@@ -498,26 +471,6 @@ func (m *mockExternalController) ControllerInfo() crossmodel.ControllerInfo {
 func (m *mockBackend) SaveController(controllerInfo crossmodel.ControllerInfo, modelUUID string) (application.ExternalController, error) {
 	m.controllers[modelUUID] = controllerInfo
 	return &mockExternalController{controllerInfo.ControllerTag.Id(), controllerInfo}, nil
-}
-
-func (m *mockBackend) Space(name string) (application.Space, error) {
-	space, ok := m.spaces[name]
-	if !ok {
-		return nil, errors.NotFoundf("space %q", name)
-	}
-	return space, nil
-}
-
-func (m *mockBackend) ModelUUID() string {
-	return m.modelUUID
-}
-
-func (m *mockBackend) ModelTag() names.ModelTag {
-	return names.NewModelTag(m.modelUUID)
-}
-
-func (m *mockBackend) ModelType() state.ModelType {
-	return m.modelType
 }
 
 type mockBlockChecker struct {

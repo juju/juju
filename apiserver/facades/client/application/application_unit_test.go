@@ -48,8 +48,11 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	api, err := application.NewAPIBase(
 		&s.backend,
+		&s.backend,
 		s.authorizer,
 		&s.blockChecker,
+		names.NewModelTag(utils.MustNewUUID().String()),
+		state.ModelTypeIAAS,
 		func(application.Charm) *state.Charm {
 			return &state.Charm{}
 		},
@@ -74,7 +77,6 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 	}
 	s.relation = mockRelation{tag: names.NewRelationTag("wordpress:db mysql:db")}
 	s.backend = mockBackend{
-		modelType:   state.ModelTypeIAAS,
 		controllers: make(map[string]crossmodel.ControllerInfo),
 		applications: map[string]*mockApplication{
 			"postgresql": {
@@ -468,7 +470,7 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
+	application.SetModelType(s.api, state.ModelTypeCAAS)
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
@@ -510,7 +512,7 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestAddUnitsCAASModel(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
+	application.SetModelType(s.api, state.ModelTypeCAAS)
 	results, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "postgresql",
 		NumUnits:        1,
@@ -558,7 +560,7 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorageInvalidStorageTag(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestAddUnitsAttachStorageCAASModel(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
+	application.SetModelType(s.api, state.ModelTypeCAAS)
 	_, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "postgresql",
 		NumUnits:        1,
@@ -568,7 +570,7 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorageCAASModel(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestAddUnitsPlacementCAASModel(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
+	application.SetModelType(s.api, state.ModelTypeCAAS)
 	_, err := s.api.AddUnits(params.AddApplicationUnits{
 		ApplicationName: "postgresql",
 		NumUnits:        1,
@@ -1039,7 +1041,7 @@ func (s *ApplicationSuite) TestRemoteRelationDisAllowedCIDR(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestSetApplicationConfig(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
+	application.SetModelType(s.api, state.ModelTypeCAAS)
 	result, err := s.api.SetApplicationsConfig(params.ApplicationConfigSetArgs{
 		Args: []params.ApplicationConfigSet{{
 			ApplicationName: "postgresql",
@@ -1084,7 +1086,7 @@ func (s *ApplicationSuite) TestSetApplicationConfigPermissionDenied(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
+	application.SetModelType(s.api, state.ModelTypeCAAS)
 	result, err := s.api.UnsetApplicationsConfig(params.ApplicationConfigUnsetArgs{
 		Args: []params.ApplicationUnset{{
 			ApplicationName: "postgresql",
@@ -1183,7 +1185,7 @@ func (s *ApplicationSuite) TestResolveUnitErrorsPermissionDenied(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestCAASExposeWithoutHostname(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
+	application.SetModelType(s.api, state.ModelTypeCAAS)
 	err := s.api.Expose(params.ApplicationExpose{
 		ApplicationName: "postgresql",
 	})
@@ -1193,7 +1195,7 @@ func (s *ApplicationSuite) TestCAASExposeWithoutHostname(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestCAASExposeWithHostname(c *gc.C) {
-	s.backend.modelType = state.ModelTypeCAAS
+	application.SetModelType(s.api, state.ModelTypeCAAS)
 	app := s.backend.applications["postgresql"]
 	app.config = coreapplication.ConfigAttributes{"juju-external-hostname": "exthost"}
 	err := s.api.Expose(params.ApplicationExpose{

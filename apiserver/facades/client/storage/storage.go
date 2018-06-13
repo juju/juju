@@ -24,11 +24,11 @@ import (
 
 // APIv3 implements the storage v3 API.
 type APIv3 struct {
-	backend     backend
-	storage     storageAccess
-	registry    storage.ProviderRegistry
-	poolManager poolmanager.PoolManager
-	authorizer  facade.Authorizer
+	backend       backend
+	storageAccess storageAccess
+	registry      storage.ProviderRegistry
+	poolManager   poolmanager.PoolManager
+	authorizer    facade.Authorizer
 }
 
 // APIv4 implements the storage v4 API.
@@ -39,13 +39,13 @@ type APIv4 struct {
 // NewAPIv4 returns a new storage v4 API facade.
 func NewAPIv4(
 	backend backend,
-	storageBackend storageAccess,
+	storageAccess storageAccess,
 	registry storage.ProviderRegistry,
 	pm poolmanager.PoolManager,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*APIv4, error) {
-	apiv3, err := NewAPIv3(backend, storageBackend, registry, pm, resources, authorizer)
+	apiv3, err := NewAPIv3(backend, storageAccess, registry, pm, resources, authorizer)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func NewAPIv4(
 // NewAPIv3 returns a new storage v4 API facade.
 func NewAPIv3(
 	backend backend,
-	storageBackend storageAccess,
+	storageAccess storageAccess,
 	registry storage.ProviderRegistry,
 	pm poolmanager.PoolManager,
 	_ facade.Resources,
@@ -65,11 +65,11 @@ func NewAPIv3(
 		return nil, common.ErrPerm
 	}
 	return &APIv3{
-		backend:     backend,
-		storage:     storageBackend,
-		registry:    registry,
-		poolManager: pm,
-		authorizer:  authorizer,
+		backend:       backend,
+		storageAccess: storageAccess,
+		registry:      registry,
+		poolManager:   pm,
+		authorizer:    authorizer,
 	}, nil
 }
 
@@ -109,12 +109,12 @@ func (api *APIv3) StorageDetails(entities params.Entities) (params.StorageDetail
 			results[i].Error = common.ServerError(err)
 			continue
 		}
-		storageInstance, err := api.storage.StorageInstance(storageTag)
+		storageInstance, err := api.storageAccess.StorageInstance(storageTag)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
 		}
-		details, err := createStorageDetails(api.backend, api.storage, storageInstance)
+		details, err := createStorageDetails(api.backend, api.storageAccess, storageInstance)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
@@ -150,13 +150,13 @@ func (api *APIv3) listStorageDetails(filter params.StorageFilter) ([]params.Stor
 		// this code.
 		return nil, errors.NotSupportedf("storage filters")
 	}
-	stateInstances, err := api.storage.AllStorageInstances()
+	stateInstances, err := api.storageAccess.AllStorageInstances()
 	if err != nil {
 		return nil, common.ServerError(err)
 	}
 	results := make([]params.StorageDetails, len(stateInstances))
 	for i, stateInstance := range stateInstances {
-		details, err := createStorageDetails(api.backend, api.storage, stateInstance)
+		details, err := createStorageDetails(api.backend, api.storageAccess, stateInstance)
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "getting details for %s",
@@ -168,21 +168,33 @@ func (api *APIv3) listStorageDetails(filter params.StorageFilter) ([]params.Stor
 	return results, nil
 }
 
-func createStorageDetails(backend backend, st storageAccess, si state.StorageInstance) (*params.StorageDetails, error) {
+func createStorageDetails(
+	backend backend,
+	st storageAccess,
+	si state.StorageInstance,
+) (*params.StorageDetails, error) {
 	// Get information from underlying volume or filesystem.
 	var persistent bool
 	var statusEntity status.StatusGetter
-	if si.Kind() != state.StorageKindBlock {
+	if si.Kind() == state.StorageKindFilesystem {
+		stFile := st.FilesystemAccess()
+		if stFile == nil {
+			return nil, errors.NotImplementedf("FilesystemStorage instance")
+		}
 		// TODO(axw) when we support persistent filesystems,
 		// e.g. CephFS, we'll need to do set "persistent"
 		// here too.
-		filesystem, err := st.StorageInstanceFilesystem(si.StorageTag())
+		filesystem, err := stFile.StorageInstanceFilesystem(si.StorageTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		statusEntity = filesystem
 	} else {
-		volume, err := st.StorageInstanceVolume(si.StorageTag())
+		stVolume := st.VolumeAccess()
+		if stVolume == nil {
+			return nil, errors.NotImplementedf("BlockStorage instance")
+		}
+		volume, err := stVolume.StorageInstanceVolume(si.StorageTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -236,14 +248,18 @@ func createStorageDetails(backend backend, st storageAccess, si state.StorageIns
 	}, nil
 }
 
-func storageAttachmentInfo(backend backend, st storageAccess, a state.StorageAttachment) (_ names.MachineTag, location string, _ error) {
+func storageAttachmentInfo(
+	backend backend,
+	st storageAccess,
+	a state.StorageAttachment,
+) (_ names.MachineTag, location string, _ error) {
 	machineTag, err := unitAssignedMachine(backend, a.Unit())
 	if errors.IsNotAssigned(err) {
 		return names.MachineTag{}, "", nil
 	} else if err != nil {
 		return names.MachineTag{}, "", errors.Trace(err)
 	}
-	info, err := storagecommon.StorageAttachmentInfo(st, a, machineTag)
+	info, err := storagecommon.StorageAttachmentInfo(st, st.VolumeAccess(), st.FilesystemAccess(), a, machineTag)
 	if errors.IsNotProvisioned(err) {
 		return machineTag, "", nil
 	} else if err != nil {
@@ -405,14 +421,15 @@ func (a *APIv3) ListVolumes(filters params.VolumeFilters) (params.VolumeDetailsL
 	results := params.VolumeDetailsListResults{
 		Results: make([]params.VolumeDetailsListResult, len(filters.Filters)),
 	}
+	stVolumeAccess := a.storageAccess.VolumeAccess()
 	for i, filter := range filters.Filters {
-		volumes, volumeAttachments, err := filterVolumes(a.storage, filter)
+		volumes, volumeAttachments, err := filterVolumes(stVolumeAccess, filter)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		details, err := createVolumeDetailsList(
-			a.backend, a.storage, volumes, volumeAttachments,
+			a.backend, a.storageAccess, volumes, volumeAttachments,
 		)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
@@ -424,18 +441,18 @@ func (a *APIv3) ListVolumes(filters params.VolumeFilters) (params.VolumeDetailsL
 }
 
 func filterVolumes(
-	st storageAccess,
+	stVolume storageVolume,
 	f params.VolumeFilter,
 ) ([]state.Volume, map[names.VolumeTag][]state.VolumeAttachment, error) {
 	if f.IsEmpty() {
 		// No filter was specified: get all volumes, and all attachments.
-		volumes, err := st.AllVolumes()
+		volumes, err := stVolume.AllVolumes()
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
 		volumeAttachments := make(map[names.VolumeTag][]state.VolumeAttachment)
 		for _, v := range volumes {
-			attachments, err := st.VolumeAttachments(v.VolumeTag())
+			attachments, err := stVolume.VolumeAttachments(v.VolumeTag())
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
@@ -450,7 +467,7 @@ func filterVolumes(
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		attachments, err := st.MachineVolumeAttachments(machineTag)
+		attachments, err := stVolume.MachineVolumeAttachments(machineTag)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -461,7 +478,7 @@ func filterVolumes(
 		}
 	}
 	for volumeTag := range volumesByTag {
-		volume, err := st.Volume(volumeTag)
+		volume, err := stVolume.Volume(volumeTag)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -499,7 +516,10 @@ func createVolumeDetailsList(
 }
 
 func createVolumeDetails(
-	backend backend, st storageAccess, v state.Volume, attachments []state.VolumeAttachment,
+	backend backend,
+	st storageAccess,
+	v state.Volume,
+	attachments []state.VolumeAttachment,
 ) (*params.VolumeDetails, error) {
 
 	details := &params.VolumeDetails{
@@ -558,14 +578,15 @@ func (a *APIv3) ListFilesystems(filters params.FilesystemFilters) (params.Filesy
 		return results, errors.Trace(err)
 	}
 
+	stFileAccess := a.storageAccess.FilesystemAccess()
 	for i, filter := range filters.Filters {
-		filesystems, filesystemAttachments, err := filterFilesystems(a.storage, filter)
+		filesystems, filesystemAttachments, err := filterFilesystems(stFileAccess, filter)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		details, err := createFilesystemDetailsList(
-			a.backend, a.storage, filesystems, filesystemAttachments,
+			a.backend, a.storageAccess, filesystems, filesystemAttachments,
 		)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
@@ -577,18 +598,18 @@ func (a *APIv3) ListFilesystems(filters params.FilesystemFilters) (params.Filesy
 }
 
 func filterFilesystems(
-	st storageAccess,
+	stFile storageFile,
 	f params.FilesystemFilter,
 ) ([]state.Filesystem, map[names.FilesystemTag][]state.FilesystemAttachment, error) {
 	if f.IsEmpty() {
 		// No filter was specified: get all filesystems, and all attachments.
-		filesystems, err := st.AllFilesystems()
+		filesystems, err := stFile.AllFilesystems()
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
 		filesystemAttachments := make(map[names.FilesystemTag][]state.FilesystemAttachment)
 		for _, f := range filesystems {
-			attachments, err := st.FilesystemAttachments(f.FilesystemTag())
+			attachments, err := stFile.FilesystemAttachments(f.FilesystemTag())
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
@@ -603,7 +624,7 @@ func filterFilesystems(
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		attachments, err := st.MachineFilesystemAttachments(machineTag)
+		attachments, err := stFile.MachineFilesystemAttachments(machineTag)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -614,7 +635,7 @@ func filterFilesystems(
 		}
 	}
 	for filesystemTag := range filesystemsByTag {
-		filesystem, err := st.Filesystem(filesystemTag)
+		filesystem, err := stFile.Filesystem(filesystemTag)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
@@ -652,7 +673,10 @@ func createFilesystemDetailsList(
 }
 
 func createFilesystemDetails(
-	backend backend, st storageAccess, f state.Filesystem, attachments []state.FilesystemAttachment,
+	backend backend,
+	st storageAccess,
+	f state.Filesystem,
+	attachments []state.FilesystemAttachment,
 ) (*params.FilesystemDetails, error) {
 
 	details := &params.FilesystemDetails{
@@ -754,7 +778,7 @@ func (a *APIv3) addToUnit(args params.StoragesAddParams) (params.AddStorageResul
 			continue
 		}
 
-		tags, err := a.storage.AddStorageForUnit(
+		tags, err := a.storageAccess.AddStorageForUnit(
 			u, one.StorageName, paramsToState(one.Constraints),
 		)
 		if err != nil {
@@ -815,9 +839,9 @@ func (a *APIv3) remove(args params.RemoveStorage) (params.ErrorResults, error) {
 			result[i].Error = common.ServerError(err)
 			continue
 		}
-		remove := a.storage.DestroyStorageInstance
+		remove := a.storageAccess.DestroyStorageInstance
 		if !arg.DestroyStorage {
-			remove = a.storage.ReleaseStorageInstance
+			remove = a.storageAccess.ReleaseStorageInstance
 		}
 		result[i].Error = common.ServerError(
 			remove(tag, arg.DestroyAttachments),
@@ -866,15 +890,15 @@ func (api *APIv3) detachStorage(storageTag names.StorageTag, unitTag names.UnitT
 	if unitTag != (names.UnitTag{}) {
 		// The caller has specified a unit explicitly. Do
 		// not filter out "not found" errors in this case.
-		return api.storage.DetachStorage(storageTag, unitTag)
+		return api.storageAccess.DetachStorage(storageTag, unitTag)
 	}
-	attachments, err := api.storage.StorageAttachments(storageTag)
+	attachments, err := api.storageAccess.StorageAttachments(storageTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if len(attachments) == 0 {
 		// No attachments: check if the storage exists at all.
-		if _, err := api.storage.StorageInstance(storageTag); err != nil {
+		if _, err := api.storageAccess.StorageInstance(storageTag); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -882,7 +906,7 @@ func (api *APIv3) detachStorage(storageTag names.StorageTag, unitTag names.UnitT
 		if a.Life() != state.Alive {
 			continue
 		}
-		err := api.storage.DetachStorage(storageTag, a.Unit())
+		err := api.storageAccess.DetachStorage(storageTag, a.Unit())
 		if err != nil && !errors.IsNotFound(err) {
 			// We only care about NotFound errors if
 			// the user specified a unit explicitly.
@@ -924,7 +948,7 @@ func (a *APIv3) Attach(args params.StorageAttachmentIds) (params.ErrorResults, e
 }
 
 func (a *APIv3) attachStorage(storageTag names.StorageTag, unitTag names.UnitTag) error {
-	return a.storage.AttachStorage(storageTag, unitTag)
+	return a.storageAccess.AttachStorage(storageTag, unitTag)
 }
 
 // Import imports existing storage into the model.
@@ -1039,7 +1063,7 @@ func (a *APIv4) importFilesystem(
 		filesystemInfo.Size = info.Size
 	}
 
-	storageTag, err := a.storage.AddExistingFilesystem(filesystemInfo, volumeInfo, arg.StorageName)
+	storageTag, err := a.storageAccess.FilesystemAccess().AddExistingFilesystem(filesystemInfo, volumeInfo, arg.StorageName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -4,7 +4,6 @@
 package application
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/charm.v6"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
@@ -25,8 +24,6 @@ import (
 // facade. For details on the methods, see the methods on state.State
 // with the same names.
 type Backend interface {
-	storagecommon.StorageInterface
-
 	AllModelUUIDs() ([]string, error)
 	Application(string) (Application, error)
 	ApplyOperation(state.ModelOperation) error
@@ -39,8 +36,6 @@ type Backend interface {
 	Relation(int) (Relation, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	Machine(string) (Machine, error)
-	ModelTag() names.ModelTag
-	ModelType() state.ModelType
 	Unit(string) (Unit, error)
 	UnitsInError() ([]Unit, error)
 	SaveController(info crossmodel.ControllerInfo, modelUUID string) (ExternalController, error)
@@ -151,12 +146,8 @@ type Resources interface {
 	RemovePendingAppResources(string, map[string]string) error
 }
 
-// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
-// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
-	*state.IAASModel
-	*state.CAASModel
 }
 
 type ExternalController state.ExternalController
@@ -166,39 +157,52 @@ func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo, mode
 	return api.Save(controllerInfo, modelUUID)
 }
 
-func (s stateShim) model() Model {
-	if s.IAASModel != nil {
-		return s.IAASModel
-	}
-	return s.CAASModel
+type storageInterface interface {
+	storagecommon.StorageAccess
+	VolumeAccess() storagecommon.VolumeAccess
+	FilesystemAccess() storagecommon.FilesystemAccess
 }
 
-func (s stateShim) ModelTag() names.ModelTag {
-	return s.model().ModelTag()
-}
-
-func (s stateShim) ModelType() state.ModelType {
-	return s.model().Type()
-}
-
-// NewStateBackend converts a state.State into a Backend.
-func NewStateBackend(st *state.State) (Backend, error) {
+var getStorageState = func(st *state.State) (storageInterface, error) {
 	m, err := st.Model()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
-
-	result := &stateShim{State: st}
 	if m.Type() == state.ModelTypeIAAS {
-		result.IAASModel, err = m.IAASModel()
-	} else {
-		result.CAASModel, err = m.CAASModel()
+		im, _ := m.IAASModel()
+		storageAccess := &iaasModelShim{Model: m, IAASModel: im}
+		return storageAccess, nil
 	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "could not convert state into either IAAS or CAASModel")
-	}
+	caasModel, _ := m.CAASModel()
+	storageAccess := &caasModelShim{Model: m, CAASModel: caasModel}
+	return storageAccess, nil
+}
 
-	return result, nil
+type iaasModelShim struct {
+	*state.Model
+	*state.IAASModel
+}
+
+func (im *iaasModelShim) VolumeAccess() storagecommon.VolumeAccess {
+	return im
+}
+
+func (im *iaasModelShim) FilesystemAccess() storagecommon.FilesystemAccess {
+	return im
+}
+
+type caasModelShim struct {
+	*state.Model
+	*state.CAASModel
+}
+
+func (cm *caasModelShim) VolumeAccess() storagecommon.VolumeAccess {
+	// CAAS models don't support volume storage yet.
+	return nil
+}
+
+func (cm *caasModelShim) FilesystemAccess() storagecommon.FilesystemAccess {
+	return cm
 }
 
 // NewStateApplication converts a state.Application into an Application.

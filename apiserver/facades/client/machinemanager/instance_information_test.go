@@ -5,6 +5,7 @@ package machinemanager_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -49,7 +50,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 			},
 		},
 	}
-	api, err := machinemanager.NewMachineManagerAPI(backend, pool, authorizer, context.NewCloudCallContext())
+	api, err := machinemanager.NewMachineManagerAPI(backend, backend, pool, authorizer, backend.ModelTag(), context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := params.ModelInstanceTypesConstraints{
@@ -84,8 +85,17 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 
 type mockBackend struct {
 	machinemanager.Backend
+	storagecommon.StorageAccess
 
 	cloudSpec environs.CloudSpec
+}
+
+func (st *mockBackend) VolumeAccess() storagecommon.VolumeAccess {
+	return nil
+}
+
+func (st *mockBackend) FilesystemAccess() storagecommon.FilesystemAccess {
+	return nil
 }
 
 func (b *mockBackend) ModelTag() names.ModelTag {

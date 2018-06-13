@@ -68,6 +68,10 @@ func (noopStorage) WatchStorageAttachment(names.StorageTag, names.UnitTag) Notif
 	return nil
 }
 
+func (noopStorage) WatchStorageAttachments(names.UnitTag) StringsWatcher {
+	return nil
+}
+
 func (noopStorage) WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) NotifyWatcher {
 	return nil
 }
@@ -142,4 +146,16 @@ func (noopStorage) UnitStorageAttachments(names.UnitTag) ([]StorageAttachment, e
 
 func (noopStorage) AddExistingFilesystem(f FilesystemInfo, v *VolumeInfo, storageName string) (names.StorageTag, error) {
 	return names.StorageTag{}, errors.NotSupportedf("AddExistingFilesystem")
+}
+
+func (noopStorage) StorageAttachment(names.StorageTag, names.UnitTag) (StorageAttachment, error) {
+	return nil, errors.NotSupportedf("StorageAttachment")
+}
+
+func (noopStorage) DestroyUnitStorageAttachments(unit names.UnitTag) (err error) {
+	return errors.NotSupportedf("DestroyUnitStorageAttachments")
+}
+
+func (noopStorage) RemoveStorageAttachment(s names.StorageTag, u names.UnitTag) error {
+	return errors.NotSupportedf("RemoveStorageAttachment")
 }

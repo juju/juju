@@ -4,23 +4,20 @@
 package machinemanager
 
 import (
-	names "gopkg.in/juju/names.v2"
+	"github.com/juju/juju/apiserver/common/storagecommon"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
 
 type Backend interface {
-	storagecommon.StorageInterface
 	state.CloudAccessor
 
 	Machine(string) (Machine, error)
-	ModelConfig() (*config.Config, error)
 	Model() (Model, error)
-	ModelTag() names.ModelTag
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 	AddOneMachine(template state.MachineTemplate) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
@@ -51,7 +48,6 @@ type Machine interface {
 
 type stateShim struct {
 	*state.State
-	*state.IAASModel
 }
 
 func (s stateShim) Machine(name string) (Machine, error) {
@@ -96,4 +92,52 @@ func (m machineShim) Units() ([]Unit, error) {
 
 type Unit interface {
 	UnitTag() names.UnitTag
+}
+
+type storageInterface interface {
+	storagecommon.StorageAccess
+	VolumeAccess() storagecommon.VolumeAccess
+	FilesystemAccess() storagecommon.FilesystemAccess
+}
+
+var getStorageState = func(st *state.State) (storageInterface, error) {
+	m, err := st.Model()
+	if err != nil {
+		return nil, err
+	}
+	if m.Type() == state.ModelTypeIAAS {
+		im, _ := m.IAASModel()
+		storageAccess := &iaasModelShim{Model: m, IAASModel: im}
+		return storageAccess, nil
+	}
+	caasModel, _ := m.CAASModel()
+	storageAccess := &caasModelShim{Model: m, CAASModel: caasModel}
+	return storageAccess, nil
+}
+
+type iaasModelShim struct {
+	*state.Model
+	*state.IAASModel
+}
+
+func (im *iaasModelShim) VolumeAccess() storagecommon.VolumeAccess {
+	return im
+}
+
+func (im *iaasModelShim) FilesystemAccess() storagecommon.FilesystemAccess {
+	return im
+}
+
+type caasModelShim struct {
+	*state.Model
+	*state.CAASModel
+}
+
+func (cm *caasModelShim) VolumeAccess() storagecommon.VolumeAccess {
+	// CAAS models don't support volume storage yet.
+	return nil
+}
+
+func (cm *caasModelShim) FilesystemAccess() storagecommon.FilesystemAccess {
+	return cm
 }
