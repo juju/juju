@@ -1157,7 +1157,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	s.sender = append(s.sender, s.startInstanceSendersNoSizes()...)
 	s.requests = nil
 	err := bootstrap.Bootstrap(
-		ctx, env, bootstrap.BootstrapParams{
+		ctx, env, s.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			AdminSecret:      jujutesting.AdminSecret,
 			CAPrivateKey:     testing.CAKey,
