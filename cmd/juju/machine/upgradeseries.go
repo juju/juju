@@ -4,9 +4,12 @@
 package machine
 
 import (
+	"strings"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/os/series"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -104,7 +107,11 @@ func (c *upgradeSeriesCommand) Init(args []string) error {
 	}
 
 	if c.prepCommand == PrepareCommand {
-		c.series = args[2]
+		series, err := checkSeries(series.SupportedSeries(), args[2])
+		if err != nil {
+			return err
+		}
+		c.series = series
 	}
 
 	return nil
@@ -123,4 +130,14 @@ func checkPrepCommands(prepCommands []string, argCommand string) (string, error)
 	}
 
 	return "", errors.New("%q is an invalid upgrade-series command")
+}
+
+func checkSeries(supportedSeries []string, seriesArgument string) (string, error) {
+	for _, series := range supportedSeries {
+		if series == strings.ToLower(seriesArgument) {
+			return series, nil
+		}
+	}
+
+	return "", errors.Errorf("%q is an unsupported series", seriesArgument)
 }

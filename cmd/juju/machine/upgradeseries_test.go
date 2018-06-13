@@ -34,6 +34,18 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptAgreeFlag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *UpgradeSeriesSuite) TestPrepareCommandShouldOnlyAcceptSupportedSeries(c *gc.C) {
+	BadSeries := "Combative Caribou"
+	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, BadSeries)
+	c.Assert(err, gc.ErrorMatches, ".* is an unsupported series")
+}
+
+func (s *UpgradeSeriesSuite) TestPrepareCommandShouldSupportSeriesRegardlessOfCase(c *gc.C) {
+	capitalizedCaseXenial := "Xenial"
+	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, capitalizedCaseXenial)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *UpgradeSeriesSuite) TestCompleteCommand(c *gc.C) {
 	err := s.runUpgradeSeriesCommand(c, machine.CompleteCommand, machineArg)
 	c.Assert(err, jc.ErrorIsNil)
