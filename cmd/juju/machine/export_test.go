@@ -59,6 +59,13 @@ func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI
 	return modelcmd.Wrap(cmd), &RemoveCommand{cmd}
 }
 
+// NewUpgradeSeriesCommand returns an upgrade series command for test
+func NewUpgradeSeriesCommandForTest() cmd.Command {
+	cmd := &upgradeSeriesCommand{}
+	cmd.SetClientStore(jujuclienttesting.MinimalStore())
+	return modelcmd.Wrap(cmd)
+}
+
 func NewDisksFlag(disks *[]storage.Constraints) *disksFlag {
 	return &disksFlag{disks}
 }

@@ -8,7 +8,8 @@ import (
 	"github.com/juju/juju/cmd/juju/machine"
 )
 
-type UpgradeSeriesSuite struct{}
+type UpgradeSeriesSuite struct {
+}
 
 var _ = gc.Suite(&UpgradeSeriesSuite{})
 
@@ -19,7 +20,7 @@ func (s *UpgradeSeriesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UpgradeSeriesSuite) runUpgradeSeriesCommand(c *gc.C, args ...string) error {
-	_, err := cmdtesting.RunCommand(c, machine.NewUpgradeSeriesCommand(), args...)
+	_, err := cmdtesting.RunCommand(c, machine.NewUpgradeSeriesCommandForTest(), args...)
 	return err
 }
 
