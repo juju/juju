@@ -212,7 +212,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	}
 
 	e := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, args)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerInstances, err := e.ControllerInstances(t.ProviderCallContext, t.ControllerUUID)
@@ -231,7 +231,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	// Prepare again because Destroy invalidates old environments.
 	e3 := t.Prepare(c)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e3, args)
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e3, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = environs.Destroy(e3.Config().Name(), e3, t.ProviderCallContext, t.ControllerStore)
