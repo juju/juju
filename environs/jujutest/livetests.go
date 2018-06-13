@@ -222,7 +222,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	args := t.bootstrapParams()
 	args.BootstrapConstraints = cons
 	args.ModelConstraints = cons
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, args)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, t.ProviderCallContext, args)
 	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = true
 }
@@ -978,7 +978,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer environs.Destroy("livetests", env, t.ProviderCallContext, t.ControllerStore)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, t.bootstrapParams())
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, t.ProviderCallContext, t.bootstrapParams())
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()

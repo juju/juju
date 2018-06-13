@@ -2791,11 +2791,13 @@ func (s *noSwiftSuite) TestBootstrap(c *gc.C) {
 	err = s.env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env,
+		context.NewCloudCallContext(),
+		bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      testing.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2820,9 +2822,11 @@ func newNovaNetworkingOpenstackService(cred *identity.Credentials, auth identity
 }
 
 func bootstrapEnv(c *gc.C, env environs.Environ) error {
-	return bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	return bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		context.NewCloudCallContext(),
+		bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      testing.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 }

@@ -678,11 +678,12 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      jujutesting.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      jujutesting.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
 }
 
@@ -697,11 +698,12 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentRetry(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      jujutesting.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      jujutesting.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 	c.Check(c.GetTestLog(), jc.Contains, "WARNING juju.provider.maas failed to get instance from provider attempt")
 }
 
@@ -716,11 +718,12 @@ func (suite *maas2EnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      jujutesting.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      jujutesting.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2152,11 +2155,12 @@ func (suite *maas2EnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	}
 
 	env := suite.makeEnviron(c, controller)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      jujutesting.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      jujutesting.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine.Stub.CheckCallNames(c, "Start", "SetOwnerData")
@@ -2264,14 +2268,15 @@ func (suite *maas2EnvironSuite) TestDestroy(c *gc.C) {
 func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron(c, newFakeController())
 	vers := version.MustParse("1.2.3")
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      jujutesting.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-		// Disable auto-uploading by setting the agent version
-		// to something that's not the current version.
-		AgentVersion: &vers,
-	})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      jujutesting.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+			// Disable auto-uploading by setting the agent version
+			// to something that's not the current version.
+			AgentVersion: &vers,
+		})
 	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no agent binaries are available for your model(.|\n)*")
 }
 
@@ -2280,11 +2285,12 @@ func (suite *maas2EnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	controller := newFakeController()
 	controller.allocateMachineError = gomaasapi.NewNoMatchError("oops")
 	env := suite.makeEnviron(c, controller)
-	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      jujutesting.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
+	err := bootstrap.Bootstrap(envjujutesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      jujutesting.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+		})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, gc.ErrorMatches, "cannot start bootstrap instance in any availability zone \\(mossack, fonseca\\)")

@@ -134,16 +134,17 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	netenv, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), netenv, bootstrap.BootstrapParams{
-		ControllerConfig: testing.FakeControllerConfig(),
-		Cloud: cloud.Cloud{
-			Name:      "dummy",
-			Type:      "dummy",
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-		},
-		AdminSecret:  AdminSecret,
-		CAPrivateKey: testing.CAKey,
-	})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), netenv,
+		context.NewCloudCallContext(), bootstrap.BootstrapParams{
+			ControllerConfig: testing.FakeControllerConfig(),
+			Cloud: cloud.Cloud{
+				Name:      "dummy",
+				Type:      "dummy",
+				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+			},
+			AdminSecret:  AdminSecret,
+			CAPrivateKey: testing.CAKey,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	return netenv
 }

@@ -151,12 +151,13 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	// Create node 0: it will be used as the bootstrap node.
 	suite.newNode(c, "node0", "host0", nil)
 	suite.addSubnet(c, 9, 9, "node0")
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig:     coretesting.FakeControllerConfig(),
-		AdminSecret:          testing.AdminSecret,
-		CAPrivateKey:         coretesting.CAKey,
-		BootstrapConstraints: constraints.MustParse("mem=1G"),
-	})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig:     coretesting.FakeControllerConfig(),
+			AdminSecret:          testing.AdminSecret,
+			CAPrivateKey:         coretesting.CAKey,
+			BootstrapConstraints: constraints.MustParse("mem=1G"),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	// The bootstrap node has been acquired and started.
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -348,12 +349,13 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.newNode(c, "thenode", "host", nil)
 	suite.addSubnet(c, 9, 9, "thenode")
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig:     coretesting.FakeControllerConfig(),
-		AdminSecret:          testing.AdminSecret,
-		CAPrivateKey:         coretesting.CAKey,
-		BootstrapConstraints: constraints.MustParse("mem=1G"),
-	})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig:     coretesting.FakeControllerConfig(),
+			AdminSecret:          testing.AdminSecret,
+			CAPrivateKey:         coretesting.CAKey,
+			BootstrapConstraints: constraints.MustParse("mem=1G"),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -364,12 +366,13 @@ func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
 	suite.addSubnet(c, 9, 9, "thenode")
 	// Ensure node will not be reported as deployed by changing its status.
 	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "4")
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig:     coretesting.FakeControllerConfig(),
-		AdminSecret:          testing.AdminSecret,
-		CAPrivateKey:         coretesting.CAKey,
-		BootstrapConstraints: constraints.MustParse("mem=1G"),
-	})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig:     coretesting.FakeControllerConfig(),
+			AdminSecret:          testing.AdminSecret,
+			CAPrivateKey:         coretesting.CAKey,
+			BootstrapConstraints: constraints.MustParse("mem=1G"),
+		})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
 }
 
@@ -380,38 +383,41 @@ func (suite *environSuite) TestBootstrapNodeFailedDeploy(c *gc.C) {
 	suite.addSubnet(c, 9, 9, "thenode")
 	// Set the node status to "Failed deployment"
 	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "11")
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig:     coretesting.FakeControllerConfig(),
-		AdminSecret:          testing.AdminSecret,
-		CAPrivateKey:         coretesting.CAKey,
-		BootstrapConstraints: constraints.MustParse("mem=1G"),
-	})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig:     coretesting.FakeControllerConfig(),
+			AdminSecret:          testing.AdminSecret,
+			CAPrivateKey:         coretesting.CAKey,
+			BootstrapConstraints: constraints.MustParse("mem=1G"),
+		})
 	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state. instance \"/api/.*/nodes/thenode/\" failed to deploy")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron()
 	vers := version.MustParse("1.2.3")
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-		// Disable auto-uploading by setting the agent version
-		// to something that's not the current version.
-		AgentVersion: &vers,
-	})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			AdminSecret:      testing.AdminSecret,
+			CAPrivateKey:     coretesting.CAKey,
+			// Disable auto-uploading by setting the agent version
+			// to something that's not the current version.
+			AgentVersion: &vers,
+		})
 	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no agent binaries are available for your model(.|\n)*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig:     coretesting.FakeControllerConfig(),
-		AdminSecret:          testing.AdminSecret,
-		CAPrivateKey:         coretesting.CAKey,
-		BootstrapConstraints: constraints.MustParse("mem=1G"),
-	})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		suite.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig:     coretesting.FakeControllerConfig(),
+			AdminSecret:          testing.AdminSecret,
+			CAPrivateKey:         coretesting.CAKey,
+			BootstrapConstraints: constraints.MustParse("mem=1G"),
+		})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, gc.ErrorMatches, ".*409.*")
@@ -950,13 +956,14 @@ func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
 	s.addSubnet(c, 9, 9, "node0")
 	s.setupFakeTools(c)
 	env := s.makeEnviron()
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
-		ControllerConfig:     coretesting.FakeControllerConfig(),
-		Placement:            "bootstrap-host",
-		AdminSecret:          testing.AdminSecret,
-		CAPrivateKey:         coretesting.CAKey,
-		BootstrapConstraints: constraints.MustParse("mem=1G"),
-	})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env,
+		s.callCtx, bootstrap.BootstrapParams{
+			ControllerConfig:     coretesting.FakeControllerConfig(),
+			Placement:            "bootstrap-host",
+			AdminSecret:          testing.AdminSecret,
+			CAPrivateKey:         coretesting.CAKey,
+			BootstrapConstraints: constraints.MustParse("mem=1G"),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }

@@ -283,7 +283,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
 type BootstrapInterface interface {
 	// Bootstrap bootstraps a controller.
-	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error
+	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error
 
 	// CloudDetector returns a CloudDetector for the given provider,
 	// if the provider supports it.
@@ -300,8 +300,8 @@ type BootstrapInterface interface {
 
 type bootstrapFuncs struct{}
 
-func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
-	return bootstrap.Bootstrap(ctx, env, args)
+func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
+	return bootstrap.Bootstrap(ctx, env, callCtx, args)
 }
 
 func (b bootstrapFuncs) CloudDetector(provider environs.EnvironProvider) (environs.CloudDetector, bool) {
@@ -415,6 +415,14 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 		return errors.Trace(err)
 	}
+	cloudCallCtx := context.NewCloudCallContext()
+	// At this stage, the credential we intend to use is not yet stored
+	// server-side. So, if the credential is not accepted by the provider,
+	// we cannot mark it as invalid, just log it as an informative message.
+	cloudCallCtx.InvalidateCredentialF = func(reason string) error {
+		ctx.Infof("Cloud credential %q is not accepted by cloud provider: %v", credentials.name, reason)
+		return nil
+	}
 
 	region, err := common.ChooseCloudRegion(cloud, regionName)
 	if err != nil {
@@ -485,8 +493,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	cloudCallCtx := context.NewCloudCallContext()
 
 	hostedModelUUID, err := utils.NewUUID()
 	if err != nil {
@@ -605,33 +611,37 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	}
 
 	bootstrapFuncs := getBootstrapFuncs()
-	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		ModelConstraints:          c.Constraints,
-		BootstrapConstraints:      bootstrapConstraints,
-		BootstrapSeries:           c.BootstrapSeries,
-		BootstrapImage:            c.BootstrapImage,
-		Placement:                 c.Placement,
-		BuildAgent:                c.BuildAgent,
-		BuildAgentTarball:         sync.BuildAgentTarball,
-		AgentVersion:              c.AgentVersion,
-		MetadataDir:               metadataDir,
-		Cloud:                     cloud,
-		CloudRegion:               region.Name,
-		CloudCredential:           credentials.credential,
-		CloudCredentialName:       credentials.name,
-		ControllerConfig:          config.controller,
-		ControllerInheritedConfig: config.inheritedControllerAttrs,
-		RegionInheritedConfig:     cloud.RegionConfig,
-		HostedModelConfig:         hostedModelConfig,
-		GUIDataSourceBaseURL:      guiDataSourceBaseURL,
-		AdminSecret:               config.bootstrap.AdminSecret,
-		CAPrivateKey:              config.bootstrap.CAPrivateKey,
-		DialOpts: environs.BootstrapDialOpts{
-			Timeout:        config.bootstrap.BootstrapTimeout,
-			RetryDelay:     config.bootstrap.BootstrapRetryDelay,
-			AddressesDelay: config.bootstrap.BootstrapAddressesDelay,
-		},
-	})
+	err = bootstrapFuncs.Bootstrap(
+		modelcmd.BootstrapContext(ctx),
+		environ,
+		cloudCallCtx,
+		bootstrap.BootstrapParams{
+			ModelConstraints:          c.Constraints,
+			BootstrapConstraints:      bootstrapConstraints,
+			BootstrapSeries:           c.BootstrapSeries,
+			BootstrapImage:            c.BootstrapImage,
+			Placement:                 c.Placement,
+			BuildAgent:                c.BuildAgent,
+			BuildAgentTarball:         sync.BuildAgentTarball,
+			AgentVersion:              c.AgentVersion,
+			MetadataDir:               metadataDir,
+			Cloud:                     cloud,
+			CloudRegion:               region.Name,
+			CloudCredential:           credentials.credential,
+			CloudCredentialName:       credentials.name,
+			ControllerConfig:          config.controller,
+			ControllerInheritedConfig: config.inheritedControllerAttrs,
+			RegionInheritedConfig:     cloud.RegionConfig,
+			HostedModelConfig:         hostedModelConfig,
+			GUIDataSourceBaseURL:      guiDataSourceBaseURL,
+			AdminSecret:               config.bootstrap.AdminSecret,
+			CAPrivateKey:              config.bootstrap.CAPrivateKey,
+			DialOpts: environs.BootstrapDialOpts{
+				Timeout:        config.bootstrap.BootstrapTimeout,
+				RetryDelay:     config.bootstrap.BootstrapRetryDelay,
+				AddressesDelay: config.bootstrap.BootstrapAddressesDelay,
+			},
+		})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap model")
 	}

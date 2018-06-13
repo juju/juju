@@ -67,7 +67,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, cfg.AgentStream(), cfg.AgentStream())
-	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(ctx, env, context.NewCloudCallContext(), bootstrap.BootstrapParams{
 		ControllerConfig: controllerCfg,
 		AdminSecret:      "admin-secret",
 		CAPrivateKey:     testing.CAKey,
