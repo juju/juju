@@ -314,6 +314,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newUpgradeJujuCommand(nil, nil))
 	r.Register(application.NewUpgradeCharmCommand())
 	r.Register(application.NewUpdateSeriesCommand())
+	r.Register(application.NewSetSeriesCommand())
 
 	// Charm tool commands.
 	r.Register(newHelpToolCommand())

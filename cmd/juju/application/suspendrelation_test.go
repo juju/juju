@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package application
+package application_test
 
 import (
 	"github.com/juju/cmd/cmdtesting"
@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -32,7 +33,7 @@ var _ = gc.Suite(&SuspendRelationSuite{})
 
 func (s *SuspendRelationSuite) runSuspendRelation(c *gc.C, args ...string) error {
 	store := jujuclienttesting.MinimalStore()
-	_, err := cmdtesting.RunCommand(c, NewSuspendRelationCommandForTest(s.mockAPI, store), args...)
+	_, err := cmdtesting.RunCommand(c, application.NewSuspendRelationCommandForTest(s.mockAPI, store), args...)
 	return err
 }
 

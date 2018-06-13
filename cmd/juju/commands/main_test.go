@@ -527,6 +527,7 @@ var commandNames = []string{
 	"set-meter-status",
 	"set-model-constraints",
 	"set-plan",
+	"set-series",
 	"set-wallet",
 	"show-action-output",
 	"show-action-status",
