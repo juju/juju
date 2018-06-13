@@ -181,7 +181,7 @@ func withDefaultControllerConstraints(cons constraints.Value) constraints.Value 
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
-func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args BootstrapParams) error {
+func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, callCtx context.ProviderCallContext, args BootstrapParams) error {
 	if err := args.Validate(); err != nil {
 		return errors.Annotate(err, "validating bootstrap parameters")
 	}
@@ -396,7 +396,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	ctx.Verbosef("Starting new instance for initial controller")
 
 	result, err := environ.Bootstrap(ctx,
-		context.NewCloudCallContext(),
+		callCtx,
 		environs.BootstrapParams{
 			CloudName:            args.Cloud.Name,
 			CloudRegion:          args.CloudRegion,

@@ -73,7 +73,7 @@ func NewBootstrapCommand() *BootstrapCommand {
 	}
 }
 
-// Info returns a decription of the command.
+// Info returns a description of the command.
 func (c *BootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "bootstrap-state",
@@ -98,6 +98,9 @@ func (c *BootstrapCommand) Init(args []string) error {
 	c.BootstrapParamsFile = args[0]
 	return c.AgentConf.CheckArgs(args[1:])
 }
+
+// EnvironsNew defines function used to get reference to an underlying cloud provider.
+var EnvironsNew = environs.New
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(_ *cmd.Context) error {
@@ -136,7 +139,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	env, err := environs.New(environs.OpenParams{
+	env, err := EnvironsNew(environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: args.ControllerModelConfig,
 	})
@@ -178,6 +181,14 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	callCtx := context.NewCloudCallContext()
+	// At this stage, cloud credential has not yet been stored server-side
+	// as there is no server-side. If these cloud calls will fail with
+	// invalid credential, just log it.
+	callCtx.InvalidateCredentialF = func(reason string) error {
+		logger.Errorf("Cloud credential %q is not accepted by cloud provider: %v", args.ControllerCloudCredentialName, reason)
+		return nil
+	}
+
 	instances, err := env.Instances(callCtx, []instance.Id{args.BootstrapMachineInstanceId})
 	if err != nil {
 		return errors.Annotate(err, "getting bootstrap instance")

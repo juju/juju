@@ -370,7 +370,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	apiPort := dummy.APIPort(environ.Provider())
 	s.ControllerConfig["api-port"] = apiPort
 	s.ProviderCallContext = context.NewCloudCallContext()
-	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, s.ProviderCallContext, bootstrap.BootstrapParams{
 		ControllerConfig: s.ControllerConfig,
 		CloudRegion:      "dummy-region",
 		Cloud: cloud.Cloud{

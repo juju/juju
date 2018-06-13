@@ -661,6 +661,27 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	c.Assert(called, gc.Equals, 1)
 }
 
+func (s *BootstrapSuite) TestBootstrapWithInvalidCredentialLogs(c *gc.C) {
+	called := false
+	newEnviron := func(ps environs.OpenParams) (environs.Environ, error) {
+		called = true
+		env, _ := environs.New(ps)
+		return &mockDummyEnviron{env}, nil
+	}
+	s.PatchValue(&EnvironsNew, newEnviron)
+	_, cmd, err := s.initBootstrapCommand(c, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmd.Run(nil)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+	// Note that the credential is not needed for dummy provider
+	// which is what the test here uses. This test only checks that
+	// the message related to the credential is logged.
+	c.Assert(c.GetTestLog(), jc.Contains,
+		`ERROR juju.cmd.jujud Cloud credential "" is not accepted by cloud provider: considered invalid for the sake of testing`)
+}
+
 func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
 	_, err := os.Stat(filepath.Join(s.dataDir, agent.SystemIdentity))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
@@ -891,4 +912,14 @@ func nullContext() environs.BootstrapContext {
 	ctx.Stdout = ioutil.Discard
 	ctx.Stderr = ioutil.Discard
 	return modelcmd.BootstrapContext(ctx)
+}
+
+type mockDummyEnviron struct {
+	environs.Environ
+}
+
+func (m *mockDummyEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+	// ensure that callback is used...
+	ctx.InvalidateCredential("considered invalid for the sake of testing")
+	return m.Environ.Instances(ctx, ids)
 }

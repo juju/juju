@@ -955,6 +955,26 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	c.Check(destroyed, jc.IsFalse)
 }
 
+// TestBootstrapInvalidCredentialMessage tests that an informative message is logged
+// when attempting to bootstrap with an invalid credential.
+func (s *BootstrapSuite) TestBootstrapInvalidCredentialMessage(c *gc.C) {
+	bootstrap := &fakeBootstrapFuncs{
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.Environ, callCtx context.ProviderCallContext, _ bootstrap.BootstrapParams) error {
+			callCtx.InvalidateCredential("considered invalid for the sake of testing")
+			return nil
+		},
+	}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return bootstrap
+	})
+	ctx, _ := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--auto-upgrade",
+	)
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains,
+		`Cloud credential "default" is not accepted by cloud provider: considered invalid for the sake of testing`)
+}
+
 type controllerModelAccountParams struct {
 	controller     string
 	controllerUUID string
@@ -2033,9 +2053,13 @@ type fakeBootstrapFuncs struct {
 	newCloudDetector    func(environs.EnvironProvider) (environs.CloudDetector, bool)
 	cloudRegionDetector environs.CloudRegionDetector
 	cloudFinalizer      environs.CloudFinalizer
+	bootstrapF          func(environs.BootstrapContext, environs.Environ, context.ProviderCallContext, bootstrap.BootstrapParams) error
 }
 
-func (fake *fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
+func (fake *fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
+	if fake.bootstrapF != nil {
+		return fake.bootstrapF(ctx, env, callCtx, args)
+	}
 	fake.args = args
 	return nil
 }
