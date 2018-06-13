@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/environschema.v1"
+	"gopkg.in/juju/names.v2"
 
 	apiapplication "github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/common"
@@ -40,13 +41,18 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-	backend, err := application.NewStateBackend(s.State)
+	backend, stVolume, stFile, err := application.NewStateBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(s.State)
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	api, err := application.NewAPIBase(
 		backend,
+		stVolume, stFile,
 		s.authorizer,
 		blockChecker,
+		model.ModelTag(),
+		model.Type(),
 		application.CharmToStateCharm,
 		application.DeployApplication,
 	)
@@ -177,13 +183,16 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 		expectedAppConfig[name] = info
 	}
 
-	backend, err := application.NewStateBackend(st)
+	backend, stVolume, stFile, err := application.NewStateBackend(st)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(st)
 	api, err := application.NewAPIBase(
 		backend,
+		stVolume, stFile,
 		s.authorizer,
 		blockChecker,
+		names.NewModelTag(st.ModelUUID()),
+		state.ModelTypeCAAS,
 		application.CharmToStateCharm,
 		application.DeployApplication,
 	)

@@ -10,9 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 )
 
@@ -77,7 +75,7 @@ func (s *storageAttachmentInfoSuite) SetUpTest(c *gc.C) {
 
 func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentDeviceName(c *gc.C) {
 	s.volumeAttachment.info.DeviceName = "sda"
-	info, err := storagecommon.StorageAttachmentInfo(s.st, s.storageAttachment, s.machineTag)
+	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
@@ -91,14 +89,14 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoMissingBlockDevice
 	// then we should get a NotProvisioned error.
 	s.blockDevices = nil
 	s.volumeAttachment.info.DeviceName = "sda"
-	_, err := storagecommon.StorageAttachmentInfo(s.st, s.storageAttachment, s.machineTag)
+	_, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 }
 
 func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentDeviceLink(c *gc.C) {
 	s.volumeAttachment.info.DeviceLink = "/dev/disk/by-id/verbatim"
-	info, err := storagecommon.StorageAttachmentInfo(s.st, s.storageAttachment, s.machineTag)
+	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
@@ -109,7 +107,7 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentDeviceLi
 
 func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentHardwareId(c *gc.C) {
 	s.volume.info.HardwareId = "whatever"
-	info, err := storagecommon.StorageAttachmentInfo(s.st, s.storageAttachment, s.machineTag)
+	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
@@ -120,7 +118,7 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentHardware
 
 func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoPersistentWWN(c *gc.C) {
 	s.volume.info.WWN = "drbr"
-	info, err := storagecommon.StorageAttachmentInfo(s.st, s.storageAttachment, s.machineTag)
+	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
@@ -140,7 +138,7 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoMatchingBlockDevic
 		DeviceName: "sdb",
 		BusAddress: s.volumeAttachment.info.BusAddress,
 	}}
-	info, err := storagecommon.StorageAttachmentInfo(s.st, s.storageAttachment, s.machineTag)
+	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 	c.Assert(info, jc.DeepEquals, &storage.StorageAttachmentInfo{
@@ -154,7 +152,7 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoNoBlockDevice(c *g
 	// to persistently identify the path, so we must enquire about block
 	// devices; there are none (yet), so NotProvisioned is returned.
 	s.volumeAttachment.info.BusAddress = "scsi@1:2.3.4"
-	_, err := storagecommon.StorageAttachmentInfo(s.st, s.storageAttachment, s.machineTag)
+	_, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "BlockDevices")
 }
@@ -163,96 +161,7 @@ func (s *storageAttachmentInfoSuite) TestStorageAttachmentInfoVolumeNotFound(c *
 	s.st.storageInstanceVolume = func(tag names.StorageTag) (state.Volume, error) {
 		return nil, errors.NotFoundf("volume for storage %s", tag.Id())
 	}
-	_, err := storagecommon.StorageAttachmentInfo(s.st, s.storageAttachment, s.machineTag)
+	_, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume")
-}
-
-type watchStorageAttachmentSuite struct {
-	storageTag               names.StorageTag
-	machineTag               names.MachineTag
-	unitTag                  names.UnitTag
-	st                       *fakeStorage
-	storageInstance          *fakeStorageInstance
-	volume                   *fakeVolume
-	volumeAttachmentWatcher  *apiservertesting.FakeNotifyWatcher
-	blockDevicesWatcher      *apiservertesting.FakeNotifyWatcher
-	storageAttachmentWatcher *apiservertesting.FakeNotifyWatcher
-}
-
-var _ = gc.Suite(&watchStorageAttachmentSuite{})
-
-func (s *watchStorageAttachmentSuite) SetUpTest(c *gc.C) {
-	s.storageTag = names.NewStorageTag("osd-devices/0")
-	s.machineTag = names.NewMachineTag("0")
-	s.unitTag = names.NewUnitTag("ceph/0")
-	s.storageInstance = &fakeStorageInstance{
-		tag:   s.storageTag,
-		owner: s.machineTag,
-		kind:  state.StorageKindBlock,
-	}
-	s.volume = &fakeVolume{tag: names.NewVolumeTag("0")}
-	s.volumeAttachmentWatcher = apiservertesting.NewFakeNotifyWatcher()
-	s.blockDevicesWatcher = apiservertesting.NewFakeNotifyWatcher()
-	s.storageAttachmentWatcher = apiservertesting.NewFakeNotifyWatcher()
-	s.st = &fakeStorage{
-		storageInstance: func(tag names.StorageTag) (state.StorageInstance, error) {
-			return s.storageInstance, nil
-		},
-		storageInstanceVolume: func(tag names.StorageTag) (state.Volume, error) {
-			return s.volume, nil
-		},
-		watchVolumeAttachment: func(names.MachineTag, names.VolumeTag) state.NotifyWatcher {
-			return s.volumeAttachmentWatcher
-		},
-		watchBlockDevices: func(names.MachineTag) state.NotifyWatcher {
-			return s.blockDevicesWatcher
-		},
-		watchStorageAttachment: func(names.StorageTag, names.UnitTag) state.NotifyWatcher {
-			return s.storageAttachmentWatcher
-		},
-	}
-}
-
-func (s *watchStorageAttachmentSuite) TestWatchStorageAttachmentVolumeAttachmentChanges(c *gc.C) {
-	s.testWatchBlockStorageAttachment(c, func() {
-		s.volumeAttachmentWatcher.C <- struct{}{}
-	})
-}
-
-func (s *watchStorageAttachmentSuite) TestWatchStorageAttachmentStorageAttachmentChanges(c *gc.C) {
-	s.testWatchBlockStorageAttachment(c, func() {
-		s.storageAttachmentWatcher.C <- struct{}{}
-	})
-}
-
-func (s *watchStorageAttachmentSuite) TestWatchStorageAttachmentBlockDevicesChange(c *gc.C) {
-	s.testWatchBlockStorageAttachment(c, func() {
-		s.blockDevicesWatcher.C <- struct{}{}
-	})
-}
-
-func (s *watchStorageAttachmentSuite) testWatchBlockStorageAttachment(c *gc.C, change func()) {
-	s.testWatchStorageAttachment(c, change)
-	s.st.CheckCallNames(c,
-		"StorageInstance",
-		"StorageInstanceVolume",
-		"WatchVolumeAttachment",
-		"WatchBlockDevices",
-		"WatchStorageAttachment",
-	)
-}
-
-func (s *watchStorageAttachmentSuite) testWatchStorageAttachment(c *gc.C, change func()) {
-	w, err := storagecommon.WatchStorageAttachment(
-		s.st,
-		s.storageTag,
-		s.machineTag,
-		s.unitTag,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	wc := statetesting.NewNotifyWatcherC(c, nopSyncStarter{}, w)
-	wc.AssertOneChange()
-	change()
-	wc.AssertOneChange()
 }

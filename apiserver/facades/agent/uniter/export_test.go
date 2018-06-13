@@ -10,17 +10,26 @@ import (
 )
 
 var (
-	GetZone = &getZone
+	GetZone                = &getZone
+	WatchStorageAttachment = watchStorageAttachment
 
 	_ meterstatus.MeterStatus = (*UniterAPI)(nil)
 )
 
-type StorageStateInterface storageStateInterface
+type (
+	Backend                    backend
+	StorageStateInterface      storageInterface
+	StorageVolumeInterface     storageVolumeInterface
+	StorageFilesystemInterface storageFilesystemInterface
+)
 
 func NewStorageAPI(
-	st StorageStateInterface,
+	backend backend,
+	storage storageInterface,
+	stVolume storageVolumeInterface,
+	stFile storageFilesystemInterface,
 	resources facade.Resources,
 	accessUnit common.GetAuthFunc,
 ) (*StorageAPI, error) {
-	return newStorageAPI(storageStateInterface(st), resources, accessUnit)
+	return newStorageAPI(backend, storage, stVolume, stFile, resources, accessUnit)
 }

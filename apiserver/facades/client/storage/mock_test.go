@@ -46,10 +46,6 @@ type mockStorageAccessor struct {
 	volumeAttachment                    func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
 	storageInstanceFilesystem           func(names.StorageTag) (state.Filesystem, error)
 	storageInstanceFilesystemAttachment func(m names.MachineTag, f names.FilesystemTag) (state.FilesystemAttachment, error)
-	watchStorageAttachment              func(names.StorageTag, names.UnitTag) state.NotifyWatcher
-	watchFilesystemAttachment           func(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
-	watchVolumeAttachment               func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
-	watchBlockDevices                   func(names.MachineTag) state.NotifyWatcher
 	volume                              func(tag names.VolumeTag) (state.Volume, error)
 	machineVolumeAttachments            func(machine names.MachineTag) ([]state.VolumeAttachment, error)
 	volumeAttachments                   func(volume names.VolumeTag) ([]state.VolumeAttachment, error)
@@ -93,22 +89,6 @@ func (st *mockStorageAccessor) StorageInstanceVolume(s names.StorageTag) (state.
 
 func (st *mockStorageAccessor) VolumeAttachment(m names.MachineTag, v names.VolumeTag) (state.VolumeAttachment, error) {
 	return st.volumeAttachment(m, v)
-}
-
-func (st *mockStorageAccessor) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) state.NotifyWatcher {
-	return st.watchStorageAttachment(s, u)
-}
-
-func (st *mockStorageAccessor) WatchFilesystemAttachment(mtag names.MachineTag, f names.FilesystemTag) state.NotifyWatcher {
-	return st.watchFilesystemAttachment(mtag, f)
-}
-
-func (st *mockStorageAccessor) WatchVolumeAttachment(mtag names.MachineTag, v names.VolumeTag) state.NotifyWatcher {
-	return st.watchVolumeAttachment(mtag, v)
-}
-
-func (st *mockStorageAccessor) WatchBlockDevices(mtag names.MachineTag) state.NotifyWatcher {
-	return st.watchBlockDevices(mtag)
 }
 
 func (st *mockStorageAccessor) AllVolumes() ([]state.Volume, error) {

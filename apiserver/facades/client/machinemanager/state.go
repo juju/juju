@@ -4,7 +4,7 @@
 package machinemanager
 
 import (
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -14,13 +14,11 @@ import (
 )
 
 type Backend interface {
-	storagecommon.StorageInterface
+	storagecommon.StorageInstanceInterface
 	state.CloudAccessor
 
 	Machine(string) (Machine, error)
-	ModelConfig() (*config.Config, error)
 	Model() (Model, error)
-	ModelTag() names.ModelTag
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 	AddOneMachine(template state.MachineTemplate) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
@@ -51,7 +49,7 @@ type Machine interface {
 
 type stateShim struct {
 	*state.State
-	*state.IAASModel
+	storagecommon.StorageInstanceInterface
 }
 
 func (s stateShim) Machine(name string) (Machine, error) {

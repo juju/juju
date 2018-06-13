@@ -3,7 +3,13 @@
 
 package application
 
+import "github.com/juju/juju/state"
+
 var (
 	ParseSettingsCompatible = parseSettingsCompatible
 	NewStateStorage         = &newStateStorage
 )
+
+func SetModelType(api *APIv6, modelType state.ModelType) {
+	api.modelType = modelType
+}

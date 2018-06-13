@@ -68,7 +68,7 @@ func (api *APIBase) getConfig(
 		return params.ApplicationGetResults{}, err
 	}
 
-	providerSchema, providerDefaults, err := applicationConfigSchema(api.backend.ModelType())
+	providerSchema, providerDefaults, err := applicationConfigSchema(api.modelType)
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}

@@ -25,7 +25,7 @@ import (
 // facade. For details on the methods, see the methods on state.State
 // with the same names.
 type Backend interface {
-	storagecommon.StorageInterface
+	storagecommon.StorageInstanceInterface
 
 	AllModelUUIDs() ([]string, error)
 	Application(string) (Application, error)
@@ -39,8 +39,6 @@ type Backend interface {
 	Relation(int) (Relation, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	Machine(string) (Machine, error)
-	ModelTag() names.ModelTag
-	ModelType() state.ModelType
 	Unit(string) (Unit, error)
 	UnitsInError() ([]Unit, error)
 	SaveController(info crossmodel.ControllerInfo, modelUUID string) (ExternalController, error)
@@ -151,12 +149,9 @@ type Resources interface {
 	RemovePendingAppResources(string, map[string]string) error
 }
 
-// TODO - CAAS(ericclaudejones): This should contain state alone, model will be
-// removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
-	*state.IAASModel
-	*state.CAASModel
+	storagecommon.StorageInstanceInterface
 }
 
 type ExternalController state.ExternalController
@@ -166,39 +161,37 @@ func (s stateShim) SaveController(controllerInfo crossmodel.ControllerInfo, mode
 	return api.Save(controllerInfo, modelUUID)
 }
 
-func (s stateShim) model() Model {
-	if s.IAASModel != nil {
-		return s.IAASModel
-	}
-	return s.CAASModel
-}
-
-func (s stateShim) ModelTag() names.ModelTag {
-	return s.model().ModelTag()
-}
-
-func (s stateShim) ModelType() state.ModelType {
-	return s.model().Type()
-}
-
 // NewStateBackend converts a state.State into a Backend.
-func NewStateBackend(st *state.State) (Backend, error) {
+func NewStateBackend(st *state.State) (Backend, storagecommon.StorageVolumeInterface, storagecommon.StorageFilesystemInterface, error) {
 	m, err := st.Model()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
 
-	result := &stateShim{State: st}
+	var (
+		storage  storagecommon.StorageInstanceInterface
+		stVolume storagecommon.StorageVolumeInterface
+		stFile   storagecommon.StorageFilesystemInterface
+	)
 	if m.Type() == state.ModelTypeIAAS {
-		result.IAASModel, err = m.IAASModel()
+		im, err := m.IAASModel()
+		if err != nil {
+			return nil, nil, nil, errors.Trace(err)
+		}
+		storage = im
+		stVolume = im
+		stFile = im
 	} else {
-		result.CAASModel, err = m.CAASModel()
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "could not convert state into either IAAS or CAASModel")
+		// CAAS models don't support block devices.
+		cm, err := m.CAASModel()
+		if err != nil {
+			return nil, nil, nil, errors.Trace(err)
+		}
+		storage = cm
+		stFile = cm
 	}
 
-	return result, nil
+	return &stateShim{State: st, StorageInstanceInterface: storage}, stVolume, stFile, nil
 }
 
 // NewStateApplication converts a state.Application into an Application.
