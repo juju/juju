@@ -1,0 +1,10 @@
+# Test-only dependencies are unpinned.
+#
+coverage>=3.6
+mock>=1.0.1
+nose>=1.3.1
+flake8
+-e bzr+http://bazaar.launchpad.net/~johnsca/charm-helpers/reactive/#egg=charmhelpers
+#
+# Specify precise versions of runtime dependencies where possible.
+PyYAML==3.10       # precise

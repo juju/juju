@@ -1,0 +1,4 @@
+name: mysql
+summary: Interface for relating to MySQL
+version: 1
+maintainer: "Cory Johns <cory.johns@canonical.com>"

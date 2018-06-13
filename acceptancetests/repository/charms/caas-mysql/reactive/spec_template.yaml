@@ -1,0 +1,23 @@
+containers:
+  - name: %(name)s
+    image: %(image)s
+    ports:
+    - containerPort: %(port)s
+      protocol: TCP
+    config:
+      MYSQL_ROOT_PASSWORD: %(root_password)s
+      MYSQL_USER: %(user)s
+      MYSQL_PASSWORD: %(password)s
+      MYSQL_DATABASE: %(database)s
+    files:
+      - name: configurations
+        mountPath: /etc/mysql/conf.d
+        files:
+          custom_mysql.cnf: |
+            [mysqld]
+            skip-host-cache
+            skip-name-resolve          
+
+            query_cache_limit = 1M
+            query_cache_size = %(query-cache-size)s
+            query_cache_type = %(query-cache-type)s

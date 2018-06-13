@@ -1,0 +1,10 @@
+# Test-only dependencies are unpinned.
+#
+coverage>=3.6
+mock>=1.0.1
+nose>=1.3.1
+flake8
+PyYAML
+sphinx
+charms.reactive
+charmhelpers

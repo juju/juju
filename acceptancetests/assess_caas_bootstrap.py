@@ -41,9 +41,6 @@ def assess_caas_bootstrap(client):
     )
 
     caas_client = deploy_caas_stack(bundle_path=bundle, client=client, timeout=3600)
-
-    # add caas model like below to create k8s new namespace then deploy charm on top of it
-    # k8s_model = caas_client.add_model('testcaas')
     if not caas_client.is_cluster_healthy:
         raise JujuAssertionError('k8s cluster is not healthy coz kubectl is not accessible')
 

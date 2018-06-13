@@ -1,0 +1,8 @@
+*~
+*.pyc
+__pycache__/
+.cache
+.tox
+docs/build/
+build/
+docs/source/_build/
