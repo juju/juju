@@ -358,6 +358,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(machine.NewListMachinesCommand())
 	r.Register(machine.NewShowMachineCommand())
 
+	if featureflag.Enabled(feature.UpgradeSeries) {
+		r.Register(machine.NewUpgradeSeriesCommand())
+	}
+
 	// Manage model
 	r.Register(model.NewConfigCommand())
 	r.Register(model.NewDefaultsCommand())
