@@ -28,6 +28,11 @@ func (s *UpgradeSeriesSuite) TestPrepareCommand(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptAgreeFlag(c *gc.C) {
+	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, seriesArg, "--agree")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *UpgradeSeriesSuite) TestCompleteCommand(c *gc.C) {
 	err := s.runUpgradeSeriesCommand(c, machine.CompleteCommand, machineArg)
 	c.Assert(err, jc.ErrorIsNil)

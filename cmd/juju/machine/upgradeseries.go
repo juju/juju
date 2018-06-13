@@ -71,6 +71,7 @@ func (c *upgradeSeriesCommand) Info() *cmd.Info {
 func (c *upgradeSeriesCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.force, "force", false, "Upgrade even if the series is not supported by the charm and/or related subordinate charms.")
+	f.BoolVar(&c.force, "agree", false, "Agree to upgrade the series. Otherwise, a confirmation prompt will be displayed after the command is run.")
 }
 
 // Init implements cmd.Command.
