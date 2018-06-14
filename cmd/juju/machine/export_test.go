@@ -60,8 +60,8 @@ func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI
 }
 
 // NewUpgradeSeriesCommand returns an upgrade series command for test
-func NewUpgradeSeriesCommandForTest() cmd.Command {
-	cmd := &upgradeSeriesCommand{}
+func NewUpgradeSeriesCommandForTest(api UpgradeMachineSeriesAPI) cmd.Command {
+	cmd := &upgradeSeriesCommand{upgradeMachineSeriesClient: api}
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(cmd)
 }

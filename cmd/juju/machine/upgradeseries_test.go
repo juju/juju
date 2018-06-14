@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"errors"
 
+	gomock "github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/machine"
+	"github.com/juju/juju/cmd/juju/machine/mocks"
 )
 
 type UpgradeSeriesSuite struct {
@@ -36,7 +38,13 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(c *gc.C, co
 	ctx.Stdin = &stdin
 	stdin.WriteString(confirmation)
 
-	com := machine.NewUpgradeSeriesCommandForTest()
+	// mock remote API
+	mockController := gomock.NewController(c)
+	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
+	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesPrepare(gomock.Any()).AnyTimes()
+
+	com := machine.NewUpgradeSeriesCommandForTest(mockUpgradeSeriesAPI)
+
 	err = cmdtesting.InitCommand(com, args)
 	if err != nil {
 		return err
