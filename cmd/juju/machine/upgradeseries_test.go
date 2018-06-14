@@ -76,11 +76,6 @@ func (s *UpgradeSeriesSuite) TestUpgradeCommandShouldNotAcceptInvalidMachineArgs
 	c.Assert(err, gc.ErrorMatches, "\"machine5\" is an invalid machine name")
 }
 
-func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptAgreeFlag(c *gc.C) {
-	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, seriesArg, "--agree")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldOnlyAcceptSupportedSeries(c *gc.C) {
 	BadSeries := "Combative Caribou"
 	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, BadSeries)
