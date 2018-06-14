@@ -67,6 +67,11 @@ func (s *UpgradeSeriesSuite) TestPrepareCommand(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptForceOption(c *gc.C) {
+	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, seriesArg, "--force")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAbortOnFailedConfirmation(c *gc.C) {
 	err := s.runUpgradeSeriesCommandWithConfirmation(c, "n", machine.PrepareCommand, machineArg, seriesArg)
 	c.Assert(err, gc.ErrorMatches, "upgrade series: aborted")
