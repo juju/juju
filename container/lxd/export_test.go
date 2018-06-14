@@ -15,15 +15,7 @@ var (
 	NetworkDevicesFromConfig = networkDevicesFromConfig
 	CheckBridgeConfigFile    = checkBridgeConfigFile
 	SeriesRemoteAliases      = seriesRemoteAliases
-	GetImageSources          = func(mgr container.Manager) ([]RemoteServer, error) {
-		return mgr.(*containerManager).getImageSources()
-	}
-	VerifyNICsWithConfigFile = func(
-		svr *Server, nics map[string]map[string]string, reader func(string) ([]byte, error),
-	) error {
-		return svr.verifyNICsWithConfigFile(nics, reader)
-	}
-	ErrIPV6NotSupported = errIPV6NotSupported
+	ErrIPV6NotSupported      = errIPV6NotSupported
 )
 
 type patcher interface {
@@ -39,4 +31,12 @@ func PatchConnectRemote(patcher patcher, remotes map[string]lxdclient.ImageServe
 		}
 		return nil, errors.New("unrecognised remote server")
 	})
+}
+
+func GetImageSources(mgr container.Manager) ([]RemoteServer, error) {
+	return mgr.(*containerManager).getImageSources()
+}
+
+func VerifyNICsWithConfigFile(svr *Server, nics map[string]device, reader func(string) ([]byte, error)) error {
+	return svr.verifyNICsWithConfigFile(nics, reader)
 }
