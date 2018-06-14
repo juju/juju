@@ -77,7 +77,7 @@ run beforehand.
 
 Examples:
 	juju upgrade-series prepare <machine> <series>
-        juju upgrade-series prepare <machine> <series> --force
+	juju upgrade-series prepare <machine> <series> --force
 	juju upgrade-series complete <machine>
 
 See also:
