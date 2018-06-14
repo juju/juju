@@ -4,6 +4,7 @@
 package machine
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -12,6 +13,7 @@ import (
 	"github.com/juju/os/series"
 	"gopkg.in/juju/names.v2"
 
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -119,6 +121,27 @@ func (c *upgradeSeriesCommand) Init(args []string) error {
 
 // Run implements cmd.Run.
 func (c *upgradeSeriesCommand) Run(ctx *cmd.Context) error {
+	if c.prepCommand == PrepareCommand {
+		err := c.promptConfirmation(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context) error {
+	var confirmationMsg = `
+WARNING This command will mark machine %q as being upgraded to series %q
+This operation cannot be reverted or canceled once started.
+
+Continue [y/N]? `[1:]
+	fmt.Fprintf(ctx.Stdout, confirmationMsg, c.machineNumber, c.series)
+
+	if err := jujucmd.UserConfirmYes(ctx); err != nil {
+		return errors.Annotate(err, "upgrade series")
+	}
+
 	return nil
 }
 
