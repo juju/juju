@@ -15,7 +15,13 @@ import (
 	"github.com/lxc/lxd/shared/api"
 )
 
-const UserNamespacePrefix = "user."
+const (
+	UserNamespacePrefix = "user."
+	UserDataKey = UserNamespacePrefix + "user-data"
+	NetworkConfigKey = UserNamespacePrefix + "network-config"
+	JujuModelKey = UserNamespacePrefix + "juju-model"
+	AutoStartKey = "boot.autostart"
+)
 
 // ContainerSpec represents the data required to create a new container.
 type ContainerSpec struct {
@@ -24,20 +30,6 @@ type ContainerSpec struct {
 	Devices  map[string]device
 	Config   map[string]string
 	Profiles []string
-}
-
-// Normalise config ensures that configuration keys are prefixed with the
-// "user" namespace where appropriate.
-func (c *ContainerSpec) NormaliseConfig() {
-	newConfig := make(map[string]string, len(c.Config))
-	for k, v := range c.Config {
-		if strings.HasPrefix(k, UserNamespacePrefix) || strings.HasPrefix(k, "limits.") || k == "boot.autostart" {
-			newConfig[k] = v
-			continue
-		}
-		newConfig[UserNamespacePrefix+k] = v
-	}
-	c.Config = newConfig
 }
 
 // Container extends the upstream LXD container type.
@@ -59,9 +51,12 @@ func (c *Container) Arch() string {
 // CPUs returns the configured limit for number of container CPU cores.
 // If unset, zero is returned.
 func (c *Container) CPUs() uint {
-	var cores uint = 0
+	var cores uint
 	if v := c.Config["limits.cpu"]; v != "" {
-		fmt.Sscanf(v, "%d", &cores)
+		_, err := fmt.Sscanf(v, "%d", &cores)
+		if err != nil {
+			logger.Errorf("failed to parse %q into uint, ignoring err: %s", v, err)
+		}
 	}
 	return cores
 }
@@ -91,7 +86,7 @@ func (c *Container) Mem() uint {
 
 // AddDisk modifies updates the container's devices map to represent a disk
 // device described by the input arguments.
-// If the device already exists, an error is returned
+// If the device already exists, an error is returned.
 func (c *Container) AddDisk(name, path, source, pool string, readOnly bool) error {
 	if _, ok := c.Devices[name]; ok {
 		return errors.Errorf("container %q already has a device %q", c.Name, name)
@@ -113,9 +108,9 @@ func (c *Container) AddDisk(name, path, source, pool string, readOnly bool) erro
 	return nil
 }
 
-// aliveStatus is the list of status strings that indicate
+// aliveStatuses is the list of status strings that indicate
 // a container is "alive".
-var aliveStatus = []string{
+var aliveStatuses = []string{
 	api.Starting.String(),
 	api.Started.String(),
 	api.Running.String(),
@@ -126,7 +121,7 @@ var aliveStatus = []string{
 // AliveContainers returns the list of containers based on the input namespace
 // prefixed that are in a status indicating they are "alive".
 func (s *Server) AliveContainers(prefix string) ([]Container, error) {
-	c, err := s.FilterContainers(prefix, aliveStatus...)
+	c, err := s.FilterContainers(prefix, aliveStatuses...)
 	return c, errors.Trace(err)
 }
 
@@ -166,7 +161,6 @@ func (s *Server) ContainerAddresses(name string) ([]network.Address, error) {
 
 	var results []network.Address
 	for netName, net := range networks {
-		// TODO (manadart 2018-05-29): Should this check localBridgeName too?
 		if netName == network.DefaultLXCBridge || netName == network.DefaultLXDBridge {
 			continue
 		}
@@ -187,8 +181,6 @@ func (s *Server) ContainerAddresses(name string) ([]network.Address, error) {
 // If the container fails to be started, it is removed.
 // Upon successful creation and start, the container is returned.
 func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error) {
-	spec.NormaliseConfig()
-
 	req := api.ContainersPost{
 		Name: spec.Name,
 		ContainerPut: api.ContainerPut{
@@ -318,11 +310,6 @@ func (s *Server) WriteContainer(c *Container) error {
 
 // containerHasStatus returns true if the input container has a status
 // matching one from the input list.
-//
-// TODO (manadart 2018-05-29) This logic mimics that previously in lxdclient.
-// api.Container appears to have a plain string status,
-// which if always populated, and congruent with the status code,
-// could be used directly for comparison.
 func containerHasStatus(container api.Container, statuses []string) bool {
 	for _, status := range statuses {
 		if container.StatusCode.String() == status {

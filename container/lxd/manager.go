@@ -30,10 +30,6 @@ var (
 )
 
 const lxdDefaultProfileName = "default"
-const UserDataKey = "user.user-data"
-const NetworkConfigKey = "user.network-config"
-const JujuModelKey = "user.juju-model"
-const AutoStartKey = "boot.autostart"
 
 type containerManager struct {
 	server *Server
