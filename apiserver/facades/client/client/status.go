@@ -969,10 +969,11 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 
 	var processedStatus = params.ApplicationStatus{
-		Charm:   applicationCharm.URL().String(),
-		Series:  application.Series(),
-		Exposed: application.IsExposed(),
-		Life:    processLife(application),
+		Charm:        applicationCharm.URL().String(),
+		Series:       application.Series(),
+		Exposed:      application.IsExposed(),
+		Life:         processLife(application),
+		CharmVersion: applicationCharm.Version(),
 	}
 
 	if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[*applicationCharm.URL().WithRevision(-1)]; ok && latestCharm != nil {

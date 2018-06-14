@@ -206,6 +206,9 @@ type CharmArchive struct {
 
 	// Macaroon is the authorization macaroon for accessing the charmstore.
 	Macaroon macaroon.Slice
+
+	// Charm Version contains semantic version of charm, typically the output of git describe.
+	CharmVersion string
 }
 
 // StoreCharmArchive stores a charm archive in environment storage.
@@ -225,6 +228,7 @@ func StoreCharmArchive(st *state.State, archive CharmArchive) error {
 		StoragePath: storagePath,
 		SHA256:      archive.SHA256,
 		Macaroon:    archive.Macaroon,
+		Version:     archive.CharmVersion,
 	}
 
 	// Now update the charm data in state and mark it as no longer pending.
