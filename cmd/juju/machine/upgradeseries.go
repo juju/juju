@@ -103,7 +103,7 @@ func (c *upgradeSeriesCommand) Init(args []string) error {
 	if names.IsValidMachine(args[1]) {
 		c.machineNumber = args[1]
 	} else {
-		return errors.Errorf("invalid machine name %q", args[1])
+		return errors.Errorf("%q is an invalid machine name", args[1])
 	}
 
 	if c.prepCommand == PrepareCommand {

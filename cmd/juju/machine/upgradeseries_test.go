@@ -37,6 +37,12 @@ func (s *UpgradeSeriesSuite) TestUpgradeCommandShouldNotAcceptInvalidPrepCommand
 	c.Assert(err, gc.ErrorMatches, ".* \"actuate\" is an invalid upgrade-series command")
 }
 
+func (s *UpgradeSeriesSuite) TestUpgradeCommandShouldNotAcceptInvalidMachineArgs(c *gc.C) {
+	invalidMachineArg := "machine5"
+	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, invalidMachineArg, seriesArg)
+	c.Assert(err, gc.ErrorMatches, "\"machine5\" is an invalid machine name")
+}
+
 func (s *UpgradeSeriesSuite) TestPrepareCommand(c *gc.C) {
 	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, seriesArg)
 	c.Assert(err, jc.ErrorIsNil)
