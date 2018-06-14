@@ -28,7 +28,6 @@ type StateWithWallClockSuite struct {
 	Controller                *state.Controller
 	State                     *state.State
 	Model                     *state.Model
-	IAASModel                 *state.IAASModel
 	Owner                     names.UserTag
 	Factory                   *factory.Factory
 	InitialConfig             *config.Config
@@ -60,10 +59,6 @@ func (s *StateWithWallClockSuite) SetUpTest(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	s.Model = model
-
-	im, err := s.State.IAASModel()
-	c.Assert(err, jc.ErrorIsNil)
-	s.IAASModel = im
 
 	s.Factory = factory.NewFactory(s.State)
 }

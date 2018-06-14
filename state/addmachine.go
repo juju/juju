@@ -449,13 +449,13 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 }
 
 func (st *State) machineTemplateVolumeAttachmentParams(t MachineTemplate) ([]storage.VolumeAttachmentParams, error) {
-	im, err := st.IAASModel()
+	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	out := make([]storage.VolumeAttachmentParams, 0, len(t.VolumeAttachments))
 	for volumeTag, a := range t.VolumeAttachments {
-		v, err := im.Volume(volumeTag)
+		v, err := sb.Volume(volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -463,7 +463,7 @@ func (st *State) machineTemplateVolumeAttachmentParams(t MachineTemplate) ([]sto
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		providerType, _, err := poolStorageProvider(im, volumeInfo.Pool)
+		providerType, _, err := poolStorageProvider(sb, volumeInfo.Pool)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -531,7 +531,11 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		template.Constraints,
 	)
 
-	storageOps, volumeAttachments, filesystemAttachments, err := st.machineStorageOps(
+	sb, err := NewStorageBackend(st)
+	if err != nil {
+		return nil, txn.Op{}, errors.Trace(err)
+	}
+	storageOps, volumeAttachments, filesystemAttachments, err := sb.machineStorageOps(
 		mdoc, &machineStorageParams{
 			filesystems:           template.Filesystems,
 			filesystemAttachments: template.FilesystemAttachments,
@@ -615,7 +619,7 @@ func combineMachineStorageParams(lhs, rhs *machineStorageParams) *machineStorage
 // machineStorageOps creates txn.Ops for creating volumes, filesystems,
 // and attachments to the specified machine. The results are the txn.Ops,
 // and the tags of volumes and filesystems newly attached to the machine.
-func (st *State) machineStorageOps(
+func (sb *storageBackend) machineStorageOps(
 	mdoc *machineDoc, args *machineStorageParams,
 ) ([]txn.Op, []volumeAttachmentTemplate, []filesystemAttachmentTemplate, error) {
 	var filesystemOps, volumeOps []txn.Op
@@ -627,14 +631,9 @@ func (st *State) machineStorageOps(
 		attachOnly      = true
 	)
 
-	im, err := st.IAASModel()
-	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
-	}
-
 	// Create filesystems and filesystem attachments.
 	for _, f := range args.filesystems {
-		ops, filesystemTag, volumeTag, err := im.addFilesystemOps(f.Filesystem, mdoc.Id)
+		ops, filesystemTag, volumeTag, err := sb.addFilesystemOps(f.Filesystem, mdoc.Id)
 		if err != nil {
 			return nil, nil, nil, errors.Trace(err)
 		}
@@ -657,7 +656,7 @@ func (st *State) machineStorageOps(
 
 	// Create volumes and volume attachments.
 	for _, v := range args.volumes {
-		ops, tag, err := im.addVolumeOps(v.Volume, mdoc.Id)
+		ops, tag, err := sb.addVolumeOps(v.Volume, mdoc.Id)
 		if err != nil {
 			return nil, nil, nil, errors.Trace(err)
 		}

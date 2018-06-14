@@ -218,18 +218,18 @@ func (st *State) WatchModelLives() StringsWatcher {
 
 // WatchModelVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all model-scoped volumes.
-func (im *IAASModel) WatchModelVolumes() StringsWatcher {
-	return im.watchModelMachinestorage(volumesC)
+func (sb *storageBackend) WatchModelVolumes() StringsWatcher {
+	return sb.watchModelMachinestorage(volumesC)
 }
 
 // WatchModelFilesystems returns a StringsWatcher that notifies of changes
 // to the lifecycles of all model-scoped filesystems.
-func (im *IAASModel) WatchModelFilesystems() StringsWatcher {
-	return im.watchModelMachinestorage(filesystemsC)
+func (sb *storageBackend) WatchModelFilesystems() StringsWatcher {
+	return sb.watchModelMachinestorage(filesystemsC)
 }
 
-func (im *IAASModel) watchModelMachinestorage(collection string) StringsWatcher {
-	mb := im.mb
+func (sb *storageBackend) watchModelMachinestorage(collection string) StringsWatcher {
+	mb := sb.mb
 	pattern := fmt.Sprintf("^%s$", mb.docID(names.NumberSnippet))
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
@@ -244,18 +244,18 @@ func (im *IAASModel) watchModelMachinestorage(collection string) StringsWatcher 
 
 // WatchMachineVolumes returns a StringsWatcher that notifies of changes to
 // the lifecycles of all volumes scoped to the specified machine.
-func (im *IAASModel) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
-	return im.watchMachineStorage(m, volumesC)
+func (sb *storageBackend) WatchMachineVolumes(m names.MachineTag) StringsWatcher {
+	return sb.watchMachineStorage(m, volumesC)
 }
 
 // WatchMachineFilesystems returns a StringsWatcher that notifies of changes
 // to the lifecycles of all filesystems scoped to the specified machine.
-func (im *IAASModel) WatchMachineFilesystems(m names.MachineTag) StringsWatcher {
-	return im.watchMachineStorage(m, filesystemsC)
+func (sb *storageBackend) WatchMachineFilesystems(m names.MachineTag) StringsWatcher {
+	return sb.watchMachineStorage(m, filesystemsC)
 }
 
-func (im *IAASModel) watchMachineStorage(m names.MachineTag, collection string) StringsWatcher {
-	mb := im.mb
+func (sb *storageBackend) watchMachineStorage(m names.MachineTag, collection string) StringsWatcher {
+	mb := sb.mb
 	pattern := fmt.Sprintf("^%s/%s$", mb.docID(m.Id()), names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	prefix := m.Id() + "/"
@@ -272,19 +272,19 @@ func (im *IAASModel) watchMachineStorage(m names.MachineTag, collection string) 
 // WatchModelVolumeAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all volume attachments related to environ-
 // scoped volumes.
-func (im *IAASModel) WatchModelVolumeAttachments() StringsWatcher {
-	return im.watchModelMachinestorageAttachments(volumeAttachmentsC)
+func (sb *storageBackend) WatchModelVolumeAttachments() StringsWatcher {
+	return sb.watchModelMachinestorageAttachments(volumeAttachmentsC)
 }
 
 // WatchModelFilesystemAttachments returns a StringsWatcher that notifies
 // of changes to the lifecycles of all filesystem attachments related to
 // environ-scoped filesystems.
-func (im *IAASModel) WatchModelFilesystemAttachments() StringsWatcher {
-	return im.watchModelMachinestorageAttachments(filesystemAttachmentsC)
+func (sb *storageBackend) WatchModelFilesystemAttachments() StringsWatcher {
+	return sb.watchModelMachinestorageAttachments(filesystemAttachmentsC)
 }
 
-func (im *IAASModel) watchModelMachinestorageAttachments(collection string) StringsWatcher {
-	mb := im.mb
+func (sb *storageBackend) watchModelMachinestorageAttachments(collection string) StringsWatcher {
+	mb := sb.mb
 	pattern := fmt.Sprintf("^%s.*:%s$", mb.docID(""), names.NumberSnippet)
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	filter := func(id interface{}) bool {
@@ -304,19 +304,19 @@ func (im *IAASModel) watchModelMachinestorageAttachments(collection string) Stri
 // WatchMachineVolumeAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all volume attachments related to the specified
 // machine, for volumes scoped to the machine.
-func (im *IAASModel) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatcher {
-	return im.watchMachineStorageAttachments(m, volumeAttachmentsC)
+func (sb *storageBackend) WatchMachineVolumeAttachments(m names.MachineTag) StringsWatcher {
+	return sb.watchMachineStorageAttachments(m, volumeAttachmentsC)
 }
 
 // WatchMachineFilesystemAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all filesystem attachments related to the specified
 // machine, for filesystems scoped to the machine.
-func (im *IAASModel) WatchMachineFilesystemAttachments(m names.MachineTag) StringsWatcher {
-	return im.watchMachineStorageAttachments(m, filesystemAttachmentsC)
+func (sb *storageBackend) WatchMachineFilesystemAttachments(m names.MachineTag) StringsWatcher {
+	return sb.watchMachineStorageAttachments(m, filesystemAttachmentsC)
 }
 
-func (im *IAASModel) watchMachineStorageAttachments(m names.MachineTag, collection string) StringsWatcher {
-	mb := im.mb
+func (sb *storageBackend) watchMachineStorageAttachments(m names.MachineTag, collection string) StringsWatcher {
+	mb := sb.mb
 	pattern := fmt.Sprintf("^%s:%s/.*", mb.docID(m.Id()), m.Id())
 	members := bson.D{{"_id", bson.D{{"$regex", pattern}}}}
 	prefix := m.Id() + fmt.Sprintf(":%s/", m.Id())
@@ -345,11 +345,11 @@ func (st *State) WatchRemoteApplications() StringsWatcher {
 // WatchStorageAttachments returns a StringsWatcher that notifies of
 // changes to the lifecycles of all storage instances attached to the
 // specified unit.
-func (im *IAASModel) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
+func (sb *storageBackend) WatchStorageAttachments(unit names.UnitTag) StringsWatcher {
 	members := bson.D{{"unitid", unit.Id()}}
 	prefix := unitGlobalKey(unit.Id()) + "#"
 	filter := func(id interface{}) bool {
-		k, err := im.mb.strictLocalID(id.(string))
+		k, err := sb.mb.strictLocalID(id.(string))
 		if err != nil {
 			return false
 		}
@@ -359,7 +359,7 @@ func (im *IAASModel) WatchStorageAttachments(unit names.UnitTag) StringsWatcher 
 		// Transform storage attachment document ID to storage ID.
 		return id[len(prefix):]
 	}
-	return newLifecycleWatcher(im.mb, storageAttachmentsC, members, filter, tr)
+	return newLifecycleWatcher(sb.mb, storageAttachmentsC, members, filter, tr)
 }
 
 // WatchUnits returns a StringsWatcher that notifies of changes to the
@@ -1574,23 +1574,23 @@ func (st *State) WatchAPIHostPortsForAgents() NotifyWatcher {
 
 // WatchStorageAttachment returns a watcher for observing changes
 // to a storage attachment.
-func (im *IAASModel) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) NotifyWatcher {
+func (sb *storageBackend) WatchStorageAttachment(s names.StorageTag, u names.UnitTag) NotifyWatcher {
 	id := storageAttachmentId(u.Id(), s.Id())
-	return newEntityWatcher(im.mb, storageAttachmentsC, im.mb.docID(id))
+	return newEntityWatcher(sb.mb, storageAttachmentsC, sb.mb.docID(id))
 }
 
 // WatchVolumeAttachment returns a watcher for observing changes
 // to a volume attachment.
-func (im *IAASModel) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) NotifyWatcher {
+func (sb *storageBackend) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) NotifyWatcher {
 	id := volumeAttachmentId(m.Id(), v.Id())
-	return newEntityWatcher(im.mb, volumeAttachmentsC, im.mb.docID(id))
+	return newEntityWatcher(sb.mb, volumeAttachmentsC, sb.mb.docID(id))
 }
 
 // WatchFilesystemAttachment returns a watcher for observing changes
 // to a filesystem attachment.
-func (im *IAASModel) WatchFilesystemAttachment(m names.MachineTag, f names.FilesystemTag) NotifyWatcher {
+func (sb *storageBackend) WatchFilesystemAttachment(m names.MachineTag, f names.FilesystemTag) NotifyWatcher {
 	id := filesystemAttachmentId(m.Id(), f.Id())
-	return newEntityWatcher(im.mb, filesystemAttachmentsC, im.mb.docID(id))
+	return newEntityWatcher(sb.mb, filesystemAttachmentsC, sb.mb.docID(id))
 }
 
 // WatchCharmConfig returns a watcher for observing changes to the

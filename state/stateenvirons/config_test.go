@@ -33,7 +33,7 @@ func (s *environSuite) TestGetNewEnvironFunc(c *gc.C) {
 	stateenvirons.GetNewEnvironFunc(newEnviron)(s.State)
 	c.Assert(calls, gc.Equals, 1)
 
-	cfg, err := s.IAASModel.ModelConfig()
+	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(callArgs.Config, jc.DeepEquals, cfg)
 }

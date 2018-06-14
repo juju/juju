@@ -1742,12 +1742,12 @@ func (i *importer) storageInstanceConstraints(storage description.Storage) stora
 
 func (i *importer) volumes() error {
 	i.logger.Debugf("importing volumes")
-	im, err := i.dbModel.IAASModel()
+	sb, err := NewStorageBackend(i.st)
 	if err != nil {
 		return errors.NewNotSupported(err, "adding volumes to CAAS model")
 	}
 	for _, volume := range i.model.Volumes() {
-		err := i.addVolume(volume, im)
+		err := i.addVolume(volume, sb)
 		if err != nil {
 			i.logger.Errorf("error importing volume %s: %s", volume.Tag(), err)
 			return errors.Trace(err)
@@ -1757,7 +1757,7 @@ func (i *importer) volumes() error {
 	return nil
 }
 
-func (i *importer) addVolume(volume description.Volume, im *IAASModel) error {
+func (i *importer) addVolume(volume description.Volume, sb *storageBackend) error {
 	attachments := volume.Attachments()
 	tag := volume.Tag()
 	var params *VolumeParams
@@ -1785,13 +1785,13 @@ func (i *importer) addVolume(volume description.Volume, im *IAASModel) error {
 		Info:            info,
 		AttachmentCount: len(attachments),
 	}
-	if detachable, err := isDetachableVolumePool(im, volume.Pool()); err != nil {
+	if detachable, err := isDetachableVolumePool(sb, volume.Pool()); err != nil {
 		return errors.Trace(err)
 	} else if !detachable && len(attachments) == 1 {
 		doc.MachineId = attachments[0].Machine().Id()
 	}
 	status := i.makeStatusDoc(volume.Status())
-	ops := im.newVolumeOps(doc, status)
+	ops := sb.newVolumeOps(doc, status)
 
 	for _, attachment := range attachments {
 		ops = append(ops, i.addVolumeAttachmentOp(tag.Id(), attachment))
@@ -1839,12 +1839,12 @@ func (i *importer) addVolumeAttachmentOp(volID string, attachment description.Vo
 
 func (i *importer) filesystems() error {
 	i.logger.Debugf("importing filesystems")
-	im, err := i.dbModel.IAASModel()
+	sb, err := NewStorageBackend(i.st)
 	if err != nil {
 		return errors.NewNotSupported(err, "adding filesystems to CAAS model")
 	}
 	for _, fs := range i.model.Filesystems() {
-		err := i.addFilesystem(fs, im)
+		err := i.addFilesystem(fs, sb)
 		if err != nil {
 			i.logger.Errorf("error importing filesystem %s: %s", fs.Tag(), err)
 			return errors.Trace(err)
@@ -1854,7 +1854,7 @@ func (i *importer) filesystems() error {
 	return nil
 }
 
-func (i *importer) addFilesystem(filesystem description.Filesystem, im *IAASModel) error {
+func (i *importer) addFilesystem(filesystem description.Filesystem, sb *storageBackend) error {
 
 	attachments := filesystem.Attachments()
 	tag := filesystem.Tag()
@@ -1881,13 +1881,13 @@ func (i *importer) addFilesystem(filesystem description.Filesystem, im *IAASMode
 		Info:            info,
 		AttachmentCount: len(attachments),
 	}
-	if detachable, err := isDetachableFilesystemPool(im, filesystem.Pool()); err != nil {
+	if detachable, err := isDetachableFilesystemPool(sb, filesystem.Pool()); err != nil {
 		return errors.Trace(err)
 	} else if !detachable && len(attachments) == 1 {
 		doc.MachineId = attachments[0].Machine().Id()
 	}
 	status := i.makeStatusDoc(filesystem.Status())
-	ops := im.newFilesystemOps(doc, status)
+	ops := sb.newFilesystemOps(doc, status)
 
 	for _, attachment := range attachments {
 		ops = append(ops, i.addFilesystemAttachmentOp(tag.Id(), attachment))

@@ -852,14 +852,10 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 // filesystems attached to the machine, and returns any mgo/txn assertions
 // required to ensure that remains true.
 func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
-	im, err := m.st.IAASModel()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	attachments := names.NewSet()
 	for _, v := range m.doc.Volumes {
 		tag := names.NewVolumeTag(v)
-		detachable, err := isDetachableVolumeTag(im.mb.db(), tag)
+		detachable, err := isDetachableVolumeTag(m.st.db(), tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -869,7 +865,7 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 	}
 	for _, f := range m.doc.Filesystems {
 		tag := names.NewFilesystemTag(f)
-		detachable, err := isDetachableFilesystemTag(im.mb.db(), tag)
+		detachable, err := isDetachableFilesystemTag(m.st.db(), tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -930,10 +926,6 @@ func (m *Machine) removePortsOps() ([]txn.Op, error) {
 }
 
 func (m *Machine) removeOps() ([]txn.Op, error) {
-	im, err := m.st.IAASModel()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	if m.doc.Life != Dead {
 		return nil, fmt.Errorf("machine is not dead")
 	}
@@ -970,14 +962,20 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	filesystemOps, err := im.removeMachineFilesystemsOps(m)
+
+	sb, err := NewStorageBackend(m.st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	volumeOps, err := im.removeMachineVolumesOps(m)
+	filesystemOps, err := sb.removeMachineFilesystemsOps(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	volumeOps, err := sb.removeMachineVolumesOps(m)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	ops = append(ops, linkLayerDevicesOps...)
 	ops = append(ops, devicesAddressesOps...)
 	ops = append(ops, portsOps...)
@@ -1349,17 +1347,17 @@ func (m *Machine) SetInstanceInfo(
 		return errors.Trace(err)
 	}
 
-	im, err := m.st.IAASModel()
+	sb, err := NewStorageBackend(m.st)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Record volumes and volume attachments, and set the initial
 	// status: attached or attaching.
-	if err := setProvisionedVolumeInfo(im, volumes); err != nil {
+	if err := setProvisionedVolumeInfo(sb, volumes); err != nil {
 		return errors.Trace(err)
 	}
-	if err := setMachineVolumeAttachmentInfo(im, m.Id(), volumeAttachments); err != nil {
+	if err := setMachineVolumeAttachmentInfo(sb, m.Id(), volumeAttachments); err != nil {
 		return errors.Trace(err)
 	}
 	volumeStatus := make(map[names.VolumeTag]status.Status)
@@ -1369,8 +1367,14 @@ func (m *Machine) SetInstanceInfo(
 	for tag := range volumeAttachments {
 		volumeStatus[tag] = status.Attached
 	}
-	for tag, status := range volumeStatus {
-		if err := im.SetVolumeStatus(tag, status, "", nil, nil); err != nil {
+	for tag, volStatus := range volumeStatus {
+		vol, err := sb.Volume(tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := vol.SetStatus(status.StatusInfo{
+			Status: volStatus,
+		}); err != nil {
 			return errors.Annotatef(
 				err, "setting status of %s", names.ReadableString(tag),
 			)
@@ -1915,11 +1919,11 @@ func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
 
 // VolumeAttachments returns the machine's volume attachments.
 func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
-	im, err := m.st.IAASModel()
+	sb, err := NewStorageBackend(m.st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return im.MachineVolumeAttachments(m.MachineTag())
+	return sb.MachineVolumeAttachments(m.MachineTag())
 }
 
 // AddAction is part of the ActionReceiver interface.

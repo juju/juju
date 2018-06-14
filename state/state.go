@@ -916,17 +916,17 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 			return st.Charm(url)
 		}
 	case names.VolumeTag:
-		im, err := st.IAASModel()
+		sb, err := NewStorageBackend(st)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return im.Volume(tag)
+		return sb.Volume(tag)
 	case names.FilesystemTag:
-		im, err := st.IAASModel()
+		sb, err := NewStorageBackend(st)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return im.Filesystem(tag)
+		return sb.Filesystem(tag)
 	default:
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
@@ -1072,6 +1072,21 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	}
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
+	}
+
+	sb, err := NewStorageBackend(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := addDefaultStorageConstraints(sb, args.Storage, args.Charm.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := validateStorageConstraints(sb, args.Storage, args.Charm.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
+	storagePools := make(set.Strings)
+	for _, storageParams := range args.Storage {
+		storagePools.Add(storageParams.Pool)
 	}
 
 	// Perform model specific arg processing.
@@ -1235,16 +1250,6 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 }
 
 func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error {
-	im, err := st.IAASModel()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := addDefaultStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
-		return errors.Trace(err)
-	}
-	if err := validateStorageConstraints(im, args.Storage, args.Charm.Meta()); err != nil {
-		return errors.Trace(err)
-	}
 	storagePools := make(set.Strings)
 	for _, storageParams := range args.Storage {
 		storagePools.Add(storageParams.Pool)
@@ -1298,7 +1303,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 	// Ignore constraints that result from this call as
 	// these would be accumulation of model and application constraints
 	// but we only want application constraints to be persisted here.
-	_, err = st.resolveConstraints(args.Constraints)
+	_, err := st.resolveConstraints(args.Constraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1329,13 +1334,13 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 			// attached. We need to pass them along to precheckInstance, in
 			// case the volumes cannot be attached to a machine with the given
 			// placement directive.
-			im, err := st.IAASModel()
+			sb, err := NewStorageBackend(st)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			volumeAttachments := make([]storage.VolumeAttachmentParams, 0, len(args.AttachStorage))
 			for _, storageTag := range args.AttachStorage {
-				v, err := im.StorageInstanceVolume(storageTag)
+				v, err := sb.StorageInstanceVolume(storageTag)
 				if errors.IsNotFound(err) {
 					continue
 				} else if err != nil {
@@ -1347,7 +1352,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 					// so it cannot be attached.
 					continue
 				}
-				providerType, _, err := poolStorageProvider(im, volumeInfo.Pool)
+				providerType, _, err := poolStorageProvider(sb, volumeInfo.Pool)
 				if err != nil {
 					return errors.Annotatef(err, "cannot attach %s", names.ReadableString(storageTag))
 				}

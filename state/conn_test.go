@@ -50,7 +50,7 @@ func (s *ConnSuite) SetUpTest(c *gc.C) {
 
 	s.StateSuite.SetUpTest(c)
 
-	s.modelTag = s.IAASModel.ModelTag()
+	s.modelTag = s.Model.ModelTag()
 
 	jujuDB := s.MgoSuite.Session.DB("juju")
 	s.annotations = jujuDB.C("annotations")

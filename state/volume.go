@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -79,7 +78,7 @@ type VolumeAttachment interface {
 }
 
 type volume struct {
-	im  *IAASModel
+	mb  modelBackend
 	doc volumeDoc
 }
 
@@ -214,12 +213,41 @@ func (v *volume) Releasing() bool {
 
 // Status is required to implement StatusGetter.
 func (v *volume) Status() (status.StatusInfo, error) {
-	return v.im.VolumeStatus(v.VolumeTag())
+	return getStatus(v.mb.db(), volumeGlobalKey(v.VolumeTag().Id()), "volume")
 }
 
 // SetStatus is required to implement StatusSetter.
 func (v *volume) SetStatus(volumeStatus status.StatusInfo) error {
-	return v.im.SetVolumeStatus(v.VolumeTag(), volumeStatus.Status, volumeStatus.Message, volumeStatus.Data, volumeStatus.Since)
+	switch volumeStatus.Status {
+	case status.Attaching, status.Attached, status.Detaching, status.Detached, status.Destroying:
+	case status.Error:
+		if volumeStatus.Message == "" {
+			return errors.Errorf("cannot set status %q without info", volumeStatus.Status)
+		}
+	case status.Pending:
+		// If a volume is not yet provisioned, we allow its status
+		// to be set back to pending (when a retry is to occur).
+		// First refresh.
+		v, err := getVolumeByTag(v.mb, v.VolumeTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, err = v.Info()
+		if errors.IsNotProvisioned(err) {
+			break
+		}
+		return errors.Errorf("cannot set status %q", volumeStatus.Status)
+	default:
+		return errors.Errorf("cannot set invalid status %q", volumeStatus.Status)
+	}
+	return setStatus(v.mb.db(), setStatusParams{
+		badge:     "volume",
+		globalKey: volumeGlobalKey(v.VolumeTag().Id()),
+		status:    volumeStatus.Status,
+		message:   volumeStatus.Message,
+		rawData:   volumeStatus.Data,
+		updated:   timeOrNow(volumeStatus.Since, v.mb.clock()),
+	})
 }
 
 // Volume is required to implement VolumeAttachment.
@@ -254,37 +282,37 @@ func (v *volumeAttachment) Params() (VolumeAttachmentParams, bool) {
 }
 
 // Volume returns the Volume with the specified name.
-func (im *IAASModel) Volume(tag names.VolumeTag) (Volume, error) {
-	v, err := im.volumeByTag(tag)
+func (sb *storageBackend) Volume(tag names.VolumeTag) (Volume, error) {
+	v, err := getVolumeByTag(sb.mb, tag)
 	return v, err
 }
 
-func (im *IAASModel) volumes(query interface{}) ([]*volume, error) {
-	docs, err := getVolumeDocs(im.mb.db(), query)
+func (sb *storageBackend) volumes(query interface{}) ([]*volume, error) {
+	docs, err := getVolumeDocs(sb.mb.db(), query)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	volumes := make([]*volume, len(docs))
 	for i := range docs {
-		volumes[i] = &volume{im, docs[i]}
+		volumes[i] = &volume{sb.mb, docs[i]}
 	}
 	return volumes, nil
 }
 
-func (im *IAASModel) volumeByTag(tag names.VolumeTag) (*volume, error) {
-	doc, err := getVolumeDocByTag(im.mb.db(), tag)
+func getVolumeByTag(mb modelBackend, tag names.VolumeTag) (*volume, error) {
+	doc, err := getVolumeDocByTag(mb.db(), tag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &volume{im, doc}, nil
+	return &volume{mb, doc}, nil
 }
 
-func (im *IAASModel) volume(query bson.D, description string) (*volume, error) {
-	doc, err := getVolumeDoc(im.mb.db(), query, description)
+func (sb *storageBackend) volume(query bson.D, description string) (*volume, error) {
+	doc, err := getVolumeDoc(sb.mb.db(), query, description)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &volume{im, doc}, nil
+	return &volume{sb.mb, doc}, nil
 }
 
 func getVolumeDocByTag(db Database, tag names.VolumeTag) (volumeDoc, error) {
@@ -329,8 +357,8 @@ func volumesToInterfaces(volumes []*volume) []Volume {
 	return result
 }
 
-func (im *IAASModel) storageInstanceVolume(tag names.StorageTag) (*volume, error) {
-	return im.volume(
+func (sb *storageBackend) storageInstanceVolume(tag names.StorageTag) (*volume, error) {
+	return sb.volume(
 		bson.D{{"storageid", tag.Id()}},
 		fmt.Sprintf("volume for storage instance %q", tag.Id()),
 	)
@@ -338,15 +366,15 @@ func (im *IAASModel) storageInstanceVolume(tag names.StorageTag) (*volume, error
 
 // StorageInstanceVolume returns the Volume assigned to the specified
 // storage instance.
-func (im *IAASModel) StorageInstanceVolume(tag names.StorageTag) (Volume, error) {
-	v, err := im.storageInstanceVolume(tag)
+func (sb *storageBackend) StorageInstanceVolume(tag names.StorageTag) (Volume, error) {
+	v, err := sb.storageInstanceVolume(tag)
 	return v, err
 }
 
 // VolumeAttachment returns the VolumeAttachment corresponding to
 // the specified volume and machine.
-func (im *IAASModel) VolumeAttachment(machine names.MachineTag, volume names.VolumeTag) (VolumeAttachment, error) {
-	coll, cleanup := im.mb.db().GetCollection(volumeAttachmentsC)
+func (sb *storageBackend) VolumeAttachment(machine names.MachineTag, volume names.VolumeTag) (VolumeAttachment, error) {
+	coll, cleanup := sb.mb.db().GetCollection(volumeAttachmentsC)
 	defer cleanup()
 
 	var att volumeAttachment
@@ -361,8 +389,8 @@ func (im *IAASModel) VolumeAttachment(machine names.MachineTag, volume names.Vol
 
 // MachineVolumeAttachments returns all of the VolumeAttachments for the
 // specified machine.
-func (im *IAASModel) MachineVolumeAttachments(machine names.MachineTag) ([]VolumeAttachment, error) {
-	attachments, err := im.volumeAttachments(bson.D{{"machineid", machine.Id()}})
+func (sb *storageBackend) MachineVolumeAttachments(machine names.MachineTag) ([]VolumeAttachment, error) {
+	attachments, err := sb.volumeAttachments(bson.D{{"machineid", machine.Id()}})
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting volume attachments for machine %q", machine.Id())
 	}
@@ -371,16 +399,16 @@ func (im *IAASModel) MachineVolumeAttachments(machine names.MachineTag) ([]Volum
 
 // VolumeAttachments returns all of the VolumeAttachments for the specified
 // volume.
-func (im *IAASModel) VolumeAttachments(volume names.VolumeTag) ([]VolumeAttachment, error) {
-	attachments, err := im.volumeAttachments(bson.D{{"volumeid", volume.Id()}})
+func (sb *storageBackend) VolumeAttachments(volume names.VolumeTag) ([]VolumeAttachment, error) {
+	attachments, err := sb.volumeAttachments(bson.D{{"volumeid", volume.Id()}})
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting volume attachments for volume %q", volume.Id())
 	}
 	return attachments, nil
 }
 
-func (im *IAASModel) volumeAttachments(query bson.D) ([]VolumeAttachment, error) {
-	coll, cleanup := im.mb.db().GetCollection(volumeAttachmentsC)
+func (sb *storageBackend) volumeAttachments(query bson.D) ([]VolumeAttachment, error) {
+	coll, cleanup := sb.mb.db().GetCollection(volumeAttachmentsC)
 	defer cleanup()
 
 	var docs []volumeAttachmentDoc
@@ -409,7 +437,7 @@ func IsContainsFilesystem(err error) bool {
 // removeMachineVolumesOps returns txn.Ops to remove non-persistent volumes
 // bound or attached to the specified machine. This is used when the given
 // machine is being removed from state.
-func (im *IAASModel) removeMachineVolumesOps(m *Machine) ([]txn.Op, error) {
+func (sb *storageBackend) removeMachineVolumesOps(m *Machine) ([]txn.Op, error) {
 	// A machine cannot transition to Dead if it has any detachable storage
 	// attached, so any attachments are for machine-bound storage.
 	//
@@ -422,7 +450,7 @@ func (im *IAASModel) removeMachineVolumesOps(m *Machine) ([]txn.Op, error) {
 	// Therefore, there may be volumes that are bound, but not attached,
 	// to the machine.
 
-	machineVolumes, err := im.volumes(bson.D{{"machineid", m.Id()}})
+	machineVolumes, err := sb.volumes(bson.D{{"machineid", m.Id()}})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -452,7 +480,7 @@ func (im *IAASModel) removeMachineVolumesOps(m *Machine) ([]txn.Op, error) {
 				},
 			)
 		}
-		ops = append(ops, im.removeVolumeOps(v.VolumeTag())...)
+		ops = append(ops, sb.removeVolumeOps(v.VolumeTag())...)
 	}
 	return ops, nil
 }
@@ -486,7 +514,7 @@ func detachableVolumeDoc(doc *volumeDoc) bool {
 // isDetachableVolumePool reports whether or not the given storage
 // pool will create a volume that is not inherently bound to a machine,
 // and therefore can be detached.
-func isDetachableVolumePool(im *IAASModel, pool string) (bool, error) {
+func isDetachableVolumePool(im *storageBackend, pool string) (bool, error) {
 	_, provider, err := poolStorageProvider(im, pool)
 	if err != nil {
 		return false, errors.Trace(err)
@@ -517,24 +545,24 @@ func isDetachableVolumePool(im *IAASModel, pool string) (bool, error) {
 // IsContainsFilesystem error if the volume contains an attached filesystem; the
 // filesystem attachment must be removed first. DetachVolume will fail for
 // inherently machine-bound volumes.
-func (im *IAASModel) DetachVolume(machine names.MachineTag, volume names.VolumeTag) (err error) {
+func (sb *storageBackend) DetachVolume(machine names.MachineTag, volume names.VolumeTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "detaching volume %s from machine %s", volume.Id(), machine.Id())
 	// If the volume is backing a filesystem, the volume cannot be detached
 	// until the filesystem has been detached.
-	if _, err := im.volumeFilesystemAttachment(machine, volume); err == nil {
+	if _, err := sb.volumeFilesystemAttachment(machine, volume); err == nil {
 		return &errContainsFilesystem{errors.New("volume contains attached filesystem")}
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		va, err := im.VolumeAttachment(machine, volume)
+		va, err := sb.VolumeAttachment(machine, volume)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if va.Life() != Alive {
 			return nil, jujutxn.ErrNoOperations
 		}
-		detachable, err := isDetachableVolumeTag(im.mb.db(), volume)
+		detachable, err := isDetachableVolumeTag(sb.mb.db(), volume)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -543,15 +571,15 @@ func (im *IAASModel) DetachVolume(machine names.MachineTag, volume names.VolumeT
 		}
 		return detachVolumeOps(machine, volume), nil
 	}
-	return im.mb.db().Run(buildTxn)
+	return sb.mb.db().Run(buildTxn)
 }
 
-func (im *IAASModel) volumeFilesystemAttachment(machine names.MachineTag, volume names.VolumeTag) (FilesystemAttachment, error) {
-	filesystem, err := im.VolumeFilesystem(volume)
+func (sb *storageBackend) volumeFilesystemAttachment(machine names.MachineTag, volume names.VolumeTag) (FilesystemAttachment, error) {
+	filesystem, err := sb.VolumeFilesystem(volume)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return im.FilesystemAttachment(machine, filesystem.FilesystemTag())
+	return sb.FilesystemAttachment(machine, filesystem.FilesystemTag())
 }
 
 func detachVolumeOps(m names.MachineTag, v names.VolumeTag) []txn.Op {
@@ -565,10 +593,10 @@ func detachVolumeOps(m names.MachineTag, v names.VolumeTag) []txn.Op {
 
 // RemoveVolumeAttachment removes the volume attachment from state.
 // RemoveVolumeAttachment will fail if the attachment is not Dying.
-func (im *IAASModel) RemoveVolumeAttachment(machine names.MachineTag, volume names.VolumeTag) (err error) {
+func (sb *storageBackend) RemoveVolumeAttachment(machine names.MachineTag, volume names.VolumeTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "removing attachment of volume %s from machine %s", volume.Id(), machine.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		attachment, err := im.VolumeAttachment(machine, volume)
+		attachment, err := sb.VolumeAttachment(machine, volume)
 		if errors.IsNotFound(err) && attempt > 0 {
 			// We only ignore IsNotFound on attempts after the
 			// first, since we expect the volume attachment to
@@ -581,13 +609,13 @@ func (im *IAASModel) RemoveVolumeAttachment(machine names.MachineTag, volume nam
 		if attachment.Life() != Dying {
 			return nil, errors.New("volume attachment is not dying")
 		}
-		v, err := im.volumeByTag(volume)
+		v, err := getVolumeByTag(sb.mb, volume)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return removeVolumeAttachmentOps(machine, v), nil
 	}
-	return im.mb.db().Run(buildTxn)
+	return sb.mb.db().Run(buildTxn)
 }
 
 func removeVolumeAttachmentOps(m names.MachineTag, v *volume) []txn.Op {
@@ -665,15 +693,15 @@ func machineStorageDecrefOp(collection, id string, attachmentCount int, life Lif
 // destroyed and removed from state at some point in the future. DestroyVolume
 // will fail with an IsContainsFilesystem error if the volume contains a
 // filesystem; the filesystem must be fully removed first.
-func (im *IAASModel) DestroyVolume(tag names.VolumeTag) (err error) {
+func (sb *storageBackend) DestroyVolume(tag names.VolumeTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "destroying volume %s", tag.Id())
-	if _, err := im.VolumeFilesystem(tag); err == nil {
+	if _, err := sb.VolumeFilesystem(tag); err == nil {
 		return &errContainsFilesystem{errors.New("volume contains filesystem")}
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		volume, err := im.volumeByTag(tag)
+		volume, err := getVolumeByTag(sb.mb, tag)
 		if errors.IsNotFound(err) && attempt > 0 {
 			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
@@ -693,12 +721,12 @@ func (im *IAASModel) DestroyVolume(tag names.VolumeTag) (err error) {
 			{{"storageid", ""}},
 			{{"storageid", bson.D{{"$exists", false}}}},
 		}}}
-		return destroyVolumeOps(im, volume, false, hasNoStorageAssignment)
+		return destroyVolumeOps(sb, volume, false, hasNoStorageAssignment)
 	}
-	return im.mb.db().Run(buildTxn)
+	return sb.mb.db().Run(buildTxn)
 }
 
-func destroyVolumeOps(im *IAASModel, v *volume, release bool, extraAssert bson.D) ([]txn.Op, error) {
+func destroyVolumeOps(im *storageBackend, v *volume, release bool, extraAssert bson.D) ([]txn.Op, error) {
 	baseAssert := append(isAliveDoc, extraAssert...)
 	setFields := bson.D{}
 	if release {
@@ -753,10 +781,10 @@ func destroyVolumeOps(im *IAASModel, v *volume, release bool, extraAssert bson.D
 
 // RemoveVolume removes the volume from state. RemoveVolume will fail if
 // the volume is not Dead, which implies that it still has attachments.
-func (im *IAASModel) RemoveVolume(tag names.VolumeTag) (err error) {
+func (sb *storageBackend) RemoveVolume(tag names.VolumeTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "removing volume %s", tag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		volume, err := im.Volume(tag)
+		volume, err := sb.Volume(tag)
 		if errors.IsNotFound(err) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -765,12 +793,12 @@ func (im *IAASModel) RemoveVolume(tag names.VolumeTag) (err error) {
 		if volume.Life() != Dead {
 			return nil, errors.New("volume is not dead")
 		}
-		return im.removeVolumeOps(tag), nil
+		return sb.removeVolumeOps(tag), nil
 	}
-	return im.mb.db().Run(buildTxn)
+	return sb.mb.db().Run(buildTxn)
 }
 
-func (im *IAASModel) removeVolumeOps(tag names.VolumeTag) []txn.Op {
+func (sb *storageBackend) removeVolumeOps(tag names.VolumeTag) []txn.Op {
 	return []txn.Op{
 		{
 			C:      volumesC,
@@ -778,8 +806,8 @@ func (im *IAASModel) removeVolumeOps(tag names.VolumeTag) []txn.Op {
 			Assert: txn.DocExists,
 			Remove: true,
 		},
-		removeModelVolumeRefOp(im.mb, tag.Id()),
-		removeStatusOp(im.mb, volumeGlobalKey(tag.Id())),
+		removeModelVolumeRefOp(sb.mb, tag.Id()),
+		removeStatusOp(sb.mb, volumeGlobalKey(tag.Id())),
 	}
 }
 
@@ -803,27 +831,27 @@ func newVolumeName(mb modelBackend, machineId string) (string, error) {
 // parameters. If the supplied machine ID is non-empty, and the storage
 // provider is machine-scoped, then the volume will be scoped to that
 // machine.
-func (im *IAASModel) addVolumeOps(params VolumeParams, machineId string) ([]txn.Op, names.VolumeTag, error) {
-	params, err := im.volumeParamsWithDefaults(params, machineId)
+func (sb *storageBackend) addVolumeOps(params VolumeParams, machineId string) ([]txn.Op, names.VolumeTag, error) {
+	params, err := sb.volumeParamsWithDefaults(params, machineId)
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Trace(err)
 	}
-	detachable, err := isDetachableVolumePool(im, params.Pool)
+	detachable, err := isDetachableVolumePool(sb, params.Pool)
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Trace(err)
 	}
 	origMachineId := machineId
-	machineId, err = im.validateVolumeParams(params, machineId)
+	machineId, err = sb.validateVolumeParams(params, machineId)
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Annotate(err, "validating volume params")
 	}
-	name, err := newVolumeName(im.mb, machineId)
+	name, err := newVolumeName(sb.mb, machineId)
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Annotate(err, "cannot generate volume name")
 	}
 	statusDoc := statusDoc{
 		Status:  status.Pending,
-		Updated: im.mb.clock().Now().UnixNano(),
+		Updated: sb.mb.clock().Now().UnixNano(),
 	}
 	doc := volumeDoc{
 		Name:      name,
@@ -843,25 +871,25 @@ func (im *IAASModel) addVolumeOps(params VolumeParams, machineId string) ([]txn.
 	if !detachable {
 		doc.MachineId = origMachineId
 	}
-	return im.newVolumeOps(doc, statusDoc), names.NewVolumeTag(name), nil
+	return sb.newVolumeOps(doc, statusDoc), names.NewVolumeTag(name), nil
 }
 
-func (im *IAASModel) newVolumeOps(doc volumeDoc, status statusDoc) []txn.Op {
+func (sb *storageBackend) newVolumeOps(doc volumeDoc, status statusDoc) []txn.Op {
 	return []txn.Op{
-		createStatusOp(im.mb, volumeGlobalKey(doc.Name), status),
+		createStatusOp(sb.mb, volumeGlobalKey(doc.Name), status),
 		{
 			C:      volumesC,
 			Id:     doc.Name,
 			Assert: txn.DocMissing,
 			Insert: &doc,
 		},
-		addModelVolumeRefOp(im.mb, doc.Name),
+		addModelVolumeRefOp(sb.mb, doc.Name),
 	}
 }
 
-func (im *IAASModel) volumeParamsWithDefaults(params VolumeParams, machineId string) (VolumeParams, error) {
+func (sb *storageBackend) volumeParamsWithDefaults(params VolumeParams, machineId string) (VolumeParams, error) {
 	if params.Pool == "" {
-		modelConfig, err := im.ModelConfig()
+		modelConfig, err := sb.config()
 		if err != nil {
 			return VolumeParams{}, errors.Trace(err)
 		}
@@ -881,8 +909,8 @@ func (im *IAASModel) volumeParamsWithDefaults(params VolumeParams, machineId str
 
 // validateVolumeParams validates the volume parameters, and returns the
 // machine ID to use as the scope in the volume tag.
-func (im *IAASModel) validateVolumeParams(params VolumeParams, machineId string) (maybeMachineId string, _ error) {
-	if err := validateStoragePool(im, params.Pool, storage.StorageKindBlock, &machineId); err != nil {
+func (sb *storageBackend) validateVolumeParams(params VolumeParams, machineId string) (maybeMachineId string, _ error) {
+	if err := validateStoragePool(sb, params.Pool, storage.StorageKindBlock, &machineId); err != nil {
 		return "", err
 	}
 	if params.Size == 0 {
@@ -949,11 +977,11 @@ func createMachineVolumeAttachmentsOps(machineId string, attachments []volumeAtt
 // info for the specified machine. Each volume attachment info
 // structure is keyed by the name of the volume it corresponds
 // to.
-func setMachineVolumeAttachmentInfo(im *IAASModel, machineId string, attachments map[names.VolumeTag]VolumeAttachmentInfo) (err error) {
+func setMachineVolumeAttachmentInfo(sb *storageBackend, machineId string, attachments map[names.VolumeTag]VolumeAttachmentInfo) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set volume attachment info for machine %s", machineId)
 	machineTag := names.NewMachineTag(machineId)
 	for volumeTag, info := range attachments {
-		if err := im.setVolumeAttachmentInfo(machineTag, volumeTag, info); err != nil {
+		if err := sb.setVolumeAttachmentInfo(machineTag, volumeTag, info); err != nil {
 			return errors.Annotatef(err, "setting attachment info for volume %s", volumeTag.Id())
 		}
 	}
@@ -962,9 +990,9 @@ func setMachineVolumeAttachmentInfo(im *IAASModel, machineId string, attachments
 
 // SetVolumeAttachmentInfo sets the VolumeAttachmentInfo for the specified
 // volume attachment.
-func (im *IAASModel) SetVolumeAttachmentInfo(machineTag names.MachineTag, volumeTag names.VolumeTag, info VolumeAttachmentInfo) (err error) {
+func (sb *storageBackend) SetVolumeAttachmentInfo(machineTag names.MachineTag, volumeTag names.VolumeTag, info VolumeAttachmentInfo) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set info for volume attachment %s:%s", volumeTag.Id(), machineTag.Id())
-	v, err := im.Volume(volumeTag)
+	v, err := sb.Volume(volumeTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -975,19 +1003,19 @@ func (im *IAASModel) SetVolumeAttachmentInfo(machineTag names.MachineTag, volume
 		return errors.Trace(err)
 	}
 	// Also ensure the machine is provisioned.
-	m, err := im.st.Machine(machineTag.Id())
+	m, err := sb.machine(machineTag.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if _, err := m.InstanceId(); err != nil {
 		return errors.Trace(err)
 	}
-	return im.setVolumeAttachmentInfo(machineTag, volumeTag, info)
+	return sb.setVolumeAttachmentInfo(machineTag, volumeTag, info)
 }
 
-func (im *IAASModel) setVolumeAttachmentInfo(machineTag names.MachineTag, volumeTag names.VolumeTag, info VolumeAttachmentInfo) error {
+func (sb *storageBackend) setVolumeAttachmentInfo(machineTag names.MachineTag, volumeTag names.VolumeTag, info VolumeAttachmentInfo) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		va, err := im.VolumeAttachment(machineTag, volumeTag)
+		va, err := sb.VolumeAttachment(machineTag, volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1000,7 +1028,7 @@ func (im *IAASModel) setVolumeAttachmentInfo(machineTag names.MachineTag, volume
 		)
 		return ops, nil
 	}
-	return im.mb.db().Run(buildTxn)
+	return sb.mb.db().Run(buildTxn)
 }
 
 func setVolumeAttachmentInfoOps(machine names.MachineTag, volume names.VolumeTag, info VolumeAttachmentInfo, unsetParams bool) []txn.Op {
@@ -1024,9 +1052,9 @@ func setVolumeAttachmentInfoOps(machine names.MachineTag, volume names.VolumeTag
 // setProvisionedVolumeInfo sets the initial info for newly
 // provisioned volumes. If non-empty, machineId must be the
 // machine ID associated with the volumes.
-func setProvisionedVolumeInfo(im *IAASModel, volumes map[names.VolumeTag]VolumeInfo) error {
+func setProvisionedVolumeInfo(sb *storageBackend, volumes map[names.VolumeTag]VolumeInfo) error {
 	for volumeTag, info := range volumes {
-		if err := im.SetVolumeInfo(volumeTag, info); err != nil {
+		if err := sb.SetVolumeInfo(volumeTag, info); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1034,7 +1062,7 @@ func setProvisionedVolumeInfo(im *IAASModel, volumes map[names.VolumeTag]VolumeI
 }
 
 // SetVolumeInfo sets the VolumeInfo for the specified volume.
-func (im *IAASModel) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error) {
+func (sb *storageBackend) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set info for volume %q", tag.Id())
 	if info.VolumeId == "" {
 		return errors.New("volume ID not set")
@@ -1042,7 +1070,7 @@ func (im *IAASModel) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err er
 	// TODO(axw) we should reject info without VolumeId set; can't do this
 	// until the providers all set it correctly.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		v, err := im.Volume(tag)
+		v, err := sb.Volume(tag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1067,7 +1095,7 @@ func (im *IAASModel) SetVolumeInfo(tag names.VolumeTag, info VolumeInfo) (err er
 		ops = append(ops, setVolumeInfoOps(tag, info, unsetParams)...)
 		return ops, nil
 	}
-	return im.mb.db().Run(buildTxn)
+	return sb.mb.db().Run(buildTxn)
 }
 
 func validateVolumeInfoChange(newInfo, oldInfo VolumeInfo) error {
@@ -1105,8 +1133,8 @@ func setVolumeInfoOps(tag names.VolumeTag, info VolumeInfo, unsetParams bool) []
 }
 
 // AllVolumes returns all Volumes scoped to the model.
-func (im *IAASModel) AllVolumes() ([]Volume, error) {
-	volumes, err := im.volumes(nil)
+func (sb *storageBackend) AllVolumes() ([]Volume, error) {
+	volumes, err := sb.volumes(nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get volumes")
 	}
@@ -1115,42 +1143,4 @@ func (im *IAASModel) AllVolumes() ([]Volume, error) {
 
 func volumeGlobalKey(name string) string {
 	return "v#" + name
-}
-
-// VolumeStatus returns the status of the specified volume.
-func (im *IAASModel) VolumeStatus(tag names.VolumeTag) (status.StatusInfo, error) {
-	return getStatus(im.mb.db(), volumeGlobalKey(tag.Id()), "volume")
-}
-
-// SetVolumeStatus sets the status of the specified volume.
-func (im *IAASModel) SetVolumeStatus(tag names.VolumeTag, volumeStatus status.Status, info string, data map[string]interface{}, updated *time.Time) error {
-	switch volumeStatus {
-	case status.Attaching, status.Attached, status.Detaching, status.Detached, status.Destroying:
-	case status.Error:
-		if info == "" {
-			return errors.Errorf("cannot set status %q without info", volumeStatus)
-		}
-	case status.Pending:
-		// If a volume is not yet provisioned, we allow its status
-		// to be set back to pending (when a retry is to occur).
-		v, err := im.Volume(tag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		_, err = v.Info()
-		if errors.IsNotProvisioned(err) {
-			break
-		}
-		return errors.Errorf("cannot set status %q", volumeStatus)
-	default:
-		return errors.Errorf("cannot set invalid status %q", volumeStatus)
-	}
-	return setStatus(im.mb.db(), setStatusParams{
-		badge:     "volume",
-		globalKey: volumeGlobalKey(tag.Id()),
-		status:    volumeStatus,
-		message:   info,
-		rawData:   data,
-		updated:   timeOrNow(updated, im.mb.clock()),
-	})
 }
