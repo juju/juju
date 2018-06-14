@@ -857,14 +857,14 @@ func (s *controllerSuite) TestModelStatusV3(c *gc.C) {
 	results, err := api.ModelStatus(params.Entities{[]params.Entity{{
 		Tag: "bad-tag",
 	}, {
-		Tag: s.IAASModel.ModelTag().String(),
+		Tag: s.Model.ModelTag().String(),
 	}}})
 	c.Assert(err, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 	c.Assert(results, gc.DeepEquals, params.ModelStatusResults{Results: make([]params.ModelStatus, 2)})
 
 	// Check that we err out if a model errs even if some firsts in collection pass.
 	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: s.IAASModel.ModelTag().String(),
+		Tag: s.Model.ModelTag().String(),
 	}, {
 		Tag: "bad-tag",
 	}}})
@@ -873,7 +873,7 @@ func (s *controllerSuite) TestModelStatusV3(c *gc.C) {
 
 	// Check that we return successfully if no errors.
 	results, err = api.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: s.IAASModel.ModelTag().String(),
+		Tag: s.Model.ModelTag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -884,7 +884,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	results, err := s.controller.ModelStatus(params.Entities{[]params.Entity{{
 		Tag: "bad-tag",
 	}, {
-		Tag: s.IAASModel.ModelTag().String(),
+		Tag: s.Model.ModelTag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
@@ -892,7 +892,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 
 	// Check that we don't err out if a model errs even if some firsts in collection pass.
 	results, err = s.controller.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: s.IAASModel.ModelTag().String(),
+		Tag: s.Model.ModelTag().String(),
 	}, {
 		Tag: "bad-tag",
 	}}})
@@ -902,7 +902,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 
 	// Check that we return successfully if no errors.
 	results, err = s.controller.ModelStatus(params.Entities{[]params.Entity{{
-		Tag: s.IAASModel.ModelTag().String(),
+		Tag: s.Model.ModelTag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)

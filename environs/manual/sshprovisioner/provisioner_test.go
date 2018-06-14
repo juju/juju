@@ -161,7 +161,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	machineId, err := sshprovisioner.ProvisionMachine(s.getArgs(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.IAASModel.UpdateModelConfig(
+	err = s.Model.UpdateModelConfig(
 		map[string]interface{}{
 			"enable-os-upgrade": false,
 		}, nil)

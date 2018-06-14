@@ -353,7 +353,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			"agent-version":      test.agentVersion,
 			"agent-metadata-url": "file://" + toolsDir + "/tools",
 		}
-		err := s.IAASModel.UpdateModelConfig(updateAttrs, nil)
+		err := s.Model.UpdateModelConfig(updateAttrs, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		versions := make([]version.Binary, len(test.tools))
 		for i, v := range test.tools {
@@ -374,7 +374,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		}
 
 		// Check expected changes to environ/state.
-		cfg, err := s.IAASModel.ModelConfig()
+		cfg, err := s.Model.ModelConfig()
 		c.Check(err, jc.ErrorIsNil)
 		agentVersion, ok := cfg.AgentVersion()
 		c.Check(ok, jc.IsTrue)
@@ -445,7 +445,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 		"default-series": "raring",
 		"agent-version":  "1.2.3",
 	}
-	err := s.IAASModel.UpdateModelConfig(updateAttrs, nil)
+	err := s.Model.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&sync.BuildAgentTarball, toolstesting.GetMockBuildTools(c))
 
@@ -661,7 +661,7 @@ upgrade to this version by running
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Check agent version doesn't change
-		cfg, err := s.IAASModel.ModelConfig()
+		cfg, err := s.Model.ModelConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		agentVer, ok := cfg.AgentVersion()
 		c.Assert(ok, jc.IsTrue)
@@ -683,7 +683,7 @@ func (s *UpgradeJujuSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agen
 		"agent-metadata-url": "file://" + toolsDir + "/tools",
 	}
 
-	err := s.IAASModel.UpdateModelConfig(updateAttrs, nil)
+	err := s.Model.UpdateModelConfig(updateAttrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	versions := make([]version.Binary, len(tools))
 	for i, v := range tools {
@@ -809,7 +809,7 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 		}
 
 		// Check agent version doesn't change
-		cfg, err := s.IAASModel.ModelConfig()
+		cfg, err := s.Model.ModelConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		agentVer, ok := cfg.AgentVersion()
 		c.Assert(ok, jc.IsTrue)

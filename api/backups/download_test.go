@@ -26,7 +26,7 @@ func (s *downloadSuite) TestSuccessfulRequest(c *gc.C) {
 	db := struct {
 		*state.State
 		*state.Model
-	}{s.State, s.IAASModel.Model}
+	}{s.State, s.Model}
 	store := backups.NewStorage(db)
 	defer store.Close()
 	backupsState := backups.NewBackups(store)

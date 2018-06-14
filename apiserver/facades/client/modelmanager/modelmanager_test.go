@@ -873,11 +873,11 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
-		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
-		stateenvirons.EnvironConfigGetter{s.State, s.IAASModel.Model},
+		common.NewModelManagerBackend(s.Model, s.StatePool),
+		common.NewModelManagerBackend(s.Model, s.StatePool),
+		stateenvirons.EnvironConfigGetter{s.State, s.Model},
 		s.authoriser,
-		s.IAASModel,
+		s.Model,
 		s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -888,10 +888,10 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUserTag("external@remote")
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
-		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
+		common.NewModelManagerBackend(s.Model, s.StatePool),
+		common.NewModelManagerBackend(s.Model, s.StatePool),
 		nil, anAuthoriser,
-		s.IAASModel.Model,
+		s.Model,
 		s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -902,9 +902,9 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
-		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
-		nil, anAuthoriser, s.IAASModel.Model,
+		common.NewModelManagerBackend(s.Model, s.StatePool),
+		common.NewModelManagerBackend(s.Model, s.StatePool),
+		nil, anAuthoriser, s.Model,
 		s.callContext,
 	)
 	c.Assert(endPoint, gc.IsNil)
@@ -1110,9 +1110,9 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(model, s.StatePool),
-		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
+		common.NewModelManagerBackend(s.Model, s.StatePool),
 		nil, s.authoriser,
-		s.IAASModel.Model,
+		s.Model,
 		s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1148,9 +1148,9 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	s.authoriser.Tag = s.AdminUserTag(c)
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(model, s.StatePool),
-		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
+		common.NewModelManagerBackend(s.Model, s.StatePool),
 		nil, s.authoriser,
-		s.IAASModel.Model,
+		s.Model,
 		s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1184,8 +1184,8 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(model, s.StatePool),
-		common.NewModelManagerBackend(s.IAASModel.Model, s.StatePool),
-		nil, s.authoriser, s.IAASModel.Model,
+		common.NewModelManagerBackend(s.Model, s.StatePool),
+		nil, s.authoriser, s.Model,
 		s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1570,7 +1570,7 @@ func (s *modelManagerStateSuite) TestModifyModelAccessInvalidAction(c *gc.C) {
 			UserTag:  "user-user",
 			Action:   dance,
 			Access:   params.ModelReadAccess,
-			ModelTag: s.IAASModel.ModelTag().String(),
+			ModelTag: s.Model.ModelTag().String(),
 		}}}
 
 	result, err := s.modelmanager.ModifyModelAccess(args)

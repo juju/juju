@@ -81,7 +81,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 			Auth_:      anAuthoriser,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	controllerModelTag := s.IAASModel.ModelTag().String()
+	controllerModelTag := s.Model.ModelTag().String()
 
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}},
@@ -169,7 +169,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerModelTag := s.IAASModel.ModelTag().String()
+	controllerModelTag := s.Model.ModelTag().String()
 	hostedModelTag := otherModel.ModelTag().String()
 
 	req := params.Entities{
@@ -238,7 +238,7 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerModelTag := s.IAASModel.ModelTag().String()
+	controllerModelTag := s.Model.ModelTag().String()
 	hostedModelTag := otherModel.ModelTag().String()
 
 	req := params.Entities{
@@ -269,7 +269,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{
 			{Tag: "fail.me"},
-			{Tag: s.IAASModel.ModelTag().String()},
+			{Tag: s.Model.ModelTag().String()},
 		},
 	}
 	expected := params.ModelStatusResults{
@@ -277,9 +277,9 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 			{
 				Error: common.ServerError(errors.New(`"fail.me" is not a valid tag`))},
 			{
-				ModelTag: s.IAASModel.ModelTag().String(),
-				Life:     params.Life(s.IAASModel.Life().String()),
-				OwnerTag: s.IAASModel.Owner().String(),
+				ModelTag: s.Model.ModelTag().String(),
+				Life:     params.Life(s.Model.Life().String()),
+				OwnerTag: s.Model.Owner().String(),
 			},
 		},
 	}

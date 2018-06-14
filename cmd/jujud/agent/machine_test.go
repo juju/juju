@@ -684,7 +684,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 
 	// Update the keys in the environment.
 	sshKey := sshtesting.ValidKeyOne.Key + " user@host"
-	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{"authorized-keys": sshKey}, nil)
+	err := s.Model.UpdateModelConfig(map[string]interface{}{"authorized-keys": sshKey}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for ssh keys file to be updated.
@@ -833,13 +833,13 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
-	im, err := s.BackingState.IAASModel()
+	sb, err := state.NewStorageBackend(s.BackingState)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for state to be updated.
 	s.BackingState.StartSync()
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		devices, err := im.BlockDevices(m.MachineTag())
+		devices, err := sb.BlockDevices(m.MachineTag())
 		c.Assert(err, jc.ErrorIsNil)
 		if len(devices) > 0 {
 			c.Assert(devices, gc.HasLen, 1)
@@ -934,7 +934,7 @@ func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) c
 	})
 
 	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
-	err := s.IAASModel.UpdateModelConfig(attrs, nil)
+	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return ignoreAddressCh
 }

@@ -70,15 +70,15 @@ func (s *keySuiteBase) SetUpTest(c *gc.C) {
 
 func (s *keySuiteBase) setAuthorizedKeys(c *gc.C, keys ...string) {
 	keyString := strings.Join(keys, "\n")
-	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{"authorized-keys": keyString}, nil)
+	err := s.Model.UpdateModelConfig(map[string]interface{}{"authorized-keys": keyString}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.IAASModel.ModelConfig()
+	envConfig, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envConfig.AuthorizedKeys(), gc.Equals, keyString)
 }
 
 func (s *keySuiteBase) assertEnvironKeys(c *gc.C, expected ...string) {
-	envConfig, err := s.IAASModel.ModelConfig()
+	envConfig, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	keys := envConfig.AuthorizedKeys()
 	c.Assert(keys, gc.Equals, strings.Join(expected, "\n"))

@@ -76,7 +76,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	attrs := map[string]interface{}{
 		config.ProvisionerHarvestModeKey: config.HarvestAll.String(),
 	}
-	err := s.IAASModel.UpdateModelConfig(attrs, nil)
+	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BackingState.StartSync()
@@ -144,7 +144,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	dummy.Listen(op)
 	s.op = op
 
-	cfg, err := s.IAASModel.ModelConfig()
+	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg
 
@@ -555,7 +555,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	attrs := map[string]interface{}{
 		config.AgentVersionKey: currentVersion.Number.String(),
 	}
-	err = s.IAASModel.UpdateModelConfig(attrs, nil)
+	err = s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(&arch.HostArch, func() string { return currentVersion.Arch })
@@ -1143,7 +1143,9 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision volume-2, so that it is attached rather than created.
-	err = s.IAASModel.SetVolumeInfo(names.NewVolumeTag("2"), state.VolumeInfo{
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	err = sb.SetVolumeInfo(names.NewVolumeTag("2"), state.VolumeInfo{
 		Pool:     "persistent-pool",
 		VolumeId: "vol-ume",
 		Size:     4096,

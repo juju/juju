@@ -36,7 +36,7 @@ func (s *keymanagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *keymanagerSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
+	err := s.Model.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -71,7 +71,7 @@ func clientError(message string) *params.Error {
 }
 
 func (s *keymanagerSuite) assertModelKeys(c *gc.C, expected []string) {
-	modelConfig, err := s.IAASModel.ModelConfig()
+	modelConfig, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	keys := modelConfig.AuthorizedKeys()
 	c.Assert(keys, gc.Equals, strings.Join(expected, "\n"))

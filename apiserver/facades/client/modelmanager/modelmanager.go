@@ -424,7 +424,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 			cloudCredentialTag,
 			ownerTag)
 	} else {
-		model, err = m.newIAASModel(
+		model, err = m.newModel(
 			cloudSpec,
 			args,
 			controllerModel,
@@ -465,7 +465,7 @@ func (m *ModelManagerAPI) newCAASModel(cloudSpec environs.CloudSpec,
 	return model, nil
 }
 
-func (m *ModelManagerAPI) newIAASModel(
+func (m *ModelManagerAPI) newModel(
 	cloudSpec environs.CloudSpec,
 	createArgs params.ModelCreateArgs,
 	controllerModel common.Model,

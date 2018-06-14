@@ -157,9 +157,11 @@ storage-block/0  data/0  block                     pending
 
 func (s *cmdStorageSuite) TestStoragePersistentProvisioned(c *gc.C) {
 	createUnitWithStorage(c, &s.JujuConnSuite, testPool)
-	vol, err := s.IAASModel.StorageInstanceVolume(names.NewStorageTag("data/0"))
+	sb, err := state.NewStorageBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.IAASModel.SetVolumeInfo(vol.VolumeTag(), state.VolumeInfo{
+	vol, err := sb.StorageInstanceVolume(names.NewStorageTag("data/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = sb.SetVolumeInfo(vol.VolumeTag(), state.VolumeInfo{
 		Size:       1024,
 		Persistent: true,
 		VolumeId:   "vol-ume",
@@ -494,9 +496,11 @@ func runDetachStorage(c *gc.C, args ...string) (*cmd.Context, error) {
 
 func (s *cmdStorageSuite) TestStorageAddToUnitSuccess(c *gc.C) {
 	u := createUnitWithStorage(c, &s.JujuConnSuite, testPool)
-	instancesBefore, err := s.IAASModel.AllStorageInstances()
+	sb, err := state.NewStorageBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	volumesBefore, err := s.IAASModel.AllVolumes()
+	instancesBefore, err := sb.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	volumesBefore, err := sb.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageExist(c, instancesBefore, "data")
 
@@ -505,10 +509,10 @@ func (s *cmdStorageSuite) TestStorageAddToUnitSuccess(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "added storage allecto/1 to storage-block/0\n")
 
-	instancesAfter, err := s.IAASModel.AllStorageInstances()
+	instancesAfter, err := sb.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(instancesAfter)-len(instancesBefore), gc.Equals, 1)
-	volumesAfter, err := s.IAASModel.AllVolumes()
+	volumesAfter, err := sb.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(volumesAfter)-len(volumesBefore), gc.Equals, 1)
 	s.assertStorageExist(c, instancesAfter, "data", "allecto")
@@ -549,9 +553,11 @@ func (s *cmdStorageSuite) TestStorageAddToUnitInvalidUnitName(c *gc.C) {
 
 func (s *cmdStorageSuite) TestStorageAddToUnitStorageDoesntExist(c *gc.C) {
 	u := createUnitWithStorage(c, &s.JujuConnSuite, testPool)
-	instancesBefore, err := s.IAASModel.AllStorageInstances()
+	sb, err := state.NewStorageBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	volumesBefore, err := s.IAASModel.AllVolumes()
+	instancesBefore, err := sb.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	volumesBefore, err := sb.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageExist(c, instancesBefore, "data")
 
@@ -562,10 +568,10 @@ func (s *cmdStorageSuite) TestStorageAddToUnitStorageDoesntExist(c *gc.C) {
 		`failed to add storage "nonstorage" to storage-block/0: adding "nonstorage" storage to storage-block/0: charm storage "nonstorage" not found`+"\n",
 	)
 
-	instancesAfter, err := s.IAASModel.AllStorageInstances()
+	instancesAfter, err := sb.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(instancesAfter)-len(instancesBefore), gc.Equals, 0)
-	volumesAfter, err := s.IAASModel.AllVolumes()
+	volumesAfter, err := sb.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(volumesAfter)-len(volumesBefore), gc.Equals, 0)
 	s.assertStorageExist(c, instancesAfter, "data")
@@ -574,10 +580,12 @@ func (s *cmdStorageSuite) TestStorageAddToUnitStorageDoesntExist(c *gc.C) {
 func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
 	// Reproducing Bug1462146
 	u := createUnitWithFileSystemStorage(c, &s.JujuConnSuite, "modelscoped-block")
-	instancesBefore, err := s.IAASModel.AllStorageInstances()
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	instancesBefore, err := sb.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStorageExist(c, instancesBefore, "data")
-	volumesBefore, err := s.IAASModel.AllVolumes()
+	volumesBefore, err := sb.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumesBefore, gc.HasLen, 1)
 
@@ -595,11 +603,11 @@ storage-filesystem/0  data/0  filesystem                     pending
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "added storage data/1 to storage-filesystem/0\n")
 
-	instancesAfter, err := s.IAASModel.AllStorageInstances()
+	instancesAfter, err := sb.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(instancesAfter)-len(instancesBefore), gc.Equals, 1)
 	s.assertStorageExist(c, instancesAfter, "data", "data")
-	volumesAfter, err := s.IAASModel.AllVolumes()
+	volumesAfter, err := sb.AllVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumesAfter, gc.HasLen, 2)
 
@@ -641,9 +649,11 @@ func (s *cmdStorageSuite) TestStorageDetachAttach(c *gc.C) {
 	// Add an instance of the "allecto" storage.
 	_, err = runAddToUnit(c, u, "allecto=modelscoped")
 	c.Assert(err, jc.ErrorIsNil)
-	vol, err := s.IAASModel.StorageInstanceVolume(names.NewStorageTag("allecto/2"))
+	sb, err := state.NewStorageBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.IAASModel.SetVolumeInfo(vol.VolumeTag(), state.VolumeInfo{
+	vol, err := sb.StorageInstanceVolume(names.NewStorageTag("allecto/2"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = sb.SetVolumeInfo(vol.VolumeTag(), state.VolumeInfo{
 		Size:     1024,
 		VolumeId: "vol-ume",
 	})
@@ -652,7 +662,7 @@ func (s *cmdStorageSuite) TestStorageDetachAttach(c *gc.C) {
 	// Detach the allecto storage.
 	_, err = runDetachStorage(c, "allecto/2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.IAASModel.SetVolumeStatus(vol.VolumeTag(), status.Detaching, "", nil, &time.Time{})
+	err = vol.SetStatus(status.StatusInfo{Status: status.Detaching, Since: &time.Time{}})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := runJujuCommand(c, "list-storage")
 	c.Assert(err, jc.ErrorIsNil)
@@ -675,13 +685,13 @@ storage-block/1  data/1     block                                    pending
 
 	// Remove the volume attachment, and then attach the allecto
 	// storage to the second unit.
-	err = s.IAASModel.DetachVolume(names.NewMachineTag("0"), vol.VolumeTag())
+	err = sb.DetachVolume(names.NewMachineTag("0"), vol.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.IAASModel.RemoveVolumeAttachment(names.NewMachineTag("0"), vol.VolumeTag())
+	err = sb.RemoveVolumeAttachment(names.NewMachineTag("0"), vol.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = runAttachStorage(c, u2.Name(), "allecto/2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.IAASModel.SetVolumeStatus(vol.VolumeTag(), status.Attaching, "", nil, &time.Time{})
+	err = vol.SetStatus(status.StatusInfo{Status: status.Attaching, Since: &time.Time{}})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx, err = runJujuCommand(c, "list-storage")
 	c.Assert(err, jc.ErrorIsNil)

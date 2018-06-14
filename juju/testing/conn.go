@@ -96,7 +96,6 @@ type JujuConnSuite struct {
 	State               *state.State
 	StatePool           *state.StatePool
 	Model               *state.Model
-	IAASModel           *state.IAASModel
 	Environ             environs.Environ
 	APIState            api.Connection
 	apiStates           []api.Connection // additional api.Connections to close on teardown
@@ -406,9 +405,6 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.StatePool = state.NewStatePool(s.State)
 
 	s.Model, err = s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.IAASModel, err = s.State.IAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 
 	apiInfo, err := environs.APIInfo(s.ProviderCallContext, s.ControllerConfig.ControllerUUID(), testing.ModelTag.Id(), testing.CACert, s.ControllerConfig.APIPort(), environ)
