@@ -48,13 +48,30 @@ type upgradeSeriesCommand struct {
 var upgradeSeriesDoc = `
 Upgrade a machine's operating system series.
 
-When a machine's series, the --force option should be used
-with caution since using a charm on a machine running an unsupported series may
-cause unexpected behavior. Alternately, if the requested series supported in
-later revisions of the charm, upgrade-charm can run beforehand.
+upgrade-series allows users to perform a managed upgrade of the operating system
+series of a machine. This command is performed in two steps; prepare and complete.
+
+The "prepare" step notifies Juju that a series upgrade is taking place for a given
+machine and as such Juju guards that machine against operations that would
+interfere with the upgrade process.
+
+The "complete" step notifies juju that the managed upgrade has been successfully completed.
+
+It should be noted that once the prepare command is issued there is no way to
+cancel or abort the process. Once you commit to prepare you must complete the
+process or you will end up with an unusable machine!
+
+The requested series must be explicitly supported by all charms deployed to
+the specified machine. To override this constraint the --force option may be used.
+
+The --force option should be used with caution since using a charm on a machine
+running an unsupported series may cause unexpected behavior. Alternately, if the
+requested series is supported in later revisions of the charm, upgrade-charm can
+run beforehand.
 
 Examples:
 	juju upgrade-series prepare <machine> <series>
+        juju upgrade-series prepare <machine> <series> --force
 	juju upgrade-series complete <machine>
 
 See also:
