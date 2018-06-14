@@ -119,7 +119,7 @@ func (p *ProvisionerAPI) machineVolumeParams(
 	m *state.Machine,
 	env environs.Environ,
 ) ([]params.VolumeParams, []params.VolumeAttachmentParams, error) {
-	im, err := p.st.IAASModel()
+	sb, err := state.NewStorageBackend(p.st)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -142,12 +142,12 @@ func (p *ProvisionerAPI) machineVolumeParams(
 	var allVolumeAttachmentParams []params.VolumeAttachmentParams
 	for _, volumeAttachment := range volumeAttachments {
 		volumeTag := volumeAttachment.Volume()
-		volume, err := im.Volume(volumeTag)
+		volume, err := sb.Volume(volumeTag)
 		if err != nil {
 			return nil, nil, errors.Annotatef(err, "getting volume %q", volumeTag.Id())
 		}
 		storageInstance, err := storagecommon.MaybeAssignedStorageInstance(
-			volume.StorageInstance, im.StorageInstance,
+			volume.StorageInstance, sb.StorageInstance,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())

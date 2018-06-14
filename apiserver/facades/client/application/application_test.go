@@ -1169,7 +1169,7 @@ func (s *applicationSuite) TestSpecializeStoreOnDeployApplicationSetCharmAndAddC
 		return repo
 	})
 	attrs := map[string]interface{}{"test-mode": true}
-	err := s.IAASModel.UpdateModelConfig(attrs, nil)
+	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the store's test mode is enabled when calling application Deploy.
@@ -2295,7 +2295,7 @@ func (s *applicationSuite) TestApplicationDestroy(c *gc.C) {
 	s.AddTestingApplication(c, "dummy-application", s.AddTestingCharm(c, "dummy"))
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-application",
-		SourceModel: s.IAASModel.ModelTag(),
+		SourceModel: s.Model.ModelTag(),
 		Token:       "t0",
 	})
 	c.Assert(err, jc.ErrorIsNil)

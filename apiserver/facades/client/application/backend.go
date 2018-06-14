@@ -168,41 +168,34 @@ var getStorageState = func(st *state.State) (storageInterface, error) {
 	if err != nil {
 		return nil, err
 	}
-	if m.Type() == state.ModelTypeIAAS {
-		im, _ := m.IAASModel()
-		storageAccess := &iaasModelShim{Model: m, IAASModel: im}
-		return storageAccess, nil
+	sb, err := state.NewStorageBackend(st)
+	if err != nil {
+		return nil, err
 	}
-	caasModel, _ := m.CAASModel()
-	storageAccess := &caasModelShim{Model: m, CAASModel: caasModel}
+	storageAccess := &storageShim{
+		StorageAccess: sb,
+		va:            sb,
+		fa:            sb,
+	}
+	// CAAS models don't support volume storage yet.
+	if m.Type() == state.ModelTypeCAAS {
+		storageAccess.va = nil
+	}
 	return storageAccess, nil
 }
 
-type iaasModelShim struct {
-	*state.Model
-	*state.IAASModel
+type storageShim struct {
+	storagecommon.StorageAccess
+	fa storagecommon.FilesystemAccess
+	va storagecommon.VolumeAccess
 }
 
-func (im *iaasModelShim) VolumeAccess() storagecommon.VolumeAccess {
-	return im
+func (s *storageShim) VolumeAccess() storagecommon.VolumeAccess {
+	return s.va
 }
 
-func (im *iaasModelShim) FilesystemAccess() storagecommon.FilesystemAccess {
-	return im
-}
-
-type caasModelShim struct {
-	*state.Model
-	*state.CAASModel
-}
-
-func (cm *caasModelShim) VolumeAccess() storagecommon.VolumeAccess {
-	// CAAS models don't support volume storage yet.
-	return nil
-}
-
-func (cm *caasModelShim) FilesystemAccess() storagecommon.FilesystemAccess {
-	return cm
+func (s *storageShim) FilesystemAccess() storagecommon.FilesystemAccess {
+	return s.fa
 }
 
 // NewStateApplication converts a state.Application into an Application.

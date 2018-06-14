@@ -25,7 +25,7 @@ type (
 
 func NewStorageAPI(
 	backend backend,
-	storage storageInterface,
+	storage storageAccess,
 	resources facade.Resources,
 	accessUnit common.GetAuthFunc,
 ) (*StorageAPI, error) {

@@ -30,11 +30,11 @@ func NewFacadeV3(st *state.State, resources facade.Resources, authorizer facade.
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
 
-	backend, err := NewStateBackend(st)
+	backend, storageBackend, err := NewStateBackends(st)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting backend")
 	}
-	return NewStorageProvisionerAPIv3(backend, resources, authorizer, registry, pm)
+	return NewStorageProvisionerAPIv3(backend, storageBackend, resources, authorizer, registry, pm)
 }
 
 // NewFacadeV4 provides the signature required for facade registration.
@@ -53,10 +53,13 @@ type Backend interface {
 	ControllerConfig() (controller.Config, error)
 	MachineInstanceId(names.MachineTag) (instance.Id, error)
 	ModelTag() names.ModelTag
+	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
+}
+
+type StorageBackend interface {
 	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 
 	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
-	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
 	WatchModelFilesystems() state.StringsWatcher
 	WatchModelFilesystemAttachments() state.StringsWatcher
 	WatchMachineFilesystems(names.MachineTag) state.StringsWatcher
@@ -68,6 +71,11 @@ type Backend interface {
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
+	AllStorageInstances() ([]state.StorageInstance, error)
+	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
+	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
+	ReleaseStorageInstance(names.StorageTag, bool) error
+	DetachStorage(names.StorageTag, names.UnitTag) error
 
 	Filesystem(names.FilesystemTag) (state.Filesystem, error)
 	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
@@ -80,6 +88,10 @@ type Backend interface {
 	RemoveFilesystemAttachment(names.MachineTag, names.FilesystemTag) error
 	RemoveVolume(names.VolumeTag) error
 	RemoveVolumeAttachment(names.MachineTag, names.VolumeTag) error
+	DetachFilesystem(names.MachineTag, names.FilesystemTag) error
+	DestroyFilesystem(names.FilesystemTag) error
+	DetachVolume(names.MachineTag, names.VolumeTag) error
+	DestroyVolume(names.VolumeTag) error
 
 	SetFilesystemInfo(names.FilesystemTag, state.FilesystemInfo) error
 	SetFilesystemAttachmentInfo(names.MachineTag, names.FilesystemTag, state.FilesystemAttachmentInfo) error
@@ -91,16 +103,20 @@ type Backend interface {
 // removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
-	*state.IAASModel
+	*state.Model
 }
 
-// NewStateBackend creates a Backend from the given *state.State.
-func NewStateBackend(st *state.State) (Backend, error) {
-	im, err := st.IAASModel()
+// NewStateBackends creates a Backend from the given *state.State.
+func NewStateBackends(st *state.State) (Backend, StorageBackend, error) {
+	m, err := st.Model()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return stateShim{State: st, IAASModel: im}, nil
+	sb, err := state.NewStorageBackend(st)
+	if err != nil {
+		return nil, nil, err
+	}
+	return stateShim{State: st, Model: m}, sb, nil
 }
 
 func (s stateShim) MachineInstanceId(tag names.MachineTag) (instance.Id, error) {
