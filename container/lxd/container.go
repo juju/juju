@@ -17,10 +17,10 @@ import (
 
 const (
 	UserNamespacePrefix = "user."
-	UserDataKey = UserNamespacePrefix + "user-data"
-	NetworkConfigKey = UserNamespacePrefix + "network-config"
-	JujuModelKey = UserNamespacePrefix + "juju-model"
-	AutoStartKey = "boot.autostart"
+	UserDataKey         = UserNamespacePrefix + "user-data"
+	NetworkConfigKey    = UserNamespacePrefix + "network-config"
+	JujuModelKey        = UserNamespacePrefix + "juju-model"
+	AutoStartKey        = "boot.autostart"
 )
 
 // ContainerSpec represents the data required to create a new container.
