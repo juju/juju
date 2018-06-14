@@ -129,7 +129,7 @@ func checkPrepCommands(prepCommands []string, argCommand string) (string, error)
 		}
 	}
 
-	return "", errors.New("%q is an invalid upgrade-series command")
+	return "", errors.Errorf("%q is an invalid upgrade-series command", argCommand)
 }
 
 func checkSeries(supportedSeries []string, seriesArgument string) (string, error) {

@@ -24,6 +24,19 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommand(c *gc.C, args ...string) er
 	return err
 }
 
+func (s *UpgradeSeriesSuite) TestUpgradeCommandShouldAcceptValidPrepCommands(c *gc.C) {
+	for _, command := range []string{machine.PrepareCommand, machine.CompleteCommand} {
+		err := s.runUpgradeSeriesCommand(c, command, machineArg, seriesArg)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+func (s *UpgradeSeriesSuite) TestUpgradeCommandShouldNotAcceptInvalidPrepCommands(c *gc.C) {
+	invalidPrepCommand := "actuate"
+	err := s.runUpgradeSeriesCommand(c, invalidPrepCommand, machineArg, seriesArg)
+	c.Assert(err, gc.ErrorMatches, ".* \"actuate\" is an invalid upgrade-series command")
+}
+
 func (s *UpgradeSeriesSuite) TestPrepareCommand(c *gc.C) {
 	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, seriesArg)
 	c.Assert(err, jc.ErrorIsNil)
