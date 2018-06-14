@@ -25,26 +25,6 @@ type containerSuite struct {
 
 var _ = gc.Suite(&containerSuite{})
 
-func (s *containerSuite) TestContainerSpecNormaliseConfig(c *gc.C) {
-	cfg := lxd.ContainerSpec{
-		Config: map[string]string{
-			"limits.cpu":        "2",
-			"limits.mem":        "2GB",
-			"boot.autostart":    "true",
-			tags.JujuController: "something",
-		},
-	}
-	cfg.NormaliseConfig()
-
-	expected := map[string]string{
-		"limits.cpu":                "2",
-		"limits.mem":                "2GB",
-		"boot.autostart":            "true",
-		"user.juju-controller-uuid": "something",
-	}
-	c.Check(cfg.Config, gc.DeepEquals, expected)
-}
-
 func (s *containerSuite) TestContainerMetadata(c *gc.C) {
 	container := lxd.Container{}
 	container.Config = map[string]string{"user.juju-controller-uuid": "something"}
