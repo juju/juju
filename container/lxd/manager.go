@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuarch "github.com/juju/utils/arch"
-	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/containerinit"
@@ -85,10 +84,7 @@ func (m *containerManager) Namespace() instance.Namespace {
 
 // DestroyContainer implements container.Manager.
 func (m *containerManager) DestroyContainer(id instance.Id) error {
-	if err := m.stopContainer(string(id)); err != nil {
-		return errors.Trace(err)
-	}
-	return errors.Trace(m.deleteContainer(string(id)))
+	return errors.Trace(m.server.RemoveContainer(string(id)))
 }
 
 // CreateContainer implements container.Manager.
@@ -100,42 +96,32 @@ func (m *containerManager) CreateContainer(
 	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	spec, err := m.getContainerSpec(instanceConfig, cons, series, networkConfig, storageConfig, callback)
+	logger.Infof("starting container %q (image %q)...", spec.Name, spec.Image.Image.Filename)
+
 	callback(status.Provisioning, "Creating container", nil)
-	name, err := m.createContainer(instanceConfig, cons, series, networkConfig, storageConfig, callback)
+	c, err := m.server.CreateContainerFromSpec(spec)
 	if err != nil {
 		callback(status.ProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
 		return nil, nil, errors.Trace(err)
 	}
 
-	callback(status.Provisioning, "Container created, starting", nil)
-	err = m.startContainer(name)
-	if err != nil {
-		if err := m.deleteContainer(name); err != nil {
-			logger.Errorf("Cannot remove failed instance: %s", err)
-		}
-		callback(status.ProvisioningError, fmt.Sprintf("Starting container: %v", err), nil)
-		return nil, nil, err
-	}
-
 	callback(status.Running, "Container started", nil)
-	return &lxdInstance{name, m.server.ContainerServer},
+	return &lxdInstance{c.Name, m.server.ContainerServer},
 		&instance.HardwareCharacteristics{AvailabilityZone: &m.availabilityZone}, nil
 }
 
 // ListContainers implements container.Manager.
-func (m *containerManager) ListContainers() (result []instance.Instance, err error) {
-	result = []instance.Instance{}
-	lxdInstances, err := m.server.GetContainers()
+func (m *containerManager) ListContainers() ([]instance.Instance, error) {
+	containers, err := m.server.FilterContainers(m.namespace.Prefix())
 	if err != nil {
-		return
+		return nil, errors.Trace(err)
 	}
 
-	for _, i := range lxdInstances {
-		if strings.HasPrefix(i.Name, m.namespace.Prefix()) {
-			result = append(result, &lxdInstance{i.Name, m.server.ContainerServer})
-		}
+	var result []instance.Instance
+	for _, i := range containers {
+		result = append(result, &lxdInstance{i.Name, m.server.ContainerServer})
 	}
-
 	return result, nil
 }
 
@@ -144,76 +130,37 @@ func (m *containerManager) IsInitialized() bool {
 	return m.server != nil
 }
 
-// startContainer starts previously created container.
-func (m *containerManager) startContainer(name string) error {
-	req := api.ContainerStatePut{
-		Action:  "start",
-		Timeout: -1,
-	}
-	op, err := m.server.UpdateContainerState(name, req, "")
-	if err != nil {
-		return err
-	}
-	err = op.Wait()
-	return err
-}
-
-// stopContainer stops a container if it is not stopped.
-func (m *containerManager) stopContainer(name string) error {
-	state, etag, err := m.server.GetContainerState(name)
-	if err != nil {
-		return err
-	}
-
-	if state.StatusCode == api.Stopped {
-		return nil
-	}
-
-	req := api.ContainerStatePut{
-		Action:  "stop",
-		Timeout: -1,
-	}
-	op, err := m.server.UpdateContainerState(name, req, etag)
-	if err != nil {
-		return err
-	}
-	err = op.Wait()
-	return err
-}
-
-// createContainer creates a stopped container from given config.
-// It finds the proper image, either locally or remotely,
-// and then creates a container using it.
-func (m *containerManager) createContainer(
+// getContainerSpec generates a spec for creating a new container.
+// It sources an image based on the input series, and transforms the input
+// config objects into LXD configuration, including cloud init user data.
+func (m *containerManager) getContainerSpec(
 	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
-) (string, error) {
-	var err error
-
+) (ContainerSpec, error) {
 	imageSources, err := m.getImageSources()
 	if err != nil {
-		return "", errors.Trace(err)
+		return ContainerSpec{}, errors.Trace(err)
 	}
 
 	found, err := m.server.FindImage(series, jujuarch.HostArch(), imageSources, true, callback)
 	if err != nil {
-		return "", errors.Annotatef(err, "failed to ensure LXD image")
+		return ContainerSpec{}, errors.Annotatef(err, "failed to ensure LXD image")
 	}
 
 	name, err := m.namespace.Hostname(instanceConfig.MachineId)
 	if err != nil {
-		return "", errors.Trace(err)
+		return ContainerSpec{}, errors.Trace(err)
 	}
 
 	// CloudInitUserData creates our own ENI/netplan.
 	// We need to disable cloud-init networking to make it work.
 	userData, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
 	if err != nil {
-		return "", errors.Trace(err)
+		return ContainerSpec{}, errors.Trace(err)
 	}
 
 	cfg := map[string]string{
@@ -226,7 +173,7 @@ func (m *containerManager) createContainer(
 
 	nics, unknown, err := networkDevicesFromConfig(networkConfig)
 	if err != nil {
-		return "", errors.Trace(err)
+		return ContainerSpec{}, errors.Trace(err)
 	}
 
 	var profiles []string
@@ -243,7 +190,7 @@ func (m *containerManager) createContainer(
 			if len(unknown) == 1 && unknown[0] == network.DefaultLXDBridge && m.server.networkAPISupport {
 				mod, err := m.server.EnsureIPv4(network.DefaultLXDBridge)
 				if err != nil {
-					return "", errors.Annotate(err, "ensuring default bridge IPv4 config")
+					return ContainerSpec{}, errors.Annotate(err, "ensuring default bridge IPv4 config")
 				}
 				if mod {
 					logger.Infof(`added "auto" IPv4 configuration to default LXD bridge`)
@@ -254,34 +201,13 @@ func (m *containerManager) createContainer(
 		}
 	}
 
-	logger.Infof("starting container %q (image %q)...", name, found.Image.Fingerprint)
-	spec := api.ContainersPost{
-		Name: name,
-		ContainerPut: api.ContainerPut{
-			Profiles: profiles,
-			Devices:  nics,
-			Config:   cfg,
-		},
-	}
-
-	callback(status.Provisioning, "Creating container", nil)
-	op, err := m.server.CreateContainerFromImage(found.LXDServer, *found.Image, spec)
-	if err != nil {
-		logger.Errorf("CreateContainer failed with %s", err)
-		return "", errors.Trace(err)
-	}
-
-	if err := op.Wait(); err != nil {
-		return "", errors.Trace(err)
-	}
-	opInfo, err := op.GetTarget()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if opInfo.StatusCode != api.Success {
-		return "", fmt.Errorf("container creation failed: %s", opInfo.Err)
-	}
-	return name, nil
+	return ContainerSpec{
+		Name:     name,
+		Profiles: profiles,
+		Image:    found,
+		Config:   cfg,
+		Devices:  nics,
+	}, nil
 }
 
 // getImageSources returns a list of LXD remote image sources based on the

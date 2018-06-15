@@ -221,6 +221,7 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 	return &c, nil
 }
 
+// StartContainer starts the extant container identified by the input name.
 func (s *Server) StartContainer(name string) error {
 	req := api.ContainerStatePut{
 		Action:   "start",
@@ -233,11 +234,7 @@ func (s *Server) StartContainer(name string) error {
 		return errors.Trace(err)
 	}
 
-	if err := op.Wait(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+	return errors.Trace(op.Wait())
 }
 
 // Remove containers stops and deletes containers matching the input list of
@@ -288,11 +285,8 @@ func (s *Server) RemoveContainer(name string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := op.Wait(); err != nil {
-		return errors.Trace(err)
-	}
 
-	return nil
+	return errors.Trace(op.Wait())
 }
 
 // WriteContainer writes the current representation of the input container to
