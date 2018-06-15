@@ -12,11 +12,9 @@ func HandleSettingsFile(c *RelationSetCommand, ctx *cmd.Context) error {
 	return c.handleSettingsFile(ctx)
 }
 
-func NewJujuLogCommandWithMocks(ctx JujuLogContext, logger JujuLogCommandLogger) (cmd.Command, error) {
+func NewJujuLogCommandWithMocks(ctx JujuLogContext, loggerFactory JujuLogCommandLoggerFactory) cmd.Command {
 	return &JujuLogCommand{
-		ctx: ctx,
-		getLogger: func(s string) JujuLogCommandLogger {
-			return logger
-		},
-	}, nil
+		ctx:           ctx,
+		loggerFactory: loggerFactory,
+	}
 }

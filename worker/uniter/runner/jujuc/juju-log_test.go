@@ -5,6 +5,7 @@
 package jujuc_test
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/golang/mock/gomock"
@@ -31,10 +32,16 @@ func (s *JujuLogSuite) newJujuLogCommand(c *gc.C) cmd.Command {
 	return cmd
 }
 
-func (s *JujuLogSuite) newJujuLogCommandWithMocks(c *gc.C, logger jujuc.JujuLogCommandLogger, ctx jujuc.JujuLogContext) cmd.Command {
-	cmd, err := jujuc.NewJujuLogCommandWithMocks(ctx, logger)
-	c.Assert(err, jc.ErrorIsNil)
-	return cmd
+func (s *JujuLogSuite) newJujuLogCommandWithMocks(ctrl *gomock.Controller, name string) (cmd.Command, *jujuc.MockJujuLogContext, *jujuc.MockJujuLogCommandLogger) {
+	logger := jujuc.NewMockJujuLogCommandLogger(ctrl)
+
+	factory := jujuc.NewMockJujuLogCommandLoggerFactory(ctrl)
+	factory.EXPECT().GetLogger(fmt.Sprintf("unit.%s.juju-log", name)).Return(logger)
+
+	ctx := jujuc.NewMockJujuLogContext(ctrl)
+
+	cmd := jujuc.NewJujuLogCommandWithMocks(ctx, factory)
+	return cmd, ctx, logger
 }
 
 func (s *JujuLogSuite) TestRequiresMessage(c *gc.C) {
@@ -74,16 +81,15 @@ func (s *JujuLogSuite) TestRunWithNoErrorsLogsOnRun(c *gc.C) {
 
 	messages := []string{"foo", "msg"}
 
-	logger := s.expectLogf(ctrl, loggo.INFO, ": ", messages...)
+	cmd, context, logger := s.newJujuLogCommandWithMocks(ctrl, "")
+	logger.EXPECT().Logf(loggo.INFO, "%s%s", ": ", strings.Join(messages, " "))
 
 	relation := jujuc.NewMockContextRelation(ctrl)
 	relation.EXPECT().FakeId().Return("")
 
-	context := jujuc.NewMockJujuLogContext(ctrl)
 	context.EXPECT().HookRelation().Return(relation, nil)
 	context.EXPECT().UnitName().Return("")
 
-	cmd := s.newJujuLogCommandWithMocks(c, logger, context)
 	ctx, err := cmdtesting.RunCommand(c, cmd, messages...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
@@ -96,13 +102,12 @@ func (s *JujuLogSuite) TestRunWithErrorIsNotImplementedLogsOnRun(c *gc.C) {
 
 	messages := []string{"foo", "msg"}
 
-	logger := s.expectLogf(ctrl, loggo.INFO, "", messages...)
+	cmd, context, logger := s.newJujuLogCommandWithMocks(ctrl, "")
+	logger.EXPECT().Logf(loggo.INFO, "%s%s", "", strings.Join(messages, " "))
 
-	context := jujuc.NewMockJujuLogContext(ctrl)
 	context.EXPECT().HookRelation().Return(nil, errors.NotImplementedf("not implemented"))
 	context.EXPECT().UnitName().Return("")
 
-	cmd := s.newJujuLogCommandWithMocks(c, logger, context)
 	ctx, err := cmdtesting.RunCommand(c, cmd, messages...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
@@ -115,13 +120,12 @@ func (s *JujuLogSuite) TestRunWithErrorIsNotFoundLogsOnRun(c *gc.C) {
 
 	messages := []string{"foo", "msg"}
 
-	logger := s.expectLogf(ctrl, loggo.INFO, "", messages...)
+	cmd, context, logger := s.newJujuLogCommandWithMocks(ctrl, "")
+	logger.EXPECT().Logf(loggo.INFO, "%s%s", "", strings.Join(messages, " "))
 
-	context := jujuc.NewMockJujuLogContext(ctrl)
 	context.EXPECT().HookRelation().Return(nil, errors.NotFoundf("not found"))
 	context.EXPECT().UnitName().Return("")
 
-	cmd := s.newJujuLogCommandWithMocks(c, logger, context)
 	ctx, err := cmdtesting.RunCommand(c, cmd, messages...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
@@ -134,21 +138,13 @@ func (s *JujuLogSuite) TestRunWithErrorDoesNotLogOnRun(c *gc.C) {
 
 	messages := []string{"foo", "msg"}
 
-	logger := jujuc.NewMockJujuLogCommandLogger(ctrl)
+	cmd, context, _ := s.newJujuLogCommandWithMocks(ctrl, "")
 
-	context := jujuc.NewMockJujuLogContext(ctrl)
 	context.EXPECT().HookRelation().Return(nil, errors.New("bad"))
 	context.EXPECT().UnitName().Return("")
 
-	cmd := s.newJujuLogCommandWithMocks(c, logger, context)
 	ctx, err := cmdtesting.RunCommand(c, cmd, messages...)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "bad")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-}
-
-func (s *JujuLogSuite) expectLogf(ctrl *gomock.Controller, level loggo.Level, prefix string, args ...string) jujuc.JujuLogCommandLogger {
-	logger := jujuc.NewMockJujuLogCommandLogger(ctrl)
-	logger.EXPECT().Logf(level, "%s%s", prefix, strings.Join(args, " "))
-	return logger
 }
