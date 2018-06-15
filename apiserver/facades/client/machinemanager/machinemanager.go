@@ -52,17 +52,31 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 	return NewMachineManagerAPI(backend, storageAccess, pool, ctx.Auth(), model.ModelTag(), state.CallContext(st))
 }
 
+// Version 4 of MachineManagerAPI
 type MachineManagerAPIV4 struct {
+	*MachineManagerAPIV5
+}
+
+// Version 5 of Machine Manger API. Adds CreateUpgradeSeriesPrepareLock.
+type MachineManagerAPIV5 struct {
 	*MachineManagerAPI
 }
 
 // NewFacadeV4 creates a new server-side MachineManager API facade.
 func NewFacadeV4(ctx facade.Context) (*MachineManagerAPIV4, error) {
+	machineManagerAPIV5, err := NewFacadeV5(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &MachineManagerAPIV4{machineManagerAPIV5}, nil
+}
+
+func NewFacadeV5(ctx facade.Context) (*MachineManagerAPIV5, error) {
 	machineManagerAPI, err := NewFacade(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &MachineManagerAPIV4{machineManagerAPI}, nil
+	return &MachineManagerAPIV5{machineManagerAPI}, nil
 }
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
@@ -315,7 +329,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 }
 
 // UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
-func (mm *MachineManagerAPIV4) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (params.ErrorResult, error) {
+func (mm *MachineManagerAPIV5) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (params.ErrorResult, error) {
 	if err := mm.checkCanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}
@@ -366,7 +380,7 @@ func (mm *MachineManagerAPIV4) updateOneMachineSeries(arg params.UpdateSeriesArg
 	return machine.UpdateMachineSeries(arg.Series, arg.Force)
 }
 
-func (mm *MachineManagerAPIV4) createUpgradeSeriesPrepareLock(arg params.UpdateSeriesArg) error {
+func (mm *MachineManagerAPIV5) createUpgradeSeriesPrepareLock(arg params.UpdateSeriesArg) error {
 	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
 	if err != nil {
 		return errors.Trace(err)
