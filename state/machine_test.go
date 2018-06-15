@@ -2606,4 +2606,7 @@ func (s *MachineSuite) TestCreateUgradeSeriesPrepareLock(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
 	err := mach.CreateUpgradeSeriesPrepareLock()
 	c.Assert(err, jc.ErrorIsNil)
+	locked, err := mach.IsLocked()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(locked, jc.IsTrue)
 }

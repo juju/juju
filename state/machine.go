@@ -2054,6 +2054,21 @@ func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
 	return errors.Annotatef(err, "cannot series upgrade for %q", m)
 }
 
+func (m *Machine) IsLocked() (bool, error) {
+	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
+	defer closer()
+
+	var lock upgradeSeriesLock
+	err := coll.FindId(m.Id()).One(&lock)
+	if err == mgo.ErrNotFound {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("cannot get upgrade series lock for machine %v: %v", m.Id(), err)
+	}
+	return true, nil
+}
+
 func (m *Machine) verifyUnitsSeries(unitNames []string, series string, force bool) ([]*Unit, error) {
 	results := []*Unit{}
 	for _, u := range unitNames {
