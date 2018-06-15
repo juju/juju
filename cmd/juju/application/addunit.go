@@ -21,7 +21,8 @@ import (
 )
 
 var usageAddUnitSummary = `
-Adds one or more units to a deployed application.`[1:]
+Adds one or more units to a deployed application.
+`[1:]
 
 var usageAddUnitDetails = `
 The add-unit is used to scale out an application for improved performance or
@@ -38,28 +39,28 @@ which will bypass application and model constraints.
 
 Examples:
 
-Add five units of wordpress on five new machines:
+Add five units of mysql on five new machines:
 
-    juju add-unit wordpress -n 5
+    juju add-unit mysql -n 5
 
 Add a unit of mysql to machine 23 (which already exists):
 
     juju add-unit mysql --to 23
 
-Add two units of mysql to machines 3 and 4:
+Add two units of mysql to existing machines 3 and 4:
 
    juju add-unit mysql -n 2 --to 3,4
 
 Add three units of mysql, one to machine 3 and the others to new
 machines:
 
-    juju add-unit mysql -n 3 --to 7
+    juju add-unit mysql -n 3 --to 3
 
-Add a unit into a new LXD container on machine 7:
+Add a unit of mysql into a new LXD container on machine 7:
 
     juju add-unit mysql --to lxd:7
 
-Add two units into two new LXD containers on machine 7:
+Add two units of mysql into two new LXD containers on machine 7:
 
     juju add-unit mysql -n 2 --to lxd:7,lxd:7
 
@@ -72,7 +73,8 @@ Add a unit of mysql to LXD container on a new machine:
     juju add-unit mysql --to lxd
 
 See also:
-    remove-unit`[1:]
+    remove-unit
+`[1:]
 
 // UnitCommandBase provides support for commands which deploy units. It handles the parsing
 // and validation of --to and --num-units arguments.
