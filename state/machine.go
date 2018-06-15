@@ -214,6 +214,12 @@ type instanceData struct {
 	KeepInstance bool `bson:"keep-instance,omitempty"`
 }
 
+// upgradeSeriesLock holds the attributes relevant to lock a machine during a
+// series update of a machine
+type upgradeSeriesLock struct {
+	Id string
+}
+
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
 	return &instance.HardwareCharacteristics{
 		Arch:             instData.Arch,
@@ -2022,6 +2028,30 @@ func (m *Machine) UpdateMachineSeries(series string, force bool) error {
 	}
 	err := m.st.db().Run(buildTxn)
 	return errors.Annotatef(err, "cannot update series for %q to %s", m, series)
+}
+
+// CreateUpgradeSeriesPrepareLock create a prepare lock for series upgrade. If
+// this item exists in the database for a given machine it indicates that a
+// machine's operating system is being upgraded for one series to another (e.g. xenial to bionic).
+func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		data := &upgradeSeriesLock{Id: m.Id()}
+		ops := []txn.Op{{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     m.doc.DocID,
+			Assert: txn.DocMissing,
+			Insert: data,
+		}}
+		return ops, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	return errors.Annotatef(err, "cannot series upgrade for %q", m)
 }
 
 func (m *Machine) verifyUnitsSeries(unitNames []string, series string, force bool) ([]*Unit, error) {

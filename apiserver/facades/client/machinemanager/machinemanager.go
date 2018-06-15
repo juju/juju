@@ -314,7 +314,19 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 	return params.DestroyMachineResults{results}, nil
 }
 
-// UpdateMachineSeries updates the series of the given machine(s) as well as all
+// UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
+func (mm *MachineManagerAPIV4) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (params.ErrorResult, error) {
+	if err := mm.checkCanWrite(); err != nil {
+		return params.ErrorResult{}, err
+	}
+	if err := mm.check.ChangeAllowed(); err != nil {
+		return params.ErrorResult{}, err
+	}
+	err := mm.createUpgradeSeriesPrepareLock(args)
+	return params.ErrorResult{Error: common.ServerError(err)}, nil
+}
+
+// DEPRECATED: UpdateMachineSeries updates the series of the given machine(s) as well as all
 // units and subordintes installed on the machine(s).
 func (mm *MachineManagerAPIV4) UpdateMachineSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
 	if err := mm.checkCanWrite(); err != nil {
@@ -352,4 +364,16 @@ func (mm *MachineManagerAPIV4) updateOneMachineSeries(arg params.UpdateSeriesArg
 		return nil // no-op
 	}
 	return machine.UpdateMachineSeries(arg.Series, arg.Force)
+}
+
+func (mm *MachineManagerAPIV4) createUpgradeSeriesPrepareLock(arg params.UpdateSeriesArg) error {
+	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := mm.st.Machine(machineTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.CreateUpgradeSeriesPrepareLock()
 }

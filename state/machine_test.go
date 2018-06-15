@@ -2601,3 +2601,9 @@ func (s *MachineSuite) TestUpdateMachineSeriesSubordinateListChangeIncompatibleS
 	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
 	s.assertMachineAndUnitSeriesChanged(c, mach, "precise")
 }
+
+func (s *MachineSuite) TestCreateUgradeSeriesPrepareLock(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.CreateUpgradeSeriesPrepareLock()
+	c.Assert(err, jc.ErrorIsNil)
+}
