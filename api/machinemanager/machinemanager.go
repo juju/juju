@@ -147,10 +147,10 @@ func (client *Client) UpgradeSeriesPrepare(machineName string) error {
 	args := params.UpdateSeriesArg{
 		Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
 	}
-	results := new(params.ErrorResults)
-	err := client.facade.FacadeCall("UpgradeSeriesPrepare", args, results)
+	result := new(params.ErrorResult)
+	err := client.facade.FacadeCall("UpgradeSeriesPrepare", args, result)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return results.OneError()
+	return result.Error
 }

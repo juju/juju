@@ -177,7 +177,12 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
 		c.upgradeMachineSeriesClient = machinemanager.NewClient(apiRoot)
 	}
 
-	return c.upgradeMachineSeriesClient.UpgradeSeriesPrepare(c.machineNumber)
+	err = c.upgradeMachineSeriesClient.UpgradeSeriesPrepare(c.machineNumber)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context) error {

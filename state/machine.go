@@ -2034,6 +2034,13 @@ func (m *Machine) UpdateMachineSeries(series string, force bool) error {
 // this item exists in the database for a given machine it indicates that a
 // machine's operating system is being upgraded for one series to another (e.g. xenial to bionic).
 func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
+	locked, err := m.IsLocked()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if locked {
+		return errors.Errorf("machine %q is already locked for upgrade", m)
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2050,8 +2057,14 @@ func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
 		}}
 		return ops, nil
 	}
-	err := m.st.db().Run(buildTxn)
-	return errors.Annotatef(err, "cannot series upgrade for %q", m)
+	err = m.st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		logger.Errorf("cannot prepare series upgrade for machine %q: %v", m, err)
+		return err
+	}
+
+	return nil
 }
 
 func (m *Machine) IsLocked() (bool, error) {
