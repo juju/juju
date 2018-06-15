@@ -318,6 +318,18 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesPermissionDenied(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
+func (s *MachineManagerSuite) TestUpgradeSeriesPrepareLocksMachine(c *gc.C) {
+	apiV4 := machinemanager.MachineManagerAPIV4{MachineManagerAPI: s.api}
+	machineTag := names.NewMachineTag("0")
+	_, err := apiV4.UpgradeSeriesPrepare(
+		params.UpdateSeriesArg{
+			Entity: params.Entity{
+				Tag: machineTag.String()},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type mockState struct {
 	machinemanager.Backend
 	calls            int

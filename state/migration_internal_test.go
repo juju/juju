@@ -35,6 +35,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		instanceDataC,
 		machinesC,
 		openedPortsC,
+		machineUpgradeSeriesLocksC,
 
 		// application / unit
 		applicationsC,
