@@ -125,7 +125,7 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 
 	manager := t.makeManager(c, cSvr)
 	iCfg := prepInstanceConfig(c)
-	hostname, err := manager.Namespace().Hostname(iCfg.MachineId)
+	hostName, err := manager.Namespace().Hostname(iCfg.MachineId)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Operation arrangements.
@@ -138,19 +138,27 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 	deleteOp := lxdtesting.NewMockOperation(ctrl)
 	deleteOp.EXPECT().Wait().Return(nil)
 
+	exp := cSvr.EXPECT()
+
 	// Arrangements for the container creation.
 	expectCreateContainer(ctrl, cSvr, "juju/xenial/"+t.Arch(), "foo-target")
-	cSvr.EXPECT().UpdateContainerState(
-		hostname, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(startOp, nil)
+	exp.UpdateContainerState(hostName, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(startOp, nil)
 
-	cSvr.EXPECT().GetContainerState(hostname).Return(
+	exp.GetContainerState(hostName).Return(
 		&lxdapi.ContainerState{StatusCode: lxdapi.Running}, lxdtesting.ETag, nil).Times(2)
 
+	exp.GetContainer(hostName).Return(&lxdapi.Container{Name: hostName}, lxdtesting.ETag, nil)
+
 	// Arrangements for the container destruction.
+	stopReq := lxdapi.ContainerStatePut{
+		Action:   "stop",
+		Timeout:  -1,
+		Stateful: false,
+		Force:    true,
+	}
 	gomock.InOrder(
-		cSvr.EXPECT().UpdateContainerState(
-			hostname, lxdapi.ContainerStatePut{Action: "stop", Timeout: -1}, lxdtesting.ETag).Return(stopOp, nil),
-		cSvr.EXPECT().DeleteContainer(hostname).Return(deleteOp, nil),
+		exp.UpdateContainerState(hostName, stopReq, lxdtesting.ETag).Return(stopOp, nil),
+		exp.DeleteContainer(hostName).Return(deleteOp, nil),
 	)
 
 	instance, hc, err := manager.CreateContainer(
@@ -159,7 +167,7 @@ func (t *LxdSuite) TestContainerCreateDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	instanceId := instance.Id()
-	c.Check(string(instanceId), gc.Equals, hostname)
+	c.Check(string(instanceId), gc.Equals, hostName)
 
 	instanceStatus := instance.Status(context.NewCloudCallContext())
 	c.Check(instanceStatus.Status, gc.Equals, status.Running)
@@ -177,8 +185,10 @@ func (t *LxdSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 
 	manager := t.makeManager(c, cSvr)
 	iCfg := prepInstanceConfig(c)
-	hostname, err := manager.Namespace().Hostname(iCfg.MachineId)
+	hostName, err := manager.Namespace().Hostname(iCfg.MachineId)
 	c.Assert(err, jc.ErrorIsNil)
+
+	exp := cSvr.EXPECT()
 
 	req := lxdapi.NetworkPut{
 		Config: map[string]string{
@@ -187,16 +197,17 @@ func (t *LxdSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 		},
 	}
 	gomock.InOrder(
-		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, lxdtesting.ETag, nil),
-		cSvr.EXPECT().UpdateNetwork(network.DefaultLXDBridge, req, lxdtesting.ETag).Return(nil),
+		exp.GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, lxdtesting.ETag, nil),
+		exp.UpdateNetwork(network.DefaultLXDBridge, req, lxdtesting.ETag).Return(nil),
 	)
 
 	expectCreateContainer(ctrl, cSvr, "juju/xenial/"+t.Arch(), "foo-target")
 
 	startOp := lxdtesting.NewMockOperation(ctrl)
 	startOp.EXPECT().Wait().Return(nil)
-	cSvr.EXPECT().UpdateContainerState(
-		hostname, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(startOp, nil)
+
+	exp.UpdateContainerState(hostName, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(startOp, nil)
+	exp.GetContainer(hostName).Return(&lxdapi.Container{Name: hostName}, lxdtesting.ETag, nil)
 
 	// Supplying config for a single device with default bridge and without a
 	// CIDR will cause the default bridge to be updated with IPv4 config.
@@ -221,12 +232,14 @@ func (t *LxdSuite) TestCreateContainerCreateFailed(c *gc.C) {
 	createRemoteOp.EXPECT().Wait().Return(nil).AnyTimes()
 	createRemoteOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Failure, Err: "create failed"}, nil)
 
+	exp := cSvr.EXPECT()
+
 	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-target"}}
 	image := lxdapi.Image{Filename: "this-is-our-image"}
 	gomock.InOrder(
-		cSvr.EXPECT().GetImageAlias("juju/xenial/"+t.Arch()).Return(alias, lxdtesting.ETag, nil),
-		cSvr.EXPECT().GetImage("foo-target").Return(&image, lxdtesting.ETag, nil),
-		cSvr.EXPECT().CreateContainerFromImage(cSvr, image, gomock.Any()).Return(createRemoteOp, nil),
+		exp.GetImageAlias("juju/xenial/"+t.Arch()).Return(alias, lxdtesting.ETag, nil),
+		exp.GetImage("foo-target").Return(&image, lxdtesting.ETag, nil),
+		exp.CreateContainerFromImage(cSvr, image, gomock.Any()).Return(createRemoteOp, nil),
 	)
 
 	_, _, err := t.makeManager(c, cSvr).CreateContainer(
@@ -248,7 +261,7 @@ func (t *LxdSuite) TestCreateContainerStartFailed(c *gc.C) {
 
 	manager := t.makeManager(c, cSvr)
 	iCfg := prepInstanceConfig(c)
-	hostname, err := manager.Namespace().Hostname(iCfg.MachineId)
+	hostName, err := manager.Namespace().Hostname(iCfg.MachineId)
 	c.Assert(err, jc.ErrorIsNil)
 
 	updateOp := lxdtesting.NewMockOperation(ctrl)
@@ -257,11 +270,14 @@ func (t *LxdSuite) TestCreateContainerStartFailed(c *gc.C) {
 	deleteOp := lxdtesting.NewMockOperation(ctrl)
 	deleteOp.EXPECT().Wait().Return(nil).AnyTimes()
 
+	exp := cSvr.EXPECT()
+
 	expectCreateContainer(ctrl, cSvr, "juju/xenial/"+t.Arch(), "foo-target")
 	gomock.InOrder(
-		cSvr.EXPECT().UpdateContainerState(
-			hostname, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(updateOp, nil),
-		cSvr.EXPECT().DeleteContainer(hostname).Return(deleteOp, nil),
+		exp.UpdateContainerState(
+			hostName, lxdapi.ContainerStatePut{Action: "start", Timeout: -1}, "").Return(updateOp, nil),
+		exp.GetContainerState(hostName).Return(&lxdapi.ContainerState{StatusCode: lxdapi.Stopped}, lxdtesting.ETag, nil),
+		exp.DeleteContainer(hostName).Return(deleteOp, nil),
 	)
 
 	_, _, err = manager.CreateContainer(
@@ -283,12 +299,14 @@ func expectCreateContainer(ctrl *gomock.Controller, svr *lxdtesting.MockContaine
 	createRemoteOp.EXPECT().Wait().Return(nil).AnyTimes()
 	createRemoteOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
 
+	exp := svr.EXPECT()
+
 	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: target}}
-	svr.EXPECT().GetImageAlias(aliasName).Return(alias, lxdtesting.ETag, nil)
+	exp.GetImageAlias(aliasName).Return(alias, lxdtesting.ETag, nil)
 
 	image := lxdapi.Image{Filename: "this-is-our-image"}
-	svr.EXPECT().GetImage("foo-target").Return(&image, lxdtesting.ETag, nil)
-	svr.EXPECT().CreateContainerFromImage(svr, image, gomock.Any()).Return(createRemoteOp, nil)
+	exp.GetImage("foo-target").Return(&image, lxdtesting.ETag, nil)
+	exp.CreateContainerFromImage(svr, image, gomock.Any()).Return(createRemoteOp, nil)
 }
 
 func (t *LxdSuite) TestListContainers(c *gc.C) {
