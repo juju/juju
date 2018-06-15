@@ -319,9 +319,9 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesPermissionDenied(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareLocksMachine(c *gc.C) {
-	apiV4 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
 	machineTag := names.NewMachineTag("0")
-	_, err := apiV4.UpgradeSeriesPrepare(
+	_, err := apiV5.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
 			Entity: params.Entity{
 				Tag: machineTag.String()},
