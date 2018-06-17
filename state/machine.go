@@ -2039,7 +2039,7 @@ func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
 		return errors.Trace(err)
 	}
 	if locked {
-		return errors.Errorf("machine %q is already locked for upgrade", m)
+		return errors.AlreadyExistsf("upgrade series prepare lock for machine %q", m)
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
