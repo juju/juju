@@ -659,11 +659,13 @@ type ProxyConfig struct {
 
 // ProxyConfigResult contains information needed to configure a clients proxy settings
 type ProxyConfigResult struct {
-	LegacyProxySettings ProxyConfig `json:"legacy-proxy-settings"`
-	JujuProxySettings   ProxyConfig `json:"juju-proxy-settings"`
-	APTProxySettings    ProxyConfig `json:"apt-proxy-settings"`
-	SnapProxySettings   ProxyConfig `json:"snap-proxy-settings"`
-	Error               *Error      `json:"error,omitempty"`
+	LegacyProxySettings           ProxyConfig `json:"legacy-proxy-settings"`
+	JujuProxySettings             ProxyConfig `json:"juju-proxy-settings"`
+	APTProxySettings              ProxyConfig `json:"apt-proxy-settings,omitempty"`
+	SnapProxySettings             ProxyConfig `json:"snap-proxy-settings,omitempty"`
+	SnapEnterpriseProxyId         string      `json:"snap-store-id,omitempty"`
+	SnapEnterpriseProxyAssertions string      `json:"snap-store-assertions,omitempty"`
+	Error                         *Error      `json:"error,omitempty"`
 }
 
 // ProxyConfigResults contains information needed to configure multiple clients proxy settings
