@@ -288,9 +288,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 				StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
 			},
 			dialOpts,
-			stateenvirons.GetNewPolicyFunc(
-				stateenvirons.GetNewEnvironFunc(environs.New),
-			),
+			stateenvirons.GetNewPolicyFunc(),
 		)
 		return stateErr
 	})

@@ -540,10 +540,7 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
-	caasSt := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	caasSt := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	cons := constraints.MustParse("arch=amd64 mem=8G")
@@ -707,10 +704,7 @@ func (s *MigrationImportSuite) TestUnits(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestCAASUnits(c *gc.C) {
-	caasSt := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	caasSt := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { caasSt.Close() })
 
 	s.assertUnitsMigrated(c, caasSt, constraints.MustParse("arch=amd64 mem=8G"))

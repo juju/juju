@@ -23,7 +23,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -156,7 +155,6 @@ func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelT
 	)
 	// TODO(katco): 2016-08-09: lp:1611427
 	attempt := utils.AttemptStrategy{Delay: newStateConnDelay, Min: newStateConnMinAttempts}
-	getEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
 
 	session, err := mongo.DialWithInfo(*info, mongoDefaultDialOpts())
 	if err != nil {
@@ -170,7 +168,7 @@ func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelT
 			ControllerTag:      controllerTag,
 			ControllerModelTag: modelTag,
 			MongoSession:       session,
-			NewPolicy:          environsGetNewPolicyFunc(getEnviron),
+			NewPolicy:          environsGetNewPolicyFunc(),
 		})
 		if err == nil {
 			return st, nil

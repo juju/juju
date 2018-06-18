@@ -771,9 +771,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 		ControllerTag:      agentConfig.Controller(),
 		ControllerModelTag: agentConfig.Model(),
 		MongoSession:       session,
-		NewPolicy: stateenvirons.GetNewPolicyFunc(
-			stateenvirons.GetNewEnvironFunc(environs.New),
-		),
+		NewPolicy:          stateenvirons.GetNewPolicyFunc(),
 		// state.InitDatabase is idempotent and needs to be called just
 		// prior to performing any upgrades since a new Juju binary may
 		// declare new indices or explicit collections.
@@ -928,13 +926,11 @@ func (a *MachineAgent) initController(agentConfig agent.Config) (*state.Controll
 	defer session.Close()
 
 	ctlr, err := state.OpenController(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      agentConfig.Controller(),
-		ControllerModelTag: agentConfig.Model(),
-		MongoSession:       session,
-		NewPolicy: stateenvirons.GetNewPolicyFunc(
-			stateenvirons.GetNewEnvironFunc(environs.New),
-		),
+		Clock:                  clock.WallClock,
+		ControllerTag:          agentConfig.Controller(),
+		ControllerModelTag:     agentConfig.Model(),
+		MongoSession:           session,
+		NewPolicy:              stateenvirons.GetNewPolicyFunc(),
 		RunTransactionObserver: a.mongoTxnCollector.AfterRunTransaction,
 	})
 	return ctlr, nil
@@ -1076,13 +1072,11 @@ func openState(
 	defer session.Close()
 
 	st, err := state.Open(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      agentConfig.Controller(),
-		ControllerModelTag: agentConfig.Model(),
-		MongoSession:       session,
-		NewPolicy: stateenvirons.GetNewPolicyFunc(
-			stateenvirons.GetNewEnvironFunc(environs.New),
-		),
+		Clock:                  clock.WallClock,
+		ControllerTag:          agentConfig.Controller(),
+		ControllerModelTag:     agentConfig.Model(),
+		MongoSession:           session,
+		NewPolicy:              stateenvirons.GetNewPolicyFunc(),
 		RunTransactionObserver: runTransactionObserver,
 	})
 	if err != nil {

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
@@ -28,23 +27,14 @@ func NewFacadeV4(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*APIv4, error) {
-	var storageProvider storage.ProviderRegistry
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.Type() == state.ModelTypeIAAS {
-		storageProvider, err = stateenvirons.GetNewEnvironFunc(environs.New)(st)
-		if err != nil {
-			return nil, errors.Annotate(err, "getting environ")
-		}
-	} else {
-		storageProvider, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(st)
-		if err != nil {
-			return nil, errors.Annotate(err, "getting environ")
-		}
-	}
-	registry := stateenvirons.NewStorageProviderRegistry(storageProvider)
+	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
+		model,
+		stateenvirons.GetNewEnvironFunc(environs.New),
+		stateenvirons.GetNewCAASBrokerFunc(caas.New))
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
 
 	storageAccessor, err := getStorageAccessor(st)

@@ -98,7 +98,7 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	})
 	defer st.Close()
 	f := factory.NewFactory(st)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
@@ -1886,7 +1886,7 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	})
 	defer st.Close()
 	f := factory.NewFactory(st)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})
@@ -1935,7 +1935,7 @@ func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "caas-model",
 		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	})
 	defer st.Close()
 	f := factory.NewFactory(st)
 	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
@@ -1952,10 +1952,7 @@ func (s *ApplicationSuite) TestAgentTools(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestSetAgentVersion(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	f := factory.NewFactory(st)
 	ch := f.MakeCharm(c, &factory.CharmParams{Series: "kubernetes"})
@@ -3402,10 +3399,7 @@ var _ = gc.Suite(&CAASApplicationSuite{})
 
 func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.caasSt = s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	s.caasSt = s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { s.caasSt.Close() })
 
 	f := factory.NewFactory(s.caasSt)

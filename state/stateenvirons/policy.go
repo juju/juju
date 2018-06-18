@@ -5,6 +5,7 @@ package stateenvirons
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/caas"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -19,16 +20,16 @@ import (
 // terms of environs.Environ and related types.
 type environStatePolicy struct {
 	st         *state.State
-	getEnviron func(*state.State) (environs.Environ, error)
+	getEnviron NewEnvironFunc
+	getBroker  NewCAASBrokerFunc
 }
 
 // GetNewPolicyFunc returns a state.NewPolicyFunc that will return
-// a state.Policy implemented in terms of environs.Environ and
-// related types. The provided function will be used to construct
-// environs.Environs given a state.State.
-func GetNewPolicyFunc(getEnviron func(*state.State) (environs.Environ, error)) state.NewPolicyFunc {
+// a state.Policy implemented in terms of either environs.Environ
+// or caas.Broker and related types.
+func GetNewPolicyFunc() state.NewPolicyFunc {
 	return func(st *state.State) state.Policy {
-		return environStatePolicy{st, getEnviron}
+		return environStatePolicy{st, GetNewEnvironFunc(environs.New), GetNewCAASBrokerFunc(caas.New)}
 	}
 }
 
@@ -125,15 +126,27 @@ func (p environStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.Type() != state.ModelTypeIAAS {
-		// Only IAAS models support storage.
-		return nil, errors.NotImplementedf("StorageProviderRegistry")
+	return NewStorageProviderRegistryForModel(model, p.getEnviron, p.getBroker)
+}
+
+// NewStorageProviderRegistryForModel returns a storage provider registry
+// for the specified model.
+func NewStorageProviderRegistryForModel(
+	model *state.Model,
+	newEnv NewEnvironFunc,
+	newBroker NewCAASBrokerFunc,
+) (_ storage.ProviderRegistry, err error) {
+	var reg storage.ProviderRegistry
+	if model.Type() == state.ModelTypeIAAS {
+		if reg, err = newEnv(model.State()); err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		if reg, err = newBroker(model.State()); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-	env, err := p.getEnviron(p.st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return NewStorageProviderRegistry(env), nil
+	return NewStorageProviderRegistry(reg), nil
 }
 
 // NewStorageProviderRegistry returns a storage.ProviderRegistry that chains

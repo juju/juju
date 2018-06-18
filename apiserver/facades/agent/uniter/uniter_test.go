@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -3057,23 +3056,8 @@ containers:
 `[1:]
 
 func (s *uniterSuite) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAASModel, *state.Application, *state.Unit) {
-	err := s.State.AddCloud(cloud.Cloud{
-		Name:      "caascloud",
-		Type:      "kubernetes",
-		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
-		"name": "caas-model",
-		"type": "kubernetes",
-		"uuid": utils.MustNewUUID().String(),
-	})
-	m, st, err := s.State.NewModel(state.ModelArgs{
-		Type:      state.ModelTypeCAAS,
-		Owner:     names.NewUserTag("admin"),
-		CloudName: "caascloud",
-		Config:    cfg,
-	})
+	st := s.Factory.MakeCAASModel(c, nil)
+	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
 	cm, err := m.CAASModel()

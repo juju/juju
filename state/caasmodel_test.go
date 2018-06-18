@@ -4,14 +4,17 @@
 package state_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -29,16 +32,10 @@ func (s *CAASFixture) createTestModelConfig(c *gc.C) (*config.Config, string) {
 }
 
 func (s *CAASFixture) newCAASModel(c *gc.C) (*state.CAASModel, *state.State) {
-	cfg, _ := s.createTestModelConfig(c)
-	owner := names.NewUserTag("test@remote")
-	model, st, err := s.State.NewModel(state.ModelArgs{
-		Type:      state.ModelTypeCAAS,
-		CloudName: "dummy",
-		Config:    cfg,
-		Owner:     owner,
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(*gc.C) { st.Close() })
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
 	caasModel, err := model.CAASModel()
 	c.Assert(err, jc.ErrorIsNil)
 	return caasModel, st
@@ -51,14 +48,27 @@ type CAASModelSuite struct {
 var _ = gc.Suite(&CAASModelSuite{})
 
 func (s *CAASModelSuite) TestNewModel(c *gc.C) {
+	err := s.State.AddCloud(cloud.Cloud{
+		Name:      "caas-cloud",
+		Type:      "kubernetes",
+		AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	cfg, uuid := s.createTestModelConfig(c)
 	modelTag := names.NewModelTag(uuid)
 	owner := names.NewUserTag("test@remote")
+	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
+	credTag := names.NewCloudCredentialTag(
+		fmt.Sprintf("caas-cloud/%s/dummy-credential", owner.Id()))
+	err = s.State.UpdateCloudCredential(credTag, cred)
+	c.Assert(err, jc.ErrorIsNil)
 	model, st, err := s.State.NewModel(state.ModelArgs{
-		Type:      state.ModelTypeCAAS,
-		CloudName: "dummy",
-		Config:    cfg,
-		Owner:     owner,
+		Type:                    state.ModelTypeCAAS,
+		CloudName:               "caas-cloud",
+		Config:                  cfg,
+		Owner:                   owner,
+		CloudCredential:         credTag,
+		StorageProviderRegistry: provider.CommonStorageProviders(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
@@ -117,22 +127,8 @@ func (s *CAASModelSuite) TestCAASModelsCantHaveCloudRegion(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "CAAS model with CloudRegion not supported")
 }
 
-func (s *CAASModelSuite) TestNewModelCAASWithStorageRegistry(c *gc.C) {
-	cfg, _ := s.createTestModelConfig(c)
-	owner := names.NewUserTag("test@remote")
-	_, _, err := s.State.NewModel(state.ModelArgs{
-		Type:      state.ModelTypeCAAS,
-		CloudName: "dummy",
-		Config:    cfg,
-		Owner:     owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
-	c.Assert(err, gc.ErrorMatches, "CAAS model with StorageProviderRegistry not valid")
-}
-
 func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
-	st2 := s.Factory.MakeModel(c, &factory.ModelParams{
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>", StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	st2 := s.Factory.MakeCAASModel(c, nil)
 	defer st2.Close()
 
 	f := factory.NewFactory(st2)
@@ -175,8 +171,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
 }
 
 func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c *gc.C) {
-	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>", StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	otherSt := s.Factory.MakeCAASModel(c, nil)
 	defer otherSt.Close()
 
 	assertModel := func(model *state.Model, st *state.State, life state.Life, expectedApps int) {

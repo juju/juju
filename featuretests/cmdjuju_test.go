@@ -247,10 +247,7 @@ settings:
     type: string
     value: admin001
 `
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{Name: "caas-model"})
 	defer st.Close()
 	f := factory.NewFactory(st)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dummy", Series: "kubernetes"})

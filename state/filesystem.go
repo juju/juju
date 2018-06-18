@@ -1002,7 +1002,7 @@ func newFilesystemId(mb modelBackend, machineId string) (string, error) {
 // on it.
 func (sb *storageBackend) addFilesystemOps(params FilesystemParams, machineId string) ([]txn.Op, names.FilesystemTag, names.VolumeTag, error) {
 	var err error
-	params, err = sb.filesystemParamsWithDefaults(params, machineId)
+	params, err = sb.filesystemParamsWithDefaults(params)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
 	}
@@ -1095,7 +1095,7 @@ func (sb *storageBackend) newFilesystemOps(doc filesystemDoc, status statusDoc) 
 	}
 }
 
-func (sb *storageBackend) filesystemParamsWithDefaults(params FilesystemParams, machineId string) (FilesystemParams, error) {
+func (sb *storageBackend) filesystemParamsWithDefaults(params FilesystemParams) (FilesystemParams, error) {
 	if params.Pool == "" {
 		modelConfig, err := sb.config()
 		if err != nil {

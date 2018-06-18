@@ -387,6 +387,15 @@ type StorageStateSuite struct {
 
 var _ = gc.Suite(&StorageStateSuite{})
 
+func (s *StorageStateSuite) TestBlockStorageNotSupportedOnCAAS(c *gc.C) {
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer st.Close()
+	ch := state.AddTestingCharmForSeries(c, st, "kubernetes", "storage-block")
+	_, err := st.AddApplication(state.AddApplicationArgs{
+		Name: "storage-block", Series: "kubernetes", Charm: ch})
+	c.Assert(err, gc.ErrorMatches, `cannot add application "storage-block": block storage on a Kubernetes model not supported`)
+}
+
 func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
 	storageBlock, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch})
