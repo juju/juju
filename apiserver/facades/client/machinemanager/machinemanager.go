@@ -240,7 +240,7 @@ func (mm *MachineManagerAPI) ForceDestroyMachine(args params.Entities) (params.D
 }
 
 // DestroyMachineWithParams removes a set of machines from the model.
-func (mm *MachineManagerAPIV4) DestroyMachineWithParams(args params.DestroyMachinesParams) (params.DestroyMachineResults, error) {
+func (mm *MachineManagerAPI) DestroyMachineWithParams(args params.DestroyMachinesParams) (params.DestroyMachineResults, error) {
 	entities := params.Entities{Entities: make([]params.Entity, len(args.MachineTags))}
 	for i, tag := range args.MachineTags {
 		entities.Entities[i].Tag = tag
@@ -329,7 +329,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 }
 
 // UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
-func (mm *MachineManagerAPIV5) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (params.ErrorResult, error) {
+func (mm *MachineManagerAPI) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (params.ErrorResult, error) {
 	if err := mm.checkCanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}
@@ -342,7 +342,7 @@ func (mm *MachineManagerAPIV5) UpgradeSeriesPrepare(args params.UpdateSeriesArg)
 
 // DEPRECATED: UpdateMachineSeries updates the series of the given machine(s) as well as all
 // units and subordintes installed on the machine(s).
-func (mm *MachineManagerAPIV4) UpdateMachineSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
+func (mm *MachineManagerAPI) UpdateMachineSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
 	if err := mm.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -359,7 +359,7 @@ func (mm *MachineManagerAPIV4) UpdateMachineSeries(args params.UpdateSeriesArgs)
 	return results, nil
 }
 
-func (mm *MachineManagerAPIV4) updateOneMachineSeries(arg params.UpdateSeriesArg) error {
+func (mm *MachineManagerAPI) updateOneMachineSeries(arg params.UpdateSeriesArg) error {
 	if arg.Series == "" {
 		return &params.Error{
 			Message: "series missing from args",
@@ -380,7 +380,7 @@ func (mm *MachineManagerAPIV4) updateOneMachineSeries(arg params.UpdateSeriesArg
 	return machine.UpdateMachineSeries(arg.Series, arg.Force)
 }
 
-func (mm *MachineManagerAPIV5) createUpgradeSeriesPrepareLock(arg params.UpdateSeriesArg) error {
+func (mm *MachineManagerAPI) createUpgradeSeriesPrepareLock(arg params.UpdateSeriesArg) error {
 	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
 	if err != nil {
 		return errors.Trace(err)
