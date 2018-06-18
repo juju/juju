@@ -2621,3 +2621,14 @@ func (s *MachineSuite) TestCreateUgradeSeriesPrepareLockErrorsIfLockExists(c *gc
 	err = mach.CreateUpgradeSeriesPrepareLock()
 	c.Assert(err, gc.ErrorMatches, "upgrade series prepare lock for machine \".*\" already exists")
 }
+
+func (s *MachineSuite) TestDoesNotCreateUgradeSeriesPrepareLockOnDyingMachine(c *gc.C) {
+	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = mach.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = mach.CreateUpgradeSeriesPrepareLock()
+	c.Assert(err, gc.ErrorMatches, "machine not found or not alive")
+}
