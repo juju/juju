@@ -76,8 +76,19 @@ requested series is supported in later revisions of the charm, upgrade-charm can
 run beforehand.
 
 Examples:
+
+Prepare <machine> for upgrade to series <series>:
+
 	juju upgrade-series prepare <machine> <series>
+
+Prepare <machine> for upgrade to series <series> even if there are applications
+running units that do not support the target series:
+
 	juju upgrade-series prepare <machine> <series> --force
+
+Complete upgrade of <machine> to <series> indicating that all automatic and any
+necessary manual upgrade steps have completed successfully:
+
 	juju upgrade-series complete <machine>
 
 See also:
