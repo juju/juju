@@ -487,9 +487,7 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 	}
 	defer session.Close()
 
-	newPolicyFunc := stateenvirons.GetNewPolicyFunc(
-		stateenvirons.GetNewEnvironFunc(environs.New),
-	)
+	newPolicyFunc := stateenvirons.GetNewPolicyFunc()
 	controllerTag := names.NewControllerTag(controllerUUID)
 	args := state.OpenParams{
 		Clock:              clock.WallClock,

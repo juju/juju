@@ -1743,7 +1743,7 @@ func machineStoragePools(sb *storageBackend, params *machineStorageParams) (set.
 		pools.Add(v.Pool)
 	}
 	for _, f := range params.filesystems {
-		f, err := sb.filesystemParamsWithDefaults(f.Filesystem, "")
+		f, err := sb.filesystemParamsWithDefaults(f.Filesystem)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

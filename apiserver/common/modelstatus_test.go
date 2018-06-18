@@ -220,14 +220,12 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 
 func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 	otherModelOwner := s.Factory.MakeModelUser(c, nil)
-	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+	otherSt := s.Factory.MakeCAASModel(c, &factory.ModelParams{
 		Owner: otherModelOwner.UserTag,
 		ConfigAttrs: testing.Attrs{
 			"controller": false,
 		},
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	})
 	defer otherSt.Close()
 
 	otherFactory := factory.NewFactory(otherSt)

@@ -291,11 +291,8 @@ func (m ModelArgs) Validate() error {
 	if m.Owner == (names.UserTag{}) {
 		return errors.NotValidf("empty Owner")
 	}
-	if m.StorageProviderRegistry == nil && m.Type == ModelTypeIAAS {
+	if m.StorageProviderRegistry == nil {
 		return errors.NotValidf("nil StorageProviderRegistry")
-	}
-	if m.StorageProviderRegistry != nil && m.Type == ModelTypeCAAS {
-		return errors.NotValidf("CAAS model with StorageProviderRegistry")
 	}
 	switch m.MigrationMode {
 	case MigrationModeNone, MigrationModeImporting:

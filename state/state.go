@@ -1054,6 +1054,22 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		return nil, errors.Trace(err)
 	}
 
+	// CAAS charms don't support volume/block storage yet.
+	if model.Type() == ModelTypeCAAS {
+		for name, stor := range args.Charm.Meta().Storage {
+			if storageKind(stor.Type) != storage.StorageKindBlock {
+				continue
+			}
+			var count uint64
+			if arg, ok := args.Storage[name]; ok {
+				count = arg.Count
+			}
+			if stor.CountMin > 0 || count > 0 {
+				return nil, errors.NotSupportedf("block storage on a Kubernetes model")
+			}
+		}
+	}
+
 	if len(args.AttachStorage) > 0 && args.NumUnits != 1 {
 		return nil, errors.Errorf("AttachStorage is non-empty but NumUnits is %d, must be 1", args.NumUnits)
 	}

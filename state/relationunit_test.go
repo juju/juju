@@ -1023,10 +1023,7 @@ func (s *RelationUnitSuite) TestNetworksForRelationRemoteRelationDelayedPublicAd
 }
 
 func (s *RelationUnitSuite) TestNetworksForRelationCAASModel(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 	f := factory.NewFactory(st)
 	wpch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", Series: "kubernetes"})

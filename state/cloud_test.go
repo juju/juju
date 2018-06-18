@@ -175,16 +175,14 @@ func (s *CloudSuite) TestRemoveInUseCloudNotAllowed(c *gc.C) {
 	err = s.State.UpdateCloudCredential(credTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
 	c.Assert(err, jc.ErrorIsNil)
 
-	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+	otherSt := s.Factory.MakeCAASModel(c, &factory.ModelParams{
 		CloudName:       lowCloud.Name,
 		CloudCredential: credTag,
 		Owner:           otherModelOwner.UserTag,
 		ConfigAttrs: testing.Attrs{
 			"controller": false,
 		},
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	})
 	defer otherSt.Close()
 
 	err = otherSt.RemoveCloud(lowCloud.Name)
@@ -203,16 +201,14 @@ func (s *CloudSuite) TestRemoveCloudNewModelRace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
-			Name: "caas-model",
-			Type: state.ModelTypeCAAS, CloudRegion: "<none>",
+		otherSt := s.Factory.MakeCAASModel(c, &factory.ModelParams{
 			CloudName:       lowCloud.Name,
 			CloudCredential: credTag,
 			Owner:           otherModelOwner.UserTag,
 			ConfigAttrs: testing.Attrs{
 				"controller": false,
 			},
-			StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+		})
 		defer otherSt.Close()
 	}).Check()
 

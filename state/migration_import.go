@@ -78,16 +78,14 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 	args := ModelArgs{
-		Type:           modelType,
-		CloudName:      model.Cloud(),
-		CloudRegion:    model.CloudRegion(),
-		Config:         cfg,
-		Owner:          model.Owner(),
-		MigrationMode:  MigrationModeImporting,
-		EnvironVersion: model.EnvironVersion(),
-	}
-	if modelType != ModelTypeCAAS {
-		args.StorageProviderRegistry = storage.StaticProviderRegistry{}
+		Type:                    modelType,
+		CloudName:               model.Cloud(),
+		CloudRegion:             model.CloudRegion(),
+		Config:                  cfg,
+		Owner:                   model.Owner(),
+		MigrationMode:           MigrationModeImporting,
+		EnvironVersion:          model.EnvironVersion(),
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	}
 	if creds := model.CloudCredential(); creds != nil {
 		// Need to add credential or make sure an existing credential

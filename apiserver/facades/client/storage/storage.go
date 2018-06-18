@@ -444,6 +444,10 @@ func filterVolumes(
 	stVolume storageVolume,
 	f params.VolumeFilter,
 ) ([]state.Volume, map[names.VolumeTag][]state.VolumeAttachment, error) {
+	// Exit early if there's no volume support.
+	if stVolume == nil {
+		return nil, nil, nil
+	}
 	if f.IsEmpty() {
 		// No filter was specified: get all volumes, and all attachments.
 		volumes, err := stVolume.AllVolumes()

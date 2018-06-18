@@ -290,11 +290,9 @@ func init() {
 
 // dummy is the dummy environmentProvider singleton.
 var dummy = environProvider{
-	ops:   discardOperations,
-	state: make(map[string]*environState),
-	newStatePolicy: stateenvirons.GetNewPolicyFunc(
-		stateenvirons.GetNewEnvironFunc(environs.New),
-	),
+	ops:                    discardOperations,
+	state:                  make(map[string]*environState),
+	newStatePolicy:         stateenvirons.GetNewPolicyFunc(),
 	supportsSpaces:         true,
 	supportsSpaceDiscovery: false,
 }
@@ -309,9 +307,7 @@ func Reset(c *gc.C) {
 	oldState := dummy.state
 	dummy.controllerState = nil
 	dummy.state = make(map[string]*environState)
-	dummy.newStatePolicy = stateenvirons.GetNewPolicyFunc(
-		stateenvirons.GetNewEnvironFunc(environs.New),
-	)
+	dummy.newStatePolicy = stateenvirons.GetNewPolicyFunc()
 	dummy.supportsSpaces = true
 	dummy.supportsSpaceDiscovery = false
 	dummy.mu.Unlock()

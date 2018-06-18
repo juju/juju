@@ -24,7 +24,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -224,9 +223,7 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	c.Assert(ctlr.Close(), jc.ErrorIsNil)
 
 	r.PatchValue(&mongoDefaultDialOpts, mongotest.DialOpts)
-	r.PatchValue(&environsGetNewPolicyFunc, func(
-		func(*state.State) (environs.Environ, error),
-	) state.NewPolicyFunc {
+	r.PatchValue(&environsGetNewPolicyFunc, func() state.NewPolicyFunc {
 		return nil
 	})
 

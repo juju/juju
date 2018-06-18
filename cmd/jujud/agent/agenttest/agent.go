@@ -25,7 +25,6 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -273,9 +272,7 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
 		MongoSession:       session,
-		NewPolicy: stateenvirons.GetNewPolicyFunc(
-			stateenvirons.GetNewEnvironFunc(environs.New),
-		),
+		NewPolicy:          stateenvirons.GetNewPolicyFunc(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()

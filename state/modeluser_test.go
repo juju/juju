@@ -526,7 +526,6 @@ func (s *ModelUserSuite) newModelWithUser(c *gc.C, user names.UserTag, modelType
 	params := &factory.ModelParams{Type: modelType}
 	if modelType == state.ModelTypeCAAS {
 		params.CloudRegion = "<none>"
-		params.StorageProviderRegistry = factory.NilStorageProviderRegistry{}
 	}
 	st := s.Factory.MakeModel(c, params)
 	defer st.Close()

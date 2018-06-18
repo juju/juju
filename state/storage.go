@@ -89,8 +89,7 @@ func NewStorageBackend(st *State) (*storageBackend, error) {
 		return nil, errors.Trace(err)
 	}
 	registry, err := st.storageProviderRegistry()
-	// TODO(caas) - implement storage provider registry
-	if err != nil && !errors.IsNotImplemented(err) {
+	if err != nil {
 		return nil, errors.Annotate(err, "getting storage provider registry")
 	}
 

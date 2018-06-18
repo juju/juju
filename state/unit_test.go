@@ -1982,10 +1982,7 @@ var _ = gc.Suite(&CAASUnitSuite{})
 
 func (s *CAASUnitSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS, CloudRegion: "<none>",
-		StorageProviderRegistry: factory.NilStorageProviderRegistry{}})
+	st := s.Factory.MakeCAASModel(c, nil)
 	s.AddCleanup(func(_ *gc.C) { st.Close() })
 
 	f := factory.NewFactory(st)
