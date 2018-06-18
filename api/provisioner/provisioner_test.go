@@ -74,7 +74,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.provisioner = provisioner.NewState(s.st)
 	c.Assert(s.provisioner, gc.NotNil)
 
-	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState, s.IAASModel.Model)
+	s.ModelWatcherTests = apitesting.NewModelWatcherTests(s.provisioner, s.BackingState, s.Model)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.provisioner, s.BackingState)
 }
 
@@ -315,7 +315,9 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(instanceId, gc.Equals, instance.Id("i-manager"))
 
 	// Now check volumes and volume attachments.
-	volume, err := s.IAASModel.Volume(names.NewVolumeTag("1/0"))
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	volume, err := sb.Volume(names.NewVolumeTag("1/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	volumeInfo, err := volume.Info()
 	c.Assert(err, jc.ErrorIsNil)
@@ -324,7 +326,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		Pool:     "loop-pool",
 		Size:     124,
 	})
-	stateVolumeAttachments, err := s.IAASModel.MachineVolumeAttachments(names.NewMachineTag("1"))
+	stateVolumeAttachments, err := sb.MachineVolumeAttachments(names.NewMachineTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateVolumeAttachments, gc.HasLen, 1)
 	volumeAttachmentInfo, err := stateVolumeAttachments[0].Info()

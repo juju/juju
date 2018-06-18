@@ -59,7 +59,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
-	info.ModelTag = s.IAASModel.ModelTag()
+	info.ModelTag = s.Model.ModelTag()
 
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -102,7 +102,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
-	info.ModelTag = s.IAASModel.ModelTag()
+	info.ModelTag = s.Model.ModelTag()
 
 	ipv4State, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -192,7 +192,7 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	st, err := state.Open(state.OpenParams{
 		Clock:              clock.WallClock,
 		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.IAASModel.ModelTag(),
+		ControllerModelTag: s.Model.ModelTag(),
 		MongoSession:       session,
 	})
 	c.Assert(err, gc.IsNil)

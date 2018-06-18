@@ -4,6 +4,7 @@
 package firewallrules
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
@@ -29,18 +30,21 @@ type BlockChecker interface {
 // removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
-	*state.IAASModel
+	*state.Model
 }
 
 // NewStateBackend converts a state.State into a Backend.
 func NewStateBackend(st *state.State) (Backend, error) {
-	im, err := st.IAASModel()
+	m, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
+	if m.Type() != state.ModelTypeIAAS {
+		return nil, errors.NotSupportedf("Firewall Rules for non-IAAS models")
+	}
 	return &stateShim{
-		State:     st,
-		IAASModel: im,
+		State: st,
+		Model: m,
 	}, nil
 }
 

@@ -157,7 +157,7 @@ func (s *PubSubIntegrationSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) { c.Assert(server.Stop(), jc.ErrorIsNil) })
 
 	s.info = server.Info
-	s.info.ModelTag = s.IAASModel.ModelTag()
+	s.info.ModelTag = s.Model.ModelTag()
 	s.info.Tag = s.machineTag
 	s.info.Password = s.password
 	s.info.Nonce = s.nonce

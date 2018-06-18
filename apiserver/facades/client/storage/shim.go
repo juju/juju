@@ -81,12 +81,16 @@ func NewFacadeV3(
 }
 
 type storageAccess interface {
+	storageInterface
+
 	// VolumeAccess is required for storage functionality.
 	VolumeAccess() storageVolume
 
 	// FilesystemAccess is required for storage functionality.
 	FilesystemAccess() storageFile
+}
 
+type storageInterface interface {
 	// StorageInstance is required for storage functionality.
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 
@@ -161,27 +165,34 @@ var getStorageAccessor = func(st *state.State) (storageAccess, error) {
 	if err != nil {
 		return nil, err
 	}
-	if m.Type() == state.ModelTypeIAAS {
-		im, _ := m.IAASModel()
-		storageAccess := &iaasModelShim{Model: m, IAASModel: im}
-		return storageAccess, nil
+	sb, err := state.NewStorageBackend(st)
+	if err != nil {
+		return nil, err
 	}
-	caasModel, _ := m.CAASModel()
-	storageAccess := &caasModelShim{Model: m, CAASModel: caasModel}
+	storageAccess := &storageShim{
+		storageInterface: sb,
+		va:               sb,
+		fa:               sb,
+	}
+	// CAAS models don't support volume storage yet.
+	if m.Type() == state.ModelTypeCAAS {
+		storageAccess.va = nil
+	}
 	return storageAccess, nil
 }
 
-type iaasModelShim struct {
-	*state.Model
-	*state.IAASModel
+type storageShim struct {
+	storageInterface
+	fa storageFile
+	va storageVolume
 }
 
-func (im *iaasModelShim) VolumeAccess() storageVolume {
-	return im
+func (s *storageShim) VolumeAccess() storageVolume {
+	return s.va
 }
 
-func (im *iaasModelShim) FilesystemAccess() storageFile {
-	return im
+func (s *storageShim) FilesystemAccess() storageFile {
+	return s.fa
 }
 
 // unitAssignedMachine returns the tag of the machine that the unit
@@ -197,20 +208,6 @@ func unitAssignedMachine(backend backend, tag names.UnitTag) (names.MachineTag, 
 		return names.MachineTag{}, errors.Trace(err)
 	}
 	return names.NewMachineTag(mid), nil
-}
-
-type caasModelShim struct {
-	*state.Model
-	*state.CAASModel
-}
-
-func (cm *caasModelShim) VolumeAccess() storageVolume {
-	// CAAS models don't support volume storage yet.
-	return nil
-}
-
-func (cm *caasModelShim) FilesystemAccess() storageFile {
-	return cm
 }
 
 type backend interface {

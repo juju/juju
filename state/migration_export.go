@@ -1738,11 +1738,6 @@ func (e *exporter) storage() error {
 }
 
 func (e *exporter) volumes() error {
-	im, err := e.dbModel.IAASModel()
-	if err != nil {
-		return errors.NewNotSupported(err, "exporting volumes from CAAS model")
-	}
-
 	coll, closer := e.st.db().GetCollection(volumesC)
 	defer closer()
 
@@ -1754,7 +1749,7 @@ func (e *exporter) volumes() error {
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		vol := &volume{im, doc}
+		vol := &volume{e.st, doc}
 		if err := e.addVolume(vol, attachments[doc.Name]); err != nil {
 			return errors.Trace(err)
 		}
@@ -1852,11 +1847,6 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 }
 
 func (e *exporter) filesystems() error {
-	im, err := e.dbModel.IAASModel()
-	if err != nil {
-		return errors.NewNotSupported(err, "exporting filesystems from CAAS model")
-	}
-
 	coll, closer := e.st.db().GetCollection(filesystemsC)
 	defer closer()
 
@@ -1868,7 +1858,7 @@ func (e *exporter) filesystems() error {
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		fs := &filesystem{im, doc}
+		fs := &filesystem{e.st, doc}
 		if err := e.addFilesystem(fs, attachments[doc.FilesystemId]); err != nil {
 			return errors.Trace(err)
 		}
@@ -1959,11 +1949,10 @@ func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmen
 }
 
 func (e *exporter) storageInstances() error {
-	im, err := e.dbModel.IAASModel()
+	sb, err := NewStorageBackend(e.st)
 	if err != nil {
-		return errors.NewNotSupported(err, "exporting storage from CAAS model")
+		return errors.Trace(err)
 	}
-
 	coll, closer := e.st.db().GetCollection(storageInstancesC)
 	defer closer()
 
@@ -1975,7 +1964,7 @@ func (e *exporter) storageInstances() error {
 	iter := coll.Find(nil).Sort("_id").Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		instance := &storageInstance{im, doc}
+		instance := &storageInstance{sb, doc}
 		if err := e.addStorage(instance, attachments[doc.Id]); err != nil {
 			return errors.Trace(err)
 		}

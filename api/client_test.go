@@ -520,7 +520,7 @@ func (s *clientSuite) TestSetModelAgentVersionDuringUpgrade(c *gc.C) {
 	// This is an integration test which ensure that a test with the
 	// correct error code is seen by the client from the
 	// SetModelAgentVersion call when an upgrade is in progress.
-	modelConfig, err := s.IAASModel.ModelConfig()
+	modelConfig, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)

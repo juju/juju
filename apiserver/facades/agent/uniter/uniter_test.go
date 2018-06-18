@@ -540,7 +540,7 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	err := s.machine0.SetProviderAddresses(
 		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal),
 	)
-	err = s.IAASModel.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	err = s.Model.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.NetworkInfoParams{
@@ -1769,7 +1769,7 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 }
 
 func (s *uniterSuite) TestProviderType(c *gc.C) {
-	cfg, err := s.IAASModel.ModelConfig()
+	cfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.uniter.ProviderType()
@@ -2603,13 +2603,15 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	err = machine.SetProvisioned("inst-id", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.IAASModel.SetVolumeInfo(
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	err = sb.SetVolumeInfo(
 		volumeAttachments[0].Volume(),
 		state.VolumeInfo{VolumeId: "vol-123", Size: 456},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.IAASModel.SetVolumeAttachmentInfo(
+	err = sb.SetVolumeAttachmentInfo(
 		machine.MachineTag(),
 		volumeAttachments[0].Volume(),
 		state.VolumeAttachmentInfo{DeviceName: "xvdf1"},
@@ -2850,7 +2852,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 	relTag, relUnit := s.setupRemoteRelationScenario(c)
 
 	// Check model attributes are overridden by setting up a value.
-	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
+	err := s.Model.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	egress := state.NewRelationEgressNetworks(s.State)
 	_, err = egress.Save(relTag.Id(), false, []string{"10.0.0.0/16", "10.1.2.0/8"})
@@ -2880,7 +2882,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 func (s *uniterSuite) TestModelEgressSubnets(c *gc.C) {
 	relTag, relUnit := s.setupRemoteRelationScenario(c)
 
-	err := s.IAASModel.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
+	err := s.Model.UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	thisUniter := s.makeMysqlUniter(c)
@@ -3916,7 +3918,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressNonDefaultBin
 	s.assertInScope(c, mysqlRelUnit, true)
 
 	// Relation specific egress subnets override model config.
-	err = s.JujuConnSuite.IAASModel.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	err = s.JujuConnSuite.Model.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	relEgress := state.NewRelationEgressNetworks(s.State)
 	_, err = relEgress.Save(rel.Tag().Id(), false, []string{"192.168.1.0/24"})
@@ -3983,7 +3985,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBindin
 	s.assertInScope(c, mysqlRelUnit, true)
 
 	// Relation specific egress subnets override model config.
-	err = s.JujuConnSuite.IAASModel.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	err = s.JujuConnSuite.Model.UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	relEgress := state.NewRelationEgressNetworks(s.State)
 	_, err = relEgress.Save(rel.Tag().Id(), false, []string{"192.168.1.0/24"})

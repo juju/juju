@@ -425,7 +425,7 @@ func (s *SpacesDiscoverySuite) TestReloadSubnetsWithFAN(c *gc.C) {
 	}
 	s.usedEnviron = &s.environ
 
-	s.IAASModel.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
+	s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
 	err := s.State.ReloadSpaces(s.usedEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -446,7 +446,7 @@ func (s *SpacesDiscoverySuite) TestReloadSubnetsIgnoredWithFAN(c *gc.C) {
 	// This is just a test configuration. This configuration may be
 	// considered invalid in the future. Here we show that this
 	// configuration is ignored.
-	s.IAASModel.UpdateModelConfig(map[string]interface{}{"fan-config": "fe80:dead:beef::/48=fe80:dead:beef::/24"}, nil)
+	s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "fe80:dead:beef::/48=fe80:dead:beef::/24"}, nil)
 	err := s.State.ReloadSpaces(s.usedEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -464,7 +464,7 @@ func (s *SpacesDiscoverySuite) TestReloadSpacesWithFAN(c *gc.C) {
 	}
 	s.usedEnviron = &s.environ
 
-	s.IAASModel.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
+	s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
 	err := s.State.ReloadSpaces(s.usedEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 

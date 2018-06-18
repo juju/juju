@@ -20,7 +20,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -70,6 +70,7 @@ type (
 	ApplicationDoc  applicationDoc
 	UnitDoc         unitDoc
 	BlockDevicesDoc blockDevicesDoc
+	StorageBackend  = storageBackend
 )
 
 // EnsureWorkersStarted ensures that all the automatically
@@ -765,15 +766,15 @@ func RemoveRelation(c *gc.C, rel *Relation) {
 }
 
 func AddVolumeOps(st *State, params VolumeParams, machineId string) ([]txn.Op, names.VolumeTag, error) {
-	im, err := st.IAASModel()
+	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return nil, names.VolumeTag{}, err
 	}
-	return im.addVolumeOps(params, machineId)
+	return sb.addVolumeOps(params, machineId)
 }
 
-func ModelBackendFromIAASModel(im *IAASModel) modelBackend {
-	return im.mb
+func ModelBackendFromStorageBackend(sb *StorageBackend) modelBackend {
+	return sb.mb
 }
 
 func (st *State) IsUserSuperuser(user names.UserTag) (bool, error) {

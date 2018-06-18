@@ -162,13 +162,13 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	defer otherModelState.Close()
 	_, err = otherModelState.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-app",
-		SourceModel: s.IAASModel.ModelTag(),
+		SourceModel: s.Model.ModelTag(),
 		OfferUUID:   offer.OfferUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherModelState.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "notfound-remote-app",
-		SourceModel: s.IAASModel.ModelTag(),
+		SourceModel: s.Model.ModelTag(),
 		OfferUUID:   offer2.OfferUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)

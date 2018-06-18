@@ -63,7 +63,7 @@ func (s *ConfigValidatorSuite) updateModelConfig(c *gc.C) error {
 		"authorized-keys": "different-keys",
 		"arbitrary-key":   "shazam!",
 	}
-	return s.IAASModel.UpdateModelConfig(updateAttrs, nil)
+	return s.Model.UpdateModelConfig(updateAttrs, nil)
 }
 
 func (s *ConfigValidatorSuite) TestConfigValidate(c *gc.C) {
@@ -84,7 +84,7 @@ func (s *ConfigValidatorSuite) TestUpdateModelConfigFailsOnConfigValidateError(c
 
 func (s *ConfigValidatorSuite) TestUpdateModelConfigUpdatesState(c *gc.C) {
 	s.updateModelConfig(c)
-	stateCfg, err := s.IAASModel.ModelConfig()
+	stateCfg, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	newValidCfg, err := mockValidCfg()
 	c.Assert(err, jc.ErrorIsNil)

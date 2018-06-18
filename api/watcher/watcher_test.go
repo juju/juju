@@ -195,7 +195,7 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 
 	var results params.MachineStorageIdsWatchResults
 	args := params.Entities{Entities: []params.Entity{{
-		Tag: s.IAASModel.ModelTag().String(),
+		Tag: s.Model.ModelTag().String(),
 	}}}
 	err := s.stateAPI.APICall(
 		"StorageProvisioner",

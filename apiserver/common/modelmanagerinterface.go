@@ -227,19 +227,19 @@ func (st modelManagerStateShim) AllApplications() ([]Application, error) {
 }
 
 func (st modelManagerStateShim) AllFilesystems() ([]state.Filesystem, error) {
-	model, err := st.State.IAASModel()
+	sb, err := state.NewStorageBackend(st.State)
 	if err != nil {
 		return nil, err
 	}
-	return model.AllFilesystems()
+	return sb.AllFilesystems()
 }
 
 func (st modelManagerStateShim) AllVolumes() ([]state.Volume, error) {
-	model, err := st.State.IAASModel()
+	sb, err := state.NewStorageBackend(st.State)
 	if err != nil {
 		return nil, err
 	}
-	return model.AllVolumes()
+	return sb.AllVolumes()
 }
 
 // ModelConfig returns the underlying model's config. Exposed here to satisfy the

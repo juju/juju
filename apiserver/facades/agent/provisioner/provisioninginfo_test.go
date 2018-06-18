@@ -350,7 +350,9 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision just one of the volumes, but neither of the attachments.
-	err = s.IAASModel.SetVolumeInfo(names.NewVolumeTag("1"), state.VolumeInfo{
+	sb, err := state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	err = sb.SetVolumeInfo(names.NewVolumeTag("1"), state.VolumeInfo{
 		Pool:       "modelscoped",
 		Size:       1000,
 		VolumeId:   "vol-ume",

@@ -18,7 +18,7 @@ import (
 // StorageAPI provides access to the Storage API facade.
 type StorageAPI struct {
 	backend    backend
-	storage    storageInterface
+	storage    storageAccess
 	resources  facade.Resources
 	accessUnit common.GetAuthFunc
 }
@@ -26,7 +26,7 @@ type StorageAPI struct {
 // newStorageAPI creates a new server-side Storage API facade.
 func newStorageAPI(
 	backend backend,
-	storage storageInterface,
+	storage storageAccess,
 	resources facade.Resources,
 	accessUnit common.GetAuthFunc,
 ) (*StorageAPI, error) {

@@ -10,9 +10,13 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type storageInterface interface {
+type storageAccess interface {
+	storageInterface
 	VolumeAccess() storageVolumeInterface
 	FilesystemAccess() storageFilesystemInterface
+}
+
+type storageInterface interface {
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	UnitStorageAttachments(names.UnitTag) ([]state.StorageAttachment, error)
 	RemoveStorageAttachment(names.StorageTag, names.UnitTag) error
@@ -37,46 +41,39 @@ type storageFilesystemInterface interface {
 	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 }
 
-var getStorageState = func(st *state.State) (storageInterface, error) {
+var getStorageState = func(st *state.State) (storageAccess, error) {
 	m, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
-	if m.Type() == state.ModelTypeIAAS {
-		im, _ := m.IAASModel()
-		storageAccess := &iaasModelShim{Model: m, IAASModel: im}
-		return storageAccess, nil
+	sb, err := state.NewStorageBackend(st)
+	if err != nil {
+		return nil, err
 	}
-	caasModel, _ := m.CAASModel()
-	storageAccess := &caasModelShim{Model: m, CAASModel: caasModel}
+	storageAccess := &storageShim{
+		storageInterface: sb,
+		va:               sb,
+		fa:               sb,
+	}
+	// CAAS models don't support volume storage yet.
+	if m.Type() == state.ModelTypeCAAS {
+		storageAccess.va = nil
+	}
 	return storageAccess, nil
 }
 
-type iaasModelShim struct {
-	*state.Model
-	*state.IAASModel
+type storageShim struct {
+	storageInterface
+	fa storageFilesystemInterface
+	va storageVolumeInterface
 }
 
-func (im *iaasModelShim) VolumeAccess() storageVolumeInterface {
-	return im
+func (s *storageShim) VolumeAccess() storageVolumeInterface {
+	return s.va
 }
 
-func (im *iaasModelShim) FilesystemAccess() storageFilesystemInterface {
-	return im
-}
-
-type caasModelShim struct {
-	*state.Model
-	*state.CAASModel
-}
-
-func (cm *caasModelShim) VolumeAccess() storageVolumeInterface {
-	// CAAS models don't support volume storage yet.
-	return nil
-}
-
-func (cm *caasModelShim) FilesystemAccess() storageFilesystemInterface {
-	return cm
+func (s *storageShim) FilesystemAccess() storageFilesystemInterface {
+	return s.fa
 }
 
 type backend interface {

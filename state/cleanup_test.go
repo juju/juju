@@ -23,6 +23,7 @@ import (
 
 type CleanupSuite struct {
 	ConnSuite
+	storageBackend *state.StorageBackend
 }
 
 var _ = gc.Suite(&CleanupSuite{})
@@ -30,6 +31,10 @@ var _ = gc.Suite(&CleanupSuite{})
 func (s *CleanupSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.assertDoesNotNeedCleanup(c)
+	var err error
+	s.storageBackend, err = state.NewStorageBackend(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+
 }
 
 func (s *CleanupSuite) TestCleanupDyingApplicationUnits(c *gc.C) {
@@ -118,7 +123,7 @@ func (s *CleanupSuite) TestCleanupRemoteApplicationWithRelations(c *gc.C) {
 	}
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
-		SourceModel: s.IAASModel.ModelTag(),
+		SourceModel: s.Model.ModelTag(),
 		Token:       "t0",
 		Endpoints:   mysqlEps,
 	})
@@ -408,7 +413,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	// this tag matches the storage instance created for the unit above.
 	storageTag := names.NewStorageTag("data/0")
 
-	sa, err := s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
+	sa, err := s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sa.Life(), gc.Equals, state.Alive)
 
@@ -420,9 +425,9 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	// After running the cleanups, the storage attachment should
 	// have been removed; the storage instance should be floating,
 	// and will be removed along with the machine.
-	_, err = s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
+	_, err = s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	si, err := s.IAASModel.StorageInstance(storageTag)
+	si, err := s.storageBackend.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasOwner := si.Owner()
 	c.Assert(hasOwner, jc.IsFalse)
@@ -647,7 +652,7 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 	// this tag matches the storage instance created for the unit above.
 	storageTag := names.NewStorageTag("data/0")
 
-	sa, err := s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
+	sa, err := s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sa.Life(), gc.Equals, state.Alive)
 
@@ -658,7 +663,7 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 
 	// After running the cleanup, the attachment should be removed
 	// (short-circuited, because volume was never attached).
-	_, err = s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
+	_, err = s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// check no cleanups
@@ -680,24 +685,24 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	// this tag matches the storage instance created for the unit above.
 	storageTag := names.NewStorageTag("allecto/0")
 
-	si, err := s.IAASModel.StorageInstance(storageTag)
+	si, err := s.storageBackend.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Alive)
 
 	// destroy storage instance and run cleanups
-	err = s.IAASModel.DestroyStorageInstance(storageTag, true)
+	err = s.storageBackend.DestroyStorageInstance(storageTag, true)
 	c.Assert(err, jc.ErrorIsNil)
-	si, err = s.IAASModel.StorageInstance(storageTag)
+	si, err = s.storageBackend.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(si.Life(), gc.Equals, state.Dying)
-	sa, err := s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
+	sa, err := s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sa.Life(), gc.Equals, state.Alive)
 	s.assertCleanupRuns(c)
 
 	// After running the cleanup, the attachment should be removed
 	// (short-circuited, because volume was never attached).
-	_, err = s.IAASModel.StorageAttachment(storageTag, u.UnitTag())
+	_, err = s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// check no cleanups
@@ -735,7 +740,7 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
-	vas, err := s.IAASModel.MachineVolumeAttachments(machine.MachineTag())
+	vas, err := s.storageBackend.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vas, gc.HasLen, 1)
 	c.Assert(vas[0].Life(), gc.Equals, state.Dying)
@@ -755,11 +760,11 @@ func (s *CleanupSuite) TestCleanupVolumeAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
-	err = s.IAASModel.DestroyVolume(names.NewVolumeTag("0/0"))
+	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
-	attachment, err := s.IAASModel.VolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
+	attachment, err := s.storageBackend.VolumeAttachment(names.NewMachineTag("0"), names.NewVolumeTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachment.Life(), gc.Equals, state.Dying)
 }
@@ -775,11 +780,11 @@ func (s *CleanupSuite) TestCleanupFilesystemAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
-	err = s.IAASModel.DestroyFilesystem(names.NewFilesystemTag("0/0"))
+	err = s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
-	attachment, err := s.IAASModel.FilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
+	attachment, err := s.storageBackend.FilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachment.Life(), gc.Equals, state.Dying)
 }

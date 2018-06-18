@@ -137,7 +137,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 	// called with user-admin permissions automatically.
 	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
-	info.ModelTag = s.IAASModel.ModelTag()
+	info.ModelTag = s.Model.ModelTag()
 
 	adminUser := s.AdminUserTag(c)
 
@@ -192,7 +192,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
-	info.ModelTag = s.IAASModel.ModelTag()
+	info.ModelTag = s.Model.ModelTag()
 
 	st := s.openAPIWithoutLogin(c, info)
 	password := "password"
@@ -507,7 +507,7 @@ func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 
 	info.Tag = s.AdminUserTag(c)
 	info.Password = "dummy-secret"
-	info.ModelTag = s.IAASModel.ModelTag()
+	info.ModelTag = s.Model.ModelTag()
 
 	// We can login more than LoginRateLimit users
 	nLogins := apiserver.LoginRateLimit * 2
@@ -532,7 +532,7 @@ func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 func (s *loginSuite) TestNonModelUserLoginFails(c *gc.C) {
 	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
-	info.ModelTag = s.IAASModel.ModelTag()
+	info.ModelTag = s.Model.ModelTag()
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoModelUser: true})
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
 	err := s.State.RemoveUserAccess(user.UserTag(), ctag)
@@ -592,7 +592,7 @@ func (s *loginSuite) TestLoginWhileRestoreInProgress(c *gc.C) {
 func (s *loginSuite) testLoginDuringMaintenance(c *gc.C, cfg apiserver.ServerConfig, check func(api.Connection)) {
 	info, srv := s.newServerWithConfig(c, cfg)
 	defer assertStop(c, srv)
-	info.ModelTag = s.IAASModel.ModelTag()
+	info.ModelTag = s.Model.ModelTag()
 
 	st := s.openAPIWithoutLogin(c, info)
 	err := st.Login(s.AdminUserTag(c), "dummy-secret", "", nil)
@@ -642,7 +642,7 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 
-	info.ModelTag = s.IAASModel.ModelTag()
+	info.ModelTag = s.Model.ModelTag()
 	conn := s.openAPIWithoutLogin(c, info)
 
 	var result params.LoginResult
@@ -653,7 +653,7 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.IsNil)
 	c.Assert(result.ControllerTag, gc.Equals, s.State.ControllerTag().String())
-	c.Assert(result.ModelTag, gc.Equals, s.IAASModel.ModelTag().String())
+	c.Assert(result.ModelTag, gc.Equals, s.Model.ModelTag().String())
 	c.Assert(result.Facades, jc.DeepEquals, []params.FacadeVersions{
 		{Name: "CrossModelRelations", Versions: []int{1}},
 		{Name: "NotifyWatcher", Versions: []int{1}},
@@ -691,21 +691,21 @@ func (s *loginSuite) TestControllerModel(c *gc.C) {
 	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 
-	info.ModelTag = s.IAASModel.ModelTag()
+	info.ModelTag = s.Model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
 	adminUser := s.AdminUserTag(c)
 	err := st.Login(adminUser, "dummy-secret", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertRemoteModel(c, st, s.IAASModel.ModelTag())
+	s.assertRemoteModel(c, st, s.Model.ModelTag())
 }
 
 func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
 	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
 
-	info.ModelTag = s.IAASModel.ModelTag()
+	info.ModelTag = s.Model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
 	adminUser := s.AdminUserTag(c)
@@ -904,7 +904,7 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (*state.User, param
 func (s *loginSuite) TestLoginResultLocalUser(c *gc.C) {
 	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
-	info.ModelTag = s.IAASModel.ModelTag()
+	info.ModelTag = s.Model.ModelTag()
 
 	user, result := s.loginLocalUser(c, info)
 	c.Check(result.UserInfo.Identity, gc.Equals, user.Tag().String())
@@ -915,7 +915,7 @@ func (s *loginSuite) TestLoginResultLocalUser(c *gc.C) {
 func (s *loginSuite) TestLoginResultLocalUserEveryoneCreateOnlyNonLocal(c *gc.C) {
 	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
-	info.ModelTag = s.IAASModel.ModelTag()
+	info.ModelTag = s.Model.ModelTag()
 
 	setEveryoneAccess(c, s.State, s.AdminUserTag(c), permission.AddModelAccess)
 
@@ -981,7 +981,7 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	c.Assert(lastLogin.After(startTime), jc.IsTrue)
 
 	// The model user is also updated.
-	modelUser, err := s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
+	modelUser, err := s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	when, err := s.Model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1001,7 +1001,7 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 	cfg.Clock = jt.NewClock(cfg.Clock.Now())
 	info, srv := s.newServerWithConfig(c, cfg)
 	defer assertStop(c, srv)
-	info.ModelTag = s.IAASModel.Tag().(names.ModelTag)
+	info.ModelTag = s.Model.Tag().(names.ModelTag)
 
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{
@@ -1042,8 +1042,8 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 		Who:            user.Tag().Id(),
 		What:           "hey you guys",
 		When:           cfg.Clock.Now().Format(time.RFC3339),
-		ModelName:      s.IAASModel.Name(),
-		ModelUUID:      s.IAASModel.UUID(),
+		ModelName:      s.Model.Name(),
+		ModelUUID:      s.Model.UUID(),
 		ConnectionID:   "something",
 		ConversationID: "0123456789abcdef",
 	})
@@ -1073,7 +1073,7 @@ func (s *loginSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) {
 	info, srv := s.newServerWithConfig(c, cfg)
 	defer assertStop(c, srv)
 
-	info.ModelTag = s.IAASModel.Tag().(names.ModelTag)
+	info.ModelTag = s.Model.Tag().(names.ModelTag)
 
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{
@@ -1114,7 +1114,7 @@ func (s *loginSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 	}
 	info, srv := s.newServerWithConfig(c, cfg)
 	defer assertStop(c, srv)
-	info.ModelTag = s.IAASModel.Tag().(names.ModelTag)
+	info.ModelTag = s.Model.Tag().(names.ModelTag)
 
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{
@@ -1345,7 +1345,7 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 
 	srv := testserver.NewServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, srv)
-	srv.Info.ModelTag = s.IAASModel.ModelTag()
+	srv.Info.ModelTag = s.Model.ModelTag()
 
 	// If we have a remote user which has explicit model access, but neither
 	// controller access nor 'everyone' access, the user will have access

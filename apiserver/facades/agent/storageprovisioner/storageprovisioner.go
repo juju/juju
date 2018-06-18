@@ -34,6 +34,7 @@ type StorageProvisionerAPIv3 struct {
 	*common.StatusSetter
 
 	st                       Backend
+	sb                       StorageBackend
 	resources                facade.Resources
 	authorizer               facade.Authorizer
 	registry                 storage.ProviderRegistry
@@ -53,6 +54,7 @@ func NewStorageProvisionerAPIv4(v3 *StorageProvisionerAPIv3) *StorageProvisioner
 // NewStorageProvisionerAPIv3 creates a new server-side StorageProvisioner v3 facade.
 func NewStorageProvisionerAPIv3(
 	st Backend,
+	sb StorageBackend,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	registry storage.ProviderRegistry,
@@ -104,7 +106,7 @@ func NewStorageProvisionerAPIv3(
 			if ok {
 				return canAccessStorageMachine(machineTag, false)
 			}
-			f, err := st.Filesystem(tag)
+			f, err := sb.Filesystem(tag)
 			if err != nil {
 				return false
 			}
@@ -114,7 +116,7 @@ func NewStorageProvisionerAPIv3(
 				// authenticated agent has access to any of the
 				// machines that the volume is attached to, then
 				// it may access the filesystem too.
-				volumeAttachments, err := st.VolumeAttachments(volumeTag)
+				volumeAttachments, err := sb.VolumeAttachments(volumeTag)
 				if err != nil {
 					return false
 				}
@@ -194,6 +196,7 @@ func NewStorageProvisionerAPIv3(
 		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc),
 
 		st:                       st,
+		sb:                       sb,
 		resources:                resources,
 		authorizer:               authorizer,
 		registry:                 registry,
@@ -223,7 +226,7 @@ func (s *StorageProvisionerAPIv3) WatchBlockDevices(args params.Entities) (param
 		if !canAccess(machineTag) {
 			return "", common.ErrPerm
 		}
-		w := s.st.WatchBlockDevices(machineTag)
+		w := s.sb.WatchBlockDevices(machineTag)
 		if _, ok := <-w.Changes(); ok {
 			return s.resources.Register(w), nil
 		}
@@ -284,13 +287,13 @@ func (s *StorageProvisionerAPIv3) WatchMachines(args params.Entities) (params.No
 // WatchVolumes watches for changes to volumes scoped to the
 // entity with the tag passed to NewState.
 func (s *StorageProvisionerAPIv3) WatchVolumes(args params.Entities) (params.StringsWatchResults, error) {
-	return s.watchStorageEntities(args, s.st.WatchModelVolumes, s.st.WatchMachineVolumes)
+	return s.watchStorageEntities(args, s.sb.WatchModelVolumes, s.sb.WatchMachineVolumes)
 }
 
 // WatchFilesystems watches for changes to filesystems scoped
 // to the entity with the tag passed to NewState.
 func (s *StorageProvisionerAPIv3) WatchFilesystems(args params.Entities) (params.StringsWatchResults, error) {
-	w := filesystemwatcher.Watchers{s.st}
+	w := filesystemwatcher.Watchers{s.sb}
 	return s.watchStorageEntities(args, w.WatchModelManagedFilesystems, w.WatchMachineManagedFilesystems)
 }
 
@@ -341,8 +344,8 @@ func (s *StorageProvisionerAPIv3) watchStorageEntities(
 func (s *StorageProvisionerAPIv3) WatchVolumeAttachments(args params.Entities) (params.MachineStorageIdsWatchResults, error) {
 	return s.watchAttachments(
 		args,
-		s.st.WatchModelVolumeAttachments,
-		s.st.WatchMachineVolumeAttachments,
+		s.sb.WatchModelVolumeAttachments,
+		s.sb.WatchMachineVolumeAttachments,
 		storagecommon.ParseVolumeAttachmentIds,
 	)
 }
@@ -350,7 +353,7 @@ func (s *StorageProvisionerAPIv3) WatchVolumeAttachments(args params.Entities) (
 // WatchFilesystemAttachments watches for changes to filesystem attachments
 // scoped to the entity with the tag passed to NewState.
 func (s *StorageProvisionerAPIv3) WatchFilesystemAttachments(args params.Entities) (params.MachineStorageIdsWatchResults, error) {
-	w := filesystemwatcher.Watchers{s.st}
+	w := filesystemwatcher.Watchers{s.sb}
 	return s.watchAttachments(
 		args,
 		w.WatchModelManagedFilesystemAttachments,
@@ -421,7 +424,7 @@ func (s *StorageProvisionerAPIv3) Volumes(args params.Entities) (params.VolumeRe
 		if err != nil || !canAccess(tag) {
 			return params.Volume{}, common.ErrPerm
 		}
-		volume, err := s.st.Volume(tag)
+		volume, err := s.sb.Volume(tag)
 		if errors.IsNotFound(err) {
 			return params.Volume{}, common.ErrPerm
 		} else if err != nil {
@@ -456,7 +459,7 @@ func (s *StorageProvisionerAPIv3) Filesystems(args params.Entities) (params.File
 		if err != nil || !canAccess(tag) {
 			return params.Filesystem{}, common.ErrPerm
 		}
-		filesystem, err := s.st.Filesystem(tag)
+		filesystem, err := s.sb.Filesystem(tag)
 		if errors.IsNotFound(err) {
 			return params.Filesystem{}, common.ErrPerm
 		} else if err != nil {
@@ -588,19 +591,19 @@ func (s *StorageProvisionerAPIv3) VolumeParams(args params.Entities) (params.Vol
 		if err != nil || !canAccess(tag) {
 			return params.VolumeParams{}, common.ErrPerm
 		}
-		volume, err := s.st.Volume(tag)
+		volume, err := s.sb.Volume(tag)
 		if errors.IsNotFound(err) {
 			return params.VolumeParams{}, common.ErrPerm
 		} else if err != nil {
 			return params.VolumeParams{}, err
 		}
-		volumeAttachments, err := s.st.VolumeAttachments(tag)
+		volumeAttachments, err := s.sb.VolumeAttachments(tag)
 		if err != nil {
 			return params.VolumeParams{}, err
 		}
 		storageInstance, err := storagecommon.MaybeAssignedStorageInstance(
 			volume.StorageInstance,
-			s.st.StorageInstance,
+			s.sb.StorageInstance,
 		)
 		if err != nil {
 			return params.VolumeParams{}, err
@@ -672,7 +675,7 @@ func (s *StorageProvisionerAPIv4) RemoveVolumeParams(args params.Entities) (para
 		if err != nil || !canAccess(tag) {
 			return params.RemoveVolumeParams{}, common.ErrPerm
 		}
-		volume, err := s.st.Volume(tag)
+		volume, err := s.sb.Volume(tag)
 		if errors.IsNotFound(err) {
 			return params.RemoveVolumeParams{}, common.ErrPerm
 		} else if err != nil {
@@ -736,7 +739,7 @@ func (s *StorageProvisionerAPIv3) FilesystemParams(args params.Entities) (params
 		if err != nil || !canAccess(tag) {
 			return params.FilesystemParams{}, common.ErrPerm
 		}
-		filesystem, err := s.st.Filesystem(tag)
+		filesystem, err := s.sb.Filesystem(tag)
 		if errors.IsNotFound(err) {
 			return params.FilesystemParams{}, common.ErrPerm
 		} else if err != nil {
@@ -744,7 +747,7 @@ func (s *StorageProvisionerAPIv3) FilesystemParams(args params.Entities) (params
 		}
 		storageInstance, err := storagecommon.MaybeAssignedStorageInstance(
 			filesystem.Storage,
-			s.st.StorageInstance,
+			s.sb.StorageInstance,
 		)
 		if err != nil {
 			return params.FilesystemParams{}, err
@@ -786,7 +789,7 @@ func (s *StorageProvisionerAPIv4) RemoveFilesystemParams(args params.Entities) (
 		if err != nil || !canAccess(tag) {
 			return params.RemoveFilesystemParams{}, common.ErrPerm
 		}
-		filesystem, err := s.st.Filesystem(tag)
+		filesystem, err := s.sb.Filesystem(tag)
 		if errors.IsNotFound(err) {
 			return params.RemoveFilesystemParams{}, common.ErrPerm
 		} else if err != nil {
@@ -851,7 +854,7 @@ func (s *StorageProvisionerAPIv3) VolumeAttachmentParams(
 		} else if err != nil {
 			return params.VolumeAttachmentParams{}, err
 		}
-		volume, err := s.st.Volume(volumeAttachment.Volume())
+		volume, err := s.sb.Volume(volumeAttachment.Volume())
 		if err != nil {
 			return params.VolumeAttachmentParams{}, err
 		}
@@ -929,7 +932,7 @@ func (s *StorageProvisionerAPIv3) FilesystemAttachmentParams(
 		} else if err != nil {
 			return params.FilesystemAttachmentParams{}, err
 		}
-		filesystem, err := s.st.Filesystem(filesystemAttachment.Filesystem())
+		filesystem, err := s.sb.Filesystem(filesystemAttachment.Filesystem())
 		if err != nil {
 			return params.FilesystemAttachmentParams{}, err
 		}
@@ -1004,7 +1007,7 @@ func (s *StorageProvisionerAPIv3) oneVolumeAttachment(
 	if !canAccess(machineTag, volumeTag) {
 		return nil, common.ErrPerm
 	}
-	volumeAttachment, err := s.st.VolumeAttachment(machineTag, volumeTag)
+	volumeAttachment, err := s.sb.VolumeAttachment(machineTag, volumeTag)
 	if errors.IsNotFound(err) {
 		return nil, common.ErrPerm
 	} else if err != nil {
@@ -1020,7 +1023,7 @@ func (s *StorageProvisionerAPIv3) oneVolumeBlockDevice(
 	if err != nil {
 		return state.BlockDeviceInfo{}, err
 	}
-	volume, err := s.st.Volume(volumeAttachment.Volume())
+	volume, err := s.sb.Volume(volumeAttachment.Volume())
 	if err != nil {
 		return state.BlockDeviceInfo{}, err
 	}
@@ -1032,7 +1035,7 @@ func (s *StorageProvisionerAPIv3) oneVolumeBlockDevice(
 	if err != nil {
 		return state.BlockDeviceInfo{}, err
 	}
-	blockDevices, err := s.st.BlockDevices(volumeAttachment.Machine())
+	blockDevices, err := s.sb.BlockDevices(volumeAttachment.Machine())
 	if err != nil {
 		return state.BlockDeviceInfo{}, err
 	}
@@ -1065,7 +1068,7 @@ func (s *StorageProvisionerAPIv3) oneFilesystemAttachment(
 	if !canAccess(machineTag, filesystemTag) {
 		return nil, common.ErrPerm
 	}
-	filesystemAttachment, err := s.st.FilesystemAttachment(machineTag, filesystemTag)
+	filesystemAttachment, err := s.sb.FilesystemAttachment(machineTag, filesystemTag)
 	if errors.IsNotFound(err) {
 		return nil, common.ErrPerm
 	} else if err != nil {
@@ -1090,7 +1093,7 @@ func (s *StorageProvisionerAPIv3) SetVolumeInfo(args params.Volumes) (params.Err
 		} else if !canAccessVolume(volumeTag) {
 			return common.ErrPerm
 		}
-		err = s.st.SetVolumeInfo(volumeTag, volumeInfo)
+		err = s.sb.SetVolumeInfo(volumeTag, volumeInfo)
 		if errors.IsNotFound(err) {
 			return common.ErrPerm
 		}
@@ -1119,7 +1122,7 @@ func (s *StorageProvisionerAPIv3) SetFilesystemInfo(args params.Filesystems) (pa
 		} else if !canAccessFilesystem(filesystemTag) {
 			return common.ErrPerm
 		}
-		err = s.st.SetFilesystemInfo(filesystemTag, filesystemInfo)
+		err = s.sb.SetFilesystemInfo(filesystemTag, filesystemInfo)
 		if errors.IsNotFound(err) {
 			return common.ErrPerm
 		}
@@ -1152,7 +1155,7 @@ func (s *StorageProvisionerAPIv3) SetVolumeAttachmentInfo(
 		if !canAccess(machineTag, volumeTag) {
 			return common.ErrPerm
 		}
-		err = s.st.SetVolumeAttachmentInfo(machineTag, volumeTag, volumeAttachmentInfo)
+		err = s.sb.SetVolumeAttachmentInfo(machineTag, volumeTag, volumeAttachmentInfo)
 		if errors.IsNotFound(err) {
 			return common.ErrPerm
 		}
@@ -1185,7 +1188,7 @@ func (s *StorageProvisionerAPIv3) SetFilesystemAttachmentInfo(
 		if !canAccess(machineTag, filesystemTag) {
 			return common.ErrPerm
 		}
-		err = s.st.SetFilesystemAttachmentInfo(machineTag, filesystemTag, filesystemAttachmentInfo)
+		err = s.sb.SetFilesystemAttachmentInfo(machineTag, filesystemTag, filesystemAttachmentInfo)
 		if errors.IsNotFound(err) {
 			return common.ErrPerm
 		}
@@ -1223,9 +1226,9 @@ func (s *StorageProvisionerAPIv3) AttachmentLife(args params.MachineStorageIds) 
 		var lifer state.Lifer
 		switch attachmentTag := attachmentTag.(type) {
 		case names.VolumeTag:
-			lifer, err = s.st.VolumeAttachment(machineTag, attachmentTag)
+			lifer, err = s.sb.VolumeAttachment(machineTag, attachmentTag)
 		case names.FilesystemTag:
-			lifer, err = s.st.FilesystemAttachment(machineTag, attachmentTag)
+			lifer, err = s.sb.FilesystemAttachment(machineTag, attachmentTag)
 		}
 		if err != nil {
 			return "", errors.Trace(err)
@@ -1262,9 +1265,9 @@ func (s *StorageProvisionerAPIv3) Remove(args params.Entities) (params.ErrorResu
 		}
 		switch tag := tag.(type) {
 		case names.FilesystemTag:
-			return s.st.RemoveFilesystem(tag)
+			return s.sb.RemoveFilesystem(tag)
 		case names.VolumeTag:
-			return s.st.RemoveVolume(tag)
+			return s.sb.RemoveVolume(tag)
 		default:
 			// should have been picked up by canAccess
 			logger.Debugf("unexpected %v tag", tag.Kind())
@@ -1302,9 +1305,9 @@ func (s *StorageProvisionerAPIv3) RemoveAttachment(args params.MachineStorageIds
 		}
 		switch attachmentTag := attachmentTag.(type) {
 		case names.VolumeTag:
-			return s.st.RemoveVolumeAttachment(machineTag, attachmentTag)
+			return s.sb.RemoveVolumeAttachment(machineTag, attachmentTag)
 		case names.FilesystemTag:
-			return s.st.RemoveFilesystemAttachment(machineTag, attachmentTag)
+			return s.sb.RemoveFilesystemAttachment(machineTag, attachmentTag)
 		default:
 			return common.ErrPerm
 		}

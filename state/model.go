@@ -1136,12 +1136,12 @@ func (m *Model) destroyOps(
 			// The model is non-empty, and the user has specified that
 			// storage should be released. Make sure the storage is
 			// all releasable.
-			im, err := m.IAASModel()
+			sb, err := NewStorageBackend(m.st)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			storageOps, err := checkModelEntityRefsAllReleasableStorage(
-				im, modelEntityRefs,
+				sb, modelEntityRefs,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -1412,17 +1412,17 @@ func checkModelEntityRefsNoPersistentStorage(
 // persistent storage in the model is releasable. If it is, then
 // txn.Ops are returned to assert the same; if it is not, then an
 // error is returned.
-func checkModelEntityRefsAllReleasableStorage(im *IAASModel, doc *modelEntityRefsDoc) ([]txn.Op, error) {
+func checkModelEntityRefsAllReleasableStorage(sb *storageBackend, doc *modelEntityRefsDoc) ([]txn.Op, error) {
 	for _, volumeId := range doc.Volumes {
 		volumeTag := names.NewVolumeTag(volumeId)
-		volume, err := im.volumeByTag(volumeTag)
+		volume, err := getVolumeByTag(sb.mb, volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if !volume.Detachable() {
 			continue
 		}
-		if err := checkStoragePoolReleasable(im, volume.pool()); err != nil {
+		if err := checkStoragePoolReleasable(sb, volume.pool()); err != nil {
 			return nil, errors.Annotatef(err,
 				"cannot release %s", names.ReadableString(volumeTag),
 			)
@@ -1430,14 +1430,14 @@ func checkModelEntityRefsAllReleasableStorage(im *IAASModel, doc *modelEntityRef
 	}
 	for _, filesystemId := range doc.Filesystems {
 		filesystemTag := names.NewFilesystemTag(filesystemId)
-		filesystem, err := im.filesystemByTag(filesystemTag)
+		filesystem, err := getFilesystemByTag(sb.mb, filesystemTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if !filesystem.Detachable() {
 			continue
 		}
-		if err := checkStoragePoolReleasable(im, filesystem.pool()); err != nil {
+		if err := checkStoragePoolReleasable(sb, filesystem.pool()); err != nil {
 			return nil, errors.Annotatef(err,
 				"cannot release %s", names.ReadableString(filesystemTag),
 			)

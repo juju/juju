@@ -513,12 +513,12 @@ func AddNonDetachableStorageMachineId(st *State) error {
 }
 
 func addNonDetachableStorageMachineId(st *State) error {
-	im, err := st.IAASModel()
+	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	var ops []txn.Op
-	volumes, err := im.volumes(
+	volumes, err := sb.volumes(
 		bson.D{{"machineid", bson.D{{"$exists", false}}}},
 	)
 	if err != nil {
@@ -531,14 +531,14 @@ func addNonDetachableStorageMachineId(st *State) error {
 		} else if v.doc.Params != nil {
 			pool = v.doc.Params.Pool
 		}
-		detachable, err := isDetachableVolumePool(im, pool)
+		detachable, err := isDetachableVolumePool(sb, pool)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if detachable {
 			continue
 		}
-		attachments, err := im.VolumeAttachments(v.VolumeTag())
+		attachments, err := sb.VolumeAttachments(v.VolumeTag())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -559,7 +559,7 @@ func addNonDetachableStorageMachineId(st *State) error {
 			}}},
 		})
 	}
-	filesystems, err := im.filesystems(
+	filesystems, err := sb.filesystems(
 		bson.D{{"machineid", bson.D{{"$exists", false}}}},
 	)
 	if err != nil {
@@ -572,12 +572,12 @@ func addNonDetachableStorageMachineId(st *State) error {
 		} else if f.doc.Params != nil {
 			pool = f.doc.Params.Pool
 		}
-		if detachable, err := isDetachableFilesystemPool(im, pool); err != nil {
+		if detachable, err := isDetachableFilesystemPool(sb, pool); err != nil {
 			return errors.Trace(err)
 		} else if detachable {
 			continue
 		}
-		attachments, err := im.FilesystemAttachments(f.FilesystemTag())
+		attachments, err := sb.FilesystemAttachments(f.FilesystemTag())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -783,11 +783,11 @@ func AddStorageInstanceConstraints(st *State) error {
 }
 
 func addStorageInstanceConstraints(st *State) error {
-	im, err := st.IAASModel()
+	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	storageInstances, err := im.storageInstances(bson.D{
+	storageInstances, err := sb.storageInstances(bson.D{
 		{"constraints", bson.D{{"$exists", false}}},
 	})
 	if err != nil {
@@ -799,7 +799,7 @@ func addStorageInstanceConstraints(st *State) error {
 		var defaultPool string
 		switch s.Kind() {
 		case StorageKindBlock:
-			v, err := im.storageInstanceVolume(s.StorageTag())
+			v, err := sb.storageInstanceVolume(s.StorageTag())
 			if err == nil {
 				if v.doc.Info != nil {
 					siCons.Pool = v.doc.Info.Pool
@@ -814,7 +814,7 @@ func addStorageInstanceConstraints(st *State) error {
 				return errors.Trace(err)
 			}
 		case StorageKindFilesystem:
-			f, err := im.storageInstanceFilesystem(s.StorageTag())
+			f, err := sb.storageInstanceFilesystem(s.StorageTag())
 			if err == nil {
 				if f.doc.Info != nil {
 					siCons.Pool = f.doc.Info.Pool

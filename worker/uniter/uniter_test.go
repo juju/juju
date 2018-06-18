@@ -111,17 +111,10 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 		func() {
 			defer s.Reset(c)
 
-			model, err := s.State.Model()
-			c.Assert(err, jc.ErrorIsNil)
-
-			im, err := s.State.IAASModel()
-			c.Assert(err, jc.ErrorIsNil)
-
 			ctx := &context{
 				s:                      s,
 				st:                     s.State,
-				im:                     im,
-				uuid:                   model.UUID(),
+				uuid:                   s.State.ModelUUID(),
 				path:                   s.unitDir,
 				dataDir:                s.dataDir,
 				charms:                 make(map[string][]byte),

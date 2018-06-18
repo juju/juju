@@ -583,7 +583,7 @@ func (a *Application) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn
 func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []*Unit) (_ []txn.Op, err error) {
 	// Make sure no storage instances are added or removed.
 
-	im, err := a.st.IAASModel()
+	sb, err := NewStorageBackend(a.st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -600,7 +600,7 @@ func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []
 		// are no instances of the store, it can safely be
 		// removed.
 		if oldStorageMeta.Shared {
-			op, n, err := im.countEntityStorageInstances(a.Tag(), name)
+			op, n, err := sb.countEntityStorageInstances(a.Tag(), name)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -610,7 +610,7 @@ func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []
 			ops = append(ops, op)
 		} else {
 			for _, u := range units {
-				op, n, err := im.countEntityStorageInstances(u.Tag(), name)
+				op, n, err := sb.countEntityStorageInstances(u.Tag(), name)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -857,20 +857,12 @@ func (a *Application) newCharmStorageOps(
 		return nil, nil, nil, errors.Trace(err)
 	}
 
-	model, err := a.st.Model()
-	if err != nil {
-		return fail(err)
-	}
-	if model.Type() != ModelTypeIAAS {
-		// Only IAAS models have storage.
-		return fail(nil)
-	}
 	// Check storage to ensure no referenced storage is removed, or changed
 	// in an incompatible way. We do this before computing the new storage
 	// constraints, as incompatible charm changes will otherwise yield
 	// confusing error messages that would suggest the user has supplied
 	// invalid constraints.
-	im, err := a.st.IAASModel()
+	sb, err := NewStorageBackend(a.st)
 	if err != nil {
 		return fail(err)
 	}
@@ -901,14 +893,14 @@ func (a *Application) newCharmStorageOps(
 			delete(newStorageConstraints, name)
 		}
 	}
-	if err := addDefaultStorageConstraints(im, newStorageConstraints, ch.Meta()); err != nil {
+	if err := addDefaultStorageConstraints(sb, newStorageConstraints, ch.Meta()); err != nil {
 		return fail(errors.Annotate(err, "adding default storage constraints"))
 	}
-	if err := validateStorageConstraints(im, newStorageConstraints, ch.Meta()); err != nil {
+	if err := validateStorageConstraints(sb, newStorageConstraints, ch.Meta()); err != nil {
 		return fail(errors.Annotate(err, "validating storage constraints"))
 	}
 	newStorageConstraintsKey := applicationStorageConstraintsKey(a.doc.Name, ch.URL())
-	if _, err := readStorageConstraints(im.mb, newStorageConstraintsKey); errors.IsNotFound(err) {
+	if _, err := readStorageConstraints(sb.mb, newStorageConstraintsKey); errors.IsNotFound(err) {
 		storageConstraintsOp = createStorageConstraintsOp(
 			newStorageConstraintsKey, newStorageConstraints,
 		)
@@ -934,7 +926,7 @@ func (a *Application) upgradeStorageOps(
 	allStorageCons map[string]StorageConstraints,
 ) (_ []txn.Op, err error) {
 
-	im, err := a.st.IAASModel()
+	sb, err := NewStorageBackend(a.st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -953,7 +945,7 @@ func (a *Application) upgradeStorageOps(
 				// cosntraints.
 				countMin = int(cons.Count)
 			}
-			_, unitOps, err := im.addUnitStorageOps(
+			_, unitOps, err := sb.addUnitStorageOps(
 				meta, u, name, cons, countMin,
 			)
 			if err != nil {
@@ -1478,15 +1470,7 @@ func (a *Application) addUnitStorageOps(
 	charm *Charm,
 ) ([]txn.Op, int, error) {
 
-	model, err := a.st.Model()
-	if err != nil {
-		return nil, -1, errors.Trace(err)
-	}
-	if model.Type() != ModelTypeIAAS {
-		// Only IAAS models have storage.
-		return nil, 0, nil
-	}
-	im, err := model.IAASModel()
+	sb, err := NewStorageBackend(a.st)
 	if err != nil {
 		return nil, -1, errors.Trace(err)
 	}
@@ -1529,7 +1513,7 @@ func (a *Application) addUnitStorageOps(
 		machineAssignable = pu
 	}
 	storageOps, storageTags, numStorageAttachments, err := createStorageOps(
-		im,
+		sb,
 		unitTag,
 		charm.Meta(),
 		args.storageCons,
@@ -1540,14 +1524,14 @@ func (a *Application) addUnitStorageOps(
 		return nil, -1, errors.Trace(err)
 	}
 	for _, storageTag := range args.attachStorage {
-		si, err := im.storageInstance(storageTag)
+		si, err := sb.storageInstance(storageTag)
 		if err != nil {
 			return nil, -1, errors.Annotatef(
 				err, "attaching %s",
 				names.ReadableString(storageTag),
 			)
 		}
-		ops, err := im.attachStorageOps(
+		ops, err := sb.attachStorageOps(
 			si,
 			unitTag,
 			a.doc.Series,
@@ -1708,19 +1692,19 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
-	if model.Type() == ModelTypeIAAS {
-		im, err := model.IAASModel()
-		if err != nil {
-			return nil, err
-		}
-		storageInstanceOps, err := removeStorageInstancesOps(im, u.Tag())
-		if err != nil {
-			return nil, err
-		}
-		ops = append(ops, storageInstanceOps...)
-	} else {
+	if model.Type() == ModelTypeCAAS {
 		ops = append(ops, u.removeCloudContainerOps()...)
 	}
+
+	sb, err := NewStorageBackend(a.st)
+	if err != nil {
+		return nil, err
+	}
+	storageInstanceOps, err := removeStorageInstancesOps(sb, u.Tag())
+	if err != nil {
+		return nil, err
+	}
+	ops = append(ops, storageInstanceOps...)
 
 	if u.doc.CharmURL != nil {
 		// If the unit has a different URL to the application, allow any final

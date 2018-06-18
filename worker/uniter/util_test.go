@@ -85,7 +85,6 @@ type context struct {
 	dataDir                string
 	s                      *UniterSuite
 	st                     *state.State
-	im                     *state.IAASModel
 	api                    *apiuniter.State
 	apiConn                api.Connection
 	leaderClaimer          coreleadership.Claimer
@@ -1719,18 +1718,20 @@ func (*mockCharmDirGuard) Lockdown(_ fortress.Abort) error { return nil }
 type provisionStorage struct{}
 
 func (s provisionStorage) step(c *gc.C, ctx *context) {
-	storageAttachments, err := ctx.im.UnitStorageAttachments(ctx.unit.UnitTag())
+	sb, err := state.NewStorageBackend(ctx.st)
+	c.Assert(err, jc.ErrorIsNil)
+	storageAttachments, err := sb.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 
-	filesystem, err := ctx.im.StorageInstanceFilesystem(storageAttachments[0].StorageInstance())
+	filesystem, err := sb.StorageInstanceFilesystem(storageAttachments[0].StorageInstance())
 	c.Assert(err, jc.ErrorIsNil)
 
 	filesystemInfo := state.FilesystemInfo{
 		Size:         1024,
 		FilesystemId: "fs-id",
 	}
-	err = ctx.im.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfo)
+	err = sb.SetFilesystemInfo(filesystem.FilesystemTag(), filesystemInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineId, err := ctx.unit.AssignedMachineId()
@@ -1739,7 +1740,7 @@ func (s provisionStorage) step(c *gc.C, ctx *context) {
 	filesystemAttachmentInfo := state.FilesystemAttachmentInfo{
 		MountPoint: "/srv/wordpress/content",
 	}
-	err = ctx.im.SetFilesystemAttachmentInfo(
+	err = sb.SetFilesystemAttachmentInfo(
 		names.NewMachineTag(machineId),
 		filesystem.FilesystemTag(),
 		filesystemAttachmentInfo,
@@ -1750,10 +1751,12 @@ func (s provisionStorage) step(c *gc.C, ctx *context) {
 type destroyStorageAttachment struct{}
 
 func (s destroyStorageAttachment) step(c *gc.C, ctx *context) {
-	storageAttachments, err := ctx.im.UnitStorageAttachments(ctx.unit.UnitTag())
+	sb, err := state.NewStorageBackend(ctx.st)
+	c.Assert(err, jc.ErrorIsNil)
+	storageAttachments, err := sb.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
-	err = ctx.im.DetachStorage(
+	err = sb.DetachStorage(
 		storageAttachments[0].StorageInstance(),
 		ctx.unit.UnitTag(),
 	)
@@ -1763,7 +1766,9 @@ func (s destroyStorageAttachment) step(c *gc.C, ctx *context) {
 type verifyStorageDetached struct{}
 
 func (s verifyStorageDetached) step(c *gc.C, ctx *context) {
-	storageAttachments, err := ctx.im.UnitStorageAttachments(ctx.unit.UnitTag())
+	sb, err := state.NewStorageBackend(ctx.st)
+	c.Assert(err, jc.ErrorIsNil)
+	storageAttachments, err := sb.UnitStorageAttachments(ctx.unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 0)
 }
