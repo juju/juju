@@ -724,3 +724,34 @@ func prepareTestCloudYaml(c *gc.C, data string) *os.File {
 
 	return cloudFile
 }
+
+func (s *addSuite) TestInvalidCredentialMessage(c *gc.C) {
+	fake := newFakeCloudMetadataStore()
+	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
+	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
+	const expectedYAMLarg = "" +
+		"auth-types:\n" +
+		"- oauth1\n" +
+		"endpoint: http://mymaas\n"
+	fake.Call("ParseOneCloud", []byte(expectedYAMLarg)).Returns(garageMAASCloud, nil)
+	m1Cloud := garageMAASCloud
+	m1Cloud.Name = "m1"
+	m1Metadata := map[string]cloudfile.Cloud{"m1": m1Cloud}
+	fake.Call("WritePersonalCloudMetadata", m1Metadata).Returns(nil)
+
+	command := cloud.NewAddCloudCommand(fake)
+	command.Ping = func(environs.EnvironProvider, string) error {
+		return command.CloudCallCtx.InvalidateCredential("running test")
+	}
+
+	ctx := cmdtesting.Context(c)
+	ctx.Stdin = strings.NewReader("" +
+		/* Select cloud type: */ "maas\n" +
+		/* Enter a name for the cloud: */ "m1\n" +
+		/* Enter the controller's hostname or IP address: */ "http://mymaas\n",
+	)
+
+	err := command.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "Cloud credential is not accepted by cloud provider: running test")
+}
