@@ -45,6 +45,14 @@ func (s *CredentialManagerSuite) SetUpTest(c *gc.C) {
 	s.api = api
 }
 
+func (s *CredentialManagerSuite) TestInvalidateModelCredentialUnauthorized(c *gc.C) {
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: names.NewMachineTag("0"),
+	}
+	_, err := credentialmanager.NewCredentialManagerAPIForTest(s.backend, s.resources, s.authorizer)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
 func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
 	result, err := s.api.InvalidateModelCredential("not again")
 	c.Assert(err, jc.ErrorIsNil)
