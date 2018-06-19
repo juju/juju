@@ -337,7 +337,10 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (
 		return params.ErrorResult{}, err
 	}
 	err := mm.createUpgradeSeriesPrepareLock(args)
-	return params.ErrorResult{Error: common.ServerError(err)}, nil
+	if err != nil {
+		return params.ErrorResult{Error: common.ServerError(err)}, nil
+	}
+	return params.ErrorResult{}, nil
 }
 
 // DEPRECATED: UpdateMachineSeries updates the series of the given machine(s) as well as all
