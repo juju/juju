@@ -640,7 +640,7 @@ func (s *store) UpdateAccount(controllerName string, details AccountDetails) err
 	releaser, err := s.acquireLock()
 	if err != nil {
 		return errors.Annotatef(err,
-			"cannot acquire lock file for updating account on controller %s", controllerName,
+			"cannot acquire lock file for updating an account on controller %s", controllerName,
 		)
 	}
 	defer releaser.Release()
@@ -674,7 +674,7 @@ func (s *store) AccountDetails(controllerName string) (*AccountDetails, error) {
 	releaser, err := s.acquireLock()
 	if err != nil {
 		return nil, errors.Annotatef(err,
-			"cannot acquire lock file for getting account details on controller %s", controllerName,
+			"cannot acquire lock file for getting an account details on controller %s", controllerName,
 		)
 	}
 	defer releaser.Release()
@@ -699,7 +699,7 @@ func (s *store) RemoveAccount(controllerName string) error {
 	releaser, err := s.acquireLock()
 	if err != nil {
 		return errors.Annotatef(err,
-			"cannot acquire lock file for removing account on controller %s", controllerName,
+			"cannot acquire lock file for removing an account on controller %s", controllerName,
 		)
 	}
 	defer releaser.Release()
@@ -791,7 +791,7 @@ func (s *store) UpdateBootstrapConfig(controllerName string, cfg BootstrapConfig
 	releaser, err := s.acquireLock()
 	if err != nil {
 		return errors.Annotatef(err,
-			"cannot acquire lock file for updating bootstrap config for controller %s", controllerName,
+			"cannot acquire lock file for updating the bootstrap config for controller %s", controllerName,
 		)
 	}
 	defer releaser.Release()
