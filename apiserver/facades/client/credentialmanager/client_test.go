@@ -1,36 +1,50 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package credentialcommon_test
+package credentialmanager_test
 
 import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/common/credentialcommon"
+	"github.com/juju/juju/apiserver/facades/client/credentialmanager"
 	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
-type CredentialSuite struct {
-	testing.IsolationSuite
+type CredentialManagerSuite struct {
+	coretesting.BaseSuite
 
-	backend *testBackend
-	api     *credentialcommon.CredentialManagerAPI
+	resources  *common.Resources
+	authorizer apiservertesting.FakeAuthorizer
+	backend    *testBackend
+
+	api *credentialmanager.CredentialManagerAPI
 }
 
-var _ = gc.Suite(&CredentialSuite{})
+var _ = gc.Suite(&CredentialManagerSuite{})
 
-func (s *CredentialSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-
+func (s *CredentialManagerSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.backend = newMockBackend()
-	s.api = credentialcommon.NewCredentialManagerAPI(s.backend)
+
+	s.resources = common.NewResources()
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: names.NewMachineTag("0"),
+	}
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+
+	api, err := credentialmanager.NewCredentialManagerAPIForTest(s.backend, s.resources, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	s.api = api
 }
 
-func (s *CredentialSuite) TestInvalidateModelCredential(c *gc.C) {
+func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
 	result, err := s.api.InvalidateModelCredential("not again")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
@@ -39,7 +53,7 @@ func (s *CredentialSuite) TestInvalidateModelCredential(c *gc.C) {
 	})
 }
 
-func (s *CredentialSuite) TestInvalidateModelCredentialError(c *gc.C) {
+func (s *CredentialManagerSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	expected := errors.New("boom")
 	s.backend.SetErrors(expected)
 	result, err := s.api.InvalidateModelCredential("not again")
@@ -51,7 +65,9 @@ func (s *CredentialSuite) TestInvalidateModelCredentialError(c *gc.C) {
 }
 
 func newMockBackend() *testBackend {
-	return &testBackend{Stub: &testing.Stub{}}
+	return &testBackend{
+		Stub: &testing.Stub{},
+	}
 }
 
 type testBackend struct {
