@@ -6,7 +6,11 @@ package jujuclient_test
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -62,6 +66,15 @@ func (s *ControllersFileSuite) TestReadNoFile(c *gc.C) {
 	c.Assert(controllers, gc.NotNil)
 	c.Assert(controllers.Controllers, gc.HasLen, 0)
 	c.Assert(controllers.CurrentController, gc.Equals, "")
+}
+
+func (s *ControllersFileSuite) TestReadPermissionsError(c *gc.C) {
+	path := filepath.Join(os.TempDir(), fmt.Sprintf("file-%d", time.Now().UnixNano()))
+	err := ioutil.WriteFile(path, []byte(""), 0377)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = jujuclient.ReadControllersFile(path)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "open .*: permission denied")
 }
 
 func (s *ControllersFileSuite) TestReadEmptyFile(c *gc.C) {

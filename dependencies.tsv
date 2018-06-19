@@ -46,7 +46,7 @@ github.com/juju/idmclient	git	fb1dc7175251ac8e2dc460897313e05175cbbc0d	2016-11-0
 github.com/juju/jsonschema	git	a0ef8b74ebcffeeff9fc374854deb4af388f037e	2016-11-02T18:19:19Z
 github.com/juju/loggo	git	8232ab8918d91c72af1a9fb94d3edbe31d88b790	2017-06-05T01:46:07Z
 github.com/juju/mempool	git	24974d6c264fe5a29716e7d56ea24c4bd904b7cc	2016-02-05T10:49:27Z
-github.com/juju/mutex	git	1fe2a4bf0a3a2c10881501233ff7c6aed7790082	2017-11-10T02:00:13Z
+github.com/juju/mutex	git	d21b13acf4bfd8a8b0482a3a78e44d98880b40d3	2018-06-19T14:58:57Z
 github.com/juju/naturalsort	git	5b81707e882b8293e6cf77854b4cd49f29776e11	2018-04-23T03:48:42Z
 github.com/juju/os	git	cc9fc68ca9414ccda586ad2f66e72a208c3eb54d	2018-05-31T22:01:20Z
 github.com/juju/packaging	git	ba21344fff207f4fa06b0a08bac386b179a2e6a1	2018-05-16T20:30:43Z
@@ -63,7 +63,7 @@ github.com/juju/terms-client	git	9b925afd677234e4146dde3cb1a11e187cbed64e	2016-0
 github.com/juju/testing	git	72703b1e95eb8ce4737fd8a3d8496c6b0be280a6	2018-05-17T13:41:05Z
 github.com/juju/txn	git	f50b17d1ff3c31b7ea1c70e0d38a83f19af6d334	2018-04-06T04:58:51Z
 github.com/juju/usso	git	68a59c96c178fbbad65926e7f93db50a2cd14f33	2016-04-01T10:44:24Z
-github.com/juju/utils	git	2000ea4ff0431598aec2b7e1d11d5d49b5384d63	2018-04-24T09:41:59Z
+github.com/juju/utils	git	c746c6e86f4fb2a04bc08d66b7a0f7e900d9cbab	2018-06-19T11:28:06Z
 github.com/juju/version	git	1f41e27e54f21acccf9b2dddae063a782a8a7ceb	2016-10-31T05:19:06Z
 github.com/juju/webbrowser	git	54b8c57083b4afb7dc75da7f13e2967b2606a507	2016-03-09T14:36:29Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z

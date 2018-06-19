@@ -28,6 +28,15 @@ func ReadControllersFile(file string) (*Controllers, error) {
 		if os.IsNotExist(err) {
 			return &Controllers{}, nil
 		}
+		if os.IsPermission(err) {
+			u, userErr := utils.LocalUsername()
+			if userErr != nil {
+				return nil, err
+			}
+			if ok, fileErr := utils.IsFileOwner(file, u); fileErr == nil && !ok {
+				err = errors.Annotatef(err, "ownership of the file is not the same as the current user")
+			}
+		}
 		return nil, err
 	}
 	controllers, err := ParseControllers(data)
