@@ -74,16 +74,19 @@ type AddCloudCommand struct {
 	// default it just calls the correct provider's Ping method.
 	Ping func(p environs.EnvironProvider, endpoint string) error
 
+	// CloudCallCtx contains context to be used for any cloud calls.
+	CloudCallCtx       *context.CloudCallContext
 	cloudMetadataStore CloudMetadataStore
 }
 
 // NewAddCloudCommand returns a command to add cloud information.
 func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) *AddCloudCommand {
 	cloudCallCtx := context.NewCloudCallContext()
-	// Ping is provider.Ping except in tests where we don't actually want to
-	// require a valid cloud.
 	return &AddCloudCommand{
 		cloudMetadataStore: cloudMetadataStore,
+		CloudCallCtx:       cloudCallCtx,
+		// Ping is provider.Ping except in tests where we don't actually want to
+		// require a valid cloud.
 		Ping: func(p environs.EnvironProvider, endpoint string) error {
 			return p.Ping(cloudCallCtx, endpoint)
 		},
@@ -192,6 +195,14 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	// At this stage, since we do not have a reference to any model, nor can we get it,
+	// nor do we need to have a model for anything that this command does,
+	// no cloud credential stored server-side can be invalidated.
+	// So, just log an informative message.
+	c.CloudCallCtx.InvalidateCredentialF = func(reason string) error {
+		ctxt.Infof("Cloud credential is not accepted by cloud provider: %v", reason)
+		return nil
+	}
 	pollster.VerifyURLs = func(s string) (ok bool, msg string, err error) {
 		err = c.Ping(provider, s)
 		if err != nil {
