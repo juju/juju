@@ -35,7 +35,8 @@ func (s *CredentialManagerSuite) SetUpTest(c *gc.C) {
 
 	s.resources = common.NewResources()
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: names.NewMachineTag("0"),
+		Tag:      names.NewUserTag("read"),
+		AdminTag: names.NewUserTag("admin"),
 	}
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 

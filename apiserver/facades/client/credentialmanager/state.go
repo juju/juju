@@ -12,7 +12,6 @@ type stateShim struct {
 	*state.State
 }
 
-// NewStateShim creates new state shim to be used by credential validator Facade.
-func NewStateShim(st *state.State) credentialcommon.StateBackend {
+func newStateShim(st *state.State) credentialcommon.StateBackend {
 	return &stateShim{st}
 }
