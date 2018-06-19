@@ -32,7 +32,6 @@ func (c *Client) InvalidateModelCredential(reason string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	if result.Error != nil {
 		return errors.Trace(result.Error)
 	}
