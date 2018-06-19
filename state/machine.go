@@ -2030,6 +2030,33 @@ func (m *Machine) UpdateMachineSeries(series string, force bool) error {
 	return errors.Annotatef(err, "cannot update series for %q to %s", m, series)
 }
 
+func (m *Machine) verifyUnitsSeries(unitNames []string, series string, force bool) ([]*Unit, error) {
+	results := []*Unit{}
+	for _, u := range unitNames {
+		unit, err := m.st.Unit(u)
+		if err != nil {
+			return nil, err
+		}
+		app, err := unit.Application()
+		if err != nil {
+			return nil, err
+		}
+		err = app.VerifySupportedSeries(series, force)
+		if err != nil {
+			return nil, err
+		}
+
+		subordinates := unit.SubordinateNames()
+		subUnits, err := m.verifyUnitsSeries(subordinates, series, force)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, unit)
+		results = append(results, subUnits...)
+	}
+	return results, nil
+}
+
 // CreateUpgradeSeriesPrepareLock create a prepare lock for series upgrade. If
 // this item exists in the database for a given machine it indicates that a
 // machine's operating system is being upgraded for one series to another (e.g. xenial to bionic).
@@ -2090,33 +2117,6 @@ func (m *Machine) IsLocked() (bool, error) {
 		return false, fmt.Errorf("cannot get upgrade series lock for machine %v: %v", m.Id(), err)
 	}
 	return true, nil
-}
-
-func (m *Machine) verifyUnitsSeries(unitNames []string, series string, force bool) ([]*Unit, error) {
-	results := []*Unit{}
-	for _, u := range unitNames {
-		unit, err := m.st.Unit(u)
-		if err != nil {
-			return nil, err
-		}
-		app, err := unit.Application()
-		if err != nil {
-			return nil, err
-		}
-		err = app.VerifySupportedSeries(series, force)
-		if err != nil {
-			return nil, err
-		}
-
-		subordinates := unit.SubordinateNames()
-		subUnits, err := m.verifyUnitsSeries(subordinates, series, force)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, unit)
-		results = append(results, subUnits...)
-	}
-	return results, nil
 }
 
 // UpdateOperation returns a model operation that will update the machine.
