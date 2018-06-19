@@ -38,8 +38,7 @@ func NewCredentialValidatorAPI(ctx facade.Context) (*CredentialValidatorAPI, err
 }
 
 func internalNewCredentialValidatorAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*CredentialValidatorAPI, error) {
-	hostAuthTag := authorizer.GetAuthTag()
-	if hostAuthTag == nil {
+	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
 		return nil, common.ErrPerm
 	}
 
