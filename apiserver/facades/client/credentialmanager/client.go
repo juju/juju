@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-var logger = loggo.GetLogger("juju.api.credentialmanager")
+var logger = loggo.GetLogger("juju.apiserver.credentialmanager")
 
 // CredentialManager defines the methods on credentialmanager API endpoint.
 type CredentialManager interface {
@@ -33,8 +33,7 @@ func NewCredentialManagerAPI(ctx facade.Context) (*CredentialManagerAPI, error) 
 }
 
 func internalNewCredentialManagerAPI(backend credentialcommon.StateBackend, resources facade.Resources, authorizer facade.Authorizer) (*CredentialManagerAPI, error) {
-	hostAuthTag := authorizer.GetAuthTag()
-	if hostAuthTag == nil {
+	if authorizer.GetAuthTag() == nil || !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 
