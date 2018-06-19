@@ -201,6 +201,7 @@ func AllFacades() *facade.Registry {
 	reg("MachineManager", 2, machinemanager.NewFacade)
 	reg("MachineManager", 3, machinemanager.NewFacade)   // Version 3 adds DestroyMachine and ForceDestroyMachine.
 	reg("MachineManager", 4, machinemanager.NewFacadeV4) // Version 4 adds DestroyMachineWithParams.
+	reg("MachineManager", 5, machinemanager.NewFacadeV5) // Version 5 adds UpgradeSeriesPrepare.
 
 	reg("MachineUndertaker", 1, machineundertaker.NewFacade)
 	reg("Machiner", 1, machine.NewMachinerAPI)

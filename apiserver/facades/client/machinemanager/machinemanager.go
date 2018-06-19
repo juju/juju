@@ -52,17 +52,31 @@ func NewFacade(ctx facade.Context) (*MachineManagerAPI, error) {
 	return NewMachineManagerAPI(backend, storageAccess, pool, ctx.Auth(), model.ModelTag(), state.CallContext(st))
 }
 
+// Version 4 of MachineManagerAPI
 type MachineManagerAPIV4 struct {
+	*MachineManagerAPIV5
+}
+
+// Version 5 of Machine Manger API. Adds CreateUpgradeSeriesPrepareLock.
+type MachineManagerAPIV5 struct {
 	*MachineManagerAPI
 }
 
 // NewFacadeV4 creates a new server-side MachineManager API facade.
 func NewFacadeV4(ctx facade.Context) (*MachineManagerAPIV4, error) {
+	machineManagerAPIV5, err := NewFacadeV5(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &MachineManagerAPIV4{machineManagerAPIV5}, nil
+}
+
+func NewFacadeV5(ctx facade.Context) (*MachineManagerAPIV5, error) {
 	machineManagerAPI, err := NewFacade(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &MachineManagerAPIV4{machineManagerAPI}, nil
+	return &MachineManagerAPIV5{machineManagerAPI}, nil
 }
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
@@ -226,7 +240,7 @@ func (mm *MachineManagerAPI) ForceDestroyMachine(args params.Entities) (params.D
 }
 
 // DestroyMachineWithParams removes a set of machines from the model.
-func (mm *MachineManagerAPIV4) DestroyMachineWithParams(args params.DestroyMachinesParams) (params.DestroyMachineResults, error) {
+func (mm *MachineManagerAPI) DestroyMachineWithParams(args params.DestroyMachinesParams) (params.DestroyMachineResults, error) {
 	entities := params.Entities{Entities: make([]params.Entity, len(args.MachineTags))}
 	for i, tag := range args.MachineTags {
 		entities.Entities[i].Tag = tag
@@ -314,9 +328,24 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep bo
 	return params.DestroyMachineResults{results}, nil
 }
 
-// UpdateMachineSeries updates the series of the given machine(s) as well as all
+// UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
+func (mm *MachineManagerAPI) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (params.ErrorResult, error) {
+	if err := mm.checkCanWrite(); err != nil {
+		return params.ErrorResult{}, err
+	}
+	if err := mm.check.ChangeAllowed(); err != nil {
+		return params.ErrorResult{}, err
+	}
+	err := mm.createUpgradeSeriesPrepareLock(args)
+	if err != nil {
+		return params.ErrorResult{Error: common.ServerError(err)}, nil
+	}
+	return params.ErrorResult{}, nil
+}
+
+// DEPRECATED: UpdateMachineSeries updates the series of the given machine(s) as well as all
 // units and subordintes installed on the machine(s).
-func (mm *MachineManagerAPIV4) UpdateMachineSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
+func (mm *MachineManagerAPI) UpdateMachineSeries(args params.UpdateSeriesArgs) (params.ErrorResults, error) {
 	if err := mm.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -333,7 +362,7 @@ func (mm *MachineManagerAPIV4) UpdateMachineSeries(args params.UpdateSeriesArgs)
 	return results, nil
 }
 
-func (mm *MachineManagerAPIV4) updateOneMachineSeries(arg params.UpdateSeriesArg) error {
+func (mm *MachineManagerAPI) updateOneMachineSeries(arg params.UpdateSeriesArg) error {
 	if arg.Series == "" {
 		return &params.Error{
 			Message: "series missing from args",
@@ -352,4 +381,16 @@ func (mm *MachineManagerAPIV4) updateOneMachineSeries(arg params.UpdateSeriesArg
 		return nil // no-op
 	}
 	return machine.UpdateMachineSeries(arg.Series, arg.Force)
+}
+
+func (mm *MachineManagerAPI) createUpgradeSeriesPrepareLock(arg params.UpdateSeriesArg) error {
+	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := mm.st.Machine(machineTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.CreateUpgradeSeriesPrepareLock()
 }

@@ -214,6 +214,12 @@ type instanceData struct {
 	KeepInstance bool `bson:"keep-instance,omitempty"`
 }
 
+// upgradeSeriesLock holds the attributes relevant to lock a machine during a
+// series update of a machine
+type upgradeSeriesLock struct {
+	Id string
+}
+
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
 	return &instance.HardwareCharacteristics{
 		Arch:             instData.Arch,
@@ -2049,6 +2055,68 @@ func (m *Machine) verifyUnitsSeries(unitNames []string, series string, force boo
 		results = append(results, subUnits...)
 	}
 	return results, nil
+}
+
+// CreateUpgradeSeriesPrepareLock create a prepare lock for series upgrade. If
+// this item exists in the database for a given machine it indicates that a
+// machine's operating system is being upgraded for one series to another (e.g. xenial to bionic).
+func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		locked, err := m.IsLocked()
+		if err != nil {
+			return nil, errors.Wrap(err, jujutxn.ErrNoOperations)
+		}
+		if locked {
+			return nil, errors.AlreadyExistsf("upgrade series prepare lock for machine %q", m)
+		}
+		if err = m.isStillAlive(); err != nil {
+			return nil, errors.Wrap(jujutxn.ErrNoOperations, err)
+		}
+
+		data := &upgradeSeriesLock{Id: m.Id()}
+		ops := []txn.Op{
+			{
+				C:      machinesC,
+				Id:     m.doc.DocID,
+				Assert: isAliveDoc,
+			},
+			{
+				C:      machineUpgradeSeriesLocksC,
+				Id:     m.doc.DocID,
+				Assert: txn.DocMissing,
+				Insert: data,
+			},
+		}
+		return ops, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		logger.Errorf("cannot prepare series upgrade for machine %q: %v", m, err)
+		return err
+	}
+
+	return nil
+}
+
+func (m *Machine) IsLocked() (bool, error) {
+	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
+	defer closer()
+
+	var lock upgradeSeriesLock
+	err := coll.FindId(m.Id()).One(&lock)
+	if err == mgo.ErrNotFound {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("cannot get upgrade series lock for machine %v: %v", m.Id(), err)
+	}
+	return true, nil
 }
 
 // UpdateOperation returns a model operation that will update the machine.

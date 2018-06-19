@@ -151,7 +151,7 @@ func (s *MachineManagerSuite) TestDestroyMachine(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestDestroyMachineWithParams(c *gc.C) {
-	apiV4 := machinemanager.MachineManagerAPIV4{s.api}
+	apiV4 := s.machineManagerAPIV4()
 	s.st.machines["0"] = &mockMachine{}
 	results, err := apiV4.DestroyMachineWithParams(params.DestroyMachinesParams{
 		Keep:        true,
@@ -190,7 +190,7 @@ func (s *MachineManagerSuite) setupUpdateMachineSeries(c *gc.C) {
 
 func (s *MachineManagerSuite) TestUpdateMachineSeries(c *gc.C) {
 	s.setupUpdateMachineSeries(c)
-	apiV4 := machinemanager.MachineManagerAPIV4{s.api}
+	apiV4 := s.machineManagerAPIV4()
 	results, err := apiV4.UpdateMachineSeries(
 		params.UpdateSeriesArgs{
 			Args: []params.UpdateSeriesArg{
@@ -231,7 +231,7 @@ func (s *MachineManagerSuite) TestUpdateMachineSeries(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestUpdateMachineSeriesNoSeries(c *gc.C) {
-	apiV4 := machinemanager.MachineManagerAPIV4{s.api}
+	apiV4 := s.machineManagerAPIV4()
 	results, err := apiV4.UpdateMachineSeries(
 		params.UpdateSeriesArgs{
 			Args: []params.UpdateSeriesArg{{
@@ -250,7 +250,7 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesNoSeries(c *gc.C) {
 }
 
 func (s *MachineManagerSuite) TestUpdateMachineSeriesNoParams(c *gc.C) {
-	apiV4 := machinemanager.MachineManagerAPIV4{s.api}
+	apiV4 := s.machineManagerAPIV4()
 	results, err := apiV4.UpdateMachineSeries(
 		params.UpdateSeriesArgs{
 			Args: []params.UpdateSeriesArg{},
@@ -263,7 +263,7 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesNoParams(c *gc.C) {
 func (s *MachineManagerSuite) TestUpdateMachineSeriesIncompatibleSeries(c *gc.C) {
 	s.setupUpdateMachineSeries(c)
 	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{[]string{"yakkety", "zesty"}, "xenial"})
-	apiV4 := machinemanager.MachineManagerAPIV4{s.api}
+	apiV4 := s.machineManagerAPIV4()
 	results, err := apiV4.UpdateMachineSeries(
 		params.UpdateSeriesArgs{
 			Args: []params.UpdateSeriesArg{{
@@ -283,7 +283,7 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesIncompatibleSeries(c *gc.C)
 }
 
 func (s *MachineManagerSuite) TestUpdateMachineSeriesBlockedChanges(c *gc.C) {
-	apiV4 := machinemanager.MachineManagerAPIV4{s.api}
+	apiV4 := s.machineManagerAPIV4()
 	s.st.blockMsg = "TestUpdateMachineSeriesBlockedChanges"
 	s.st.block = state.ChangeBlock
 	_, err := apiV4.UpdateMachineSeries(
@@ -305,7 +305,7 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesBlockedChanges(c *gc.C) {
 func (s *MachineManagerSuite) TestUpdateMachineSeriesPermissionDenied(c *gc.C) {
 	user := names.NewUserTag("fred")
 	s.setAPIUser(c, user)
-	apiV4 := machinemanager.MachineManagerAPIV4{s.api}
+	apiV4 := s.machineManagerAPIV4()
 	_, err := apiV4.UpdateMachineSeries(
 		params.UpdateSeriesArgs{
 			Args: []params.UpdateSeriesArg{{
@@ -316,6 +316,18 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesPermissionDenied(c *gc.C) {
 		},
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesPrepareLocksMachine(c *gc.C) {
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	machineTag := names.NewMachineTag("0")
+	_, err := apiV5.UpgradeSeriesPrepare(
+		params.UpdateSeriesArg{
+			Entity: params.Entity{
+				Tag: machineTag.String()},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type mockState struct {
@@ -516,4 +528,9 @@ type mockVolume struct {
 
 func (v *mockVolume) Detachable() bool {
 	return v.detachable
+}
+
+func (s *MachineManagerSuite) machineManagerAPIV4() machinemanager.MachineManagerAPIV4 {
+	managerV5 := &machinemanager.MachineManagerAPIV5{s.api}
+	return machinemanager.MachineManagerAPIV4{managerV5}
 }

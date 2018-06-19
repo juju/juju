@@ -2601,3 +2601,34 @@ func (s *MachineSuite) TestUpdateMachineSeriesSubordinateListChangeIncompatibleS
 	c.Assert(err, jc.Satisfies, state.IsIncompatibleSeriesError)
 	s.assertMachineAndUnitSeriesChanged(c, mach, "precise")
 }
+
+func (s *MachineSuite) TestCreateUgradeSeriesPrepareLock(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	locked, err := mach.IsLocked()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(locked, jc.IsFalse)
+	err = mach.CreateUpgradeSeriesPrepareLock()
+	c.Assert(err, jc.ErrorIsNil)
+	locked, err = mach.IsLocked()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(locked, jc.IsTrue)
+}
+
+func (s *MachineSuite) TestCreateUgradeSeriesPrepareLockErrorsIfLockExists(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.CreateUpgradeSeriesPrepareLock()
+	c.Assert(err, jc.ErrorIsNil)
+	err = mach.CreateUpgradeSeriesPrepareLock()
+	c.Assert(err, gc.ErrorMatches, "upgrade series prepare lock for machine \".*\" already exists")
+}
+
+func (s *MachineSuite) TestDoesNotCreateUgradeSeriesPrepareLockOnDyingMachine(c *gc.C) {
+	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = mach.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = mach.CreateUpgradeSeriesPrepareLock()
+	c.Assert(err, gc.ErrorMatches, "machine not found or not alive")
+}

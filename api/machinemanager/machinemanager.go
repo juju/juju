@@ -133,5 +133,28 @@ func (client *Client) UpdateMachineSeries(machineName, series string, force bool
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	return results.OneError()
+}
+
+// UpgradeSeriesPrepare notifies the controller that a series upgrade is taking
+// place for a given machine and as such the machine is guarded against
+// operations that would impede, fail, or interfere with the upgrade process.
+func (client *Client) UpgradeSeriesPrepare(machineName string) error {
+	if client.BestAPIVersion() < 5 {
+		return errors.NotSupportedf("upgrade-series prepare")
+	}
+	args := params.UpdateSeriesArg{
+		Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
+	}
+	result := params.ErrorResult{}
+	err := client.facade.FacadeCall("UpgradeSeriesPrepare", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+
+	return nil
 }

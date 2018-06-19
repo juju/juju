@@ -13,6 +13,8 @@ import (
 	"github.com/juju/os/series"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/machinemanager"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -29,15 +31,19 @@ func NewUpgradeSeriesCommand() cmd.Command {
 	return modelcmd.Wrap(&upgradeSeriesCommand{})
 }
 
-type upgradeMachineSeriesAPI interface {
+//go:generate mockgen -package mocks -destination mocks/upgradeMachineSeriesAPI_mock.go github.com/juju/juju/cmd/juju/machine UpgradeMachineSeriesAPI
+type UpgradeMachineSeriesAPI interface {
+	BestAPIVersion() int
+	Close() error
+	UpgradeSeriesPrepare(string) error
 }
 
 // upgradeSeriesCommand is responsible for updating the series of an application or machine.
 type upgradeSeriesCommand struct {
 	modelcmd.ModelCommandBase
-	// modelcmd.IAASOnlyCommand
+	modelcmd.IAASOnlyCommand
 
-	// upgradeMachineSeriesClient upgradeMachineSeriesAPI
+	upgradeMachineSeriesClient UpgradeMachineSeriesAPI
 
 	prepCommand   string
 	force         bool
@@ -70,8 +76,19 @@ requested series is supported in later revisions of the charm, upgrade-charm can
 run beforehand.
 
 Examples:
+
+Prepare <machine> for upgrade to series <series>:
+
 	juju upgrade-series prepare <machine> <series>
-        juju upgrade-series prepare <machine> <series> --force
+
+Prepare <machine> for upgrade to series <series> even if there are applications
+running units that do not support the target series:
+
+	juju upgrade-series prepare <machine> <series> --force
+
+Complete upgrade of <machine> to <series> indicating that all automatic and any
+necessary manual upgrade steps have completed successfully:
+
 	juju upgrade-series complete <machine>
 
 See also:
@@ -138,11 +155,44 @@ func (c *upgradeSeriesCommand) Init(args []string) error {
 // Run implements cmd.Run.
 func (c *upgradeSeriesCommand) Run(ctx *cmd.Context) error {
 	if c.prepCommand == PrepareCommand {
-		err := c.promptConfirmation(ctx)
+		err := c.UpgradeSeriesPrepare(ctx)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
+	return nil
+}
+
+// UpgradeSeriesPrepare is the interface to the API server endpoint of the same
+// name. Since this function's interface will be mocked as an external test
+// dependency this function should contain minimal logic other than gathering an
+// API handle and making the API call.
+func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
+	err := c.promptConfirmation(ctx)
+	if err != nil {
+		return err
+	}
+
+	var apiRoot api.Connection
+
+	// If the upgradeMachineSeries is nil then we collect a handle to the
+	// API. If it is not nil it is likely the client has been set elsewhere
+	// (i.e. a test mock) so we don't reset it.
+	if c.upgradeMachineSeriesClient == nil {
+		var err error
+		apiRoot, err = c.NewAPIRoot()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer apiRoot.Close()
+		c.upgradeMachineSeriesClient = machinemanager.NewClient(apiRoot)
+	}
+
+	err = c.upgradeMachineSeriesClient.UpgradeSeriesPrepare(c.machineNumber)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 
