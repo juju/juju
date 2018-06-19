@@ -51,6 +51,8 @@ func (m MacaroonCache) Get(u *charm.URL) (macaroon.Slice, error) {
 type charmDoc struct {
 	DocID string     `bson:"_id"`
 	URL   *charm.URL `bson:"url"` // DANGEROUS see charm.* fields below
+	// CharmVersion
+	CharmVersion string `bson:"charm-version"`
 
 	// Life manages charm lifetime in the usual way, but only local
 	// charms can actually be "destroyed"; store charms are
@@ -91,6 +93,7 @@ type CharmInfo struct {
 	StoragePath string
 	SHA256      string
 	Macaroon    macaroon.Slice
+	Version     string
 }
 
 // insertCharmOps returns the txn operations necessary to insert the supplied
@@ -103,6 +106,7 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 	doc := charmDoc{
 		DocID:        info.ID.String(),
 		URL:          info.ID,
+		CharmVersion: info.Version,
 		Meta:         info.Charm.Meta(),
 		Config:       safeConfig(info.Charm),
 		Metrics:      info.Charm.Metrics(),
@@ -207,6 +211,7 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 	op.Assert = append(lifeAssert, assert...)
 
 	data := bson.D{
+		{"charm-version", info.Version},
 		{"meta", info.Charm.Meta()},
 		{"config", safeConfig(info.Charm)},
 		{"actions", info.Charm.Actions()},
@@ -431,6 +436,11 @@ func (c *Charm) URL() *charm.URL {
 // revision number.
 func (c *Charm) Revision() int {
 	return c.doc.URL.Revision
+}
+
+// Version returns the charm version.
+func (c *Charm) Version() string {
+	return c.doc.CharmVersion
 }
 
 // Meta returns the metadata of the charm.

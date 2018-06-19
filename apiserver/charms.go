@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -401,9 +402,25 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 	if err := archive.ExpandTo(extractPath); err != nil {
 		return errors.Annotate(err, "cannot extract uploaded charm")
 	}
+
 	charmDir, err := charm.ReadCharmDir(extractPath)
 	if err != nil {
 		return errors.Annotate(err, "cannot read extracted charm")
+	}
+
+	// Try to get the version details here.
+	// read just the first line of the file.
+	var version string
+	versionPath := filepath.Join(extractPath, "version")
+	if file, err := os.Open(versionPath); err == nil {
+		_, err = fmt.Fscanln(file, &version)
+		file.Close()
+		if err != nil {
+			errors.New("invalid version file")
+			version = ""
+		}
+	} else {
+		errors.Annotate(err, "cannot open version file")
 	}
 
 	// Bundle the charm and calculate its sha256 hash at the same time.
@@ -416,11 +433,12 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
 
 	info := application.CharmArchive{
-		ID:     curl,
-		Charm:  archive,
-		Data:   &repackagedArchive,
-		Size:   int64(repackagedArchive.Len()),
-		SHA256: bundleSHA256,
+		ID:           curl,
+		Charm:        archive,
+		Data:         &repackagedArchive,
+		Size:         int64(repackagedArchive.Len()),
+		SHA256:       bundleSHA256,
+		CharmVersion: version,
 	}
 	// Store the charm archive in environment storage.
 	return application.StoreCharmArchive(st, info)

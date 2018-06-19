@@ -129,6 +129,7 @@ type ApplicationStatus struct {
 	MeterStatuses    map[string]MeterStatus `json:"meter-statuses"`
 	Status           DetailedStatus         `json:"status"`
 	WorkloadVersion  string                 `json:"workload-version"`
+	CharmVersion     string                 `json:"charm-verion"`
 	EndpointBindings map[string]string      `json:"endpoint-bindings"`
 
 	// The following are for CAAS models.

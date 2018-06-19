@@ -141,6 +141,7 @@ func (s *CharmSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmInfo {
 		Charm:       testcharms.Repo.CharmDir("dummy"),
 		StoragePath: "dummy-1",
 		SHA256:      "dummy-1-sha256",
+		Version:     "dummy-146-g725cfd3-dirty",
 	}
 	if curlOverride != "" {
 		info.ID = charm.MustParseURL(curlOverride)
@@ -280,6 +281,9 @@ func (s *CharmSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("%#v", doc)
 	c.Assert(doc.URL, gc.DeepEquals, info.ID)
+
+	expVersion := "dummy-146-g725cfd3-dirty"
+	c.Assert(doc.CharmVersion, gc.Equals, expVersion)
 }
 
 func (s *CharmSuite) TestAddCharmWithAuth(c *gc.C) {

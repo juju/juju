@@ -3194,6 +3194,131 @@ var statusTests = []testCase{
 		},
 	),
 	test( //26
+		"deploy simple wordpress application with version",
+		addMachine{machineId: "0", job: state.JobManageModel},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", status.Started, ""},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", status.Started, ""},
+
+		addCharmWithVersion{addCharmWithRevision{addCharm{"wordpress"}, "cs", 3}, "abcd"},
+		addApplication{name: "wordpress", charm: "wordpress"},
+		addAliveUnit{"wordpress", "1"},
+
+		scopedExpect{
+			output: M{
+				"model": M{
+					"region":  "dummy-region",
+					"version": "1.2.3",
+					"model-status": M{
+						"current": "available",
+						"since":   "01 Apr 15 01:23+10:00",
+					},
+					"type":       "iaas",
+					"sla":        "unsupported",
+					"name":       "controller",
+					"controller": "kontroll",
+					"cloud":      "dummy",
+				},
+				"machines": M{
+					"1": M{
+						"juju-status": M{
+							"current": "started",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"dns-name":     "10.0.1.1",
+						"ip-addresses": []string{"10.0.1.1"},
+						"instance-id":  "controller-1",
+						"machine-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.1.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        bool(true),
+							},
+						},
+						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
+					},
+					"0": M{
+						"series": "quantal",
+						"network-interfaces": M{
+							"eth0": M{
+								"ip-addresses": []string{"10.0.0.1"},
+								"mac-address":  "aa:bb:cc:dd:ee:ff",
+								"is-up":        bool(true),
+							},
+						},
+						"controller-member-status": "adding-vote",
+						"dns-name":                 "10.0.0.1",
+						"ip-addresses":             []string{"10.0.0.1"},
+						"instance-id":              "controller-0",
+						"machine-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"juju-status": M{
+							"current": "started",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
+					},
+				},
+				"applications": M{
+					"wordpress": M{
+						"series":        "quantal",
+						"os":            "ubuntu",
+						"charm-name":    "wordpress",
+						"charm-version": "abcd",
+						"exposed":       bool(false),
+						"units": M{
+							"wordpress/0": M{
+								"public-address": "10.0.1.1",
+								"workload-status": M{
+									"current": "waiting",
+									"message": "waiting for machine",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"juju-status": M{
+									"current": "allocating",
+									"since":   "01 Apr 15 01:23+10:00",
+								},
+								"machine": "1",
+							},
+						},
+						"charm":        "cs:quantal/wordpress-3",
+						"charm-origin": "jujucharms",
+						"charm-rev":    int(3),
+						"application-status": M{
+							"current": "waiting",
+							"message": "waiting for machine",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"endpoint-bindings": M{
+							"cache":           "",
+							"db":              "",
+							"db-client":       "",
+							"foo-bar":         "",
+							"logging-dir":     "",
+							"monitoring-port": "",
+							"url":             "",
+							"admin-api":       "",
+						},
+					},
+				},
+				"controller": M{
+					"timestamp": "15:04:05+07:00",
+				},
+			},
+		},
+	),
+	test( //27
 		"deploy application with endpoint bound to space",
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("10.0.0.1")},
@@ -3610,7 +3735,7 @@ type addCharm struct {
 	name string
 }
 
-func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
+func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int, version string) {
 	ch := testcharms.Repo.CharmDir(ac.name)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev))
@@ -3619,6 +3744,7 @@ func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
 		ID:          curl,
 		StoragePath: "dummy-path",
 		SHA256:      fmt.Sprintf("%s-%d-sha256", name, rev),
+		Version:     version,
 	}
 	dummy, err := ctx.st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3627,7 +3753,7 @@ func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
 
 func (ac addCharm) step(c *gc.C, ctx *context) {
 	ch := testcharms.Repo.CharmDir(ac.name)
-	ac.addCharmStep(c, ctx, "cs", ch.Revision())
+	ac.addCharmStep(c, ctx, "cs", ch.Revision(), "")
 }
 
 type addCharmWithRevision struct {
@@ -3637,7 +3763,16 @@ type addCharmWithRevision struct {
 }
 
 func (ac addCharmWithRevision) step(c *gc.C, ctx *context) {
-	ac.addCharmStep(c, ctx, ac.scheme, ac.rev)
+	ac.addCharmStep(c, ctx, ac.scheme, ac.rev, "")
+}
+
+type addCharmWithVersion struct {
+	addCharmWithRevision
+	version string
+}
+
+func (ac addCharmWithVersion) step(c *gc.C, ctx *context) {
+	ac.addCharmStep(c, ctx, ac.addCharmWithRevision.scheme, ac.addCharmWithRevision.rev, ac.version)
 }
 
 type addApplication struct {
@@ -4564,10 +4699,10 @@ controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
 SAAS         Status   Store  URL
 hosted-riak  unknown  local  me/model.riak
 
-App        Version          Status       Scale  Charm      Store       Rev  OS      Notes
-logging    a bit too lo...  error            2  logging    jujucharms    1  ubuntu  exposed
-mysql      5.7.13           maintenance      1  mysql      jujucharms    1  ubuntu  exposed
-wordpress  4.5.3            active           1  wordpress  jujucharms    3  ubuntu  exposed
+App        Version          Status       Scale  Charm      Store       Rev  OS      Charm version  Notes
+logging    a bit too lo...  error            2  logging    jujucharms    1  ubuntu                 exposed
+mysql      5.7.13           maintenance      1  mysql      jujucharms    1  ubuntu                 exposed
+wordpress  4.5.3            active           1  wordpress  jujucharms    3  ubuntu                 exposed
 
 Unit          Workload     Agent  Machine  Public address  Ports  Message
 mysql/0*      maintenance  idle   2        10.0.2.1               installing all the things
@@ -4594,6 +4729,52 @@ wordpress:logging-dir  logging:logging-directory  logging    subordinate
 	output := substituteFakeTimestamp(c, stdout, false)
 	output = substituteSpacingBetweenTimestampAndNotes(c, output)
 	c.Assert(string(output), gc.Equals, expected)
+}
+
+func (s *StatusSuite) TestFormatTabularWithCharmVersion(c *gc.C) {
+	status := formattedStatus{
+		Applications: map[string]applicationStatus{
+			"foo": {
+				CharmVersion: "dummy-143-3423476346784687",
+				Units: map[string]unitStatus{
+					"foo/0": {
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Executing,
+							Message: "running config-changed hook",
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Maintenance,
+							Message: "doing some work",
+						},
+					},
+					"foo/1": {
+						JujuStatusInfo: statusInfoContents{
+							Current: status.Executing,
+							Message: "running action backup database",
+						},
+						WorkloadStatusInfo: statusInfoContents{
+							Current: status.Maintenance,
+							Message: "doing some work",
+						},
+					},
+				},
+			},
+		},
+	}
+	out := &bytes.Buffer{}
+	err := FormatTabular(out, false, status)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.String(), gc.Equals, `
+Model  Controller  Cloud/Region  Version
+                                 
+
+App  Version  Status  Scale  Charm  Store  Rev  OS  Charm version       Notes
+foo                       2                  0      dummy-143-34234...  
+
+Unit   Workload     Agent      Machine  Public address  Ports  Message
+foo/0  maintenance  executing                                  (config-changed) doing some work
+foo/1  maintenance  executing                                  (backup database) doing some work
+`[1:])
 }
 
 func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
@@ -4632,8 +4813,8 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
-foo                       2                  0      
+App  Version  Status  Scale  Charm  Store  Rev  OS  Charm version  Notes
+foo                       2                  0                     
 
 Unit   Workload     Agent      Machine  Public address  Ports  Message
 foo/0  maintenance  executing                                  (config-changed) doing some work
@@ -4679,8 +4860,8 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version  Status  Scale  Charm  Store  Rev  OS  Address    Notes
-foo                     1/2                  0      54.32.1.2  
+App  Version  Status  Scale  Charm  Store  Rev  OS  Address    Charm version  Notes
+foo                     1/2                  0      54.32.1.2                 
 
 Unit   Workload  Agent       Address   Ports   Message
 foo/0  active    allocating                    
@@ -4744,8 +4925,8 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 Model  Controller  Cloud/Region  Version
                                  
 
-App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
-foo                     0/2                  0      
+App  Version  Status  Scale  Charm  Store  Rev  OS  Charm version  Notes
+foo                     0/2                  0                     
 
 Unit   Workload  Agent  Machine  Public address  Ports  Message
 foo/0                                                   
