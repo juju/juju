@@ -84,8 +84,9 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	}
 
 	mockK8sCloud := cloud.Cloud{
+		Name:      "k8s-cloud",
 		Type:      "kubernetes",
-		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
 	}
 
 	controllerModel := &mockModel{
@@ -178,6 +179,8 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
+	caasCred := state.Credential{}
+	caasCred.AuthType = string(cloud.UserPassAuthType)
 	s.caasSt = &mockState{
 		cloud: mockK8sCloud,
 		clouds: map[names.CloudTag]cloud.Cloud{
@@ -201,7 +204,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 				access:   permission.AdminAccess,
 			}},
 		},
-		cred:        statetesting.NewEmptyCredential(),
+		cred:        caasCred,
 		modelConfig: coretesting.ModelConfig(c),
 	}
 
@@ -463,7 +466,8 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(newModelArgs.StorageProviderRegistry, gc.IsNil)
+	c.Assert(newModelArgs.StorageProviderRegistry, gc.NotNil)
+	newModelArgs.StorageProviderRegistry = nil
 
 	c.Assert(newModelArgs, jc.DeepEquals, state.ModelArgs{
 		Type:      state.ModelTypeCAAS,

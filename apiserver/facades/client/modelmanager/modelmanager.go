@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/environs"
@@ -450,12 +451,22 @@ func (m *ModelManagerAPI) newCAASModel(cloudSpec environs.CloudSpec,
 		return nil, errors.Annotate(err, "failed to create config")
 	}
 
+	broker, err := caas.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: newConfig,
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to open kubernetes client")
+	}
+	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
+
 	model, st, err := m.state.NewModel(state.ModelArgs{
 		Type:            state.ModelTypeCAAS,
 		CloudName:       cloudTag.Id(),
 		CloudCredential: cloudCredentialTag,
 		Config:          newConfig,
 		Owner:           ownerTag,
+		StorageProviderRegistry: storageProviderRegistry,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create new model")
