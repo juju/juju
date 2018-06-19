@@ -36,6 +36,7 @@ type DeployApplicationParams struct {
 	// instead of a machine spec.
 	Placement        []*instance.Placement
 	Storage          map[string]storage.Constraints
+	Devices          map[string]charm.Device
 	AttachStorage    []names.StorageTag
 	EndpointBindings map[string]string
 	// Resources is a map of resource name to IDs of pending resources.
@@ -73,11 +74,13 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 	}
 
 	asa := state.AddApplicationArgs{
-		Name:              args.ApplicationName,
-		Series:            args.Series,
-		Charm:             args.Charm,
-		Channel:           args.Channel,
-		Storage:           stateStorageConstraints(args.Storage),
+		Name:    args.ApplicationName,
+		Series:  args.Series,
+		Charm:   args.Charm,
+		Channel: args.Channel,
+		Storage: stateStorageConstraints(args.Storage),
+		// TODO(ycliuhw): current PR only includes facades version upgrade, inject `Device` into deeper logic is next step in sperate PR
+		// Devices:           args.Devices,
 		AttachStorage:     args.AttachStorage,
 		ApplicationConfig: args.ApplicationConfig,
 		CharmConfig:       charmConfig,

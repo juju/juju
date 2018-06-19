@@ -13,6 +13,7 @@ import (
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/constraints"
@@ -263,6 +264,7 @@ type ApplicationDeploy struct {
 	Placement        []*instance.Placement          `json:"placement,omitempty"`
 	Policy           string                         `json:"policy,omitempty"`
 	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
+	Devices          map[string]charm.Device        `json:"devices,omitempty"`
 	AttachStorage    []string                       `json:"attach-storage,omitempty"`
 	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
 	Resources        map[string]string              `json:"resources,omitempty"`
@@ -285,6 +287,30 @@ type ApplicationDeployV5 struct {
 	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
 	Constraints      constraints.Value              `json:"constraints"`
 	Placement        []*instance.Placement          `json:"placement,omitempty"`
+	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
+	AttachStorage    []string                       `json:"attach-storage,omitempty"`
+	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
+	Resources        map[string]string              `json:"resources,omitempty"`
+}
+
+// ApplicationsDeployV6 holds the parameters for deploying one or more applications.
+type ApplicationsDeployV6 struct {
+	Applications []ApplicationDeployV6 `json:"applications"`
+}
+
+// ApplicationDeployV6 holds the parameters for making the application Deploy call for
+// application facades older than v6. Missing the newer Device arg.
+type ApplicationDeployV6 struct {
+	ApplicationName  string                         `json:"application"`
+	Series           string                         `json:"series"`
+	CharmURL         string                         `json:"charm-url"`
+	Channel          string                         `json:"channel"`
+	NumUnits         int                            `json:"num-units"`
+	Config           map[string]string              `json:"config,omitempty"`
+	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
+	Constraints      constraints.Value              `json:"constraints"`
+	Placement        []*instance.Placement          `json:"placement,omitempty"`
+	Policy           string                         `json:"policy,omitempty"`
 	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
 	AttachStorage    []string                       `json:"attach-storage,omitempty"`
 	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
