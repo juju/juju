@@ -81,16 +81,16 @@ type AddCloudCommand struct {
 
 // NewAddCloudCommand returns a command to add cloud information.
 func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) *AddCloudCommand {
-	cmd := AddCloudCommand{
+	cloudCallCtx := context.NewCloudCallContext()
+	return &AddCloudCommand{
 		cloudMetadataStore: cloudMetadataStore,
-		CloudCallCtx:       context.NewCloudCallContext(),
+		CloudCallCtx:       cloudCallCtx,
+		// Ping is provider.Ping except in tests where we don't actually want to
+		// require a valid cloud.
+		Ping: func(p environs.EnvironProvider, endpoint string) error {
+			return p.Ping(cloudCallCtx, endpoint)
+		},
 	}
-	// Ping is provider.Ping except in tests where we don't actually want to
-	// require a valid cloud.
-	cmd.Ping = func(p environs.EnvironProvider, endpoint string) error {
-		return p.Ping(cmd.CloudCallCtx, endpoint)
-	}
-	return &cmd
 }
 
 // Info returns help information about the command.
