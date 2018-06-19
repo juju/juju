@@ -163,7 +163,7 @@ func (c *UpdateSeriesCommand) Run(ctx *cmd.Context) error {
 		startedSysdServiceNames, startedSymServiceNames, failedAgentNames, err := c.manager.WriteSystemdAgents(
 			c.machineAgent,
 			c.unitAgents,
-			c.dataDir,
+			service.SystemdDataDir,
 			systemdDir,
 			systemdMultiUserDir,
 			c.toSeries,

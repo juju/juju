@@ -23,11 +23,13 @@ var (
 
 	renderer = shell.BashRenderer{}
 	cmds     = commands{renderer, executable}
+
+	SystemPath = "/run/systemd/system"
 )
 
 // IsRunning returns whether or not systemd is the local init system.
 func IsRunning() (bool, error) {
-	if _, err := os.Stat("/run/systemd/system"); err == nil {
+	if _, err := os.Stat(SystemPath); err == nil {
 		return true, nil
 	} else if os.IsNotExist(err) {
 		return false, nil

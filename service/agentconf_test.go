@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	svctesting "github.com/juju/juju/service/common/testing"
+	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/testing"
 	coretest "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -38,8 +39,9 @@ type agentConfSuite struct {
 	dataDir             string
 	machineName         string
 	unitNames           []string
-	systemdDir          string
-	systemdMultiUserDir string
+	systemdDir          string // updateseries.systemDir
+	systemdMultiUserDir string // updateseries.systemMultiUserDir
+	systemdDataDir      string // service.SystemdDataDir
 	sysdIsRunning       bool
 	manager             service.SystemdServiceManager
 
@@ -59,9 +61,12 @@ func (s *agentConfSuite) SetUpTest(c *gc.C) {
 
 	tmpSystemdDir := path.Join(s.dataDir, "etc", "systemd", "system")
 	tmpSystemdMultiUserDir := path.Join(tmpSystemdDir, "multi-user.target.wants")
+	tmpSystemdDataDir := path.Join(s.dataDir, "lib", "systemd", "system")
 	os.MkdirAll(tmpSystemdMultiUserDir, os.ModeDir|os.ModePerm)
+	os.MkdirAll(tmpSystemdDataDir, os.ModeDir|os.ModePerm)
 	s.PatchValue(&s.systemdDir, tmpSystemdDir)
 	s.PatchValue(&s.systemdMultiUserDir, tmpSystemdMultiUserDir)
+	s.PatchValue(&s.systemdDataDir, tmpSystemdDataDir)
 
 	s.machineName = "machine-0"
 	s.unitNames = []string{"unit-ubuntu-0", "unit-mysql-0"}
@@ -243,7 +248,9 @@ func (s *agentConfSuite) TestWriteServiceCopyStartAllAgents(c *gc.C) {
 	machineAgent, unitAgents, _, err = s.manager.FindAgents(s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, _, _, err = s.manager.WriteSystemdAgents(machineAgent, unitAgents, s.dataDir, s.systemdDir, s.systemdMultiUserDir, "xenial")
+	s.PatchValue(&systemd.SystemPath, s.dataDir)
+
+	_, _, _, err = s.manager.WriteSystemdAgents(machineAgent, unitAgents, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir, "xenial")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertServicesCalls(c, "WriteService", len(s.services))
 
@@ -259,7 +266,7 @@ func (s *agentConfSuite) TestWriteServiceCopyStartAllAgents(c *gc.C) {
 	s.assertToolsCopySymlink(c, "xenial")
 }
 
-func (s *agentConfSuite) TestPreRebootWriteServiceCopyStartAllAgents(c *gc.C) {
+func (s *agentConfSuite) TestWriteServicePreRebootCopyStartAllAgents(c *gc.C) {
 	s.manager = service.NewSystemdServiceManager(func() (bool, error) { return false, nil })
 	var err error
 	var machineAgent string
@@ -267,9 +274,10 @@ func (s *agentConfSuite) TestPreRebootWriteServiceCopyStartAllAgents(c *gc.C) {
 	machineAgent, unitAgents, _, err = s.manager.FindAgents(s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, _, _, err = s.manager.WriteSystemdAgents(machineAgent, unitAgents, s.dataDir, s.systemdDir, s.systemdMultiUserDir, "xenial")
+	_, _, _, err = s.manager.WriteSystemdAgents(machineAgent, unitAgents, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir, "xenial")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertServicesCalls(c, "WriteService", len(s.services))
+	s.assertServiceSymLinks(c)
 
 	jujuVersion, err := agentcmd.GetJujuVersion(machineAgent, s.dataDir)
 	c.Assert(err, jc.ErrorIsNil)
@@ -306,7 +314,7 @@ func (s *agentConfSuite) assertServiceSymLinks(c *gc.C) {
 		svcFileName := svcName + ".service"
 		result, err := os.Readlink(path.Join(s.systemdDir, svcFileName))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, gc.Equals, path.Join(s.dataDir, "init", svcName, svcFileName))
+		c.Assert(result, gc.Equals, path.Join(s.systemdDataDir, svcName, svcFileName))
 	}
 }
 
