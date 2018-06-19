@@ -42,6 +42,7 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(c *gc.C, co
 	mockController := gomock.NewController(c)
 	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
 	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesPrepare(gomock.Any()).AnyTimes()
+	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesComplete(gomock.Any()).AnyTimes()
 
 	com := machine.NewUpgradeSeriesCommandForTest(mockUpgradeSeriesAPI)
 

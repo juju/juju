@@ -158,3 +158,18 @@ func (client *Client) UpgradeSeriesPrepare(machineName string) error {
 
 	return nil
 }
+
+func (client *Client) UpgradeSeriesComplete(machineName string) error {
+	if client.BestAPIVersion() < 5 {
+		return errors.NotSupportedf("upgrade-series prepare")
+	}
+	args := params.UpdateSeriesArg{
+		Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
+	}
+	result := new(params.ErrorResult)
+	err := client.facade.FacadeCall("UpgradeSeriesComplete", args, result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return result.Error
+}

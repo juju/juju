@@ -2069,7 +2069,7 @@ func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
 		}
 		locked, err := m.IsLocked()
 		if err != nil {
-			return nil, errors.Wrap(err, jujutxn.ErrNoOperations)
+			return nil, errors.Trace(err)
 		}
 		if locked {
 			return nil, errors.AlreadyExistsf("upgrade series prepare lock for machine %q", m)
@@ -2098,6 +2098,42 @@ func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
 	if err != nil {
 		err = onAbort(err, ErrDead)
 		logger.Errorf("cannot prepare series upgrade for machine %q: %v", m, err)
+		return err
+	}
+
+	return nil
+}
+
+// RemoveUpgradeSeriesPrepareLock remove a series upgrade prepare lock for a
+// given machine.
+func (m *Machine) RemoveUpgradeSeriesPrepareLock() error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		locked, err := m.IsLocked()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !locked {
+			return nil, errors.NotFoundf("upgrade series prepare lock for machine %q", m)
+		}
+		ops := []txn.Op{
+			{
+				C:      machineUpgradeSeriesLocksC,
+				Id:     m.doc.DocID,
+				Assert: txn.DocExists,
+				Remove: true,
+			},
+		}
+		return ops, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		logger.Errorf("cannot complete series upgrade for machine %q: %v", m, err)
 		return err
 	}
 

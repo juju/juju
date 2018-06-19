@@ -36,6 +36,7 @@ type UpgradeMachineSeriesAPI interface {
 	BestAPIVersion() int
 	Close() error
 	UpgradeSeriesPrepare(string) error
+	UpgradeSeriesComplete(string) error
 }
 
 // upgradeSeriesCommand is responsible for updating the series of an application or machine.
@@ -160,6 +161,13 @@ func (c *upgradeSeriesCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 	}
+	if c.prepCommand == CompleteCommand {
+		err := c.UpgradeSeriesComplete(ctx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	return nil
 }
 
@@ -189,6 +197,31 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
 	}
 
 	err = c.upgradeMachineSeriesClient.UpgradeSeriesPrepare(c.machineNumber)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+// UpgradeSeriesComplete completes a series for a given machine, that is
+// if a machine is marked as upgrading using UpgradeSeriesPrepare, then this
+// command will complete that process and the machine will no longer be marked
+// as upgrading.
+func (c *upgradeSeriesCommand) UpgradeSeriesComplete(ctx *cmd.Context) error {
+	var apiRoot api.Connection
+	var err error
+
+	if c.upgradeMachineSeriesClient == nil {
+		apiRoot, err = c.NewAPIRoot()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer apiRoot.Close()
+		c.upgradeMachineSeriesClient = machinemanager.NewClient(apiRoot)
+	}
+
+	err = c.upgradeMachineSeriesClient.UpgradeSeriesComplete(c.machineNumber)
 	if err != nil {
 		return errors.Trace(err)
 	}

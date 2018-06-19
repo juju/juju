@@ -45,6 +45,7 @@ type Machine interface {
 	SetKeepInstance(keepInstance bool) error
 	UpdateMachineSeries(string, bool) error
 	CreateUpgradeSeriesPrepareLock() error
+	RemoveUpgradeSeriesPrepareLock() error
 }
 
 type stateShim struct {
