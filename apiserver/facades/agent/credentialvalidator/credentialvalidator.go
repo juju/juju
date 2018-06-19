@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
@@ -23,6 +24,8 @@ type CredentialValidator interface {
 }
 
 type CredentialValidatorAPI struct {
+	*credentialcommon.CredentialManagerAPI
+
 	backend   Backend
 	resources facade.Resources
 }
@@ -35,14 +38,14 @@ func NewCredentialValidatorAPI(ctx facade.Context) (*CredentialValidatorAPI, err
 }
 
 func internalNewCredentialValidatorAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*CredentialValidatorAPI, error) {
-	hostAuthTag := authorizer.GetAuthTag()
-	if hostAuthTag == nil {
+	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
 		return nil, common.ErrPerm
 	}
 
 	return &CredentialValidatorAPI{
-		resources: resources,
-		backend:   backend,
+		CredentialManagerAPI: credentialcommon.NewCredentialManagerAPI(backend),
+		resources:            resources,
+		backend:              backend,
 	}, nil
 }
 
@@ -93,13 +96,4 @@ func (api *CredentialValidatorAPI) ModelCredential() (params.ModelCredential, er
 		Exists:          c.Exists,
 		Valid:           c.Valid,
 	}, nil
-}
-
-// InvalidateModelCredential marks the cloud credential for this model as invalid.
-func (api *CredentialValidatorAPI) InvalidateModelCredential(reason string) (params.ErrorResult, error) {
-	err := api.backend.InvalidateModelCredential(reason)
-	if err != nil {
-		return params.ErrorResult{Error: common.ServerError(err)}, nil
-	}
-	return params.ErrorResult{}, nil
 }

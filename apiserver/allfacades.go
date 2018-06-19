@@ -50,6 +50,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/client"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/cloud"      // ModelUser Read
 	"github.com/juju/juju/apiserver/facades/client/controller" // ModelUser Admin (although some methods check for read only)
+	"github.com/juju/juju/apiserver/facades/client/credentialmanager"
 	"github.com/juju/juju/apiserver/facades/client/firewallrules"
 	"github.com/juju/juju/apiserver/facades/client/highavailability" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/imagemanager"     // ModelUser Write
@@ -168,6 +169,7 @@ func AllFacades() *facade.Registry {
 	reg("Controller", 5, controller.NewControllerAPIv5)
 	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPI)
 	reg("CrossController", 1, crosscontroller.NewStateCrossControllerAPI)
+	reg("CredentialManager", 1, credentialmanager.NewCredentialManagerAPI)
 	reg("CredentialValidator", 1, credentialvalidator.NewCredentialValidatorAPI)
 	reg("ExternalControllerUpdater", 1, externalcontrollerupdater.NewStateAPI)
 
