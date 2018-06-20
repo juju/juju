@@ -40,25 +40,19 @@ func makeShapesRequestResponse(compartment, id string, shapeNames []string) (oci
 	return shapesRequest, shapesResponse
 }
 
-func makeListImageRequestResponse(compartment string, imgDetails []map[string]string) (ociCore.ListImagesRequest, ociCore.ListImagesResponse) {
-	ret := ociCore.ListImagesResponse{}
-	for _, val := range imgDetails {
-		id := makeStringPointer(val["id"])
-		name := makeStringPointer(val["name"])
-		os := makeStringPointer(val["os"])
-		version := makeStringPointer(val["version"])
-		ret.Items = append(
-			ret.Items,
-			ociCore.Image{
-				CompartmentId:          &compartment,
-				Id:                     id,
-				OperatingSystem:        os,
-				OperatingSystemVersion: version,
-				DisplayName:            name,
-			})
+func makeListImageRequestResponse(imgDetails []ociCore.Image) (ociCore.ListImagesRequest, ociCore.ListImagesResponse) {
+	if len(imgDetails) == 0 {
+		return ociCore.ListImagesRequest{}, ociCore.ListImagesResponse{}
 	}
 
-	return ociCore.ListImagesRequest{CompartmentId: &compartment}, ret
+	compartment := imgDetails[0].CompartmentId
+	request := ociCore.ListImagesRequest{
+		CompartmentId: compartment,
+	}
+	response := ociCore.ListImagesResponse{
+		Items: imgDetails,
+	}
+	return request, response
 }
 
 type imagesSuite struct {
@@ -122,6 +116,10 @@ func (i *imagesSuite) TestNewImageVersionInvalidName(c *gc.C) {
 }
 
 func makeStringPointer(name string) *string {
+	return &name
+}
+
+func makeIntPointer(name int) *int {
 	return &name
 }
 
@@ -247,27 +245,30 @@ func (i *imagesSuite) TestRefreshImageCache(c *gc.C) {
 	fakeUbuntuIDSecond := "fakeUbuntu2"
 
 	listImageRequest, listImageResponse := makeListImageRequestResponse(
-		i.testCompartment, []map[string]string{
+		[]ociCore.Image{
 			{
-				"id":      fakeUbuntuID,
-				"os":      "Canonical Ubuntu",
-				"name":    "Canonical-Ubuntu-14.04-2018.01.11-0",
-				"version": "14.04",
+				CompartmentId:          &i.testCompartment,
+				Id:                     &fakeUbuntuID,
+				OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
+				OperatingSystemVersion: makeStringPointer("14.04"),
+				DisplayName:            makeStringPointer("Canonical-Ubuntu-14.04-2018.01.11-0"),
 			},
 			{
-				"id":      fakeUbuntuIDSecond,
-				"os":      "Canonical Ubuntu",
-				"name":    "Canonical-Ubuntu-14.04-2018.01.12-0",
-				"version": "14.04",
+				CompartmentId:          &i.testCompartment,
+				Id:                     &fakeUbuntuIDSecond,
+				OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
+				OperatingSystemVersion: makeStringPointer("14.04"),
+				DisplayName:            makeStringPointer("Canonical-Ubuntu-14.04-2018.01.12-0"),
 			},
 			{
-				"id":      "fakeCentOS",
-				"os":      "CentOS",
-				"name":    "CentOS-7-2017.10.19-0",
-				"version": "7",
+				CompartmentId:          &i.testCompartment,
+				Id:                     makeStringPointer("fakeCentOS"),
+				OperatingSystem:        makeStringPointer("CentOS"),
+				OperatingSystemVersion: makeStringPointer("7"),
+				DisplayName:            makeStringPointer("CentOS-7-2017.10.19-0"),
 			},
-		})
-
+		},
+	)
 	shapesRequestUbuntu, shapesResponseUbuntu := makeShapesRequestResponse(
 		i.testCompartment, fakeUbuntuID, []string{"VM.Standard2.1", "VM.Standard1.2"})
 
@@ -347,20 +348,23 @@ func (i *imagesSuite) TestRefreshImageCacheWithInvalidImage(c *gc.C) {
 	defer ctrl.Finish()
 
 	listImageRequest, listImageResponse := makeListImageRequestResponse(
-		i.testCompartment, []map[string]string{
+		[]ociCore.Image{
 			{
-				"id":      "fakeUbuntu1",
-				"os":      "Canonical Ubuntu",
-				"name":    "Canonical-Ubuntu-14.04-2018.01.11-0",
-				"version": "14.04",
+				CompartmentId:          &i.testCompartment,
+				Id:                     makeStringPointer("fakeUbuntu1"),
+				OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
+				OperatingSystemVersion: makeStringPointer("14.04"),
+				DisplayName:            makeStringPointer("Canonical-Ubuntu-14.04-2018.01.11-0"),
 			},
 			{
-				"id":      "fake image id for bad image",
-				"os":      "CentOS",
-				"name":    "BadlyFormatedDisplayName_IshouldBeIgnored",
-				"version": "7",
+				CompartmentId:          &i.testCompartment,
+				Id:                     makeStringPointer("fake image id for bad image"),
+				OperatingSystem:        makeStringPointer("CentOS"),
+				OperatingSystemVersion: makeStringPointer("7"),
+				DisplayName:            makeStringPointer("BadlyFormatedDisplayName_IshouldBeIgnored"),
 			},
-		})
+		},
+	)
 
 	shapesRequestUbuntu, shapesResponseUbuntu := makeShapesRequestResponse(
 		i.testCompartment, "fakeUbuntu1", []string{"VM.Standard2.1", "VM.Standard1.2"})

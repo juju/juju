@@ -4,8 +4,10 @@
 package oci
 
 import (
+	"context"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
@@ -14,7 +16,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
@@ -57,6 +59,56 @@ func (e *Environ) ecfg() *environConfig {
 	return e.ecfgObj
 }
 
+func (e *Environ) allInstances(tags map[string]string) ([]*ociInstance, error) {
+	compartment := e.ecfg().compartmentID()
+	request := ociCore.ListInstancesRequest{
+		CompartmentId: compartment,
+	}
+	response, err := e.Compute.ListInstances(context.Background(), request)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ret := []*ociInstance{}
+	for _, val := range response.Items {
+		if val.LifecycleState == ociCore.InstanceLifecycleStateTerminated {
+			continue
+		}
+		missingTag := false
+		for i, j := range tags {
+			tagVal, ok := val.FreeformTags[i]
+			if !ok || tagVal != j {
+				missingTag = true
+				break
+			}
+		}
+		if missingTag {
+			// One of the tags was not found
+			continue
+		}
+		inst, err := newInstance(val, e)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ret = append(ret, inst)
+	}
+	return ret, nil
+}
+
+func (e *Environ) getOCIInstance(id instance.Id) (*ociInstance, error) {
+	instanceId := string(id)
+	request := ociCore.GetInstanceRequest{
+		InstanceId: &instanceId,
+	}
+
+	response, err := e.Compute.GetInstance(context.Background(), request)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return newInstance(response.Instance, e)
+}
+
 func (e *Environ) isNotFound(response *http.Response) bool {
 	if response.StatusCode == http.StatusNotFound {
 		return true
@@ -64,23 +116,59 @@ func (e *Environ) isNotFound(response *http.Response) bool {
 	return false
 }
 
+// waitForResourceStatus will ping the resource until the fetch function returns true,
+// the timeout is reached, or an error occurs.
+func (o *Environ) waitForResourceStatus(
+	statusFunc func(resID *string) (status string, err error),
+	resId *string, desiredStatus string,
+	timeout time.Duration,
+) error {
+
+	var status string
+	var err error
+	timeoutTimer := o.clock.NewTimer(timeout)
+	defer timeoutTimer.Stop()
+
+	retryTimer := o.clock.NewTimer(0)
+	defer retryTimer.Stop()
+
+	for {
+		select {
+		case <-retryTimer.Chan():
+			status, err = statusFunc(resId)
+			if err != nil {
+				return err
+			}
+			if status == desiredStatus {
+				return nil
+			}
+			retryTimer.Reset(2 * time.Second)
+		case <-timeoutTimer.Chan():
+			return errors.Errorf(
+				"timed out waiting for resource %q to transition to %v. Current status: %q",
+				*resId, desiredStatus, status,
+			)
+		}
+	}
+}
+
 // AvailabilityZones is defined in the common.ZonedEnviron interface
-func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+func (e *Environ) AvailabilityZones(ctx envcontext.ProviderCallContext) ([]common.AvailabilityZone, error) {
 	return nil, errors.NotImplementedf("AvailabilityZones")
 }
 
 // InstanceAvailabilityzoneNames implements common.ZonedEnviron.
-func (e *Environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
+func (e *Environ) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]string, error) {
 	return nil, errors.NotImplementedf("InstanceAvailabilityZoneNames")
 }
 
 // DeriveAvailabilityZones implements common.ZonedEnviron.
-func (e *Environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
+func (e *Environ) DeriveAvailabilityZones(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
 	return nil, errors.NotImplementedf("DeriveAvailabilityZones")
 }
 
 // Instances implements environs.Environ.
-func (e *Environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
+func (e *Environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instance.Instance, error) {
 	return nil, errors.NotImplementedf("Instances")
 }
 
@@ -90,17 +178,17 @@ func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 }
 
 // Bootstrap implements environs.Environ.
-func (e *Environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (e *Environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, e, callCtx, params)
 }
 
 // Create implements environs.Environ.
-func (e *Environ) Create(ctx context.ProviderCallContext, params environs.CreateParams) error {
+func (e *Environ) Create(ctx envcontext.ProviderCallContext, params environs.CreateParams) error {
 	return errors.NotImplementedf("Create")
 }
 
 // AdoptResources implements environs.Environ.
-func (e *Environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	return errors.NotImplementedf("AdoptResources")
 }
 
@@ -124,17 +212,17 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 }
 
 // ControllerInstances implements environs.Environ.
-func (e *Environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (e *Environ) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	return nil, errors.NotImplementedf("ControllerInstances")
 }
 
 // Destroy implements environs.Environ.
-func (e *Environ) Destroy(ctx context.ProviderCallContext) error {
+func (e *Environ) Destroy(ctx envcontext.ProviderCallContext) error {
 	return common.Destroy(e, ctx)
 }
 
 // DestroyController implements environs.Environ.
-func (e *Environ) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+func (e *Environ) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	return errors.NotImplementedf("DestroyController")
 }
 
@@ -154,22 +242,22 @@ func (e *Environ) StorageProvider(t storage.ProviderType) (storage.Provider, err
 }
 
 // StartInstance implements environs.InstanceBroker.
-func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (e *Environ) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	return nil, errors.NotImplementedf("StartInstance")
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (e *Environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (e *Environ) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
 	return errors.NotImplementedf("StopInstances")
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (e *Environ) AllInstances(ctx context.ProviderCallContext) ([]instance.Instance, error) {
+func (e *Environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instance.Instance, error) {
 	return nil, errors.NotImplementedf("AllInstances")
 }
 
 // MaintainInstance implements environs.InstanceBroker.
-func (e *Environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
+func (e *Environ) MaintainInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) error {
 	return errors.NotImplementedf("MaintainInstance")
 }
 
@@ -184,11 +272,11 @@ func (e *Environ) Config() *config.Config {
 }
 
 // PrecheckInstance implements environs.InstancePrechecker.
-func (e *Environ) PrecheckInstance(context.ProviderCallContext, environs.PrecheckInstanceParams) error {
+func (e *Environ) PrecheckInstance(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error {
 	return errors.NotImplementedf("PrecheckInstance")
 }
 
 // InstanceTypes implements environs.InstancePrechecker.
-func (e *Environ) InstanceTypes(context.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+func (e *Environ) InstanceTypes(envcontext.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	return instances.InstanceTypesWithCostMetadata{}, errors.NotImplementedf("InstanceTypes")
 }
