@@ -15,6 +15,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"math/rand"
 )
 
 var logger = loggo.GetLogger("juju.network")
@@ -632,4 +633,19 @@ func FormatAsCIDR(addresses []string) ([]string, error) {
 		result[i] = cidr
 	}
 	return result, nil
+}
+
+// macAddressTemplate is suitable for generating virtual MAC addresses,
+// particularly for use by container devices.
+// The last 3 segments are randomised.
+const macAddressTemplate = "00:16:3e:%02x:%02x:%02x"
+
+// GenerateVirtualMACAddress creates a random MAC address within the address
+// space implied by macAddressTemplate above.
+var GenerateVirtualMACAddress = func() string {
+	digits := make([]interface{}, 3)
+	for i := range digits {
+		digits[i] = rand.Intn(256)
+	}
+	return fmt.Sprintf(macAddressTemplate, digits...)
 }
