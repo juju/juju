@@ -22,7 +22,7 @@ func Destroy(env environs.Environ, ctx context.ProviderCallContext) error {
 	if err := destroyInstances(env, ctx); err != nil {
 		return errors.Annotate(err, "destroying instances")
 	}
-	if err := destroyStorage(env); err != nil {
+	if err := destroyStorage(env, ctx); err != nil {
 		return errors.Annotate(err, "destroying storage")
 	}
 	return nil
@@ -52,7 +52,7 @@ func destroyInstances(env environs.Environ, ctx context.ProviderCallContext) err
 // to destroy persistent storage. Trying to include it in the storage
 // source abstraction doesn't work well with dynamic, non-persistent
 // storage like tmpfs, rootfs, etc.
-func destroyStorage(env environs.Environ) error {
+func destroyStorage(env environs.Environ, ctx context.ProviderCallContext) error {
 	logger.Infof("destroying storage")
 	storageProviderTypes, err := env.StorageProviderTypes()
 	if err != nil {
@@ -82,7 +82,7 @@ func destroyStorage(env environs.Environ) error {
 			if err != nil {
 				return errors.Annotate(err, "getting volume source")
 			}
-			if err := destroyVolumes(volumeSource); err != nil {
+			if err := destroyVolumes(volumeSource, ctx); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -90,14 +90,14 @@ func destroyStorage(env environs.Environ) error {
 	return nil
 }
 
-func destroyVolumes(volumeSource storage.VolumeSource) error {
-	volumeIds, err := volumeSource.ListVolumes()
+func destroyVolumes(volumeSource storage.VolumeSource, ctx context.ProviderCallContext) error {
+	volumeIds, err := volumeSource.ListVolumes(ctx)
 	if err != nil {
 		return errors.Annotate(err, "listing volumes")
 	}
 
 	var errStrings []string
-	errs, err := volumeSource.DestroyVolumes(volumeIds)
+	errs, err := volumeSource.DestroyVolumes(ctx, volumeIds)
 	if err != nil {
 		return errors.Annotate(err, "destroying volumes")
 	}

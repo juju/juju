@@ -656,7 +656,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 	c.Assert(err, jc.ErrorIsNil)
 	vs, err := ebsProvider.VolumeSource(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	volumeResults, err := vs.CreateVolumes([]storage.VolumeParams{{
+	volumeResults, err := vs.CreateVolumes(t.callCtx, []storage.VolumeParams{{
 		Tag:      names.NewVolumeTag("0"),
 		Size:     1024,
 		Provider: ec2.EBS_ProviderType,
@@ -684,7 +684,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 		c.Assert(ids, jc.SameContents, expect)
 	}
 	assertVolumes := func(expect ...string) {
-		volIds, err := vs.ListVolumes()
+		volIds, err := vs.ListVolumes(t.callCtx)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(volIds, jc.SameContents, expect)
 	}
@@ -1844,7 +1844,7 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	vs, err := ebsProvider.VolumeSource(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	volumeResults, err := vs.CreateVolumes([]storage.VolumeParams{{
+	volumeResults, err := vs.CreateVolumes(s.callCtx, []storage.VolumeParams{{
 		Tag:      names.NewVolumeTag("0"),
 		Size:     1024,
 		Provider: ec2.EBS_ProviderType,

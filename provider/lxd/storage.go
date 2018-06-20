@@ -228,7 +228,7 @@ type lxdFilesystemSource struct {
 }
 
 // CreateFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) CreateFilesystems(args []storage.FilesystemParams) (_ []storage.CreateFilesystemsResult, err error) {
+func (s *lxdFilesystemSource) CreateFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemParams) (_ []storage.CreateFilesystemsResult, err error) {
 	results := make([]storage.CreateFilesystemsResult, len(args))
 	for i, arg := range args {
 		if err := s.ValidateFilesystemParams(arg); err != nil {
@@ -348,7 +348,7 @@ func destroyFilesystems(env *environ, match func(api.StorageVolume) bool) error 
 }
 
 // DestroyFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]error, error) {
+func (s *lxdFilesystemSource) DestroyFilesystems(ctx context.ProviderCallContext, filesystemIds []string) ([]error, error) {
 	results := make([]error, len(filesystemIds))
 	for i, filesystemId := range filesystemIds {
 		results[i] = s.destroyFilesystem(filesystemId)
@@ -369,7 +369,7 @@ func (s *lxdFilesystemSource) destroyFilesystem(filesystemId string) error {
 }
 
 // ReleaseFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) ReleaseFilesystems(filesystemIds []string) ([]error, error) {
+func (s *lxdFilesystemSource) ReleaseFilesystems(ctx context.ProviderCallContext, filesystemIds []string) ([]error, error) {
 	results := make([]error, len(filesystemIds))
 	for i, filesystemId := range filesystemIds {
 		results[i] = s.releaseFilesystem(filesystemId)
@@ -406,7 +406,7 @@ func (s *lxdFilesystemSource) ValidateFilesystemParams(params storage.Filesystem
 }
 
 // AttachFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+func (s *lxdFilesystemSource) AttachFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
 	var instanceIds []instance.Id
 	instanceIdsSeen := make(set.Strings)
 	for _, arg := range args {
@@ -416,7 +416,7 @@ func (s *lxdFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachm
 		instanceIdsSeen.Add(string(arg.InstanceId))
 		instanceIds = append(instanceIds, arg.InstanceId)
 	}
-	instances, err := s.env.Instances(context.NewCloudCallContext(), instanceIds)
+	instances, err := s.env.Instances(ctx, instanceIds)
 	switch err {
 	case nil, environs.ErrPartialInstances, environs.ErrNoInstances:
 	default:
@@ -489,7 +489,7 @@ func (s *lxdFilesystemSource) attachFilesystem(
 }
 
 // DetachFilesystems is specified on the storage.FilesystemSource interface.
-func (s *lxdFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachmentParams) ([]error, error) {
+func (s *lxdFilesystemSource) DetachFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]error, error) {
 	var instanceIds []instance.Id
 	instanceIdsSeen := make(set.Strings)
 	for _, arg := range args {
@@ -499,7 +499,7 @@ func (s *lxdFilesystemSource) DetachFilesystems(args []storage.FilesystemAttachm
 		instanceIdsSeen.Add(string(arg.InstanceId))
 		instanceIds = append(instanceIds, arg.InstanceId)
 	}
-	instances, err := s.env.Instances(context.NewCloudCallContext(), instanceIds)
+	instances, err := s.env.Instances(ctx, instanceIds)
 	switch err {
 	case nil, environs.ErrPartialInstances, environs.ErrNoInstances:
 	default:
@@ -543,6 +543,7 @@ func (s *lxdFilesystemSource) detachFilesystem(
 
 // ImportFilesystem is part of the storage.FilesystemImporter interface.
 func (s *lxdFilesystemSource) ImportFilesystem(
+	callCtx context.ProviderCallContext,
 	filesystemId string,
 	tags map[string]string,
 ) (storage.FilesystemInfo, error) {

@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
@@ -315,7 +316,7 @@ func parseVolumeOptions(size uint64, attrs map[string]interface{}) (_ ec2.Create
 }
 
 // CreateVolumes is specified on the storage.VolumeSource interface.
-func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
+func (v *ebsVolumeSource) CreateVolumes(ctx context.ProviderCallContext, params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
 
 	// First, validate the params before we use them.
 	results := make([]storage.CreateVolumesResult, len(params))
@@ -415,7 +416,7 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 }
 
 // ListVolumes is specified on the storage.VolumeSource interface.
-func (v *ebsVolumeSource) ListVolumes() ([]string, error) {
+func (v *ebsVolumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
 	filter := ec2.NewFilter()
 	filter.Add("tag:"+tags.JujuModel, v.modelUUID)
 	return listVolumes(v.env.ec2, filter, false)
@@ -448,7 +449,7 @@ func listVolumes(client *ec2.EC2, filter *ec2.Filter, includeRootDisks bool) ([]
 }
 
 // DescribeVolumes is specified on the storage.VolumeSource interface.
-func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.DescribeVolumesResult, error) {
+func (v *ebsVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, volIds []string) ([]storage.DescribeVolumesResult, error) {
 	// TODO(axw) invalid volIds here should not cause the whole
 	// operation to fail. If we get an invalid volume ID response,
 	// fall back to querying each volume individually. That should
@@ -484,12 +485,12 @@ func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.DescribeVo
 }
 
 // DestroyVolumes is specified on the storage.VolumeSource interface.
-func (v *ebsVolumeSource) DestroyVolumes(volIds []string) ([]error, error) {
+func (v *ebsVolumeSource) DestroyVolumes(ctx context.ProviderCallContext, volIds []string) ([]error, error) {
 	return foreachVolume(v.env.ec2, volIds, destroyVolume), nil
 }
 
 // ReleaseVolumes is specified on the storage.VolumeSource interface.
-func (v *ebsVolumeSource) ReleaseVolumes(volIds []string) ([]error, error) {
+func (v *ebsVolumeSource) ReleaseVolumes(ctx context.ProviderCallContext, volIds []string) ([]error, error) {
 	return foreachVolume(v.env.ec2, volIds, releaseVolume), nil
 }
 
@@ -694,7 +695,7 @@ func (v *ebsVolumeSource) ValidateVolumeParams(params storage.VolumeParams) erro
 }
 
 // AttachVolumes is specified on the storage.VolumeSource interface.
-func (v *ebsVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (v *ebsVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	// We need the instance type for each instance we are
 	// attaching to so we can determine how to identify the
 	// volume attachment
@@ -927,7 +928,7 @@ func (c instanceCache) get(id string) (ec2.Instance, error) {
 }
 
 // DetachVolumes is specified on the storage.VolumeSource interface.
-func (v *ebsVolumeSource) DetachVolumes(attachParams []storage.VolumeAttachmentParams) ([]error, error) {
+func (v *ebsVolumeSource) DetachVolumes(ctx context.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]error, error) {
 	return detachVolumes(v.env.ec2, attachParams)
 }
 
@@ -961,7 +962,7 @@ func detachVolumes(client *ec2.EC2, attachParams []storage.VolumeAttachmentParam
 }
 
 // ImportVolume is specified on the storage.VolumeImporter interface.
-func (v *ebsVolumeSource) ImportVolume(volumeId string, tags map[string]string) (storage.VolumeInfo, error) {
+func (v *ebsVolumeSource) ImportVolume(ctx context.ProviderCallContext, volumeId string, tags map[string]string) (storage.VolumeInfo, error) {
 	resp, err := v.env.ec2.Volumes([]string{volumeId}, nil)
 	if err != nil {
 		// TODO(axw) check for "not found" response, massage error message?

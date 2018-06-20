@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/storage"
@@ -118,7 +119,7 @@ func (c instanceCache) get(id string) (google.Instance, error) {
 	return inst, nil
 }
 
-func (v *volumeSource) CreateVolumes(params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
+func (v *volumeSource) CreateVolumes(ctx context.ProviderCallContext, params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
 	results := make([]storage.CreateVolumesResult, len(params))
 	instanceIds := set.NewStrings()
 	for i, p := range params {
@@ -249,11 +250,11 @@ func (v *volumeSource) createOneVolume(p storage.VolumeParams, instances instanc
 	return volume, volumeAttachment, nil
 }
 
-func (v *volumeSource) DestroyVolumes(volNames []string) ([]error, error) {
+func (v *volumeSource) DestroyVolumes(ctx context.ProviderCallContext, volNames []string) ([]error, error) {
 	return v.foreachVolume(volNames, v.destroyOneVolume), nil
 }
 
-func (v *volumeSource) ReleaseVolumes(volNames []string) ([]error, error) {
+func (v *volumeSource) ReleaseVolumes(ctx context.ProviderCallContext, volNames []string) ([]error, error) {
 	return v.foreachVolume(volNames, v.releaseOneVolume), nil
 }
 
@@ -328,7 +329,7 @@ func (v *volumeSource) releaseOneVolume(volName string) error {
 	return nil
 }
 
-func (v *volumeSource) ListVolumes() ([]string, error) {
+func (v *volumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
 	var volumes []string
 	disks, err := v.gce.Disks()
 	if err != nil {
@@ -347,7 +348,7 @@ func (v *volumeSource) ListVolumes() ([]string, error) {
 }
 
 // ImportVolume is specified on the storage.VolumeImporter interface.
-func (v *volumeSource) ImportVolume(volName string, tags map[string]string) (storage.VolumeInfo, error) {
+func (v *volumeSource) ImportVolume(ctx context.ProviderCallContext, volName string, tags map[string]string) (storage.VolumeInfo, error) {
 	zone, _, err := parseVolumeId(volName)
 	if err != nil {
 		return storage.VolumeInfo{}, errors.Annotatef(err, "cannot get volume %q", volName)
@@ -378,7 +379,7 @@ func (v *volumeSource) ImportVolume(volName string, tags map[string]string) (sto
 	}, nil
 }
 
-func (v *volumeSource) DescribeVolumes(volNames []string) ([]storage.DescribeVolumesResult, error) {
+func (v *volumeSource) DescribeVolumes(ctx context.ProviderCallContext, volNames []string) ([]storage.DescribeVolumesResult, error) {
 	results := make([]storage.DescribeVolumesResult, len(volNames))
 	for i, vol := range volNames {
 		res, err := v.describeOneVolume(vol)
@@ -414,7 +415,7 @@ func (v *volumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
 	return nil
 }
 
-func (v *volumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (v *volumeSource) AttachVolumes(ctx context.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	results := make([]storage.AttachVolumesResult, len(attachParams))
 	for i, attachment := range attachParams {
 		volumeName := attachment.VolumeId
@@ -466,7 +467,7 @@ func (v *volumeSource) attachOneVolume(volumeName string, mode google.DiskMode, 
 	return attachment, nil
 }
 
-func (v *volumeSource) DetachVolumes(attachParams []storage.VolumeAttachmentParams) ([]error, error) {
+func (v *volumeSource) DetachVolumes(ctx context.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]error, error) {
 	result := make([]error, len(attachParams))
 	for i, volumeAttachment := range attachParams {
 		result[i] = v.detachOneVolume(volumeAttachment)

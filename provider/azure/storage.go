@@ -18,6 +18,7 @@ import (
 	"github.com/juju/schema"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
@@ -160,7 +161,7 @@ type azureVolumeSource struct {
 }
 
 // CreateVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
+func (v *azureVolumeSource) CreateVolumes(ctx context.ProviderCallContext, params []storage.VolumeParams) (_ []storage.CreateVolumesResult, err error) {
 	results := make([]storage.CreateVolumesResult, len(params))
 	for i, p := range params {
 		if err := v.ValidateVolumeParams(p); err != nil {
@@ -318,7 +319,7 @@ func (v *azureVolumeSource) createUnmanagedDiskVolume(
 }
 
 // ListVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) ListVolumes() ([]string, error) {
+func (v *azureVolumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
 	if v.maybeStorageClient == nil {
 		return v.listManagedDiskVolumes()
 	}
@@ -384,7 +385,7 @@ func (v *azureVolumeSource) listBlobs() ([]internalazurestorage.Blob, error) {
 }
 
 // DescribeVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.DescribeVolumesResult, error) {
+func (v *azureVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
 	if v.maybeStorageClient == nil {
 		return v.describeManagedDiskVolumes(volumeIds)
 	}
@@ -452,7 +453,7 @@ func (v *azureVolumeSource) describeUnmanagedDiskVolumes(volumeIds []string) ([]
 }
 
 // DestroyVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) {
+func (v *azureVolumeSource) DestroyVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
 	if v.maybeStorageClient == nil {
 		return v.destroyManagedDiskVolumes(volumeIds)
 	}
@@ -495,7 +496,7 @@ func foreachVolume(volumeIds []string, f func(string) error) []error {
 }
 
 // ReleaseVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) ReleaseVolumes(volumeIds []string) ([]error, error) {
+func (v *azureVolumeSource) ReleaseVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
 	// Releasing volumes is not supported, see azureStorageProvider.Releasable.
 	//
 	// When managed disks can be moved between resource groups, we may want to
@@ -517,7 +518,7 @@ func (v *azureVolumeSource) ValidateVolumeParams(params storage.VolumeParams) er
 }
 
 // AttachVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (v *azureVolumeSource) AttachVolumes(ctx context.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	results := make([]storage.AttachVolumesResult, len(attachParams))
 	instanceIds := make([]instance.Id, len(attachParams))
 	for i, p := range attachParams {
@@ -662,7 +663,7 @@ func (v *azureVolumeSource) addDataDisk(
 }
 
 // DetachVolumes is specified on the storage.VolumeSource interface.
-func (v *azureVolumeSource) DetachVolumes(attachParams []storage.VolumeAttachmentParams) ([]error, error) {
+func (v *azureVolumeSource) DetachVolumes(ctx context.ProviderCallContext, attachParams []storage.VolumeAttachmentParams) ([]error, error) {
 	results := make([]error, len(attachParams))
 	instanceIds := make([]instance.Id, len(attachParams))
 	for i, p := range attachParams {

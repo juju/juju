@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
@@ -23,12 +24,15 @@ type managedfsSuite struct {
 	dirFuncs     *provider.MockDirFuncs
 	blockDevices map[names.VolumeTag]storage.BlockDevice
 	filesystems  map[names.FilesystemTag]storage.Filesystem
+
+	callCtx context.ProviderCallContext
 }
 
 func (s *managedfsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.blockDevices = make(map[names.VolumeTag]storage.BlockDevice)
 	s.filesystems = make(map[names.FilesystemTag]storage.Filesystem)
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func (s *managedfsSuite) TearDownTest(c *gc.C) {
@@ -70,7 +74,7 @@ func (s *managedfsSuite) TestCreateFilesystems(c *gc.C) {
 		HardwareId: "weetbix",
 		Size:       3,
 	}
-	results, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:    names.NewFilesystemTag("0/0"),
 		Volume: names.NewVolumeTag("0"),
 		Size:   2,
@@ -103,7 +107,7 @@ func (s *managedfsSuite) TestCreateFilesystems(c *gc.C) {
 
 func (s *managedfsSuite) TestCreateFilesystemsNoBlockDevice(c *gc.C) {
 	source := s.initSource(c)
-	results, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:    names.NewFilesystemTag("0/0"),
 		Volume: names.NewVolumeTag("0"),
 		Size:   2,
@@ -153,7 +157,7 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool)
 		Volume: names.NewVolumeTag("0"),
 	}
 
-	results, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("0/0"),
 		FilesystemId: "filesystem-0-0",
 		AttachmentParams: storage.AttachmentParams{
@@ -178,10 +182,10 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool)
 
 func (s *managedfsSuite) TestDetachFilesystems(c *gc.C) {
 	source := s.initSource(c)
-	testDetachFilesystems(c, s.commands, source, true)
+	testDetachFilesystems(c, s.commands, source, s.callCtx, true)
 }
 
 func (s *managedfsSuite) TestDetachFilesystemsUnattached(c *gc.C) {
 	source := s.initSource(c)
-	testDetachFilesystems(c, s.commands, source, false)
+	testDetachFilesystems(c, s.commands, source, s.callCtx, false)
 }

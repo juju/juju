@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 )
 
@@ -16,57 +17,57 @@ import (
 type VolumeSource struct {
 	testing.Stub
 
-	CreateVolumesFunc        func([]storage.VolumeParams) ([]storage.CreateVolumesResult, error)
-	ListVolumesFunc          func() ([]string, error)
-	DescribeVolumesFunc      func([]string) ([]storage.DescribeVolumesResult, error)
-	DestroyVolumesFunc       func([]string) ([]error, error)
-	ReleaseVolumesFunc       func([]string) ([]error, error)
+	CreateVolumesFunc        func(context.ProviderCallContext, []storage.VolumeParams) ([]storage.CreateVolumesResult, error)
+	ListVolumesFunc          func(context.ProviderCallContext) ([]string, error)
+	DescribeVolumesFunc      func(context.ProviderCallContext, []string) ([]storage.DescribeVolumesResult, error)
+	DestroyVolumesFunc       func(context.ProviderCallContext, []string) ([]error, error)
+	ReleaseVolumesFunc       func(context.ProviderCallContext, []string) ([]error, error)
 	ValidateVolumeParamsFunc func(storage.VolumeParams) error
-	AttachVolumesFunc        func([]storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)
-	DetachVolumesFunc        func([]storage.VolumeAttachmentParams) ([]error, error)
+	AttachVolumesFunc        func(context.ProviderCallContext, []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error)
+	DetachVolumesFunc        func(context.ProviderCallContext, []storage.VolumeAttachmentParams) ([]error, error)
 }
 
 // CreateVolumes is defined on storage.VolumeSource.
-func (s *VolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
-	s.MethodCall(s, "CreateVolumes", params)
+func (s *VolumeSource) CreateVolumes(ctx context.ProviderCallContext, params []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
+	s.MethodCall(s, "CreateVolumes", ctx, params)
 	if s.CreateVolumesFunc != nil {
-		return s.CreateVolumesFunc(params)
+		return s.CreateVolumesFunc(ctx, params)
 	}
 	return nil, errors.NotImplementedf("CreateVolumes")
 }
 
 // ListVolumes is defined on storage.VolumeSource.
-func (s *VolumeSource) ListVolumes() ([]string, error) {
-	s.MethodCall(s, "ListVolumes")
+func (s *VolumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
+	s.MethodCall(s, "ListVolumes", ctx)
 	if s.ListVolumesFunc != nil {
-		return s.ListVolumesFunc()
+		return s.ListVolumesFunc(ctx)
 	}
 	return nil, nil
 }
 
 // DescribeVolumes is defined on storage.VolumeSource.
-func (s *VolumeSource) DescribeVolumes(volIds []string) ([]storage.DescribeVolumesResult, error) {
-	s.MethodCall(s, "DescribeVolumes", volIds)
+func (s *VolumeSource) DescribeVolumes(ctx context.ProviderCallContext, volIds []string) ([]storage.DescribeVolumesResult, error) {
+	s.MethodCall(s, "DescribeVolumes", ctx, volIds)
 	if s.DescribeVolumesFunc != nil {
-		return s.DescribeVolumesFunc(volIds)
+		return s.DescribeVolumesFunc(ctx, volIds)
 	}
 	return nil, errors.NotImplementedf("DescribeVolumes")
 }
 
 // DestroyVolumes is defined on storage.VolumeSource.
-func (s *VolumeSource) DestroyVolumes(volIds []string) ([]error, error) {
-	s.MethodCall(s, "DestroyVolumes", volIds)
+func (s *VolumeSource) DestroyVolumes(ctx context.ProviderCallContext, volIds []string) ([]error, error) {
+	s.MethodCall(s, "DestroyVolumes", ctx, volIds)
 	if s.DestroyVolumesFunc != nil {
-		return s.DestroyVolumesFunc(volIds)
+		return s.DestroyVolumesFunc(ctx, volIds)
 	}
 	return nil, errors.NotImplementedf("DestroyVolumes")
 }
 
 // ReleaseVolumes is defined on storage.VolumeSource.
-func (s *VolumeSource) ReleaseVolumes(volIds []string) ([]error, error) {
-	s.MethodCall(s, "ReleaseVolumes", volIds)
+func (s *VolumeSource) ReleaseVolumes(ctx context.ProviderCallContext, volIds []string) ([]error, error) {
+	s.MethodCall(s, "ReleaseVolumes", ctx, volIds)
 	if s.ReleaseVolumesFunc != nil {
-		return s.ReleaseVolumesFunc(volIds)
+		return s.ReleaseVolumesFunc(ctx, volIds)
 	}
 	return nil, errors.NotImplementedf("ReleaseVolumes")
 }
@@ -81,19 +82,19 @@ func (s *VolumeSource) ValidateVolumeParams(params storage.VolumeParams) error {
 }
 
 // AttachVolumes is defined on storage.VolumeSource.
-func (s *VolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
-	s.MethodCall(s, "AttachVolumes", params)
+func (s *VolumeSource) AttachVolumes(ctx context.ProviderCallContext, params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+	s.MethodCall(s, "AttachVolumes", ctx, params)
 	if s.AttachVolumesFunc != nil {
-		return s.AttachVolumesFunc(params)
+		return s.AttachVolumesFunc(ctx, params)
 	}
 	return nil, errors.NotImplementedf("AttachVolumes")
 }
 
 // DetachVolumes is defined on storage.VolumeSource.
-func (s *VolumeSource) DetachVolumes(params []storage.VolumeAttachmentParams) ([]error, error) {
-	s.MethodCall(s, "DetachVolumes", params)
+func (s *VolumeSource) DetachVolumes(ctx context.ProviderCallContext, params []storage.VolumeAttachmentParams) ([]error, error) {
+	s.MethodCall(s, "DetachVolumes", ctx, params)
 	if s.DetachVolumesFunc != nil {
-		return s.DetachVolumesFunc(params)
+		return s.DetachVolumesFunc(ctx, params)
 	}
 	return nil, errors.NotImplementedf("DetachVolumes")
 }
