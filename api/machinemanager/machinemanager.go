@@ -171,5 +171,9 @@ func (client *Client) UpgradeSeriesComplete(machineName string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return result.Error
+	if result.Error != nil {
+		return result.Error
+	}
+
+	return nil
 }
