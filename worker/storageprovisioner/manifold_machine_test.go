@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/engine/enginetest"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/storageprovisioner"
 )
@@ -45,6 +46,7 @@ func (s *MachineManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:     config.AgentName,
 		APICallerName: config.APICallerName,
 		Clock:         testing.NewClock(defaultClockStart),
+		NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 	}
 }
 

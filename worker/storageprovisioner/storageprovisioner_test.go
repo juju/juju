@@ -14,6 +14,7 @@ import (
 	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -58,14 +59,15 @@ func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 
 func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 	worker, err := storageprovisioner.NewStorageProvisioner(storageprovisioner.Config{
-		Scope:       coretesting.ModelTag,
-		Volumes:     newMockVolumeAccessor(),
-		Filesystems: newMockFilesystemAccessor(),
-		Life:        &mockLifecycleManager{},
-		Registry:    s.registry,
-		Machines:    newMockMachineAccessor(c),
-		Status:      &mockStatusSetter{},
-		Clock:       &mockClock{},
+		Scope:            coretesting.ModelTag,
+		Volumes:          newMockVolumeAccessor(),
+		Filesystems:      newMockFilesystemAccessor(),
+		Life:             &mockLifecycleManager{},
+		Registry:         s.registry,
+		Machines:         newMockMachineAccessor(c),
+		Status:           &mockStatusSetter{},
+		Clock:            &mockClock{},
+		CloudCallContext: context.NewCloudCallContext(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1785,15 +1787,16 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 		args.statusSetter = &mockStatusSetter{}
 	}
 	worker, err := storageprovisioner.NewStorageProvisioner(storageprovisioner.Config{
-		Scope:       args.scope,
-		StorageDir:  storageDir,
-		Volumes:     args.volumes,
-		Filesystems: args.filesystems,
-		Life:        args.life,
-		Registry:    args.registry,
-		Machines:    args.machines,
-		Status:      args.statusSetter,
-		Clock:       args.clock,
+		Scope:            args.scope,
+		StorageDir:       storageDir,
+		Volumes:          args.volumes,
+		Filesystems:      args.filesystems,
+		Life:             args.life,
+		Registry:         args.registry,
+		Machines:         args.machines,
+		Status:           args.statusSetter,
+		Clock:            args.clock,
+		CloudCallContext: context.NewCloudCallContext(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return worker

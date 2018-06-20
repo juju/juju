@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 )
@@ -56,7 +57,7 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 		if len(filesystemParams) == 0 {
 			continue
 		}
-		results, err := filesystemSource.CreateFilesystems(filesystemParams)
+		results, err := filesystemSource.CreateFilesystems(ctx.config.CloudCallContext, filesystemParams)
 		if err != nil {
 			return errors.Annotatef(err, "creating filesystems from source %q", sourceName)
 		}
@@ -140,7 +141,7 @@ func attachFilesystems(ctx *context, ops map[params.MachineStorageId]*attachFile
 	for sourceName, filesystemAttachmentParams := range paramsBySource {
 		logger.Debugf("attaching filesystems: %+v", filesystemAttachmentParams)
 		filesystemSource := filesystemSources[sourceName]
-		results, err := filesystemSource.AttachFilesystems(filesystemAttachmentParams)
+		results, err := filesystemSource.AttachFilesystems(ctx.config.CloudCallContext, filesystemAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "attaching filesystems from source %q", sourceName)
 		}
@@ -215,11 +216,11 @@ func removeFilesystems(ctx *context, ops map[names.FilesystemTag]*removeFilesyst
 	var remove []names.Tag
 	var reschedule []scheduleOp
 	var statuses []params.EntityStatusArgs
-	removeFilesystems := func(tags []names.FilesystemTag, ids []string, f func([]string) ([]error, error)) error {
+	removeFilesystems := func(tags []names.FilesystemTag, ids []string, f func(environscontext.ProviderCallContext, []string) ([]error, error)) error {
 		if len(ids) == 0 {
 			return nil
 		}
-		errs, err := f(ids)
+		errs, err := f(ctx.config.CloudCallContext, ids)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -311,7 +312,7 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 	for sourceName, filesystemAttachmentParams := range paramsBySource {
 		logger.Debugf("detaching filesystems: %+v", filesystemAttachmentParams)
 		filesystemSource := filesystemSources[sourceName]
-		errs, err := filesystemSource.DetachFilesystems(filesystemAttachmentParams)
+		errs, err := filesystemSource.DetachFilesystems(ctx.config.CloudCallContext, filesystemAttachmentParams)
 		if err != nil {
 			return errors.Annotatef(err, "detaching filesystems from source %q", sourceName)
 		}

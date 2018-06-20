@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -21,8 +22,9 @@ type ModelManifoldConfig struct {
 	ClockName     string
 	EnvironName   string
 
-	Scope      names.Tag
-	StorageDir string
+	Scope                        names.Tag
+	StorageDir                   string
+	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 
 // ModelManifold returns a dependency.Manifold that runs a storage provisioner.
@@ -48,16 +50,22 @@ func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+
+			credentialAPI, err := config.NewCredentialValidatorFacade(apiCaller)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			w, err := NewStorageProvisioner(Config{
-				Scope:       config.Scope,
-				StorageDir:  config.StorageDir,
-				Volumes:     api,
-				Filesystems: api,
-				Life:        api,
-				Registry:    environ,
-				Machines:    api,
-				Status:      api,
-				Clock:       clock,
+				Scope:            config.Scope,
+				StorageDir:       config.StorageDir,
+				Volumes:          api,
+				Filesystems:      api,
+				Life:             api,
+				Registry:         environ,
+				Machines:         api,
+				Status:           api,
+				Clock:            clock,
+				CloudCallContext: common.NewCloudCallContext(credentialAPI),
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
