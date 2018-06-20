@@ -31,6 +31,19 @@ type environProvider struct {
 	Clock            clock.Clock
 }
 
+var cloudSchema = &jsonschema.Schema{
+	Type:     []jsonschema.Type{jsonschema.ObjectType},
+	Required: []string{cloud.EndpointKey},
+	Order:    []string{cloud.EndpointKey},
+	Properties: map[string]*jsonschema.Schema{
+		cloud.EndpointKey: {
+			Singular: "the API endpoint url for the remote LXD cloud",
+			Type:     []jsonschema.Type{jsonschema.StringType},
+			Format:   jsonschema.FormatURI,
+		},
+	},
+}
+
 // NewProvider returns a new LXD EnvironProvider.
 func NewProvider() environs.CloudEnvironProvider {
 	return &environProvider{
@@ -65,15 +78,23 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 	return env, errors.Trace(err)
 }
 
-// CloudSchema returns the schema used to validate input for add-cloud.  Since
-// this provider does not support custom clouds, this always returns nil.
+// CloudSchema returns the schema used to validate input for add-cloud.
 func (p *environProvider) CloudSchema() *jsonschema.Schema {
-	return nil
+	return cloudSchema
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
 func (p *environProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
-	return errors.NotImplementedf("Ping")
+	// connection to the remote server will also do a implicit get request upon
+	// connecting to seed the server.
+	// TODO (stickupkid): use a centralized construction
+	_, err := lxd.ConnectRemote(lxd.RemoteServer{
+		Host: endpoint,
+	})
+	if err != nil {
+		return errors.Annotatef(err, "no lxd server running at %s", endpoint)
+	}
+	return nil
 }
 
 // PrepareConfig implements environs.EnvironProvider.

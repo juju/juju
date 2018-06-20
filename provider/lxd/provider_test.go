@@ -4,16 +4,21 @@
 package lxd_test
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
 	containerLXD "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/provider/lxd/lxdnames"
 )
@@ -167,6 +172,30 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	validAttrs := validCfg.AllAttrs()
 
 	c.Check(s.Config.AllAttrs(), gc.DeepEquals, validAttrs)
+}
+
+func (s *providerSuite) TestCloudSchema(c *gc.C) {
+	config := `
+endpoint: http://foo.com/lxd
+`[1:]
+	var v interface{}
+	err := yaml.Unmarshal([]byte(config), &v)
+	c.Assert(err, jc.ErrorIsNil)
+	v, err = utils.ConformYAML(v)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.Provider.CloudSchema().Validate(v)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *providerSuite) TestPingWithNoEndpoint(c *gc.C) {
+	server := httptest.NewServer(http.HandlerFunc(http.NotFound))
+	defer server.Close()
+
+	p, err := environs.Provider("lxd")
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.Ping(context.NewCloudCallContext(), server.URL)
+	c.Assert(err, gc.ErrorMatches, "no lxd server running at "+server.URL)
 }
 
 type ProviderFunctionalSuite struct {
