@@ -100,12 +100,14 @@ func NewDestroyCommandForTest(
 	storageAPI storageAPI,
 	store jujuclient.ClientStore,
 	apierr error,
+	controllerCredentialAPIF func() (CredentialAPI, error),
 ) cmd.Command {
 	cmd := &destroyCommand{
 		destroyCommandBase: destroyCommandBase{
 			api:       api,
 			clientapi: clientapi,
 			apierr:    apierr,
+			controllerCredentialAPIF: controllerCredentialAPIF,
 		},
 		storageAPI: storageAPI,
 	}
@@ -126,12 +128,14 @@ func NewKillCommandForTest(
 	apierr error,
 	clock clock.Clock,
 	apiOpen api.OpenFunc,
+	controllerCredentialAPIF func() (CredentialAPI, error),
 ) cmd.Command {
 	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{
 			api:       api,
 			clientapi: clientapi,
 			apierr:    apierr,
+			controllerCredentialAPIF: controllerCredentialAPIF,
 		},
 		clock: clock,
 	}
@@ -153,7 +157,7 @@ func KillWaitForModels(command cmd.Command, ctx *cmd.Context, api destroyControl
 	return modelcmd.InnerCommand(command).(*killCommand).WaitForModels(ctx, api, uuid)
 }
 
-// NewConfigCommandCommandForTest returns a ConfigCommand with
+// NewConfigCommandForTest returns a ConfigCommand with
 // the api provided as specified.
 func NewConfigCommandForTest(api controllerAPI, store jujuclient.ClientStore) cmd.Command {
 	c := &configCommand{api: api}
@@ -178,4 +182,5 @@ func NewData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, er
 
 var (
 	NoModelsMessage = noModelsMessage
+	EnvironsDestroy = &environsDestroy
 )

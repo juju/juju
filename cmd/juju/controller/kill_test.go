@@ -51,6 +51,7 @@ func (s *KillSuite) newKillCommand() cmd.Command {
 	}
 	return controller.NewKillCommandForTest(
 		s.api, s.clientapi, s.store, s.apierror, clock, nil,
+		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
 	)
 }
 
@@ -438,7 +439,9 @@ func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 	testDialer := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return nil, common.ErrPerm
 	}
-	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock.WallClock, testDialer)
+	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock.WallClock, testDialer,
+		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
+	)
 	_, err := cmdtesting.RunCommand(c, cmd, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
 	checkControllerExistsInStore(c, "test1", s.store)
@@ -454,7 +457,9 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 		return nil, errors.New("kill command waited too long")
 	}
 
-	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock, testDialer)
+	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock, testDialer,
+		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
+	)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "test1", "-y")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cmdtesting.Stderr(ctx), jc.Contains, "Unable to open API: open connection timed out")

@@ -13,11 +13,11 @@ import (
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/api/credentialmanager"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
 )
 
 const killDoc = `
@@ -120,7 +120,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
 	}
-	cloudCallCtx := context.NewCloudCallContext()
+	cloudCallCtx := cloudCallContext(c.controllerCredentialAPIF)
 	// If we were unable to connect to the API, just destroy the controller through
 	// the environs interface.
 	if api == nil {
@@ -218,7 +218,7 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 				hasErrors = true
 				continue
 			}
-			cloudCallCtx := context.NewCloudCallContext()
+			cloudCallCtx := cloudCallContext(c.credentialAPIFunctionForModel(model.Name))
 			if err := env.Destroy(cloudCallCtx); err != nil {
 				logger.Errorf(err.Error())
 				hasErrors = true
@@ -232,6 +232,19 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 	} else {
 		ctx.Infof("All hosted models destroyed, cleaning up controller machines")
 	}
+}
+
+func (c *killCommand) credentialAPIFunctionForModel(modelName string) newCredentialAPIFunc {
+	f := func(api CredentialAPI, err error) newCredentialAPIFunc {
+		return func() (CredentialAPI, error) {
+			return api, err
+		}
+	}
+	root, err := c.NewModelAPIRoot(modelName)
+	if err != nil {
+		return f(nil, errors.Trace(err))
+	}
+	return f(credentialmanager.NewClient(root), nil)
 }
 
 // WaitForModels will wait for the models to bring themselves down nicely.

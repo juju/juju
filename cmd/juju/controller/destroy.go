@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/api/credentialmanager"
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
@@ -31,13 +32,15 @@ import (
 
 // NewDestroyCommand returns a command to destroy a controller.
 func NewDestroyCommand() cmd.Command {
+	cmd := destroyCommand{}
+	cmd.controllerCredentialAPIF = cmd.credentialAPIForControllerModel
 	// Even though this command is all about destroying a controller we end up
 	// needing environment endpoints so we can fall back to the client destroy
 	// environment method. This shouldn't really matter in practice as the
 	// user trying to take down the controller will need to have access to the
 	// controller environment anyway.
 	return modelcmd.WrapController(
-		&destroyCommand{},
+		&cmd,
 		modelcmd.WrapControllerSkipControllerFlags,
 		modelcmd.WrapControllerSkipDefaultController,
 	)
@@ -214,7 +217,7 @@ upgrade the controller to version 2.3 or greater.
 		return errors.Annotate(err, "getting controller environ")
 	}
 
-	cloudCallCtx := context.NewCloudCallContext()
+	cloudCallCtx := cloudCallContext(c.controllerCredentialAPIF)
 
 	for {
 		// Attempt to destroy the controller.
@@ -282,9 +285,11 @@ upgrade the controller to version 2.3 or greater.
 			}
 		}
 		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
-		return environs.Destroy(controllerName, controllerEnviron, cloudCallCtx, store)
+		return environsDestroy(controllerName, controllerEnviron, cloudCallCtx, store)
 	}
 }
+
+var environsDestroy = environs.Destroy
 
 func (c *destroyCommand) modelHasStorage(modelName string) (bool, error) {
 	client, err := c.getStorageAPI(modelName)
@@ -463,6 +468,8 @@ type destroyCommandBase struct {
 	api       destroyControllerAPI
 	apierr    error
 	clientapi destroyClientAPI
+
+	controllerCredentialAPIF func() (CredentialAPI, error)
 }
 
 func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
@@ -599,4 +606,36 @@ func confirmDestruction(ctx *cmd.Context, controllerName string) error {
 	}
 
 	return nil
+}
+
+// CredentialAPI defines the methods on the credential API endpoint that the
+// destroy command might call.
+type CredentialAPI interface {
+	InvalidateModelCredential(string) error
+	Close() error
+}
+
+func (c *destroyCommandBase) credentialAPIForControllerModel() (CredentialAPI, error) {
+	// Note that the api here needs to operate on a controller model itself,
+	// as the controller model's cloud credential is the controller cloud credential.
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return credentialmanager.NewClient(root), nil
+}
+
+type newCredentialAPIFunc func() (CredentialAPI, error)
+
+func cloudCallContext(newAPIF newCredentialAPIFunc) context.ProviderCallContext {
+	callCtx := context.NewCloudCallContext()
+	callCtx.InvalidateCredentialF = func(reason string) error {
+		api, err := newAPIF()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer api.Close()
+		return api.InvalidateModelCredential(reason)
+	}
+	return callCtx
 }
