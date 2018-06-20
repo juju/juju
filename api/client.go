@@ -314,6 +314,10 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	switch ch := ch.(type) {
 	case *charm.CharmDir:
 		var err error
+		// For local charm check if it is revision control directory, generate version file.
+		if err = charm.MaybeCreateVersionFile(ch.Path); err != nil {
+			return nil, errors.Annotate(err, "cannot create/overwrite version file")
+		}
 		if archive, err = ioutil.TempFile("", "charm"); err != nil {
 			return nil, errors.Annotate(err, "cannot create temp file")
 		}
