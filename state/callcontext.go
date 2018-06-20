@@ -7,6 +7,6 @@ import "github.com/juju/juju/environs/context"
 
 func CallContext(st *State) context.ProviderCallContext {
 	callCtx := context.NewCloudCallContext()
-	callCtx.InvalidateCredentialF = st.InvalidateModelCredential
+	callCtx.InvalidateCredentialFunc = st.InvalidateModelCredential
 	return callCtx
 }

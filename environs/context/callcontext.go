@@ -16,7 +16,7 @@ type ProviderCallContext interface {
 
 func NewCloudCallContext() *CloudCallContext {
 	return &CloudCallContext{
-		InvalidateCredentialF: func(string) error {
+		InvalidateCredentialFunc: func(string) error {
 			return errors.NotImplementedf("InvalidateCredentialCallback")
 		},
 	}
@@ -35,10 +35,12 @@ func NewCloudCallContext() *CloudCallContext {
 // as this knowledge is specific to where the call was made *from* not on what object
 // it was made.
 type CloudCallContext struct {
-	InvalidateCredentialF func(string) error
+	// InvalidateCredentialFunc is the actual callback function
+	// that invalidates the credential used in the context of this call.
+	InvalidateCredentialFunc func(string) error
 }
 
 // InvalidateCredentialCallback implements context.InvalidateCredentialCallback.
 func (c *CloudCallContext) InvalidateCredential(reason string) error {
-	return c.InvalidateCredentialF(reason)
+	return c.InvalidateCredentialFunc(reason)
 }

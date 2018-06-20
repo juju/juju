@@ -184,7 +184,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// At this stage, cloud credential has not yet been stored server-side
 	// as there is no server-side. If these cloud calls will fail with
 	// invalid credential, just log it.
-	callCtx.InvalidateCredentialF = func(reason string) error {
+	callCtx.InvalidateCredentialFunc = func(reason string) error {
 		logger.Errorf("Cloud credential %q is not accepted by cloud provider: %v", args.ControllerCloudCredentialName, reason)
 		return nil
 	}

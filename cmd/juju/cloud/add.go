@@ -199,7 +199,7 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) error {
 	// nor do we need to have a model for anything that this command does,
 	// no cloud credential stored server-side can be invalidated.
 	// So, just log an informative message.
-	c.CloudCallCtx.InvalidateCredentialF = func(reason string) error {
+	c.CloudCallCtx.InvalidateCredentialFunc = func(reason string) error {
 		ctxt.Infof("Cloud credential is not accepted by cloud provider: %v", reason)
 		return nil
 	}
