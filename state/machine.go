@@ -2059,7 +2059,8 @@ func (m *Machine) verifyUnitsSeries(unitNames []string, series string, force boo
 
 // CreateUpgradeSeriesPrepareLock create a prepare lock for series upgrade. If
 // this item exists in the database for a given machine it indicates that a
-// machine's operating system is being upgraded for one series to another (e.g. xenial to bionic).
+// machine's operating system is being upgraded from one series to another - for
+// example from xenial to bionic.
 func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -2079,20 +2080,7 @@ func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
 		}
 
 		data := &upgradeSeriesLock{Id: m.Id()}
-		ops := []txn.Op{
-			{
-				C:      machinesC,
-				Id:     m.doc.DocID,
-				Assert: isAliveDoc,
-			},
-			{
-				C:      machineUpgradeSeriesLocksC,
-				Id:     m.doc.DocID,
-				Assert: txn.DocMissing,
-				Insert: data,
-			},
-		}
-		return ops, nil
+		return createUpgradeSeriesPrepareLockTxnOps(m.doc.Id, data), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2120,15 +2108,7 @@ func (m *Machine) RemoveUpgradeSeriesPrepareLock() error {
 		if !locked {
 			return nil, errors.NotFoundf("upgrade series prepare lock for machine %q", m)
 		}
-		ops := []txn.Op{
-			{
-				C:      machineUpgradeSeriesLocksC,
-				Id:     m.doc.DocID,
-				Assert: txn.DocExists,
-				Remove: true,
-			},
-		}
-		return ops, nil
+		return removeUpgradeSeriesPrepareLockTxnOps(m.doc.Id), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2138,6 +2118,33 @@ func (m *Machine) RemoveUpgradeSeriesPrepareLock() error {
 	}
 
 	return nil
+}
+
+func createUpgradeSeriesPrepareLockTxnOps(machineDocId string, data *upgradeSeriesLock) []txn.Op {
+	return []txn.Op{
+		{
+			C:      machinesC,
+			Id:     machineDocId,
+			Assert: isAliveDoc,
+		},
+		{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     machineDocId,
+			Assert: txn.DocMissing,
+			Insert: data,
+		},
+	}
+}
+
+func removeUpgradeSeriesPrepareLockTxnOps(machineDocId string) []txn.Op {
+	return []txn.Op{
+		{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     machineDocId,
+			Assert: txn.DocExists,
+			Remove: true,
+		},
+	}
 }
 
 func (m *Machine) IsLocked() (bool, error) {
