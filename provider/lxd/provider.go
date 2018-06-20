@@ -28,6 +28,7 @@ import (
 type environProvider struct {
 	environProviderCredentials
 	interfaceAddress func(string) (string, error)
+	newLocalServer   func() (*lxd.Server, error)
 	Clock            clock.Clock
 }
 
@@ -48,12 +49,13 @@ var cloudSchema = &jsonschema.Schema{
 func NewProvider() environs.CloudEnvironProvider {
 	return &environProvider{
 		environProviderCredentials: environProviderCredentials{
-			generateMemCert:     shared.GenerateMemCert,
-			newLocalRawProvider: newLocalRawProvider,
-			lookupHost:          net.LookupHost,
-			interfaceAddrs:      net.InterfaceAddrs,
+			generateMemCert: shared.GenerateMemCert,
+			lookupHost:      net.LookupHost,
+			interfaceAddrs:  net.InterfaceAddrs,
+			newLocalServer:  createLXDServer,
 		},
 		interfaceAddress: utils.GetAddressForInterface,
+		newLocalServer:   createLXDServer,
 	}
 }
 
@@ -92,7 +94,7 @@ func (p *environProvider) Ping(ctx context.ProviderCallContext, endpoint string)
 		Host: endpoint,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "no lxd server running at %s", endpoint)
+		return errors.Errorf("no lxd server running at %s", endpoint)
 	}
 	return nil
 }
@@ -177,19 +179,8 @@ func (p *environProvider) FinalizeCloud(
 }
 
 func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext) (string, error) {
-	svr, err := lxd.NewLocalServer()
+	svr, err := p.newLocalServer()
 	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	// We need to get a default profile, so that the local bridge name
-	// can be discovered correctly to then get the host address.
-	defaultProfile, profileETag, err := svr.GetProfile("default")
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	if err := svr.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -199,12 +190,6 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 		return "", errors.Trace(err)
 	}
 	hostAddress = lxd.EnsureHTTPS(hostAddress)
-
-	// LXD itself reports the host:ports that it listens on.
-	// Cross-check the address we have with the values reported by LXD.
-	if err := svr.EnableHTTPSListener(); err != nil {
-		return "", errors.Annotate(err, "enabling HTTPS listener")
-	}
 
 	// The following retry mechanism is required for newer LXD versions, where
 	// the new lxd client doesn't propagate the EnableHTTPSListener quick enough
@@ -263,6 +248,32 @@ func (p *environProvider) clock() clock.Clock {
 		return clock.WallClock
 	}
 	return p.Clock
+}
+
+func createLXDServer() (*lxd.Server, error) {
+	svr, err := lxd.NewLocalServer()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// We need to get a default profile, so that the local bridge name
+	// can be discovered correctly to then get the host address.
+	defaultProfile, profileETag, err := svr.GetProfile("default")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := svr.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// LXD itself reports the host:ports that it listens on.
+	// Cross-check the address we have with the values reported by LXD.
+	if err := svr.EnableHTTPSListener(); err != nil {
+		return nil, errors.Annotate(err, "enabling HTTPS listener")
+	}
+
+	return svr, nil
 }
 
 // localhostCloud is the predefined "localhost" LXD cloud. We leave the

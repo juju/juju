@@ -34,10 +34,10 @@ const (
 
 // environProviderCredentials implements environs.ProviderCredentials.
 type environProviderCredentials struct {
-	generateMemCert     func(bool) ([]byte, []byte, error)
-	newLocalRawProvider func() (*rawProvider, error)
-	lookupHost          func(string) ([]string, error)
-	interfaceAddrs      func() ([]net.Addr, error)
+	generateMemCert func(bool) ([]byte, []byte, error)
+	lookupHost      func(string) ([]string, error)
+	interfaceAddrs  func() ([]net.Addr, error)
+	newLocalServer  func() (*lxd.Server, error)
 }
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
@@ -66,7 +66,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
 func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
-	raw, err := p.newLocalRawProvider()
+	svr, err := p.newLocalServer()
 	if err != nil {
 		return nil, errors.NewNotFound(err, "failed to connect to local LXD")
 	}
@@ -80,7 +80,7 @@ func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 	const credName = "localhost"
 	label := fmt.Sprintf("LXD credential %q", credName)
 	certCredential, err := p.finalizeLocalCertificateCredential(
-		ioutil.Discard, raw, string(certPEM), string(keyPEM), label,
+		ioutil.Discard, svr, string(certPEM), string(keyPEM), label,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -240,12 +240,12 @@ this client using "juju add-credential localhost".
 See: https://jujucharms.com/docs/stable/clouds-LXD
 `, prefix)
 	}
-	raw, err := p.newLocalRawProvider()
+	svr, err := p.newLocalServer()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	cred, err := p.finalizeLocalCertificateCredential(
-		stderr, raw, certPEM, keyPEM,
+		stderr, svr, certPEM, keyPEM,
 		args.Credential.Label,
 	)
 	return cred, errors.Trace(err)
@@ -253,7 +253,7 @@ See: https://jujucharms.com/docs/stable/clouds-LXD
 
 func (p environProviderCredentials) finalizeLocalCertificateCredential(
 	output io.Writer,
-	raw *rawProvider,
+	svr *lxd.Server,
 	certPEM, keyPEM, label string,
 ) (*cloud.Credential, error) {
 
@@ -267,15 +267,15 @@ func (p environProviderCredentials) finalizeLocalCertificateCredential(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if _, _, err := raw.GetCertificate(fingerprint); lxd.IsLXDNotFound(err) {
-		if addCertErr := raw.CreateClientCertificate(clientCert); addCertErr != nil {
+	if _, _, err := svr.GetCertificate(fingerprint); lxd.IsLXDNotFound(err) {
+		if addCertErr := svr.CreateClientCertificate(clientCert); addCertErr != nil {
 			// There is no specific error code returned when
 			// attempting to add a certificate that already
 			// exists in the database. We can just check
 			// again to see if another process added the
 			// certificate concurrently with us checking the
 			// first time.
-			if _, _, err := raw.GetCertificate(fingerprint); lxd.IsLXDNotFound(err) {
+			if _, _, err := svr.GetCertificate(fingerprint); lxd.IsLXDNotFound(err) {
 				// The cert still isn't there, so report the AddCert error.
 				return nil, errors.Annotatef(
 					addCertErr, "adding certificate %q", clientCert.Name,
@@ -294,14 +294,14 @@ func (p environProviderCredentials) finalizeLocalCertificateCredential(
 	}
 
 	// Store the server's certificate in the credential.
-	svr, _, err := raw.GetServer()
+	lxdSvr, _, err := svr.GetServer()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting server status")
 	}
 	out := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		credAttrClientCert: certPEM,
 		credAttrClientKey:  keyPEM,
-		credAttrServerCert: svr.Environment.Certificate,
+		credAttrServerCert: lxdSvr.Environment.Certificate,
 	})
 	out.Label = label
 	return &out, nil

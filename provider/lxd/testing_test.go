@@ -346,14 +346,14 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.Env.raw = raw
+	s.Provider.newLocalServer = func() (*lxd.Server, error) {
+		return nil, nil
+	}
 	s.Provider.generateMemCert = func(client bool) (cert, key []byte, _ error) {
 		s.Stub.AddCall("GenerateMemCert", client)
 		cert = []byte(testing.CACert + "generated")
 		key = []byte(testing.CAKey + "generated")
 		return cert, key, s.Stub.NextErr()
-	}
-	s.Provider.newLocalRawProvider = func() (*rawProvider, error) {
-		return raw, nil
 	}
 	s.Provider.lookupHost = func(host string) ([]string, error) {
 		s.Stub.AddCall("LookupHost", host)
