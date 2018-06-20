@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
@@ -518,6 +519,7 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 	}})
 	filesystemSource.CheckCalls(c, []testing.StubCall{
 		{"ImportFilesystem", []interface{}{
+			s.callContext,
 			"foo", map[string]string{
 				"juju-model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 				"juju-controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
@@ -567,6 +569,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 	}})
 	volumeSource.CheckCalls(c, []testing.StubCall{
 		{"ImportVolume", []interface{}{
+			s.callContext,
 			"foo", map[string]string{
 				"juju-model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 				"juju-controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
@@ -700,8 +703,8 @@ type filesystemImporter struct {
 }
 
 // ImportFilesystem is part of the storage.FilesystemImporter interface.
-func (f filesystemImporter) ImportFilesystem(providerId string, tags map[string]string) (storage.FilesystemInfo, error) {
-	f.MethodCall(f, "ImportFilesystem", providerId, tags)
+func (f filesystemImporter) ImportFilesystem(ctx context.ProviderCallContext, providerId string, tags map[string]string) (storage.FilesystemInfo, error) {
+	f.MethodCall(f, "ImportFilesystem", ctx, providerId, tags)
 	return storage.FilesystemInfo{
 		FilesystemId: providerId,
 		Size:         123,
@@ -713,8 +716,8 @@ type volumeImporter struct {
 }
 
 // ImportVolume is part of the storage.VolumeImporter interface.
-func (v volumeImporter) ImportVolume(providerId string, tags map[string]string) (storage.VolumeInfo, error) {
-	v.MethodCall(v, "ImportVolume", providerId, tags)
+func (v volumeImporter) ImportVolume(ctx context.ProviderCallContext, providerId string, tags map[string]string) (storage.VolumeInfo, error) {
+	v.MethodCall(v, "ImportVolume", ctx, providerId, tags)
 	return storage.VolumeInfo{
 		VolumeId:   providerId,
 		Size:       123,

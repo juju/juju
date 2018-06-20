@@ -564,7 +564,9 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 		"model-upgrade-gate",
 		"model-upgraded-flag",
-		"not-dead-flag"},
+		"not-dead-flag",
+		"valid-credential-flag",
+	},
 
 	"undertaker": {
 		"agent",

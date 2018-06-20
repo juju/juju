@@ -2386,8 +2386,8 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	_, _, _, err = testing.StartInstance(env, s.callCtx, originalController, "0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	addVolume(c, s.env, originalController, "99/9")
-	addVolume(c, env, originalController, "23/9")
+	addVolume(c, s.env, s.callCtx, originalController, "99/9")
+	addVolume(c, env, s.callCtx, originalController, "23/9")
 
 	s.checkInstanceTags(c, s.env, originalController)
 	s.checkInstanceTags(c, env, originalController)
@@ -2449,12 +2449,12 @@ func (s *localServerSuite) TestAdoptResourcesNoStorage(c *gc.C) {
 	s.checkGroupController(c, env, newController)
 }
 
-func addVolume(c *gc.C, env environs.Environ, controllerUUID, name string) *storage.Volume {
+func addVolume(c *gc.C, env environs.Environ, callCtx context.ProviderCallContext, controllerUUID, name string) *storage.Volume {
 	storageAdapter, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
 	c.Assert(err, jc.ErrorIsNil)
 	modelUUID := env.Config().UUID()
 	source := openstack.NewCinderVolumeSourceForModel(storageAdapter, modelUUID)
-	result, err := source.CreateVolumes([]storage.VolumeParams{{
+	result, err := source.CreateVolumes(callCtx, []storage.VolumeParams{{
 		Tag: names.NewVolumeTag(name),
 		ResourceTags: tags.ResourceTags(
 			names.NewModelTag(modelUUID),
@@ -2482,7 +2482,7 @@ func (s *localServerSuite) checkVolumeTags(c *gc.C, env environs.Environ, expect
 	storage, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
 	c.Assert(err, jc.ErrorIsNil)
 	source := openstack.NewCinderVolumeSourceForModel(storage, env.Config().UUID())
-	volumeIds, err := source.ListVolumes()
+	volumeIds, err := source.ListVolumes(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeIds, gc.Not(gc.HasLen), 0)
 	for _, volumeId := range volumeIds {

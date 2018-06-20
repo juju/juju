@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/watcher"
@@ -519,7 +520,7 @@ func (s *dummyVolumeSource) ValidateVolumeParams(params storage.VolumeParams) er
 }
 
 // CreateVolumes makes some volumes that we can check later to ensure things went as expected.
-func (s *dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
+func (s *dummyVolumeSource) CreateVolumes(ctx context.ProviderCallContext, params []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
 	if s.provider != nil && s.provider.createVolumesFunc != nil {
 		return s.provider.createVolumesFunc(params)
 	}
@@ -545,7 +546,7 @@ func (s *dummyVolumeSource) CreateVolumes(params []storage.VolumeParams) ([]stor
 }
 
 // DestroyVolumes destroys volumes.
-func (s *dummyVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) {
+func (s *dummyVolumeSource) DestroyVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
 	if s.provider.destroyVolumesFunc != nil {
 		return s.provider.destroyVolumesFunc(volumeIds)
 	}
@@ -553,7 +554,7 @@ func (s *dummyVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) 
 }
 
 // ReleaseVolumes destroys volumes.
-func (s *dummyVolumeSource) ReleaseVolumes(volumeIds []string) ([]error, error) {
+func (s *dummyVolumeSource) ReleaseVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
 	if s.provider.releaseVolumesFunc != nil {
 		return s.provider.releaseVolumesFunc(volumeIds)
 	}
@@ -561,7 +562,7 @@ func (s *dummyVolumeSource) ReleaseVolumes(volumeIds []string) ([]error, error) 
 }
 
 // AttachVolumes attaches volumes to machines.
-func (s *dummyVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (s *dummyVolumeSource) AttachVolumes(ctx context.ProviderCallContext, params []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	if s.provider != nil && s.provider.attachVolumesFunc != nil {
 		return s.provider.attachVolumesFunc(params)
 	}
@@ -587,7 +588,7 @@ func (s *dummyVolumeSource) AttachVolumes(params []storage.VolumeAttachmentParam
 }
 
 // DetachVolumes detaches volumes from machines.
-func (s *dummyVolumeSource) DetachVolumes(params []storage.VolumeAttachmentParams) ([]error, error) {
+func (s *dummyVolumeSource) DetachVolumes(ctx context.ProviderCallContext, params []storage.VolumeAttachmentParams) ([]error, error) {
 	if s.provider.detachVolumesFunc != nil {
 		return s.provider.detachVolumesFunc(params)
 	}
@@ -602,7 +603,7 @@ func (s *dummyFilesystemSource) ValidateFilesystemParams(params storage.Filesyst
 }
 
 // CreateFilesystems makes some filesystems that we can check later to ensure things went as expected.
-func (s *dummyFilesystemSource) CreateFilesystems(params []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
+func (s *dummyFilesystemSource) CreateFilesystems(ctx context.ProviderCallContext, params []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
 	if s.provider != nil && s.provider.createFilesystemsFunc != nil {
 		return s.provider.createFilesystemsFunc(params)
 	}
@@ -625,7 +626,7 @@ func (s *dummyFilesystemSource) CreateFilesystems(params []storage.FilesystemPar
 }
 
 // DestroyFilesystems destroys filesystems.
-func (s *dummyFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]error, error) {
+func (s *dummyFilesystemSource) DestroyFilesystems(ctx context.ProviderCallContext, filesystemIds []string) ([]error, error) {
 	if s.provider.destroyFilesystemsFunc != nil {
 		return s.provider.destroyFilesystemsFunc(filesystemIds)
 	}
@@ -633,7 +634,7 @@ func (s *dummyFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]er
 }
 
 // ReleaseFilesystems destroys filesystems.
-func (s *dummyFilesystemSource) ReleaseFilesystems(filesystemIds []string) ([]error, error) {
+func (s *dummyFilesystemSource) ReleaseFilesystems(ctx context.ProviderCallContext, filesystemIds []string) ([]error, error) {
 	if s.provider.releaseFilesystemsFunc != nil {
 		return s.provider.releaseFilesystemsFunc(filesystemIds)
 	}
@@ -641,7 +642,7 @@ func (s *dummyFilesystemSource) ReleaseFilesystems(filesystemIds []string) ([]er
 }
 
 // AttachFilesystems attaches filesystems to machines.
-func (s *dummyFilesystemSource) AttachFilesystems(params []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+func (s *dummyFilesystemSource) AttachFilesystems(ctx context.ProviderCallContext, params []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
 	if s.provider != nil && s.provider.attachFilesystemsFunc != nil {
 		return s.provider.attachFilesystemsFunc(params)
 	}
@@ -666,7 +667,7 @@ func (s *dummyFilesystemSource) AttachFilesystems(params []storage.FilesystemAtt
 }
 
 // DetachFilesystems detaches filesystems from machines.
-func (s *dummyFilesystemSource) DetachFilesystems(params []storage.FilesystemAttachmentParams) ([]error, error) {
+func (s *dummyFilesystemSource) DetachFilesystems(ctx context.ProviderCallContext, params []storage.FilesystemAttachmentParams) ([]error, error) {
 	if s.provider.detachFilesystemsFunc != nil {
 		return s.provider.detachFilesystemsFunc(params)
 	}
@@ -682,7 +683,7 @@ func (s *mockManagedFilesystemSource) ValidateFilesystemParams(params storage.Fi
 	return nil
 }
 
-func (s *mockManagedFilesystemSource) CreateFilesystems(args []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
+func (s *mockManagedFilesystemSource) CreateFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
 	results := make([]storage.CreateFilesystemsResult, len(args))
 	for i, arg := range args {
 		blockDevice, ok := s.blockDevices[arg.Volume]
@@ -701,15 +702,15 @@ func (s *mockManagedFilesystemSource) CreateFilesystems(args []storage.Filesyste
 	return results, nil
 }
 
-func (s *mockManagedFilesystemSource) DestroyFilesystems(filesystemIds []string) ([]error, error) {
+func (s *mockManagedFilesystemSource) DestroyFilesystems(ctx context.ProviderCallContext, filesystemIds []string) ([]error, error) {
 	return make([]error, len(filesystemIds)), nil
 }
 
-func (s *mockManagedFilesystemSource) ReleaseFilesystems(filesystemIds []string) ([]error, error) {
+func (s *mockManagedFilesystemSource) ReleaseFilesystems(ctx context.ProviderCallContext, filesystemIds []string) ([]error, error) {
 	return make([]error, len(filesystemIds)), nil
 }
 
-func (s *mockManagedFilesystemSource) AttachFilesystems(args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+func (s *mockManagedFilesystemSource) AttachFilesystems(ctx context.ProviderCallContext, args []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
 	results := make([]storage.AttachFilesystemsResult, len(args))
 	for i, arg := range args {
 		if arg.FilesystemId == "" {
@@ -740,7 +741,7 @@ func (s *mockManagedFilesystemSource) AttachFilesystems(args []storage.Filesyste
 	return results, nil
 }
 
-func (s *mockManagedFilesystemSource) DetachFilesystems(params []storage.FilesystemAttachmentParams) ([]error, error) {
+func (s *mockManagedFilesystemSource) DetachFilesystems(ctx context.ProviderCallContext, params []storage.FilesystemAttachmentParams) ([]error, error) {
 	return nil, errors.NotImplementedf("DetachFilesystems")
 }
 

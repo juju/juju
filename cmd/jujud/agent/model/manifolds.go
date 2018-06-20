@@ -345,12 +345,13 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewProvisionerFunc:           provisioner.NewEnvironProvisioner,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
-		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
+		storageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName: apiCallerName,
 			ClockName:     clockName,
 			EnvironName:   environTrackerName,
 			Scope:         modelTag,
-		})),
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+		}))),
 		firewallerName: ifNotMigrating(ifCredentialValid(firewaller.Manifold(firewaller.ManifoldConfig{
 			AgentName:               agentName,
 			APICallerName:           apiCallerName,

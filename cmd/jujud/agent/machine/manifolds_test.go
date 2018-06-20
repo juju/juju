@@ -101,6 +101,7 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"upgrade-steps-gate",
 		"upgrade-steps-runner",
 		"upgrader",
+		"valid-credential-flag",
 	}
 	c.Assert(keys, jc.SameContents, expectedKeys)
 }
@@ -155,6 +156,7 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"raft-enabled-flag",
 		"raft-leader-flag",
 		"raft-transport",
+		"valid-credential-flag",
 	)
 	manifolds := machine.Manifolds(machine.ManifoldsConfig{
 		Agent: &mockAgent{},
@@ -650,7 +652,9 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
-		"upgrade-steps-gate"},
+		"upgrade-steps-gate",
+		"valid-credential-flag",
+	},
 
 	"termination-signal-handler": {},
 
@@ -723,4 +727,10 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"upgrade-check-gate",
 		"upgrade-steps-gate"},
+
+	"valid-credential-flag": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+	},
 }

@@ -44,7 +44,8 @@ func NewFacadeV4(
 	return NewAPIv4(
 		stateShim{st},
 		storageAccessor,
-		registry, pm, resources, authorizer)
+		registry, pm, resources, authorizer,
+		state.CallContext(st))
 }
 
 // NewFacadeV3 provides the signature required for facade registration.
@@ -67,7 +68,8 @@ func NewFacadeV3(
 	return NewAPIv3(
 		stateShim{st},
 		storageAccessor,
-		registry, pm, resources, authorizer)
+		registry, pm, resources, authorizer,
+		state.CallContext(st))
 }
 
 type storageAccess interface {

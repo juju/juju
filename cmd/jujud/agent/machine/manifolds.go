@@ -41,6 +41,8 @@ import (
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/centralhub"
 	"github.com/juju/juju/worker/certupdater"
+	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/worker/credentialvalidator"
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/deployer"
@@ -604,11 +606,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The storageProvisioner worker manages provisioning
 		// (deprovisioning), and attachment (detachment) of first-class
 		// volumes and filesystems.
-		storageProvisionerName: ifNotMigrating(storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
+		storageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.MachineManifold(storageprovisioner.MachineManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
-		})),
+			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+		}))),
 
 		resumerName: ifNotMigrating(resumer.Manifold(resumer.ManifoldConfig{
 			AgentName:     agentName,
@@ -780,6 +783,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:         loggo.GetLogger("juju.worker.raft.raftbackstop"),
 			NewWorker:      raftbackstop.NewWorker,
 		}),
+
+		validCredentialFlagName: credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{
+			APICallerName: apiCallerName,
+			NewFacade:     credentialvalidator.NewFacade,
+			NewWorker:     credentialvalidator.NewWorker,
+		}),
 	}
 }
 
@@ -827,6 +836,12 @@ var ifRaftLeader = engine.Housing{
 var ifRaftEnabled = engine.Housing{
 	Flags: []string{
 		raftEnabledName,
+	},
+}.Decorate
+
+var ifCredentialValid = engine.Housing{
+	Flags: []string{
+		validCredentialFlagName,
 	},
 }.Decorate
 
@@ -894,4 +909,6 @@ const (
 	raftFlagName      = "raft-leader-flag"
 	raftEnabledName   = "raft-enabled-flag"
 	raftBackstopName  = "raft-backstop"
+
+	validCredentialFlagName = "valid-credential-flag"
 )

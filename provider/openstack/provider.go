@@ -1447,7 +1447,7 @@ func (e *Environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 		}
 	}
 
-	failedVolumes, err := e.adoptVolumes(controllerTag)
+	failedVolumes, err := e.adoptVolumes(controllerTag, ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1463,7 +1463,7 @@ func (e *Environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 	return nil
 }
 
-func (e *Environ) adoptVolumes(controllerTag map[string]string) ([]string, error) {
+func (e *Environ) adoptVolumes(controllerTag map[string]string, ctx context.ProviderCallContext) ([]string, error) {
 	cinder, err := e.cinderProvider()
 	if errors.IsNotSupported(err) {
 		logger.Debugf("volumes not supported: not transferring ownership for volumes")
@@ -1481,7 +1481,7 @@ func (e *Environ) adoptVolumes(controllerTag map[string]string) ([]string, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	volumeIds, err := volumeSource.ListVolumes()
+	volumeIds, err := volumeSource.ListVolumes(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

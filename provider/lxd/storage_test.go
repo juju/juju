@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools/lxdclient"
@@ -20,6 +21,8 @@ type storageSuite struct {
 	lxd.BaseSuite
 
 	provider storage.Provider
+
+	callCtx context.ProviderCallContext
 }
 
 var _ = gc.Suite(&storageSuite{})
@@ -31,6 +34,7 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.provider = provider
 	s.Stub.ResetCalls()
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func (s *storageSuite) filesystemSource(c *gc.C, pool string) storage.FilesystemSource {
@@ -97,7 +101,7 @@ func (s *storageSuite) TestScope(c *gc.C) {
 
 func (s *storageSuite) TestCreateFilesystems(c *gc.C) {
 	source := s.filesystemSource(c, "source")
-	results, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:      names.NewFilesystemTag("0"),
 		Provider: "lxd",
 		Size:     1024,
@@ -132,7 +136,7 @@ func (s *storageSuite) TestCreateFilesystems(c *gc.C) {
 func (s *storageSuite) TestCreateFilesystemsPoolExists(c *gc.C) {
 	s.Stub.SetErrors(errors.New("pool already exists"))
 	source := s.filesystemSource(c, "source")
-	results, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:      names.NewFilesystemTag("0"),
 		Provider: "lxd",
 		Size:     1024,
@@ -167,7 +171,7 @@ func (s *storageSuite) TestCreateFilesystemsPoolExists(c *gc.C) {
 func (s *storageSuite) TestDestroyFilesystems(c *gc.C) {
 	s.Stub.SetErrors(nil, errors.New("boom"))
 	source := s.filesystemSource(c, "source")
-	results, err := source.DestroyFilesystems([]string{
+	results, err := source.DestroyFilesystems(s.callCtx, []string{
 		"filesystem-0",
 		"pool0:filesystem-0",
 		"pool1:filesystem-1",
@@ -207,7 +211,7 @@ func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
 	}
 
 	source := s.filesystemSource(c, "source")
-	results, err := source.ReleaseFilesystems([]string{
+	results, err := source.ReleaseFilesystems(s.callCtx, []string{
 		"filesystem-0",
 		"foo:filesystem-0",
 		"foo:filesystem-1",
@@ -255,7 +259,7 @@ func (s *storageSuite) TestAttachFilesystems(c *gc.C) {
 	s.Client.Insts = []lxdclient.Instance{*raw}
 
 	source := s.filesystemSource(c, "pool")
-	results, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "lxd",
 			Machine:    names.NewMachineTag("123"),
@@ -339,7 +343,7 @@ func (s *storageSuite) TestDetachFilesystems(c *gc.C) {
 	s.Client.Insts = []lxdclient.Instance{*raw}
 
 	source := s.filesystemSource(c, "pool")
-	results, err := source.DetachFilesystems([]storage.FilesystemAttachmentParams{{
+	results, err := source.DetachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		AttachmentParams: storage.AttachmentParams{
 			Provider:   "lxd",
 			Machine:    names.NewMachineTag("123"),
@@ -394,9 +398,10 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 		}},
 	}
 
-	info, err := importer.ImportFilesystem("foo:bar", map[string]string{
-		"baz": "qux",
-	})
+	info, err := importer.ImportFilesystem(s.callCtx,
+		"foo:bar", map[string]string{
+			"baz": "qux",
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, storage.FilesystemInfo{
 		FilesystemId: "foo:bar",

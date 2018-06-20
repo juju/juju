@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 )
 
@@ -16,37 +17,37 @@ import (
 type FilesystemSource struct {
 	testing.Stub
 
-	CreateFilesystemsFunc        func([]storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error)
-	DestroyFilesystemsFunc       func([]string) ([]error, error)
-	ReleaseFilesystemsFunc       func([]string) ([]error, error)
+	CreateFilesystemsFunc        func(context.ProviderCallContext, []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error)
+	DestroyFilesystemsFunc       func(context.ProviderCallContext, []string) ([]error, error)
+	ReleaseFilesystemsFunc       func(context.ProviderCallContext, []string) ([]error, error)
 	ValidateFilesystemParamsFunc func(storage.FilesystemParams) error
-	AttachFilesystemsFunc        func([]storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error)
-	DetachFilesystemsFunc        func([]storage.FilesystemAttachmentParams) ([]error, error)
+	AttachFilesystemsFunc        func(context.ProviderCallContext, []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error)
+	DetachFilesystemsFunc        func(context.ProviderCallContext, []storage.FilesystemAttachmentParams) ([]error, error)
 }
 
 // CreateFilesystems is defined on storage.FilesystemSource.
-func (s *FilesystemSource) CreateFilesystems(params []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
-	s.MethodCall(s, "CreateFilesystems", params)
+func (s *FilesystemSource) CreateFilesystems(ctx context.ProviderCallContext, params []storage.FilesystemParams) ([]storage.CreateFilesystemsResult, error) {
+	s.MethodCall(s, "CreateFilesystems", ctx, params)
 	if s.CreateFilesystemsFunc != nil {
-		return s.CreateFilesystemsFunc(params)
+		return s.CreateFilesystemsFunc(ctx, params)
 	}
 	return nil, errors.NotImplementedf("CreateFilesystems")
 }
 
 // DestroyFilesystems is defined on storage.FilesystemSource.
-func (s *FilesystemSource) DestroyFilesystems(volIds []string) ([]error, error) {
-	s.MethodCall(s, "DestroyFilesystems", volIds)
+func (s *FilesystemSource) DestroyFilesystems(ctx context.ProviderCallContext, volIds []string) ([]error, error) {
+	s.MethodCall(s, "DestroyFilesystems", ctx, volIds)
 	if s.DestroyFilesystemsFunc != nil {
-		return s.DestroyFilesystemsFunc(volIds)
+		return s.DestroyFilesystemsFunc(ctx, volIds)
 	}
 	return nil, errors.NotImplementedf("DestroyFilesystems")
 }
 
 // ReleaseFilesystems is defined on storage.FilesystemSource.
-func (s *FilesystemSource) ReleaseFilesystems(volIds []string) ([]error, error) {
-	s.MethodCall(s, "ReleaseFilesystems", volIds)
+func (s *FilesystemSource) ReleaseFilesystems(ctx context.ProviderCallContext, volIds []string) ([]error, error) {
+	s.MethodCall(s, "ReleaseFilesystems", ctx, volIds)
 	if s.ReleaseFilesystemsFunc != nil {
-		return s.ReleaseFilesystemsFunc(volIds)
+		return s.ReleaseFilesystemsFunc(ctx, volIds)
 	}
 	return nil, errors.NotImplementedf("ReleaseFilesystems")
 }
@@ -61,19 +62,19 @@ func (s *FilesystemSource) ValidateFilesystemParams(params storage.FilesystemPar
 }
 
 // AttachFilesystems is defined on storage.FilesystemSource.
-func (s *FilesystemSource) AttachFilesystems(params []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
-	s.MethodCall(s, "AttachFilesystems", params)
+func (s *FilesystemSource) AttachFilesystems(ctx context.ProviderCallContext, params []storage.FilesystemAttachmentParams) ([]storage.AttachFilesystemsResult, error) {
+	s.MethodCall(s, "AttachFilesystems", ctx, params)
 	if s.AttachFilesystemsFunc != nil {
-		return s.AttachFilesystemsFunc(params)
+		return s.AttachFilesystemsFunc(ctx, params)
 	}
 	return nil, errors.NotImplementedf("AttachFilesystems")
 }
 
 // DetachFilesystems is defined on storage.FilesystemSource.
-func (s *FilesystemSource) DetachFilesystems(params []storage.FilesystemAttachmentParams) ([]error, error) {
-	s.MethodCall(s, "DetachFilesystems", params)
+func (s *FilesystemSource) DetachFilesystems(ctx context.ProviderCallContext, params []storage.FilesystemAttachmentParams) ([]error, error) {
+	s.MethodCall(s, "DetachFilesystems", ctx, params)
 	if s.DetachFilesystemsFunc != nil {
-		return s.DetachFilesystemsFunc(params)
+		return s.DetachFilesystemsFunc(ctx, params)
 	}
 	return nil, errors.NotImplementedf("DetachFilesystems")
 }

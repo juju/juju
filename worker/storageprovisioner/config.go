@@ -8,20 +8,22 @@ import (
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
+	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 )
 
 // Config holds configuration and dependencies for a storageprovisioner worker.
 type Config struct {
-	Scope       names.Tag
-	StorageDir  string
-	Volumes     VolumeAccessor
-	Filesystems FilesystemAccessor
-	Life        LifecycleManager
-	Registry    storage.ProviderRegistry
-	Machines    MachineAccessor
-	Status      StatusSetter
-	Clock       clock.Clock
+	Scope            names.Tag
+	StorageDir       string
+	Volumes          VolumeAccessor
+	Filesystems      FilesystemAccessor
+	Life             LifecycleManager
+	Registry         storage.ProviderRegistry
+	Machines         MachineAccessor
+	Status           StatusSetter
+	Clock            clock.Clock
+	CloudCallContext environscontext.ProviderCallContext
 }
 
 // Validate returns an error if the config cannot be relied upon to start a worker.
@@ -60,6 +62,9 @@ func (config Config) Validate() error {
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
+	}
+	if config.CloudCallContext == nil {
+		return errors.NotValidf("nil CloudCallContext")
 	}
 	return nil
 }

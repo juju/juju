@@ -18,6 +18,7 @@ import (
 	"gopkg.in/goose.v2/identity"
 	"gopkg.in/goose.v2/nova"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
@@ -201,7 +202,7 @@ type cinderVolumeSource struct {
 var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
 
 // CreateVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) CreateVolumes(args []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
+func (s *cinderVolumeSource) CreateVolumes(ctx context.ProviderCallContext, args []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
 	results := make([]storage.CreateVolumesResult, len(args))
 	for i, arg := range args {
 		volume, err := s.createVolume(arg)
@@ -256,7 +257,7 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (*storage.Vo
 }
 
 // ListVolumes is specified on the storage.VolumeSource interface.
-func (s *cinderVolumeSource) ListVolumes() ([]string, error) {
+func (s *cinderVolumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
 	cinderVolumes, err := modelCinderVolumes(s.storageAdapter, s.modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -302,7 +303,7 @@ func volumeInfoToVolumeIds(volumes []storage.VolumeInfo) []string {
 }
 
 // DescribeVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.DescribeVolumesResult, error) {
+func (s *cinderVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
 	// In most cases, it is quicker to get all volumes and loop
 	// locally than to make several round-trips to the provider.
 	cinderVolumes, err := s.storageAdapter.GetVolumesDetail()
@@ -327,12 +328,12 @@ func (s *cinderVolumeSource) DescribeVolumes(volumeIds []string) ([]storage.Desc
 }
 
 // DestroyVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) DestroyVolumes(volumeIds []string) ([]error, error) {
+func (s *cinderVolumeSource) DestroyVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
 	return foreachVolume(s.storageAdapter, volumeIds, destroyVolume), nil
 }
 
 // ReleaseVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) ReleaseVolumes(volumeIds []string) ([]error, error) {
+func (s *cinderVolumeSource) ReleaseVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
 	return foreachVolume(s.storageAdapter, volumeIds, releaseVolume), nil
 }
 
@@ -437,7 +438,7 @@ func (s *cinderVolumeSource) ValidateVolumeParams(params storage.VolumeParams) e
 }
 
 // AttachVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) AttachVolumes(args []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (s *cinderVolumeSource) AttachVolumes(ctx context.ProviderCallContext, args []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	results := make([]storage.AttachVolumesResult, len(args))
 	for i, arg := range args {
 		attachment, err := s.attachVolume(arg)
@@ -486,7 +487,7 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*
 }
 
 // ImportVolume is part of the storage.VolumeImporter interface.
-func (s *cinderVolumeSource) ImportVolume(volumeId string, resourceTags map[string]string) (storage.VolumeInfo, error) {
+func (s *cinderVolumeSource) ImportVolume(ctx context.ProviderCallContext, volumeId string, resourceTags map[string]string) (storage.VolumeInfo, error) {
 	volume, err := s.storageAdapter.GetVolume(volumeId)
 	if err != nil {
 		return storage.VolumeInfo{}, errors.Annotate(err, "getting volume")
@@ -524,7 +525,7 @@ func waitVolume(
 }
 
 // DetachVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) DetachVolumes(args []storage.VolumeAttachmentParams) ([]error, error) {
+func (s *cinderVolumeSource) DetachVolumes(ctx context.ProviderCallContext, args []storage.VolumeAttachmentParams) ([]error, error) {
 	return detachVolumes(s.storageAdapter, args), nil
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -29,6 +30,7 @@ type APIv3 struct {
 	registry      storage.ProviderRegistry
 	poolManager   poolmanager.PoolManager
 	authorizer    facade.Authorizer
+	callContext   context.ProviderCallContext
 }
 
 // APIv4 implements the storage v4 API.
@@ -44,8 +46,9 @@ func NewAPIv4(
 	pm poolmanager.PoolManager,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	callContext context.ProviderCallContext,
 ) (*APIv4, error) {
-	apiv3, err := NewAPIv3(backend, storageAccess, registry, pm, resources, authorizer)
+	apiv3, err := NewAPIv3(backend, storageAccess, registry, pm, resources, authorizer, callContext)
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +63,7 @@ func NewAPIv3(
 	pm poolmanager.PoolManager,
 	_ facade.Resources,
 	authorizer facade.Authorizer,
+	callContext context.ProviderCallContext,
 ) (*APIv3, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -70,6 +74,7 @@ func NewAPIv3(
 		registry:      registry,
 		poolManager:   pm,
 		authorizer:    authorizer,
+		callContext:   callContext,
 	}, nil
 }
 
@@ -1034,7 +1039,7 @@ func (a *APIv4) importFilesystem(
 				cfg.Provider(),
 			)
 		}
-		info, err := filesystemImporter.ImportFilesystem(arg.ProviderId, resourceTags)
+		info, err := filesystemImporter.ImportFilesystem(a.callContext, arg.ProviderId, resourceTags)
 		if err != nil {
 			return nil, errors.Annotate(err, "importing filesystem")
 		}
@@ -1052,7 +1057,7 @@ func (a *APIv4) importFilesystem(
 				cfg.Provider(),
 			)
 		}
-		info, err := volumeImporter.ImportVolume(arg.ProviderId, resourceTags)
+		info, err := volumeImporter.ImportVolume(a.callContext, arg.ProviderId, resourceTags)
 		if err != nil {
 			return nil, errors.Annotate(err, "importing volume")
 		}

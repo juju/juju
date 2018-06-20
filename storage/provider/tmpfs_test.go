@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
@@ -22,6 +23,8 @@ type tmpfsSuite struct {
 	testing.BaseSuite
 	storageDir string
 	commands   *mockRunCommand
+
+	callCtx context.ProviderCallContext
 }
 
 func (s *tmpfsSuite) SetUpTest(c *gc.C) {
@@ -30,6 +33,7 @@ func (s *tmpfsSuite) SetUpTest(c *gc.C) {
 	}
 	s.BaseSuite.SetUpTest(c)
 	s.storageDir = c.MkDir()
+	s.callCtx = context.NewCloudCallContext()
 }
 
 func (s *tmpfsSuite) TearDownTest(c *gc.C) {
@@ -90,7 +94,7 @@ func (s *tmpfsSuite) tmpfsFilesystemSource(c *gc.C) storage.FilesystemSource {
 func (s *tmpfsSuite) TestCreateFilesystems(c *gc.C) {
 	source := s.tmpfsFilesystemSource(c)
 
-	results, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("6"),
 		Size: 2,
 	}})
@@ -112,7 +116,7 @@ func (s *tmpfsSuite) TestCreateFilesystemsHugePages(c *gc.C) {
 	// Set page size to 16MiB.
 	s.PatchValue(provider.Getpagesize, func() int { return 16 * 1024 * 1024 })
 
-	results, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("1"),
 		Size: 17,
 	}, {
@@ -141,7 +145,7 @@ func (s *tmpfsSuite) TestCreateFilesystemsHugePages(c *gc.C) {
 
 func (s *tmpfsSuite) TestCreateFilesystemsIsUse(c *gc.C) {
 	source := s.tmpfsFilesystemSource(c)
-	results, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("1"),
 		Size: 1,
 	}, {
@@ -156,12 +160,12 @@ func (s *tmpfsSuite) TestCreateFilesystemsIsUse(c *gc.C) {
 
 func (s *tmpfsSuite) TestAttachFilesystemsPathNotDir(c *gc.C) {
 	source := s.tmpfsFilesystemSource(c)
-	_, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	_, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("1"),
 		Size: 1,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("1"),
 		Path:       "file",
 	}})
@@ -173,12 +177,12 @@ func (s *tmpfsSuite) TestAttachFilesystemsAlreadyMounted(c *gc.C) {
 	source := s.tmpfsFilesystemSource(c)
 	cmd := s.commands.expect("df", "--output=source", "exists")
 	cmd.respond("header\nfilesystem-123", nil)
-	_, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	_, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("123"),
 		Size: 1,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("123"),
 		Path:       "exists",
 	}})
@@ -194,7 +198,7 @@ func (s *tmpfsSuite) TestAttachFilesystemsAlreadyMounted(c *gc.C) {
 
 func (s *tmpfsSuite) TestAttachFilesystemsMountReadOnly(c *gc.C) {
 	source := s.tmpfsFilesystemSource(c)
-	_, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	_, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("1"),
 		Size: 1024,
 	}})
@@ -204,7 +208,7 @@ func (s *tmpfsSuite) TestAttachFilesystemsMountReadOnly(c *gc.C) {
 	cmd.respond("header\nvalue", nil)
 	s.commands.expect("mount", "-t", "tmpfs", "filesystem-1", "/var/lib/juju/storage/fs/foo", "-o", "size=1024m,ro")
 
-	results, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("1"),
 		Path:       "/var/lib/juju/storage/fs/foo",
 		AttachmentParams: storage.AttachmentParams{
@@ -227,7 +231,7 @@ func (s *tmpfsSuite) TestAttachFilesystemsMountReadOnly(c *gc.C) {
 
 func (s *tmpfsSuite) TestAttachFilesystemsMountFails(c *gc.C) {
 	source := s.tmpfsFilesystemSource(c)
-	_, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	_, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("1"),
 		Size: 1024,
 	}})
@@ -238,7 +242,7 @@ func (s *tmpfsSuite) TestAttachFilesystemsMountFails(c *gc.C) {
 	cmd = s.commands.expect("mount", "-t", "tmpfs", "filesystem-1", "/var/lib/juju/storage/fs/foo", "-o", "size=1024m")
 	cmd.respond("", errors.New("mount failed"))
 
-	results, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("1"),
 		Path:       "/var/lib/juju/storage/fs/foo",
 	}})
@@ -248,12 +252,12 @@ func (s *tmpfsSuite) TestAttachFilesystemsMountFails(c *gc.C) {
 
 func (s *tmpfsSuite) TestAttachFilesystemsNoPathSpecified(c *gc.C) {
 	source := s.tmpfsFilesystemSource(c)
-	_, err := source.CreateFilesystems([]storage.FilesystemParams{{
+	_, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("1"),
 		Size: 1024,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("6"),
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -262,7 +266,7 @@ func (s *tmpfsSuite) TestAttachFilesystemsNoPathSpecified(c *gc.C) {
 
 func (s *tmpfsSuite) TestAttachFilesystemsNoFilesystem(c *gc.C) {
 	source := s.tmpfsFilesystemSource(c)
-	results, err := source.AttachFilesystems([]storage.FilesystemAttachmentParams{{
+	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("6"),
 		Path:       "/mnt",
 	}})
@@ -272,10 +276,10 @@ func (s *tmpfsSuite) TestAttachFilesystemsNoFilesystem(c *gc.C) {
 
 func (s *tmpfsSuite) TestDetachFilesystems(c *gc.C) {
 	source := s.tmpfsFilesystemSource(c)
-	testDetachFilesystems(c, s.commands, source, true)
+	testDetachFilesystems(c, s.commands, source, s.callCtx, true)
 }
 
 func (s *tmpfsSuite) TestDetachFilesystemsUnattached(c *gc.C) {
 	source := s.tmpfsFilesystemSource(c)
-	testDetachFilesystems(c, s.commands, source, false)
+	testDetachFilesystems(c, s.commands, source, s.callCtx, false)
 }

@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/azure"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
@@ -35,6 +36,8 @@ type storageSuite struct {
 	provider          storage.Provider
 	requests          []*http.Request
 	sender            azuretesting.Senders
+
+	cloudCallCtx context.ProviderCallContext
 }
 
 var _ = gc.Suite(&storageSuite{})
@@ -60,6 +63,7 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	env := openEnviron(c, envProvider, &s.sender)
 	s.provider, err = env.StorageProvider("azure")
 	c.Assert(err, jc.ErrorIsNil)
+	s.cloudCallCtx = context.NewCloudCallContext()
 }
 
 func (s *storageSuite) volumeSource(c *gc.C, legacy bool, attrs ...testing.Attrs) storage.VolumeSource {
@@ -195,7 +199,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 		makeSender("volume-2", 1),
 	}
 
-	results, err := volumeSource.CreateVolumes(params)
+	results, err := volumeSource.CreateVolumes(s.cloudCallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
 	c.Check(results[0].Error, jc.ErrorIsNil)
@@ -320,7 +324,7 @@ func (s *storageSuite) TestCreateVolumesLegacy(c *gc.C) {
 		updateVirtualMachine1Sender,
 	}
 
-	results, err := volumeSource.CreateVolumes(params)
+	results, err := volumeSource.CreateVolumes(s.cloudCallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
 
@@ -417,7 +421,7 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 	volumeSender.PathPattern = `.*/Microsoft\.Compute/disks`
 	s.sender = azuretesting.Senders{volumeSender}
 
-	volumeIds, err := volumeSource.ListVolumes()
+	volumeIds, err := volumeSource.ListVolumes(s.cloudCallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeIds, jc.SameContents, []string{"volume-0", "volume-1"})
 }
@@ -444,7 +448,7 @@ func (s *storageSuite) TestListVolumesLegacy(c *gc.C) {
 	s.datavhdsContainer.Blobs_ = []internalazurestorage.Blob{blob1, blob0, junkBlob, volumeBlob}
 
 	volumeSource := s.volumeSource(c, true)
-	volumeIds, err := volumeSource.ListVolumes()
+	volumeIds, err := volumeSource.ListVolumes(s.cloudCallCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageClient.CheckCallNames(c, "NewClient", "GetContainerReference")
 	s.storageClient.CheckCall(
@@ -461,14 +465,14 @@ func (s *storageSuite) TestListVolumesErrors(c *gc.C) {
 	sender := mocks.NewSender()
 	sender.SetError(errors.New("no disks for you"))
 	s.sender = azuretesting.Senders{sender}
-	_, err := volumeSource.ListVolumes()
+	_, err := volumeSource.ListVolumes(s.cloudCallCtx)
 	c.Assert(err, gc.ErrorMatches, "listing disks: .*: no disks for you")
 }
 
 func (s *storageSuite) TestListVolumesErrorsLegacy(c *gc.C) {
 	volumeSource := s.volumeSource(c, true)
 	s.datavhdsContainer.SetErrors(errors.New("no blobs for you"))
-	_, err := volumeSource.ListVolumes()
+	_, err := volumeSource.ListVolumes(s.cloudCallCtx)
 	c.Assert(err, gc.ErrorMatches, "listing volumes: listing blobs: no blobs for you")
 }
 
@@ -482,7 +486,7 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 	volumeSender.PathPattern = `.*/Microsoft\.Compute/disks/volume-0`
 	s.sender = azuretesting.Senders{volumeSender}
 
-	results, err := volumeSource.DescribeVolumes([]string{"volume-0"})
+	results, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []storage.DescribeVolumesResult{{
 		VolumeInfo: &storage.VolumeInfo{
@@ -503,7 +507,7 @@ func (s *storageSuite) TestDescribeVolumesNotFound(c *gc.C) {
 	)
 	volumeSender.AppendResponse(response)
 	s.sender = azuretesting.Senders{volumeSender}
-	results, err := volumeSource.DescribeVolumes([]string{"volume-42"})
+	results, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0].Error, jc.Satisfies, errors.IsNotFound)
@@ -526,7 +530,7 @@ func (s *storageSuite) TestDescribeVolumesLegacy(c *gc.C) {
 	s.datavhdsContainer.Blobs_ = []internalazurestorage.Blob{blob1, blob0}
 
 	volumeSource := s.volumeSource(c, true)
-	results, err := volumeSource.DescribeVolumes([]string{"volume-0", "volume-1", "volume-0", "volume-42"})
+	results, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-0", "volume-1", "volume-0", "volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageClient.CheckCallNames(c, "NewClient", "GetContainerReference")
 	s.storageClient.CheckCall(
@@ -563,7 +567,7 @@ func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 	volume0Sender.PathPattern = `.*/Microsoft\.Compute/disks/volume-0`
 	s.sender = azuretesting.Senders{volume0Sender}
 
-	results, err := volumeSource.DestroyVolumes([]string{"volume-0"})
+	results, err := volumeSource.DestroyVolumes(s.cloudCallCtx, []string{"volume-0"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0], jc.ErrorIsNil)
@@ -578,7 +582,7 @@ func (s *storageSuite) TestDestroyVolumesNotFound(c *gc.C) {
 	))
 	s.sender = azuretesting.Senders{volume42Sender}
 
-	results, err := volumeSource.DestroyVolumes([]string{"volume-42"})
+	results, err := volumeSource.DestroyVolumes(s.cloudCallCtx, []string{"volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0], jc.ErrorIsNil)
@@ -594,7 +598,7 @@ func (s *storageSuite) TestDestroyVolumesLegacy(c *gc.C) {
 	s.datavhdsContainer.Blobs_ = []internalazurestorage.Blob{blob0, blob1}
 
 	volumeSource := s.volumeSource(c, true)
-	results, err := volumeSource.DestroyVolumes([]string{"volume-0", "volume-42"})
+	results, err := volumeSource.DestroyVolumes(s.cloudCallCtx, []string{"volume-0", "volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 2)
 	c.Assert(results[0], jc.ErrorIsNil)
@@ -694,7 +698,7 @@ func (s *storageSuite) testAttachVolumes(c *gc.C, legacy bool) {
 		updateVirtualMachine0Sender,
 	}
 
-	results, err := volumeSource.AttachVolumes(params)
+	results, err := volumeSource.AttachVolumes(s.cloudCallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
 
@@ -813,7 +817,7 @@ func (s *storageSuite) testDetachVolumes(c *gc.C, legacy bool) {
 		updateVirtualMachine0Sender,
 	}
 
-	results, err := volumeSource.DetachVolumes(params)
+	results, err := volumeSource.DetachVolumes(s.cloudCallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
 
@@ -880,7 +884,7 @@ func (s *storageSuite) TestDetachVolumesFinal(c *gc.C) {
 		updateVirtualMachine0Sender,
 	}
 
-	results, err := volumeSource.DetachVolumes(params)
+	results, err := volumeSource.DetachVolumes(s.cloudCallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, len(params))
 	c.Assert(results[0], jc.ErrorIsNil)

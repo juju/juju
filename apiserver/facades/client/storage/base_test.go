@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 	jujustorage "github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -47,7 +48,8 @@ type baseStorageSuite struct {
 	poolManager *mockPoolManager
 	pools       map[string]*jujustorage.Config
 
-	blocks map[state.BlockType]state.Block
+	blocks      map[state.BlockType]state.Block
+	callContext context.ProviderCallContext
 }
 
 func (s *baseStorageSuite) SetUpTest(c *gc.C) {
@@ -62,10 +64,11 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.pools = make(map[string]*jujustorage.Config)
 	s.poolManager = s.constructPoolManager()
 
+	s.callContext = context.NewCloudCallContext()
 	var err error
-	s.api, err = storage.NewAPIv4(s.state, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer)
+	s.api, err = storage.NewAPIv4(s.state, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
-	s.apiv3, err = storage.NewAPIv3(s.state, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer)
+	s.apiv3, err = storage.NewAPIv3(s.state, s.storageAccessor, s.registry, s.poolManager, s.resources, s.authorizer, s.callContext)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
