@@ -130,6 +130,7 @@ var (
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 		"upgrader",
+		"valid-credential-flag",
 	}
 	notMigratingMachineWorkers = []string{
 		"api-address-updater",
