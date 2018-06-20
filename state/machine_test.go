@@ -2636,24 +2636,24 @@ func (s *MachineSuite) TestDoesNotCreateUgradeSeriesPrepareLockOnDyingMachine(c 
 func (s *MachineSuite) TestRemoveUpgradeSeriesPrepareLockUnlocksMachine(c *gc.C) {
 	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	AssertMachinedIsNOTLockedForPrepare(c, mach)
+	AssertMachineIsNOTLockedForPrepare(c, mach)
 
 	err = mach.CreateUpgradeSeriesPrepareLock()
 	c.Assert(err, jc.ErrorIsNil)
-	AssertMachinedLockedForPrepare(c, mach)
+	AssertMachineLockedForPrepare(c, mach)
 
 	err = mach.RemoveUpgradeSeriesPrepareLock()
 	c.Assert(err, jc.ErrorIsNil)
-	AssertMachinedIsNOTLockedForPrepare(c, mach)
+	AssertMachineIsNOTLockedForPrepare(c, mach)
 }
 
-func AssertMachinedLockedForPrepare(c *gc.C, mach *state.Machine) {
+func AssertMachineLockedForPrepare(c *gc.C, mach *state.Machine) {
 	locked, err := mach.IsLocked()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsTrue)
 }
 
-func AssertMachinedIsNOTLockedForPrepare(c *gc.C, mach *state.Machine) {
+func AssertMachineIsNOTLockedForPrepare(c *gc.C, mach *state.Machine) {
 	locked, err := mach.IsLocked()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsFalse)

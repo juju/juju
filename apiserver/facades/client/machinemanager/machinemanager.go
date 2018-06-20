@@ -343,7 +343,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (
 	return params.ErrorResult{}, nil
 }
 
-// UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
+// UpgradeSeriesComplete marks a machine as having completed a managed series upgrade.
 func (mm *MachineManagerAPI) UpgradeSeriesComplete(args params.UpdateSeriesArg) (params.ErrorResult, error) {
 	if err := mm.checkCanWrite(); err != nil {
 		return params.ErrorResult{}, err

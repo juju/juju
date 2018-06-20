@@ -159,9 +159,11 @@ func (client *Client) UpgradeSeriesPrepare(machineName string) error {
 	return nil
 }
 
+// UpgradeSeriesComplete notifies the controller that a given machine has
+// successfully completed the managed series upgrade process.
 func (client *Client) UpgradeSeriesComplete(machineName string) error {
 	if client.BestAPIVersion() < 5 {
-		return errors.NotSupportedf("upgrade-series prepare")
+		return errors.NotSupportedf("upgrade-series complete")
 	}
 	args := params.UpdateSeriesArg{
 		Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
