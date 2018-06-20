@@ -79,6 +79,9 @@ type ProxyConfiguration struct {
 	JujuProxy   proxy.Settings
 	APTProxy    proxy.Settings
 	SnapProxy   proxy.Settings
+
+	SnapEnterpriseProxyId         string
+	SnapEnterpriseProxyAssertions string
 }
 
 // ProxyConfig returns the proxy settings for the current model.
@@ -112,6 +115,9 @@ func (api *API) ProxyConfig() (ProxyConfiguration, error) {
 		JujuProxy:   proxySettingsParamToProxySettings(result.JujuProxySettings),
 		APTProxy:    proxySettingsParamToProxySettings(result.APTProxySettings),
 		SnapProxy:   proxySettingsParamToProxySettings(result.SnapProxySettings),
+
+		SnapEnterpriseProxyId:         result.SnapEnterpriseProxyId,
+		SnapEnterpriseProxyAssertions: result.SnapEnterpriseProxyAssertions,
 	}, nil
 }
 

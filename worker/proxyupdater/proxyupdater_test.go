@@ -87,7 +87,8 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	directory := c.MkDir()
 	s.proxySystemdFile = filepath.Join(directory, "systemd.file")
 	s.proxyEnvFile = filepath.Join(directory, "env.file")
-
+	logger := loggo.GetLogger("test.proxyupdater")
+	logger.SetLogLevel(loggo.TRACE)
 	s.config = proxyupdater.Config{
 		SystemdFiles: []string{s.proxySystemdFile},
 		EnvFiles:     []string{s.proxyEnvFile},
@@ -100,6 +101,11 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 			}
 			return nil
 		},
+		RunFunc: func(in string, cmd string, args ...string) (string, error) {
+			logger.Debugf("RunFunc(%q, %q, %#v)", in, cmd, args)
+			return "", nil
+		},
+		Logger: logger,
 	}
 	s.PatchValue(&pacconfig.AptProxyConfigFile, path.Join(directory, "juju-apt-proxy"))
 }
@@ -388,4 +394,108 @@ func (s *ProxyUpdaterSuite) TestErrorSettingInProcessLogs(c *gc.C) {
 		}
 	}
 	c.Assert(foundMessage, jc.IsTrue)
+}
+
+func nextCall(c *gc.C, calls <-chan []string) []string {
+	select {
+	case call := <-calls:
+		return call
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("run func not called")
+	}
+	panic("unreachable")
+}
+
+func (s *ProxyUpdaterSuite) TestSnapProxySetNoneSet(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("snap settings not handled on windows")
+	}
+
+	logger := s.config.Logger
+	calls := make(chan []string)
+	s.config.RunFunc = func(in string, cmd string, args ...string) (string, error) {
+		logger.Debugf("RunFunc(%q, %q, %#v)", in, cmd, args)
+		calls <- append([]string{in, cmd}, args...)
+		return "", nil
+	}
+
+	s.api.proxies = proxyupdaterapi.ProxyConfiguration{}
+
+	updater, err := proxyupdater.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, updater)
+
+	// The worker doesn't precheck any of the snap proxy values, as it is expected
+	// that the set call is cheap. Every time the worker starts, we call set for the current
+	// values.
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "core",
+		"proxy.http=",
+		"proxy.https=",
+		"proxy.store=",
+	})
+}
+
+func (s *ProxyUpdaterSuite) TestSnapProxySet(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("snap settings not handled on windows")
+	}
+
+	logger := s.config.Logger
+	calls := make(chan []string)
+	s.config.RunFunc = func(in string, cmd string, args ...string) (string, error) {
+		logger.Debugf("RunFunc(%q, %q, %#v)", in, cmd, args)
+		calls <- append([]string{in, cmd}, args...)
+		return "", nil
+	}
+
+	s.api.proxies = proxyupdaterapi.ProxyConfiguration{
+		SnapProxy: proxy.Settings{
+			Http:  "http://snap-proxy",
+			Https: "https://snap-proxy",
+		},
+	}
+
+	updater, err := proxyupdater.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, updater)
+
+	// The snap store is set to the empty string because as the agent is starting
+	// and it doesn't check to see what the store was set to, so to be sure, it just
+	// calls the set value.
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "core",
+		"proxy.http=http://snap-proxy",
+		"proxy.https=https://snap-proxy",
+		"proxy.store=",
+	})
+}
+
+func (s *ProxyUpdaterSuite) TestSnapEnterpriseProxy(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("snap settings not handled on windows")
+	}
+
+	logger := s.config.Logger
+	calls := make(chan []string)
+	s.config.RunFunc = func(in string, cmd string, args ...string) (string, error) {
+		logger.Debugf("RunFunc(%q, %q, %#v)", in, cmd, args)
+		calls <- append([]string{in, cmd}, args...)
+		return "", nil
+	}
+
+	s.api.proxies = proxyupdaterapi.ProxyConfiguration{
+		SnapEnterpriseProxyId:         "42",
+		SnapEnterpriseProxyAssertions: "please trust us",
+	}
+
+	updater, err := proxyupdater.NewWorker(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, updater)
+
+	// The http and https proxy values are set to be empty as it is the first pass through.
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"", "snap", "set", "core",
+		"proxy.http=",
+		"proxy.https=",
+		"proxy.store=42",
+	})
+	c.Assert(nextCall(c, calls), jc.DeepEquals, []string{"please trust us", "snap", "ack", "/dev/stdin"})
 }

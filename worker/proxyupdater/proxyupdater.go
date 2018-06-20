@@ -5,24 +5,21 @@ package proxyupdater
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
+	stdexec "os/exec"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/os"
 	"github.com/juju/os/series"
 	"github.com/juju/packaging/commands"
 	"github.com/juju/packaging/config"
-	proxyutils "github.com/juju/proxy"
+	"github.com/juju/proxy"
 	"github.com/juju/utils/exec"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/proxyupdater"
 	"github.com/juju/juju/watcher"
-)
-
-var (
-	logger = loggo.GetLogger("juju.worker.proxyupdater")
 )
 
 type Config struct {
@@ -30,8 +27,27 @@ type Config struct {
 	EnvFiles        []string
 	SystemdFiles    []string
 	API             API
-	ExternalUpdate  func(proxyutils.Settings) error
-	InProcessUpdate func(proxyutils.Settings) error
+	ExternalUpdate  func(proxy.Settings) error
+	InProcessUpdate func(proxy.Settings) error
+	RunFunc         func(string, string, ...string) (string, error)
+	Logger          Logger
+}
+
+// Validate ensures that all the required fields have values.
+func (c *Config) Validate() error {
+	if c.API == nil {
+		return errors.NotValidf("mssing API")
+	}
+	if c.InProcessUpdate == nil {
+		return errors.NotValidf("mssing InProcessUpdate")
+	}
+	if c.RunFunc == nil {
+		return errors.NotValidf("mssing RunFunc")
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("mssing Logger")
+	}
+	return nil
 }
 
 // API is an interface that is provided to New
@@ -47,8 +63,12 @@ type API interface {
 // changes are apt proxy configuration and the juju proxies stored in the juju
 // proxy file.
 type proxyWorker struct {
-	aptProxy proxyutils.Settings
-	proxy    proxyutils.Settings
+	aptProxy proxy.Settings
+	proxy    proxy.Settings
+
+	snapProxy                proxy.Settings
+	snapEnterpriseProxy      string
+	snapEnterpriseAssertions string
 
 	// The whole point of the first value is to make sure that the the files
 	// are written out the first time through, even if they are the same as
@@ -65,6 +85,9 @@ type proxyWorker struct {
 // NewWorker returns a worker.Worker that updates proxy environment variables for the
 // process and for the whole machine.
 var NewWorker = func(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
 	envWorker := &proxyWorker{
 		first:  true,
 		config: config,
@@ -86,13 +109,13 @@ func (w *proxyWorker) saveProxySettingsToFiles() error {
 	for _, file := range w.config.EnvFiles {
 		err := ioutil.WriteFile(file, []byte(w.proxy.AsScriptEnvironment()), 0644)
 		if err != nil {
-			logger.Errorf("Error updating environment file %s - %v", file, err)
+			w.config.Logger.Errorf("Error updating environment file %s - %v", file, err)
 		}
 	}
 	for _, file := range w.config.SystemdFiles {
 		err := ioutil.WriteFile(file, []byte(w.proxy.AsSystemdDefaultEnv()), 0644)
 		if err != nil {
-			logger.Errorf("Error updating systemd file - %v", err)
+			w.config.Logger.Errorf("Error updating systemd file - %v", err)
 		}
 	}
 	return nil
@@ -108,7 +131,7 @@ func (w *proxyWorker) saveProxySettingsToRegistry() error {
 
 	if w.config.RegistryPath == "" {
 		err := fmt.Errorf("config.RegistryPath is empty")
-		logger.Errorf("saveProxySettingsToRegistry couldn't write proxy settings to registry: %s", err)
+		w.config.Logger.Errorf("saveProxySettingsToRegistry couldn't write proxy settings to registry: %s", err)
 		return err
 	}
 
@@ -122,7 +145,7 @@ func (w *proxyWorker) saveProxySettingsToRegistry() error {
 		return err
 	}
 	if result.Code != 0 {
-		logger.Errorf("failed writing new proxy values: \n%s\n%s", result.Stdout, result.Stderr)
+		w.config.Logger.Errorf("failed writing new proxy values: \n%s\n%s", result.Stdout, result.Stderr)
 	}
 	return nil
 }
@@ -136,7 +159,7 @@ func (w *proxyWorker) saveProxySettings() error {
 	}
 }
 
-func (w *proxyWorker) handleProxyValues(legacyProxySettings, jujuProxySettings proxyutils.Settings) {
+func (w *proxyWorker) handleProxyValues(legacyProxySettings, jujuProxySettings proxy.Settings) {
 	// Legacy proxy settings update the environment, and also call the
 	// InProcessUpdate, which installs the proxy into the default HTTP
 	// transport. The same occurs for jujuProxySettings.
@@ -147,7 +170,7 @@ func (w *proxyWorker) handleProxyValues(legacyProxySettings, jujuProxySettings p
 
 	settings.SetEnvironmentValues()
 	if err := w.config.InProcessUpdate(settings); err != nil {
-		logger.Errorf("error updating in-process proxy settings: %v", err)
+		w.config.Logger.Errorf("error updating in-process proxy settings: %v", err)
 	}
 
 	// If the external update function is passed in, it is to update the LXD
@@ -156,17 +179,17 @@ func (w *proxyWorker) handleProxyValues(legacyProxySettings, jujuProxySettings p
 	if externalFunc := w.config.ExternalUpdate; externalFunc != nil {
 		if err := externalFunc(settings); err != nil {
 			// It isn't really fatal, but we should record it.
-			logger.Errorf("%v", err)
+			w.config.Logger.Errorf("%v", err)
 		}
 	}
 
 	// Here we write files to disk. This is done only for legacyProxySettings.
 	if legacyProxySettings != w.proxy || w.first {
-		logger.Debugf("new legacy proxy settings %#v", legacyProxySettings)
+		w.config.Logger.Debugf("new legacy proxy settings %#v", legacyProxySettings)
 		w.proxy = legacyProxySettings
 		if err := w.saveProxySettings(); err != nil {
 			// It isn't really fatal, but we should record it.
-			logger.Errorf("error saving proxy settings: %v", err)
+			w.config.Logger.Errorf("error saving proxy settings: %v", err)
 		}
 	}
 }
@@ -181,9 +204,48 @@ func getPackageCommander() (commands.PackageCommander, error) {
 	return commands.NewPackageCommander(hostSeries)
 }
 
-func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) error {
+func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, enterpriseID, enterpriseAssertions string) {
+	if os.HostOS() == os.Windows {
+		w.config.Logger.Tracef("no snap proxies on windows")
+		return
+	}
+	w.config.Logger.Tracef("setting snap proxy values: %#v, %q, %q", proxy, enterpriseID, enterpriseAssertions)
+
+	var snapSettings []string
+	maybeAddSettings := func(setting, value, saved string) {
+		if value != saved || w.first {
+			snapSettings = append(snapSettings, setting+"="+value)
+		}
+	}
+	maybeAddSettings("proxy.http", proxy.Http, w.snapProxy.Http)
+	maybeAddSettings("proxy.https", proxy.Https, w.snapProxy.Https)
+	maybeAddSettings("proxy.store", enterpriseID, w.snapEnterpriseProxy)
+	if len(snapSettings) > 0 {
+		args := append([]string{"set", "core"}, snapSettings...)
+		output, err := w.config.RunFunc(noStdIn, "snap", args...)
+		if err != nil {
+			w.config.Logger.Infof("unable to set snap core settings %v: %v, output: %q", snapSettings, err, output)
+		} else {
+			w.config.Logger.Debugf("snap core settings %v updated, output: %q", snapSettings, output)
+			w.snapProxy = proxy
+			w.snapEnterpriseProxy = enterpriseID
+		}
+	}
+
+	if (enterpriseAssertions != w.snapEnterpriseAssertions || w.first) && enterpriseAssertions != "" {
+		output, err := w.config.RunFunc(enterpriseAssertions, "snap", "ack", "/dev/stdin")
+		if err != nil {
+			w.config.Logger.Infof("unable to acknowledge assertions: %v, output: %q", err, output)
+		} else {
+			w.config.Logger.Debugf("enterprise snap store assertions acked, output: %q", output)
+		}
+		w.snapEnterpriseAssertions = enterpriseAssertions
+	}
+}
+
+func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings) error {
 	if aptSettings != w.aptProxy || w.first {
-		logger.Debugf("new apt proxy settings %#v", aptSettings)
+		w.config.Logger.Debugf("new apt proxy settings %#v", aptSettings)
 		paccmder, err := getPackageCommander()
 		if err != nil {
 			return err
@@ -195,7 +257,7 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) erro
 		err = ioutil.WriteFile(config.AptProxyConfigFile, []byte(content), 0644)
 		if err != nil {
 			// It isn't really fatal, but we should record it.
-			logger.Errorf("error writing apt proxy config file: %v", err)
+			w.config.Logger.Errorf("error writing apt proxy config file: %v", err)
 		}
 	}
 	return nil
@@ -208,7 +270,7 @@ func (w *proxyWorker) onChange() error {
 	}
 
 	w.handleProxyValues(config.LegacyProxy, config.JujuProxy)
-	// TODO: handle snapProxySettings
+	w.handleSnapProxyValues(config.SnapProxy, config.SnapEnterpriseProxyId, config.SnapEnterpriseProxyAssertions)
 	return w.handleAptProxyValues(config.APTProxy)
 }
 
@@ -233,4 +295,27 @@ func (w *proxyWorker) Handle(_ <-chan struct{}) error {
 func (w *proxyWorker) TearDown() error {
 	// Nothing to cleanup, only state is the watcher
 	return nil
+}
+
+const noStdIn = ""
+
+// Execute the command specified with the args with optional stdin.
+func RunWithStdIn(input string, command string, args ...string) (string, error) {
+	cmd := stdexec.Command(command, args...)
+
+	if input != "" {
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			return "", errors.Annotate(err, "getting stdin pipe")
+		}
+
+		go func() {
+			defer stdin.Close()
+			io.WriteString(stdin, input)
+		}()
+	}
+
+	out, err := cmd.CombinedOutput()
+	output := string(out)
+	return output, err
 }
