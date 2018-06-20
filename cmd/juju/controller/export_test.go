@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -100,14 +101,17 @@ func NewDestroyCommandForTest(
 	storageAPI storageAPI,
 	store jujuclient.ClientStore,
 	apierr error,
-	controllerCredentialAPIF func() (CredentialAPI, error),
+	controllerCredentialAPIFunc newCredentialAPIFunc,
+	environsDestroy func(string, environs.Environ, context.ProviderCallContext, jujuclient.ControllerStore) error,
+
 ) cmd.Command {
 	cmd := &destroyCommand{
 		destroyCommandBase: destroyCommandBase{
 			api:       api,
 			clientapi: clientapi,
 			apierr:    apierr,
-			controllerCredentialAPIF: controllerCredentialAPIF,
+			controllerCredentialAPIFunc: controllerCredentialAPIFunc,
+			environsDestroy:             environsDestroy,
 		},
 		storageAPI: storageAPI,
 	}
@@ -128,14 +132,16 @@ func NewKillCommandForTest(
 	apierr error,
 	clock clock.Clock,
 	apiOpen api.OpenFunc,
-	controllerCredentialAPIF func() (CredentialAPI, error),
+	controllerCredentialAPIFunc newCredentialAPIFunc,
+	environsDestroy func(string, environs.Environ, context.ProviderCallContext, jujuclient.ControllerStore) error,
 ) cmd.Command {
 	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{
 			api:       api,
 			clientapi: clientapi,
 			apierr:    apierr,
-			controllerCredentialAPIF: controllerCredentialAPIF,
+			controllerCredentialAPIFunc: controllerCredentialAPIFunc,
+			environsDestroy:             environsDestroy,
 		},
 		clock: clock,
 	}
@@ -182,5 +188,4 @@ func NewData(api destroyControllerAPI, ctrUUID string) (ctrData, []modelData, er
 
 var (
 	NoModelsMessage = noModelsMessage
-	EnvironsDestroy = &environsDestroy
 )

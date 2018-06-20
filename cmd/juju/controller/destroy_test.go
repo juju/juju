@@ -54,6 +54,7 @@ type baseDestroySuite struct {
 	apierror   error
 
 	controllerCredentialAPI *mockCredentialAPI
+	environsDestroy         func(string, environs.Environ, context.ProviderCallContext, jujuclient.ControllerStore) error
 }
 
 // fakeDestroyAPI mocks out the controller API
@@ -171,6 +172,7 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 
 	s.storageAPI = &mockStorageAPI{}
 	s.controllerCredentialAPI = &mockCredentialAPI{}
+	s.environsDestroy = environs.Destroy
 
 	s.store = jujuclient.NewMemStore()
 	s.store.Controllers["test1"] = jujuclient.ControllerDetails{
@@ -250,6 +252,7 @@ func (s *DestroySuite) newDestroyCommand() cmd.Command {
 	return controller.NewDestroyCommandForTest(
 		s.api, s.clientapi, s.storageAPI, s.store, s.apierror,
 		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
+		s.environsDestroy,
 	)
 }
 
@@ -587,9 +590,9 @@ func (s *DestroySuite) destroyAndInvalidateCredential(c *gc.C) {
 
 func (s *DestroySuite) destroyAndInvalidateCredentialWithError(c *gc.C, expectedErr string) {
 	called := false
-	// Patching here to ensure that we are actually calling
-	// invalidate credential callback in the cloud context.
-	s.PatchValue(controller.EnvironsDestroy, func(controllerName string,
+	// Make sure that the invalidate credential callback in the cloud context
+	// is called.
+	s.environsDestroy = func(controllerName string,
 		env environs.Environ,
 		ctx context.ProviderCallContext,
 		store jujuclient.ControllerStore,
@@ -602,7 +605,7 @@ func (s *DestroySuite) destroyAndInvalidateCredentialWithError(c *gc.C, expected
 			c.Assert(err, gc.ErrorMatches, expectedErr)
 		}
 		return environs.Destroy(controllerName, env, ctx, store)
-	})
+	}
 	_, err := s.runDestroyCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)

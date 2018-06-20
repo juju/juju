@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/environs"
 	_ "github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -52,6 +53,7 @@ func (s *KillSuite) newKillCommand() cmd.Command {
 	return controller.NewKillCommandForTest(
 		s.api, s.clientapi, s.store, s.apierror, clock, nil,
 		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
+		environs.Destroy,
 	)
 }
 
@@ -441,6 +443,7 @@ func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 	}
 	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock.WallClock, testDialer,
 		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
+		environs.Destroy,
 	)
 	_, err := cmdtesting.RunCommand(c, cmd, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
@@ -459,6 +462,7 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 
 	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock, testDialer,
 		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
+		environs.Destroy,
 	)
 	ctx, err := cmdtesting.RunCommand(c, cmd, "test1", "-y")
 	c.Check(err, jc.ErrorIsNil)

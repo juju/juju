@@ -33,7 +33,8 @@ import (
 // NewDestroyCommand returns a command to destroy a controller.
 func NewDestroyCommand() cmd.Command {
 	cmd := destroyCommand{}
-	cmd.controllerCredentialAPIF = cmd.credentialAPIForControllerModel
+	cmd.controllerCredentialAPIFunc = cmd.credentialAPIForControllerModel
+	cmd.environsDestroy = environs.Destroy
 	// Even though this command is all about destroying a controller we end up
 	// needing environment endpoints so we can fall back to the client destroy
 	// environment method. This shouldn't really matter in practice as the
@@ -217,7 +218,7 @@ upgrade the controller to version 2.3 or greater.
 		return errors.Annotate(err, "getting controller environ")
 	}
 
-	cloudCallCtx := cloudCallContext(c.controllerCredentialAPIF)
+	cloudCallCtx := cloudCallContext(c.controllerCredentialAPIFunc)
 
 	for {
 		// Attempt to destroy the controller.
@@ -285,11 +286,9 @@ upgrade the controller to version 2.3 or greater.
 			}
 		}
 		ctx.Infof("All hosted models reclaimed, cleaning up controller machines")
-		return environsDestroy(controllerName, controllerEnviron, cloudCallCtx, store)
+		return c.environsDestroy(controllerName, controllerEnviron, cloudCallCtx, store)
 	}
 }
-
-var environsDestroy = environs.Destroy
 
 func (c *destroyCommand) modelHasStorage(modelName string) (bool, error) {
 	client, err := c.getStorageAPI(modelName)
@@ -469,7 +468,9 @@ type destroyCommandBase struct {
 	apierr    error
 	clientapi destroyClientAPI
 
-	controllerCredentialAPIF func() (CredentialAPI, error)
+	controllerCredentialAPIFunc newCredentialAPIFunc
+
+	environsDestroy func(string, environs.Environ, context.ProviderCallContext, jujuclient.ControllerStore) error
 }
 
 func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
@@ -627,10 +628,10 @@ func (c *destroyCommandBase) credentialAPIForControllerModel() (CredentialAPI, e
 
 type newCredentialAPIFunc func() (CredentialAPI, error)
 
-func cloudCallContext(newAPIF newCredentialAPIFunc) context.ProviderCallContext {
+func cloudCallContext(newAPIFunc newCredentialAPIFunc) context.ProviderCallContext {
 	callCtx := context.NewCloudCallContext()
 	callCtx.InvalidateCredentialF = func(reason string) error {
-		api, err := newAPIF()
+		api, err := newAPIFunc()
 		if err != nil {
 			return errors.Trace(err)
 		}
