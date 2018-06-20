@@ -4,6 +4,7 @@
 package state
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
@@ -11,6 +12,11 @@ import (
 )
 
 type MachineInternalSuite struct {
+	testing.IsolationSuite
+}
+
+func (s *MachineInternalSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 }
 
 var _ = gc.Suite(&MachineInternalSuite{})
