@@ -630,7 +630,7 @@ type newCredentialAPIFunc func() (CredentialAPI, error)
 
 func cloudCallContext(newAPIFunc newCredentialAPIFunc) context.ProviderCallContext {
 	callCtx := context.NewCloudCallContext()
-	callCtx.InvalidateCredentialF = func(reason string) error {
+	callCtx.InvalidateCredentialFunc = func(reason string) error {
 		api, err := newAPIFunc()
 		if err != nil {
 			return errors.Trace(err)

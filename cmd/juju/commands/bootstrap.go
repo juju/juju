@@ -419,7 +419,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// At this stage, the credential we intend to use is not yet stored
 	// server-side. So, if the credential is not accepted by the provider,
 	// we cannot mark it as invalid, just log it as an informative message.
-	cloudCallCtx.InvalidateCredentialF = func(reason string) error {
+	cloudCallCtx.InvalidateCredentialFunc = func(reason string) error {
 		ctx.Infof("Cloud credential %q is not accepted by cloud provider: %v", credentials.name, reason)
 		return nil
 	}
