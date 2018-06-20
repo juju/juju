@@ -39,7 +39,7 @@ type ApplicationSuite struct {
 	env          environs.Environ
 	blockChecker mockBlockChecker
 	authorizer   apiservertesting.FakeAuthorizer
-	api          *application.APIv6
+	api          *application.APIv7
 }
 
 var _ = gc.Suite(&ApplicationSuite{})
@@ -61,7 +61,7 @@ func (s *ApplicationSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = &application.APIv6{api}
+	s.api = &application.APIv7{api}
 }
 
 func (s *ApplicationSuite) SetUpTest(c *gc.C) {

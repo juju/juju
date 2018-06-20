@@ -47,7 +47,7 @@ type applicationSuite struct {
 	apiservertesting.CharmStoreSuite
 	commontesting.BlockHelper
 
-	applicationAPI *application.APIv6
+	applicationAPI *application.APIv7
 	application    *state.Application
 	authorizer     *apiservertesting.FakeAuthorizer
 }
@@ -84,7 +84,7 @@ func (s *applicationSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv6 {
+func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv7 {
 	resources := common.NewResources()
 	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 	storageAccess, err := application.GetStorageState(s.State)
@@ -103,7 +103,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIv6 {
 		application.DeployApplication,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return &application.APIv6{api}
+	return &application.APIv7{api}
 }
 
 func (s *applicationSuite) TestGetConfig(c *gc.C) {

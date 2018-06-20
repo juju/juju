@@ -29,7 +29,7 @@ import (
 type getSuite struct {
 	jujutesting.JujuConnSuite
 
-	applicationAPI *application.APIv6
+	applicationAPI *application.APIv7
 	authorizer     apiservertesting.FakeAuthorizer
 }
 
@@ -57,12 +57,12 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		application.DeployApplication,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.applicationAPI = &application.APIv6{api}
+	s.applicationAPI = &application.APIv7{api}
 }
 
 func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v4 := &application.APIv4{&application.APIv5{s.applicationAPI}}
+	v4 := &application.APIv4{&application.APIv5{&application.APIv6{s.applicationAPI}}}
 	results, err := v4.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
@@ -82,7 +82,7 @@ func (s *getSuite) TestClientApplicationGetSmoketestV4(c *gc.C) {
 
 func (s *getSuite) TestClientApplicationGetSmoketestV5(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v5 := &application.APIv5{s.applicationAPI}
+	v5 := &application.APIv5{&application.APIv6{s.applicationAPI}}
 	results, err := v5.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
@@ -98,6 +98,65 @@ func (s *getSuite) TestClientApplicationGetSmoketestV5(c *gc.C) {
 			},
 		},
 		Series: "quantal",
+	})
+}
+
+func (s *getSuite) TestClientApplicationGetSmoketestV6(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	v6 := &application.APIv6{s.applicationAPI}
+	results, err := v6.Get(params.ApplicationGet{"wordpress"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
+		Application: "wordpress",
+		Charm:       "wordpress",
+		CharmConfig: map[string]interface{}{
+			"blog-title": map[string]interface{}{
+				"default":     "My Title",
+				"description": "A descriptive title used for the blog.",
+				"source":      "default",
+				"type":        "string",
+				"value":       "My Title",
+			},
+		},
+		Series: "quantal",
+		ApplicationConfig: map[string]interface{}{
+			"trust": map[string]interface{}{
+				"description": "Does this application have access to trusted credentials",
+				"type":        environschema.Tbool,
+				"source":      "default",
+				"default":     false,
+				"value":       false,
+			},
+		},
+	})
+}
+
+func (s *getSuite) TestClientApplicationGetSmoketestV7(c *gc.C) {
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	results, err := s.applicationAPI.Get(params.ApplicationGet{"wordpress"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
+		Application: "wordpress",
+		Charm:       "wordpress",
+		CharmConfig: map[string]interface{}{
+			"blog-title": map[string]interface{}{
+				"default":     "My Title",
+				"description": "A descriptive title used for the blog.",
+				"source":      "default",
+				"type":        "string",
+				"value":       "My Title",
+			},
+		},
+		Series: "quantal",
+		ApplicationConfig: map[string]interface{}{
+			"trust": map[string]interface{}{
+				"description": "Does this application have access to trusted credentials",
+				"type":        environschema.Tbool,
+				"source":      "default",
+				"default":     false,
+				"value":       false,
+			},
+		},
 	})
 }
 
@@ -194,9 +253,9 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmoketest(c *gc.C) {
 		application.DeployApplication,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	apiV6 := &application.APIv6{api}
+	apiV7 := &application.APIv7{api}
 
-	results, err := apiV6.Get(params.ApplicationGet{"wordpress"})
+	results, err := apiV7.Get(params.ApplicationGet{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
 		Application: "wordpress",
