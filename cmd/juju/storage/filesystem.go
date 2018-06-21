@@ -48,11 +48,12 @@ type FilesystemInfo struct {
 }
 
 type FilesystemAttachments struct {
-	Machines map[string]MachineFilesystemAttachment `yaml:"machines,omitempty" json:"machines,omitempty"`
-	Units    map[string]UnitStorageAttachment       `yaml:"units,omitempty" json:"units,omitempty"`
+	Machines   map[string]FilesystemAttachment  `yaml:"machines,omitempty" json:"machines,omitempty"`
+	Containers map[string]FilesystemAttachment  `yaml:"containers,omitempty" json:"containers,omitempty"`
+	Units      map[string]UnitStorageAttachment `yaml:"units,omitempty" json:"units,omitempty"`
 }
 
-type MachineFilesystemAttachment struct {
+type FilesystemAttachment struct {
 	MountPoint string `yaml:"mount-point" json:"mount-point"`
 	ReadOnly   bool   `yaml:"read-only" json:"read-only"`
 	Life       string `yaml:"life,omitempty" json:"life,omitempty"`
@@ -122,13 +123,13 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 	}
 
 	if len(details.MachineAttachments) > 0 {
-		machineAttachments := make(map[string]MachineFilesystemAttachment)
+		machineAttachments := make(map[string]FilesystemAttachment)
 		for machineTag, attachment := range details.MachineAttachments {
 			machineId, err := idFromTag(machineTag)
 			if err != nil {
 				return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
 			}
-			machineAttachments[machineId] = MachineFilesystemAttachment{
+			machineAttachments[machineId] = FilesystemAttachment{
 				attachment.MountPoint,
 				attachment.ReadOnly,
 				string(attachment.Life),
@@ -137,6 +138,24 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 		info.Attachments = &FilesystemAttachments{
 			Machines: machineAttachments,
 		}
+	}
+	if len(details.UnitAttachments) > 0 {
+		unitAttachments := make(map[string]FilesystemAttachment)
+		for unitTag, attachment := range details.UnitAttachments {
+			unitName, err := idFromTag(unitTag)
+			if err != nil {
+				return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
+			}
+			unitAttachments[unitName] = FilesystemAttachment{
+				attachment.MountPoint,
+				attachment.ReadOnly,
+				string(attachment.Life),
+			}
+		}
+		if info.Attachments == nil {
+			info.Attachments = &FilesystemAttachments{}
+		}
+		info.Attachments.Containers = unitAttachments
 	}
 
 	if details.Storage != nil {

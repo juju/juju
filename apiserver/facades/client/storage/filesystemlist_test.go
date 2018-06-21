@@ -30,6 +30,7 @@ func (s *filesystemSuite) expectedFilesystemDetails() params.FilesystemDetails {
 				Life: "dead",
 			},
 		},
+		UnitAttachments: map[string]params.FilesystemAttachmentDetails{},
 		Storage: &params.StorageDetails{
 			StorageTag: "storage-data-0",
 			OwnerTag:   "unit-mysql-0",

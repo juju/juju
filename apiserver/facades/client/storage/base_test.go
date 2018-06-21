@@ -177,7 +177,7 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 			}
 			return nil, errors.NotFoundf("%s", names.ReadableString(sTag))
 		},
-		storageInstanceFilesystemAttachment: func(m names.MachineTag, f names.FilesystemTag) (state.FilesystemAttachment, error) {
+		storageInstanceFilesystemAttachment: func(m names.Tag, f names.FilesystemTag) (state.FilesystemAttachment, error) {
 			s.stub.AddCall(storageInstanceFilesystemAttachmentCall)
 			if m == s.machineTag && f == s.filesystemTag {
 				return s.filesystemAttachment, nil
@@ -191,7 +191,7 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 			}
 			return nil, errors.NotFoundf("%s", names.ReadableString(t))
 		},
-		volumeAttachment: func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error) {
+		volumeAttachment: func(names.Tag, names.VolumeTag) (state.VolumeAttachment, error) {
 			s.stub.AddCall(volumeAttachmentCall)
 			return s.volumeAttachment, nil
 		},
