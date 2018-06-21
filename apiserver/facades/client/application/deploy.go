@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -36,7 +37,7 @@ type DeployApplicationParams struct {
 	// instead of a machine spec.
 	Placement        []*instance.Placement
 	Storage          map[string]storage.Constraints
-	Devices          map[string]charm.Device
+	Devices          map[string]devices.Constraints
 	AttachStorage    []names.StorageTag
 	EndpointBindings map[string]string
 	// Resources is a map of resource name to IDs of pending resources.

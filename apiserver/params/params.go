@@ -13,10 +13,10 @@ import (
 	"github.com/juju/replicaset"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
@@ -264,7 +264,7 @@ type ApplicationDeploy struct {
 	Placement        []*instance.Placement          `json:"placement,omitempty"`
 	Policy           string                         `json:"policy,omitempty"`
 	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
-	Devices          map[string]charm.Device        `json:"devices,omitempty"`
+	Devices          map[string]devices.Constraints `json:"devices,omitempty"`
 	AttachStorage    []string                       `json:"attach-storage,omitempty"`
 	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
 	Resources        map[string]string              `json:"resources,omitempty"`

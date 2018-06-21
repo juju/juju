@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/juju/juju/core/devices"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
@@ -94,7 +96,7 @@ func NewFacadeV4(ctx facade.Context) (*APIv4, error) {
 	return &APIv4{api}, nil
 }
 
-// NewFacadeV5 provides the signature required for facade registration.
+// NewFacadeV5 provides the signature required for facade registration
 // for version 5.
 func NewFacadeV5(ctx facade.Context) (*APIv5, error) {
 	api, err := NewFacadeV6(ctx)
@@ -248,7 +250,7 @@ func (api *APIv5) Deploy(args params.ApplicationsDeployV5) (params.ErrorResults,
 // using the specified placement directives.
 // V6 deploy did not support devices, so pass through an empty map.
 func (api *APIv6) Deploy(args params.ApplicationsDeployV6) (params.ErrorResults, error) {
-	var noDefinedDevice map[string]charm.Device
+	var noDefinedDevice map[string]devices.Constraints
 	var newArgs params.ApplicationsDeploy
 	for _, value := range args.Applications {
 		newArgs.Applications = append(newArgs.Applications, params.ApplicationDeploy{

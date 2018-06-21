@@ -101,65 +101,6 @@ func (s *getSuite) TestClientApplicationGetSmoketestV5(c *gc.C) {
 	})
 }
 
-func (s *getSuite) TestClientApplicationGetSmoketestV6(c *gc.C) {
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	v6 := &application.APIv6{s.applicationAPI}
-	results, err := v6.Get(params.ApplicationGet{"wordpress"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
-		Application: "wordpress",
-		Charm:       "wordpress",
-		CharmConfig: map[string]interface{}{
-			"blog-title": map[string]interface{}{
-				"default":     "My Title",
-				"description": "A descriptive title used for the blog.",
-				"source":      "default",
-				"type":        "string",
-				"value":       "My Title",
-			},
-		},
-		Series: "quantal",
-		ApplicationConfig: map[string]interface{}{
-			"trust": map[string]interface{}{
-				"description": "Does this application have access to trusted credentials",
-				"type":        environschema.Tbool,
-				"source":      "default",
-				"default":     false,
-				"value":       false,
-			},
-		},
-	})
-}
-
-func (s *getSuite) TestClientApplicationGetSmoketestV7(c *gc.C) {
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	results, err := s.applicationAPI.Get(params.ApplicationGet{"wordpress"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ApplicationGetResults{
-		Application: "wordpress",
-		Charm:       "wordpress",
-		CharmConfig: map[string]interface{}{
-			"blog-title": map[string]interface{}{
-				"default":     "My Title",
-				"description": "A descriptive title used for the blog.",
-				"source":      "default",
-				"type":        "string",
-				"value":       "My Title",
-			},
-		},
-		Series: "quantal",
-		ApplicationConfig: map[string]interface{}{
-			"trust": map[string]interface{}{
-				"description": "Does this application have access to trusted credentials",
-				"type":        environschema.Tbool,
-				"source":      "default",
-				"default":     false,
-				"value":       false,
-			},
-		},
-	})
-}
-
 func (s *getSuite) TestClientApplicationGetIAASModelSmoketest(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
