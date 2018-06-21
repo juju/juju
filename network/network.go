@@ -638,6 +638,8 @@ func FormatAsCIDR(addresses []string) ([]string, error) {
 // macAddressTemplate is suitable for generating virtual MAC addresses,
 // particularly for use by container devices.
 // The last 3 segments are randomised.
+// TODO (manadart 2018-06-21) Depending on where this is utilised,
+// ensuring MAC address uniqueness within a model might be prudent.
 const macAddressTemplate = "00:16:3e:%02x:%02x:%02x"
 
 // GenerateVirtualMACAddress creates a random MAC address within the address
