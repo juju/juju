@@ -291,7 +291,7 @@ func (s *systemdServiceManager) StartAllAgents(machineAgent string, unitAgents [
 
 	for _, unit := range unitAgents {
 		if err = startAgent(unit, AgentKindUnit, dataDir, series); err != nil {
-			return "", nil, errors.Annotatef(err, "failed to start %s service", serviceName(unit))
+			return "", startedUnitNames, errors.Annotatef(err, "failed to start %s service", serviceName(unit))
 		}
 		startedUnitNames = append(startedUnitNames, serviceName(unit))
 		logger.Infof("started %s service", serviceName(unit))

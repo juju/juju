@@ -30,9 +30,8 @@ const (
 	InitSystemSystemd = "systemd"
 	InitSystemUpstart = "upstart"
 	InitSystemWindows = "windows"
+	SystemdDataDir    = "/lib/systemd/system"
 )
-
-var SystemdDataDir = "/lib/systemd/system"
 
 // linuxInitSystems lists the names of the init systems that juju might
 // find on a linux host.
