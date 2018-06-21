@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -381,8 +382,22 @@ func InterfaceInfoFromDevices(nics map[string]device) ([]network.InterfaceInfo, 
 		i++
 	}
 
-	network.SortInterfaceInfo(interfaces)
+	sortInterfacesByName(interfaces)
 	return interfaces, nil
+}
+
+type interfaceInfoSlice []network.InterfaceInfo
+
+func (s interfaceInfoSlice) Len() int      { return len(s) }
+func (s interfaceInfoSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s interfaceInfoSlice) Less(i, j int) bool {
+	return s[i].InterfaceName < s[j].InterfaceName
+}
+
+// SortInterfaceInfo sorts a slice of InterfaceInfo on DeviceIndex in ascending
+// order.
+func sortInterfacesByName(interfaces []network.InterfaceInfo) {
+	sort.Sort(interfaceInfoSlice(interfaces))
 }
 
 // errIPV6NotSupported is the error returned by glibc for attempts at

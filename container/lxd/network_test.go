@@ -303,16 +303,16 @@ func (s *networkSuite) TestInterfaceInfoFromDevices(c *gc.C) {
 
 	exp := []network.InterfaceInfo{
 		{
-			InterfaceName:       "eth0",
-			MACAddress:          "00:16:3e:00:00:00",
-			ConfigType:          network.ConfigDHCP,
-			ParentInterfaceName: network.DefaultLXDBridge,
-		},
-		{
 			InterfaceName:       "eno9",
 			MACAddress:          "00:16:3e:00:00:3e",
 			ConfigType:          network.ConfigDHCP,
 			ParentInterfaceName: "br1",
+		},
+		{
+			InterfaceName:       "eth0",
+			MACAddress:          "00:16:3e:00:00:00",
+			ConfigType:          network.ConfigDHCP,
+			ParentInterfaceName: network.DefaultLXDBridge,
 		},
 	}
 	c.Check(info, jc.DeepEquals, exp)
