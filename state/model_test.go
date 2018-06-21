@@ -1023,7 +1023,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	machine, err := st.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Filesystems: []state.MachineFilesystemParams{{
+		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{
 				Pool: "modelscoped-block",
 				Size: 123,
@@ -1074,7 +1074,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	machine, err := st.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{
 				Pool: "modelscoped",
 				Size: 123,

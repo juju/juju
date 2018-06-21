@@ -1057,7 +1057,7 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 		InstanceId:              "inst-id",
 		Nonce:                   "nonce",
 		Jobs:                    oneJob,
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			volume0, volumeAttachment0,
 		}, {
 			volume1, volumeAttachment1,

@@ -133,7 +133,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 		Jobs:            []state.MachineJob{state.JobManageModel},
 		Characteristics: &instance.HardwareCharacteristics{CpuCores: &eight},
 		InstanceId:      "id-4",
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{
 				Pool: "modelscoped",
 				Size: 123,
@@ -143,7 +143,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 	s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "id-5",
-		Filesystems: []state.MachineFilesystemParams{{
+		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{
 				Pool: "modelscoped",
 				Size: 123,

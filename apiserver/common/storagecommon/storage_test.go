@@ -64,7 +64,7 @@ func (s *storageAttachmentInfoSuite) SetUpTest(c *gc.C) {
 		storageInstanceVolume: func(tag names.StorageTag) (state.Volume, error) {
 			return s.volume, nil
 		},
-		volumeAttachment: func(m names.MachineTag, v names.VolumeTag) (state.VolumeAttachment, error) {
+		volumeAttachment: func(m names.Tag, v names.VolumeTag) (state.VolumeAttachment, error) {
 			return s.volumeAttachment, nil
 		},
 		blockDevices: func(m names.MachineTag) ([]state.BlockDeviceInfo, error) {

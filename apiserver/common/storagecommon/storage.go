@@ -35,8 +35,8 @@ type VolumeAccess interface {
 	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
 
 	// VolumeAttachment returns the state.VolumeAttachment corresponding
-	// to the specified machine and volume.
-	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
+	// to the specified host and volume.
+	VolumeAttachment(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
 
 	// BlockDevices returns information about block devices published
 	// for the specified machine.
@@ -51,8 +51,8 @@ type FilesystemAccess interface {
 	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
 
 	// FilesystemAttachment returns the state.FilesystemAttachment
-	// corresponding to the specified machine and filesystem.
-	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
+	// corresponding to the specified host and filesystem.
+	FilesystemAttachment(names.Tag, names.FilesystemTag) (state.FilesystemAttachment, error)
 }
 
 // StorageAttachmentInfo is called by the uniter facade to get info needed to

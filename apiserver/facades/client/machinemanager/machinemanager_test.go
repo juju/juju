@@ -70,7 +70,7 @@ func (s *MachineManagerSuite) TestAddMachines(c *gc.C) {
 		{
 			Series: "trusty",
 			Jobs:   []state.MachineJob{state.JobHostUnits},
-			Volumes: []state.MachineVolumeParams{
+			Volumes: []state.HostVolumeParams{
 				{
 					Volume:     state.VolumeParams{Pool: "", Size: 1},
 					Attachment: state.VolumeAttachmentParams{ReadOnly: false},
@@ -88,7 +88,7 @@ func (s *MachineManagerSuite) TestAddMachines(c *gc.C) {
 		{
 			Series: "trusty",
 			Jobs:   []state.MachineJob{state.JobHostUnits},
-			Volumes: []state.MachineVolumeParams{
+			Volumes: []state.HostVolumeParams{
 				{
 					Volume:     state.VolumeParams{Pool: "three", Size: 1},
 					Attachment: state.VolumeAttachmentParams{ReadOnly: false},

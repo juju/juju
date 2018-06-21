@@ -925,7 +925,19 @@ func (s *StorageProvisionerAPIv3) FilesystemAttachmentParams(
 		if err != nil {
 			return params.FilesystemAttachmentParams{}, err
 		}
-		instanceId, err := s.st.MachineInstanceId(filesystemAttachment.Machine())
+		// We should always get a machine tag but in case there's
+		// an error in the watcher and the wrong attachment is processed,
+		// we'll be defensive.
+		var (
+			machineTag names.MachineTag
+			ok         bool
+		)
+		if machineTag, ok = filesystemAttachment.Host().(names.MachineTag); !ok {
+			if err != nil {
+				return params.FilesystemAttachmentParams{}, errors.NotValidf("machine tag %q", filesystemAttachment.Host())
+			}
+		}
+		instanceId, err := s.st.MachineInstanceId(machineTag)
 		if errors.IsNotProvisioned(err) {
 			// The worker must watch for machine provisioning events.
 			instanceId = ""
@@ -969,7 +981,7 @@ func (s *StorageProvisionerAPIv3) FilesystemAttachmentParams(
 		}
 		return params.FilesystemAttachmentParams{
 			filesystemAttachment.Filesystem().String(),
-			filesystemAttachment.Machine().String(),
+			machineTag.String(),
 			filesystemId,
 			string(instanceId),
 			string(providerType),

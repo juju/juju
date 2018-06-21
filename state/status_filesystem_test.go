@@ -26,7 +26,7 @@ func (s *FilesystemStatusSuite) SetUpTest(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Filesystems: []state.MachineFilesystemParams{{
+		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{
 				Pool: "modelscoped", Size: 1024,
 			},

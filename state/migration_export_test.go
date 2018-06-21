@@ -1106,7 +1106,7 @@ func (*goodToken) Check(interface{}) error {
 
 func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume:     state.VolumeParams{Size: 1234},
 			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
 		}, {
@@ -1185,7 +1185,7 @@ func (s *MigrationExportSuite) TestVolumes(c *gc.C) {
 
 func (s *MigrationExportSuite) TestFilesystems(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Filesystems: []state.MachineFilesystemParams{{
+		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{Size: 1234},
 			Attachment: state.FilesystemAttachmentParams{
 				Location: "location",

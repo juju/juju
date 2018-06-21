@@ -589,7 +589,10 @@ func addNonDetachableStorageMachineId(st *State) error {
 			// are not met.
 			continue
 		}
-		machineId := attachments[0].Machine().Id()
+		machineId := attachments[0].Host().Id()
+		if !names.IsValidMachine(machineId) {
+			continue
+		}
 		ops = append(ops, txn.Op{
 			C:      filesystemsC,
 			Id:     f.doc.DocID,

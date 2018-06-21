@@ -26,7 +26,7 @@ func (s *VolumeStatusSuite) SetUpTest(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{
 				Pool: "modelscoped", Size: 1024,
 			},

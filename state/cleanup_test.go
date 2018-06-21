@@ -753,7 +753,7 @@ func (s *CleanupSuite) TestCleanupVolumeAttachments(c *gc.C) {
 	_, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "loop", Size: 1024},
 		}},
 	})
@@ -773,7 +773,7 @@ func (s *CleanupSuite) TestCleanupFilesystemAttachments(c *gc.C) {
 	_, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Filesystems: []state.MachineFilesystemParams{{
+		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{Pool: "rootfs", Size: 1024},
 		}},
 	})

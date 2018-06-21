@@ -30,7 +30,7 @@ func (b *mockBackend) Filesystem(tag names.FilesystemTag) (state.Filesystem, err
 	return nil, errors.NotFoundf("filesystem %s", tag.Id())
 }
 
-func (b *mockBackend) VolumeAttachment(m names.MachineTag, v names.VolumeTag) (state.VolumeAttachment, error) {
+func (b *mockBackend) VolumeAttachment(m names.Tag, v names.VolumeTag) (state.VolumeAttachment, error) {
 	if m.Id() != "0" {
 		// The tests all operate on machine "0", and the watchers
 		// should ignore attachments for other machines, so we should

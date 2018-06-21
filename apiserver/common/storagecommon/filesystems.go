@@ -137,7 +137,7 @@ func FilesystemAttachmentFromState(v state.FilesystemAttachment) (params.Filesys
 	}
 	return params.FilesystemAttachment{
 		v.Filesystem().String(),
-		v.Machine().String(),
+		v.Host().String(),
 		FilesystemAttachmentInfoFromState(info),
 	}, nil
 }

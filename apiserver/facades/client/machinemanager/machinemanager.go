@@ -187,7 +187,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		placementDirective = p.Placement.Directive
 	}
 
-	volumes := make([]state.MachineVolumeParams, 0, len(p.Disks))
+	volumes := make([]state.HostVolumeParams, 0, len(p.Disks))
 	for _, cons := range p.Disks {
 		if cons.Count == 0 {
 			return nil, errors.Errorf("invalid volume params: count not specified")
@@ -199,7 +199,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		}
 		volumeAttachmentParams := state.VolumeAttachmentParams{}
 		for i := uint64(0); i < cons.Count; i++ {
-			volumes = append(volumes, state.MachineVolumeParams{
+			volumes = append(volumes, state.HostVolumeParams{
 				volumeParams, volumeAttachmentParams,
 			})
 		}

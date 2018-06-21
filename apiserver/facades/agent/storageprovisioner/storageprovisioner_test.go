@@ -80,7 +80,7 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 func (s *provisionerSuite) setupVolumes(c *gc.C) {
 	s.factory.MakeMachine(c, &factory.MachineParams{
 		InstanceId: instance.Id("inst-id"),
-		Volumes: []state.MachineVolumeParams{
+		Volumes: []state.HostVolumeParams{
 			{Volume: state.VolumeParams{Pool: "machinescoped", Size: 1024}},
 			{Volume: state.VolumeParams{Pool: "modelscoped", Size: 2048}},
 			{Volume: state.VolumeParams{Pool: "modelscoped", Size: 4096}},
@@ -116,7 +116,7 @@ func (s *provisionerSuite) setupVolumes(c *gc.C) {
 	_, err = s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{
+		Volumes: []state.HostVolumeParams{
 			{Volume: state.VolumeParams{Pool: "modelscoped", Size: 2048}},
 		},
 	})
@@ -126,7 +126,7 @@ func (s *provisionerSuite) setupVolumes(c *gc.C) {
 func (s *provisionerSuite) setupFilesystems(c *gc.C) {
 	s.factory.MakeMachine(c, &factory.MachineParams{
 		InstanceId: instance.Id("inst-id"),
-		Filesystems: []state.MachineFilesystemParams{{
+		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{Pool: "machinescoped", Size: 1024},
 			Attachment: state.FilesystemAttachmentParams{
 				Location: "/srv",
@@ -160,7 +160,7 @@ func (s *provisionerSuite) setupFilesystems(c *gc.C) {
 	_, err = s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Filesystems: []state.MachineFilesystemParams{{
+		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{Pool: "modelscoped", Size: 2048},
 		}},
 	})
@@ -341,7 +341,7 @@ func (s *provisionerSuite) TestFilesystemAttachments(c *gc.C) {
 			}},
 			{Error: &params.Error{
 				Code:    params.CodeNotProvisioned,
-				Message: `filesystem attachment "2" on "0" not provisioned`,
+				Message: `filesystem attachment "2" on "machine 0" not provisioned`,
 			}},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
@@ -1197,7 +1197,7 @@ func (s *provisionerSuite) TestAttachmentLife(c *gc.C) {
 			{Life: params.Alive},
 			{Life: params.Alive},
 			{Life: params.Alive},
-			{Error: &params.Error{Message: `volume "42" on machine "0" not found`, Code: "not found"}},
+			{Error: &params.Error{Message: `volume "42" on "machine 0" not found`, Code: "not found"}},
 		},
 	})
 }
@@ -1355,7 +1355,7 @@ func (s *provisionerSuite) TestRemoveVolumeAttachments(c *gc.C) {
 			{Error: &params.Error{Message: "removing attachment of volume 0/0 from machine 0: volume attachment is not dying"}},
 			{Error: nil},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
-			{Error: &params.Error{Message: `removing attachment of volume 42 from machine 0: volume "42" on machine "0" not found`, Code: "not found"}},
+			{Error: &params.Error{Message: `removing attachment of volume 42 from machine 0: volume "42" on "machine 0" not found`, Code: "not found"}},
 		},
 	})
 }
@@ -1388,7 +1388,7 @@ func (s *provisionerSuite) TestRemoveFilesystemAttachments(c *gc.C) {
 			{Error: &params.Error{Message: "removing attachment of filesystem 0/0 from machine 0: filesystem attachment is not dying"}},
 			{Error: nil},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
-			{Error: &params.Error{Message: `removing attachment of filesystem 42 from machine 0: filesystem "42" on machine "0" not found`, Code: "not found"}},
+			{Error: &params.Error{Message: `removing attachment of filesystem 42 from machine 0: filesystem "42" on "machine 0" not found`, Code: "not found"}},
 		},
 	})
 }

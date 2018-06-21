@@ -37,7 +37,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 		Placement:   "valid",
-		Volumes: []state.MachineVolumeParams{
+		Volumes: []state.HostVolumeParams{
 			{Volume: state.VolumeParams{Size: 1000, Pool: "static-pool"}},
 			{Volume: state.VolumeParams{Size: 2000, Pool: "static-pool"}},
 		},
@@ -284,7 +284,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 		Series:    "quantal",
 		Jobs:      []state.MachineJob{state.JobHostUnits},
 		Placement: "valid",
-		Volumes: []state.MachineVolumeParams{
+		Volumes: []state.HostVolumeParams{
 			{Volume: state.VolumeParams{Size: 1000, Pool: "loop"}},
 			{Volume: state.VolumeParams{Size: 1000, Pool: "static"}},
 		},
@@ -341,7 +341,7 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 	template := state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{
+		Volumes: []state.HostVolumeParams{
 			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
 			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
 		},

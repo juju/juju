@@ -32,12 +32,12 @@ type storageVolumeInterface interface {
 	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
-	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
+	VolumeAttachment(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
 }
 
 type storageFilesystemInterface interface {
 	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
-	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
+	FilesystemAttachment(names.Tag, names.FilesystemTag) (state.FilesystemAttachment, error)
 	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 }
 
