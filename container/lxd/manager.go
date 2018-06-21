@@ -97,7 +97,6 @@ func (m *containerManager) CreateContainer(
 	callback environs.StatusCallbackFunc,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	spec, err := m.getContainerSpec(instanceConfig, cons, series, networkConfig, storageConfig, callback)
-	logger.Infof("starting container %q (image %q)...", spec.Name, spec.Image.Image.Filename)
 
 	callback(status.Provisioning, "Creating container", nil)
 	c, err := m.server.CreateContainerFromSpec(spec)
@@ -148,12 +147,47 @@ func (m *containerManager) getContainerSpec(
 
 	found, err := m.server.FindImage(series, jujuarch.HostArch(), imageSources, true, callback)
 	if err != nil {
-		return ContainerSpec{}, errors.Annotatef(err, "failed to ensure LXD image")
+		return ContainerSpec{}, errors.Annotatef(err, "acquiring LXD image")
 	}
 
 	name, err := m.namespace.Hostname(instanceConfig.MachineId)
 	if err != nil {
 		return ContainerSpec{}, errors.Trace(err)
+	}
+
+	nics, unknown, err := m.networkDevicesFromConfig(networkConfig)
+	if err != nil {
+		return ContainerSpec{}, errors.Trace(err)
+	}
+
+	logger.Infof("configuring container %q with network devices: %v", name, nics)
+
+	// If the default LXD bridge was supplied in network config,
+	// but without a CIDR, attempt to ensure it is configured for IPv4.
+	// If there are others with incomplete info, log a warning.
+	if len(unknown) > 0 {
+		if len(unknown) == 1 && unknown[0] == network.DefaultLXDBridge && m.server.networkAPISupport {
+			mod, err := m.server.EnsureIPv4(network.DefaultLXDBridge)
+			if err != nil {
+				return ContainerSpec{}, errors.Annotate(err, "ensuring default bridge IPv4 config")
+			}
+			if mod {
+				logger.Infof(`added "auto" IPv4 configuration to default LXD bridge`)
+			}
+		} else {
+			logger.Warningf("no CIDR was detected for the following networks: %v", unknown)
+		}
+	}
+
+	// If there was no incoming interface info, then at this point we know
+	// that nics has a single manually created "eth0" device.
+	// We need to ensure that it is represented in the cloud-init user-data.
+	if len(networkConfig.Interfaces) == 0 {
+		interfaces, err := InterfaceInfoFromDevices(nics)
+		if err != nil {
+			return ContainerSpec{}, errors.Trace(err)
+		}
+		networkConfig.Interfaces = interfaces
 	}
 
 	// CloudInitUserData creates our own ENI/netplan.
@@ -171,41 +205,11 @@ func (m *containerManager) getContainerSpec(
 		JujuModelKey: m.modelUUID,
 	}
 
-	nics, unknown, err := networkDevicesFromConfig(networkConfig)
-	if err != nil {
-		return ContainerSpec{}, errors.Trace(err)
-	}
-
-	var profiles []string
-	if len(nics) == 0 {
-		logger.Infof("configuring container %q with %q profile", name, lxdDefaultProfileName)
-		profiles = []string{lxdDefaultProfileName}
-	} else {
-		logger.Infof("configuring container %q with network devices: %v", name, nics)
-
-		// If the default LXD bridge was supplied in network config,
-		// but without a CIDR, attempt to ensure it is configured for IPv4.
-		// If there are others with incomplete info, log a warning.
-		if len(unknown) > 0 {
-			if len(unknown) == 1 && unknown[0] == network.DefaultLXDBridge && m.server.networkAPISupport {
-				mod, err := m.server.EnsureIPv4(network.DefaultLXDBridge)
-				if err != nil {
-					return ContainerSpec{}, errors.Annotate(err, "ensuring default bridge IPv4 config")
-				}
-				if mod {
-					logger.Infof(`added "auto" IPv4 configuration to default LXD bridge`)
-				}
-			} else {
-				logger.Warningf("no CIDR was detected for the following networks: %v", unknown)
-			}
-		}
-	}
-
 	return ContainerSpec{
 		Name:     name,
-		Profiles: profiles,
 		Image:    found,
 		Config:   cfg,
+		Profiles: nil,
 		Devices:  nics,
 	}, nil
 }
@@ -230,8 +234,7 @@ func (m *containerManager) getImageSources() ([]RemoteServer, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "generating image metadata source")
 	}
-	// LXD requires HTTPS.
-	imURL = strings.Replace(imURL, "http:", "https:", 1)
+	imURL = EnsureHTTPS(imURL)
 	remote := RemoteServer{
 		Name:     strings.Replace(imURL, "https://", "", 1),
 		Host:     imURL,
@@ -246,65 +249,32 @@ func (m *containerManager) getImageSources() ([]RemoteServer, error) {
 	return []RemoteServer{remote, CloudImagesRemote, CloudImagesDailyRemote}, nil
 }
 
-func (m *containerManager) deleteContainer(name string) error {
-	op, err := m.server.DeleteContainer(name)
-	if err != nil {
-		return err
-	}
-	err = op.Wait()
-	return err
-}
-
 // networkDevicesFromConfig uses the input container network configuration to
 // create a map of network device configuration in the LXD format.
+// If there are no interfaces in the input config, but there is a bridge device
+// name, return a single "eth0" device with the bridge as its parent.
+// The last fall-back is to return the NIC devices from the default profile.
 // Names for any networks without a known CIDR are returned in a slice.
-func networkDevicesFromConfig(networkConfig *container.NetworkConfig) (
-	map[string]map[string]string, []string, error,
-) {
-	nics := make(map[string]map[string]string, len(networkConfig.Interfaces))
-	var unknownNetworks []string
+func (m *containerManager) networkDevicesFromConfig(netConfig *container.NetworkConfig) (map[string]device, []string, error) {
+	if len(netConfig.Interfaces) > 0 {
+		return DevicesFromInterfaceInfo(netConfig.Interfaces)
+	} else if netConfig.Device != "" {
+		return map[string]device{
+			"eth0": newNICDevice("eth0", netConfig.Device, network.GenerateVirtualMACAddress(), netConfig.MTU),
+		}, nil, nil
+	}
 
-	if len(networkConfig.Interfaces) > 0 {
-		for _, v := range networkConfig.Interfaces {
-			if v.InterfaceType == network.LoopbackInterface {
-				continue
-			}
-			if v.InterfaceType != network.EthernetInterface {
-				return nil, nil, errors.Errorf("interface type %q not supported", v.InterfaceType)
-			}
-			if v.ParentInterfaceName == "" {
-				return nil, nil, errors.Errorf("parent interface name is empty")
-			}
-			if v.CIDR == "" {
-				unknownNetworks = append(unknownNetworks, v.ParentInterfaceName)
-			}
-			nics[v.InterfaceName] = newNICDevice(v.InterfaceName, v.ParentInterfaceName, v.MACAddress, v.MTU)
+	// Get the NICs from the default profile and ensure they have MAC addresses.
+	profile, _, err := m.server.GetProfile(lxdDefaultProfileName)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	nics := getProfileNICs(profile)
+	for name := range nics {
+		if nics[name]["hwaddr"] == "" {
+			nics[name]["hwaddr"] = network.GenerateVirtualMACAddress()
 		}
-	} else if networkConfig.Device != "" {
-		unknownNetworks = []string{networkConfig.Device}
-		nics["eth0"] = newNICDevice("eth0", networkConfig.Device, "", networkConfig.MTU)
 	}
-
-	return nics, unknownNetworks, nil
-}
-
-// newNICDevice creates and returns a LXD-compatible config for a network
-// device, from the input arguments.
-func newNICDevice(deviceName, parentDevice, hwAddr string, mtu int) map[string]string {
-	device := map[string]string{
-		"type":    "nic",
-		"nictype": "bridged",
-		"name":    deviceName,
-		"parent":  parentDevice,
-	}
-
-	if hwAddr != "" {
-		device["hwaddr"] = hwAddr
-	}
-
-	if mtu > 0 {
-		device["mtu"] = fmt.Sprintf("%v", mtu)
-	}
-
-	return device
+	return nics, nil, nil
 }

@@ -7,15 +7,15 @@ import (
 	"errors"
 
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/network"
 	lxdclient "github.com/lxc/lxd/client"
 )
 
 var (
-	NewNICDevice             = newNICDevice
-	NetworkDevicesFromConfig = networkDevicesFromConfig
-	CheckBridgeConfigFile    = checkBridgeConfigFile
-	SeriesRemoteAliases      = seriesRemoteAliases
-	ErrIPV6NotSupported      = errIPV6NotSupported
+	NewNICDevice          = newNICDevice
+	CheckBridgeConfigFile = checkBridgeConfigFile
+	SeriesRemoteAliases   = seriesRemoteAliases
+	ErrIPV6NotSupported   = errIPV6NotSupported
 )
 
 type patcher interface {
@@ -33,10 +33,23 @@ func PatchConnectRemote(patcher patcher, remotes map[string]lxdclient.ImageServe
 	})
 }
 
+func PatchGenerateVirtualMACAddress(patcher patcher) {
+	patcher.PatchValue(&network.GenerateVirtualMACAddress, func() string {
+		return "00:16:3e:00:00:00"
+	})
+}
+
 func GetImageSources(mgr container.Manager) ([]RemoteServer, error) {
 	return mgr.(*containerManager).getImageSources()
 }
 
 func VerifyNICsWithConfigFile(svr *Server, nics map[string]device, reader func(string) ([]byte, error)) error {
 	return svr.verifyNICsWithConfigFile(nics, reader)
+}
+
+func NetworkDevicesFromConfig(mgr container.Manager, netConfig *container.NetworkConfig) (
+	map[string]device, []string, error,
+) {
+	cMgr := mgr.(*containerManager)
+	return cMgr.networkDevicesFromConfig(netConfig)
 }

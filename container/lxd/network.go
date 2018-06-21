@@ -30,6 +30,32 @@ func (s *Server) LocalBridgeName() string {
 	return s.localBridgeName
 }
 
+// EnableHTTPSListener configures LXD to listen for HTTPS requests, rather than
+// only via a Unix socket. Attempts to listen on all protocols, but falls back
+// to IPv4 only if IPv6 has been disabled with in kernel.
+// Returns an error if updating the server configuration fails.
+func (s *Server) EnableHTTPSListener() error {
+	// Make sure the LXD service is configured to listen to local https
+	// requests, rather than only via the Unix socket.
+	// TODO: jam 2016-02-25 This tells LXD to listen on all addresses,
+	//      which does expose the LXD to outside requests. It would
+	//      probably be better to only tell LXD to listen for requests on
+	//      the loopback and LXC bridges that we are using.
+	if err := s.UpdateServerConfig(map[string]string{
+		"core.https_address": "[::]",
+	}); err != nil {
+		cause := errors.Cause(err)
+		if strings.HasSuffix(cause.Error(), errIPV6NotSupported) {
+			// Fall back to IPv4 only.
+			return errors.Trace(s.UpdateServerConfig(map[string]string{
+				"core.https_address": "0.0.0.0",
+			}))
+		}
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // EnsureIPv4 retrieves the network for the input name and checks its IPv4
 // configuration. If none is detected, it is set to "auto".
 // The boolean return indicates if modification was necessary.
@@ -61,7 +87,7 @@ func (s *Server) EnsureIPv4(netName string) (bool, error) {
 // VerifyNetworkDevice attempts to ensure that there is a network usable by LXD
 // and that there is a NIC device with said network as its parent.
 // If there are no NIC devices, and this server is *not* in cluster mode,
-// an attempt is made to create an new device in the input profile, with the
+// an attempt is made to create an new device in the input profile,
 // with the default LXD bridge as its parent.
 func (s *Server) VerifyNetworkDevice(profile *api.Profile, eTag string) error {
 	nics := getProfileNICs(profile)
@@ -329,34 +355,80 @@ func ipv6BridgeConfigError(fileName string) error {
 		"and run the command again.", fileName)
 }
 
-// errIPV6NotSupported is the error returned by glibc for attempts at unsupported
-// protocols.
+// InterfaceInfoFromDevices returns a slice of interface info congruent with the
+// input LXD NIC devices.
+// The output is used to generate cloud-init user-data congruent with the NICs
+// that end up in the container.
+func InterfaceInfoFromDevices(nics map[string]device) ([]network.InterfaceInfo, error) {
+	interfaces := make([]network.InterfaceInfo, len(nics))
+	var i int
+	for name, device := range nics {
+		iInfo := network.InterfaceInfo{
+			InterfaceName:       name,
+			ParentInterfaceName: device["parent"],
+			MACAddress:          device["hwaddr"],
+			ConfigType:          network.ConfigDHCP,
+		}
+		if device["mtu"] != "" {
+			mtu, err := strconv.Atoi(device["mtu"])
+			if err != nil {
+				return nil, errors.Annotate(err, "parsing device MTU")
+			}
+			iInfo.MTU = mtu
+		}
+
+		interfaces[i] = iInfo
+		i++
+	}
+
+	network.SortInterfaceInfo(interfaces)
+	return interfaces, nil
+}
+
+// errIPV6NotSupported is the error returned by glibc for attempts at
+// unsupported protocols.
 const errIPV6NotSupported = `socket: address family not supported by protocol`
 
-// EnableHTTPSListener configures LXD to listen for HTTPS requests, rather than
-// only via a Unix socket. Attempts to connect over IPv6, but falls back to
-// IPv4 if that has been disabled with in the kernel.
-// Returns an error if updating the server configuration fails.
-func (s *Server) EnableHTTPSListener() error {
-	// Make sure the LXD service is configured to listen to local https
-	// requests, rather than only via the Unix socket.
-	// TODO: jam 2016-02-25 This tells LXD to listen on all addresses,
-	//      which does expose the LXD to outside requests. It would
-	//      probably be better to only tell LXD to listen for requests on
-	//      the loopback and LXC bridges that we are using.
-	if err := s.UpdateServerConfig(map[string]string{
-		"core.https_address": "[::]",
-	}); err != nil {
-		// If the error hints that the problem might be a unsupported protocol,
-		// such as what happens when IPv6 is disabled with in the kernel, we
-		// try IPv4 as a fallback.
-		cause := errors.Cause(err)
-		if strings.HasSuffix(cause.Error(), errIPV6NotSupported) {
-			return errors.Trace(s.UpdateServerConfig(map[string]string{
-				"core.https_address": "0.0.0.0",
-			}))
+// DevicesFromInterfaceInfo uses the input interface info collection to create a
+// map of network device configuration in the LXD format.
+// Names for any networks without a known CIDR are returned in a slice.
+func DevicesFromInterfaceInfo(interfaces []network.InterfaceInfo) (map[string]device, []string, error) {
+	nics := make(map[string]device, len(interfaces))
+	var unknown []string
+
+	for _, v := range interfaces {
+		if v.InterfaceType == network.LoopbackInterface {
+			continue
 		}
-		return errors.Trace(err)
+		if v.InterfaceType != network.EthernetInterface {
+			return nil, nil, errors.Errorf("interface type %q not supported", v.InterfaceType)
+		}
+		if v.ParentInterfaceName == "" {
+			return nil, nil, errors.Errorf("parent interface name is empty")
+		}
+		if v.CIDR == "" {
+			unknown = append(unknown, v.ParentInterfaceName)
+		}
+		nics[v.InterfaceName] = newNICDevice(v.InterfaceName, v.ParentInterfaceName, v.MACAddress, v.MTU)
 	}
-	return nil
+
+	return nics, unknown, nil
+}
+
+// newNICDevice creates and returns a LXD-compatible config for a network
+// device from the input arguments.
+func newNICDevice(deviceName, parentDevice, hwAddr string, mtu int) device {
+	device := map[string]string{
+		"type":    "nic",
+		"nictype": "bridged",
+		"name":    deviceName,
+		"parent":  parentDevice,
+	}
+	if hwAddr != "" {
+		device["hwaddr"] = hwAddr
+	}
+	if mtu > 0 {
+		device["mtu"] = fmt.Sprintf("%v", mtu)
+	}
+	return device
 }
