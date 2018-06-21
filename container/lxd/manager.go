@@ -160,7 +160,7 @@ func (m *containerManager) getContainerSpec(
 		return ContainerSpec{}, errors.Trace(err)
 	}
 
-	logger.Infof("configuring container %q with network devices: %v", name, nics)
+	logger.Debugf("configuring container %q with network devices: %v", name, nics)
 
 	// If the default LXD bridge was supplied in network config,
 	// but without a CIDR, attempt to ensure it is configured for IPv4.

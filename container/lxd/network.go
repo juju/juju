@@ -394,8 +394,6 @@ func (s interfaceInfoSlice) Less(i, j int) bool {
 	return s[i].InterfaceName < s[j].InterfaceName
 }
 
-// SortInterfaceInfo sorts a slice of InterfaceInfo on DeviceIndex in ascending
-// order.
 func sortInterfacesByName(interfaces []network.InterfaceInfo) {
 	sort.Sort(interfaceInfoSlice(interfaces))
 }
@@ -432,6 +430,10 @@ func DevicesFromInterfaceInfo(interfaces []network.InterfaceInfo) (map[string]de
 
 // newNICDevice creates and returns a LXD-compatible config for a network
 // device from the input arguments.
+// TODO (manadart 2018-06-21) We want to support nictype=macvlan too.
+// This will involve interrogating the parent device, via the server if it is
+// LXD managed, or via the container.NetworkConfig.DeviceType that this is
+// being generated from.
 func newNICDevice(deviceName, parentDevice, hwAddr string, mtu int) device {
 	device := map[string]string{
 		"type":    "nic",
