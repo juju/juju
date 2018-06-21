@@ -158,3 +158,24 @@ func (client *Client) UpgradeSeriesPrepare(machineName string) error {
 
 	return nil
 }
+
+// UpgradeSeriesComplete notifies the controller that a given machine has
+// successfully completed the managed series upgrade process.
+func (client *Client) UpgradeSeriesComplete(machineName string) error {
+	if client.BestAPIVersion() < 5 {
+		return errors.NotSupportedf("upgrade-series complete")
+	}
+	args := params.UpdateSeriesArg{
+		Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
+	}
+	result := new(params.ErrorResult)
+	err := client.facade.FacadeCall("UpgradeSeriesComplete", args, result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if result.Error != nil {
+		return result.Error
+	}
+
+	return nil
+}

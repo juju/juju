@@ -2057,10 +2057,11 @@ func (m *Machine) verifyUnitsSeries(unitNames []string, series string, force boo
 	return results, nil
 }
 
-// CreateUpgradeSeriesPrepareLock create a prepare lock for series upgrade. If
+// CreateUpgradeSeriesLock create a prepare lock for series upgrade. If
 // this item exists in the database for a given machine it indicates that a
-// machine's operating system is being upgraded for one series to another (e.g. xenial to bionic).
-func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
+// machine's operating system is being upgraded from one series to another - for
+// example from xenial to bionic.
+func (m *Machine) CreateUpgradeSeriesLock() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2069,30 +2070,17 @@ func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
 		}
 		locked, err := m.IsLocked()
 		if err != nil {
-			return nil, errors.Wrap(err, jujutxn.ErrNoOperations)
+			return nil, errors.Trace(err)
 		}
 		if locked {
-			return nil, errors.AlreadyExistsf("upgrade series prepare lock for machine %q", m)
+			return nil, errors.AlreadyExistsf("upgrade series lock for machine %q", m)
 		}
 		if err = m.isStillAlive(); err != nil {
 			return nil, errors.Wrap(jujutxn.ErrNoOperations, err)
 		}
 
 		data := &upgradeSeriesLock{Id: m.Id()}
-		ops := []txn.Op{
-			{
-				C:      machinesC,
-				Id:     m.doc.DocID,
-				Assert: isAliveDoc,
-			},
-			{
-				C:      machineUpgradeSeriesLocksC,
-				Id:     m.doc.DocID,
-				Assert: txn.DocMissing,
-				Insert: data,
-			},
-		}
-		return ops, nil
+		return createUpgradeSeriesLockTxnOps(m.doc.Id, data), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2102,6 +2090,61 @@ func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
 	}
 
 	return nil
+}
+
+// RemoveUpgradeSeriesLock remove a series upgrade prepare lock for a
+// given machine.
+func (m *Machine) RemoveUpgradeSeriesLock() error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		locked, err := m.IsLocked()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !locked {
+			return nil, errors.NotFoundf("upgrade series lock for machine %q", m)
+		}
+		return removeUpgradeSeriesLockTxnOps(m.doc.Id), nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		logger.Errorf("cannot complete series upgrade for machine %q: %v", m, err)
+		return err
+	}
+
+	return nil
+}
+
+func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLock) []txn.Op {
+	return []txn.Op{
+		{
+			C:      machinesC,
+			Id:     machineDocId,
+			Assert: isAliveDoc,
+		},
+		{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     machineDocId,
+			Assert: txn.DocMissing,
+			Insert: data,
+		},
+	}
+}
+
+func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
+	return []txn.Op{
+		{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     machineDocId,
+			Assert: txn.DocExists,
+			Remove: true,
+		},
+	}
 }
 
 func (m *Machine) IsLocked() (bool, error) {

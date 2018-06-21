@@ -57,7 +57,7 @@ type MachineManagerAPIV4 struct {
 	*MachineManagerAPIV5
 }
 
-// Version 5 of Machine Manger API. Adds CreateUpgradeSeriesPrepareLock.
+// Version 5 of Machine Manger API. Adds CreateUpgradeSeriesLock.
 type MachineManagerAPIV5 struct {
 	*MachineManagerAPI
 }
@@ -336,10 +336,26 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return params.ErrorResult{}, err
 	}
-	err := mm.createUpgradeSeriesPrepareLock(args)
+	err := mm.createUpgradeSeriesLock(args)
 	if err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
+	return params.ErrorResult{}, nil
+}
+
+// UpgradeSeriesComplete marks a machine as having completed a managed series upgrade.
+func (mm *MachineManagerAPI) UpgradeSeriesComplete(args params.UpdateSeriesArg) (params.ErrorResult, error) {
+	if err := mm.checkCanWrite(); err != nil {
+		return params.ErrorResult{}, err
+	}
+	if err := mm.check.ChangeAllowed(); err != nil {
+		return params.ErrorResult{}, err
+	}
+	err := mm.removeUpgradeSeriesLock(args)
+	if err != nil {
+		return params.ErrorResult{Error: common.ServerError(err)}, nil
+	}
+
 	return params.ErrorResult{}, nil
 }
 
@@ -383,7 +399,7 @@ func (mm *MachineManagerAPI) updateOneMachineSeries(arg params.UpdateSeriesArg) 
 	return machine.UpdateMachineSeries(arg.Series, arg.Force)
 }
 
-func (mm *MachineManagerAPI) createUpgradeSeriesPrepareLock(arg params.UpdateSeriesArg) error {
+func (mm *MachineManagerAPI) createUpgradeSeriesLock(arg params.UpdateSeriesArg) error {
 	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
 	if err != nil {
 		return errors.Trace(err)
@@ -392,5 +408,17 @@ func (mm *MachineManagerAPI) createUpgradeSeriesPrepareLock(arg params.UpdateSer
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return machine.CreateUpgradeSeriesPrepareLock()
+	return machine.CreateUpgradeSeriesLock()
+}
+
+func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg) error {
+	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := mm.st.Machine(machineTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.RemoveUpgradeSeriesLock()
 }
