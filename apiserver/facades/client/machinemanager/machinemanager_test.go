@@ -318,7 +318,7 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesPermissionDenied(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *MachineManagerSuite) TestUpgradeSeriesPrepareLocksMachine(c *gc.C) {
+func (s *MachineManagerSuite) TestUpgradeSeriesLocksMachine(c *gc.C) {
 	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
 	machineTag := names.NewMachineTag("0")
 	_, err := apiV5.UpgradeSeriesPrepare(

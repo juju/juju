@@ -2057,11 +2057,11 @@ func (m *Machine) verifyUnitsSeries(unitNames []string, series string, force boo
 	return results, nil
 }
 
-// CreateUpgradeSeriesPrepareLock create a prepare lock for series upgrade. If
+// CreateUpgradeSeriesLock create a prepare lock for series upgrade. If
 // this item exists in the database for a given machine it indicates that a
 // machine's operating system is being upgraded from one series to another - for
 // example from xenial to bionic.
-func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
+func (m *Machine) CreateUpgradeSeriesLock() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2073,14 +2073,14 @@ func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
 			return nil, errors.Trace(err)
 		}
 		if locked {
-			return nil, errors.AlreadyExistsf("upgrade series prepare lock for machine %q", m)
+			return nil, errors.AlreadyExistsf("upgrade series lock for machine %q", m)
 		}
 		if err = m.isStillAlive(); err != nil {
 			return nil, errors.Wrap(jujutxn.ErrNoOperations, err)
 		}
 
 		data := &upgradeSeriesLock{Id: m.Id()}
-		return createUpgradeSeriesPrepareLockTxnOps(m.doc.Id, data), nil
+		return createUpgradeSeriesLockTxnOps(m.doc.Id, data), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2092,9 +2092,9 @@ func (m *Machine) CreateUpgradeSeriesPrepareLock() error {
 	return nil
 }
 
-// RemoveUpgradeSeriesPrepareLock remove a series upgrade prepare lock for a
+// RemoveUpgradeSeriesLock remove a series upgrade prepare lock for a
 // given machine.
-func (m *Machine) RemoveUpgradeSeriesPrepareLock() error {
+func (m *Machine) RemoveUpgradeSeriesLock() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2106,9 +2106,9 @@ func (m *Machine) RemoveUpgradeSeriesPrepareLock() error {
 			return nil, errors.Trace(err)
 		}
 		if !locked {
-			return nil, errors.NotFoundf("upgrade series prepare lock for machine %q", m)
+			return nil, errors.NotFoundf("upgrade series lock for machine %q", m)
 		}
-		return removeUpgradeSeriesPrepareLockTxnOps(m.doc.Id), nil
+		return removeUpgradeSeriesLockTxnOps(m.doc.Id), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2120,7 +2120,7 @@ func (m *Machine) RemoveUpgradeSeriesPrepareLock() error {
 	return nil
 }
 
-func createUpgradeSeriesPrepareLockTxnOps(machineDocId string, data *upgradeSeriesLock) []txn.Op {
+func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLock) []txn.Op {
 	return []txn.Op{
 		{
 			C:      machinesC,
@@ -2136,7 +2136,7 @@ func createUpgradeSeriesPrepareLockTxnOps(machineDocId string, data *upgradeSeri
 	}
 }
 
-func removeUpgradeSeriesPrepareLockTxnOps(machineDocId string) []txn.Op {
+func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 	return []txn.Op{
 		{
 			C:      machineUpgradeSeriesLocksC,

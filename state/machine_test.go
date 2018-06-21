@@ -2602,47 +2602,47 @@ func (s *MachineSuite) TestUpdateMachineSeriesSubordinateListChangeIncompatibleS
 	s.assertMachineAndUnitSeriesChanged(c, mach, "precise")
 }
 
-func (s *MachineSuite) TestCreateUgradeSeriesPrepareLock(c *gc.C) {
+func (s *MachineSuite) TestCreateUgradeSeriesLock(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
 	locked, err := mach.IsLocked()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsFalse)
-	err = mach.CreateUpgradeSeriesPrepareLock()
+	err = mach.CreateUpgradeSeriesLock()
 	c.Assert(err, jc.ErrorIsNil)
 	locked, err = mach.IsLocked()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsTrue)
 }
 
-func (s *MachineSuite) TestCreateUgradeSeriesPrepareLockErrorsIfLockExists(c *gc.C) {
+func (s *MachineSuite) TestCreateUgradeSeriesLockErrorsIfLockExists(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
-	err := mach.CreateUpgradeSeriesPrepareLock()
+	err := mach.CreateUpgradeSeriesLock()
 	c.Assert(err, jc.ErrorIsNil)
-	err = mach.CreateUpgradeSeriesPrepareLock()
-	c.Assert(err, gc.ErrorMatches, "upgrade series prepare lock for machine \".*\" already exists")
+	err = mach.CreateUpgradeSeriesLock()
+	c.Assert(err, gc.ErrorMatches, "upgrade series lock for machine \".*\" already exists")
 }
 
-func (s *MachineSuite) TestDoesNotCreateUgradeSeriesPrepareLockOnDyingMachine(c *gc.C) {
+func (s *MachineSuite) TestDoesNotCreateUgradeSeriesLockOnDyingMachine(c *gc.C) {
 	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = mach.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = mach.CreateUpgradeSeriesPrepareLock()
+	err = mach.CreateUpgradeSeriesLock()
 	c.Assert(err, gc.ErrorMatches, "machine not found or not alive")
 }
 
-func (s *MachineSuite) TestRemoveUpgradeSeriesPrepareLockUnlocksMachine(c *gc.C) {
+func (s *MachineSuite) TestRemoveUpgradeSeriesLockUnlocksMachine(c *gc.C) {
 	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineIsNOTLockedForPrepare(c, mach)
 
-	err = mach.CreateUpgradeSeriesPrepareLock()
+	err = mach.CreateUpgradeSeriesLock()
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineLockedForPrepare(c, mach)
 
-	err = mach.RemoveUpgradeSeriesPrepareLock()
+	err = mach.RemoveUpgradeSeriesLock()
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineIsNOTLockedForPrepare(c, mach)
 }

@@ -21,11 +21,11 @@ func (s *MachineInternalSuite) SetUpTest(c *gc.C) {
 
 var _ = gc.Suite(&MachineInternalSuite{})
 
-func (s *MachineInternalSuite) TestCreateUpgradePrepareLockTxnAssertsMachineAlive(c *gc.C) {
+func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsMachineAlive(c *gc.C) {
 	arbitraryId := "1"
 	arbitraryData := &upgradeSeriesLock{}
 	var found bool
-	for _, op := range createUpgradeSeriesPrepareLockTxnOps(arbitraryId, arbitraryData) {
+	for _, op := range createUpgradeSeriesLockTxnOps(arbitraryId, arbitraryData) {
 		assertVal, ok := op.Assert.(bson.D)
 		if op.C == machinesC && ok && assertVal.Map()["life"] == Alive {
 			found = true
@@ -35,7 +35,7 @@ func (s *MachineInternalSuite) TestCreateUpgradePrepareLockTxnAssertsMachineAliv
 	c.Assert(found, jc.IsTrue, gc.Commentf("Transaction does not assert that machines are of status Alive"))
 }
 
-func (s *MachineInternalSuite) TestCreateUpgradePrepareLockTxnAssertsDocDoesNOTExist(c *gc.C) {
+func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsDocDoesNOTExist(c *gc.C) {
 	arbitraryId := "1"
 	arbitraryData := &upgradeSeriesLock{}
 	expectedOp := txn.Op{
@@ -44,10 +44,10 @@ func (s *MachineInternalSuite) TestCreateUpgradePrepareLockTxnAssertsDocDoesNOTE
 		Assert: txn.DocMissing,
 		Insert: arbitraryData,
 	}
-	assertConstainsOP(c, expectedOp, createUpgradeSeriesPrepareLockTxnOps(arbitraryId, arbitraryData))
+	assertConstainsOP(c, expectedOp, createUpgradeSeriesLockTxnOps(arbitraryId, arbitraryData))
 }
 
-func (s *MachineInternalSuite) TestRemoveUpgradePrepareLockTxnAssertsDocExists(c *gc.C) {
+func (s *MachineInternalSuite) TestRemoveUpgradeLockTxnAssertsDocExists(c *gc.C) {
 	arbitraryId := "1"
 	expectedOp := txn.Op{
 		C:      machineUpgradeSeriesLocksC,
@@ -55,7 +55,7 @@ func (s *MachineInternalSuite) TestRemoveUpgradePrepareLockTxnAssertsDocExists(c
 		Assert: txn.DocExists,
 		Remove: true,
 	}
-	assertConstainsOP(c, expectedOp, removeUpgradeSeriesPrepareLockTxnOps(arbitraryId))
+	assertConstainsOP(c, expectedOp, removeUpgradeSeriesLockTxnOps(arbitraryId))
 }
 
 func assertConstainsOP(c *gc.C, expectedOp txn.Op, actualOps []txn.Op) {
