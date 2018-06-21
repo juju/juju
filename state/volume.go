@@ -373,16 +373,16 @@ func (sb *storageBackend) StorageInstanceVolume(tag names.StorageTag) (Volume, e
 
 // VolumeAttachment returns the VolumeAttachment corresponding to
 // the specified volume and machine.
-func (sb *storageBackend) VolumeAttachment(machine names.MachineTag, volume names.VolumeTag) (VolumeAttachment, error) {
+func (sb *storageBackend) VolumeAttachment(host names.Tag, volume names.VolumeTag) (VolumeAttachment, error) {
 	coll, cleanup := sb.mb.db().GetCollection(volumeAttachmentsC)
 	defer cleanup()
 
 	var att volumeAttachment
-	err := coll.FindId(volumeAttachmentId(machine.Id(), volume.Id())).One(&att.doc)
+	err := coll.FindId(volumeAttachmentId(host.Id(), volume.Id())).One(&att.doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("volume %q on machine %q", volume.Id(), machine.Id())
+		return nil, errors.NotFoundf("volume %q on %q", volume.Id(), names.ReadableString(host))
 	} else if err != nil {
-		return nil, errors.Annotatef(err, "getting volume %q on machine %q", volume.Id(), machine.Id())
+		return nil, errors.Annotatef(err, "getting volume %q on %q", volume.Id(), names.ReadableString(host))
 	}
 	return &att, nil
 }
@@ -393,6 +393,16 @@ func (sb *storageBackend) MachineVolumeAttachments(machine names.MachineTag) ([]
 	attachments, err := sb.volumeAttachments(bson.D{{"machineid", machine.Id()}})
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting volume attachments for machine %q", machine.Id())
+	}
+	return attachments, nil
+}
+
+// UnitVolumeAttachments returns all of the VolumeAttachments for the
+// specified unit.
+func (sb *storageBackend) UnitVolumeAttachments(unit names.UnitTag) ([]VolumeAttachment, error) {
+	attachments, err := sb.volumeAttachments(bson.D{{"hostid", unit.Id()}})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting volume attachments for unit %q", unit.Id())
 	}
 	return attachments, nil
 }
@@ -545,17 +555,17 @@ func isDetachableVolumePool(im *storageBackend, pool string) (bool, error) {
 // IsContainsFilesystem error if the volume contains an attached filesystem; the
 // filesystem attachment must be removed first. DetachVolume will fail for
 // inherently machine-bound volumes.
-func (sb *storageBackend) DetachVolume(machine names.MachineTag, volume names.VolumeTag) (err error) {
-	defer errors.DeferredAnnotatef(&err, "detaching volume %s from machine %s", volume.Id(), machine.Id())
+func (sb *storageBackend) DetachVolume(host names.Tag, volume names.VolumeTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "detaching volume %s from %s", volume.Id(), names.ReadableString(host))
 	// If the volume is backing a filesystem, the volume cannot be detached
 	// until the filesystem has been detached.
-	if _, err := sb.volumeFilesystemAttachment(machine, volume); err == nil {
+	if _, err := sb.volumeFilesystemAttachment(host, volume); err == nil {
 		return &errContainsFilesystem{errors.New("volume contains attached filesystem")}
 	} else if !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		va, err := sb.VolumeAttachment(machine, volume)
+		va, err := sb.VolumeAttachment(host, volume)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -569,23 +579,23 @@ func (sb *storageBackend) DetachVolume(machine names.MachineTag, volume names.Vo
 		if !detachable {
 			return nil, errors.New("volume is not detachable")
 		}
-		return detachVolumeOps(machine, volume), nil
+		return detachVolumeOps(host, volume), nil
 	}
 	return sb.mb.db().Run(buildTxn)
 }
 
-func (sb *storageBackend) volumeFilesystemAttachment(machine names.MachineTag, volume names.VolumeTag) (FilesystemAttachment, error) {
+func (sb *storageBackend) volumeFilesystemAttachment(host names.Tag, volume names.VolumeTag) (FilesystemAttachment, error) {
 	filesystem, err := sb.VolumeFilesystem(volume)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return sb.FilesystemAttachment(machine, filesystem.FilesystemTag())
+	return sb.FilesystemAttachment(host, filesystem.FilesystemTag())
 }
 
-func detachVolumeOps(m names.MachineTag, v names.VolumeTag) []txn.Op {
+func detachVolumeOps(host names.Tag, v names.VolumeTag) []txn.Op {
 	return []txn.Op{{
 		C:      volumeAttachmentsC,
-		Id:     volumeAttachmentId(m.Id(), v.Id()),
+		Id:     volumeAttachmentId(host.Id(), v.Id()),
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}}
@@ -621,7 +631,7 @@ func (sb *storageBackend) RemoveVolumeAttachment(machine names.MachineTag, volum
 func removeVolumeAttachmentOps(m names.MachineTag, v *volume) []txn.Op {
 	decrefVolumeOp := machineStorageDecrefOp(
 		volumesC, v.doc.Name,
-		v.doc.AttachmentCount, v.doc.Life, m,
+		v.doc.AttachmentCount, v.doc.Life,
 	)
 	return []txn.Op{{
 		C:      volumeAttachmentsC,
@@ -640,7 +650,7 @@ func removeVolumeAttachmentOps(m names.MachineTag, v *volume) []txn.Op {
 // count for a given machine storage entity (volume or filesystem), given its
 // current attachment count and lifecycle state. If the attachment count goes
 // to zero, then the entity should become Dead.
-func machineStorageDecrefOp(collection, id string, attachmentCount int, life Life, machine names.MachineTag) txn.Op {
+func machineStorageDecrefOp(collection, id string, attachmentCount int, life Life) txn.Op {
 	op := txn.Op{
 		C:  collection,
 		Id: id,
@@ -828,11 +838,11 @@ func newVolumeName(mb modelBackend, machineId string) (string, error) {
 }
 
 // addVolumeOps returns txn.Ops to create a new volume with the specified
-// parameters. If the supplied machine ID is non-empty, and the storage
+// parameters. If the supplied host ID is non-empty, and the storage
 // provider is machine-scoped, then the volume will be scoped to that
 // machine.
-func (sb *storageBackend) addVolumeOps(params VolumeParams, machineId string) ([]txn.Op, names.VolumeTag, error) {
-	params, err := sb.volumeParamsWithDefaults(params, machineId)
+func (sb *storageBackend) addVolumeOps(params VolumeParams, hostId string) ([]txn.Op, names.VolumeTag, error) {
+	params, err := sb.volumeParamsWithDefaults(params)
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Trace(err)
 	}
@@ -840,12 +850,12 @@ func (sb *storageBackend) addVolumeOps(params VolumeParams, machineId string) ([
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Trace(err)
 	}
-	origMachineId := machineId
-	machineId, err = sb.validateVolumeParams(params, machineId)
+	origMachineId := hostId
+	hostId, err = sb.validateVolumeParams(params, hostId)
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Annotate(err, "validating volume params")
 	}
-	name, err := newVolumeName(sb.mb, machineId)
+	name, err := newVolumeName(sb.mb, hostId)
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Annotate(err, "cannot generate volume name")
 	}
@@ -887,7 +897,7 @@ func (sb *storageBackend) newVolumeOps(doc volumeDoc, status statusDoc) []txn.Op
 	}
 }
 
-func (sb *storageBackend) volumeParamsWithDefaults(params VolumeParams, machineId string) (VolumeParams, error) {
+func (sb *storageBackend) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, error) {
 	if params.Pool == "" {
 		modelConfig, err := sb.config()
 		if err != nil {
@@ -920,9 +930,9 @@ func (sb *storageBackend) validateVolumeParams(params VolumeParams, machineId st
 }
 
 // volumeAttachmentId returns a volume attachment document ID,
-// given the corresponding volume name and machine ID.
-func volumeAttachmentId(machineId, volumeName string) string {
-	return fmt.Sprintf("%s:%s", machineId, volumeName)
+// given the corresponding volume name and host ID.
+func volumeAttachmentId(hostId, volumeName string) string {
+	return fmt.Sprintf("%s:%s", hostId, volumeName)
 }
 
 // ParseVolumeAttachmentId parses a string as a volume attachment ID,
@@ -944,20 +954,20 @@ type volumeAttachmentTemplate struct {
 }
 
 // createMachineVolumeAttachmentInfo creates volume attachments
-// for the specified machine, and attachment parameters keyed
+// for the specified host, and attachment parameters keyed
 // by volume tags. The caller is responsible for incrementing
 // the volume's attachmentcount field.
-func createMachineVolumeAttachmentsOps(machineId string, attachments []volumeAttachmentTemplate) []txn.Op {
+func createMachineVolumeAttachmentsOps(hostId string, attachments []volumeAttachmentTemplate) []txn.Op {
 	ops := make([]txn.Op, len(attachments))
 	for i, attachment := range attachments {
 		paramsCopy := attachment.params
 		ops[i] = txn.Op{
 			C:      volumeAttachmentsC,
-			Id:     volumeAttachmentId(machineId, attachment.tag.Id()),
+			Id:     volumeAttachmentId(hostId, attachment.tag.Id()),
 			Assert: txn.DocMissing,
 			Insert: &volumeAttachmentDoc{
 				Volume:  attachment.tag.Id(),
-				Machine: machineId,
+				Machine: hostId,
 				Params:  &paramsCopy,
 			},
 		}
@@ -990,8 +1000,8 @@ func setMachineVolumeAttachmentInfo(sb *storageBackend, machineId string, attach
 
 // SetVolumeAttachmentInfo sets the VolumeAttachmentInfo for the specified
 // volume attachment.
-func (sb *storageBackend) SetVolumeAttachmentInfo(machineTag names.MachineTag, volumeTag names.VolumeTag, info VolumeAttachmentInfo) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set info for volume attachment %s:%s", volumeTag.Id(), machineTag.Id())
+func (sb *storageBackend) SetVolumeAttachmentInfo(hostTag names.Tag, volumeTag names.VolumeTag, info VolumeAttachmentInfo) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set info for volume attachment %s:%s", volumeTag.Id(), hostTag.Id())
 	v, err := sb.Volume(volumeTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -1003,19 +1013,19 @@ func (sb *storageBackend) SetVolumeAttachmentInfo(machineTag names.MachineTag, v
 		return errors.Trace(err)
 	}
 	// Also ensure the machine is provisioned.
-	m, err := sb.machine(machineTag.Id())
+	m, err := sb.machine(hostTag.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if _, err := m.InstanceId(); err != nil {
 		return errors.Trace(err)
 	}
-	return sb.setVolumeAttachmentInfo(machineTag, volumeTag, info)
+	return sb.setVolumeAttachmentInfo(hostTag, volumeTag, info)
 }
 
-func (sb *storageBackend) setVolumeAttachmentInfo(machineTag names.MachineTag, volumeTag names.VolumeTag, info VolumeAttachmentInfo) error {
+func (sb *storageBackend) setVolumeAttachmentInfo(hostTag names.Tag, volumeTag names.VolumeTag, info VolumeAttachmentInfo) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		va, err := sb.VolumeAttachment(machineTag, volumeTag)
+		va, err := sb.VolumeAttachment(hostTag, volumeTag)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1024,14 +1034,14 @@ func (sb *storageBackend) setVolumeAttachmentInfo(machineTag names.MachineTag, v
 		// params and info are mutually exclusive.
 		_, unsetParams := va.Params()
 		ops := setVolumeAttachmentInfoOps(
-			machineTag, volumeTag, info, unsetParams,
+			hostTag, volumeTag, info, unsetParams,
 		)
 		return ops, nil
 	}
 	return sb.mb.db().Run(buildTxn)
 }
 
-func setVolumeAttachmentInfoOps(machine names.MachineTag, volume names.VolumeTag, info VolumeAttachmentInfo, unsetParams bool) []txn.Op {
+func setVolumeAttachmentInfoOps(host names.Tag, volume names.VolumeTag, info VolumeAttachmentInfo, unsetParams bool) []txn.Op {
 	asserts := isAliveDoc
 	update := bson.D{
 		{"$set", bson.D{{"info", &info}}},
@@ -1043,7 +1053,7 @@ func setVolumeAttachmentInfoOps(machine names.MachineTag, volume names.VolumeTag
 	}
 	return []txn.Op{{
 		C:      volumeAttachmentsC,
-		Id:     volumeAttachmentId(machine.Id(), volume.Id()),
+		Id:     volumeAttachmentId(host.Id(), volume.Id()),
 		Assert: asserts,
 		Update: update,
 	}}

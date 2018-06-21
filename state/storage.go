@@ -97,6 +97,7 @@ func NewStorageBackend(st *State) (*storageBackend, error) {
 		mb:          st,
 		registry:    registry,
 		settings:    NewStateSettings(st),
+		modelType:   m.Type(),
 		config:      m.ModelConfig,
 		application: st.Application,
 		unit:        st.Unit,
@@ -111,8 +112,9 @@ type storageBackend struct {
 	unit        func(string) (*Unit, error)
 	machine     func(string) (*Machine, error)
 
-	registry storage.ProviderRegistry
-	settings *StateSettings
+	modelType ModelType
+	registry  storage.ProviderRegistry
+	settings  *StateSettings
 }
 
 type storageInstance struct {
@@ -680,7 +682,7 @@ type machineAssignable interface {
 // describes the entity's machine assignment. If the entity is assigned
 // to a machine, then machine storage will be created.
 func createStorageOps(
-	im *storageBackend,
+	sb *storageBackend,
 	entityTag names.Tag,
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
@@ -751,7 +753,7 @@ func createStorageOps(
 
 		for i := uint64(0); i < t.cons.Count; i++ {
 			cons := cons[t.storageName]
-			id, err := newStorageInstanceId(im.mb, t.storageName)
+			id, err := newStorageInstanceId(sb.mb, t.storageName)
 			if err != nil {
 				return fail(errors.Annotate(err, "cannot generate storage instance name"))
 			}
@@ -767,23 +769,39 @@ func createStorageOps(
 					Size: cons.Size,
 				},
 			}
-			var machineOps []txn.Op
+			var hostStorageOps []txn.Op
 			if unitTag, ok := entityTag.(names.UnitTag); ok {
 				doc.AttachmentCount = 1
 				ops = append(ops, createStorageAttachmentOp(storageTag, unitTag))
 				numStorageAttachments++
+				storageInstance := &storageInstance{sb, *doc}
 
 				if maybeMachineAssignable != nil {
 					var err error
-					machineOps, err = unitAssignedMachineStorageOps(
-						im, unitTag, charmMeta, series,
-						&storageInstance{im, *doc},
+					hostStorageOps, err = unitAssignedMachineStorageOps(
+						sb, unitTag, charmMeta, series,
+						storageInstance,
 						maybeMachineAssignable,
 					)
 					if err != nil {
 						return fail(errors.Annotatef(
 							err, "creating machine storage for storage %s", id,
 						))
+					}
+				}
+
+				// For CAAS models, we create the storage with the unit
+				// as there's no machine for the unit to be assigned to.
+				if sb.modelType == ModelTypeCAAS {
+					storageParams, err := storageParamsForStorageInstance(
+						sb, charmMeta, unitTag, series, storageInstance,
+					)
+					if err != nil {
+						return fail(errors.Trace(err))
+					}
+					// TODO(caas) - validate storage dynamic pools just in case
+					if hostStorageOps, _, _, err = sb.hostStorageOps(unitTag.Id(), storageParams); err != nil {
+						return fail(errors.Trace(err))
 					}
 				}
 			}
@@ -793,7 +811,7 @@ func createStorageOps(
 				Assert: txn.DocMissing,
 				Insert: doc,
 			})
-			ops = append(ops, machineOps...)
+			ops = append(ops, hostStorageOps...)
 		}
 	}
 
@@ -832,7 +850,7 @@ func unitAssignedMachineStorageOps(
 		return nil, errors.Trace(err)
 	}
 
-	storageParams, err := machineStorageParamsForStorageInstance(
+	storageParams, err := storageParamsForStorageInstance(
 		sb, charmMeta, unitTag, series, storage,
 	)
 	if err != nil {
@@ -841,8 +859,8 @@ func unitAssignedMachineStorageOps(
 	if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageOps, volumeAttachments, filesystemAttachments, err := sb.machineStorageOps(
-		&m.doc, storageParams,
+	storageOps, volumeAttachments, filesystemAttachments, err := sb.hostStorageOps(
+		m.doc.Id, storageParams,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1205,7 +1223,7 @@ func (sb *storageBackend) DetachStorage(storage names.StorageTag, unit names.Uni
 				ops = append(ops, txn.Op{
 					C: filesystemAttachmentsC,
 					Id: filesystemAttachmentId(
-						filesystemAttachment.Machine().Id(),
+						filesystemAttachment.Host().Id(),
 						filesystemAttachment.Filesystem().Id(),
 					),
 					Assert: assert,
@@ -1376,29 +1394,32 @@ func removeStorageAttachmentOps(
 	ops = append(ops, decrefOp)
 
 	// If the storage instance has an associated volume or
-	// filesystem, and the unit is assigned to a machine,
-	// detach the volume/filesystem too.
-	machineOps, err := im.detachStorageMachineAttachmentOps(si, s.Unit())
+	// filesystem, detach the volume/filesystem too.
+	detachOps, err := im.detachStorageAttachmentOps(si, s.Unit())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ops = append(ops, machineOps...)
+	ops = append(ops, detachOps...)
 
 	return ops, nil
 }
 
-func (sb *storageBackend) detachStorageMachineAttachmentOps(si *storageInstance, unitTag names.UnitTag) ([]txn.Op, error) {
+func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTag names.UnitTag) ([]txn.Op, error) {
 	unit, err := sb.unit(unitTag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	machineId, err := unit.AssignedMachineId()
-	if errors.IsNotAssigned(err) {
-		return []txn.Op{unit.noAssignedMachineOp()}, nil
-	} else if err != nil {
-		return nil, errors.Trace(err)
+
+	var hostTag names.Tag = unitTag
+	if sb.modelType == ModelTypeIAAS {
+		machineId, err := unit.AssignedMachineId()
+		if errors.IsNotAssigned(err) {
+			return []txn.Op{unit.noAssignedMachineOp()}, nil
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		hostTag = names.NewMachineTag(machineId)
 	}
-	machineTag := names.NewMachineTag(machineId)
 
 	switch si.Kind() {
 	case StorageKindBlock:
@@ -1431,7 +1452,7 @@ func (sb *storageBackend) detachStorageMachineAttachmentOps(si *storageInstance,
 			)
 			return nil, nil
 		}
-		att, err := sb.VolumeAttachment(machineTag, volume.VolumeTag())
+		att, err := sb.VolumeAttachment(hostTag, volume.VolumeTag())
 		if errors.IsNotFound(err) {
 			// Since the storage attachment is Dying, it is not
 			// possible to create a volume attachment for the
@@ -1445,11 +1466,11 @@ func (sb *storageBackend) detachStorageMachineAttachmentOps(si *storageInstance,
 			logger.Debugf(
 				"%s is detaching from %s",
 				names.ReadableString(volume.Tag()),
-				names.ReadableString(machineTag),
+				names.ReadableString(hostTag),
 			)
 			return nil, nil
 		}
-		return detachVolumeOps(machineTag, volume.VolumeTag()), nil
+		return detachVolumeOps(hostTag, volume.VolumeTag()), nil
 
 	case StorageKindFilesystem:
 		filesystem, err := sb.storageInstanceFilesystem(si.StorageTag())
@@ -1479,7 +1500,7 @@ func (sb *storageBackend) detachStorageMachineAttachmentOps(si *storageInstance,
 			)
 			return nil, nil
 		}
-		att, err := sb.FilesystemAttachment(machineTag, filesystem.FilesystemTag())
+		att, err := sb.FilesystemAttachment(hostTag, filesystem.FilesystemTag())
 		if errors.IsNotFound(err) {
 			// Since the storage attachment is Dying, it is not
 			// possible to create a volume attachment for the
@@ -1493,11 +1514,11 @@ func (sb *storageBackend) detachStorageMachineAttachmentOps(si *storageInstance,
 			logger.Debugf(
 				"%s is detaching from %s",
 				names.ReadableString(filesystem.Tag()),
-				names.ReadableString(machineTag),
+				names.ReadableString(hostTag),
 			)
 			return nil, nil
 		}
-		return detachFilesystemOps(machineTag, filesystem.FilesystemTag()), nil
+		return detachFilesystemOps(hostTag, filesystem.FilesystemTag()), nil
 
 	default:
 		return nil, errors.Errorf("unknown storage type %q", si.Kind())

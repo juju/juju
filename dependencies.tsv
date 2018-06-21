@@ -117,7 +117,7 @@ gopkg.in/juju/charmrepo.v3	git	7f799297ba8d526feb52630477bd44e71037f92e	2018-04-
 gopkg.in/juju/charmstore.v5	git	0d59319d1dba8418eaa72667f3ef447561aaefee	2018-02-26T10:50:37Z
 gopkg.in/juju/environschema.v1	git	7359fc7857abe2b11b5b3e23811a9c64cb6b01e0	2015-11-04T11:58:10Z
 gopkg.in/juju/jujusvg.v3	git	6f7342099e20c84f560bd9fc8afe96ff7486613e	2017-11-14T17:07:01Z
-gopkg.in/juju/names.v2	git	c43e8bdf2f4915a7019a2f8ad561af1498731a21	2018-05-16T01:04:14Z
+gopkg.in/juju/names.v2	git	fd59336b4621bc2a70bf96d9e2f49954115ad19b	2018-06-21T09:39:30Z
 gopkg.in/juju/worker.v1	git	6965b9d826717287bb002e02d1fd4d079978083e	2017-03-08T00:24:58Z
 gopkg.in/macaroon-bakery.v1	git	469b44e6f1f9479e115c8ae879ef80695be624d5	2016-06-22T12:14:21Z
 gopkg.in/macaroon-bakery.v2	git	ec9d2ad6796100720c154f614b6dea8798ec1181	2017-11-03T09:26:24Z

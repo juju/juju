@@ -1590,7 +1590,7 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	if unused && !m.doc.Clean {
 		return nil, inUseErr
 	}
-	storageParams, err := u.machineStorageParams()
+	storageParams, err := u.storageParams()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1598,7 +1598,7 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storagePools, err := machineStoragePools(sb, storageParams)
+	storagePools, err := storagePools(sb, storageParams)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1607,9 +1607,7 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageOps, volumesAttached, filesystemsAttached, err := sb.machineStorageOps(
-		&m.doc, storageParams,
-	)
+	storageOps, volumesAttached, filesystemsAttached, err := sb.hostStorageOps(m.doc.Id, storageParams)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1683,7 +1681,11 @@ func validateUnitMachineAssignment(
 	if !canHost {
 		return fmt.Errorf("machine %q cannot host units", m)
 	}
-	if err := validateDynamicMachineStoragePools(m, storagePools); err != nil {
+	sb, err := NewStorageBackend(m.st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := validateDynamicMachineStoragePools(sb, m, storagePools); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -1691,16 +1693,16 @@ func validateUnitMachineAssignment(
 
 // validateDynamicMachineStorageParams validates that the provided machine
 // storage parameters are compatible with the specified machine.
-func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParams) error {
+func validateDynamicMachineStorageParams(m *Machine, params *storageParams) error {
 	sb, err := NewStorageBackend(m.st)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	pools, err := machineStoragePools(sb, params)
+	pools, err := storagePools(sb, params)
 	if err != nil {
 		return err
 	}
-	if err := validateDynamicMachineStoragePools(m, pools); err != nil {
+	if err := validateDynamicMachineStoragePools(sb, m, pools); err != nil {
 		return err
 	}
 	// Validate the volume/filesystem attachments for the machine.
@@ -1731,12 +1733,12 @@ func validateDynamicMachineStorageParams(m *Machine, params *machineStorageParam
 	return nil
 }
 
-// machineStoragePools returns the names of storage pools in each of the
+// storagePools returns the names of storage pools in each of the
 // volume, filesystem and attachments in the machine storage parameters.
-func machineStoragePools(sb *storageBackend, params *machineStorageParams) (set.Strings, error) {
+func storagePools(sb *storageBackend, params *storageParams) (set.Strings, error) {
 	pools := make(set.Strings)
 	for _, v := range params.volumes {
-		v, err := sb.volumeParamsWithDefaults(v.Volume, "")
+		v, err := sb.volumeParamsWithDefaults(v.Volume)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1785,7 +1787,7 @@ func machineStoragePools(sb *storageBackend, params *machineStorageParams) (set.
 // validateDynamicMachineStoragePools validates that all of the specified
 // storage pools support dynamic storage provisioning. If any provider doesn't
 // support dynamic storage, then an IsNotSupported error is returned.
-func validateDynamicMachineStoragePools(m *Machine, pools set.Strings) error {
+func validateDynamicMachineStoragePools(sb *storageBackend, m *Machine, pools set.Strings) error {
 	if pools.IsEmpty() {
 		return nil
 	}
@@ -1799,10 +1801,6 @@ func validateDynamicMachineStoragePools(m *Machine, pools set.Strings) error {
 		// container creation time only, or requiring containers
 		// to be restarted to pick up new configuration.
 		return errors.NotSupportedf("adding storage to %s container", m.ContainerType())
-	}
-	sb, err := NewStorageBackend(m.st)
-	if err != nil {
-		return errors.Trace(err)
 	}
 	return validateDynamicStoragePools(sb, pools)
 }
@@ -2038,7 +2036,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		if cons.HasContainer() {
 			containerType = *cons.Container
 		}
-		storageParams, err := u.machineStorageParams()
+		storageParams, err := u.storageParams()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -2074,11 +2072,10 @@ func (b byStorageInstance) Less(i, j int) bool {
 	return b[i].StorageInstance().String() < b[j].StorageInstance().String()
 }
 
-// machineStorageParams returns parameters for creating volumes/filesystems
-// and volume/filesystem attachments for a machine that the unit will be
-// assigned to.
-func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
-	params, err := unitMachineStorageParams(u)
+// storageParams returns parameters for creating volumes/filesystems
+// and volume/filesystem attachments when a unit is instantiated.
+func (u *Unit) storageParams() (*storageParams, error) {
+	params, err := unitStorageParams(u)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2087,16 +2084,16 @@ func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		subParams, err := unitMachineStorageParams(sub)
+		subParams, err := unitStorageParams(sub)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		params = combineMachineStorageParams(params, subParams)
+		params = combineStorageParams(params, subParams)
 	}
 	return params, nil
 }
 
-func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
+func unitStorageParams(u *Unit) (*storageParams, error) {
 	sb, err := NewStorageBackend(u.st)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -2113,35 +2110,44 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	// Sort storage attachments so the volume ids are consistent (for testing).
 	sort.Sort(byStorageInstance(storageAttachments))
 
-	chMeta := ch.Meta()
-
-	var volumes []MachineVolumeParams
-	var filesystems []MachineFilesystemParams
-	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
-	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
+	var storageInstances []*storageInstance
 	for _, storageAttachment := range storageAttachments {
 		storage, err := sb.storageInstance(storageAttachment.StorageInstance())
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
-		machineParams, err := machineStorageParamsForStorageInstance(
-			sb, chMeta, u.UnitTag(), u.Series(), storage,
+		storageInstances = append(storageInstances, storage)
+	}
+	return storageParamsForUnit(sb, storageInstances, u.UnitTag(), u.Series(), ch.Meta())
+}
+
+func storageParamsForUnit(
+	sb *storageBackend, storageInstances []*storageInstance, tag names.UnitTag, series string, chMeta *charm.Meta,
+) (*storageParams, error) {
+
+	var volumes []HostVolumeParams
+	var filesystems []HostFilesystemParams
+	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
+	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
+	for _, storage := range storageInstances {
+		storageParams, err := storageParamsForStorageInstance(
+			sb, chMeta, tag, series, storage,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		volumes = append(volumes, machineParams.volumes...)
-		for k, v := range machineParams.volumeAttachments {
+		volumes = append(volumes, storageParams.volumes...)
+		for k, v := range storageParams.volumeAttachments {
 			volumeAttachments[k] = v
 		}
 
-		filesystems = append(filesystems, machineParams.filesystems...)
-		for k, v := range machineParams.filesystemAttachments {
+		filesystems = append(filesystems, storageParams.filesystems...)
+		for k, v := range storageParams.filesystemAttachments {
 			filesystemAttachments[k] = v
 		}
 	}
-	result := &machineStorageParams{
+	result := &storageParams{
 		volumes,
 		volumeAttachments,
 		filesystems,
@@ -2150,22 +2156,22 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	return result, nil
 }
 
-// machineStorageParamsForStorageInstance returns parameters for creating
-// volumes/filesystems and volume/filesystem attachments for a machine that
+// storageParamsForStorageInstance returns parameters for creating
+// volumes/filesystems and volume/filesystem attachments for a host that
 // the unit will be assigned to. These parameters are based on a given storage
 // instance.
-func machineStorageParamsForStorageInstance(
+func storageParamsForStorageInstance(
 	sb *storageBackend,
 	charmMeta *charm.Meta,
 	unit names.UnitTag,
 	series string,
 	storage *storageInstance,
-) (*machineStorageParams, error) {
+) (*storageParams, error) {
 
 	charmStorage := charmMeta.Storage[storage.StorageName()]
 
-	var volumes []MachineVolumeParams
-	var filesystems []MachineFilesystemParams
+	var volumes []HostVolumeParams
+	var filesystems []HostFilesystemParams
 	volumeAttachments := make(map[names.VolumeTag]VolumeAttachmentParams)
 	filesystemAttachments := make(map[names.FilesystemTag]FilesystemAttachmentParams)
 
@@ -2202,7 +2208,7 @@ func machineStorageParamsForStorageInstance(
 					return nil, errors.Errorf(
 						"%s is attached to %s",
 						names.ReadableString(filesystem.FilesystemTag()),
-						names.ReadableString(existing[0].Machine()),
+						names.ReadableString(existing[0].Host()),
 					)
 				}
 			}
@@ -2217,7 +2223,7 @@ func machineStorageParamsForStorageInstance(
 				Pool:    storage.doc.Constraints.Pool,
 				Size:    storage.doc.Constraints.Size,
 			}
-			filesystems = append(filesystems, MachineFilesystemParams{
+			filesystems = append(filesystems, HostFilesystemParams{
 				filesystemParams, filesystemAttachmentParams,
 			})
 		} else {
@@ -2262,7 +2268,7 @@ func machineStorageParamsForStorageInstance(
 				Pool:    storage.doc.Constraints.Pool,
 				Size:    storage.doc.Constraints.Size,
 			}
-			volumes = append(volumes, MachineVolumeParams{
+			volumes = append(volumes, HostVolumeParams{
 				volumeParams, volumeAttachmentParams,
 			})
 		} else {
@@ -2271,7 +2277,7 @@ func machineStorageParamsForStorageInstance(
 	default:
 		return nil, errors.Errorf("invalid storage kind %v", storage.Kind())
 	}
-	result := &machineStorageParams{
+	result := &storageParams{
 		volumes,
 		volumeAttachments,
 		filesystems,
@@ -2447,12 +2453,12 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 
 	// If required storage is not all dynamic, then assigning
 	// to a new machine is required.
-	storageParams, err := u.machineStorageParams()
+	storageParams, err := u.storageParams()
 	if err != nil {
 		assignContextf(&err, u.Name(), context)
 		return failure(err)
 	}
-	storagePools, err := machineStoragePools(sb, storageParams)
+	storagePools, err := storagePools(sb, storageParams)
 	if err != nil {
 		assignContextf(&err, u.Name(), context)
 		return failure(err)

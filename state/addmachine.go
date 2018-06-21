@@ -63,7 +63,7 @@ type MachineTemplate struct {
 
 	// Volumes holds the parameters for volumes that are to be created
 	// and attached to the machine.
-	Volumes []MachineVolumeParams
+	Volumes []HostVolumeParams
 
 	// VolumeAttachments holds the parameters for attaching existing
 	// volumes to the machine.
@@ -71,7 +71,7 @@ type MachineTemplate struct {
 
 	// Filesystems holds the parameters for filesystems that are to be
 	// created and attached to the machine.
-	Filesystems []MachineFilesystemParams
+	Filesystems []HostFilesystemParams
 
 	// FilesystemAttachments holds the parameters for attaching existing
 	// filesystems to the machine.
@@ -95,16 +95,16 @@ type MachineTemplate struct {
 	principals []string
 }
 
-// MachineVolumeParams holds the parameters for creating a volume and
-// attaching it to a new machine.
-type MachineVolumeParams struct {
+// HostVolumeParams holds the parameters for creating a volume and
+// attaching it to a new host.
+type HostVolumeParams struct {
 	Volume     VolumeParams
 	Attachment VolumeAttachmentParams
 }
 
-// MachineFilesystemParams holds the parameters for creating a filesystem
-// and attaching it to a new machine.
-type MachineFilesystemParams struct {
+// HostFilesystemParams holds the parameters for creating a filesystem
+// and attaching it to a new host.
+type HostFilesystemParams struct {
 	Filesystem FilesystemParams
 	Attachment FilesystemAttachmentParams
 }
@@ -535,8 +535,8 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	if err != nil {
 		return nil, txn.Op{}, errors.Trace(err)
 	}
-	storageOps, volumeAttachments, filesystemAttachments, err := sb.machineStorageOps(
-		mdoc, &machineStorageParams{
+	storageOps, volumeAttachments, filesystemAttachments, err := sb.hostStorageOps(
+		mdoc.Id, &storageParams{
 			filesystems:           template.Filesystems,
 			filesystemAttachments: template.FilesystemAttachments,
 			volumes:               template.Volumes,
@@ -584,15 +584,15 @@ func (st *State) baseNewMachineOps(mdoc *machineDoc, machineStatusDoc, instanceS
 	return prereqOps, machineOp
 }
 
-type machineStorageParams struct {
-	volumes               []MachineVolumeParams
+type storageParams struct {
+	volumes               []HostVolumeParams
 	volumeAttachments     map[names.VolumeTag]VolumeAttachmentParams
-	filesystems           []MachineFilesystemParams
+	filesystems           []HostFilesystemParams
 	filesystemAttachments map[names.FilesystemTag]FilesystemAttachmentParams
 }
 
-func combineMachineStorageParams(lhs, rhs *machineStorageParams) *machineStorageParams {
-	out := &machineStorageParams{}
+func combineStorageParams(lhs, rhs *storageParams) *storageParams {
+	out := &storageParams{}
 	out.volumes = append(lhs.volumes[:], rhs.volumes...)
 	out.filesystems = append(lhs.filesystems[:], rhs.filesystems...)
 	if lhs.volumeAttachments != nil || rhs.volumeAttachments != nil {
@@ -616,11 +616,11 @@ func combineMachineStorageParams(lhs, rhs *machineStorageParams) *machineStorage
 	return out
 }
 
-// machineStorageOps creates txn.Ops for creating volumes, filesystems,
-// and attachments to the specified machine. The results are the txn.Ops,
-// and the tags of volumes and filesystems newly attached to the machine.
-func (sb *storageBackend) machineStorageOps(
-	mdoc *machineDoc, args *machineStorageParams,
+// hostStorageOps creates txn.Ops for creating volumes, filesystems,
+// and attachments to the specified host. The results are the txn.Ops,
+// and the tags of volumes and filesystems newly attached to the host.
+func (sb *storageBackend) hostStorageOps(
+	hostId string, args *storageParams,
 ) ([]txn.Op, []volumeAttachmentTemplate, []filesystemAttachmentTemplate, error) {
 	var filesystemOps, volumeOps []txn.Op
 	var fsAttachments []filesystemAttachmentTemplate
@@ -633,7 +633,7 @@ func (sb *storageBackend) machineStorageOps(
 
 	// Create filesystems and filesystem attachments.
 	for _, f := range args.filesystems {
-		ops, filesystemTag, volumeTag, err := sb.addFilesystemOps(f.Filesystem, mdoc.Id)
+		ops, filesystemTag, volumeTag, err := sb.addFilesystemOps(f.Filesystem, hostId)
 		if err != nil {
 			return nil, nil, nil, errors.Trace(err)
 		}
@@ -656,7 +656,7 @@ func (sb *storageBackend) machineStorageOps(
 
 	// Create volumes and volume attachments.
 	for _, v := range args.volumes {
-		ops, tag, err := sb.addVolumeOps(v.Volume, mdoc.Id)
+		ops, tag, err := sb.addVolumeOps(v.Volume, hostId)
 		if err != nil {
 			return nil, nil, nil, errors.Trace(err)
 		}
@@ -673,12 +673,12 @@ func (sb *storageBackend) machineStorageOps(
 
 	ops := make([]txn.Op, 0, len(filesystemOps)+len(volumeOps)+len(fsAttachments)+len(volumeAttachments))
 	if len(fsAttachments) > 0 {
-		attachmentOps := createMachineFilesystemAttachmentsOps(mdoc.Id, fsAttachments)
+		attachmentOps := createMachineFilesystemAttachmentsOps(hostId, fsAttachments)
 		ops = append(ops, filesystemOps...)
 		ops = append(ops, attachmentOps...)
 	}
 	if len(volumeAttachments) > 0 {
-		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, volumeAttachments)
+		attachmentOps := createMachineVolumeAttachmentsOps(hostId, volumeAttachments)
 		ops = append(ops, volumeOps...)
 		ops = append(ops, attachmentOps...)
 	}
