@@ -6,6 +6,7 @@ package network
 import (
 	"bufio"
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"regexp"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"math/rand"
 )
 
 var logger = loggo.GetLogger("juju.network")
