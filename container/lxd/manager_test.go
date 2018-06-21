@@ -42,6 +42,7 @@ var _ = gc.Suite(&managerSuite{})
 
 func (s *managerSuite) patch(svr lxdclient.ImageServer) {
 	lxd.PatchConnectRemote(s, map[string]lxdclient.ImageServer{"cloud-images.ubuntu.com": svr})
+	lxd.PatchGenerateVirtualMACAddress(s)
 }
 
 func (s *managerSuite) makeManager(c *gc.C, svr lxdclient.ContainerServer) container.Manager {
@@ -346,55 +347,11 @@ func (s *managerSuite) TestIsInitialized(c *gc.C) {
 	c.Check(manager.IsInitialized(), gc.Equals, true)
 }
 
-func (s *managerSuite) TestNewNICDeviceWithoutMACAddressOrMTUGreaterThanZero(c *gc.C) {
-	device := lxd.NewNICDevice("eth1", "br-eth1", "", 0)
-	expected := map[string]string{
-		"name":    "eth1",
-		"nictype": "bridged",
-		"parent":  "br-eth1",
-		"type":    "nic",
-	}
-	c.Assert(device, gc.DeepEquals, expected)
-}
-
-func (s *managerSuite) TestNewNICDeviceWithMACAddressButNoMTU(c *gc.C) {
-	device := lxd.NewNICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 0)
-	expected := map[string]string{
-		"hwaddr":  "aa:bb:cc:dd:ee:f0",
-		"name":    "eth1",
-		"nictype": "bridged",
-		"parent":  "br-eth1",
-		"type":    "nic",
-	}
-	c.Assert(device, gc.DeepEquals, expected)
-}
-
-func (s *managerSuite) TestNewNICDeviceWithoutMACAddressButMTUGreaterThanZero(c *gc.C) {
-	device := lxd.NewNICDevice("eth1", "br-eth1", "", 1492)
-	expected := map[string]string{
-		"mtu":     "1492",
-		"name":    "eth1",
-		"nictype": "bridged",
-		"parent":  "br-eth1",
-		"type":    "nic",
-	}
-	c.Assert(device, gc.DeepEquals, expected)
-}
-
-func (s *managerSuite) TestNewNICDeviceWithMACAddressAndMTUGreaterThanZero(c *gc.C) {
-	device := lxd.NewNICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 9000)
-	expected := map[string]string{
-		"hwaddr":  "aa:bb:cc:dd:ee:f0",
-		"mtu":     "9000",
-		"name":    "eth1",
-		"nictype": "bridged",
-		"parent":  "br-eth1",
-		"type":    "nic",
-	}
-	c.Assert(device, gc.DeepEquals, expected)
-}
-
 func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
 	interfaces := []network.InterfaceInfo{{
 		InterfaceName: "eth1",
 		InterfaceType: "ethernet",
@@ -402,7 +359,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C
 		MTU:           9000,
 	}}
 
-	result, _, err := lxd.NetworkDevicesFromConfig(&container.NetworkConfig{
+	result, _, err := lxd.NetworkDevicesFromConfig(s.makeManager(c, cSvr), &container.NetworkConfig{
 		Interfaces: interfaces,
 	})
 
@@ -411,6 +368,10 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C
 }
 
 func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
 	interfaces := []network.InterfaceInfo{{
 		ParentInterfaceName: "br-eth0",
 		InterfaceName:       "eth0",
@@ -429,7 +390,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 		},
 	}
 
-	result, unknown, err := lxd.NetworkDevicesFromConfig(&container.NetworkConfig{
+	result, unknown, err := lxd.NetworkDevicesFromConfig(s.makeManager(c, cSvr), &container.NetworkConfig{
 		Device:     "lxdbr0",
 		Interfaces: interfaces,
 	})
@@ -440,6 +401,10 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 }
 
 func (s *managerSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
 	interfaces := []network.InterfaceInfo{{
 		ParentInterfaceName: "br-eth0",
 		InterfaceName:       "eth0",
@@ -447,13 +412,36 @@ func (s *managerSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *gc.C) {
 		MACAddress:          "aa:bb:cc:dd:ee:f0",
 	}}
 
-	_, unknown, err := lxd.NetworkDevicesFromConfig(&container.NetworkConfig{
+	_, unknown, err := lxd.NetworkDevicesFromConfig(s.makeManager(c, cSvr), &container.NetworkConfig{
 		Device:     "lxdbr0",
 		Interfaces: interfaces,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(unknown, gc.DeepEquals, []string{"br-eth0"})
+}
+
+func (s *managerSuite) TestNetworkDevicesFromConfigNoInputGetsProfileNICs(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+	s.patch(cSvr)
+
+	cSvr.EXPECT().GetProfile("default").Return(defaultProfile(), lxdtesting.ETag, nil)
+
+	result, _, err := lxd.NetworkDevicesFromConfig(s.makeManager(c, cSvr), &container.NetworkConfig{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	exp := map[string]map[string]string{
+		"eth0": {
+			"parent":  network.DefaultLXDBridge,
+			"type":    "nic",
+			"nictype": "bridged",
+			"hwaddr":  "00:16:3e:00:00:00",
+		},
+	}
+
+	c.Check(result, gc.DeepEquals, exp)
 }
 
 func (s *managerSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {

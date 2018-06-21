@@ -101,7 +101,9 @@ func EnsureHTTPS(address string) string {
 		return address
 	}
 	if strings.HasPrefix(address, "http://") {
-		return strings.Replace(address, "http://", "https://", 1)
+		addr := strings.Replace(address, "http://", "https://", 1)
+		logger.Debugf("LXD requires https://, using: %s", addr)
+		return addr
 	}
 	return "https://" + address
 }
