@@ -739,7 +739,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// All the other raft workers hang off the raft transport, so
 		// it's the only one that needs to be gated by the enabled flag.
-		raftTransportName: ifRaftEnabled(rafttransport.Manifold(rafttransport.ManifoldConfig{
+		raftTransportName: ifRaftEnabled(ifFullyUpgraded(rafttransport.Manifold(rafttransport.ManifoldConfig{
 			ClockName:         clockName,
 			AgentName:         agentName,
 			AuthenticatorName: httpServerName,
@@ -748,7 +748,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			DialConn:          rafttransport.DialConn,
 			NewWorker:         rafttransport.NewWorker,
 			Path:              "/raft",
-		})),
+		}))),
 
 		raftName: raft.Manifold(raft.ManifoldConfig{
 			ClockName:     clockName,

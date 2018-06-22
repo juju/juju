@@ -4,6 +4,8 @@
 package upgrades
 
 import (
+	"github.com/juju/replicaset"
+
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -14,6 +16,7 @@ import (
 // StateBackend provides an interface for upgrading the global state database.
 type StateBackend interface {
 	ControllerUUID() string
+	StateServingInfo() (state.StateServingInfo, error)
 
 	StripLocalUserDomain() error
 	RenameAddModelPermission() error
@@ -42,6 +45,7 @@ type StateBackend interface {
 	CreateMissingApplicationConfig() error
 	RemoveVotingMachineIds() error
 	AddCloudModelCounts() error
+	ReplicaSetMembers() ([]replicaset.Member, error)
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -62,6 +66,10 @@ type stateBackend struct {
 
 func (s stateBackend) ControllerUUID() string {
 	return s.st.ControllerUUID()
+}
+
+func (s stateBackend) StateServingInfo() (state.StateServingInfo, error) {
+	return s.st.StateServingInfo()
 }
 
 func (s stateBackend) StripLocalUserDomain() error {
@@ -158,6 +166,10 @@ func (s stateBackend) RemoveVotingMachineIds() error {
 
 func (s stateBackend) AddCloudModelCounts() error {
 	return state.AddCloudModelCounts(s.st)
+}
+
+func (s stateBackend) ReplicaSetMembers() ([]replicaset.Member, error) {
+	return state.ReplicaSetMembers(s.st)
 }
 
 type modelShim struct {
