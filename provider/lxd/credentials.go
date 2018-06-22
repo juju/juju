@@ -32,8 +32,22 @@ const (
 	interactiveAuthType = "interactive"
 )
 
+// LXDCertificateReadWriter groups methods that is required to read and write
+// certificates at a given path.
+//go:generate mockgen -package lxd -destination credentials_mock_test.go github.com/juju/juju/provider/lxd LXDCertificateReadWriter
+type LXDCertificateReadWriter interface {
+	// Read takes a path and returns both a cert and key PEM.
+	// Returns an error if there was an issue reading the certs.
+	Read(path string) (certPEM, keyPEM []byte, err error)
+
+	// Write takes a path and cert, key PEM and stores them.
+	// Returns an error if there was an issue writing the certs.
+	Write(path string, certPEM, keyPEM []byte) error
+}
+
 // environProviderCredentials implements environs.ProviderCredentials.
 type environProviderCredentials struct {
+	certReadWriter  LXDCertificateReadWriter
 	generateMemCert func(bool) ([]byte, []byte, error)
 	lookupHost      func(string) ([]string, error)
 	interfaceAddrs  func() ([]net.Addr, error)
@@ -97,7 +111,7 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 	// to explicitly override the certificates used by the lxc
 	// client if they wish.
 	jujuLXDDir := osenv.JujuXDGDataHomePath("lxd")
-	certPEM, keyPEM, err := readCert(jujuLXDDir)
+	certPEM, keyPEM, err := p.certReadWriter.Read(jujuLXDDir)
 	if err == nil {
 		logf("Loaded client cert/key from %q", jujuLXDDir)
 		return certPEM, keyPEM, nil
@@ -109,7 +123,7 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 	// a client certificate/key pair for use with the "lxc" client
 	// application.
 	lxdConfigDir := filepath.Join(utils.Home(), ".config", "lxc")
-	certPEM, keyPEM, err = readCert(lxdConfigDir)
+	certPEM, keyPEM, err = p.certReadWriter.Read(lxdConfigDir)
 	if err == nil {
 		logf("Loaded client cert/key from %q", lxdConfigDir)
 		return certPEM, keyPEM, nil
@@ -124,40 +138,11 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	if err := writeCert(jujuLXDDir, certPEM, keyPEM); err != nil {
+	if err := p.certReadWriter.Write(jujuLXDDir, certPEM, keyPEM); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	logf("Generating client cert/key in %q", jujuLXDDir)
 	return certPEM, keyPEM, nil
-}
-
-func readCert(dir string) (certPEM, keyPEM []byte, _ error) {
-	clientCertPath := filepath.Join(dir, "client.crt")
-	clientKeyPath := filepath.Join(dir, "client.key")
-	certPEM, err := ioutil.ReadFile(clientCertPath)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	keyPEM, err = ioutil.ReadFile(clientKeyPath)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return certPEM, keyPEM, nil
-}
-
-func writeCert(dir string, certPEM, keyPEM []byte) error {
-	clientCertPath := filepath.Join(dir, "client.crt")
-	clientKeyPath := filepath.Join(dir, "client.key")
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ioutil.WriteFile(clientCertPath, certPEM, 0600); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ioutil.WriteFile(clientKeyPath, keyPEM, 0600); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 // FinalizeCredential is part of the environs.ProviderCredentials interface.
@@ -333,6 +318,39 @@ func (p environProviderCredentials) isLocalEndpoint(endpoint string) (bool, erro
 		return false, errors.Trace(err)
 	}
 	return addrsContainsAny(localAddrs, endpointAddrs), nil
+}
+
+// stdlibLXDCertificateReadWriter is the default implementation for reading
+// and writing certificates to disk.
+type stdlibLXDCertificateReadWriter struct{}
+
+func (stdlibLXDCertificateReadWriter) Read(path string) ([]byte, []byte, error) {
+	clientCertPath := filepath.Join(path, "client.crt")
+	clientKeyPath := filepath.Join(path, "client.key")
+	certPEM, err := ioutil.ReadFile(clientCertPath)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	keyPEM, err := ioutil.ReadFile(clientKeyPath)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return certPEM, keyPEM, nil
+}
+
+func (stdlibLXDCertificateReadWriter) Write(path string, certPEM, keyPEM []byte) error {
+	clientCertPath := filepath.Join(path, "client.crt")
+	clientKeyPath := filepath.Join(path, "client.key")
+	if err := os.MkdirAll(path, 0700); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ioutil.WriteFile(clientCertPath, certPEM, 0600); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ioutil.WriteFile(clientKeyPath, keyPEM, 0600); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 func endpointURL(endpoint string) (*url.URL, error) {

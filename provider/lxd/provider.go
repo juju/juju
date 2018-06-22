@@ -62,6 +62,7 @@ var cloudSchema = &jsonschema.Schema{
 func NewProvider() environs.CloudEnvironProvider {
 	return &environProvider{
 		providerCredentials: environProviderCredentials{
+			certReadWriter:  stdlibLXDCertificateReadWriter{},
 			generateMemCert: shared.GenerateMemCert,
 			lookupHost:      net.LookupHost,
 			interfaceAddrs:  net.InterfaceAddrs,
