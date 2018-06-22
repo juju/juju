@@ -27,36 +27,38 @@ func newClient(f basetesting.APICallerFunc) *caasunitprovisioner.Client {
 	return caasunitprovisioner.NewClient(basetesting.BestVersionCaller{f, 1})
 }
 
-func (s *unitprovisionerSuite) TestPodSpec(c *gc.C) {
+func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASUnitProvisioner")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "PodSpec")
+		c.Check(request, gc.Equals, "ProvisioningInfo")
 		c.Check(arg, jc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
 				Tag: "application-gitlab",
 			}},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
-		*(result.(*params.StringResults)) = params.StringResults{
-			Results: []params.StringResult{{
-				Result: "foo",
+		c.Assert(result, gc.FitsTypeOf, &params.KubernetesProvisioningInfoResults{})
+		*(result.(*params.KubernetesProvisioningInfoResults)) = params.KubernetesProvisioningInfoResults{
+			Results: []params.KubernetesProvisioningInfoResult{{
+				Result: &params.KubernetesProvisioningInfo{
+					PodSpec: "foo",
+				},
 			}},
 		}
 		return nil
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	spec, err := client.PodSpec("gitlab")
+	info, err := client.ProvisioningInfo("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spec, gc.Equals, "foo")
+	c.Assert(info.PodSpec, gc.Equals, "foo")
 }
 
-func (s *unitprovisionerSuite) TestPodSpecError(c *gc.C) {
+func (s *unitprovisionerSuite) TestProvisioningInfoError(c *gc.C) {
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.StringResults)) = params.StringResults{
-			Results: []params.StringResult{{Error: &params.Error{
+		*(result.(*params.KubernetesProvisioningInfoResults)) = params.KubernetesProvisioningInfoResults{
+			Results: []params.KubernetesProvisioningInfoResult{{Error: &params.Error{
 				Code:    params.CodeNotFound,
 				Message: "bletch",
 			}}},
@@ -65,16 +67,16 @@ func (s *unitprovisionerSuite) TestPodSpecError(c *gc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	_, err := client.PodSpec("gitlab")
+	_, err := client.ProvisioningInfo("gitlab")
 	c.Assert(err, gc.ErrorMatches, "bletch")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *unitprovisionerSuite) TestPodSpecInvalidApplicationName(c *gc.C) {
+func (s *unitprovisionerSuite) TestProvisioningInfoInvalidApplicationName(c *gc.C) {
 	client := caasunitprovisioner.NewClient(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
-	_, err := client.PodSpec("gitlab/0")
+	_, err := client.ProvisioningInfo("gitlab/0")
 	c.Assert(err, gc.ErrorMatches, `application name "gitlab/0" not valid`)
 }
 

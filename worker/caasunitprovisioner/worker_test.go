@@ -33,7 +33,7 @@ type WorkerSuite struct {
 	applicationUpdater mockApplicationUpdater
 	serviceBroker      mockServiceBroker
 	containerBroker    mockContainerBroker
-	podSpecGetter      mockPodSpecGetter
+	podSpecGetter      mockProvisioningInfoGetterGetter
 	lifeGetter         mockLifeGetter
 	unitGetter         mockUnitGetter
 	unitUpdater        mockUnitUpdater
@@ -101,10 +101,10 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		updated: s.serviceUpdated,
 	}
 
-	s.podSpecGetter = mockPodSpecGetter{
+	s.podSpecGetter = mockProvisioningInfoGetterGetter{
 		watcher: watchertest.NewMockNotifyWatcher(s.containerSpecChanges),
 	}
-	s.podSpecGetter.setSpec(containerSpec)
+	s.podSpecGetter.setProvisioningInfo(params.KubernetesProvisioningInfo{PodSpec: containerSpec})
 
 	s.unitGetter = mockUnitGetter{
 		watcher: watchertest.NewMockStringsWatcher(s.jujuUnitChanges),
@@ -126,14 +126,14 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.config = caasunitprovisioner.Config{
-		ApplicationGetter:  &s.applicationGetter,
-		ApplicationUpdater: &s.applicationUpdater,
-		ServiceBroker:      &s.serviceBroker,
-		ContainerBroker:    &s.containerBroker,
-		PodSpecGetter:      &s.podSpecGetter,
-		LifeGetter:         &s.lifeGetter,
-		UnitGetter:         &s.unitGetter,
-		UnitUpdater:        &s.unitUpdater,
+		ApplicationGetter:      &s.applicationGetter,
+		ApplicationUpdater:     &s.applicationUpdater,
+		ServiceBroker:          &s.serviceBroker,
+		ContainerBroker:        &s.containerBroker,
+		ProvisioningInfoGetter: &s.podSpecGetter,
+		LifeGetter:             &s.lifeGetter,
+		UnitGetter:             &s.unitGetter,
+		UnitUpdater:            &s.unitUpdater,
 	}
 }
 
@@ -163,8 +163,8 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	}, `missing ContainerBroker not valid`)
 
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
-		config.PodSpecGetter = nil
-	}, `missing PodSpecGetter not valid`)
+		config.ProvisioningInfoGetter = nil
+	}, `missing ProvisioningInfoGetter not valid`)
 
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.LifeGetter = nil
@@ -321,7 +321,7 @@ containers:
 
 	s.serviceBroker.podSpec = &anotherParsedSpec
 
-	s.podSpecGetter.setSpec(anotherSpec)
+	s.podSpecGetter.setProvisioningInfo(params.KubernetesProvisioningInfo{PodSpec: anotherSpec})
 	s.sendContainerSpecChange(c)
 	s.podSpecGetter.assertSpecRetrieved(c)
 

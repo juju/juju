@@ -22,11 +22,11 @@ type Config struct {
 	ApplicationUpdater ApplicationUpdater
 	ServiceBroker      ServiceBroker
 
-	ContainerBroker ContainerBroker
-	PodSpecGetter   PodSpecGetter
-	LifeGetter      LifeGetter
-	UnitGetter      UnitGetter
-	UnitUpdater     UnitUpdater
+	ContainerBroker        ContainerBroker
+	ProvisioningInfoGetter ProvisioningInfoGetter
+	LifeGetter             LifeGetter
+	UnitGetter             UnitGetter
+	UnitUpdater            UnitUpdater
 }
 
 // Validate validates the worker configuration.
@@ -43,8 +43,8 @@ func (config Config) Validate() error {
 	if config.ContainerBroker == nil {
 		return errors.NotValidf("missing ContainerBroker")
 	}
-	if config.PodSpecGetter == nil {
-		return errors.NotValidf("missing PodSpecGetter")
+	if config.ProvisioningInfoGetter == nil {
+		return errors.NotValidf("missing ProvisioningInfoGetter")
 	}
 	if config.LifeGetter == nil {
 		return errors.NotValidf("missing LifeGetter")
@@ -173,7 +173,7 @@ func (p *provisioner) loop() error {
 					appId,
 					p.config.ServiceBroker,
 					p.config.ContainerBroker,
-					p.config.PodSpecGetter,
+					p.config.ProvisioningInfoGetter,
 					p.config.LifeGetter,
 					p.config.ApplicationGetter,
 					p.config.ApplicationUpdater,

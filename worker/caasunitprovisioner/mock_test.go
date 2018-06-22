@@ -155,19 +155,19 @@ func (m *mockApplicationUpdater) UpdateApplicationService(arg params.UpdateAppli
 	return m.NextErr()
 }
 
-type mockPodSpecGetter struct {
+type mockProvisioningInfoGetterGetter struct {
 	testing.Stub
-	spec          string
-	watcher       *watchertest.MockNotifyWatcher
-	specRetrieved chan struct{}
+	provisioningInfo params.KubernetesProvisioningInfo
+	watcher          *watchertest.MockNotifyWatcher
+	specRetrieved    chan struct{}
 }
 
-func (m *mockPodSpecGetter) setSpec(spec string) {
-	m.spec = spec
+func (m *mockProvisioningInfoGetterGetter) setProvisioningInfo(provisioningInfo params.KubernetesProvisioningInfo) {
+	m.provisioningInfo = provisioningInfo
 	m.specRetrieved = make(chan struct{}, 2)
 }
 
-func (m *mockPodSpecGetter) assertSpecRetrieved(c *gc.C) {
+func (m *mockProvisioningInfoGetterGetter) assertSpecRetrieved(c *gc.C) {
 	select {
 	case <-m.specRetrieved:
 	case <-time.After(coretesting.LongWait):
@@ -175,20 +175,20 @@ func (m *mockPodSpecGetter) assertSpecRetrieved(c *gc.C) {
 	}
 }
 
-func (m *mockPodSpecGetter) PodSpec(appName string) (string, error) {
+func (m *mockProvisioningInfoGetterGetter) ProvisioningInfo(appName string) (params.KubernetesProvisioningInfo, error) {
 	m.MethodCall(m, "PodSpec", appName)
 	if err := m.NextErr(); err != nil {
-		return "", err
+		return params.KubernetesProvisioningInfo{}, err
 	}
-	spec := m.spec
+	provisioningInfo := m.provisioningInfo
 	select {
 	case m.specRetrieved <- struct{}{}:
 	default:
 	}
-	return spec, nil
+	return provisioningInfo, nil
 }
 
-func (m *mockPodSpecGetter) WatchPodSpec(appName string) (watcher.NotifyWatcher, error) {
+func (m *mockProvisioningInfoGetterGetter) WatchPodSpec(appName string) (watcher.NotifyWatcher, error) {
 	m.MethodCall(m, "WatchPodSpec", appName)
 	if err := m.NextErr(); err != nil {
 		return nil, err

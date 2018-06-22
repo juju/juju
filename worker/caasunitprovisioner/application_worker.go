@@ -25,12 +25,12 @@ type applicationWorker struct {
 	serviceBroker   ServiceBroker
 	containerBroker ContainerBroker
 
-	podSpecGetter      PodSpecGetter
-	lifeGetter         LifeGetter
-	applicationGetter  ApplicationGetter
-	applicationUpdater ApplicationUpdater
-	unitGetter         UnitGetter
-	unitUpdater        UnitUpdater
+	provisioningInfoGetter ProvisioningInfoGetter
+	lifeGetter             LifeGetter
+	applicationGetter      ApplicationGetter
+	applicationUpdater     ApplicationUpdater
+	unitGetter             UnitGetter
+	unitUpdater            UnitUpdater
 
 	aliveUnitsChan chan []string
 }
@@ -39,7 +39,7 @@ func newApplicationWorker(
 	application string,
 	serviceBroker ServiceBroker,
 	containerBroker ContainerBroker,
-	podSpecGetter PodSpecGetter,
+	provisioningInfoGetter ProvisioningInfoGetter,
 	lifeGetter LifeGetter,
 	applicationGetter ApplicationGetter,
 	applicationUpdater ApplicationUpdater,
@@ -47,16 +47,16 @@ func newApplicationWorker(
 	unitUpdater UnitUpdater,
 ) (*applicationWorker, error) {
 	w := &applicationWorker{
-		application:        application,
-		serviceBroker:      serviceBroker,
-		containerBroker:    containerBroker,
-		podSpecGetter:      podSpecGetter,
-		lifeGetter:         lifeGetter,
-		applicationGetter:  applicationGetter,
-		applicationUpdater: applicationUpdater,
-		unitGetter:         unitGetter,
-		unitUpdater:        unitUpdater,
-		aliveUnitsChan:     make(chan []string),
+		application:            application,
+		serviceBroker:          serviceBroker,
+		containerBroker:        containerBroker,
+		provisioningInfoGetter: provisioningInfoGetter,
+		lifeGetter:             lifeGetter,
+		applicationGetter:      applicationGetter,
+		applicationUpdater:     applicationUpdater,
+		unitGetter:             unitGetter,
+		unitUpdater:            unitUpdater,
+		aliveUnitsChan:         make(chan []string),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -87,7 +87,7 @@ func (aw *applicationWorker) loop() error {
 	deploymentWorker, err := newDeploymentWorker(
 		aw.application,
 		aw.serviceBroker,
-		aw.podSpecGetter,
+		aw.provisioningInfoGetter,
 		aw.applicationGetter,
 		aw.applicationUpdater,
 		aw.aliveUnitsChan)
@@ -95,7 +95,6 @@ func (aw *applicationWorker) loop() error {
 		return errors.Trace(err)
 	}
 	aw.catacomb.Add(deploymentWorker)
-	unitWorkers := make(map[string]worker.Worker)
 	aliveUnits := set.NewStrings()
 	var (
 		aliveUnitsChan     chan []string
@@ -195,13 +194,6 @@ func (aw *applicationWorker) loop() error {
 				}
 				if errors.IsNotFound(err) || unitLife == life.Dead {
 					aliveUnits.Remove(unitId)
-					w, ok := unitWorkers[unitId]
-					if ok {
-						if err := worker.Stop(w); err != nil {
-							logger.Errorf("stopping unit worker for %v: %v", unitId, err)
-						}
-						delete(unitWorkers, unitId)
-					}
 				} else {
 					aliveUnits.Add(unitId)
 				}
