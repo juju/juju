@@ -672,10 +672,6 @@ func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
-	//TODO(bogdanteleaga): Fix once we get authentication worker up on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: authentication worker not yet implemented on windows")
-	}
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)

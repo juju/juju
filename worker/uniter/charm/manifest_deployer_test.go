@@ -6,7 +6,6 @@ package charm_test
 import (
 	"fmt"
 	"path/filepath"
-	"runtime"
 
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
@@ -97,10 +96,6 @@ func (s *ManifestDeployerSuite) TestDeployWithoutStage(c *gc.C) {
 }
 
 func (s *ManifestDeployerSuite) TestInstall(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: cannot symlink to relative paths on windows")
-	}
 	s.deployCharm(c, 1,
 		ft.File{"some-file", "hello", 0644},
 		ft.Dir{"some-dir", 0755},
@@ -109,10 +104,6 @@ func (s *ManifestDeployerSuite) TestInstall(c *gc.C) {
 }
 
 func (s *ManifestDeployerSuite) TestUpgradeOverwrite(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: cannot symlink to relative paths on windows")
-	}
 	s.deployCharm(c, 1,
 		ft.File{"some-file", "hello", 0644},
 		ft.Dir{"some-dir", 0755},
@@ -131,10 +122,6 @@ func (s *ManifestDeployerSuite) TestUpgradeOverwrite(c *gc.C) {
 }
 
 func (s *ManifestDeployerSuite) TestUpgradePreserveUserFiles(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: cannot symlink to relative paths on windows")
-	}
 	originalCharmContent := ft.Entries{
 		ft.File{"charm-file", "to-be-removed", 0644},
 		ft.Dir{"charm-dir", 0755},

@@ -228,9 +228,6 @@ var argsTests = []struct {
 }
 
 func (s *HookToolMainSuite) TestArgs(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
-	}
 	for _, t := range argsTests {
 		c.Log(t.args)
 		output := run(c, s.sockPath, "bill", t.code, nil, t.args...)
@@ -248,25 +245,16 @@ func (s *HookToolMainSuite) TestNoClientId(c *gc.C) {
 }
 
 func (s *HookToolMainSuite) TestBadClientId(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
-	}
 	output := run(c, s.sockPath, "ben", 1, nil, "remote")
 	c.Assert(output, jc.Contains, "bad request: bad context: ben\n")
 }
 
 func (s *HookToolMainSuite) TestNoSockPath(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
-	}
 	output := run(c, "", "bill", 1, nil, "remote")
 	c.Assert(output, jc.Contains, "JUJU_AGENT_SOCKET not set\n")
 }
 
 func (s *HookToolMainSuite) TestBadSockPath(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
-	}
 	badSock := filepath.Join(c.MkDir(), "bad.sock")
 	output := run(c, badSock, "bill", 1, nil, "remote")
 	err := fmt.Sprintf("^.* dial unix %s: .*\n", badSock)
@@ -274,9 +262,6 @@ func (s *HookToolMainSuite) TestBadSockPath(c *gc.C) {
 }
 
 func (s *HookToolMainSuite) TestStdin(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
-	}
 	output := run(c, s.sockPath, "bill", 0, []byte("some standard input"), "remote")
 	c.Assert(output, gc.Equals, "some standard input")
 }

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -35,12 +34,6 @@ var _ = gc.Suite(&RunCommandSuite{})
 var noProxies = proxy.Settings{}
 
 func (s *RunCommandSuite) TestRunCommandsEnvStdOutAndErrAndRC(c *gc.C) {
-	// TODO(bogdanteleaga): powershell throws another exit status code when
-	// outputting to stderr using Write-Error. Either find another way to
-	// output to stderr or change the checks
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: Have to figure out a good way to output to stderr from powershell")
-	}
 	ctx, err := s.contextFactory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 	paths := runnertesting.NewRealPaths(c)

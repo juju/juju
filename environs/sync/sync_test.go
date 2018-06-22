@@ -14,7 +14,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"testing"
 
@@ -58,9 +57,6 @@ var _ = gc.Suite(&uploadSuite{})
 var _ = gc.Suite(&badBuildSuite{})
 
 func (s *syncSuite) setUpTest(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: Currently does not work because of jujud problems")
-	}
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
@@ -227,9 +223,6 @@ type uploadSuite struct {
 }
 
 func (s *uploadSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: Currently does not work because of jujud problems")
-	}
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
@@ -373,9 +366,6 @@ exit 1
 `[1:]
 
 func (s *badBuildSuite) SetUpSuite(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: Currently does not work because of jujud problems")
-	}
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
 }

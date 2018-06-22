@@ -137,12 +137,6 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 }
 
 func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
-	//TODO(bogdanteleaga): cannot read the env file because of some suite
-	//problems. The juju home, when calling something from the command line is
-	//not the same as in the test suite.
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: cannot read env file on windows because of suite problems")
-	}
 	s.PatchEnvironment(osenv.JujuModelEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{

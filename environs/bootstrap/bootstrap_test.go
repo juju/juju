@@ -416,10 +416,6 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: Currently does not work because of jujud problems")
-	}
-
 	// Client host is CentOS, wanting to bootstrap a CentOS
 	// controller. This is fine.
 
@@ -446,10 +442,6 @@ func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: Currently does not work because of jujud problems")
-	}
-
 	// Client host is a Windows system, wanting to bootstrap a trusty
 	// controller with local tools. This can't work.
 
@@ -472,10 +464,6 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: Currently does not work because of jujud problems")
-	}
-
 	// Client host is some unspecified Linux system, wanting to
 	// bootstrap a trusty controller with local tools. This should be
 	// OK.
@@ -503,10 +491,6 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: Currently does not work because of jujud problems")
-	}
-
 	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
 	// such as s390.
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
@@ -586,19 +570,12 @@ func (s *bootstrapSuite) assertBootstrapPackagedToolsAvailable(c *gc.C, clientAr
 }
 
 func (s *bootstrapSuite) TestBootstrapPackagedTools(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: Currently does not work because of jujud problems")
-	}
 	for _, a := range arch.AllSupportedArches {
 		s.assertBootstrapPackagedToolsAvailable(c, a)
 	}
 }
 
 func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: Currently does not work because of jujud problems")
-	}
-
 	// Patch out HostArch and FindTools to allow the test to pass on other architectures,
 	// such as s390.
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
@@ -621,10 +598,6 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("issue 1403084: Currently does not work because of jujud problems")
-	}
-
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, []string, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
