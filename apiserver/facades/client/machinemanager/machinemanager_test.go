@@ -183,8 +183,8 @@ func (s *MachineManagerSuite) TestDestroyMachineWithParams(c *gc.C) {
 
 func (s *MachineManagerSuite) setupUpdateMachineSeries(c *gc.C) {
 	s.st.machines = map[string]*mockMachine{
-		"0": {series: "trusty"},
-		"1": {series: "trusty"},
+		"0": {series: "trusty", units: []string{"foo/0", "test/0"}},
+		"1": {series: "trusty", units: []string{"foo/1", "test/1"}},
 	}
 }
 
@@ -318,16 +318,138 @@ func (s *MachineManagerSuite) TestUpdateMachineSeriesPermissionDenied(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *MachineManagerSuite) TestUpgradeSeriesLocksMachine(c *gc.C) {
+func (s *MachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	machineTag := names.NewMachineTag("0")
+	result, err := apiV5.UpgradeSeriesPrepare(
+		params.UpdateSeriesArg{
+			Entity: params.Entity{
+				Tag: machineTag.String()},
+			Series: "xenial",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	mach := s.st.machines["0"]
+	mach.CheckCallNames(c, "Series", "Principals", "VerifyUnitsSeries", "CreateUpgradeSeriesLock")
+	c.Assert(len(mach.Calls()), gc.Equals, 4)
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesPrepareAlreadyRunningSeries(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	machineTag := names.NewMachineTag("1")
+	result, err := apiV5.UpgradeSeriesPrepare(
+		params.UpdateSeriesArg{
+			Entity: params.Entity{
+				Tag: machineTag.String()},
+			Series: "trusty",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.ErrorMatches, "machine-1 is already running series trusty")
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesPrepareMachineNotFound(c *gc.C) {
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	machineTag := names.NewMachineTag("76")
+	result, err := apiV5.UpgradeSeriesPrepare(
+		params.UpdateSeriesArg{
+			Entity: params.Entity{
+				Tag: machineTag.String()},
+			Series: "trusty",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.ErrorMatches, "machine 76 not found")
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesPrepareNotMachineTag(c *gc.C) {
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	unitTag := names.NewUnitTag("mysql/0")
+	result, err := apiV5.UpgradeSeriesPrepare(
+		params.UpdateSeriesArg{
+			Entity: params.Entity{
+				Tag: unitTag.String()},
+			Series: "trusty",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.ErrorMatches, "\"unit-mysql-0\" is not a valid machine tag")
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesPreparePermissionDenied(c *gc.C) {
+	user := names.NewUserTag("fred")
+	s.setAPIUser(c, user)
 	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
 	machineTag := names.NewMachineTag("0")
 	_, err := apiV5.UpgradeSeriesPrepare(
 		params.UpdateSeriesArg{
 			Entity: params.Entity{
 				Tag: machineTag.String()},
+			Series: "xenial",
+		},
+	)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesPrepareBlockedChanges(c *gc.C) {
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	s.st.blockMsg = "TestUpgradeSeriesPrepareBlockedChanges"
+	s.st.block = state.ChangeBlock
+	_, err := apiV5.UpgradeSeriesPrepare(
+		params.UpdateSeriesArg{
+			Entity: params.Entity{
+				Tag: names.NewMachineTag("0").String()},
+			Series: "xenial",
+		},
+	)
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), jc.DeepEquals, &params.Error{
+		Message: "TestUpgradeSeriesPrepareBlockedChanges",
+		Code:    "operation is blocked",
+	})
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesPrepareNoSeries(c *gc.C) {
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	result, err := apiV5.UpgradeSeriesPrepare(
+		params.UpdateSeriesArg{
+			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ErrorResult{
+		Error: &params.Error{
+			Code:    params.CodeBadRequest,
+			Message: `series missing from args`,
+		},
+	})
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleSeries(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	s.st.machines["0"].SetErrors(&state.ErrIncompatibleSeries{[]string{"yakkety", "zesty"}, "xenial"})
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	result, err := apiV5.UpgradeSeriesPrepare(
+		params.UpdateSeriesArg{
+			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
+			Series: "xenial",
+			Force:  false,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ErrorResult{
+		Error: &params.Error{
+			Code:    params.CodeIncompatibleSeries,
+			Message: "series \"xenial\" not supported by charm, supported series are: yakkety,zesty",
+		},
+	})
+}
+
+func (s *MachineManagerSuite) TestUpgradeSeriesPrepareRemoveLockAfterFail(c *gc.C) {
+	// TODO managed upgrade series
 }
 
 type mockState struct {
@@ -452,6 +574,7 @@ type mockMachine struct {
 
 	keep   bool
 	series string
+	units  []string
 }
 
 func (m *mockMachine) Destroy() error {
@@ -460,6 +583,11 @@ func (m *mockMachine) Destroy() error {
 
 func (m *mockMachine) ForceDestroy() error {
 	return nil
+}
+
+func (m *mockMachine) Principals() []string {
+	m.MethodCall(m, "Principals")
+	return m.units
 }
 
 func (m *mockMachine) SetKeepInstance(keep bool) error {
@@ -482,6 +610,25 @@ func (m *mockMachine) Units() ([]machinemanager.Unit, error) {
 
 func (m *mockMachine) UpdateMachineSeries(series string, force bool) error {
 	m.MethodCall(m, "UpdateMachineSeries", series, force)
+	return m.NextErr()
+}
+
+func (m *mockMachine) VerifyUnitsSeries(units []string, series string, force bool) ([]machinemanager.Unit, error) {
+	m.MethodCall(m, "VerifyUnitsSeries", units, series, force)
+	out := make([]machinemanager.Unit, len(m.units))
+	for i, name := range m.units {
+		out[i] = &mockUnit{names.NewUnitTag(name)}
+	}
+	return out, m.NextErr()
+}
+
+func (m *mockMachine) CreateUpgradeSeriesLock() error {
+	m.MethodCall(m, "CreateUpgradeSeriesLock")
+	return m.NextErr()
+}
+
+func (m *mockMachine) RemoveUpgradeSeriesLock() error {
+	m.MethodCall(m, "RemoveUpgradeSeriesLock")
 	return m.NextErr()
 }
 

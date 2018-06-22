@@ -35,7 +35,7 @@ func NewUpgradeSeriesCommand() cmd.Command {
 type UpgradeMachineSeriesAPI interface {
 	BestAPIVersion() int
 	Close() error
-	UpgradeSeriesPrepare(string) error
+	UpgradeSeriesPrepare(string, string, bool) error
 	UpgradeSeriesComplete(string) error
 }
 
@@ -196,7 +196,7 @@ func (c *upgradeSeriesCommand) UpgradeSeriesPrepare(ctx *cmd.Context) error {
 		c.upgradeMachineSeriesClient = machinemanager.NewClient(apiRoot)
 	}
 
-	err = c.upgradeMachineSeriesClient.UpgradeSeriesPrepare(c.machineNumber)
+	err = c.upgradeMachineSeriesClient.UpgradeSeriesPrepare(c.machineNumber, c.series, c.force)
 	if err != nil {
 		return errors.Trace(err)
 	}
