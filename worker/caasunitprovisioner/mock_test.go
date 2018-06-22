@@ -50,8 +50,8 @@ func (m *mockServiceBroker) ParsePodSpec(in string) (*caas.PodSpec, error) {
 	return m.podSpec, nil
 }
 
-func (m *mockServiceBroker) EnsureService(appName string, unitSpec *caas.PodSpec, numUnits int, config application.ConfigAttributes) error {
-	m.MethodCall(m, "EnsureService", appName, unitSpec, numUnits, config)
+func (m *mockServiceBroker) EnsureService(appName string, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error {
+	m.MethodCall(m, "EnsureService", appName, params, numUnits, config)
 	m.ensured <- struct{}{}
 	return m.NextErr()
 }

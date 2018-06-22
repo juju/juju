@@ -248,8 +248,9 @@ func (s *WorkerSuite) TestUnitChanged(c *gc.C) {
 	s.lifeGetter.CheckCall(c, 0, "Life", "gitlab")
 	s.lifeGetter.CheckCall(c, 1, "Life", "gitlab/0")
 	s.serviceBroker.CheckCallNames(c, "EnsureService", "Service")
+	expectedParams := &caas.ServiceParams{PodSpec: &parsedSpec}
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", expectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 	s.serviceBroker.CheckCall(c, 1, "Service", "gitlab")
 
 	s.serviceBroker.ResetCalls()
@@ -266,9 +267,10 @@ func (s *WorkerSuite) TestUnitChanged(c *gc.C) {
 		c.Fatal("timed out waiting for service to be ensured")
 	}
 
+	expectedParams = &caas.ServiceParams{PodSpec: &parsedSpec}
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 2, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", expectedParams, 2, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 
 	s.serviceBroker.ResetCalls()
 	// Delete a unit.
@@ -285,9 +287,10 @@ func (s *WorkerSuite) TestUnitChanged(c *gc.C) {
 		c.Fatal("timed out waiting for service to be ensured")
 	}
 
+	expectedParams = &caas.ServiceParams{PodSpec: &parsedSpec}
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", expectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
 func (s *WorkerSuite) TestNewPodSpecChange(c *gc.C) {
@@ -331,9 +334,10 @@ containers:
 		c.Fatal("timed out waiting for service to be ensured")
 	}
 
+	expectedParams := &caas.ServiceParams{PodSpec: &anotherParsedSpec}
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &anotherParsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", expectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
 func (s *WorkerSuite) TestUnitAllRemoved(c *gc.C) {
