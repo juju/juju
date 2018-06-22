@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"time"
 
@@ -39,9 +38,6 @@ exit $EXIT_CODE
 var fakecommands = []string{"sleep", "tmux"}
 
 func (s *DebugHooksServerSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: Currently debug does not work on windows")
-	}
 	s.fakebin = c.MkDir()
 
 	// Create a clean $TMPDIR for the debug hooks scripts.

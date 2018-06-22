@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -174,10 +173,6 @@ func (s *UniterSuite) TestPreviousDownloadsCleared(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: currently does not work on windows")
-	}
 	s.runUniterTests(c, []uniterTest{
 		// Check error conditions during unit bootstrap phase.
 		ut(
@@ -743,8 +738,6 @@ resources:
 }
 
 func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
-	coretesting.SkipIfWindowsBug(c, "lp:1403084")
 	//TODO(hml): Fix this on S390X, intermittent there.
 	coretesting.SkipIfS390X(c, "lp:1534637")
 	makeTest := func(description string, content, extraChecks ft.Entries) uniterTest {
@@ -916,10 +909,6 @@ func (s *UniterSuite) TestUniterErrorStateForcedUpgrade(c *gc.C) {
 
 func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1448308")
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: currently does not work on windows")
-	}
 	s.runUniterTests(c, []uniterTest{
 		// Upgrade scenarios - handling conflicts.
 		ut(
@@ -1740,10 +1729,6 @@ func (s *UniterSuite) TestJujuRunExecutionSerialized(c *gc.C) {
 }
 
 func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: currently does not work on windows")
-	}
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"test juju-reboot",

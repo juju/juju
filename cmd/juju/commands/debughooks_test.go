@@ -5,7 +5,6 @@ package commands
 
 import (
 	"regexp"
-	"runtime"
 
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
@@ -129,11 +128,6 @@ var debugHooksTests = []struct {
 }}
 
 func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
-	//TODO(bogdanteleaga): Fix once debughooks are supported on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: Skipping on windows for now")
-	}
-
 	s.setupModel(c)
 
 	for i, t := range debugHooksTests {

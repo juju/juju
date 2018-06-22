@@ -6,7 +6,6 @@ package provisioner_test
 import (
 	"fmt"
 	"os/exec"
-	"runtime"
 	"sync/atomic"
 	"time"
 
@@ -53,10 +52,6 @@ type ContainerSetupSuite struct {
 var _ = gc.Suite(&ContainerSetupSuite{})
 
 func (s *ContainerSetupSuite) SetUpSuite(c *gc.C) {
-	// TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: Skipping container tests on windows")
-	}
 	s.CommonProvisionerSuite.SetUpSuite(c)
 }
 

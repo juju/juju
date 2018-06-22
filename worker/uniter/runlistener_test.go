@@ -52,9 +52,6 @@ func (s *ListenerSuite) NewRunListener(c *gc.C) *uniter.RunListener {
 }
 
 func (s *ListenerSuite) TestNewRunListenerOnExistingSocketRemovesItAndSucceeds(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("bug 1403084: Current named pipes implementation does not support this")
-	}
 	s.NewRunListener(c)
 	s.NewRunListener(c)
 }
