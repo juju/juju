@@ -86,7 +86,9 @@ func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 		return nil, errors.Trace(err)
 	}
 	return &cloud.CloudCredential{
-		AuthCredentials: map[string]cloud.Credential{credName: *certCredential},
+		AuthCredentials: map[string]cloud.Credential{
+			credName: *certCredential,
+		},
 	}, nil
 }
 

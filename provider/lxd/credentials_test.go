@@ -89,6 +89,15 @@ func (s *credentialsSuite) TestDetectCredentialsUsesLXCCert(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestDetectCredentialsUsesJujuLXDCert(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	_, provider, server := s.createProvider(ctrl)
+
+	exp := server.EXPECT()
+	exp.GetCertificate(gomock.Any()).Return(nil, "", nil)
+	exp.GetServerEnvironmentCertificate().Return("server-cert", nil)
+
 	// If there's a keypair for both the LXC client and Juju, we will
 	// always pick the Juju one.
 	home := c.MkDir()
@@ -109,24 +118,25 @@ func (s *credentialsSuite) TestDetectCredentialsUsesJujuLXDCert(c *gc.C) {
 	)
 	credential.Label = `LXD credential "localhost"`
 
-	credentials, err := s.Provider.DetectCredentials()
+	credentials, err := provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
 			"localhost": credential,
 		},
 	})
-	s.Stub.CheckCallNames(c, "GetCertificate", "ServerStatus")
-}
-
-func (S *credentialsSuite) writeFile(c *gc.C, path, content string) {
-	err := os.MkdirAll(filepath.Dir(path), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(path, []byte(content), 0600)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *credentialsSuite) TestDetectCredentialsGeneratesCert(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	_, provider, server := s.createProvider(ctrl)
+
+	exp := server.EXPECT()
+	exp.GetCertificate(gomock.Any()).Return(nil, "", nil)
+	exp.GetServerEnvironmentCertificate().Return("server-cert", nil)
+
 	credential := cloud.NewCredential(
 		cloud.CertificateAuthType,
 		map[string]string{
@@ -137,14 +147,13 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCert(c *gc.C) {
 	)
 	credential.Label = `LXD credential "localhost"`
 
-	credentials, err := s.Provider.DetectCredentials()
+	credentials, err := provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
 			"localhost": credential,
 		},
 	})
-	s.Stub.CheckCallNames(c, "GenerateMemCert", "GetCertificate", "ServerStatus")
 
 	// The cert/key pair should have been cached in the juju/lxd dir.
 	xdg := osenv.JujuXDGDataHomeDir()
@@ -332,4 +341,11 @@ this client using "juju add-credential localhost".
 
 See: https://jujucharms.com/docs/stable/clouds-LXD
 `[1:])
+}
+
+func (s *credentialsSuite) writeFile(c *gc.C, path, content string) {
+	err := os.MkdirAll(filepath.Dir(path), 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(path, []byte(content), 0600)
+	c.Assert(err, jc.ErrorIsNil)
 }
