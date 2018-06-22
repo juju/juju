@@ -4,7 +4,6 @@
 package commands_test
 
 import (
-	"runtime"
 	stdtesting "testing"
 
 	"github.com/juju/juju/component/all"
@@ -19,8 +18,5 @@ func init() {
 }
 
 func TestPackage(t *stdtesting.T) {
-	if runtime.GOARCH == "386" {
-		t.Skipf("skipping package for %v/%v, see http://pad.lv/1425569", runtime.GOOS, runtime.GOARCH)
-	}
 	testing.MgoTestPackage(t)
 }
