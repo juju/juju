@@ -39,10 +39,10 @@ type ProviderLXDServer interface {
 }
 
 type environProvider struct {
-	providerCredentials environs.ProviderCredentials
-	interfaceAddress    func(string) (string, error)
-	newLocalServer      func() (ProviderLXDServer, error)
-	Clock               clock.Clock
+	environs.ProviderCredentials
+	interfaceAddress func(string) (string, error)
+	newLocalServer   func() (ProviderLXDServer, error)
+	Clock            clock.Clock
 }
 
 var cloudSchema = &jsonschema.Schema{
@@ -61,7 +61,7 @@ var cloudSchema = &jsonschema.Schema{
 // NewProvider returns a new LXD EnvironProvider.
 func NewProvider() environs.CloudEnvironProvider {
 	return &environProvider{
-		providerCredentials: environProviderCredentials{
+		ProviderCredentials: environProviderCredentials{
 			certReadWriter:  stdlibLXDCertificateReadWriter{},
 			generateMemCert: shared.GenerateMemCert,
 			lookupHost:      net.LookupHost,
@@ -364,19 +364,4 @@ func (p *environProvider) ConfigSchema() schema.Fields {
 // provider specific config attributes.
 func (p *environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
-}
-
-// CredentialSchemas is part of the environs.ProviderCredentials interface.
-func (p *environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	return p.providerCredentials.CredentialSchemas()
-}
-
-// DetectCredentials is part of the environs.ProviderCredentials interface.
-func (p *environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
-	return p.providerCredentials.DetectCredentials()
-}
-
-// FinalizeCredential is part of the environs.ProviderCredentials interface.
-func (p *environProvider) FinalizeCredential(ctx environs.FinalizeCredentialContext, params environs.FinalizeCredentialParams) (*cloud.Credential, error) {
-	return p.providerCredentials.FinalizeCredential(ctx, params)
 }

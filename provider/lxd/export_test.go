@@ -21,7 +21,7 @@ func NewProviderWithMocks(
 	newLocalSever func() (ProviderLXDServer, error),
 ) environs.EnvironProvider {
 	return &environProvider{
-		providerCredentials: creds,
+		ProviderCredentials: creds,
 		interfaceAddress:    interfaceAddress,
 		newLocalServer:      newLocalSever,
 	}
