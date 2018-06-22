@@ -21,7 +21,7 @@ type ContainerBroker interface {
 
 type ServiceBroker interface {
 	Provider() caas.ContainerEnvironProvider
-	EnsureService(appName string, unitSpec *caas.PodSpec, numUnits int, config application.ConfigAttributes) error
+	EnsureService(appName string, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error
 	Service(appName string) (*caas.Service, error)
 	DeleteService(appName string) error
 }

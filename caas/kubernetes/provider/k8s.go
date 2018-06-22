@@ -393,16 +393,16 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	return errors.Trace(k.deleteDeployment(appName))
 }
 
-// EnsureService creates or updates a service for pods with the given spec.
+// EnsureService creates or updates a service for pods with the given params.
 func (k *kubernetesClient) EnsureService(
-	appName string, spec *caas.PodSpec, numUnits int, config application.ConfigAttributes,
+	appName string, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes,
 ) (err error) {
 	logger.Debugf("creating/updating application %s", appName)
 
 	if numUnits <= 0 {
 		return errors.Errorf("number of units must be > 0")
 	}
-	if spec == nil {
+	if params == nil || params.PodSpec == nil {
 		return errors.Errorf("missing pod spec")
 	}
 
@@ -416,14 +416,14 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}()
 
-	unitSpec, err := makeUnitSpec(spec)
+	unitSpec, err := makeUnitSpec(params.PodSpec)
 	if err != nil {
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
 
 	// Add a deployment controller configured to create the specified number of units/pods.
 	numPods := int32(numUnits)
-	if err := k.configureDeployment(appName, unitSpec, spec.Containers, &numPods); err != nil {
+	if err := k.configureDeployment(appName, unitSpec, params.PodSpec.Containers, &numPods); err != nil {
 		return errors.Annotate(err, "creating or updating deployment controller")
 	}
 	cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
@@ -437,7 +437,7 @@ func (k *kubernetesClient) EnsureService(
 			ports = append(ports, p)
 		}
 	}
-	if !spec.OmitServiceFrontend {
+	if !params.PodSpec.OmitServiceFrontend {
 		if err := k.configureService(appName, ports, config); err != nil {
 			return errors.Annotatef(err, "creating or updating service for %v", appName)
 		}
