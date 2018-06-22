@@ -4,13 +4,16 @@
 package resource
 
 import (
+	"bytes"
 	"io"
 	"os"
 	"strings"
 
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/charmstore"
 )
@@ -37,9 +40,9 @@ type DeployResourcesArgs struct {
 	// interacting with the charm store.
 	CharmStoreMacaroon *macaroon.Macaroon
 
-	// Filenames is the set of resources for which a filename
+	// ResourceValues is the set of resources for which a value
 	// was provided at the command-line.
-	Filenames map[string]string
+	ResourceValues map[string]string
 
 	// Revisions is the set of resources for which a revision
 	// was provided at the command-line.
@@ -67,7 +70,7 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 		osStat:        func(s string) error { _, err := os.Stat(s); return err },
 	}
 
-	ids, err = d.upload(args.Filenames, args.Revisions)
+	ids, err = d.upload(args.ResourceValues, args.Revisions)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -84,20 +87,26 @@ type deployUploader struct {
 	osStat        func(path string) error
 }
 
-func (d deployUploader) upload(files map[string]string, revisions map[string]int) (map[string]string, error) {
+func (d deployUploader) upload(resourceValues map[string]string, revisions map[string]int) (map[string]string, error) {
 	if err := d.validateResources(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if err := d.checkExpectedResources(files, revisions); err != nil {
+	if err := d.checkExpectedResources(resourceValues, revisions); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if err := d.checkFiles(files); err != nil {
+	if err := d.checkFiles(resourceValues); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	storeResources := d.storeResources(files, revisions)
+	// Make this nicer, why loop over everything twice.
+	if err := d.checkDockerDetails(resourceValues); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Ahhh, store resources as in Resources from the Store. i.e. not provided via the command line.
+	storeResources := d.storeResources(resourceValues, revisions)
 	pending := map[string]string{}
 	if len(storeResources) > 0 {
 		ids, err := d.client.AddPendingResources(d.applicationID, d.chID, d.csMac, storeResources)
@@ -109,9 +118,20 @@ func (d deployUploader) upload(files map[string]string, revisions map[string]int
 			pending[res.Name] = ids[i]
 		}
 	}
+	// after adding all resources as pending to the controller, any that where provided via the command line we upload now.
+	// Otherwise they are grabbed from the charmstore (once the charm uses 'resource-get')
 
-	for name, filename := range files {
-		id, err := d.uploadFile(name, filename)
+	var id string
+	var err error
+	for name, resValue := range resourceValues {
+		switch d.resources[name].Type {
+		case charmresource.TypeFile:
+			id, err = d.uploadFile(name, resValue)
+		case charmresource.TypeDocker:
+			id, err = d.uploadDockerDetails(name, resValue)
+			// default error...
+		}
+
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -123,6 +143,9 @@ func (d deployUploader) upload(files map[string]string, revisions map[string]int
 
 func (d deployUploader) checkFiles(files map[string]string) error {
 	for name, path := range files {
+		if d.resources[name].Type != charmresource.TypeFile {
+			continue
+		}
 		err := d.osStat(path)
 		if os.IsNotExist(err) {
 			return errors.Annotatef(err, "file for resource %q", name)
@@ -131,6 +154,11 @@ func (d deployUploader) checkFiles(files map[string]string) error {
 			return errors.Annotatef(err, "can't read file for resource %q", name)
 		}
 	}
+	return nil
+}
+
+func (d deployUploader) checkDockerDetails(resouceDetails map[string]string) error {
+	// for all resources that are docker images, make sure the image string is legit i.e. uri@sha256:sha.
 	return nil
 }
 
@@ -154,6 +182,9 @@ func (d deployUploader) validateResources() error {
 	return nil
 }
 
+// storeResources returns which resources revisions will need to be retrieved
+// either as they where explicitly requested by the user for that rev or they
+// weren't provided by the user.
 func (d deployUploader) storeResources(uploads map[string]string, revisions map[string]int) []charmresource.Resource {
 	var resources []charmresource.Resource
 	for name, meta := range d.resources {
@@ -193,6 +224,27 @@ func (d deployUploader) uploadFile(resourcename, filename string) (id string, er
 		return "", errors.Trace(err)
 	}
 	return id, err
+}
+
+func (d deployUploader) uploadDockerDetails(resourcename, imageName string) (id string, error error) {
+	// logger.Criticalf("uploadDockerDetails: Uploading '%s'` for '%s'", imageName, resourcename)
+	res := charmresource.Resource{
+		Meta:   d.resources[resourcename],
+		Origin: charmresource.OriginUpload,
+	}
+	data, err := yaml.Marshal(params.DockerInfoResponse{
+		ImageName: imageName,
+	})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	dr := bytes.NewReader(data)
+
+	id, err = d.client.UploadPendingResource(d.applicationID, res, resourcename, dr)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return id, nil
 }
 
 func (d deployUploader) checkExpectedResources(filenames map[string]string, revisions map[string]int) error {

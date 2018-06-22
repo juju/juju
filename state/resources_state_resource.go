@@ -4,6 +4,7 @@
 package state
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"path"
@@ -13,8 +14,10 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/resource"
 )
@@ -65,6 +68,9 @@ type resourcePersistence interface {
 type resourceStorage interface {
 	// PutAndCheckHash stores the content of the reader into the storage.
 	PutAndCheckHash(path string, r io.Reader, length int64, hash string) error
+
+	// PutDockerData this is me testing for now
+	PutDockerData(path string, dockerDetails params.DockerInfoResponse) error
 
 	// Remove removes the identified data from the storage.
 	Remove(path string) error
@@ -271,12 +277,30 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 
 	storagePath := storagePath(res.Name, res.ApplicationID, res.PendingID)
 	staged, err := st.persist.StageResource(res, storagePath)
+	logger.Criticalf("!! storeResource: %s (type: %s)", storagePath, res.Meta.Type)
+	// if it's of type docker image, store the details elsewhere (as it's not file data.)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	var putErr error
 	hash := res.Fingerprint.String()
-	if err := st.storage.PutAndCheckHash(storagePath, r, res.Size, hash); err != nil {
+	switch res.Type {
+	case charmresource.TypeFile:
+		err = st.storage.PutAndCheckHash(storagePath, r, res.Size, hash)
+	case charmresource.TypeDocker:
+		var dockerDetails params.DockerInfoResponse
+		respBuf := new(bytes.Buffer)
+		respBuf.ReadFrom(r)
+		err = yaml.Unmarshal(respBuf.Bytes(), &dockerDetails)
+		if err == nil {
+			return errors.Trace(err)
+		}
+
+		err = st.storage.PutDockerData(storagePath, dockerDetails)
+	}
+
+	if putErr != nil {
 		if err := staged.Unstage(); err != nil {
 			logger.Errorf("could not unstage resource %q (application %q): %v", res.Name, res.ApplicationID, err)
 		}

@@ -72,6 +72,11 @@ func (c *UnitFacadeClient) GetResource(resourceName string) (resource.Resource, 
 	if err != nil {
 		return resource.Resource{}, nil, errors.Trace(err)
 	}
+	// if resourceInfo.Type == charmresource.TypeDocker {
+	// 	logger.Criticalf(">> Have a docker image type.")
+	// } else {
+	// 	logger.Criticalf(">> It's a filetype")
+	// }
 
 	// TODO(katco): Check headers against resource info
 	// TODO(katco): Check in on all the response headers

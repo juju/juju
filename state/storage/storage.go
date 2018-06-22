@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"gopkg.in/juju/blobstore.v2"
+	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/mgo.v2"
 )
 
@@ -36,6 +37,9 @@ type Storage interface {
 	// the model. It also ensures the stored data has the correct
 	// hash.
 	PutAndCheckHash(path string, r io.Reader, length int64, hash string) error
+
+	// PutDockerData this is me testing for now
+	PutDockerData(path string, dockerDetails params.DockerInfoResponse) error
 
 	// Remove removes data at path, namespaced to the model.
 	Remove(path string) error
@@ -78,6 +82,12 @@ func (s stateStorage) PutAndCheckHash(path string, r io.Reader, length int64, ha
 	session, ms := s.blobstore()
 	defer session.Close()
 	return ms.PutForBucketAndCheckHash(s.modelUUID, path, r, length, hash)
+}
+
+func (s stateStorage) PutDockerData(path string, dockerDetails params.DockerInfoResponse) error {
+	// store in the docker resource collection.
+	// logger.Criticalf("Would store docker details: %s", pretty.Sprint(dockerDetails))
+	return nil
 }
 
 func (s stateStorage) Remove(path string) error {

@@ -47,12 +47,12 @@ type ResourcesHandler struct {
 
 // ServeHTTP implements http.Handler.
 func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	backend, ph, tag, err := h.StateAuthFunc(req, names.UserTagKind, names.MachineTagKind)
+	backend, poolhelper, tag, err := h.StateAuthFunc(req, names.UserTagKind, names.MachineTagKind)
 	if err != nil {
 		api.SendHTTPError(resp, err)
 		return
 	}
-	defer ph.Release()
+	defer poolhelper.Release()
 
 	switch req.Method {
 	case "GET":
@@ -100,7 +100,13 @@ func (h *ResourcesHandler) upload(backend ResourcesBackend, req *http.Request, u
 		return nil, errors.Trace(err)
 	}
 
+	// UpdatePendingResource does the same as SetResource (just calls setResource) except SetResouce just blanks PendingID.
 	var stored resource.Resource
+	// Should just be the following, maybe with some logging in side so that when pendingID is "" it's setting it explicitly.
+	// stored, err = backend.UpdatePendingResource(uploaded.Application, uploaded.PendingID, username, uploaded.Resource, uploaded.Data)
+	// if err != nil {
+	// 	return nil, errors.Trace(err)
+	// }
 	if uploaded.PendingID != "" {
 		stored, err = backend.UpdatePendingResource(uploaded.Application, uploaded.PendingID, username, uploaded.Resource, uploaded.Data)
 		if err != nil {
@@ -144,19 +150,18 @@ func (h *ResourcesHandler) readResource(backend ResourcesBackend, req *http.Requ
 	var res resource.Resource
 	if uReq.PendingID != "" {
 		res, err = backend.GetPendingResource(uReq.Application, uReq.Name, uReq.PendingID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 	} else {
 		res, err = backend.GetResource(uReq.Application, uReq.Name)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	ext := path.Ext(res.Path)
-	if path.Ext(uReq.Filename) != ext {
-		return nil, errors.Errorf("incorrect extension on resource upload %q, expected %q", uReq.Filename, ext)
+	if res.Type == charmresource.TypeFile {
+		ext := path.Ext(res.Path)
+		if path.Ext(uReq.ResourceValue) != ext {
+			return nil, errors.Errorf("incorrect extension on resource upload %q, expected %q", uReq.ResourceValue, ext)
+		}
 	}
 
 	chRes, err := updateResource(res.Resource, uReq.Fingerprint, uReq.Size)
@@ -213,7 +218,8 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 		return ur, errors.Annotate(err, "invalid fingerprint")
 	}
 
-	filename, err := extractFilename(req)
+	// Extract out to extract value or filename etc.
+	resourceValue, err := extractFilename(req)
 	if err != nil {
 		return ur, errors.Trace(err)
 	}
@@ -224,12 +230,12 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 	}
 
 	ur = api.UploadRequest{
-		Application: application,
-		Name:        name,
-		Filename:    filename,
-		Size:        size,
-		Fingerprint: fp,
-		PendingID:   pendingID,
+		Application:   application,
+		Name:          name,
+		ResourceValue: resourceValue,
+		Size:          size,
+		Fingerprint:   fp,
+		PendingID:     pendingID,
 	}
 	return ur, nil
 }

@@ -24,8 +24,8 @@ type UploadRequest struct {
 	// Name is the resource name.
 	Name string
 
-	// Filename is the name of the file as it exists on disk.
-	Filename string
+	// ResourceValue is the value of the resource (i.e. the filepath as it exists on disk.)
+	ResourceValue string
 
 	// Size is the size of the uploaded data, in bytes.
 	Size int64
@@ -49,11 +49,11 @@ func NewUploadRequest(application, name, filename string, r io.ReadSeeker) (Uplo
 	}
 
 	ur := UploadRequest{
-		Application: application,
-		Name:        name,
-		Filename:    filename,
-		Size:        content.Size,
-		Fingerprint: content.Fingerprint,
+		Application:   application,
+		Name:          name,
+		ResourceValue: filename,
+		Size:          content.Size,
+		Fingerprint:   content.Fingerprint,
 	}
 	return ur, nil
 }
@@ -84,8 +84,7 @@ func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 	// TODO(ericsnow) What about the rest of the URL?
 	urlStr := NewEndpointPath(ur.Application, ur.Name)
 
-	// TODO(natefinch): Use http.MethodPut when we upgrade to go1.5+.
-	req, err := http.NewRequest(MethodPut, urlStr, nil)
+	req, err := http.NewRequest(http.MethodPut, urlStr, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -93,7 +92,7 @@ func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 	req.Header.Set(HeaderContentType, ContentTypeRaw)
 	req.Header.Set(HeaderContentSha384, ur.Fingerprint.String())
 	req.Header.Set(HeaderContentLength, fmt.Sprint(ur.Size))
-	setFilename(ur.Filename, req)
+	setFilename(ur.ResourceValue, req)
 
 	req.ContentLength = ur.Size
 
