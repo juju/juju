@@ -2647,6 +2647,30 @@ func (s *MachineSuite) TestRemoveUpgradeSeriesLockUnlocksMachine(c *gc.C) {
 	AssertMachineIsNOTLockedForPrepare(c, mach)
 }
 
+func (s *MachineSuite) TestForceMarksSeriesLockUnlocksMachineForCleanup(c *gc.C) {
+	mach, err := s.State.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	AssertMachineIsNOTLockedForPrepare(c, mach)
+
+	err = mach.CreateUpgradeSeriesLock()
+	c.Assert(err, jc.ErrorIsNil)
+	AssertMachineLockedForPrepare(c, mach)
+
+	err = mach.ForceDestroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// After a forced destroy an upgrade series lock on a machine should be
+	// marked for cleanup and therefore should be cleaned up if anything
+	// should trigger a state cleanup.
+	s.State.Cleanup()
+
+	// The machine, since it was destroyed, its lock should have been
+	// cleaned up. Checking to see if the machine is not locked, that is,
+	// checking to see if no lock exist for the machine should yield a
+	// positive result.
+	AssertMachineIsNOTLockedForPrepare(c, mach)
+}
+
 func AssertMachineLockedForPrepare(c *gc.C, mach *state.Machine) {
 	locked, err := mach.IsLocked()
 	c.Assert(err, jc.ErrorIsNil)

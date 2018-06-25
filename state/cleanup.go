@@ -638,6 +638,13 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 	} else if err != nil {
 		return errors.Trace(err)
 	}
+
+	// The first thing we want to do is remove any series upgrade machine
+	// locks that might prevent other resources from being removed.
+	if err := cleanupUpgradeSeriesLock(machine); err != nil {
+		return errors.Trace(err)
+	}
+
 	// In an ideal world, we'd call machine.Destroy() here, and thus prevent
 	// new dependencies being added while we clean up the ones we know about.
 	// But machine destruction is unsophisticated, and doesn't allow for
@@ -996,4 +1003,9 @@ func closeIter(iter mongo.Iterator, errOut *error, message string) {
 		return
 	}
 	logger.Errorf("%v", err)
+}
+
+func cleanupUpgradeSeriesLock(machine *Machine) error {
+	logger.Infof("removing any upgrade series locks for machine, %s", machine)
+	return machine.RemoveUpgradeSeriesLock()
 }
