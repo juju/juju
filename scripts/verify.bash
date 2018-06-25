@@ -13,7 +13,7 @@ VERSION=`go version | awk '{print $3}'`
 echo "go version $VERSION"
 
 echo "checking: go fmt ..."
-BADFMT=`find * -name '*.go' -not -name '.#*' | xargs gofmt -l`
+BADFMT=`find * -name '*.go' -not -name '.#*' | xargs gofmt -l -s`
 if [ -n "$BADFMT" ]; then
     BADFMT=`echo "$BADFMT" | sed "s/^/  /"`
     echo -e "gofmt is sad:\n\n$BADFMT"
