@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -305,6 +306,14 @@ type DeployCommand struct {
 	// the storage name defined in that application's charm storage metadata.
 	BundleStorage map[string]map[string]storage.Constraints
 
+	// Devices is a map of device constraints, keyed on the device name
+	// defined in charm devices metadata.
+	Devices map[string]devices.Constraints
+
+	// BundleDevices maps application names to maps of device constraints keyed on
+	// the device name defined in that application's charm devices metadata.
+	BundleDevices map[string]map[string]devices.Constraints
+
 	// Resources is a map of resource name to filename to be uploaded on deploy.
 	Resources map[string]string
 
@@ -381,7 +390,7 @@ application is later scaled out with ` + "`juju add-unit`" + `, provisioned mach
 will use the same constraints (unless changed by ` + "`juju set-constraints`" + `).
 
 Application configuration values can be specified using '--config' option. This
-option accepts either a path to a yaml-formatted file or a key=value pair. 
+option accepts either a path to a yaml-formatted file or a key=value pair.
 Configuration file provided should be in format
 <charm name>:
 	<option name>: <option value>
@@ -399,20 +408,20 @@ use
   juju deploy mediawiki --config mycfg.yaml
 
 To specify key=value pair to set an application option value, use:
- 
+
   juju deploy mediawiki --config name='my media wiki'
-   
+
 When specifying more than one option value, use:
 
   juju deploy mediawiki --config name='my media wiki' --config debug=true
 
-Care must be taken when specifying more than one configuration via 
+Care must be taken when specifying more than one configuration via
 '--config' option - any later values will override those specified earlier.
 For example, when calling
 
   juju deploy mediawiki --config name='my media wiki' --config mycfg.yaml
-  
-if mycfg.yaml contained a value for 'name', it will be used in preference 
+
+if mycfg.yaml contained a value for 'name', it will be used in preference
 to the earlier 'my media wiki' value.
 The same applies to single value options. For example, when calling
 
@@ -568,6 +577,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the bundle deploy would do")
 	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
+	f.Var(deviceFlag{&c.Devices, &c.BundleDevices}, "device", "Charm device constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
 	f.StringVar(&c.machineMap, "map-machines", "", "Specify the existing machines to use for bundle deployments")
@@ -662,6 +672,7 @@ func (c *DeployCommand) deployBundle(
 	channel params.Channel,
 	apiRoot DeployAPI,
 	bundleStorage map[string]map[string]storage.Constraints,
+	bundleDevices map[string]map[string]devices.Constraints,
 ) (rErr error) {
 	bakeryClient, err := c.BakeryClient()
 	if err != nil {
@@ -712,6 +723,7 @@ func (c *DeployCommand) deployBundle(
 		apiRoot,
 		ctx,
 		bundleStorage,
+		bundleDevices,
 		c.DryRun,
 		c.UseExisting,
 		c.BundleMachines,
@@ -880,6 +892,7 @@ func (c *DeployCommand) deployCharm(
 		Config:           appConfig,
 		Placement:        c.Placement,
 		Storage:          c.Storage,
+		Devices:          c.Devices,
 		AttachStorage:    c.AttachStorage,
 		Resources:        ids,
 		EndpointBindings: c.Bindings,
@@ -1094,6 +1107,7 @@ func (c *DeployCommand) maybeReadLocalBundle() (deployFn, error) {
 			c.Channel,
 			apiRoot,
 			c.BundleStorage,
+			c.BundleDevices,
 		))
 	}, nil
 }
@@ -1233,6 +1247,7 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 				channel,
 				apiRoot,
 				c.BundleStorage,
+				c.BundleDevices,
 			))
 		}, nil
 	}

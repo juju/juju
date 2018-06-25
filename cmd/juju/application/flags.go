@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/storage"
 )
 
@@ -72,6 +73,71 @@ func (f storageFlag) String() string {
 		for application, stores := range *f.bundleStores {
 			for store, cons := range stores {
 				strs = append(strs, fmt.Sprintf("%s:%s=%v", application, store, cons))
+			}
+		}
+	}
+	return strings.Join(strs, " ")
+}
+
+type deviceFlag struct {
+	devices       *map[string]devices.Constraints
+	bundleDevices *map[string]map[string]devices.Constraints
+}
+
+// Set implements gnuflag.Value.Set.
+func (f deviceFlag) Set(s string) error {
+	fields := strings.SplitN(s, "=", 2)
+	if len(fields) < 2 {
+		if f.bundleDevices != nil {
+			return errors.New("expected [<application>:]<device>=<constraints>")
+		} else {
+			return errors.New("expected <device>=<constraints>")
+		}
+	}
+	var applicationName, deviceName string
+	if colon := strings.IndexRune(fields[0], ':'); colon >= 0 {
+		if f.bundleDevices == nil {
+			return errors.New("expected <device>=<constraints>")
+		}
+		applicationName = fields[0][:colon]
+		deviceName = fields[0][colon+1:]
+	} else {
+		deviceName = fields[0]
+	}
+	cons, err := devices.ParseConstraints(fields[1])
+	if err != nil {
+		return errors.Annotate(err, "cannot parse device constraints")
+	}
+	var devs map[string]devices.Constraints
+	if applicationName != "" {
+		if *f.bundleDevices == nil {
+			*f.bundleDevices = make(map[string]map[string]devices.Constraints)
+		}
+		devs = (*f.bundleDevices)[applicationName]
+		if devs == nil {
+			devs = make(map[string]devices.Constraints)
+			(*f.bundleDevices)[applicationName] = devs
+		}
+	} else {
+		if *f.devices == nil {
+			*f.devices = make(map[string]devices.Constraints)
+		}
+		devs = *f.devices
+	}
+	devs[deviceName] = cons
+	return nil
+}
+
+// String implements gnuflag.Value.String.
+func (f deviceFlag) String() string {
+	strs := make([]string, 0, len(*f.devices))
+	for device, cons := range *f.devices {
+		strs = append(strs, fmt.Sprintf("%s=%v", device, cons))
+	}
+	if f.bundleDevices != nil {
+		for application, devices := range *f.bundleDevices {
+			for device, cons := range devices {
+				strs = append(strs, fmt.Sprintf("%s:%s=%v", application, device, cons))
 			}
 		}
 	}

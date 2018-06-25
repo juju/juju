@@ -21,4 +21,10 @@ type Constraints struct {
 	Count int64 `bson:"count"`
 }
 
-// TODO (ycliuhw): add parsers later in cmd flag card
+// ParseConstraints parses the specified string and creates a
+// Constraints structure.
+func ParseConstraints(s string) (Constraints, error) {
+	// TODO (ycliuhw): complete here
+	var cons Constraints
+	return cons, nil
+}

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 )
@@ -95,6 +96,10 @@ type DeployArgs struct {
 	// handled.
 	Storage map[string]storage.Constraints
 
+	// Devices contains Constraints specifying how devices should be
+	// handled.
+	Devices map[string]devices.Constraints
+
 	// AttachStorage contains IDs of existing storage that should be
 	// attached to the application unit that will be deployed. This
 	// may be non-empty only if NumUnits is 1.
@@ -140,6 +145,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 			Constraints:      args.Cons,
 			Placement:        args.Placement,
 			Storage:          args.Storage,
+			Devices:          args.Devices,
 			AttachStorage:    attachStorage,
 			EndpointBindings: args.EndpointBindings,
 			Resources:        args.Resources,
