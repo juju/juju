@@ -4,9 +4,6 @@
 package testing
 
 import (
-	"io/ioutil"
-	"os"
-	"path"
 	"strings"
 	"sync"
 
@@ -276,16 +273,6 @@ func (ss *FakeService) WriteService() error {
 	retErr := ss.NextErr()
 	if retErr != nil {
 		return retErr
-	}
-	dirName := path.Join(ss.DataDir, "init", ss.Service.Name)
-	if err := os.MkdirAll(dirName, os.ModeDir|os.ModePerm); err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(path.Join(dirName, "exec_start.sh"), []byte{}, 0644); err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(path.Join(dirName, ss.Service.Name+".service"), []byte{}, 0644); err != nil {
-		return err
 	}
 	return nil
 }

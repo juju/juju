@@ -30,6 +30,7 @@ const (
 	InitSystemSystemd = "systemd"
 	InitSystemUpstart = "upstart"
 	InitSystemWindows = "windows"
+	SystemdDataDir    = "/lib/systemd/system"
 )
 
 // linuxInitSystems lists the names of the init systems that juju might
@@ -138,7 +139,7 @@ func newService(name string, conf common.Conf, initSystem, series string) (Servi
 		svc, err := systemd.NewService(
 			name,
 			conf,
-			"/lib/systemd/system",
+			SystemdDataDir,
 			systemd.NewDBusAPI,
 			renderer.Join(dataDir, "init"),
 		)

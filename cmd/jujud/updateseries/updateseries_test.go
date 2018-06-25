@@ -452,7 +452,7 @@ func (s *updateSeriesCmdSuite) assertServiceSymLinks(c *gc.C) {
 		svcFileName := svcName + ".service"
 		result, err := os.Readlink(path.Join(systemdDir, svcFileName))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, gc.Equals, path.Join(s.dataDir, "init", svcName, svcFileName))
+		c.Assert(result, gc.Equals, path.Join(service.SystemdDataDir, svcName, svcFileName))
 	}
 }
 

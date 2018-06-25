@@ -157,12 +157,12 @@ func (s *systemdServiceManager) WriteSystemdAgents(machineAgent string, unitAgen
 		}
 
 		svcFileName := svcName + ".service"
-		if err = os.Symlink(path.Join(dataDir, "init", svcName, svcFileName),
+		if err = os.Symlink(path.Join(dataDir, svcName, svcFileName),
 			path.Join(symLinkSystemdDir, svcFileName)); err != nil && !os.IsExist(err) {
 			return nil, nil, nil, errors.Errorf("failed to link service file (%s) in systemd dir: %s\n", svcFileName, err)
 		}
 
-		if err = os.Symlink(path.Join(dataDir, "init", svcName, svcFileName),
+		if err = os.Symlink(path.Join(dataDir, svcName, svcFileName),
 			path.Join(symLinkSystemdMultiUserDir, svcFileName)); err != nil && !os.IsExist(err) {
 			return nil, nil, nil, errors.Errorf("failed to link service file (%s) in multi-user.target.wants dir: %s\n", svcFileName, err)
 		}
@@ -291,7 +291,7 @@ func (s *systemdServiceManager) StartAllAgents(machineAgent string, unitAgents [
 
 	for _, unit := range unitAgents {
 		if err = startAgent(unit, AgentKindUnit, dataDir, series); err != nil {
-			return "", nil, errors.Annotatef(err, "failed to start %s service", serviceName(unit))
+			return "", startedUnitNames, errors.Annotatef(err, "failed to start %s service", serviceName(unit))
 		}
 		startedUnitNames = append(startedUnitNames, serviceName(unit))
 		logger.Infof("started %s service", serviceName(unit))
