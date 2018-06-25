@@ -10,8 +10,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/juju/juju/core/devices"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
@@ -31,6 +29,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
