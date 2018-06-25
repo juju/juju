@@ -79,6 +79,15 @@ type CharmStorage struct {
 	Properties  []string `json:"properties,omitempty"`
 }
 
+// CharmDevice mirrors charm.Device.
+type CharmDevice struct {
+	Name        string `bson:"name"`
+	Description string `bson:"description"`
+	Type        string `bson:"type"`
+	CountMin    int64  `bson:"count-min"`
+	CountMax    int64  `bson:"count-max"`
+}
+
 // CharmPayloadClass mirrors charm.PayloadClass.
 type CharmPayloadClass struct {
 	Name string `json:"name"`
@@ -107,6 +116,7 @@ type CharmMeta struct {
 	Tags           []string                     `json:"tags,omitempty"`
 	Series         []string                     `json:"series,omitempty"`
 	Storage        map[string]CharmStorage      `json:"storage,omitempty"`
+	Devices        map[string]CharmDevice       `json:"devices,omitempty"`
 	PayloadClasses map[string]CharmPayloadClass `json:"payload-classes,omitempty"`
 	Resources      map[string]CharmResourceMeta `json:"resources,omitempty"`
 	Terms          []string                     `json:"terms,omitempty"`

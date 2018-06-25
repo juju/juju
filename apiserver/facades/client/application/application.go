@@ -52,6 +52,11 @@ type APIv5 struct {
 
 // APIv6 provides the Application API facade for version 6.
 type APIv6 struct {
+	*APIv7
+}
+
+// APIv7 provides the Application API facade for version 7.
+type APIv7 struct {
 	*APIBase
 }
 
@@ -89,7 +94,8 @@ func NewFacadeV4(ctx facade.Context) (*APIv4, error) {
 	return &APIv4{api}, nil
 }
 
-// NewFacade provides the signature required for facade registration.
+// NewFacadeV5 provides the signature required for facade registration
+// for version 5.
 func NewFacadeV5(ctx facade.Context) (*APIv5, error) {
 	api, err := NewFacadeV6(ctx)
 	if err != nil {
@@ -99,13 +105,23 @@ func NewFacadeV5(ctx facade.Context) (*APIv5, error) {
 }
 
 // NewFacadeV6 provides the signature required for facade registration
-// for versions 6.
+// for version 6.
 func NewFacadeV6(ctx facade.Context) (*APIv6, error) {
-	api, err := newFacadeBase(ctx)
+	api, err := NewFacadeV7(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv6{api}, nil
+}
+
+// NewFacadeV7 provides the signature required for facade registration
+// for version 7.
+func NewFacadeV7(ctx facade.Context) (*APIv7, error) {
+	api, err := newFacadeBase(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv7{api}, nil
 }
 
 func newFacadeBase(ctx facade.Context) (*APIBase, error) {
@@ -219,6 +235,33 @@ func (api *APIv5) Deploy(args params.ApplicationsDeployV5) (params.ErrorResults,
 			Constraints:      value.Constraints,
 			Placement:        value.Placement,
 			Policy:           noDefinedPolicy,
+			Storage:          value.Storage,
+			AttachStorage:    value.AttachStorage,
+			EndpointBindings: value.EndpointBindings,
+			Resources:        value.Resources,
+		})
+	}
+	return api.APIBase.Deploy(newArgs)
+}
+
+// Deploy fetches the charms from the charm store and deploys them
+// using the specified placement directives.
+// V6 deploy did not support devices, so pass through an empty map.
+func (api *APIv6) Deploy(args params.ApplicationsDeployV6) (params.ErrorResults, error) {
+	var newArgs params.ApplicationsDeploy
+	for _, value := range args.Applications {
+		newArgs.Applications = append(newArgs.Applications, params.ApplicationDeploy{
+			ApplicationName:  value.ApplicationName,
+			Series:           value.Series,
+			CharmURL:         value.CharmURL,
+			Channel:          value.Channel,
+			NumUnits:         value.NumUnits,
+			Config:           value.Config,
+			ConfigYAML:       value.ConfigYAML,
+			Constraints:      value.Constraints,
+			Placement:        value.Placement,
+			Policy:           value.Policy,
+			Devices:          nil, // set Devices to nil because v6 and lower versions do not support it
 			Storage:          value.Storage,
 			AttachStorage:    value.AttachStorage,
 			EndpointBindings: value.EndpointBindings,
@@ -415,6 +458,7 @@ func deployApplication(
 		Constraints:       args.Constraints,
 		Placement:         args.Placement,
 		Storage:           args.Storage,
+		Devices:           args.Devices,
 		AttachStorage:     attachStorage,
 		EndpointBindings:  args.EndpointBindings,
 		Resources:         args.Resources,

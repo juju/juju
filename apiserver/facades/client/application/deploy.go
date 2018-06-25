@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -36,6 +37,7 @@ type DeployApplicationParams struct {
 	// instead of a machine spec.
 	Placement        []*instance.Placement
 	Storage          map[string]storage.Constraints
+	Devices          map[string]devices.Constraints
 	AttachStorage    []names.StorageTag
 	EndpointBindings map[string]string
 	// Resources is a map of resource name to IDs of pending resources.
@@ -73,11 +75,13 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 	}
 
 	asa := state.AddApplicationArgs{
-		Name:              args.ApplicationName,
-		Series:            args.Series,
-		Charm:             args.Charm,
-		Channel:           args.Channel,
-		Storage:           stateStorageConstraints(args.Storage),
+		Name:    args.ApplicationName,
+		Series:  args.Series,
+		Charm:   args.Charm,
+		Channel: args.Channel,
+		Storage: stateStorageConstraints(args.Storage),
+		// TODO(ycliuhw): current PR only includes facades version upgrade, inject `Device` into deeper logic is next step in sperate PR
+		// Devices:           args.Devices,
 		AttachStorage:     args.AttachStorage,
 		ApplicationConfig: args.ApplicationConfig,
 		CharmConfig:       charmConfig,
