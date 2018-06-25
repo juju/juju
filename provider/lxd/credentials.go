@@ -35,7 +35,7 @@ const (
 
 // LXDCertificateReadWriter groups methods that is required to read and write
 // certificates at a given path.
-//go:generate mockgen -package lxd -destination credentials_mock_test.go github.com/juju/juju/provider/lxd LXDCertificateReadWriter,LXDCertificateGenerator
+//go:generate mockgen -package lxd -destination credentials_mock_test.go github.com/juju/juju/provider/lxd LXDCertificateReadWriter,LXDCertificateGenerator,LXDNetLookup
 type LXDCertificateReadWriter interface {
 	// Read takes a path and returns both a cert and key PEM.
 	// Returns an error if there was an issue reading the certs.
@@ -53,12 +53,23 @@ type LXDCertificateGenerator interface {
 	Generate(client bool) (certPEM, keyPEM []byte, err error)
 }
 
+// LXDNetLookup groups methods for looking up hosts and interface addresses.
+type LXDNetLookup interface {
+
+	// LookupHost looks up the given host using the local resolver.
+	// It returns a slice of that host's addresses.
+	LookupHost(string) ([]string, error)
+
+	// InterfaceAddrs returns a list of the system's unicast interface
+	// addresses.
+	InterfaceAddrs() ([]net.Addr, error)
+}
+
 // environProviderCredentials implements environs.ProviderCredentials.
 type environProviderCredentials struct {
 	certReadWriter LXDCertificateReadWriter
 	certGenerator  LXDCertificateGenerator
-	lookupHost     func(string) ([]string, error)
-	interfaceAddrs func() ([]net.Addr, error)
+	lookup         LXDNetLookup
 	newLocalServer func() (ProviderLXDServer, error)
 }
 
@@ -317,11 +328,11 @@ func (p environProviderCredentials) isLocalEndpoint(endpoint string) (bool, erro
 	if err != nil {
 		host = endpointURL.Host
 	}
-	endpointAddrs, err := p.lookupHost(host)
+	endpointAddrs, err := p.lookup.LookupHost(host)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	localAddrs, err := p.interfaceAddrs()
+	localAddrs, err := p.lookup.InterfaceAddrs()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -367,6 +378,16 @@ type memLXDCertificateGenerator struct{}
 
 func (memLXDCertificateGenerator) Generate(client bool) (certPEM, keyPEM []byte, err error) {
 	return shared.GenerateMemCert(client)
+}
+
+type stdlibLXDNetLookup struct{}
+
+func (stdlibLXDNetLookup) LookupHost(host string) ([]string, error) {
+	return net.LookupHost(host)
+}
+
+func (stdlibLXDNetLookup) InterfaceAddrs() ([]net.Addr, error) {
+	return net.InterfaceAddrs()
 }
 
 func endpointURL(endpoint string) (*url.URL, error) {

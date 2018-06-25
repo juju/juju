@@ -4,7 +4,6 @@
 package lxd
 
 import (
-	"net"
 	"strings"
 	"time"
 
@@ -63,8 +62,7 @@ func NewProvider() environs.CloudEnvironProvider {
 		ProviderCredentials: environProviderCredentials{
 			certReadWriter: stdlibLXDCertificateReadWriter{},
 			certGenerator:  memLXDCertificateGenerator{},
-			lookupHost:     net.LookupHost,
-			interfaceAddrs: net.InterfaceAddrs,
+			lookup:         stdlibLXDNetLookup{},
 			newLocalServer: createLXDServer,
 		},
 		interfaceAddress: utils.GetAddressForInterface,

@@ -97,7 +97,7 @@ type PrepareConfigParams struct {
 // TODO(axw) replace CredentialSchemas with an updated environschema.
 // The GUI also needs to be able to handle multiple credential types,
 // and dependencies in config attributes.
-//go:generate mockgen -package mocks -destination mocks/provider_mock.go github.com/juju/juju/environs ProviderCredentials
+//go:generate mockgen -package testing -destination testing/provider_mock.go github.com/juju/juju/environs ProviderCredentials
 type ProviderCredentials interface {
 	// CredentialSchemas returns credential schemas, keyed on
 	// authentication type. These may be used to validate existing
@@ -157,6 +157,7 @@ type FinalizeCredentialParams struct {
 // FinalizeCloudContext is an interface passed into FinalizeCloud
 // to provide a means of interacting with the user when finalizing
 // a cloud definition.
+//go:generate mockgen -package testing -destination testing/cloud_context_mock.go github.com/juju/juju/environs FinalizeCloudContext
 type FinalizeCloudContext interface {
 	// Verbosef will write the formatted string to Stderr if the
 	// verbose flag is true, and to the logger if not.

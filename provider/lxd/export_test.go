@@ -4,8 +4,6 @@
 package lxd
 
 import (
-	"net"
-
 	"github.com/juju/juju/environs"
 
 	"github.com/juju/juju/container/lxd"
@@ -30,15 +28,13 @@ func NewProviderWithMocks(
 func NewProviderCredentials(
 	certReadWriter LXDCertificateReadWriter,
 	certGenerator LXDCertificateGenerator,
-	lookupHost func(string) ([]string, error),
-	interfaceAddrs func() ([]net.Addr, error),
+	lookup LXDNetLookup,
 	newLocalServer func() (ProviderLXDServer, error),
 ) environs.ProviderCredentials {
 	return environProviderCredentials{
 		certReadWriter: certReadWriter,
 		certGenerator:  certGenerator,
-		lookupHost:     lookupHost,
-		interfaceAddrs: interfaceAddrs,
+		lookup:         lookup,
 		newLocalServer: newLocalServer,
 	}
 }
