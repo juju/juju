@@ -101,15 +101,13 @@ type BaseSuiteUnpatched struct {
 	Provider  *environProvider
 	Env       *environ
 
-	Addresses []network.Address
-	Instance  *environInstance
-	Container *lxd.Container
-	InstName  string
-	//Hardware      *jujulxdclient.InstanceHardware
+	Addresses     []network.Address
+	Instance      *environInstance
+	Container     *lxd.Container
+	InstName      string
 	HWC           *instance.HardwareCharacteristics
 	Metadata      map[string]string
 	StartInstArgs environs.StartInstanceParams
-	//InstanceType  instances.InstanceType
 
 	Rules          []network.IngressRule
 	EndpointAddrs  []string
@@ -198,11 +196,6 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	userData, err := providerinit.ComposeUserData(instanceConfig, nil, lxdRenderer{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	//s.Hardware = &jujulxdclient.InstanceHardware{
-	//	Architecture: arch.ARM64,
-	//	NumCores:     1,
-	//	MemoryMB:     3750,
-	//}
 	var archName = arch.ARM64
 	var numCores uint64 = 1
 	var memoryMB uint64 = 3750
