@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -249,7 +248,6 @@ func (api *APIv5) Deploy(args params.ApplicationsDeployV5) (params.ErrorResults,
 // using the specified placement directives.
 // V6 deploy did not support devices, so pass through an empty map.
 func (api *APIv6) Deploy(args params.ApplicationsDeployV6) (params.ErrorResults, error) {
-	var noDefinedDevice map[string]devices.Constraints
 	var newArgs params.ApplicationsDeploy
 	for _, value := range args.Applications {
 		newArgs.Applications = append(newArgs.Applications, params.ApplicationDeploy{
@@ -263,7 +261,7 @@ func (api *APIv6) Deploy(args params.ApplicationsDeployV6) (params.ErrorResults,
 			Constraints:      value.Constraints,
 			Placement:        value.Placement,
 			Policy:           value.Policy,
-			Devices:          noDefinedDevice,
+			Devices:          nil, // set Devices to nil because v6 and lower versions do not support it
 			Storage:          value.Storage,
 			AttachStorage:    value.AttachStorage,
 			EndpointBindings: value.EndpointBindings,
