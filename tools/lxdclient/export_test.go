@@ -7,8 +7,6 @@ import (
 	"github.com/juju/testing"
 )
 
-var NewInstanceSummary = newInstanceSummary
-
 type (
 	RawInstanceClient rawInstanceClient
 	RawStorageClient  rawStorageClient

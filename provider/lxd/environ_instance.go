@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 // Instances returns the available instances in the environment that
@@ -76,16 +76,16 @@ func (env *environ) allInstances() ([]*environInstance, error) {
 
 // prefixedInstances returns instances with the specified prefix.
 func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error) {
-	instances, err := env.raw.Instances(prefix, lxdclient.AliveStatuses...)
+	containers, err := env.raw.AliveContainers(prefix)
 	err = errors.Trace(err)
 
-	// Turn lxdclient.Instance values into *environInstance values,
+	// Turn lxd.Container values into *environInstance values,
 	// whether or not we got an error.
 	var results []*environInstance
-	for _, base := range instances {
+	for _, c := range containers {
 		// If we don't make a copy then the same pointer is used for the
 		// base of all resulting instances.
-		copied := base
+		copied := c
 		inst := newInstance(&copied, env)
 		results = append(results, inst)
 	}
@@ -95,18 +95,18 @@ func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error)
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
 func (env *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
-	instances, err := env.raw.Instances("juju-", lxdclient.AliveStatuses...)
+	containers, err := env.raw.AliveContainers("juju-")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var results []instance.Id
-	for _, inst := range instances {
-		if inst.Metadata()[tags.JujuController] != controllerUUID {
+	for _, c := range containers {
+		if c.Metadata(tags.JujuController) != controllerUUID {
 			continue
 		}
-		if inst.Metadata()[tags.JujuIsController] == "true" {
-			results = append(results, instance.Id(inst.Name))
+		if c.Metadata(tags.JujuIsController) == "true" {
+			results = append(results, instance.Id(c.Name))
 		}
 	}
 	if len(results) == 0 {
@@ -134,7 +134,7 @@ func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUU
 	}
 
 	var failed []instance.Id
-	qualifiedKey := lxdclient.ResolveConfigKey(tags.JujuController, lxdclient.MetadataNamespace)
+	qualifiedKey := lxd.UserNamespacePrefix + tags.JujuController
 	for _, instance := range instances {
 		id := instance.Id()
 		err := env.raw.UpdateContainerConfig(string(id), map[string]string{qualifiedKey: controllerUUID})

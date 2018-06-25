@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 // MaintainInstance is specified in the InstanceBroker interface.
@@ -28,9 +27,9 @@ func (*environ) MaintainInstance(ctx context.ProviderCallContext, args environs.
 }
 
 // StartInstance implements environs.InstanceBroker.
-func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	// Start a new instance.
-
+func (env *environ) StartInstance(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+) (*environs.StartInstanceResult, error) {
 	series := args.Tools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", args.InstanceConfig.MachineId, series)
 
@@ -101,14 +100,9 @@ func (env *environ) getImageSources() ([]lxd.RemoteServer, error) {
 		// "your configuration is wrong" error, rather than silently
 		// changing it and having them get confused.
 		// https://github.com/lxc/lxd/issues/1763
-		if strings.HasPrefix(url, "http://") {
-			url = strings.TrimPrefix(url, "http://")
-			url = "https://" + url
-			logger.Debugf("LXD requires https://, using: %s", url)
-		}
 		remotes = append(remotes, lxd.RemoteServer{
 			Name:     source.Description(),
-			Host:     url,
+			Host:     lxd.EnsureHTTPS(url),
 			Protocol: lxd.SimpleStreamsProtocol,
 		})
 	}
@@ -121,7 +115,7 @@ func (env *environ) getImageSources() ([]lxd.RemoteServer, error) {
 func (env *environ) newRawInstance(
 	args environs.StartInstanceParams,
 	arch string,
-) (*lxdclient.Instance, error) {
+) (*lxd.Container, error) {
 	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -160,7 +154,6 @@ func (env *environ) newRawInstance(
 	}
 	defer cleanupCallback()
 
-	statusCallback(status.Allocating, "acquiring LXD image", nil)
 	series := args.InstanceConfig.Series
 	image, err := env.raw.FindImage(series, arch, imageSources, true, statusCallback)
 	if err != nil {
@@ -168,52 +161,37 @@ func (env *environ) newRawInstance(
 	}
 	cleanupCallback() // Clean out any long line of completed download status
 
-	cloudcfg, err := cloudinit.New(series)
+	cloudCfg, err := cloudinit.New(series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	metadata, err := getMetadata(cloudcfg, args)
+	cfg, err := getContainerConfig(cloudCfg, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Use the env ID for the network name (instead of default)?
-	// TODO(ericsnow) Make the network name configurable?
-	// TODO(ericsnow) Support multiple networks?
-	// TODO(ericsnow) Use a different net interface name? Configurable?
-	instSpec := lxdclient.InstanceSpec{
-		Name: hostname,
-		//Type:              spec.InstanceType.Name,
-		//Disks:             getDisks(spec, args.Constraints),
-		//NetworkInterfaces: []string{"ExternalNAT"},
-		Metadata: metadata,
-		Profiles: []string{
-			//TODO(wwitzel3) allow the user to specify lxc profiles to apply. This allows the
-			// user to setup any custom devices order config settings for their environment.
-			// Also we must ensure that a device with the parent: lxcbr0 exists in at least
-			// one of the profiles.
-			"default",
-			env.profileName(),
-		},
-		ImageData: image,
-		// Network is omitted (left empty).
+	cSpec := lxd.ContainerSpec{
+		Name:     hostname,
+		Profiles: []string{"default", env.profileName()},
+		Image:    image,
+		Config:   cfg,
+		// TODO (manadart 2018-05-30): This is where we need to set network devices from incoming config.
+		Devices: nil,
 	}
 
-	logger.Infof("starting instance %q (image %q)...", instSpec.Name, instSpec.Image)
-
-	statusCallback(status.Allocating, "preparing image", nil)
-	inst, err := env.raw.AddInstance(instSpec)
+	statusCallback(status.Allocating, "Creating container", nil)
+	container, err := env.raw.CreateContainerFromSpec(cSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	statusCallback(status.Running, "container started", nil)
-	return inst, nil
+	statusCallback(status.Running, "Container started", nil)
+	return container, nil
 }
 
-// getMetadata builds the raw "user-defined" metadata for the new
+// getContainerConfig builds the raw "user-defined" metadata for the new
 // instance (relative to the provided args) and returns it.
-func getMetadata(cloudcfg cloudinit.CloudConfig, args environs.StartInstanceParams) (map[string]string, error) {
+func getContainerConfig(cloudcfg cloudinit.CloudConfig, args environs.StartInstanceParams) (map[string]string, error) {
 	renderer := lxdRenderer{}
 	uncompressed, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, renderer)
 	if err != nil {
@@ -226,25 +204,20 @@ func getMetadata(cloudcfg cloudinit.CloudConfig, args environs.StartInstancePara
 	// as we have to b64encode the userdata for GCE.  Until that is
 	// resolved we simply pass the plain text.
 	//compressed := utils.Gzip(compressed)
-	userdata := string(uncompressed)
-
+	userData := string(uncompressed)
 	metadata := map[string]string{
-		// store the cloud-config userdata for cloud-init.
-		metadataKeyCloudInit: userdata,
+		// Store the cloud-config user data for cloud-init.
+		lxd.UserDataKey: userData,
 	}
 	for k, v := range args.InstanceConfig.Tags {
 		if !strings.HasPrefix(k, tags.JujuTagPrefix) {
-			// Since some metadata is interpreted by LXD,
-			// we cannot allow arbitrary tags to be passed
-			// in by the user. We currently only pass through
-			// Juju-defined tags.
-			//
-			// TODO(axw) 2016-04-11 #1568666
-			// We should reject non-juju tags in config validation.
+			// Since some metadata is interpreted by LXD, we cannot allow
+			// arbitrary tags to be passed in by the user.
+			// We currently only pass through Juju-defined tags.
 			logger.Debugf("ignoring non-juju tag: %s=%s", k, v)
 			continue
 		}
-		metadata[k] = v
+		metadata[lxd.UserNamespacePrefix+k] = v
 	}
 
 	return metadata, nil
@@ -255,15 +228,15 @@ func getMetadata(cloudcfg cloudinit.CloudConfig, args environs.StartInstancePara
 func (env *environ) getHardwareCharacteristics(
 	args environs.StartInstanceParams, inst *environInstance,
 ) *instance.HardwareCharacteristics {
-	raw := inst.raw.Hardware
+	container := inst.container
 
-	archStr := raw.Architecture
+	archStr := container.Arch()
 	if archStr == "unknown" || !arch.IsSupportedArch(archStr) {
 		// TODO(ericsnow) This special-case should be improved.
 		archStr = arch.HostArch()
 	}
-	cores := uint64(raw.NumCores)
-	mem := uint64(raw.MemoryMB)
+	cores := uint64(container.CPUs())
+	mem := uint64(container.Mem())
 	return &instance.HardwareCharacteristics{
 		Arch:     &archStr,
 		CpuCores: &cores,
@@ -286,11 +259,14 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instance.In
 
 // StopInstances implements environs.InstanceBroker.
 func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...instance.Id) error {
-	var ids []string
-	for _, id := range instances {
-		ids = append(ids, string(id))
-	}
 	prefix := env.namespace.Prefix()
-	err := env.raw.RemoveInstances(prefix, ids...)
-	return errors.Trace(err)
+	var names []string
+	for _, id := range instances {
+		name := string(id)
+		if strings.HasPrefix(name, prefix) {
+			names = append(names, name)
+		}
+	}
+
+	return errors.Trace(env.raw.RemoveContainers(names))
 }
