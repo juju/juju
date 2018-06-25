@@ -1007,5 +1007,10 @@ func closeIter(iter mongo.Iterator, errOut *error, message string) {
 
 func cleanupUpgradeSeriesLock(machine *Machine) error {
 	logger.Infof("removing any upgrade series locks for machine, %s", machine)
-	return machine.RemoveUpgradeSeriesLock()
+	err := machine.RemoveUpgradeSeriesLock()
+	// Do not return an error
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	return err
 }
