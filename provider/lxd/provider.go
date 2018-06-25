@@ -15,7 +15,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	client "github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
 	"gopkg.in/juju/environschema.v1"
 
@@ -62,11 +61,11 @@ var cloudSchema = &jsonschema.Schema{
 func NewProvider() environs.CloudEnvironProvider {
 	return &environProvider{
 		ProviderCredentials: environProviderCredentials{
-			certReadWriter:  stdlibLXDCertificateReadWriter{},
-			generateMemCert: shared.GenerateMemCert,
-			lookupHost:      net.LookupHost,
-			interfaceAddrs:  net.InterfaceAddrs,
-			newLocalServer:  createLXDServer,
+			certReadWriter: stdlibLXDCertificateReadWriter{},
+			certGenerator:  memLXDCertificateGenerator{},
+			lookupHost:     net.LookupHost,
+			interfaceAddrs: net.InterfaceAddrs,
+			newLocalServer: createLXDServer,
 		},
 		interfaceAddress: utils.GetAddressForInterface,
 		newLocalServer:   createLXDServer,

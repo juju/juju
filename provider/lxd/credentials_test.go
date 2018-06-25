@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/lxc/lxd/shared"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -38,13 +37,15 @@ func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) (environs.Env
 	environs.ProviderCredentials,
 	*lxd.MockProviderLXDServer,
 	*lxd.MockLXDCertificateReadWriter,
+	*lxd.MockLXDCertificateGenerator,
 ) {
 	server := lxd.NewMockProviderLXDServer(ctrl)
 
-	certsReadWriter := lxd.NewMockLXDCertificateReadWriter(ctrl)
+	certReadWriter := lxd.NewMockLXDCertificateReadWriter(ctrl)
+	certGenerator := lxd.NewMockLXDCertificateGenerator(ctrl)
 	creds := lxd.NewProviderCredentials(
-		certsReadWriter,
-		shared.GenerateMemCert,
+		certReadWriter,
+		certGenerator,
 		net.LookupHost,
 		net.InterfaceAddrs,
 		func() (lxd.ProviderLXDServer, error) {
@@ -55,14 +56,14 @@ func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) (environs.Env
 	provider := lxd.NewProviderWithMocks(creds, utils.GetAddressForInterface, func() (lxd.ProviderLXDServer, error) {
 		return server, nil
 	})
-	return provider, creds, server, certsReadWriter
+	return provider, creds, server, certReadWriter, certGenerator
 }
 
 func (s *credentialsSuite) TestDetectCredentialsUsesJujuCert(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	_, provider, server, certsIO := s.createProvider(ctrl)
+	_, provider, server, certsIO, _ := s.createProvider(ctrl)
 
 	server.EXPECT().GetCertificate(gomock.Any()).Return(nil, "", nil)
 	server.EXPECT().GetServerEnvironmentCertificate().Return("server-cert", nil)
@@ -94,7 +95,7 @@ func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuCert(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	_, provider, _, certsIO := s.createProvider(ctrl)
+	_, provider, _, certsIO, _ := s.createProvider(ctrl)
 
 	path := osenv.JujuXDGDataHomePath("lxd")
 	certsIO.EXPECT().Read(path).Return(nil, nil, errors.NotValidf("certs"))
@@ -107,7 +108,7 @@ func (s *credentialsSuite) TestDetectCredentialsUsesLXCCert(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	_, provider, server, certsIO := s.createProvider(ctrl)
+	_, provider, server, certsIO, _ := s.createProvider(ctrl)
 
 	server.EXPECT().GetCertificate(gomock.Any()).Return(nil, "", nil)
 	server.EXPECT().GetServerEnvironmentCertificate().Return("server-cert", nil)
@@ -142,7 +143,7 @@ func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuAndLXCCert(c *gc.C)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	_, provider, _, certsIO := s.createProvider(ctrl)
+	_, provider, _, certsIO, _ := s.createProvider(ctrl)
 
 	path := osenv.JujuXDGDataHomePath("lxd")
 	certsIO.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
@@ -154,23 +155,29 @@ func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuAndLXCCert(c *gc.C)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "certs not valid")
 }
 
-/*
-
 func (s *credentialsSuite) TestDetectCredentialsGeneratesCert(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	_, provider, server, _ := s.createProvider(ctrl)
+	_, provider, server, certsIO, certsGen := s.createProvider(ctrl)
 
-	exp := server.EXPECT()
-	exp.GetCertificate(gomock.Any()).Return(nil, "", nil)
-	exp.GetServerEnvironmentCertificate().Return("server-cert", nil)
+	server.EXPECT().GetCertificate(gomock.Any()).Return(nil, "", nil)
+	server.EXPECT().GetServerEnvironmentCertificate().Return("server-cert", nil)
+
+	path := osenv.JujuXDGDataHomePath("lxd")
+	certsIO.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
+	certsIO.EXPECT().Write(path, []byte(coretesting.CACert), []byte(coretesting.CAKey)).Return(nil)
+
+	path = filepath.Join(utils.Home(), ".config", "lxc")
+	certsIO.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
+
+	certsGen.EXPECT().Generate(true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
 
 	credential := cloud.NewCredential(
 		cloud.CertificateAuthType,
 		map[string]string{
-			"client-cert": coretesting.CACert + "generated",
-			"client-key":  coretesting.CAKey + "generated",
+			"client-cert": coretesting.CACert,
+			"client-key":  coretesting.CAKey,
 			"server-cert": "server-cert",
 		},
 	)
@@ -183,17 +190,66 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCert(c *gc.C) {
 			"localhost": credential,
 		},
 	})
-
-	// The cert/key pair should have been cached in the juju/lxd dir.
-	xdg := osenv.JujuXDGDataHomeDir()
-	content, err := ioutil.ReadFile(filepath.Join(xdg, "lxd/client.crt"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(content), gc.Equals, coretesting.CACert+"generated")
-	content, err = ioutil.ReadFile(filepath.Join(xdg, "lxd/client.key"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(content), gc.Equals, coretesting.CAKey+"generated")
 }
 
+func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToWriteOnError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	_, provider, _, certsIO, certsGen := s.createProvider(ctrl)
+
+	path := osenv.JujuXDGDataHomePath("lxd")
+	certsIO.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
+
+	path = filepath.Join(utils.Home(), ".config", "lxc")
+	certsIO.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
+
+	certsGen.EXPECT().Generate(true).Return(nil, nil, errors.Errorf("bad"))
+
+	credential := cloud.NewCredential(
+		cloud.CertificateAuthType,
+		map[string]string{
+			"client-cert": coretesting.CACert,
+			"client-key":  coretesting.CAKey,
+			"server-cert": "server-cert",
+		},
+	)
+	credential.Label = `LXD credential "localhost"`
+
+	_, err := provider.DetectCredentials()
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "bad")
+}
+
+func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToGetCertificateOnError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	_, provider, _, certsIO, certsGen := s.createProvider(ctrl)
+
+	path := osenv.JujuXDGDataHomePath("lxd")
+	certsIO.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
+	certsIO.EXPECT().Write(path, []byte(coretesting.CACert), []byte(coretesting.CAKey)).Return(errors.Errorf("bad"))
+
+	path = filepath.Join(utils.Home(), ".config", "lxc")
+	certsIO.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
+
+	certsGen.EXPECT().Generate(true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
+
+	credential := cloud.NewCredential(
+		cloud.CertificateAuthType,
+		map[string]string{
+			"client-cert": coretesting.CACert,
+			"client-key":  coretesting.CAKey,
+			"server-cert": "server-cert",
+		},
+	)
+	credential.Label = `LXD credential "localhost"`
+
+	_, err := provider.DetectCredentials()
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "bad")
+}
+
+/*
 func (s *credentialsSuite) TestFinalizeCredentialLocal(c *gc.C) {
 	cert, _ := s.TestingCert(c)
 	out, err := s.Provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
@@ -218,7 +274,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocal(c *gc.C) {
 		"ServerStatus",
 	)
 }
-
+/*
 func (s *credentialsSuite) TestFinalizeCredentialLocalAddCert(c *gc.C) {
 	s.Stub.SetErrors(errors.New("not found"))
 	cert, _ := s.TestingCert(c)

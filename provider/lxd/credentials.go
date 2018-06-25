@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/container/lxd"
@@ -34,7 +35,7 @@ const (
 
 // LXDCertificateReadWriter groups methods that is required to read and write
 // certificates at a given path.
-//go:generate mockgen -package lxd -destination credentials_mock_test.go github.com/juju/juju/provider/lxd LXDCertificateReadWriter
+//go:generate mockgen -package lxd -destination credentials_mock_test.go github.com/juju/juju/provider/lxd LXDCertificateReadWriter,LXDCertificateGenerator
 type LXDCertificateReadWriter interface {
 	// Read takes a path and returns both a cert and key PEM.
 	// Returns an error if there was an issue reading the certs.
@@ -45,13 +46,20 @@ type LXDCertificateReadWriter interface {
 	Write(path string, certPEM, keyPEM []byte) error
 }
 
+// LXDCertificateGenerator groups methods for generating a new certificate
+type LXDCertificateGenerator interface {
+	// Generate creates client or server certificate and key pair,
+	// returning them as byte arrays in memory.
+	Generate(client bool) (certPEM, keyPEM []byte, err error)
+}
+
 // environProviderCredentials implements environs.ProviderCredentials.
 type environProviderCredentials struct {
-	certReadWriter  LXDCertificateReadWriter
-	generateMemCert func(bool) ([]byte, []byte, error)
-	lookupHost      func(string) ([]string, error)
-	interfaceAddrs  func() ([]net.Addr, error)
-	newLocalServer  func() (ProviderLXDServer, error)
+	certReadWriter LXDCertificateReadWriter
+	certGenerator  LXDCertificateGenerator
+	lookupHost     func(string) ([]string, error)
+	interfaceAddrs func() ([]net.Addr, error)
+	newLocalServer func() (ProviderLXDServer, error)
 }
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
@@ -134,7 +142,7 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 	// No certs were found, so generate one and cache it in the
 	// Juju XDG_DATA dir. We cache the certificate so that we
 	// avoid uploading a new certificate each time we bootstrap.
-	certPEM, keyPEM, err = p.generateMemCert(true)
+	certPEM, keyPEM, err = p.certGenerator.Generate(true)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -351,6 +359,14 @@ func (stdlibLXDCertificateReadWriter) Write(path string, certPEM, keyPEM []byte)
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// memLXDCertificateGenerator is the default implementation for generating a
+// certificate if it's not found on disk.
+type memLXDCertificateGenerator struct{}
+
+func (memLXDCertificateGenerator) Generate(client bool) (certPEM, keyPEM []byte, err error) {
+	return shared.GenerateMemCert(client)
 }
 
 func endpointURL(endpoint string) (*url.URL, error) {

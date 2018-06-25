@@ -29,17 +29,17 @@ func NewProviderWithMocks(
 
 func NewProviderCredentials(
 	certReadWriter LXDCertificateReadWriter,
-	generateMemCert func(bool) ([]byte, []byte, error),
+	certGenerator LXDCertificateGenerator,
 	lookupHost func(string) ([]string, error),
 	interfaceAddrs func() ([]net.Addr, error),
 	newLocalServer func() (ProviderLXDServer, error),
 ) environs.ProviderCredentials {
 	return environProviderCredentials{
-		certReadWriter:  certReadWriter,
-		generateMemCert: generateMemCert,
-		lookupHost:      lookupHost,
-		interfaceAddrs:  interfaceAddrs,
-		newLocalServer:  newLocalServer,
+		certReadWriter: certReadWriter,
+		certGenerator:  certGenerator,
+		lookupHost:     lookupHost,
+		interfaceAddrs: interfaceAddrs,
+		newLocalServer: newLocalServer,
 	}
 }
 
