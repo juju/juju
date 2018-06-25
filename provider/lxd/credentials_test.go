@@ -155,44 +155,6 @@ func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuAndLXCCert(c *gc.C)
 }
 
 /*
-func (s *credentialsSuite) TestDetectCredentialsUsesJujuLXDCert(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	_, provider, server, _ := s.createProvider(ctrl)
-
-	exp := server.EXPECT()
-	exp.GetCertificate(gomock.Any()).Return(nil, "", nil)
-	exp.GetServerEnvironmentCertificate().Return("server-cert", nil)
-
-	// If there's a keypair for both the LXC client and Juju, we will
-	// always pick the Juju one.
-	home := c.MkDir()
-	utils.SetHome(home)
-	xdg := osenv.JujuXDGDataHomeDir()
-	s.writeFile(c, filepath.Join(home, ".config/lxc/client.crt"), coretesting.CACert+"lxc-client")
-	s.writeFile(c, filepath.Join(home, ".config/lxc/client.key"), coretesting.CAKey+"lxc-client")
-	s.writeFile(c, filepath.Join(xdg, "lxd/client.crt"), coretesting.CACert+"juju-client")
-	s.writeFile(c, filepath.Join(xdg, "lxd/client.key"), coretesting.CAKey+"juju-client")
-
-	credential := cloud.NewCredential(
-		cloud.CertificateAuthType,
-		map[string]string{
-			"client-cert": coretesting.CACert + "juju-client",
-			"client-key":  coretesting.CAKey + "juju-client",
-			"server-cert": "server-cert",
-		},
-	)
-	credential.Label = `LXD credential "localhost"`
-
-	credentials, err := provider.DetectCredentials()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
-		AuthCredentials: map[string]cloud.Credential{
-			"localhost": credential,
-		},
-	})
-}
 
 func (s *credentialsSuite) TestDetectCredentialsGeneratesCert(c *gc.C) {
 	ctrl := gomock.NewController(c)
