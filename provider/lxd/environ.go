@@ -99,7 +99,7 @@ func (env *environ) initProfile() error {
 		return nil
 	}
 
-	return env.raw.CreateProfile(env.profileName(), defaultProfileConfig)
+	return env.raw.CreateProfileWithConfig(env.profileName(), defaultProfileConfig)
 }
 
 func (env *environ) profileName() string {

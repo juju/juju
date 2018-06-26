@@ -28,7 +28,6 @@ import (
 // GoMock, at which point rawProvider is replaced with the new server.
 type rawProvider struct {
 	newServer
-	lxdProfiles
 	lxdStorage
 
 	remote jujulxdclient.Remote
@@ -51,10 +50,7 @@ type newServer interface {
 	FilterContainers(prefix string, statuses ...string) ([]lxd.Container, error)
 	CreateContainerFromSpec(spec lxd.ContainerSpec) (*lxd.Container, error)
 	WriteContainer(*lxd.Container) error
-}
-
-type lxdProfiles interface {
-	CreateProfile(string, map[string]string) error
+	CreateProfileWithConfig(string, map[string]string) error
 	HasProfile(string) (bool, error)
 }
 
@@ -102,10 +98,9 @@ func newRawProviderFromConfig(config jujulxdclient.Config) (*rawProvider, error)
 		return nil, errors.Trace(err)
 	}
 	return &rawProvider{
-		newServer:   client,
-		lxdProfiles: client,
-		lxdStorage:  client,
-		remote:      config.Remote,
+		newServer:  client,
+		lxdStorage: client,
+		remote:     config.Remote,
 	}, nil
 }
 
