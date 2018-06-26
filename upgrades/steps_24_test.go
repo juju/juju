@@ -49,3 +49,8 @@ func (s *steps24Suite) TestCloudModelCounts(c *gc.C) {
 	// Logic for step itself is tested in state package.
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
+func (s *steps24Suite) TestBootstrapRaft(c *gc.C) {
+	step := findStateStep(c, v24, "bootstrap raft cluster")
+	// Logic for step itself is tested in raft_test.go.
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.Controller})
+}

@@ -36,7 +36,7 @@ func dummySampleConfig() testing.Attrs {
 }
 
 type dummyProvider struct {
-	environs.EnvironProvider
+	environs.CloudEnvironProvider
 }
 
 func (s *suite) TestRegisterProvider(c *gc.C) {

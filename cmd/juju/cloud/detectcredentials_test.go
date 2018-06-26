@@ -32,7 +32,7 @@ type detectCredentialsSuite struct {
 var _ = gc.Suite(&detectCredentialsSuite{})
 
 type mockProvider struct {
-	environs.EnvironProvider
+	environs.CloudEnvironProvider
 	detectedCreds *jujucloud.CloudCredential
 	credSchemas   *map[jujucloud.AuthType]jujucloud.CredentialSchema
 }

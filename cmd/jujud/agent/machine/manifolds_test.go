@@ -534,7 +534,12 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"raft-enabled-flag",
 		"raft-transport",
 		"state",
-		"state-config-watcher"},
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 
 	"raft-backstop": {
 		"agent",
@@ -547,7 +552,12 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"raft-enabled-flag",
 		"raft-transport",
 		"state",
-		"state-config-watcher"},
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 
 	"raft-clusterer": {
 		"agent",
@@ -561,7 +571,12 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"raft-leader-flag",
 		"raft-transport",
 		"state",
-		"state-config-watcher"},
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 
 	"raft-enabled-flag": {
 		"agent",
@@ -580,7 +595,12 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"raft-enabled-flag",
 		"raft-transport",
 		"state",
-		"state-config-watcher"},
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 
 	"raft-transport": {
 		"agent",
@@ -591,7 +611,12 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"is-controller-flag",
 		"raft-enabled-flag",
 		"state",
-		"state-config-watcher"},
+		"state-config-watcher",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 
 	"reboot-executor": {
 		"agent",

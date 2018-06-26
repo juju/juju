@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -16,12 +17,12 @@ import (
 // deploymentWorker informs the CAAS broker of how many pods to run and their spec, and
 // lets the broker figure out how to make that all happen.
 type deploymentWorker struct {
-	catacomb           catacomb.Catacomb
-	application        string
-	broker             ServiceBroker
-	applicationGetter  ApplicationGetter
-	applicationUpdater ApplicationUpdater
-	podSpecGetter      PodSpecGetter
+	catacomb               catacomb.Catacomb
+	application            string
+	broker                 ServiceBroker
+	applicationGetter      ApplicationGetter
+	applicationUpdater     ApplicationUpdater
+	provisioningInfoGetter ProvisioningInfoGetter
 
 	aliveUnitsChan <-chan []string
 }
@@ -29,18 +30,18 @@ type deploymentWorker struct {
 func newDeploymentWorker(
 	application string,
 	broker ServiceBroker,
-	podSpecGetter PodSpecGetter,
+	provisioningInfoGetter ProvisioningInfoGetter,
 	applicationGetter ApplicationGetter,
 	applicationUpdater ApplicationUpdater,
 	aliveUnitsChan <-chan []string,
 ) (worker.Worker, error) {
 	w := &deploymentWorker{
-		application:        application,
-		broker:             broker,
-		podSpecGetter:      podSpecGetter,
-		applicationGetter:  applicationGetter,
-		applicationUpdater: applicationUpdater,
-		aliveUnitsChan:     aliveUnitsChan,
+		application:            application,
+		broker:                 broker,
+		provisioningInfoGetter: provisioningInfoGetter,
+		applicationGetter:      applicationGetter,
+		applicationUpdater:     applicationUpdater,
+		aliveUnitsChan:         aliveUnitsChan,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -81,7 +82,7 @@ func (w *deploymentWorker) loop() error {
 		case aliveUnits = <-w.aliveUnitsChan:
 			if len(aliveUnits) > 0 && specChan == nil {
 				var err error
-				cw, err = w.podSpecGetter.WatchPodSpec(w.application)
+				cw, err = w.provisioningInfoGetter.WatchPodSpec(w.application)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -105,7 +106,7 @@ func (w *deploymentWorker) loop() error {
 		if !gotSpecNotify {
 			continue
 		}
-		specStr, err := w.podSpecGetter.PodSpec(w.application)
+		info, err := w.provisioningInfoGetter.ProvisioningInfo(w.application)
 		if errors.IsNotFound(err) {
 			// No pod spec defined for a unit yet;
 			// wait for one to be set.
@@ -113,6 +114,7 @@ func (w *deploymentWorker) loop() error {
 		} else if err != nil {
 			return errors.Trace(err)
 		}
+		specStr := info.PodSpec
 
 		numUnits := len(aliveUnits)
 		if numUnits == currentAliveCount && specStr == currentSpec {
@@ -130,7 +132,10 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Annotate(err, "cannot parse pod spec")
 		}
-		err = w.broker.EnsureService(w.application, spec, numUnits, appConfig)
+		serviceParams := &caas.ServiceParams{
+			PodSpec: spec,
+		}
+		err = w.broker.EnsureService(w.application, serviceParams, numUnits, appConfig)
 		if err != nil {
 			return errors.Trace(err)
 		}
