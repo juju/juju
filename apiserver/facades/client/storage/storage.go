@@ -716,7 +716,7 @@ func createFilesystemDetails(
 					stateInfo,
 				)
 			}
-			if names.IsValidMachine(attachment.Host().Id()) {
+			if attachment.Host().Kind() == names.MachineTagKind {
 				details.MachineAttachments[attachment.Host().String()] = attDetails
 			} else {
 				details.UnitAttachments[attachment.Host().String()] = attDetails

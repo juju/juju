@@ -933,9 +933,7 @@ func (s *StorageProvisionerAPIv3) FilesystemAttachmentParams(
 			ok         bool
 		)
 		if machineTag, ok = filesystemAttachment.Host().(names.MachineTag); !ok {
-			if err != nil {
-				return params.FilesystemAttachmentParams{}, errors.NotValidf("machine tag %q", filesystemAttachment.Host())
-			}
+			return params.FilesystemAttachmentParams{}, errors.NotValidf("machine tag %q", filesystemAttachment.Host())
 		}
 		instanceId, err := s.st.MachineInstanceId(machineTag)
 		if errors.IsNotProvisioned(err) {

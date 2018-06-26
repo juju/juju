@@ -472,7 +472,7 @@ func (sb *storageBackend) FilesystemAttachments(filesystem names.FilesystemTag) 
 func (sb *storageBackend) MachineFilesystemAttachments(machine names.MachineTag) ([]FilesystemAttachment, error) {
 	attachments, err := sb.filesystemAttachments(bson.D{{"machineid", machine.Id()}})
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting filesystem attachments for machine %q", machine.Id())
+		return nil, errors.Annotatef(err, "getting filesystem attachments for %q", names.ReadableString(machine))
 	}
 	return attachments, nil
 }
@@ -482,7 +482,7 @@ func (sb *storageBackend) MachineFilesystemAttachments(machine names.MachineTag)
 func (sb *storageBackend) UnitFilesystemAttachments(unit names.UnitTag) ([]FilesystemAttachment, error) {
 	attachments, err := sb.filesystemAttachments(bson.D{{"hostid", unit.Id()}})
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting filesystem attachments for unit %q", unit.Id())
+		return nil, errors.Annotatef(err, "getting filesystem attachments for %q", names.ReadableString(unit))
 	}
 	return attachments, nil
 }

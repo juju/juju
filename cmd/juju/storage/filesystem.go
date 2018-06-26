@@ -122,18 +122,28 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 		info.Volume = volumeId
 	}
 
-	if len(details.MachineAttachments) > 0 {
-		machineAttachments := make(map[string]FilesystemAttachment)
-		for machineTag, attachment := range details.MachineAttachments {
-			machineId, err := idFromTag(machineTag)
+	attachmentsFromDetails := func(
+		in map[string]params.FilesystemAttachmentDetails,
+		out map[string]FilesystemAttachment,
+	) error {
+		for tag, attachment := range in {
+			id, err := idFromTag(tag)
 			if err != nil {
-				return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
+				return errors.Trace(err)
 			}
-			machineAttachments[machineId] = FilesystemAttachment{
+			out[id] = FilesystemAttachment{
 				attachment.MountPoint,
 				attachment.ReadOnly,
 				string(attachment.Life),
 			}
+		}
+		return nil
+	}
+
+	if len(details.MachineAttachments) > 0 {
+		machineAttachments := make(map[string]FilesystemAttachment)
+		if err := attachmentsFromDetails(details.MachineAttachments, machineAttachments); err != nil {
+			return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
 		}
 		info.Attachments = &FilesystemAttachments{
 			Machines: machineAttachments,
@@ -141,16 +151,8 @@ func createFilesystemInfo(details params.FilesystemDetails) (names.FilesystemTag
 	}
 	if len(details.UnitAttachments) > 0 {
 		unitAttachments := make(map[string]FilesystemAttachment)
-		for unitTag, attachment := range details.UnitAttachments {
-			unitName, err := idFromTag(unitTag)
-			if err != nil {
-				return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
-			}
-			unitAttachments[unitName] = FilesystemAttachment{
-				attachment.MountPoint,
-				attachment.ReadOnly,
-				string(attachment.Life),
-			}
+		if err := attachmentsFromDetails(details.UnitAttachments, unitAttachments); err != nil {
+			return names.FilesystemTag{}, FilesystemInfo{}, errors.Trace(err)
 		}
 		if info.Attachments == nil {
 			info.Attachments = &FilesystemAttachments{}
