@@ -45,9 +45,19 @@ type environProvider struct {
 
 var cloudSchema = &jsonschema.Schema{
 	Type:     []jsonschema.Type{jsonschema.ObjectType},
-	Required: []string{cloud.EndpointKey},
-	Order:    []string{cloud.EndpointKey},
+	Required: []string{cloud.EndpointKey, cloud.AuthTypesKey},
+	// Order doesn't matter since there's only one thing to ask about.  Add
+	// order if this changes.
 	Properties: map[string]*jsonschema.Schema{
+		cloud.AuthTypesKey: {
+			// don't need a prompt, since there's only one choice.
+			Type: []jsonschema.Type{jsonschema.ArrayType},
+			Enum: []interface{}{
+				[]string{
+					string(cloud.CertificateAuthType),
+				},
+			},
+		},
 		cloud.EndpointKey: {
 			Singular: "the API endpoint url for the remote LXD cloud",
 			Type:     []jsonschema.Type{jsonschema.StringType},

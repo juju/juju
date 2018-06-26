@@ -120,7 +120,7 @@ func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
 	})
 }
 
-func (s *providerSuite) createProvider(ctrl *gomock.Controller) (environs.CloudFinalizer,
+func (s *providerSuite) createProvider(ctrl *gomock.Controller) (environs.EnvironProvider,
 	*testing.MockProviderCredentials,
 	*lxd.MockProviderLXDServer,
 ) {
@@ -130,7 +130,7 @@ func (s *providerSuite) createProvider(ctrl *gomock.Controller) (environs.CloudF
 	provider := lxd.NewProviderWithMocks(creds, utils.GetAddressForInterface, func() (lxd.ProviderLXDServer, error) {
 		return server, nil
 	})
-	return provider.(environs.CloudFinalizer), creds, server
+	return provider, creds, server
 }
 
 func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
@@ -142,12 +142,13 @@ func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
 	defer ctrl.Finish()
 
 	provider, _, server := s.createProvider(ctrl)
+	cloudFinalizer := provider.(environs.CloudFinalizer)
 
 	server.EXPECT().LocalBridgeName().Return("lxdbr0")
 	server.EXPECT().GetConnectionInfo().Return(nil, errors.New("not found"))
 
 	ctx := testing.NewMockFinalizeCloudContext(ctrl)
-	_, err := provider.FinalizeCloud(ctx, cloud.Cloud{
+	_, err := cloudFinalizer.FinalizeCloud(ctx, cloud.Cloud{
 		Name:      "foo",
 		Type:      "lxd",
 		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
@@ -197,7 +198,13 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 }
 
 func (s *providerSuite) TestCloudSchema(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	provider, _, _ := s.createProvider(ctrl)
+
 	config := `
+auth-types: [certificate]
 endpoint: http://foo.com/lxd
 `[1:]
 	var v interface{}
@@ -206,7 +213,7 @@ endpoint: http://foo.com/lxd
 	v, err = utils.ConformYAML(v)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.Provider.CloudSchema().Validate(v)
+	err = provider.CloudSchema().Validate(v)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
