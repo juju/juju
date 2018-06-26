@@ -185,7 +185,7 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 	f := factory.NewFactory(s.BackingState)
 	f.MakeMachine(c, &factory.MachineParams{
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{
 				Pool: "modelscoped",
 				Size: 1024,

@@ -773,6 +773,9 @@ func (s *MigrationSuite) TestFilesystemAttachmentDocFields(c *gc.C) {
 		"ModelUUID",
 		"DocID",
 		"Life",
+
+		// TODO(caas)
+		"Host",
 	)
 	migrated := set.NewStrings(
 		"Filesystem",

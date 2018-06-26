@@ -706,8 +706,12 @@ type FilesystemDetails struct {
 	Status EntityStatus `json:"status"`
 
 	// MachineAttachments contains a mapping from
-	// machine tag to filesystem attachment information.
+	// machine tag to filesystem attachment information (IAAS models).
 	MachineAttachments map[string]FilesystemAttachmentDetails `json:"machine-attachments,omitempty"`
+
+	// UnitAttachments contains a mapping from
+	// unit tag to filesystem attachment information (CAAS models).
+	UnitAttachments map[string]FilesystemAttachmentDetails `json:"unit-attachments,omitempty"`
 
 	// Storage contains details about the storage instance
 	// that the volume is assigned to, if any.

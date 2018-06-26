@@ -239,8 +239,8 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	nonce := "some-nonce"
 	id := instance.Id("some-id")
-	volumes := []state.MachineVolumeParams{{Volume: state.VolumeParams{Size: 1024}}}
-	filesystems := []state.MachineFilesystemParams{{
+	volumes := []state.HostVolumeParams{{Volume: state.VolumeParams{Size: 1024}}}
+	filesystems := []state.HostFilesystemParams{{
 		Filesystem: state.FilesystemParams{Pool: "loop", Size: 2048},
 	}}
 
@@ -288,7 +288,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	fsAttachments, err := sb.MachineFilesystemAttachments(machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fsAttachments, gc.HasLen, 1)
-	c.Assert(fsAttachments[0].Machine(), gc.Equals, machine.Tag())
+	c.Assert(fsAttachments[0].Host(), gc.Equals, machine.Tag())
 
 	saved, err := s.State.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)

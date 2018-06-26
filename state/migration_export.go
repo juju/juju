@@ -1909,9 +1909,7 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 	for _, doc := range fsAttachments {
 		va := filesystemAttachment{doc}
 		logger.Debugf("  attachment %#v", doc)
-		args := description.FilesystemAttachmentArgs{
-			Machine: va.Machine(),
-		}
+		var args description.FilesystemAttachmentArgs
 		if info, err := va.Info(); err == nil {
 			logger.Debugf("    info %#v", info)
 			args.Provisioned = true
@@ -1922,6 +1920,10 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 			logger.Debugf("    params %#v", params)
 			args.ReadOnly = params.ReadOnly
 			args.MountPoint = params.Location
+		}
+		// TODO(caas) - handle non-machine hosts
+		if m, ok := va.Host().(names.MachineTag); ok {
+			args.Machine = m
 		}
 		exFilesystem.AddAttachment(args)
 	}

@@ -1255,7 +1255,7 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 
 func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume:     state.VolumeParams{Size: 1234},
 			Attachment: state.VolumeAttachmentParams{ReadOnly: true},
 		}, {
@@ -1325,7 +1325,7 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 
 func (s *MigrationImportSuite) TestFilesystems(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Filesystems: []state.MachineFilesystemParams{{
+		Filesystems: []state.HostFilesystemParams{{
 			Filesystem: state.FilesystemParams{Size: 1234},
 			Attachment: state.FilesystemAttachmentParams{
 				Location: "location",

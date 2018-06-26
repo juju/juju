@@ -263,7 +263,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	template := state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{
 				Pool: "loop-pool",
 				Size: 123,

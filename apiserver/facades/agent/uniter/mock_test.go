@@ -18,7 +18,7 @@ type fakeStorage struct {
 	uniter.StorageFilesystemInterface
 	storageInstance        func(names.StorageTag) (state.StorageInstance, error)
 	storageInstanceVolume  func(names.StorageTag) (state.Volume, error)
-	volumeAttachment       func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
+	volumeAttachment       func(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
 	blockDevices           func(names.MachineTag) ([]state.BlockDeviceInfo, error)
 	watchVolumeAttachment  func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 	watchBlockDevices      func(names.MachineTag) state.NotifyWatcher
@@ -35,7 +35,7 @@ func (s *fakeStorage) StorageInstanceVolume(tag names.StorageTag) (state.Volume,
 	return s.storageInstanceVolume(tag)
 }
 
-func (s *fakeStorage) VolumeAttachment(m names.MachineTag, v names.VolumeTag) (state.VolumeAttachment, error) {
+func (s *fakeStorage) VolumeAttachment(m names.Tag, v names.VolumeTag) (state.VolumeAttachment, error) {
 	s.MethodCall(s, "VolumeAttachment", m, v)
 	return s.volumeAttachment(m, v)
 }

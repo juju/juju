@@ -88,8 +88,8 @@ type MachineParams struct {
 	InstanceId      instance.Id
 	Characteristics *instance.HardwareCharacteristics
 	Addresses       []network.Address
-	Volumes         []state.MachineVolumeParams
-	Filesystems     []state.MachineFilesystemParams
+	Volumes         []state.HostVolumeParams
+	Filesystems     []state.HostFilesystemParams
 }
 
 // ApplicationParams is used when specifying parameters for a new application.

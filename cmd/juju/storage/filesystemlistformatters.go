@@ -22,8 +22,8 @@ func formatFilesystemListTabular(writer io.Writer, infos map[string]FilesystemIn
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
 	print("[Filesystems]")
-	print("Machine", "Unit", "Storage", "Id", "Volume", "Provider id", "Mountpoint", "Size", "State", "Message")
 
+	haveMachines := false
 	filesystemAttachmentInfos := make(filesystemAttachmentInfos, 0, len(infos))
 	for filesystemId, info := range infos {
 		filesystemAttachmentInfo := filesystemAttachmentInfo{
@@ -42,7 +42,7 @@ func formatFilesystemListTabular(writer io.Writer, infos map[string]FilesystemIn
 		for machineId, machineInfo := range info.Attachments.Machines {
 			filesystemAttachmentInfo := filesystemAttachmentInfo
 			filesystemAttachmentInfo.MachineId = machineId
-			filesystemAttachmentInfo.MachineFilesystemAttachment = machineInfo
+			filesystemAttachmentInfo.FilesystemAttachment = machineInfo
 			for unitId, unitInfo := range info.Attachments.Units {
 				if unitInfo.MachineId == machineId {
 					filesystemAttachmentInfo.UnitId = unitId
@@ -50,22 +50,45 @@ func formatFilesystemListTabular(writer io.Writer, infos map[string]FilesystemIn
 					break
 				}
 			}
+			haveMachines = true
+			filesystemAttachmentInfos = append(filesystemAttachmentInfos, filesystemAttachmentInfo)
+		}
+
+		for _, machineInfo := range info.Attachments.Containers {
+			filesystemAttachmentInfo := filesystemAttachmentInfo
+			filesystemAttachmentInfo.FilesystemAttachment = machineInfo
+			// TODO(caas) - fill out details
 			filesystemAttachmentInfos = append(filesystemAttachmentInfos, filesystemAttachmentInfo)
 		}
 	}
 	sort.Sort(filesystemAttachmentInfos)
+
+	if haveMachines {
+		print("Machine", "Unit", "Storage", "Id", "Volume", "Provider id", "Mountpoint", "Size", "State", "Message")
+	} else {
+		print("Unit", "Storage", "Id", "Volume", "Provider id", "Mountpoint", "Size", "State", "Message")
+	}
 
 	for _, info := range filesystemAttachmentInfos {
 		var size string
 		if info.Size > 0 {
 			size = humanize.IBytes(info.Size * humanize.MiByte)
 		}
-		print(
-			info.MachineId, info.UnitId, info.Storage,
-			info.FilesystemId, info.Volume, info.ProviderFilesystemId,
-			info.MountPoint, size,
-			string(info.Status.Current), info.Status.Message,
-		)
+		if haveMachines {
+			print(
+				info.MachineId, info.UnitId, info.Storage,
+				info.FilesystemId, info.Volume, info.ProviderFilesystemId,
+				info.MountPoint, size,
+				string(info.Status.Current), info.Status.Message,
+			)
+		} else {
+			print(
+				info.UnitId, info.Storage,
+				info.FilesystemId, info.Volume, info.ProviderFilesystemId,
+				info.MountPoint, size,
+				string(info.Status.Current), info.Status.Message,
+			)
+		}
 	}
 
 	return tw.Flush()
@@ -76,7 +99,7 @@ type filesystemAttachmentInfo struct {
 	FilesystemInfo
 
 	MachineId string
-	MachineFilesystemAttachment
+	FilesystemAttachment
 
 	UnitId string
 	UnitStorageAttachment

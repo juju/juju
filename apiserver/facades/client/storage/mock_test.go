@@ -43,9 +43,9 @@ type mockStorageAccessor struct {
 	allStorageInstances                 func() ([]state.StorageInstance, error)
 	storageInstanceAttachments          func(names.StorageTag) ([]state.StorageAttachment, error)
 	storageInstanceVolume               func(names.StorageTag) (state.Volume, error)
-	volumeAttachment                    func(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
+	volumeAttachment                    func(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
 	storageInstanceFilesystem           func(names.StorageTag) (state.Filesystem, error)
-	storageInstanceFilesystemAttachment func(m names.MachineTag, f names.FilesystemTag) (state.FilesystemAttachment, error)
+	storageInstanceFilesystemAttachment func(m names.Tag, f names.FilesystemTag) (state.FilesystemAttachment, error)
 	volume                              func(tag names.VolumeTag) (state.Volume, error)
 	machineVolumeAttachments            func(machine names.MachineTag) ([]state.VolumeAttachment, error)
 	volumeAttachments                   func(volume names.VolumeTag) ([]state.VolumeAttachment, error)
@@ -83,7 +83,7 @@ func (st *mockStorageAccessor) StorageAttachments(tag names.StorageTag) ([]state
 	return st.storageInstanceAttachments(tag)
 }
 
-func (st *mockStorageAccessor) FilesystemAttachment(m names.MachineTag, f names.FilesystemTag) (state.FilesystemAttachment, error) {
+func (st *mockStorageAccessor) FilesystemAttachment(m names.Tag, f names.FilesystemTag) (state.FilesystemAttachment, error) {
 	return st.storageInstanceFilesystemAttachment(m, f)
 }
 
@@ -95,7 +95,7 @@ func (st *mockStorageAccessor) StorageInstanceVolume(s names.StorageTag) (state.
 	return st.storageInstanceVolume(s)
 }
 
-func (st *mockStorageAccessor) VolumeAttachment(m names.MachineTag, v names.VolumeTag) (state.VolumeAttachment, error) {
+func (st *mockStorageAccessor) VolumeAttachment(m names.Tag, v names.VolumeTag) (state.VolumeAttachment, error) {
 	return st.volumeAttachment(m, v)
 }
 
@@ -261,7 +261,7 @@ func (m *mockFilesystemAttachment) Filesystem() names.FilesystemTag {
 	return m.filesystem
 }
 
-func (m *mockFilesystemAttachment) Machine() names.MachineTag {
+func (m *mockFilesystemAttachment) Host() names.Tag {
 	return m.machine
 }
 

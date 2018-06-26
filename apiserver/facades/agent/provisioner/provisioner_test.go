@@ -1179,7 +1179,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	volumesMachine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Size: 1000},
 		}},
 	})

@@ -78,25 +78,25 @@ type StorageBackend interface {
 	DetachStorage(names.StorageTag, names.UnitTag) error
 
 	Filesystem(names.FilesystemTag) (state.Filesystem, error)
-	FilesystemAttachment(names.MachineTag, names.FilesystemTag) (state.FilesystemAttachment, error)
+	FilesystemAttachment(names.Tag, names.FilesystemTag) (state.FilesystemAttachment, error)
 
 	Volume(names.VolumeTag) (state.Volume, error)
-	VolumeAttachment(names.MachineTag, names.VolumeTag) (state.VolumeAttachment, error)
+	VolumeAttachment(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
 	VolumeAttachments(names.VolumeTag) ([]state.VolumeAttachment, error)
 
 	RemoveFilesystem(names.FilesystemTag) error
-	RemoveFilesystemAttachment(names.MachineTag, names.FilesystemTag) error
+	RemoveFilesystemAttachment(names.Tag, names.FilesystemTag) error
 	RemoveVolume(names.VolumeTag) error
 	RemoveVolumeAttachment(names.MachineTag, names.VolumeTag) error
-	DetachFilesystem(names.MachineTag, names.FilesystemTag) error
+	DetachFilesystem(names.Tag, names.FilesystemTag) error
 	DestroyFilesystem(names.FilesystemTag) error
-	DetachVolume(names.MachineTag, names.VolumeTag) error
+	DetachVolume(names.Tag, names.VolumeTag) error
 	DestroyVolume(names.VolumeTag) error
 
 	SetFilesystemInfo(names.FilesystemTag, state.FilesystemInfo) error
-	SetFilesystemAttachmentInfo(names.MachineTag, names.FilesystemTag, state.FilesystemAttachmentInfo) error
+	SetFilesystemAttachmentInfo(names.Tag, names.FilesystemTag, state.FilesystemAttachmentInfo) error
 	SetVolumeInfo(names.VolumeTag, state.VolumeInfo) error
-	SetVolumeAttachmentInfo(names.MachineTag, names.VolumeTag, state.VolumeAttachmentInfo) error
+	SetVolumeAttachmentInfo(names.Tag, names.VolumeTag, state.VolumeAttachmentInfo) error
 }
 
 // TODO - CAAS(ericclaudejones): This should contain state alone, model will be

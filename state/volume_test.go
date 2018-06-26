@@ -192,7 +192,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 		InstanceId:              "inst-id",
 		Nonce:                   "nonce",
 		Jobs:                    oneJob,
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: volumeParams,
 		}},
 	}
@@ -476,7 +476,7 @@ func (s *VolumeStateSuite) assertCreateVolumes(c *gc.C) (_ *state.Machine, all, 
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "persistent-block", Size: 1024},
 		}, {
 			Volume: state.VolumeParams{Pool: "loop-pool", Size: 2048},
@@ -765,7 +765,7 @@ func (s *VolumeStateSuite) TestRemoveLastVolumeAttachmentConcurrently(c *gc.C) {
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentNotFound(c *gc.C) {
 	err := s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("42"), names.NewVolumeTag("42"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `removing attachment of volume 42 from machine 42: volume "42" on machine "42" not found`)
+	c.Assert(err, gc.ErrorMatches, `removing attachment of volume 42 from machine 42: volume "42" on "machine 42" not found`)
 }
 
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentConcurrently(c *gc.C) {
@@ -793,7 +793,7 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "persistent-block", Size: 1024}, // unprovisioned
 		}, {
 			Volume: state.VolumeParams{Pool: "loop-pool", Size: 2048}, // provisioned
@@ -857,7 +857,7 @@ func (s *VolumeStateSuite) TestEnsureMachineDeadAddVolumeConcurrently(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "static", Size: 1024},
 		}},
 	})
@@ -881,7 +881,7 @@ func (s *VolumeStateSuite) TestEnsureMachineDeadRemoveVolumeConcurrently(c *gc.C
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "static", Size: 1024},
 		}},
 	})
@@ -901,7 +901,7 @@ func (s *VolumeStateSuite) TestVolumeMachineScoped(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: "loop", Size: 1024},
 		}},
 	})
@@ -965,7 +965,7 @@ func (s *VolumeStateSuite) setupVolumeAttachment(c *gc.C, pool string) (state.Vo
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-		Volumes: []state.MachineVolumeParams{{
+		Volumes: []state.HostVolumeParams{{
 			Volume: state.VolumeParams{Pool: pool, Size: 1024},
 		}},
 	})

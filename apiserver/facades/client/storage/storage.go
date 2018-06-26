@@ -222,6 +222,7 @@ func createStorageDetails(
 	if len(storageAttachments) > 0 {
 		storageAttachmentDetails = make(map[string]params.StorageAttachmentDetails)
 		for _, a := range storageAttachments {
+			// TODO(caas) - handle attachments to units
 			machineTag, location, err := storageAttachmentInfo(backend, st, a)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -229,9 +230,11 @@ func createStorageDetails(
 			details := params.StorageAttachmentDetails{
 				StorageTag: a.StorageInstance().String(),
 				UnitTag:    a.Unit().String(),
-				MachineTag: machineTag.String(),
 				Location:   location,
 				Life:       params.Life(a.Life().String()),
+			}
+			if machineTag.Id() != "" {
+				details.MachineTag = machineTag.String()
 			}
 			storageAttachmentDetails[a.Unit().String()] = details
 		}
@@ -703,6 +706,7 @@ func createFilesystemDetails(
 
 	if len(attachments) > 0 {
 		details.MachineAttachments = make(map[string]params.FilesystemAttachmentDetails, len(attachments))
+		details.UnitAttachments = make(map[string]params.FilesystemAttachmentDetails, len(attachments))
 		for _, attachment := range attachments {
 			attDetails := params.FilesystemAttachmentDetails{
 				Life: params.Life(attachment.Life().String()),
@@ -712,7 +716,11 @@ func createFilesystemDetails(
 					stateInfo,
 				)
 			}
-			details.MachineAttachments[attachment.Machine().String()] = attDetails
+			if attachment.Host().Kind() == names.MachineTagKind {
+				details.MachineAttachments[attachment.Host().String()] = attDetails
+			} else {
+				details.UnitAttachments[attachment.Host().String()] = attDetails
+			}
 		}
 	}
 

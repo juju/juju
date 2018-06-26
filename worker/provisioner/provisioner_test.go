@@ -1110,7 +1110,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithEmptySpaces(c *gc.C)
 	s.testProvisioningFailsAndSetsErrorStatusForConstraints(c, cons, expectedErrorStatus)
 }
 
-func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.MachineVolumeParams, cons constraints.Value) (*state.Machine, error) {
+func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.HostVolumeParams, cons constraints.Value) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
 		Series:      supportedversion.SupportedLTS(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
@@ -1129,7 +1129,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	defer workertest.CleanKill(c, p)
 
 	// Add a machine with volumes to state.
-	requestedVolumes := []state.MachineVolumeParams{{
+	requestedVolumes := []state.HostVolumeParams{{
 		Volume:     state.VolumeParams{Pool: "static", Size: 1024},
 		Attachment: state.VolumeAttachmentParams{},
 	}, {

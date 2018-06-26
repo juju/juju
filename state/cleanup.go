@@ -529,9 +529,6 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 
 func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool) error {
 	sb, err := NewStorageBackend(st)
-	if errors.IsNotSupported(err) {
-		return nil
-	}
 	if err != nil {
 		return err
 	}
@@ -561,11 +558,7 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 }
 
 func (st *State) cleanupUnitStorageInstances(unitTag names.UnitTag) error {
-	// Only IAAS models support storage at the moment.
 	sb, err := NewStorageBackend(st)
-	if errors.IsNotSupported(err) {
-		return nil
-	}
 	if err != nil {
 		return err
 	}
@@ -774,7 +767,7 @@ func cleanupDyingMachineResources(m *Machine) error {
 			return errors.Trace(err)
 		}
 		if detachable {
-			if err := sb.DetachFilesystem(fsa.Machine(), fsa.Filesystem()); err != nil {
+			if err := sb.DetachFilesystem(fsa.Host(), fsa.Filesystem()); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -805,7 +798,7 @@ func cleanupDyingMachineResources(m *Machine) error {
 			}
 			if remove {
 				if err := sb.RemoveFilesystemAttachment(
-					fsa.Machine(), fsa.Filesystem(),
+					fsa.Host(), fsa.Filesystem(),
 				); err != nil {
 					return errors.Trace(err)
 				}
@@ -973,12 +966,19 @@ func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) (err 
 	defer closer()
 
 	var doc filesystemAttachmentDoc
-	fields := bson.D{{"machineid", 1}}
+	// TODO(caas) - consolidate machineidand hostid
+	fields := bson.D{{"machineid", 1}, {"hostid", 1}}
 	iter := coll.Find(bson.D{{"filesystemid", filesystemId}}).Select(fields).Iter()
 	defer closeIter(iter, &err, "reading filesystem attachment document")
 	for iter.Next(&doc) {
-		machineTag := names.NewMachineTag(doc.Machine)
-		if err := sb.DetachFilesystem(machineTag, filesystemTag); err != nil {
+		var host string
+		if doc.Host != "" {
+			host = doc.Host
+		} else {
+			host = doc.Machine
+		}
+		hostTag := filesystemAttachmentHost(host)
+		if err := sb.DetachFilesystem(hostTag, filesystemTag); err != nil {
 			return errors.Annotate(err, "destroying filesystem attachment")
 		}
 	}
