@@ -110,7 +110,7 @@ func deployBundle(
 	}
 
 	// TODO: move bundle parsing and checking into the handler.
-	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleStorage)
+	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleStorage, bundleDevices)
 	if err := h.makeModel(useExistingMachines, bundleMachines); err != nil {
 		return nil, errors.Trace(err)
 	}

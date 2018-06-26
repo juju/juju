@@ -283,6 +283,7 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 	if err := api.check.ChangeAllowed(); err != nil {
 		return result, errors.Trace(err)
 	}
+	logger.Criticalf("Deploy args -> %+v", args)
 	for i, arg := range args.Applications {
 		err := deployApplication(api.backend, api.modelType, api.stateCharm, arg, api.deployApplicationFunc)
 		result.Results[i].Error = common.ServerError(err)

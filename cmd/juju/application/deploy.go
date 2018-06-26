@@ -306,7 +306,7 @@ type DeployCommand struct {
 	// the storage name defined in that application's charm storage metadata.
 	BundleStorage map[string]map[string]storage.Constraints
 
-	// Devices is a map of device constraints, keyed on the device name
+	// Devices is a mapping of device constraints, keyed on the device name
 	// defined in charm devices metadata.
 	Devices map[string]devices.Constraints
 
