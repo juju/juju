@@ -312,6 +312,7 @@ func (*addSuite) TestInteractive(c *gc.C) {
 
 	c.Assert(out.String(), gc.Equals, ""+
 		"Cloud Types\n"+
+		"  lxd\n"+
 		"  maas\n"+
 		"  manual\n"+
 		"  openstack\n"+
