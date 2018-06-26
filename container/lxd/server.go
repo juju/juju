@@ -36,6 +36,7 @@ type Server struct {
 
 	networkAPISupport bool
 	clusterAPISupport bool
+	storageAPISupport bool
 
 	localBridgeName string
 }
@@ -83,7 +84,12 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 		clustered:         clustered,
 		networkAPISupport: shared.StringInSlice("network", apiExt),
 		clusterAPISupport: shared.StringInSlice("clustering", apiExt),
+		storageAPISupport: shared.StringInSlice("storage", apiExt),
 	}, nil
+}
+
+func (s *Server) StorageSupported() bool {
+	return s.storageAPISupport
 }
 
 // UpdateServerConfig updates the server configuration with the input values.

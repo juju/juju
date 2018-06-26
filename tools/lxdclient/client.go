@@ -117,17 +117,11 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	storageAPISupported := false
 	var defaultProfile *api.Profile
 	var profileETag string
 	if cfg.Remote.Protocol != SimplestreamsProtocol {
-		resources, _, err := raw.GetServer()
 		if err != nil {
 			return nil, errors.Trace(err)
-		}
-
-		if lxdshared.StringInSlice("storage", resources.APIExtensions) {
-			storageAPISupported = true
 		}
 
 		defaultProfile, profileETag, err = raw.GetProfile("default")
@@ -152,7 +146,7 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 
 	// If the storage API is supported, let's make sure the LXD has a
 	// default pool; we'll just use dir backend for now.
-	if cfg.Remote.Protocol != SimplestreamsProtocol && storageAPISupported {
+	if cfg.Remote.Protocol != SimplestreamsProtocol && newServer.StorageSupported() {
 		if err := verifyStorageConfiguration(raw, defaultProfile); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -164,7 +158,7 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 	}
 	conn := &Client{
 		Server:        newServer,
-		storageClient: &storageClient{raw, storageAPISupported},
+		storageClient: &storageClient{raw, newServer.StorageSupported()},
 		baseURL:       cInfo.URL,
 	}
 	return conn, nil

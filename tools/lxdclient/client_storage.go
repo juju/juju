@@ -26,11 +26,6 @@ type storageClient struct {
 	supported bool
 }
 
-// StorageSupported reports whether or not storage is supported by the LXD remote.
-func (c *storageClient) StorageSupported() bool {
-	return c.supported
-}
-
 // Volume creates a volume in a storage pool.
 func (c *storageClient) Volume(pool, volumeName string) (api.StorageVolume, error) {
 	if !c.supported {

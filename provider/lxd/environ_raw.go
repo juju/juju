@@ -52,11 +52,10 @@ type newServer interface {
 	WriteContainer(*lxd.Container) error
 	CreateProfileWithConfig(string, map[string]string) error
 	HasProfile(string) (bool, error)
+	StorageSupported() bool
 }
 
 type lxdStorage interface {
-	StorageSupported() bool
-
 	StoragePool(name string) (lxdapi.StoragePool, error)
 	StoragePools() ([]lxdapi.StoragePool, error)
 	CreateStoragePool(name, driver string, attrs map[string]string) error
