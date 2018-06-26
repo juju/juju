@@ -123,26 +123,26 @@ func (c *Client) WatchPodSpec(application string) (watcher.NotifyWatcher, error)
 	return w, nil
 }
 
-// PodSpec returns the pod spec for the specified CAAS
+// ProvisioningInfo returns the provisioning info for the specified CAAS
 // application in the current model.
-func (c *Client) PodSpec(unit string) (string, error) {
-	appTag, err := applicationTag(unit)
+func (c *Client) ProvisioningInfo(appName string) (params.KubernetesProvisioningInfo, error) {
+	appTag, err := applicationTag(appName)
 	if err != nil {
-		return "", errors.Trace(err)
+		return params.KubernetesProvisioningInfo{}, errors.Trace(err)
 	}
 	args := entities(appTag)
 
-	var results params.StringResults
-	if err := c.facade.FacadeCall("PodSpec", args, &results); err != nil {
-		return "", err
+	var results params.KubernetesProvisioningInfoResults
+	if err := c.facade.FacadeCall("ProvisioningInfo", args, &results); err != nil {
+		return params.KubernetesProvisioningInfo{}, err
 	}
 	if n := len(results.Results); n != 1 {
-		return "", errors.Errorf("expected 1 result, got %d", n)
+		return params.KubernetesProvisioningInfo{}, errors.Errorf("expected 1 result, got %d", n)
 	}
 	if err := results.Results[0].Error; err != nil {
-		return "", maybeNotFound(err)
+		return params.KubernetesProvisioningInfo{}, maybeNotFound(err)
 	}
-	return results.Results[0].Result, nil
+	return *results.Results[0].Result, nil
 }
 
 // Life returns the lifecycle state for the specified CAAS application

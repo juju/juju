@@ -16,7 +16,7 @@ import (
 type Client interface {
 	ApplicationGetter
 	ApplicationUpdater
-	PodSpecGetter
+	ProvisioningInfoGetter
 	LifeGetter
 	UnitGetter
 	UnitUpdater
@@ -37,10 +37,11 @@ type ApplicationUpdater interface {
 	UpdateApplicationService(arg params.UpdateApplicationServiceArg) error
 }
 
-// PodSpecGetter provides an interface for
-// watching and getting the pod spec for an application.
-type PodSpecGetter interface {
-	PodSpec(appName string) (string, error)
+// ProvisioningInfoGetter provides an interface for
+// watching and getting the pod spec and other info
+// needed to provision an application.
+type ProvisioningInfoGetter interface {
+	ProvisioningInfo(appName string) (params.KubernetesProvisioningInfo, error)
 	WatchPodSpec(appName string) (watcher.NotifyWatcher, error)
 }
 

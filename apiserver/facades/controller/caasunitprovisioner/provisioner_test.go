@@ -134,17 +134,17 @@ func (s *CAASProvisionerSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(resource, gc.Equals, s.st.application.unitsWatcher)
 }
 
-func (s *CAASProvisionerSuite) TestPodSpec(c *gc.C) {
-	results, err := s.facade.PodSpec(params.Entities{
+func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
+	results, err := s.facade.ProvisioningInfo(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{{
-			Result: "spec(gitlab)",
+	c.Assert(results, jc.DeepEquals, params.KubernetesProvisioningInfoResults{
+		Results: []params.KubernetesProvisioningInfoResult{{
+			Result: &params.KubernetesProvisioningInfo{PodSpec: "spec(gitlab)"},
 		}, {
 			Error: &params.Error{
 				Message: `"unit-gitlab-0" is not a valid application tag`,

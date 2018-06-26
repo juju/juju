@@ -11,6 +11,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/replicaset"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -1589,4 +1590,12 @@ func RemoveContainerImageStreamFromNonModelSettings(st *State) error {
 		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
+}
+
+// ReplicaSetMembers gets the members of the current Mongo replica
+// set. These are needed to bootstrap the raft cluster in an upgrade
+// and using MongoSession directly from an upgrade steps would make
+// testing difficult.
+func ReplicaSetMembers(st *State) ([]replicaset.Member, error) {
+	return replicaset.CurrentMembers(st.MongoSession())
 }

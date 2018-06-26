@@ -175,7 +175,7 @@ func Bootstrap(config Config) error {
 	config.Transport = transport
 
 	// During bootstrap, we do not require an FSM.
-	config.FSM = bootstrapFSM{}
+	config.FSM = BootstrapFSM{}
 
 	w, err := newWorker(config)
 	if err != nil {
@@ -211,7 +211,7 @@ func newWorker(config Config) (*Worker, error) {
 	if config.NoLeaderTimeout == 0 {
 		config.NoLeaderTimeout = noLeaderTimeout
 	}
-	raftConfig, err := newRaftConfig(config)
+	raftConfig, err := NewRaftConfig(config)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -288,10 +288,7 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
-	if err := os.MkdirAll(w.config.StorageDir, 0700); err != nil {
-		return errors.Trace(err)
-	}
-	rawLogStore, err := newLogStore(w.config.StorageDir)
+	rawLogStore, err := NewLogStore(w.config.StorageDir)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -306,7 +303,7 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	if snapshotRetention == 0 {
 		snapshotRetention = defaultSnapshotRetention
 	}
-	snapshotStore, err := newSnapshotStore(w.config.StorageDir, snapshotRetention, w.config.Logger)
+	snapshotStore, err := NewSnapshotStore(w.config.StorageDir, snapshotRetention, w.config.Logger)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -367,7 +364,9 @@ func (w *Worker) loop(raftConfig *raft.Config) (loopErr error) {
 	}
 }
 
-func newRaftConfig(config Config) (*raft.Config, error) {
+// NewRaftConfig makes a raft config struct from the worker config
+// struct passed in.
+func NewRaftConfig(config Config) (*raft.Config, error) {
 	raftConfig := raft.DefaultConfig()
 	raftConfig.LocalID = config.LocalID
 	// Having ShutdownOnRemove true means that the raft node also
@@ -392,7 +391,12 @@ func newRaftConfig(config Config) (*raft.Config, error) {
 	return raftConfig, nil
 }
 
-func newLogStore(dir string) (*raftboltdb.BoltStore, error) {
+// NewLogStore opens a boltDB logstore in the specified directory. If
+// the directory doesn't already exist it'll be created.
+func NewLogStore(dir string) (*raftboltdb.BoltStore, error) {
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return nil, errors.Trace(err)
+	}
 	logs, err := raftboltdb.New(raftboltdb.Options{
 		Path: filepath.Join(dir, "logs"),
 	})
@@ -402,12 +406,17 @@ func newLogStore(dir string) (*raftboltdb.BoltStore, error) {
 	return logs, nil
 }
 
-func newSnapshotStore(
+// NewSnapshotStore opens a file-based snapshot store in the specified
+// directory. If the directory doesn't exist it'll be created.
+func NewSnapshotStore(
 	dir string,
 	retain int,
 	logger Logger,
 ) (raft.SnapshotStore, error) {
 	const logPrefix = "[snapshot] "
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return nil, errors.Trace(err)
+	}
 	logWriter := &raftutil.LoggoWriter{logger, loggo.DEBUG}
 	logLogger := log.New(logWriter, logPrefix, 0)
 
@@ -418,18 +427,21 @@ func newSnapshotStore(
 	return snaps, nil
 }
 
-// bootstrapFSM is a minimal implementation of raft.FSM for use during
+// BootstrapFSM is a minimal implementation of raft.FSM for use during
 // bootstrap. Its methods should never be invoked.
-type bootstrapFSM struct{}
+type BootstrapFSM struct{}
 
-func (bootstrapFSM) Apply(log *raft.Log) interface{} {
+// Apply is part of raft.FSM.
+func (BootstrapFSM) Apply(log *raft.Log) interface{} {
 	panic("Apply should not be called during bootstrap")
 }
 
-func (bootstrapFSM) Snapshot() (raft.FSMSnapshot, error) {
+// Snapshot is part of raft.FSM.
+func (BootstrapFSM) Snapshot() (raft.FSMSnapshot, error) {
 	panic("Snapshot should not be called during bootstrap")
 }
 
-func (bootstrapFSM) Restore(io.ReadCloser) error {
+// Restore is part of raft.FSM.
+func (BootstrapFSM) Restore(io.ReadCloser) error {
 	panic("Restore should not be called during bootstrap")
 }

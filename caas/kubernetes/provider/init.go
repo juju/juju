@@ -3,12 +3,12 @@
 
 package provider
 
-import "github.com/juju/juju/environs"
+import "github.com/juju/juju/caas"
 
 const (
 	providerType = "kubernetes"
 )
 
 func init() {
-	environs.RegisterProvider(providerType, providerInstance)
+	caas.RegisterContainerProvider(providerType, providerInstance)
 }

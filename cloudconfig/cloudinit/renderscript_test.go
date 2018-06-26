@@ -33,7 +33,7 @@ type configureSuite struct {
 var _ = gc.Suite(&configureSuite{})
 
 type testProvider struct {
-	environs.EnvironProvider
+	environs.CloudEnvironProvider
 }
 
 func init() {

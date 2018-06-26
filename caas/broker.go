@@ -4,9 +4,12 @@
 package caas
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -32,6 +35,17 @@ type ContainerEnvironProvider interface {
 	ParsePodSpec(in string) (*PodSpec, error)
 }
 
+// RegisterContainerProvider is used for providers that we want to use for managing 'instances',
+// but are not possible sources for 'juju bootstrap'.
+func RegisterContainerProvider(name string, p ContainerEnvironProvider, alias ...string) (unregister func()) {
+	if err := environs.GlobalProviderRegistry().RegisterProvider(p, name, alias...); err != nil {
+		panic(fmt.Errorf("juju: %v", err))
+	}
+	return func() {
+		environs.GlobalProviderRegistry().UnregisterProvider(name)
+	}
+}
+
 // New returns a new broker based on the provided configuration.
 func New(args environs.OpenParams) (Broker, error) {
 	p, err := environs.Provider(args.Cloud.Type)
@@ -54,6 +68,22 @@ func Open(p environs.EnvironProvider, args environs.OpenParams) (Broker, error) 
 // NewContainerBrokerFunc returns a Container Broker.
 type NewContainerBrokerFunc func(args environs.OpenParams) (Broker, error)
 
+// ServiceParams defines parameters used to create a service.
+type ServiceParams struct {
+	// PodSpec is the spec used to configure a pod.
+	PodSpec *PodSpec
+
+	// Constraints is a set of constraints on
+	// the pod to create.
+	Constraints constraints.Value
+
+	// Filesystems is a set of parameters for filesystems that should be created.
+	Filesystems []storage.FilesystemParams
+
+	// FilesystemAttachments is a set of parameters for attaching filesystems.
+	FilesystemAttachments []storage.FilesystemAttachmentParams
+}
+
 // Broker instances interact with the CAAS substrate.
 type Broker interface {
 	// Provider returns the ContainerEnvironProvider that created this Broker.
@@ -72,8 +102,8 @@ type Broker interface {
 	// DeleteOperator deletes the specified operator.
 	DeleteOperator(appName string) error
 
-	// EnsureService creates or updates a service for pods with the given spec.
-	EnsureService(appName string, spec *PodSpec, numUnits int, config application.ConfigAttributes) error
+	// EnsureService creates or updates a service for pods with the given params.
+	EnsureService(appName string, params *ServiceParams, numUnits int, config application.ConfigAttributes) error
 
 	// Service returns the service for the specified application.
 	Service(appName string) (*Service, error)
