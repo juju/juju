@@ -103,11 +103,15 @@ func (p *environProvider) Ping(ctx context.ProviderCallContext, endpoint string)
 	if endpoint == "" {
 		return nil
 	}
-	// connection to the remote server will also do a implicit get request upon
-	// connecting to seed the server.
-	// TODO (stickupkid): use a centralized construction
+
+	// Connect to the remote server anonymously so we can just verify it exists
+	// as we're not sure that the certificates are loaded in time for when the
+	// ping occurs i.e. interactive add-cloud
 	_, err := lxd.ConnectRemote(lxd.RemoteServer{
-		Host: endpoint,
+		Host: lxd.EnsureHTTPS(endpoint),
+		ConnectionArgs: client.ConnectionArgs{
+			InsecureSkipVerify: true,
+		},
 	})
 	if err != nil {
 		return errors.Errorf("no lxd server running at %s", endpoint)
