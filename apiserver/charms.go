@@ -419,6 +419,7 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 			errors.New("invalid version file")
 			version = ""
 		}
+		version = fmt.Sprintf("%.100s", version)
 	} else {
 		errors.Annotate(err, "cannot open version file")
 	}
