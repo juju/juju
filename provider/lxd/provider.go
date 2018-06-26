@@ -98,6 +98,11 @@ func (p *environProvider) CloudSchema() *jsonschema.Schema {
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
 func (p *environProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
+	// if the endpoint is empty, then don't ping, as we can assume we're using
+	// local lxd
+	if endpoint == "" {
+		return nil
+	}
 	// connection to the remote server will also do a implicit get request upon
 	// connecting to seed the server.
 	// TODO (stickupkid): use a centralized construction
