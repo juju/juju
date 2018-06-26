@@ -25,9 +25,8 @@ func (f storageFlag) Set(s string) error {
 	if len(fields) < 2 {
 		if f.bundleStores != nil {
 			return errors.New("expected [<application>:]<store>=<constraints>")
-		} else {
-			return errors.New("expected <store>=<constraints>")
 		}
+		return errors.New("expected <store>=<constraints>")
 	}
 	var applicationName, storageName string
 	if colon := strings.IndexRune(fields[0], ':'); colon >= 0 {

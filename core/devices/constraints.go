@@ -45,7 +45,7 @@ type Constraints struct {
 // where
 //
 //    COUNT is the number of devices that the user has asked for - count min and max are the
-//    number of devices the charm requires. If unspecified, COUNT defaults to 1
+//    number of devices the charm requires. If unspecified, COUNT defaults to 1.
 func ParseConstraints(s string) (Constraints, error) {
 	var cons Constraints
 	fields := strings.Split(s, ",")
