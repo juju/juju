@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
@@ -157,12 +158,12 @@ func (m *mockApplicationUpdater) UpdateApplicationService(arg params.UpdateAppli
 
 type mockProvisioningInfoGetterGetter struct {
 	testing.Stub
-	provisioningInfo params.KubernetesProvisioningInfo
+	provisioningInfo apicaasunitprovisioner.ProvisioningInfo
 	watcher          *watchertest.MockNotifyWatcher
 	specRetrieved    chan struct{}
 }
 
-func (m *mockProvisioningInfoGetterGetter) setProvisioningInfo(provisioningInfo params.KubernetesProvisioningInfo) {
+func (m *mockProvisioningInfoGetterGetter) setProvisioningInfo(provisioningInfo apicaasunitprovisioner.ProvisioningInfo) {
 	m.provisioningInfo = provisioningInfo
 	m.specRetrieved = make(chan struct{}, 2)
 }
@@ -175,17 +176,17 @@ func (m *mockProvisioningInfoGetterGetter) assertSpecRetrieved(c *gc.C) {
 	}
 }
 
-func (m *mockProvisioningInfoGetterGetter) ProvisioningInfo(appName string) (params.KubernetesProvisioningInfo, error) {
-	m.MethodCall(m, "PodSpec", appName)
+func (m *mockProvisioningInfoGetterGetter) ProvisioningInfo(appName string) (*apicaasunitprovisioner.ProvisioningInfo, error) {
+	m.MethodCall(m, "ProvisioningInfo", appName)
 	if err := m.NextErr(); err != nil {
-		return params.KubernetesProvisioningInfo{}, err
+		return nil, err
 	}
 	provisioningInfo := m.provisioningInfo
 	select {
 	case m.specRetrieved <- struct{}{}:
 	default:
 	}
-	return provisioningInfo, nil
+	return &provisioningInfo, nil
 }
 
 func (m *mockProvisioningInfoGetterGetter) WatchPodSpec(appName string) (watcher.NotifyWatcher, error) {

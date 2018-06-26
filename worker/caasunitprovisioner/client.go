@@ -4,6 +4,7 @@
 package caasunitprovisioner
 
 import (
+	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
@@ -41,7 +42,7 @@ type ApplicationUpdater interface {
 // watching and getting the pod spec and other info
 // needed to provision an application.
 type ProvisioningInfoGetter interface {
-	ProvisioningInfo(appName string) (params.KubernetesProvisioningInfo, error)
+	ProvisioningInfo(appName string) (*apicaasunitprovisioner.ProvisioningInfo, error)
 	WatchPodSpec(appName string) (watcher.NotifyWatcher, error)
 }
 

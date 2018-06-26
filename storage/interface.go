@@ -312,6 +312,11 @@ type FilesystemParams struct {
 	// ResourceTags is a set of tags to set on the created filesystem, if the
 	// storage provider supports tags.
 	ResourceTags map[string]string
+
+	// Attachment identifies the machine that the filesystem should be attached
+	// to initially, or nil if the filesystem should not be attached to any
+	// machine.
+	Attachment *FilesystemAttachmentParams
 }
 
 // FilesystemAttachmentParams is a set of parameters for filesystem attachment

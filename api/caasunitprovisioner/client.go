@@ -10,8 +10,10 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/watcher"
 )
 
@@ -123,26 +125,105 @@ func (c *Client) WatchPodSpec(application string) (watcher.NotifyWatcher, error)
 	return w, nil
 }
 
+// ProvisioningInfo holds unit provisioning info.
+type ProvisioningInfo struct {
+	PodSpec     string
+	Constraints constraints.Value
+	Filesystems []storage.FilesystemParams
+	Volumes     []storage.VolumeParams
+	Tags        map[string]string
+
+	// TODO(caas) - storage attachment params: may not need these
+	VolumeAttachments     []storage.VolumeAttachmentParams
+	FilesystemAttachments []storage.FilesystemAttachmentParams
+}
+
 // ProvisioningInfo returns the provisioning info for the specified CAAS
 // application in the current model.
-func (c *Client) ProvisioningInfo(appName string) (params.KubernetesProvisioningInfo, error) {
+func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
 	appTag, err := applicationTag(appName)
 	if err != nil {
-		return params.KubernetesProvisioningInfo{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	args := entities(appTag)
 
 	var results params.KubernetesProvisioningInfoResults
 	if err := c.facade.FacadeCall("ProvisioningInfo", args, &results); err != nil {
-		return params.KubernetesProvisioningInfo{}, err
+		return nil, err
 	}
 	if n := len(results.Results); n != 1 {
-		return params.KubernetesProvisioningInfo{}, errors.Errorf("expected 1 result, got %d", n)
+		return nil, errors.Errorf("expected 1 result, got %d", n)
 	}
 	if err := results.Results[0].Error; err != nil {
-		return params.KubernetesProvisioningInfo{}, maybeNotFound(err)
+		return nil, maybeNotFound(err)
 	}
-	return *results.Results[0].Result, nil
+	result := results.Results[0].Result
+	info := &ProvisioningInfo{
+		PodSpec:     result.PodSpec,
+		Constraints: result.Constraints,
+		Tags:        result.Tags,
+	}
+
+	for _, fs := range result.Filesystems {
+		fsInfo, err := filesystemFromParams(fs)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		info.Filesystems = append(info.Filesystems, *fsInfo)
+	}
+	return info, nil
+}
+
+func filesystemFromParams(in params.FilesystemParams) (*storage.FilesystemParams, error) {
+	fsTag, err := names.ParseFilesystemTag(in.FilesystemTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var volTag names.VolumeTag
+	if in.VolumeTag != "" {
+		volTag, err = names.ParseVolumeTag(in.VolumeTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	var attachment *storage.FilesystemAttachmentParams
+	if in.Attachment != nil {
+		attachment, err = filesystemAttachmentFromParams(*in.Attachment)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return &storage.FilesystemParams{
+		Tag:          fsTag,
+		Provider:     storage.ProviderType(in.Provider),
+		Size:         in.Size,
+		Volume:       volTag,
+		Attributes:   in.Attributes,
+		ResourceTags: in.Tags,
+		Attachment:   attachment,
+	}, nil
+}
+
+func filesystemAttachmentFromParams(in params.FilesystemAttachmentParams) (*storage.FilesystemAttachmentParams, error) {
+	var (
+		fsTag names.FilesystemTag
+		err   error
+	)
+	if in.FilesystemTag != "" {
+		fsTag, err = names.ParseFilesystemTag(in.FilesystemTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return &storage.FilesystemAttachmentParams{
+		AttachmentParams: storage.AttachmentParams{
+			Provider: storage.ProviderType(in.Provider),
+			ReadOnly: in.ReadOnly,
+		},
+		Filesystem:   fsTag,
+		FilesystemId: in.FilesystemId,
+		Path:         in.MountPoint,
+	}, nil
 }
 
 // Life returns the lifecycle state for the specified CAAS application

@@ -117,6 +117,6 @@ func (s *BaseSuite) k8sNotFoundError() *k8serrors.StatusError {
 	return k8serrors.NewNotFound(schema.GroupResource{}, "test")
 }
 
-func (s *BaseSuite) deleteOptions(orphanDependents bool) *v1.DeleteOptions {
-	return &v1.DeleteOptions{OrphanDependents: &orphanDependents}
+func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation) *v1.DeleteOptions {
+	return &v1.DeleteOptions{PropagationPolicy: &policy}
 }

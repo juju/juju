@@ -13,8 +13,10 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/storage"
 )
 
 type unitprovisionerSuite struct {
@@ -42,7 +44,23 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 		*(result.(*params.KubernetesProvisioningInfoResults)) = params.KubernetesProvisioningInfoResults{
 			Results: []params.KubernetesProvisioningInfoResult{{
 				Result: &params.KubernetesProvisioningInfo{
-					PodSpec: "foo",
+					PodSpec:     "foo",
+					Tags:        map[string]string{"foo": "bar"},
+					Constraints: constraints.MustParse("mem=4G"),
+					Filesystems: []params.FilesystemParams{{
+						FilesystemTag: "filesystem-mysql-0-0",
+						Size:          uint64(100),
+						Provider:      "k8s",
+						Tags:          map[string]string{"tag": "resource"},
+						Attributes:    map[string]interface{}{"key": "value"},
+						Attachment: &params.FilesystemAttachmentParams{
+							FilesystemTag: "filesystem-mysql-0-0",
+							Provider:      "k8s",
+							MountPoint:    "/path/to/here",
+							ReadOnly:      true,
+							FilesystemId:  "id",
+						}},
+					},
 				},
 			}},
 		}
@@ -52,7 +70,27 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 	client := caasunitprovisioner.NewClient(apiCaller)
 	info, err := client.ProvisioningInfo("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.PodSpec, gc.Equals, "foo")
+	c.Assert(info, jc.DeepEquals, &caasunitprovisioner.ProvisioningInfo{
+		PodSpec:     "foo",
+		Tags:        map[string]string{"foo": "bar"},
+		Constraints: constraints.MustParse("mem=4G"),
+		Filesystems: []storage.FilesystemParams{{
+			Tag:          names.NewFilesystemTag("mysql/0/0"),
+			Size:         uint64(100),
+			Provider:     storage.ProviderType("k8s"),
+			ResourceTags: map[string]string{"tag": "resource"},
+			Attributes:   map[string]interface{}{"key": "value"},
+			Attachment: &storage.FilesystemAttachmentParams{
+				Filesystem:   names.NewFilesystemTag("mysql/0/0"),
+				FilesystemId: "id",
+				Path:         "/path/to/here",
+				AttachmentParams: storage.AttachmentParams{
+					Provider: storage.ProviderType("k8s"),
+					ReadOnly: true,
+				},
+			},
+		}},
+	})
 }
 
 func (s *unitprovisionerSuite) TestProvisioningInfoError(c *gc.C) {
