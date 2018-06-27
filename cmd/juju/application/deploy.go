@@ -389,6 +389,11 @@ Constraints can be specified by specifying the '--constraints' option. If the
 application is later scaled out with ` + "`juju add-unit`" + `, provisioned machines
 will use the same constraints (unless changed by ` + "`juju set-constraints`" + `).
 
+Devices can be specified by specifying the '--device' option to deploy charms to a
+k8s cluster which require the use of a GPU (or many).
+Devices provided should be in format:
+	<label>=[<count>,]<device-class>|<vendor/type>[,<attributes>]
+
 Application configuration values can be specified using '--config' option. This
 option accepts either a path to a yaml-formatted file or a key=value pair.
 Configuration file provided should be in format
@@ -496,7 +501,16 @@ Examples:
 
     juju deploy haproxy -n 2 --constraints spaces=dmz,^cms,^database
     (deploy 2 units to machines that are in the 'dmz' space but not of
-    the 'cmd' or the 'database' spaces)
+	the 'cmd' or the 'database' spaces)
+
+	juju deploy mycharm --device bitcoinminer=1,nvidia.com/gpu
+	(deploy mycharm requires any Nvidia GPU without needing to further specify any tags)
+
+	juju deploy mycharm --device bitcoinminer=nvidia.com/gpu
+	(deploy mycharm requires any Nvidia GPU. No count is specified, it is assumed to be 1)
+
+	juju deploy mycharm --device bitcoinminer=1,nvidia.com/gpu,gpu=nvidia-tesla-p100;attr2=attr2
+	(deploy mycharm requires 1*nvidia.com/gpu with attributes: gpu=nvidia-tesla-p10 && attr2=attr2)
 
 See also:
     add-unit
