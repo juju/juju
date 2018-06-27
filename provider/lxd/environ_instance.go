@@ -83,10 +83,8 @@ func (env *environ) prefixedInstances(prefix string) ([]*environInstance, error)
 	// whether or not we got an error.
 	var results []*environInstance
 	for _, c := range containers {
-		// If we don't make a copy then the same pointer is used for the
-		// base of all resulting instances.
-		copied := c
-		inst := newInstance(&copied, env)
+		c := c
+		inst := newInstance(&c, env)
 		results = append(results, inst)
 	}
 	return results, err

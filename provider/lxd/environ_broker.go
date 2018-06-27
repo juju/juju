@@ -265,6 +265,8 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...
 		name := string(id)
 		if strings.HasPrefix(name, prefix) {
 			names = append(names, name)
+		} else {
+			logger.Warningf("ignoring request to stop container %q - not in namespace %q", name, prefix)
 		}
 	}
 
