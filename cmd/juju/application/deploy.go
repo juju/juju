@@ -577,7 +577,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.DryRun, "dry-run", false, "Just show what the bundle deploy would do")
 	f.BoolVar(&c.Force, "force", false, "Allow a charm to be deployed to a machine running an unsupported series")
 	f.Var(storageFlag{&c.Storage, &c.BundleStorage}, "storage", "Charm storage constraints")
-	f.Var(deviceFlag{&c.Devices, &c.BundleDevices}, "device", "Charm device constraints")
+	f.Var(devicesFlag{&c.Devices, &c.BundleDevices}, "device", "Charm device constraints")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
 	f.StringVar(&c.machineMap, "map-machines", "", "Specify the existing machines to use for bundle deployments")

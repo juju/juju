@@ -78,13 +78,13 @@ func (f storageFlag) String() string {
 	return strings.Join(strs, " ")
 }
 
-type deviceFlag struct {
+type devicesFlag struct {
 	devices       *map[string]devices.Constraints
 	bundleDevices *map[string]map[string]devices.Constraints
 }
 
 // Set implements gnuflag.Value.Set.
-func (f deviceFlag) Set(s string) error {
+func (f devicesFlag) Set(s string) error {
 	fields := strings.SplitN(s, "=", 2)
 	if len(fields) < 2 {
 		if f.bundleDevices != nil {
@@ -127,7 +127,7 @@ func (f deviceFlag) Set(s string) error {
 }
 
 // String implements gnuflag.Value.String.
-func (f deviceFlag) String() string {
+func (f devicesFlag) String() string {
 	strs := make([]string, 0, len(*f.devices))
 	for device, cons := range *f.devices {
 		strs = append(strs, fmt.Sprintf("%s=%v", device, cons))
