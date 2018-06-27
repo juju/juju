@@ -16,9 +16,13 @@ func OfTypeBool(b bool) gomock.Matcher {
 }
 
 func (o *BoolType) Matches(x interface{}) bool {
-	return o.b == x
+	b, ok := x.(bool)
+	if !ok {
+		return false
+	}
+	return o.b == b
 }
 
 func (o *BoolType) String() string {
-	return fmt.Sprintf("is equal %t", o.b)
+	return fmt.Sprintf("is bool equal %t", o.b)
 }
