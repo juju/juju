@@ -69,13 +69,13 @@ func (mr *MockUpgradeMachineSeriesAPIMockRecorder) UpgradeSeriesComplete(arg0 in
 }
 
 // UpgradeSeriesPrepare mocks base method
-func (m *MockUpgradeMachineSeriesAPI) UpgradeSeriesPrepare(arg0 string) error {
-	ret := m.ctrl.Call(m, "UpgradeSeriesPrepare", arg0)
+func (m *MockUpgradeMachineSeriesAPI) UpgradeSeriesPrepare(arg0, arg1 string, arg2 bool) error {
+	ret := m.ctrl.Call(m, "UpgradeSeriesPrepare", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpgradeSeriesPrepare indicates an expected call of UpgradeSeriesPrepare
-func (mr *MockUpgradeMachineSeriesAPIMockRecorder) UpgradeSeriesPrepare(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesPrepare", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).UpgradeSeriesPrepare), arg0)
+func (mr *MockUpgradeMachineSeriesAPIMockRecorder) UpgradeSeriesPrepare(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesPrepare", reflect.TypeOf((*MockUpgradeMachineSeriesAPI)(nil).UpgradeSeriesPrepare), arg0, arg1, arg2)
 }

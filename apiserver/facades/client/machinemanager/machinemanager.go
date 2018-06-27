@@ -336,11 +336,60 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(args params.UpdateSeriesArg) (
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return params.ErrorResult{}, err
 	}
-	err := mm.createUpgradeSeriesLock(args)
+	err := mm.updateSeriesPrepare(args)
 	if err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
+}
+
+func (mm *MachineManagerAPI) updateSeriesPrepare(arg params.UpdateSeriesArg) error {
+	if arg.Series == "" {
+		return &params.Error{
+			Message: "series missing from args",
+			Code:    params.CodeBadRequest,
+		}
+	}
+	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := mm.st.Machine(machineTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if arg.Series == machine.Series() {
+		return errors.Errorf("%s is already running series %s", machineTag, arg.Series)
+	}
+
+	principals := machine.Principals()
+	// TODO (hml) 2018-06-26 managed series upgrade
+	// units slice to be used with changes to createupgradeserieslock to
+	// pass units, series etc.
+	_, err = machine.VerifyUnitsSeries(principals, arg.Series, arg.Force)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err = machine.CreateUpgradeSeriesLock(); err != nil {
+		return errors.Trace(err)
+	}
+	defer func() {
+		if err != nil {
+			if err2 := machine.RemoveUpgradeSeriesLock(); err2 != nil {
+				err = errors.Annotatef(err, "%s occurred while cleaning up from", err2)
+			}
+		}
+	}()
+
+	// TODO (hml) 2018-06-26 managed series upgrade
+	// Next steps in updateSeriesPrepare:
+	// 1. verify success of pre-upgrade-series hook run on each unit
+	// 2. stop each unit's agent on machine
+	// 3. write systemd unit agent files if necessary and copy tools based on series.
+
+	return nil
 }
 
 // UpgradeSeriesComplete marks a machine as having completed a managed series upgrade.
@@ -397,18 +446,6 @@ func (mm *MachineManagerAPI) updateOneMachineSeries(arg params.UpdateSeriesArg) 
 		return nil // no-op
 	}
 	return machine.UpdateMachineSeries(arg.Series, arg.Force)
-}
-
-func (mm *MachineManagerAPI) createUpgradeSeriesLock(arg params.UpdateSeriesArg) error {
-	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	machine, err := mm.st.Machine(machineTag.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return machine.CreateUpgradeSeriesLock()
 }
 
 func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg) error {

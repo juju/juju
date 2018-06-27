@@ -2001,7 +2001,7 @@ func (m *Machine) UpdateMachineSeries(series string, force bool) error {
 		}
 
 		principals := m.Principals() // unit names
-		verifiedUnits, err := m.verifyUnitsSeries(principals, series, force)
+		verifiedUnits, err := m.VerifyUnitsSeries(principals, series, force)
 		if err != nil {
 			return nil, err
 		}
@@ -2030,7 +2030,7 @@ func (m *Machine) UpdateMachineSeries(series string, force bool) error {
 	return errors.Annotatef(err, "cannot update series for %q to %s", m, series)
 }
 
-func (m *Machine) verifyUnitsSeries(unitNames []string, series string, force bool) ([]*Unit, error) {
+func (m *Machine) VerifyUnitsSeries(unitNames []string, series string, force bool) ([]*Unit, error) {
 	results := []*Unit{}
 	for _, u := range unitNames {
 		unit, err := m.st.Unit(u)
@@ -2047,7 +2047,7 @@ func (m *Machine) verifyUnitsSeries(unitNames []string, series string, force boo
 		}
 
 		subordinates := unit.SubordinateNames()
-		subUnits, err := m.verifyUnitsSeries(subordinates, series, force)
+		subUnits, err := m.VerifyUnitsSeries(subordinates, series, force)
 		if err != nil {
 			return nil, err
 		}

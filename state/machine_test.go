@@ -15,7 +15,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -2681,4 +2681,24 @@ func AssertMachineIsNOTLockedForPrepare(c *gc.C, mach *state.Machine) {
 	locked, err := mach.IsLocked()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsFalse)
+}
+
+// VerifyUnitsSeries is also tested via TestUpdateMachineSeries*
+func (s *MachineSuite) TestVerifyUnitsSeries(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedUnits, err := mach.Units()
+	c.Assert(err, jc.ErrorIsNil)
+	obtainedUnits, err := mach.VerifyUnitsSeries([]string{"wordpress/0", "multi-series/0"}, "trusty", false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitNames(obtainedUnits), jc.SameContents, unitNames(expectedUnits))
+}
+
+func unitNames(units []*state.Unit) []string {
+	names := make([]string, len(units))
+	for i := range units {
+		names[i] = units[i].Name()
+	}
+	return names
 }
