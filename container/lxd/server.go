@@ -8,6 +8,7 @@ import (
 	"github.com/juju/utils/os"
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 )
 
 // osSupport is the list of operating system types for which Juju supports
@@ -129,6 +130,32 @@ func (s *Server) CreateClientCertificate(cert *Certificate) error {
 		return errors.Trace(err)
 	}
 	return errors.Trace(s.CreateCertificate(req))
+}
+
+// HasProfile interrogates the known profile names and returns a boolean
+// indicating whether a profile with the input name exists.
+func (s *Server) HasProfile(name string) (bool, error) {
+	profiles, err := s.GetProfileNames()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	for _, profile := range profiles {
+		if profile == name {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// CreateProfileWithConfig creates a new profile with the input name and config.
+func (s *Server) CreateProfileWithConfig(name string, cfg map[string]string) error {
+	req := api.ProfilesPost{
+		Name: name,
+		ProfilePut: api.ProfilePut{
+			Config: cfg,
+		},
+	}
+	return errors.Trace(s.CreateProfile(req))
 }
 
 // IsLXDNotFound checks if an error from the LXD API indicates that a requested

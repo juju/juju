@@ -13,13 +13,13 @@ import (
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 )
 
-type clientSuite struct {
+type serverSuite struct {
 	lxdtesting.BaseSuite
 }
 
-var _ = gc.Suite(&clientSuite{})
+var _ = gc.Suite(&serverSuite{})
 
-func (s *connectionSuite) TestUpdateServerConfig(c *gc.C) {
+func (s *serverSuite) TestUpdateServerConfig(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
@@ -37,7 +37,7 @@ func (s *connectionSuite) TestUpdateServerConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *connectionSuite) TestUpdateContainerConfig(c *gc.C) {
+func (s *serverSuite) TestUpdateContainerConfig(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := lxdtesting.NewMockContainerServer(ctrl)
@@ -52,10 +52,48 @@ func (s *connectionSuite) TestUpdateContainerConfig(c *gc.C) {
 		cSvr.EXPECT().UpdateContainer(cName, updateReq, lxdtesting.ETag).Return(op, nil),
 		op.EXPECT().Wait().Return(nil),
 	)
-
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = jujuSvr.UpdateContainerConfig("juju-lxd-1", newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serverSuite) TestHasProfile(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	cSvr.EXPECT().GetProfileNames().Return([]string{"default", "custom"}, nil).Times(2)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	has, err := jujuSvr.HasProfile("default")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(has, jc.IsTrue)
+
+	has, err = jujuSvr.HasProfile("unknown")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(has, jc.IsFalse)
+}
+
+func (s *serverSuite) TestCreateProfileWithConfig(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	req := api.ProfilesPost{
+		Name: "custom",
+		ProfilePut: api.ProfilePut{
+			Config: map[string]string{
+				"boot.autostart": "false",
+			},
+		},
+	}
+	cSvr.EXPECT().CreateProfile(req).Return(nil)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	err = jujuSvr.CreateProfileWithConfig("custom", map[string]string{"boot.autostart": "false"})
 	c.Assert(err, jc.ErrorIsNil)
 }

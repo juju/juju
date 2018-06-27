@@ -335,9 +335,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	// Patch out all expensive external deps.
 	raw := &rawProvider{
-		newServer:   s.Client,
-		lxdProfiles: s.Client,
-		lxdStorage:  s.Client,
+		newServer:  s.Client,
+		lxdStorage: s.Client,
 		remote: jujulxdclient.Remote{
 			Cert: &lxd.Certificate{
 				Name:    "juju",
@@ -543,11 +542,6 @@ func (conn *StubClient) LocalBridgeName() string {
 	return "test-bridge"
 }
 
-func (conn *StubClient) CreateProfile(name string, attrs map[string]string) error {
-	conn.AddCall("CreateProfile", name, attrs)
-	return conn.NextErr()
-}
-
 func (conn *StubClient) HasProfile(name string) (bool, error) {
 	conn.AddCall("HasProfile", name)
 	return false, conn.NextErr()
@@ -651,5 +645,10 @@ func (conn *StubClient) RemoveContainers(names []string) error {
 
 func (conn *StubClient) WriteContainer(container *lxd.Container) error {
 	conn.AddCall("WriteContainer", container)
+	return conn.NextErr()
+}
+
+func (conn *StubClient) CreateProfileWithConfig(name string, cfg map[string]string) error {
+	conn.AddCall("CreateProfileWithConfig", name, cfg)
 	return conn.NextErr()
 }
