@@ -12,7 +12,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"strings"
 	"time"
@@ -23,7 +22,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -123,48 +121,6 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	savedURL, err = client.AddLocalCharm(curl, charmDir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
-}
-
-func (s *clientSuite) TestAddLocalCharmVersionFile(c *gc.C) {
-	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "dummy-resource")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmDir.Meta().Name, charmDir.Revision()),
-	)
-	client := s.APIState.Client()
-
-	// Add a .git file inside the charmDir.Path.
-	vcsPath := path.Join(charmDir.Path, ".git")
-	_, err := os.Create(vcsPath)
-	c.Assert(err, jc.ErrorIsNil)
-
-	testing.PatchExecutableAsEchoArgs(c, s, "git")
-
-	// Upload the charm.
-	_, err = client.AddLocalCharm(curl, charmDir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := []string{"describe", "--dirty"}
-	testing.AssertEchoArgs(c, "git", args...)
-
-	versionPath := path.Join(charmDir.Path, "version")
-	_, err = os.Stat(versionPath)
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedVersion := "git"
-	for _, arg := range args {
-		expectedVersion = fmt.Sprintf("%s %s", expectedVersion, utils.ShQuote(arg))
-	}
-
-	f, err := os.Open(versionPath)
-	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
-
-	version, err := ioutil.ReadAll(f)
-	c.Assert(err, jc.ErrorIsNil)
-
-	actualVersion := strings.TrimSuffix(string(version), "\n")
-
-	c.Assert(actualVersion, gc.Equals, expectedVersion)
 }
 
 func (s *clientSuite) TestAddLocalCharmOtherModel(c *gc.C) {
