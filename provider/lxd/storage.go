@@ -337,12 +337,8 @@ func destroyFilesystems(env *environ, match func(api.StorageVolume) bool) error 
 			if !match(volume) {
 				continue
 			}
-			if err := env.raw.VolumeDelete(pool.Name, volume.Name); err != nil {
-				return errors.Annotatef(
-					err,
-					"deleting volume %q in LXD storage pool %q",
-					volume.Name, pool,
-				)
+			if err := env.raw.DeleteStoragePoolVolume(pool.Name, storagePoolVolumeType, volume.Name); err != nil {
+				return errors.Annotatef(err, "deleting volume %q in LXD storage pool %q", volume.Name, pool)
 			}
 		}
 	}
@@ -363,8 +359,8 @@ func (s *lxdFilesystemSource) destroyFilesystem(filesystemId string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = s.env.raw.VolumeDelete(poolName, volumeName)
-	if err != nil && !errors.IsNotFound(err) {
+	err = s.env.raw.DeleteStoragePoolVolume(poolName, storagePoolVolumeType, volumeName)
+	if err != nil && !lxd.IsLXDNotFound(err) {
 		return errors.Trace(err)
 	}
 	return nil

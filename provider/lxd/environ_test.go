@@ -131,7 +131,7 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 		{"StorageSupported", nil},
 		{"GetStoragePools", nil},
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
-		{"VolumeDelete", []interface{}{"juju", "ours"}},
+		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
 	})
 }
@@ -192,7 +192,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		{"StorageSupported", nil},
 		{"GetStoragePools", nil},
 		{"GetStoragePoolVolumes", []interface{}{"juju"}},
-		{"VolumeDelete", []interface{}{"juju", "ours"}},
+		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
 		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
 	})
 }

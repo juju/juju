@@ -58,13 +58,13 @@ type newServer interface {
 	GetStoragePoolVolume(pool string, volType string, name string) (*lxdapi.StorageVolume, string, error)
 	GetStoragePoolVolumes(pool string) (volumes []lxdapi.StorageVolume, err error)
 	UpdateStoragePoolVolume(pool string, volType string, name string, volume lxdapi.StorageVolumePut, ETag string) error
+	DeleteStoragePoolVolume(pool string, volType string, name string) (err error)
 }
 
 type lxdStorage interface {
 	CreateStoragePool(name, driver string, attrs map[string]string) error
 
 	VolumeCreate(pool, volume string, config map[string]string) error
-	VolumeDelete(pool, volume string) error
 }
 
 func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {

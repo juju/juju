@@ -581,8 +581,8 @@ func (conn *StubClient) VolumeCreate(pool, volume string, config map[string]stri
 	return conn.NextErr()
 }
 
-func (conn *StubClient) VolumeDelete(pool, volume string) error {
-	conn.AddCall("VolumeDelete", pool, volume)
+func (conn *StubClient) DeleteStoragePoolVolume(pool, volType, volume string) error {
+	conn.AddCall("DeleteStoragePoolVolume", pool, volType, volume)
 	return conn.NextErr()
 }
 

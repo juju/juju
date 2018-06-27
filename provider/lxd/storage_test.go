@@ -183,8 +183,8 @@ func (s *storageSuite) TestDestroyFilesystems(c *gc.C) {
 	c.Assert(results[2], gc.ErrorMatches, "boom")
 
 	s.Stub.CheckCalls(c, []testing.StubCall{
-		{"VolumeDelete", []interface{}{"pool0", "filesystem-0"}},
-		{"VolumeDelete", []interface{}{"pool1", "filesystem-1"}},
+		{"DeleteStoragePoolVolume", []interface{}{"pool0", "custom", "filesystem-0"}},
+		{"DeleteStoragePoolVolume", []interface{}{"pool1", "custom", "filesystem-1"}},
 	})
 }
 
