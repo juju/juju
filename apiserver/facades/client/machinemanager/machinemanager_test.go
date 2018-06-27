@@ -332,8 +332,10 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	mach := s.st.machines["0"]
-	mach.CheckCallNames(c, "Series", "Principals", "VerifyUnitsSeries", "CreateUpgradeSeriesLock")
 	c.Assert(len(mach.Calls()), gc.Equals, 4)
+	mach.CheckCallNames(c, "Series", "Principals", "VerifyUnitsSeries", "CreateUpgradeSeriesLock")
+	mach.CheckCall(c, 3, "CreateUpgradeSeriesLock", []string{"unit-foo-0", "unit-test-0"}, "xenial")
+
 }
 
 func (s *MachineManagerSuite) TestUpgradeSeriesPrepareAlreadyRunningSeries(c *gc.C) {
@@ -622,8 +624,8 @@ func (m *mockMachine) VerifyUnitsSeries(units []string, series string, force boo
 	return out, m.NextErr()
 }
 
-func (m *mockMachine) CreateUpgradeSeriesLock() error {
-	m.MethodCall(m, "CreateUpgradeSeriesLock")
+func (m *mockMachine) CreateUpgradeSeriesLock(unitTags []string, series string) error {
+	m.MethodCall(m, "CreateUpgradeSeriesLock", unitTags, series)
 	return m.NextErr()
 }
 
