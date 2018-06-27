@@ -68,7 +68,7 @@ func (s *credentialsSuite) TestDetectCredentialsUsesJujuCert(c *gc.C) {
 	_, provider, server, certsIO, _, _ := s.createProvider(ctrl)
 
 	server.EXPECT().GetCertificate(gomock.Any()).Return(nil, "", nil)
-	server.EXPECT().GetServerEnvironmentCertificate().Return("server-cert", nil)
+	server.EXPECT().GetServerCertificate().Return("server-cert")
 
 	path := osenv.JujuXDGDataHomePath("lxd")
 	certsIO.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
@@ -113,7 +113,7 @@ func (s *credentialsSuite) TestDetectCredentialsUsesLXCCert(c *gc.C) {
 	_, provider, server, certsIO, _, _ := s.createProvider(ctrl)
 
 	server.EXPECT().GetCertificate(gomock.Any()).Return(nil, "", nil)
-	server.EXPECT().GetServerEnvironmentCertificate().Return("server-cert", nil)
+	server.EXPECT().GetServerCertificate().Return("server-cert")
 
 	path := osenv.JujuXDGDataHomePath("lxd")
 	certsIO.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
@@ -164,7 +164,7 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCert(c *gc.C) {
 	_, provider, server, certsIO, certsGen, _ := s.createProvider(ctrl)
 
 	server.EXPECT().GetCertificate(gomock.Any()).Return(nil, "", nil)
-	server.EXPECT().GetServerEnvironmentCertificate().Return("server-cert", nil)
+	server.EXPECT().GetServerCertificate().Return("server-cert")
 
 	path := osenv.JujuXDGDataHomePath("lxd")
 	certsIO.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
@@ -260,7 +260,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocal(c *gc.C) {
 	_, provider, server, _, _, netLookup := s.createProvider(ctrl)
 
 	server.EXPECT().GetCertificate(gomock.Any()).Return(nil, "", nil)
-	server.EXPECT().GetServerEnvironmentCertificate().Return("server-cert", nil)
+	server.EXPECT().GetServerCertificate().Return("server-cert")
 
 	localhostIP := net.IPv4(127, 0, 0, 1)
 	ipNet := &net.IPNet{IP: localhostIP, Mask: localhostIP.DefaultMask()}
@@ -292,7 +292,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalLocalAddCert(c *gc.C) {
 	_, provider, server, _, _, _ := s.createProvider(ctrl)
 
 	server.EXPECT().GetCertificate(gomock.Any()).Return(nil, "", nil)
-	server.EXPECT().GetServerEnvironmentCertificate().Return("server-cert", nil)
+	server.EXPECT().GetServerCertificate().Return("server-cert")
 
 	out, err := provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "",
@@ -325,7 +325,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalLocalAddCertAlreadyExists(
 		server.EXPECT().GetCertificate(gomock.Any()).Return(nil, "", errors.New("not found")),
 		server.EXPECT().CreateClientCertificate(gomock.Any()).Return(errors.New("UNIQUE constraint failed: certificates.fingerprint")),
 		server.EXPECT().GetCertificate(gomock.Any()).Return(nil, "", nil),
-		server.EXPECT().GetServerEnvironmentCertificate().Return("server-cert", nil),
+		server.EXPECT().GetServerCertificate().Return("server-cert"),
 	)
 
 	out, err := provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
@@ -418,7 +418,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalInteractive(c *gc.C) {
 	netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{ipNet}, nil)
 
 	server.EXPECT().GetCertificate(gomock.Any()).Return(nil, "", nil)
-	server.EXPECT().GetServerEnvironmentCertificate().Return("server-cert", nil)
+	server.EXPECT().GetServerCertificate().Return("server-cert")
 
 	ctx := cmdtesting.Context(c)
 	out, err := provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{

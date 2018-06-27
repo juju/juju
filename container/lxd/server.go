@@ -31,8 +31,9 @@ func HasSupport() bool {
 type Server struct {
 	lxd.ContainerServer
 
-	name      string
-	clustered bool
+	name              string
+	clustered         bool
+	serverCertificate string
 
 	networkAPISupport bool
 	clusterAPISupport bool
@@ -73,6 +74,7 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 
 	name := info.Environment.ServerName
 	clustered := info.Environment.ServerClustered
+	serverCertificate := info.Environment.Certificate
 	if clustered {
 		logger.Debugf("creating LXD server for cluster node %q", name)
 	}
@@ -81,6 +83,7 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 		ContainerServer:   svr,
 		name:              name,
 		clustered:         clustered,
+		serverCertificate: serverCertificate,
 		networkAPISupport: shared.StringInSlice("network", apiExt),
 		clusterAPISupport: shared.StringInSlice("clustering", apiExt),
 	}, nil
@@ -158,14 +161,9 @@ func (s *Server) CreateProfileWithConfig(name string, cfg map[string]string) err
 	return errors.Trace(s.CreateProfile(req))
 }
 
-// GetServerEnvironmentCertificate returns the current server environment
-// certificate
-func (s *Server) GetServerEnvironmentCertificate() (string, error) {
-	svr, _, err := s.GetServer()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return svr.Environment.Certificate, nil
+// GetServerCertificate returns the current server environment certificate
+func (s *Server) GetServerCertificate() string {
+	return s.serverCertificate
 }
 
 // IsLXDNotFound checks if an error from the LXD API indicates that a requested
