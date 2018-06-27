@@ -322,7 +322,7 @@ func destroyModelFilesystems(env *environ) error {
 }
 
 func destroyFilesystems(env *environ, match func(api.StorageVolume) bool) error {
-	pools, err := env.raw.StoragePools()
+	pools, err := env.raw.GetStoragePools()
 	if err != nil {
 		return errors.Annotate(err, "listing LXD storage pools")
 	}

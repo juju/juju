@@ -96,18 +96,6 @@ func (c *storageClient) VolumeList(pool string) ([]api.StorageVolume, error) {
 	return custom, nil
 }
 
-// StoragePools returns all of the LXD storage pools.
-func (c *storageClient) StoragePools() ([]api.StoragePool, error) {
-	if !c.supported {
-		return nil, errors.NotSupportedf("storage API on this remote")
-	}
-	pools, err := c.raw.GetStoragePools()
-	if err != nil {
-		return nil, errors.Annotate(err, "listing storage pools")
-	}
-	return pools, nil
-}
-
 // CreateStoragePool creates a LXD storage pool with the given name, driver,
 // and configuration attributes.
 func (c *storageClient) CreateStoragePool(name, driver string, attrs map[string]string) error {

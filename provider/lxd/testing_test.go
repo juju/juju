@@ -560,8 +560,8 @@ func (conn *StubClient) GetStoragePool(name string) (pool *api.StoragePool, ETag
 	}, "", conn.NextErr()
 }
 
-func (conn *StubClient) StoragePools() ([]api.StoragePool, error) {
-	conn.AddCall("StoragePools")
+func (conn *StubClient) GetStoragePools() ([]api.StoragePool, error) {
+	conn.AddCall("GetStoragePools")
 	return []api.StoragePool{{
 		Name:   "juju",
 		Driver: "dir",
