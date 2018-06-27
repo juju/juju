@@ -11,7 +11,6 @@ import (
 )
 
 type rawStorageClient interface {
-	GetStoragePool(name string) (pool *api.StoragePool, ETag string, err error)
 	CreateStoragePool(pool api.StoragePoolsPost) (err error)
 	GetStoragePools() (pools []api.StoragePool, err error)
 	CreateStoragePoolVolume(pool string, volume api.StorageVolumesPost) (err error)
@@ -95,21 +94,6 @@ func (c *storageClient) VolumeList(pool string) ([]api.StorageVolume, error) {
 		}
 	}
 	return custom, nil
-}
-
-// StoragePool returns the LXD storage pool with the given name.
-func (c *storageClient) StoragePool(name string) (api.StoragePool, error) {
-	if !c.supported {
-		return api.StoragePool{}, errors.NotSupportedf("storage API on this remote")
-	}
-	pool, _, err := c.raw.GetStoragePool(name)
-	if err != nil {
-		if lxd.IsLXDNotFound(err) {
-			return api.StoragePool{}, errors.NotFoundf("storage pool %q", name)
-		}
-		return api.StoragePool{}, errors.Annotatef(err, "getting storage pool %q", name)
-	}
-	return *pool, nil
 }
 
 // StoragePools returns all of the LXD storage pools.

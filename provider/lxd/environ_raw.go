@@ -53,10 +53,10 @@ type newServer interface {
 	CreateProfileWithConfig(string, map[string]string) error
 	HasProfile(string) (bool, error)
 	StorageSupported() bool
+	GetStoragePool(name string) (pool *lxdapi.StoragePool, ETag string, err error)
 }
 
 type lxdStorage interface {
-	StoragePool(name string) (lxdapi.StoragePool, error)
 	StoragePools() ([]lxdapi.StoragePool, error)
 	CreateStoragePool(name, driver string, attrs map[string]string) error
 

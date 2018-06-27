@@ -552,12 +552,12 @@ func (conn *StubClient) StorageSupported() bool {
 	return conn.StorageIsSupported
 }
 
-func (conn *StubClient) StoragePool(name string) (api.StoragePool, error) {
+func (conn *StubClient) GetStoragePool(name string) (pool *api.StoragePool, ETag string, err error) {
 	conn.AddCall("StoragePool", name)
-	return api.StoragePool{
+	return &api.StoragePool{
 		Name:   name,
 		Driver: "dir",
-	}, conn.NextErr()
+	}, "", conn.NextErr()
 }
 
 func (conn *StubClient) StoragePools() ([]api.StoragePool, error) {

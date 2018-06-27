@@ -14,6 +14,7 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
@@ -197,8 +198,8 @@ func ensureLXDStoragePool(env *environ, cfg *lxdStorageConfig) error {
 	// verify that. If it doesn't exist, return the original
 	// CreateStoragePool error.
 
-	pool, err := env.raw.StoragePool(cfg.lxdPool)
-	if errors.IsNotFound(err) {
+	pool, _, err := env.raw.GetStoragePool(cfg.lxdPool)
+	if lxd.IsLXDNotFound(err) {
 		return errors.Annotatef(createErr, "creating LXD storage pool %q", cfg.lxdPool)
 	} else if err != nil {
 		return errors.Annotatef(createErr, "getting storage pool %q", cfg.lxdPool)
@@ -308,7 +309,7 @@ func parseFilesystemId(id string) (lxdPool, volumeName string, _ error) {
 	return fields[0], fields[1], nil
 }
 
-func destroyControllerFilesystems(env *environ, controllerUUID string) error {
+func destroyControllerFilesystems(env *environ, _ string) error {
 	return errors.Trace(destroyFilesystems(env, func(v api.StorageVolume) bool {
 		return v.Config["user."+tags.JujuController] == env.Config().UUID()
 	}))
@@ -471,9 +472,9 @@ func (s *lxdFilesystemSource) attachFilesystem(
 	}
 
 	filesystemAttachment := storage.FilesystemAttachment{
-		arg.Filesystem,
-		arg.Machine,
-		storage.FilesystemAttachmentInfo{
+		Filesystem: arg.Filesystem,
+		Machine:    arg.Machine,
+		FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
 			Path:     arg.Path,
 			ReadOnly: arg.ReadOnly,
 		},
