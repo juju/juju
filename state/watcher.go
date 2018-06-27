@@ -1636,6 +1636,16 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 	})
 }
 
+// WatchUpgradeStatus returns a watcher that observes the status of a series
+// upgrade by monitoring changes to its parent machine's upgrade series lock.
+func (u *Unit) WatchUpgradeSeriesNotifications() (NotifyWatcher, error) {
+	machine, err := u.machine()
+	if err != nil {
+		return nil, err
+	}
+	return newEntityWatcher(machine.st, machineUpgradeSeriesLocksC, machine.doc.DocID), nil
+}
+
 func newEntityWatcher(backend modelBackend, collName string, key interface{}) NotifyWatcher {
 	return newDocWatcher(backend, []docKey{{collName, key}})
 }

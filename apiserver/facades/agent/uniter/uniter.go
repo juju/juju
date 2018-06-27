@@ -984,6 +984,42 @@ func (u *UniterAPI) WatchActionNotifications(args params.Entities) (params.Strin
 	return common.WatchActionNotifications(args, canAccess, watchOne), nil
 }
 
+// WatchActionNotifications returns a StringsWatcher for observing the status of an Upgrade Series
+func (u *UniterAPI) WatchUpgradeSeriesNotifications(args params.Entities) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.NotifyWatchResults{}, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		watcherId := ""
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		w, err := unit.WatchUpgradeSeriesNotifications()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		watcherId = u.resources.Register(w)
+		result.Results[i].NotifyWatcherId = watcherId
+	}
+	return result, nil
+}
+
 // ConfigSettings returns the complete set of application charm config
 // settings available to each given unit.
 func (u *UniterAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsResults, error) {

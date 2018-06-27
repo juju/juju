@@ -684,6 +684,32 @@ func (s *unitSuite) TestWatchActionNotificationsMoreResults(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 2")
 }
 
+func (s *unitSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
+	watcher, err := s.apiUnit.WatchUpgradeSeriesNotifications()
+	c.Assert(err, jc.ErrorIsNil)
+
+	notifyWatcher := watchertest.NewNotifyWatcherC(c, watcher, s.BackingState.StartSync)
+	defer notifyWatcher.AssertStops()
+
+	// Why do I have two initial events?!?
+	_, ok := <-notifyWatcher.Watcher.Changes()
+	notifyWatcher.Assert(ok, jc.IsTrue)
+
+	notifyWatcher.AssertOneChange()
+
+	err = s.wordpressMachine.CreateUpgradeSeriesLock()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Expect a notification that the document was created (i.e. a lock was placed)
+	notifyWatcher.AssertOneChange()
+
+	err = s.wordpressMachine.RemoveUpgradeSeriesLock()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// A notification that the document was removed (i.e. the lock was released)
+	notifyWatcher.AssertOneChange()
+}
+
 func (s *unitSuite) TestApplicationNameAndTag(c *gc.C) {
 	c.Assert(s.apiUnit.ApplicationName(), gc.Equals, s.wordpressApplication.Name())
 	c.Assert(s.apiUnit.ApplicationTag(), gc.Equals, s.wordpressApplication.Tag())
