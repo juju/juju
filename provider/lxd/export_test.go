@@ -5,15 +5,14 @@ package lxd
 
 import (
 	"github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 var (
 	NewInstance = newInstance
 )
 
-func ExposeInstRaw(inst *environInstance) *lxdclient.Instance {
-	return inst.raw
+func ExposeInstContainer(inst *environInstance) *lxd.Container {
+	return inst.container
 }
 
 func ExposeInstEnv(inst *environInstance) *environ {
@@ -24,8 +23,8 @@ func ExposeEnvConfig(env *environ) *environConfig {
 	return env.ecfg
 }
 
-func ExposeEnvClient(env *environ) lxdInstances {
-	return env.raw.lxdInstances
+func ExposeEnvServer(env *environ) newServer {
+	return env.raw.newServer
 }
 
 func GetImageSources(env *environ) ([]lxd.RemoteServer, error) {

@@ -190,22 +190,18 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 	if err != nil {
 		return errors.Annotate(err, "listing instances")
 	}
-	logger.Debugf("instances: %v", instances)
+
+	logger.Debugf("removing instances: %v", instances)
 	var names []string
 	for _, inst := range instances {
-		metadata := inst.raw.Metadata()
-		if metadata[tags.JujuModel] == env.uuid {
+		if inst.container.Metadata(tags.JujuModel) == env.uuid {
 			continue
 		}
-		if metadata[tags.JujuController] != controllerUUID {
+		if inst.container.Metadata(tags.JujuController) != controllerUUID {
 			continue
 		}
 		names = append(names, string(inst.Id()))
 	}
-	if len(names) > 0 {
-		if err := env.raw.RemoveInstances(prefix, names...); err != nil {
-			return errors.Annotate(err, "removing hosted model instances")
-		}
-	}
-	return nil
+
+	return errors.Trace(env.raw.RemoveContainers(names))
 }

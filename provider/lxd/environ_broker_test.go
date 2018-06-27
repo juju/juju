@@ -27,7 +27,7 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
-	s.Client.Inst = s.RawInstance
+	s.Client.Container = s.Container
 
 	// Patch the host's arch, so the broker will filter tools.
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
@@ -38,12 +38,12 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Check(result.Hardware, gc.DeepEquals, s.HWC)
 	c.Assert(s.StartInstArgs.InstanceConfig.AgentVersion().Arch, gc.Equals, arch.ARM64)
 
-	s.Stub.CheckCallNames(c, "FindImage", "AddInstance")
+	s.Stub.CheckCallNames(c, "FindImage", "CreateContainerFromSpec")
 	s.Stub.CheckCall(c, 0, "FindImage", "trusty", "arm64")
 }
 
 func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {
-	s.Client.Inst = s.RawInstance
+	s.Client.Container = s.Container
 
 	// Patch the host's arch, so the broker will filter tools.
 	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
@@ -56,11 +56,13 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	err := s.Env.StopInstances(s.callCtx, s.Instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
+	// TODO (manadart 2018-06-25) This call has no IDs as arguments,
+	// because of filtering by the env namespace prefix.
+	// These tests will all be rewritten.
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
-		FuncName: "RemoveInstances",
+		FuncName: "RemoveContainers",
 		Args: []interface{}{
-			"juju-f75cba-",
-			[]string{"spam"},
+			[]string{},
 		},
 	}})
 }

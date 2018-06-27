@@ -96,7 +96,6 @@ func init() {
 type Client struct {
 	*lxd.Server
 	*profileClient
-	*instanceClient
 	*storageClient
 	baseURL string
 }
@@ -165,11 +164,10 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 	conn := &Client{
-		Server:         newServer,
-		profileClient:  &profileClient{raw},
-		instanceClient: &instanceClient{raw, remoteID},
-		storageClient:  &storageClient{raw, storageAPISupported},
-		baseURL:        cInfo.URL,
+		Server:        newServer,
+		profileClient: &profileClient{raw},
+		storageClient: &storageClient{raw, storageAPISupported},
+		baseURL:       cInfo.URL,
 	}
 	return conn, nil
 }

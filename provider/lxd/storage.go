@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 const (
@@ -453,7 +452,6 @@ func (s *lxdFilesystemSource) attachFilesystem(
 	arg storage.FilesystemAttachmentParams,
 	inst *environInstance,
 ) (*storage.FilesystemAttachment, error) {
-
 	if inst == nil {
 		return nil, errors.NotFoundf("instance %q", arg.InstanceId)
 	}
@@ -463,18 +461,13 @@ func (s *lxdFilesystemSource) attachFilesystem(
 		return nil, errors.Trace(err)
 	}
 
-	disks := inst.raw.Disks()
 	deviceName := arg.Filesystem.String()
-	if _, ok := disks[deviceName]; !ok {
-		disk := lxdclient.DiskDevice{
-			Path:     arg.Path,
-			Source:   volumeName,
-			Pool:     poolName,
-			ReadOnly: arg.ReadOnly,
-		}
-		if err := s.env.raw.AttachDisk(inst.raw.Name, deviceName, disk); err != nil {
-			return nil, errors.Trace(err)
-		}
+	if err = inst.container.AddDisk(deviceName, arg.Path, volumeName, poolName, arg.ReadOnly); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := s.env.raw.WriteContainer(inst.container); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	filesystemAttachment := storage.FilesystemAttachment{
@@ -533,12 +526,9 @@ func (s *lxdFilesystemSource) detachFilesystem(
 	arg storage.FilesystemAttachmentParams,
 	inst *environInstance,
 ) error {
-	devices := inst.raw.Disks()
 	deviceName := arg.Filesystem.String()
-	if _, ok := devices[deviceName]; !ok {
-		return nil
-	}
-	return s.env.raw.RemoveDevice(inst.raw.Name, deviceName)
+	delete(inst.container.Devices, deviceName)
+	return errors.Trace(s.env.raw.WriteContainer(inst.container))
 }
 
 // ImportFilesystem is part of the storage.FilesystemImporter interface.

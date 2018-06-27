@@ -11,10 +11,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	containerlxd "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 type storageSuite struct {
@@ -246,8 +246,8 @@ func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
 }
 
 func (s *storageSuite) TestAttachFilesystems(c *gc.C) {
-	raw := s.NewRawInstance(c, "inst-0")
-	raw.Devices = map[string]map[string]string{
+	container := s.NewContainer(c, "inst-0")
+	container.Devices = map[string]map[string]string{
 		"filesystem-1": {
 			"type":     "disk",
 			"source":   "filesystem-1",
@@ -256,7 +256,7 @@ func (s *storageSuite) TestAttachFilesystems(c *gc.C) {
 			"readonly": "true",
 		},
 	}
-	s.Client.Insts = []lxdclient.Instance{*raw}
+	s.Client.Containers = []containerlxd.Container{*container}
 
 	source := s.filesystemSource(c, "pool")
 	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
@@ -300,38 +300,28 @@ func (s *storageSuite) TestAttachFilesystems(c *gc.C) {
 			ReadOnly: true,
 		},
 	})
-	c.Assert(results[1].Error, jc.ErrorIsNil)
-	c.Assert(results[1].FilesystemAttachment, jc.DeepEquals, &storage.FilesystemAttachment{
-		names.NewFilesystemTag("1"),
-		names.NewMachineTag("123"),
-		storage.FilesystemAttachmentInfo{
-			Path:     "/mnt/socio",
-			ReadOnly: true,
-		},
-	})
 	c.Assert(
-		results[2].Error,
+		results[1].Error,
 		gc.ErrorMatches,
-		`attaching filesystem 2 to machine 42: instance "inst-42" not found`,
+		`attaching filesystem 1 to machine 123: container "inst-0" already has a device "filesystem-1"`)
+	c.Assert(
+		results[2].Error, gc.ErrorMatches, `attaching filesystem 2 to machine 42: instance "inst-42" not found`,
 	)
 
+	// TODO (manadart 2018-06-25) We need to check the device written to the
+	// container as config.
 	s.Stub.CheckCalls(c, []testing.StubCall{{
-		"Instances",
-		[]interface{}{"juju-f75cba-", []string{"Starting", "Started", "Running", "Stopping", "Stopped"}},
+		"AliveContainers",
+		[]interface{}{"juju-f75cba-"},
 	}, {
-		"AttachDisk",
-		[]interface{}{"inst-0", "filesystem-0", lxdclient.DiskDevice{
-			Path:     "/mnt/path",
-			Source:   "filesystem-0",
-			Pool:     "pool",
-			ReadOnly: true,
-		}},
+		"WriteContainer",
+		[]interface{}{&s.Client.Containers[0]},
 	}})
 }
 
 func (s *storageSuite) TestDetachFilesystems(c *gc.C) {
-	raw := s.NewRawInstance(c, "inst-0")
-	raw.Devices = map[string]map[string]string{
+	container := s.NewContainer(c, "inst-0")
+	container.Devices = map[string]map[string]string{
 		"filesystem-0": {
 			"type":     "disk",
 			"source":   "filesystem-0",
@@ -340,7 +330,7 @@ func (s *storageSuite) TestDetachFilesystems(c *gc.C) {
 			"readonly": "true",
 		},
 	}
-	s.Client.Insts = []lxdclient.Instance{*raw}
+	s.Client.Containers = []containerlxd.Container{*container}
 
 	source := s.filesystemSource(c, "pool")
 	results, err := source.DetachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
@@ -374,11 +364,17 @@ func (s *storageSuite) TestDetachFilesystems(c *gc.C) {
 	c.Assert(results[1], jc.ErrorIsNil)
 	c.Assert(results[2], jc.ErrorIsNil)
 
+	// TODO (manadart 2018-06-25) We need to check the container config to
+	// ensure it represents the removed device.
 	s.Stub.CheckCalls(c, []testing.StubCall{{
-		"Instances",
-		[]interface{}{"juju-f75cba-", []string{"Starting", "Started", "Running", "Stopping", "Stopped"}},
+		"AliveContainers",
+		[]interface{}{"juju-f75cba-"},
 	}, {
-		"RemoveDevice", []interface{}{"inst-0", "filesystem-0"},
+		"WriteContainer",
+		[]interface{}{&s.Client.Containers[0]},
+	}, {
+		"WriteContainer",
+		[]interface{}{&s.Client.Containers[0]},
 	}})
 }
 

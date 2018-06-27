@@ -28,7 +28,6 @@ import (
 // GoMock, at which point rawProvider is replaced with the new server.
 type rawProvider struct {
 	newServer
-	lxdInstances
 	lxdProfiles
 	lxdStorage
 
@@ -45,15 +44,13 @@ type newServer interface {
 	DeleteCertificate(fingerprint string) (err error)
 	CreateClientCertificate(certificate *lxd.Certificate) error
 	LocalBridgeName() string
-}
-
-type lxdInstances interface {
-	Instances(string, ...string) ([]jujulxdclient.Instance, error)
-	AddInstance(jujulxdclient.InstanceSpec) (*jujulxdclient.Instance, error)
-	RemoveInstances(string, ...string) error
-	Addresses(string) ([]network.Address, error)
-	AttachDisk(string, string, jujulxdclient.DiskDevice) error
-	RemoveDevice(string, string) error
+	AliveContainers(prefix string) ([]lxd.Container, error)
+	ContainerAddresses(name string) ([]network.Address, error)
+	RemoveContainer(name string) error
+	RemoveContainers(names []string) error
+	FilterContainers(prefix string, statuses ...string) ([]lxd.Container, error)
+	CreateContainerFromSpec(spec lxd.ContainerSpec) (*lxd.Container, error)
+	WriteContainer(*lxd.Container) error
 }
 
 type lxdProfiles interface {
@@ -105,11 +102,10 @@ func newRawProviderFromConfig(config jujulxdclient.Config) (*rawProvider, error)
 		return nil, errors.Trace(err)
 	}
 	return &rawProvider{
-		newServer:    client,
-		lxdInstances: client,
-		lxdProfiles:  client,
-		lxdStorage:   client,
-		remote:       config.Remote,
+		newServer:   client,
+		lxdProfiles: client,
+		lxdStorage:  client,
+		remote:      config.Remote,
 	}, nil
 }
 

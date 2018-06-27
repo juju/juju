@@ -7,19 +7,9 @@ import (
 	"github.com/juju/testing"
 )
 
-var NewInstanceSummary = newInstanceSummary
-
 type (
-	RawInstanceClient rawInstanceClient
-	RawStorageClient  rawStorageClient
+	RawStorageClient rawStorageClient
 )
-
-func NewInstanceClient(raw RawInstanceClient) *instanceClient {
-	return &instanceClient{
-		raw:    rawInstanceClient(raw),
-		remote: "",
-	}
-}
 
 func NewStorageClient(raw RawStorageClient, supported bool) *storageClient {
 	return &storageClient{

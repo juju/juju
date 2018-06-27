@@ -17,7 +17,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environSuite struct {
@@ -34,9 +33,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environSuite) TestName(c *gc.C) {
-	name := s.Env.Name()
-
-	c.Check(name, gc.Equals, "lxd")
+	c.Check(s.Env.Name(), gc.Equals, "lxd")
 }
 
 func (s *environSuite) TestProvider(c *gc.C) {
@@ -49,7 +46,7 @@ func (s *environSuite) TestSetConfigOkay(c *gc.C) {
 
 	c.Check(lxd.ExposeEnvConfig(s.Env), jc.DeepEquals, s.EnvConfig)
 	// Ensure the client did not change.
-	c.Check(lxd.ExposeEnvClient(s.Env), gc.Equals, s.Client)
+	c.Check(lxd.ExposeEnvServer(s.Env), gc.Equals, s.Client)
 }
 
 func (s *environSuite) TestSetConfigNoAPI(c *gc.C) {
@@ -164,19 +161,22 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	}
 
 	// machine0 is in the controller model.
-	machine0 := s.NewRawInstance(c, "juju-controller-machine-0")
-	machine0.InstanceSummary.Metadata["juju-model-uuid"] = s.Config.UUID()
-	machine0.InstanceSummary.Metadata["juju-controller-uuid"] = s.Config.UUID()
+	machine0 := s.NewContainer(c, "juju-controller-machine-0")
+	machine0.Config["user.juju-model-uuid"] = s.Config.UUID()
+	machine0.Config["user.juju-controller-uuid"] = s.Config.UUID()
+
 	// machine1 is not in the controller model, but managed
 	// by the same controller.
-	machine1 := s.NewRawInstance(c, "juju-hosted-machine-1")
-	machine1.InstanceSummary.Metadata["juju-model-uuid"] = "not-" + s.Config.UUID()
-	machine1.InstanceSummary.Metadata["juju-controller-uuid"] = s.Config.UUID()
+	machine1 := s.NewContainer(c, "juju-hosted-machine-1")
+	machine1.Config["user.juju-model-uuid"] = "not-" + s.Config.UUID()
+	machine1.Config["user.juju-controller-uuid"] = s.Config.UUID()
+
 	// machine2 is not managed by the same controller.
-	machine2 := s.NewRawInstance(c, "juju-controller-machine-2")
-	machine2.InstanceSummary.Metadata["juju-model-uuid"] = "not-" + s.Config.UUID()
-	machine2.InstanceSummary.Metadata["juju-controller-uuid"] = "not-" + s.Config.UUID()
-	s.Client.Insts = append(s.Client.Insts, *machine0, *machine1, *machine2)
+	machine2 := s.NewContainer(c, "juju-controller-machine-2")
+	machine2.Config["user.juju-model-uuid"] = "not-" + s.Config.UUID()
+	machine2.Config["user.juju-controller-uuid"] = "not-" + s.Config.UUID()
+
+	s.Client.Containers = append(s.Client.Containers, *machine0, *machine1, *machine2)
 
 	err := s.Env.DestroyController(s.callCtx, s.Config.UUID())
 	c.Assert(err, jc.ErrorIsNil)
@@ -187,8 +187,8 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		{"StoragePools", nil},
 		{"VolumeList", []interface{}{"juju"}},
 		{"VolumeList", []interface{}{"juju-zfs"}},
-		{"Instances", []interface{}{"juju-", lxdclient.AliveStatuses}},
-		{"RemoveInstances", []interface{}{"juju-", []string{machine1.Name}}},
+		{"AliveContainers", []interface{}{"juju-"}},
+		{"RemoveContainers", []interface{}{[]string{machine1.Name}}},
 		{"StorageSupported", nil},
 		{"StoragePools", nil},
 		{"VolumeList", []interface{}{"juju"}},
