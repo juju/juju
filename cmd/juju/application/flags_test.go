@@ -136,7 +136,7 @@ func (FlagSuite) TestDevicesFlagErrors(c *gc.C) {
 	testFlagErrors(c, flag, "foo:bar=baz", `expected <device>=<constraints>`)
 	testFlagErrors(c, flag, "foo:bar=", `expected <device>=<constraints>`)
 
-	testFlagErrors(c, flag, "foo=2,nvidia.com/gpu,gpu=nvidia-tesla-p100,a=b", `cannot parse device constraints string, supported format is \[<count>,\]<device-class>|<vendor/type>\[,<attributes>\]`)
+	testFlagErrors(c, flag, "foo=2,nvidia.com/gpu,gpu=nvidia-tesla-p100,a=b", `cannot parse device constraints string, supported format is \[<count>,\]<device-class>|<vendor/type>\[,<key>=<value>;...\]`)
 	testFlagErrors(c, flag, "foo=2,nvidia.com/gpu,gpu=b=c", `cannot parse device constraints: device attribute key/value pair has bad format: \"gpu=b=c\"`)
 	testFlagErrors(c, flag, "foo=badCount,nvidia.com/gpu", `cannot parse device constraints: count must be greater than zero, got \"badCount\"`)
 	testFlagErrors(c, flag, "foo=0,nvidia.com/gpu", `cannot parse device constraints: count must be greater than zero, got \"0\"`)

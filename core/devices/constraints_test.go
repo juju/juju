@@ -55,7 +55,7 @@ func (s *ConstraintsSuite) TestParseConstraintsDeviceGood(c *gc.C) {
 }
 
 func (s *ConstraintsSuite) TestParseConstraintsDeviceBad(c *gc.C) {
-	s.testParseError(c, "2,nvidia.com/gpu,gpu=nvidia-tesla-p100,a=b", `cannot parse device constraints string, supported format is \[<count>,\]<device-class>|<vendor/type>\[,<attributes>\]`)
+	s.testParseError(c, "2,nvidia.com/gpu,gpu=nvidia-tesla-p100,a=b", `cannot parse device constraints string, supported format is \[<count>,\]<device-class>|<vendor/type>\[,<key>=<value>;...\]`)
 	s.testParseError(c, "2,nvidia.com/gpu,gpu=b=c", `device attribute key/value pair has bad format: \"gpu=b=c\"`)
 	s.testParseError(c, "badCount,nvidia.com/gpu", `count must be greater than zero, got \"badCount\"`)
 	s.testParseError(c, "0,nvidia.com/gpu", `count must be greater than zero, got \"0\"`)

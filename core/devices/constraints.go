@@ -13,7 +13,7 @@ import (
 
 var logger = loggo.GetLogger("juju.core.devices")
 
-var deviceParseErr = errors.Errorf("cannot parse device constraints string, supported format is [<count>,]<device-class>|<vendor/type>[,<attributes>]")
+var deviceParseErr = errors.Errorf("cannot parse device constraints string, supported format is [<count>,]<device-class>|<vendor/type>[,<key>=<value>;...]")
 
 // DeviceType defines a device type.
 type DeviceType string
