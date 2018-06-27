@@ -89,9 +89,8 @@ func (f deviceFlag) Set(s string) error {
 	if len(fields) < 2 {
 		if f.bundleDevices != nil {
 			return errors.New("expected [<application>:]<device>=<constraints>")
-		} else {
-			return errors.New("expected <device>=<constraints>")
 		}
+		return errors.New("expected <device>=<constraints>")
 	}
 	var applicationName, deviceName string
 	if colon := strings.IndexRune(fields[0], ':'); colon >= 0 {

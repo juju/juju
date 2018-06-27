@@ -13,6 +13,8 @@ import (
 
 var logger = loggo.GetLogger("juju.core.devices")
 
+var deviceParseErr = errors.Errorf("cannot parse device constraints string, supported format is [<count>,]<device-class>|<vendor/type>[,<attributes>]")
+
 // DeviceType defines a device type.
 type DeviceType string
 
@@ -48,12 +50,11 @@ type Constraints struct {
 //    number of devices the charm requires. If unspecified, COUNT defaults to 1.
 func ParseConstraints(s string) (Constraints, error) {
 	var cons Constraints
-	fields := strings.Split(s, ",")
-	err := errors.Errorf("cannot parse device constraints string, supported format is [<count>,]<device-class>|<vendor/type>[,<attributes>]")
 
+	fields := strings.Split(s, ",")
 	fieldsLen := len(fields)
 	if fieldsLen < 1 || fieldsLen > 3 {
-		return cons, err
+		return cons, deviceParseErr
 	}
 	if fieldsLen == 1 {
 		cons.Count = 1
@@ -61,7 +62,7 @@ func ParseConstraints(s string) (Constraints, error) {
 	} else {
 		count, err := parseCount(fields[0])
 		if err != nil {
-			return cons, err
+			return Constraints{}, err
 		}
 		cons.Count = count
 		cons.Type = DeviceType(fields[1])
@@ -69,7 +70,7 @@ func ParseConstraints(s string) (Constraints, error) {
 		if fieldsLen == 3 {
 			attr, err := parseAttributes(fields[2])
 			if err != nil {
-				return cons, err
+				return Constraints{}, err
 			}
 			cons.Attributes = attr
 		}
@@ -78,11 +79,22 @@ func ParseConstraints(s string) (Constraints, error) {
 }
 
 func parseAttributes(s string) (map[string]string, error) {
-	kv := strings.Split(s, "=")
-	if len(kv) != 2 {
-		return nil, errors.Errorf("device attributes can be only one attribute without \"=\" in the string")
+	parseAttribute := func(s string) ([]string, error) {
+		kv := strings.Split(s, "=")
+		if len(kv) != 2 {
+			return nil, errors.Errorf("device attribute key/value pair has bad format: %q", s)
+		}
+		return kv, nil
 	}
-	return map[string]string{kv[0]: kv[1]}, nil
+	var attr map[string]string
+	for _, attrStr := range strings.Split(s, ";") {
+		kv, err := parseAttribute(attrStr)
+		if err != nil {
+			return nil, err
+		}
+		attr[kv[0]] = kv[1]
+	}
+	return attr, nil
 }
 
 func parseCount(s string) (int64, error) {
