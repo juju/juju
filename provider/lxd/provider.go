@@ -27,7 +27,7 @@ import (
 
 // ProviderLXDServer provides methods for the Provider and the
 // ProviderCredentials to query.
-//go:generate mockgen -package lxd -destination provider_mock_test.go github.com/juju/juju/provider/lxd ProviderLXDServer
+//go:generate mockgen -package lxd -destination provider_mock_test.go github.com/juju/juju/provider/lxd ProviderLXDServer,LXDInterfaceAddress
 type ProviderLXDServer interface {
 	GetConnectionInfo() (*client.ConnectionInfo, error)
 	LocalBridgeName() string
@@ -36,9 +36,20 @@ type ProviderLXDServer interface {
 	ServerCertificate() string
 }
 
+// LXDInterfaceAddress groups methods that is required to find addresses
+// for a given interface
+type LXDInterfaceAddress interface {
+
+	// InterfaceAddress looks for the network interface
+	// and returns the IPv4 address from the possible addresses.
+	// Returns an error if there is an issue locating the interface name or
+	// the address associated with it.
+	InterfaceAddress(string) (string, error)
+}
+
 type environProvider struct {
 	environs.ProviderCredentials
-	interfaceAddress func(string) (string, error)
+	interfaceAddress LXDInterfaceAddress
 	newLocalServer   func() (ProviderLXDServer, error)
 	Clock            clock.Clock
 }
@@ -75,7 +86,7 @@ func NewProvider() environs.CloudEnvironProvider {
 			lookup:         netLookup{},
 			newLocalServer: createLXDServer,
 		},
-		interfaceAddress: utils.GetAddressForInterface,
+		interfaceAddress: utilsLXDInterfaceAddress{},
 		newLocalServer:   createLXDServer,
 	}
 }
@@ -179,8 +190,10 @@ func (p *environProvider) FinalizeCloud(
 ) (cloud.Cloud, error) {
 
 	var endpoint string
-	resolveEndpoint := func(ep *string) error {
-		if *ep != "" {
+	resolveEndpoint := func(name string, ep *string) error {
+		// If the name doesn't equal "localhost" then we shouldn't resolve
+		// the end point, instead we should just accept what we already have.
+		if name != "localhost" || *ep != "" {
 			return nil
 		}
 		if endpoint == "" {
@@ -197,11 +210,11 @@ func (p *environProvider) FinalizeCloud(
 		return nil
 	}
 
-	if err := resolveEndpoint(&in.Endpoint); err != nil {
+	if err := resolveEndpoint(in.Name, &in.Endpoint); err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
 	}
-	for i := range in.Regions {
-		if err := resolveEndpoint(&in.Regions[i].Endpoint); err != nil {
+	for i, k := range in.Regions {
+		if err := resolveEndpoint(k.Name, &in.Regions[i].Endpoint); err != nil {
 			return cloud.Cloud{}, errors.Trace(err)
 		}
 	}
@@ -215,7 +228,7 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 	}
 
 	bridgeName := svr.LocalBridgeName()
-	hostAddress, err := p.interfaceAddress(bridgeName)
+	hostAddress, err := p.interfaceAddress.InterfaceAddress(bridgeName)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -380,4 +393,10 @@ func (p *environProvider) ConfigSchema() schema.Fields {
 // provider specific config attributes.
 func (p *environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
+}
+
+type utilsLXDInterfaceAddress struct{}
+
+func (utilsLXDInterfaceAddress) InterfaceAddress(interfaceName string) (string, error) {
+	return utils.GetAddressForInterface(interfaceName)
 }
