@@ -33,7 +33,7 @@ type ProviderLXDServer interface {
 	LocalBridgeName() string
 	GetCertificate(string) (certificate *api.Certificate, ETag string, err error)
 	CreateClientCertificate(*lxd.Certificate) error
-	GetServerCertificate() string
+	ServerCertificate() string
 }
 
 type environProvider struct {

@@ -161,8 +161,8 @@ func (s *Server) CreateProfileWithConfig(name string, cfg map[string]string) err
 	return errors.Trace(s.CreateProfile(req))
 }
 
-// GetServerCertificate returns the current server environment certificate
-func (s *Server) GetServerCertificate() string {
+// ServerCertificate returns the current server environment certificate
+func (s *Server) ServerCertificate() string {
 	return s.serverCertificate
 }
 

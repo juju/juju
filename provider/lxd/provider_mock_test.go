@@ -74,18 +74,6 @@ func (mr *MockProviderLXDServerMockRecorder) GetConnectionInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConnectionInfo", reflect.TypeOf((*MockProviderLXDServer)(nil).GetConnectionInfo))
 }
 
-// GetServerCertificate mocks base method
-func (m *MockProviderLXDServer) GetServerCertificate() string {
-	ret := m.ctrl.Call(m, "GetServerCertificate")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// GetServerCertificate indicates an expected call of GetServerCertificate
-func (mr *MockProviderLXDServerMockRecorder) GetServerCertificate() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetServerCertificate", reflect.TypeOf((*MockProviderLXDServer)(nil).GetServerCertificate))
-}
-
 // LocalBridgeName mocks base method
 func (m *MockProviderLXDServer) LocalBridgeName() string {
 	ret := m.ctrl.Call(m, "LocalBridgeName")
@@ -96,4 +84,16 @@ func (m *MockProviderLXDServer) LocalBridgeName() string {
 // LocalBridgeName indicates an expected call of LocalBridgeName
 func (mr *MockProviderLXDServerMockRecorder) LocalBridgeName() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalBridgeName", reflect.TypeOf((*MockProviderLXDServer)(nil).LocalBridgeName))
+}
+
+// ServerCertificate mocks base method
+func (m *MockProviderLXDServer) ServerCertificate() string {
+	ret := m.ctrl.Call(m, "ServerCertificate")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ServerCertificate indicates an expected call of ServerCertificate
+func (mr *MockProviderLXDServerMockRecorder) ServerCertificate() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerCertificate", reflect.TypeOf((*MockProviderLXDServer)(nil).ServerCertificate))
 }
