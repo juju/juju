@@ -472,12 +472,12 @@ func filesystemParamsFromParams(in params.FilesystemParams) (storage.FilesystemP
 	}
 	providerType := storage.ProviderType(in.Provider)
 	return storage.FilesystemParams{
-		filesystemTag,
-		volumeTag,
-		in.Size,
-		providerType,
-		in.Attributes,
-		in.Tags,
+		Tag:          filesystemTag,
+		Volume:       volumeTag,
+		Size:         in.Size,
+		Provider:     providerType,
+		Attributes:   in.Attributes,
+		ResourceTags: in.Tags,
 	}, nil
 }
 

@@ -9,13 +9,15 @@ import (
 
 // KubernetesProvisioningInfo holds unit provisioning info.
 type KubernetesProvisioningInfo struct {
-	PodSpec               string                       `json:"pod-spec"`
-	Constraints           constraints.Value            `json:"constraints"`
-	Filesystems           []FilesystemParams           `json:"filesystems,omitempty"`
+	PodSpec     string             `json:"pod-spec"`
+	Constraints constraints.Value  `json:"constraints"`
+	Tags        map[string]string  `json:"tags,omitempty"`
+	Filesystems []FilesystemParams `json:"filesystems,omitempty"`
+	Volumes     []VolumeParams     `json:"volumes,omitempty"`
+
+	// TODO(caas) - storage attachment params: may not need these
 	FilesystemAttachments []FilesystemAttachmentParams `json:"filesystem-attachments,omitempty"`
-	Volumes               []VolumeParams               `json:"volumes,omitempty"`
 	VolumeAttachments     []VolumeAttachmentParams     `json:"volume-attachments,omitempty"`
-	Tags                  map[string]string            `json:"tags,omitempty"`
 }
 
 // KubernetesProvisioningInfoResult holds unit provisioning info or an error.

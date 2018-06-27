@@ -73,15 +73,15 @@ type ServiceParams struct {
 	// PodSpec is the spec used to configure a pod.
 	PodSpec *PodSpec
 
+	// ResourceTags is a set of tags to set on the created service.
+	ResourceTags map[string]string
+
 	// Constraints is a set of constraints on
 	// the pod to create.
 	Constraints constraints.Value
 
 	// Filesystems is a set of parameters for filesystems that should be created.
 	Filesystems []storage.FilesystemParams
-
-	// FilesystemAttachments is a set of parameters for attaching filesystems.
-	FilesystemAttachments []storage.FilesystemAttachmentParams
 }
 
 // Broker instances interact with the CAAS substrate.
