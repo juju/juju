@@ -335,8 +335,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	// Patch out all expensive external deps.
 	raw := &rawProvider{
-		newServer:  s.Client,
-		lxdStorage: s.Client,
+		newServer: s.Client,
 		remote: jujulxdclient.Remote{
 			Cert: &lxd.Certificate{
 				Name:    "juju",
@@ -553,7 +552,7 @@ func (conn *StubClient) StorageSupported() bool {
 }
 
 func (conn *StubClient) GetStoragePool(name string) (pool *api.StoragePool, ETag string, err error) {
-	conn.AddCall("StoragePool", name)
+	conn.AddCall("GetStoragePool", name)
 	return &api.StoragePool{
 		Name:   name,
 		Driver: "dir",
@@ -571,13 +570,13 @@ func (conn *StubClient) GetStoragePools() ([]api.StoragePool, error) {
 	}}, conn.NextErr()
 }
 
-func (conn *StubClient) CreateStoragePool(name, driver string, attrs map[string]string) error {
-	conn.AddCall("CreateStoragePool", name, driver, attrs)
+func (conn *StubClient) CreatePool(name, driver string, attrs map[string]string) error {
+	conn.AddCall("CreatePool", name, driver, attrs)
 	return conn.NextErr()
 }
 
-func (conn *StubClient) VolumeCreate(pool, volume string, config map[string]string) error {
-	conn.AddCall("VolumeCreate", pool, volume, config)
+func (conn *StubClient) CreateVolume(pool, volume string, config map[string]string) error {
+	conn.AddCall("CreateVolume", pool, volume, config)
 	return conn.NextErr()
 }
 

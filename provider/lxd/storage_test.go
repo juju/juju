@@ -62,7 +62,7 @@ func (s *storageSuite) TestStorageDefaultPools(c *gc.C) {
 	c.Assert(pools, gc.HasLen, 2)
 	c.Assert(pools[0].Name(), gc.Equals, "lxd-zfs")
 	c.Assert(pools[1].Name(), gc.Equals, "lxd-btrfs")
-	s.Stub.CheckCallNames(c, "CreateStoragePool", "CreateStoragePool")
+	s.Stub.CheckCallNames(c, "CreatePool", "CreatePool")
 }
 
 func (s *storageSuite) TestStorageDefaultPoolsDriverNotSupported(c *gc.C) {
@@ -73,7 +73,7 @@ func (s *storageSuite) TestStorageDefaultPoolsDriverNotSupported(c *gc.C) {
 	pools := s.provider.DefaultPools()
 	c.Assert(pools, gc.HasLen, 1)
 	c.Assert(pools[0].Name(), gc.Equals, "lxd-btrfs")
-	s.Stub.CheckCallNames(c, "CreateStoragePool", "StoragePool", "CreateStoragePool")
+	s.Stub.CheckCallNames(c, "CreatePool", "GetStoragePool", "CreatePool")
 }
 
 func (s *storageSuite) TestVolumeSource(c *gc.C) {
@@ -125,9 +125,9 @@ func (s *storageSuite) TestCreateFilesystems(c *gc.C) {
 		},
 	})
 
-	s.Stub.CheckCallNames(c, "CreateStoragePool", "VolumeCreate")
-	s.Stub.CheckCall(c, 0, "CreateStoragePool", "radiance", "btrfs", map[string]string(nil))
-	s.Stub.CheckCall(c, 1, "VolumeCreate", "radiance", "juju-f75cba-filesystem-0", map[string]string{
+	s.Stub.CheckCallNames(c, "CreatePool", "CreateVolume")
+	s.Stub.CheckCall(c, 0, "CreatePool", "radiance", "btrfs", map[string]string(nil))
+	s.Stub.CheckCall(c, 1, "CreateVolume", "radiance", "juju-f75cba-filesystem-0", map[string]string{
 		"user.key": "value",
 		"size":     "1024MB",
 	})
@@ -160,10 +160,10 @@ func (s *storageSuite) TestCreateFilesystemsPoolExists(c *gc.C) {
 		},
 	})
 
-	s.Stub.CheckCallNames(c, "CreateStoragePool", "StoragePool", "VolumeCreate")
-	s.Stub.CheckCall(c, 0, "CreateStoragePool", "radiance", "dir", map[string]string(nil))
-	s.Stub.CheckCall(c, 1, "StoragePool", "radiance")
-	s.Stub.CheckCall(c, 2, "VolumeCreate", "radiance", "juju-f75cba-filesystem-0", map[string]string{
+	s.Stub.CheckCallNames(c, "CreatePool", "GetStoragePool", "CreateVolume")
+	s.Stub.CheckCall(c, 0, "CreatePool", "radiance", "dir", map[string]string(nil))
+	s.Stub.CheckCall(c, 1, "GetStoragePool", "radiance")
+	s.Stub.CheckCall(c, 2, "CreateVolume", "radiance", "juju-f75cba-filesystem-0", map[string]string{
 		"user.key": "value",
 	})
 }

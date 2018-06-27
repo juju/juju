@@ -28,7 +28,6 @@ import (
 // GoMock, at which point rawProvider is replaced with the new server.
 type rawProvider struct {
 	newServer
-	lxdStorage
 
 	remote jujulxdclient.Remote
 }
@@ -55,16 +54,12 @@ type newServer interface {
 	StorageSupported() bool
 	GetStoragePool(name string) (pool *lxdapi.StoragePool, ETag string, err error)
 	GetStoragePools() (pools []lxdapi.StoragePool, err error)
+	CreatePool(name, driver string, attrs map[string]string) error
 	GetStoragePoolVolume(pool string, volType string, name string) (*lxdapi.StorageVolume, string, error)
 	GetStoragePoolVolumes(pool string) (volumes []lxdapi.StorageVolume, err error)
+	CreateVolume(pool, name string, config map[string]string) error
 	UpdateStoragePoolVolume(pool string, volType string, name string, volume lxdapi.StorageVolumePut, ETag string) error
 	DeleteStoragePoolVolume(pool string, volType string, name string) (err error)
-}
-
-type lxdStorage interface {
-	CreateStoragePool(name, driver string, attrs map[string]string) error
-
-	VolumeCreate(pool, volume string, config map[string]string) error
 }
 
 func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {
@@ -97,9 +92,8 @@ func newRawProviderFromConfig(config jujulxdclient.Config) (*rawProvider, error)
 		return nil, errors.Trace(err)
 	}
 	return &rawProvider{
-		newServer:  client,
-		lxdStorage: client,
-		remote:     config.Remote,
+		newServer: client,
+		remote:    config.Remote,
 	}, nil
 }
 

@@ -95,7 +95,6 @@ func init() {
 // Client is a high-level wrapper around the LXD API client.
 type Client struct {
 	*lxd.Server
-	*storageClient
 	baseURL string
 }
 
@@ -157,9 +156,8 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 	conn := &Client{
-		Server:        newServer,
-		storageClient: &storageClient{raw, newServer.StorageSupported()},
-		baseURL:       cInfo.URL,
+		Server:  newServer,
+		baseURL: cInfo.URL,
 	}
 	return conn, nil
 }

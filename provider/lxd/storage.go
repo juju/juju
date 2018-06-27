@@ -191,7 +191,7 @@ func (e *lxdStorageProvider) FilesystemSource(cfg *storage.Config) (storage.File
 }
 
 func ensureLXDStoragePool(env *environ, cfg *lxdStorageConfig) error {
-	createErr := env.raw.CreateStoragePool(cfg.lxdPool, cfg.driver, cfg.attrs)
+	createErr := env.raw.CreatePool(cfg.lxdPool, cfg.driver, cfg.attrs)
 	if createErr == nil {
 		return nil
 	}
@@ -278,7 +278,7 @@ func (s *lxdFilesystemSource) createFilesystem(
 		config["size"] = fmt.Sprintf("%dMB", arg.Size)
 	}
 
-	if err := s.env.raw.VolumeCreate(cfg.lxdPool, volumeName, config); err != nil {
+	if err := s.env.raw.CreateVolume(cfg.lxdPool, volumeName, config); err != nil {
 		return nil, errors.Annotate(err, "creating volume")
 	}
 

@@ -88,10 +88,6 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 	}, nil
 }
 
-func (s *Server) StorageSupported() bool {
-	return s.storageAPISupport
-}
-
 // UpdateServerConfig updates the server configuration with the input values.
 func (s *Server) UpdateServerConfig(cfg map[string]string) error {
 	svr, eTag, err := s.GetServer()
