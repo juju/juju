@@ -36,6 +36,8 @@ const (
 	// If this is not provided, the LXD storage pool name
 	// will be set to "juju".
 	attrLXDStoragePool = "lxd-pool"
+
+	storagePoolVolumeType = "custom"
 )
 
 func (env *environ) storageSupported() bool {
@@ -327,7 +329,7 @@ func destroyFilesystems(env *environ, match func(api.StorageVolume) bool) error 
 		return errors.Annotate(err, "listing LXD storage pools")
 	}
 	for _, pool := range pools {
-		volumes, err := env.raw.VolumeList(pool.Name)
+		volumes, err := env.raw.GetStoragePoolVolumes(pool.Name)
 		if err != nil {
 			return errors.Annotatef(err, "listing volumes in LXD storage pool %q", pool)
 		}
@@ -382,14 +384,15 @@ func (s *lxdFilesystemSource) releaseFilesystem(filesystemId string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	volume, err := s.env.raw.Volume(poolName, volumeName)
+	volume, eTag, err := s.env.raw.GetStoragePoolVolume(poolName, storagePoolVolumeType, volumeName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if volume.Config != nil {
 		delete(volume.Config, "user."+tags.JujuModel)
 		delete(volume.Config, "user."+tags.JujuController)
-		if err := s.env.raw.VolumeUpdate(poolName, volumeName, volume); err != nil {
+		if err := s.env.raw.UpdateStoragePoolVolume(
+			poolName, storagePoolVolumeType, volumeName, volume.Writable(), eTag); err != nil {
 			return errors.Annotatef(
 				err, "removing tags from volume %q in pool %q",
 				volumeName, poolName,
@@ -542,7 +545,7 @@ func (s *lxdFilesystemSource) ImportFilesystem(
 	if err != nil {
 		return storage.FilesystemInfo{}, errors.Trace(err)
 	}
-	volume, err := s.env.raw.Volume(lxdPool, volumeName)
+	volume, eTag, err := s.env.raw.GetStoragePoolVolume(lxdPool, storagePoolVolumeType, volumeName)
 	if err != nil {
 		return storage.FilesystemInfo{}, errors.Trace(err)
 	}
@@ -577,7 +580,8 @@ func (s *lxdFilesystemSource) ImportFilesystem(
 		for k, v := range tags {
 			volume.Config["user."+k] = v
 		}
-		if err := s.env.raw.VolumeUpdate(lxdPool, volumeName, volume); err != nil {
+		if err := s.env.raw.UpdateStoragePoolVolume(
+			lxdPool, storagePoolVolumeType, volumeName, volume.Writable(), eTag); err != nil {
 			return storage.FilesystemInfo{}, errors.Annotate(err, "tagging volume")
 		}
 	}

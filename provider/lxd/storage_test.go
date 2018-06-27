@@ -222,26 +222,20 @@ func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
 	c.Assert(results[1], jc.ErrorIsNil)
 	c.Assert(results[2], gc.ErrorMatches, `removing tags from volume "filesystem-1" in pool "foo": boom`)
 
-	update0 := api.StorageVolume{
-		Name: "filesystem-0",
-		StorageVolumePut: api.StorageVolumePut{
-			Config: map[string]string{
-				"foo": "bar",
-			},
+	update0 := api.StorageVolumePut{
+		Config: map[string]string{
+			"foo": "bar",
 		},
 	}
-	update1 := api.StorageVolume{
-		Name: "filesystem-1",
-		StorageVolumePut: api.StorageVolumePut{
-			Config: map[string]string{},
-		},
+	update1 := api.StorageVolumePut{
+		Config: map[string]string{},
 	}
 
 	s.Stub.CheckCalls(c, []testing.StubCall{
-		{"Volume", []interface{}{"foo", "filesystem-0"}},
-		{"VolumeUpdate", []interface{}{"foo", "filesystem-0", update0}},
-		{"Volume", []interface{}{"foo", "filesystem-1"}},
-		{"VolumeUpdate", []interface{}{"foo", "filesystem-1", update1}},
+		{"GetStoragePoolVolume", []interface{}{"foo", "custom", "filesystem-0"}},
+		{"UpdateStoragePoolVolume", []interface{}{"foo", "custom", "filesystem-0", update0, "eTag"}},
+		{"GetStoragePoolVolume", []interface{}{"foo", "custom", "filesystem-1"}},
+		{"UpdateStoragePoolVolume", []interface{}{"foo", "custom", "filesystem-1", update1, "eTag"}},
 	})
 }
 
@@ -404,17 +398,14 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 		Size:         10 * 1024,
 	})
 
-	update := api.StorageVolume{
-		Name: "bar",
-		StorageVolumePut: api.StorageVolumePut{
-			Config: map[string]string{
-				"size":     "10GB",
-				"user.baz": "qux",
-			},
+	update := api.StorageVolumePut{
+		Config: map[string]string{
+			"size":     "10GB",
+			"user.baz": "qux",
 		},
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{
-		{"Volume", []interface{}{"foo", "bar"}},
-		{"VolumeUpdate", []interface{}{"foo", "bar", update}},
+		{"GetStoragePoolVolume", []interface{}{"foo", "custom", "bar"}},
+		{"UpdateStoragePoolVolume", []interface{}{"foo", "custom", "bar", update, "eTag"}},
 	})
 }

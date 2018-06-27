@@ -586,29 +586,33 @@ func (conn *StubClient) VolumeDelete(pool, volume string) error {
 	return conn.NextErr()
 }
 
-func (conn *StubClient) Volume(pool, volume string) (api.StorageVolume, error) {
-	conn.AddCall("Volume", pool, volume)
+func (conn *StubClient) GetStoragePoolVolume(
+	pool string, volType string, name string,
+) (*api.StorageVolume, string, error) {
+	conn.AddCall("GetStoragePoolVolume", pool, volType, name)
 	if err := conn.NextErr(); err != nil {
-		return api.StorageVolume{}, err
+		return nil, "", err
 	}
 	for _, v := range conn.Volumes[pool] {
-		if v.Name == volume {
-			return v, nil
+		if v.Name == name {
+			return &v, "eTag", nil
 		}
 	}
-	return api.StorageVolume{}, errors.NotFoundf("volume %q in pool %q", volume, pool)
+	return nil, "", errors.NotFoundf("volume %q in pool %q", name, pool)
 }
 
-func (conn *StubClient) VolumeList(pool string) ([]api.StorageVolume, error) {
-	conn.AddCall("VolumeList", pool)
+func (conn *StubClient) GetStoragePoolVolumes(pool string) ([]api.StorageVolume, error) {
+	conn.AddCall("GetStoragePoolVolumes", pool)
 	if err := conn.NextErr(); err != nil {
 		return nil, err
 	}
 	return conn.Volumes[pool], nil
 }
 
-func (conn *StubClient) VolumeUpdate(pool, volume string, update api.StorageVolume) error {
-	conn.AddCall("VolumeUpdate", pool, volume, update)
+func (conn *StubClient) UpdateStoragePoolVolume(
+	pool string, volType string, name string, volume api.StorageVolumePut, ETag string,
+) error {
+	conn.AddCall("UpdateStoragePoolVolume", pool, volType, name, volume, ETag)
 	return conn.NextErr()
 }
 

@@ -130,9 +130,9 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 		{"Destroy", []interface{}{s.callCtx}},
 		{"StorageSupported", nil},
 		{"GetStoragePools", nil},
-		{"VolumeList", []interface{}{"juju"}},
+		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"VolumeDelete", []interface{}{"juju", "ours"}},
-		{"VolumeList", []interface{}{"juju-zfs"}},
+		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
 	})
 }
 
@@ -185,14 +185,14 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 		{"Destroy", []interface{}{s.callCtx}},
 		{"StorageSupported", nil},
 		{"GetStoragePools", nil},
-		{"VolumeList", []interface{}{"juju"}},
-		{"VolumeList", []interface{}{"juju-zfs"}},
+		{"GetStoragePoolVolumes", []interface{}{"juju"}},
+		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
 		{"AliveContainers", []interface{}{"juju-"}},
 		{"RemoveContainers", []interface{}{[]string{machine1.Name}}},
 		{"StorageSupported", nil},
 		{"GetStoragePools", nil},
-		{"VolumeList", []interface{}{"juju"}},
+		{"GetStoragePoolVolumes", []interface{}{"juju"}},
 		{"VolumeDelete", []interface{}{"juju", "ours"}},
-		{"VolumeList", []interface{}{"juju-zfs"}},
+		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
 	})
 }

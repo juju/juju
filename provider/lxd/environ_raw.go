@@ -55,16 +55,16 @@ type newServer interface {
 	StorageSupported() bool
 	GetStoragePool(name string) (pool *lxdapi.StoragePool, ETag string, err error)
 	GetStoragePools() (pools []lxdapi.StoragePool, err error)
+	GetStoragePoolVolume(pool string, volType string, name string) (*lxdapi.StorageVolume, string, error)
+	GetStoragePoolVolumes(pool string) (volumes []lxdapi.StorageVolume, err error)
+	UpdateStoragePoolVolume(pool string, volType string, name string, volume lxdapi.StorageVolumePut, ETag string) error
 }
 
 type lxdStorage interface {
 	CreateStoragePool(name, driver string, attrs map[string]string) error
 
-	Volume(pool, volume string) (lxdapi.StorageVolume, error)
 	VolumeCreate(pool, volume string, config map[string]string) error
 	VolumeDelete(pool, volume string) error
-	VolumeUpdate(pool, volume string, update lxdapi.StorageVolume) error
-	VolumeList(pool string) ([]lxdapi.StorageVolume, error)
 }
 
 func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {
