@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -66,6 +67,7 @@ func deployBundle(
 	apiRoot DeployAPI,
 	ctx *cmd.Context,
 	bundleStorage map[string]map[string]storage.Constraints,
+	bundleDevices map[string]map[string]devices.Constraints,
 	dryRun bool,
 	useExistingMachines bool,
 	bundleMachines map[string]string,
@@ -108,7 +110,7 @@ func deployBundle(
 	}
 
 	// TODO: move bundle parsing and checking into the handler.
-	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleStorage)
+	h := makeBundleHandler(dryRun, bundleDir, channel, apiRoot, ctx, data, bundleStorage, bundleDevices)
 	if err := h.makeModel(useExistingMachines, bundleMachines); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -163,6 +165,12 @@ type bundleHandler struct {
 	// in the bundle itself.
 	bundleStorage map[string]map[string]storage.Constraints
 
+	// bundleDevices contains a mapping of application-specific device
+	// constraints. For each application, the device constraints in the
+	// map will replace or augment the device constraints specified
+	// in the bundle itself.
+	bundleDevices map[string]map[string]devices.Constraints
+
 	// ctx is the command context, which is used to output messages to the
 	// user, so that the user can keep track of the bundle deployment
 	// progress.
@@ -202,6 +210,7 @@ func makeBundleHandler(
 	ctx *cmd.Context,
 	data *charm.BundleData,
 	bundleStorage map[string]map[string]storage.Constraints,
+	bundleDevices map[string]map[string]devices.Constraints,
 ) *bundleHandler {
 	applications := set.NewStrings()
 	for name := range data.Applications {
@@ -215,6 +224,7 @@ func makeBundleHandler(
 		channel:       channel,
 		api:           api,
 		bundleStorage: bundleStorage,
+		bundleDevices: bundleDevices,
 		ctx:           ctx,
 		data:          data,
 		unitStatus:    make(map[string]string),
