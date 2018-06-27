@@ -97,6 +97,7 @@ type PrepareConfigParams struct {
 // TODO(axw) replace CredentialSchemas with an updated environschema.
 // The GUI also needs to be able to handle multiple credential types,
 // and dependencies in config attributes.
+//go:generate mockgen -package mocks -destination mocks/provider_mock.go github.com/juju/juju/environs ProviderCredentials
 type ProviderCredentials interface {
 	// CredentialSchemas returns credential schemas, keyed on
 	// authentication type. These may be used to validate existing

@@ -37,7 +37,7 @@ type environProviderCredentials struct {
 	generateMemCert func(bool) ([]byte, []byte, error)
 	lookupHost      func(string) ([]string, error)
 	interfaceAddrs  func() ([]net.Addr, error)
-	newLocalServer  func() (*lxd.Server, error)
+	newLocalServer  func() (ProviderLXDServer, error)
 }
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
@@ -253,7 +253,7 @@ See: https://jujucharms.com/docs/stable/clouds-LXD
 
 func (p environProviderCredentials) finalizeLocalCertificateCredential(
 	output io.Writer,
-	svr *lxd.Server,
+	svr ProviderLXDServer,
 	certPEM, keyPEM, label string,
 ) (*cloud.Credential, error) {
 
@@ -294,14 +294,14 @@ func (p environProviderCredentials) finalizeLocalCertificateCredential(
 	}
 
 	// Store the server's certificate in the credential.
-	lxdSvr, _, err := svr.GetServer()
+	serverCert, err := svr.GetServerEnvironmentCertificate()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting server status")
 	}
 	out := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		credAttrClientCert: certPEM,
 		credAttrClientKey:  keyPEM,
-		credAttrServerCert: lxdSvr.Environment.Certificate,
+		credAttrServerCert: serverCert,
 	})
 	out.Label = label
 	return &out, nil

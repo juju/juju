@@ -9,10 +9,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/lxc/lxd/shared"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -30,16 +32,45 @@ type credentialsSuite struct {
 var _ = gc.Suite(&credentialsSuite{})
 
 func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
-	envtesting.AssertProviderAuthTypes(c, s.Provider, "interactive", "certificate")
+	provider := lxd.NewProvider()
+	envtesting.AssertProviderAuthTypes(c, provider, "interactive", "certificate")
+}
+
+func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) (environs.EnvironProvider, environs.ProviderCredentials, *lxd.MockProviderLXDServer) {
+	server := lxd.NewMockProviderLXDServer(ctrl)
+	creds := lxd.NewProviderCredentials(
+		shared.GenerateMemCert,
+		net.LookupHost,
+		net.InterfaceAddrs,
+		func() (lxd.ProviderLXDServer, error) {
+			return server, nil
+		},
+	)
+
+	provider := lxd.NewProviderWithMocks(creds, utils.GetAddressForInterface, func() (lxd.ProviderLXDServer, error) {
+		return server, nil
+	})
+	return provider, creds, server
 }
 
 func (s *credentialsSuite) TestDetectCredentialsUsesLXCCert(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	_, provider, server := s.createProvider(ctrl)
+
+	exp := server.EXPECT()
+	exp.GetCertificate(gomock.Any()).Return(nil, "", nil)
+	exp.GetServerEnvironmentCertificate().Return("server-cert", nil)
+
 	home := c.MkDir()
 	utils.SetHome(home)
 	s.writeFile(c, filepath.Join(home, ".config/lxc/client.crt"), coretesting.CACert+"lxc-client")
 	s.writeFile(c, filepath.Join(home, ".config/lxc/client.key"), coretesting.CAKey+"lxc-client")
 
-	credential := cloud.NewCredential(
+	credentials, err := provider.DetectCredentials()
+
+	expected := cloud.NewCredential(
 		cloud.CertificateAuthType,
 		map[string]string{
 			"client-cert": coretesting.CACert + "lxc-client",
@@ -47,16 +78,14 @@ func (s *credentialsSuite) TestDetectCredentialsUsesLXCCert(c *gc.C) {
 			"server-cert": "server-cert",
 		},
 	)
-	credential.Label = `LXD credential "localhost"`
+	expected.Label = `LXD credential "localhost"`
 
-	credentials, err := s.Provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
-			"localhost": credential,
+			"localhost": expected,
 		},
 	})
-	s.Stub.CheckCallNames(c, "GetCertificate", "ServerStatus")
 }
 
 func (s *credentialsSuite) TestDetectCredentialsUsesJujuLXDCert(c *gc.C) {

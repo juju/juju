@@ -4,12 +4,42 @@
 package lxd
 
 import (
+	"net"
+
+	"github.com/juju/juju/environs"
+
 	"github.com/juju/juju/container/lxd"
 )
 
 var (
 	NewInstance = newInstance
 )
+
+func NewProviderWithMocks(
+	creds environs.ProviderCredentials,
+	interfaceAddress func(string) (string, error),
+	newLocalSever func() (ProviderLXDServer, error),
+) environs.EnvironProvider {
+	return &environProvider{
+		providerCredentials: creds,
+		interfaceAddress:    interfaceAddress,
+		newLocalServer:      newLocalSever,
+	}
+}
+
+func NewProviderCredentials(
+	generateMemCert func(bool) ([]byte, []byte, error),
+	lookupHost func(string) ([]string, error),
+	interfaceAddrs func() ([]net.Addr, error),
+	newLocalServer func() (ProviderLXDServer, error),
+) environs.ProviderCredentials {
+	return environProviderCredentials{
+		generateMemCert: generateMemCert,
+		lookupHost:      lookupHost,
+		interfaceAddrs:  interfaceAddrs,
+		newLocalServer:  newLocalServer,
+	}
+}
 
 func ExposeInstContainer(inst *environInstance) *lxd.Container {
 	return inst.container

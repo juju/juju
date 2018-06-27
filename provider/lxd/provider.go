@@ -14,7 +14,9 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	client "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
@@ -25,11 +27,22 @@ import (
 	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 
+// ProviderLXDServer provides methods for the Provider and the
+// ProviderCredentials to query.
+//go:generate mockgen -package lxd -destination provider_mock_test.go github.com/juju/juju/provider/lxd ProviderLXDServer
+type ProviderLXDServer interface {
+	GetConnectionInfo() (*client.ConnectionInfo, error)
+	LocalBridgeName() string
+	GetCertificate(string) (certificate *api.Certificate, ETag string, err error)
+	CreateClientCertificate(*lxd.Certificate) error
+	GetServerEnvironmentCertificate() (string, error)
+}
+
 type environProvider struct {
-	environProviderCredentials
-	interfaceAddress func(string) (string, error)
-	newLocalServer   func() (*lxd.Server, error)
-	Clock            clock.Clock
+	providerCredentials environs.ProviderCredentials
+	interfaceAddress    func(string) (string, error)
+	newLocalServer      func() (ProviderLXDServer, error)
+	Clock               clock.Clock
 }
 
 var cloudSchema = &jsonschema.Schema{
@@ -48,7 +61,7 @@ var cloudSchema = &jsonschema.Schema{
 // NewProvider returns a new LXD EnvironProvider.
 func NewProvider() environs.CloudEnvironProvider {
 	return &environProvider{
-		environProviderCredentials: environProviderCredentials{
+		providerCredentials: environProviderCredentials{
 			generateMemCert: shared.GenerateMemCert,
 			lookupHost:      net.LookupHost,
 			interfaceAddrs:  net.InterfaceAddrs,
@@ -221,7 +234,7 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 			// Requesting a NewLocalServer forces a new connection, so that when
 			// we GetConnectionInfo it gets the required addresses.
 			// Note: this modifies the outer svr server.
-			if svr, err = lxd.NewLocalServer(); err != nil {
+			if svr, err = p.newLocalServer(); err != nil {
 				return errors.Trace(err)
 			}
 
@@ -250,7 +263,7 @@ func (p *environProvider) clock() clock.Clock {
 	return p.Clock
 }
 
-func createLXDServer() (*lxd.Server, error) {
+func createLXDServer() (ProviderLXDServer, error) {
 	svr, err := lxd.NewLocalServer()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -350,4 +363,19 @@ func (p *environProvider) ConfigSchema() schema.Fields {
 // provider specific config attributes.
 func (p *environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
+}
+
+// CredentialSchemas is part of the environs.ProviderCredentials interface.
+func (p *environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return p.providerCredentials.CredentialSchemas()
+}
+
+// DetectCredentials is part of the environs.ProviderCredentials interface.
+func (p *environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	return p.providerCredentials.DetectCredentials()
+}
+
+// FinalizeCredential is part of the environs.ProviderCredentials interface.
+func (p *environProvider) FinalizeCredential(ctx environs.FinalizeCredentialContext, params environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+	return p.providerCredentials.FinalizeCredential(ctx, params)
 }

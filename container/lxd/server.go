@@ -158,6 +158,16 @@ func (s *Server) CreateProfileWithConfig(name string, cfg map[string]string) err
 	return errors.Trace(s.CreateProfile(req))
 }
 
+// GetServerEnvironmentCertificate returns the current server environment
+// certificate
+func (s *Server) GetServerEnvironmentCertificate() (string, error) {
+	svr, _, err := s.GetServer()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return svr.Environment.Certificate, nil
+}
+
 // IsLXDNotFound checks if an error from the LXD API indicates that a requested
 // entity was not found.
 func IsLXDNotFound(err error) bool {

@@ -346,27 +346,30 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.Env.raw = raw
-	s.Provider.newLocalServer = func() (*lxd.Server, error) {
-		return nil, nil
-	}
-	s.Provider.generateMemCert = func(client bool) (cert, key []byte, _ error) {
-		s.Stub.AddCall("GenerateMemCert", client)
-		cert = []byte(testing.CACert + "generated")
-		key = []byte(testing.CAKey + "generated")
-		return cert, key, s.Stub.NextErr()
-	}
-	s.Provider.lookupHost = func(host string) ([]string, error) {
-		s.Stub.AddCall("LookupHost", host)
-		return s.EndpointAddrs, s.Stub.NextErr()
-	}
-	s.Provider.interfaceAddress = func(iface string) (string, error) {
-		s.Stub.AddCall("InterfaceAddress", iface)
-		return s.InterfaceAddr, s.Stub.NextErr()
-	}
-	s.Provider.interfaceAddrs = func() ([]net.Addr, error) {
-		s.Stub.AddCall("InterfaceAddrs")
-		return s.InterfaceAddrs, s.Stub.NextErr()
-	}
+
+	/*
+		s.Provider.newLocalServer = func() (lxd.ProviderLXDServer, error) {
+			return nil, nil
+		}
+			s.Provider.generateMemCert = func(client bool) (cert, key []byte, _ error) {
+				s.Stub.AddCall("GenerateMemCert", client)
+				cert = []byte(testing.CACert + "generated")
+				key = []byte(testing.CAKey + "generated")
+				return cert, key, s.Stub.NextErr()
+			}
+			s.Provider.lookupHost = func(host string) ([]string, error) {
+				s.Stub.AddCall("LookupHost", host)
+				return s.EndpointAddrs, s.Stub.NextErr()
+			}
+			s.Provider.interfaceAddress = func(iface string) (string, error) {
+				s.Stub.AddCall("InterfaceAddress", iface)
+				return s.InterfaceAddr, s.Stub.NextErr()
+			}
+			s.Provider.interfaceAddrs = func() ([]net.Addr, error) {
+				s.Stub.AddCall("InterfaceAddrs")
+				return s.InterfaceAddrs, s.Stub.NextErr()
+			}
+	*/
 	s.Env.base = s.Common
 }
 
