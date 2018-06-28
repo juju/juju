@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"
 	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared"
@@ -25,11 +26,42 @@ const (
 
 // ContainerSpec represents the data required to create a new container.
 type ContainerSpec struct {
-	Name     string
-	Image    SourcedImage
-	Devices  map[string]device
-	Config   map[string]string
-	Profiles []string
+	Name         string
+	Image        SourcedImage
+	Devices      map[string]device
+	Config       map[string]string
+	Profiles     []string
+	InstanceType string
+}
+
+const constraintWarnTemplate = "instance type constraint specified; ignoring %s constraint %q"
+
+// ApplyConstraints applies the input constraints as valid LXD container
+// configuration to the container spec.
+// If an instance type constraint has been specified, conflicting constraints
+// are ignored and a warning is logged.
+func (c *ContainerSpec) ApplyConstraints(cons constraints.Value) {
+	typeCon := cons.HasInstanceType()
+	if typeCon {
+		c.InstanceType = *cons.InstanceType
+	}
+
+	if cons.HasCpuCores() {
+		con := fmt.Sprintf("%d", *cons.CpuCores)
+		if typeCon {
+			logger.Warningf(constraintWarnTemplate, "cores", con)
+		} else {
+			c.Config["limits.cpu"] = con
+		}
+	}
+	if cons.HasMem() {
+		con := fmt.Sprintf("%dMB", *cons.Mem)
+		if typeCon {
+			logger.Warningf(constraintWarnTemplate, "memory", con)
+		} else {
+			c.Config["limits.memory"] = con
+		}
+	}
 }
 
 // Container extends the upstream LXD container type.
@@ -184,7 +216,8 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 	logger.Infof("starting container %q (image %q)...", spec.Name, spec.Image.Image.Filename)
 
 	req := api.ContainersPost{
-		Name: spec.Name,
+		Name:         spec.Name,
+		InstanceType: spec.InstanceType,
 		ContainerPut: api.ContainerPut{
 			Profiles:  spec.Profiles,
 			Devices:   spec.Devices,

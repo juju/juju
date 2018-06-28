@@ -206,13 +206,16 @@ func (m *containerManager) getContainerSpec(
 		JujuModelKey: m.modelUUID,
 	}
 
-	return ContainerSpec{
+	spec := ContainerSpec{
 		Name:     name,
 		Image:    found,
 		Config:   cfg,
 		Profiles: nil,
 		Devices:  nics,
-	}, nil
+	}
+	spec.ApplyConstraints(cons)
+
+	return spec, nil
 }
 
 // getImageSources returns a list of LXD remote image sources based on the
