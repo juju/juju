@@ -19,6 +19,28 @@ type storageSuite struct {
 
 var _ = gc.Suite(&storageSuite{})
 
+func (s *storageSuite) TestStorageIsSupported(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(jujuSvr.StorageSupported(), jc.IsTrue)
+}
+
+func (s *storageSuite) TestStorageNotSupported(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(jujuSvr.StorageSupported(), jc.IsFalse)
+}
+
 func (s *storageSuite) TestCreatePool(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

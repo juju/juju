@@ -78,17 +78,6 @@ func (s *serverSuite) TestHasProfile(c *gc.C) {
 	c.Check(has, jc.IsFalse)
 }
 
-func (s *serverSuite) TestStorageSupported(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
-
-	jujuSvr, err := lxd.NewServer(cSvr)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(jujuSvr.StorageSupported(), jc.IsTrue)
-}
-
 func (s *serverSuite) TestCreateProfileWithConfig(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
