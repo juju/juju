@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	client "github.com/lxc/lxd/client"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
@@ -120,17 +121,120 @@ func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
 	})
 }
 
-func (s *providerSuite) createProvider(ctrl *gomock.Controller) (environs.CloudFinalizer,
+func (s *providerSuite) createProvider(ctrl *gomock.Controller) (environs.EnvironProvider,
 	*testing.MockProviderCredentials,
+	*lxd.MockInterfaceAddress,
 	*lxd.MockProviderLXDServer,
 ) {
 	server := lxd.NewMockProviderLXDServer(ctrl)
 	creds := testing.NewMockProviderCredentials(ctrl)
+	interfaceAddress := lxd.NewMockInterfaceAddress(ctrl)
 
-	provider := lxd.NewProviderWithMocks(creds, utils.GetAddressForInterface, func() (lxd.ProviderLXDServer, error) {
+	provider := lxd.NewProviderWithMocks(creds, interfaceAddress, func() (lxd.ProviderLXDServer, error) {
 		return server, nil
 	})
-	return provider.(environs.CloudFinalizer), creds, server
+	return provider, creds, interfaceAddress, server
+}
+
+func (s *providerSuite) TestFinalizeCloudWithRemoteProvider(c *gc.C) {
+	if !containerLXD.HasSupport() {
+		c.Skip("To be rewritten during LXD code refactoring for cluster support")
+	}
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	provider, _, _, _ := s.createProvider(ctrl)
+	cloudFinalizer := provider.(environs.CloudFinalizer)
+
+	cloudSpec := cloud.Cloud{
+		Name:      "foo",
+		Type:      "lxd",
+		Endpoint:  "https://123.123.12.12",
+		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
+		Regions: []cloud.Region{{
+			Name:     "bar",
+			Endpoint: "https://321.321.12.12",
+		}},
+	}
+
+	ctx := testing.NewMockFinalizeCloudContext(ctrl)
+	got, err := cloudFinalizer.FinalizeCloud(ctx, cloudSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.DeepEquals, cloudSpec)
+}
+
+func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithOnlyRegionEndpoint(c *gc.C) {
+	if !containerLXD.HasSupport() {
+		c.Skip("To be rewritten during LXD code refactoring for cluster support")
+	}
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	provider, _, _, _ := s.createProvider(ctrl)
+	cloudFinalizer := provider.(environs.CloudFinalizer)
+
+	cloudSpec := cloud.Cloud{
+		Name:      "foo",
+		Type:      "lxd",
+		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
+		Regions: []cloud.Region{{
+			Name:     "bar",
+			Endpoint: "https://321.321.12.12",
+		}},
+	}
+
+	ctx := testing.NewMockFinalizeCloudContext(ctrl)
+	got, err := cloudFinalizer.FinalizeCloud(ctx, cloudSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.DeepEquals, cloudSpec)
+}
+
+func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithMixedRegions(c *gc.C) {
+	if !containerLXD.HasSupport() {
+		c.Skip("To be rewritten during LXD code refactoring for cluster support")
+	}
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	provider, _, interfaceAddress, server := s.createProvider(ctrl)
+	cloudFinalizer := provider.(environs.CloudFinalizer)
+
+	server.EXPECT().LocalBridgeName().Return("lxdbr0")
+	server.EXPECT().GetConnectionInfo().Return(&client.ConnectionInfo{
+		Addresses: []string{
+			"https://192.0.0.1:8443",
+		},
+	}, nil)
+	interfaceAddress.EXPECT().InterfaceAddress("lxdbr0").Return("https://192.0.0.1", nil)
+
+	cloudSpec := cloud.Cloud{
+		Name:      "localhost",
+		Type:      "lxd",
+		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
+		Regions: []cloud.Region{{
+			Name:     "bar",
+			Endpoint: "https://321.321.12.12",
+		}},
+	}
+
+	ctx := testing.NewMockFinalizeCloudContext(ctrl)
+	ctx.EXPECT().Verbosef("Resolved LXD host address on bridge %s: %s", "lxdbr0", "https://192.0.0.1:8443")
+
+	got, err := cloudFinalizer.FinalizeCloud(ctx, cloudSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.DeepEquals, cloud.Cloud{
+		Name:      "localhost",
+		Type:      "lxd",
+		Endpoint:  "https://192.0.0.1:8443",
+		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
+		Regions: []cloud.Region{{
+			Name:     "bar",
+			Endpoint: "https://321.321.12.12",
+		}},
+	})
 }
 
 func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
@@ -141,14 +245,16 @@ func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	provider, _, server := s.createProvider(ctrl)
+	provider, _, interfaceAddress, server := s.createProvider(ctrl)
+	cloudFinalizer := provider.(environs.CloudFinalizer)
 
 	server.EXPECT().LocalBridgeName().Return("lxdbr0")
 	server.EXPECT().GetConnectionInfo().Return(nil, errors.New("not found"))
+	interfaceAddress.EXPECT().InterfaceAddress("lxdbr0").Return("192.0.0.1", nil)
 
 	ctx := testing.NewMockFinalizeCloudContext(ctrl)
-	_, err := provider.FinalizeCloud(ctx, cloud.Cloud{
-		Name:      "foo",
+	_, err := cloudFinalizer.FinalizeCloud(ctx, cloud.Cloud{
+		Name:      "localhost",
 		Type:      "lxd",
 		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
 		Regions: []cloud.Region{{
@@ -197,7 +303,13 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 }
 
 func (s *providerSuite) TestCloudSchema(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	provider, _, _, _ := s.createProvider(ctrl)
+
 	config := `
+auth-types: [certificate]
 endpoint: http://foo.com/lxd
 `[1:]
 	var v interface{}
@@ -206,7 +318,7 @@ endpoint: http://foo.com/lxd
 	v, err = utils.ConformYAML(v)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.Provider.CloudSchema().Validate(v)
+	err = provider.CloudSchema().Validate(v)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
