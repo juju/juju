@@ -13,6 +13,7 @@ import (
 	"github.com/lxc/lxd/shared/osarch"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/environs/tags"
@@ -445,4 +446,49 @@ func (s *containerSuite) TestRemoveContainersPartialFailure(c *gc.C) {
 
 	err = jujuSvr.RemoveContainers([]string{"c1", "c2", "c3"})
 	c.Assert(err, gc.ErrorMatches, "failed to remove containers: c1, c2")
+}
+
+func (s *managerSuite) TestSpecApplyConstraintsNoInstanceType(c *gc.C) {
+	mem := uint64(2046)
+	cores := uint64(4)
+
+	cons := constraints.Value{
+		Mem:      &mem,
+		CpuCores: &cores,
+	}
+
+	spec := lxd.ContainerSpec{
+		Config: map[string]string{lxd.AutoStartKey: "true"},
+	}
+	spec.ApplyConstraints(cons)
+
+	exp := map[string]string{
+		lxd.AutoStartKey: "true",
+		"limits.memory":  "2046MB",
+		"limits.cpu":     "4",
+	}
+	c.Check(spec.Config, gc.DeepEquals, exp)
+	c.Check(spec.InstanceType, gc.Equals, "")
+}
+
+func (s *managerSuite) TestSpecApplyConstraintsWithInstanceType(c *gc.C) {
+	mem := uint64(2046)
+	cores := uint64(4)
+	instType := "t2.micro"
+
+	cons := constraints.Value{
+		Mem:          &mem,
+		CpuCores:     &cores,
+		InstanceType: &instType,
+	}
+
+	exp := map[string]string{lxd.AutoStartKey: "true"}
+
+	spec := lxd.ContainerSpec{
+		Config: exp,
+	}
+	spec.ApplyConstraints(cons)
+
+	c.Check(spec.Config, gc.DeepEquals, exp)
+	c.Check(spec.InstanceType, gc.Equals, instType)
 }
