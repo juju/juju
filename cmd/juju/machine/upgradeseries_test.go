@@ -63,6 +63,38 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(c *gc.C, co
 	return nil
 }
 
+func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithoutConfirmation(c *gc.C, args ...string) error {
+	var stdin, stdout, stderr bytes.Buffer
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, jc.ErrorIsNil)
+	ctx.Stderr = &stderr
+	ctx.Stdout = &stdout
+	ctx.Stdin = &stdin
+
+	// mock remote API
+	mockController := gomock.NewController(c)
+	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
+	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesPrepare(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	com := machine.NewUpgradeSeriesCommandForTest(mockUpgradeSeriesAPI)
+
+	err = cmdtesting.InitCommand(com, args)
+	if err != nil {
+		return err
+	}
+
+	err = com.Run(ctx)
+	if err != nil {
+		return err
+	}
+
+	if stderr.String() != "" {
+		return errors.New(stderr.String())
+	}
+
+	return nil
+}
+
 func (s *UpgradeSeriesSuite) TestPrepareCommand(c *gc.C) {
 	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, seriesArg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,4 +142,9 @@ func (s *UpgradeSeriesSuite) TestCompleteCommand(c *gc.C) {
 func (s *UpgradeSeriesSuite) TestCompleteCommandDoesNotAcceptSeries(c *gc.C) {
 	err := s.runUpgradeSeriesCommand(c, machine.CompleteCommand, machineArg, seriesArg)
 	c.Assert(err, gc.ErrorMatches, "wrong number of arguments")
+}
+
+func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptAgree(c *gc.C) {
+	err := s.runUpgradeSeriesCommandWithoutConfirmation(c, machine.PrepareCommand, machineArg, seriesArg, "--agree")
+	c.Assert(err, jc.ErrorIsNil)
 }

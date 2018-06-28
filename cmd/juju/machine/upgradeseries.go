@@ -50,6 +50,7 @@ type upgradeSeriesCommand struct {
 	force         bool
 	machineNumber string
 	series        string
+	agree         bool
 }
 
 var upgradeSeriesDoc = `
@@ -111,6 +112,9 @@ func (c *upgradeSeriesCommand) Info() *cmd.Info {
 func (c *upgradeSeriesCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.force, "force", false, "Upgrade even if the series is not supported by the charm and/or related subordinate charms.")
+	// TODO (hml) 2018-06-28
+	// agree should be hidden, or available only during initial testing?
+	f.BoolVar(&c.agree, "agree", false, "Agree this operation cannot be reverted or canceled once started.")
 }
 
 // Init implements cmd.Command.
@@ -230,6 +234,10 @@ func (c *upgradeSeriesCommand) UpgradeSeriesComplete(ctx *cmd.Context) error {
 }
 
 func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context) error {
+	if c.agree {
+		return nil
+	}
+
 	var confirmationMsg = `
 WARNING This command will mark machine %q as being upgraded to series %q
 This operation cannot be reverted or canceled once started.
