@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/container/lxd"
@@ -32,12 +33,44 @@ const (
 	interactiveAuthType = "interactive"
 )
 
+// CertificateReadWriter groups methods that is required to read and write
+// certificates at a given path.
+//go:generate mockgen -package lxd -destination credentials_mock_test.go github.com/juju/juju/provider/lxd CertificateReadWriter,CertificateGenerator,NetLookup
+type CertificateReadWriter interface {
+	// Read takes a path and returns both a cert and key PEM.
+	// Returns an error if there was an issue reading the certs.
+	Read(path string) (certPEM, keyPEM []byte, err error)
+
+	// Write takes a path and cert, key PEM and stores them.
+	// Returns an error if there was an issue writing the certs.
+	Write(path string, certPEM, keyPEM []byte) error
+}
+
+// CertificateGenerator groups methods for generating a new certificate
+type CertificateGenerator interface {
+	// Generate creates client or server certificate and key pair,
+	// returning them as byte arrays in memory.
+	Generate(client bool) (certPEM, keyPEM []byte, err error)
+}
+
+// NetLookup groups methods for looking up hosts and interface addresses.
+type NetLookup interface {
+
+	// LookupHost looks up the given host using the local resolver.
+	// It returns a slice of that host's addresses.
+	LookupHost(string) ([]string, error)
+
+	// InterfaceAddrs returns a list of the system's unicast interface
+	// addresses.
+	InterfaceAddrs() ([]net.Addr, error)
+}
+
 // environProviderCredentials implements environs.ProviderCredentials.
 type environProviderCredentials struct {
-	generateMemCert     func(bool) ([]byte, []byte, error)
-	newLocalRawProvider func() (*rawProvider, error)
-	lookupHost          func(string) ([]string, error)
-	interfaceAddrs      func() ([]net.Addr, error)
+	certReadWriter CertificateReadWriter
+	certGenerator  CertificateGenerator
+	lookup         NetLookup
+	newLocalServer func() (ProviderLXDServer, error)
 }
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
@@ -66,7 +99,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
 func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
-	raw, err := p.newLocalRawProvider()
+	svr, err := p.newLocalServer()
 	if err != nil {
 		return nil, errors.NewNotFound(err, "failed to connect to local LXD")
 	}
@@ -80,13 +113,15 @@ func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 	const credName = "localhost"
 	label := fmt.Sprintf("LXD credential %q", credName)
 	certCredential, err := p.finalizeLocalCertificateCredential(
-		ioutil.Discard, raw, string(certPEM), string(keyPEM), label,
+		ioutil.Discard, svr, string(certPEM), string(keyPEM), label,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &cloud.CloudCredential{
-		AuthCredentials: map[string]cloud.Credential{credName: *certCredential},
+		AuthCredentials: map[string]cloud.Credential{
+			credName: *certCredential,
+		},
 	}, nil
 }
 
@@ -95,7 +130,7 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 	// to explicitly override the certificates used by the lxc
 	// client if they wish.
 	jujuLXDDir := osenv.JujuXDGDataHomePath("lxd")
-	certPEM, keyPEM, err := readCert(jujuLXDDir)
+	certPEM, keyPEM, err := p.certReadWriter.Read(jujuLXDDir)
 	if err == nil {
 		logf("Loaded client cert/key from %q", jujuLXDDir)
 		return certPEM, keyPEM, nil
@@ -107,7 +142,7 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 	// a client certificate/key pair for use with the "lxc" client
 	// application.
 	lxdConfigDir := filepath.Join(utils.Home(), ".config", "lxc")
-	certPEM, keyPEM, err = readCert(lxdConfigDir)
+	certPEM, keyPEM, err = p.certReadWriter.Read(lxdConfigDir)
 	if err == nil {
 		logf("Loaded client cert/key from %q", lxdConfigDir)
 		return certPEM, keyPEM, nil
@@ -118,44 +153,15 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 	// No certs were found, so generate one and cache it in the
 	// Juju XDG_DATA dir. We cache the certificate so that we
 	// avoid uploading a new certificate each time we bootstrap.
-	certPEM, keyPEM, err = p.generateMemCert(true)
+	certPEM, keyPEM, err = p.certGenerator.Generate(true)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	if err := writeCert(jujuLXDDir, certPEM, keyPEM); err != nil {
+	if err := p.certReadWriter.Write(jujuLXDDir, certPEM, keyPEM); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	logf("Generating client cert/key in %q", jujuLXDDir)
 	return certPEM, keyPEM, nil
-}
-
-func readCert(dir string) (certPEM, keyPEM []byte, _ error) {
-	clientCertPath := filepath.Join(dir, "client.crt")
-	clientKeyPath := filepath.Join(dir, "client.key")
-	certPEM, err := ioutil.ReadFile(clientCertPath)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	keyPEM, err = ioutil.ReadFile(clientKeyPath)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return certPEM, keyPEM, nil
-}
-
-func writeCert(dir string, certPEM, keyPEM []byte) error {
-	clientCertPath := filepath.Join(dir, "client.crt")
-	clientKeyPath := filepath.Join(dir, "client.key")
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ioutil.WriteFile(clientCertPath, certPEM, 0600); err != nil {
-		return errors.Trace(err)
-	}
-	if err := ioutil.WriteFile(clientKeyPath, keyPEM, 0600); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 // FinalizeCredential is part of the environs.ProviderCredentials interface.
@@ -240,12 +246,12 @@ this client using "juju add-credential localhost".
 See: https://jujucharms.com/docs/stable/clouds-LXD
 `, prefix)
 	}
-	raw, err := p.newLocalRawProvider()
+	svr, err := p.newLocalServer()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	cred, err := p.finalizeLocalCertificateCredential(
-		stderr, raw, certPEM, keyPEM,
+		stderr, svr, certPEM, keyPEM,
 		args.Credential.Label,
 	)
 	return cred, errors.Trace(err)
@@ -253,7 +259,7 @@ See: https://jujucharms.com/docs/stable/clouds-LXD
 
 func (p environProviderCredentials) finalizeLocalCertificateCredential(
 	output io.Writer,
-	raw *rawProvider,
+	svr ProviderLXDServer,
 	certPEM, keyPEM, label string,
 ) (*cloud.Credential, error) {
 
@@ -267,15 +273,15 @@ func (p environProviderCredentials) finalizeLocalCertificateCredential(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if _, _, err := raw.GetCertificate(fingerprint); lxd.IsLXDNotFound(err) {
-		if addCertErr := raw.CreateClientCertificate(clientCert); addCertErr != nil {
+	if _, _, err := svr.GetCertificate(fingerprint); lxd.IsLXDNotFound(err) {
+		if addCertErr := svr.CreateClientCertificate(clientCert); addCertErr != nil {
 			// There is no specific error code returned when
 			// attempting to add a certificate that already
 			// exists in the database. We can just check
 			// again to see if another process added the
 			// certificate concurrently with us checking the
 			// first time.
-			if _, _, err := raw.GetCertificate(fingerprint); lxd.IsLXDNotFound(err) {
+			if _, _, err := svr.GetCertificate(fingerprint); lxd.IsLXDNotFound(err) {
 				// The cert still isn't there, so report the AddCert error.
 				return nil, errors.Annotatef(
 					addCertErr, "adding certificate %q", clientCert.Name,
@@ -294,14 +300,10 @@ func (p environProviderCredentials) finalizeLocalCertificateCredential(
 	}
 
 	// Store the server's certificate in the credential.
-	svr, _, err := raw.GetServer()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting server status")
-	}
 	out := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
 		credAttrClientCert: certPEM,
 		credAttrClientKey:  keyPEM,
-		credAttrServerCert: svr.Environment.Certificate,
+		credAttrServerCert: svr.ServerCertificate(),
 	})
 	out.Label = label
 	return &out, nil
@@ -322,15 +324,66 @@ func (p environProviderCredentials) isLocalEndpoint(endpoint string) (bool, erro
 	if err != nil {
 		host = endpointURL.Host
 	}
-	endpointAddrs, err := p.lookupHost(host)
+	endpointAddrs, err := p.lookup.LookupHost(host)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	localAddrs, err := p.interfaceAddrs()
+	localAddrs, err := p.lookup.InterfaceAddrs()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 	return addrsContainsAny(localAddrs, endpointAddrs), nil
+}
+
+// certificateReadWriter is the default implementation for reading and writing
+// certificates to disk.
+type certificateReadWriter struct{}
+
+func (certificateReadWriter) Read(path string) ([]byte, []byte, error) {
+	clientCertPath := filepath.Join(path, "client.crt")
+	clientKeyPath := filepath.Join(path, "client.key")
+	certPEM, err := ioutil.ReadFile(clientCertPath)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	keyPEM, err := ioutil.ReadFile(clientKeyPath)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return certPEM, keyPEM, nil
+}
+
+func (certificateReadWriter) Write(path string, certPEM, keyPEM []byte) error {
+	clientCertPath := filepath.Join(path, "client.crt")
+	clientKeyPath := filepath.Join(path, "client.key")
+	if err := os.MkdirAll(path, 0700); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ioutil.WriteFile(clientCertPath, certPEM, 0600); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ioutil.WriteFile(clientKeyPath, keyPEM, 0600); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// certificateGenerator is the default implementation for generating a
+// certificate if it's not found on disk.
+type certificateGenerator struct{}
+
+func (certificateGenerator) Generate(client bool) (certPEM, keyPEM []byte, err error) {
+	return shared.GenerateMemCert(client)
+}
+
+type netLookup struct{}
+
+func (netLookup) LookupHost(host string) ([]string, error) {
+	return net.LookupHost(host)
+}
+
+func (netLookup) InterfaceAddrs() ([]net.Addr, error) {
+	return net.InterfaceAddrs()
 }
 
 func endpointURL(endpoint string) (*url.URL, error) {

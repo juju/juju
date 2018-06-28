@@ -65,6 +65,12 @@ func ConnectLocal() (lxd.ContainerServer, error) {
 	return client, errors.Trace(err)
 }
 
+// ConnectRemote connects to LXD on a remote socket.
+func ConnectRemote(remote RemoteServer) (lxd.ContainerServer, error) {
+	client, err := lxd.ConnectLXD(remote.Host, &remote.ConnectionArgs)
+	return client, errors.Trace(err)
+}
+
 // SocketPath returns the path to the local LXD socket.
 // The following are tried in order of preference:
 //   - LXD_DIR environment variable.

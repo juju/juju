@@ -4,7 +4,6 @@
 package lxd
 
 import (
-	"net"
 	"strings"
 	"time"
 
@@ -14,7 +13,8 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
-	"github.com/lxc/lxd/shared"
+	client "github.com/lxc/lxd/client"
+	"github.com/lxc/lxd/shared/api"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
@@ -25,22 +25,48 @@ import (
 	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 
+// ProviderLXDServer provides methods for the Provider and the
+// ProviderCredentials to query.
+//go:generate mockgen -package lxd -destination provider_mock_test.go github.com/juju/juju/provider/lxd ProviderLXDServer
+type ProviderLXDServer interface {
+	GetConnectionInfo() (*client.ConnectionInfo, error)
+	LocalBridgeName() string
+	GetCertificate(string) (certificate *api.Certificate, ETag string, err error)
+	CreateClientCertificate(*lxd.Certificate) error
+	ServerCertificate() string
+}
+
 type environProvider struct {
-	environProviderCredentials
+	environs.ProviderCredentials
 	interfaceAddress func(string) (string, error)
+	newLocalServer   func() (ProviderLXDServer, error)
 	Clock            clock.Clock
+}
+
+var cloudSchema = &jsonschema.Schema{
+	Type:     []jsonschema.Type{jsonschema.ObjectType},
+	Required: []string{cloud.EndpointKey},
+	Order:    []string{cloud.EndpointKey},
+	Properties: map[string]*jsonschema.Schema{
+		cloud.EndpointKey: {
+			Singular: "the API endpoint url for the remote LXD cloud",
+			Type:     []jsonschema.Type{jsonschema.StringType},
+			Format:   jsonschema.FormatURI,
+		},
+	},
 }
 
 // NewProvider returns a new LXD EnvironProvider.
 func NewProvider() environs.CloudEnvironProvider {
 	return &environProvider{
-		environProviderCredentials: environProviderCredentials{
-			generateMemCert:     shared.GenerateMemCert,
-			newLocalRawProvider: newLocalRawProvider,
-			lookupHost:          net.LookupHost,
-			interfaceAddrs:      net.InterfaceAddrs,
+		ProviderCredentials: environProviderCredentials{
+			certReadWriter: certificateReadWriter{},
+			certGenerator:  certificateGenerator{},
+			lookup:         netLookup{},
+			newLocalServer: createLXDServer,
 		},
 		interfaceAddress: utils.GetAddressForInterface,
+		newLocalServer:   createLXDServer,
 	}
 }
 
@@ -65,15 +91,32 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 	return env, errors.Trace(err)
 }
 
-// CloudSchema returns the schema used to validate input for add-cloud.  Since
-// this provider does not support custom clouds, this always returns nil.
+// CloudSchema returns the schema used to validate input for add-cloud.
 func (p *environProvider) CloudSchema() *jsonschema.Schema {
-	return nil
+	return cloudSchema
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
 func (p *environProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
-	return errors.NotImplementedf("Ping")
+	// if the endpoint is empty, then don't ping, as we can assume we're using
+	// local lxd
+	if endpoint == "" {
+		return nil
+	}
+
+	// Connect to the remote server anonymously so we can just verify it exists
+	// as we're not sure that the certificates are loaded in time for when the
+	// ping occurs i.e. interactive add-cloud
+	_, err := lxd.ConnectRemote(lxd.RemoteServer{
+		Host: lxd.EnsureHTTPS(endpoint),
+		ConnectionArgs: client.ConnectionArgs{
+			InsecureSkipVerify: true,
+		},
+	})
+	if err != nil {
+		return errors.Errorf("no lxd server running at %s", endpoint)
+	}
+	return nil
 }
 
 // PrepareConfig implements environs.EnvironProvider.
@@ -156,19 +199,8 @@ func (p *environProvider) FinalizeCloud(
 }
 
 func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext) (string, error) {
-	svr, err := lxd.NewLocalServer()
+	svr, err := p.newLocalServer()
 	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	// We need to get a default profile, so that the local bridge name
-	// can be discovered correctly to then get the host address.
-	defaultProfile, profileETag, err := svr.GetProfile("default")
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	if err := svr.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -178,12 +210,6 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 		return "", errors.Trace(err)
 	}
 	hostAddress = lxd.EnsureHTTPS(hostAddress)
-
-	// LXD itself reports the host:ports that it listens on.
-	// Cross-check the address we have with the values reported by LXD.
-	if err := svr.EnableHTTPSListener(); err != nil {
-		return "", errors.Annotate(err, "enabling HTTPS listener")
-	}
 
 	// The following retry mechanism is required for newer LXD versions, where
 	// the new lxd client doesn't propagate the EnableHTTPSListener quick enough
@@ -215,7 +241,7 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 			// Requesting a NewLocalServer forces a new connection, so that when
 			// we GetConnectionInfo it gets the required addresses.
 			// Note: this modifies the outer svr server.
-			if svr, err = lxd.NewLocalServer(); err != nil {
+			if svr, err = p.newLocalServer(); err != nil {
 				return errors.Trace(err)
 			}
 
@@ -242,6 +268,32 @@ func (p *environProvider) clock() clock.Clock {
 		return clock.WallClock
 	}
 	return p.Clock
+}
+
+func createLXDServer() (ProviderLXDServer, error) {
+	svr, err := lxd.NewLocalServer()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// We need to get a default profile, so that the local bridge name
+	// can be discovered correctly to then get the host address.
+	defaultProfile, profileETag, err := svr.GetProfile("default")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := svr.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// LXD itself reports the host:ports that it listens on.
+	// Cross-check the address we have with the values reported by LXD.
+	if err := svr.EnableHTTPSListener(); err != nil {
+		return nil, errors.Annotate(err, "enabling HTTPS listener")
+	}
+
+	return svr, nil
 }
 
 // localhostCloud is the predefined "localhost" LXD cloud. We leave the

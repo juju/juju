@@ -4,16 +4,24 @@
 package lxd_test
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"time"
 
+	gomock "github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
 	containerLXD "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/provider/lxd/lxdnames"
 )
@@ -112,15 +120,34 @@ func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
 	})
 }
 
+func (s *providerSuite) createProvider(ctrl *gomock.Controller) (environs.CloudFinalizer,
+	*testing.MockProviderCredentials,
+	*lxd.MockProviderLXDServer,
+) {
+	server := lxd.NewMockProviderLXDServer(ctrl)
+	creds := testing.NewMockProviderCredentials(ctrl)
+
+	provider := lxd.NewProviderWithMocks(creds, utils.GetAddressForInterface, func() (lxd.ProviderLXDServer, error) {
+		return server, nil
+	})
+	return provider.(environs.CloudFinalizer), creds, server
+}
+
 func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
 	if !containerLXD.HasSupport() {
 		c.Skip("To be rewritten during LXD code refactoring for cluster support")
 	}
 
-	s.Provider.Clock = &mockClock{now: time.Now()}
-	var ctx mockContext
-	s.PatchValue(&s.InterfaceAddr, "8.8.8.8")
-	_, err := s.Provider.FinalizeCloud(&ctx, cloud.Cloud{
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	provider, _, server := s.createProvider(ctrl)
+
+	server.EXPECT().LocalBridgeName().Return("lxdbr0")
+	server.EXPECT().GetConnectionInfo().Return(nil, errors.New("not found"))
+
+	ctx := testing.NewMockFinalizeCloudContext(ctrl)
+	_, err := provider.FinalizeCloud(ctx, cloud.Cloud{
 		Name:      "foo",
 		Type:      "lxd",
 		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
@@ -129,7 +156,7 @@ func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
 		}},
 	})
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, `LXD is not listening on address https:\/\/8\.8\.8\.8 \(reported addresses\: \[.+\]\)`)
+	c.Assert(err, gc.ErrorMatches, `LXD is not listening on address https:\/\/([0-9]{1,3}\.){3}[0-9]{1,3} \(reported addresses\: \[]\)`)
 }
 
 func (s *providerSuite) TestFinalizeCloudAlreadyListeningHTTPS(c *gc.C) {
@@ -167,6 +194,30 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	validAttrs := validCfg.AllAttrs()
 
 	c.Check(s.Config.AllAttrs(), gc.DeepEquals, validAttrs)
+}
+
+func (s *providerSuite) TestCloudSchema(c *gc.C) {
+	config := `
+endpoint: http://foo.com/lxd
+`[1:]
+	var v interface{}
+	err := yaml.Unmarshal([]byte(config), &v)
+	c.Assert(err, jc.ErrorIsNil)
+	v, err = utils.ConformYAML(v)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.Provider.CloudSchema().Validate(v)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *providerSuite) TestPingWithNoEndpoint(c *gc.C) {
+	server := httptest.NewServer(http.HandlerFunc(http.NotFound))
+	defer server.Close()
+
+	p, err := environs.Provider("lxd")
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.Ping(context.NewCloudCallContext(), server.URL)
+	c.Assert(err, gc.ErrorMatches, "no lxd server running at "+server.URL)
 }
 
 type ProviderFunctionalSuite struct {
