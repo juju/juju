@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/machine/mocks"
-	"github.com/juju/juju/testing/gomockmatchers"
 )
 
 type UpgradeSeriesSuite struct {
@@ -73,7 +72,7 @@ func (s *UpgradeSeriesSuite) TestPrepareCommand(c *gc.C) {
 	mockController := gomock.NewController(c)
 	defer mockController.Finish()
 	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
-	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesPrepare(machineArg, seriesArg, gomockmatcher.OfTypeBool(false))
+	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesPrepare(machineArg, seriesArg, gomock.Eq(false))
 
 	err := runUpgradeSeriesCommandGivenMock(c, mockUpgradeSeriesAPI, "y", machine.PrepareCommand, machineArg, seriesArg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -83,7 +82,7 @@ func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptForceOption(c *gc.C) 
 	mockController := gomock.NewController(c)
 	defer mockController.Finish()
 	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
-	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesPrepare(machineArg, seriesArg, gomockmatcher.OfTypeBool(true))
+	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesPrepare(machineArg, seriesArg, gomock.Eq(true))
 
 	err := runUpgradeSeriesCommandGivenMock(c, mockUpgradeSeriesAPI, "y", machine.PrepareCommand, machineArg, seriesArg, "--force")
 	c.Assert(err, jc.ErrorIsNil)
