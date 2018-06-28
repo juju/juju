@@ -314,6 +314,7 @@ func (*addSuite) TestInteractive(c *gc.C) {
 		"Cloud Types\n"+
 		"  maas\n"+
 		"  manual\n"+
+		"  oci\n"+
 		"  openstack\n"+
 		"  oracle\n"+
 		"  vsphere\n"+

@@ -38,8 +38,7 @@ func (i *instanceSuite) TestId(c *gc.C) {
 }
 
 func (i *instanceSuite) TestStatus(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	i.patchEnv(ctrl)
+	ctrl := i.patchEnv(c)
 	defer ctrl.Finish()
 
 	i.compute.EXPECT().GetInstance(gomock.Any(), gomock.Any()).Return(ociCore.GetInstanceResponse{Instance: *i.ociInstance}, nil)
@@ -69,8 +68,7 @@ func (i *instanceSuite) TestStatus(c *gc.C) {
 }
 
 func (i *instanceSuite) TestStatusNilRawInstanceResponse(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	i.patchEnv(ctrl)
+	ctrl := i.patchEnv(c)
 	defer ctrl.Finish()
 
 	request, response := makeGetInstanceRequestResponse(
@@ -98,23 +96,18 @@ func (i *instanceSuite) TestStatusNilRawInstanceResponse(c *gc.C) {
 	c.Assert(instStatus, gc.DeepEquals, expectedStatus)
 }
 
-func (i *instanceSuite) TestAddresses(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	i.patchEnv(ctrl)
-	defer ctrl.Finish()
-
-	vnicID := "fakeVnicId"
+func (i *instanceSuite) setupListVnicsExpectations(instanceId, vnicID string) {
 	attachRequest, attachResponse := makeListVnicAttachmentsRequestResponse(
 		[]ociCore.VnicAttachment{
 			{
 				Id:                 makeStringPointer("fakeAttachmentId"),
 				AvailabilityDomain: makeStringPointer("fake"),
-				CompartmentId:      &i.testCompartment,
-				InstanceId:         &i.testInstanceID,
+				CompartmentId:      makeStringPointer(i.testCompartment),
+				InstanceId:         makeStringPointer(i.testInstanceID),
 				LifecycleState:     ociCore.VnicAttachmentLifecycleStateAttached,
 				DisplayName:        makeStringPointer("fakeAttachmentName"),
 				NicIndex:           makeIntPointer(0),
-				VnicId:             &vnicID,
+				VnicId:             makeStringPointer(vnicID),
 			},
 		},
 	)
@@ -141,6 +134,14 @@ func (i *instanceSuite) TestAddresses(c *gc.C) {
 		i.compute.EXPECT().ListVnicAttachments(context.Background(), attachRequest).Return(attachResponse, nil),
 		i.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil),
 	)
+}
+
+func (i *instanceSuite) TestAddresses(c *gc.C) {
+	ctrl := i.patchEnv(c)
+	defer ctrl.Finish()
+
+	vnicID := "fakeVnicId"
+	i.setupListVnicsExpectations(i.testInstanceID, vnicID)
 
 	inst, err := oci.NewInstance(*i.ociInstance, i.env)
 	c.Assert(err, gc.IsNil)
@@ -153,47 +154,18 @@ func (i *instanceSuite) TestAddresses(c *gc.C) {
 }
 
 func (i *instanceSuite) TestAddressesNoPublicIP(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	i.patchEnv(ctrl)
+	ctrl := i.patchEnv(c)
 	defer ctrl.Finish()
 
 	vnicID := "fakeVnicId"
-	attachRequest, attachResponse := makeListVnicAttachmentsRequestResponse(
-		[]ociCore.VnicAttachment{
-			{
-				Id:                 makeStringPointer("fakeAttachmentId"),
-				AvailabilityDomain: makeStringPointer("fake"),
-				CompartmentId:      &i.testCompartment,
-				InstanceId:         &i.testInstanceID,
-				LifecycleState:     ociCore.VnicAttachmentLifecycleStateAttached,
-				DisplayName:        makeStringPointer("fakeAttachmentName"),
-				NicIndex:           makeIntPointer(0),
-				VnicId:             &vnicID,
-			},
-		},
-	)
-
-	vnicRequest, vnicResponse := makeGetVnicRequestResponse([]ociCore.GetVnicResponse{
-		{
-			Vnic: ociCore.Vnic{
-				Id:             makeStringPointer(vnicID),
-				PrivateIp:      makeStringPointer("1.1.1.1"),
-				DisplayName:    makeStringPointer("fakeVnicName"),
-				LifecycleState: ociCore.VnicLifecycleStateAvailable,
-			},
-		},
-	})
-
-	gomock.InOrder(
-		i.compute.EXPECT().ListVnicAttachments(context.Background(), attachRequest).Return(attachResponse, nil),
-		i.netw.EXPECT().GetVnic(context.Background(), vnicRequest[0]).Return(vnicResponse[0], nil),
-	)
+	i.setupListVnicsExpectations(i.testInstanceID, vnicID)
 
 	inst, err := oci.NewInstance(*i.ociInstance, i.env)
 	c.Assert(err, gc.IsNil)
 
 	addresses, err := inst.Addresses(nil)
 	c.Assert(err, gc.IsNil)
-	c.Check(addresses, gc.HasLen, 1)
+	c.Check(addresses, gc.HasLen, 2)
 	c.Check(addresses[0].Scope, gc.Equals, network.ScopeCloudLocal)
+	c.Check(addresses[1].Scope, gc.Equals, network.ScopePublic)
 }

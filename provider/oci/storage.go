@@ -45,3 +45,13 @@ func (s *storageProvider) DefaultPools() []*storage.Config {
 func (s *storageProvider) ValidateConfig(cfg *storage.Config) error {
 	return errors.NotImplementedf("ValidateConfig")
 }
+
+// StorageProviderTypes implements storage.ProviderRegistry.
+func (e *Environ) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return nil, nil
+}
+
+// StorageProvider implements storage.ProviderRegistry.
+func (e *Environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+	return nil, errors.NotFoundf("storage provider %q", t)
+}

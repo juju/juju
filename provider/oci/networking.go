@@ -29,6 +29,7 @@ const (
 	// An individual subnet will be created from this class, for each
 	// availability domain.
 	DefaultAddressSpace = "10.0.0.0/16"
+	AllowAllPrefix      = "0.0.0.0/0"
 
 	SubnetPrefixLength = "24"
 
@@ -73,7 +74,6 @@ func (e *Environ) allVCNs(controllerUUID, modelUUID string) ([]ociCore.Vcn, erro
 	request := ociCore.ListVcnsRequest{
 		CompartmentId: e.ecfg().compartmentID(),
 	}
-
 	response, err := e.Networking.ListVcns(context.Background(), request)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -187,12 +187,12 @@ func (e *Environ) allSecurityLists(controllerUUID, modelUUID string, vcnid *stri
 	}
 	for _, val := range response.Items {
 		tag, ok := val.FreeformTags[tags.JujuController]
-		if !ok || tag == controllerUUID {
+		if !ok || tag != controllerUUID {
 			continue
 		}
 		if modelUUID != "" {
-			tag, ok = val.FreeformTags[tags.JujuMachine]
-			if !ok || tag == modelUUID {
+			tag, ok = val.FreeformTags[tags.JujuModel]
+			if !ok || tag != modelUUID {
 				continue
 			}
 		}
@@ -227,7 +227,7 @@ func (e *Environ) ensureSecurityList(controllerUUID, modelUUID string, vcnid *st
 		return seclist, nil
 	}
 
-	prefix := "0.0.0.0/0"
+	prefix := AllowAllPrefix
 	name := e.secListName(controllerUUID, modelUUID)
 	// Hopefully just temporary, open all ingress/egress ports
 	details := ociCore.CreateSecurityListDetails{
@@ -474,7 +474,7 @@ func (e *Environ) ensureNetworksAndSubnets(ctx envcontext.ProviderCallContext, c
 
 	// Create a default route through the gateway created above
 	// as a default gateway
-	prefix := "0.0.0.0/0"
+	prefix := AllowAllPrefix
 	routeRules := []ociCore.RouteRule{
 		{
 			CidrBlock:       &prefix,
@@ -539,7 +539,7 @@ func (e *Environ) removeSeclist(secLists []ociCore.SecurityList) error {
 		}
 		err = e.waitForResourceStatus(
 			e.getSeclistStatus, secList.Id,
-			string(ociCore.SubnetLifecycleStateTerminated),
+			string(ociCore.SecurityListLifecycleStateTerminated),
 			resourcePollTimeout)
 		if !errors.IsNotFound(err) {
 			return err
@@ -754,12 +754,12 @@ func (e *Environ) allRouteTables(controllerUUID, modelUUID string, vcnID *string
 
 	for _, val := range response.Items {
 		tag, ok := val.FreeformTags[tags.JujuController]
-		if !ok || tag == controllerUUID {
+		if !ok || tag != controllerUUID {
 			continue
 		}
 		if modelUUID != "" {
 			tag, ok = val.FreeformTags[tags.JujuModel]
-			if !ok || tag == modelUUID {
+			if !ok || tag != modelUUID {
 				continue
 			}
 		}
@@ -890,7 +890,7 @@ func (e *Environ) deleteRouteTable(controllerUUID, modelUUID string, vcnID *stri
 	return nil
 }
 
-func (e *Environ) allSubnetsAsMap() (map[string]ociCore.Subnet, error) {
+func (e *Environ) allSubnetsAsMap(modelUUID string) (map[string]ociCore.Subnet, error) {
 	request := ociCore.ListVcnsRequest{
 		CompartmentId: e.ecfg().compartmentID(),
 	}
@@ -902,6 +902,12 @@ func (e *Environ) allSubnetsAsMap() (map[string]ociCore.Subnet, error) {
 
 	result := map[string]ociCore.Subnet{}
 	for _, vcn := range response.Items {
+		if modelUUID != "" {
+			tag, ok := vcn.FreeformTags[tags.JujuModel]
+			if !ok || tag != modelUUID {
+				continue
+			}
+		}
 		subnetRequest := ociCore.ListSubnetsRequest{
 			CompartmentId: e.ecfg().compartmentID(),
 			VcnId:         vcn.Id,
@@ -928,7 +934,7 @@ func (e *Environ) Subnets(ctx envcontext.ProviderCallContext, id instance.Id, su
 		subIdSet.Add(string(subId))
 	}
 
-	allSubnets, err := e.allSubnetsAsMap()
+	allSubnets, err := e.allSubnetsAsMap(e.Config().UUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1026,7 +1032,7 @@ func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, instId i
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	subnets, err := e.allSubnetsAsMap()
+	subnets, err := e.allSubnetsAsMap(e.Config().UUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

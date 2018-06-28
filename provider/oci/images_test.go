@@ -16,45 +16,6 @@ import (
 	"github.com/juju/juju/provider/oci"
 )
 
-func getShapeObject(shapeName string) ociCore.Shape {
-	return ociCore.Shape{
-		Shape: makeStringPointer(shapeName),
-	}
-}
-
-func makeShapesRequestResponse(compartment, id string, shapeNames []string) (ociCore.ListShapesRequest, ociCore.ListShapesResponse) {
-	shapesRequest := ociCore.ListShapesRequest{
-		CompartmentId: &compartment,
-		ImageId:       &id,
-	}
-
-	ociShapes := []ociCore.Shape{}
-	for _, val := range shapeNames {
-		ociShapes = append(ociShapes, getShapeObject(val))
-	}
-
-	shapesResponse := ociCore.ListShapesResponse{
-		Items: ociShapes,
-	}
-
-	return shapesRequest, shapesResponse
-}
-
-func makeListImageRequestResponse(imgDetails []ociCore.Image) (ociCore.ListImagesRequest, ociCore.ListImagesResponse) {
-	if len(imgDetails) == 0 {
-		return ociCore.ListImagesRequest{}, ociCore.ListImagesResponse{}
-	}
-
-	compartment := imgDetails[0].CompartmentId
-	request := ociCore.ListImagesRequest{
-		CompartmentId: compartment,
-	}
-	response := ociCore.ListImagesResponse{
-		Items: imgDetails,
-	}
-	return request, response
-}
-
 type imagesSuite struct {
 	jujutesting.BaseSuite
 
