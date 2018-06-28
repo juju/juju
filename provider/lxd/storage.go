@@ -311,9 +311,11 @@ func parseFilesystemId(id string) (lxdPool, volumeName string, _ error) {
 	return fields[0], fields[1], nil
 }
 
-func destroyControllerFilesystems(env *environ, _ string) error {
+// TODO (manadart 2018-06-28) Add a test for DestroyController that properly
+// verifies this behaviour.
+func destroyControllerFilesystems(env *environ, controllerUUID string) error {
 	return errors.Trace(destroyFilesystems(env, func(v api.StorageVolume) bool {
-		return v.Config["user."+tags.JujuController] == env.Config().UUID()
+		return v.Config["user."+tags.JujuController] == controllerUUID
 	}))
 }
 
