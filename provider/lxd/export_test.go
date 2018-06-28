@@ -26,9 +26,9 @@ func NewProviderWithMocks(
 }
 
 func NewProviderCredentials(
-	certReadWriter LXDCertificateReadWriter,
-	certGenerator LXDCertificateGenerator,
-	lookup LXDNetLookup,
+	certReadWriter CertificateReadWriter,
+	certGenerator CertificateGenerator,
+	lookup NetLookup,
 	newLocalServer func() (ProviderLXDServer, error),
 ) environs.ProviderCredentials {
 	return environProviderCredentials{

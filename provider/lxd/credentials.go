@@ -33,10 +33,10 @@ const (
 	interactiveAuthType = "interactive"
 )
 
-// LXDCertificateReadWriter groups methods that is required to read and write
+// CertificateReadWriter groups methods that is required to read and write
 // certificates at a given path.
-//go:generate mockgen -package lxd -destination credentials_mock_test.go github.com/juju/juju/provider/lxd LXDCertificateReadWriter,LXDCertificateGenerator,LXDNetLookup
-type LXDCertificateReadWriter interface {
+//go:generate mockgen -package lxd -destination credentials_mock_test.go github.com/juju/juju/provider/lxd CertificateReadWriter,CertificateGenerator,NetLookup
+type CertificateReadWriter interface {
 	// Read takes a path and returns both a cert and key PEM.
 	// Returns an error if there was an issue reading the certs.
 	Read(path string) (certPEM, keyPEM []byte, err error)
@@ -46,15 +46,15 @@ type LXDCertificateReadWriter interface {
 	Write(path string, certPEM, keyPEM []byte) error
 }
 
-// LXDCertificateGenerator groups methods for generating a new certificate
-type LXDCertificateGenerator interface {
+// CertificateGenerator groups methods for generating a new certificate
+type CertificateGenerator interface {
 	// Generate creates client or server certificate and key pair,
 	// returning them as byte arrays in memory.
 	Generate(client bool) (certPEM, keyPEM []byte, err error)
 }
 
-// LXDNetLookup groups methods for looking up hosts and interface addresses.
-type LXDNetLookup interface {
+// NetLookup groups methods for looking up hosts and interface addresses.
+type NetLookup interface {
 
 	// LookupHost looks up the given host using the local resolver.
 	// It returns a slice of that host's addresses.
@@ -67,9 +67,9 @@ type LXDNetLookup interface {
 
 // environProviderCredentials implements environs.ProviderCredentials.
 type environProviderCredentials struct {
-	certReadWriter LXDCertificateReadWriter
-	certGenerator  LXDCertificateGenerator
-	lookup         LXDNetLookup
+	certReadWriter CertificateReadWriter
+	certGenerator  CertificateGenerator
+	lookup         NetLookup
 	newLocalServer func() (ProviderLXDServer, error)
 }
 
@@ -335,11 +335,11 @@ func (p environProviderCredentials) isLocalEndpoint(endpoint string) (bool, erro
 	return addrsContainsAny(localAddrs, endpointAddrs), nil
 }
 
-// stdlibLXDCertificateReadWriter is the default implementation for reading
-// and writing certificates to disk.
-type stdlibLXDCertificateReadWriter struct{}
+// certificateReadWriter is the default implementation for reading and writing
+// certificates to disk.
+type certificateReadWriter struct{}
 
-func (stdlibLXDCertificateReadWriter) Read(path string) ([]byte, []byte, error) {
+func (certificateReadWriter) Read(path string) ([]byte, []byte, error) {
 	clientCertPath := filepath.Join(path, "client.crt")
 	clientKeyPath := filepath.Join(path, "client.key")
 	certPEM, err := ioutil.ReadFile(clientCertPath)
@@ -353,7 +353,7 @@ func (stdlibLXDCertificateReadWriter) Read(path string) ([]byte, []byte, error) 
 	return certPEM, keyPEM, nil
 }
 
-func (stdlibLXDCertificateReadWriter) Write(path string, certPEM, keyPEM []byte) error {
+func (certificateReadWriter) Write(path string, certPEM, keyPEM []byte) error {
 	clientCertPath := filepath.Join(path, "client.crt")
 	clientKeyPath := filepath.Join(path, "client.key")
 	if err := os.MkdirAll(path, 0700); err != nil {
@@ -368,21 +368,21 @@ func (stdlibLXDCertificateReadWriter) Write(path string, certPEM, keyPEM []byte)
 	return nil
 }
 
-// memLXDCertificateGenerator is the default implementation for generating a
+// certificateGenerator is the default implementation for generating a
 // certificate if it's not found on disk.
-type memLXDCertificateGenerator struct{}
+type certificateGenerator struct{}
 
-func (memLXDCertificateGenerator) Generate(client bool) (certPEM, keyPEM []byte, err error) {
+func (certificateGenerator) Generate(client bool) (certPEM, keyPEM []byte, err error) {
 	return shared.GenerateMemCert(client)
 }
 
-type stdlibLXDNetLookup struct{}
+type netLookup struct{}
 
-func (stdlibLXDNetLookup) LookupHost(host string) ([]string, error) {
+func (netLookup) LookupHost(host string) ([]string, error) {
 	return net.LookupHost(host)
 }
 
-func (stdlibLXDNetLookup) InterfaceAddrs() ([]net.Addr, error) {
+func (netLookup) InterfaceAddrs() ([]net.Addr, error) {
 	return net.InterfaceAddrs()
 }
 
