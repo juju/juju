@@ -7,7 +7,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -16,15 +18,27 @@ import (
 // CAASUnitProvisionerState provides the subset of global state
 // required by the CAAS operator facade.
 type CAASUnitProvisionerState interface {
+	ControllerConfig() (controller.Config, error)
 	Application(string) (Application, error)
 	FindEntity(names.Tag) (state.Entity, error)
 	Model() (Model, error)
 	WatchApplications() state.StringsWatcher
 }
 
+// StorageBackend provides the subset of backend storage
+// functionality needed by the CAAS operator facade.
+type StorageBackend interface {
+	StorageInstance(names.StorageTag) (state.StorageInstance, error)
+	Filesystem(names.FilesystemTag) (state.Filesystem, error)
+	FilesystemAttachment(names.Tag, names.FilesystemTag) (state.FilesystemAttachment, error)
+	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
+	UnitStorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error)
+}
+
 // Model provides the subset of CAAS model state required
 // by the CAAS operator facade.
 type Model interface {
+	ModelConfig() (*config.Config, error)
 	PodSpec(tag names.ApplicationTag) (string, error)
 	WatchPodSpec(tag names.ApplicationTag) (state.NotifyWatcher, error)
 }

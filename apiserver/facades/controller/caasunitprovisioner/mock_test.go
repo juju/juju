@@ -9,11 +9,17 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
+	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type mockState struct {
@@ -52,6 +58,11 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 	}
 }
 
+func (st *mockState) ControllerConfig() (controller.Config, error) {
+	st.MethodCall(st, "ControllerConfig")
+	return coretesting.FakeControllerConfig(), nil
+}
+
 func (st *mockState) Model() (caasunitprovisioner.Model, error) {
 	st.MethodCall(st, "Model")
 	if err := st.NextErr(); err != nil {
@@ -63,6 +74,11 @@ func (st *mockState) Model() (caasunitprovisioner.Model, error) {
 type mockModel struct {
 	testing.Stub
 	podSpecWatcher *statetesting.MockNotifyWatcher
+}
+
+func (m *mockModel) ModelConfig() (*config.Config, error) {
+	m.MethodCall(m, "ModelConfig")
+	return config.New(config.UseDefaults, coretesting.FakeConfig())
 }
 
 func (m *mockModel) PodSpec(tag names.ApplicationTag) (string, error) {
@@ -195,4 +211,126 @@ var destroyOp = &state.DestroyUnitOperation{}
 func (m *mockUnit) DestroyOperation() *state.DestroyUnitOperation {
 	m.MethodCall(m, "DestroyOperation")
 	return destroyOp
+}
+
+type mockStorage struct {
+	testing.Stub
+}
+
+func (m *mockStorage) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
+	m.MethodCall(m, "StorageInstance", tag)
+	return &mockStorageInstance{
+		tag:   tag,
+		owner: names.NewUserTag("fred"),
+	}, nil
+}
+
+func (m *mockStorage) Filesystem(fsTag names.FilesystemTag) (state.Filesystem, error) {
+	return nil, errors.NotSupportedf("filesystem")
+}
+
+func (m *mockStorage) FilesystemAttachment(hostTag names.Tag, fsTag names.FilesystemTag) (state.FilesystemAttachment, error) {
+	m.MethodCall(m, "FilesystemAttachment", hostTag, fsTag)
+	return &mockFilesystemAttachment{}, nil
+}
+
+func (m *mockStorage) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
+	return &mockFilesystem{}, nil
+}
+
+func (m *mockStorage) UnitStorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error) {
+	m.MethodCall(m, "UnitStorageAttachments", unit)
+	return []state.StorageAttachment{
+		&mockStorageAttachment{
+			unit:    names.NewUnitTag("gitlab/0"),
+			storage: names.NewStorageTag("data/0"),
+		},
+	}, nil
+}
+
+type mockStorageInstance struct {
+	state.StorageInstance
+	tag   names.StorageTag
+	owner names.Tag
+}
+
+func (a *mockStorageInstance) Kind() state.StorageKind {
+	return state.StorageKindFilesystem
+}
+
+func (a *mockStorageInstance) Tag() names.Tag {
+	return a.tag
+}
+
+func (a *mockStorageInstance) StorageTag() names.StorageTag {
+	return a.tag
+}
+
+func (a *mockStorageInstance) Owner() (names.Tag, bool) {
+	return a.owner, a.owner != nil
+}
+
+type mockStorageAttachment struct {
+	state.StorageAttachment
+	testing.Stub
+	unit    names.UnitTag
+	storage names.StorageTag
+}
+
+func (a *mockStorageAttachment) StorageInstance() names.StorageTag {
+	return a.storage
+}
+
+type mockFilesystem struct {
+	state.Filesystem
+}
+
+func (f *mockFilesystem) Tag() names.Tag {
+	return f.FilesystemTag()
+}
+
+func (f *mockFilesystem) FilesystemTag() names.FilesystemTag {
+	return names.NewFilesystemTag("gitlab/0/0")
+}
+
+func (f *mockFilesystem) Volume() (names.VolumeTag, error) {
+	return names.VolumeTag{}, state.ErrNoBackingVolume
+}
+
+func (f *mockFilesystem) Params() (state.FilesystemParams, bool) {
+	return state.FilesystemParams{
+		Pool: "k8spool",
+		Size: 100,
+	}, true
+}
+
+type mockFilesystemAttachment struct {
+	state.FilesystemAttachment
+}
+
+func (f *mockFilesystemAttachment) Params() (state.FilesystemAttachmentParams, bool) {
+	return state.FilesystemAttachmentParams{
+		Location: "/path/to/here",
+		ReadOnly: true,
+	}, true
+}
+
+type mockStorageProviderRegistry struct {
+	testing.Stub
+	storage.ProviderRegistry
+}
+
+func (m *mockStorageProviderRegistry) StorageProvider(providerType storage.ProviderType) (storage.Provider, error) {
+	m.MethodCall(m, "StorageProvider", providerType)
+	return nil, errors.NotSupportedf("StorageProvider")
+}
+
+type mockStoragePoolManager struct {
+	testing.Stub
+	poolmanager.PoolManager
+}
+
+func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
+	m.MethodCall(m, "Get", name)
+	return storage.NewConfig(name, provider.K8s_ProviderType, map[string]interface{}{"foo": "bar"})
 }

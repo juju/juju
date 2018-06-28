@@ -12,29 +12,54 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
+	"github.com/juju/juju/storage/poolmanager"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner")
 
 type Facade struct {
 	*common.LifeGetter
-	resources facade.Resources
-	state     CAASUnitProvisionerState
+	resources               facade.Resources
+	state                   CAASUnitProvisionerState
+	storage                 StorageBackend
+	storageProviderRegistry storage.ProviderRegistry
+	storagePoolManager      poolmanager.PoolManager
 }
 
 // NewStateFacade provides the signature required for facade registration.
 func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
+	sb, err := state.NewStorageBackend(ctx.State())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(ctx.State())
+	if err != nil {
+		return nil, errors.Annotate(err, "getting caas client")
+	}
+	registry := stateenvirons.NewStorageProviderRegistry(broker)
+	pm := poolmanager.New(state.NewStateSettings(ctx.State()), registry)
+
 	return NewFacade(
 		resources,
 		authorizer,
 		stateShim{ctx.State()},
+		sb,
+		registry,
+		pm,
 	)
 }
 
@@ -43,6 +68,9 @@ func NewFacade(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st CAASUnitProvisionerState,
+	sb StorageBackend,
+	storageProviderRegistry storage.ProviderRegistry,
+	storagePoolManager poolmanager.PoolManager,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
@@ -54,8 +82,11 @@ func NewFacade(
 				common.AuthFuncForTagKind(names.UnitTagKind),
 			),
 		),
-		resources: resources,
-		state:     st,
+		resources:               resources,
+		state:                   st,
+		storage:                 sb,
+		storageProviderRegistry: storageProviderRegistry,
+		storagePoolManager:      storagePoolManager,
 	}, nil
 }
 
@@ -164,17 +195,118 @@ func (f *Facade) ProvisioningInfo(args params.Entities) (params.KubernetesProvis
 }
 
 func (f *Facade) provisioningInfo(model Model, tagString string) (*params.KubernetesProvisioningInfo, error) {
-	tag, err := names.ParseApplicationTag(tagString)
+	appTag, err := names.ParseApplicationTag(tagString)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	podSpec, err := model.PodSpec(tag)
+	// First the pod spec.
+	podSpec, err := model.PodSpec(appTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// Now get any required storage. We need to provision storage
+	// at the same time as the pod as it can't be attached later.
+
+	// All units are currently homogeneous so we just
+	// need to get info for the first unit.
+	app, err := f.state.Application(appTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	units, err := app.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Should never happen, but just in case.
+	if len(units) == 0 {
+		return nil, errors.Errorf("cannot provision application %q with no units", appTag.Id())
+	}
+	modelConfig, err := model.ModelConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	filesystemParams, err := f.applicationFilesystemParams(modelConfig, units[0].UnitTag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// The juju-storage-owner tag is set to the unit. We use it as a label on the CAAS volume.
+	// Since we used an arbitrary unit to get the info, reset the tag to the application.
+	for _, fsp := range filesystemParams {
+		fsp.Tags[tags.JujuStorageOwner] = appTag.Id()
+	}
+
 	return &params.KubernetesProvisioningInfo{
-		PodSpec: podSpec,
+		PodSpec:     podSpec,
+		Filesystems: filesystemParams,
 	}, nil
+}
+
+// applicationFilesystemParams retrieves FilesystemParams for the filesystems
+// that should be provisioned with, and attached to, pods of the application.
+func (f *Facade) applicationFilesystemParams(
+	modelConfig *config.Config,
+	unitTag names.UnitTag,
+) ([]params.FilesystemParams, error) {
+	attachments, err := f.storage.UnitStorageAttachments(unitTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(attachments) == 0 {
+		return nil, nil
+	}
+
+	controllerCfg, err := f.state.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	allFilesystemParams := make([]params.FilesystemParams, 0, len(attachments))
+	for _, attachment := range attachments {
+		si, err := f.storage.StorageInstance(attachment.StorageInstance())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		fs, err := f.storage.StorageInstanceFilesystem(si.StorageTag())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		filesystemParams, err := storagecommon.FilesystemParams(
+			fs, si, modelConfig.UUID(), controllerCfg.ControllerUUID(),
+			modelConfig, f.storagePoolManager, f.storageProviderRegistry,
+		)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting filesystem %q parameters", fs.Tag().Id())
+		}
+		filesystemAttachment, err := f.storage.FilesystemAttachment(unitTag, fs.FilesystemTag())
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting filesystem %q attachment info", fs.Tag().Id())
+		}
+		var location string
+		var readOnly bool
+		if filesystemAttachmentParams, ok := filesystemAttachment.Params(); ok {
+			location = filesystemAttachmentParams.Location
+			readOnly = filesystemAttachmentParams.ReadOnly
+		} else {
+			// All units are the same so even if the attachment exists
+			// for the unit used to gather info, we still need to read
+			// the relevant attachment params for the application as a whole.
+			filesystemAttachmentInfo, err := filesystemAttachment.Info()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			location = filesystemAttachmentInfo.MountPoint
+			readOnly = filesystemAttachmentInfo.ReadOnly
+		}
+		filesystemAttachmentParams := params.FilesystemAttachmentParams{
+			Provider:   filesystemParams.Provider,
+			MountPoint: location,
+			ReadOnly:   readOnly,
+		}
+		filesystemParams.Attachment = &filesystemAttachmentParams
+		allFilesystemParams = append(allFilesystemParams, filesystemParams)
+	}
+	return allFilesystemParams, nil
 }
 
 // ApplicationsConfig returns the config for the specified applications.
