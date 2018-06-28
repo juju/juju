@@ -370,10 +370,13 @@ func (mm *MachineManagerAPI) updateSeriesPrepare(arg params.UpdateSeriesArg) err
 	}
 	unitNames := make([]string, len(units))
 	for i := range units {
-		unitNames[i] = units[i].UnitTag().String()
+		unitNames[i] = units[i].UnitTag().Id()
 	}
 
 	if err = machine.CreateUpgradeSeriesLock(unitNames, arg.Series); err != nil {
+		// TODO 2018-06-28 managed series upgrade
+		// improve error handling based on error type, there will be cases where retrying
+		// the hooks is needed etc.
 		return errors.Trace(err)
 	}
 	defer func() {

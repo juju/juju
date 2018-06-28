@@ -334,7 +334,7 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepare(c *gc.C) {
 	mach := s.st.machines["0"]
 	c.Assert(len(mach.Calls()), gc.Equals, 4)
 	mach.CheckCallNames(c, "Series", "Principals", "VerifyUnitsSeries", "CreateUpgradeSeriesLock")
-	mach.CheckCall(c, 3, "CreateUpgradeSeriesLock", []string{"unit-foo-0", "unit-test-0"}, "xenial")
+	mach.CheckCall(c, 3, "CreateUpgradeSeriesLock", []string{"foo/0", "test/0"}, "xenial")
 
 }
 

@@ -217,11 +217,41 @@ type instanceData struct {
 // upgradeSeriesLock holds the attributes relevant to lock a machine during a
 // series update of a machine
 type upgradeSeriesLock struct {
-	Id         string   `bson:"machineid"`
-	ToSeries   string   `bson:"toseries"`
-	FromSeries string   `bson:"fromseries"`
-	Units      []string `bson:"units"`
+	Id             string                     `bson:"machineid"`
+	ToSeries       string                     `bson:"toseries"`
+	FromSeries     string                     `bson:"fromseries"`
+	PrepareStatus  MachineSeriesUpgradeStatus `bson:"preparestatus"`
+	PrepareUnits   []unitStatus               `bson:"prepareunits"`
+	CompleteStatus MachineSeriesUpgradeStatus `bson:"completestatus"`
+	CompleteUnits  []unitStatus               `bson:"completeunits"`
 }
+
+type unitStatus struct {
+	Id     string
+	Status UnitSeriesUpgradeStatus
+}
+
+type MachineSeriesUpgradeStatus int
+
+//go:generate stringer -type MachineSeriesUpgradeStatus
+const (
+	NotStarted MachineSeriesUpgradeStatus = iota
+	Started
+	UnitsRunning
+	JujuComplete
+	AgentsStopped
+	Complete
+)
+
+type UnitSeriesUpgradeStatus int
+
+//go:generate stringer -type UnitSeriesUpgradeStatus
+const (
+	UnitNotStarted UnitSeriesUpgradeStatus = iota
+	UnitStarted
+	UnitErrored
+	UnitCompleted
+)
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
 	return &instance.HardwareCharacteristics{
@@ -2092,15 +2122,10 @@ func (m *Machine) CreateUpgradeSeriesLock(unitNames []string, toSeries string) e
 			return nil, errors.Trace(err)
 		}
 		if changed {
-			return nil, errors.Errorf("Units have changed, please retry (%+v)", unitNames)
+			return nil, errors.Errorf("Units have changed, please retry (%v)", unitNames)
 		}
 
-		data := &upgradeSeriesLock{
-			Id:         m.Id(),
-			ToSeries:   toSeries,
-			FromSeries: fromSeries,
-			Units:      unitNames,
-		}
+		data := m.prepareUpgradeSeriesLock(unitNames, toSeries)
 		return createUpgradeSeriesLockTxnOps(m.doc.Id, data), nil
 	}
 	err := m.st.db().Run(buildTxn)
@@ -2126,10 +2151,28 @@ func (m *Machine) unitsHaveChanged(unitNames []string) (bool, error) {
 	}
 	curUnitSet := set.NewStrings()
 	for _, unit := range curUnits {
-		curUnitSet.Add(unit.Tag().String())
+		curUnitSet.Add(unit.Name())
 	}
 	unitNameSet := set.NewStrings(unitNames...)
 	return !unitNameSet.Difference(curUnitSet).IsEmpty(), nil
+}
+
+func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLock {
+	prepareUnits := make([]unitStatus, len(unitNames))
+	completeUnits := make([]unitStatus, len(unitNames))
+	for i, name := range unitNames {
+		prepareUnits[i] = unitStatus{Id: name, Status: UnitNotStarted}
+		completeUnits[i] = unitStatus{Id: name, Status: UnitNotStarted}
+	}
+	return &upgradeSeriesLock{
+		Id:             m.Id(),
+		ToSeries:       toSeries,
+		FromSeries:     m.Series(),
+		PrepareStatus:  NotStarted,
+		PrepareUnits:   prepareUnits,
+		CompleteStatus: NotStarted,
+		CompleteUnits:  completeUnits,
+	}
 }
 
 // RemoveUpgradeSeriesLock remove a series upgrade prepare lock for a

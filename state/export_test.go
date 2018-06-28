@@ -784,3 +784,7 @@ func (st *State) IsUserSuperuser(user names.UserTag) (bool, error) {
 func (st *State) ModelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.Query, SessionCloser, error) {
 	return st.modelQueryForUser(user, isSuperuser)
 }
+
+func UnitsHaveChanged(m *Machine, unitNames []string) (bool, error) {
+	return m.unitsHaveChanged(unitNames)
+}
