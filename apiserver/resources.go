@@ -16,6 +16,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/state"
@@ -102,21 +103,14 @@ func (h *ResourcesHandler) upload(backend ResourcesBackend, req *http.Request, u
 
 	// UpdatePendingResource does the same as SetResource (just calls setResource) except SetResouce just blanks PendingID.
 	var stored resource.Resource
-	// Should just be the following, maybe with some logging in side so that when pendingID is "" it's setting it explicitly.
-	// stored, err = backend.UpdatePendingResource(uploaded.Application, uploaded.PendingID, username, uploaded.Resource, uploaded.Data)
-	// if err != nil {
-	// 	return nil, errors.Trace(err)
-	// }
 	if uploaded.PendingID != "" {
 		stored, err = backend.UpdatePendingResource(uploaded.Application, uploaded.PendingID, username, uploaded.Resource, uploaded.Data)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 	} else {
 		stored, err = backend.SetResource(uploaded.Application, username, uploaded.Resource, uploaded.Data)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	}
+
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	result := &params.UploadResult{
@@ -157,10 +151,16 @@ func (h *ResourcesHandler) readResource(backend ResourcesBackend, req *http.Requ
 		return nil, errors.Trace(err)
 	}
 
-	if res.Type == charmresource.TypeFile {
+	switch res.Type {
+	case charmresource.TypeFile:
 		ext := path.Ext(res.Path)
-		if path.Ext(uReq.ResourceValue) != ext {
-			return nil, errors.Errorf("incorrect extension on resource upload %q, expected %q", uReq.ResourceValue, ext)
+		if path.Ext(uReq.Filename) != ext {
+			return nil, errors.Errorf("incorrect extension on resource upload %q, expected %q", uReq.Filename, ext)
+		}
+	case charmresource.TypeDocker:
+		err := resources.CheckDockerDetails(res.Name, res.Path)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 	}
 
@@ -218,8 +218,7 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 		return ur, errors.Annotate(err, "invalid fingerprint")
 	}
 
-	// Extract out to extract value or filename etc.
-	resourceValue, err := extractFilename(req)
+	filename, err := extractFilename(req)
 	if err != nil {
 		return ur, errors.Trace(err)
 	}
@@ -230,12 +229,12 @@ func extractUploadRequest(req *http.Request) (api.UploadRequest, error) {
 	}
 
 	ur = api.UploadRequest{
-		Application:   application,
-		Name:          name,
-		ResourceValue: resourceValue,
-		Size:          size,
-		Fingerprint:   fp,
-		PendingID:     pendingID,
+		Application: application,
+		Name:        name,
+		Filename:    filename,
+		Size:        size,
+		Fingerprint: fp,
+		PendingID:   pendingID,
 	}
 	return ur, nil
 }

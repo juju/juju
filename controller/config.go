@@ -18,6 +18,7 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/core/resources"
 )
 
 const (
@@ -551,7 +552,7 @@ func Validate(c Config) error {
 	}
 
 	if v, ok := c[CAASOperatorImagePath].(string); ok {
-		if err := c.validateCAASOperatorImagePath(v); err != nil {
+		if err := resources.ValidateDockerRegistryPath(v); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -636,15 +637,6 @@ func (c Config) AsSpaceConstraints(spaces *[]string) *[]string {
 	}
 	ns := newSpaces.SortedValues()
 	return &ns
-}
-
-var validDockerImageRegExp = regexp.MustCompile(`^([A-Za-z\.]+/)?(([A-Za-z-_\.])+/?)+(:[A-Za-z0-9-_\.]+)?$`)
-
-func (c Config) validateCAASOperatorImagePath(path string) error {
-	if ok := validDockerImageRegExp.MatchString(path); !ok {
-		return errors.NotValidf("docker image path %q", path)
-	}
-	return nil
 }
 
 // GenerateControllerCertAndKey makes sure that the config has a CACert and

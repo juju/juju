@@ -10,6 +10,7 @@ import (
 	"io"
 
 	"github.com/juju/errors"
+	charmresource "gopkg.in/juju/charm.v6/resource"
 
 	"github.com/juju/juju/resource"
 )
@@ -33,6 +34,9 @@ func OpenResource(name string, client OpenedResourceClient) (*OpenedResource, er
 	info, reader, err := client.GetResource(name)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	if info.Type == charmresource.TypeDocker && len(info.Path) == 0 {
+		info.Path = "content.yaml"
 	}
 	or := &OpenedResource{
 		Resource:   info,

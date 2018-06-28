@@ -24,8 +24,8 @@ type UploadRequest struct {
 	// Name is the resource name.
 	Name string
 
-	// ResourceValue is the value of the resource (i.e. the filepath as it exists on disk.)
-	ResourceValue string
+	// Filename is the name of the file as it exists on disk.
+	Filename string
 
 	// Size is the size of the uploaded data, in bytes.
 	Size int64
@@ -49,11 +49,11 @@ func NewUploadRequest(application, name, filename string, r io.ReadSeeker) (Uplo
 	}
 
 	ur := UploadRequest{
-		Application:   application,
-		Name:          name,
-		ResourceValue: filename,
-		Size:          content.Size,
-		Fingerprint:   content.Fingerprint,
+		Application: application,
+		Name:        name,
+		Filename:    filename,
+		Size:        content.Size,
+		Fingerprint: content.Fingerprint,
 	}
 	return ur, nil
 }
@@ -92,7 +92,7 @@ func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 	req.Header.Set(HeaderContentType, ContentTypeRaw)
 	req.Header.Set(HeaderContentSha384, ur.Fingerprint.String())
 	req.Header.Set(HeaderContentLength, fmt.Sprint(ur.Size))
-	setFilename(ur.ResourceValue, req)
+	setFilename(ur.Filename, req)
 
 	req.ContentLength = ur.Size
 
