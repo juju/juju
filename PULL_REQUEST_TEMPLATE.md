@@ -4,16 +4,16 @@
 
 ## Description of change
 
-Why is this change needed?
+*Please replace with a description about why this change is needed?*
 
 ## QA steps
 
-How do we verify that the change works?
+*Please replace with how we can verify that the change works?*
 
 ## Documentation changes
 
-Does it affect current user workflow? CLI? API?
+*Please replace with any notes about how it affects current user workflow? CLI? API?* 
 
 ## Bug reference
 
-Does this change fix a bug? Please add a link to it.
+*Please add a link to any bugs that this change is related to.*
