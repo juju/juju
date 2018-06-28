@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -25,10 +26,13 @@ var _ = gc.Suite(&CAASProvisionerSuite{})
 type CAASProvisionerSuite struct {
 	coretesting.BaseSuite
 
-	st                  *mockState
-	applicationsChanges chan []string
-	podSpecChanges      chan struct{}
-	unitsChanges        chan []string
+	st                      *mockState
+	storage                 *mockStorage
+	storageProviderRegistry *mockStorageProviderRegistry
+	storagePoolManager      *mockStoragePoolManager
+	applicationsChanges     chan []string
+	podSpecChanges          chan struct{}
+	unitsChanges            chan []string
 
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
@@ -55,6 +59,9 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 			life: state.Dying,
 		},
 	}
+	s.storage = &mockStorage{}
+	s.storageProviderRegistry = &mockStorageProviderRegistry{}
+	s.storagePoolManager = &mockStoragePoolManager{}
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.applicationsWatcher) })
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.application.unitsWatcher) })
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.model.podSpecWatcher) })
@@ -65,7 +72,8 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 		Controller: true,
 	}
 
-	facade, err := caasunitprovisioner.NewFacade(s.resources, s.authorizer, s.st)
+	facade, err := caasunitprovisioner.NewFacade(
+		s.resources, s.authorizer, s.st, s.storage, s.storageProviderRegistry, s.storagePoolManager)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -74,7 +82,8 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
-	_, err := caasunitprovisioner.NewFacade(s.resources, s.authorizer, s.st)
+	_, err := caasunitprovisioner.NewFacade(
+		s.resources, s.authorizer, s.st, s.storage, s.storageProviderRegistry, s.storagePoolManager)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -135,6 +144,10 @@ func (s *CAASProvisionerSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
+	s.st.application.units = []caasunitprovisioner.Unit{
+		&mockUnit{name: "gitlab/0", life: state.Alive},
+	}
+
 	results, err := s.facade.ProvisioningInfo(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
@@ -144,13 +157,35 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.KubernetesProvisioningInfoResults{
 		Results: []params.KubernetesProvisioningInfoResult{{
-			Result: &params.KubernetesProvisioningInfo{PodSpec: "spec(gitlab)"},
+			Result: &params.KubernetesProvisioningInfo{
+				PodSpec: "spec(gitlab)",
+				Filesystems: []params.FilesystemParams{{
+					FilesystemTag: names.NewFilesystemTag("gitlab/0/0").String(),
+					Provider:      string(provider.K8s_ProviderType),
+					Size:          100,
+					Attributes:    map[string]interface{}{"foo": "bar"},
+					Tags: map[string]string{
+						"juju-storage-instance": "data/0",
+						"juju-storage-owner":    "gitlab",
+						"juju-model-uuid":       coretesting.ModelTag.Id(),
+						"juju-controller-uuid":  coretesting.ControllerTag.Id()},
+					Attachment: &params.FilesystemAttachmentParams{
+						Provider:   string(provider.K8s_ProviderType),
+						MountPoint: "/path/to/here",
+						ReadOnly:   true,
+					},
+				}},
+			},
 		}, {
 			Error: &params.Error{
 				Message: `"unit-gitlab-0" is not a valid application tag`,
 			},
 		}},
 	})
+	s.st.CheckCallNames(c, "Model", "Application", "ControllerConfig")
+	s.storage.CheckCallNames(c, "UnitStorageAttachments", "StorageInstance", "FilesystemAttachment")
+	s.storageProviderRegistry.CheckNoCalls(c)
+	s.storagePoolManager.CheckCallNames(c, "Get")
 }
 
 func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
