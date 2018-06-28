@@ -257,18 +257,10 @@ func (s *stubTracker) Get() (int64, int64, error) {
 
 func (s *stubTracker) Set(recID int64, recTimestamp int64) error {
 	s.stub.AddCall("Set", recID, recTimestamp)
-	if err := s.stub.NextErr(); err != nil {
-		return err
-	}
-
-	return nil
+	return s.stub.NextErr()
 }
 
 func (s *stubTracker) Close() error {
 	s.stub.AddCall("Close")
-	if err := s.stub.NextErr(); err != nil {
-		return err
-	}
-
-	return nil
+	return s.stub.NextErr()
 }

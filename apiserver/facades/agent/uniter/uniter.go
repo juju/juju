@@ -2092,9 +2092,7 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		// If there is no ingress address explicitly defined for a given binding,
 		// set the ingress addresses to either any defaults set above, or the binding addresses.
 		if len(info.IngressAddresses) == 0 {
-			for _, addr := range defaultIngressAddresses {
-				info.IngressAddresses = append(info.IngressAddresses, addr)
-			}
+			info.IngressAddresses = append(info.IngressAddresses, defaultIngressAddresses...)
 		}
 		if len(info.IngressAddresses) == 0 {
 			for _, nwInfo := range info.Info {

@@ -106,9 +106,7 @@ func (r *stubRegistry) Register(subcmd cmd.Command) {
 	r.stub.NextErr() // pop one off
 
 	r.names = append(r.names, subcmd.Info().Name)
-	for _, name := range subcmd.Info().Aliases {
-		r.names = append(r.names, name)
-	}
+	r.names = append(r.names, subcmd.Info().Aliases...)
 }
 
 func (r *stubRegistry) RegisterSuperAlias(name, super, forName string, check cmd.DeprecationCheck) {
@@ -123,7 +121,5 @@ func (r *stubRegistry) RegisterDeprecated(subcmd cmd.Command, check cmd.Deprecat
 	r.stub.NextErr() // pop one off
 
 	r.names = append(r.names, subcmd.Info().Name)
-	for _, name := range subcmd.Info().Aliases {
-		r.names = append(r.names, name)
-	}
+	r.names = append(r.names, subcmd.Info().Aliases...)
 }

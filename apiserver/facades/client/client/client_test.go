@@ -1436,11 +1436,11 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 		client := s.APIState.Client()
 		ref, err := charm.ParseURL(test.url)
 		if test.parseErr == "" {
-			if c.Check(err, jc.ErrorIsNil) == false {
+			if !c.Check(err, jc.ErrorIsNil) {
 				continue
 			}
 		} else {
-			if c.Check(err, gc.NotNil) == false {
+			if !c.Check(err, gc.NotNil) {
 				continue
 			}
 			c.Check(err, gc.ErrorMatches, test.parseErr)
@@ -1449,7 +1449,7 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 
 		curl, err := client.ResolveCharm(ref)
 		if test.resolveErr == "" {
-			if c.Check(err, jc.ErrorIsNil) == false {
+			if !c.Check(err, jc.ErrorIsNil) {
 				continue
 			}
 			c.Check(curl.String(), gc.Equals, test.resolved)

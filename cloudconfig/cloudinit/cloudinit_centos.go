@@ -120,8 +120,7 @@ func (cfg *centOSCloudConfig) PackagePreferences() []packaging.PackagePreference
 // Render is defined on the the Renderer interface.
 func (cfg *centOSCloudConfig) RenderYAML() ([]byte, error) {
 	// Save the fields that we will modify
-	var oldruncmds []string
-	oldruncmds = copyStringSlice(cfg.RunCmds())
+	oldruncmds := copyStringSlice(cfg.RunCmds())
 
 	// check for package proxy setting and add commands:
 	var proxy string

@@ -216,8 +216,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *gc.C) {
 		Machine:     s.machine2,
 	})
 
-	var err error
-	err = s.addRelationToSuiteScope(c, wordpress1Unit, s.mysqlUnit)
+	err := s.addRelationToSuiteScope(c, wordpress1Unit, s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.addRelationToSuiteScope(c, s.wordpressUnit, s.mysqlUnit)

@@ -441,8 +441,6 @@ var commonFakeEntities = []params.Entity{
 }
 
 func addFakeEntities(actual params.Entities) params.Entities {
-	for _, entity := range commonFakeEntities {
-		actual.Entities = append(actual.Entities, entity)
-	}
+	actual.Entities = append(actual.Entities, commonFakeEntities...)
 	return actual
 }

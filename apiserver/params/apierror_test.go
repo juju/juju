@@ -18,10 +18,9 @@ var _ rpc.ErrorCoder = (*params.Error)(nil)
 var _ = gc.Suite(&errorSuite{})
 
 func (*errorSuite) TestErrCode(c *gc.C) {
-	var err error
-	err = &params.Error{Code: params.CodeDead, Message: "brain dead test"}
-	c.Check(params.ErrCode(err), gc.Equals, params.CodeDead)
+	err0 := &params.Error{Code: params.CodeDead, Message: "brain dead test"}
+	c.Check(params.ErrCode(err0), gc.Equals, params.CodeDead)
 
-	err = errors.Trace(err)
-	c.Check(params.ErrCode(err), gc.Equals, params.CodeDead)
+	err1 := errors.Trace(err0)
+	c.Check(params.ErrCode(err1), gc.Equals, params.CodeDead)
 }

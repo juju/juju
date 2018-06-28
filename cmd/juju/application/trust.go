@@ -56,7 +56,6 @@ func (c *trustCommand) Init(args []string) error {
 		return errors.New("no application name specified")
 	}
 	c.applicationName = args[0]
-	var trustOptionPair string
-	trustOptionPair = fmt.Sprintf("%s=%t", application.TrustConfigOptionName, !c.removeTrust)
+	trustOptionPair := fmt.Sprintf("%s=%t", application.TrustConfigOptionName, !c.removeTrust)
 	return c.parseSet([]string{trustOptionPair})
 }

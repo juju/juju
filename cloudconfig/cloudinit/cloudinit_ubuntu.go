@@ -80,8 +80,7 @@ func (cfg *ubuntuCloudConfig) PackagePreferences() []packaging.PackagePreference
 
 func (cfg *ubuntuCloudConfig) RenderYAML() ([]byte, error) {
 	// Save the fields that we will modify
-	var oldbootcmds []string
-	oldbootcmds = copyStringSlice(cfg.BootCmds())
+	oldbootcmds := copyStringSlice(cfg.BootCmds())
 
 	// apt_preferences is not a valid field so we use a fake field in attrs
 	// and then render it differently

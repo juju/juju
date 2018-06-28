@@ -102,7 +102,7 @@ func checkTLSConnection(c *gc.C, caCert, srvCert *x509.Certificate, srvKey *rsa.
 
 	outData := outBytes.String()
 	c.Assert(outData, gc.Not(gc.HasLen), 0)
-	if strings.Index(outData, msg) != -1 {
+	if strings.Contains(outData, msg) {
 		c.Fatalf("TLS connection not encrypted")
 	}
 	c.Assert(clientState.VerifiedChains, gc.HasLen, 1)

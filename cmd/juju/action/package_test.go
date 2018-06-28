@@ -185,13 +185,13 @@ func (c *fakeAPIClient) Actions(args params.Entities) (params.ActionResults, err
 	// the results; otherwise, return a pending status.
 
 	// First, sync.
-	_ = <-time.NewTimer(0 * time.Second).C
+	<-time.NewTimer(0 * time.Second).C
 
 	select {
-	case _ = <-c.delay.C:
+	case <-c.delay.C:
 		// The API delay timer is up.  Pass pre-canned results back.
 		return params.ActionResults{Results: c.actionResults}, c.apiErr
-	case _ = <-c.timeout.C:
+	case <-c.timeout.C:
 		// Timeout to prevent tests from hanging.
 		return params.ActionResults{}, errors.New("test timed out before wait time")
 	default:

@@ -175,7 +175,7 @@ func getCloudConfigDetails(cloudType string) map[string]interface{} {
 		}
 		specifics[attr] = common.PrintConfigSchema{
 			Description: providerSchema[attr].Description,
-			Type:        fmt.Sprintf("%s", providerSchema[attr].Type),
+			Type:        string(providerSchema[attr].Type),
 		}
 	}
 	return specifics

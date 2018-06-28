@@ -44,7 +44,7 @@ func encodeCloudYAML(c *gc.C, yaml string) string {
 	c.Assert(err, jc.ErrorIsNil)
 	err = plaintext.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	return string(buf.Bytes())
+	return buf.String()
 }
 
 func (s *updateCloudsSuite) setupTestServer(c *gc.C, serverContent string) *httptest.Server {

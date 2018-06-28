@@ -107,7 +107,6 @@ func (cfg *windowsCloudConfig) AddPackageCommands(
 	addUpdateScripts bool,
 	addUpgradeScripts bool,
 ) {
-	return
 }
 
 // AddCloudArchiveCloudTools is defined on the AdvancedPackagingConfig

@@ -92,7 +92,7 @@ func (api *LogForwardingAPI) get(id params.LogForwardingID) params.LogForwarding
 // SetLastSent is a bulk call that sets the log forwarding "last sent"
 // record ID for each requested target.
 func (api *LogForwardingAPI) SetLastSent(args params.LogForwardingSetLastSentParams) params.ErrorResults {
-	results := make([]params.ErrorResult, len(args.Params), len(args.Params))
+	results := make([]params.ErrorResult, len(args.Params))
 	for i, arg := range args.Params {
 		results[i].Error = api.set(arg)
 	}
