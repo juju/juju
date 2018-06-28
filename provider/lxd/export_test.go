@@ -15,7 +15,7 @@ var (
 
 func NewProviderWithMocks(
 	creds environs.ProviderCredentials,
-	interfaceAddress LXDInterfaceAddress,
+	interfaceAddress InterfaceAddress,
 	newLocalSever func() (ProviderLXDServer, error),
 ) environs.EnvironProvider {
 	return &environProvider{

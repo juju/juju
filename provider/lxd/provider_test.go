@@ -123,12 +123,12 @@ func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
 
 func (s *providerSuite) createProvider(ctrl *gomock.Controller) (environs.EnvironProvider,
 	*testing.MockProviderCredentials,
-	*lxd.MockLXDInterfaceAddress,
+	*lxd.MockInterfaceAddress,
 	*lxd.MockProviderLXDServer,
 ) {
 	server := lxd.NewMockProviderLXDServer(ctrl)
 	creds := testing.NewMockProviderCredentials(ctrl)
-	interfaceAddress := lxd.NewMockLXDInterfaceAddress(ctrl)
+	interfaceAddress := lxd.NewMockInterfaceAddress(ctrl)
 
 	provider := lxd.NewProviderWithMocks(creds, interfaceAddress, func() (lxd.ProviderLXDServer, error) {
 		return server, nil

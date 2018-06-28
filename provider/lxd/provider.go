@@ -27,7 +27,7 @@ import (
 
 // ProviderLXDServer provides methods for the Provider and the
 // ProviderCredentials to query.
-//go:generate mockgen -package lxd -destination provider_mock_test.go github.com/juju/juju/provider/lxd ProviderLXDServer,LXDInterfaceAddress
+//go:generate mockgen -package lxd -destination provider_mock_test.go github.com/juju/juju/provider/lxd ProviderLXDServer,InterfaceAddress
 type ProviderLXDServer interface {
 	GetConnectionInfo() (*client.ConnectionInfo, error)
 	LocalBridgeName() string
@@ -36,9 +36,9 @@ type ProviderLXDServer interface {
 	ServerCertificate() string
 }
 
-// LXDInterfaceAddress groups methods that is required to find addresses
+// InterfaceAddress groups methods that is required to find addresses
 // for a given interface
-type LXDInterfaceAddress interface {
+type InterfaceAddress interface {
 
 	// InterfaceAddress looks for the network interface
 	// and returns the IPv4 address from the possible addresses.
@@ -49,7 +49,7 @@ type LXDInterfaceAddress interface {
 
 type environProvider struct {
 	environs.ProviderCredentials
-	interfaceAddress LXDInterfaceAddress
+	interfaceAddress InterfaceAddress
 	newLocalServer   func() (ProviderLXDServer, error)
 	Clock            clock.Clock
 }
@@ -86,7 +86,7 @@ func NewProvider() environs.CloudEnvironProvider {
 			lookup:         netLookup{},
 			newLocalServer: createLXDServer,
 		},
-		interfaceAddress: utilsLXDInterfaceAddress{},
+		interfaceAddress: interfaceAddress{},
 		newLocalServer:   createLXDServer,
 	}
 }
@@ -395,8 +395,8 @@ func (p *environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
 }
 
-type utilsLXDInterfaceAddress struct{}
+type interfaceAddress struct{}
 
-func (utilsLXDInterfaceAddress) InterfaceAddress(interfaceName string) (string, error) {
+func (interfaceAddress) InterfaceAddress(interfaceName string) (string, error) {
 	return utils.GetAddressForInterface(interfaceName)
 }
