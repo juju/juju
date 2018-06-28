@@ -13,8 +13,6 @@ func NewNoOpWorker() worker.Worker {
 }
 
 func doNothing(stop <-chan struct{}) error {
-	select {
-	case <-stop:
-		return nil
-	}
+	<-stop
+	return nil
 }

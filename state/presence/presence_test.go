@@ -651,7 +651,7 @@ func (s *PresenceSuite) TestRobustness(c *gc.C) {
 	// Start a watch for changes to 'key'. Never listen for actual events on that channel, though, so we know flush()
 	// will always be blocked, but allowing other events while waiting to send that event.
 	rootKey := "key"
-	keyChan := make(chan presence.Change, 0)
+	keyChan := make(chan presence.Change)
 	w.Watch(rootKey, keyChan)
 	// Whenever we successfully watch in the main loop(), it starts a flush. We should now be able to build up more
 	// watches while waiting. Create enough of these that we know the slice gets reallocated
@@ -661,7 +661,7 @@ func (s *PresenceSuite) TestRobustness(c *gc.C) {
 	const numKeys = 10
 	for i := 0; i < numKeys; i++ {
 		k := fmt.Sprintf("k%d", i)
-		kChan := make(chan presence.Change, 0)
+		kChan := make(chan presence.Change)
 		w.Watch("key", kChan)
 		wg.Add(1)
 		go func() {

@@ -159,10 +159,7 @@ func copyFileWithMode(from, to string, mode os.FileMode) error {
 	}
 	defer destination.Close()
 	_, err = io.Copy(destination, source)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // ExistingJujudLocation returns the directory to

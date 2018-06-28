@@ -163,11 +163,9 @@ func (s *LoopSuite) TestLoop(c *gc.C) {
 		// change.
 		case 2:
 			s.watcher.changes <- struct{}{}
-			break
 		// On the third call, kill the loop.
 		case 3:
 			close(s.abort)
-			break
 		}
 		return nil, resolver.ErrNoOperation
 	})

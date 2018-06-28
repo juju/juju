@@ -406,8 +406,7 @@ func (u *UpgradeMongoCommand) maybeUpgrade24to26(dataDir string) error {
 	}
 	defer session.Close()
 
-	var res bson.M
-	res = make(bson.M)
+	res := make(bson.M)
 	err = db.Run("authSchemaUpgrade", &res)
 	if err != nil {
 		return errors.Annotate(err, "cannot upgrade auth schema")

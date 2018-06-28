@@ -115,7 +115,7 @@ func (r *Relation) Life() Life {
 func (r *Relation) Status() (status.StatusInfo, error) {
 	rStatus, err := getStatus(r.st.db(), r.globalScope(), "relation")
 	if err != nil {
-		return rStatus, err
+		return rStatus, errors.Trace(err)
 	}
 	return rStatus, nil
 }

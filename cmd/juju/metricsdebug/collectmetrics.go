@@ -196,7 +196,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 
 	// We want to wait for the action results indefinitely.  Discard the tick.
 	wait := time.NewTimer(0 * time.Second)
-	_ = <-wait.C
+	<-wait.C
 	// trigger sending metrics in parallel
 	resultChannel := make(chan string, len(runResults))
 	for _, result := range runResults {
@@ -269,9 +269,7 @@ func (c *collectMetricsCommand) Run(ctx *cmd.Context) error {
 
 	for range runResults {
 		// The default is to wait forever for the command to finish.
-		select {
-		case <-resultChannel:
-		}
+		<-resultChannel
 	}
 	return nil
 }

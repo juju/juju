@@ -733,6 +733,7 @@ func (w *Worker) waitForMinions(
 			if failures > 0 {
 				w.logger.Errorf(formatMinionFailure(reports, infoPrefix))
 				w.setErrorStatus("%s, some agents reported failure", infoPrefix)
+				// nolint: gosimple
 				if waitPolicy == failFast {
 					return false, nil
 				}

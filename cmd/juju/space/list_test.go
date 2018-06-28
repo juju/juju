@@ -196,7 +196,7 @@ space2
 		if format != "" {
 			args = append(args, "--format", format)
 		}
-		if short == true {
+		if short {
 			args = append(args, "--short")
 		}
 		return args
@@ -206,8 +206,7 @@ space2
 		c.Assert(outFile, jc.DoesNotExist)
 		defer os.Remove(outFile)
 		// Check -o works.
-		var args []string
-		args = makeArgs(format, short, "-o", outFile)
+		args := makeArgs(format, short, "-o", outFile)
 		s.AssertRunSucceeds(c, "", "", args...)
 		assertAPICalls()
 

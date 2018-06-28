@@ -47,7 +47,7 @@ func main() {
 		CopyrightYear string
 		Pkgname       string
 	}
-	contextData := fmt.Sprintf("%s", string(data))
+	contextData := string(data)
 	// Quote any ` in the data.
 	contextData = strings.Replace(contextData, "`", "`+\"`\"+`", -1)
 	t.Execute(&buf, content{

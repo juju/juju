@@ -308,7 +308,7 @@ func (o *oracleInstance) associatePublicIP() error {
 		assocPoolName,
 		o.machine.Vcable_id,
 	); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	return nil

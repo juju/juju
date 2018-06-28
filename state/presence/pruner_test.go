@@ -205,7 +205,7 @@ func waitForFirstChange(c *gc.C, watch <-chan Change, want Change) {
 			if got == want {
 				return
 			}
-			if got.Alive == false {
+			if !got.Alive {
 				c.Fatalf("got a not-alive before the one we were expecting: %v (want %v)", got, want)
 			}
 		case <-timeout:

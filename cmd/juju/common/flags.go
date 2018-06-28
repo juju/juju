@@ -106,9 +106,7 @@ func (f *ConfigFlag) AbsoluteFileNames(ctx *cmd.Context) ([]string, error) {
 // String implements gnuflag.Value.String.
 func (f *ConfigFlag) String() string {
 	strs := make([]string, 0, len(f.attrs)+len(f.files))
-	for _, f := range f.files {
-		strs = append(strs, f)
-	}
+	strs = append(strs, f.files...)
 	for k, v := range f.attrs {
 		strs = append(strs, fmt.Sprintf("%s=%v", k, v))
 	}

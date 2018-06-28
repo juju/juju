@@ -75,7 +75,7 @@ func main() {
 	pubKeys := getKnownHostKeys(hostFile)
 	hostPorts := make([]network.HostPort, 0, len(args))
 	for _, arg := range args {
-		if strings.Index(arg, ":") < 0 {
+		if !strings.Contains(arg, ":") {
 			// Not valid for IPv6, but good enough for testing
 			arg = arg + ":22"
 		}

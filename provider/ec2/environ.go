@@ -816,7 +816,7 @@ func tagRootDisk(e *ec2.EC2, tags map[string]string, inst *ec2.Instance) error {
 		if err != nil {
 			err = errors.Annotate(maybeConvertCredentialError(err), "cannot fetch instance information")
 			logger.Warningf("%v", err)
-			if a.HasNext() == false {
+			if !a.HasNext() {
 				return err
 			}
 			logger.Infof("retrying fetch of instances")

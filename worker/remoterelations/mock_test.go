@@ -231,10 +231,7 @@ func (m *mockRelationsFacade) WatchLocalRelationUnits(relationKey string) (watch
 
 func (m *mockRelationsFacade) ConsumeRemoteRelationChange(change params.RemoteRelationChangeEvent) error {
 	m.stub.MethodCall(m, "ConsumeRemoteRelationChange", change)
-	if err := m.stub.NextErr(); err != nil {
-		return err
-	}
-	return nil
+	return m.stub.NextErr()
 }
 
 func (m *mockRelationsFacade) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) {
@@ -275,10 +272,7 @@ func (m *mockRemoteRelationsFacade) Close() error {
 
 func (m *mockRemoteRelationsFacade) PublishRelationChange(change params.RemoteRelationChangeEvent) error {
 	m.stub.MethodCall(m, "PublishRelationChange", change)
-	if err := m.stub.NextErr(); err != nil {
-		return err
-	}
-	return nil
+	return m.stub.NextErr()
 }
 
 func (m *mockRemoteRelationsFacade) RegisterRemoteRelations(relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error) {

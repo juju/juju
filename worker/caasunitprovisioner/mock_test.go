@@ -253,8 +253,5 @@ type mockUnitUpdater struct {
 
 func (m *mockUnitUpdater) UpdateUnits(arg params.UpdateApplicationUnits) error {
 	m.MethodCall(m, "UpdateUnits", arg)
-	if err := m.NextErr(); err != nil {
-		return err
-	}
-	return nil
+	return m.NextErr()
 }

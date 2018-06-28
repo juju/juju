@@ -218,11 +218,8 @@ func enableCertAuth(args *manual.ProvisionMachineArgs) (manual.WinrmClientAPI, e
 // just 8192 length commands. We know we have an amount of prefixed scripts
 // that we want to bind for the init process so create an array of scripts
 func bindInitScripts(pass string, keys *winrm.X509) ([]string, error) {
-	var (
-		err error
-	)
-
-	scripts := make([]string, 3, 3)
+	var err error
+	scripts := make([]string, 3)
 
 	if len(pass) == 0 {
 		return scripts, fmt.Errorf("The password is empty, provide a valid password to enable https interactions")
@@ -242,11 +239,7 @@ func bindInitScripts(pass string, keys *winrm.X509) ([]string, error) {
 
 	scripts[2] = fmt.Sprintf(setConnWinrm, pass)
 	scripts[2], err = shell.NewPSEncodedCommand(scripts[2])
-	if err != nil {
-		return nil, err
-	}
-
-	return nil, nil
+	return nil, err
 }
 
 // setFiles powershell script that will manage and create the conf folder and files

@@ -255,7 +255,6 @@ func replaceKeys(m map[string]interface{}, replace func(string) string) {
 			m[newKey] = value
 		}
 	}
-	return
 }
 
 // copyMap copies the keys and values of one map into a new one.  If replace

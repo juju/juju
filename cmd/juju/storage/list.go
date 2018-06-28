@@ -168,7 +168,7 @@ func formatListTabular(writer io.Writer, value interface{}) error {
 			combined.Filesystems,
 			combined.Volumes,
 		); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		return nil
 	}
@@ -177,7 +177,7 @@ func formatListTabular(writer io.Writer, value interface{}) error {
 			fmt.Fprintln(writer)
 		}
 		if err := formatFilesystemListTabular(writer, combined.Filesystems); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		newline = true
 	}
@@ -186,7 +186,7 @@ func formatListTabular(writer io.Writer, value interface{}) error {
 			fmt.Fprintln(writer)
 		}
 		if err := formatVolumeListTabular(writer, combined.Volumes); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return nil

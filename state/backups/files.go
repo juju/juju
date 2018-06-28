@@ -44,9 +44,7 @@ type Paths struct {
 // GetFilesToBackUp returns the paths that should be included in the
 // backup archive.
 func GetFilesToBackUp(rootDir string, paths *Paths, oldmachine string) ([]string, error) {
-	var glob string
-
-	glob = filepath.Join(rootDir, paths.DataDir, agentsDir, agentsConfs)
+	glob := filepath.Join(rootDir, paths.DataDir, agentsDir, agentsConfs)
 	agentConfs, err := filepath.Glob(glob)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to fetch agent config files")

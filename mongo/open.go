@@ -149,7 +149,7 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		if opts.PostDialServer != nil {
 			before := time.Now()
 			defer func() {
-				taken := time.Now().Sub(before)
+				taken := time.Since(before)
 				opts.PostDialServer(server.String(), taken, err)
 			}()
 		}

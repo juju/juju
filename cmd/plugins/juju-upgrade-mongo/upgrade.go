@@ -150,8 +150,7 @@ func (c *upgradeMongoCommand) Run(ctx *cmd.Context) error {
 	}
 
 	var stdout, stderr bytes.Buffer
-	var closer chan int
-	closer = make(chan int, 1)
+	closer := make(chan int, 1)
 	defer func() { closer <- 1 }()
 	go bufferPrinter(&stdout, closer, false)
 
@@ -253,9 +252,7 @@ func (c *upgradeMongoCommand) migratableMachines() (upgradeMongoParams, error) {
 		}
 	}
 	result.rsMembers = make([]replicaset.Member, len(results.RsMembers))
-	for i, rsMember := range results.RsMembers {
-		result.rsMembers[i] = rsMember
-	}
+	copy(result.rsMembers, results.RsMembers)
 
 	return result, nil
 }

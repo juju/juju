@@ -27,18 +27,14 @@ var _ = gc.Suite(&NetplanSuite{})
 
 func MustNetplanFromYaml(c *gc.C, input string) *netplan.Netplan {
 	var np netplan.Netplan
-	if strings.HasPrefix(input, "\n") {
-		input = input[1:]
-	}
+	input = strings.TrimPrefix(input, "\n")
 	err := netplan.Unmarshal([]byte(input), &np)
 	c.Assert(err, jc.ErrorIsNil)
 	return &np
 }
 
 func checkNetplanRoundTrips(c *gc.C, input string) {
-	if strings.HasPrefix(input, "\n") {
-		input = input[1:]
-	}
+	input = strings.TrimPrefix(input, "\n")
 	var np netplan.Netplan
 	err := netplan.Unmarshal([]byte(input), &np)
 	c.Assert(err, jc.ErrorIsNil)

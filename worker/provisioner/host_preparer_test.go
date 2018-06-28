@@ -38,10 +38,7 @@ func (api *fakePrepareAPI) HostChangesForContainer(tag names.MachineTag) ([]netw
 
 func (api *fakePrepareAPI) SetHostMachineNetworkConfig(tag names.MachineTag, config []params.NetworkConfig) error {
 	api.Stub.MethodCall(api, "SetHostMachineNetworkConfig", tag, config)
-	if err := api.Stub.NextErr(); err != nil {
-		return err
-	}
-	return nil
+	return api.Stub.NextErr()
 }
 
 type hostPreparerSuite struct {
@@ -80,10 +77,7 @@ var _ network.Bridger = (*stubBridger)(nil)
 
 func (br *stubBridger) Bridge(devices []network.DeviceToBridge, reconfigureDelay int) error {
 	br.Stub.MethodCall(br, "Bridge", devices, reconfigureDelay)
-	if err := br.Stub.NextErr(); err != nil {
-		return err
-	}
-	return nil
+	return br.Stub.NextErr()
 }
 
 func (s *hostPreparerSuite) createStubBridger() (network.Bridger, error) {

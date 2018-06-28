@@ -21,6 +21,7 @@ $GOPATH/bin/gometalinter --vendor \
     --disable-all \
     --enable=gofmt \
     --enable=goimports \
+    --enable=gosimple \
     --enable=misspell \
     --enable=unconvert \
     --enable=vet \

@@ -298,13 +298,12 @@ func Marshal(in interface{}) (out []byte, err error) {
 func (np *Netplan) readYamlFile(path string) (err error) {
 	contents, err := ioutil.ReadFile(path)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	err = Unmarshal(contents, np)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-
 	return nil
 }
 

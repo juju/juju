@@ -185,18 +185,12 @@ func (f *fakeAPI) GetContainerInterfaceInfo(tag names.MachineTag) ([]network.Int
 
 func (f *fakeAPI) ReleaseContainerAddresses(tag names.MachineTag) error {
 	f.MethodCall(f, "ReleaseContainerAddresses", tag)
-	if err := f.NextErr(); err != nil {
-		return err
-	}
-	return nil
+	return f.NextErr()
 }
 
 func (f *fakeAPI) SetHostMachineNetworkConfig(hostMachineTag names.MachineTag, netConfig []params.NetworkConfig) error {
 	f.MethodCall(f, "SetHostMachineNetworkConfig", hostMachineTag.String(), netConfig)
-	if err := f.NextErr(); err != nil {
-		return err
-	}
-	return nil
+	return f.NextErr()
 }
 
 func (f *fakeAPI) HostChangesForContainer(machineTag names.MachineTag) ([]network.DeviceToBridge, int, error) {

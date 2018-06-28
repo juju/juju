@@ -3972,8 +3972,7 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 		c.Errorf("entity contents mismatch; same length %d", len(got))
 	}
 	// Lets construct a decent output.
-	var errorOutput string
-	errorOutput = "\ngot: \n"
+	errorOutput := "\ngot: \n"
 	for _, e := range got {
 		errorOutput += fmt.Sprintf("  %T %#v\n", e, e)
 	}

@@ -176,7 +176,7 @@ type OfferAPI interface {
 
 // applicationParse is used to split an application string
 // into model, application and endpoint names.
-var applicationParse = regexp.MustCompile("/?((?P<model>[^\\.]*)\\.)?(?P<appname>[^:]*)(:(?P<endpoints>.*))?")
+var applicationParse = regexp.MustCompile(`/?((?P<model>[^\.]*)\.)?(?P<appname>[^:]*)(:(?P<endpoints>.*))?`)
 
 func (c *offerCommand) parseEndpoints(controllerName, arg string) error {
 	modelNameArg := applicationParse.ReplaceAllString(arg, "$model")

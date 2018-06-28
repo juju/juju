@@ -631,7 +631,7 @@ func (m *Model) Owner() names.UserTag {
 func (m *Model) Status() (status.StatusInfo, error) {
 	status, err := getStatus(m.st.db(), m.globalKey(), "model")
 	if err != nil {
-		return status, err
+		return status, errors.Trace(err)
 	}
 	return status, nil
 }

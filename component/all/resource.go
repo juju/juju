@@ -57,7 +57,7 @@ func (resources) registerState() {
 }
 
 func (r resources) registerHookContext() {
-	if markRegistered(resource.ComponentName, "hook-context") == false {
+	if !markRegistered(resource.ComponentName, "hook-context") {
 		return
 	}
 
@@ -78,7 +78,7 @@ func (r resources) registerHookContext() {
 }
 
 func (r resources) registerHookContextCommands() {
-	if markRegistered(resource.ComponentName, "hook-context-commands") == false {
+	if !markRegistered(resource.ComponentName, "hook-context-commands") {
 		return
 	}
 

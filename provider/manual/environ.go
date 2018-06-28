@@ -91,7 +91,7 @@ func (e *manualEnviron) Config() *config.Config {
 // PrepareForBootstrap is part of the Environ interface.
 func (e *manualEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	if err := ensureBootstrapUbuntuUser(ctx, e.host, e.user, e.envConfig()); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -112,13 +112,13 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context
 	}
 	hw, series, err := e.seriesAndHardwareCharacteristics()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = BootstrapInstanceId
 		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = hw
 		if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		return common.ConfigureMachine(ctx, ssh.DefaultClient, e.host, icfg, nil)
 	}

@@ -230,7 +230,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	c.Assert(err, jc.ErrorIsNil)
 	uconf := string(uconfData)
 
-	regex := regexp.MustCompile("(?m)(?:^\\s)*exec\\s.+$")
+	regex := regexp.MustCompile(`(?m)(?:^\s)*exec\s.+$`)
 	execs := regex.FindAllString(uconf, -1)
 
 	if nil == execs {

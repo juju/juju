@@ -534,7 +534,6 @@ func gatherLXCAddresses(toRemove map[string][]net.Addr) {
 	if err := scanner.Err(); err != nil {
 		logger.Debugf("failed to read %q: %v (ignoring)", LXCNetDefaultConfig, err)
 	}
-	return
 }
 
 func gatherBridgeAddresses(bridgeName string, toRemove map[string][]net.Addr) {
@@ -545,8 +544,6 @@ func gatherBridgeAddresses(bridgeName string, toRemove map[string][]net.Addr) {
 	}
 	logger.Debugf("%q has addresses %v", bridgeName, addrs)
 	toRemove[bridgeName] = addrs
-	return
-
 }
 
 // FilterBridgeAddresses removes addresses seen as a Bridge address (the IP

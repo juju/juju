@@ -99,10 +99,8 @@ func (t *Tracker) loop() error {
 	// TODO(caas) - watch for config and credential changes
 	for {
 		logger.Debugf("waiting for config and credential notifications")
-		select {
-		case <-t.catacomb.Dying():
-			return t.catacomb.ErrDying()
-		}
+		<-t.catacomb.Dying()
+		return t.catacomb.ErrDying()
 	}
 }
 

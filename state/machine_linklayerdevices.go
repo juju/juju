@@ -962,7 +962,7 @@ func (m *Machine) LinkLayerDevicesForSpaces(spaces []string) (map[string][]*Link
 		deviceByName[dev.Name()] = dev
 	}
 	requestedSpaces := set.NewStrings(spaces...)
-	spaceToDevices := make(map[string]map[string]*LinkLayerDevice, 0)
+	spaceToDevices := make(map[string]map[string]*LinkLayerDevice)
 	processedDeviceNames := set.NewStrings()
 	includeDevice := func(spaceName string, device *LinkLayerDevice) {
 		spaceInfo, ok := spaceToDevices[spaceName]

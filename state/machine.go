@@ -1200,7 +1200,8 @@ func convertSpacesFromConstraints(spaces *[]string) ([]string, []string) {
 	if spaces == nil || len(*spaces) == 0 {
 		return nil, nil
 	}
-	return parseDelimitedValues(*spaces)
+	positives, negatives := parseDelimitedValues(*spaces)
+	return positives, negatives
 }
 
 // parseDelimitedValues parses a slice of raw values coming from constraints
@@ -1762,7 +1763,7 @@ func (m *Machine) setConstraintsOps(cons constraints.Value) ([]txn.Op, error) {
 func (m *Machine) Status() (status.StatusInfo, error) {
 	mStatus, err := getStatus(m.st.db(), m.globalKey(), "machine")
 	if err != nil {
-		return mStatus, err
+		return mStatus, errors.Trace(err)
 	}
 	return mStatus, nil
 }

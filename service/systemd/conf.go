@@ -105,11 +105,7 @@ func normalize(name string, conf common.Conf, scriptPath string, renderer confRe
 }
 
 func isSimpleCommand(cmd string) bool {
-	if strings.ContainsAny(cmd, "\n;|><&") {
-		return false
-	}
-
-	return true
+	return !strings.ContainsAny(cmd, "\n;|><&")
 }
 
 func validate(name string, conf common.Conf, renderer shell.Renderer) error {

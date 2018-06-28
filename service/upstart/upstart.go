@@ -22,11 +22,12 @@ import (
 )
 
 var (
-	InitDir = "/etc/init" // the default init directory name.
+	// InitDir is the default init directory name.
+	InitDir = "/etc/init"
 
 	logger      = loggo.GetLogger("juju.service.upstart")
 	initctlPath = "/sbin/initctl"
-	servicesRe  = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
+	servicesRe  = regexp.MustCompile(`^([a-zA-Z0-9-_:]+)\.conf$`)
 	renderer    = &shell.BashRenderer{}
 )
 

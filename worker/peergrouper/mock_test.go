@@ -324,10 +324,7 @@ func (m *fakeMachine) Refresh() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	doc := m.doc()
-	if err := m.errors.errorFor("Machine.Refresh", doc.id); err != nil {
-		return err
-	}
-	return nil
+	return m.errors.errorFor("Machine.Refresh", doc.id)
 }
 
 func (m *fakeMachine) GoString() string {

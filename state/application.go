@@ -2310,10 +2310,7 @@ func (a *Application) SetPassword(password string) error {
 // for the given application.
 func (a *Application) PasswordValid(password string) bool {
 	agentHash := utils.AgentPasswordHash(password)
-	if agentHash == a.doc.PasswordHash {
-		return true
-	}
-	return false
+	return agentHash == a.doc.PasswordHash
 }
 
 // UnitUpdateProperties holds information used to update

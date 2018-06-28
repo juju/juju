@@ -105,9 +105,6 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init implements Command.Init.
 func (c *listCommand) Init(args []string) (err error) {
 	c.modelName, err = cmd.ZeroOrOneArgs(args)
-	if err != nil {
-		return err
-	}
 	return err
 }
 

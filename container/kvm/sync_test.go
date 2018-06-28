@@ -82,5 +82,4 @@ func (f fakeFetcher) Fetch() error {
 }
 
 func (f fakeFetcher) Close() {
-	return
 }
