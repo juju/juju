@@ -335,8 +335,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	// Patch out all expensive external deps.
 	raw := &rawProvider{
-		newServer:  s.Client,
-		lxdStorage: s.Client,
+		newServer: s.Client,
 		remote: jujulxdclient.Remote{
 			Cert: &lxd.Certificate{
 				Name:    "juju",
@@ -531,16 +530,16 @@ func (conn *StubClient) StorageSupported() bool {
 	return conn.StorageIsSupported
 }
 
-func (conn *StubClient) StoragePool(name string) (api.StoragePool, error) {
-	conn.AddCall("StoragePool", name)
-	return api.StoragePool{
+func (conn *StubClient) GetStoragePool(name string) (pool *api.StoragePool, ETag string, err error) {
+	conn.AddCall("GetStoragePool", name)
+	return &api.StoragePool{
 		Name:   name,
 		Driver: "dir",
-	}, conn.NextErr()
+	}, "", conn.NextErr()
 }
 
-func (conn *StubClient) StoragePools() ([]api.StoragePool, error) {
-	conn.AddCall("StoragePools")
+func (conn *StubClient) GetStoragePools() ([]api.StoragePool, error) {
+	conn.AddCall("GetStoragePools")
 	return []api.StoragePool{{
 		Name:   "juju",
 		Driver: "dir",
@@ -550,44 +549,48 @@ func (conn *StubClient) StoragePools() ([]api.StoragePool, error) {
 	}}, conn.NextErr()
 }
 
-func (conn *StubClient) CreateStoragePool(name, driver string, attrs map[string]string) error {
-	conn.AddCall("CreateStoragePool", name, driver, attrs)
+func (conn *StubClient) CreatePool(name, driver string, attrs map[string]string) error {
+	conn.AddCall("CreatePool", name, driver, attrs)
 	return conn.NextErr()
 }
 
-func (conn *StubClient) VolumeCreate(pool, volume string, config map[string]string) error {
-	conn.AddCall("VolumeCreate", pool, volume, config)
+func (conn *StubClient) CreateVolume(pool, volume string, config map[string]string) error {
+	conn.AddCall("CreateVolume", pool, volume, config)
 	return conn.NextErr()
 }
 
-func (conn *StubClient) VolumeDelete(pool, volume string) error {
-	conn.AddCall("VolumeDelete", pool, volume)
+func (conn *StubClient) DeleteStoragePoolVolume(pool, volType, volume string) error {
+	conn.AddCall("DeleteStoragePoolVolume", pool, volType, volume)
 	return conn.NextErr()
 }
 
-func (conn *StubClient) Volume(pool, volume string) (api.StorageVolume, error) {
-	conn.AddCall("Volume", pool, volume)
+func (conn *StubClient) GetStoragePoolVolume(
+	pool string, volType string, name string,
+) (*api.StorageVolume, string, error) {
+	conn.AddCall("GetStoragePoolVolume", pool, volType, name)
 	if err := conn.NextErr(); err != nil {
-		return api.StorageVolume{}, err
+		return nil, "", err
 	}
 	for _, v := range conn.Volumes[pool] {
-		if v.Name == volume {
-			return v, nil
+		if v.Name == name {
+			return &v, "eTag", nil
 		}
 	}
-	return api.StorageVolume{}, errors.NotFoundf("volume %q in pool %q", volume, pool)
+	return nil, "", errors.NotFoundf("volume %q in pool %q", name, pool)
 }
 
-func (conn *StubClient) VolumeList(pool string) ([]api.StorageVolume, error) {
-	conn.AddCall("VolumeList", pool)
+func (conn *StubClient) GetStoragePoolVolumes(pool string) ([]api.StorageVolume, error) {
+	conn.AddCall("GetStoragePoolVolumes", pool)
 	if err := conn.NextErr(); err != nil {
 		return nil, err
 	}
 	return conn.Volumes[pool], nil
 }
 
-func (conn *StubClient) VolumeUpdate(pool, volume string, update api.StorageVolume) error {
-	conn.AddCall("VolumeUpdate", pool, volume, update)
+func (conn *StubClient) UpdateStoragePoolVolume(
+	pool string, volType string, name string, volume api.StorageVolumePut, ETag string,
+) error {
+	conn.AddCall("UpdateStoragePoolVolume", pool, volType, name, volume, ETag)
 	return conn.NextErr()
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
@@ -35,6 +36,8 @@ const (
 	// If this is not provided, the LXD storage pool name
 	// will be set to "juju".
 	attrLXDStoragePool = "lxd-pool"
+
+	storagePoolVolumeType = "custom"
 )
 
 func (env *environ) storageSupported() bool {
@@ -188,7 +191,7 @@ func (e *lxdStorageProvider) FilesystemSource(cfg *storage.Config) (storage.File
 }
 
 func ensureLXDStoragePool(env *environ, cfg *lxdStorageConfig) error {
-	createErr := env.raw.CreateStoragePool(cfg.lxdPool, cfg.driver, cfg.attrs)
+	createErr := env.raw.CreatePool(cfg.lxdPool, cfg.driver, cfg.attrs)
 	if createErr == nil {
 		return nil
 	}
@@ -197,8 +200,8 @@ func ensureLXDStoragePool(env *environ, cfg *lxdStorageConfig) error {
 	// verify that. If it doesn't exist, return the original
 	// CreateStoragePool error.
 
-	pool, err := env.raw.StoragePool(cfg.lxdPool)
-	if errors.IsNotFound(err) {
+	pool, _, err := env.raw.GetStoragePool(cfg.lxdPool)
+	if lxd.IsLXDNotFound(err) {
 		return errors.Annotatef(createErr, "creating LXD storage pool %q", cfg.lxdPool)
 	} else if err != nil {
 		return errors.Annotatef(createErr, "getting storage pool %q", cfg.lxdPool)
@@ -275,7 +278,7 @@ func (s *lxdFilesystemSource) createFilesystem(
 		config["size"] = fmt.Sprintf("%dMB", arg.Size)
 	}
 
-	if err := s.env.raw.VolumeCreate(cfg.lxdPool, volumeName, config); err != nil {
+	if err := s.env.raw.CreateVolume(cfg.lxdPool, volumeName, config); err != nil {
 		return nil, errors.Annotate(err, "creating volume")
 	}
 
@@ -308,9 +311,11 @@ func parseFilesystemId(id string) (lxdPool, volumeName string, _ error) {
 	return fields[0], fields[1], nil
 }
 
+// TODO (manadart 2018-06-28) Add a test for DestroyController that properly
+// verifies this behaviour.
 func destroyControllerFilesystems(env *environ, controllerUUID string) error {
 	return errors.Trace(destroyFilesystems(env, func(v api.StorageVolume) bool {
-		return v.Config["user."+tags.JujuController] == env.Config().UUID()
+		return v.Config["user."+tags.JujuController] == controllerUUID
 	}))
 }
 
@@ -321,12 +326,12 @@ func destroyModelFilesystems(env *environ) error {
 }
 
 func destroyFilesystems(env *environ, match func(api.StorageVolume) bool) error {
-	pools, err := env.raw.StoragePools()
+	pools, err := env.raw.GetStoragePools()
 	if err != nil {
 		return errors.Annotate(err, "listing LXD storage pools")
 	}
 	for _, pool := range pools {
-		volumes, err := env.raw.VolumeList(pool.Name)
+		volumes, err := env.raw.GetStoragePoolVolumes(pool.Name)
 		if err != nil {
 			return errors.Annotatef(err, "listing volumes in LXD storage pool %q", pool)
 		}
@@ -334,12 +339,8 @@ func destroyFilesystems(env *environ, match func(api.StorageVolume) bool) error 
 			if !match(volume) {
 				continue
 			}
-			if err := env.raw.VolumeDelete(pool.Name, volume.Name); err != nil {
-				return errors.Annotatef(
-					err,
-					"deleting volume %q in LXD storage pool %q",
-					volume.Name, pool,
-				)
+			if err := env.raw.DeleteStoragePoolVolume(pool.Name, storagePoolVolumeType, volume.Name); err != nil {
+				return errors.Annotatef(err, "deleting volume %q in LXD storage pool %q", volume.Name, pool)
 			}
 		}
 	}
@@ -360,8 +361,8 @@ func (s *lxdFilesystemSource) destroyFilesystem(filesystemId string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = s.env.raw.VolumeDelete(poolName, volumeName)
-	if err != nil && !errors.IsNotFound(err) {
+	err = s.env.raw.DeleteStoragePoolVolume(poolName, storagePoolVolumeType, volumeName)
+	if err != nil && !lxd.IsLXDNotFound(err) {
 		return errors.Trace(err)
 	}
 	return nil
@@ -381,14 +382,15 @@ func (s *lxdFilesystemSource) releaseFilesystem(filesystemId string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	volume, err := s.env.raw.Volume(poolName, volumeName)
+	volume, eTag, err := s.env.raw.GetStoragePoolVolume(poolName, storagePoolVolumeType, volumeName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if volume.Config != nil {
 		delete(volume.Config, "user."+tags.JujuModel)
 		delete(volume.Config, "user."+tags.JujuController)
-		if err := s.env.raw.VolumeUpdate(poolName, volumeName, volume); err != nil {
+		if err := s.env.raw.UpdateStoragePoolVolume(
+			poolName, storagePoolVolumeType, volumeName, volume.Writable(), eTag); err != nil {
 			return errors.Annotatef(
 				err, "removing tags from volume %q in pool %q",
 				volumeName, poolName,
@@ -471,9 +473,9 @@ func (s *lxdFilesystemSource) attachFilesystem(
 	}
 
 	filesystemAttachment := storage.FilesystemAttachment{
-		arg.Filesystem,
-		arg.Machine,
-		storage.FilesystemAttachmentInfo{
+		Filesystem: arg.Filesystem,
+		Machine:    arg.Machine,
+		FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
 			Path:     arg.Path,
 			ReadOnly: arg.ReadOnly,
 		},
@@ -541,7 +543,7 @@ func (s *lxdFilesystemSource) ImportFilesystem(
 	if err != nil {
 		return storage.FilesystemInfo{}, errors.Trace(err)
 	}
-	volume, err := s.env.raw.Volume(lxdPool, volumeName)
+	volume, eTag, err := s.env.raw.GetStoragePoolVolume(lxdPool, storagePoolVolumeType, volumeName)
 	if err != nil {
 		return storage.FilesystemInfo{}, errors.Trace(err)
 	}
@@ -576,7 +578,8 @@ func (s *lxdFilesystemSource) ImportFilesystem(
 		for k, v := range tags {
 			volume.Config["user."+k] = v
 		}
-		if err := s.env.raw.VolumeUpdate(lxdPool, volumeName, volume); err != nil {
+		if err := s.env.raw.UpdateStoragePoolVolume(
+			lxdPool, storagePoolVolumeType, volumeName, volume.Writable(), eTag); err != nil {
 			return storage.FilesystemInfo{}, errors.Annotate(err, "tagging volume")
 		}
 	}

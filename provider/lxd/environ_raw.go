@@ -28,7 +28,6 @@ import (
 // GoMock, at which point rawProvider is replaced with the new server.
 type rawProvider struct {
 	newServer
-	lxdStorage
 
 	remote jujulxdclient.Remote
 }
@@ -52,20 +51,15 @@ type newServer interface {
 	WriteContainer(*lxd.Container) error
 	CreateProfileWithConfig(string, map[string]string) error
 	HasProfile(string) (bool, error)
-}
-
-type lxdStorage interface {
 	StorageSupported() bool
-
-	StoragePool(name string) (lxdapi.StoragePool, error)
-	StoragePools() ([]lxdapi.StoragePool, error)
-	CreateStoragePool(name, driver string, attrs map[string]string) error
-
-	Volume(pool, volume string) (lxdapi.StorageVolume, error)
-	VolumeCreate(pool, volume string, config map[string]string) error
-	VolumeDelete(pool, volume string) error
-	VolumeUpdate(pool, volume string, update lxdapi.StorageVolume) error
-	VolumeList(pool string) ([]lxdapi.StorageVolume, error)
+	GetStoragePool(name string) (pool *lxdapi.StoragePool, ETag string, err error)
+	GetStoragePools() (pools []lxdapi.StoragePool, err error)
+	CreatePool(name, driver string, attrs map[string]string) error
+	GetStoragePoolVolume(pool string, volType string, name string) (*lxdapi.StorageVolume, string, error)
+	GetStoragePoolVolumes(pool string) (volumes []lxdapi.StorageVolume, err error)
+	CreateVolume(pool, name string, config map[string]string) error
+	UpdateStoragePoolVolume(pool string, volType string, name string, volume lxdapi.StorageVolumePut, ETag string) error
+	DeleteStoragePoolVolume(pool string, volType string, name string) (err error)
 }
 
 func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {
@@ -98,9 +92,8 @@ func newRawProviderFromConfig(config jujulxdclient.Config) (*rawProvider, error)
 		return nil, errors.Trace(err)
 	}
 	return &rawProvider{
-		newServer:  client,
-		lxdStorage: client,
-		remote:     config.Remote,
+		newServer: client,
+		remote:    config.Remote,
 	}, nil
 }
 

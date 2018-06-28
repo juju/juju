@@ -135,6 +135,11 @@ func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUU
 	qualifiedKey := lxd.UserNamespacePrefix + tags.JujuController
 	for _, instance := range instances {
 		id := instance.Id()
+		// TODO (manadart 2018-06-27) This is a smell.
+		// Everywhere else, we update the container config on a container and then call WriteContainer.
+		// If we added a method directly to environInstance to do this, we wouldn't need this
+		// implementation of UpdateContainerConfig at all, and the container representation we are
+		// holding would be consistent with that on the server.
 		err := env.raw.UpdateContainerConfig(string(id), map[string]string{qualifiedKey: controllerUUID})
 		if err != nil {
 			logger.Errorf("error setting controller uuid tag for %q: %v", id, err)

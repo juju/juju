@@ -62,7 +62,7 @@ func (s *storageSuite) TestStorageDefaultPools(c *gc.C) {
 	c.Assert(pools, gc.HasLen, 2)
 	c.Assert(pools[0].Name(), gc.Equals, "lxd-zfs")
 	c.Assert(pools[1].Name(), gc.Equals, "lxd-btrfs")
-	s.Stub.CheckCallNames(c, "CreateStoragePool", "CreateStoragePool")
+	s.Stub.CheckCallNames(c, "CreatePool", "CreatePool")
 }
 
 func (s *storageSuite) TestStorageDefaultPoolsDriverNotSupported(c *gc.C) {
@@ -73,7 +73,7 @@ func (s *storageSuite) TestStorageDefaultPoolsDriverNotSupported(c *gc.C) {
 	pools := s.provider.DefaultPools()
 	c.Assert(pools, gc.HasLen, 1)
 	c.Assert(pools[0].Name(), gc.Equals, "lxd-btrfs")
-	s.Stub.CheckCallNames(c, "CreateStoragePool", "StoragePool", "CreateStoragePool")
+	s.Stub.CheckCallNames(c, "CreatePool", "GetStoragePool", "CreatePool")
 }
 
 func (s *storageSuite) TestVolumeSource(c *gc.C) {
@@ -125,9 +125,9 @@ func (s *storageSuite) TestCreateFilesystems(c *gc.C) {
 		},
 	})
 
-	s.Stub.CheckCallNames(c, "CreateStoragePool", "VolumeCreate")
-	s.Stub.CheckCall(c, 0, "CreateStoragePool", "radiance", "btrfs", map[string]string(nil))
-	s.Stub.CheckCall(c, 1, "VolumeCreate", "radiance", "juju-f75cba-filesystem-0", map[string]string{
+	s.Stub.CheckCallNames(c, "CreatePool", "CreateVolume")
+	s.Stub.CheckCall(c, 0, "CreatePool", "radiance", "btrfs", map[string]string(nil))
+	s.Stub.CheckCall(c, 1, "CreateVolume", "radiance", "juju-f75cba-filesystem-0", map[string]string{
 		"user.key": "value",
 		"size":     "1024MB",
 	})
@@ -160,10 +160,10 @@ func (s *storageSuite) TestCreateFilesystemsPoolExists(c *gc.C) {
 		},
 	})
 
-	s.Stub.CheckCallNames(c, "CreateStoragePool", "StoragePool", "VolumeCreate")
-	s.Stub.CheckCall(c, 0, "CreateStoragePool", "radiance", "dir", map[string]string(nil))
-	s.Stub.CheckCall(c, 1, "StoragePool", "radiance")
-	s.Stub.CheckCall(c, 2, "VolumeCreate", "radiance", "juju-f75cba-filesystem-0", map[string]string{
+	s.Stub.CheckCallNames(c, "CreatePool", "GetStoragePool", "CreateVolume")
+	s.Stub.CheckCall(c, 0, "CreatePool", "radiance", "dir", map[string]string(nil))
+	s.Stub.CheckCall(c, 1, "GetStoragePool", "radiance")
+	s.Stub.CheckCall(c, 2, "CreateVolume", "radiance", "juju-f75cba-filesystem-0", map[string]string{
 		"user.key": "value",
 	})
 }
@@ -183,8 +183,8 @@ func (s *storageSuite) TestDestroyFilesystems(c *gc.C) {
 	c.Assert(results[2], gc.ErrorMatches, "boom")
 
 	s.Stub.CheckCalls(c, []testing.StubCall{
-		{"VolumeDelete", []interface{}{"pool0", "filesystem-0"}},
-		{"VolumeDelete", []interface{}{"pool1", "filesystem-1"}},
+		{"DeleteStoragePoolVolume", []interface{}{"pool0", "custom", "filesystem-0"}},
+		{"DeleteStoragePoolVolume", []interface{}{"pool1", "custom", "filesystem-1"}},
 	})
 }
 
@@ -222,26 +222,20 @@ func (s *storageSuite) TestReleaseFilesystems(c *gc.C) {
 	c.Assert(results[1], jc.ErrorIsNil)
 	c.Assert(results[2], gc.ErrorMatches, `removing tags from volume "filesystem-1" in pool "foo": boom`)
 
-	update0 := api.StorageVolume{
-		Name: "filesystem-0",
-		StorageVolumePut: api.StorageVolumePut{
-			Config: map[string]string{
-				"foo": "bar",
-			},
+	update0 := api.StorageVolumePut{
+		Config: map[string]string{
+			"foo": "bar",
 		},
 	}
-	update1 := api.StorageVolume{
-		Name: "filesystem-1",
-		StorageVolumePut: api.StorageVolumePut{
-			Config: map[string]string{},
-		},
+	update1 := api.StorageVolumePut{
+		Config: map[string]string{},
 	}
 
 	s.Stub.CheckCalls(c, []testing.StubCall{
-		{"Volume", []interface{}{"foo", "filesystem-0"}},
-		{"VolumeUpdate", []interface{}{"foo", "filesystem-0", update0}},
-		{"Volume", []interface{}{"foo", "filesystem-1"}},
-		{"VolumeUpdate", []interface{}{"foo", "filesystem-1", update1}},
+		{"GetStoragePoolVolume", []interface{}{"foo", "custom", "filesystem-0"}},
+		{"UpdateStoragePoolVolume", []interface{}{"foo", "custom", "filesystem-0", update0, "eTag"}},
+		{"GetStoragePoolVolume", []interface{}{"foo", "custom", "filesystem-1"}},
+		{"UpdateStoragePoolVolume", []interface{}{"foo", "custom", "filesystem-1", update1, "eTag"}},
 	})
 }
 
@@ -404,17 +398,14 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 		Size:         10 * 1024,
 	})
 
-	update := api.StorageVolume{
-		Name: "bar",
-		StorageVolumePut: api.StorageVolumePut{
-			Config: map[string]string{
-				"size":     "10GB",
-				"user.baz": "qux",
-			},
+	update := api.StorageVolumePut{
+		Config: map[string]string{
+			"size":     "10GB",
+			"user.baz": "qux",
 		},
 	}
 	s.Stub.CheckCalls(c, []testing.StubCall{
-		{"Volume", []interface{}{"foo", "bar"}},
-		{"VolumeUpdate", []interface{}{"foo", "bar", update}},
+		{"GetStoragePoolVolume", []interface{}{"foo", "custom", "bar"}},
+		{"UpdateStoragePoolVolume", []interface{}{"foo", "custom", "bar", update, "eTag"}},
 	})
 }

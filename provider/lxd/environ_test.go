@@ -129,10 +129,10 @@ func (s *environSuite) TestDestroy(c *gc.C) {
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Destroy", []interface{}{s.callCtx}},
 		{"StorageSupported", nil},
-		{"StoragePools", nil},
-		{"VolumeList", []interface{}{"juju"}},
-		{"VolumeDelete", []interface{}{"juju", "ours"}},
-		{"VolumeList", []interface{}{"juju-zfs"}},
+		{"GetStoragePools", nil},
+		{"GetStoragePoolVolumes", []interface{}{"juju"}},
+		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
+		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
 	})
 }
 
@@ -184,15 +184,15 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Destroy", []interface{}{s.callCtx}},
 		{"StorageSupported", nil},
-		{"StoragePools", nil},
-		{"VolumeList", []interface{}{"juju"}},
-		{"VolumeList", []interface{}{"juju-zfs"}},
+		{"GetStoragePools", nil},
+		{"GetStoragePoolVolumes", []interface{}{"juju"}},
+		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
 		{"AliveContainers", []interface{}{"juju-"}},
 		{"RemoveContainers", []interface{}{[]string{machine1.Name}}},
 		{"StorageSupported", nil},
-		{"StoragePools", nil},
-		{"VolumeList", []interface{}{"juju"}},
-		{"VolumeDelete", []interface{}{"juju", "ours"}},
-		{"VolumeList", []interface{}{"juju-zfs"}},
+		{"GetStoragePools", nil},
+		{"GetStoragePoolVolumes", []interface{}{"juju"}},
+		{"DeleteStoragePoolVolume", []interface{}{"juju", "custom", "ours"}},
+		{"GetStoragePoolVolumes", []interface{}{"juju-zfs"}},
 	})
 }
