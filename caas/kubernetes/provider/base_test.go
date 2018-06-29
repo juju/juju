@@ -28,8 +28,10 @@ type BaseSuite struct {
 
 	k8sClient                  *mocks.MockInterface
 	mockNamespaces             *mocks.MockNamespaceInterface
+	mockApps                   *mocks.MockAppsV1Interface
 	mockExtensions             *mocks.MockExtensionsV1beta1Interface
-	mockDeploymentInterface    *mocks.MockDeploymentInterface
+	mockDeployments            *mocks.MockDeploymentInterface
+	mockStatefulSets           *mocks.MockStatefulSetInterface
 	mockPods                   *mocks.MockPodInterface
 	mockServices               *mocks.MockServiceInterface
 	mockConfigMaps             *mocks.MockConfigMapInterface
@@ -95,11 +97,15 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	s.mockPersistentVolumeClaims = mocks.NewMockPersistentVolumeClaimInterface(ctrl)
 	mockCoreV1.EXPECT().PersistentVolumeClaims(testNamespace).AnyTimes().Return(s.mockPersistentVolumeClaims)
 
+	s.mockApps = mocks.NewMockAppsV1Interface(ctrl)
 	s.mockExtensions = mocks.NewMockExtensionsV1beta1Interface(ctrl)
-	s.mockDeploymentInterface = mocks.NewMockDeploymentInterface(ctrl)
+	s.mockStatefulSets = mocks.NewMockStatefulSetInterface(ctrl)
+	s.mockDeployments = mocks.NewMockDeploymentInterface(ctrl)
 	s.mockIngressInterface = mocks.NewMockIngressInterface(ctrl)
 	s.k8sClient.EXPECT().ExtensionsV1beta1().AnyTimes().Return(s.mockExtensions)
-	s.mockExtensions.EXPECT().Deployments(testNamespace).AnyTimes().Return(s.mockDeploymentInterface)
+	s.k8sClient.EXPECT().AppsV1().AnyTimes().Return(s.mockApps)
+	s.mockApps.EXPECT().StatefulSets(testNamespace).AnyTimes().Return(s.mockStatefulSets)
+	s.mockApps.EXPECT().Deployments(testNamespace).AnyTimes().Return(s.mockDeployments)
 	s.mockExtensions.EXPECT().Ingresses(testNamespace).AnyTimes().Return(s.mockIngressInterface)
 
 	s.mockStorage = mocks.NewMockStorageV1Interface(ctrl)
