@@ -100,6 +100,25 @@ func (s *bundleSuite) TestGetChangesBundleStorageError(c *gc.C) {
 	})
 }
 
+func (s *bundleSuite) TestGetChangesBundleDevicesError(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    num_units: 1
+                    devices:
+                        bad-gpu: -1,nvidia.com/gpu
+        `,
+	}
+	r, err := s.facade.GetChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, gc.IsNil)
+	c.Assert(r.Errors, jc.SameContents, []string{
+		`invalid device "bad-gpu" in application "django": count must be greater than zero, got "-1"`,
+	})
+}
+
 func (s *bundleSuite) TestGetChangesSuccess(c *gc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
@@ -110,6 +129,8 @@ func (s *bundleSuite) TestGetChangesSuccess(c *gc.C) {
                         debug: true
                     storage:
                         tmpfs: tmpfs,1G
+                    devices:
+                        bitcoinminer: 2,nvidia.com/gpu
                 haproxy:
                     charm: cs:trusty/haproxy-42
             relations:
@@ -133,6 +154,7 @@ func (s *bundleSuite) TestGetChangesSuccess(c *gc.C) {
 			map[string]interface{}{"debug": true},
 			"",
 			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
 			map[string]string{},
 			map[string]int{},
 		},
@@ -150,6 +172,7 @@ func (s *bundleSuite) TestGetChangesSuccess(c *gc.C) {
 			"haproxy",
 			map[string]interface{}{},
 			"",
+			map[string]string{},
 			map[string]string{},
 			map[string]string{},
 			map[string]int{},
@@ -189,6 +212,7 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 					"django",
 					map[string]interface{}{},
 					"",
+					map[string]string{},
 					map[string]string{},
 					map[string]string{"url": "public"},
 					map[string]int{},
