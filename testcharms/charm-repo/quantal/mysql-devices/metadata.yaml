@@ -1,0 +1,9 @@
+name: mysql
+summary: "Database engine"
+description: "A pretty popular database"
+provides:
+  server: mysql
+devices:
+  bitcoinminer:
+    type: nvidia.com/gpu
+    count: 1

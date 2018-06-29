@@ -84,19 +84,23 @@ func deployBundle(
 		_, err := storage.ParseConstraints(s)
 		return err
 	}
+	verifyDevices := func(s string) error {
+		_, err := devices.ParseConstraints(s)
+		return err
+	}
 	var verifyError error
 	if bundleDir == "" {
 		// Process includes in the bundle data.
 		if err := processBundleIncludes(ctx.Dir, data); err != nil {
 			return nil, errors.Annotate(err, "unable to process includes")
 		}
-		verifyError = data.Verify(verifyConstraints, verifyStorage)
+		verifyError = data.Verify(verifyConstraints, verifyStorage, verifyDevices)
 	} else {
 		// Process includes in the bundle data.
 		if err := processBundleIncludes(bundleDir, data); err != nil {
 			return nil, errors.Annotate(err, "unable to process includes")
 		}
-		verifyError = data.VerifyLocal(bundleDir, verifyConstraints, verifyStorage)
+		verifyError = data.VerifyLocal(bundleDir, verifyConstraints, verifyStorage, verifyDevices)
 	}
 	if verifyError != nil {
 		if verr, ok := verifyError.(*charm.VerificationError); ok {
