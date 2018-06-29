@@ -364,7 +364,7 @@ func (c *addCredentialCommand) promptFieldValue(
 }
 
 func enterFile(name string, p *interact.Pollster) (string, error) {
-	input, err := p.EnterVerify(name, func(s string) (ok bool, msg string, err error) {
+	input, err := p.EnterVerify(fmt.Sprintf("file path for %s", name), func(s string) (ok bool, msg string, err error) {
 		_, err = jujucloud.ValidateFileAttrValue(s)
 		if err != nil {
 			return false, err.Error(), nil

@@ -30,19 +30,25 @@ var cloudSchema = &jsonschema.Schema{
 	// Order doesn't matter since there's only one thing to ask about.  Add
 	// order if this changes.
 	Properties: map[string]*jsonschema.Schema{
-		cloud.AuthTypesKey: {
-			// don't need a prompt, since there's only one choice.
-			Type: []jsonschema.Type{jsonschema.ArrayType},
-			Enum: []interface{}{
-				[]string{
-					string(cloud.CertificateAuthType),
-				},
-			},
-		},
 		cloud.EndpointKey: {
 			Singular: "the API endpoint url for the remote LXD cloud",
 			Type:     []jsonschema.Type{jsonschema.StringType},
 			Format:   jsonschema.FormatURI,
+		},
+		cloud.AuthTypesKey: {
+			Singular:    "auth type",
+			Plural:      "auth types",
+			Type:        []jsonschema.Type{jsonschema.ArrayType},
+			UniqueItems: jsonschema.Bool(true),
+			Items: &jsonschema.ItemSpec{
+				Schemas: []*jsonschema.Schema{{
+					Type: []jsonschema.Type{jsonschema.StringType},
+					Enum: []interface{}{
+						string(cloud.CertificateAuthType),
+						string(interactiveAuthType),
+					},
+				}},
+			},
 		},
 	},
 }
@@ -258,7 +264,7 @@ func (p *environProvider) validateCloudSpec(spec environs.CloudSpec) (local bool
 		}
 	}
 	switch authType := spec.Credential.AuthType(); authType {
-	case cloud.CertificateAuthType:
+	case cloud.CertificateAuthType, interactiveAuthType:
 		if _, _, ok := getCertificates(spec); !ok {
 			return false, errors.NotValidf("certificate credentials")
 		}

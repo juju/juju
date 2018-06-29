@@ -76,7 +76,25 @@ type environProviderCredentials struct {
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
-		interactiveAuthType: {},
+		interactiveAuthType: {{
+			credAttrServerCert,
+			cloud.CredentialAttr{
+				Description: "The LXD server certificate, PEM-encoded.",
+				FilePath:    true,
+			},
+		}, {
+			credAttrClientCert,
+			cloud.CredentialAttr{
+				Description: "The LXD client certificate, PEM-encoded.",
+				FilePath:    true,
+			},
+		}, {
+			credAttrClientKey,
+			cloud.CredentialAttr{
+				Description: "The LXD client key, PEM-encoded.",
+				FilePath:    true,
+			},
+		}},
 
 		cloud.CertificateAuthType: {{
 			credAttrServerCert,
@@ -168,24 +186,7 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 func (p environProviderCredentials) FinalizeCredential(ctx environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
 	var interactive bool
 	switch authType := args.Credential.AuthType(); authType {
-	case interactiveAuthType:
-		stderr := ctx.GetStderr()
-		logf := func(s string, args ...interface{}) {
-			fmt.Fprintf(stderr, s+"\n", args...)
-		}
-		certPEM, keyPEM, err := p.readOrGenerateCert(logf)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		certCredential := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
-			credAttrClientCert: string(certPEM),
-			credAttrClientKey:  string(keyPEM),
-		})
-		certCredential.Label = args.Credential.Label
-		args.Credential = certCredential
-		interactive = true
-		fallthrough
-	case cloud.CertificateAuthType:
+	case cloud.CertificateAuthType, interactiveAuthType:
 		return p.finalizeCertificateCredential(ctx, args, interactive)
 	default:
 		return &args.Credential, nil
@@ -203,13 +204,13 @@ func (p environProviderCredentials) finalizeCertificateCredential(
 	stderr := ctx.GetStderr()
 
 	credAttrs := args.Credential.Attributes()
-	if credAttrs[credAttrServerCert] != "" {
-		// The credential is fully formed, so we assume the client
-		// certificate is uploaded to the server already.
-		return &args.Credential, nil
-	}
 	certPEM := credAttrs[credAttrClientCert]
 	keyPEM := credAttrs[credAttrClientKey]
+	// The credential is fully formed, so we assume the client
+	// certificate is uploaded to the server already.
+	if credAttrs[credAttrServerCert] != "" && certPEM != "" && keyPEM != "" {
+		return &args.Credential, nil
+	}
 	if certPEM == "" {
 		return nil, errors.NotValidf("missing or empty %q attribute", credAttrClientCert)
 	}

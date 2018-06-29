@@ -416,34 +416,12 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalInteractive(c *gc.C) {
 
 	deps := s.createProvider(ctrl)
 
-	path := osenv.JujuXDGDataHomePath("lxd")
-	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
-
-	path = filepath.Join(utils.Home(), ".config", "lxc")
-	deps.certReadWriter.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
-
-	localhostIP := net.IPv4(127, 0, 0, 1)
-	ipNet := &net.IPNet{IP: localhostIP, Mask: localhostIP.DefaultMask()}
-
-	deps.netLookup.EXPECT().LookupHost("localhost").Return([]string{"127.0.0.1"}, nil)
-	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{ipNet}, nil)
-
-	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
-	deps.server.EXPECT().ServerCertificate().Return("server-cert")
-
 	ctx := cmdtesting.Context(c)
-	out, err := deps.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
+	_, err := deps.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
 		CloudEndpoint: "localhost",
 		Credential:    cloud.NewCredential("interactive", map[string]string{}),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(out.AuthType(), gc.Equals, cloud.CertificateAuthType)
-	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
-		"client-cert": string(coretesting.CACert),
-		"client-key":  string(coretesting.CAKey),
-		"server-cert": "server-cert",
-	})
+	c.Assert(err, gc.ErrorMatches, `missing or empty \"client-cert\" attribute not valid`)
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialNonLocalInteractive(c *gc.C) {
@@ -452,30 +430,13 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocalInteractive(c *gc.C) {
 
 	deps := s.createProvider(ctrl)
 
-	path := osenv.JujuXDGDataHomePath("lxd")
-	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
-
-	path = filepath.Join(utils.Home(), ".config", "lxc")
-	deps.certReadWriter.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
-
-	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{"8.8.8.8"}, nil)
-	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
-
 	// Patch the interface addresses for the calling machine, so
 	// it appears that we're not on the LXD server host.
 	_, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "8.8.8.8",
 		Credential:    cloud.NewCredential("interactive", map[string]string{}),
 	})
-	c.Assert(err, gc.ErrorMatches, `
-certificate upload for remote LXD unsupported
-
-Until support is added for verifying and authenticating to remote LXD hosts,
-you must generate the credential on the LXD host, and add the credential to
-this client using "juju add-credential localhost".
-
-See: https://jujucharms.com/docs/stable/clouds-LXD
-`[1:])
+	c.Assert(err, gc.ErrorMatches, `missing or empty \"client-cert\" attribute not valid`)
 }
 
 func (s *credentialsSuite) clientCert() *containerLXD.Certificate {
