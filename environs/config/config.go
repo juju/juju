@@ -142,6 +142,16 @@ const (
 	// AptNoProxyKey stores the key for this setting.
 	AptNoProxyKey = "apt-no-proxy"
 
+	// SnapHTTPProxyKey is used to set the snap core setting proxy.http for deployed machines.
+	SnapHTTPProxyKey = "snap-http-proxy"
+	// SnapHTTPSProxyKey is used to set the snap core setting proxy.https for deployed machines.
+	SnapHTTPSProxyKey = "snap-https-proxy"
+	// SnapStoreProxyKey is used to set the snap core setting proxy.store for deployed machines.
+	SnapStoreProxyKey = "snap-store-proxy"
+	// SnapStoreAssertionsKey is used to configure the deployed machines to acknowledge the
+	// store proxy assertions.
+	SnapStoreAssertionsKey = "snap-store-assertions"
+
 	// NetBondReconfigureDelay is the key to pass when bridging
 	// the network for containers.
 	NetBondReconfigureDelayKey = "net-bond-reconfigure-delay"
@@ -465,6 +475,11 @@ var defaultConfigValues = map[string]interface{}{
 	AptFTPProxyKey:   "",
 	AptNoProxyKey:    "",
 	"apt-mirror":     "",
+
+	SnapHTTPProxyKey:       "",
+	SnapHTTPSProxyKey:      "",
+	SnapStoreProxyKey:      "",
+	SnapStoreAssertionsKey: "",
 
 	// Status history settings
 	MaxStatusHistoryAge:  DefaultStatusHistoryAge,
@@ -989,6 +1004,34 @@ func (c *Config) AptMirror() string {
 	return c.asString("apt-mirror")
 }
 
+// SnapProxySettings returns the two proxy settings; http, and https.
+func (c *Config) SnapProxySettings() proxy.Settings {
+	return proxy.Settings{
+		Http:  c.SnapHTTPProxy(),
+		Https: c.SnapHTTPSProxy(),
+	}
+}
+
+// SnapHTTPProxy returns the snap http proxy for the environment.
+func (c *Config) SnapHTTPProxy() string {
+	return c.asString(SnapHTTPProxyKey)
+}
+
+// SnapHTTPSProxy returns the snap https proxy for the environment.
+func (c *Config) SnapHTTPSProxy() string {
+	return c.asString(SnapHTTPSProxyKey)
+}
+
+// SnapStoreProxy returns the snap store proxy for the environment.
+func (c *Config) SnapStoreProxy() string {
+	return c.asString(SnapStoreProxyKey)
+}
+
+// SnapStoreAssertions returns the snap store assertions for the environment.
+func (c *Config) SnapStoreAssertions() string {
+	return c.asString(SnapStoreAssertionsKey)
+}
+
 // LogFwdSyslog returns the syslog forwarding config.
 func (c *Config) LogFwdSyslog() (*syslog.RawConfig, bool) {
 	partial := false
@@ -1420,6 +1463,10 @@ var alwaysOptional = schema.Defaults{
 	AptHTTPSProxyKey:             schema.Omit,
 	AptFTPProxyKey:               schema.Omit,
 	AptNoProxyKey:                schema.Omit,
+	SnapHTTPProxyKey:             schema.Omit,
+	SnapHTTPSProxyKey:            schema.Omit,
+	SnapStoreProxyKey:            schema.Omit,
+	SnapStoreAssertionsKey:       schema.Omit,
 	"apt-mirror":                 schema.Omit,
 	AgentStreamKey:               schema.Omit,
 	ResourceTagsKey:              schema.Omit,
@@ -1504,7 +1551,6 @@ func (cfg *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults sche
 	checker := schema.FieldMap(extrafields, defaults)
 	coerced, err := checker.Coerce(attrs, nil)
 	if err != nil {
-		// TODO(ericsnow) Drop this?
 		logger.Debugf("coercion failed attributes: %#v, checker: %#v, %v", attrs, checker, err)
 		return nil, err
 	}
@@ -1754,6 +1800,26 @@ global or per instance security groups.`,
 	},
 	JujuNoProxyKey: {
 		Description: "List of domain addresses not to be proxied (comma-separated), may contain CIDRs. Passed to charms in the JUJU_CHARM_NO_PROXY environment variable",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	SnapHTTPProxyKey: {
+		Description: "The HTTP proxy value to for installing snaps",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	SnapHTTPSProxyKey: {
+		Description: "The HTTPS proxy value to for installing snaps",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	SnapStoreProxyKey: {
+		Description: "The snap store proxy for installing snaps",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
+	SnapStoreAssertionsKey: {
+		Description: "The assertions for the defined snap store proxy",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
