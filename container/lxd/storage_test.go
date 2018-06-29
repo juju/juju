@@ -131,6 +131,25 @@ func (s *storageSuite) TestEnsureDefaultStoragePoolExistsDeviceCreated(c *gc.C) 
 	c.Assert(jujuSvr.EnsureDefaultStorage(profile, lxdtesting.ETag), jc.ErrorIsNil)
 }
 
+func (s *storageSuite) TestEnsureDefaultStorageNonDefaultPoolExistsDeviceCreated(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
+
+	profile := defaultProfileWithDisk()
+	profile.Devices["root"]["pool"] = "custom"
+	gomock.InOrder(
+		cSvr.EXPECT().GetStoragePoolNames().Return([]string{"custom"}, nil),
+		cSvr.EXPECT().UpdateProfile("default", profile.Writable(), lxdtesting.ETag).Return(nil),
+	)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	profile.Devices = nil
+	c.Assert(jujuSvr.EnsureDefaultStorage(profile, lxdtesting.ETag), jc.ErrorIsNil)
+}
+
 func (s *storageSuite) TestEnsureDefaultStoragePoolAndDeviceCreated(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
