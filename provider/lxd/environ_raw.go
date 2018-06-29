@@ -69,15 +69,12 @@ func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {
 	if !ok {
 		return nil, errors.NotValidf("credentials")
 	}
-	prov, err := lxd.NewRemoteServer(lxd.RemoteServer{
-		Host: spec.Endpoint,
-		ConnectionArgs: lxdclient.ConnectionArgs{
-			TLSServerCert: serverCert,
-			TLSClientCert: string(clientCert.CertPEM),
-			TLSClientKey:  string(clientCert.KeyPEM),
-		},
-	})
-	return &rawProvider{newServer: prov}, errors.Trace(err)
+	serverSpec := lxd.NewServerSpec(spec.Endpoint, serverCert, clientCert)
+	prov, err := lxd.NewRemoteServer(serverSpec)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &rawProvider{newServer: prov}, nil
 }
 
 func newLocalRawProvider() (*rawProvider, error) {
