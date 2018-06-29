@@ -336,13 +336,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	// Patch out all expensive external deps.
 	raw := &rawProvider{
 		newServer: s.Client,
-		remote: jujulxdclient.Remote{
-			Cert: &lxd.Certificate{
-				Name:    "juju",
-				CertPEM: []byte(testing.CACert),
-				KeyPEM:  []byte(testing.CAKey),
-			},
-		},
 	}
 	s.Env.raw = raw
 	s.Env.base = s.Common

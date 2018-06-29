@@ -28,8 +28,6 @@ import (
 // GoMock, at which point rawProvider is replaced with the new server.
 type rawProvider struct {
 	newServer
-
-	remote jujulxdclient.Remote
 }
 
 type newServer interface {
@@ -67,22 +65,24 @@ func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {
 		prov, err := newLocalRawProvider()
 		return prov, errors.Trace(err)
 	}
-	prov, err := newRemoteRawProvider(spec)
-	return prov, errors.Trace(err)
+	clientCert, serverCert, ok := getCertificates(spec)
+	if !ok {
+		return nil, errors.NotValidf("credentials")
+	}
+	prov, err := lxd.NewRemoteServer(lxd.RemoteServer{
+		Host: spec.Endpoint,
+		ConnectionArgs: lxdclient.ConnectionArgs{
+			TLSServerCert: serverCert,
+			TLSClientCert: string(clientCert.CertPEM),
+			TLSClientKey:  string(clientCert.KeyPEM),
+		},
+	})
+	return &rawProvider{newServer: prov}, errors.Trace(err)
 }
 
 func newLocalRawProvider() (*rawProvider, error) {
 	config := jujulxdclient.Config{Remote: jujulxdclient.Local}
 	raw, err := newRawProviderFromConfig(config)
-	return raw, errors.Trace(err)
-}
-
-func newRemoteRawProvider(spec environs.CloudSpec) (*rawProvider, error) {
-	config, err := getRemoteConfig(spec)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	raw, err := newRawProviderFromConfig(*config)
 	return raw, errors.Trace(err)
 }
 
@@ -93,24 +93,6 @@ func newRawProviderFromConfig(config jujulxdclient.Config) (*rawProvider, error)
 	}
 	return &rawProvider{
 		newServer: client,
-		remote:    config.Remote,
-	}, nil
-}
-
-// getRemoteConfig returns a jujulxdclient.Config using a TCP-based remote.
-func getRemoteConfig(spec environs.CloudSpec) (*jujulxdclient.Config, error) {
-	clientCert, serverCert, ok := getCertificates(spec)
-	if !ok {
-		return nil, errors.NotValidf("credentials")
-	}
-	return &jujulxdclient.Config{
-		jujulxdclient.Remote{
-			Name:          "remote",
-			Host:          spec.Endpoint,
-			Protocol:      jujulxdclient.LXDProtocol,
-			Cert:          clientCert,
-			ServerPEMCert: serverCert,
-		},
 	}, nil
 }
 

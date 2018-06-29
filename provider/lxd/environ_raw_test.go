@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environRawSuite struct {
@@ -40,19 +39,12 @@ func (s *environRawSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environRawSuite) TestGetRemoteConfig(c *gc.C) {
-	cfg, err := getRemoteConfig(s.spec)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg, jc.DeepEquals, &lxdclient.Config{
-		Remote: lxdclient.Remote{
-			Name:     "remote",
-			Host:     "10.0.8.1",
-			Protocol: "lxd",
-			Cert: &lxd.Certificate{
-				Name:    "juju",
-				CertPEM: []byte("client.crt"),
-				KeyPEM:  []byte("client.key"),
-			},
-			ServerPEMCert: "server.crt",
-		},
+	cert, server, ok := getCertificates(s.spec)
+	c.Assert(ok, jc.DeepEquals, true)
+	c.Assert(cert, jc.DeepEquals, &lxd.Certificate{
+		Name:    "juju",
+		CertPEM: []byte("client.crt"),
+		KeyPEM:  []byte("client.key"),
 	})
+	c.Assert(server, gc.Equals, "server.crt")
 }

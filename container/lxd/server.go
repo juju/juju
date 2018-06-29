@@ -63,6 +63,16 @@ func NewLocalServer() (*Server, error) {
 	return svr, errors.Trace(err)
 }
 
+// NewRemoteServer returns a Server based on a remote connection.
+func NewRemoteServer(remote RemoteServer) (*Server, error) {
+	cSvr, err := ConnectRemote(remote)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	svr, err := NewServer(cSvr)
+	return svr, err
+}
+
 // NewServer builds and returns a Server for high-level interaction with the
 // input LXD container server.
 func NewServer(svr lxd.ContainerServer) (*Server, error) {
