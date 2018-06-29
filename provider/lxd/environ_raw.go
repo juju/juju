@@ -28,7 +28,7 @@ import (
 // GoMock, at which point rawProvider is replaced with the new server.
 
 type newServer interface {
-	FindImage(string, string, []lxd.RemoteServer, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
+	FindImage(string, string, []lxd.ServerSpec, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
 	GetServer() (server *lxdapi.Server, ETag string, err error)
 	GetConnectionInfo() (info *lxdclient.ConnectionInfo, err error)
 	UpdateServerConfig(map[string]string) error
@@ -66,7 +66,7 @@ func newProvider(spec environs.CloudSpec, local bool) (newServer, error) {
 	if !ok {
 		return nil, errors.NotValidf("credentials")
 	}
-	serverSpec := lxd.NewServerSpec(spec.Endpoint, serverCert, clientCert)
+	serverSpec := lxd.MakeServerSpec(spec.Endpoint, serverCert, clientCert)
 	prov, err := lxd.NewRemoteServer(serverSpec)
 	if err != nil {
 		return nil, errors.Trace(err)

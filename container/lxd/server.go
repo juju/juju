@@ -27,36 +27,6 @@ func HasSupport() bool {
 	return false
 }
 
-// ServerSpec describes the configuration specifications on connecting to a
-// server.
-type ServerSpec struct {
-	Name       string
-	Host       string
-	Protocol   Protocol
-	ServerCert string
-	ClientCert *Certificate
-}
-
-// NewServerSpec creates a ServerSpec with default values where needed.
-func NewServerSpec(host, serverCert string, clientCert *Certificate) *ServerSpec {
-	return &ServerSpec{
-		Host:       host,
-		ServerCert: serverCert,
-		ClientCert: clientCert,
-	}
-}
-
-// Validate ensures that the ServerSpec is valid.
-func (s *ServerSpec) Validate() error {
-	if s.ServerCert == "" {
-		return errors.NotFoundf("server certificate")
-	}
-	if s.ClientCert == nil {
-		return errors.NotFoundf("client certificate")
-	}
-	return s.ClientCert.Validate()
-}
-
 // Server extends the upstream LXD container server.
 type Server struct {
 	lxd.ContainerServer
@@ -94,24 +64,15 @@ func NewLocalServer() (*Server, error) {
 }
 
 // NewRemoteServer returns a Server based on a remote connection.
-func NewRemoteServer(spec *ServerSpec) (*Server, error) {
+func NewRemoteServer(spec ServerSpec) (*Server, error) {
 	if err := spec.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	cSvr, err := ConnectRemote(RemoteServer{
-		Name:     spec.Name,
-		Host:     spec.Host,
-		Protocol: spec.Protocol,
-		ConnectionArgs: lxd.ConnectionArgs{
-			TLSServerCert: spec.ServerCert,
-			TLSClientCert: string(spec.ClientCert.CertPEM),
-			TLSClientKey:  string(spec.ClientCert.KeyPEM),
-			// Skip the get, because we know that we're going to request it
-			// when calling new server, preventing the double request.
-			SkipGetServer: true,
-		},
-	})
+	// Skip the get, because we know that we're going to request it
+	// when calling new server, preventing the double request.
+	spec.connectionArgs.SkipGetServer = true
+	cSvr, err := ConnectRemote(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

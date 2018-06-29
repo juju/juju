@@ -451,7 +451,7 @@ func (conn *StubClient) CreateContainerFromSpec(spec lxd.ContainerSpec) (*lxd.Co
 }
 
 func (conn *StubClient) FindImage(
-	series, arch string, sources []lxd.RemoteServer, copyLocal bool, callback environs.StatusCallbackFunc,
+	series, arch string, sources []lxd.ServerSpec, copyLocal bool, callback environs.StatusCallbackFunc,
 ) (lxd.SourcedImage, error) {
 	conn.AddCall("FindImage", series, arch)
 	if err := conn.NextErr(); err != nil {

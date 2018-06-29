@@ -55,6 +55,6 @@ func ExposeEnvServer(env *environ) newServer {
 	return env.server
 }
 
-func GetImageSources(env *environ) ([]lxd.RemoteServer, error) {
+func GetImageSources(env *environ) ([]lxd.ServerSpec, error) {
 	return env.getImageSources()
 }

@@ -77,12 +77,12 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (str
 	return arch, nil
 }
 
-func (env *environ) getImageSources() ([]lxd.RemoteServer, error) {
+func (env *environ) getImageSources() ([]lxd.ServerSpec, error) {
 	metadataSources, err := environs.ImageMetadataSources(env)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	remotes := make([]lxd.RemoteServer, 0)
+	remotes := make([]lxd.ServerSpec, 0)
 	for _, source := range metadataSources {
 		url, err := source.URL("")
 		if err != nil {
@@ -100,11 +100,7 @@ func (env *environ) getImageSources() ([]lxd.RemoteServer, error) {
 		// "your configuration is wrong" error, rather than silently
 		// changing it and having them get confused.
 		// https://github.com/lxc/lxd/issues/1763
-		remotes = append(remotes, lxd.RemoteServer{
-			Name:     source.Description(),
-			Host:     lxd.EnsureHTTPS(url),
-			Protocol: lxd.SimpleStreamsProtocol,
-		})
+		remotes = append(remotes, lxd.MakeSimpleStreamsServerSpec(source.Description(), url))
 	}
 	return remotes, nil
 }

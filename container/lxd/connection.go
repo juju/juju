@@ -21,17 +21,57 @@ const (
 	SimpleStreamsProtocol Protocol = "simplestreams"
 )
 
-// RemoteServer describes the location and connection details for a
-// server utilised in LXD workflows.
-type RemoteServer struct {
-	Name     string
-	Host     string
-	Protocol Protocol
-	lxd.ConnectionArgs
+// ServerSpec describes the location and connection details for a
+// server utilized in LXD workflows.
+type ServerSpec struct {
+	Name           string
+	Host           string
+	Protocol       Protocol
+	connectionArgs *lxd.ConnectionArgs
+}
+
+// MakeServerSpec creates a ServerSpec with default values where needed.
+// It also ensures the HTTPS for the host implicitly
+func MakeServerSpec(host, serverCert string, clientCert *Certificate) ServerSpec {
+	return ServerSpec{
+		Host: EnsureHTTPS(host),
+		connectionArgs: &lxd.ConnectionArgs{
+			TLSServerCert: serverCert,
+			TLSClientCert: string(clientCert.CertPEM),
+			TLSClientKey:  string(clientCert.KeyPEM),
+		},
+	}
+}
+
+// MakeInsecureServerSpec creates a ServerSpec without certificate requirements,
+// which also bypasses the TLS verification.
+// It also ensures the HTTPS for the host implicitly
+func MakeInsecureServerSpec(host string) ServerSpec {
+	return ServerSpec{
+		Host: EnsureHTTPS(host),
+		connectionArgs: &lxd.ConnectionArgs{
+			InsecureSkipVerify: true,
+		},
+	}
+}
+
+// MakeSimpleStreamsServerSpec creates a ServerSpec for the SimpleStreams
+// protocol, ensuring that the host is HTTPS
+func MakeSimpleStreamsServerSpec(name, host string) ServerSpec {
+	return ServerSpec{
+		Name:     name,
+		Host:     EnsureHTTPS(host),
+		Protocol: SimpleStreamsProtocol,
+	}
+}
+
+// Validate ensures that the ServerSpec is valid.
+func (s *ServerSpec) Validate() error {
+	return nil
 }
 
 // CloudImagesRemote hosts releases blessed by the Canonical team.
-var CloudImagesRemote = RemoteServer{
+var CloudImagesRemote = ServerSpec{
 	Name:     "cloud-images.ubuntu.com",
 	Host:     "https://cloud-images.ubuntu.com/releases",
 	Protocol: SimpleStreamsProtocol,
@@ -40,7 +80,7 @@ var CloudImagesRemote = RemoteServer{
 // CloudImagesDailyRemote hosts images from daily package builds.
 // These images have not been independently tested, but should be sound for
 // use, being build from packages in the released archive.
-var CloudImagesDailyRemote = RemoteServer{
+var CloudImagesDailyRemote = ServerSpec{
 	Name:     "cloud-images.ubuntu.com",
 	Host:     "https://cloud-images.ubuntu.com/daily",
 	Protocol: SimpleStreamsProtocol,
@@ -49,25 +89,25 @@ var CloudImagesDailyRemote = RemoteServer{
 // ConnectImageRemote connects to a remote ImageServer using specified protocol.
 var ConnectImageRemote = connectImageRemote
 
-func connectImageRemote(remote RemoteServer) (lxd.ImageServer, error) {
+func connectImageRemote(remote ServerSpec) (lxd.ImageServer, error) {
 	switch remote.Protocol {
 	case LXDProtocol:
-		return lxd.ConnectPublicLXD(remote.Host, &remote.ConnectionArgs)
+		return lxd.ConnectPublicLXD(remote.Host, remote.connectionArgs)
 	case SimpleStreamsProtocol:
-		return lxd.ConnectSimpleStreams(remote.Host, &remote.ConnectionArgs)
+		return lxd.ConnectSimpleStreams(remote.Host, remote.connectionArgs)
 	}
 	return nil, fmt.Errorf("bad protocol supplied for connection: %v", remote.Protocol)
 }
 
 // ConnectLocal connects to LXD on a local socket.
 func ConnectLocal() (lxd.ContainerServer, error) {
-	client, err := lxd.ConnectLXDUnix(SocketPath(nil), &lxd.ConnectionArgs{})
+	client, err := lxd.ConnectLXDUnix(SocketPath(nil), nil)
 	return client, errors.Trace(err)
 }
 
 // ConnectRemote connects to LXD on a remote socket.
-func ConnectRemote(remote RemoteServer) (lxd.ContainerServer, error) {
-	client, err := lxd.ConnectLXD(remote.Host, &remote.ConnectionArgs)
+func ConnectRemote(spec ServerSpec) (lxd.ContainerServer, error) {
+	client, err := lxd.ConnectLXD(spec.Host, spec.connectionArgs)
 	return client, errors.Trace(err)
 }
 

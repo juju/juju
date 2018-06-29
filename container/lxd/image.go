@@ -36,7 +36,7 @@ type SourcedImage struct {
 // The callback argument is used to report copy progress.
 func (s *Server) FindImage(
 	series, arch string,
-	sources []RemoteServer,
+	sources []ServerSpec,
 	copyLocal bool,
 	callback environs.StatusCallbackFunc,
 ) (SourcedImage, error) {
