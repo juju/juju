@@ -146,7 +146,7 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 	// If the storage API is supported, let's make sure the LXD has a
 	// default pool; we'll just use dir backend for now.
 	if cfg.Remote.Protocol != SimplestreamsProtocol && newServer.StorageSupported() {
-		if err := verifyStorageConfiguration(raw, defaultProfile); err != nil {
+		if err := newServer.EnsureDefaultStorage(defaultProfile, profileETag); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -317,55 +317,4 @@ and then configure it with:
 	}
 
 	return errors.Trace(fmt.Errorf("%s\n%s", msg, hint))
-}
-
-func verifyStorageConfiguration(client lxdclient.ContainerServer, defaultProfile *api.Profile) error {
-	// If the default profile already has a / device, it's all good
-	for _, dev := range defaultProfile.Devices {
-		if dev["path"] == "/" {
-			return nil
-		}
-	}
-
-	// Otherwise, we need to add one
-	pools, err := client.GetStoragePools()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	poolName := ""
-	for _, p := range pools {
-		if p.Name == "default" {
-			poolName = p.Name
-		}
-	}
-
-	// use whatever pool there is if there isn't one called "default"
-	if poolName == "" && len(pools) > 0 {
-		poolName = pools[0].Name
-	}
-
-	if poolName == "" {
-		poolName = "default"
-		req := api.StoragePoolsPost{
-			Name:   poolName,
-			Driver: "dir",
-		}
-		err := client.CreateStoragePool(req)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	if defaultProfile.Devices == nil {
-		defaultProfile.Devices = map[string]map[string]string{}
-	}
-	defaultProfile.Devices["root"] = map[string]string{
-		"type": "disk",
-		"path": "/",
-		"pool": poolName,
-	}
-
-	// Now, create a disk device that uses the pool
-	return errors.Trace(client.UpdateProfile("default", defaultProfile.Writable(), ""))
 }
