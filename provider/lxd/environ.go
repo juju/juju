@@ -30,10 +30,10 @@ type environ struct {
 	cloud    environs.CloudSpec
 	provider *environProvider
 
-	name string
-	uuid string
-	raw  *rawProvider
-	base baseProvider
+	name   string
+	uuid   string
+	server newServer
+	base   baseProvider
 
 	// namespace is used to create the machine and device hostnames.
 	namespace instance.Namespace
@@ -42,14 +42,14 @@ type environ struct {
 	ecfg *environConfig
 }
 
-type newRawProviderFunc func(environs.CloudSpec, bool) (*rawProvider, error)
+type newProviderFunc func(environs.CloudSpec, bool) (newServer, error)
 
 func newEnviron(
 	_ *environProvider,
 	local bool,
 	spec environs.CloudSpec,
 	cfg *config.Config,
-	newRawProvider newRawProviderFunc,
+	newProvider newProviderFunc,
 ) (*environ, error) {
 	ecfg, err := newValidConfig(cfg)
 	if err != nil {
@@ -61,7 +61,7 @@ func newEnviron(
 		return nil, errors.Trace(err)
 	}
 
-	raw, err := newRawProvider(spec, local)
+	server, err := newProvider(spec, local)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -70,7 +70,7 @@ func newEnviron(
 		cloud:     spec,
 		name:      ecfg.Name(),
 		uuid:      ecfg.UUID(),
-		raw:       raw,
+		server:    server,
 		namespace: namespace,
 		ecfg:      ecfg,
 	}
@@ -90,7 +90,7 @@ var defaultProfileConfig = map[string]string{
 }
 
 func (env *environ) initProfile() error {
-	hasProfile, err := env.raw.HasProfile(env.profileName())
+	hasProfile, err := env.server.HasProfile(env.profileName())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -99,7 +99,7 @@ func (env *environ) initProfile() error {
 		return nil
 	}
 
-	return env.raw.CreateProfileWithConfig(env.profileName(), defaultProfileConfig)
+	return env.server.CreateProfileWithConfig(env.profileName(), defaultProfileConfig)
 }
 
 func (env *environ) profileName() string {
@@ -203,5 +203,5 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 		names = append(names, string(inst.Id()))
 	}
 
-	return errors.Trace(env.raw.RemoveContainers(names))
+	return errors.Trace(env.server.RemoveContainers(names))
 }

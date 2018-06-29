@@ -26,9 +26,6 @@ import (
 // interface shims.
 // After the old client is removed, provider tests can be rewritten using
 // GoMock, at which point rawProvider is replaced with the new server.
-type rawProvider struct {
-	newServer
-}
 
 type newServer interface {
 	FindImage(string, string, []lxd.RemoteServer, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
@@ -60,9 +57,9 @@ type newServer interface {
 	DeleteStoragePoolVolume(pool string, volType string, name string) (err error)
 }
 
-func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {
+func newProvider(spec environs.CloudSpec, local bool) (newServer, error) {
 	if local {
-		prov, err := newLocalRawProvider()
+		prov, err := newLocalProvider()
 		return prov, errors.Trace(err)
 	}
 	clientCert, serverCert, ok := getCertificates(spec)
@@ -74,23 +71,21 @@ func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &rawProvider{newServer: prov}, nil
+	return prov, nil
 }
 
-func newLocalRawProvider() (*rawProvider, error) {
+func newLocalProvider() (newServer, error) {
 	config := jujulxdclient.Config{Remote: jujulxdclient.Local}
-	raw, err := newRawProviderFromConfig(config)
+	raw, err := newProviderFromConfig(config)
 	return raw, errors.Trace(err)
 }
 
-func newRawProviderFromConfig(config jujulxdclient.Config) (*rawProvider, error) {
+func newProviderFromConfig(config jujulxdclient.Config) (newServer, error) {
 	client, err := jujulxdclient.Connect(config, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &rawProvider{
-		newServer: client,
-	}, nil
+	return client, nil
 }
 
 func getCertificates(spec environs.CloudSpec) (client *lxd.Certificate, server string, ok bool) {

@@ -40,15 +40,15 @@ func (env *environ) StartInstance(
 
 	// TODO(ericsnow) Handle constraints?
 
-	raw, err := env.newRawInstance(args, arch)
+	server, err := env.newRawInstance(args, arch)
 	if err != nil {
 		if args.StatusCallback != nil {
 			args.StatusCallback(status.ProvisioningError, err.Error(), nil)
 		}
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("started instance %q", raw.Name)
-	inst := newInstance(raw, env)
+	logger.Infof("started instance %q", server.Name)
+	inst := newInstance(server, env)
 
 	// Build the result.
 	hwc := env.getHardwareCharacteristics(args, inst)
@@ -155,7 +155,7 @@ func (env *environ) newRawInstance(
 	defer cleanupCallback()
 
 	series := args.InstanceConfig.Series
-	image, err := env.raw.FindImage(series, arch, imageSources, true, statusCallback)
+	image, err := env.server.FindImage(series, arch, imageSources, true, statusCallback)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -181,7 +181,7 @@ func (env *environ) newRawInstance(
 	}
 
 	statusCallback(status.Allocating, "Creating container", nil)
-	container, err := env.raw.CreateContainerFromSpec(cSpec)
+	container, err := env.server.CreateContainerFromSpec(cSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -270,5 +270,5 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...
 		}
 	}
 
-	return errors.Trace(env.raw.RemoveContainers(names))
+	return errors.Trace(env.server.RemoveContainers(names))
 }

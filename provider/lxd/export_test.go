@@ -52,7 +52,7 @@ func ExposeEnvConfig(env *environ) *environConfig {
 }
 
 func ExposeEnvServer(env *environ) newServer {
-	return env.raw.newServer
+	return env.server
 }
 
 func GetImageSources(env *environ) ([]lxd.RemoteServer, error) {

@@ -334,10 +334,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Common = &stubCommon{stub: s.Stub}
 
 	// Patch out all expensive external deps.
-	raw := &rawProvider{
-		newServer: s.Client,
-	}
-	s.Env.raw = raw
+	s.Env.server = s.Client
 	s.Env.base = s.Common
 }
 
