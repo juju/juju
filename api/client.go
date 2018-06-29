@@ -222,7 +222,7 @@ func (c *Client) SetModelConstraints(constraints constraints.Value) error {
 }
 
 // ModelUUID returns the model UUID from the client connection
-// and reports whether it is valud.
+// and reports whether it is valued.
 func (c *Client) ModelUUID() (string, bool) {
 	tag, ok := c.st.ModelTag()
 	if !ok {
