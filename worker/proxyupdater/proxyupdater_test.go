@@ -101,10 +101,6 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 			}
 			return nil
 		},
-		RunFunc: func(in string, cmd string, args ...string) (string, error) {
-			logger.Debugf("RunFunc(%q, %q, %#v)", in, cmd, args)
-			return "", nil
-		},
 		Logger: logger,
 	}
 	s.PatchValue(&pacconfig.AptProxyConfigFile, path.Join(directory, "juju-apt-proxy"))

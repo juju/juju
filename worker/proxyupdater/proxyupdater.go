@@ -41,9 +41,6 @@ func (c *Config) Validate() error {
 	if c.InProcessUpdate == nil {
 		return errors.NotValidf("mssing InProcessUpdate")
 	}
-	if c.RunFunc == nil {
-		return errors.NotValidf("mssing RunFunc")
-	}
 	if c.Logger == nil {
 		return errors.NotValidf("mssing Logger")
 	}
@@ -207,6 +204,10 @@ func getPackageCommander() (commands.PackageCommander, error) {
 func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, enterpriseID, enterpriseAssertions string) {
 	if os.HostOS() == os.Windows {
 		w.config.Logger.Tracef("no snap proxies on windows")
+		return
+	}
+	if w.config.RunFunc == nil {
+		w.config.Logger.Tracef("snap proxies not updated by unit agents")
 		return
 	}
 	w.config.Logger.Tracef("setting snap proxy values: %#v, %q, %q", proxy, enterpriseID, enterpriseAssertions)

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
@@ -259,6 +260,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		proxyConfigUpdaterName: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			AgentName:       agentName,
 			APICallerName:   apiCallerName,
+			Logger:          loggo.GetLogger("juju.worker.proxyupdater"),
 			WorkerFunc:      proxyupdater.NewWorker,
 			InProcessUpdate: proxy.DefaultConfig.Set,
 		})),
