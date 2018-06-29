@@ -40,15 +40,15 @@ func (env *environ) StartInstance(
 
 	// TODO(ericsnow) Handle constraints?
 
-	raw, err := env.newRawInstance(args, arch)
+	server, err := env.newRawInstance(args, arch)
 	if err != nil {
 		if args.StatusCallback != nil {
 			args.StatusCallback(status.ProvisioningError, err.Error(), nil)
 		}
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("started instance %q", raw.Name)
-	inst := newInstance(raw, env)
+	logger.Infof("started instance %q", server.Name)
+	inst := newInstance(server, env)
 
 	// Build the result.
 	hwc := env.getHardwareCharacteristics(args, inst)
@@ -77,12 +77,12 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (str
 	return arch, nil
 }
 
-func (env *environ) getImageSources() ([]lxd.RemoteServer, error) {
+func (env *environ) getImageSources() ([]lxd.ServerSpec, error) {
 	metadataSources, err := environs.ImageMetadataSources(env)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	remotes := make([]lxd.RemoteServer, 0)
+	remotes := make([]lxd.ServerSpec, 0)
 	for _, source := range metadataSources {
 		url, err := source.URL("")
 		if err != nil {
@@ -100,11 +100,7 @@ func (env *environ) getImageSources() ([]lxd.RemoteServer, error) {
 		// "your configuration is wrong" error, rather than silently
 		// changing it and having them get confused.
 		// https://github.com/lxc/lxd/issues/1763
-		remotes = append(remotes, lxd.RemoteServer{
-			Name:     source.Description(),
-			Host:     lxd.EnsureHTTPS(url),
-			Protocol: lxd.SimpleStreamsProtocol,
-		})
+		remotes = append(remotes, lxd.MakeSimpleStreamsServerSpec(source.Description(), url))
 	}
 	return remotes, nil
 }
@@ -155,7 +151,7 @@ func (env *environ) newRawInstance(
 	defer cleanupCallback()
 
 	series := args.InstanceConfig.Series
-	image, err := env.raw.FindImage(series, arch, imageSources, true, statusCallback)
+	image, err := env.server.FindImage(series, arch, imageSources, true, statusCallback)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -181,7 +177,7 @@ func (env *environ) newRawInstance(
 	}
 
 	statusCallback(status.Allocating, "Creating container", nil)
-	container, err := env.raw.CreateContainerFromSpec(cSpec)
+	container, err := env.server.CreateContainerFromSpec(cSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -270,5 +266,5 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...
 		}
 	}
 
-	return errors.Trace(env.raw.RemoveContainers(names))
+	return errors.Trace(env.server.RemoveContainers(names))
 }

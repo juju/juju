@@ -492,3 +492,70 @@ func (s *credentialsSuite) clientCertFingerprint(c *gc.C) string {
 	c.Assert(err, jc.ErrorIsNil)
 	return fp
 }
+
+func (s *credentialsSuite) TestGetCertificates(c *gc.C) {
+	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"client-cert": coretesting.CACert,
+		"client-key":  coretesting.CAKey,
+		"server-cert": "server.crt",
+	})
+	spec := environs.CloudSpec{
+		Type:       "lxd",
+		Name:       "localhost",
+		Endpoint:   "10.0.8.1",
+		Credential: &cred,
+	}
+
+	cert, server, ok := lxd.GetCertificates(spec)
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(cert, jc.DeepEquals, s.clientCert())
+	c.Assert(server, gc.Equals, "server.crt")
+}
+
+func (s *credentialsSuite) TestGetCertificatesMissingClientCert(c *gc.C) {
+	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"client-key":  coretesting.CAKey,
+		"server-cert": "server.crt",
+	})
+	spec := environs.CloudSpec{
+		Type:       "lxd",
+		Name:       "localhost",
+		Endpoint:   "10.0.8.1",
+		Credential: &cred,
+	}
+
+	_, _, ok := lxd.GetCertificates(spec)
+	c.Assert(ok, gc.Equals, false)
+}
+
+func (s *credentialsSuite) TestGetCertificatesMissingClientKey(c *gc.C) {
+	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"client-cert": coretesting.CACert,
+		"server-cert": "server.crt",
+	})
+	spec := environs.CloudSpec{
+		Type:       "lxd",
+		Name:       "localhost",
+		Endpoint:   "10.0.8.1",
+		Credential: &cred,
+	}
+
+	_, _, ok := lxd.GetCertificates(spec)
+	c.Assert(ok, gc.Equals, false)
+}
+
+func (s *credentialsSuite) TestGetCertificatesMissingServerCert(c *gc.C) {
+	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"client-cert": coretesting.CACert,
+		"client-key":  coretesting.CAKey,
+	})
+	spec := environs.CloudSpec{
+		Type:       "lxd",
+		Name:       "localhost",
+		Endpoint:   "10.0.8.1",
+		Credential: &cred,
+	}
+
+	_, _, ok := lxd.GetCertificates(spec)
+	c.Assert(ok, gc.Equals, false)
+}

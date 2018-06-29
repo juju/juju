@@ -45,7 +45,7 @@ func (s *connectionSuite) TestLxdSocketPathNoSnapSocket(c *gc.C) {
 }
 
 func (s *connectionSuite) TestConnectRemoteBadProtocol(c *gc.C) {
-	svr, err := lxd.ConnectImageRemote(lxd.RemoteServer{Host: "wrong-protocol-server", Protocol: "FOOBAR"})
+	svr, err := lxd.ConnectImageRemote(lxd.ServerSpec{Host: "wrong-protocol-server", Protocol: "FOOBAR"})
 	c.Check(svr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "bad protocol supplied for connection: FOOBAR")
 }

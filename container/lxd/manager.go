@@ -220,18 +220,18 @@ func (m *containerManager) getContainerSpec(
 
 // getImageSources returns a list of LXD remote image sources based on the
 // configuration that was passed into the container manager.
-func (m *containerManager) getImageSources() ([]RemoteServer, error) {
+func (m *containerManager) getImageSources() ([]ServerSpec, error) {
 	imURL := m.imageMetadataURL
 
 	// Unless the configuration explicitly requests the daily stream,
 	// an empty image metadata URL results in a search of the default sources.
 	if imURL == "" && m.imageStream != "daily" {
 		logger.Debugf("checking default image metadata sources")
-		return []RemoteServer{CloudImagesRemote, CloudImagesDailyRemote}, nil
+		return []ServerSpec{CloudImagesRemote, CloudImagesDailyRemote}, nil
 	}
 	// Otherwise only check the daily stream.
 	if imURL == "" {
-		return []RemoteServer{CloudImagesDailyRemote}, nil
+		return []ServerSpec{CloudImagesDailyRemote}, nil
 	}
 
 	imURL, err := imagemetadata.ImageMetadataURL(imURL, m.imageStream)
@@ -239,7 +239,7 @@ func (m *containerManager) getImageSources() ([]RemoteServer, error) {
 		return nil, errors.Annotatef(err, "generating image metadata source")
 	}
 	imURL = EnsureHTTPS(imURL)
-	remote := RemoteServer{
+	remote := ServerSpec{
 		Name:     strings.Replace(imURL, "https://", "", 1),
 		Host:     imURL,
 		Protocol: SimpleStreamsProtocol,
@@ -248,9 +248,9 @@ func (m *containerManager) getImageSources() ([]RemoteServer, error) {
 	// If the daily stream was configured with custom image metadata URL,
 	// only use the Ubuntu daily as a fallback.
 	if m.imageStream == "daily" {
-		return []RemoteServer{remote, CloudImagesDailyRemote}, nil
+		return []ServerSpec{remote, CloudImagesDailyRemote}, nil
 	}
-	return []RemoteServer{remote, CloudImagesRemote, CloudImagesDailyRemote}, nil
+	return []ServerSpec{remote, CloudImagesRemote, CloudImagesDailyRemote}, nil
 }
 
 // networkDevicesFromConfig uses the input container network configuration to

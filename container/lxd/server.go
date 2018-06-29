@@ -63,6 +63,23 @@ func NewLocalServer() (*Server, error) {
 	return svr, errors.Trace(err)
 }
 
+// NewRemoteServer returns a Server based on a remote connection.
+func NewRemoteServer(spec ServerSpec) (*Server, error) {
+	if err := spec.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Skip the get, because we know that we're going to request it
+	// when calling new server, preventing the double request.
+	spec.connectionArgs.SkipGetServer = true
+	cSvr, err := ConnectRemote(spec)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	svr, err := NewServer(cSvr)
+	return svr, err
+}
+
 // NewServer builds and returns a Server for high-level interaction with the
 // input LXD container server.
 func NewServer(svr lxd.ContainerServer) (*Server, error) {

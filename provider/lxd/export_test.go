@@ -10,7 +10,8 @@ import (
 )
 
 var (
-	NewInstance = newInstance
+	NewInstance     = newInstance
+	GetCertificates = getCertificates
 )
 
 func NewProviderWithMocks(
@@ -51,10 +52,10 @@ func ExposeEnvConfig(env *environ) *environConfig {
 	return env.ecfg
 }
 
-func ExposeEnvServer(env *environ) newServer {
-	return env.raw.newServer
+func ExposeEnvServer(env *environ) Server {
+	return env.server
 }
 
-func GetImageSources(env *environ) ([]lxd.RemoteServer, error) {
+func GetImageSources(env *environ) ([]lxd.ServerSpec, error) {
 	return env.getImageSources()
 }

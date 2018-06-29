@@ -428,3 +428,28 @@ func addrsContains(haystack []net.Addr, needle string) bool {
 	}
 	return false
 }
+
+func getCertificates(spec environs.CloudSpec) (client *lxd.Certificate, server string, ok bool) {
+	if spec.Credential == nil {
+		return nil, "", false
+	}
+	credAttrs := spec.Credential.Attributes()
+	clientCertPEM, ok := credAttrs[credAttrClientCert]
+	if !ok {
+		return nil, "", false
+	}
+	clientKeyPEM, ok := credAttrs[credAttrClientKey]
+	if !ok {
+		return nil, "", false
+	}
+	serverCertPEM, ok := credAttrs[credAttrServerCert]
+	if !ok {
+		return nil, "", false
+	}
+	clientCert := &lxd.Certificate{
+		Name:    "juju",
+		CertPEM: []byte(clientCertPEM),
+		KeyPEM:  []byte(clientKeyPEM),
+	}
+	return clientCert, serverCertPEM, true
+}

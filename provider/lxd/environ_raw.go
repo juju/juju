@@ -5,12 +5,9 @@ package lxd
 
 import (
 	"github.com/juju/errors"
-	lxdclient "github.com/lxc/lxd/client"
-	lxdapi "github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 	jujulxdclient "github.com/juju/juju/tools/lxdclient"
 )
 
@@ -26,115 +23,34 @@ import (
 // interface shims.
 // After the old client is removed, provider tests can be rewritten using
 // GoMock, at which point rawProvider is replaced with the new server.
-type rawProvider struct {
-	newServer
 
-	remote jujulxdclient.Remote
-}
-
-type newServer interface {
-	FindImage(string, string, []lxd.RemoteServer, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
-	GetServer() (server *lxdapi.Server, ETag string, err error)
-	GetConnectionInfo() (info *lxdclient.ConnectionInfo, err error)
-	UpdateServerConfig(map[string]string) error
-	UpdateContainerConfig(string, map[string]string) error
-	GetCertificate(fingerprint string) (certificate *lxdapi.Certificate, ETag string, err error)
-	DeleteCertificate(fingerprint string) (err error)
-	CreateClientCertificate(certificate *lxd.Certificate) error
-	LocalBridgeName() string
-	AliveContainers(prefix string) ([]lxd.Container, error)
-	ContainerAddresses(name string) ([]network.Address, error)
-	RemoveContainer(name string) error
-	RemoveContainers(names []string) error
-	FilterContainers(prefix string, statuses ...string) ([]lxd.Container, error)
-	CreateContainerFromSpec(spec lxd.ContainerSpec) (*lxd.Container, error)
-	WriteContainer(*lxd.Container) error
-	CreateProfileWithConfig(string, map[string]string) error
-	HasProfile(string) (bool, error)
-	StorageSupported() bool
-	GetStoragePool(name string) (pool *lxdapi.StoragePool, ETag string, err error)
-	GetStoragePools() (pools []lxdapi.StoragePool, err error)
-	CreatePool(name, driver string, attrs map[string]string) error
-	GetStoragePoolVolume(pool string, volType string, name string) (*lxdapi.StorageVolume, string, error)
-	GetStoragePoolVolumes(pool string) (volumes []lxdapi.StorageVolume, err error)
-	CreateVolume(pool, name string, config map[string]string) error
-	UpdateStoragePoolVolume(pool string, volType string, name string, volume lxdapi.StorageVolumePut, ETag string) error
-	DeleteStoragePoolVolume(pool string, volType string, name string) (err error)
-}
-
-func newRawProvider(spec environs.CloudSpec, local bool) (*rawProvider, error) {
+func newServer(spec environs.CloudSpec, local bool) (Server, error) {
 	if local {
-		prov, err := newLocalRawProvider()
+		prov, err := newLocalProvider()
 		return prov, errors.Trace(err)
 	}
-	prov, err := newRemoteRawProvider(spec)
-	return prov, errors.Trace(err)
-}
-
-func newLocalRawProvider() (*rawProvider, error) {
-	config := jujulxdclient.Config{Remote: jujulxdclient.Local}
-	raw, err := newRawProviderFromConfig(config)
-	return raw, errors.Trace(err)
-}
-
-func newRemoteRawProvider(spec environs.CloudSpec) (*rawProvider, error) {
-	config, err := getRemoteConfig(spec)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	raw, err := newRawProviderFromConfig(*config)
-	return raw, errors.Trace(err)
-}
-
-func newRawProviderFromConfig(config jujulxdclient.Config) (*rawProvider, error) {
-	client, err := jujulxdclient.Connect(config, true)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &rawProvider{
-		newServer: client,
-		remote:    config.Remote,
-	}, nil
-}
-
-// getRemoteConfig returns a jujulxdclient.Config using a TCP-based remote.
-func getRemoteConfig(spec environs.CloudSpec) (*jujulxdclient.Config, error) {
 	clientCert, serverCert, ok := getCertificates(spec)
 	if !ok {
 		return nil, errors.NotValidf("credentials")
 	}
-	return &jujulxdclient.Config{
-		jujulxdclient.Remote{
-			Name:          "remote",
-			Host:          spec.Endpoint,
-			Protocol:      jujulxdclient.LXDProtocol,
-			Cert:          clientCert,
-			ServerPEMCert: serverCert,
-		},
-	}, nil
+	serverSpec := lxd.NewServerSpec(spec.Endpoint, serverCert, clientCert)
+	prov, err := lxd.NewRemoteServer(serverSpec)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return prov, nil
 }
 
-func getCertificates(spec environs.CloudSpec) (client *lxd.Certificate, server string, ok bool) {
-	if spec.Credential == nil {
-		return nil, "", false
+func newLocalProvider() (Server, error) {
+	config := jujulxdclient.Config{Remote: jujulxdclient.Local}
+	raw, err := newProviderFromConfig(config)
+	return raw, errors.Trace(err)
+}
+
+func newProviderFromConfig(config jujulxdclient.Config) (Server, error) {
+	client, err := jujulxdclient.Connect(config, true)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	credAttrs := spec.Credential.Attributes()
-	clientCertPEM, ok := credAttrs[credAttrClientCert]
-	if !ok {
-		return nil, "", false
-	}
-	clientKeyPEM, ok := credAttrs[credAttrClientKey]
-	if !ok {
-		return nil, "", false
-	}
-	serverCertPEM, ok := credAttrs[credAttrServerCert]
-	if !ok {
-		return nil, "", false
-	}
-	clientCert := &lxd.Certificate{
-		Name:    "juju",
-		CertPEM: []byte(clientCertPEM),
-		KeyPEM:  []byte(clientKeyPEM),
-	}
-	return clientCert, serverCertPEM, true
+	return client, nil
 }

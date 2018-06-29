@@ -334,17 +334,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Common = &stubCommon{stub: s.Stub}
 
 	// Patch out all expensive external deps.
-	raw := &rawProvider{
-		newServer: s.Client,
-		remote: jujulxdclient.Remote{
-			Cert: &lxd.Certificate{
-				Name:    "juju",
-				CertPEM: []byte(testing.CACert),
-				KeyPEM:  []byte(testing.CAKey),
-			},
-		},
-	}
-	s.Env.raw = raw
+	s.Env.server = s.Client
 	s.Env.base = s.Common
 }
 
@@ -461,7 +451,7 @@ func (conn *StubClient) CreateContainerFromSpec(spec lxd.ContainerSpec) (*lxd.Co
 }
 
 func (conn *StubClient) FindImage(
-	series, arch string, sources []lxd.RemoteServer, copyLocal bool, callback environs.StatusCallbackFunc,
+	series, arch string, sources []lxd.ServerSpec, copyLocal bool, callback environs.StatusCallbackFunc,
 ) (lxd.SourcedImage, error) {
 	conn.AddCall("FindImage", series, arch)
 	if err := conn.NextErr(); err != nil {

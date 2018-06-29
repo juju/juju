@@ -453,7 +453,7 @@ func (s *managerSuite) TestGetImageSourcesDefaultConfig(c *gc.C) {
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, []lxd.RemoteServer{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
+	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
 }
 
 func (s *managerSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C) {
@@ -467,7 +467,7 @@ func (s *managerSuite) TestGetImageSourcesNonStandardStreamDefaultConfig(c *gc.C
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, []lxd.RemoteServer{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
+	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesRemote, lxd.CloudImagesDailyRemote})
 }
 
 func (s *managerSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
@@ -481,7 +481,7 @@ func (s *managerSuite) TestGetImageSourcesDailyOnly(c *gc.C) {
 
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sources, gc.DeepEquals, []lxd.RemoteServer{lxd.CloudImagesDailyRemote})
+	c.Check(sources, gc.DeepEquals, []lxd.ServerSpec{lxd.CloudImagesDailyRemote})
 }
 
 func (s *managerSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c *gc.C) {
@@ -496,7 +496,7 @@ func (s *managerSuite) TestGetImageSourcesImageMetadataURLExpectedHTTPSSources(c
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedSources := []lxd.RemoteServer{
+	expectedSources := []lxd.ServerSpec{
 		{
 			Name:     "special.container.sauce",
 			Host:     "https://special.container.sauce",
@@ -521,7 +521,7 @@ func (s *managerSuite) TestGetImageSourcesImageMetadataURLDailyStream(c *gc.C) {
 	sources, err := lxd.GetImageSources(mgr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedSources := []lxd.RemoteServer{
+	expectedSources := []lxd.ServerSpec{
 		{
 			Name:     "special.container.sauce",
 			Host:     "https://special.container.sauce",
