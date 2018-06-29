@@ -30,9 +30,9 @@ type ServerSpec struct {
 	connectionArgs *lxd.ConnectionArgs
 }
 
-// MakeServerSpec creates a ServerSpec with default values where needed.
+// NewServerSpec creates a ServerSpec with default values where needed.
 // It also ensures the HTTPS for the host implicitly
-func MakeServerSpec(host, serverCert string, clientCert *Certificate) ServerSpec {
+func NewServerSpec(host, serverCert string, clientCert *Certificate) ServerSpec {
 	return ServerSpec{
 		Host: EnsureHTTPS(host),
 		connectionArgs: &lxd.ConnectionArgs{
@@ -43,10 +43,10 @@ func MakeServerSpec(host, serverCert string, clientCert *Certificate) ServerSpec
 	}
 }
 
-// MakeInsecureServerSpec creates a ServerSpec without certificate requirements,
+// NewInsecureServerSpec creates a ServerSpec without certificate requirements,
 // which also bypasses the TLS verification.
 // It also ensures the HTTPS for the host implicitly
-func MakeInsecureServerSpec(host string) ServerSpec {
+func NewInsecureServerSpec(host string) ServerSpec {
 	return ServerSpec{
 		Host: EnsureHTTPS(host),
 		connectionArgs: &lxd.ConnectionArgs{

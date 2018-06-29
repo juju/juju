@@ -33,7 +33,7 @@ func newServer(spec environs.CloudSpec, local bool) (Server, error) {
 	if !ok {
 		return nil, errors.NotValidf("credentials")
 	}
-	serverSpec := lxd.MakeServerSpec(spec.Endpoint, serverCert, clientCert)
+	serverSpec := lxd.NewServerSpec(spec.Endpoint, serverCert, clientCert)
 	prov, err := lxd.NewRemoteServer(serverSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
