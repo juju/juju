@@ -107,7 +107,7 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 		local,
 		args.Cloud,
 		args.Config,
-		newProvider,
+		newServer,
 	)
 	return env, errors.Trace(err)
 }

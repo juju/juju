@@ -10,7 +10,8 @@ import (
 )
 
 var (
-	NewInstance = newInstance
+	NewInstance     = newInstance
+	GetCertificates = getCertificates
 )
 
 func NewProviderWithMocks(
@@ -51,7 +52,7 @@ func ExposeEnvConfig(env *environ) *environConfig {
 	return env.ecfg
 }
 
-func ExposeEnvServer(env *environ) newServer {
+func ExposeEnvServer(env *environ) Server {
 	return env.server
 }
 
