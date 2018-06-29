@@ -19,6 +19,21 @@ type storageSuite struct {
 
 var _ = gc.Suite(&storageSuite{})
 
+func defaultProfileWithDisk() *lxdapi.Profile {
+	return &lxdapi.Profile{
+		Name: "default",
+		ProfilePut: lxdapi.ProfilePut{
+			Devices: map[string]map[string]string{
+				"root": {
+					"type": "disk",
+					"path": "/",
+					"pool": "default",
+				},
+			},
+		},
+	}
+}
+
 func (s *storageSuite) TestStorageIsSupported(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -85,4 +100,56 @@ func (s *storageSuite) TestCreateVolume(c *gc.C) {
 
 	err = jujuSvr.CreateVolume("default-pool", "volume", cfg)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestEnsureDefaultStorageDevicePresent(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(jujuSvr.EnsureDefaultStorage(defaultProfileWithDisk(), ""), jc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestEnsureDefaultStoragePoolExistsDeviceCreated(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
+
+	profile := defaultProfileWithDisk()
+	gomock.InOrder(
+		cSvr.EXPECT().GetStoragePoolNames().Return([]string{"default"}, nil),
+		cSvr.EXPECT().UpdateProfile("default", profile.Writable(), lxdtesting.ETag).Return(nil),
+	)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	profile.Devices = nil
+	c.Assert(jujuSvr.EnsureDefaultStorage(profile, lxdtesting.ETag), jc.ErrorIsNil)
+}
+
+func (s *storageSuite) TestEnsureDefaultStoragePoolAndDeviceCreated(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
+
+	profile := defaultProfileWithDisk()
+	req := lxdapi.StoragePoolsPost{
+		Name:   "default",
+		Driver: "dir",
+	}
+	gomock.InOrder(
+		cSvr.EXPECT().GetStoragePoolNames().Return(nil, nil),
+		cSvr.EXPECT().CreateStoragePool(req).Return(nil),
+		cSvr.EXPECT().UpdateProfile("default", profile.Writable(), lxdtesting.ETag).Return(nil),
+	)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	profile.Devices = nil
+	c.Assert(jujuSvr.EnsureDefaultStorage(profile, lxdtesting.ETag), jc.ErrorIsNil)
 }

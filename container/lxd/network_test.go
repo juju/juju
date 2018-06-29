@@ -26,7 +26,7 @@ func (s *networkSuite) patch() {
 	lxd.PatchGenerateVirtualMACAddress(s)
 }
 
-func defaultProfile() *lxdapi.Profile {
+func defaultProfileWithNIC() *lxdapi.Profile {
 	return &lxdapi.Profile{
 		Name: "default",
 		ProfilePut: lxdapi.ProfilePut{
@@ -97,7 +97,7 @@ func (s *networkSuite) TestVerifyNetworkDevicePresentValid(c *gc.C) {
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = jujuSvr.VerifyNetworkDevice(defaultProfile(), "")
+	err = jujuSvr.VerifyNetworkDevice(defaultProfileWithNIC(), "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -106,7 +106,7 @@ func (s *networkSuite) TestVerifyNetworkDeviceMultipleNICsOneValid(c *gc.C) {
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerClustered(ctrl, "cluster-1")
 
-	profile := defaultProfile()
+	profile := defaultProfileWithNIC()
 	profile.Devices["eno1"] = profile.Devices["eth0"]
 	profile.Devices["eno1"]["parent"] = "valid-net"
 
@@ -138,7 +138,7 @@ func (s *networkSuite) TestVerifyNetworkDevicePresentBadNicType(c *gc.C) {
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
 
-	profile := defaultProfile()
+	profile := defaultProfileWithNIC()
 	profile.Devices["eth0"]["nictype"] = "not-bridge-or-macvlan"
 
 	jujuSvr, err := lxd.NewServer(cSvr)
@@ -170,7 +170,7 @@ func (s *networkSuite) TestVerifyNetworkDeviceIPv6Present(c *gc.C) {
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = jujuSvr.VerifyNetworkDevice(defaultProfile(), "")
+	err = jujuSvr.VerifyNetworkDevice(defaultProfileWithNIC(), "")
 	c.Assert(err, gc.ErrorMatches,
 		`profile "default": no network device found with nictype "bridged" or "macvlan", `+
 			`and without IPv6 configured.\n`+
@@ -206,10 +206,10 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *gc.C) {
 		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(nil, "", errors.New("not found")),
 		cSvr.EXPECT().CreateNetwork(netCreateReq).Return(nil),
 		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(newNet, "", nil),
-		cSvr.EXPECT().UpdateProfile("default", defaultProfile().Writable(), lxdtesting.ETag).Return(nil),
+		cSvr.EXPECT().UpdateProfile("default", defaultProfileWithNIC().Writable(), lxdtesting.ETag).Return(nil),
 	)
 
-	profile := defaultProfile()
+	profile := defaultProfileWithNIC()
 	delete(profile.Devices, "eth0")
 
 	jujuSvr, err := lxd.NewServer(cSvr)
@@ -256,7 +256,7 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreatedWithUnusedName(c 
 		cSvr.EXPECT().UpdateProfile("default", devReq, lxdtesting.ETag).Return(nil),
 	)
 
-	profile := defaultProfile()
+	profile := defaultProfileWithNIC()
 	profile.Devices["eth0"] = map[string]string{}
 	profile.Devices["eth1"] = map[string]string{}
 
@@ -272,7 +272,7 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentErrorForCluster(c *gc.C)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerClustered(ctrl, "cluster-1")
 
-	profile := defaultProfile()
+	profile := defaultProfileWithNIC()
 	delete(profile.Devices, "eth0")
 
 	jujuSvr, err := lxd.NewServer(cSvr)
@@ -376,7 +376,7 @@ func (s *networkSuite) TestVerifyNICsWithConfigFileNICFound(c *gc.C) {
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = lxd.VerifyNICsWithConfigFile(jujuSvr, defaultProfile().Devices, validBridgeConfig)
+	err = lxd.VerifyNICsWithConfigFile(jujuSvr, defaultProfileWithNIC().Devices, validBridgeConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(jujuSvr.LocalBridgeName(), gc.Equals, "lxdbr0")
 }
@@ -389,7 +389,7 @@ func (s *networkSuite) TestVerifyNICsWithConfigFileNICNotFound(c *gc.C) {
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	nics := defaultProfile().Devices
+	nics := defaultProfileWithNIC().Devices
 	nics["eth0"]["parent"] = "br0"
 
 	err = lxd.VerifyNICsWithConfigFile(jujuSvr, nics, validBridgeConfig)
