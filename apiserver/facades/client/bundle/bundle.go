@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 )
@@ -61,7 +62,11 @@ func (b *bundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 		_, err := storage.ParseConstraints(s)
 		return err
 	}
-	if err := data.Verify(verifyConstraints, verifyStorage); err != nil {
+	verifyDevices := func(s string) error {
+		_, err := devices.ParseConstraints(s)
+		return err
+	}
+	if err := data.Verify(verifyConstraints, verifyStorage, verifyDevices); err != nil {
 		if err, ok := err.(*charm.VerificationError); ok {
 			results.Errors = make([]string, len(err.Errors))
 			for i, e := range err.Errors {
