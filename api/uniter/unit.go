@@ -664,6 +664,25 @@ func (u *Unit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) 
 	return w, nil
 }
 
+func (u *Unit) UpgradeSeriesStatus() (string, error) {
+	var results params.UpgradeSeriesStatusResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("UpgradeSeriesStatus", args, &results)
+	if err != nil {
+		return "", err
+	}
+	if len(results.Results) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return result.Status, nil
+}
+
 // RequestReboot sets the reboot flag for its machine agent
 func (u *Unit) RequestReboot() error {
 	machineId, err := u.AssignedMachine()

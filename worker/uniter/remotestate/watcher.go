@@ -170,7 +170,7 @@ func (w *RemoteStateWatcher) CommandCompleted(completed string) {
 }
 
 func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
-	// TODO(dfc) named return value is a time bomb
+	// TODO(dfc) named return value is a time bomb (externalreality) I second the notion
 	// TODO(axw) move this logic.
 	defer func() {
 		cause := errors.Cause(err)
@@ -317,6 +317,17 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	// returned by the leadership tracker.
 	requiredEvents++
 
+	// TODO(externalreality) This pattern should probably be extracted
+	var seenUpgradeSeriesChange bool
+	upgradeSeriesw, err := w.unit.WatchUpgradeSeriesNotifications()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(upgradeSeriesw); err != nil {
+		return errors.Trace(err)
+	}
+	requiredEvents++
+
 	var eventsObserved int
 	observedEvent := func(flag *bool) {
 		if flag != nil && !*flag {
@@ -407,6 +418,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if err != nil {
 				return err
 			}
+		case _, ok := <-upgradeSeriesw.Changes():
+			logger.Debugf("got upgrade series change")
+			if !ok {
+				return errors.New("upgrades series watcher closed")
+			}
+			observedEvent(&seenUpgradeSeriesChange)
 		case _, ok := <-addressesChanges:
 			logger.Debugf("got address change: ok=%t", ok)
 			if !ok {

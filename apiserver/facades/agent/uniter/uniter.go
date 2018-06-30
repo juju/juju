@@ -1020,6 +1020,36 @@ func (u *UniterAPI) WatchUpgradeSeriesNotifications(args params.Entities) (param
 	return result, nil
 }
 
+func (u *UniterAPI) UpgradeSeriesStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
+	result := params.UpgradeSeriesStatusResults{
+		Results: make([]params.UpgradeSeriesStatusResults, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.UpgradeSeriesStatusResults{}, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		unit, err := u.getUnit(tag)
+		unit.GetMachineUpgradeSeriesStatus()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+	}
+
+	return result, nil
+}
+
 // ConfigSettings returns the complete set of application charm config
 // settings available to each given unit.
 func (u *UniterAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsResults, error) {

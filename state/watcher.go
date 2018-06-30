@@ -1646,6 +1646,15 @@ func (u *Unit) WatchUpgradeSeriesNotifications() (NotifyWatcher, error) {
 	return newEntityWatcher(machine.st, machineUpgradeSeriesLocksC, machine.doc.DocID), nil
 }
 
+// UpgradeSeriesStatus returns the upgrade status of the units assigned machine.
+func (u *Unit) UpgradeSeriesStatus() (string, error) {
+	machine, err := u.machine()
+	if err != nil {
+		return nil, err
+	}
+	return machine.UpgradeSeriesStatus()
+}
+
 func newEntityWatcher(backend modelBackend, collName string, key interface{}) NotifyWatcher {
 	return newDocWatcher(backend, []docKey{{collName, key}})
 }

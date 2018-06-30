@@ -60,6 +60,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 			addressesWatcher:                 newMockNotifyWatcher(),
 			configSettingsWatcher:            newMockNotifyWatcher(),
 			applicationConfigSettingsWatcher: newMockNotifyWatcher(),
+			upgradeSeriesWatcher:             newMockNotifyWatcher(),
 			storageWatcher:                   newMockStringsWatcher(),
 			actionWatcher:                    newMockStringsWatcher(),
 			relationsWatcher:                 newMockStringsWatcher(),
@@ -151,6 +152,7 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	s.st.unit.addressesWatcher.changes <- struct{}{}
 	s.st.unit.configSettingsWatcher.changes <- struct{}{}
 	s.st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
+	s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 	s.st.unit.storageWatcher.changes <- []string{}
 	s.st.unit.actionWatcher.changes <- []string{}
 	if s.st.unit.application.applicationWatcher != nil {
@@ -167,6 +169,7 @@ func (s *WatcherSuite) signalAll() {
 	s.st.unit.unitWatcher.changes <- struct{}{}
 	s.st.unit.configSettingsWatcher.changes <- struct{}{}
 	s.st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
+	s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 	s.st.unit.actionWatcher.changes <- []string{}
 	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	s.st.unit.relationsWatcher.changes <- []string{}
