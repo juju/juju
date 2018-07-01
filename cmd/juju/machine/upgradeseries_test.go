@@ -6,6 +6,7 @@ package machine_test
 import (
 	"bytes"
 	"errors"
+	"fmt"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
@@ -18,6 +19,7 @@ import (
 )
 
 type UpgradeSeriesSuite struct {
+	ctx *cmd.Context
 }
 
 var _ = gc.Suite(&UpgradeSeriesSuite{})
@@ -43,43 +45,12 @@ func runUpgradeSeriesCommandWithConfirmation(c *gc.C, confirmation string, args 
 func runUpgradeSeriesCommandGivenMock(c *gc.C, mockUpgradeSeriesAPI *mocks.MockUpgradeMachineSeriesAPI, confirmation string, args ...string) error {
 	var stdin, stdout, stderr bytes.Buffer
 	ctx, err := cmd.DefaultContext()
+	s.ctx = ctx
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.Stderr = &stderr
-	ctx.Stdout = &stdout
-	ctx.Stdin = &stdin
+	s.ctx.Stderr = &stderr
+	s.ctx.Stdout = &stdout
+	s.ctx.Stdin = &stdin
 	stdin.WriteString(confirmation)
-
-	com := machine.NewUpgradeSeriesCommandForTest(mockUpgradeSeriesAPI)
-
-	err = cmdtesting.InitCommand(com, args)
-	if err != nil {
-		return err
-	}
-
-	err = com.Run(ctx)
-	if err != nil {
-		return err
-	}
-
-	if stderr.String() != "" {
-		return errors.New(stderr.String())
-	}
-
-	return nil
-}
-
-func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithoutConfirmation(c *gc.C, args ...string) error {
-	var stdin, stdout, stderr bytes.Buffer
-	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
-	ctx.Stderr = &stderr
-	ctx.Stdout = &stdout
-	ctx.Stdin = &stdin
-
-	// mock remote API
-	mockController := gomock.NewController(c)
-	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
-	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesPrepare(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	com := machine.NewUpgradeSeriesCommandForTest(mockUpgradeSeriesAPI)
 
@@ -164,7 +135,15 @@ func (s *UpgradeSeriesSuite) TestCompleteCommandDoesNotAcceptSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "wrong number of arguments")
 }
 
-func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptAgree(c *gc.C) {
-	err := s.runUpgradeSeriesCommandWithoutConfirmation(c, machine.PrepareCommand, machineArg, seriesArg, "--agree")
+func (s *UpgradeSeriesSuite) TestPrepareCommandShouldPromptUserForConfirmation(c *gc.C) {
+	err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", machine.PrepareCommand, machineArg, seriesArg)
 	c.Assert(err, jc.ErrorIsNil)
+	confirmationMsg := fmt.Sprintf(machine.UpgradeSeriesConfirmationMsg, machineArg, seriesArg)
+	c.Assert(s.ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, confirmationMsg)
+}
+
+func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptAgreeAndNotPrompt(c *gc.C) {
+	err := s.runUpgradeSeriesCommandWithConfirmation(c, "n", machine.PrepareCommand, machineArg, seriesArg, "--agree")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, ``)
 }
