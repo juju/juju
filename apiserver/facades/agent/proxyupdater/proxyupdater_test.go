@@ -189,6 +189,30 @@ func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
 	})
 }
 
+func (s *ProxyUpdaterSuite) TestSnapProxyConfig(c *gc.C) {
+	s.state.SetModelConfig(coretesting.Attrs{
+		"snap-http-proxy":       "http proxy",
+		"snap-https-proxy":      "https proxy",
+		"snap-store-proxy":      "store proxy",
+		"snap-store-assertions": "trust us",
+	})
+	cfg := s.facade.ProxyConfig(s.oneEntity())
+	s.state.Stub.CheckCallNames(c,
+		"ModelConfig",
+		"APIHostPortsForAgents",
+	)
+
+	expectedNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
+
+	c.Assert(cfg.Results[0], jc.DeepEquals, params.ProxyConfigResult{
+		LegacyProxySettings: params.ProxyConfig{NoProxy: expectedNoProxy},
+		SnapProxySettings: params.ProxyConfig{
+			HTTP: "http proxy", HTTPS: "https proxy"},
+		SnapEnterpriseProxyId:         "store proxy",
+		SnapEnterpriseProxyAssertions: "trust us",
+	})
+}
+
 type stubBackend struct {
 	*testing.Stub
 
