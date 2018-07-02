@@ -882,6 +882,7 @@ type applicationInfo struct {
 	constraints      constraints.Value
 	exposed          bool
 	storage          map[string]state.StorageConstraints
+	devices          map[string]state.DeviceConstraints
 	endpointBindings map[string]string
 }
 
@@ -924,12 +925,18 @@ func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]ap
 		if len(storage) == 0 {
 			storage = nil
 		}
+		devices, err := application.DeviceConstraints()
+		c.Assert(err, jc.ErrorIsNil)
+		if len(devices) == 0 {
+			devices = nil
+		}
 		deployed[application.Name()] = applicationInfo{
 			charm:       curl.String(),
 			config:      config,
 			constraints: constraints,
 			exposed:     application.IsExposed(),
 			storage:     storage,
+			devices:     devices,
 		}
 	}
 	c.Assert(deployed, jc.DeepEquals, info)

@@ -136,6 +136,16 @@ func (a *Application) storageConstraintsKey() string {
 	return applicationStorageConstraintsKey(a.doc.Name, a.doc.CharmURL)
 }
 
+func applicationDeviceConstraintsKey(appName string, curl *charm.URL) string {
+	return fmt.Sprintf("adc#%s#%s", appName, curl) // ?????? adc
+}
+
+// deviceConstraintsKey returns the charm-version-specific device
+// constraints collection key for the application.
+func (a *Application) deviceConstraintsKey() string {
+	return applicationDeviceConstraintsKey(a.doc.Name, a.doc.CharmURL)
+}
+
 // Series returns the specified series for this charm.
 func (a *Application) Series() string {
 	return a.doc.Series
@@ -2108,6 +2118,17 @@ func (a *Application) SetMetricCredentials(b []byte) error {
 // StorageConstraints returns the storage constraints for the application.
 func (a *Application) StorageConstraints() (map[string]StorageConstraints, error) {
 	cons, err := readStorageConstraints(a.st, a.storageConstraintsKey())
+	if errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cons, nil
+}
+
+// DeviceConstraints returns the storage constraints for the application.
+func (a *Application) DeviceConstraints() (map[string]DeviceConstraints, error) {
+	cons, err := readDeviceConstraints(a.st, a.deviceConstraintsKey())
 	if errors.IsNotFound(err) {
 		return nil, nil
 	} else if err != nil {

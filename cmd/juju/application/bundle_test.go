@@ -174,6 +174,33 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
 	})
 }
 
+func (s *BundleDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
+	_, minerCharm := testcharms.UploadCharm(c, s.client, "xenial/miner-42", "miner-devices")
+	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-dashboard-with-miner-backend", "wordpress-dashboard-with-miner-backend")
+	err := runDeploy(
+		c, "bundle/wordpress-dashboard-with-miner-backend",
+		"--storage", "miner:bitcoinminer=10,nvidia.com/gpu", // override bitcoinminer
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCharmsUploaded(c, "cs:xenial/wordpress-47")
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"miner": {
+			charm:  "cs:xenial/miner-42",
+			config: minerCharm.Config().DefaultSettings(),
+			devices: map[string]state.DeviceConstraints{
+				"bitcoinminer": {Type: "nvidia.com/gpu", Count: 10},
+			},
+		},
+		"wordpress": {charm: "cs:xenial/wordpress-47", config: wpch.Config().DefaultSettings()},
+	})
+	s.assertRelationsEstablished(c, "wordpress:db miner:server")
+	s.assertUnitsCreated(c, map[string]string{
+		"miner/0":     "0",
+		"wordpress/0": "1",
+	})
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissing(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "xenial/wordpress-extra-bindings-47", "wordpress-extra-bindings")
