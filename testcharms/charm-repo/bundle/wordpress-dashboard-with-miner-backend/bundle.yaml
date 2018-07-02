@@ -2,10 +2,10 @@ services:
     wordpress:
         charm: wordpress
         num_units: 1
-    mysql:
-        charm: mysql
+    miner:
+        charm: miner
         num_units: 1
         devices:
             bitcoinminer: 1,nvidia.com/gpu
 relations:
-    - ["wordpress:db", "mysql:server"]
+    - ["wordpress:db", "miner:server"]
