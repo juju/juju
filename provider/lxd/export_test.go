@@ -17,12 +17,12 @@ var (
 func NewProviderWithMocks(
 	creds environs.ProviderCredentials,
 	interfaceAddress InterfaceAddress,
-	newLocalSever func() (ProviderLXDServer, error),
+	newLocalSever ServerFactory,
 ) environs.EnvironProvider {
 	return &environProvider{
 		ProviderCredentials: creds,
 		interfaceAddress:    interfaceAddress,
-		newLocalServer:      newLocalSever,
+		serverFactory:       newLocalSever,
 	}
 }
 
@@ -30,13 +30,13 @@ func NewProviderCredentials(
 	certReadWriter CertificateReadWriter,
 	certGenerator CertificateGenerator,
 	lookup NetLookup,
-	newLocalServer func() (ProviderLXDServer, error),
+	serverFactory ServerFactory,
 ) environs.ProviderCredentials {
 	return environProviderCredentials{
 		certReadWriter: certReadWriter,
 		certGenerator:  certGenerator,
 		lookup:         lookup,
-		newLocalServer: newLocalServer,
+		serverFactory:  serverFactory,
 	}
 }
 

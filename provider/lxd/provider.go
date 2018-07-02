@@ -4,7 +4,12 @@
 package lxd
 
 import (
+	"fmt"
+	"net"
+	"net/url"
+	"os"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/juju/errors"
@@ -13,8 +18,6 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
-	client "github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/shared/api"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
@@ -25,19 +28,9 @@ import (
 	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 
-// ProviderLXDServer provides methods for the Provider and the
-// ProviderCredentials to query.
-//go:generate mockgen -package lxd -destination provider_mock_test.go github.com/juju/juju/provider/lxd ProviderLXDServer,InterfaceAddress
-type ProviderLXDServer interface {
-	GetConnectionInfo() (*client.ConnectionInfo, error)
-	LocalBridgeName() string
-	GetCertificate(string) (certificate *api.Certificate, ETag string, err error)
-	CreateClientCertificate(*lxd.Certificate) error
-	ServerCertificate() string
-}
-
 // InterfaceAddress groups methods that is required to find addresses
 // for a given interface
+//go:generate mockgen -package lxd -destination provider_mock_test.go github.com/juju/juju/provider/lxd InterfaceAddress
 type InterfaceAddress interface {
 
 	// InterfaceAddress looks for the network interface
@@ -50,7 +43,7 @@ type InterfaceAddress interface {
 type environProvider struct {
 	environs.ProviderCredentials
 	interfaceAddress InterfaceAddress
-	newLocalServer   func() (ProviderLXDServer, error)
+	serverFactory    ServerFactory
 	Clock            clock.Clock
 }
 
@@ -79,15 +72,16 @@ var cloudSchema = &jsonschema.Schema{
 
 // NewProvider returns a new LXD EnvironProvider.
 func NewProvider() environs.CloudEnvironProvider {
+	factory := serverFactory{}
 	return &environProvider{
 		ProviderCredentials: environProviderCredentials{
 			certReadWriter: certificateReadWriter{},
 			certGenerator:  certificateGenerator{},
 			lookup:         netLookup{},
-			newLocalServer: createLXDServer,
+			serverFactory:  factory,
 		},
 		interfaceAddress: interfaceAddress{},
-		newLocalServer:   createLXDServer,
+		serverFactory:    factory,
 	}
 }
 
@@ -107,7 +101,7 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 		local,
 		args.Cloud,
 		args.Config,
-		newServer,
+		p.serverFactory,
 	)
 	return env, errors.Trace(err)
 }
@@ -217,7 +211,7 @@ func (p *environProvider) FinalizeCloud(
 }
 
 func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext) (string, error) {
-	svr, err := p.newLocalServer()
+	svr, err := p.serverFactory.LocalServer()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -259,7 +253,7 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 			// Requesting a NewLocalServer forces a new connection, so that when
 			// we GetConnectionInfo it gets the required addresses.
 			// Note: this modifies the outer svr server.
-			if svr, err = p.newLocalServer(); err != nil {
+			if svr, err = p.serverFactory.LocalServer(); err != nil {
 				return errors.Trace(err)
 			}
 
@@ -286,32 +280,6 @@ func (p *environProvider) clock() clock.Clock {
 		return clock.WallClock
 	}
 	return p.Clock
-}
-
-func createLXDServer() (ProviderLXDServer, error) {
-	svr, err := lxd.NewLocalServer()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// We need to get a default profile, so that the local bridge name
-	// can be discovered correctly to then get the host address.
-	defaultProfile, profileETag, err := svr.GetProfile("default")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if err := svr.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// LXD itself reports the host:ports that it listens on.
-	// Cross-check the address we have with the values reported by LXD.
-	if err := svr.EnableHTTPSListener(); err != nil {
-		return nil, errors.Annotate(err, "enabling HTTPS listener")
-	}
-
-	return svr, nil
 }
 
 // localhostCloud is the predefined "localhost" LXD cloud. We leave the
@@ -394,4 +362,116 @@ type interfaceAddress struct{}
 
 func (interfaceAddress) InterfaceAddress(interfaceName string) (string, error) {
 	return utils.GetAddressForInterface(interfaceName)
+}
+
+type serverFactory struct{}
+
+func (serverFactory) LocalServer() (Server, error) {
+	svr, err := lxd.NewLocalServer()
+	if err != nil {
+		err = hoistLocalConnectErr(err)
+		return nil, errors.Trace(err)
+	}
+
+	// We need to get a default profile, so that the local bridge name
+	// can be discovered correctly to then get the host address.
+	defaultProfile, profileETag, err := svr.GetProfile("default")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := svr.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// LXD itself reports the host:ports that it listens on.
+	// Cross-check the address we have with the values reported by LXD.
+	if err := svr.EnableHTTPSListener(); err != nil {
+		return nil, errors.Annotate(err, "enabling HTTPS listener")
+	}
+
+	return svr, nil
+}
+
+func (s serverFactory) RemoteServer(spec environs.CloudSpec) (Server, error) {
+	if spec.Endpoint == "" {
+		return s.LocalServer()
+	}
+
+	clientCert, serverCert, ok := getCertificates(spec)
+	if !ok {
+		return nil, errors.NotValidf("credentials")
+	}
+	serverSpec := lxd.NewServerSpec(spec.Endpoint, serverCert, clientCert)
+	prov, err := lxd.NewRemoteServer(serverSpec)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return prov, nil
+}
+
+func getMessageFromErr(err error) (bool, string) {
+	msg := err.Error()
+	t, ok := errors.Cause(err).(*url.Error)
+	if !ok {
+		return false, msg
+	}
+
+	u, ok := t.Err.(*net.OpError)
+	if !ok {
+		return false, msg
+	}
+
+	if u.Op == "dial" && u.Net == "unix" {
+		var lxdErr error
+
+		sysErr, ok := u.Err.(*os.SyscallError)
+		if ok {
+			lxdErr = sysErr.Err
+		} else {
+			// Try a syscall.Errno as that is what's returned for CentOS
+			errno, ok := u.Err.(syscall.Errno)
+			if !ok {
+				return false, msg
+			}
+			lxdErr = errno
+		}
+
+		switch lxdErr {
+		case syscall.ENOENT:
+			return false, "LXD socket not found; is LXD installed & running?"
+		case syscall.ECONNREFUSED:
+			return true, "LXD refused connections; is LXD running?"
+		case syscall.EACCES:
+			return true, "Permission denied, are you in the lxd group?"
+		}
+	}
+
+	return false, msg
+}
+
+func hoistLocalConnectErr(err error) error {
+
+	installed, msg := getMessageFromErr(err)
+
+	configureText := `
+Please configure LXD by running:
+	$ newgrp lxd
+	$ lxd init
+`
+
+	installText := `
+Please install LXD by running:
+	$ sudo snap install lxd
+and then configure it with:
+	$ newgrp lxd
+	$ lxd init
+`
+
+	hint := installText
+	if installed {
+		hint = configureText
+	}
+
+	return errors.Trace(fmt.Errorf("%s\n%s", msg, hint))
 }

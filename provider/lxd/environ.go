@@ -22,6 +22,9 @@ import (
 
 const bootstrapMessage = `To configure your system to better support LXD containers, please see: https://github.com/lxc/lxd/blob/master/doc/production-setup.md`
 
+// Server defines an interface of all localized methods that the environment
+// and provider utilizes.
+//go:generate mockgen -package lxd -destination environ_mock_test.go github.com/juju/juju/provider/lxd Server,ServerFactory
 type Server interface {
 	FindImage(string, string, []lxd.ServerSpec, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
 	GetServer() (server *lxdapi.Server, ETag string, err error)
@@ -50,6 +53,19 @@ type Server interface {
 	CreateVolume(pool, name string, config map[string]string) error
 	UpdateStoragePoolVolume(pool string, volType string, name string, volume lxdapi.StorageVolumePut, ETag string) error
 	DeleteStoragePoolVolume(pool string, volType string, name string) (err error)
+	ServerCertificate() string
+}
+
+// ServerFactory creates a new factory for creating servers that are required
+// by the server.
+type ServerFactory interface {
+	// LocalServer creates a new lxd server and augments and wraps the lxd
+	// server, by ensuring sane defaults exist with network, storage.
+	LocalServer() (Server, error)
+	// RemoteServer creates a new server that connects to a remote lxd server.
+	// If the cloudSpec endpoint is nil or empty, it will assume that you want
+	// to connection to a local server and will instead use that one.
+	RemoteServer(environs.CloudSpec) (Server, error)
 }
 
 type baseProvider interface {
@@ -76,14 +92,12 @@ type environ struct {
 	ecfg *environConfig
 }
 
-type newServerFunc func(environs.CloudSpec, bool) (Server, error)
-
 func newEnviron(
 	_ *environProvider,
 	local bool,
 	spec environs.CloudSpec,
 	cfg *config.Config,
-	newServer newServerFunc,
+	serverFactory ServerFactory,
 ) (*environ, error) {
 	ecfg, err := newValidConfig(cfg)
 	if err != nil {
@@ -95,7 +109,7 @@ func newEnviron(
 		return nil, errors.Trace(err)
 	}
 
-	server, err := newServer(spec, local)
+	server, err := serverFactory.RemoteServer(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

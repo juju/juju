@@ -70,7 +70,7 @@ type environProviderCredentials struct {
 	certReadWriter CertificateReadWriter
 	certGenerator  CertificateGenerator
 	lookup         NetLookup
-	newLocalServer func() (ProviderLXDServer, error)
+	serverFactory  ServerFactory
 }
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
@@ -99,7 +99,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
 func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
-	svr, err := p.newLocalServer()
+	svr, err := p.serverFactory.LocalServer()
 	if err != nil {
 		return nil, errors.NewNotFound(err, "failed to connect to local LXD")
 	}
@@ -246,7 +246,7 @@ this client using "juju add-credential localhost".
 See: https://jujucharms.com/docs/stable/clouds-LXD
 `, prefix)
 	}
-	svr, err := p.newLocalServer()
+	svr, err := p.serverFactory.LocalServer()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -259,7 +259,7 @@ See: https://jujucharms.com/docs/stable/clouds-LXD
 
 func (p environProviderCredentials) finalizeLocalCertificateCredential(
 	output io.Writer,
-	svr ProviderLXDServer,
+	svr Server,
 	certPEM, keyPEM, label string,
 ) (*cloud.Credential, error) {
 

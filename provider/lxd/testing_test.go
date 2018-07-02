@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -29,9 +30,10 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	jujulxdclient "github.com/juju/juju/tools/lxdclient"
 )
 
 // Ensure LXD provider supports the expected interfaces.
@@ -297,7 +299,7 @@ func (s *BaseSuiteUnpatched) IsRunningLocally(c *gc.C) bool {
 	restore := gitjujutesting.PatchEnvPathPrepend(s.osPathOrig)
 	defer restore()
 
-	running, err := jujulxdclient.IsRunningLocally()
+	running, err := IsRunningLocally()
 	c.Assert(err, jc.ErrorIsNil)
 	return running
 }
@@ -430,6 +432,7 @@ type StubClient struct {
 	Server             *api.Server
 	StorageIsSupported bool
 	Volumes            map[string][]api.StorageVolume
+	ServerCert         string
 }
 
 func (conn *StubClient) FilterContainers(prefix string, statuses ...string) ([]lxd.Container, error) {
@@ -623,4 +626,50 @@ func (conn *StubClient) WriteContainer(container *lxd.Container) error {
 func (conn *StubClient) CreateProfileWithConfig(name string, cfg map[string]string) error {
 	conn.AddCall("CreateProfileWithConfig", name, cfg)
 	return conn.NextErr()
+}
+
+func (conn *StubClient) ServerCertificate() string {
+	conn.AddCall("ServerCertificate")
+	return conn.ServerCert
+}
+
+// IsInstalledLocally returns true if LXD is installed locally.
+func IsInstalledLocally() (bool, error) {
+	names, err := service.ListServices()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	for _, name := range names {
+		if name == "lxd" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// IsRunningLocally returns true if LXD is running locally.
+func IsRunningLocally() (bool, error) {
+	installed, err := IsInstalledLocally()
+	if err != nil {
+		return installed, errors.Trace(err)
+	}
+	if !installed {
+		return false, nil
+	}
+
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	svc, err := service.NewService("lxd", common.Conf{}, hostSeries)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	running, err := svc.Running()
+	if err != nil {
+		return running, errors.Trace(err)
+	}
+
+	return running, nil
 }

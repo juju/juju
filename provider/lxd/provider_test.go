@@ -124,16 +124,14 @@ func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
 func (s *providerSuite) createProvider(ctrl *gomock.Controller) (environs.EnvironProvider,
 	*testing.MockProviderCredentials,
 	*lxd.MockInterfaceAddress,
-	*lxd.MockProviderLXDServer,
+	*lxd.MockServerFactory,
 ) {
-	server := lxd.NewMockProviderLXDServer(ctrl)
 	creds := testing.NewMockProviderCredentials(ctrl)
 	interfaceAddress := lxd.NewMockInterfaceAddress(ctrl)
+	factory := lxd.NewMockServerFactory(ctrl)
 
-	provider := lxd.NewProviderWithMocks(creds, interfaceAddress, func() (lxd.ProviderLXDServer, error) {
-		return server, nil
-	})
-	return provider, creds, interfaceAddress, server
+	provider := lxd.NewProviderWithMocks(creds, interfaceAddress, factory)
+	return provider, creds, interfaceAddress, factory
 }
 
 func (s *providerSuite) TestFinalizeCloudWithRemoteProvider(c *gc.C) {
@@ -199,9 +197,12 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithMixedRegions(c *g
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	provider, _, interfaceAddress, server := s.createProvider(ctrl)
+	provider, _, interfaceAddress, factory := s.createProvider(ctrl)
 	cloudFinalizer := provider.(environs.CloudFinalizer)
 
+	server := lxd.NewMockServer(ctrl)
+
+	factory.EXPECT().LocalServer().Return(server, nil)
 	server.EXPECT().LocalBridgeName().Return("lxdbr0")
 	server.EXPECT().GetConnectionInfo().Return(&client.ConnectionInfo{
 		Addresses: []string{
@@ -245,9 +246,12 @@ func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	provider, _, interfaceAddress, server := s.createProvider(ctrl)
+	provider, _, interfaceAddress, factory := s.createProvider(ctrl)
 	cloudFinalizer := provider.(environs.CloudFinalizer)
 
+	server := lxd.NewMockServer(ctrl)
+
+	factory.EXPECT().LocalServer().Return(server, nil)
 	server.EXPECT().LocalBridgeName().Return("lxdbr0")
 	server.EXPECT().GetConnectionInfo().Return(nil, errors.New("not found"))
 	interfaceAddress.EXPECT().InterfaceAddress("lxdbr0").Return("192.0.0.1", nil)
