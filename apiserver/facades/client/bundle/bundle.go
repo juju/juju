@@ -133,6 +133,7 @@ func (b bundleAPI) ExportBundle(args params.ExportBundleParams) (params.BundleDa
 		app[application.Name()].Charm = application.CharmURL()
 		app[application.Name()].Series = application.Series()
 		app[application.Name()].NumUnits = len(application.Units())
+		// TODO: Vinu2003 - need to implement a method for TO attribute.
 		//app[application.Name()].To              = application.To
 		app[application.Name()].Expose = application.Exposed()
 		app[application.Name()].Options = application.CharmConfig()
