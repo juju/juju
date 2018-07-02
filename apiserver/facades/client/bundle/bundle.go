@@ -133,8 +133,13 @@ func (b bundleAPI) ExportBundle(args params.ExportBundleParams) (params.BundleDa
 		app[application.Name()].Charm = application.CharmURL()
 		app[application.Name()].Series = application.Series()
 		app[application.Name()].NumUnits = len(application.Units())
-		// TODO: Vinu2003 - need to implement a method for TO attribute.
-		//app[application.Name()].To              = application.To
+		// TODO: Vinu2003 - need to verify this.
+		ut := []string{}
+		for _, unit := range application.Units() {
+			ut = append(ut, unit.Machine().Id())
+		}
+		app[application.Name()].To = ut
+
 		app[application.Name()].Expose = application.Exposed()
 		app[application.Name()].Options = application.CharmConfig()
 		app[application.Name()].Annotations = application.Annotations()
@@ -156,8 +161,9 @@ func (b bundleAPI) ExportBundle(args params.ExportBundleParams) (params.BundleDa
 		mac[machine.Id()].Series = machine.Series()
 	}
 
-	rel := [][]string{}
 	// Fill in the relation for BundleData.
+	rel := [][]string{}
+
 	for _, relation := range model.Relations() {
 		endpointRelation := []string{}
 		for _, endpoint := range relation.Endpoints() {
