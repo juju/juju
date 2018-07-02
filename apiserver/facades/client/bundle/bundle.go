@@ -156,10 +156,20 @@ func (b bundleAPI) ExportBundle(args params.ExportBundleParams) (params.BundleDa
 		mac[machine.Id()].Series = machine.Series()
 	}
 
+	rel := [][]string{}
+	// Fill in the relation for BundleData.
+	for _, relation := range model.Relations() {
+		endpointRelation := []string{}
+		for _, endpoint := range relation.Endpoints() {
+			endpointRelation = append(endpointRelation, endpoint.ApplicationName()+":"+endpoint.Name())
+		}
+		rel = append(rel, endpointRelation)
+	}
 	result = params.BundleData{
 		Applications: app,
 		Machines:     mac,
 		Series:       series.LatestLts(),
+		Relations:    rel,
 	}
 	return result, nil
 }
