@@ -75,43 +75,30 @@ type environProviderCredentials struct {
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	makeCredentials := func(filePath bool) cloud.CredentialSchema {
+		return cloud.CredentialSchema{{
+			Name: credAttrServerCert,
+			CredentialAttr: cloud.CredentialAttr{
+				Description: "The LXD server certificate, PEM-encoded.",
+				FilePath:    filePath,
+			},
+		}, {
+			Name: credAttrClientCert,
+			CredentialAttr: cloud.CredentialAttr{
+				Description: "The LXD client certificate, PEM-encoded.",
+				FilePath:    filePath,
+			},
+		}, {
+			Name: credAttrClientKey,
+			CredentialAttr: cloud.CredentialAttr{
+				Description: "The LXD client key, PEM-encoded.",
+				FilePath:    filePath,
+			},
+		}}
+	}
 	return map[cloud.AuthType]cloud.CredentialSchema{
-		interactiveAuthType: {{
-			credAttrServerCert,
-			cloud.CredentialAttr{
-				Description: "The LXD server certificate, PEM-encoded.",
-				FilePath:    true,
-			},
-		}, {
-			credAttrClientCert,
-			cloud.CredentialAttr{
-				Description: "The LXD client certificate, PEM-encoded.",
-				FilePath:    true,
-			},
-		}, {
-			credAttrClientKey,
-			cloud.CredentialAttr{
-				Description: "The LXD client key, PEM-encoded.",
-				FilePath:    true,
-			},
-		}},
-
-		cloud.CertificateAuthType: {{
-			credAttrServerCert,
-			cloud.CredentialAttr{
-				Description: "The LXD server certificate, PEM-encoded.",
-			},
-		}, {
-			credAttrClientCert,
-			cloud.CredentialAttr{
-				Description: "The LXD client certificate, PEM-encoded.",
-			},
-		}, {
-			credAttrClientKey,
-			cloud.CredentialAttr{
-				Description: "The LXD client key, PEM-encoded.",
-			},
-		}},
+		interactiveAuthType:       makeCredentials(true),
+		cloud.CertificateAuthType: makeCredentials(false),
 	}
 }
 
