@@ -79,20 +79,20 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 		return cloud.CredentialSchema{{
 			Name: credAttrServerCert,
 			CredentialAttr: cloud.CredentialAttr{
-				Description: "The LXD server certificate, PEM-encoded.",
-				FilePath:    filePath,
+				Description:    "The LXD server certificate, PEM-encoded.",
+				ExpandFilePath: filePath,
 			},
 		}, {
 			Name: credAttrClientCert,
 			CredentialAttr: cloud.CredentialAttr{
-				Description: "The LXD client certificate, PEM-encoded.",
-				FilePath:    filePath,
+				Description:    "The LXD client certificate, PEM-encoded.",
+				ExpandFilePath: filePath,
 			},
 		}, {
 			Name: credAttrClientKey,
 			CredentialAttr: cloud.CredentialAttr{
-				Description: "The LXD client key, PEM-encoded.",
-				FilePath:    filePath,
+				Description:    "The LXD client key, PEM-encoded.",
+				ExpandFilePath: filePath,
 			},
 		}}
 	}

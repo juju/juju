@@ -31,7 +31,7 @@ var cloudSchema = &jsonschema.Schema{
 	// order if this changes.
 	Properties: map[string]*jsonschema.Schema{
 		cloud.EndpointKey: {
-			Singular: "the API endpoint url for the remote LXD cloud",
+			Singular: "the API endpoint url for the remote LXD server",
 			Type:     []jsonschema.Type{jsonschema.StringType},
 			Format:   jsonschema.FormatURI,
 		},
