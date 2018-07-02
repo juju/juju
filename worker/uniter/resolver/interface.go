@@ -98,4 +98,8 @@ type LocalState struct {
 	// Series is the current series running on the unit from remotestate.Snapshot
 	// for which a config-changed hook has been committed.
 	Series string
+
+	// UpgradeSeriesStatus is the current state of any currently running
+	// series upgrade or the empty string if no series upgrade has been started.
+	UpgradeSeriesStatus string
 }
