@@ -719,7 +719,6 @@ func (s *unitSuite) TestUpgradeSeriesStatus(c *gc.C) {
 	// the lock essentially kicks off an upgrade for the perspective of assigned units.
 	status, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Assert(status, gc.Equals, "preparing")
 }
 

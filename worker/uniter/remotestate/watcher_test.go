@@ -279,6 +279,9 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	s.st.unit.relationsWatcher.changes <- []string{}
 	assertOneChange()
 
+	s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
+	assertOneChange()
+
 	s.clock.Advance(5 * time.Minute)
 	assertOneChange()
 }

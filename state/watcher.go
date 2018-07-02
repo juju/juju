@@ -1650,7 +1650,7 @@ func (u *Unit) WatchUpgradeSeriesNotifications() (NotifyWatcher, error) {
 func (u *Unit) UpgradeSeriesStatus() (string, error) {
 	machine, err := u.machine()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	return machine.UpgradeSeriesStatus()
 }

@@ -862,3 +862,14 @@ func (w *RemoteStateWatcher) watchStorageAttachment(
 	w.storageAttachmentWatchers[tag] = innerSAW
 	return nil
 }
+
+func (w *RemoteStateWatcher) watchUpgradeSeries() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	status, err := w.unit.UpgradeSeriesStatus()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.current.UpgradeSeriesStatus = status
+	return nil
+}

@@ -2205,7 +2205,7 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 
 // UpgradeSeriesStatus returns the status of a series upgrade.
 func (m *Machine) UpgradeSeriesStatus() (string, error) {
-	return "", nil
+	return "preparing", nil
 }
 
 func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLock) []txn.Op {

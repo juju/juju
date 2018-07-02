@@ -266,6 +266,10 @@ func (u *mockUnit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, err
 	return u.upgradeSeriesWatcher, nil
 }
 
+func (u *mockUnit) UpgradeSeriesStatus() (string, error) {
+	return "prepare", nil
+}
+
 type mockApplication struct {
 	tag                   names.ApplicationTag
 	life                  params.Life

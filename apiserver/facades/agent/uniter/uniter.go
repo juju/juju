@@ -1022,7 +1022,7 @@ func (u *UniterAPI) WatchUpgradeSeriesNotifications(args params.Entities) (param
 
 func (u *UniterAPI) UpgradeSeriesStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
 	result := params.UpgradeSeriesStatusResults{
-		Results: make([]params.UpgradeSeriesStatusResults, len(args.Entities)),
+		Results: make([]params.UpgradeSeriesStatusResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
@@ -1040,11 +1040,16 @@ func (u *UniterAPI) UpgradeSeriesStatus(args params.Entities) (params.UpgradeSer
 			continue
 		}
 		unit, err := u.getUnit(tag)
-		unit.GetMachineUpgradeSeriesStatus()
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
+		status, err := unit.UpgradeSeriesStatus()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		result.Results[i].Status = status
 	}
 
 	return result, nil

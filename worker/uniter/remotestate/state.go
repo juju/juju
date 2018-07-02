@@ -48,7 +48,7 @@ type Unit interface {
 	// WatchRelation returns a watcher that fires when relations
 	// relevant for this unit change.
 	WatchRelations() (watcher.StringsWatcher, error)
-	UpgradeSeriesStatus() string
+	UpgradeSeriesStatus() (string, error)
 }
 
 type Application interface {
