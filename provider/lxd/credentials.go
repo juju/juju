@@ -184,6 +184,8 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 
 // FinalizeCredential is part of the environs.ProviderCredentials interface.
 func (p environProviderCredentials) FinalizeCredential(ctx environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+	// TODO (stickupkid): if there are no server certs for the following, use
+	// the lxd API
 	switch authType := args.Credential.AuthType(); authType {
 	case interactiveAuthType:
 		// if we have all the credential files, then it should be as simple
