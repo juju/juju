@@ -2062,12 +2062,14 @@ func (s *ProcessBundleOverlaySuite) TestRemainingFields(c *gc.C) {
                 resources:
                     something: or other
                 to:
-                  - 3
+                - 3
                 constraints: big machine
                 storage:
-                  disk: big
+                    disk: big
+                devices:
+                    gpu: 1,nvidia.com/gpu
                 bindings:
-                  where: dmz
+                    where: dmz
     `
 	filename := s.writeFile(c, config)
 	err := processBundleOverlay(s.bundleData, filename)
@@ -2082,6 +2084,8 @@ func (s *ProcessBundleOverlaySuite) TestRemainingFields(c *gc.C) {
 	c.Check(django.Constraints, gc.Equals, "big machine")
 	c.Check(django.Storage, jc.DeepEquals, map[string]string{
 		"disk": "big"})
+	c.Check(django.Devices, jc.DeepEquals, map[string]string{
+		"gpu": "1,nvidia.com/gpu"})
 	c.Check(django.EndpointBindings, jc.DeepEquals, map[string]string{
 		"where": "dmz"})
 }

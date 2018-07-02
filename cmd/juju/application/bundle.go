@@ -84,19 +84,23 @@ func deployBundle(
 		_, err := storage.ParseConstraints(s)
 		return err
 	}
+	verifyDevices := func(s string) error {
+		_, err := devices.ParseConstraints(s)
+		return err
+	}
 	var verifyError error
 	if bundleDir == "" {
 		// Process includes in the bundle data.
 		if err := processBundleIncludes(ctx.Dir, data); err != nil {
 			return nil, errors.Annotate(err, "unable to process includes")
 		}
-		verifyError = data.Verify(verifyConstraints, verifyStorage)
+		verifyError = data.Verify(verifyConstraints, verifyStorage, verifyDevices)
 	} else {
 		// Process includes in the bundle data.
 		if err := processBundleIncludes(bundleDir, data); err != nil {
 			return nil, errors.Annotate(err, "unable to process includes")
 		}
-		verifyError = data.VerifyLocal(bundleDir, verifyConstraints, verifyStorage)
+		verifyError = data.VerifyLocal(bundleDir, verifyConstraints, verifyStorage, verifyDevices)
 	}
 	if verifyError != nil {
 		if verr, ok := verifyError.(*charm.VerificationError); ok {
@@ -530,6 +534,24 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 			storageConstraints[k] = cons
 		}
 	}
+	deviceConstraints := h.bundleDevices[p.Application]
+	if len(p.Devices) > 0 {
+		if deviceConstraints == nil {
+			deviceConstraints = make(map[string]devices.Constraints)
+		}
+		for k, v := range p.Devices {
+			if _, ok := deviceConstraints[k]; ok {
+				// Device constraints overridden
+				// on the command line.
+				continue
+			}
+			cons, err := devices.ParseConstraints(v)
+			if err != nil {
+				return errors.Annotate(err, "invalid device constraints")
+			}
+			deviceConstraints[k] = cons
+		}
+	}
 	resources := h.makeResourceMap(p.Resources, p.LocalResources)
 	charmInfo, err := h.api.CharmInfo(ch)
 	if err != nil {
@@ -572,6 +594,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		Series:           series,
 		ConfigYAML:       configYAML,
 		Storage:          storageConstraints,
+		Devices:          deviceConstraints,
 		Resources:        resNames2IDs,
 		EndpointBindings: p.EndpointBindings,
 	}); err != nil {
@@ -1267,6 +1290,14 @@ func processSingleBundleOverlay(data *charm.BundleData, bundleOverlayFile string
 			}
 			for key, value := range bc.Storage {
 				app.Storage[key] = value
+			}
+		}
+		if _, set := fieldCheck["devices"]; set {
+			if app.Devices == nil {
+				app.Devices = make(map[string]string)
+			}
+			for key, value := range bc.Devices {
+				app.Devices[key] = value
 			}
 		}
 		if _, set := fieldCheck["bindings"]; set {

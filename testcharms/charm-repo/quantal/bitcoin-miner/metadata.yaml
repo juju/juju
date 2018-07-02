@@ -1,0 +1,9 @@
+name: miner
+summary: "bitcoin miner"
+description: "A powerful bitcoin miner"
+provides:
+  server: miner
+devices:
+  bitcoinminer:
+    type: nvidia.com/gpu
+    count: 1
