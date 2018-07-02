@@ -217,8 +217,41 @@ type instanceData struct {
 // upgradeSeriesLock holds the attributes relevant to lock a machine during a
 // series update of a machine
 type upgradeSeriesLock struct {
-	Id string
+	Id             string                     `bson:"machineid"`
+	ToSeries       string                     `bson:"toseries"`
+	FromSeries     string                     `bson:"fromseries"`
+	PrepareStatus  MachineSeriesUpgradeStatus `bson:"preparestatus"`
+	PrepareUnits   []unitStatus               `bson:"prepareunits"`
+	CompleteStatus MachineSeriesUpgradeStatus `bson:"completestatus"`
+	CompleteUnits  []unitStatus               `bson:"completeunits"`
 }
+
+type unitStatus struct {
+	Id     string
+	Status UnitSeriesUpgradeStatus
+}
+
+type MachineSeriesUpgradeStatus int
+
+//go:generate stringer -type MachineSeriesUpgradeStatus
+const (
+	NotStarted MachineSeriesUpgradeStatus = iota
+	Started
+	UnitsRunning
+	JujuComplete
+	AgentsStopped
+	Complete
+)
+
+type UnitSeriesUpgradeStatus int
+
+//go:generate stringer -type UnitSeriesUpgradeStatus
+const (
+	UnitNotStarted UnitSeriesUpgradeStatus = iota
+	UnitStarted
+	UnitErrored
+	UnitCompleted
+)
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
 	return &instance.HardwareCharacteristics{
@@ -2061,7 +2094,7 @@ func (m *Machine) VerifyUnitsSeries(unitNames []string, series string, force boo
 // this item exists in the database for a given machine it indicates that a
 // machine's operating system is being upgraded from one series to another - for
 // example from xenial to bionic.
-func (m *Machine) CreateUpgradeSeriesLock() error {
+func (m *Machine) CreateUpgradeSeriesLock(unitNames []string, toSeries string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2076,10 +2109,23 @@ func (m *Machine) CreateUpgradeSeriesLock() error {
 			return nil, errors.AlreadyExistsf("upgrade series lock for machine %q", m)
 		}
 		if err = m.isStillAlive(); err != nil {
-			return nil, errors.Wrap(jujutxn.ErrNoOperations, err)
+			return nil, errors.Trace(err)
+		}
+		// Exit early if the Machine series doesn't need to change.
+		fromSeries := m.Series()
+		if fromSeries == toSeries {
+			return nil, errors.Trace(errors.Errorf("machine %s already at series %s", m.Id(), toSeries))
+		}
+		// If the units have changed, the verification is no longer valid.
+		changed, err := m.unitsHaveChanged(unitNames)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if changed {
+			return nil, errors.Errorf("Units have changed, please retry (%v)", unitNames)
 		}
 
-		data := &upgradeSeriesLock{Id: m.Id()}
+		data := m.prepareUpgradeSeriesLock(unitNames, toSeries)
 		return createUpgradeSeriesLockTxnOps(m.doc.Id, data), nil
 	}
 	err := m.st.db().Run(buildTxn)
@@ -2090,6 +2136,43 @@ func (m *Machine) CreateUpgradeSeriesLock() error {
 	}
 
 	return nil
+}
+
+func (m *Machine) unitsHaveChanged(unitNames []string) (bool, error) {
+	curUnits, err := m.Units()
+	if err != nil {
+		return true, err
+	}
+	if len(curUnits) == 0 && len(unitNames) == 0 {
+		return false, nil
+	}
+	if len(curUnits) != len(unitNames) {
+		return true, nil
+	}
+	curUnitSet := set.NewStrings()
+	for _, unit := range curUnits {
+		curUnitSet.Add(unit.Name())
+	}
+	unitNameSet := set.NewStrings(unitNames...)
+	return !unitNameSet.Difference(curUnitSet).IsEmpty(), nil
+}
+
+func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLock {
+	prepareUnits := make([]unitStatus, len(unitNames))
+	completeUnits := make([]unitStatus, len(unitNames))
+	for i, name := range unitNames {
+		prepareUnits[i] = unitStatus{Id: name, Status: UnitNotStarted}
+		completeUnits[i] = unitStatus{Id: name, Status: UnitNotStarted}
+	}
+	return &upgradeSeriesLock{
+		Id:             m.Id(),
+		ToSeries:       toSeries,
+		FromSeries:     m.Series(),
+		PrepareStatus:  NotStarted,
+		PrepareUnits:   prepareUnits,
+		CompleteStatus: NotStarted,
+		CompleteUnits:  completeUnits,
+	}
 }
 
 // RemoveUpgradeSeriesLock remove a series upgrade prepare lock for a

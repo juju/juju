@@ -2607,7 +2607,7 @@ func (s *MachineSuite) TestCreateUgradeSeriesLock(c *gc.C) {
 	locked, err := mach.IsLocked()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(locked, jc.IsFalse)
-	err = mach.CreateUpgradeSeriesLock()
+	err = mach.CreateUpgradeSeriesLock([]string{"wordpress/0", "multi-series/0", "multi-series-subordinate/0"}, "xenial")
 	c.Assert(err, jc.ErrorIsNil)
 	locked, err = mach.IsLocked()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2616,9 +2616,9 @@ func (s *MachineSuite) TestCreateUgradeSeriesLock(c *gc.C) {
 
 func (s *MachineSuite) TestCreateUgradeSeriesLockErrorsIfLockExists(c *gc.C) {
 	mach := s.setupTestUpdateMachineSeries(c)
-	err := mach.CreateUpgradeSeriesLock()
+	err := mach.CreateUpgradeSeriesLock([]string{"wordpress/0", "multi-series/0", "multi-series-subordinate/0"}, "xenial")
 	c.Assert(err, jc.ErrorIsNil)
-	err = mach.CreateUpgradeSeriesLock()
+	err = mach.CreateUpgradeSeriesLock([]string{}, "xenial")
 	c.Assert(err, gc.ErrorMatches, "upgrade series lock for machine \".*\" already exists")
 }
 
@@ -2629,8 +2629,23 @@ func (s *MachineSuite) TestDoesNotCreateUgradeSeriesLockOnDyingMachine(c *gc.C) 
 	err = mach.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = mach.CreateUpgradeSeriesLock()
+	err = mach.CreateUpgradeSeriesLock([]string{""}, "xenial")
 	c.Assert(err, gc.ErrorMatches, "machine not found or not alive")
+}
+
+func (s *MachineSuite) TestDoesNotCreateUgradeSeriesLockOnSameSeries(c *gc.C) {
+	mach, err := s.State.AddMachine("xenial", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = mach.CreateUpgradeSeriesLock([]string{""}, "xenial")
+	c.Assert(err, gc.ErrorMatches, "machine .* already at series xenial")
+}
+
+func (s *MachineSuite) TestDoesNotCreateUgradeSeriesLockUnitsChanged(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+
+	err := mach.CreateUpgradeSeriesLock([]string{"wordpress/0"}, "xenial")
+	c.Assert(err, gc.ErrorMatches, "Units have changed, please retry (.*)")
 }
 
 func (s *MachineSuite) TestRemoveUpgradeSeriesLockUnlocksMachine(c *gc.C) {
@@ -2638,7 +2653,7 @@ func (s *MachineSuite) TestRemoveUpgradeSeriesLockUnlocksMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineIsNOTLockedForPrepare(c, mach)
 
-	err = mach.CreateUpgradeSeriesLock()
+	err = mach.CreateUpgradeSeriesLock([]string{}, "xenial")
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineLockedForPrepare(c, mach)
 
@@ -2652,7 +2667,7 @@ func (s *MachineSuite) TestForceMarksSeriesLockUnlocksMachineForCleanup(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineIsNOTLockedForPrepare(c, mach)
 
-	err = mach.CreateUpgradeSeriesLock()
+	err = mach.CreateUpgradeSeriesLock([]string{}, "xenial")
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineLockedForPrepare(c, mach)
 
@@ -2669,6 +2684,32 @@ func (s *MachineSuite) TestForceMarksSeriesLockUnlocksMachineForCleanup(c *gc.C)
 	// checking to see if no lock exist for the machine should yield a
 	// positive result.
 	AssertMachineIsNOTLockedForPrepare(c, mach)
+}
+
+func (s *MachineSuite) TestUnitsHaveChangedFalse(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	changed, err := state.UnitsHaveChanged(mach, []string{"wordpress/0", "multi-series/0", "multi-series-subordinate/0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changed, jc.IsFalse)
+}
+
+func (s *MachineSuite) TestUnitsHaveChangedTrue(c *gc.C) {
+	mach := s.setupTestUpdateMachineSeries(c)
+	err := mach.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	changed, err := state.UnitsHaveChanged(mach, []string{"multi-series-subordinate/0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changed, jc.IsTrue)
+}
+
+func (s *MachineSuite) TestUnitsHaveChangedFalseNoUnits(c *gc.C) {
+	mach, err := s.State.AddMachine("xenial", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	changed, err := state.UnitsHaveChanged(mach, []string{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changed, jc.IsFalse)
 }
 
 func AssertMachineLockedForPrepare(c *gc.C, mach *state.Machine) {
