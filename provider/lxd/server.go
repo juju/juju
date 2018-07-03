@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/utils/proxy"
 
 	lxdclient "github.com/lxc/lxd/client"
 	lxdapi "github.com/lxc/lxd/shared/api"
@@ -165,7 +166,11 @@ func (s *serverFactory) RemoteServer(spec environs.CloudSpec) (Server, error) {
 	if !ok {
 		return nil, errors.NotValidf("credentials")
 	}
-	serverSpec := lxd.NewServerSpec(spec.Endpoint, serverCert, clientCert)
+	serverSpec := lxd.NewServerSpec(spec.Endpoint,
+		serverCert,
+		clientCert,
+	)
+	serverSpec.WithProxy(proxy.DefaultConfig.GetProxy)
 	prov, err := s.newRemoteServerFunc(serverSpec)
 	return prov, errors.Trace(err)
 }

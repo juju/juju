@@ -5,6 +5,8 @@ package lxd
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,6 +32,9 @@ type ServerSpec struct {
 	connectionArgs *lxd.ConnectionArgs
 }
 
+// ProxyFunc defines a function that can act as a proxy for requests
+type ProxyFunc func(*http.Request) (*url.URL, error)
+
 // NewServerSpec creates a ServerSpec with default values where needed.
 // It also ensures the HTTPS for the host implicitly
 func NewServerSpec(host, serverCert string, clientCert *Certificate) ServerSpec {
@@ -41,6 +46,12 @@ func NewServerSpec(host, serverCert string, clientCert *Certificate) ServerSpec 
 			TLSClientKey:  string(clientCert.KeyPEM),
 		},
 	}
+}
+
+// WithProxy adds the optional proxy to the server spec.
+func (s ServerSpec) WithProxy(proxy ProxyFunc) ServerSpec {
+	s.connectionArgs.Proxy = proxy
+	return s
 }
 
 // NewInsecureServerSpec creates a ServerSpec without certificate requirements,
