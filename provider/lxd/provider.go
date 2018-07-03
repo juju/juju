@@ -201,7 +201,7 @@ func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext)
 	}
 
 	bridgeName := svr.LocalBridgeName()
-	hostAddress, err := p.serverFactory.LocalServerHostName()
+	hostAddress, err := p.serverFactory.LocalServerAddress()
 	if err != nil {
 		return "", errors.Trace(err)
 	}

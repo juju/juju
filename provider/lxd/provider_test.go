@@ -195,7 +195,7 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithMixedRegions(c *g
 
 	factory.EXPECT().LocalServer().Return(server, nil)
 	server.EXPECT().LocalBridgeName().Return("lxdbr0")
-	factory.EXPECT().LocalServerHostName().Return("https://192.0.0.1:8443", nil)
+	factory.EXPECT().LocalServerAddress().Return("https://192.0.0.1:8443", nil)
 
 	cloudSpec := cloud.Cloud{
 		Name:      "localhost",

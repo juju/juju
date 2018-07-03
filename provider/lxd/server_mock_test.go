@@ -469,17 +469,17 @@ func (mr *MockServerFactoryMockRecorder) LocalServer() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalServer", reflect.TypeOf((*MockServerFactory)(nil).LocalServer))
 }
 
-// LocalServerHostName mocks base method
-func (m *MockServerFactory) LocalServerHostName() (string, error) {
-	ret := m.ctrl.Call(m, "LocalServerHostName")
+// LocalServerAddress mocks base method
+func (m *MockServerFactory) LocalServerAddress() (string, error) {
+	ret := m.ctrl.Call(m, "LocalServerAddress")
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// LocalServerHostName indicates an expected call of LocalServerHostName
-func (mr *MockServerFactoryMockRecorder) LocalServerHostName() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalServerHostName", reflect.TypeOf((*MockServerFactory)(nil).LocalServerHostName))
+// LocalServerAddress indicates an expected call of LocalServerAddress
+func (mr *MockServerFactoryMockRecorder) LocalServerAddress() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalServerAddress", reflect.TypeOf((*MockServerFactory)(nil).LocalServerAddress))
 }
 
 // RemoteServer mocks base method

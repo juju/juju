@@ -70,8 +70,8 @@ type ServerFactory interface {
 	// server, by ensuring sane defaults exist with network, storage.
 	LocalServer() (Server, error)
 
-	// LocalServerHostName returns the local servers host name from the factory.
-	LocalServerHostName() (string, error)
+	// LocalServerAddress returns the local servers address from the factory.
+	LocalServerAddress() (string, error)
 
 	// RemoteServer creates a new server that connects to a remote lxd server.
 	// If the cloudSpec endpoint is nil or empty, it will assume that you want
@@ -103,7 +103,7 @@ type serverFactory struct {
 	newLocalServerFunc  localServerFunc
 	newRemoteServerFunc remoteServerFunc
 	localServer         Server
-	localServerHostName string
+	localServerAddress  string
 	interfaceAddress    InterfaceAddress
 	clock               clock.Clock
 	mutex               sync.Mutex
@@ -130,12 +130,12 @@ func (s *serverFactory) LocalServer() (Server, error) {
 	svr, hostName, err = s.bootstrapLocalServer(svr)
 	if err == nil {
 		s.localServer = svr
-		s.localServerHostName = hostName
+		s.localServerAddress = hostName
 	}
 	return svr, err
 }
 
-func (s *serverFactory) LocalServerHostName() (string, error) {
+func (s *serverFactory) LocalServerAddress() (string, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -143,7 +143,7 @@ func (s *serverFactory) LocalServerHostName() (string, error) {
 		return "", errors.NotAssignedf("local server")
 	}
 
-	return s.localServerHostName, nil
+	return s.localServerAddress, nil
 }
 
 func (s *serverFactory) RemoteServer(spec environs.CloudSpec) (Server, error) {
