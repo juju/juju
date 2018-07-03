@@ -38,6 +38,7 @@ func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
 type credentialsSuiteDeps struct {
 	provider       environs.EnvironProvider
 	creds          environs.ProviderCredentials
+	server         *lxd.MockServer
 	serverFactory  *lxd.MockServerFactory
 	certReadWriter *lxd.MockCertificateReadWriter
 	certGenerator  *lxd.MockCertificateGenerator
@@ -45,7 +46,9 @@ type credentialsSuiteDeps struct {
 }
 
 func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) credentialsSuiteDeps {
+	server := lxd.NewMockServer(ctrl)
 	factory := lxd.NewMockServerFactory(ctrl)
+	factory.EXPECT().LocalServer().Return(server, nil).AnyTimes()
 
 	certReadWriter := lxd.NewMockCertificateReadWriter(ctrl)
 	certGenerator := lxd.NewMockCertificateGenerator(ctrl)
@@ -61,6 +64,7 @@ func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) credentialsSu
 	return credentialsSuiteDeps{
 		provider:       provider,
 		creds:          creds,
+		server:         server,
 		serverFactory:  factory,
 		certReadWriter: certReadWriter,
 		certGenerator:  certGenerator,
@@ -74,11 +78,8 @@ func (s *credentialsSuite) TestDetectCredentialsUsesJujuCert(c *gc.C) {
 
 	deps := s.createProvider(ctrl)
 
-	server := lxd.NewMockServer(ctrl)
-	deps.serverFactory.EXPECT().LocalServer().Return(server, nil)
-
-	server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
-	server.EXPECT().ServerCertificate().Return("server-cert")
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
+	deps.server.EXPECT().ServerCertificate().Return("server-cert")
 
 	path := osenv.JujuXDGDataHomePath("lxd")
 	deps.certReadWriter.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
@@ -109,9 +110,6 @@ func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuCert(c *gc.C) {
 
 	deps := s.createProvider(ctrl)
 
-	server := lxd.NewMockServer(ctrl)
-	deps.serverFactory.EXPECT().LocalServer().Return(server, nil)
-
 	path := osenv.JujuXDGDataHomePath("lxd")
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, errors.NotValidf("certs"))
 
@@ -125,11 +123,8 @@ func (s *credentialsSuite) TestDetectCredentialsUsesLXCCert(c *gc.C) {
 
 	deps := s.createProvider(ctrl)
 
-	server := lxd.NewMockServer(ctrl)
-	deps.serverFactory.EXPECT().LocalServer().Return(server, nil)
-
-	server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
-	server.EXPECT().ServerCertificate().Return("server-cert")
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
+	deps.server.EXPECT().ServerCertificate().Return("server-cert")
 
 	path := osenv.JujuXDGDataHomePath("lxd")
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
@@ -163,9 +158,6 @@ func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuAndLXCCert(c *gc.C)
 
 	deps := s.createProvider(ctrl)
 
-	server := lxd.NewMockServer(ctrl)
-	deps.serverFactory.EXPECT().LocalServer().Return(server, nil)
-
 	path := osenv.JujuXDGDataHomePath("lxd")
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
 
@@ -182,11 +174,8 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCert(c *gc.C) {
 
 	deps := s.createProvider(ctrl)
 
-	server := lxd.NewMockServer(ctrl)
-	deps.serverFactory.EXPECT().LocalServer().Return(server, nil)
-
-	server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
-	server.EXPECT().ServerCertificate().Return("server-cert")
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
+	deps.server.EXPECT().ServerCertificate().Return("server-cert")
 
 	path := osenv.JujuXDGDataHomePath("lxd")
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
@@ -222,9 +211,6 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToWriteOnError
 
 	deps := s.createProvider(ctrl)
 
-	server := lxd.NewMockServer(ctrl)
-	deps.serverFactory.EXPECT().LocalServer().Return(server, nil)
-
 	path := osenv.JujuXDGDataHomePath("lxd")
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
 
@@ -252,9 +238,6 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToGetCertifica
 	defer ctrl.Finish()
 
 	deps := s.createProvider(ctrl)
-
-	server := lxd.NewMockServer(ctrl)
-	deps.serverFactory.EXPECT().LocalServer().Return(server, nil)
 
 	path := osenv.JujuXDGDataHomePath("lxd")
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
@@ -287,11 +270,8 @@ func (s *credentialsSuite) TestFinalizeCredentialLocal(c *gc.C) {
 
 	deps := s.createProvider(ctrl)
 
-	server := lxd.NewMockServer(ctrl)
-	deps.serverFactory.EXPECT().LocalServer().Return(server, nil)
-
-	server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
-	server.EXPECT().ServerCertificate().Return("server-cert")
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
+	deps.server.EXPECT().ServerCertificate().Return("server-cert")
 
 	localhostIP := net.IPv4(127, 0, 0, 1)
 	ipNet := &net.IPNet{IP: localhostIP, Mask: localhostIP.DefaultMask()}
@@ -322,11 +302,8 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalLocalAddCert(c *gc.C) {
 
 	deps := s.createProvider(ctrl)
 
-	server := lxd.NewMockServer(ctrl)
-	deps.serverFactory.EXPECT().LocalServer().Return(server, nil)
-
-	server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
-	server.EXPECT().ServerCertificate().Return("server-cert")
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
+	deps.server.EXPECT().ServerCertificate().Return("server-cert")
 
 	out, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "",
@@ -355,14 +332,11 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalLocalAddCertAlreadyExists(
 
 	deps := s.createProvider(ctrl)
 
-	server := lxd.NewMockServer(ctrl)
-	deps.serverFactory.EXPECT().LocalServer().Return(server, nil)
-
 	gomock.InOrder(
-		server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("not found")),
-		server.EXPECT().CreateClientCertificate(s.clientCert()).Return(errors.New("UNIQUE constraint failed: certificates.fingerprint")),
-		server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil),
-		server.EXPECT().ServerCertificate().Return("server-cert"),
+		deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("not found")),
+		deps.server.EXPECT().CreateClientCertificate(s.clientCert()).Return(errors.New("UNIQUE constraint failed: certificates.fingerprint")),
+		deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil),
+		deps.server.EXPECT().ServerCertificate().Return("server-cert"),
 	)
 
 	out, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
@@ -392,13 +366,10 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertFatal(c *gc.C) {
 
 	deps := s.createProvider(ctrl)
 
-	server := lxd.NewMockServer(ctrl)
-	deps.serverFactory.EXPECT().LocalServer().Return(server, nil)
-
 	gomock.InOrder(
-		server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("not found")),
-		server.EXPECT().CreateClientCertificate(s.clientCert()).Return(errors.New("UNIQUE constraint failed: certificates.fingerprint")),
-		server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("not found")),
+		deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("not found")),
+		deps.server.EXPECT().CreateClientCertificate(s.clientCert()).Return(errors.New("UNIQUE constraint failed: certificates.fingerprint")),
+		deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("not found")),
 	)
 
 	_, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
@@ -445,9 +416,6 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalInteractive(c *gc.C) {
 
 	deps := s.createProvider(ctrl)
 
-	server := lxd.NewMockServer(ctrl)
-	deps.serverFactory.EXPECT().LocalServer().Return(server, nil)
-
 	path := osenv.JujuXDGDataHomePath("lxd")
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
 
@@ -460,8 +428,8 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalInteractive(c *gc.C) {
 	deps.netLookup.EXPECT().LookupHost("localhost").Return([]string{"127.0.0.1"}, nil)
 	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{ipNet}, nil)
 
-	server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
-	server.EXPECT().ServerCertificate().Return("server-cert")
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
+	deps.server.EXPECT().ServerCertificate().Return("server-cert")
 
 	ctx := cmdtesting.Context(c)
 	out, err := deps.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
