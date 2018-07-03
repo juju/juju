@@ -96,17 +96,27 @@ func (interfaceAddress) InterfaceAddress(interfaceName string) (string, error) {
 	return utils.GetAddressForInterface(interfaceName)
 }
 
-type localServerFunc func() (Server, error)
-type remoteServerFunc func(lxd.ServerSpec) (Server, error)
-
 type serverFactory struct {
-	newLocalServerFunc  localServerFunc
-	newRemoteServerFunc remoteServerFunc
+	newLocalServerFunc  func() (Server, error)
+	newRemoteServerFunc func(lxd.ServerSpec) (Server, error)
 	localServer         Server
 	localServerAddress  string
 	interfaceAddress    InterfaceAddress
 	clock               clock.Clock
 	mutex               sync.Mutex
+}
+
+// NewServerFactory creates a new ServerFactory with sane defaults.
+func NewServerFactory() ServerFactory {
+	return &serverFactory{
+		newLocalServerFunc: func() (Server, error) {
+			return lxd.NewLocalServer()
+		},
+		newRemoteServerFunc: func(spec lxd.ServerSpec) (Server, error) {
+			return lxd.NewRemoteServer(spec)
+		},
+		interfaceAddress: interfaceAddress{},
+	}
 }
 
 func (s *serverFactory) LocalServer() (Server, error) {
@@ -157,10 +167,7 @@ func (s *serverFactory) RemoteServer(spec environs.CloudSpec) (Server, error) {
 	}
 	serverSpec := lxd.NewServerSpec(spec.Endpoint, serverCert, clientCert)
 	prov, err := s.newRemoteServerFunc(serverSpec)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return prov, nil
+	return prov, errors.Trace(err)
 }
 
 func (s *serverFactory) initLocalServer() (Server, error) {
@@ -182,11 +189,8 @@ func (s *serverFactory) initLocalServer() (Server, error) {
 
 	// LXD itself reports the host:ports that it listens on.
 	// Cross-check the address we have with the values reported by LXD.
-	if err := svr.EnableHTTPSListener(); err != nil {
-		return nil, errors.Annotate(err, "enabling HTTPS listener")
-	}
-
-	return svr, err
+	err = svr.EnableHTTPSListener()
+	return svr, errors.Annotate(err, "enabling HTTPS listener")
 }
 
 func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error) {

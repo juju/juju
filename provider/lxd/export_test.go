@@ -39,8 +39,8 @@ func NewProviderCredentials(
 	}
 }
 
-func NewServerFactory(localServerFunc localServerFunc,
-	remoteServerFunc remoteServerFunc,
+func NewServerFactoryWithMocks(localServerFunc func() (Server, error),
+	remoteServerFunc func(lxd.ServerSpec) (Server, error),
 	interfaceAddress InterfaceAddress,
 	clock clock.Clock,
 ) ServerFactory {

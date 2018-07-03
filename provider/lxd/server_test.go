@@ -36,8 +36,7 @@ func (s *serverSuite) TestLocalServer(c *gc.C) {
 		},
 	}
 
-	server := lxd.NewMockServer(ctrl)
-	interfaceAddr := lxd.NewMockInterfaceAddress(ctrl)
+	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
 
 	gomock.InOrder(
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
@@ -48,12 +47,9 @@ func (s *serverSuite) TestLocalServer(c *gc.C) {
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
 	)
 
-	factory := lxd.NewServerFactory(func() (lxd.Server, error) {
-		return server, nil
-	}, defaultRemoteServerFunc(ctrl), interfaceAddr, &lxd.MockClock{})
-
 	svr, err := factory.LocalServer()
 	c.Assert(svr, gc.Not(gc.IsNil))
+	c.Assert(svr, gc.Equals, server)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -74,8 +70,7 @@ func (s *serverSuite) TestLocalServerRetrySemantics(c *gc.C) {
 		},
 	}
 
-	server := lxd.NewMockServer(ctrl)
-	interfaceAddr := lxd.NewMockInterfaceAddress(ctrl)
+	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
 
 	gomock.InOrder(
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
@@ -90,12 +85,9 @@ func (s *serverSuite) TestLocalServerRetrySemantics(c *gc.C) {
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
 	)
 
-	factory := lxd.NewServerFactory(func() (lxd.Server, error) {
-		return server, nil
-	}, defaultRemoteServerFunc(ctrl), interfaceAddr, &lxd.MockClock{})
-
 	svr, err := factory.LocalServer()
 	c.Assert(svr, gc.Not(gc.IsNil))
+	c.Assert(svr, gc.Equals, server)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -111,8 +103,7 @@ func (s *serverSuite) TestLocalServerRetrySemanticsFailure(c *gc.C) {
 		Addresses: []string{},
 	}
 
-	server := lxd.NewMockServer(ctrl)
-	interfaceAddr := lxd.NewMockInterfaceAddress(ctrl)
+	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
 
 	server.EXPECT().GetProfile("default").Return(profile, etag, nil).Times(31)
 	server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil).Times(31)
@@ -120,10 +111,6 @@ func (s *serverSuite) TestLocalServerRetrySemanticsFailure(c *gc.C) {
 	server.EXPECT().LocalBridgeName().Return(bridgeName)
 	interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil)
 	server.EXPECT().GetConnectionInfo().Return(emptyConnectionInfo, nil).Times(30)
-
-	factory := lxd.NewServerFactory(func() (lxd.Server, error) {
-		return server, nil
-	}, defaultRemoteServerFunc(ctrl), interfaceAddr, &lxd.MockClock{})
 
 	svr, err := factory.LocalServer()
 	c.Assert(svr, gc.IsNil)
@@ -144,8 +131,7 @@ func (s *serverSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C
 		},
 	}
 
-	server := lxd.NewMockServer(ctrl)
-	interfaceAddr := lxd.NewMockInterfaceAddress(ctrl)
+	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
 
 	gomock.InOrder(
 		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
@@ -155,10 +141,6 @@ func (s *serverSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
 	)
-
-	factory := lxd.NewServerFactory(func() (lxd.Server, error) {
-		return server, nil
-	}, defaultRemoteServerFunc(ctrl), interfaceAddr, &lxd.MockClock{})
 
 	svr, err := factory.RemoteServer(environs.CloudSpec{
 		Endpoint: "",
@@ -171,24 +153,19 @@ func (s *serverSuite) TestRemoteServer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	server := lxd.NewMockServer(ctrl)
-	interfaceAddr := lxd.NewMockInterfaceAddress(ctrl)
-
-	factory := lxd.NewServerFactory(defaultLocalServerFunc(ctrl), func(spec containerLXD.ServerSpec) (lxd.Server, error) {
-		return server, nil
-	}, interfaceAddr, &lxd.MockClock{})
+	factory, server := s.newRemoteServerFactory(ctrl)
 
 	creds := cloud.NewCredential("any", map[string]string{
 		"client-cert": "client-cert",
 		"client-key":  "client-key",
 		"server-cert": "server-cert",
 	})
-
 	svr, err := factory.RemoteServer(environs.CloudSpec{
 		Endpoint:   "https://10.0.0.9:8443",
 		Credential: &creds,
 	})
 	c.Assert(svr, gc.Not(gc.IsNil))
+	c.Assert(svr, gc.Equals, server)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -196,21 +173,45 @@ func (s *serverSuite) TestRemoteServerMissingCertificates(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	server := lxd.NewMockServer(ctrl)
-	interfaceAddr := lxd.NewMockInterfaceAddress(ctrl)
-
-	factory := lxd.NewServerFactory(defaultLocalServerFunc(ctrl), func(spec containerLXD.ServerSpec) (lxd.Server, error) {
-		return server, nil
-	}, interfaceAddr, &lxd.MockClock{})
+	factory, _ := s.newRemoteServerFactory(ctrl)
 
 	creds := cloud.NewCredential("any", map[string]string{})
-
 	svr, err := factory.RemoteServer(environs.CloudSpec{
 		Endpoint:   "https://10.0.0.9:8443",
 		Credential: &creds,
 	})
 	c.Assert(svr, gc.IsNil)
 	c.Assert(errors.Cause(err).Error(), gc.Equals, "credentials not valid")
+}
+
+func (s *serverSuite) newLocalServerFactory(ctrl *gomock.Controller) (lxd.ServerFactory, *lxd.MockServer, *lxd.MockInterfaceAddress) {
+	server := lxd.NewMockServer(ctrl)
+	interfaceAddr := lxd.NewMockInterfaceAddress(ctrl)
+
+	factory := lxd.NewServerFactoryWithMocks(
+		func() (lxd.Server, error) {
+			return server, nil
+		},
+		defaultRemoteServerFunc(ctrl),
+		interfaceAddr,
+		&lxd.MockClock{},
+	)
+
+	return factory, server, interfaceAddr
+}
+
+func (s *serverSuite) newRemoteServerFactory(ctrl *gomock.Controller) (lxd.ServerFactory, lxd.Server) {
+	server := lxd.NewMockServer(ctrl)
+	interfaceAddr := lxd.NewMockInterfaceAddress(ctrl)
+
+	return lxd.NewServerFactoryWithMocks(
+		defaultLocalServerFunc(ctrl),
+		func(spec containerLXD.ServerSpec) (lxd.Server, error) {
+			return server, nil
+		},
+		interfaceAddr,
+		&lxd.MockClock{},
+	), server
 }
 
 func defaultLocalServerFunc(ctrl *gomock.Controller) func() (lxd.Server, error) {
