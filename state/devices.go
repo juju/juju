@@ -4,42 +4,84 @@
 package state
 
 import (
+	humanize "github.com/dustin/go-humanize"
 	"github.com/juju/errors"
+	charm "gopkg.in/juju/charm.v6"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/environs/config"
 )
 
-// DeviceType defines a device type.
-type DeviceType string
+// NewDeviceBackend creates a backend for managing device.
+func NewDeviceBackend(st *State) (*deviceBackend, error) {
+	// TODO(wallyworld) - we should be passing in a Model not a State
+	// (but need to move stuff off State first)
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// registry, err := st.deviceProviderRegistry()
+	// if err != nil {
+	// 	return nil, errors.Annotate(err, "getting device provider registry")
+	// }
 
-// DeviceConstraints contains the user-specified constraints for allocating
-// device instances for an application unit.
-type DeviceConstraints struct {
-
-	// Type is the device type or device-class.
-	// currently supported types are
-	// - gpu
-	// - nvidia.com/gpu
-	// - amd.com/gpu
-	Type DeviceType `bson:"type"`
-
-	// Count is the number of devices that the user has asked for - count min and max are the
-	// number of devices the charm requires.
-	Count int64 `bson:"count"`
-
-	// Attributes is a collection of key value pairs device related (node affinity labels/tags etc.).
-	Attributes map[string]string `bson:"attributes"`
+	return &deviceBackend{
+		mb: st,
+		// registry:    registry,
+		settings:    NewStateSettings(st),
+		modelType:   m.Type(),
+		config:      m.ModelConfig,
+		application: st.Application,
+		unit:        st.Unit,
+		machine:     st.Machine,
+	}, nil
 }
+
+type deviceBackend struct {
+	mb          modelBackend
+	config      func() (*config.Config, error)
+	application func(string) (*Application, error)
+	unit        func(string) (*Unit, error)
+	machine     func(string) (*Machine, error)
+
+	modelType ModelType
+	// registry  devices.ProviderRegistry  TODO(ycliuhw)
+	settings *StateSettings
+}
+
+// // DeviceType defines a device type.
+// type DeviceType string
+
+// // DeviceConstraints contains the user-specified constraints for allocating
+// // device instances for an application unit.
+// type DeviceConstraints struct {
+
+// 	// Type is the device type or device-class.
+// 	// currently supported types are
+// 	// - gpu
+// 	// - nvidia.com/gpu
+// 	// - amd.com/gpu
+// 	Type DeviceType `bson:"type"`
+
+// 	// Count is the number of devices that the user has asked for - count min and max are the
+// 	// number of devices the charm requires.
+// 	Count int64 `bson:"count"`
+
+// 	// Attributes is a collection of key value pairs device related (node affinity labels/tags etc.).
+// 	Attributes map[string]string `bson:"attributes"`
+// }
 
 // deviceConstraintsDoc contains device constraints for an entity.
 type deviceConstraintsDoc struct {
-	DocID       string                       `bson:"_id"`
-	ModelUUID   string                       `bson:"model-uuid"`
-	Constraints map[string]DeviceConstraints `bson:"constraints"`
+	DocID       string                         `bson:"_id"`
+	ModelUUID   string                         `bson:"model-uuid"`
+	Constraints map[string]devices.Constraints `bson:"constraints"`
 }
 
-func createDeviceConstraintsOp(key string, cons map[string]DeviceConstraints) txn.Op {
+func createDeviceConstraintsOp(key string, cons map[string]devices.Constraints) txn.Op {
 	return txn.Op{
 		C:      deviceConstraintsC,
 		Id:     key,
@@ -50,7 +92,7 @@ func createDeviceConstraintsOp(key string, cons map[string]DeviceConstraints) tx
 	}
 }
 
-func replaceDeviceConstraintsOp(key string, cons map[string]DeviceConstraints) txn.Op {
+func replaceDeviceConstraintsOp(key string, cons map[string]devices.Constraints) txn.Op {
 	return txn.Op{
 		C:      deviceConstraintsC,
 		Id:     key,
@@ -66,7 +108,7 @@ func removeDeviceConstraintsOp(key string) txn.Op {
 		Remove: true,
 	}
 }
-func readDeviceConstraints(mb modelBackend, key string) (map[string]DeviceConstraints, error) {
+func readDeviceConstraints(mb modelBackend, key string) (map[string]devices.Constraints, error) {
 	coll, closer := mb.db().GetCollection(deviceConstraintsC)
 	defer closer()
 
@@ -79,4 +121,48 @@ func readDeviceConstraints(mb modelBackend, key string) (map[string]DeviceConstr
 		return nil, errors.Annotatef(err, "cannot get device constraints for %q", key)
 	}
 	return doc.Constraints, nil
+}
+
+func validateDeviceConstraints(sb *deviceBackend, allCons map[string]devices.Constraints, charmMeta *charm.Meta) error {
+	err := validateDeviceConstraintsAgainstCharm(sb, allCons, charmMeta)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Ensure all devices have constraints specified. Defaults should have
+	// been set by this point, if the user didn't specify constraints.
+	for name, charmDevice := range charmMeta.Devices {
+		if _, ok := allCons[name]; !ok && charmDevice.CountMin > 0 {
+			return errors.Errorf("no constraints specified for device %q", name)
+		}
+	}
+	return nil
+}
+
+func validateDeviceConstraintsAgainstCharm(
+	sb *deviceBackend,
+	allCons map[string]devices.Constraints,
+	charmMeta *charm.Meta,
+) error {
+	for name, cons := range allCons {
+		charmDevice, ok := charmMeta.Devices[name]
+		if !ok {
+			return errors.Errorf("charm %q has no device called %q", charmMeta.Name, name)
+		}
+		if err := validateCharmDeviceCount(charmDevice, cons.Count); err != nil {
+			return errors.Annotatef(err, "charm %q device %q", charmMeta.Name, name)
+		}
+
+	}
+	return nil
+}
+
+func validateCharmDeviceCount(charmDevice charm.Device, count int64) error {
+	if charmDevice.CountMin > 0 && count < charmDevice.CountMin {
+		return errors.Errorf(
+			"minimum device size is %s, %s specified",
+			humanize.Bytes(uint64(charmDevice.CountMin)*humanize.MByte),
+			humanize.Bytes(uint64(count)*humanize.MByte),
+		)
+	}
+	return nil
 }

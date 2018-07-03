@@ -28,6 +28,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
@@ -695,6 +696,7 @@ func (a *Application) changeCharmOps(
 	forceUnits bool,
 	resourceIDs map[string]string,
 	updatedStorageConstraints map[string]StorageConstraints,
+	updatedDeviceConstraints map[string]devices.Constraints,
 ) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
 	var newSettings charm.Settings
@@ -756,6 +758,11 @@ func (a *Application) changeCharmOps(
 		return nil, errors.Trace(err)
 	}
 
+	checkDeviceOps, upgradeDeviceOps, deviceConstraintsOps, err := a.newCharmDeviceOps(ch, units, updatedDeviceConstraints)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Add or create a reference to the new charm, settings,
 	// and storage constraints docs.
 	incOps, err := appCharmIncRefOps(a.st, a.doc.Name, ch.URL(), true)
@@ -797,6 +804,10 @@ func (a *Application) changeCharmOps(
 	ops = append(ops, storageConstraintsOps...)
 	ops = append(ops, checkStorageOps...)
 	ops = append(ops, upgradeStorageOps...)
+
+	ops = append(ops, deviceConstraintsOps...)
+	ops = append(ops, checkDeviceOps...)
+	ops = append(ops, upgradeDeviceOps...)
 
 	ops = append(ops, incCharmModifiedVersionOps(a.doc.DocID)...)
 
@@ -930,6 +941,80 @@ func (a *Application) newCharmStorageOps(
 	return checkStorageOps, upgradeStorageOps, []txn.Op{storageConstraintsOp}, nil
 }
 
+func (a *Application) newCharmDeviceOps(
+	ch *Charm,
+	units []*Unit,
+	updatedDeviceConstraints map[string]devices.Constraints,
+) ([]txn.Op, []txn.Op, []txn.Op, error) {
+
+	fail := func(err error) ([]txn.Op, []txn.Op, []txn.Op, error) {
+		return nil, nil, nil, errors.Trace(err)
+	}
+
+	// Check device to ensure no referenced device is removed, or changed
+	// in an incompatible way. We do this before computing the new device
+	// constraints, as incompatible charm changes will otherwise yield
+	// confusing error messages that would suggest the user has supplied
+	// invalid constraints.
+	sb, err := NewDeviceBackend(a.st)
+	if err != nil {
+		return fail(err)
+	}
+	// oldCharm, _, err := a.Charm()
+	// if err != nil {
+	// 	return fail(err)
+	// }
+	// oldMeta := oldCharm.Meta()
+	// checkDeviceOps, err := a.checkDeviceUpgrade(ch.Meta(), oldMeta, units)
+	// if err != nil {
+	// 	return fail(err)
+	// }
+
+	// Create or replace device constraints. We take the existing device
+	// constraints, remove any keys that are no longer referenced by the
+	// charm, and update the constraints that the user has specified.
+	var deviceConstraintsOp txn.Op
+	oldDeviceConstraints, err := a.DeviceConstraints()
+	if err != nil {
+		return fail(err)
+	}
+	newDeviceConstraints := oldDeviceConstraints
+	for name, cons := range updatedDeviceConstraints {
+		newDeviceConstraints[name] = cons
+	}
+	for name := range newDeviceConstraints {
+		if _, ok := ch.Meta().Devices[name]; !ok {
+			logger.Warningf("Ignored invalid device constraint %q - not in charm metadata.", name)
+			delete(newDeviceConstraints, name)
+		}
+	}
+	// if err := addDefaultDeviceConstraints(sb, newDeviceConstraints, ch.Meta()); err != nil {
+	// 	return fail(errors.Annotate(err, "adding default device constraints"))
+	// }
+	if err := validateDeviceConstraints(sb, newDeviceConstraints, ch.Meta()); err != nil {
+		return fail(errors.Annotate(err, "validating device constraints"))
+	}
+	newDeviceConstraintsKey := applicationDeviceConstraintsKey(a.doc.Name, ch.URL())
+	if _, err := readDeviceConstraints(sb.mb, newDeviceConstraintsKey); errors.IsNotFound(err) {
+		deviceConstraintsOp = createDeviceConstraintsOp(
+			newDeviceConstraintsKey, newDeviceConstraints,
+		)
+	} else if err != nil {
+		return fail(err)
+	} else {
+		deviceConstraintsOp = replaceDeviceConstraintsOp(
+			newDeviceConstraintsKey, newDeviceConstraints,
+		)
+	}
+
+	// // Upgrade charm devices.
+	// upgradeDeviceOps, err := a.upgradeDeviceOps(ch.Meta(), oldMeta, units, newDeviceConstraints)
+	// if err != nil {
+	// 	return fail(err)
+	// }
+	return []txn.Op{}, []txn.Op{}, []txn.Op{deviceConstraintsOp}, nil
+}
+
 func (a *Application) upgradeStorageOps(
 	meta, oldMeta *charm.Meta,
 	units []*Unit,
@@ -952,7 +1037,7 @@ func (a *Application) upgradeStorageOps(
 			if _, ok := oldMeta.Storage[name]; !ok {
 				// The store did not exist previously, so we
 				// create the full amount specified in the
-				// cosntraints.
+				// constraints.
 				countMin = int(cons.Count)
 			}
 			_, unitOps, err := sb.addUnitStorageOps(
@@ -1012,13 +1097,17 @@ type SetCharmConfig struct {
 	// the upgrade.
 	ResourceIDs map[string]string
 
-	// StorageConstraints contains the constraints to add or update when
+	// StorageConstraints contains the storage constraints to add or update when
 	// upgrading the charm.
 	//
 	// Any existing storage instances for the named stores will be
 	// unaffected; the storage constraints will only be used for
 	// provisioning new storage instances.
 	StorageConstraints map[string]StorageConstraints
+
+	// DeviceConstraints contains the device constraints to add or update when
+	// upgrading the charm.
+	DeviceConstraints map[string]devices.Constraints
 }
 
 // SetCharm changes the charm for the application.
@@ -1027,7 +1116,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		&err, "cannot upgrade application %q to charm %q", a, cfg.Charm,
 	)
 	if cfg.Charm.Meta().Subordinate != a.doc.Subordinate {
-		return errors.Errorf("cannot change an application's subordinacy")
+		return errors.Errorf("cannot change an application's subordinary")
 	}
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL
@@ -1135,6 +1224,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				cfg.ForceUnits,
 				cfg.ResourceIDs,
 				cfg.StorageConstraints,
+				cfg.DeviceConstraints,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -1495,7 +1585,7 @@ func (a *Application) addUnitStorageOps(
 		}
 		if cons, ok := args.storageCons[storageName]; ok && cons.Count > 0 {
 			if storageCons == nil {
-				// We must not modify the conents of the original
+				// We must not modify the contents of the original
 				// args.storageCons map, as it comes from the
 				// user. Make a copy and modify that.
 				storageCons = make(map[string]StorageConstraints)
@@ -2127,7 +2217,7 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 }
 
 // DeviceConstraints returns the storage constraints for the application.
-func (a *Application) DeviceConstraints() (map[string]DeviceConstraints, error) {
+func (a *Application) DeviceConstraints() (map[string]devices.Constraints, error) {
 	cons, err := readDeviceConstraints(a.st, a.deviceConstraintsKey())
 	if errors.IsNotFound(err) {
 		return nil, nil
@@ -2259,6 +2349,7 @@ type addApplicationOpsArgs struct {
 	statusDoc         statusDoc
 	constraints       constraints.Value
 	storage           map[string]StorageConstraints
+	devices           map[string]devices.Constraints
 	applicationConfig map[string]interface{}
 	charmConfig       map[string]interface{}
 	// These are nil when adding a new application, and most likely
@@ -2280,11 +2371,13 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 	charmConfigKey := app.charmConfigKey()
 	applicationConfigKey := app.applicationConfigKey()
 	storageConstraintsKey := app.storageConstraintsKey()
+	deviceConstraintsKey := app.deviceConstraintsKey()
 	leadershipKey := leadershipSettingsKey(app.Name())
 
 	ops := []txn.Op{
 		createConstraintsOp(globalKey, args.constraints),
 		createStorageConstraintsOp(storageConstraintsKey, args.storage),
+		createDeviceConstraintsOp(deviceConstraintsKey, args.devices),
 		createSettingsOp(settingsC, charmConfigKey, args.charmConfig),
 		createSettingsOp(settingsC, applicationConfigKey, args.applicationConfig),
 		createSettingsOp(settingsC, leadershipKey, args.leadershipSettings),

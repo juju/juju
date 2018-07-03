@@ -570,7 +570,7 @@ const (
 	statusesHistoryC           = "statuseshistory"
 	storageAttachmentsC        = "storageattachments"
 	storageConstraintsC        = "storageconstraints"
-	deviceConstraintsC         = "deviceconstraints"
+	deviceConstraintsC         = "deviceConstraints"
 	storageInstancesC          = "storageinstances"
 	subnetsC                   = "subnets"
 	linkLayerDevicesC          = "linklayerdevices"

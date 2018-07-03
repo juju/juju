@@ -75,13 +75,12 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 	}
 
 	asa := state.AddApplicationArgs{
-		Name:    args.ApplicationName,
-		Series:  args.Series,
-		Charm:   args.Charm,
-		Channel: args.Channel,
-		Storage: stateStorageConstraints(args.Storage),
-		// TODO(ycliuhw): current PR only includes facades version upgrade, inject `Device` into deeper logic is next step in sperate PR
-		// Devices:           args.Devices,
+		Name:              args.ApplicationName,
+		Series:            args.Series,
+		Charm:             args.Charm,
+		Channel:           args.Channel,
+		Storage:           stateStorageConstraints(args.Storage),
+		Devices:           args.Devices,
 		AttachStorage:     args.AttachStorage,
 		ApplicationConfig: args.ApplicationConfig,
 		CharmConfig:       charmConfig,
