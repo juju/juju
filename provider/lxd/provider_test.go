@@ -14,7 +14,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
-	client "github.com/lxc/lxd/client"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
@@ -123,15 +122,13 @@ func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
 
 func (s *providerSuite) createProvider(ctrl *gomock.Controller) (environs.EnvironProvider,
 	*testing.MockProviderCredentials,
-	*lxd.MockInterfaceAddress,
 	*lxd.MockServerFactory,
 ) {
 	creds := testing.NewMockProviderCredentials(ctrl)
-	interfaceAddress := lxd.NewMockInterfaceAddress(ctrl)
 	factory := lxd.NewMockServerFactory(ctrl)
 
-	provider := lxd.NewProviderWithMocks(creds, interfaceAddress, factory)
-	return provider, creds, interfaceAddress, factory
+	provider := lxd.NewProviderWithMocks(creds, factory)
+	return provider, creds, factory
 }
 
 func (s *providerSuite) TestFinalizeCloudWithRemoteProvider(c *gc.C) {
@@ -142,7 +139,7 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProvider(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	provider, _, _, _ := s.createProvider(ctrl)
+	provider, _, _ := s.createProvider(ctrl)
 	cloudFinalizer := provider.(environs.CloudFinalizer)
 
 	cloudSpec := cloud.Cloud{
@@ -170,7 +167,7 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithOnlyRegionEndpoin
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	provider, _, _, _ := s.createProvider(ctrl)
+	provider, _, _ := s.createProvider(ctrl)
 	cloudFinalizer := provider.(environs.CloudFinalizer)
 
 	cloudSpec := cloud.Cloud{
@@ -190,26 +187,17 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithOnlyRegionEndpoin
 }
 
 func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithMixedRegions(c *gc.C) {
-	if !containerLXD.HasSupport() {
-		c.Skip("To be rewritten during LXD code refactoring for cluster support")
-	}
-
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	provider, _, interfaceAddress, factory := s.createProvider(ctrl)
+	provider, _, factory := s.createProvider(ctrl)
 	cloudFinalizer := provider.(environs.CloudFinalizer)
 
 	server := lxd.NewMockServer(ctrl)
 
 	factory.EXPECT().LocalServer().Return(server, nil)
 	server.EXPECT().LocalBridgeName().Return("lxdbr0")
-	server.EXPECT().GetConnectionInfo().Return(&client.ConnectionInfo{
-		Addresses: []string{
-			"https://192.0.0.1:8443",
-		},
-	}, nil)
-	interfaceAddress.EXPECT().InterfaceAddress("lxdbr0").Return("https://192.0.0.1", nil)
+	factory.EXPECT().LocalServerHostName().Return("https://192.0.0.1:8443", nil)
 
 	cloudSpec := cloud.Cloud{
 		Name:      "localhost",
@@ -246,15 +234,10 @@ func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	provider, _, interfaceAddress, factory := s.createProvider(ctrl)
+	provider, _, factory := s.createProvider(ctrl)
 	cloudFinalizer := provider.(environs.CloudFinalizer)
 
-	server := lxd.NewMockServer(ctrl)
-
-	factory.EXPECT().LocalServer().Return(server, nil)
-	server.EXPECT().LocalBridgeName().Return("lxdbr0")
-	server.EXPECT().GetConnectionInfo().Return(nil, errors.New("not found"))
-	interfaceAddress.EXPECT().InterfaceAddress("lxdbr0").Return("192.0.0.1", nil)
+	factory.EXPECT().LocalServer().Return(nil, errors.New("bad"))
 
 	ctx := testing.NewMockFinalizeCloudContext(ctrl)
 	_, err := cloudFinalizer.FinalizeCloud(ctx, cloud.Cloud{
@@ -266,7 +249,7 @@ func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
 		}},
 	})
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, `LXD is not listening on address https:\/\/([0-9]{1,3}\.){3}[0-9]{1,3} \(reported addresses\: \[]\)`)
+	c.Assert(err, gc.ErrorMatches, "bad")
 }
 
 func (s *providerSuite) TestFinalizeCloudAlreadyListeningHTTPS(c *gc.C) {
@@ -310,7 +293,7 @@ func (s *providerSuite) TestCloudSchema(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	provider, _, _, _ := s.createProvider(ctrl)
+	provider, _, _ := s.createProvider(ctrl)
 
 	config := `
 auth-types: [certificate]

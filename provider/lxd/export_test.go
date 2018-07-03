@@ -16,13 +16,11 @@ var (
 
 func NewProviderWithMocks(
 	creds environs.ProviderCredentials,
-	interfaceAddress InterfaceAddress,
-	newLocalSever ServerFactory,
+	serverFactory ServerFactory,
 ) environs.EnvironProvider {
 	return &environProvider{
 		ProviderCredentials: creds,
-		interfaceAddress:    interfaceAddress,
-		serverFactory:       newLocalSever,
+		serverFactory:       serverFactory,
 	}
 }
 

@@ -56,9 +56,8 @@ func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) credentialsSu
 		lookup,
 		factory,
 	)
-	interfaceAddress := lxd.NewMockInterfaceAddress(ctrl)
 
-	provider := lxd.NewProviderWithMocks(creds, interfaceAddress, factory)
+	provider := lxd.NewProviderWithMocks(creds, factory)
 	return credentialsSuiteDeps{
 		provider:       provider,
 		creds:          creds,
