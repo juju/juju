@@ -7,12 +7,14 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	lxdclient "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
@@ -430,6 +432,7 @@ type StubClient struct {
 	Containers         []lxd.Container
 	Container          *lxd.Container
 	Server             *api.Server
+	Profile            *api.Profile
 	StorageIsSupported bool
 	Volumes            map[string][]api.StorageVolume
 	ServerCert         string
@@ -513,9 +516,19 @@ func (conn *StubClient) LocalBridgeName() string {
 	return "test-bridge"
 }
 
+func (conn *StubClient) GetProfile(name string) (*api.Profile, string, error) {
+	conn.AddCall("GetProfile", name)
+	return conn.Profile, "etag", conn.NextErr()
+}
+
 func (conn *StubClient) HasProfile(name string) (bool, error) {
 	conn.AddCall("HasProfile", name)
 	return false, conn.NextErr()
+}
+
+func (conn *StubClient) VerifyNetworkDevice(profile *api.Profile, ETag string) error {
+	conn.AddCall("VerifyNetworkDevice", profile, ETag)
+	return conn.NextErr()
 }
 
 func (conn *StubClient) StorageSupported() bool {
@@ -633,6 +646,11 @@ func (conn *StubClient) ServerCertificate() string {
 	return conn.ServerCert
 }
 
+func (conn *StubClient) EnableHTTPSListener() error {
+	conn.AddCall("EnableHTTPSListener")
+	return conn.NextErr()
+}
+
 // IsInstalledLocally returns true if LXD is installed locally.
 func IsInstalledLocally() (bool, error) {
 	names, err := service.ListServices()
@@ -672,4 +690,17 @@ func IsRunningLocally() (bool, error) {
 	}
 
 	return running, nil
+}
+
+type MockClock struct {
+	clock.Clock
+	now time.Time
+}
+
+func (m *MockClock) Now() time.Time {
+	return m.now
+}
+
+func (m *MockClock) After(delay time.Duration) <-chan time.Time {
+	return time.After(time.Millisecond)
 }

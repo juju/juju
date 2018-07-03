@@ -6,14 +6,12 @@ package lxd_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"time"
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
@@ -411,17 +409,4 @@ type mockContext struct {
 
 func (c *mockContext) Verbosef(f string, args ...interface{}) {
 	c.MethodCall(c, "Verbosef", f, args)
-}
-
-type mockClock struct {
-	clock.Clock
-	now time.Time
-}
-
-func (m *mockClock) Now() time.Time {
-	return m.now
-}
-
-func (m *mockClock) After(delay time.Duration) <-chan time.Time {
-	return time.After(time.Millisecond)
 }

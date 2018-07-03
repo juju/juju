@@ -1,3 +1,6 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package lxd
 
 import (
@@ -11,12 +14,14 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/container/lxd"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+
+	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
+
 	lxdclient "github.com/lxc/lxd/client"
 	lxdapi "github.com/lxc/lxd/shared/api"
 )
@@ -42,7 +47,9 @@ type Server interface {
 	CreateContainerFromSpec(spec lxd.ContainerSpec) (*lxd.Container, error)
 	WriteContainer(*lxd.Container) error
 	CreateProfileWithConfig(string, map[string]string) error
+	GetProfile(string) (*lxdapi.Profile, string, error)
 	HasProfile(string) (bool, error)
+	VerifyNetworkDevice(*lxdapi.Profile, string) error
 	StorageSupported() bool
 	GetStoragePool(name string) (pool *lxdapi.StoragePool, ETag string, err error)
 	GetStoragePools() (pools []lxdapi.StoragePool, err error)
@@ -53,6 +60,7 @@ type Server interface {
 	UpdateStoragePoolVolume(pool string, volType string, name string, volume lxdapi.StorageVolumePut, ETag string) error
 	DeleteStoragePoolVolume(pool string, volType string, name string) (err error)
 	ServerCertificate() string
+	EnableHTTPSListener() error
 }
 
 // ServerFactory creates a new factory for creating servers that are required
@@ -88,7 +96,10 @@ func (interfaceAddress) InterfaceAddress(interfaceName string) (string, error) {
 	return utils.GetAddressForInterface(interfaceName)
 }
 
+type localServerFunc func() (Server, error)
+
 type serverFactory struct {
+	newLocalServerFunc  localServerFunc
 	localServer         Server
 	localServerHostName string
 	interfaceAddress    InterfaceAddress
@@ -150,8 +161,8 @@ func (s *serverFactory) RemoteServer(spec environs.CloudSpec) (Server, error) {
 	return prov, nil
 }
 
-func (*serverFactory) initLocalServer() (Server, error) {
-	svr, err := lxd.NewLocalServer()
+func (s *serverFactory) initLocalServer() (Server, error) {
+	svr, err := s.newLocalServerFunc()
 	if err != nil {
 		return nil, errors.Trace(hoistLocalConnectErr(err))
 	}

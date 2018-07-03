@@ -5,6 +5,7 @@ package lxd
 
 import (
 	"github.com/juju/juju/environs"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/container/lxd"
 )
@@ -35,6 +36,17 @@ func NewProviderCredentials(
 		certGenerator:  certGenerator,
 		lookup:         lookup,
 		serverFactory:  serverFactory,
+	}
+}
+
+func NewServerFactory(newLocalServerFunc localServerFunc,
+	interfaceAddress InterfaceAddress,
+	clock clock.Clock,
+) ServerFactory {
+	return &serverFactory{
+		newLocalServerFunc: newLocalServerFunc,
+		interfaceAddress:   interfaceAddress,
+		clock:              clock,
 	}
 }
 

@@ -50,6 +50,9 @@ var cloudSchema = &jsonschema.Schema{
 // NewProvider returns a new LXD EnvironProvider.
 func NewProvider() environs.CloudEnvironProvider {
 	factory := &serverFactory{
+		newLocalServerFunc: func() (Server, error) {
+			return lxd.NewLocalServer()
+		},
 		interfaceAddress: interfaceAddress{},
 	}
 	return &environProvider{

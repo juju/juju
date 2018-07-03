@@ -148,6 +148,18 @@ func (mr *MockServerMockRecorder) DeleteStoragePoolVolume(arg0, arg1, arg2 inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteStoragePoolVolume", reflect.TypeOf((*MockServer)(nil).DeleteStoragePoolVolume), arg0, arg1, arg2)
 }
 
+// EnableHTTPSListener mocks base method
+func (m *MockServer) EnableHTTPSListener() error {
+	ret := m.ctrl.Call(m, "EnableHTTPSListener")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableHTTPSListener indicates an expected call of EnableHTTPSListener
+func (mr *MockServerMockRecorder) EnableHTTPSListener() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableHTTPSListener", reflect.TypeOf((*MockServer)(nil).EnableHTTPSListener))
+}
+
 // FilterContainers mocks base method
 func (m *MockServer) FilterContainers(arg0 string, arg1 ...string) ([]lxd.Container, error) {
 	varargs := []interface{}{arg0}
@@ -204,6 +216,20 @@ func (m *MockServer) GetConnectionInfo() (*client.ConnectionInfo, error) {
 // GetConnectionInfo indicates an expected call of GetConnectionInfo
 func (mr *MockServerMockRecorder) GetConnectionInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConnectionInfo", reflect.TypeOf((*MockServer)(nil).GetConnectionInfo))
+}
+
+// GetProfile mocks base method
+func (m *MockServer) GetProfile(arg0 string) (*api.Profile, string, error) {
+	ret := m.ctrl.Call(m, "GetProfile", arg0)
+	ret0, _ := ret[0].(*api.Profile)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetProfile indicates an expected call of GetProfile
+func (mr *MockServerMockRecorder) GetProfile(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProfile", reflect.TypeOf((*MockServer)(nil).GetProfile), arg0)
 }
 
 // GetServer mocks base method
@@ -381,6 +407,18 @@ func (m *MockServer) UpdateStoragePoolVolume(arg0, arg1, arg2 string, arg3 api.S
 // UpdateStoragePoolVolume indicates an expected call of UpdateStoragePoolVolume
 func (mr *MockServerMockRecorder) UpdateStoragePoolVolume(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStoragePoolVolume", reflect.TypeOf((*MockServer)(nil).UpdateStoragePoolVolume), arg0, arg1, arg2, arg3, arg4)
+}
+
+// VerifyNetworkDevice mocks base method
+func (m *MockServer) VerifyNetworkDevice(arg0 *api.Profile, arg1 string) error {
+	ret := m.ctrl.Call(m, "VerifyNetworkDevice", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// VerifyNetworkDevice indicates an expected call of VerifyNetworkDevice
+func (mr *MockServerMockRecorder) VerifyNetworkDevice(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VerifyNetworkDevice", reflect.TypeOf((*MockServer)(nil).VerifyNetworkDevice), arg0, arg1)
 }
 
 // WriteContainer mocks base method
