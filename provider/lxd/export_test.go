@@ -39,14 +39,16 @@ func NewProviderCredentials(
 	}
 }
 
-func NewServerFactory(newLocalServerFunc localServerFunc,
+func NewServerFactory(localServerFunc localServerFunc,
+	remoteServerFunc remoteServerFunc,
 	interfaceAddress InterfaceAddress,
 	clock clock.Clock,
 ) ServerFactory {
 	return &serverFactory{
-		newLocalServerFunc: newLocalServerFunc,
-		interfaceAddress:   interfaceAddress,
-		clock:              clock,
+		newLocalServerFunc:  localServerFunc,
+		newRemoteServerFunc: remoteServerFunc,
+		interfaceAddress:    interfaceAddress,
+		clock:               clock,
 	}
 }
 

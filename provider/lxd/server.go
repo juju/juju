@@ -97,9 +97,11 @@ func (interfaceAddress) InterfaceAddress(interfaceName string) (string, error) {
 }
 
 type localServerFunc func() (Server, error)
+type remoteServerFunc func(lxd.ServerSpec) (Server, error)
 
 type serverFactory struct {
 	newLocalServerFunc  localServerFunc
+	newRemoteServerFunc remoteServerFunc
 	localServer         Server
 	localServerHostName string
 	interfaceAddress    InterfaceAddress
@@ -154,7 +156,7 @@ func (s *serverFactory) RemoteServer(spec environs.CloudSpec) (Server, error) {
 		return nil, errors.NotValidf("credentials")
 	}
 	serverSpec := lxd.NewServerSpec(spec.Endpoint, serverCert, clientCert)
-	prov, err := lxd.NewRemoteServer(serverSpec)
+	prov, err := s.newRemoteServerFunc(serverSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

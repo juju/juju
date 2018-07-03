@@ -53,6 +53,9 @@ func NewProvider() environs.CloudEnvironProvider {
 		newLocalServerFunc: func() (Server, error) {
 			return lxd.NewLocalServer()
 		},
+		newRemoteServerFunc: func(spec lxd.ServerSpec) (Server, error) {
+			return lxd.NewRemoteServer(spec)
+		},
 		interfaceAddress: interfaceAddress{},
 	}
 	return &environProvider{
