@@ -119,5 +119,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		RateLimitConfig:      rateLimitConfig,
 		LogSinkConfig:        &logSinkConfig,
 		PrometheusRegisterer: &s.prometheusRegisterer,
+		LeaseManager:         s.leaseManager,
 	})
 }

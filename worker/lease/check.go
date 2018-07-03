@@ -29,7 +29,7 @@ func (t token) Check(trapdoorKey interface{}) error {
 	// factory.
 	//
 	// Fixing that would be great but seems out of scope.
-	if err := t.secretary.CheckLease(t.leaseKey.Lease); err != nil {
+	if err := t.secretary.CheckLease(t.leaseKey); err != nil {
 		return errors.Annotatef(err, "cannot check lease %q", t.leaseKey.Lease)
 	}
 	if err := t.secretary.CheckHolder(t.holderName); err != nil {

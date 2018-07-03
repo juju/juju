@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/leadership"
@@ -62,34 +61,6 @@ func buildTxnWithLeadership(buildTxn jujutxn.TransactionSource, token leadership
 		}
 		return append(prereqs, ops...), nil
 	}
-}
-
-// leadershipSecretary implements lease.Secretary; it checks that leases are
-// application names, and holders are unit names.
-type leadershipSecretary struct{}
-
-// CheckLease is part of the lease.Secretary interface.
-func (leadershipSecretary) CheckLease(name string) error {
-	if !names.IsValidApplication(name) {
-		return errors.NewNotValid(nil, "not an application name")
-	}
-	return nil
-}
-
-// CheckHolder is part of the lease.Secretary interface.
-func (leadershipSecretary) CheckHolder(name string) error {
-	if !names.IsValidUnit(name) {
-		return errors.NewNotValid(nil, "not a unit name")
-	}
-	return nil
-}
-
-// CheckDuration is part of the lease.Secretary interface.
-func (leadershipSecretary) CheckDuration(duration time.Duration) error {
-	if duration <= 0 {
-		return errors.NewNotValid(nil, "non-positive")
-	}
-	return nil
 }
 
 // leadershipChecker implements leadership.Checker by wrapping a lease.Checker.

@@ -21,6 +21,7 @@ package dummy
 import (
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http/httptest"
 	"os"
@@ -44,6 +45,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -56,6 +58,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/auditlog"
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -74,6 +77,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/worker/lease"
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")
@@ -259,6 +263,7 @@ type environState struct {
 	apiStatePool   *state.StatePool
 	hub            *pubsub.StructuredHub
 	presence       *fakePresence
+	leaseManager   *lease.Manager
 	creator        string
 }
 
@@ -355,9 +360,11 @@ func (state *environState) destroyLocked() {
 	apiServer := state.apiServer
 	apiStatePool := state.apiStatePool
 	apiState := state.apiState
+	leaseManager := state.leaseManager
 	state.apiServer = nil
 	state.apiStatePool = nil
 	state.apiState = nil
+	state.leaseManager = nil
 	state.bootstrapped = false
 	state.hub = nil
 
@@ -370,6 +377,12 @@ func (state *environState) destroyLocked() {
 
 	if apiServer != nil {
 		if err := apiServer.Stop(); err != nil && mongoAlive() {
+			panic(err)
+		}
+	}
+
+	if leaseManager != nil {
+		if err := worker.Stop(leaseManager); err != nil && mongoAlive() {
 			panic(err)
 		}
 	}
@@ -428,6 +441,16 @@ func (e *environ) GetHubInAPIServer() *pubsub.StructuredHub {
 		panic(err)
 	}
 	return st.hub
+}
+
+// GetLeaseManagerInAPIServer returns the lease manager used by the
+// API server.
+func (e *environ) GetLeaseManagerInAPIServer() corelease.Manager {
+	st, err := e.state()
+	if err != nil {
+		panic(err)
+	}
+	return st.leaseManager
 }
 
 // newState creates the state for a new environment with the given name.
@@ -770,7 +793,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 	estate.bootstrapped = true
 	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Args: args}
 
-	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
+	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) (err error) {
 		if e.ecfg().controller() {
 			icfg.Bootstrap.BootstrapMachineInstanceId = BootstrapInstanceId
 			if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
@@ -825,27 +848,28 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			if err != nil {
 				return err
 			}
+			defer func() {
+				if err != nil {
+					st.Close()
+				}
+			}()
 			ctlr.Close()
 			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
-				st.Close()
 				return err
 			}
+
 			if err := st.SetAdminMongoPassword(icfg.Controller.MongoInfo.Password); err != nil {
-				st.Close()
 				return err
 			}
 			if err := st.MongoSession().DB("admin").Login("admin", icfg.Controller.MongoInfo.Password); err != nil {
-				st.Close()
 				return err
 			}
 			env, err := st.Model()
 			if err != nil {
-				st.Close()
 				return err
 			}
 			owner, err := st.User(env.Owner())
 			if err != nil {
-				st.Close()
 				return err
 			}
 			// We log this out for test purposes only. No one in real life can use
@@ -858,7 +882,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock.WallClock)
 			if err != nil {
 				statePool.Close()
-				st.Close()
 				return err
 			}
 			stateAuthenticator.AddHandlers(estate.mux)
@@ -867,6 +890,16 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			estate.httpServer.StartTLS()
 			estate.presence = &fakePresence{make(map[string]presence.Status)}
 			estate.hub = centralhub.New(machineTag)
+
+			estate.leaseManager, err = leaseManager(
+				icfg.Controller.Config.ControllerUUID(),
+				st,
+			)
+			if err != nil {
+				statePool.Close()
+				return errors.Trace(err)
+			}
+
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
 				StatePool:       statePool,
 				Authenticator:   stateAuthenticator,
@@ -878,6 +911,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				Mux:             estate.mux,
 				Hub:             estate.hub,
 				Presence:        estate.presence,
+				LeaseManager:    estate.leaseManager,
 				NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 				RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 				PublicDNSName:   icfg.Controller.Config.AutocertDNSName(),
@@ -890,7 +924,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			})
 			if err != nil {
 				statePool.Close()
-				st.Close()
 				panic(err)
 			}
 			estate.apiState = st
@@ -914,6 +947,22 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 		Finalize: finalize,
 	}
 	return bsResult, nil
+}
+
+func leaseManager(controllerUUID string, st *state.State) (*lease.Manager, error) {
+	target := st.LeaseNotifyTarget(
+		ioutil.Discard,
+		loggo.GetLogger("juju.state.raftlease"),
+	)
+	dummyStore := newLeaseStore(clock.WallClock, target)
+	return lease.NewManager(lease.ManagerConfig{
+		Secretary:  lease.SecretaryFinder(controllerUUID),
+		Store:      dummyStore,
+		Logger:     loggo.GetLogger("juju.worker.lease.dummy"),
+		Clock:      clock.WallClock,
+		MaxSleep:   time.Minute,
+		EntityUUID: controllerUUID,
+	})
 }
 
 func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {

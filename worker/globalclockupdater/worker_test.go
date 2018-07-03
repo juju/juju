@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -43,6 +44,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		LocalClock:     s.localClock,
 		UpdateInterval: time.Second,
 		BackoffDelay:   time.Minute,
+		Logger:         loggo.GetLogger("globalclockupdater_test"),
 	}
 }
 
@@ -117,7 +119,7 @@ func (s *WorkerSuite) TestWorkerBackoffOnConcurrentUpdate(c *gc.C) {
 	c.Check(worker, gc.NotNil)
 	defer workertest.CleanKill(c, worker)
 
-	s.updater.SetErrors(globalclock.ErrConcurrentUpdate)
+	s.updater.SetErrors(errors.Annotate(globalclock.ErrConcurrentUpdate, "context info"))
 
 	s.localClock.WaitAdvance(time.Second, time.Second, 1)
 	select {

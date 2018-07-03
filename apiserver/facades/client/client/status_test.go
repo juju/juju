@@ -64,7 +64,10 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 
 func (s *statusSuite) TestFullStatusUnitLeadership(c *gc.C) {
 	u := s.Factory.MakeUnit(c, nil)
-	s.State.LeadershipClaimer().ClaimLeadership(u.ApplicationName(), u.Name(), time.Minute)
+	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = claimer.Claim(u.ApplicationName(), u.Name(), time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
 	client := s.APIState.Client()
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)

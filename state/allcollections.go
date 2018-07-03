@@ -206,6 +206,16 @@ func allCollections() collectionSchema {
 			rawAccess: true,
 		},
 
+		// This collection tracks who holds which lease when the store
+		// is managed by raft - so that transactions can still make
+		// assertions about holding the lease.
+		leaseHoldersC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "namespace"},
+			}},
+		},
+
 		// This collection holds the last time the model user connected
 		// to the model.
 		modelUserLastConnectionC: {
@@ -536,6 +546,7 @@ const (
 	guisettingsC               = "guisettings"
 	instanceDataC              = "instanceData"
 	leasesC                    = "leases"
+	leaseHoldersC              = "leaseholders"
 	machinesC                  = "machines"
 	machineRemovalsC           = "machineremovals"
 	machineUpgradeSeriesLocksC = "machineUpgradeSeriesLocks"

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -30,6 +31,7 @@ func (s *ValidationSuite) TestMissingStore(c *gc.C) {
 			return nil, nil
 		},
 		MaxSleep: time.Minute,
+		Logger:   loggo.GetLogger("lease_test"),
 	})
 	c.Check(err, gc.ErrorMatches, "nil Store not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -43,16 +45,32 @@ func (s *ValidationSuite) TestMissingClock(c *gc.C) {
 			return nil, nil
 		},
 		MaxSleep: time.Minute,
+		Logger:   loggo.GetLogger("lease_test"),
 	})
 	c.Check(err, gc.ErrorMatches, "nil Clock not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(manager, gc.IsNil)
 }
 
-func (s *ValidationSuite) TestMissingSecretary(c *gc.C) {
+func (s *ValidationSuite) TestMissingLogger(c *gc.C) {
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Store: struct{ corelease.Store }{},
-		Clock: struct{ clock.Clock }{},
+		Secretary: func(string) (lease.Secretary, error) {
+			return nil, nil
+		},
+		Clock:    struct{ clock.Clock }{},
+		MaxSleep: time.Minute,
+	})
+	c.Check(err, gc.ErrorMatches, "nil Logger not valid")
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(manager, gc.IsNil)
+}
+
+func (s *ValidationSuite) TestMissingSecretary(c *gc.C) {
+	manager, err := lease.NewManager(lease.ManagerConfig{
+		Store:  struct{ corelease.Store }{},
+		Clock:  struct{ clock.Clock }{},
+		Logger: loggo.GetLogger("lease_test"),
 	})
 	c.Check(err, gc.ErrorMatches, "nil Secretary not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -65,7 +83,8 @@ func (s *ValidationSuite) TestMissingMaxSleep(c *gc.C) {
 		Secretary: func(string) (lease.Secretary, error) {
 			return nil, nil
 		},
-		Clock: testclock.NewClock(time.Now()),
+		Clock:  testclock.NewClock(time.Now()),
+		Logger: loggo.GetLogger("lease_test"),
 	})
 	c.Check(err, gc.ErrorMatches, "non-positive MaxSleep not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -79,6 +98,7 @@ func (s *ValidationSuite) TestNegativeMaxSleep(c *gc.C) {
 		Secretary: func(string) (lease.Secretary, error) {
 			return nil, nil
 		},
+		Logger:   loggo.GetLogger("lease_test"),
 		MaxSleep: -time.Nanosecond,
 	})
 	c.Check(err, gc.ErrorMatches, "non-positive MaxSleep not valid")

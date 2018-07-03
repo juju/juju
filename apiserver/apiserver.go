@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/resource"
@@ -162,6 +163,10 @@ type ServerConfig struct {
 	// should be called every time a new login is handled.
 	GetAuditConfig func() auditlog.Config
 
+	// LeaseManager gives access to leadership and singular claimers
+	// and checkers for use in API facades.
+	LeaseManager lease.Manager
+
 	// PrometheusRegisterer registers Prometheus collectors.
 	PrometheusRegisterer prometheus.Registerer
 }
@@ -240,10 +245,11 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		cfg.RateLimitConfig.LoginRateLimit, cfg.RateLimitConfig.LoginMinPause,
 		cfg.RateLimitConfig.LoginMaxPause, clock.WallClock)
 	shared, err := newSharedServerContex(sharedServerConfig{
-		statePool:  cfg.StatePool,
-		centralHub: cfg.Hub,
-		presence:   cfg.Presence,
-		logger:     loggo.GetLogger("juju.apiserver"),
+		statePool:    cfg.StatePool,
+		centralHub:   cfg.Hub,
+		presence:     cfg.Presence,
+		leaseManager: cfg.LeaseManager,
+		logger:       loggo.GetLogger("juju.apiserver"),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

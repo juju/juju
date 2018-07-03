@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -105,6 +106,7 @@ type JujuConnSuite struct {
 	BackingState        *state.State          // The State being used by the API server
 	BackingStatePool    *state.StatePool      // The StatePool being used by the API server
 	Hub                 *pubsub.StructuredHub // The central hub being used by the API server.
+	LeaseManager        lease.Manager         // The lease manager being used by the API server.
 	RootDir             string                // The faked-up root directory.
 	LogDir              string
 	oldHome             string
@@ -402,6 +404,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.BackingState = getStater.GetStateInAPIServer()
 	s.BackingStatePool = getStater.GetStatePoolInAPIServer()
 	s.Hub = getStater.GetHubInAPIServer()
+	s.LeaseManager = getStater.GetLeaseManagerInAPIServer()
 
 	s.State, err = newState(s.ControllerConfig.ControllerUUID(), environ, s.MongoInfo(c))
 	c.Assert(err, jc.ErrorIsNil)
@@ -626,6 +629,7 @@ type GetStater interface {
 	GetStateInAPIServer() *state.State
 	GetStatePoolInAPIServer() *state.StatePool
 	GetHubInAPIServer() *pubsub.StructuredHub
+	GetLeaseManagerInAPIServer() lease.Manager
 }
 
 func (s *JujuConnSuite) tearDownConn(c *gc.C) {

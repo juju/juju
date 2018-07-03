@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/pubsub/controller"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/lease"
 )
 
 type sharedServerContextSuite struct {
@@ -35,10 +36,11 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 
 	s.hub = pubsub.NewStructuredHub(nil)
 	s.config = sharedServerConfig{
-		statePool:  s.StatePool,
-		centralHub: s.hub,
-		presence:   presence.New(clock.WallClock),
-		logger:     loggo.GetLogger("test"),
+		statePool:    s.StatePool,
+		centralHub:   s.hub,
+		presence:     presence.New(clock.WallClock),
+		leaseManager: &lease.Manager{},
+		logger:       loggo.GetLogger("test"),
 	}
 }
 
@@ -61,6 +63,13 @@ func (s *sharedServerContextSuite) TestConfigNoPresence(c *gc.C) {
 	err := s.config.validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "nil presence not valid")
+}
+
+func (s *sharedServerContextSuite) TestConfigNoLeaseManager(c *gc.C) {
+	s.config.leaseManager = nil
+	err := s.config.validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "nil leaseManager not valid")
 }
 
 func (s *sharedServerContextSuite) TestNewCallsConfigValidate(c *gc.C) {
