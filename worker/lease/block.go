@@ -8,10 +8,10 @@ import "github.com/juju/juju/core/lease"
 // block is used to deliver lease-expiry-notification requests to a manager's
 // loop goroutine on behalf of BlockUntilLeadershipReleased.
 type block struct {
-	leaseName string
-	unblock   chan struct{}
-	stop      <-chan struct{}
-	cancel    <-chan struct{}
+	leaseKey lease.Key
+	unblock  chan struct{}
+	stop     <-chan struct{}
+	cancel   <-chan struct{}
 }
 
 // invoke sends the block request on the supplied channel, and waits for the
@@ -32,19 +32,19 @@ func (b block) invoke(ch chan<- block) error {
 }
 
 // blocks is used to keep track of expiry-notification channels for
-// each lease name.
-type blocks map[string][]chan struct{}
+// each lease key.
+type blocks map[lease.Key][]chan struct{}
 
-// add records the block's unblock channel under the block's lease name.
+// add records the block's unblock channel under the block's lease key.
 func (b blocks) add(block block) {
-	b[block.leaseName] = append(b[block.leaseName], block.unblock)
+	b[block.leaseKey] = append(b[block.leaseKey], block.unblock)
 }
 
-// unblock closes all channels added under the supplied name and removes
+// unblock closes all channels added under the supplied key and removes
 // them from blocks.
-func (b blocks) unblock(leaseName string) {
-	unblocks := b[leaseName]
-	delete(b, leaseName)
+func (b blocks) unblock(lease lease.Key) {
+	unblocks := b[lease]
+	delete(b, lease)
 	for _, unblock := range unblocks {
 		close(unblock)
 	}

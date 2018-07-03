@@ -59,14 +59,15 @@ type client struct {
 }
 
 // Leases is part of the lease.Client interface.
-func (client *client) Leases() map[string]lease.Info {
+func (client *client) Leases() map[lease.Key]lease.Info {
 	localTime := client.config.LocalClock.Now()
-	leases := make(map[string]lease.Info)
+	leases := make(map[lease.Key]lease.Info)
 	for name, entry := range client.entries {
 		globalExpiry := entry.start.Add(entry.duration)
 		remaining := globalExpiry.Sub(client.globalTime)
 		localExpiry := localTime.Add(remaining)
-		leases[name] = lease.Info{
+		key := lease.Key{Lease: name}
+		leases[key] = lease.Info{
 			Holder:   entry.holder,
 			Expiry:   localExpiry,
 			Trapdoor: client.assertOpTrapdoor(name, entry.holder),
@@ -76,13 +77,13 @@ func (client *client) Leases() map[string]lease.Info {
 }
 
 // ClaimLease is part of the lease.Client interface.
-func (client *client) ClaimLease(name string, request lease.Request) error {
-	return client.request(name, request, client.claimLeaseOps, "claiming")
+func (client *client) ClaimLease(key lease.Key, request lease.Request) error {
+	return client.request(key.Lease, request, client.claimLeaseOps, "claiming")
 }
 
 // ExtendLease is part of the lease.Client interface.
-func (client *client) ExtendLease(name string, request lease.Request) error {
-	return client.request(name, request, client.extendLeaseOps, "extending")
+func (client *client) ExtendLease(key lease.Key, request lease.Request) error {
+	return client.request(key.Lease, request, client.extendLeaseOps, "extending")
 }
 
 // opsFunc is used to make the signature of the request method somewhat readable.
@@ -136,7 +137,8 @@ func (client *client) request(name string, request lease.Request, getOps opsFunc
 }
 
 // ExpireLease is part of the Client interface.
-func (client *client) ExpireLease(name string) error {
+func (client *client) ExpireLease(key lease.Key) error {
+	name := key.Lease
 	if err := lease.ValidateString(name); err != nil {
 		return errors.Annotatef(err, "invalid name")
 	}

@@ -83,10 +83,10 @@ func (client *Client) Wait(c *gc.C) {
 }
 
 // Leases is part of the lease.Client interface.
-func (client *Client) Leases() map[string]lease.Info {
-	result := make(map[string]lease.Info)
+func (client *Client) Leases() map[lease.Key]lease.Info {
+	result := make(map[lease.Key]lease.Info)
 	for k, v := range client.leases {
-		result[k] = v
+		result[lease.Key{Lease: k}] = v
 	}
 	return result
 }
@@ -122,18 +122,18 @@ func (client *Client) call(method string, args []interface{}) error {
 }
 
 // ClaimLease is part of the corelease.Client interface.
-func (client *Client) ClaimLease(name string, request lease.Request) error {
-	return client.call("ClaimLease", []interface{}{name, request})
+func (client *Client) ClaimLease(key lease.Key, request lease.Request) error {
+	return client.call("ClaimLease", []interface{}{key, request})
 }
 
 // ExtendLease is part of the corelease.Client interface.
-func (client *Client) ExtendLease(name string, request lease.Request) error {
-	return client.call("ExtendLease", []interface{}{name, request})
+func (client *Client) ExtendLease(key lease.Key, request lease.Request) error {
+	return client.call("ExtendLease", []interface{}{key, request})
 }
 
 // ExpireLease is part of the corelease.Client interface.
-func (client *Client) ExpireLease(name string) error {
-	return client.call("ExpireLease", []interface{}{name})
+func (client *Client) ExpireLease(key lease.Key) error {
+	return client.call("ExpireLease", []interface{}{key})
 }
 
 // Refresh is part of the lease.Client interface.

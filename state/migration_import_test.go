@@ -593,7 +593,7 @@ func (s *MigrationImportSuite) TestApplicationLeaders(c *gc.C) {
 	leases, err := state.LeadershipLeases(newSt)
 	c.Assert(err, jc.ErrorIsNil)
 	for key, value := range leases {
-		leaders[key] = value.Holder
+		leaders[key.Lease] = value.Holder
 	}
 	c.Assert(leaders, jc.DeepEquals, map[string]string{
 		"mysql":     "mysql/1",

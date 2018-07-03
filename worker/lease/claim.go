@@ -12,7 +12,7 @@ import (
 // claim is used to deliver lease-claim requests to a manager's loop
 // goroutine on behalf of ClaimLeadership.
 type claim struct {
-	leaseName  string
+	leaseKey   lease.Key
 	holderName string
 	duration   time.Duration
 	response   chan bool

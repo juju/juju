@@ -19,22 +19,22 @@ type Client interface {
 	// it succeeds, the claim is guaranteed until at least the supplied duration
 	// after the call to ClaimLease was initiated. If it returns ErrInvalid,
 	// check Leases() for updated state.
-	ClaimLease(lease string, request Request) error
+	ClaimLease(lease Key, request Request) error
 
 	// ExtendLease records the supplied holder's continued claim to the supplied
 	// lease, if necessary. If it succeeds, the claim is guaranteed until at
 	// least the supplied duration after the call to ExtendLease was initiated.
 	// If it returns ErrInvalid, check Leases() for updated state.
-	ExtendLease(lease string, request Request) error
+	ExtendLease(lease Key, request Request) error
 
 	// ExpireLease records the vacation of the supplied lease. It will fail if
 	// we cannot verify that the lease's writer considers the expiry time to
 	// have passed. If it returns ErrInvalid, check Leases() for updated state.
-	ExpireLease(lease string) error
+	ExpireLease(lease Key) error
 
 	// Leases returns a recent snapshot of lease state. Expiry times are
 	// expressed according to the Clock the client was configured with.
-	Leases() map[string]Info
+	Leases() map[Key]Info
 
 	// TODO (jam) 2017-10-31: Many callers of Leases() actually only tant
 	// exactly 1 lease, we should have a way to do a query to return exactly
@@ -44,6 +44,14 @@ type Client interface {
 
 	// Refresh reads all lease state from the database.
 	Refresh() error
+}
+
+// Key fully identifies a lease, including the namespace and
+// model it belongs to.
+type Key struct {
+	Namespace string
+	ModelUUID string
+	Lease     string
 }
 
 // Info holds substrate-independent information about a lease; and a substrate-

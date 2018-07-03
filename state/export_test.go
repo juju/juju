@@ -558,7 +558,7 @@ func AssertEndpointBindingsNotFoundForApplication(c *gc.C, app *Application) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func LeadershipLeases(st *State) (map[string]lease.Info, error) {
+func LeadershipLeases(st *State) (map[lease.Key]lease.Info, error) {
 	client, err := st.getLeadershipLeaseClient()
 	if err != nil {
 		return nil, errors.Trace(err)

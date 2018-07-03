@@ -426,7 +426,7 @@ func (st *State) ApplicationLeaders() (map[string]string, error) {
 	leases := client.Leases()
 	result := make(map[string]string, len(leases))
 	for key, value := range leases {
-		result[key] = value.Holder
+		result[key.Lease] = value.Holder
 	}
 	return result, nil
 }

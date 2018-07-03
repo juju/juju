@@ -60,7 +60,7 @@ func (s *ClientPersistenceSuite) TestNewClientExtantClockDoc(c *gc.C) {
 func (s *ClientPersistenceSuite) TestClaimLease(c *gc.C) {
 	fix1 := s.EasyFixture(c)
 	leaseDuration := time.Minute
-	err := fix1.Client.ClaimLease("name", corelease.Request{"holder", leaseDuration})
+	err := fix1.Client.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Same client id, same clock, new instance: sees exact same lease.
@@ -72,10 +72,10 @@ func (s *ClientPersistenceSuite) TestClaimLease(c *gc.C) {
 
 func (s *ClientPersistenceSuite) TestExtendLease(c *gc.C) {
 	fix1 := s.EasyFixture(c)
-	err := fix1.Client.ClaimLease("name", corelease.Request{"holder", time.Second})
+	err := fix1.Client.ClaimLease(key("name"), corelease.Request{"holder", time.Second})
 	c.Assert(err, jc.ErrorIsNil)
 	leaseDuration := time.Minute
-	err = fix1.Client.ExtendLease("name", corelease.Request{"holder", leaseDuration})
+	err = fix1.Client.ExtendLease(key("name"), corelease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Same client id, same clock, new instance: sees exact same lease.
@@ -88,10 +88,10 @@ func (s *ClientPersistenceSuite) TestExtendLease(c *gc.C) {
 func (s *ClientPersistenceSuite) TestExpireLease(c *gc.C) {
 	fix1 := s.EasyFixture(c)
 	leaseDuration := time.Minute
-	err := fix1.Client.ClaimLease("name", corelease.Request{"holder", leaseDuration})
+	err := fix1.Client.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
 	fix1.GlobalClock.Advance(leaseDuration + time.Nanosecond)
-	err = fix1.Client.ExpireLease("name")
+	err = fix1.Client.ExpireLease(key("name"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Same client id, same clock, new instance: sees no lease.
@@ -102,7 +102,7 @@ func (s *ClientPersistenceSuite) TestExpireLease(c *gc.C) {
 func (s *ClientPersistenceSuite) TestNamespaceIsolation(c *gc.C) {
 	fix1 := s.EasyFixture(c)
 	leaseDuration := time.Minute
-	err := fix1.Client.ClaimLease("name", corelease.Request{"holder", leaseDuration})
+	err := fix1.Client.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Same client id, same clock, different namespace: sees no lease.
@@ -115,7 +115,7 @@ func (s *ClientPersistenceSuite) TestNamespaceIsolation(c *gc.C) {
 func (s *ClientPersistenceSuite) TestTimezoneChanges(c *gc.C) {
 	fix1 := s.EasyFixture(c)
 	leaseDuration := time.Minute
-	err := fix1.Client.ClaimLease("name", corelease.Request{"holder", leaseDuration})
+	err := fix1.Client.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Same client can come up in a different timezone and still work correctly.
@@ -130,7 +130,7 @@ func (s *ClientPersistenceSuite) TestTimezoneChanges(c *gc.C) {
 func (s *ClientPersistenceSuite) TestTimezoneIsolation(c *gc.C) {
 	fix1 := s.EasyFixture(c)
 	leaseDuration := time.Minute
-	err := fix1.Client.ClaimLease("name", corelease.Request{"holder", leaseDuration})
+	err := fix1.Client.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Different client *and* different timezone; but clock agrees perfectly,

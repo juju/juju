@@ -38,7 +38,7 @@ func (s *ClientRemoteSuite) SetUpTest(c *gc.C) {
 	s.globalOffset = -time.Second
 
 	s.baseline = s.EasyFixture(c)
-	err := s.baseline.Client.ClaimLease("name", lease.Request{"holder", s.lease})
+	err := s.baseline.Client.ClaimLease(key("name"), lease.Request{"holder", s.lease})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Remote client, whose local clock is offset significantly from the
@@ -63,7 +63,7 @@ func (s *ClientRemoteSuite) TestExpiryOffset(c *gc.C) {
 }
 
 func (s *ClientRemoteSuite) TestExtendRemoteLeaseNoop(c *gc.C) {
-	err := s.skewed.Client.ExtendLease("name", lease.Request{"holder", 10 * time.Second})
+	err := s.skewed.Client.ExtendLease(key("name"), lease.Request{"holder", 10 * time.Second})
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check("name", s.skewed.Holder(), "holder")
@@ -72,7 +72,7 @@ func (s *ClientRemoteSuite) TestExtendRemoteLeaseNoop(c *gc.C) {
 
 func (s *ClientRemoteSuite) TestExtendRemoteLeaseSimpleExtend(c *gc.C) {
 	leaseDuration := 10 * time.Minute
-	err := s.skewed.Client.ExtendLease("name", lease.Request{"holder", leaseDuration})
+	err := s.skewed.Client.ExtendLease(key("name"), lease.Request{"holder", leaseDuration})
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check("name", s.skewed.Holder(), "holder")
@@ -82,13 +82,13 @@ func (s *ClientRemoteSuite) TestExtendRemoteLeaseSimpleExtend(c *gc.C) {
 
 func (s *ClientRemoteSuite) TestCannotExpireRemoteLeaseEarly(c *gc.C) {
 	s.skewed.LocalClock.Reset(s.skewedExpiry())
-	err := s.skewed.Client.ExpireLease("name")
+	err := s.skewed.Client.ExpireLease(key("name"))
 	c.Check(err, gc.Equals, lease.ErrInvalid)
 }
 
 func (s *ClientRemoteSuite) TestCanExpireRemoteLease(c *gc.C) {
 	s.skewed.GlobalClock.Reset(s.skewedExpiry().Add(time.Nanosecond))
-	err := s.skewed.Client.ExpireLease("name")
+	err := s.skewed.Client.ExpireLease(key("name"))
 	c.Check(err, jc.ErrorIsNil)
 }
 

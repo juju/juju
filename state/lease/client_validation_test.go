@@ -63,42 +63,42 @@ func (s *ClientValidationSuite) TestNewClientGlobalClock(c *gc.C) {
 
 func (s *ClientValidationSuite) TestClaimLeaseName(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ClaimLease("$name", corelease.Request{"holder", time.Minute})
+	err := fix.Client.ClaimLease(key("$name"), corelease.Request{"holder", time.Minute})
 	c.Check(err, gc.ErrorMatches, "invalid name: string contains forbidden characters")
 }
 
 func (s *ClientValidationSuite) TestClaimLeaseHolder(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ClaimLease("name", corelease.Request{"$holder", time.Minute})
+	err := fix.Client.ClaimLease(key("name"), corelease.Request{"$holder", time.Minute})
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid holder: string contains forbidden characters")
 }
 
 func (s *ClientValidationSuite) TestClaimLeaseDuration(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ClaimLease("name", corelease.Request{"holder", 0})
+	err := fix.Client.ClaimLease(key("name"), corelease.Request{"holder", 0})
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid duration")
 }
 
 func (s *ClientValidationSuite) TestExtendLeaseName(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ExtendLease("$name", corelease.Request{"holder", time.Minute})
+	err := fix.Client.ExtendLease(key("$name"), corelease.Request{"holder", time.Minute})
 	c.Check(err, gc.ErrorMatches, "invalid name: string contains forbidden characters")
 }
 
 func (s *ClientValidationSuite) TestExtendLeaseHolder(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ExtendLease("name", corelease.Request{"$holder", time.Minute})
+	err := fix.Client.ExtendLease(key("name"), corelease.Request{"$holder", time.Minute})
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid holder: string contains forbidden characters")
 }
 
 func (s *ClientValidationSuite) TestExtendLeaseDuration(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ExtendLease("name", corelease.Request{"holder", 0})
+	err := fix.Client.ExtendLease(key("name"), corelease.Request{"holder", 0})
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid duration")
 }
 
 func (s *ClientValidationSuite) TestExpireLeaseName(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ExpireLease("$name")
+	err := fix.Client.ExpireLease(key("$name"))
 	c.Check(err, gc.ErrorMatches, "invalid name: string contains forbidden characters")
 }

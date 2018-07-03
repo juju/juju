@@ -22,16 +22,20 @@ type ClientAssertSuite struct {
 
 var _ = gc.Suite(&ClientAssertSuite{})
 
+func key(name string) lease.Key {
+	return lease.Key{Lease: name}
+}
+
 func (s *ClientAssertSuite) SetUpTest(c *gc.C) {
 	s.FixtureSuite.SetUpTest(c)
 	s.fix = s.EasyFixture(c)
-	err := s.fix.Client.ClaimLease("name", lease.Request{"holder", time.Minute})
+	err := s.fix.Client.ClaimLease(key("name"), lease.Request{"holder", time.Minute})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert("name", s.fix.Holder(), "holder")
 }
 
 func (s *ClientAssertSuite) TestPassesWhenLeaseHeld(c *gc.C) {
-	info := s.fix.Client.Leases()["name"]
+	info := s.fix.Client.Leases()[key("name")]
 
 	var ops []txn.Op
 	err := info.Trapdoor(&ops)
@@ -41,10 +45,10 @@ func (s *ClientAssertSuite) TestPassesWhenLeaseHeld(c *gc.C) {
 }
 
 func (s *ClientAssertSuite) TestPassesWhenLeaseStillHeldDespiteWriterChange(c *gc.C) {
-	info := s.fix.Client.Leases()["name"]
+	info := s.fix.Client.Leases()[key("name")]
 
 	fix2 := s.NewFixture(c, FixtureParams{Id: "other-client"})
-	err := fix2.Client.ExtendLease("name", lease.Request{"holder", time.Hour})
+	err := fix2.Client.ExtendLease(key("name"), lease.Request{"holder", time.Hour})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var ops []txn.Op
@@ -55,7 +59,7 @@ func (s *ClientAssertSuite) TestPassesWhenLeaseStillHeldDespiteWriterChange(c *g
 }
 
 func (s *ClientAssertSuite) TestPassesWhenLeaseStillHeldDespitePassingExpiry(c *gc.C) {
-	info := s.fix.Client.Leases()["name"]
+	info := s.fix.Client.Leases()[key("name")]
 
 	s.fix.GlobalClock.Advance(time.Hour)
 	err := s.fix.Client.Refresh()
@@ -69,10 +73,10 @@ func (s *ClientAssertSuite) TestPassesWhenLeaseStillHeldDespitePassingExpiry(c *
 }
 
 func (s *ClientAssertSuite) TestAbortsWhenLeaseVacant(c *gc.C) {
-	info := s.fix.Client.Leases()["name"]
+	info := s.fix.Client.Leases()[key("name")]
 
 	s.fix.GlobalClock.Advance(time.Hour)
-	err := s.fix.Client.ExpireLease("name")
+	err := s.fix.Client.ExpireLease(key("name"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	var ops []txn.Op

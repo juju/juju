@@ -28,12 +28,12 @@ func (s *ClientSimpleRaceSuite) TestClaimLease_BlockedBy_ClaimLease(c *gc.C) {
 
 	// Set up a hook to grab the lease "name" just before the next txn runs.
 	defer txntesting.SetBeforeHooks(c, sut.Runner, func() {
-		err := blocker.Client.ClaimLease("name", corelease.Request{"ha-haa", time.Minute})
+		err := blocker.Client.ClaimLease(key("name"), corelease.Request{"ha-haa", time.Minute})
 		c.Check(err, jc.ErrorIsNil)
 	})()
 
 	// Try to grab the lease "name", and fail.
-	err := sut.Client.ClaimLease("name", corelease.Request{"trying", time.Second})
+	err := sut.Client.ClaimLease(key("name"), corelease.Request{"trying", time.Second})
 	c.Check(err, gc.Equals, corelease.ErrInvalid)
 
 	// The client that failed has refreshed state (as it had to, in order
@@ -50,12 +50,12 @@ func (s *ClientSimpleRaceSuite) TestClaimLease_Pathological(c *gc.C) {
 	// it again before the SUT goes and looks to figure out what it should do.
 	interfere := jujutxn.TestHook{
 		Before: func() {
-			err := blocker.Client.ClaimLease("name", corelease.Request{"ha-haa", time.Second})
+			err := blocker.Client.ClaimLease(key("name"), corelease.Request{"ha-haa", time.Second})
 			c.Check(err, jc.ErrorIsNil)
 		},
 		After: func() {
 			blocker.GlobalClock.Advance(time.Minute)
-			err := blocker.Client.ExpireLease("name")
+			err := blocker.Client.ExpireLease(key("name"))
 			c.Check(err, jc.ErrorIsNil)
 		},
 	}
@@ -65,7 +65,7 @@ func (s *ClientSimpleRaceSuite) TestClaimLease_Pathological(c *gc.C) {
 	)()
 
 	// Try to claim, and watch the poor thing collapse in exhaustion.
-	err := sut.Client.ClaimLease("name", corelease.Request{"trying", time.Minute})
+	err := sut.Client.ClaimLease(key("name"), corelease.Request{"trying", time.Minute})
 	c.Check(err, gc.ErrorMatches, "cannot satisfy request: state changing too quickly; try again soon")
 }
 
@@ -82,7 +82,7 @@ var _ = gc.Suite(&ClientTrickyRaceSuite{})
 func (s *ClientTrickyRaceSuite) SetUpTest(c *gc.C) {
 	s.FixtureSuite.SetUpTest(c)
 	s.sut = s.EasyFixture(c)
-	err := s.sut.Client.ClaimLease("name", corelease.Request{"holder", time.Minute})
+	err := s.sut.Client.ClaimLease(key("name"), corelease.Request{"holder", time.Minute})
 	c.Assert(err, jc.ErrorIsNil)
 	s.blocker = s.NewFixture(c, FixtureParams{Id: "blocker"})
 }
@@ -95,7 +95,7 @@ func (s *ClientTrickyRaceSuite) TestExtendLease_WorksDespite_ShorterExtendLease(
 	// Set up hooks to extend the lease by a little, before the SUT's extend
 	// gets a chance; and then to verify state after it's applied its retry.
 	defer txntesting.SetRetryHooks(c, s.sut.Runner, func() {
-		err := s.blocker.Client.ExtendLease("name", corelease.Request{"holder", shorterRequest})
+		err := s.blocker.Client.ExtendLease(key("name"), corelease.Request{"holder", shorterRequest})
 		c.Check(err, jc.ErrorIsNil)
 	}, func() {
 		err := s.blocker.Client.Refresh()
@@ -104,7 +104,7 @@ func (s *ClientTrickyRaceSuite) TestExtendLease_WorksDespite_ShorterExtendLease(
 	})()
 
 	// Extend the lease.
-	err := s.sut.Client.ExtendLease("name", corelease.Request{"holder", longerRequest})
+	err := s.sut.Client.ExtendLease(key("name"), corelease.Request{"holder", longerRequest})
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -115,12 +115,12 @@ func (s *ClientTrickyRaceSuite) TestExtendLease_WorksDespite_LongerExtendLease(c
 
 	// Set up hooks to extend the lease by a lot, before the SUT's extend can.
 	defer txntesting.SetBeforeHooks(c, s.sut.Runner, func() {
-		err := s.blocker.Client.ExtendLease("name", corelease.Request{"holder", longerRequest})
+		err := s.blocker.Client.ExtendLease(key("name"), corelease.Request{"holder", longerRequest})
 		c.Check(err, jc.ErrorIsNil)
 	})()
 
 	// Extend the lease by a little.
-	err := s.sut.Client.ExtendLease("name", corelease.Request{"holder", shorterRequest})
+	err := s.sut.Client.ExtendLease(key("name"), corelease.Request{"holder", shorterRequest})
 	c.Check(err, jc.ErrorIsNil)
 
 	// The SUT was refreshed, and knows that the lease is really valid for longer.
@@ -132,12 +132,12 @@ func (s *ClientTrickyRaceSuite) TestExtendLease_BlockedBy_ExpireLease(c *gc.C) {
 	// Set up a hook to expire the lease before the extend gets a chance.
 	defer txntesting.SetBeforeHooks(c, s.sut.Runner, func() {
 		s.blocker.GlobalClock.Advance(90 * time.Second)
-		err := s.blocker.Client.ExpireLease("name")
+		err := s.blocker.Client.ExpireLease(key("name"))
 		c.Check(err, jc.ErrorIsNil)
 	})()
 
 	// Try to extend; check it aborts.
-	err := s.sut.Client.ExtendLease("name", corelease.Request{"holder", 2 * time.Minute})
+	err := s.sut.Client.ExtendLease(key("name"), corelease.Request{"holder", 2 * time.Minute})
 	c.Check(err, gc.Equals, corelease.ErrInvalid)
 
 	// The SUT has been refreshed, and you can see why the operation was invalid.
@@ -150,14 +150,14 @@ func (s *ClientTrickyRaceSuite) TestExtendLease_BlockedBy_ExpireThenReclaimDiffe
 	// chance.
 	defer txntesting.SetBeforeHooks(c, s.sut.Runner, func() {
 		s.blocker.GlobalClock.Advance(90 * time.Second)
-		err := s.blocker.Client.ExpireLease("name")
+		err := s.blocker.Client.ExpireLease(key("name"))
 		c.Check(err, jc.ErrorIsNil)
-		err = s.blocker.Client.ClaimLease("name", corelease.Request{"different-holder", time.Minute})
+		err = s.blocker.Client.ClaimLease(key("name"), corelease.Request{"different-holder", time.Minute})
 		c.Check(err, jc.ErrorIsNil)
 	})()
 
 	// Try to extend; check it aborts.
-	err := s.sut.Client.ExtendLease("name", corelease.Request{"holder", 2 * time.Minute})
+	err := s.sut.Client.ExtendLease(key("name"), corelease.Request{"holder", 2 * time.Minute})
 	c.Check(err, gc.Equals, corelease.ErrInvalid)
 
 	// The SUT has been refreshed, and you can see why the operation was invalid.
@@ -171,9 +171,9 @@ func (s *ClientTrickyRaceSuite) TestExtendLease_WorksDespite_ExpireThenReclaimSa
 	defer txntesting.SetRetryHooks(c, s.sut.Runner, func() {
 		s.blocker.GlobalClock.Advance(90 * time.Second)
 		s.blocker.LocalClock.Advance(90 * time.Second)
-		err := s.blocker.Client.ExpireLease("name")
+		err := s.blocker.Client.ExpireLease(key("name"))
 		c.Check(err, jc.ErrorIsNil)
-		err = s.blocker.Client.ClaimLease("name", corelease.Request{"holder", time.Minute})
+		err = s.blocker.Client.ClaimLease(key("name"), corelease.Request{"holder", time.Minute})
 		c.Check(err, jc.ErrorIsNil)
 	}, func() {
 		err := s.blocker.Client.Refresh()
@@ -182,7 +182,7 @@ func (s *ClientTrickyRaceSuite) TestExtendLease_WorksDespite_ExpireThenReclaimSa
 	})()
 
 	// Try to extend; check it worked.
-	err := s.sut.Client.ExtendLease("name", corelease.Request{"holder", 5 * time.Minute})
+	err := s.sut.Client.ExtendLease(key("name"), corelease.Request{"holder", 5 * time.Minute})
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -194,11 +194,11 @@ func (s *ClientTrickyRaceSuite) TestExtendLease_Pathological(c *gc.C) {
 		Before: func() {
 			s.blocker.GlobalClock.Advance(time.Minute + time.Second)
 			s.blocker.LocalClock.Advance(time.Minute + time.Second)
-			err := s.blocker.Client.ExpireLease("name")
+			err := s.blocker.Client.ExpireLease(key("name"))
 			c.Check(err, jc.ErrorIsNil)
 		},
 		After: func() {
-			err := s.blocker.Client.ClaimLease("name", corelease.Request{"holder", time.Second})
+			err := s.blocker.Client.ClaimLease(key("name"), corelease.Request{"holder", time.Second})
 			c.Check(err, jc.ErrorIsNil)
 		},
 	}
@@ -208,7 +208,7 @@ func (s *ClientTrickyRaceSuite) TestExtendLease_Pathological(c *gc.C) {
 	)()
 
 	// Try to extend, and watch the poor thing collapse in exhaustion.
-	err := s.sut.Client.ExtendLease("name", corelease.Request{"holder", 3 * time.Minute})
+	err := s.sut.Client.ExtendLease(key("name"), corelease.Request{"holder", 3 * time.Minute})
 	c.Check(err, gc.ErrorMatches, "cannot satisfy request: state changing too quickly; try again soon")
 }
 
@@ -218,13 +218,13 @@ func (s *ClientTrickyRaceSuite) TestExpireLease_BlockedBy_ExtendLease(c *gc.C) {
 	defer txntesting.SetBeforeHooks(c, s.sut.Runner, func() {
 		s.blocker.GlobalClock.Advance(90 * time.Second)
 		s.blocker.LocalClock.Advance(90 * time.Second)
-		err := s.blocker.Client.ExtendLease("name", corelease.Request{"holder", 30 * time.Second})
+		err := s.blocker.Client.ExtendLease(key("name"), corelease.Request{"holder", 30 * time.Second})
 		c.Check(err, jc.ErrorIsNil)
 	})()
 
 	// Try to expire; check it aborts.
 	s.sut.GlobalClock.Advance(90 * time.Second)
-	err := s.sut.Client.ExpireLease("name")
+	err := s.sut.Client.ExpireLease(key("name"))
 	c.Check(err, gc.Equals, corelease.ErrInvalid)
 
 	// The SUT has been refreshed, and you can see why the operation was invalid.
@@ -237,13 +237,13 @@ func (s *ClientTrickyRaceSuite) TestExpireLease_BlockedBy_ExpireLease(c *gc.C) {
 	// Set up a hook to expire the lease before the SUT gets a chance.
 	defer txntesting.SetBeforeHooks(c, s.sut.Runner, func() {
 		s.blocker.GlobalClock.Advance(90 * time.Second)
-		err := s.blocker.Client.ExpireLease("name")
+		err := s.blocker.Client.ExpireLease(key("name"))
 		c.Check(err, jc.ErrorIsNil)
 	})()
 
 	// Try to expire; check it aborts.
 	s.sut.GlobalClock.Advance(90 * time.Second)
-	err := s.sut.Client.ExpireLease("name")
+	err := s.sut.Client.ExpireLease(key("name"))
 	c.Check(err, gc.Equals, corelease.ErrInvalid)
 
 	// The SUT has been refreshed, and you can see why the operation was invalid.
@@ -255,15 +255,15 @@ func (s *ClientTrickyRaceSuite) TestExpireLease_BlockedBy_ExpireThenReclaim(c *g
 	// Set up a hook to expire the lease and then reclaim it.
 	defer txntesting.SetBeforeHooks(c, s.sut.Runner, func() {
 		s.blocker.GlobalClock.Advance(90 * time.Second)
-		err := s.blocker.Client.ExpireLease("name")
+		err := s.blocker.Client.ExpireLease(key("name"))
 		c.Check(err, jc.ErrorIsNil)
-		err = s.blocker.Client.ClaimLease("name", corelease.Request{"holder", time.Minute})
+		err = s.blocker.Client.ClaimLease(key("name"), corelease.Request{"holder", time.Minute})
 		c.Check(err, jc.ErrorIsNil)
 	})()
 
 	// Try to expire; check it aborts.
 	s.sut.GlobalClock.Advance(90 * time.Second)
-	err := s.sut.Client.ExpireLease("name")
+	err := s.sut.Client.ExpireLease(key("name"))
 	c.Check(err, gc.Equals, corelease.ErrInvalid)
 
 	// The SUT has been refreshed, and you can see why the operation was invalid.

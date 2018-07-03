@@ -41,7 +41,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 			method: "Refresh",
 		}, {
 			method: "ExpireLease",
-			args:   []interface{}{"redis"},
+			args:   []interface{}{corelease.Key{Lease: "redis"}},
 			callback: func(leases map[string]corelease.Info) {
 				delete(leases, "redis")
 			},
@@ -70,7 +70,7 @@ func (s *WaitUntilExpiredSuite) TestLeadershipChanged(c *gc.C) {
 			method: "Refresh",
 		}, {
 			method: "ExpireLease",
-			args:   []interface{}{"redis"},
+			args:   []interface{}{corelease.Key{Lease: "redis"}},
 			err:    corelease.ErrInvalid,
 			callback: func(leases map[string]corelease.Info) {
 				leases["redis"] = corelease.Info{
@@ -133,7 +133,7 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 			method: "Refresh",
 		}, {
 			method: "ExpireLease",
-			args:   []interface{}{"redis"},
+			args:   []interface{}{corelease.Key{Lease: "redis"}},
 			err:    corelease.ErrInvalid,
 			callback: func(leases map[string]corelease.Info) {
 				delete(leases, "redis")
@@ -144,7 +144,7 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 			},
 		}, {
 			method: "ExpireLease",
-			args:   []interface{}{"store"},
+			args:   []interface{}{corelease.Key{Lease: "store"}},
 			err:    corelease.ErrInvalid,
 		}},
 	}

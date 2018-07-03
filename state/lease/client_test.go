@@ -31,7 +31,7 @@ func (s *ClientSuite) TestLookupLeaseNotThere(c *gc.C) {
 
 func (s *ClientSuite) TestLookupLease(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ClaimLease("name", corelease.Request{"holder", time.Minute})
+	err := fix.Client.ClaimLease(key("name"), corelease.Request{"holder", time.Minute})
 	c.Assert(err, jc.ErrorIsNil)
 	db := NewMongo(s.db)
 	coll, closer := db.GetCollection("default-collection")

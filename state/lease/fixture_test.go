@@ -123,8 +123,8 @@ func (fix *Fixture) infoChecker(checkInfo checkInfoFunc) checkFunc {
 				error = fmt.Sprint(v)
 			}
 		}()
-		name := params[0].(string)
-		info := fix.Client.Leases()[name]
+		key := corelease.Key{Lease: params[0].(string)}
+		info := fix.Client.Leases()[key]
 		return checkInfo(info, params[1])
 	}
 }
