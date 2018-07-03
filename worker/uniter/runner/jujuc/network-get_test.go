@@ -134,6 +134,7 @@ func (s *NetworkGetSuite) createCommand(c *gc.C) cmd.Command {
 				},
 			},
 		},
+		IngressAddresses: []string{"resolvable-hostname"},
 	}
 
 	hctx.info.NetworkInterface.NetworkInfoResults = presetBindings
@@ -272,7 +273,7 @@ ingress-addresses:
 - 100.1.2.3
 - 100.4.3.2`[1:],
 	}, {
-		summary: "a resolvable hostname as addresss, no args",
+		summary: "a resolvable hostname as address, no args",
 		args:    []string{"resolvable-hostname"},
 		out: `
 bind-addresses:
@@ -281,7 +282,9 @@ bind-addresses:
   addresses:
   - hostname: resolvable-hostname
     address: 10.3.3.3
-    cidr: 10.33.1.8/24`[1:],
+    cidr: 10.33.1.8/24
+ingress-addresses:
+- 10.3.3.3`[1:],
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		com := s.createCommand(c)
