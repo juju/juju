@@ -129,13 +129,8 @@ func (c *Client) WatchPodSpec(application string) (watcher.NotifyWatcher, error)
 type ProvisioningInfo struct {
 	PodSpec     string
 	Constraints constraints.Value
-	Filesystems []storage.FilesystemParams
-	Volumes     []storage.VolumeParams
+	Filesystems []storage.KubernetesFilesystemParams
 	Tags        map[string]string
-
-	// TODO(caas) - storage attachment params: may not need these
-	VolumeAttachments     []storage.VolumeAttachmentParams
-	FilesystemAttachments []storage.FilesystemAttachmentParams
 }
 
 // ProvisioningInfo returns the provisioning info for the specified CAAS
@@ -174,55 +169,32 @@ func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
 	return info, nil
 }
 
-func filesystemFromParams(in params.FilesystemParams) (*storage.FilesystemParams, error) {
-	fsTag, err := names.ParseFilesystemTag(in.FilesystemTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var volTag names.VolumeTag
-	if in.VolumeTag != "" {
-		volTag, err = names.ParseVolumeTag(in.VolumeTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	var attachment *storage.FilesystemAttachmentParams
+func filesystemFromParams(in params.KubernetesFilesystemParams) (*storage.KubernetesFilesystemParams, error) {
+	var attachment *storage.KubernetesFilesystemAttachmentParams
 	if in.Attachment != nil {
+		var err error
 		attachment, err = filesystemAttachmentFromParams(*in.Attachment)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	return &storage.FilesystemParams{
-		Tag:          fsTag,
+	return &storage.KubernetesFilesystemParams{
+		StorageName:  in.StorageName,
 		Provider:     storage.ProviderType(in.Provider),
 		Size:         in.Size,
-		Volume:       volTag,
 		Attributes:   in.Attributes,
 		ResourceTags: in.Tags,
 		Attachment:   attachment,
 	}, nil
 }
 
-func filesystemAttachmentFromParams(in params.FilesystemAttachmentParams) (*storage.FilesystemAttachmentParams, error) {
-	var (
-		fsTag names.FilesystemTag
-		err   error
-	)
-	if in.FilesystemTag != "" {
-		fsTag, err = names.ParseFilesystemTag(in.FilesystemTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return &storage.FilesystemAttachmentParams{
+func filesystemAttachmentFromParams(in params.KubernetesFilesystemAttachmentParams) (*storage.KubernetesFilesystemAttachmentParams, error) {
+	return &storage.KubernetesFilesystemAttachmentParams{
 		AttachmentParams: storage.AttachmentParams{
 			Provider: storage.ProviderType(in.Provider),
 			ReadOnly: in.ReadOnly,
 		},
-		Filesystem:   fsTag,
-		FilesystemId: in.FilesystemId,
-		Path:         in.MountPoint,
+		Path: in.MountPoint,
 	}, nil
 }
 

@@ -15,8 +15,10 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -36,27 +38,39 @@ type StorageStateSuiteBase struct {
 func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
+	var registry storage.ProviderRegistry
 	if s.series == "kubernetes" {
 		s.st = s.Factory.MakeCAASModel(c, nil)
 		s.AddCleanup(func(_ *gc.C) { s.st.Close() })
+		broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(s.st)
+		c.Assert(err, jc.ErrorIsNil)
+		registry = stateenvirons.NewStorageProviderRegistry(broker)
 	} else {
 		s.st = s.State
 		s.series = "quantal"
+		registry = storage.ChainedProviderRegistry{
+			dummy.StorageProviders(),
+			provider.CommonStorageProviders(),
+		}
+	}
+	s.policy = testing.MockPolicy{
+		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
+			return registry, nil
+		},
 	}
 
 	// Create a default pool for block devices.
-	pm := poolmanager.New(state.NewStateSettings(s.st), storage.ChainedProviderRegistry{
-		dummy.StorageProviders(),
-		provider.CommonStorageProviders(),
-	})
+	pm := poolmanager.New(state.NewStateSettings(s.st), registry)
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Create a pool that creates persistent block devices.
-	_, err = pm.Create("persistent-block", "modelscoped-block", map[string]interface{}{
-		"persistent": true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	if s.series != "kubernetes" {
+		// Create a pool that creates persistent block devices.
+		_, err = pm.Create("persistent-block", "modelscoped-block", map[string]interface{}{
+			"persistent": true,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	s.storageBackend, err = state.NewStorageBackend(s.st)
 	c.Assert(err, jc.ErrorIsNil)
@@ -447,9 +461,13 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err = storageFilesystem.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
+	defaultStorage := "rootfs"
+	if s.series == "kubernetes" {
+		defaultStorage = "kubernetes"
+	}
 	c.Assert(constraints, jc.DeepEquals, map[string]state.StorageConstraints{
 		"data": {
-			Pool:  "rootfs",
+			Pool:  defaultStorage,
 			Count: 1,
 			Size:  1024,
 		},

@@ -45,17 +45,25 @@ func (s *FilesystemStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 }
 
 func (s *FilesystemStateSuite) TestAddApplicationNoPoolNoDefault(c *gc.C) {
-	// no pool specified, no default configured: use rootfs.
-	s.testAddApplicationDefaultPool(c, "rootfs", 0)
+	// no pool specified, no default configured: use default.
+	expected := "rootfs"
+	if s.series == "kubernetes" {
+		expected = "kubernetes"
+	}
+	s.testAddApplicationDefaultPool(c, expected, 0)
 }
 
 func (s *FilesystemStateSuite) TestAddApplicationNoPoolNoDefaultWithUnits(c *gc.C) {
-	// no pool specified, no default configured: use rootfs, add a unit during
+	// no pool specified, no default configured: use default, add a unit during
 	// app deploy.
-	s.testAddApplicationDefaultPool(c, "rootfs", 1)
+	expected := "rootfs"
+	if s.series == "kubernetes" {
+		expected = "kubernetes"
+	}
+	s.testAddApplicationDefaultPool(c, expected, 1)
 }
 
-func (s *FilesystemStateSuite) TestAddApplicationNoPoolDefaultFilesystem(c *gc.C) {
+func (s *FilesystemIAASModelSuite) TestAddApplicationNoPoolDefaultFilesystem(c *gc.C) {
 	// no pool specified, default filesystem configured: use default
 	// filesystem.
 	m, err := s.st.Model()
@@ -643,7 +651,7 @@ func (s *FilesystemIAASModelSuite) TestRemoveStorageInstanceDestroysAndUnassigns
 	c.Assert(v.Life(), gc.Equals, state.Alive)
 }
 
-func (s *FilesystemStateSuite) TestReleaseStorageInstanceFilesystemReleasing(c *gc.C) {
+func (s *FilesystemIAASModelSuite) TestReleaseStorageInstanceFilesystemReleasing(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "modelscoped")
 	s.maybeAssignUnit(c, u)
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
@@ -664,7 +672,7 @@ func (s *FilesystemStateSuite) TestReleaseStorageInstanceFilesystemReleasing(c *
 	c.Assert(filesystem.Releasing(), jc.IsTrue)
 }
 
-func (s *FilesystemStateSuite) TestReleaseStorageInstanceFilesystemUnreleasable(c *gc.C) {
+func (s *FilesystemIAASModelSuite) TestReleaseStorageInstanceFilesystemUnreleasable(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "modelscoped-unreleasable")
 	s.maybeAssignUnit(c, u)
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
@@ -1309,7 +1317,7 @@ func (s *FilesystemIAASModelSuite) TestFilesystemAttachmentLocationConflict(c *g
 			`mount point "/srv/within" for "data" storage`)
 }
 
-func (s *FilesystemStateSuite) TestAddExistingFilesystem(c *gc.C) {
+func (s *FilesystemIAASModelSuite) TestAddExistingFilesystem(c *gc.C) {
 	fsInfoIn := state.FilesystemInfo{
 		Pool:         "modelscoped",
 		Size:         123,
@@ -1330,7 +1338,7 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystem(c *gc.C) {
 	c.Assert(fsStatus.Status, gc.Equals, status.Detached)
 }
 
-func (s *FilesystemStateSuite) TestAddExistingFilesystemEmptyFilesystemId(c *gc.C) {
+func (s *FilesystemIAASModelSuite) TestAddExistingFilesystemEmptyFilesystemId(c *gc.C) {
 	fsInfoIn := state.FilesystemInfo{
 		Pool: "modelscoped",
 		Size: 123,
@@ -1339,7 +1347,7 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystemEmptyFilesystemId(c *gc.
 	c.Assert(err, gc.ErrorMatches, "cannot add existing filesystem: empty filesystem ID not valid")
 }
 
-func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBacked(c *gc.C) {
+func (s *FilesystemIAASModelSuite) TestAddExistingFilesystemVolumeBacked(c *gc.C) {
 	fsInfoIn := state.FilesystemInfo{
 		Pool: "modelscoped-block",
 		Size: 123,
@@ -1375,7 +1383,7 @@ func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBacked(c *gc.C) {
 	c.Assert(volStatus.Status, gc.Equals, status.Detached)
 }
 
-func (s *FilesystemStateSuite) TestAddExistingFilesystemVolumeBackedVolumeInfoMissing(c *gc.C) {
+func (s *FilesystemIAASModelSuite) TestAddExistingFilesystemVolumeBackedVolumeInfoMissing(c *gc.C) {
 	fsInfo := state.FilesystemInfo{
 		Pool:         "modelscoped-block",
 		Size:         123,

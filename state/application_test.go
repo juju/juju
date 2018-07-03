@@ -3474,6 +3474,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 		c.Assert(u.ShouldBeAssigned(), jc.IsFalse)
 		containerInfo, err := u.ContainerInfo()
 		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(containerInfo.Unit(), gc.Equals, u.Name())
 		c.Assert(containerInfo.ProviderId(), gc.Not(gc.Equals), "")
 		unitsById[containerInfo.ProviderId()] = u
 		containerInfoById[containerInfo.ProviderId()] = containerInfo
@@ -3553,6 +3554,7 @@ func (s *CAASApplicationSuite) TestAddUnitWithProviderId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info, err := u.ContainerInfo()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Unit(), gc.Equals, u.Name())
 	c.Assert(info.ProviderId(), gc.Equals, "provider-id")
 }
 

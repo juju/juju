@@ -81,7 +81,7 @@ type ServiceParams struct {
 	Constraints constraints.Value
 
 	// Filesystems is a set of parameters for filesystems that should be created.
-	Filesystems []storage.FilesystemParams
+	Filesystems []storage.KubernetesFilesystemParams
 }
 
 // Broker instances interact with the CAAS substrate.
@@ -127,7 +127,9 @@ type Broker interface {
 	// are changes to units of the specified application.
 	WatchUnits(appName string) (watcher.NotifyWatcher, error)
 
-	// Units returns all units of the specified application.
+	// Units returns all units and any associated filesystems
+	// of the specified application. Filesystems are mounted
+	// via volumes bound to the unit.
 	Units(appName string) ([]Unit, error)
 
 	// ProviderRegistry is an interface for obtaining storage providers.
@@ -140,14 +142,24 @@ type Service struct {
 	Addresses []network.Address
 }
 
+// FilesystemInfo represents information about a filesystem
+// mounted by a unit.
+type FilesystemInfo struct {
+	StorageName  string
+	FilesystemId string
+	Size         uint64
+	MountPoint   string
+	ReadOnly     bool
+}
+
 // Unit represents information about the status of a "pod".
 type Unit struct {
-	Id      string
-	UnitTag string
-	Address string
-	Ports   []string
-	Dying   bool
-	Status  status.StatusInfo
+	Id             string
+	Address        string
+	Ports          []string
+	Dying          bool
+	Status         status.StatusInfo
+	FilesystemInfo []FilesystemInfo
 }
 
 // OperatorConfig is the config to use when creating an operator.

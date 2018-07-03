@@ -74,6 +74,7 @@ func (st *mockState) Model() (caasunitprovisioner.Model, error) {
 type mockModel struct {
 	testing.Stub
 	podSpecWatcher *statetesting.MockNotifyWatcher
+	containers     []state.CloudContainer
 }
 
 func (m *mockModel) ModelConfig() (*config.Config, error) {
@@ -95,6 +96,11 @@ func (m *mockModel) WatchPodSpec(tag names.ApplicationTag) (state.NotifyWatcher,
 		return nil, err
 	}
 	return m.podSpecWatcher, nil
+}
+
+func (m *mockModel) Containers(providerIds ...string) ([]state.CloudContainer, error) {
+	m.MethodCall(m, "Containers", providerIds)
+	return m.containers, nil
 }
 
 type mockApplication struct {
@@ -158,10 +164,15 @@ func (m *mockApplication) AddOperation(props state.UnitUpdateProperties) *state.
 type mockContainerInfo struct {
 	state.CloudContainer
 	providerId string
+	unitName   string
 }
 
 func (m *mockContainerInfo) ProviderId() string {
 	return m.providerId
+}
+
+func (m *mockContainerInfo) Unit() string {
+	return m.unitName
 }
 
 type mockUnit struct {
@@ -215,6 +226,8 @@ func (m *mockUnit) DestroyOperation() *state.DestroyUnitOperation {
 
 type mockStorage struct {
 	testing.Stub
+	storageFilesystems map[names.StorageTag]names.FilesystemTag
+	storageAttachments map[names.UnitTag]names.StorageTag
 }
 
 func (m *mockStorage) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
@@ -226,7 +239,8 @@ func (m *mockStorage) StorageInstance(tag names.StorageTag) (state.StorageInstan
 }
 
 func (m *mockStorage) Filesystem(fsTag names.FilesystemTag) (state.Filesystem, error) {
-	return nil, errors.NotSupportedf("filesystem")
+	m.MethodCall(m, "Filesystem", fsTag)
+	return &mockFilesystem{Stub: &m.Stub, tag: fsTag}, nil
 }
 
 func (m *mockStorage) FilesystemAttachment(hostTag names.Tag, fsTag names.FilesystemTag) (state.FilesystemAttachment, error) {
@@ -235,17 +249,27 @@ func (m *mockStorage) FilesystemAttachment(hostTag names.Tag, fsTag names.Filesy
 }
 
 func (m *mockStorage) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
-	return &mockFilesystem{}, nil
+	return &mockFilesystem{Stub: &m.Stub, tag: m.storageFilesystems[tag]}, nil
 }
 
 func (m *mockStorage) UnitStorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error) {
 	m.MethodCall(m, "UnitStorageAttachments", unit)
 	return []state.StorageAttachment{
 		&mockStorageAttachment{
-			unit:    names.NewUnitTag("gitlab/0"),
-			storage: names.NewStorageTag("data/0"),
+			unit:    unit,
+			storage: m.storageAttachments[unit],
 		},
 	}, nil
+}
+
+func (m *mockStorage) SetFilesystemInfo(fsTag names.FilesystemTag, fsInfo state.FilesystemInfo) error {
+	m.MethodCall(m, "SetFilesystemInfo", fsTag, fsInfo)
+	return nil
+}
+
+func (m *mockStorage) SetFilesystemAttachmentInfo(host names.Tag, fsTag names.FilesystemTag, info state.FilesystemAttachmentInfo) error {
+	m.MethodCall(m, "SetFilesystemAttachmentInfo", host, fsTag, info)
+	return nil
 }
 
 type mockStorageInstance struct {
@@ -266,6 +290,10 @@ func (a *mockStorageInstance) StorageTag() names.StorageTag {
 	return a.tag
 }
 
+func (a *mockStorageInstance) StorageName() string {
+	return "data"
+}
+
 func (a *mockStorageInstance) Owner() (names.Tag, bool) {
 	return a.owner, a.owner != nil
 }
@@ -282,7 +310,9 @@ func (a *mockStorageAttachment) StorageInstance() names.StorageTag {
 }
 
 type mockFilesystem struct {
+	*testing.Stub
 	state.Filesystem
+	tag names.FilesystemTag
 }
 
 func (f *mockFilesystem) Tag() names.Tag {
@@ -290,7 +320,7 @@ func (f *mockFilesystem) Tag() names.Tag {
 }
 
 func (f *mockFilesystem) FilesystemTag() names.FilesystemTag {
-	return names.NewFilesystemTag("gitlab/0/0")
+	return f.tag
 }
 
 func (f *mockFilesystem) Volume() (names.VolumeTag, error) {
@@ -302,6 +332,15 @@ func (f *mockFilesystem) Params() (state.FilesystemParams, bool) {
 		Pool: "k8spool",
 		Size: 100,
 	}, true
+}
+
+func (f *mockFilesystem) SetStatus(statusInfo status.StatusInfo) error {
+	f.MethodCall(f, "SetStatus", statusInfo)
+	return nil
+}
+
+func (f *mockFilesystem) Info() (state.FilesystemInfo, error) {
+	return state.FilesystemInfo{}, errors.NotProvisionedf("filesystem")
 }
 
 type mockFilesystemAttachment struct {
