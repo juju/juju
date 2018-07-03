@@ -4,6 +4,11 @@
 package lxd_test
 
 import (
+	"net"
+	"net/url"
+	"os"
+	"syscall"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/juju/cloud"
@@ -115,6 +120,122 @@ func (s *serverSuite) TestLocalServerRetrySemanticsFailure(c *gc.C) {
 	svr, err := factory.LocalServer()
 	c.Assert(svr, gc.IsNil)
 	c.Assert(err.Error(), gc.Equals, "LXD is not listening on address https://192.168.0.1 (reported addresses: [])")
+}
+
+func (s *serverSuite) TestLocalServerErrorMessageShowsInstallMessage(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	factory := lxd.NewServerFactoryWithMocks(
+		func() (lxd.Server, error) {
+			return nil, errors.New("bad")
+		},
+		defaultRemoteServerFunc(ctrl),
+		nil,
+		&lxd.MockClock{},
+	)
+
+	_, err := factory.LocalServer()
+	c.Assert(errors.Cause(err).Error(), gc.Equals, `bad
+
+Please install LXD by running:
+	$ sudo snap install lxd
+and then configure it with:
+	$ newgrp lxd
+	$ lxd init
+`)
+}
+
+func (s *serverSuite) TestLocalServerErrorMessageShowsConfigureMessage(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	factory := lxd.NewServerFactoryWithMocks(
+		func() (lxd.Server, error) {
+			return nil, errors.Annotatef(&url.Error{
+				Err: &net.OpError{
+					Op:  "dial",
+					Net: "unix",
+					Err: &os.SyscallError{
+						Err: syscall.ECONNREFUSED,
+					},
+				},
+			}, "bad")
+		},
+		defaultRemoteServerFunc(ctrl),
+		nil,
+		&lxd.MockClock{},
+	)
+
+	_, err := factory.LocalServer()
+	c.Assert(errors.Cause(err).Error(), gc.Equals, `LXD refused connections; is LXD running?
+
+Please configure LXD by running:
+	$ newgrp lxd
+	$ lxd init
+`)
+}
+
+func (s *serverSuite) TestLocalServerErrorMessageShowsConfigureMessageWhenEACCES(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	factory := lxd.NewServerFactoryWithMocks(
+		func() (lxd.Server, error) {
+			return nil, errors.Annotatef(&url.Error{
+				Err: &net.OpError{
+					Op:  "dial",
+					Net: "unix",
+					Err: &os.SyscallError{
+						Err: syscall.EACCES,
+					},
+				},
+			}, "bad")
+		},
+		defaultRemoteServerFunc(ctrl),
+		nil,
+		&lxd.MockClock{},
+	)
+
+	_, err := factory.LocalServer()
+	c.Assert(errors.Cause(err).Error(), gc.Equals, `Permission denied, are you in the lxd group?
+
+Please configure LXD by running:
+	$ newgrp lxd
+	$ lxd init
+`)
+}
+
+func (s *serverSuite) TestLocalServerErrorMessageShowsInstallMessageWhenENOENT(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	factory := lxd.NewServerFactoryWithMocks(
+		func() (lxd.Server, error) {
+			return nil, errors.Annotatef(&url.Error{
+				Err: &net.OpError{
+					Op:  "dial",
+					Net: "unix",
+					Err: &os.SyscallError{
+						Err: syscall.ENOENT,
+					},
+				},
+			}, "bad")
+		},
+		defaultRemoteServerFunc(ctrl),
+		nil,
+		&lxd.MockClock{},
+	)
+
+	_, err := factory.LocalServer()
+	c.Assert(errors.Cause(err).Error(), gc.Equals, `LXD socket not found; is LXD installed & running?
+
+Please install LXD by running:
+	$ sudo snap install lxd
+and then configure it with:
+	$ newgrp lxd
+	$ lxd init
+`)
 }
 
 func (s *serverSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C) {

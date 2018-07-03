@@ -299,7 +299,6 @@ func getMessageFromErr(err error) (bool, string) {
 }
 
 func hoistLocalConnectErr(err error) error {
-
 	installed, msg := getMessageFromErr(err)
 
 	configureText := `
