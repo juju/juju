@@ -48,7 +48,7 @@ func (hi Info) Validate() error {
 		}
 		fallthrough
 	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken,
-		hooks.CollectMetrics, hooks.MeterStatusChanged, hooks.UpdateStatus, hooks.UpgradeSeriesPrepare:
+		hooks.CollectMetrics, hooks.MeterStatusChanged, hooks.UpdateStatus, hooks.PreSeriesUpgrade:
 		return nil
 	case hooks.Action:
 		return fmt.Errorf("hooks.Kind Action is deprecated")

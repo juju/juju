@@ -684,6 +684,27 @@ func (u *Unit) UpgradeSeriesStatus() (string, error) {
 	return result.Status, nil
 }
 
+// UpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
+func (u *Unit) SetUpgradeSeriesStatus(status string) error {
+	var results params.UpgradeSeriesStatusResults
+	args := params.SetUpgradeSeriesStatusParams{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+		Status:   status,
+	}
+	err := u.st.facade.FacadeCall("SetUpgradeSeriesStatus", args, &results)
+	if err != nil {
+		return err
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
 // RequestReboot sets the reboot flag for its machine agent
 func (u *Unit) RequestReboot() error {
 	machineId, err := u.AssignedMachine()

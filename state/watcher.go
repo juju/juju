@@ -1655,6 +1655,15 @@ func (u *Unit) UpgradeSeriesStatus() (string, error) {
 	return machine.UpgradeSeriesStatus()
 }
 
+// UpgradeSeriesStatus sets the upgrade status of the units assigned machine.
+func (u *Unit) SetUpgradeSeriesStatus(status string) (string, error) {
+	machine, err := u.machine()
+	if err != nil {
+		return "", err
+	}
+	return machine.SetUpgradeSeriesStatus(u.Name(), status)
+}
+
 func newEntityWatcher(backend modelBackend, collName string, key interface{}) NotifyWatcher {
 	return newDocWatcher(backend, []docKey{{collName, key}})
 }

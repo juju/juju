@@ -31,3 +31,10 @@ func reportAgentError(u *Uniter, userMessage string, err error) {
 		logger.Errorf("updating agent status: %v", err2)
 	}
 }
+
+// setUpgradeSeriesStatus sets the upgrade series status
+func setUpgradeSeriesStatus(u *Uniter, status string) error {
+	//TODO[externalreality] lock this with mutex, there should be no way to
+	//issue two of these at once.
+	return u.unit.SetUpgradeSeriesStatus(status)
+}

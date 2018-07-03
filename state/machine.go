@@ -2208,6 +2208,29 @@ func (m *Machine) UpgradeSeriesStatus() (string, error) {
 	return "preparing", nil
 }
 
+// SetUpgradeSeriesStatus sets the status of a series upgrade.
+func (m *Machine) SetUpgradeSeriesStatus(unitName string, status string) (string, error) {
+	// buildTxn := func(attempt int) ([]txn.Op, error) {
+	// 	if attempt > 0 {
+	// 		if err := m.Refresh(); err != nil {
+	// 			return nil, errors.Trace(err)
+	// 		}
+	// 	}
+	// 	locked, err := m.IsLocked()
+	// 	if err != nil {
+	// 		return nil, errors.Trace(err)
+	// 	}
+	// 	if !locked {
+	// 		return nil, errors.BadRequestf("Machine %q is not locked for upgrade", m)
+	// 	}
+	// 	if err = m.isStillAlive(); err != nil {
+	// 		return nil, errors.Trace(err)
+	// 	}
+	// 	return setUpgradeSeriesTxnOps(m.doc.Id), nil
+	// }
+	return "", nil
+}
+
 func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLock) []txn.Op {
 	return []txn.Op{
 		{
@@ -2231,6 +2254,22 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 			Id:     machineDocId,
 			Assert: txn.DocExists,
 			Remove: true,
+		},
+	}
+}
+
+func setUpgradeSeriesTxnOps(machineDocId string) []txn.Op {
+	return []txn.Op{
+		{
+			C:      machinesC,
+			Id:     machineDocId,
+			Assert: isAliveDoc,
+		},
+		{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     machineDocId,
+			Assert: txn.DocMissing,
+			//	Update: bson.D{{"$set", bson.D{{"keep-instance", keepInstance}}}},
 		},
 	}
 }

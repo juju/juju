@@ -1055,6 +1055,40 @@ func (u *UniterAPI) UpgradeSeriesStatus(args params.Entities) (params.UpgradeSer
 	return result, nil
 }
 
+func (u *UniterAPI) SetUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams) (params.UpgradeSeriesStatusResults, error) {
+	result := params.UpgradeSeriesStatusResults{
+		Results: make([]params.UpgradeSeriesStatusResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.UpgradeSeriesStatusResults{}, err
+	}
+	for i, entity := range args.Entities {
+		//TODO[externalreality] refactor all of this, its being copied often.
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		_, err = unit.SetUpgradeSeriesStatus(args.Status)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+	}
+
+	return result, nil
+}
+
 // ConfigSettings returns the complete set of application charm config
 // settings available to each given unit.
 func (u *UniterAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsResults, error) {

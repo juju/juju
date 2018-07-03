@@ -195,10 +195,13 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 		if !isLeader || err != nil {
 			return hasRunStatusSet && err == nil, err
 		}
-		rel, err := ctx.Relation(rh.info.RelationId)
-		if err == nil && rel.Suspended() {
+		rel, rErr := ctx.Relation(rh.info.RelationId)
+		if rErr == nil && rel.Suspended() {
 			err = rel.SetStatus(relation.Suspended)
 		}
+	case hooks.PreSeriesUpgrade:
+		logger.Debugf("completing pre upgrade series hook. updating state of series upgrade.")
+		err = rh.callbacks.SetUpgradeSeriesStatus("ready")
 	}
 	return hasRunStatusSet && err == nil, err
 }

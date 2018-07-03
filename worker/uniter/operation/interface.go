@@ -165,6 +165,11 @@ type Callbacks interface {
 	// no path by which the controller can legitimately garbage collect that
 	// charm or the application's settings for it. It's only used by Deploy operations.
 	SetCurrentCharm(charmURL *corecharm.URL) error
+
+	// SetSeriesStatusUpgrade is intended to give the uniter a chance to
+	// upgrade the status of a running series upgrade after upgrade series
+	// hook code completes.
+	SetUpgradeSeriesStatus(status string) error
 }
 
 // StorageUpdater is an interface used for updating local knowledge of storage

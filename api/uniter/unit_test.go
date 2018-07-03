@@ -697,8 +697,7 @@ func (s *unitSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
 
 	notifyWatcher.AssertOneChange()
 
-	err = s.wordpressMachine.CreateUpgradeSeriesLock()
-	c.Assert(err, jc.ErrorIsNil)
+	s.CreateUpgradeSeriesLock(c)
 
 	// Expect a notification that the document was created (i.e. a lock was placed)
 	notifyWatcher.AssertOneChange()
@@ -712,14 +711,35 @@ func (s *unitSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
 
 func (s *unitSuite) TestUpgradeSeriesStatus(c *gc.C) {
 	// First we create the prepare lock
-	err := s.wordpressMachine.CreateUpgradeSeriesLock()
-	c.Assert(err, jc.ErrorIsNil)
+	s.CreateUpgradeSeriesLock(c)
 
 	// Then we check to see the status of our upgrade. We note that creating
 	// the lock essentially kicks off an upgrade for the perspective of assigned units.
 	status, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, "preparing")
+}
+
+func (s *unitSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
+	// First we create the prepare lock or the required state will not exists
+	s.CreateUpgradeSeriesLock(c)
+
+	newStatus := "newStatus"
+	err := s.apiUnit.SetUpgradeSeriesStatus(newStatus)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check to see that the upgrade has been set appropriately
+	status, err := s.apiUnit.UpgradeSeriesStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, "preparing") // Don't Forget this
+}
+
+func (s *unitSuite) CreateUpgradeSeriesLock(c *gc.C) {
+	unitNames := []string{s.wordpressUnit.Name()}
+	series := "trust"
+
+	err := s.wordpressMachine.CreateUpgradeSeriesLock(unitNames, series)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *unitSuite) TestApplicationNameAndTag(c *gc.C) {

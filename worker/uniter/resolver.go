@@ -280,7 +280,7 @@ func (s *uniterResolver) nextOp(
 
 	if localState.UpgradeSeriesStatus != remoteState.UpgradeSeriesStatus &&
 		remoteState.UpgradeSeriesStatus == "preparing" {
-		return opFactory.NewRunHook(hook.Info{Kind: hooks.UpgradeSeriesPrepare})
+		return opFactory.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
 	}
 
 	op, err := s.config.Relations.NextOp(localState, remoteState, opFactory)
