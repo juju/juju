@@ -16,6 +16,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/state"
@@ -47,12 +48,12 @@ type ResourcesHandler struct {
 
 // ServeHTTP implements http.Handler.
 func (h *ResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	backend, ph, tag, err := h.StateAuthFunc(req, names.UserTagKind, names.MachineTagKind)
+	backend, poolhelper, tag, err := h.StateAuthFunc(req, names.UserTagKind, names.MachineTagKind)
 	if err != nil {
 		api.SendHTTPError(resp, err)
 		return
 	}
-	defer ph.Release()
+	defer poolhelper.Release()
 
 	switch req.Method {
 	case "GET":
@@ -100,17 +101,16 @@ func (h *ResourcesHandler) upload(backend ResourcesBackend, req *http.Request, u
 		return nil, errors.Trace(err)
 	}
 
+	// UpdatePendingResource does the same as SetResource (just calls setResource) except SetResouce just blanks PendingID.
 	var stored resource.Resource
 	if uploaded.PendingID != "" {
 		stored, err = backend.UpdatePendingResource(uploaded.Application, uploaded.PendingID, username, uploaded.Resource, uploaded.Data)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 	} else {
 		stored, err = backend.SetResource(uploaded.Application, username, uploaded.Resource, uploaded.Data)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	}
+
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	result := &params.UploadResult{
@@ -144,19 +144,24 @@ func (h *ResourcesHandler) readResource(backend ResourcesBackend, req *http.Requ
 	var res resource.Resource
 	if uReq.PendingID != "" {
 		res, err = backend.GetPendingResource(uReq.Application, uReq.Name, uReq.PendingID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 	} else {
 		res, err = backend.GetResource(uReq.Application, uReq.Name)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	switch res.Type {
+	case charmresource.TypeFile:
+		ext := path.Ext(res.Path)
+		if path.Ext(uReq.Filename) != ext {
+			return nil, errors.Errorf("incorrect extension on resource upload %q, expected %q", uReq.Filename, ext)
+		}
+	case charmresource.TypeDocker:
+		err := resources.CheckDockerDetails(res.Name, res.Path)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-	}
-
-	ext := path.Ext(res.Path)
-	if path.Ext(uReq.Filename) != ext {
-		return nil, errors.Errorf("incorrect extension on resource upload %q, expected %q", uReq.Filename, ext)
 	}
 
 	chRes, err := updateResource(res.Resource, uReq.Fingerprint, uReq.Size)

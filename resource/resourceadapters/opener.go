@@ -53,14 +53,14 @@ func (ro *resourceOpener) OpenResource(name string) (o resource.Opened, err erro
 	if ro.unit == nil {
 		return resource.Opened{}, errors.Errorf("missing unit")
 	}
-	svc, err := ro.unit.Application()
+	app, err := ro.unit.Application()
 	if err != nil {
 		return resource.Opened{}, errors.Trace(err)
 	}
 	cURL, _ := ro.unit.CharmURL()
 	id := csclient.CharmID{
 		URL:     cURL,
-		Channel: svc.Channel(),
+		Channel: app.Channel(),
 	}
 
 	csOpener := newCharmstoreOpener(ro.st)

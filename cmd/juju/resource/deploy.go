@@ -4,6 +4,8 @@
 package resource
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -11,8 +13,10 @@ import (
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/charmstore"
+	resources "github.com/juju/juju/core/resources"
 )
 
 // DeployClient exposes the functionality of the resources API needed
@@ -37,9 +41,9 @@ type DeployResourcesArgs struct {
 	// interacting with the charm store.
 	CharmStoreMacaroon *macaroon.Macaroon
 
-	// Filenames is the set of resources for which a filename
+	// ResourceValues is the set of resources for which a value
 	// was provided at the command-line.
-	Filenames map[string]string
+	ResourceValues map[string]string
 
 	// Revisions is the set of resources for which a revision
 	// was provided at the command-line.
@@ -67,7 +71,7 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 		osStat:        func(s string) error { _, err := os.Stat(s); return err },
 	}
 
-	ids, err = d.upload(args.Filenames, args.Revisions)
+	ids, err = d.upload(args.ResourceValues, args.Revisions)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -84,20 +88,20 @@ type deployUploader struct {
 	osStat        func(path string) error
 }
 
-func (d deployUploader) upload(files map[string]string, revisions map[string]int) (map[string]string, error) {
+func (d deployUploader) upload(resourceValues map[string]string, revisions map[string]int) (map[string]string, error) {
 	if err := d.validateResources(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if err := d.checkExpectedResources(files, revisions); err != nil {
+	if err := d.checkExpectedResources(resourceValues, revisions); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if err := d.checkFiles(files); err != nil {
+	if err := d.validateResourceDetails(resourceValues); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	storeResources := d.storeResources(files, revisions)
+	storeResources := d.charmStoreResources(resourceValues, revisions)
 	pending := map[string]string{}
 	if len(storeResources) > 0 {
 		ids, err := d.client.AddPendingResources(d.applicationID, d.chID, d.csMac, storeResources)
@@ -110,8 +114,20 @@ func (d deployUploader) upload(files map[string]string, revisions map[string]int
 		}
 	}
 
-	for name, filename := range files {
-		id, err := d.uploadFile(name, filename)
+	for name, resValue := range resourceValues {
+		var (
+			id  string
+			err error
+		)
+		switch d.resources[name].Type {
+		case charmresource.TypeFile:
+			id, err = d.uploadFile(name, resValue)
+		case charmresource.TypeDocker:
+			id, err = d.uploadDockerDetails(name, resValue)
+		default:
+			err = errors.New("unknown resource type to upload")
+		}
+
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -121,15 +137,31 @@ func (d deployUploader) upload(files map[string]string, revisions map[string]int
 	return pending, nil
 }
 
-func (d deployUploader) checkFiles(files map[string]string) error {
-	for name, path := range files {
-		err := d.osStat(path)
-		if os.IsNotExist(err) {
-			return errors.Annotatef(err, "file for resource %q", name)
+func (d deployUploader) validateResourceDetails(res map[string]string) error {
+	for name, value := range res {
+		var err error
+		switch d.resources[name].Type {
+		case charmresource.TypeFile:
+			err = d.checkFile(name, value)
+		case charmresource.TypeDocker:
+			err = resources.CheckDockerDetails(name, value)
+		default:
+			return fmt.Errorf("unknown resource: %s", name)
 		}
 		if err != nil {
-			return errors.Annotatef(err, "can't read file for resource %q", name)
+			return err
 		}
+	}
+	return nil
+}
+
+func (d deployUploader) checkFile(name, path string) error {
+	err := d.osStat(path)
+	if os.IsNotExist(err) {
+		return errors.Annotatef(err, "file for resource %q", name)
+	}
+	if err != nil {
+		return errors.Annotatef(err, "can't read file for resource %q", name)
 	}
 	return nil
 }
@@ -154,7 +186,10 @@ func (d deployUploader) validateResources() error {
 	return nil
 }
 
-func (d deployUploader) storeResources(uploads map[string]string, revisions map[string]int) []charmresource.Resource {
+// charmStoreResources returns which resources revisions will need to be retrieved
+// either as they where explicitly requested by the user for that rev or they
+// weren't provided by the user.
+func (d deployUploader) charmStoreResources(uploads map[string]string, revisions map[string]int) []charmresource.Resource {
 	var resources []charmresource.Resource
 	for name, meta := range d.resources {
 		if _, ok := uploads[name]; ok {
@@ -177,22 +212,43 @@ func (d deployUploader) storeResources(uploads map[string]string, revisions map[
 	return resources
 }
 
+func (d deployUploader) uploadPendingResource(resourcename, resourcevalue string, data io.ReadSeeker) (id string, err error) {
+	res := charmresource.Resource{
+		Meta:   d.resources[resourcename],
+		Origin: charmresource.OriginUpload,
+	}
+
+	return d.client.UploadPendingResource(d.applicationID, res, resourcevalue, data)
+}
+
 func (d deployUploader) uploadFile(resourcename, filename string) (id string, err error) {
 	f, err := d.osOpen(filename)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	defer f.Close()
-	res := charmresource.Resource{
-		Meta:   d.resources[resourcename],
-		Origin: charmresource.OriginUpload,
-	}
 
-	id, err = d.client.UploadPendingResource(d.applicationID, res, filename, f)
+	id, err = d.uploadPendingResource(resourcename, filename, f)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	return id, err
+}
+
+func (d deployUploader) uploadDockerDetails(resourcename, registryPath string) (id string, error error) {
+	data, err := yaml.Marshal(resources.DockerImageDetails{
+		RegistryPath: registryPath,
+	})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	dr := bytes.NewReader(data)
+
+	id, err = d.uploadPendingResource(resourcename, registryPath, dr)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return id, nil
 }
 
 func (d deployUploader) checkExpectedResources(filenames map[string]string, revisions map[string]int) error {

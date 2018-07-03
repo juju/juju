@@ -84,8 +84,7 @@ func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 	// TODO(ericsnow) What about the rest of the URL?
 	urlStr := NewEndpointPath(ur.Application, ur.Name)
 
-	// TODO(natefinch): Use http.MethodPut when we upgrade to go1.5+.
-	req, err := http.NewRequest(MethodPut, urlStr, nil)
+	req, err := http.NewRequest(http.MethodPut, urlStr, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

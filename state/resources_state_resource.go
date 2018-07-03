@@ -4,6 +4,7 @@
 package state
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"path"
@@ -15,7 +16,9 @@ import (
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
+	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/resource"
 )
 
@@ -75,10 +78,11 @@ type resourceStorage interface {
 }
 
 type resourceState struct {
-	persist resourcePersistence
-	raw     rawState
-	storage resourceStorage
-	clock   clock.Clock
+	persist               resourcePersistence
+	raw                   rawState
+	dockerMetadataStorage DockerMetadataStorage
+	storage               resourceStorage
+	clock                 clock.Clock
 }
 
 // ListResources returns the resource data for the given application ID.
@@ -276,7 +280,21 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 	}
 
 	hash := res.Fingerprint.String()
-	if err := st.storage.PutAndCheckHash(storagePath, r, res.Size, hash); err != nil {
+	switch res.Type {
+	case charmresource.TypeFile:
+		err = st.storage.PutAndCheckHash(storagePath, r, res.Size, hash)
+	case charmresource.TypeDocker:
+		var dockerDetails resources.DockerImageDetails
+		respBuf := new(bytes.Buffer)
+		respBuf.ReadFrom(r)
+		err = yaml.Unmarshal(respBuf.Bytes(), &dockerDetails)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = st.dockerMetadataStorage.Save(res.ID, dockerDetails)
+	}
+
+	if err != nil {
 		if err := staged.Unstage(); err != nil {
 			logger.Errorf("could not unstage resource %q (application %q): %v", res.Name, res.ApplicationID, err)
 		}
@@ -312,7 +330,16 @@ func (st resourceState) OpenResource(applicationID, name string) (resource.Resou
 		return resource.Resource{}, nil, errors.NotFoundf("resource %q", name)
 	}
 
-	resourceReader, resSize, err := st.storage.Get(storagePath)
+	var resourceReader io.ReadCloser
+	var resSize int64
+	switch resourceInfo.Type {
+	case charmresource.TypeDocker:
+		resourceReader, resSize, err = st.dockerMetadataStorage.Get(resourceInfo.ID)
+	case charmresource.TypeFile:
+		resourceReader, resSize, err = st.storage.Get(storagePath)
+	default:
+		return resource.Resource{}, nil, errors.New("unknown resource type")
+	}
 	if err != nil {
 		return resource.Resource{}, nil, errors.Annotate(err, "while retrieving resource data")
 	}

@@ -297,6 +297,9 @@ func allCollections() collectionSchema {
 			}},
 		},
 
+		// Stores Docker image resource details
+		dockerResourcesC: {},
+
 		// -----
 
 		// These collections hold information associated with machines.
@@ -522,6 +525,7 @@ const (
 	containerRefsC             = "containerRefs"
 	controllersC               = "controllers"
 	controllerUsersC           = "controllerusers"
+	dockerResourcesC           = "dockerResources"
 	filesystemAttachmentsC     = "filesystemAttachments"
 	filesystemsC               = "filesystems"
 	globalClockC               = "globalclock"

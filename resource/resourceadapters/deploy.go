@@ -63,7 +63,7 @@ func DeployResources(
 		ApplicationID:      applicationID,
 		CharmID:            chID,
 		CharmStoreMacaroon: csMac,
-		Filenames:          filenames,
+		ResourceValues:     filenames,
 		Revisions:          revisions,
 		ResourcesMeta:      resources,
 		Client:             &deployClient{client},

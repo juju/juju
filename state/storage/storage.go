@@ -41,7 +41,7 @@ type Storage interface {
 	Remove(path string) error
 }
 
-// Storage returns a Storage for the model with the specified UUID.
+// NewStorage returns a Storage for the model with the specified UUID.
 func NewStorage(modelUUID string, session *mgo.Session) Storage {
 	return stateStorage{modelUUID, session}
 }
