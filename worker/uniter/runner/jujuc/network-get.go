@@ -127,8 +127,7 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 
 	ni = resolveNetworkInfoAddresses(ni, LookupHost)
 
-	// If no specific attributes asked for,
-	// print everything we know.
+	// If no specific attributes were asked for, write everything we know.
 	if !c.primaryAddress && len(c.keys) == 0 {
 		return c.out.Write(ctx, ni)
 	}
@@ -144,8 +143,7 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 		return c.out.Write(ctx, ni.Info[0].Addresses[0].Address)
 	}
 
-	// If we want just a single value, print that, else
-	// print a map of the values asked for.
+	// Write the specific articles requested.
 	keyValues := make(map[string]interface{})
 	if c.egressSubnets {
 		keyValues[egressSubnetsKey] = ni.EgressSubnets
@@ -173,25 +171,56 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 
 // TODO(externalreality) This addresses the immediate problem of
 // https://bugs.launchpad.net/juju/+bug/1721368, but the hostname can populate
-// both the egress subnet cidr and the ingress addreses. These too should be
+// both the egress subnet CIDR and the ingress addresses. These too should be
 // resolved. In addition these values probably should not be stored as hostnames
 // but rather the IP, that is, it might be better to do the resolution on input
 // rather than output (network-get) as we do here.
-func resolveNetworkInfoAddresses(networkInfoResult params.NetworkInfoResult, lookupHost resolver) params.NetworkInfoResult {
-	logger.Debugf("Resolving Addresses")
-	for i, networkInfo := range networkInfoResult.Info {
-		for j, interfaceAddress := range networkInfo.Addresses {
-			if ip := net.ParseIP(interfaceAddress.Address); ip != nil {
-				continue
-			}
-			resolvedAddress, err := lookupHost(interfaceAddress.Address)
-			if err != nil {
-				logger.Warningf("The address %q is neither an IP address or a resolvable hostname", interfaceAddress.Address)
-			} else {
-				networkInfoResult.Info[i].Addresses[j].Hostname = interfaceAddress.Address
-				networkInfoResult.Info[i].Addresses[j].Address = resolvedAddress[0]
+func resolveNetworkInfoAddresses(
+	netInfoResult params.NetworkInfoResult, lookupHost resolver,
+) params.NetworkInfoResult {
+	// Maintain a cache of host-name -> address resolutions.
+	resolved := make(map[string]string)
+	addressForHost := func(hostName string) string {
+		resolvedAddr, ok := resolved[hostName]
+		if !ok {
+			resolvedAddr = resolveHostAddress(hostName, lookupHost)
+			resolved[hostName] = resolvedAddr
+		}
+		return resolvedAddr
+	}
+
+	// Resolve addresses in Info.
+	for i, info := range netInfoResult.Info {
+		for j, addr := range info.Addresses {
+			if ip := net.ParseIP(addr.Address); ip == nil {
+				resolvedAddr := addressForHost(addr.Address)
+				if resolvedAddr != "" {
+					addr.Hostname = addr.Address
+					addr.Address = resolvedAddr
+					netInfoResult.Info[i].Addresses[j] = addr
+				}
 			}
 		}
 	}
-	return networkInfoResult
+
+	// Resolve addresses in IngressAddresses.
+	for i, addr := range netInfoResult.IngressAddresses {
+		if ip := net.ParseIP(addr); ip == nil {
+			resolvedAddr := addressForHost(addr)
+			if resolvedAddr != "" {
+				netInfoResult.IngressAddresses[i] = resolvedAddr
+			}
+		}
+	}
+
+	return netInfoResult
+}
+
+func resolveHostAddress(hostName string, lookupHost resolver) string {
+	resolved, err := lookupHost(hostName)
+	if err != nil {
+		logger.Warningf("The address %q is neither an IP address nor a resolvable hostname", hostName)
+		return ""
+	}
+	return resolved[0]
 }
