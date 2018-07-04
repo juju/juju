@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"
 	"github.com/juju/utils/arch"
 	"github.com/lxc/lxd/shared"
@@ -25,11 +26,31 @@ const (
 
 // ContainerSpec represents the data required to create a new container.
 type ContainerSpec struct {
-	Name     string
-	Image    SourcedImage
-	Devices  map[string]device
-	Config   map[string]string
-	Profiles []string
+	Name         string
+	Image        SourcedImage
+	Devices      map[string]device
+	Config       map[string]string
+	Profiles     []string
+	InstanceType string
+}
+
+const constraintWarnTemplate = "instance type constraint specified; ignoring %s constraint %q"
+
+// ApplyConstraints applies the input constraints as valid LXD container
+// configuration to the container spec.
+// Note that we pass these through as supplied. If an instance type constraint
+// has been specified along with specific cores/mem constraints,
+// LXD behaviour is to override with the specific ones even when lower.
+func (c *ContainerSpec) ApplyConstraints(cons constraints.Value) {
+	if cons.HasInstanceType() {
+		c.InstanceType = *cons.InstanceType
+	}
+	if cons.HasCpuCores() {
+		c.Config["limits.cpu"] = fmt.Sprintf("%d", *cons.CpuCores)
+	}
+	if cons.HasMem() {
+		c.Config["limits.memory"] = fmt.Sprintf("%dMB", *cons.Mem)
+	}
 }
 
 // Container extends the upstream LXD container type.
@@ -181,8 +202,11 @@ func (s *Server) ContainerAddresses(name string) ([]network.Address, error) {
 // If the container fails to be started, it is removed.
 // Upon successful creation and start, the container is returned.
 func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error) {
+	logger.Infof("starting container %q (image %q)...", spec.Name, spec.Image.Image.Filename)
+
 	req := api.ContainersPost{
-		Name: spec.Name,
+		Name:         spec.Name,
+		InstanceType: spec.InstanceType,
 		ContainerPut: api.ContainerPut{
 			Profiles:  spec.Profiles,
 			Devices:   spec.Devices,
@@ -221,6 +245,7 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 	return &c, nil
 }
 
+// StartContainer starts the extant container identified by the input name.
 func (s *Server) StartContainer(name string) error {
 	req := api.ContainerStatePut{
 		Action:   "start",
@@ -233,11 +258,7 @@ func (s *Server) StartContainer(name string) error {
 		return errors.Trace(err)
 	}
 
-	if err := op.Wait(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+	return errors.Trace(op.Wait())
 }
 
 // Remove containers stops and deletes containers matching the input list of
@@ -288,11 +309,8 @@ func (s *Server) RemoveContainer(name string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := op.Wait(); err != nil {
-		return errors.Trace(err)
-	}
 
-	return nil
+	return errors.Trace(op.Wait())
 }
 
 // WriteContainer writes the current representation of the input container to

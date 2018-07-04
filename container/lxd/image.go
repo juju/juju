@@ -40,6 +40,10 @@ func (s *Server) FindImage(
 	copyLocal bool,
 	callback environs.StatusCallbackFunc,
 ) (SourcedImage, error) {
+	if callback != nil {
+		callback(status.Provisioning, "acquiring LXD image", nil)
+	}
+
 	// First we check if we have the image locally.
 	localAlias := seriesLocalAlias(series, arch)
 	var target string

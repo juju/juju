@@ -5,7 +5,6 @@ package state
 
 import (
 	"fmt"
-	"math/rand"
 	"net"
 
 	"github.com/juju/collections/set"
@@ -18,11 +17,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 )
-
-// defaultSpaceName is the name of the default space to assign containers.
-// Currently hard-coded to 'default', we may consider making this a model
-// config
-const defaultSpaceName = "default"
 
 // LinkLayerDevice returns the link-layer device matching the given name. An
 // error satisfying errors.IsNotFound() is returned when no such device exists
@@ -1100,30 +1094,12 @@ func DefineEthernetDeviceOnBridge(name string, hostBridge *LinkLayerDevice) (Lin
 	return LinkLayerDeviceArgs{
 		Name:        name,
 		Type:        EthernetDevice,
-		MACAddress:  generateMACAddress(),
+		MACAddress:  network.GenerateVirtualMACAddress(),
 		MTU:         hostBridge.MTU(),
 		IsUp:        true,
 		IsAutoStart: true,
 		ParentName:  hostBridge.globalKey(),
 	}, nil
-}
-
-// MACAddressTemplate is used to generate a unique MAC address for a
-// container. Every '%x' is replaced by a random hexadecimal digit,
-// while the rest is kept as-is.
-const macAddressTemplate = "00:16:3e:%02x:%02x:%02x"
-
-// generateMACAddress creates a random MAC address within the space defined by
-// macAddressTemplate above.
-//
-// TODO(dimitern): We should make a best effort to ensure the MAC address we
-// generate is unique at least within the current model.
-func generateMACAddress() string {
-	digits := make([]interface{}, 3)
-	for i := range digits {
-		digits[i] = rand.Intn(256)
-	}
-	return fmt.Sprintf(macAddressTemplate, digits...)
 }
 
 // MachineNetworkInfoResult contains an error or a list of NetworkInfo structures for a specific space.

@@ -22,6 +22,10 @@ type networkSuite struct {
 
 var _ = gc.Suite(&networkSuite{})
 
+func (s *networkSuite) patch() {
+	lxd.PatchGenerateVirtualMACAddress(s)
+}
+
 func defaultProfile() *lxdapi.Profile {
 	return &lxdapi.Profile{
 		Name: "default",
@@ -174,6 +178,8 @@ func (s *networkSuite) TestVerifyNetworkDeviceIPv6Present(c *gc.C) {
 }
 
 func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *gc.C) {
+	s.patch()
+
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
@@ -214,6 +220,8 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *gc.C) {
 }
 
 func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreatedWithUnusedName(c *gc.C) {
+	s.patch()
+
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
@@ -272,6 +280,42 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentErrorForCluster(c *gc.C)
 
 	err = jujuSvr.VerifyNetworkDevice(profile, lxdtesting.ETag)
 	c.Assert(err, gc.ErrorMatches, `profile "default" does not have any devices configured with type "nic"`)
+}
+
+func (s *networkSuite) TestInterfaceInfoFromDevices(c *gc.C) {
+	nics := map[string]map[string]string{
+		"eth0": {
+			"parent":  network.DefaultLXDBridge,
+			"type":    "nic",
+			"nictype": "bridged",
+			"hwaddr":  "00:16:3e:00:00:00",
+		},
+		"eno9": {
+			"parent":  "br1",
+			"type":    "nic",
+			"nictype": "macvlan",
+			"hwaddr":  "00:16:3e:00:00:3e",
+		},
+	}
+
+	info, err := lxd.InterfaceInfoFromDevices(nics)
+	c.Assert(err, jc.ErrorIsNil)
+
+	exp := []network.InterfaceInfo{
+		{
+			InterfaceName:       "eno9",
+			MACAddress:          "00:16:3e:00:00:3e",
+			ConfigType:          network.ConfigDHCP,
+			ParentInterfaceName: "br1",
+		},
+		{
+			InterfaceName:       "eth0",
+			MACAddress:          "00:16:3e:00:00:00",
+			ConfigType:          network.ConfigDHCP,
+			ParentInterfaceName: network.DefaultLXDBridge,
+		},
+	}
+	c.Check(info, jc.DeepEquals, exp)
 }
 
 func (s *networkSuite) TestCheckLXDBridgeConfiguration(c *gc.C) {
@@ -501,4 +545,52 @@ func (s *networkSuite) TestEnableHTTPSListenerWithErrors(c *gc.C) {
 
 	err = jujuSvr.EnableHTTPSListener()
 	c.Assert(err, gc.ErrorMatches, "bad")
+}
+
+func (s *networkSuite) TestNewNICDeviceWithoutMACAddressOrMTUGreaterThanZero(c *gc.C) {
+	device := lxd.NewNICDevice("eth1", "br-eth1", "", 0)
+	expected := map[string]string{
+		"name":    "eth1",
+		"nictype": "bridged",
+		"parent":  "br-eth1",
+		"type":    "nic",
+	}
+	c.Assert(device, gc.DeepEquals, expected)
+}
+
+func (s *networkSuite) TestNewNICDeviceWithMACAddressButNoMTU(c *gc.C) {
+	device := lxd.NewNICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 0)
+	expected := map[string]string{
+		"hwaddr":  "aa:bb:cc:dd:ee:f0",
+		"name":    "eth1",
+		"nictype": "bridged",
+		"parent":  "br-eth1",
+		"type":    "nic",
+	}
+	c.Assert(device, gc.DeepEquals, expected)
+}
+
+func (s *networkSuite) TestNewNICDeviceWithoutMACAddressButMTUGreaterThanZero(c *gc.C) {
+	device := lxd.NewNICDevice("eth1", "br-eth1", "", 1492)
+	expected := map[string]string{
+		"mtu":     "1492",
+		"name":    "eth1",
+		"nictype": "bridged",
+		"parent":  "br-eth1",
+		"type":    "nic",
+	}
+	c.Assert(device, gc.DeepEquals, expected)
+}
+
+func (s *networkSuite) TestNewNICDeviceWithMACAddressAndMTUGreaterThanZero(c *gc.C) {
+	device := lxd.NewNICDevice("eth1", "br-eth1", "aa:bb:cc:dd:ee:f0", 9000)
+	expected := map[string]string{
+		"hwaddr":  "aa:bb:cc:dd:ee:f0",
+		"mtu":     "9000",
+		"name":    "eth1",
+		"nictype": "bridged",
+		"parent":  "br-eth1",
+		"type":    "nic",
+	}
+	c.Assert(device, gc.DeepEquals, expected)
 }

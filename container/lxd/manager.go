@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujuarch "github.com/juju/utils/arch"
-	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/containerinit"
@@ -85,10 +84,7 @@ func (m *containerManager) Namespace() instance.Namespace {
 
 // DestroyContainer implements container.Manager.
 func (m *containerManager) DestroyContainer(id instance.Id) error {
-	if err := m.stopContainer(string(id)); err != nil {
-		return errors.Trace(err)
-	}
-	return errors.Trace(m.deleteContainer(string(id)))
+	return errors.Trace(m.server.RemoveContainer(string(id)))
 }
 
 // CreateContainer implements container.Manager.
@@ -100,42 +96,31 @@ func (m *containerManager) CreateContainer(
 	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	spec, err := m.getContainerSpec(instanceConfig, cons, series, networkConfig, storageConfig, callback)
+
 	callback(status.Provisioning, "Creating container", nil)
-	name, err := m.createContainer(instanceConfig, cons, series, networkConfig, storageConfig, callback)
+	c, err := m.server.CreateContainerFromSpec(spec)
 	if err != nil {
 		callback(status.ProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
 		return nil, nil, errors.Trace(err)
 	}
 
-	callback(status.Provisioning, "Container created, starting", nil)
-	err = m.startContainer(name)
-	if err != nil {
-		if err := m.deleteContainer(name); err != nil {
-			logger.Errorf("Cannot remove failed instance: %s", err)
-		}
-		callback(status.ProvisioningError, fmt.Sprintf("Starting container: %v", err), nil)
-		return nil, nil, err
-	}
-
 	callback(status.Running, "Container started", nil)
-	return &lxdInstance{name, m.server.ContainerServer},
+	return &lxdInstance{c.Name, m.server.ContainerServer},
 		&instance.HardwareCharacteristics{AvailabilityZone: &m.availabilityZone}, nil
 }
 
 // ListContainers implements container.Manager.
-func (m *containerManager) ListContainers() (result []instance.Instance, err error) {
-	result = []instance.Instance{}
-	lxdInstances, err := m.server.GetContainers()
+func (m *containerManager) ListContainers() ([]instance.Instance, error) {
+	containers, err := m.server.FilterContainers(m.namespace.Prefix())
 	if err != nil {
-		return
+		return nil, errors.Trace(err)
 	}
 
-	for _, i := range lxdInstances {
-		if strings.HasPrefix(i.Name, m.namespace.Prefix()) {
-			result = append(result, &lxdInstance{i.Name, m.server.ContainerServer})
-		}
+	var result []instance.Instance
+	for _, i := range containers {
+		result = append(result, &lxdInstance{i.Name, m.server.ContainerServer})
 	}
-
 	return result, nil
 }
 
@@ -144,76 +129,73 @@ func (m *containerManager) IsInitialized() bool {
 	return m.server != nil
 }
 
-// startContainer starts previously created container.
-func (m *containerManager) startContainer(name string) error {
-	req := api.ContainerStatePut{
-		Action:  "start",
-		Timeout: -1,
-	}
-	op, err := m.server.UpdateContainerState(name, req, "")
-	if err != nil {
-		return err
-	}
-	err = op.Wait()
-	return err
-}
-
-// stopContainer stops a container if it is not stopped.
-func (m *containerManager) stopContainer(name string) error {
-	state, etag, err := m.server.GetContainerState(name)
-	if err != nil {
-		return err
-	}
-
-	if state.StatusCode == api.Stopped {
-		return nil
-	}
-
-	req := api.ContainerStatePut{
-		Action:  "stop",
-		Timeout: -1,
-	}
-	op, err := m.server.UpdateContainerState(name, req, etag)
-	if err != nil {
-		return err
-	}
-	err = op.Wait()
-	return err
-}
-
-// createContainer creates a stopped container from given config.
-// It finds the proper image, either locally or remotely,
-// and then creates a container using it.
-func (m *containerManager) createContainer(
+// getContainerSpec generates a spec for creating a new container.
+// It sources an image based on the input series, and transforms the input
+// config objects into LXD configuration, including cloud init user data.
+func (m *containerManager) getContainerSpec(
 	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
 	series string,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
-) (string, error) {
-	var err error
-
+) (ContainerSpec, error) {
 	imageSources, err := m.getImageSources()
 	if err != nil {
-		return "", errors.Trace(err)
+		return ContainerSpec{}, errors.Trace(err)
 	}
 
 	found, err := m.server.FindImage(series, jujuarch.HostArch(), imageSources, true, callback)
 	if err != nil {
-		return "", errors.Annotatef(err, "failed to ensure LXD image")
+		return ContainerSpec{}, errors.Annotatef(err, "acquiring LXD image")
 	}
 
 	name, err := m.namespace.Hostname(instanceConfig.MachineId)
 	if err != nil {
-		return "", errors.Trace(err)
+		return ContainerSpec{}, errors.Trace(err)
+	}
+
+	nics, unknown, err := m.networkDevicesFromConfig(networkConfig)
+	if err != nil {
+		return ContainerSpec{}, errors.Trace(err)
+	}
+
+	logger.Debugf("configuring container %q with network devices: %v", name, nics)
+
+	// If the default LXD bridge was supplied in network config,
+	// but without a CIDR, attempt to ensure it is configured for IPv4.
+	// If there are others with incomplete info, log a warning.
+	if len(unknown) > 0 {
+		if len(unknown) == 1 && unknown[0] == network.DefaultLXDBridge && m.server.networkAPISupport {
+			mod, err := m.server.EnsureIPv4(network.DefaultLXDBridge)
+			if err != nil {
+				return ContainerSpec{}, errors.Annotate(err, "ensuring default bridge IPv4 config")
+			}
+			if mod {
+				logger.Infof(`added "auto" IPv4 configuration to default LXD bridge`)
+			}
+		} else {
+			logger.Warningf("no CIDR was detected for the following networks: %v", unknown)
+		}
+	}
+
+	// If there was no incoming interface info, then at this point we know
+	// that nics were generated by falling back to either a single "eth0",
+	// or devices from the profile.
+	// Ensure that the devices are represented in the cloud-init user-data.
+	if len(networkConfig.Interfaces) == 0 {
+		interfaces, err := InterfaceInfoFromDevices(nics)
+		if err != nil {
+			return ContainerSpec{}, errors.Trace(err)
+		}
+		networkConfig.Interfaces = interfaces
 	}
 
 	// CloudInitUserData creates our own ENI/netplan.
 	// We need to disable cloud-init networking to make it work.
 	userData, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
 	if err != nil {
-		return "", errors.Trace(err)
+		return ContainerSpec{}, errors.Trace(err)
 	}
 
 	cfg := map[string]string{
@@ -224,64 +206,16 @@ func (m *containerManager) createContainer(
 		JujuModelKey: m.modelUUID,
 	}
 
-	nics, unknown, err := networkDevicesFromConfig(networkConfig)
-	if err != nil {
-		return "", errors.Trace(err)
+	spec := ContainerSpec{
+		Name:     name,
+		Image:    found,
+		Config:   cfg,
+		Profiles: nil,
+		Devices:  nics,
 	}
+	spec.ApplyConstraints(cons)
 
-	var profiles []string
-	if len(nics) == 0 {
-		logger.Infof("configuring container %q with %q profile", name, lxdDefaultProfileName)
-		profiles = []string{lxdDefaultProfileName}
-	} else {
-		logger.Infof("configuring container %q with network devices: %v", name, nics)
-
-		// If the default LXD bridge was supplied in network config,
-		// but without a CIDR, attempt to ensure it is configured for IPv4.
-		// If there are others with incomplete info, log a warning.
-		if len(unknown) > 0 {
-			if len(unknown) == 1 && unknown[0] == network.DefaultLXDBridge && m.server.networkAPISupport {
-				mod, err := m.server.EnsureIPv4(network.DefaultLXDBridge)
-				if err != nil {
-					return "", errors.Annotate(err, "ensuring default bridge IPv4 config")
-				}
-				if mod {
-					logger.Infof(`added "auto" IPv4 configuration to default LXD bridge`)
-				}
-			} else {
-				logger.Warningf("no CIDR was detected for the following networks: %v", unknown)
-			}
-		}
-	}
-
-	logger.Infof("starting container %q (image %q)...", name, found.Image.Fingerprint)
-	spec := api.ContainersPost{
-		Name: name,
-		ContainerPut: api.ContainerPut{
-			Profiles: profiles,
-			Devices:  nics,
-			Config:   cfg,
-		},
-	}
-
-	callback(status.Provisioning, "Creating container", nil)
-	op, err := m.server.CreateContainerFromImage(found.LXDServer, *found.Image, spec)
-	if err != nil {
-		logger.Errorf("CreateContainer failed with %s", err)
-		return "", errors.Trace(err)
-	}
-
-	if err := op.Wait(); err != nil {
-		return "", errors.Trace(err)
-	}
-	opInfo, err := op.GetTarget()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if opInfo.StatusCode != api.Success {
-		return "", fmt.Errorf("container creation failed: %s", opInfo.Err)
-	}
-	return name, nil
+	return spec, nil
 }
 
 // getImageSources returns a list of LXD remote image sources based on the
@@ -304,8 +238,7 @@ func (m *containerManager) getImageSources() ([]RemoteServer, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "generating image metadata source")
 	}
-	// LXD requires HTTPS.
-	imURL = strings.Replace(imURL, "http:", "https:", 1)
+	imURL = EnsureHTTPS(imURL)
 	remote := RemoteServer{
 		Name:     strings.Replace(imURL, "https://", "", 1),
 		Host:     imURL,
@@ -320,65 +253,32 @@ func (m *containerManager) getImageSources() ([]RemoteServer, error) {
 	return []RemoteServer{remote, CloudImagesRemote, CloudImagesDailyRemote}, nil
 }
 
-func (m *containerManager) deleteContainer(name string) error {
-	op, err := m.server.DeleteContainer(name)
-	if err != nil {
-		return err
-	}
-	err = op.Wait()
-	return err
-}
-
 // networkDevicesFromConfig uses the input container network configuration to
 // create a map of network device configuration in the LXD format.
+// If there are no interfaces in the input config, but there is a bridge device
+// name, return a single "eth0" device with the bridge as its parent.
+// The last fall-back is to return the NIC devices from the default profile.
 // Names for any networks without a known CIDR are returned in a slice.
-func networkDevicesFromConfig(networkConfig *container.NetworkConfig) (
-	map[string]map[string]string, []string, error,
-) {
-	nics := make(map[string]map[string]string, len(networkConfig.Interfaces))
-	var unknownNetworks []string
+func (m *containerManager) networkDevicesFromConfig(netConfig *container.NetworkConfig) (map[string]device, []string, error) {
+	if len(netConfig.Interfaces) > 0 {
+		return DevicesFromInterfaceInfo(netConfig.Interfaces)
+	} else if netConfig.Device != "" {
+		return map[string]device{
+			"eth0": newNICDevice("eth0", netConfig.Device, network.GenerateVirtualMACAddress(), netConfig.MTU),
+		}, nil, nil
+	}
 
-	if len(networkConfig.Interfaces) > 0 {
-		for _, v := range networkConfig.Interfaces {
-			if v.InterfaceType == network.LoopbackInterface {
-				continue
-			}
-			if v.InterfaceType != network.EthernetInterface {
-				return nil, nil, errors.Errorf("interface type %q not supported", v.InterfaceType)
-			}
-			if v.ParentInterfaceName == "" {
-				return nil, nil, errors.Errorf("parent interface name is empty")
-			}
-			if v.CIDR == "" {
-				unknownNetworks = append(unknownNetworks, v.ParentInterfaceName)
-			}
-			nics[v.InterfaceName] = newNICDevice(v.InterfaceName, v.ParentInterfaceName, v.MACAddress, v.MTU)
+	// Get the NICs from the default profile and ensure they have MAC addresses.
+	profile, _, err := m.server.GetProfile(lxdDefaultProfileName)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	nics := getProfileNICs(profile)
+	for name := range nics {
+		if nics[name]["hwaddr"] == "" {
+			nics[name]["hwaddr"] = network.GenerateVirtualMACAddress()
 		}
-	} else if networkConfig.Device != "" {
-		unknownNetworks = []string{networkConfig.Device}
-		nics["eth0"] = newNICDevice("eth0", networkConfig.Device, "", networkConfig.MTU)
 	}
-
-	return nics, unknownNetworks, nil
-}
-
-// newNICDevice creates and returns a LXD-compatible config for a network
-// device, from the input arguments.
-func newNICDevice(deviceName, parentDevice, hwAddr string, mtu int) map[string]string {
-	device := map[string]string{
-		"type":    "nic",
-		"nictype": "bridged",
-		"name":    deviceName,
-		"parent":  parentDevice,
-	}
-
-	if hwAddr != "" {
-		device["hwaddr"] = hwAddr
-	}
-
-	if mtu > 0 {
-		device["mtu"] = fmt.Sprintf("%v", mtu)
-	}
-
-	return device
+	return nics, nil, nil
 }
