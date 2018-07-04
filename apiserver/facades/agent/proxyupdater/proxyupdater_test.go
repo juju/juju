@@ -208,8 +208,8 @@ func (s *ProxyUpdaterSuite) TestSnapProxyConfig(c *gc.C) {
 		LegacyProxySettings: params.ProxyConfig{NoProxy: expectedNoProxy},
 		SnapProxySettings: params.ProxyConfig{
 			HTTP: "http proxy", HTTPS: "https proxy"},
-		SnapEnterpriseProxyId:         "store proxy",
-		SnapEnterpriseProxyAssertions: "trust us",
+		SnapStoreProxyId:         "store proxy",
+		SnapStoreProxyAssertions: "trust us",
 	})
 }
 

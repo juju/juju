@@ -194,8 +194,8 @@ func (api *APIBase) proxyConfig() params.ProxyConfigResult {
 	result.APTProxySettings = toParams(config.AptProxySettings())
 
 	result.SnapProxySettings = toParams(config.SnapProxySettings())
-	result.SnapEnterpriseProxyId = config.SnapStoreProxy()
-	result.SnapEnterpriseProxyAssertions = config.SnapStoreAssertions()
+	result.SnapStoreProxyId = config.SnapStoreProxy()
+	result.SnapStoreProxyAssertions = config.SnapStoreAssertions()
 
 	return result
 }
