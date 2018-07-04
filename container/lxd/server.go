@@ -4,6 +4,10 @@
 package lxd
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/os"
 	"github.com/lxc/lxd/client"
@@ -95,6 +99,17 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 	serverCertificate := info.Environment.Certificate
 	if clustered {
 		logger.Debugf("creating LXD server for cluster node %q", name)
+	}
+
+	// If the server is not a simple simple stream server, don't check the
+	// API version, but do report for other scenarios
+	if !IsSimpleStreamsServer(svr) {
+		if msg, ok := IsSupportedAPIVersion(info.APIVersion); !ok {
+			logger.Warningf(msg)
+			logger.Warningf("trying to use unsupported LXD API version %q", info.APIVersion)
+		} else {
+			logger.Infof("using LXD API version %q", info.APIVersion)
+		}
 	}
 
 	return &Server{
@@ -189,4 +204,33 @@ func (s *Server) ServerCertificate() string {
 // entity was not found.
 func IsLXDNotFound(err error) bool {
 	return err != nil && err.Error() == "not found"
+}
+
+// IsSimpleStreamsServer defines if the server in question is a SimpleStreams
+// server.
+// Note: we check for the type, because at this point we don't know if it was
+// constructed with simplestreams protocol, without inspecting the connection
+// info
+func IsSimpleStreamsServer(svr lxd.Server) bool {
+	_, ok := svr.(*lxd.ProtocolSimpleStreams)
+	return ok
+}
+
+// IsSupportedAPIVersion defines what API versions we support.
+func IsSupportedAPIVersion(version string) (msg string, ok bool) {
+	versionParts := strings.Split(version, ".")
+	if len(versionParts) < 2 {
+		return fmt.Sprintf("LXD API version %q: expected format <major>.<minor>", version), false
+	}
+
+	major, err := strconv.Atoi(versionParts[0])
+	if err != nil {
+		return fmt.Sprintf("LXD API version %q: unexpected major number: %v", version, err), false
+	}
+
+	if major < 1 {
+		return fmt.Sprintf("LXD API version %q: expected major version 1 or later", version), false
+	}
+
+	return "", true
 }

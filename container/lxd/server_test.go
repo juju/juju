@@ -6,6 +6,7 @@ package lxd_test
 import (
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
+	client "github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
@@ -96,4 +97,65 @@ func (s *serverSuite) TestCreateProfileWithConfig(c *gc.C) {
 	jujuSvr, err := lxd.NewServer(cSvr)
 	err = jujuSvr.CreateProfileWithConfig("custom", map[string]string{"boot.autostart": "false"})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serverSuite) TestIsSimpleStreamsServerWithMockServer(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	svr := lxdtesting.NewMockContainerServer(ctrl)
+	res := lxd.IsSimpleStreamsServer(svr)
+	c.Assert(res, gc.Equals, false)
+}
+
+func (s *serverSuite) TestIsSimpleStreamsServer(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	svr := &client.ProtocolSimpleStreams{}
+	res := lxd.IsSimpleStreamsServer(svr)
+	c.Assert(res, gc.Equals, true)
+}
+
+func (s *serverSuite) TestIsSupportedAPIVersion(c *gc.C) {
+	for _, t := range []struct {
+		input    string
+		expected bool
+		output   string
+	}{
+		{
+			input:    "foo",
+			expected: false,
+			output:   `LXD API version "foo": expected format <major>\.<minor>`,
+		},
+		{
+			input:    "a.b",
+			expected: false,
+			output:   `LXD API version "a.b": unexpected major number: strconv.(ParseInt|Atoi): parsing "a": invalid syntax`,
+		},
+		{
+			input:    "0.9",
+			expected: false,
+			output:   `LXD API version "0.9": expected major version 1 or later`,
+		},
+		{
+			input:    "1.0",
+			expected: true,
+			output:   "",
+		},
+		{
+			input:    "2.0",
+			expected: true,
+			output:   "",
+		},
+		{
+			input:    "2.1",
+			expected: true,
+			output:   "",
+		},
+	} {
+		msg, ok := lxd.IsSupportedAPIVersion(t.input)
+		c.Assert(ok, gc.Equals, t.expected)
+		c.Assert(msg, gc.Matches, t.output)
+	}
 }
