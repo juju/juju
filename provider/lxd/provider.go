@@ -4,17 +4,10 @@
 package lxd
 
 import (
-	"strings"
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	"github.com/juju/retry"
 	"github.com/juju/schema"
-	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
-	client "github.com/lxc/lxd/client"
-	"github.com/lxc/lxd/shared/api"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/cloud"
@@ -25,33 +18,10 @@ import (
 	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 
-// ProviderLXDServer provides methods for the Provider and the
-// ProviderCredentials to query.
-//go:generate mockgen -package lxd -destination provider_mock_test.go github.com/juju/juju/provider/lxd ProviderLXDServer,InterfaceAddress
-type ProviderLXDServer interface {
-	GetConnectionInfo() (*client.ConnectionInfo, error)
-	LocalBridgeName() string
-	GetCertificate(string) (certificate *api.Certificate, ETag string, err error)
-	CreateClientCertificate(*lxd.Certificate) error
-	ServerCertificate() string
-}
-
-// InterfaceAddress groups methods that is required to find addresses
-// for a given interface
-type InterfaceAddress interface {
-
-	// InterfaceAddress looks for the network interface
-	// and returns the IPv4 address from the possible addresses.
-	// Returns an error if there is an issue locating the interface name or
-	// the address associated with it.
-	InterfaceAddress(string) (string, error)
-}
-
 type environProvider struct {
 	environs.ProviderCredentials
-	interfaceAddress InterfaceAddress
-	newLocalServer   func() (ProviderLXDServer, error)
-	Clock            clock.Clock
+	serverFactory ServerFactory
+	Clock         clock.Clock
 }
 
 var cloudSchema = &jsonschema.Schema{
@@ -79,15 +49,15 @@ var cloudSchema = &jsonschema.Schema{
 
 // NewProvider returns a new LXD EnvironProvider.
 func NewProvider() environs.CloudEnvironProvider {
+	factory := NewServerFactory()
 	return &environProvider{
 		ProviderCredentials: environProviderCredentials{
 			certReadWriter: certificateReadWriter{},
 			certGenerator:  certificateGenerator{},
 			lookup:         netLookup{},
-			newLocalServer: createLXDServer,
+			serverFactory:  factory,
 		},
-		interfaceAddress: interfaceAddress{},
-		newLocalServer:   createLXDServer,
+		serverFactory: factory,
 	}
 }
 
@@ -107,7 +77,7 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 		local,
 		args.Cloud,
 		args.Config,
-		newServer,
+		p.serverFactory,
 	)
 	return env, errors.Trace(err)
 }
@@ -217,101 +187,21 @@ func (p *environProvider) FinalizeCloud(
 }
 
 func (p *environProvider) getLocalHostAddress(ctx environs.FinalizeCloudContext) (string, error) {
-	svr, err := p.newLocalServer()
+	svr, err := p.serverFactory.LocalServer()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
 	bridgeName := svr.LocalBridgeName()
-	hostAddress, err := p.interfaceAddress.InterfaceAddress(bridgeName)
+	hostAddress, err := p.serverFactory.LocalServerAddress()
 	if err != nil {
 		return "", errors.Trace(err)
-	}
-	hostAddress = lxd.EnsureHTTPS(hostAddress)
-
-	// The following retry mechanism is required for newer LXD versions, where
-	// the new lxd client doesn't propagate the EnableHTTPSListener quick enough
-	// to get the addresses or on the same existing local provider.
-
-	// connInfoAddresses is really useful for debugging, so let's keep that
-	// information around for the debugging errors.
-	var connInfoAddresses []string
-	errNotExists := errors.New("not-exists")
-	retryArgs := retry.CallArgs{
-		Clock: p.clock(),
-		IsFatalError: func(err error) bool {
-			return errors.Cause(err) != errNotExists
-		},
-		Func: func() error {
-			cInfo, err := svr.GetConnectionInfo()
-			if err != nil {
-				return errors.Trace(err)
-			}
-
-			connInfoAddresses = cInfo.Addresses
-			for _, addr := range cInfo.Addresses {
-				if strings.HasPrefix(addr, hostAddress+":") {
-					hostAddress = addr
-					return nil
-				}
-			}
-
-			// Requesting a NewLocalServer forces a new connection, so that when
-			// we GetConnectionInfo it gets the required addresses.
-			// Note: this modifies the outer svr server.
-			if svr, err = p.newLocalServer(); err != nil {
-				return errors.Trace(err)
-			}
-
-			return errNotExists
-		},
-		Delay:    2 * time.Second,
-		Attempts: 30,
-	}
-	if err := retry.Call(retryArgs); err != nil {
-		return "", errors.Errorf(
-			"LXD is not listening on address %s (reported addresses: %s)",
-			hostAddress, connInfoAddresses,
-		)
 	}
 	ctx.Verbosef(
 		"Resolved LXD host address on bridge %s: %s",
 		bridgeName, hostAddress,
 	)
 	return hostAddress, nil
-}
-
-func (p *environProvider) clock() clock.Clock {
-	if p.Clock == nil {
-		return clock.WallClock
-	}
-	return p.Clock
-}
-
-func createLXDServer() (ProviderLXDServer, error) {
-	svr, err := lxd.NewLocalServer()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// We need to get a default profile, so that the local bridge name
-	// can be discovered correctly to then get the host address.
-	defaultProfile, profileETag, err := svr.GetProfile("default")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if err := svr.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// LXD itself reports the host:ports that it listens on.
-	// Cross-check the address we have with the values reported by LXD.
-	if err := svr.EnableHTTPSListener(); err != nil {
-		return nil, errors.Annotate(err, "enabling HTTPS listener")
-	}
-
-	return svr, nil
 }
 
 // localhostCloud is the predefined "localhost" LXD cloud. We leave the
@@ -388,10 +278,4 @@ func (p *environProvider) ConfigSchema() schema.Fields {
 // provider specific config attributes.
 func (p *environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
-}
-
-type interfaceAddress struct{}
-
-func (interfaceAddress) InterfaceAddress(interfaceName string) (string, error) {
-	return utils.GetAddressForInterface(interfaceName)
 }

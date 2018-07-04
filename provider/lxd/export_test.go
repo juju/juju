@@ -5,6 +5,7 @@ package lxd
 
 import (
 	"github.com/juju/juju/environs"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/container/lxd"
 )
@@ -16,13 +17,11 @@ var (
 
 func NewProviderWithMocks(
 	creds environs.ProviderCredentials,
-	interfaceAddress InterfaceAddress,
-	newLocalSever func() (ProviderLXDServer, error),
+	serverFactory ServerFactory,
 ) environs.EnvironProvider {
 	return &environProvider{
 		ProviderCredentials: creds,
-		interfaceAddress:    interfaceAddress,
-		newLocalServer:      newLocalSever,
+		serverFactory:       serverFactory,
 	}
 }
 
@@ -30,13 +29,26 @@ func NewProviderCredentials(
 	certReadWriter CertificateReadWriter,
 	certGenerator CertificateGenerator,
 	lookup NetLookup,
-	newLocalServer func() (ProviderLXDServer, error),
+	serverFactory ServerFactory,
 ) environs.ProviderCredentials {
 	return environProviderCredentials{
 		certReadWriter: certReadWriter,
 		certGenerator:  certGenerator,
 		lookup:         lookup,
-		newLocalServer: newLocalServer,
+		serverFactory:  serverFactory,
+	}
+}
+
+func NewServerFactoryWithMocks(localServerFunc func() (Server, error),
+	remoteServerFunc func(lxd.ServerSpec) (Server, error),
+	interfaceAddress InterfaceAddress,
+	clock clock.Clock,
+) ServerFactory {
+	return &serverFactory{
+		newLocalServerFunc:  localServerFunc,
+		newRemoteServerFunc: remoteServerFunc,
+		interfaceAddress:    interfaceAddress,
+		clock:               clock,
 	}
 }
 

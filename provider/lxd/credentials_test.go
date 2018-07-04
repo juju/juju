@@ -38,14 +38,17 @@ func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
 type credentialsSuiteDeps struct {
 	provider       environs.EnvironProvider
 	creds          environs.ProviderCredentials
-	server         *lxd.MockProviderLXDServer
+	server         *lxd.MockServer
+	serverFactory  *lxd.MockServerFactory
 	certReadWriter *lxd.MockCertificateReadWriter
 	certGenerator  *lxd.MockCertificateGenerator
 	netLookup      *lxd.MockNetLookup
 }
 
 func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) credentialsSuiteDeps {
-	server := lxd.NewMockProviderLXDServer(ctrl)
+	server := lxd.NewMockServer(ctrl)
+	factory := lxd.NewMockServerFactory(ctrl)
+	factory.EXPECT().LocalServer().Return(server, nil).AnyTimes()
 
 	certReadWriter := lxd.NewMockCertificateReadWriter(ctrl)
 	certGenerator := lxd.NewMockCertificateGenerator(ctrl)
@@ -54,19 +57,15 @@ func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) credentialsSu
 		certReadWriter,
 		certGenerator,
 		lookup,
-		func() (lxd.ProviderLXDServer, error) {
-			return server, nil
-		},
+		factory,
 	)
-	interfaceAddress := lxd.NewMockInterfaceAddress(ctrl)
 
-	provider := lxd.NewProviderWithMocks(creds, interfaceAddress, func() (lxd.ProviderLXDServer, error) {
-		return server, nil
-	})
+	provider := lxd.NewProviderWithMocks(creds, factory)
 	return credentialsSuiteDeps{
 		provider:       provider,
 		creds:          creds,
 		server:         server,
+		serverFactory:  factory,
 		certReadWriter: certReadWriter,
 		certGenerator:  certGenerator,
 		netLookup:      lookup,

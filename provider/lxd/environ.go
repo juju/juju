@@ -7,50 +7,16 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	lxdclient "github.com/lxc/lxd/client"
-	lxdapi "github.com/lxc/lxd/shared/api"
 
-	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
 
 const bootstrapMessage = `To configure your system to better support LXD containers, please see: https://github.com/lxc/lxd/blob/master/doc/production-setup.md`
-
-type Server interface {
-	FindImage(string, string, []lxd.ServerSpec, bool, environs.StatusCallbackFunc) (lxd.SourcedImage, error)
-	GetServer() (server *lxdapi.Server, ETag string, err error)
-	GetConnectionInfo() (info *lxdclient.ConnectionInfo, err error)
-	UpdateServerConfig(map[string]string) error
-	UpdateContainerConfig(string, map[string]string) error
-	GetCertificate(fingerprint string) (certificate *lxdapi.Certificate, ETag string, err error)
-	DeleteCertificate(fingerprint string) (err error)
-	CreateClientCertificate(certificate *lxd.Certificate) error
-	LocalBridgeName() string
-	AliveContainers(prefix string) ([]lxd.Container, error)
-	ContainerAddresses(name string) ([]network.Address, error)
-	RemoveContainer(name string) error
-	RemoveContainers(names []string) error
-	FilterContainers(prefix string, statuses ...string) ([]lxd.Container, error)
-	CreateContainerFromSpec(spec lxd.ContainerSpec) (*lxd.Container, error)
-	WriteContainer(*lxd.Container) error
-	CreateProfileWithConfig(string, map[string]string) error
-	HasProfile(string) (bool, error)
-	StorageSupported() bool
-	GetStoragePool(name string) (pool *lxdapi.StoragePool, ETag string, err error)
-	GetStoragePools() (pools []lxdapi.StoragePool, err error)
-	CreatePool(name, driver string, attrs map[string]string) error
-	GetStoragePoolVolume(pool string, volType string, name string) (*lxdapi.StorageVolume, string, error)
-	GetStoragePoolVolumes(pool string) (volumes []lxdapi.StorageVolume, err error)
-	CreateVolume(pool, name string, config map[string]string) error
-	UpdateStoragePoolVolume(pool string, volType string, name string, volume lxdapi.StorageVolumePut, ETag string) error
-	DeleteStoragePoolVolume(pool string, volType string, name string) (err error)
-}
 
 type baseProvider interface {
 	// BootstrapEnv bootstraps a Juju environment.
@@ -76,14 +42,12 @@ type environ struct {
 	ecfg *environConfig
 }
 
-type newServerFunc func(environs.CloudSpec, bool) (Server, error)
-
 func newEnviron(
 	_ *environProvider,
 	local bool,
 	spec environs.CloudSpec,
 	cfg *config.Config,
-	newServer newServerFunc,
+	serverFactory ServerFactory,
 ) (*environ, error) {
 	ecfg, err := newValidConfig(cfg)
 	if err != nil {
@@ -95,7 +59,7 @@ func newEnviron(
 		return nil, errors.Trace(err)
 	}
 
-	server, err := newServer(spec, local)
+	server, err := serverFactory.RemoteServer(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
