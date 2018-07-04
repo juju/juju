@@ -52,6 +52,11 @@ func stateStepsFor24() []Step {
 				return context.State().AddCloudModelCounts()
 			},
 		},
+		&upgradeStep{
+			description: "bootstrap raft cluster",
+			targets:     []Target{Controller},
+			run:         BootstrapRaft,
+		},
 	}
 }
 

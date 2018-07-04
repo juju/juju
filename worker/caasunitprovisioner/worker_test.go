@@ -33,7 +33,7 @@ type WorkerSuite struct {
 	applicationUpdater mockApplicationUpdater
 	serviceBroker      mockServiceBroker
 	containerBroker    mockContainerBroker
-	podSpecGetter      mockPodSpecGetter
+	podSpecGetter      mockProvisioningInfoGetterGetter
 	lifeGetter         mockLifeGetter
 	unitGetter         mockUnitGetter
 	unitUpdater        mockUnitUpdater
@@ -101,10 +101,10 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		updated: s.serviceUpdated,
 	}
 
-	s.podSpecGetter = mockPodSpecGetter{
+	s.podSpecGetter = mockProvisioningInfoGetterGetter{
 		watcher: watchertest.NewMockNotifyWatcher(s.containerSpecChanges),
 	}
-	s.podSpecGetter.setSpec(containerSpec)
+	s.podSpecGetter.setProvisioningInfo(params.KubernetesProvisioningInfo{PodSpec: containerSpec})
 
 	s.unitGetter = mockUnitGetter{
 		watcher: watchertest.NewMockStringsWatcher(s.jujuUnitChanges),
@@ -126,14 +126,14 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.config = caasunitprovisioner.Config{
-		ApplicationGetter:  &s.applicationGetter,
-		ApplicationUpdater: &s.applicationUpdater,
-		ServiceBroker:      &s.serviceBroker,
-		ContainerBroker:    &s.containerBroker,
-		PodSpecGetter:      &s.podSpecGetter,
-		LifeGetter:         &s.lifeGetter,
-		UnitGetter:         &s.unitGetter,
-		UnitUpdater:        &s.unitUpdater,
+		ApplicationGetter:      &s.applicationGetter,
+		ApplicationUpdater:     &s.applicationUpdater,
+		ServiceBroker:          &s.serviceBroker,
+		ContainerBroker:        &s.containerBroker,
+		ProvisioningInfoGetter: &s.podSpecGetter,
+		LifeGetter:             &s.lifeGetter,
+		UnitGetter:             &s.unitGetter,
+		UnitUpdater:            &s.unitUpdater,
 	}
 }
 
@@ -163,8 +163,8 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	}, `missing ContainerBroker not valid`)
 
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
-		config.PodSpecGetter = nil
-	}, `missing PodSpecGetter not valid`)
+		config.ProvisioningInfoGetter = nil
+	}, `missing ProvisioningInfoGetter not valid`)
 
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.LifeGetter = nil
@@ -248,8 +248,9 @@ func (s *WorkerSuite) TestUnitChanged(c *gc.C) {
 	s.lifeGetter.CheckCall(c, 0, "Life", "gitlab")
 	s.lifeGetter.CheckCall(c, 1, "Life", "gitlab/0")
 	s.serviceBroker.CheckCallNames(c, "EnsureService", "Service")
+	expectedParams := &caas.ServiceParams{PodSpec: &parsedSpec}
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", expectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 	s.serviceBroker.CheckCall(c, 1, "Service", "gitlab")
 
 	s.serviceBroker.ResetCalls()
@@ -266,9 +267,10 @@ func (s *WorkerSuite) TestUnitChanged(c *gc.C) {
 		c.Fatal("timed out waiting for service to be ensured")
 	}
 
+	expectedParams = &caas.ServiceParams{PodSpec: &parsedSpec}
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 2, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", expectedParams, 2, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 
 	s.serviceBroker.ResetCalls()
 	// Delete a unit.
@@ -285,9 +287,10 @@ func (s *WorkerSuite) TestUnitChanged(c *gc.C) {
 		c.Fatal("timed out waiting for service to be ensured")
 	}
 
+	expectedParams = &caas.ServiceParams{PodSpec: &parsedSpec}
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &parsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", expectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
 func (s *WorkerSuite) TestNewPodSpecChange(c *gc.C) {
@@ -321,7 +324,7 @@ containers:
 
 	s.serviceBroker.podSpec = &anotherParsedSpec
 
-	s.podSpecGetter.setSpec(anotherSpec)
+	s.podSpecGetter.setProvisioningInfo(params.KubernetesProvisioningInfo{PodSpec: anotherSpec})
 	s.sendContainerSpecChange(c)
 	s.podSpecGetter.assertSpecRetrieved(c)
 
@@ -331,9 +334,10 @@ containers:
 		c.Fatal("timed out waiting for service to be ensured")
 	}
 
+	expectedParams := &caas.ServiceParams{PodSpec: &anotherParsedSpec}
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
-		"gitlab", &anotherParsedSpec, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+		"gitlab", expectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
 }
 
 func (s *WorkerSuite) TestUnitAllRemoved(c *gc.C) {

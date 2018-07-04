@@ -143,32 +143,38 @@ func (f *Facade) watchPodSpec(model Model, tagString string) (string, error) {
 	return "", watcher.EnsureErr(w)
 }
 
-// PodSpec returns the pod spec for specified units in this model.
-func (f *Facade) PodSpec(args params.Entities) (params.StringResults, error) {
+// ProvisioningInfo returns the provisioning info for specified applications in this model.
+func (f *Facade) ProvisioningInfo(args params.Entities) (params.KubernetesProvisioningInfoResults, error) {
 	model, err := f.state.Model()
 	if err != nil {
-		return params.StringResults{}, errors.Trace(err)
+		return params.KubernetesProvisioningInfoResults{}, errors.Trace(err)
 	}
-	results := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
+	results := params.KubernetesProvisioningInfoResults{
+		Results: make([]params.KubernetesProvisioningInfoResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		spec, err := f.podSpec(model, arg.Tag)
+		info, err := f.provisioningInfo(model, arg.Tag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		results.Results[i].Result = spec
+		results.Results[i].Result = info
 	}
 	return results, nil
 }
 
-func (f *Facade) podSpec(model Model, tagString string) (string, error) {
+func (f *Facade) provisioningInfo(model Model, tagString string) (*params.KubernetesProvisioningInfo, error) {
 	tag, err := names.ParseApplicationTag(tagString)
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return model.PodSpec(tag)
+	podSpec, err := model.PodSpec(tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &params.KubernetesProvisioningInfo{
+		PodSpec: podSpec,
+	}, nil
 }
 
 // ApplicationsConfig returns the config for the specified applications.
