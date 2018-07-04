@@ -10,6 +10,9 @@ import (
 	"github.com/juju/bundlechanges"
 	"github.com/juju/description"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v6"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -18,8 +21,6 @@ import (
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
-	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6"
 )
 
 type Backend interface {
