@@ -1,10 +1,13 @@
+// Copyright 2018 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package machine_test
 
 import (
 	"bytes"
 	"errors"
 
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
@@ -24,12 +27,20 @@ const seriesArg = "xenial"
 
 func (s *UpgradeSeriesSuite) SetUpTest(c *gc.C) {}
 
-func (s *UpgradeSeriesSuite) runUpgradeSeriesCommand(c *gc.C, args ...string) error {
-	err := s.runUpgradeSeriesCommandWithConfirmation(c, "y", args...)
+func runUpgradeSeriesCommand(c *gc.C, args ...string) error {
+	err := runUpgradeSeriesCommandWithConfirmation(c, "y", args...)
 	return err
 }
 
-func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(c *gc.C, confirmation string, args ...string) error {
+func runUpgradeSeriesCommandWithConfirmation(c *gc.C, confirmation string, args ...string) error {
+	mockController := gomock.NewController(c)
+	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
+	// Stub for CLI arg testing
+	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesPrepare(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	return runUpgradeSeriesCommandGivenMock(c, mockUpgradeSeriesAPI, confirmation, args...)
+}
+
+func runUpgradeSeriesCommandGivenMock(c *gc.C, mockUpgradeSeriesAPI *mocks.MockUpgradeMachineSeriesAPI, confirmation string, args ...string) error {
 	var stdin, stdout, stderr bytes.Buffer
 	ctx, err := cmd.DefaultContext()
 	c.Assert(err, jc.ErrorIsNil)
@@ -37,12 +48,6 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithConfirmation(c *gc.C, co
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
 	stdin.WriteString(confirmation)
-
-	// mock remote API
-	mockController := gomock.NewController(c)
-	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
-	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesPrepare(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesComplete(gomock.Any()).AnyTimes()
 
 	com := machine.NewUpgradeSeriesCommandForTest(mockUpgradeSeriesAPI)
 
@@ -96,51 +101,66 @@ func (s *UpgradeSeriesSuite) runUpgradeSeriesCommandWithoutConfirmation(c *gc.C,
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommand(c *gc.C) {
-	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, seriesArg)
+	mockController := gomock.NewController(c)
+	defer mockController.Finish()
+	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
+	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesPrepare(machineArg, seriesArg, gomock.Eq(false))
+
+	err := runUpgradeSeriesCommandGivenMock(c, mockUpgradeSeriesAPI, "y", machine.PrepareCommand, machineArg, seriesArg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAcceptForceOption(c *gc.C) {
-	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, seriesArg, "--force")
+	mockController := gomock.NewController(c)
+	defer mockController.Finish()
+	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
+	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesPrepare(machineArg, seriesArg, gomock.Eq(true))
+
+	err := runUpgradeSeriesCommandGivenMock(c, mockUpgradeSeriesAPI, "y", machine.PrepareCommand, machineArg, seriesArg, "--force")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldAbortOnFailedConfirmation(c *gc.C) {
-	err := s.runUpgradeSeriesCommandWithConfirmation(c, "n", machine.PrepareCommand, machineArg, seriesArg)
+	err := runUpgradeSeriesCommandWithConfirmation(c, "n", machine.PrepareCommand, machineArg, seriesArg)
 	c.Assert(err, gc.ErrorMatches, "upgrade series: aborted")
 }
 
 func (s *UpgradeSeriesSuite) TestUpgradeCommandShouldNotAcceptInvalidPrepCommands(c *gc.C) {
 	invalidPrepCommand := "actuate"
-	err := s.runUpgradeSeriesCommand(c, invalidPrepCommand, machineArg, seriesArg)
+	err := runUpgradeSeriesCommand(c, invalidPrepCommand, machineArg, seriesArg)
 	c.Assert(err, gc.ErrorMatches, ".* \"actuate\" is an invalid upgrade-series command")
 }
 
 func (s *UpgradeSeriesSuite) TestUpgradeCommandShouldNotAcceptInvalidMachineArgs(c *gc.C) {
 	invalidMachineArg := "machine5"
-	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, invalidMachineArg, seriesArg)
+	err := runUpgradeSeriesCommand(c, machine.PrepareCommand, invalidMachineArg, seriesArg)
 	c.Assert(err, gc.ErrorMatches, "\"machine5\" is an invalid machine name")
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldOnlyAcceptSupportedSeries(c *gc.C) {
 	BadSeries := "Combative Caribou"
-	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, BadSeries)
+	err := runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, BadSeries)
 	c.Assert(err, gc.ErrorMatches, ".* is an unsupported series")
 }
 
 func (s *UpgradeSeriesSuite) TestPrepareCommandShouldSupportSeriesRegardlessOfCase(c *gc.C) {
 	capitalizedCaseXenial := "Xenial"
-	err := s.runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, capitalizedCaseXenial)
+	err := runUpgradeSeriesCommand(c, machine.PrepareCommand, machineArg, capitalizedCaseXenial)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeSeriesSuite) TestCompleteCommand(c *gc.C) {
-	err := s.runUpgradeSeriesCommand(c, machine.CompleteCommand, machineArg)
+	mockController := gomock.NewController(c)
+	defer mockController.Finish()
+	mockUpgradeSeriesAPI := mocks.NewMockUpgradeMachineSeriesAPI(mockController)
+	mockUpgradeSeriesAPI.EXPECT().UpgradeSeriesComplete(machineArg)
+
+	err := runUpgradeSeriesCommandGivenMock(c, mockUpgradeSeriesAPI, "y", machine.CompleteCommand, machineArg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeSeriesSuite) TestCompleteCommandDoesNotAcceptSeries(c *gc.C) {
-	err := s.runUpgradeSeriesCommand(c, machine.CompleteCommand, machineArg, seriesArg)
+	err := runUpgradeSeriesCommand(c, machine.CompleteCommand, machineArg, seriesArg)
 	c.Assert(err, gc.ErrorMatches, "wrong number of arguments")
 }
 
