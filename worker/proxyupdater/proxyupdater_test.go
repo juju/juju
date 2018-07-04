@@ -101,10 +101,6 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 			}
 			return nil
 		},
-		RunFunc: func(in string, cmd string, args ...string) (string, error) {
-			logger.Debugf("RunFunc(%q, %q, %#v)", in, cmd, args)
-			return "", nil
-		},
 		Logger: logger,
 	}
 	s.PatchValue(&pacconfig.AptProxyConfigFile, path.Join(directory, "juju-apt-proxy"))
@@ -469,7 +465,7 @@ func (s *ProxyUpdaterSuite) TestSnapProxySet(c *gc.C) {
 	})
 }
 
-func (s *ProxyUpdaterSuite) TestSnapEnterpriseProxy(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestSnapStoreProxy(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("snap settings not handled on windows")
 	}
@@ -483,8 +479,8 @@ func (s *ProxyUpdaterSuite) TestSnapEnterpriseProxy(c *gc.C) {
 	}
 
 	s.api.proxies = proxyupdaterapi.ProxyConfiguration{
-		SnapEnterpriseProxyId:         "42",
-		SnapEnterpriseProxyAssertions: "please trust us",
+		SnapStoreProxyId:         "42",
+		SnapStoreProxyAssertions: "please trust us",
 	}
 
 	updater, err := proxyupdater.NewWorker(s.config)

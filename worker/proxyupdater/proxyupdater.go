@@ -41,9 +41,6 @@ func (c *Config) Validate() error {
 	if c.InProcessUpdate == nil {
 		return errors.NotValidf("mssing InProcessUpdate")
 	}
-	if c.RunFunc == nil {
-		return errors.NotValidf("mssing RunFunc")
-	}
 	if c.Logger == nil {
 		return errors.NotValidf("mssing Logger")
 	}
@@ -66,9 +63,9 @@ type proxyWorker struct {
 	aptProxy proxy.Settings
 	proxy    proxy.Settings
 
-	snapProxy                proxy.Settings
-	snapEnterpriseProxy      string
-	snapEnterpriseAssertions string
+	snapProxy           proxy.Settings
+	snapStoreProxy      string
+	snapStoreAssertions string
 
 	// The whole point of the first value is to make sure that the the files
 	// are written out the first time through, even if they are the same as
@@ -204,12 +201,16 @@ func getPackageCommander() (commands.PackageCommander, error) {
 	return commands.NewPackageCommander(hostSeries)
 }
 
-func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, enterpriseID, enterpriseAssertions string) {
+func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, storeAssertions string) {
 	if os.HostOS() == os.Windows {
 		w.config.Logger.Tracef("no snap proxies on windows")
 		return
 	}
-	w.config.Logger.Tracef("setting snap proxy values: %#v, %q, %q", proxy, enterpriseID, enterpriseAssertions)
+	if w.config.RunFunc == nil {
+		w.config.Logger.Tracef("snap proxies not updated by unit agents")
+		return
+	}
+	w.config.Logger.Tracef("setting snap proxy values: %#v, %q, %q", proxy, storeID, storeAssertions)
 
 	var snapSettings []string
 	maybeAddSettings := func(setting, value, saved string) {
@@ -219,27 +220,27 @@ func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, enterpriseID, 
 	}
 	maybeAddSettings("proxy.http", proxy.Http, w.snapProxy.Http)
 	maybeAddSettings("proxy.https", proxy.Https, w.snapProxy.Https)
-	maybeAddSettings("proxy.store", enterpriseID, w.snapEnterpriseProxy)
+	maybeAddSettings("proxy.store", storeID, w.snapStoreProxy)
 	if len(snapSettings) > 0 {
 		args := append([]string{"set", "core"}, snapSettings...)
 		output, err := w.config.RunFunc(noStdIn, "snap", args...)
 		if err != nil {
-			w.config.Logger.Infof("unable to set snap core settings %v: %v, output: %q", snapSettings, err, output)
+			w.config.Logger.Warningf("unable to set snap core settings %v: %v, output: %q", snapSettings, err, output)
 		} else {
 			w.config.Logger.Debugf("snap core settings %v updated, output: %q", snapSettings, output)
 			w.snapProxy = proxy
-			w.snapEnterpriseProxy = enterpriseID
+			w.snapStoreProxy = storeID
 		}
 	}
 
-	if (enterpriseAssertions != w.snapEnterpriseAssertions || w.first) && enterpriseAssertions != "" {
-		output, err := w.config.RunFunc(enterpriseAssertions, "snap", "ack", "/dev/stdin")
+	if (storeAssertions != w.snapStoreAssertions || w.first) && storeAssertions != "" {
+		output, err := w.config.RunFunc(storeAssertions, "snap", "ack", "/dev/stdin")
 		if err != nil {
-			w.config.Logger.Infof("unable to acknowledge assertions: %v, output: %q", err, output)
+			w.config.Logger.Warningf("unable to acknowledge assertions: %v, output: %q", err, output)
 		} else {
-			w.config.Logger.Debugf("enterprise snap store assertions acked, output: %q", output)
+			w.config.Logger.Debugf("snap store assertions acked, output: %q", output)
 		}
-		w.snapEnterpriseAssertions = enterpriseAssertions
+		w.snapStoreAssertions = storeAssertions
 	}
 }
 
@@ -270,7 +271,7 @@ func (w *proxyWorker) onChange() error {
 	}
 
 	w.handleProxyValues(config.LegacyProxy, config.JujuProxy)
-	w.handleSnapProxyValues(config.SnapProxy, config.SnapEnterpriseProxyId, config.SnapEnterpriseProxyAssertions)
+	w.handleSnapProxyValues(config.SnapProxy, config.SnapStoreProxyId, config.SnapStoreProxyAssertions)
 	return w.handleAptProxyValues(config.APTProxy)
 }
 
