@@ -40,6 +40,11 @@ func (s *serverSuite) TestLocalServer(c *gc.C) {
 			"https://192.168.0.1:8443",
 		},
 	}
+	serverInfo := &api.Server{
+		ServerUntrusted: api.ServerUntrusted{
+			APIVersion: "1.1",
+		},
+	}
 
 	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
 
@@ -50,6 +55,7 @@ func (s *serverSuite) TestLocalServer(c *gc.C) {
 		server.EXPECT().LocalBridgeName().Return(bridgeName),
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
+		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
 	)
 
 	svr, err := factory.LocalServer()
@@ -74,6 +80,11 @@ func (s *serverSuite) TestLocalServerRetrySemantics(c *gc.C) {
 			"https://192.168.0.1:8443",
 		},
 	}
+	serverInfo := &api.Server{
+		ServerUntrusted: api.ServerUntrusted{
+			APIVersion: "1.1",
+		},
+	}
 
 	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
 
@@ -88,6 +99,7 @@ func (s *serverSuite) TestLocalServerRetrySemantics(c *gc.C) {
 		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
 		server.EXPECT().EnableHTTPSListener().Return(nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
+		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
 	)
 
 	svr, err := factory.LocalServer()
@@ -120,6 +132,43 @@ func (s *serverSuite) TestLocalServerRetrySemanticsFailure(c *gc.C) {
 	svr, err := factory.LocalServer()
 	c.Assert(svr, gc.IsNil)
 	c.Assert(err.Error(), gc.Equals, "LXD is not listening on address https://192.168.0.1 (reported addresses: [])")
+}
+
+func (s *serverSuite) TestLocalServerWithInvalidAPIVersion(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	profile := &api.Profile{}
+	etag := "etag"
+	bridgeName := "lxdbr0"
+	hostAddress := "192.168.0.1"
+	connectionInfo := &client.ConnectionInfo{
+		Addresses: []string{
+			"https://192.168.0.1:8443",
+		},
+	}
+	serverInfo := &api.Server{
+		ServerUntrusted: api.ServerUntrusted{
+			APIVersion: "a.b",
+		},
+	}
+
+	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
+
+	gomock.InOrder(
+		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
+		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
+		server.EXPECT().EnableHTTPSListener().Return(nil),
+		server.EXPECT().LocalBridgeName().Return(bridgeName),
+		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
+		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
+		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+	)
+
+	svr, err := factory.LocalServer()
+	c.Assert(svr, gc.Not(gc.IsNil))
+	c.Assert(svr, gc.Equals, server)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *serverSuite) TestLocalServerErrorMessageShowsInstallMessage(c *gc.C) {
@@ -251,6 +300,11 @@ func (s *serverSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C
 			"https://192.168.0.1:8443",
 		},
 	}
+	serverInfo := &api.Server{
+		ServerUntrusted: api.ServerUntrusted{
+			APIVersion: "1.1",
+		},
+	}
 
 	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
 
@@ -261,6 +315,7 @@ func (s *serverSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C
 		server.EXPECT().LocalBridgeName().Return(bridgeName),
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
+		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
 	)
 
 	svr, err := factory.RemoteServer(environs.CloudSpec{
@@ -344,5 +399,48 @@ func defaultLocalServerFunc(ctrl *gomock.Controller) func() (lxd.Server, error) 
 func defaultRemoteServerFunc(ctrl *gomock.Controller) func(containerLXD.ServerSpec) (lxd.Server, error) {
 	return func(containerLXD.ServerSpec) (lxd.Server, error) {
 		return lxd.NewMockServer(ctrl), nil
+	}
+}
+
+func (s *serverSuite) TestIsSupportedAPIVersion(c *gc.C) {
+	for _, t := range []struct {
+		input    string
+		expected bool
+		output   string
+	}{
+		{
+			input:    "foo",
+			expected: false,
+			output:   `LXD API version "foo": expected format <major>\.<minor>`,
+		},
+		{
+			input:    "a.b",
+			expected: false,
+			output:   `LXD API version "a.b": unexpected major number: strconv.(ParseInt|Atoi): parsing "a": invalid syntax`,
+		},
+		{
+			input:    "0.9",
+			expected: false,
+			output:   `LXD API version "0.9": expected major version 1 or later`,
+		},
+		{
+			input:    "1.0",
+			expected: true,
+			output:   "",
+		},
+		{
+			input:    "2.0",
+			expected: true,
+			output:   "",
+		},
+		{
+			input:    "2.1",
+			expected: true,
+			output:   "",
+		},
+	} {
+		msg, ok := lxd.IsSupportedAPIVersion(t.input)
+		c.Assert(ok, gc.Equals, t.expected)
+		c.Assert(msg, gc.Matches, t.output)
 	}
 }

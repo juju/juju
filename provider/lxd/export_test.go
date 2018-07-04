@@ -11,8 +11,9 @@ import (
 )
 
 var (
-	NewInstance     = newInstance
-	GetCertificates = getCertificates
+	NewInstance           = newInstance
+	GetCertificates       = getCertificates
+	IsSupportedAPIVersion = isSupportedAPIVersion
 )
 
 func NewProviderWithMocks(
