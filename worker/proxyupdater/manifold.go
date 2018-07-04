@@ -17,6 +17,7 @@ import (
 // Logger represents the methods used for logging messages.
 type Logger interface {
 	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
 	Infof(string, ...interface{})
 	Debugf(string, ...interface{})
 	Tracef(string, ...interface{})
