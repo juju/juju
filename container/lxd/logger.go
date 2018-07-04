@@ -24,12 +24,11 @@ func (p *lxdLogProxy) render(msg string, ctx []interface{}) string {
 		result.WriteString(": ")
 	}
 
-	/* This is sort of a hack, but it's enforced in the LXD code itself as
-	 * well. LXD's logging framework forces us to pass things as "string"
-	 * for one argument and then a "context object" as the next argument.
-	 * So, we do some basic rendering here to make it look slightly less
-	 * ugly.
-	 */
+	// This is sort of a hack, but it's enforced in the LXD code itself as
+	// well. LXD's logging framework forces us to pass things as "string"
+	// for one argument and then a "context object" as the next argument.
+	// So, we do some basic rendering here to make it look slightly less
+	// ugly.
 	var key string
 	for i, entry := range ctx {
 		if i != 0 {
