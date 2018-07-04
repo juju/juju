@@ -265,7 +265,10 @@ func (p *environProvider) validateCloudSpec(spec environs.CloudSpec) (local bool
 	}
 	switch authType := spec.Credential.AuthType(); authType {
 	case cloud.CertificateAuthType, interactiveAuthType:
-		if _, _, ok := getCertificates(spec); !ok {
+		if spec.Credential == nil {
+			return false, errors.NotFoundf("credentials")
+		}
+		if _, _, ok := getCertificates(*spec.Credential); !ok {
 			return false, errors.NotValidf("certificate credentials")
 		}
 	default:

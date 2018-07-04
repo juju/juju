@@ -184,10 +184,17 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 
 // FinalizeCredential is part of the environs.ProviderCredentials interface.
 func (p environProviderCredentials) FinalizeCredential(ctx environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
-	var interactive bool
 	switch authType := args.Credential.AuthType(); authType {
-	case cloud.CertificateAuthType, interactiveAuthType:
-		return p.finalizeCertificateCredential(ctx, args, interactive)
+	case interactiveAuthType:
+		// if we have all the credential files, then it should be as simple
+		// as validating they exist.
+		_, _, ok := getCertificates(args.Credential)
+		if !ok {
+			return nil, errors.NotValidf("credentials")
+		}
+		return &args.Credential, nil
+	case cloud.CertificateAuthType:
+		return p.finalizeCertificateCredential(ctx, args)
 	default:
 		return &args.Credential, nil
 	}
@@ -196,7 +203,6 @@ func (p environProviderCredentials) FinalizeCredential(ctx environs.FinalizeCred
 func (p environProviderCredentials) finalizeCertificateCredential(
 	ctx environs.FinalizeCredentialContext,
 	args environs.FinalizeCredentialParams,
-	interactive bool,
 ) (*cloud.Credential, error) {
 	// Credential detection yields a partial certificate containing just
 	// the client certificate and key. We check if we have a partial
@@ -208,7 +214,7 @@ func (p environProviderCredentials) finalizeCertificateCredential(
 	keyPEM := credAttrs[credAttrClientKey]
 	// The credential is fully formed, so we assume the client
 	// certificate is uploaded to the server already.
-	if credAttrs[credAttrServerCert] != "" && certPEM != "" && keyPEM != "" {
+	if credAttrs[credAttrServerCert] != "" {
 		return &args.Credential, nil
 	}
 	if certPEM == "" {
@@ -234,18 +240,14 @@ func (p environProviderCredentials) finalizeCertificateCredential(
 		// TODO(axw) for the "interactive" auth-type, we should take
 		// the user through the server certificate fingerprint
 		// verification and trust password flow.
-		prefix := "cannot auto-generate credential for remote LXD"
-		if interactive {
-			prefix = "certificate upload for remote LXD unsupported"
-		}
-		return nil, errors.Errorf(`%s
+		return nil, errors.Errorf(`cannot auto-generate credential for remote LXD
 
 Until support is added for verifying and authenticating to remote LXD hosts,
 you must generate the credential on the LXD host, and add the credential to
 this client using "juju add-credential localhost".
 
 See: https://jujucharms.com/docs/stable/clouds-LXD
-`, prefix)
+`)
 	}
 	svr, err := p.serverFactory.LocalServer()
 	if err != nil {
@@ -430,11 +432,8 @@ func addrsContains(haystack []net.Addr, needle string) bool {
 	return false
 }
 
-func getCertificates(spec environs.CloudSpec) (client *lxd.Certificate, server string, ok bool) {
-	if spec.Credential == nil {
-		return nil, "", false
-	}
-	credAttrs := spec.Credential.Attributes()
+func getCertificates(credentials cloud.Credential) (client *lxd.Certificate, server string, ok bool) {
+	credAttrs := credentials.Attributes()
 	clientCertPEM, ok := credAttrs[credAttrClientCert]
 	if !ok {
 		return nil, "", false

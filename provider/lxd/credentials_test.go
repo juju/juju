@@ -410,7 +410,7 @@ See: https://jujucharms.com/docs/stable/clouds-LXD
 `[1:])
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocalInteractive(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocalInteractiveWithEmptyClientCert(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -421,7 +421,48 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalInteractive(c *gc.C) {
 		CloudEndpoint: "localhost",
 		Credential:    cloud.NewCredential("interactive", map[string]string{}),
 	})
-	c.Assert(err, gc.ErrorMatches, `missing or empty \"client-cert\" attribute not valid`)
+	c.Assert(err, gc.ErrorMatches, `credentials not valid`)
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialLocalInteractiveWithEmptyClientKey(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	ctx := cmdtesting.Context(c)
+	_, err := deps.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
+		CloudEndpoint: "localhost",
+		Credential: cloud.NewCredential("interactive", map[string]string{
+			"client-cert": coretesting.CACert,
+		}),
+	})
+	c.Assert(err, gc.ErrorMatches, `credentials not valid`)
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialLocalInteractive(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	ctx := cmdtesting.Context(c)
+	out, err := deps.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
+		CloudEndpoint: "localhost",
+		Credential: cloud.NewCredential("interactive", map[string]string{
+			"client-cert": "/path/to/client/cert.crt",
+			"client-key":  "/path/to/client/key.key",
+			"server-cert": "server-cert",
+		}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(out.AuthType(), gc.Equals, cloud.AuthType("interactive"))
+	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
+		"client-cert": "/path/to/client/cert.crt",
+		"client-key":  "/path/to/client/key.key",
+		"server-cert": "server-cert",
+	})
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialNonLocalInteractive(c *gc.C) {
@@ -436,7 +477,7 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocalInteractive(c *gc.C) {
 		CloudEndpoint: "8.8.8.8",
 		Credential:    cloud.NewCredential("interactive", map[string]string{}),
 	})
-	c.Assert(err, gc.ErrorMatches, `missing or empty \"client-cert\" attribute not valid`)
+	c.Assert(err, gc.ErrorMatches, `credentials not valid`)
 }
 
 func (s *credentialsSuite) clientCert() *containerLXD.Certificate {
@@ -459,14 +500,7 @@ func (s *credentialsSuite) TestGetCertificates(c *gc.C) {
 		"client-key":  coretesting.CAKey,
 		"server-cert": "server.crt",
 	})
-	spec := environs.CloudSpec{
-		Type:       "lxd",
-		Name:       "localhost",
-		Endpoint:   "10.0.8.1",
-		Credential: &cred,
-	}
-
-	cert, server, ok := lxd.GetCertificates(spec)
+	cert, server, ok := lxd.GetCertificates(cred)
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(cert, jc.DeepEquals, s.clientCert())
 	c.Assert(server, gc.Equals, "server.crt")
@@ -477,14 +511,7 @@ func (s *credentialsSuite) TestGetCertificatesMissingClientCert(c *gc.C) {
 		"client-key":  coretesting.CAKey,
 		"server-cert": "server.crt",
 	})
-	spec := environs.CloudSpec{
-		Type:       "lxd",
-		Name:       "localhost",
-		Endpoint:   "10.0.8.1",
-		Credential: &cred,
-	}
-
-	_, _, ok := lxd.GetCertificates(spec)
+	_, _, ok := lxd.GetCertificates(cred)
 	c.Assert(ok, gc.Equals, false)
 }
 
@@ -493,14 +520,7 @@ func (s *credentialsSuite) TestGetCertificatesMissingClientKey(c *gc.C) {
 		"client-cert": coretesting.CACert,
 		"server-cert": "server.crt",
 	})
-	spec := environs.CloudSpec{
-		Type:       "lxd",
-		Name:       "localhost",
-		Endpoint:   "10.0.8.1",
-		Credential: &cred,
-	}
-
-	_, _, ok := lxd.GetCertificates(spec)
+	_, _, ok := lxd.GetCertificates(cred)
 	c.Assert(ok, gc.Equals, false)
 }
 
@@ -509,13 +529,6 @@ func (s *credentialsSuite) TestGetCertificatesMissingServerCert(c *gc.C) {
 		"client-cert": coretesting.CACert,
 		"client-key":  coretesting.CAKey,
 	})
-	spec := environs.CloudSpec{
-		Type:       "lxd",
-		Name:       "localhost",
-		Endpoint:   "10.0.8.1",
-		Credential: &cred,
-	}
-
-	_, _, ok := lxd.GetCertificates(spec)
+	_, _, ok := lxd.GetCertificates(cred)
 	c.Assert(ok, gc.Equals, false)
 }
