@@ -8,55 +8,85 @@ import (
 	"strings"
 
 	"github.com/juju/bundlechanges"
-	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/os/series"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/description"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/migration"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 )
 
-// NewFacade provides the required signature for facade registration.
-func NewFacade(_ *state.State, _ facade.Resources, auth facade.Authorizer) (Bundle, error) {
-	return NewBundle(auth)
-}
-
-// NewBundle creates and returns a new Bundle API facade.
-func NewBundle(auth facade.Authorizer) (Bundle, error) {
-	if !auth.AuthClient() {
-		return nil, common.ErrPerm
-	}
-	return &bundleAPI{}, nil
-}
-
-// Bundle defines the API endpoint used to retrieve bundle changes.
-type Bundle interface {
-	// GetChanges returns the list of changes required to deploy the given
-	// bundle data.
-	GetChanges(params.BundleChangesParams) (params.BundleChangesResults, error)
-
-	// ExportBundle exports the model configuration as bundle.
-	ExportBundle(params.ExportBundleParams) (params.BundleData, error)
+type Backend interface {
+	migration.StateExporter
 }
 
 // bundleAPI implements the Bundle interface and is the concrete implementation
 // of the API end point.
-type bundleAPI struct {
-	state common.ModelManagerBackend
+type BundleAPI struct {
+	backend    Backend
+	authorizer facade.Authorizer
+	modelTag   names.ModelTag
+}
+
+func (b *BundleAPI) checkCanRead() error {
+	canRead, err := b.authorizer.HasPermission(permission.ReadAccess, b.modelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canRead {
+		return common.ErrPerm
+	}
+	return nil
+}
+
+// NewFacade provides the required signature for facade registration.
+func NewFacade(ctx facade.Context) (*BundleAPI, error) {
+	authorizer := ctx.Auth()
+	if !authorizer.AuthClient() {
+		return nil, common.ErrPerm
+	}
+
+	st := ctx.State()
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	tag, err := names.ParseModelTag(model.UUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &BundleAPI{
+		authorizer: authorizer,
+		backend:    getState(st, model),
+		modelTag:   tag,
+	}, nil
+}
+
+// removed once all relevant methods are moved from state to model.
+type stateShim struct {
+	*state.State
+	*state.Model
+}
+
+var getState = func(st *state.State, m *state.Model) Backend {
+	return stateShim{st, m}
 }
 
 // GetChanges returns the list of changes required to deploy the given bundle
 // data. The changes are sorted by requirements, so that they can be applied in
 // order.
-func (b *bundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
+func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
 	var results params.BundleChangesResults
 	data, err := charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
 	if err != nil {
@@ -105,77 +135,16 @@ func (b *bundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 	return results, nil
 }
 
-// ExportBundle exports the model configuration specified in the argument as bundle.
-func (b bundleAPI) ExportBundle(args params.ExportBundleParams) (params.BundleData, error) {
-	result := params.BundleData{}
-
-	tag, err := names.ParseModelTag(args.ModelTag)
+// ExportBundle exports the current model configuration as bundle.
+func (b *BundleAPI) ExportBundle() ([]byte, error) {
+	model, err := b.backend.Export()
 	if err != nil {
-		return result, errors.Annotate(err, "model-tag cannot be parsed.")
+		return nil, errors.Trace(err)
 	}
 
-	st, releaseSt, err := b.state.GetBackend(tag.Id())
+	bytes, err := description.Serialize(model)
 	if err != nil {
-		return result, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	defer releaseSt()
-
-	var model description.Model
-	model, err = st.Export()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	// Fill in the BundleApplicationSpec of BundleData.
-	app := make(map[string]*params.BundleApplicationSpec)
-
-	for _, application := range model.Applications() {
-		app[application.Name()].Charm = application.CharmURL()
-		app[application.Name()].Series = application.Series()
-		app[application.Name()].NumUnits = len(application.Units())
-		// TODO: Vinu2003 - need to verify this.
-		ut := []string{}
-		for _, unit := range application.Units() {
-			ut = append(ut, unit.Machine().Id())
-		}
-		app[application.Name()].To = ut
-
-		app[application.Name()].Expose = application.Exposed()
-		app[application.Name()].Options = application.CharmConfig()
-		app[application.Name()].Annotations = application.Annotations()
-
-		app[application.Name()].EndpointBindings = application.EndpointBindings()
-	}
-
-	// Fill in the BundleMachineSpec of BundleData.
-	mac := make(map[string]*params.BundleMachineSpec)
-
-	for _, machine := range model.Machines() {
-		constraints := []string{"arch=" + machine.Constraints().Architecture(),
-			"cpu-cores=" + string(machine.Constraints().CpuCores()),
-			"cpu-power=" + string(machine.Constraints().CpuPower()),
-			"mem=" + string(machine.Constraints().Memory()),
-			"root-disk=" + string(machine.Constraints().RootDisk())}
-		mac[machine.Id()].Constraints = strings.Join(constraints, " ")
-		mac[machine.Id()].Annotations = machine.Annotations()
-		mac[machine.Id()].Series = machine.Series()
-	}
-
-	// Fill in the relation for BundleData.
-	rel := [][]string{}
-
-	for _, relation := range model.Relations() {
-		endpointRelation := []string{}
-		for _, endpoint := range relation.Endpoints() {
-			endpointRelation = append(endpointRelation, endpoint.ApplicationName()+":"+endpoint.Name())
-		}
-		rel = append(rel, endpointRelation)
-	}
-	result = params.BundleData{
-		Applications: app,
-		Machines:     mac,
-		Series:       series.LatestLts(),
-		Relations:    rel,
-	}
-	return result, nil
+	return bytes, nil
 }

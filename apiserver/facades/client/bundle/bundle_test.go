@@ -8,34 +8,51 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 )
 
 type bundleSuite struct {
-	coretesting.BaseSuite
-	facade bundle.Bundle
+	testing.JujuConnSuite
+	api  *bundle.BundleAPI
+	auth facade.Authorizer
 }
 
 var _ = gc.Suite(&bundleSuite{})
 
+// bundleSuiteContext implements the facade.Context interface.
+type bundleSuiteContext struct{ bs *bundleSuite }
+
+func (ctx *bundleSuiteContext) Abort() <-chan struct{}      { return nil }
+func (ctx *bundleSuiteContext) Auth() facade.Authorizer     { return ctx.bs.auth }
+func (ctx *bundleSuiteContext) Dispose()                    {}
+func (ctx *bundleSuiteContext) Resources() facade.Resources { return common.NewResources() }
+func (ctx *bundleSuiteContext) State() *state.State         { return ctx.bs.State }
+func (ctx *bundleSuiteContext) StatePool() *state.StatePool { return nil }
+func (ctx *bundleSuiteContext) ID() string                  { return "" }
+func (ctx *bundleSuiteContext) Presence() facade.Presence   { return nil }
+func (ctx *bundleSuiteContext) Hub() facade.Hub             { return nil }
+
 func (s *bundleSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	auth := apiservertesting.FakeAuthorizer{
+	s.JujuConnSuite.SetUpTest(c)
+	s.auth = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("who"),
 	}
-	facade, err := bundle.NewBundle(auth)
+	facade, err := bundle.NewFacade(&bundleSuiteContext{bs: s})
 	c.Assert(err, jc.ErrorIsNil)
-	s.facade = facade
+	s.api = facade
 }
 
 func (s *bundleSuite) TestGetChangesBundleContentError(c *gc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: ":",
 	}
-	r, err := s.facade.GetChanges(args)
+	r, err := s.api.GetChanges(args)
 	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: cannot unmarshal bundle data: yaml: did not find expected key`)
 	c.Assert(r, gc.DeepEquals, params.BundleChangesResults{})
 }
@@ -52,7 +69,7 @@ func (s *bundleSuite) TestGetChangesBundleVerificationErrors(c *gc.C) {
                     num_units: -1
         `,
 	}
-	r, err := s.facade.GetChanges(args)
+	r, err := s.api.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
@@ -73,7 +90,7 @@ func (s *bundleSuite) TestGetChangesBundleConstraintsError(c *gc.C) {
                     constraints: bad=wolf
         `,
 	}
-	r, err := s.facade.GetChanges(args)
+	r, err := s.api.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
@@ -92,7 +109,7 @@ func (s *bundleSuite) TestGetChangesBundleStorageError(c *gc.C) {
                         bad: 0,100M
         `,
 	}
-	r, err := s.facade.GetChanges(args)
+	r, err := s.api.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
@@ -111,7 +128,7 @@ func (s *bundleSuite) TestGetChangesBundleDevicesError(c *gc.C) {
                         bad-gpu: -1,nvidia.com/gpu
         `,
 	}
-	r, err := s.facade.GetChanges(args)
+	r, err := s.api.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
@@ -138,7 +155,7 @@ func (s *bundleSuite) TestGetChangesSuccess(c *gc.C) {
                   - haproxy:web
         `,
 	}
-	r, err := s.facade.GetChanges(args)
+	r, err := s.api.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
 		Id:     "addCharm-0",
@@ -198,7 +215,7 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
                         url: public
         `,
 	}
-	r, err := s.facade.GetChanges(args)
+	r, err := s.api.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, change := range r.Changes {
