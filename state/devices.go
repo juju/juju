@@ -17,20 +17,13 @@ import (
 
 // NewDeviceBackend creates a backend for managing device.
 func NewDeviceBackend(st *State) (*deviceBackend, error) {
-	// TODO(wallyworld) - we should be passing in a Model not a State
-	// (but need to move stuff off State first)
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// registry, err := st.deviceProviderRegistry()
-	// if err != nil {
-	// 	return nil, errors.Annotate(err, "getting device provider registry")
-	// }
-
 	return &deviceBackend{
 		mb: st,
-		// registry:    registry,
+		// registry:    registry,  // TODO(ycliuhw): added device registry to interact with provider
 		settings:    NewStateSettings(st),
 		modelType:   m.Type(),
 		config:      m.ModelConfig,
@@ -51,28 +44,6 @@ type deviceBackend struct {
 	// registry  devices.ProviderRegistry  TODO(ycliuhw)
 	settings *StateSettings
 }
-
-// // DeviceType defines a device type.
-// type DeviceType string
-
-// // DeviceConstraints contains the user-specified constraints for allocating
-// // device instances for an application unit.
-// type DeviceConstraints struct {
-
-// 	// Type is the device type or device-class.
-// 	// currently supported types are
-// 	// - gpu
-// 	// - nvidia.com/gpu
-// 	// - amd.com/gpu
-// 	Type DeviceType `bson:"type"`
-
-// 	// Count is the number of devices that the user has asked for - count min and max are the
-// 	// number of devices the charm requires.
-// 	Count int64 `bson:"count"`
-
-// 	// Attributes is a collection of key value pairs device related (node affinity labels/tags etc.).
-// 	Attributes map[string]string `bson:"attributes"`
-// }
 
 // deviceConstraintsDoc contains device constraints for an entity.
 type deviceConstraintsDoc struct {

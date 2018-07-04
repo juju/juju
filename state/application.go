@@ -138,7 +138,7 @@ func (a *Application) storageConstraintsKey() string {
 }
 
 func applicationDeviceConstraintsKey(appName string, curl *charm.URL) string {
-	return fmt.Sprintf("adc#%s#%s", appName, curl) // ?????? adc
+	return fmt.Sprintf("adc#%s#%s", appName, curl)
 }
 
 // deviceConstraintsKey returns the charm-version-specific device
@@ -951,24 +951,10 @@ func (a *Application) newCharmDeviceOps(
 		return nil, nil, nil, errors.Trace(err)
 	}
 
-	// Check device to ensure no referenced device is removed, or changed
-	// in an incompatible way. We do this before computing the new device
-	// constraints, as incompatible charm changes will otherwise yield
-	// confusing error messages that would suggest the user has supplied
-	// invalid constraints.
 	sb, err := NewDeviceBackend(a.st)
 	if err != nil {
 		return fail(err)
 	}
-	// oldCharm, _, err := a.Charm()
-	// if err != nil {
-	// 	return fail(err)
-	// }
-	// oldMeta := oldCharm.Meta()
-	// checkDeviceOps, err := a.checkDeviceUpgrade(ch.Meta(), oldMeta, units)
-	// if err != nil {
-	// 	return fail(err)
-	// }
 
 	// Create or replace device constraints. We take the existing device
 	// constraints, remove any keys that are no longer referenced by the
@@ -988,14 +974,12 @@ func (a *Application) newCharmDeviceOps(
 			delete(newDeviceConstraints, name)
 		}
 	}
-	// if err := addDefaultDeviceConstraints(sb, newDeviceConstraints, ch.Meta()); err != nil {
-	// 	return fail(errors.Annotate(err, "adding default device constraints"))
-	// }
+
 	if err := validateDeviceConstraints(sb, newDeviceConstraints, ch.Meta()); err != nil {
 		return fail(errors.Annotate(err, "validating device constraints"))
 	}
 	newDeviceConstraintsKey := applicationDeviceConstraintsKey(a.doc.Name, ch.URL())
-	if _, err := readDeviceConstraints(sb.mb, newDeviceConstraintsKey); errors.IsNotFound(err) {
+	if _, err := a.DeviceConstraints(); errors.IsNotFound(err) {
 		deviceConstraintsOp = createDeviceConstraintsOp(
 			newDeviceConstraintsKey, newDeviceConstraints,
 		)
@@ -1007,11 +991,8 @@ func (a *Application) newCharmDeviceOps(
 		)
 	}
 
-	// // Upgrade charm devices.
-	// upgradeDeviceOps, err := a.upgradeDeviceOps(ch.Meta(), oldMeta, units, newDeviceConstraints)
-	// if err != nil {
-	// 	return fail(err)
-	// }
+	// TODO(ycliuhw): add Upgrade charm devices.
+
 	return []txn.Op{}, []txn.Op{}, []txn.Op{deviceConstraintsOp}, nil
 }
 
@@ -1116,7 +1097,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		&err, "cannot upgrade application %q to charm %q", a, cfg.Charm,
 	)
 	if cfg.Charm.Meta().Subordinate != a.doc.Subordinate {
-		return errors.Errorf("cannot change an application's subordinary")
+		return errors.Errorf("cannot change an application's subordinacy")
 	}
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL

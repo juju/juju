@@ -422,6 +422,7 @@ func allCollections() collectionSchema {
 
 		constraintsC:        {},
 		storageConstraintsC: {},
+		deviceConstraintsC:  {},
 		statusesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "_id"},

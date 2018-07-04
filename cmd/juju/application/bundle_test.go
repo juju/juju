@@ -180,7 +180,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-dashboard-with-miner-backend", "wordpress-dashboard-with-miner-backend")
 	err := runDeploy(
 		c, "bundle/wordpress-dashboard-with-miner-backend",
-		"--storage", "miner:bitcoinminer=10,nvidia.com/gpu", // override bitcoinminer
+		"--device", "miner:bitcoinminer=10,nvidia.com/gpu", // override bitcoinminer
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "cs:xenial/wordpress-47")

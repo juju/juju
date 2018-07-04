@@ -43,6 +43,7 @@ import (
 	jjcharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -417,6 +418,23 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 			Pool:  "loop",
 			Count: 0,
 			Size:  1024,
+		},
+	})
+}
+
+func (s *DeploySuite) TestDevices(c *gc.C) {
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "bitcoin-miner")
+	err := runDeploy(c, ch, "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "trusty")
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL("local:trusty/bitcoin-miner-1")
+	application, _ := s.AssertApplication(c, "bitcoin-miner", curl, 1, 0)
+
+	cons, err := application.DeviceConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, jc.DeepEquals, map[string]devices.Constraints{
+		"bitcoinminer": {
+			Type:  "nvidia.com/gpu",
+			Count: 10,
 		},
 	})
 }
