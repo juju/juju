@@ -452,13 +452,15 @@ func (s *containerSuite) TestRemoveContainersPartialFailure(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed to remove containers: c1, c2")
 }
 
-func (s *managerSuite) TestSpecApplyConstraintsNoInstanceType(c *gc.C) {
+func (s *managerSuite) TestSpecApplyConstraints(c *gc.C) {
 	mem := uint64(2046)
 	cores := uint64(4)
+	instType := "t2.micro"
 
 	cons := constraints.Value{
-		Mem:      &mem,
-		CpuCores: &cores,
+		Mem:          &mem,
+		CpuCores:     &cores,
+		InstanceType: &instType,
 	}
 
 	spec := lxd.ContainerSpec{
@@ -471,28 +473,6 @@ func (s *managerSuite) TestSpecApplyConstraintsNoInstanceType(c *gc.C) {
 		"limits.memory":  "2046MB",
 		"limits.cpu":     "4",
 	}
-	c.Check(spec.Config, gc.DeepEquals, exp)
-	c.Check(spec.InstanceType, gc.Equals, "")
-}
-
-func (s *managerSuite) TestSpecApplyConstraintsWithInstanceType(c *gc.C) {
-	mem := uint64(2046)
-	cores := uint64(4)
-	instType := "t2.micro"
-
-	cons := constraints.Value{
-		Mem:          &mem,
-		CpuCores:     &cores,
-		InstanceType: &instType,
-	}
-
-	exp := map[string]string{lxd.AutoStartKey: "true"}
-
-	spec := lxd.ContainerSpec{
-		Config: exp,
-	}
-	spec.ApplyConstraints(cons)
-
 	c.Check(spec.Config, gc.DeepEquals, exp)
 	c.Check(spec.InstanceType, gc.Equals, instType)
 }

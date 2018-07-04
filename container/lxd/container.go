@@ -38,29 +38,18 @@ const constraintWarnTemplate = "instance type constraint specified; ignoring %s 
 
 // ApplyConstraints applies the input constraints as valid LXD container
 // configuration to the container spec.
-// If an instance type constraint has been specified, conflicting constraints
-// are ignored and a warning is logged.
+// Note that we pass these through as supplied. If an instance type constraint
+// has been specified along with specific cores/mem constraints,
+// LXD behaviour is to override with the specific ones even when lower.
 func (c *ContainerSpec) ApplyConstraints(cons constraints.Value) {
-	typeCon := cons.HasInstanceType()
-	if typeCon {
+	if cons.HasInstanceType() {
 		c.InstanceType = *cons.InstanceType
 	}
-
 	if cons.HasCpuCores() {
-		con := fmt.Sprintf("%d", *cons.CpuCores)
-		if typeCon {
-			logger.Warningf(constraintWarnTemplate, "cores", con)
-		} else {
-			c.Config["limits.cpu"] = con
-		}
+		c.Config["limits.cpu"] = fmt.Sprintf("%d", *cons.CpuCores)
 	}
 	if cons.HasMem() {
-		con := fmt.Sprintf("%dMB", *cons.Mem)
-		if typeCon {
-			logger.Warningf(constraintWarnTemplate, "memory", con)
-		} else {
-			c.Config["limits.memory"] = con
-		}
+		c.Config["limits.memory"] = fmt.Sprintf("%dMB", *cons.Mem)
 	}
 }
 
