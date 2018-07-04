@@ -18,37 +18,37 @@ import (
 	"github.com/juju/juju/wrench"
 )
 
-// NewClient returns a new Client using the supplied config, or an error. Any
-// of the following situations will prevent client creation:
+// NewStore returns a new Store using the supplied config, or an error. Any
+// of the following situations will prevent store creation:
 //  * invalid config
 //  * invalid lease data stored in the namespace
-// ...but a returned Client will hold a recent cache of lease data and be ready
+// ...but a returned Store will hold a recent cache of lease data and be ready
 // to use.
-// Clients do not need to be cleaned up themselves, but they will not function
+// Stores do not need to be cleaned up themselves, but they will not function
 // past the lifetime of their configured Mongo.
-func NewClient(config ClientConfig) (lease.Client, error) {
+func NewStore(config StoreConfig) (lease.Store, error) {
 	if err := config.validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	loggerName := fmt.Sprintf("state.lease.%s.%s", config.Namespace, config.Id)
 	logger := loggo.GetLogger(loggerName)
-	client := &client{
+	store := &store{
 		config: config,
 		logger: logger,
 	}
-	if err := client.Refresh(); err != nil {
+	if err := store.Refresh(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return client, nil
+	return store, nil
 }
 
-// client implements the lease.Client interface.
-type client struct {
+// store implements the lease.Store interface.
+type store struct {
 
 	// config holds resources and configuration necessary to store leases.
-	config ClientConfig
+	config StoreConfig
 
-	// logger holds a logger unique to this lease Client.
+	// logger holds a logger unique to this lease Store.
 	logger loggo.Logger
 
 	// entries records recent information about leases.
@@ -58,39 +58,39 @@ type client struct {
 	globalTime time.Time
 }
 
-// Leases is part of the lease.Client interface.
-func (client *client) Leases() map[lease.Key]lease.Info {
-	localTime := client.config.LocalClock.Now()
+// Leases is part of the lease.Store interface.
+func (store *store) Leases() map[lease.Key]lease.Info {
+	localTime := store.config.LocalClock.Now()
 	leases := make(map[lease.Key]lease.Info)
-	for name, entry := range client.entries {
+	for name, entry := range store.entries {
 		globalExpiry := entry.start.Add(entry.duration)
-		remaining := globalExpiry.Sub(client.globalTime)
+		remaining := globalExpiry.Sub(store.globalTime)
 		localExpiry := localTime.Add(remaining)
 		key := lease.Key{Lease: name}
 		leases[key] = lease.Info{
 			Holder:   entry.holder,
 			Expiry:   localExpiry,
-			Trapdoor: client.assertOpTrapdoor(name, entry.holder),
+			Trapdoor: store.assertOpTrapdoor(name, entry.holder),
 		}
 	}
 	return leases
 }
 
-// ClaimLease is part of the lease.Client interface.
-func (client *client) ClaimLease(key lease.Key, request lease.Request) error {
-	return client.request(key.Lease, request, client.claimLeaseOps, "claiming")
+// ClaimLease is part of the lease.Store interface.
+func (store *store) ClaimLease(key lease.Key, request lease.Request) error {
+	return store.request(key.Lease, request, store.claimLeaseOps, "claiming")
 }
 
-// ExtendLease is part of the lease.Client interface.
-func (client *client) ExtendLease(key lease.Key, request lease.Request) error {
-	return client.request(key.Lease, request, client.extendLeaseOps, "extending")
+// ExtendLease is part of the lease.Store interface.
+func (store *store) ExtendLease(key lease.Key, request lease.Request) error {
+	return store.request(key.Lease, request, store.extendLeaseOps, "extending")
 }
 
 // opsFunc is used to make the signature of the request method somewhat readable.
 type opsFunc func(name string, request lease.Request) ([]txn.Op, entry, error)
 
 // request implements ClaimLease and ExtendLease.
-func (client *client) request(name string, request lease.Request, getOps opsFunc, verb string) error {
+func (store *store) request(name string, request lease.Request, getOps opsFunc, verb string) error {
 	if err := lease.ValidateString(name); err != nil {
 		return errors.Annotatef(err, "invalid name")
 	}
@@ -100,12 +100,12 @@ func (client *client) request(name string, request lease.Request, getOps opsFunc
 
 	// Close over cacheEntry to record in case of success.
 	var cacheEntry entry
-	err := client.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
-		client.logger.Tracef("%s lease %q for %s (attempt %d)", verb, name, request, attempt)
+	err := store.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+		store.logger.Tracef("%s lease %q for %s (attempt %d)", verb, name, request, attempt)
 
 		// On the first attempt, assume cache is good.
 		if attempt > 0 {
-			if err := client.refresh(false); err != nil {
+			if err := store.refresh(false); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -132,30 +132,30 @@ func (client *client) request(name string, request lease.Request, getOps opsFunc
 	}
 
 	// Update the cache for this lease only.
-	client.entries[name] = cacheEntry
+	store.entries[name] = cacheEntry
 	return nil
 }
 
-// ExpireLease is part of the Client interface.
-func (client *client) ExpireLease(key lease.Key) error {
+// ExpireLease is part of the Store interface.
+func (store *store) ExpireLease(key lease.Key) error {
 	name := key.Lease
 	if err := lease.ValidateString(name); err != nil {
 		return errors.Annotatef(err, "invalid name")
 	}
 
 	// No cache updates needed, only deletes; no closure here.
-	err := client.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
-		client.logger.Tracef("expiring lease %q (attempt %d)", name, attempt)
+	err := store.config.Mongo.RunTransaction(func(attempt int) ([]txn.Op, error) {
+		store.logger.Tracef("expiring lease %q (attempt %d)", name, attempt)
 
 		// On the first attempt, assume cache is good.
 		if attempt > 0 {
-			if err := client.refresh(false); err != nil {
+			if err := store.refresh(false); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
 
 		// No special error handling here.
-		ops, err := client.expireLeaseOps(name)
+		ops, err := store.expireLeaseOps(name)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -170,42 +170,42 @@ func (client *client) ExpireLease(key lease.Key) error {
 	}
 
 	// Uncache this lease entry.
-	delete(client.entries, name)
+	delete(store.entries, name)
 	return nil
 }
 
-// Refresh is part of the Client interface.
-func (client *client) Refresh() error {
-	return client.refresh(true)
+// Refresh is part of the Store interface.
+func (store *store) Refresh() error {
+	return store.refresh(true)
 }
 
-func (client *client) refresh(refreshGlobalTime bool) error {
-	client.logger.Tracef("refreshing")
+func (store *store) refresh(refreshGlobalTime bool) error {
+	store.logger.Tracef("refreshing")
 	if wrench.IsActive("lease", "refresh") {
 		return errors.New("wrench active")
 	}
 
-	collection, closer := client.config.Mongo.GetCollection(client.config.Collection)
+	collection, closer := store.config.Mongo.GetCollection(store.config.Collection)
 	defer closer()
-	entries, err := client.readEntries(collection)
+	entries, err := store.readEntries(collection)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if refreshGlobalTime {
-		if _, err := client.refreshGlobalTime(); err != nil {
+		if _, err := store.refreshGlobalTime(); err != nil {
 			return errors.Trace(err)
 		}
 	}
-	client.entries = entries
+	store.entries = entries
 	return nil
 }
 
-// readEntries reads all lease data for the client's namespace.
-func (client *client) readEntries(collection mongo.Collection) (map[string]entry, error) {
+// readEntries reads all lease data for the store's namespace.
+func (store *store) readEntries(collection mongo.Collection) (map[string]entry, error) {
 
-	// Read all lease documents in the client's namespace.
+	// Read all lease documents in the store's namespace.
 	query := bson.M{
-		fieldNamespace: client.config.Namespace,
+		fieldNamespace: store.config.Namespace,
 	}
 	iter := collection.Find(query).Iter()
 
@@ -216,7 +216,7 @@ func (client *client) readEntries(collection mongo.Collection) (map[string]entry
 		name, entry, err := leaseDoc.entry()
 		if err != nil {
 			if err := iter.Close(); err != nil {
-				client.logger.Debugf("failed to close lease docs iterator: %s", err)
+				store.logger.Debugf("failed to close lease docs iterator: %s", err)
 			}
 			return nil, errors.Annotatef(err, "corrupt lease document %q", leaseDoc.Id)
 		}
@@ -232,21 +232,21 @@ func (client *client) readEntries(collection mongo.Collection) (map[string]entry
 // until duration in the future, and a cache entry corresponding to the values
 // that will be written if the transaction succeeds. If the claim would conflict
 // with cached state, it returns lease.ErrInvalid.
-func (client *client) claimLeaseOps(name string, request lease.Request) ([]txn.Op, entry, error) {
+func (store *store) claimLeaseOps(name string, request lease.Request) ([]txn.Op, entry, error) {
 
 	// We can't claim a lease that's already held.
-	if _, found := client.entries[name]; found {
+	if _, found := store.entries[name]; found {
 		return nil, entry{}, lease.ErrInvalid
 	}
 
-	globalTime, err := client.refreshGlobalTime()
+	globalTime, err := store.refreshGlobalTime()
 	if err != nil {
 		return nil, entry{}, errors.Annotate(err, "refreshing global time")
 	}
 
 	return claimLeaseOps(
-		client.config.Namespace, name, request.Holder,
-		client.config.Id, client.config.Collection,
+		store.config.Namespace, name, request.Holder,
+		store.config.Id, store.config.Collection,
 		globalTime, request.Duration,
 	)
 }
@@ -305,10 +305,10 @@ func LookupLease(coll mongo.Collection, namespace, name string) (leaseDoc, error
 // already extends far enough that no operations are required, it will return
 // errNoExtension. If the extension would conflict with cached state, it will
 // return lease.ErrInvalid.
-func (client *client) extendLeaseOps(name string, request lease.Request) ([]txn.Op, entry, error) {
+func (store *store) extendLeaseOps(name string, request lease.Request) ([]txn.Op, entry, error) {
 
 	// Reject extensions when there's no lease, or the holder doesn't match.
-	lastEntry, found := client.entries[name]
+	lastEntry, found := store.entries[name]
 	if !found {
 		return nil, entry{}, lease.ErrInvalid
 	}
@@ -316,7 +316,7 @@ func (client *client) extendLeaseOps(name string, request lease.Request) ([]txn.
 		return nil, entry{}, lease.ErrInvalid
 	}
 
-	globalTime, err := client.refreshGlobalTime()
+	globalTime, err := store.refreshGlobalTime()
 	if err != nil {
 		return nil, entry{}, errors.Annotate(err, "refreshing global time")
 	}
@@ -333,14 +333,14 @@ func (client *client) extendLeaseOps(name string, request lease.Request) ([]txn.
 		holder:   lastEntry.holder,
 		start:    globalTime,
 		duration: request.Duration,
-		writer:   client.config.Id,
+		writer:   store.config.Id,
 	}
 
 	// ...and what needs to change in the database, and how to ensure the
 	// change is still valid when it's executed.
 	extendLeaseOp := txn.Op{
-		C:  client.config.Collection,
-		Id: client.leaseDocId(name),
+		C:  store.config.Collection,
+		Id: store.leaseDocId(name),
 		Assert: bson.M{
 			fieldHolder:   lastEntry.holder,
 			fieldStart:    toInt64(lastEntry.start),
@@ -350,7 +350,7 @@ func (client *client) extendLeaseOps(name string, request lease.Request) ([]txn.
 		Update: bson.M{"$set": bson.M{
 			fieldStart:    toInt64(globalTime),
 			fieldDuration: nextEntry.duration,
-			fieldWriter:   client.config.Id,
+			fieldWriter:   store.config.Id,
 		}},
 	}
 
@@ -361,18 +361,18 @@ func (client *client) extendLeaseOps(name string, request lease.Request) ([]txn.
 // expireLeaseOps returns the []txn.Op necessary to vacate the lease. If the
 // expiration would conflict with cached state, it will return an error with
 // a Cause of ErrInvalid.
-func (client *client) expireLeaseOps(name string) ([]txn.Op, error) {
+func (store *store) expireLeaseOps(name string) ([]txn.Op, error) {
 
 	// We can't expire a lease that doesn't exist.
-	lastEntry, found := client.entries[name]
+	lastEntry, found := store.entries[name]
 	if !found {
 		return nil, lease.ErrInvalid
 	}
 
 	// We also can't expire a lease whose expiry time may be in the future.
 	latestExpiry := lastEntry.start.Add(lastEntry.duration)
-	if !client.globalTime.After(latestExpiry) {
-		globalTime, err := client.refreshGlobalTime()
+	if !store.globalTime.After(latestExpiry) {
+		globalTime, err := store.refreshGlobalTime()
 		if err != nil {
 			return nil, errors.Annotate(err, "refreshing global time")
 		}
@@ -384,8 +384,8 @@ func (client *client) expireLeaseOps(name string) ([]txn.Op, error) {
 	// The database change is simple, and depends on the lease doc being
 	// untouched since we looked:
 	expireLeaseOp := txn.Op{
-		C:  client.config.Collection,
-		Id: client.leaseDocId(name),
+		C:  store.config.Collection,
+		Id: store.leaseDocId(name),
 		Assert: bson.M{
 			fieldHolder:   lastEntry.holder,
 			fieldStart:    toInt64(lastEntry.start),
@@ -401,10 +401,10 @@ func (client *client) expireLeaseOps(name string) ([]txn.Op, error) {
 
 // assertOpTrapdoor returns a lease.Trapdoor that will replace a supplied
 // *[]txn.Op with one that asserts that the holder still holds the named lease.
-func (client *client) assertOpTrapdoor(name, holder string) lease.Trapdoor {
+func (store *store) assertOpTrapdoor(name, holder string) lease.Trapdoor {
 	op := txn.Op{
-		C:  client.config.Collection,
-		Id: client.leaseDocId(name),
+		C:  store.config.Collection,
+		Id: store.leaseDocId(name),
 		Assert: bson.M{
 			fieldHolder: holder,
 		},
@@ -419,21 +419,21 @@ func (client *client) assertOpTrapdoor(name, holder string) lease.Trapdoor {
 	}
 }
 
-func (client *client) refreshGlobalTime() (time.Time, error) {
-	client.logger.Tracef("refreshing global time")
-	globalTime, err := client.config.GlobalClock.Now()
+func (store *store) refreshGlobalTime() (time.Time, error) {
+	store.logger.Tracef("refreshing global time")
+	globalTime, err := store.config.GlobalClock.Now()
 	if err != nil {
 		return time.Time{}, errors.Trace(err)
 	}
-	client.logger.Tracef("global time is %s", globalTime)
-	client.globalTime = globalTime
+	store.logger.Tracef("global time is %s", globalTime)
+	store.globalTime = globalTime
 	return globalTime, nil
 }
 
-// leaseDocId returns the id of the named lease document in the client's
+// leaseDocId returns the id of the named lease document in the store's
 // namespace.
-func (client *client) leaseDocId(name string) string {
-	return leaseDocId(client.config.Namespace, name)
+func (store *store) leaseDocId(name string) string {
+	return leaseDocId(store.config.Namespace, name)
 }
 
 // entry holds the details of a lease and how it was written.
@@ -448,7 +448,7 @@ type entry struct {
 	// from the start time.
 	duration time.Duration
 
-	// writer identifies the client that wrote the lease.
+	// writer identifies the store that wrote the lease.
 	writer string
 }
 

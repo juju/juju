@@ -13,29 +13,29 @@ import (
 	"github.com/juju/juju/core/lease"
 )
 
-// ClientAssertSuite tests that AssertOp does what it should.
-type ClientAssertSuite struct {
+// StoreAssertSuite tests that AssertOp does what it should.
+type StoreAssertSuite struct {
 	FixtureSuite
 	fix  *Fixture
 	info lease.Info
 }
 
-var _ = gc.Suite(&ClientAssertSuite{})
+var _ = gc.Suite(&StoreAssertSuite{})
 
 func key(name string) lease.Key {
 	return lease.Key{Lease: name}
 }
 
-func (s *ClientAssertSuite) SetUpTest(c *gc.C) {
+func (s *StoreAssertSuite) SetUpTest(c *gc.C) {
 	s.FixtureSuite.SetUpTest(c)
 	s.fix = s.EasyFixture(c)
-	err := s.fix.Client.ClaimLease(key("name"), lease.Request{"holder", time.Minute})
+	err := s.fix.Store.ClaimLease(key("name"), lease.Request{"holder", time.Minute})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert("name", s.fix.Holder(), "holder")
 }
 
-func (s *ClientAssertSuite) TestPassesWhenLeaseHeld(c *gc.C) {
-	info := s.fix.Client.Leases()[key("name")]
+func (s *StoreAssertSuite) TestPassesWhenLeaseHeld(c *gc.C) {
+	info := s.fix.Store.Leases()[key("name")]
 
 	var ops []txn.Op
 	err := info.Trapdoor(&ops)
@@ -44,11 +44,11 @@ func (s *ClientAssertSuite) TestPassesWhenLeaseHeld(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *ClientAssertSuite) TestPassesWhenLeaseStillHeldDespiteWriterChange(c *gc.C) {
-	info := s.fix.Client.Leases()[key("name")]
+func (s *StoreAssertSuite) TestPassesWhenLeaseStillHeldDespiteWriterChange(c *gc.C) {
+	info := s.fix.Store.Leases()[key("name")]
 
-	fix2 := s.NewFixture(c, FixtureParams{Id: "other-client"})
-	err := fix2.Client.ExtendLease(key("name"), lease.Request{"holder", time.Hour})
+	fix2 := s.NewFixture(c, FixtureParams{Id: "other-store"})
+	err := fix2.Store.ExtendLease(key("name"), lease.Request{"holder", time.Hour})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var ops []txn.Op
@@ -58,11 +58,11 @@ func (s *ClientAssertSuite) TestPassesWhenLeaseStillHeldDespiteWriterChange(c *g
 	c.Check(err, gc.IsNil)
 }
 
-func (s *ClientAssertSuite) TestPassesWhenLeaseStillHeldDespitePassingExpiry(c *gc.C) {
-	info := s.fix.Client.Leases()[key("name")]
+func (s *StoreAssertSuite) TestPassesWhenLeaseStillHeldDespitePassingExpiry(c *gc.C) {
+	info := s.fix.Store.Leases()[key("name")]
 
 	s.fix.GlobalClock.Advance(time.Hour)
-	err := s.fix.Client.Refresh()
+	err := s.fix.Store.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
 	var ops []txn.Op
@@ -72,11 +72,11 @@ func (s *ClientAssertSuite) TestPassesWhenLeaseStillHeldDespitePassingExpiry(c *
 	c.Check(err, gc.IsNil)
 }
 
-func (s *ClientAssertSuite) TestAbortsWhenLeaseVacant(c *gc.C) {
-	info := s.fix.Client.Leases()[key("name")]
+func (s *StoreAssertSuite) TestAbortsWhenLeaseVacant(c *gc.C) {
+	info := s.fix.Store.Leases()[key("name")]
 
 	s.fix.GlobalClock.Advance(time.Hour)
-	err := s.fix.Client.ExpireLease(key("name"))
+	err := s.fix.Store.ExpireLease(key("name"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	var ops []txn.Op

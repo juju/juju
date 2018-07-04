@@ -14,14 +14,14 @@ import (
 	statelease "github.com/juju/juju/state/lease"
 )
 
-// ClientAssertSuite tests that AssertOp does what it should.
-type ClientSuite struct {
+// StoreAssertSuite tests that AssertOp does what it should.
+type StoreSuite struct {
 	FixtureSuite
 }
 
-var _ = gc.Suite(&ClientSuite{})
+var _ = gc.Suite(&StoreSuite{})
 
-func (s *ClientSuite) TestLookupLeaseNotThere(c *gc.C) {
+func (s *StoreSuite) TestLookupLeaseNotThere(c *gc.C) {
 	db := NewMongo(s.db)
 	coll, closer := db.GetCollection("default-collection")
 	defer closer()
@@ -29,9 +29,9 @@ func (s *ClientSuite) TestLookupLeaseNotThere(c *gc.C) {
 	c.Assert(err, gc.Equals, mgo.ErrNotFound)
 }
 
-func (s *ClientSuite) TestLookupLease(c *gc.C) {
+func (s *StoreSuite) TestLookupLease(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ClaimLease(key("name"), corelease.Request{"holder", time.Minute})
+	err := fix.Store.ClaimLease(key("name"), corelease.Request{"holder", time.Minute})
 	c.Assert(err, jc.ErrorIsNil)
 	db := NewMongo(s.db)
 	coll, closer := db.GetCollection("default-collection")

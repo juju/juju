@@ -559,11 +559,11 @@ func AssertEndpointBindingsNotFoundForApplication(c *gc.C, app *Application) {
 }
 
 func LeadershipLeases(st *State) (map[lease.Key]lease.Info, error) {
-	client, err := st.getLeadershipLeaseClient()
+	store, err := st.getLeadershipLeaseStore()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return client.Leases(), nil
+	return store.Leases(), nil
 }
 
 func StorageAttachmentCount(instance StorageInstance) int {

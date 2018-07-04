@@ -22,20 +22,20 @@ type ValidationSuite struct {
 
 var _ = gc.Suite(&ValidationSuite{})
 
-func (s *ValidationSuite) TestMissingClient(c *gc.C) {
+func (s *ValidationSuite) TestMissingStore(c *gc.C) {
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Clock:     struct{ clock.Clock }{},
 		Secretary: struct{ lease.Secretary }{},
 		MaxSleep:  time.Minute,
 	})
-	c.Check(err, gc.ErrorMatches, "nil Client not valid")
+	c.Check(err, gc.ErrorMatches, "nil Store not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(manager, gc.IsNil)
 }
 
 func (s *ValidationSuite) TestMissingClock(c *gc.C) {
 	manager, err := lease.NewManager(lease.ManagerConfig{
-		Client:    struct{ corelease.Client }{},
+		Store:     struct{ corelease.Store }{},
 		Secretary: struct{ lease.Secretary }{},
 		MaxSleep:  time.Minute,
 	})
@@ -46,8 +46,8 @@ func (s *ValidationSuite) TestMissingClock(c *gc.C) {
 
 func (s *ValidationSuite) TestMissingSecretary(c *gc.C) {
 	manager, err := lease.NewManager(lease.ManagerConfig{
-		Client: struct{ corelease.Client }{},
-		Clock:  struct{ clock.Clock }{},
+		Store: struct{ corelease.Store }{},
+		Clock: struct{ clock.Clock }{},
 	})
 	c.Check(err, gc.ErrorMatches, "nil Secretary not valid")
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -56,7 +56,7 @@ func (s *ValidationSuite) TestMissingSecretary(c *gc.C) {
 
 func (s *ValidationSuite) TestMissingMaxSleep(c *gc.C) {
 	manager, err := lease.NewManager(lease.ManagerConfig{
-		Client:    NewClient(nil, nil),
+		Store:     NewStore(nil, nil),
 		Secretary: struct{ lease.Secretary }{},
 		Clock:     testing.NewClock(time.Now()),
 	})
@@ -67,7 +67,7 @@ func (s *ValidationSuite) TestMissingMaxSleep(c *gc.C) {
 
 func (s *ValidationSuite) TestNegativeMaxSleep(c *gc.C) {
 	manager, err := lease.NewManager(lease.ManagerConfig{
-		Client:    NewClient(nil, nil),
+		Store:     NewStore(nil, nil),
 		Clock:     testing.NewClock(time.Now()),
 		Secretary: struct{ lease.Secretary }{},
 		MaxSleep:  -time.Nanosecond,

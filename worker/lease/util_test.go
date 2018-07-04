@@ -43,17 +43,17 @@ func (Secretary) CheckDuration(duration time.Duration) error {
 	return nil
 }
 
-// Client implements corelease.Client for testing purposes.
-type Client struct {
+// Store implements corelease.Store for testing purposes.
+type Store struct {
 	leases map[string]lease.Info
 	expect []call
 	failed string
 	done   chan struct{}
 }
 
-// NewClient initializes and returns a new client configured to report
+// NewStore initializes and returns a new store configured to report
 // the supplied leases and expect the supplied calls.
-func NewClient(leases map[string]lease.Info, expect []call) *Client {
+func NewStore(leases map[string]lease.Info, expect []call) *Store {
 	if leases == nil {
 		leases = make(map[string]lease.Info)
 	}
@@ -61,7 +61,7 @@ func NewClient(leases map[string]lease.Info, expect []call) *Client {
 	if len(expect) == 0 {
 		close(done)
 	}
-	return &Client{
+	return &Store{
 		leases: leases,
 		expect: expect,
 		done:   done,
@@ -71,43 +71,43 @@ func NewClient(leases map[string]lease.Info, expect []call) *Client {
 // Wait will return when all expected calls have been made, or fail the test
 // if they don't happen within a second. (You control the clock; your tests
 // should pass in *way* less than 10 seconds of wall-clock time.)
-func (client *Client) Wait(c *gc.C) {
+func (store *Store) Wait(c *gc.C) {
 	select {
-	case <-client.done:
-		if client.failed != "" {
-			c.Fatalf(client.failed)
+	case <-store.done:
+		if store.failed != "" {
+			c.Fatalf(store.failed)
 		}
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("Client test took way too long")
+		c.Fatalf("Store test took way too long")
 	}
 }
 
-// Leases is part of the lease.Client interface.
-func (client *Client) Leases() map[lease.Key]lease.Info {
+// Leases is part of the lease.Store interface.
+func (store *Store) Leases() map[lease.Key]lease.Info {
 	result := make(map[lease.Key]lease.Info)
-	for k, v := range client.leases {
+	for k, v := range store.leases {
 		result[lease.Key{Lease: k}] = v
 	}
 	return result
 }
 
-// call implements the bulk of the lease.Client interface.
-func (client *Client) call(method string, args []interface{}) error {
+// call implements the bulk of the lease.Store interface.
+func (store *Store) call(method string, args []interface{}) error {
 	select {
-	case <-client.done:
-		return errors.Errorf("Client method called after test complete: %s %v", method, args)
+	case <-store.done:
+		return errors.Errorf("Store method called after test complete: %s %v", method, args)
 	default:
 		defer func() {
-			if len(client.expect) == 0 || client.failed != "" {
-				close(client.done)
+			if len(store.expect) == 0 || store.failed != "" {
+				close(store.done)
 			}
 		}()
 	}
 
-	expect := client.expect[0]
-	client.expect = client.expect[1:]
+	expect := store.expect[0]
+	store.expect = store.expect[1:]
 	if expect.callback != nil {
-		expect.callback(client.leases)
+		expect.callback(store.leases)
 	}
 
 	if method == expect.method {
@@ -115,33 +115,33 @@ func (client *Client) call(method string, args []interface{}) error {
 			return expect.err
 		}
 	}
-	client.failed = fmt.Sprintf("unexpected Client call:\n  actual: %s %v\n  expect: %s %v",
+	store.failed = fmt.Sprintf("unexpected Store call:\n  actual: %s %v\n  expect: %s %v",
 		method, args, expect.method, expect.args,
 	)
-	return errors.New(client.failed)
+	return errors.New(store.failed)
 }
 
-// ClaimLease is part of the corelease.Client interface.
-func (client *Client) ClaimLease(key lease.Key, request lease.Request) error {
-	return client.call("ClaimLease", []interface{}{key, request})
+// ClaimLease is part of the corelease.Store interface.
+func (store *Store) ClaimLease(key lease.Key, request lease.Request) error {
+	return store.call("ClaimLease", []interface{}{key, request})
 }
 
-// ExtendLease is part of the corelease.Client interface.
-func (client *Client) ExtendLease(key lease.Key, request lease.Request) error {
-	return client.call("ExtendLease", []interface{}{key, request})
+// ExtendLease is part of the corelease.Store interface.
+func (store *Store) ExtendLease(key lease.Key, request lease.Request) error {
+	return store.call("ExtendLease", []interface{}{key, request})
 }
 
-// ExpireLease is part of the corelease.Client interface.
-func (client *Client) ExpireLease(key lease.Key) error {
-	return client.call("ExpireLease", []interface{}{key})
+// ExpireLease is part of the corelease.Store interface.
+func (store *Store) ExpireLease(key lease.Key) error {
+	return store.call("ExpireLease", []interface{}{key})
 }
 
-// Refresh is part of the lease.Client interface.
-func (client *Client) Refresh() error {
-	return client.call("Refresh", nil)
+// Refresh is part of the lease.Store interface.
+func (store *Store) Refresh() error {
+	return store.call("Refresh", nil)
 }
 
-// call defines a expected method call on a Client; it encodes:
+// call defines a expected method call on a Store; it encodes:
 type call struct {
 
 	// method is the name of the method.

@@ -62,14 +62,14 @@ func justAfterSeconds(seconds int) time.Duration {
 }
 
 // Fixture allows us to test a *lease.Manager with a usefully-mocked
-// clock.Clock and corelease.Client.
+// clock.Clock and corelease.Store.
 type Fixture struct {
 
-	// leases contains the leases the corelease.Client should report when the
+	// leases contains the leases the corelease.Store should report when the
 	// test starts up.
 	leases map[string]corelease.Info
 
-	// expectCalls contains the calls that should be made to the corelease.Client
+	// expectCalls contains the calls that should be made to the corelease.Store
 	// in the course of a test. By specifying a callback you can cause the
 	// reported leases to change.
 	expectCalls []call
@@ -84,10 +84,10 @@ type Fixture struct {
 // test function. The manager will be cleaned up afterwards.
 func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testing.Clock)) {
 	clock := testing.NewClock(defaultClockStart)
-	client := NewClient(fix.leases, fix.expectCalls)
+	store := NewStore(fix.leases, fix.expectCalls)
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Clock:     clock,
-		Client:    client,
+		Store:     store,
 		Secretary: Secretary{},
 		MaxSleep:  defaultMaxSleep,
 	})
@@ -101,7 +101,7 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testing.Clock)) 
 			c.Check(err, jc.ErrorIsNil)
 		}
 	}()
-	defer client.Wait(c)
+	defer store.Wait(c)
 	waitAlarms(c, clock, 1)
 	test(manager, clock)
 }

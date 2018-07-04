@@ -15,17 +15,17 @@ import (
 	"github.com/juju/juju/state/lease"
 )
 
-// ClientPersistenceSuite checks that the operations really affect the DB in
+// StorePersistenceSuite checks that the operations really affect the DB in
 // the expected way.
-type ClientPersistenceSuite struct {
+type StorePersistenceSuite struct {
 	FixtureSuite
 }
 
-var _ = gc.Suite(&ClientPersistenceSuite{})
+var _ = gc.Suite(&StorePersistenceSuite{})
 
-func (s *ClientPersistenceSuite) TestNewClientInvalidLeaseDoc(c *gc.C) {
-	config := lease.ClientConfig{
-		Id:          "client",
+func (s *StorePersistenceSuite) TestNewStoreInvalidLeaseDoc(c *gc.C) {
+	config := lease.StoreConfig{
+		Id:          "store",
 		Namespace:   "namespace",
 		Collection:  "collection",
 		Mongo:       NewMongo(s.db),
@@ -38,87 +38,87 @@ func (s *ClientPersistenceSuite) TestNewClientInvalidLeaseDoc(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	client, err := lease.NewClient(config)
-	c.Check(client, gc.IsNil)
+	store, err := lease.NewStore(config)
+	c.Check(store, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, `corrupt lease document "snagglepuss": inconsistent _id`)
 }
 
-func (s *ClientPersistenceSuite) TestNewClientMissingClockDoc(c *gc.C) {
+func (s *StorePersistenceSuite) TestNewStoreMissingClockDoc(c *gc.C) {
 	// The database starts out empty, so just creating the fixture is enough
 	// to test this code path.
 	s.EasyFixture(c)
 }
 
-func (s *ClientPersistenceSuite) TestNewClientExtantClockDoc(c *gc.C) {
-	// Empty database: new Client creates clock doc.
+func (s *StorePersistenceSuite) TestNewStoreExtantClockDoc(c *gc.C) {
+	// Empty database: new Store creates clock doc.
 	s.EasyFixture(c)
 
-	// Clock doc exists; new Client created successfully.
+	// Clock doc exists; new Store created successfully.
 	s.EasyFixture(c)
 }
 
-func (s *ClientPersistenceSuite) TestClaimLease(c *gc.C) {
+func (s *StorePersistenceSuite) TestClaimLease(c *gc.C) {
 	fix1 := s.EasyFixture(c)
 	leaseDuration := time.Minute
-	err := fix1.Client.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
+	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Same client id, same clock, new instance: sees exact same lease.
+	// Same store id, same clock, new instance: sees exact same lease.
 	fix2 := s.EasyFixture(c)
 	c.Check("name", fix2.Holder(), "holder")
 	exactExpiry := fix1.Zero.Add(leaseDuration)
 	c.Check("name", fix2.Expiry(), exactExpiry)
 }
 
-func (s *ClientPersistenceSuite) TestExtendLease(c *gc.C) {
+func (s *StorePersistenceSuite) TestExtendLease(c *gc.C) {
 	fix1 := s.EasyFixture(c)
-	err := fix1.Client.ClaimLease(key("name"), corelease.Request{"holder", time.Second})
+	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", time.Second})
 	c.Assert(err, jc.ErrorIsNil)
 	leaseDuration := time.Minute
-	err = fix1.Client.ExtendLease(key("name"), corelease.Request{"holder", leaseDuration})
+	err = fix1.Store.ExtendLease(key("name"), corelease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Same client id, same clock, new instance: sees exact same lease.
+	// Same store id, same clock, new instance: sees exact same lease.
 	fix2 := s.EasyFixture(c)
 	c.Check("name", fix2.Holder(), "holder")
 	exactExpiry := fix1.Zero.Add(leaseDuration)
 	c.Check("name", fix2.Expiry(), exactExpiry)
 }
 
-func (s *ClientPersistenceSuite) TestExpireLease(c *gc.C) {
+func (s *StorePersistenceSuite) TestExpireLease(c *gc.C) {
 	fix1 := s.EasyFixture(c)
 	leaseDuration := time.Minute
-	err := fix1.Client.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
+	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
 	fix1.GlobalClock.Advance(leaseDuration + time.Nanosecond)
-	err = fix1.Client.ExpireLease(key("name"))
+	err = fix1.Store.ExpireLease(key("name"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Same client id, same clock, new instance: sees no lease.
+	// Same store id, same clock, new instance: sees no lease.
 	fix2 := s.EasyFixture(c)
 	c.Check("name", fix2.Holder(), "")
 }
 
-func (s *ClientPersistenceSuite) TestNamespaceIsolation(c *gc.C) {
+func (s *StorePersistenceSuite) TestNamespaceIsolation(c *gc.C) {
 	fix1 := s.EasyFixture(c)
 	leaseDuration := time.Minute
-	err := fix1.Client.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
+	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Same client id, same clock, different namespace: sees no lease.
+	// Same store id, same clock, different namespace: sees no lease.
 	fix2 := s.NewFixture(c, FixtureParams{
 		Namespace: "different-namespace",
 	})
 	c.Check("name", fix2.Holder(), "")
 }
 
-func (s *ClientPersistenceSuite) TestTimezoneChanges(c *gc.C) {
+func (s *StorePersistenceSuite) TestTimezoneChanges(c *gc.C) {
 	fix1 := s.EasyFixture(c)
 	leaseDuration := time.Minute
-	err := fix1.Client.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
+	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Same client can come up in a different timezone and still work correctly.
+	// Same store can come up in a different timezone and still work correctly.
 	fix2 := s.NewFixture(c, FixtureParams{
 		LocalClockStart: fix1.Zero.In(time.FixedZone("somewhere", -1234)),
 	})
@@ -127,16 +127,16 @@ func (s *ClientPersistenceSuite) TestTimezoneChanges(c *gc.C) {
 	c.Check("name", fix2.Expiry(), exactExpiry)
 }
 
-func (s *ClientPersistenceSuite) TestTimezoneIsolation(c *gc.C) {
+func (s *StorePersistenceSuite) TestTimezoneIsolation(c *gc.C) {
 	fix1 := s.EasyFixture(c)
 	leaseDuration := time.Minute
-	err := fix1.Client.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
+	err := fix1.Store.ClaimLease(key("name"), corelease.Request{"holder", leaseDuration})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Different client *and* different timezone; but clock agrees perfectly,
+	// Different store *and* different timezone; but clock agrees perfectly,
 	// so we still see no skew.
 	fix2 := s.NewFixture(c, FixtureParams{
-		Id:              "remote-client",
+		Id:              "remote-store",
 		LocalClockStart: fix1.Zero.UTC(),
 	})
 	c.Check("name", fix2.Holder(), "holder")
