@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/description"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/bundle"
@@ -238,4 +239,14 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 			})
 		}
 	}
+}
+
+func (s *bundleSuite) TestExportBundleSuccess(c *gc.C) {
+	bytes, err := s.api.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The bytes must be a valid model.
+	modelDesc, err := description.Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelDesc.Validate(), jc.ErrorIsNil)
 }

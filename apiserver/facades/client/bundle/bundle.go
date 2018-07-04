@@ -8,21 +8,18 @@ import (
 	"strings"
 
 	"github.com/juju/bundlechanges"
-	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v2"
-
 	"github.com/juju/description"
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/migration"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
+	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v6"
 )
 
 type Backend interface {
@@ -34,18 +31,6 @@ type Backend interface {
 type BundleAPI struct {
 	backend    Backend
 	authorizer facade.Authorizer
-	modelTag   names.ModelTag
-}
-
-func (b *BundleAPI) checkCanRead() error {
-	canRead, err := b.authorizer.HasPermission(permission.ReadAccess, b.modelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !canRead {
-		return common.ErrPerm
-	}
-	return nil
 }
 
 // NewFacade provides the required signature for facade registration.
@@ -61,15 +46,9 @@ func NewFacade(ctx facade.Context) (*BundleAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	tag, err := names.ParseModelTag(model.UUID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return &BundleAPI{
 		authorizer: authorizer,
 		backend:    getState(st, model),
-		modelTag:   tag,
 	}, nil
 }
 
