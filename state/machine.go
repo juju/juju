@@ -2205,29 +2205,62 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 
 // UpgradeSeriesStatus returns the status of a series upgrade.
 func (m *Machine) UpgradeSeriesStatus() (string, error) {
-	return "preparing", nil
+	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
+	defer closer()
+
+	var lock upgradeSeriesLock
+	err := coll.FindId(m.Id()).One(&lock)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	s := fmt.Sprintf("%d", lock.PrepareUnits[0].Status)
+	return s, nil
 }
 
 // SetUpgradeSeriesStatus sets the status of a series upgrade.
 func (m *Machine) SetUpgradeSeriesStatus(unitName string, status string) (string, error) {
-	// buildTxn := func(attempt int) ([]txn.Op, error) {
-	// 	if attempt > 0 {
-	// 		if err := m.Refresh(); err != nil {
-	// 			return nil, errors.Trace(err)
-	// 		}
-	// 	}
-	// 	locked, err := m.IsLocked()
-	// 	if err != nil {
-	// 		return nil, errors.Trace(err)
-	// 	}
-	// 	if !locked {
-	// 		return nil, errors.BadRequestf("Machine %q is not locked for upgrade", m)
-	// 	}
-	// 	if err = m.isStillAlive(); err != nil {
-	// 		return nil, errors.Trace(err)
-	// 	}
-	// 	return setUpgradeSeriesTxnOps(m.doc.Id), nil
-	// }
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		locked, err := m.IsLocked()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !locked {
+			return nil, errors.BadRequestf("Machine %q is not locked for upgrade", m)
+		}
+		if err = m.isStillAlive(); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
+		defer closer()
+		var lock upgradeSeriesLock
+		err = coll.FindId(m.Id()).One(&lock)
+		if err != nil {
+			return nil, fmt.Errorf("cannot get upgrade series lock for machine %v: %v", m.Id(), err)
+		}
+		docIndex := -1
+		for i, unitStatus := range lock.PrepareUnits {
+			if unitStatus.Id == unitName {
+				docIndex = i
+			}
+		}
+		if docIndex == -1 {
+			return nil, fmt.Errorf("cannot get upgrade series lock for unit %q of machine %v: %v", unitName, m.Id(), err)
+		}
+		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, docIndex, status), nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		logger.Errorf("cannot complete series upgrade for machine %q: %v", m, err)
+		return "", err
+	}
+
 	return "", nil
 }
 
@@ -2258,7 +2291,8 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 	}
 }
 
-func setUpgradeSeriesTxnOps(machineDocId string) []txn.Op {
+func setUpgradeSeriesTxnOps(machineDocId, unitName string, unitIndex int, status string) []txn.Op {
+	unitField := fmt.Sprintf("prepareunits.%d.status", unitIndex)
 	return []txn.Op{
 		{
 			C:      machinesC,
@@ -2268,8 +2302,9 @@ func setUpgradeSeriesTxnOps(machineDocId string) []txn.Op {
 		{
 			C:      machineUpgradeSeriesLocksC,
 			Id:     machineDocId,
-			Assert: txn.DocMissing,
-			//	Update: bson.D{{"$set", bson.D{{"keep-instance", keepInstance}}}},
+			Assert: txn.DocExists,
+			Update: bson.D{
+				{"$set", bson.D{{unitField, status}}}},
 		},
 	}
 }

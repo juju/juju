@@ -731,7 +731,7 @@ func (s *unitSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 	// Check to see that the upgrade has been set appropriately
 	status, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, "preparing") // Don't Forget this
+	c.Assert(status, gc.Equals, newStatus)
 }
 
 func (s *unitSuite) CreateUpgradeSeriesLock(c *gc.C) {
