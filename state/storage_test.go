@@ -346,13 +346,13 @@ func (s *StorageStateSuiteBase) obliterateVolume(c *gc.C, tag names.VolumeTag) {
 	attachments, err := s.storageBackend.VolumeAttachments(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range attachments {
-		s.obliterateVolumeAttachment(c, a.Machine(), a.Volume())
+		s.obliterateVolumeAttachment(c, a.Host(), a.Volume())
 	}
 	err = s.storageBackend.RemoveVolume(tag)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *StorageStateSuiteBase) obliterateVolumeAttachment(c *gc.C, m names.MachineTag, v names.VolumeTag) {
+func (s *StorageStateSuiteBase) obliterateVolumeAttachment(c *gc.C, m names.Tag, v names.VolumeTag) {
 	err := s.storageBackend.DetachVolume(m, v)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.RemoveVolumeAttachment(m, v)

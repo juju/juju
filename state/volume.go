@@ -61,8 +61,8 @@ type VolumeAttachment interface {
 	// Volume returns the tag of the related Volume.
 	Volume() names.VolumeTag
 
-	// Machine returns the tag of the related Machine.
-	Machine() names.MachineTag
+	// Host returns the tag of the related Host.
+	Host() names.Tag
 
 	// Info returns the volume attachment's VolumeAttachmentInfo, or a
 	// NotProvisioned error if the attachment has not yet been made.
@@ -98,11 +98,11 @@ type volumeDoc struct {
 	Info            *VolumeInfo   `bson:"info,omitempty"`
 	Params          *VolumeParams `bson:"params,omitempty"`
 
-	// MachineId is the ID of the machine that a non-detachable
+	// HostId is the ID of the host that a non-detachable
 	// volume is initially attached to. We use this to identify
 	// the volume as being non-detachable, and to determine
 	// which volumes must be removed along with said machine.
-	MachineId string `bson:"machineid,omitempty"`
+	HostId string `bson:"hostid,omitempty"`
 }
 
 // volumeAttachmentDoc records information about a volume attachment.
@@ -111,7 +111,7 @@ type volumeAttachmentDoc struct {
 	DocID     string                  `bson:"_id"`
 	ModelUUID string                  `bson:"model-uuid"`
 	Volume    string                  `bson:"volumeid"`
-	Machine   string                  `bson:"machineid"`
+	Host      string                  `bson:"hostid"`
 	Life      Life                    `bson:"life"`
 	Info      *VolumeAttachmentInfo   `bson:"info,omitempty"`
 	Params    *VolumeAttachmentParams `bson:"params,omitempty"`
@@ -255,9 +255,9 @@ func (v *volumeAttachment) Volume() names.VolumeTag {
 	return names.NewVolumeTag(v.doc.Volume)
 }
 
-// Machine is required to implement VolumeAttachment.
-func (v *volumeAttachment) Machine() names.MachineTag {
-	return names.NewMachineTag(v.doc.Machine)
+// Host is required to implement VolumeAttachment.
+func (v *volumeAttachment) Host() names.Tag {
+	return names.NewMachineTag(v.doc.Host)
 }
 
 // Life is required to implement VolumeAttachment.
@@ -268,7 +268,8 @@ func (v *volumeAttachment) Life() Life {
 // Info is required to implement VolumeAttachment.
 func (v *volumeAttachment) Info() (VolumeAttachmentInfo, error) {
 	if v.doc.Info == nil {
-		return VolumeAttachmentInfo{}, errors.NotProvisionedf("volume attachment %q on %q", v.doc.Volume, v.doc.Machine)
+		host := storageAttachmentHost(v.doc.Host)
+		return VolumeAttachmentInfo{}, errors.NotProvisionedf("volume attachment %q on %q", v.doc.Volume, names.ReadableString(host))
 	}
 	return *v.doc.Info, nil
 }
@@ -390,7 +391,7 @@ func (sb *storageBackend) VolumeAttachment(host names.Tag, volume names.VolumeTa
 // MachineVolumeAttachments returns all of the VolumeAttachments for the
 // specified machine.
 func (sb *storageBackend) MachineVolumeAttachments(machine names.MachineTag) ([]VolumeAttachment, error) {
-	attachments, err := sb.volumeAttachments(bson.D{{"machineid", machine.Id()}})
+	attachments, err := sb.volumeAttachments(bson.D{{"hostid", machine.Id()}})
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting volume attachments for machine %q", machine.Id())
 	}
@@ -460,7 +461,7 @@ func (sb *storageBackend) removeMachineVolumesOps(m *Machine) ([]txn.Op, error) 
 	// Therefore, there may be volumes that are bound, but not attached,
 	// to the machine.
 
-	machineVolumes, err := sb.volumes(bson.D{{"machineid", m.Id()}})
+	machineVolumes, err := sb.volumes(bson.D{{"hostid", m.Id()}})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -518,7 +519,7 @@ func (v *volume) pool() string {
 }
 
 func detachableVolumeDoc(doc *volumeDoc) bool {
-	return doc.MachineId == ""
+	return doc.HostId == ""
 }
 
 // isDetachableVolumePool reports whether or not the given storage
@@ -603,10 +604,10 @@ func detachVolumeOps(host names.Tag, v names.VolumeTag) []txn.Op {
 
 // RemoveVolumeAttachment removes the volume attachment from state.
 // RemoveVolumeAttachment will fail if the attachment is not Dying.
-func (sb *storageBackend) RemoveVolumeAttachment(machine names.MachineTag, volume names.VolumeTag) (err error) {
-	defer errors.DeferredAnnotatef(&err, "removing attachment of volume %s from machine %s", volume.Id(), machine.Id())
+func (sb *storageBackend) RemoveVolumeAttachment(host names.Tag, volume names.VolumeTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "removing attachment of volume %s from %s", volume.Id(), names.ReadableString(host))
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		attachment, err := sb.VolumeAttachment(machine, volume)
+		attachment, err := sb.VolumeAttachment(host, volume)
 		if errors.IsNotFound(err) && attempt > 0 {
 			// We only ignore IsNotFound on attempts after the
 			// first, since we expect the volume attachment to
@@ -623,24 +624,24 @@ func (sb *storageBackend) RemoveVolumeAttachment(machine names.MachineTag, volum
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return removeVolumeAttachmentOps(machine, v), nil
+		return removeVolumeAttachmentOps(host, v), nil
 	}
 	return sb.mb.db().Run(buildTxn)
 }
 
-func removeVolumeAttachmentOps(m names.MachineTag, v *volume) []txn.Op {
+func removeVolumeAttachmentOps(host names.Tag, v *volume) []txn.Op {
 	decrefVolumeOp := machineStorageDecrefOp(
 		volumesC, v.doc.Name,
 		v.doc.AttachmentCount, v.doc.Life,
 	)
 	return []txn.Op{{
 		C:      volumeAttachmentsC,
-		Id:     volumeAttachmentId(m.Id(), v.doc.Name),
+		Id:     volumeAttachmentId(host.Id(), v.doc.Name),
 		Assert: bson.D{{"life", Dying}},
 		Remove: true,
 	}, decrefVolumeOp, {
 		C:      machinesC,
-		Id:     m.Id(),
+		Id:     host.Id(),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$pull", bson.D{{"volumes", v.doc.Name}}}},
 	}}
@@ -776,7 +777,7 @@ func destroyVolumeOps(im *storageBackend, v *volume, release bool, extraAssert b
 			)
 		}
 		detachOps := detachVolumeOps(
-			attachments[0].Machine(),
+			attachments[0].Host(),
 			v.VolumeTag(),
 		)
 		ops = append(ops, detachOps...)
@@ -822,17 +823,17 @@ func (sb *storageBackend) removeVolumeOps(tag names.VolumeTag) []txn.Op {
 }
 
 // newVolumeName returns a unique volume name.
-// If the machine ID supplied is non-empty, the
+// If the host ID supplied is non-empty, the
 // volume ID will incorporate it as the volume's
 // machine scope.
-func newVolumeName(mb modelBackend, machineId string) (string, error) {
+func newVolumeName(mb modelBackend, hostId string) (string, error) {
 	seq, err := sequence(mb, "volume")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	id := fmt.Sprint(seq)
-	if machineId != "" {
-		id = machineId + "/" + id
+	if hostId != "" {
+		id = hostId + "/" + id
 	}
 	return id, nil
 }
@@ -850,7 +851,7 @@ func (sb *storageBackend) addVolumeOps(params VolumeParams, hostId string) ([]tx
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Trace(err)
 	}
-	origMachineId := hostId
+	origHostId := hostId
 	hostId, err = sb.validateVolumeParams(params, hostId)
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Annotate(err, "validating volume params")
@@ -879,7 +880,7 @@ func (sb *storageBackend) addVolumeOps(params VolumeParams, hostId string) ([]tx
 		doc.AttachmentCount = 1
 	}
 	if !detachable {
-		doc.MachineId = origMachineId
+		doc.HostId = origHostId
 	}
 	return sb.newVolumeOps(doc, statusDoc), names.NewVolumeTag(name), nil
 }
@@ -966,9 +967,9 @@ func createMachineVolumeAttachmentsOps(hostId string, attachments []volumeAttach
 			Id:     volumeAttachmentId(hostId, attachment.tag.Id()),
 			Assert: txn.DocMissing,
 			Insert: &volumeAttachmentDoc{
-				Volume:  attachment.tag.Id(),
-				Machine: hostId,
-				Params:  &paramsCopy,
+				Volume: attachment.tag.Id(),
+				Host:   hostId,
+				Params: &paramsCopy,
 			},
 		}
 		if attachment.existing {

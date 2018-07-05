@@ -275,7 +275,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 		volAttachments, err := sb.VolumeAttachments(volume.VolumeTag())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(volAttachments, gc.HasLen, 1)
-		c.Assert(volAttachments[0].Machine(), gc.Equals, machine.Tag())
+		c.Assert(volAttachments[0].Host(), gc.Equals, machine.Tag())
 	}
 	assertVolume(machine.Id()+"/0", 2048) // backing the filesystem
 	assertVolume(machine.Id()+"/1", 1024)

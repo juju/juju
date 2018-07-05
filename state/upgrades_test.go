@@ -758,6 +758,11 @@ func (s *upgradesSuite) TestAddNonDetachableStorageMachineId(c *gc.C) {
 		"params": bson.M{
 			"pool": "static",
 		},
+	}, bson.M{
+		"_id":        uuid + ":3",
+		"name":       "3",
+		"model-uuid": uuid,
+		"hostid":     "666",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -788,6 +793,11 @@ func (s *upgradesSuite) TestAddNonDetachableStorageMachineId(c *gc.C) {
 		"params": bson.M{
 			"pool": "static",
 		},
+	}, bson.M{
+		"_id":          uuid + ":3",
+		"filesystemid": "3",
+		"model-uuid":   uuid,
+		"hostid":       "666",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -827,6 +837,11 @@ func (s *upgradesSuite) TestAddNonDetachableStorageMachineId(c *gc.C) {
 			"pool": "static",
 		},
 		"machineid": "123",
+	}, {
+		"_id":        uuid + ":3",
+		"name":       "3",
+		"model-uuid": uuid,
+		"hostid":     "666",
 	}}
 	expectedFilesystems := []bson.M{{
 		"_id":          uuid + ":0",
@@ -848,6 +863,11 @@ func (s *upgradesSuite) TestAddNonDetachableStorageMachineId(c *gc.C) {
 			"pool": "static",
 		},
 		"machineid": "123",
+	}, {
+		"_id":          uuid + ":3",
+		"filesystemid": "3",
+		"model-uuid":   uuid,
+		"hostid":       "666",
 	}}
 
 	s.assertUpgradedData(c, AddNonDetachableStorageMachineId,
@@ -2558,4 +2578,138 @@ func (s *upgradesSuite) TestAddCloudModelCounts(c *gc.C) {
 		"refcount": 1, // unchanged
 	}}
 	s.assertUpgradedData(c, AddCloudModelCounts, expectUpgradedData{refCountColl, expected})
+}
+
+func (s *upgradesSuite) TestMigrateStorageMachineIdFields(c *gc.C) {
+	volumesColl, volumesCloser := s.state.db().GetRawCollection(volumesC)
+	defer volumesCloser()
+	volumeAttachmentsColl, volumeAttachmentsCloser := s.state.db().GetRawCollection(volumeAttachmentsC)
+	defer volumeAttachmentsCloser()
+
+	filesystemsColl, filesystemsCloser := s.state.db().GetRawCollection(filesystemsC)
+	defer filesystemsCloser()
+	filesystemAttachmentsColl, filesystemAttachmentsCloser := s.state.db().GetRawCollection(filesystemAttachmentsC)
+	defer filesystemAttachmentsCloser()
+
+	uuid := s.state.ModelUUID()
+
+	err := volumesColl.Insert(bson.M{
+		"_id":        uuid + ":0",
+		"name":       "0",
+		"model-uuid": uuid,
+		"machineid":  "42",
+	}, bson.M{
+		"_id":        uuid + ":1",
+		"name":       "1",
+		"model-uuid": uuid,
+		"hostid":     "666",
+	}, bson.M{
+		"_id":        uuid + ":2",
+		"name":       "2",
+		"model-uuid": uuid,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = volumeAttachmentsColl.Insert(bson.M{
+		"_id":        uuid + ":123:0",
+		"model-uuid": uuid,
+		"machineid":  "123",
+		"volumeid":   "0",
+	}, bson.M{
+		"_id":        uuid + ":123:1",
+		"model-uuid": uuid,
+		"hostid":     "123",
+		"volumeid":   "1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = filesystemsColl.Insert(bson.M{
+		"_id":          uuid + ":0",
+		"filesystemid": "0",
+		"model-uuid":   uuid,
+		"machineid":    "42",
+	}, bson.M{
+		"_id":          uuid + ":1",
+		"filesystemid": "1",
+		"model-uuid":   uuid,
+		"hostid":       "666",
+	}, bson.M{
+		"_id":          uuid + ":2",
+		"filesystemid": "2",
+		"model-uuid":   uuid,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = filesystemAttachmentsColl.Insert(bson.M{
+		"_id":          uuid + ":123:3",
+		"model-uuid":   uuid,
+		"machineid":    "123",
+		"filesystemid": "0",
+	}, bson.M{
+		"_id":          uuid + ":123:4",
+		"model-uuid":   uuid,
+		"hostid":       "123",
+		"filesystemid": "1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedVolumes := []bson.M{{
+		"_id":        uuid + ":0",
+		"name":       "0",
+		"model-uuid": uuid,
+		"hostid":     "42",
+	}, {
+		"_id":        uuid + ":1",
+		"name":       "1",
+		"model-uuid": uuid,
+		"hostid":     "666",
+	}, {
+		"_id":        uuid + ":2",
+		"name":       "2",
+		"model-uuid": uuid,
+	}}
+	expectedFilesystems := []bson.M{{
+		"_id":          uuid + ":0",
+		"filesystemid": "0",
+		"model-uuid":   uuid,
+		"hostid":       "42",
+	}, {
+		"_id":          uuid + ":1",
+		"filesystemid": "1",
+		"model-uuid":   uuid,
+		"hostid":       "666",
+	}, {
+		"_id":          uuid + ":2",
+		"filesystemid": "2",
+		"model-uuid":   uuid,
+	}}
+	expectedVolumeAttachments := []bson.M{{
+		"_id":        uuid + ":123:0",
+		"model-uuid": uuid,
+		"hostid":     "123",
+		"volumeid":   "0",
+	}, {
+		"_id":        uuid + ":123:1",
+		"model-uuid": uuid,
+		"hostid":     "123",
+		"volumeid":   "1",
+	}}
+	expectedFilesystemAttachments := []bson.M{{
+		"_id":          uuid + ":123:3",
+		"model-uuid":   uuid,
+		"hostid":       "123",
+		"filesystemid": "0",
+	}, {
+		"_id":          uuid + ":123:4",
+		"model-uuid":   uuid,
+		"hostid":       "123",
+		"filesystemid": "1",
+	}}
+
+	s.assertUpgradedData(c, MigrateStorageMachineIdFields,
+		expectUpgradedData{volumesColl, expectedVolumes},
+		expectUpgradedData{filesystemsColl, expectedFilesystems},
+		expectUpgradedData{volumeAttachmentsColl, expectedVolumeAttachments},
+		expectUpgradedData{filesystemAttachmentsColl, expectedFilesystemAttachments},
+	)
 }

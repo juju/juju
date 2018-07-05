@@ -146,9 +146,9 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 	}
 	s.volume = &mockVolume{tag: s.volumeTag, storage: &s.storageTag}
 	s.volumeAttachment = &mockVolumeAttachment{
-		VolumeTag:  s.volumeTag,
-		MachineTag: s.machineTag,
-		life:       state.Alive,
+		VolumeTag: s.volumeTag,
+		HostTag:   s.machineTag,
+		life:      state.Alive,
 	}
 
 	return &mockStorageAccessor{

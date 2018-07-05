@@ -518,84 +518,127 @@ func addNonDetachableStorageMachineId(st *State) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	getPool := func(d bson.M) string {
+		var pool string
+		info, _ := d["info"].(bson.M)
+		params, _ := d["params"].(bson.M)
+		if info != nil {
+			pool = info["pool"].(string)
+		} else if params != nil {
+			pool = params["pool"].(string)
+		}
+		return pool
+	}
+
+	var needsUpgradeTerm = bson.D{
+		{"machineid", bson.D{{"$exists", false}}},
+		{"hostid", bson.D{{"$exists", false}}},
+	}
 	var ops []txn.Op
-	volumes, err := sb.volumes(
-		bson.D{{"machineid", bson.D{{"$exists", false}}}},
-	)
-	if err != nil {
+
+	volumeColl, cleanup := st.db().GetCollection(volumesC)
+	defer cleanup()
+
+	var volData []bson.M
+	err = volumeColl.Find(needsUpgradeTerm).All(&volData)
+	if err != nil && err != mgo.ErrNotFound {
 		return errors.Trace(err)
 	}
-	for _, v := range volumes {
-		var pool string
-		if v.doc.Info != nil {
-			pool = v.doc.Info.Pool
-		} else if v.doc.Params != nil {
-			pool = v.doc.Params.Pool
-		}
-		detachable, err := isDetachableVolumePool(sb, pool)
+
+	volumeAttachColl, cleanup := st.db().GetCollection(volumeAttachmentsC)
+	defer cleanup()
+
+	var volAttachData []bson.M
+	err = volumeAttachColl.Find(nil).All(&volAttachData)
+	if err != nil && err != mgo.ErrNotFound {
+		return errors.Trace(err)
+	}
+	attachDataForVolumes := make(map[string][]bson.M)
+	for _, vad := range volAttachData {
+		volId := vad["volumeid"].(string)
+		data := attachDataForVolumes[volId]
+		data = append(data, vad)
+		attachDataForVolumes[volId] = data
+	}
+
+	for _, v := range volData {
+		detachable, err := isDetachableVolumePool(sb, getPool(v))
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if detachable {
 			continue
 		}
-		attachments, err := sb.VolumeAttachments(v.VolumeTag())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if len(attachments) != 1 {
+
+		attachInfo := attachDataForVolumes[v["name"].(string)]
+		if len(attachInfo) != 1 {
 			// There should be exactly one attachment since the
 			// filesystem is non-detachable, but be defensive
 			// and leave the document alone if our expectations
 			// are not met.
 			continue
 		}
-		machineId := attachments[0].Machine().Id()
+		machineId := attachInfo[0]["machineid"]
+		if machineId == "" {
+			machineId = attachInfo[0]["hostid"]
+		}
 		ops = append(ops, txn.Op{
 			C:      volumesC,
-			Id:     v.doc.Name,
+			Id:     v["name"],
 			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{
 				{"machineid", machineId},
 			}}},
 		})
 	}
-	filesystems, err := sb.filesystems(
-		bson.D{{"machineid", bson.D{{"$exists", false}}}},
-	)
-	if err != nil {
+
+	filesystemColl, cleanup := st.db().GetCollection(filesystemsC)
+	defer cleanup()
+
+	var fsData []bson.M
+	err = filesystemColl.Find(needsUpgradeTerm).All(&fsData)
+	if err != nil && err != mgo.ErrNotFound {
 		return errors.Trace(err)
 	}
-	for _, f := range filesystems {
-		var pool string
-		if f.doc.Info != nil {
-			pool = f.doc.Info.Pool
-		} else if f.doc.Params != nil {
-			pool = f.doc.Params.Pool
-		}
-		if detachable, err := isDetachableFilesystemPool(sb, pool); err != nil {
+	filesystemAttachColl, cleanup := st.db().GetCollection(filesystemAttachmentsC)
+	defer cleanup()
+
+	var filesystemAttachData []bson.M
+	err = filesystemAttachColl.Find(nil).All(&filesystemAttachData)
+	if err != nil && err != mgo.ErrNotFound {
+		return errors.Trace(err)
+	}
+	attachDataForFilesystems := make(map[string][]bson.M)
+	for _, fad := range filesystemAttachData {
+		filesystemId := fad["filesystemid"].(string)
+		data := attachDataForFilesystems[filesystemId]
+		data = append(data, fad)
+		attachDataForFilesystems[filesystemId] = data
+	}
+
+	for _, f := range fsData {
+		if detachable, err := isDetachableFilesystemPool(sb, getPool(f)); err != nil {
 			return errors.Trace(err)
 		} else if detachable {
 			continue
 		}
-		attachments, err := sb.FilesystemAttachments(f.FilesystemTag())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if len(attachments) != 1 {
+
+		attachInfo := attachDataForFilesystems[f["filesystemid"].(string)]
+		if len(attachInfo) != 1 {
 			// There should be exactly one attachment since the
 			// filesystem is non-detachable, but be defensive
 			// and leave the document alone if our expectations
 			// are not met.
 			continue
 		}
-		machineId := attachments[0].Host().Id()
-		if !names.IsValidMachine(machineId) {
-			continue
+		machineId := attachInfo[0]["machineid"]
+		if machineId == "" {
+			machineId = attachInfo[0]["hostid"]
 		}
 		ops = append(ops, txn.Op{
 			C:      filesystemsC,
-			Id:     f.doc.DocID,
+			Id:     f["filesystemid"],
 			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{
 				{"machineid", machineId},
@@ -1601,4 +1644,53 @@ func RemoveContainerImageStreamFromNonModelSettings(st *State) error {
 // testing difficult.
 func ReplicaSetMembers(st *State) ([]replicaset.Member, error) {
 	return replicaset.CurrentMembers(st.MongoSession())
+}
+
+// MigrateStorageMachineIdFields updates the various storage collections
+// to copy any machineid field value across to hostid.
+func MigrateStorageMachineIdFields(st *State) error {
+	return runForAllModelStates(st, migrateStorageMachineIds)
+}
+
+func migrateStorageMachineIds(st *State) error {
+	var needsUpgradeTerm = bson.D{
+		{"machineid", bson.D{{"$exists", true}}},
+		{"hostid", bson.D{{"$exists", false}}},
+	}
+
+	var ops []txn.Op
+	addUpgradeOps := func(collName string) error {
+		storageColl, cleanup := st.db().GetCollection(collName)
+		defer cleanup()
+
+		var storageData []bson.M
+		err := storageColl.Find(needsUpgradeTerm).All(&storageData)
+		if err != nil && err != mgo.ErrNotFound {
+			return errors.Trace(err)
+		}
+
+		for _, data := range storageData {
+			machineId := data["machineid"]
+			ops = append(ops, txn.Op{
+				C:      collName,
+				Id:     data["_id"],
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$set", bson.D{{"hostid", machineId}}},
+					{"$unset", bson.D{{"machineid", nil}}},
+				},
+			})
+		}
+		return nil
+	}
+
+	for _, collName := range []string{volumesC, filesystemsC, volumeAttachmentsC, filesystemAttachmentsC} {
+		if err := addUpgradeOps(collName); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if len(ops) > 0 {
+		return errors.Trace(st.db().RunTransaction(ops))
+	}
+	return nil
 }

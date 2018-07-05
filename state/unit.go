@@ -1711,10 +1711,10 @@ func validateDynamicMachineStorageParams(m *Machine, params *storageParams) erro
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if !volume.Detachable() && volume.doc.MachineId != m.Id() {
+		if !volume.Detachable() && volume.doc.HostId != m.Id() {
 			return errors.Errorf(
 				"storage is non-detachable (bound to machine %s)",
-				volume.doc.MachineId,
+				volume.doc.HostId,
 			)
 		}
 	}
@@ -1723,10 +1723,11 @@ func validateDynamicMachineStorageParams(m *Machine, params *storageParams) erro
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if !filesystem.Detachable() && filesystem.doc.MachineId != m.Id() {
+		if !filesystem.Detachable() && filesystem.doc.HostId != m.Id() {
+			host := storageAttachmentHost(filesystem.doc.HostId)
 			return errors.Errorf(
-				"storage is non-detachable (bound to machine %s)",
-				filesystem.doc.MachineId,
+				"storage is non-detachable (bound to %s)",
+				names.ReadableString(host),
 			)
 		}
 	}
@@ -2257,7 +2258,7 @@ func storageParamsForStorageInstance(
 					return nil, errors.Errorf(
 						"%s is attached to %s",
 						names.ReadableString(volume.VolumeTag()),
-						names.ReadableString(existing[0].Machine()),
+						names.ReadableString(existing[0].Host()),
 					)
 				}
 			}

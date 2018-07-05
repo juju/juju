@@ -1786,7 +1786,7 @@ func (i *importer) addVolume(volume description.Volume, sb *storageBackend) erro
 	if detachable, err := isDetachableVolumePool(sb, volume.Pool()); err != nil {
 		return errors.Trace(err)
 	} else if !detachable && len(attachments) == 1 {
-		doc.MachineId = attachments[0].Machine().Id()
+		doc.HostId = attachments[0].Machine().Id()
 	}
 	status := i.makeStatusDoc(volume.Status())
 	ops := sb.newVolumeOps(doc, status)
@@ -1827,10 +1827,10 @@ func (i *importer) addVolumeAttachmentOp(volID string, attachment description.Vo
 		Id:     volumeAttachmentId(machineId, volID),
 		Assert: txn.DocMissing,
 		Insert: &volumeAttachmentDoc{
-			Volume:  volID,
-			Machine: machineId,
-			Params:  params,
-			Info:    info,
+			Volume: volID,
+			Host:   machineId,
+			Params: params,
+			Info:   info,
 		},
 	}
 }
@@ -1882,7 +1882,7 @@ func (i *importer) addFilesystem(filesystem description.Filesystem, sb *storageB
 	if detachable, err := isDetachableFilesystemPool(sb, filesystem.Pool()); err != nil {
 		return errors.Trace(err)
 	} else if !detachable && len(attachments) == 1 {
-		doc.MachineId = attachments[0].Machine().Id()
+		doc.HostId = attachments[0].Machine().Id()
 	}
 	status := i.makeStatusDoc(filesystem.Status())
 	ops := sb.newFilesystemOps(doc, status)
@@ -1923,7 +1923,7 @@ func (i *importer) addFilesystemAttachmentOp(fsID string, attachment description
 		Assert: txn.DocMissing,
 		Insert: &filesystemAttachmentDoc{
 			Filesystem: fsID,
-			Machine:    machineId,
+			Host:       machineId,
 			// Life: ..., // TODO: import life, default is Alive
 			Params: params,
 			Info:   info,

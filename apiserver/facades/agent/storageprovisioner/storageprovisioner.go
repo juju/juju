@@ -63,7 +63,7 @@ func NewStorageProvisionerAPIv3(
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	canAccessStorageMachine := func(tag names.MachineTag, allowController bool) bool {
+	canAccessStorageMachine := func(tag names.Tag, allowController bool) bool {
 		authEntityTag := authorizer.GetAuthTag()
 		if tag == authEntityTag {
 			// Machine agents can access volumes
@@ -121,7 +121,7 @@ func NewStorageProvisionerAPIv3(
 					return false
 				}
 				for _, a := range volumeAttachments {
-					if canAccessStorageMachine(a.Machine(), false) {
+					if canAccessStorageMachine(a.Host(), false) {
 						return true
 					}
 				}
@@ -623,13 +623,13 @@ func (s *StorageProvisionerAPIv3) VolumeParams(args params.Entities) (params.Vol
 			volumeAttachmentParams, ok := volumeAttachment.Params()
 			if !ok {
 				return params.VolumeParams{}, errors.Errorf(
-					"volume %q is already attached to machine %q",
+					"volume %q is already attached to %q",
 					volumeAttachment.Volume().Id(),
-					volumeAttachment.Machine().Id(),
+					names.ReadableString(volumeAttachment.Host()),
 				)
 			}
-			machineTag := volumeAttachment.Machine()
-			instanceId, err := s.st.MachineInstanceId(machineTag)
+			hostTag := volumeAttachment.Host()
+			instanceId, err := s.st.MachineInstanceId(hostTag.(names.MachineTag))
 			if errors.IsNotProvisioned(err) {
 				// Leave the attachment until later.
 				instanceId = ""
@@ -638,7 +638,7 @@ func (s *StorageProvisionerAPIv3) VolumeParams(args params.Entities) (params.Vol
 			}
 			volumeParams.Attachment = &params.VolumeAttachmentParams{
 				tag.String(),
-				machineTag.String(),
+				hostTag.String(),
 				"", // volume ID
 				string(instanceId),
 				volumeParams.Provider,
@@ -847,7 +847,7 @@ func (s *StorageProvisionerAPIv3) VolumeAttachmentParams(
 		if err != nil {
 			return params.VolumeAttachmentParams{}, err
 		}
-		instanceId, err := s.st.MachineInstanceId(volumeAttachment.Machine())
+		instanceId, err := s.st.MachineInstanceId(volumeAttachment.Host().(names.MachineTag))
 		if errors.IsNotProvisioned(err) {
 			// The worker must watch for machine provisioning events.
 			instanceId = ""
@@ -888,7 +888,7 @@ func (s *StorageProvisionerAPIv3) VolumeAttachmentParams(
 		}
 		return params.VolumeAttachmentParams{
 			volumeAttachment.Volume().String(),
-			volumeAttachment.Machine().String(),
+			volumeAttachment.Host().String(),
 			volumeId,
 			string(instanceId),
 			string(providerType),
@@ -1045,7 +1045,7 @@ func (s *StorageProvisionerAPIv3) oneVolumeBlockDevice(
 	if err != nil {
 		return state.BlockDeviceInfo{}, err
 	}
-	blockDevices, err := s.sb.BlockDevices(volumeAttachment.Machine())
+	blockDevices, err := s.sb.BlockDevices(volumeAttachment.Host().(names.MachineTag))
 	if err != nil {
 		return state.BlockDeviceInfo{}, err
 	}
@@ -1056,9 +1056,9 @@ func (s *StorageProvisionerAPIv3) oneVolumeBlockDevice(
 	)
 	if !ok {
 		return state.BlockDeviceInfo{}, errors.NotFoundf(
-			"block device for volume %v on machine %v",
+			"block device for volume %v on %v",
 			volumeAttachment.Volume().Id(),
-			volumeAttachment.Machine().Id(),
+			names.ReadableString(volumeAttachment.Host()),
 		)
 	}
 	return *blockDevice, nil
