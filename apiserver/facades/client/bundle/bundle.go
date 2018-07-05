@@ -12,61 +12,48 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
+	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/migration"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 )
 
-type Backend interface {
-	migration.StateExporter
-}
-
-// bundleAPI implements the Bundle interface and is the concrete implementation
-// of the API end point.
-type BundleAPI struct {
+type Facade struct {
 	backend    Backend
 	authorizer facade.Authorizer
+	ModelTag   names.ModelTag
 }
 
-// NewFacade provides the required signature for facade registration.
-func NewFacade(ctx facade.Context) (*BundleAPI, error) {
+// NewStateFacade provides the signature required for facade registration.
+func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 
 	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	return NewFacade(authorizer, stateShim{st})
+}
 
-	return &BundleAPI{
+// NewFacade provides the required signature for facade registration.
+func NewFacade(
+	authorizer facade.Authorizer,
+	st Backend,
+) (*Facade, error) {
+	return &Facade{
+		backend:    st,
 		authorizer: authorizer,
-		backend:    getState(st, model),
 	}, nil
-}
-
-// removed once all relevant methods are moved from state to model.
-type stateShim struct {
-	*state.State
-	*state.Model
-}
-
-var getState = func(st *state.State, m *state.Model) Backend {
-	return stateShim{st, m}
 }
 
 // GetChanges returns the list of changes required to deploy the given bundle
 // data. The changes are sorted by requirements, so that they can be applied in
 // order.
-func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
+func (b *Facade) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
 	var results params.BundleChangesResults
 	data, err := charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
 	if err != nil {
@@ -116,7 +103,7 @@ func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 }
 
 // ExportBundle exports the current model configuration as bundle.
-func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
+func (b *Facade) ExportBundle() (params.StringResult, error) {
 	model, err := b.backend.Export()
 	if err != nil {
 		return params.StringResult{}, errors.Trace(err)

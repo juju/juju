@@ -9,44 +9,39 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/description"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing/factory"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type bundleSuite struct {
-	statetesting.StateSuite
-	api  *bundle.BundleAPI
+	coretesting.BaseSuite
+
+	api  *bundle.Facade
 	auth facade.Authorizer
+	st   *mockState
 }
 
 var _ = gc.Suite(&bundleSuite{})
 
-// bundleSuiteContext implements the facade.Context interface.
-type bundleSuiteContext struct{ bs *bundleSuite }
-
-func (ctx *bundleSuiteContext) Abort() <-chan struct{}      { return nil }
-func (ctx *bundleSuiteContext) Auth() facade.Authorizer     { return ctx.bs.auth }
-func (ctx *bundleSuiteContext) Dispose()                    {}
-func (ctx *bundleSuiteContext) Resources() facade.Resources { return common.NewResources() }
-func (ctx *bundleSuiteContext) State() *state.State         { return ctx.bs.State }
-func (ctx *bundleSuiteContext) StatePool() *state.StatePool { return nil }
-func (ctx *bundleSuiteContext) ID() string                  { return "" }
-func (ctx *bundleSuiteContext) Presence() facade.Presence   { return nil }
-func (ctx *bundleSuiteContext) Hub() facade.Hub             { return nil }
-
 func (s *bundleSuite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
-	s.auth = apiservertesting.FakeAuthorizer{
+	s.BaseSuite.SetUpTest(c)
+	/*s.auth = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("who"),
+	}*/
+	s.auth = &apiservertesting.FakeAuthorizer{
+		Tag: names.NewApplicationTag("gitlab"),
 	}
-	facade, err := bundle.NewFacade(&bundleSuiteContext{bs: s})
+
+	s.st = newMockState()
+	s.AddCleanup(func(c *gc.C) {
+		workertest.CleanKill(c, s.st.app.unitsWatcher)
+	})
+
+	facade, err := bundle.NewFacade(s.auth, s.st)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = facade
 }
@@ -244,10 +239,6 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 }
 
 func (s *bundleSuite) TestExportBundleSuccess(c *gc.C) {
-	_ = s.Factory.MakeMachine(c, &factory.MachineParams{
-		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
-	})
-
 	str, err := s.api.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
 
