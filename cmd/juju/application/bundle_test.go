@@ -176,26 +176,26 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
-	_, minerCharm := testcharms.UploadCharm(c, s.client, "quantal/bitcoin-miner-42", "bitcoin-miner")
-	_, wpch := testcharms.UploadCharm(c, s.client, "quantal/wordpress-dashboard4miner-47", "wordpress")
+	_, minerCharm := testcharms.UploadCharm(c, s.client, "quantal/bitcoin-miner-1", "bitcoin-miner")
+	_, wpch := testcharms.UploadCharm(c, s.client, "quantal/wordpress-dashboard4miner-3", "wordpress")
 	testcharms.UploadBundle(c, s.client, "bundle/wordpress-dashboard-with-miner-backend-1", "wordpress-dashboard-with-miner-backend")
 	err := runDeploy(
 		c, "bundle/wordpress-dashboard-with-miner-backend",
 		"--device", "miner:bitcoinminer=10,nvidia.com/gpu", // override bitcoinminer
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:xenial/wordpress-dashboard4miner-47")
+	s.assertCharmsUploaded(c, "cs:quantal/bitcoin-miner-1", "cs:quantal/wordpress-dashboard4miner-3")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"miner": {
-			charm:  "cs:xenial/miner-42",
+			charm:  "cs:quantal/bitcoin-miner-1",
 			config: minerCharm.Config().DefaultSettings(),
 			devices: map[string]devices.Constraints{
-				"bitcoinminer": {Type: "nvidia.com/gpu", Count: 10},
+				"bitcoinminer": {Type: "nvidia.com/gpu", Count: 10, Attributes: map[string]string{}},
 			},
 		},
-		"wordpress": {charm: "cs:xenial/wordpress-dashboard4miner-47", config: wpch.Config().DefaultSettings()},
+		"wordpress": {charm: "cs:quantal/wordpress-dashboard4miner-3", config: wpch.Config().DefaultSettings()},
 	})
-	s.assertRelationsEstablished(c, "wordpress:db miner:server")
+	// s.assertRelationsEstablished(c, "wordpress:miner miner:miner")
 	s.assertUnitsCreated(c, map[string]string{
 		"miner/0":     "0",
 		"wordpress/0": "1",

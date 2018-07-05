@@ -433,8 +433,9 @@ func (s *DeploySuite) TestDevices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]devices.Constraints{
 		"bitcoinminer": {
-			Type:  "nvidia.com/gpu",
-			Count: 10,
+			Type:       "nvidia.com/gpu",
+			Count:      10,
+			Attributes: map[string]string{},
 		},
 	})
 }
