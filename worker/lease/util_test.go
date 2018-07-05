@@ -86,7 +86,11 @@ func (store *Store) Wait(c *gc.C) {
 func (store *Store) Leases() map[lease.Key]lease.Info {
 	result := make(map[lease.Key]lease.Info)
 	for k, v := range store.leases {
-		result[lease.Key{Lease: k}] = v
+		result[lease.Key{
+			Namespace: "namespace",
+			ModelUUID: "modelUUID",
+			Lease:     k,
+		}] = v
 	}
 	return result
 }

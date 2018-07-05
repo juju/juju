@@ -31,9 +31,12 @@ func (d dummySecretary) CheckDuration(duration time.Duration) error { return nil
 // NewDeadManager returns a manager that's already dead
 // and always returns the given error.
 func NewDeadManager(err error) *Manager {
+	var secretary dummySecretary
 	m := Manager{
 		config: ManagerConfig{
-			Secretary: dummySecretary{},
+			Secretary: func(_ string) (Secretary, error) {
+				return secretary, nil
+			},
 		},
 	}
 	catacomb.Invoke(catacomb.Plan{
@@ -72,7 +75,8 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 	return manager, nil
 }
 
-// Manager implements lease.Claimer, lease.Checker, and worker.Worker.
+// Manager implements worker.Worker and can be bound to get
+// lease.Checkers and lease.Claimers.
 type Manager struct {
 	catacomb catacomb.Catacomb
 
@@ -141,25 +145,29 @@ func (manager *Manager) choose(blocks blocks) error {
 	}
 }
 
-// Claim is part of the lease.Claimer interface.
-func (manager *Manager) Claim(leaseName, holderName string, duration time.Duration) error {
-	if err := manager.config.Secretary.CheckLease(leaseName); err != nil {
-		return errors.Annotatef(err, "cannot claim lease %q", leaseName)
+// Bind returns a CheckerClaimer that can handle leases specifically
+// for the given namespace and model.
+func (manager *Manager) Bind(namespace, modelUUID string) (CheckerClaimer, error) {
+	secretary, err := manager.config.Secretary(namespace)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	if err := manager.config.Secretary.CheckHolder(holderName); err != nil {
-		return errors.Annotatef(err, "cannot claim lease for holder %q", holderName)
-	}
-	if err := manager.config.Secretary.CheckDuration(duration); err != nil {
-		return errors.Annotatef(err, "cannot claim lease for %s", duration)
-	}
-	// TODO(raftlease): Fill in the rest of the key.
-	return claim{
-		leaseKey:   lease.Key{Lease: leaseName},
-		holderName: holderName,
-		duration:   duration,
-		response:   make(chan bool),
-		stop:       manager.catacomb.Dying(),
-	}.invoke(manager.claims)
+	return &boundManager{
+		manager:   manager,
+		secretary: secretary,
+		namespace: namespace,
+		modelUUID: modelUUID,
+	}, nil
+}
+
+// Checker returns a lease.Checker for the specified namespace and model.
+func (manager *Manager) Checker(namespace, modelUUID string) (lease.Checker, error) {
+	return manager.Bind(namespace, modelUUID)
+}
+
+// Claimer returns a lease.Claimer for the specified namespace and model.
+func (manager *Manager) Claimer(namespace, modelUUID string) (lease.Claimer, error) {
+	return manager.Bind(namespace, modelUUID)
 }
 
 // handleClaim processes and responds to the supplied claim. It will only return
@@ -203,18 +211,6 @@ func (manager *Manager) handleClaim(claim claim) error {
 	return nil
 }
 
-// Token is part of the lease.Checker interface.
-func (manager *Manager) Token(leaseName, holderName string) lease.Token {
-	// TODO(raftlease): Fill in key fields.
-	return token{
-		leaseKey:   lease.Key{Lease: leaseName},
-		holderName: holderName,
-		secretary:  manager.config.Secretary,
-		checks:     manager.checks,
-		stop:       manager.catacomb.Dying(),
-	}
-}
-
 // handleCheck processes and responds to the supplied check. It will only return
 // unrecoverable errors; mere untruth of the assertion just indicates a bad
 // request, and is communicated back to the check's originator.
@@ -239,20 +235,6 @@ func (manager *Manager) handleCheck(check check) error {
 	}
 	check.respond(errors.Trace(response))
 	return nil
-}
-
-// WaitUntilExpired is part of the lease.Claimer interface.
-func (manager *Manager) WaitUntilExpired(leaseName string, cancel <-chan struct{}) error {
-	if err := manager.config.Secretary.CheckLease(leaseName); err != nil {
-		return errors.Annotatef(err, "cannot wait for lease %q expiry", leaseName)
-	}
-	// TODO(raftlease): Fill in rest of key fields.
-	return block{
-		leaseKey: lease.Key{Lease: leaseName},
-		unblock:  make(chan struct{}),
-		stop:     manager.catacomb.Dying(),
-		cancel:   cancel,
-	}.invoke(manager.blocks)
 }
 
 // nextTick returns a channel that will send a value at some point when

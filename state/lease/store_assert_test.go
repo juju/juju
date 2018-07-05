@@ -23,15 +23,20 @@ type StoreAssertSuite struct {
 var _ = gc.Suite(&StoreAssertSuite{})
 
 func key(name string) lease.Key {
-	return lease.Key{Lease: name}
+	return lease.Key{
+		Namespace: "default-namespace",
+		ModelUUID: "model-uuid",
+		Lease:     name,
+	}
 }
 
 func (s *StoreAssertSuite) SetUpTest(c *gc.C) {
 	s.FixtureSuite.SetUpTest(c)
 	s.fix = s.EasyFixture(c)
-	err := s.fix.Store.ClaimLease(key("name"), lease.Request{"holder", time.Minute})
+	key := lease.Key{"default-namespace", "model-uuid", "name"}
+	err := s.fix.Store.ClaimLease(key, lease.Request{"holder", time.Minute})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert("name", s.fix.Holder(), "holder")
+	c.Assert(key, s.fix.Holder(), "holder")
 }
 
 func (s *StoreAssertSuite) TestPassesWhenLeaseHeld(c *gc.C) {

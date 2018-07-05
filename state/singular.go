@@ -54,7 +54,8 @@ func (s singularSecretary) CheckDuration(duration time.Duration) error {
 // SingularClaimer returns a lease.Claimer representing the exclusive right to
 // manage the model.
 func (st *State) SingularClaimer() corelease.Claimer {
-	return lazyLeaseManager{func() *lease.Manager {
-		return st.workers.singularManager()
+	return lazyLeaseManager{func() (lease.CheckerClaimer, error) {
+		manager := st.workers.singularManager()
+		return manager.Bind(singularControllerNamespace, st.modelUUID())
 	}}
 }

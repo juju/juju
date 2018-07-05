@@ -86,10 +86,12 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testing.Clock)) 
 	clock := testing.NewClock(defaultClockStart)
 	store := NewStore(fix.leases, fix.expectCalls)
 	manager, err := lease.NewManager(lease.ManagerConfig{
-		Clock:     clock,
-		Store:     store,
-		Secretary: Secretary{},
-		MaxSleep:  defaultMaxSleep,
+		Clock: clock,
+		Store: store,
+		Secretary: func(string) (lease.Secretary, error) {
+			return Secretary{}, nil
+		},
+		MaxSleep: defaultMaxSleep,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {

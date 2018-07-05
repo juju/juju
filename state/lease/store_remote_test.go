@@ -58,16 +58,16 @@ func (s *StoreRemoteSuite) skewedExpiry() time.Time {
 // offset by the local clock of the store, and the store's observation of
 // the global clock.
 func (s *StoreRemoteSuite) TestExpiryOffset(c *gc.C) {
-	c.Check("name", s.skewed.Holder(), "holder")
-	c.Check("name", s.skewed.Expiry(), s.skewedExpiry())
+	c.Check(key("name"), s.skewed.Holder(), "holder")
+	c.Check(key("name"), s.skewed.Expiry(), s.skewedExpiry())
 }
 
 func (s *StoreRemoteSuite) TestExtendRemoteLeaseNoop(c *gc.C) {
 	err := s.skewed.Store.ExtendLease(key("name"), lease.Request{"holder", 10 * time.Second})
 	c.Check(err, jc.ErrorIsNil)
 
-	c.Check("name", s.skewed.Holder(), "holder")
-	c.Check("name", s.skewed.Expiry(), s.skewedExpiry())
+	c.Check(key("name"), s.skewed.Holder(), "holder")
+	c.Check(key("name"), s.skewed.Expiry(), s.skewedExpiry())
 }
 
 func (s *StoreRemoteSuite) TestExtendRemoteLeaseSimpleExtend(c *gc.C) {
@@ -75,9 +75,9 @@ func (s *StoreRemoteSuite) TestExtendRemoteLeaseSimpleExtend(c *gc.C) {
 	err := s.skewed.Store.ExtendLease(key("name"), lease.Request{"holder", leaseDuration})
 	c.Check(err, jc.ErrorIsNil)
 
-	c.Check("name", s.skewed.Holder(), "holder")
+	c.Check(key("name"), s.skewed.Holder(), "holder")
 	expectExpiry := s.skewed.LocalClock.Now().Add(leaseDuration)
-	c.Check("name", s.skewed.Expiry(), expectExpiry)
+	c.Check(key("name"), s.skewed.Expiry(), expectExpiry)
 }
 
 func (s *StoreRemoteSuite) TestCannotExpireRemoteLeaseEarly(c *gc.C) {

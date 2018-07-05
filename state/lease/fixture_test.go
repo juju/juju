@@ -56,7 +56,7 @@ type Fixture struct {
 }
 
 func NewFixture(c *gc.C, database *mgo.Database, params FixtureParams) *Fixture {
-	mongo := NewMongo(database)
+	mongo := NewMongo(database, "model-uuid")
 	localClockStart := params.LocalClockStart
 	if localClockStart.IsZero() {
 		localClockStart = defaultClockStart
@@ -123,7 +123,7 @@ func (fix *Fixture) infoChecker(checkInfo checkInfoFunc) checkFunc {
 				error = fmt.Sprint(v)
 			}
 		}()
-		key := corelease.Key{Lease: params[0].(string)}
+		key := params[0].(corelease.Key)
 		info := fix.Store.Leases()[key]
 		return checkInfo(info, params[1])
 	}

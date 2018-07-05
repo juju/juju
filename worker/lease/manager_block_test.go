@@ -41,7 +41,11 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpires(c *gc.C) {
 			method: "Refresh",
 		}, {
 			method: "ExpireLease",
-			args:   []interface{}{corelease.Key{Lease: "redis"}},
+			args: []interface{}{corelease.Key{
+				Namespace: "namespace",
+				ModelUUID: "modelUUID",
+				Lease:     "redis",
+			}},
 			callback: func(leases map[string]corelease.Info) {
 				delete(leases, "redis")
 			},
@@ -70,8 +74,12 @@ func (s *WaitUntilExpiredSuite) TestLeadershipChanged(c *gc.C) {
 			method: "Refresh",
 		}, {
 			method: "ExpireLease",
-			args:   []interface{}{corelease.Key{Lease: "redis"}},
-			err:    corelease.ErrInvalid,
+			args: []interface{}{corelease.Key{
+				Namespace: "namespace",
+				ModelUUID: "modelUUID",
+				Lease:     "redis",
+			}},
+			err: corelease.ErrInvalid,
 			callback: func(leases map[string]corelease.Info) {
 				leases["redis"] = corelease.Info{
 					Holder: "redis/99",
@@ -111,8 +119,10 @@ func (s *WaitUntilExpiredSuite) TestLeadershipExpiredEarly(c *gc.C) {
 
 		// Induce a refresh by making an unexpected check; it turns out the
 		// lease had already been expired by someone else.
-		manager.Token("redis", "redis/99").Check(nil)
-		err := blockTest.assertUnblocked(c)
+		checker, err := manager.Checker("namespace", "model")
+		c.Assert(err, jc.ErrorIsNil)
+		checker.Token("redis", "redis/99").Check(nil)
+		err = blockTest.assertUnblocked(c)
 		c.Check(err, jc.ErrorIsNil)
 	})
 }
@@ -133,8 +143,12 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 			method: "Refresh",
 		}, {
 			method: "ExpireLease",
-			args:   []interface{}{corelease.Key{Lease: "redis"}},
-			err:    corelease.ErrInvalid,
+			args: []interface{}{corelease.Key{
+				Namespace: "namespace",
+				ModelUUID: "modelUUID",
+				Lease:     "redis",
+			}},
+			err: corelease.ErrInvalid,
 			callback: func(leases map[string]corelease.Info) {
 				delete(leases, "redis")
 				leases["store"] = corelease.Info{
@@ -144,8 +158,12 @@ func (s *WaitUntilExpiredSuite) TestMultiple(c *gc.C) {
 			},
 		}, {
 			method: "ExpireLease",
-			args:   []interface{}{corelease.Key{Lease: "store"}},
-			err:    corelease.ErrInvalid,
+			args: []interface{}{corelease.Key{
+				Namespace: "namespace",
+				ModelUUID: "modelUUID",
+				Lease:     "store",
+			}},
+			err: corelease.ErrInvalid,
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
@@ -229,10 +247,14 @@ func newBlockTest(manager *lease.Manager, leaseName string) *blockTest {
 		abort:     time.After(time.Second),
 		cancel:    make(chan struct{}),
 	}
+	claimer, err := bt.manager.Claimer("namespace", "modelUUID")
+	if err != nil {
+		panic("couldn't get claimer")
+	}
 	go func() {
 		select {
 		case <-bt.abort:
-		case bt.done <- bt.manager.WaitUntilExpired(bt.leaseName, bt.cancel):
+		case bt.done <- claimer.WaitUntilExpired(bt.leaseName, bt.cancel):
 		}
 	}()
 	return bt

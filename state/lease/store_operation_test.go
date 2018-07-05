@@ -27,9 +27,9 @@ func (s *StoreOperationSuite) TestClaimLease(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The lease is claimed, for an exact duration.
-	c.Check("name", fix.Holder(), "holder")
+	c.Check(key("name"), fix.Holder(), "holder")
 	exactExpiry := fix.Zero.Add(leaseDuration)
-	c.Check("name", fix.Expiry(), exactExpiry)
+	c.Check(key("name"), fix.Expiry(), exactExpiry)
 }
 
 func (s *StoreOperationSuite) TestClaimMultipleLeases(c *gc.C) {
@@ -43,9 +43,9 @@ func (s *StoreOperationSuite) TestClaimMultipleLeases(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	check := func(name, holder string, duration time.Duration) {
-		c.Check(name, fix.Holder(), holder)
+		c.Check(key(name), fix.Holder(), holder)
 		expiry := fix.Zero.Add(duration)
-		c.Check(name, fix.Expiry(), expiry)
+		c.Check(key(name), fix.Expiry(), expiry)
 	}
 	check("short", "holder", time.Second)
 	check("medium", "grasper", time.Minute)
@@ -83,9 +83,9 @@ func (s *StoreOperationSuite) TestExtendLease(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The lease is extended, *to* (not by) the exact duration requested.
-	c.Check("name", fix.Holder(), "holder")
+	c.Check(key("name"), fix.Holder(), "holder")
 	exactExpiry := fix.Zero.Add(leaseDuration)
-	c.Check("name", fix.Expiry(), exactExpiry)
+	c.Check(key("name"), fix.Expiry(), exactExpiry)
 }
 
 func (s *StoreOperationSuite) TestCanExtendStaleLease(c *gc.C) {
@@ -101,9 +101,9 @@ func (s *StoreOperationSuite) TestCanExtendStaleLease(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The lease is extended fine, *to* (not by) the exact duration requested.
-	c.Check("name", fix.Holder(), "holder")
+	c.Check(key("name"), fix.Holder(), "holder")
 	exactExpiry := extendTime.Add(leaseDuration)
-	c.Check("name", fix.Expiry(), exactExpiry)
+	c.Check(key("name"), fix.Expiry(), exactExpiry)
 }
 
 func (s *StoreOperationSuite) TestExtendLeaseCannotChangeHolder(c *gc.C) {
@@ -129,9 +129,9 @@ func (s *StoreOperationSuite) TestExtendLeaseCannotShortenLease(c *gc.C) {
 
 	// ...but we can't make it any shorter, lest we fail to honour the
 	// guarantees implied by the original lease.
-	c.Check("name", fix.Holder(), "holder")
+	c.Check(key("name"), fix.Holder(), "holder")
 	exactExpiry := fix.Zero.Add(leaseDuration)
-	c.Check("name", fix.Expiry(), exactExpiry)
+	c.Check(key("name"), fix.Expiry(), exactExpiry)
 }
 
 func (s *StoreOperationSuite) TestCannotExpireLeaseBeforeExpiry(c *gc.C) {
@@ -162,7 +162,7 @@ func (s *StoreOperationSuite) TestExpireLeaseAfterExpiry(c *gc.C) {
 	fix.GlobalClock.Advance(leaseDuration + time.Nanosecond)
 	err = fix.Store.ExpireLease(key("name"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check("name", fix.Holder(), "")
+	c.Check(key("name"), fix.Holder(), "")
 }
 
 func (s *StoreOperationSuite) TestCannotExpireUnheldLease(c *gc.C) {

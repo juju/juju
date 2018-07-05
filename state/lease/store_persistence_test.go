@@ -28,7 +28,7 @@ func (s *StorePersistenceSuite) TestNewStoreInvalidLeaseDoc(c *gc.C) {
 		Id:          "store",
 		Namespace:   "namespace",
 		Collection:  "collection",
-		Mongo:       NewMongo(s.db),
+		Mongo:       NewMongo(s.db, "model-uuid"),
 		LocalClock:  clock.WallClock,
 		GlobalClock: GlobalClock{},
 	}
@@ -65,9 +65,9 @@ func (s *StorePersistenceSuite) TestClaimLease(c *gc.C) {
 
 	// Same store id, same clock, new instance: sees exact same lease.
 	fix2 := s.EasyFixture(c)
-	c.Check("name", fix2.Holder(), "holder")
+	c.Check(key("name"), fix2.Holder(), "holder")
 	exactExpiry := fix1.Zero.Add(leaseDuration)
-	c.Check("name", fix2.Expiry(), exactExpiry)
+	c.Check(key("name"), fix2.Expiry(), exactExpiry)
 }
 
 func (s *StorePersistenceSuite) TestExtendLease(c *gc.C) {
@@ -80,9 +80,9 @@ func (s *StorePersistenceSuite) TestExtendLease(c *gc.C) {
 
 	// Same store id, same clock, new instance: sees exact same lease.
 	fix2 := s.EasyFixture(c)
-	c.Check("name", fix2.Holder(), "holder")
+	c.Check(key("name"), fix2.Holder(), "holder")
 	exactExpiry := fix1.Zero.Add(leaseDuration)
-	c.Check("name", fix2.Expiry(), exactExpiry)
+	c.Check(key("name"), fix2.Expiry(), exactExpiry)
 }
 
 func (s *StorePersistenceSuite) TestExpireLease(c *gc.C) {
@@ -96,7 +96,7 @@ func (s *StorePersistenceSuite) TestExpireLease(c *gc.C) {
 
 	// Same store id, same clock, new instance: sees no lease.
 	fix2 := s.EasyFixture(c)
-	c.Check("name", fix2.Holder(), "")
+	c.Check(key("name"), fix2.Holder(), "")
 }
 
 func (s *StorePersistenceSuite) TestNamespaceIsolation(c *gc.C) {
@@ -109,7 +109,7 @@ func (s *StorePersistenceSuite) TestNamespaceIsolation(c *gc.C) {
 	fix2 := s.NewFixture(c, FixtureParams{
 		Namespace: "different-namespace",
 	})
-	c.Check("name", fix2.Holder(), "")
+	c.Check(key("name"), fix2.Holder(), "")
 }
 
 func (s *StorePersistenceSuite) TestTimezoneChanges(c *gc.C) {
@@ -122,9 +122,9 @@ func (s *StorePersistenceSuite) TestTimezoneChanges(c *gc.C) {
 	fix2 := s.NewFixture(c, FixtureParams{
 		LocalClockStart: fix1.Zero.In(time.FixedZone("somewhere", -1234)),
 	})
-	c.Check("name", fix2.Holder(), "holder")
+	c.Check(key("name"), fix2.Holder(), "holder")
 	exactExpiry := fix2.Zero.Add(leaseDuration)
-	c.Check("name", fix2.Expiry(), exactExpiry)
+	c.Check(key("name"), fix2.Expiry(), exactExpiry)
 }
 
 func (s *StorePersistenceSuite) TestTimezoneIsolation(c *gc.C) {
@@ -139,7 +139,7 @@ func (s *StorePersistenceSuite) TestTimezoneIsolation(c *gc.C) {
 		Id:              "remote-store",
 		LocalClockStart: fix1.Zero.UTC(),
 	})
-	c.Check("name", fix2.Holder(), "holder")
+	c.Check(key("name"), fix2.Holder(), "holder")
 	exactExpiry := fix1.Zero.Add(leaseDuration).UTC()
-	c.Check("name", fix2.Expiry(), exactExpiry)
+	c.Check(key("name"), fix2.Expiry(), exactExpiry)
 }

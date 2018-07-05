@@ -29,8 +29,9 @@ func leadershipSettingsKey(applicationId string) string {
 // state's model.
 func (st *State) LeadershipClaimer() leadership.Claimer {
 	return leadershipClaimer{
-		lazyLeaseManager{func() *lease.Manager {
-			return st.workers.leadershipManager()
+		lazyLeaseManager{func() (lease.CheckerClaimer, error) {
+			manager := st.workers.leadershipManager()
+			return manager.Bind(applicationLeadershipNamespace, st.modelUUID())
 		}},
 	}
 }
@@ -39,8 +40,9 @@ func (st *State) LeadershipClaimer() leadership.Claimer {
 // state's model.
 func (st *State) LeadershipChecker() leadership.Checker {
 	return leadershipChecker{
-		lazyLeaseManager{func() *lease.Manager {
-			return st.workers.leadershipManager()
+		lazyLeaseManager{func() (lease.CheckerClaimer, error) {
+			manager := st.workers.leadershipManager()
+			return manager.Bind(applicationLeadershipNamespace, st.modelUUID())
 		}},
 	}
 }

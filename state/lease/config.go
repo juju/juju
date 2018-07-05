@@ -21,6 +21,9 @@ type Mongo interface {
 
 	// GetCollection should probably call the mongo.CollectionFromName func.
 	GetCollection(name string) (collection mongo.Collection, closer func())
+
+	// ModelUUID returns the UUID of the model we're writing to.
+	ModelUUID() string
 }
 
 // LocalClock provides the writer-local wall clock interface required by

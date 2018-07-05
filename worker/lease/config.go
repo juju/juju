@@ -30,8 +30,10 @@ type Secretary interface {
 // Manager.
 type ManagerConfig struct {
 
-	// Secretary is responsible for validating lease names and holder names.
-	Secretary Secretary
+	// Secretary determines validation given a namespace. The
+	// secretary returned is responsible for validating lease names
+	// and holder names for that namespace.
+	Secretary func(namespace string) (Secretary, error)
 
 	// Store is responsible for recording, retrieving, and expiring leases.
 	Store lease.Store

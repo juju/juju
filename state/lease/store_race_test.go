@@ -38,8 +38,8 @@ func (s *StoreSimpleRaceSuite) TestClaimLease_BlockedBy_ClaimLease(c *gc.C) {
 
 	// The store that failed has refreshed state (as it had to, in order
 	// to discover the reason for the invalidity).
-	c.Check("name", sut.Holder(), "ha-haa")
-	c.Check("name", sut.Expiry(), sut.Zero.Add(time.Minute))
+	c.Check(key("name"), sut.Holder(), "ha-haa")
+	c.Check(key("name"), sut.Expiry(), sut.Zero.Add(time.Minute))
 }
 
 func (s *StoreSimpleRaceSuite) TestClaimLease_Pathological(c *gc.C) {
@@ -100,7 +100,7 @@ func (s *StoreTrickyRaceSuite) TestExtendLease_WorksDespite_ShorterExtendLease(c
 	}, func() {
 		err := s.blocker.Store.Refresh()
 		c.Check(err, jc.ErrorIsNil)
-		c.Check("name", s.blocker.Expiry(), s.blocker.Zero.Add(longerRequest))
+		c.Check(key("name"), s.blocker.Expiry(), s.blocker.Zero.Add(longerRequest))
 	})()
 
 	// Extend the lease.
@@ -124,7 +124,7 @@ func (s *StoreTrickyRaceSuite) TestExtendLease_WorksDespite_LongerExtendLease(c 
 	c.Check(err, jc.ErrorIsNil)
 
 	// The SUT was refreshed, and knows that the lease is really valid for longer.
-	c.Check("name", s.sut.Expiry(), s.sut.Zero.Add(longerRequest))
+	c.Check(key("name"), s.sut.Expiry(), s.sut.Zero.Add(longerRequest))
 }
 
 func (s *StoreTrickyRaceSuite) TestExtendLease_BlockedBy_ExpireLease(c *gc.C) {
@@ -141,7 +141,7 @@ func (s *StoreTrickyRaceSuite) TestExtendLease_BlockedBy_ExpireLease(c *gc.C) {
 	c.Check(err, gc.Equals, corelease.ErrInvalid)
 
 	// The SUT has been refreshed, and you can see why the operation was invalid.
-	c.Check("name", s.sut.Holder(), "")
+	c.Check(key("name"), s.sut.Holder(), "")
 }
 
 func (s *StoreTrickyRaceSuite) TestExtendLease_BlockedBy_ExpireThenReclaimDifferentHolder(c *gc.C) {
@@ -161,7 +161,7 @@ func (s *StoreTrickyRaceSuite) TestExtendLease_BlockedBy_ExpireThenReclaimDiffer
 	c.Check(err, gc.Equals, corelease.ErrInvalid)
 
 	// The SUT has been refreshed, and you can see why the operation was invalid.
-	c.Check("name", s.sut.Holder(), "different-holder")
+	c.Check(key("name"), s.sut.Holder(), "different-holder")
 }
 
 func (s *StoreTrickyRaceSuite) TestExtendLease_WorksDespite_ExpireThenReclaimSameHolder(c *gc.C) {
@@ -178,7 +178,7 @@ func (s *StoreTrickyRaceSuite) TestExtendLease_WorksDespite_ExpireThenReclaimSam
 	}, func() {
 		err := s.blocker.Store.Refresh()
 		c.Check(err, jc.ErrorIsNil)
-		c.Check("name", s.blocker.Expiry(), s.blocker.Zero.Add(5*time.Minute))
+		c.Check(key("name"), s.blocker.Expiry(), s.blocker.Zero.Add(5*time.Minute))
 	})()
 
 	// Try to extend; check it worked.
@@ -229,7 +229,7 @@ func (s *StoreTrickyRaceSuite) TestExpireLease_BlockedBy_ExtendLease(c *gc.C) {
 
 	// The SUT has been refreshed, and you can see why the operation was invalid.
 	s.sut.LocalClock.Advance(90 * time.Second)
-	c.Check("name", s.sut.Expiry(), s.sut.Zero.Add(2*time.Minute))
+	c.Check(key("name"), s.sut.Expiry(), s.sut.Zero.Add(2*time.Minute))
 }
 
 func (s *StoreTrickyRaceSuite) TestExpireLease_BlockedBy_ExpireLease(c *gc.C) {
@@ -247,7 +247,7 @@ func (s *StoreTrickyRaceSuite) TestExpireLease_BlockedBy_ExpireLease(c *gc.C) {
 	c.Check(err, gc.Equals, corelease.ErrInvalid)
 
 	// The SUT has been refreshed, and you can see why the operation was invalid.
-	c.Check("name", s.sut.Holder(), "")
+	c.Check(key("name"), s.sut.Holder(), "")
 }
 
 func (s *StoreTrickyRaceSuite) TestExpireLease_BlockedBy_ExpireThenReclaim(c *gc.C) {
@@ -268,5 +268,5 @@ func (s *StoreTrickyRaceSuite) TestExpireLease_BlockedBy_ExpireThenReclaim(c *gc
 
 	// The SUT has been refreshed, and you can see why the operation was invalid.
 	s.sut.LocalClock.Advance(90 * time.Second)
-	c.Check("name", s.sut.Expiry(), s.sut.Zero.Add(150*time.Second))
+	c.Check(key("name"), s.sut.Expiry(), s.sut.Zero.Add(150*time.Second))
 }
