@@ -278,7 +278,6 @@ func (c *ModelCommandBase) modelDetails(controllerName, modelName string) (*juju
 	details, err := c.store.ModelByName(controllerName, modelName)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			logger.Criticalf(err.Error())
 			return nil, errors.Trace(err)
 		}
 		logger.Debugf("model %q not found, refreshing", modelName)
