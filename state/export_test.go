@@ -72,6 +72,7 @@ type (
 	UnitDoc         unitDoc
 	BlockDevicesDoc blockDevicesDoc
 	StorageBackend  = storageBackend
+	DeviceBackend   = deviceBackend
 )
 
 // EnsureWorkersStarted ensures that all the automatically

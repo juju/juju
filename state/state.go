@@ -1117,9 +1117,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// if err := addDefaultdevices.Constraints(deviceb, args.Devices, args.Charm.Meta()); err != nil {
-	// 	return nil, errors.Trace(err)
-	// }
+
 	if err := validateDeviceConstraints(deviceb, args.Devices, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -426,8 +426,8 @@ func (s *DeploySuite) TestDevices(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "bitcoin-miner")
 	err := runDeploy(c, ch, "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "trusty")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/bitcoin-miner-1")
-	application, _ := s.AssertApplication(c, "bitcoin-miner", curl, 1, 0)
+	curl := charm.MustParseURL("local:trusty/miner-1")
+	application, _ := s.AssertApplication(c, "miner", curl, 1, 0)
 
 	cons, err := application.DeviceConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -900,7 +900,7 @@ type applicationInfo struct {
 	constraints      constraints.Value
 	exposed          bool
 	storage          map[string]state.StorageConstraints
-	devices          map[string]state.DeviceConstraints
+	devices          map[string]devices.Constraints
 	endpointBindings map[string]string
 }
 

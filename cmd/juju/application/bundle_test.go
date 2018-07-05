@@ -28,6 +28,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -175,24 +176,24 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
-	_, minerCharm := testcharms.UploadCharm(c, s.client, "xenial/miner-42", "miner-devices")
-	_, wpch := testcharms.UploadCharm(c, s.client, "xenial/wordpress-47", "wordpress")
-	testcharms.UploadBundle(c, s.client, "bundle/wordpress-dashboard-with-miner-backend", "wordpress-dashboard-with-miner-backend")
+	_, minerCharm := testcharms.UploadCharm(c, s.client, "quantal/bitcoin-miner-42", "bitcoin-miner")
+	_, wpch := testcharms.UploadCharm(c, s.client, "quantal/wordpress-dashboard4miner-47", "wordpress")
+	testcharms.UploadBundle(c, s.client, "bundle/wordpress-dashboard-with-miner-backend-1", "wordpress-dashboard-with-miner-backend")
 	err := runDeploy(
 		c, "bundle/wordpress-dashboard-with-miner-backend",
 		"--device", "miner:bitcoinminer=10,nvidia.com/gpu", // override bitcoinminer
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:xenial/wordpress-47")
+	s.assertCharmsUploaded(c, "cs:xenial/wordpress-dashboard4miner-47")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"miner": {
 			charm:  "cs:xenial/miner-42",
 			config: minerCharm.Config().DefaultSettings(),
-			devices: map[string]state.DeviceConstraints{
+			devices: map[string]devices.Constraints{
 				"bitcoinminer": {Type: "nvidia.com/gpu", Count: 10},
 			},
 		},
-		"wordpress": {charm: "cs:xenial/wordpress-47", config: wpch.Config().DefaultSettings()},
+		"wordpress": {charm: "cs:xenial/wordpress-dashboard4miner-47", config: wpch.Config().DefaultSettings()},
 	})
 	s.assertRelationsEstablished(c, "wordpress:db miner:server")
 	s.assertUnitsCreated(c, map[string]string{
