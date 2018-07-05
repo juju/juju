@@ -696,7 +696,6 @@ func (a *Application) changeCharmOps(
 	forceUnits bool,
 	resourceIDs map[string]string,
 	updatedStorageConstraints map[string]StorageConstraints,
-	updatedDeviceConstraints map[string]devices.Constraints,
 ) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
 	var newSettings charm.Settings
@@ -758,7 +757,6 @@ func (a *Application) changeCharmOps(
 		return nil, errors.Trace(err)
 	}
 
-	checkDeviceOps, upgradeDeviceOps, deviceConstraintsOps, err := a.newCharmDeviceOps(ch, units, updatedDeviceConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -804,10 +802,6 @@ func (a *Application) changeCharmOps(
 	ops = append(ops, storageConstraintsOps...)
 	ops = append(ops, checkStorageOps...)
 	ops = append(ops, upgradeStorageOps...)
-
-	ops = append(ops, deviceConstraintsOps...)
-	ops = append(ops, checkDeviceOps...)
-	ops = append(ops, upgradeDeviceOps...)
 
 	ops = append(ops, incCharmModifiedVersionOps(a.doc.DocID)...)
 
@@ -941,61 +935,6 @@ func (a *Application) newCharmStorageOps(
 	return checkStorageOps, upgradeStorageOps, []txn.Op{storageConstraintsOp}, nil
 }
 
-func (a *Application) newCharmDeviceOps(
-	ch *Charm,
-	units []*Unit,
-	updatedDeviceConstraints map[string]devices.Constraints,
-) ([]txn.Op, []txn.Op, []txn.Op, error) {
-
-	fail := func(err error) ([]txn.Op, []txn.Op, []txn.Op, error) {
-		return nil, nil, nil, errors.Trace(err)
-	}
-
-	sb, err := NewDeviceBackend(a.st)
-	if err != nil {
-		return fail(err)
-	}
-
-	// Create or replace device constraints. We take the existing device
-	// constraints, remove any keys that are no longer referenced by the
-	// charm, and update the constraints that the user has specified.
-	var deviceConstraintsOp txn.Op
-	oldDeviceConstraints, err := a.DeviceConstraints()
-	if err != nil {
-		return fail(err)
-	}
-	newDeviceConstraints := oldDeviceConstraints
-	for name, cons := range updatedDeviceConstraints {
-		newDeviceConstraints[name] = cons
-	}
-	for name := range newDeviceConstraints {
-		if _, ok := ch.Meta().Devices[name]; !ok {
-			logger.Warningf("Ignored invalid device constraint %q - not in charm metadata.", name)
-			delete(newDeviceConstraints, name)
-		}
-	}
-
-	if err := validateDeviceConstraints(sb, newDeviceConstraints, ch.Meta()); err != nil {
-		return fail(errors.Annotate(err, "validating device constraints"))
-	}
-	newDeviceConstraintsKey := applicationDeviceConstraintsKey(a.doc.Name, ch.URL())
-	if _, err := a.DeviceConstraints(); errors.IsNotFound(err) {
-		deviceConstraintsOp = createDeviceConstraintsOp(
-			newDeviceConstraintsKey, newDeviceConstraints,
-		)
-	} else if err != nil {
-		return fail(err)
-	} else {
-		deviceConstraintsOp = replaceDeviceConstraintsOp(
-			newDeviceConstraintsKey, newDeviceConstraints,
-		)
-	}
-
-	// TODO(ycliuhw): add Upgrade charm devices.
-
-	return []txn.Op{}, []txn.Op{}, []txn.Op{deviceConstraintsOp}, nil
-}
-
 func (a *Application) upgradeStorageOps(
 	meta, oldMeta *charm.Meta,
 	units []*Unit,
@@ -1085,10 +1024,6 @@ type SetCharmConfig struct {
 	// unaffected; the storage constraints will only be used for
 	// provisioning new storage instances.
 	StorageConstraints map[string]StorageConstraints
-
-	// DeviceConstraints contains the device constraints to add or update when
-	// upgrading the charm.
-	DeviceConstraints map[string]devices.Constraints
 }
 
 // SetCharm changes the charm for the application.
@@ -1205,7 +1140,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				cfg.ForceUnits,
 				cfg.ResourceIDs,
 				cfg.StorageConstraints,
-				cfg.DeviceConstraints,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
