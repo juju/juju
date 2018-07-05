@@ -47,18 +47,16 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 					PodSpec:     "foo",
 					Tags:        map[string]string{"foo": "bar"},
 					Constraints: constraints.MustParse("mem=4G"),
-					Filesystems: []params.FilesystemParams{{
-						FilesystemTag: "filesystem-mysql-0-0",
-						Size:          uint64(100),
-						Provider:      "k8s",
-						Tags:          map[string]string{"tag": "resource"},
-						Attributes:    map[string]interface{}{"key": "value"},
-						Attachment: &params.FilesystemAttachmentParams{
-							FilesystemTag: "filesystem-mysql-0-0",
-							Provider:      "k8s",
-							MountPoint:    "/path/to/here",
-							ReadOnly:      true,
-							FilesystemId:  "id",
+					Filesystems: []params.KubernetesFilesystemParams{{
+						StorageName: "database",
+						Size:        uint64(100),
+						Provider:    "k8s",
+						Tags:        map[string]string{"tag": "resource"},
+						Attributes:  map[string]interface{}{"key": "value"},
+						Attachment: &params.KubernetesFilesystemAttachmentParams{
+							Provider:   "k8s",
+							MountPoint: "/path/to/here",
+							ReadOnly:   true,
 						}},
 					},
 				},
@@ -74,16 +72,14 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 		PodSpec:     "foo",
 		Tags:        map[string]string{"foo": "bar"},
 		Constraints: constraints.MustParse("mem=4G"),
-		Filesystems: []storage.FilesystemParams{{
-			Tag:          names.NewFilesystemTag("mysql/0/0"),
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName:  "database",
 			Size:         uint64(100),
 			Provider:     storage.ProviderType("k8s"),
 			ResourceTags: map[string]string{"tag": "resource"},
 			Attributes:   map[string]interface{}{"key": "value"},
-			Attachment: &storage.FilesystemAttachmentParams{
-				Filesystem:   names.NewFilesystemTag("mysql/0/0"),
-				FilesystemId: "id",
-				Path:         "/path/to/here",
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "/path/to/here",
 				AttachmentParams: storage.AttachmentParams{
 					Provider: storage.ProviderType("k8s"),
 					ReadOnly: true,

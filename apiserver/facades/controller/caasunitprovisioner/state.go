@@ -33,6 +33,8 @@ type StorageBackend interface {
 	FilesystemAttachment(names.Tag, names.FilesystemTag) (state.FilesystemAttachment, error)
 	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
 	UnitStorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error)
+	SetFilesystemInfo(names.FilesystemTag, state.FilesystemInfo) error
+	SetFilesystemAttachmentInfo(names.Tag, names.FilesystemTag, state.FilesystemAttachmentInfo) error
 }
 
 // Model provides the subset of CAAS model state required
@@ -41,6 +43,7 @@ type Model interface {
 	ModelConfig() (*config.Config, error)
 	PodSpec(tag names.ApplicationTag) (string, error)
 	WatchPodSpec(tag names.ApplicationTag) (state.NotifyWatcher, error)
+	Containers(providerIds ...string) ([]state.CloudContainer, error)
 }
 
 // Application provides the subset of application state

@@ -117,12 +117,17 @@ func (m *mockContainerBroker) WatchUnits(appName string) (watcher.NotifyWatcher,
 func (m *mockContainerBroker) Units(appName string) ([]caas.Unit, error) {
 	m.MethodCall(m, "Units", appName)
 	return []caas.Unit{
-		{
-			Id:      "u1",
-			Address: "10.0.0.1",
-			Status:  status.StatusInfo{Status: m.reportedUnitStatus},
+			{
+				Id:      "u1",
+				Address: "10.0.0.1",
+				Status:  status.StatusInfo{Status: m.reportedUnitStatus},
+				FilesystemInfo: []caas.FilesystemInfo{
+					{MountPoint: "/path-to-here", ReadOnly: true, StorageName: "database",
+						Size: 100, FilesystemId: "fs-id"},
+				},
+			},
 		},
-	}, m.NextErr()
+		m.NextErr()
 }
 
 type mockApplicationGetter struct {

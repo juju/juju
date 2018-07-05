@@ -7,7 +7,6 @@ import (
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -247,7 +246,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(unitSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
-		Name:      "fsvolume-0",
+		Name:      "juju-database-0",
 		MountPath: "path/to/here",
 	}}
 
@@ -269,7 +268,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			},
 			VolumeClaimTemplates: []core.PersistentVolumeClaim{{
 				ObjectMeta: v1.ObjectMeta{
-					Name:   "fsvolume-0",
+					Name:   "juju-database-0",
 					Labels: map[string]string{"juju-application": "test"}},
 				Spec: core.PersistentVolumeClaimSpec{
 					StorageClassName: &scName,
@@ -300,7 +299,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockPersistentVolumeClaims.EXPECT().Get("fsvolume-0", v1.GetOptions{}).
+		s.mockPersistentVolumeClaims.EXPECT().Get("juju-database-0", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().List(v1.ListOptions{LabelSelector: "juju-storage in (test-unit-storage, test, default)"}).
 			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{ObjectMeta: v1.ObjectMeta{Name: "sc"}}}}, nil),
@@ -318,10 +317,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 
 	params := &caas.ServiceParams{
 		PodSpec: basicPodspec,
-		Filesystems: []storage.FilesystemParams{{
-			Tag:  names.NewFilesystemTag("test/0/0"),
-			Size: 100,
-			Attachment: &storage.FilesystemAttachmentParams{
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
 				Path: "path/to/here",
 			},
 		}},

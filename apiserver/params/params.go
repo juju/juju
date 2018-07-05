@@ -562,13 +562,14 @@ type UpdateApplicationUnits struct {
 
 // ApplicationUnitParams holds unit parameters used to update a unit.
 type ApplicationUnitParams struct {
-	ProviderId string                 `json:"provider-id"`
-	UnitTag    string                 `json:"unit-tag"`
-	Address    string                 `json:"address"`
-	Ports      []string               `json:"ports"`
-	Status     string                 `json:"status"`
-	Info       string                 `json:"info"`
-	Data       map[string]interface{} `json:"data"`
+	ProviderId     string                     `json:"provider-id"`
+	UnitTag        string                     `json:"unit-tag"`
+	Address        string                     `json:"address"`
+	Ports          []string                   `json:"ports"`
+	FilesystemInfo []KubernetesFilesystemInfo `json:"filesystem-info,omitempty"`
+	Status         string                     `json:"status"`
+	Info           string                     `json:"info"`
+	Data           map[string]interface{}     `json:"data,omitempty"`
 }
 
 // UpdateApplicationServiceArgs holds the parameters for

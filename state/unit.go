@@ -122,7 +122,7 @@ func (u *Unit) ContainerInfo() (CloudContainer, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &cloudContainer{*doc}, nil
+	return &cloudContainer{doc: *doc, unitName: u.Name()}, nil
 }
 
 // ShouldBeAssigned returns whether the unit should be assigned to a machine.

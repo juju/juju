@@ -54,10 +54,16 @@ func formatFilesystemListTabular(writer io.Writer, infos map[string]FilesystemIn
 			filesystemAttachmentInfos = append(filesystemAttachmentInfos, filesystemAttachmentInfo)
 		}
 
-		for _, machineInfo := range info.Attachments.Containers {
+		for hostId, containerInfo := range info.Attachments.Containers {
 			filesystemAttachmentInfo := filesystemAttachmentInfo
-			filesystemAttachmentInfo.FilesystemAttachment = machineInfo
-			// TODO(caas) - fill out details
+			filesystemAttachmentInfo.FilesystemAttachment = containerInfo
+			for unitId, unitInfo := range info.Attachments.Units {
+				if hostId == unitId {
+					filesystemAttachmentInfo.UnitId = unitId
+					filesystemAttachmentInfo.UnitStorageAttachment = unitInfo
+					break
+				}
+			}
 			filesystemAttachmentInfos = append(filesystemAttachmentInfos, filesystemAttachmentInfo)
 		}
 	}
@@ -66,7 +72,7 @@ func formatFilesystemListTabular(writer io.Writer, infos map[string]FilesystemIn
 	if haveMachines {
 		print("Machine", "Unit", "Storage", "Id", "Volume", "Provider id", "Mountpoint", "Size", "State", "Message")
 	} else {
-		print("Unit", "Storage", "Id", "Volume", "Provider id", "Mountpoint", "Size", "State", "Message")
+		print("Unit", "Storage", "Id", "Provider id", "Mountpoint", "Size", "State", "Message")
 	}
 
 	for _, info := range filesystemAttachmentInfos {
@@ -84,7 +90,7 @@ func formatFilesystemListTabular(writer io.Writer, infos map[string]FilesystemIn
 		} else {
 			print(
 				info.UnitId, info.Storage,
-				info.FilesystemId, info.Volume, info.ProviderFilesystemId,
+				info.FilesystemId, info.ProviderFilesystemId,
 				info.MountPoint, size,
 				string(info.Status.Current), info.Status.Message,
 			)

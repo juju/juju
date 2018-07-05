@@ -908,7 +908,7 @@ func (sb *storageBackend) volumeParamsWithDefaults(params VolumeParams) (VolumeP
 			Size:  params.Size,
 			Count: 1,
 		}
-		poolName, err := defaultStoragePool(modelConfig, storage.StorageKindBlock, cons)
+		poolName, err := defaultStoragePool(sb.modelType, modelConfig, storage.StorageKindBlock, cons)
 		if err != nil {
 			return VolumeParams{}, errors.Annotate(err, "getting default block storage pool")
 		}

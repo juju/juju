@@ -4,7 +4,11 @@
 package caasunitprovisioner_test
 
 import (
+	"time"
+
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -26,6 +30,7 @@ var _ = gc.Suite(&CAASProvisionerSuite{})
 type CAASProvisionerSuite struct {
 	coretesting.BaseSuite
 
+	clock                   clock.Clock
 	st                      *mockState
 	storage                 *mockStorage
 	storageProviderRegistry *mockStorageProviderRegistry
@@ -59,7 +64,10 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 			life: state.Dying,
 		},
 	}
-	s.storage = &mockStorage{}
+	s.storage = &mockStorage{
+		storageFilesystems: make(map[names.StorageTag]names.FilesystemTag),
+		storageAttachments: make(map[names.UnitTag]names.StorageTag),
+	}
 	s.storageProviderRegistry = &mockStorageProviderRegistry{}
 	s.storagePoolManager = &mockStoragePoolManager{}
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.applicationsWatcher) })
@@ -71,9 +79,10 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
+	s.clock = testing.NewClock(time.Now())
 
 	facade, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, s.st, s.storage, s.storageProviderRegistry, s.storagePoolManager)
+		s.resources, s.authorizer, s.st, s.storage, s.storageProviderRegistry, s.storagePoolManager, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -83,7 +92,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, s.st, s.storage, s.storageProviderRegistry, s.storagePoolManager)
+		s.resources, s.authorizer, s.st, s.storage, s.storageProviderRegistry, s.storagePoolManager, s.clock)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -147,6 +156,8 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 	s.st.application.units = []caasunitprovisioner.Unit{
 		&mockUnit{name: "gitlab/0", life: state.Alive},
 	}
+	s.storage.storageFilesystems[names.NewStorageTag("data/0")] = names.NewFilesystemTag("gitlab/0/0")
+	s.storage.storageAttachments[names.NewUnitTag("gitlab/0")] = names.NewStorageTag("data/0")
 
 	results, err := s.facade.ProvisioningInfo(params.Entities{
 		Entities: []params.Entity{
@@ -159,17 +170,17 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 		Results: []params.KubernetesProvisioningInfoResult{{
 			Result: &params.KubernetesProvisioningInfo{
 				PodSpec: "spec(gitlab)",
-				Filesystems: []params.FilesystemParams{{
-					FilesystemTag: names.NewFilesystemTag("gitlab/0/0").String(),
-					Provider:      string(provider.K8s_ProviderType),
-					Size:          100,
-					Attributes:    map[string]interface{}{"foo": "bar"},
+				Filesystems: []params.KubernetesFilesystemParams{{
+					StorageName: "data",
+					Provider:    string(provider.K8s_ProviderType),
+					Size:        100,
+					Attributes:  map[string]interface{}{"foo": "bar"},
 					Tags: map[string]string{
 						"juju-storage-instance": "data/0",
 						"juju-storage-owner":    "gitlab",
 						"juju-model-uuid":       coretesting.ModelTag.Id(),
 						"juju-controller-uuid":  coretesting.ControllerTag.Id()},
-					Attachment: &params.FilesystemAttachmentParams{
+					Attachment: &params.KubernetesFilesystemAttachmentParams{
 						Provider:   string(provider.K8s_ProviderType),
 						MountPoint: "/path/to/here",
 						ReadOnly:   true,
@@ -281,23 +292,23 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnits(c *gc.C) {
 	})
 	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[1].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
-		ProviderId: strPtr("new-uuid"),
-		Address:    strPtr("new-address"), Ports: &[]string{"new-port"},
-		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "new message"},
-		AgentStatus: &status.StatusInfo{Status: status.Idle},
-	})
-	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
-	s.st.application.units[2].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("another-uuid"),
 		Address:    strPtr("another-address"), Ports: &[]string{"another-port"},
 		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "another message"},
 		AgentStatus: &status.StatusInfo{Status: status.Idle},
 	})
-	s.st.application.units[3].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
-	s.st.application.units[3].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
+	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
+	s.st.application.units[2].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("last-uuid"),
 		Address:    strPtr("last-address"), Ports: &[]string{"last-port"},
 		AgentStatus: &status.StatusInfo{Status: status.Error, Message: "last message"},
+	})
+	s.st.application.units[3].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
+	s.st.application.units[3].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
+		ProviderId: strPtr("new-uuid"),
+		Address:    strPtr("new-address"), Ports: &[]string{"new-port"},
+		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "new message"},
+		AgentStatus: &status.StatusInfo{Status: status.Idle},
 	})
 }
 
@@ -331,6 +342,114 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
 	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life")
 	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life")
 	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life")
+}
+
+func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
+	s.st.application.units = []caasunitprovisioner.Unit{
+		&mockUnit{name: "gitlab/0", containerInfo: &mockContainerInfo{providerId: "uuid"}, life: state.Alive},
+		&mockUnit{name: "gitlab/1", life: state.Alive},
+		&mockUnit{name: "gitlab/2", containerInfo: &mockContainerInfo{providerId: "gone-uuid"}, life: state.Alive},
+	}
+	s.st.model.containers = []state.CloudContainer{&mockContainerInfo{unitName: "gitlab/1", providerId: "another-uuid"}}
+	s.storage.storageFilesystems[names.NewStorageTag("data/0")] = names.NewFilesystemTag("gitlab/0/0")
+	s.storage.storageFilesystems[names.NewStorageTag("data/1")] = names.NewFilesystemTag("gitlab/1/0")
+	s.storage.storageFilesystems[names.NewStorageTag("data/2")] = names.NewFilesystemTag("gitlab/2/0")
+	s.storage.storageAttachments[names.NewUnitTag("gitlab/0")] = names.NewStorageTag("data/0")
+	s.storage.storageAttachments[names.NewUnitTag("gitlab/1")] = names.NewStorageTag("data/1")
+	s.storage.storageAttachments[names.NewUnitTag("gitlab/2")] = names.NewStorageTag("data/2")
+
+	units := []params.ApplicationUnitParams{
+		{ProviderId: "uuid", Address: "address", Ports: []string{"port"},
+			Status: "running", Info: "message",
+			FilesystemInfo: []params.KubernetesFilesystemInfo{
+				{StorageName: "data", FilesystemId: "fs-id", Size: 100, MountPoint: "/path/to/here", ReadOnly: true},
+			},
+		},
+		{ProviderId: "another-uuid", Address: "another-address", Ports: []string{"another-port"},
+			Status: "running", Info: "another message",
+			FilesystemInfo: []params.KubernetesFilesystemInfo{
+				{StorageName: "data", FilesystemId: "fs-id2", Size: 200, MountPoint: "/path/to/there", ReadOnly: true},
+			},
+		},
+	}
+	args := params.UpdateApplicationUnitArgs{
+		Args: []params.UpdateApplicationUnits{
+			{ApplicationTag: "application-gitlab", Units: units},
+		},
+	}
+	results, err := s.facade.UpdateApplicationsUnits(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+		},
+	})
+	s.st.application.CheckCallNames(c, "Life")
+	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
+	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
+		ProviderId: strPtr("uuid"),
+		Address:    strPtr("address"), Ports: &[]string{"port"},
+		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "message"},
+		AgentStatus: &status.StatusInfo{Status: status.Idle},
+	})
+	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
+	s.st.application.units[1].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
+		ProviderId: strPtr("another-uuid"),
+		Address:    strPtr("another-address"), Ports: &[]string{"another-port"},
+		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "another message"},
+		AgentStatus: &status.StatusInfo{Status: status.Idle},
+	})
+	s.storage.CheckCallNames(c,
+		"UnitStorageAttachments", "UnitStorageAttachments", "StorageInstance",
+		"UnitStorageAttachments", "StorageInstance", "Filesystem", "SetFilesystemInfo", "SetFilesystemAttachmentInfo",
+		"Filesystem", "SetFilesystemInfo", "SetFilesystemAttachmentInfo",
+		"Filesystem", "SetStatus", "Filesystem", "SetStatus", "Filesystem", "SetStatus")
+	s.storage.CheckCall(c, 0, "UnitStorageAttachments", names.NewUnitTag("gitlab/2"))
+	s.storage.CheckCall(c, 1, "UnitStorageAttachments", names.NewUnitTag("gitlab/0"))
+	s.storage.CheckCall(c, 2, "StorageInstance", names.NewStorageTag("data/0"))
+	s.storage.CheckCall(c, 3, "UnitStorageAttachments", names.NewUnitTag("gitlab/1"))
+	s.storage.CheckCall(c, 4, "StorageInstance", names.NewStorageTag("data/1"))
+
+	s.storage.CheckCall(c, 6, "SetFilesystemInfo",
+		names.NewFilesystemTag("gitlab/0/0"),
+		state.FilesystemInfo{
+			Size:         100,
+			FilesystemId: "fs-id",
+		})
+	s.storage.CheckCall(c, 7, "SetFilesystemAttachmentInfo",
+		names.NewUnitTag("gitlab/0"), names.NewFilesystemTag("gitlab/0/0"),
+		state.FilesystemAttachmentInfo{
+			MountPoint: "/path/to/here",
+			ReadOnly:   true,
+		})
+	s.storage.CheckCall(c, 9, "SetFilesystemInfo",
+		names.NewFilesystemTag("gitlab/1/0"),
+		state.FilesystemInfo{
+			Size:         200,
+			FilesystemId: "fs-id2",
+		})
+	s.storage.CheckCall(c, 10, "SetFilesystemAttachmentInfo",
+		names.NewUnitTag("gitlab/1"), names.NewFilesystemTag("gitlab/1/0"),
+		state.FilesystemAttachmentInfo{
+			MountPoint: "/path/to/there",
+			ReadOnly:   true,
+		})
+	now := s.clock.Now()
+	s.storage.CheckCall(c, 12, "SetStatus",
+		status.StatusInfo{
+			Status: status.Attached,
+			Since:  &now,
+		})
+	s.storage.CheckCall(c, 14, "SetStatus",
+		status.StatusInfo{
+			Status: status.Attached,
+			Since:  &now,
+		})
+	s.storage.CheckCall(c, 16, "SetStatus",
+		status.StatusInfo{
+			Status: status.Detached,
+			Since:  &now,
+		})
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsService(c *gc.C) {

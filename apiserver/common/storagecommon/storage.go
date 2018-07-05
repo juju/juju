@@ -228,9 +228,9 @@ func MaybeAssignedStorageInstance(
 	return nil, errors.Trace(err)
 }
 
-// storageTags returns the tags that should be set on a volume or filesystem,
+// StorageTags returns the tags that should be set on a volume or filesystem,
 // if the provider supports them.
-func storageTags(
+func StorageTags(
 	storageInstance state.StorageInstance,
 	modelUUID, controllerUUID string,
 	tagger tags.ResourceTagger,

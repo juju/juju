@@ -9,6 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -35,6 +36,7 @@ type Facade struct {
 	storage                 StorageBackend
 	storageProviderRegistry storage.ProviderRegistry
 	storagePoolManager      poolmanager.PoolManager
+	clock                   clock.Clock
 }
 
 // NewStateFacade provides the signature required for facade registration.
@@ -60,6 +62,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		sb,
 		registry,
 		pm,
+		clock.WallClock,
 	)
 }
 
@@ -71,6 +74,7 @@ func NewFacade(
 	sb StorageBackend,
 	storageProviderRegistry storage.ProviderRegistry,
 	storagePoolManager poolmanager.PoolManager,
+	clock clock.Clock,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
@@ -87,6 +91,7 @@ func NewFacade(
 		storage:                 sb,
 		storageProviderRegistry: storageProviderRegistry,
 		storagePoolManager:      storagePoolManager,
+		clock:                   clock,
 	}, nil
 }
 
@@ -243,12 +248,54 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	}, nil
 }
 
+func filesystemParams(
+	f state.Filesystem,
+	storageInstance state.StorageInstance,
+	modelUUID, controllerUUID string,
+	modelConfig *config.Config,
+	poolManager poolmanager.PoolManager,
+	registry storage.ProviderRegistry,
+) (params.KubernetesFilesystemParams, error) {
+
+	var pool string
+	var size uint64
+	if stateFilesystemParams, ok := f.Params(); ok {
+		pool = stateFilesystemParams.Pool
+		size = stateFilesystemParams.Size
+	} else {
+		filesystemInfo, err := f.Info()
+		if err != nil {
+			return params.KubernetesFilesystemParams{}, errors.Trace(err)
+		}
+		pool = filesystemInfo.Pool
+		size = filesystemInfo.Size
+	}
+
+	filesystemTags, err := storagecommon.StorageTags(storageInstance, modelUUID, controllerUUID, modelConfig)
+	if err != nil {
+		return params.KubernetesFilesystemParams{}, errors.Annotate(err, "computing storage tags")
+	}
+
+	providerType, cfg, err := storagecommon.StoragePoolConfig(pool, poolManager, registry)
+	if err != nil {
+		return params.KubernetesFilesystemParams{}, errors.Trace(err)
+	}
+	result := params.KubernetesFilesystemParams{
+		Provider:    string(providerType),
+		Attributes:  cfg.Attrs(),
+		Tags:        filesystemTags,
+		Size:        size,
+		StorageName: storageInstance.StorageName(),
+	}
+	return result, nil
+}
+
 // applicationFilesystemParams retrieves FilesystemParams for the filesystems
 // that should be provisioned with, and attached to, pods of the application.
 func (f *Facade) applicationFilesystemParams(
 	modelConfig *config.Config,
 	unitTag names.UnitTag,
-) ([]params.FilesystemParams, error) {
+) ([]params.KubernetesFilesystemParams, error) {
 	attachments, err := f.storage.UnitStorageAttachments(unitTag)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -261,7 +308,7 @@ func (f *Facade) applicationFilesystemParams(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	allFilesystemParams := make([]params.FilesystemParams, 0, len(attachments))
+	allFilesystemParams := make([]params.KubernetesFilesystemParams, 0, len(attachments))
 	for _, attachment := range attachments {
 		si, err := f.storage.StorageInstance(attachment.StorageInstance())
 		if err != nil {
@@ -271,7 +318,7 @@ func (f *Facade) applicationFilesystemParams(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		filesystemParams, err := storagecommon.FilesystemParams(
+		filesystemParams, err := filesystemParams(
 			fs, si, modelConfig.UUID(), controllerCfg.ControllerUUID(),
 			modelConfig, f.storagePoolManager, f.storageProviderRegistry,
 		)
@@ -298,7 +345,7 @@ func (f *Facade) applicationFilesystemParams(
 			location = filesystemAttachmentInfo.MountPoint
 			readOnly = filesystemAttachmentInfo.ReadOnly
 		}
-		filesystemAttachmentParams := params.FilesystemAttachmentParams{
+		filesystemAttachmentParams := params.KubernetesFilesystemAttachmentParams{
 			Provider:   filesystemParams.Provider,
 			MountPoint: location,
 			ReadOnly:   readOnly,
@@ -376,8 +423,8 @@ func (a *Facade) updateStatus(params params.ApplicationUnitParams) (
 	case status.Allocating:
 		// The container runtime has decided to restart the pod.
 		agentStatus = &status.StatusInfo{
-			Status:  status.Allocating,
-			Message: params.Info,
+			Status: status.Allocating,
+			//Message: params.Info,
 		}
 		unitStatus = &status.StatusInfo{
 			Status:  status.Waiting,
@@ -399,6 +446,8 @@ func (a *Facade) updateStatus(params params.ApplicationUnitParams) (
 			Data:    params.Data,
 		}
 	}
+	logger.Criticalf("AGENT STATUS: %v", agentStatus)
+	logger.Criticalf("UNIT STATUS: %v", unitStatus)
 	return agentStatus, unitStatus, nil
 }
 
@@ -406,8 +455,8 @@ func (a *Facade) updateStatus(params params.ApplicationUnitParams) (
 // source (typically a cloud update event) and merges that with the existing unit
 // data model in state. The passed in units are the complete set for the cloud, so
 // any existing units in state with provider ids which aren't in the set will be removed.
-// This method is used when the cloud manages the units rather than Juju.
 func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.ApplicationUnitParams) error {
+	logger.Debugf("unit updates: %#v", unitUpdates)
 	// Set up the initial data structures.
 	existingStateUnits, err := app.AllUnits()
 	if err != nil {
@@ -432,7 +481,7 @@ func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.Appl
 
 	unitInfo := &updateStateUnitParams{
 		stateUnitsInCloud: make(map[string]Unit),
-		deletedRemoved:    true,
+		deletedRemoved:    false,
 	}
 	var (
 		// aliveStateIds holds the provider ids of alive units in state.
@@ -491,6 +540,7 @@ func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.Appl
 	}
 	sort.Strings(extraIds)
 	extraIdIndex := 0
+	unassociatedUnitCount := len(unitInfo.unassociatedUnits)
 
 	for _, id := range ids {
 		u := cloudUnitsById[id]
@@ -499,6 +549,15 @@ func (a *Facade) updateUnitsFromCloud(app Application, unitUpdates []params.Appl
 			unitInfo.existingCloudUnits = append(unitInfo.existingCloudUnits, u)
 			continue
 		}
+
+		// First attempt to add any new cloud pod not yet represented in state
+		// to a unit which does not yet have a provider id.
+		if unassociatedUnitCount > 0 {
+			unassociatedUnitCount -= 1
+			unitInfo.addedCloudUnits = append(unitInfo.addedCloudUnits, u)
+			continue
+		}
+
 		// If there are units in state which used to be be associated with a pod
 		// but are now not, we give those state units a pod which is not
 		// associated with any unit. The pod may have been added new due to a scale
@@ -541,6 +600,15 @@ type updateStateUnitParams struct {
 	deletedRemoved     bool
 }
 
+type filesystemInfo struct {
+	unitTag      names.UnitTag
+	providerId   string
+	mountPoint   string
+	readOnly     bool
+	size         uint64
+	filesystemId string
+}
+
 func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitParams) error {
 
 	if app.Life() != state.Alive {
@@ -558,7 +626,23 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 	// generate the state update operations.
 	var unitUpdate state.UpdateUnitsOperation
 
+	filesystemUpdates := make(map[string]filesystemInfo)
+	filesystemStatus := make(map[string]status.StatusInfo)
+
 	for _, u := range unitInfo.removedUnits {
+		// If a unit is removed from the cloud, all filesystems are considered detached.
+		unitStorage, err := a.storage.UnitStorageAttachments(u.UnitTag())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, sa := range unitStorage {
+			fs, err := a.storage.StorageInstanceFilesystem(sa.StorageInstance())
+			if err != nil {
+				return errors.Trace(err)
+			}
+			filesystemStatus[fs.FilesystemTag().String()] = status.StatusInfo{Status: status.Detached}
+		}
+
 		if unitInfo.deletedRemoved {
 			unitUpdate.Deletes = append(unitUpdate.Deletes, u.DestroyOperation())
 			continue
@@ -571,16 +655,96 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 			Status:  status.Terminated,
 			Message: "unit stopped by the cloud",
 		}
+		agentStatus := &status.StatusInfo{
+			Status: status.Idle,
+		}
 		// And we'll reset the provider id - the pod may be restarted and we'll
 		// record the new id next time.
 		resetId := ""
 		updateProps := state.UnitUpdateProperties{
-			ProviderId: &resetId,
-			UnitStatus: unitStatus,
+			ProviderId:  &resetId,
+			UnitStatus:  unitStatus,
+			AgentStatus: agentStatus,
 		}
 		unitUpdate.Updates = append(unitUpdate.Updates,
 			u.UpdateOperation(updateProps))
 	}
+
+	processUnitParams := func(unitParams params.ApplicationUnitParams) (*state.UnitUpdateProperties, error) {
+		agentStatus, unitStatus, err := a.updateStatus(unitParams)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &state.UnitUpdateProperties{
+			ProviderId:  &unitParams.ProviderId,
+			Address:     &unitParams.Address,
+			Ports:       &unitParams.Ports,
+			AgentStatus: agentStatus,
+			UnitStatus:  unitStatus,
+		}, nil
+	}
+
+	processFilesystemParams := func(unitTag names.UnitTag, unitParams params.ApplicationUnitParams) error {
+		// Once a unit is available in the cluster, we consider
+		// its filesystem(s) to be attached since the unit is
+		// not considered ready until this happens.
+		filesystemInfoByName := make(map[string][]params.KubernetesFilesystemInfo)
+		for _, fsInfo := range unitParams.FilesystemInfo {
+			infos := filesystemInfoByName[fsInfo.StorageName]
+			infos = append(infos, fsInfo)
+			filesystemInfoByName[fsInfo.StorageName] = infos
+		}
+
+		for storageName, infos := range filesystemInfoByName {
+			logger.Debugf("updating storage %v for %v", storageName, unitTag)
+			if len(infos) == 0 {
+				continue
+			}
+
+			unitStorage, err := a.storage.UnitStorageAttachments(unitTag)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			// Loop over all the storage for the unit ans skip storage not
+			// relevant for storageName.
+			// TODO(caas) - Add storage bankend API to get all unit storage instances for a named storage.
+			for _, sa := range unitStorage {
+				si, err := a.storage.StorageInstance(sa.StorageInstance())
+				if errors.IsNotFound(err) {
+					logger.Warningf("ignoring non-existent storage instance %v for unit %v", sa.StorageInstance(), unitTag.Id())
+					continue
+				}
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if si.StorageName() != storageName {
+					continue
+				}
+				fs, err := a.storage.StorageInstanceFilesystem(sa.StorageInstance())
+				if err != nil {
+					return errors.Trace(err)
+				}
+				fsInfo := infos[0]
+				filesystemUpdates[fs.FilesystemTag().String()] = filesystemInfo{
+					unitTag:      unitTag,
+					providerId:   unitParams.ProviderId,
+					mountPoint:   fsInfo.MountPoint,
+					readOnly:     fsInfo.ReadOnly,
+					size:         fsInfo.Size,
+					filesystemId: fsInfo.FilesystemId,
+				}
+				filesystemStatus[fs.FilesystemTag().String()] = status.StatusInfo{Status: status.Attached}
+				infos = infos[1:]
+				if len(infos) == 0 {
+					break
+				}
+			}
+		}
+		return nil
+	}
+
+	var unitParamsWithFilesystemInfo []params.ApplicationUnitParams
 
 	for _, unitParams := range unitInfo.existingCloudUnits {
 		u, ok := unitInfo.stateUnitsInCloud[unitParams.UnitTag]
@@ -588,21 +752,15 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 			logger.Warningf("unexpected unit parameters %+v not in state", unitParams)
 			continue
 		}
-		agentStatus, unitStatus, err := a.updateStatus(unitParams)
+		updateProps, err := processUnitParams(unitParams)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		params := unitParams
-		updateProps := state.UnitUpdateProperties{
-			ProviderId:  &params.ProviderId,
-			Address:     &params.Address,
-			Ports:       &params.Ports,
-			AgentStatus: agentStatus,
-			UnitStatus:  unitStatus,
+		if len(unitParams.FilesystemInfo) > 0 {
+			unitParamsWithFilesystemInfo = append(unitParamsWithFilesystemInfo, unitParams)
 		}
-
 		unitUpdate.Updates = append(unitUpdate.Updates,
-			u.UpdateOperation(updateProps))
+			u.UpdateOperation(*updateProps))
 	}
 
 	// For newly added units in the cloud, either update state units which
@@ -610,35 +768,146 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 	// id as well), or add a brand new unit.
 	idx := 0
 	for _, unitParams := range unitInfo.addedCloudUnits {
-		agentStatus, unitStatus, err := a.updateStatus(unitParams)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		params := unitParams
-		updateProps := state.UnitUpdateProperties{
-			ProviderId:  &params.ProviderId,
-			Address:     &params.Address,
-			Ports:       &params.Ports,
-			AgentStatus: agentStatus,
-			UnitStatus:  unitStatus,
-		}
-
 		if idx < len(unitInfo.unassociatedUnits) {
 			u := unitInfo.unassociatedUnits[idx]
+			updateProps, err := processUnitParams(unitParams)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			unitUpdate.Updates = append(unitUpdate.Updates,
-				u.UpdateOperation(updateProps))
+				u.UpdateOperation(*updateProps))
 			idx += 1
+			if len(unitParams.FilesystemInfo) > 0 {
+				unitParamsWithFilesystemInfo = append(unitParamsWithFilesystemInfo, unitParams)
+			}
 			continue
 		}
 
+		// Process units added directly in the cloud instead of via Juju.
+		updateProps, err := processUnitParams(unitParams)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(unitParams.FilesystemInfo) > 0 {
+			unitParamsWithFilesystemInfo = append(unitParamsWithFilesystemInfo, unitParams)
+		}
 		unitUpdate.Adds = append(unitUpdate.Adds,
-			app.AddOperation(updateProps))
+			app.AddOperation(*updateProps))
 	}
 	err := app.UpdateUnits(&unitUpdate)
 	// We ignore any updates for dying applications.
 	if state.IsNotAlive(err) {
 		return nil
 	}
+
+	// Now update filesystem info - attachment data and status.
+	// For units added to the cloud directly, we first need to lookup the
+	// newly created unit tag from Juju using the cloud provider ids.
+	var providerIds []string
+	for _, unitParams := range unitParamsWithFilesystemInfo {
+		if unitParams.UnitTag == "" {
+			providerIds = append(providerIds, unitParams.ProviderId)
+		}
+	}
+	m, err := a.state.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var providerIdToUnit = make(map[string]names.UnitTag)
+	containers, err := m.Containers(providerIds...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, c := range containers {
+		providerIdToUnit[c.ProviderId()] = names.NewUnitTag(c.Unit())
+	}
+
+	for _, unitParams := range unitParamsWithFilesystemInfo {
+		var (
+			unitTag names.UnitTag
+			ok      bool
+		)
+		// For units added to the cloud directly, we first need to lookup the
+		// newly created unit tag from Juju using the cloud provider ids.
+		if unitParams.UnitTag == "" {
+			unitTag, ok = providerIdToUnit[unitParams.ProviderId]
+			if !ok {
+				logger.Warningf("cannot update filesystem data for unknown pod %q", unitParams.ProviderId)
+				continue
+			}
+		} else {
+			unitTag, _ = names.ParseUnitTag(unitParams.UnitTag)
+		}
+		if err := processFilesystemParams(unitTag, unitParams); err != nil {
+			return errors.Annotatef(err, "processing filesystem info for unit %q", unitTag.Id())
+		}
+	}
+
+	// Do it in sorted order so it's deterministic for tests.
+	var fsTags []string
+	for tag := range filesystemUpdates {
+		fsTags = append(fsTags, tag)
+	}
+	sort.Strings(fsTags)
+
+	logger.Debugf("updating filesystem data: %+v", filesystemUpdates)
+	for _, tagString := range fsTags {
+		fsTag, _ := names.ParseFilesystemTag(tagString)
+		fsData := filesystemUpdates[tagString]
+
+		fs, err := a.storage.Filesystem(fsTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// If we have already recorded the provisioning info,
+		// it's an error to try and do it again.
+		_, err = fs.Info()
+		if err != nil && !errors.IsNotProvisioned(err) {
+			return errors.Trace(err)
+		}
+		if err == nil {
+			// Provisioning info has already been set.
+			continue
+		}
+		err = a.storage.SetFilesystemInfo(fsTag, state.FilesystemInfo{
+			Size:         fsData.size,
+			FilesystemId: fsData.filesystemId,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		err = a.storage.SetFilesystemAttachmentInfo(fsData.unitTag, fsTag, state.FilesystemAttachmentInfo{
+			MountPoint: fsData.mountPoint,
+			ReadOnly:   fsData.readOnly,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Do it in sorted order so it's deterministic for tests.
+	fsTags = []string{}
+	for tag := range filesystemStatus {
+		fsTags = append(fsTags, tag)
+	}
+	sort.Strings(fsTags)
+
+	logger.Debugf("updating filesystem status: %+v", filesystemStatus)
+	for _, tagString := range fsTags {
+		fsTag, _ := names.ParseFilesystemTag(tagString)
+		fsStatus := filesystemStatus[tagString]
+		fs, err := a.storage.Filesystem(fsTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		now := a.clock.Now()
+		fs.SetStatus(status.StatusInfo{
+			Status: fsStatus.Status,
+			Since:  &now,
+		})
+	}
+
 	return err
 }
 

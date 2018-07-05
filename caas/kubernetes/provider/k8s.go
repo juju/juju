@@ -6,6 +6,7 @@ package provider
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
@@ -47,7 +48,6 @@ const (
 	labelStorage     = "juju-storage"
 	labelVersion     = "juju-version"
 	labelApplication = "juju-application"
-	labelUnit        = "juju-unit"
 
 	// Well known storage pool attributes.
 	jujuStorageClassKey = "juju-storage-class"
@@ -174,11 +174,11 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	// If there are none, that's ok, we'll just use ephemeral storage.
 	volStorageLabel := fmt.Sprintf("%s-operator-storage", appName)
 	params := volumeParams{
-		storageClassName: operatorStorageClassName,
-		storageLabels:    []string{volStorageLabel, k.namespace, "default"},
-		pvcName:          operatorVolumeClaim(appName),
-		volumeSize:       operatorStorageSize,
-		labels:           map[string]string{labelApplication: appName},
+		storageClassName:    operatorStorageClassName,
+		storageLabels:       []string{volStorageLabel, k.namespace, "default"},
+		pvcName:             operatorVolumeClaim(appName),
+		requestedVolumeSize: operatorStorageSize,
+		labels:              map[string]string{labelApplication: appName},
 	}
 	var (
 		storageVol *core.Volume
@@ -270,7 +270,7 @@ type volumeParams struct {
 	storageClassName         string
 	fallbackStorageClassName string
 	pvcName                  string
-	volumeSize               string
+	requestedVolumeSize      string
 	labels                   map[string]string
 	accessMode               core.PersistentVolumeAccessMode
 }
@@ -323,9 +323,9 @@ func (k *kubernetesClient) maybeGetVolumeClaimSpec(params volumeParams) (*core.P
 	if accessMode == "" {
 		accessMode = core.ReadWriteOnce
 	}
-	fsSize, err := resource.ParseQuantity(params.volumeSize)
+	fsSize, err := resource.ParseQuantity(params.requestedVolumeSize)
 	if err != nil {
-		return nil, false, errors.Annotatef(err, "invalid volume size %v", params.volumeSize)
+		return nil, false, errors.Annotatef(err, "invalid volume size %v", params.requestedVolumeSize)
 	}
 	return &core.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClassName,
@@ -483,27 +483,28 @@ func (k *kubernetesClient) EnsureService(
 }
 
 func (k *kubernetesClient) configureStorage(
-	podSpec *core.PodSpec, statefulsSet *apps.StatefulSetSpec, appName string, filesystems []storage.FilesystemParams,
+	podSpec *core.PodSpec, statefulsSet *apps.StatefulSetSpec, appName string, filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	baseDir, err := paths.StorageDir("kubernetes")
 	if err != nil {
 		return errors.Trace(err)
 	}
+	logger.Debugf("configuring pod filesystems: %+v", filesystems)
 	for i, fs := range filesystems {
 		var mountPath string
 		if fs.Attachment != nil {
 			mountPath = fs.Attachment.Path
 		}
 		if mountPath == "" {
-			mountPath = fmt.Sprintf("%s/fs/%s/%s", baseDir, appName, fs.Tag.Id())
+			mountPath = fmt.Sprintf("%s/fs/%s/%s/%d", baseDir, appName, fs.StorageName, i)
 		}
-		pvcName := fmt.Sprintf("fsvolume-%d", i)
+		pvcNamePrefix := fmt.Sprintf("juju-%s-%d", fs.StorageName, i)
 		volStorageLabel := fmt.Sprintf("%s-unit-storage", appName)
 		params := volumeParams{
-			storageLabels: []string{volStorageLabel, k.namespace, "default"},
-			pvcName:       pvcName,
-			volumeSize:    fmt.Sprintf("%dMi", fs.Size),
-			labels:        map[string]string{labelApplication: appName},
+			storageLabels:       []string{volStorageLabel, k.namespace, "default"},
+			pvcName:             pvcNamePrefix,
+			requestedVolumeSize: fmt.Sprintf("%dMi", fs.Size),
+			labels:              map[string]string{labelApplication: appName},
 		}
 		if storageClassName, ok := fs.Attributes[jujuStorageClassKey]; ok {
 			params.storageClassName = fmt.Sprintf("%v", storageClassName)
@@ -516,7 +517,7 @@ func (k *kubernetesClient) configureStorage(
 
 		pvcSpec, _, err := k.maybeGetVolumeClaimSpec(params)
 		if err != nil {
-			return errors.Annotatef(err, "finding volume for %s", fs.Tag.String())
+			return errors.Annotatef(err, "finding volume for %s", fs.StorageName)
 		}
 		pvc := core.PersistentVolumeClaim{
 			ObjectMeta: v1.ObjectMeta{
@@ -524,7 +525,7 @@ func (k *kubernetesClient) configureStorage(
 				Labels: params.labels},
 			Spec: *pvcSpec,
 		}
-		logger.Debugf("using persistent volume claim for %s filesystem %s: %+v", appName, fs.Tag.Id(), pvcSpec)
+		logger.Debugf("using persistent volume claim for %s filesystem %s: %+v", appName, fs.StorageName, pvcSpec)
 		statefulsSet.VolumeClaimTemplates = append(statefulsSet.VolumeClaimTemplates, pvc)
 		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
 			Name:      pvc.Name,
@@ -614,7 +615,7 @@ func (k *kubernetesClient) deleteDeployment(appName string) error {
 }
 
 func (k *kubernetesClient) configureStatefulSet(
-	appName string, unitSpec *unitSpec, containers []caas.ContainerSpec, replicas *int32, filesystems []storage.FilesystemParams,
+	appName string, unitSpec *unitSpec, containers []caas.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	logger.Debugf("creating/updating stateful set for %s", appName)
 
@@ -642,20 +643,37 @@ func (k *kubernetesClient) configureStatefulSet(
 	if err := k.configurePodFiles(&podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
+	existingPodSpec := podSpec
+
+	// Create a new stateful set with the necessary storage config.
 	if err := k.configureStorage(&podSpec, &statefulset.Spec, appName, filesystems); err != nil {
 		return errors.Annotatef(err, "configuring storage for %s", appName)
 	}
 	statefulset.Spec.Template.Spec = podSpec
-
-	return k.ensureStatefulSet(statefulset)
+	return k.ensureStatefulSet(statefulset, existingPodSpec)
 }
 
-func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet) error {
+func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPodSpec core.PodSpec) error {
 	statefulsets := k.AppsV1().StatefulSets(k.namespace)
 	_, err := statefulsets.Update(spec)
 	if k8serrors.IsNotFound(err) {
 		_, err = statefulsets.Create(spec)
 	}
+	if !k8serrors.IsInvalid(err) {
+		return errors.Trace(err)
+	}
+
+	// The statefulset already exists so all we are allowed to update is replicas,
+	// template, update strategy. Juju may hand out info with a slightly different
+	// requested volume size due to trying to adapt the unit model to the k8s world.
+	existing, err := statefulsets.Get(spec.Name, v1.GetOptions{IncludeUninitialized: true})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(caas) - allow extra storage to be added
+	existing.Spec.Replicas = spec.Spec.Replicas
+	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
+	_, err = statefulsets.Update(existing)
 	return errors.Trace(err)
 }
 
@@ -837,7 +855,12 @@ func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, er
 	return newKubernetesWatcher(w, appName)
 }
 
-// Units returns all units of the specified application.
+// jujuPVNameRegexp matches how Juju labels persistent volumes.
+// The pattern is: juju-<storagename>-<digit>
+var jujuPVNameRegexp = regexp.MustCompile(`^juju-(?P<storageName>\D+)-\d+$`)
+
+// Units returns all units and any associated filesystems of the specified application.
+// Filesystems are mounted via volumes bound to the unit.
 func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 	pods := k.CoreV1().Pods(k.namespace)
 	podsList, err := pods.List(v1.ListOptions{
@@ -846,7 +869,8 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var result []caas.Unit
+
+	var units []caas.Unit
 	now := time.Now()
 	for _, p := range podsList.Items {
 		var ports []string
@@ -856,6 +880,10 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 			}
 		}
 		terminated := p.DeletionTimestamp != nil
+		statusMessage := p.Status.Message
+		if statusMessage == "" && len(p.Status.Conditions) > 0 {
+			statusMessage = p.Status.Conditions[0].Message
+		}
 		unitInfo := caas.Unit{
 			Id:      string(p.UID),
 			Address: p.Status.PodIP,
@@ -863,22 +891,56 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 			Dying:   terminated,
 			Status: status.StatusInfo{
 				Status:  k.jujuStatus(p.Status.Phase, terminated),
-				Message: p.Status.Message,
+				Message: statusMessage,
 				Since:   &now,
 			},
 		}
-		// If the pod is a Juju unit label, it was created directly
-		// by Juju an we can extract the unit tag to include on the result.
-		unitLabel := p.Labels[labelUnit]
-		if strings.HasPrefix(unitLabel, "juju-") {
-			unitTag, err := names.ParseUnitTag(unitLabel[5:])
-			if err == nil {
-				unitInfo.UnitTag = unitTag.String()
-			}
+
+		volumesByName := make(map[string]core.Volume)
+		for _, pv := range p.Spec.Volumes {
+			volumesByName[pv.Name] = pv
 		}
-		result = append(result, unitInfo)
+
+		// Gather info about how filesystems are attached/mounted to the pod.
+		// The mount name represents the filesystem tag name used by Juju.
+		for _, volMount := range p.Spec.Containers[0].VolumeMounts {
+			valid := jujuPVNameRegexp.MatchString(volMount.Name)
+			if !valid {
+				logger.Debugf("ignoring non-Juju attachment %q", volMount.Name)
+				continue
+			}
+			storageName := jujuPVNameRegexp.ReplaceAllString(volMount.Name, "$storageName")
+
+			vol, ok := volumesByName[volMount.Name]
+			if !ok {
+				logger.Warningf("volume for volume mount %q not found", volMount.Name)
+				continue
+			}
+			if vol.PersistentVolumeClaim == nil {
+				// Ignore volumes which are not Juju managed filesystems.
+				continue
+			}
+			pvClaims := k.CoreV1().PersistentVolumeClaims(k.namespace)
+			pvc, err := pvClaims.Get(vol.PersistentVolumeClaim.ClaimName, v1.GetOptions{})
+			if k8serrors.IsNotFound(err) {
+				// Ignore claims which don't exist (yet).
+				continue
+			}
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			unitInfo.FilesystemInfo = append(unitInfo.FilesystemInfo, caas.FilesystemInfo{
+				StorageName:  storageName,
+				Size:         uint64(vol.PersistentVolumeClaim.Size()),
+				FilesystemId: string(pvc.UID),
+				MountPoint:   volMount.MountPath,
+				ReadOnly:     volMount.ReadOnly,
+			})
+		}
+		units = append(units, unitInfo)
 	}
-	return result, nil
+	return units, nil
 }
 
 func (k *kubernetesClient) jujuStatus(podPhase core.PodPhase, terminated bool) status.Status {
@@ -909,8 +971,7 @@ func (k *kubernetesClient) EnsureUnit(appName, unitName string, spec *caas.PodSp
 		ObjectMeta: v1.ObjectMeta{
 			Name: podName,
 			Labels: map[string]string{
-				labelApplication: appName,
-				labelUnit:        podName}},
+				labelApplication: appName}},
 		Spec: unitSpec.Pod,
 	}
 

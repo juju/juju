@@ -87,9 +87,9 @@ containers:
 		PodSpec:      &parsedSpec,
 		ResourceTags: map[string]string{"foo": "bar"},
 		Constraints:  constraints.MustParse("mem=4G"),
-		Filesystems: []storage.FilesystemParams{{
-			Tag:  names.NewFilesystemTag("gitlab/0/0"),
-			Size: 100,
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
 		}},
 	}
 )
@@ -121,9 +121,9 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		PodSpec:     containerSpec,
 		Tags:        map[string]string{"foo": "bar"},
 		Constraints: constraints.MustParse("mem=4G"),
-		Filesystems: []storage.FilesystemParams{{
-			Tag:  names.NewFilesystemTag("gitlab/0/0"),
-			Size: 100,
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
 		}},
 	})
 
@@ -582,7 +582,11 @@ func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expected status.Status
 		params.UpdateApplicationUnits{
 			ApplicationTag: names.NewApplicationTag("gitlab").String(),
 			Units: []params.ApplicationUnitParams{
-				{ProviderId: "u1", Address: "10.0.0.1", Ports: []string(nil), Status: expected.String()},
+				{ProviderId: "u1", Address: "10.0.0.1", Ports: []string(nil), Status: expected.String(),
+					FilesystemInfo: []params.KubernetesFilesystemInfo{
+						{StorageName: "database", MountPoint: "/path-to-here", ReadOnly: true,
+							FilesystemId: "fs-id", Size: 100, Pool: ""},
+					}},
 			},
 		},
 	})

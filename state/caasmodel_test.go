@@ -246,3 +246,26 @@ func (s *CAASModelSuite) TestDeployIAASApplication(c *gc.C) {
 	_, err := st.AddApplication(args)
 	c.Assert(err, gc.ErrorMatches, `cannot add application "foo": series "bionic" in a kubernetes model not valid`)
 }
+
+func (s *CAASModelSuite) TestContainers(c *gc.C) {
+	m, st := s.newCAASModel(c)
+	f := factory.NewFactory(st)
+	ch := f.MakeCharm(c, &factory.CharmParams{
+		Series: "kubernetes",
+	})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
+
+	_, err := app.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = app.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id2")})
+	c.Assert(err, jc.ErrorIsNil)
+
+	containers, err := m.Containers("provider-id1", "provider-id2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(containers, gc.HasLen, 2)
+	var unitNames []string
+	for _, c := range containers {
+		unitNames = append(unitNames, c.Unit())
+	}
+	c.Assert(unitNames, jc.SameContents, []string{app.Name() + "/0", app.Name() + "/1"})
+}

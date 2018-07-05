@@ -39,7 +39,7 @@ func VolumeParams(
 		size = volumeInfo.Size
 	}
 
-	volumeTags, err := storageTags(storageInstance, modelUUID, controllerUUID, environConfig)
+	volumeTags, err := StorageTags(storageInstance, modelUUID, controllerUUID, environConfig)
 	if err != nil {
 		return params.VolumeParams{}, errors.Annotate(err, "computing storage tags")
 	}

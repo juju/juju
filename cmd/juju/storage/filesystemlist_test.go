@@ -118,8 +118,8 @@ func (s *ListSuite) TestFilesystemListTabular(c *gc.C) {
 
 var expectedCAASFilesystemListTabular = `
 [Filesystems]
-Unit  Storage      Id   Volume  Provider id                       Mountpoint  Size    State     Message
-      db-dir/1001  0/0  0/1     provider-supplied-filesystem-0-0  /mnt/fuji   512MiB  attached  
+Unit     Storage      Id   Provider id                       Mountpoint  Size    State     Message
+mysql/0  db-dir/1001  0/0  provider-supplied-filesystem-0-0  /mnt/fuji   512MiB  attached  
 
 `[1:]
 
@@ -132,7 +132,6 @@ func (s *ListSuite) TestCAASFilesystemListTabular(c *gc.C) {
 		results := []params.FilesystemDetailsListResult{{Result: []params.FilesystemDetails{
 			{
 				FilesystemTag: "filesystem-0-0",
-				VolumeTag:     "volume-0-1",
 				Info: params.FilesystemInfo{
 					FilesystemId: "provider-supplied-filesystem-0-0",
 					Size:         512,
@@ -154,7 +153,7 @@ func (s *ListSuite) TestCAASFilesystemListTabular(c *gc.C) {
 					Life:       "alive",
 					Status:     createTestStatus(status.Attached, "", s.mockAPI.time),
 					Attachments: map[string]params.StorageAttachmentDetails{
-						"unit-abc-0": {
+						"unit-mysql-0": {
 							StorageTag: "storage-db-dir-1001",
 							UnitTag:    "unit-abc-0",
 							MachineTag: "machine-0",

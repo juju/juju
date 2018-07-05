@@ -166,15 +166,29 @@ func (aw *applicationWorker) loop() error {
 						}
 					}
 				}
-				args.Units = append(args.Units, params.ApplicationUnitParams{
+				unitParams := params.ApplicationUnitParams{
 					ProviderId: u.Id,
-					UnitTag:    u.UnitTag,
 					Address:    u.Address,
 					Ports:      u.Ports,
 					Status:     unitStatus.Status.String(),
 					Info:       unitStatus.Message,
 					Data:       unitStatus.Data,
-				})
+				}
+				// Fill in any filesystem info for volumes attached to the unit.
+				// A unit will not become active until all required volumes are
+				// provisioned, so it makes sense to send this information along
+				// with the units to which they are attached.
+				for _, info := range u.FilesystemInfo {
+					unitParams.FilesystemInfo = append(unitParams.FilesystemInfo, params.KubernetesFilesystemInfo{
+						StorageName:  info.StorageName,
+						FilesystemId: info.FilesystemId,
+						Size:         info.Size,
+						MountPoint:   info.MountPoint,
+						ReadOnly:     info.ReadOnly,
+					})
+
+				}
+				args.Units = append(args.Units, unitParams)
 			}
 			if err := aw.unitUpdater.UpdateUnits(args); err != nil {
 				// We can ignore not found errors as the worker will get stopped anyway.
