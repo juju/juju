@@ -144,7 +144,7 @@ func (s *serverFactory) LocalServer() (Server, error) {
 		s.localServer = svr
 		s.localServerAddress = hostName
 	}
-	return svr, err
+	return svr, errors.Trace(err)
 }
 
 func (s *serverFactory) LocalServerAddress() (string, error) {
@@ -177,8 +177,11 @@ func (s *serverFactory) RemoteServer(spec environs.CloudSpec) (Server, error) {
 		clientCert,
 	)
 	serverSpec.WithProxy(proxy.DefaultConfig.GetProxy)
-	prov, err := s.newRemoteServerFunc(serverSpec)
-	return prov, errors.Trace(err)
+	svr, err := s.newRemoteServerFunc(serverSpec)
+	if err == nil {
+		err = s.bootstrapRemoteServer(svr)
+	}
+	return svr, errors.Trace(err)
 }
 
 func (s *serverFactory) initLocalServer() (Server, error) {
@@ -262,26 +265,42 @@ func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error)
 		)
 	}
 
-	// One final request, to make sure we grab the server information for
-	// validating the api version
-	serverInfo, _, err := svr.GetServer()
-	if err != nil {
-		return nil, "", errors.Trace(err)
-	}
-
 	// If the server is not a simple simple stream server, don't check the
 	// API version, but do report for other scenarios
 	if connInfoProtocol != string(lxd.SimpleStreamsProtocol) {
-		apiVersion := serverInfo.APIVersion
-		if msg, ok := isSupportedAPIVersion(apiVersion); !ok {
-			logger.Warningf(msg)
-			logger.Warningf("trying to use unsupported LXD API version %q", apiVersion)
-		} else {
-			logger.Infof("using LXD API version %q", apiVersion)
+		if err := s.validateServer(svr); err != nil {
+			return nil, "", errors.Trace(err)
 		}
 	}
 
 	return svr, hostAddress, nil
+}
+
+func (s *serverFactory) bootstrapRemoteServer(svr Server) error {
+	if err := s.validateServer(svr); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (s *serverFactory) validateServer(svr Server) error {
+	// One final request, to make sure we grab the server information for
+	// validating the api version
+	serverInfo, _, err := svr.GetServer()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	apiVersion := serverInfo.APIVersion
+	if msg, ok := isSupportedAPIVersion(apiVersion); !ok {
+		logger.Warningf(msg)
+		logger.Warningf("trying to use unsupported LXD API version %q", apiVersion)
+	} else {
+		logger.Infof("using LXD API version %q", apiVersion)
+	}
+
+	return nil
 }
 
 func (s *serverFactory) Clock() clock.Clock {

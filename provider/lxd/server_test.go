@@ -331,6 +331,15 @@ func (s *serverSuite) TestRemoteServer(c *gc.C) {
 
 	factory, server := s.newRemoteServerFactory(ctrl)
 
+	serverInfo := &api.Server{
+		ServerUntrusted: api.ServerUntrusted{
+			APIVersion: "1.1",
+		},
+	}
+	etag := "etag"
+
+	server.EXPECT().GetServer().Return(serverInfo, etag, nil)
+
 	creds := cloud.NewCredential("any", map[string]string{
 		"client-cert": "client-cert",
 		"client-key":  "client-key",
@@ -360,6 +369,26 @@ func (s *serverSuite) TestRemoteServerMissingCertificates(c *gc.C) {
 	c.Assert(errors.Cause(err).Error(), gc.Equals, "credentials not valid")
 }
 
+func (s *serverSuite) TestRemoteServerWithGetServerError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	factory, server := s.newRemoteServerFactory(ctrl)
+
+	server.EXPECT().GetServer().Return(nil, "", errors.New("bad"))
+
+	creds := cloud.NewCredential("any", map[string]string{
+		"client-cert": "client-cert",
+		"client-key":  "client-key",
+		"server-cert": "server-cert",
+	})
+	_, err := factory.RemoteServer(environs.CloudSpec{
+		Endpoint:   "https://10.0.0.9:8443",
+		Credential: &creds,
+	})
+	c.Assert(errors.Cause(err).Error(), gc.Equals, "bad")
+}
+
 func (s *serverSuite) newLocalServerFactory(ctrl *gomock.Controller) (lxd.ServerFactory, *lxd.MockServer, *lxd.MockInterfaceAddress) {
 	server := lxd.NewMockServer(ctrl)
 	interfaceAddr := lxd.NewMockInterfaceAddress(ctrl)
@@ -376,7 +405,7 @@ func (s *serverSuite) newLocalServerFactory(ctrl *gomock.Controller) (lxd.Server
 	return factory, server, interfaceAddr
 }
 
-func (s *serverSuite) newRemoteServerFactory(ctrl *gomock.Controller) (lxd.ServerFactory, lxd.Server) {
+func (s *serverSuite) newRemoteServerFactory(ctrl *gomock.Controller) (lxd.ServerFactory, *lxd.MockServer) {
 	server := lxd.NewMockServer(ctrl)
 	interfaceAddr := lxd.NewMockInterfaceAddress(ctrl)
 
