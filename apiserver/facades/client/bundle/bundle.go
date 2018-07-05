@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -22,14 +22,14 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-type Facade struct {
+type BundleAPI struct {
 	backend    Backend
 	authorizer facade.Authorizer
 	ModelTag   names.ModelTag
 }
 
 // NewStateFacade provides the signature required for facade registration.
-func NewStateFacade(ctx facade.Context) (*Facade, error) {
+func NewStateFacade(ctx facade.Context) (*BundleAPI, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -43,8 +43,8 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 func NewFacade(
 	authorizer facade.Authorizer,
 	st Backend,
-) (*Facade, error) {
-	return &Facade{
+) (*BundleAPI, error) {
+	return &BundleAPI{
 		backend:    st,
 		authorizer: authorizer,
 	}, nil
@@ -53,7 +53,7 @@ func NewFacade(
 // GetChanges returns the list of changes required to deploy the given bundle
 // data. The changes are sorted by requirements, so that they can be applied in
 // order.
-func (b *Facade) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
+func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
 	var results params.BundleChangesResults
 	data, err := charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
 	if err != nil {
@@ -103,7 +103,7 @@ func (b *Facade) GetChanges(args params.BundleChangesParams) (params.BundleChang
 }
 
 // ExportBundle exports the current model configuration as bundle.
-func (b *Facade) ExportBundle() (params.StringResult, error) {
+func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 	model, err := b.backend.Export()
 	if err != nil {
 		return params.StringResult{}, errors.Trace(err)
