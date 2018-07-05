@@ -66,8 +66,13 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 		return nil
 	}
 
-	// Open a charm store client.
-	repo, err := openCSRepo(args)
+	// determine which charmstore api url to use.
+	controllerCfg, err := st.ControllerConfig()
+	if err != nil {
+		return err
+	}
+
+	repo, err := openCSRepo(controllerCfg.CharmStoreURL(), args)
 	if err != nil {
 		return err
 	}
@@ -133,8 +138,8 @@ func AddCharmWithAuthorization(st *state.State, args params.AddCharmWithAuthoriz
 	return StoreCharmArchive(st, ca)
 }
 
-func openCSRepo(args params.AddCharmWithAuthorization) (charmrepo.Interface, error) {
-	csClient, err := openCSClient(args)
+func openCSRepo(csURL string, args params.AddCharmWithAuthorization) (charmrepo.Interface, error) {
+	csClient, err := openCSClient(csURL, args)
 	if err != nil {
 		return nil, err
 	}
@@ -142,8 +147,8 @@ func openCSRepo(args params.AddCharmWithAuthorization) (charmrepo.Interface, err
 	return repo, nil
 }
 
-func openCSClient(args params.AddCharmWithAuthorization) (*csclient.Client, error) {
-	csURL, err := url.Parse(csclient.ServerURL)
+func openCSClient(csAPIURL string, args params.AddCharmWithAuthorization) (*csclient.Client, error) {
+	csURL, err := url.Parse(csAPIURL)
 	if err != nil {
 		return nil, err
 	}
@@ -278,8 +283,15 @@ func ResolveCharms(st *state.State, args params.ResolveCharms) (params.ResolveCh
 	if err != nil {
 		return params.ResolveCharmResults{}, err
 	}
+	controllerCfg, err := st.ControllerConfig()
+	if err != nil {
+		return params.ResolveCharmResults{}, err
+	}
+	csParams := csclient.Params{
+		URL: controllerCfg.CharmStoreURL(),
+	}
 	repo := config.SpecializeCharmRepo(
-		NewCharmStoreRepo(csclient.New(csclient.Params{})),
+		NewCharmStoreRepo(csclient.New(csParams)),
 		envConfig)
 
 	for _, ref := range args.References {

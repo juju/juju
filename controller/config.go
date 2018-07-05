@@ -14,6 +14,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
+	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 
@@ -68,6 +69,9 @@ const (
 
 	// CACertKey is the key for the controller's CA certificate attribute.
 	CACertKey = "ca-cert"
+
+	// CharmStoreURL is the key for the url to use for charmstore API calls
+	CharmStoreURL = "charmstore-url"
 
 	// ControllerUUIDKey is the key for the controller UUID attribute.
 	ControllerUUIDKey = "controller-uuid"
@@ -179,6 +183,7 @@ var (
 		AutocertDNSNameKey,
 		AutocertURLKey,
 		CACertKey,
+		CharmStoreURL,
 		ControllerUUIDKey,
 		IdentityPublicKey,
 		IdentityURL,
@@ -367,6 +372,11 @@ func (c Config) Features() set.Strings {
 		}
 	}
 	return features
+}
+
+// CharmStoreURL returns the URL to use for charmstore api calls.
+func (c Config) CharmStoreURL() string {
+	return c.asString(CharmStoreURL)
 }
 
 // ControllerUUID returns the uuid for the model's controller.
@@ -667,6 +677,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	JujuManagementSpace:     schema.String(),
 	CAASOperatorImagePath:   schema.String(),
 	Features:                schema.List(schema.String()),
+	CharmStoreURL:           schema.String(),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
@@ -689,4 +700,5 @@ var configChecker = schema.FieldMap(schema.Fields{
 	JujuManagementSpace:     schema.Omit,
 	CAASOperatorImagePath:   schema.Omit,
 	Features:                schema.Omit,
+	CharmStoreURL:           csclient.ServerURL,
 })

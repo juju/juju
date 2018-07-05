@@ -35,6 +35,7 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
@@ -43,6 +44,7 @@ import (
 	jjcharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -766,6 +768,7 @@ type charmStoreSuite struct {
 	testing.JujuConnSuite
 	handler              charmstore.HTTPCloseHandler
 	srv                  *httptest.Server
+	srvSession           *mgo.Session
 	client               *csclient.Client
 	discharger           *bakerytest.Discharger
 	termsDischarger      *bakerytest.Discharger
@@ -774,8 +777,6 @@ type charmStoreSuite struct {
 }
 
 func (s *charmStoreSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-
 	// Set up the third party discharger.
 	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond string, arg string) ([]checkers.Caveat, error) {
 		cookie, err := req.Cookie(clientUserCookie)
@@ -795,8 +796,15 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	})
 	s.termsString = ""
 
-	keyring := bakery.NewPublicKeyRing()
+	// Grab a db session to setup the charmstore with (so we can grab the
+	// URL to use for the controller config.)
+	srvSession, err := jujutesting.MgoServer.Dial()
+	c.Assert(err, gc.IsNil)
+	s.srvSession = srvSession
 
+	// Set up the testing charm store server.
+	db := s.srvSession.DB("juju-testing")
+	keyring := bakery.NewPublicKeyRing()
 	pk, err := httpbakery.PublicKeyForLocation(http.DefaultClient, s.discharger.Location())
 	c.Assert(err, gc.IsNil)
 	err = keyring.AddPublicKeyForLocation(s.discharger.Location(), true, pk)
@@ -807,8 +815,6 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 	err = keyring.AddPublicKeyForLocation(s.termsDischarger.Location(), true, pk)
 	c.Assert(err, gc.IsNil)
 
-	// Set up the charm store testing server.
-	db := s.Session.DB("juju-testing")
 	params := charmstore.ServerParams{
 		AuthUsername:     "test-user",
 		AuthPassword:     "test-password",
@@ -827,11 +833,19 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 		Password: params.AuthPassword,
 	})
 
+	// Set charmstore URL config so the config is set during bootstrap
+	if s.ControllerConfigAttrs == nil {
+		s.ControllerConfigAttrs = make(map[string]interface{})
+	}
+	s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
+	s.JujuConnSuite.SetUpTest(c)
+
 	// Initialize the charm cache dir.
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 
-	// Point the CLI to the charm store testing server.
-	s.PatchValue(&newCharmStoreClient, func(client *httpbakery.Client) *csclient.Client {
+	// Point the CLI to the charm store testing server, injecting a cookie of our choosing.
+	actualNewCharmStoreClient := newCharmStoreClient
+	s.PatchValue(&newCharmStoreClient, func(client *httpbakery.Client, _ string) *csclient.Client {
 		// Add a cookie so that the discharger can detect whether the
 		// HTTP client is the juju environment or the juju client.
 		lurl, err := url.Parse(s.discharger.Location())
@@ -840,10 +854,7 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 			Name:  clientUserCookie,
 			Value: clientUserName,
 		}})
-		return csclient.New(csclient.Params{
-			URL:          s.srv.URL,
-			BakeryClient: client,
-		})
+		return actualNewCharmStoreClient(client, s.srv.URL)
 	})
 
 	// Point the Juju API server to the charm store testing server.
@@ -854,6 +865,7 @@ func (s *charmStoreSuite) TearDownTest(c *gc.C) {
 	s.discharger.Close()
 	s.handler.Close()
 	s.srv.Close()
+	s.srvSession.Close()
 	s.JujuConnSuite.TearDownTest(c)
 }
 

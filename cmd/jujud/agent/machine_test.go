@@ -76,6 +76,7 @@ var _ = gc.Suite(&MachineSuite{})
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.AuditingEnabled: true,
+		controller.CharmStoreURL:   "staging.charmstore",
 	}
 	s.commonMachineSuite.SetUpTest(c)
 	// Most of these tests normally finish sub-second on a fast machine.

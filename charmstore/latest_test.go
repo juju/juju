@@ -66,7 +66,7 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 		{err: params.ErrUnauthorized},
 	}
 
-	client, err := newCachingClient(s.cache, nil, s.lowLevel.makeWrapper)
+	client, err := newCachingClient(s.cache, "", s.lowLevel.makeWrapper)
 	c.Assert(err, jc.ErrorIsNil)
 
 	metadata := map[string]string{

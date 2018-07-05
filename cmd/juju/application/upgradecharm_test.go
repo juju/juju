@@ -22,7 +22,6 @@ import (
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/charmrepo.v3/csclient"
 	csclientparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/charmstore.v5"
 	"gopkg.in/juju/names.v2"
@@ -138,8 +137,8 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 		apiOpen,
 		s.deployResources,
 		s.resolveCharm,
-		func(conn api.Connection, bakeryClient *httpbakery.Client, channel csclientparams.Channel) CharmAdder {
-			s.AddCall("NewCharmAdder", conn, bakeryClient, channel)
+		func(conn api.Connection, bakeryClient *httpbakery.Client, csURL string, channel csclientparams.Channel) CharmAdder {
+			s.AddCall("NewCharmAdder", conn, bakeryClient, csURL, channel)
 			s.PopNoErr()
 			return &s.charmAdder
 		},
@@ -160,6 +159,10 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 		func(conn api.Connection) (ResourceLister, error) {
 			s.AddCall("NewResourceLister", conn)
 			return &s.resourceLister, s.NextErr()
+		},
+		func(conn api.Connection) (string, error) {
+			s.AddCall("CharmStoreURLGetter", conn)
+			return "testing.api.charmstore", s.NextErr()
 		},
 	)
 }
@@ -182,6 +185,19 @@ func (s *UpgradeCharmSuite) TestStorageConstraints(c *gc.C) {
 			"bar": {Pool: "baz", Count: 1},
 		},
 	})
+}
+
+func (s *UpgradeCharmSuite) TestUseConfiguredCharmStoreURL(c *gc.C) {
+	_, err := s.runUpgradeCharm(c, "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	var csURL string
+	for _, call := range s.Calls() {
+		if call.FuncName == "NewCharmAdder" {
+			csURL = call.Args[2].(string)
+			break
+		}
+	}
+	c.Assert(csURL, gc.Equals, "testing.api.charmstore")
 }
 
 func (s *UpgradeCharmSuite) TestStorageConstraintsMinFacadeVersion(c *gc.C) {
@@ -252,11 +268,8 @@ func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	s.PatchValue(&newCharmStoreClient, func(bakeryClient *httpbakery.Client) *csclient.Client {
-		return csclient.New(csclient.Params{
-			URL:          s.srv.URL,
-			BakeryClient: bakeryClient,
-		})
+	s.PatchValue(&getCharmStoreAPIURL, func(api.Connection) (string, error) {
+		return s.srv.URL, nil
 	})
 }
 

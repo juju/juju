@@ -5,8 +5,6 @@ package application
 
 import (
 	"github.com/juju/cmd"
-	"gopkg.in/juju/charmrepo.v3/csclient"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -24,6 +22,7 @@ func NewUpgradeCharmCommandForTest(
 	newCharmUpgradeClient func(api.Connection) CharmUpgradeClient,
 	newModelConfigGetter func(api.Connection) ModelConfigGetter,
 	newResourceLister func(api.Connection) (ResourceLister, error),
+	charmStoreURLGetter func(api.Connection) (string, error),
 ) cmd.Command {
 	cmd := &upgradeCharmCommand{
 		DeployResources:       deployResources,
@@ -33,6 +32,7 @@ func NewUpgradeCharmCommandForTest(
 		NewCharmUpgradeClient: newCharmUpgradeClient,
 		NewModelConfigGetter:  newModelConfigGetter,
 		NewResourceLister:     newResourceLister,
+		CharmStoreURLGetter:   charmStoreURLGetter,
 	}
 	cmd.SetClientStore(store)
 	cmd.SetAPIOpen(apiOpen)
@@ -129,17 +129,4 @@ func NewRemoveSaasCommandForTest(api RemoveSaasAPI, store jujuclient.ClientStore
 	}}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
-}
-
-type Patcher interface {
-	PatchValue(dest, value interface{})
-}
-
-func PatchNewCharmStoreClient(s Patcher, url string) {
-	s.PatchValue(&newCharmStoreClient, func(bakeryClient *httpbakery.Client) *csclient.Client {
-		return csclient.New(csclient.Params{
-			URL:          url,
-			BakeryClient: bakeryClient,
-		})
-	})
 }

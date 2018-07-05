@@ -33,27 +33,29 @@ type MacaroonCache interface {
 }
 
 // NewCachingClient returns a Juju charm store client that stores and retrieves
-// macaroons for calls in the given cache. If not nil, the client will use server
-// as the charmstore url, otherwise it will default to the standard juju
+// macaroons for calls in the given cache. The client will use server as the
 // charmstore url.
-func NewCachingClient(cache MacaroonCache, server *url.URL) (Client, error) {
+func NewCachingClient(cache MacaroonCache, server string) (Client, error) {
 	return newCachingClient(cache, server, makeWrapper)
 }
 
 func newCachingClient(
 	cache MacaroonCache,
-	server *url.URL,
-	makeWrapper func(*httpbakery.Client, *url.URL) csWrapper,
+	server string,
+	makeWrapper func(*httpbakery.Client, string) (csWrapper, error),
 ) (Client, error) {
 	bakeryClient := &httpbakery.Client{
 		Client: httpbakery.NewHTTPClient(),
 	}
-	client := makeWrapper(bakeryClient, server)
-	server, err := url.Parse(client.ServerURL())
+	client, err := makeWrapper(bakeryClient, server)
 	if err != nil {
 		return Client{}, errors.Trace(err)
 	}
-	jar, err := newMacaroonJar(cache, server)
+	serverURL, err := url.Parse(client.ServerURL())
+	if err != nil {
+		return Client{}, errors.Trace(err)
+	}
+	jar, err := newMacaroonJar(cache, serverURL)
 	if err != nil {
 		return Client{}, errors.Trace(err)
 	}
@@ -68,27 +70,31 @@ func newCachingClient(
 // httpbakery.Client to store and retrieve macaroons.  If not nil, the client
 // will use server as the charmstore url, otherwise it will default to the
 // standard juju charmstore url.
-func NewCustomClient(bakeryClient *httpbakery.Client, server *url.URL) (Client, error) {
+func NewCustomClient(bakeryClient *httpbakery.Client, server string) (Client, error) {
 	return newCustomClient(bakeryClient, server, makeWrapper)
 }
 
 func newCustomClient(
 	bakeryClient *httpbakery.Client,
-	server *url.URL,
-	makeWrapper func(*httpbakery.Client, *url.URL) csWrapper,
+	server string,
+	makeWrapper func(*httpbakery.Client, string) (csWrapper, error),
 ) (Client, error) {
-	client := makeWrapper(bakeryClient, server)
+	client, err := makeWrapper(bakeryClient, server)
+	if err != nil {
+		return Client{}, errors.Trace(err)
+	}
 	return Client{csWrapper: client}, nil
 }
 
-func makeWrapper(bakeryClient *httpbakery.Client, server *url.URL) csWrapper {
+func makeWrapper(bakeryClient *httpbakery.Client, server string) (csWrapper, error) {
+	if server == "" {
+		return csclientImpl{}, errors.NotValidf("empty charmstore URL")
+	}
 	p := csclient.Params{
 		BakeryClient: bakeryClient,
+		URL:          server,
 	}
-	if server != nil {
-		p.URL = server.String()
-	}
-	return csclientImpl{csclient.New(p)}
+	return csclientImpl{csclient.New(p)}, nil
 }
 
 // Client wraps charmrepo/csclient (the charm store's API client

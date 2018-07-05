@@ -53,7 +53,11 @@ func newCharmstoreOpener(st *state.State) *charmstoreOpener {
 }
 
 func newCharmStoreClient(st *state.State) (charmstore.Client, error) {
-	return charmstore.NewCachingClient(state.MacaroonCache{st}, nil)
+	conConfig, err := st.ControllerConfig()
+	if err != nil {
+		return charmstore.Client{}, errors.Trace(err)
+	}
+	return charmstore.NewCachingClient(state.MacaroonCache{st}, conConfig.CharmStoreURL())
 }
 
 // NewClient opens a new charm store client.
