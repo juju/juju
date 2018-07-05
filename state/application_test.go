@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -2269,35 +2268,6 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc
 
 	// Ensure storage constraints and settings are now gone.
 	_, err = state.AppStorageConstraints(app)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	settings := state.GetApplicationCharmConfig(s.State, app)
-	err = settings.Read()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *ApplicationSuite) TestApplicationCleanupRemovesDeviceConstraints(c *gc.C) {
-	ch := s.AddTestingCharm(c, "bitcoin-miner")
-	devices := map[string]devices.Constraints{
-		"bitcoinminer": makeDeviceCons("nvidia.com/gpu", 10, nil),
-	}
-	app := s.AddTestingApplicationWithDevices(c, "bitcoin-miner", ch, devices)
-	u, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetCharmURL(ch.URL())
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(app.Destroy(), gc.IsNil)
-	assertLife(c, app, state.Dying)
-	assertCleanupCount(c, s.State, 2)
-
-	// These next API calls are normally done by the uniter.
-	err = u.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = u.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure devices constraints and settings are now gone.
-	_, err = state.AppDeviceConstraints(app)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	settings := state.GetApplicationCharmConfig(s.State, app)
 	err = settings.Read()
