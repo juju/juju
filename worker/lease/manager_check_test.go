@@ -23,8 +23,8 @@ var _ = gc.Suite(&TokenSuite{})
 
 func (s *TokenSuite) TestSuccess(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]corelease.Info{
-			"redis": {
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
 				Holder:   "redis/0",
 				Expiry:   offset(time.Second),
 				Trapdoor: corelease.LockedTrapdoor,
@@ -42,8 +42,8 @@ func (s *TokenSuite) TestMissingRefresh_Success(c *gc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "Refresh",
-			callback: func(leases map[string]corelease.Info) {
-				leases["redis"] = corelease.Info{
+			callback: func(leases map[corelease.Key]corelease.Info) {
+				leases[key("redis")] = corelease.Info{
 					Holder:   "redis/0",
 					Expiry:   offset(time.Second),
 					Trapdoor: corelease.LockedTrapdoor,
@@ -62,8 +62,8 @@ func (s *TokenSuite) TestOtherHolderRefresh_Success(c *gc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "Refresh",
-			callback: func(leases map[string]corelease.Info) {
-				leases["redis"] = corelease.Info{
+			callback: func(leases map[corelease.Key]corelease.Info) {
+				leases[key("redis")] = corelease.Info{
 					Holder:   "redis/0",
 					Expiry:   offset(time.Second),
 					Trapdoor: corelease.LockedTrapdoor,
@@ -95,8 +95,8 @@ func (s *TokenSuite) TestRefresh_Failure_OtherHolder(c *gc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "Refresh",
-			callback: func(leases map[string]corelease.Info) {
-				leases["redis"] = corelease.Info{
+			callback: func(leases map[corelease.Key]corelease.Info) {
+				leases[key("redis")] = corelease.Info{
 					Holder:   "redis/1",
 					Expiry:   offset(time.Second),
 					Trapdoor: corelease.LockedTrapdoor,

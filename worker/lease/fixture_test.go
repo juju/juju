@@ -67,7 +67,7 @@ type Fixture struct {
 
 	// leases contains the leases the corelease.Store should report when the
 	// test starts up.
-	leases map[string]corelease.Info
+	leases map[corelease.Key]corelease.Info
 
 	// expectCalls contains the calls that should be made to the corelease.Store
 	// in the course of a test. By specifying a callback you can cause the

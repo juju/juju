@@ -54,8 +54,8 @@ func (s *ClaimSuite) TestClaimLease_Success_SameHolder(c *gc.C) {
 				corelease.Request{"redis/0", time.Minute},
 			},
 			err: corelease.ErrInvalid,
-			callback: func(leases map[string]corelease.Info) {
-				leases["redis"] = corelease.Info{
+			callback: func(leases map[corelease.Key]corelease.Info) {
+				leases[key("redis")] = corelease.Info{
 					Holder: "redis/0",
 					Expiry: offset(time.Second),
 				}
@@ -91,8 +91,8 @@ func (s *ClaimSuite) TestClaimLease_Failure_OtherHolder(c *gc.C) {
 				corelease.Request{"redis/0", time.Minute},
 			},
 			err: corelease.ErrInvalid,
-			callback: func(leases map[string]corelease.Info) {
-				leases["redis"] = corelease.Info{
+			callback: func(leases map[corelease.Key]corelease.Info) {
+				leases[key("redis")] = corelease.Info{
 					Holder: "redis/1",
 					Expiry: offset(time.Second),
 				}
@@ -131,8 +131,8 @@ func (s *ClaimSuite) TestClaimLease_Failure_Error(c *gc.C) {
 
 func (s *ClaimSuite) TestExtendLease_Success(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]corelease.Info{
-			"redis": {
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -157,8 +157,8 @@ func (s *ClaimSuite) TestExtendLease_Success(c *gc.C) {
 
 func (s *ClaimSuite) TestExtendLease_Success_Expired(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]corelease.Info{
-			"redis": {
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -174,8 +174,8 @@ func (s *ClaimSuite) TestExtendLease_Success_Expired(c *gc.C) {
 				corelease.Request{"redis/0", time.Minute},
 			},
 			err: corelease.ErrInvalid,
-			callback: func(leases map[string]corelease.Info) {
-				delete(leases, "redis")
+			callback: func(leases map[corelease.Key]corelease.Info) {
+				delete(leases, key("redis"))
 			},
 		}, {
 			method: "ClaimLease",
@@ -197,8 +197,8 @@ func (s *ClaimSuite) TestExtendLease_Success_Expired(c *gc.C) {
 
 func (s *ClaimSuite) TestExtendLease_Failure_OtherHolder(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]corelease.Info{
-			"redis": {
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -214,8 +214,8 @@ func (s *ClaimSuite) TestExtendLease_Failure_OtherHolder(c *gc.C) {
 				corelease.Request{"redis/0", time.Minute},
 			},
 			err: corelease.ErrInvalid,
-			callback: func(leases map[string]corelease.Info) {
-				leases["redis"] = corelease.Info{
+			callback: func(leases map[corelease.Key]corelease.Info) {
+				leases[key("redis")] = corelease.Info{
 					Holder: "redis/1",
 					Expiry: offset(time.Second),
 				}
@@ -230,8 +230,8 @@ func (s *ClaimSuite) TestExtendLease_Failure_OtherHolder(c *gc.C) {
 
 func (s *ClaimSuite) TestExtendLease_Failure_Error(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]corelease.Info{
-			"redis": {
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
 				Holder: "redis/0",
 				Expiry: offset(time.Second),
 			},
@@ -239,11 +239,7 @@ func (s *ClaimSuite) TestExtendLease_Failure_Error(c *gc.C) {
 		expectCalls: []call{{
 			method: "ExtendLease",
 			args: []interface{}{
-				corelease.Key{
-					Namespace: "namespace",
-					ModelUUID: "modelUUID",
-					Lease:     "redis",
-				},
+				key("redis"),
 				corelease.Request{"redis/0", time.Minute},
 			},
 			err: errors.New("boom splat"),
@@ -260,8 +256,8 @@ func (s *ClaimSuite) TestExtendLease_Failure_Error(c *gc.C) {
 
 func (s *ClaimSuite) TestOtherHolder_Failure(c *gc.C) {
 	fix := &Fixture{
-		leases: map[string]corelease.Info{
-			"redis": {
+		leases: map[corelease.Key]corelease.Info{
+			key("redis"): {
 				Holder: "redis/1",
 				Expiry: offset(time.Second),
 			},

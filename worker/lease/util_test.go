@@ -45,7 +45,7 @@ func (Secretary) CheckDuration(duration time.Duration) error {
 
 // Store implements corelease.Store for testing purposes.
 type Store struct {
-	leases map[string]lease.Info
+	leases map[lease.Key]lease.Info
 	expect []call
 	failed string
 	done   chan struct{}
@@ -53,9 +53,9 @@ type Store struct {
 
 // NewStore initializes and returns a new store configured to report
 // the supplied leases and expect the supplied calls.
-func NewStore(leases map[string]lease.Info, expect []call) *Store {
+func NewStore(leases map[lease.Key]lease.Info, expect []call) *Store {
 	if leases == nil {
-		leases = make(map[string]lease.Info)
+		leases = make(map[lease.Key]lease.Info)
 	}
 	done := make(chan struct{})
 	if len(expect) == 0 {
@@ -86,11 +86,7 @@ func (store *Store) Wait(c *gc.C) {
 func (store *Store) Leases() map[lease.Key]lease.Info {
 	result := make(map[lease.Key]lease.Info)
 	for k, v := range store.leases {
-		result[lease.Key{
-			Namespace: "namespace",
-			ModelUUID: "modelUUID",
-			Lease:     k,
-		}] = v
+		result[k] = v
 	}
 	return result
 }
@@ -160,5 +156,21 @@ type call struct {
 	// callback, if non-nil, will be passed the internal leases dict; for
 	// modification, if desired. Otherwise you can use it to, e.g., assert
 	// clock time.
-	callback func(leases map[string]lease.Info)
+	callback func(leases map[lease.Key]lease.Info)
+}
+
+func key(args ...string) lease.Key {
+	result := lease.Key{
+		Namespace: "namespace",
+		ModelUUID: "modelUUID",
+		Lease:     "lease",
+	}
+	if len(args) == 1 {
+		result.Lease = args[0]
+	} else if len(args) == 3 {
+		result.Namespace = args[0]
+		result.ModelUUID = args[1]
+		result.Lease = args[2]
+	}
+	return result
 }

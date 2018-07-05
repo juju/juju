@@ -139,8 +139,8 @@ func (s *ValidationSuite) TestToken_OutPtr(c *gc.C) {
 	fix := &Fixture{
 		expectCalls: []call{{
 			method: "Refresh",
-			callback: func(leases map[string]corelease.Info) {
-				leases["redis"] = corelease.Info{
+			callback: func(leases map[corelease.Key]corelease.Info) {
+				leases[key("redis")] = corelease.Info{
 					Holder: "redis/0",
 					Expiry: offset(time.Second),
 					Trapdoor: func(gotKey interface{}) error {
