@@ -54,19 +54,23 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type DeploySuite struct {
+type DeploySuiteBase struct {
 	testing.RepoSuite
 	coretesting.CmdBlockHelper
 }
 
-var _ = gc.Suite(&DeploySuite{})
-
-func (s *DeploySuite) SetUpTest(c *gc.C) {
+func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
+
+type DeploySuite struct {
+	DeploySuiteBase
+}
+
+var _ = gc.Suite(&DeploySuite{})
 
 // runDeploy executes the deploy command in order to deploy the given
 // charm or bundle. The deployment stderr output and error are returned.
@@ -422,11 +426,32 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 	})
 }
 
-func (s *DeploySuite) TestDevices(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "bitcoin-miner")
-	err := runDeploy(c, ch, "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "trusty")
+type CAASDeploySuite struct {
+	DeploySuiteBase
+}
+
+var _ = gc.Suite(&CAASDeploySuite{})
+
+func (s *CAASDeploySuite) SetUpTest(c *gc.C) {
+	s.DeploySuiteBase.SetUpTest(c)
+
+	// Set up a CAAS model to replace the IAAS one.
+	st := s.Factory.MakeCAASModel(c, nil)
+	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+	// Close the state pool before the state object itself.
+	s.StatePool.Close()
+	s.StatePool = nil
+	err := s.State.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:trusty/miner-1")
+	s.State = st
+}
+
+func (s *CAASDeploySuite) TestDevices(c *gc.C) {
+	// ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "bitcoin-miner")
+	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/bitcoin-miner-1", "bitcoin-miner", "kubernetes")
+	err := runDeploy(c, ch, "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "kubernetes")
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL("local:kubernetes/miner-1")
 	application, _ := s.AssertApplication(c, "miner", curl, 1, 0)
 
 	cons, err := application.DeviceConstraints()

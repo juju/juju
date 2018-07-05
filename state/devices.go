@@ -4,7 +4,6 @@
 package state
 
 import (
-	humanize "github.com/dustin/go-humanize"
 	"github.com/juju/errors"
 	charm "gopkg.in/juju/charm.v6"
 	mgo "gopkg.in/mgo.v2"
@@ -22,8 +21,7 @@ func NewDeviceBackend(st *State) (*deviceBackend, error) {
 		return nil, errors.Trace(err)
 	}
 	return &deviceBackend{
-		mb: st,
-		// registry:    registry,  // TODO(ycliuhw): added device registry to interact with provider
+		mb:          st,
 		settings:    NewStateSettings(st),
 		modelType:   m.Type(),
 		config:      m.ModelConfig,
@@ -41,21 +39,19 @@ type deviceBackend struct {
 	machine     func(string) (*Machine, error)
 
 	modelType ModelType
-	// registry  devices.ProviderRegistry  TODO(ycliuhw)
-	settings *StateSettings
+	settings  *StateSettings
 }
 
 // deviceConstraintsDoc contains device constraints for an entity.
 type deviceConstraintsDoc struct {
 	DocID       string                         `bson:"_id"`
-	ModelUUID   string                         `bson:"model-uuid"`
 	Constraints map[string]devices.Constraints `bson:"constraints"`
 }
 
-func createDeviceConstraintsOp(key string, cons map[string]devices.Constraints) txn.Op {
+func createDeviceConstraintsOp(id string, cons map[string]devices.Constraints) txn.Op {
 	return txn.Op{
 		C:      deviceConstraintsC,
-		Id:     key,
+		Id:     id,
 		Assert: txn.DocMissing,
 		Insert: &deviceConstraintsDoc{
 			Constraints: cons,
@@ -63,39 +59,39 @@ func createDeviceConstraintsOp(key string, cons map[string]devices.Constraints) 
 	}
 }
 
-func replaceDeviceConstraintsOp(key string, cons map[string]devices.Constraints) txn.Op {
+func replaceDeviceConstraintsOp(id string, cons map[string]devices.Constraints) txn.Op {
 	return txn.Op{
 		C:      deviceConstraintsC,
-		Id:     key,
+		Id:     id,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"constraints", cons}}}},
 	}
 }
 
-func removeDeviceConstraintsOp(key string) txn.Op {
+func removeDeviceConstraintsOp(id string) txn.Op {
 	return txn.Op{
 		C:      deviceConstraintsC,
-		Id:     key,
+		Id:     id,
 		Remove: true,
 	}
 }
-func readDeviceConstraints(mb modelBackend, key string) (map[string]devices.Constraints, error) {
+func readDeviceConstraints(mb modelBackend, id string) (map[string]devices.Constraints, error) {
 	coll, closer := mb.db().GetCollection(deviceConstraintsC)
 	defer closer()
 
 	var doc deviceConstraintsDoc
-	err := coll.FindId(key).One(&doc)
+	err := coll.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("device constraints for %q", key)
+		return nil, errors.NotFoundf("device constraints for %q", id)
 	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get device constraints for %q", key)
+		return nil, errors.Annotatef(err, "cannot get device constraints for %q", id)
 	}
 	return doc.Constraints, nil
 }
 
-func validateDeviceConstraints(sb *deviceBackend, allCons map[string]devices.Constraints, charmMeta *charm.Meta) error {
-	err := validateDeviceConstraintsAgainstCharm(sb, allCons, charmMeta)
+func validateDeviceConstraints(db *deviceBackend, allCons map[string]devices.Constraints, charmMeta *charm.Meta) error {
+	err := validateDeviceConstraintsAgainstCharm(db, allCons, charmMeta)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -110,7 +106,7 @@ func validateDeviceConstraints(sb *deviceBackend, allCons map[string]devices.Con
 }
 
 func validateDeviceConstraintsAgainstCharm(
-	sb *deviceBackend,
+	db *deviceBackend,
 	allCons map[string]devices.Constraints,
 	charmMeta *charm.Meta,
 ) error {
@@ -129,11 +125,7 @@ func validateDeviceConstraintsAgainstCharm(
 
 func validateCharmDeviceCount(charmDevice charm.Device, count int64) error {
 	if charmDevice.CountMin > 0 && count < charmDevice.CountMin {
-		return errors.Errorf(
-			"minimum device size is %s, %s specified",
-			humanize.Bytes(uint64(charmDevice.CountMin)*humanize.MByte),
-			humanize.Bytes(uint64(count)*humanize.MByte),
-		)
+		return errors.Errorf("minimum device size is %d, %d specified", charmDevice.CountMin, count)
 	}
 	return nil
 }

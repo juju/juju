@@ -1,11 +1,11 @@
 services:
-    wordpress:
-        charm: wordpress-dashboard4miner
+    dashboard:
+        charm: dashboard4miner
         num_units: 1
     miner:
         charm: bitcoin-miner
         num_units: 1
         devices:
             bitcoinminer: 1,nvidia.com/gpu
-# relations:
-#     - ["wordpress:miner", "miner:miner"]
+relations:
+    - ["dashboard:miner", "miner:miner"]

@@ -757,10 +757,6 @@ func (a *Application) changeCharmOps(
 		return nil, errors.Trace(err)
 	}
 
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// Add or create a reference to the new charm, settings,
 	// and storage constraints docs.
 	incOps, err := appCharmIncRefOps(a.st, a.doc.Name, ch.URL(), true)
@@ -2131,7 +2127,7 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 	return cons, nil
 }
 
-// DeviceConstraints returns the storage constraints for the application.
+// DeviceConstraints returns the device constraints for the application.
 func (a *Application) DeviceConstraints() (map[string]devices.Constraints, error) {
 	cons, err := readDeviceConstraints(a.st, a.deviceConstraintsKey())
 	if errors.IsNotFound(err) {

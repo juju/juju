@@ -1,4 +1,4 @@
-name: miner
+name: bitcoin-miner
 summary: "bitcoin miner"
 description: "A powerful bitcoin miner"
 provides:
@@ -8,3 +8,5 @@ devices:
   bitcoinminer:
     type: nvidia.com/gpu
     count: 1
+series:
+  - kubernetes

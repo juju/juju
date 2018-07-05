@@ -175,30 +175,55 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
 	})
 }
 
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
-	_, minerCharm := testcharms.UploadCharm(c, s.client, "quantal/bitcoin-miner-1", "bitcoin-miner")
-	_, wpch := testcharms.UploadCharm(c, s.client, "quantal/wordpress-dashboard4miner-3", "wordpress")
-	testcharms.UploadBundle(c, s.client, "bundle/wordpress-dashboard-with-miner-backend-1", "wordpress-dashboard-with-miner-backend")
-	err := runDeploy(
-		c, "bundle/wordpress-dashboard-with-miner-backend",
+type CAASModelDeployCharmStoreSuite struct {
+	charmStoreSuite
+}
+
+func (s *CAASModelDeployCharmStoreSuite) SetUpTest(c *gc.C) {
+	s.charmStoreSuite.SetUpTest(c)
+
+	// Set up a CAAS model to replace the IAAS one.
+	st := s.Factory.MakeCAASModel(c, nil)
+	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+	// Close the state pool before the state object itself.
+	s.StatePool.Close()
+	s.StatePool = nil
+	err := s.State.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State = st
+}
+
+var _ = gc.Suite(&CAASModelDeployCharmStoreSuite{})
+
+func (s *CAASModelDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, minerCharm := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/bitcoin-miner-1", "bitcoin-miner", "kubernetes")
+	_, dashboardCharm := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/dashboard4miner-3", "dashboard4miner", "kubernetes")
+
+	testcharms.UploadBundle(c, s.client, "bundle/bitcoinminer-with-dashboard-1", "bitcoinminer-with-dashboard")
+	err = runDeploy(
+		c, "bundle/bitcoinminer-with-dashboard",
+		"-m", m.Name(),
 		"--device", "miner:bitcoinminer=10,nvidia.com/gpu", // override bitcoinminer
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "cs:quantal/bitcoin-miner-1", "cs:quantal/wordpress-dashboard4miner-3")
+	s.assertCharmsUploaded(c, "cs:kubernetes/bitcoin-miner", "cs:kubernetes/dashboard4miner")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"miner": {
-			charm:  "cs:quantal/bitcoin-miner-1",
+			charm:  "cs:kubernetes/bitcoin-miner",
 			config: minerCharm.Config().DefaultSettings(),
 			devices: map[string]devices.Constraints{
 				"bitcoinminer": {Type: "nvidia.com/gpu", Count: 10, Attributes: map[string]string{}},
 			},
 		},
-		"wordpress": {charm: "cs:quantal/wordpress-dashboard4miner-3", config: wpch.Config().DefaultSettings()},
+		"dashboard": {charm: "cs:kubernetes/dashboard4miner", config: dashboardCharm.Config().DefaultSettings()},
 	})
-	// s.assertRelationsEstablished(c, "wordpress:miner miner:miner")
+	s.assertRelationsEstablished(c, "dashboard:miner miner:miner")
 	s.assertUnitsCreated(c, map[string]string{
 		"miner/0":     "0",
-		"wordpress/0": "1",
+		"dashboard/0": "1",
 	})
 }
 

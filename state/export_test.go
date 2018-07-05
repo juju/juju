@@ -166,7 +166,7 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 }
 
 func AddTestingCharmForSeries(c *gc.C, st *State, series, name string) *Charm {
-	return addCharm(c, st, series, testcharms.Repo.CharmDir(name))
+	return addCharm(c, st, series, testcharms.RepoForSeries(series).CharmDir(name))
 }
 
 func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {

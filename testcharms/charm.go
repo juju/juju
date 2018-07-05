@@ -16,11 +16,18 @@ import (
 	"gopkg.in/juju/charmrepo.v3/testing"
 )
 
+const defaultSeries = "quantal"
+
 // Repo provides access to the test charm repository.
-var Repo = testing.NewRepo("charm-repo", "quantal")
+var Repo = testing.NewRepo("charm-repo", defaultSeries)
 
 // RepoForSeries returns a new charm repository for the specified series.
 func RepoForSeries(series string) *testing.Repo {
+	// TODO(ycliuhw): workaround - currently `quantal` is not exact series
+	// (for example, here makes deploy charm at charm-repo/quantal/mysql --series precise possible )!
+	if series != "kubernetes" {
+		series = defaultSeries
+	}
 	return testing.NewRepo("charm-repo", series)
 }
 
@@ -43,12 +50,17 @@ func UploadCharmWithMeta(c *gc.C, client *csclient.Client, charmURL, meta, metri
 	return chURL, ch
 }
 
-// UploadCharm uploads a charm using the given charm store client, and returns
+// UploadCharm sets default series to quantal
+func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL, charm.Charm) {
+	return UploadCharmWithSeries(c, client, url, name, defaultSeries)
+}
+
+// UploadCharmWithSeries uploads a charm using the given charm store client, and returns
 // the resulting charm URL and charm.
 //
 // It also adds any required resources that haven't already been uploaded
 // with the content "<resourcename> content".
-func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL, charm.Charm) {
+func UploadCharmWithSeries(c *gc.C, client *csclient.Client, url, name, series string) (*charm.URL, charm.Charm) {
 	id := charm.MustParseURL(url)
 	promulgatedRevision := -1
 	if id.User == "" {
@@ -56,7 +68,7 @@ func UploadCharm(c *gc.C, client *csclient.Client, url, name string) (*charm.URL
 		id.User = "who"
 		promulgatedRevision = id.Revision
 	}
-	ch := Repo.CharmArchive(c.MkDir(), name)
+	ch := RepoForSeries(series).CharmArchive(c.MkDir(), name)
 
 	// Upload the charm.
 	err := client.UploadCharmWithRevision(id, ch, promulgatedRevision)
