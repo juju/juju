@@ -116,15 +116,18 @@ func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 }
 
 // ExportBundle exports the current model configuration as bundle.
-func (b *BundleAPI) ExportBundle() ([]byte, error) {
+func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 	model, err := b.backend.Export()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return params.StringResult{}, errors.Trace(err)
 	}
 
 	bytes, err := description.Serialize(model)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return params.StringResult{}, errors.Trace(err)
 	}
-	return bytes, nil
+
+	return params.StringResult{
+		Result: string(bytes),
+	}, nil
 }

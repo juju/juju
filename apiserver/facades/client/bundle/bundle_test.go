@@ -14,12 +14,14 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type bundleSuite struct {
-	testing.JujuConnSuite
+	statetesting.StateSuite
 	api  *bundle.BundleAPI
 	auth facade.Authorizer
 }
@@ -40,7 +42,7 @@ func (ctx *bundleSuiteContext) Presence() facade.Presence   { return nil }
 func (ctx *bundleSuiteContext) Hub() facade.Hub             { return nil }
 
 func (s *bundleSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.StateSuite.SetUpTest(c)
 	s.auth = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("who"),
 	}
@@ -242,11 +244,15 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 }
 
 func (s *bundleSuite) TestExportBundleSuccess(c *gc.C) {
-	bytes, err := s.api.ExportBundle()
+	_ = s.Factory.MakeMachine(c, &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
+	})
+
+	str, err := s.api.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The bytes must be a valid model.
-	modelDesc, err := description.Deserialize(bytes)
+	modelDesc, err := description.Deserialize([]byte(str.Result))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelDesc.Validate(), jc.ErrorIsNil)
 }
