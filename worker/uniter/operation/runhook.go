@@ -156,7 +156,6 @@ func (rh *runHook) beforeHook(state State) error {
 		})
 	case hooks.PreSeriesUpgrade:
 		logger.Debugf("starting pre upgrade series hook. updating state of series upgrade.")
-		err = rh.callbacks.SetUpgradeSeriesStatus(params.UnitStarted)
 	}
 	if err != nil {
 		logger.Errorf("error updating workload status before %v hook: %v", rh.info.Kind, err)
@@ -206,6 +205,12 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 	case hooks.PreSeriesUpgrade:
 		logger.Debugf("completing pre upgrade series hook. updating state of series upgrade.")
 		err = rh.callbacks.SetUpgradeSeriesStatus(params.UnitCompleted)
+		if err != nil {
+			return false, err
+		}
+		err = ctx.SetUnitStatus(jujuc.StatusInfo{
+			Status: string(status.Unknown),
+		})
 	}
 	return hasRunStatusSet && err == nil, err
 }

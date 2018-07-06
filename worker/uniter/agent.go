@@ -37,7 +37,7 @@ func reportAgentError(u *Uniter, userMessage string, err error) {
 
 // setUpgradeSeriesStatus sets the upgrade series status
 func setUpgradeSeriesStatus(u *Uniter, status params.UnitSeriesUpgradeStatus) error {
-	//TODO[externalreality] lock this with mutex, there should be no way to
-	//issue two of these at once.
+	u.setStatusMutex.Lock()
+	defer u.setStatusMutex.Unlock()
 	return u.unit.SetUpgradeSeriesStatus(status)
 }

@@ -416,12 +416,15 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		case _, ok := <-trustConfigw.Changes():
 			err = configChanged(ok, &seenTrustConfigChange)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		case _, ok := <-upgradeSeriesw.Changes():
 			logger.Debugf("got upgrade series change")
 			if !ok {
 				return errors.New("upgrades series watcher closed")
+			}
+			if err := w.upgradeSeriesStatusChaged(); err != nil {
+				return errors.Trace(err)
 			}
 			observedEvent(&seenUpgradeSeriesChange)
 		case _, ok := <-addressesChanges:
@@ -552,6 +555,19 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		// Something changed.
 		fire()
 	}
+}
+
+// upgradeSeriesStatusChaged is called when the remote status of a series
+// upgrade changes.
+func (w *RemoteStateWatcher) upgradeSeriesStatusChaged() error {
+	w.mu.Lock()
+	status, err := w.unit.UpgradeSeriesStatus()
+	if err != nil {
+		return err
+	}
+	w.current.UpgradeSeriesStatus = status
+	w.mu.Unlock()
+	return nil
 }
 
 // updateStatusChanged is called when the update status timer expires.
