@@ -30,19 +30,9 @@ func (s *deadManagerSuite) TestWait(c *gc.C) {
 	c.Assert(deadManager.Wait(), gc.ErrorMatches, DeadManagerErrorMessage)
 }
 
-// This creates a new DeadManager, gets a CheckerClaimer using Bind,
-// and calls all of its exported methods with zero values. All methods
-// should return the error indicating that the manager is stopped.
-func (s *deadManagerSuite) TestBind(c *gc.C) {
-	deadManagerErr := deadManagerError{}
-	deadManager := lease.NewDeadManager(&deadManagerErr)
-
-	bound, err := deadManager.Bind("namespace", "model")
-	c.Assert(err, jc.ErrorIsNil)
-	checkMethods(c, bound)
-}
-
-// Similarly for Claimer.
+// This creates a new DeadManager, gets a Claimer, and calls all of
+// its exported methods with zero values. All methods should return
+// the error indicating that the manager is stopped.
 func (s *deadManagerSuite) TestClaimer(c *gc.C) {
 	deadManagerErr := deadManagerError{}
 	deadManager := lease.NewDeadManager(&deadManagerErr)

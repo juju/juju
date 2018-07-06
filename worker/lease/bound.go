@@ -11,9 +11,9 @@ import (
 	"github.com/juju/juju/core/lease"
 )
 
-// CheckerClaimer combines the lease.Checker and lease.Claimer
+// checkerClaimer combines the lease.Checker and lease.Claimer
 // interfaces.
-type CheckerClaimer interface {
+type checkerClaimer interface {
 	lease.Checker
 	lease.Claimer
 }

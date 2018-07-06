@@ -145,9 +145,7 @@ func (manager *Manager) choose(blocks blocks) error {
 	}
 }
 
-// Bind returns a CheckerClaimer that can handle leases specifically
-// for the given namespace and model.
-func (manager *Manager) Bind(namespace, modelUUID string) (CheckerClaimer, error) {
+func (manager *Manager) bind(namespace, modelUUID string) (checkerClaimer, error) {
 	secretary, err := manager.config.Secretary(namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -162,12 +160,12 @@ func (manager *Manager) Bind(namespace, modelUUID string) (CheckerClaimer, error
 
 // Checker returns a lease.Checker for the specified namespace and model.
 func (manager *Manager) Checker(namespace, modelUUID string) (lease.Checker, error) {
-	return manager.Bind(namespace, modelUUID)
+	return manager.bind(namespace, modelUUID)
 }
 
 // Claimer returns a lease.Claimer for the specified namespace and model.
 func (manager *Manager) Claimer(namespace, modelUUID string) (lease.Claimer, error) {
-	return manager.Bind(namespace, modelUUID)
+	return manager.bind(namespace, modelUUID)
 }
 
 // handleClaim processes and responds to the supplied claim. It will only return

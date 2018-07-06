@@ -181,38 +181,45 @@ func (ws *workers) allModelManager(pool *StatePool) *storeManager {
 	return ws.allModelManager(pool)
 }
 
-// lazyLeaseManager wraps one of workers.singularManager or
-// workers.leadershipManager, and calls it in the method calls.
-// This enables the manager to use restarted lease managers.
-type lazyLeaseManager struct {
-	leaseManager func() (lease.CheckerClaimer, error)
+// lazyLeaseClaimer wraps one of workers.singularManager.Claimer or
+// workers.leadershipManager.Claimer, and calls it in the method
+// calls. This enables the manager to use restarted lease managers.
+type lazyLeaseClaimer struct {
+	leaseClaimer func() (corelease.Claimer, error)
 }
 
 // Claim is part of the lease.Claimer interface.
-func (l lazyLeaseManager) Claim(leaseName, holderName string, duration time.Duration) error {
-	manager, err := l.leaseManager()
+func (l lazyLeaseClaimer) Claim(leaseName, holderName string, duration time.Duration) error {
+	claimer, err := l.leaseClaimer()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return manager.Claim(leaseName, holderName, duration)
+	return claimer.Claim(leaseName, holderName, duration)
 }
 
 // WaitUntilExpired is part of the lease.Claimer interface.
-func (l lazyLeaseManager) WaitUntilExpired(leaseName string, cancel <-chan struct{}) error {
-	manager, err := l.leaseManager()
+func (l lazyLeaseClaimer) WaitUntilExpired(leaseName string, cancel <-chan struct{}) error {
+	claimer, err := l.leaseClaimer()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return manager.WaitUntilExpired(leaseName, cancel)
+	return claimer.WaitUntilExpired(leaseName, cancel)
+}
+
+// lazyLeaseChecker wraps one of workers.singularManager.Checker or
+// workers.leadershipManager.Checker, and calls it in the method
+// calls. This enables the manager to use restarted lease managers.
+type lazyLeaseChecker struct {
+	leaseChecker func() (corelease.Checker, error)
 }
 
 // Token is part of the lease.Checker interface.
-func (l lazyLeaseManager) Token(leaseName, holderName string) corelease.Token {
-	manager, err := l.leaseManager()
+func (l lazyLeaseChecker) Token(leaseName, holderName string) corelease.Token {
+	checker, err := l.leaseChecker()
 	if err != nil {
 		return errorToken{err: errors.Trace(err)}
 	}
-	return manager.Token(leaseName, holderName)
+	return checker.Token(leaseName, holderName)
 }
 
 // errorToken is a token whose Check method always returns the given

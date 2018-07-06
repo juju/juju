@@ -13,8 +13,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/leadership"
-	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/worker/lease"
+	"github.com/juju/juju/core/lease"
 )
 
 func removeLeadershipSettingsOp(applicationId string) txn.Op {
@@ -29,9 +28,9 @@ func leadershipSettingsKey(applicationId string) string {
 // state's model.
 func (st *State) LeadershipClaimer() leadership.Claimer {
 	return leadershipClaimer{
-		lazyLeaseManager{func() (lease.CheckerClaimer, error) {
+		lazyLeaseClaimer{func() (lease.Claimer, error) {
 			manager := st.workers.leadershipManager()
-			return manager.Bind(applicationLeadershipNamespace, st.modelUUID())
+			return manager.Claimer(applicationLeadershipNamespace, st.modelUUID())
 		}},
 	}
 }
@@ -40,9 +39,9 @@ func (st *State) LeadershipClaimer() leadership.Claimer {
 // state's model.
 func (st *State) LeadershipChecker() leadership.Checker {
 	return leadershipChecker{
-		lazyLeaseManager{func() (lease.CheckerClaimer, error) {
+		lazyLeaseChecker{func() (lease.Checker, error) {
 			manager := st.workers.leadershipManager()
-			return manager.Bind(applicationLeadershipNamespace, st.modelUUID())
+			return manager.Checker(applicationLeadershipNamespace, st.modelUUID())
 		}},
 	}
 }
@@ -95,7 +94,7 @@ func (leadershipSecretary) CheckDuration(duration time.Duration) error {
 
 // leadershipChecker implements leadership.Checker by wrapping a lease.Checker.
 type leadershipChecker struct {
-	checker corelease.Checker
+	checker lease.Checker
 }
 
 // LeadershipCheck is part of the leadership.Checker interface.
@@ -108,17 +107,17 @@ func (m leadershipChecker) LeadershipCheck(applicationname, unitName string) lea
 	}
 }
 
-// leadershipToken implements leadership.Token by wrapping a corelease.Token.
+// leadershipToken implements leadership.Token by wrapping a lease.Token.
 type leadershipToken struct {
 	applicationname string
 	unitName        string
-	token           corelease.Token
+	token           lease.Token
 }
 
 // Check is part of the leadership.Token interface.
 func (t leadershipToken) Check(out interface{}) error {
 	err := t.token.Check(out)
-	if errors.Cause(err) == corelease.ErrNotHeld {
+	if errors.Cause(err) == lease.ErrNotHeld {
 		return errors.Errorf("%q is not leader of %q", t.unitName, t.applicationname)
 	}
 	return errors.Trace(err)
@@ -126,13 +125,13 @@ func (t leadershipToken) Check(out interface{}) error {
 
 // leadershipClaimer implements leadership.Claimer by wrappping a lease.Claimer.
 type leadershipClaimer struct {
-	claimer corelease.Claimer
+	claimer lease.Claimer
 }
 
 // ClaimLeadership is part of the leadership.Claimer interface.
 func (m leadershipClaimer) ClaimLeadership(applicationname, unitName string, duration time.Duration) error {
 	err := m.claimer.Claim(applicationname, unitName, duration)
-	if errors.Cause(err) == corelease.ErrClaimDenied {
+	if errors.Cause(err) == lease.ErrClaimDenied {
 		return leadership.ErrClaimDenied
 	}
 	return errors.Trace(err)
@@ -141,7 +140,7 @@ func (m leadershipClaimer) ClaimLeadership(applicationname, unitName string, dur
 // BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
 func (m leadershipClaimer) BlockUntilLeadershipReleased(applicationname string, cancel <-chan struct{}) error {
 	err := m.claimer.WaitUntilExpired(applicationname, cancel)
-	if errors.Cause(err) == corelease.ErrWaitCancelled {
+	if errors.Cause(err) == lease.ErrWaitCancelled {
 		return leadership.ErrBlockCancelled
 	}
 	return errors.Trace(err)
