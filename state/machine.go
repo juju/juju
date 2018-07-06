@@ -19,6 +19,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/instance"
@@ -217,41 +218,19 @@ type instanceData struct {
 // upgradeSeriesLock holds the attributes relevant to lock a machine during a
 // series update of a machine
 type upgradeSeriesLock struct {
-	Id             string                     `bson:"machineid"`
-	ToSeries       string                     `bson:"toseries"`
-	FromSeries     string                     `bson:"fromseries"`
-	PrepareStatus  MachineSeriesUpgradeStatus `bson:"preparestatus"`
-	PrepareUnits   []unitStatus               `bson:"prepareunits"`
-	CompleteStatus MachineSeriesUpgradeStatus `bson:"completestatus"`
-	CompleteUnits  []unitStatus               `bson:"completeunits"`
+	Id             string                            `bson:"machineid"`
+	ToSeries       string                            `bson:"toseries"`
+	FromSeries     string                            `bson:"fromseries"`
+	PrepareStatus  params.MachineSeriesUpgradeStatus `bson:"preparestatus"`
+	PrepareUnits   []unitStatus                      `bson:"prepareunits"`
+	CompleteStatus params.MachineSeriesUpgradeStatus `bson:"completestatus"`
+	CompleteUnits  []unitStatus                      `bson:"completeunits"`
 }
 
 type unitStatus struct {
 	Id     string
-	Status UnitSeriesUpgradeStatus
+	Status params.UnitSeriesUpgradeStatus
 }
-
-type MachineSeriesUpgradeStatus int
-
-//go:generate stringer -type MachineSeriesUpgradeStatus
-const (
-	NotStarted MachineSeriesUpgradeStatus = iota
-	Started
-	UnitsRunning
-	JujuComplete
-	AgentsStopped
-	Complete
-)
-
-type UnitSeriesUpgradeStatus int
-
-//go:generate stringer -type UnitSeriesUpgradeStatus
-const (
-	UnitNotStarted UnitSeriesUpgradeStatus = iota
-	UnitStarted
-	UnitErrored
-	UnitCompleted
-)
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
 	return &instance.HardwareCharacteristics{
@@ -2161,16 +2140,16 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 	prepareUnits := make([]unitStatus, len(unitNames))
 	completeUnits := make([]unitStatus, len(unitNames))
 	for i, name := range unitNames {
-		prepareUnits[i] = unitStatus{Id: name, Status: UnitNotStarted}
-		completeUnits[i] = unitStatus{Id: name, Status: UnitNotStarted}
+		prepareUnits[i] = unitStatus{Id: name, Status: params.UnitNotStarted}
+		completeUnits[i] = unitStatus{Id: name, Status: params.UnitNotStarted}
 	}
 	return &upgradeSeriesLock{
 		Id:             m.Id(),
 		ToSeries:       toSeries,
 		FromSeries:     m.Series(),
-		PrepareStatus:  NotStarted,
+		PrepareStatus:  params.NotStarted,
 		PrepareUnits:   prepareUnits,
-		CompleteStatus: NotStarted,
+		CompleteStatus: params.NotStarted,
 		CompleteUnits:  completeUnits,
 	}
 }
@@ -2204,7 +2183,7 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 }
 
 // UpgradeSeriesStatus returns the status of a series upgrade.
-func (m *Machine) UpgradeSeriesStatus() (string, error) {
+func (m *Machine) UpgradeSeriesStatus() (params.UnitSeriesUpgradeStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
@@ -2213,12 +2192,11 @@ func (m *Machine) UpgradeSeriesStatus() (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	s := fmt.Sprintf("%d", lock.PrepareUnits[0].Status)
-	return s, nil
+	return lock.PrepareUnits[0].Status, nil
 }
 
 // SetUpgradeSeriesStatus sets the status of a series upgrade.
-func (m *Machine) SetUpgradeSeriesStatus(unitName string, status string) (string, error) {
+func (m *Machine) SetUpgradeSeriesStatus(unitName string, status params.UnitSeriesUpgradeStatus) (string, error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2291,7 +2269,7 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 	}
 }
 
-func setUpgradeSeriesTxnOps(machineDocId, unitName string, unitIndex int, status string) []txn.Op {
+func setUpgradeSeriesTxnOps(machineDocId, unitName string, unitIndex int, status params.UnitSeriesUpgradeStatus) []txn.Op {
 	unitField := fmt.Sprintf("prepareunits.%d.status", unitIndex)
 	return []txn.Op{
 		{

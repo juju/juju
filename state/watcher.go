@@ -1647,7 +1647,7 @@ func (u *Unit) WatchUpgradeSeriesNotifications() (NotifyWatcher, error) {
 }
 
 // UpgradeSeriesStatus returns the upgrade status of the units assigned machine.
-func (u *Unit) UpgradeSeriesStatus() (string, error) {
+func (u *Unit) UpgradeSeriesStatus() (params.UnitSeriesUpgradeStatus, error) {
 	machine, err := u.machine()
 	if err != nil {
 		return "", err
@@ -1656,7 +1656,7 @@ func (u *Unit) UpgradeSeriesStatus() (string, error) {
 }
 
 // UpgradeSeriesStatus sets the upgrade status of the units assigned machine.
-func (u *Unit) SetUpgradeSeriesStatus(status string) (string, error) {
+func (u *Unit) SetUpgradeSeriesStatus(status params.UnitSeriesUpgradeStatus) (string, error) {
 	machine, err := u.machine()
 	if err != nil {
 		return "", err

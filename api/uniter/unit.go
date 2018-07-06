@@ -665,7 +665,7 @@ func (u *Unit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) 
 }
 
 // UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
-func (u *Unit) UpgradeSeriesStatus() (string, error) {
+func (u *Unit) UpgradeSeriesStatus() (params.UnitSeriesUpgradeStatus, error) {
 	var results params.UpgradeSeriesStatusResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
@@ -685,7 +685,7 @@ func (u *Unit) UpgradeSeriesStatus() (string, error) {
 }
 
 // UpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
-func (u *Unit) SetUpgradeSeriesStatus(status string) error {
+func (u *Unit) SetUpgradeSeriesStatus(status params.UnitSeriesUpgradeStatus) error {
 	var results params.UpgradeSeriesStatusResults
 	args := params.SetUpgradeSeriesStatusParams{
 		Entities: []params.Entity{{Tag: u.tag.String()}},

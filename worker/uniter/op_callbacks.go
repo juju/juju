@@ -124,6 +124,6 @@ func (opc *operationCallbacks) SetExecutingStatus(message string) error {
 }
 
 // SetUpgradeSeriesStatus is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) SetUpgradeSeriesStatus(upgradeSeriesStatus string) error {
+func (opc *operationCallbacks) SetUpgradeSeriesStatus(upgradeSeriesStatus params.UnitSeriesUpgradeStatus) error {
 	return setUpgradeSeriesStatus(opc.u, upgradeSeriesStatus)
 }

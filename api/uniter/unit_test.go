@@ -724,14 +724,13 @@ func (s *unitSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 	// First we create the prepare lock or the required state will not exists
 	s.CreateUpgradeSeriesLock(c)
 
-	newStatus := "newStatus"
-	err := s.apiUnit.SetUpgradeSeriesStatus(newStatus)
+	err := s.apiUnit.SetUpgradeSeriesStatus(params.UnitCompleted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check to see that the upgrade has been set appropriately
 	status, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, newStatus)
+	c.Assert(status, gc.Equals, params.UnitCompleted)
 }
 
 func (s *unitSuite) CreateUpgradeSeriesLock(c *gc.C) {

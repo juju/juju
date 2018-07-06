@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"gopkg.in/juju/charm.v6/hooks"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/common/charmrunner"
@@ -201,7 +202,7 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 		}
 	case hooks.PreSeriesUpgrade:
 		logger.Debugf("completing pre upgrade series hook. updating state of series upgrade.")
-		err = rh.callbacks.SetUpgradeSeriesStatus("ready")
+		err = rh.callbacks.SetUpgradeSeriesStatus(params.UnitCompleted)
 	}
 	return hasRunStatusSet && err == nil, err
 }

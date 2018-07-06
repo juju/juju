@@ -1278,8 +1278,8 @@ type DumpModelRequest struct {
 }
 
 type UpgradeSeriesStatusResult struct {
-	Error  *Error `json:"error,omitempty"`
-	Status string `json:"status,omitempty"`
+	Error  *Error                  `json:"error,omitempty"`
+	Status UnitSeriesUpgradeStatus `json:"status,omitempty"`
 }
 
 type UpgradeSeriesStatusResults struct {
@@ -1287,6 +1287,6 @@ type UpgradeSeriesStatusResults struct {
 }
 
 type SetUpgradeSeriesStatusParams struct {
-	Entities []Entity `json:"entities"`
-	Status   string   `json:"status"`
+	Entities []Entity                `json:"entities"`
+	Status   UnitSeriesUpgradeStatus `json:"status"`
 }

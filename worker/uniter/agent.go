@@ -3,7 +3,10 @@
 
 package uniter
 
-import "github.com/juju/juju/status"
+import (
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
+)
 
 // setAgentStatus sets the unit's status if it has changed since last time this method was called.
 func setAgentStatus(u *Uniter, agentStatus status.Status, info string, data map[string]interface{}) error {
@@ -33,7 +36,7 @@ func reportAgentError(u *Uniter, userMessage string, err error) {
 }
 
 // setUpgradeSeriesStatus sets the upgrade series status
-func setUpgradeSeriesStatus(u *Uniter, status string) error {
+func setUpgradeSeriesStatus(u *Uniter, status params.UnitSeriesUpgradeStatus) error {
 	//TODO[externalreality] lock this with mutex, there should be no way to
 	//issue two of these at once.
 	return u.unit.SetUpgradeSeriesStatus(status)

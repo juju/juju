@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
@@ -101,5 +102,5 @@ type LocalState struct {
 
 	// UpgradeSeriesStatus is the current state of any currently running
 	// series upgrade or the empty string if no series upgrade has been started.
-	UpgradeSeriesStatus string
+	UpgradeSeriesStatus params.UnitSeriesUpgradeStatus
 }

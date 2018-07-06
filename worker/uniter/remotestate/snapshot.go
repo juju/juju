@@ -73,7 +73,7 @@ type Snapshot struct {
 	Series string
 
 	// UpgradeSeriesStatus is the status of any currently running series upgrade
-	UpgradeSeriesStatus string
+	UpgradeSeriesStatus params.UnitSeriesUpgradeStatus
 }
 
 type RelationSnapshot struct {
