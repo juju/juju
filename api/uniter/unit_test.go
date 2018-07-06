@@ -724,17 +724,36 @@ func (s *unitSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 	// First we create the prepare lock or the required state will not exists
 	s.CreateUpgradeSeriesLock(c)
 
-	err := s.apiUnit.SetUpgradeSeriesStatus(params.UnitCompleted)
+	err := s.apiUnit.SetUpgradeSeriesStatus(params.UnitStarted)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check to see that the upgrade has been set appropriately
+	// Check to see that the upgrade status has been set appropriately
 	status, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, params.UnitCompleted)
+	c.Assert(status, gc.Equals, params.UnitStarted)
 }
 
-func (s *unitSuite) CreateUpgradeSeriesLock(c *gc.C) {
-	unitNames := []string{s.wordpressUnit.Name()}
+func (s *unitSuite) TestSetUpgradeSeriesStatusShouldOnlySetSpecifiedUnit(c *gc.C) {
+	// add another unit
+	unit2, err := s.wordpressApplication.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unit2.AssignToMachine(s.wordpressMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.CreateUpgradeSeriesLock(c, unit2.Name())
+
+	_, err = unit2.SetUpgradeSeriesStatus(params.UnitStarted)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err := s.wordpressUnit.UpgradeSeriesStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, params.UnitNotStarted)
+}
+
+func (s *unitSuite) CreateUpgradeSeriesLock(c *gc.C, additionalUnits ...string) {
+	unitNames := additionalUnits
+	unitNames = append(unitNames, s.wordpressUnit.Name())
 	series := "trust"
 
 	err := s.wordpressMachine.CreateUpgradeSeriesLock(unitNames, series)

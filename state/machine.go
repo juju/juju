@@ -2183,7 +2183,7 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 }
 
 // UpgradeSeriesStatus returns the status of a series upgrade.
-func (m *Machine) UpgradeSeriesStatus() (params.UnitSeriesUpgradeStatus, error) {
+func (m *Machine) UpgradeSeriesStatus(unitName string) (params.UnitSeriesUpgradeStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
@@ -2192,7 +2192,14 @@ func (m *Machine) UpgradeSeriesStatus() (params.UnitSeriesUpgradeStatus, error) 
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return lock.PrepareUnits[0].Status, nil
+
+	for _, unit := range lock.PrepareUnits {
+		if unit.Id == unitName {
+			return unit.Status, nil
+		}
+	}
+
+	return "", errors.NotFoundf("unit %q of machine %q", unitName, m.Id())
 }
 
 // SetUpgradeSeriesStatus sets the status of a series upgrade.
@@ -2219,7 +2226,7 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status params.UnitSeri
 		var lock upgradeSeriesLock
 		err = coll.FindId(m.Id()).One(&lock)
 		if err != nil {
-			return nil, fmt.Errorf("cannot get upgrade series lock for machine %v: %v", m.Id(), err)
+			return nil, errors.BadRequestf("Machine %q is not locked for upgrade", m)
 		}
 		docIndex := -1
 		for i, unitStatus := range lock.PrepareUnits {
@@ -2230,6 +2237,8 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status params.UnitSeri
 		if docIndex == -1 {
 			return nil, fmt.Errorf("cannot get upgrade series lock for unit %q of machine %v: %v", unitName, m.Id(), err)
 		}
+		logger.Debugf("Requested unit name: %q, Unit indexed %q", unitName, lock.PrepareUnits[docIndex].Id)
+
 		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, docIndex, status), nil
 	}
 	err := m.st.db().Run(buildTxn)
