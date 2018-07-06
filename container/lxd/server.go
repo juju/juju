@@ -14,7 +14,9 @@ import (
 // communicating with LXD via a local socket, by default.
 var osSupport = []os.OSType{os.Ubuntu}
 
-func hasSupport() bool {
+// HasSupport returns true if the current OS supports LXD containers by
+// default
+func HasSupport() bool {
 	t := os.HostOS()
 	for _, v := range osSupport {
 		if v == t {
@@ -41,7 +43,7 @@ type Server struct {
 // if running on an OS supporting LXD containers by default.
 // Otherwise a nil server is returned.
 func MaybeNewLocalServer() (*Server, error) {
-	if !hasSupport() {
+	if !HasSupport() {
 		return nil, nil
 	}
 	svr, err := NewLocalServer()

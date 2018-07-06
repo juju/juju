@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	containerLXD "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/provider/lxd/lxdnames"
@@ -112,6 +113,10 @@ func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
 }
 
 func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
+	if !containerLXD.HasSupport() {
+		c.Skip("To be rewritten during LXD code refactoring for cluster support")
+	}
+
 	s.Provider.Clock = &mockClock{now: time.Now()}
 	var ctx mockContext
 	s.PatchValue(&s.InterfaceAddr, "8.8.8.8")
