@@ -4,14 +4,13 @@
 package bundle_test
 
 import (
-	"github.com/juju/testing"
-
 	"github.com/juju/description"
+	"github.com/juju/testing"
+	"gopkg.in/juju/names.v2"
 )
 
 type mockState struct {
 	testing.Stub
-	model mockModel
 }
 
 func (m *mockState) Export() (description.Model, error) {
@@ -19,17 +18,22 @@ func (m *mockState) Export() (description.Model, error) {
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}
-	return m.model.desc, nil
+
+	args := description.ModelArgs{
+		Owner: names.NewUserTag("magic"),
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		CloudRegion: "some-region",
+	}
+	initial := description.NewModel(args)
+	initial.SetStatus(description.StatusArgs{Value: "available"})
+
+	return initial, nil
 }
 
 func newMockState() *mockState {
-	st := &mockState{
-		model: mockModel{},
-	}
+	st := &mockState{}
 	return st
-}
-
-type mockModel struct {
-	testing.Stub
-	desc description.Model
 }

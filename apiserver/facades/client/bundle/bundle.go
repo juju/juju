@@ -28,7 +28,7 @@ import (
 type BundleAPI struct {
 	backend    Backend
 	authorizer facade.Authorizer
-	ModelTag   names.ModelTag
+	modelTag   names.ModelTag
 }
 
 // NewStateFacade provides the signature required for facade registration.
@@ -56,12 +56,12 @@ func NewFacade(
 	return &BundleAPI{
 		backend:    st,
 		authorizer: authorizer,
-		ModelTag:modeltag,
+		modelTag:   modeltag,
 	}, nil
 }
 
 func (b *BundleAPI) checkCanRead() error {
-	canRead, err := b.authorizer.HasPermission(permission.ReadAccess, b.ModelTag)
+	canRead, err := b.authorizer.HasPermission(permission.ReadAccess, b.modelTag)
 	if err != nil {
 		return errors.Trace(err)
 	}

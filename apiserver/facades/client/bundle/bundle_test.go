@@ -4,11 +4,11 @@
 package bundle_test
 
 import (
+	"github.com/juju/description"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/description"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
@@ -19,9 +19,10 @@ import (
 type bundleSuite struct {
 	coretesting.BaseSuite
 
-	api  *bundle.BundleAPI
-	auth facade.Authorizer
-	st   *mockState
+	api      *bundle.BundleAPI
+	auth     facade.Authorizer
+	st       *mockState
+	modelTag names.ModelTag
 }
 
 var _ = gc.Suite(&bundleSuite{})
@@ -30,12 +31,12 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.auth = apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("who"),
+		Tag: names.NewUserTag("read"),
 	}
 
 	s.st = newMockState()
 
-	facade, err := bundle.NewFacade(s.auth, s.st)
+	facade, err := bundle.NewFacade(s.auth, s.st, names.ModelTag{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = facade
 }
@@ -236,7 +237,8 @@ func (s *bundleSuite) TestExportBundleSuccess(c *gc.C) {
 	model, err := s.st.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Assert(model.Validate(), jc.ErrorIsNil)
+
 	_, err = description.Serialize(model)
 	c.Check(err, jc.ErrorIsNil)
-	//TODO: need to validate the model.
 }
