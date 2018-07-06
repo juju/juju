@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-// bundleAPI implements the Bundle interface and is the concrete implementation
+// BundleAPI implements the Bundle interface and is the concrete implementation
 // of the API end point.
 type BundleAPI struct {
 	backend    Backend
@@ -39,22 +39,29 @@ func NewStateFacade(ctx facade.Context) (*BundleAPI, error) {
 	}
 
 	st := ctx.State()
-	return NewFacade(authorizer, stateShim{st})
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return NewFacade(authorizer, stateShim{st}, model.ModelTag())
 }
 
 // NewFacade provides the required signature for facade registration.
 func NewFacade(
 	authorizer facade.Authorizer,
 	st Backend,
+	modeltag names.ModelTag,
 ) (*BundleAPI, error) {
 	return &BundleAPI{
 		backend:    st,
 		authorizer: authorizer,
+		ModelTag:modeltag,
 	}, nil
 }
 
-func (b *BundleAPI) checkCanRead(m description.Model) error {
-	canRead, err := b.authorizer.HasPermission(permission.ReadAccess, m.Tag())
+func (b *BundleAPI) checkCanRead() error {
+	canRead, err := b.authorizer.HasPermission(permission.ReadAccess, b.ModelTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -118,12 +125,11 @@ func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 
 // ExportBundle exports the current model configuration as bundle.
 func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
-	model, err := b.backend.Export()
-	if err != nil {
+	if err := b.checkCanRead(); err != nil {
 		return params.StringResult{}, errors.Trace(err)
 	}
-
-	if err := b.checkCanRead(model); err != nil {
+	model, err := b.backend.Export()
+	if err != nil {
 		return params.StringResult{}, errors.Trace(err)
 	}
 
