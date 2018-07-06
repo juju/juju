@@ -269,7 +269,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 
 func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
 	pr := apiprovisioner.NewState(s.st)
-	cfg, err := provisioner.ContainerManagerConfig(instance.KVM, pr, s.agentConfig)
+	cfg, err := provisioner.ContainerManagerConfig(instance.KVM, pr)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg[container.ConfigModelUUID], gc.Equals, coretesting.ModelTag.Id())
 }
@@ -289,23 +289,23 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
 
-	current_os, err := series.GetOSFromSeries(series.MustHostSeries())
+	currentOs, err := series.GetOSFromSeries(series.MustHostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var ser string
-	var expected_initial []string
-	switch current_os {
+	var expectedInitial []string
+	switch currentOs {
 	case jujuos.CentOS:
 		ser = "centos7"
-		expected_initial = []string{
+		expectedInitial = []string{
 			"yum", "--assumeyes", "--debuglevel=1", "install"}
 	case jujuos.OpenSUSE:
 		ser = "opensuseleap"
-		expected_initial = []string{
+		expectedInitial = []string{
 			"zypper", " --quiet", "--non-interactive-include-reboot-patches", "install"}
 	default:
 		ser = "precise"
-		expected_initial = []string{
+		expectedInitial = []string{
 			"apt-get", "--option=Dpkg::Options::=--force-confold",
 			"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
 			"install"}
@@ -333,7 +333,7 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	for _, pack := range cont.packages {
 		select {
 		case cmd := <-s.aptCmdChan:
-			expected := append(expected_initial, pack...)
+			expected := append(expectedInitial, pack...)
 			c.Assert(cmd.Args, gc.DeepEquals, expected)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("took too long to get command from channel")
@@ -384,7 +384,7 @@ func (s *ContainerSetupSuite) TestContainerInitInstDataError(c *gc.C) {
 	abort := make(chan struct{})
 	close(abort)
 	err = handler.Handle(abort, []string{"0/lxd/0"})
-	c.Assert(err, gc.ErrorMatches, ".*initialising container infrastructure on host machine: instance data for machine.*not found")
+	c.Assert(err, gc.ErrorMatches, ".*generating container manager config: instance data for machine.*not found")
 
 }
 
