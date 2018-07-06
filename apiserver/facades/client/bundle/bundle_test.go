@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/permission"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -35,8 +36,9 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.st = newMockState()
+	s.modelTag = names.NewModelTag("some-uuid")
 
-	facade, err := bundle.NewFacade(s.auth, s.st, names.ModelTag{})
+	facade, err := bundle.NewFacade(s.auth, s.st, s.modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = facade
 }
@@ -234,6 +236,9 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 }
 
 func (s *bundleSuite) TestExportBundleSuccess(c *gc.C) {
+	_, err := s.auth.HasPermission(permission.ReadAccess, s.modelTag)
+	c.Assert(err, jc.ErrorIsNil)
+
 	model, err := s.st.Export()
 	c.Assert(err, jc.ErrorIsNil)
 

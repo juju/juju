@@ -20,7 +20,7 @@ func (m *mockState) Export() (description.Model, error) {
 	}
 
 	args := description.ModelArgs{
-		Owner: names.NewUserTag("magic"),
+		Owner: names.NewUserTag("read"),
 		Config: map[string]interface{}{
 			"name": "awesome",
 			"uuid": "some-uuid",
