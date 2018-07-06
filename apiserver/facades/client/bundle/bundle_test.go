@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/description"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
@@ -232,8 +233,10 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 }
 
 func (s *bundleSuite) TestExportBundleSuccess(c *gc.C) {
-	str, err := s.st.ExportBundle()
+	model, err := s.st.Export()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(str.Result), gc.Equals, 0)
-	//TODO: Need to add more check to validate the model.
+
+	_, err = description.Serialize(model)
+	c.Check(err, jc.ErrorIsNil)
+	//TODO: need to validate the model.
 }

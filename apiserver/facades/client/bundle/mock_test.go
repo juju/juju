@@ -4,28 +4,32 @@
 package bundle_test
 
 import (
-	"github.com/juju/juju/apiserver/facades/client/bundle"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/testing"
+
+	"github.com/juju/description"
 )
 
 type mockState struct {
 	testing.Stub
-	bundle.Backend
-	str params.StringResult
+	model mockModel
 }
 
-func (m *mockState) ExportBundle() (params.StringResult, error) {
-	m.MethodCall(m, "ExportBundle")
+func (m *mockState) Export() (description.Model, error) {
+	m.MethodCall(m, "Export")
 	if err := m.NextErr(); err != nil {
-		return params.StringResult{}, err
+		return nil, err
 	}
-
-	str := m.str
-	return str, nil
+	return m.model.desc, nil
 }
 
 func newMockState() *mockState {
-	st := &mockState{}
+	st := &mockState{
+		model: mockModel{},
+	}
 	return st
+}
+
+type mockModel struct {
+	testing.Stub
+	desc description.Model
 }

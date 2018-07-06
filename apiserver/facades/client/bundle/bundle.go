@@ -19,9 +19,12 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/storage"
 )
 
+// bundleAPI implements the Bundle interface and is the concrete implementation
+// of the API end point.
 type BundleAPI struct {
 	backend    Backend
 	authorizer facade.Authorizer
@@ -48,6 +51,17 @@ func NewFacade(
 		backend:    st,
 		authorizer: authorizer,
 	}, nil
+}
+
+func (b *BundleAPI) checkCanRead(m description.Model) error {
+	canRead, err := b.authorizer.HasPermission(permission.ReadAccess, m.Tag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canRead {
+		return common.ErrPerm
+	}
+	return nil
 }
 
 // GetChanges returns the list of changes required to deploy the given bundle
@@ -106,6 +120,10 @@ func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 	model, err := b.backend.Export()
 	if err != nil {
+		return params.StringResult{}, errors.Trace(err)
+	}
+
+	if err := b.checkCanRead(model); err != nil {
 		return params.StringResult{}, errors.Trace(err)
 	}
 
