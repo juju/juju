@@ -554,7 +554,7 @@ func createVolumeDetails(
 					stateInfo,
 				)
 			}
-			details.MachineAttachments[attachment.Machine().String()] = attDetails
+			details.MachineAttachments[attachment.Host().String()] = attDetails
 		}
 	}
 

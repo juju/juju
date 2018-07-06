@@ -745,10 +745,10 @@ func cleanupDyingMachineResources(m *Machine) error {
 		return errors.Trace(err)
 	}
 
-	// Destroy non-detachable machine filesystems first.
-	filesystems, err := sb.filesystems(bson.D{{"machineid", m.Id()}})
+	// Destroy non-detachable machine/unit filesystems first.
+	filesystems, err := sb.filesystems(bson.D{{"hostid", m.Id()}})
 	if err != nil {
-		return errors.Annotate(err, "getting machine filesystems")
+		return errors.Annotate(err, "getting host filesystems")
 	}
 	for _, f := range filesystems {
 		if err := sb.DestroyFilesystem(f.FilesystemTag()); err != nil {
@@ -843,7 +843,7 @@ func cleanupDyingMachineResources(m *Machine) error {
 			// Non-detachable volumes will be removed along with the machine.
 			continue
 		}
-		if err := sb.DetachVolume(va.Machine(), va.Volume()); err != nil {
+		if err := sb.DetachVolume(va.Host(), va.Volume()); err != nil {
 			if IsContainsFilesystem(err) {
 				// The volume will be destroyed when the
 				// contained filesystem is removed, whose
@@ -942,12 +942,12 @@ func (st *State) cleanupAttachmentsForDyingVolume(volumeId string) (err error) {
 	}
 
 	var doc volumeAttachmentDoc
-	fields := bson.D{{"machineid", 1}}
+	fields := bson.D{{"hostid", 1}}
 	iter := coll.Find(bson.D{{"volumeid", volumeId}}).Select(fields).Iter()
 	defer closeIter(iter, &err, "reading volume attachment document")
 	for iter.Next(&doc) {
-		machineTag := names.NewMachineTag(doc.Machine)
-		if err := sb.DetachVolume(machineTag, volumeTag); err != nil {
+		hostTag := storageAttachmentHost(doc.Host)
+		if err := sb.DetachVolume(hostTag, volumeTag); err != nil {
 			return errors.Annotate(err, "destroying volume attachment")
 		}
 	}
@@ -973,18 +973,11 @@ func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) (err 
 	defer closer()
 
 	var doc filesystemAttachmentDoc
-	// TODO(caas) - consolidate machineidand hostid
-	fields := bson.D{{"machineid", 1}, {"hostid", 1}}
+	fields := bson.D{{"hostid", 1}}
 	iter := coll.Find(bson.D{{"filesystemid", filesystemId}}).Select(fields).Iter()
 	defer closeIter(iter, &err, "reading filesystem attachment document")
 	for iter.Next(&doc) {
-		var host string
-		if doc.Host != "" {
-			host = doc.Host
-		} else {
-			host = doc.Machine
-		}
-		hostTag := filesystemAttachmentHost(host)
+		hostTag := storageAttachmentHost(doc.Host)
 		if err := sb.DetachFilesystem(hostTag, filesystemTag); err != nil {
 			return errors.Annotate(err, "destroying filesystem attachment")
 		}

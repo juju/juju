@@ -1204,7 +1204,7 @@ func (sb *storageBackend) DetachStorage(storage names.StorageTag, unit names.Uni
 				ops = append(ops, txn.Op{
 					C: volumeAttachmentsC,
 					Id: volumeAttachmentId(
-						volumeAttachment.Machine().Id(),
+						volumeAttachment.Host().Id(),
 						volumeAttachment.Volume().Id(),
 					),
 					Assert: assert,

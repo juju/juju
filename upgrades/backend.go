@@ -46,6 +46,7 @@ type StateBackend interface {
 	RemoveVotingMachineIds() error
 	AddCloudModelCounts() error
 	ReplicaSetMembers() ([]replicaset.Member, error)
+	MigrateStorageMachineIdFields() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -170,6 +171,10 @@ func (s stateBackend) AddCloudModelCounts() error {
 
 func (s stateBackend) ReplicaSetMembers() ([]replicaset.Member, error) {
 	return state.ReplicaSetMembers(s.st)
+}
+
+func (s stateBackend) MigrateStorageMachineIdFields() error {
+	return state.MigrateStorageMachineIdFields(s.st)
 }
 
 type modelShim struct {

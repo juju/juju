@@ -144,7 +144,7 @@ func VolumeAttachmentFromState(v state.VolumeAttachment) (params.VolumeAttachmen
 	}
 	return params.VolumeAttachment{
 		v.Volume().String(),
-		v.Machine().String(),
+		v.Host().String(),
 		VolumeAttachmentInfoFromState(info),
 	}, nil
 }

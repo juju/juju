@@ -327,18 +327,18 @@ func (m *mockStorageAttachment) Life() state.Life {
 }
 
 type mockVolumeAttachment struct {
-	VolumeTag  names.VolumeTag
-	MachineTag names.MachineTag
-	info       *state.VolumeAttachmentInfo
-	life       state.Life
+	VolumeTag names.VolumeTag
+	HostTag   names.Tag
+	info      *state.VolumeAttachmentInfo
+	life      state.Life
 }
 
 func (va *mockVolumeAttachment) Volume() names.VolumeTag {
 	return va.VolumeTag
 }
 
-func (va *mockVolumeAttachment) Machine() names.MachineTag {
-	return va.MachineTag
+func (va *mockVolumeAttachment) Host() names.Tag {
+	return va.HostTag
 }
 
 func (va *mockVolumeAttachment) Life() state.Life {

@@ -87,7 +87,7 @@ type StorageBackend interface {
 	RemoveFilesystem(names.FilesystemTag) error
 	RemoveFilesystemAttachment(names.Tag, names.FilesystemTag) error
 	RemoveVolume(names.VolumeTag) error
-	RemoveVolumeAttachment(names.MachineTag, names.VolumeTag) error
+	RemoveVolumeAttachment(names.Tag, names.VolumeTag) error
 	DetachFilesystem(names.Tag, names.FilesystemTag) error
 	DestroyFilesystem(names.FilesystemTag) error
 	DetachVolume(names.Tag, names.VolumeTag) error

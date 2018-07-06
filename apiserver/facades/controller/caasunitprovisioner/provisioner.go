@@ -446,8 +446,6 @@ func (a *Facade) updateStatus(params params.ApplicationUnitParams) (
 			Data:    params.Data,
 		}
 	}
-	logger.Criticalf("AGENT STATUS: %v", agentStatus)
-	logger.Criticalf("UNIT STATUS: %v", unitStatus)
 	return agentStatus, unitStatus, nil
 }
 

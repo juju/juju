@@ -295,7 +295,7 @@ func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 			}},
 			{Error: &params.Error{
 				Code:    params.CodeNotProvisioned,
-				Message: `volume attachment "2" on "0" not provisioned`,
+				Message: `volume attachment "2" on "machine 0" not provisioned`,
 			}},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},

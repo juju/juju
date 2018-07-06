@@ -1807,7 +1807,7 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc) 
 		va := volumeAttachment{doc}
 		logger.Debugf("  attachment %#v", doc)
 		args := description.VolumeAttachmentArgs{
-			Machine: va.Machine(),
+			Machine: va.Host().(names.MachineTag),
 		}
 		if info, err := va.Info(); err == nil {
 			logger.Debugf("    info %#v", info)

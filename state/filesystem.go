@@ -116,11 +116,11 @@ type filesystemDoc struct {
 	Info            *FilesystemInfo   `bson:"info,omitempty"`
 	Params          *FilesystemParams `bson:"params,omitempty"`
 
-	// MachineId is the ID of the machine that a non-detachable
+	// HostId is the ID of the host that a non-detachable
 	// volume is initially attached to. We use this to identify
 	// the filesystem as being non-detachable, and to determine
 	// which filesystems must be removed along with said machine.
-	MachineId string `bson:"machineid,omitempty"`
+	HostId string `bson:"hostid,omitempty"`
 }
 
 // filesystemAttachmentDoc records information about a filesystem attachment.
@@ -130,10 +130,7 @@ type filesystemAttachmentDoc struct {
 	ModelUUID  string `bson:"model-uuid"`
 	Filesystem string `bson:"filesystemid"`
 
-	// TODO(caas) - consolidate Machine and Host using upgrade step
-	Machine string `bson:"machineid"`
-	Host    string `bson:"hostid"`
-
+	Host   string                      `bson:"hostid"`
 	Life   Life                        `bson:"life"`
 	Info   *FilesystemAttachmentInfo   `bson:"info,omitempty"`
 	Params *FilesystemAttachmentParams `bson:"params,omitempty"`
@@ -299,7 +296,7 @@ func (f *filesystemAttachment) Filesystem() names.FilesystemTag {
 	return names.NewFilesystemTag(f.doc.Filesystem)
 }
 
-func filesystemAttachmentHost(id string) names.Tag {
+func storageAttachmentHost(id string) names.Tag {
 	if names.IsValidUnit(id) {
 		return names.NewUnitTag(id)
 	}
@@ -308,11 +305,7 @@ func filesystemAttachmentHost(id string) names.Tag {
 
 // Host is required to implement FilesystemAttachment.
 func (f *filesystemAttachment) Host() names.Tag {
-	// TODO(caas) - consolidate host and machine
-	if f.doc.Host != "" {
-		return filesystemAttachmentHost(f.doc.Host)
-	}
-	return filesystemAttachmentHost(f.doc.Machine)
+	return storageAttachmentHost(f.doc.Host)
 }
 
 // Life is required to implement FilesystemAttachment.
@@ -323,11 +316,7 @@ func (f *filesystemAttachment) Life() Life {
 // Info is required to implement FilesystemAttachment.
 func (f *filesystemAttachment) Info() (FilesystemAttachmentInfo, error) {
 	if f.doc.Info == nil {
-		host := f.doc.Host
-		if host == "" {
-			host = f.doc.Machine
-		}
-		hostTag := filesystemAttachmentHost(host)
+		hostTag := storageAttachmentHost(f.doc.Host)
 		return FilesystemAttachmentInfo{}, errors.NotProvisionedf(
 			"filesystem attachment %q on %q", f.doc.Filesystem, names.ReadableString(hostTag))
 	}
@@ -470,7 +459,7 @@ func (sb *storageBackend) FilesystemAttachments(filesystem names.FilesystemTag) 
 // MachineFilesystemAttachments returns all of the FilesystemAttachments for the
 // specified machine.
 func (sb *storageBackend) MachineFilesystemAttachments(machine names.MachineTag) ([]FilesystemAttachment, error) {
-	attachments, err := sb.filesystemAttachments(bson.D{{"machineid", machine.Id()}})
+	attachments, err := sb.filesystemAttachments(bson.D{{"hostid", machine.Id()}})
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting filesystem attachments for %q", names.ReadableString(machine))
 	}
@@ -520,7 +509,7 @@ func (sb *storageBackend) removeMachineFilesystemsOps(m *Machine) ([]txn.Op, err
 	// is removed will the filesystem transition to Dead and then be removed.
 	// Therefore, there may be filesystems that are bound, but not attached,
 	// to the machine.
-	machineFilesystems, err := sb.filesystems(bson.D{{"machineid", m.Id()}})
+	machineFilesystems, err := sb.filesystems(bson.D{{"hostid", m.Id()}})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -566,12 +555,12 @@ func isDetachableFilesystemTag(db Database, tag names.FilesystemTag) (bool, erro
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return doc.MachineId == "", nil
+	return doc.HostId == "", nil
 }
 
 // Detachable reports whether or not the filesystem is detachable.
 func (f *filesystem) Detachable() bool {
-	return f.doc.MachineId == ""
+	return f.doc.HostId == ""
 }
 
 func (f *filesystem) pool() string {
@@ -1018,17 +1007,17 @@ func ParseFilesystemAttachmentId(id string) (names.Tag, names.FilesystemTag, err
 }
 
 // newFilesystemId returns a unique filesystem ID.
-// If the machine ID supplied is non-empty, the
+// If the host ID supplied is non-empty, the
 // filesystem ID will incorporate it as the
 // filesystem's machine scope.
-func newFilesystemId(mb modelBackend, machineId string) (string, error) {
+func newFilesystemId(mb modelBackend, hostId string) (string, error) {
 	seq, err := sequence(mb, "filesystem")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	id := fmt.Sprint(seq)
-	if machineId != "" {
-		id = machineId + "/" + id
+	if hostId != "" {
+		id = hostId + "/" + id
 	}
 	return id, nil
 }
@@ -1047,7 +1036,7 @@ func (sb *storageBackend) addFilesystemOps(params FilesystemParams, hostId strin
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
 	}
-	origMachineId := hostId
+	origHostId := hostId
 	hostId, err = sb.validateFilesystemParams(params, hostId)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Annotate(err, "validating filesystem params")
@@ -1113,7 +1102,7 @@ func (sb *storageBackend) addFilesystemOps(params FilesystemParams, hostId strin
 		doc.AttachmentCount = 1
 	}
 	if !detachable {
-		doc.MachineId = origMachineId
+		doc.HostId = origHostId
 	}
 	ops = append(ops, sb.newFilesystemOps(doc, statusDoc)...)
 	return ops, filesystemTag, volumeTag, nil
@@ -1185,7 +1174,6 @@ func createMachineFilesystemAttachmentsOps(hostId string, attachments []filesyst
 			Assert: txn.DocMissing,
 			Insert: &filesystemAttachmentDoc{
 				Filesystem: attachment.tag.Id(),
-				Machine:    hostId,
 				Host:       hostId,
 				Params:     &paramsCopy,
 			},

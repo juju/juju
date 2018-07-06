@@ -68,7 +68,7 @@ func (s *VolumeStateSuite) assertMachineVolume(c *gc.C, unit *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeAttachments, gc.HasLen, 1)
 	c.Assert(volumeAttachments[0].Volume(), gc.Equals, volume.VolumeTag())
-	c.Assert(volumeAttachments[0].Machine(), gc.Equals, machine.MachineTag())
+	c.Assert(volumeAttachments[0].Host(), gc.Equals, machine.MachineTag())
 	_, err = volumeAttachments[0].Info()
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	_, ok = volumeAttachments[0].Params()
