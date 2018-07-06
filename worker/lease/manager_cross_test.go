@@ -24,9 +24,7 @@ type CrossSuite struct {
 
 var _ = gc.Suite(&CrossSuite{})
 
-func (s *CrossSuite) TestClaimAcrossNamespaces(c *gc.C) {
-	lease1 := key("ns1", "model", "summerisle")
-	lease2 := key("ns2", "model", "summerisle")
+func (s *CrossSuite) testClaims(c *gc.C, lease1, lease2 corelease.Key) {
 	fix := Fixture{
 		expectCalls: []call{{
 			method: "ClaimLease",
@@ -55,201 +53,126 @@ func (s *CrossSuite) TestClaimAcrossNamespaces(c *gc.C) {
 		}},
 	}
 	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
-		claimer1, err := manager.Claimer("ns1", "model")
+		claimer1, err := manager.Claimer(lease1.Namespace, lease1.ModelUUID)
 		c.Assert(err, jc.ErrorIsNil)
-		claimer2, err := manager.Claimer("ns2", "model")
-		c.Assert(err, jc.ErrorIsNil)
-
-		err = claimer1.Claim("summerisle", "sgt-howie", time.Minute)
-		c.Assert(err, jc.ErrorIsNil)
-		err = claimer2.Claim("summerisle", "rowan", time.Minute)
+		claimer2, err := manager.Claimer(lease2.Namespace, lease2.ModelUUID)
 		c.Assert(err, jc.ErrorIsNil)
 
-		err = claimer1.Claim("summerisle", "lord-summerisle", time.Minute)
+		err = claimer1.Claim(lease1.Lease, "sgt-howie", time.Minute)
+		c.Assert(err, jc.ErrorIsNil)
+		err = claimer2.Claim(lease2.Lease, "rowan", time.Minute)
+		c.Assert(err, jc.ErrorIsNil)
+
+		err = claimer1.Claim(lease1.Lease, "lord-summerisle", time.Minute)
 		c.Assert(err, gc.Equals, corelease.ErrClaimDenied)
 	})
 }
 
+func (s *CrossSuite) TestClaimAcrossNamespaces(c *gc.C) {
+	s.testClaims(c,
+		key("ns1", "model", "summerisle"),
+		key("ns2", "model", "summerisle"),
+	)
+}
+
 func (s *CrossSuite) TestClaimAcrossModels(c *gc.C) {
-	lease1 := key("ns", "m1", "summerisle")
-	lease2 := key("ns", "m2", "summerisle")
+	s.testClaims(c,
+		key("ns", "model1", "summerisle"),
+		key("ns", "model2", "summerisle"),
+	)
+}
+
+func (s *CrossSuite) testWaits(c *gc.C, lease1, lease2 corelease.Key) {
 	fix := Fixture{
+		leases: map[corelease.Key]corelease.Info{
+			lease1: {
+				Holder: "sgt-howie",
+				Expiry: offset(time.Second),
+			},
+			lease2: {
+				Holder: "willow",
+				Expiry: offset(time.Minute),
+			},
+		},
 		expectCalls: []call{{
-			method: "ClaimLease",
-			args: []interface{}{
-				lease1,
-				corelease.Request{"sgt-howie", time.Minute},
-			},
-			callback: func(leases map[corelease.Key]corelease.Info) {
-				leases[lease1] = corelease.Info{
-					Holder: "sgt-howie",
-					Expiry: offset(time.Second),
-				}
-			},
+			method: "Refresh",
 		}, {
-			method: "ClaimLease",
-			args: []interface{}{
-				lease2,
-				corelease.Request{"rowan", time.Minute},
-			},
+			method: "ExpireLease",
+			args:   []interface{}{lease1},
 			callback: func(leases map[corelease.Key]corelease.Info) {
-				leases[lease2] = corelease.Info{
-					Holder: "rowan",
-					Expiry: offset(time.Second),
-				}
+				delete(leases, lease1)
 			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
-		claimer1, err := manager.Claimer("ns", "m1")
-		c.Assert(err, jc.ErrorIsNil)
-		claimer2, err := manager.Claimer("ns", "m2")
-		c.Assert(err, jc.ErrorIsNil)
+	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
+		b1 := newBlockTest(manager, lease1)
+		b2 := newBlockTest(manager, lease2)
 
-		err = claimer1.Claim("summerisle", "sgt-howie", time.Minute)
-		c.Assert(err, jc.ErrorIsNil)
-		err = claimer2.Claim("summerisle", "rowan", time.Minute)
-		c.Assert(err, jc.ErrorIsNil)
+		b1.assertBlocked(c)
+		b2.assertBlocked(c)
 
-		err = claimer1.Claim("summerisle", "lord-summerisle", time.Minute)
-		c.Assert(err, gc.Equals, corelease.ErrClaimDenied)
+		clock.Advance(time.Second)
+
+		err := b1.assertUnblocked(c)
+		c.Assert(err, jc.ErrorIsNil)
+		b2.assertBlocked(c)
 	})
 }
 
 func (s *CrossSuite) TestWaitAcrossNamespaces(c *gc.C) {
-	lease1 := key("ns1", "model", "summerisle")
-	lease2 := key("ns2", "model", "summerisle")
-	fix := Fixture{
-		leases: map[corelease.Key]corelease.Info{
-			lease1: {
-				Holder: "sgt-howie",
-				Expiry: offset(time.Second),
-			},
-			lease2: {
-				Holder: "willow",
-				Expiry: offset(time.Minute),
-			},
-		},
-		expectCalls: []call{{
-			method: "Refresh",
-		}, {
-			method: "ExpireLease",
-			args:   []interface{}{lease1},
-			callback: func(leases map[corelease.Key]corelease.Info) {
-				delete(leases, lease1)
-			},
-		}},
-	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
-		b1 := newBlockTest(manager, lease1)
-		b2 := newBlockTest(manager, lease2)
-
-		b1.assertBlocked(c)
-		b2.assertBlocked(c)
-
-		clock.Advance(time.Second)
-
-		err := b1.assertUnblocked(c)
-		c.Assert(err, jc.ErrorIsNil)
-		b2.assertBlocked(c)
-	})
+	s.testWaits(c,
+		key("ns1", "model", "summerisle"),
+		key("ns2", "model", "summerisle"),
+	)
 }
 
 func (s *CrossSuite) TestWaitAcrossModels(c *gc.C) {
-	lease1 := key("ns", "m1", "summerisle")
-	lease2 := key("ns", "m2", "summerisle")
+	s.testWaits(c,
+		key("ns", "model1", "summerisle"),
+		key("ns", "model2", "summerisle"),
+	)
+}
+
+func (s *CrossSuite) testChecks(c *gc.C, lease1, lease2 corelease.Key) {
 	fix := Fixture{
 		leases: map[corelease.Key]corelease.Info{
 			lease1: {
-				Holder: "sgt-howie",
-				Expiry: offset(time.Second),
-			},
-			lease2: {
-				Holder: "willow",
-				Expiry: offset(time.Minute),
+				Holder:   "sgt-howie",
+				Expiry:   offset(time.Second),
+				Trapdoor: corelease.LockedTrapdoor,
 			},
 		},
 		expectCalls: []call{{
 			method: "Refresh",
-		}, {
-			method: "ExpireLease",
-			args:   []interface{}{lease1},
-			callback: func(leases map[corelease.Key]corelease.Info) {
-				delete(leases, lease1)
-			},
 		}},
 	}
-	fix.RunTest(c, func(manager *lease.Manager, clock *testing.Clock) {
-		b1 := newBlockTest(manager, lease1)
-		b2 := newBlockTest(manager, lease2)
-
-		b1.assertBlocked(c)
-		b2.assertBlocked(c)
-
-		clock.Advance(time.Second)
-
-		err := b1.assertUnblocked(c)
+	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
+		checker1, err := manager.Checker(lease1.Namespace, lease1.ModelUUID)
 		c.Assert(err, jc.ErrorIsNil)
-		b2.assertBlocked(c)
+		checker2, err := manager.Checker(lease2.Namespace, lease2.ModelUUID)
+		c.Assert(err, jc.ErrorIsNil)
+
+		t1 := checker1.Token(lease1.Lease, "sgt-howie")
+		c.Assert(t1.Check(nil), gc.Equals, nil)
+
+		t2 := checker2.Token(lease2.Lease, "sgt-howie")
+		err = t2.Check(nil)
+		c.Assert(errors.Cause(err), gc.Equals, corelease.ErrNotHeld)
 	})
 }
 
 func (s *CrossSuite) TestCheckAcrossNamespaces(c *gc.C) {
-	lease1 := key("ns1", "model", "summerisle")
-	fix := Fixture{
-		leases: map[corelease.Key]corelease.Info{
-			lease1: {
-				Holder:   "sgt-howie",
-				Expiry:   offset(time.Second),
-				Trapdoor: corelease.LockedTrapdoor,
-			},
-		},
-		expectCalls: []call{{
-			method: "Refresh",
-		}},
-	}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
-		checker1, err := manager.Checker("ns1", "model")
-		c.Assert(err, jc.ErrorIsNil)
-		checker2, err := manager.Checker("ns2", "model")
-		c.Assert(err, jc.ErrorIsNil)
-
-		t1 := checker1.Token("summerisle", "sgt-howie")
-		c.Assert(t1.Check(nil), gc.Equals, nil)
-
-		t2 := checker2.Token("summerisle", "sgt-howie")
-		err = t2.Check(nil)
-		c.Assert(errors.Cause(err), gc.Equals, corelease.ErrNotHeld)
-	})
+	s.testChecks(c,
+		key("ns1", "model", "summerisle"),
+		key("ns2", "model", "summerisle"),
+	)
 }
 
 func (s *CrossSuite) TestCheckAcrossModels(c *gc.C) {
-	lease1 := key("ns", "m1", "summerisle")
-	fix := Fixture{
-		leases: map[corelease.Key]corelease.Info{
-			lease1: {
-				Holder:   "sgt-howie",
-				Expiry:   offset(time.Second),
-				Trapdoor: corelease.LockedTrapdoor,
-			},
-		},
-		expectCalls: []call{{
-			method: "Refresh",
-		}},
-	}
-	fix.RunTest(c, func(manager *lease.Manager, _ *testing.Clock) {
-		checker1, err := manager.Checker("ns", "m1")
-		c.Assert(err, jc.ErrorIsNil)
-		checker2, err := manager.Checker("ns", "m2")
-		c.Assert(err, jc.ErrorIsNil)
-
-		t1 := checker1.Token("summerisle", "sgt-howie")
-		c.Assert(t1.Check(nil), gc.Equals, nil)
-
-		t2 := checker2.Token("summerisle", "sgt-howie")
-		err = t2.Check(nil)
-		c.Assert(errors.Cause(err), gc.Equals, corelease.ErrNotHeld)
-	})
+	s.testChecks(c,
+		key("ns", "model1", "summerisle"),
+		key("ns", "model2", "summerisle"),
+	)
 }
 
 func (s *CrossSuite) TestDifferentNamespaceValidation(c *gc.C) {
