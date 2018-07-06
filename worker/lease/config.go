@@ -30,17 +30,19 @@ type Secretary interface {
 // Manager.
 type ManagerConfig struct {
 
-	// Secretary is responsible for validating lease names and holder names.
-	Secretary Secretary
+	// Secretary determines validation given a namespace. The
+	// secretary returned is responsible for validating lease names
+	// and holder names for that namespace.
+	Secretary func(namespace string) (Secretary, error)
 
-	// Client is responsible for recording, retrieving, and expiring leases.
-	Client lease.Client
+	// Store is responsible for recording, retrieving, and expiring leases.
+	Store lease.Store
 
 	// Clock is responsible for reporting the passage of time.
 	Clock clock.Clock
 
 	// MaxSleep is the longest time the Manager should sleep before
-	// refreshing its client's leases and checking for expiries.
+	// refreshing its store's leases and checking for expiries.
 	MaxSleep time.Duration
 
 	// EntityUUID is the entity that we are running this Manager for. Used for
@@ -54,8 +56,8 @@ func (config ManagerConfig) Validate() error {
 	if config.Secretary == nil {
 		return errors.NotValidf("nil Secretary")
 	}
-	if config.Client == nil {
-		return errors.NotValidf("nil Client")
+	if config.Store == nil {
+		return errors.NotValidf("nil Store")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")

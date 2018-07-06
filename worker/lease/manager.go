@@ -31,9 +31,12 @@ func (d dummySecretary) CheckDuration(duration time.Duration) error { return nil
 // NewDeadManager returns a manager that's already dead
 // and always returns the given error.
 func NewDeadManager(err error) *Manager {
+	var secretary dummySecretary
 	m := Manager{
 		config: ManagerConfig{
-			Secretary: dummySecretary{},
+			Secretary: func(_ string) (Secretary, error) {
+				return secretary, nil
+			},
 		},
 	}
 	catacomb.Invoke(catacomb.Plan{
@@ -72,7 +75,8 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 	return manager, nil
 }
 
-// Manager implements lease.Claimer, lease.Checker, and worker.Worker.
+// Manager implements worker.Worker and can be bound to get
+// lease.Checkers and lease.Claimers.
 type Manager struct {
 	catacomb catacomb.Catacomb
 
@@ -112,7 +116,7 @@ func (manager *Manager) loop() error {
 			return errors.Trace(err)
 		}
 
-		leases := manager.config.Client.Leases()
+		leases := manager.config.Store.Leases()
 		for leaseName := range blocks {
 			if _, found := leases[leaseName]; !found {
 				logger.Tracef("[%s] unblocking: %s", manager.logContext, leaseName)
@@ -134,37 +138,41 @@ func (manager *Manager) choose(blocks blocks) error {
 	case check := <-manager.checks:
 		return manager.handleCheck(check)
 	case block := <-manager.blocks:
-		logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseName)
+		// TODO(raftlease): Include the other key items.
+		logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
 		blocks.add(block)
 		return nil
 	}
 }
 
-// Claim is part of the lease.Claimer interface.
-func (manager *Manager) Claim(leaseName, holderName string, duration time.Duration) error {
-	if err := manager.config.Secretary.CheckLease(leaseName); err != nil {
-		return errors.Annotatef(err, "cannot claim lease %q", leaseName)
+func (manager *Manager) bind(namespace, modelUUID string) (checkerClaimer, error) {
+	secretary, err := manager.config.Secretary(namespace)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	if err := manager.config.Secretary.CheckHolder(holderName); err != nil {
-		return errors.Annotatef(err, "cannot claim lease for holder %q", holderName)
-	}
-	if err := manager.config.Secretary.CheckDuration(duration); err != nil {
-		return errors.Annotatef(err, "cannot claim lease for %s", duration)
-	}
-	return claim{
-		leaseName:  leaseName,
-		holderName: holderName,
-		duration:   duration,
-		response:   make(chan bool),
-		stop:       manager.catacomb.Dying(),
-	}.invoke(manager.claims)
+	return &boundManager{
+		manager:   manager,
+		secretary: secretary,
+		namespace: namespace,
+		modelUUID: modelUUID,
+	}, nil
+}
+
+// Checker returns a lease.Checker for the specified namespace and model.
+func (manager *Manager) Checker(namespace, modelUUID string) (lease.Checker, error) {
+	return manager.bind(namespace, modelUUID)
+}
+
+// Claimer returns a lease.Claimer for the specified namespace and model.
+func (manager *Manager) Claimer(namespace, modelUUID string) (lease.Claimer, error) {
+	return manager.bind(namespace, modelUUID)
 }
 
 // handleClaim processes and responds to the supplied claim. It will only return
 // unrecoverable errors; mere failure to claim just indicates a bad request, and
 // is communicated back to the claim's originator.
 func (manager *Manager) handleClaim(claim claim) error {
-	client := manager.config.Client
+	store := manager.config.Store
 	request := lease.Request{claim.holderName, claim.duration}
 	err := lease.ErrInvalid
 	for err == lease.ErrInvalid {
@@ -173,22 +181,22 @@ func (manager *Manager) handleClaim(claim claim) error {
 			return manager.catacomb.ErrDying()
 		default:
 			// TODO(jam) 2017-10-31: We are asking for all leases just to look
-			// up one of them. Shouldn't the client.Leases() interface allow us
+			// up one of them. Shouldn't the store.Leases() interface allow us
 			// to just query for a single entry?
-			info, found := client.Leases()[claim.leaseName]
+			info, found := store.Leases()[claim.leaseKey]
 			switch {
 			case !found:
-				logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s", manager.logContext, claim.holderName, claim.leaseName, claim.duration)
-				err = client.ClaimLease(claim.leaseName, request)
+				logger.Tracef("[%s] %s asked for lease %s, no lease found, claiming for %s", manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
+				err = store.ClaimLease(claim.leaseKey, request)
 			case info.Holder == claim.holderName:
-				logger.Tracef("[%s] %s extending lease %s for %s", manager.logContext, claim.holderName, claim.leaseName, claim.duration)
-				err = client.ExtendLease(claim.leaseName, request)
+				logger.Tracef("[%s] %s extending lease %s for %s", manager.logContext, claim.holderName, claim.leaseKey.Lease, claim.duration)
+				err = store.ExtendLease(claim.leaseKey, request)
 			default:
 				// Note: (jam) 2017-10-31) We don't check here if the lease has
 				// expired for the current holder. Should we?
 				remaining := info.Expiry.Sub(manager.config.Clock.Now())
 				logger.Tracef("[%s] %s asked for lease %s, held by %s for another %s, rejecting",
-					manager.logContext, claim.holderName, claim.leaseName, info.Holder, remaining)
+					manager.logContext, claim.holderName, claim.leaseKey.Lease, info.Holder, remaining)
 				claim.respond(false)
 				return nil
 			}
@@ -201,54 +209,30 @@ func (manager *Manager) handleClaim(claim claim) error {
 	return nil
 }
 
-// Token is part of the lease.Checker interface.
-func (manager *Manager) Token(leaseName, holderName string) lease.Token {
-	return token{
-		leaseName:  leaseName,
-		holderName: holderName,
-		secretary:  manager.config.Secretary,
-		checks:     manager.checks,
-		stop:       manager.catacomb.Dying(),
-	}
-}
-
 // handleCheck processes and responds to the supplied check. It will only return
 // unrecoverable errors; mere untruth of the assertion just indicates a bad
 // request, and is communicated back to the check's originator.
 func (manager *Manager) handleCheck(check check) error {
-	client := manager.config.Client
-	logger.Tracef("[%s] handling Check for lease %s on behalf of %s", manager.logContext, check.leaseName, check.holderName)
-	info, found := client.Leases()[check.leaseName]
+	store := manager.config.Store
+	logger.Tracef("[%s] handling Check for lease %s on behalf of %s", manager.logContext, check.leaseKey.Lease, check.holderName)
+	info, found := store.Leases()[check.leaseKey]
 	if !found || info.Holder != check.holderName {
-		logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing", manager.logContext, check.leaseName, check.holderName)
-		if err := client.Refresh(); err != nil {
+		logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not found, refreshing", manager.logContext, check.leaseKey.Lease, check.holderName)
+		if err := store.Refresh(); err != nil {
 			return errors.Trace(err)
 		}
-		info, found = client.Leases()[check.leaseName]
+		info, found = store.Leases()[check.leaseKey]
 	}
 
 	var response error
 	if !found || info.Holder != check.holderName {
-		logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held", manager.logContext, check.leaseName, check.holderName)
+		logger.Tracef("[%s] handling Check for lease %s on behalf of %s, not held", manager.logContext, check.leaseKey.Lease, check.holderName)
 		response = lease.ErrNotHeld
 	} else if check.trapdoorKey != nil {
 		response = info.Trapdoor(check.trapdoorKey)
 	}
 	check.respond(errors.Trace(response))
 	return nil
-}
-
-// WaitUntilExpired is part of the lease.Claimer interface.
-func (manager *Manager) WaitUntilExpired(leaseName string, cancel <-chan struct{}) error {
-	if err := manager.config.Secretary.CheckLease(leaseName); err != nil {
-		return errors.Annotatef(err, "cannot wait for lease %q expiry", leaseName)
-	}
-	return block{
-		leaseName: leaseName,
-		unblock:   make(chan struct{}),
-		stop:      manager.catacomb.Dying(),
-		cancel:    cancel,
-	}.invoke(manager.blocks)
 }
 
 // nextTick returns a channel that will send a value at some point when
@@ -258,7 +242,7 @@ func (manager *Manager) WaitUntilExpired(leaseName string, cancel <-chan struct{
 func (manager *Manager) nextTick() <-chan time.Time {
 	now := manager.config.Clock.Now()
 	nextTick := now.Add(manager.config.MaxSleep)
-	leases := manager.config.Client.Leases()
+	leases := manager.config.Store.Leases()
 	for _, info := range leases {
 		if info.Expiry.After(nextTick) {
 			continue
@@ -271,44 +255,60 @@ func (manager *Manager) nextTick() <-chan time.Time {
 // tick snapshots recent leases and expires any that it can. There
 // might be none that need attention; or those that do might already
 // have been extended or expired by someone else; so ErrInvalid is
-// expected, and ignored, comfortable that the client will have been
+// expected, and ignored, comfortable that the store will have been
 // updated in the background; and that we'll see fresh info when we
 // subsequently check nextWake().
 //
 // It will return only unrecoverable errors.
 func (manager *Manager) tick() error {
 	logger.Tracef("[%s] waking up to refresh and expire leases", manager.logContext)
-	client := manager.config.Client
-	if err := client.Refresh(); err != nil {
+	store := manager.config.Store
+	if err := store.Refresh(); err != nil {
 		return errors.Trace(err)
 	}
-	leases := client.Leases()
+	leases := store.Leases()
 
-	// Sort lease names so we expire in a predictable order for the tests.
-	names := make([]string, 0, len(leases))
-	for name := range leases {
-		names = append(names, name)
+	// Sort lease keys so we expire in a predictable order for the tests.
+	keys := make([]lease.Key, 0, len(leases))
+	for key := range leases {
+		keys = append(keys, key)
 	}
-	sort.Strings(names)
+	sort.Slice(keys, func(i, j int) bool {
+		return keysLess(keys[i], keys[j])
+	})
 
 	logger.Tracef("[%s] checking expiry on %d leases", manager.logContext, len(leases))
 	now := manager.config.Clock.Now()
-	expired := make([]string, 0)
-	for _, name := range names {
-		if leases[name].Expiry.After(now) {
+	expired := make([]lease.Key, 0)
+	for _, key := range keys {
+		if leases[key].Expiry.After(now) {
 			continue
 		}
-		switch err := client.ExpireLease(name); err {
+		switch err := store.ExpireLease(key); err {
 		case nil, lease.ErrInvalid:
 		default:
 			return errors.Trace(err)
 		}
-		expired = append(expired, name)
+		expired = append(expired, key)
 	}
 	if len(expired) == 0 {
 		logger.Debugf("[%s] no leases to expire", manager.logContext)
 	} else {
-		logger.Debugf("[%s] expired %d leases: %s", manager.logContext, len(expired), strings.Join(expired, ", "))
+		names := make([]string, 0, len(expired))
+		for _, expiredKey := range expired {
+			names = append(names, expiredKey.Lease)
+		}
+		logger.Debugf("[%s] expired %d leases: %s", manager.logContext, len(expired), strings.Join(names, ", "))
 	}
 	return nil
+}
+
+func keysLess(a, b lease.Key) bool {
+	if a.Namespace == b.Namespace && a.ModelUUID == b.ModelUUID {
+		return a.Lease < b.Lease
+	}
+	if a.Namespace == b.Namespace {
+		return a.ModelUUID < b.ModelUUID
+	}
+	return a.Namespace < b.Namespace
 }

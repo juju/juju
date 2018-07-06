@@ -10,31 +10,31 @@ import (
 	"github.com/juju/errors"
 )
 
-// Client manipulates leases directly, and is most likely to be seen set on a
+// Store manipulates leases directly, and is most likely to be seen set on a
 // worker/lease.ManagerConfig struct (and used by the Manager). Implementations
-// of Client are not expected to be goroutine-safe.
-type Client interface {
+// of Store are not expected to be goroutine-safe.
+type Store interface {
 
 	// ClaimLease records the supplied holder's claim to the supplied lease. If
 	// it succeeds, the claim is guaranteed until at least the supplied duration
 	// after the call to ClaimLease was initiated. If it returns ErrInvalid,
 	// check Leases() for updated state.
-	ClaimLease(lease string, request Request) error
+	ClaimLease(lease Key, request Request) error
 
 	// ExtendLease records the supplied holder's continued claim to the supplied
 	// lease, if necessary. If it succeeds, the claim is guaranteed until at
 	// least the supplied duration after the call to ExtendLease was initiated.
 	// If it returns ErrInvalid, check Leases() for updated state.
-	ExtendLease(lease string, request Request) error
+	ExtendLease(lease Key, request Request) error
 
 	// ExpireLease records the vacation of the supplied lease. It will fail if
 	// we cannot verify that the lease's writer considers the expiry time to
 	// have passed. If it returns ErrInvalid, check Leases() for updated state.
-	ExpireLease(lease string) error
+	ExpireLease(lease Key) error
 
 	// Leases returns a recent snapshot of lease state. Expiry times are
-	// expressed according to the Clock the client was configured with.
-	Leases() map[string]Info
+	// expressed according to the Clock the store was configured with.
+	Leases() map[Key]Info
 
 	// TODO (jam) 2017-10-31: Many callers of Leases() actually only tant
 	// exactly 1 lease, we should have a way to do a query to return exactly
@@ -44,6 +44,14 @@ type Client interface {
 
 	// Refresh reads all lease state from the database.
 	Refresh() error
+}
+
+// Key fully identifies a lease, including the namespace and
+// model it belongs to.
+type Key struct {
+	Namespace string
+	ModelUUID string
+	Lease     string
 }
 
 // Info holds substrate-independent information about a lease; and a substrate-
@@ -57,7 +65,7 @@ type Info struct {
 	// be valid. Attempting to expire the lease before this time will fail.
 	Expiry time.Time
 
-	// Trapdoor exposes the originating Client's persistence substrate, if the
+	// Trapdoor exposes the originating Store's persistence substrate, if the
 	// substrate exposes any such capability. It's useful specifically for
 	// integrating mgo/txn-based components: which thus get a mechanism for
 	// extracting assertion operations they can use to gate other substrate
@@ -65,8 +73,8 @@ type Info struct {
 	Trapdoor Trapdoor
 }
 
-// Trapdoor allows a client to use pre-agreed special knowledge to communicate
-// with a Client substrate by passing a key with suitable properties.
+// Trapdoor allows a store to use pre-agreed special knowledge to communicate
+// with a Store substrate by passing a key with suitable properties.
 type Trapdoor func(key interface{}) error
 
 // LockedTrapdoor is a Trapdoor suitable for use by substrates that don't want
@@ -100,7 +108,7 @@ func (request Request) Validate() error {
 }
 
 // ValidateString returns an error if the string is empty, or if it contains
-// whitespace, or if it contains any character in `.#$`. Client implementations
+// whitespace, or if it contains any character in `.#$`. Store implementations
 // are expected to always reject invalid strings, and never to produce them.
 func ValidateString(s string) error {
 	if s == "" {
@@ -112,9 +120,9 @@ func ValidateString(s string) error {
 	return nil
 }
 
-// ErrInvalid indicates that a Client operation failed because latest state
+// ErrInvalid indicates that a Store operation failed because latest state
 // indicates that it's a logical impossibility. It's a short-range signal to
 // calling code only; that code should never pass it on, but should inspect
-// the Client's updated Leases() and either attempt a new operation or return
+// the Store's updated Leases() and either attempt a new operation or return
 // a new error at a suitable level of abstraction.
 var ErrInvalid = errors.New("invalid lease operation")

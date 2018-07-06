@@ -63,11 +63,11 @@ const (
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
 
-	// applicationLeadershipNamespace is the name of the lease.Client namespace
+	// applicationLeadershipNamespace is the name of the lease.Store namespace
 	// used by the leadership manager.
 	applicationLeadershipNamespace = "application-leadership"
 
-	// singularControllerNamespace is the name of the lease.Client namespace
+	// singularControllerNamespace is the name of the lease.Store namespace
 	// used by the singular manager
 	singularControllerNamespace = "singular-controller"
 )
@@ -93,10 +93,10 @@ type State struct {
 	// represented by this state runs.
 	cloudName string
 
-	// leaseClientId is used by the lease infrastructure to
+	// leaseStoreId is used by the lease infrastructure to
 	// differentiate between machines whose clocks may be
 	// relatively-skewed.
-	leaseClientId string
+	leaseStoreId string
 
 	// workers is responsible for keeping the various sub-workers
 	// available by starting new ones as they fail. It doesn't do
@@ -349,7 +349,7 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 }
 
 // start makes a *State functional post-creation, by:
-//   * setting controllerTag, cloudName and leaseClientId
+//   * setting controllerTag, cloudName and leaseStoreId
 //   * starting lease managers and watcher backends
 //   * creating cloud metadata storage
 //
@@ -367,7 +367,7 @@ func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub)
 	st.controllerTag = controllerTag
 
 	// Run the "connectionStatus" Mongo command to obtain the authenticated
-	// user name, if any. This is used below for the lease client ID.
+	// user name, if any. This is used below for the lease store ID.
 	// See: https://docs.mongodb.com/manual/reference/command/connectionStatus/
 	//
 	// TODO(axw) when we move the workers to a higher level state.Manager
@@ -385,19 +385,19 @@ func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub)
 	}
 
 	if len(connectionStatus.AuthInfo.AuthenticatedUsers) == 1 {
-		st.leaseClientId = connectionStatus.AuthInfo.AuthenticatedUsers[0].User
+		st.leaseStoreId = connectionStatus.AuthInfo.AuthenticatedUsers[0].User
 	} else {
 		// If we're running state anonymously, we can still use the lease
-		// manager; but we need to make sure we use a unique client ID, and
+		// manager; but we need to make sure we use a unique store ID, and
 		// will thus not be very performant.
-		logger.Infof("running state anonymously; using unique client id")
+		logger.Infof("running state anonymously; using unique store id")
 		uuid, err := utils.NewUUID()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		st.leaseClientId = fmt.Sprintf("anon-%s", uuid.String())
+		st.leaseStoreId = fmt.Sprintf("anon-%s", uuid.String())
 	}
-	// now we've set up leaseClientId, we can use workersFactory
+	// now we've set up leaseStoreId, we can use workersFactory
 
 	logger.Infof("starting standard state workers")
 	workers, err := newWorkers(st, hub)
@@ -419,30 +419,30 @@ func (st *State) start(controllerTag names.ControllerTag, hub *pubsub.SimpleHub)
 // ApplicationLeaders returns a map of the application name to the
 // unit name that is the current leader.
 func (st *State) ApplicationLeaders() (map[string]string, error) {
-	client, err := st.getLeadershipLeaseClient()
+	store, err := st.getLeadershipLeaseStore()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	leases := client.Leases()
+	leases := store.Leases()
 	result := make(map[string]string, len(leases))
 	for key, value := range leases {
-		result[key] = value.Holder
+		result[key.Lease] = value.Holder
 	}
 	return result, nil
 }
 
-func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
-	return st.getLeaseClient(applicationLeadershipNamespace)
+func (st *State) getLeadershipLeaseStore() (lease.Store, error) {
+	return st.getLeaseStore(applicationLeadershipNamespace)
 }
 
-func (st *State) getSingularLeaseClient() (lease.Client, error) {
-	return st.getLeaseClient(singularControllerNamespace)
+func (st *State) getSingularLeaseStore() (lease.Store, error) {
+	return st.getLeaseStore(singularControllerNamespace)
 }
 
-func (st *State) getLeaseClient(namespace string) (lease.Client, error) {
+func (st *State) getLeaseStore(namespace string) (lease.Store, error) {
 	globalClock, err := st.globalClockReader()
 	if err != nil {
-		return nil, errors.Annotate(err, "getting global clock for lease client")
+		return nil, errors.Annotate(err, "getting global clock for lease store")
 	}
 
 	// NOTE(axw) due to the lease managers being embedded in State,
@@ -454,18 +454,19 @@ func (st *State) getLeaseClient(namespace string) (lease.Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	client, err := statelease.NewClient(statelease.ClientConfig{
-		Id:          st.leaseClientId,
+	store, err := statelease.NewStore(statelease.StoreConfig{
+		Id:          st.leaseStoreId,
 		Namespace:   namespace,
+		ModelUUID:   st.modelUUID(),
 		Collection:  leasesC,
 		Mongo:       &environMongo{st},
 		LocalClock:  st.stateClock,
 		GlobalClock: globalClock,
 	})
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot create %q lease client", namespace)
+		return nil, errors.Annotatef(err, "cannot create %q lease store", namespace)
 	}
-	return client, nil
+	return store, nil
 }
 
 // ModelUUID returns the model UUID for the model

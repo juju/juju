@@ -45,35 +45,38 @@ type GlobalClock interface {
 	Now() (time.Time, error)
 }
 
-// ClientConfig contains the resources and information required to create
-// a Client. Multiple clients can collaborate if they share a collection and
+// StoreConfig contains the resources and information required to create
+// a Store. Multiple stores can collaborate if they share a collection and
 // namespace, so long as they do not share ids; but within a collection,
-// clients for different namespaces will not interfere with one another,
+// stores for different namespaces will not interfere with one another,
 // regardless of id.
-type ClientConfig struct {
+type StoreConfig struct {
 
-	// Id uniquely identifies the client. Multiple clients with the same id
+	// Id uniquely identifies the store. Multiple stores with the same id
 	// running concurrently will cause undefined behaviour.
 	Id string
 
-	// Namespace identifies a group of clients which operate on the same data.
+	// ModelUUID identifies the model the leases will be stored in.
+	ModelUUID string
+
+	// Namespace identifies a group of stores which operate on the same data.
 	Namespace string
 
 	// Collection names the MongoDB collection in which lease data is stored.
 	Collection string
 
-	// Mongo exposes the mgo[/txn] capabilities required by a Client.
+	// Mongo exposes the mgo[/txn] capabilities required by a Store.
 	Mongo Mongo
 
-	// LocalClock exposes the writer-local wall-clock time to a Client.
+	// LocalClock exposes the writer-local wall-clock time to a Store.
 	LocalClock LocalClock
 
-	// GlobalClock exposes the global clock to a Client.
+	// GlobalClock exposes the global clock to a Store.
 	GlobalClock GlobalClock
 }
 
 // validate returns an error if the supplied config is not valid.
-func (config ClientConfig) validate() error {
+func (config StoreConfig) validate() error {
 	if err := lease.ValidateString(config.Id); err != nil {
 		return errors.Annotatef(err, "invalid id")
 	}

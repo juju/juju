@@ -12,93 +12,93 @@ import (
 	"github.com/juju/juju/state/lease"
 )
 
-// ClientValidationSuite sends bad data into all of Client's methods.
-type ClientValidationSuite struct {
+// StoreValidationSuite sends bad data into all of Store's methods.
+type StoreValidationSuite struct {
 	FixtureSuite
 }
 
-var _ = gc.Suite(&ClientValidationSuite{})
+var _ = gc.Suite(&StoreValidationSuite{})
 
-func (s *ClientValidationSuite) TestNewClientId(c *gc.C) {
+func (s *StoreValidationSuite) TestNewStoreId(c *gc.C) {
 	fix := s.EasyFixture(c)
 	fix.Config.Id = "$bad"
-	_, err := lease.NewClient(fix.Config)
+	_, err := lease.NewStore(fix.Config)
 	c.Check(err, gc.ErrorMatches, "invalid id: string contains forbidden characters")
 }
 
-func (s *ClientValidationSuite) TestNewClientNamespace(c *gc.C) {
+func (s *StoreValidationSuite) TestNewStoreNamespace(c *gc.C) {
 	fix := s.EasyFixture(c)
 	fix.Config.Namespace = "$bad"
-	_, err := lease.NewClient(fix.Config)
+	_, err := lease.NewStore(fix.Config)
 	c.Check(err, gc.ErrorMatches, "invalid namespace: string contains forbidden characters")
 }
 
-func (s *ClientValidationSuite) TestNewClientCollection(c *gc.C) {
+func (s *StoreValidationSuite) TestNewStoreCollection(c *gc.C) {
 	fix := s.EasyFixture(c)
 	fix.Config.Collection = "$bad"
-	_, err := lease.NewClient(fix.Config)
+	_, err := lease.NewStore(fix.Config)
 	c.Check(err, gc.ErrorMatches, "invalid collection: string contains forbidden characters")
 }
 
-func (s *ClientValidationSuite) TestNewClientMongo(c *gc.C) {
+func (s *StoreValidationSuite) TestNewStoreMongo(c *gc.C) {
 	fix := s.EasyFixture(c)
 	fix.Config.Mongo = nil
-	_, err := lease.NewClient(fix.Config)
+	_, err := lease.NewStore(fix.Config)
 	c.Check(err, gc.ErrorMatches, "missing mongo")
 }
 
-func (s *ClientValidationSuite) TestNewClientLocalClock(c *gc.C) {
+func (s *StoreValidationSuite) TestNewStoreLocalClock(c *gc.C) {
 	fix := s.EasyFixture(c)
 	fix.Config.LocalClock = nil
-	_, err := lease.NewClient(fix.Config)
+	_, err := lease.NewStore(fix.Config)
 	c.Check(err, gc.ErrorMatches, "missing local clock")
 }
 
-func (s *ClientValidationSuite) TestNewClientGlobalClock(c *gc.C) {
+func (s *StoreValidationSuite) TestNewStoreGlobalClock(c *gc.C) {
 	fix := s.EasyFixture(c)
 	fix.Config.GlobalClock = nil
-	_, err := lease.NewClient(fix.Config)
+	_, err := lease.NewStore(fix.Config)
 	c.Check(err, gc.ErrorMatches, "missing global clock")
 }
 
-func (s *ClientValidationSuite) TestClaimLeaseName(c *gc.C) {
+func (s *StoreValidationSuite) TestClaimLeaseName(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ClaimLease("$name", corelease.Request{"holder", time.Minute})
+	err := fix.Store.ClaimLease(key("$name"), corelease.Request{"holder", time.Minute})
 	c.Check(err, gc.ErrorMatches, "invalid name: string contains forbidden characters")
 }
 
-func (s *ClientValidationSuite) TestClaimLeaseHolder(c *gc.C) {
+func (s *StoreValidationSuite) TestClaimLeaseHolder(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ClaimLease("name", corelease.Request{"$holder", time.Minute})
+	err := fix.Store.ClaimLease(key("name"), corelease.Request{"$holder", time.Minute})
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid holder: string contains forbidden characters")
 }
 
-func (s *ClientValidationSuite) TestClaimLeaseDuration(c *gc.C) {
+func (s *StoreValidationSuite) TestClaimLeaseDuration(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ClaimLease("name", corelease.Request{"holder", 0})
+	err := fix.Store.ClaimLease(key("name"), corelease.Request{"holder", 0})
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid duration")
 }
 
-func (s *ClientValidationSuite) TestExtendLeaseName(c *gc.C) {
+func (s *StoreValidationSuite) TestExtendLeaseName(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ExtendLease("$name", corelease.Request{"holder", time.Minute})
+	err := fix.Store.ExtendLease(key("$name"), corelease.Request{"holder", time.Minute})
 	c.Check(err, gc.ErrorMatches, "invalid name: string contains forbidden characters")
 }
 
-func (s *ClientValidationSuite) TestExtendLeaseHolder(c *gc.C) {
+func (s *StoreValidationSuite) TestExtendLeaseHolder(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ExtendLease("name", corelease.Request{"$holder", time.Minute})
+	err := fix.Store.ExtendLease(key("name"), corelease.Request{"$holder", time.Minute})
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid holder: string contains forbidden characters")
 }
 
-func (s *ClientValidationSuite) TestExtendLeaseDuration(c *gc.C) {
+func (s *StoreValidationSuite) TestExtendLeaseDuration(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ExtendLease("name", corelease.Request{"holder", 0})
+	err := fix.Store.ExtendLease(key("name"), corelease.Request{"holder", 0})
 	c.Check(err, gc.ErrorMatches, "invalid request: invalid duration")
 }
 
-func (s *ClientValidationSuite) TestExpireLeaseName(c *gc.C) {
+func (s *StoreValidationSuite) TestExpireLeaseName(c *gc.C) {
 	fix := s.EasyFixture(c)
-	err := fix.Client.ExpireLease("$name")
+	err := fix.Store.ExpireLease(key("$name"))
 	c.Check(err, gc.ErrorMatches, "invalid name: string contains forbidden characters")
 }
