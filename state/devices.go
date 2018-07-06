@@ -10,9 +10,28 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/environs/config"
 )
+
+type DeviceType string
+
+// DeviceConstraints describes a set of device constraints.
+type DeviceConstraints struct {
+
+	// Type is the device type or device-class.
+	// currently supported types are
+	// - gpu
+	// - nvidia.com/gpu
+	// - amd.com/gpu
+	Type DeviceType `bson:"type"`
+
+	// Count is the number of devices that the user has asked for - count min and max are the
+	// number of devices the charm requires.
+	Count int64 `bson:"count"`
+
+	// Attributes is a collection of key value pairs device related (node affinity labels/tags etc.).
+	Attributes map[string]string `bson:"attributes"`
+}
 
 // NewDeviceBackend creates a backend for managing device.
 func NewDeviceBackend(st *State) (*deviceBackend, error) {
@@ -44,11 +63,11 @@ type deviceBackend struct {
 
 // deviceConstraintsDoc contains device constraints for an entity.
 type deviceConstraintsDoc struct {
-	DocID       string                         `bson:"_id"`
-	Constraints map[string]devices.Constraints `bson:"constraints"`
+	DocID       string                       `bson:"_id"`
+	Constraints map[string]DeviceConstraints `bson:"constraints"`
 }
 
-func createDeviceConstraintsOp(id string, cons map[string]devices.Constraints) txn.Op {
+func createDeviceConstraintsOp(id string, cons map[string]DeviceConstraints) txn.Op {
 	return txn.Op{
 		C:      deviceConstraintsC,
 		Id:     id,
@@ -59,7 +78,7 @@ func createDeviceConstraintsOp(id string, cons map[string]devices.Constraints) t
 	}
 }
 
-func replaceDeviceConstraintsOp(id string, cons map[string]devices.Constraints) txn.Op {
+func replaceDeviceConstraintsOp(id string, cons map[string]DeviceConstraints) txn.Op {
 	return txn.Op{
 		C:      deviceConstraintsC,
 		Id:     id,
@@ -75,7 +94,7 @@ func removeDeviceConstraintsOp(id string) txn.Op {
 		Remove: true,
 	}
 }
-func readDeviceConstraints(mb modelBackend, id string) (map[string]devices.Constraints, error) {
+func readDeviceConstraints(mb modelBackend, id string) (map[string]DeviceConstraints, error) {
 	coll, closer := mb.db().GetCollection(deviceConstraintsC)
 	defer closer()
 
@@ -90,7 +109,7 @@ func readDeviceConstraints(mb modelBackend, id string) (map[string]devices.Const
 	return doc.Constraints, nil
 }
 
-func validateDeviceConstraints(db *deviceBackend, allCons map[string]devices.Constraints, charmMeta *charm.Meta) error {
+func validateDeviceConstraints(db *deviceBackend, allCons map[string]DeviceConstraints, charmMeta *charm.Meta) error {
 	err := validateDeviceConstraintsAgainstCharm(db, allCons, charmMeta)
 	if err != nil {
 		return errors.Trace(err)
@@ -107,7 +126,7 @@ func validateDeviceConstraints(db *deviceBackend, allCons map[string]devices.Con
 
 func validateDeviceConstraintsAgainstCharm(
 	db *deviceBackend,
-	allCons map[string]devices.Constraints,
+	allCons map[string]DeviceConstraints,
 	charmMeta *charm.Meta,
 ) error {
 	for name, cons := range allCons {

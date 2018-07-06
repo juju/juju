@@ -25,7 +25,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
@@ -213,7 +212,7 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm
 	})
 }
 
-func AddTestingApplicationWithDevices(c *gc.C, st *State, name string, ch *Charm, devices map[string]devices.Constraints) *Application {
+func AddTestingApplicationWithDevices(c *gc.C, st *State, name string, ch *Charm, devices map[string]DeviceConstraints) *Application {
 	return addTestingApplication(addTestingApplicationParams{
 		c:       c,
 		st:      st,
@@ -240,7 +239,7 @@ type addTestingApplicationParams struct {
 	ch           *Charm
 	bindings     map[string]string
 	storage      map[string]StorageConstraints
-	devices      map[string]devices.Constraints
+	devices      map[string]DeviceConstraints
 }
 
 func addTestingApplication(params addTestingApplicationParams) *Application {
@@ -804,7 +803,7 @@ func AppStorageConstraints(app *Application) (map[string]StorageConstraints, err
 	return readStorageConstraints(app.st, app.storageConstraintsKey())
 }
 
-func AppDeviceConstraints(app *Application) (map[string]devices.Constraints, error) {
+func AppDeviceConstraints(app *Application) (map[string]DeviceConstraints, error) {
 	return readDeviceConstraints(app.st, app.deviceConstraintsKey())
 }
 

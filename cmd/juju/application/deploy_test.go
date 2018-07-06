@@ -43,7 +43,6 @@ import (
 	jjcharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -427,13 +426,19 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 }
 
 type CAASDeploySuite struct {
-	DeploySuiteBase
+	charmStoreSuite
+
+	series     string
+	CharmsPath string
 }
 
 var _ = gc.Suite(&CAASDeploySuite{})
 
 func (s *CAASDeploySuite) SetUpTest(c *gc.C) {
-	s.DeploySuiteBase.SetUpTest(c)
+	s.series = "kubernetes"
+	s.CharmsPath = c.MkDir()
+
+	s.charmStoreSuite.SetUpTest(c)
 
 	// Set up a CAAS model to replace the IAAS one.
 	st := s.Factory.MakeCAASModel(c, nil)
@@ -447,21 +452,25 @@ func (s *CAASDeploySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CAASDeploySuite) TestDevices(c *gc.C) {
-	// ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "bitcoin-miner")
-	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/bitcoin-miner-1", "bitcoin-miner", "kubernetes")
-	err := runDeploy(c, ch, "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "kubernetes")
+	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:kubernetes/miner-1")
-	application, _ := s.AssertApplication(c, "miner", curl, 1, 0)
 
-	cons, err := application.DeviceConstraints()
+	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/bitcoin-miner-1", "bitcoin-miner", "kubernetes")
+	err = runDeploy(c, "bitcoin-miner", "-m", m.Name(), "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "kubernetes")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cons, jc.DeepEquals, map[string]devices.Constraints{
-		"bitcoinminer": {
-			Type:       "nvidia.com/gpu",
-			Count:      10,
-			Attributes: map[string]string{},
+
+	s.assertCharmsUploaded(c, "cs:kubernetes/bitcoin-miner-1")
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"bitcoin-miner": {
+			charm:  "cs:kubernetes/bitcoin-miner-1",
+			config: ch.Config().DefaultSettings(),
+			devices: map[string]state.DeviceConstraints{
+				"bitcoinminer": {Type: "nvidia.com/gpu", Count: 10, Attributes: map[string]string{}},
+			},
 		},
+	})
+	s.assertUnitsCreated(c, map[string]string{
+		"bitcoin-miner/0": "0",
 	})
 }
 
@@ -926,7 +935,7 @@ type applicationInfo struct {
 	constraints      constraints.Value
 	exposed          bool
 	storage          map[string]state.StorageConstraints
-	devices          map[string]devices.Constraints
+	devices          map[string]state.DeviceConstraints
 	endpointBindings map[string]string
 }
 

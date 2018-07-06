@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/devices"
 	coreglobalclock "github.com/juju/juju/core/globalclock"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/instance"
@@ -1024,7 +1023,7 @@ type AddApplicationArgs struct {
 	Charm             *Charm
 	Channel           csparams.Channel
 	Storage           map[string]StorageConstraints
-	Devices           map[string]devices.Constraints
+	Devices           map[string]DeviceConstraints
 	AttachStorage     []names.StorageTag
 	EndpointBindings  map[string]string
 	ApplicationConfig *application.Config
@@ -1111,7 +1110,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 	// ensure Devices
 	if args.Devices == nil {
-		args.Devices = make(map[string]devices.Constraints)
+		args.Devices = make(map[string]DeviceConstraints)
 	}
 	deviceb, err := NewDeviceBackend(st)
 	if err != nil {

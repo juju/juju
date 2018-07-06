@@ -28,7 +28,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
@@ -2128,7 +2127,7 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 }
 
 // DeviceConstraints returns the device constraints for the application.
-func (a *Application) DeviceConstraints() (map[string]devices.Constraints, error) {
+func (a *Application) DeviceConstraints() (map[string]DeviceConstraints, error) {
 	cons, err := readDeviceConstraints(a.st, a.deviceConstraintsKey())
 	if errors.IsNotFound(err) {
 		return nil, nil
@@ -2260,7 +2259,7 @@ type addApplicationOpsArgs struct {
 	statusDoc         statusDoc
 	constraints       constraints.Value
 	storage           map[string]StorageConstraints
-	devices           map[string]devices.Constraints
+	devices           map[string]DeviceConstraints
 	applicationConfig map[string]interface{}
 	charmConfig       map[string]interface{}
 	// These are nil when adding a new application, and most likely

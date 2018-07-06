@@ -28,7 +28,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -214,7 +213,7 @@ func (s *CAASModelDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
 		"miner": {
 			charm:  "cs:kubernetes/bitcoin-miner",
 			config: minerCharm.Config().DefaultSettings(),
-			devices: map[string]devices.Constraints{
+			devices: map[string]state.DeviceConstraints{
 				"bitcoinminer": {Type: "nvidia.com/gpu", Count: 10, Attributes: map[string]string{}},
 			},
 		},

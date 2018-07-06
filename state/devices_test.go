@@ -8,7 +8,6 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 
-	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/state"
 )
 
@@ -39,8 +38,8 @@ func (s *DevicesStateSuiteBase) AddTestingCharm(c *gc.C, name string) *state.Cha
 	return state.AddTestingCharmForSeries(c, s.st, s.series, name)
 }
 
-func makeDeviceCons(t devices.DeviceType, count int64) devices.Constraints {
-	return devices.Constraints{Type: t, Count: count}
+func makeDeviceCons(t state.DeviceType, count int64) state.DeviceConstraints {
+	return state.DeviceConstraints{Type: t, Count: count}
 }
 
 type CAASDevicesStateSuite struct {
@@ -56,19 +55,19 @@ var _ = gc.Suite(&CAASDevicesStateSuite{})
 
 func (s *CAASDevicesStateSuite) TestAddApplicationDevicesConstraintsValidation(c *gc.C) {
 	ch := s.AddTestingCharm(c, "bitcoin-miner")
-	addApplication := func(devices map[string]devices.Constraints) (*state.Application, error) {
+	addApplication := func(devices map[string]state.DeviceConstraints) (*state.Application, error) {
 		return s.st.AddApplication(state.AddApplicationArgs{Name: "bitcoin-miner", Charm: ch, Devices: devices, Series: s.series})
 	}
-	assertErr := func(devices map[string]devices.Constraints, expect string) {
+	assertErr := func(devices map[string]state.DeviceConstraints, expect string) {
 		_, err := addApplication(devices)
 		c.Assert(err, gc.ErrorMatches, expect)
 	}
 
-	deviceCons := map[string]devices.Constraints{
+	deviceCons := map[string]state.DeviceConstraints{
 		"bitcoinminer-incorrect-name": makeDeviceCons("nvidia.com/gpu", 2),
 	}
 	assertErr(deviceCons, `cannot add application "bitcoin-miner": charm "bitcoin-miner" has no device called "bitcoinminer-incorrect-name"`)
-	deviceCons = map[string]devices.Constraints{
+	deviceCons = map[string]state.DeviceConstraints{
 		"bitcoinminer": makeDeviceCons("nvidia.com/gpu", 0),
 	}
 	assertErr(deviceCons, `cannot add application "bitcoin-miner": charm "bitcoin-miner" device "bitcoinminer": minimum device size is 1, 0 specified`)
@@ -76,10 +75,10 @@ func (s *CAASDevicesStateSuite) TestAddApplicationDevicesConstraintsValidation(c
 	app, err := addApplication(deviceCons)
 	c.Assert(err, jc.ErrorIsNil)
 
-	var devs map[string]devices.Constraints
+	var devs map[string]state.DeviceConstraints
 	devs, err = app.DeviceConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devs, jc.DeepEquals, map[string]devices.Constraints{
+	c.Assert(devs, jc.DeepEquals, map[string]state.DeviceConstraints{
 		"bitcoinminer": {
 			Type:       "nvidia.com/gpu",
 			Count:      2,

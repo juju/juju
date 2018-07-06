@@ -11,7 +11,6 @@ import (
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -76,7 +75,7 @@ func (s *ConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *s
 	return state.AddTestingApplicationWithStorage(c, s.State, name, ch, storage)
 }
 
-func (s *ConnSuite) AddTestingApplicationWithDevices(c *gc.C, name string, ch *state.Charm, devs map[string]devices.Constraints) *state.Application {
+func (s *ConnSuite) AddTestingApplicationWithDevices(c *gc.C, name string, ch *state.Charm, devs map[string]state.DeviceConstraints) *state.Application {
 	return state.AddTestingApplicationWithDevices(c, s.State, name, ch, devs)
 }
 

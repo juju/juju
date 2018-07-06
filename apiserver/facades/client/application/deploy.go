@@ -80,7 +80,7 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 		Charm:             args.Charm,
 		Channel:           args.Channel,
 		Storage:           stateStorageConstraints(args.Storage),
-		Devices:           args.Devices,
+		Devices:           stateDeviceConstraints(args.Devices),
 		AttachStorage:     args.AttachStorage,
 		ApplicationConfig: args.ApplicationConfig,
 		CharmConfig:       charmConfig,
@@ -207,6 +207,18 @@ func stateStorageConstraints(cons map[string]storage.Constraints) map[string]sta
 			Pool:  cons.Pool,
 			Size:  cons.Size,
 			Count: cons.Count,
+		}
+	}
+	return result
+}
+
+func stateDeviceConstraints(cons map[string]devices.Constraints) map[string]state.DeviceConstraints {
+	result := make(map[string]state.DeviceConstraints)
+	for name, cons := range cons {
+		result[name] = state.DeviceConstraints{
+			Type:       state.DeviceType(cons.Type),
+			Count:      cons.Count,
+			Attributes: cons.Attributes,
 		}
 	}
 	return result
