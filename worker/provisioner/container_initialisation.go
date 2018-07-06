@@ -59,6 +59,7 @@ type ContainerSetup struct {
 	// been started, the container watcher can be stopped.
 	numberProvisioners int32
 	credentialAPI      workercommon.CredentialAPI
+	getNetConfig       func(common.NetworkConfigSource) ([]params.NetworkConfig, error)
 }
 
 // ContainerSetupParams are used to initialise a container setup handler.
@@ -85,6 +86,7 @@ func NewContainerSetupHandler(params ContainerSetupParams) watcher.StringsHandle
 		workerName:          params.WorkerName,
 		initLockName:        params.InitLockName,
 		credentialAPI:       params.CredentialAPI,
+		getNetConfig:        common.GetObservedNetworkConfig,
 	}
 }
 
@@ -231,7 +233,7 @@ func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, conta
 
 	// At this point, Initialiser likely has changed host network information,
 	// so re-probe to have an accurate view.
-	observedConfig, err := observeNetwork()
+	observedConfig, err := cs.observeNetwork()
 	if err != nil {
 		return errors.Annotate(err, "cannot discover observed network config")
 	}
@@ -262,12 +264,8 @@ func (cs *ContainerSetup) acquireLock(abort <-chan struct{}) (mutex.Releaser, er
 	return mutex.Acquire(spec)
 }
 
-// getObservedNetworkConfig is here to allow us to override it for testing.
-// TODO(jam): Find a way to pass it into ContainerSetup instead of a global variable
-var getObservedNetworkConfig = common.GetObservedNetworkConfig
-
-func observeNetwork() ([]params.NetworkConfig, error) {
-	return getObservedNetworkConfig(common.DefaultNetworkConfigSource())
+func (cs *ContainerSetup) observeNetwork() ([]params.NetworkConfig, error) {
+	return cs.getNetConfig(common.DefaultNetworkConfigSource())
 }
 
 func defaultBridger() (network.Bridger, error) {
@@ -281,7 +279,7 @@ func defaultBridger() (network.Bridger, error) {
 func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.Logger) error {
 	preparer := NewHostPreparer(HostPreparerParams{
 		API:                cs.provisioner,
-		ObserveNetworkFunc: observeNetwork,
+		ObserveNetworkFunc: cs.observeNetwork,
 		LockName:           cs.initLockName,
 		AcquireLockFunc:    cs.acquireLock,
 		CreateBridger:      defaultBridger,

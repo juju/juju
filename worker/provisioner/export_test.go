@@ -8,7 +8,9 @@ import (
 
 	"github.com/juju/version"
 
+	"github.com/juju/juju/api/common"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/watcher"
@@ -34,14 +36,13 @@ func GetRetryWatcher(p Provisioner) (watcher.NotifyWatcher, error) {
 }
 
 var (
-	ContainerManagerConfig   = containerManagerConfig
-	GetContainerInitialiser  = &getContainerInitialiser
-	GetToolsFinder           = &getToolsFinder
-	ResolvConfFiles          = &resolvConfFiles
-	RetryStrategyDelay       = &retryStrategyDelay
-	RetryStrategyCount       = &retryStrategyCount
-	GetObservedNetworkConfig = &getObservedNetworkConfig
-	CombinedCloudInitData    = combinedCloudInitData
+	ContainerManagerConfig  = containerManagerConfig
+	GetContainerInitialiser = &getContainerInitialiser
+	GetToolsFinder          = &getToolsFinder
+	ResolvConfFiles         = &resolvConfFiles
+	RetryStrategyDelay      = &retryStrategyDelay
+	RetryStrategyCount      = &retryStrategyCount
+	CombinedCloudInitData   = combinedCloudInitData
 )
 
 var ClassifyMachine = classifyMachine
@@ -69,4 +70,8 @@ func SetupToStartMachine(p ProvisionerTask, machine *apiprovisioner.Machine, ver
 
 func GetAPIProvisionerState(p Provisioner) *apiprovisioner.State {
 	return p.(*environProvisioner).st
+}
+
+func (cs *ContainerSetup) SetGetNetConfig(getNetConf func(common.NetworkConfigSource) ([]params.NetworkConfig, error)) {
+	cs.getNetConfig = getNetConf
 }
