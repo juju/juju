@@ -346,6 +346,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		localState := resolver.LocalState{
 			CharmURL:             charmURL,
 			CharmModifiedVersion: charmModifiedVersion,
+			UpgradeSeriesStatus:  params.UnitNotStarted,
 		}
 		for err == nil {
 			err = resolver.Loop(resolver.LoopConfig{

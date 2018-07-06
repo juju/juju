@@ -2140,21 +2140,21 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 	prepareUnits := make([]unitStatus, len(unitNames))
 	completeUnits := make([]unitStatus, len(unitNames))
 	for i, name := range unitNames {
-		prepareUnits[i] = unitStatus{Id: name, Status: params.UnitNotStarted}
+		prepareUnits[i] = unitStatus{Id: name, Status: params.UnitStarted}
 		completeUnits[i] = unitStatus{Id: name, Status: params.UnitNotStarted}
 	}
 	return &upgradeSeriesLock{
 		Id:             m.Id(),
 		ToSeries:       toSeries,
 		FromSeries:     m.Series(),
-		PrepareStatus:  params.NotStarted,
+		PrepareStatus:  params.MachineSeriesUpgradeStarted,
 		PrepareUnits:   prepareUnits,
-		CompleteStatus: params.NotStarted,
+		CompleteStatus: params.MachineSeriesUpgradeNotStarted,
 		CompleteUnits:  completeUnits,
 	}
 }
 
-// RemoveUpgradeSeriesLock remove a series upgrade prepare lock for a
+// RemoveUpgradeSeriesLock removes a series upgrade prepare lock for a
 // given machine.
 func (m *Machine) RemoveUpgradeSeriesLock() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {

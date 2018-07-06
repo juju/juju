@@ -7,20 +7,20 @@ package params
 type MachineSeriesUpgradeStatus string
 
 const (
-	NotStarted    MachineSeriesUpgradeStatus = "NotStarted"
-	Started       MachineSeriesUpgradeStatus = "Started"
-	UnitsRunning  MachineSeriesUpgradeStatus = "UnitsRunning"
-	JujuComplete  MachineSeriesUpgradeStatus = "JujuComplete"
-	AgentsStopped MachineSeriesUpgradeStatus = "AgentsStopped"
-	Complete      MachineSeriesUpgradeStatus = "Complete"
+	MachineSeriesUpgradeNotStarted    MachineSeriesUpgradeStatus = "NotStarted"
+	MachineSeriesUpgradeStarted       MachineSeriesUpgradeStatus = "Started"
+	MachineSeriesUpgradeUnitsRunning  MachineSeriesUpgradeStatus = "UnitsRunning"
+	MachineSeriesUpgradeJujuComplete  MachineSeriesUpgradeStatus = "JujuComplete"
+	MachineSeriesUpgradeAgentsStopped MachineSeriesUpgradeStatus = "AgentsStopped"
+	MachineSeriesUpgradeComplete      MachineSeriesUpgradeStatus = "Complete"
 )
 
 //UnitSeriesUpgradeStatus is the current status of an upgrade
 type UnitSeriesUpgradeStatus string
 
 const (
-	UnitNotStarted UnitSeriesUpgradeStatus = "UnitNotStarted"
-	UnitStarted    UnitSeriesUpgradeStatus = "UnitStarted"
-	UnitErrored    UnitSeriesUpgradeStatus = "UnitErrored"
-	UnitCompleted  UnitSeriesUpgradeStatus = "UnitCompleted"
+	UnitNotStarted UnitSeriesUpgradeStatus = "NotStarted"
+	UnitStarted    UnitSeriesUpgradeStatus = "Started"
+	UnitErrored    UnitSeriesUpgradeStatus = "Errored"
+	UnitCompleted  UnitSeriesUpgradeStatus = "Completed"
 )
