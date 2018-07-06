@@ -27,8 +27,9 @@ func (s *StorePersistenceSuite) TestNewStoreInvalidLeaseDoc(c *gc.C) {
 	config := lease.StoreConfig{
 		Id:          "store",
 		Namespace:   "namespace",
+		ModelUUID:   "model-uuid",
 		Collection:  "collection",
-		Mongo:       NewMongo(s.db, "model-uuid"),
+		Mongo:       NewMongo(s.db),
 		LocalClock:  clock.WallClock,
 		GlobalClock: GlobalClock{},
 	}

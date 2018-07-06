@@ -68,7 +68,7 @@ func (store *store) Leases() map[lease.Key]lease.Info {
 		localExpiry := localTime.Add(remaining)
 		key := lease.Key{
 			Namespace: store.config.Namespace,
-			ModelUUID: store.config.Mongo.ModelUUID(),
+			ModelUUID: store.config.ModelUUID,
 			Lease:     name,
 		}
 		leases[key] = lease.Info{

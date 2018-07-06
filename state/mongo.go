@@ -29,11 +29,6 @@ func (m *environMongo) RunTransaction(buildTxn jujutxn.TransactionSource) error 
 	return m.state.db().Run(buildTxn)
 }
 
-// ModelUUID is part of the lease.Mongo interface.
-func (m *environMongo) ModelUUID() string {
-	return m.state.modelUUID()
-}
-
 // Mongo Upgrade
 
 // HAMember holds information that identifies one member

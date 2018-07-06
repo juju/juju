@@ -56,16 +56,14 @@ func (clock GlobalClock) Now() (time.Time, error) {
 // mongo out, we need to check it really actually works -- but it's good to
 // have the runner accessible for adversarial transaction tests.
 type Mongo struct {
-	database  *mgo.Database
-	modelUUID string
-	runner    jujutxn.Runner
+	database *mgo.Database
+	runner   jujutxn.Runner
 }
 
 // NewMongo returns a *Mongo backed by the supplied database.
-func NewMongo(database *mgo.Database, modelUUID string) *Mongo {
+func NewMongo(database *mgo.Database) *Mongo {
 	return &Mongo{
-		database:  database,
-		modelUUID: modelUUID,
+		database: database,
 		runner: jujutxn.NewRunner(jujutxn.RunnerParams{
 			Database: database,
 		}),
@@ -80,9 +78,4 @@ func (m *Mongo) GetCollection(name string) (mongo.Collection, func()) {
 // RunTransaction is part of the lease.Mongo interface.
 func (m *Mongo) RunTransaction(getTxn jujutxn.TransactionSource) error {
 	return m.runner.Run(getTxn)
-}
-
-// ModelUUID is part of the lease.Mongo interface.
-func (m *Mongo) ModelUUID() string {
-	return m.modelUUID
 }

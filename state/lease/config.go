@@ -21,9 +21,6 @@ type Mongo interface {
 
 	// GetCollection should probably call the mongo.CollectionFromName func.
 	GetCollection(name string) (collection mongo.Collection, closer func())
-
-	// ModelUUID returns the UUID of the model we're writing to.
-	ModelUUID() string
 }
 
 // LocalClock provides the writer-local wall clock interface required by
@@ -58,6 +55,9 @@ type StoreConfig struct {
 	// Id uniquely identifies the store. Multiple stores with the same id
 	// running concurrently will cause undefined behaviour.
 	Id string
+
+	// ModelUUID identifies the model the leases will be stored in.
+	ModelUUID string
 
 	// Namespace identifies a group of stores which operate on the same data.
 	Namespace string

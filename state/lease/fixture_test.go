@@ -56,7 +56,7 @@ type Fixture struct {
 }
 
 func NewFixture(c *gc.C, database *mgo.Database, params FixtureParams) *Fixture {
-	mongo := NewMongo(database, "model-uuid")
+	mongo := NewMongo(database)
 	localClockStart := params.LocalClockStart
 	if localClockStart.IsZero() {
 		localClockStart = defaultClockStart
@@ -67,6 +67,7 @@ func NewFixture(c *gc.C, database *mgo.Database, params FixtureParams) *Fixture 
 		Id:          or(params.Id, "default-store"),
 		Namespace:   or(params.Namespace, "default-namespace"),
 		Collection:  or(params.Collection, "default-collection"),
+		ModelUUID:   "model-uuid",
 		Mongo:       mongo,
 		LocalClock:  localClock,
 		GlobalClock: globalClock,

@@ -22,7 +22,7 @@ type StoreSuite struct {
 var _ = gc.Suite(&StoreSuite{})
 
 func (s *StoreSuite) TestLookupLeaseNotThere(c *gc.C) {
-	db := NewMongo(s.db, "model-uuid")
+	db := NewMongo(s.db)
 	coll, closer := db.GetCollection("default-collection")
 	defer closer()
 	_, err := statelease.LookupLease(coll, "default-namespace", "bar")
@@ -33,7 +33,7 @@ func (s *StoreSuite) TestLookupLease(c *gc.C) {
 	fix := s.EasyFixture(c)
 	err := fix.Store.ClaimLease(key("name"), corelease.Request{"holder", time.Minute})
 	c.Assert(err, jc.ErrorIsNil)
-	db := NewMongo(s.db, "model-uuid")
+	db := NewMongo(s.db)
 	coll, closer := db.GetCollection("default-collection")
 	defer closer()
 	doc, err := statelease.LookupLease(coll, "default-namespace", "name")

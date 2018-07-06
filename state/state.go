@@ -457,6 +457,7 @@ func (st *State) getLeaseStore(namespace string) (lease.Store, error) {
 	store, err := statelease.NewStore(statelease.StoreConfig{
 		Id:          st.leaseStoreId,
 		Namespace:   namespace,
+		ModelUUID:   st.modelUUID(),
 		Collection:  leasesC,
 		Mongo:       &environMongo{st},
 		LocalClock:  st.stateClock,
