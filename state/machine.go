@@ -2239,7 +2239,7 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status params.UnitSeri
 		}
 		logger.Debugf("Requested unit name: %q, Unit indexed %q", unitName, lock.PrepareUnits[docIndex].Id)
 
-		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, docIndex, status), nil
+		return setUpgradeSeriesTxnOps(m.doc.Id, docIndex, status), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2278,7 +2278,7 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 	}
 }
 
-func setUpgradeSeriesTxnOps(machineDocId, unitName string, unitIndex int, status params.UnitSeriesUpgradeStatus) []txn.Op {
+func setUpgradeSeriesTxnOps(machineDocId string, unitIndex int, status params.UnitSeriesUpgradeStatus) []txn.Op {
 	unitField := fmt.Sprintf("prepareunits.%d.status", unitIndex)
 	return []txn.Op{
 		{
