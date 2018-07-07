@@ -561,12 +561,12 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 // upgrade changes.
 func (w *RemoteStateWatcher) upgradeSeriesStatusChaged() error {
 	w.mu.Lock()
+	defer w.mu.Unlock()
 	status, err := w.unit.UpgradeSeriesStatus()
 	if err != nil {
 		return err
 	}
 	w.current.UpgradeSeriesStatus = status
-	w.mu.Unlock()
 	return nil
 }
 
