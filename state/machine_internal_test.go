@@ -79,7 +79,7 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsSelectsCorrectIndex(c *
 	c.Assert(actualOpSt, gc.Equals, expectedOpSt)
 }
 
-func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertMachineAssigned(c *gc.C) {
+func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMachineIsAlive(c *gc.C) {
 	arbitaryMachineId := "id"
 	arbitaryStatus := params.UnitStarted
 	arbitaryUnitIndex := 0
