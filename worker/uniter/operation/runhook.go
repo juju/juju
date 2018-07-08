@@ -205,12 +205,7 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 	case hooks.PreSeriesUpgrade:
 		logger.Debugf("completing pre upgrade series hook. updating state of series upgrade.")
 		err = rh.callbacks.SetUpgradeSeriesStatus(params.UnitCompleted)
-		if err != nil {
-			return false, err
-		}
-		err = ctx.SetUnitStatus(jujuc.StatusInfo{
-			Status: string(status.Unknown),
-		})
+		// Does the unit status need to be set to something here?
 	}
 	return hasRunStatusSet && err == nil, err
 }
