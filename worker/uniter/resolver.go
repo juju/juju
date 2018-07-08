@@ -283,6 +283,11 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
 	}
 
+	if localState.UpgradeSeriesStatus == params.UnitStarted &&
+		remote.UpgradeSeriesStatus == params.UnitComplete {
+		return opFactory.NewCompleteSeriesUpgradeOperation()
+	}
+
 	op, err := s.config.Relations.NextOp(localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
