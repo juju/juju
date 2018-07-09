@@ -100,8 +100,9 @@ func addCharmFromURL(client CharmAdder, curl *charm.URL, channel csparams.Channe
 
 // newCharmStoreClient is called to obtain a charm store client.
 // It is defined as a variable so it can be changed for testing purposes.
-var newCharmStoreClient = func(client *httpbakery.Client) *csclient.Client {
+var newCharmStoreClient = func(client *httpbakery.Client, csURL string) *csclient.Client {
 	return csclient.New(csclient.Params{
+		URL:          csURL,
 		BakeryClient: client,
 	})
 }

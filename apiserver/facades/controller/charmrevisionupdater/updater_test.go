@@ -6,7 +6,6 @@ package charmrevisionupdater_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -175,9 +174,7 @@ func (s *charmVersionSuite) TestJujuMetadataHeaderIsSent(c *gc.C) {
 
 	// Point the charm repo initializer to the testing server.
 	s.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func(st *state.State) (charmstore.Client, error) {
-		csURL, err := url.Parse(srv.URL)
-		c.Assert(err, jc.ErrorIsNil)
-		return charmstore.NewCachingClient(state.MacaroonCache{st}, csURL)
+		return charmstore.NewCachingClient(state.MacaroonCache{st}, srv.URL)
 	})
 
 	result, err := s.charmrevisionupdater.UpdateLatestRevisions()

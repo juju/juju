@@ -165,7 +165,7 @@ func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cstoreClient := newCharmStoreClient(bakeryClient).WithChannel(deployCmd.Channel)
+		cstoreClient := newCharmStoreClient(bakeryClient, s.srv.URL).WithChannel(deployCmd.Channel)
 		return &deployAPIAdapter{
 			Connection:        apiRoot,
 			apiClient:         &apiClient{Client: apiRoot.Client()},

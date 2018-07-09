@@ -52,7 +52,7 @@ func (s *ClientSuite) TestLatestRevisions(c *gc.C) {
 		Sha256:   "fgh",
 	}}}
 
-	client, err := newCachingClient(s.cache, nil, s.wrapper.makeWrapper)
+	client, err := newCachingClient(s.cache, "", s.wrapper.makeWrapper)
 	c.Assert(err, jc.ErrorIsNil)
 
 	foo := charm.MustParseURL("cs:quantal/foo-1")
@@ -118,7 +118,7 @@ func (s *ClientSuite) TestListResources(c *gc.C) {
 	s.wrapper.ReturnListResourcesStable = []resourceResult{oneResourceResult(stable), {err: params.ErrNotFound}}
 	s.wrapper.ReturnListResourcesDev = []resourceResult{oneResourceResult(dev), oneResourceResult(dev2)}
 
-	client, err := newCachingClient(s.cache, nil, s.wrapper.makeWrapper)
+	client, err := newCachingClient(s.cache, "", s.wrapper.makeWrapper)
 	c.Assert(err, jc.ErrorIsNil)
 
 	foo := charm.MustParseURL("cs:quantal/foo-1")
@@ -158,7 +158,7 @@ func (s *ClientSuite) TestListResources(c *gc.C) {
 
 func (s *ClientSuite) TestListResourcesError(c *gc.C) {
 	s.wrapper.ReturnListResourcesStable = []resourceResult{{err: errors.NotFoundf("another error")}}
-	client, err := newCachingClient(s.cache, nil, s.wrapper.makeWrapper)
+	client, err := newCachingClient(s.cache, "", s.wrapper.makeWrapper)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ret, err := client.ListResources([]CharmID{{
@@ -188,7 +188,7 @@ func (s *ClientSuite) TestGetResource(c *gc.C) {
 	}
 	s.wrapper.ReturnResourceMeta = apiRes
 
-	client, err := newCachingClient(s.cache, nil, s.wrapper.makeWrapper)
+	client, err := newCachingClient(s.cache, "", s.wrapper.makeWrapper)
 	c.Assert(err, jc.ErrorIsNil)
 
 	req := ResourceRequest{
@@ -222,7 +222,7 @@ func (s *ClientSuite) TestResourceInfo(c *gc.C) {
 	}
 	s.wrapper.ReturnResourceMeta = apiRes
 
-	client, err := newCachingClient(s.cache, nil, s.wrapper.makeWrapper)
+	client, err := newCachingClient(s.cache, "", s.wrapper.makeWrapper)
 	c.Assert(err, jc.ErrorIsNil)
 
 	req := ResourceRequest{

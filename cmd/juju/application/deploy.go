@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
 	apicharms "github.com/juju/juju/api/charms"
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	apiparams "github.com/juju/juju/apiserver/params"
@@ -208,7 +209,15 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			cstoreClient := newCharmStoreClient(bakeryClient).WithChannel(deployCmd.Channel)
+			controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			csURL, err := deployCmd.getCharmStoreAPIURL(controllerAPIRoot)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
 
 			return &deployAPIAdapter{
 				Connection:        apiRoot,
@@ -241,11 +250,20 @@ func NewDeployCommand() modelcmd.ModelCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
+		controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		csURL, err := deployCmd.getCharmStoreAPIURL(controllerAPIRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		bakeryClient, err := deployCmd.BakeryClient()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cstoreClient := newCharmStoreClient(bakeryClient).WithChannel(deployCmd.Channel)
+		cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
 
 		return &deployAPIAdapter{
 			Connection:        apiRoot,
@@ -1265,6 +1283,15 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI) func() (d
 			))
 		}, nil
 	}
+}
+
+func (c *DeployCommand) getCharmStoreAPIURL(controllerAPIRoot api.Connection) (string, error) {
+	controllerAPI := controller.NewClient(controllerAPIRoot)
+	controllerCfg, err := controllerAPI.ControllerConfig()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return controllerCfg.CharmStoreURL(), nil
 }
 
 func (c *DeployCommand) charmStoreCharm() (deployFn, error) {

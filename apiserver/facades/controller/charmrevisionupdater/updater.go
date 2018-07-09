@@ -89,7 +89,11 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 // NewCharmStoreClient instantiates a new charm store repository.  Exported so
 // we can change it during testing.
 var NewCharmStoreClient = func(st *state.State) (charmstore.Client, error) {
-	return charmstore.NewCachingClient(state.MacaroonCache{st}, nil)
+	controllerCfg, err := st.ControllerConfig()
+	if err != nil {
+		return charmstore.Client{}, errors.Trace(err)
+	}
+	return charmstore.NewCachingClient(state.MacaroonCache{st}, controllerCfg.CharmStoreURL())
 }
 
 type latestCharmInfo struct {

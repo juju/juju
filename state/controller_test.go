@@ -37,6 +37,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.JujuManagementSpace,
 		controller.AuditLogExcludeMethods,
 		controller.CAASOperatorImagePath,
+		controller.CharmStoreURL,
 		controller.Features,
 	)
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {

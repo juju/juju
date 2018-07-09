@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
+	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
@@ -56,6 +57,7 @@ func NewUpgradeCharmCommand() cmd.Command {
 			}
 			return resclient, nil
 		},
+		CharmStoreURLGetter: getCharmStoreAPIURL,
 	}
 	return modelcmd.Wrap(cmd)
 }
@@ -85,6 +87,7 @@ type ResourceLister interface {
 type NewCharmAdderFunc func(
 	api.Connection,
 	*httpbakery.Client,
+	string, // Charmstore API URL
 	csclientparams.Channel,
 ) CharmAdder
 
@@ -99,6 +102,7 @@ type upgradeCharmCommand struct {
 	NewCharmUpgradeClient func(api.Connection) CharmUpgradeClient
 	NewModelConfigGetter  func(api.Connection) ModelConfigGetter
 	NewResourceLister     func(api.Connection) (ResourceLister, error)
+	CharmStoreURLGetter   func(api.Connection) (string, error)
 
 	ApplicationName string
 	ForceUnits      bool
@@ -297,8 +301,16 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	charmAdder := c.NewCharmAdder(apiRoot, bakeryClient, c.Channel)
-	charmRepo := c.getCharmStore(bakeryClient, modelConfig)
+	conAPIRoot, err := c.NewControllerAPIRoot()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	csURL, err := c.CharmStoreURLGetter(conAPIRoot)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	charmAdder := c.NewCharmAdder(apiRoot, bakeryClient, csURL, c.Channel)
+	charmRepo := c.getCharmStore(bakeryClient, csURL, modelConfig)
 
 	applicationInfo, err := charmUpgradeClient.Get(c.ApplicationName)
 	if err != nil {
@@ -465,9 +477,10 @@ func shouldUpgradeResource(res charmresource.Meta, uploads map[string]string, cu
 func newCharmAdder(
 	api api.Connection,
 	bakeryClient *httpbakery.Client,
+	csURL string,
 	channel csclientparams.Channel,
 ) CharmAdder {
-	csClient := newCharmStoreClient(bakeryClient).WithChannel(channel)
+	csClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(channel)
 
 	// TODO(katco): This anonymous adapter should go away in favor of
 	// a comprehensive API passed into the upgrade-charm command.
@@ -483,13 +496,24 @@ func newCharmAdder(
 
 func (c *upgradeCharmCommand) getCharmStore(
 	bakeryClient *httpbakery.Client,
+	csURL string,
 	modelConfig *config.Config,
 ) *charmrepo.CharmStore {
-	csClient := newCharmStoreClient(bakeryClient).WithChannel(c.Channel)
+	csClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(c.Channel)
 	return config.SpecializeCharmRepo(
 		charmrepo.NewCharmStoreFromClient(csClient),
 		modelConfig,
 	).(*charmrepo.CharmStore)
+}
+
+// getCharmStoreAPIURL consults the controller config for the charmstore api url to use.
+var getCharmStoreAPIURL = func(conAPIRoot api.Connection) (string, error) {
+	controllerAPI := controller.NewClient(conAPIRoot)
+	controllerCfg, err := controllerAPI.ControllerConfig()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return controllerCfg.CharmStoreURL(), nil
 }
 
 // addCharm interprets the new charmRef and adds the specified charm if

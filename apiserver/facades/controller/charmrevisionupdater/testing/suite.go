@@ -6,7 +6,6 @@ package testing
 import (
 	"fmt"
 	"net/http/httptest"
-	"net/url"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -69,9 +68,7 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 	// Patch the charm repo initializer function: it is replaced with a charm
 	// store repo pointing to the testing server.
 	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func(st *state.State) (jujucharmstore.Client, error) {
-		csURL, err := url.Parse(s.Server.URL)
-		c.Assert(err, jc.ErrorIsNil)
-		return jujucharmstore.NewCachingClient(state.MacaroonCache{st}, csURL)
+		return jujucharmstore.NewCachingClient(state.MacaroonCache{st}, s.Server.URL)
 	})
 	s.charms = make(map[string]*state.Charm)
 }
