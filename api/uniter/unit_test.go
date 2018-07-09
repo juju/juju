@@ -718,7 +718,7 @@ func (s *unitSuite) TestUpgradeSeriesStatus(c *gc.C) {
 	// assigned units.
 	status, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, params.UnitNotStarted)
+	c.Assert(status, gc.Equals, params.UnitStarted)
 }
 
 func (s *unitSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
@@ -742,14 +742,17 @@ func (s *unitSuite) TestSetUpgradeSeriesStatusShouldOnlySetSpecifiedUnit(c *gc.C
 	err = unit2.AssignToMachine(s.wordpressMachine)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Creating a lock for the machine transitions all units to started state
 	s.CreateUpgradeSeriesLock(c, unit2.Name())
 
-	_, err = unit2.SetUpgradeSeriesStatus(params.UnitStarted)
+	// Complete one unit
+	_, err = unit2.SetUpgradeSeriesStatus(params.UnitCompleted)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// The other unit should still be in the started state
 	status, err := s.wordpressUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, params.UnitNotStarted)
+	c.Assert(status, gc.Equals, params.UnitStarted)
 }
 
 func (s *unitSuite) CreateUpgradeSeriesLock(c *gc.C, additionalUnits ...string) {
