@@ -37,7 +37,5 @@ func reportAgentError(u *Uniter, userMessage string, err error) {
 
 // setUpgradeSeriesStatus sets the upgrade series status
 func setUpgradeSeriesStatus(u *Uniter, status params.UnitSeriesUpgradeStatus) error {
-	u.setStatusMutex.Lock()
-	defer u.setStatusMutex.Unlock()
 	return u.unit.SetUpgradeSeriesStatus(status)
 }
