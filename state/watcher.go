@@ -1656,10 +1656,10 @@ func (u *Unit) UpgradeSeriesStatus() (params.UnitSeriesUpgradeStatus, error) {
 }
 
 // UpgradeSeriesStatus sets the upgrade status of the units assigned machine.
-func (u *Unit) SetUpgradeSeriesStatus(status params.UnitSeriesUpgradeStatus) (string, error) {
+func (u *Unit) SetUpgradeSeriesStatus(status params.UnitSeriesUpgradeStatus) error {
 	machine, err := u.machine()
 	if err != nil {
-		return "", err
+		return err
 	}
 	return machine.SetUpgradeSeriesStatus(u.Name(), status)
 }

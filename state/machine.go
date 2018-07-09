@@ -2206,7 +2206,7 @@ func (m *Machine) UpgradeSeriesStatus(unitName string) (params.UnitSeriesUpgrade
 }
 
 // SetUpgradeSeriesStatus sets the status of a series upgrade.
-func (m *Machine) SetUpgradeSeriesStatus(unitName string, status params.UnitSeriesUpgradeStatus) (string, error) {
+func (m *Machine) SetUpgradeSeriesStatus(unitName string, status params.UnitSeriesUpgradeStatus) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2240,10 +2240,10 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status params.UnitSeri
 	if err != nil {
 		err = onAbort(err, ErrDead)
 		logger.Errorf("cannot set series upgrade status for unit %q of machine %q: %v", unitName, m.Id(), err)
-		return "", err
+		return err
 	}
 
-	return "", nil
+	return nil
 }
 
 func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLock) []txn.Op {

@@ -746,7 +746,7 @@ func (s *unitSuite) TestSetUpgradeSeriesStatusShouldOnlySetSpecifiedUnit(c *gc.C
 	s.CreateUpgradeSeriesLock(c, unit2.Name())
 
 	// Complete one unit
-	_, err = unit2.SetUpgradeSeriesStatus(params.UnitCompleted)
+	err = unit2.SetUpgradeSeriesStatus(params.UnitCompleted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The other unit should still be in the started state

@@ -1079,7 +1079,7 @@ func (u *UniterAPI) SetUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusPar
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		_, err = unit.SetUpgradeSeriesStatus(args.Status)
+		err = unit.SetUpgradeSeriesStatus(args.Status)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
