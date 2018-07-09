@@ -15,6 +15,7 @@ import (
 var commonModelFacadeNames = set.NewStrings(
 	"ActionPruner",
 	"Agent",
+	"Annotations",
 	"Application",
 	"CharmRevisionUpdater",
 	"Charms",

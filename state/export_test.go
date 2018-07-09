@@ -184,8 +184,7 @@ func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 }
 
 func AddTestingApplication(c *gc.C, st *State, name string, ch *Charm) *Application {
-	return addTestingApplication(addTestingApplicationParams{
-		c:    c,
+	return addTestingApplication(c, addTestingApplicationParams{
 		st:   st,
 		name: name,
 		ch:   ch,
@@ -193,8 +192,7 @@ func AddTestingApplication(c *gc.C, st *State, name string, ch *Charm) *Applicat
 }
 
 func AddTestingApplicationForSeries(c *gc.C, st *State, series, name string, ch *Charm) *Application {
-	return addTestingApplication(addTestingApplicationParams{
-		c:      c,
+	return addTestingApplication(c, addTestingApplicationParams{
 		st:     st,
 		series: series,
 		name:   name,
@@ -203,8 +201,7 @@ func AddTestingApplicationForSeries(c *gc.C, st *State, series, name string, ch 
 }
 
 func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
-	return addTestingApplication(addTestingApplicationParams{
-		c:       c,
+	return addTestingApplication(c, addTestingApplicationParams{
 		st:      st,
 		name:    name,
 		ch:      ch,
@@ -213,8 +210,7 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm
 }
 
 func AddTestingApplicationWithDevices(c *gc.C, st *State, name string, ch *Charm, devices map[string]DeviceConstraints) *Application {
-	return addTestingApplication(addTestingApplicationParams{
-		c:       c,
+	return addTestingApplication(c, addTestingApplicationParams{
 		st:      st,
 		name:    name,
 		ch:      ch,
@@ -223,8 +219,7 @@ func AddTestingApplicationWithDevices(c *gc.C, st *State, name string, ch *Charm
 }
 
 func AddTestingApplicationWithBindings(c *gc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
-	return addTestingApplication(addTestingApplicationParams{
-		c:        c,
+	return addTestingApplication(c, addTestingApplicationParams{
 		st:       st,
 		name:     name,
 		ch:       ch,
@@ -233,7 +228,6 @@ func AddTestingApplicationWithBindings(c *gc.C, st *State, name string, ch *Char
 }
 
 type addTestingApplicationParams struct {
-	c            *gc.C
 	st           *State
 	series, name string
 	ch           *Charm
@@ -242,8 +236,8 @@ type addTestingApplicationParams struct {
 	devices      map[string]DeviceConstraints
 }
 
-func addTestingApplication(params addTestingApplicationParams) *Application {
-	params.c.Assert(params.ch, gc.NotNil)
+func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Application {
+	c.Assert(params.ch, gc.NotNil)
 	app, err := params.st.AddApplication(AddApplicationArgs{
 		Name:             params.name,
 		Series:           params.series,
@@ -252,7 +246,7 @@ func addTestingApplication(params addTestingApplicationParams) *Application {
 		Storage:          params.storage,
 		Devices:          params.devices,
 	})
-	params.c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return app
 }
 

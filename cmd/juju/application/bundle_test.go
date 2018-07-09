@@ -174,6 +174,44 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleStorage(c *gc.C) {
 	})
 }
 
+type CAASModelDeployCharmStoreSuite struct {
+	CAASDeploySuiteBase
+}
+
+var _ = gc.Suite(&CAASModelDeployCharmStoreSuite{})
+
+func (s *CAASModelDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, minerCharm := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/bitcoin-miner-1", "bitcoin-miner", "kubernetes")
+	_, dashboardCharm := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/dashboard4miner-3", "dashboard4miner", "kubernetes")
+
+	testcharms.UploadBundle(c, s.client, "bundle/bitcoinminer-with-dashboard-1", "bitcoinminer-with-dashboard")
+	err = runDeploy(
+		c, "bundle/bitcoinminer-with-dashboard",
+		"-m", m.Name(),
+		"--device", "miner:bitcoinminer=10,nvidia.com/gpu", // override bitcoinminer
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCharmsUploaded(c, "cs:kubernetes/dashboard4miner-3", "cs:kubernetes/bitcoin-miner-1")
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"miner": {
+			charm:  "cs:kubernetes/bitcoin-miner-1",
+			config: minerCharm.Config().DefaultSettings(),
+			devices: map[string]state.DeviceConstraints{
+				"bitcoinminer": {Type: "nvidia.com/gpu", Count: 10, Attributes: map[string]string{}},
+			},
+		},
+		"dashboard": {charm: "cs:kubernetes/dashboard4miner-3", config: dashboardCharm.Config().DefaultSettings()},
+	})
+	s.assertRelationsEstablished(c, "dashboard:miner miner:miner")
+	s.assertUnitsCreated(c, map[string]string{
+		"miner/0":     "",
+		"dashboard/0": "",
+	})
+}
+
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissing(c *gc.C) {
 	testcharms.UploadCharm(c, s.client, "xenial/mysql-42", "mysql")
 	testcharms.UploadCharm(c, s.client, "xenial/wordpress-extra-bindings-47", "wordpress-extra-bindings")

@@ -425,16 +425,14 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 	})
 }
 
-type CAASDeploySuite struct {
+type CAASDeploySuiteBase struct {
 	charmStoreSuite
 
 	series     string
 	CharmsPath string
 }
 
-var _ = gc.Suite(&CAASDeploySuite{})
-
-func (s *CAASDeploySuite) SetUpTest(c *gc.C) {
+func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
 	s.series = "kubernetes"
 	s.CharmsPath = c.MkDir()
 
@@ -450,6 +448,29 @@ func (s *CAASDeploySuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 }
+
+// assertUnitsCreated checks that the given units have been created. The
+// expectedUnits argument maps unit names to machine names.
+func (s *CAASDeploySuiteBase) assertUnitsCreated(c *gc.C, expectedUnits map[string]string) {
+	applications, err := s.State.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	created := make(map[string]string)
+	for _, application := range applications {
+		var units []*state.Unit
+		units, err = application.AllUnits()
+		c.Assert(err, jc.ErrorIsNil)
+		for _, unit := range units {
+			created[unit.Name()] = "" // caas unit does not have a machineID here currently
+		}
+	}
+	c.Assert(created, jc.DeepEquals, expectedUnits)
+}
+
+type CAASDeploySuite struct {
+	CAASDeploySuiteBase
+}
+
+var _ = gc.Suite(&CAASDeploySuite{})
 
 func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 	m, err := s.State.Model()
@@ -470,7 +491,7 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 		},
 	})
 	s.assertUnitsCreated(c, map[string]string{
-		"bitcoin-miner/0": "0",
+		"bitcoin-miner/0": "",
 	})
 }
 
