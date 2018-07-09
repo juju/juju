@@ -2189,6 +2189,9 @@ func (m *Machine) UpgradeSeriesStatus(unitName string) (params.UnitSeriesUpgrade
 
 	var lock upgradeSeriesLock
 	err := coll.FindId(m.Id()).One(&lock)
+	if err == mgo.ErrNotFound {
+		return "", errors.NotFoundf("upgrade series lock for machine %q", m.Id())
+	}
 	if err != nil {
 		return "", errors.Trace(err)
 	}

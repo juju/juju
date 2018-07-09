@@ -678,6 +678,9 @@ func (u *Unit) UpgradeSeriesStatus() (params.UnitSeriesUpgradeStatus, error) {
 		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
+	if params.IsCodeNotFound(result.Error) {
+		return "", errors.NewNotFound(result.Error, "")
+	}
 	if result.Error != nil {
 		return "", result.Error
 	}

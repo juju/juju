@@ -563,6 +563,9 @@ func (w *RemoteStateWatcher) upgradeSeriesStatusChaged() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	status, err := w.unit.UpgradeSeriesStatus()
+	if errors.IsNotFound(err) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
