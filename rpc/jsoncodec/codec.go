@@ -163,17 +163,7 @@ func (c *Codec) readV0Message(m json.RawMessage) (inMsgV1, int, error) {
 	if err := json.Unmarshal(m, &msg); err != nil {
 		return inMsgV1{}, -1, errors.Trace(err)
 	}
-	return inMsgV1{
-		RequestId: msg.RequestId,
-		Type:      msg.Type,
-		Version:   msg.Version,
-		Id:        msg.Id,
-		Request:   msg.Request,
-		Params:    msg.Params,
-		Error:     msg.Error,
-		ErrorCode: msg.ErrorCode,
-		Response:  msg.Response,
-	}, 0, nil
+	return inMsgV1(msg), 0, nil
 }
 
 func (c *Codec) ReadBody(body interface{}, isRequest bool) error {

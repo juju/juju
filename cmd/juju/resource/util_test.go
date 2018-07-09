@@ -58,7 +58,7 @@ func newCharmResources(c *gc.C, names ...string) []charmresource.Resource {
 func runCmd(c *gc.C, command jujucmd.Command, args ...string) (code int, stdout string, stderr string) {
 	ctx := cmdtesting.Context(c)
 	code = jujucmd.Main(command, ctx, args)
-	stdout = string(ctx.Stdout.(*bytes.Buffer).Bytes())
-	stderr = string(ctx.Stderr.(*bytes.Buffer).Bytes())
+	stdout = ctx.Stdout.(*bytes.Buffer).String()
+	stderr = ctx.Stderr.(*bytes.Buffer).String()
 	return code, stdout, stderr
 }

@@ -97,10 +97,7 @@ func (auth agentAuth) AuthMachineAgent() bool {
 }
 
 func (auth agentAuth) AuthOwner(tag names.Tag) bool {
-	if tag.String() == "valid" {
-		return true
-	}
-	return false
+	return tag.String() == "valid"
 }
 
 // mockBackend implements machineactions.Backend for use in the tests.

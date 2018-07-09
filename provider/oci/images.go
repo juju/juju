@@ -165,10 +165,7 @@ func (i *ImageCache) SetImages(images map[string][]InstanceImage) {
 func (i *ImageCache) isStale() bool {
 	threshold := i.lastRefresh.Add(staleImageCacheTimeoutInMinutes * time.Minute)
 	now := time.Now()
-	if now.After(threshold) {
-		return true
-	}
-	return false
+	return now.After(threshold)
 }
 
 // ImageMetadata returns an array of imagemetadata.ImageMetadata for
@@ -336,7 +333,7 @@ func refreshImageCache(cli common.OCIComputeClient, compartmentID *string) (*Ima
 	cacheMutex.Lock()
 	defer cacheMutex.Unlock()
 
-	if globalImageCache.isStale() == false {
+	if !globalImageCache.isStale() {
 		return globalImageCache, nil
 	}
 

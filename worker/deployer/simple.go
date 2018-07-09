@@ -64,7 +64,7 @@ func recursiveChmod(path string, mode os.FileMode) error {
 		return nil
 	}
 	if err := filepath.Walk(path, walker); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }

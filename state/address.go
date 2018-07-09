@@ -127,7 +127,7 @@ func (st *State) SetAPIHostPorts(newHostPorts [][]network.HostPort) error {
 		}
 		ops = append(ops, agentAddrOps...)
 
-		if ops == nil || len(ops) == 0 {
+		if len(ops) == 0 {
 			return nil, statetxn.ErrNoOperations
 		}
 		return ops, nil
@@ -396,10 +396,7 @@ func dupeAndSort(a [][]network.HostPort) [][]network.HostPort {
 	var result [][]network.HostPort
 
 	for _, val := range a {
-		var inner []network.HostPort
-		for _, hp := range val {
-			inner = append(inner, hp)
-		}
+		inner := val[:]
 		network.SortHostPorts(inner)
 		result = append(result, inner)
 	}

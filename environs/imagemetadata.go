@@ -105,9 +105,7 @@ func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, source := range officialDataSources {
-		sources = append(sources, source)
-	}
+	sources = append(sources, officialDataSources...)
 	for _, ds := range sources {
 		logger.Debugf("obtained image datasource %q", ds.Description())
 	}

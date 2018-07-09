@@ -89,11 +89,7 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, seri
 	if err != nil {
 		return err
 	}
-	err = imagemetadata.MergeAndWriteMetadata(series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
-	if err != nil {
-		return err
-	}
-	return nil
+	return imagemetadata.MergeAndWriteMetadata(series, []*imagemetadata.ImageMetadata{im}, &cloudSpec, targetStorage)
 }
 
 func cacheTestEnvConfig(c *gc.C, store *jujuclient.MemStore) {

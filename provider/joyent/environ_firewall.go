@@ -22,8 +22,8 @@ const (
 )
 
 var (
-	firewallSinglePortRule = regexp.MustCompile("FROM tag [a-z0-9 \\-]+ TO (?:tag|vm) [a-z0-9 \\-]+ ALLOW (?P<protocol>[a-z]+) PORT (?P<port>[0-9]+)")
-	firewallMultiPortRule  = regexp.MustCompile("FROM tag [a-z0-9 \\-]+ TO (?:tag|vm) [a-z0-9 \\-]+ ALLOW (?P<protocol>[a-z]+) \\(\\s*(?P<ports>PORT [0-9]+(?: AND PORT [0-9]+)*)\\s*\\)")
+	firewallSinglePortRule = regexp.MustCompile(`FROM tag [a-z0-9 \-]+ TO (?:tag|vm) [a-z0-9 \-]+ ALLOW (?P<protocol>[a-z]+) PORT (?P<port>[0-9]+)`)
+	firewallMultiPortRule  = regexp.MustCompile(`FROM tag [a-z0-9 \-]+ TO (?:tag|vm) [a-z0-9 \-]+ ALLOW (?P<protocol>[a-z]+) \(\s*(?P<ports>PORT [0-9]+(?: AND PORT [0-9]+)*)\s*\)`)
 )
 
 // Helper method to create a firewall rule string for the given port

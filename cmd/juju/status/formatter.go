@@ -129,9 +129,7 @@ func (sf *statusFormatter) MachineFormat(machineId []string) formattedMachineSta
 }
 
 func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineStatus {
-	var out machineStatus
-
-	out = machineStatus{
+	out := machineStatus{
 		JujuStatus:        sf.getStatusInfoContents(machine.AgentStatus),
 		DNSName:           machine.DNSName,
 		IPAddresses:       machine.IPAddresses,

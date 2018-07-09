@@ -427,9 +427,7 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 		"ca-private-key",
 		config.AgentVersionKey,
 	}
-	for _, attr := range controller.ControllerOnlyConfigAttributes {
-		badAttrNames = append(badAttrNames, attr)
-	}
+	badAttrNames = append(badAttrNames, controller.ControllerOnlyConfigAttributes...)
 
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()

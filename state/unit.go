@@ -301,10 +301,7 @@ func (u *Unit) setPasswordHash(passwordHash string) error {
 // for the given unit.
 func (u *Unit) PasswordValid(password string) bool {
 	agentHash := utils.AgentPasswordHash(password)
-	if agentHash == u.doc.PasswordHash {
-		return true
-	}
-	return false
+	return agentHash == u.doc.PasswordHash
 }
 
 // UpdateOperation returns a model operation that will update a unit.

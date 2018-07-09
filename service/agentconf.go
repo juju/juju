@@ -320,7 +320,7 @@ func startAgent(name string, kind AgentKind, dataDir string, series string) (err
 	svcName := serviceName(name)
 	svc, err := NewService(svcName, conf, series)
 	if err = svc.Start(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -333,17 +333,17 @@ func serviceName(agent string) string {
 func (s *systemdServiceManager) WriteServiceFile() error {
 	hostSeries, err := series.HostSeries()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	dataDir, err := paths.DataDir(hostSeries)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// find the agents.
 	machineAgent, unitAgents, failedAgentNames, err := s.FindAgents(dataDir)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	startedSysdServiceNames, startedSymServiceNames, failedAgentNames, err := s.WriteSystemdAgents(
@@ -359,7 +359,7 @@ func (s *systemdServiceManager) WriteServiceFile() error {
 			logger.Errorf("failed to write service for %s: %s", agentName, err)
 		}
 		logger.Errorf("%s", err)
-		return err
+		return errors.Trace(err)
 	}
 	for _, sysSvcName := range startedSysdServiceNames {
 		logger.Infof("wrote %s agent, enabled and linked by systemd", sysSvcName)
@@ -371,7 +371,7 @@ func (s *systemdServiceManager) WriteServiceFile() error {
 	// reload the services.
 	err = systemd.SysdReload()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	return nil

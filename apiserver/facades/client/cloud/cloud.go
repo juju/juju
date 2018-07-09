@@ -388,7 +388,7 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 func (api *CloudAPIV2) AddCloud(cloudArgs params.AddCloudArgs) error {
 	err := api.backend.AddCloud(common.CloudFromParams(cloudArgs.Name, cloudArgs.Cloud))
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }

@@ -1205,7 +1205,6 @@ func (task *provisionerTask) addMachinetoAZMap(machine *apiprovisioner.Machine, 
 			break
 		}
 	}
-	return
 }
 
 // removeMachineFromAZMap removes the specified machine from availabilityZoneMachines.

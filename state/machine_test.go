@@ -957,7 +957,7 @@ func (s *MachineSuite) TestSetProvisionedDupInstanceId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	found := false
 	for _, le := range logWriter.Log() {
-		if found = strings.Contains(le.Message, "duplicate instance id"); found == true {
+		if found = strings.Contains(le.Message, "duplicate instance id"); found {
 			break
 		}
 	}

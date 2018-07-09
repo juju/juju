@@ -176,8 +176,5 @@ func (s *stubClient) ContainerInfo(name string) (*api.Container, error) {
 
 func (s *stubClient) PushFile(container, path string, gid int, uid int, mode string, buf io.ReadSeeker) error {
 	s.stub.AddCall("PushFile", container, path, gid, uid, mode, buf)
-	if err := s.stub.NextErr(); err != nil {
-		return err
-	}
-	return nil
+	return s.stub.NextErr()
 }

@@ -105,11 +105,7 @@ func (c *listRegionsCommand) Run(ctxt *cmd.Context) error {
 		}
 		regions = details
 	}
-	err = c.out.Write(ctxt, regions)
-	if err != nil {
-		return err
-	}
-	return nil
+	return c.out.Write(ctxt, regions)
 }
 
 func (c *listRegionsCommand) formatRegionsListTabular(writer io.Writer, value interface{}) error {

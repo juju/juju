@@ -1401,7 +1401,6 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 			switch op.(type) {
 			case dummy.OpDestroy:
 				c.Error("unexpected call to env.Destroy")
-				break
 			}
 		default:
 			break

@@ -123,10 +123,7 @@ func (e *Environ) getOCIInstance(id instance.Id) (*ociInstance, error) {
 }
 
 func (e *Environ) isNotFound(response *http.Response) bool {
-	if response.StatusCode == http.StatusNotFound {
-		return true
-	}
-	return false
+	return response.StatusCode == http.StatusNotFound
 }
 
 // waitForResourceStatus will ping the resource until the fetch function returns true,
@@ -624,14 +621,13 @@ func (e *Environ) StopInstances(ctx envcontext.ProviderCallContext, ids ...insta
 	if err == environs.ErrNoInstances {
 		return nil
 	} else if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	logger.Debugf("terminating instances %v", ids)
 	if err := e.terminateInstances(ociInstances...); err != nil {
-		return err
+		return errors.Trace(err)
 	}
-
 	return nil
 }
 

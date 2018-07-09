@@ -489,12 +489,12 @@ func (o *OracleEnviron) StopInstances(ctx context.ProviderCallContext, ids ...in
 	if err == environs.ErrNoInstances {
 		return nil
 	} else if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	logger.Debugf("terminating instances %v", ids)
 	if err := o.terminateInstances(oracleInstances...); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	return nil
@@ -723,7 +723,7 @@ func (o *OracleEnviron) ControllerInstances(ctx context.ProviderCallContext, con
 				break
 			}
 		}
-		if found == false {
+		if !found {
 			continue
 		}
 		ids = append(ids, val.Id())

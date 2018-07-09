@@ -604,9 +604,7 @@ func (c *defaultsCommand) verifyKnownKeys(client defaultsCommandAPI, keys []stri
 	}
 
 	allKeys := c.resetKeys[:]
-	for _, k := range keys {
-		allKeys = append(allKeys, k)
-	}
+	allKeys = append(allKeys, keys...)
 
 	for _, key := range allKeys {
 		// check if the key exists in the known config

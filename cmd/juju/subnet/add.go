@@ -90,9 +90,7 @@ func (c *AddCommand) Init(args []string) (err error) {
 	}
 
 	// Add any given zones.
-	for _, zone := range args[2:] {
-		c.Zones = append(c.Zones, zone)
-	}
+	c.Zones = append(c.Zones, args[2:]...)
 	return nil
 }
 

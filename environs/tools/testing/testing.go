@@ -131,9 +131,7 @@ func makeTools(c *gc.C, metadataDir, stream string, versionStrings []string, wit
 
 // SHA256sum creates the sha256 checksum for the specified file.
 func SHA256sum(c *gc.C, path string) (int64, string) {
-	if strings.HasPrefix(path, "file://") {
-		path = path[len("file://"):]
-	}
+	path = strings.TrimPrefix(path, "file://")
 	hash, size, err := utils.ReadFileSHA256(path)
 	c.Assert(err, jc.ErrorIsNil)
 	return size, hash

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -231,12 +232,12 @@ func SignFileData(stor storage.Storage, fileName string) error {
 
 	signedName, signedContent, err := sstesting.SignMetadata(fileName, fileData)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	err = stor.Put(signedName, strings.NewReader(string(signedContent)), int64(len(string(signedContent))))
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -278,7 +279,7 @@ func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 		versions = append(versions, vers)
 	}
 	if _, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }

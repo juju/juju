@@ -29,7 +29,7 @@ func init() {
 
 	flag.Parse()
 
-	if *runFeatureTests == false {
+	if !*runFeatureTests {
 		return
 	}
 	// Initialize all suites here.

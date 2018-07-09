@@ -89,11 +89,7 @@ func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version,
 	streamMetadata := map[string][]*tools.ToolsMetadata{
 		stream: tm,
 	}
-	err = tools.WriteMetadata(targetStorage, streamMetadata, []string{stream}, false)
-	if err != nil {
-		return err
-	}
-	return nil
+	return tools.WriteMetadata(targetStorage, streamMetadata, []string{stream}, false)
 }
 
 func (s *ValidateToolsMetadataSuite) SetUpTest(c *gc.C) {

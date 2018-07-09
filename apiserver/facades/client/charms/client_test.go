@@ -212,7 +212,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
 		}
-		if c.Check(err, jc.ErrorIsNil) == false {
+		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
 		c.Check(info, jc.DeepEquals, t.expected)

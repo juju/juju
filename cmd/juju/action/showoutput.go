@@ -98,7 +98,7 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 	case waitDur.Nanoseconds() == 0:
 		// Zero duration signals indefinite wait.  Discard the tick.
 		wait = time.NewTimer(0 * time.Second)
-		_ = <-wait.C
+		<-wait.C
 	default:
 		// Otherwise, start an ordinary timer.
 		wait = time.NewTimer(waitDur)
@@ -151,10 +151,10 @@ func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer) (param
 
 		// Block until a tick happens, or the timeout arrives.
 		select {
-		case _ = <-wait.C:
+		case <-wait.C:
 			return result, nil
 
-		case _ = <-tick.C:
+		case <-tick.C:
 			tick.Reset(2 * time.Second)
 		}
 	}

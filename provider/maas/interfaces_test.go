@@ -1265,5 +1265,5 @@ func (suite *environSuite) generateHWTemplate(netMacs map[string]ifaceInfo) (str
 	if err != nil {
 		return "", err
 	}
-	return string(buf.Bytes()), nil
+	return buf.String(), nil
 }

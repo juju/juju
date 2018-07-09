@@ -565,8 +565,7 @@ func (c *registerCommand) promptControllerName(suggestedName string, stderr io.W
 		}
 	}
 	for {
-		var setMsg string
-		setMsg = "Enter a name for this controller: "
+		setMsg := "Enter a name for this controller: "
 		if suggestedName != "" {
 			setMsg = fmt.Sprintf("Enter a name for this controller [%s]: ", suggestedName)
 		}

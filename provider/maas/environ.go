@@ -146,7 +146,7 @@ func (env *maasEnviron) usingMAAS2() bool {
 func (env *maasEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	if ctx.ShouldVerifyCredentials() {
 		if err := verifyCredentials(env); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -155,7 +155,7 @@ func (env *maasEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error
 // Create is part of the Environ interface.
 func (env *maasEnviron) Create(context.ProviderCallContext, environs.CreateParams) error {
 	if err := verifyCredentials(env); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -164,7 +164,7 @@ func (env *maasEnviron) Create(context.ProviderCallContext, environs.CreateParam
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	result, series, finalizer, err := common.BootstrapInstance(ctx, env, callCtx, args)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	// We want to destroy the started instance if it doesn't transition to Deployed.
@@ -697,7 +697,7 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 	return env.maasClientUnlocked
 }
 
-var dashSuffix = regexp.MustCompile("^(.*)-\\d+$")
+var dashSuffix = regexp.MustCompile(`^(.*)-\d+$`)
 
 func spaceNamesToSpaceInfo(spaces []string, spaceMap map[string]network.SpaceInfo) ([]network.SpaceInfo, error) {
 	spaceInfos := []network.SpaceInfo{}

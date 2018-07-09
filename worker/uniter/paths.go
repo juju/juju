@@ -121,7 +121,7 @@ func NewWorkerPaths(dataDir string, unitTag names.UnitTag, worker string) Paths 
 
 	socket := func(name string, abstract bool) string {
 		if os.HostOS() == os.Windows {
-			base := fmt.Sprintf("%s", unitTag)
+			base := unitTag.String()
 			if worker != "" {
 				base = fmt.Sprintf("%s-%s", unitTag, worker)
 			}

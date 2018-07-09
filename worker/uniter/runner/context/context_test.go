@@ -377,8 +377,7 @@ func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
 	ctx := s.GetContext(c, -1, "").(*context.HookContext)
 
 	var stub testing.Stub
-	var p *mockProcess
-	p = &mockProcess{func() error {
+	p := &mockProcess{func() error {
 		// Reboot priority should be set before the process
 		// is killed, or else the client waiting for the
 		// process to exit will race with the setting of
@@ -402,8 +401,7 @@ func (s *InterfaceSuite) TestRequestRebootNowTimeout(c *gc.C) {
 	ctx := s.GetContext(c, -1, "").(*context.HookContext)
 
 	var advanced bool
-	var p *mockProcess
-	p = &mockProcess{func() error {
+	p := &mockProcess{func() error {
 		// Reboot priority should be set before the process
 		// is killed, or else the client waiting for the
 		// process to exit will race with the setting of

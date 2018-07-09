@@ -261,10 +261,7 @@ func (h *bundleHandler) makeModel(
 	}
 
 	h.modelConfig, err = getModelConfig(h.api)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 // resolveCharmsAndEndpoints will go through the bundle and
@@ -1316,9 +1313,7 @@ func processSingleBundleOverlay(data *charm.BundleData, bundleOverlayFile string
 	}
 
 	// Next process relations.
-	for _, relation := range config.Relations {
-		data.Relations = append(data.Relations, relation)
-	}
+	data.Relations = append(data.Relations, config.Relations...)
 
 	// Finally, if the bundle overlay overrode the machines definition use
 	// that.

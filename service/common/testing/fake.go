@@ -256,23 +256,18 @@ func (ss *FakeService) Remove() error {
 // InstallCommands implements Service.
 func (ss *FakeService) InstallCommands() ([]string, error) {
 	ss.AddCall("InstallCommands")
-
 	return nil, ss.NextErr()
 }
 
 // StartCommands implements Service.
 func (ss *FakeService) StartCommands() ([]string, error) {
 	ss.AddCall("StartCommands")
-
 	return nil, ss.NextErr()
 }
 
 // WriteService implements UpgradableService.
 func (ss *FakeService) WriteService() error {
 	ss.AddCall("WriteService")
-	retErr := ss.NextErr()
-	if retErr != nil {
-		return retErr
-	}
-	return nil
+	err := ss.NextErr()
+	return err
 }

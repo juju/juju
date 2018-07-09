@@ -529,10 +529,7 @@ func (sb *StubBacking) AddSpace(name string, providerId network.Id, subnets []st
 
 func (sb *StubBacking) ReloadSpaces(environ environs.Environ) error {
 	sb.MethodCall(sb, "ReloadSpaces", environ)
-	if err := sb.NextErr(); err != nil {
-		return err
-	}
-	return nil
+	return sb.NextErr()
 }
 
 // GoString implements fmt.GoStringer.

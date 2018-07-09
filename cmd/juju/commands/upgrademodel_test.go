@@ -996,9 +996,7 @@ func (a *fakeUpgradeJujuAPI) ModelConfig() (map[string]interface{}, error) {
 }
 
 func (a *fakeUpgradeJujuAPI) addTools(tools ...string) {
-	for _, tool := range tools {
-		a.tools = append(a.tools, tool)
-	}
+	a.tools = append(a.tools, tools...)
 }
 
 func (a *fakeUpgradeJujuAPI) ModelGet() (map[string]interface{}, error) {

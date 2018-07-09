@@ -172,10 +172,7 @@ func (l *mockListener) trigger() (*mockConnection, error) {
 	conn := &mockConnection{}
 	dying := make(chan struct{})
 	err := l.handler.Handle(conn, dying)
-	if err != nil {
-		return conn, err
-	}
-	return conn, nil
+	return conn, err
 }
 
 // Stop implements the stopper interface.

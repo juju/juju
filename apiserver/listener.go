@@ -128,7 +128,5 @@ func (l *throttlingListener) pause() {
 		return
 	}
 	pauseTime := l.pauseTime()
-	select {
-	case <-l.clk.After(pauseTime):
-	}
+	<-l.clk.After(pauseTime)
 }

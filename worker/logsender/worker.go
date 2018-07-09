@@ -43,7 +43,6 @@ func New(logs LogRecordCh, logSenderAPI *logsender.API) worker.Worker {
 			case <-stop:
 				logWriter.Close()
 			}
-			return
 		}()
 		var logWriter logsender.LogWriter
 		var err error

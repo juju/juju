@@ -84,11 +84,7 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 	default:
 		output = details
 	}
-	err = c.out.Write(ctxt, output)
-	if err != nil {
-		return err
-	}
-	return nil
+	return c.out.Write(ctxt, output)
 }
 
 type cloudList struct {

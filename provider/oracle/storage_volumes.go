@@ -253,7 +253,7 @@ func (s *oracleVolumeSource) ListVolumes(ctx context.ProviderCallContext) ([]str
 
 // DescribeVolumes is specified on the storage.VolumeSource interface.
 func (s *oracleVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, volIds []string) ([]storage.DescribeVolumesResult, error) {
-	if volIds == nil || len(volIds) == 0 {
+	if len(volIds) == 0 {
 		return []storage.DescribeVolumesResult{}, nil
 	}
 
@@ -263,7 +263,7 @@ func (s *oracleVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, vo
 		Value: tag,
 	}}
 
-	result := make([]storage.DescribeVolumesResult, len(volIds), len(volIds))
+	result := make([]storage.DescribeVolumesResult, len(volIds))
 	volumes, err := s.api.AllStorageVolumes(filter)
 	if err != nil {
 		return nil, errors.Annotatef(err, "describe volumes")

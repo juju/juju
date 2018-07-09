@@ -223,7 +223,7 @@ func BridgeNameForDevice(device string) string {
 func (b *BridgePolicy) FindMissingBridgesForContainer(m Machine, containerMachine Container) ([]network.DeviceToBridge, int, error) {
 	reconfigureDelay := 0
 	containerSpaces, devicesPerSpace, err := b.findSpacesAndDevicesForContainer(m, containerMachine)
-	hostDeviceByName := make(map[string]*state.LinkLayerDevice, 0)
+	hostDeviceByName := make(map[string]*state.LinkLayerDevice)
 	if err != nil {
 		return nil, 0, errors.Trace(err)
 	}

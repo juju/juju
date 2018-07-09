@@ -443,8 +443,8 @@ func (mock *mockLockFunc) Release() {
 
 func (mock *mockLockFunc) newFailingLock() func() (mutex.Releaser, error) {
 	return func() (mutex.Releaser, error) {
-		mock.noStepsCalledOnLock = mock.op.prepare.called == false &&
-			mock.op.commit.called == false
+		mock.noStepsCalledOnLock = !mock.op.prepare.called &&
+			!mock.op.commit.called
 		return nil, errors.New("wat")
 	}
 }
@@ -453,8 +453,8 @@ func (mock *mockLockFunc) newSucceedingLock() func() (mutex.Releaser, error) {
 	return func() (mutex.Releaser, error) {
 		mock.calledLock = true
 		// Ensure that when we lock no operation has been called
-		mock.noStepsCalledOnLock = mock.op.prepare.called == false &&
-			mock.op.commit.called == false
+		mock.noStepsCalledOnLock = !mock.op.prepare.called &&
+			!mock.op.commit.called
 		mock.onRelease = func() {
 			// Record steps called when unlocking
 			mock.stepsCalledOnUnlock = []bool{mock.op.prepare.called,

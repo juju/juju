@@ -510,7 +510,7 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 	novaClient := e.nova()
 	flavors, err := novaClient.ListFlavorsDetail()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	instTypeNames := make([]string, len(flavors))
 	for i, flavor := range flavors {
@@ -545,7 +545,7 @@ func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.A
 			return nil, errors.NotImplementedf("availability zones")
 		}
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		e.availabilityZones = make([]common.AvailabilityZone, len(zones))
 		for i, z := range zones {
@@ -560,7 +560,7 @@ func (e *Environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.A
 func (e *Environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) ([]string, error) {
 	instances, err := e.Instances(ctx, ids)
 	if err != nil && err != environs.ErrPartialInstances {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	zones := make([]string, len(instances))
 	for i, inst := range instances {
@@ -569,7 +569,7 @@ func (e *Environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext,
 		}
 		zones[i] = inst.(*openstackInstance).serverDetail.AvailabilityZone
 	}
-	return zones, err
+	return zones, errors.Trace(err)
 }
 
 type openstackPlacement struct {
@@ -598,7 +598,7 @@ func (e *Environ) parsePlacement(ctx context.ProviderCallContext, placement stri
 		availabilityZone := value
 		err := common.ValidateAvailabilityZone(e, ctx, availabilityZone)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		return &openstackPlacement{zoneName: availabilityZone}, nil
 	}
@@ -617,7 +617,7 @@ func (e *Environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 	novaClient := e.nova()
 	flavors, err := novaClient.ListFlavorsDetail()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	for _, flavor := range flavors {
 		if flavor.Name == *args.Constraints.InstanceType {
@@ -631,7 +631,7 @@ func (e *Environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	// Verify credentials.
 	if err := authenticateClient(e.client()); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if !e.supportsNeutron() {
 		logger.Warningf(`Using deprecated OpenStack APIs.
@@ -653,7 +653,7 @@ func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 func (e *Environ) Create(context.ProviderCallContext, environs.CreateParams) error {
 	// Verify credentials.
 	if err := authenticateClient(e.client()); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// TODO(axw) 2016-08-04 #1609643
 	// Create global security group(s) here.
@@ -665,7 +665,7 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
 	if err := authenticateClient(e.client()); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return common.Bootstrap(ctx, e, callCtx, args)
 }
@@ -763,7 +763,7 @@ func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.Authentica
 
 	gooseLogger := gooselogging.LoggoLogger{loggo.GetLogger("goose")}
 	newClient := client.NewClient
-	if ecfg.SSLHostnameVerification() == false {
+	if !ecfg.SSLHostnameVerification() {
 		newClient = client.NewNonValidatingClient
 	}
 	client := newClient(&cred, authMode, gooseLogger)
@@ -1042,8 +1042,7 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 			if err != nil {
 				return nil, common.ZoneIndependentError(err)
 			}
-			if net.PortSecurityEnabled != nil &&
-				*net.PortSecurityEnabled == false {
+			if net.PortSecurityEnabled != nil && !*net.PortSecurityEnabled {
 				createSecurityGroups = *net.PortSecurityEnabled
 				logger.Infof("network %q has port_security_enabled set to false. Not using security groups.", net.Id)
 				break

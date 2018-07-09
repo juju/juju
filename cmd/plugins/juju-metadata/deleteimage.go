@@ -68,13 +68,13 @@ func (c *deleteImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *deleteImageMetadataCommand) Run(ctx *cmd.Context) (err error) {
 	api, err := c.newAPIFunc()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer api.Close()
 
 	err = api.Delete(c.ImageId)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }

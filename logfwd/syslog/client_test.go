@@ -203,11 +203,8 @@ func (s *stubSenderOpener) DialFunc(cfg *tls.Config, timeout time.Duration) (rfc
 	if dial == nil {
 		dial = func(network, address string) (rfc5424.Conn, error) {
 			s.stub.AddCall("dial", network, address)
-			if err := s.stub.NextErr(); err != nil {
-				return nil, err
-			}
-
-			return nil, nil
+			err := s.stub.NextErr()
+			return nil, err
 		}
 	}
 	return dial, nil
@@ -228,18 +225,12 @@ type stubSender struct {
 
 func (s *stubSender) Send(msg rfc5424.Message) error {
 	s.stub.AddCall("Send", msg)
-	if err := s.stub.NextErr(); err != nil {
-		return err
-	}
-
-	return nil
+	err := s.stub.NextErr()
+	return err
 }
 
 func (s *stubSender) Close() error {
 	s.stub.AddCall("Close")
-	if err := s.stub.NextErr(); err != nil {
-		return err
-	}
-
-	return nil
+	err := s.stub.NextErr()
+	return err
 }

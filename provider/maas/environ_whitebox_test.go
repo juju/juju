@@ -666,7 +666,7 @@ func (suite *environSuite) TestSubnetsMissingSubnet(c *gc.C) {
 	}
 
 	_, err := suite.makeEnviron().Subnets(suite.callCtx, testInstance.Id(), []network.Id{"1", "3", "6"})
-	errorRe := regexp.MustCompile("failed to find the following subnets: (\\d), (\\d)$")
+	errorRe := regexp.MustCompile(`failed to find the following subnets: (\d), (\d)$`)
 	errorText := err.Error()
 	c.Assert(errorRe.MatchString(errorText), jc.IsTrue)
 	matches := errorRe.FindStringSubmatch(errorText)

@@ -37,7 +37,7 @@ func instanceTypes(c EnvironAPI) ([]instances.InstanceType, error) {
 
 	// convert shapes to InstanceType
 	onlyArch := []string{"amd64"}
-	types := make([]instances.InstanceType, len(shapes.Result), len(shapes.Result))
+	types := make([]instances.InstanceType, len(shapes.Result))
 	for key, val := range shapes.Result {
 		types[key].Name = val.Name
 		types[key].Arches = onlyArch

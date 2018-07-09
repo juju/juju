@@ -179,7 +179,7 @@ func (c *AddCAASCommand) Run(ctxt *cmd.Context) error {
 			}
 		}
 	} else {
-		context, _ = caasConfig.Contexts[caasConfig.CurrentContext]
+		context = caasConfig.Contexts[caasConfig.CurrentContext]
 		logger.Debugf("No cluster name specified, so use current context %q", caasConfig.CurrentContext)
 	}
 

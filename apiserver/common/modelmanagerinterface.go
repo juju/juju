@@ -184,10 +184,9 @@ func (m modelShim) Users() ([]permission.UserAccess, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	users := make([]permission.UserAccess, len(stateUsers))
-	for i, user := range stateUsers {
-		users[i] = user
-	}
+	copy(users, stateUsers)
 	return users, nil
 }
 

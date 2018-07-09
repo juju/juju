@@ -52,7 +52,7 @@ func CreateTCPServer(c *gc.C, callback func(net.Conn)) (string, chan struct{}) {
 	c.Assert(err, jc.ErrorIsNil)
 	localAddress := listener.Addr().String()
 
-	shutdown := make(chan struct{}, 0)
+	shutdown := make(chan struct{})
 
 	go func() {
 		for {

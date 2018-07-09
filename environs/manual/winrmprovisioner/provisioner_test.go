@@ -16,7 +16,7 @@ import (
 type TestClientAPI struct{}
 
 func (t TestClientAPI) AddMachines(p []params.AddMachineParams) ([]params.AddMachinesResult, error) {
-	return make([]params.AddMachinesResult, 1, 1), nil
+	return make([]params.AddMachinesResult, 1), nil
 }
 
 func (t TestClientAPI) ForceDestroyMachines(machines ...string) error {

@@ -152,8 +152,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 		}},
 	}
 	var results params.ErrorResults
-	var err error
-	err = c.facade.FacadeCall("Deploy", deployArgs, &results)
+	err := c.facade.FacadeCall("Deploy", deployArgs, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

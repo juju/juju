@@ -180,10 +180,7 @@ func (rc *rawConn) ListAvailabilityZones(projectID, region string) ([]*compute.Z
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		for _, zone := range zoneList.Items {
-			results = append(results, zone)
-		}
+		results = append(results, zoneList.Items...)
 		if zoneList.NextPageToken == "" {
 			break
 		}
@@ -360,7 +357,7 @@ func (rc *rawConn) waitOperation(projectID string, op *compute.Operation, attemp
 	}
 	if op.Status != StatusDone {
 		// lp:1558657
-		err := errors.Errorf("timed out after %d seconds", time.Now().Sub(started)/time.Second)
+		err := errors.Errorf("timed out after %d seconds", time.Since(started)/time.Second)
 		return waitError{op, err}
 	}
 	if op.Error != nil {

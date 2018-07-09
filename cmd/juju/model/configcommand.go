@@ -429,7 +429,7 @@ func (c *configCommand) modelConfigDetails() (map[string]interface{}, error) {
 		}
 		specifics[key] = common.PrintConfigSchema{
 			Description: attr.Description,
-			Type:        fmt.Sprintf("%s", attr.Type),
+			Type:        string(attr.Type),
 		}
 	}
 	return specifics, nil

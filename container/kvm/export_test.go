@@ -23,7 +23,6 @@ func MakeCreateMachineParamsTestable(params *CreateMachineParams, pathfinder fun
 	params.runCmd = runCmd
 	params.runCmdAsRoot = runCmd
 	params.arch = arch
-	return
 }
 
 // NewEmptyKvmContainer returns an empty kvmContainer for testing.

@@ -323,7 +323,6 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 				if found == len(machines) {
 					return
 				}
-				break
 			default:
 				c.Logf("ignoring unexpected operation %#v", o)
 			}
