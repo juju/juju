@@ -678,10 +678,14 @@ func (u *Unit) UpgradeSeriesStatus() (params.UnitSeriesUpgradeStatus, error) {
 		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
-	if params.IsCodeNotFound(result.Error) {
-		return "", errors.NewNotFound(result.Error, "")
-	}
 	if result.Error != nil {
+		//TODO (externalreality) The code to do convert api errors (with
+		//error codes) back to normal Go errors is in bad spot and
+		//causes import cycles which is why we don't use it here and may
+		//be the reason why it has few uses despite being useful.
+		if params.IsCodeNotFound(result.Error) {
+			return "", errors.NewNotFound(result.Error, "")
+		}
 		return "", result.Error
 	}
 	return result.Status, nil
