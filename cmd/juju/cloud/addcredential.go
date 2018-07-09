@@ -350,12 +350,15 @@ func (c *addCredentialCommand) promptFieldValue(
 		})
 	}
 
-	// We assume that Hidden and FilePath are mutually exclusive here.
+	// We assume that Hidden, ExpandFilePath and FilePath are mutually
+	// exclusive here.
 	switch {
 	case attr.Hidden:
 		return p.EnterPassword(name)
+	case attr.ExpandFilePath:
+		return enterFile(name, p, true)
 	case attr.FilePath:
-		return enterFile(name, p)
+		return enterFile(name, p, false)
 	case attr.Optional:
 		return p.EnterOptional(name)
 	default:
@@ -363,12 +366,13 @@ func (c *addCredentialCommand) promptFieldValue(
 	}
 }
 
-func enterFile(name string, p *interact.Pollster) (string, error) {
-	input, err := p.EnterVerify(name, func(s string) (ok bool, msg string, err error) {
+func enterFile(name string, p *interact.Pollster, expanded bool) (string, error) {
+	input, err := p.EnterVerify(fmt.Sprintf("file path for %s", name), func(s string) (ok bool, msg string, err error) {
 		_, err = jujucloud.ValidateFileAttrValue(s)
 		if err != nil {
 			return false, err.Error(), nil
 		}
+
 		return true, "", nil
 	})
 	if err != nil {
@@ -377,6 +381,17 @@ func enterFile(name string, p *interact.Pollster) (string, error) {
 	// We have to run this twice, since it has glommed together
 	// validation and normalization, and Pollster doesn't deal with the
 	// verification function modifying the value.
-	return jujucloud.ValidateFileAttrValue(input)
+	abs, err := jujucloud.ValidateFileAttrValue(input)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 
+	// If we don't need to expand the file path, exit out early.
+	if !expanded {
+		return abs, err
+	}
+
+	// Expand the file path to consume the contents
+	contents, err := ioutil.ReadFile(abs)
+	return string(contents), errors.Trace(err)
 }

@@ -162,7 +162,12 @@ func (s *serverFactory) RemoteServer(spec environs.CloudSpec) (Server, error) {
 		return s.LocalServer()
 	}
 
-	clientCert, serverCert, ok := getCertificates(spec)
+	cred := spec.Credential
+	if cred == nil {
+		return nil, errors.NotFoundf("credentials")
+	}
+
+	clientCert, serverCert, ok := getCertificates(*cred)
 	if !ok {
 		return nil, errors.NotValidf("credentials")
 	}
