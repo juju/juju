@@ -2239,7 +2239,7 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status params.UnitSeri
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
 		err = onAbort(err, ErrDead)
-		logger.Errorf("cannot complete series upgrade for machine %q: %v", m, err)
+		logger.Errorf("cannot set series upgrade status for unit %q of machine %q: %v", unitName, m.Id(), err)
 		return "", err
 	}
 
