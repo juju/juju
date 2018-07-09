@@ -168,6 +168,8 @@ func (s *K8sBrokerSuite) TestDeleteService(c *gc.C) {
 			Return(s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Delete("juju-test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-application==test"}).
+			Return(&core.PodList{Items: []core.Pod{}}, nil),
 		s.mockDeployments.EXPECT().Delete("juju-test", s.deleteOptions(v1.DeletePropagationForeground)).Times(1).
 			Return(s.k8sNotFoundError()),
 	)

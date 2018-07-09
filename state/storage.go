@@ -432,6 +432,9 @@ func (sb *storageBackend) destroyStorageInstanceOps(
 	ops := []txn.Op{
 		newCleanupOp(cleanupAttachmentsForDyingStorage, s.doc.Id),
 	}
+	if owner != nil && sb.modelType == ModelTypeCAAS {
+		ops = append(ops, newCleanupOp(cleanupDyingUnitResources, owner.Id()))
+	}
 	ops = append(ops, validateRemoveOps...)
 	ops = append(ops, txn.Op{
 		C:      storageInstancesC,

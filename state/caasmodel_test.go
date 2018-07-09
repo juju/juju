@@ -11,9 +11,13 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing/factory"
 )
@@ -107,12 +111,49 @@ func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 
-	assertCleanupCount(c, st, 2)
+	assertCleanupCount(c, st, 3)
 	err = app.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = unit.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	assertDoesNotNeedCleanup(c, st)
+}
+
+func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
+	model, st := s.newCAASModel(c)
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(st)
+	c.Assert(err, jc.ErrorIsNil)
+	registry := stateenvirons.NewStorageProviderRegistry(broker)
+	s.policy = testing.MockPolicy{
+		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
+			return registry, nil
+		},
+	}
+
+	f := factory.NewFactory(st)
+	f.MakeUnit(c, &factory.UnitParams{
+		Application: f.MakeApplication(c, &factory.ApplicationParams{
+			Charm: state.AddTestingCharmForSeries(c, st, "kubernetes", "storage-filesystem"),
+			Storage: map[string]state.StorageConstraints{
+				"data": {Count: 1, Size: 1024},
+			},
+		}),
+	})
+
+	destroyStorage := true
+	err = model.Destroy(state.DestroyModelParams{DestroyStorage: &destroyStorage})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.Refresh(), jc.ErrorIsNil)
+	c.Assert(model.Life(), gc.Equals, state.Dying)
+
+	assertNeedsCleanup(c, st)
+	assertCleanupCount(c, st, 4)
+
+	sb, err := state.NewStorageBackend(st)
+	c.Assert(err, jc.ErrorIsNil)
+	fs, err := sb.AllFilesystems()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fs, gc.HasLen, 0)
 }
 
 func (s *CAASModelSuite) TestCAASModelsCantHaveCloudRegion(c *gc.C) {

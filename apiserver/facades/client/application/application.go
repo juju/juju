@@ -1085,29 +1085,31 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 			return nil, errors.Errorf("unit %q is a subordinate", name)
 		}
 		var info params.DestroyUnitInfo
-		if api.modelType == state.ModelTypeIAAS {
-			storage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
+		storage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// For CAAS models we always destroy storage with the unit.
+		// TODO(caas) - this will change when volumes are managed separately to pods.
+		destroyStorage := arg.DestroyStorage || api.modelType == state.ModelTypeCAAS
+		if destroyStorage {
+			for _, s := range storage {
+				info.DestroyedStorage = append(
+					info.DestroyedStorage,
+					params.Entity{s.StorageTag().String()},
+				)
+			}
+		} else {
+			info.DestroyedStorage, info.DetachedStorage, err = storagecommon.ClassifyDetachedStorage(
+				api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), storage,
+			)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if arg.DestroyStorage {
-				for _, s := range storage {
-					info.DestroyedStorage = append(
-						info.DestroyedStorage,
-						params.Entity{s.StorageTag().String()},
-					)
-				}
-			} else {
-				info.DestroyedStorage, info.DetachedStorage, err = storagecommon.ClassifyDetachedStorage(
-					api.storageAccess.VolumeAccess(), api.storageAccess.FilesystemAccess(), storage,
-				)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-			}
 		}
 		op := unit.DestroyOperation()
-		op.DestroyStorage = arg.DestroyStorage
+		op.DestroyStorage = destroyStorage
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1190,16 +1192,14 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 			return nil, err
 		}
 		storageSeen := names.NewSet()
+		// For CAAS models we always destroy storage with the application.
+		// TODO(caas) - this will change when volumes are managed separately to pods.
+		destroyStorage := arg.DestroyStorage || api.modelType == state.ModelTypeCAAS
 		for _, unit := range units {
 			info.DestroyedUnits = append(
 				info.DestroyedUnits,
 				params.Entity{unit.UnitTag().String()},
 			)
-			if api.modelType != state.ModelTypeIAAS {
-				// Non-IAAS model; no need to deal with storage below.
-				arg.DestroyStorage = false
-				continue
-			}
 			storage, err := storagecommon.UnitStorage(api.storageAccess, unit.UnitTag())
 			if err != nil {
 				return nil, err
@@ -1218,7 +1218,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 			}
 			storage = unseen
 
-			if arg.DestroyStorage {
+			if destroyStorage {
 				for _, s := range storage {
 					info.DestroyedStorage = append(
 						info.DestroyedStorage,
@@ -1237,7 +1237,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 			}
 		}
 		op := app.DestroyOperation()
-		op.DestroyStorage = arg.DestroyStorage
+		op.DestroyStorage = destroyStorage
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, err
 		}

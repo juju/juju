@@ -417,6 +417,18 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteStatefulSet(appName); err != nil {
 		return errors.Trace(err)
 	}
+	pods := k.CoreV1().Pods(k.namespace)
+	podsList, err := pods.List(v1.ListOptions{
+		LabelSelector: applicationSelector(appName),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, p := range podsList.Items {
+		if err := k.deleteVolumeClaims(&p); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return errors.Trace(k.deleteDeployment(appName))
 }
 
@@ -686,6 +698,40 @@ func (k *kubernetesClient) deleteStatefulSet(appName string) error {
 		return nil
 	}
 	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) deleteVolumeClaims(p *core.Pod) error {
+	volumesByName := make(map[string]core.Volume)
+	for _, pv := range p.Spec.Volumes {
+		volumesByName[pv.Name] = pv
+	}
+
+	for _, volMount := range p.Spec.Containers[0].VolumeMounts {
+		valid := jujuPVNameRegexp.MatchString(volMount.Name)
+		if !valid {
+			logger.Debugf("ignoring non-Juju attachment %q", volMount.Name)
+			continue
+		}
+
+		vol, ok := volumesByName[volMount.Name]
+		if !ok {
+			logger.Warningf("volume for volume mount %q not found", volMount.Name)
+			continue
+		}
+		if vol.PersistentVolumeClaim == nil {
+			// Ignore volumes which are not Juju managed filesystems.
+			continue
+		}
+		pvClaims := k.CoreV1().PersistentVolumeClaims(k.namespace)
+		err := pvClaims.Delete(vol.PersistentVolumeClaim.ClaimName, &v1.DeleteOptions{
+			PropagationPolicy: &defaultPropagationPolicy,
+		})
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return errors.Annotatef(err, "deleting persistent volume claim %v for %v",
+				vol.PersistentVolumeClaim.ClaimName, p.Name)
+		}
+	}
+	return nil
 }
 
 func (k *kubernetesClient) configureService(appName string, containerPorts []core.ContainerPort, config application.ConfigAttributes) error {
@@ -1199,14 +1245,6 @@ func operatorConfigMapName(appName string) string {
 
 func applicationConfigMapName(appName, fileSetName string) string {
 	return fmt.Sprintf("%v-%v-config", deploymentName(appName), fileSetName)
-}
-
-func unitConfigMapName(unitName, fileSetName string) string {
-	return fmt.Sprintf("%v-%v-config", unitPodName(unitName), fileSetName)
-}
-
-func unitPodName(unitName string) string {
-	return "juju-" + names.NewUnitTag(unitName).String()
 }
 
 func deploymentName(appName string) string {

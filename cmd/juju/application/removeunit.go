@@ -5,13 +5,16 @@ package application
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 )
 
 // NewRemoveUnitCommand returns a command which removes an application's units.
@@ -85,6 +88,41 @@ func (c *removeUnitCommand) getAPI() (removeApplicationAPI, int, error) {
 	return application.NewClient(root), version, nil
 }
 
+func (c *removeUnitCommand) getStorageAPI() (storageAPI, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return storage.NewClient(root), nil
+}
+
+func (c *removeUnitCommand) unitsHaveStorage(unitNames []string) (bool, error) {
+	client, err := c.getStorageAPI()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	defer client.Close()
+
+	storage, err := client.ListStorageDetails()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	namesSet := set.NewStrings(unitNames...)
+	for _, s := range storage {
+		if s.OwnerTag == "" {
+			continue
+		}
+		owner, err := names.ParseTag(s.OwnerTag)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		if owner.Kind() == names.UnitTagKind && namesSet.Contains(owner.Id()) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // Run connects to the environment specified on the command line and destroys
 // units therein.
 func (c *removeUnitCommand) Run(ctx *cmd.Context) error {
@@ -99,6 +137,31 @@ func (c *removeUnitCommand) Run(ctx *cmd.Context) error {
 	}
 	if c.DestroyStorage && apiVersion < 5 {
 		return errors.New("--destroy-storage is not supported by this controller")
+	}
+	if !c.DestroyStorage {
+		mType, err := c.ModelType()
+		if err != nil {
+			return err
+		}
+		// TODO(caas) - this will change when volumes are managed separately to pods.
+		if mType == model.CAAS {
+			hasStorage, err := c.unitsHaveStorage(c.UnitNames)
+			if err != nil {
+				return err
+			}
+			if hasStorage {
+				return errors.Errorf(`cannot destroy units %q
+
+Destroying these kubernetes units will destroy the storage,
+but you have not indicated that you want to do that.
+
+Please run the the command again with --destroy-storage
+to confirm that you want to destroy the storage along
+with the units.
+
+`, c.UnitNames)
+			}
+		}
 	}
 	return c.removeUnits(ctx, client)
 }

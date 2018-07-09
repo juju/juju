@@ -13,11 +13,15 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/state/testing"
+	corestorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -747,6 +751,75 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)
+}
+
+func (s *CleanupSuite) TestCleanupCAASApplicationWithStorage(c *gc.C) {
+	s.assertCleanupCAASEntityWithStorage(c, func(st *state.State, app *state.Application) error {
+		op := app.DestroyOperation()
+		op.DestroyStorage = true
+		return st.ApplyOperation(op)
+	})
+}
+
+func (s *CleanupSuite) TestCleanupCAASUnitWithStorage(c *gc.C) {
+	s.assertCleanupCAASEntityWithStorage(c, func(st *state.State, app *state.Application) error {
+		units, err := app.AllUnits()
+		if err != nil {
+			return err
+		}
+		op := units[0].DestroyOperation()
+		op.DestroyStorage = true
+		return st.ApplyOperation(op)
+	})
+}
+
+func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func(*state.State, *state.Application) error) {
+	st := s.Factory.MakeCAASModel(c, nil)
+	defer st.Close()
+	sb, err := state.NewStorageBackend(st)
+	c.Assert(err, jc.ErrorIsNil)
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(st)
+	c.Assert(err, jc.ErrorIsNil)
+	registry := stateenvirons.NewStorageProviderRegistry(broker)
+	s.policy = testing.MockPolicy{
+		GetStorageProviderRegistry: func() (corestorage.ProviderRegistry, error) {
+			return registry, nil
+		},
+	}
+
+	ch := state.AddTestingCharmForSeries(c, st, "kubernetes", "storage-filesystem")
+	storCons := map[string]state.StorageConstraints{
+		"data": makeStorageCons("", 1024, 1),
+	}
+	application := state.AddTestingApplicationWithStorage(c, st, "storage-filesystem", ch, storCons)
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	fs, err := sb.AllFilesystems()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fs, gc.HasLen, 1)
+	fas, err := sb.UnitFilesystemAttachments(unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fas, gc.HasLen, 1)
+
+	err = deleteOp(st, application)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = application.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	for i := 0; i < 4; i++ {
+		err = st.Cleanup()
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// check no cleanups
+	state.AssertNoCleanups(c, st)
+
+	fas, err = sb.UnitFilesystemAttachments(unit.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fas, gc.HasLen, 0)
+	fs, err = sb.AllFilesystems()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fs, gc.HasLen, 0)
 }
 
 func (s *CleanupSuite) TestCleanupVolumeAttachments(c *gc.C) {
