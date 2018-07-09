@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/permission"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -236,14 +235,20 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 }
 
 func (s *bundleSuite) TestExportBundleSuccess(c *gc.C) {
-	_, err := s.auth.HasPermission(permission.ReadAccess, s.modelTag)
-	c.Assert(err, jc.ErrorIsNil)
-
 	model, err := s.st.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(model.Validate(), jc.ErrorIsNil)
 
-	_, err = description.Serialize(model)
+	bytes, err := description.Serialize(model)
 	c.Check(err, jc.ErrorIsNil)
+
+	// 'bytes' must be valid model.
+	modelDesc, err := description.Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelDesc.Validate(), jc.ErrorIsNil)
+	c.Assert(modelDesc, gc.DeepEquals, modelDesc)
+
+	s.st.CheckCallNames(c, "Export")
+	s.st.CheckCall(c, 0, "Export")
 }

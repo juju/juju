@@ -4,8 +4,7 @@
 package client
 
 import (
-	"github.com/juju/errors"
-
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -18,7 +17,7 @@ import (
 func (c *Client) GetBundleChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
 	model, err := c.api.state().Model()
 	if err != nil {
-		return params.BundleChangesResults{}, errors.Trace(err)
+		return params.BundleChangesResults{}, common.ServerError(err)
 	}
 	modelTag := model.ModelTag()
 	bundleAPI, err := bundle.NewFacade(c.api.auth, c.api.state(), modelTag)

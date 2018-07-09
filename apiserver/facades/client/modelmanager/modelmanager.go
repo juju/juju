@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
@@ -892,6 +893,12 @@ func (m *ModelManagerAPI) DestroyModels(args params.DestroyModelsParams) (params
 		}
 	}
 	return results, nil
+}
+
+// ExportBundle exports the configuration of the current model.
+func (m *ModelManagerAPI) ExportBundle(tag names.ModelTag) (params.StringResult, error) {
+	api, _ := bundle.NewFacade(m.authorizer, m.state, tag)
+	return api.ExportBundle()
 }
 
 // ModelInfo returns information about the specified models.
