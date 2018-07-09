@@ -71,6 +71,7 @@ type (
 	UnitDoc         unitDoc
 	BlockDevicesDoc blockDevicesDoc
 	StorageBackend  = storageBackend
+	DeviceBackend   = deviceBackend
 )
 
 // EnsureWorkersStarted ensures that all the automatically
@@ -164,7 +165,7 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 }
 
 func AddTestingCharmForSeries(c *gc.C, st *State, series, name string) *Charm {
-	return addCharm(c, st, series, testcharms.Repo.CharmDir(name))
+	return addCharm(c, st, series, testcharms.RepoForSeries(series).CharmDir(name))
 }
 
 func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
@@ -183,29 +184,67 @@ func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 }
 
 func AddTestingApplication(c *gc.C, st *State, name string, ch *Charm) *Application {
-	return addTestingApplication(c, st, "", name, ch, nil, nil)
+	return addTestingApplication(c, addTestingApplicationParams{
+		st:   st,
+		name: name,
+		ch:   ch,
+	})
 }
 
 func AddTestingApplicationForSeries(c *gc.C, st *State, series, name string, ch *Charm) *Application {
-	return addTestingApplication(c, st, series, name, ch, nil, nil)
+	return addTestingApplication(c, addTestingApplicationParams{
+		st:     st,
+		series: series,
+		name:   name,
+		ch:     ch,
+	})
 }
 
 func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
-	return addTestingApplication(c, st, "", name, ch, nil, storage)
+	return addTestingApplication(c, addTestingApplicationParams{
+		st:      st,
+		name:    name,
+		ch:      ch,
+		storage: storage,
+	})
+}
+
+func AddTestingApplicationWithDevices(c *gc.C, st *State, name string, ch *Charm, devices map[string]DeviceConstraints) *Application {
+	return addTestingApplication(c, addTestingApplicationParams{
+		st:      st,
+		name:    name,
+		ch:      ch,
+		devices: devices,
+	})
 }
 
 func AddTestingApplicationWithBindings(c *gc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
-	return addTestingApplication(c, st, "", name, ch, bindings, nil)
+	return addTestingApplication(c, addTestingApplicationParams{
+		st:       st,
+		name:     name,
+		ch:       ch,
+		bindings: bindings,
+	})
 }
 
-func addTestingApplication(c *gc.C, st *State, series, name string, ch *Charm, bindings map[string]string, storage map[string]StorageConstraints) *Application {
-	c.Assert(ch, gc.NotNil)
-	app, err := st.AddApplication(AddApplicationArgs{
-		Name:             name,
-		Series:           series,
-		Charm:            ch,
-		EndpointBindings: bindings,
-		Storage:          storage,
+type addTestingApplicationParams struct {
+	st           *State
+	series, name string
+	ch           *Charm
+	bindings     map[string]string
+	storage      map[string]StorageConstraints
+	devices      map[string]DeviceConstraints
+}
+
+func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Application {
+	c.Assert(params.ch, gc.NotNil)
+	app, err := params.st.AddApplication(AddApplicationArgs{
+		Name:             params.name,
+		Series:           params.series,
+		Charm:            params.ch,
+		EndpointBindings: params.bindings,
+		Storage:          params.storage,
+		Devices:          params.devices,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
@@ -756,6 +795,10 @@ func NewSLALevel(level string) (slaLevel, error) {
 
 func AppStorageConstraints(app *Application) (map[string]StorageConstraints, error) {
 	return readStorageConstraints(app.st, app.storageConstraintsKey())
+}
+
+func AppDeviceConstraints(app *Application) (map[string]DeviceConstraints, error) {
+	return readDeviceConstraints(app.st, app.deviceConstraintsKey())
 }
 
 func RemoveRelation(c *gc.C, rel *Relation) {

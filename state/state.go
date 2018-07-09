@@ -1023,6 +1023,7 @@ type AddApplicationArgs struct {
 	Charm             *Charm
 	Channel           csparams.Channel
 	Storage           map[string]StorageConstraints
+	Devices           map[string]DeviceConstraints
 	AttachStorage     []names.StorageTag
 	EndpointBindings  map[string]string
 	ApplicationConfig *application.Config
@@ -1057,15 +1058,15 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 	// CAAS charms don't support volume/block storage yet.
 	if model.Type() == ModelTypeCAAS {
-		for name, stor := range args.Charm.Meta().Storage {
-			if storageKind(stor.Type) != storage.StorageKindBlock {
+		for name, charmStorage := range args.Charm.Meta().Storage {
+			if storageKind(charmStorage.Type) != storage.StorageKindBlock {
 				continue
 			}
 			var count uint64
 			if arg, ok := args.Storage[name]; ok {
 				count = arg.Count
 			}
-			if stor.CountMin > 0 || count > 0 {
+			if charmStorage.CountMin > 0 || count > 0 {
 				return nil, errors.NotSupportedf("block storage on a Kubernetes model")
 			}
 		}
@@ -1087,10 +1088,11 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if err := checkModelActive(st); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// ensure storage
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
-
 	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1104,6 +1106,19 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	storagePools := make(set.Strings)
 	for _, storageParams := range args.Storage {
 		storagePools.Add(storageParams.Pool)
+	}
+
+	// ensure Devices
+	if args.Devices == nil {
+		args.Devices = make(map[string]DeviceConstraints)
+	}
+	deviceb, err := NewDeviceBackend(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := validateDeviceConstraints(deviceb, args.Devices, args.Charm.Meta()); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	// Perform model specific arg processing.
@@ -1203,6 +1218,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			statusDoc:         statusDoc,
 			constraints:       args.Constraints,
 			storage:           args.Storage,
+			devices:           args.Devices,
 			applicationConfig: appConfigAttrs,
 			charmConfig:       map[string]interface{}(args.CharmConfig),
 		})

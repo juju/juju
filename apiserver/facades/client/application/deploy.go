@@ -75,13 +75,12 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 	}
 
 	asa := state.AddApplicationArgs{
-		Name:    args.ApplicationName,
-		Series:  args.Series,
-		Charm:   args.Charm,
-		Channel: args.Channel,
-		Storage: stateStorageConstraints(args.Storage),
-		// TODO(ycliuhw): current PR only includes facades version upgrade, inject `Device` into deeper logic is next step in sperate PR
-		// Devices:           args.Devices,
+		Name:              args.ApplicationName,
+		Series:            args.Series,
+		Charm:             args.Charm,
+		Channel:           args.Channel,
+		Storage:           stateStorageConstraints(args.Storage),
+		Devices:           stateDeviceConstraints(args.Devices),
 		AttachStorage:     args.AttachStorage,
 		ApplicationConfig: args.ApplicationConfig,
 		CharmConfig:       charmConfig,
@@ -208,6 +207,18 @@ func stateStorageConstraints(cons map[string]storage.Constraints) map[string]sta
 			Pool:  cons.Pool,
 			Size:  cons.Size,
 			Count: cons.Count,
+		}
+	}
+	return result
+}
+
+func stateDeviceConstraints(cons map[string]devices.Constraints) map[string]state.DeviceConstraints {
+	result := make(map[string]state.DeviceConstraints)
+	for name, cons := range cons {
+		result[name] = state.DeviceConstraints{
+			Type:       state.DeviceType(cons.Type),
+			Count:      cons.Count,
+			Attributes: cons.Attributes,
 		}
 	}
 	return result

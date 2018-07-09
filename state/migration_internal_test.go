@@ -77,6 +77,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		podSpecsC,
 		cloudContainersC,
 		cloudServicesC,
+		deviceConstraintsC,
 	)
 
 	ignoredCollections := set.NewStrings(

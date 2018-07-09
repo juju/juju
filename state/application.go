@@ -136,6 +136,16 @@ func (a *Application) storageConstraintsKey() string {
 	return applicationStorageConstraintsKey(a.doc.Name, a.doc.CharmURL)
 }
 
+func applicationDeviceConstraintsKey(appName string, curl *charm.URL) string {
+	return fmt.Sprintf("adc#%s#%s", appName, curl)
+}
+
+// deviceConstraintsKey returns the charm-version-specific device
+// constraints collection key for the application.
+func (a *Application) deviceConstraintsKey() string {
+	return applicationDeviceConstraintsKey(a.doc.Name, a.doc.CharmURL)
+}
+
 // Series returns the specified series for this charm.
 func (a *Application) Series() string {
 	return a.doc.Series
@@ -942,7 +952,7 @@ func (a *Application) upgradeStorageOps(
 			if _, ok := oldMeta.Storage[name]; !ok {
 				// The store did not exist previously, so we
 				// create the full amount specified in the
-				// cosntraints.
+				// constraints.
 				countMin = int(cons.Count)
 			}
 			_, unitOps, err := sb.addUnitStorageOps(
@@ -1002,7 +1012,7 @@ type SetCharmConfig struct {
 	// the upgrade.
 	ResourceIDs map[string]string
 
-	// StorageConstraints contains the constraints to add or update when
+	// StorageConstraints contains the storage constraints to add or update when
 	// upgrading the charm.
 	//
 	// Any existing storage instances for the named stores will be
@@ -1485,7 +1495,7 @@ func (a *Application) addUnitStorageOps(
 		}
 		if cons, ok := args.storageCons[storageName]; ok && cons.Count > 0 {
 			if storageCons == nil {
-				// We must not modify the conents of the original
+				// We must not modify the contents of the original
 				// args.storageCons map, as it comes from the
 				// user. Make a copy and modify that.
 				storageCons = make(map[string]StorageConstraints)
@@ -2116,6 +2126,17 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 	return cons, nil
 }
 
+// DeviceConstraints returns the device constraints for the application.
+func (a *Application) DeviceConstraints() (map[string]DeviceConstraints, error) {
+	cons, err := readDeviceConstraints(a.st, a.deviceConstraintsKey())
+	if errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cons, nil
+}
+
 // Status returns the status of the application.
 // Only unit leaders are allowed to set the status of the application.
 // If no status is recorded, then there are no unit leaders and the
@@ -2238,6 +2259,7 @@ type addApplicationOpsArgs struct {
 	statusDoc         statusDoc
 	constraints       constraints.Value
 	storage           map[string]StorageConstraints
+	devices           map[string]DeviceConstraints
 	applicationConfig map[string]interface{}
 	charmConfig       map[string]interface{}
 	// These are nil when adding a new application, and most likely
@@ -2259,11 +2281,13 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 	charmConfigKey := app.charmConfigKey()
 	applicationConfigKey := app.applicationConfigKey()
 	storageConstraintsKey := app.storageConstraintsKey()
+	deviceConstraintsKey := app.deviceConstraintsKey()
 	leadershipKey := leadershipSettingsKey(app.Name())
 
 	ops := []txn.Op{
 		createConstraintsOp(globalKey, args.constraints),
 		createStorageConstraintsOp(storageConstraintsKey, args.storage),
+		createDeviceConstraintsOp(deviceConstraintsKey, args.devices),
 		createSettingsOp(settingsC, charmConfigKey, args.charmConfig),
 		createSettingsOp(settingsC, applicationConfigKey, args.applicationConfig),
 		createSettingsOp(settingsC, leadershipKey, args.leadershipSettings),

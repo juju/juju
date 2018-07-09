@@ -101,7 +101,7 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL, maybeDo
 }
 
 // finalAppCharmRemoveOps returns operations to delete the settings
-// and storage constraints documents and queue a charm cleanup.
+// and storage, device constraints documents and queue a charm cleanup.
 func finalAppCharmRemoveOps(appName string, curl *charm.URL) []txn.Op {
 	settingsKey := applicationCharmConfigKey(appName, curl)
 	removeSettingsOp := txn.Op{
@@ -109,10 +109,15 @@ func finalAppCharmRemoveOps(appName string, curl *charm.URL) []txn.Op {
 		Id:     settingsKey,
 		Remove: true,
 	}
+	// ensure removing storage constraints doc
 	storageConstraintsKey := applicationStorageConstraintsKey(appName, curl)
 	removeStorageConstraintsOp := removeStorageConstraintsOp(storageConstraintsKey)
+	// ensure removing device constraints doc
+	deviceConstraintsKey := applicationDeviceConstraintsKey(appName, curl)
+	removeDeviceConstraintsOp := removeDeviceConstraintsOp(deviceConstraintsKey)
+
 	cleanupOp := newCleanupOp(cleanupCharm, curl.String())
-	return []txn.Op{removeSettingsOp, removeStorageConstraintsOp, cleanupOp}
+	return []txn.Op{removeSettingsOp, removeStorageConstraintsOp, removeDeviceConstraintsOp, cleanupOp}
 }
 
 // charmDestroyOps implements the logic of charm.Destroy.

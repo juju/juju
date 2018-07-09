@@ -75,6 +75,10 @@ func (s *ConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *s
 	return state.AddTestingApplicationWithStorage(c, s.State, name, ch, storage)
 }
 
+func (s *ConnSuite) AddTestingApplicationWithDevices(c *gc.C, name string, ch *state.Charm, devs map[string]state.DeviceConstraints) *state.Application {
+	return state.AddTestingApplicationWithDevices(c, s.State, name, ch, devs)
+}
+
 func (s *ConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
 	return state.AddTestingApplicationWithBindings(c, s.State, name, ch, bindings)
 }

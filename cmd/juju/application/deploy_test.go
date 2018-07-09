@@ -55,19 +55,23 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type DeploySuite struct {
+type DeploySuiteBase struct {
 	testing.RepoSuite
 	coretesting.CmdBlockHelper
 }
 
-var _ = gc.Suite(&DeploySuite{})
-
-func (s *DeploySuite) SetUpTest(c *gc.C) {
+func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
+
+type DeploySuite struct {
+	DeploySuiteBase
+}
+
+var _ = gc.Suite(&DeploySuite{})
 
 // runDeploy executes the deploy command in order to deploy the given
 // charm or bundle. The deployment stderr output and error are returned.
@@ -420,6 +424,76 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 			Count: 0,
 			Size:  1024,
 		},
+	})
+}
+
+type CAASDeploySuiteBase struct {
+	charmStoreSuite
+
+	series     string
+	CharmsPath string
+}
+
+func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
+	s.series = "kubernetes"
+	s.CharmsPath = c.MkDir()
+
+	s.charmStoreSuite.SetUpTest(c)
+
+	// Set up a CAAS model to replace the IAAS one.
+	st := s.Factory.MakeCAASModel(c, nil)
+	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+	// Close the state pool before the state object itself.
+	s.StatePool.Close()
+	s.StatePool = nil
+	err := s.State.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	s.State = st
+}
+
+// assertUnitsCreated checks that the given units have been created. The
+// expectedUnits argument maps unit names to machine names.
+func (s *CAASDeploySuiteBase) assertUnitsCreated(c *gc.C, expectedUnits map[string]string) {
+	applications, err := s.State.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	created := make(map[string]string)
+	for _, application := range applications {
+		var units []*state.Unit
+		units, err = application.AllUnits()
+		c.Assert(err, jc.ErrorIsNil)
+		for _, unit := range units {
+			created[unit.Name()] = "" // caas unit does not have a machineID here currently
+		}
+	}
+	c.Assert(created, jc.DeepEquals, expectedUnits)
+}
+
+type CAASDeploySuite struct {
+	CAASDeploySuiteBase
+}
+
+var _ = gc.Suite(&CAASDeploySuite{})
+
+func (s *CAASDeploySuite) TestDevices(c *gc.C) {
+	m, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/bitcoin-miner-1", "bitcoin-miner", "kubernetes")
+	err = runDeploy(c, "bitcoin-miner", "-m", m.Name(), "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "kubernetes")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertCharmsUploaded(c, "cs:kubernetes/bitcoin-miner-1")
+	s.assertApplicationsDeployed(c, map[string]applicationInfo{
+		"bitcoin-miner": {
+			charm:  "cs:kubernetes/bitcoin-miner-1",
+			config: ch.Config().DefaultSettings(),
+			devices: map[string]state.DeviceConstraints{
+				"bitcoinminer": {Type: "nvidia.com/gpu", Count: 10, Attributes: map[string]string{}},
+			},
+		},
+	})
+	s.assertUnitsCreated(c, map[string]string{
+		"bitcoin-miner/0": "",
 	})
 }
 
@@ -894,6 +968,7 @@ type applicationInfo struct {
 	constraints      constraints.Value
 	exposed          bool
 	storage          map[string]state.StorageConstraints
+	devices          map[string]state.DeviceConstraints
 	endpointBindings map[string]string
 }
 
@@ -936,12 +1011,18 @@ func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]ap
 		if len(storage) == 0 {
 			storage = nil
 		}
+		devices, err := application.DeviceConstraints()
+		c.Assert(err, jc.ErrorIsNil)
+		if len(devices) == 0 {
+			devices = nil
+		}
 		deployed[application.Name()] = applicationInfo{
 			charm:       curl.String(),
 			config:      config,
 			constraints: constraints,
 			exposed:     application.IsExposed(),
 			storage:     storage,
+			devices:     devices,
 		}
 	}
 	c.Assert(deployed, jc.DeepEquals, info)
