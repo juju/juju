@@ -15,13 +15,20 @@ var (
 	GetCertificates = getCertificates
 )
 
+type LXDProvider interface {
+	environs.EnvironProvider
+	environs.CloudDetector
+}
+
 func NewProviderWithMocks(
 	creds environs.ProviderCredentials,
 	serverFactory ServerFactory,
-) environs.EnvironProvider {
+	cloudMetadataReader CloudMetadataReader,
+) LXDProvider {
 	return &environProvider{
 		ProviderCredentials: creds,
 		serverFactory:       serverFactory,
+		cloudMetadataReader: cloudMetadataReader,
 	}
 }
 

@@ -25,42 +25,152 @@ import (
 )
 
 var (
+	_ = gc.Suite(&cloudDetectorProviderSuite{})
 	_ = gc.Suite(&providerSuite{})
 	_ = gc.Suite(&ProviderFunctionalSuite{})
 )
 
-type providerSuite struct {
-	lxd.BaseSuite
+type cloudDetectorProviderSuite struct{}
 
-	provider environs.EnvironProvider
+type providerSuiteDeps struct {
+	provider      lxd.LXDProvider
+	server        *lxd.MockServer
+	serverFactory *lxd.MockServerFactory
+	cloudMetadata *lxd.MockCloudMetadataReader
 }
 
-func (s *providerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+func (s *cloudDetectorProviderSuite) createProvider(ctrl *gomock.Controller) providerSuiteDeps {
+	server := lxd.NewMockServer(ctrl)
+	factory := lxd.NewMockServerFactory(ctrl)
+	factory.EXPECT().LocalServer().Return(server, nil).AnyTimes()
+
+	certReadWriter := lxd.NewMockCertificateReadWriter(ctrl)
+	certGenerator := lxd.NewMockCertificateGenerator(ctrl)
+	lookup := lxd.NewMockNetLookup(ctrl)
+	creds := lxd.NewProviderCredentials(
+		certReadWriter,
+		certGenerator,
+		lookup,
+		factory,
+	)
+	cloudMetadata := lxd.NewMockCloudMetadataReader(ctrl)
+
+	provider := lxd.NewProviderWithMocks(creds, factory, cloudMetadata)
+	return providerSuiteDeps{
+		provider:      provider,
+		server:        server,
+		serverFactory: factory,
+		cloudMetadata: cloudMetadata,
+	}
 }
 
-func (s *providerSuite) TestDetectClouds(c *gc.C) {
-	clouds, err := s.Provider.DetectClouds()
+func (s *cloudDetectorProviderSuite) TestDetectClouds(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	fooCloud := cloud.Cloud{
+		Name: "foo",
+		Type: lxdnames.ProviderType,
+	}
+
+	deps.cloudMetadata.EXPECT().Read().Return(map[string]cloud.Cloud{
+		"foo": fooCloud,
+	}, nil)
+
+	clouds, err := deps.provider.DetectClouds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 2)
+	s.assertLocalhostCloud(c, clouds[0])
+	c.Assert(clouds[1], gc.DeepEquals, fooCloud)
+}
+
+func (s *cloudDetectorProviderSuite) TestDetectCloudsWithoutAnyMetadata(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	deps.cloudMetadata.EXPECT().Read().Return(map[string]cloud.Cloud{}, nil)
+
+	clouds, err := deps.provider.DetectClouds()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 1)
 	s.assertLocalhostCloud(c, clouds[0])
 }
 
-func (s *providerSuite) TestDetectCloud(c *gc.C) {
-	cloud, err := s.Provider.DetectCloud("localhost")
+func (s *cloudDetectorProviderSuite) TestDetectCloudsWithMetadataError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	deps.cloudMetadata.EXPECT().Read().Return(nil, errors.New("bad"))
+
+	_, err := deps.provider.DetectClouds()
+	c.Assert(errors.Cause(err).Error(), gc.Equals, "bad")
+}
+
+func (s *cloudDetectorProviderSuite) TestDetectCloud(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	cloud, err := deps.provider.DetectCloud("localhost")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLocalhostCloud(c, cloud)
-	cloud, err = s.Provider.DetectCloud("lxd")
+	cloud, err = deps.provider.DetectCloud("lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLocalhostCloud(c, cloud)
 }
 
-func (s *providerSuite) TestDetectCloudError(c *gc.C) {
-	_, err := s.Provider.DetectCloud("foo")
+func (s *cloudDetectorProviderSuite) TestDetectCloudError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	deps.cloudMetadata.EXPECT().Read().Return(map[string]cloud.Cloud{}, nil)
+
+	_, err := deps.provider.DetectCloud("foo")
 	c.Assert(err, gc.ErrorMatches, `cloud foo not found`)
 }
 
-func (s *providerSuite) assertLocalhostCloud(c *gc.C, found cloud.Cloud) {
+func (s *cloudDetectorProviderSuite) TestDetectCloudErrorWithMetadataError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	deps.cloudMetadata.EXPECT().Read().Return(nil, errors.New("bad"))
+
+	_, err := deps.provider.DetectCloud("foo")
+	c.Assert(errors.Cause(err).Error(), gc.Equals, `bad`)
+}
+
+func (s *cloudDetectorProviderSuite) TestDetectCustomCloud(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	fooCloud := cloud.Cloud{
+		Name: "foo",
+		Type: lxdnames.ProviderType,
+	}
+
+	deps.cloudMetadata.EXPECT().Read().Return(map[string]cloud.Cloud{
+		"foo": fooCloud,
+	}, nil)
+
+	cloud, err := deps.provider.DetectCloud("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cloud, gc.DeepEquals, fooCloud)
+}
+
+func (s *cloudDetectorProviderSuite) assertLocalhostCloud(c *gc.C, found cloud.Cloud) {
 	c.Assert(found, jc.DeepEquals, cloud.Cloud{
 		Name: "localhost",
 		Type: "lxd",
@@ -73,6 +183,12 @@ func (s *providerSuite) assertLocalhostCloud(c *gc.C, found cloud.Cloud) {
 		}},
 		Description: "LXD Container Hypervisor",
 	})
+}
+
+type providerSuite struct {
+	lxd.BaseSuite
+
+	provider environs.EnvironProvider
 }
 
 func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
@@ -124,8 +240,9 @@ func (s *providerSuite) createProvider(ctrl *gomock.Controller) (environs.Enviro
 ) {
 	creds := testing.NewMockProviderCredentials(ctrl)
 	factory := lxd.NewMockServerFactory(ctrl)
+	cloudMetadata := lxd.NewMockCloudMetadataReader(ctrl)
 
-	provider := lxd.NewProviderWithMocks(creds, factory)
+	provider := lxd.NewProviderWithMocks(creds, factory, cloudMetadata)
 	return provider, creds, factory
 }
 
