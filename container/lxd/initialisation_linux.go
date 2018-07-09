@@ -21,7 +21,6 @@ import (
 	"github.com/juju/packaging/manager"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/series"
-	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/service"
@@ -77,13 +76,17 @@ func (ci *containerInitialiser) Initialise() error {
 		"--auto",
 	).CombinedOutput()
 
-	out := string(output)
-	// This message means LXD init has already been run. We can ignore it.
-	if !strings.Contains(out, "You have existing containers or images. lxd init requires an empty LXD.") {
-		if err != nil {
-			return errors.Annotate(err, "running lxd init --auto: "+out)
-		}
+	if err == nil {
+		return nil
 	}
+
+	out := string(output)
+	if strings.Contains(out, "You have existing containers or images. lxd init requires an empty LXD.") {
+		// this error means we've already run lxd init. Just ignore it.
+		return nil
+	}
+
+	return errors.Annotate(err, "running lxd init --auto: "+out)
 }
 
 // getPackageManager is a helper function which returns the
@@ -112,32 +115,16 @@ func ConfigureLXDProxies(proxies proxy.Settings) error {
 		return nil
 	}
 
-	svr, err := ConnectLocal()
+	svr, err := NewLocalServer()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(configureLXDProxies(svr, proxies))
-}
 
-type serverUpdater interface {
-	GetServer() (server *api.Server, ETag string, err error)
-	UpdateServer(server api.ServerPut, ETag string) (err error)
-}
-
-func configureLXDProxies(setter serverUpdater, proxies proxy.Settings) error {
-	server, eTag, err := setter.GetServer()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	serverPut := server.Writable()
-	serverPut.Config["core.proxy_http"] = proxies.Http
-	serverPut.Config["core.proxy_https"] = proxies.Https
-	serverPut.Config["core.proxy_ignore_hosts"] = proxies.NoProxy
-	err = setter.UpdateServer(serverPut, eTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(svr.UpdateServerConfig(map[string]string{
+		"core.proxy_http":         proxies.Http,
+		"core.proxy_https":        proxies.Https,
+		"core.proxy_ignore_hosts": proxies.NoProxy,
+	}))
 }
 
 // df returns the number of free bytes on the file system at the given path
@@ -434,7 +421,9 @@ func bridgeConfiguration(input string) (string, error) {
 }
 
 // IsRunningLocally returns true if LXD is running locally.
-func IsRunningLocally() (bool, error) {
+var IsRunningLocally = isRunningLocally
+
+func isRunningLocally() (bool, error) {
 	installed, err := IsInstalledLocally()
 	if err != nil {
 		return installed, errors.Trace(err)
