@@ -20,9 +20,12 @@ import (
 	"github.com/juju/packaging/config"
 	"github.com/juju/packaging/manager"
 	"github.com/juju/proxy"
+	"github.com/juju/utils/series"
 	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 )
 
 var requiredPackages = []string{
@@ -74,18 +77,13 @@ func (ci *containerInitialiser) Initialise() error {
 		"--auto",
 	).CombinedOutput()
 
-	if err == nil {
-		return nil
-	}
-
 	out := string(output)
-	if strings.Contains(out, "You have existing containers or images. lxd init requires an empty LXD.") {
-		// this error means we've already run lxd init, which is ok, so just
-		// ignore it.
-		return nil
+	// This message means LXD init has already been run. We can ignore it.
+	if !strings.Contains(out, "You have existing containers or images. lxd init requires an empty LXD.") {
+		if err != nil {
+			return errors.Annotate(err, "running lxd init --auto: "+out)
+		}
 	}
-
-	return errors.Annotate(err, "while running lxd init --auto: "+out)
 }
 
 // getPackageManager is a helper function which returns the
@@ -100,20 +98,25 @@ func getPackagingConfigurer(series string) (config.PackagingConfigurer, error) {
 	return config.NewPackagingConfigurer(series)
 }
 
-// ConfigureLXDProxies will try to set the lxc config core.proxy_http and core.proxy_https
-// configuration values based on the current environment.
+// ConfigureLXDProxies will try to set the lxc config core.proxy_http and
+// core.proxy_https configuration values based on the current environment.
+// If LXD is not installed, we skip the configuration.
 func ConfigureLXDProxies(proxies proxy.Settings) error {
-	setter, err := getLXDServerUpdater()
+	running, err := IsRunningLocally()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(configureLXDProxies(setter, proxies))
-}
 
-var getLXDServerUpdater = getServerUpdaterConnect
+	if !running {
+		logger.Debugf("LXD is not running; skipping proxy configuration")
+		return nil
+	}
 
-func getServerUpdaterConnect() (serverUpdater, error) {
-	return ConnectLocal()
+	svr, err := ConnectLocal()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(configureLXDProxies(svr, proxies))
 }
 
 type serverUpdater interface {
@@ -122,7 +125,7 @@ type serverUpdater interface {
 }
 
 func configureLXDProxies(setter serverUpdater, proxies proxy.Settings) error {
-	server, etag, err := setter.GetServer()
+	server, eTag, err := setter.GetServer()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -130,7 +133,7 @@ func configureLXDProxies(setter serverUpdater, proxies proxy.Settings) error {
 	serverPut.Config["core.proxy_http"] = proxies.Http
 	serverPut.Config["core.proxy_https"] = proxies.Https
 	serverPut.Config["core.proxy_ignore_hosts"] = proxies.NoProxy
-	err = setter.UpdateServer(serverPut, etag)
+	err = setter.UpdateServer(serverPut, eTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -428,4 +431,45 @@ func bridgeConfiguration(input string) (string, error) {
 		return editLXDBridgeFile(input, subnet), nil
 	}
 	return input, nil
+}
+
+// IsRunningLocally returns true if LXD is running locally.
+func IsRunningLocally() (bool, error) {
+	installed, err := IsInstalledLocally()
+	if err != nil {
+		return installed, errors.Trace(err)
+	}
+	if !installed {
+		return false, nil
+	}
+
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	svc, err := service.NewService("lxd", common.Conf{}, hostSeries)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	running, err := svc.Running()
+	if err != nil {
+		return running, errors.Trace(err)
+	}
+
+	return running, nil
+}
+
+// IsInstalledLocally returns true if LXD is installed locally.
+func IsInstalledLocally() (bool, error) {
+	names, err := service.ListServices()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	for _, name := range names {
+		if name == "lxd" {
+			return true, nil
+		}
+	}
+	return false, nil
 }
