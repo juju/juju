@@ -423,7 +423,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("upgrades series watcher closed")
 			}
-			if err := w.upgradeSeriesStatusChaged(); err != nil {
+			if err := w.upgradeSeriesStatusChanged(); err != nil {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenUpgradeSeriesChange)
@@ -557,9 +557,9 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 }
 
-// upgradeSeriesStatusChaged is called when the remote status of a series
+// upgradeSeriesStatusChanged is called when the remote status of a series
 // upgrade changes.
-func (w *RemoteStateWatcher) upgradeSeriesStatusChaged() error {
+func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	status, err := w.unit.UpgradeSeriesStatus()
