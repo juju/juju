@@ -11,43 +11,105 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/storage"
 )
 
-// NewFacade provides the required signature for facade registration.
-func NewFacade(_ *state.State, _ facade.Resources, auth facade.Authorizer) (Bundle, error) {
-	return NewBundle(auth)
+var logger = loggo.GetLogger("juju.apiserver.bundle")
+
+// APIv1 provides the Bundle API facade for version 1.
+type APIv1 struct {
+	*APIv2
 }
 
-// NewBundle creates and returns a new Bundle API facade.
-func NewBundle(auth facade.Authorizer) (Bundle, error) {
+// APIv2 provides the Bundle API facade for version 2.
+type APIv2 struct {
+	*BundleAPI
+}
+
+// BundleAPI implements the Bundle interface and is the concrete implementation
+// of the API end point.
+type BundleAPI struct {
+	backend    Backend
+	authorizer facade.Authorizer
+	modelTag   names.ModelTag
+}
+
+// NewFacadeV1 provides the signature required for facade registration
+// version 1.
+func NewFacadeV1(ctx facade.Context) (*APIv1, error) {
+	api, err := NewFacadeV2(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &APIv1{api}, nil
+}
+
+// NewFacadeV2 provides the signature required for facade registration
+// for version 2.
+func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
+	api, err := newFacade(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv2{api}, nil
+}
+
+// NewFacade provides the required signature for facade registration.
+func newFacade(ctx facade.Context) (*BundleAPI, error) {
+	authorizer := ctx.Auth()
+	st := ctx.State()
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return NewBundleAPI(
+		st,
+		authorizer,
+		model.ModelTag(),
+	)
+}
+
+// NewBundleAPI returns the new Bundle API facade.
+func NewBundleAPI(
+	st Backend,
+	auth facade.Authorizer,
+	tag names.ModelTag,
+) (*BundleAPI, error) {
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	return &bundleAPI{}, nil
+
+	return &BundleAPI{
+		backend:    st,
+		authorizer: auth,
+		modelTag:   tag,
+	}, nil
 }
 
-// Bundle defines the API endpoint used to retrieve bundle changes.
-type Bundle interface {
-	// GetChanges returns the list of changes required to deploy the given
-	// bundle data.
-	GetChanges(params.BundleChangesParams) (params.BundleChangesResults, error)
+func (b *BundleAPI) checkCanRead() error {
+	canRead, err := b.authorizer.HasPermission(permission.ReadAccess, b.modelTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canRead {
+		return common.ErrPerm
+	}
+	return nil
 }
-
-// bundleAPI implements the Bundle interface and is the concrete implementation
-// of the API end point.
-type bundleAPI struct{}
 
 // GetChanges returns the list of changes required to deploy the given bundle
 // data. The changes are sorted by requirements, so that they can be applied in
 // order.
-func (b *bundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
+func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
 	var results params.BundleChangesResults
 	data, err := charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
 	if err != nil {
@@ -91,3 +153,12 @@ func (b *bundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 	}
 	return results, nil
 }
+
+// ExportBundle exports the current model configuration as bundle.
+func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
+	return params.StringResult{}, nil
+}
+
+// Mask the new method from V1 API.
+// ExportBundle is not V1 API.
+func (u *APIv1) ExportBundle() (_, _ struct{}) { return }

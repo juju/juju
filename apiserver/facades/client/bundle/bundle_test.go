@@ -16,19 +16,34 @@ import (
 
 type bundleSuite struct {
 	coretesting.BaseSuite
-	facade bundle.Bundle
+	auth     *apiservertesting.FakeAuthorizer
+	facade   *bundle.APIv2
+	st       *mockState
+	modelTag names.ModelTag
 }
 
 var _ = gc.Suite(&bundleSuite{})
 
 func (s *bundleSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	auth := apiservertesting.FakeAuthorizer{
+	s.auth = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("who"),
 	}
-	facade, err := bundle.NewBundle(auth)
+
+	s.st = newMockState()
+	s.modelTag = names.NewModelTag("some-uuid")
+
+	s.facade = s.makeAPI(c)
+}
+
+func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv2 {
+	api, err := bundle.NewBundleAPI(
+		s.st,
+		s.auth,
+		s.modelTag,
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.facade = facade
+	return &bundle.APIv2{api}
 }
 
 func (s *bundleSuite) TestGetChangesBundleContentError(c *gc.C) {
