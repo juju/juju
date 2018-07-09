@@ -2213,21 +2213,13 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status params.UnitSeri
 				return nil, errors.Trace(err)
 			}
 		}
-		locked, err := m.IsLocked()
-		if err != nil {
+		if err := m.isStillAlive(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		if !locked {
-			return nil, errors.BadRequestf("Machine %q is not locked for upgrade", m)
-		}
-		if err = m.isStillAlive(); err != nil {
-			return nil, errors.Trace(err)
-		}
-
 		coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 		defer closer()
 		var lock upgradeSeriesLock
-		err = coll.FindId(m.Id()).One(&lock)
+		err := coll.FindId(m.Id()).One(&lock)
 		if err != nil {
 			return nil, errors.BadRequestf("Machine %q is not locked for upgrade", m)
 		}
