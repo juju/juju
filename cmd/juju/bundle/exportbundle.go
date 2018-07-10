@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/cmd/output"
 )
 
-// NewexportbundleCommand returns a fully constructed dump-model command.
+// NewexportbundleCommand returns a fully constructed exportbundle command.
 func NewexportbundleCommand() cmd.Command {
 	return modelcmd.Wrap(&exportBundleCommand{}, modelcmd.WrapSkipModelFlags)
 }
