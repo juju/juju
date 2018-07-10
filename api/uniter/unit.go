@@ -693,7 +693,7 @@ func (u *Unit) UpgradeSeriesStatus() (params.UnitSeriesUpgradeStatus, error) {
 
 // UpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
 func (u *Unit) SetUpgradeSeriesStatus(status params.UnitSeriesUpgradeStatus) error {
-	var results params.UpgradeSeriesStatusResults
+	var results params.ErrorResults
 	args := params.SetUpgradeSeriesStatusParams{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 		Status:   status,
