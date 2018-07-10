@@ -2517,7 +2517,6 @@ func (u *UniterAPI) GoalStates(args params.Entities) (params.GoalStateResults, e
 	if err != nil {
 		return params.GoalStateResults{}, err
 	}
-
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
@@ -2581,6 +2580,10 @@ func (u *UniterAPI) goalStateRelations(allRelations []*state.Relation) (map[stri
 				continue
 			}
 			application, err := u.st.Application(e.ApplicationName)
+			if err != nil && errors.IsNotFound(err) {
+				logger.Debugf("application %q must be a remote application, ignore it.", e.ApplicationName)
+				continue
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -2600,7 +2603,6 @@ func (u *UniterAPI) goalStateRelations(allRelations []*state.Relation) (map[stri
 			}
 		}
 	}
-
 	return result, nil
 }
 
@@ -2612,9 +2614,12 @@ func (u *UniterAPI) goalStateUnits(application *state.Application) (params.Units
 	if err != nil {
 		return nil, err
 	}
-
 	unitsGoalState := params.UnitsGoalState{}
 	for _, u := range allUnits {
+		if u.Life() != state.Alive {
+			logger.Debugf("unit %q is not alive, ignore it.", u.Name())
+			continue
+		}
 		unit := params.GoalStateStatus{}
 		statusInfo, err := u.Status()
 		if err != nil {
