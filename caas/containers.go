@@ -20,6 +20,13 @@ type ContainerPort struct {
 	Protocol      string `yaml:"protocol" json:"protocol"`
 }
 
+// ImageDetails defines all details required to pull a docker image from any registry
+type ImageDetails struct {
+	ImagePath string `yaml:"imagePath" json:"imagePath"`
+	Username  string `yaml:"username,omitempty" json:"username,omitempty"`
+	Password  string `yaml:"password,omitempty" json:"password,omitempty"`
+}
+
 // ProviderContainer defines a provider specific container.
 type ProviderContainer interface {
 	Validate() error
@@ -28,9 +35,11 @@ type ProviderContainer interface {
 // ContainerSpec defines the data values used to configure
 // a container on the CAAS substrate.
 type ContainerSpec struct {
-	Name  string          `yaml:"name"`
-	Image string          `yaml:"image,omitempty"`
-	Ports []ContainerPort `yaml:"ports,omitempty"`
+	Name string `yaml:"name"`
+	// Image is deprecated in preference to using ImageDetails.
+	Image        string          `yaml:"image,omitempty"`
+	ImageDetails ImageDetails    `yaml:"imageDetails"`
+	Ports        []ContainerPort `yaml:"ports,omitempty"`
 
 	Command    []string `yaml:"command,omitempty"`
 	Args       []string `yaml:"args,omitempty"`
