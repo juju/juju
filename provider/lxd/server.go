@@ -239,7 +239,6 @@ func (s *serverFactory) bootstrapLocalServer(svr Server, profile apiProfile) (Se
 	// connInfoAddresses is really useful for debugging, so let's keep that
 	// information around for the debugging errors.
 	var connInfoAddresses []string
-	var connInfoProtocol string
 	errNotExists := errors.New("not-exists")
 	retryArgs := retry.CallArgs{
 		Clock: s.Clock(),
@@ -252,7 +251,6 @@ func (s *serverFactory) bootstrapLocalServer(svr Server, profile apiProfile) (Se
 				return errors.Trace(err)
 			}
 
-			connInfoProtocol = cInfo.Protocol
 			connInfoAddresses = cInfo.Addresses
 			for _, addr := range cInfo.Addresses {
 				if strings.HasPrefix(addr, hostAddress+":") {
