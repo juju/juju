@@ -55,6 +55,8 @@ func (s *serverSuite) TestLocalServer(c *gc.C) {
 		server.EXPECT().LocalBridgeName().Return(bridgeName),
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
+		server.EXPECT().StorageSupported().Return(true),
+		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
 	)
 
@@ -99,6 +101,8 @@ func (s *serverSuite) TestLocalServerRetrySemantics(c *gc.C) {
 		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
 		server.EXPECT().EnableHTTPSListener().Return(nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
+		server.EXPECT().StorageSupported().Return(true),
+		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
 	)
 
@@ -162,6 +166,8 @@ func (s *serverSuite) TestLocalServerWithInvalidAPIVersion(c *gc.C) {
 		server.EXPECT().LocalBridgeName().Return(bridgeName),
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
+		server.EXPECT().StorageSupported().Return(true),
+		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
 	)
 
@@ -287,6 +293,45 @@ and then configure it with:
 `)
 }
 
+func (s *serverSuite) TestLocalServerWithStorageNotSupported(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	profile := &api.Profile{}
+	etag := "etag"
+	bridgeName := "lxdbr0"
+	hostAddress := "192.168.0.1"
+	connectionInfo := &client.ConnectionInfo{
+		Addresses: []string{
+			"https://192.168.0.1:8443",
+		},
+	}
+	serverInfo := &api.Server{
+		ServerUntrusted: api.ServerUntrusted{
+			APIVersion: "a.b",
+		},
+	}
+
+	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
+
+	gomock.InOrder(
+		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
+		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
+		server.EXPECT().EnableHTTPSListener().Return(nil),
+		server.EXPECT().LocalBridgeName().Return(bridgeName),
+		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
+		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
+		server.EXPECT().StorageSupported().Return(false),
+		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+	)
+
+	svr, err := factory.RemoteServer(environs.CloudSpec{
+		Endpoint: "",
+	})
+	c.Assert(svr, gc.Not(gc.IsNil))
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *serverSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -315,6 +360,8 @@ func (s *serverSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C
 		server.EXPECT().LocalBridgeName().Return(bridgeName),
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
+		server.EXPECT().StorageSupported().Return(true),
+		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
 	)
 
@@ -329,16 +376,78 @@ func (s *serverSuite) TestRemoteServer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	factory, server := s.newRemoteServerFactory(ctrl)
-
+	profile := &api.Profile{}
+	etag := "etag"
 	serverInfo := &api.Server{
 		ServerUntrusted: api.ServerUntrusted{
 			APIVersion: "1.1",
 		},
 	}
-	etag := "etag"
 
-	server.EXPECT().GetServer().Return(serverInfo, etag, nil)
+	factory, server := s.newRemoteServerFactory(ctrl)
+
+	gomock.InOrder(
+		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
+		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
+		server.EXPECT().StorageSupported().Return(true),
+		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
+		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+	)
+
+	creds := cloud.NewCredential("any", map[string]string{
+		"client-cert": "client-cert",
+		"client-key":  "client-key",
+		"server-cert": "server-cert",
+	})
+	svr, err := factory.RemoteServer(environs.CloudSpec{
+		Endpoint:   "https://10.0.0.9:8443",
+		Credential: &creds,
+	})
+	c.Assert(svr, gc.Not(gc.IsNil))
+	c.Assert(svr, gc.Equals, server)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *serverSuite) TestRemoteServerWithProfileError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	factory, server := s.newRemoteServerFactory(ctrl)
+
+	server.EXPECT().GetProfile("default").Return(nil, "", errors.New("bad"))
+
+	creds := cloud.NewCredential("any", map[string]string{
+		"client-cert": "client-cert",
+		"client-key":  "client-key",
+		"server-cert": "server-cert",
+	})
+	_, err := factory.RemoteServer(environs.CloudSpec{
+		Endpoint:   "https://10.0.0.9:8443",
+		Credential: &creds,
+	})
+	c.Assert(errors.Cause(err).Error(), gc.Matches, "bad")
+}
+
+func (s *serverSuite) TestRemoteServerWithNoStorage(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	profile := &api.Profile{}
+	etag := "etag"
+	serverInfo := &api.Server{
+		ServerUntrusted: api.ServerUntrusted{
+			APIVersion: "1.1",
+		},
+	}
+
+	factory, server := s.newRemoteServerFactory(ctrl)
+
+	gomock.InOrder(
+		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
+		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
+		server.EXPECT().StorageSupported().Return(false),
+		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+	)
 
 	creds := cloud.NewCredential("any", map[string]string{
 		"client-cert": "client-cert",
@@ -373,9 +482,16 @@ func (s *serverSuite) TestRemoteServerWithGetServerError(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	profile := &api.Profile{}
+	etag := "etag"
 	factory, server := s.newRemoteServerFactory(ctrl)
 
-	server.EXPECT().GetServer().Return(nil, "", errors.New("bad"))
+	gomock.InOrder(
+		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
+		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
+		server.EXPECT().StorageSupported().Return(false),
+		server.EXPECT().GetServer().Return(nil, "", errors.New("bad")),
+	)
 
 	creds := cloud.NewCredential("any", map[string]string{
 		"client-cert": "client-cert",
