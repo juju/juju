@@ -118,7 +118,13 @@ func ConnectLocal() (lxd.ContainerServer, error) {
 
 // ConnectRemote connects to LXD on a remote socket.
 func ConnectRemote(spec ServerSpec) (lxd.ContainerServer, error) {
-	client, err := lxd.ConnectLXD(spec.Host, spec.connectionArgs)
+	// Ensure the Port on the Host, if we get an error it is reasonable to
+	// assume that the address in the spec is invalid.
+	uri, err := EnsureHostPort(spec.Host)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	client, err := lxd.ConnectLXD(uri, spec.connectionArgs)
 	return client, errors.Trace(err)
 }
 
@@ -163,4 +169,23 @@ func EnsureHTTPS(address string) string {
 		return addr
 	}
 	return "https://" + address
+}
+
+const defaultPort = 8443
+
+// EnsureHostPort takes a URI and ensures that it has a port set, if it doesn't
+// then it will ensure that port if added.
+// The address supplied for the Host will be validated when parsed and if the
+// address is not valid, then it will return an error.
+func EnsureHostPort(address string) (string, error) {
+	// make sure we ensure a schema, otherwise somewhere:8443 can return a
+	// the following //:8443/somewhere
+	uri, err := url.Parse(EnsureHTTPS(address))
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if uri.Port() == "" {
+		uri.Host = fmt.Sprintf("%s:%d", uri.Host, defaultPort)
+	}
+	return uri.String(), nil
 }

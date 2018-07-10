@@ -314,7 +314,7 @@ func (s *providerSuite) TestPingWithNoEndpoint(c *gc.C) {
 	p, err := environs.Provider("lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.Ping(context.NewCloudCallContext(), server.URL)
-	c.Assert(err, gc.ErrorMatches, "no lxd server running at "+server.URL)
+	c.Assert(err, gc.ErrorMatches, "no lxd server running at "+containerLXD.EnsureHTTPS(server.URL))
 }
 
 type ProviderFunctionalSuite struct {
