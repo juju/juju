@@ -6,6 +6,7 @@ package lxd
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -39,6 +40,7 @@ type containerManager struct {
 
 	imageMetadataURL string
 	imageStream      string
+	imageMutex       sync.Mutex
 }
 
 // containerManager implements container.Manager.
@@ -96,7 +98,12 @@ func (m *containerManager) CreateContainer(
 	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	callback(status.Provisioning, "Creating container spec", nil)
 	spec, err := m.getContainerSpec(instanceConfig, cons, series, networkConfig, storageConfig, callback)
+	if err != nil {
+		callback(status.ProvisioningError, fmt.Sprintf("Creating container spec: %v", err), nil)
+		return nil, nil, errors.Trace(err)
+	}
 
 	callback(status.Provisioning, "Creating container", nil)
 	c, err := m.server.CreateContainerFromSpec(spec)
@@ -104,8 +111,8 @@ func (m *containerManager) CreateContainer(
 		callback(status.ProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
 		return nil, nil, errors.Trace(err)
 	}
-
 	callback(status.Running, "Container started", nil)
+
 	return &lxdInstance{c.Name, m.server.ContainerServer},
 		&instance.HardwareCharacteristics{AvailabilityZone: &m.availabilityZone}, nil
 }
@@ -145,7 +152,15 @@ func (m *containerManager) getContainerSpec(
 		return ContainerSpec{}, errors.Trace(err)
 	}
 
-	found, err := m.server.FindImage(series, jujuarch.HostArch(), imageSources, true, callback)
+	// Lock around finding an image.
+	// The provisioner works concurrently to create containers. If an image
+	// needs to copied from a remote, we don't many starting this task at once.
+	var found SourcedImage
+	func() {
+		m.imageMutex.Lock()
+		defer m.imageMutex.Unlock()
+		found, err = m.server.FindImage(series, jujuarch.HostArch(), imageSources, true, callback)
+	}()
 	if err != nil {
 		return ContainerSpec{}, errors.Annotatef(err, "acquiring LXD image")
 	}
