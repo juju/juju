@@ -1055,13 +1055,13 @@ func (u *UniterAPI) UpgradeSeriesStatus(args params.Entities) (params.UpgradeSer
 	return result, nil
 }
 
-func (u *UniterAPI) SetUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams) (params.UpgradeSeriesStatusResults, error) {
-	result := params.UpgradeSeriesStatusResults{
-		Results: make([]params.UpgradeSeriesStatusResult, len(args.Entities)),
+func (u *UniterAPI) SetUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.UpgradeSeriesStatusResults{}, err
+		return params.ErrorResults{}, err
 	}
 	for i, entity := range args.Entities {
 		//TODO[externalreality] refactor all of this, its being copied often.
