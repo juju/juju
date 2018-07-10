@@ -18,6 +18,7 @@ type bundleSuite struct {
 	coretesting.BaseSuite
 	auth     *apiservertesting.FakeAuthorizer
 	facade   *bundle.APIv2
+	apiv1    *bundle.APIv1
 	st       *mockState
 	modelTag names.ModelTag
 }

@@ -3,12 +3,4 @@
 
 package bundle
 
-import (
-	"github.com/juju/juju/state"
-)
-
 type Backend interface{}
-
-type stateShim struct {
-	*state.State
-}

@@ -474,6 +474,11 @@ func (st *State) ModelUUID() string {
 	return st.modelTag.Id()
 }
 
+// ModelTag returns tag for the model controlled by state instance.
+func (st *State) ModelTAG() names.ModelTag {
+	return st.modelTag
+}
+
 // userModelNameIndex returns a string to be used as a usermodelnameC unique index.
 func userModelNameIndex(username, modelName string) string {
 	return strings.ToLower(username) + ":" + modelName

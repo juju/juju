@@ -66,15 +66,11 @@ func NewFacadeV2(ctx facade.Context) (*APIv2, error) {
 func newFacade(ctx facade.Context) (*BundleAPI, error) {
 	authorizer := ctx.Auth()
 	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	return NewBundleAPI(
 		st,
 		authorizer,
-		model.ModelTag(),
+		st.ModelTAG(),
 	)
 }
 
@@ -160,5 +156,5 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 }
 
 // Mask the new method from V1 API.
-// ExportBundle is not V1 API.
+// ExportBundle is not in V1 API.
 func (u *APIv1) ExportBundle() (_, _ struct{}) { return }

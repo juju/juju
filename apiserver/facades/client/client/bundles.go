@@ -4,7 +4,6 @@
 package client
 
 import (
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -15,12 +14,9 @@ import (
 // This call is deprecated, clients should use the GetChanges endpoint on the
 // Bundle facade.
 func (c *Client) GetBundleChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
-	model, err := c.api.state().Model()
-	if err != nil {
-		return params.BundleChangesResults{}, common.ServerError(err)
-	}
-	modelTag := model.ModelTag()
-	bundleAPI, err := bundle.NewBundleAPI(c.api.state(), c.api.auth, modelTag)
+	st := c.api.state()
+
+	bundleAPI, err := bundle.NewBundleAPI(st, c.api.auth, st.ModelTAG())
 	if err != nil {
 		return params.BundleChangesResults{}, err
 	}
