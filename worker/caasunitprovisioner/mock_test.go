@@ -70,9 +70,7 @@ func (m *mockServiceBroker) DeleteService(appName string) error {
 type mockContainerBroker struct {
 	testing.Stub
 	caas.ContainerEnvironProvider
-	ensured            chan<- struct{}
 	serviceDeleted     chan<- struct{}
-	unitDeleted        chan<- struct{}
 	unitsWatcher       *watchertest.MockNotifyWatcher
 	reportedUnitStatus status.Status
 	podSpec            *caas.PodSpec
@@ -84,18 +82,6 @@ func (m *mockContainerBroker) Provider() caas.ContainerEnvironProvider {
 
 func (m *mockContainerBroker) ParsePodSpec(in string) (*caas.PodSpec, error) {
 	return m.podSpec, nil
-}
-
-func (m *mockContainerBroker) EnsureUnit(appName, unitName string, spec *caas.PodSpec) error {
-	m.MethodCall(m, "EnsureUnit", appName, unitName, spec)
-	m.ensured <- struct{}{}
-	return m.NextErr()
-}
-
-func (m *mockContainerBroker) DeleteUnit(unitName string) error {
-	m.MethodCall(m, "DeleteUnit", unitName)
-	m.unitDeleted <- struct{}{}
-	return m.NextErr()
 }
 
 func (m *mockContainerBroker) DeleteService(appName string) error {

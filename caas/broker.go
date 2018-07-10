@@ -117,12 +117,6 @@ type Broker interface {
 	// UnexposeService removes external access to the specified service.
 	UnexposeService(appName string) error
 
-	// EnsureUnit creates or updates a pod with the given spec.
-	EnsureUnit(appName, unitName string, spec *PodSpec) error
-
-	// DeleteUnit deletes a unit pod with the given unit name.
-	DeleteUnit(unitName string) error
-
 	// WatchUnits returns a watcher which notifies when there
 	// are changes to units of the specified application.
 	WatchUnits(appName string) (watcher.NotifyWatcher, error)

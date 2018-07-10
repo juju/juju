@@ -66,11 +66,14 @@ func parseK8sPodSpec(in string) (*caas.PodSpec, error) {
 			return nil, errors.Trace(err)
 		}
 		spec.Containers[i] = caas.ContainerSpec{
-			Name:   c.Name,
-			Image:  c.Image,
-			Ports:  c.Ports,
-			Config: c.Config,
-			Files:  c.Files,
+			Name:       c.Name,
+			Image:      c.Image,
+			Ports:      c.Ports,
+			Command:    c.Command,
+			Args:       c.Args,
+			WorkingDir: c.WorkingDir,
+			Config:     c.Config,
+			Files:      c.Files,
 		}
 		if c.K8sContainerSpec != nil {
 			spec.Containers[i].ProviderContainer = c.K8sContainerSpec

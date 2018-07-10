@@ -27,10 +27,15 @@ containers:
   - name: gitlab
     image: gitlab/latest
     imagePullPolicy: Always
+    command: ["sh", "-c"]
+    args: ["doIt", "--debug"]
+    workingDir: "/path/to/here"
     ports:
     - containerPort: 80
+      name: fred
       protocol: TCP
     - containerPort: 443
+      name: mary
     livenessProbe:
       initialDelaySeconds: 10
       httpGet:
@@ -67,11 +72,14 @@ foo: bar
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec, jc.DeepEquals, &caas.PodSpec{
 		Containers: []caas.ContainerSpec{{
-			Name:  "gitlab",
-			Image: "gitlab/latest",
+			Name:       "gitlab",
+			Image:      "gitlab/latest",
+			Command:    []string{"sh", "-c"},
+			Args:       []string{"doIt", "--debug"},
+			WorkingDir: "/path/to/here",
 			Ports: []caas.ContainerPort{
-				{ContainerPort: 80, Protocol: "TCP"},
-				{ContainerPort: 443},
+				{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
+				{ContainerPort: 443, Name: "mary"},
 			},
 			Config: map[string]string{
 				"attr": "foo=bar; fred=blogs",

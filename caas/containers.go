@@ -32,6 +32,10 @@ type ContainerSpec struct {
 	Image string          `yaml:"image,omitempty"`
 	Ports []ContainerPort `yaml:"ports,omitempty"`
 
+	Command    []string `yaml:"command,omitempty"`
+	Args       []string `yaml:"args,omitempty"`
+	WorkingDir string   `yaml:"workingDir,omitempty"`
+
 	Config map[string]string `yaml:"config,omitempty"`
 	Files  []FileSet         `yaml:"files,omitempty"`
 
