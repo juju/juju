@@ -11,8 +11,6 @@ import (
 
 type ContainerBroker interface {
 	Provider() caas.ContainerEnvironProvider
-	EnsureUnit(appName, unitName string, spec *caas.PodSpec) error
-	DeleteUnit(unitName string) error
 	WatchUnits(appName string) (watcher.NotifyWatcher, error)
 	Units(appName string) ([]caas.Unit, error)
 	DeleteService(appName string) error

@@ -48,8 +48,6 @@ type WorkerSuite struct {
 	serviceDeleted       chan struct{}
 	serviceEnsured       chan struct{}
 	serviceUpdated       chan struct{}
-	unitEnsured          chan struct{}
-	unitDeleted          chan struct{}
 	clock                *testing.Clock
 }
 
@@ -104,8 +102,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.serviceDeleted = make(chan struct{})
 	s.serviceEnsured = make(chan struct{})
 	s.serviceUpdated = make(chan struct{})
-	s.unitEnsured = make(chan struct{})
-	s.unitDeleted = make(chan struct{})
 
 	s.applicationGetter = mockApplicationGetter{
 		watcher: watchertest.NewMockStringsWatcher(s.applicationChanges),
@@ -134,8 +130,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 
 	s.containerBroker = mockContainerBroker{
 		serviceDeleted: s.serviceDeleted,
-		ensured:        s.unitEnsured,
-		unitDeleted:    s.unitDeleted,
 		unitsWatcher:   watchertest.NewMockNotifyWatcher(s.caasUnitsChanges),
 		podSpec:        &parsedSpec,
 	}

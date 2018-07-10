@@ -933,7 +933,7 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 			unitInfo.FilesystemInfo = append(unitInfo.FilesystemInfo, caas.FilesystemInfo{
 				StorageName:  storageName,
 				Size:         uint64(vol.PersistentVolumeClaim.Size()),
-				FilesystemId: string(pvc.UID),
+				FilesystemId: pvc.Name,
 				MountPoint:   volMount.MountPath,
 				ReadOnly:     volMount.ReadOnly,
 			})
@@ -959,32 +959,6 @@ func (k *kubernetesClient) jujuStatus(podPhase core.PodPhase, terminated bool) s
 	}
 }
 
-// EnsureUnit creates or updates a unit pod with the given unit name and spec.
-func (k *kubernetesClient) EnsureUnit(appName, unitName string, spec *caas.PodSpec) error {
-	logger.Debugf("creating/updating unit %s", unitName)
-	unitSpec, err := makeUnitSpec(spec)
-	if err != nil {
-		return errors.Annotatef(err, "parsing spec for %s", unitName)
-	}
-	podName := unitPodName(unitName)
-	pod := core.Pod{
-		ObjectMeta: v1.ObjectMeta{
-			Name: podName,
-			Labels: map[string]string{
-				labelApplication: appName}},
-		Spec: unitSpec.Pod,
-	}
-
-	// Add the specified file to the pod spec.
-	cfgName := func(fileSetName string) string {
-		return unitConfigMapName(unitName, fileSetName)
-	}
-	if err := k.configurePodFiles(&pod.Spec, spec.Containers, cfgName); err != nil {
-		return errors.Trace(err)
-	}
-	return k.ensurePod(&pod)
-}
-
 // filesetConfigMap returns a *core.ConfigMap for a pod
 // of the specified unit, with the specified files.
 func filesetConfigMap(configMapName string, files *caas.FileSet) *core.ConfigMap {
@@ -998,13 +972,6 @@ func filesetConfigMap(configMapName string, files *caas.FileSet) *core.ConfigMap
 		result.Data[name] = data
 	}
 	return result
-}
-
-// DeleteUnit deletes a unit pod with the given unit name.
-func (k *kubernetesClient) DeleteUnit(unitName string) error {
-	logger.Debugf("deleting unit %s", unitName)
-	podName := unitPodName(unitName)
-	return k.deletePod(podName)
 }
 
 func (k *kubernetesClient) ensureConfigMap(configMap *core.ConfigMap) error {
@@ -1167,6 +1134,15 @@ pod:
           {{if .Name}}name: {{.Name}}{{end}}
           {{if .Protocol}}protocol: {{.Protocol}}{{end}}
     {{- end}}
+    {{end}}
+    {{if .Command}}
+    command: [{{- range $idx, $c := .Command -}}{{if ne $idx 0}},{{end}}"{{$c}}"{{- end -}}]
+    {{end}}
+    {{if .Args}}
+    args: [{{- range $idx, $a := .Args -}}{{if ne $idx 0}},{{end}}"{{$a}}"{{- end -}}]
+    {{end}}
+    {{if .WorkingDir}}
+    workingDir: {{.WorkingDir}}
     {{end}}
     {{if .Config}}
     env:

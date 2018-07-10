@@ -78,9 +78,12 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 
 var basicPodspec = &caas.PodSpec{
 	Containers: []caas.ContainerSpec{{
-		Name:  "test",
-		Ports: []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-		Image: "juju/image",
+		Name:       "test",
+		Ports:      []caas.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+		Image:      "juju/image",
+		Command:    []string{"sh", "-c"},
+		Args:       []string{"doIt", "--debug"},
+		WorkingDir: "/path/to/here",
 		Config: map[string]string{
 			"foo": "bar",
 		},
@@ -97,9 +100,12 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
 		Containers: []core.Container{
 			{
-				Name:  "test",
-				Image: "juju/image",
-				Ports: []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+				Name:       "test",
+				Image:      "juju/image",
+				Ports:      []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+				Command:    []string{"sh", "-c"},
+				Args:       []string{"doIt", "--debug"},
+				WorkingDir: "/path/to/here",
 				Env: []core.EnvVar{
 					{Name: "foo", Value: "bar"},
 				},
