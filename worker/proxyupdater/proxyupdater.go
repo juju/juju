@@ -36,13 +36,13 @@ type Config struct {
 // Validate ensures that all the required fields have values.
 func (c *Config) Validate() error {
 	if c.API == nil {
-		return errors.NotValidf("mssing API")
+		return errors.NotValidf("missing API")
 	}
 	if c.InProcessUpdate == nil {
-		return errors.NotValidf("mssing InProcessUpdate")
+		return errors.NotValidf("missing InProcessUpdate")
 	}
 	if c.Logger == nil {
-		return errors.NotValidf("mssing Logger")
+		return errors.NotValidf("missing Logger")
 	}
 	return nil
 }

@@ -304,7 +304,7 @@ func (s *BaseSuiteUnpatched) IsRunningLocally(c *gc.C) bool {
 	restore := gitjujutesting.PatchEnvPathPrepend(s.osPathOrig)
 	defer restore()
 
-	running, err := jujulxdclient.IsRunningLocally()
+	running, err := lxd.IsRunningLocally()
 	c.Assert(err, jc.ErrorIsNil)
 	return running
 }
