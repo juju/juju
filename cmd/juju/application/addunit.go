@@ -52,7 +52,7 @@ Add two units of mysql to machines 3 and 4:
 Add three units of mysql to machine 7:
     juju add-unit mysql -n 3 --to 7,7,7
 
-Add three units of mysql, one to machine 3 and the others to new
+Add three units of mysql, one to machine 7 and the others to new
 machines:
     juju add-unit mysql -n 3 --to 7
 
