@@ -59,8 +59,9 @@ func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) credentialsSu
 		lookup,
 		factory,
 	)
+	cloudMetadata := lxd.NewMockCloudMetadataReader(ctrl)
 
-	provider := lxd.NewProviderWithMocks(creds, factory)
+	provider := lxd.NewProviderWithMocks(creds, factory, cloudMetadata)
 	return credentialsSuiteDeps{
 		provider:       provider,
 		creds:          creds,

@@ -18,10 +18,21 @@ import (
 	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 
+// CloudMetadataReader defines an interface that will read and returns a
+// series of clouds.
+//go:generate mockgen -package lxd -destination provider_mock_test.go github.com/juju/juju/provider/lxd CloudMetadataReader
+type CloudMetadataReader interface {
+	// Read will read and return a series of cloud.Clouds.
+	// Returns an error if the file is not found, or if there is an error
+	// parsing the file.
+	Read() (map[string]cloud.Cloud, error)
+}
+
 type environProvider struct {
 	environs.ProviderCredentials
-	serverFactory ServerFactory
-	Clock         clock.Clock
+	serverFactory       ServerFactory
+	cloudMetadataReader CloudMetadataReader
+	Clock               clock.Clock
 }
 
 var cloudSchema = &jsonschema.Schema{
@@ -63,7 +74,8 @@ func NewProvider() environs.CloudEnvironProvider {
 			lookup:         netLookup{},
 			serverFactory:  factory,
 		},
-		serverFactory: factory,
+		cloudMetadataReader: cloudMetadataReader{},
+		serverFactory:       factory,
 	}
 }
 
@@ -147,7 +159,21 @@ func (*environProvider) Validate(cfg, old *config.Config) (valid *config.Config,
 
 // DetectClouds implements environs.CloudDetector.
 func (p *environProvider) DetectClouds() ([]cloud.Cloud, error) {
-	return []cloud.Cloud{localhostCloud}, nil
+	// read all the clouds that are stored in users personal cloud yaml
+	clouds, err := p.cloudMetadataReader.Read()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// filter the clouds to only return lxd provider types
+	result := []cloud.Cloud{
+		localhostCloud,
+	}
+	for _, cloud := range clouds {
+		if cloud.Type == lxdnames.ProviderType {
+			result = append(result, cloud)
+		}
+	}
+	return result, nil
 }
 
 // DetectCloud implements environs.CloudDetector.
@@ -158,6 +184,18 @@ func (p *environProvider) DetectCloud(name string) (cloud.Cloud, error) {
 	switch name {
 	case "lxd", "localhost":
 		return localhostCloud, nil
+	default:
+		// read the clouds that are stored in the users personal cloud yaml
+		// check to see if it exists, else fallthrough.
+		clouds, err := p.cloudMetadataReader.Read()
+		if err != nil {
+			return cloud.Cloud{}, errors.Trace(err)
+		}
+		for _, cloud := range clouds {
+			if cloud.Name == name {
+				return cloud, nil
+			}
+		}
 	}
 	return cloud.Cloud{}, errors.NotFoundf("cloud %s", name)
 }
@@ -295,4 +333,10 @@ func (p *environProvider) ConfigSchema() schema.Fields {
 // provider specific config attributes.
 func (p *environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
+}
+
+type cloudMetadataReader struct{}
+
+func (cloudMetadataReader) Read() (map[string]cloud.Cloud, error) {
+	return cloud.PersonalCloudMetadata()
 }

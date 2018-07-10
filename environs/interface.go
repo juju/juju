@@ -174,6 +174,7 @@ type CloudFinalizer interface {
 
 // CloudDetector is an interface that an EnvironProvider implements
 // in order to automatically detect clouds from the environment.
+//go:generate mockgen -package testing -destination testing/cloud_detector_mock.go github.com/juju/juju/environs CloudDetector
 type CloudDetector interface {
 	// DetectCloud attempts to detect a cloud with the given name
 	// from the environment. This may involve, for example,
