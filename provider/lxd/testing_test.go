@@ -536,6 +536,11 @@ func (conn *StubClient) StorageSupported() bool {
 	return conn.StorageIsSupported
 }
 
+func (conn *StubClient) EnsureDefaultStorage(profile *api.Profile, ETag string) error {
+	conn.AddCall("EnsureDefaultStorage", profile, ETag)
+	return conn.NextErr()
+}
+
 func (conn *StubClient) GetStoragePool(name string) (pool *api.StoragePool, ETag string, err error) {
 	conn.AddCall("GetStoragePool", name)
 	return &api.StoragePool{

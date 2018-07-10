@@ -160,6 +160,18 @@ func (mr *MockServerMockRecorder) EnableHTTPSListener() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableHTTPSListener", reflect.TypeOf((*MockServer)(nil).EnableHTTPSListener))
 }
 
+// EnsureDefaultStorage mocks base method
+func (m *MockServer) EnsureDefaultStorage(arg0 *api.Profile, arg1 string) error {
+	ret := m.ctrl.Call(m, "EnsureDefaultStorage", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnsureDefaultStorage indicates an expected call of EnsureDefaultStorage
+func (mr *MockServerMockRecorder) EnsureDefaultStorage(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureDefaultStorage", reflect.TypeOf((*MockServer)(nil).EnsureDefaultStorage), arg0, arg1)
+}
+
 // FilterContainers mocks base method
 func (m *MockServer) FilterContainers(arg0 string, arg1 ...string) ([]lxd.Container, error) {
 	varargs := []interface{}{arg0}

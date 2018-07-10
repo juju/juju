@@ -52,6 +52,7 @@ type Server interface {
 	GetProfile(string) (*lxdapi.Profile, string, error)
 	HasProfile(string) (bool, error)
 	VerifyNetworkDevice(*lxdapi.Profile, string) error
+	EnsureDefaultStorage(*lxdapi.Profile, string) error
 	StorageSupported() bool
 	GetStoragePool(name string) (pool *lxdapi.StoragePool, ETag string, err error)
 	GetStoragePools() (pools []lxdapi.StoragePool, err error)
@@ -131,7 +132,7 @@ func (s *serverFactory) LocalServer() (Server, error) {
 	}
 
 	// initialize a new local server
-	svr, err := s.initLocalServer()
+	svr, profile, err := s.initLocalServer()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -139,7 +140,7 @@ func (s *serverFactory) LocalServer() (Server, error) {
 	// bootstrap a new local server, this ensures that all connections to and
 	// from the local server are connected and setup correctly.
 	var hostName string
-	svr, hostName, err = s.bootstrapLocalServer(svr)
+	svr, hostName, err = s.bootstrapLocalServer(svr, profile)
 	if err == nil {
 		s.localServer = svr
 		s.localServerAddress = hostName
@@ -184,30 +185,44 @@ func (s *serverFactory) RemoteServer(spec environs.CloudSpec) (Server, error) {
 	return svr, errors.Trace(err)
 }
 
-func (s *serverFactory) initLocalServer() (Server, error) {
+type apiProfile struct {
+	Profile *lxdapi.Profile
+	ETag    string
+}
+
+func (s *serverFactory) initLocalServer() (Server, apiProfile, error) {
 	svr, err := s.newLocalServerFunc()
 	if err != nil {
-		return nil, errors.Trace(hoistLocalConnectErr(err))
+		return nil, apiProfile{}, errors.Trace(hoistLocalConnectErr(err))
 	}
 
 	// We need to get a default profile, so that the local bridge name
 	// can be discovered correctly to then get the host address.
 	defaultProfile, profileETag, err := svr.GetProfile("default")
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, apiProfile{}, errors.Trace(err)
 	}
 
+	// If this is the LXD provider on the localhost, let's do an extra check to
+	// make sure the default profile has a correctly configured bridge, and
+	// which one is it.
 	if err := svr.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
-		return nil, errors.Trace(err)
+		return nil, apiProfile{}, errors.Trace(err)
 	}
 
 	// LXD itself reports the host:ports that it listens on.
 	// Cross-check the address we have with the values reported by LXD.
 	err = svr.EnableHTTPSListener()
-	return svr, errors.Annotate(err, "enabling HTTPS listener")
+	if err != nil {
+		return nil, apiProfile{}, errors.Annotate(err, "enabling HTTPS listener")
+	}
+	return svr, apiProfile{
+		Profile: defaultProfile,
+		ETag:    profileETag,
+	}, nil
 }
 
-func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error) {
+func (s *serverFactory) bootstrapLocalServer(svr Server, profile apiProfile) (Server, string, error) {
 	// select the server bridge name, so that we can then try and select
 	// the hostAddress from the current interfaceAddress
 	bridgeName := svr.LocalBridgeName()
@@ -249,7 +264,7 @@ func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error)
 			// Requesting a NewLocalServer forces a new connection, so that when
 			// we GetConnectionInfo it gets the required addresses.
 			// Note: this modifies the outer svr server.
-			if svr, err = s.initLocalServer(); err != nil {
+			if svr, profile, err = s.initLocalServer(); err != nil {
 				return errors.Trace(err)
 			}
 
@@ -270,6 +285,14 @@ func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error)
 	if connInfoProtocol != string(lxd.SimpleStreamsProtocol) {
 		if err := s.validateServer(svr); err != nil {
 			return nil, "", errors.Trace(err)
+		}
+
+		// If the storage API is supported, let's make sure the LXD has a
+		// default pool; we'll just use dir backend for now.
+		if svr.StorageSupported() {
+			if err := svr.EnsureDefaultStorage(profile.Profile, profile.ETag); err != nil {
+				return nil, "", errors.Trace(err)
+			}
 		}
 	}
 

@@ -56,6 +56,8 @@ func (s *serverSuite) TestLocalServer(c *gc.C) {
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+		server.EXPECT().StorageSupported().Return(true),
+		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
 	)
 
 	svr, err := factory.LocalServer()
@@ -100,6 +102,8 @@ func (s *serverSuite) TestLocalServerRetrySemantics(c *gc.C) {
 		server.EXPECT().EnableHTTPSListener().Return(nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+		server.EXPECT().StorageSupported().Return(true),
+		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
 	)
 
 	svr, err := factory.LocalServer()
@@ -163,6 +167,8 @@ func (s *serverSuite) TestLocalServerWithInvalidAPIVersion(c *gc.C) {
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+		server.EXPECT().StorageSupported().Return(true),
+		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
 	)
 
 	svr, err := factory.LocalServer()
@@ -287,6 +293,45 @@ and then configure it with:
 `)
 }
 
+func (s *serverSuite) TestLocalServerWithStorageNotSupported(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	profile := &api.Profile{}
+	etag := "etag"
+	bridgeName := "lxdbr0"
+	hostAddress := "192.168.0.1"
+	connectionInfo := &client.ConnectionInfo{
+		Addresses: []string{
+			"https://192.168.0.1:8443",
+		},
+	}
+	serverInfo := &api.Server{
+		ServerUntrusted: api.ServerUntrusted{
+			APIVersion: "a.b",
+		},
+	}
+
+	factory, server, interfaceAddr := s.newLocalServerFactory(ctrl)
+
+	gomock.InOrder(
+		server.EXPECT().GetProfile("default").Return(profile, etag, nil),
+		server.EXPECT().VerifyNetworkDevice(profile, etag).Return(nil),
+		server.EXPECT().EnableHTTPSListener().Return(nil),
+		server.EXPECT().LocalBridgeName().Return(bridgeName),
+		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
+		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
+		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+		server.EXPECT().StorageSupported().Return(false),
+	)
+
+	svr, err := factory.RemoteServer(environs.CloudSpec{
+		Endpoint: "",
+	})
+	c.Assert(svr, gc.Not(gc.IsNil))
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *serverSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -316,6 +361,8 @@ func (s *serverSuite) TestRemoteServerWithEmptyEndpointYieldsLocalServer(c *gc.C
 		interfaceAddr.EXPECT().InterfaceAddress(bridgeName).Return(hostAddress, nil),
 		server.EXPECT().GetConnectionInfo().Return(connectionInfo, nil),
 		server.EXPECT().GetServer().Return(serverInfo, etag, nil),
+		server.EXPECT().StorageSupported().Return(true),
+		server.EXPECT().EnsureDefaultStorage(profile, etag).Return(nil),
 	)
 
 	svr, err := factory.RemoteServer(environs.CloudSpec{
