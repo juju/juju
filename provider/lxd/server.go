@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -143,7 +144,7 @@ func (s *serverFactory) LocalServer() (Server, error) {
 		s.localServer = svr
 		s.localServerAddress = hostName
 	}
-	return svr, err
+	return svr, errors.Trace(err)
 }
 
 func (s *serverFactory) LocalServerAddress() (string, error) {
@@ -176,8 +177,11 @@ func (s *serverFactory) RemoteServer(spec environs.CloudSpec) (Server, error) {
 		clientCert,
 	)
 	serverSpec.WithProxy(proxy.DefaultConfig.GetProxy)
-	prov, err := s.newRemoteServerFunc(serverSpec)
-	return prov, errors.Trace(err)
+	svr, err := s.newRemoteServerFunc(serverSpec)
+	if err == nil {
+		err = s.bootstrapRemoteServer(svr)
+	}
+	return svr, errors.Trace(err)
 }
 
 func (s *serverFactory) initLocalServer() (Server, error) {
@@ -220,6 +224,7 @@ func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error)
 	// connInfoAddresses is really useful for debugging, so let's keep that
 	// information around for the debugging errors.
 	var connInfoAddresses []string
+	var connInfoProtocol string
 	errNotExists := errors.New("not-exists")
 	retryArgs := retry.CallArgs{
 		Clock: s.Clock(),
@@ -232,6 +237,7 @@ func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error)
 				return errors.Trace(err)
 			}
 
+			connInfoProtocol = cInfo.Protocol
 			connInfoAddresses = cInfo.Addresses
 			for _, addr := range cInfo.Addresses {
 				if strings.HasPrefix(addr, hostAddress+":") {
@@ -258,7 +264,43 @@ func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error)
 			hostAddress, connInfoAddresses,
 		)
 	}
+
+	// If the server is not a simple simple stream server, don't check the
+	// API version, but do report for other scenarios
+	if connInfoProtocol != string(lxd.SimpleStreamsProtocol) {
+		if err := s.validateServer(svr); err != nil {
+			return nil, "", errors.Trace(err)
+		}
+	}
+
 	return svr, hostAddress, nil
+}
+
+func (s *serverFactory) bootstrapRemoteServer(svr Server) error {
+	if err := s.validateServer(svr); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (s *serverFactory) validateServer(svr Server) error {
+	// One final request, to make sure we grab the server information for
+	// validating the api version
+	serverInfo, _, err := svr.GetServer()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	apiVersion := serverInfo.APIVersion
+	if msg, ok := isSupportedAPIVersion(apiVersion); !ok {
+		logger.Warningf(msg)
+		logger.Warningf("trying to use unsupported LXD API version %q", apiVersion)
+	} else {
+		logger.Infof("using LXD API version %q", apiVersion)
+	}
+
+	return nil
 }
 
 func (s *serverFactory) Clock() clock.Clock {
@@ -266,6 +308,25 @@ func (s *serverFactory) Clock() clock.Clock {
 		return clock.WallClock
 	}
 	return s.clock
+}
+
+// isSupportedAPIVersion defines what API versions we support.
+func isSupportedAPIVersion(version string) (msg string, ok bool) {
+	versionParts := strings.Split(version, ".")
+	if len(versionParts) < 2 {
+		return fmt.Sprintf("LXD API version %q: expected format <major>.<minor>", version), false
+	}
+
+	major, err := strconv.Atoi(versionParts[0])
+	if err != nil {
+		return fmt.Sprintf("LXD API version %q: unexpected major number: %v", version, err), false
+	}
+
+	if major < 1 {
+		return fmt.Sprintf("LXD API version %q: expected major version 1 or later", version), false
+	}
+
+	return "", true
 }
 
 func getMessageFromErr(err error) (bool, string) {
