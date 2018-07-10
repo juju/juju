@@ -714,7 +714,7 @@ func (s *unitSuite) TestUpgradeSeriesStatus(c *gc.C) {
 	s.CreateUpgradeSeriesLock(c)
 
 	// Then we check to see the status of our upgrade. We note that creating
-	// the lock essentially kicks off an upgrade for the perspective of
+	// the lock essentially kicks off an upgrade from the perspective of
 	// assigned units.
 	status, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
@@ -724,14 +724,16 @@ func (s *unitSuite) TestUpgradeSeriesStatus(c *gc.C) {
 func (s *unitSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 	// First we create the prepare lock or the required state will not exists
 	s.CreateUpgradeSeriesLock(c)
+	arbitaryNonDefaultStatus := params.UnitNotStarted
 
-	err := s.apiUnit.SetUpgradeSeriesStatus(params.UnitStarted)
+	// Change the state to something other than the default remote state of UnitStarted
+	err := s.apiUnit.SetUpgradeSeriesStatus(arbitaryNonDefaultStatus)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check to see that the upgrade status has been set appropriately
 	status, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, params.UnitStarted)
+	c.Assert(status, gc.Equals, arbitaryNonDefaultStatus)
 }
 
 func (s *unitSuite) TestSetUpgradeSeriesStatusShouldOnlySetSpecifiedUnit(c *gc.C) {
