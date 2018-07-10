@@ -282,32 +282,47 @@ func (s *serverFactory) bootstrapLocalServer(svr Server, profile apiProfile) (Se
 
 	// If the server is not a simple simple stream server, don't check the
 	// API version, but do report for other scenarios
-	if connInfoProtocol != string(lxd.SimpleStreamsProtocol) {
-		if err := s.validateServer(svr); err != nil {
-			return nil, "", errors.Trace(err)
-		}
-
-		// If the storage API is supported, let's make sure the LXD has a
-		// default pool; we'll just use dir backend for now.
-		if svr.StorageSupported() {
-			if err := svr.EnsureDefaultStorage(profile.Profile, profile.ETag); err != nil {
-				return nil, "", errors.Trace(err)
-			}
-		}
+	if err := s.validateServer(svr, profile); err != nil {
+		return nil, "", errors.Trace(err)
 	}
 
 	return svr, hostAddress, nil
 }
 
 func (s *serverFactory) bootstrapRemoteServer(svr Server) error {
-	if err := s.validateServer(svr); err != nil {
+	// We need to get a default profile, so that the local bridge name
+	// can be discovered correctly to then get the host address.
+	defaultProfile, profileETag, err := svr.GetProfile("default")
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// If this is the LXD provider on the localhost, let's do an extra check to
+	// make sure the default profile has a correctly configured bridge, and
+	// which one is it.
+	if err := svr.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := s.validateServer(svr, apiProfile{
+		Profile: defaultProfile,
+		ETag:    profileETag,
+	}); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
 }
 
-func (s *serverFactory) validateServer(svr Server) error {
+func (s *serverFactory) validateServer(svr Server, profile apiProfile) error {
+	// If the storage API is supported, let's make sure the LXD has a
+	// default pool; we'll just use dir backend for now.
+	if svr.StorageSupported() {
+		if err := svr.EnsureDefaultStorage(profile.Profile, profile.ETag); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	// One final request, to make sure we grab the server information for
 	// validating the api version
 	serverInfo, _, err := svr.GetServer()
