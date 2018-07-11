@@ -139,7 +139,6 @@ var (
 )
 
 func (s *CAASOperatorSuite) TestWorkers(c *gc.C) {
-	coretesting.SkipIfWindowsBug(c, "lp:1610993")
 	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackCAASOperator(c, tracker, jujudagent.CaasOperatorManifolds)
 	s.PatchValue(&jujudagent.CaasOperatorManifolds, instrumented)
