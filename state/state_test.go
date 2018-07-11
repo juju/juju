@@ -214,10 +214,6 @@ func (s *StateSuite) TestModelUUID(c *gc.C) {
 	c.Assert(s.State.ModelUUID(), gc.Equals, s.modelTag.Id())
 }
 
-func (s *StateSuite) TestModelTAG(c *gc.C) {
-	c.Assert(s.State.ModelTAG(), gc.Equals, s.modelTag)
-}
-
 func (s *StateSuite) TestNoModelDocs(c *gc.C) {
 	// For example:
 	// found documents for model with uuid 7bfe98b6-7282-48d4-8e37-9b90fb3da4f1: 1 constraints doc, 1 modelusers doc, 1 settings doc, 1 statuses doc
