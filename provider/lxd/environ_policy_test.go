@@ -103,8 +103,6 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 
 	expected := []string{
 		"tags",
-		"instance-type",
-		"cores",
 		"cpu-power",
 		"virt-type",
 	}
