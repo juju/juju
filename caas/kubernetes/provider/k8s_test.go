@@ -89,7 +89,7 @@ var basicPodspec = &caas.PodSpec{
 		},
 	}, {
 		Name:  "test2",
-		Ports: []caas.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
+		Ports: []caas.ContainerPort{{ContainerPort: 8080, Protocol: "TCP", Name: "fred"}},
 		Image: "juju/image2",
 	}},
 }
@@ -112,7 +112,7 @@ func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
 			}, {
 				Name:  "test2",
 				Image: "juju/image2",
-				Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
+				Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP, Name: "fred"}},
 			},
 		},
 	})
@@ -214,7 +214,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 			Type:     "nodeIP",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
-				{Port: 8080, Protocol: "TCP"},
+				{Port: 8080, Protocol: "TCP", Name: "fred"},
 			},
 			LoadBalancerIP: "10.0.0.1",
 			ExternalName:   "ext-name",
@@ -299,7 +299,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 			Type:     "nodeIP",
 			Ports: []core.ServicePort{
 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
-				{Port: 8080, Protocol: "TCP"},
+				{Port: 8080, Protocol: "TCP", Name: "fred"},
 			},
 			LoadBalancerIP: "10.0.0.1",
 			ExternalName:   "ext-name",

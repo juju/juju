@@ -748,6 +748,7 @@ func (k *kubernetesClient) configureService(appName string, containerPorts []cor
 			targetPort = intstr.FromInt(config.GetInt(serviceTargetPortConfigKey, int(cp.ContainerPort)))
 		}
 		ports = append(ports, core.ServicePort{
+			Name:       cp.Name,
 			Protocol:   cp.Protocol,
 			Port:       cp.ContainerPort,
 			TargetPort: targetPort,
