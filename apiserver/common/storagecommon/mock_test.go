@@ -18,10 +18,12 @@ type fakeStorage struct {
 	testing.Stub
 	storagecommon.StorageAccess
 	storagecommon.FilesystemAccess
-	storageInstance       func(names.StorageTag) (state.StorageInstance, error)
-	storageInstanceVolume func(names.StorageTag) (state.Volume, error)
-	volumeAttachment      func(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
-	blockDevices          func(names.MachineTag) ([]state.BlockDeviceInfo, error)
+	storageInstance           func(names.StorageTag) (state.StorageInstance, error)
+	storageInstanceVolume     func(names.StorageTag) (state.Volume, error)
+	storageInstanceFilesystem func(names.StorageTag) (state.Filesystem, error)
+	volumeAttachment          func(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
+	filesystemAttachment      func(names.Tag, names.FilesystemTag) (state.FilesystemAttachment, error)
+	blockDevices              func(names.MachineTag) ([]state.BlockDeviceInfo, error)
 }
 
 func (s *fakeStorage) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
@@ -42,6 +44,16 @@ func (s *fakeStorage) VolumeAttachment(m names.Tag, v names.VolumeTag) (state.Vo
 func (s *fakeStorage) BlockDevices(m names.MachineTag) ([]state.BlockDeviceInfo, error) {
 	s.MethodCall(s, "BlockDevices", m)
 	return s.blockDevices(m)
+}
+
+func (s *fakeStorage) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {
+	s.MethodCall(s, "StorageInstanceFilesystem", tag)
+	return s.storageInstanceFilesystem(tag)
+}
+
+func (s *fakeStorage) FilesystemAttachment(m names.Tag, fs names.FilesystemTag) (state.FilesystemAttachment, error) {
+	s.MethodCall(s, "FilesystemAttachment", m, fs)
+	return s.filesystemAttachment(m, fs)
 }
 
 type fakeStorageInstance struct {
@@ -123,4 +135,45 @@ type fakePoolManager struct {
 
 func (pm *fakePoolManager) Get(name string) (*storage.Config, error) {
 	return nil, errors.NotFoundf("pool")
+}
+
+type fakeFilesystem struct {
+	state.Filesystem
+	tag    names.FilesystemTag
+	params *state.FilesystemParams
+	info   *state.FilesystemInfo
+}
+
+func (v *fakeFilesystem) FilesystemTag() names.FilesystemTag {
+	return v.tag
+}
+
+func (v *fakeFilesystem) Tag() names.Tag {
+	return v.tag
+}
+
+func (v *fakeFilesystem) Params() (state.FilesystemParams, bool) {
+	if v.params == nil {
+		return state.FilesystemParams{}, false
+	}
+	return *v.params, true
+}
+
+func (v *fakeFilesystem) Info() (state.FilesystemInfo, error) {
+	if v.info == nil {
+		return state.FilesystemInfo{}, errors.NotProvisionedf("filesystem %v", v.tag.Id())
+	}
+	return *v.info, nil
+}
+
+type fakeFilesystemAttachment struct {
+	state.FilesystemAttachment
+	info *state.FilesystemAttachmentInfo
+}
+
+func (v *fakeFilesystemAttachment) Info() (state.FilesystemAttachmentInfo, error) {
+	if v.info == nil {
+		return state.FilesystemAttachmentInfo{}, errors.NotProvisionedf("filesystem attachment")
+	}
+	return *v.info, nil
 }

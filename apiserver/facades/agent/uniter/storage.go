@@ -172,12 +172,21 @@ func (s *StorageAPI) getOneStateStorageAttachment(canAccess common.AuthFunc, id 
 }
 
 func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.StorageAttachment) (params.StorageAttachment, error) {
-	machineTag, err := unitAssignedMachine(s.backend, stateStorageAttachment.Unit())
+	var hostTag names.Tag
+	hostTag = stateStorageAttachment.Unit()
+	u, err := s.backend.Unit(hostTag.Id())
 	if err != nil {
 		return params.StorageAttachment{}, err
 	}
+	if u.ShouldBeAssigned() {
+		hostTag, err = unitAssignedMachine(s.backend, stateStorageAttachment.Unit())
+		if err != nil {
+			return params.StorageAttachment{}, err
+		}
+	}
+
 	info, err := storagecommon.StorageAttachmentInfo(
-		s.storage, s.storage.VolumeAccess(), s.storage.FilesystemAccess(), stateStorageAttachment, machineTag)
+		s.storage, s.storage.VolumeAccess(), s.storage.FilesystemAccess(), stateStorageAttachment, hostTag)
 	if err != nil {
 		return params.StorageAttachment{}, err
 	}
@@ -272,12 +281,21 @@ func (s *StorageAPI) watchOneStorageAttachment(id params.StorageAttachmentId, ca
 	if err != nil {
 		return nothing, err
 	}
-	machineTag, err := unitAssignedMachine(s.backend, unitTag)
+
+	var hostTag names.Tag
+	hostTag = unitTag
+	u, err := s.backend.Unit(unitTag.Id())
 	if err != nil {
 		return nothing, err
 	}
+	if u.ShouldBeAssigned() {
+		hostTag, err = unitAssignedMachine(s.backend, unitTag)
+		if err != nil {
+			return nothing, err
+		}
+	}
 	watch, err := watchStorageAttachment(
-		s.storage, s.storage.VolumeAccess(), s.storage.FilesystemAccess(), storageTag, machineTag, unitTag)
+		s.storage, s.storage.VolumeAccess(), s.storage.FilesystemAccess(), storageTag, hostTag, unitTag)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
@@ -420,7 +438,7 @@ func watchStorageAttachment(
 	stVolume storageVolumeInterface,
 	stFile storageFilesystemInterface,
 	storageTag names.StorageTag,
-	machineTag names.MachineTag,
+	hostTag names.Tag,
 	unitTag names.UnitTag,
 ) (state.NotifyWatcher, error) {
 	storageInstance, err := st.StorageInstance(storageTag)
@@ -441,7 +459,11 @@ func watchStorageAttachment(
 		// machine's block devices. A volume attachment's block
 		// device could change (most likely, become present).
 		watchers = []state.NotifyWatcher{
-			stVolume.WatchVolumeAttachment(machineTag, volume.VolumeTag()),
+			stVolume.WatchVolumeAttachment(hostTag, volume.VolumeTag()),
+		}
+
+		// TODO(caas) - we currently only support block devices on machines.
+		if hostTag.Kind() == names.MachineTagKind {
 			// TODO(axw) 2015-09-30 #1501203
 			// We should filter the events to only those relevant
 			// to the volume attachment. This means we would need
@@ -449,7 +471,7 @@ func watchStorageAttachment(
 			// have provisioned the volume attachment (cleaner?),
 			// or have the filter ignore changes until the volume
 			// attachment is provisioned.
-			stVolume.WatchBlockDevices(machineTag),
+			watchers = append(watchers, stVolume.WatchBlockDevices(hostTag.(names.MachineTag)))
 		}
 	case state.StorageKindFilesystem:
 		if stFile == nil {
@@ -460,7 +482,7 @@ func watchStorageAttachment(
 			return nil, errors.Annotate(err, "getting storage filesystem")
 		}
 		watchers = []state.NotifyWatcher{
-			stFile.WatchFilesystemAttachment(machineTag, filesystem.FilesystemTag()),
+			stFile.WatchFilesystemAttachment(hostTag, filesystem.FilesystemTag()),
 		}
 	default:
 		return nil, errors.Errorf("invalid storage kind %v", storageInstance.Kind())

@@ -324,13 +324,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			Actions:             actions.NewResolver(),
 			Leadership:          uniterleadership.NewResolver(),
 			Relations:           relation.NewRelationsResolver(u.relations),
-			Storage:             &NopResolver{},
+			Storage:             storage.NewResolver(u.storage, u.modelType),
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
-		}
-		if u.modelType == model.IAAS {
-			cfg.Storage = storage.NewResolver(u.storage)
 		}
 		uniterResolver := NewUniterResolver(cfg)
 
@@ -499,19 +496,18 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Trace(err)
 	}
 	u.modelType = m.ModelType
+	storageAttachments, err := storage.NewAttachments(
+		u.st, unitTag, u.paths.State.StorageDir, u.catacomb.Dying(),
+	)
+	if err != nil {
+		return errors.Annotatef(err, "cannot create storage hook source")
+	}
+	u.storage = storageAttachments
 
 	// Only IAAS models require the uniter to install charms.
 	// For CAAS models this is done by the operator.
 	var deployer charm.Deployer
 	if u.modelType == model.IAAS {
-		storageAttachments, err := storage.NewAttachments(
-			u.st, unitTag, u.paths.State.StorageDir, u.catacomb.Dying(),
-		)
-		if err != nil {
-			return errors.Annotatef(err, "cannot create storage hook source")
-		}
-		u.storage = storageAttachments
-
 		if err := charm.ClearDownloads(u.paths.State.BundlesDir); err != nil {
 			logger.Warningf(err.Error())
 		}
