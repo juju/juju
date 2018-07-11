@@ -530,3 +530,17 @@ func (c *Client) UnsetModelDefaults(cloud, region string, keys ...string) error 
 	}
 	return result.OneError()
 }
+
+// ExportBundle exports the current model configuration.
+func (c *Client) ExportBundle(tag names.ModelTag) (params.StringResult, error) {
+	var results params.StringResult
+	err := c.facade.FacadeCall("ExportBundle", tag, &results)
+	if err != nil {
+		return params.StringResult{}, errors.Trace(err)
+	}
+	if len(results.Result) != 0 {
+		return params.StringResult{}, errors.Errorf("result obtained is incorrect.")
+	}
+
+	return results, nil
+}

@@ -4,10 +4,12 @@
 package bundle_test
 
 import (
+	"github.com/juju/description"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -16,26 +18,35 @@ import (
 
 type bundleSuite struct {
 	coretesting.BaseSuite
-	facade bundle.Bundle
+
+	api      *bundle.BundleAPI
+	auth     facade.Authorizer
+	st       *mockState
+	modelTag names.ModelTag
 }
 
 var _ = gc.Suite(&bundleSuite{})
 
 func (s *bundleSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	auth := apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("who"),
+
+	s.auth = apiservertesting.FakeAuthorizer{
+		Tag: names.NewUserTag("read"),
 	}
-	facade, err := bundle.NewBundle(auth)
+
+	s.st = newMockState()
+	s.modelTag = names.NewModelTag("some-uuid")
+
+	facade, err := bundle.NewFacade(s.auth, s.st, s.modelTag)
 	c.Assert(err, jc.ErrorIsNil)
-	s.facade = facade
+	s.api = facade
 }
 
 func (s *bundleSuite) TestGetChangesBundleContentError(c *gc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: ":",
 	}
-	r, err := s.facade.GetChanges(args)
+	r, err := s.api.GetChanges(args)
 	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: cannot unmarshal bundle data: yaml: did not find expected key`)
 	c.Assert(r, gc.DeepEquals, params.BundleChangesResults{})
 }
@@ -52,7 +63,7 @@ func (s *bundleSuite) TestGetChangesBundleVerificationErrors(c *gc.C) {
                     num_units: -1
         `,
 	}
-	r, err := s.facade.GetChanges(args)
+	r, err := s.api.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
@@ -73,7 +84,7 @@ func (s *bundleSuite) TestGetChangesBundleConstraintsError(c *gc.C) {
                     constraints: bad=wolf
         `,
 	}
-	r, err := s.facade.GetChanges(args)
+	r, err := s.api.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
@@ -92,7 +103,7 @@ func (s *bundleSuite) TestGetChangesBundleStorageError(c *gc.C) {
                         bad: 0,100M
         `,
 	}
-	r, err := s.facade.GetChanges(args)
+	r, err := s.api.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
@@ -111,7 +122,7 @@ func (s *bundleSuite) TestGetChangesBundleDevicesError(c *gc.C) {
                         bad-gpu: -1,nvidia.com/gpu
         `,
 	}
-	r, err := s.facade.GetChanges(args)
+	r, err := s.api.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
@@ -138,7 +149,7 @@ func (s *bundleSuite) TestGetChangesSuccess(c *gc.C) {
                   - haproxy:web
         `,
 	}
-	r, err := s.facade.GetChanges(args)
+	r, err := s.api.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
 		Id:     "addCharm-0",
@@ -198,7 +209,7 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
                         url: public
         `,
 	}
-	r, err := s.facade.GetChanges(args)
+	r, err := s.api.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, change := range r.Changes {
@@ -221,4 +232,23 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 			})
 		}
 	}
+}
+
+func (s *bundleSuite) TestExportBundleSuccess(c *gc.C) {
+	model, err := s.st.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Validate(), jc.ErrorIsNil)
+
+	bytes, err := description.Serialize(model)
+	c.Check(err, jc.ErrorIsNil)
+
+	// 'bytes' must be valid model.
+	modelDesc, err := description.Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelDesc.Validate(), jc.ErrorIsNil)
+	c.Assert(modelDesc, gc.DeepEquals, modelDesc)
+
+	s.st.CheckCallNames(c, "Export")
+	s.st.CheckCall(c, 0, "Export")
 }
