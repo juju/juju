@@ -169,9 +169,9 @@ func (w *RemoteStateWatcher) CommandCompleted(completed string) {
 	}
 }
 
-func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
-	// TODO(dfc) named return value is a time bomb (externalreality) I second the notion
-	// TODO(axw) move this logic.
+func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) error {
+	// TODO(axw) move this logic
+	var err error
 	defer func() {
 		cause := errors.Cause(err)
 		if params.IsCodeNotFoundOrCodeUnauthorized(cause) {
