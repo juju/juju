@@ -65,7 +65,7 @@ pre-check:
 	@$(PROJECT_DIR)/scripts/verify.bash
 
 check: godeps pre-check
-	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/... -check.v
+	go test $(CHECK_ARGS) -test.timeout=$(TEST_TIMEOUT) $(PROJECT)/... -check.vv
 
 install: godeps go-install
 

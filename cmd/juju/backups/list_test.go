@@ -26,6 +26,10 @@ func (s *listSuite) SetUpTest(c *gc.C) {
 	s.subcommand = backups.NewListCommandForTest(jujuclienttesting.MinimalStore())
 }
 
+func (s *listSuite) TestThisShouldFail(c *gc.C) {
+	c.Assert(false, gc.Equals, true)
+}
+
 func (s *listSuite) TestOkay(c *gc.C) {
 	s.setSuccess()
 	ctx, err := cmdtesting.RunCommand(c, s.subcommand, []string{"--verbose"}...)
