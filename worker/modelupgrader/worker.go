@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
@@ -147,7 +148,7 @@ func (ww *waitWorker) loop() error {
 			}
 			currentVersion, err := ww.facade.ModelEnvironVersion(ww.modelTag)
 			if err != nil {
-				if errors.IsNotFound(err) {
+				if params.IsCodeNotFound(err) {
 					return ErrModelRemoved
 				}
 				return errors.Trace(err)
