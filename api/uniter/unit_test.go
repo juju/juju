@@ -710,7 +710,7 @@ func (s *unitSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
 	notifyWatcher.AssertOneChange()
 }
 
-func (s *unitSuite) TestUpgradeSeriesStatus(c *gc.C) {
+func (s *unitSuite) TestUpgradeSeriesStatusIsInitializedToUnitStarted(c *gc.C) {
 	// First we create the prepare lock
 	s.CreateUpgradeSeriesLock(c)
 
@@ -722,10 +722,18 @@ func (s *unitSuite) TestUpgradeSeriesStatus(c *gc.C) {
 	c.Assert(status, gc.Equals, string(model.UnitStarted))
 }
 
-func (s *unitSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
+func (s *unitSuite) TestSetUpgradeSeriesStatusFailsIfNoLockExists(c *gc.C) {
+	arbitaryStatus := string(model.UnitNotStarted)
+
+	err := s.apiUnit.SetUpgradeSeriesStatus(arbitaryStatus)
+	c.Assert(err, gc.ErrorMatches, "Machine \"[0-9]*\" is not locked for upgrade")
+}
+
+func (s *unitSuite) TestSetUpgradeSeriesStatusUpdatesStatus(c *gc.C) {
+	arbitaryNonDefaultStatus := string(model.UnitNotStarted)
+
 	// First we create the prepare lock or the required state will not exists
 	s.CreateUpgradeSeriesLock(c)
-	arbitaryNonDefaultStatus := string(model.UnitNotStarted)
 
 	// Change the state to something other than the default remote state of UnitStarted
 	err := s.apiUnit.SetUpgradeSeriesStatus(arbitaryNonDefaultStatus)
