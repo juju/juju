@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	tomb "gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/status"
@@ -232,6 +233,31 @@ func (*WorkerSuite) TestWaitForUpgrade(c *gc.C) {
 		{"ModelEnvironVersion", []interface{}{coretesting.ModelTag}},
 	})
 	mockGateUnlocker.CheckCallNames(c, "Unlock")
+}
+
+func (*WorkerSuite) TestModelNotFoundWhenRunning(c *gc.C) {
+	ch := make(chan struct{})
+	mockFacade := mockFacade{
+		current: 123,
+		target:  125,
+		watcher: newMockNotifyWatcher(ch),
+	}
+	w, err := modelupgrader.NewWorker(modelupgrader.Config{
+		Facade:        &mockFacade,
+		Environ:       nil, // not responsible for running upgrades
+		GateUnlocker:  &mockGateUnlocker{},
+		ControllerTag: coretesting.ControllerTag,
+		ModelTag:      coretesting.ModelTag,
+		CredentialAPI: &credentialAPIForTest{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	mockFacade.SetErrors(&params.Error{Code: params.CodeNotFound})
+	ch <- struct{}{}
+
+	err = workertest.CheckKill(c, w)
+	// We expect NotFound to be changed to modelupgrader.ErrModelRemoved.
+	c.Check(err, gc.ErrorMatches, "model has been removed")
 }
 
 func newStep(stub *testing.Stub, name string) environs.UpgradeStep {
