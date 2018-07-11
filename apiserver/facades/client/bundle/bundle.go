@@ -91,6 +91,13 @@ func NewBundleAPI(
 	}, nil
 }
 
+// NewMockFacadeV1 returns pointer to APIv1.
+// This is required for MockTest to prove that
+// the methods added for facade v2 arent exposed to v1.
+func NewMockFacadeV1(api *APIv2) *APIv1 {
+	return &APIv1{api}
+}
+
 func (b *BundleAPI) checkCanRead() error {
 	canRead, err := b.authorizer.HasPermission(permission.ReadAccess, b.modelTag)
 	if err != nil {

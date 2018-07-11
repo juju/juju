@@ -17,7 +17,7 @@ import (
 
 var logger = loggo.GetLogger("juju.api.bundle")
 
-// Client allows access to the application API end point.
+// Client allows access to the bundle API end point.
 type Client struct {
 	base.ClientFacade
 	*common.ModelStatusAPI
