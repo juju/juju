@@ -70,7 +70,7 @@ func newFacade(ctx facade.Context) (*BundleAPI, error) {
 	return NewBundleAPI(
 		st,
 		authorizer,
-		st.ModelTAG(),
+		names.NewModelTag(st.ModelUUID()),
 	)
 }
 

@@ -4,6 +4,8 @@
 package client
 
 import (
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -16,7 +18,7 @@ import (
 func (c *Client) GetBundleChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
 	st := c.api.state()
 
-	bundleAPI, err := bundle.NewBundleAPI(st, c.api.auth, st.ModelTAG())
+	bundleAPI, err := bundle.NewBundleAPI(st, c.api.auth, names.NewModelTag(st.ModelUUID()))
 	if err != nil {
 		return params.BundleChangesResults{}, err
 	}
