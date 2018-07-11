@@ -44,7 +44,6 @@ type environ struct {
 
 func newEnviron(
 	_ *environProvider,
-	local bool,
 	spec environs.CloudSpec,
 	cfg *config.Config,
 	serverFactory ServerFactory,
