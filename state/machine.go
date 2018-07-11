@@ -2225,6 +2225,9 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 		docIndex := -1
 		for i, unitStatus := range lock.PrepareUnits {
 			if unitStatus.Id == unitName {
+				if unitStatus.Status == status {
+					return nil, jujutxn.ErrNoOperations
+				}
 				docIndex = i
 			}
 		}
@@ -2233,7 +2236,7 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 		}
 		logger.Debugf("Requested unit name: %q, Unit indexed %q", unitName, lock.PrepareUnits[docIndex].Id)
 
-		return setUpgradeSeriesTxnOps(m.doc.Id, docIndex, status), nil
+		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, docIndex, status), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2272,8 +2275,9 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 	}
 }
 
-func setUpgradeSeriesTxnOps(machineDocId string, unitIndex int, status model.UnitSeriesUpgradeStatus) []txn.Op {
-	unitField := fmt.Sprintf("prepareunits.%d.status", unitIndex)
+func setUpgradeSeriesTxnOps(machineDocId, unitName string, unitIndex int, status model.UnitSeriesUpgradeStatus) []txn.Op {
+	unitStatusField := fmt.Sprintf("prepareunits.%d.status", unitIndex)
+	unitIdField := fmt.Sprintf("prepareunits.%d.id", unitIndex)
 	return []txn.Op{
 		{
 			C:      machinesC,
@@ -2281,11 +2285,14 @@ func setUpgradeSeriesTxnOps(machineDocId string, unitIndex int, status model.Uni
 			Assert: isAliveDoc,
 		},
 		{
-			C:      machineUpgradeSeriesLocksC,
-			Id:     machineDocId,
-			Assert: txn.DocExists,
+			C:  machineUpgradeSeriesLocksC,
+			Id: machineDocId,
+			Assert: bson.D{{"$and", []bson.D{
+				{{"prepareunits", bson.D{{"$exists", true}}}},
+				{{unitIdField, unitName}},
+				{{unitStatusField, bson.D{{"$ne", status}}}}}}},
 			Update: bson.D{
-				{"$set", bson.D{{unitField, status}}}},
+				{"$set", bson.D{{unitStatusField, status}}}},
 		},
 	}
 }

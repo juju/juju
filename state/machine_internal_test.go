@@ -62,18 +62,22 @@ func (s *MachineInternalSuite) TestRemoveUpgradeLockTxnAssertsDocExists(c *gc.C)
 	assertConstainsOP(c, expectedOp, removeUpgradeSeriesLockTxnOps(arbitraryId))
 }
 
-func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsSelectsCorrectIndex(c *gc.C) {
+func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransaction(c *gc.C) {
 	arbitaryMachineId := "id"
+	arbitaryUnitName := "application/0"
 	arbitaryStatus := model.UnitStarted
 	expectedOp := txn.Op{
-		C:      machineUpgradeSeriesLocksC,
-		Id:     arbitaryMachineId,
-		Assert: txn.DocExists,
+		C:  machineUpgradeSeriesLocksC,
+		Id: arbitaryMachineId,
+		Assert: bson.D{{"$and", []bson.D{
+			{{"prepareunits", bson.D{{"$exists", true}}}},
+			{{"prepareunits.0.id", "application/0"}},
+			{{"prepareunits.0.status", bson.D{{"$ne", arbitaryStatus}}}}}}},
 		Update: bson.D{
 			{"$set", bson.D{{"prepareunits.0.status", arbitaryStatus}}}},
 	}
 
-	actualOps := setUpgradeSeriesTxnOps(arbitaryMachineId, 0, arbitaryStatus)
+	actualOps := setUpgradeSeriesTxnOps(arbitaryMachineId, arbitaryUnitName, 0, arbitaryStatus)
 	expectedOpSt := fmt.Sprint(expectedOp.Update)
 	actualOpSt := fmt.Sprint(actualOps[1].Update)
 	c.Assert(actualOpSt, gc.Equals, expectedOpSt)
@@ -82,6 +86,7 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsSelectsCorrectIndex(c *
 func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMachineIsAlive(c *gc.C) {
 	arbitaryMachineId := "id"
 	arbitaryStatus := model.UnitStarted
+	arbitaryUnitName := "application/0"
 	arbitaryUnitIndex := 0
 	expectedOp := txn.Op{
 		C:      machinesC,
@@ -89,7 +94,7 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMac
 		Assert: isAliveDoc,
 	}
 
-	actualOps := setUpgradeSeriesTxnOps(arbitaryMachineId, arbitaryUnitIndex, arbitaryStatus)
+	actualOps := setUpgradeSeriesTxnOps(arbitaryMachineId, arbitaryUnitName, arbitaryUnitIndex, arbitaryStatus)
 	expectedOpSt := fmt.Sprint(expectedOp)
 	actualOpSt := fmt.Sprint(actualOps[0])
 	c.Assert(actualOpSt, gc.Equals, expectedOpSt)
