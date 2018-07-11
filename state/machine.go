@@ -2175,7 +2175,6 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
 		err = onAbort(err, ErrDead)
-		logger.Errorf("cannot complete series upgrade for machine %q: %v", m, err)
 		return err
 	}
 
