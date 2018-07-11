@@ -88,7 +88,7 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming unit 0 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.mysqlUnit.Tag(),
+		Tag: s.wordpressUnit.Tag(),
 	}
 
 	// Create the resource registry separately to track invocations to
@@ -107,33 +107,37 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 
 var (
 	timestamp          = time.Date(2200, time.November, 5, 0, 0, 0, 0, time.UTC)
-	charmStatusWaiting = params.GoalStateStatus{
+	expectedUnitStatus = params.GoalStateStatus{
 		Status: "waiting",
 		Since:  &timestamp,
 	}
+	expectedRelationStatus = params.GoalStateStatus{
+		Status: "joining",
+		Since:  &timestamp,
+	}
 	expectedUnitWordpress = params.UnitsGoalState{
-		"wordpress/0": charmStatusWaiting,
+		"wordpress/0": expectedUnitStatus,
+	}
+	expected2UnitsWordPress = params.UnitsGoalState{
+		"wordpress/0": expectedUnitStatus,
+		"wordpress/1": expectedUnitStatus,
 	}
 	expectedUnitMysql = params.UnitsGoalState{
-		"mysql/0": charmStatusWaiting,
-	}
-	expected2UnitsMysql = params.UnitsGoalState{
-		"mysql/0": charmStatusWaiting,
-		"mysql/1": charmStatusWaiting,
+		"mysql/0": expectedUnitStatus,
 	}
 )
 
 // TestGoalStatesNoRelation tests single application with single unit.
 func (s *uniterGoalStateSuite) TestGoalStatesNoRelation(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-mysql-0"},
 	}}
 	expected := params.GoalStateResults{
 		Results: []params.GoalStateResult{
 			{
 				Result: &params.GoalState{
-					Units: expectedUnitMysql,
+					Units: expectedUnitWordpress,
 				},
 			}, {
 				Error: apiservertesting.ErrUnauthorized,
@@ -143,20 +147,20 @@ func (s *uniterGoalStateSuite) TestGoalStatesNoRelation(c *gc.C) {
 	testGoalStates(c, s.uniter, args, expected)
 }
 
-// TestGoalStatesNoRelationTwoUnits adds a new unit to mysql application.
+// TestGoalStatesNoRelationTwoUnits adds a new unit to wordpress application.
 func (s *uniterGoalStateSuite) TestPeerUnitsNoRelation(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-mysql-0"},
 	}}
 
-	addApplicationUnitToMachine(c, s.mysql, s.machine1)
+	addApplicationUnitToMachine(c, s.wordpress, s.machine1)
 
 	expected := params.GoalStateResults{
 		Results: []params.GoalStateResult{
 			{
 				Result: &params.GoalState{
-					Units: expected2UnitsMysql,
+					Units: expected2UnitsWordPress,
 				},
 			}, {
 				Error: apiservertesting.ErrUnauthorized,
@@ -174,17 +178,21 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-mysql-0"},
 	}}
 	expected := params.GoalStateResults{
 		Results: []params.GoalStateResult{
 			{
 				Result: &params.GoalState{
-					Units: expectedUnitMysql,
+					Units: expectedUnitWordpress,
 					Relations: map[string]params.UnitsGoalState{
-						"db":     expectedUnitWordpress,
-						"server": expectedUnitMysql,
+						"db": params.UnitsGoalState{
+							"wordpress": expectedRelationStatus,
+						},
+						"server": params.UnitsGoalState{
+							"mysql": expectedRelationStatus,
+						},
 					},
 				},
 			}, {
@@ -201,26 +209,24 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationNonAliveUnitsExcluded
 	err := s.addRelationToSuiteScope(c, s.wordpressUnit, s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newMysqlUnit := s.Factory.MakeUnit(c, &factory.UnitParams{
-		Application: s.mysql,
+	newWordPressUnit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: s.wordpress,
 		Machine:     s.machine1,
 	})
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
 	}}
 	testGoalStates(c, s.uniter, args, params.GoalStateResults{
 		Results: []params.GoalStateResult{
 			{
 				Result: &params.GoalState{
-					Units: params.UnitsGoalState{
-						"mysql/0": charmStatusWaiting,
-						"mysql/1": charmStatusWaiting,
-					},
+					Units: expected2UnitsWordPress,
 					Relations: map[string]params.UnitsGoalState{
-						"db": expectedUnitWordpress,
+						"db": params.UnitsGoalState{
+							"wordpress": expectedRelationStatus,
+						},
 						"server": params.UnitsGoalState{
-							"mysql/0": charmStatusWaiting,
-							"mysql/1": charmStatusWaiting,
+							"mysql": expectedRelationStatus,
 						},
 					},
 				},
@@ -228,19 +234,21 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationNonAliveUnitsExcluded
 		},
 	})
 
-	newMysqlUnit.Destroy()
+	newWordPressUnit.Destroy()
 
 	testGoalStates(c, s.uniter, args, params.GoalStateResults{
 		Results: []params.GoalStateResult{
 			{
 				Result: &params.GoalState{
 					Units: params.UnitsGoalState{
-						"mysql/0": charmStatusWaiting,
+						"wordpress/0": expectedUnitStatus,
 					},
 					Relations: map[string]params.UnitsGoalState{
-						"db": expectedUnitWordpress,
+						"db": params.UnitsGoalState{
+							"wordpress": expectedRelationStatus,
+						},
 						"server": params.UnitsGoalState{
-							"mysql/0": charmStatusWaiting,
+							"mysql": expectedRelationStatus,
 						},
 					},
 				},
@@ -255,40 +263,59 @@ func (s *uniterGoalStateSuite) TestGoalStatesCrossModelRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
 	}}
-	expected := []params.GoalStateResult{
+	testGoalStates(c, s.uniter, args, params.GoalStateResults{Results: []params.GoalStateResult{
 		{
 			Result: &params.GoalState{
 				Units: params.UnitsGoalState{
-					"mysql/0": charmStatusWaiting,
+					"wordpress/0": expectedUnitStatus,
 				},
 				Relations: map[string]params.UnitsGoalState{
-					"db": expectedUnitWordpress,
+					"db": params.UnitsGoalState{
+						"wordpress": expectedRelationStatus,
+					},
 					"server": params.UnitsGoalState{
-						"mysql/0": charmStatusWaiting,
+						"mysql": expectedRelationStatus,
 					},
 				},
 			},
 		},
-	}
-	testGoalStates(c, s.uniter, args, params.GoalStateResults{Results: expected})
-
+	}})
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql-remote",
+		URL:         "ctrl1:admin/default.mysql",
 		SourceModel: coretesting.ModelTag,
 		Endpoints: []charm.Relation{{
 			Interface: "mysql",
 			Name:      "server",
 			Role:      charm.RoleProvider,
 			Scope:     charm.ScopeGlobal,
-		}}})
+		}},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("mysql-remote", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
-	testGoalStates(c, s.uniter, args, params.GoalStateResults{Results: expected})
+	testGoalStates(c, s.uniter, args, params.GoalStateResults{Results: []params.GoalStateResult{
+		{
+			Result: &params.GoalState{
+				Units: params.UnitsGoalState{
+					"wordpress/0": expectedUnitStatus,
+				},
+				Relations: map[string]params.UnitsGoalState{
+					"db": params.UnitsGoalState{
+						"wordpress": expectedRelationStatus,
+					},
+					"server": params.UnitsGoalState{
+						"mysql":                     expectedRelationStatus,
+						"ctrl1:admin/default.mysql": expectedRelationStatus,
+					},
+				},
+			},
+		},
+	}})
 }
 
 // TestGoalStatesMultipleRelations tests GoalStates with three
@@ -297,46 +324,46 @@ func (s *uniterGoalStateSuite) TestGoalStatesCrossModelRelation(c *gc.C) {
 func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *gc.C) {
 
 	// Add another mysql unit on machine 1.
-	addApplicationUnitToMachine(c, s.mysql, s.machine1)
+	addApplicationUnitToMachine(c, s.wordpress, s.machine1)
 
-	// new application needs: charm, app and unit instanciated in the new machine.
-	newFactory := factory.NewFactory(s.State)
-	wpCharm1 := newFactory.MakeCharm(c, &factory.CharmParams{
-		Name: "wordpress",
-		URL:  "cs:quantal/wordpress-1",
+	mysqlCharm1 := s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "mysql",
 	})
-	wordpress1 := newFactory.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "wordpress1",
-		Charm: wpCharm1,
+	mysql1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "mysql1",
+		Charm: mysqlCharm1,
 	})
-	wordpress1Unit := newFactory.MakeUnit(c, &factory.UnitParams{
-		Application: wordpress1,
+
+	mysqlUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: mysql1,
 		Machine:     s.machine2,
 	})
 
 	var err error
-	err = s.addRelationToSuiteScope(c, wordpress1Unit, s.mysqlUnit)
+	err = s.addRelationToSuiteScope(c, mysqlUnit1, s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.addRelationToSuiteScope(c, s.wordpressUnit, s.mysqlUnit)
+	err = s.addRelationToSuiteScope(c, s.mysqlUnit, s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-mysql-0"},
 	}}
 
 	expected := params.GoalStateResults{
 		Results: []params.GoalStateResult{
 			{
 				Result: &params.GoalState{
-					Units: expected2UnitsMysql,
+					Units: expected2UnitsWordPress,
 					Relations: map[string]params.UnitsGoalState{
 						"db": params.UnitsGoalState{
-							"wordpress/0":  charmStatusWaiting,
-							"wordpress1/0": charmStatusWaiting,
+							"wordpress": expectedRelationStatus,
 						},
-						"server": expected2UnitsMysql,
+						"server": params.UnitsGoalState{
+							"mysql":  expectedRelationStatus,
+							"mysql1": expectedRelationStatus,
+						},
 					},
 				},
 			}, {

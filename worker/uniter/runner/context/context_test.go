@@ -244,18 +244,29 @@ func (s *InterfaceSuite) TestGoalState(c *gc.C) {
 		}
 		return outUnits
 	}
-
-	gsStatus := application.GoalStateStatus{
-		Status: "waiting",
-		Since:  &timestamp,
-	}
 	goalStateCheck := application.GoalState{
 		Units: application.UnitsGoalState{
-			"u/0": gsStatus,
+			"u/0": application.GoalStateStatus{
+				Status: "waiting",
+				Since:  &timestamp,
+			},
 		},
 		Relations: map[string]application.UnitsGoalState{
 			"db": application.UnitsGoalState{
-				"u/0": gsStatus,
+				"u": application.GoalStateStatus{
+					Status: "joining",
+					Since:  &timestamp,
+				},
+			},
+			"server": application.UnitsGoalState{
+				"db0": application.GoalStateStatus{
+					Status: "joining",
+					Since:  &timestamp,
+				},
+				"db1": application.GoalStateStatus{
+					Status: "joining",
+					Since:  &timestamp,
+				},
 			},
 		},
 	}

@@ -2579,28 +2579,41 @@ func (u *UniterAPI) goalStateRelations(allRelations []*state.Relation) (map[stri
 			if e.Relation.Role == "peer" {
 				continue
 			}
+			var key string
 			application, err := u.st.Application(e.ApplicationName)
 			if err != nil && errors.IsNotFound(err) {
-				logger.Debugf("application %q must be a remote application, ignore it.", e.ApplicationName)
-				continue
+				logger.Debugf("application %q must be a remote application.", e.ApplicationName)
+				var remoteApplication *state.RemoteApplication
+				remoteApplication, err = r.RemoteApplication(e.ApplicationName)
+				if err != nil {
+					return nil, err
+				}
+				var ok bool
+				key, ok = remoteApplication.URL()
+				if !ok {
+					// always try to use the remote application URL as the key, or ignore it
+					continue
+				}
 			}
 			if err != nil {
 				return nil, err
 			}
-			units, err := u.goalStateUnits(application)
+			if key == "" {
+				key = application.Name()
+			}
+			goalState := params.GoalStateStatus{}
+			statusInfo, err := r.Status()
 			if err != nil {
-				return nil, err
+				return nil, errors.Errorf("Relation Status not accessible %q", err)
 			}
-			if len(units) == 0 {
-				continue
-			}
-			if result[e.Name] == nil {
-				result[e.Name] = params.UnitsGoalState{}
-			}
+			goalState.Status = statusInfo.Status.String()
+			goalState.Since = statusInfo.Since
 			relation := result[e.Name]
-			for unitName, unitGS := range units {
-				relation[unitName] = unitGS
+			if relation == nil {
+				relation = params.UnitsGoalState{}
 			}
+			relation[key] = goalState
+			result[e.Name] = relation
 		}
 	}
 	return result, nil
@@ -2615,19 +2628,23 @@ func (u *UniterAPI) goalStateUnits(application *state.Application) (params.Units
 		return nil, err
 	}
 	unitsGoalState := params.UnitsGoalState{}
-	for _, u := range allUnits {
-		if u.Life() != state.Alive {
-			logger.Debugf("unit %q is not alive, ignore it.", u.Name())
+	for _, unit := range allUnits {
+		if unit.Life() == state.Dead {
+			// only show Alive and Dying units
+			logger.Debugf("unit %q is dead, ignore it.", unit.Name())
 			continue
 		}
-		unit := params.GoalStateStatus{}
-		statusInfo, err := u.Status()
+		unitGoalState := params.GoalStateStatus{}
+		statusInfo, err := unit.Status()
 		if err != nil {
 			return nil, errors.Errorf("Unit Status not accessible %q", err)
 		}
-		unit.Status = statusInfo.Status.String()
-		unit.Since = statusInfo.Since
-		unitsGoalState[u.Name()] = unit
+		unitGoalState.Status = statusInfo.Status.String()
+		if unit.Life() == state.Dying {
+			unitGoalState.Status = "dying"
+		}
+		unitGoalState.Since = statusInfo.Since
+		unitsGoalState[unit.Name()] = unitGoalState
 	}
 
 	return unitsGoalState, nil
