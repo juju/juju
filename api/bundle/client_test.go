@@ -24,5 +24,5 @@ func newClient(f basetesting.APICallerFunc) *application.Client {
 }
 
 func (s *bundleMockSuite) TestExportBundle(c *gc.C) {
-	// TODO: vinu2003
+
 }

@@ -8,19 +8,19 @@ package bundle
 
 import (
 	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v2"
-
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 )
 
-var logger = loggo.GetLogger("juju.api.application")
+var logger = loggo.GetLogger("juju.api.bundle")
 
 // Client allows access to the application API end point.
 type Client struct {
 	base.ClientFacade
-	st     base.APICallCloser
+	*common.ModelStatusAPI
 	facade base.FacadeCaller
 }
 
@@ -29,19 +29,26 @@ func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Bundle")
 	return &Client{
 		ClientFacade: frontend,
-		st:           st,
+		ModelStatusAPI: common.NewModelStatusAPI(backend),
 		facade:       backend}
 }
 
 // ExportBundle exports the current model configuration.
-func (c *Client) ExportBundle(tag names.ModelTag) (params.StringResult, error) {
-	var results params.StringResult
-	err := c.facade.FacadeCall("ExportBundle", tag, &results)
-	if err != nil {
-		return params.StringResult{}, errors.Trace(err)
+func (c *Client) ExportBundle() (string, error) {
+	var result params.StringResult
+	if bestVer := c.BestAPIVersion(); bestVer < 2 {
+		return "", errors.Errorf("command not supported on v%d", bestVer)
 	}
-	if len(results.Result) != 0 {
-		return params.StringResult{}, errors.Errorf("result obtained is incorrect.")
+
+	if err := c.facade.FacadeCall("ExportBundle", "", &result); err != nil {
+		return "", errors.Trace(err)
 	}
-	return results, nil
+	if result.Error != nil {
+		return "", result.Error
+	}
+
+	if len(result.Result) == 0 {
+		return "", errors.Errorf("result obtained is incorrect.")
+	}
+	return result.Result, nil
 }
