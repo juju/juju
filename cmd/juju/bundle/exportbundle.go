@@ -8,8 +8,8 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
-	"github.com/juju/loggo"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/errors"
@@ -109,7 +109,7 @@ func (c *exportBundleCommand) Run(ctx *cmd.Context) error {
 	defer File.Close()
 
 	// Write out the result.
-		_, err = File.WriteString(result)
+	_, err = File.WriteString(result)
 	if err != nil {
 		return errors.Annotate(err, "while copying in local file")
 	}
@@ -125,9 +125,9 @@ func (c *exportBundleCommand) ResolveFilename() string {
 	if filename == "" {
 		filename = c.modelTag.String()
 		if _, err := os.Stat(filename); err == nil {
-			tag := fmt.Sprintf("%v",rand.Intn(1000))
+			tag := fmt.Sprintf("%v", rand.Intn(1000))
 			filename = filename + tag
 		}
 	}
-		return filename
+	return filename
 }
