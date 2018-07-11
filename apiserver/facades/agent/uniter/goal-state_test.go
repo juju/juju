@@ -8,6 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	charm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
@@ -15,6 +16,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -43,44 +45,44 @@ var _ = gc.Suite(&uniterGoalStateSuite{})
 func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	newFactory := factory.NewFactory(s.State)
 	// Create two machines, two applications and add a unit to each application.
-	s.machine0 = newFactory.MakeMachine(c, &factory.MachineParams{
+	s.machine0 = s.Factory.MakeMachine(c, &factory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
-	s.machine1 = newFactory.MakeMachine(c, &factory.MachineParams{
+	s.machine1 = s.Factory.MakeMachine(c, &factory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
-	s.machine2 = newFactory.MakeMachine(c, &factory.MachineParams{
+	s.machine2 = s.Factory.MakeMachine(c, &factory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
 
-	s.wpCharm = newFactory.MakeCharm(c, &factory.CharmParams{
-		Name: "wordpress",
-		URL:  "cs:quantal/wordpress-0",
-	})
-	s.wordpress = newFactory.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "wordpress",
-		Charm: s.wpCharm,
-	})
-	s.wordpressUnit = newFactory.MakeUnit(c, &factory.UnitParams{
-		Application: s.wordpress,
-		Machine:     s.machine0,
-	})
-
-	mysqlCharm := newFactory.MakeCharm(c, &factory.CharmParams{
+	mysqlCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = newFactory.MakeApplication(c, &factory.ApplicationParams{
+	s.mysql = s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "mysql",
 		Charm: mysqlCharm,
 	})
-	s.mysqlUnit = newFactory.MakeUnit(c, &factory.UnitParams{
+
+	s.mysqlUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine1,
+	})
+
+	s.wpCharm = s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "wordpress",
+		URL:  "cs:quantal/wordpress-0",
+	})
+	s.wordpress = s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: s.wpCharm,
+	})
+	s.wordpressUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: s.wordpress,
+		Machine:     s.machine0,
 	})
 
 	// Create a FakeAuthorizer so we can check permissions,
@@ -193,6 +195,102 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelation(c *gc.C) {
 	testGoalStates(c, s.uniter, args, expected)
 }
 
+// TestGoalStatesSingleRelationNonAliveUnitsExcluded tests non alive units should not show in the GoalState result.
+func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationNonAliveUnitsExcluded(c *gc.C) {
+
+	err := s.addRelationToSuiteScope(c, s.wordpressUnit, s.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newMysqlUnit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: s.mysql,
+		Machine:     s.machine1,
+	})
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+	}}
+	testGoalStates(c, s.uniter, args, params.GoalStateResults{
+		Results: []params.GoalStateResult{
+			{
+				Result: &params.GoalState{
+					Units: params.UnitsGoalState{
+						"mysql/0": charmStatusWaiting,
+						"mysql/1": charmStatusWaiting,
+					},
+					Relations: map[string]params.UnitsGoalState{
+						"db": expectedUnitWordpress,
+						"server": params.UnitsGoalState{
+							"mysql/0": charmStatusWaiting,
+							"mysql/1": charmStatusWaiting,
+						},
+					},
+				},
+			},
+		},
+	})
+
+	newMysqlUnit.Destroy()
+
+	testGoalStates(c, s.uniter, args, params.GoalStateResults{
+		Results: []params.GoalStateResult{
+			{
+				Result: &params.GoalState{
+					Units: params.UnitsGoalState{
+						"mysql/0": charmStatusWaiting,
+					},
+					Relations: map[string]params.UnitsGoalState{
+						"db": expectedUnitWordpress,
+						"server": params.UnitsGoalState{
+							"mysql/0": charmStatusWaiting,
+						},
+					},
+				},
+			},
+		},
+	})
+}
+
+// TestGoalStatesCrossModelRelation tests remote relation application could never be found.
+func (s *uniterGoalStateSuite) TestGoalStatesCrossModelRelation(c *gc.C) {
+	err := s.addRelationToSuiteScope(c, s.mysqlUnit, s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+	}}
+	expected := []params.GoalStateResult{
+		{
+			Result: &params.GoalState{
+				Units: params.UnitsGoalState{
+					"mysql/0": charmStatusWaiting,
+				},
+				Relations: map[string]params.UnitsGoalState{
+					"db": expectedUnitWordpress,
+					"server": params.UnitsGoalState{
+						"mysql/0": charmStatusWaiting,
+					},
+				},
+			},
+		},
+	}
+	testGoalStates(c, s.uniter, args, params.GoalStateResults{Results: expected})
+
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "mysql-remote",
+		SourceModel: coretesting.ModelTag,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "server",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}}})
+	c.Assert(err, jc.ErrorIsNil)
+	eps, err := s.State.InferEndpoints("mysql-remote", "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	testGoalStates(c, s.uniter, args, params.GoalStateResults{Results: expected})
+}
+
 // TestGoalStatesMultipleRelations tests GoalStates with three
 // applications one application has two units and each unit is related
 // to a different application unit.
@@ -201,7 +299,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *gc.C) {
 	// Add another mysql unit on machine 1.
 	addApplicationUnitToMachine(c, s.mysql, s.machine1)
 
-	// new application needs: charm, app and unit instanciated in the new machine
+	// new application needs: charm, app and unit instanciated in the new machine.
 	newFactory := factory.NewFactory(s.State)
 	wpCharm1 := newFactory.MakeCharm(c, &factory.CharmParams{
 		Name: "wordpress",
@@ -284,8 +382,8 @@ func (s *uniterGoalStateSuite) assertInScope(c *gc.C, relUnit *state.RelationUni
 	c.Assert(ok, gc.Equals, inScope)
 }
 
-// goalStates call untier.GoalStates API and compares the output with the
-// expected result
+// goalStates call uniter.GoalStates API and compares the output with the
+// expected result.
 func testGoalStates(c *gc.C, thisUniter *uniter.UniterAPI, args params.Entities, expected params.GoalStateResults) {
 	result, err := thisUniter.GoalStates(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -300,7 +398,7 @@ func testGoalStates(c *gc.C, thisUniter *uniter.UniterAPI, args params.Entities,
 }
 
 // setSinceToNil will set the field `since` to nil in order to
-// avoid a time check which otherwise would be impossible to pass
+// avoid a time check which otherwise would be impossible to pass.
 func setSinceToNil(c *gc.C, goalState *params.GoalState) {
 
 	for i, u := range goalState.Units {

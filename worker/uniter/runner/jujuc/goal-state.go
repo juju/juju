@@ -54,13 +54,13 @@ func (c *GoalStateCommand) Run(ctx *cmd.Context) error {
 }
 
 // goalStateStatusContents is used to format application.GoalState.Since
-// using strings
+// using strings.
 type goalStateStatusContents struct {
 	Status string `json:"status" yaml:"status"`
 	Since  string `json:"since,omitempty" yaml:"since,omitempty"`
 }
 
-// UnitsGoalState keeps the collection of units and their GoalStateStau
+// UnitsGoalState keeps the collection of units and their GoalStateStatus.
 type unitsGoalStateContents map[string]goalStateStatusContents
 
 // GoalState is responsible to organize the Units and Relations with a specific
@@ -70,8 +70,8 @@ type formattedGoalState struct {
 	Relations map[string]unitsGoalStateContents `json:"relations" yaml:"relations"`
 }
 
-// transformGoalState move information from application GoalState struct to
-// application GoalState struct
+// transformGoalState moves information from application GoalState struct to
+// application GoalState struct.
 func formatGoalState(gs application.GoalState) formattedGoalState {
 	result := formattedGoalState{}
 
