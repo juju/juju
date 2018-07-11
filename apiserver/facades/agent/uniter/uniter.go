@@ -1021,6 +1021,8 @@ func (u *UniterAPI) WatchUpgradeSeriesNotifications(args params.Entities) (param
 	return result, nil
 }
 
+// UpgradeSeriesStatus returns the current state of series upgrading
+// unit. If no upgrade is in progress an error is returned instead.
 func (u *UniterAPI) UpgradeSeriesStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
 	result := params.UpgradeSeriesStatusResults{
 		Results: make([]params.UpgradeSeriesStatusResult, len(args.Entities)),
