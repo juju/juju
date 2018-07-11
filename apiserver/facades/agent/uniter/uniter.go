@@ -985,7 +985,7 @@ func (u *UniterAPI) WatchActionNotifications(args params.Entities) (params.Strin
 	return common.WatchActionNotifications(args, canAccess, watchOne), nil
 }
 
-// WatchActionNotifications returns a StringsWatcher for observing the status of an Upgrade Series
+// WatchUpgradeSeriesNotifications returns a NotifyWatcher for observing changes to upgrade series locks.
 func (u *UniterAPI) WatchUpgradeSeriesNotifications(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
