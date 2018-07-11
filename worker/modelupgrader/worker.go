@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
@@ -21,6 +22,9 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.worker.modelupgrader")
+
+// ErrModelRemoved indicates that this worker was operating on the model that is no longer found.
+var ErrModelRemoved = errors.New("model has been removed")
 
 // Facade exposes capabilities required by the worker.
 type Facade interface {
@@ -144,6 +148,9 @@ func (ww *waitWorker) loop() error {
 			}
 			currentVersion, err := ww.facade.ModelEnvironVersion(ww.modelTag)
 			if err != nil {
+				if params.IsCodeNotFound(err) {
+					return ErrModelRemoved
+				}
 				return errors.Trace(err)
 			}
 			if currentVersion >= ww.targetVersion {
