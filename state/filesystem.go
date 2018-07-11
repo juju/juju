@@ -713,17 +713,21 @@ func removeFilesystemAttachmentOps(sb *storageBackend, host names.Tag, f *filesy
 		)
 		ops = []txn.Op{decrefFilesystemOp}
 	}
-	return append(ops, txn.Op{
+	ops = append(ops, txn.Op{
 		C:      filesystemAttachmentsC,
 		Id:     filesystemAttachmentId(host.Id(), f.doc.FilesystemId),
 		Assert: bson.D{{"life", Dying}},
 		Remove: true,
-	}, txn.Op{
-		C:      machinesC,
-		Id:     host.Id(),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$pull", bson.D{{"filesystems", f.doc.FilesystemId}}}},
-	}), nil
+	})
+	if host.Kind() == names.MachineTagKind {
+		ops = append(ops, txn.Op{
+			C:      machinesC,
+			Id:     host.Id(),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$pull", bson.D{{"filesystems", f.doc.FilesystemId}}}},
+		})
+	}
+	return ops, nil
 }
 
 // DestroyFilesystem ensures that the filesystem and any attachments to it will

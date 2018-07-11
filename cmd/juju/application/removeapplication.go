@@ -5,15 +5,18 @@ package application
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 )
 
 // NewRemoveApplicationCommand returns a command which removes an application.
@@ -81,6 +84,11 @@ type removeApplicationAPI interface {
 	ModelUUID() string
 }
 
+type storageAPI interface {
+	Close() error
+	ListStorageDetails() ([]params.StorageDetails, error)
+}
+
 func (c *removeApplicationCommand) getAPI() (removeApplicationAPI, int, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
@@ -88,6 +96,48 @@ func (c *removeApplicationCommand) getAPI() (removeApplicationAPI, int, error) {
 	}
 	version := root.BestFacadeVersion("Application")
 	return application.NewClient(root), version, nil
+}
+
+func (c *removeApplicationCommand) getStorageAPI() (storageAPI, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return storage.NewClient(root), nil
+}
+
+func (c *removeApplicationCommand) applicationsHaveStorage(appNames []string) (bool, error) {
+	client, err := c.getStorageAPI()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	defer client.Close()
+
+	storage, err := client.ListStorageDetails()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	namesSet := set.NewStrings(appNames...)
+	for _, s := range storage {
+		if s.OwnerTag == "" {
+			continue
+		}
+		owner, err := names.ParseTag(s.OwnerTag)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		if owner.Kind() != names.UnitTagKind {
+			continue
+		}
+		appName, err := names.UnitApplication(owner.Id())
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		if namesSet.Contains(appName) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
@@ -102,6 +152,31 @@ func (c *removeApplicationCommand) Run(ctx *cmd.Context) error {
 	}
 	if c.DestroyStorage && apiVersion < 5 {
 		return errors.New("--destroy-storage is not supported by this controller")
+	}
+	if !c.DestroyStorage {
+		mType, err := c.ModelType()
+		if err != nil {
+			return err
+		}
+		// TODO(caas) - this will change when volumes are managed separately to pods.
+		if mType == model.CAAS {
+			hasStorage, err := c.applicationsHaveStorage(c.ApplicationNames)
+			if err != nil {
+				return err
+			}
+			if hasStorage {
+				return errors.Errorf(`cannot destroy applications %q
+
+Destroying these kubernetes applications will destroy the storage,
+but you have not indicated that you want to do that.
+
+Please run the the command again with --destroy-storage
+to confirm that you want to destroy the storage along
+with the applications.
+
+`, c.ApplicationNames)
+			}
+		}
 	}
 	return c.removeApplications(ctx, client)
 }

@@ -78,18 +78,17 @@ func (g *storageProvider) ValidateConfig(cfg *storage.Config) error {
 
 // Supports is defined on the storage.Provider interface.
 func (g *storageProvider) Supports(k storage.StorageKind) bool {
-	// Support both block and filesystem storage.
-	return true
+	return k == storage.StorageKindFilesystem
 }
 
 // Scope is defined on the storage.Provider interface.
 func (g *storageProvider) Scope() storage.Scope {
-	return storage.ScopeEnviron
+	return storage.ScopeMachine
 }
 
 // Dynamic is defined on the storage.Provider interface.
 func (g *storageProvider) Dynamic() bool {
-	return true
+	return false
 }
 
 // Releasable is defined on the storage.Provider interface.

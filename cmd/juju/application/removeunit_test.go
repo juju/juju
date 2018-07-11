@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type RemoveUnitSuite struct {
@@ -63,6 +64,28 @@ removing unit sillybilly/17 failed: unit "sillybilly/17" does not exist
 	for _, u := range units {
 		c.Assert(u.Life(), gc.Equals, state.Dying)
 	}
+}
+
+func (s *RemoveUnitSuite) TestRemoveCAASUnitWithStorage(c *gc.C) {
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{Name: "caasmodel"})
+	s.AddCleanup(func(*gc.C) { st.Close() })
+
+	repo := testcharms.RepoForSeries("kubernetes")
+	ch := repo.CharmArchivePath(s.CharmsPath, "storage-filesystem")
+	err := runDeploy(c, ch, "-m", "caasmodel", "storage-filesystem", "--storage", "data=2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = runRemoveUnit(c, "-m", "caasmodel", "storage-filesystem/0")
+	c.Assert(err, gc.ErrorMatches, `cannot destroy units \["storage-filesystem/0"\]
+
+Destroying these kubernetes units will destroy the storage,
+but you have not indicated that you want to do that.
+
+Please run the the command again with --destroy-storage
+to confirm that you want to destroy the storage along
+with the units.
+
+`)
 }
 
 func (s *RemoveUnitSuite) TestRemoveUnitDetachesStorage(c *gc.C) {

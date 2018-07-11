@@ -1302,24 +1302,28 @@ func (m *Model) destroyOps(
 		ops = append(ops,
 			newCleanupOp(cleanupApplicationsForDyingModel, modelUUID),
 		)
-		switch m.Type() {
-		case ModelTypeIAAS:
+		if m.Type() == ModelTypeIAAS {
 			ops = append(ops, newCleanupOp(cleanupMachinesForDyingModel, modelUUID))
+		}
+
+		// For CAAS models we always destroy storage with the application.
+		// TODO(caas) - this will change when volumes are managed separately to pods.
+		if args.DestroyStorage != nil || m.Type() == ModelTypeCAAS {
+			// The user has specified that the storage should be destroyed
+			// or released, which we can do in a cleanup. If the user did
+			// not specify either, then we have already added prereq ops
+			// to assert that there is no storage in the model.
+			destroyStorage := m.Type() == ModelTypeCAAS
 			if args.DestroyStorage != nil {
-				// The user has specified that the storage should be destroyed
-				// or released, which we can do in a cleanup. If the user did
-				// not specify either, then we have already added prereq ops
-				// to assert that there is no storage in the model.
-				ops = append(ops, newCleanupOp(
-					cleanupStorageForDyingModel, modelUUID,
-					// pass through DestroyModelArgs.DestroyStorage to the
-					// cleanup, so the storage can be destroyed/released
-					// according to the parameters.
-					*args.DestroyStorage,
-				))
+				destroyStorage = destroyStorage || *args.DestroyStorage
 			}
-		case ModelTypeCAAS:
-			ops = append(ops, newCleanupOp(cleanupUnitsForDyingModel, modelUUID))
+			ops = append(ops, newCleanupOp(
+				cleanupStorageForDyingModel, modelUUID,
+				// pass through DestroyModelArgs.DestroyStorage to the
+				// cleanup, so the storage can be destroyed/released
+				// according to the parameters.
+				destroyStorage,
+			))
 		}
 	}
 	return append(prereqOps, ops...), nil

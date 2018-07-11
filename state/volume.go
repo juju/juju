@@ -634,17 +634,21 @@ func removeVolumeAttachmentOps(host names.Tag, v *volume) []txn.Op {
 		volumesC, v.doc.Name,
 		v.doc.AttachmentCount, v.doc.Life,
 	)
-	return []txn.Op{{
+	ops := []txn.Op{{
 		C:      volumeAttachmentsC,
 		Id:     volumeAttachmentId(host.Id(), v.doc.Name),
 		Assert: bson.D{{"life", Dying}},
 		Remove: true,
-	}, decrefVolumeOp, {
-		C:      machinesC,
-		Id:     host.Id(),
-		Assert: txn.DocExists,
-		Update: bson.D{{"$pull", bson.D{{"volumes", v.doc.Name}}}},
-	}}
+	}, decrefVolumeOp}
+	if host.Kind() == names.MachineTagKind {
+		ops = append(ops, txn.Op{
+			C:      machinesC,
+			Id:     host.Id(),
+			Assert: txn.DocExists,
+			Update: bson.D{{"$pull", bson.D{{"volumes", v.doc.Name}}}},
+		})
+	}
+	return ops
 }
 
 // machineStorageDecrefOp returns a txn.Op that will decrement the attachment
