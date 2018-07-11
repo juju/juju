@@ -376,7 +376,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// bundle
 	if featureflag.Enabled(feature.DeveloperMode) {
-		r.Register(bundle.NewexportbundleCommand())
+		r.Register(bundle.NewExportBundleCommand())
 	}
 
 	// Manage and control actions

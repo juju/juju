@@ -15,14 +15,14 @@ import (
 )
 
 // NewexportbundleCommand returns a fully constructed exportbundle command.
-func NewexportbundleCommand() cmd.Command {
+func NewExportBundleCommand() cmd.Command {
 	return modelcmd.Wrap(&exportBundleCommand{}, modelcmd.WrapSkipModelFlags)
 }
 
 type exportBundleCommand struct {
 	modelcmd.ModelCommandBase
 	out cmd.Output
-	api ExportbundleModelAPI
+	api ExportBundleModelAPI
 }
 
 const exportBundleHelpDoc = `
@@ -65,12 +65,12 @@ func (c *exportBundleCommand) Init(args []string) error {
 }
 
 // ExportBundleAPI specifies the used function calls of the ModelManager.
-type ExportbundleModelAPI interface {
+type ExportBundleModelAPI interface {
 	Close() error
 	ExportBundle(names.ModelTag) (params.StringResult, error)
 }
 
-func (c *exportBundleCommand) getAPI() (ExportbundleModelAPI, error) {
+func (c *exportBundleCommand) getAPI() (ExportBundleModelAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -92,7 +92,7 @@ func (c *exportBundleCommand) Run(ctx *cmd.Context) error {
 
 	_, modelDetails, err := c.ModelCommandBase.ModelDetails()
 	if err != nil {
-		return errors.Annotate(err, "retriving current model configuration details.")
+		return errors.Annotate(err, "retreiving current model configuration details.")
 	}
 
 	modelTag := names.NewModelTag(modelDetails.ModelUUID)
