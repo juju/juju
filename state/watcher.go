@@ -19,6 +19,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
@@ -1647,7 +1648,7 @@ func (u *Unit) WatchUpgradeSeriesNotifications() (NotifyWatcher, error) {
 }
 
 // UpgradeSeriesStatus returns the upgrade status of the units assigned machine.
-func (u *Unit) UpgradeSeriesStatus() (params.UnitSeriesUpgradeStatus, error) {
+func (u *Unit) UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error) {
 	machine, err := u.machine()
 	if err != nil {
 		return "", err
@@ -1656,7 +1657,7 @@ func (u *Unit) UpgradeSeriesStatus() (params.UnitSeriesUpgradeStatus, error) {
 }
 
 // UpgradeSeriesStatus sets the upgrade status of the units assigned machine.
-func (u *Unit) SetUpgradeSeriesStatus(status params.UnitSeriesUpgradeStatus) error {
+func (u *Unit) SetUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus) error {
 	machine, err := u.machine()
 	if err != nil {
 		return err

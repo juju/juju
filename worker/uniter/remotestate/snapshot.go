@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 )
 
 // Snapshot is a snapshot of the remote state of the unit.
@@ -73,7 +74,7 @@ type Snapshot struct {
 	Series string
 
 	// UpgradeSeriesStatus is the status of any currently running series upgrade
-	UpgradeSeriesStatus params.UnitSeriesUpgradeStatus
+	UpgradeSeriesStatus model.UnitSeriesUpgradeStatus
 }
 
 type RelationSnapshot struct {

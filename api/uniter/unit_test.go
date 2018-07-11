@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/model"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -718,13 +719,13 @@ func (s *unitSuite) TestUpgradeSeriesStatus(c *gc.C) {
 	// assigned units.
 	status, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, params.UnitStarted)
+	c.Assert(status, gc.Equals, model.UnitStarted)
 }
 
 func (s *unitSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 	// First we create the prepare lock or the required state will not exists
 	s.CreateUpgradeSeriesLock(c)
-	arbitaryNonDefaultStatus := params.UnitNotStarted
+	arbitaryNonDefaultStatus := model.UnitNotStarted
 
 	// Change the state to something other than the default remote state of UnitStarted
 	err := s.apiUnit.SetUpgradeSeriesStatus(arbitaryNonDefaultStatus)
@@ -748,13 +749,13 @@ func (s *unitSuite) TestSetUpgradeSeriesStatusShouldOnlySetSpecifiedUnit(c *gc.C
 	s.CreateUpgradeSeriesLock(c, unit2.Name())
 
 	// Complete one unit
-	err = unit2.SetUpgradeSeriesStatus(params.UnitCompleted)
+	err = unit2.SetUpgradeSeriesStatus(model.UnitCompleted)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The other unit should still be in the started state
 	status, err := s.wordpressUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, params.UnitStarted)
+	c.Assert(status, gc.Equals, model.UnitStarted)
 }
 
 func (s *unitSuite) CreateUpgradeSeriesLock(c *gc.C, additionalUnits ...string) {

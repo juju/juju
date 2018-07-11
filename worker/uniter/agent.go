@@ -4,7 +4,7 @@
 package uniter
 
 import (
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/status"
 )
 
@@ -36,6 +36,6 @@ func reportAgentError(u *Uniter, userMessage string, err error) {
 }
 
 // setUpgradeSeriesStatus sets the upgrade series status
-func setUpgradeSeriesStatus(u *Uniter, status params.UnitSeriesUpgradeStatus) error {
+func setUpgradeSeriesStatus(u *Uniter, status model.UnitSeriesUpgradeStatus) error {
 	return u.unit.SetUpgradeSeriesStatus(status)
 }

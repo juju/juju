@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package params
+package model
 
 //MachineSeriesUpgradeStatus is the current status a machine series upgrade
 type MachineSeriesUpgradeStatus string
@@ -15,7 +15,7 @@ const (
 	MachineSeriesUpgradeComplete      MachineSeriesUpgradeStatus = "Complete"
 )
 
-//UnitSeriesUpgradeStatus is the current status of an upgrade
+//UnitSeriesUpgradeStatus is the current status of a series upgrade for units
 type UnitSeriesUpgradeStatus string
 
 const (

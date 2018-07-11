@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/watcher"
 )
 
@@ -48,7 +49,7 @@ type Unit interface {
 	// WatchRelation returns a watcher that fires when relations
 	// relevant for this unit change.
 	WatchRelations() (watcher.StringsWatcher, error)
-	UpgradeSeriesStatus() (params.UnitSeriesUpgradeStatus, error)
+	UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error)
 }
 
 type Application interface {

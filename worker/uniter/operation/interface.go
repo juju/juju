@@ -9,7 +9,7 @@ import (
 	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -170,7 +170,7 @@ type Callbacks interface {
 	// SetSeriesStatusUpgrade is intended to give the uniter a chance to
 	// upgrade the status of a running series upgrade after upgrade series
 	// hook code completes.
-	SetUpgradeSeriesStatus(status params.UnitSeriesUpgradeStatus) error
+	SetUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus) error
 }
 
 // StorageUpdater is an interface used for updating local knowledge of storage

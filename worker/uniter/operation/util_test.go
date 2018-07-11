@@ -10,7 +10,7 @@ import (
 	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -165,7 +165,7 @@ func (cb *PrepareHookCallbacks) SetExecutingStatus(message string) error {
 	return nil
 }
 
-func (cb *PrepareHookCallbacks) SetUpgradeSeriesStatus(params.UnitSeriesUpgradeStatus) error {
+func (cb *PrepareHookCallbacks) SetUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus) error {
 	return nil
 }
 

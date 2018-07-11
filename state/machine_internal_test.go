@@ -12,7 +12,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 )
 
 type MachineInternalSuite struct {
@@ -64,7 +64,7 @@ func (s *MachineInternalSuite) TestRemoveUpgradeLockTxnAssertsDocExists(c *gc.C)
 
 func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsSelectsCorrectIndex(c *gc.C) {
 	arbitaryMachineId := "id"
-	arbitaryStatus := params.UnitStarted
+	arbitaryStatus := model.UnitStarted
 	expectedOp := txn.Op{
 		C:      machineUpgradeSeriesLocksC,
 		Id:     arbitaryMachineId,
@@ -81,7 +81,7 @@ func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsSelectsCorrectIndex(c *
 
 func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMachineIsAlive(c *gc.C) {
 	arbitaryMachineId := "id"
-	arbitaryStatus := params.UnitStarted
+	arbitaryStatus := model.UnitStarted
 	arbitaryUnitIndex := 0
 	expectedOp := txn.Op{
 		C:      machinesC,

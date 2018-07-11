@@ -19,9 +19,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -218,18 +218,18 @@ type instanceData struct {
 // upgradeSeriesLock holds the attributes relevant to lock a machine during a
 // series update of a machine
 type upgradeSeriesLock struct {
-	Id             string                            `bson:"machineid"`
-	ToSeries       string                            `bson:"toseries"`
-	FromSeries     string                            `bson:"fromseries"`
-	PrepareStatus  params.MachineSeriesUpgradeStatus `bson:"preparestatus"`
-	PrepareUnits   []unitStatus                      `bson:"prepareunits"`
-	CompleteStatus params.MachineSeriesUpgradeStatus `bson:"completestatus"`
-	CompleteUnits  []unitStatus                      `bson:"completeunits"`
+	Id             string                           `bson:"machineid"`
+	ToSeries       string                           `bson:"toseries"`
+	FromSeries     string                           `bson:"fromseries"`
+	PrepareStatus  model.MachineSeriesUpgradeStatus `bson:"preparestatus"`
+	PrepareUnits   []unitStatus                     `bson:"prepareunits"`
+	CompleteStatus model.MachineSeriesUpgradeStatus `bson:"completestatus"`
+	CompleteUnits  []unitStatus                     `bson:"completeunits"`
 }
 
 type unitStatus struct {
 	Id     string
-	Status params.UnitSeriesUpgradeStatus
+	Status model.UnitSeriesUpgradeStatus
 }
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
@@ -2140,16 +2140,16 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 	prepareUnits := make([]unitStatus, len(unitNames))
 	completeUnits := make([]unitStatus, len(unitNames))
 	for i, name := range unitNames {
-		prepareUnits[i] = unitStatus{Id: name, Status: params.UnitStarted}
-		completeUnits[i] = unitStatus{Id: name, Status: params.UnitNotStarted}
+		prepareUnits[i] = unitStatus{Id: name, Status: model.UnitStarted}
+		completeUnits[i] = unitStatus{Id: name, Status: model.UnitNotStarted}
 	}
 	return &upgradeSeriesLock{
 		Id:             m.Id(),
 		ToSeries:       toSeries,
 		FromSeries:     m.Series(),
-		PrepareStatus:  params.MachineSeriesUpgradeStarted,
+		PrepareStatus:  model.MachineSeriesUpgradeStarted,
 		PrepareUnits:   prepareUnits,
-		CompleteStatus: params.MachineSeriesUpgradeNotStarted,
+		CompleteStatus: model.MachineSeriesUpgradeNotStarted,
 		CompleteUnits:  completeUnits,
 	}
 }
@@ -2182,7 +2182,7 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 }
 
 // UpgradeSeriesStatus returns the status of a series upgrade.
-func (m *Machine) UpgradeSeriesStatus(unitName string) (params.UnitSeriesUpgradeStatus, error) {
+func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UnitSeriesUpgradeStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
@@ -2205,7 +2205,7 @@ func (m *Machine) UpgradeSeriesStatus(unitName string) (params.UnitSeriesUpgrade
 }
 
 // SetUpgradeSeriesStatus sets the status of a series upgrade.
-func (m *Machine) SetUpgradeSeriesStatus(unitName string, status params.UnitSeriesUpgradeStatus) error {
+func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSeriesUpgradeStatus) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := m.Refresh(); err != nil {
@@ -2272,7 +2272,7 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 	}
 }
 
-func setUpgradeSeriesTxnOps(machineDocId string, unitIndex int, status params.UnitSeriesUpgradeStatus) []txn.Op {
+func setUpgradeSeriesTxnOps(machineDocId string, unitIndex int, status model.UnitSeriesUpgradeStatus) []txn.Op {
 	unitField := fmt.Sprintf("prepareunits.%d.status", unitIndex)
 	return []txn.Op{
 		{

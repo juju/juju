@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -124,6 +125,6 @@ func (opc *operationCallbacks) SetExecutingStatus(message string) error {
 }
 
 // SetUpgradeSeriesStatus is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) SetUpgradeSeriesStatus(upgradeSeriesStatus params.UnitSeriesUpgradeStatus) error {
+func (opc *operationCallbacks) SetUpgradeSeriesStatus(upgradeSeriesStatus model.UnitSeriesUpgradeStatus) error {
 	return setUpgradeSeriesStatus(opc.u, upgradeSeriesStatus)
 }

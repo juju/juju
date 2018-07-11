@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
@@ -1278,8 +1279,8 @@ type DumpModelRequest struct {
 }
 
 type UpgradeSeriesStatusResult struct {
-	Error  *Error                  `json:"error,omitempty"`
-	Status UnitSeriesUpgradeStatus `json:"status,omitempty"`
+	Error  *Error                        `json:"error,omitempty"`
+	Status model.UnitSeriesUpgradeStatus `json:"status,omitempty"`
 }
 
 type UpgradeSeriesStatusResults struct {
@@ -1287,6 +1288,6 @@ type UpgradeSeriesStatusResults struct {
 }
 
 type SetUpgradeSeriesStatusParams struct {
-	Entities []Entity                `json:"entities"`
-	Status   UnitSeriesUpgradeStatus `json:"status"`
+	Entities []Entity                      `json:"entities"`
+	Status   model.UnitSeriesUpgradeStatus `json:"status"`
 }

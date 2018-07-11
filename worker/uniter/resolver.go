@@ -278,8 +278,8 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	}
 
-	if localState.UpgradeSeriesStatus == params.UnitNotStarted &&
-		remoteState.UpgradeSeriesStatus == params.UnitStarted {
+	if localState.UpgradeSeriesStatus == model.UnitNotStarted &&
+		remoteState.UpgradeSeriesStatus == model.UnitStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
 	}
 

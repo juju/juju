@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/watcher"
 )
@@ -665,7 +666,7 @@ func (u *Unit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) 
 }
 
 // UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
-func (u *Unit) UpgradeSeriesStatus() (params.UnitSeriesUpgradeStatus, error) {
+func (u *Unit) UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error) {
 	var results params.UpgradeSeriesStatusResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
@@ -692,7 +693,7 @@ func (u *Unit) UpgradeSeriesStatus() (params.UnitSeriesUpgradeStatus, error) {
 }
 
 // UpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
-func (u *Unit) SetUpgradeSeriesStatus(status params.UnitSeriesUpgradeStatus) error {
+func (u *Unit) SetUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus) error {
 	var results params.ErrorResults
 	args := params.SetUpgradeSeriesStatusParams{
 		Entities: []params.Entity{{Tag: u.tag.String()}},

@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter"
 	uniteractions "github.com/juju/juju/worker/uniter/actions"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -131,7 +132,7 @@ func (s *resolverSuite) TestUpgradeSeriesStatusChanged(c *gc.C) {
 		CharmModifiedVersion: s.charmModifiedVersion,
 		CharmURL:             s.charmURL,
 		Series:               s.charmURL.Series,
-		UpgradeSeriesStatus:  params.UnitNotStarted,
+		UpgradeSeriesStatus:  model.UnitNotStarted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
@@ -139,7 +140,7 @@ func (s *resolverSuite) TestUpgradeSeriesStatusChanged(c *gc.C) {
 		},
 	}
 	s.remoteState.Series = s.charmURL.Series
-	s.remoteState.UpgradeSeriesStatus = params.UnitStarted
+	s.remoteState.UpgradeSeriesStatus = model.UnitStarted
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run pre-series-upgrade hook")
