@@ -15,8 +15,10 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
@@ -24,6 +26,8 @@ import (
 type AddUnitSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
 	fake *fakeApplicationAddUnitAPI
+
+	store *jujuclient.MemStore
 }
 
 type fakeApplicationAddUnitAPI struct {
@@ -82,6 +86,7 @@ func (s *AddUnitSuite) SetUpTest(c *gc.C) {
 		envType:        "dummy",
 		bestAPIVersion: 5,
 	}
+	s.store = jujuclienttesting.MinimalStore()
 }
 
 var _ = gc.Suite(&AddUnitSuite{})
@@ -108,13 +113,23 @@ var initAddUnitErrorTests = []struct {
 func (s *AddUnitSuite) TestInitErrors(c *gc.C) {
 	for i, t := range initAddUnitErrorTests {
 		c.Logf("test %d", i)
-		err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, jujuclienttesting.MinimalStore()), t.args)
+		err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, s.store), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
+func (s *AddUnitSuite) TestInitErrorsCaasModel(c *gc.C) {
+	m := s.store.Models["arthur"].Models["king/sword"]
+	m.ModelType = model.CAAS
+	s.store.Models["arthur"].Models["king/sword"] = m
+
+	args := []string{"some-application-name", "--attach-storage", "foo/0"}
+	err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, s.store), args)
+	c.Assert(err, gc.ErrorMatches, "--attach-storage cannot be used on kubernetes models")
+}
+
 func (s *AddUnitSuite) runAddUnit(c *gc.C, args ...string) error {
-	_, err := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(s.fake, jujuclienttesting.MinimalStore()), args...)
+	_, err := cmdtesting.RunCommand(c, application.NewAddUnitCommandForTest(s.fake, s.store), args...)
 	return err
 }
 
