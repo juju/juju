@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -1049,7 +1050,7 @@ func (u *UniterAPI) UpgradeSeriesStatus(args params.Entities) (params.UpgradeSer
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		result.Results[i].Status = status
+		result.Results[i].Status = string(status)
 	}
 
 	return result, nil
@@ -1079,7 +1080,12 @@ func (u *UniterAPI) SetUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusPar
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = unit.SetUpgradeSeriesStatus(args.Status)
+		status, err := model.ValidateUnitSeriesUpgradeStatus(args.Status)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = unit.SetUpgradeSeriesStatus(status)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue

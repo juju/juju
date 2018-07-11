@@ -719,13 +719,13 @@ func (s *unitSuite) TestUpgradeSeriesStatus(c *gc.C) {
 	// assigned units.
 	status, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, model.UnitStarted)
+	c.Assert(status, gc.Equals, string(model.UnitStarted))
 }
 
 func (s *unitSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 	// First we create the prepare lock or the required state will not exists
 	s.CreateUpgradeSeriesLock(c)
-	arbitaryNonDefaultStatus := model.UnitNotStarted
+	arbitaryNonDefaultStatus := string(model.UnitNotStarted)
 
 	// Change the state to something other than the default remote state of UnitStarted
 	err := s.apiUnit.SetUpgradeSeriesStatus(arbitaryNonDefaultStatus)

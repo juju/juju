@@ -562,10 +562,14 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	status, err := w.unit.UpgradeSeriesStatus()
+	rawStatus, err := w.unit.UpgradeSeriesStatus()
 	if errors.IsNotFound(err) {
 		return nil
 	}
+	if err != nil {
+		return err
+	}
+	status, err := model.ValidateUnitSeriesUpgradeStatus(rawStatus)
 	if err != nil {
 		return err
 	}
