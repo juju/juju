@@ -74,8 +74,8 @@ func (spec *ContainerSpec) Validate() error {
 	if spec.Name == "" {
 		return errors.New("spec name is missing")
 	}
-	if spec.Image == "" {
-		return errors.New("spec image is missing")
+	if spec.Image == "" && spec.ImageDetails.ImagePath == "" {
+		return errors.New("spec image details is missing")
 	}
 	for _, fs := range spec.Files {
 		if fs.Name == "" {

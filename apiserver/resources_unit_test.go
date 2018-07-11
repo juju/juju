@@ -100,7 +100,7 @@ func (s *UnitResourcesHandlerSuite) TestOpenResourceError(c *gc.C) {
 
 	s.checkResp(c, http.StatusInternalServerError, "application/json", expectedBody)
 	s.stub.CheckCalls(c, []testing.StubCall{
-		{"NewOpener", []interface{}{[]string{names.UnitTagKind}}},
+		{"NewOpener", []interface{}{[]string{names.UnitTagKind, names.ApplicationTagKind}}},
 		{"OpenResource", []interface{}{"blob"}},
 		{"Close", nil},
 	})
@@ -127,7 +127,7 @@ func (s *UnitResourcesHandlerSuite) TestSuccess(c *gc.C) {
 
 	s.checkResp(c, http.StatusOK, "application/octet-stream", body)
 	s.stub.CheckCalls(c, []testing.StubCall{
-		{"NewOpener", []interface{}{[]string{names.UnitTagKind}}},
+		{"NewOpener", []interface{}{[]string{names.UnitTagKind, names.ApplicationTagKind}}},
 		{"OpenResource", []interface{}{"blob"}},
 		{"Close", nil},
 	})
