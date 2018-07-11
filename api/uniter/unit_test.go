@@ -692,10 +692,6 @@ func (s *unitSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
 	notifyWatcher := watchertest.NewNotifyWatcherC(c, watcher, s.BackingState.StartSync)
 	defer notifyWatcher.AssertStops()
 
-	// Why do I have two initial events?!?
-	_, ok := <-notifyWatcher.Watcher.Changes()
-	notifyWatcher.Assert(ok, jc.IsTrue)
-
 	notifyWatcher.AssertOneChange()
 
 	s.CreateUpgradeSeriesLock(c)

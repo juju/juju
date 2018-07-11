@@ -1644,7 +1644,12 @@ func (u *Unit) WatchUpgradeSeriesNotifications() (NotifyWatcher, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newEntityWatcher(machine.st, machineUpgradeSeriesLocksC, machine.doc.DocID), nil
+	watch := newEntityWatcher(machine.st, machineUpgradeSeriesLocksC, machine.doc.DocID)
+	if _, ok := <-watch.Changes(); ok {
+		return watch, nil
+	}
+
+	return nil, watcher.EnsureErr(watch)
 }
 
 // UpgradeSeriesStatus returns the upgrade status of the units assigned machine.
