@@ -29,7 +29,6 @@ type exportBundleCommand struct {
 	api ExportBundleModelAPI
 	// name of the charm bundle file.
 	Filename string
-	modelTag names.ModelTag
 }
 
 const exportBundleHelpDoc = `
@@ -90,12 +89,6 @@ func (c *exportBundleCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	_, modelDetails, err := c.ModelCommandBase.ModelDetails()
-	if err != nil {
-		return errors.Annotate(err, "retrieving current model configuration details.")
-	}
-	c.modelTag = names.NewModelTag(modelDetails.ModelUUID)
-
 	result, err := client.ExportBundle()
 	if err != nil {
 		return err
@@ -123,7 +116,14 @@ func (c *exportBundleCommand) Run(ctx *cmd.Context) error {
 func (c *exportBundleCommand) ResolveFilename() string {
 	filename := c.Filename
 	if filename == "" {
-		filename = c.modelTag.String()
+		_, modelDetails, err := c.ModelCommandBase.ModelDetails()
+		if err != nil {
+			errors.Annotate(err, "retrieving current model configuration details.")
+			return ""
+		}
+		modelTag := names.NewModelTag(modelDetails.ModelUUID)
+
+		filename = modelTag.String()
 		if _, err := os.Stat(filename); err == nil {
 			tag := fmt.Sprintf("%v", rand.Intn(1000))
 			filename = filename + tag

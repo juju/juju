@@ -7,8 +7,8 @@
 package bundle
 
 import (
-	"github.com/juju/loggo"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
@@ -28,9 +28,9 @@ type Client struct {
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Bundle")
 	return &Client{
-		ClientFacade: frontend,
+		ClientFacade:   frontend,
 		ModelStatusAPI: common.NewModelStatusAPI(backend),
-		facade:       backend}
+		facade:         backend}
 }
 
 // ExportBundle exports the current model configuration.
