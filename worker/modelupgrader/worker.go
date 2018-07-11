@@ -22,6 +22,9 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.modelupgrader")
 
+// ErrModelRemoved indicates that this worker was operating on the model that is no longer found.
+var ErrModelRemoved = errors.New("model has been removed")
+
 // Facade exposes capabilities required by the worker.
 type Facade interface {
 	ModelEnvironVersion(tag names.ModelTag) (int, error)
@@ -144,6 +147,9 @@ func (ww *waitWorker) loop() error {
 			}
 			currentVersion, err := ww.facade.ModelEnvironVersion(ww.modelTag)
 			if err != nil {
+				if errors.IsNotFound(err) {
+					return ErrModelRemoved
+				}
 				return errors.Trace(err)
 			}
 			if currentVersion >= ww.targetVersion {

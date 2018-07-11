@@ -77,6 +77,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.EnvironName,
 			config.GateName,
 		},
-		Start: config.start,
+		Start:  config.start,
+		Filter: bounceErrChanged,
 	}
+}
+
+// bounceErrChanged converts ErrModelRemoved to dependency.ErrUninstall.
+func bounceErrChanged(err error) error {
+	if errors.Cause(err) == ErrModelRemoved {
+		return dependency.ErrUninstall
+	}
+	return err
 }

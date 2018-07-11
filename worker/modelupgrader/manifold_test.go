@@ -170,3 +170,15 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithoutEnviron(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(newWorkerConfig.Environ, gc.IsNil)
 }
+
+func (*ManifoldSuite) TestFilterNil(c *gc.C) {
+	manifold := modelupgrader.Manifold(modelupgrader.ManifoldConfig{})
+	err := manifold.Filter(nil)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (*ManifoldSuite) TestFilterErrModelRemoved(c *gc.C) {
+	manifold := modelupgrader.Manifold(modelupgrader.ManifoldConfig{})
+	err := manifold.Filter(modelupgrader.ErrModelRemoved)
+	c.Check(err, gc.Equals, dependency.ErrUninstall)
+}
