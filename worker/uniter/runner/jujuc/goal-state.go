@@ -60,17 +60,17 @@ type goalStateStatusContents struct {
 	Since  string `json:"since,omitempty" yaml:"since,omitempty"`
 }
 
-// UnitsGoalState keeps the collection of units and their GoalStateStatus.
+// unitsGoalStateContents keeps the collection of units and their GoalStateStatus.
 type unitsGoalStateContents map[string]goalStateStatusContents
 
-// GoalState is responsible to organize the Units and Relations with a specific
+// formattedGoalState is responsible to organize the Units and Relations with a specific
 // unit, and transmit this information from the facade to the worker.
 type formattedGoalState struct {
 	Units     unitsGoalStateContents            `json:"units" yaml:"units"`
 	Relations map[string]unitsGoalStateContents `json:"relations" yaml:"relations"`
 }
 
-// transformGoalState moves information from application GoalState struct to
+// formatGoalState moves information from application GoalState struct to
 // application GoalState struct.
 func formatGoalState(gs application.GoalState) formattedGoalState {
 	result := formattedGoalState{}
