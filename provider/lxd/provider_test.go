@@ -276,7 +276,7 @@ func (s *providerSuite) TestFinalizeCloudAlreadyListeningHTTPS(c *gc.C) {
 func (s *providerSuite) TestDetectRegions(c *gc.C) {
 	regions, err := s.Provider.DetectRegions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(regions, jc.DeepEquals, []cloud.Region{{Name: lxdnames.DefaultRegion}})
+	c.Assert(regions, jc.DeepEquals, []cloud.Region{{Name: lxdnames.DefaultLocalRegion}})
 }
 
 func (s *providerSuite) TestValidate(c *gc.C) {

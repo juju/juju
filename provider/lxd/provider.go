@@ -153,7 +153,7 @@ func (p *environProvider) DetectCloud(name string) (cloud.Cloud, error) {
 	// i.e. the local LXD daemon. We may later want to detect
 	// locally-configured remotes.
 	switch name {
-	case "lxd", "localhost":
+	case lxdnames.ProviderType, lxdnames.DefaultCloud:
 		return localhostCloud, nil
 	}
 	return cloud.Cloud{}, errors.NotFoundf("cloud %s", name)
@@ -164,12 +164,11 @@ func (p *environProvider) FinalizeCloud(
 	ctx environs.FinalizeCloudContext,
 	in cloud.Cloud,
 ) (cloud.Cloud, error) {
-
 	var endpoint string
 	resolveEndpoint := func(name string, ep *string) error {
 		// If the name doesn't equal "localhost" then we shouldn't resolve
 		// the end point, instead we should just accept what we already have.
-		if name != "localhost" || *ep != "" {
+		if name != lxdnames.DefaultCloud || *ep != "" {
 			return nil
 		}
 		if endpoint == "" {
@@ -186,6 +185,8 @@ func (p *environProvider) FinalizeCloud(
 		return nil
 	}
 
+	// If any of the endpoints point to localhost, go through and backfill the
+	// cloud spec with local host addresses.
 	if err := resolveEndpoint(in.Name, &in.Endpoint); err != nil {
 		return cloud.Cloud{}, errors.Trace(err)
 	}
@@ -193,6 +194,14 @@ func (p *environProvider) FinalizeCloud(
 		if err := resolveEndpoint(k.Name, &in.Regions[i].Endpoint); err != nil {
 			return cloud.Cloud{}, errors.Trace(err)
 		}
+	}
+	// If the provider type is not named localhost and there is no region, set the
+	// region to be a default region
+	if in.Name != lxdnames.DefaultCloud && len(in.Regions) == 0 {
+		in.Regions = append(in.Regions, cloud.Region{
+			Name:     lxdnames.DefaultRemoteRegion,
+			Endpoint: in.Endpoint,
+		})
 	}
 	return in, nil
 }
@@ -228,7 +237,7 @@ var localhostCloud = cloud.Cloud{
 	},
 	Endpoint: "",
 	Regions: []cloud.Region{{
-		Name:     lxdnames.DefaultRegion,
+		Name:     lxdnames.DefaultLocalRegion,
 		Endpoint: "",
 	}},
 	Description: cloud.DefaultCloudDescription(lxdnames.ProviderType),
@@ -239,7 +248,7 @@ func (*environProvider) DetectRegions() ([]cloud.Region, error) {
 	// For now we just return a hard-coded "localhost" region,
 	// i.e. the local LXD daemon. We may later want to detect
 	// locally-configured remotes.
-	return []cloud.Region{{Name: lxdnames.DefaultRegion}}, nil
+	return []cloud.Region{{Name: lxdnames.DefaultLocalRegion}}, nil
 }
 
 // Schema returns the configuration schema for an environment.
