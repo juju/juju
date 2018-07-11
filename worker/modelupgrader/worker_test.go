@@ -248,6 +248,7 @@ func (*WorkerSuite) TestModelNotFoundWhenRunning(c *gc.C) {
 		GateUnlocker:  &mockGateUnlocker{},
 		ControllerTag: coretesting.ControllerTag,
 		ModelTag:      coretesting.ModelTag,
+		CredentialAPI: &credentialAPIForTest{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
