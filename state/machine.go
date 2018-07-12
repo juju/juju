@@ -2220,7 +2220,7 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 		var lock upgradeSeriesLockDoc
 		err := coll.FindId(m.Id()).One(&lock)
 		if err != nil {
-			return nil, errors.BadRequestf("Machine %q is not locked for upgrade", m)
+			return nil, errors.BadRequestf("machine %q is not locked for upgrade", m)
 		}
 		docIndex := -1
 		for i, unitStatus := range lock.PrepareUnits {
