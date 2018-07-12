@@ -399,12 +399,23 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
 		C:      "resources",
 		Id:     "resource#a-application/spam#unit-a-application/0",
 		Assert: txn.DocExists,
-		Remove: true,
-	}, {
-		C:      "resources",
-		Id:     "resource#a-application/spam#unit-a-application/0",
-		Assert: txn.DocMissing,
-		Insert: &doc,
+		Update: bson.M{"$set": bson.M{
+			"application-id":             doc.ApplicationID,
+			"unit-id":                    doc.UnitID,
+			"name":                       doc.Name,
+			"type":                       doc.Type,
+			"path":                       doc.Path,
+			"description":                doc.Description,
+			"origin":                     doc.Origin,
+			"revision":                   doc.Revision,
+			"fingerprint":                doc.Fingerprint,
+			"size":                       doc.Size,
+			"username":                   doc.Username,
+			"timestamp-when-added":       doc.Timestamp,
+			"storage-path":               doc.StoragePath,
+			"download-progress":          doc.DownloadProgress,
+			"timestamp-when-last-polled": doc.LastPolled,
+		}},
 	}, {
 		C:      "application",
 		Id:     "a-application",
@@ -483,40 +494,59 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsExists(c *gc
 	csresourceDoc.StoragePath = ""
 	csresourceDoc.LastPolled = lastPolled
 
-	res := ops[4].Insert.(*resourceDoc)
-	res.LastPolled = res.LastPolled.Round(time.Second)
+	res := ops[2].Update.(bson.M)["$set"].(bson.M)
+	res["timestamp-when-last-polled"] = res["timestamp-when-last-polled"].(time.Time).Round(time.Second)
 
 	s.stub.CheckCallNames(c, "One", "One")
 	s.stub.CheckCall(c, 0, "One", "resources", "resource#a-application/spam#pending-some-unique-ID-001", &doc)
-	c.Check(ops, jc.DeepEquals, []txn.Op{
-		{
-			C:      "resources",
-			Id:     doc.DocID,
-			Assert: txn.DocExists,
-			Remove: true,
-		}, {
-			C:      "resources",
-			Id:     expected.DocID,
-			Assert: txn.DocExists,
-			Remove: true,
-		}, {
-			C:      "resources",
-			Id:     expected.DocID,
-			Assert: txn.DocMissing,
-			Insert: &expected,
-		},
-		{
-			C:      "resources",
-			Id:     csresourceDoc.DocID,
-			Assert: txn.DocExists,
-			Remove: true,
-		},
-		{
-			C:      "resources",
-			Id:     csresourceDoc.DocID,
-			Assert: txn.DocMissing,
-			Insert: &csresourceDoc,
-		},
+	c.Check(ops, jc.DeepEquals, []txn.Op{{
+		C:      "resources",
+		Id:     doc.DocID,
+		Assert: txn.DocExists,
+		Remove: true,
+	}, {
+		C:      "resources",
+		Id:     expected.DocID,
+		Assert: txn.DocExists,
+		Update: bson.M{"$set": bson.M{
+			"application-id":             expected.ApplicationID,
+			"unit-id":                    expected.UnitID,
+			"name":                       expected.Name,
+			"type":                       expected.Type,
+			"path":                       expected.Path,
+			"description":                expected.Description,
+			"origin":                     expected.Origin,
+			"revision":                   expected.Revision,
+			"fingerprint":                expected.Fingerprint,
+			"size":                       expected.Size,
+			"username":                   expected.Username,
+			"timestamp-when-added":       expected.Timestamp,
+			"storage-path":               expected.StoragePath,
+			"download-progress":          expected.DownloadProgress,
+			"timestamp-when-last-polled": expected.LastPolled,
+		}},
+	}, {
+		C:      "resources",
+		Id:     csresourceDoc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.M{"$set": bson.M{
+			"application-id":             csresourceDoc.ApplicationID,
+			"unit-id":                    csresourceDoc.UnitID,
+			"name":                       csresourceDoc.Name,
+			"type":                       csresourceDoc.Type,
+			"path":                       csresourceDoc.Path,
+			"description":                csresourceDoc.Description,
+			"origin":                     csresourceDoc.Origin,
+			"revision":                   csresourceDoc.Revision,
+			"fingerprint":                csresourceDoc.Fingerprint,
+			"size":                       csresourceDoc.Size,
+			"username":                   csresourceDoc.Username,
+			"timestamp-when-added":       csresourceDoc.Timestamp,
+			"storage-path":               csresourceDoc.StoragePath,
+			"download-progress":          csresourceDoc.DownloadProgress,
+			"timestamp-when-last-polled": csresourceDoc.LastPolled,
+		}},
+	},
 	})
 }
 
