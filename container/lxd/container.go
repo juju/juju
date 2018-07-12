@@ -34,8 +34,6 @@ type ContainerSpec struct {
 	InstanceType string
 }
 
-const constraintWarnTemplate = "instance type constraint specified; ignoring %s constraint %q"
-
 // ApplyConstraints applies the input constraints as valid LXD container
 // configuration to the container spec.
 // Note that we pass these through as supplied. If an instance type constraint

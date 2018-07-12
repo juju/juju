@@ -19,10 +19,6 @@ func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args envir
 		return errors.Trace(err)
 	}
 
-	if args.Constraints.HasInstanceType() {
-		return errors.Errorf("LXD does not support instance types (got %q)", *args.Constraints.InstanceType)
-	}
-
 	return nil
 }
 
