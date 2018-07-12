@@ -181,6 +181,8 @@ type CAASModelDeployCharmStoreSuite struct {
 var _ = gc.Suite(&CAASModelDeployCharmStoreSuite{})
 
 func (s *CAASModelDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
+	c.Skip("Test disabled until flakiness is fixed - see bug lp:1781250")
+
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 

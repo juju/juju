@@ -35,7 +35,7 @@ type NotifyHandler interface {
 	// stopped.
 	//
 	// If Handle runs any blocking operations it must pass through, or select
-	// on, the supplied abort channel; this channnel will be closed when the
+	// on, the supplied abort channel; this channel will be closed when the
 	// NotifyWorker is killed. An aborted Handle should not return an error.
 	Handle(abort <-chan struct{}) error
 

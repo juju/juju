@@ -5,6 +5,7 @@ package upgrades
 
 import (
 	"net"
+	"os"
 	"path/filepath"
 	"strconv"
 
@@ -23,6 +24,13 @@ const jujuMachineKey = "juju-machine-id"
 // being upgraded.
 func BootstrapRaft(context Context) error {
 	agentConfig := context.AgentConfig()
+	storageDir := filepath.Join(agentConfig.DataDir(), "raft")
+	_, err := os.Stat(storageDir)
+	// If the storage dir already exists we shouldn't run again. (If
+	// we statted the dir successfully, this will return nil.)
+	if !os.IsNotExist(err) {
+		return err
+	}
 	_, transport := raft.NewInmemTransport(raft.ServerAddress("notused"))
 	defer transport.Close()
 
@@ -35,7 +43,6 @@ func BootstrapRaft(context Context) error {
 	if err != nil {
 		return errors.Annotate(err, "getting raft config")
 	}
-	storageDir := filepath.Join(agentConfig.DataDir(), "raft")
 	logStore, err := raftworker.NewLogStore(storageDir)
 	if err != nil {
 		return errors.Annotate(err, "making log store")

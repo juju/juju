@@ -270,17 +270,17 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		w.applicationChannel = applicationw.Changes()
 		seenApplicationChange = new(bool)
 		requiredEvents++
-
-		storagew, err := w.unit.WatchStorage()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		storageChanges = storagew.Changes()
-		if err := w.catacomb.Add(storagew); err != nil {
-			return errors.Trace(err)
-		}
-		requiredEvents++
 	}
+
+	storagew, err := w.unit.WatchStorage()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	storageChanges = storagew.Changes()
+	if err := w.catacomb.Add(storagew); err != nil {
+		return errors.Trace(err)
+	}
+	requiredEvents++
 
 	var seenLeaderSettingsChange bool
 	leaderSettingsw, err := w.application.WatchLeadershipSettings()

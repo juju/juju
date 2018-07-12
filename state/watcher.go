@@ -1581,15 +1581,15 @@ func (sb *storageBackend) WatchStorageAttachment(s names.StorageTag, u names.Uni
 
 // WatchVolumeAttachment returns a watcher for observing changes
 // to a volume attachment.
-func (sb *storageBackend) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) NotifyWatcher {
-	id := volumeAttachmentId(m.Id(), v.Id())
+func (sb *storageBackend) WatchVolumeAttachment(host names.Tag, v names.VolumeTag) NotifyWatcher {
+	id := volumeAttachmentId(host.Id(), v.Id())
 	return newEntityWatcher(sb.mb, volumeAttachmentsC, sb.mb.docID(id))
 }
 
 // WatchFilesystemAttachment returns a watcher for observing changes
 // to a filesystem attachment.
-func (sb *storageBackend) WatchFilesystemAttachment(m names.MachineTag, f names.FilesystemTag) NotifyWatcher {
-	id := filesystemAttachmentId(m.Id(), f.Id())
+func (sb *storageBackend) WatchFilesystemAttachment(host names.Tag, f names.FilesystemTag) NotifyWatcher {
+	id := filesystemAttachmentId(host.Id(), f.Id())
 	return newEntityWatcher(sb.mb, filesystemAttachmentsC, sb.mb.docID(id))
 }
 

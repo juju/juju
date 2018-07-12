@@ -110,7 +110,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 	cfg := s.AgentConfigForTag(c, tag)
 
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
-	params := provisioner.ContainerSetupParams{
+	args := provisioner.ContainerSetupParams{
 		Runner:              runner,
 		WorkerName:          watcherName,
 		SupportedContainers: instance.ContainerTypes,
@@ -120,7 +120,12 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 		InitLockName:        s.lockName,
 		CredentialAPI:       &credentialAPIForTest{},
 	}
-	handler := provisioner.NewContainerSetupHandler(params)
+	handler := provisioner.NewContainerSetupHandler(args)
+	handler.(*provisioner.ContainerSetup).SetGetNetConfig(
+		func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
+			return nil, nil
+		})
+
 	runner.StartWorker(watcherName, func() (worker.Worker, error) {
 		return watcher.NewStringsWorker(watcher.StringsConfig{
 			Handler: handler,
@@ -155,9 +160,6 @@ func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctyp
 func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	c *gc.C, host *state.Machine, ctype instance.ContainerType) {
 
-	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
-		return nil, nil
-	})
 	// A stub worker callback to record what happens.
 	var provisionerStarted uint32
 	startProvisionerWorker := func(runner *worker.Runner, containerType instance.ContainerType,
@@ -220,11 +222,10 @@ func (_ fakeContainerInitialiser) Initialise() error {
 	return nil
 }
 
-func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerType instance.ContainerType, expectArch string) {
+func (s *ContainerSetupSuite) testContainerConstraintsArch(
+	c *gc.C, containerType instance.ContainerType, expectArch string,
+) {
 	var called uint32
-	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
-		return nil, nil
-	})
 	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
 		return toolsFinderFunc(func(v version.Number, series string, arch string) (tools.List, error) {
 			atomic.StoreUint32(&called, 1)
@@ -238,12 +239,22 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 		})
 	})
 
-	s.PatchValue(&provisioner.StartProvisioner, func(runner *worker.Runner, containerType instance.ContainerType,
-		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
-		toolsFinder provisioner.ToolsFinder, distributionGroupFinder provisioner.DistributionGroupFinder, credentialAPI workercommon.CredentialAPI) error {
-		toolsFinder.FindTools(jujuversion.Current, series.MustHostSeries(), arch.AMD64)
-		return nil
-	})
+	s.PatchValue(
+		&provisioner.StartProvisioner,
+		func(
+			runner *worker.Runner,
+			containerType instance.ContainerType,
+			pr *apiprovisioner.State,
+			cfg agent.Config,
+			broker environs.InstanceBroker,
+			toolsFinder provisioner.ToolsFinder,
+			distributionGroupFinder provisioner.DistributionGroupFinder,
+			credentialAPI workercommon.CredentialAPI,
+		) error {
+			toolsFinder.FindTools(jujuversion.Current, series.MustHostSeries(), arch.AMD64)
+			return nil
+		},
+	)
 
 	// create a machine to host the container.
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
@@ -269,7 +280,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 
 func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
 	pr := apiprovisioner.NewState(s.st)
-	cfg, err := provisioner.ContainerManagerConfig(instance.KVM, pr, s.agentConfig)
+	cfg, err := provisioner.ContainerManagerConfig(instance.KVM, pr)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg[container.ConfigModelUUID], gc.Equals, coretesting.ModelTag.Id())
 }
@@ -289,23 +300,23 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
 
-	current_os, err := series.GetOSFromSeries(series.MustHostSeries())
+	currentOs, err := series.GetOSFromSeries(series.MustHostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var ser string
-	var expected_initial []string
-	switch current_os {
+	var expectedInitial []string
+	switch currentOs {
 	case jujuos.CentOS:
 		ser = "centos7"
-		expected_initial = []string{
+		expectedInitial = []string{
 			"yum", "--assumeyes", "--debuglevel=1", "install"}
 	case jujuos.OpenSUSE:
 		ser = "opensuseleap"
-		expected_initial = []string{
+		expectedInitial = []string{
 			"zypper", " --quiet", "--non-interactive-include-reboot-patches", "install"}
 	default:
 		ser = "precise"
-		expected_initial = []string{
+		expectedInitial = []string{
 			"apt-get", "--option=Dpkg::Options::=--force-confold",
 			"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
 			"install"}
@@ -333,7 +344,7 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	for _, pack := range cont.packages {
 		select {
 		case cmd := <-s.aptCmdChan:
-			expected := append(expected_initial, pack...)
+			expected := append(expectedInitial, pack...)
 			c.Assert(cmd.Args, gc.DeepEquals, expected)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("took too long to get command from channel")
@@ -384,7 +395,7 @@ func (s *ContainerSetupSuite) TestContainerInitInstDataError(c *gc.C) {
 	abort := make(chan struct{})
 	close(abort)
 	err = handler.Handle(abort, []string{"0/lxd/0"})
-	c.Assert(err, gc.ErrorMatches, ".*initialising container infrastructure on host machine: instance data for machine.*not found")
+	c.Assert(err, gc.ErrorMatches, ".*generating container manager config: instance data for machine.*not found")
 
 }
 

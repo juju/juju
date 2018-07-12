@@ -20,7 +20,7 @@ type fakeStorage struct {
 	storageInstanceVolume  func(names.StorageTag) (state.Volume, error)
 	volumeAttachment       func(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
 	blockDevices           func(names.MachineTag) ([]state.BlockDeviceInfo, error)
-	watchVolumeAttachment  func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+	watchVolumeAttachment  func(names.Tag, names.VolumeTag) state.NotifyWatcher
 	watchBlockDevices      func(names.MachineTag) state.NotifyWatcher
 	watchStorageAttachment func(names.StorageTag, names.UnitTag) state.NotifyWatcher
 }
@@ -45,9 +45,9 @@ func (s *fakeStorage) BlockDevices(m names.MachineTag) ([]state.BlockDeviceInfo,
 	return s.blockDevices(m)
 }
 
-func (s *fakeStorage) WatchVolumeAttachment(m names.MachineTag, v names.VolumeTag) state.NotifyWatcher {
-	s.MethodCall(s, "WatchVolumeAttachment", m, v)
-	return s.watchVolumeAttachment(m, v)
+func (s *fakeStorage) WatchVolumeAttachment(host names.Tag, v names.VolumeTag) state.NotifyWatcher {
+	s.MethodCall(s, "WatchVolumeAttachment", host, v)
+	return s.watchVolumeAttachment(host, v)
 }
 
 func (s *fakeStorage) WatchBlockDevices(m names.MachineTag) state.NotifyWatcher {

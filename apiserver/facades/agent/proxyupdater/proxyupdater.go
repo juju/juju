@@ -193,7 +193,9 @@ func (api *APIBase) proxyConfig() params.ProxyConfigResult {
 
 	result.APTProxySettings = toParams(config.AptProxySettings())
 
-	// TODO: add snap proxy bits.
+	result.SnapProxySettings = toParams(config.SnapProxySettings())
+	result.SnapStoreProxyId = config.SnapStoreProxy()
+	result.SnapStoreProxyAssertions = config.SnapStoreAssertions()
 
 	return result
 }

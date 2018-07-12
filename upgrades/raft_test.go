@@ -58,7 +58,16 @@ func (s *raftSuite) TestBootstrapRaft(c *gc.C) {
 
 	// Now make the raft node and check that the configuration is as
 	// we expect.
+	checkRaftConfiguration(c, dataDir)
 
+	// Check the upgrade is idempotent.
+	err = upgrades.BootstrapRaft(context)
+	c.Assert(err, jc.ErrorIsNil)
+
+	checkRaftConfiguration(c, dataDir)
+}
+
+func checkRaftConfiguration(c *gc.C, dataDir string) {
 	// Capture logging to include in test output.
 	output := captureWriter{c}
 	config := raft.DefaultConfig()
@@ -71,6 +80,7 @@ func (s *raftSuite) TestBootstrapRaft(c *gc.C) {
 		Path: filepath.Join(raftDir, "logs"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	defer logStore.Close()
 
 	snapshotStore, err := raft.NewFileSnapshotStore(raftDir, 1, output)
 	c.Assert(err, jc.ErrorIsNil)
@@ -85,9 +95,9 @@ func (s *raftSuite) TestBootstrapRaft(c *gc.C) {
 		transport,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
+	defer func() {
 		c.Assert(r.Shutdown().Error(), jc.ErrorIsNil)
-	})
+	}()
 
 	rafttest.CheckConfiguration(c, r, []raft.Server{{
 		ID:       "42",
