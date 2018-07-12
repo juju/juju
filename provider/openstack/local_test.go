@@ -5,6 +5,7 @@ package openstack_test
 
 import (
 	"bytes"
+	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -155,6 +156,18 @@ func (s *localServer) stop() {
 	s.restoreTimeouts()
 }
 
+func (s *localServer) openstackCertificate(c *gc.C) ([]string, error) {
+	certificate, err := s.Openstack.Certificate(openstackservice.Identity)
+	if err != nil {
+		return []string{}, err
+	}
+	if certificate == nil {
+		return []string{}, errors.New("No certificate returned from openstack test double")
+	}
+	buf := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.Raw})
+	return []string{string(buf)}, nil
+}
+
 // localLiveSuite runs tests from LiveTests using an Openstack service double.
 type localLiveSuite struct {
 	coretesting.BaseSuite
@@ -276,7 +289,6 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.Credential = makeCredential(s.cred)
 	s.CloudEndpoint = s.cred.URL
 	s.CloudRegion = s.cred.Region
-
 	cl := client.NewClient(s.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1827,6 +1839,31 @@ func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
+func (s *localHTTPSServerSuite) TestSSLVerify(c *gc.C) {
+	// If you don't have ssl-hostname-verification set to false, and do have
+	// a CA Certificate, then we can connect to the environment. Copy the attrs
+	// used by SetUp and force hostname verification.
+	newattrs := make(map[string]interface{}, len(s.attrs))
+	for k, v := range s.attrs {
+		newattrs[k] = v
+	}
+	newattrs["ssl-hostname-verification"] = true
+	cfg, err := config.New(config.NoDefaults, newattrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cloudSpec := makeCloudSpec(s.cred)
+	cloudSpec.CACertificates, err = s.srv.openstackCertificate(c)
+	c.Assert(err, jc.ErrorIsNil)
+
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: cfg,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = env.AllInstances(s.callCtx)
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
@@ -1854,14 +1891,17 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	defer restoreFinishBootstrap()
 
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
-	metadataStorage := openstack.MetadataStorage(s.env)
-	url, err := metadataStorage.URL("")
+	toolsMetadataStorage := openstack.MetadataStorage(s.env)
+	url, err := toolsMetadataStorage.URL("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("Generating fake tools for: %v", url)
-	envtesting.UploadFakeTools(c, metadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
-	defer envtesting.RemoveFakeTools(c, metadataStorage, s.env.Config().AgentStream())
-	openstack.UseTestImageData(metadataStorage, s.cred)
-	defer openstack.RemoveTestImageData(metadataStorage)
+	envtesting.UploadFakeTools(c, toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
+	defer envtesting.RemoveFakeTools(c, toolsMetadataStorage, s.env.Config().AgentStream())
+
+	imageMetadataStorage := openstack.ImageMetadataStorage(s.env)
+	c.Logf("Generating fake images")
+	openstack.UseTestImageData(imageMetadataStorage, s.cred)
+	defer openstack.RemoveTestImageData(imageMetadataStorage)
 
 	err = bootstrapEnv(c, s.env)
 	c.Assert(err, jc.ErrorIsNil)
