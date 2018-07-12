@@ -74,13 +74,11 @@ func (*environProvider) Version() int {
 
 // Open implements environs.EnvironProvider.
 func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
-	local, err := p.validateCloudSpec(args.Cloud)
-	if err != nil {
+	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
 	env, err := newEnviron(
 		p,
-		local,
 		args.Cloud,
 		args.Config,
 		p.serverFactory,
@@ -121,8 +119,7 @@ func (p *environProvider) Ping(ctx context.ProviderCallContext, endpoint string)
 
 // PrepareConfig implements environs.EnvironProvider.
 func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	_, err := p.validateCloudSpec(args.Cloud)
-	if err != nil {
+	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
 	// Set the default filesystem-storage source.
@@ -254,35 +251,30 @@ func (*environProvider) Schema() environschema.Fields {
 	return fields
 }
 
-func (p *environProvider) validateCloudSpec(spec environs.CloudSpec) (local bool, _ error) {
+func (p *environProvider) validateCloudSpec(spec environs.CloudSpec) error {
 	if err := spec.Validate(); err != nil {
-		return false, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if spec.Credential == nil {
-		return false, errors.NotValidf("missing credential")
+		return errors.NotValidf("missing credential")
 	}
-	if spec.Endpoint == "" {
-		// If we're dealing with an old controller, or we're preparing
-		// a local LXD, we'll have an empty endpoint. Connect to the
-		// default Unix socket.
-		local = true
-	} else {
-		if _, err := endpointURL(spec.Endpoint); err != nil {
-			return false, errors.Trace(err)
-		}
+
+	// Always validate the spec.Endpoint, to ensure that it's valid.
+	if _, err := endpointURL(spec.Endpoint); err != nil {
+		return errors.Trace(err)
 	}
 	switch authType := spec.Credential.AuthType(); authType {
 	case cloud.CertificateAuthType, interactiveAuthType:
 		if spec.Credential == nil {
-			return false, errors.NotFoundf("credentials")
+			return errors.NotFoundf("credentials")
 		}
 		if _, _, ok := getCertificates(*spec.Credential); !ok {
-			return false, errors.NotValidf("certificate credentials")
+			return errors.NotValidf("certificate credentials")
 		}
 	default:
-		return false, errors.NotSupportedf("%q auth-type", authType)
+		return errors.NotSupportedf("%q auth-type", authType)
 	}
-	return local, nil
+	return nil
 }
 
 // ConfigSchema returns extra config attributes specific
