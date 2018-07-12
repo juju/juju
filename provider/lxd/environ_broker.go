@@ -38,9 +38,7 @@ func (env *environ) StartInstance(
 		return nil, errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Handle constraints?
-
-	server, err := env.newRawInstance(args, arch)
+	server, err := env.newContainer(args, arch)
 	if err != nil {
 		if args.StatusCallback != nil {
 			args.StatusCallback(status.ProvisioningError, err.Error(), nil)
@@ -77,38 +75,10 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (str
 	return arch, nil
 }
 
-func (env *environ) getImageSources() ([]lxd.ServerSpec, error) {
-	metadataSources, err := environs.ImageMetadataSources(env)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	remotes := make([]lxd.ServerSpec, 0)
-	for _, source := range metadataSources {
-		url, err := source.URL("")
-		if err != nil {
-			logger.Debugf("failed to get the URL for metadataSource: %s", err)
-			continue
-		}
-		// NOTE(jam) LXD only allows you to pass HTTPS URLs. So strip
-		// off http:// and replace it with https://
-		// Arguably we could give the user a direct error if
-		// env.ImageMetadataURL is http instead of https, but we also
-		// get http from the DefaultImageSources, which is why we
-		// replace it.
-		// TODO(jam) Maybe we could add a Validate step that ensures
-		// image-metadata-url is an "https://" URL, so that Users get a
-		// "your configuration is wrong" error, rather than silently
-		// changing it and having them get confused.
-		// https://github.com/lxc/lxd/issues/1763
-		remotes = append(remotes, lxd.MakeSimpleStreamsServerSpec(source.Description(), url))
-	}
-	return remotes, nil
-}
-
-// newRawInstance is where the new physical instance is actually
+// newContainer is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
-func (env *environ) newRawInstance(
+func (env *environ) newContainer(
 	args environs.StartInstanceParams,
 	arch string,
 ) (*lxd.Container, error) {
@@ -125,8 +95,6 @@ func (env *environ) newRawInstance(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	// TODO: support args.Constraints.Arch, we'll want to map from
 
 	// Keep track of StatusCallback output so we may clean up later.
 	// This is implemented here, close to where the StatusCallback calls
@@ -175,6 +143,7 @@ func (env *environ) newRawInstance(
 		// TODO (manadart 2018-05-30): This is where we need to set network devices from incoming config.
 		Devices: nil,
 	}
+	cSpec.ApplyConstraints(args.Constraints)
 
 	statusCallback(status.Allocating, "Creating container", nil)
 	container, err := env.server.CreateContainerFromSpec(cSpec)
@@ -183,6 +152,34 @@ func (env *environ) newRawInstance(
 	}
 	statusCallback(status.Running, "Container started", nil)
 	return container, nil
+}
+
+func (env *environ) getImageSources() ([]lxd.ServerSpec, error) {
+	metadataSources, err := environs.ImageMetadataSources(env)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	remotes := make([]lxd.ServerSpec, 0)
+	for _, source := range metadataSources {
+		url, err := source.URL("")
+		if err != nil {
+			logger.Debugf("failed to get the URL for metadataSource: %s", err)
+			continue
+		}
+		// NOTE(jam) LXD only allows you to pass HTTPS URLs. So strip
+		// off http:// and replace it with https://
+		// Arguably we could give the user a direct error if
+		// env.ImageMetadataURL is http instead of https, but we also
+		// get http from the DefaultImageSources, which is why we
+		// replace it.
+		// TODO(jam) Maybe we could add a Validate step that ensures
+		// image-metadata-url is an "https://" URL, so that Users get a
+		// "your configuration is wrong" error, rather than silently
+		// changing it and having them get confused.
+		// https://github.com/lxc/lxd/issues/1763
+		remotes = append(remotes, lxd.MakeSimpleStreamsServerSpec(source.Description(), url))
+	}
+	return remotes, nil
 }
 
 // getContainerConfig builds the raw "user-defined" metadata for the new

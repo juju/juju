@@ -19,20 +19,14 @@ func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args envir
 		return errors.Trace(err)
 	}
 
-	if args.Constraints.HasInstanceType() {
-		return errors.Errorf("LXD does not support instance types (got %q)", *args.Constraints.InstanceType)
-	}
-
 	return nil
 }
 
 var unsupportedConstraints = []string{
-	constraints.Cores,
 	constraints.CpuPower,
-	//TODO(ericsnow) Add constraints.Mem as unsupported?
-	constraints.InstanceType,
 	constraints.Tags,
 	constraints.VirtType,
+	constraints.Container,
 }
 
 // ConstraintsValidator returns a Validator value which is used to
@@ -40,23 +34,12 @@ var unsupportedConstraints = []string{
 func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 
-	// Register conflicts.
-
-	// We don't have any conflicts to register.
-
-	// Register unsupported constraints.
-
 	validator.RegisterUnsupported(unsupportedConstraints)
-
-	// Register the constraints vocab.
 
 	// TODO(natefinch): This is only correct so long as the lxd is running on
 	// the local machine.  If/when we support a remote lxd environment, we'll
 	// need to change this to match the arch of the remote machine.
 	validator.RegisterVocabulary(constraints.Arch, []string{arch.HostArch()})
-
-	// TODO(ericsnow) Get this working...
-	//validator.RegisterVocabulary(constraints.Container, supportedContainerTypes)
 
 	return validator, nil
 }
