@@ -14,13 +14,24 @@ import (
 	"github.com/juju/juju/worker/dependency"
 )
 
+// Logger represents the methods used for logging messages.
+type Logger interface {
+	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Infof(string, ...interface{})
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
+}
+
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
 	AgentName       string
 	APICallerName   string
+	Logger          Logger
 	WorkerFunc      func(Config) (worker.Worker, error)
 	ExternalUpdate  func(proxy.Settings) error
 	InProcessUpdate func(proxy.Settings) error
+	RunFunc         func(string, string, ...string) (string, error)
 }
 
 // Manifold returns a dependency manifold that runs a proxy updater worker,
@@ -59,6 +70,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				API:             proxyAPI,
 				ExternalUpdate:  config.ExternalUpdate,
 				InProcessUpdate: config.InProcessUpdate,
+				Logger:          config.Logger,
+				RunFunc:         config.RunFunc,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

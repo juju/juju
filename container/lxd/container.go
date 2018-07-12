@@ -202,7 +202,7 @@ func (s *Server) ContainerAddresses(name string) ([]network.Address, error) {
 // If the container fails to be started, it is removed.
 // Upon successful creation and start, the container is returned.
 func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error) {
-	logger.Infof("starting container %q (image %q)...", spec.Name, spec.Image.Image.Filename)
+	logger.Infof("starting new container %q (image %q)", spec.Name, spec.Image.Image.Filename)
 
 	req := api.ContainersPost{
 		Name:         spec.Name,
@@ -229,6 +229,8 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 	if opInfo.StatusCode != api.Success {
 		return nil, fmt.Errorf("container creation failed: %s", opInfo.Err)
 	}
+
+	logger.Debugf("created container %q, waiting for start...", spec.Name)
 
 	if err := s.StartContainer(spec.Name); err != nil {
 		if remErr := s.RemoveContainer(spec.Name); remErr != nil {

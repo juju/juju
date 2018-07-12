@@ -22,7 +22,10 @@ import (
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
+	"github.com/golang/mock/gomock"
+	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/lxc/lxd/client"
 )
 
 type InitialiserSuite struct {
@@ -67,15 +70,14 @@ LXD_IPV6_NAT="true"
 LXD_IPV6_PROXY="true"
 `
 
-// getMockRunCommandWithRetry is a helper function which returns a function
-// with an identical signature to manager.RunCommandWithRetry which saves each
-// command it receives in a slice and always returns no output, error code 0
-// and a nil error.
-func getMockRunCommandWithRetry(calledCmds *[]string) func(string, func(string) error) (string, int, error) {
-	return func(cmd string, fatalError func(string) error) (string, int, error) {
-		*calledCmds = append(*calledCmds, cmd)
-		return "", 0, nil
-	}
+func (s *InitialiserSuite) PatchForProxyUpdate(c *gc.C, svr lxd.ContainerServer, lxdIsRunning bool) {
+	s.PatchValue(&ConnectLocal, func() (lxd.ContainerServer, error) {
+		return svr, nil
+	})
+
+	s.PatchValue(&IsRunningLocally, func() (bool, error) {
+		return lxdIsRunning, nil
+	})
 }
 
 func (s *InitialiserSuite) SetUpTest(c *gc.C) {
@@ -83,9 +85,7 @@ func (s *InitialiserSuite) SetUpTest(c *gc.C) {
 	s.calledCmds = []string{}
 	s.PatchValue(&manager.RunCommandWithRetry, getMockRunCommandWithRetry(&s.calledCmds))
 	s.PatchValue(&configureLXDBridge, func() error { return nil })
-	s.PatchValue(&getLXDServerUpdater, func() (serverUpdater, error) {
-		return &mockServerUpdater{}, nil
-	})
+
 	nonRandomizedOctetRange := func() []int {
 		// chosen by fair dice roll
 		// guaranteed to be random :)
@@ -96,6 +96,17 @@ func (s *InitialiserSuite) SetUpTest(c *gc.C) {
 	// Fake the lxc executable for all the tests.
 	testing.PatchExecutableAsEchoArgs(c, s, "lxc")
 	testing.PatchExecutableAsEchoArgs(c, s, "lxd")
+}
+
+// getMockRunCommandWithRetry is a helper function which returns a function
+// with an identical signature to manager.RunCommandWithRetry which saves each
+// command it receives in a slice and always returns no output, error code 0
+// and a nil error.
+func getMockRunCommandWithRetry(calledCmds *[]string) func(string, func(string) error) (string, int, error) {
+	return func(cmd string, fatalError func(string) error) (string, int, error) {
+		*calledCmds = append(*calledCmds, cmd)
+		return "", 0, nil
+	}
 }
 
 func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
@@ -186,45 +197,27 @@ func (s *InitialiserSuite) patchDF100GB() {
 	s.PatchValue(&df, df100)
 }
 
-type mockServerUpdater struct {
-	config map[string]interface{}
-}
-
-func (m *mockServerUpdater) GetServer() (server *api.Server, ETag string, err error) {
-	if m.config == nil {
-		m.config = make(map[string]interface{})
-	}
-	server = &api.Server{
-		ServerPut: api.ServerPut{
-			Config: m.config,
-		},
-	}
-	return server, "etag", nil
-}
-func (m *mockServerUpdater) UpdateServer(server api.ServerPut, ETag string) (err error) {
-	m.config = server.Config
-	return nil
-}
 func (s *InitialiserSuite) TestConfigureProxies(c *gc.C) {
-	// This test is safe on windows because it mocks out all lxd moving parts.
-	setter := &mockServerUpdater{}
-	s.PatchValue(&getLXDServerUpdater, func() (serverUpdater, error) {
-		return setter, nil
-	})
+	ctrl := gomock.NewController(c)
+	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	s.PatchForProxyUpdate(c, cSvr, true)
 
-	proxies := proxy.Settings{
-		Http:    "http://test.local/http/proxy",
-		Https:   "http://test.local/https/proxy",
-		NoProxy: "test.local,localhost",
-	}
-	err := ConfigureLXDProxies(proxies)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(setter.config, jc.DeepEquals, map[string]interface{}{
+	updateReq := api.ServerPut{Config: map[string]interface{}{
 		"core.proxy_http":         "http://test.local/http/proxy",
 		"core.proxy_https":        "http://test.local/https/proxy",
 		"core.proxy_ignore_hosts": "test.local,localhost",
+	}}
+	gomock.InOrder(
+		cSvr.EXPECT().GetServer().Return(&api.Server{}, lxdtesting.ETag, nil).Times(2),
+		cSvr.EXPECT().UpdateServer(updateReq, lxdtesting.ETag).Return(nil),
+	)
+
+	err := ConfigureLXDProxies(proxy.Settings{
+		Http:    "http://test.local/http/proxy",
+		Https:   "http://test.local/https/proxy",
+		NoProxy: "test.local,localhost",
 	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
@@ -232,24 +225,42 @@ func (s *InitialiserSuite) TestInitializeSetsProxies(c *gc.C) {
 		c.Skip("no lxd on windows")
 	}
 
-	setter := &mockServerUpdater{}
-	s.PatchValue(&getLXDServerUpdater, func() (serverUpdater, error) {
-		return setter, nil
-	})
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	s.PatchForProxyUpdate(c, cSvr, true)
 
 	s.PatchEnvironment("http_proxy", "http://test.local/http/proxy")
 	s.PatchEnvironment("https_proxy", "http://test.local/https/proxy")
 	s.PatchEnvironment("no_proxy", "test.local,localhost")
 
-	container := NewContainerInitialiser("")
-	err := container.Initialise()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(setter.config, jc.DeepEquals, map[string]interface{}{
+	updateReq := api.ServerPut{Config: map[string]interface{}{
 		"core.proxy_http":         "http://test.local/http/proxy",
 		"core.proxy_https":        "http://test.local/https/proxy",
 		"core.proxy_ignore_hosts": "test.local,localhost",
+	}}
+	gomock.InOrder(
+		cSvr.EXPECT().GetServer().Return(&api.Server{}, lxdtesting.ETag, nil).Times(2),
+		cSvr.EXPECT().UpdateServer(updateReq, lxdtesting.ETag).Return(nil),
+	)
+
+	container := NewContainerInitialiser("")
+	err := container.Initialise()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *InitialiserSuite) TestConfigureProxiesLXDNotRunning(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	cSvr := lxdtesting.NewMockContainerServer(ctrl)
+	s.PatchForProxyUpdate(c, cSvr, false)
+
+	// No expected calls.
+	err := ConfigureLXDProxies(proxy.Settings{
+		Http:    "http://test.local/http/proxy",
+		Https:   "http://test.local/https/proxy",
+		NoProxy: "test.local,localhost",
 	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *InitialiserSuite) TestFindAvailableSubnetWithInterfaceAddrsError(c *gc.C) {

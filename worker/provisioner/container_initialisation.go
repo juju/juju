@@ -14,7 +14,7 @@ import (
 	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
-	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/common"
@@ -52,13 +52,14 @@ type ContainerSetup struct {
 
 	// Save the workerName so the worker thread can be stopped.
 	workerName string
-	// setupDone[containerType] is non zero if the container setup has been invoked
-	// for that container type.
+	// setupDone[containerType] is non zero if the container setup has been
+	// invoked for that container type.
 	setupDone map[instance.ContainerType]*int32
 	// The number of provisioners started. Once all necessary provisioners have
 	// been started, the container watcher can be stopped.
 	numberProvisioners int32
 	credentialAPI      workercommon.CredentialAPI
+	getNetConfig       func(common.NetworkConfigSource) ([]params.NetworkConfig, error)
 }
 
 // ContainerSetupParams are used to initialise a container setup handler.
@@ -73,8 +74,8 @@ type ContainerSetupParams struct {
 	CredentialAPI       workercommon.CredentialAPI
 }
 
-// NewContainerSetupHandler returns a StringsWatchHandler which is notified when
-// containers are created on the given machine.
+// NewContainerSetupHandler returns a StringsWatchHandler which is notified
+// when containers are created on the given machine.
 func NewContainerSetupHandler(params ContainerSetupParams) watcher.StringsHandler {
 	return &ContainerSetup{
 		runner:              params.Runner,
@@ -85,6 +86,7 @@ func NewContainerSetupHandler(params ContainerSetupParams) watcher.StringsHandle
 		workerName:          params.WorkerName,
 		initLockName:        params.InitLockName,
 		credentialAPI:       params.CredentialAPI,
+		getNetConfig:        common.GetObservedNetworkConfig,
 	}
 }
 
@@ -121,9 +123,10 @@ func (cs *ContainerSetup) Handle(abort <-chan struct{}, containerIds []string) (
 		}
 		if err := cs.initialiseAndStartProvisioner(abort, containerType); err != nil {
 			logger.Errorf("starting container provisioner for %v: %v", containerType, err)
-			// Just because dealing with one type of container fails, we won't exit the entire
-			// function because we still want to try and start other container types. So we
-			// take note of and return the first such error.
+			// Just because dealing with one type of container fails, we won't
+			// exit the entire function because we still want to try and start
+			// other container types. So we take note of and return the first
+			// such error.
 			if resultError == nil {
 				resultError = err
 			}
@@ -132,7 +135,9 @@ func (cs *ContainerSetup) Handle(abort <-chan struct{}, containerIds []string) (
 	return resultError
 }
 
-func (cs *ContainerSetup) initialiseAndStartProvisioner(abort <-chan struct{}, containerType instance.ContainerType) (resultError error) {
+func (cs *ContainerSetup) initialiseAndStartProvisioner(
+	abort <-chan struct{}, containerType instance.ContainerType,
+) (resultError error) {
 	// Flag that this container type has been handled.
 	atomic.StoreInt32(cs.setupDone[containerType], 1)
 
@@ -152,33 +157,67 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(abort <-chan struct{}, c
 	}()
 
 	logger.Debugf("setup and start provisioner for %s containers", containerType)
+
+	// Do an early check.
+	if containerType != instance.LXD && containerType != instance.KVM {
+		return fmt.Errorf("unknown container type: %v", containerType)
+	}
+
+	// Get the container manager config before other initialisation,
+	// so we know if there are issues with host machine config.
+	managerConfig, err := cs.getManagerConfig(containerType)
+	if err != nil {
+		return errors.Annotate(err, "generating container manager config")
+	}
+
+	if err := cs.initContainerDependencies(abort, containerType); err != nil {
+		return errors.Annotate(err, "setting up container dependencies on host machine")
+	}
+
 	toolsFinder := getToolsFinder(cs.provisioner)
-	initialiser, broker, toolsFinder, err := cs.getContainerArtifacts(containerType, toolsFinder)
+	broker, err := cs.getContainerBroker(containerType, toolsFinder, managerConfig)
 	if err != nil {
 		return errors.Annotate(err, "initialising container infrastructure on host machine")
 	}
-	if err := cs.runInitialiser(abort, containerType, initialiser); err != nil {
-		return errors.Annotate(err, "setting up container dependencies on host machine")
-	}
-	return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker, toolsFinder, getDistributionGroupFinder(cs.provisioner), cs.credentialAPI)
+
+	return StartProvisioner(
+		cs.runner,
+		containerType,
+		cs.provisioner,
+		cs.config,
+		broker,
+		toolsFinder,
+		getDistributionGroupFinder(cs.provisioner),
+		cs.credentialAPI,
+	)
 }
 
-// acquireLock tries to grab the machine lock (initLockName), and either
-// returns it in a locked state, or returns an error.
-func (cs *ContainerSetup) acquireLock(abort <-chan struct{}) (mutex.Releaser, error) {
-	spec := mutex.Spec{
-		Name:  cs.initLockName,
-		Clock: clock.WallClock,
-		// If we don't get the lock straight away, there is no point trying multiple
-		// times per second for an operation that is likelty to take multiple seconds.
-		Delay:  time.Second,
-		Cancel: abort,
+// getManagerConfig gets gets container manager config from the provisioner,
+// then decorates it with the host machine availability zone before returning.
+func (cs *ContainerSetup) getManagerConfig(containerType instance.ContainerType) (container.ManagerConfig, error) {
+	managerConfig, err := containerManagerConfig(containerType, cs.provisioner)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return mutex.Acquire(spec)
+
+	availabilityZone, err := cs.machine.AvailabilityZone()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	managerConfig[container.ConfigAvailabilityZone] = availabilityZone
+
+	return managerConfig, nil
 }
 
-// runInitialiser runs the container initialiser with the initialisation hook held.
-func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType instance.ContainerType, initialiser container.Initialiser) error {
+// initContainerDependencies ensures that the host machine is set-up to manage
+// containers of the input type.
+func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, containerType instance.ContainerType) error {
+	series, err := cs.machine.Series()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	initialiser := getContainerInitialiser(containerType, series)
+
 	logger.Debugf("running initialiser for %s containers, acquiring lock %q", containerType, cs.initLockName)
 	releaser, err := cs.acquireLock(abort)
 	if err != nil {
@@ -193,14 +232,15 @@ func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType in
 	}
 
 	// At this point, Initialiser likely has changed host network information,
-	// so reprobe to have an accurate view.
-	observedConfig, err := observeNetwork()
+	// so re-probe to have an accurate view.
+	observedConfig, err := cs.observeNetwork()
 	if err != nil {
 		return errors.Annotate(err, "cannot discover observed network config")
 	}
 	if len(observedConfig) > 0 {
 		machineTag := cs.machine.MachineTag()
-		logger.Tracef("updating observed network config for %q %s containers to %#v", machineTag, containerType, observedConfig)
+		logger.Tracef("updating observed network config for %q %s containers to %#v",
+			machineTag, containerType, observedConfig)
 		if err := cs.provisioner.SetHostMachineNetworkConfig(machineTag, observedConfig); err != nil {
 			return errors.Trace(err)
 		}
@@ -209,18 +249,23 @@ func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType in
 	return nil
 }
 
-// TearDown is defined on the StringsWatchHandler interface.
-func (cs *ContainerSetup) TearDown() error {
-	// Nothing to do here.
-	return nil
+// acquireLock tries to grab the machine lock (initLockName), and either
+// returns it in a locked state, or returns an error.
+func (cs *ContainerSetup) acquireLock(abort <-chan struct{}) (mutex.Releaser, error) {
+	spec := mutex.Spec{
+		Name:  cs.initLockName,
+		Clock: clock.WallClock,
+		// If we don't get the lock straight away, there is no point trying
+		// multiple times per second for an operation that is likely to take
+		// multiple seconds.
+		Delay:  time.Second,
+		Cancel: abort,
+	}
+	return mutex.Acquire(spec)
 }
 
-// getObservedNetworkConfig is here to allow us to override it for testing.
-// TODO(jam): Find a way to pass it into ContainerSetup instead of a global variable
-var getObservedNetworkConfig = common.GetObservedNetworkConfig
-
-func observeNetwork() ([]params.NetworkConfig, error) {
-	return getObservedNetworkConfig(common.DefaultNetworkConfigSource())
+func (cs *ContainerSetup) observeNetwork() ([]params.NetworkConfig, error) {
+	return cs.getNetConfig(common.DefaultNetworkConfigSource())
 }
 
 func defaultBridger() (network.Bridger, error) {
@@ -234,7 +279,7 @@ func defaultBridger() (network.Bridger, error) {
 func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.Logger) error {
 	preparer := NewHostPreparer(HostPreparerParams{
 		API:                cs.provisioner,
-		ObserveNetworkFunc: observeNetwork,
+		ObserveNetworkFunc: cs.observeNetwork,
 		LockName:           cs.initLockName,
 		AcquireLockFunc:    cs.acquireLock,
 		CreateBridger:      defaultBridger,
@@ -250,70 +295,30 @@ func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.L
 
 // getContainerArtifacts returns type-specific interfaces for
 // managing containers.
-//
-// The ToolsFinder passed in may be replaced or wrapped to
-// enforce container-specific constraints.
-func (cs *ContainerSetup) getContainerArtifacts(
-	containerType instance.ContainerType, toolsFinder ToolsFinder,
-) (
-	container.Initialiser,
-	environs.InstanceBroker,
-	ToolsFinder,
-	error,
-) {
-	var broker environs.InstanceBroker
-	var series string
-
-	managerConfig, err := containerManagerConfig(containerType, cs.provisioner, cs.config)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	availabilityZone, err := cs.machine.AvailabilityZone()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	// pass host machine's availability zone to the container manager config
-	managerConfig[container.ConfigAvailabilityZone] = availabilityZone
-
+func (cs *ContainerSetup) getContainerBroker(
+	containerType instance.ContainerType, toolsFinder ToolsFinder, managerConfig container.ManagerConfig,
+) (environs.InstanceBroker, error) {
 	manager, err := factory.NewContainerManager(containerType, managerConfig)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, errors.Trace(err)
 	}
 
-	switch containerType {
-	case instance.KVM:
-		broker, err = NewKVMBroker(
-			cs.prepareHost,
-			cs.provisioner,
-			manager,
-			cs.config,
-		)
-		if err != nil {
-			logger.Errorf("failed to create new kvm broker")
-			return nil, nil, nil, err
-		}
-	case instance.LXD:
-		series, err = cs.machine.Series()
-		if err != nil {
-			return nil, nil, nil, err
-		}
-
-		broker, err = NewLXDBroker(
-			cs.prepareHost,
-			cs.provisioner,
-			manager,
-			cs.config,
-		)
-		if err != nil {
-			logger.Errorf("failed to create new lxd broker")
-			return nil, nil, nil, err
-		}
-	default:
-		return nil, nil, nil, fmt.Errorf("unknown container type: %v", containerType)
+	newBroker := NewKVMBroker
+	if containerType == instance.LXD {
+		newBroker = NewLXDBroker
 	}
-	initialiser := getContainerInitialiser(containerType, series)
-	return initialiser, broker, toolsFinder, nil
+	broker, err := newBroker(cs.prepareHost, cs.provisioner, manager, cs.config)
+	if err != nil {
+		logger.Errorf("failed to create new %s broker", containerType)
+		return nil, errors.Trace(err)
+	}
+
+	return broker, nil
+}
+
+// TearDown is defined on the StringsWatchHandler interface. NoOp here.
+func (cs *ContainerSetup) TearDown() error {
+	return nil
 }
 
 // getContainerInitialiser exists to patch out in tests.
@@ -325,9 +330,7 @@ var getContainerInitialiser = func(ct instance.ContainerType, series string) con
 }
 
 func containerManagerConfig(
-	containerType instance.ContainerType,
-	provisioner *apiprovisioner.State,
-	agentConfig agent.Config,
+	containerType instance.ContainerType, provisioner *apiprovisioner.State,
 ) (container.ManagerConfig, error) {
 	// Ask the provisioner for the container manager configuration.
 	managerConfigResult, err := provisioner.ContainerManagerConfig(
@@ -343,8 +346,8 @@ func containerManagerConfig(
 // Override for testing.
 var StartProvisioner = startProvisionerWorker
 
-// startProvisionerWorker kicks off a provisioner task responsible for creating containers
-// of the specified type on the machine.
+// startProvisionerWorker kicks off a provisioner task responsible for creating
+// containers of the specified type on the machine.
 func startProvisionerWorker(
 	runner *worker.Runner,
 	containerType instance.ContainerType,

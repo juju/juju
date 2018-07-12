@@ -111,7 +111,9 @@ func connectImageRemote(remote ServerSpec) (lxd.ImageServer, error) {
 }
 
 // ConnectLocal connects to LXD on a local socket.
-func ConnectLocal() (lxd.ContainerServer, error) {
+var ConnectLocal = connectLocal
+
+func connectLocal() (lxd.ContainerServer, error) {
 	client, err := lxd.ConnectLXDUnix(SocketPath(nil), nil)
 	return client, errors.Trace(err)
 }

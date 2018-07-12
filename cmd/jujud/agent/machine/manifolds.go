@@ -547,9 +547,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			AgentName:       agentName,
 			APICallerName:   apiCallerName,
+			Logger:          loggo.GetLogger("juju.worker.proxyupdater"),
 			WorkerFunc:      proxyupdater.NewWorker,
 			ExternalUpdate:  externalUpdateProxyFunc,
 			InProcessUpdate: proxyconfig.DefaultConfig.Set,
+			RunFunc:         proxyupdater.RunWithStdIn,
 		})),
 
 		// The api address updater is a leaf worker that rewrites agent config
