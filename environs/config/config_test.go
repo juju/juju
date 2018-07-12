@@ -1226,6 +1226,30 @@ func (s *ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
 	c.Assert(config.FTPProxy(), gc.Equals, "")
 	c.Assert(config.AptFTPProxy(), gc.Equals, "")
 	c.Assert(config.NoProxy(), gc.Equals, "127.0.0.1,localhost,::1")
+
+	c.Assert(config.SnapHTTPProxy(), gc.Equals, "")
+	c.Assert(config.SnapHTTPSProxy(), gc.Equals, "")
+	c.Assert(config.SnapStoreProxy(), gc.Equals, "")
+	c.Assert(config.SnapStoreAssertions(), gc.Equals, "")
+}
+
+func (s *ConfigSuite) TestSnapProxyValues(c *gc.C) {
+	s.addJujuFiles(c)
+	config := newTestConfig(c, testing.Attrs{
+		"snap-http-proxy":       "http://snap-proxy",
+		"snap-https-proxy":      "https://snap-proxy",
+		"snap-store-proxy":      "42",
+		"snap-store-assertions": "trust us",
+	})
+
+	c.Assert(config.SnapHTTPProxy(), gc.Equals, "http://snap-proxy")
+	c.Assert(config.SnapHTTPSProxy(), gc.Equals, "https://snap-proxy")
+	c.Assert(config.SnapStoreProxy(), gc.Equals, "42")
+	c.Assert(config.SnapStoreAssertions(), gc.Equals, "trust us")
+	c.Assert(config.SnapProxySettings(), gc.Equals, proxy.Settings{
+		Http:  "http://snap-proxy",
+		Https: "https://snap-proxy",
+	})
 }
 
 func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {

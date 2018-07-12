@@ -1,6 +1,6 @@
 --- a/gopkg.in/mgo.v2/txn/flusher.go
 +++ b/gopkg.in/mgo.v2/txn/flusher.go
-@@ -244,6 +244,21 @@ NextDoc:
+@@ -270,6 +270,21 @@
  		change.Upsert = false
  		chaos("")
  		if _, err := cquery.Apply(change, &info); err == nil {
@@ -22,7 +22,7 @@
  			if info.Remove == "" {
  				// Fast path, unless workload is insert/remove heavy.
  				revno[dkey] = info.Revno
-@@ -610,8 +625,8 @@ func (f *flusher) assert(t *transaction, revnos []int64, pull map[bson.ObjectId]
+@@ -637,8 +652,8 @@
  
  func (f *flusher) abortOrReload(t *transaction, revnos []int64, pull map[bson.ObjectId]*transaction) (err error) {
  	f.debugf("Aborting or reloading %s (was %q)", t, t.State)
@@ -35,7 +35,7 @@
  		if err = f.tc.Update(qdoc, udoc); err == nil {
 --- a/gopkg.in/mgo.v2/txn/txn.go
 +++ b/gopkg.in/mgo.v2/txn/txn.go
-@@ -216,11 +216,14 @@ const (
+@@ -216,11 +216,14 @@
  // A Runner applies operations as part of a transaction onto any number
  // of collections within a database. See the Run method for details.
  type Runner struct {
@@ -53,7 +53,7 @@
  // NewRunner returns a new transaction runner that uses tc to hold its
  // transactions.
  //
-@@ -232,7 +235,36 @@ type Runner struct {
+@@ -232,7 +235,36 @@
  // will be used for implementing the transactional behavior of insert
  // and remove operations.
  func NewRunner(tc *mgo.Collection) *Runner {
@@ -93,7 +93,7 @@
  var ErrAborted = fmt.Errorf("transaction aborted")
 --- a/gopkg.in/mgo.v2/txn/txn_test.go
 +++ b/gopkg.in/mgo.v2/txn/txn_test.go
-@@ -621,6 +621,162 @@ func (s *S) TestTxnQueueStashStressTest(c *C) {
+@@ -621,6 +621,162 @@
  	}
  }
  

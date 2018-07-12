@@ -18,8 +18,6 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
@@ -122,9 +120,7 @@ func (s *kvmBrokerSuite) maintainInstance(c *gc.C, broker environs.InstanceBroke
 func (s *kvmBrokerSuite) TestStartInstanceWithoutNetworkChanges(c *gc.C) {
 	broker, brokerErr := s.newKVMBroker(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
-	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
-		return nil, nil
-	})
+
 	machineId := "1/kvm/0"
 	result, err := s.startInstance(c, broker, machineId)
 	c.Assert(err, jc.ErrorIsNil)
@@ -246,9 +242,6 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesFallbackNetworkInfo(c *gc.C) 
 	broker, brokerErr := s.newKVMBroker(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 
-	s.PatchValue(provisioner.GetObservedNetworkConfig, func(_ common.NetworkConfigSource) ([]params.NetworkConfig, error) {
-		return nil, nil
-	})
 	patchResolvConf(s, c)
 
 	s.api.SetErrors(
