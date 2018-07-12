@@ -40,7 +40,6 @@ func PatchGenerateVirtualMACAddress(patcher patcher) {
 	})
 }
 
-
 func GetImageSources(mgr container.Manager) ([]ServerSpec, error) {
 	return mgr.(*containerManager).getImageSources()
 }
