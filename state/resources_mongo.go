@@ -139,7 +139,6 @@ func resourceDocToUpdateOp(doc *resourceDoc) bson.M {
 func newUpdateResourceOps(stored storedResource) []txn.Op {
 	doc := newResourceDoc(stored)
 
-	// TODO(ericsnow) Using "update" doesn't work right...
 	return []txn.Op{{
 		C:      resourcesC,
 		Id:     doc.DocID,
