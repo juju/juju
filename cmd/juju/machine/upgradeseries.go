@@ -25,6 +25,12 @@ const (
 	CompleteCommand = "complete"
 )
 
+var UpgradeSeriesConfirmationMsg = `
+WARNING This command will mark machine %q as being upgraded to series %q
+This operation cannot be reverted or canceled once started.
+
+Continue [y/N]?`[1:]
+
 // NewUpgradeSeriesCommand returns a command which upgrades the series of
 // an application or machine.
 func NewUpgradeSeriesCommand() cmd.Command {
@@ -238,12 +244,7 @@ func (c *upgradeSeriesCommand) promptConfirmation(ctx *cmd.Context) error {
 		return nil
 	}
 
-	var confirmationMsg = `
-WARNING This command will mark machine %q as being upgraded to series %q
-This operation cannot be reverted or canceled once started.
-
-Continue [y/N]? `[1:]
-	fmt.Fprintf(ctx.Stdout, confirmationMsg, c.machineNumber, c.series)
+	fmt.Fprintf(ctx.Stdout, UpgradeSeriesConfirmationMsg, c.machineNumber, c.series)
 
 	if err := jujucmd.UserConfirmYes(ctx); err != nil {
 		return errors.Annotate(err, "upgrade series")
