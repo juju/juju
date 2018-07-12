@@ -215,9 +215,9 @@ type instanceData struct {
 	KeepInstance bool `bson:"keep-instance,omitempty"`
 }
 
-// upgradeSeriesLock holds the attributes relevant to lock a machine during a
+// upgradeSeriesLockDoc holds the attributes relevant to lock a machine during a
 // series update of a machine
-type upgradeSeriesLock struct {
+type upgradeSeriesLockDoc struct {
 	Id             string                           `bson:"machineid"`
 	ToSeries       string                           `bson:"toseries"`
 	FromSeries     string                           `bson:"fromseries"`
@@ -2136,14 +2136,14 @@ func (m *Machine) unitsHaveChanged(unitNames []string) (bool, error) {
 	return !unitNameSet.Difference(curUnitSet).IsEmpty(), nil
 }
 
-func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLock {
+func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLockDoc {
 	prepareUnits := make([]unitStatus, len(unitNames))
 	completeUnits := make([]unitStatus, len(unitNames))
 	for i, name := range unitNames {
 		prepareUnits[i] = unitStatus{Id: name, Status: model.UnitStarted}
 		completeUnits[i] = unitStatus{Id: name, Status: model.UnitNotStarted}
 	}
-	return &upgradeSeriesLock{
+	return &upgradeSeriesLockDoc{
 		Id:             m.Id(),
 		ToSeries:       toSeries,
 		FromSeries:     m.Series(),
@@ -2186,7 +2186,7 @@ func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UnitSeriesUpgradeS
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
-	var lock upgradeSeriesLock
+	var lock upgradeSeriesLockDoc
 	err := coll.FindId(m.Id()).One(&lock)
 	if err == mgo.ErrNotFound {
 		return "", errors.NotFoundf("upgrade series lock for machine %q", m.Id())
@@ -2217,7 +2217,7 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 		}
 		coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 		defer closer()
-		var lock upgradeSeriesLock
+		var lock upgradeSeriesLockDoc
 		err := coll.FindId(m.Id()).One(&lock)
 		if err != nil {
 			return nil, errors.BadRequestf("Machine %q is not locked for upgrade", m)
@@ -2248,7 +2248,7 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 	return nil
 }
 
-func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLock) []txn.Op {
+func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLockDoc) []txn.Op {
 	return []txn.Op{
 		{
 			C:      machinesC,
@@ -2301,7 +2301,7 @@ func (m *Machine) IsLocked() (bool, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
-	var lock upgradeSeriesLock
+	var lock upgradeSeriesLockDoc
 	err := coll.FindId(m.Id()).One(&lock)
 	if err == mgo.ErrNotFound {
 		return false, nil

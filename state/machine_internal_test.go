@@ -27,7 +27,7 @@ var _ = gc.Suite(&MachineInternalSuite{})
 
 func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsMachineAlive(c *gc.C) {
 	arbitraryId := "1"
-	arbitraryData := &upgradeSeriesLock{}
+	arbitraryData := &upgradeSeriesLockDoc{}
 	var found bool
 	for _, op := range createUpgradeSeriesLockTxnOps(arbitraryId, arbitraryData) {
 		assertVal, ok := op.Assert.(bson.D)
@@ -41,7 +41,7 @@ func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsMachineAlive(c *gc
 
 func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsDocDoesNOTExist(c *gc.C) {
 	arbitraryId := "1"
-	arbitraryData := &upgradeSeriesLock{}
+	arbitraryData := &upgradeSeriesLockDoc{}
 	expectedOp := txn.Op{
 		C:      machineUpgradeSeriesLocksC,
 		Id:     arbitraryId,
