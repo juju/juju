@@ -12,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/juju/provider/lxd/lxdnames"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/lxc/lxd/shared"
@@ -115,7 +117,7 @@ func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 		return nil, errors.Trace(err)
 	}
 
-	const credName = "localhost"
+	const credName = lxdnames.DefaultCloud
 	label := fmt.Sprintf("LXD credential %q", credName)
 	certCredential, err := p.finalizeLocalCertificateCredential(
 		ioutil.Discard, svr, string(certPEM), string(keyPEM), label,

@@ -11,9 +11,13 @@ package lxdnames
 // the local lxd daemon.
 const DefaultCloud = "localhost"
 
-// DefaultRegion is the name of the only "region" we support in lxd currently,
+// DefaultLocalRegion is the name of the "region" we support in a local lxd,
 // which corresponds to the local lxd daemon.
-const DefaultRegion = "localhost"
+const DefaultLocalRegion = "localhost"
+
+// DefaultRemoteRegion is the name of the "region" we report if there are no
+// other regions for a remote lxd server.
+const DefaultRemoteRegion = "default"
 
 // ProviderType defines the provider/cloud type for lxd.
 const ProviderType = "lxd"

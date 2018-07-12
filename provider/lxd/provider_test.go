@@ -224,6 +224,37 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithMixedRegions(c *g
 	})
 }
 
+func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithNoRegion(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	provider, _, _ := s.createProvider(ctrl)
+	cloudFinalizer := provider.(environs.CloudFinalizer)
+
+	cloudSpec := cloud.Cloud{
+		Name:      "test",
+		Type:      "lxd",
+		Endpoint:  "https://192.0.0.1:8443",
+		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
+		Regions:   []cloud.Region{},
+	}
+
+	ctx := testing.NewMockFinalizeCloudContext(ctrl)
+
+	got, err := cloudFinalizer.FinalizeCloud(ctx, cloudSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, gc.DeepEquals, cloud.Cloud{
+		Name:      "test",
+		Type:      "lxd",
+		Endpoint:  "https://192.0.0.1:8443",
+		AuthTypes: []cloud.AuthType{cloud.CertificateAuthType},
+		Regions: []cloud.Region{{
+			Name:     "default",
+			Endpoint: "https://192.0.0.1:8443",
+		}},
+	})
+}
+
 func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
 	if !containerLXD.HasSupport() {
 		c.Skip("To be rewritten during LXD code refactoring for cluster support")
@@ -276,7 +307,7 @@ func (s *providerSuite) TestFinalizeCloudAlreadyListeningHTTPS(c *gc.C) {
 func (s *providerSuite) TestDetectRegions(c *gc.C) {
 	regions, err := s.Provider.DetectRegions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(regions, jc.DeepEquals, []cloud.Region{{Name: lxdnames.DefaultRegion}})
+	c.Assert(regions, jc.DeepEquals, []cloud.Region{{Name: lxdnames.DefaultLocalRegion}})
 }
 
 func (s *providerSuite) TestValidate(c *gc.C) {
