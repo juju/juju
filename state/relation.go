@@ -517,15 +517,6 @@ func (r *Relation) RemoteUnit(unitName string) (*RelationUnit, error) {
 	return r.unit(unitName, principal, isPrincipal, isLocalUnit)
 }
 
-// RemoteApplication returns the RemoteApplication with specific name
-func (r *Relation) RemoteApplication(applicationName string) (*RemoteApplication, error) {
-	remoteApplication, err := r.st.RemoteApplication(applicationName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return remoteApplication, nil
-}
-
 // IsCrossModel returns whether this relation is a cross-model
 // relation.
 func (r *Relation) IsCrossModel() (bool, error) {

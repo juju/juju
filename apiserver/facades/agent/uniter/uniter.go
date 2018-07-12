@@ -2573,47 +2573,46 @@ func (u *UniterAPI) goalStateRelations(allRelations []*state.Relation) (map[stri
 	result := map[string]params.UnitsGoalState{}
 
 	for _, r := range allRelations {
-
 		endPoints := r.Endpoints()
 		for _, e := range endPoints {
+			logger.Criticalf("Endpoint -========================================================================-> \n%#v\n%#v\n%#v", r, e, e.Relation)
 			if e.Relation.Role == "peer" {
 				continue
 			}
 			var key string
 			application, err := u.st.Application(e.ApplicationName)
-			if err != nil && errors.IsNotFound(err) {
+			if err == nil {
+				key = application.Name()
+			} else if errors.IsNotFound(err) {
 				logger.Debugf("application %q must be a remote application.", e.ApplicationName)
 				var remoteApplication *state.RemoteApplication
-				remoteApplication, err = r.RemoteApplication(e.ApplicationName)
+				remoteApplication, err = u.st.RemoteApplication(e.ApplicationName)
 				if err != nil {
 					return nil, err
 				}
 				var ok bool
 				key, ok = remoteApplication.URL()
 				if !ok {
-					// always try to use the remote application URL as the key, or ignore it
+					// If we are on the offering side of a remote relation, don't show anything
+					// in goal state for that relation.
 					continue
 				}
-			}
-			if err != nil {
+			} else {
 				return nil, err
-			}
-			if key == "" {
-				key = application.Name()
 			}
 			goalState := params.GoalStateStatus{}
 			statusInfo, err := r.Status()
 			if err != nil {
-				return nil, errors.Errorf("Relation Status not accessible %q", err)
+				return nil, errors.Annotate(err, "getting relation status")
 			}
 			goalState.Status = statusInfo.Status.String()
 			goalState.Since = statusInfo.Since
-			relation := result[e.Name]
-			if relation == nil {
-				relation = params.UnitsGoalState{}
+			relationGoalState := result[e.Name]
+			if relationGoalState == nil {
+				relationGoalState = params.UnitsGoalState{}
 			}
-			relation[key] = goalState
-			result[e.Name] = relation
+			relationGoalState[key] = goalState
+			result[e.Name] = relationGoalState
 		}
 	}
 	return result, nil
@@ -2640,9 +2639,6 @@ func (u *UniterAPI) goalStateUnits(application *state.Application) (params.Units
 			return nil, errors.Errorf("Unit Status not accessible %q", err)
 		}
 		unitGoalState.Status = statusInfo.Status.String()
-		if unit.Life() == state.Dying {
-			unitGoalState.Status = "dying"
-		}
 		unitGoalState.Since = statusInfo.Since
 		unitsGoalState[unit.Name()] = unitGoalState
 	}
