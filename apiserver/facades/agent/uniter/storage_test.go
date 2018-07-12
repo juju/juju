@@ -4,8 +4,7 @@
 package uniter_test
 
 import (
-	"errors"
-
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -105,9 +104,9 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 			c.Assert(u, gc.DeepEquals, unitTag)
 			return storageWatcher
 		},
-		watchVolumeAttachment: func(m names.MachineTag, v names.VolumeTag) state.NotifyWatcher {
+		watchVolumeAttachment: func(host names.Tag, v names.VolumeTag) state.NotifyWatcher {
 			calls = append(calls, "WatchVolumeAttachment")
-			c.Assert(m, gc.DeepEquals, machineTag)
+			c.Assert(host, gc.DeepEquals, machineTag)
 			c.Assert(v, gc.DeepEquals, volumeTag)
 			return volumeWatcher
 		},
@@ -141,7 +140,15 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 	})
 }
 
-func (s *storageSuite) TestWatchStorageAttachmentFilesystem(c *gc.C) {
+func (s *storageSuite) TestCAASWatchStorageAttachmentFilesystem(c *gc.C) {
+	s.assertWatchStorageAttachmentFilesystem(c, "")
+}
+
+func (s *storageSuite) TestIAASWatchStorageAttachmentFilesystem(c *gc.C) {
+	s.assertWatchStorageAttachmentFilesystem(c, "66")
+}
+
+func (s *storageSuite) assertWatchStorageAttachmentFilesystem(c *gc.C, assignedMachine string) {
 	resources := common.NewResources()
 	getCanAccess := func() (common.AuthFunc, error) {
 		return func(names.Tag) bool {
@@ -150,7 +157,11 @@ func (s *storageSuite) TestWatchStorageAttachmentFilesystem(c *gc.C) {
 	}
 	unitTag := names.NewUnitTag("mysql/0")
 	storageTag := names.NewStorageTag("data/0")
-	machineTag := names.NewMachineTag("66")
+	var hostTag names.Tag
+	hostTag = unitTag
+	if assignedMachine != "" {
+		hostTag = names.NewMachineTag(assignedMachine)
+	}
 	filesystemTag := names.NewFilesystemTag("104")
 	filesystem := &mockFilesystem{tag: filesystemTag}
 	storageInstance := &mockStorageInstance{kind: state.StorageKindFilesystem}
@@ -164,7 +175,7 @@ func (s *storageSuite) TestWatchStorageAttachmentFilesystem(c *gc.C) {
 	filesystemWatcher.changes <- struct{}{}
 	var calls []string
 	st := &mockStorageState{
-		assignedMachine: "66",
+		assignedMachine: assignedMachine,
 		storageInstance: func(s names.StorageTag) (state.StorageInstance, error) {
 			calls = append(calls, "StorageInstance")
 			c.Assert(s, gc.DeepEquals, storageTag)
@@ -181,9 +192,9 @@ func (s *storageSuite) TestWatchStorageAttachmentFilesystem(c *gc.C) {
 			c.Assert(u, gc.DeepEquals, unitTag)
 			return storageWatcher
 		},
-		watchFilesystemAttachment: func(m names.MachineTag, f names.FilesystemTag) state.NotifyWatcher {
+		watchFilesystemAttachment: func(host names.Tag, f names.FilesystemTag) state.NotifyWatcher {
 			calls = append(calls, "WatchFilesystemAttachment")
-			c.Assert(m, gc.DeepEquals, machineTag)
+			c.Assert(host, gc.DeepEquals, hostTag)
 			c.Assert(f, gc.DeepEquals, filesystemTag)
 			return filesystemWatcher
 		},
@@ -447,7 +458,14 @@ type mockUnit struct {
 	storageConstraints map[string]state.StorageConstraints
 }
 
+func (u *mockUnit) ShouldBeAssigned() bool {
+	return u.assignedMachine != ""
+}
+
 func (u *mockUnit) AssignedMachineId() (string, error) {
+	if u.assignedMachine == "" {
+		return "", errors.NotAssignedf("unit not assigned")
+	}
 	return u.assignedMachine, nil
 }
 
@@ -470,8 +488,8 @@ type mockStorageState struct {
 	storageInstanceVolume         func(names.StorageTag) (state.Volume, error)
 	watchStorageAttachments       func(names.UnitTag) state.StringsWatcher
 	watchStorageAttachment        func(names.StorageTag, names.UnitTag) state.NotifyWatcher
-	watchFilesystemAttachment     func(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
-	watchVolumeAttachment         func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+	watchFilesystemAttachment     func(names.Tag, names.FilesystemTag) state.NotifyWatcher
+	watchVolumeAttachment         func(names.Tag, names.VolumeTag) state.NotifyWatcher
 	watchBlockDevices             func(names.MachineTag) state.NotifyWatcher
 	addUnitStorage                func(u names.UnitTag, name string, cons state.StorageConstraints) error
 }
@@ -518,12 +536,12 @@ func (m *mockStorageState) WatchStorageAttachment(s names.StorageTag, u names.Un
 	return m.watchStorageAttachment(s, u)
 }
 
-func (m *mockStorageState) WatchFilesystemAttachment(mtag names.MachineTag, f names.FilesystemTag) state.NotifyWatcher {
-	return m.watchFilesystemAttachment(mtag, f)
+func (m *mockStorageState) WatchFilesystemAttachment(hostTag names.Tag, f names.FilesystemTag) state.NotifyWatcher {
+	return m.watchFilesystemAttachment(hostTag, f)
 }
 
-func (m *mockStorageState) WatchVolumeAttachment(mtag names.MachineTag, v names.VolumeTag) state.NotifyWatcher {
-	return m.watchVolumeAttachment(mtag, v)
+func (m *mockStorageState) WatchVolumeAttachment(hostTag names.Tag, v names.VolumeTag) state.NotifyWatcher {
+	return m.watchVolumeAttachment(hostTag, v)
 }
 
 func (m *mockStorageState) WatchBlockDevices(mtag names.MachineTag) state.NotifyWatcher {
@@ -630,7 +648,7 @@ func (s *watchStorageAttachmentSuite) SetUpTest(c *gc.C) {
 		storageInstanceVolume: func(tag names.StorageTag) (state.Volume, error) {
 			return s.volume, nil
 		},
-		watchVolumeAttachment: func(names.MachineTag, names.VolumeTag) state.NotifyWatcher {
+		watchVolumeAttachment: func(names.Tag, names.VolumeTag) state.NotifyWatcher {
 			return s.volumeAttachmentWatcher
 		},
 		watchBlockDevices: func(names.MachineTag) state.NotifyWatcher {

@@ -70,7 +70,7 @@ func StorageAttachmentInfo(
 	stVolume VolumeAccess,
 	stFile FilesystemAccess,
 	att state.StorageAttachment,
-	machineTag names.MachineTag,
+	hostTag names.Tag,
 ) (*storage.StorageAttachmentInfo, error) {
 	storageInstance, err := st.StorageInstance(att.StorageInstance())
 	if err != nil {
@@ -81,12 +81,12 @@ func StorageAttachmentInfo(
 		if stVolume == nil {
 			return nil, errors.NotImplementedf("BlockStorage instance")
 		}
-		return volumeStorageAttachmentInfo(stVolume, storageInstance, machineTag)
+		return volumeStorageAttachmentInfo(stVolume, storageInstance, hostTag)
 	case state.StorageKindFilesystem:
 		if stFile == nil {
 			return nil, errors.NotImplementedf("FilesystemStorage instance")
 		}
-		return filesystemStorageAttachmentInfo(stFile, storageInstance, machineTag)
+		return filesystemStorageAttachmentInfo(stFile, storageInstance, hostTag)
 	}
 	return nil, errors.Errorf("invalid storage kind %v", storageInstance.Kind())
 }
@@ -94,7 +94,7 @@ func StorageAttachmentInfo(
 func volumeStorageAttachmentInfo(
 	st VolumeAccess,
 	storageInstance state.StorageInstance,
-	machineTag names.MachineTag,
+	hostTag names.Tag,
 ) (*storage.StorageAttachmentInfo, error) {
 	storageTag := storageInstance.StorageTag()
 	volume, err := st.StorageInstanceVolume(storageTag)
@@ -111,7 +111,7 @@ func volumeStorageAttachmentInfo(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting volume info")
 	}
-	volumeAttachment, err := st.VolumeAttachment(machineTag, volume.VolumeTag())
+	volumeAttachment, err := st.VolumeAttachment(hostTag, volume.VolumeTag())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting volume attachment")
 	}
@@ -119,7 +119,12 @@ func volumeStorageAttachmentInfo(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting volume attachment info")
 	}
-	blockDevices, err := st.BlockDevices(machineTag)
+
+	// TODO(caas) - we currently only support block devices on machines.
+	if hostTag.Kind() != names.MachineTagKind {
+		return nil, errors.NotProvisionedf("%v", names.ReadableString(storageTag))
+	}
+	blockDevices, err := st.BlockDevices(hostTag.(names.MachineTag))
 	if err != nil {
 		return nil, errors.Annotate(err, "getting block devices")
 	}
@@ -152,7 +157,7 @@ func volumeStorageAttachmentInfo(
 func filesystemStorageAttachmentInfo(
 	st FilesystemAccess,
 	storageInstance state.StorageInstance,
-	machineTag names.MachineTag,
+	hostTag names.Tag,
 ) (*storage.StorageAttachmentInfo, error) {
 	storageTag := storageInstance.StorageTag()
 	filesystem, err := st.StorageInstanceFilesystem(storageTag)
@@ -165,7 +170,7 @@ func filesystemStorageAttachmentInfo(
 	} else if err != nil {
 		return nil, errors.Annotate(err, "getting filesystem")
 	}
-	filesystemAttachment, err := st.FilesystemAttachment(machineTag, filesystem.FilesystemTag())
+	filesystemAttachment, err := st.FilesystemAttachment(hostTag, filesystem.FilesystemTag())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting filesystem attachment")
 	}

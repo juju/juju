@@ -30,7 +30,7 @@ type storageInterface interface {
 type storageVolumeInterface interface {
 	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
 	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
-	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+	WatchVolumeAttachment(names.Tag, names.VolumeTag) state.NotifyWatcher
 	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
 	VolumeAttachment(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
 }
@@ -38,7 +38,7 @@ type storageVolumeInterface interface {
 type storageFilesystemInterface interface {
 	StorageInstanceFilesystem(names.StorageTag) (state.Filesystem, error)
 	FilesystemAttachment(names.Tag, names.FilesystemTag) (state.FilesystemAttachment, error)
-	WatchFilesystemAttachment(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
+	WatchFilesystemAttachment(names.Tag, names.FilesystemTag) state.NotifyWatcher
 }
 
 var getStorageState = func(st *state.State) (storageAccess, error) {
@@ -82,6 +82,7 @@ type backend interface {
 
 type Unit interface {
 	AssignedMachineId() (string, error)
+	ShouldBeAssigned() bool
 	StorageConstraints() (map[string]state.StorageConstraints, error)
 }
 

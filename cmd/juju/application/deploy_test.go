@@ -19,6 +19,8 @@ import (
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -473,6 +475,17 @@ type CAASDeploySuite struct {
 }
 
 var _ = gc.Suite(&CAASDeploySuite{})
+
+func (s *CAASDeploySuite) TestInitErrorsCaasModel(c *gc.C) {
+	otherModels := map[string]jujuclient.ModelDetails{
+		"admin/caas-model": {ModelUUID: "test.caas.model.uuid", ModelType: model.CAAS},
+	}
+	err := s.ControllerStore.SetModels("kontroll", otherModels)
+	c.Assert(err, jc.ErrorIsNil)
+	args := []string{"-m", "caas-model", "some-application-name", "--attach-storage", "foo/0"}
+	err = cmdtesting.InitCommand(NewDeployCommand(), args)
+	c.Assert(err, gc.ErrorMatches, "--attach-storage cannot be used on kubernetes models")
+}
 
 func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 	m, err := s.State.Model()

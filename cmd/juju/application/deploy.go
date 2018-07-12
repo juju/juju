@@ -624,6 +624,15 @@ func (c *DeployCommand) Init(args []string) error {
 	if c.Force && c.Series == "" && c.PlacementSpec == "" {
 		return errors.New("--force is only used with --series")
 	}
+	if len(c.AttachStorage) > 0 {
+		modelType, err := c.ModelType()
+		if err != nil {
+			return err
+		}
+		if modelType == model.CAAS && len(c.AttachStorage) > 0 {
+			return errors.New("--attach-storage cannot be used on kubernetes models")
+		}
+	}
 	switch len(args) {
 	case 2:
 		if !names.IsValidApplication(args[1]) {

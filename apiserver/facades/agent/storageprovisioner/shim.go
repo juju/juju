@@ -68,7 +68,7 @@ type StorageBackend interface {
 	WatchModelVolumeAttachments() state.StringsWatcher
 	WatchMachineVolumes(names.MachineTag) state.StringsWatcher
 	WatchMachineVolumeAttachments(names.MachineTag) state.StringsWatcher
-	WatchVolumeAttachment(names.MachineTag, names.VolumeTag) state.NotifyWatcher
+	WatchVolumeAttachment(names.Tag, names.VolumeTag) state.NotifyWatcher
 
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	AllStorageInstances() ([]state.StorageInstance, error)

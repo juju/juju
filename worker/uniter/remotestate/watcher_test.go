@@ -173,9 +173,9 @@ func (s *WatcherSuite) signalAll() {
 	s.st.unit.addressesWatcher.changes <- struct{}{}
 	s.st.updateStatusIntervalWatcher.changes <- struct{}{}
 	s.leadership.claimTicket.ch <- struct{}{}
+	s.st.unit.storageWatcher.changes <- []string{}
 	if s.st.modelType == model.IAAS {
 		s.applicationWatcher.changes <- struct{}{}
-		s.st.unit.storageWatcher.changes <- []string{}
 	}
 }
 
@@ -259,10 +259,8 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
 
-	if s.modelType == model.IAAS {
-		s.st.unit.storageWatcher.changes <- []string{}
-		assertOneChange()
-	}
+	s.st.unit.storageWatcher.changes <- []string{}
+	assertOneChange()
 
 	s.st.unit.configSettingsWatcher.changes <- struct{}{}
 	assertOneChange()
@@ -336,7 +334,7 @@ func (s *WatcherSuite) TestLeadershipLeaderUnchanged(c *gc.C) {
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 }
 
-func (s *WatcherSuiteIAAS) TestStorageChanged(c *gc.C) {
+func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
@@ -412,7 +410,7 @@ func (s *WatcherSuiteIAAS) TestStorageChanged(c *gc.C) {
 	})
 }
 
-func (s *WatcherSuiteIAAS) TestStorageUnattachedChanged(c *gc.C) {
+func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
@@ -458,7 +456,7 @@ func (s *WatcherSuiteIAAS) TestStorageUnattachedChanged(c *gc.C) {
 	})
 }
 
-func (s *WatcherSuiteIAAS) TestStorageAttachmentRemoved(c *gc.C) {
+func (s *WatcherSuite) TestStorageAttachmentRemoved(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
@@ -499,7 +497,7 @@ func (s *WatcherSuiteIAAS) TestStorageAttachmentRemoved(c *gc.C) {
 	c.Assert(s.watcher.Snapshot().Storage, gc.HasLen, 0)
 }
 
-func (s *WatcherSuiteIAAS) TestStorageChangedNotFoundInitially(c *gc.C) {
+func (s *WatcherSuite) TestStorageChangedNotFoundInitially(c *gc.C) {
 	s.signalAll()
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 

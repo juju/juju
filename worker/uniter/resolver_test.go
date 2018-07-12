@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter"
 	uniteractions "github.com/juju/juju/worker/uniter/actions"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -32,12 +33,32 @@ type resolverSuite struct {
 	opFactory            operation.Factory
 	resolver             resolver.Resolver
 	resolverConfig       uniter.ResolverConfig
+	modelType            model.ModelType
 
 	clearResolved   func() error
 	reportHookError func(hook.Info) error
 }
 
-var _ = gc.Suite(&resolverSuite{})
+type caasResolverSuite struct {
+	resolverSuite
+}
+
+type iaasResolverSuite struct {
+	resolverSuite
+}
+
+var _ = gc.Suite(&caasResolverSuite{})
+var _ = gc.Suite(&iaasResolverSuite{})
+
+func (s *caasResolverSuite) SetUpTest(c *gc.C) {
+	s.modelType = model.CAAS
+	s.resolverSuite.SetUpTest(c)
+}
+
+func (s *iaasResolverSuite) SetUpTest(c *gc.C) {
+	s.modelType = model.IAAS
+	s.resolverSuite.SetUpTest(c)
+}
 
 func (s *resolverSuite) SetUpTest(c *gc.C) {
 	s.stub = testing.Stub{}
@@ -68,7 +89,7 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 		Leadership:          leadership.NewResolver(),
 		Actions:             uniteractions.NewResolver(),
 		Relations:           relation.NewRelationsResolver(&dummyRelations{}),
-		Storage:             storage.NewResolver(attachments),
+		Storage:             storage.NewResolver(attachments, s.modelType),
 		Commands:            nopResolver{},
 	}
 

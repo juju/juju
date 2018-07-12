@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/instance"
 )
 
@@ -92,7 +93,7 @@ type UnitCommandBase struct {
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
 	f.StringVar(&c.PlacementSpec, "to", "", "The machine and/or container to deploy the unit in (bypasses constraints)")
-	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Existing storage to attach to the deployed unit")
+	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Existing storage to attach to the deployed unit (not available on kubernetes models)")
 }
 
 func (c *UnitCommandBase) Init(args []string) error {
@@ -171,6 +172,16 @@ func (c *addUnitCommand) Init(args []string) error {
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return err
 	}
+	if len(c.AttachStorage) > 0 {
+		modelType, err := c.ModelType()
+		if err != nil {
+			return err
+		}
+		if modelType == model.CAAS && len(c.AttachStorage) > 0 {
+			return errors.New("--attach-storage cannot be used on kubernetes models")
+		}
+	}
+
 	return c.UnitCommandBase.Init(args)
 }
 

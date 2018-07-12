@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -24,16 +25,18 @@ type StorageResolverOperations interface {
 }
 
 type storageResolver struct {
-	storage *Attachments
-	dying   bool
-	life    map[names.StorageTag]params.Life
+	storage   *Attachments
+	dying     bool
+	life      map[names.StorageTag]params.Life
+	modelType model.ModelType
 }
 
 // NewResolver returns a new storage resolver.
-func NewResolver(storage *Attachments) resolver.Resolver {
+func NewResolver(storage *Attachments, modelType model.ModelType) resolver.Resolver {
 	return &storageResolver{
-		storage: storage,
-		life:    make(map[names.StorageTag]params.Life),
+		storage:   storage,
+		modelType: modelType,
+		life:      make(map[names.StorageTag]params.Life),
 	}
 }
 
@@ -43,6 +46,11 @@ func (s *storageResolver) NextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
+
+	// Only IAAS models need to first run the install hook.
+	// For CAAS models, storage is specified in the pod config
+	// and mounted as the pod in started.
+	blockedWaitingForInstall := !localState.Installed && s.modelType == model.IAAS
 
 	if remoteState.Life == params.Dying {
 		// The unit is dying, so destroy all of its storage.
@@ -67,7 +75,7 @@ func (s *storageResolver) NextOp(
 	case localState.Kind == operation.Continue:
 		// There's nothing in progress.
 		runStorageHooks = true
-	case !localState.Installed && localState.Kind == operation.RunHook && localState.Step == operation.Queued:
+	case blockedWaitingForInstall && localState.Kind == operation.RunHook && localState.Step == operation.Queued:
 		// The install operation completed, and there's an install
 		// hook queued. Run storage-attached hooks first.
 		runStorageHooks = true
@@ -89,7 +97,7 @@ func (s *storageResolver) NextOp(
 	}
 	if s.storage.Pending() > 0 {
 		logger.Debugf("still pending %v", s.storage.pending.SortedValues())
-		if !localState.Installed {
+		if blockedWaitingForInstall {
 			// We only wait for pending storage before
 			// the install hook runs; we should not block
 			// other hooks from running while storage is
