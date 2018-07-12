@@ -11,6 +11,7 @@ import (
 	"github.com/juju/httprequest"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"fmt"
 )
 
 // APICaller is implemented by the client-facing State object.
@@ -124,6 +125,7 @@ var _ FacadeCaller = facadeCaller{}
 // Facade and the best version that the API server supports that is
 // also known to the client. (id is always passed as the empty string.)
 func (fc facadeCaller) FacadeCall(request string, params, response interface{}) error {
+	fmt.Printf("XXXX.....%d\n", fc.bestVersion)
 	return fc.caller.APICall(
 		fc.facadeName, fc.bestVersion, "",
 		request, params, response)

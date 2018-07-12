@@ -11,7 +11,6 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -20,7 +19,7 @@ var logger = loggo.GetLogger("juju.api.bundle")
 // Client allows access to the bundle API end point.
 type Client struct {
 	base.ClientFacade
-	*common.ModelStatusAPI
+	st     base.APICallCloser
 	facade base.FacadeCaller
 }
 
@@ -28,9 +27,9 @@ type Client struct {
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Bundle")
 	return &Client{
-		ClientFacade:   frontend,
-		ModelStatusAPI: common.NewModelStatusAPI(backend),
-		facade:         backend}
+		ClientFacade: frontend,
+		st:           st,
+		facade:       backend}
 }
 
 // ExportBundle exports the current model configuration.

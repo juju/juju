@@ -1,27 +1,24 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
-package bundle
+package model
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
+	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/api/bundle"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.bundle")
-
 // NewexportbundleCommand returns a fully constructed exportbundle command.
 func NewExportBundleCommand() cmd.Command {
-	return modelcmd.Wrap(&exportBundleCommand{}, modelcmd.WrapSkipModelFlags)
+	return modelcmd.Wrap(&exportBundleCommand{})
 }
 
 type exportBundleCommand struct {
@@ -74,7 +71,7 @@ func (c *exportBundleCommand) getAPI() (ExportBundleModelAPI, error) {
 		return c.api, nil
 	}
 
-	api, err := c.NewControllerAPIRoot()
+	api, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -125,9 +122,9 @@ func (c *exportBundleCommand) ResolveFilename() string {
 
 		filename = modelTag.String()
 		if _, err := os.Stat(filename); err == nil {
-			tag := fmt.Sprintf("%v", rand.Intn(1000))
-			filename = filename + tag
+			currentTime := time.Now()
+			filename = filename + currentTime.String()
 		}
 	}
-	return filename
+	return filename + ".yaml"
 }

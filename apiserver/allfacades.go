@@ -148,7 +148,7 @@ func AllFacades() *facade.Registry {
 	reg("Block", 2, block.NewAPI)
 	reg("Bundle", 1, bundle.NewFacadeV1)
 	if featureflag.Enabled(feature.DeveloperMode) {
-		reg("Bundle", 1, bundle.NewFacadeV2)
+		reg("Bundle", 2, bundle.NewFacadeV2)
 	}
 	reg("CharmRevisionUpdater", 2, charmrevisionupdater.NewCharmRevisionUpdaterAPI)
 	reg("Charms", 2, charms.NewFacade)
