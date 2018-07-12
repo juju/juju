@@ -23,12 +23,12 @@ func EnsureSymlinks(jujuDir, dir string, commands []string) (err error) {
 			err = errors.Annotatef(err, "cannot initialize commands in %q", dir)
 		}
 	}()
-	isSymlink, err := symlink.IsSymlink(dir)
+	isSymlink, err := symlink.IsSymlink(jujuDir)
 	if err != nil {
 		return err
 	}
 	if isSymlink {
-		link, err := symlink.Read(dir)
+		link, err := symlink.Read(jujuDir)
 		if err != nil {
 			return err
 		}
@@ -36,8 +36,8 @@ func EnsureSymlinks(jujuDir, dir string, commands []string) (err error) {
 			logger.Infof("%s is relative", link)
 			link = filepath.Join(filepath.Dir(dir), link)
 		}
-		dir = link
-		logger.Infof("was a symlink, now looking at %s", dir)
+		jujuDir = link
+		logger.Infof("was a symlink, now looking at %s", jujuDir)
 	}
 
 	jujudPath := filepath.Join(jujuDir, names.Jujud)
