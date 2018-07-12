@@ -31,19 +31,11 @@ const (
 
 // Validates a string returning an UpgradeSeriesStatus, if valid, or an error.
 func ValidateUnitSeriesUpgradeStatus(series string) (UnitSeriesUpgradeStatus, error) {
-	unitSeriesUpgradeStatuses := []UnitSeriesUpgradeStatus{UnitNotStarted, UnitStarted, UnitCompleted, UnitErrored}
-	i, found := indexOf(UnitSeriesUpgradeStatus(series), unitSeriesUpgradeStatuses)
-	if !found {
-		return UnitNotStarted, errors.Errorf("encountered invalid unit upgrade series status of %q", series)
+	unCheckedStatus := UnitSeriesUpgradeStatus(series)
+	switch unCheckedStatus {
+	case UnitNotStarted, UnitStarted, UnitErrored, UnitCompleted:
+		return unCheckedStatus, nil
 	}
-	return unitSeriesUpgradeStatuses[i], nil
-}
 
-func indexOf(find UnitSeriesUpgradeStatus, in []UnitSeriesUpgradeStatus) (int, bool) {
-	for ix, cur := range in {
-		if cur == find {
-			return ix, true
-		}
-	}
-	return -1, false
+	return UnitNotStarted, errors.Errorf("encountered invalid unit upgrade series status of %q", series)
 }
