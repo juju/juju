@@ -34,7 +34,7 @@ func ValidateUnitSeriesUpgradeStatus(series string) (UnitSeriesUpgradeStatus, er
 	unitSeriesUpgradeStatuses := []UnitSeriesUpgradeStatus{UnitNotStarted, UnitStarted, UnitCompleted, UnitErrored}
 	i, found := indexOf(UnitSeriesUpgradeStatus(series), unitSeriesUpgradeStatuses)
 	if !found {
-		return UnitNotStarted, errors.New("Invalid Unit Upgrade Series Status")
+		return UnitNotStarted, errors.Errorf("encountered invalid unit upgrade series status of %q", series)
 	}
 	return unitSeriesUpgradeStatuses[i], nil
 }

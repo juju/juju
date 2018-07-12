@@ -1288,5 +1288,5 @@ type UpgradeSeriesStatusResults struct {
 
 type SetUpgradeSeriesStatusParams struct {
 	Entities []Entity `json:"entities"`
-	Status   string   `json:"status"`
+	Status   []string `json:"statuses"`
 }
