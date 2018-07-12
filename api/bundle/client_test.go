@@ -7,7 +7,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/application"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/bundle"
 	"github.com/juju/juju/apiserver/params"
@@ -25,9 +24,8 @@ func newClient(f basetesting.APICallerFunc) *bundle.Client {
 	return bundle.NewClient(basetesting.BestVersionCaller{f, 1})
 }
 
-// TODO: vinu2003 to be implemented when the server Facade is done.
-func newClientv2(f basetesting.APICallerFunc) *application.Client {
-	return application.NewClient(basetesting.BestVersionCaller{f, 2})
+func newClientv2(f basetesting.APICallerFunc) *bundle.Client {
+	return bundle.NewClient(basetesting.BestVersionCaller{f, 2})
 }
 
 func (s *bundleMockSuite) TestPanicExportBundlev1(c *gc.C) {

@@ -36,8 +36,7 @@ Examples:
     juju export-bundle
 
 If --filename is not used, the archive is downloaded to a temp file
-which the name of the model with randnumber appended.
-The last exported can be identified manually by user.
+which the name of the model with time appended.
 `
 
 // Info implements Command.
