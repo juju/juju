@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -982,6 +983,118 @@ func (u *UniterAPI) WatchActionNotifications(args params.Entities) (params.Strin
 		return params.StringsWatchResults{}, err
 	}
 	return common.WatchActionNotifications(args, canAccess, watchOne), nil
+}
+
+// WatchUpgradeSeriesNotifications returns a NotifyWatcher for observing changes to upgrade series locks.
+func (u *UniterAPI) WatchUpgradeSeriesNotifications(args params.Entities) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.NotifyWatchResults{}, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		watcherId := ""
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		w, err := unit.WatchUpgradeSeriesNotifications()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		watcherId = u.resources.Register(w)
+		result.Results[i].NotifyWatcherId = watcherId
+	}
+	return result, nil
+}
+
+// UpgradeSeriesStatus returns the current state of series upgrading
+// unit. If no upgrade is in progress an error is returned instead.
+func (u *UniterAPI) UpgradeSeriesStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
+	result := params.UpgradeSeriesStatusResults{
+		Results: make([]params.UpgradeSeriesStatusResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.UpgradeSeriesStatusResults{}, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		status, err := unit.UpgradeSeriesStatus()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		result.Results[i].Status = string(status)
+	}
+
+	return result, nil
+}
+
+func (u *UniterAPI) SetUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, entity := range args.Entities {
+		//TODO[externalreality] refactor all of this, its being copied often.
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		status, err := model.ValidateUnitSeriesUpgradeStatus(args.Status[i])
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = unit.SetUpgradeSeriesStatus(status)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+	}
+
+	return result, nil
 }
 
 // ConfigSettings returns the complete set of application charm config

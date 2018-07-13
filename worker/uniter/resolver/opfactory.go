@@ -118,6 +118,11 @@ func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL *char
 
 func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) operation.Operation {
 	switch info.Kind {
+	case hooks.PreSeriesUpgrade:
+		remoteStatus := s.RemoteState.UpgradeSeriesStatus
+		op = onPrepareWrapper{op, func() {
+			s.LocalState.UpgradeSeriesStatus = remoteStatus
+		}}
 	case hooks.ConfigChanged:
 		v := s.RemoteState.ConfigVersion
 		series := s.RemoteState.Series

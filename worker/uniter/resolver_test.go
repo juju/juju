@@ -147,6 +147,25 @@ func (s *resolverSuite) TestSeriesChanged(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run config-changed hook")
 }
 
+func (s *resolverSuite) TestUpgradeSeriesStatusChanged(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
+		Series:               s.charmURL.Series,
+		UpgradeSeriesStatus:  model.UnitNotStarted,
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+			Started:   true,
+		},
+	}
+	s.remoteState.Series = s.charmURL.Series
+	s.remoteState.UpgradeSeriesStatus = model.UnitStarted
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run pre-series-upgrade hook")
+}
+
 func (s *resolverSuite) TestSeriesChangedBlank(c *gc.C) {
 	localState := resolver.LocalState{
 		CharmModifiedVersion: s.charmModifiedVersion,

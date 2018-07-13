@@ -9,6 +9,7 @@ import (
 	corecharm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -165,6 +166,11 @@ type Callbacks interface {
 	// no path by which the controller can legitimately garbage collect that
 	// charm or the application's settings for it. It's only used by Deploy operations.
 	SetCurrentCharm(charmURL *corecharm.URL) error
+
+	// SetSeriesStatusUpgrade is intended to give the uniter a chance to
+	// upgrade the status of a running series upgrade after upgrade series
+	// hook code completes.
+	SetUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus) error
 }
 
 // StorageUpdater is an interface used for updating local knowledge of storage

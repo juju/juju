@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	"gopkg.in/juju/charm.v6/hooks"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/common/charmrunner"
@@ -153,6 +154,8 @@ func (rh *runHook) beforeHook(state State) error {
 			Status: string(status.Maintenance),
 			Info:   "cleaning up prior to charm deletion",
 		})
+	case hooks.PreSeriesUpgrade:
+		logger.Debugf("starting pre upgrade series hook. updating state of series upgrade.")
 	}
 	if err != nil {
 		logger.Errorf("error updating workload status before %v hook: %v", rh.info.Kind, err)
@@ -195,10 +198,14 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 		if !isLeader || err != nil {
 			return hasRunStatusSet && err == nil, err
 		}
-		rel, err := ctx.Relation(rh.info.RelationId)
-		if err == nil && rel.Suspended() {
+		rel, rErr := ctx.Relation(rh.info.RelationId)
+		if rErr == nil && rel.Suspended() {
 			err = rel.SetStatus(relation.Suspended)
 		}
+	case hooks.PreSeriesUpgrade:
+		logger.Debugf("completing pre upgrade series hook. updating state of series upgrade.")
+		err = rh.callbacks.SetUpgradeSeriesStatus(model.UnitCompleted)
+		// Does the unit status need to be set to something here?
 	}
 	return hasRunStatusSet && err == nil, err
 }

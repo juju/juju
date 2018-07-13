@@ -60,6 +60,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 			addressesWatcher:                 newMockNotifyWatcher(),
 			configSettingsWatcher:            newMockNotifyWatcher(),
 			applicationConfigSettingsWatcher: newMockNotifyWatcher(),
+			upgradeSeriesWatcher:             newMockNotifyWatcher(),
 			storageWatcher:                   newMockStringsWatcher(),
 			actionWatcher:                    newMockStringsWatcher(),
 			relationsWatcher:                 newMockStringsWatcher(),
@@ -151,6 +152,7 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	s.st.unit.addressesWatcher.changes <- struct{}{}
 	s.st.unit.configSettingsWatcher.changes <- struct{}{}
 	s.st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
+	s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 	s.st.unit.storageWatcher.changes <- []string{}
 	s.st.unit.actionWatcher.changes <- []string{}
 	if s.st.unit.application.applicationWatcher != nil {
@@ -167,6 +169,7 @@ func (s *WatcherSuite) signalAll() {
 	s.st.unit.unitWatcher.changes <- struct{}{}
 	s.st.unit.configSettingsWatcher.changes <- struct{}{}
 	s.st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
+	s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 	s.st.unit.actionWatcher.changes <- []string{}
 	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	s.st.unit.relationsWatcher.changes <- []string{}
@@ -199,6 +202,7 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		Series:                "",
+		UpgradeSeriesStatus:   model.UnitStarted,
 	})
 }
 
@@ -222,6 +226,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		Series:                "",
+		UpgradeSeriesStatus:   model.UnitStarted,
 	})
 }
 
@@ -272,6 +277,9 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	c.Assert(s.watcher.Snapshot().LeaderSettingsVersion, gc.Equals, initial.LeaderSettingsVersion+1)
 
 	s.st.unit.relationsWatcher.changes <- []string{}
+	assertOneChange()
+
+	s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 	assertOneChange()
 
 	s.clock.Advance(5 * time.Minute)

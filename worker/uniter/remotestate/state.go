@@ -42,11 +42,13 @@ type Unit interface {
 	WatchAddresses() (watcher.NotifyWatcher, error)
 	WatchConfigSettings() (watcher.NotifyWatcher, error)
 	WatchTrustConfigSettings() (watcher.NotifyWatcher, error)
+	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
 	WatchStorage() (watcher.StringsWatcher, error)
 	WatchActionNotifications() (watcher.StringsWatcher, error)
 	// WatchRelation returns a watcher that fires when relations
 	// relevant for this unit change.
 	WatchRelations() (watcher.StringsWatcher, error)
+	UpgradeSeriesStatus() (string, error)
 }
 
 type Application interface {

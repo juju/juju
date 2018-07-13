@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/model"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -682,6 +683,92 @@ func (s *unitSuite) TestWatchActionNotificationsMoreResults(c *gc.C) {
 
 	_, err := s.apiUnit.WatchActionNotifications()
 	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 2")
+}
+
+func (s *unitSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
+	watcher, err := s.apiUnit.WatchUpgradeSeriesNotifications()
+	c.Assert(err, jc.ErrorIsNil)
+
+	notifyWatcher := watchertest.NewNotifyWatcherC(c, watcher, s.BackingState.StartSync)
+	defer notifyWatcher.AssertStops()
+
+	notifyWatcher.AssertOneChange()
+
+	s.CreateUpgradeSeriesLock(c)
+
+	// Expect a notification that the document was created (i.e. a lock was placed)
+	notifyWatcher.AssertOneChange()
+
+	err = s.wordpressMachine.RemoveUpgradeSeriesLock()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// A notification that the document was removed (i.e. the lock was released)
+	notifyWatcher.AssertOneChange()
+}
+
+func (s *unitSuite) TestUpgradeSeriesStatusIsInitializedToUnitStarted(c *gc.C) {
+	// First we create the prepare lock
+	s.CreateUpgradeSeriesLock(c)
+
+	// Then we check to see the status of our upgrade. We note that creating
+	// the lock essentially kicks off an upgrade from the perspective of
+	// assigned units.
+	status, err := s.apiUnit.UpgradeSeriesStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, string(model.UnitStarted))
+}
+
+func (s *unitSuite) TestSetUpgradeSeriesStatusFailsIfNoLockExists(c *gc.C) {
+	arbitaryStatus := string(model.UnitNotStarted)
+
+	err := s.apiUnit.SetUpgradeSeriesStatus(arbitaryStatus)
+	c.Assert(err, gc.ErrorMatches, "machine \"[0-9]*\" is not locked for upgrade")
+}
+
+func (s *unitSuite) TestSetUpgradeSeriesStatusUpdatesStatus(c *gc.C) {
+	arbitaryNonDefaultStatus := string(model.UnitNotStarted)
+
+	// First we create the prepare lock or the required state will not exists
+	s.CreateUpgradeSeriesLock(c)
+
+	// Change the state to something other than the default remote state of UnitStarted
+	err := s.apiUnit.SetUpgradeSeriesStatus(arbitaryNonDefaultStatus)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check to see that the upgrade status has been set appropriately
+	status, err := s.apiUnit.UpgradeSeriesStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, arbitaryNonDefaultStatus)
+}
+
+func (s *unitSuite) TestSetUpgradeSeriesStatusShouldOnlySetSpecifiedUnit(c *gc.C) {
+	// add another unit
+	unit2, err := s.wordpressApplication.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = unit2.AssignToMachine(s.wordpressMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Creating a lock for the machine transitions all units to started state
+	s.CreateUpgradeSeriesLock(c, unit2.Name())
+
+	// Complete one unit
+	err = unit2.SetUpgradeSeriesStatus(model.UnitCompleted)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The other unit should still be in the started state
+	status, err := s.wordpressUnit.UpgradeSeriesStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, model.UnitStarted)
+}
+
+func (s *unitSuite) CreateUpgradeSeriesLock(c *gc.C, additionalUnits ...string) {
+	unitNames := additionalUnits
+	unitNames = append(unitNames, s.wordpressUnit.Name())
+	series := "trust"
+
+	err := s.wordpressMachine.CreateUpgradeSeriesLock(unitNames, series)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *unitSuite) TestApplicationNameAndTag(c *gc.C) {

@@ -111,7 +111,7 @@ gopkg.in/goose.v2	git	36df5d12fc6d0ef1c102e1c18a22ddf345b18821	2018-03-22T12:54:
 gopkg.in/httprequest.v1	git	1a21782420ea13c3c6fb1d03578f446b3248edb1	2018-03-08T16:26:44Z
 gopkg.in/ini.v1	git	776aa739ce9373377cd16f526cdf06cb4c89b40f	2016-02-22T23:24:41Z
 gopkg.in/juju/blobstore.v2	git	51fa6e26128d74e445c72d3a91af555151cc3654	2016-01-25T02:37:03Z
-gopkg.in/juju/charm.v6	git	5fbb467f7f759a4a2890fc5da0abe4b9b1df20fa	2018-06-29T06:08:46Z
+gopkg.in/juju/charm.v6	git	e6a4837dfe5ac4394d9861a97c45a887448bdc3c	2018-07-09T02:22:58Z
 gopkg.in/juju/charmrepo.v2	git	653bbd81990d2d7d48e0fb931a3b0f52c694572f	2017-11-14T18:40:45Z
 gopkg.in/juju/charmrepo.v3	git	8bb46aa94f3c679069e80fe35aac6d0581096d65	2018-06-29T07:07:28Z
 gopkg.in/juju/charmstore.v5	git	d93d0fd2b81b8230bdf9b1be91b50538dd8782fa	2018-06-28T08:11:03Z

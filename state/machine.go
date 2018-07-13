@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -214,44 +215,22 @@ type instanceData struct {
 	KeepInstance bool `bson:"keep-instance,omitempty"`
 }
 
-// upgradeSeriesLock holds the attributes relevant to lock a machine during a
+// upgradeSeriesLockDoc holds the attributes relevant to lock a machine during a
 // series update of a machine
-type upgradeSeriesLock struct {
-	Id             string                     `bson:"machineid"`
-	ToSeries       string                     `bson:"toseries"`
-	FromSeries     string                     `bson:"fromseries"`
-	PrepareStatus  MachineSeriesUpgradeStatus `bson:"preparestatus"`
-	PrepareUnits   []unitStatus               `bson:"prepareunits"`
-	CompleteStatus MachineSeriesUpgradeStatus `bson:"completestatus"`
-	CompleteUnits  []unitStatus               `bson:"completeunits"`
+type upgradeSeriesLockDoc struct {
+	Id             string                           `bson:"machineid"`
+	ToSeries       string                           `bson:"toseries"`
+	FromSeries     string                           `bson:"fromseries"`
+	PrepareStatus  model.MachineSeriesUpgradeStatus `bson:"preparestatus"`
+	PrepareUnits   []unitStatus                     `bson:"prepareunits"`
+	CompleteStatus model.MachineSeriesUpgradeStatus `bson:"completestatus"`
+	CompleteUnits  []unitStatus                     `bson:"completeunits"`
 }
 
 type unitStatus struct {
 	Id     string
-	Status UnitSeriesUpgradeStatus
+	Status model.UnitSeriesUpgradeStatus
 }
-
-type MachineSeriesUpgradeStatus int
-
-//go:generate stringer -type MachineSeriesUpgradeStatus
-const (
-	NotStarted MachineSeriesUpgradeStatus = iota
-	Started
-	UnitsRunning
-	JujuComplete
-	AgentsStopped
-	Complete
-)
-
-type UnitSeriesUpgradeStatus int
-
-//go:generate stringer -type UnitSeriesUpgradeStatus
-const (
-	UnitNotStarted UnitSeriesUpgradeStatus = iota
-	UnitStarted
-	UnitErrored
-	UnitCompleted
-)
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
 	return &instance.HardwareCharacteristics{
@@ -2157,25 +2136,25 @@ func (m *Machine) unitsHaveChanged(unitNames []string) (bool, error) {
 	return !unitNameSet.Difference(curUnitSet).IsEmpty(), nil
 }
 
-func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLock {
+func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) *upgradeSeriesLockDoc {
 	prepareUnits := make([]unitStatus, len(unitNames))
 	completeUnits := make([]unitStatus, len(unitNames))
 	for i, name := range unitNames {
-		prepareUnits[i] = unitStatus{Id: name, Status: UnitNotStarted}
-		completeUnits[i] = unitStatus{Id: name, Status: UnitNotStarted}
+		prepareUnits[i] = unitStatus{Id: name, Status: model.UnitStarted}
+		completeUnits[i] = unitStatus{Id: name, Status: model.UnitNotStarted}
 	}
-	return &upgradeSeriesLock{
+	return &upgradeSeriesLockDoc{
 		Id:             m.Id(),
 		ToSeries:       toSeries,
 		FromSeries:     m.Series(),
-		PrepareStatus:  NotStarted,
+		PrepareStatus:  model.MachineSeriesUpgradeStarted,
 		PrepareUnits:   prepareUnits,
-		CompleteStatus: NotStarted,
+		CompleteStatus: model.MachineSeriesUpgradeNotStarted,
 		CompleteUnits:  completeUnits,
 	}
 }
 
-// RemoveUpgradeSeriesLock remove a series upgrade prepare lock for a
+// RemoveUpgradeSeriesLock removes a series upgrade prepare lock for a
 // given machine.
 func (m *Machine) RemoveUpgradeSeriesLock() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -2196,14 +2175,80 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
 		err = onAbort(err, ErrDead)
-		logger.Errorf("cannot complete series upgrade for machine %q: %v", m, err)
 		return err
 	}
 
 	return nil
 }
 
-func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLock) []txn.Op {
+// UpgradeSeriesStatus returns the status of a series upgrade.
+func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UnitSeriesUpgradeStatus, error) {
+	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
+	defer closer()
+
+	var lock upgradeSeriesLockDoc
+	err := coll.FindId(m.Id()).One(&lock)
+	if err == mgo.ErrNotFound {
+		return "", errors.NotFoundf("upgrade series lock for machine %q", m.Id())
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	for _, unit := range lock.PrepareUnits {
+		if unit.Id == unitName {
+			return unit.Status, nil
+		}
+	}
+
+	return "", errors.NotFoundf("unit %q of machine %q", unitName, m.Id())
+}
+
+// SetUpgradeSeriesStatus sets the status of a series upgrade.
+func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSeriesUpgradeStatus) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if err := m.isStillAlive(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
+		defer closer()
+		var lock upgradeSeriesLockDoc
+		err := coll.FindId(m.Id()).One(&lock)
+		if err != nil {
+			return nil, errors.BadRequestf("machine %q is not locked for upgrade", m)
+		}
+		docIndex := -1
+		for i, unitStatus := range lock.PrepareUnits {
+			if unitStatus.Id == unitName {
+				if unitStatus.Status == status {
+					return nil, jujutxn.ErrNoOperations
+				}
+				docIndex = i
+			}
+		}
+		if docIndex == -1 {
+			return nil, fmt.Errorf("cannot get upgrade series lock for unit %q of machine %v: %v", unitName, m.Id(), err)
+		}
+		logger.Debugf("Requested unit name: %q, Unit indexed %q", unitName, lock.PrepareUnits[docIndex].Id)
+
+		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, docIndex, status), nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		logger.Errorf("cannot set series upgrade status for unit %q of machine %q: %v", unitName, m.Id(), err)
+		return err
+	}
+
+	return nil
+}
+
+func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLockDoc) []txn.Op {
 	return []txn.Op{
 		{
 			C:      machinesC,
@@ -2230,11 +2275,33 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 	}
 }
 
+func setUpgradeSeriesTxnOps(machineDocId, unitName string, unitIndex int, status model.UnitSeriesUpgradeStatus) []txn.Op {
+	unitStatusField := fmt.Sprintf("prepareunits.%d.status", unitIndex)
+	unitIdField := fmt.Sprintf("prepareunits.%d.id", unitIndex)
+	return []txn.Op{
+		{
+			C:      machinesC,
+			Id:     machineDocId,
+			Assert: isAliveDoc,
+		},
+		{
+			C:  machineUpgradeSeriesLocksC,
+			Id: machineDocId,
+			Assert: bson.D{{"$and", []bson.D{
+				{{"prepareunits", bson.D{{"$exists", true}}}},
+				{{unitIdField, unitName}},
+				{{unitStatusField, bson.D{{"$ne", status}}}}}}},
+			Update: bson.D{
+				{"$set", bson.D{{unitStatusField, status}}}},
+		},
+	}
+}
+
 func (m *Machine) IsLocked() (bool, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
-	var lock upgradeSeriesLock
+	var lock upgradeSeriesLockDoc
 	err := coll.FindId(m.Id()).One(&lock)
 	if err == mgo.ErrNotFound {
 		return false, nil

@@ -19,6 +19,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
@@ -1634,6 +1635,39 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 			metricsManagerKey,
 		},
 	})
+}
+
+// WatchUpgradeStatus returns a watcher that observes the status of a series
+// upgrade by monitoring changes to its parent machine's upgrade series lock.
+func (u *Unit) WatchUpgradeSeriesNotifications() (NotifyWatcher, error) {
+	machine, err := u.machine()
+	if err != nil {
+		return nil, err
+	}
+	watch := newEntityWatcher(machine.st, machineUpgradeSeriesLocksC, machine.doc.DocID)
+	if _, ok := <-watch.Changes(); ok {
+		return watch, nil
+	}
+
+	return nil, watcher.EnsureErr(watch)
+}
+
+// UpgradeSeriesStatus returns the upgrade status of the units assigned machine.
+func (u *Unit) UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error) {
+	machine, err := u.machine()
+	if err != nil {
+		return "", err
+	}
+	return machine.UpgradeSeriesStatus(u.Name())
+}
+
+// UpgradeSeriesStatus sets the upgrade status of the units assigned machine.
+func (u *Unit) SetUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus) error {
+	machine, err := u.machine()
+	if err != nil {
+		return err
+	}
+	return machine.SetUpgradeSeriesStatus(u.Name(), status)
 }
 
 func newEntityWatcher(backend modelBackend, collName string, key interface{}) NotifyWatcher {

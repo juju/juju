@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
@@ -98,4 +99,8 @@ type LocalState struct {
 	// Series is the current series running on the unit from remotestate.Snapshot
 	// for which a config-changed hook has been committed.
 	Series string
+
+	// UpgradeSeriesStatus is the current state of any currently running
+	// series upgrade or the empty string if no series upgrade has been started.
+	UpgradeSeriesStatus model.UnitSeriesUpgradeStatus
 }

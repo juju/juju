@@ -169,9 +169,9 @@ func (w *RemoteStateWatcher) CommandCompleted(completed string) {
 	}
 }
 
-func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
-	// TODO(dfc) named return value is a time bomb
-	// TODO(axw) move this logic.
+func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) error {
+	// TODO(axw) move this logic
+	var err error
 	defer func() {
 		cause := errors.Cause(err)
 		if params.IsCodeNotFoundOrCodeUnauthorized(cause) {
@@ -317,6 +317,17 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	// returned by the leadership tracker.
 	requiredEvents++
 
+	// TODO(externalreality) This pattern should probably be extracted
+	var seenUpgradeSeriesChange bool
+	upgradeSeriesw, err := w.unit.WatchUpgradeSeriesNotifications()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(upgradeSeriesw); err != nil {
+		return errors.Trace(err)
+	}
+	requiredEvents++
+
 	var eventsObserved int
 	observedEvent := func(flag *bool) {
 		if flag != nil && !*flag {
@@ -405,8 +416,17 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		case _, ok := <-trustConfigw.Changes():
 			err = configChanged(ok, &seenTrustConfigChange)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
+		case _, ok := <-upgradeSeriesw.Changes():
+			logger.Debugf("got upgrade series change")
+			if !ok {
+				return errors.New("upgrades series watcher closed")
+			}
+			if err := w.upgradeSeriesStatusChanged(); err != nil {
+				return errors.Trace(err)
+			}
+			observedEvent(&seenUpgradeSeriesChange)
 		case _, ok := <-addressesChanges:
 			logger.Debugf("got address change: ok=%t", ok)
 			if !ok {
@@ -535,6 +555,26 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		// Something changed.
 		fire()
 	}
+}
+
+// upgradeSeriesStatusChanged is called when the remote status of a series
+// upgrade changes.
+func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	rawStatus, err := w.unit.UpgradeSeriesStatus()
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	status, err := model.ValidateUnitSeriesUpgradeStatus(rawStatus)
+	if err != nil {
+		return err
+	}
+	w.current.UpgradeSeriesStatus = status
+	return nil
 }
 
 // updateStatusChanged is called when the update status timer expires.

@@ -1277,3 +1277,17 @@ type DumpModelRequest struct {
 	Entities   []Entity `json:"entities"`
 	Simplified bool     `json:"simplified"`
 }
+
+type UpgradeSeriesStatusResult struct {
+	Error  *Error `json:"error,omitempty"`
+	Status string `json:"status,omitempty"`
+}
+
+type UpgradeSeriesStatusResults struct {
+	Results []UpgradeSeriesStatusResult `json:"results,omitempty"`
+}
+
+type SetUpgradeSeriesStatusParams struct {
+	Entities []Entity `json:"entities"`
+	Status   []string `json:"statuses"`
+}

@@ -4,11 +4,15 @@
 package state
 
 import (
+	"fmt"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/model"
 )
 
 type MachineInternalSuite struct {
@@ -23,7 +27,7 @@ var _ = gc.Suite(&MachineInternalSuite{})
 
 func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsMachineAlive(c *gc.C) {
 	arbitraryId := "1"
-	arbitraryData := &upgradeSeriesLock{}
+	arbitraryData := &upgradeSeriesLockDoc{}
 	var found bool
 	for _, op := range createUpgradeSeriesLockTxnOps(arbitraryId, arbitraryData) {
 		assertVal, ok := op.Assert.(bson.D)
@@ -37,7 +41,7 @@ func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsMachineAlive(c *gc
 
 func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsDocDoesNOTExist(c *gc.C) {
 	arbitraryId := "1"
-	arbitraryData := &upgradeSeriesLock{}
+	arbitraryData := &upgradeSeriesLockDoc{}
 	expectedOp := txn.Op{
 		C:      machineUpgradeSeriesLocksC,
 		Id:     arbitraryId,
@@ -56,6 +60,44 @@ func (s *MachineInternalSuite) TestRemoveUpgradeLockTxnAssertsDocExists(c *gc.C)
 		Remove: true,
 	}
 	assertConstainsOP(c, expectedOp, removeUpgradeSeriesLockTxnOps(arbitraryId))
+}
+
+func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransaction(c *gc.C) {
+	arbitaryMachineId := "id"
+	arbitaryUnitName := "application/0"
+	arbitaryStatus := model.UnitStarted
+	expectedOp := txn.Op{
+		C:  machineUpgradeSeriesLocksC,
+		Id: arbitaryMachineId,
+		Assert: bson.D{{"$and", []bson.D{
+			{{"prepareunits", bson.D{{"$exists", true}}}},
+			{{"prepareunits.0.id", "application/0"}},
+			{{"prepareunits.0.status", bson.D{{"$ne", arbitaryStatus}}}}}}},
+		Update: bson.D{
+			{"$set", bson.D{{"prepareunits.0.status", arbitaryStatus}}}},
+	}
+
+	actualOps := setUpgradeSeriesTxnOps(arbitaryMachineId, arbitaryUnitName, 0, arbitaryStatus)
+	expectedOpSt := fmt.Sprint(expectedOp.Update)
+	actualOpSt := fmt.Sprint(actualOps[1].Update)
+	c.Assert(actualOpSt, gc.Equals, expectedOpSt)
+}
+
+func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMachineIsAlive(c *gc.C) {
+	arbitaryMachineId := "id"
+	arbitaryStatus := model.UnitStarted
+	arbitaryUnitName := "application/0"
+	arbitaryUnitIndex := 0
+	expectedOp := txn.Op{
+		C:      machinesC,
+		Id:     arbitaryMachineId,
+		Assert: isAliveDoc,
+	}
+
+	actualOps := setUpgradeSeriesTxnOps(arbitaryMachineId, arbitaryUnitName, arbitaryUnitIndex, arbitaryStatus)
+	expectedOpSt := fmt.Sprint(expectedOp)
+	actualOpSt := fmt.Sprint(actualOps[0])
+	c.Assert(actualOpSt, gc.Equals, expectedOpSt)
 }
 
 func assertConstainsOP(c *gc.C, expectedOp txn.Op, actualOps []txn.Op) {
