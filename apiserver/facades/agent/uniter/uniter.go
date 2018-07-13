@@ -1082,7 +1082,7 @@ func (u *UniterAPI) SetUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusPar
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		status, err := model.ValidateUnitSeriesUpgradeStatus(args.Status)
+		status, err := model.ValidateUnitSeriesUpgradeStatus(args.Status[i])
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
