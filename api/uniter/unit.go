@@ -696,7 +696,7 @@ func (u *Unit) SetUpgradeSeriesStatus(status string) error {
 	var results params.ErrorResults
 	args := params.SetUpgradeSeriesStatusParams{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
-		Status:   []string{string(status)},
+		Status:   []string{status},
 	}
 	err := u.st.facade.FacadeCall("SetUpgradeSeriesStatus", args, &results)
 	if err != nil {
