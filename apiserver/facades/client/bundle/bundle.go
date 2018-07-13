@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/description"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -175,11 +176,35 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 		return params.StringResult{}, common.ServerError(err)
 	}
 
-	// Fill it in bundle data struct.
-	var bundledata charm.BundleData
+	// Fill it in charm.BundleData datastructure.
+	var bundleData charm.BundleData
+	err = b.FillBundleData(bundleData, model)
+	if err != nil {
+		return params.StringResult{}, common.ServerError(err)
+	}
 
+	bytes, err := yaml.Marshal(bundleData)
+	if err != nil {
+		return params.StringResult{}, common.ServerError(err)
+	}
+
+	return params.StringResult{
+		Result: string(bytes),
+	}, nil
+}
+
+// Mask the new method from V1 API.
+// ExportBundle is not in V1 API.
+func (u *APIv1) ExportBundle() (_, _ struct{}) { return }
+
+// Fills the bundledata datastructure required for the exportBundle.
+func (b *BundleAPI) FillBundleData(bundleData charm.BundleData, model description.Model) error {
 	// Fill in the BundleApplicationSpec of BundleData.
 	app := make(map[string]*charm.ApplicationSpec)
+	result := model.Applications()
+	if len(result) == 0 {
+		return errors.NotFoundf("application")
+	}
 	for _, application := range model.Applications() {
 		app[application.Name()].Charm = application.CharmURL()
 		app[application.Name()].Series = application.Series()
@@ -220,22 +245,10 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 		rel = append(rel, endpointRelation)
 	}
 
-	bundledata.Applications = app
-	bundledata.Machines = mac
-	bundledata.Relations = rel
-	bundledata.Series = series.LatestLts()
+	bundleData.Applications = app
+	bundleData.Machines = mac
+	bundleData.Relations = rel
+	bundleData.Series = series.LatestLts()
 
-	bytes, err := yaml.Marshal(bundledata)
-	if err != nil {
-		return params.StringResult{}, common.ServerError(err)
-	}
-
-	return params.StringResult{
-		Result: string(bytes),
-	}, nil
-	return params.StringResult{}, nil
+	return nil
 }
-
-// Mask the new method from V1 API.
-// ExportBundle is not in V1 API.
-func (u *APIv1) ExportBundle() (_, _ struct{}) { return }

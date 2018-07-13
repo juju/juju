@@ -6,11 +6,13 @@ package bundle_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -213,4 +215,16 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 			})
 		}
 	}
+}
+
+func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
+	var cfg state.ExportConfig
+	model, err := s.st.Exportpartial(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(model.Validate(), jc.ErrorIsNil)
+
+	var bundleData charm.BundleData
+	err = s.facade.FillBundleData(bundleData, model)
+	c.Check(err, gc.ErrorMatches, "application not found")
 }
