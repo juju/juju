@@ -189,16 +189,7 @@ func (e *backingModel) mongoId() string {
 
 type backingMachine machineDoc
 
-func (m *backingMachine) processMachineAndAgentStatus(entity Entity, info *multiwatcher.MachineInfo) error {
-	machine, ok := entity.(status.StatusGetter)
-	if !ok {
-		return errors.Errorf("the given entity does not support Status %v", entity)
-	}
-	agentStatus, err := machine.Status()
-	if err != nil {
-		return errors.Annotatef(err, "retrieving agent status for machine %q", m.Id)
-	}
-	info.AgentStatus = multiwatcher.NewStatusInfo(agentStatus, nil)
+func (m *backingMachine) updateAgentVersion(entity Entity, info *multiwatcher.MachineInfo) error {
 	if agentTooler, ok := entity.(AgentTooler); ok {
 		t, err := agentTooler.AgentTools()
 		if err != nil && !errors.IsNotFound(err) {
@@ -208,6 +199,21 @@ func (m *backingMachine) processMachineAndAgentStatus(entity Entity, info *multi
 			info.AgentStatus.Version = t.Version.Number.String()
 		}
 	}
+	return nil
+}
+
+func (m *backingMachine) machineAndAgentStatus(entity Entity, info *multiwatcher.MachineInfo) error {
+	machine, ok := entity.(status.StatusGetter)
+	if !ok {
+		return errors.Errorf("the given entity does not support Status %v", entity)
+	}
+
+	agentStatus, err := machine.Status()
+	if err != nil {
+		return errors.Annotatef(err, "retrieving agent status for machine %q", m.Id)
+	}
+	info.AgentStatus = multiwatcher.NewStatusInfo(agentStatus, nil)
+
 	inst, ok := machine.(status.InstanceStatusGetter)
 	if !ok {
 		return errors.Errorf("the given entity does not support InstanceStatus %v", entity)
@@ -217,7 +223,6 @@ func (m *backingMachine) processMachineAndAgentStatus(entity Entity, info *multi
 		return errors.Annotatef(err, "retrieving instance status for machine %q", m.Id)
 	}
 	info.InstanceStatus = multiwatcher.NewStatusInfo(instanceStatusResult, nil)
-
 	return nil
 }
 
@@ -243,9 +248,18 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 			SpaceProviderId: string(addr.SpaceProviderId),
 		})
 	}
-
+	// fetch the associated machine.
+	entity, err := st.FindEntity(names.NewMachineTag(m.Id))
+	if err != nil {
+		return errors.Annotatef(err, "retrieving machine %q", m.Id)
+	}
 	oldInfo := store.Get(info.EntityId())
-	if oldInfo != nil {
+	if oldInfo == nil {
+		err := m.machineAndAgentStatus(entity, info)
+		if err != nil {
+			return errors.Annotatef(err, "retrieve machine and agent status for %q", m.Id)
+		}
+	} else {
 		// The entry already exists, so preserve the current status and
 		// instance data.
 		oldInfo := oldInfo.(*multiwatcher.MachineInfo)
@@ -254,14 +268,10 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 		info.InstanceId = oldInfo.InstanceId
 		info.HardwareCharacteristics = oldInfo.HardwareCharacteristics
 	}
-	// fetch the associated machine status to get possible updated status.
-	entity, err := st.FindEntity(names.NewMachineTag(m.Id))
+	// try to update agent version
+	err = m.updateAgentVersion(entity, info)
 	if err != nil {
-		return errors.Annotatef(err, "retrieving machine %q", m.Id)
-	}
-	err = m.processMachineAndAgentStatus(entity, info)
-	if err != nil {
-		return errors.Annotatef(err, "cannot retrieve instance and agent status for %q", m.Id)
+		return errors.Annotatef(err, "retrieve agent version for machine %q", m.Id)
 	}
 
 	// If the machine is been provisioned, fetch the instance id as required,
@@ -333,7 +343,7 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 	return portRanges, compatiblePorts, nil
 }
 
-func (u *backingUnit) processUnitAndAgentStatus(unit *Unit, info *multiwatcher.UnitInfo) error {
+func (u *backingUnit) unitAndAgentStatus(unit *Unit, info *multiwatcher.UnitInfo) error {
 	unitStatusResult, err := unit.Status()
 	if err != nil {
 		return errors.Trace(err)
@@ -342,8 +352,13 @@ func (u *backingUnit) processUnitAndAgentStatus(unit *Unit, info *multiwatcher.U
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// Unit and workload status.
 	info.WorkloadStatus = multiwatcher.NewStatusInfo(unitStatusResult, nil)
 	info.AgentStatus = multiwatcher.NewStatusInfo(agentStatusResult, nil)
+	return nil
+}
+
+func (u *backingUnit) updateAgentVersion(unit *Unit, info *multiwatcher.UnitInfo) error {
 	t, err := unit.AgentTools()
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotatef(err, "retrieving agent tools for unit %q", u.Name)
@@ -367,8 +382,28 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 		info.CharmURL = u.CharmURL.String()
 	}
 
+	// fetch the associated unit to get possible updated status.
+	unit, err := st.Unit(u.Name)
+	if err != nil {
+		return errors.Annotatef(err, "get unit %q", u.Name)
+	}
+
 	oldInfo := store.Get(info.EntityId())
-	if oldInfo != nil {
+	if oldInfo == nil {
+		logger.Debugf("new unit %q added to backing state", u.Name)
+		// We're adding the entry for the first time,
+		// so fetch the associated unit status and opened ports.
+		err := u.unitAndAgentStatus(unit, info)
+		if err != nil {
+			return errors.Annotatef(err, "retrieve unit and agent status for %q", u.Name)
+		}
+		portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(st, u.Name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		info.PortRanges = toMultiwatcherPortRanges(portRanges)
+		info.Ports = toMultiwatcherPorts(compatiblePorts)
+	} else {
 		// The entry already exists, so preserve the current status and ports.
 		oldInfo := oldInfo.(*multiwatcher.UnitInfo)
 		// Unit and workload status.
@@ -378,27 +413,15 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 		info.PortRanges = oldInfo.PortRanges
 	}
 
-	// fetch the associated unit to get possible updated status.
-	unit, err := st.Unit(u.Name)
+	// try to update agent version
+	err = u.updateAgentVersion(unit, info)
 	if err != nil {
-		return errors.Annotatef(err, "cannot get unit %q", u.Name)
+		return errors.Annotatef(err, "retrieve agent version for unit %q", u.Name)
 	}
-
-	// process Unit and workload status.
-	err = u.processUnitAndAgentStatus(unit, info)
-	if err != nil {
-		return errors.Annotatef(err, "cannot retrieve unit and agent status for %q", u.Name)
-	}
-	portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(st, u.Name)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	info.PortRanges = toMultiwatcherPortRanges(portRanges)
-	info.Ports = toMultiwatcherPorts(compatiblePorts)
 
 	publicAddress, privateAddress, err := getUnitAddresses(unit)
 	if err != nil {
-		return errors.Annotatef(err, "cannot get addresses for %q", u.Name)
+		return errors.Annotatef(err, "get addresses for %q", u.Name)
 	}
 	info.PublicAddress = publicAddress
 	info.PrivateAddress = privateAddress

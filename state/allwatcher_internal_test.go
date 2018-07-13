@@ -2240,7 +2240,6 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 							Message: "another failure",
 							Data:    map[string]interface{}{},
 							Since:   &now,
-							Version: "",
 						},
 						InstanceStatus: multiwatcher.StatusInfo{
 							Current: status.Pending,
@@ -2259,8 +2258,8 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						Id:         "0",
 						InstanceId: "i-0",
 						AgentStatus: multiwatcher.StatusInfo{
-							Current: status.Pending,
-							Message: "",
+							Current: status.Error,
+							Message: "another failure",
 							Data:    map[string]interface{}{},
 							Version: "2.4.1",
 						},
@@ -2917,7 +2916,6 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						Message: "",
 						Data:    map[string]interface{}{},
 						Since:   &now,
-						Version: "",
 					},
 					WorkloadStatus: multiwatcher.StatusInfo{
 						Current: "error",
@@ -2942,14 +2940,14 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						Ports:       []multiwatcher.Port{{"udp", 17070}},
 						PortRanges:  []multiwatcher.PortRange{{17070, 17070, "udp"}},
 						AgentStatus: multiwatcher.StatusInfo{
-							Current: "allocating",
+							Current: "idle",
 							Message: "",
 							Data:    map[string]interface{}{},
 							Version: "2.4.1",
 						},
 						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "waiting",
-							Message: "waiting for machine",
+							Current: "error",
+							Message: "another failure",
 							Data:    map[string]interface{}{},
 						},
 					}}}
