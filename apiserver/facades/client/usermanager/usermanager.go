@@ -287,7 +287,12 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 				Disabled:       user.IsDisabled(),
 			},
 		}
-		accessForUser(user.UserTag(), &result)
+		if user.IsDisabled() {
+			// disabled users have no access to the controller.
+			result.Result.Access = string(permission.NoAccess)
+		} else {
+			accessForUser(user.UserTag(), &result)
+		}
 		return result
 	}
 

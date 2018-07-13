@@ -206,7 +206,42 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 
 	// Since these are user login tests, the nonce is empty.
 	err = st.Login(u.Tag(), password, "", nil)
-	assertInvalidEntityPassword(c, err)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: fmt.Sprintf("user %q is disabled", u.Tag().Id()),
+		Code:    "unauthorized access",
+	})
+
+	_, err = st.Client().Status([]string{})
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `unknown object type "Client"`,
+		Code:    "not implemented",
+	})
+}
+
+func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
+	info, srv := s.newServer(c)
+	defer assertStop(c, srv)
+	info.ModelTag = s.Model.ModelTag()
+
+	st := s.openAPIWithoutLogin(c, info)
+	password := "password"
+	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password})
+
+	_, err := st.Client().Status([]string{})
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `unknown object type "Client"`,
+		Code:    "not implemented",
+	})
+
+	err = s.State.RemoveUser(u.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Since these are user login tests, the nonce is empty.
+	err = st.Login(u.Tag(), password, "", nil)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: fmt.Sprintf("user %q is permanently deleted", u.Tag().Id()),
+		Code:    "unauthorized access",
+	})
 
 	_, err = st.Client().Status([]string{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{

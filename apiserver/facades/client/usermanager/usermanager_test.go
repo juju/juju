@@ -383,7 +383,7 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 			info: &params.UserInfo{
 				Username:    "barfoo",
 				DisplayName: "Bar Foo",
-				Access:      "login",
+				Access:      "",
 				Disabled:    true,
 			},
 		}, {
@@ -438,7 +438,7 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 		info: &params.UserInfo{
 			Username:    "aardvark",
 			DisplayName: "Aard Vark",
-			Access:      "login",
+			Access:      "",
 			Disabled:    true,
 		},
 	}, {

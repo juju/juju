@@ -261,7 +261,7 @@ func (s *UserSuite) TestRemoveUserRemovesUserAccess(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("user %q is permanently deleted", user.UserTag().Name()))
 }
 
-func (s *UserSuite) TestDisable(c *gc.C) {
+func (s *UserSuite) TestDisableUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "a-password"})
 	c.Assert(user.IsDisabled(), jc.IsFalse)
 	c.Assert(s.activeUsers(c), jc.DeepEquals, []string{"test-admin", user.Name()})
@@ -277,6 +277,53 @@ func (s *UserSuite) TestDisable(c *gc.C) {
 	c.Assert(user.IsDisabled(), jc.IsFalse)
 	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
 	c.Assert(s.activeUsers(c), jc.DeepEquals, []string{"test-admin", user.Name()})
+}
+
+func (s *UserSuite) TestDisableUserDisablesUserAccess(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "so sekrit"})
+
+	// Assert user exists and can authenticate.
+	c.Assert(user.PasswordValid("so sekrit"), jc.IsTrue)
+
+	s.State.SetUserAccess(user.UserTag(), s.Model.ModelTag(), permission.AdminAccess)
+	s.State.SetUserAccess(user.UserTag(), s.State.ControllerTag(), permission.SuperuserAccess)
+
+	uam, err := s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(uam.Access, gc.Equals, permission.AdminAccess)
+
+	uac, err := s.State.UserAccess(user.UserTag(), s.State.ControllerTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(uac.Access, gc.Equals, permission.SuperuserAccess)
+
+	// Look for the user.
+	u, err := s.State.User(user.UserTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(u, jc.DeepEquals, user)
+
+	// Disable the user.
+	err = u.Disable()
+	c.Check(err, jc.ErrorIsNil)
+
+	uam, err = s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf("user %q is disabled", user.UserTag().Name()))
+
+	uac, err = s.State.UserAccess(user.UserTag(), s.State.ControllerTag())
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("user %q is disabled", user.UserTag().Name()))
+
+	// Re-enable the user.
+	err = u.Refresh()
+	c.Check(err, jc.ErrorIsNil)
+	err = u.Enable()
+	c.Check(err, jc.ErrorIsNil)
+
+	uam, err = s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(uam.Access, gc.Equals, permission.AdminAccess)
+
+	uac, err = s.State.UserAccess(user.UserTag(), s.State.ControllerTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(uac.Access, gc.Equals, permission.SuperuserAccess)
 }
 
 func (s *UserSuite) activeUsers(c *gc.C) []string {

@@ -142,6 +142,10 @@ func NewControllerUserAccess(st *State, userDoc userAccessDoc) (permission.UserA
 
 // UserPermission returns the access permission for the passed subject and target.
 func (st *State) UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error) {
+	if err := st.userMayHaveAccess(subject); err != nil {
+		return "", errors.Trace(err)
+	}
+
 	switch target.Kind() {
 	case names.ModelTagKind, names.ControllerTagKind:
 		access, err := st.UserAccess(subject, target)
@@ -173,13 +177,26 @@ func newUserAccess(perm *userPermission, userDoc userAccessDoc, object names.Tag
 	}
 }
 
+func (st *State) userMayHaveAccess(tag names.UserTag) error {
+	if !tag.IsLocal() {
+		// external users may have access
+		return nil
+	}
+	localUser, err := st.User(tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Since deleted users will throw an error above, we need to check whether the user has been disabled here.
+	if localUser.IsDisabled() {
+		return errors.Errorf("user %q is disabled", tag.Id())
+	}
+	return nil
+}
+
 // UserAccess returns a new permission.UserAccess for the passed subject and target.
 func (st *State) UserAccess(subject names.UserTag, target names.Tag) (permission.UserAccess, error) {
-	if subject.IsLocal() {
-		_, err := st.User(subject)
-		if err != nil {
-			return permission.UserAccess{}, errors.Trace(err)
-		}
+	if err := st.userMayHaveAccess(subject); err != nil {
+		return permission.UserAccess{}, errors.Trace(err)
 	}
 
 	var (
