@@ -310,6 +310,20 @@ func (s *UserSuite) TestDisableUserDisablesUserAccess(c *gc.C) {
 
 	uac, err = s.State.UserAccess(user.UserTag(), s.State.ControllerTag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("user %q is disabled", user.UserTag().Name()))
+
+	// Re-enable the user.
+	err = u.Refresh()
+	c.Check(err, jc.ErrorIsNil)
+	err = u.Enable()
+	c.Check(err, jc.ErrorIsNil)
+
+	uam, err = s.State.UserAccess(user.UserTag(), s.IAASModel.ModelTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(uam.Access, gc.Equals, permission.AdminAccess)
+
+	uac, err = s.State.UserAccess(user.UserTag(), s.State.ControllerTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(uac.Access, gc.Equals, permission.SuperuserAccess)
 }
 
 func (s *UserSuite) activeUsers(c *gc.C) []string {
