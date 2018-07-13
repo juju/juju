@@ -2575,7 +2575,6 @@ func (u *UniterAPI) goalStateRelations(allRelations []*state.Relation) (map[stri
 	for _, r := range allRelations {
 		endPoints := r.Endpoints()
 		for _, e := range endPoints {
-			logger.Criticalf("Endpoint -========================================================================-> \n%#v\n%#v\n%#v", r, e, e.Relation)
 			if e.Relation.Role == "peer" {
 				continue
 			}
@@ -2585,8 +2584,7 @@ func (u *UniterAPI) goalStateRelations(allRelations []*state.Relation) (map[stri
 				key = application.Name()
 			} else if errors.IsNotFound(err) {
 				logger.Debugf("application %q must be a remote application.", e.ApplicationName)
-				var remoteApplication *state.RemoteApplication
-				remoteApplication, err = u.st.RemoteApplication(e.ApplicationName)
+				remoteApplication, err := u.st.RemoteApplication(e.ApplicationName)
 				if err != nil {
 					return nil, err
 				}
@@ -2628,7 +2626,8 @@ func (u *UniterAPI) goalStateUnits(application *state.Application) (params.Units
 	}
 	unitsGoalState := params.UnitsGoalState{}
 	for _, unit := range allUnits {
-		if unit.Life() == state.Dead {
+		unitLife := unit.Life()
+		if unitLife == state.Dead {
 			// only show Alive and Dying units
 			logger.Debugf("unit %q is dead, ignore it.", unit.Name())
 			continue
@@ -2639,6 +2638,9 @@ func (u *UniterAPI) goalStateUnits(application *state.Application) (params.Units
 			return nil, errors.Errorf("Unit Status not accessible %q", err)
 		}
 		unitGoalState.Status = statusInfo.Status.String()
+		if unitLife == state.Dying {
+			unitGoalState.Status = unitLife.String()
+		}
 		unitGoalState.Since = statusInfo.Since
 		unitsGoalState[unit.Name()] = unitGoalState
 	}

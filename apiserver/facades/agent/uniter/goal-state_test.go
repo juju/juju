@@ -6,6 +6,7 @@ package uniter_test
 import (
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	charm "gopkg.in/juju/charm.v6"
@@ -16,6 +17,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -203,7 +205,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelation(c *gc.C) {
 	testGoalStates(c, s.uniter, args, expected)
 }
 
-// TestGoalStatesSingleRelationNonAliveUnitsExcluded tests dead units should not show in the GoalState result.
+// TestGoalStatesDeadUnitsExcluded tests dead units should not show in the GoalState result.
 func (s *uniterGoalStateSuite) TestGoalStatesDeadUnitsExcluded(c *gc.C) {
 
 	err := s.addRelationToSuiteScope(c, s.wordpressUnit, s.mysqlUnit)
@@ -257,12 +259,31 @@ func (s *uniterGoalStateSuite) TestGoalStatesDeadUnitsExcluded(c *gc.C) {
 	})
 }
 
+// preventUnitDestroyRemove sets a non-allocating status on the unit, and hence
+// prevents it from being unceremoniously removed from state on Destroy. This
+// is useful because several tests go through a unit's lifecycle step by step,
+// asserting the behaviour of a given method in each state, and the unit quick-
+// remove change caused many of these to fail.
+func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
+	// To have a non-allocating status, a unit needs to
+	// be assigned to a machine.
+	_, err := u.AssignedMachineId()
+	if errors.IsNotAssigned(err) {
+		err = u.AssignToNewMachine()
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.Idle,
+		Message: "",
+		Since:   &now,
+	}
+	err = u.SetAgentStatus(sInfo)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 // TestGoalStatesSingleRelationDyingUnits tests dying units showing dying status in the GoalState result.
 func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationDyingUnits(c *gc.C) {
-
-	// err := s.addRelationToSuiteScope(c, s.wordpressUnit, s.mysqlUnit)
-	// c.Assert(err, jc.ErrorIsNil)
-
 	wordPressUnit2 := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,
 		Machine:     s.machine1,
@@ -291,16 +312,9 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationDyingUnits(c *gc.C) {
 			},
 		},
 	})
-
+	preventUnitDestroyRemove(c, wordPressUnit2)
 	err = wordPressUnit2.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	// err = s.wordpress.Destroy()
-	// c.Assert(err, jc.ErrorIsNil)
-	// relations, err := s.wordpress.Relations()
-	// c.Assert(err, jc.ErrorIsNil)
-	// for _, rel := range relations {
-	// 	rel.Refresh()
-	// }
 
 	testGoalStates(c, s.uniter, args, params.GoalStateResults{
 		Results: []params.GoalStateResult{
@@ -327,7 +341,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationDyingUnits(c *gc.C) {
 	})
 }
 
-// TestGoalStatesCrossModelRelation tests remote relation application could never be found.
+// TestGoalStatesCrossModelRelation tests remote relation application shows URL as key.
 func (s *uniterGoalStateSuite) TestGoalStatesCrossModelRelation(c *gc.C) {
 	err := s.addRelationToSuiteScope(c, s.wordpressUnit, s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
