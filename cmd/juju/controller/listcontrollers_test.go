@@ -139,7 +139,7 @@ controllers:
     current-model: controller
     user: admin
     recent-server: this-is-aws-test-of-many-api-endpoints
-    uuid: this-is-the-aws-test-uuid
+    controller-uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
@@ -155,7 +155,7 @@ controllers:
     user: admin
     access: superuser
     recent-server: this-is-another-of-many-api-endpoints
-    uuid: this-is-another-uuid
+    controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
@@ -168,7 +168,7 @@ controllers:
   mark-test-prodstack:
     user: admin
     recent-server: this-is-one-of-many-api-endpoints
-    uuid: this-is-a-uuid
+    controller-uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
     cloud: prodstack

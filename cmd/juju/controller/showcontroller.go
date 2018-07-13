@@ -241,7 +241,7 @@ type ShowControllerDetails struct {
 // ControllerDetails holds details of a controller to show.
 type ControllerDetails struct {
 	// ControllerUUID is the unique ID for the controller.
-	ControllerUUID string `yaml:"uuid" json:"uuid"`
+	ControllerUUID string `yaml:"controller-uuid" json:"uuid"`
 
 	// APIEndpoints is the collection of API endpoints running in this controller.
 	APIEndpoints []string `yaml:"api-endpoints,flow" json:"api-endpoints"`
@@ -277,7 +277,7 @@ type MachineDetails struct {
 // ModelDetails holds details of a model to show.
 type ModelDetails struct {
 	// ModelUUID holds the details of a model.
-	ModelUUID string `yaml:"uuid" json:"uuid"`
+	ModelUUID string `yaml:"model-uuid" json:"uuid"`
 
 	// MachineCount holds the number of machines in the model.
 	MachineCount *int `yaml:"machine-count,omitempty" json:"machine-count,omitempty"`
