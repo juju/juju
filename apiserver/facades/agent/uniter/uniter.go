@@ -2517,7 +2517,6 @@ func (u *UniterAPI) GoalStates(args params.Entities) (params.GoalStateResults, e
 	if err != nil {
 		return params.GoalStateResults{}, err
 	}
-
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
@@ -2574,33 +2573,46 @@ func (u *UniterAPI) goalStateRelations(allRelations []*state.Relation) (map[stri
 	result := map[string]params.UnitsGoalState{}
 
 	for _, r := range allRelations {
-
 		endPoints := r.Endpoints()
 		for _, e := range endPoints {
 			if e.Relation.Role == "peer" {
 				continue
 			}
+			var key string
 			application, err := u.st.Application(e.ApplicationName)
-			if err != nil {
+			if err == nil {
+				key = application.Name()
+			} else if errors.IsNotFound(err) {
+				logger.Debugf("application %q must be a remote application.", e.ApplicationName)
+				remoteApplication, err := u.st.RemoteApplication(e.ApplicationName)
+				if err != nil {
+					return nil, err
+				}
+				var ok bool
+				key, ok = remoteApplication.URL()
+				if !ok {
+					// If we are on the offering side of a remote relation, don't show anything
+					// in goal state for that relation.
+					continue
+				}
+			} else {
 				return nil, err
 			}
-			units, err := u.goalStateUnits(application)
+			goalState := params.GoalStateStatus{}
+			statusInfo, err := r.Status()
 			if err != nil {
-				return nil, err
+				return nil, errors.Annotate(err, "getting relation status")
 			}
-			if len(units) == 0 {
-				continue
+			goalState.Status = statusInfo.Status.String()
+			goalState.Since = statusInfo.Since
+			relationGoalState := result[e.Name]
+			if relationGoalState == nil {
+				relationGoalState = params.UnitsGoalState{}
 			}
-			if result[e.Name] == nil {
-				result[e.Name] = params.UnitsGoalState{}
-			}
-			relation := result[e.Name]
-			for unitName, unitGS := range units {
-				relation[unitName] = unitGS
-			}
+			relationGoalState[key] = goalState
+			result[e.Name] = relationGoalState
 		}
 	}
-
 	return result, nil
 }
 
@@ -2612,17 +2624,25 @@ func (u *UniterAPI) goalStateUnits(application *state.Application) (params.Units
 	if err != nil {
 		return nil, err
 	}
-
 	unitsGoalState := params.UnitsGoalState{}
-	for _, u := range allUnits {
-		unit := params.GoalStateStatus{}
-		statusInfo, err := u.Status()
+	for _, unit := range allUnits {
+		unitLife := unit.Life()
+		if unitLife == state.Dead {
+			// only show Alive and Dying units
+			logger.Debugf("unit %q is dead, ignore it.", unit.Name())
+			continue
+		}
+		unitGoalState := params.GoalStateStatus{}
+		statusInfo, err := unit.Status()
 		if err != nil {
 			return nil, errors.Errorf("Unit Status not accessible %q", err)
 		}
-		unit.Status = statusInfo.Status.String()
-		unit.Since = statusInfo.Since
-		unitsGoalState[u.Name()] = unit
+		unitGoalState.Status = statusInfo.Status.String()
+		if unitLife == state.Dying {
+			unitGoalState.Status = unitLife.String()
+		}
+		unitGoalState.Since = statusInfo.Since
+		unitsGoalState[unit.Name()] = unitGoalState
 	}
 
 	return unitsGoalState, nil
