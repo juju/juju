@@ -464,6 +464,11 @@ func (conn *StubClient) FindImage(
 	return lxd.SourcedImage{}, nil
 }
 
+func (conn *StubClient) CreateCertificate(cert api.CertificatesPost) error {
+	conn.AddCall("CreateCertificate", cert)
+	return conn.NextErr()
+}
+
 func (conn *StubClient) CreateClientCertificate(cert *lxd.Certificate) error {
 	conn.AddCall("CreateClientCertificate", cert)
 	return conn.NextErr()

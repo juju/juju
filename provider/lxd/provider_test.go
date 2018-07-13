@@ -65,7 +65,6 @@ func (s *providerSuite) assertLocalhostCloud(c *gc.C, found cloud.Cloud) {
 		Name: "localhost",
 		Type: "lxd",
 		AuthTypes: []cloud.AuthType{
-			"interactive",
 			cloud.CertificateAuthType,
 		},
 		Regions: []cloud.Region{{

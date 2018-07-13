@@ -97,7 +97,7 @@ type PrepareConfigParams struct {
 // TODO(axw) replace CredentialSchemas with an updated environschema.
 // The GUI also needs to be able to handle multiple credential types,
 // and dependencies in config attributes.
-//go:generate mockgen -package testing -destination testing/provider_mock.go github.com/juju/juju/environs ProviderCredentials
+//go:generate mockgen -package testing -destination testing/provider_mock.go github.com/juju/juju/environs ProviderCredentials,RequestFinalizeCredential
 type ProviderCredentials interface {
 	// CredentialSchemas returns credential schemas, keyed on
 	// authentication type. These may be used to validate existing
@@ -124,6 +124,17 @@ type ProviderCredentials interface {
 		FinalizeCredentialContext,
 		FinalizeCredentialParams,
 	) (*cloud.Credential, error)
+}
+
+// RequestFinalizeCredential is an interface that an EnvironProvider implements
+// in order to call ProviderCredentials.FinalizeCredential strictly rather than
+// lazily to gather fully formed credentials.
+type RequestFinalizeCredential interface {
+
+	// ShouldFinalizeCredential asks if a EnvironProvider wants to strictly
+	// finalize a credential. The provider just returns true if they want to
+	// call FinalizeCredential from ProviderCredentials when asked.
+	ShouldFinalizeCredential(cloud.Credential) bool
 }
 
 // FinalizeCredentialContext is an interface passed into FinalizeCredential

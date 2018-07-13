@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -32,7 +33,7 @@ var _ = gc.Suite(&credentialsSuite{})
 
 func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
 	provider := lxd.NewProvider()
-	envtesting.AssertProviderAuthTypes(c, provider, "interactive", "certificate")
+	envtesting.AssertProviderAuthTypes(c, provider, "manual", "certificate")
 }
 
 type credentialsSuiteDeps struct {
@@ -282,16 +283,16 @@ func (s *credentialsSuite) TestFinalizeCredentialLocal(c *gc.C) {
 	out, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "localhost",
 		Credential: cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
-			"client-cert": string(coretesting.CACert),
-			"client-key":  string(coretesting.CAKey),
+			"client-cert": coretesting.CACert,
+			"client-key":  coretesting.CAKey,
 		}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(out.AuthType(), gc.Equals, cloud.CertificateAuthType)
 	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
-		"client-cert": string(coretesting.CACert),
-		"client-key":  string(coretesting.CAKey),
+		"client-cert": coretesting.CACert,
+		"client-key":  coretesting.CAKey,
 		"server-cert": "server-cert",
 	})
 }
@@ -308,16 +309,16 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalLocalAddCert(c *gc.C) {
 	out, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "",
 		Credential: cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
-			"client-cert": string(coretesting.CACert),
-			"client-key":  string(coretesting.CAKey),
+			"client-cert": coretesting.CACert,
+			"client-key":  coretesting.CAKey,
 		}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(out.AuthType(), gc.Equals, cloud.CertificateAuthType)
 	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
-		"client-cert": string(coretesting.CACert),
-		"client-key":  string(coretesting.CAKey),
+		"client-cert": coretesting.CACert,
+		"client-key":  coretesting.CAKey,
 		"server-cert": "server-cert",
 	})
 }
@@ -342,16 +343,16 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalLocalAddCertAlreadyExists(
 	out, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "",
 		Credential: cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
-			"client-cert": string(coretesting.CACert),
-			"client-key":  string(coretesting.CAKey),
+			"client-cert": coretesting.CACert,
+			"client-key":  coretesting.CAKey,
 		}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(out.AuthType(), gc.Equals, cloud.CertificateAuthType)
 	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
-		"client-cert": string(coretesting.CACert),
-		"client-key":  string(coretesting.CAKey),
+		"client-cert": coretesting.CACert,
+		"client-key":  coretesting.CAKey,
 		"server-cert": "server-cert",
 	})
 }
@@ -375,8 +376,8 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertFatal(c *gc.C) {
 	_, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "",
 		Credential: cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
-			"client-cert": string(coretesting.CACert),
-			"client-key":  string(coretesting.CAKey),
+			"client-cert": coretesting.CACert,
+			"client-key":  coretesting.CAKey,
 		}),
 	})
 	c.Assert(err, gc.ErrorMatches, "adding certificate \"juju\": UNIQUE constraint failed: certificates.fingerprint")
@@ -388,29 +389,62 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
 
 	deps := s.createProvider(ctrl)
 
-	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{"8.8.8.8"}, nil)
-	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
-
-	in := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
-		"client-cert": "foo",
-		"client-key":  "bar",
+	insecureCred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"client-cert":    coretesting.CACert,
+		"client-key":     coretesting.CAKey,
+		"trust-password": "fred",
 	})
-	_, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
+	insecureSpec := environs.CloudSpec{
+		Endpoint:   "8.8.8.8",
+		Credential: &insecureCred,
+	}
+	secureCred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"client-cert": coretesting.CACert,
+		"client-key":  coretesting.CAKey,
+		"server-cert": coretesting.ServerCert,
+	})
+	secureSpec := environs.CloudSpec{
+		Endpoint:   "8.8.8.8",
+		Credential: &secureCred,
+	}
+	params := environs.FinalizeCredentialParams{
 		CloudEndpoint: "8.8.8.8",
-		Credential:    in,
+		Credential:    insecureCred,
+	}
+	clientCert, err := lxd.ClientX509Cert([]byte(coretesting.CACert))
+	c.Assert(err, jc.ErrorIsNil)
+
+	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{}, nil)
+	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
+	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(deps.server, nil)
+	deps.server.EXPECT().CreateCertificate(api.CertificatesPost{
+		CertificatePut: api.CertificatePut{
+			Name: insecureCred.Label,
+			Type: "client",
+		},
+		Certificate: clientCert,
+		Password:    "fred",
+	}).Return(nil)
+	deps.server.EXPECT().GetServer().Return(&api.Server{
+		Environment: api.ServerEnvironment{
+			Certificate: coretesting.ServerCert,
+		},
+	}, "etag", nil)
+	deps.serverFactory.EXPECT().RemoteServer(secureSpec).Return(deps.server, nil)
+	deps.server.EXPECT().ServerCertificate().Return(coretesting.ServerCert)
+
+	expected := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		"client-cert": coretesting.CACert,
+		"client-key":  coretesting.CAKey,
+		"server-cert": coretesting.ServerCert,
 	})
-	c.Assert(err, gc.ErrorMatches, `
-cannot auto-generate credential for remote LXD
 
-Until support is added for verifying and authenticating to remote LXD hosts,
-you must generate the credential on the LXD host, and add the credential to
-this client using "juju add-credential localhost".
-
-See: https://jujucharms.com/docs/stable/clouds-LXD
-`[1:])
+	got, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, &expected)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocalInteractiveWithEmptyClientCert(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocalManualWithEmptyClientCert(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -419,12 +453,12 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalInteractiveWithEmptyClient
 	ctx := cmdtesting.Context(c)
 	_, err := deps.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
 		CloudEndpoint: "localhost",
-		Credential:    cloud.NewCredential("interactive", map[string]string{}),
+		Credential:    cloud.NewCredential("manual", map[string]string{}),
 	})
 	c.Assert(err, gc.ErrorMatches, `credentials not valid`)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocalInteractiveWithEmptyClientKey(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocalManualWithEmptyClientKey(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -433,14 +467,14 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalInteractiveWithEmptyClient
 	ctx := cmdtesting.Context(c)
 	_, err := deps.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
 		CloudEndpoint: "localhost",
-		Credential: cloud.NewCredential("interactive", map[string]string{
+		Credential: cloud.NewCredential("manual", map[string]string{
 			"client-cert": coretesting.CACert,
 		}),
 	})
 	c.Assert(err, gc.ErrorMatches, `credentials not valid`)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocalInteractive(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocalManual(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -449,7 +483,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalInteractive(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	out, err := deps.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
 		CloudEndpoint: "localhost",
-		Credential: cloud.NewCredential("interactive", map[string]string{
+		Credential: cloud.NewCredential("manual", map[string]string{
 			"client-cert": "/path/to/client/cert.crt",
 			"client-key":  "/path/to/client/key.key",
 			"server-cert": "server-cert",
@@ -457,7 +491,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalInteractive(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(out.AuthType(), gc.Equals, cloud.AuthType("interactive"))
+	c.Assert(out.AuthType(), gc.Equals, cloud.AuthType("manual"))
 	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
 		"client-cert": "/path/to/client/cert.crt",
 		"client-key":  "/path/to/client/key.key",
@@ -465,7 +499,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalInteractive(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialNonLocalInteractive(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialNonLocalManual(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -475,7 +509,7 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocalInteractive(c *gc.C) {
 	// it appears that we're not on the LXD server host.
 	_, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "8.8.8.8",
-		Credential:    cloud.NewCredential("interactive", map[string]string{}),
+		Credential:    cloud.NewCredential("manual", map[string]string{}),
 	})
 	c.Assert(err, gc.ErrorMatches, `credentials not valid`)
 }

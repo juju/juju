@@ -63,6 +63,18 @@ func (mr *MockServerMockRecorder) ContainerAddresses(arg0 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerAddresses", reflect.TypeOf((*MockServer)(nil).ContainerAddresses), arg0)
 }
 
+// CreateCertificate mocks base method
+func (m *MockServer) CreateCertificate(arg0 api.CertificatesPost) error {
+	ret := m.ctrl.Call(m, "CreateCertificate", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateCertificate indicates an expected call of CreateCertificate
+func (mr *MockServerMockRecorder) CreateCertificate(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCertificate", reflect.TypeOf((*MockServer)(nil).CreateCertificate), arg0)
+}
+
 // CreateClientCertificate mocks base method
 func (m *MockServer) CreateClientCertificate(arg0 *lxd.Certificate) error {
 	ret := m.ctrl.Call(m, "CreateClientCertificate", arg0)
@@ -466,6 +478,19 @@ func NewMockServerFactory(ctrl *gomock.Controller) *MockServerFactory {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockServerFactory) EXPECT() *MockServerFactoryMockRecorder {
 	return m.recorder
+}
+
+// InsecureRemoteServer mocks base method
+func (m *MockServerFactory) InsecureRemoteServer(arg0 environs.CloudSpec) (Server, error) {
+	ret := m.ctrl.Call(m, "InsecureRemoteServer", arg0)
+	ret0, _ := ret[0].(Server)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InsecureRemoteServer indicates an expected call of InsecureRemoteServer
+func (mr *MockServerFactoryMockRecorder) InsecureRemoteServer(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsecureRemoteServer", reflect.TypeOf((*MockServerFactory)(nil).InsecureRemoteServer), arg0)
 }
 
 // LocalServer mocks base method

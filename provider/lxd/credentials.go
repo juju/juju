@@ -4,6 +4,9 @@
 package lxd
 
 import (
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,6 +20,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/container/lxd"
@@ -25,14 +29,15 @@ import (
 )
 
 const (
-	credAttrServerCert = "server-cert"
-	credAttrClientCert = "client-cert"
-	credAttrClientKey  = "client-key"
+	credAttrServerCert    = "server-cert"
+	credAttrClientCert    = "client-cert"
+	credAttrClientKey     = "client-key"
+	credAttrTrustPassword = "trust-password"
 
-	// interactiveAuthType is a credential auth-type provided as an option to
-	// "juju add-credential", which takes the user through the process of
-	// generating a certificate credential.
-	interactiveAuthType = "interactive"
+	// manualAuthType is a credential auth-type provided as an option, where by
+	// you've already setup a lxd remote and you have all the certs at hand to
+	// just pass directly to juju.
+	manualAuthType = "manual"
 )
 
 // CertificateReadWriter groups methods that is required to read and write
@@ -77,30 +82,49 @@ type environProviderCredentials struct {
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	makeCredentials := func(filePath bool) cloud.CredentialSchema {
-		return cloud.CredentialSchema{{
-			Name: credAttrServerCert,
-			CredentialAttr: cloud.CredentialAttr{
-				Description:    "The LXD server certificate, PEM-encoded.",
-				ExpandFilePath: filePath,
-			},
-		}, {
-			Name: credAttrClientCert,
-			CredentialAttr: cloud.CredentialAttr{
-				Description:    "The LXD client certificate, PEM-encoded.",
-				ExpandFilePath: filePath,
-			},
-		}, {
-			Name: credAttrClientKey,
-			CredentialAttr: cloud.CredentialAttr{
-				Description:    "The LXD client key, PEM-encoded.",
-				ExpandFilePath: filePath,
-			},
-		}}
-	}
 	return map[cloud.AuthType]cloud.CredentialSchema{
-		interactiveAuthType:       makeCredentials(true),
-		cloud.CertificateAuthType: makeCredentials(false),
+		manualAuthType: {
+			{
+				Name: credAttrServerCert,
+				CredentialAttr: cloud.CredentialAttr{
+					Description:    "The LXD server certificate, PEM-encoded.",
+					ExpandFilePath: true,
+				},
+			}, {
+				Name: credAttrClientCert,
+				CredentialAttr: cloud.CredentialAttr{
+					Description:    "The LXD client certificate, PEM-encoded.",
+					ExpandFilePath: true,
+				},
+			}, {
+				Name: credAttrClientKey,
+				CredentialAttr: cloud.CredentialAttr{
+					Description:    "The LXD client key, PEM-encoded.",
+					ExpandFilePath: true,
+				},
+			},
+		},
+		cloud.CertificateAuthType: {
+			{
+				Name: credAttrClientCert,
+				CredentialAttr: cloud.CredentialAttr{
+					Description:    "The LXD client certificate, PEM-encoded.",
+					ExpandFilePath: true,
+				},
+			}, {
+				Name: credAttrClientKey,
+				CredentialAttr: cloud.CredentialAttr{
+					Description:    "The LXD client key, PEM-encoded.",
+					ExpandFilePath: true,
+				},
+			}, {
+				Name: credAttrTrustPassword,
+				CredentialAttr: cloud.CredentialAttr{
+					Description: "The LXD server trust password.",
+					Hidden:      true,
+				},
+			},
+		},
 	}
 }
 
@@ -171,12 +195,25 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 	return certPEM, keyPEM, nil
 }
 
+// ShouldFinalizeCredential is part of the environs.RequestFinalizeCredential
+// interface.
+// This is an optional interface to check if the server certificate has not
+// been filled in.
+func (p environProviderCredentials) ShouldFinalizeCredential(cred cloud.Credential) bool {
+	// The credential is fully formed, so we assume the client
+	// certificate is uploaded to the server already.
+	credAttrs := cred.Attributes()
+	_, ok := credAttrs[credAttrServerCert]
+	return !ok
+}
+
 // FinalizeCredential is part of the environs.ProviderCredentials interface.
-func (p environProviderCredentials) FinalizeCredential(ctx environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
-	// TODO (stickupkid): if there are no server certs for the following, use
-	// the lxd API
+func (p environProviderCredentials) FinalizeCredential(
+	ctx environs.FinalizeCredentialContext,
+	args environs.FinalizeCredentialParams,
+) (*cloud.Credential, error) {
 	switch authType := args.Credential.AuthType(); authType {
-	case interactiveAuthType:
+	case manualAuthType:
 		// if we have all the credential files, then it should be as simple
 		// as validating they exist.
 		_, _, ok := getCertificates(args.Credential)
@@ -199,15 +236,15 @@ func (p environProviderCredentials) finalizeCertificateCredential(
 	// the client certificate and key. We check if we have a partial
 	// credential, and fill in the server certificate if we can.
 	stderr := ctx.GetStderr()
-
 	credAttrs := args.Credential.Attributes()
-	certPEM := credAttrs[credAttrClientCert]
-	keyPEM := credAttrs[credAttrClientKey]
 	// The credential is fully formed, so we assume the client
 	// certificate is uploaded to the server already.
-	if credAttrs[credAttrServerCert] != "" {
+	if v, ok := credAttrs[credAttrServerCert]; ok && v != "" {
 		return &args.Credential, nil
 	}
+
+	certPEM := credAttrs[credAttrClientCert]
+	keyPEM := credAttrs[credAttrClientKey]
 	if certPEM == "" {
 		return nil, errors.NotValidf("missing or empty %q attribute", credAttrClientCert)
 	}
@@ -219,36 +256,122 @@ func (p environProviderCredentials) finalizeCertificateCredential(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !isLocalEndpoint {
-		// The endpoint is not local, so we cannot generate a
-		// certificate credential.
-		//
-		// TODO(axw) we could look in the $HOME/.config/lxc/servercerts
-		// directory for a server certificate. We would need to read
-		// $HOME/.config/lxc/config.yml to identify the remote by its
-		// endpoint.
-		//
-		// TODO(axw) for the "interactive" auth-type, we should take
-		// the user through the server certificate fingerprint
-		// verification and trust password flow.
-		return nil, errors.Errorf(`cannot auto-generate credential for remote LXD
 
-Until support is added for verifying and authenticating to remote LXD hosts,
-you must generate the credential on the LXD host, and add the credential to
-this client using "juju add-credential localhost".
-
-See: https://jujucharms.com/docs/stable/clouds-LXD
-`)
+	// If the end point is local, set up the local server and automate the local
+	// certificate credentials.
+	if isLocalEndpoint {
+		svr, err := p.serverFactory.LocalServer()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cred, err := p.finalizeLocalCertificateCredential(
+			stderr, svr, certPEM, keyPEM,
+			args.Credential.Label,
+		)
+		return cred, errors.Trace(err)
 	}
-	svr, err := p.serverFactory.LocalServer()
+
+	// We're not local, so setup the remote server and automate the remote
+	// certificate credentials.
+	return p.finalizeRemoteCertificateCredential(
+		stderr,
+		args.CloudEndpoint,
+		args.Credential,
+	)
+}
+
+func (p environProviderCredentials) finalizeRemoteCertificateCredential(
+	output io.Writer,
+	endpoint string,
+	credentials cloud.Credential,
+) (*cloud.Credential, error) {
+	clientCert, ok := getClientCertificates(credentials)
+	if !ok {
+		return nil, errors.NotFoundf("client credentials")
+	}
+
+	credAttrs := credentials.Attributes()
+	trustPassword, ok := credAttrs[credAttrTrustPassword]
+	if !ok {
+		return nil, errors.NotValidf("missing %q attribute", credAttrTrustPassword)
+	}
+
+	insecureCreds := cloud.NewCredential(cloud.CertificateAuthType, credAttrs)
+	server, err := p.serverFactory.InsecureRemoteServer(environs.CloudSpec{
+		Endpoint:   endpoint,
+		Credential: &insecureCreds,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cred, err := p.finalizeLocalCertificateCredential(
-		stderr, svr, certPEM, keyPEM,
-		args.Credential.Label,
-	)
-	return cred, errors.Trace(err)
+
+	clientRawCert, err := clientX509Cert(clientCert.CertPEM)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// check to see if the cert already exists
+	if err := server.CreateCertificate(api.CertificatesPost{
+		CertificatePut: api.CertificatePut{
+			Name: credentials.Label,
+			Type: "client",
+		},
+		Certificate: clientRawCert,
+		Password:    trustPassword,
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	fmt.Fprintln(output, "Uploaded certificate to LXD server.")
+
+	lxdServer, _, err := server.GetServer()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	lxdServerCert := lxdServer.Environment.Certificate
+
+	// request to make sure that we can actually query correctly in a secure
+	// manor.
+	attributes := make(map[string]string)
+	for k, v := range credAttrs {
+		if k == credAttrTrustPassword {
+			continue
+		}
+		attributes[k] = v
+	}
+	attributes[credAttrServerCert] = lxdServerCert
+
+	secureCreds := cloud.NewCredential(cloud.CertificateAuthType, attributes)
+	server, err = p.serverFactory.RemoteServer(environs.CloudSpec{
+		Endpoint:   endpoint,
+		Credential: &secureCreds,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Store the server's certificate in the credential.
+	out := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+		credAttrClientCert: string(clientCert.CertPEM),
+		credAttrClientKey:  string(clientCert.KeyPEM),
+		credAttrServerCert: server.ServerCertificate(),
+	})
+	out.Label = credentials.Label
+	return &out, nil
+}
+
+func clientX509Cert(cert []byte) (string, error) {
+	certBlock, _ := pem.Decode(cert)
+	if certBlock == nil {
+		return "", errors.New("Invalid certificate file")
+	}
+
+	x509Cert, err := x509.ParseCertificate(certBlock.Bytes)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return base64.StdEncoding.EncodeToString(x509Cert.Raw), nil
 }
 
 func (p environProviderCredentials) finalizeLocalCertificateCredential(
@@ -424,23 +547,32 @@ func addrsContains(haystack []net.Addr, needle string) bool {
 }
 
 func getCertificates(credentials cloud.Credential) (client *lxd.Certificate, server string, ok bool) {
+	clientCert, ok := getClientCertificates(credentials)
+	if !ok {
+		return nil, "", false
+	}
 	credAttrs := credentials.Attributes()
-	clientCertPEM, ok := credAttrs[credAttrClientCert]
-	if !ok {
-		return nil, "", false
-	}
-	clientKeyPEM, ok := credAttrs[credAttrClientKey]
-	if !ok {
-		return nil, "", false
-	}
 	serverCertPEM, ok := credAttrs[credAttrServerCert]
 	if !ok {
 		return nil, "", false
+	}
+	return clientCert, serverCertPEM, true
+}
+
+func getClientCertificates(credentials cloud.Credential) (client *lxd.Certificate, ok bool) {
+	credAttrs := credentials.Attributes()
+	clientCertPEM, ok := credAttrs[credAttrClientCert]
+	if !ok {
+		return nil, false
+	}
+	clientKeyPEM, ok := credAttrs[credAttrClientKey]
+	if !ok {
+		return nil, false
 	}
 	clientCert := &lxd.Certificate{
 		Name:    "juju",
 		CertPEM: []byte(clientCertPEM),
 		KeyPEM:  []byte(clientKeyPEM),
 	}
-	return clientCert, serverCertPEM, true
+	return clientCert, true
 }

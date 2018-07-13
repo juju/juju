@@ -37,6 +37,7 @@ type Server interface {
 	GetConnectionInfo() (info *lxdclient.ConnectionInfo, err error)
 	UpdateServerConfig(map[string]string) error
 	UpdateContainerConfig(string, map[string]string) error
+	CreateCertificate(lxdapi.CertificatesPost) error
 	GetCertificate(fingerprint string) (certificate *lxdapi.Certificate, ETag string, err error)
 	DeleteCertificate(fingerprint string) (err error)
 	CreateClientCertificate(certificate *lxd.Certificate) error
@@ -80,6 +81,12 @@ type ServerFactory interface {
 	// If the cloudSpec endpoint is nil or empty, it will assume that you want
 	// to connection to a local server and will instead use that one.
 	RemoteServer(environs.CloudSpec) (Server, error)
+
+	// InsecureRemoteServer creates a new server that connect to a remote lxd
+	// server in a insecure mannor.
+	// If the cloudSpec endpoint is nil or empty, it will assume that you want
+	// to connection to a local server and will instead use that one.
+	InsecureRemoteServer(environs.CloudSpec) (Server, error)
 }
 
 // InterfaceAddress groups methods that is required to find addresses
@@ -182,6 +189,29 @@ func (s *serverFactory) RemoteServer(spec environs.CloudSpec) (Server, error) {
 	if err == nil {
 		err = s.bootstrapRemoteServer(svr)
 	}
+	return svr, errors.Trace(err)
+}
+
+func (s *serverFactory) InsecureRemoteServer(spec environs.CloudSpec) (Server, error) {
+	if spec.Endpoint == "" {
+		return s.LocalServer()
+	}
+
+	cred := spec.Credential
+	if cred == nil {
+		return nil, errors.NotFoundf("credentials")
+	}
+
+	clientCert, ok := getClientCertificates(*cred)
+	if !ok {
+		return nil, errors.NotValidf("credentials")
+	}
+
+	serverSpec := lxd.NewInsecureServerSpec(spec.Endpoint)
+	serverSpec.
+		WithClientCertificate(clientCert).
+		WithSkipGetServer(true)
+	svr, err := s.newRemoteServerFunc(serverSpec)
 	return svr, errors.Trace(err)
 }
 
