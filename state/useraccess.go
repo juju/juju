@@ -176,9 +176,13 @@ func newUserAccess(perm *userPermission, userDoc userAccessDoc, object names.Tag
 // UserAccess returns a new permission.UserAccess for the passed subject and target.
 func (st *State) UserAccess(subject names.UserTag, target names.Tag) (permission.UserAccess, error) {
 	if subject.IsLocal() {
-		_, err := st.User(subject)
+		localUser, err := st.User(subject)
 		if err != nil {
 			return permission.UserAccess{}, errors.Trace(err)
+		}
+		// Since deleted users will throw an error, we need to check is user has been disabled here.
+		if localUser.IsDisabled() {
+			return permission.UserAccess{}, errors.Errorf("user %q is disabled", subject.Id())
 		}
 	}
 
