@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
@@ -2225,6 +2226,9 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 			err = m.SetSupportedContainers([]instance.ContainerType{instance.LXD})
 			c.Assert(err, jc.ErrorIsNil)
 
+			err = m.SetAgentVersion(version.MustParseBinary("2.4.1-bionic-amd64"))
+			c.Assert(err, jc.ErrorIsNil)
+
 			return changeTestCase{
 				about: "machine is updated if it's in backing and in Store",
 				initialContents: []multiwatcher.EntityInfo{
@@ -2236,6 +2240,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 							Message: "another failure",
 							Data:    map[string]interface{}{},
 							Since:   &now,
+							Version: "",
 						},
 						InstanceStatus: multiwatcher.StatusInfo{
 							Current: status.Pending,
@@ -2254,9 +2259,10 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						Id:         "0",
 						InstanceId: "i-0",
 						AgentStatus: multiwatcher.StatusInfo{
-							Current: status.Error,
-							Message: "another failure",
+							Current: status.Pending,
+							Message: "",
 							Data:    map[string]interface{}{},
+							Version: "2.4.1",
 						},
 						InstanceStatus: multiwatcher.StatusInfo{
 							Current: status.Pending,
@@ -2898,6 +2904,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("udp", 17070)
 			c.Assert(err, jc.ErrorIsNil)
+			err = u.SetAgentVersion(version.MustParseBinary("2.4.1-bionic-amd64"))
+			c.Assert(err, jc.ErrorIsNil)
 
 			return changeTestCase{
 				about: "unit is updated if it's in backing and in multiwatcher.Store",
@@ -2909,6 +2917,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						Message: "",
 						Data:    map[string]interface{}{},
 						Since:   &now,
+						Version: "",
 					},
 					WorkloadStatus: multiwatcher.StatusInfo{
 						Current: "error",
@@ -2933,13 +2942,14 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						Ports:       []multiwatcher.Port{{"udp", 17070}},
 						PortRanges:  []multiwatcher.PortRange{{17070, 17070, "udp"}},
 						AgentStatus: multiwatcher.StatusInfo{
-							Current: "idle",
+							Current: "allocating",
 							Message: "",
 							Data:    map[string]interface{}{},
+							Version: "2.4.1",
 						},
 						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "error",
-							Message: "another failure",
+							Current: "waiting",
+							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
 						},
 					}}}
