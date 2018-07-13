@@ -186,7 +186,7 @@ func (st *State) userMayHaveAccess(tag names.UserTag) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// Since deleted users will throw an error, we need to check is user has been disabled here.
+	// Since deleted users will throw an error above, we need to check whether the user has been disabled here.
 	if localUser.IsDisabled() {
 		return errors.Errorf("user %q is disabled", tag.Id())
 	}
