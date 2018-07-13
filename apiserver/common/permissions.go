@@ -62,7 +62,7 @@ func HasPermission(
 	return true, nil
 }
 
-// GetPermission returns the permission a user has on te specified target.
+// GetPermission returns the permission a user has on the specified target.
 func GetPermission(accessGetter userAccessFunc, userTag names.UserTag, target names.Tag) (permission.Access, error) {
 	userAccess, err := accessGetter(userTag, target)
 	if err != nil && !errors.IsNotFound(err) {
