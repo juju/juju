@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/kr/pretty"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -118,6 +119,8 @@ func resourceDocToUpdateOp(doc *resourceDoc) bson.M {
 	// The old code was trying to delete the doc and replace it entirely, so for now we'll just set everything except
 	// the doc's own id, which is clearly not allowed to change.
 	return bson.M{"$set": bson.M{
+		"resource-id":                doc.ID,
+		"pending-id":                 doc.PendingID,
 		"application-id":             doc.ApplicationID,
 		"unit-id":                    doc.UnitID,
 		"name":                       doc.Name,
@@ -139,6 +142,7 @@ func resourceDocToUpdateOp(doc *resourceDoc) bson.M {
 func newUpdateResourceOps(stored storedResource) []txn.Op {
 	doc := newResourceDoc(stored)
 
+	logger.Tracef("updating resource %s to %# v", stored.ID, pretty.Formatter(doc))
 	return []txn.Op{{
 		C:      resourcesC,
 		Id:     doc.DocID,
@@ -161,6 +165,7 @@ func newInsertCharmStoreResourceOps(res charmStoreResource) []txn.Op {
 func newUpdateCharmStoreResourceOps(res charmStoreResource) []txn.Op {
 	doc := newCharmStoreResourceDoc(res)
 
+	logger.Tracef("updating charm store resource %s to %# v", res.id, pretty.Formatter(doc))
 	return []txn.Op{{
 		C:      resourcesC,
 		Id:     doc.DocID,
@@ -185,6 +190,7 @@ func newUpdateUnitResourceOps(unitID string, stored storedResource, progress *in
 	doc := newUnitResourceDoc(unitID, stored)
 	doc.DownloadProgress = progress
 
+	logger.Tracef("updating unit resource %s to %# v", unitID, pretty.Formatter(doc))
 	return []txn.Op{{
 		C:      resourcesC,
 		Id:     doc.DocID,

@@ -172,6 +172,8 @@ func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 		Id:     "resource#a-application/spam",
 		Assert: txn.DocExists,
 		Update: bson.M{"$set": bson.M{
+			"resource-id":                doc.ID,
+			"pending-id":                 doc.PendingID,
 			"application-id":             doc.ApplicationID,
 			"unit-id":                    doc.UnitID,
 			"name":                       doc.Name,

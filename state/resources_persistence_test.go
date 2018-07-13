@@ -400,6 +400,8 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
 		Id:     "resource#a-application/spam#unit-a-application/0",
 		Assert: txn.DocExists,
 		Update: bson.M{"$set": bson.M{
+			"resource-id":                doc.ID,
+			"pending-id":                 doc.PendingID,
 			"application-id":             doc.ApplicationID,
 			"unit-id":                    doc.UnitID,
 			"name":                       doc.Name,
@@ -509,6 +511,8 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsExists(c *gc
 		Id:     expected.DocID,
 		Assert: txn.DocExists,
 		Update: bson.M{"$set": bson.M{
+			"resource-id":                expected.ID,
+			"pending-id":                 expected.PendingID,
 			"application-id":             expected.ApplicationID,
 			"unit-id":                    expected.UnitID,
 			"name":                       expected.Name,
@@ -530,6 +534,8 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsExists(c *gc
 		Id:     csresourceDoc.DocID,
 		Assert: txn.DocExists,
 		Update: bson.M{"$set": bson.M{
+			"resource-id":                csresourceDoc.ID,
+			"pending-id":                 csresourceDoc.PendingID,
 			"application-id":             csresourceDoc.ApplicationID,
 			"unit-id":                    csresourceDoc.UnitID,
 			"name":                       csresourceDoc.Name,
