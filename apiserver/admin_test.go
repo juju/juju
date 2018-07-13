@@ -221,7 +221,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	info, srv := s.newServer(c)
 	defer assertStop(c, srv)
-	info.ModelTag = s.IAASModel.ModelTag()
+	info.ModelTag = s.Model.ModelTag()
 
 	st := s.openAPIWithoutLogin(c, info)
 	password := "password"
