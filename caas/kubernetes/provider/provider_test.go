@@ -248,7 +248,7 @@ containers:
 	spec, err := provider.ParseK8sPodSpec(specStr)
 	c.Assert(err, jc.ErrorIsNil)
 	err = spec.Validate()
-	c.Assert(err, gc.ErrorMatches, "spec image is missing")
+	c.Assert(err, gc.ErrorMatches, "spec image details is missing")
 }
 
 func (s *providerSuite) TestValidateFileSetPath(c *gc.C) {

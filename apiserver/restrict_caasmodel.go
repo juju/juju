@@ -36,6 +36,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"ModelUpgrader",
 	"NotifyWatcher",
 	"Pinger",
+	"Resources",
 	"RelationUnitsWatcher",
 	"RemoteRelations",
 	"RetryStrategy",

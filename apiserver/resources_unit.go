@@ -27,7 +27,7 @@ type UnitResourcesHandler struct {
 func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case "GET":
-		opener, ph, err := h.NewOpener(req, names.UnitTagKind)
+		opener, ph, err := h.NewOpener(req, names.UnitTagKind, names.ApplicationTagKind)
 		if err != nil {
 			api.SendHTTPError(resp, err)
 			return

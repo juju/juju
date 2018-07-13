@@ -50,7 +50,7 @@ func (s *K8sSuite) TestMakeUnitSpecNoConfigConfig(c *gc.C) {
 			Image: "juju/image2",
 		}},
 	}
-	spec, err := provider.MakeUnitSpec(&podSpec)
+	spec, err := provider.MakeUnitSpec("app-name", &podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
 		Containers: []core.Container{
@@ -95,7 +95,7 @@ var basicPodspec = &caas.PodSpec{
 }
 
 func (s *K8sSuite) TestMakeUnitSpecConfigPairs(c *gc.C) {
-	spec, err := provider.MakeUnitSpec(basicPodspec)
+	spec, err := provider.MakeUnitSpec("app-name", basicPodspec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
 		Containers: []core.Container{
@@ -183,7 +183,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	defer ctrl.Finish()
 
 	numUnits := int32(2)
-	unitSpec, err := provider.MakeUnitSpec(basicPodspec)
+	unitSpec, err := provider.MakeUnitSpec("app-name", basicPodspec)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(unitSpec)
 
@@ -250,7 +250,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	defer ctrl.Finish()
 
 	numUnits := int32(2)
-	unitSpec, err := provider.MakeUnitSpec(basicPodspec)
+	unitSpec, err := provider.MakeUnitSpec("app-name", basicPodspec)
 	c.Assert(err, jc.ErrorIsNil)
 	podSpec := provider.PodSpec(unitSpec)
 	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{

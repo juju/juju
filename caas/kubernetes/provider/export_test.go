@@ -12,9 +12,11 @@ import (
 )
 
 var (
-	MakeUnitSpec    = makeUnitSpec
-	ParseK8sPodSpec = parseK8sPodSpec
-	OperatorPod     = operatorPod
+	MakeUnitSpec           = makeUnitSpec
+	ParseK8sPodSpec        = parseK8sPodSpec
+	OperatorPod            = operatorPod
+	ExtractRegistryURL     = extractRegistryURL
+	CreateDockerConfigJSON = createDockerConfigJSON
 )
 
 func PodSpec(u *unitSpec) core.PodSpec {

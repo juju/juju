@@ -154,6 +154,48 @@ func (k *kubernetesClient) deleteNamespace() error {
 	return errors.Trace(err)
 }
 
+// EnsureSecret ensures a secret exists for use with retrieving images from private registries
+func (k *kubernetesClient) EnsureSecret(imageSecretName, appName string, imageDetails *caas.ImageDetails) error {
+	if imageDetails.Password == "" {
+		return errors.New("attempting to create a secret with no password")
+	}
+	secretData, err := createDockerConfigJSON(imageDetails)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	secrets := k.CoreV1().Secrets(k.namespace)
+	// imageSecretName := appSecretName(appName, containerSpec.Name)
+
+	newSecret := &core.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      imageSecretName,
+			Namespace: k.namespace,
+			Labels:    map[string]string{labelApplication: appName}},
+		Type: core.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			core.DockerConfigJsonKey: secretData,
+		},
+	}
+
+	_, err = secrets.Update(newSecret)
+	if k8serrors.IsNotFound(err) {
+		_, err = secrets.Create(newSecret)
+	}
+	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) deleteSecret(appName, containerName string) error {
+	imageSecretName := appSecretName(appName, containerName)
+	secrets := k.CoreV1().Secrets(k.namespace)
+	err := secrets.Delete(imageSecretName, &v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
+}
+
 // EnsureOperator creates or updates an operator pod with the given application
 // name, agent path, and operator config.
 func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caas.OperatorConfig) error {
@@ -458,9 +500,21 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}()
 
-	unitSpec, err := makeUnitSpec(params.PodSpec)
+	unitSpec, err :=
+		makeUnitSpec(appName, params.PodSpec)
 	if err != nil {
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
+	}
+
+	for _, c := range params.PodSpec.Containers {
+		if c.ImageDetails.Password == "" {
+			continue
+		}
+		imageSecretName := appSecretName(appName, c.Name)
+		if err := k.EnsureSecret(imageSecretName, appName, &c.ImageDetails); err != nil {
+			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
+		}
+		cleanups = append(cleanups, func() { k.deleteSecret(appName, c.Name) })
 	}
 
 	// Add a deployment controller configured to create the specified number of units/pods.
@@ -1173,7 +1227,6 @@ pod:
   containers:
   {{- range .Containers }}
   - name: {{.Name}}
-    image: {{.Image}}
     {{if .Ports}}
     ports:
     {{- range .Ports }}
@@ -1201,7 +1254,7 @@ pod:
   {{- end}}
 `[1:]
 
-func makeUnitSpec(podSpec *caas.PodSpec) (*unitSpec, error) {
+func makeUnitSpec(appName string, podSpec *caas.PodSpec) (*unitSpec, error) {
 	// Fill out the easy bits using a template.
 	tmpl := template.Must(template.New("").Parse(defaultPodTemplate))
 	var buf bytes.Buffer
@@ -1216,8 +1269,19 @@ func makeUnitSpec(podSpec *caas.PodSpec) (*unitSpec, error) {
 		return nil, errors.Trace(err)
 	}
 
+	var imageSecretNames []core.LocalObjectReference
 	// Now fill in the hard bits progamatically.
 	for i, c := range podSpec.Containers {
+		if c.Image != "" {
+			logger.Warningf("Image parameter deprecated, use ImageDetails")
+			unitSpec.Pod.Containers[i].Image = c.Image
+		} else {
+			unitSpec.Pod.Containers[i].Image = c.ImageDetails.ImagePath
+		}
+		if c.ImageDetails.Password != "" {
+			imageSecretNames = append(imageSecretNames, core.LocalObjectReference{Name: appSecretName(appName, c.Name)})
+		}
+
 		if c.ProviderContainer == nil {
 			continue
 		}
@@ -1233,6 +1297,7 @@ func makeUnitSpec(podSpec *caas.PodSpec) (*unitSpec, error) {
 			unitSpec.Pod.Containers[i].ReadinessProbe = spec.ReadinessProbe
 		}
 	}
+	unitSpec.Pod.ImagePullSecrets = imageSecretNames
 	return &unitSpec, nil
 }
 
@@ -1254,4 +1319,9 @@ func deploymentName(appName string) string {
 
 func resourceNamePrefix(appName string) string {
 	return "juju-" + names.NewApplicationTag(appName).String() + "-"
+}
+
+func appSecretName(appName, containerName string) string {
+	// A pod may have multiple containers with different images and thus different secrets
+	return "juju-" + appName + "-" + containerName + "-secret"
 }

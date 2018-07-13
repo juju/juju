@@ -61,6 +61,14 @@ containers:
     ports:
     - containerPort: 8080
       protocol: TCP
+  - name: secret-image-user
+    imageDetails:
+        imagePath: staging.registry.org/testing/testing-image@sha256:deed-beef
+        username: docker-registry
+        password: hunter2
+  - name: just-image-details
+    imageDetails:
+        imagePath: testing/no-secrets-needed@sha256:deed-beef
 `[1:]
 
 	expectedFileContent := `
@@ -120,6 +128,18 @@ foo: bar
 			Image: "gitlab-helper/latest",
 			Ports: []caas.ContainerPort{
 				{ContainerPort: 8080, Protocol: "TCP"},
+			},
+		}, {
+			Name: "secret-image-user",
+			ImageDetails: caas.ImageDetails{
+				ImagePath: "staging.registry.org/testing/testing-image@sha256:deed-beef",
+				Username:  "docker-registry",
+				Password:  "hunter2",
+			},
+		}, {
+			Name: "just-image-details",
+			ImageDetails: caas.ImageDetails{
+				ImagePath: "testing/no-secrets-needed@sha256:deed-beef",
 			},
 		}}})
 }
