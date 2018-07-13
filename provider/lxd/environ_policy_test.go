@@ -34,7 +34,7 @@ func (s *environPolSuite) TestPrecheckInstanceHasInstanceType(c *gc.C) {
 	cons := constraints.MustParse("instance-type=some-instance-type")
 	err := s.Env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: version.SupportedLTS(), Constraints: cons})
 
-	c.Check(err, gc.ErrorMatches, `LXD does not support instance types.*`)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *gc.C) {

@@ -3,7 +3,6 @@
 
 package lxdclient_test
 
-/*
 import (
 	"errors"
 
@@ -31,8 +30,8 @@ type addressTester struct {
 	ContainerStateResult *lxdapi.ContainerState
 }
 
-func (a *addressTester) ContainerState(name string) (*lxdapi.ContainerState, error) {
-	return a.ContainerStateResult, nil
+func (a *addressTester) GetContainerState(name string) (*lxdapi.ContainerState, string, error) {
+	return a.ContainerStateResult, "etag", nil
 }
 
 var _ lxdclient.RawInstanceClient = (*addressTester)(nil)
@@ -49,15 +48,15 @@ var containerStateSample = lxdapi.ContainerState{
 		SwapUsagePeak: 0,
 	},
 	Network: map[string]lxdapi.ContainerStateNetwork{
-		"eth0": lxdapi.ContainerStateNetwork{
+		"eth0": {
 			Addresses: []lxdapi.ContainerStateNetworkAddress{
-				lxdapi.ContainerStateNetworkAddress{
+				{
 					Family:  "inet",
 					Address: "10.0.8.173",
 					Netmask: "24",
 					Scope:   "global",
 				},
-				lxdapi.ContainerStateNetworkAddress{
+				{
 					Family:  "inet6",
 					Address: "fe80::216:3eff:fe3b:e582",
 					Netmask: "64",
@@ -76,15 +75,15 @@ var containerStateSample = lxdapi.ContainerState{
 			State:    "up",
 			Type:     "broadcast",
 		},
-		"lo": lxdapi.ContainerStateNetwork{
+		"lo": {
 			Addresses: []lxdapi.ContainerStateNetworkAddress{
-				lxdapi.ContainerStateNetworkAddress{
+				{
 					Family:  "inet",
 					Address: "127.0.0.1",
 					Netmask: "8",
 					Scope:   "local",
 				},
-				lxdapi.ContainerStateNetworkAddress{
+				{
 					Family:  "inet6",
 					Address: "::1",
 					Netmask: "128",
@@ -103,15 +102,15 @@ var containerStateSample = lxdapi.ContainerState{
 			State:    "up",
 			Type:     "loopback",
 		},
-		"lxcbr0": lxdapi.ContainerStateNetwork{
+		"lxcbr0": {
 			Addresses: []lxdapi.ContainerStateNetworkAddress{
-				lxdapi.ContainerStateNetworkAddress{
+				{
 					Family:  "inet",
 					Address: "10.0.5.12",
 					Netmask: "24",
 					Scope:   "global",
 				},
-				lxdapi.ContainerStateNetworkAddress{
+				{
 					Family:  "inet6",
 					Address: "fe80::216:3eff:fe3b:e432",
 					Netmask: "64",
@@ -130,15 +129,15 @@ var containerStateSample = lxdapi.ContainerState{
 			State:    "up",
 			Type:     "broadcast",
 		},
-		"lxdbr0": lxdapi.ContainerStateNetwork{
+		"lxdbr0": {
 			Addresses: []lxdapi.ContainerStateNetworkAddress{
-				lxdapi.ContainerStateNetworkAddress{
+				{
 					Family:  "inet",
 					Address: "10.0.6.17",
 					Netmask: "24",
 					Scope:   "global",
 				},
-				lxdapi.ContainerStateNetworkAddress{
+				{
 					Family:  "inet6",
 					Address: "fe80::5c9b:b2ff:feaf:4cf2",
 					Netmask: "64",
@@ -186,7 +185,7 @@ type devicesSuite struct {
 
 var _ = gc.Suite(&devicesSuite{})
 
-func (s *devicesSuite) TestAttachDisk(c *gc.C) {
+func (s *devicesSuite) TestAttachRemoveDisk(c *gc.C) {
 	client := lxdclient.NewInstanceClient(s.Client)
 	err := client.AttachDisk("instance", "device", lxdclient.DiskDevice{
 		Source: "source-value",
@@ -195,11 +194,29 @@ func (s *devicesSuite) TestAttachDisk(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = client.RemoveDevice("instance", "device")
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.Stub.CheckCalls(c, []testing.StubCall{
-		{"ContainerDeviceAdd", []interface{}{"instance", "device", "disk", []string{
-			"path=path-value", "source=source-value", "pool=pool-value",
-		}}},
-		{"WaitForSuccess", []interface{}{""}},
+		{"GetContainer", []interface{}{"instance"}},
+		{"UpdateContainer", []interface{}{
+			"instance", lxdapi.ContainerPut{
+				Devices: map[string]map[string]string{
+					"device": {
+						"path":   "path-value",
+						"source": "source-value",
+						"pool":   "pool-value",
+					},
+				},
+			},
+			"etag",
+		}},
+		{"GetContainer", []interface{}{"instance"}},
+		{"UpdateContainer", []interface{}{
+			"instance",
+			lxdapi.ContainerPut{Devices: map[string]map[string]string{}},
+			"etag",
+		}},
 	})
 }
 
@@ -212,8 +229,20 @@ func (s *devicesSuite) TestAttachDiskReadOnly(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Stub.CheckCall(c, 0, "ContainerDeviceAdd", "instance", "device", "disk", []string{
-		"path=path-value", "source=source-value", "readonly=true",
+	s.Stub.CheckCalls(c, []testing.StubCall{
+		{"GetContainer", []interface{}{"instance"}},
+		{"UpdateContainer", []interface{}{
+			"instance", lxdapi.ContainerPut{
+				Devices: map[string]map[string]string{
+					"device": {
+						"path":     "path-value",
+						"source":   "source-value",
+						"readonly": "true",
+					},
+				},
+			},
+			"etag",
+		}},
 	})
 }
 
@@ -224,24 +253,6 @@ func (s *devicesSuite) TestAttachDiskSyncError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "sync error")
 }
 
-func (s *devicesSuite) TestAttachDiskAsyncError(c *gc.C) {
-	s.Stub.SetErrors(nil, errors.New("async error"))
-	client := lxdclient.NewInstanceClient(s.Client)
-	err := client.AttachDisk("instance", "device", lxdclient.DiskDevice{})
-	c.Assert(err, gc.ErrorMatches, "async error")
-}
-
-func (s *devicesSuite) TestRemoveDevice(c *gc.C) {
-	client := lxdclient.NewInstanceClient(s.Client)
-	err := client.RemoveDevice("instance", "device")
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.Stub.CheckCalls(c, []testing.StubCall{
-		{"ContainerDeviceDelete", []interface{}{"instance", "device"}},
-		{"WaitForSuccess", []interface{}{""}},
-	})
-}
-
 func (s *devicesSuite) TestRemoveDeviceSyncError(c *gc.C) {
 	s.Stub.SetErrors(errors.New("sync error"))
 	client := lxdclient.NewInstanceClient(s.Client)
@@ -249,10 +260,18 @@ func (s *devicesSuite) TestRemoveDeviceSyncError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "sync error")
 }
 
+func (s *devicesSuite) TestAttachDiskAsyncError(c *gc.C) {
+	// Get=nil, Put=nil, op.Wait()=err
+	s.Stub.SetErrors(nil, nil, errors.New("async error"))
+	client := lxdclient.NewInstanceClient(s.Client)
+	err := client.AttachDisk("instance", "device", lxdclient.DiskDevice{})
+	c.Assert(err, gc.ErrorMatches, "async error")
+}
+
 func (s *devicesSuite) TestRemoveDeviceAsyncError(c *gc.C) {
-	s.Stub.SetErrors(nil, errors.New("async error"))
+	// Get=nil, Put=nil, op.Wait()=err
+	s.Stub.SetErrors(nil, nil, errors.New("async error"))
 	client := lxdclient.NewInstanceClient(s.Client)
 	err := client.RemoveDevice("instance", "device")
 	c.Assert(err, gc.ErrorMatches, "async error")
 }
-*/

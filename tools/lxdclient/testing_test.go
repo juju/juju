@@ -4,14 +4,12 @@
 package lxdclient
 
 import (
-	"crypto/x509"
-	"io"
 	"runtime"
 
-	"github.com/juju/errors"
-	"github.com/juju/juju/container/lxd"
+	"github.com/gorilla/websocket"
+	containerlxd "github.com/juju/juju/container/lxd"
 	"github.com/juju/testing"
-	"github.com/lxc/lxd/shared"
+	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared/api"
 	gc "gopkg.in/check.v1"
 )
@@ -21,7 +19,7 @@ type BaseSuite struct {
 
 	Stub   *testing.Stub
 	Client *stubClient
-	Cert   *lxd.Certificate
+	Cert   *containerlxd.Certificate
 }
 
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
@@ -36,7 +34,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.Stub = &testing.Stub{}
 	s.Client = &stubClient{stub: s.Stub}
-	s.Cert = &lxd.Certificate{
+	s.Cert = &containerlxd.Certificate{
 		Name:    "some cert",
 		CertPEM: []byte("<a valid PEM-encoded x.509 cert>"),
 		KeyPEM:  []byte("<a valid PEM-encoded x.509 key>"),
@@ -53,131 +51,112 @@ type stubClient struct {
 	Aliases    map[string]string
 }
 
-func (s *stubClient) WaitForSuccess(waitURL string) error {
-	s.stub.AddCall("WaitForSuccess", waitURL)
-	if err := s.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-func (s *stubClient) SetServerConfig(key string, value string) (*api.Response, error) {
-	s.stub.AddCall("SetServerConfig", key, value)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.Response, nil
-}
-
-func (s *stubClient) CertificateAdd(cert *x509.Certificate, name string) error {
-	s.stub.AddCall("CertificateAdd", cert, name)
-	if err := s.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-func (s *stubClient) ContainerState(name string) (*api.ContainerState, error) {
-	s.stub.AddCall("ContainerState", name)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.Instance, nil
-}
-
-func (s *stubClient) ListContainers() ([]api.Container, error) {
-	s.stub.AddCall("ListContainers")
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.Instances, nil
-}
-
-func (s *stubClient) GetAlias(alias string) string {
-	s.stub.AddCall("GetAlias", alias)
-	if err := s.stub.NextErr(); err != nil {
-		return ""
-	}
-	return s.Aliases[alias]
-}
-
-func (s *stubClient) Init(name, remote, image string, profiles *[]string, config map[string]string, devices map[string]map[string]string, ephem bool) (*api.Response, error) {
-	s.stub.AddCall("Init", name, remote, image, profiles, config, devices, ephem)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.Response, nil
-}
-
-func (s *stubClient) Delete(name string) (*api.Response, error) {
-	s.stub.AddCall("Delete", name)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.Response, nil
-}
-
-func (s *stubClient) Action(name string, action shared.ContainerAction, timeout int, force bool, stateful bool) (*api.Response, error) {
-	s.stub.AddCall("Action", name, action, timeout, force, stateful)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return s.Response, nil
-}
-
-func (s *stubClient) SetContainerConfig(name, key, value string) error {
-	s.stub.AddCall("SetContainerConfig", name, key, value)
-	if err := s.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-func (s *stubClient) GetImageInfo(imageTarget string) (*api.Image, error) {
-	s.stub.AddCall("GetImageInfo", imageTarget)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, err
-	}
-	return &api.Image{}, nil
-}
-
-func (s *stubClient) ContainerDeviceAdd(container, devname, devtype string, props []string) (*api.Response, error) {
-	s.stub.AddCall("ContainerDeviceAdd", container, devname, devtype, props)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, err
-	}
-	return &api.Response{}, nil
-}
-
-func (s *stubClient) ContainerDeviceDelete(container, devname string) (*api.Response, error) {
-	s.stub.AddCall("ContainerDeviceDelete", container, devname)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, err
-	}
-	return &api.Response{}, nil
-}
-
-func (s *stubClient) ContainerInfo(name string) (*api.Container, error) {
-	s.stub.AddCall("ContainerInfo", name)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, err
-	}
-	return &api.Container{}, nil
-}
-
-func (s *stubClient) PushFile(container, path string, gid int, uid int, mode string, buf io.ReadSeeker) error {
-	s.stub.AddCall("PushFile", container, path, gid, uid, mode, buf)
+func (s *stubClient) CreateContainerFile(containerName string, path string, args lxd.ContainerFileArgs) error {
+	s.stub.AddCall("CreateContainerFile", containerName, path, args)
 	if err := s.stub.NextErr(); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (s *stubClient) CreateContainerFromImage(
+	source lxd.ImageServer, image api.Image, imgcontainer api.ContainersPost,
+) (lxd.RemoteOperation, error) {
+	s.stub.AddCall("CreateContainerFromImage", source, image, imgcontainer)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return nil, nil
+}
+
+func (s *stubClient) DeleteContainer(name string) (lxd.Operation, error) {
+	s.stub.AddCall("DeleteContainer", name)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return s.newOp(), nil
+}
+
+func (s *stubClient) GetContainers() ([]api.Container, error) {
+	s.stub.AddCall("GetContainers")
+	if err := s.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return s.Instances, nil
+}
+
+func (s *stubClient) GetContainer(name string) (*api.Container, string, error) {
+	s.stub.AddCall("GetContainer", name)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, "", err
+	}
+	return &api.Container{
+		Name: name,
+		ContainerPut: api.ContainerPut{
+			Devices: map[string]map[string]string{},
+		},
+	}, "etag", nil
+}
+
+func (s *stubClient) GetContainerState(name string) (*api.ContainerState, string, error) {
+	s.stub.AddCall("GetContainerState", name)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, "", err
+	}
+	return s.Instance, "etag", nil
+
+}
+
+func (s *stubClient) UpdateContainer(name string, container api.ContainerPut, ETag string) (lxd.Operation, error) {
+	s.stub.AddCall("UpdateContainer", name, container, ETag)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return s.newOp(), nil
+}
+
+func (s *stubClient) UpdateContainerState(
+	name string, container api.ContainerStatePut, ETag string,
+) (lxd.Operation, error) {
+	s.stub.AddCall("UpdateContainerState", name, container, ETag)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, err
+	}
+	return s.newOp(), nil
+}
+
+type stubOp struct {
+	stub *testing.Stub
+}
+
+func (o *stubOp) Wait() error {
+	return o.stub.NextErr()
+}
+
+func (o *stubOp) Cancel() error {
+	return nil
+}
+
+func (o *stubOp) Refresh() error {
+	return nil
+}
+
+func (o *stubOp) Get() (op api.Operation) {
+	return api.Operation{}
+}
+
+func (o *stubOp) GetWebsocket(secret string) (*websocket.Conn, error) {
+	return nil, nil
+}
+
+func (o *stubOp) AddHandler(function func(api.Operation)) (target *lxd.EventTarget, err error) {
+	return nil, nil
+}
+
+func (o *stubOp) RemoveHandler(target *lxd.EventTarget) error {
+	return nil
+}
+
+func (s *stubClient) newOp() lxd.Operation {
+	return &stubOp{s.stub}
 }

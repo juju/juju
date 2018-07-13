@@ -55,7 +55,8 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 	}
 
 	req := api.ContainersPost{
-		Name: spec.Name,
+		Name:         spec.Name,
+		InstanceType: spec.InstanceType,
 		ContainerPut: api.ContainerPut{
 			Ephemeral: spec.Ephemeral,
 			Devices:   lxdDevices,
@@ -279,7 +280,7 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 		return []network.Address{}, nil
 	}
 
-	addrs := []network.Address{}
+	var addrs []network.Address
 	for name, net := range networks {
 		if name == network.DefaultLXCBridge || name == network.DefaultLXDBridge {
 			continue
@@ -302,7 +303,7 @@ func (client *instanceClient) Addresses(name string) ([]network.Address, error) 
 
 // AttachDisk attaches a disk to an instance.
 func (client *instanceClient) AttachDisk(instanceName, deviceName string, disk DiskDevice) error {
-	container, _, err := client.raw.GetContainer(instanceName)
+	container, eTag, err := client.raw.GetContainer(instanceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -316,7 +317,7 @@ func (client *instanceClient) AttachDisk(instanceName, deviceName string, disk D
 	if disk.ReadOnly {
 		container.Devices[deviceName]["readonly"] = "true"
 	}
-	resp, err := client.raw.UpdateContainer(instanceName, container.Writable(), "")
+	resp, err := client.raw.UpdateContainer(instanceName, container.Writable(), eTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -328,12 +329,12 @@ func (client *instanceClient) AttachDisk(instanceName, deviceName string, disk D
 
 // RemoveDevice removes a device from an instance.
 func (client *instanceClient) RemoveDevice(instanceName, deviceName string) error {
-	container, _, err := client.raw.GetContainer(instanceName)
+	container, eTag, err := client.raw.GetContainer(instanceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	delete(container.Devices, deviceName)
-	resp, err := client.raw.UpdateContainer(instanceName, container.Writable(), "")
+	resp, err := client.raw.UpdateContainer(instanceName, container.Writable(), eTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
