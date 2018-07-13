@@ -10,6 +10,7 @@ import (
 	"github.com/juju/bundlechanges"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
@@ -18,7 +19,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
+	"gopkg.in/yaml.v2"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.bundle")
@@ -68,7 +71,7 @@ func newFacade(ctx facade.Context) (*BundleAPI, error) {
 	st := ctx.State()
 
 	return NewBundleAPI(
-		st,
+		stateShim{st},
 		authorizer,
 		names.NewModelTag(st.ModelUUID()),
 	)
@@ -152,6 +155,84 @@ func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 
 // ExportBundle exports the current model configuration as bundle.
 func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
+	if err := b.checkCanRead(); err != nil {
+		return params.StringResult{}, common.ServerError(common.ErrPerm)
+	}
+
+	var exportConfig state.ExportConfig
+
+	// Skip attributes which are not required.
+	exportConfig.SkipActions = true
+	exportConfig.SkipCloudImageMetadata = true
+	exportConfig.SkipCredentials = true
+	exportConfig.SkipIPAddresses = true
+	exportConfig.SkipSSHHostKeys = true
+	exportConfig.SkipStatusHistory = true
+	exportConfig.SkipLinkLayerDevices = true
+
+	model, err := b.backend.ExportPartial(exportConfig)
+	if err != nil {
+		return params.StringResult{}, common.ServerError(err)
+	}
+
+	// Fill it in bundle data struct.
+	var bundledata charm.BundleData
+
+	// Fill in the BundleApplicationSpec of BundleData.
+	app := make(map[string]*charm.ApplicationSpec)
+	for _, application := range model.Applications() {
+		app[application.Name()].Charm = application.CharmURL()
+		app[application.Name()].Series = application.Series()
+		app[application.Name()].NumUnits = len(application.Units())
+		ut := []string{}
+		for _, unit := range application.Units() {
+			ut = append(ut, unit.Machine().Id())
+		}
+		app[application.Name()].To = ut
+
+		app[application.Name()].Expose = application.Exposed()
+		app[application.Name()].Options = application.CharmConfig()
+		app[application.Name()].Annotations = application.Annotations()
+
+		app[application.Name()].EndpointBindings = application.EndpointBindings()
+	}
+
+	// Fill in the BundleMachineSpec of BundleData.
+	mac := make(map[string]*charm.MachineSpec)
+	for _, machine := range model.Machines() {
+		constraints := []string{"arch=" + machine.Constraints().Architecture(),
+			"cpu-cores=" + string(machine.Constraints().CpuCores()),
+			"cpu-power=" + string(machine.Constraints().CpuPower()),
+			"mem=" + string(machine.Constraints().Memory()),
+			"root-disk=" + string(machine.Constraints().RootDisk())}
+		mac[machine.Id()].Constraints = strings.Join(constraints, " ")
+		mac[machine.Id()].Annotations = machine.Annotations()
+		mac[machine.Id()].Series = machine.Series()
+	}
+
+	// Fill in the relation for BundleData.
+	rel := [][]string{}
+	for _, relation := range model.Relations() {
+		endpointRelation := []string{}
+		for _, endpoint := range relation.Endpoints() {
+			endpointRelation = append(endpointRelation, endpoint.ApplicationName()+":"+endpoint.Name())
+		}
+		rel = append(rel, endpointRelation)
+	}
+
+	bundledata.Applications = app
+	bundledata.Machines = mac
+	bundledata.Relations = rel
+	bundledata.Series = series.LatestLts()
+
+	bytes, err := yaml.Marshal(bundledata)
+	if err != nil {
+		return params.StringResult{}, common.ServerError(err)
+	}
+
+	return params.StringResult{
+		Result: string(bytes),
+	}, nil
 	return params.StringResult{}, nil
 }
 

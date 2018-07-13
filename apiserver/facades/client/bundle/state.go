@@ -3,4 +3,15 @@
 
 package bundle
 
-type Backend interface{}
+import (
+	"github.com/juju/juju/migration"
+	"github.com/juju/juju/state"
+)
+
+type Backend interface {
+	migration.StateExporter
+}
+
+type stateShim struct {
+	*state.State
+}

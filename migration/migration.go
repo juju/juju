@@ -29,6 +29,7 @@ var logger = loggo.GetLogger("juju.migration")
 type StateExporter interface {
 	// Export generates an abstract representation of a model.
 	Export() (description.Model, error)
+	ExportPartial(cfg state.ExportConfig) (description.Model, error)
 }
 
 // ExportModel creates a description.Model representation of the
