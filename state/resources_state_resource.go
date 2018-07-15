@@ -343,6 +343,11 @@ func (st resourceState) OpenResource(applicationID, name string) (resource.Resou
 	if err != nil {
 		return resource.Resource{}, nil, errors.Annotate(err, "while retrieving resource data")
 	}
+	if resourceInfo.Type == charmresource.TypeDocker {
+		// Resource size only found at this stage in time.
+		resourceInfo.Size = resSize
+
+	}
 	if resSize != resourceInfo.Size {
 		msg := "storage returned a size (%d) which doesn't match resource metadata (%d)"
 		return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)

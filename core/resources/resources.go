@@ -12,13 +12,13 @@ import (
 // DockerImageDetails holds the details for a Docker resource type.
 type DockerImageDetails struct {
 	// RegistryPath holds the path of the Docker image (including host and sha256) in a docker registry.
-	RegistryPath string
+	RegistryPath string `json:"ImagePath"`
 
 	// Username holds the username used to gain access to a non-public image.
-	Username string
+	Username string `json:"Username,omitempty"`
 
 	// Password holds the password used to gain access to a non-public image.
-	Password string
+	Password string `json:"Password,omitempty"`
 }
 
 var validDockerImageRegExp = regexp.MustCompile(`^([A-Za-z\.]+/)?(([A-Za-z-_\.])+/?)+((@sha256){0,1}:[A-Za-z0-9-_\.]+)?$`)
