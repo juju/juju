@@ -258,7 +258,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 		MountPath: "path/to/here",
 	}}
 
-	scName := "sc"
+	scName := "juju-unit-storage"
 	statefulSetArg := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "juju-test",
@@ -309,8 +309,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	gomock.InOrder(
 		s.mockPersistentVolumeClaims.EXPECT().Get("juju-database-0", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockStorageClass.EXPECT().List(v1.ListOptions{LabelSelector: "juju-storage in (test-unit-storage, test, default)"}).
-			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{ObjectMeta: v1.ObjectMeta{Name: "sc"}}}}, nil),
+		s.mockStorageClass.EXPECT().Get("juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "juju-unit-storage"}}, nil),
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).

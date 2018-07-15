@@ -49,12 +49,7 @@ const (
 	labelVersion     = "juju-version"
 	labelApplication = "juju-application"
 
-	// Well known storage pool attributes.
-	jujuStorageClassKey = "juju-storage-class"
-	jujuStorageLabelKey = "juju-storage-label"
-
-	jujuDefaultStorageClassName = "juju-unit-storage"
-	operatorStorageClassName    = "juju-operator-storage"
+	operatorStorageClassName = "juju-operator-storage"
 	// TODO(caas) - make this configurable using application config
 	operatorStorageSize = "10Mi"
 )
@@ -216,7 +211,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	// If there are none, that's ok, we'll just use ephemeral storage.
 	volStorageLabel := fmt.Sprintf("%s-operator-storage", appName)
 	params := volumeParams{
-		storageClassName:    operatorStorageClassName,
+		storageConfig:       &storageConfig{storageClass: operatorStorageClassName},
 		storageLabels:       []string{volStorageLabel, k.namespace, "default"},
 		pvcName:             operatorVolumeClaim(appName),
 		requestedVolumeSize: operatorStorageSize,
@@ -308,13 +303,12 @@ func operatorVolumeClaim(appName string) string {
 }
 
 type volumeParams struct {
-	storageLabels            []string
-	storageClassName         string
-	fallbackStorageClassName string
-	pvcName                  string
-	requestedVolumeSize      string
-	labels                   map[string]string
-	accessMode               core.PersistentVolumeAccessMode
+	storageLabels       []string
+	storageConfig       *storageConfig
+	pvcName             string
+	requestedVolumeSize string
+	labels              map[string]string
+	accessMode          core.PersistentVolumeAccessMode
 }
 
 // maybeGetVolumeClaimSpec returns a persistent volume claim spec, and a bool indicating
@@ -335,12 +329,12 @@ func (k *kubernetesClient) maybeGetVolumeClaimSpec(params volumeParams) (*core.P
 	// We need to create a new claim.
 	logger.Debugf("creating new persistent volume claim for %v", params.pvcName)
 
-	storageClassName := params.storageClassName
+	storageClassName := params.storageConfig.storageClass
 	if storageClassName != "" {
 		// If a specific storage class has been requested, make sure it exists.
-		_, err := k.StorageV1().StorageClasses().Get(storageClassName, v1.GetOptions{})
+		err := k.ensureStorageClass(params.storageConfig)
 		if err != nil {
-			if !k8serrors.IsNotFound(err) {
+			if !errors.IsNotFound(err) {
 				return nil, false, errors.Trace(err)
 			}
 			storageClassName = ""
@@ -353,7 +347,7 @@ func (k *kubernetesClient) maybeGetVolumeClaimSpec(params volumeParams) (*core.P
 		if err == nil {
 			storageClassName = sc.Name
 		} else {
-			storageClassName = params.fallbackStorageClassName
+			storageClassName = defaultStorageClass
 		}
 	}
 	if storageClassName == "" {
@@ -378,6 +372,34 @@ func (k *kubernetesClient) maybeGetVolumeClaimSpec(params volumeParams) (*core.P
 		},
 		AccessModes: []core.PersistentVolumeAccessMode{accessMode},
 	}, false, nil
+}
+
+func (k *kubernetesClient) ensureStorageClass(cfg *storageConfig) error {
+	// First see if the named storage class exists.
+	storageClasses := k.StorageV1().StorageClasses()
+	_, err := storageClasses.Get(cfg.storageClass, v1.GetOptions{})
+	if err == nil {
+		return nil
+	}
+
+	// If it's not found but there's no provisioner specified, we can't
+	// create it so just return not found.
+	if !k8serrors.IsNotFound(err) || cfg.storageProvisioner == "" {
+		if k8serrors.IsNotFound(err) {
+			return errors.NotFoundf("storage class %v", cfg.storageClass)
+		}
+		return errors.Trace(err)
+	}
+
+	// Create the storage class with the specified provisioner.
+	_, err = storageClasses.Create(&k8sstorage.StorageClass{
+		ObjectMeta: v1.ObjectMeta{
+			Name: cfg.storageClass,
+		},
+		Provisioner: cfg.storageProvisioner,
+		Parameters:  cfg.parameters,
+	})
+	return errors.Trace(err)
 }
 
 // DeleteOperator deletes the specified operator.
@@ -572,13 +594,12 @@ func (k *kubernetesClient) configureStorage(
 			requestedVolumeSize: fmt.Sprintf("%dMi", fs.Size),
 			labels:              map[string]string{labelApplication: appName},
 		}
-		if storageClassName, ok := fs.Attributes[jujuStorageClassKey]; ok {
-			params.storageClassName = fmt.Sprintf("%v", storageClassName)
-		} else {
-			params.fallbackStorageClassName = jujuDefaultStorageClassName
-		}
-		if storageLabel, ok := fs.Attributes[jujuStorageLabelKey]; ok {
+		if storageLabel, ok := fs.Attributes[storageLabel]; ok {
 			params.storageLabels = append([]string{fmt.Sprintf("%v", storageLabel)}, params.storageLabels...)
+		}
+		params.storageConfig, err = newStorageConfig(fs.Attributes)
+		if err != nil {
+			return errors.Annotatef(err, "invalid storage configuration for %v", fs.StorageName)
 		}
 
 		pvcSpec, _, err := k.maybeGetVolumeClaimSpec(params)

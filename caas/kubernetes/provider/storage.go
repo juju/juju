@@ -4,6 +4,9 @@
 package provider
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/juju/caas"
 	"github.com/juju/schema"
@@ -17,10 +20,12 @@ const (
 	K8s_ProviderType = storage.ProviderType("kubernetes")
 
 	// K8s storage pool attributes.
-	storageClass = "storage-class"
+	storageClass       = "storage-class"
+	storageProvisioner = "storage-provisioner"
+	storageLabel       = "storage-label"
 
 	// K8s storage pool attribute default values.
-	defaultStorageClass = "<default>"
+	defaultStorageClass = "juju-unit-storage"
 )
 
 // StorageProviderTypes is defined on the storage.ProviderRegistry interface.
@@ -43,18 +48,25 @@ type storageProvider struct {
 var _ storage.Provider = (*storageProvider)(nil)
 
 var storageConfigFields = schema.Fields{
-	storageClass: schema.String(),
+	storageClass:       schema.String(),
+	storageLabel:       schema.String(),
+	storageProvisioner: schema.String(),
 }
 
 var storageConfigChecker = schema.FieldMap(
 	storageConfigFields,
 	schema.Defaults{
-		storageClass: defaultStorageClass,
+		storageClass:       defaultStorageClass,
+		storageLabel:       schema.Omit,
+		storageProvisioner: schema.Omit,
 	},
 )
 
 type storageConfig struct {
-	storageClass string
+	storageClass       string
+	storageProvisioner string
+	storageLabels      []string
+	parameters         map[string]string
 }
 
 func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
@@ -63,10 +75,25 @@ func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
 		return nil, errors.Annotate(err, "validating storage config")
 	}
 	coerced := out.(map[string]interface{})
-	storageClass := coerced[storageClass].(string)
+	storageClassName := coerced[storageClass].(string)
 	storageConfig := &storageConfig{
-		storageClass: storageClass,
+		storageClass: storageClassName,
 	}
+	if storageProvisioner, ok := coerced[storageProvisioner].(string); ok {
+		storageConfig.storageProvisioner = storageProvisioner
+	}
+	if storageConfig.storageProvisioner != "" && storageConfig.storageClass == "" {
+		return nil, errors.New("storage-class must be specified if storage-provisioner is specified")
+	}
+	storageConfig.parameters = make(map[string]string)
+	for k, v := range attrs {
+		k = strings.TrimPrefix(k, "parameters.")
+		storageConfig.parameters[k] = fmt.Sprintf("%v", v)
+	}
+	delete(storageConfig.parameters, storageClass)
+	delete(storageConfig.parameters, storageLabel)
+	delete(storageConfig.parameters, storageProvisioner)
+
 	return storageConfig, nil
 }
 
