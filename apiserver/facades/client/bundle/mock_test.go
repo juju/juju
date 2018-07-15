@@ -17,14 +17,18 @@ type mockState struct {
 	bundle.Backend
 }
 
-func (m *mockState) Exportpartial(config state.ExportConfig) (description.Model, error) {
-	config.SkipActions = true
-	config.SkipCloudImageMetadata = true
-	config.SkipCredentials = true
-	config.SkipIPAddresses = true
-	config.SkipSSHHostKeys = true
-	config.SkipStatusHistory = true
-	config.SkipLinkLayerDevices = true
+func (m *mockState) SetExportconfig(cfg state.ExportConfig) {
+	cfg.SkipActions = true
+	cfg.SkipCloudImageMetadata = true
+	cfg.SkipCredentials = true
+	cfg.SkipIPAddresses = true
+	cfg.SkipSSHHostKeys = true
+	cfg.SkipStatusHistory = true
+	cfg.SkipLinkLayerDevices = true
+}
+
+func (m *mockState) ExportpartialNoApplication(config state.ExportConfig) (description.Model, error) {
+	m.SetExportconfig(config)
 
 	m.MethodCall(m, "ExportPartial", config)
 	if err := m.NextErr(); err != nil {
@@ -49,3 +53,4 @@ func newMockState() *mockState {
 	st := &mockState{}
 	return st
 }
+

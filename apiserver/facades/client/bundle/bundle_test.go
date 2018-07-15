@@ -219,7 +219,7 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 
 func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
 	var cfg state.ExportConfig
-	model, err := s.st.Exportpartial(cfg)
+	model, err := s.st.ExportpartialNoApplication(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(model.Validate(), jc.ErrorIsNil)
