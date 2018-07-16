@@ -119,17 +119,16 @@ func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL *char
 func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) operation.Operation {
 	switch info.Kind {
 	case hooks.PreSeriesUpgrade:
-		remoteStatus := s.RemoteState.UpgradeSeriesStatus
 		op = onPrepareWrapper{op, func() {
 			//on prepare the local status should be made to reflect
 			//that the upgrade process for this united has started.
-			s.LocalState.UpgradeSeriesStatus = remoteStatus
+			s.LocalState.UpgradeSeriesStatus = s.RemoteState.UpgradeSeriesStatus
 		}}
 		op = onCommitWrapper{op, func() {
 			// on commit, the local status should indicate the hook
 			// has completed. The remote status should already
 			// indicate completion. We sync the states here.
-			s.LocalState.UpgradeSeriesStatus = remoteStatus
+			s.LocalState.UpgradeSeriesStatus = s.RemoteState.UpgradeSeriesStatus
 		}}
 	case hooks.ConfigChanged:
 		v := s.RemoteState.ConfigVersion
