@@ -187,7 +187,7 @@ func (s *CAASModelDeployCharmStoreSuite) TestDeployBundleDevices(c *gc.C) {
 	testcharms.UploadBundle(c, s.client, "bundle/bitcoinminer-with-dashboard-1", "bitcoinminer-with-dashboard")
 	err := runDeploy(
 		c, "bundle/bitcoinminer-with-dashboard",
-		"-m", s.cm.Name(),
+		"-m", s.caasModelName,
 		"--device", "miner:bitcoinminer=10,nvidia.com/gpu", // override bitcoinminer
 	)
 	c.Assert(err, jc.ErrorIsNil)

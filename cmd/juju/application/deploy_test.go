@@ -21,6 +21,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -432,34 +433,29 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 type CAASDeploySuiteBase struct {
 	charmStoreSuite
 
-	series     string
-	CharmsPath string
-	cm         *state.CAASModel
+	series        string
+	CharmsPath    string
+	caasModelName string
 }
 
 func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
 	s.series = "kubernetes"
 	s.CharmsPath = c.MkDir()
+	s.caasModelName = "dummy-caas-model"
 
 	s.charmStoreSuite.SetUpTest(c)
 
 	// Set up a CAAS model to replace the IAAS one.
-	st := s.Factory.MakeCAASModel(c, nil)
-	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
-
-	var err error
-	// update model as State has been changed
-	s.Model, err = st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	s.cm, err = s.Model.CAASModel()
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{Name: s.caasModelName})
+	// s.AddCleanup(func(*gc.C) { st.Close() })
 
 	// Close the state pool before the state object itself.
 	s.StatePool.Close()
-	s.StatePool = nil
-	err = s.State.Close()
+	err := s.State.Close()
 	c.Assert(err, jc.ErrorIsNil)
+
 	s.State = st
+	s.StatePool = state.NewStatePool(s.State)
 }
 
 // assertUnitsCreated checks that the given units have been created. The
@@ -498,7 +494,7 @@ func (s *CAASDeploySuite) TestInitErrorsCaasModel(c *gc.C) {
 
 func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/bitcoin-miner-1", "bitcoin-miner", "kubernetes")
-	err := runDeploy(c, "bitcoin-miner", "-m", s.cm.Name(), "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "kubernetes")
+	err := runDeploy(c, "bitcoin-miner", "-m", s.caasModelName, "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "kubernetes")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertCharmsUploaded(c, "cs:kubernetes/bitcoin-miner-1")
