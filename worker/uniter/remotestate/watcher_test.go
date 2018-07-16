@@ -60,7 +60,6 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 			addressesWatcher:                 newMockNotifyWatcher(),
 			configSettingsWatcher:            newMockNotifyWatcher(),
 			applicationConfigSettingsWatcher: newMockNotifyWatcher(),
-			upgradeSeriesWatcher:             newMockNotifyWatcher(),
 			storageWatcher:                   newMockStringsWatcher(),
 			actionWatcher:                    newMockStringsWatcher(),
 			relationsWatcher:                 newMockStringsWatcher(),
@@ -90,6 +89,7 @@ func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
 
 	s.st.unit.application.applicationWatcher = newMockNotifyWatcher()
 	s.applicationWatcher = s.st.unit.application.applicationWatcher
+	s.st.unit.upgradeSeriesWatcher = newMockNotifyWatcher()
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
 		State:               s.st,
 		ModelType:           s.modelType,
@@ -152,7 +152,9 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	s.st.unit.addressesWatcher.changes <- struct{}{}
 	s.st.unit.configSettingsWatcher.changes <- struct{}{}
 	s.st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
-	s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
+	if s.st.unit.upgradeSeriesWatcher != nil {
+		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
+	}
 	s.st.unit.storageWatcher.changes <- []string{}
 	s.st.unit.actionWatcher.changes <- []string{}
 	if s.st.unit.application.applicationWatcher != nil {
@@ -169,7 +171,6 @@ func (s *WatcherSuite) signalAll() {
 	s.st.unit.unitWatcher.changes <- struct{}{}
 	s.st.unit.configSettingsWatcher.changes <- struct{}{}
 	s.st.unit.applicationConfigSettingsWatcher.changes <- struct{}{}
-	s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 	s.st.unit.actionWatcher.changes <- []string{}
 	s.st.unit.application.leaderSettingsWatcher.changes <- struct{}{}
 	s.st.unit.relationsWatcher.changes <- []string{}
@@ -179,6 +180,7 @@ func (s *WatcherSuite) signalAll() {
 	s.st.unit.storageWatcher.changes <- []string{}
 	if s.st.modelType == model.IAAS {
 		s.applicationWatcher.changes <- struct{}{}
+		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
 	}
 }
 
@@ -226,7 +228,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		Series:                "",
-		UpgradeSeriesStatus:   model.UnitStarted,
+		UpgradeSeriesStatus:   "",
 	})
 }
 
@@ -259,11 +261,6 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	c.Assert(s.watcher.Snapshot().ConfigVersion, gc.Equals, initial.ConfigVersion+1)
 
-	s.st.unit.application.forceUpgrade = true
-	s.applicationWatcher.changes <- struct{}{}
-	assertOneChange()
-	c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
-
 	s.st.unit.storageWatcher.changes <- []string{}
 	assertOneChange()
 
@@ -279,8 +276,15 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	s.st.unit.relationsWatcher.changes <- []string{}
 	assertOneChange()
 
-	s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
-	assertOneChange()
+	if s.modelType == model.IAAS {
+		s.st.unit.upgradeSeriesWatcher.changes <- struct{}{}
+		assertOneChange()
+
+		s.st.unit.application.forceUpgrade = true
+		s.applicationWatcher.changes <- struct{}{}
+		assertOneChange()
+		c.Assert(s.watcher.Snapshot().ForceCharmUpgrade, jc.IsTrue)
+	}
 
 	s.clock.Advance(5 * time.Minute)
 	assertOneChange()
