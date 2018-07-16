@@ -118,10 +118,18 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 					ExpandFilePath: true,
 				},
 			}, {
+				Name: credAttrServerCert,
+				CredentialAttr: cloud.CredentialAttr{
+					Description:    "The LXD server certificate, PEM-encoded.",
+					ExpandFilePath: true,
+					Optional:       true,
+				},
+			}, {
 				Name: credAttrTrustPassword,
 				CredentialAttr: cloud.CredentialAttr{
 					Description: "The LXD server trust password.",
 					Hidden:      true,
+					Optional:    true,
 				},
 			},
 		},
