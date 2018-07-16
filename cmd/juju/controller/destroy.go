@@ -54,6 +54,7 @@ type destroyCommand struct {
 	destroyModels  bool
 	destroyStorage bool
 	releaseStorage bool
+	CredentialName string
 }
 
 // usageDetails has backticks which we want to keep for markdown processing.
@@ -139,6 +140,7 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.destroyModels, "destroy-all-models", false, "Destroy all hosted models in the controller")
 	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances managed by the controller")
 	f.BoolVar(&c.releaseStorage, "release-storage", false, "Release all storage instances from management of the controller, without destroying them")
+	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
 }
 
 // Init implements Command.Init.
@@ -213,7 +215,7 @@ upgrade the controller to version 2.3 or greater.
 	}
 
 	// Obtain controller environ so we can clean up afterwards.
-	controllerEnviron, err := c.getControllerEnviron(ctx, store, controllerName, api)
+	controllerEnviron, err := c.getControllerEnviron(ctx, store, controllerName, c.CredentialName, api)
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
 	}
@@ -527,10 +529,10 @@ func (c *destroyCommandBase) Init(args []string) error {
 func (c *destroyCommandBase) getControllerEnviron(
 	ctx *cmd.Context,
 	store jujuclient.ClientStore,
-	controllerName string,
+	controllerName, credentialName string,
 	sysAPI destroyControllerAPI,
 ) (environs.Environ, error) {
-	env, err := c.getControllerEnvironFromStore(ctx, store, controllerName)
+	env, err := c.getControllerEnvironFromStore(ctx, store, controllerName, credentialName)
 	if errors.IsNotFound(err) {
 		return c.getControllerEnvironFromAPI(sysAPI, controllerName)
 	} else if err != nil {
@@ -542,11 +544,11 @@ func (c *destroyCommandBase) getControllerEnviron(
 func (c *destroyCommandBase) getControllerEnvironFromStore(
 	ctx *cmd.Context,
 	store jujuclient.ClientStore,
-	controllerName string,
+	controllerName, credentialName string,
 ) (environs.Environ, error) {
 	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
 		ctx, store, environs.GlobalProviderRegistry(),
-	)(controllerName)
+	)(controllerName, credentialName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

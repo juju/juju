@@ -435,7 +435,7 @@ func NewGetBootstrapConfigParamsFunc(
 	ctx *cmd.Context,
 	store jujuclient.ClientStore,
 	providerRegistry environs.ProviderRegistry,
-) func(string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
+) func(string, string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
 	return bootstrapConfigGetter{ctx, store, providerRegistry}.getBootstrapConfigParams
 }
 
@@ -445,7 +445,7 @@ type bootstrapConfigGetter struct {
 	registry environs.ProviderRegistry
 }
 
-func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
+func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName, credentialName string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
 	controllerDetails, err := g.store.ControllerByName(controllerName)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "resolving controller name")
@@ -487,7 +487,11 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		cloudCredential, err := DetectCredential(bootstrapConfig.Cloud, provider)
+		detectCredential := bootstrapConfig.Credential
+		if detectCredential == "" {
+			detectCredential = credentialName
+		}
+		cloudCredential, err := DetectCredential(bootstrapConfig.Cloud, detectCredential, provider)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}

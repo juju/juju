@@ -72,10 +72,11 @@ type NetLookup interface {
 
 // environProviderCredentials implements environs.ProviderCredentials.
 type environProviderCredentials struct {
-	certReadWriter CertificateReadWriter
-	certGenerator  CertificateGenerator
-	lookup         NetLookup
-	serverFactory  ServerFactory
+	certReadWriter  CertificateReadWriter
+	certGenerator   CertificateGenerator
+	lookup          NetLookup
+	serverFactory   ServerFactory
+	lxcConfigReader LXCConfigReader
 }
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
@@ -135,15 +136,39 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
 func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
-	svr, err := p.serverFactory.LocalServer()
-	if err != nil {
-		return nil, errors.NewNotFound(err, "failed to connect to local LXD")
-	}
-
 	nopLogf := func(string, ...interface{}) {}
 	certPEM, keyPEM, err := p.readOrGenerateCert(nopLogf)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	localCertCredential, err := p.detectLocalCredentials(certPEM, keyPEM)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	authCredentials := map[string]cloud.Credential{
+		lxdnames.DefaultCloud: *localCertCredential,
+	}
+
+	remoteCertCredentials, err := p.detectRemoteCredentials(certPEM, keyPEM)
+	if err != nil {
+		logger.Errorf("unable to detect LXC credentials: %s", err)
+	}
+
+	for k, v := range remoteCertCredentials {
+		authCredentials[k] = v
+	}
+
+	return &cloud.CloudCredential{
+		AuthCredentials: authCredentials,
+	}, nil
+}
+
+func (p environProviderCredentials) detectLocalCredentials(certPEM, keyPEM []byte) (*cloud.Credential, error) {
+	svr, err := p.serverFactory.LocalServer()
+	if err != nil {
+		return nil, errors.NewNotFound(err, "failed to connect to local LXD")
 	}
 
 	const credName = lxdnames.DefaultCloud
@@ -151,14 +176,36 @@ func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 	certCredential, err := p.finalizeLocalCredential(
 		ioutil.Discard, svr, string(certPEM), string(keyPEM), label,
 	)
+	return certCredential, errors.Trace(err)
+}
+
+func (p environProviderCredentials) detectRemoteCredentials(certPEM, keyPEM []byte) (map[string]cloud.Credential, error) {
+	configDir := filepath.Join(utils.Home(), ".config", "lxc")
+	configPath := filepath.Join(configDir, "config.yml")
+	config, err := p.lxcConfigReader.ReadFile(configPath)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &cloud.CloudCredential{
-		AuthCredentials: map[string]cloud.Credential{
-			credName: *certCredential,
-		},
-	}, nil
+
+	credentials := make(map[string]cloud.Credential)
+	for name, remote := range config.Remotes {
+		if remote.Protocol == lxdnames.ProviderType {
+			certPath := filepath.Join(configDir, "servercerts", fmt.Sprintf("%s.crt", name))
+			serverCert, err := p.lxcConfigReader.ReadCert(certPath)
+			if err != nil {
+				logger.Errorf("unable to read certificate from %s with error %s", certPath, err)
+				continue
+			}
+			credential := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+				credAttrClientCert: string(certPEM),
+				credAttrClientKey:  string(keyPEM),
+				credAttrServerCert: string(serverCert),
+			})
+			credential.Label = name
+			credentials[name] = credential
+		}
+	}
+	return credentials, nil
 }
 
 func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...interface{})) (certPEM, keyPEM []byte, _ error) {

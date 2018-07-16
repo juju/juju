@@ -4,11 +4,17 @@
 package lxd
 
 import (
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
+	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/environschema.v1"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/container/lxd"
@@ -18,11 +24,29 @@ import (
 	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 
+type LXCConfigReader interface {
+	ReadFile(path string) (LXCConfig, error)
+	ReadCert(path string) ([]byte, error)
+}
+
+type LXCConfig struct {
+	DefaultRemote string                     `yaml:"local"`
+	Remotes       map[string]LXCRemoteConfig `yaml:"remotes"`
+}
+
+type LXCRemoteConfig struct {
+	Addr     string `yaml:"addr"`
+	Public   bool   `yaml:"public"`
+	Protocol string `yaml:"protocol"`
+	AuthType string `yaml:"auth_type"`
+}
+
 type environProvider struct {
 	environs.ProviderCredentials
 	environs.RequestFinalizeCredential
-	serverFactory ServerFactory
-	Clock         clock.Clock
+	serverFactory   ServerFactory
+	lxcConfigReader LXCConfigReader
+	Clock           clock.Clock
 }
 
 var cloudSchema = &jsonschema.Schema{
@@ -58,15 +82,17 @@ var cloudSchema = &jsonschema.Schema{
 func NewProvider() environs.CloudEnvironProvider {
 	factory := NewServerFactory()
 	credentials := environProviderCredentials{
-		certReadWriter: certificateReadWriter{},
-		certGenerator:  certificateGenerator{},
-		lookup:         netLookup{},
-		serverFactory:  factory,
+		certReadWriter:  certificateReadWriter{},
+		certGenerator:   certificateGenerator{},
+		lookup:          netLookup{},
+		serverFactory:   factory,
+		lxcConfigReader: lxcConfigReader{},
 	}
 	return &environProvider{
 		ProviderCredentials:       credentials,
 		RequestFinalizeCredential: credentials,
 		serverFactory:             factory,
+		lxcConfigReader:           lxcConfigReader{},
 	}
 }
 
@@ -147,7 +173,28 @@ func (*environProvider) Validate(cfg, old *config.Config) (valid *config.Config,
 
 // DetectClouds implements environs.CloudDetector.
 func (p *environProvider) DetectClouds() ([]cloud.Cloud, error) {
-	return []cloud.Cloud{localhostCloud}, nil
+	configPath := filepath.Join(utils.Home(), ".config", "lxc", "config.yml")
+	config, err := p.lxcConfigReader.ReadFile(configPath)
+	if err != nil {
+		logger.Errorf("unable to read/parse LXC config file: %s", err)
+	}
+
+	clouds := []cloud.Cloud{localhostCloud}
+	for name, remote := range config.Remotes {
+		if remote.Protocol == lxdnames.ProviderType {
+			clouds = append(clouds, cloud.Cloud{
+				Name:        name,
+				Type:        lxdnames.ProviderType,
+				Endpoint:    remote.Addr,
+				Description: cloud.DefaultCloudDescription(lxdnames.ProviderType),
+				AuthTypes: []cloud.AuthType{
+					cloud.CertificateAuthType,
+				},
+			})
+		}
+	}
+
+	return clouds, nil
 }
 
 // DetectCloud implements environs.CloudDetector.
@@ -158,6 +205,25 @@ func (p *environProvider) DetectCloud(name string) (cloud.Cloud, error) {
 	switch name {
 	case lxdnames.ProviderType, lxdnames.DefaultCloud:
 		return localhostCloud, nil
+	default:
+		configPath := filepath.Join(utils.Home(), ".config", "lxc", "config.yml")
+		config, err := p.lxcConfigReader.ReadFile(configPath)
+		if err != nil {
+			logger.Errorf("unable to read LXC config file %s", err)
+			break
+		}
+
+		if remote, ok := config.Remotes[name]; ok {
+			return cloud.Cloud{
+				Name:        name,
+				Type:        lxdnames.ProviderType,
+				Endpoint:    remote.Addr,
+				Description: cloud.DefaultCloudDescription(lxdnames.ProviderType),
+				AuthTypes: []cloud.AuthType{
+					cloud.CertificateAuthType,
+				},
+			}, nil
+		}
 	}
 	return cloud.Cloud{}, errors.NotFoundf("cloud %s", name)
 }
@@ -299,4 +365,29 @@ func (p *environProvider) ConfigSchema() schema.Fields {
 // provider specific config attributes.
 func (p *environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
+}
+
+// lxcConfigReader is the default implementation for reading files from disk.
+type lxcConfigReader struct{}
+
+func (lxcConfigReader) ReadFile(path string) (LXCConfig, error) {
+	configFile, err := ioutil.ReadFile(path)
+	if err != nil {
+		if cause := errors.Cause(err); !os.IsNotExist(cause) {
+			return LXCConfig{}, errors.Trace(err)
+		}
+		return LXCConfig{}, errors.Trace(err)
+	}
+
+	var config LXCConfig
+	if err := yaml.Unmarshal(configFile, &config); err != nil {
+		return LXCConfig{}, errors.Trace(err)
+	}
+
+	return config, nil
+}
+
+func (lxcConfigReader) ReadCert(path string) ([]byte, error) {
+	certFile, err := ioutil.ReadFile(path)
+	return certFile, errors.Trace(err)
 }

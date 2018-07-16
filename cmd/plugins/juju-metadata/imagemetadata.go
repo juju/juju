@@ -38,7 +38,7 @@ func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Envir
 	// the specified environment.
 	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
 		context, c.ClientStore(), environs.GlobalProviderRegistry(),
-	)(controllerName)
+	)(controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
