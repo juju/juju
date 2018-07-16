@@ -5,6 +5,7 @@ package lease_test
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -45,6 +46,7 @@ func (Secretary) CheckDuration(duration time.Duration) error {
 
 // Store implements corelease.Store for testing purposes.
 type Store struct {
+	mu     sync.Mutex
 	leases map[lease.Key]lease.Info
 	expect []call
 	failed string
@@ -84,6 +86,8 @@ func (store *Store) Wait(c *gc.C) {
 
 // Leases is part of the lease.Store interface.
 func (store *Store) Leases() map[lease.Key]lease.Info {
+	store.mu.Lock()
+	defer store.mu.Unlock()
 	result := make(map[lease.Key]lease.Info)
 	for k, v := range store.leases {
 		result[k] = v
@@ -93,6 +97,9 @@ func (store *Store) Leases() map[lease.Key]lease.Info {
 
 // call implements the bulk of the lease.Store interface.
 func (store *Store) call(method string, args []interface{}) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
 	select {
 	case <-store.done:
 		return errors.Errorf("Store method called after test complete: %s %v", method, args)

@@ -63,6 +63,7 @@ func NewManager(config ManagerConfig) (*Manager, error) {
 		claims:     make(chan claim),
 		checks:     make(chan check),
 		blocks:     make(chan block),
+		errors:     make(chan error),
 		logContext: logContext,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
@@ -88,6 +89,10 @@ type Manager struct {
 	// if supplied
 	logContext string
 
+	// now is the time of the current tick - expiries are done on the
+	// basis of this time.
+	now time.Time
+
 	// claims is used to deliver lease claim requests to the loop.
 	claims chan claim
 
@@ -96,6 +101,10 @@ type Manager struct {
 
 	// blocks is used to deliver expiry block requests to the loop.
 	blocks chan block
+
+	// errors is used to send errors from background claim or tick
+	// goroutines back to the main loop.
+	errors chan error
 }
 
 // Kill is part of the worker.Worker interface.
@@ -131,18 +140,24 @@ func (manager *Manager) choose(blocks blocks) error {
 	select {
 	case <-manager.catacomb.Dying():
 		return manager.catacomb.ErrDying()
-	case <-manager.nextTick():
-		return manager.tick()
-	case claim := <-manager.claims:
-		return manager.handleClaim(claim)
+	case err := <-manager.errors:
+		return errors.Trace(err)
 	case check := <-manager.checks:
 		return manager.handleCheck(check)
+	case manager.now = <-manager.nextTick(manager.now):
+		go func(now time.Time) {
+			manager.errors <- manager.tick(now)
+		}(manager.now)
+	case claim := <-manager.claims:
+		go func() {
+			manager.errors <- manager.handleClaim(claim)
+		}()
 	case block := <-manager.blocks:
 		// TODO(raftlease): Include the other key items.
 		logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
 		blocks.add(block)
-		return nil
 	}
+	return nil
 }
 
 func (manager *Manager) bind(namespace, modelUUID string) (checkerClaimer, error) {
@@ -239,11 +254,18 @@ func (manager *Manager) handleCheck(check check) error {
 // we expect to have to do some work; either because at least one lease
 // may be ready to expire, or because enough enough time has passed that
 // it's worth checking for stalled collaborators.
-func (manager *Manager) nextTick() <-chan time.Time {
+func (manager *Manager) nextTick(lastTick time.Time) <-chan time.Time {
 	now := manager.config.Clock.Now()
 	nextTick := now.Add(manager.config.MaxSleep)
 	leases := manager.config.Store.Leases()
 	for _, info := range leases {
+		if !info.Expiry.After(lastTick) {
+			// The previous tick will expire this lease eventually, or
+			// the manager will die with an error. Either way, we
+			// don't need to worry about expiries in a previous tick
+			// here.
+			continue
+		}
 		if info.Expiry.After(nextTick) {
 			continue
 		}
@@ -260,7 +282,7 @@ func (manager *Manager) nextTick() <-chan time.Time {
 // subsequently check nextWake().
 //
 // It will return only unrecoverable errors.
-func (manager *Manager) tick() error {
+func (manager *Manager) tick(now time.Time) error {
 	logger.Tracef("[%s] waking up to refresh and expire leases", manager.logContext)
 	store := manager.config.Store
 	if err := store.Refresh(); err != nil {
@@ -278,7 +300,6 @@ func (manager *Manager) tick() error {
 	})
 
 	logger.Tracef("[%s] checking expiry on %d leases", manager.logContext, len(leases))
-	now := manager.config.Clock.Now()
 	expired := make([]lease.Key, 0)
 	for _, key := range keys {
 		if leases[key].Expiry.After(now) {
