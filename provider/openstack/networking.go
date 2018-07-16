@@ -6,6 +6,7 @@ package openstack
 import (
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/juju/collections/set"
@@ -326,40 +327,39 @@ func makeSubnetInfo(neutron *neutron.Client, subnet neutron.SubnetV2) (network.S
 // by the provider for the specified instance or list of ids. subnetIds can be
 // empty, in which case all known are returned.
 func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
-	var results []network.SubnetInfo
+	netIds := set.NewStrings()
+	neutron := n.env.neutron()
+	internalNet := n.env.ecfg().network()
+	netId, err := resolveNeutronNetwork(neutron, internalNet, false)
+	if err != nil {
+		if internalNet == "" {
+			logger.Warningf(noNetConfigMsg(err))
+		}
+		logger.Warningf("could not resolve internal network id for %q: %v", internalNet, err)
+	} else {
+		netIds.Add(netId)
+		// Note, there are cases where we will detect an external
+		// network without it being explicitly configured by the user.
+		// When we get to a point where we start detecting spaces for users
+		// on Openstack, we'll probably need to include better logic here.
+		externalNet := n.env.ecfg().externalNetwork()
+		if externalNet != "" {
+			netId, err := resolveNeutronNetwork(neutron, externalNet, true)
+			if err != nil {
+				logger.Warningf("could not resolve external network id for %q: %v", externalNet, err)
+			} else {
+				netIds.Add(netId)
+			}
+		}
+	}
+	logger.Debugf("finding subnets in networks: %s", strings.Join(netIds.Values(), ", "))
+
 	subIdSet := set.NewStrings()
 	for _, subId := range subnetIds {
 		subIdSet.Add(string(subId))
 	}
-	netIds := set.NewStrings()
-	displayIds := ""
-	neutron := n.env.neutron()
-	network := n.env.ecfg().network()
-	netId, err := resolveNeutronNetwork(neutron, network, false)
-	if err != nil {
-		logger.Warningf("could not resolve internal network id for %q: %v", network, err)
-		// Note: (jam 2018-05-23) We don't treat this as fatal because we used to never pay attention to it anyway
-	} else {
-		netIds.Add(netId)
-		displayIds = fmt.Sprintf("[%q", netId)
-		// Note, there are cases where we will detect an external
-		// network without it being explicitly configured by the user.
-		// When we get to a point where we start detecting spaces for
-		// users on Openstack, we'll probably need to include better logic here.
-		externalNetwork := n.env.ecfg().externalNetwork()
-		if externalNetwork != "" {
-			netId, err := resolveNeutronNetwork(neutron, externalNetwork, true)
-			if err != nil {
-				logger.Warningf("could not resolve external network id for %q: %v", externalNetwork, err)
-			} else {
-				netIds.Add(netId)
-				displayIds = fmt.Sprintf("%s, %q", displayIds, netId)
-			}
-		}
-		displayIds = displayIds + "]"
-	}
-	logger.Debugf("finding subnets in networks: %s", displayIds)
 
+	var results []network.SubnetInfo
 	if instId != instance.UnknownId {
 		// TODO(hml): 2017-03-20
 		// Implement Subnets() for case where instId is specified
@@ -373,8 +373,8 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 		}
 		if len(subnetIds) == 0 {
 			for _, subnet := range subnets {
-				if !netIds.IsEmpty() && !netIds.Contains(subnet.NetworkId) {
-					logger.Tracef("ignoring subnet %q, part of network %q not %v", subnet.Id, subnet.NetworkId, displayIds)
+				if !netIds.Contains(subnet.NetworkId) {
+					logger.Tracef("ignoring subnet %q, part of network %q", subnet.Id, subnet.NetworkId)
 					continue
 				}
 				subIdSet.Add(subnet.Id)
@@ -390,13 +390,24 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 				// Error will already have been logged.
 				results = append(results, info)
 			}
-
 		}
 	}
 	if !subIdSet.IsEmpty() {
 		return nil, errors.Errorf("failed to find the following subnet ids: %v", subIdSet.Values())
 	}
 	return results, nil
+}
+
+// noNetConfigMsg is used to present resolution options when an error is
+// encountered due to missing "network" configuration.
+// Any error from attempting to resolve a network without network
+// config set, is likely due to the resolution returning multiple
+// internal networks.
+func noNetConfigMsg(err error) string {
+	return fmt.Sprintf(
+		"%s\n\tTo resolve this, set a value for \"network\" in model-config or model-defaults;"+
+			"\n\tor supply it via --config when creating a new model",
+		err.Error())
 }
 
 func (n *NeutronNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {

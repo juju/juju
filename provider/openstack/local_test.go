@@ -565,6 +565,21 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 		"404; error info: .*itemNotFound.*")
 }
 
+func (s *localServerSuite) TestStartInstanceNetworkNotSet(c *gc.C) {
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		"network": "",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
+	c.Check(inst, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `multiple networks with label .*
+	To resolve this, set a value for "network" in model-config or model-defaults;
+	or supply it via --config when creating a new model`)
+}
+
 func (s *localServerSuite) TestStartInstanceNetworksDifferentAZ(c *gc.C) {
 	// If both the network and external-network config values are
 	// specified, there is not check for them being on different
@@ -2788,15 +2803,11 @@ func (s *noSwiftSuite) TestBootstrap(c *gc.C) {
 		"network": "net",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = s.env.SetConfig(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), s.env, bootstrap.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		AdminSecret:      testing.AdminSecret,
-		CAPrivateKey:     coretesting.CAKey,
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bootstrapEnv(c, s.env), jc.ErrorIsNil)
 }
 
 func newFullOpenstackService(cred *identity.Credentials, auth identity.AuthMode, useTSL bool) (*openstackservice.Openstack, []string) {
