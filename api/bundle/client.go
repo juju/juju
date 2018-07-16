@@ -34,20 +34,18 @@ func NewClient(st base.APICallCloser) *Client {
 
 // ExportBundle exports the current model configuration.
 func (c *Client) ExportBundle() (string, error) {
-	var result params.StringResult
+	var result params.BytesResult
 	if bestVer := c.BestAPIVersion(); bestVer < 2 {
 		return "", errors.Errorf("command not supported on v%d", bestVer)
 	}
 
-	if err := c.facade.FacadeCall("ExportBundle", "", &result); err != nil {
+	if err := c.facade.FacadeCall("ExportBundle", nil, &result); err != nil {
 		return "", errors.Trace(err)
 	}
-	if result.Error != nil {
-		return "", result.Error
-	}
 
-	if len(result.Result) == 0 {
+	str := string(result.Result)
+	if len(str) == 0 {
 		return "", errors.Errorf("result obtained is incorrect.")
 	}
-	return result.Result, nil
+	return str, nil
 }

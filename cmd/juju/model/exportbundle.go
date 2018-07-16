@@ -121,8 +121,8 @@ func (c *exportBundleCommand) ResolveFilename() string {
 
 		filename = modelTag.String()
 		if _, err := os.Stat(filename); err == nil {
-			currentTime := time.Now()
-			filename = filename + currentTime.String()
+			currentTime := time.Now().Format(time.RFC822)
+			filename = filename + currentTime
 		}
 	}
 	return filename + ".yaml"
