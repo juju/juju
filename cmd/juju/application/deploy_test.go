@@ -434,6 +434,7 @@ type CAASDeploySuiteBase struct {
 
 	series     string
 	CharmsPath string
+	cm         *state.CAASModel
 }
 
 func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
@@ -445,10 +446,18 @@ func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
 	// Set up a CAAS model to replace the IAAS one.
 	st := s.Factory.MakeCAASModel(c, nil)
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
+
+	var err error
+	// update model as State has been changed
+	s.Model, err = st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	s.cm, err = s.Model.CAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Close the state pool before the state object itself.
 	s.StatePool.Close()
 	s.StatePool = nil
-	err := s.State.Close()
+	err = s.State.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 }
@@ -488,11 +497,8 @@ func (s *CAASDeploySuite) TestInitErrorsCaasModel(c *gc.C) {
 }
 
 func (s *CAASDeploySuite) TestDevices(c *gc.C) {
-	m, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
 	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "kubernetes/bitcoin-miner-1", "bitcoin-miner", "kubernetes")
-	err = runDeploy(c, "bitcoin-miner", "-m", m.Name(), "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "kubernetes")
+	err := runDeploy(c, "bitcoin-miner", "-m", s.cm.Name(), "--device", "bitcoinminer=10,nvidia.com/gpu", "--series", "kubernetes")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertCharmsUploaded(c, "cs:kubernetes/bitcoin-miner-1")
@@ -949,10 +955,11 @@ func (s *charmStoreSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *charmStoreSuite) TearDownTest(c *gc.C) {
-	s.discharger.Close()
-	s.handler.Close()
 	s.srv.Close()
+	s.handler.Close()
 	s.srvSession.Close()
+	s.termsDischarger.Close()
+	s.discharger.Close()
 	s.JujuConnSuite.TearDownTest(c)
 }
 
