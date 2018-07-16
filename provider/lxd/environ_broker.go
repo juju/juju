@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
@@ -38,8 +39,6 @@ func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	// TODO(ericsnow) Handle constraints?
 
 	raw, err := env.newRawInstance(args, arch)
 	if err != nil {
@@ -136,8 +135,6 @@ func (env *environ) newRawInstance(
 		return nil, errors.Trace(err)
 	}
 
-	// TODO: support args.Constraints.Arch, we'll want to map from
-
 	// Keep track of StatusCallback output so we may clean up later.
 	// This is implemented here, close to where the StatusCallback calls
 	// are made, instead of at a higher level in the package, so as not to
@@ -200,6 +197,10 @@ func (env *environ) newRawInstance(
 		// Network is omitted (left empty).
 	}
 
+	if args.Constraints.HasInstanceType() {
+		instSpec.InstanceType = *args.Constraints.InstanceType
+	}
+
 	logger.Infof("starting instance %q (image %q)...", instSpec.Name, instSpec.Image)
 
 	statusCallback(status.Allocating, "preparing image", nil)
@@ -245,6 +246,14 @@ func getMetadata(cloudcfg cloudinit.CloudConfig, args environs.StartInstancePara
 			continue
 		}
 		metadata[k] = v
+	}
+
+	cons := args.Constraints
+	if cons.HasCpuCores() {
+		metadata["limits.cpu"] = fmt.Sprintf("%d", *cons.CpuCores)
+	}
+	if cons.HasMem() {
+		metadata["limits.memory"] = fmt.Sprintf("%dMB", *cons.Mem)
 	}
 
 	return metadata, nil

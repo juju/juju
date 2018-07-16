@@ -111,11 +111,9 @@ type InstanceSpec struct {
 	// LXD client is concerned and needs to be removed during a refactor.
 	ImageData lxd.SourcedImage
 
-	// TODO(ericsnow) Other possible fields:
-	// Disks
-	// Networks
-	// Metadata
-	// Tags
+	// Instance type can be any known from AWS, GCE or Azure.
+	// LXD translates it into limits for CPU cores and memory.gT
+	InstanceType string
 }
 
 func (spec InstanceSpec) config() map[string]string {
