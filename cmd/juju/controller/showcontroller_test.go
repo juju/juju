@@ -61,18 +61,18 @@ func (s *ShowControllerSuite) TestShowOneControllerOneInStore(c *gc.C) {
 	s.expectedOutput = `
 mallards:
   details:
-    uuid: this-is-another-uuid
+    controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
     agent-version: 999.99.99
   models:
     controller:
-      uuid: abc
+      model-uuid: abc
       machine-count: 2
       core-count: 4
     my-model:
-      uuid: def
+      model-uuid: def
       machine-count: 2
       core-count: 4
   current-model: admin/my-model
@@ -98,18 +98,18 @@ func (s *ShowControllerSuite) TestShowControllerWithPasswords(c *gc.C) {
 	s.expectedOutput = `
 mallards:
   details:
-    uuid: this-is-another-uuid
+    controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
     agent-version: 999.99.99
   models:
     controller:
-      uuid: abc
+      model-uuid: abc
       machine-count: 2
       core-count: 4
     my-model:
-      uuid: def
+      model-uuid: def
       machine-count: 2
       core-count: 4
   current-model: admin/my-model
@@ -149,7 +149,7 @@ func (s *ShowControllerSuite) TestShowControllerWithBootstrapConfig(c *gc.C) {
 	s.expectedOutput = `
 mallards:
   details:
-    uuid: this-is-another-uuid
+    controller-uuid: this-is-another-uuid
     api-endpoints: [this-is-another-of-many-api-endpoints, this-is-one-more-of-many-api-endpoints]
     ca-cert: this-is-another-ca-cert
     cloud: mallards
@@ -157,11 +157,11 @@ mallards:
     agent-version: 999.99.99
   models:
     controller:
-      uuid: abc
+      model-uuid: abc
       machine-count: 2
       core-count: 4
     my-model:
-      uuid: def
+      model-uuid: def
       machine-count: 2
       core-count: 4
   current-model: admin/my-model
@@ -179,7 +179,7 @@ func (s *ShowControllerSuite) TestShowOneControllerManyInStore(c *gc.C) {
 	s.expectedOutput = `
 aws-test:
   details:
-    uuid: this-is-the-aws-test-uuid
+    controller-uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
@@ -197,7 +197,7 @@ aws-test:
       ha-status: ha-enabled
   models:
     controller:
-      uuid: ghi
+      model-uuid: ghi
       machine-count: 2
       core-count: 4
   current-model: admin/controller
@@ -213,7 +213,7 @@ func (s *ShowControllerSuite) TestShowSomeControllerMoreInStore(c *gc.C) {
 	s.expectedOutput = `
 aws-test:
   details:
-    uuid: this-is-the-aws-test-uuid
+    controller-uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
     ca-cert: this-is-aws-test-ca-cert
     cloud: aws
@@ -231,7 +231,7 @@ aws-test:
       ha-status: ha-enabled
   models:
     controller:
-      uuid: ghi
+      model-uuid: ghi
       machine-count: 2
       core-count: 4
   current-model: admin/controller
@@ -240,7 +240,7 @@ aws-test:
     access: superuser
 mark-test-prodstack:
   details:
-    uuid: this-is-a-uuid
+    controller-uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
     ca-cert: this-is-a-ca-cert
     cloud: prodstack

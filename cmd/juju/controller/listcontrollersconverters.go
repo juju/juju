@@ -33,7 +33,7 @@ type ControllerItem struct {
 	User               string              `yaml:"user,omitempty" json:"user,omitempty"`
 	Access             string              `yaml:"access,omitempty" json:"access,omitempty"`
 	Server             string              `yaml:"recent-server,omitempty" json:"recent-server,omitempty"`
-	ControllerUUID     string              `yaml:"uuid" json:"uuid"`
+	ControllerUUID     string              `yaml:"controller-uuid" json:"uuid"`
 	APIEndpoints       []string            `yaml:"api-endpoints,flow" json:"api-endpoints"`
 	CACert             string              `yaml:"ca-cert" json:"ca-cert"`
 	Cloud              string              `yaml:"cloud" json:"cloud"`
