@@ -87,6 +87,33 @@ func (s *networkSuite) TestEnsureIPv4Modified(c *gc.C) {
 	c.Check(mod, jc.IsTrue)
 }
 
+func (s *networkSuite) TestGetNICsFromProfile(c *gc.C) {
+	lxd.PatchGenerateVirtualMACAddress(s)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	cSvr.EXPECT().GetProfile("default").Return(defaultProfileWithNIC(), lxdtesting.ETag, nil)
+
+	jujuSvr, err := lxd.NewServer(cSvr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	nics, err := jujuSvr.GetNICsFromProfile("default")
+	c.Assert(err, jc.ErrorIsNil)
+
+	exp := map[string]map[string]string{
+		"eth0": {
+			"parent":  network.DefaultLXDBridge,
+			"type":    "nic",
+			"nictype": "bridged",
+			"hwaddr":  "00:16:3e:00:00:00",
+		},
+	}
+
+	c.Check(nics, gc.DeepEquals, exp)
+}
+
 func (s *networkSuite) TestVerifyNetworkDevicePresentValid(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

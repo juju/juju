@@ -268,17 +268,6 @@ func (m *containerManager) networkDevicesFromConfig(netConfig *container.Network
 		}, nil, nil
 	}
 
-	// Get the NICs from the default profile and ensure they have MAC addresses.
-	profile, _, err := m.server.GetProfile(lxdDefaultProfileName)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	nics := getProfileNICs(profile)
-	for name := range nics {
-		if nics[name]["hwaddr"] == "" {
-			nics[name]["hwaddr"] = network.GenerateVirtualMACAddress()
-		}
-	}
-	return nics, nil, nil
+	nics, err := m.server.GetNICsFromProfile(lxdDefaultProfileName)
+	return nics, nil, errors.Trace(err)
 }
