@@ -5,6 +5,7 @@
 package bundle
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/juju/bundlechanges"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/os/series"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/description"
 	"github.com/juju/juju/apiserver/common"
@@ -22,7 +24,6 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
-	"gopkg.in/yaml.v2"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.bundle")
@@ -155,9 +156,9 @@ func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 }
 
 // ExportBundle exports the current model configuration as bundle.
-func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
+func (b *BundleAPI) ExportBundle() (params.BytesResult, error) {
 	if err := b.checkCanRead(); err != nil {
-		return params.StringResult{}, common.ServerError(common.ErrPerm)
+		return params.BytesResult{}, common.ServerError(common.ErrPerm)
 	}
 
 	var exportConfig state.ExportConfig
@@ -173,23 +174,27 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 
 	model, err := b.backend.ExportPartial(exportConfig)
 	if err != nil {
-		return params.StringResult{}, common.ServerError(err)
+		return params.BytesResult{}, common.ServerError(err)
+	}
+
+	err = model.Validate()
+	if err != nil {
+		return params.BytesResult{}, common.ServerError(err)
 	}
 
 	// Fill it in charm.BundleData datastructure.
-	var bundleData charm.BundleData
-	err = b.FillBundleData(bundleData, model)
+	bundleData, err := b.FillBundleData(model)
 	if err != nil {
-		return params.StringResult{}, common.ServerError(err)
+		return params.BytesResult{}, common.ServerError(err)
 	}
 
 	bytes, err := yaml.Marshal(bundleData)
 	if err != nil {
-		return params.StringResult{}, common.ServerError(err)
+		return params.BytesResult{}, common.ServerError(err)
 	}
 
-	return params.StringResult{
-		Result: string(bytes),
+	return params.BytesResult{
+		Result: bytes,
 	}, nil
 }
 
@@ -198,57 +203,61 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 func (u *APIv1) ExportBundle() (_, _ struct{}) { return }
 
 // Fills the bundledata datastructure required for the exportBundle.
-func (b *BundleAPI) FillBundleData(bundleData charm.BundleData, model description.Model) error {
-	// Fill in the BundleApplicationSpec of BundleData.
-	app := make(map[string]*charm.ApplicationSpec)
-	result := model.Applications()
-	if len(result) == 0 {
-		return errors.NotFoundf("application")
+func (b *BundleAPI) FillBundleData(model description.Model) (*charm.BundleData, error) {
+	data := &charm.BundleData{
+		Series:       series.LatestLts(),
+		Applications: make(map[string]*charm.ApplicationSpec),
+		Relations:    [][]string{},
+		Machines:     make(map[string]*charm.MachineSpec),
 	}
+
 	for _, application := range model.Applications() {
-		app[application.Name()].Charm = application.CharmURL()
-		app[application.Name()].Series = application.Series()
-		app[application.Name()].NumUnits = len(application.Units())
 		ut := []string{}
 		for _, unit := range application.Units() {
 			ut = append(ut, unit.Machine().Id())
 		}
-		app[application.Name()].To = ut
 
-		app[application.Name()].Expose = application.Exposed()
-		app[application.Name()].Options = application.CharmConfig()
-		app[application.Name()].Annotations = application.Annotations()
+		newApplication := &charm.ApplicationSpec{
+			Charm:            application.CharmURL(),
+			Series:           application.Series(),
+			NumUnits:         len(application.Units()),
+			To:               ut,
+			Expose:           application.Exposed(),
+			Options:          application.CharmConfig(),
+			Annotations:      application.Annotations(),
+			EndpointBindings: application.EndpointBindings(),
+		}
 
-		app[application.Name()].EndpointBindings = application.EndpointBindings()
+		data.Applications[application.Name()] = newApplication
 	}
 
-	// Fill in the BundleMachineSpec of BundleData.
-	mac := make(map[string]*charm.MachineSpec)
 	for _, machine := range model.Machines() {
 		constraints := []string{"arch=" + machine.Constraints().Architecture(),
-			"cpu-cores=" + string(machine.Constraints().CpuCores()),
-			"cpu-power=" + string(machine.Constraints().CpuPower()),
-			"mem=" + string(machine.Constraints().Memory()),
-			"root-disk=" + string(machine.Constraints().RootDisk())}
-		mac[machine.Id()].Constraints = strings.Join(constraints, " ")
-		mac[machine.Id()].Annotations = machine.Annotations()
-		mac[machine.Id()].Series = machine.Series()
+			"cpu-cores=" + strconv.Itoa(int(machine.Constraints().CpuCores())),
+			"cpu-power=" + strconv.Itoa(int(machine.Constraints().CpuPower())),
+			"mem=" + strconv.Itoa(int(machine.Constraints().Memory())),
+			"root-disk=" + strconv.Itoa(int(machine.Constraints().RootDisk()))}
+
+		newMachine := &charm.MachineSpec{
+			Constraints: strings.Join(constraints, " "),
+			Annotations: machine.Annotations(),
+			Series:      machine.Series(),
+		}
+		data.Machines[machine.Id()] = newMachine
 	}
 
-	// Fill in the relation for BundleData.
-	rel := [][]string{}
 	for _, relation := range model.Relations() {
 		endpointRelation := []string{}
 		for _, endpoint := range relation.Endpoints() {
-			endpointRelation = append(endpointRelation, endpoint.ApplicationName()+":"+endpoint.Name())
+			// skipping the 'peer' role which is not of concern in exporting the current model configuration.
+			if endpoint.Role() != "peer" {
+				endpointRelation = append(endpointRelation, endpoint.ApplicationName()+":"+endpoint.Name())
+			}
 		}
-		rel = append(rel, endpointRelation)
+		if len(endpointRelation) != 0 {
+			data.Relations = append(data.Relations, endpointRelation)
+		}
 	}
 
-	bundleData.Applications = app
-	bundleData.Machines = mac
-	bundleData.Relations = rel
-	bundleData.Series = series.LatestLts()
-
-	return nil
+	return data, nil
 }
