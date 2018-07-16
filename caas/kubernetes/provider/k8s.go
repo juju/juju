@@ -382,13 +382,15 @@ func (k *kubernetesClient) ensureStorageClass(cfg *storageConfig) error {
 		return nil
 	}
 
+	if !k8serrors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
 	// If it's not found but there's no provisioner specified, we can't
 	// create it so just return not found.
-	if !k8serrors.IsNotFound(err) || cfg.storageProvisioner == "" {
-		if k8serrors.IsNotFound(err) {
-			return errors.NotFoundf("storage class %v", cfg.storageClass)
-		}
-		return errors.Trace(err)
+	if err != nil && cfg.storageProvisioner == "" {
+		return errors.NewNotFound(nil,
+			fmt.Sprintf("storage class %q doesn't exist, but no storage provisioner has been specified",
+				cfg.storageClass))
 	}
 
 	// Create the storage class with the specified provisioner.
