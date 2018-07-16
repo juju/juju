@@ -52,6 +52,14 @@ func (s *uniterResolver) NextOp(
 		return nil, resolver.ErrTerminate
 	}
 
+	// The if the unit has completed its pre-series-upgrade hook (as noted
+	// by its completed state) then the uniter should idle in the face of
+	// all remote state changes. The unit is waiting to be shutdown by the
+	// machine in preparation for a series upgrade.
+	if localState.UpgradeSeriesStatus == model.UnitCompleted && remoteState.UpgradeSeriesStatus == model.UnitCompleted {
+		return nil, resolver.ErrNoOperation
+	}
+
 	if localState.Kind == operation.Upgrade {
 		if localState.Conflicted {
 			return s.nextOpConflicted(localState, remoteState, opFactory)
@@ -281,11 +289,6 @@ func (s *uniterResolver) nextOp(
 	if localState.UpgradeSeriesStatus == model.UnitNotStarted &&
 		remoteState.UpgradeSeriesStatus == model.UnitStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
-	}
-
-	if localState.UpgradeSeriesStatus == params.UnitStarted &&
-		remote.UpgradeSeriesStatus == params.UnitComplete {
-		return opFactory.NewCompleteSeriesUpgradeOperation()
 	}
 
 	op, err := s.config.Relations.NextOp(localState, remoteState, opFactory)
