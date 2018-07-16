@@ -52,10 +52,9 @@ func (s *uniterResolver) NextOp(
 		return nil, resolver.ErrTerminate
 	}
 
-	// The if the unit has completed its pre-series-upgrade hook (as noted
-	// by its completed state) then the uniter should idle in the face of
-	// all remote state changes. The unit is waiting to be shutdown by the
-	// machine in preparation for a series upgrade.
+	// If the unit has completed a pre-series-upgrade hook (as noted
+	// by its state) then the uniter should idle in the face of
+	// all remote state changes - the unit is waiting to be shutdown.
 	if localState.UpgradeSeriesStatus == model.UnitCompleted && remoteState.UpgradeSeriesStatus == model.UnitCompleted {
 		return nil, resolver.ErrNoOperation
 	}
