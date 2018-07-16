@@ -251,10 +251,10 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var (
-		seenStorageChange bool
-		storageChanges    watcher.StringsChannel
+		seenApplicationChange bool
 
-		seenApplicationChange *bool
+		upgradeSeriesChanges    watcher.NotifyChannel
+		seenUpgradeSeriesChange bool
 	)
 
 	if w.modelType == model.IAAS {
@@ -268,15 +268,26 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			return errors.Trace(err)
 		}
 		w.applicationChannel = applicationw.Changes()
-		seenApplicationChange = new(bool)
+		requiredEvents++
+
+		// Only IAAS models support upgrading the machine series.
+		// TODO(externalreality) This pattern should probably be extracted
+		upgradeSeriesw, err := w.unit.WatchUpgradeSeriesNotifications()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := w.catacomb.Add(upgradeSeriesw); err != nil {
+			return errors.Trace(err)
+		}
+		upgradeSeriesChanges = upgradeSeriesw.Changes()
 		requiredEvents++
 	}
 
+	var seenStorageChange bool
 	storagew, err := w.unit.WatchStorage()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	storageChanges = storagew.Changes()
 	if err := w.catacomb.Add(storagew); err != nil {
 		return errors.Trace(err)
 	}
@@ -315,17 +326,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	var seenLeadershipChange bool
 	// There's no watcher for this per se; we wait on a channel
 	// returned by the leadership tracker.
-	requiredEvents++
-
-	// TODO(externalreality) This pattern should probably be extracted
-	var seenUpgradeSeriesChange bool
-	upgradeSeriesw, err := w.unit.WatchUpgradeSeriesNotifications()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := w.catacomb.Add(upgradeSeriesw); err != nil {
-		return errors.Trace(err)
-	}
 	requiredEvents++
 
 	var eventsObserved int
@@ -406,7 +406,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if err := w.applicationChanged(); err != nil {
 				return errors.Trace(err)
 			}
-			observedEvent(seenApplicationChange)
+			observedEvent(&seenApplicationChange)
 
 		case _, ok := <-charmConfigw.Changes():
 			err = configChanged(ok, &seenConfigChange)
@@ -418,7 +418,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if err != nil {
 				return errors.Trace(err)
 			}
-		case _, ok := <-upgradeSeriesw.Changes():
+		case _, ok := <-upgradeSeriesChanges:
 			logger.Debugf("got upgrade series change")
 			if !ok {
 				return errors.New("upgrades series watcher closed")
@@ -467,7 +467,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			}
 			observedEvent(&seenRelationsChange)
 
-		case keys, ok := <-storageChanges:
+		case keys, ok := <-storagew.Changes():
 			logger.Debugf("got storage change: %v ok=%t", keys, ok)
 			if !ok {
 				return errors.New("storage watcher closed")
