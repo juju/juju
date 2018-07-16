@@ -211,6 +211,9 @@ func (b *BundleAPI) FillBundleData(model description.Model) (*charm.BundleData, 
 		Machines:     make(map[string]*charm.MachineSpec),
 	}
 
+	if len(model.Applications()) == 0 {
+		return &charm.BundleData{}, errors.NotFoundf("application")
+	}
 	for _, application := range model.Applications() {
 		ut := []string{}
 		for _, unit := range application.Units() {

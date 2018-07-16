@@ -6,7 +6,6 @@ package bundle_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/facades/client/bundle"
@@ -224,7 +223,6 @@ func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
 
 	c.Assert(model.Validate(), jc.ErrorIsNil)
 
-	var bundleData charm.BundleData
-	err = s.facade.FillBundleData(bundleData, model)
+	_, err = s.facade.FillBundleData(model)
 	c.Check(err, gc.ErrorMatches, "application not found")
 }
