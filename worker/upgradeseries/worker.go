@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package upgradeseriesworker
+package upgradeseries
 
 import (
 	"github.com/juju/errors"
@@ -16,8 +16,6 @@ import (
 // Facade exposes functionality required by a Worker to handle parts of the
 // upgrade series functionality.
 type Facade interface {
-
-	// WatchUpgradeSeriesNotifications
 	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
 }
 
@@ -43,6 +41,8 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
+	// TODO: (hml) 2018-07-17
+	// validate it's a machine tag
 	if config.Tag == nil {
 		return errors.NotValidf("nil machine tag")
 	}
@@ -52,14 +52,13 @@ func (config Config) Validate() error {
 	return nil
 }
 
-//func NewWorker(st *upgradeseries.State, config Config) (worker.Worker, error) {
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	u := &upgradeSeriesWorker{
-		upgradeSeriesFacade: config.Facade,
-		config:              config,
+		Facade: config.Facade,
+		logger: config.Logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -79,14 +78,14 @@ func NewWorker(config Config) (worker.Worker, error) {
 //		starting the unit agents;
 //		moving the status of the upgrade-series steps along.
 type upgradeSeriesWorker struct {
-	catacomb catacomb.Catacomb
-	config   Config
+	Facade
 
-	upgradeSeriesFacade Facade
+	catacomb catacomb.Catacomb
+	logger   Logger
 }
 
 func (w *upgradeSeriesWorker) loop() error {
-	uw, err := w.upgradeSeriesFacade.WatchUpgradeSeriesNotifications()
+	uw, err := w.WatchUpgradeSeriesNotifications()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -96,10 +95,9 @@ func (w *upgradeSeriesWorker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-uw.Changes():
-			w.config.Logger.Errorf("machineUpgradeSeriesLocks changed")
+			w.logger.Errorf("machineUpgradeSeriesLocks changed")
 		}
 	}
-	return nil
 }
 
 // Kill implements worker.Worker.Kill.

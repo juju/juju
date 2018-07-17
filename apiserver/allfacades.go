@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/unitassigner"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/facades/agent/upgrader"
+	"github.com/juju/juju/apiserver/facades/agent/upgradeseries"
 	"github.com/juju/juju/apiserver/facades/client/action"
 	"github.com/juju/juju/apiserver/facades/client/annotations" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/application" // ModelUser Write
@@ -274,6 +275,7 @@ func AllFacades() *facade.Registry {
 	reg("Uniter", 8, uniter.NewUniterAPI)
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
+	reg("UpgradeSeries", 1, upgradeseries.NewUpgradeSeriesAPI)
 	reg("UserManager", 1, usermanager.NewUserManagerAPI)
 	reg("UserManager", 2, usermanager.NewUserManagerAPI) // Adds ResetPassword
 

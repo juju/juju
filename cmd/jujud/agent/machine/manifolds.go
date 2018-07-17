@@ -83,7 +83,7 @@ import (
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
-	"github.com/juju/juju/worker/upgradeseriesworker"
+	"github.com/juju/juju/worker/upgradeseries"
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
@@ -266,7 +266,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	machineTag := agentConfig.Tag().(names.MachineTag)
 	controllerTag := agentConfig.Controller()
 
-	manifolds := dependency.Manifolds{
+	return dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
@@ -548,9 +548,11 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			AgentName:       agentName,
 			APICallerName:   apiCallerName,
+			Logger:          loggo.GetLogger("juju.worker.proxyupdater"),
 			WorkerFunc:      proxyupdater.NewWorker,
 			ExternalUpdate:  externalUpdateProxyFunc,
 			InProcessUpdate: proxyconfig.DefaultConfig.Set,
+			RunFunc:         proxyupdater.RunWithStdIn,
 		})),
 
 		// The api address updater is a leaf worker that rewrites agent config
@@ -791,25 +793,25 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     credentialvalidator.NewWorker,
 		}),
 
+		// TODO: (hml) 2018-07-17
+		// Remove when upgrade-series feature flag removed.
 		upgradeSeriesEnabledName: featureflag.Manifold(featureflag.ManifoldConfig{
 			StateName: stateName,
 			FlagName:  feature.UpgradeSeries,
 			Invert:    false,
-			Logger:    loggo.GetLogger("juju.worker.upgradeseries.upgradeseriesenabled"),
+			Logger:    loggo.GetLogger("juju.worker.upgradeseries.enabled"),
 			NewWorker: featureflag.NewWorker,
 		}),
 
 		// Do we want an ifNotController on this?  is there an ifNotCAAS?
-		upgradeSeriesWorkerName: ifUpgradeSeriesEnabled(ifNotMigrating(upgradeseriesworker.Manifold(upgradeseriesworker.ManifoldConfig{
+		upgradeSeriesWorkerName: ifUpgradeSeriesEnabled(ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
-			NewFacade:     upgradeseriesworker.NewFacade,
-			NewWorker:     upgradeseriesworker.NewWorker,
+			NewFacade:     upgradeseries.NewFacade,
+			NewWorker:     upgradeseries.NewWorker,
 		}))),
 	}
-
-	return manifolds
 }
 
 func clockManifold(clock clock.Clock) dependency.Manifold {

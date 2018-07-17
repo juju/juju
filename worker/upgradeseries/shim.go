@@ -1,6 +1,6 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
-package upgradeseriesworker
+package upgradeseries
 
 import (
 	"gopkg.in/juju/names.v2"

@@ -97,6 +97,8 @@ func (*ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"unit-agent-deployer",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
+		"upgrade-series",
+		"upgrade-series-enabled",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 		"upgrade-steps-runner",
@@ -146,6 +148,8 @@ func (*ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"migration-minion",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
+		"upgrade-series",
+		"upgrade-series-enabled",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 		"upgrade-steps-runner",
@@ -735,6 +739,14 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	"upgrade-check-flag": {"upgrade-check-gate"},
 
 	"upgrade-check-gate": {},
+
+	"upgrade-series": {
+		"agent",
+		"api-caller",
+		"upgrade-series-enabled",
+	},
+
+	"upgrade-series-enabled": {},
 
 	"upgrade-steps-flag": {"upgrade-steps-gate"},
 

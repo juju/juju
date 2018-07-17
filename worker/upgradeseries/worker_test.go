@@ -1,1 +1,1 @@
-package upgradeseriesworker_test
+package upgradeseries_test
