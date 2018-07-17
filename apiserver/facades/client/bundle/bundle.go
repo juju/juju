@@ -106,12 +106,35 @@ func (b *BundleAPI) checkCanRead() error {
 // GetChanges returns the list of changes required to deploy the given bundle
 // data. The changes are sorted by requirements, so that they can be applied in
 // order.
+// V1 GetChanges did not support device.
+func (b *APIv1) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
+	var results params.BundleChangesResults
+	data, err := charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
+	if err != nil {
+		return results, errors.Annotate(err, "cannot read bundle YAML")
+	}
+	for key, application := range data.Applications {
+		application.Devices = nil
+		data.Applications[key] = application
+	}
+	return getChanges(data)
+}
+
+// GetChanges returns the list of changes required to deploy the given bundle
+// data. The changes are sorted by requirements, so that they can be applied in
+// order.
 func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
 	var results params.BundleChangesResults
 	data, err := charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
 	if err != nil {
 		return results, errors.Annotate(err, "cannot read bundle YAML")
 	}
+	return getChanges(data)
+
+}
+
+func getChanges(data *charm.BundleData) (params.BundleChangesResults, error) {
+	var results params.BundleChangesResults
 	verifyConstraints := func(s string) error {
 		_, err := constraints.Parse(s)
 		return err
