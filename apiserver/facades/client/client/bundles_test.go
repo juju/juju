@@ -22,6 +22,8 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
                         debug: true
                     storage:
                         tmpfs: tmpfs,1G
+                    devices:
+                        bitcoinminer: 2,nvidia.com/gpu  // device is not supported here because GetBundleChanges is deprecated
                 haproxy:
                     charm: cs:trusty/haproxy-42
             relations:
@@ -46,7 +48,6 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 			"",
 			map[string]string{"tmpfs": "tmpfs,1G"},
 			map[string]string{},
-			map[string]string{},
 			map[string]int{},
 		},
 		Requires: []string{"addCharm-0"},
@@ -63,7 +64,6 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 			"haproxy",
 			map[string]interface{}{},
 			"",
-			map[string]string{},
 			map[string]string{},
 			map[string]string{},
 			map[string]int{},

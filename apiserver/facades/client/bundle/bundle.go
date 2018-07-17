@@ -113,11 +113,50 @@ func (b *APIv1) GetChanges(args params.BundleChangesParams) (params.BundleChange
 	if err != nil {
 		return results, errors.Annotate(err, "cannot read bundle YAML")
 	}
-	for key, application := range data.Applications {
-		application.Devices = nil
-		data.Applications[key] = application
+	verifyConstraints := func(s string) error {
+		_, err := constraints.Parse(s)
+		return err
 	}
-	return getChanges(data)
+	verifyStorage := func(s string) error {
+		_, err := storage.ParseConstraints(s)
+		return err
+	}
+	if err := data.Verify(verifyConstraints, verifyStorage, nil); err != nil {
+		if verificationError, ok := err.(*charm.VerificationError); ok {
+			results.Errors = make([]string, len(verificationError.Errors))
+			for i, e := range verificationError.Errors {
+				results.Errors[i] = e.Error()
+			}
+			return results, nil
+		}
+		// This should never happen as Verify only returns verification errors.
+		return results, errors.Annotate(err, "cannot verify bundle")
+	}
+	changes, err := bundlechanges.FromData(
+		bundlechanges.ChangesConfig{
+			Bundle: data,
+			Logger: loggo.GetLogger("juju.apiserver.bundlechanges"),
+		})
+	if err != nil {
+		return results, err
+	}
+	results.Changes = make([]*params.BundleChange, len(changes))
+	for i, c := range changes {
+		var guiArgs []interface{}
+		switch c := c.(type) {
+		case *bundlechanges.AddApplicationChange:
+			guiArgs = c.GUIArgsLegacy()
+		default:
+			guiArgs = c.GUIArgs()
+		}
+		results.Changes[i] = &params.BundleChange{
+			Id:       c.Id(),
+			Method:   c.Method(),
+			Args:     guiArgs,
+			Requires: c.Requires(),
+		}
+	}
+	return results, nil
 }
 
 // GetChanges returns the list of changes required to deploy the given bundle
@@ -129,12 +168,6 @@ func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 	if err != nil {
 		return results, errors.Annotate(err, "cannot read bundle YAML")
 	}
-	return getChanges(data)
-
-}
-
-func getChanges(data *charm.BundleData) (params.BundleChangesResults, error) {
-	var results params.BundleChangesResults
 	verifyConstraints := func(s string) error {
 		_, err := constraints.Parse(s)
 		return err
@@ -148,9 +181,9 @@ func getChanges(data *charm.BundleData) (params.BundleChangesResults, error) {
 		return err
 	}
 	if err := data.Verify(verifyConstraints, verifyStorage, verifyDevices); err != nil {
-		if err, ok := err.(*charm.VerificationError); ok {
-			results.Errors = make([]string, len(err.Errors))
-			for i, e := range err.Errors {
+		if verificationError, ok := err.(*charm.VerificationError); ok {
+			results.Errors = make([]string, len(verificationError.Errors))
+			for i, e := range verificationError.Errors {
 				results.Errors[i] = e.Error()
 			}
 			return results, nil
@@ -183,6 +216,6 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 	return params.StringResult{}, nil
 }
 
-// Mask the new method from V1 API.
 // ExportBundle is not in V1 API.
-func (u *APIv1) ExportBundle() (_, _ struct{}) { return }
+// Mask the new method from V1 API.
+func (b *APIv1) ExportBundle() (_, _ struct{}) { return }

@@ -15,6 +15,7 @@ import (
 // applied in order.
 // This call is deprecated, clients should use the GetChanges endpoint on the
 // Bundle facade.
+// Note: any new feature in the future like devices will never be supported here.
 func (c *Client) GetBundleChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
 	st := c.api.state()
 
@@ -22,5 +23,6 @@ func (c *Client) GetBundleChanges(args params.BundleChangesParams) (params.Bundl
 	if err != nil {
 		return params.BundleChangesResults{}, err
 	}
-	return bundleAPI.GetChanges(args)
+	apiV1 := bundle.APIv1{&bundle.APIv2{bundleAPI}}
+	return apiV1.GetChanges(args)
 }

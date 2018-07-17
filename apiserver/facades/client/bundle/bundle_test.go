@@ -244,7 +244,6 @@ func (s *bundleSuite) TestGetChangesSuccessV1(c *gc.C) {
 			map[string]interface{}{"debug": true},
 			"",
 			map[string]string{"tmpfs": "tmpfs,1G"},
-			map[string]string{}, // APIv1 did not support devices.
 			map[string]string{},
 			map[string]int{},
 		},
@@ -262,7 +261,6 @@ func (s *bundleSuite) TestGetChangesSuccessV1(c *gc.C) {
 			"haproxy",
 			map[string]interface{}{},
 			"",
-			map[string]string{},
 			map[string]string{},
 			map[string]string{},
 			map[string]int{},
