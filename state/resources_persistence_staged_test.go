@@ -8,6 +8,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/state/statetest"
@@ -170,12 +171,25 @@ func (s *StagedResourceSuite) TestActivateExists(c *gc.C) {
 		C:      "resources",
 		Id:     "resource#a-application/spam",
 		Assert: txn.DocExists,
-		Remove: true,
-	}, {
-		C:      "resources",
-		Id:     "resource#a-application/spam",
-		Assert: txn.DocMissing,
-		Insert: &doc,
+		Update: bson.M{"$set": bson.M{
+			"resource-id":                doc.ID,
+			"pending-id":                 doc.PendingID,
+			"application-id":             doc.ApplicationID,
+			"unit-id":                    doc.UnitID,
+			"name":                       doc.Name,
+			"type":                       doc.Type,
+			"path":                       doc.Path,
+			"description":                doc.Description,
+			"origin":                     doc.Origin,
+			"revision":                   doc.Revision,
+			"fingerprint":                doc.Fingerprint,
+			"size":                       doc.Size,
+			"username":                   doc.Username,
+			"timestamp-when-added":       doc.Timestamp,
+			"storage-path":               doc.StoragePath,
+			"download-progress":          doc.DownloadProgress,
+			"timestamp-when-last-polled": doc.LastPolled,
+		}},
 	}, {
 		C:      "application",
 		Id:     "a-application",
