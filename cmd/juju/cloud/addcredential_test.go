@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -20,6 +21,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
+	environsTesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/testing"
@@ -457,4 +459,52 @@ func (s *addCredentialSuite) TestAddMAASCredential(c *gc.C) {
 			},
 		},
 	})
+}
+
+func (s *addCredentialSuite) TestShouldFinalizeCredentialWithEnvironProvider(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	provider := environsTesting.NewMockEnvironProvider(ctrl)
+	cred := jujucloud.Credential{}
+	got := cloud.ShouldFinalizeCredential(provider, cred)
+	c.Assert(got, jc.IsFalse)
+}
+
+func (s *addCredentialSuite) TestShouldFinalizeCredentialSuccess(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	provider := struct {
+		environs.EnvironProvider
+		*environsTesting.MockRequestFinalizeCredential
+	}{
+		EnvironProvider:               environsTesting.NewMockEnvironProvider(ctrl),
+		MockRequestFinalizeCredential: environsTesting.NewMockRequestFinalizeCredential(ctrl),
+	}
+
+	cred := jujucloud.Credential{}
+	provider.MockRequestFinalizeCredential.EXPECT().ShouldFinalizeCredential(cred).Return(true)
+
+	got := cloud.ShouldFinalizeCredential(provider, cred)
+	c.Assert(got, jc.IsTrue)
+}
+
+func (s *addCredentialSuite) TestShouldFinalizeCredentialFailure(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	provider := struct {
+		environs.EnvironProvider
+		*environsTesting.MockRequestFinalizeCredential
+	}{
+		EnvironProvider:               environsTesting.NewMockEnvironProvider(ctrl),
+		MockRequestFinalizeCredential: environsTesting.NewMockRequestFinalizeCredential(ctrl),
+	}
+
+	cred := jujucloud.Credential{}
+	provider.MockRequestFinalizeCredential.EXPECT().ShouldFinalizeCredential(cred).Return(false)
+
+	got := cloud.ShouldFinalizeCredential(provider, cred)
+	c.Assert(got, jc.IsFalse)
 }

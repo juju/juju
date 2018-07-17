@@ -160,10 +160,28 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 		return false
 	}
 
-	names := []string{}
+	var names []string
 	for name, cred := range credentials.AuthCredentials {
 		if !validAuthType(cred.AuthType()) {
 			return errors.Errorf("credential %q contains invalid auth type %q, valid auth types for cloud %q are %v", name, cred.AuthType(), c.CloudName, c.cloud.AuthTypes)
+		}
+
+		provider, err := environs.Provider(c.cloud.Type)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// When in non-interactive mode we still sometimes want to finalize a
+		// cloud, so that we can either validate the credentials work before a
+		// bootstrap happens or improve security models, where by we remove any
+		// shared/secret passwords (lxd remote security).
+		// This is optional and is backwards compatible with other providers.
+		if shouldFinalizeCredential(provider, cred) {
+			newCredential, err := c.finalizeProvider(ctxt, cred.AuthType(), cred.Attributes())
+			if err != nil {
+				return errors.Trace(err)
+			}
+			cred = *newCredential
 		}
 		existingCredentials.AuthCredentials[name] = cred
 		names = append(names, name)
@@ -234,6 +252,21 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 		return errors.Trace(err)
 	}
 
+	newCredential, err := c.finalizeProvider(ctxt, authType, attrs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	existingCredentials.AuthCredentials[credentialName] = *newCredential
+	err = c.store.UpdateCredential(c.CloudName, *existingCredentials)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	fmt.Fprintf(ctxt.Stdout, "Credential %q %v locally for cloud %q.\n\n", credentialName, verb, c.CloudName)
+	return nil
+}
+
+func (c *addCredentialCommand) finalizeProvider(ctxt *cmd.Context, authType jujucloud.AuthType, attrs map[string]string) (*jujucloud.Credential, error) {
 	cloudEndpoint := c.cloud.Endpoint
 	cloudStorageEndpoint := c.cloud.StorageEndpoint
 	cloudIdentityEndpoint := c.cloud.IdentityEndpoint
@@ -254,7 +287,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 
 	credentialsProvider, err := environs.Provider(c.cloud.Type)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	newCredential, err := credentialsProvider.FinalizeCredential(
 		ctxt, environs.FinalizeCredentialParams{
@@ -264,17 +297,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 			CloudIdentityEndpoint: cloudIdentityEndpoint,
 		},
 	)
-	if err != nil {
-		return errors.Annotate(err, "finalizing credential")
-	}
-
-	existingCredentials.AuthCredentials[credentialName] = *newCredential
-	err = c.store.UpdateCredential(c.CloudName, *existingCredentials)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	fmt.Fprintf(ctxt.Stdout, "Credential %q %v locally for cloud %q.\n\n", credentialName, verb, c.CloudName)
-	return nil
+	return newCredential, errors.Annotate(err, "finalizing credential")
 }
 
 func (c *addCredentialCommand) promptAuthType(p *interact.Pollster, authTypes []jujucloud.AuthType, out io.Writer) (jujucloud.AuthType, error) {
@@ -394,4 +417,11 @@ func enterFile(name string, p *interact.Pollster, expanded bool) (string, error)
 	// Expand the file path to consume the contents
 	contents, err := ioutil.ReadFile(abs)
 	return string(contents), errors.Trace(err)
+}
+
+func shouldFinalizeCredential(provider environs.EnvironProvider, cred jujucloud.Credential) bool {
+	if finalizer, ok := provider.(environs.RequestFinalizeCredential); ok {
+		return finalizer.ShouldFinalizeCredential(cred)
+	}
+	return false
 }

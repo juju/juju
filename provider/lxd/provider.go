@@ -20,6 +20,7 @@ import (
 
 type environProvider struct {
 	environs.ProviderCredentials
+	environs.RequestFinalizeCredential
 	serverFactory ServerFactory
 	Clock         clock.Clock
 }
@@ -56,14 +57,16 @@ var cloudSchema = &jsonschema.Schema{
 // NewProvider returns a new LXD EnvironProvider.
 func NewProvider() environs.CloudEnvironProvider {
 	factory := NewServerFactory()
+	credentials := environProviderCredentials{
+		certReadWriter: certificateReadWriter{},
+		certGenerator:  certificateGenerator{},
+		lookup:         netLookup{},
+		serverFactory:  factory,
+	}
 	return &environProvider{
-		ProviderCredentials: environProviderCredentials{
-			certReadWriter: certificateReadWriter{},
-			certGenerator:  certificateGenerator{},
-			lookup:         netLookup{},
-			serverFactory:  factory,
-		},
-		serverFactory: factory,
+		ProviderCredentials:       credentials,
+		RequestFinalizeCredential: credentials,
+		serverFactory:             factory,
 	}
 }
 
@@ -232,8 +235,8 @@ var localhostCloud = cloud.Cloud{
 	Name: lxdnames.DefaultCloud,
 	Type: lxdnames.ProviderType,
 	AuthTypes: []cloud.AuthType{
-		interactiveAuthType,
 		cloud.CertificateAuthType,
+		interactiveAuthType,
 	},
 	Endpoint: "",
 	Regions: []cloud.Region{{

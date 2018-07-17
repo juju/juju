@@ -49,8 +49,25 @@ func NewServerSpec(host, serverCert string, clientCert *Certificate) ServerSpec 
 }
 
 // WithProxy adds the optional proxy to the server spec.
+// Returns the ServerSpec to enable chaining of optional values
 func (s ServerSpec) WithProxy(proxy ProxyFunc) ServerSpec {
 	s.connectionArgs.Proxy = proxy
+	return s
+}
+
+// WithClientCertificate adds the optional client Certificate to the server
+// spec.
+// Returns the ServerSpec to enable chaining of optional values
+func (s ServerSpec) WithClientCertificate(clientCert *Certificate) ServerSpec {
+	s.connectionArgs.TLSClientCert = string(clientCert.CertPEM)
+	s.connectionArgs.TLSClientKey = string(clientCert.KeyPEM)
+	return s
+}
+
+// WithSkipGetServer adds the option skipping of the get server verification to
+// the server spec.
+func (s ServerSpec) WithSkipGetServer(b bool) ServerSpec {
+	s.connectionArgs.SkipGetServer = b
 	return s
 }
 
