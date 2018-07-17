@@ -82,11 +82,6 @@ func (env *environ) newContainer(
 	args environs.StartInstanceParams,
 	arch string,
 ) (*lxd.Container, error) {
-	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// Note: other providers have the ImageMetadata already read for them
 	// and passed in as args.ImageMetadata. However, lxd provider doesn't
 	// use datatype: image-ids, it uses datatype: image-download, and we
@@ -118,32 +113,16 @@ func (env *environ) newContainer(
 	}
 	defer cleanupCallback()
 
-	series := args.InstanceConfig.Series
-	image, err := env.server.FindImage(series, arch, imageSources, true, statusCallback)
+	image, err := env.server.FindImage(args.InstanceConfig.Series, arch, imageSources, true, statusCallback)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	cleanupCallback() // Clean out any long line of completed download status
 
-	cloudCfg, err := cloudinit.New(series)
+	cSpec, err := env.getContainerSpec(image, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	cfg, err := getContainerConfig(cloudCfg, args)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cSpec := lxd.ContainerSpec{
-		Name:     hostname,
-		Profiles: []string{"default", env.profileName()},
-		Image:    image,
-		Config:   cfg,
-		// TODO (manadart 2018-05-30): This is where we need to set network devices from incoming config.
-		Devices: nil,
-	}
-	cSpec.ApplyConstraints(args.Constraints)
 
 	statusCallback(status.Allocating, "Creating container", nil)
 	container, err := env.server.CreateContainerFromSpec(cSpec)
@@ -182,26 +161,64 @@ func (env *environ) getImageSources() ([]lxd.ServerSpec, error) {
 	return remotes, nil
 }
 
-// getContainerConfig builds the raw "user-defined" metadata for the new
-// instance (relative to the provided args) and returns it.
-func getContainerConfig(cloudcfg cloudinit.CloudConfig, args environs.StartInstanceParams) (map[string]string, error) {
-	renderer := lxdRenderer{}
-	uncompressed, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, renderer)
+// getContainerSpec builds a container spec from the input container image and
+// start-up parameters.
+// Cloud-init config is generated based on the network devices in the default
+// profile and included in the spec config.
+func (env *environ) getContainerSpec(
+	image lxd.SourcedImage, args environs.StartInstanceParams,
+) (lxd.ContainerSpec, error) {
+	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot make user data")
+		return lxd.ContainerSpec{}, errors.Trace(err)
 	}
-	logger.Debugf("LXD user data; %d bytes", len(uncompressed))
+	cSpec := lxd.ContainerSpec{
+		Name:     hostname,
+		Profiles: []string{"default", env.profileName()},
+		Image:    image,
+		Config:   make(map[string]string),
+	}
+	cSpec.ApplyConstraints(args.Constraints)
+
+	cloudCfg, err := cloudinit.New(args.InstanceConfig.Series)
+	if err != nil {
+		return cSpec, errors.Trace(err)
+	}
+
+	// Check to see if there are any non-eth0 devices in the default profile.
+	// If there are, we need cloud-init to configure them, and we need to
+	// explicitly add them to the container spec.
+	nics, err := env.server.GetNICsFromProfile("default")
+	if err != nil {
+		return cSpec, errors.Trace(err)
+	}
+	if !(len(nics) == 1 && nics["eth0"] != nil) {
+		cSpec.Config[lxd.NetworkConfigKey] = cloudinit.CloudInitNetworkConfigDisabled
+
+		info, err := lxd.InterfaceInfoFromDevices(nics)
+		if err != nil {
+			return cSpec, errors.Trace(err)
+		}
+		if err := cloudCfg.AddNetworkConfig(info); err != nil {
+			return cSpec, errors.Trace(err)
+		}
+
+		cSpec.Devices = nics
+	}
+
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudCfg, lxdRenderer{})
+	if err != nil {
+		return cSpec, errors.Annotate(err, "composing user data")
+	}
+	logger.Debugf("LXD user data; %d bytes", len(userData))
 
 	// TODO(ericsnow) Looks like LXD does not handle gzipped userdata
 	// correctly.  It likely has to do with the HTTP transport, much
 	// as we have to b64encode the userdata for GCE.  Until that is
 	// resolved we simply pass the plain text.
-	//compressed := utils.Gzip(compressed)
-	userData := string(uncompressed)
-	metadata := map[string]string{
-		// Store the cloud-config user data for cloud-init.
-		lxd.UserDataKey: userData,
-	}
+	//cfg[lxd.UserDataKey] = utils.Gzip(userData)
+	cSpec.Config[lxd.UserDataKey] = string(userData)
+
 	for k, v := range args.InstanceConfig.Tags {
 		if !strings.HasPrefix(k, tags.JujuTagPrefix) {
 			// Since some metadata is interpreted by LXD, we cannot allow
@@ -210,10 +227,10 @@ func getContainerConfig(cloudcfg cloudinit.CloudConfig, args environs.StartInsta
 			logger.Debugf("ignoring non-juju tag: %s=%s", k, v)
 			continue
 		}
-		metadata[lxd.UserNamespacePrefix+k] = v
+		cSpec.Config[lxd.UserNamespacePrefix+k] = v
 	}
 
-	return metadata, nil
+	return cSpec, nil
 }
 
 // getHardwareCharacteristics compiles hardware-related details about

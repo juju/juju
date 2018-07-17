@@ -331,6 +331,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 				Certificate: "server-cert",
 			},
 		},
+		Profile: &api.Profile{},
 	}
 	s.Common = &stubCommon{stub: s.Stub}
 
@@ -651,6 +652,11 @@ func (conn *StubClient) ServerCertificate() string {
 func (conn *StubClient) EnableHTTPSListener() error {
 	conn.AddCall("EnableHTTPSListener")
 	return conn.NextErr()
+}
+
+func (conn *StubClient) GetNICsFromProfile(profName string) (map[string]map[string]string, error) {
+	conn.AddCall("GetNICsFromProfile", profName)
+	return conn.Profile.Devices, conn.NextErr()
 }
 
 type MockClock struct {
