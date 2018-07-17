@@ -1436,7 +1436,7 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 	c.Assert(units, gc.HasLen, 2)
 
 	checkUnitRes := func(exUnit description.Unit, unit *state.Unit, res resource.Resource) {
-		c.Assert(exUnit.Name(), gc.Equals, unit.Name())
+		c.Check(exUnit.Name(), gc.Equals, unit.Name())
 		exResources := exUnit.Resources()
 		c.Assert(exResources, gc.HasLen, 1)
 		exRes := exResources[0]
