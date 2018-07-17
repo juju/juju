@@ -576,7 +576,7 @@ func (s *localServerSuite) TestStartInstanceNetworkNotSet(c *gc.C) {
 	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `multiple networks with label .*
-	To resolve this, set a value for "network" in model-config or model-defaults;
+	To resolve this error, set a value for "network" in model-config or model-defaults;
 	or supply it via --config when creating a new model`)
 }
 
