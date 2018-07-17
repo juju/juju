@@ -22,6 +22,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charmrepo.v3/csclient"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver"
@@ -589,6 +590,7 @@ var config = {
     bakeryEnabled: {{.bakeryEnabled}},
     host: '{{.host}}',
     controllerSocket: '{{.controllerSocket}}',
+    charmstoreURL: '{{.charmstoreURL}}',
     socket: '{{.socket}}',
     staticURL: '{{.staticURL}}',
     uuid: '{{.uuid}}',
@@ -610,11 +612,12 @@ var config = {
     bakeryEnabled: false,
     host: '%[2]s',
     controllerSocket: '/api',
+    charmstoreURL: '%[6]s',
     socket: '/model/$uuid/api',
     staticURL: '/gui/%[3]s',
     uuid: '%[1]s',
     version: '%[4]s'
-};`, test.expectedUUID, serverHost, hash, jujuversion.Current, test.expectedBaseURL)
+};`, test.expectedUUID, serverHost, hash, jujuversion.Current, test.expectedBaseURL, csclient.ServerURL)
 
 		// Make a request for the Juju GUI config.
 		resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
