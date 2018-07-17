@@ -4,9 +4,7 @@
 package lxd
 
 import (
-	"crypto/x509"
 	"encoding/base64"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -224,9 +222,12 @@ func (p environProviderCredentials) FinalizeCredential(
 	case manualAuthType:
 		// if we have all the credential files, then it should be as simple
 		// as validating they exist.
-		_, _, ok := getCertificates(args.Credential)
+		clientCert, _, ok := getCertificates(args.Credential)
 		if !ok {
 			return nil, errors.NotValidf("credentials")
+		}
+		if err := clientCert.Validate(); err != nil {
+			return nil, errors.Annotate(err, "client credentials")
 		}
 		return &args.Credential, nil
 	case cloud.CertificateAuthType:
@@ -297,6 +298,9 @@ func (p environProviderCredentials) finalizeRemoteCertificateCredential(
 	if !ok {
 		return nil, errors.NotFoundf("client credentials")
 	}
+	if err := clientCert.Validate(); err != nil {
+		return nil, errors.Annotate(err, "client credentials")
+	}
 
 	credAttrs := credentials.Attributes()
 	trustPassword, ok := credAttrs[credAttrTrustPassword]
@@ -313,9 +317,9 @@ func (p environProviderCredentials) finalizeRemoteCertificateCredential(
 		return nil, errors.Trace(err)
 	}
 
-	clientRawCert, err := clientX509Cert(clientCert.CertPEM)
+	clientX509Cert, err := clientCert.X509()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "client credentials")
 	}
 
 	// check to see if the cert already exists
@@ -324,7 +328,7 @@ func (p environProviderCredentials) finalizeRemoteCertificateCredential(
 			Name: credentials.Label,
 			Type: "client",
 		},
-		Certificate: clientRawCert,
+		Certificate: base64.StdEncoding.EncodeToString(clientX509Cert.Raw),
 		Password:    trustPassword,
 	}); err != nil {
 		return nil, errors.Trace(err)
@@ -366,20 +370,6 @@ func (p environProviderCredentials) finalizeRemoteCertificateCredential(
 	})
 	out.Label = credentials.Label
 	return &out, nil
-}
-
-func clientX509Cert(cert []byte) (string, error) {
-	certBlock, _ := pem.Decode(cert)
-	if certBlock == nil {
-		return "", errors.New("Invalid certificate file")
-	}
-
-	x509Cert, err := x509.ParseCertificate(certBlock.Bytes)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	return base64.StdEncoding.EncodeToString(x509Cert.Raw), nil
 }
 
 func (p environProviderCredentials) finalizeLocalCertificateCredential(

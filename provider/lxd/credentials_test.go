@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	"encoding/base64"
 	"net"
 	"os"
 	"path/filepath"
@@ -481,8 +482,10 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
 		CloudEndpoint: "8.8.8.8",
 		Credential:    insecureCred,
 	}
-	clientCert, err := lxd.ClientX509Cert([]byte(coretesting.CACert))
+	clientCert := containerLXD.NewCertificate([]byte(coretesting.CACert), []byte(coretesting.CAKey))
+	clientX509Cert, err := clientCert.X509()
 	c.Assert(err, jc.ErrorIsNil)
+	clientX509Base64 := base64.StdEncoding.EncodeToString(clientX509Cert.Raw)
 
 	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{}, nil)
 	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
@@ -492,7 +495,7 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {
 			Name: insecureCred.Label,
 			Type: "client",
 		},
-		Certificate: clientCert,
+		Certificate: clientX509Base64,
 		Password:    "fred",
 	}).Return(nil)
 	deps.server.EXPECT().GetServer().Return(&api.Server{
@@ -561,8 +564,10 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithCreateCertificateErro
 		CloudEndpoint: "8.8.8.8",
 		Credential:    insecureCred,
 	}
-	clientCert, err := lxd.ClientX509Cert([]byte(coretesting.CACert))
+	clientCert := containerLXD.NewCertificate([]byte(coretesting.CACert), []byte(coretesting.CAKey))
+	clientX509Cert, err := clientCert.X509()
 	c.Assert(err, jc.ErrorIsNil)
+	clientX509Base64 := base64.StdEncoding.EncodeToString(clientX509Cert.Raw)
 
 	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{}, nil)
 	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
@@ -572,7 +577,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithCreateCertificateErro
 			Name: insecureCred.Label,
 			Type: "client",
 		},
-		Certificate: clientCert,
+		Certificate: clientX509Base64,
 		Password:    "fred",
 	}).Return(errors.New("bad"))
 
@@ -599,8 +604,10 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoveWithGetServerError(c *gc.
 		CloudEndpoint: "8.8.8.8",
 		Credential:    insecureCred,
 	}
-	clientCert, err := lxd.ClientX509Cert([]byte(coretesting.CACert))
+	clientCert := containerLXD.NewCertificate([]byte(coretesting.CACert), []byte(coretesting.CAKey))
+	clientX509Cert, err := clientCert.X509()
 	c.Assert(err, jc.ErrorIsNil)
+	clientX509Base64 := base64.StdEncoding.EncodeToString(clientX509Cert.Raw)
 
 	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{}, nil)
 	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
@@ -610,7 +617,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoveWithGetServerError(c *gc.
 			Name: insecureCred.Label,
 			Type: "client",
 		},
-		Certificate: clientCert,
+		Certificate: clientX509Base64,
 		Password:    "fred",
 	}).Return(nil)
 	deps.server.EXPECT().GetServer().Return(nil, "etag", errors.New("bad"))
@@ -647,8 +654,10 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(
 		CloudEndpoint: "8.8.8.8",
 		Credential:    insecureCred,
 	}
-	clientCert, err := lxd.ClientX509Cert([]byte(coretesting.CACert))
+	clientCert := containerLXD.NewCertificate([]byte(coretesting.CACert), []byte(coretesting.CAKey))
+	clientX509Cert, err := clientCert.X509()
 	c.Assert(err, jc.ErrorIsNil)
+	clientX509Base64 := base64.StdEncoding.EncodeToString(clientX509Cert.Raw)
 
 	deps.netLookup.EXPECT().LookupHost("8.8.8.8").Return([]string{}, nil)
 	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{}, nil)
@@ -658,7 +667,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(
 			Name: insecureCred.Label,
 			Type: "client",
 		},
-		Certificate: clientCert,
+		Certificate: clientX509Base64,
 		Password:    "fred",
 	}).Return(nil)
 	deps.server.EXPECT().GetServer().Return(&api.Server{

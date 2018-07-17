@@ -14,7 +14,6 @@ var (
 	NewInstance           = newInstance
 	GetCertificates       = getCertificates
 	IsSupportedAPIVersion = isSupportedAPIVersion
-	ClientX509Cert        = clientX509Cert
 )
 
 func NewProviderWithMocks(
