@@ -549,42 +549,73 @@ func defaultRemoteServerFunc(ctrl *gomock.Controller) func(containerLXD.ServerSp
 
 func (s *serverSuite) TestIsSupportedAPIVersion(c *gc.C) {
 	for _, t := range []struct {
-		input    string
-		expected bool
-		output   string
+		input     string
+		clustered bool
+		expected  bool
+		output    string
 	}{
 		{
-			input:    "foo",
-			expected: false,
-			output:   `LXD API version "foo": expected format <major>\.<minor>`,
+			input:     "foo",
+			clustered: false,
+			expected:  false,
+			output:    `LXD API version "foo": expected format <major>\.<minor>`,
 		},
 		{
-			input:    "a.b",
-			expected: false,
-			output:   `LXD API version "a.b": unexpected major number: strconv.(ParseInt|Atoi): parsing "a": invalid syntax`,
+			input:     "a.b",
+			clustered: false,
+			expected:  false,
+			output:    `LXD API version "a.b": unexpected major number: strconv.(ParseInt|Atoi): parsing "a": invalid syntax`,
 		},
 		{
-			input:    "0.9",
-			expected: false,
-			output:   `LXD API version "0.9": expected major version 1 or later`,
+			input:     "0.9",
+			clustered: false,
+			expected:  false,
+			output:    `LXD API version "0.9": expected major version 1 or later`,
 		},
 		{
-			input:    "1.0",
-			expected: true,
-			output:   "",
+			input:     "0.9",
+			clustered: true,
+			expected:  false,
+			output:    `LXD API version "0.9": expected major version 1 or later`,
 		},
 		{
-			input:    "2.0",
-			expected: true,
-			output:   "",
+			input:     "1.9",
+			clustered: true,
+			expected:  false,
+			output:    `LXD API version "1.9": expected major version 3 or later`,
 		},
 		{
-			input:    "2.1",
-			expected: true,
-			output:   "",
+			input:     "1.0",
+			clustered: false,
+			expected:  true,
+			output:    "",
+		},
+		{
+			input:     "2.0",
+			clustered: false,
+			expected:  true,
+			output:    "",
+		},
+		{
+			input:     "2.1",
+			clustered: false,
+			expected:  true,
+			output:    "",
+		},
+		{
+			input:     "3.0",
+			clustered: true,
+			expected:  true,
+			output:    "",
+		},
+		{
+			input:     "3.1",
+			clustered: true,
+			expected:  true,
+			output:    "",
 		},
 	} {
-		msg, ok := lxd.IsSupportedAPIVersion(t.input)
+		msg, ok := lxd.IsSupportedAPIVersion(t.input, t.clustered)
 		c.Assert(ok, gc.Equals, t.expected)
 		c.Assert(msg, gc.Matches, t.output)
 	}

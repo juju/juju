@@ -328,9 +328,10 @@ func (s *serverFactory) validateServer(svr Server, profile apiProfile) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	clustered := serverInfo.Environment.ServerClustered
 
 	apiVersion := serverInfo.APIVersion
-	if msg, ok := isSupportedAPIVersion(apiVersion); !ok {
+	if msg, ok := isSupportedAPIVersion(apiVersion, clustered); !ok {
 		logger.Warningf(msg)
 		logger.Warningf("trying to use unsupported LXD API version %q", apiVersion)
 	} else {
@@ -348,7 +349,7 @@ func (s *serverFactory) Clock() clock.Clock {
 }
 
 // isSupportedAPIVersion defines what API versions we support.
-func isSupportedAPIVersion(version string) (msg string, ok bool) {
+func isSupportedAPIVersion(version string, clustered bool) (msg string, ok bool) {
 	versionParts := strings.Split(version, ".")
 	if len(versionParts) < 2 {
 		return fmt.Sprintf("LXD API version %q: expected format <major>.<minor>", version), false
@@ -361,6 +362,9 @@ func isSupportedAPIVersion(version string) (msg string, ok bool) {
 
 	if major < 1 {
 		return fmt.Sprintf("LXD API version %q: expected major version 1 or later", version), false
+	}
+	if clustered && major < 3 {
+		return fmt.Sprintf("LXD API version %q: expected major version 3 or later", version), false
 	}
 
 	return "", true
