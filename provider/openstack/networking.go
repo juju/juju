@@ -375,6 +375,13 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 		}
 		if len(subnetIds) == 0 {
 			for _, subnet := range subnets {
+				// TODO (manadart 2018-07-17): If there was an error resolving
+				// an internal network ID, then no subnets will be discovered.
+				// The user will get an error attempting to add machines to
+				// this model and will have to update model config with a
+				// network name; but this does not re-discover the subnets.
+				// If subnets/spaces become important, we will have to address
+				// this somehow.
 				if !netIds.Contains(subnet.NetworkId) {
 					logger.Tracef("ignoring subnet %q, part of network %q", subnet.Id, subnet.NetworkId)
 					continue
