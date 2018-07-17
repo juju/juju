@@ -34,7 +34,7 @@ var _ = gc.Suite(&credentialsSuite{})
 
 func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
 	provider := lxd.NewProvider()
-	envtesting.AssertProviderAuthTypes(c, provider, "manual", "certificate")
+	envtesting.AssertProviderAuthTypes(c, provider, "certificate", "interactive")
 }
 
 type credentialsSuiteDeps struct {
@@ -336,7 +336,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalLocalAddCertAlreadyExists(
 
 	gomock.InOrder(
 		deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("not found")),
-		deps.server.EXPECT().CreateClientCertificate(s.clientCert()).Return(errors.New("UNIQUE constraint failed: certificates.fingerprint")),
+		deps.server.EXPECT().CreateClientCertificate(s.clientCert()).Return(errors.New("UNIQUE constraint failed: interactives.fingerprint")),
 		deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil),
 		deps.server.EXPECT().ServerCertificate().Return("server-cert"),
 	)
@@ -370,7 +370,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertFatal(c *gc.C) {
 
 	gomock.InOrder(
 		deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("not found")),
-		deps.server.EXPECT().CreateClientCertificate(s.clientCert()).Return(errors.New("UNIQUE constraint failed: certificates.fingerprint")),
+		deps.server.EXPECT().CreateClientCertificate(s.clientCert()).Return(errors.New("UNIQUE constraint failed: interactives.fingerprint")),
 		deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", errors.New("not found")),
 	)
 
@@ -381,10 +381,10 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertFatal(c *gc.C) {
 			"client-key":  coretesting.CAKey,
 		}),
 	})
-	c.Assert(err, gc.ErrorMatches, "adding certificate \"juju\": UNIQUE constraint failed: certificates.fingerprint")
+	c.Assert(err, gc.ErrorMatches, "adding certificate \"juju\": UNIQUE constraint failed: interactives.fingerprint")
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocalManualWithEmptyClientCert(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocalCertificateWithEmptyClientCert(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -393,12 +393,12 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalManualWithEmptyClientCert(
 	ctx := cmdtesting.Context(c)
 	_, err := deps.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
 		CloudEndpoint: "localhost",
-		Credential:    cloud.NewCredential("manual", map[string]string{}),
+		Credential:    cloud.NewCredential("certificate", map[string]string{}),
 	})
-	c.Assert(err, gc.ErrorMatches, `credentials not valid`)
+	c.Assert(err, gc.ErrorMatches, `missing or empty "client-cert" attribute not valid`)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocalManualWithEmptyClientKey(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocalCertificateWithEmptyClientKey(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -407,14 +407,14 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalManualWithEmptyClientKey(c
 	ctx := cmdtesting.Context(c)
 	_, err := deps.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
 		CloudEndpoint: "localhost",
-		Credential: cloud.NewCredential("manual", map[string]string{
+		Credential: cloud.NewCredential("certificate", map[string]string{
 			"client-cert": coretesting.CACert,
 		}),
 	})
-	c.Assert(err, gc.ErrorMatches, `credentials not valid`)
+	c.Assert(err, gc.ErrorMatches, `missing or empty "client-key" attribute not valid`)
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocalManual(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocalCertificate(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -423,7 +423,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalManual(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	out, err := deps.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
 		CloudEndpoint: "localhost",
-		Credential: cloud.NewCredential("manual", map[string]string{
+		Credential: cloud.NewCredential("certificate", map[string]string{
 			"client-cert": "/path/to/client/cert.crt",
 			"client-key":  "/path/to/client/key.key",
 			"server-cert": "server-cert",
@@ -431,7 +431,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalManual(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(out.AuthType(), gc.Equals, cloud.AuthType("manual"))
+	c.Assert(out.AuthType(), gc.Equals, cloud.AuthType("certificate"))
 	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
 		"client-cert": "/path/to/client/cert.crt",
 		"client-key":  "/path/to/client/key.key",
@@ -439,7 +439,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalManual(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialNonLocalManual(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialNonLocalCertificate(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -449,9 +449,9 @@ func (s *credentialsSuite) TestFinalizeCredentialNonLocalManual(c *gc.C) {
 	// it appears that we're not on the LXD server host.
 	_, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
 		CloudEndpoint: "8.8.8.8",
-		Credential:    cloud.NewCredential("manual", map[string]string{}),
+		Credential:    cloud.NewCredential("certificate", map[string]string{}),
 	})
-	c.Assert(err, gc.ErrorMatches, `credentials not valid`)
+	c.Assert(err, gc.ErrorMatches, `missing or empty "client-cert" attribute not valid`)
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialNonLocal(c *gc.C) {

@@ -46,7 +46,7 @@ var cloudSchema = &jsonschema.Schema{
 					Type: []jsonschema.Type{jsonschema.StringType},
 					Enum: []interface{}{
 						string(cloud.CertificateAuthType),
-						string(manualAuthType),
+						string(interactiveAuthType),
 					},
 				}},
 			},
@@ -236,6 +236,7 @@ var localhostCloud = cloud.Cloud{
 	Type: lxdnames.ProviderType,
 	AuthTypes: []cloud.AuthType{
 		cloud.CertificateAuthType,
+		interactiveAuthType,
 	},
 	Endpoint: "",
 	Regions: []cloud.Region{{
@@ -275,7 +276,7 @@ func (p *environProvider) validateCloudSpec(spec environs.CloudSpec) error {
 		return errors.Trace(err)
 	}
 	switch authType := spec.Credential.AuthType(); authType {
-	case cloud.CertificateAuthType, manualAuthType:
+	case cloud.CertificateAuthType, interactiveAuthType:
 		if spec.Credential == nil {
 			return errors.NotFoundf("credentials")
 		}

@@ -32,10 +32,10 @@ const (
 	credAttrClientKey     = "client-key"
 	credAttrTrustPassword = "trust-password"
 
-	// manualAuthType is a credential auth-type provided as an option, where by
-	// you've already setup a lxd remote and you have all the certs at hand to
-	// just pass directly to juju.
-	manualAuthType = "manual"
+	// interactiveAuthType is a credential auth-type provided as an option to
+	// "juju add-credential", which takes the user through the process of
+	// generating a certificate credential.
+	interactiveAuthType = "interactive"
 )
 
 // CertificateReadWriter groups methods that is required to read and write
@@ -81,7 +81,7 @@ type environProviderCredentials struct {
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
-		manualAuthType: {
+		cloud.CertificateAuthType: {
 			{
 				Name: credAttrServerCert,
 				CredentialAttr: cloud.CredentialAttr{
@@ -102,7 +102,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 				},
 			},
 		},
-		cloud.CertificateAuthType: {
+		interactiveAuthType: {
 			{
 				Name: credAttrClientCert,
 				CredentialAttr: cloud.CredentialAttr{
@@ -116,17 +116,16 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 					ExpandFilePath: true,
 				},
 			}, {
-				Name: credAttrServerCert,
-				CredentialAttr: cloud.CredentialAttr{
-					Description:    "The LXD server certificate, PEM-encoded.",
-					ExpandFilePath: true,
-					Optional:       true,
-				},
-			}, {
 				Name: credAttrTrustPassword,
 				CredentialAttr: cloud.CredentialAttr{
 					Description: "The LXD server trust password.",
 					Hidden:      true,
+					Optional:    true,
+				},
+			}, {
+				Name: credAttrServerCert,
+				CredentialAttr: cloud.CredentialAttr{
+					Description: "The LXD server certificate, PEM-encoded.",
 					Optional:    true,
 				},
 			},
@@ -149,7 +148,7 @@ func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 
 	const credName = lxdnames.DefaultCloud
 	label := fmt.Sprintf("LXD credential %q", credName)
-	certCredential, err := p.finalizeLocalCertificateCredential(
+	certCredential, err := p.finalizeLocalCredential(
 		ioutil.Discard, svr, string(certPEM), string(keyPEM), label,
 	)
 	if err != nil {
@@ -219,25 +218,14 @@ func (p environProviderCredentials) FinalizeCredential(
 	args environs.FinalizeCredentialParams,
 ) (*cloud.Credential, error) {
 	switch authType := args.Credential.AuthType(); authType {
-	case manualAuthType:
-		// if we have all the credential files, then it should be as simple
-		// as validating they exist.
-		clientCert, _, ok := getCertificates(args.Credential)
-		if !ok {
-			return nil, errors.NotValidf("credentials")
-		}
-		if err := clientCert.Validate(); err != nil {
-			return nil, errors.Annotate(err, "client credentials")
-		}
-		return &args.Credential, nil
-	case cloud.CertificateAuthType:
-		return p.finalizeCertificateCredential(ctx, args)
+	case interactiveAuthType, cloud.CertificateAuthType:
+		return p.finalizeCredential(ctx, args)
 	default:
 		return &args.Credential, nil
 	}
 }
 
-func (p environProviderCredentials) finalizeCertificateCredential(
+func (p environProviderCredentials) finalizeCredential(
 	ctx environs.FinalizeCredentialContext,
 	args environs.FinalizeCredentialParams,
 ) (*cloud.Credential, error) {
@@ -273,7 +261,7 @@ func (p environProviderCredentials) finalizeCertificateCredential(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cred, err := p.finalizeLocalCertificateCredential(
+		cred, err := p.finalizeLocalCredential(
 			stderr, svr, certPEM, keyPEM,
 			args.Credential.Label,
 		)
@@ -282,14 +270,14 @@ func (p environProviderCredentials) finalizeCertificateCredential(
 
 	// We're not local, so setup the remote server and automate the remote
 	// certificate credentials.
-	return p.finalizeRemoteCertificateCredential(
+	return p.finalizeRemoteCredential(
 		stderr,
 		args.CloudEndpoint,
 		args.Credential,
 	)
 }
 
-func (p environProviderCredentials) finalizeRemoteCertificateCredential(
+func (p environProviderCredentials) finalizeRemoteCredential(
 	output io.Writer,
 	endpoint string,
 	credentials cloud.Credential,
@@ -372,7 +360,7 @@ func (p environProviderCredentials) finalizeRemoteCertificateCredential(
 	return &out, nil
 }
 
-func (p environProviderCredentials) finalizeLocalCertificateCredential(
+func (p environProviderCredentials) finalizeLocalCredential(
 	output io.Writer,
 	svr Server,
 	certPEM, keyPEM, label string,
