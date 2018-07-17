@@ -83,6 +83,7 @@ import (
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/upgradeseriesworker"
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
@@ -265,7 +266,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	machineTag := agentConfig.Tag().(names.MachineTag)
 	controllerTag := agentConfig.Controller()
 
-	return dependency.Manifolds{
+	manifolds := dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
@@ -547,11 +548,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			AgentName:       agentName,
 			APICallerName:   apiCallerName,
-			Logger:          loggo.GetLogger("juju.worker.proxyupdater"),
 			WorkerFunc:      proxyupdater.NewWorker,
 			ExternalUpdate:  externalUpdateProxyFunc,
 			InProcessUpdate: proxyconfig.DefaultConfig.Set,
-			RunFunc:         proxyupdater.RunWithStdIn,
 		})),
 
 		// The api address updater is a leaf worker that rewrites agent config
@@ -791,7 +790,26 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:     credentialvalidator.NewFacade,
 			NewWorker:     credentialvalidator.NewWorker,
 		}),
+
+		upgradeSeriesEnabledName: featureflag.Manifold(featureflag.ManifoldConfig{
+			StateName: stateName,
+			FlagName:  feature.UpgradeSeries,
+			Invert:    false,
+			Logger:    loggo.GetLogger("juju.worker.upgradeseries.upgradeseriesenabled"),
+			NewWorker: featureflag.NewWorker,
+		}),
+
+		// Do we want an ifNotController on this?  is there an ifNotCAAS?
+		upgradeSeriesWorkerName: ifUpgradeSeriesEnabled(ifNotMigrating(upgradeseriesworker.Manifold(upgradeseriesworker.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
+			NewFacade:     upgradeseriesworker.NewFacade,
+			NewWorker:     upgradeseriesworker.NewWorker,
+		}))),
 	}
+
+	return manifolds
 }
 
 func clockManifold(clock clock.Clock) dependency.Manifold {
@@ -838,6 +856,12 @@ var ifRaftLeader = engine.Housing{
 var ifRaftEnabled = engine.Housing{
 	Flags: []string{
 		raftEnabledName,
+	},
+}.Decorate
+
+var ifUpgradeSeriesEnabled = engine.Housing{
+	Flags: []string{
+		upgradeSeriesEnabledName,
 	},
 }.Decorate
 
@@ -901,6 +925,9 @@ const (
 	restoreWatcherName            = "restore-watcher"
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
+
+	upgradeSeriesEnabledName = "upgrade-series-enabled"
+	upgradeSeriesWorkerName  = "upgrade-series"
 
 	httpServerName = "http-server"
 	apiServerName  = "api-server"
