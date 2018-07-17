@@ -332,10 +332,12 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 	internalNet := n.env.ecfg().network()
 	netId, err := resolveNeutronNetwork(neutron, internalNet, false)
 	if err != nil {
+		// Note: (jam 2018-05-23) We don't treat this as fatal because we used to never pay attention to it anyway
 		if internalNet == "" {
 			logger.Warningf(noNetConfigMsg(err))
+		} else {
+			logger.Warningf("could not resolve internal network id for %q: %v", internalNet, err)
 		}
-		logger.Warningf("could not resolve internal network id for %q: %v", internalNet, err)
 	} else {
 		netIds.Add(netId)
 		// Note, there are cases where we will detect an external
@@ -405,7 +407,7 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) 
 // internal networks.
 func noNetConfigMsg(err error) string {
 	return fmt.Sprintf(
-		"%s\n\tTo resolve this, set a value for \"network\" in model-config or model-defaults;"+
+		"%s\n\tTo resolve this error, set a value for \"network\" in model-config or model-defaults;"+
 			"\n\tor supply it via --config when creating a new model",
 		err.Error())
 }
