@@ -781,16 +781,18 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 			continue
 		}
 
-		// Process units added directly in the cloud instead of via Juju.
-		updateProps, err := processUnitParams(unitParams)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if len(unitParams.FilesystemInfo) > 0 {
-			unitParamsWithFilesystemInfo = append(unitParamsWithFilesystemInfo, unitParams)
-		}
-		unitUpdate.Adds = append(unitUpdate.Adds,
-			app.AddOperation(*updateProps))
+		// TODO(caas) - attempting 2 way sync has unintended consequences on some deployments
+		// For now disable.
+		//// Process units added directly in the cloud instead of via Juju.
+		//updateProps, err := processUnitParams(unitParams)
+		//if err != nil {
+		//	return errors.Trace(err)
+		//}
+		//if len(unitParams.FilesystemInfo) > 0 {
+		//	unitParamsWithFilesystemInfo = append(unitParamsWithFilesystemInfo, unitParams)
+		//}
+		//unitUpdate.Adds = append(unitUpdate.Adds,
+		//	app.AddOperation(*updateProps))
 	}
 	err := app.UpdateUnits(&unitUpdate)
 	// We ignore any updates for dying applications.

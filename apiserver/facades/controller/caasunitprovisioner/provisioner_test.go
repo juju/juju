@@ -276,13 +276,15 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnits(c *gc.C) {
 			{&params.Error{Message: "application another not found", Code: "not found"}},
 		},
 	})
-	s.st.application.CheckCallNames(c, "Life", "AddOperation")
-	s.st.application.CheckCall(c, 1, "AddOperation", state.UnitUpdateProperties{
-		ProviderId: strPtr("really-new-uuid"),
-		Address:    strPtr("really-new-address"), Ports: &[]string{"really-new-port"},
-		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "really new message"},
-		AgentStatus: &status.StatusInfo{Status: status.Idle},
-	})
+	s.st.application.CheckCallNames(c, "Life")
+	// TODO(caas) - attempting 2 way sync has unintended consequences on some deployments
+	//s.st.application.CheckCallNames(c, "Life", "AddOperation")
+	//s.st.application.CheckCall(c, 1, "AddOperation", state.UnitUpdateProperties{
+	//	ProviderId: strPtr("really-new-uuid"),
+	//	Address:    strPtr("really-new-address"), Ports: &[]string{"really-new-port"},
+	//	UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "really new message"},
+	//	AgentStatus: &status.StatusInfo{Status: status.Idle},
+	//})
 	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("uuid"),
