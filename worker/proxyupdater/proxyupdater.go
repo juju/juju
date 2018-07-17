@@ -161,8 +161,11 @@ func (w *proxyWorker) handleProxyValues(legacyProxySettings, jujuProxySettings p
 	// InProcessUpdate, which installs the proxy into the default HTTP
 	// transport. The same occurs for jujuProxySettings.
 	settings := jujuProxySettings
-	if legacyProxySettings.HasProxySet() {
+	if jujuProxySettings.HasProxySet() {
+		w.config.Logger.Debugf("applying in-process juju proxy settings %#v", jujuProxySettings)
+	} else {
 		settings = legacyProxySettings
+		w.config.Logger.Debugf("applying in-process legacy proxy settings %#v", legacyProxySettings)
 	}
 
 	settings.SetEnvironmentValues()
@@ -182,7 +185,7 @@ func (w *proxyWorker) handleProxyValues(legacyProxySettings, jujuProxySettings p
 
 	// Here we write files to disk. This is done only for legacyProxySettings.
 	if legacyProxySettings != w.proxy || w.first {
-		w.config.Logger.Debugf("new legacy proxy settings %#v", legacyProxySettings)
+		w.config.Logger.Debugf("saving new legacy proxy settings %#v", legacyProxySettings)
 		w.proxy = legacyProxySettings
 		if err := w.saveProxySettings(); err != nil {
 			// It isn't really fatal, but we should record it.
