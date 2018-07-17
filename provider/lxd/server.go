@@ -64,6 +64,7 @@ type Server interface {
 	DeleteStoragePoolVolume(pool string, volType string, name string) (err error)
 	ServerCertificate() string
 	EnableHTTPSListener() error
+	GetNICsFromProfile(profName string) (map[string]map[string]string, error)
 }
 
 // ServerFactory creates a new factory for creating servers that are required

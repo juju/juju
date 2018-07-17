@@ -230,6 +230,19 @@ func (mr *MockServerMockRecorder) GetConnectionInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConnectionInfo", reflect.TypeOf((*MockServer)(nil).GetConnectionInfo))
 }
 
+// GetNICsFromProfile mocks base method
+func (m *MockServer) GetNICsFromProfile(arg0 string) (map[string]map[string]string, error) {
+	ret := m.ctrl.Call(m, "GetNICsFromProfile", arg0)
+	ret0, _ := ret[0].(map[string]map[string]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNICsFromProfile indicates an expected call of GetNICsFromProfile
+func (mr *MockServerMockRecorder) GetNICsFromProfile(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNICsFromProfile", reflect.TypeOf((*MockServer)(nil).GetNICsFromProfile), arg0)
+}
+
 // GetProfile mocks base method
 func (m *MockServer) GetProfile(arg0 string) (*api.Profile, string, error) {
 	ret := m.ctrl.Call(m, "GetProfile", arg0)
