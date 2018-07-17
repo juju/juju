@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+//go:generate mockgen -package testing -destination testing/provider_mock.go github.com/juju/juju/environs EnvironProvider,ProviderCredentials,RequestFinalizeCredential
+
 // A EnvironProvider represents a computing and storage provider
 // for either a traditional cloud or a container substrate like k8s.
 type EnvironProvider interface {
@@ -97,7 +99,6 @@ type PrepareConfigParams struct {
 // TODO(axw) replace CredentialSchemas with an updated environschema.
 // The GUI also needs to be able to handle multiple credential types,
 // and dependencies in config attributes.
-//go:generate mockgen -package testing -destination testing/provider_mock.go github.com/juju/juju/environs ProviderCredentials,RequestFinalizeCredential
 type ProviderCredentials interface {
 	// CredentialSchemas returns credential schemas, keyed on
 	// authentication type. These may be used to validate existing

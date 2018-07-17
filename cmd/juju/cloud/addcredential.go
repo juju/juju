@@ -176,7 +176,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 		// bootstrap happens or improve security models, where by we remove any
 		// shared/secret passwords (lxd remote security).
 		// This is optional and is backwards compatible with other providers.
-		if c.shouldFinalizeCredential(provider, cred) {
+		if shouldFinalizeCredential(provider, cred) {
 			newCredential, err := c.finalizeProvider(ctxt, cred.AuthType(), cred.Attributes())
 			if err != nil {
 				return errors.Trace(err)
@@ -196,13 +196,6 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	}
 	fmt.Fprintf(ctxt.Stdout, "Credentials %q %v for cloud %q.\n", strings.Join(names, ", "), verb, c.CloudName)
 	return nil
-}
-
-func (c *addCredentialCommand) shouldFinalizeCredential(provider environs.EnvironProvider, cred jujucloud.Credential) bool {
-	if finalizer, ok := provider.(environs.RequestFinalizeCredential); ok {
-		return finalizer.ShouldFinalizeCredential(cred)
-	}
-	return false
 }
 
 func (c *addCredentialCommand) existingCredentialsForCloud() (*jujucloud.CloudCredential, error) {
@@ -424,4 +417,11 @@ func enterFile(name string, p *interact.Pollster, expanded bool) (string, error)
 	// Expand the file path to consume the contents
 	contents, err := ioutil.ReadFile(abs)
 	return string(contents), errors.Trace(err)
+}
+
+func shouldFinalizeCredential(provider environs.EnvironProvider, cred jujucloud.Credential) bool {
+	if finalizer, ok := provider.(environs.RequestFinalizeCredential); ok {
+		return finalizer.ShouldFinalizeCredential(cred)
+	}
+	return false
 }
