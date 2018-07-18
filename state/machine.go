@@ -218,18 +218,21 @@ type instanceData struct {
 // upgradeSeriesLockDoc holds the attributes relevant to lock a machine during a
 // series update of a machine
 type upgradeSeriesLockDoc struct {
-	Id             string                           `bson:"machineid"`
-	ToSeries       string                           `bson:"toseries"`
-	FromSeries     string                           `bson:"fromseries"`
-	PrepareStatus  model.MachineSeriesUpgradeStatus `bson:"preparestatus"`
-	PrepareUnits   []unitStatus                     `bson:"prepareunits"`
-	CompleteStatus model.MachineSeriesUpgradeStatus `bson:"completestatus"`
-	CompleteUnits  []unitStatus                     `bson:"completeunits"`
+	Id             string                           `bson:"machine-id"`
+	ToSeries       string                           `bson:"to-series"`
+	FromSeries     string                           `bson:"from-series"`
+	PrepareStatus  model.MachineSeriesUpgradeStatus `bson:"prepare-status"`
+	PrepareUnits   []unitStatus                     `bson:"prepare-units"`
+	CompleteStatus model.MachineSeriesUpgradeStatus `bson:"complete-status"`
+	CompleteUnits  []unitStatus                     `bson:"complete-units"`
 }
 
 type unitStatus struct {
 	Id     string
 	Status model.UnitSeriesUpgradeStatus
+
+	// The time that the status was set
+	Timestamp time.Time
 }
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
@@ -2140,8 +2143,8 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 	prepareUnits := make([]unitStatus, len(unitNames))
 	completeUnits := make([]unitStatus, len(unitNames))
 	for i, name := range unitNames {
-		prepareUnits[i] = unitStatus{Id: name, Status: model.UnitStarted}
-		completeUnits[i] = unitStatus{Id: name, Status: model.UnitNotStarted}
+		prepareUnits[i] = unitStatus{Id: name, Status: model.UnitStarted, Timestamp: bson.Now()}
+		completeUnits[i] = unitStatus{Id: name, Status: model.UnitNotStarted, Timestamp: bson.Now()}
 	}
 	return &upgradeSeriesLockDoc{
 		Id:             m.Id(),
@@ -2225,6 +2228,7 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 		docIndex := -1
 		for i, unitStatus := range lock.PrepareUnits {
 			if unitStatus.Id == unitName {
+				// short circuit if there is nothing to do
 				if unitStatus.Status == status {
 					return nil, jujutxn.ErrNoOperations
 				}
@@ -2236,7 +2240,7 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 		}
 		logger.Debugf("Requested unit name: %q, Unit indexed %q", unitName, lock.PrepareUnits[docIndex].Id)
 
-		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, docIndex, status), nil
+		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, docIndex, status, bson.Now()), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
@@ -2275,9 +2279,10 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 	}
 }
 
-func setUpgradeSeriesTxnOps(machineDocId, unitName string, unitIndex int, status model.UnitSeriesUpgradeStatus) []txn.Op {
-	unitStatusField := fmt.Sprintf("prepareunits.%d.status", unitIndex)
-	unitIdField := fmt.Sprintf("prepareunits.%d.id", unitIndex)
+func setUpgradeSeriesTxnOps(machineDocId, unitName string, unitIndex int, status model.UnitSeriesUpgradeStatus, timestamp time.Time) []txn.Op {
+	unitStatusField := fmt.Sprintf("prepare-units.%d.status", unitIndex)
+	unitIdField := fmt.Sprintf("prepare-units.%d.id", unitIndex)
+	unitTimestampField := fmt.Sprintf("prepare-units.%d.timestamp", unitIndex)
 	return []txn.Op{
 		{
 			C:      machinesC,
@@ -2288,11 +2293,11 @@ func setUpgradeSeriesTxnOps(machineDocId, unitName string, unitIndex int, status
 			C:  machineUpgradeSeriesLocksC,
 			Id: machineDocId,
 			Assert: bson.D{{"$and", []bson.D{
-				{{"prepareunits", bson.D{{"$exists", true}}}},
-				{{unitIdField, unitName}},
+				{{"prepare-units", bson.D{{"$exists", true}}}}, // if it doesn't exist something is wrong
+				{{unitIdField, unitName}},                      // assert the unit id points to the correct unit (and not to some other unit)
 				{{unitStatusField, bson.D{{"$ne", status}}}}}}},
 			Update: bson.D{
-				{"$set", bson.D{{unitStatusField, status}}}},
+				{"$set", bson.D{{unitStatusField, status}, {unitTimestampField, timestamp}}}},
 		},
 	}
 }
