@@ -63,7 +63,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 func (s *environPolSuite) TestConstraintsValidatorOkay(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.Env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -74,7 +74,7 @@ func (s *environPolSuite) TestConstraintsValidatorOkay(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.Env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
@@ -86,7 +86,7 @@ func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.Env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse(strings.Join([]string{
@@ -112,7 +112,7 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 func (s *environPolSuite) TestConstraintsValidatorVocabArchKnown(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.Env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -124,7 +124,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabArchKnown(c *gc.C) {
 func (s *environPolSuite) TestConstraintsValidatorVocabArchUnknown(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.Env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=ppc64el")
@@ -135,7 +135,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabArchUnknown(c *gc.C) {
 
 func (s *environPolSuite) TestConstraintsValidatorVocabContainerUnknown(c *gc.C) {
 	c.Skip("this will fail until we add a container vocabulary")
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.Env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("container=lxd")
@@ -147,7 +147,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabContainerUnknown(c *gc.C)
 func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
-	validator, err := s.Env.ConstraintsValidator()
+	validator, err := s.Env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-1")

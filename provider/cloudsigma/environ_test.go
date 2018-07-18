@@ -76,7 +76,7 @@ func (s *environSuite) TestUnsupportedConstraints(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, gc.IsNil)
 	c.Check(validator, gc.NotNil)
 

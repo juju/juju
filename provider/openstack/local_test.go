@@ -1253,7 +1253,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Open(c, s.env.Config())
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 cpu-power=10 virt-type=lxd")
 	unsupported, err := validator.Validate(cons)
@@ -1263,7 +1263,7 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Open(c, s.env.Config())
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=foo")
@@ -1277,7 +1277,7 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 
 func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	env := s.Open(c, s.env.Config())
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	consA := constraints.MustParse("arch=amd64 mem=1G root-disk=10G")
 	consB := constraints.MustParse("instance-type=m1.small")

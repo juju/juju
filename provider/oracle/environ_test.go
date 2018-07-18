@@ -237,7 +237,7 @@ func (e *environSuite) TestConfig(c *gc.C) {
 }
 
 func (e *environSuite) TestConstraintsValidator(c *gc.C) {
-	validator, err := e.env.ConstraintsValidator()
+	validator, err := e.env.ConstraintsValidator(e.callCtx)
 	c.Assert(err, gc.IsNil)
 	c.Assert(validator, gc.NotNil)
 }

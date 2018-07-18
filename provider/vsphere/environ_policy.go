@@ -34,7 +34,7 @@ var unsupportedConstraints = []string{
 
 // ConstraintsValidator returns a Validator value which is used to
 // validate and merge constraints.
-func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
+func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterVocabulary(constraints.Arch, []string{

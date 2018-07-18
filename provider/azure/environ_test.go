@@ -1471,7 +1471,7 @@ func (s *environSuite) TestConstraintsValidatorMerge(c *gc.C) {
 func (s *environSuite) constraintsValidator(c *gc.C) constraints.Validator {
 	env := s.openEnviron(c)
 	s.sender = azuretesting.Senders{s.vmSizesSender()}
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	return validator
 }

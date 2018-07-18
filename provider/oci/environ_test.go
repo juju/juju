@@ -5,23 +5,21 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/juju/errors"
-
-	envtesting "github.com/juju/juju/environs/testing"
-
 	gomock "github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	ociCore "github.com/oracle/oci-go-sdk/core"
+	ociIdentity "github.com/oracle/oci-go-sdk/identity"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/oci"
 	"github.com/juju/juju/testing"
-
-	ociCore "github.com/oracle/oci-go-sdk/core"
-	ociIdentity "github.com/oracle/oci-go-sdk/identity"
 )
 
 type environSuite struct {
@@ -364,7 +362,7 @@ func (e *environSuite) TestCreate(c *gc.C) {
 }
 
 func (e *environSuite) TestConstraintsValidator(c *gc.C) {
-	validator, err := e.env.ConstraintsValidator()
+	validator, err := e.env.ConstraintsValidator(envcontext.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -376,7 +374,7 @@ func (e *environSuite) TestConstraintsValidator(c *gc.C) {
 }
 
 func (e *environSuite) TestConstraintsValidatorEmpty(c *gc.C) {
-	validator, err := e.env.ConstraintsValidator()
+	validator, err := e.env.ConstraintsValidator(envcontext.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
@@ -386,7 +384,7 @@ func (e *environSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 }
 
 func (e *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
-	validator, err := e.env.ConstraintsValidator()
+	validator, err := e.env.ConstraintsValidator(envcontext.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
@@ -397,7 +395,7 @@ func (e *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 }
 
 func (e *environSuite) TestConstraintsValidatorWrongArch(c *gc.C) {
-	validator, err := e.env.ConstraintsValidator()
+	validator, err := e.env.ConstraintsValidator(envcontext.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=ppc64el")

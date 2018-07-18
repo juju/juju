@@ -5,6 +5,7 @@ package cloudsigma
 
 import (
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/context"
 )
 
 var unsupportedConstraints = []string{
@@ -16,7 +17,7 @@ var unsupportedConstraints = []string{
 
 // ConstraintsValidator returns a Validator instance which
 // is used to validate and merge constraints.
-func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
+func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	return validator, nil

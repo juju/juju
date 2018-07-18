@@ -1369,7 +1369,7 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 
 func (t *localServerSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	env := t.Prepare(c)
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
@@ -1379,7 +1379,7 @@ func (t *localServerSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 
 func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := t.Prepare(c)
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
@@ -1392,12 +1392,12 @@ func (t *localServerSuite) TestConstraintsValidatorVocabNoDefaultOrSpecifiedVPC(
 	c.Assert(err, jc.ErrorIsNil)
 
 	env := t.Prepare(c)
-	assertVPCInstanceTypeNotAvailable(c, env)
+	assertVPCInstanceTypeNotAvailable(c, env, t.callCtx)
 }
 
 func (t *localServerSuite) TestConstraintsValidatorVocabDefaultVPC(c *gc.C) {
 	env := t.Prepare(c)
-	assertVPCInstanceTypeAvailable(c, env)
+	assertVPCInstanceTypeAvailable(c, env, t.callCtx)
 }
 
 func (t *localServerSuite) TestConstraintsValidatorVocabSpecifiedVPC(c *gc.C) {
@@ -1409,18 +1409,18 @@ func (t *localServerSuite) TestConstraintsValidatorVocabSpecifiedVPC(c *gc.C) {
 	defer delete(t.TestConfig, "vpc-id")
 
 	env := t.Prepare(c)
-	assertVPCInstanceTypeAvailable(c, env)
+	assertVPCInstanceTypeAvailable(c, env, t.callCtx)
 }
 
-func assertVPCInstanceTypeAvailable(c *gc.C, env environs.Environ) {
-	validator, err := env.ConstraintsValidator()
+func assertVPCInstanceTypeAvailable(c *gc.C, env environs.Environ, ctx context.ProviderCallContext) {
+	validator, err := env.ConstraintsValidator(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = validator.Validate(constraints.MustParse("instance-type=t2.medium"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func assertVPCInstanceTypeNotAvailable(c *gc.C, env environs.Environ) {
-	validator, err := env.ConstraintsValidator()
+func assertVPCInstanceTypeNotAvailable(c *gc.C, env environs.Environ, ctx context.ProviderCallContext) {
+	validator, err := env.ConstraintsValidator(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = validator.Validate(constraints.MustParse("instance-type=t2.medium"))
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=t2.medium\n.*")
@@ -1428,7 +1428,7 @@ func assertVPCInstanceTypeNotAvailable(c *gc.C, env environs.Environ) {
 
 func (t *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	env := t.Prepare(c)
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(t.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	consA := constraints.MustParse("arch=amd64 mem=1G cpu-power=10 cores=2 tags=bar")
 	consB := constraints.MustParse("arch=i386 instance-type=m1.small")

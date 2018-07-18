@@ -2311,7 +2311,7 @@ func (suite *maas2EnvironSuite) TestConstraintsValidator(c *gc.C) {
 	controller := newFakeController()
 	controller.bootResources = []gomaasapi.BootResource{&fakeBootResource{name: "trusty", architecture: "amd64"}}
 	env := suite.makeEnviron(c, controller)
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
@@ -2326,7 +2326,7 @@ func (suite *maas2EnvironSuite) TestConstraintsValidatorVocab(c *gc.C) {
 		&fakeBootResource{name: "precise", architecture: "armhf"},
 	}
 	env := suite.makeEnviron(c, controller)
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)

@@ -328,7 +328,7 @@ func (s *bootstrapSuite) setupProviderWithSomeSupportedArches(c *gc.C) bootstrap
 	s.setDummyStorage(c, env.bootstrapEnviron)
 
 	// test provider constraints only has amd64 and arm64 as supported architectures
-	consBefore, err := env.ConstraintsValidator()
+	consBefore, err := env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	desiredArch := constraints.MustParse("arch=i386")
 	unsupported, err := consBefore.Validate(desiredArch)
@@ -374,7 +374,7 @@ func (s *bootstrapSuite) setupProviderWithNoSupportedArches(c *gc.C) bootstrapEn
 	}
 	s.setDummyStorage(c, env.bootstrapEnviron)
 
-	consBefore, err := env.ConstraintsValidator()
+	consBefore, err := env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	// test provider constraints only has amd64 and arm64 as supported architectures
 	desiredArch := constraints.MustParse("arch=i386")
@@ -1409,7 +1409,7 @@ func (e *bootstrapEnviron) Storage() storage.Storage {
 	return e.storage
 }
 
-func (e *bootstrapEnviron) ConstraintsValidator() (constraints.Validator, error) {
+func (e *bootstrapEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	e.constraintsValidatorCount++
 	v := constraints.NewValidator()
 	v.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64})
@@ -1441,7 +1441,7 @@ type bootstrapEnvironNoExplicitArchitectures struct {
 	*bootstrapEnvironWithRegion
 }
 
-func (e bootstrapEnvironNoExplicitArchitectures) ConstraintsValidator() (constraints.Validator, error) {
+func (e bootstrapEnvironNoExplicitArchitectures) ConstraintsValidator(context.ProviderCallContext) (constraints.Validator, error) {
 	e.constraintsValidatorCount++
 	v := constraints.NewValidator()
 	return v, nil

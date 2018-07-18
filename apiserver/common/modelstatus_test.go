@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -296,7 +297,7 @@ func (statePolicy) ConfigValidator() (config.Validator, error) {
 	return nil, errors.NotImplementedf("ConfigValidator")
 }
 
-func (statePolicy) ConstraintsValidator() (constraints.Validator, error) {
+func (statePolicy) ConstraintsValidator(context.ProviderCallContext) (constraints.Validator, error) {
 	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
 

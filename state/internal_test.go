@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
@@ -132,7 +133,7 @@ func (internalStatePolicy) ConfigValidator() (config.Validator, error) {
 	return nil, errors.NotImplementedf("ConfigValidator")
 }
 
-func (internalStatePolicy) ConstraintsValidator() (constraints.Validator, error) {
+func (internalStatePolicy) ConstraintsValidator(context.ProviderCallContext) (constraints.Validator, error) {
 	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
 
