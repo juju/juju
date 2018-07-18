@@ -34,6 +34,7 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 	s.st = newMockState()
 	s.modelTag = names.NewModelTag("some-uuid")
 
+	s.apiv1 = s.makeAPIv1(c)
 	s.facade = s.makeAPI(c)
 }
 
@@ -45,6 +46,11 @@ func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv2 {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return &bundle.APIv2{api}
+}
+
+func (s *bundleSuite) makeAPIv1(c *gc.C) *bundle.APIv1 {
+	api := s.makeAPI(c)
+	return &bundle.APIv1{api}
 }
 
 func (s *bundleSuite) TestGetChangesBundleContentError(c *gc.C) {
@@ -135,7 +141,7 @@ func (s *bundleSuite) TestGetChangesBundleDevicesError(c *gc.C) {
 	})
 }
 
-func (s *bundleSuite) TestGetChangesSuccess(c *gc.C) {
+func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
@@ -189,6 +195,72 @@ func (s *bundleSuite) TestGetChangesSuccess(c *gc.C) {
 			map[string]interface{}{},
 			"",
 			map[string]string{},
+			map[string]string{},
+			map[string]string{},
+			map[string]int{},
+		},
+		Requires: []string{"addCharm-2"},
+	}, {
+		Id:       "addRelation-4",
+		Method:   "addRelation",
+		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
+		Requires: []string{"deploy-1", "deploy-3"},
+	}})
+	c.Assert(r.Errors, gc.IsNil)
+}
+
+func (s *bundleSuite) TestGetChangesSuccessV1(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    options:
+                        debug: true
+                    storage:
+                        tmpfs: tmpfs,1G
+                    devices:
+                        bitcoinminer: 2,nvidia.com/gpu
+                haproxy:
+                    charm: cs:trusty/haproxy-42
+            relations:
+                - - django:web
+                  - haproxy:web
+        `,
+	}
+	r, err := s.apiv1.GetChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django", ""},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-0",
+			"",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
+			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{},
+			map[string]int{},
+		},
+		Requires: []string{"addCharm-0"},
+	}, {
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args:   []interface{}{"cs:trusty/haproxy-42", "trusty"},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-2",
+			"trusty",
+			"haproxy",
+			map[string]interface{}{},
+			"",
 			map[string]string{},
 			map[string]string{},
 			map[string]int{},
