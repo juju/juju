@@ -18,11 +18,9 @@ import (
 // Note: any new feature in the future like devices will never be supported here.
 func (c *Client) GetBundleChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
 	st := c.api.state()
-
-	bundleAPI, err := bundle.NewBundleAPI(st, c.api.auth, names.NewModelTag(st.ModelUUID()))
+	apiV1, err := bundle.NewBundleAPIv1(st, c.api.auth, names.NewModelTag(st.ModelUUID()))
 	if err != nil {
 		return params.BundleChangesResults{}, err
 	}
-	apiV1 := bundle.APIv1{&bundle.APIv2{bundleAPI}}
 	return apiV1.GetChanges(args)
 }
