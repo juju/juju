@@ -2280,9 +2280,9 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 }
 
 func setUpgradeSeriesTxnOps(machineDocId, unitName string, unitIndex int, status model.UnitSeriesUpgradeStatus, timestamp time.Time) []txn.Op {
-	unitStatusField := fmt.Sprintf("prepareunits.%d.status", unitIndex)
-	unitIdField := fmt.Sprintf("prepareunits.%d.id", unitIndex)
-	unitTimestampField := fmt.Sprintf("prepareunits.%d.timestamp", unitIndex)
+	unitStatusField := fmt.Sprintf("prepare-units.%d.status", unitIndex)
+	unitIdField := fmt.Sprintf("prepare-units.%d.id", unitIndex)
+	unitTimestampField := fmt.Sprintf("prepare-units.%d.timestamp", unitIndex)
 	return []txn.Op{
 		{
 			C:      machinesC,
@@ -2293,8 +2293,8 @@ func setUpgradeSeriesTxnOps(machineDocId, unitName string, unitIndex int, status
 			C:  machineUpgradeSeriesLocksC,
 			Id: machineDocId,
 			Assert: bson.D{{"$and", []bson.D{
-				{{"prepareunits", bson.D{{"$exists", true}}}}, // if it doesn't exist something is wrong
-				{{unitIdField, unitName}},                     // assert the unit id points to the correct unit (and not to some other unit)
+				{{"prepare-units", bson.D{{"$exists", true}}}}, // if it doesn't exist something is wrong
+				{{unitIdField, unitName}},                      // assert the unit id points to the correct unit (and not to some other unit)
 				{{unitStatusField, bson.D{{"$ne", status}}}}}}},
 			Update: bson.D{
 				{"$set", bson.D{{unitStatusField, status}, {unitTimestampField, timestamp}}}},
