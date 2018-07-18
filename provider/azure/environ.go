@@ -357,7 +357,7 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (env *azureEnviron) ConstraintsValidator() (constraints.Validator, error) {
+func (env *azureEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	instanceTypes, err := env.getInstanceTypes()
 	if err != nil {
 		return nil, err

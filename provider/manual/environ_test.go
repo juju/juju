@@ -169,7 +169,7 @@ func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 		},
 	)
 
-	validator, err := s.env.ConstraintsValidator()
+	validator, err := s.env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar cpu-power=10 cores=2 mem=1G virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
@@ -183,7 +183,7 @@ func (s *environSuite) TestConstraintsValidatorInsideController(c *gc.C) {
 	s.PatchValue(&os.Args, []string{"/some/where/containing/jujud", "whatever"})
 	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
 
-	validator, err := s.env.ConstraintsValidator()
+	validator, err := s.env.ConstraintsValidator(s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=arm64")
 	_, err = validator.Validate(cons)

@@ -52,7 +52,7 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (env *joyentEnviron) ConstraintsValidator() (constraints.Validator, error) {
+func (env *joyentEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	packages, err := env.compute.cloudapi.ListPackages(nil)

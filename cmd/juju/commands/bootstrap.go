@@ -574,7 +574,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		metadataDir = ctx.AbsPath(c.MetadataSource)
 	}
 
-	constraintsValidator, err := environ.ConstraintsValidator()
+	constraintsValidator, err := environ.ConstraintsValidator(cloudCallCtx)
 	if err != nil {
 		return errors.Trace(err)
 	}

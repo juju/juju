@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/context"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -36,7 +37,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	arch := arch.PPC64EL
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, &arch, nil, validator)
 	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "ppc64el" using a machine running on "amd64"`)
@@ -47,7 +48,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostOS(c *gc.C) {
 	s.PatchValue(&os.HostOS, func() os.OSType { return os.Ubuntu })
 	env := newEnviron("foo", useDefaultKeys, nil)
 	series := "win2012"
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, nil, &series, validator)
 	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "win2012" using a machine running "Ubuntu"`)
@@ -63,7 +64,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *gc.C) {
 	devVersion.Build = 1234
 	s.PatchValue(&jujuversion.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, nil, nil, validator)
 	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "ppc64el"`)
@@ -76,7 +77,7 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
 	centos7 := "centos7"
 	s.PatchValue(&arch.HostArch, func() string { return arm64 })
 	s.PatchValue(&os.HostOS, func() os.OSType { return os.CentOS })
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, &arm64, &centos7, validator)
 	c.Assert(err, jc.ErrorIsNil)

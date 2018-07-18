@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -83,7 +84,7 @@ func (p environStatePolicy) ProviderConfigSchemaSource() (config.ConfigSchemaSou
 }
 
 // ConstraintsValidator implements state.Policy.
-func (p environStatePolicy) ConstraintsValidator() (constraints.Validator, error) {
+func (p environStatePolicy) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	model, err := p.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -97,7 +98,7 @@ func (p environStatePolicy) ConstraintsValidator() (constraints.Validator, error
 	if err != nil {
 		return nil, err
 	}
-	return env.ConstraintsValidator()
+	return env.ConstraintsValidator(ctx)
 }
 
 // InstanceDistributor implements state.Policy.

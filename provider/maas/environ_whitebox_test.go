@@ -439,7 +439,7 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
 	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
 	env := suite.makeEnviron()
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
@@ -451,7 +451,7 @@ func (suite *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
 	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "armhf", "release": "precise"}`)
 	env := suite.makeEnviron()
-	validator, err := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator(suite.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage"
@@ -39,7 +40,7 @@ type Policy interface {
 	ConfigValidator() (config.Validator, error)
 
 	// ConstraintsValidator returns a constraints.Validator or an error.
-	ConstraintsValidator() (constraints.Validator, error)
+	ConstraintsValidator(context.ProviderCallContext) (constraints.Validator, error)
 
 	// InstanceDistributor returns an instance.Distributor or an error.
 	InstanceDistributor() (instance.Distributor, error)
@@ -84,7 +85,7 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 	var validator constraints.Validator
 	if st.policy != nil {
 		var err error
-		validator, err = st.policy.ConstraintsValidator()
+		validator, err = st.policy.ConstraintsValidator(CallContext(st))
 		if errors.IsNotImplemented(err) {
 			validator = constraints.NewValidator()
 		} else if err != nil {

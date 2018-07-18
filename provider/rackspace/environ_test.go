@@ -164,8 +164,8 @@ func (e *fakeEnviron) Config() *config.Config {
 	return e.config
 }
 
-func (e *fakeEnviron) ConstraintsValidator() (constraints.Validator, error) {
-	e.Push("ConstraintsValidator")
+func (e *fakeEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+	e.Push("ConstraintsValidator", ctx)
 	return nil, nil
 }
 

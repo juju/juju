@@ -256,7 +256,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, callCtx 
 		}
 	}
 
-	constraintsValidator, err := environ.ConstraintsValidator()
+	constraintsValidator, err := environ.ConstraintsValidator(callCtx)
 	if err != nil {
 		return err
 	}

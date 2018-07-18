@@ -315,7 +315,7 @@ func (e *Environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerU
 }
 
 // ConstraintsValidator implements environs.Environ.
-func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
+func (e *Environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
 	// list of unsupported OCI provider constraints
 	unsupportedConstraints := []string{
 		constraints.Container,

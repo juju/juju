@@ -645,7 +645,7 @@ func (o *OracleEnviron) Config() *config.Config {
 }
 
 // ConstraintsValidator is part of the environs.Environ interface.
-func (o *OracleEnviron) ConstraintsValidator() (constraints.Validator, error) {
+func (o *OracleEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
 	// list of unsupported oracle provider constraints
 	unsupportedConstraints := []string{
 		constraints.Container,
