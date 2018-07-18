@@ -228,7 +228,3 @@ func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 	return params.StringResult{}, nil
 }
-
-// Mask the new method from V1 API.
-// ExportBundle is not in V1 API.
-func (b *APIv1) ExportBundle() (_, _ struct{}) { return }
