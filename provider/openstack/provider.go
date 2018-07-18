@@ -998,14 +998,15 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		return nil, common.ZoneIndependentError(errors.Annotate(err, "getting initial networks"))
 	}
 	usingNetwork := e.ecfg().network()
-	if usingNetwork != "" {
-		networkId, err := e.networking.ResolveNetwork(usingNetwork, false)
-		if err != nil {
-			return nil, common.ZoneIndependentError(err)
+	networkId, err := e.networking.ResolveNetwork(usingNetwork, false)
+	if err != nil {
+		if usingNetwork == "" {
+			err = errors.New(noNetConfigMsg(err))
 		}
-		logger.Debugf("using network id %q", networkId)
-		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
+		return nil, common.ZoneIndependentError(err)
 	}
+	logger.Debugf("using network id %q", networkId)
+	networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
 
 	machineName := resourceName(
 		e.namespace,
