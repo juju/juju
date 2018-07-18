@@ -183,10 +183,12 @@ func (c Client) GetResource(req ResourceRequest) (data ResourceData, err error) 
 		}
 	}()
 	data.ReadCloser = resData.ReadCloser
-	fpHash := data.Resource.Fingerprint.String()
-	if resData.Hash != fpHash {
-		return ResourceData{},
-			errors.Errorf("fingerprint for data (%s) does not match fingerprint in metadata (%s)", resData.Hash, fpHash)
+	if data.Resource.Type == charmresource.TypeFile {
+		fpHash := data.Resource.Fingerprint.String()
+		if resData.Hash != fpHash {
+			return ResourceData{},
+				errors.Errorf("fingerprint for data (%s) does not match fingerprint in metadata (%s)", resData.Hash, fpHash)
+		}
 	}
 	return data, nil
 }

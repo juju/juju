@@ -243,11 +243,7 @@ func AllFacades() *facade.Registry {
 	reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
 
 	reg("Resources", 1, resources.NewPublicFacade)
-	regHookContext(
-		"ResourcesHookContext", 1,
-		resourceshookcontext.NewHookContextFacade,
-		reflect.TypeOf(&resourceshookcontext.UnitFacade{}),
-	)
+	reg("ResourcesHookContext", 1, resourceshookcontext.NewStateFacade)
 
 	reg("Resumer", 2, resumer.NewResumerAPI)
 	reg("RetryStrategy", 1, retrystrategy.NewRetryStrategyAPI)

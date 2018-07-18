@@ -29,11 +29,15 @@ type Content struct {
 	Fingerprint charmresource.Fingerprint
 }
 
-// verify ensures that the actual resource content details match
+// Verify ensures that the actual resource content details match
 // the expected ones.
 func (c Content) Verify(size int64, fp charmresource.Fingerprint) error {
 	if size != c.Size {
 		return errors.Errorf("resource size does not match expected (%d != %d)", size, c.Size)
+	}
+	// Only verify a finger print if it's set (i.e not for docker image details).
+	if c.Fingerprint.IsZero() {
+		return nil
 	}
 	if !bytes.Equal(fp.Bytes(), c.Fingerprint.Bytes()) {
 		return errors.Errorf("resource fingerprint does not match expected (%q != %q)", fp, c.Fingerprint)

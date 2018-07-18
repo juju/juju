@@ -376,7 +376,11 @@ func (c Config) Features() set.Strings {
 
 // CharmStoreURL returns the URL to use for charmstore api calls.
 func (c Config) CharmStoreURL() string {
-	return c.asString(CharmStoreURL)
+	url := c.asString(CharmStoreURL)
+	if url == "" {
+		return csclient.ServerURL
+	}
+	return url
 }
 
 // ControllerUUID returns the uuid for the model's controller.

@@ -5,6 +5,7 @@ package state
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"path"
@@ -16,7 +17,6 @@ import (
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/txn"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/resource"
@@ -286,8 +286,11 @@ func (st resourceState) storeResource(res resource.Resource, r io.Reader) error 
 	case charmresource.TypeDocker:
 		var dockerDetails resources.DockerImageDetails
 		respBuf := new(bytes.Buffer)
-		respBuf.ReadFrom(r)
-		err = yaml.Unmarshal(respBuf.Bytes(), &dockerDetails)
+		_, err := respBuf.ReadFrom(r)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = json.Unmarshal(respBuf.Bytes(), &dockerDetails)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -343,9 +346,19 @@ func (st resourceState) OpenResource(applicationID, name string) (resource.Resou
 	if err != nil {
 		return resource.Resource{}, nil, errors.Annotate(err, "while retrieving resource data")
 	}
-	if resSize != resourceInfo.Size {
-		msg := "storage returned a size (%d) which doesn't match resource metadata (%d)"
-		return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
+	switch resourceInfo.Type {
+	case charmresource.TypeDocker:
+		// Resource size only found at this stage in time as it's a response from the charmstore, not a stored file.
+		// Store it as it's used later for verification (in a separate call than this one)
+		resourceInfo.Size = resSize
+		if err := st.persist.SetResource(resourceInfo); err != nil {
+			return resource.Resource{}, nil, errors.Annotate(err, "failed to update resource details with docker detail size")
+		}
+	case charmresource.TypeFile:
+		if resSize != resourceInfo.Size {
+			msg := "storage returned a size (%d) which doesn't match resource metadata (%d)"
+			return resource.Resource{}, nil, errors.Errorf(msg, resSize, resourceInfo.Size)
+		}
 	}
 
 	return resourceInfo, resourceReader, nil

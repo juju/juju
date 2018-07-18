@@ -4,6 +4,8 @@
 package resources_test
 
 import (
+	"encoding/json"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -24,4 +26,16 @@ func (s *ResourceSuite) TestValidRegistryPath(c *gc.C) {
 func (s *ResourceSuite) TestInvalidRegistryPath(c *gc.C) {
 	err := resources.ValidateDockerRegistryPath("sha256:deedbeaf")
 	c.Assert(err, gc.ErrorMatches, "docker image path .* not valid")
+}
+
+func (s *ResourceSuite) TestDockerImageDetailsUnmarshal(c *gc.C) {
+	data := []byte(`{"ImageName":"testing@sha256:beef-deed","Username":"docker-registry","Password":"fragglerock"}`)
+	var result resources.DockerImageDetails
+	err := json.Unmarshal(data, &result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
+		RegistryPath: "testing@sha256:beef-deed",
+		Username:     "docker-registry",
+		Password:     "fragglerock",
+	})
 }
