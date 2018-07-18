@@ -46,11 +46,12 @@ func (Secretary) CheckDuration(duration time.Duration) error {
 
 // Store implements corelease.Store for testing purposes.
 type Store struct {
-	mu     sync.Mutex
-	leases map[lease.Key]lease.Info
-	expect []call
-	failed string
-	done   chan struct{}
+	mu           sync.Mutex
+	leases       map[lease.Key]lease.Info
+	expect       []call
+	failed       string
+	runningCalls int
+	done         chan struct{}
 }
 
 // NewStore initializes and returns a new store configured to report
@@ -95,24 +96,41 @@ func (store *Store) Leases() map[lease.Key]lease.Info {
 	return result
 }
 
+func (store *Store) closeIfEmpty() {
+	// This must be called with the lock held.
+	if store.runningCalls > 1 {
+		// The last one to leave should turn out the lights.
+		return
+	}
+	if len(store.expect) == 0 || store.failed != "" {
+		close(store.done)
+	}
+}
+
 // call implements the bulk of the lease.Store interface.
 func (store *Store) call(method string, args []interface{}) error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
+	store.runningCalls++
+	defer func() {
+		store.runningCalls--
+	}()
+
 	select {
 	case <-store.done:
 		return errors.Errorf("Store method called after test complete: %s %v", method, args)
 	default:
-		defer func() {
-			if len(store.expect) == 0 || store.failed != "" {
-				close(store.done)
-			}
-		}()
 	}
+	defer store.closeIfEmpty()
 
 	expect := store.expect[0]
 	store.expect = store.expect[1:]
+	if expect.parallelCallback != nil {
+		store.mu.Unlock()
+		expect.parallelCallback(&store.mu, store.leases)
+		store.mu.Lock()
+	}
 	if expect.callback != nil {
 		expect.callback(store.leases)
 	}
@@ -164,6 +182,12 @@ type call struct {
 	// modification, if desired. Otherwise you can use it to, e.g., assert
 	// clock time.
 	callback func(leases map[lease.Key]lease.Info)
+
+	// parallelCallback is like callback, but is also passed the
+	// lock. It's for testing calls that happen in parallel, where one
+	// might take longer than another. Any update to the leases dict
+	// must only happen while the lock is held.
+	parallelCallback func(mu *sync.Mutex, leases map[lease.Key]lease.Info)
 }
 
 func key(args ...string) lease.Key {
