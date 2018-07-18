@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
-	"github.com/juju/juju/worker/upgradeseriesworker"
+	"github.com/juju/juju/worker/upgradeseries"
 )
 
 type ManifoldSuite struct {
@@ -35,7 +35,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.worker = &mockWorker{}
 
 	s.context = s.newContext(nil)
-	s.manifold = upgradeseriesworker.Manifold(upgradeseriesworker.ManifoldConfig{
+	s.manifold = upgradeseries.Manifold(upgradeseries.ManifoldConfig{
 		NewWorker: s.newWorker,
 	})
 }
@@ -50,7 +50,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	return dt.StubContext(nil, resources)
 }
 
-func (s *ManifoldSuite) newWorker(config upgradeseriesworker.Config) (worker.Worker, error) {
+func (s *ManifoldSuite) newWorker(config upgradeseries.Config) (worker.Worker, error) {
 	s.stub.MethodCall(s, "NewWorker", config)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (s *ManifoldSuite) newWorker(config upgradeseriesworker.Config) (worker.Wor
 }
 
 func (*ManifoldSuite) TestOutputBadWorker(c *gc.C) {
-	manifold := upgradeseriesworker.Manifold(upgradeseriesworker.ManifoldConfig{})
+	manifold := upgradeseries.Manifold(upgradeseries.ManifoldConfig{})
 	in := &struct{ worker.Worker }{}
 	var out engine.Flag
 	err := manifold.Output(in, &out)
