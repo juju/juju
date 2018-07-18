@@ -166,6 +166,26 @@ func (s *resolverSuite) TestUpgradeSeriesStatusChanged(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run pre-series-upgrade hook")
 }
 
+func (s *resolverSuite) TestUpgradeSeriesStatusIdlesUniterOnUpggradeSeriesCompletion(c *gc.C) {
+	localState := resolver.LocalState{
+		UpgradeSeriesStatus: model.UnitCompleted,
+		State: operation.State{
+			Kind:      operation.Continue,
+			Installed: true,
+		},
+	}
+	s.remoteState.UpgradeSeriesStatus = model.UnitCompleted
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+
+	// changing the series would normally fire a config-changed hook but
+	// since the uniter does not respond to state changes after reaching a
+	// UpgradeSeriesStatus of "Completed" no operation should take place.
+	s.remoteState.Series = "NewSeries"
+	_, err = s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+}
+
 func (s *resolverSuite) TestSeriesChangedBlank(c *gc.C) {
 	localState := resolver.LocalState{
 		CharmModifiedVersion: s.charmModifiedVersion,
