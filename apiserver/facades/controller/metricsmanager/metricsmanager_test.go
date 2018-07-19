@@ -123,7 +123,8 @@ func (s *metricsManagerSuite) TestCleanupArgsIndependent(c *gc.C) {
 
 func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
 	var sender testing.MockSender
-	metricsmanager.PatchSender(&sender)
+	cleanup := s.metricsmanager.PatchSender(&sender)
+	defer cleanup()
 	now := time.Now()
 	metric := state.Metric{Key: "pings", Value: "5", Time: now}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &now, Metrics: []state.Metric{metric}})
@@ -171,7 +172,8 @@ func (s *metricsManagerSuite) TestMeterStatusOnConsecutiveErrors(c *gc.C) {
 	now := time.Now()
 	metric := state.Metric{Key: "pings", Value: "5", Time: now}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: []state.Metric{metric}})
-	metricsmanager.PatchSender(&sender)
+	cleanup := s.metricsmanager.PatchSender(&sender)
+	defer cleanup()
 	args := params.Entities{Entities: []params.Entity{
 		{s.Model.ModelTag().String()},
 	}}
@@ -191,7 +193,8 @@ func (s *metricsManagerSuite) TestMeterStatusSuccessfulSend(c *gc.C) {
 	pastTime := s.clock.Now().Add(-time.Second)
 	metric := state.Metric{Key: "pings", Value: "5", Time: pastTime}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &pastTime, Metrics: []state.Metric{metric}})
-	metricsmanager.PatchSender(&sender)
+	cleanup := s.metricsmanager.PatchSender(&sender)
+	defer cleanup()
 	args := params.Entities{Entities: []params.Entity{
 		{s.Model.ModelTag().String()},
 	}}
@@ -205,7 +208,8 @@ func (s *metricsManagerSuite) TestMeterStatusSuccessfulSend(c *gc.C) {
 
 func (s *metricsManagerSuite) TestLastSuccessfulNotChangedIfNothingToSend(c *gc.C) {
 	var sender testing.MockSender
-	metricsmanager.PatchSender(&sender)
+	cleanup := s.metricsmanager.PatchSender(&sender)
+	defer cleanup()
 	args := params.Entities{Entities: []params.Entity{
 		{s.Model.ModelTag().String()},
 	}}
@@ -289,7 +293,8 @@ func (s *metricsManagerSuite) TestSendMetricsMachineMetrics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.Factory.MakeMachine(c, nil)
 	var sender testing.MockSender
-	metricsmanager.PatchSender(&sender)
+	cleanup := s.metricsmanager.PatchSender(&sender)
+	defer cleanup()
 	args := params.Entities{Entities: []params.Entity{
 		{s.Model.ModelTag().String()},
 	}}

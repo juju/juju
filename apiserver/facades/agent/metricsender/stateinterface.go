@@ -8,6 +8,7 @@ package metricsender
 import (
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -25,5 +26,6 @@ type ModelBackend interface {
 	Unit(name string) (*state.Unit, error)
 	ModelTag() names.ModelTag
 	ModelConfig() (*config.Config, error)
+	ControllerConfig() (controller.Config, error)
 	SetModelMeterStatus(string, string) error
 }

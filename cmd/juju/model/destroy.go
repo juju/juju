@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
+	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 )
@@ -316,7 +317,14 @@ func (c *destroyCommand) removeModelBudget(uuid string) error {
 		return errors.Trace(err)
 	}
 
-	budgetClient := getBudgetAPIClient(bakeryClient)
+	budgetAPIRoot, err := rcmd.GetMeteringURLForModelCmd(&c.ModelCommandBase)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	budgetClient, err := getBudgetAPIClient(budgetAPIRoot, bakeryClient)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	resp, err := budgetClient.DeleteBudget(uuid)
 	if err != nil {
@@ -471,8 +479,8 @@ into another Juju model.
 
 var getBudgetAPIClient = getBudgetAPIClientImpl
 
-func getBudgetAPIClientImpl(bakeryClient *httpbakery.Client) BudgetAPIClient {
-	return budget.NewClient(bakeryClient)
+func getBudgetAPIClientImpl(apiRoot string, bakeryClient *httpbakery.Client) (BudgetAPIClient, error) {
+	return budget.NewClient(budget.APIRoot(apiRoot), budget.HTTPClient(bakeryClient))
 }
 
 // BudgetAPIClient defines the budget API client interface.

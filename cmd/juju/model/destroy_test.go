@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/model"
+	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
@@ -41,7 +42,7 @@ type DestroySuite struct {
 
 var _ = gc.Suite(&DestroySuite{})
 
-// fakeDestroyAPI mocks out the cient API
+// fakeDestroyAPI mocks out the client API
 type fakeAPI struct {
 	*jutesting.Stub
 	err             error
@@ -119,7 +120,10 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.sleep = func(time.Duration) {}
 
 	s.budgetAPIClient = &mockBudgetAPIClient{Stub: s.stub}
-	s.PatchValue(model.GetBudgetAPIClient, func(*httpbakery.Client) model.BudgetAPIClient { return s.budgetAPIClient })
+	s.PatchValue(model.GetBudgetAPIClient,
+		func(string, *httpbakery.Client) (model.BudgetAPIClient, error) { return s.budgetAPIClient, nil })
+	s.PatchValue(&rcmd.GetMeteringURLForModelCmd,
+		func(*modelcmd.ModelCommandBase) (string, error) { return "http://example.com", nil })
 }
 
 func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context, error) {

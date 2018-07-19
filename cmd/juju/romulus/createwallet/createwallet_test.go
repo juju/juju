@@ -11,7 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/juju/romulus/createwallet"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -29,6 +31,9 @@ func (s *createWalletSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.mockAPI = newMockAPI(s.stub)
 	s.PatchValue(createwallet.NewAPIClient, createwallet.APIClientFnc(s.mockAPI))
+	s.PatchValue(&rcmd.GetMeteringURLForControllerCmd, func(c *modelcmd.ControllerCommandBase) (string, error) {
+		return "http://example.com", nil
+	})
 }
 
 func (s *createWalletSuite) TestCreateWallet(c *gc.C) {

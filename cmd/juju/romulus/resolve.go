@@ -1,13 +1,14 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cmd
+package romulus
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/api/controller"
+	"github.com/juju/juju/cmd/modelcmd"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 )
 
@@ -22,11 +23,23 @@ type CharmStoreResolver struct {
 	csURL string
 }
 
-// NewCharmStoreResolver creates a new charm store resolver.
-func NewCharmStoreResolver() *CharmStoreResolver {
-	return &CharmStoreResolver{
-		csURL: csclient.ServerURL,
+// NewCharmStoreResolverForControllerCmd creates a new charm store resolver
+// that connects to the controller configured charmstore-url.
+var NewCharmStoreResolverForControllerCmd = newCharmStoreResolverForControllerCmdImpl
+
+func newCharmStoreResolverForControllerCmdImpl(c *modelcmd.ControllerCommandBase) (CharmResolver, error) {
+	controllerAPIRoot, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	controllerAPI := controller.NewClient(controllerAPIRoot)
+	controllerCfg, err := controllerAPI.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &CharmStoreResolver{
+		csURL: controllerCfg.CharmStoreURL(),
+	}, nil
 }
 
 // Resolve implements the CharmResolver interface.
