@@ -254,6 +254,36 @@ func (s *managerSuite) TestCreateContainerCreateFailed(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*create failed")
 }
 
+func (s *managerSuite) TestCreateContainerSpecCreationError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cSvr := s.NewMockServer(ctrl)
+
+	// When the local image acquisition fails, this will cause the remote
+	// connection attempt to fail.
+	// This is our error condition exit from manager.getContainerSpec.
+	lxd.PatchConnectRemote(s, map[string]lxdclient.ImageServer{})
+
+	exp := cSvr.EXPECT()
+
+	alias := &lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-target"}}
+	image := lxdapi.Image{Filename: "this-is-our-image"}
+	gomock.InOrder(
+		exp.GetImageAlias("juju/xenial/"+s.Arch()).Return(alias, lxdtesting.ETag, nil),
+		exp.GetImage("foo-target").Return(&image, lxdtesting.ETag, errors.New("not here")),
+	)
+
+	_, _, err := s.makeManager(c, cSvr).CreateContainer(
+		prepInstanceConfig(c),
+		constraints.Value{},
+		"xenial",
+		prepNetworkConfig(),
+		&container.StorageConfig{},
+		noOpCallback,
+	)
+	c.Assert(err, gc.ErrorMatches, ".*unrecognised remote server")
+}
+
 func (s *managerSuite) TestCreateContainerStartFailed(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
