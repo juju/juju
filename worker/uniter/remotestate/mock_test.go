@@ -270,6 +270,10 @@ func (u *mockUnit) UpgradeSeriesStatus() (string, error) {
 	return string(model.UnitStarted), nil
 }
 
+func (m *mockUnit) SetUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus) error {
+	return nil
+}
+
 type mockApplication struct {
 	tag                   names.ApplicationTag
 	life                  params.Life
