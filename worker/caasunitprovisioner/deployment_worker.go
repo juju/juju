@@ -128,7 +128,15 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		spec, err := w.broker.Provider().ParsePodSpec(specStr)
+		provider := w.broker.Provider()
+		spec, err := provider.ParsePodSpec(specStr)
+		if err != nil {
+			return errors.Annotate(err, "cannot parse pod spec")
+		}
+		// ??? merge ParsePodSpec and BuildPodSpec together
+		// && should we build device constraints into podspec now or inside makeUnitSpec
+		// i prefer now, coz makeUnitSpec now takes podspec then translate to real podspec ???
+		spec, err = provider.BuildPodSpec(spec, info)
 		if err != nil {
 			return errors.Annotate(err, "cannot parse pod spec")
 		}

@@ -36,6 +36,7 @@ type Facade struct {
 	storage                 StorageBackend
 	storageProviderRegistry storage.ProviderRegistry
 	storagePoolManager      poolmanager.PoolManager
+	devices                 DeviceBackend
 	clock                   clock.Clock
 }
 
@@ -44,6 +45,10 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	sb, err := state.NewStorageBackend(ctx.State())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	db, err := state.NewDeviceBackend(ctx.State())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -60,6 +65,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		authorizer,
 		stateShim{ctx.State()},
 		sb,
+		db,
 		registry,
 		pm,
 		clock.WallClock,
@@ -72,6 +78,7 @@ func NewFacade(
 	authorizer facade.Authorizer,
 	st CAASUnitProvisionerState,
 	sb StorageBackend,
+	db DeviceBackend,
 	storageProviderRegistry storage.ProviderRegistry,
 	storagePoolManager poolmanager.PoolManager,
 	clock clock.Clock,
@@ -89,6 +96,7 @@ func NewFacade(
 		resources:               resources,
 		state:                   st,
 		storage:                 sb,
+		devices:                 db,
 		storageProviderRegistry: storageProviderRegistry,
 		storagePoolManager:      storagePoolManager,
 		clock:                   clock,
@@ -242,9 +250,15 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		fsp.Tags[tags.JujuStorageOwner] = appTag.Id()
 	}
 
+	devices, err := f.devicesParams(appTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &params.KubernetesProvisioningInfo{
 		PodSpec:     podSpec,
 		Filesystems: filesystemParams,
+		Devices:     devices,
 	}, nil
 }
 
@@ -354,6 +368,22 @@ func (f *Facade) applicationFilesystemParams(
 		allFilesystemParams = append(allFilesystemParams, filesystemParams)
 	}
 	return allFilesystemParams, nil
+}
+
+func (f *Facade) devicesParams(appTag names.ApplicationTag) ([]params.KubernetesDeviceParams, error) {
+	devices, err := f.devices.DeviceConstraints(appTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	devicesParams := make([]params.KubernetesDeviceParams, len(devices))
+	for _, d := range devices {
+		devicesParams = append(devicesParams, params.KubernetesDeviceParams{
+			Type:       params.DeviceType(d.Type),
+			Count:      d.Count,
+			Attributes: d.Attributes,
+		})
+	}
+	return devicesParams, nil
 }
 
 // ApplicationsConfig returns the config for the specified applications.

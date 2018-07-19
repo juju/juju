@@ -540,6 +540,7 @@ func (k *kubernetesClient) EnsureService(
 		}
 		cleanups = append(cleanups, func() { k.deleteSecret(appName, c.Name) })
 	}
+	logger.Criticalf("unitSpec -> \n%#v", unitSpec)
 
 	// Add a deployment controller configured to create the specified number of units/pods.
 	numPods := int32(numUnits)
@@ -1319,6 +1320,14 @@ func makeUnitSpec(appName string, podSpec *caas.PodSpec) (*unitSpec, error) {
 		if spec.ReadinessProbe != nil {
 			unitSpec.Pod.Containers[i].ReadinessProbe = spec.ReadinessProbe
 		}
+
+		if c.Constraints != nil {
+			resources := unitSpec.Pod.Containers[i].Resources
+			for _, constraint := range c.Constraints {
+				mergeConstraintToResources(constraint, &resources)
+			}
+			unitSpec.Pod.Containers[i].Resources = resources
+		}
 	}
 	unitSpec.Pod.ImagePullSecrets = imageSecretNames
 	return &unitSpec, nil
@@ -1347,4 +1356,18 @@ func resourceNamePrefix(appName string) string {
 func appSecretName(appName, containerName string) string {
 	// A pod may have multiple containers with different images and thus different secrets
 	return "juju-" + appName + "-" + containerName + "-secret"
+}
+
+func mergeConstraintToResources(c caas.Constraint, resources *core.ResourceRequirements) error {
+	resourceName := core.ResourceName(c.Type)
+	if v, ok := resources.Limits[resourceName]; ok {
+		logger.Debugf("resource %q - max count %#v has been overwritten by %#v", resourceName, v, c)
+	}
+	if v, ok := resources.Requests[resourceName]; ok {
+		logger.Debugf("resource %q - min count %#v has been overwritten by %#v", resourceName, v, c)
+	}
+	// currently we set request/limit to same value .Count, but we should pick correct max/min value to set later.
+	resources.Limits[resourceName] = *resource.NewQuantity(c.Count, resource.DecimalSI)
+	resources.Requests[resourceName] = *resource.NewQuantity(c.Count, resource.DecimalSI)
+	return nil
 }

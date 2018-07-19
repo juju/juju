@@ -37,6 +37,12 @@ type StorageBackend interface {
 	SetFilesystemAttachmentInfo(names.Tag, names.FilesystemTag, state.FilesystemAttachmentInfo) error
 }
 
+// DeviceBackend provides the subset of backend Device
+// functionality needed by the CAAS operator facade.
+type DeviceBackend interface {
+	DeviceConstraints(id string) (map[string]state.DeviceConstraints, error)
+}
+
 // Model provides the subset of CAAS model state required
 // by the CAAS operator facade.
 type Model interface {

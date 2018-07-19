@@ -130,6 +130,7 @@ type ProvisioningInfo struct {
 	PodSpec     string
 	Constraints constraints.Value
 	Filesystems []storage.KubernetesFilesystemParams
+	Devices     []params.KubernetesDeviceParams // ??? combine with .Constrains ???
 	Tags        map[string]string
 }
 
@@ -156,6 +157,7 @@ func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
 	info := &ProvisioningInfo{
 		PodSpec:     result.PodSpec,
 		Constraints: result.Constraints,
+		Devices:     result.Devices,
 		Tags:        result.Tags,
 	}
 

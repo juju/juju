@@ -94,6 +94,11 @@ func removeDeviceConstraintsOp(id string) txn.Op {
 		Remove: true,
 	}
 }
+
+func (db *deviceBackend) DeviceConstraints(id string) (map[string]DeviceConstraints, error) {
+	return readDeviceConstraints(db.mb, id)
+}
+
 func readDeviceConstraints(mb modelBackend, id string) (map[string]DeviceConstraints, error) {
 	coll, closer := mb.db().GetCollection(deviceConstraintsC)
 	defer closer()

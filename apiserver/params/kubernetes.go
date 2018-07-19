@@ -14,6 +14,7 @@ type KubernetesProvisioningInfo struct {
 	Tags        map[string]string            `json:"tags,omitempty"`
 	Filesystems []KubernetesFilesystemParams `json:"filesystems,omitempty"`
 	Volumes     []KubernetesVolumeParams     `json:"volumes,omitempty"`
+	Devices     []KubernetesDeviceParams     `json:"devices,omitempty"`
 }
 
 // KubernetesProvisioningInfoResult holds unit provisioning info or an error.
@@ -62,7 +63,7 @@ type KubernetesVolumeAttachmentParams struct {
 	ReadOnly bool   `json:"read-only,omitempty"`
 }
 
-// Filesystem describes a storage filesystem in the cloud
+// KubernetesFilesystemInfo describes a storage filesystem in the cloud
 // as reported to the model.
 type KubernetesFilesystemInfo struct {
 	StorageName  string `json:"storagename"`
@@ -71,4 +72,14 @@ type KubernetesFilesystemInfo struct {
 	MountPoint   string `json:"mount-point,omitempty"`
 	ReadOnly     bool   `json:"read-only,omitempty"`
 	FilesystemId string `json:"filesystem-id"`
+}
+
+// DeviceType defines a device type.
+type DeviceType string
+
+// KubernetesDeviceParams holds a set of device constraints.
+type KubernetesDeviceParams struct {
+	Type       DeviceType        `bson:"type"`
+	Count      int64             `bson:"count"`
+	Attributes map[string]string `bson:"attributes"`
 }
