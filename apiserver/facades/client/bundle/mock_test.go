@@ -17,17 +17,7 @@ type mockState struct {
 	bundle.Backend
 }
 
-func (m *mockState) SetExportconfig(cfg state.ExportConfig) {
-	cfg.SkipActions = true
-	cfg.SkipCloudImageMetadata = true
-	cfg.SkipCredentials = true
-	cfg.SkipIPAddresses = true
-	cfg.SkipSSHHostKeys = true
-	cfg.SkipStatusHistory = true
-	cfg.SkipLinkLayerDevices = true
-}
-
-func (m *mockState) ExportpartialNoApplication(config state.ExportConfig) (description.Model, error) {
+func (m *mockState) Exportpartial(config state.ExportConfig) (description.Model, error) {
 	m.SetExportconfig(config)
 
 	m.MethodCall(m, "ExportPartial", config)

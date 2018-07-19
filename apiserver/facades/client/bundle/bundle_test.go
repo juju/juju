@@ -218,11 +218,9 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 
 func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
 	var cfg state.ExportConfig
-	model, err := s.st.ExportpartialNoApplication(cfg)
+	model, err := s.st.Exportpartial(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(model.Validate(), jc.ErrorIsNil)
-
 	_, err = s.facade.FillBundleData(model)
-	c.Check(err, gc.ErrorMatches, "application not found")
+	c.Check(err, gc.ErrorMatches, "nothing to export as there is no application found.")
 }

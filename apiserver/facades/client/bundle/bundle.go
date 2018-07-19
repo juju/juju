@@ -11,11 +11,11 @@ import (
 	"github.com/juju/bundlechanges"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/os/series"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
+	"fmt"
 	"github.com/juju/description"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -72,10 +72,15 @@ func newFacade(ctx facade.Context) (*BundleAPI, error) {
 	authorizer := ctx.Auth()
 	st := ctx.State()
 
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return NewBundleAPI(
-		stateShim{st},
+		NewStateShim(st),
 		authorizer,
-		names.NewModelTag(st.ModelUUID()),
+		model.ModelTag(),
 	)
 }
 
@@ -155,46 +160,38 @@ func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 	return results, nil
 }
 
+var fail = func(failErr error) (params.StringResult, error) {
+	return params.StringResult{}, common.ServerError(failErr)
+}
+
 // ExportBundle exports the current model configuration as bundle.
-func (b *BundleAPI) ExportBundle() (params.BytesResult, error) {
+func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 	if err := b.checkCanRead(); err != nil {
-		return params.BytesResult{}, common.ServerError(common.ErrPerm)
+		return fail(err)
 	}
 
 	var exportConfig state.ExportConfig
 
-	// Skip attributes which are not required.
-	exportConfig.SkipActions = true
-	exportConfig.SkipCloudImageMetadata = true
-	exportConfig.SkipCredentials = true
-	exportConfig.SkipIPAddresses = true
-	exportConfig.SkipSSHHostKeys = true
-	exportConfig.SkipStatusHistory = true
-	exportConfig.SkipLinkLayerDevices = true
-
+	b.backend.SetExportconfig(exportConfig)
+	logger.Criticalf("XXXXXXXXXXXXXXXXX...........SkipStatusHistory: %v ", exportConfig.SkipStatusHistory)
 	model, err := b.backend.ExportPartial(exportConfig)
 	if err != nil {
-		return params.BytesResult{}, common.ServerError(err)
-	}
-
-	err = model.Validate()
-	if err != nil {
-		return params.BytesResult{}, common.ServerError(err)
+		return fail(err)
 	}
 
 	// Fill it in charm.BundleData datastructure.
 	bundleData, err := b.FillBundleData(model)
 	if err != nil {
-		return params.BytesResult{}, common.ServerError(err)
+		return fail(err)
 	}
 
 	bytes, err := yaml.Marshal(bundleData)
 	if err != nil {
-		return params.BytesResult{}, common.ServerError(err)
+		return fail(err)
 	}
 
-	return params.BytesResult{
-		Result: bytes,
+	return params.StringResult{
+		Result: string(bytes),
 	}, nil
 }
 
@@ -202,44 +199,66 @@ func (b *BundleAPI) ExportBundle() (params.BytesResult, error) {
 // ExportBundle is not in V1 API.
 func (u *APIv1) ExportBundle() (_, _ struct{}) { return }
 
-// Fills the bundledata datastructure required for the exportBundle.
+// FillBundle fills the bundledata datastructure required for the exportBundle.
 func (b *BundleAPI) FillBundleData(model description.Model) (*charm.BundleData, error) {
+	cfg := model.Config()
+	var defaultSeries string
+	for key, _ := range cfg {
+		if key == "default-series" {
+			defaultSeries = fmt.Sprintf("%v", cfg[key])
+		}
+	}
+
 	data := &charm.BundleData{
-		Series:       series.LatestLts(),
+		Series:       defaultSeries,
 		Applications: make(map[string]*charm.ApplicationSpec),
 		Relations:    [][]string{},
 		Machines:     make(map[string]*charm.MachineSpec),
 	}
 
 	if len(model.Applications()) == 0 {
-		return &charm.BundleData{}, errors.NotFoundf("application")
+		return &charm.BundleData{}, errors.Errorf("nothing to export as there is no application found.")
 	}
 	for _, application := range model.Applications() {
-		ut := []string{}
-		for _, unit := range application.Units() {
-			ut = append(ut, unit.Machine().Id())
-		}
+		var newApplication *charm.ApplicationSpec
+		if application.Subordinate() {
+			newApplication = &charm.ApplicationSpec{
+				Charm:            application.CharmURL(),
+				Series:           application.Series(),
+				Expose:           application.Exposed(),
+				Options:          application.CharmConfig(),
+				Annotations:      application.Annotations(),
+				EndpointBindings: application.EndpointBindings(),
+			}
+		} else {
+			ut := []string{}
+			for _, unit := range application.Units() {
+				ut = append(ut, unit.Machine().Id())
+			}
 
-		newApplication := &charm.ApplicationSpec{
-			Charm:            application.CharmURL(),
-			Series:           application.Series(),
-			NumUnits:         len(application.Units()),
-			To:               ut,
-			Expose:           application.Exposed(),
-			Options:          application.CharmConfig(),
-			Annotations:      application.Annotations(),
-			EndpointBindings: application.EndpointBindings(),
+			newApplication = &charm.ApplicationSpec{
+				Charm:            application.CharmURL(),
+				Series:           application.Series(),
+				NumUnits:         len(application.Units()),
+				To:               ut,
+				Expose:           application.Exposed(),
+				Options:          application.CharmConfig(),
+				Annotations:      application.Annotations(),
+				EndpointBindings: application.EndpointBindings(),
+			}
 		}
 
 		data.Applications[application.Name()] = newApplication
 	}
 
 	for _, machine := range model.Machines() {
-		constraints := []string{"arch=" + machine.Constraints().Architecture(),
-			"cpu-cores=" + strconv.Itoa(int(machine.Constraints().CpuCores())),
-			"cpu-power=" + strconv.Itoa(int(machine.Constraints().CpuPower())),
-			"mem=" + strconv.Itoa(int(machine.Constraints().Memory())),
-			"root-disk=" + strconv.Itoa(int(machine.Constraints().RootDisk()))}
+		result := b.constraints(machine.Constraints())
+
+		constraints := []string{"arch=" + *result.Arch,
+			"cpu-cores=" + strconv.Itoa(int(*result.CpuCores)),
+			"cpu-power=" + strconv.Itoa(int(*result.CpuPower)),
+			"mem=" + strconv.Itoa(int(*result.Mem)),
+			"root-disk=" + strconv.Itoa(int(*result.RootDisk))}
 
 		newMachine := &charm.MachineSpec{
 			Constraints: strings.Join(constraints, " "),
@@ -249,18 +268,41 @@ func (b *BundleAPI) FillBundleData(model description.Model) (*charm.BundleData, 
 		data.Machines[machine.Id()] = newMachine
 	}
 
+	endpointRelation := []string{}
 	for _, relation := range model.Relations() {
-		endpointRelation := []string{}
 		for _, endpoint := range relation.Endpoints() {
 			// skipping the 'peer' role which is not of concern in exporting the current model configuration.
-			if endpoint.Role() != "peer" {
-				endpointRelation = append(endpointRelation, endpoint.ApplicationName()+":"+endpoint.Name())
+			if endpoint.Role() == "peer" {
+				continue
 			}
-		}
-		if len(endpointRelation) != 0 {
-			data.Relations = append(data.Relations, endpointRelation)
+			endpointRelation = append(endpointRelation, endpoint.ApplicationName()+":"+endpoint.Name())
 		}
 	}
+	data.Relations = append(data.Relations, endpointRelation)
 
 	return data, nil
+}
+
+func (b *BundleAPI) constraints(cons description.Constraints) constraints.Value {
+	var result constraints.Value
+	if cons == nil {
+		return result
+	}
+
+	if arch := cons.Architecture(); arch != "" {
+		result.Arch = &arch
+	}
+	if cores := cons.CpuCores(); cores != 0 {
+		result.CpuCores = &cores
+	}
+	if power := cons.CpuPower(); power != 0 {
+		result.CpuPower = &power
+	}
+	if mem := cons.Memory(); mem != 0 {
+		result.Mem = &mem
+	}
+	if disk := cons.RootDisk(); disk != 0 {
+		result.RootDisk = &disk
+	}
+	return result
 }
