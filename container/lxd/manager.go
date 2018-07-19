@@ -153,8 +153,9 @@ func (m *containerManager) getContainerSpec(
 	}
 
 	// Lock around finding an image.
-	// The provisioner works concurrently to create containers. If an image
-	// needs to copied from a remote, we don't many starting this task at once.
+	// The provisioner works concurrently to create containers.
+	// If an image needs to be copied from a remote, we don't many goroutines
+	// attempting to do it at once.
 	var found SourcedImage
 	func() {
 		m.imageMutex.Lock()
