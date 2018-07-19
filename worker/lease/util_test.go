@@ -4,7 +4,6 @@
 package lease_test
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -49,7 +48,7 @@ type Store struct {
 	mu           sync.Mutex
 	leases       map[lease.Key]lease.Info
 	expect       []call
-	failed       string
+	failed       chan error
 	runningCalls int
 	done         chan struct{}
 }
@@ -68,6 +67,7 @@ func NewStore(leases map[lease.Key]lease.Info, expect []call) *Store {
 		leases: leases,
 		expect: expect,
 		done:   done,
+		failed: make(chan error, 1000),
 	}
 }
 
@@ -77,8 +77,10 @@ func NewStore(leases map[lease.Key]lease.Info, expect []call) *Store {
 func (store *Store) Wait(c *gc.C) {
 	select {
 	case <-store.done:
-		if store.failed != "" {
-			c.Fatalf(store.failed)
+		select {
+		case err := <-store.failed:
+			c.Fatalf(err.Error())
+		default:
 		}
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("Store test took way too long")
@@ -102,7 +104,7 @@ func (store *Store) closeIfEmpty() {
 		// The last one to leave should turn out the lights.
 		return
 	}
-	if len(store.expect) == 0 || store.failed != "" {
+	if len(store.expect) == 0 || len(store.failed) > 0 {
 		close(store.done)
 	}
 }
@@ -119,7 +121,9 @@ func (store *Store) call(method string, args []interface{}) error {
 
 	select {
 	case <-store.done:
-		return errors.Errorf("Store method called after test complete: %s %v", method, args)
+		err := errors.Errorf("Store method called after test complete: %s %v", method, args)
+		store.failed <- err
+		return err
 	default:
 	}
 	defer store.closeIfEmpty()
@@ -140,10 +144,11 @@ func (store *Store) call(method string, args []interface{}) error {
 			return expect.err
 		}
 	}
-	store.failed = fmt.Sprintf("unexpected Store call:\n  actual: %s %v\n  expect: %s %v",
+	err := errors.Errorf("unexpected Store call:\n  actual: %s %v\n  expect: %s %v",
 		method, args, expect.method, expect.args,
 	)
-	return errors.New(store.failed)
+	store.failed <- err
+	return err
 }
 
 // ClaimLease is part of the corelease.Store interface.

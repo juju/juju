@@ -46,7 +46,7 @@ func (b *boundManager) Claim(leaseName, holderName string, duration time.Duratio
 		},
 		holderName: holderName,
 		duration:   duration,
-		response:   make(chan bool),
+		response:   make(chan error),
 		stop:       b.manager.catacomb.Dying(),
 	}.invoke(b.manager.claims)
 }

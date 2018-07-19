@@ -11,9 +11,20 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
+	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/worker/catacomb"
+)
+
+const (
+	// maxRetries gives the maximum number of attempts we'll try if
+	// there are timeouts.
+	maxRetries = 5
+
+	// initialRetryDelay is the starting delay - this will be
+	// increased exponentially up maxRetries.
+	initialRetryDelay = 50 * time.Millisecond
 )
 
 var logger = loggo.GetLogger("juju.worker.lease")
@@ -145,13 +156,9 @@ func (manager *Manager) choose(blocks blocks) error {
 	case check := <-manager.checks:
 		return manager.handleCheck(check)
 	case manager.now = <-manager.nextTick(manager.now):
-		go func(now time.Time) {
-			manager.errors <- manager.tick(now)
-		}(manager.now)
+		go manager.retryingTick(manager.now)
 	case claim := <-manager.claims:
-		go func() {
-			manager.errors <- manager.handleClaim(claim)
-		}()
+		go manager.retryingClaim(claim)
 	case block := <-manager.blocks:
 		// TODO(raftlease): Include the other key items.
 		logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
@@ -183,17 +190,52 @@ func (manager *Manager) Claimer(namespace, modelUUID string) (lease.Claimer, err
 	return manager.bind(namespace, modelUUID)
 }
 
-// handleClaim processes and responds to the supplied claim. It will only return
-// unrecoverable errors; mere failure to claim just indicates a bad request, and
-// is communicated back to the claim's originator.
-func (manager *Manager) handleClaim(claim claim) error {
+// retryingClaim handles timeouts when claiming, and responds to the
+// claiming party when it eventually succeeds or fails, or if it times
+// out after a number of retries.
+func (manager *Manager) retryingClaim(claim claim) {
+	var (
+		err     error
+		success bool
+	)
+	for a := manager.startRetry(); a.Next(); {
+		success, err = manager.handleClaim(claim)
+		if errors.Cause(err) != lease.ErrTimeout {
+			break
+		}
+		if a.More() {
+			logger.Tracef("[%s] timed out handling claim, retrying...", manager.logContext)
+		}
+	}
+
+	if success {
+		claim.respond(nil)
+	} else if errors.Cause(err) == lease.ErrTimeout {
+		claim.respond(lease.ErrTimeout)
+	} else if err == nil {
+		claim.respond(lease.ErrClaimDenied)
+	}
+	// Otherwise we allow the fatal error to send errStopped.
+
+	select {
+	case <-manager.catacomb.Dying():
+		return
+	default:
+	}
+	manager.errors <- err
+}
+
+// handleClaim processes the supplied claim. It will only return
+// unrecoverable errors or timeouts; mere failure to claim just
+// indicates a bad request, and is returned as (false, nil).
+func (manager *Manager) handleClaim(claim claim) (bool, error) {
 	store := manager.config.Store
 	request := lease.Request{claim.holderName, claim.duration}
 	err := lease.ErrInvalid
 	for err == lease.ErrInvalid {
 		select {
 		case <-manager.catacomb.Dying():
-			return manager.catacomb.ErrDying()
+			return false, manager.catacomb.ErrDying()
 		default:
 			// TODO(jam) 2017-10-31: We are asking for all leases just to look
 			// up one of them. Shouldn't the store.Leases() interface allow us
@@ -212,16 +254,14 @@ func (manager *Manager) handleClaim(claim claim) error {
 				remaining := info.Expiry.Sub(manager.config.Clock.Now())
 				logger.Tracef("[%s] %s asked for lease %s, held by %s for another %s, rejecting",
 					manager.logContext, claim.holderName, claim.leaseKey.Lease, info.Holder, remaining)
-				claim.respond(false)
-				return nil
+				return false, nil
 			}
 		}
 	}
 	if err != nil {
-		return errors.Trace(err)
+		return false, errors.Trace(err)
 	}
-	claim.respond(true)
-	return nil
+	return true, nil
 }
 
 // handleCheck processes and responds to the supplied check. It will only return
@@ -274,6 +314,28 @@ func (manager *Manager) nextTick(lastTick time.Time) <-chan time.Time {
 	return clock.Alarm(manager.config.Clock, nextTick)
 }
 
+// retryingTick runs tick and retries any timeouts.
+func (manager *Manager) retryingTick(now time.Time) {
+	var err error
+	for a := manager.startRetry(); a.Next(); {
+		err = manager.tick(now)
+		if errors.Cause(err) != lease.ErrTimeout {
+			break
+		}
+		if a.More() {
+			logger.Tracef("[%s] timed out during tick, retrying...", manager.logContext)
+		}
+	}
+	// Don't bother sending an error if we're dying - this avoids a
+	// race in the tests.
+	select {
+	case <-manager.catacomb.Dying():
+		return
+	default:
+	}
+	manager.errors <- err
+}
+
 // tick snapshots recent leases and expires any that it can. There
 // might be none that need attention; or those that do might already
 // have been extended or expired by someone else; so ErrInvalid is
@@ -322,6 +384,17 @@ func (manager *Manager) tick(now time.Time) error {
 		logger.Debugf("[%s] expired %d leases: %s", manager.logContext, len(expired), strings.Join(names, ", "))
 	}
 	return nil
+}
+
+func (manager *Manager) startRetry() *retry.Attempt {
+	return retry.StartWithCancel(
+		retry.LimitCount(maxRetries, retry.Exponential{
+			Initial: initialRetryDelay,
+			Jitter:  true,
+		}),
+		manager.config.Clock,
+		manager.catacomb.Dying(),
+	)
 }
 
 func keysLess(a, b lease.Key) bool {
