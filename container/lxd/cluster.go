@@ -11,5 +11,6 @@ func (s *Server) ClusterSupported() bool {
 // It is intended for use when operations must target specific nodes in a
 // cluster.
 func (s Server) UseTargetServer(name string) (*Server, error) {
+	logger.Debugf("creating LXD server for cluster node %q", name)
 	return NewServer(s.UseTarget(name))
 }

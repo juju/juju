@@ -93,9 +93,6 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 	name := info.Environment.ServerName
 	clustered := info.Environment.ServerClustered
 	serverCertificate := info.Environment.Certificate
-	if clustered {
-		logger.Debugf("creating LXD server for cluster node %q", name)
-	}
 
 	return &Server{
 		ContainerServer:   svr,
