@@ -246,7 +246,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	for _, machine := range model.Machines() {
 		var constraints string
 		result := b.constraints(machine.Constraints())
-		if len(result) == 0 {
+		if len(result) != 0 {
 			constraints = strings.Join(result, " ")
 		}
 
