@@ -5,17 +5,18 @@
 package bundle
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/juju/bundlechanges"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/os/series"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
-	"fmt"
 	"github.com/juju/description"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/storage"
-	"github.com/juju/os/series"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.bundle")
@@ -155,18 +155,17 @@ func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 	return results, nil
 }
 
-var fail = func(failErr error) (params.StringResult, error) {
-	return params.StringResult{}, common.ServerError(failErr)
-}
-
 // ExportBundle exports the current model configuration as bundle.
 func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
+	var fail = func(failErr error) (params.StringResult, error) {
+		return params.StringResult{}, common.ServerError(failErr)
+	}
+
 	if err := b.checkCanRead(); err != nil {
 		return fail(err)
 	}
 
 	exportConfig := b.backend.GetExportconfig()
-	logger.Criticalf("XXXXXXXXXXXXXXXXX...........SkipStatusHistory: %v ", exportConfig.SkipStatusHistory)
 	model, err := b.backend.ExportPartial(exportConfig)
 	if err != nil {
 		return fail(err)
@@ -196,12 +195,11 @@ func (u *APIv1) ExportBundle() (_, _ struct{}) { return }
 func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, error) {
 	// get the default-series from model config.
 	cfg := model.Config()
-	var defaultSeries string
-	if value, ok := cfg["default-series"]; !ok {
-		defaultSeries = series.LatestLts()
-	} else {
-		defaultSeries = fmt.Sprint("%v", value)
+	value, ok := cfg["default-series"]
+	if !ok {
+		value = series.LatestLts()
 	}
+	defaultSeries := fmt.Sprintf("%v", value)
 
 	data := &charm.BundleData{
 		Series:       defaultSeries,
