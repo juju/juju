@@ -185,6 +185,9 @@ func (aw *applicationWorker) loop() error {
 						Size:         info.Size,
 						MountPoint:   info.MountPoint,
 						ReadOnly:     info.ReadOnly,
+						Status:       info.Status.Status.String(),
+						Info:         info.Status.Message,
+						Data:         info.Status.Data,
 					})
 
 				}

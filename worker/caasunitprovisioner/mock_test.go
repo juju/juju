@@ -109,7 +109,8 @@ func (m *mockContainerBroker) Units(appName string) ([]caas.Unit, error) {
 				Status:  status.StatusInfo{Status: m.reportedUnitStatus},
 				FilesystemInfo: []caas.FilesystemInfo{
 					{MountPoint: "/path-to-here", ReadOnly: true, StorageName: "database",
-						Size: 100, FilesystemId: "fs-id"},
+						Size: 100, FilesystemId: "fs-id",
+						Status: status.StatusInfo{Status: status.Attaching, Message: "not ready"}},
 				},
 			},
 		},
