@@ -63,9 +63,8 @@ func wrapKillCommand(kill *killCommand) modelcmd.Command {
 type killCommand struct {
 	destroyCommandBase
 
-	clock          clock.Clock
-	timeout        time.Duration
-	CredentialName string
+	clock   clock.Clock
+	timeout time.Duration
 }
 
 // SetFlags implements Command.SetFlags.
@@ -73,7 +72,6 @@ func (c *killCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.destroyCommandBase.SetFlags(f)
 	f.Var(newDurationValue(time.Minute*5, &c.timeout), "t", "Timeout before direct destruction")
 	f.Var(newDurationValue(time.Minute*5, &c.timeout), "timeout", "")
-	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
 }
 
 // Info implements Command.Info.
@@ -118,7 +116,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Obtain controller environ so we can clean up afterwards.
-	controllerEnviron, err := c.getControllerEnviron(ctx, store, controllerName, c.CredentialName, api)
+	controllerEnviron, err := c.getControllerEnviron(ctx, store, controllerName, api)
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
 	}
