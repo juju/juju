@@ -18,7 +18,7 @@ import (
 func (c *Client) GetBundleChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
 	st := c.api.state()
 
-	bundleAPI, err := bundle.NewBundleAPI(st, c.api.auth, names.NewModelTag(st.ModelUUID()))
+	bundleAPI, err := bundle.NewBundleAPI(bundle.NewStateShim(st), c.api.auth, names.NewModelTag(st.ModelUUID()))
 	if err != nil {
 		return params.BundleChangesResults{}, err
 	}

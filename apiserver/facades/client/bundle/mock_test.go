@@ -18,7 +18,7 @@ type mockState struct {
 }
 
 func (m *mockState) Exportpartial(config state.ExportConfig) (description.Model, error) {
-	m.SetExportconfig(config)
+	config = m.GetExportconfig()
 
 	m.MethodCall(m, "ExportPartial", config)
 	if err := m.NextErr(); err != nil {

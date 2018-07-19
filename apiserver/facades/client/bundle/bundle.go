@@ -22,8 +22,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
+	"github.com/juju/os/series"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.bundle")
@@ -72,15 +72,10 @@ func newFacade(ctx facade.Context) (*BundleAPI, error) {
 	authorizer := ctx.Auth()
 	st := ctx.State()
 
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return NewBundleAPI(
 		NewStateShim(st),
 		authorizer,
-		model.ModelTag(),
+		names.NewModelTag(st.ModelUUID()),
 	)
 }
 
@@ -170,9 +165,7 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 		return fail(err)
 	}
 
-	var exportConfig state.ExportConfig
-
-	b.backend.SetExportconfig(&exportConfig)
+	exportConfig := b.backend.GetExportconfig()
 	logger.Criticalf("XXXXXXXXXXXXXXXXX...........SkipStatusHistory: %v ", exportConfig.SkipStatusHistory)
 	model, err := b.backend.ExportPartial(exportConfig)
 	if err != nil {
@@ -180,7 +173,7 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 	}
 
 	// Fill it in charm.BundleData datastructure.
-	bundleData, err := b.FillBundleData(model)
+	bundleData, err := b.fillBundleData(model)
 	if err != nil {
 		return fail(err)
 	}
@@ -200,13 +193,14 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 func (u *APIv1) ExportBundle() (_, _ struct{}) { return }
 
 // FillBundle fills the bundledata datastructure required for the exportBundle.
-func (b *BundleAPI) FillBundleData(model description.Model) (*charm.BundleData, error) {
+func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, error) {
+	// get the default-series from model config.
 	cfg := model.Config()
 	var defaultSeries string
-	for key, _ := range cfg {
-		if key == "default-series" {
-			defaultSeries = fmt.Sprintf("%v", cfg[key])
-		}
+	if value, ok := cfg["default-series"]; !ok {
+		defaultSeries = series.LatestLts()
+	} else {
+		defaultSeries = fmt.Sprint("%v", value)
 	}
 
 	data := &charm.BundleData{
@@ -252,10 +246,14 @@ func (b *BundleAPI) FillBundleData(model description.Model) (*charm.BundleData, 
 	}
 
 	for _, machine := range model.Machines() {
-		constraints := b.constraints(machine.Constraints())
+		var constraints string
+		result := b.constraints(machine.Constraints())
+		if len(result) == 0 {
+			constraints = strings.Join(result, " ")
+		}
 
 		newMachine := &charm.MachineSpec{
-			Constraints: strings.Join(constraints, " "),
+			Constraints: constraints,
 			Annotations: machine.Annotations(),
 			Series:      machine.Series(),
 		}

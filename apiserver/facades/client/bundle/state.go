@@ -11,15 +11,15 @@ import (
 
 type Backend interface {
 	ExportPartial(cfg state.ExportConfig) (description.Model, error)
-	SetExportconfig(cfg *state.ExportConfig)
+	GetExportconfig() state.ExportConfig
 }
 
 type stateShim struct {
 	*state.State
 }
 
-func (m *stateShim) SetExportconfig(cfg *state.ExportConfig) {
-	logger.Criticalf("XXXXXXXXXXXXXXXXXXXXXX Iam inside SetExportconfig..")
+func (m *stateShim) GetExportconfig() state.ExportConfig {
+	var cfg state.ExportConfig
 	cfg.SkipActions = true
 	cfg.SkipCloudImageMetadata = true
 	cfg.SkipCredentials = true
@@ -27,6 +27,8 @@ func (m *stateShim) SetExportconfig(cfg *state.ExportConfig) {
 	cfg.SkipSSHHostKeys = true
 	cfg.SkipStatusHistory = true
 	cfg.SkipLinkLayerDevices = true
+
+	return cfg
 }
 
 // NewStateShim creates new state shim to be used by bundle Facade.

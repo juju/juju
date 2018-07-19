@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -217,10 +216,8 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 }
 
 func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
-	var cfg state.ExportConfig
-	model, err := s.st.Exportpartial(cfg)
+	_, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.facade.FillBundleData(model)
 	c.Check(err, gc.ErrorMatches, "nothing to export as there is no application found.")
 }
