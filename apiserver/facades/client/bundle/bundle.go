@@ -5,6 +5,7 @@
 package bundle
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -15,7 +16,6 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
-	"fmt"
 	"github.com/juju/description"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"

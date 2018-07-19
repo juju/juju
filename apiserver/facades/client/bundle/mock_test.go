@@ -4,10 +4,10 @@
 package bundle_test
 
 import (
+	"github.com/juju/description"
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/description"
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/state"
 )
