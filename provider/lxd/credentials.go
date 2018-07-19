@@ -182,7 +182,7 @@ func (p environProviderCredentials) detectLocalCredentials(certPEM, keyPEM []byt
 func (p environProviderCredentials) detectRemoteCredentials(certPEM, keyPEM []byte) (map[string]cloud.Credential, error) {
 	configDir := filepath.Join(utils.Home(), ".config", "lxc")
 	configPath := filepath.Join(configDir, "config.yml")
-	config, err := p.lxcConfigReader.ReadFile(configPath)
+	config, err := p.lxcConfigReader.ReadConfig(configPath)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

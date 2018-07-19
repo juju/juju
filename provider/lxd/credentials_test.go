@@ -45,6 +45,7 @@ type credentialsSuiteDeps struct {
 	certReadWriter *lxd.MockCertificateReadWriter
 	certGenerator  *lxd.MockCertificateGenerator
 	netLookup      *lxd.MockNetLookup
+	configReader   *lxd.MockLXCConfigReader
 }
 
 func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) credentialsSuiteDeps {
@@ -55,14 +56,16 @@ func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) credentialsSu
 	certReadWriter := lxd.NewMockCertificateReadWriter(ctrl)
 	certGenerator := lxd.NewMockCertificateGenerator(ctrl)
 	lookup := lxd.NewMockNetLookup(ctrl)
+	configReader := lxd.NewMockLXCConfigReader(ctrl)
 	creds := lxd.NewProviderCredentials(
 		certReadWriter,
 		certGenerator,
 		lookup,
 		factory,
+		configReader,
 	)
 
-	provider := lxd.NewProviderWithMocks(creds, factory)
+	provider := lxd.NewProviderWithMocks(creds, factory, configReader)
 	return credentialsSuiteDeps{
 		provider:       provider,
 		creds:          creds,
@@ -71,6 +74,7 @@ func (s *credentialsSuite) createProvider(ctrl *gomock.Controller) credentialsSu
 		certReadWriter: certReadWriter,
 		certGenerator:  certGenerator,
 		netLookup:      lookup,
+		configReader:   configReader,
 	}
 }
 
@@ -85,6 +89,7 @@ func (s *credentialsSuite) TestDetectCredentialsUsesJujuCert(c *gc.C) {
 
 	path := osenv.JujuXDGDataHomePath("lxd")
 	deps.certReadWriter.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
+	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{}, nil)
 
 	credentials, err := deps.provider.DetectCredentials()
 
@@ -133,6 +138,7 @@ func (s *credentialsSuite) TestDetectCredentialsUsesLXCCert(c *gc.C) {
 
 	path = filepath.Join(utils.Home(), ".config", "lxc")
 	deps.certReadWriter.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
+	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{}, nil)
 
 	credentials, err := deps.provider.DetectCredentials()
 
@@ -185,8 +191,9 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCert(c *gc.C) {
 
 	path = filepath.Join(utils.Home(), ".config", "lxc")
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
-
 	deps.certGenerator.EXPECT().Generate(true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
+
+	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{}, nil)
 
 	credential := cloud.NewCredential(
 		cloud.CertificateAuthType,

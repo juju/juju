@@ -19,10 +19,12 @@ var (
 func NewProviderWithMocks(
 	creds environs.ProviderCredentials,
 	serverFactory ServerFactory,
+	configReader LXCConfigReader,
 ) environs.EnvironProvider {
 	return &environProvider{
 		ProviderCredentials: creds,
 		serverFactory:       serverFactory,
+		lxcConfigReader:     configReader,
 	}
 }
 
@@ -31,12 +33,14 @@ func NewProviderCredentials(
 	certGenerator CertificateGenerator,
 	lookup NetLookup,
 	serverFactory ServerFactory,
+	configReader LXCConfigReader,
 ) environs.ProviderCredentials {
 	return environProviderCredentials{
-		certReadWriter: certReadWriter,
-		certGenerator:  certGenerator,
-		lookup:         lookup,
-		serverFactory:  serverFactory,
+		certReadWriter:  certReadWriter,
+		certGenerator:   certGenerator,
+		lookup:          lookup,
+		serverFactory:   serverFactory,
+		lxcConfigReader: configReader,
 	}
 }
 
