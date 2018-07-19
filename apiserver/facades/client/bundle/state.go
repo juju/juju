@@ -11,14 +11,15 @@ import (
 
 type Backend interface {
 	ExportPartial(cfg state.ExportConfig) (description.Model, error)
-	SetExportconfig(cfg state.ExportConfig)
+	SetExportconfig(cfg *state.ExportConfig)
 }
 
 type stateShim struct {
 	*state.State
 }
 
-func (m *stateShim) SetExportconfig(cfg state.ExportConfig) {
+func (m *stateShim) SetExportconfig(cfg *state.ExportConfig) {
+	logger.Criticalf("XXXXXXXXXXXXXXXXXXXXXX Iam inside SetExportconfig..")
 	cfg.SkipActions = true
 	cfg.SkipCloudImageMetadata = true
 	cfg.SkipCredentials = true

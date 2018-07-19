@@ -5,7 +5,6 @@
 package bundle
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -16,6 +15,7 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
+	"fmt"
 	"github.com/juju/description"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -172,7 +172,7 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 
 	var exportConfig state.ExportConfig
 
-	b.backend.SetExportconfig(exportConfig)
+	b.backend.SetExportconfig(&exportConfig)
 	logger.Criticalf("XXXXXXXXXXXXXXXXX...........SkipStatusHistory: %v ", exportConfig.SkipStatusHistory)
 	model, err := b.backend.ExportPartial(exportConfig)
 	if err != nil {
@@ -252,13 +252,7 @@ func (b *BundleAPI) FillBundleData(model description.Model) (*charm.BundleData, 
 	}
 
 	for _, machine := range model.Machines() {
-		result := b.constraints(machine.Constraints())
-
-		constraints := []string{"arch=" + *result.Arch,
-			"cpu-cores=" + strconv.Itoa(int(*result.CpuCores)),
-			"cpu-power=" + strconv.Itoa(int(*result.CpuPower)),
-			"mem=" + strconv.Itoa(int(*result.Mem)),
-			"root-disk=" + strconv.Itoa(int(*result.RootDisk))}
+		constraints := b.constraints(machine.Constraints())
 
 		newMachine := &charm.MachineSpec{
 			Constraints: strings.Join(constraints, " "),
@@ -283,26 +277,26 @@ func (b *BundleAPI) FillBundleData(model description.Model) (*charm.BundleData, 
 	return data, nil
 }
 
-func (b *BundleAPI) constraints(cons description.Constraints) constraints.Value {
-	var result constraints.Value
+func (b *BundleAPI) constraints(cons description.Constraints) []string {
 	if cons == nil {
-		return result
+		return []string{}
 	}
 
+	var constraints []string
 	if arch := cons.Architecture(); arch != "" {
-		result.Arch = &arch
+		constraints = append(constraints, "arch="+arch)
 	}
 	if cores := cons.CpuCores(); cores != 0 {
-		result.CpuCores = &cores
+		constraints = append(constraints, "cpu-cores="+strconv.Itoa(int(cores)))
 	}
 	if power := cons.CpuPower(); power != 0 {
-		result.CpuPower = &power
+		constraints = append(constraints, "cpu-power="+strconv.Itoa(int(power)))
 	}
 	if mem := cons.Memory(); mem != 0 {
-		result.Mem = &mem
+		constraints = append(constraints, "mem="+strconv.Itoa(int(mem)))
 	}
 	if disk := cons.RootDisk(); disk != 0 {
-		result.RootDisk = &disk
+		constraints = append(constraints, "root-disk="+strconv.Itoa(int(disk)))
 	}
-	return result
+	return constraints
 }
