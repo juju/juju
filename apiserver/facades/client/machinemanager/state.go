@@ -46,6 +46,7 @@ type Machine interface {
 	UpdateMachineSeries(string, bool) error
 	CreateUpgradeSeriesLock([]string, string) error
 	RemoveUpgradeSeriesLock() error
+	CompleteUpgradeSeries() error
 	VerifyUnitsSeries(unitNames []string, series string, force bool) ([]Unit, error)
 	Principals() []string
 }

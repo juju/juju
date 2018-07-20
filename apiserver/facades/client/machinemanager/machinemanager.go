@@ -404,10 +404,14 @@ func (mm *MachineManagerAPI) UpgradeSeriesComplete(args params.UpdateSeriesArg) 
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return params.ErrorResult{}, err
 	}
-	err := mm.removeUpgradeSeriesLock(args)
+	err := mm.completeUpgradeSeries(args)
 	if err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
+	// err := mm.removeUpgradeSeriesLock(args)
+	// if err != nil {
+	// 	return params.ErrorResult{Error: common.ServerError(err)}, nil
+	// }
 
 	return params.ErrorResult{}, nil
 }
@@ -450,6 +454,18 @@ func (mm *MachineManagerAPI) updateOneMachineSeries(arg params.UpdateSeriesArg) 
 		return nil // no-op
 	}
 	return machine.UpdateMachineSeries(arg.Series, arg.Force)
+}
+
+func (mm *MachineManagerAPI) completeUpgradeSeries(arg params.UpdateSeriesArg) error {
+	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	machine, err := mm.st.Machine(machineTag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return machine.CompleteUpgradeSeries()
 }
 
 func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg) error {

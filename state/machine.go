@@ -2184,6 +2184,10 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 	return nil
 }
 
+func (m *Machine) CompleteUpgradeSeries() error {
+	return nil
+}
+
 // UpgradeSeriesStatus returns the status of a series upgrade.
 func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UnitSeriesUpgradeStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
