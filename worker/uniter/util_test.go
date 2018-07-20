@@ -35,6 +35,7 @@ import (
 	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/core/leadership"
 	coreleadership "github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -452,10 +453,6 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 	}
 }
 
-func hookExecutionLockName() string {
-	return "uniter-hook-execution-test"
-}
-
 type startUniter struct {
 	unitTag              string
 	newExecutorFunc      uniter.NewExecutorFunc
@@ -489,7 +486,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		CharmDirGuard:        ctx.charmDirGuard,
 		DataDir:              ctx.dataDir,
 		Downloader:           downloader,
-		MachineLockName:      hookExecutionLockName(),
+		MachineLock:          processLock,
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer(),
 		NewOperationExecutor: operationExecutor,
 		TranslateResolverErr: s.translateResolverErr,
@@ -812,13 +809,20 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 		c.Fatalf("ran more hooks than expected")
 	}
 	waitExecutionLockReleased := func() {
-		spec := hookLockSpec()
-		spec.Timeout = worstCase
-		releaser, err := mutex.Acquire(spec)
+		timeout := make(chan struct{})
+		go func() {
+			<-time.After(worstCase)
+			close(timeout)
+		}()
+		releaser, err := processLock.Acquire(machinelock.Spec{
+			Worker:  "uniter-test",
+			Comment: "waitHooks",
+			Cancel:  timeout,
+		})
 		if err != nil {
 			c.Fatalf("failed to acquire execution lock: %v", err)
 		}
-		releaser.Release()
+		releaser()
 	}
 	if match {
 		if len(s) > 0 {
@@ -1395,7 +1399,7 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 }
 
 type hookLock struct {
-	releaser mutex.Releaser
+	releaser func()
 }
 
 type hookStep struct {
@@ -1406,17 +1410,13 @@ func (h *hookStep) step(c *gc.C, ctx *context) {
 	h.stepFunc(c, ctx)
 }
 
-func hookLockSpec() mutex.Spec {
-	return mutex.Spec{
-		Name:  hookExecutionLockName(),
-		Clock: clock.WallClock,
-		Delay: coretesting.ShortWait,
-	}
-}
-
 func (h *hookLock) acquire() *hookStep {
 	return &hookStep{stepFunc: func(c *gc.C, ctx *context) {
-		releaser, err := mutex.Acquire(hookLockSpec())
+		releaser, err := processLock.Acquire(machinelock.Spec{
+			Worker:  "uniter-test",
+			Comment: "hookLock",
+			Cancel:  make(chan struct{}), // clearly suboptimal
+		})
 		c.Assert(err, jc.ErrorIsNil)
 		h.releaser = releaser
 	}}
@@ -1425,7 +1425,7 @@ func (h *hookLock) acquire() *hookStep {
 func (h *hookLock) release() *hookStep {
 	return &hookStep{stepFunc: func(c *gc.C, ctx *context) {
 		c.Assert(h.releaser, gc.NotNil)
-		h.releaser.Release()
+		h.releaser()
 		h.releaser = nil
 	}}
 }
@@ -1811,4 +1811,29 @@ func newManualTicker() *manualTicker {
 	return &manualTicker{
 		c: make(chan time.Time),
 	}
+}
+
+// Instead of having a machine level lock that we have real contention with,
+// we instead fake it by creating a process lock. This will block callers within
+// the same process. This is necessary due to the function above to return the
+// machine lock. We create it once at process initialisation time and use it any
+// time the function is asked for.
+var processLock machinelock.Lock
+
+func init() {
+	processLock = &fakemachinelock{}
+}
+
+type fakemachinelock struct {
+	mu sync.Mutex
+}
+
+func (f *fakemachinelock) Acquire(spec machinelock.Spec) (func(), error) {
+	f.mu.Lock()
+	return func() {
+		f.mu.Unlock()
+	}, nil
+}
+func (f *fakemachinelock) Report(opts ...machinelock.ReportOption) (string, error) {
+	return "", nil
 }

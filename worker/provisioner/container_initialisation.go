@@ -11,8 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mutex"
-	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	worker "gopkg.in/juju/worker.v1"
 
@@ -23,6 +21,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -46,7 +45,7 @@ type ContainerSetup struct {
 	provisioner         *apiprovisioner.State
 	machine             *apiprovisioner.Machine
 	config              agent.Config
-	initLockName        string
+	machineLock         machinelock.Lock
 
 	// Save the workerName so the worker thread can be stopped.
 	workerName string
@@ -66,7 +65,7 @@ type ContainerSetupParams struct {
 	Machine             *apiprovisioner.Machine
 	Provisioner         *apiprovisioner.State
 	Config              agent.Config
-	InitLockName        string
+	MachineLock         machinelock.Lock
 }
 
 // NewContainerSetupHandler returns a StringsWatchHandler which is notified when
@@ -79,7 +78,7 @@ func NewContainerSetupHandler(params ContainerSetupParams) watcher.StringsHandle
 		provisioner:         params.Provisioner,
 		config:              params.Config,
 		workerName:          params.WorkerName,
-		initLockName:        params.InitLockName,
+		machineLock:         params.MachineLock,
 	}
 }
 
@@ -160,28 +159,23 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(abort <-chan struct{}, c
 
 // acquireLock tries to grab the machine lock (initLockName), and either
 // returns it in a locked state, or returns an error.
-func (cs *ContainerSetup) acquireLock(abort <-chan struct{}) (mutex.Releaser, error) {
-	spec := mutex.Spec{
-		Name:  cs.initLockName,
-		Clock: clock.WallClock,
-		// If we don't get the lock straight away, there is no point trying multiple
-		// times per second for an operation that is likelty to take multiple seconds.
-		Delay:  time.Second,
-		Cancel: abort,
+func (cs *ContainerSetup) acquireLock(comment string, abort <-chan struct{}) (func(), error) {
+	spec := machinelock.Spec{
+		Cancel:  abort,
+		Worker:  "provisioner",
+		Comment: comment,
 	}
-	return mutex.Acquire(spec)
+	return cs.machineLock.Acquire(spec)
 }
 
 // runInitialiser runs the container initialiser with the initialisation hook held.
 func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType instance.ContainerType, initialiser container.Initialiser) error {
-	logger.Debugf("running initialiser for %s containers, acquiring lock %q", containerType, cs.initLockName)
-	releaser, err := cs.acquireLock(abort)
+	logger.Debugf("running initialiser for %s containers", containerType)
+	releaser, err := cs.acquireLock(fmt.Sprintf("%s container initialisation", containerType), abort)
 	if err != nil {
 		return errors.Annotate(err, "failed to acquire initialization lock")
 	}
-	logger.Debugf("lock %q acquired", cs.initLockName)
-	defer logger.Debugf("release lock %q for container initialisation", cs.initLockName)
-	defer releaser.Release()
+	defer releaser()
 
 	if err := initialiser.Initialise(); err != nil {
 		return errors.Trace(err)
@@ -230,7 +224,6 @@ func (cs *ContainerSetup) prepareHost(containerTag names.MachineTag, log loggo.L
 	preparer := NewHostPreparer(HostPreparerParams{
 		API:                cs.provisioner,
 		ObserveNetworkFunc: observeNetwork,
-		LockName:           cs.initLockName,
 		AcquireLockFunc:    cs.acquireLock,
 		CreateBridger:      defaultBridger,
 		// TODO(jam): 2017-02-08 figure out how to thread catacomb.Dying() into

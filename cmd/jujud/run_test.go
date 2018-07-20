@@ -9,34 +9,35 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/loggo"
-	"github.com/juju/mutex"
 	jujuos "github.com/juju/os"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
 )
 
-const testLockName = "juju-run-test"
-
 type RunTestSuite struct {
 	testing.BaseSuite
+
+	machinelock *fakemachinelock
 }
 
 func (s *RunTestSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&cmdutil.DataDir, c.MkDir())
+	s.machinelock = &fakemachinelock{}
 }
 
 var _ = gc.Suite(&RunTestSuite{})
@@ -132,7 +133,7 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 
 func (s *RunTestSuite) runCommand() *RunCommand {
 	return &RunCommand{
-		MachineLockName: testLockName,
+		MachineLock: s.machinelock,
 	}
 }
 
@@ -189,20 +190,14 @@ func (s *RunTestSuite) TestNoContextAsync(c *gc.C) {
 }
 
 func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
-	spec := mutex.Spec{
-		Name:  testLockName,
-		Clock: clock.WallClock,
-		Delay: 250 * time.Millisecond,
-	}
-	releaser, err := mutex.Acquire(spec)
+	releaser, err := s.machinelock.Acquire(machinelock.Spec{})
 	c.Assert(err, jc.ErrorIsNil)
-	defer releaser.Release() // in case of failure
 
 	channel := s.startRunAsync(c, []string{"--no-context", "echo done"})
 	ctx, err := waitForResult(channel, testing.ShortWait)
 	c.Assert(err, gc.ErrorMatches, "timeout")
 
-	releaser.Release()
+	releaser()
 
 	ctx, err = waitForResult(channel, testing.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -345,4 +340,19 @@ func (r *mockRunner) RunCommands(args uniter.RunCommandsArgs) (results *exec.Exe
 		Stdout: []byte(args.Commands + " stdout"),
 		Stderr: []byte(args.Commands + " stderr"),
 	}, nil
+}
+
+type fakemachinelock struct {
+	mu sync.Mutex
+}
+
+func (f *fakemachinelock) Acquire(spec machinelock.Spec) (func(), error) {
+	f.mu.Lock()
+	return func() {
+		f.mu.Unlock()
+	}, nil
+}
+
+func (f *fakemachinelock) Report(opts ...machinelock.ReportOption) (string, error) {
+	return "", nil
 }

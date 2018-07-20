@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	msapi "github.com/juju/juju/api/meterstatus"
+	"github.com/juju/juju/core/machinelock"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/dependency"
@@ -46,7 +47,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.manifoldConfig = meterstatus.ManifoldConfig{
 		AgentName:               "agent-name",
 		APICallerName:           "apicaller-name",
-		MachineLockName:         "machine-lock-name",
+		MachineLock:             &fakemachinelock{},
 		Clock:                   testing.NewClock(time.Now()),
 		NewHookRunner:           meterstatus.NewHookRunner,
 		NewMeterStatusAPIClient: msapi.NewClient,
@@ -106,14 +107,14 @@ func (s *PatchedManifoldSuite) SetUpTest(c *gc.C) {
 	newMSClient := func(_ base.APICaller, _ names.UnitTag) msapi.MeterStatusClient {
 		return s.msClient
 	}
-	newHookRunner := func(_ names.UnitTag, _ string, _ agent.Config, _ clock.Clock) meterstatus.HookRunner {
+	newHookRunner := func(_ names.UnitTag, _ machinelock.Lock, _ agent.Config, _ clock.Clock) meterstatus.HookRunner {
 		return &stubRunner{stub: s.stub}
 	}
 
 	s.manifoldConfig = meterstatus.ManifoldConfig{
 		AgentName:               "agent-name",
 		APICallerName:           "apicaller-name",
-		MachineLockName:         "machine-lock-name",
+		MachineLock:             &fakemachinelock{},
 		NewHookRunner:           newHookRunner,
 		NewMeterStatusAPIClient: newMSClient,
 	}
@@ -264,4 +265,18 @@ func (r *stubRunner) RunHook(code, info string, abort <-chan struct{}) error {
 		}
 	}
 	return r.stub.NextErr()
+}
+
+type fakemachinelock struct {
+	mu sync.Mutex
+}
+
+func (f *fakemachinelock) Acquire(spec machinelock.Spec) (func(), error) {
+	f.mu.Lock()
+	return func() {
+		f.mu.Unlock()
+	}, nil
+}
+func (f *fakemachinelock) Report(opts ...machinelock.ReportOption) (string, error) {
+	return "", nil
 }

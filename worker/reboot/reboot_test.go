@@ -4,6 +4,7 @@
 package reboot_test
 
 import (
+	"sync"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apireboot "github.com/juju/juju/api/reboot"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/juju/version"
@@ -72,26 +74,15 @@ func (s *rebootSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-// NOTE: the various reboot tests use a different lock name for each test.
-// This is due to the behaviour of the reboot worker. What it does is acquires
-// the named process lock and never releases it. This is fine(ish) on linux as the
-// garbage collector will eventually clean up the old lock which will release the
-// domain socket, but on windows, the actual lock is a system level semaphore wich
-// isn't cleaned up by the golang garbage collector, but instead relies on the process
-// dying to release the semaphore handle.
-//
-// If more tests are added here, they each need their own lock name to avoid blocking
-// forever on windows.
-
 func (s *rebootSuite) TestStartStop(c *gc.C) {
-	worker, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), "test-reboot-start-stop", s.clock)
+	worker, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), &fakemachinelock{}, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
 }
 
 func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *gc.C) {
-	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), "test-reboot-event", s.clock)
+	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), &fakemachinelock{}, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.rebootState.RequestReboot()
 	c.Assert(err, jc.ErrorIsNil)
@@ -99,7 +90,7 @@ func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *gc.C) {
 }
 
 func (s *rebootSuite) TestContainerCatchesParentFlag(c *gc.C) {
-	wrk, err := reboot.NewReboot(s.ctRebootState, s.AgentConfigForTag(c, s.ct.Tag()), "test-reboot-container", s.clock)
+	wrk, err := reboot.NewReboot(s.ctRebootState, s.AgentConfigForTag(c, s.ct.Tag()), &fakemachinelock{}, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.rebootState.RequestReboot()
 	c.Assert(err, jc.ErrorIsNil)
@@ -113,4 +104,18 @@ type fakeClock struct {
 
 func (f *fakeClock) After(time.Duration) <-chan time.Time {
 	return time.After(f.delay)
+}
+
+type fakemachinelock struct {
+	mu sync.Mutex
+}
+
+func (f *fakemachinelock) Acquire(spec machinelock.Spec) (func(), error) {
+	f.mu.Lock()
+	return func() {
+		f.mu.Unlock()
+	}, nil
+}
+func (f *fakemachinelock) Report(opts ...machinelock.ReportOption) (string, error) {
+	return "", nil
 }

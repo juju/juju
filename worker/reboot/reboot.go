@@ -4,11 +4,8 @@
 package reboot
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/mutex"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
@@ -17,6 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/watcher"
 	jworker "github.com/juju/juju/worker"
 )
@@ -29,23 +27,23 @@ var logger = loggo.GetLogger("juju.worker.reboot")
 // up by the machine agent as a fatal error and will do the
 // right thing (reboot or shutdown)
 type Reboot struct {
-	tomb            tomb.Tomb
-	st              reboot.State
-	tag             names.MachineTag
-	machineLockName string
-	clock           clock.Clock
+	tomb        tomb.Tomb
+	st          reboot.State
+	tag         names.MachineTag
+	machineLock machinelock.Lock
+	clock       clock.Clock
 }
 
-func NewReboot(st reboot.State, agentConfig agent.Config, machineLockName string, clock clock.Clock) (worker.Worker, error) {
+func NewReboot(st reboot.State, agentConfig agent.Config, machineLock machinelock.Lock, clock clock.Clock) (worker.Worker, error) {
 	tag, ok := agentConfig.Tag().(names.MachineTag)
 	if !ok {
 		return nil, errors.Errorf("Expected names.MachineTag, got %T: %v", agentConfig.Tag(), agentConfig.Tag())
 	}
 	r := &Reboot{
-		st:              st,
-		tag:             tag,
-		machineLockName: machineLockName,
-		clock:           clock,
+		st:          st,
+		tag:         tag,
+		machineLock: machineLock,
+		clock:       clock,
 	}
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: r,
@@ -64,29 +62,29 @@ func (r *Reboot) Handle(_ <-chan struct{}) error {
 		return errors.Trace(err)
 	}
 	logger.Debugf("Reboot worker got action: %v", rAction)
+
 	// NOTE: Here we explicitly avoid stopping on the abort channel as we are
 	// wanting to make sure that we grab the lock and return an error
 	// sufficiently heavyweight to get the agent to restart.
-	spec := mutex.Spec{
-		Name:  r.machineLockName,
-		Clock: r.clock,
-		Delay: 250 * time.Millisecond,
+	spec := machinelock.Spec{
+		Worker:   "reboot",
+		NoCancel: true,
 	}
 
 	switch rAction {
 	case params.ShouldReboot:
-		logger.Debugf("acquiring mutex %q for reboot", r.machineLockName)
-		if _, err := mutex.Acquire(spec); err != nil {
+		spec.Comment = "reboot"
+		if _, err := r.machineLock.Acquire(spec); err != nil {
 			return errors.Trace(err)
 		}
-		logger.Debugf("mutex %q acquired, won't release", r.machineLockName)
+		logger.Debugf("machine lock will not be released manually")
 		return jworker.ErrRebootMachine
 	case params.ShouldShutdown:
-		logger.Debugf("acquiring mutex %q for shutdown", r.machineLockName)
-		if _, err := mutex.Acquire(spec); err != nil {
+		spec.Comment = "shutdown"
+		if _, err := r.machineLock.Acquire(spec); err != nil {
 			return errors.Trace(err)
 		}
-		logger.Debugf("mutex %q acquired, won't release", r.machineLockName)
+		logger.Debugf("machine lock will not be released manually")
 		return jworker.ErrShutdownMachine
 	default:
 		return nil

@@ -11,15 +11,16 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/worker/dependency"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
-	AgentName       string
-	APICallerName   string
-	MachineLockName string
-	Clock           clock.Clock
+	AgentName     string
+	APICallerName string
+	MachineLock   machinelock.Lock
+	Clock         clock.Clock
 }
 
 // Manifold returns a dependency manifold that runs a reboot worker,
@@ -42,10 +43,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if config.Clock == nil {
 				return nil, errors.NotValidf("missing Clock")
 			}
-			if config.MachineLockName == "" {
-				return nil, errors.NotValidf("missing MachineLockName")
+			if config.MachineLock == nil {
+				return nil, errors.NotValidf("missing MachineLock")
 			}
-			return newWorker(agent, apiCaller, config.MachineLockName, config.Clock)
+			return newWorker(agent, apiCaller, config.MachineLock, config.Clock)
 		},
 	}
 }
@@ -54,7 +55,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 //
 // TODO(mjs) - It's not tested at the moment, because the scaffolding
 // necessary is too unwieldy/distracting to introduce at this point.
-func newWorker(a agent.Agent, apiCaller base.APICaller, machineLockName string, clock clock.Clock) (worker.Worker, error) {
+func newWorker(a agent.Agent, apiCaller base.APICaller, machineLock machinelock.Lock, clock clock.Clock) (worker.Worker, error) {
 	apiConn, ok := apiCaller.(api.Connection)
 	if !ok {
 		return nil, errors.New("unable to obtain api.Connection")
@@ -63,7 +64,7 @@ func newWorker(a agent.Agent, apiCaller base.APICaller, machineLockName string, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	w, err := NewReboot(rebootState, a.CurrentConfig(), machineLockName, clock)
+	w, err := NewReboot(rebootState, a.CurrentConfig(), machineLock, clock)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start reboot worker")
 	}
