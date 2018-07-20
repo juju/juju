@@ -2198,8 +2198,9 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		if !completed {
 			return nil, fmt.Errorf("machine %q has not finished preparing", m.Id())
 		}
-		return []txn.Op{}, nil
+		return completeUpgradeSeriesTxnOps(m.doc.Id), nil
 	}
+
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
 		err = onAbort(err, ErrDead)
@@ -2277,6 +2278,27 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 	return nil
 }
 
+func completeUpgradeSeriesTxnOps(machineDocID string) []txn.Op {
+	return []txn.Op{
+		{
+			C:      machinesC,
+			Id:     machineDocID,
+			Assert: isAliveDoc,
+		},
+		{
+			C:  machineUpgradeSeriesLocksC,
+			Id: machineDocID,
+			Assert: bson.D{{"$and", []bson.D{
+				{{"prepare-units.status", model.UnitCompleted}},
+				{{"complete-units.status", model.UnitNotStarted}}}}},
+			Update: bson.D{{"$set",
+				bson.D{{"complete-units.$[].status", model.UnitStarted},
+					{"complete-status", model.MachineSeriesUpgradeComplete}}},
+			},
+		},
+	}
+}
+
 func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLockDoc) []txn.Op {
 	return []txn.Op{
 		{
@@ -2344,13 +2366,11 @@ func (m *Machine) isUpgradeSeriesPrepareComplete() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
 	for _, prepareUnitStatus := range lock.PrepareUnits {
 		if prepareUnitStatus.Status != model.UnitCompleted {
 			return false, nil
 		}
 	}
-
 	return true, nil
 }
 
@@ -2371,7 +2391,6 @@ func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get upgrade series lock for machine %v: %v", m.Id(), err)
 	}
-
 	return &lock, nil
 }
 

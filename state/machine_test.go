@@ -21,6 +21,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -2446,6 +2447,27 @@ func (s *MachineSuite) setupTestUpdateMachineSeries(c *gc.C) *state.Machine {
 	return mach
 }
 
+func (s *MachineSuite) addMachineUnit(c *gc.C, mach *state.Machine) *state.Unit {
+	units, err := mach.Units()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var app *state.Application
+	if len(units) == 0 {
+		ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+		app = state.AddTestingApplicationForSeries(c, s.State, mach.Series(), "multi-series", ch)
+		subCh := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate")
+		_ = state.AddTestingApplicationForSeries(c, s.State, mach.Series(), "multi-series-subordinate", subCh)
+	} else {
+		app, err = units[0].Application()
+	}
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(mach)
+	c.Assert(err, jc.ErrorIsNil)
+	return unit
+}
+
 func (s *MachineSuite) assertMachineAndUnitSeriesChanged(c *gc.C, mach *state.Machine, series string) {
 	err := mach.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2684,6 +2706,40 @@ func (s *MachineSuite) TestForceMarksSeriesLockUnlocksMachineForCleanup(c *gc.C)
 	// checking to see if no lock exist for the machine should yield a
 	// positive result.
 	AssertMachineIsNOTLockedForPrepare(c, mach)
+}
+
+func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailWhenMachineIsNotComplete(c *gc.C) {
+	unit := s.addMachineUnit(c, s.machine)
+
+	err := s.machine.CreateUpgradeSeriesLock([]string{unit.Name()}, "cosmic")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.CompleteUpgradeSeries()
+	c.Assert(err, gc.ErrorMatches, "machine \"[0-9].*\" has not finished preparing")
+}
+
+func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenUnitsAreComplete(c *gc.C) {
+	unit0 := s.addMachineUnit(c, s.machine)
+	unit1 := s.addMachineUnit(c, s.machine)
+
+	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name(), unit1.Name()}, "cosmic")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.SetUpgradeSeriesStatus(unit0.Name(), model.UnitCompleted)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.CompleteUpgradeSeries()
+	assertMachineIsNotFinishedPreparing(c, err)
+
+	err = s.machine.SetUpgradeSeriesStatus(unit1.Name(), model.UnitCompleted)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.CompleteUpgradeSeries()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func assertMachineIsNotFinishedPreparing(c *gc.C, err error) {
+	c.Assert(err, gc.ErrorMatches, "machine \"[0-9].*\" has not finished preparing")
 }
 
 func (s *MachineSuite) TestUnitsHaveChangedFalse(c *gc.C) {
