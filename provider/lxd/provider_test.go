@@ -75,6 +75,68 @@ func (s *providerSuite) TestDetectClouds(c *gc.C) {
 	s.assertLocalhostCloud(c, clouds[0])
 }
 
+func (s *providerSuite) TestRemoteDetectClouds(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{
+		DefaultRemote: "localhost",
+		Remotes: map[string]lxd.LXCRemoteConfig{
+			"nuc1": {
+				Addr:     "https://10.0.0.1:8443",
+				AuthType: "certificate",
+				Protocol: "lxd",
+				Public:   false,
+			},
+		},
+	}, nil)
+
+	cloudDetector := deps.provider.(environs.CloudDetector)
+
+	clouds, err := cloudDetector.DetectClouds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 2)
+	c.Assert(clouds, jc.DeepEquals, []cloud.Cloud{
+		{
+			Name: "localhost",
+			Type: "lxd",
+			AuthTypes: []cloud.AuthType{
+				cloud.CertificateAuthType,
+				"interactive",
+			},
+			Regions: []cloud.Region{{
+				Name: "localhost",
+			}},
+			Description: "LXD Container Hypervisor",
+		},
+		{
+			Name:     "nuc1",
+			Type:     "lxd",
+			Endpoint: "https://10.0.0.1:8443",
+			AuthTypes: []cloud.AuthType{
+				cloud.CertificateAuthType,
+			},
+			Description: "LXD Container Hypervisor",
+		},
+	})
+}
+
+func (s *providerSuite) TestRemoteDetectCloudsWithConfigError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{}, errors.New("bad"))
+
+	cloudDetector := deps.provider.(environs.CloudDetector)
+
+	clouds, err := cloudDetector.DetectClouds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 1)
+	s.assertLocalhostCloud(c, clouds[0])
+}
+
 func (s *providerSuite) TestDetectCloud(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -88,6 +150,51 @@ func (s *providerSuite) TestDetectCloud(c *gc.C) {
 	cloud, err = cloudDetector.DetectCloud("lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLocalhostCloud(c, cloud)
+}
+
+func (s *providerSuite) TestRemoteDetectCloud(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+	cloudDetector := deps.provider.(environs.CloudDetector)
+
+	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{
+		DefaultRemote: "localhost",
+		Remotes: map[string]lxd.LXCRemoteConfig{
+			"nuc1": {
+				Addr:     "https://10.0.0.1:8443",
+				AuthType: "certificate",
+				Protocol: "lxd",
+				Public:   false,
+			},
+		},
+	}, nil)
+
+	got, err := cloudDetector.DetectCloud("nuc1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, cloud.Cloud{
+		Name:     "nuc1",
+		Type:     "lxd",
+		Endpoint: "https://10.0.0.1:8443",
+		AuthTypes: []cloud.AuthType{
+			cloud.CertificateAuthType,
+		},
+		Description: "LXD Container Hypervisor",
+	})
+}
+
+func (s *providerSuite) TestRemoteDetectCloudWithConfigError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+	cloudDetector := deps.provider.(environs.CloudDetector)
+
+	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{}, errors.New("bad"))
+
+	_, err := cloudDetector.DetectCloud("nuc1")
+	c.Assert(err, gc.ErrorMatches, `cloud nuc1 not found`)
 }
 
 func (s *providerSuite) TestDetectCloudError(c *gc.C) {
