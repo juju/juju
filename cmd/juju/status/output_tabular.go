@@ -183,6 +183,10 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 
 	pUnit := func(name string, u unitStatus, level int) {
 		message := u.WorkloadStatusInfo.Message
+		// If we're still allocating and there's a message, show that.
+		if u.JujuStatusInfo.Current == status.Allocating && message == "" {
+			message = u.JujuStatusInfo.Message
+		}
 		agentDoing := agentDoing(u.JujuStatusInfo)
 		if agentDoing != "" {
 			message = fmt.Sprintf("(%s) %s", agentDoing, message)

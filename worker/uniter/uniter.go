@@ -561,9 +561,10 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		}
 	} else {
 		initialState = operation.State{
-			Hook: &hook.Info{Kind: hooks.Install},
-			Kind: operation.RunHook,
-			Step: operation.Queued,
+			Hook:      &hook.Info{Kind: hooks.Start},
+			Kind:      operation.RunHook,
+			Step:      operation.Queued,
+			Installed: true,
 		}
 		if err := u.unit.SetCharmURL(charmURL); err != nil {
 			return errors.Trace(err)
