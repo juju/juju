@@ -408,10 +408,6 @@ func (mm *MachineManagerAPI) UpgradeSeriesComplete(args params.UpdateSeriesArg) 
 	if err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
-	// err := mm.removeUpgradeSeriesLock(args)
-	// if err != nil {
-	// 	return params.ErrorResult{Error: common.ServerError(err)}, nil
-	// }
 
 	return params.ErrorResult{}, nil
 }
