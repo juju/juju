@@ -2185,6 +2185,27 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 }
 
 func (m *Machine) CompleteUpgradeSeries() error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		completed, err := m.isUpgradeSeriesPrepareComplete()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !completed {
+			return nil, fmt.Errorf("machine %q has not finished preparing", m.Id())
+		}
+		return []txn.Op{}, nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		return err
+	}
+
 	return nil
 }
 
@@ -2306,24 +2327,52 @@ func setUpgradeSeriesTxnOps(machineDocId, unitName string, unitIndex int, status
 	}
 }
 
+// IsLocked determines if a machine is locked for upgrade series prepare.
 func (m *Machine) IsLocked() (bool, error) {
-	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
-	defer closer()
-
-	var lock upgradeSeriesLockDoc
-	err := coll.FindId(m.Id()).One(&lock)
+	_, err := m.getUpgradeSeriesLock()
 	if err == mgo.ErrNotFound {
 		return false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("cannot get upgrade series lock for machine %v: %v", m.Id(), err)
+		return false, err
 	}
+	return true, nil
+}
+
+func (m *Machine) isUpgradeSeriesPrepareComplete() (bool, error) {
+	lock, err := m.getUpgradeSeriesLock()
+	if err != nil {
+		return false, err
+	}
+
+	for _, prepareUnitStatus := range lock.PrepareUnits {
+		if prepareUnitStatus.Status != model.UnitCompleted {
+			return false, nil
+		}
+	}
+
 	return true, nil
 }
 
 // UpdateOperation returns a model operation that will update the machine.
 func (m *Machine) UpdateOperation() *UpdateMachineOperation {
 	return &UpdateMachineOperation{m: &Machine{st: m.st, doc: m.doc}}
+}
+
+func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {
+	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
+	defer closer()
+
+	var lock upgradeSeriesLockDoc
+	err := coll.FindId(m.Id()).One(&lock)
+	if err == mgo.ErrNotFound {
+		return nil, err
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get upgrade series lock for machine %v: %v", m.Id(), err)
+	}
+
+	return &lock, nil
 }
 
 // UpdateMachineOperation is a model operation for updating a machine.
