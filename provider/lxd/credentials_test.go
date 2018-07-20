@@ -275,7 +275,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentials(c *gc.C) {
 	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{
 		DefaultRemote: "localhost",
 		Remotes: map[string]lxd.LXCRemoteConfig{
-			"nuc1": lxd.LXCRemoteConfig{
+			"nuc1": {
 				Addr:     "https://10.0.0.1:8443",
 				AuthType: "certificate",
 				Protocol: "lxd",
@@ -357,7 +357,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsWithCertFailure(c *gc.C) {
 	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{
 		DefaultRemote: "localhost",
 		Remotes: map[string]lxd.LXCRemoteConfig{
-			"nuc1": lxd.LXCRemoteConfig{
+			"nuc1": {
 				Addr:     "https://10.0.0.1:8443",
 				AuthType: "certificate",
 				Protocol: "lxd",
