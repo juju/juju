@@ -201,7 +201,7 @@ func (p environProviderCredentials) detectRemoteCredentials(certPEM, keyPEM []by
 				credAttrClientKey:  string(keyPEM),
 				credAttrServerCert: string(serverCert),
 			})
-			credential.Label = name
+			credential.Label = fmt.Sprintf("LXD credential %q", name)
 			credentials[name] = credential
 		}
 	}
