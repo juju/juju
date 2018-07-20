@@ -298,7 +298,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocal(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocalLocalAddCert(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocalAddCert(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -324,7 +324,7 @@ func (s *credentialsSuite) TestFinalizeCredentialLocalLocalAddCert(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestFinalizeCredentialLocalLocalAddCertAlreadyExists(c *gc.C) {
+func (s *credentialsSuite) TestFinalizeCredentialLocalAddCertAlreadyExists(c *gc.C) {
 	// If we get back an error from CreateClientCertificate, we'll make another
 	// call to GetCertificate. If that call succeeds, then we assume
 	// that the CreateClientCertificate failure was due to a concurrent call.
@@ -678,6 +678,85 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(
 	deps.serverFactory.EXPECT().RemoteServer(secureSpec).Return(nil, errors.New("bad"))
 
 	_, err = deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
+	c.Assert(errors.Cause(err).Error(), gc.Equals, "bad")
+}
+
+func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithValidCredentials(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	out, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
+		CloudEndpoint: "localhost",
+		Credential: cloud.NewCredential("interactive", map[string]string{
+			"client-cert": coretesting.CACert,
+			"client-key":  coretesting.CAKey,
+			"server-cert": "server-cert",
+		}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(out.AuthType(), gc.Equals, cloud.AuthType("interactive"))
+	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
+		"client-cert": coretesting.CACert,
+		"client-key":  coretesting.CAKey,
+		"server-cert": "server-cert",
+	})
+}
+
+func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithTrustPassword(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	path := osenv.JujuXDGDataHomePath("lxd")
+	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
+
+	path = filepath.Join(utils.Home(), ".config", "lxc")
+	deps.certReadWriter.EXPECT().Read(path).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
+
+	deps.server.EXPECT().GetCertificate(s.clientCertFingerprint(c)).Return(nil, "", nil)
+	deps.server.EXPECT().ServerCertificate().Return("server-cert")
+
+	localhostIP := net.IPv4(127, 0, 0, 1)
+	ipNet := &net.IPNet{IP: localhostIP, Mask: localhostIP.DefaultMask()}
+
+	deps.netLookup.EXPECT().LookupHost("localhost").Return([]string{"127.0.0.1"}, nil)
+	deps.netLookup.EXPECT().InterfaceAddrs().Return([]net.Addr{ipNet}, nil)
+
+	out, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
+		CloudEndpoint: "localhost",
+		Credential: cloud.NewCredential("interactive", map[string]string{
+			"trust-password": "password1",
+		}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(out.AuthType(), gc.Equals, cloud.CertificateAuthType)
+	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
+		"client-cert": coretesting.CACert,
+		"client-key":  coretesting.CAKey,
+		"server-cert": "server-cert",
+	})
+}
+
+func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithCertFailure(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+
+	path := osenv.JujuXDGDataHomePath("lxd")
+	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, errors.New("bad"))
+
+	_, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), environs.FinalizeCredentialParams{
+		CloudEndpoint: "localhost",
+		Credential: cloud.NewCredential("interactive", map[string]string{
+			"trust-password": "password1",
+		}),
+	})
 	c.Assert(errors.Cause(err).Error(), gc.Equals, "bad")
 }
 
