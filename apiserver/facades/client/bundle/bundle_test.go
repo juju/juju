@@ -35,6 +35,7 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 	s.modelTag = names.NewModelTag("some-uuid")
 
 	s.facade = s.makeAPI(c)
+	s.apiv1 = bundle.NewMockFacadeV1(s.facade)
 }
 
 func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv2 {
@@ -213,4 +214,9 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 			})
 		}
 	}
+}
+
+func (s *bundleSuite) TestFailAPIv1ExportBundle(c *gc.C) {
+	//c.Assert(func() { s.apiv1.ExportBundle() }, gc.Panics, struct{}{})
+	//TODO: vinu2003 Need to sort out how to implement this.
 }
