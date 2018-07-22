@@ -4,6 +4,8 @@
 package bundle_test
 
 import (
+	"fmt"
+
 	"github.com/juju/description"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
