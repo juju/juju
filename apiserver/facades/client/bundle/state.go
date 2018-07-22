@@ -11,14 +11,15 @@ import (
 
 type Backend interface {
 	ExportPartial(cfg state.ExportConfig) (description.Model, error)
-	GetExportconfig() state.ExportConfig
+	GetExportConfig() state.ExportConfig
 }
 
 type stateShim struct {
 	*state.State
 }
 
-func (m *stateShim) GetExportconfig() state.ExportConfig {
+// GetExportConfig implements Backend.GetExportConfig.
+func (m *stateShim) GetExportConfig() state.ExportConfig {
 	var cfg state.ExportConfig
 	cfg.SkipActions = true
 	cfg.SkipCloudImageMetadata = true

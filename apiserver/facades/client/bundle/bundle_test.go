@@ -8,6 +8,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"fmt"
+	"github.com/juju/description"
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -28,7 +30,7 @@ var _ = gc.Suite(&bundleSuite{})
 func (s *bundleSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.auth = &apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("who"),
+		Tag: names.NewUserTag("read"),
 	}
 
 	s.st = newMockState()
@@ -216,8 +218,445 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 }
 
 func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
-	_, err := s.facade.ExportBundle()
+	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		CloudRegion: "some-region"})
+	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, gc.NotNil)
+	c.Assert(result, gc.Equals, params.StringResult{})
+	c.Check(err, gc.ErrorMatches, "nothing to export as there are no applications.")
+	s.st.CheckCallNames(c, "ExportPartial")
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) minimalApplicationArgs(modelType string) description.ApplicationArgs {
+	result := description.ApplicationArgs{
+		Tag:                  names.NewApplicationTag("ubuntu"),
+		Series:               "trusty",
+		Type:                 modelType,
+		CharmURL:             "cs:trusty/ubuntu",
+		Channel:              "stable",
+		CharmModifiedVersion: 1,
+		CharmConfig: map[string]interface{}{
+			"key": "value",
+		},
+		Leader: "ubuntu/0",
+		LeadershipSettings: map[string]interface{}{
+			"leader": true,
+		},
+		MetricsCredentials: []byte("sekrit"),
+	}
+	if modelType == description.CAAS {
+		result.PasswordHash = "some-hash"
+		result.PodSpec = "some-spec"
+		result.CloudService = &description.CloudServiceArgs{
+			ProviderId: "some-provider",
+			Addresses: []description.AddressArgs{
+				{Value: "10.0.0.1", Type: "special"},
+				{Value: "10.0.0.2", Type: "other"},
+			},
+		}
+	}
+	return result
+}
+
+func minimalUnitArgs(modelType string) description.UnitArgs {
+	result := description.UnitArgs{
+		Tag:          names.NewUnitTag("ubuntu/0"),
+		Type:         modelType,
+		Machine:      names.NewMachineTag("0"),
+		PasswordHash: "secure-hash",
+	}
+	if modelType == description.CAAS {
+		result.CloudContainer = &description.CloudContainerArgs{
+			ProviderId: "some-provider",
+			Address:    description.AddressArgs{Value: "10.0.0.1", Type: "special"},
+			Ports:      []string{"80", "443"},
+		}
+	}
+	return result
+}
+
+func minimalStatusArgs() description.StatusArgs {
+	return description.StatusArgs{
+		Value: "running",
+	}
+}
+
+func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
+	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		CloudRegion: "some-region"})
+
+	app := s.st.model.AddApplication(s.minimalApplicationArgs(description.IAAS))
+	app.SetStatus(minimalStatusArgs())
+
+	u := app.AddUnit(minimalUnitArgs(app.Type()))
+	u.SetAgentStatus(minimalStatusArgs())
+
+	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedResult := params.StringResult{nil, "applications:\n  " +
+		"ubuntu:\n    " +
+		"charm: cs:trusty/ubuntu\n    " +
+		"series: trusty\n    " +
+		"num_units: 1\n    " +
+		"to:\n    " +
+		"- \"0\"\n    " +
+		"options:\n      " +
+		"key: value\n" +
+		"series: xenial\n" +
+		"relations:\n" +
+		"- []\n"}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCallNames(c, "ExportPartial")
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) addApplicationToModel(model description.Model, name string, numUnits int) description.Application {
+	application := model.AddApplication(description.ApplicationArgs{
+		Tag:                names.NewApplicationTag(name),
+		CharmConfig:        map[string]interface{}{},
+		LeadershipSettings: map[string]interface{}{},
+	})
+	application.SetStatus(minimalStatusArgs())
+	for i := 0; i < numUnits; i++ {
+		machine := model.AddMachine(description.MachineArgs{Id: names.NewMachineTag(fmt.Sprint(i))})
+		unit := application.AddUnit(description.UnitArgs{
+			Tag:     names.NewUnitTag(fmt.Sprintf("%s/%d", name, i)),
+			Machine: machine.Tag(),
+		})
+		unit.SetAgentStatus(minimalStatusArgs())
+	}
+
+	return application
+}
+
+func (s *bundleSuite) setEndpointSettings(ep description.Endpoint, units ...string) {
+	for _, unit := range units {
+		ep.SetUnitSettings(unit, map[string]interface{}{
+			"key": "value",
+		})
+	}
+}
+
+func (s *bundleSuite) newModel(app1 string, app2 string) description.Model {
+	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		CloudRegion: "some-region"})
+
+	s.addApplicationToModel(s.st.model, app1, 2)
+	s.addApplicationToModel(s.st.model, app2, 1)
+
+	// Add a relation between wordpress and mysql.
+	rel := s.st.model.AddRelation(description.RelationArgs{
+		Id:  42,
+		Key: "special key",
+	})
+	rel.SetStatus(minimalStatusArgs())
+
+	app1Endpoint := rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: app1,
+		Name:            "db",
+		// Ignoring other aspects of endpoints.
+	})
+	s.setEndpointSettings(app1Endpoint, app1+"/0", app1+"/1")
+
+	app2Endpoint := rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "mysql",
+		Name:            "mysql",
+		// Ignoring other aspects of endpoints.
+	})
+	s.setEndpointSettings(app2Endpoint, app2+"/0")
+
+	return s.st.model
+}
+
+func (s *bundleSuite) TestExportBundleModelWithSettingsRelations(c *gc.C) {
+	model := s.newModel("wordpress", "mysql")
+	model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(err, gc.ErrorMatches, "nothing to export as there is no application found.")
+	expectedResult := params.StringResult{nil, "applications:\n" +
+		"  mysql:\n" +
+		"    charm: \"\"\n" +
+		"    num_units: 1\n" +
+		"    to:\n" +
+		"    - \"0\"\n" +
+		"  wordpress:\n" +
+		"    charm: \"\"\n" +
+		"    num_units: 2\n" +
+		"    to:\n" +
+		"    - \"0\"\n" +
+		"    - \"1\"\n" +
+		"machines:\n" +
+		"  \"0\": {}\n" +
+		"  \"1\": {}\n" +
+		"series: xenial\n" +
+		"relations:\n" +
+		"- - wordpress:db\n" +
+		"  - mysql:mysql\n"}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCallNames(c, "ExportPartial")
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) addSubordinateEndpoints(
+	c *gc.C,
+	rel description.Relation, app string,
+) (description.Endpoint, description.Endpoint) {
+	appEndpoint := rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: app,
+		Name:            "logging",
+		Scope:           "container",
+		// Ignoring other aspects of endpoints.
+	})
+	loggingEndpoint := rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "logging",
+		Name:            "logging",
+		Scope:           "container",
+		// Ignoring other aspects of endpoints.
+	})
+	return appEndpoint, loggingEndpoint
+}
+
+func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
+	model := s.newModel("wordpress", "mysql")
+	model.SetStatus(description.StatusArgs{Value: "available"})
+
+	// Add a subordinate relations between logging and both wordpress and mysql.
+	rel := model.AddRelation(description.RelationArgs{
+		Id:  43,
+		Key: "some key",
+	})
+	wordpressEndpoint, loggingEndpoint := s.addSubordinateEndpoints(c, rel, "wordpress")
+	s.setEndpointSettings(wordpressEndpoint, "wordpress/0", "wordpress/1")
+	s.setEndpointSettings(loggingEndpoint, "logging/0", "logging/1")
+
+	rel = model.AddRelation(description.RelationArgs{
+		Id:  44,
+		Key: "other key",
+	})
+	mysqlEndpoint, loggingEndpoint := s.addSubordinateEndpoints(c, rel, "mysql")
+	s.setEndpointSettings(mysqlEndpoint, "mysql/0")
+	s.setEndpointSettings(loggingEndpoint, "logging/2")
+
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedResult := params.StringResult{nil, "applications:\n" +
+		"  mysql:\n" +
+		"    charm: \"\"\n" +
+		"    num_units: 1\n" +
+		"    to:\n" +
+		"    - \"0\"\n" +
+		"  wordpress:\n" +
+		"    charm: \"\"\n" +
+		"    num_units: 2\n" +
+		"    to:\n" +
+		"    - \"0\"\n" +
+		"    - \"1\"\nmachines:\n" +
+		"  \"0\": {}\n" +
+		"  \"1\": {}\n" +
+		"series: xenial\n" +
+		"relations:\n" +
+		"- - wordpress:db\n" +
+		"  - mysql:mysql\n" +
+		"  - wordpress:logging\n" +
+		"  - logging:logging\n" +
+		"  - mysql:logging\n" +
+		"  - logging:logging\n"}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCallNames(c, "ExportPartial")
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
+	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		CloudRegion: "some-region"})
+
+	application := s.st.model.AddApplication(description.ApplicationArgs{
+		Tag:                  names.NewApplicationTag("magic"),
+		Series:               "zesty",
+		Subordinate:          true,
+		CharmURL:             "cs:zesty/magic",
+		Channel:              "stable",
+		CharmModifiedVersion: 1,
+		ForceCharm:           true,
+		Exposed:              true,
+		EndpointBindings: map[string]string{
+			"rel-name": "some-space",
+		},
+		ApplicationConfig: map[string]interface{}{
+			"config key": "config value",
+		},
+		CharmConfig: map[string]interface{}{
+			"key": "value",
+		},
+		Leader: "magic/1",
+		LeadershipSettings: map[string]interface{}{
+			"leader": true,
+		},
+		MetricsCredentials: []byte("sekrit"),
+		PasswordHash:       "passwordhash",
+		PodSpec:            "podspec",
+	})
+	application.SetStatus(minimalStatusArgs())
+
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedResult := params.StringResult{nil, "applications:\n" +
+		"  magic:\n" +
+		"    charm: cs:zesty/magic\n" +
+		"    series: zesty\n" +
+		"    expose: true\n" +
+		"    options:\n" +
+		"      key: value\n" +
+		"    bindings:\n" +
+		"      rel-name: some-space\n" +
+		"series: xenial\n" +
+		"relations:\n" +
+		"- []\n"}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCallNames(c, "ExportPartial")
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) addMinimalMachinewithconstraints(model description.Model, id string) {
+	m := model.AddMachine(description.MachineArgs{
+		Id:           names.NewMachineTag(id),
+		Nonce:        "a-nonce",
+		PasswordHash: "some-hash",
+		Series:       "zesty",
+		Jobs:         []string{"host-units"},
+	})
+	args := description.ConstraintsArgs{
+		Architecture: "amd64",
+		Memory:       8 * 1024,
+		RootDisk:     40 * 1024,
+	}
+	m.SetConstraints(args)
+	m.SetStatus(minimalStatusArgs())
+}
+
+func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
+	model := s.newModel("mediawiki", "mysql")
+
+	s.addMinimalMachinewithconstraints(model, "0")
+	s.addMinimalMachinewithconstraints(model, "1")
+
+	model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedResult := params.StringResult{nil, "applications:\n" +
+		"  mediawiki:\n" +
+		"    charm: \"\"\n" +
+		"    num_units: 2\n" +
+		"    to:\n" +
+		"    - \"0\"\n" +
+		"    - \"1\"\n" +
+		"  mysql:\n" +
+		"    charm: \"\"\n" +
+		"    num_units: 1\n" +
+		"    to:\n" +
+		"    - \"0\"\n" +
+		"machines:\n" +
+		"  \"0\":\n" +
+		"    constraints: arch=amd64 mem=8192 root-disk=40960\n" +
+		"    series: zesty\n" +
+		"  \"1\":\n" +
+		"    constraints: arch=amd64 mem=8192 root-disk=40960\n" +
+		"    series: zesty\n" +
+		"series: xenial\n" +
+		"relations:\n" +
+		"- - mediawiki:db\n" +
+		"  - mysql:mysql\n"}
+
+	c.Assert(result, gc.Equals, expectedResult)
+
+	s.st.CheckCallNames(c, "ExportPartial")
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) addMinimalMachinewithannotations(model description.Model, id string) {
+	m := model.AddMachine(description.MachineArgs{
+		Id:           names.NewMachineTag(id),
+		Nonce:        "a-nonce",
+		PasswordHash: "some-hash",
+		Series:       "zesty",
+		Jobs:         []string{"host-units"},
+	})
+	m.SetAnnotations(map[string]string{
+		"string":  "value",
+		"another": "one",
+	})
+	m.SetStatus(minimalStatusArgs())
+}
+
+func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
+	model := s.newModel("wordpress", "mysql")
+
+	s.addMinimalMachinewithannotations(model, "0")
+	s.addMinimalMachinewithannotations(model, "1")
+
+	model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedResult := params.StringResult{nil, "applications:\n" +
+		"  mysql:\n" +
+		"    charm: \"\"\n" +
+		"    num_units: 1\n" +
+		"    to:\n" +
+		"    - \"0\"\n" +
+		"  wordpress:\n" +
+		"    charm: \"\"\n" +
+		"    num_units: 2\n" +
+		"    to:\n" +
+		"    - \"0\"\n" +
+		"    - \"1\"\n" +
+		"machines:\n" +
+		"  \"0\":\n" +
+		"    annotations:\n" +
+		"      another: one\n" +
+		"      string: value\n" +
+		"    series: zesty\n" +
+		"  \"1\":\n" +
+		"    annotations:\n" +
+		"      another: one\n" +
+		"      string: value\n" +
+		"    series: zesty\n" +
+		"series: xenial\n" +
+		"relations:\n" +
+		"- - wordpress:db\n" +
+		"  - mysql:mysql\n"}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCallNames(c, "ExportPartial")
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }

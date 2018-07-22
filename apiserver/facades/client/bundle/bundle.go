@@ -165,7 +165,7 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 		return fail(err)
 	}
 
-	exportConfig := b.backend.GetExportconfig()
+	exportConfig := b.backend.GetExportConfig()
 	model, err := b.backend.ExportPartial(exportConfig)
 	if err != nil {
 		return fail(err)
@@ -209,7 +209,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	}
 
 	if len(model.Applications()) == 0 {
-		return &charm.BundleData{}, errors.Errorf("nothing to export as there is no application found.")
+		return &charm.BundleData{}, errors.Errorf("nothing to export as there are no applications.")
 	}
 	for _, application := range model.Applications() {
 		var newApplication *charm.ApplicationSpec
