@@ -173,8 +173,7 @@ func (p environProviderCredentials) detectLocalCredentials(certPEM, keyPEM []byt
 		return nil, errors.NewNotFound(err, "failed to connect to local LXD")
 	}
 
-	const credName = lxdnames.DefaultCloud
-	label := fmt.Sprintf("LXD credential %q", credName)
+	label := fmt.Sprintf("LXD credential %q", lxdnames.DefaultCloud)
 	certCredential, err := p.finalizeLocalCredential(
 		ioutil.Discard, svr, string(certPEM), string(keyPEM), label,
 	)
