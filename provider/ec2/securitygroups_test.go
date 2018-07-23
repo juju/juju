@@ -12,6 +12,7 @@ import (
 	amzec2 "gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -20,7 +21,8 @@ type SecurityGroupSuite struct {
 	coretesting.BaseSuite
 
 	instanceStub *stubInstance
-	deleteFunc   func(ec2.SecurityGroupCleaner, amzec2.SecurityGroup, clock.Clock) error
+	deleteFunc   func(ec2.SecurityGroupCleaner, context.ProviderCallContext, amzec2.SecurityGroup, clock.Clock) error
+	cloudCallCtx context.ProviderCallContext
 }
 
 var _ = gc.Suite(&SecurityGroupSuite{})
@@ -38,10 +40,11 @@ func (s *SecurityGroupSuite) SetUpTest(c *gc.C) {
 			return nil, nil
 		},
 	}
+	s.cloudCallCtx = context.NewCloudCallContext()
 }
 
 func (s *SecurityGroupSuite) TestDeleteSecurityGroupSuccess(c *gc.C) {
-	err := s.deleteFunc(s.instanceStub, amzec2.SecurityGroup{}, testing.NewClock(time.Time{}))
+	err := s.deleteFunc(s.instanceStub, s.cloudCallCtx, amzec2.SecurityGroup{}, testing.NewClock(time.Time{}))
 	c.Assert(err, jc.ErrorIsNil)
 	s.instanceStub.CheckCallNames(c, "DeleteSecurityGroup")
 }
@@ -50,7 +53,7 @@ func (s *SecurityGroupSuite) TestDeleteSecurityGroupInvalidGroupNotFound(c *gc.C
 	s.instanceStub.deleteSecurityGroup = func(group amzec2.SecurityGroup) (resp *amzec2.SimpleResp, err error) {
 		return nil, &amzec2.Error{Code: "InvalidGroup.NotFound"}
 	}
-	err := s.deleteFunc(s.instanceStub, amzec2.SecurityGroup{}, testing.NewClock(time.Time{}))
+	err := s.deleteFunc(s.instanceStub, s.cloudCallCtx, amzec2.SecurityGroup{}, testing.NewClock(time.Time{}))
 	c.Assert(err, jc.ErrorIsNil)
 	s.instanceStub.CheckCallNames(c, "DeleteSecurityGroup")
 }
@@ -75,7 +78,7 @@ func (s *SecurityGroupSuite) TestDeleteSecurityGroupFewCalls(c *gc.C) {
 		}
 		return nil, nil
 	}
-	err := s.deleteFunc(s.instanceStub, amzec2.SecurityGroup{}, clock)
+	err := s.deleteFunc(s.instanceStub, s.cloudCallCtx, amzec2.SecurityGroup{}, clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedCalls := make([]string, maxCalls+1)
