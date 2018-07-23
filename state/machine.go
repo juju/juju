@@ -2270,11 +2270,9 @@ func completeUpgradeSeriesTxnOps(machineDocID string) []txn.Op {
 			Assert: isAliveDoc,
 		},
 		{
-			C:  machineUpgradeSeriesLocksC,
-			Id: machineDocID,
-			Assert: bson.D{{"$and", []bson.D{
-				{{"prepare-units.status", model.UnitCompleted}},
-				{{"complete-units.status", model.UnitNotStarted}}}}},
+			C:      machineUpgradeSeriesLocksC,
+			Id:     machineDocID,
+			Assert: bson.D{{"prepare-status", model.MachineSeriesUpgradeComplete}},
 			Update: bson.D{{"$set",
 				bson.D{{"complete-units.$[].status", model.UnitStarted},
 					{"complete-status", model.MachineSeriesUpgradeComplete}}},
@@ -2351,12 +2349,7 @@ func (m *Machine) isUpgradeSeriesPrepareComplete() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	for _, prepareUnitStatus := range lock.PrepareUnits {
-		if prepareUnitStatus.Status != model.UnitCompleted {
-			return false, nil
-		}
-	}
-	return true, nil
+	return lock.PrepareStatus == model.MachineSeriesUpgradeComplete, nil
 }
 
 // UpdateOperation returns a model operation that will update the machine.
