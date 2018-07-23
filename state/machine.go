@@ -2299,6 +2299,7 @@ func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLockD
 	}
 }
 
+// [TODO](externalreality) We still need this, eventually the lock is going to cleaned up
 func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 	return []txn.Op{
 		{
