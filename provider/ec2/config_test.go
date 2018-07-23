@@ -12,12 +12,12 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/testing"
 )
 
@@ -29,11 +29,6 @@ type ConfigSuite struct {
 }
 
 var _ = gc.Suite(&ConfigSuite{})
-
-var testAuth = aws.Auth{
-	AccessKey: "gopher",
-	SecretKey: "long teeth",
-}
 
 // configTest specifies a config parsing test, checking that env when
 // parsed as the ec2 section of a config file matches baseConfigResult
@@ -319,7 +314,7 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
-	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
+	s.PatchValue(&verifyCredentials, func(*environ, context.ProviderCallContext) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
 	})
@@ -349,11 +344,11 @@ func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
-	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
+	s.PatchValue(&verifyCredentials, func(*environ, context.ProviderCallContext) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
 	})
-	config, err := config.New(config.NoDefaults, attrs)
+	baseConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	credential := cloud.NewCredential(
@@ -364,7 +359,7 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 		},
 	)
 	cfg, err := providerInstance.PrepareConfig(environs.PrepareConfigParams{
-		Config: config,
+		Config: baseConfig,
 		Cloud: environs.CloudSpec{
 			Type:       "ec2",
 			Name:       "aws",

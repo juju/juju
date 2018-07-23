@@ -42,16 +42,16 @@ func TerminatedInstances(e environs.Environ) ([]instance.Instance, error) {
 	return e.(*environ).AllInstancesByState(context.NewCloudCallContext(), "shutting-down", "terminated")
 }
 
-func InstanceSecurityGroups(e environs.Environ, ids []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {
-	return e.(*environ).instanceSecurityGroups(ids, states...)
+func InstanceSecurityGroups(e environs.Environ, ctx context.ProviderCallContext, ids []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {
+	return e.(*environ).instanceSecurityGroups(ctx, ids, states...)
 }
 
-func AllModelVolumes(e environs.Environ) ([]string, error) {
-	return e.(*environ).allModelVolumes(true)
+func AllModelVolumes(e environs.Environ, ctx context.ProviderCallContext) ([]string, error) {
+	return e.(*environ).allModelVolumes(ctx, true)
 }
 
-func AllModelGroups(e environs.Environ) ([]string, error) {
-	return e.(*environ).modelSecurityGroupIDs()
+func AllModelGroups(e environs.Environ, ctx context.ProviderCallContext) ([]string, error) {
+	return e.(*environ).modelSecurityGroupIDs(ctx)
 }
 
 var (
@@ -359,6 +359,6 @@ const testImageMetadataProduct = `
 }
 `
 
-func VerifyCredentials(env environs.Environ) error {
-	return verifyCredentials(env.(*environ))
+func VerifyCredentials(env environs.Environ, ctx context.ProviderCallContext) error {
+	return verifyCredentials(env.(*environ), ctx)
 }

@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
@@ -138,13 +139,13 @@ func (s *ProviderSuite) TestVerifyCredentialsErrs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 
-	err = ec2.VerifyCredentials(env)
+	err = ec2.VerifyCredentials(env, context.NewCloudCallContext())
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 	c.Assert(err, gc.Not(jc.Satisfies), common.IsCredentialNotValid)
 }
 
 func (s *ProviderSuite) TestMaybeConvertCredentialErrorIgnoresNil(c *gc.C) {
-	err := ec2.MaybeConvertCredentialError(nil)
+	err := ec2.MaybeConvertCredentialError(nil, context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -158,7 +159,7 @@ func (s *ProviderSuite) TestMaybeConvertCredentialErrorConvertsCredentialRelated
 		"PendingVerification",
 		"SignatureDoesNotMatch",
 	} {
-		err := ec2.MaybeConvertCredentialError(&ec2cloud.Error{Code: code})
+		err := ec2.MaybeConvertCredentialError(&ec2cloud.Error{Code: code}, context.NewCloudCallContext())
 		c.Assert(err, gc.NotNil)
 		c.Assert(err, jc.Satisfies, common.IsCredentialNotValid)
 	}
@@ -169,7 +170,7 @@ func (s *ProviderSuite) TestMaybeConvertCredentialErrorAppendsAuthorisationFailu
 		"OptInRequired",
 		"UnauthorizedOperation",
 	} {
-		err := ec2.MaybeConvertCredentialError(&ec2cloud.Error{Code: code})
+		err := ec2.MaybeConvertCredentialError(&ec2cloud.Error{Code: code}, context.NewCloudCallContext())
 		c.Assert(err, gc.NotNil)
 		c.Assert(err, gc.Not(jc.Satisfies), common.IsCredentialNotValid)
 		c.Assert(err.Error(), jc.Contains, fmt.Sprintf("\nPlease subscribe to the requested Amazon service. \n"+
@@ -181,14 +182,14 @@ func (s *ProviderSuite) TestMaybeConvertCredentialErrorAppendsAuthorisationFailu
 
 func (s *ProviderSuite) TestMaybeConvertCredentialErrorHandlesOtherProviderErrors(c *gc.C) {
 	// Any other ec2.Error is returned unwrapped.
-	err := ec2.MaybeConvertCredentialError(&ec2cloud.Error{Code: "DryRunOperation"})
+	err := ec2.MaybeConvertCredentialError(&ec2cloud.Error{Code: "DryRunOperation"}, context.NewCloudCallContext())
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 	c.Assert(err, gc.Not(jc.Satisfies), common.IsCredentialNotValid)
 }
 
 func (s *ProviderSuite) TestConvertedCredentialError(c *gc.C) {
 	// Trace() will keep error type
-	inner := ec2.MaybeConvertCredentialError(&ec2cloud.Error{Code: "Blocked"})
+	inner := ec2.MaybeConvertCredentialError(&ec2cloud.Error{Code: "Blocked"}, context.NewCloudCallContext())
 	traced := errors.Trace(inner)
 	c.Assert(traced, gc.NotNil)
 	c.Assert(traced, jc.Satisfies, common.IsCredentialNotValid)
@@ -199,13 +200,13 @@ func (s *ProviderSuite) TestConvertedCredentialError(c *gc.C) {
 	c.Assert(annotated, jc.Satisfies, common.IsCredentialNotValid)
 
 	// Running a CredentialNotValid through conversion call again is a no-op.
-	again := ec2.MaybeConvertCredentialError(inner)
+	again := ec2.MaybeConvertCredentialError(inner, context.NewCloudCallContext())
 	c.Assert(again, gc.NotNil)
 	c.Assert(again, jc.Satisfies, common.IsCredentialNotValid)
 	c.Assert(again.Error(), jc.Contains, "\nYour Amazon account is currently blocked.:  (Blocked)")
 
 	// Running an annotated CredentialNotValid through conversion call again is a no-op too.
-	againAnotated := ec2.MaybeConvertCredentialError(annotated)
+	againAnotated := ec2.MaybeConvertCredentialError(annotated, context.NewCloudCallContext())
 	c.Assert(againAnotated, gc.NotNil)
 	c.Assert(againAnotated, jc.Satisfies, common.IsCredentialNotValid)
 	c.Assert(againAnotated.Error(), jc.Contains, "\nYour Amazon account is currently blocked.:  (Blocked)")
