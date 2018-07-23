@@ -205,7 +205,6 @@ var maybeConvertCredentialError = func(err error, ctx context.ProviderCallContex
 	}
 
 	convert := func(converted error) error {
-		logger.Errorf("XXXXXXXXXXXXXXXXXXX calling invalidate credential")
 		callbackErr := ctx.InvalidateCredential(converted.Error())
 		if callbackErr != nil {
 			// We want to proceed with the actual proessing but still keep a log of a problem.
