@@ -379,9 +379,9 @@ func (c *addCredentialCommand) promptFieldValue(
 	case attr.Hidden:
 		return p.EnterPassword(name)
 	case attr.ExpandFilePath:
-		return enterFile(name, p, true)
+		return enterFile(name, p, true, attr.Optional)
 	case attr.FilePath:
-		return enterFile(name, p, false)
+		return enterFile(name, p, false, attr.Optional)
 	case attr.Optional:
 		return p.EnterOptional(name)
 	default:
@@ -389,8 +389,16 @@ func (c *addCredentialCommand) promptFieldValue(
 	}
 }
 
-func enterFile(name string, p *interact.Pollster, expanded bool) (string, error) {
-	input, err := p.EnterVerify(fmt.Sprintf("file path for %s", name), func(s string) (ok bool, msg string, err error) {
+func enterFile(name string, p *interact.Pollster, expanded, optional bool) (string, error) {
+	inputSuffix := ""
+	if optional {
+		inputSuffix += " (optional)"
+	}
+	input, err := p.EnterVerify(fmt.Sprintf("file path for %s%s", name, inputSuffix), func(s string) (ok bool, msg string, err error) {
+		if optional && s == "" {
+			return true, "", nil
+		}
+
 		_, err = jujucloud.ValidateFileAttrValue(s)
 		if err != nil {
 			return false, err.Error(), nil
@@ -401,6 +409,12 @@ func enterFile(name string, p *interact.Pollster, expanded bool) (string, error)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+
+	// If it's optional and the input is empty, then return back out.
+	if optional && input == "" {
+		return "", nil
+	}
+
 	// We have to run this twice, since it has glommed together
 	// validation and normalization, and Pollster doesn't deal with the
 	// verification function modifying the value.

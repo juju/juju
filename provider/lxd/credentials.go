@@ -104,23 +104,25 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 		},
 		interactiveAuthType: {
 			{
+				Name: credAttrTrustPassword,
+				CredentialAttr: cloud.CredentialAttr{
+					Description: "The LXD server trust password.",
+					Hidden:      true,
+					Optional:    true,
+				},
+			}, {
 				Name: credAttrClientCert,
 				CredentialAttr: cloud.CredentialAttr{
 					Description:    "The LXD client certificate, PEM-encoded.",
 					ExpandFilePath: true,
+					Optional:       true,
 				},
 			}, {
 				Name: credAttrClientKey,
 				CredentialAttr: cloud.CredentialAttr{
 					Description:    "The LXD client key, PEM-encoded.",
 					ExpandFilePath: true,
-				},
-			}, {
-				Name: credAttrTrustPassword,
-				CredentialAttr: cloud.CredentialAttr{
-					Description: "The LXD server trust password.",
-					Hidden:      true,
-					Optional:    true,
+					Optional:       true,
 				},
 			}, {
 				Name: credAttrServerCert,
@@ -218,7 +220,34 @@ func (p environProviderCredentials) FinalizeCredential(
 	args environs.FinalizeCredentialParams,
 ) (*cloud.Credential, error) {
 	switch authType := args.Credential.AuthType(); authType {
-	case interactiveAuthType, cloud.CertificateAuthType:
+	case interactiveAuthType:
+		credAttrs := args.Credential.Attributes()
+		// We don't care if the password is empty, just that it exists. Empty
+		// passwords can be valid ones...
+		if _, ok := credAttrs[credAttrTrustPassword]; ok {
+			// check to see if the client cert, keys exist, if they do not,
+			// generate them for the user.
+			if _, ok := getClientCertificates(args.Credential); !ok {
+				stderr := ctx.GetStderr()
+				nopLogf := func(s string, args ...interface{}) {
+					fmt.Fprintf(stderr, s+"\n", args...)
+				}
+				clientCert, clientKey, err := p.readOrGenerateCert(nopLogf)
+				if err != nil {
+					return nil, err
+				}
+
+				credAttrs[credAttrClientCert] = string(clientCert)
+				credAttrs[credAttrClientKey] = string(clientKey)
+
+				credential := cloud.NewCredential(cloud.CertificateAuthType, credAttrs)
+				credential.Label = args.Credential.Label
+
+				args.Credential = credential
+			}
+		}
+		fallthrough
+	case cloud.CertificateAuthType:
 		return p.finalizeCredential(ctx, args)
 	default:
 		return &args.Credential, nil
