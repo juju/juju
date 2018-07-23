@@ -230,8 +230,7 @@ func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, gc.NotNil)
 	c.Assert(result, gc.Equals, params.StringResult{})
-	c.Check(err, gc.ErrorMatches, "nothing to export as there are no applications.")
-	s.st.CheckCallNames(c, "ExportPartial")
+	c.Check(err, gc.ErrorMatches, "nothing to export as there are no applications")
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
@@ -321,7 +320,6 @@ func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
 		"- []\n"}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCallNames(c, "ExportPartial")
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
@@ -415,7 +413,6 @@ func (s *bundleSuite) TestExportBundleModelWithSettingsRelations(c *gc.C) {
 		"  - mysql:mysql\n"}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCallNames(c, "ExportPartial")
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
@@ -486,7 +483,6 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 		"  - logging:logging\n"}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCallNames(c, "ExportPartial")
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
@@ -543,7 +539,6 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 		"- []\n"}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCallNames(c, "ExportPartial")
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
@@ -600,7 +595,6 @@ func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
 
 	c.Assert(result, gc.Equals, expectedResult)
 
-	s.st.CheckCallNames(c, "ExportPartial")
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
@@ -658,6 +652,5 @@ func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
 		"  - mysql:mysql\n"}
 
 	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCallNames(c, "ExportPartial")
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }

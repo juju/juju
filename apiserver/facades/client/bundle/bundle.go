@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/bundlechanges"
+	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
@@ -17,7 +18,6 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/description"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
@@ -157,7 +157,7 @@ func (b *BundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleCh
 
 // ExportBundle exports the current model configuration as bundle.
 func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
-	var fail = func(failErr error) (params.StringResult, error) {
+	fail := func(failErr error) (params.StringResult, error) {
 		return params.StringResult{}, common.ServerError(failErr)
 	}
 
@@ -191,9 +191,7 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 // ExportBundle is not in V1 API.
 func (u *APIv1) ExportBundle() (_, _ struct{}) { return }
 
-// FillBundle fills the bundledata datastructure required for the exportBundle.
 func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, error) {
-	// get the default-series from model config.
 	cfg := model.Config()
 	value, ok := cfg["default-series"]
 	if !ok {
@@ -209,7 +207,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	}
 
 	if len(model.Applications()) == 0 {
-		return &charm.BundleData{}, errors.Errorf("nothing to export as there are no applications.")
+		return &charm.BundleData{}, errors.Errorf("nothing to export as there are no applications")
 	}
 	for _, application := range model.Applications() {
 		var newApplication *charm.ApplicationSpec
@@ -244,17 +242,14 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	}
 
 	for _, machine := range model.Machines() {
-		var constraints string
-		result := b.constraints(machine.Constraints())
-		if len(result) != 0 {
-			constraints = strings.Join(result, " ")
-		}
-
 		newMachine := &charm.MachineSpec{
-			Constraints: constraints,
 			Annotations: machine.Annotations(),
 			Series:      machine.Series(),
 		}
+		if result := b.constraints(machine.Constraints()); len(result) != 0 {
+			newMachine.Constraints = strings.Join(result, " ")
+		}
+
 		data.Machines[machine.Id()] = newMachine
 	}
 
