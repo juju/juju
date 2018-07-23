@@ -2247,28 +2247,10 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 		if err := m.isStillAlive(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
-		defer closer()
-		var lock upgradeSeriesLockDoc
-		err := coll.FindId(m.Id()).One(&lock)
+		docIndex, err := m.getUnitIndex(unitName, status)
 		if err != nil {
-			return nil, errors.BadRequestf("machine %q is not locked for upgrade", m)
+			return nil, errors.Trace(err)
 		}
-		docIndex := -1
-		for i, unitStatus := range lock.PrepareUnits {
-			if unitStatus.Id == unitName {
-				// short circuit if there is nothing to do
-				if unitStatus.Status == status {
-					return nil, jujutxn.ErrNoOperations
-				}
-				docIndex = i
-			}
-		}
-		if docIndex == -1 {
-			return nil, fmt.Errorf("cannot get upgrade series lock for unit %q of machine %v: %v", unitName, m.Id(), err)
-		}
-		logger.Debugf("Requested unit name: %q, Unit indexed %q", unitName, lock.PrepareUnits[docIndex].Id)
-
 		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, docIndex, status, bson.Now()), nil
 	}
 	err := m.st.db().Run(buildTxn)
@@ -2277,7 +2259,6 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 		logger.Errorf("cannot set series upgrade status for unit %q of machine %q: %v", unitName, m.Id(), err)
 		return err
 	}
-
 	return nil
 }
 
@@ -2380,6 +2361,27 @@ func (m *Machine) isUpgradeSeriesPrepareComplete() (bool, error) {
 // UpdateOperation returns a model operation that will update the machine.
 func (m *Machine) UpdateOperation() *UpdateMachineOperation {
 	return &UpdateMachineOperation{m: &Machine{st: m.st, doc: m.doc}}
+}
+
+func (m *Machine) getUnitIndex(unitName string, status model.UnitSeriesUpgradeStatus) (int, error) {
+	docIndex := -1
+	lock, err := m.getUpgradeSeriesLock()
+	if err != nil {
+		return docIndex, err
+	}
+	for i, unitStatus := range lock.PrepareUnits {
+		if unitStatus.Id == unitName {
+			// short circuit if there is nothing to do
+			if unitStatus.Status == status {
+				return docIndex, jujutxn.ErrNoOperations
+			}
+			docIndex = i
+		}
+	}
+	if docIndex == -1 {
+		return docIndex, fmt.Errorf("cannot get upgrade series lock for unit %q of machine %v: %v", unitName, m.Id(), err)
+	}
+	return docIndex, nil
 }
 
 func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {
