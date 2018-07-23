@@ -165,6 +165,8 @@ func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 	}, nil
 }
 
+// detectLocalCredentials will use the local server to read and finalize the
+// cloud credentials.
 func (p environProviderCredentials) detectLocalCredentials(certPEM, keyPEM []byte) (*cloud.Credential, error) {
 	svr, err := p.serverFactory.LocalServer()
 	if err != nil {
@@ -179,6 +181,10 @@ func (p environProviderCredentials) detectLocalCredentials(certPEM, keyPEM []byt
 	return certCredential, errors.Trace(err)
 }
 
+// detectRemoteCredentials will attempt to gather all the potential existing
+// remote lxc configurations found in `$HOME/.config/lxc/.config` file.
+// Any setups found in the configuration will then be returned as a credential
+// that can be automatically loaded into juju.
 func (p environProviderCredentials) detectRemoteCredentials(certPEM, keyPEM []byte) (map[string]cloud.Credential, error) {
 	configDir := filepath.Join(utils.Home(), ".config", "lxc")
 	configPath := filepath.Join(configDir, "config.yml")
