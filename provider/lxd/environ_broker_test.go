@@ -5,6 +5,7 @@ package lxd_test
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
@@ -17,7 +18,6 @@ import (
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/lxd"
-	"reflect"
 )
 
 type environBrokerSuite struct {
