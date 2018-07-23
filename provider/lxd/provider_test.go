@@ -39,24 +39,174 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
+type providerSuiteDeps struct {
+	provider     environs.EnvironProvider
+	creds        *testing.MockProviderCredentials
+	factory      *lxd.MockServerFactory
+	configReader *lxd.MockLXCConfigReader
+}
+
+func (s *providerSuite) createProvider(ctrl *gomock.Controller) providerSuiteDeps {
+	creds := testing.NewMockProviderCredentials(ctrl)
+	factory := lxd.NewMockServerFactory(ctrl)
+	configReader := lxd.NewMockLXCConfigReader(ctrl)
+
+	provider := lxd.NewProviderWithMocks(creds, factory, configReader)
+	return providerSuiteDeps{
+		provider:     provider,
+		creds:        creds,
+		factory:      factory,
+		configReader: configReader,
+	}
+}
+
 func (s *providerSuite) TestDetectClouds(c *gc.C) {
-	clouds, err := s.Provider.DetectClouds()
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{}, nil)
+
+	cloudDetector := deps.provider.(environs.CloudDetector)
+
+	clouds, err := cloudDetector.DetectClouds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 1)
+	s.assertLocalhostCloud(c, clouds[0])
+}
+
+func (s *providerSuite) TestRemoteDetectClouds(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{
+		DefaultRemote: "localhost",
+		Remotes: map[string]lxd.LXCRemoteConfig{
+			"nuc1": {
+				Addr:     "https://10.0.0.1:8443",
+				AuthType: "certificate",
+				Protocol: "lxd",
+				Public:   false,
+			},
+		},
+	}, nil)
+
+	cloudDetector := deps.provider.(environs.CloudDetector)
+
+	clouds, err := cloudDetector.DetectClouds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 2)
+	c.Assert(clouds, jc.DeepEquals, []cloud.Cloud{
+		{
+			Name: "localhost",
+			Type: "lxd",
+			AuthTypes: []cloud.AuthType{
+				cloud.CertificateAuthType,
+				"interactive",
+			},
+			Regions: []cloud.Region{{
+				Name: "localhost",
+			}},
+			Description: "LXD Container Hypervisor",
+		},
+		{
+			Name:     "nuc1",
+			Type:     "lxd",
+			Endpoint: "https://10.0.0.1:8443",
+			AuthTypes: []cloud.AuthType{
+				cloud.CertificateAuthType,
+			},
+			Description: "LXD Container Hypervisor",
+		},
+	})
+}
+
+func (s *providerSuite) TestRemoteDetectCloudsWithConfigError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{}, errors.New("bad"))
+
+	cloudDetector := deps.provider.(environs.CloudDetector)
+
+	clouds, err := cloudDetector.DetectClouds()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 1)
 	s.assertLocalhostCloud(c, clouds[0])
 }
 
 func (s *providerSuite) TestDetectCloud(c *gc.C) {
-	cloud, err := s.Provider.DetectCloud("localhost")
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+	cloudDetector := deps.provider.(environs.CloudDetector)
+
+	cloud, err := cloudDetector.DetectCloud("localhost")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLocalhostCloud(c, cloud)
-	cloud, err = s.Provider.DetectCloud("lxd")
+	cloud, err = cloudDetector.DetectCloud("lxd")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLocalhostCloud(c, cloud)
 }
 
+func (s *providerSuite) TestRemoteDetectCloud(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+	cloudDetector := deps.provider.(environs.CloudDetector)
+
+	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{
+		DefaultRemote: "localhost",
+		Remotes: map[string]lxd.LXCRemoteConfig{
+			"nuc1": {
+				Addr:     "https://10.0.0.1:8443",
+				AuthType: "certificate",
+				Protocol: "lxd",
+				Public:   false,
+			},
+		},
+	}, nil)
+
+	got, err := cloudDetector.DetectCloud("nuc1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, cloud.Cloud{
+		Name:     "nuc1",
+		Type:     "lxd",
+		Endpoint: "https://10.0.0.1:8443",
+		AuthTypes: []cloud.AuthType{
+			cloud.CertificateAuthType,
+		},
+		Description: "LXD Container Hypervisor",
+	})
+}
+
+func (s *providerSuite) TestRemoteDetectCloudWithConfigError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+	cloudDetector := deps.provider.(environs.CloudDetector)
+
+	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{}, errors.New("bad"))
+
+	_, err := cloudDetector.DetectCloud("nuc1")
+	c.Assert(err, gc.ErrorMatches, `cloud nuc1 not found`)
+}
+
 func (s *providerSuite) TestDetectCloudError(c *gc.C) {
-	_, err := s.Provider.DetectCloud("foo")
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	deps := s.createProvider(ctrl)
+	deps.configReader.EXPECT().ReadConfig(".config/lxc/config.yml").Return(lxd.LXCConfig{}, errors.New("bad"))
+
+	cloudDetector := deps.provider.(environs.CloudDetector)
+
+	_, err := cloudDetector.DetectCloud("foo")
 	c.Assert(err, gc.ErrorMatches, `cloud foo not found`)
 }
 
@@ -118,17 +268,6 @@ func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
 	})
 }
 
-func (s *providerSuite) createProvider(ctrl *gomock.Controller) (environs.EnvironProvider,
-	*testing.MockProviderCredentials,
-	*lxd.MockServerFactory,
-) {
-	creds := testing.NewMockProviderCredentials(ctrl)
-	factory := lxd.NewMockServerFactory(ctrl)
-
-	provider := lxd.NewProviderWithMocks(creds, factory)
-	return provider, creds, factory
-}
-
 func (s *providerSuite) TestFinalizeCloudWithRemoteProvider(c *gc.C) {
 	if !containerLXD.HasSupport() {
 		c.Skip("To be rewritten during LXD code refactoring for cluster support")
@@ -137,8 +276,8 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProvider(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	provider, _, _ := s.createProvider(ctrl)
-	cloudFinalizer := provider.(environs.CloudFinalizer)
+	deps := s.createProvider(ctrl)
+	cloudFinalizer := deps.provider.(environs.CloudFinalizer)
 
 	cloudSpec := cloud.Cloud{
 		Name:      "foo",
@@ -165,8 +304,8 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithOnlyRegionEndpoin
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	provider, _, _ := s.createProvider(ctrl)
-	cloudFinalizer := provider.(environs.CloudFinalizer)
+	deps := s.createProvider(ctrl)
+	cloudFinalizer := deps.provider.(environs.CloudFinalizer)
 
 	cloudSpec := cloud.Cloud{
 		Name:      "foo",
@@ -188,14 +327,14 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithMixedRegions(c *g
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	provider, _, factory := s.createProvider(ctrl)
-	cloudFinalizer := provider.(environs.CloudFinalizer)
+	deps := s.createProvider(ctrl)
+	cloudFinalizer := deps.provider.(environs.CloudFinalizer)
 
 	server := lxd.NewMockServer(ctrl)
 
-	factory.EXPECT().LocalServer().Return(server, nil)
+	deps.factory.EXPECT().LocalServer().Return(server, nil)
 	server.EXPECT().LocalBridgeName().Return("lxdbr0")
-	factory.EXPECT().LocalServerAddress().Return("https://192.0.0.1:8443", nil)
+	deps.factory.EXPECT().LocalServerAddress().Return("https://192.0.0.1:8443", nil)
 
 	cloudSpec := cloud.Cloud{
 		Name:      "localhost",
@@ -228,8 +367,8 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProviderWithNoRegion(c *gc.C)
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	provider, _, _ := s.createProvider(ctrl)
-	cloudFinalizer := provider.(environs.CloudFinalizer)
+	deps := s.createProvider(ctrl)
+	cloudFinalizer := deps.provider.(environs.CloudFinalizer)
 
 	cloudSpec := cloud.Cloud{
 		Name:      "test",
@@ -263,10 +402,10 @@ func (s *providerSuite) TestFinalizeCloudNotListening(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	provider, _, factory := s.createProvider(ctrl)
-	cloudFinalizer := provider.(environs.CloudFinalizer)
+	deps := s.createProvider(ctrl)
+	cloudFinalizer := deps.provider.(environs.CloudFinalizer)
 
-	factory.EXPECT().LocalServer().Return(nil, errors.New("bad"))
+	deps.factory.EXPECT().LocalServer().Return(nil, errors.New("bad"))
 
 	ctx := testing.NewMockFinalizeCloudContext(ctrl)
 	_, err := cloudFinalizer.FinalizeCloud(ctx, cloud.Cloud{
@@ -322,7 +461,7 @@ func (s *providerSuite) TestCloudSchema(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	provider, _, _ := s.createProvider(ctrl)
+	deps := s.createProvider(ctrl)
 
 	config := `
 auth-types: [certificate]
@@ -334,7 +473,7 @@ endpoint: http://foo.com/lxd
 	v, err = utils.ConformYAML(v)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = provider.CloudSchema().Validate(v)
+	err = deps.provider.CloudSchema().Validate(v)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
