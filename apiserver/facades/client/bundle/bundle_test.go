@@ -4,12 +4,13 @@
 package bundle_test
 
 import (
+	"fmt"
+
+	"github.com/juju/description"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"fmt"
-	"github.com/juju/description"
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
