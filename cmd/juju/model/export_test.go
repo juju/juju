@@ -67,6 +67,13 @@ func NewDumpDBCommandForTest(api DumpDBAPI, store jujuclient.ClientStore) cmd.Co
 	return modelcmd.Wrap(cmd)
 }
 
+// NewDumpCommandForTest returns a DumpCommand with the api provided as specified.
+func NewExportBundleCommandForTest(api ExportBundleModelAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &exportBundleCommand{api: api}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}
+
 // NewDestroyCommandForTest returns a DestroyCommand with the api provided as specified.
 func NewDestroyCommandForTest(
 	api DestroyModelAPI,
