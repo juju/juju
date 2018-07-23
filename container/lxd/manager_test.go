@@ -116,8 +116,6 @@ func prepNetworkConfig() *container.NetworkConfig {
 	}})
 }
 
-var noOpCallback = func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
-
 func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -163,7 +161,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	)
 
 	instance, hc, err := manager.CreateContainer(
-		iCfg, constraints.Value{}, "xenial", prepNetworkConfig(), &container.StorageConfig{}, noOpCallback,
+		iCfg, constraints.Value{}, "xenial", prepNetworkConfig(), &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -219,7 +217,7 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 		ParentInterfaceName: network.DefaultLXDBridge,
 	}})
 	_, _, err = manager.CreateContainer(
-		iCfg, constraints.Value{}, "xenial", netConfig, &container.StorageConfig{}, noOpCallback,
+		iCfg, constraints.Value{}, "xenial", netConfig, &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -249,7 +247,7 @@ func (s *managerSuite) TestCreateContainerCreateFailed(c *gc.C) {
 		"xenial",
 		prepNetworkConfig(),
 		&container.StorageConfig{},
-		noOpCallback,
+		lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, gc.ErrorMatches, ".*create failed")
 }
@@ -287,7 +285,7 @@ func (s *managerSuite) TestCreateContainerStartFailed(c *gc.C) {
 		"xenial",
 		prepNetworkConfig(),
 		&container.StorageConfig{},
-		noOpCallback,
+		lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, gc.ErrorMatches, ".*start failed")
 }
