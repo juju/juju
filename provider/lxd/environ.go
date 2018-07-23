@@ -4,9 +4,11 @@
 package lxd
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -73,7 +75,6 @@ func newEnviron(
 	}
 	env.base = common.DefaultProvider{Env: env}
 
-	//TODO(wwitzel3) make sure we are also cleaning up profiles during destroy
 	if err := env.initProfile(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -81,39 +82,39 @@ func newEnviron(
 	return env, nil
 }
 
-var defaultProfileConfig = map[string]string{
-	"boot.autostart":   "true",
-	"security.nesting": "true",
-}
-
 func (env *environ) initProfile() error {
-	hasProfile, err := env.server.HasProfile(env.profileName())
+	pName := env.profileName()
+
+	hasProfile, err := env.server.HasProfile(pName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	if hasProfile {
 		return nil
 	}
 
-	return env.server.CreateProfileWithConfig(env.profileName(), defaultProfileConfig)
+	cfg := map[string]string{
+		"boot.autostart":   "true",
+		"security.nesting": "true",
+	}
+	return env.server.CreateProfileWithConfig(pName, cfg)
 }
 
 func (env *environ) profileName() string {
-	return "juju-" + env.ecfg.Name()
+	return "juju-" + env.Name()
 }
 
-// Name returns the name of the environment.
+// Name returns the name of the environ.
 func (env *environ) Name() string {
 	return env.name
 }
 
-// Provider returns the environment provider that created this env.
+// Provider returns the provider that created this environ.
 func (env *environ) Provider() environs.EnvironProvider {
 	return env.provider
 }
 
-// SetConfig updates the env's configuration.
+// SetConfig updates the environ's configuration.
 func (env *environ) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
@@ -188,7 +189,6 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 		return errors.Annotate(err, "listing instances")
 	}
 
-	logger.Debugf("removing instances: %v", instances)
 	var names []string
 	for _, inst := range instances {
 		if inst.container.Metadata(tags.JujuModel) == env.uuid {
@@ -199,6 +199,82 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 		}
 		names = append(names, string(inst.Id()))
 	}
+	logger.Debugf("removing instances: %v", names)
 
 	return errors.Trace(env.server.RemoveContainers(names))
+}
+
+// lxdAvailabilityZone wraps a LXD cluster member as an availability zone.
+type lxdAvailabilityZone struct {
+	api.ClusterMember
+}
+
+// Name implements AvailabilityZone.
+func (z *lxdAvailabilityZone) Name() string {
+	return z.ServerName
+}
+
+// Available implements AvailabilityZone.
+func (z *lxdAvailabilityZone) Available() bool {
+	return strings.ToLower(z.Status) == "online"
+}
+
+// AvailabilityZones (ZonedEnviron) returns all availability zones in the
+// environment. For LXD, this means the cluster node names.
+func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
+	if !env.server.ClusterSupported() {
+		return nil, nil
+	}
+
+	nodes, err := env.server.GetClusterMembers()
+	if err != nil {
+		return nil, errors.Annotate(err, "listing cluster members")
+	}
+	aZones := make([]common.AvailabilityZone, len(nodes))
+	for i, n := range nodes {
+		aZones[i] = &lxdAvailabilityZone{n}
+	}
+	return aZones, nil
+}
+
+// InstanceAvailabilityZoneNames (ZonedEnviron) returns the names of the
+// availability zones for the specified instances.
+// For containers, this means the LXD server node names where they reside.
+func (env *environ) InstanceAvailabilityZoneNames(
+	ctx context.ProviderCallContext, ids []instance.Id,
+) ([]string, error) {
+	if !env.server.ClusterSupported() {
+		return nil, nil
+	}
+
+	instances, err := env.Instances(ctx, ids)
+	if err != nil {
+		return nil, errors.Annotate(err, "listing instances")
+	}
+	nodes := make([]string, len(ids))
+	for i, ins := range instances {
+		if ei, ok := ins.(*environInstance); ok {
+			nodes[i] = ei.container.Location
+		}
+	}
+	return nodes, nil
+}
+
+// DeriveAvailabilityZones (ZonedEnviron) attempts to derive availability zones
+// from the specified StartInstanceParams.
+func (env *environ) DeriveAvailabilityZones(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+) ([]string, error) {
+	if !env.server.ClusterSupported() {
+		return nil, nil
+	}
+
+	p, err := env.parsePlacement(ctx, args.Placement)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if p.nodeName == "" {
+		return nil, nil
+	}
+	return []string{p.nodeName}, nil
 }

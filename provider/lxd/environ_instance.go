@@ -113,16 +113,6 @@ func (env *environ) ControllerInstances(ctx context.ProviderCallContext, control
 	return results, nil
 }
 
-type instPlacement struct{}
-
-func (env *environ) parsePlacement(placement string) (*instPlacement, error) {
-	if placement == "" {
-		return &instPlacement{}, nil
-	}
-
-	return nil, errors.Errorf("unknown placement directive: %v", placement)
-}
-
 // AdoptResources updates the controller tags on all instances to have the
 // new controller id. It's part of the Environ interface.
 func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {

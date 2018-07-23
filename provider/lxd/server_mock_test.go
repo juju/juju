@@ -50,6 +50,18 @@ func (mr *MockServerMockRecorder) AliveContainers(arg0 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AliveContainers", reflect.TypeOf((*MockServer)(nil).AliveContainers), arg0)
 }
 
+// ClusterSupported mocks base method
+func (m *MockServer) ClusterSupported() bool {
+	ret := m.ctrl.Call(m, "ClusterSupported")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ClusterSupported indicates an expected call of ClusterSupported
+func (mr *MockServerMockRecorder) ClusterSupported() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClusterSupported", reflect.TypeOf((*MockServer)(nil).ClusterSupported))
+}
+
 // ContainerAddresses mocks base method
 func (m *MockServer) ContainerAddresses(arg0 string) ([]network.Address, error) {
 	ret := m.ctrl.Call(m, "ContainerAddresses", arg0)
@@ -227,6 +239,19 @@ func (m *MockServer) GetCertificate(arg0 string) (*api.Certificate, string, erro
 // GetCertificate indicates an expected call of GetCertificate
 func (mr *MockServerMockRecorder) GetCertificate(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCertificate", reflect.TypeOf((*MockServer)(nil).GetCertificate), arg0)
+}
+
+// GetClusterMembers mocks base method
+func (m *MockServer) GetClusterMembers() ([]api.ClusterMember, error) {
+	ret := m.ctrl.Call(m, "GetClusterMembers")
+	ret0, _ := ret[0].([]api.ClusterMember)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClusterMembers indicates an expected call of GetClusterMembers
+func (mr *MockServerMockRecorder) GetClusterMembers() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterMembers", reflect.TypeOf((*MockServer)(nil).GetClusterMembers))
 }
 
 // GetConnectionInfo mocks base method
@@ -444,6 +469,19 @@ func (m *MockServer) UpdateStoragePoolVolume(arg0, arg1, arg2 string, arg3 api.S
 // UpdateStoragePoolVolume indicates an expected call of UpdateStoragePoolVolume
 func (mr *MockServerMockRecorder) UpdateStoragePoolVolume(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStoragePoolVolume", reflect.TypeOf((*MockServer)(nil).UpdateStoragePoolVolume), arg0, arg1, arg2, arg3, arg4)
+}
+
+// UseTargetServer mocks base method
+func (m *MockServer) UseTargetServer(arg0 string) (*lxd.Server, error) {
+	ret := m.ctrl.Call(m, "UseTargetServer", arg0)
+	ret0, _ := ret[0].(*lxd.Server)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UseTargetServer indicates an expected call of UseTargetServer
+func (mr *MockServerMockRecorder) UseTargetServer(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UseTargetServer", reflect.TypeOf((*MockServer)(nil).UseTargetServer), arg0)
 }
 
 // VerifyNetworkDevice mocks base method

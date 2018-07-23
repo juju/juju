@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
@@ -38,15 +40,15 @@ func (env *environ) StartInstance(
 		return nil, errors.Trace(err)
 	}
 
-	server, err := env.newContainer(args, arch)
+	container, err := env.newContainer(ctx, args, arch)
 	if err != nil {
 		if args.StatusCallback != nil {
 			args.StatusCallback(status.ProvisioningError, err.Error(), nil)
 		}
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("started instance %q", server.Name)
-	inst := newInstance(server, env)
+	logger.Infof("started instance %q", container.Name)
+	inst := newInstance(container, env)
 
 	// Build the result.
 	hwc := env.getHardwareCharacteristics(args, inst)
@@ -79,6 +81,7 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (str
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newContainer(
+	ctx context.ProviderCallContext,
 	args environs.StartInstanceParams,
 	arch string,
 ) (*lxd.Container, error) {
@@ -124,8 +127,13 @@ func (env *environ) newContainer(
 		return nil, errors.Trace(err)
 	}
 
+	target, err := env.getTargetServer(ctx, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	statusCallback(status.Allocating, "Creating container", nil)
-	container, err := env.server.CreateContainerFromSpec(cSpec)
+	container, err := target.CreateContainerFromSpec(cSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -193,6 +201,8 @@ func (env *environ) getContainerSpec(
 		return cSpec, errors.Trace(err)
 	}
 	if !(len(nics) == 1 && nics["eth0"] != nil) {
+		logger.Debugf("generating custom cloud-init networking")
+
 		cSpec.Config[lxd.NetworkConfigKey] = cloudinit.CloudInitNetworkConfigDisabled
 
 		info, err := lxd.InterfaceInfoFromDevices(nics)
@@ -231,6 +241,55 @@ func (env *environ) getContainerSpec(
 	}
 
 	return cSpec, nil
+}
+
+// getTargetServer checks to see if a valid zone was passed as a placement
+// directive in the start-up start-up arguments. If so, a server for the
+// specific node is returned.
+func (env *environ) getTargetServer(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+) (Server, error) {
+	p, err := env.parsePlacement(ctx, args.Placement)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if p.nodeName == "" {
+		return env.server, nil
+	}
+	return env.server.UseTargetServer(p.nodeName)
+}
+
+type lxdPlacement struct {
+	nodeName string
+}
+
+func (env *environ) parsePlacement(ctx context.ProviderCallContext, placement string) (*lxdPlacement, error) {
+	if placement == "" {
+		return &lxdPlacement{}, nil
+	}
+
+	var node string
+	pos := strings.IndexRune(placement, '=')
+	// Assume that a plain string is a node name.
+	if pos == -1 {
+		node = placement
+	} else {
+		if placement[:pos] != "zone" {
+			return nil, fmt.Errorf("unknown placement directive: %v", placement)
+		}
+		node = placement[pos+1:]
+	}
+
+	if node == "" {
+		return &lxdPlacement{}, nil
+	}
+
+	if err := common.ValidateAvailabilityZone(env, ctx, node); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &lxdPlacement{nodeName: node}, nil
 }
 
 // getHardwareCharacteristics compiles hardware-related details about

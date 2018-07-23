@@ -4,10 +4,12 @@
 package lxd
 
 import (
-	"github.com/juju/juju/environs"
+	"errors"
+
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/environs"
 )
 
 var (
@@ -69,6 +71,10 @@ func ExposeEnvServer(env *environ) Server {
 	return env.server
 }
 
-func GetImageSources(env *environ) ([]lxd.ServerSpec, error) {
-	return env.getImageSources()
+func GetImageSources(env environs.Environ) ([]lxd.ServerSpec, error) {
+	lxdEnv, ok := env.(*environ)
+	if !ok {
+		return nil, errors.New("not a LXD environ")
+	}
+	return lxdEnv.getImageSources()
 }
