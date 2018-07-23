@@ -2191,6 +2191,9 @@ func (m *Machine) CompleteUpgradeSeries() error {
 				return nil, errors.Trace(err)
 			}
 		}
+		if err := m.isStillAlive(); err != nil {
+			return nil, errors.Trace(err)
+		}
 		completed, err := m.isUpgradeSeriesPrepareComplete()
 		if err != nil {
 			return nil, errors.Trace(err)
