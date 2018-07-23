@@ -2222,7 +2222,7 @@ func (m *Machine) CompleteUpgradeSeries() error {
 }
 
 // UpgradeSeriesStatus returns the status of a series upgrade.
-func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UnitSeriesUpgradeStatus, error) {
+func (m *Machine) UpgradeSeriesStatus(unitName string, statusType model.UpgradeSeriesStatusType) (model.UnitSeriesUpgradeStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
 
@@ -2235,7 +2235,15 @@ func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UnitSeriesUpgradeS
 		return "", errors.Trace(err)
 	}
 
-	for _, unit := range lock.PrepareUnits {
+	var lockUnits []unitStatus
+	switch statusType {
+	case model.PrepareStatus:
+		lockUnits = lock.PrepareUnits
+	case model.CompleteStatus:
+		lockUnits = lock.CompleteUnits
+	}
+
+	for _, unit := range lockUnits {
 		if unit.Id == unitName {
 			return unit.Status, nil
 		}

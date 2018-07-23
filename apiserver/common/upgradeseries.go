@@ -27,8 +27,8 @@ type UpgradeSeriesMachine interface {
 //go:generate mockgen -package mocks -destination mocks/mock_unit.go github.com/juju/juju/apiserver/common UpgradeSeriesUnit
 type UpgradeSeriesUnit interface {
 	AssignedMachineId() (string, error)
-	UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error)
-	SetUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus) error
+	UpgradeSeriesStatus(model.UpgradeSeriesStatusType) (model.UnitSeriesUpgradeStatus, error)
+	SetUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus) error
 }
 
 type UpgradeSeriesAPI struct {
@@ -104,39 +104,7 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(args params.Entities)
 // UpgradeSeriesStatus returns the current state of series upgrading
 // unit. If no upgrade is in progress an error is returned instead.
 func (u *UpgradeSeriesAPI) UpgradeSeriesStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
-	u.logger.Tracef("Starting UpgradeSeriesStatus with %+v", args)
-	result := params.UpgradeSeriesStatusResults{
-		Results: make([]params.UpgradeSeriesStatusResult, len(args.Entities)),
-	}
-	canAccess, err := u.accessUnitOrMachine()
-	if err != nil {
-		return params.UpgradeSeriesStatusResults{}, err
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = ServerError(ErrPerm)
-			continue
-		}
-
-		if !canAccess(tag) {
-			result.Results[i].Error = ServerError(ErrPerm)
-			continue
-		}
-		unit, err := u.getUnit(tag)
-		if err != nil {
-			result.Results[i].Error = ServerError(err)
-			continue
-		}
-		status, err := unit.UpgradeSeriesStatus()
-		if err != nil {
-			result.Results[i].Error = ServerError(err)
-			continue
-		}
-		result.Results[i].Status = string(status)
-	}
-
-	return result, nil
+	return u.upgradeSeriesStatus(args, model.PrepareStatus)
 }
 
 // SetUpgradeSeriesStatus sets the upgrade series status of the unit.
@@ -214,6 +182,43 @@ func NewExternalUpgradeSeriesAPI(
 	logger loggo.Logger,
 ) *UpgradeSeriesAPI {
 	return NewUpgradeSeriesAPI(backendShim{st}, resources, authorizer, accessMachine, accessUnit, logger)
+}
+
+func (u *UpgradeSeriesAPI) upgradeSeriesStatus(args params.Entities, statusType model.UpgradeSeriesStatusType) (params.UpgradeSeriesStatusResults, error) {
+	u.logger.Tracef("Starting UpgradeSeriesStatus with %+v", args)
+	result := params.UpgradeSeriesStatusResults{
+		Results: make([]params.UpgradeSeriesStatusResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnitOrMachine()
+	if err != nil {
+		return params.UpgradeSeriesStatusResults{}, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+
+		if !canAccess(tag) {
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = ServerError(err)
+			continue
+		}
+		status, err := unit.UpgradeSeriesStatus(statusType)
+
+		if err != nil {
+			result.Results[i].Error = ServerError(err)
+			continue
+		}
+		result.Results[i].Status = string(status)
+	}
+
+	return result, nil
 }
 
 type backendShim struct {

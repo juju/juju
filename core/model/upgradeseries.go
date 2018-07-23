@@ -7,6 +7,16 @@ import (
 	"github.com/juju/errors"
 )
 
+// The Statuses, at least for units, appy to both the "Prepare" and "Complete"
+// phases of a managed series upgrade. This type can be used to distinguish
+// between those phases when working with the state of an upgraded.
+type UpgradeSeriesStatusType string
+
+const (
+	PrepareStatus  UpgradeSeriesStatusType = "Complete"
+	CompleteStatus UpgradeSeriesStatusType = "Prepare"
+)
+
 //MachineSeriesUpgradeStatus is the current status a machine series upgrade
 type MachineSeriesUpgradeStatus string
 
