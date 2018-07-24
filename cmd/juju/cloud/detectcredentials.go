@@ -64,7 +64,11 @@ OpenStack
   Credentials:
     1. On Linux, $HOME/.novarc
     2. Environment variables OS_USERNAME, OS_PASSWORD, OS_TENANT_NAME,
-       OS_DOMAIN_NAME
+	   OS_DOMAIN_NAME
+
+LXD
+  Credentials:
+    1. On Linux, $HOME/.config/lxc/config.yml
 
 Example:
     juju autoload-credentials
