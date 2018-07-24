@@ -93,9 +93,6 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 	name := info.Environment.ServerName
 	clustered := info.Environment.ServerClustered
 	serverCertificate := info.Environment.Certificate
-	if clustered {
-		logger.Debugf("creating LXD server for cluster node %q", name)
-	}
 
 	return &Server{
 		ContainerServer:   svr,
@@ -106,6 +103,11 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 		clusterAPISupport: shared.StringInSlice("clustering", apiExt),
 		storageAPISupport: shared.StringInSlice("storage", apiExt),
 	}, nil
+}
+
+// Name returns the name of this LXD server.
+func (s *Server) Name() string {
+	return s.name
 }
 
 // UpdateServerConfig updates the server configuration with the input values.

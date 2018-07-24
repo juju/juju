@@ -664,6 +664,29 @@ func (conn *StubClient) GetNICsFromProfile(profName string) (map[string]map[stri
 	return conn.Profile.Devices, conn.NextErr()
 }
 
+func (conn *StubClient) IsClustered() bool {
+	conn.AddCall("IsClustered")
+	return true
+}
+
+func (conn *StubClient) Name() string {
+	conn.AddCall("Name")
+	return "server"
+}
+
+// TODO (manadart 2018-07-20): This exists to satisfy the testing stub
+// interface. It is temporary, pending replacement with mocks and
+// should not be called in tests.
+func (conn *StubClient) UseTargetServer(name string) (*lxd.Server, error) {
+	conn.AddCall("UseTargetServer", name)
+	return nil, conn.NextErr()
+}
+
+func (conn *StubClient) GetClusterMembers() (members []api.ClusterMember, err error) {
+	conn.AddCall("GetClusterMembers")
+	return nil, conn.NextErr()
+}
+
 type MockClock struct {
 	clock.Clock
 	now time.Time
@@ -675,4 +698,59 @@ func (m *MockClock) Now() time.Time {
 
 func (m *MockClock) After(delay time.Duration) <-chan time.Time {
 	return time.After(time.Millisecond)
+}
+
+// TODO (manadart 2018-07-20): All of the above logic should ultimately be
+// replaced by what follows (in some form). The stub usage will be abandoned
+// and replaced by mocks.
+
+type EnvironSuite struct {
+	testing.BaseSuite
+}
+
+func (s *EnvironSuite) NewEnviron(c *gc.C, svr Server, cfgEdit map[string]interface{}) environs.Environ {
+	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	if cfgEdit != nil {
+		var err error
+		cfg, err = cfg.Apply(cfgEdit)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	eCfg, err := newValidConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	namespace, err := instance.NewNamespace(cfg.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	return &environ{
+		server:    svr,
+		ecfg:      eCfg,
+		namespace: namespace,
+	}
+}
+
+func (s *EnvironSuite) GetStartInstanceArgs(c *gc.C, series string) environs.StartInstanceParams {
+	tools := []*coretools.Tools{
+		{
+			Version: version.Binary{Arch: arch.AMD64, Series: series},
+			URL:     "https://example.org/amd",
+		},
+		{
+			Version: version.Binary{Arch: arch.ARM64, Series: series},
+			URL:     "https://example.org/arm",
+		},
+	}
+
+	cons := constraints.Value{}
+	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, series, "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	return environs.StartInstanceParams{
+		ControllerUUID: iConfig.Controller.Config.ControllerUUID(),
+		InstanceConfig: iConfig,
+		Tools:          tools,
+		Constraints:    cons,
+	}
 }

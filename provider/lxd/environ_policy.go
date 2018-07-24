@@ -15,11 +15,8 @@ import (
 // PrecheckInstance verifies that the provided series and constraints
 // are valid for use in creating an instance in this environment.
 func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
-	if _, err := env.parsePlacement(args.Placement); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+	_, err := env.parsePlacement(ctx, args.Placement)
+	return errors.Trace(err)
 }
 
 var unsupportedConstraints = []string{

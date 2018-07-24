@@ -48,7 +48,7 @@ func (s *imageSuite) TestCopyImageUsesPassedCallback(c *gc.C) {
 		Image:     &image,
 		LXDServer: iSvr,
 	}
-	err = jujuSvr.CopyRemoteImage(sourced, []string{"local/image/alias"}, noOpCallback)
+	err = jujuSvr.CopyRemoteImage(sourced, []string{"local/image/alias"}, lxdtesting.NoOpCallback)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

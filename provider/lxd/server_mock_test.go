@@ -229,6 +229,19 @@ func (mr *MockServerMockRecorder) GetCertificate(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCertificate", reflect.TypeOf((*MockServer)(nil).GetCertificate), arg0)
 }
 
+// GetClusterMembers mocks base method
+func (m *MockServer) GetClusterMembers() ([]api.ClusterMember, error) {
+	ret := m.ctrl.Call(m, "GetClusterMembers")
+	ret0, _ := ret[0].([]api.ClusterMember)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClusterMembers indicates an expected call of GetClusterMembers
+func (mr *MockServerMockRecorder) GetClusterMembers() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterMembers", reflect.TypeOf((*MockServer)(nil).GetClusterMembers))
+}
+
 // GetConnectionInfo mocks base method
 func (m *MockServer) GetConnectionInfo() (*client.ConnectionInfo, error) {
 	ret := m.ctrl.Call(m, "GetConnectionInfo")
@@ -350,6 +363,18 @@ func (mr *MockServerMockRecorder) HasProfile(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasProfile", reflect.TypeOf((*MockServer)(nil).HasProfile), arg0)
 }
 
+// IsClustered mocks base method
+func (m *MockServer) IsClustered() bool {
+	ret := m.ctrl.Call(m, "IsClustered")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsClustered indicates an expected call of IsClustered
+func (mr *MockServerMockRecorder) IsClustered() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsClustered", reflect.TypeOf((*MockServer)(nil).IsClustered))
+}
+
 // LocalBridgeName mocks base method
 func (m *MockServer) LocalBridgeName() string {
 	ret := m.ctrl.Call(m, "LocalBridgeName")
@@ -360,6 +385,18 @@ func (m *MockServer) LocalBridgeName() string {
 // LocalBridgeName indicates an expected call of LocalBridgeName
 func (mr *MockServerMockRecorder) LocalBridgeName() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalBridgeName", reflect.TypeOf((*MockServer)(nil).LocalBridgeName))
+}
+
+// Name mocks base method
+func (m *MockServer) Name() string {
+	ret := m.ctrl.Call(m, "Name")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Name indicates an expected call of Name
+func (mr *MockServerMockRecorder) Name() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockServer)(nil).Name))
 }
 
 // RemoveContainer mocks base method
@@ -444,6 +481,19 @@ func (m *MockServer) UpdateStoragePoolVolume(arg0, arg1, arg2 string, arg3 api.S
 // UpdateStoragePoolVolume indicates an expected call of UpdateStoragePoolVolume
 func (mr *MockServerMockRecorder) UpdateStoragePoolVolume(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStoragePoolVolume", reflect.TypeOf((*MockServer)(nil).UpdateStoragePoolVolume), arg0, arg1, arg2, arg3, arg4)
+}
+
+// UseTargetServer mocks base method
+func (m *MockServer) UseTargetServer(arg0 string) (*lxd.Server, error) {
+	ret := m.ctrl.Call(m, "UseTargetServer", arg0)
+	ret0, _ := ret[0].(*lxd.Server)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UseTargetServer indicates an expected call of UseTargetServer
+func (mr *MockServerMockRecorder) UseTargetServer(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UseTargetServer", reflect.TypeOf((*MockServer)(nil).UseTargetServer), arg0)
 }
 
 // VerifyNetworkDevice mocks base method

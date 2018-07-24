@@ -57,7 +57,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	placement := "zone=a-zone"
 	err := s.Env.PrecheckInstance(context.NewCloudCallContext(), environs.PrecheckInstanceParams{Series: version.SupportedLTS(), Placement: placement})
 
-	c.Check(err, gc.ErrorMatches, `unknown placement directive: .*`)
+	c.Check(err, gc.ErrorMatches, `availability zone "a-zone" not valid`)
 }
 
 func (s *environPolSuite) TestConstraintsValidatorOkay(c *gc.C) {
