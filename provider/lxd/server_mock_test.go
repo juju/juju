@@ -50,18 +50,6 @@ func (mr *MockServerMockRecorder) AliveContainers(arg0 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AliveContainers", reflect.TypeOf((*MockServer)(nil).AliveContainers), arg0)
 }
 
-// ClusterSupported mocks base method
-func (m *MockServer) ClusterSupported() bool {
-	ret := m.ctrl.Call(m, "ClusterSupported")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// ClusterSupported indicates an expected call of ClusterSupported
-func (mr *MockServerMockRecorder) ClusterSupported() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClusterSupported", reflect.TypeOf((*MockServer)(nil).ClusterSupported))
-}
-
 // ContainerAddresses mocks base method
 func (m *MockServer) ContainerAddresses(arg0 string) ([]network.Address, error) {
 	ret := m.ctrl.Call(m, "ContainerAddresses", arg0)
@@ -375,6 +363,18 @@ func (mr *MockServerMockRecorder) HasProfile(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasProfile", reflect.TypeOf((*MockServer)(nil).HasProfile), arg0)
 }
 
+// IsClustered mocks base method
+func (m *MockServer) IsClustered() bool {
+	ret := m.ctrl.Call(m, "IsClustered")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsClustered indicates an expected call of IsClustered
+func (mr *MockServerMockRecorder) IsClustered() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsClustered", reflect.TypeOf((*MockServer)(nil).IsClustered))
+}
+
 // LocalBridgeName mocks base method
 func (m *MockServer) LocalBridgeName() string {
 	ret := m.ctrl.Call(m, "LocalBridgeName")
@@ -385,6 +385,18 @@ func (m *MockServer) LocalBridgeName() string {
 // LocalBridgeName indicates an expected call of LocalBridgeName
 func (mr *MockServerMockRecorder) LocalBridgeName() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalBridgeName", reflect.TypeOf((*MockServer)(nil).LocalBridgeName))
+}
+
+// Name mocks base method
+func (m *MockServer) Name() string {
+	ret := m.ctrl.Call(m, "Name")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Name indicates an expected call of Name
+func (mr *MockServerMockRecorder) Name() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockServer)(nil).Name))
 }
 
 // RemoveContainer mocks base method

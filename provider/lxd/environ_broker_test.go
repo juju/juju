@@ -165,7 +165,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 	gomock.InOrder(
 		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
 		sExp.GetNICsFromProfile("default").Return(map[string]map[string]string{"eth0": {}}, nil),
-		sExp.ClusterSupported().Return(true),
+		sExp.IsClustered().Return(true),
 		sExp.GetClusterMembers().Return(members, nil),
 		sExp.UseTargetServer("node01").Return(jujuTarget, nil),
 	)
@@ -206,7 +206,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
 	gomock.InOrder(
 		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
 		sExp.GetNICsFromProfile("default").Return(map[string]map[string]string{"eth0": {}}, nil),
-		sExp.ClusterSupported().Return(true),
+		sExp.IsClustered().Return(true),
 		sExp.GetClusterMembers().Return(members, nil),
 	)
 
@@ -240,7 +240,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C)
 	gomock.InOrder(
 		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
 		sExp.GetNICsFromProfile("default").Return(map[string]map[string]string{"eth0": {}}, nil),
-		sExp.ClusterSupported().Return(true),
+		sExp.IsClustered().Return(true),
 		sExp.GetClusterMembers().Return(members, nil),
 	)
 

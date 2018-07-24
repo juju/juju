@@ -222,8 +222,18 @@ func (z *lxdAvailabilityZone) Available() bool {
 // AvailabilityZones (ZonedEnviron) returns all availability zones in the
 // environment. For LXD, this means the cluster node names.
 func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
-	if !env.server.ClusterSupported() {
-		return nil, nil
+	// If we are not using a clustered server (which includes those not
+	// supporting the clustering API) just represent the single server as the
+	// only availability zone.
+	if !env.server.IsClustered() {
+		return []common.AvailabilityZone{
+			&lxdAvailabilityZone{
+				ClusterMember: api.ClusterMember{
+					ServerName: env.server.Name(),
+					Status:     "ONLINE",
+				},
+			},
+		}, nil
 	}
 
 	nodes, err := env.server.GetClusterMembers()
@@ -243,21 +253,29 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) ([]common
 func (env *environ) InstanceAvailabilityZoneNames(
 	ctx context.ProviderCallContext, ids []instance.Id,
 ) ([]string, error) {
-	if !env.server.ClusterSupported() {
-		return nil, nil
+	// If not clustered, just report all input IDs as being in the zone
+	// represented by the single server.
+	if !env.server.IsClustered() {
+		zones := make([]string, len(ids))
+		n := env.server.Name()
+		for i := range zones {
+			zones[i] = n
+		}
+		return zones, nil
 	}
 
 	instances, err := env.Instances(ctx, ids)
-	if err != nil {
-		return nil, errors.Annotate(err, "listing instances")
+	if err != nil && err != environs.ErrPartialInstances {
+		return nil, err
 	}
-	nodes := make([]string, len(ids))
+
+	zones := make([]string, len(instances))
 	for i, ins := range instances {
 		if ei, ok := ins.(*environInstance); ok {
-			nodes[i] = ei.container.Location
+			zones[i] = ei.container.Location
 		}
 	}
-	return nodes, nil
+	return zones, nil
 }
 
 // DeriveAvailabilityZones (ZonedEnviron) attempts to derive availability zones
@@ -265,10 +283,6 @@ func (env *environ) InstanceAvailabilityZoneNames(
 func (env *environ) DeriveAvailabilityZones(
 	ctx context.ProviderCallContext, args environs.StartInstanceParams,
 ) ([]string, error) {
-	if !env.server.ClusterSupported() {
-		return nil, nil
-	}
-
 	p, err := env.parsePlacement(ctx, args.Placement)
 	if err != nil {
 		return nil, errors.Trace(err)

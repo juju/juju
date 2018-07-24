@@ -66,9 +66,10 @@ type Server interface {
 	ServerCertificate() string
 	EnableHTTPSListener() error
 	GetNICsFromProfile(profName string) (map[string]map[string]string, error)
-	ClusterSupported() bool
+	IsClustered() bool
 	UseTargetServer(name string) (*lxd.Server, error)
 	GetClusterMembers() (members []lxdapi.ClusterMember, err error)
+	Name() string
 }
 
 // ServerFactory creates a new factory for creating servers that are required

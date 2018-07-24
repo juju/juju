@@ -664,9 +664,14 @@ func (conn *StubClient) GetNICsFromProfile(profName string) (map[string]map[stri
 	return conn.Profile.Devices, conn.NextErr()
 }
 
-func (conn *StubClient) ClusterSupported() bool {
-	conn.AddCall("ClusterSupported")
+func (conn *StubClient) IsClustered() bool {
+	conn.AddCall("IsClustered")
 	return true
+}
+
+func (conn *StubClient) Name() string {
+	conn.AddCall("Name")
+	return "server"
 }
 
 // TODO (manadart 2018-07-20): This exists to satisfy the testing stub

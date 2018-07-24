@@ -105,6 +105,11 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 	}, nil
 }
 
+// Name returns the name of this LXD server.
+func (s *Server) Name() string {
+	return s.name
+}
+
 // UpdateServerConfig updates the server configuration with the input values.
 func (s *Server) UpdateServerConfig(cfg map[string]string) error {
 	svr, eTag, err := s.GetServer()
