@@ -454,6 +454,17 @@ func (s *MachineManagerSuite) TestUpgradeSeriesPrepareRemoveLockAfterFail(c *gc.
 	// TODO managed upgrade series
 }
 
+func (s *MachineManagerSuite) TestUpgradeSeriesComplete(c *gc.C) {
+	s.setupUpdateMachineSeries(c)
+	apiV5 := machinemanager.MachineManagerAPIV5{MachineManagerAPI: s.api}
+	_, err := apiV5.UpgradeSeriesComplete(
+		params.UpdateSeriesArg{
+			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type mockState struct {
 	machinemanager.Backend
 	calls            int
@@ -631,6 +642,11 @@ func (m *mockMachine) CreateUpgradeSeriesLock(unitTags []string, series string) 
 
 func (m *mockMachine) RemoveUpgradeSeriesLock() error {
 	m.MethodCall(m, "RemoveUpgradeSeriesLock")
+	return m.NextErr()
+}
+
+func (m *mockMachine) CompleteUpgradeSeries() error {
+	m.MethodCall(m, "CompleteUpgradeSeries")
 	return m.NextErr()
 }
 
