@@ -2185,6 +2185,8 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 	return nil
 }
 
+// CompleteUpgradeSeries notifies units and machines that and upgrade series is
+// ready for its "completion" phase.
 func (m *Machine) CompleteUpgradeSeries() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
