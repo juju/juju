@@ -2157,6 +2157,7 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 	}
 }
 
+// [TODO](externalreality) We still need this, eventually the lock is going to cleaned up
 // RemoveUpgradeSeriesLock removes a series upgrade prepare lock for a
 // given machine.
 func (m *Machine) RemoveUpgradeSeriesLock() error {
@@ -2354,7 +2355,6 @@ func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLockD
 	}
 }
 
-// [TODO](externalreality) We still need this, eventually the lock is going to cleaned up
 func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 	return []txn.Op{
 		{
