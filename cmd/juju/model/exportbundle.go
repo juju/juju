@@ -3,27 +3,30 @@
 package model
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	"fmt"
+	"github.com/juju/errors"
 	"github.com/juju/juju/api/bundle"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"os"
 )
 
 // NewExportBundleCommand returns a fully constructed export bundle command.
 func NewExportBundleCommand() cmd.Command {
-	return modelcmd.Wrap(&exportBundleCommand{})
+	cmd := &exportBundleCommand{}
+	cmd.newAPIFunc = func() (ExportBundleAPI, error) {
+		return cmd.getAPI()
+	}
+	return modelcmd.Wrap(cmd)
 }
 
 type exportBundleCommand struct {
 	modelcmd.ModelCommandBase
-	out cmd.Output
-	api ExportBundleModelAPI
+	out        cmd.Output
+	newAPIFunc func() (ExportBundleAPI, error)
 	// name of the charm bundle file.
 	Filename string
 }
@@ -60,58 +63,52 @@ func (c *exportBundleCommand) Init(args []string) error {
 }
 
 // ExportBundleAPI specifies the used function calls of the ModelManager.
-type ExportBundleModelAPI interface {
+type ExportBundleAPI interface {
 	Close() error
 	BestAPIVersion() int
 	ExportBundle() (string, error)
 }
 
-func (c *exportBundleCommand) getAPI() (ExportBundleModelAPI, error) {
-	if c.api != nil {
-		return c.api, nil
-	}
-
+func (c *exportBundleCommand) getAPI() (ExportBundleAPI, error) {
 	api, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
+
 	return bundle.NewClient(api), nil
 }
 
 // Run implements Command.
 func (c *exportBundleCommand) Run(ctx *cmd.Context) error {
-	client, err := c.getAPI()
+	client, err := c.newAPIFunc()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	var result string
-	if client.BestAPIVersion() > 1 {
-		result, err = client.ExportBundle()
-		if err != nil {
-			return err
-		}
+	result, err := client.ExportBundle()
+	if err != nil {
+		return err
 	}
 
-	if c.Filename != "" {
-		filename := c.Filename + ".yaml"
-		file, err := os.Create(filename)
-		if err != nil {
-			return errors.Annotate(err, "while creating local file")
-		}
-		defer file.Close()
-
-		// Write out the result.
-		_, err = file.WriteString(result)
-		if err != nil {
-			return errors.Annotate(err, "while copying in local file")
-		}
-
-		// Print the local filename.
-		fmt.Fprintln(ctx.Stdout, "Bundle successfully exported to", filename)
-	} else {
-		c.out.Write(ctx, result)
+	if c.Filename == "" {
+		return c.out.Write(ctx, result)
 	}
+	filename := c.Filename + ".yaml"
+	file, err := os.Create(filename)
+	if err != nil {
+		return errors.Annotate(err, "while creating local file")
+	}
+	defer file.Close()
+
+	// Write out the result.
+	_, err = file.WriteString(result)
+	if err != nil {
+		return errors.Annotate(err, "while copying in local file")
+	}
+
+	// Print the local filename.
+	fmt.Fprintln(ctx.Stdout, "Bundle successfully exported to", filename)
+
 	return nil
 }

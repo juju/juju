@@ -19,7 +19,6 @@ var logger = loggo.GetLogger("juju.api.bundle")
 // Client allows access to the bundle API end point.
 type Client struct {
 	base.ClientFacade
-	st     base.APICallCloser
 	facade base.FacadeCaller
 }
 
@@ -28,7 +27,6 @@ func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Bundle")
 	return &Client{
 		ClientFacade: frontend,
-		st:           st,
 		facade:       backend}
 }
 
@@ -40,11 +38,8 @@ func (c *Client) ExportBundle() (string, error) {
 	}
 
 	if err := c.facade.FacadeCall("ExportBundle", nil, &result); err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotate(result.Error, "export failed")
 	}
 
-	if len(result.Result) == 0 {
-		return "", errors.Errorf("result obtained is incorrect")
-	}
 	return result.Result, nil
 }

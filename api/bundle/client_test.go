@@ -59,6 +59,7 @@ func (s *bundleMockSuite) TestExportBundlev2(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ExportBundle")
 			c.Assert(args, gc.Equals, nil)
+			c.Assert(response, gc.FitsTypeOf, &params.StringResult{})
 			result := response.(*params.StringResult)
 			result.Result = "applications:\n  " +
 				"ubuntu:\n    " +
@@ -89,4 +90,28 @@ func (s *bundleMockSuite) TestExportBundlev2(c *gc.C) {
 		"series: xenial\n"+
 		"relations:\n"+
 		"- []\n")
+}
+
+func (s *bundleMockSuite) TestExportBundleErrorv2(c *gc.C) {
+	client := newClient(
+		func(objType string, version int,
+			id,
+			request string,
+			args,
+			response interface{},
+		) error {
+			c.Check(objType, gc.Equals, "Bundle")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ExportBundle")
+			c.Assert(args, gc.Equals, nil)
+			c.Assert(response, gc.FitsTypeOf, &params.StringResult{})
+			result := response.(*params.StringResult)
+			result.Result = ""
+			return result.Error
+		}, 2,
+	)
+	result, err := client.ExportBundle()
+	c.Assert(err, gc.NotNil)
+	c.Assert(result, jc.DeepEquals, "")
+	c.Check(err.Error(), jc.Contains, "export failed")
 }
