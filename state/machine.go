@@ -2389,7 +2389,7 @@ func (m *Machine) IsLocked() (bool, error) {
 		return false, nil
 	}
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("cannot get upgrade series lock for machine %v: %v", m.Id(), err)
 	}
 	return true, nil
 }
@@ -2435,7 +2435,7 @@ func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {
 	var lock upgradeSeriesLockDoc
 	err := coll.FindId(m.Id()).One(&lock)
 	if err == mgo.ErrNotFound {
-		return nil, err
+		return nil, errors.BadRequestf("machine %q is not locked for upgrade", m)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get upgrade series lock for machine %v: %v", m.Id(), err)
