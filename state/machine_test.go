@@ -2695,8 +2695,9 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailWhenMachineIsNotComple
 	assertMachineIsNotFinishedPreparing(c, err)
 }
 
-func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenUnitsAreComplete(c *gc.C) {
-	err := s.machine.CreateUpgradeSeriesLock([]string{}, "cosmic")
+func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenMachinePrepareIsComplete(c *gc.C) {
+	unit0 := s.addMachineUnit(c, s.machine)
+	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.SetMachineUpgradeSeriesStatus(model.MachineSeriesUpgradeComplete)
@@ -2704,6 +2705,27 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenUnitsAreComplet
 
 	err = s.machine.CompleteUpgradeSeries()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MachineSuite) addMachineUnit(c *gc.C, mach *state.Machine) *state.Unit {
+	units, err := mach.Units()
+	c.Assert(err, jc.ErrorIsNil)
+
+	var app *state.Application
+	if len(units) == 0 {
+		ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
+		app = state.AddTestingApplicationForSeries(c, s.State, mach.Series(), "multi-series", ch)
+		subCh := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate")
+		_ = state.AddTestingApplicationForSeries(c, s.State, mach.Series(), "multi-series-subordinate", subCh)
+	} else {
+		app, err = units[0].Application()
+	}
+
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(mach)
+	c.Assert(err, jc.ErrorIsNil)
+	return unit
 }
 
 func assertMachineIsNotFinishedPreparing(c *gc.C, err error) {
