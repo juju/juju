@@ -2201,7 +2201,14 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		if !completed {
 			return nil, fmt.Errorf("machine %q has not finished preparing", m.Id())
 		}
-		return completeUpgradeSeriesTxnOps(m.doc.Id), nil
+		lock, err := m.getUpgradeSeriesLock()
+		if err != nil {
+			return nil, err
+		}
+		for _, unit := range lock.CompleteUnits {
+			unit.Status = model.UnitStarted
+		}
+		return completeUpgradeSeriesTxnOps(m.doc.Id, lock.CompleteUnits), nil
 	}
 
 	err := m.st.db().Run(buildTxn)
@@ -2312,7 +2319,7 @@ func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.MachineSeri
 	}
 }
 
-func completeUpgradeSeriesTxnOps(machineDocID string) []txn.Op {
+func completeUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []txn.Op {
 	return []txn.Op{
 		{
 			C:      machinesC,
@@ -2324,7 +2331,7 @@ func completeUpgradeSeriesTxnOps(machineDocID string) []txn.Op {
 			Id:     machineDocID,
 			Assert: bson.D{{"prepare-status", model.MachineSeriesUpgradeComplete}},
 			Update: bson.D{{"$set",
-				bson.D{{"complete-units.$[].status", model.UnitStarted},
+				bson.D{{"complete-units", units},
 					{"complete-status", model.MachineSeriesUpgradeComplete}}},
 			},
 		},
