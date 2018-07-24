@@ -39,6 +39,10 @@ credentials:
       application-id: <uuid1>
       application-password: <password>
       subscription-id: <uuid2>
+  lxd:
+    <credential name>:
+      auth-type: interactive
+      trust-password: <password>
 
 A "credential name" is arbitrary and is used solely to represent a set of
 credentials, of which there may be multiple per cloud.
