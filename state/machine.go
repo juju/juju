@@ -2389,7 +2389,7 @@ func setUpgradeSeriesTxnOps(machineDocId, unitName string, unitIndex int, status
 	}
 }
 
-// IsLocked determines if a machine is locked for upgrade series prepare.
+// IsLocked determines if a machine is locked for upgrade series.
 func (m *Machine) IsLocked() (bool, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
