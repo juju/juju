@@ -3,15 +3,16 @@
 package model
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"fmt"
-	"github.com/juju/errors"
 	"github.com/juju/juju/api/bundle"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
-	"os"
 )
 
 // NewExportBundleCommand returns a fully constructed export bundle command.
