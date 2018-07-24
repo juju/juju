@@ -2328,9 +2328,11 @@ func completeUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []txn.
 			Assert: isAliveDoc,
 		},
 		{
-			C:      machineUpgradeSeriesLocksC,
-			Id:     machineDocID,
-			Assert: bson.D{{"prepare-status", model.MachineSeriesUpgradeComplete}},
+			C:  machineUpgradeSeriesLocksC,
+			Id: machineDocID,
+			Assert: bson.D{{"$and", []bson.D{
+				{{"prepare-status", model.MachineSeriesUpgradeComplete}},
+				{{"complete-status", model.MachineSeriesUpgradeNotStarted}}}}},
 			Update: bson.D{{"$set",
 				bson.D{{"complete-units", units},
 					{"complete-status", model.MachineSeriesUpgradeComplete}}},
