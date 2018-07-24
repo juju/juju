@@ -464,6 +464,9 @@ func (mm *MachineManagerAPI) completeUpgradeSeries(arg params.UpdateSeriesArg) e
 	return machine.CompleteUpgradeSeries()
 }
 
+// [TODO](externalreality) We still need this, eventually the lock is going to cleaned up
+// RemoveUpgradeSeriesLock removes a series upgrade prepare lock for a
+// given machine.
 func (mm *MachineManagerAPI) removeUpgradeSeriesLock(arg params.UpdateSeriesArg) error {
 	machineTag, err := names.ParseMachineTag(arg.Entity.Tag)
 	if err != nil {
