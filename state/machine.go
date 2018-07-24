@@ -2197,12 +2197,12 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		if err := m.isStillAlive(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		completed, err := m.isUpgradeSeriesPrepareComplete()
+		readyForCompletion, err := m.isReadyForCompletion()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if !completed {
-			return nil, fmt.Errorf("machine %q has not finished preparing", m.Id())
+		if !readyForCompletion {
+			return nil, fmt.Errorf("machine %q can not complete, it is either not prepared or already completed", m.Id())
 		}
 		lock, err := m.getUpgradeSeriesLock()
 		if err != nil {
@@ -2213,13 +2213,11 @@ func (m *Machine) CompleteUpgradeSeries() error {
 		}
 		return completeUpgradeSeriesTxnOps(m.doc.Id, lock.CompleteUnits), nil
 	}
-
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
 		err = onAbort(err, ErrDead)
 		return err
 	}
-
 	return nil
 }
 
@@ -2407,12 +2405,13 @@ func (m *Machine) IsLocked() (bool, error) {
 	return true, nil
 }
 
-func (m *Machine) isUpgradeSeriesPrepareComplete() (bool, error) {
+func (m *Machine) isReadyForCompletion() (bool, error) {
 	lock, err := m.getUpgradeSeriesLock()
 	if err != nil {
 		return false, err
 	}
-	return lock.PrepareStatus == model.MachineSeriesUpgradeComplete, nil
+	return lock.PrepareStatus == model.MachineSeriesUpgradeComplete &&
+		lock.CompleteStatus == model.MachineSeriesUpgradeNotStarted, nil
 }
 
 // UpdateOperation returns a model operation that will update the machine.

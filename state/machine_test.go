@@ -2692,7 +2692,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailWhenMachineIsNotComple
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.CompleteUpgradeSeries()
-	assertMachineIsNotFinishedPreparing(c, err)
+	assertMachineIsNotReadyForCompletion(c, err)
 }
 
 func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenMachinePrepareIsComplete(c *gc.C) {
@@ -2705,6 +2705,21 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenMachinePrepareI
 
 	err = s.machine.CompleteUpgradeSeries()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenMachinePrepareIsComplete(c *gc.C) {
+	unit0 := s.addMachineUnit(c, s.machine)
+	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.SetMachineUpgradeSeriesStatus(model.MachineSeriesUpgradeComplete)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.CompleteUpgradeSeries()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.CompleteUpgradeSeries()
+	assertMachineIsNotReadyForCompletion(c, err)
 }
 
 func (s *MachineSuite) addMachineUnit(c *gc.C, mach *state.Machine) *state.Unit {
@@ -2728,8 +2743,8 @@ func (s *MachineSuite) addMachineUnit(c *gc.C, mach *state.Machine) *state.Unit 
 	return unit
 }
 
-func assertMachineIsNotFinishedPreparing(c *gc.C, err error) {
-	c.Assert(err, gc.ErrorMatches, "machine \"[0-9].*\" has not finished preparing")
+func assertMachineIsNotReadyForCompletion(c *gc.C, err error) {
+	c.Assert(err, gc.ErrorMatches, "machine \"[0-9].*\" can not complete, it is either not prepared or already completed")
 }
 
 func (s *MachineSuite) TestUnitsHaveChangedFalse(c *gc.C) {
