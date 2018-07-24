@@ -2236,7 +2236,7 @@ func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UnitSeriesUpgradeS
 	return "", errors.NotFoundf("unit %q of machine %q", unitName, m.Id())
 }
 
-// SetUpgradeSeriesStatus sets the status of a series upgrade.
+// SetUpgradeSeriesStatus sets the status of a series upgrade for a unit.
 func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSeriesUpgradeStatus) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -2256,10 +2256,60 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
 		err = onAbort(err, ErrDead)
-		logger.Errorf("cannot set series upgrade status for unit %q of machine %q: %v", unitName, m.Id(), err)
 		return err
 	}
 	return nil
+}
+
+// SetUpgradeSeriesStatus sets the machine status of a series upgrade.
+func (m *Machine) SetMachineUpgradeSeriesStatus(status model.MachineSeriesUpgradeStatus) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if err := m.isStillAlive(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		statusSet, err := m.isMachineUpgradeSeriesStatusSet(status)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if statusSet {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return setMachineUpgradeSeriesTxnOps(m.doc.Id, status), nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		return err
+	}
+	return nil
+}
+
+func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.MachineSeriesUpgradeStatus) (bool, error) {
+	lock, err := m.getUpgradeSeriesLock()
+	if err != nil {
+		return false, err
+	}
+	return lock.PrepareStatus == status, nil
+}
+
+func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.MachineSeriesUpgradeStatus) []txn.Op {
+	return []txn.Op{
+		{
+			C:      machinesC,
+			Id:     machineDocID,
+			Assert: isAliveDoc,
+		},
+		{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     machineDocID,
+			Update: bson.D{{"$set", bson.D{{"prepare-status", status}}}},
+		},
+	}
 }
 
 func completeUpgradeSeriesTxnOps(machineDocID string) []txn.Op {

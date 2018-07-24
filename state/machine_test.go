@@ -2447,27 +2447,6 @@ func (s *MachineSuite) setupTestUpdateMachineSeries(c *gc.C) *state.Machine {
 	return mach
 }
 
-func (s *MachineSuite) addMachineUnit(c *gc.C, mach *state.Machine) *state.Unit {
-	units, err := mach.Units()
-	c.Assert(err, jc.ErrorIsNil)
-
-	var app *state.Application
-	if len(units) == 0 {
-		ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-		app = state.AddTestingApplicationForSeries(c, s.State, mach.Series(), "multi-series", ch)
-		subCh := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate")
-		_ = state.AddTestingApplicationForSeries(c, s.State, mach.Series(), "multi-series-subordinate", subCh)
-	} else {
-		app, err = units[0].Application()
-	}
-
-	unit, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(mach)
-	c.Assert(err, jc.ErrorIsNil)
-	return unit
-}
-
 func (s *MachineSuite) assertMachineAndUnitSeriesChanged(c *gc.C, mach *state.Machine, series string) {
 	err := mach.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2709,29 +2688,18 @@ func (s *MachineSuite) TestForceMarksSeriesLockUnlocksMachineForCleanup(c *gc.C)
 }
 
 func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailWhenMachineIsNotComplete(c *gc.C) {
-	unit := s.addMachineUnit(c, s.machine)
-
-	err := s.machine.CreateUpgradeSeriesLock([]string{unit.Name()}, "cosmic")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.machine.CompleteUpgradeSeries()
-	c.Assert(err, gc.ErrorMatches, "machine \"[0-9].*\" has not finished preparing")
-}
-
-func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenUnitsAreComplete(c *gc.C) {
-	unit0 := s.addMachineUnit(c, s.machine)
-	unit1 := s.addMachineUnit(c, s.machine)
-
-	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name(), unit1.Name()}, "cosmic")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.machine.SetUpgradeSeriesStatus(unit0.Name(), model.UnitCompleted)
+	err := s.machine.CreateUpgradeSeriesLock([]string{}, "cosmic")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.CompleteUpgradeSeries()
 	assertMachineIsNotFinishedPreparing(c, err)
+}
 
-	err = s.machine.SetUpgradeSeriesStatus(unit1.Name(), model.UnitCompleted)
+func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenUnitsAreComplete(c *gc.C) {
+	err := s.machine.CreateUpgradeSeriesLock([]string{}, "cosmic")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.SetMachineUpgradeSeriesStatus(model.MachineSeriesUpgradeComplete)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.CompleteUpgradeSeries()
