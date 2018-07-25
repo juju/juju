@@ -13,8 +13,8 @@ import (
 type UpgradeSeriesStatusType string
 
 const (
-	PrepareStatus  UpgradeSeriesStatusType = "Complete"
-	CompleteStatus UpgradeSeriesStatusType = "Prepare"
+	PrepareStatus  UpgradeSeriesStatusType = "Prepare"
+	CompleteStatus UpgradeSeriesStatusType = "Complete"
 )
 
 //MachineSeriesUpgradeStatus is the current status a machine series upgrade

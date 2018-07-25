@@ -113,11 +113,18 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesCompleteStatus(args params.Entities) (pa
 	return u.upgradeSeriesStatus(args, model.CompleteStatus)
 }
 
-// SetUpgradeSeriesStatus sets the upgrade series status of the unit.
+// SetUpgradeSeriesPrepareStatus sets the upgrade series status of the unit.
 // If no upgrade is in progress an error is returned instead.
-func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
-	u.logger.Tracef("Starting SetUpgradeSeriesStatus with %+v", args)
+func (u *UpgradeSeriesAPI) SetUpgradeSeriesPrepareStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
+	u.logger.Tracef("Starting SetUpgradeSeriesPrepareStatus with %+v", args)
 	return u.setUpgradeSeriesStatus(args, model.PrepareStatus)
+}
+
+// SetUpgradeSeriesCompleteStatus sets the upgrade series status of the unit.
+// If no upgrade is in progress an error is returned instead.
+func (u *UpgradeSeriesAPI) SetUpgradeSeriesCompleteStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
+	u.logger.Tracef("Starting SetUpgradeSeriesCompleteStatus with %+v", args)
+	return u.setUpgradeSeriesStatus(args, model.CompleteStatus)
 }
 
 func (u *UpgradeSeriesAPI) getMachine(tag names.Tag) (UpgradeSeriesMachine, error) {

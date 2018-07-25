@@ -54,7 +54,7 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesStatus() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.facade.FacadeCall("UpgradeSeriesStatus", args, &results)
+	err := u.facade.FacadeCall("UpgradeSeriesPrepareStatus", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -84,7 +84,7 @@ func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(status string) error {
 			Status: status,
 		}},
 	}
-	err := u.facade.FacadeCall("SetUpgradeSeriesStatus", args, &results)
+	err := u.facade.FacadeCall("SetUpgradeSeriesPrepareStatus", args, &results)
 	if err != nil {
 		return err
 	}

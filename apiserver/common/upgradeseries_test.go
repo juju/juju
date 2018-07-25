@@ -133,7 +133,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *gc.C) {
 	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil).Times(1)
-	mockUnit.EXPECT().SetUpgradeSeriesStatus(model.UnitCompleted).Return(nil)
+	mockUnit.EXPECT().SetUpgradeSeriesStatus(model.UnitCompleted, model.PrepareStatus).Return(nil)
 
 	args := params.SetUpgradeSeriesStatusParams{
 		Params: []params.SetUpgradeSeriesStatusParam{
@@ -147,7 +147,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *gc.C) {
 			},
 		},
 	}
-	watches, err := api.SetUpgradeSeriesStatus(args)
+	watches, err := api.SetUpgradeSeriesPrepareStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watches, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -164,7 +164,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 	mockUnit := mocks.NewMockUpgradeSeriesUnit(ctrl)
 
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit, nil).Times(1)
-	mockUnit.EXPECT().UpgradeSeriesStatus().Return(model.UnitCompleted, nil)
+	mockUnit.EXPECT().UpgradeSeriesStatus(model.PrepareStatus).Return(model.UnitCompleted, nil)
 
 	args := params.Entities{
 		[]params.Entity{
