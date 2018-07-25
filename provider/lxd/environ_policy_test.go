@@ -19,20 +19,20 @@ import (
 	"github.com/juju/juju/provider/lxd"
 )
 
-type environPolSuite struct {
+type environPolicySuite struct {
 	lxd.EnvironSuite
 
 	callCtx context.ProviderCallContext
 }
 
-var _ = gc.Suite(&environPolSuite{})
+var _ = gc.Suite(&environPolicySuite{})
 
-func (s *environPolSuite) SetUpTest(c *gc.C) {
+func (s *environPolicySuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.callCtx = context.NewCloudCallContext()
 }
 
-func (s *environPolSuite) TestPrecheckInstanceDefaults(c *gc.C) {
+func (s *environPolicySuite) TestPrecheckInstanceDefaults(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -42,7 +42,7 @@ func (s *environPolSuite) TestPrecheckInstanceDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *environPolSuite) TestPrecheckInstanceHasInstanceType(c *gc.C) {
+func (s *environPolicySuite) TestPrecheckInstanceHasInstanceType(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -55,7 +55,7 @@ func (s *environPolSuite) TestPrecheckInstanceHasInstanceType(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *gc.C) {
+func (s *environPolicySuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -68,7 +68,7 @@ func (s *environPolSuite) TestPrecheckInstanceDiskSize(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
+func (s *environPolicySuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -81,7 +81,7 @@ func (s *environPolSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
+func (s *environPolicySuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -111,7 +111,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `availability zone "a-zone" not valid`)
 }
 
-func (s *environPolSuite) TestConstraintsValidatorOkay(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorOkay(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -131,7 +131,7 @@ func (s *environPolSuite) TestConstraintsValidatorOkay(c *gc.C) {
 	c.Check(unsupported, gc.HasLen, 0)
 }
 
-func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorEmpty(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -150,7 +150,7 @@ func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 	c.Check(unsupported, gc.HasLen, 0)
 }
 
-func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -183,7 +183,7 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	c.Check(unsupported, jc.SameContents, expected)
 }
 
-func (s *environPolSuite) TestConstraintsValidatorVocabArchKnown(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorVocabArchKnown(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -202,7 +202,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabArchKnown(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *environPolSuite) TestConstraintsValidatorVocabArchUnknown(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorVocabArchUnknown(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -221,7 +221,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabArchUnknown(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64\\]")
 }
 
-func (s *environPolSuite) TestConstraintsValidatorVocabContainerUnknown(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorVocabContainerUnknown(c *gc.C) {
 	c.Skip("this will fail until we add a container vocabulary")
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -238,7 +238,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabContainerUnknown(c *gc.C)
 	c.Check(err, gc.ErrorMatches, "invalid constraint value: container=lxd\nvalid values are:.*")
 }
 
-func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {
+func (s *environPolicySuite) TestConstraintsValidatorConflicts(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -261,7 +261,7 @@ func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {
 	c.Check(merged, jc.DeepEquals, expected)
 }
 
-func (s *environPolSuite) TestSupportNetworks(c *gc.C) {
+func (s *environPolicySuite) TestSupportNetworks(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
