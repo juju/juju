@@ -359,9 +359,7 @@ func (c *addCredentialCommand) promptCredentialAttributes(p *interact.Pollster, 
 	return attrs, nil
 }
 
-func (c *addCredentialCommand) promptFieldValue(
-	p *interact.Pollster, attr jujucloud.NamedCredentialAttr,
-) (string, error) {
+func (c *addCredentialCommand) promptFieldValue(p *interact.Pollster, attr jujucloud.NamedCredentialAttr) (string, error) {
 	name := attr.Name
 
 	if len(attr.Options) > 0 {
@@ -383,9 +381,9 @@ func (c *addCredentialCommand) promptFieldValue(
 	case attr.Hidden:
 		return p.EnterPassword(name)
 	case attr.ExpandFilePath:
-		return enterFile(name, p, true, attr.Optional)
+		return enterFile(name, attr.Description, p, true, attr.Optional)
 	case attr.FilePath:
-		return enterFile(name, p, false, attr.Optional)
+		return enterFile(name, attr.Description, p, false, attr.Optional)
 	case attr.Optional:
 		return p.EnterOptional(name)
 	default:
@@ -393,16 +391,15 @@ func (c *addCredentialCommand) promptFieldValue(
 	}
 }
 
-func enterFile(name string, p *interact.Pollster, expanded, optional bool) (string, error) {
+func enterFile(name, descr string, p *interact.Pollster, expanded, optional bool) (string, error) {
 	inputSuffix := ""
 	if optional {
 		inputSuffix += " (optional)"
 	}
-	input, err := p.EnterVerify(fmt.Sprintf("file path for %s%s", name, inputSuffix), func(s string) (ok bool, msg string, err error) {
+	input, err := p.EnterVerify(fmt.Sprintf("%s%s", descr, inputSuffix), func(s string) (ok bool, msg string, err error) {
 		if optional && s == "" {
 			return true, "", nil
 		}
-
 		_, err = jujucloud.ValidateFileAttrValue(s)
 		if err != nil {
 			return false, err.Error(), nil
