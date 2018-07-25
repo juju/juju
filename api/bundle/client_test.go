@@ -4,11 +4,13 @@
 package bundle_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/bundle"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -55,11 +57,6 @@ func (s *bundleMockSuite) TestExportBundlev2(c *gc.C) {
 			args,
 			response interface{},
 		) error {
-			c.Check(objType, gc.Equals, "Bundle")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ExportBundle")
-			c.Assert(args, gc.Equals, nil)
-			c.Assert(response, gc.FitsTypeOf, &params.StringResult{})
 			result := response.(*params.StringResult)
 			result.Result = "applications:\n  " +
 				"ubuntu:\n    " +
@@ -100,18 +97,14 @@ func (s *bundleMockSuite) TestExportBundleErrorv2(c *gc.C) {
 			args,
 			response interface{},
 		) error {
-			c.Check(objType, gc.Equals, "Bundle")
-			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ExportBundle")
-			c.Assert(args, gc.Equals, nil)
-			c.Assert(response, gc.FitsTypeOf, &params.StringResult{})
 			result := response.(*params.StringResult)
 			result.Result = ""
+			*(response.(*params.StringResult)) = params.StringResult{Error: common.ServerError(errors.New("export failed"))}
 			return result.Error
 		}, 2,
 	)
 	result, err := client.ExportBundle()
 	c.Assert(err, gc.NotNil)
 	c.Assert(result, jc.DeepEquals, "")
-	c.Check(err.Error(), jc.Contains, "export failed")
+	c.Check(err.Error(), gc.Matches, "export failed")
 }

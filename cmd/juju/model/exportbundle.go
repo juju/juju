@@ -28,25 +28,26 @@ type exportBundleCommand struct {
 	modelcmd.ModelCommandBase
 	out        cmd.Output
 	newAPIFunc func() (ExportBundleAPI, error)
-	// name of the charm bundle file.
-	Filename string
+	Filename   string
 }
 
 const exportBundleHelpDoc = `
-Exports the current model configuration into a YAML file.
+Exports the current model configuration as bundle.
+
+If --filename is optional. The charm bundle is written in the filename provided as value.
+If --filename is not used, the bundle is displayed in stdout.
 
 Examples:
 
     juju export-bundle
-
-If --filename is not used, the bundle is displayed in stdout.
+	juju export-bundle --filename mymodel
 `
 
 // Info implements Command.
 func (c *exportBundleCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "export-bundle",
-		Purpose: "Exports the current model configuration in a charm bundle.",
+		Purpose: "Exports the current model configuration as bundle.",
 		Doc:     exportBundleHelpDoc,
 	}
 }
@@ -55,7 +56,7 @@ func (c *exportBundleCommand) Info() *cmd.Info {
 func (c *exportBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
-	f.StringVar(&c.Filename, "filename", "", "Export Model")
+	f.StringVar(&c.Filename, "filename", "", "bundle file")
 }
 
 // Init implements Command.
@@ -63,10 +64,9 @@ func (c *exportBundleCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-// ExportBundleAPI specifies the used function calls of the ModelManager.
+// ExportBundleAPI specifies the used function calls of the BundleFacade.
 type ExportBundleAPI interface {
 	Close() error
-	BestAPIVersion() int
 	ExportBundle() (string, error)
 }
 
@@ -102,13 +102,11 @@ func (c *exportBundleCommand) Run(ctx *cmd.Context) error {
 	}
 	defer file.Close()
 
-	// Write out the result.
 	_, err = file.WriteString(result)
 	if err != nil {
 		return errors.Annotate(err, "while copying in local file")
 	}
 
-	// Print the local filename.
 	fmt.Fprintln(ctx.Stdout, "Bundle successfully exported to", filename)
 
 	return nil

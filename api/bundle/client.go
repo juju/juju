@@ -38,7 +38,8 @@ func (c *Client) ExportBundle() (string, error) {
 	}
 
 	if err := c.facade.FacadeCall("ExportBundle", nil, &result); err != nil {
-		return "", errors.Annotate(result.Error, "export failed")
+		errors.Annotate(result.Error, "export failed")
+		return "", errors.Trace(err)
 	}
 
 	return result.Result, nil

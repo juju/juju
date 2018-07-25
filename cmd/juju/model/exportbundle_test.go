@@ -4,8 +4,9 @@
 package model_test
 
 import (
+	"io/ioutil"
+
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -25,21 +26,6 @@ type ExportBundleCommandSuite struct {
 
 var _ = gc.Suite(&ExportBundleCommandSuite{})
 
-func (f *fakeExportBundleClient) Close() error { return nil }
-
-func (f *fakeExportBundleClient) ExportBundle() (string, error) {
-	f.MethodCall(f, "ExportBundle")
-	if err := f.NextErr(); err != nil {
-		return "", err
-	}
-
-	return f.result, f.NextErr()
-}
-
-func (f *fakeExportBundleClient) BestAPIVersion() int {
-	return f.bestAPIVersion
-}
-
 func (s *ExportBundleCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.stub = &jujutesting.Stub{}
@@ -58,40 +44,6 @@ func (s *ExportBundleCommandSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.store.Models["testing"].CurrentModel = "admin/mymodel"
-}
-
-func (s *ExportBundleCommandSuite) TestExportBundleFailOnv1(c *gc.C) {
-	s.fake.result = ""
-	s.fake.Stub.SetErrors(errors.New("command not supported on v1"))
-	s.fake.bestAPIVersion = 1
-
-	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fake, s.store))
-	c.Assert(err, gc.NotNil)
-
-	s.fake.CheckCalls(c, []jujutesting.StubCall{
-		{"ExportBundle", nil},
-	})
-
-	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, "")
-	c.Assert(err, gc.ErrorMatches, "command not supported on v1")
-}
-
-func (s *ExportBundleCommandSuite) TestExportBundleFailEmptyResult(c *gc.C) {
-	s.fake.result = ""
-	s.fake.Stub.SetErrors(errors.New("export failed: nothing to export as there are no applications"))
-	s.fake.bestAPIVersion = 2
-
-	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fake, s.store))
-	c.Assert(err, gc.NotNil)
-
-	s.fake.CheckCalls(c, []jujutesting.StubCall{
-		{"ExportBundle", nil},
-	})
-
-	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, "")
-	c.Assert(err, gc.ErrorMatches, "export failed: nothing to export as there are no applications")
 }
 
 func (s *ExportBundleCommandSuite) TestExportBundleSuccessNoFilename(c *gc.C) {
@@ -114,7 +66,6 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessNoFilename(c *gc.C) {
 		"relations:\n" +
 		"- - wordpress:db\n" +
 		"  - mysql:mysql\n"
-	s.fake.bestAPIVersion = 2
 
 	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fake, s.store))
 	c.Assert(err, jc.ErrorIsNil)
@@ -146,8 +97,18 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessNoFilename(c *gc.C) {
 }
 
 func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
-	s.fake.bestAPIVersion = 2
-
+	s.fake.result = "applications:\n" +
+		"  magic:\n" +
+		"    charm: cs:zesty/magic\n" +
+		"    series: zesty\n" +
+		"    expose: true\n" +
+		"    options:\n" +
+		"      key: value\n" +
+		"    bindings:\n" +
+		"      rel-name: some-space\n" +
+		"series: xenial\n" +
+		"relations:\n" +
+		"- []\n"
 	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fake, s.store), "--filename", "mymodel")
 	c.Assert(err, jc.ErrorIsNil)
 	s.fake.CheckCalls(c, []jujutesting.StubCall{
@@ -156,10 +117,34 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
 
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, "Bundle successfully exported to mymodel.yaml\n")
+	output, err := ioutil.ReadFile("mymodel.yaml")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(string(output), gc.Equals, "applications:\n"+
+		"  magic:\n"+
+		"    charm: cs:zesty/magic\n"+
+		"    series: zesty\n"+
+		"    expose: true\n"+
+		"    options:\n"+
+		"      key: value\n"+
+		"    bindings:\n"+
+		"      rel-name: some-space\n"+
+		"series: xenial\n"+
+		"relations:\n"+
+		"- []\n")
+}
+
+func (f *fakeExportBundleClient) Close() error { return nil }
+
+func (f *fakeExportBundleClient) ExportBundle() (string, error) {
+	f.MethodCall(f, "ExportBundle")
+	if err := f.NextErr(); err != nil {
+		return "", err
+	}
+
+	return f.result, f.NextErr()
 }
 
 type fakeExportBundleClient struct {
 	*jujutesting.Stub
-	bestAPIVersion int
-	result         string
+	result string
 }
