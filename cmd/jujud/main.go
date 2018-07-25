@@ -17,15 +17,17 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	proxyutils "github.com/juju/proxy"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 
-	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/cmd/jujud/introspect"
 	"github.com/juju/juju/cmd/jujud/updateseries"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	components "github.com/juju/juju/component/all"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
 	// Import the providers.
@@ -223,10 +225,18 @@ func Main(args []string) int {
 		code = exit_err
 		err = errors.New("jujuc should not be called directly")
 	case names.JujuRun:
-		run := &RunCommand{
-			MachineLockName: agent.MachineLockName,
+		lock, err := machinelock.New(machinelock.Config{
+			AgentName:   "juju-run",
+			Clock:       clock.WallClock,
+			Logger:      loggo.GetLogger("juju.machinelock"),
+			LogFilename: filepath.Join(cmdutil.LogDir, machinelock.Filename),
+		})
+		if err != nil {
+			code = exit_err
+		} else {
+			run := &RunCommand{MachineLock: lock}
+			code = cmd.Main(run, ctx, args[1:])
 		}
-		code = cmd.Main(run, ctx, args[1:])
 	case names.JujuDumpLogs:
 		code = cmd.Main(dumplogs.NewCommand(), ctx, args[1:])
 	case names.JujuIntrospect:

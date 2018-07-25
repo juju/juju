@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -25,7 +26,7 @@ import (
 type ManifoldConfig struct {
 	AgentName             string
 	APICallerName         string
-	MachineLockName       string
+	MachineLock           machinelock.Lock
 	Clock                 clock.Clock
 	LeadershipTrackerName string
 	CharmDirName          string
@@ -48,8 +49,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if config.Clock == nil {
 				return nil, errors.NotValidf("missing Clock")
 			}
-			if config.MachineLockName == "" {
-				return nil, errors.NotValidf("missing MachineLockName")
+			if config.MachineLock == nil {
+				return nil, errors.NotValidf("missing MachineLock")
 			}
 
 			// Collect all required resources.
@@ -95,7 +96,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				LeadershipTracker:    leadershipTracker,
 				DataDir:              agentConfig.DataDir(),
 				Downloader:           downloader,
-				MachineLockName:      manifoldConfig.MachineLockName,
+				MachineLock:          manifoldConfig.MachineLock,
 				CharmDirGuard:        charmDirGuard,
 				UpdateStatusSignal:   NewUpdateStatusTimer(),
 				HookRetryStrategy:    hookRetryStrategy,

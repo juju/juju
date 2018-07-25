@@ -17,6 +17,7 @@ import (
 	"gopkg.in/tomb.v1"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/worker/introspection/pprof"
 )
 
@@ -41,6 +42,7 @@ type Config struct {
 	DepEngine          DepEngineReporter
 	StatePool          IntrospectionReporter
 	PubSub             IntrospectionReporter
+	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
 }
 
@@ -62,6 +64,7 @@ type socketListener struct {
 	depEngine          DepEngineReporter
 	statePool          IntrospectionReporter
 	pubsub             IntrospectionReporter
+	machineLock        machinelock.Lock
 	prometheusGatherer prometheus.Gatherer
 	done               chan struct{}
 }
@@ -93,6 +96,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		depEngine:          config.DepEngine,
 		statePool:          config.StatePool,
 		pubsub:             config.PubSub,
+		machineLock:        config.MachineLock,
 		prometheusGatherer: config.PrometheusGatherer,
 		done:               make(chan struct{}),
 	}
@@ -108,6 +112,7 @@ func (w *socketListener) serve() {
 			DependencyEngine:   w.depEngine,
 			StatePool:          w.statePool,
 			PubSub:             w.pubsub,
+			MachineLock:        w.machineLock,
 			PrometheusGatherer: w.prometheusGatherer,
 		}, mux.Handle)
 
@@ -144,6 +149,7 @@ type ReportSources struct {
 	DependencyEngine   DepEngineReporter
 	StatePool          IntrospectionReporter
 	PubSub             IntrospectionReporter
+	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
 }
 
@@ -168,6 +174,7 @@ func RegisterHTTPHandlers(
 		name:     "PubSub Report",
 		reporter: sources.PubSub,
 	})
+	handle("/machinelock", machineLockHandler{sources.MachineLock})
 	handle("/metrics", promhttp.HandlerFor(sources.PrometheusGatherer, promhttp.HandlerOpts{}))
 }
 
@@ -193,6 +200,40 @@ func (h depengineHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprint(w, "Dependency Engine Report\n\n")
 	w.Write(bytes)
+}
+
+type machineLockHandler struct {
+	lock machinelock.Lock
+}
+
+// ServeHTTP is part of the http.Handler interface.
+func (h machineLockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if h.lock == nil {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintln(w, "missing machine lock reporter")
+		return
+	}
+	var args []machinelock.ReportOption
+	q := r.URL.Query()
+	if v := q.Get("yaml"); v != "" {
+		args = append(args, machinelock.ShowDetailsYAML)
+	}
+	if v := q.Get("history"); v != "" {
+		args = append(args, machinelock.ShowHistory)
+	}
+	if v := q.Get("stack"); v != "" {
+		args = append(args, machinelock.ShowStack)
+	}
+
+	content, err := h.lock.Report(args...)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "error: %v\n", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	fmt.Fprint(w, content)
 }
 
 type introspectionReporterHandler struct {

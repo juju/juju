@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/mutex"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
@@ -206,7 +205,7 @@ func (m *noopExecutor) Run(op operation.Operation) error {
 }
 
 func (s *UniterSuite) TestUniterStartupStatus(c *gc.C) {
-	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
+	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func(string) (func(), error)) (operation.Executor, error) {
 		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil
@@ -1944,7 +1943,7 @@ func (m *mockExecutor) Run(op operation.Operation) error {
 }
 
 func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
-	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
+	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func(string) (func(), error)) (operation.Executor, error) {
 		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil
@@ -1965,7 +1964,7 @@ func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
 }
 
 func (s *UniterSuite) TestTranslateResolverError(c *gc.C) {
-	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func() (mutex.Releaser, error)) (operation.Executor, error) {
+	executorFunc := func(stateFilePath string, getInstallCharm func() (*corecharm.URL, error), acquireLock func(string) (func(), error)) (operation.Executor, error) {
 		e, err := operation.NewExecutor(stateFilePath, getInstallCharm, acquireLock)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil

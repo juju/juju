@@ -25,6 +25,7 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/state"
 	proxyconfig "github.com/juju/juju/utils/proxy"
 	jworker "github.com/juju/juju/worker"
@@ -183,6 +184,11 @@ type ManifoldsConfig struct {
 	// TransactionPruneInterval defines how frequently mgo/txn transactions
 	// are pruned from the database.
 	TransactionPruneInterval time.Duration
+
+	// MachineLock is a central source for acquiring the machine lock.
+	// This is used by a number of workers to ensure serialisation of actions
+	// across the machine.
+	MachineLock machinelock.Lock
 }
 
 // Manifolds returns a set of co-configured manifolds covering the
@@ -471,10 +477,10 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		// machine when requested. It needs an API connection and
 		// waits for upgrades to be complete.
 		rebootName: ifNotMigrating(reboot.Manifold(reboot.ManifoldConfig{
-			AgentName:       agentName,
-			APICallerName:   apiCallerName,
-			MachineLockName: coreagent.MachineLockName,
-			Clock:           config.Clock,
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			MachineLock:   config.MachineLock,
+			Clock:         config.Clock,
 		})),
 
 		// The logging config updater is a leaf worker that indirectly

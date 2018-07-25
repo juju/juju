@@ -103,6 +103,12 @@ juju-statetracker-report () {
   jujuMachineOrUnit debug/pprof/juju/state/tracker?debug=1 $@
 }
 
+juju-machine-lock () {
+  for agent in ` + "`ls /var/lib/juju/agents`" + `; do
+    jujuMachineOrUnit machinelock $agent 2> /dev/null
+  done
+}
+
 export -f jujuAgentCall
 export -f jujuMachineAgentName
 export -f jujuMachineOrUnit

@@ -9,6 +9,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v2"
@@ -21,6 +23,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/upgrades"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
@@ -165,6 +168,17 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 
 	agentConfig := a.AgentConf.CurrentConfig()
 	a.upgradeComplete = upgradesteps.NewLock(agentConfig)
+	machineLock, err := machinelock.New(machinelock.Config{
+		AgentName:   a.Tag().String(),
+		Clock:       clock.WallClock,
+		Logger:      loggo.GetLogger("juju.machinelock"),
+		LogFilename: agent.MachineLockLogFilename(agentConfig),
+	})
+	// There will only be an error if the required configuration
+	// values are not passed in.
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	manifolds := unitManifolds(unit.ManifoldsConfig{
 		Agent:                agent.APIHostPortsSetter{a},
@@ -178,6 +192,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		PreUpgradeSteps:      a.preUpgradeSteps,
 		UpgradeStepsLock:     a.upgradeComplete,
 		UpgradeCheckLock:     a.initialUpgradeCheckComplete,
+		MachineLock:          machineLock,
 	})
 
 	config := dependency.EngineConfig{
@@ -201,6 +216,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		Engine:             engine,
 		NewSocketName:      DefaultIntrospectionSocketName,
 		PrometheusGatherer: a.prometheusRegistry,
+		MachineLock:        machineLock,
 		WorkerFunc:         introspection.NewWorker,
 	}); err != nil {
 		// If the introspection worker failed to start, we just log error

@@ -56,6 +56,7 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
@@ -353,6 +354,7 @@ type MachineAgent struct {
 	configChangedVal *voyeur.Value
 	upgradeComplete  gate.Lock
 	workersStarted   chan struct{}
+	machineLock      machinelock.Lock
 
 	restoreStatusMu sync.Mutex
 	restoreStatus   state.RestoreStatus
@@ -483,6 +485,18 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	}
 
 	agentConfig := a.CurrentConfig()
+	machineLock, err := machinelock.New(machinelock.Config{
+		AgentName:   a.Tag().String(),
+		Clock:       clock.WallClock,
+		Logger:      loggo.GetLogger("juju.machinelock"),
+		LogFilename: agent.MachineLockLogFilename(agentConfig),
+	})
+	// There will only be an error if the required configuration
+	// values are not passed in.
+	if err != nil {
+		return errors.Trace(err)
+	}
+	a.machineLock = machineLock
 	a.upgradeComplete = upgradesteps.NewLock(agentConfig)
 
 	createEngine := a.makeEngineCreator(agentConfig.UpgradedToVersion())
@@ -494,7 +508,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
-	err := a.runner.Wait()
+	err = a.runner.Wait()
 	switch errors.Cause(err) {
 	case jworker.ErrTerminateAgent:
 		err = a.uninstallAgent()
@@ -560,6 +574,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			ControllerLeaseDuration:  time.Minute,
 			LogPruneInterval:         5 * time.Minute,
 			TransactionPruneInterval: time.Hour,
+			MachineLock:              a.machineLock,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -572,6 +587,7 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			Engine:             engine,
 			StatePoolReporter:  a.statePool,
 			PubSubReporter:     pubsubReporter,
+			MachineLock:        a.machineLock,
 			NewSocketName:      a.newIntrospectionSocketName,
 			PrometheusGatherer: a.prometheusRegistry,
 			WorkerFunc:         introspection.NewWorker,
@@ -921,7 +937,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		Machine:             machine,
 		Provisioner:         pr,
 		Config:              agentConfig,
-		InitLockName:        agent.MachineLockName,
+		MachineLock:         a.machineLock,
 	}
 	handler := provisioner.NewContainerSetupHandler(params)
 	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {
