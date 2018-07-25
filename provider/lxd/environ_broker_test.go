@@ -55,9 +55,6 @@ func matchesContainerSpec(check func(spec containerlxd.ContainerSpec) bool) gomo
 }
 
 func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
-	// Patch the host's arch, so the broker will filter tools.
-	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -72,9 +69,11 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 
 	exp := svr.EXPECT()
 	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
 		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.GetNICsFromProfile("default").Return(map[string]map[string]string{"eth0": {}}, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
+		exp.HostArch().Return(arch.AMD64),
 	)
 
 	env := s.NewEnviron(c, svr, nil)
@@ -83,9 +82,6 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
-	// Patch the host's arch, so the broker will filter tools.
-	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -113,9 +109,11 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 
 	exp := svr.EXPECT()
 	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
 		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.GetNICsFromProfile("default").Return(nics, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
+		exp.HostArch().Return(arch.AMD64),
 	)
 
 	env := s.NewEnviron(c, svr, nil)
@@ -124,9 +122,6 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
-	// Patch the host's arch, so the broker will filter tools.
-	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -163,11 +158,13 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 
 	sExp := svr.EXPECT()
 	gomock.InOrder(
+		sExp.HostArch().Return(arch.AMD64),
 		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
 		sExp.GetNICsFromProfile("default").Return(map[string]map[string]string{"eth0": {}}, nil),
 		sExp.IsClustered().Return(true),
 		sExp.GetClusterMembers().Return(members, nil),
 		sExp.UseTargetServer("node01").Return(jujuTarget, nil),
+		sExp.HostArch().Return(arch.AMD64),
 	)
 
 	// CreateContainerFromSpec is tested in container/lxd.
@@ -186,9 +183,6 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
-	// Patch the host's arch, so the broker will filter tools.
-	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -204,6 +198,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
 
 	sExp := svr.EXPECT()
 	gomock.InOrder(
+		sExp.HostArch().Return(arch.AMD64),
 		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
 		sExp.GetNICsFromProfile("default").Return(map[string]map[string]string{"eth0": {}}, nil),
 		sExp.IsClustered().Return(true),
@@ -220,9 +215,6 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotPresent(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C) {
-	// Patch the host's arch, so the broker will filter tools.
-	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -238,6 +230,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C)
 
 	sExp := svr.EXPECT()
 	gomock.InOrder(
+		sExp.HostArch().Return(arch.AMD64),
 		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
 		sExp.GetNICsFromProfile("default").Return(map[string]map[string]string{"eth0": {}}, nil),
 		sExp.IsClustered().Return(true),
@@ -254,9 +247,6 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementNotAvailable(c *gc.C)
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *gc.C) {
-	// Patch the host's arch, so the broker will filter tools.
-	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -267,6 +257,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *gc.C) 
 
 	sExp := svr.EXPECT()
 	gomock.InOrder(
+		sExp.HostArch().Return(arch.AMD64),
 		sExp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(image, nil),
 		sExp.GetNICsFromProfile("default").Return(map[string]map[string]string{"eth0": {}}, nil),
 	)
@@ -280,9 +271,6 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementBadArgument(c *gc.C) 
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
-	// Patch the host's arch, so the broker will filter tools.
-	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
@@ -301,9 +289,11 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 
 	exp := svr.EXPECT()
 	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
 		exp.FindImage("bionic", arch.AMD64, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.GetNICsFromProfile("default").Return(map[string]map[string]string{"eth0": {}}, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
+		exp.HostArch().Return(arch.AMD64),
 	)
 
 	args := s.GetStartInstanceArgs(c, "bionic")
@@ -322,12 +312,12 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {
-	// Patch the host's arch, so the broker will filter tools.
-	s.PatchValue(&arch.HostArch, func() string { return arch.PPC64EL })
-
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	svr := lxd.NewMockServer(ctrl)
+
+	exp := svr.EXPECT()
+	exp.HostArch().Return(arch.PPC64EL)
 
 	env := s.NewEnviron(c, svr, nil)
 	_, err := env.StartInstance(s.callCtx, s.GetStartInstanceArgs(c, "bionic"))

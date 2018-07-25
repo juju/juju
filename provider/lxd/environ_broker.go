@@ -60,10 +60,7 @@ func (env *environ) StartInstance(
 }
 
 func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (string, error) {
-	// TODO(natefinch): This is only correct so long as the lxd is running on
-	// the local machine.  If/when we support a remote lxd environment, we'll
-	// need to change this to match the arch of the remote machine.
-	arch := arch.HostArch()
+	arch := env.server.HostArch()
 	tools, err := args.Tools.Match(tools.Filter{Arch: arch})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -301,8 +298,7 @@ func (env *environ) getHardwareCharacteristics(
 
 	archStr := container.Arch()
 	if archStr == "unknown" || !arch.IsSupportedArch(archStr) {
-		// TODO(ericsnow) This special-case should be improved.
-		archStr = arch.HostArch()
+		archStr = env.server.HostArch()
 	}
 	cores := uint64(container.CPUs())
 	mem := uint64(container.Mem())
