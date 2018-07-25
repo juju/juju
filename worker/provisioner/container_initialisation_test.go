@@ -7,16 +7,15 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/juju/mutex"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
 	"github.com/juju/packaging/manager"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -27,6 +26,7 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	supportedversion "github.com/juju/juju/juju/version"
@@ -46,8 +46,8 @@ type ContainerSetupSuite struct {
 	p           provisioner.Provisioner
 	agentConfig agent.ConfigSetter
 	// Record the apt commands issued as part of container initialisation
-	aptCmdChan <-chan *exec.Cmd
-	lockName   string
+	aptCmdChan  <-chan *exec.Cmd
+	machinelock *fakemachinelock
 }
 
 var _ = gc.Suite(&ContainerSetupSuite{})
@@ -82,7 +82,7 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.p, err = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig, s.Environ, &credentialAPIForTest{})
 	c.Assert(err, jc.ErrorIsNil)
-	s.lockName = "provisioner-test"
+	s.machinelock = &fakemachinelock{}
 }
 
 func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
@@ -117,7 +117,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 		Machine:             machine,
 		Provisioner:         pr,
 		Config:              cfg,
-		InitLockName:        s.lockName,
+		MachineLock:         s.machinelock,
 		CredentialAPI:       &credentialAPIForTest{},
 	}
 	handler := provisioner.NewContainerSetupHandler(args)
@@ -362,14 +362,9 @@ func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 }
 
 func (s *ContainerSetupSuite) TestContainerInitInstDataError(c *gc.C) {
-	spec := mutex.Spec{
-		Name:  s.lockName,
-		Clock: clock.WallClock,
-		Delay: coretesting.ShortWait,
-	}
-	releaser, err := mutex.Acquire(spec)
+	releaser, err := s.machinelock.Acquire(machinelock.Spec{})
 	c.Assert(err, jc.ErrorIsNil)
-	defer releaser.Release()
+	defer releaser()
 
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
 		Series:      supportedversion.SupportedLTS(),
@@ -425,4 +420,19 @@ type credentialAPIForTest struct{}
 
 func (*credentialAPIForTest) InvalidateModelCredential(reason string) error {
 	return nil
+}
+
+type fakemachinelock struct {
+	mu sync.Mutex
+}
+
+func (f *fakemachinelock) Acquire(spec machinelock.Spec) (func(), error) {
+	f.mu.Lock()
+	return func() {
+		f.mu.Unlock()
+	}, nil
+}
+
+func (f *fakemachinelock) Report(opts ...machinelock.ReportOption) (string, error) {
+	return "", nil
 }

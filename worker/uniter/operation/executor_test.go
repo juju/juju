@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/mutex"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
@@ -25,7 +24,7 @@ type NewExecutorSuite struct {
 
 var _ = gc.Suite(&NewExecutorSuite{})
 
-func failAcquireLock() (mutex.Releaser, error) {
+func failAcquireLock(_ string) (func(), error) {
 	return nil, errors.New("wat")
 }
 
@@ -308,7 +307,7 @@ func (s *ExecutorSuite) TestFailCommitWithStateChange(c *gc.C) {
 	c.Assert(executor.State(), gc.DeepEquals, *op.commit.newState)
 }
 
-func (s *ExecutorSuite) initLockTest(c *gc.C, lockFunc func() (mutex.Releaser, error)) operation.Executor {
+func (s *ExecutorSuite) initLockTest(c *gc.C, lockFunc func(string) (func(), error)) operation.Executor {
 	initialState := justInstalledState()
 	statePath := filepath.Join(c.MkDir(), "state")
 	err := operation.NewStateFile(statePath).Write(&initialState)
@@ -434,35 +433,29 @@ type mockLockFunc struct {
 	calledLock          bool
 	calledUnlock        bool
 	op                  *mockOperation
-	onRelease           func()
 }
 
-func (mock *mockLockFunc) Release() {
-	mock.onRelease()
-}
-
-func (mock *mockLockFunc) newFailingLock() func() (mutex.Releaser, error) {
-	return func() (mutex.Releaser, error) {
+func (mock *mockLockFunc) newFailingLock() func(string) (func(), error) {
+	return func(string) (func(), error) {
 		mock.noStepsCalledOnLock = mock.op.prepare.called == false &&
 			mock.op.commit.called == false
 		return nil, errors.New("wat")
 	}
 }
 
-func (mock *mockLockFunc) newSucceedingLock() func() (mutex.Releaser, error) {
-	return func() (mutex.Releaser, error) {
+func (mock *mockLockFunc) newSucceedingLock() func(string) (func(), error) {
+	return func(string) (func(), error) {
 		mock.calledLock = true
 		// Ensure that when we lock no operation has been called
 		mock.noStepsCalledOnLock = mock.op.prepare.called == false &&
 			mock.op.commit.called == false
-		mock.onRelease = func() {
+		return func() {
 			// Record steps called when unlocking
 			mock.stepsCalledOnUnlock = []bool{mock.op.prepare.called,
 				mock.op.execute.called,
 				mock.op.commit.called}
 			mock.calledUnlock = true
-		}
-		return mock, nil
+		}, nil
 	}
 }
 

@@ -4,6 +4,7 @@
 package caasoperator_test
 
 import (
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/machinelock"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/dependency"
@@ -59,7 +61,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		ClockName:             "clock",
 		CharmDirName:          "charm-dir",
 		HookRetryStrategyName: "hook-retry-strategy",
-		MachineLockName:       "machine-lock",
+		MachineLock:           &fakemachinelock{},
 		NewWorker:             s.newWorker,
 		NewClient:             s.newClient,
 		NewCharmDownloader:    s.newCharmDownloader,
@@ -158,10 +160,10 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ApplicationWatcher: &s.client,
 		VersionSetter:      &s.client,
 		UniterParams: &uniter.UniterParams{
-			DataDir:         s.dataDir,
-			MachineLockName: "machine-lock",
-			CharmDirGuard:   &mockCharmDirGuard{},
-			Clock:           s.clock,
+			DataDir:       s.dataDir,
+			MachineLock:   &fakemachinelock{},
+			CharmDirGuard: &mockCharmDirGuard{},
+			Clock:         s.clock,
 		},
 	})
 }
@@ -171,4 +173,18 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
+}
+
+type fakemachinelock struct {
+	mu sync.Mutex
+}
+
+func (f *fakemachinelock) Acquire(spec machinelock.Spec) (func(), error) {
+	f.mu.Lock()
+	return func() {
+		f.mu.Unlock()
+	}, nil
+}
+func (f *fakemachinelock) Report(opts ...machinelock.ReportOption) (string, error) {
+	return "", nil
 }
