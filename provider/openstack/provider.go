@@ -6,6 +6,8 @@
 package openstack
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/url"
 	"path"
@@ -224,7 +226,8 @@ func (p EnvironProvider) Ping(ctx context.ProviderCallContext, endpoint string) 
 
 // newGooseClient is the default function in EnvironProvider.ClientFromEndpoint.
 func newGooseClient(endpoint string) client.AuthenticatingClient {
-	return client.NewClient(&identity.Credentials{URL: endpoint}, 0, nil)
+	// Use NonValidatingClient, in case the endpoint is behind a cert
+	return client.NewNonValidatingClient(&identity.Credentials{URL: endpoint}, 0, nil)
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.
@@ -731,65 +734,79 @@ func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.Aut
 	return cred, authMode
 }
 
-func determineBestClient(
-	options identity.AuthOptions,
-	client client.AuthenticatingClient,
-	cred identity.Credentials,
-	newClient func(*identity.Credentials, identity.AuthMode, gooselogging.CompatLogger) client.AuthenticatingClient,
-	logger gooselogging.CompatLogger,
-) client.AuthenticatingClient {
-	for _, option := range options {
-		if option.Mode != identity.AuthUserPassV3 {
-			continue
-		}
-		cred.URL = option.Endpoint
-		v3client := newClient(&cred, identity.AuthUserPassV3, logger)
-		// V3 being advertised is not necessaritly a guarantee that it will
-		// work.
-		err := v3client.Authenticate()
-		if err == nil {
-			return v3client
-		}
-	}
-	return client
-}
-
 func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.AuthenticatingClient, error) {
 	identityClientVersion, err := identityClientVersion(spec.Endpoint)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create a client")
 	}
 	cred, authMode := newCredentials(spec)
-
 	gooseLogger := gooselogging.LoggoLogger{loggo.GetLogger("goose")}
-	newClient := client.NewClient
-	if ecfg.SSLHostnameVerification() == false {
-		newClient = client.NewNonValidatingClient
-	}
-	client := newClient(&cred, authMode, gooseLogger)
+
+	cl, err := newClientByType(cred, authMode, gooseLogger, ecfg.SSLHostnameVerification(), spec.CACertificates)
 
 	// before returning, lets make sure that we want to have AuthMode
 	// AuthUserPass instead of its V3 counterpart.
 	if authMode == identity.AuthUserPass && (identityClientVersion == -1 || identityClientVersion == 3) {
-		options, err := client.IdentityAuthOptions()
+		options, err := cl.IdentityAuthOptions()
 		if err != nil {
 			logger.Errorf("cannot determine available auth versions %v", err)
-		} else {
-			client = determineBestClient(
-				options,
-				client,
-				cred,
-				newClient,
-				gooseLogger,
-			)
+		}
+		for _, option := range options {
+			if option.Mode != identity.AuthUserPassV3 {
+				continue
+			}
+			cred.URL = option.Endpoint
+			v3Cl, err := newClientByType(cred, identity.AuthUserPassV3, gooseLogger, ecfg.SSLHostnameVerification(), spec.CACertificates)
+			if err != nil {
+				return nil, err
+			}
+			// if the v3 client can authenticate, use it, otherwise fallback to the v2 client.
+			if err = v3Cl.Authenticate(); err == nil {
+				cl = v3Cl
+				break
+			}
 		}
 	}
 
 	// Juju requires "compute" at a minimum. We'll use "network" if it's
-	// available in preference to the Nova network APIs; and "volume" or
+	// available in preference to the Neutron network APIs; and "volume" or
 	// "volume2" for storage if either one is available.
-	client.SetRequiredServiceTypes([]string{"compute"})
-	return client, nil
+	cl.SetRequiredServiceTypes([]string{"compute"})
+	return cl, nil
+}
+
+// newClientByType returns an authenticating client to talk to the
+// OpenStack cloud.  CACertificate and SSLHostnameVerification == false
+// config options are mutually exclusive here.
+func newClientByType(
+	cred identity.Credentials,
+	authMode identity.AuthMode,
+	gooseLogger gooselogging.CompatLogger,
+	sslHostnameVerification bool,
+	certs []string,
+) (client.AuthenticatingClient, error) {
+	switch {
+	case len(certs) > 0:
+		tlsConfig := tlsConfig(certs)
+		logger.Tracef("using NewClientTLSConfig")
+		return client.NewClientTLSConfig(&cred, authMode, gooseLogger, tlsConfig), nil
+	case sslHostnameVerification == false:
+		logger.Tracef("using NewNonValidatingClient")
+		return client.NewNonValidatingClient(&cred, authMode, gooseLogger), nil
+	default:
+		logger.Tracef("using NewClient")
+		return client.NewClient(&cred, authMode, gooseLogger), nil
+	}
+}
+
+func tlsConfig(certStrs []string) *tls.Config {
+	pool := x509.NewCertPool()
+	for _, cert := range certStrs {
+		pool.AppendCertsFromPEM([]byte(cert))
+	}
+	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig.RootCAs = pool
+	return tlsConfig
 }
 
 type authenticator interface {

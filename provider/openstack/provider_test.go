@@ -467,12 +467,30 @@ func (localTests) TestPingInvalidResponse(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "No Openstack server running at "+server.URL)
 }
 
+func (localTests) TestPingOKCACertificate(c *gc.C) {
+	server := httptest.NewTLSServer(handlerFunc)
+	defer server.Close()
+	pingOk(c, server)
+}
+
 func (localTests) TestPingOK(c *gc.C) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// This line is critical, the openstack provider will reject the message
-		// if you return 200 like a mere mortal.
-		w.WriteHeader(http.StatusMultipleChoices)
-		fmt.Fprint(w, `
+	server := httptest.NewServer(handlerFunc)
+	defer server.Close()
+	pingOk(c, server)
+}
+
+func pingOk(c *gc.C, server *httptest.Server) {
+	p, err := environs.Provider("openstack")
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.Ping(context.NewCloudCallContext(), server.URL)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+var handlerFunc = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// This line is critical, the openstack provider will reject the message
+	// if you return 200 like a mere mortal.
+	w.WriteHeader(http.StatusMultipleChoices)
+	fmt.Fprint(w, `
 {
   "versions": {
     "values": [
@@ -532,13 +550,7 @@ func (localTests) TestPingOK(c *gc.C) {
   }
 }
 `)
-	}))
-	defer server.Close()
-	p, err := environs.Provider("openstack")
-	c.Assert(err, jc.ErrorIsNil)
-	err = p.Ping(context.NewCloudCallContext(), server.URL)
-	c.Assert(err, jc.ErrorIsNil)
-}
+})
 
 type providerUnitTests struct {
 	gitjujutesting.IsolationSuite
