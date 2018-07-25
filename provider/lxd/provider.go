@@ -387,8 +387,8 @@ type lxcConfigReader struct{}
 func (lxcConfigReader) ReadConfig(path string) (LXCConfig, error) {
 	configFile, err := ioutil.ReadFile(path)
 	if err != nil {
-		if cause := errors.Cause(err); !os.IsNotExist(cause) {
-			return LXCConfig{}, errors.Trace(err)
+		if cause := errors.Cause(err); os.IsNotExist(cause) {
+			return LXCConfig{}, nil
 		}
 		return LXCConfig{}, errors.Trace(err)
 	}
