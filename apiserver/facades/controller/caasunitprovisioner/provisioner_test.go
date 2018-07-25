@@ -66,6 +66,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	}
 	s.storage = &mockStorage{
 		storageFilesystems: make(map[names.StorageTag]names.FilesystemTag),
+		storageVolumes:     make(map[names.StorageTag]names.VolumeTag),
 		storageAttachments: make(map[names.UnitTag]names.StorageTag),
 	}
 	s.storageProviderRegistry = &mockStorageProviderRegistry{}
@@ -276,7 +277,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnits(c *gc.C) {
 			{&params.Error{Message: "application another not found", Code: "not found"}},
 		},
 	})
-	s.st.application.CheckCallNames(c, "Life")
+	s.st.application.CheckCallNames(c, "Life", "Name")
 	// TODO(caas) - attempting 2 way sync has unintended consequences on some deployments
 	//s.st.application.CheckCallNames(c, "Life", "AddOperation")
 	//s.st.application.CheckCall(c, 1, "AddOperation", state.UnitUpdateProperties{
@@ -356,6 +357,8 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 	s.storage.storageFilesystems[names.NewStorageTag("data/0")] = names.NewFilesystemTag("gitlab/0/0")
 	s.storage.storageFilesystems[names.NewStorageTag("data/1")] = names.NewFilesystemTag("gitlab/1/0")
 	s.storage.storageFilesystems[names.NewStorageTag("data/2")] = names.NewFilesystemTag("gitlab/2/0")
+	s.storage.storageVolumes[names.NewStorageTag("data/0")] = names.NewVolumeTag("0")
+	s.storage.storageVolumes[names.NewStorageTag("data/1")] = names.NewVolumeTag("1")
 	s.storage.storageAttachments[names.NewUnitTag("gitlab/0")] = names.NewStorageTag("data/0")
 	s.storage.storageAttachments[names.NewUnitTag("gitlab/1")] = names.NewStorageTag("data/1")
 	s.storage.storageAttachments[names.NewUnitTag("gitlab/2")] = names.NewStorageTag("data/2")
@@ -365,14 +368,22 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 			Status: "running", Info: "message",
 			FilesystemInfo: []params.KubernetesFilesystemInfo{
 				{StorageName: "data", FilesystemId: "fs-id", Size: 100, MountPoint: "/path/to/here", ReadOnly: true,
-					Status: "pending", Info: "not ready"},
+					Status: "pending", Info: "not ready",
+					Volume: params.KubernetesVolumeInfo{
+						VolumeId: "vol-id", Size: 100, Persistent: true,
+						Status: "pending", Info: "vol not ready",
+					}},
 			},
 		},
 		{ProviderId: "another-uuid", Address: "another-address", Ports: []string{"another-port"},
 			Status: "running", Info: "another message",
 			FilesystemInfo: []params.KubernetesFilesystemInfo{
 				{StorageName: "data", FilesystemId: "fs-id2", Size: 200, MountPoint: "/path/to/there", ReadOnly: true,
-					Status: "attached", Info: "ready"},
+					Status: "attached", Info: "ready",
+					Volume: params.KubernetesVolumeInfo{
+						VolumeId: "vol-id2", Size: 200, Persistent: true,
+						Status: "attached", Info: "vol ready",
+					}},
 			},
 		},
 	}
@@ -388,7 +399,7 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 			{nil},
 		},
 	})
-	s.st.application.CheckCallNames(c, "Life")
+	s.st.application.CheckCallNames(c, "Life", "Name")
 	s.st.application.units[0].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("uuid"),
@@ -405,7 +416,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 	})
 	s.storage.CheckCallNames(c,
 		"UnitStorageAttachments", "UnitStorageAttachments", "StorageInstance",
-		"UnitStorageAttachments", "StorageInstance", "Filesystem", "SetFilesystemInfo", "SetFilesystemAttachmentInfo",
+		"UnitStorageAttachments", "StorageInstance",
+		"Volume", "SetVolumeInfo", "SetVolumeAttachmentInfo", "Volume", "SetStatus", "Volume", "SetStatus",
+		"Filesystem", "SetFilesystemInfo", "SetFilesystemAttachmentInfo",
 		"Filesystem", "SetStatus", "Filesystem", "SetStatus", "Filesystem", "SetStatus")
 	s.storage.CheckCall(c, 0, "UnitStorageAttachments", names.NewUnitTag("gitlab/2"))
 	s.storage.CheckCall(c, 1, "UnitStorageAttachments", names.NewUnitTag("gitlab/0"))
@@ -413,26 +426,51 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 	s.storage.CheckCall(c, 3, "UnitStorageAttachments", names.NewUnitTag("gitlab/1"))
 	s.storage.CheckCall(c, 4, "StorageInstance", names.NewStorageTag("data/1"))
 
-	s.storage.CheckCall(c, 6, "SetFilesystemInfo",
+	now := s.clock.Now()
+	s.storage.CheckCall(c, 6, "SetVolumeInfo",
+		names.NewVolumeTag("1"),
+		state.VolumeInfo{
+			Size:       200,
+			VolumeId:   "vol-id2",
+			Persistent: true,
+		})
+	s.storage.CheckCall(c, 7, "SetVolumeAttachmentInfo",
+		names.NewUnitTag("gitlab/1"), names.NewVolumeTag("1"),
+		state.VolumeAttachmentInfo{
+			ReadOnly: true,
+		})
+	s.storage.CheckCall(c, 9, "SetStatus",
+		status.StatusInfo{
+			Status:  status.Pending,
+			Message: "vol not ready",
+			Since:   &now,
+		})
+	s.storage.CheckCall(c, 11, "SetStatus",
+		status.StatusInfo{
+			Status:  status.Attached,
+			Message: "vol ready",
+			Since:   &now,
+		})
+
+	s.storage.CheckCall(c, 13, "SetFilesystemInfo",
 		names.NewFilesystemTag("gitlab/1/0"),
 		state.FilesystemInfo{
 			Size:         200,
 			FilesystemId: "fs-id2",
 		})
-	s.storage.CheckCall(c, 7, "SetFilesystemAttachmentInfo",
+	s.storage.CheckCall(c, 14, "SetFilesystemAttachmentInfo",
 		names.NewUnitTag("gitlab/1"), names.NewFilesystemTag("gitlab/1/0"),
 		state.FilesystemAttachmentInfo{
 			MountPoint: "/path/to/there",
 			ReadOnly:   true,
 		})
-	now := s.clock.Now()
-	s.storage.CheckCall(c, 11, "SetStatus",
+	s.storage.CheckCall(c, 18, "SetStatus",
 		status.StatusInfo{
 			Status:  status.Attached,
 			Message: "ready",
 			Since:   &now,
 		})
-	s.storage.CheckCall(c, 13, "SetStatus",
+	s.storage.CheckCall(c, 20, "SetStatus",
 		status.StatusInfo{
 			Status: status.Detached,
 			Since:  &now,

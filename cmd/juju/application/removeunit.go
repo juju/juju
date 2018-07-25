@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/api/storage"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
 )
 
 // NewRemoveUnitCommand returns a command which removes an application's units.
@@ -137,31 +136,6 @@ func (c *removeUnitCommand) Run(ctx *cmd.Context) error {
 	}
 	if c.DestroyStorage && apiVersion < 5 {
 		return errors.New("--destroy-storage is not supported by this controller")
-	}
-	if !c.DestroyStorage {
-		mType, err := c.ModelType()
-		if err != nil {
-			return err
-		}
-		// TODO(caas) - this will change when volumes are managed separately to pods.
-		if mType == model.CAAS {
-			hasStorage, err := c.unitsHaveStorage(c.UnitNames)
-			if err != nil {
-				return err
-			}
-			if hasStorage {
-				return errors.Errorf(`cannot destroy units %q
-
-Destroying these kubernetes units will destroy the storage,
-but you have not indicated that you want to do that.
-
-Please run the the command again with --destroy-storage
-to confirm that you want to destroy the storage along
-with the units.
-
-`, c.UnitNames)
-			}
-		}
 	}
 	return c.removeUnits(ctx, client)
 }

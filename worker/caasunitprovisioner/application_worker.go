@@ -188,6 +188,14 @@ func (aw *applicationWorker) loop() error {
 						Status:       info.Status.Status.String(),
 						Info:         info.Status.Message,
 						Data:         info.Status.Data,
+						Volume: params.KubernetesVolumeInfo{
+							VolumeId:   info.Volume.VolumeId,
+							Size:       info.Volume.Size,
+							Persistent: info.Volume.Persistent,
+							Status:     info.Volume.Status.Status.String(),
+							Info:       info.Volume.Status.Message,
+							Data:       info.Volume.Status.Data,
+						},
 					})
 
 				}

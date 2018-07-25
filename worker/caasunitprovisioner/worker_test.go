@@ -580,6 +580,9 @@ func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expected status.Status
 					FilesystemInfo: []params.KubernetesFilesystemInfo{
 						{StorageName: "database", MountPoint: "/path-to-here", ReadOnly: true,
 							FilesystemId: "fs-id", Size: 100, Pool: "",
+							Volume: params.KubernetesVolumeInfo{
+								VolumeId: "vol-id", Size: 200,
+								Persistent: true, Status: "error", Info: "vol not ready"},
 							Status: "attaching", Info: "not ready"},
 					}},
 			},
