@@ -530,6 +530,9 @@ func (c *destroyCommandBase) getControllerEnviron(
 	controllerName string,
 	sysAPI destroyControllerAPI,
 ) (environs.Environ, error) {
+	// TODO: (hml) 2018-08-01
+	// We should try to destroy via the API first, from store is a
+	// fall back position.
 	env, err := c.getControllerEnvironFromStore(ctx, store, controllerName)
 	if errors.IsNotFound(err) {
 		return c.getControllerEnvironFromAPI(sysAPI, controllerName)

@@ -212,6 +212,7 @@ func prepare(
 	details.BootstrapConfig.CloudType = args.Cloud.Type
 	details.BootstrapConfig.Cloud = args.Cloud.Name
 	details.BootstrapConfig.CloudRegion = args.Cloud.Region
+	details.BootstrapConfig.CloudCACertificates = args.Cloud.CACertificates
 	details.CloudEndpoint = args.Cloud.Endpoint
 	details.CloudIdentityEndpoint = args.Cloud.IdentityEndpoint
 	details.CloudStorageEndpoint = args.Cloud.StorageEndpoint
