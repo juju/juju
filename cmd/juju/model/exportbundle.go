@@ -34,7 +34,7 @@ type exportBundleCommand struct {
 const exportBundleHelpDoc = `
 Exports the current model configuration as bundle.
 
-If --filename is optional. The charm bundle is written in the filename provided as value.
+--filename specifies the file where bundle is written to. Its optional.
 If --filename is not used, the bundle is displayed in stdout.
 
 Examples:

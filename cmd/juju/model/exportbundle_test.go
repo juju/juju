@@ -15,6 +15,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
+	"os"
 )
 
 type ExportBundleCommandSuite struct {
@@ -44,6 +45,17 @@ func (s *ExportBundleCommandSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.store.Models["testing"].CurrentModel = "admin/mymodel"
+}
+
+func (s *ExportBundleCommandSuite) TearDownTest(c *gc.C) {
+	if s.fake.filename != "" {
+		err := os.Remove(s.fake.filename + ".yaml")
+		if !os.IsNotExist(err) {
+			c.Check(err, jc.ErrorIsNil)
+		}
+	}
+
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func (s *ExportBundleCommandSuite) TestExportBundleSuccessNoFilename(c *gc.C) {
@@ -97,6 +109,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessNoFilename(c *gc.C) {
 }
 
 func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
+	s.fake.filename = "mymodel"
 	s.fake.result = "applications:\n" +
 		"  magic:\n" +
 		"    charm: cs:zesty/magic\n" +
@@ -109,7 +122,7 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
 		"series: xenial\n" +
 		"relations:\n" +
 		"- []\n"
-	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fake, s.store), "--filename", "mymodel")
+	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fake, s.store), "--filename", s.fake.filename)
 	c.Assert(err, jc.ErrorIsNil)
 	s.fake.CheckCalls(c, []jujutesting.StubCall{
 		{"ExportBundle", nil},
@@ -146,5 +159,6 @@ func (f *fakeExportBundleClient) ExportBundle() (string, error) {
 
 type fakeExportBundleClient struct {
 	*jujutesting.Stub
-	result string
+	result   string
+	filename string
 }
