@@ -146,6 +146,29 @@ func (s *ExportBundleCommandSuite) TestExportBundleSuccessFilename(c *gc.C) {
 		"- []\n")
 }
 
+func (s *ExportBundleCommandSuite) TestExportBundleFailNoFilename(c *gc.C) {
+	_, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fake, s.store), "--filename")
+	c.Assert(err, gc.NotNil)
+
+	c.Assert(err.Error(), gc.Equals, "flag needs an argument: --filename")
+}
+
+func (s *ExportBundleCommandSuite) TestExportBundleSuccesssOverwriteFilename(c *gc.C) {
+	s.fake.filename = "mymodel"
+	s.fake.result = "fake-data"
+	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommandForTest(s.fake, s.store), "--filename", s.fake.filename)
+	c.Assert(err, jc.ErrorIsNil)
+	s.fake.CheckCalls(c, []jujutesting.StubCall{
+		{"ExportBundle", nil},
+	})
+
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, gc.Equals, "Bundle successfully exported to mymodel.yaml\n")
+	output, err := ioutil.ReadFile("mymodel.yaml")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(string(output), gc.Equals, "fake-data")
+}
+
 func (f *fakeExportBundleClient) Close() error { return nil }
 
 func (f *fakeExportBundleClient) ExportBundle() (string, error) {

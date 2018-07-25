@@ -56,7 +56,7 @@ func (c *exportBundleCommand) Info() *cmd.Info {
 func (c *exportBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
-	f.StringVar(&c.Filename, "filename", "", "bundle file")
+	f.StringVar(&c.Filename, "filename", "", "Bundle file")
 }
 
 // Init implements Command.
