@@ -5,6 +5,7 @@ package model_test
 
 import (
 	"io/ioutil"
+	"os"
 
 	"github.com/juju/cmd/cmdtesting"
 	jujutesting "github.com/juju/testing"
@@ -15,7 +16,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
-	"os"
 )
 
 type ExportBundleCommandSuite struct {
