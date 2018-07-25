@@ -42,8 +42,8 @@ func (c *Client) ExportBundle() (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	if len(result.Result) == 0 {
-		return "", errors.Annotate(result.Error, "export failed")
+	if result.Error != nil {
+		return "", errors.Trace(result.Error)
 	}
 
 	return result.Result, nil
