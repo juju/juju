@@ -184,12 +184,16 @@ func (api *APIBase) proxyConfig() params.ProxyConfigResult {
 		return result
 	}
 
-	proxySettings := config.LegacyProxySettings()
-	proxySettings.AutoNoProxy = network.APIHostPortsToNoProxyString(apiHostPorts)
-	result.LegacyProxySettings = toParams(proxySettings)
+	jujuProxySettings := config.JujuProxySettings()
+	legacyProxySettings := config.LegacyProxySettings()
 
-	proxySettings = config.JujuProxySettings()
-	result.JujuProxySettings = toParams(proxySettings)
+	if jujuProxySettings.HasProxySet() {
+		jujuProxySettings.AutoNoProxy = network.APIHostPortsToNoProxyString(apiHostPorts)
+	} else {
+		legacyProxySettings.AutoNoProxy = network.APIHostPortsToNoProxyString(apiHostPorts)
+	}
+	result.JujuProxySettings = toParams(jujuProxySettings)
+	result.LegacyProxySettings = toParams(legacyProxySettings)
 
 	result.APTProxySettings = toParams(config.AptProxySettings())
 

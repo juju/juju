@@ -126,11 +126,46 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 		"APIHostPortsForAgents",
 	)
 
-	noProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
+	expectedLegacyNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
+	expectedJujuNoProxy := ""
 
 	r := params.ProxyConfigResult{
 		LegacyProxySettings: params.ProxyConfig{
-			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: noProxy},
+			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: expectedLegacyNoProxy},
+		JujuProxySettings: params.ProxyConfig{
+			HTTP: "", HTTPS: "", FTP: "", NoProxy: expectedJujuNoProxy},
+		APTProxySettings: params.ProxyConfig{
+			HTTP: "http://apt http proxy", HTTPS: "https://apt https proxy", FTP: "", NoProxy: ""},
+	}
+	c.Assert(cfg.Results[0], jc.DeepEquals, r)
+}
+
+func (s *ProxyUpdaterSuite) TestProxyConfigJujuProxy(c *gc.C) {
+	s.state.SetModelConfig(coretesting.Attrs{
+		"juju-http-proxy":  "http proxy",
+		"juju-https-proxy": "https proxy",
+		"apt-http-proxy":   "apt http proxy",
+		"apt-https-proxy":  "apt https proxy",
+	})
+
+	cfg := s.facade.ProxyConfig(s.oneEntity())
+
+	s.state.Stub.CheckCallNames(c,
+		"ModelConfig",
+		"APIHostPortsForAgents",
+	)
+
+	// need to make sure that auto-population/auto-appending of controller IPs to
+	// no-proxy is aware of which proxy settings are used: if non-legacy ones are used
+	// then juju-no-proxy should be auto-modified
+	expectedJujuNoProxy := "0.1.2.3,0.1.2.4,0.1.2.5"
+	expectedLegacyNoProxy := ""
+
+	r := params.ProxyConfigResult{
+		JujuProxySettings: params.ProxyConfig{
+			HTTP: "http proxy", HTTPS: "https proxy", FTP: "", NoProxy: expectedJujuNoProxy},
+		LegacyProxySettings: params.ProxyConfig{
+			HTTP: "", HTTPS: "", FTP: "", NoProxy: expectedLegacyNoProxy},
 		APTProxySettings: params.ProxyConfig{
 			HTTP: "http://apt http proxy", HTTPS: "https://apt https proxy", FTP: "", NoProxy: ""},
 	}
