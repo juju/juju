@@ -73,7 +73,7 @@ type Snapshot struct {
 	// Series is the current series running on the unit
 	Series string
 
-	// UpgradeSeriesStatus is the status of any currently running series upgrade
+	// UpgradeSeriesPrepareStatus is the status of any currently running series upgrade
 	UpgradeSeriesStatus model.UnitSeriesUpgradeStatus
 }
 

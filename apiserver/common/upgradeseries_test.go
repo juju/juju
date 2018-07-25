@@ -173,7 +173,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 		},
 	}
 
-	results, err := api.UpgradeSeriesStatus(args)
+	results, err := api.UpgradeSeriesPrepareStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{

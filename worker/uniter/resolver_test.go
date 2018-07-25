@@ -180,7 +180,7 @@ func (s *resolverSuite) TestUpgradeSeriesStatusIdlesUniterOnUpggradeSeriesComple
 
 	// changing the series would normally fire a config-changed hook but
 	// since the uniter does not respond to state changes after reaching a
-	// UpgradeSeriesStatus of "Completed" no operation should take place.
+	// UpgradeSeriesPrepareStatus of "Completed" no operation should take place.
 	s.remoteState.Series = "NewSeries"
 	_, err = s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)

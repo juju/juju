@@ -101,10 +101,16 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(args params.Entities)
 	return result, nil
 }
 
-// UpgradeSeriesStatus returns the current state of series upgrading
-// unit. If no upgrade is in progress an error is returned instead.
-func (u *UpgradeSeriesAPI) UpgradeSeriesStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
+// UpgradeSeriesPrepareStatus returns the current preparation status of an upgrading
+// unit. If no series upgrade is in progress an error is returned instead.
+func (u *UpgradeSeriesAPI) UpgradeSeriesPrepareStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
 	return u.upgradeSeriesStatus(args, model.PrepareStatus)
+}
+
+// UpgradeSeriesCompleteStatus returns the current completion status of upgrading
+// unit. If no series upgrade is in progress an error is returned instead.
+func (u *UpgradeSeriesAPI) UpgradeSeriesCompleteStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
+	return u.upgradeSeriesStatus(args, model.CompleteStatus)
 }
 
 // SetUpgradeSeriesStatus sets the upgrade series status of the unit.
@@ -185,7 +191,7 @@ func NewExternalUpgradeSeriesAPI(
 }
 
 func (u *UpgradeSeriesAPI) upgradeSeriesStatus(args params.Entities, statusType model.UpgradeSeriesStatusType) (params.UpgradeSeriesStatusResults, error) {
-	u.logger.Tracef("Starting UpgradeSeriesStatus with %+v", args)
+	u.logger.Tracef("Starting UpgradeSeriesPrepareStatus with %+v", args)
 	result := params.UpgradeSeriesStatusResults{
 		Results: make([]params.UpgradeSeriesStatusResult, len(args.Entities)),
 	}
