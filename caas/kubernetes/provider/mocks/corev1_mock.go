@@ -291,18 +291,6 @@ func (mr *MockNamespaceInterfaceMockRecorder) Delete(arg0, arg1 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockNamespaceInterface)(nil).Delete), arg0, arg1)
 }
 
-// DeleteCollection mocks base method
-func (m *MockNamespaceInterface) DeleteCollection(arg0 *v10.DeleteOptions, arg1 v10.ListOptions) error {
-	ret := m.ctrl.Call(m, "DeleteCollection", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteCollection indicates an expected call of DeleteCollection
-func (mr *MockNamespaceInterfaceMockRecorder) DeleteCollection(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCollection", reflect.TypeOf((*MockNamespaceInterface)(nil).DeleteCollection), arg0, arg1)
-}
-
 // Finalize mocks base method
 func (m *MockNamespaceInterface) Finalize(arg0 *v1.Namespace) (*v1.Namespace, error) {
 	ret := m.ctrl.Call(m, "Finalize", arg0)
@@ -624,18 +612,6 @@ func (m *MockServiceInterface) Delete(arg0 string, arg1 *v10.DeleteOptions) erro
 // Delete indicates an expected call of Delete
 func (mr *MockServiceInterfaceMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockServiceInterface)(nil).Delete), arg0, arg1)
-}
-
-// DeleteCollection mocks base method
-func (m *MockServiceInterface) DeleteCollection(arg0 *v10.DeleteOptions, arg1 v10.ListOptions) error {
-	ret := m.ctrl.Call(m, "DeleteCollection", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteCollection indicates an expected call of DeleteCollection
-func (mr *MockServiceInterfaceMockRecorder) DeleteCollection(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCollection", reflect.TypeOf((*MockServiceInterface)(nil).DeleteCollection), arg0, arg1)
 }
 
 // Get mocks base method
