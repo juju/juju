@@ -5,6 +5,7 @@ package lxd
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/os"
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared"
@@ -94,7 +95,7 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 	name := info.Environment.ServerName
 	clustered := info.Environment.ServerClustered
 	serverCertificate := info.Environment.Certificate
-	hostArch := info.Environment.KernelArchitecture
+	hostArch := arch.NormaliseArch(info.Environment.KernelArchitecture)
 
 	return &Server{
 		ContainerServer:   svr,
