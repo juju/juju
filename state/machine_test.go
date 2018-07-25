@@ -2707,7 +2707,7 @@ func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenMachinePrepareI
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MachineSuite) TestCompleteSeriesUpgradeShouldSucceedWhenMachinePrepareIsComplete(c *gc.C) {
+func (s *MachineSuite) TestCompleteSeriesUpgradeShouldFailIfAlreadyInCompleteState(c *gc.C) {
 	unit0 := s.addMachineUnit(c, s.machine)
 	err := s.machine.CreateUpgradeSeriesLock([]string{unit0.Name()}, "cosmic")
 	c.Assert(err, jc.ErrorIsNil)
