@@ -34,8 +34,8 @@ type exportBundleCommand struct {
 const exportBundleHelpDoc = `
 Exports the current model configuration as bundle.
 
---filename specifies the file where bundle is written to. Its optional.
-If --filename is not used, the bundle is displayed in stdout.
+If --filename is not used, the configuration is printed to stdout.
+ --filename specifies an output file.
 
 Examples:
 
