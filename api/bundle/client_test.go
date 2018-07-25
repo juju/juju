@@ -89,7 +89,7 @@ func (s *bundleMockSuite) TestExportBundlev2(c *gc.C) {
 		"- []\n")
 }
 
-func (s *bundleMockSuite) TestExportBundleErrorv2(c *gc.C) {
+func (s *bundleMockSuite) TestExportBundleNotNilParamsErrorv2(c *gc.C) {
 	client := newClient(
 		func(objType string, version int,
 			id,
@@ -99,12 +99,32 @@ func (s *bundleMockSuite) TestExportBundleErrorv2(c *gc.C) {
 		) error {
 			result := response.(*params.StringResult)
 			result.Result = ""
-			*(response.(*params.StringResult)) = params.StringResult{Error: common.ServerError(errors.New("export failed"))}
+			*(response.(*params.StringResult)) = params.StringResult{Error: common.ServerError(
+				errors.New("export failed nothing to export as there are no applications"))}
 			return result.Error
 		}, 2,
 	)
 	result, err := client.ExportBundle()
 	c.Assert(err, gc.NotNil)
 	c.Assert(result, jc.DeepEquals, "")
-	c.Check(err.Error(), gc.Matches, "export failed")
+	c.Check(err.Error(), gc.Matches, "export failed nothing to export as there are no applications")
+}
+
+func (s *bundleMockSuite) TestExportBundleFailNoParamsErrorv2(c *gc.C) {
+	client := newClient(
+		func(objType string, version int,
+			id,
+			request string,
+			args,
+			response interface{},
+		) error {
+			result := response.(*params.StringResult)
+			result.Result = ""
+			return errors.New("foo")
+		}, 2,
+	)
+	result, err := client.ExportBundle()
+	c.Assert(err, gc.NotNil)
+	c.Assert(result, jc.DeepEquals, "")
+	c.Check(err.Error(), gc.Matches, "foo")
 }
