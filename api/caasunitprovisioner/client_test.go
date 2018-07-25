@@ -59,6 +59,13 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 							ReadOnly:   true,
 						}},
 					},
+					Devices: []params.KubernetesDeviceParams{
+						{
+							Type:       "nvidia.com/gpu",
+							Count:      3,
+							Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
+						},
+					},
 				},
 			}},
 		}
@@ -85,6 +92,11 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 					ReadOnly: true,
 				},
 			},
+		}},
+		Devices: []params.KubernetesDeviceParams{{
+			Type:       params.DeviceType("nvidia.com/gpu"),
+			Count:      3,
+			Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
 		}},
 	})
 }

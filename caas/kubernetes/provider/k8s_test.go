@@ -340,3 +340,70 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
+
+// func (s *K8sBrokerSuite) TestEnsureServiceWithDevices(c *gc.C) {
+// 	ctrl := s.setupBroker(c)
+// 	defer ctrl.Finish()
+
+// 	numUnits := int32(2)
+// 	unitSpec, err := provider.MakeUnitSpec("app-name", basicPodspec)
+// 	c.Assert(err, jc.ErrorIsNil)
+// 	podSpec := provider.PodSpec(unitSpec)
+
+// 	deploymentArg := &appsv1.Deployment{
+// 		ObjectMeta: v1.ObjectMeta{
+// 			Name:   "juju-test",
+// 			Labels: map[string]string{"juju-application": "test"}},
+// 		Spec: appsv1.DeploymentSpec{
+// 			Replicas: &numUnits,
+// 			Selector: &v1.LabelSelector{
+// 				MatchLabels: map[string]string{"juju-application": "test"},
+// 			},
+// 			Template: core.PodTemplateSpec{
+// 				ObjectMeta: v1.ObjectMeta{
+// 					GenerateName: "juju-application-test-",
+// 					Labels:       map[string]string{"juju-application": "test"},
+// 				},
+// 				Spec: podSpec,
+// 			},
+// 		},
+// 	}
+// 	serviceArg := &core.Service{
+// 		ObjectMeta: v1.ObjectMeta{
+// 			Name:   "juju-test",
+// 			Labels: map[string]string{"juju-application": "test"}},
+// 		Spec: core.ServiceSpec{
+// 			Selector: map[string]string{"juju-application": "test"},
+// 			Type:     "nodeIP",
+// 			Ports: []core.ServicePort{
+// 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
+// 				{Port: 8080, Protocol: "TCP", Name: "fred"},
+// 			},
+// 			LoadBalancerIP: "10.0.0.1",
+// 			ExternalName:   "ext-name",
+// 		},
+// 	}
+
+// 	gomock.InOrder(
+// 		s.mockDeployments.EXPECT().Update(deploymentArg).Times(1).
+// 			Return(nil, s.k8sNotFoundError()),
+// 		s.mockDeployments.EXPECT().Create(deploymentArg).Times(1).
+// 			Return(nil, nil),
+// 		s.mockServices.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+// 			Return(nil, s.k8sNotFoundError()),
+// 		s.mockServices.EXPECT().Update(serviceArg).Times(1).
+// 			Return(nil, s.k8sNotFoundError()),
+// 		s.mockServices.EXPECT().Create(serviceArg).Times(1).
+// 			Return(nil, nil),
+// 	)
+
+// 	params := &caas.ServiceParams{
+// 		PodSpec: basicPodspec,
+// 	}
+// 	err = s.broker.EnsureService("test", params, 2, application.ConfigAttributes{
+// 		"kubernetes-service-type":            "nodeIP",
+// 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+// 		"kubernetes-service-externalname":    "ext-name",
+// 	})
+// 	c.Assert(err, jc.ErrorIsNil)
+// }

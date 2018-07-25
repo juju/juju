@@ -35,6 +35,7 @@ type CAASProvisionerSuite struct {
 	storage                 *mockStorage
 	storageProviderRegistry *mockStorageProviderRegistry
 	storagePoolManager      *mockStoragePoolManager
+	devices                 *mockDeviceBackend
 	applicationsChanges     chan []string
 	podSpecChanges          chan struct{}
 	unitsChanges            chan []string
@@ -70,6 +71,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	}
 	s.storageProviderRegistry = &mockStorageProviderRegistry{}
 	s.storagePoolManager = &mockStoragePoolManager{}
+	s.devices = &mockDeviceBackend{}
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.applicationsWatcher) })
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.application.unitsWatcher) })
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.st.model.podSpecWatcher) })
@@ -82,7 +84,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.clock = testing.NewClock(time.Now())
 
 	facade, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, s.st, s.storage, s.storageProviderRegistry, s.storagePoolManager, s.clock)
+		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storageProviderRegistry, s.storagePoolManager, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -92,7 +94,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, s.st, s.storage, s.storageProviderRegistry, s.storagePoolManager, s.clock)
+		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storageProviderRegistry, s.storagePoolManager, s.clock)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -186,6 +188,13 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 						ReadOnly:   true,
 					},
 				}},
+				Devices: []params.KubernetesDeviceParams{
+					{
+						Type:       "nvidia.com/gpu",
+						Count:      3,
+						Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
+					},
+				},
 			},
 		}, {
 			Error: &params.Error{

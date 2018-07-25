@@ -95,6 +95,7 @@ func removeDeviceConstraintsOp(id string) txn.Op {
 	}
 }
 
+// DeviceConstraints returns the device constraints for the specified application.
 func (db *deviceBackend) DeviceConstraints(id string) (map[string]DeviceConstraints, error) {
 	return readDeviceConstraints(db.mb, id)
 }

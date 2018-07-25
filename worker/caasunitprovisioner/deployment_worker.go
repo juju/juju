@@ -128,23 +128,17 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		provider := w.broker.Provider()
-		spec, err := provider.ParsePodSpec(specStr)
+		spec, err := w.broker.Provider().ParsePodSpec(specStr)
 		if err != nil {
 			return errors.Annotate(err, "cannot parse pod spec")
 		}
-		// ??? merge ParsePodSpec and BuildPodSpec together
-		// && should we build device constraints into podspec now or inside makeUnitSpec
-		// i prefer now, coz makeUnitSpec now takes podspec then translate to real podspec ???
-		spec, err = provider.BuildPodSpec(spec, info)
-		if err != nil {
-			return errors.Annotate(err, "cannot parse pod spec")
-		}
+
 		serviceParams := &caas.ServiceParams{
 			PodSpec:      spec,
 			Constraints:  info.Constraints,
 			ResourceTags: info.Tags,
 			Filesystems:  info.Filesystems,
+			Devices:      info.Devices,
 		}
 		err = w.broker.EnsureService(w.application, serviceParams, numUnits, appConfig)
 		if err != nil {

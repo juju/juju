@@ -11,13 +11,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 )
+
+const GPUAffinityNodeSelectorKey = "gpu"
 
 type kubernetesEnvironProvider struct {
 	environProviderCredentials
@@ -56,25 +57,6 @@ func (kubernetesEnvironProvider) ParsePodSpec(in string) (*caas.PodSpec, error) 
 		return nil, errors.Trace(err)
 	}
 	return spec, spec.Validate()
-}
-
-// BuildPodSpec injects additional segments of configuration into podspec.
-func (kubernetesEnvironProvider) BuildPodSpec(spec *caas.PodSpec, info *apicaasunitprovisioner.ProvisioningInfo) (*caas.PodSpec, error) {
-	// TODO(ycliuhw): currently we assume constraints are all same for containers in same pod.
-	// A todo to support different constraints for containers in same pod.
-	// And also, should we consolidate normal constraints like cpu/mem etc with device constraints?
-	var constraints []caas.Constraint
-	for _, c := range info.Devices {
-		constraints = append(constraints, caas.Constraint{
-			Type:       caas.DeviceType(c.Type),
-			Count:      c.Count,
-			Attributes: c.Attributes,
-		})
-	}
-	for _, c := range spec.Containers {
-		c.Constraints = constraints
-	}
-	return spec, nil
 }
 
 // CloudSchema returns the schema for adding new clouds of this type.

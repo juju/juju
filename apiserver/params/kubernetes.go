@@ -28,7 +28,7 @@ type KubernetesProvisioningInfoResults struct {
 	Results []KubernetesProvisioningInfoResult `json:"results"`
 }
 
-// FilesystemParams holds the parameters for creating a storage filesystem.
+// KubernetesFilesystemParams holds the parameters for creating a storage filesystem.
 type KubernetesFilesystemParams struct {
 	StorageName string                                `json:"storagename"`
 	Size        uint64                                `json:"size"`
@@ -81,5 +81,5 @@ type DeviceType string
 type KubernetesDeviceParams struct {
 	Type       DeviceType        `bson:"type"`
 	Count      int64             `bson:"count"`
-	Attributes map[string]string `bson:"attributes"`
+	Attributes map[string]string `bson:"attributes,omitempty"`
 }

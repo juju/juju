@@ -50,31 +50,6 @@ type ContainerSpec struct {
 
 	// ProviderContainer defines config which is specific to a substrate, eg k8s
 	ProviderContainer `yaml:"-"`
-
-	Constraints []Constraint `yaml:"constraint,omitempty"`
-}
-
-type DeviceType string
-
-// Constraint defines resource limit/request for pod.
-type Constraint struct {
-	Type       DeviceType        `bson:"type"`
-	Count      int64             `bson:"count"`
-	Attributes map[string]string `bson:"attributes"`
-}
-
-// AffinitySpec defines affinity configuration.
-type AffinitySpec struct {
-	// TODO(ycliuhw): enrich spec here later for supporting node affinity.
-	NodeLabel NodeLabel `yaml:"nodeLabel,omitempty"`
-}
-
-// NodeLabel defines node label to use for nodeSelector.
-type NodeLabel struct {
-	// TODO(ycliuhw): enrich spec here later for specifying node to deploy to in AffinitySpec.
-
-	// Name maps to k8s accelerator name
-	Name string `yaml:"name"`
 }
 
 // PodSpec defines the data values used to configure
@@ -82,7 +57,6 @@ type NodeLabel struct {
 type PodSpec struct {
 	Containers          []ContainerSpec `yaml:"-"`
 	OmitServiceFrontend bool            `yaml:"omitServiceFrontend"`
-	NodeLabel           NodeLabel       `yaml:"nodeLabel"`
 }
 
 // Validate returns an error if the spec is not valid.

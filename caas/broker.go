@@ -9,9 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 
-	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
@@ -34,8 +34,6 @@ type ContainerEnvironProvider interface {
 
 	// ParsePodSpec unmarshalls the given YAML pod spec.
 	ParsePodSpec(in string) (*PodSpec, error)
-	// BuildPodSpec injects additional segments of configuration into podspec.
-	BuildPodSpec(*PodSpec, *apicaasunitprovisioner.ProvisioningInfo) (*PodSpec, error)
 }
 
 // RegisterContainerProvider is used for providers that we want to use for managing 'instances',
@@ -85,6 +83,9 @@ type ServiceParams struct {
 
 	// Filesystems is a set of parameters for filesystems that should be created.
 	Filesystems []storage.KubernetesFilesystemParams
+
+	// Devices is a set of parameters for Devices that is required.
+	Devices []devices.KubernetesDeviceParams
 }
 
 // Broker instances interact with the CAAS substrate.
