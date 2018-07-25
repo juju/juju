@@ -298,7 +298,6 @@ func (env *environ) getHardwareCharacteristics(
 
 	archStr := container.Arch()
 	if archStr == "unknown" || !arch.IsSupportedArch(archStr) {
-		// TODO(ericsnow) This special-case should be improved.
 		archStr = env.server.HostArch()
 	}
 	cores := uint64(container.CPUs())
