@@ -5,7 +5,6 @@ package lxd
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -32,11 +31,7 @@ func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (const
 	validator := constraints.NewValidator()
 
 	validator.RegisterUnsupported(unsupportedConstraints)
-
-	// TODO(natefinch): This is only correct so long as the lxd is running on
-	// the local machine.  If/when we support a remote lxd environment, we'll
-	// need to change this to match the arch of the remote machine.
-	validator.RegisterVocabulary(constraints.Arch, []string{arch.HostArch()})
+	validator.RegisterVocabulary(constraints.Arch, []string{env.server.HostArch()})
 
 	return validator, nil
 }

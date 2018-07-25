@@ -363,6 +363,18 @@ func (mr *MockServerMockRecorder) HasProfile(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasProfile", reflect.TypeOf((*MockServer)(nil).HasProfile), arg0)
 }
 
+// HostArch mocks base method
+func (m *MockServer) HostArch() string {
+	ret := m.ctrl.Call(m, "HostArch")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// HostArch indicates an expected call of HostArch
+func (mr *MockServerMockRecorder) HostArch() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HostArch", reflect.TypeOf((*MockServer)(nil).HostArch))
+}
+
 // IsClustered mocks base method
 func (m *MockServer) IsClustered() bool {
 	ret := m.ctrl.Call(m, "IsClustered")

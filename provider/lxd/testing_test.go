@@ -434,6 +434,7 @@ type StubClient struct {
 	StorageIsSupported bool
 	Volumes            map[string][]api.StorageVolume
 	ServerCert         string
+	ServerHostArch     string
 }
 
 func (conn *StubClient) FilterContainers(prefix string, statuses ...string) ([]lxd.Container, error) {
@@ -652,6 +653,11 @@ func (conn *StubClient) CreateProfileWithConfig(name string, cfg map[string]stri
 func (conn *StubClient) ServerCertificate() string {
 	conn.AddCall("ServerCertificate")
 	return conn.ServerCert
+}
+
+func (conn *StubClient) HostArch() string {
+	conn.AddCall("HostArch")
+	return conn.ServerHostArch
 }
 
 func (conn *StubClient) EnableHTTPSListener() error {

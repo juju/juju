@@ -64,6 +64,7 @@ type Server interface {
 	UpdateStoragePoolVolume(pool string, volType string, name string, volume lxdapi.StorageVolumePut, ETag string) error
 	DeleteStoragePoolVolume(pool string, volType string, name string) (err error)
 	ServerCertificate() string
+	HostArch() string
 	EnableHTTPSListener() error
 	GetNICsFromProfile(profName string) (map[string]map[string]string, error)
 	IsClustered() bool

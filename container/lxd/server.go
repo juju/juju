@@ -34,6 +34,7 @@ type Server struct {
 	name              string
 	clustered         bool
 	serverCertificate string
+	hostArch          string
 
 	networkAPISupport bool
 	clusterAPISupport bool
@@ -93,12 +94,14 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 	name := info.Environment.ServerName
 	clustered := info.Environment.ServerClustered
 	serverCertificate := info.Environment.Certificate
+	hostArch := info.Environment.KernelArchitecture
 
 	return &Server{
 		ContainerServer:   svr,
 		name:              name,
 		clustered:         clustered,
 		serverCertificate: serverCertificate,
+		hostArch:          hostArch,
 		networkAPISupport: shared.StringInSlice("network", apiExt),
 		clusterAPISupport: shared.StringInSlice("clustering", apiExt),
 		storageAPISupport: shared.StringInSlice("storage", apiExt),
@@ -185,6 +188,11 @@ func (s *Server) CreateProfileWithConfig(name string, cfg map[string]string) err
 // ServerCertificate returns the current server environment certificate
 func (s *Server) ServerCertificate() string {
 	return s.serverCertificate
+}
+
+// HostArch returns the current host architecture
+func (s *Server) HostArch() string {
+	return s.hostArch
 }
 
 // IsLXDNotFound checks if an error from the LXD API indicates that a requested
