@@ -2880,10 +2880,10 @@ func (u *Unit) UpgradeSeriesStatus(statusType model.UpgradeSeriesStatusType) (mo
 }
 
 // UpgradeSeriesPrepareStatus sets the upgrade status of the units assigned machine.
-func (u *Unit) SetUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus) error {
+func (u *Unit) SetUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus, statusType model.UpgradeSeriesStatusType) error {
 	machine, err := u.machine()
 	if err != nil {
 		return err
 	}
-	return machine.SetUpgradeSeriesStatus(u.Name(), status)
+	return machine.SetUpgradeSeriesStatus(u.Name(), status, statusType)
 }

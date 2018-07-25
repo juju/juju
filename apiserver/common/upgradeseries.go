@@ -28,7 +28,7 @@ type UpgradeSeriesMachine interface {
 type UpgradeSeriesUnit interface {
 	AssignedMachineId() (string, error)
 	UpgradeSeriesStatus(model.UpgradeSeriesStatusType) (model.UnitSeriesUpgradeStatus, error)
-	SetUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus) error
+	SetUpgradeSeriesStatus(model.UnitSeriesUpgradeStatus, model.UpgradeSeriesStatusType) error
 }
 
 type UpgradeSeriesAPI struct {
@@ -117,42 +117,7 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesCompleteStatus(args params.Entities) (pa
 // If no upgrade is in progress an error is returned instead.
 func (u *UpgradeSeriesAPI) SetUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	u.logger.Tracef("Starting SetUpgradeSeriesStatus with %+v", args)
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Params)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-	for i, p := range args.Params {
-		//TODO[externalreality] refactor all of this, its being copied often.
-		tag, err := names.ParseUnitTag(p.Entity.Tag)
-		if err != nil {
-			result.Results[i].Error = ServerError(ErrPerm)
-			continue
-		}
-		if !canAccess(tag) {
-			result.Results[i].Error = ServerError(ErrPerm)
-			continue
-		}
-		unit, err := u.getUnit(tag)
-		if err != nil {
-			result.Results[i].Error = ServerError(err)
-			continue
-		}
-		status, err := model.ValidateUnitSeriesUpgradeStatus(p.Status)
-		if err != nil {
-			result.Results[i].Error = ServerError(err)
-			continue
-		}
-		err = unit.SetUpgradeSeriesStatus(status)
-		if err != nil {
-			result.Results[i].Error = ServerError(err)
-			continue
-		}
-	}
-
-	return result, nil
+	return u.setUpgradeSeriesStatus(args, model.PrepareStatus)
 }
 
 func (u *UpgradeSeriesAPI) getMachine(tag names.Tag) (UpgradeSeriesMachine, error) {
@@ -188,6 +153,44 @@ func NewExternalUpgradeSeriesAPI(
 	logger loggo.Logger,
 ) *UpgradeSeriesAPI {
 	return NewUpgradeSeriesAPI(backendShim{st}, resources, authorizer, accessMachine, accessUnit, logger)
+}
+
+func (u *UpgradeSeriesAPI) setUpgradeSeriesStatus(args params.SetUpgradeSeriesStatusParams, statusType model.UpgradeSeriesStatusType) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Params)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, p := range args.Params {
+		//TODO[externalreality] refactor all of this, its being copied often.
+		tag, err := names.ParseUnitTag(p.Entity.Tag)
+		if err != nil {
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = ServerError(err)
+			continue
+		}
+		status, err := model.ValidateUnitSeriesUpgradeStatus(p.Status)
+		if err != nil {
+			result.Results[i].Error = ServerError(err)
+			continue
+		}
+		err = unit.SetUpgradeSeriesStatus(status, statusType)
+		if err != nil {
+			result.Results[i].Error = ServerError(err)
+			continue
+		}
+	}
+	return result, nil
 }
 
 func (u *UpgradeSeriesAPI) upgradeSeriesStatus(args params.Entities, statusType model.UpgradeSeriesStatusType) (params.UpgradeSeriesStatusResults, error) {

@@ -1,4 +1,4 @@
-// Copyright 2018 Canonical Ltd.
+// Copyright Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state
@@ -26,10 +26,10 @@ func (s *MachineInternalSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&MachineInternalSuite{})
 
 func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsMachineAlive(c *gc.C) {
-	arbitraryId := "1"
+	arbitraryID := "1"
 	arbitraryData := &upgradeSeriesLockDoc{}
 	var found bool
-	for _, op := range createUpgradeSeriesLockTxnOps(arbitraryId, arbitraryData) {
+	for _, op := range createUpgradeSeriesLockTxnOps(arbitraryID, arbitraryData) {
 		assertVal, ok := op.Assert.(bson.D)
 		if op.C == machinesC && ok && assertVal.Map()["life"] == Alive {
 			found = true
@@ -40,63 +40,65 @@ func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsMachineAlive(c *gc
 }
 
 func (s *MachineInternalSuite) TestCreateUpgradeLockTxnAssertsDocDoesNOTExist(c *gc.C) {
-	arbitraryId := "1"
+	arbitraryID := "1"
 	arbitraryData := &upgradeSeriesLockDoc{}
 	expectedOp := txn.Op{
 		C:      machineUpgradeSeriesLocksC,
-		Id:     arbitraryId,
+		Id:     arbitraryID,
 		Assert: txn.DocMissing,
 		Insert: arbitraryData,
 	}
-	assertConstainsOP(c, expectedOp, createUpgradeSeriesLockTxnOps(arbitraryId, arbitraryData))
+	assertConstainsOP(c, expectedOp, createUpgradeSeriesLockTxnOps(arbitraryID, arbitraryData))
 }
 
 func (s *MachineInternalSuite) TestRemoveUpgradeLockTxnAssertsDocExists(c *gc.C) {
-	arbitraryId := "1"
+	arbitraryID := "1"
 	expectedOp := txn.Op{
 		C:      machineUpgradeSeriesLocksC,
-		Id:     arbitraryId,
+		Id:     arbitraryID,
 		Assert: txn.DocExists,
 		Remove: true,
 	}
-	assertConstainsOP(c, expectedOp, removeUpgradeSeriesLockTxnOps(arbitraryId))
+	assertConstainsOP(c, expectedOp, removeUpgradeSeriesLockTxnOps(arbitraryID))
 }
 
 func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsBuildsCorrectUnitTransaction(c *gc.C) {
-	arbitaryMachineId := "id"
-	arbitaryUnitName := "application/0"
-	arbitaryStatus := model.UnitStarted
+	arbitraryMachineID := "id"
+	arbitraryUnitName := "application/0"
+	arbitraryStatus := model.UnitStarted
+	arbitraryStatusType := model.PrepareStatus
 	arbitraryUpdateTime := bson.Now()
 	expectedOp := txn.Op{
 		C:  machineUpgradeSeriesLocksC,
-		Id: arbitaryMachineId,
+		Id: arbitraryMachineID,
 		Assert: bson.D{{"$and", []bson.D{
 			{{"prepare-units", bson.D{{"$exists", true}}}},
 			{{"prepare-units.0.id", "application/0"}},
-			{{"prepare-units.0.status", bson.D{{"$ne", arbitaryStatus}}}}}}},
+			{{"prepare-units.0.status", bson.D{{"$ne", arbitraryStatus}}}}}}},
 		Update: bson.D{
-			{"$set", bson.D{{"prepare-units.0.status", arbitaryStatus}, {"prepare-units.0.timestamp", arbitraryUpdateTime}}}},
+			{"$set", bson.D{{"prepare-units.0.status", arbitraryStatus}, {"prepare-units.0.timestamp", arbitraryUpdateTime}}}},
 	}
 
-	actualOps := setUpgradeSeriesTxnOps(arbitaryMachineId, arbitaryUnitName, 0, arbitaryStatus, arbitraryUpdateTime)
+	actualOps := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, 0, arbitraryStatus, arbitraryStatusType, arbitraryUpdateTime)
 	expectedOpSt := fmt.Sprint(expectedOp.Update)
 	actualOpSt := fmt.Sprint(actualOps[1].Update)
 	c.Assert(actualOpSt, gc.Equals, expectedOpSt)
 }
 
 func (s *MachineInternalSuite) TestsetUpgradeSeriesTxnOpsShouldAssertAssignedMachineIsAlive(c *gc.C) {
-	arbitaryMachineId := "id"
-	arbitaryStatus := model.UnitStarted
-	arbitaryUnitName := "application/0"
-	arbitaryUnitIndex := 0
+	arbitraryMachineID := "id"
+	arbitraryStatus := model.UnitStarted
+	arbitraryStatusType := model.PrepareStatus
+	arbitraryUnitName := "application/0"
+	arbitraryUnitIndex := 0
 	arbitraryUpdateTime := bson.Now()
 	expectedOp := txn.Op{
 		C:      machinesC,
-		Id:     arbitaryMachineId,
+		Id:     arbitraryMachineID,
 		Assert: isAliveDoc,
 	}
 
-	actualOps := setUpgradeSeriesTxnOps(arbitaryMachineId, arbitaryUnitName, arbitaryUnitIndex, arbitaryStatus, arbitraryUpdateTime)
+	actualOps := setUpgradeSeriesTxnOps(arbitraryMachineID, arbitraryUnitName, arbitraryUnitIndex, arbitraryStatus, arbitraryStatusType, arbitraryUpdateTime)
 	expectedOpSt := fmt.Sprint(expectedOp)
 	actualOpSt := fmt.Sprint(actualOps[0])
 	c.Assert(actualOpSt, gc.Equals, expectedOpSt)
