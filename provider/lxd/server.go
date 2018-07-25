@@ -88,7 +88,7 @@ type ServerFactory interface {
 	RemoteServer(environs.CloudSpec) (Server, error)
 
 	// InsecureRemoteServer creates a new server that connect to a remote lxd
-	// server in a insecure mannor.
+	// server in a insecure manner.
 	// If the cloudSpec endpoint is nil or empty, it will assume that you want
 	// to connection to a local server and will instead use that one.
 	InsecureRemoteServer(environs.CloudSpec) (Server, error)
@@ -144,7 +144,7 @@ func (s *serverFactory) LocalServer() (Server, error) {
 	}
 
 	// initialize a new local server
-	svr, profile, err := s.initLocalServer()
+	svr, err := s.initLocalServer()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -152,7 +152,7 @@ func (s *serverFactory) LocalServer() (Server, error) {
 	// bootstrap a new local server, this ensures that all connections to and
 	// from the local server are connected and setup correctly.
 	var hostName string
-	svr, hostName, err = s.bootstrapLocalServer(svr, profile)
+	svr, hostName, err = s.bootstrapLocalServer(svr)
 	if err == nil {
 		s.localServer = svr
 		s.localServerAddress = hostName
@@ -220,46 +220,22 @@ func (s *serverFactory) InsecureRemoteServer(spec environs.CloudSpec) (Server, e
 	return svr, errors.Trace(err)
 }
 
-type apiProfile struct {
-	Profile *lxdapi.Profile
-	ETag    string
-}
-
-func (s *serverFactory) initLocalServer() (Server, apiProfile, error) {
+func (s *serverFactory) initLocalServer() (Server, error) {
 	svr, err := s.newLocalServerFunc()
 	if err != nil {
-		return nil, apiProfile{}, errors.Trace(hoistLocalConnectErr(err))
-	}
-
-	// We need to get a default profile, so that the local bridge name
-	// can be discovered correctly to then get the host address.
-	defaultProfile, profileETag, err := svr.GetProfile("default")
-	if err != nil {
-		return nil, apiProfile{}, errors.Trace(err)
-	}
-
-	// Ensure that the default profile has a network device, with a valid
-	// parent network.
-	//
-	// TODO (manadart 2018-07-18) Move this to just prior to instance creation.
-	// That is the only place it is relevant.
-	if err := svr.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
-		return nil, apiProfile{}, errors.Trace(err)
+		return nil, errors.Trace(hoistLocalConnectErr(err))
 	}
 
 	// LXD itself reports the host:ports that it listens on.
 	// Cross-check the address we have with the values reported by LXD.
-	err = svr.EnableHTTPSListener()
-	if err != nil {
-		return nil, apiProfile{}, errors.Annotate(err, "enabling HTTPS listener")
+	if err := svr.EnableHTTPSListener(); err != nil {
+		return nil, errors.Annotate(err, "enabling HTTPS listener")
 	}
-	return svr, apiProfile{
-		Profile: defaultProfile,
-		ETag:    profileETag,
-	}, nil
+
+	return svr, nil
 }
 
-func (s *serverFactory) bootstrapLocalServer(svr Server, profile apiProfile) (Server, string, error) {
+func (s *serverFactory) bootstrapLocalServer(svr Server) (Server, string, error) {
 	// select the server bridge name, so that we can then try and select
 	// the hostAddress from the current interfaceAddress
 	bridgeName := svr.LocalBridgeName()
@@ -299,7 +275,7 @@ func (s *serverFactory) bootstrapLocalServer(svr Server, profile apiProfile) (Se
 			// Requesting a NewLocalServer forces a new connection, so that when
 			// we GetConnectionInfo it gets the required addresses.
 			// Note: this modifies the outer svr server.
-			if svr, profile, err = s.initLocalServer(); err != nil {
+			if svr, err = s.initLocalServer(); err != nil {
 				return errors.Trace(err)
 			}
 
@@ -317,7 +293,7 @@ func (s *serverFactory) bootstrapLocalServer(svr Server, profile apiProfile) (Se
 
 	// If the server is not a simple simple stream server, don't check the
 	// API version, but do report for other scenarios
-	if err := s.validateServer(svr, profile); err != nil {
+	if err := s.validateServer(svr); err != nil {
 		return nil, "", errors.Trace(err)
 	}
 
@@ -325,43 +301,29 @@ func (s *serverFactory) bootstrapLocalServer(svr Server, profile apiProfile) (Se
 }
 
 func (s *serverFactory) bootstrapRemoteServer(svr Server) error {
-	// We need to get a default profile, so that the local bridge name
-	// can be discovered correctly to then get the host address.
-	defaultProfile, profileETag, err := svr.GetProfile("default")
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Ensure that the default profile has a network device, with a valid
-	// parent network.
-	//
-	// TODO (manadart 2018-07-18) Move this to just prior to instance creation.
-	// That is the only place it is relevant.
-	if err := svr.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := s.validateServer(svr, apiProfile{
-		Profile: defaultProfile,
-		ETag:    profileETag,
-	}); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+	return errors.Trace(s.validateServer(svr))
 }
 
-func (s *serverFactory) validateServer(svr Server, profile apiProfile) error {
+func (s *serverFactory) validateServer(svr Server) error {
 	// If the storage API is supported, let's make sure the LXD has a
 	// default pool; we'll just use dir backend for now.
 	if svr.StorageSupported() {
-		if err := svr.EnsureDefaultStorage(profile.Profile, profile.ETag); err != nil {
+		profile, eTag, err := svr.GetProfile("default")
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := svr.EnsureDefaultStorage(profile, eTag); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
 	// One final request, to make sure we grab the server information for
-	// validating the api version
+	// validating the api version.
+	// TODO (manadart 2018-07-24) We could set the API version inside server
+	// itself - we already call GetServer, and this would save us a request.
+	// In any case, even debug logging is a little spammy for repeatedly
+	// checking the version.
+	// We might consider limiting it to once-per-factory-per-remote/local.
 	serverInfo, _, err := svr.GetServer()
 	if err != nil {
 		return errors.Trace(err)
@@ -372,7 +334,7 @@ func (s *serverFactory) validateServer(svr Server, profile apiProfile) error {
 		logger.Warningf(msg)
 		logger.Warningf("trying to use unsupported LXD API version %q", apiVersion)
 	} else {
-		logger.Infof("using LXD API version %q", apiVersion)
+		logger.Debugf("using LXD API version %q", apiVersion)
 	}
 
 	return nil
