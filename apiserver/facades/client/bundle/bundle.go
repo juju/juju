@@ -213,12 +213,13 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		var newApplication *charm.ApplicationSpec
 		if application.Subordinate() {
 			newApplication = &charm.ApplicationSpec{
-				Charm:            application.CharmURL(),
-				Series:           application.Series(),
-				Expose:           application.Exposed(),
-				Options:          application.CharmConfig(),
-				Annotations:      application.Annotations(),
-				EndpointBindings: application.EndpointBindings(),
+				Charm:       application.CharmURL(),
+				Expose:      application.Exposed(),
+				Options:     application.CharmConfig(),
+				Annotations: application.Annotations(),
+			}
+			if result := b.constraints(application.Constraints()); len(result) != 0 {
+				newApplication.Constraints = strings.Join(result, " ")
 			}
 		} else {
 			ut := []string{}
@@ -227,14 +228,15 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 			}
 
 			newApplication = &charm.ApplicationSpec{
-				Charm:            application.CharmURL(),
-				Series:           application.Series(),
-				NumUnits:         len(application.Units()),
-				To:               ut,
-				Expose:           application.Exposed(),
-				Options:          application.CharmConfig(),
-				Annotations:      application.Annotations(),
-				EndpointBindings: application.EndpointBindings(),
+				Charm:       application.CharmURL(),
+				NumUnits:    len(application.Units()),
+				To:          ut,
+				Expose:      application.Exposed(),
+				Options:     application.CharmConfig(),
+				Annotations: application.Annotations(),
+			}
+			if result := b.constraints(application.Constraints()); len(result) != 0 {
+				newApplication.Constraints = strings.Join(result, " ")
 			}
 		}
 
@@ -253,8 +255,8 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		data.Machines[machine.Id()] = newMachine
 	}
 
-	endpointRelation := []string{}
 	for _, relation := range model.Relations() {
+		endpointRelation := []string{}
 		for _, endpoint := range relation.Endpoints() {
 			// skipping the 'peer' role which is not of concern in exporting the current model configuration.
 			if endpoint.Role() == "peer" {
@@ -262,8 +264,10 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 			}
 			endpointRelation = append(endpointRelation, endpoint.ApplicationName()+":"+endpoint.Name())
 		}
+		if len(endpointRelation) != 0 {
+			data.Relations = append(data.Relations, endpointRelation)
+		}
 	}
-	data.Relations = append(data.Relations, endpointRelation)
 
 	return data, nil
 }

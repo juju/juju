@@ -306,18 +306,15 @@ func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
 
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedResult := params.StringResult{nil, "applications:\n  " +
-		"ubuntu:\n    " +
-		"charm: cs:trusty/ubuntu\n    " +
-		"series: trusty\n    " +
-		"num_units: 1\n    " +
-		"to:\n    " +
-		"- \"0\"\n    " +
-		"options:\n      " +
-		"key: value\n" +
-		"series: xenial\n" +
-		"relations:\n" +
-		"- []\n"}
+	expectedResult := params.StringResult{nil, "applications:\n" +
+		"  ubuntu:\n" +
+		"    charm: cs:trusty/ubuntu\n" +
+		"    num_units: 1\n" +
+		"    to:\n" +
+		"    - \"0\"\n" +
+		"    options:\n" +
+		"      key: value\n" +
+		"series: xenial\n"}
 
 	c.Assert(result, gc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
@@ -470,16 +467,17 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 		"    num_units: 2\n" +
 		"    to:\n" +
 		"    - \"0\"\n" +
-		"    - \"1\"\nmachines:\n" +
+		"    - \"1\"\n" +
+		"machines:\n" +
 		"  \"0\": {}\n" +
 		"  \"1\": {}\n" +
 		"series: xenial\n" +
 		"relations:\n" +
 		"- - wordpress:db\n" +
 		"  - mysql:mysql\n" +
-		"  - wordpress:logging\n" +
+		"- - wordpress:logging\n" +
 		"  - logging:logging\n" +
-		"  - mysql:logging\n" +
+		"- - mysql:logging\n" +
 		"  - logging:logging\n"}
 
 	c.Assert(result, gc.Equals, expectedResult)
@@ -528,15 +526,10 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 	expectedResult := params.StringResult{nil, "applications:\n" +
 		"  magic:\n" +
 		"    charm: cs:zesty/magic\n" +
-		"    series: zesty\n" +
 		"    expose: true\n" +
 		"    options:\n" +
 		"      key: value\n" +
-		"    bindings:\n" +
-		"      rel-name: some-space\n" +
-		"series: xenial\n" +
-		"relations:\n" +
-		"- []\n"}
+		"series: xenial\n"}
 
 	c.Assert(result, gc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
