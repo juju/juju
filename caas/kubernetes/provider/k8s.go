@@ -529,8 +529,10 @@ func (k *kubernetesClient) EnsureService(
 	if err != nil {
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
-	if err = k.configureDevices(unitSpec, params.Devices); err != nil {
-		return errors.Annotatef(err, "configuring devices for %s", appName)
+	if len(params.Devices) > 0 {
+		if err = k.configureDevices(unitSpec, params.Devices); err != nil {
+			return errors.Annotatef(err, "configuring devices for %s", appName)
+		}
 	}
 
 	for _, c := range params.PodSpec.Containers {
@@ -641,7 +643,9 @@ func (k *kubernetesClient) configureDevices(unitSpec *unitSpec, devices []device
 	if err != nil {
 		return err
 	}
-	unitSpec.Pod.NodeSelector = buildNodeSelector(nodeLabel)
+	if nodeLabel != "" {
+		unitSpec.Pod.NodeSelector = buildNodeSelector(nodeLabel)
+	}
 	return nil
 }
 
