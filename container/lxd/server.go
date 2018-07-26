@@ -5,6 +5,7 @@ package lxd
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/arch"
 	"github.com/juju/utils/os"
 	"github.com/lxc/lxd/client"
 	"github.com/lxc/lxd/shared"
@@ -34,6 +35,7 @@ type Server struct {
 	name              string
 	clustered         bool
 	serverCertificate string
+	hostArch          string
 
 	networkAPISupport bool
 	clusterAPISupport bool
@@ -93,19 +95,23 @@ func NewServer(svr lxd.ContainerServer) (*Server, error) {
 	name := info.Environment.ServerName
 	clustered := info.Environment.ServerClustered
 	serverCertificate := info.Environment.Certificate
-	if clustered {
-		logger.Debugf("creating LXD server for cluster node %q", name)
-	}
+	hostArch := arch.NormaliseArch(info.Environment.KernelArchitecture)
 
 	return &Server{
 		ContainerServer:   svr,
 		name:              name,
 		clustered:         clustered,
 		serverCertificate: serverCertificate,
+		hostArch:          hostArch,
 		networkAPISupport: shared.StringInSlice("network", apiExt),
 		clusterAPISupport: shared.StringInSlice("clustering", apiExt),
 		storageAPISupport: shared.StringInSlice("storage", apiExt),
 	}, nil
+}
+
+// Name returns the name of this LXD server.
+func (s *Server) Name() string {
+	return s.name
 }
 
 // UpdateServerConfig updates the server configuration with the input values.
@@ -183,6 +189,11 @@ func (s *Server) CreateProfileWithConfig(name string, cfg map[string]string) err
 // ServerCertificate returns the current server environment certificate
 func (s *Server) ServerCertificate() string {
 	return s.serverCertificate
+}
+
+// HostArch returns the current host architecture
+func (s *Server) HostArch() string {
+	return s.hostArch
 }
 
 // IsLXDNotFound checks if an error from the LXD API indicates that a requested

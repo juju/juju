@@ -252,7 +252,7 @@ func (s *ebsSuite) assertCreateVolumes(c *gc.C, vs storage.VolumeSource, instanc
 	c.Assert(ec2Vols.Volumes[4].Size, gc.Equals, 50)
 }
 
-var deleteSecurityGroupForTestFunc = func(inst ec2.SecurityGroupCleaner, group awsec2.SecurityGroup, _ clock.Clock) error {
+var deleteSecurityGroupForTestFunc = func(inst ec2.SecurityGroupCleaner, ctx context.ProviderCallContext, group awsec2.SecurityGroup, _ clock.Clock) error {
 	// With an exponential retry for deleting security groups,
 	// we never return from local live tests.
 	// No need to re-try in tests anyway - just call delete.

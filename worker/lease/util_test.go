@@ -4,7 +4,7 @@
 package lease_test
 
 import (
-	"fmt"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -45,10 +45,12 @@ func (Secretary) CheckDuration(duration time.Duration) error {
 
 // Store implements corelease.Store for testing purposes.
 type Store struct {
-	leases map[lease.Key]lease.Info
-	expect []call
-	failed string
-	done   chan struct{}
+	mu           sync.Mutex
+	leases       map[lease.Key]lease.Info
+	expect       []call
+	failed       chan error
+	runningCalls int
+	done         chan struct{}
 }
 
 // NewStore initializes and returns a new store configured to report
@@ -65,6 +67,7 @@ func NewStore(leases map[lease.Key]lease.Info, expect []call) *Store {
 		leases: leases,
 		expect: expect,
 		done:   done,
+		failed: make(chan error, 1000),
 	}
 }
 
@@ -74,8 +77,10 @@ func NewStore(leases map[lease.Key]lease.Info, expect []call) *Store {
 func (store *Store) Wait(c *gc.C) {
 	select {
 	case <-store.done:
-		if store.failed != "" {
-			c.Fatalf(store.failed)
+		select {
+		case err := <-store.failed:
+			c.Fatalf(err.Error())
+		default:
 		}
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("Store test took way too long")
@@ -84,6 +89,8 @@ func (store *Store) Wait(c *gc.C) {
 
 // Leases is part of the lease.Store interface.
 func (store *Store) Leases() map[lease.Key]lease.Info {
+	store.mu.Lock()
+	defer store.mu.Unlock()
 	result := make(map[lease.Key]lease.Info)
 	for k, v := range store.leases {
 		result[k] = v
@@ -91,21 +98,43 @@ func (store *Store) Leases() map[lease.Key]lease.Info {
 	return result
 }
 
+func (store *Store) closeIfEmpty() {
+	// This must be called with the lock held.
+	if store.runningCalls > 1 {
+		// The last one to leave should turn out the lights.
+		return
+	}
+	if len(store.expect) == 0 || len(store.failed) > 0 {
+		close(store.done)
+	}
+}
+
 // call implements the bulk of the lease.Store interface.
 func (store *Store) call(method string, args []interface{}) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	store.runningCalls++
+	defer func() {
+		store.runningCalls--
+	}()
+
 	select {
 	case <-store.done:
-		return errors.Errorf("Store method called after test complete: %s %v", method, args)
+		err := errors.Errorf("Store method called after test complete: %s %v", method, args)
+		store.failed <- err
+		return err
 	default:
-		defer func() {
-			if len(store.expect) == 0 || store.failed != "" {
-				close(store.done)
-			}
-		}()
 	}
+	defer store.closeIfEmpty()
 
 	expect := store.expect[0]
 	store.expect = store.expect[1:]
+	if expect.parallelCallback != nil {
+		store.mu.Unlock()
+		expect.parallelCallback(&store.mu, store.leases)
+		store.mu.Lock()
+	}
 	if expect.callback != nil {
 		expect.callback(store.leases)
 	}
@@ -115,10 +144,11 @@ func (store *Store) call(method string, args []interface{}) error {
 			return expect.err
 		}
 	}
-	store.failed = fmt.Sprintf("unexpected Store call:\n  actual: %s %v\n  expect: %s %v",
+	err := errors.Errorf("unexpected Store call:\n  actual: %s %v\n  expect: %s %v",
 		method, args, expect.method, expect.args,
 	)
-	return errors.New(store.failed)
+	store.failed <- err
+	return err
 }
 
 // ClaimLease is part of the corelease.Store interface.
@@ -157,6 +187,12 @@ type call struct {
 	// modification, if desired. Otherwise you can use it to, e.g., assert
 	// clock time.
 	callback func(leases map[lease.Key]lease.Info)
+
+	// parallelCallback is like callback, but is also passed the
+	// lock. It's for testing calls that happen in parallel, where one
+	// might take longer than another. Any update to the leases dict
+	// must only happen while the lock is held.
+	parallelCallback func(mu *sync.Mutex, leases map[lease.Key]lease.Info)
 }
 
 func key(args ...string) lease.Key {

@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	mgoutils "github.com/juju/juju/mongo/utils"
@@ -2867,4 +2868,22 @@ func (u *Unit) GetSpaceForBinding(bindingName string) (string, error) {
 		return "", errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", bindingName))
 	}
 	return boundSpace, nil
+}
+
+// UpgradeSeriesStatus returns the upgrade status of the units assigned machine.
+func (u *Unit) UpgradeSeriesStatus() (model.UnitSeriesUpgradeStatus, error) {
+	machine, err := u.machine()
+	if err != nil {
+		return "", err
+	}
+	return machine.UpgradeSeriesStatus(u.Name())
+}
+
+// UpgradeSeriesStatus sets the upgrade status of the units assigned machine.
+func (u *Unit) SetUpgradeSeriesStatus(status model.UnitSeriesUpgradeStatus) error {
+	machine, err := u.machine()
+	if err != nil {
+		return err
+	}
+	return machine.SetUpgradeSeriesStatus(u.Name(), status)
 }

@@ -16,7 +16,7 @@ var _ environs.InstanceTypesFetcher = (*environ)(nil)
 
 // InstanceTypes implements InstanceTypesFetcher
 func (e *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
-	iTypes, err := e.supportedInstanceTypes()
+	iTypes, err := e.supportedInstanceTypes(ctx)
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}

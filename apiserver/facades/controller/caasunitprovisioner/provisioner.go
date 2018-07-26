@@ -453,8 +453,8 @@ func (a *Facade) updateStatus(params params.ApplicationUnitParams) (
 	case status.Allocating:
 		// The container runtime has decided to restart the pod.
 		agentStatus = &status.StatusInfo{
-			Status: status.Allocating,
-			//Message: params.Info,
+			Status:  status.Allocating,
+			Message: params.Info,
 		}
 		unitStatus = &status.StatusInfo{
 			Status:  status.Waiting,
@@ -754,15 +754,25 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 					return errors.Trace(err)
 				}
 				fsInfo := infos[0]
-				filesystemUpdates[fs.FilesystemTag().String()] = filesystemInfo{
-					unitTag:      unitTag,
-					providerId:   unitParams.ProviderId,
-					mountPoint:   fsInfo.MountPoint,
-					readOnly:     fsInfo.ReadOnly,
-					size:         fsInfo.Size,
-					filesystemId: fsInfo.FilesystemId,
+
+				// k8s reports provisioned info even when the volume is not ready.
+				// Only update state when volume is created so Juju doesn't think
+				// the volume is active when it's not.
+				if fsInfo.Status != status.Pending.String() {
+					filesystemUpdates[fs.FilesystemTag().String()] = filesystemInfo{
+						unitTag:      unitTag,
+						providerId:   unitParams.ProviderId,
+						mountPoint:   fsInfo.MountPoint,
+						readOnly:     fsInfo.ReadOnly,
+						size:         fsInfo.Size,
+						filesystemId: fsInfo.FilesystemId,
+					}
 				}
-				filesystemStatus[fs.FilesystemTag().String()] = status.StatusInfo{Status: status.Attached}
+				filesystemStatus[fs.FilesystemTag().String()] = status.StatusInfo{
+					Status:  status.Status(fsInfo.Status),
+					Message: fsInfo.Info,
+					Data:    fsInfo.Data,
+				}
 				infos = infos[1:]
 				if len(infos) == 0 {
 					break
@@ -933,8 +943,10 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 		}
 		now := a.clock.Now()
 		fs.SetStatus(status.StatusInfo{
-			Status: fsStatus.Status,
-			Since:  &now,
+			Status:  fsStatus.Status,
+			Message: fsStatus.Message,
+			Data:    fsStatus.Data,
+			Since:   &now,
 		})
 	}
 

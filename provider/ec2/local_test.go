@@ -545,7 +545,7 @@ func (t *localServerSuite) TestDestroyErr(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 
 	msg := "terminate instances error"
-	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ctx context.ProviderCallContext, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
 		return nil, errors.New(msg)
 	})
 
@@ -567,7 +567,7 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	inst1, _ := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	inst := t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
-	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ctx context.ProviderCallContext, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
 		// Terminate the one destined for termination and
 		// err out to ensure that one instance will be terminated, the other - not.
 		_, err = ec2inst.TerminateInstances([]string{string(inst1.Id())})
@@ -593,12 +593,12 @@ func (t *localServerSuite) TestInstanceSecurityGroupsWitheInstanceStatusFilter(c
 		ids[i] = one.Id()
 	}
 
-	groupsNoInstanceFilter, err := ec2.InstanceSecurityGroups(env, ids)
+	groupsNoInstanceFilter, err := ec2.InstanceSecurityGroups(env, t.callCtx, ids)
 	c.Assert(err, jc.ErrorIsNil)
 	// get all security groups for test instances
 	c.Assert(groupsNoInstanceFilter, gc.HasLen, 2)
 
-	groupsFilteredForTerminatedInstances, err := ec2.InstanceSecurityGroups(env, ids, "shutting-down", "terminated")
+	groupsFilteredForTerminatedInstances, err := ec2.InstanceSecurityGroups(env, t.callCtx, ids, "shutting-down", "terminated")
 	c.Assert(err, jc.ErrorIsNil)
 	// get all security groups for terminated test instances
 	c.Assert(groupsFilteredForTerminatedInstances, gc.HasLen, 0)
@@ -608,7 +608,7 @@ func (t *localServerSuite) TestDestroyControllerModelDeleteSecurityGroupInsisten
 	env := t.prepareAndBootstrap(c)
 	msg := "destroy security group error"
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(
-		ec2.SecurityGroupCleaner, amzec2.SecurityGroup, clock.Clock,
+		ec2.SecurityGroupCleaner, context.ProviderCallContext, amzec2.SecurityGroup, clock.Clock,
 	) error {
 		return errors.New(msg)
 	})
@@ -626,7 +626,7 @@ func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyE
 
 	msg := "destroy security group error"
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(
-		ec2.SecurityGroupCleaner, amzec2.SecurityGroup, clock.Clock,
+		ec2.SecurityGroupCleaner, context.ProviderCallContext, amzec2.SecurityGroup, clock.Clock,
 	) error {
 		return errors.New(msg)
 	})
@@ -1109,7 +1109,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneAllNoDefaultSubnet(c *gc.C)
 func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, runInstancesError *amzec2.Error) {
 	env := t.prepareAndBootstrap(c)
 
-	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (*amzec2.RunInstancesResp, error) {
+	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ctx context.ProviderCallContext, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (*amzec2.RunInstancesResp, error) {
 		return nil, runInstancesError
 	})
 
@@ -1314,12 +1314,12 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 	var azArgs []string
 	realRunInstances := *ec2.RunInstances
 
-	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (*amzec2.RunInstancesResp, error) {
+	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ctx context.ProviderCallContext, ri *amzec2.RunInstances, c environs.StatusCallbackFunc) (*amzec2.RunInstancesResp, error) {
 		azArgs = append(azArgs, ri.AvailZone)
 		if len(azArgs) == 1 {
 			return nil, runInstancesError
 		}
-		return realRunInstances(e, ri, fakeCallback)
+		return realRunInstances(e, ctx, ri, fakeCallback)
 	})
 
 	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID}
@@ -1819,10 +1819,10 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerInsts, gc.HasLen, 1)
 
-	controllerVolumes, err := ec2.AllModelVolumes(controllerEnv)
+	controllerVolumes, err := ec2.AllModelVolumes(controllerEnv, s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerGroups, err := ec2.AllModelGroups(controllerEnv)
+	controllerGroups, err := ec2.AllModelGroups(controllerEnv, s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a hosted model environment with an instance and a volume.
@@ -1862,12 +1862,12 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	c.Assert(volumeResults, gc.HasLen, 1)
 	c.Assert(volumeResults[0].Error, jc.ErrorIsNil)
 
-	modelVolumes, err := ec2.AllModelVolumes(env)
+	modelVolumes, err := ec2.AllModelVolumes(env, s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	allVolumes := append([]string{}, controllerVolumes...)
 	allVolumes = append(allVolumes, modelVolumes...)
 
-	modelGroups, err := ec2.AllModelGroups(env)
+	modelGroups, err := ec2.AllModelGroups(env, s.callCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	allGroups := append([]string{}, controllerGroups...)
 	allGroups = append(allGroups, modelGroups...)

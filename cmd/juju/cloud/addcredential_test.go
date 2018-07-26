@@ -461,6 +461,35 @@ func (s *addCredentialSuite) TestAddMAASCredential(c *gc.C) {
 	})
 }
 
+func (s *addCredentialSuite) TestAddGCEFileCredentials(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{jujucloud.JSONFileAuthType}
+	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
+		jujucloud.JSONFileAuthType: {
+			{
+				"file",
+				jujucloud.CredentialAttr{
+					Description: "path to the credential file",
+					Optional:    false,
+					FilePath:    true,
+				},
+			},
+		},
+	}
+	sourceFile := s.createTestCredentialDataWithAuthType(c, fmt.Sprintf("%v", jujucloud.JSONFileAuthType))
+	stdin := strings.NewReader(fmt.Sprintf("blah\n%s\n", sourceFile))
+	ctx, err := s.run(c, stdin, "somecloud")
+	c.Assert(err, jc.ErrorIsNil)
+	expected := `
+Enter credential name: 
+Using auth-type "jsonfile".
+
+Enter path to the credential file: 
+Credential "blah" added locally for cloud "somecloud".
+
+`[1:]
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expected)
+}
+
 func (s *addCredentialSuite) TestShouldFinalizeCredentialWithEnvironProvider(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

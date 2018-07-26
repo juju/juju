@@ -4836,7 +4836,8 @@ func (s *StatusSuite) TestFormatTabularCAASModel(c *gc.C) {
 							Current: status.Allocating,
 						},
 						WorkloadStatusInfo: statusInfoContents{
-							Current: status.Active,
+							Current: status.Error,
+							Message: "no storage",
 						},
 					},
 					"foo/1": {
@@ -4864,7 +4865,7 @@ App  Version  Status  Scale  Charm  Store  Rev  OS  Address    Charm version  No
 foo                     1/2                  0      54.32.1.2                 
 
 Unit   Workload  Agent       Address   Ports   Message
-foo/0  active    allocating                    
+foo/0  error     allocating                    no storage
 foo/1  active    running     10.0.0.1  80/TCP  
 `[1:])
 }

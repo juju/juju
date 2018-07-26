@@ -579,7 +579,8 @@ func (s *WorkerSuite) assertUnitChange(c *gc.C, reported, expected status.Status
 				{ProviderId: "u1", Address: "10.0.0.1", Ports: []string(nil), Status: expected.String(),
 					FilesystemInfo: []params.KubernetesFilesystemInfo{
 						{StorageName: "database", MountPoint: "/path-to-here", ReadOnly: true,
-							FilesystemId: "fs-id", Size: 100, Pool: ""},
+							FilesystemId: "fs-id", Size: 100, Pool: "",
+							Status: "attaching", Info: "not ready"},
 					}},
 			},
 		},

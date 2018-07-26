@@ -261,9 +261,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnits(c *gc.C) {
 
 	units := []params.ApplicationUnitParams{
 		{ProviderId: "uuid", Address: "address", Ports: []string{"port"},
-			Status: "running", Info: "message"},
+			Status: "allocating", Info: ""},
 		{ProviderId: "another-uuid", Address: "another-address", Ports: []string{"another-port"},
-			Status: "running", Info: "another message"},
+			Status: "allocating", Info: "another message"},
 		{ProviderId: "last-uuid", Address: "last-address", Ports: []string{"last-port"},
 			Status: "error", Info: "last message"},
 		{ProviderId: "new-uuid", Address: "new-address", Ports: []string{"new-port"},
@@ -298,15 +298,15 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnits(c *gc.C) {
 	s.st.application.units[0].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("uuid"),
 		Address:    strPtr("address"), Ports: &[]string{"port"},
-		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "message"},
-		AgentStatus: &status.StatusInfo{Status: status.Idle},
+		UnitStatus:  &status.StatusInfo{Status: status.Waiting, Message: "waiting for container"},
+		AgentStatus: &status.StatusInfo{Status: status.Allocating},
 	})
 	s.st.application.units[1].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[1].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
 		ProviderId: strPtr("another-uuid"),
 		Address:    strPtr("another-address"), Ports: &[]string{"another-port"},
-		UnitStatus:  &status.StatusInfo{Status: status.Active, Message: "another message"},
-		AgentStatus: &status.StatusInfo{Status: status.Idle},
+		UnitStatus:  &status.StatusInfo{Status: status.Waiting, Message: "waiting for container"},
+		AgentStatus: &status.StatusInfo{Status: status.Allocating, Message: "another message"},
 	})
 	s.st.application.units[2].(*mockUnit).CheckCallNames(c, "Life", "UpdateOperation")
 	s.st.application.units[2].(*mockUnit).CheckCall(c, 1, "UpdateOperation", state.UnitUpdateProperties{
@@ -373,13 +373,15 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 		{ProviderId: "uuid", Address: "address", Ports: []string{"port"},
 			Status: "running", Info: "message",
 			FilesystemInfo: []params.KubernetesFilesystemInfo{
-				{StorageName: "data", FilesystemId: "fs-id", Size: 100, MountPoint: "/path/to/here", ReadOnly: true},
+				{StorageName: "data", FilesystemId: "fs-id", Size: 100, MountPoint: "/path/to/here", ReadOnly: true,
+					Status: "pending", Info: "not ready"},
 			},
 		},
 		{ProviderId: "another-uuid", Address: "another-address", Ports: []string{"another-port"},
 			Status: "running", Info: "another message",
 			FilesystemInfo: []params.KubernetesFilesystemInfo{
-				{StorageName: "data", FilesystemId: "fs-id2", Size: 200, MountPoint: "/path/to/there", ReadOnly: true},
+				{StorageName: "data", FilesystemId: "fs-id2", Size: 200, MountPoint: "/path/to/there", ReadOnly: true,
+					Status: "attached", Info: "ready"},
 			},
 		},
 	}
@@ -413,7 +415,6 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 	s.storage.CheckCallNames(c,
 		"UnitStorageAttachments", "UnitStorageAttachments", "StorageInstance",
 		"UnitStorageAttachments", "StorageInstance", "Filesystem", "SetFilesystemInfo", "SetFilesystemAttachmentInfo",
-		"Filesystem", "SetFilesystemInfo", "SetFilesystemAttachmentInfo",
 		"Filesystem", "SetStatus", "Filesystem", "SetStatus", "Filesystem", "SetStatus")
 	s.storage.CheckCall(c, 0, "UnitStorageAttachments", names.NewUnitTag("gitlab/2"))
 	s.storage.CheckCall(c, 1, "UnitStorageAttachments", names.NewUnitTag("gitlab/0"))
@@ -422,41 +423,25 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 	s.storage.CheckCall(c, 4, "StorageInstance", names.NewStorageTag("data/1"))
 
 	s.storage.CheckCall(c, 6, "SetFilesystemInfo",
-		names.NewFilesystemTag("gitlab/0/0"),
-		state.FilesystemInfo{
-			Size:         100,
-			FilesystemId: "fs-id",
-		})
-	s.storage.CheckCall(c, 7, "SetFilesystemAttachmentInfo",
-		names.NewUnitTag("gitlab/0"), names.NewFilesystemTag("gitlab/0/0"),
-		state.FilesystemAttachmentInfo{
-			MountPoint: "/path/to/here",
-			ReadOnly:   true,
-		})
-	s.storage.CheckCall(c, 9, "SetFilesystemInfo",
 		names.NewFilesystemTag("gitlab/1/0"),
 		state.FilesystemInfo{
 			Size:         200,
 			FilesystemId: "fs-id2",
 		})
-	s.storage.CheckCall(c, 10, "SetFilesystemAttachmentInfo",
+	s.storage.CheckCall(c, 7, "SetFilesystemAttachmentInfo",
 		names.NewUnitTag("gitlab/1"), names.NewFilesystemTag("gitlab/1/0"),
 		state.FilesystemAttachmentInfo{
 			MountPoint: "/path/to/there",
 			ReadOnly:   true,
 		})
 	now := s.clock.Now()
-	s.storage.CheckCall(c, 12, "SetStatus",
+	s.storage.CheckCall(c, 11, "SetStatus",
 		status.StatusInfo{
-			Status: status.Attached,
-			Since:  &now,
+			Status:  status.Attached,
+			Message: "ready",
+			Since:   &now,
 		})
-	s.storage.CheckCall(c, 14, "SetStatus",
-		status.StatusInfo{
-			Status: status.Attached,
-			Since:  &now,
-		})
-	s.storage.CheckCall(c, 16, "SetStatus",
+	s.storage.CheckCall(c, 13, "SetStatus",
 		status.StatusInfo{
 			Status: status.Detached,
 			Since:  &now,

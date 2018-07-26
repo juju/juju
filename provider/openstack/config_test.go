@@ -207,7 +207,7 @@ var configTests = []configTest{
 	}, {
 		summary: "network",
 		config: requiredConfig.Merge(testing.Attrs{
-			"network": "a-network-label",
+			NetworkKey: "a-network-label",
 		}),
 		network: "a-network-label",
 	}, {}, {

@@ -16,7 +16,7 @@ echo "checking: go fmt ..."
 BADFMT=`find * -name '*.go' -not -name '.#*' | xargs gofmt -l -s`
 if [ -n "$BADFMT" ]; then
     BADFMT=`echo "$BADFMT" | sed "s/^/  /"`
-    echo -e "gofmt is sad:\n"
+    echo -e "gofmt failed, run the following command(s) to fix:\n"
     for item in $BADFMT; do
         echo "gofmt -l -s -w $item"
     done

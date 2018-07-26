@@ -66,12 +66,15 @@ type KubernetesVolumeAttachmentParams struct {
 // KubernetesFilesystemInfo describes a storage filesystem in the cloud
 // as reported to the model.
 type KubernetesFilesystemInfo struct {
-	StorageName  string `json:"storagename"`
-	Pool         string `json:"pool"`
-	Size         uint64 `json:"size"`
-	MountPoint   string `json:"mount-point,omitempty"`
-	ReadOnly     bool   `json:"read-only,omitempty"`
-	FilesystemId string `json:"filesystem-id"`
+	StorageName  string                 `json:"storagename"`
+	Pool         string                 `json:"pool"`
+	Size         uint64                 `json:"size"`
+	MountPoint   string                 `json:"mount-point,omitempty"`
+	ReadOnly     bool                   `json:"read-only,omitempty"`
+	FilesystemId string                 `json:"filesystem-id"`
+	Status       string                 `json:"status"`
+	Info         string                 `json:"info"`
+	Data         map[string]interface{} `json:"data,omitempty"`
 }
 
 // DeviceType defines a device type.

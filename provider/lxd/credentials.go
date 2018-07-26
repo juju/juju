@@ -72,10 +72,11 @@ type NetLookup interface {
 
 // environProviderCredentials implements environs.ProviderCredentials.
 type environProviderCredentials struct {
-	certReadWriter CertificateReadWriter
-	certGenerator  CertificateGenerator
-	lookup         NetLookup
-	serverFactory  ServerFactory
+	certReadWriter  CertificateReadWriter
+	certGenerator   CertificateGenerator
+	lookup          NetLookup
+	serverFactory   ServerFactory
+	lxcConfigReader LXCConfigReader
 }
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
@@ -104,23 +105,25 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 		},
 		interactiveAuthType: {
 			{
+				Name: credAttrTrustPassword,
+				CredentialAttr: cloud.CredentialAttr{
+					Description: "The LXD server trust password.",
+					Hidden:      true,
+					Optional:    true,
+				},
+			}, {
 				Name: credAttrClientCert,
 				CredentialAttr: cloud.CredentialAttr{
 					Description:    "The LXD client certificate, PEM-encoded.",
 					ExpandFilePath: true,
+					Optional:       true,
 				},
 			}, {
 				Name: credAttrClientKey,
 				CredentialAttr: cloud.CredentialAttr{
 					Description:    "The LXD client key, PEM-encoded.",
 					ExpandFilePath: true,
-				},
-			}, {
-				Name: credAttrTrustPassword,
-				CredentialAttr: cloud.CredentialAttr{
-					Description: "The LXD server trust password.",
-					Hidden:      true,
-					Optional:    true,
+					Optional:       true,
 				},
 			}, {
 				Name: credAttrServerCert,
@@ -135,30 +138,81 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
 func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, error) {
-	svr, err := p.serverFactory.LocalServer()
-	if err != nil {
-		return nil, errors.NewNotFound(err, "failed to connect to local LXD")
-	}
-
 	nopLogf := func(string, ...interface{}) {}
 	certPEM, keyPEM, err := p.readOrGenerateCert(nopLogf)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	const credName = lxdnames.DefaultCloud
-	label := fmt.Sprintf("LXD credential %q", credName)
-	certCredential, err := p.finalizeLocalCredential(
-		ioutil.Discard, svr, string(certPEM), string(keyPEM), label,
-	)
+	localCertCredential, err := p.detectLocalCredentials(certPEM, keyPEM)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	authCredentials := map[string]cloud.Credential{
+		lxdnames.DefaultCloud: *localCertCredential,
+	}
+
+	remoteCertCredentials, err := p.detectRemoteCredentials(certPEM, keyPEM)
+	if err != nil {
+		logger.Errorf("unable to detect LXC credentials: %s", err)
+	}
+
+	for k, v := range remoteCertCredentials {
+		authCredentials[k] = v
+	}
+
 	return &cloud.CloudCredential{
-		AuthCredentials: map[string]cloud.Credential{
-			credName: *certCredential,
-		},
+		AuthCredentials: authCredentials,
 	}, nil
+}
+
+// detectLocalCredentials will use the local server to read and finalize the
+// cloud credentials.
+func (p environProviderCredentials) detectLocalCredentials(certPEM, keyPEM []byte) (*cloud.Credential, error) {
+	svr, err := p.serverFactory.LocalServer()
+	if err != nil {
+		return nil, errors.NewNotFound(err, "failed to connect to local LXD")
+	}
+
+	label := fmt.Sprintf("LXD credential %q", lxdnames.DefaultCloud)
+	certCredential, err := p.finalizeLocalCredential(
+		ioutil.Discard, svr, string(certPEM), string(keyPEM), label,
+	)
+	return certCredential, errors.Trace(err)
+}
+
+// detectRemoteCredentials will attempt to gather all the potential existing
+// remote lxc configurations found in `$HOME/.config/lxc/.config` file.
+// Any setups found in the configuration will then be returned as a credential
+// that can be automatically loaded into juju.
+func (p environProviderCredentials) detectRemoteCredentials(certPEM, keyPEM []byte) (map[string]cloud.Credential, error) {
+	configDir := filepath.Join(utils.Home(), ".config", "lxc")
+	configPath := filepath.Join(configDir, "config.yml")
+	config, err := p.lxcConfigReader.ReadConfig(configPath)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	credentials := make(map[string]cloud.Credential)
+	for name, remote := range config.Remotes {
+		if remote.Protocol == lxdnames.ProviderType {
+			certPath := filepath.Join(configDir, "servercerts", fmt.Sprintf("%s.crt", name))
+			serverCert, err := p.lxcConfigReader.ReadCert(certPath)
+			if err != nil {
+				logger.Errorf("unable to read certificate from %s with error %s", certPath, err)
+				continue
+			}
+			credential := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{
+				credAttrClientCert: string(certPEM),
+				credAttrClientKey:  string(keyPEM),
+				credAttrServerCert: string(serverCert),
+			})
+			credential.Label = fmt.Sprintf("LXD credential %q", name)
+			credentials[name] = credential
+		}
+	}
+	return credentials, nil
 }
 
 func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...interface{})) (certPEM, keyPEM []byte, _ error) {
@@ -218,7 +272,34 @@ func (p environProviderCredentials) FinalizeCredential(
 	args environs.FinalizeCredentialParams,
 ) (*cloud.Credential, error) {
 	switch authType := args.Credential.AuthType(); authType {
-	case interactiveAuthType, cloud.CertificateAuthType:
+	case interactiveAuthType:
+		credAttrs := args.Credential.Attributes()
+		// We don't care if the password is empty, just that it exists. Empty
+		// passwords can be valid ones...
+		if _, ok := credAttrs[credAttrTrustPassword]; ok {
+			// check to see if the client cert, keys exist, if they do not,
+			// generate them for the user.
+			if _, ok := getClientCertificates(args.Credential); !ok {
+				stderr := ctx.GetStderr()
+				nopLogf := func(s string, args ...interface{}) {
+					fmt.Fprintf(stderr, s+"\n", args...)
+				}
+				clientCert, clientKey, err := p.readOrGenerateCert(nopLogf)
+				if err != nil {
+					return nil, err
+				}
+
+				credAttrs[credAttrClientCert] = string(clientCert)
+				credAttrs[credAttrClientKey] = string(clientKey)
+
+				credential := cloud.NewCredential(cloud.CertificateAuthType, credAttrs)
+				credential.Label = args.Credential.Label
+
+				args.Credential = credential
+			}
+		}
+		fallthrough
+	case cloud.CertificateAuthType:
 		return p.finalizeCredential(ctx, args)
 	default:
 		return &args.Credential, nil

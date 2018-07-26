@@ -148,6 +148,7 @@ type FilesystemInfo struct {
 	Size         uint64
 	MountPoint   string
 	ReadOnly     bool
+	Status       status.StatusInfo
 }
 
 // Unit represents information about the status of a "pod".

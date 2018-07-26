@@ -170,7 +170,17 @@ Building Juju as a Snap Package
 
 Building
 --------
-Make sure your snapcraft version is >= 2.26. Run snapcraft at the root of the repository. A snap will build.
+Make sure your snapcraft version is >= 2.26. Run `snapcraft` at the root of the repository. A snap will build.
+
+Building with Local Changes
+--------
+
+Note that the default snapcraft.yaml file does a git clone of a local repository so if you need to include
+any local changes, they have to be committed first as git ignores uncommitted changes during a local clone.
+
+In some cases patches for dependencies are applied locally by invoking `patch` with snap scriptlets (see snapcraft.yaml).
+This may cause successive rebuilds after `snapcraft clean -s build` to fail as patches will be applied
+on an already patched code-base. In order to avoid that just clear all stages via `snapcraft clean`.
 
 Current State
 -------------

@@ -120,9 +120,17 @@ func ValidateString(s string) error {
 	return nil
 }
 
-// ErrInvalid indicates that a Store operation failed because latest state
-// indicates that it's a logical impossibility. It's a short-range signal to
-// calling code only; that code should never pass it on, but should inspect
-// the Store's updated Leases() and either attempt a new operation or return
-// a new error at a suitable level of abstraction.
-var ErrInvalid = errors.New("invalid lease operation")
+var (
+	// ErrInvalid indicates that a Store operation failed because latest state
+	// indicates that it's a logical impossibility. It's a short-range signal to
+	// calling code only; that code should never pass it on, but should inspect
+	// the Store's updated Leases() and either attempt a new operation or return
+	// a new error at a suitable level of abstraction.
+	ErrInvalid = errors.New("invalid lease operation")
+
+	// ErrTimeout indicates that a Store operation failed because it
+	// couldn't update the underlying lease information. This is probably
+	// a transient error due to changes in the cluster, and indicates that
+	// the operation should be retried.
+	ErrTimeout = errors.New("lease operation timed out")
+)

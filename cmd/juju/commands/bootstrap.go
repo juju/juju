@@ -485,6 +485,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 				IdentityEndpoint: region.IdentityEndpoint,
 				StorageEndpoint:  region.StorageEndpoint,
 				Credential:       credentials.credential,
+				CACertificates:   cloud.CACertificates,
 			},
 			CredentialName: credentials.name,
 			AdminSecret:    config.bootstrap.AdminSecret,

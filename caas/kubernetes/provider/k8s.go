@@ -24,6 +24,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
@@ -1033,9 +1034,35 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 			}
 		}
 		terminated := p.DeletionTimestamp != nil
+		unitStatus := k.jujuStatus(p.Status.Phase, terminated)
 		statusMessage := p.Status.Message
-		if statusMessage == "" && len(p.Status.Conditions) > 0 {
-			statusMessage = p.Status.Conditions[0].Message
+		since := now
+		if statusMessage == "" {
+			for _, cond := range p.Status.Conditions {
+				statusMessage = cond.Message
+				since = cond.LastProbeTime.Time
+				if cond.Type == core.PodScheduled && cond.Reason == core.PodReasonUnschedulable {
+					unitStatus = status.Allocating
+					break
+				}
+			}
+		}
+
+		if statusMessage == "" {
+			// If there are any events for this pod we can use the
+			// most recent to set the status.
+			events := k.CoreV1().Events(k.namespace)
+			eventList, err := events.List(v1.ListOptions{
+				IncludeUninitialized: true,
+				FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", p.Name).String(),
+			})
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			// Take the most recent event.
+			if count := len(eventList.Items); count > 0 {
+				statusMessage = eventList.Items[count-1].Message
+			}
 		}
 		unitInfo := caas.Unit{
 			Id:      string(p.UID),
@@ -1043,9 +1070,9 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 			Ports:   ports,
 			Dying:   terminated,
 			Status: status.StatusInfo{
-				Status:  k.jujuStatus(p.Status.Phase, terminated),
+				Status:  unitStatus,
 				Message: statusMessage,
-				Since:   &now,
+				Since:   &since,
 			},
 		}
 
@@ -1083,12 +1110,40 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 				return nil, errors.Trace(err)
 			}
 
+			statusMessage := ""
+			since = now
+			if len(pvc.Status.Conditions) > 0 {
+				statusMessage = pvc.Status.Conditions[0].Message
+				since = pvc.Status.Conditions[0].LastProbeTime.Time
+			}
+			if statusMessage == "" {
+				// If there are any events for this pvc we can use the
+				// most recent to set the status.
+				events := k.CoreV1().Events(k.namespace)
+				eventList, err := events.List(v1.ListOptions{
+					IncludeUninitialized: true,
+					FieldSelector:        fields.OneTermEqualSelector("involvedObject.name", pvc.Name).String(),
+				})
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				// Take the most recent event.
+				if count := len(eventList.Items); count > 0 {
+					statusMessage = eventList.Items[count-1].Message
+				}
+			}
+
 			unitInfo.FilesystemInfo = append(unitInfo.FilesystemInfo, caas.FilesystemInfo{
 				StorageName:  storageName,
 				Size:         uint64(vol.PersistentVolumeClaim.Size()),
 				FilesystemId: pvc.Name,
 				MountPoint:   volMount.MountPath,
 				ReadOnly:     volMount.ReadOnly,
+				Status: status.StatusInfo{
+					Status:  k.jujuStorageStatus(pvc.Status.Phase),
+					Message: statusMessage,
+					Since:   &since,
+				},
 			})
 		}
 		units = append(units, unitInfo)
@@ -1107,6 +1162,19 @@ func (k *kubernetesClient) jujuStatus(podPhase core.PodPhase, terminated bool) s
 		return status.Error
 	case core.PodPending:
 		return status.Allocating
+	default:
+		return status.Unknown
+	}
+}
+
+func (k *kubernetesClient) jujuStorageStatus(pvcPhase core.PersistentVolumeClaimPhase) status.Status {
+	switch pvcPhase {
+	case core.ClaimPending:
+		return status.Pending
+	case core.ClaimBound:
+		return status.Attached
+	case core.ClaimLost:
+		return status.Detached
 	default:
 		return status.Unknown
 	}

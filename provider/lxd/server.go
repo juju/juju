@@ -64,8 +64,13 @@ type Server interface {
 	UpdateStoragePoolVolume(pool string, volType string, name string, volume lxdapi.StorageVolumePut, ETag string) error
 	DeleteStoragePoolVolume(pool string, volType string, name string) (err error)
 	ServerCertificate() string
+	HostArch() string
 	EnableHTTPSListener() error
 	GetNICsFromProfile(profName string) (map[string]map[string]string, error)
+	IsClustered() bool
+	UseTargetServer(name string) (*lxd.Server, error)
+	GetClusterMembers() (members []lxdapi.ClusterMember, err error)
+	Name() string
 }
 
 // ServerFactory creates a new factory for creating servers that are required
@@ -234,9 +239,11 @@ func (s *serverFactory) initLocalServer() (Server, apiProfile, error) {
 		return nil, apiProfile{}, errors.Trace(err)
 	}
 
-	// If this is the LXD provider on the localhost, let's do an extra check to
-	// make sure the default profile has a correctly configured bridge, and
-	// which one is it.
+	// Ensure that the default profile has a network device, with a valid
+	// parent network.
+	//
+	// TODO (manadart 2018-07-18) Move this to just prior to instance creation.
+	// That is the only place it is relevant.
 	if err := svr.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
 		return nil, apiProfile{}, errors.Trace(err)
 	}
@@ -326,9 +333,11 @@ func (s *serverFactory) bootstrapRemoteServer(svr Server) error {
 		return errors.Trace(err)
 	}
 
-	// If this is the LXD provider on the localhost, let's do an extra check to
-	// make sure the default profile has a correctly configured bridge, and
-	// which one is it.
+	// Ensure that the default profile has a network device, with a valid
+	// parent network.
+	//
+	// TODO (manadart 2018-07-18) Move this to just prior to instance creation.
+	// That is the only place it is relevant.
 	if err := svr.VerifyNetworkDevice(defaultProfile, profileETag); err != nil {
 		return errors.Trace(err)
 	}

@@ -4,10 +4,12 @@
 package lxd
 
 import (
-	"github.com/juju/juju/environs"
+	"errors"
+
 	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/container/lxd"
+	"github.com/juju/juju/environs"
 )
 
 var (
@@ -19,10 +21,12 @@ var (
 func NewProviderWithMocks(
 	creds environs.ProviderCredentials,
 	serverFactory ServerFactory,
+	configReader LXCConfigReader,
 ) environs.EnvironProvider {
 	return &environProvider{
 		ProviderCredentials: creds,
 		serverFactory:       serverFactory,
+		lxcConfigReader:     configReader,
 	}
 }
 
@@ -31,12 +35,14 @@ func NewProviderCredentials(
 	certGenerator CertificateGenerator,
 	lookup NetLookup,
 	serverFactory ServerFactory,
+	configReader LXCConfigReader,
 ) environs.ProviderCredentials {
 	return environProviderCredentials{
-		certReadWriter: certReadWriter,
-		certGenerator:  certGenerator,
-		lookup:         lookup,
-		serverFactory:  serverFactory,
+		certReadWriter:  certReadWriter,
+		certGenerator:   certGenerator,
+		lookup:          lookup,
+		serverFactory:   serverFactory,
+		lxcConfigReader: configReader,
 	}
 }
 
@@ -69,6 +75,10 @@ func ExposeEnvServer(env *environ) Server {
 	return env.server
 }
 
-func GetImageSources(env *environ) ([]lxd.ServerSpec, error) {
-	return env.getImageSources()
+func GetImageSources(env environs.Environ) ([]lxd.ServerSpec, error) {
+	lxdEnv, ok := env.(*environ)
+	if !ok {
+		return nil, errors.New("not a LXD environ")
+	}
+	return lxdEnv.getImageSources()
 }
