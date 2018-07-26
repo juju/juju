@@ -5,6 +5,7 @@ package resource
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/macaroon.v2-unstable"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/charmstore"
 	resources "github.com/juju/juju/core/resources"
@@ -236,7 +236,10 @@ func (d deployUploader) uploadFile(resourcename, filename string) (id string, er
 }
 
 func (d deployUploader) uploadDockerDetails(resourcename, registryPath string) (id string, error error) {
-	data, err := yaml.Marshal(resources.DockerImageDetails{
+	// TODO (veebers): This will handle either a straight registryPath
+	// string (for public images) or a path to a file containing
+	// username/password details.
+	data, err := json.Marshal(resources.DockerImageDetails{
 		RegistryPath: registryPath,
 	})
 	if err != nil {
