@@ -67,6 +67,7 @@ func init() {
 	gc.Suite(&meterStatusIntegrationSuite{})
 	gc.Suite(&CAASOperatorSuite{})
 	gc.Suite(&StatusSuite{})
+	gc.Suite(&CmdExportBundleSuite{})
 
 	// TODO (anastasiamac 2016-07-19) Bug#1603585
 	// These tests cannot run on windows - they require a bootstrapped controller.
