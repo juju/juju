@@ -15,7 +15,7 @@ type claim struct {
 	leaseKey   lease.Key
 	holderName string
 	duration   time.Duration
-	response   chan bool
+	response   chan error
 	stop       <-chan struct{}
 }
 
@@ -27,19 +27,16 @@ func (c claim) invoke(ch chan<- claim) error {
 			return errStopped
 		case ch <- c:
 			ch = nil
-		case success := <-c.response:
-			if !success {
-				return lease.ErrClaimDenied
-			}
-			return nil
+		case err := <-c.response:
+			return err
 		}
 	}
 }
 
 // respond causes the supplied success value to be sent back to invoke.
-func (c claim) respond(success bool) {
+func (c claim) respond(err error) {
 	select {
 	case <-c.stop:
-	case c.response <- success:
+	case c.response <- err:
 	}
 }
