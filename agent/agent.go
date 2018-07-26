@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -38,11 +39,6 @@ const (
 
 	// BootstrapMachineId is the ID of the initial controller machine.
 	BootstrapMachineId = "0"
-
-	// MachineLockName is the name of the mutex that the agent creates to
-	// ensure serialization of tasks such as uniter hook executions, juju-run,
-	// and others.
-	MachineLockName = "machine-lock"
 )
 
 // These are base values used for the corresponding defaults.
@@ -322,6 +318,11 @@ type configSetterOnly interface {
 // LogFileName returns the filename for the Agent's log file.
 func LogFilename(c Config) string {
 	return filepath.Join(c.LogDir(), c.Tag().String()+".log")
+}
+
+// MachineLockLogFilename returns the filename for the machine lock log file.
+func MachineLockLogFilename(c Config) string {
+	return filepath.Join(c.LogDir(), machinelock.Filename)
 }
 
 type ConfigMutator func(ConfigSetter) error

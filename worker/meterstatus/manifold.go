@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/meterstatus"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/worker/dependency"
 )
 
@@ -26,12 +27,12 @@ var (
 
 // ManifoldConfig identifies the resource names upon which the status manifold depends.
 type ManifoldConfig struct {
-	AgentName       string
-	APICallerName   string
-	MachineLockName string
-	Clock           clock.Clock
+	AgentName     string
+	APICallerName string
+	MachineLock   machinelock.Lock
+	Clock         clock.Clock
 
-	NewHookRunner           func(names.UnitTag, string, agent.Config, clock.Clock) HookRunner
+	NewHookRunner           func(names.UnitTag, machinelock.Lock, agent.Config, clock.Clock) HookRunner
 	NewMeterStatusAPIClient func(base.APICaller, names.UnitTag) meterstatus.MeterStatusClient
 
 	NewConnectedStatusWorker func(ConnectedConfig) (worker.Worker, error)
@@ -49,8 +50,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if config.Clock == nil {
 				return nil, errors.NotValidf("missing Clock")
 			}
-			if config.MachineLockName == "" {
-				return nil, errors.NotValidf("missing MachineLockName")
+			if config.MachineLock == nil {
+				return nil, errors.NotValidf("missing MachineLock")
 			}
 			return newStatusWorker(config, context)
 		},
@@ -71,7 +72,7 @@ func newStatusWorker(config ManifoldConfig, context dependency.Context) (worker.
 
 	agentConfig := agent.CurrentConfig()
 	stateFile := NewStateFile(path.Join(agentConfig.DataDir(), "meter-status.yaml"))
-	runner := config.NewHookRunner(unitTag, config.MachineLockName, agentConfig, config.Clock)
+	runner := config.NewHookRunner(unitTag, config.MachineLock, agentConfig, config.Clock)
 
 	// If we don't have a valid APICaller, start a meter status
 	// worker that works without an API connection.

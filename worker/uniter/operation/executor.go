@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/mutex"
 )
 
 type executorStep struct {
@@ -28,14 +27,14 @@ var (
 type executor struct {
 	file               *StateFile
 	state              *State
-	acquireMachineLock func() (mutex.Releaser, error)
+	acquireMachineLock func(string) (func(), error)
 }
 
 // NewExecutor returns an Executor which takes its starting state from the
 // supplied path, and records state changes there. If no state file exists,
 // the executor's starting state will include a queued Install hook, for
 // the charm identified by the supplied func.
-func NewExecutor(stateFilePath string, initialState State, acquireLock func() (mutex.Releaser, error)) (Executor, error) {
+func NewExecutor(stateFilePath string, initialState State, acquireLock func(string) (func(), error)) (Executor, error) {
 	file := NewStateFile(stateFilePath)
 	state, err := file.Read()
 	if err == ErrNoStateFile {
@@ -60,12 +59,12 @@ func (x *executor) Run(op Operation) error {
 	logger.Debugf("running operation %v", op)
 
 	if op.NeedsGlobalMachineLock() {
-		releaser, err := x.acquireMachineLock()
+		releaser, err := x.acquireMachineLock(op.String())
 		if err != nil {
 			return errors.Annotate(err, "could not acquire lock")
 		}
 		defer logger.Debugf("lock released")
-		defer releaser.Release()
+		defer releaser()
 	}
 
 	switch err := x.do(op, stepPrepare); errors.Cause(err) {

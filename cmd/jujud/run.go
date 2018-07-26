@@ -13,21 +13,20 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/mutex"
 	jujuos "github.com/juju/os"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter"
 )
 
 type RunCommand struct {
 	cmd.CommandBase
-	MachineLockName string
+	MachineLock     machinelock.Lock
 	unit            names.UnitTag
 	commands        string
 	showHelp        bool
@@ -174,23 +173,23 @@ func (c *RunCommand) appendProxyToCommands() string {
 }
 
 func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
-	// Acquire the uniter hook execution lock to make sure we don't
-	// stomp on each other.
-	spec := mutex.Spec{
-		Name:  c.MachineLockName,
-		Clock: clock.WallClock,
-		Delay: 250 * time.Millisecond,
-	}
-	logger.Debugf("acquire lock %q for juju-run", c.MachineLockName)
-	releaser, err := mutex.Acquire(spec)
+	// Actually give juju-run a timeout now.
+	// Say... 5 minutes.
+	// TODO: Perhaps make this configurable later with
+	// a command line arg.
+	timeout := make(chan struct{})
+	go func() {
+		<-time.After(5 * time.Minute)
+		close(timeout)
+	}()
+	releaser, err := c.MachineLock.Acquire(machinelock.Spec{
+		Cancel: timeout,
+		Worker: "juju-run",
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Debugf("lock %q acquired", c.MachineLockName)
-
-	// Defer the logging first so it is executed after the Release. LIFO.
-	defer logger.Debugf("release lock %q for juju-run", c.MachineLockName)
-	defer releaser.Release()
+	defer releaser()
 
 	runCmd := c.appendProxyToCommands()
 

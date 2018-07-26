@@ -62,14 +62,15 @@ func (r *stubReleaser) Release() {
 	r.MethodCall(r, "Release")
 }
 
-func (s *hostPreparerSuite) acquireStubLock(_ <-chan struct{}) (mutex.Releaser, error) {
+func (s *hostPreparerSuite) acquireStubLock(_ string, _ <-chan struct{}) (func(), error) {
 	s.Stub.AddCall("AcquireLock")
 	if err := s.Stub.NextErr(); err != nil {
 		return nil, err
 	}
-	return &stubReleaser{
+	releaser := &stubReleaser{
 		Stub: s.Stub,
-	}, nil
+	}
+	return releaser.Release, nil
 }
 
 type stubBridger struct {
@@ -119,7 +120,6 @@ func (s *hostPreparerSuite) createPreparerParams(bridges []network.DeviceToBridg
 			Stub:             s.Stub,
 			requestedBridges: bridges,
 		},
-		LockName:           "prepare-test-lock",
 		AcquireLockFunc:    s.acquireStubLock,
 		CreateBridger:      s.createStubBridger,
 		ObserveNetworkFunc: observer.ObserveNetwork,
@@ -292,7 +292,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoLock(c *gc.C) {
 	preparer := s.createPreparer(devices, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
-	c.Check(err, gc.ErrorMatches, `failed to acquire lock "prepare-test-lock" for bridging: timeout acquiring mutex`)
+	c.Check(err, gc.ErrorMatches, `failed to acquire machine lock for bridging: timeout acquiring mutex`)
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "HostChangesForContainer",
 		Args:     []interface{}{containerTag},
@@ -419,7 +419,7 @@ func (s *hostPreparerSuite) TestPrepareHostCancel(c *gc.C) {
 	close(ch)
 	params.AbortChan = ch
 	// This is what the AcquireLock should look like
-	params.AcquireLockFunc = func(abort <-chan struct{}) (mutex.Releaser, error) {
+	params.AcquireLockFunc = func(_ string, abort <-chan struct{}) (func(), error) {
 		s.Stub.AddCall("AcquireLockFunc")
 		// Make sure that the right channel got passed in
 		c.Check(abort, gc.Equals, (<-chan struct{})(ch))
@@ -435,7 +435,7 @@ func (s *hostPreparerSuite) TestPrepareHostCancel(c *gc.C) {
 	// Now when we prepare, we should fail with 'canceled'
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
-	c.Check(err, gc.ErrorMatches, `failed to acquire lock "prepare-test-lock" for bridging: AcquireLock cancelled`)
+	c.Check(err, gc.ErrorMatches, `failed to acquire machine lock for bridging: AcquireLock cancelled`)
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "HostChangesForContainer",
 		Args:     []interface{}{containerTag},

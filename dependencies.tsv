@@ -30,7 +30,7 @@ github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24
 github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07T23:45:32Z
 github.com/juju/bundlechanges	git	5b8dee6ac69a0b40649795140afbad0396d1c96a	2018-05-14T04:51:38Z
 github.com/juju/cmd	git	e74f39857ca013cf63947ba2843806f7afdd380d	2017-11-07T07:04:56Z
-github.com/juju/collections	git	90152009b5f349bb218a9bf4a6034dd8437c031b	2018-05-16T02:26:42Z
+github.com/juju/collections	git	9be91dc79b7c185fa8b08e7ceceee40562055c83	2018-07-17T17:15:55Z
 github.com/juju/description	git	25349c35a6b1c9244c24045c9b5faab5932eae63	2018-05-30T03:17:50Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
 github.com/juju/gnuflag	git	2ce1bb71843d6d179b3f1c1c9cb4a72cd067fc65	2017-11-13T08:59:48Z
