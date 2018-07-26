@@ -26,6 +26,8 @@ import (
 type imageMetadataCommandBase struct {
 	modelcmd.ModelCommandBase
 	modelcmd.IAASOnlyCommand
+
+	CredentialName string
 }
 
 func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Environ, error) {
@@ -38,7 +40,7 @@ func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Envir
 	// the specified environment.
 	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(
 		context, c.ClientStore(), environs.GlobalProviderRegistry(),
-	)(controllerName)
+	)(controllerName, c.CredentialName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -69,15 +71,16 @@ func newImageMetadataCommand() cmd.Command {
 // imageMetadataCommand is used to write out simplestreams image metadata information.
 type imageMetadataCommand struct {
 	imageMetadataCommandBase
-	Dir            string
-	Series         string
-	Arch           string
-	ImageId        string
-	Region         string
-	Endpoint       string
-	Stream         string
-	VirtType       string
-	Storage        string
+	Dir      string
+	Series   string
+	Arch     string
+	ImageId  string
+	Region   string
+	Endpoint string
+	Stream   string
+	VirtType string
+	Storage  string
+
 	privateStorage string
 }
 
@@ -109,6 +112,7 @@ func (c *imageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Stream, "stream", imagemetadata.ReleasedStream, "the image stream")
 	f.StringVar(&c.VirtType, "virt-type", "", "the image virtualisation type")
 	f.StringVar(&c.Storage, "storage", "", "the type of root storage")
+	f.StringVar(&c.CredentialName, "credential", "", "the credentials type to use")
 }
 
 // setParams sets parameters based on the environment configuration
