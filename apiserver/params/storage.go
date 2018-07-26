@@ -632,6 +632,10 @@ type VolumeDetails struct {
 	// machine tag to volume attachment information.
 	MachineAttachments map[string]VolumeAttachmentDetails `json:"machine-attachments,omitempty"`
 
+	// UnitAttachments contains a mapping from
+	// unit tag to volume attachment information (CAAS models).
+	UnitAttachments map[string]VolumeAttachmentDetails `json:"unit-attachments,omitempty"`
+
 	// Storage contains details about the storage instance
 	// that the volume is assigned to, if any.
 	Storage *StorageDetails `json:"storage,omitempty"`

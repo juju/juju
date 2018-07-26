@@ -227,6 +227,7 @@ func (m *mockUnit) DestroyOperation() *state.DestroyUnitOperation {
 type mockStorage struct {
 	testing.Stub
 	storageFilesystems map[names.StorageTag]names.FilesystemTag
+	storageVolumes     map[names.StorageTag]names.VolumeTag
 	storageAttachments map[names.UnitTag]names.StorageTag
 }
 
@@ -269,6 +270,25 @@ func (m *mockStorage) SetFilesystemInfo(fsTag names.FilesystemTag, fsInfo state.
 
 func (m *mockStorage) SetFilesystemAttachmentInfo(host names.Tag, fsTag names.FilesystemTag, info state.FilesystemAttachmentInfo) error {
 	m.MethodCall(m, "SetFilesystemAttachmentInfo", host, fsTag, info)
+	return nil
+}
+
+func (m *mockStorage) Volume(volTag names.VolumeTag) (state.Volume, error) {
+	m.MethodCall(m, "Volume", volTag)
+	return &mockVolume{Stub: &m.Stub, tag: volTag}, nil
+}
+
+func (m *mockStorage) StorageInstanceVolume(tag names.StorageTag) (state.Volume, error) {
+	return &mockVolume{Stub: &m.Stub, tag: m.storageVolumes[tag]}, nil
+}
+
+func (m *mockStorage) SetVolumeInfo(volTag names.VolumeTag, volInfo state.VolumeInfo) error {
+	m.MethodCall(m, "SetVolumeInfo", volTag, volInfo)
+	return nil
+}
+
+func (m *mockStorage) SetVolumeAttachmentInfo(host names.Tag, volTag names.VolumeTag, info state.VolumeAttachmentInfo) error {
+	m.MethodCall(m, "SetVolumeAttachmentInfo", host, volTag, info)
 	return nil
 }
 
@@ -324,7 +344,7 @@ func (f *mockFilesystem) FilesystemTag() names.FilesystemTag {
 }
 
 func (f *mockFilesystem) Volume() (names.VolumeTag, error) {
-	return names.VolumeTag{}, state.ErrNoBackingVolume
+	return names.NewVolumeTag("66"), nil
 }
 
 func (f *mockFilesystem) Params() (state.FilesystemParams, bool) {
@@ -352,6 +372,36 @@ func (f *mockFilesystemAttachment) Params() (state.FilesystemAttachmentParams, b
 		Location: "/path/to/here",
 		ReadOnly: true,
 	}, true
+}
+
+type mockVolume struct {
+	*testing.Stub
+	state.Volume
+	tag names.VolumeTag
+}
+
+func (v *mockVolume) Tag() names.Tag {
+	return v.VolumeTag()
+}
+
+func (v *mockVolume) VolumeTag() names.VolumeTag {
+	return v.tag
+}
+
+func (v *mockVolume) Params() (state.VolumeParams, bool) {
+	return state.VolumeParams{
+		Pool: "k8spool",
+		Size: 100,
+	}, true
+}
+
+func (v *mockVolume) SetStatus(statusInfo status.StatusInfo) error {
+	v.MethodCall(v, "SetStatus", statusInfo)
+	return nil
+}
+
+func (v *mockVolume) Info() (state.VolumeInfo, error) {
+	return state.VolumeInfo{}, errors.NotProvisionedf("volume")
 }
 
 type mockStorageProviderRegistry struct {

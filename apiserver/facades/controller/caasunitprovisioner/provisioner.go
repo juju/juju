@@ -403,7 +403,9 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 		}
 		err = a.updateUnitsFromCloud(app, appUpdate.Units)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			// Mask any not found errors as the worker (caller) treats them specially
+			// and they are not relevant here.
+			result.Results[i].Error = common.ServerError(errors.Mask(err))
 		}
 	}
 	return result, nil
@@ -607,6 +609,15 @@ type filesystemInfo struct {
 	filesystemId string
 }
 
+type volumeInfo struct {
+	unitTag    names.UnitTag
+	providerId string
+	readOnly   bool
+	persistent bool
+	size       uint64
+	volumeId   string
+}
+
 func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitParams) error {
 
 	if app.Life() != state.Alive {
@@ -626,6 +637,8 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 
 	filesystemUpdates := make(map[string]filesystemInfo)
 	filesystemStatus := make(map[string]status.StatusInfo)
+	volumeUpdates := make(map[string]volumeInfo)
+	volumeStatus := make(map[string]status.StatusInfo)
 
 	for _, u := range unitInfo.removedUnits {
 		// If a unit is removed from the cloud, all filesystems are considered detached.
@@ -743,6 +756,27 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 					Message: fsInfo.Info,
 					Data:    fsInfo.Data,
 				}
+
+				vol, err := a.storage.StorageInstanceVolume(sa.StorageInstance())
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if fsInfo.Volume.Status != status.Pending.String() {
+					volumeUpdates[vol.VolumeTag().String()] = volumeInfo{
+						unitTag:    unitTag,
+						providerId: unitParams.ProviderId,
+						size:       fsInfo.Volume.Size,
+						volumeId:   fsInfo.Volume.VolumeId,
+						persistent: fsInfo.Volume.Persistent,
+						readOnly:   fsInfo.ReadOnly,
+					}
+				}
+				volumeStatus[vol.VolumeTag().String()] = status.StatusInfo{
+					Status:  status.Status(fsInfo.Volume.Status),
+					Message: fsInfo.Volume.Info,
+					Data:    fsInfo.Volume.Data,
+				}
+
 				infos = infos[1:]
 				if len(infos) == 0 {
 					break
@@ -853,6 +887,90 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 		}
 	}
 
+	appName := app.Name()
+	// First do the volume updates as volumes need to be attached before the filesystem updates.
+	if err := a.updateVolumeInfo(volumeUpdates, volumeStatus); err != nil {
+		return errors.Annotatef(err, "updating volume information for %v", appName)
+	}
+
+	err = a.updateFilesystemInfo(filesystemUpdates, filesystemStatus)
+	return errors.Annotatef(err, "updating filesystem information for %v", appName)
+}
+
+func (a *Facade) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeStatus map[string]status.StatusInfo) error {
+	// Do it in sorted order so it's deterministic for tests.
+	var volTags []string
+	for tag := range volumeUpdates {
+		volTags = append(volTags, tag)
+	}
+	sort.Strings(volTags)
+
+	logger.Debugf("updating volume data: %+v", volumeUpdates)
+	for _, tagString := range volTags {
+		volTag, _ := names.ParseVolumeTag(tagString)
+		volData := volumeUpdates[tagString]
+
+		vol, err := a.storage.Volume(volTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// If we have already recorded the provisioning info,
+		// it's an error to try and do it again.
+		_, err = vol.Info()
+		if err != nil && !errors.IsNotProvisioned(err) {
+			return errors.Trace(err)
+		}
+		if err != nil {
+			// Provisioning info not set yet.
+			err = a.storage.SetVolumeInfo(volTag, state.VolumeInfo{
+				Size:       volData.size,
+				VolumeId:   volData.volumeId,
+				Persistent: volData.persistent,
+			})
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+
+		err = a.storage.SetVolumeAttachmentInfo(volData.unitTag, volTag, state.VolumeAttachmentInfo{
+			ReadOnly: volData.readOnly,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Do it in sorted order so it's deterministic for tests.
+	volTags = []string{}
+	for tag := range volumeStatus {
+		volTags = append(volTags, tag)
+	}
+	sort.Strings(volTags)
+
+	logger.Debugf("updating volume status: %+v", volumeStatus)
+	for _, tagString := range volTags {
+		volTag, _ := names.ParseVolumeTag(tagString)
+		volStatus := volumeStatus[tagString]
+		vol, err := a.storage.Volume(volTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		now := a.clock.Now()
+		err = vol.SetStatus(status.StatusInfo{
+			Status:  volStatus.Status,
+			Message: volStatus.Message,
+			Data:    volStatus.Data,
+			Since:   &now,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	return nil
+}
+
+func (a *Facade) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, filesystemStatus map[string]status.StatusInfo) error {
 	// Do it in sorted order so it's deterministic for tests.
 	var fsTags []string
 	for tag := range filesystemUpdates {
@@ -875,16 +993,15 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 		if err != nil && !errors.IsNotProvisioned(err) {
 			return errors.Trace(err)
 		}
-		if err == nil {
-			// Provisioning info has already been set.
-			continue
-		}
-		err = a.storage.SetFilesystemInfo(fsTag, state.FilesystemInfo{
-			Size:         fsData.size,
-			FilesystemId: fsData.filesystemId,
-		})
 		if err != nil {
-			return errors.Trace(err)
+			// Provisioning info not set yet.
+			err = a.storage.SetFilesystemInfo(fsTag, state.FilesystemInfo{
+				Size:         fsData.size,
+				FilesystemId: fsData.filesystemId,
+			})
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 
 		err = a.storage.SetFilesystemAttachmentInfo(fsData.unitTag, fsTag, state.FilesystemAttachmentInfo{
@@ -912,15 +1029,18 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 			return errors.Trace(err)
 		}
 		now := a.clock.Now()
-		fs.SetStatus(status.StatusInfo{
+		err = fs.SetStatus(status.StatusInfo{
 			Status:  fsStatus.Status,
 			Message: fsStatus.Message,
 			Data:    fsStatus.Data,
 			Since:   &now,
 		})
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 
-	return err
+	return nil
 }
 
 // UpdateApplicationsService updates the Juju data model to reflect the given

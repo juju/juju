@@ -147,7 +147,7 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 
 	assertNeedsCleanup(c, st)
-	assertCleanupCount(c, st, 4)
+	assertCleanupCount(c, st, 5)
 
 	sb, err := state.NewStorageBackend(st)
 	c.Assert(err, jc.ErrorIsNil)

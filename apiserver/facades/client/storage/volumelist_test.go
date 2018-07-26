@@ -32,6 +32,7 @@ func (s *volumeSuite) expectedVolumeDetails() params.VolumeDetails {
 				Life: "alive",
 			},
 		},
+		UnitAttachments: map[string]params.VolumeAttachmentDetails{},
 		Storage: &params.StorageDetails{
 			StorageTag: "storage-data-0",
 			OwnerTag:   "unit-mysql-0",

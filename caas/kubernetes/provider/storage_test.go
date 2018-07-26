@@ -90,8 +90,8 @@ func (s *storageSuite) TestSupports(c *gc.C) {
 	defer ctrl.Finish()
 
 	p := s.k8sProvider(c, ctrl)
-	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsFalse)
-	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsTrue)
+	c.Assert(p.Supports(storage.StorageKindBlock), jc.IsTrue)
+	c.Assert(p.Supports(storage.StorageKindFilesystem), jc.IsFalse)
 }
 
 func (s *storageSuite) TestScope(c *gc.C) {
@@ -99,5 +99,5 @@ func (s *storageSuite) TestScope(c *gc.C) {
 	defer ctrl.Finish()
 
 	p := s.k8sProvider(c, ctrl)
-	c.Assert(p.Scope(), gc.Equals, storage.ScopeMachine)
+	c.Assert(p.Scope(), gc.Equals, storage.ScopeEnviron)
 }

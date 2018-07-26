@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type RemoveApplicationSuite struct {
@@ -140,28 +139,6 @@ func (s *RemoveApplicationSuite) TestInvalidArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `no application specified`)
 	_, err = runRemoveApplication(c, "invalid:name")
 	c.Assert(err, gc.ErrorMatches, `invalid application name "invalid:name"`)
-}
-
-func (s *RemoveApplicationSuite) TestRemoveCAASApplicationWithStorage(c *gc.C) {
-	st := s.Factory.MakeCAASModel(c, &factory.ModelParams{Name: "caasmodel"})
-	s.AddCleanup(func(*gc.C) { st.Close() })
-
-	repo := testcharms.RepoForSeries("kubernetes")
-	ch := repo.CharmArchivePath(s.CharmsPath, "storage-filesystem")
-	err := runDeploy(c, ch, "-m", "caasmodel", "storage-filesystem", "--storage", "data=2")
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = runRemoveApplication(c, "-m", "caasmodel", "storage-filesystem")
-	c.Assert(err, gc.ErrorMatches, `cannot destroy applications \["storage-filesystem"\]
-
-Destroying these kubernetes applications will destroy the storage,
-but you have not indicated that you want to do that.
-
-Please run the the command again with --destroy-storage
-to confirm that you want to destroy the storage along
-with the applications.
-
-`)
 }
 
 type RemoveCharmStoreCharmsSuite struct {
