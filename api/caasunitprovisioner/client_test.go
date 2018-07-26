@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/storage"
 )
@@ -93,8 +94,8 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 				},
 			},
 		}},
-		Devices: []params.KubernetesDeviceParams{{
-			Type:       params.DeviceType("nvidia.com/gpu"),
+		Devices: []devices.KubernetesDeviceParams{{
+			Type:       devices.DeviceType("nvidia.com/gpu"),
 			Count:      3,
 			Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
 		}},
