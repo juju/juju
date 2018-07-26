@@ -545,7 +545,6 @@ func (k *kubernetesClient) EnsureService(
 		}
 		cleanups = append(cleanups, func() { k.deleteSecret(appName, c.Name) })
 	}
-	logger.Criticalf("unitSpec -> \n%#v", unitSpec)
 
 	// Add a deployment controller configured to create the specified number of units/pods.
 	numPods := int32(numUnits)
@@ -1375,6 +1374,13 @@ func appSecretName(appName, containerName string) string {
 }
 
 func mergeConstraintToResources(device devices.KubernetesDeviceParams, resources *core.ResourceRequirements) error {
+	if resources.Limits == nil {
+		resources.Limits = core.ResourceList{}
+	}
+	if resources.Requests == nil {
+		resources.Requests = core.ResourceList{}
+	}
+
 	resourceName := core.ResourceName(device.Type)
 	if v, ok := resources.Limits[resourceName]; ok {
 		logger.Debugf("resource %q - max count %#v has been overwritten by %#v", resourceName, v, device)
@@ -1391,7 +1397,7 @@ func mergeConstraintToResources(device devices.KubernetesDeviceParams, resources
 
 func buildNodeSelector(nodeLabel string) map[string]string {
 	// TODO(ycliuhw): to support GKE, set it to `cloud.google.com/gke-accelerator`,
-	// current only set to generic `accelerator`.
+	// current only set to generic `accelerator` because we do not have k8s provider concept yet.
 	key := "accelerator"
 	return map[string]string{key: nodeLabel}
 }

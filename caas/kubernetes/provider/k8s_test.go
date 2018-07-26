@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -341,69 +342,201 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// func (s *K8sBrokerSuite) TestEnsureServiceWithDevices(c *gc.C) {
-// 	ctrl := s.setupBroker(c)
-// 	defer ctrl.Finish()
+func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
 
-// 	numUnits := int32(2)
-// 	unitSpec, err := provider.MakeUnitSpec("app-name", basicPodspec)
-// 	c.Assert(err, jc.ErrorIsNil)
-// 	podSpec := provider.PodSpec(unitSpec)
+	numUnits := int32(2)
+	unitSpec, err := provider.MakeUnitSpec("app-name", basicPodspec)
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(unitSpec)
+	podSpec.NodeSelector = map[string]string{"accelerator": "nvidia-tesla-p100"}
+	for i := range podSpec.Containers {
+		podSpec.Containers[i].Resources = core.ResourceRequirements{
+			Limits: core.ResourceList{
+				"nvidia.com/gpu": *resource.NewQuantity(3, resource.DecimalSI),
+			},
+			Requests: core.ResourceList{
+				"nvidia.com/gpu": *resource.NewQuantity(3, resource.DecimalSI),
+			},
+		}
+	}
 
-// 	deploymentArg := &appsv1.Deployment{
-// 		ObjectMeta: v1.ObjectMeta{
-// 			Name:   "juju-test",
-// 			Labels: map[string]string{"juju-application": "test"}},
-// 		Spec: appsv1.DeploymentSpec{
-// 			Replicas: &numUnits,
-// 			Selector: &v1.LabelSelector{
-// 				MatchLabels: map[string]string{"juju-application": "test"},
-// 			},
-// 			Template: core.PodTemplateSpec{
-// 				ObjectMeta: v1.ObjectMeta{
-// 					GenerateName: "juju-application-test-",
-// 					Labels:       map[string]string{"juju-application": "test"},
-// 				},
-// 				Spec: podSpec,
-// 			},
-// 		},
-// 	}
-// 	serviceArg := &core.Service{
-// 		ObjectMeta: v1.ObjectMeta{
-// 			Name:   "juju-test",
-// 			Labels: map[string]string{"juju-application": "test"}},
-// 		Spec: core.ServiceSpec{
-// 			Selector: map[string]string{"juju-application": "test"},
-// 			Type:     "nodeIP",
-// 			Ports: []core.ServicePort{
-// 				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
-// 				{Port: 8080, Protocol: "TCP", Name: "fred"},
-// 			},
-// 			LoadBalancerIP: "10.0.0.1",
-// 			ExternalName:   "ext-name",
-// 		},
-// 	}
+	deploymentArg := &appsv1.Deployment{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "juju-test",
+			Labels: map[string]string{"juju-application": "test"}},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &numUnits,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{"juju-application": "test"},
+			},
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					GenerateName: "juju-application-test-",
+					Labels:       map[string]string{"juju-application": "test"},
+				},
+				Spec: podSpec,
+			},
+		},
+	}
+	serviceArg := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "juju-test",
+			Labels: map[string]string{"juju-application": "test"}},
+		Spec: core.ServiceSpec{
+			Selector: map[string]string{"juju-application": "test"},
+			Type:     "nodeIP",
+			Ports: []core.ServicePort{
+				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
+				{Port: 8080, Protocol: "TCP", Name: "fred"},
+			},
+			LoadBalancerIP: "10.0.0.1",
+			ExternalName:   "ext-name",
+		},
+	}
 
-// 	gomock.InOrder(
-// 		s.mockDeployments.EXPECT().Update(deploymentArg).Times(1).
-// 			Return(nil, s.k8sNotFoundError()),
-// 		s.mockDeployments.EXPECT().Create(deploymentArg).Times(1).
-// 			Return(nil, nil),
-// 		s.mockServices.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
-// 			Return(nil, s.k8sNotFoundError()),
-// 		s.mockServices.EXPECT().Update(serviceArg).Times(1).
-// 			Return(nil, s.k8sNotFoundError()),
-// 		s.mockServices.EXPECT().Create(serviceArg).Times(1).
-// 			Return(nil, nil),
-// 	)
+	gomock.InOrder(
+		s.mockDeployments.EXPECT().Update(deploymentArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Create(deploymentArg).Times(1).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(serviceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(serviceArg).Times(1).
+			Return(nil, nil),
+	)
 
-// 	params := &caas.ServiceParams{
-// 		PodSpec: basicPodspec,
-// 	}
-// 	err = s.broker.EnsureService("test", params, 2, application.ConfigAttributes{
-// 		"kubernetes-service-type":            "nodeIP",
-// 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
-// 		"kubernetes-service-externalname":    "ext-name",
-// 	})
-// 	c.Assert(err, jc.ErrorIsNil)
-// }
+	params := &caas.ServiceParams{
+		PodSpec: basicPodspec,
+		Devices: []devices.KubernetesDeviceParams{
+			{
+				Type:       "nvidia.com/gpu",
+				Count:      3,
+				Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
+			},
+		},
+	}
+	err = s.broker.EnsureService("test", params, 2, application.ConfigAttributes{
+		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	numUnits := int32(2)
+	unitSpec, err := provider.MakeUnitSpec("app-name", basicPodspec)
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(unitSpec)
+	podSpec.Containers[0].VolumeMounts = []core.VolumeMount{{
+		Name:      "juju-database-0",
+		MountPath: "path/to/here",
+	}}
+	podSpec.NodeSelector = map[string]string{"accelerator": "nvidia-tesla-p100"}
+	for i := range podSpec.Containers {
+		podSpec.Containers[i].Resources = core.ResourceRequirements{
+			Limits: core.ResourceList{
+				"nvidia.com/gpu": *resource.NewQuantity(3, resource.DecimalSI),
+			},
+			Requests: core.ResourceList{
+				"nvidia.com/gpu": *resource.NewQuantity(3, resource.DecimalSI),
+			},
+		}
+	}
+
+	scName := "juju-unit-storage"
+	statefulSetArg := &appsv1.StatefulSet{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "juju-test",
+			Labels: map[string]string{"juju-application": "test"}},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas: &numUnits,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{"juju-application": "test"},
+			},
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					Labels: map[string]string{"juju-application": "test"},
+				},
+				Spec: podSpec,
+			},
+			VolumeClaimTemplates: []core.PersistentVolumeClaim{{
+				ObjectMeta: v1.ObjectMeta{
+					Name:   "juju-database-0",
+					Labels: map[string]string{"juju-application": "test"}},
+				Spec: core.PersistentVolumeClaimSpec{
+					StorageClassName: &scName,
+					AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
+					Resources: core.ResourceRequirements{
+						Requests: core.ResourceList{
+							core.ResourceStorage: resource.MustParse("100Mi"),
+						},
+					},
+				},
+			}},
+		},
+	}
+	serviceArg := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "juju-test",
+			Labels: map[string]string{"juju-application": "test"}},
+		Spec: core.ServiceSpec{
+			Selector: map[string]string{"juju-application": "test"},
+			Type:     "nodeIP",
+			Ports: []core.ServicePort{
+				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
+				{Port: 8080, Protocol: "TCP", Name: "fred"},
+			},
+			LoadBalancerIP: "10.0.0.1",
+			ExternalName:   "ext-name",
+		},
+	}
+
+	gomock.InOrder(
+		s.mockPersistentVolumeClaims.EXPECT().Get("juju-database-0", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStorageClass.EXPECT().Get("juju-unit-storage", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "juju-unit-storage"}}, nil),
+		s.mockStatefulSets.EXPECT().Update(statefulSetArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Create(statefulSetArg).Times(1).
+			Return(nil, nil),
+		s.mockServices.EXPECT().Get("juju-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Update(serviceArg).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockServices.EXPECT().Create(serviceArg).Times(1).
+			Return(nil, nil),
+	)
+
+	params := &caas.ServiceParams{
+		PodSpec: basicPodspec,
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
+			Attachment: &storage.KubernetesFilesystemAttachmentParams{
+				Path: "path/to/here",
+			},
+		}},
+		Devices: []devices.KubernetesDeviceParams{
+			{
+				Type:       "nvidia.com/gpu",
+				Count:      3,
+				Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
+			},
+		},
+	}
+	err = s.broker.EnsureService("test", params, 2, application.ConfigAttributes{
+		"kubernetes-service-type":            "nodeIP",
+		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+		"kubernetes-service-externalname":    "ext-name",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
