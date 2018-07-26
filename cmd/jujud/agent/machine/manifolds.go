@@ -13,6 +13,7 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/pubsub"
 	"github.com/juju/utils/clock"
+	utilsfeatureflag "github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
@@ -83,6 +84,7 @@ import (
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/juju/worker/upgradeseries"
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
@@ -265,7 +267,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	machineTag := agentConfig.Tag().(names.MachineTag)
 	controllerTag := agentConfig.Controller()
 
-	return dependency.Manifolds{
+	manifolds := dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
@@ -792,6 +794,18 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     credentialvalidator.NewWorker,
 		}),
 	}
+
+	if utilsfeatureflag.Enabled(feature.UpgradeSeries) {
+		manifolds[upgradeSeriesWorkerName] = ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
+			NewFacade:     upgradeseries.NewFacade,
+			NewWorker:     upgradeseries.NewWorker,
+		}))
+	}
+
+	return manifolds
 }
 
 func clockManifold(clock clock.Clock) dependency.Manifold {
@@ -901,6 +915,8 @@ const (
 	restoreWatcherName            = "restore-watcher"
 	certificateUpdaterName        = "certificate-updater"
 	auditConfigUpdaterName        = "audit-config-updater"
+
+	upgradeSeriesWorkerName = "upgrade-series"
 
 	httpServerName = "http-server"
 	apiServerName  = "api-server"
