@@ -635,7 +635,10 @@ func (k *kubernetesClient) configureDevices(unitSpec *unitSpec, devices []device
 	for i := range unitSpec.Pod.Containers {
 		resources := unitSpec.Pod.Containers[i].Resources
 		for _, dev := range devices {
-			mergeConstraintToResources(dev, &resources)
+			err := mergeDeviceConstraints(dev, &resources)
+			if err != nil {
+				return errors.Annotatef(err, "merging device constraint %+v to %#v", dev, resources)
+			}
 		}
 		unitSpec.Pod.Containers[i].Resources = resources
 
@@ -1375,7 +1378,7 @@ func appSecretName(appName, containerName string) string {
 	return "juju-" + appName + "-" + containerName + "-secret"
 }
 
-func mergeConstraintToResources(device devices.KubernetesDeviceParams, resources *core.ResourceRequirements) error {
+func mergeDeviceConstraints(device devices.KubernetesDeviceParams, resources *core.ResourceRequirements) error {
 	if resources.Limits == nil {
 		resources.Limits = core.ResourceList{}
 	}
@@ -1385,10 +1388,10 @@ func mergeConstraintToResources(device devices.KubernetesDeviceParams, resources
 
 	resourceName := core.ResourceName(device.Type)
 	if v, ok := resources.Limits[resourceName]; ok {
-		logger.Debugf("resource %q - max count %#v has been overwritten by %#v", resourceName, v, device)
+		return errors.NotValidf("resource limit for %q has already been set to %d! Unexpected!", resourceName, v)
 	}
 	if v, ok := resources.Requests[resourceName]; ok {
-		logger.Debugf("resource %q - min count %#v has been overwritten by %#v", resourceName, v, device)
+		return errors.NotValidf("resource request for %q has already been set to %d! Unexpected!", resourceName, v)
 	}
 	// GPU request/limit have to be set to same value equals to the Count.
 	// - https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/#clusters-containing-different-types-of-nvidia-gpus
@@ -1398,7 +1401,7 @@ func mergeConstraintToResources(device devices.KubernetesDeviceParams, resources
 }
 
 func buildNodeSelector(nodeLabel string) map[string]string {
-	// TODO(ycliuhw): to support GKE, set it to `cloud.google.com/gke-accelerator`,
+	// TODO(caas): to support GKE, set it to `cloud.google.com/gke-accelerator`,
 	// current only set to generic `accelerator` because we do not have k8s provider concept yet.
 	key := "accelerator"
 	return map[string]string{key: nodeLabel}
