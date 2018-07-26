@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-// ErrMultipleCredentialsDetected is the error returned by
+// ErrMultipleDetectedCredentials is the error returned by
 // GetOrDetectCredential when multiple credentials are
 // detected, meaning Juju cannot choose one automatically.
 var ErrMultipleDetectedCredentials = errors.New("multiple detected credentials")
@@ -41,7 +41,7 @@ func GetOrDetectCredential(
 		return nil, "", "", false, err
 	}
 	credential, chosenCredentialName, regionName, err := modelcmd.GetCredentials(ctx, store, args)
-	if !errors.IsNotFound(err) || args.CredentialName != "" {
+	if !errors.IsNotFound(err) {
 		return credential, chosenCredentialName, regionName, false, err
 	}
 
@@ -50,11 +50,17 @@ func GetOrDetectCredential(
 	// the environment.
 	ctx.Verbosef("no credentials found, checking environment")
 
-	detected, err := modelcmd.DetectCredential(args.Cloud.Name, provider)
-	if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
+	detected, selected, detectErr := modelcmd.DetectCredential(args.Cloud.Name, args.CredentialName, provider)
+	// Attempt to detect a credential if the credential name is not empty, but
+	// detect credential doesn't return a selected credential based on the
+	// credential name.
+	if !selected && args.CredentialName != "" {
+		return credential, chosenCredentialName, regionName, false, err
+	}
+	if errors.Cause(detectErr) == modelcmd.ErrMultipleCredentials {
 		return fail(ErrMultipleDetectedCredentials)
-	} else if err != nil {
-		return fail(errors.Trace(err))
+	} else if detectErr != nil {
+		return fail(errors.Trace(detectErr))
 	}
 
 	// We have one credential so extract it from the map.
