@@ -53,6 +53,8 @@ const (
 	operatorStorageClassName = "juju-operator-storage"
 	// TODO(caas) - make this configurable using application config
 	operatorStorageSize = "10Mi"
+
+	gpuAffinityNodeSelectorKey = "gpu"
 )
 
 var defaultPropagationPolicy = v1.DeletePropagationForeground
@@ -1408,7 +1410,7 @@ func getNodeSelectorFromDeviceConstraints(devices []devices.KubernetesDevicePara
 		if device.Attributes == nil {
 			continue
 		}
-		if label, ok := device.Attributes[GPUAffinityNodeSelectorKey]; ok {
+		if label, ok := device.Attributes[gpuAffinityNodeSelectorKey]; ok {
 			if nodeSelector != "" && nodeSelector != label {
 				return "", errors.NotValidf(
 					"node affinity labels have to be same for all device constraints in same pod - containers in same pod are scheduled in same node.")

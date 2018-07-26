@@ -18,8 +18,6 @@ import (
 	"github.com/juju/juju/environs/context"
 )
 
-const GPUAffinityNodeSelectorKey = "gpu"
-
 type kubernetesEnvironProvider struct {
 	environProviderCredentials
 }
