@@ -50,8 +50,11 @@ func GetOrDetectCredential(
 	// the environment.
 	ctx.Verbosef("no credentials found, checking environment")
 
-	detected, detectErr := modelcmd.DetectCredential(args.Cloud.Name, args.CredentialName, provider)
-	if err != nil && detectErr != nil && args.CredentialName != "" {
+	detected, selected, detectErr := modelcmd.DetectCredential(args.Cloud.Name, args.CredentialName, provider)
+	// Attempt to detect a credential if the credential name is not empty, but
+	// detect credential doesn't return a selected credential based on the
+	// credential name.
+	if !selected && args.CredentialName != "" {
 		return credential, chosenCredentialName, regionName, false, err
 	}
 	if errors.Cause(detectErr) == modelcmd.ErrMultipleCredentials {

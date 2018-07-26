@@ -491,7 +491,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName, credenti
 		if detectCredential == "" {
 			detectCredential = bootstrapConfig.Credential
 		}
-		cloudCredential, err := DetectCredential(bootstrapConfig.Cloud, detectCredential, provider)
+		cloudCredential, _, err := DetectCredential(bootstrapConfig.Cloud, detectCredential, provider)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}

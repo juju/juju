@@ -105,7 +105,31 @@ func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentials(c *gc.C) {
 		clientStore,
 		&registry,
 	)
-	_, params, err := f("foo")
+	_, params, err := f("foo", "")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(params.Cloud.Credential.Label, gc.Equals, "finalized")
+}
+
+func (NewGetBootstrapConfigParamsFuncSuite) TestDetectCredentialsWithOverride(c *gc.C) {
+	clientStore := jujuclient.NewMemStore()
+	clientStore.Controllers["foo"] = jujuclient.ControllerDetails{}
+	clientStore.BootstrapConfig["foo"] = jujuclient.BootstrapConfig{
+		Cloud:               "cloud",
+		CloudType:           "cloud-type",
+		ControllerModelUUID: coretesting.ModelTag.Id(),
+		Config: map[string]interface{}{
+			"name": "foo",
+			"type": "cloud-type",
+		},
+	}
+	var registry mockProviderRegistry
+
+	f := modelcmd.NewGetBootstrapConfigParamsFunc(
+		cmdtesting.Context(c),
+		clientStore,
+		&registry,
+	)
+	_, params, err := f("foo", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(params.Cloud.Credential.Label, gc.Equals, "finalized")
 }

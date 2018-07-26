@@ -169,16 +169,16 @@ func credentialByName(
 // If no credentials are detected, an error satisfying errors.IsNotFound will
 // be returned. If more than one credential is detected, ErrMultipleCredentials
 // will be returned.
-func DetectCredential(cloudName, credentialName string, provider environs.EnvironProvider) (*cloud.CloudCredential, error) {
+func DetectCredential(cloudName, credentialName string, provider environs.EnvironProvider) (cred *cloud.CloudCredential, selected bool, err error) {
 	detected, err := provider.DetectCredentials()
 	if err != nil {
-		return nil, errors.Annotatef(
+		return nil, false, errors.Annotatef(
 			err, "detecting credentials for %q cloud provider", cloudName,
 		)
 	}
 	logger.Tracef("provider detected credentials: %v", detected)
 	if len(detected.AuthCredentials) == 0 {
-		return nil, errors.NotFoundf("credentials for cloud %q", cloudName)
+		return nil, false, errors.NotFoundf("credentials for cloud %q", cloudName)
 	}
 
 	if len(detected.AuthCredentials) > 1 {
@@ -192,10 +192,10 @@ func DetectCredential(cloudName, credentialName string, provider environs.Enviro
 					AuthCredentials: map[string]cloud.Credential{
 						credentialName: cred,
 					},
-				}, nil
+				}, true, nil
 			}
 		}
-		return nil, ErrMultipleCredentials
+		return nil, false, ErrMultipleCredentials
 	}
-	return detected, nil
+	return detected, false, nil
 }
