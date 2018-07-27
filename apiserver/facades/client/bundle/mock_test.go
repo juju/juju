@@ -15,7 +15,6 @@ type mockState struct {
 	testing.Stub
 	bundle.Backend
 	model description.Model
-	mac   *state.Machine
 }
 
 func (m *mockState) ExportPartial(config state.ExportConfig) (description.Model, error) {
@@ -37,15 +36,6 @@ func (m *mockState) GetExportConfig() state.ExportConfig {
 		SkipStatusHistory:      true,
 		SkipLinkLayerDevices:   true,
 	}
-}
-
-func (m *mockState) Machine(id string) (*state.Machine, error) {
-	m.MethodCall(m, "Machine", id)
-	if err := m.NextErr(); err != nil {
-		return nil, err
-	}
-
-	return m.mac, nil
 }
 
 func newMockState() *mockState {

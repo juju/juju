@@ -12,7 +12,6 @@ import (
 type Backend interface {
 	ExportPartial(cfg state.ExportConfig) (description.Model, error)
 	GetExportConfig() state.ExportConfig
-	Machine(id string) (*state.Machine, error)
 }
 
 type stateShim struct {

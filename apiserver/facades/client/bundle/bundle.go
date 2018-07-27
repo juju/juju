@@ -218,7 +218,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 				Options:     application.CharmConfig(),
 				Annotations: application.Annotations(),
 			}
-			if result := b.constraints(application.Constraints()); len(result) != 0 {
+			if result := b.machineConstraints(application.Constraints()); len(result) != 0 {
 				newApplication.Constraints = strings.Join(result, " ")
 			}
 		} else {
@@ -235,7 +235,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 				Options:     application.CharmConfig(),
 				Annotations: application.Annotations(),
 			}
-			if result := b.constraints(application.Constraints()); len(result) != 0 {
+			if result := b.machineConstraints(application.Constraints()); len(result) != 0 {
 				newApplication.Constraints = strings.Join(result, " ")
 			}
 		}
@@ -249,44 +249,12 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 			Series:      machine.Series(),
 		}
 
-		result := b.constraints(machine.Constraints())
-
-		// Get the machine, so we can get the hardware characteristics.
-		// This is done for parity with GUI.
-		if machineState, _ := b.backend.Machine(machine.Id()); machineState != nil {
-			hardware, err := machineState.HardwareCharacteristics()
-			if err == nil {
-				result = result[:0]
-				// arch
-				if arch := hardware.Arch; arch != nil {
-					result = append(result, "arch="+(*arch))
-				}
-
-				// cpu-cores
-				if cores := hardware.CpuCores; cores != nil {
-					result = append(result, "cpu-cores="+strconv.Itoa(int(*cores)))
-				}
-
-				// cpu-power
-				if power := hardware.CpuPower; power != nil {
-					result = append(result, "cpu-power="+strconv.Itoa(int(*power)))
-				}
-
-				// mem
-				if mem := hardware.Mem; mem != nil {
-					result = append(result, "mem="+strconv.Itoa(int(*mem)))
-				}
-
-				// Root-disk
-				if disk := hardware.RootDisk; disk != nil {
-					result = append(result, "root-disk="+strconv.Itoa(int(*disk)))
-				}
-			}
-		}
-
-		// Get the constraints in place.
-		if len(result) != 0 {
+		if result := b.hardwareConstraints(machine.Instance()); len(result) != 0 {
 			newMachine.Constraints = strings.Join(result, " ")
+		} else {
+			if result = b.machineConstraints(machine.Constraints()); len(result) != 0 {
+				newMachine.Constraints = strings.Join(result, " ")
+			}
 		}
 
 		data.Machines[machine.Id()] = newMachine
@@ -309,7 +277,31 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	return data, nil
 }
 
-func (b *BundleAPI) constraints(cons description.Constraints) []string {
+func (b *BundleAPI) hardwareConstraints(instance description.CloudInstance) []string {
+	if instance == nil {
+		return []string{}
+	}
+
+	var constraints []string
+	if arch := instance.Architecture(); arch != "" {
+		constraints = append(constraints, "arch="+(arch))
+	}
+	if cores := instance.CpuCores(); cores != 0 {
+		constraints = append(constraints, "cpu-cores="+strconv.Itoa(int(cores)))
+	}
+	if power := instance.CpuPower(); power != 0 {
+		constraints = append(constraints, "cpu-power="+strconv.Itoa(int(power)))
+	}
+	if mem := instance.Memory(); mem != 0 {
+		constraints = append(constraints, "mem="+strconv.Itoa(int(mem)))
+	}
+	if disk := instance.RootDisk(); disk != 0 {
+		constraints = append(constraints, "root-disk="+strconv.Itoa(int(disk)))
+	}
+	return constraints
+}
+
+func (b *BundleAPI) machineConstraints(cons description.Constraints) []string {
 	if cons == nil {
 		return []string{}
 	}
