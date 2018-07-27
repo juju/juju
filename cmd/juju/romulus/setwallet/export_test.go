@@ -11,8 +11,8 @@ var (
 	NewAPIClient = &newAPIClient
 )
 
-func APIClientFnc(api apiClient) func(*httpbakery.Client) (apiClient, error) {
-	return func(*httpbakery.Client) (apiClient, error) {
+func APIClientFnc(api apiClient) func(string, *httpbakery.Client) (apiClient, error) {
+	return func(string, *httpbakery.Client) (apiClient, error) {
 		return api, nil
 	}
 }

@@ -22,9 +22,13 @@ type MetricSender interface {
 	Send([]*wireformat.MetricBatch) (*wireformat.Response, error)
 }
 
+type SenderFactory func(url string) MetricSender
+
 var (
-	defaultMaxBatchesPerSend              = 1000
-	defaultSender            MetricSender = &HTTPSender{}
+	defaultMaxBatchesPerSend               = 1000
+	defaultSenderFactory     SenderFactory = func(url string) MetricSender {
+		return &HTTPSender{url: url}
+	}
 )
 
 func handleModelResponse(st ModelBackend, modelUUID string, modelResp wireformat.EnvResponse) int {
@@ -174,9 +178,9 @@ func DefaultMaxBatchesPerSend() int {
 	return defaultMaxBatchesPerSend
 }
 
-// DefaultMetricSender returns the default metric sender.
-func DefaultMetricSender() MetricSender {
-	return defaultSender
+// DefaultSenderFactory returns the default sender factory.
+func DefaultSenderFactory() SenderFactory {
+	return defaultSenderFactory
 }
 
 // ToWire converts the state.MetricBatch into a type

@@ -257,7 +257,7 @@ func (v *volumeAttachment) Volume() names.VolumeTag {
 
 // Host is required to implement VolumeAttachment.
 func (v *volumeAttachment) Host() names.Tag {
-	return names.NewMachineTag(v.doc.Host)
+	return storageAttachmentHost(v.doc.Host)
 }
 
 // Life is required to implement VolumeAttachment.
@@ -1018,12 +1018,14 @@ func (sb *storageBackend) SetVolumeAttachmentInfo(hostTag names.Tag, volumeTag n
 		return errors.Trace(err)
 	}
 	// Also ensure the machine is provisioned.
-	m, err := sb.machine(hostTag.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if _, err := m.InstanceId(); err != nil {
-		return errors.Trace(err)
+	if _, ok := hostTag.(names.MachineTag); ok {
+		m, err := sb.machine(hostTag.Id())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if _, err := m.InstanceId(); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return sb.setVolumeAttachmentInfo(hostTag, volumeTag, info)
 }

@@ -35,6 +35,10 @@ type StorageBackend interface {
 	UnitStorageAttachments(unit names.UnitTag) ([]state.StorageAttachment, error)
 	SetFilesystemInfo(names.FilesystemTag, state.FilesystemInfo) error
 	SetFilesystemAttachmentInfo(names.Tag, names.FilesystemTag, state.FilesystemAttachmentInfo) error
+	Volume(tag names.VolumeTag) (state.Volume, error)
+	StorageInstanceVolume(tag names.StorageTag) (state.Volume, error)
+	SetVolumeInfo(names.VolumeTag, state.VolumeInfo) error
+	SetVolumeAttachmentInfo(names.Tag, names.VolumeTag, state.VolumeAttachmentInfo) error
 }
 
 // DeviceBackend provides the subset of backend Device

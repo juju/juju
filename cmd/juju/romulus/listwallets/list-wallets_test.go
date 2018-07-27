@@ -12,7 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/juju/romulus/listwallets"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -30,6 +32,9 @@ func (s *listWalletsSuite) SetUpTest(c *gc.C) {
 	s.stub = &testing.Stub{}
 	s.mockAPI = &mockapi{Stub: s.stub}
 	s.PatchValue(listwallets.NewAPIClient, listwallets.APIClientFnc(s.mockAPI))
+	s.PatchValue(&rcmd.GetMeteringURLForControllerCmd, func(c *modelcmd.ControllerCommandBase) (string, error) {
+		return "http://example.com", nil
+	})
 }
 
 func (s *listWalletsSuite) TestUnexpectedParameters(c *gc.C) {

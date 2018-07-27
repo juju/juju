@@ -153,10 +153,6 @@ type storageFile interface {
 }
 
 var getStorageAccessor = func(st *state.State) (storageAccess, error) {
-	m, err := st.Model()
-	if err != nil {
-		return nil, err
-	}
 	sb, err := state.NewStorageBackend(st)
 	if err != nil {
 		return nil, err
@@ -165,10 +161,6 @@ var getStorageAccessor = func(st *state.State) (storageAccess, error) {
 		storageInterface: sb,
 		va:               sb,
 		fa:               sb,
-	}
-	// CAAS models don't support volume storage yet.
-	if m.Type() == state.ModelTypeCAAS {
-		storageAccess.va = nil
 	}
 	return storageAccess, nil
 }

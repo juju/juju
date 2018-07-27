@@ -545,6 +545,7 @@ func createVolumeDetails(
 
 	if len(attachments) > 0 {
 		details.MachineAttachments = make(map[string]params.VolumeAttachmentDetails, len(attachments))
+		details.UnitAttachments = make(map[string]params.VolumeAttachmentDetails, len(attachments))
 		for _, attachment := range attachments {
 			attDetails := params.VolumeAttachmentDetails{
 				Life: params.Life(attachment.Life().String()),
@@ -554,7 +555,11 @@ func createVolumeDetails(
 					stateInfo,
 				)
 			}
-			details.MachineAttachments[attachment.Host().String()] = attDetails
+			if attachment.Host().Kind() == names.MachineTagKind {
+				details.MachineAttachments[attachment.Host().String()] = attDetails
+			} else {
+				details.UnitAttachments[attachment.Host().String()] = attDetails
+			}
 		}
 	}
 

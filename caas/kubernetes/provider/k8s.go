@@ -397,13 +397,15 @@ func (k *kubernetesClient) ensureStorageClass(cfg *storageConfig) error {
 				cfg.storageClass))
 	}
 
+	reclaimPolicy := core.PersistentVolumeReclaimRetain
 	// Create the storage class with the specified provisioner.
 	_, err = storageClasses.Create(&k8sstorage.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
 			Name: cfg.storageClass,
 		},
-		Provisioner: cfg.storageProvisioner,
-		Parameters:  cfg.parameters,
+		Provisioner:   cfg.storageProvisioner,
+		ReclaimPolicy: &reclaimPolicy,
+		Parameters:    cfg.parameters,
 	})
 	return errors.Trace(err)
 }
@@ -1080,6 +1082,7 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 		for _, pv := range p.Spec.Volumes {
 			volumesByName[pv.Name] = pv
 		}
+		pVolumes := k.CoreV1().PersistentVolumes()
 
 		// Gather info about how filesystems are attached/mounted to the pod.
 		// The mount name represents the filesystem tag name used by Juju.
@@ -1104,6 +1107,15 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 			pvc, err := pvClaims.Get(vol.PersistentVolumeClaim.ClaimName, v1.GetOptions{})
 			if k8serrors.IsNotFound(err) {
 				// Ignore claims which don't exist (yet).
+				continue
+			}
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			pv, err := pVolumes.Get(pvc.Spec.VolumeName, v1.GetOptions{})
+			if k8serrors.IsNotFound(err) {
+				// Ignore volumes which don't exist (yet).
 				continue
 			}
 			if err != nil {
@@ -1140,9 +1152,19 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 				MountPoint:   volMount.MountPath,
 				ReadOnly:     volMount.ReadOnly,
 				Status: status.StatusInfo{
-					Status:  k.jujuStorageStatus(pvc.Status.Phase),
+					Status:  k.jujuFilesystemStatus(pvc.Status.Phase),
 					Message: statusMessage,
 					Since:   &since,
+				},
+				Volume: caas.VolumeInfo{
+					VolumeId:   pv.Name,
+					Size:       uint64(pv.Size()),
+					Persistent: pv.Spec.PersistentVolumeReclaimPolicy == core.PersistentVolumeReclaimRetain,
+					Status: status.StatusInfo{
+						Status:  k.jujuVolumeStatus(pv.Status.Phase),
+						Message: pv.Status.Message,
+						Since:   &since,
+					},
 				},
 			})
 		}
@@ -1167,7 +1189,7 @@ func (k *kubernetesClient) jujuStatus(podPhase core.PodPhase, terminated bool) s
 	}
 }
 
-func (k *kubernetesClient) jujuStorageStatus(pvcPhase core.PersistentVolumeClaimPhase) status.Status {
+func (k *kubernetesClient) jujuFilesystemStatus(pvcPhase core.PersistentVolumeClaimPhase) status.Status {
 	switch pvcPhase {
 	case core.ClaimPending:
 		return status.Pending
@@ -1175,6 +1197,21 @@ func (k *kubernetesClient) jujuStorageStatus(pvcPhase core.PersistentVolumeClaim
 		return status.Attached
 	case core.ClaimLost:
 		return status.Detached
+	default:
+		return status.Unknown
+	}
+}
+
+func (k *kubernetesClient) jujuVolumeStatus(pvPhase core.PersistentVolumePhase) status.Status {
+	switch pvPhase {
+	case core.VolumePending:
+		return status.Pending
+	case core.VolumeBound:
+		return status.Attached
+	case core.VolumeAvailable, core.VolumeReleased:
+		return status.Detached
+	case core.VolumeFailed:
+		return status.Error
 	default:
 		return status.Unknown
 	}

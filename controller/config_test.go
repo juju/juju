@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
+	"github.com/juju/romulus"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	utilscert "github.com/juju/utils/cert"
@@ -458,4 +459,27 @@ func (s *ConfigSuite) TestCharmstoreURLSettingValue(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.CharmStoreURL(), gc.Equals, csURL)
+}
+
+func (s *ConfigSuite) TestMeteringURLDefault(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg.MeteringURL(), gc.Equals, romulus.DefaultAPIRoot)
+}
+
+func (s *ConfigSuite) TestMeteringURLSettingValue(c *gc.C) {
+	mURL := "http://homestarrunner.com/metering"
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			controller.MeteringURL: mURL,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.MeteringURL(), gc.Equals, mURL)
 }

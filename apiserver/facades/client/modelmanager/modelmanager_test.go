@@ -836,6 +836,7 @@ func (s *modelManagerSuite) TestDestroyModelsV3(c *gc.C) {
 		"GetBlockForType",
 		"GetBlockForType",
 		"Model",
+		"ControllerConfig",
 		"ModelConfig",
 		"MetricsManager",
 	)

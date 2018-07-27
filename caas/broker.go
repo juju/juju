@@ -149,6 +149,16 @@ type FilesystemInfo struct {
 	MountPoint   string
 	ReadOnly     bool
 	Status       status.StatusInfo
+	Volume       VolumeInfo
+}
+
+// VolumeInfo represents information about a volume
+// mounted by a unit.
+type VolumeInfo struct {
+	VolumeId   string
+	Size       uint64
+	Persistent bool
+	Status     status.StatusInfo
 }
 
 // Unit represents information about the status of a "pod".

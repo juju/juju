@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/cmd/juju/common"
+	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -136,7 +137,11 @@ func (c *slaCommand) requestSupportCredentials(modelUUID string) (string, string
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
-	authClient, err := c.newAuthorizationClient(sla.HTTPClient(hc))
+	apiRoot, err := rcmd.GetMeteringURLForModelCmd(&c.ModelCommandBase)
+	if err != nil {
+		return fail(errors.Trace(err))
+	}
+	authClient, err := c.newAuthorizationClient(sla.APIRoot(apiRoot), sla.HTTPClient(hc))
 	if err != nil {
 		return fail(errors.Trace(err))
 	}

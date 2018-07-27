@@ -16,6 +16,7 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api/application"
+	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -92,7 +93,11 @@ func (c *setPlanCommand) requestMetricCredentials(client *application.Client, ct
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	authClient, err := newAuthorizationClient(api.HTTPClient(hc))
+	apiRoot, err := rcmd.GetMeteringURLForModelCmd(&c.ModelCommandBase)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	authClient, err := newAuthorizationClient(api.APIRoot(apiRoot), api.HTTPClient(hc))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

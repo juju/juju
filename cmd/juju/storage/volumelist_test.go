@@ -118,6 +118,58 @@ func (s *ListSuite) TestVolumeListTabular(c *gc.C) {
 	s.assertValidVolumeList(c, []string{}, expectedVolumeListTabular)
 }
 
+var expectedCAASVolumeListTabular = `
+[Volumes]
+Unit     Storage      Id  Provider Id                 Size    State     Message
+mysql/0  db-dir/1001  0   provider-supplied-volume-0  512MiB  attached  
+
+`[1:]
+
+func (s *ListSuite) TestCAASVolumeListTabular(c *gc.C) {
+	s.assertValidFilesystemList(c, []string{}, expectedFilesystemListTabular)
+
+	// Do it again, reversing the results returned by the API.
+	// We should get everything sorted in the appropriate order.
+	s.mockAPI.listVolumes = func([]string) ([]params.VolumeDetailsListResult, error) {
+		results := []params.VolumeDetailsListResult{{Result: []params.VolumeDetails{
+			{
+				VolumeTag: "volume-0",
+				Info: params.VolumeInfo{
+					VolumeId: "provider-supplied-volume-0",
+					Size:     512,
+				},
+				Life:   "alive",
+				Status: createTestStatus(status.Attached, "", s.mockAPI.time),
+				UnitAttachments: map[string]params.VolumeAttachmentDetails{
+					"unit-mysql-0": {
+						Life: "alive",
+						VolumeAttachmentInfo: params.VolumeAttachmentInfo{
+							ReadOnly: true,
+						},
+					},
+				},
+				Storage: &params.StorageDetails{
+					StorageTag: "storage-db-dir-1001",
+					OwnerTag:   "unit-abc-0",
+					Kind:       params.StorageKindBlock,
+					Life:       "alive",
+					Status:     createTestStatus(status.Attached, "", s.mockAPI.time),
+					Attachments: map[string]params.StorageAttachmentDetails{
+						"unit-mysql-0": {
+							StorageTag: "storage-db-dir-1001",
+							UnitTag:    "unit-abc-0",
+							MachineTag: "machine-0",
+							Location:   "/mnt/fuji",
+						},
+					},
+				},
+			},
+		}}}
+		return results, nil
+	}
+	s.assertValidVolumeList(c, []string{}, expectedCAASVolumeListTabular)
+}
+
 func (s *ListSuite) assertUnmarshalledVolumeOutput(c *gc.C, unmarshal unmarshaller, expectedErr string, args ...string) {
 	context, err := s.runVolumeList(c, args...)
 	c.Assert(err, jc.ErrorIsNil)

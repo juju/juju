@@ -56,11 +56,12 @@ type EntityStatus struct {
 }
 
 type VolumeAttachments struct {
-	Machines map[string]MachineVolumeAttachment `yaml:"machines,omitempty" json:"machines,omitempty"`
-	Units    map[string]UnitStorageAttachment   `yaml:"units,omitempty" json:"units,omitempty"`
+	Machines   map[string]VolumeAttachment      `yaml:"machines,omitempty" json:"machines,omitempty"`
+	Containers map[string]VolumeAttachment      `yaml:"containers,omitempty" json:"containers,omitempty"`
+	Units      map[string]UnitStorageAttachment `yaml:"units,omitempty" json:"units,omitempty"`
 }
 
-type MachineVolumeAttachment struct {
+type VolumeAttachment struct {
 	DeviceName string `yaml:"device,omitempty" json:"device,omitempty"`
 	DeviceLink string `yaml:"device-link,omitempty" json:"device-link,omitempty"`
 	BusAddress string `yaml:"bus-address,omitempty" json:"bus-address,omitempty"`
@@ -134,14 +135,16 @@ func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo
 		common.FormatTime(details.Status.Since, false),
 	}
 
-	if len(details.MachineAttachments) > 0 {
-		machineAttachments := make(map[string]MachineVolumeAttachment)
-		for machineTag, attachment := range details.MachineAttachments {
-			machineId, err := idFromTag(machineTag)
+	attachmentsFromDetails := func(
+		in map[string]params.VolumeAttachmentDetails,
+		out map[string]VolumeAttachment,
+	) error {
+		for tag, attachment := range in {
+			id, err := idFromTag(tag)
 			if err != nil {
-				return names.VolumeTag{}, VolumeInfo{}, errors.Trace(err)
+				return errors.Trace(err)
 			}
-			machineAttachments[machineId] = MachineVolumeAttachment{
+			out[id] = VolumeAttachment{
 				attachment.DeviceName,
 				attachment.DeviceLink,
 				attachment.BusAddress,
@@ -149,9 +152,28 @@ func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo
 				string(attachment.Life),
 			}
 		}
+		return nil
+	}
+
+	if len(details.MachineAttachments) > 0 {
+		machineAttachments := make(map[string]VolumeAttachment)
+		if err := attachmentsFromDetails(details.MachineAttachments, machineAttachments); err != nil {
+			return names.VolumeTag{}, VolumeInfo{}, errors.Trace(err)
+		}
 		info.Attachments = &VolumeAttachments{
 			Machines: machineAttachments,
 		}
+	}
+
+	if len(details.UnitAttachments) > 0 {
+		unitAttachments := make(map[string]VolumeAttachment)
+		if err := attachmentsFromDetails(details.UnitAttachments, unitAttachments); err != nil {
+			return names.VolumeTag{}, VolumeInfo{}, errors.Trace(err)
+		}
+		if info.Attachments == nil {
+			info.Attachments = &VolumeAttachments{}
+		}
+		info.Attachments.Containers = unitAttachments
 	}
 
 	if details.Storage != nil {

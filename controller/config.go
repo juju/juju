@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/romulus"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
@@ -172,6 +173,9 @@ const (
 
 	// Features allows a list of runtime changeable features to be updated.
 	Features = "features"
+
+	// MeteringURL is the key for the url to use for metrics
+	MeteringURL = "metering-url"
 )
 
 var (
@@ -202,6 +206,7 @@ var (
 		AuditLogExcludeMethods,
 		CAASOperatorImagePath,
 		Features,
+		MeteringURL,
 	}
 
 	// AllowedUpdateConfigAttributes contains all of the controller
@@ -498,6 +503,15 @@ func (c Config) CAASOperatorImagePath() string {
 	return c.asString(CAASOperatorImagePath)
 }
 
+// MeteringURL returns the URL to use for metering api calls.
+func (c Config) MeteringURL() string {
+	url := c.asString(MeteringURL)
+	if url == "" {
+		return romulus.DefaultAPIRoot
+	}
+	return url
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -682,6 +696,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CAASOperatorImagePath:   schema.String(),
 	Features:                schema.List(schema.String()),
 	CharmStoreURL:           schema.String(),
+	MeteringURL:             schema.String(),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
@@ -705,4 +720,5 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CAASOperatorImagePath:   schema.Omit,
 	Features:                schema.Omit,
 	CharmStoreURL:           csclient.ServerURL,
+	MeteringURL:             romulus.DefaultAPIRoot,
 })

@@ -75,6 +75,19 @@ type KubernetesFilesystemInfo struct {
 	Status       string                 `json:"status"`
 	Info         string                 `json:"info"`
 	Data         map[string]interface{} `json:"data,omitempty"`
+	Volume       KubernetesVolumeInfo   `json:"volume"`
+}
+
+// Volume describes a storage volume in the cloud
+// as reported to the model.
+type KubernetesVolumeInfo struct {
+	VolumeId   string                 `json:"volume-id"`
+	Pool       string                 `json:"pool,omitempty"`
+	Size       uint64                 `json:"size"`
+	Persistent bool                   `json:"persistent"`
+	Status     string                 `json:"status"`
+	Info       string                 `json:"info"`
+	Data       map[string]interface{} `json:"data,omitempty"`
 }
 
 // DeviceType defines a device type.

@@ -39,6 +39,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.CAASOperatorImagePath,
 		controller.CharmStoreURL,
 		controller.Features,
+		controller.MeteringURL,
 	)
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)

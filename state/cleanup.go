@@ -823,7 +823,7 @@ func cleanupDyingEntityStorage(sb *storageBackend, hostTag names.Tag, manual boo
 				); err != nil {
 					return errors.Trace(err)
 				}
-				if err := updateStatus(); err != nil {
+				if err := updateStatus(); err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
 				}
 			}
