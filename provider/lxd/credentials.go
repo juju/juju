@@ -163,7 +163,8 @@ func (p environProviderCredentials) DetectCredentials() (*cloud.CloudCredential,
 	}
 
 	return &cloud.CloudCredential{
-		AuthCredentials: authCredentials,
+		DefaultCredential: lxdnames.DefaultCloud,
+		AuthCredentials:   authCredentials,
 	}, nil
 }
 

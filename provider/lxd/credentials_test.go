@@ -107,6 +107,7 @@ func (s *credentialsSuite) TestDetectCredentialsUsesJujuCert(c *gc.C) {
 	expected.Label = `LXD credential "localhost"`
 
 	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
+		DefaultCredential: "localhost",
 		AuthCredentials: map[string]cloud.Credential{
 			"localhost": expected,
 		},
@@ -156,6 +157,7 @@ func (s *credentialsSuite) TestDetectCredentialsUsesLXCCert(c *gc.C) {
 	expected.Label = `LXD credential "localhost"`
 
 	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
+		DefaultCredential: "localhost",
 		AuthCredentials: map[string]cloud.Credential{
 			"localhost": expected,
 		},
@@ -210,6 +212,7 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCert(c *gc.C) {
 	credentials, err := deps.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
+		DefaultCredential: "localhost",
 		AuthCredentials: map[string]cloud.Credential{
 			"localhost": credential,
 		},
@@ -309,6 +312,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentials(c *gc.C) {
 	nuc1Credential.Label = `LXD credential "nuc1"`
 
 	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
+		DefaultCredential: "localhost",
 		AuthCredentials: map[string]cloud.Credential{
 			"localhost": localCredential,
 			"nuc1":      nuc1Credential,
@@ -340,6 +344,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsWithConfigFailure(c *gc.C)
 	localCredential.Label = `LXD credential "localhost"`
 
 	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
+		DefaultCredential: "localhost",
 		AuthCredentials: map[string]cloud.Credential{
 			"localhost": localCredential,
 		},
@@ -381,6 +386,7 @@ func (s *credentialsSuite) TestRemoteDetectCredentialsWithCertFailure(c *gc.C) {
 	localCredential.Label = `LXD credential "localhost"`
 
 	c.Assert(credentials, jc.DeepEquals, &cloud.CloudCredential{
+		DefaultCredential: "localhost",
 		AuthCredentials: map[string]cloud.Credential{
 			"localhost": localCredential,
 		},
