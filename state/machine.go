@@ -2338,9 +2338,9 @@ func completeUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []txn.
 		{
 			C:  machineUpgradeSeriesLocksC,
 			Id: machineDocID,
-			Assert: bson.D{{"$and", []bson.D{
-				{{"prepare-status", model.MachineSeriesUpgradeComplete}},
-				{{"complete-status", model.MachineSeriesUpgradeNotStarted}}}}},
+			//Assert: bson.D{{"$and", []bson.D{
+			//{{"prepare-status", model.MachineSeriesUpgradeComplete}}, //[TODO]externalreality: re-enable this check
+			//{{"complete-status", model.MachineSeriesUpgradeNotStarted}}}}},
 			Update: bson.D{{"$set",
 				bson.D{{"complete-units", units},
 					{"complete-status", model.MachineSeriesUpgradeComplete}}},
@@ -2430,8 +2430,10 @@ func (m *Machine) isReadyForCompletion() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return lock.PrepareStatus == model.MachineSeriesUpgradeComplete &&
-		lock.CompleteStatus == model.MachineSeriesUpgradeNotStarted, nil
+
+	// [TODO](externalreality) Do not forget to put in a check to see if prepare status is completed for the Machine.
+	// lock.PrepareStatus == model.MachineSeriesUpgradeComplete
+	return lock.CompleteStatus == model.MachineSeriesUpgradeNotStarted, nil
 }
 
 // UpdateOperation returns a model operation that will update the machine.

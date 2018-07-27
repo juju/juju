@@ -48,7 +48,7 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications() (watcher.NotifyWatc
 	return w, nil
 }
 
-// UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
+// UpgradeSeriesPrepareStatus returns the upgrade series status of a unit from remote state
 func (u *UpgradeSeriesAPI) UpgradeSeriesStatus() (string, error) {
 	var results params.UpgradeSeriesStatusResults
 	args := params.Entities{

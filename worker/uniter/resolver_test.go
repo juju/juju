@@ -152,7 +152,7 @@ func (s *resolverSuite) TestUpgradeSeriesStatusChanged(c *gc.C) {
 		CharmModifiedVersion: s.charmModifiedVersion,
 		CharmURL:             s.charmURL,
 		Series:               s.charmURL.Series,
-		UpgradeSeriesStatus:  model.UnitNotStarted,
+		UpgradeSeriesPrepareStatus: model.UnitNotStarted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
@@ -168,7 +168,7 @@ func (s *resolverSuite) TestUpgradeSeriesStatusChanged(c *gc.C) {
 
 func (s *resolverSuite) TestUpgradeSeriesStatusIdlesUniterOnUpggradeSeriesCompletion(c *gc.C) {
 	localState := resolver.LocalState{
-		UpgradeSeriesStatus: model.UnitCompleted,
+		UpgradeSeriesPrepareStatus: model.UnitCompleted,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: true,
