@@ -2157,6 +2157,7 @@ func (m *Machine) prepareUpgradeSeriesLock(unitNames []string, toSeries string) 
 	}
 }
 
+// [TODO](externalreality) We still need this, eventually the lock is going to cleaned up
 // RemoveUpgradeSeriesLock removes a series upgrade prepare lock for a
 // given machine.
 func (m *Machine) RemoveUpgradeSeriesLock() error {
@@ -2184,6 +2185,42 @@ func (m *Machine) RemoveUpgradeSeriesLock() error {
 	return nil
 }
 
+// CompleteUpgradeSeries notifies units and machines that and upgrade series is
+// ready for its "completion" phase.
+func (m *Machine) CompleteUpgradeSeries() error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if err := m.isStillAlive(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		readyForCompletion, err := m.isReadyForCompletion()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !readyForCompletion {
+			return nil, fmt.Errorf("machine %q can not complete, it is either not prepared or already completed", m.Id())
+		}
+		lock, err := m.getUpgradeSeriesLock()
+		if err != nil {
+			return nil, err
+		}
+		for _, unit := range lock.CompleteUnits {
+			unit.Status = model.UnitStarted
+		}
+		return completeUpgradeSeriesTxnOps(m.doc.Id, lock.CompleteUnits), nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		return err
+	}
+	return nil
+}
+
 // UpgradeSeriesStatus returns the status of a series upgrade.
 func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UnitSeriesUpgradeStatus, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
@@ -2207,7 +2244,7 @@ func (m *Machine) UpgradeSeriesStatus(unitName string) (model.UnitSeriesUpgradeS
 	return "", errors.NotFoundf("unit %q of machine %q", unitName, m.Id())
 }
 
-// SetUpgradeSeriesStatus sets the status of a series upgrade.
+// SetUpgradeSeriesStatus sets the status of a series upgrade for a unit.
 func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSeriesUpgradeStatus) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -2218,38 +2255,90 @@ func (m *Machine) SetUpgradeSeriesStatus(unitName string, status model.UnitSerie
 		if err := m.isStillAlive(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
-		defer closer()
-		var lock upgradeSeriesLockDoc
-		err := coll.FindId(m.Id()).One(&lock)
+		docIndex, err := m.getUnitIndex(unitName, status)
 		if err != nil {
-			return nil, errors.BadRequestf("machine %q is not locked for upgrade", m)
+			return nil, errors.Trace(err)
 		}
-		docIndex := -1
-		for i, unitStatus := range lock.PrepareUnits {
-			if unitStatus.Id == unitName {
-				// short circuit if there is nothing to do
-				if unitStatus.Status == status {
-					return nil, jujutxn.ErrNoOperations
-				}
-				docIndex = i
-			}
-		}
-		if docIndex == -1 {
-			return nil, fmt.Errorf("cannot get upgrade series lock for unit %q of machine %v: %v", unitName, m.Id(), err)
-		}
-		logger.Debugf("Requested unit name: %q, Unit indexed %q", unitName, lock.PrepareUnits[docIndex].Id)
-
 		return setUpgradeSeriesTxnOps(m.doc.Id, unitName, docIndex, status, bson.Now()), nil
 	}
 	err := m.st.db().Run(buildTxn)
 	if err != nil {
 		err = onAbort(err, ErrDead)
-		logger.Errorf("cannot set series upgrade status for unit %q of machine %q: %v", unitName, m.Id(), err)
 		return err
 	}
-
 	return nil
+}
+
+// SetUpgradeSeriesStatus sets the machine status of a series upgrade.
+func (m *Machine) SetMachineUpgradeSeriesStatus(status model.MachineSeriesUpgradeStatus) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if err := m.isStillAlive(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		statusSet, err := m.isMachineUpgradeSeriesStatusSet(status)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if statusSet {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return setMachineUpgradeSeriesTxnOps(m.doc.Id, status), nil
+	}
+	err := m.st.db().Run(buildTxn)
+	if err != nil {
+		err = onAbort(err, ErrDead)
+		return err
+	}
+	return nil
+}
+
+func (m *Machine) isMachineUpgradeSeriesStatusSet(status model.MachineSeriesUpgradeStatus) (bool, error) {
+	lock, err := m.getUpgradeSeriesLock()
+	if err != nil {
+		return false, err
+	}
+	return lock.PrepareStatus == status, nil
+}
+
+func setMachineUpgradeSeriesTxnOps(machineDocID string, status model.MachineSeriesUpgradeStatus) []txn.Op {
+	return []txn.Op{
+		{
+			C:      machinesC,
+			Id:     machineDocID,
+			Assert: isAliveDoc,
+		},
+		{
+			C:      machineUpgradeSeriesLocksC,
+			Id:     machineDocID,
+			Update: bson.D{{"$set", bson.D{{"prepare-status", status}}}},
+		},
+	}
+}
+
+func completeUpgradeSeriesTxnOps(machineDocID string, units []unitStatus) []txn.Op {
+	return []txn.Op{
+		{
+			C:      machinesC,
+			Id:     machineDocID,
+			Assert: isAliveDoc,
+		},
+		{
+			C:  machineUpgradeSeriesLocksC,
+			Id: machineDocID,
+			Assert: bson.D{{"$and", []bson.D{
+				{{"prepare-status", model.MachineSeriesUpgradeComplete}},
+				{{"complete-status", model.MachineSeriesUpgradeNotStarted}}}}},
+			Update: bson.D{{"$set",
+				bson.D{{"complete-units", units},
+					{"complete-status", model.MachineSeriesUpgradeComplete}}},
+			},
+		},
+	}
 }
 
 func createUpgradeSeriesLockTxnOps(machineDocId string, data *upgradeSeriesLockDoc) []txn.Op {
@@ -2302,6 +2391,7 @@ func setUpgradeSeriesTxnOps(machineDocId, unitName string, unitIndex int, status
 	}
 }
 
+// IsLocked determines if a machine is locked for upgrade series.
 func (m *Machine) IsLocked() (bool, error) {
 	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
 	defer closer()
@@ -2317,9 +2407,54 @@ func (m *Machine) IsLocked() (bool, error) {
 	return true, nil
 }
 
+func (m *Machine) isReadyForCompletion() (bool, error) {
+	lock, err := m.getUpgradeSeriesLock()
+	if err != nil {
+		return false, err
+	}
+	return lock.PrepareStatus == model.MachineSeriesUpgradeComplete &&
+		lock.CompleteStatus == model.MachineSeriesUpgradeNotStarted, nil
+}
+
 // UpdateOperation returns a model operation that will update the machine.
 func (m *Machine) UpdateOperation() *UpdateMachineOperation {
 	return &UpdateMachineOperation{m: &Machine{st: m.st, doc: m.doc}}
+}
+
+func (m *Machine) getUnitIndex(unitName string, status model.UnitSeriesUpgradeStatus) (int, error) {
+	docIndex := -1
+	lock, err := m.getUpgradeSeriesLock()
+	if err != nil {
+		return docIndex, err
+	}
+	for i, unitStatus := range lock.PrepareUnits {
+		if unitStatus.Id == unitName {
+			// short circuit if there is nothing to do
+			if unitStatus.Status == status {
+				return docIndex, jujutxn.ErrNoOperations
+			}
+			docIndex = i
+		}
+	}
+	if docIndex == -1 {
+		return docIndex, fmt.Errorf("cannot get upgrade series lock for unit %q of machine %v: %v", unitName, m.Id(), err)
+	}
+	return docIndex, nil
+}
+
+func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {
+	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
+	defer closer()
+
+	var lock upgradeSeriesLockDoc
+	err := coll.FindId(m.Id()).One(&lock)
+	if err == mgo.ErrNotFound {
+		return nil, errors.BadRequestf("machine %q is not locked for upgrade", m)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get upgrade series lock for machine %v: %v", m.Id(), err)
+	}
+	return &lock, nil
 }
 
 // UpdateMachineOperation is a model operation for updating a machine.
