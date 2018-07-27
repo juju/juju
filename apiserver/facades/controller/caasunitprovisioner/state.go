@@ -16,7 +16,7 @@ import (
 )
 
 // CAASUnitProvisionerState provides the subset of global state
-// required by the CAAS operator facade.
+// required by the CAAS unit provisioner facade.
 type CAASUnitProvisionerState interface {
 	ControllerConfig() (controller.Config, error)
 	Application(string) (Application, error)
@@ -26,7 +26,7 @@ type CAASUnitProvisionerState interface {
 }
 
 // StorageBackend provides the subset of backend storage
-// functionality needed by the CAAS operator facade.
+// functionality required by the CAAS unit provisioner facade.
 type StorageBackend interface {
 	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 	Filesystem(names.FilesystemTag) (state.Filesystem, error)
@@ -41,8 +41,14 @@ type StorageBackend interface {
 	SetVolumeAttachmentInfo(names.Tag, names.VolumeTag, state.VolumeAttachmentInfo) error
 }
 
+// DeviceBackend provides the subset of backend Device
+// functionality required by the CAAS unit provisioner facade.
+type DeviceBackend interface {
+	DeviceConstraints(id string) (map[string]state.DeviceConstraints, error)
+}
+
 // Model provides the subset of CAAS model state required
-// by the CAAS operator facade.
+// by the CAAS unit provisioner facade.
 type Model interface {
 	ModelConfig() (*config.Config, error)
 	PodSpec(tag names.ApplicationTag) (string, error)
@@ -51,7 +57,7 @@ type Model interface {
 }
 
 // Application provides the subset of application state
-// required by the CAAS operator facade.
+// required by the CAAS unit provisioner facade.
 type Application interface {
 	WatchUnits() state.StringsWatcher
 	ApplicationConfig() (application.ConfigAttributes, error)
@@ -59,6 +65,7 @@ type Application interface {
 	AddOperation(state.UnitUpdateProperties) *state.AddUnitOperation
 	UpdateUnits(*state.UpdateUnitsOperation) error
 	UpdateCloudService(providerId string, addreses []network.Address) error
+	DeviceConstraints() (map[string]state.DeviceConstraints, error)
 	Life() state.Life
 	Name() string
 }

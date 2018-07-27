@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/watcher"
@@ -130,6 +131,7 @@ type ProvisioningInfo struct {
 	PodSpec     string
 	Constraints constraints.Value
 	Filesystems []storage.KubernetesFilesystemParams
+	Devices     []devices.KubernetesDeviceParams
 	Tags        map[string]string
 }
 
@@ -166,6 +168,16 @@ func (c *Client) ProvisioningInfo(appName string) (*ProvisioningInfo, error) {
 		}
 		info.Filesystems = append(info.Filesystems, *fsInfo)
 	}
+
+	var devs []devices.KubernetesDeviceParams
+	for _, device := range result.Devices {
+		devs = append(devs, devices.KubernetesDeviceParams{
+			Type:       devices.DeviceType(device.Type),
+			Count:      device.Count,
+			Attributes: device.Attributes,
+		})
+	}
+	info.Devices = devs
 	return info, nil
 }
 

@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/juju/paths"
@@ -53,6 +54,8 @@ const (
 	operatorStorageClassName = "juju-operator-storage"
 	// TODO(caas) - make this configurable using application config
 	operatorStorageSize = "10Mi"
+
+	gpuAffinityNodeSelectorKey = "gpu"
 )
 
 var defaultPropagationPolicy = v1.DeletePropagationForeground
@@ -527,10 +530,14 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}()
 
-	unitSpec, err :=
-		makeUnitSpec(appName, params.PodSpec)
+	unitSpec, err := makeUnitSpec(appName, params.PodSpec)
 	if err != nil {
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
+	}
+	if len(params.Devices) > 0 {
+		if err = k.configureDevices(unitSpec, params.Devices); err != nil {
+			return errors.Annotatef(err, "configuring devices for %s", appName)
+		}
 	}
 
 	for _, c := range params.PodSpec.Containers {
@@ -576,7 +583,7 @@ func (k *kubernetesClient) EnsureService(
 }
 
 func (k *kubernetesClient) configureStorage(
-	podSpec *core.PodSpec, statefulsSet *apps.StatefulSetSpec, appName string, filesystems []storage.KubernetesFilesystemParams,
+	podSpec *core.PodSpec, statefulSet *apps.StatefulSetSpec, appName string, filesystems []storage.KubernetesFilesystemParams,
 ) error {
 	baseDir, err := paths.StorageDir("kubernetes")
 	if err != nil {
@@ -618,11 +625,33 @@ func (k *kubernetesClient) configureStorage(
 			Spec: *pvcSpec,
 		}
 		logger.Debugf("using persistent volume claim for %s filesystem %s: %+v", appName, fs.StorageName, pvcSpec)
-		statefulsSet.VolumeClaimTemplates = append(statefulsSet.VolumeClaimTemplates, pvc)
+		statefulSet.VolumeClaimTemplates = append(statefulSet.VolumeClaimTemplates, pvc)
 		podSpec.Containers[0].VolumeMounts = append(podSpec.Containers[0].VolumeMounts, core.VolumeMount{
 			Name:      pvc.Name,
 			MountPath: mountPath,
 		})
+	}
+	return nil
+}
+
+func (k *kubernetesClient) configureDevices(unitSpec *unitSpec, devices []devices.KubernetesDeviceParams) error {
+	for i := range unitSpec.Pod.Containers {
+		resources := unitSpec.Pod.Containers[i].Resources
+		for _, dev := range devices {
+			err := mergeDeviceConstraints(dev, &resources)
+			if err != nil {
+				return errors.Annotatef(err, "merging device constraint %+v to %#v", dev, resources)
+			}
+		}
+		unitSpec.Pod.Containers[i].Resources = resources
+
+	}
+	nodeLabel, err := getNodeSelectorFromDeviceConstraints(devices)
+	if err != nil {
+		return err
+	}
+	if nodeLabel != "" {
+		unitSpec.Pod.NodeSelector = buildNodeSelector(nodeLabel)
 	}
 	return nil
 }
@@ -1452,4 +1481,50 @@ func resourceNamePrefix(appName string) string {
 func appSecretName(appName, containerName string) string {
 	// A pod may have multiple containers with different images and thus different secrets
 	return "juju-" + appName + "-" + containerName + "-secret"
+}
+
+func mergeDeviceConstraints(device devices.KubernetesDeviceParams, resources *core.ResourceRequirements) error {
+	if resources.Limits == nil {
+		resources.Limits = core.ResourceList{}
+	}
+	if resources.Requests == nil {
+		resources.Requests = core.ResourceList{}
+	}
+
+	resourceName := core.ResourceName(device.Type)
+	if v, ok := resources.Limits[resourceName]; ok {
+		return errors.NotValidf("resource limit for %q has already been set to %d! Unexpected!", resourceName, v)
+	}
+	if v, ok := resources.Requests[resourceName]; ok {
+		return errors.NotValidf("resource request for %q has already been set to %d! Unexpected!", resourceName, v)
+	}
+	// GPU request/limit have to be set to same value equals to the Count.
+	// - https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/#clusters-containing-different-types-of-nvidia-gpus
+	resources.Limits[resourceName] = *resource.NewQuantity(device.Count, resource.DecimalSI)
+	resources.Requests[resourceName] = *resource.NewQuantity(device.Count, resource.DecimalSI)
+	return nil
+}
+
+func buildNodeSelector(nodeLabel string) map[string]string {
+	// TODO(caas): to support GKE, set it to `cloud.google.com/gke-accelerator`,
+	// current only set to generic `accelerator` because we do not have k8s provider concept yet.
+	key := "accelerator"
+	return map[string]string{key: nodeLabel}
+}
+
+func getNodeSelectorFromDeviceConstraints(devices []devices.KubernetesDeviceParams) (string, error) {
+	var nodeSelector string
+	for _, device := range devices {
+		if device.Attributes == nil {
+			continue
+		}
+		if label, ok := device.Attributes[gpuAffinityNodeSelectorKey]; ok {
+			if nodeSelector != "" && nodeSelector != label {
+				return "", errors.NotValidf(
+					"node affinity labels have to be same for all device constraints in same pod - containers in same pod are scheduled in same node.")
+			}
+			nodeSelector = label
+		}
+	}
+	return nodeSelector, nil
 }

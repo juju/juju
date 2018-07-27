@@ -148,6 +148,15 @@ func (m *mockApplication) UpdateUnits(ops *state.UpdateUnitsOperation) error {
 	return nil
 }
 
+func (m *mockApplication) DeviceConstraints() (map[string]state.DeviceConstraints, error) {
+	return map[string]state.DeviceConstraints{
+		"bitcoinminer": {Type: "nvidia.com/gpu",
+			Count:      3,
+			Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
+		},
+	}, nil
+}
+
 func (m *mockApplication) UpdateCloudService(providerId string, addreses []network.Address) error {
 	m.providerId = providerId
 	m.addresses = addreses
@@ -273,6 +282,20 @@ func (m *mockStorage) SetFilesystemAttachmentInfo(host names.Tag, fsTag names.Fi
 	return nil
 }
 
+type mockDeviceBackend struct {
+	testing.Stub
+	devices            map[names.StorageTag]names.FilesystemTag
+	storageAttachments map[names.UnitTag]names.StorageTag
+}
+
+func (d *mockDeviceBackend) DeviceConstraints(id string) (map[string]state.DeviceConstraints, error) {
+	d.MethodCall(d, "DeviceConstraints", id)
+	return map[string]state.DeviceConstraints{
+		"bitcoinminer": {Type: "nvidia.com/gpu",
+			Count:      3,
+			Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
+		}}, nil
+}
 func (m *mockStorage) Volume(volTag names.VolumeTag) (state.Volume, error) {
 	m.MethodCall(m, "Volume", volTag)
 	return &mockVolume{Stub: &m.Stub, tag: volTag}, nil

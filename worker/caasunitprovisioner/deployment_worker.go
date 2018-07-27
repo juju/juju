@@ -132,11 +132,13 @@ func (w *deploymentWorker) loop() error {
 		if err != nil {
 			return errors.Annotate(err, "cannot parse pod spec")
 		}
+
 		serviceParams := &caas.ServiceParams{
 			PodSpec:      spec,
 			Constraints:  info.Constraints,
 			ResourceTags: info.Tags,
 			Filesystems:  info.Filesystems,
+			Devices:      info.Devices,
 		}
 		err = w.broker.EnsureService(w.application, serviceParams, numUnits, appConfig)
 		if err != nil {

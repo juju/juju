@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
@@ -82,6 +83,9 @@ type ServiceParams struct {
 
 	// Filesystems is a set of parameters for filesystems that should be created.
 	Filesystems []storage.KubernetesFilesystemParams
+
+	// Devices is a set of parameters for Devices that is required.
+	Devices []devices.KubernetesDeviceParams
 }
 
 // Broker instances interact with the CAAS substrate.

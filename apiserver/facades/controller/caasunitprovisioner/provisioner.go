@@ -36,6 +36,7 @@ type Facade struct {
 	storage                 StorageBackend
 	storageProviderRegistry storage.ProviderRegistry
 	storagePoolManager      poolmanager.PoolManager
+	devices                 DeviceBackend
 	clock                   clock.Clock
 }
 
@@ -44,6 +45,10 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	sb, err := state.NewStorageBackend(ctx.State())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	db, err := state.NewDeviceBackend(ctx.State())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -60,6 +65,7 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		authorizer,
 		stateShim{ctx.State()},
 		sb,
+		db,
 		registry,
 		pm,
 		clock.WallClock,
@@ -72,6 +78,7 @@ func NewFacade(
 	authorizer facade.Authorizer,
 	st CAASUnitProvisionerState,
 	sb StorageBackend,
+	db DeviceBackend,
 	storageProviderRegistry storage.ProviderRegistry,
 	storagePoolManager poolmanager.PoolManager,
 	clock clock.Clock,
@@ -89,6 +96,7 @@ func NewFacade(
 		resources:               resources,
 		state:                   st,
 		storage:                 sb,
+		devices:                 db,
 		storageProviderRegistry: storageProviderRegistry,
 		storagePoolManager:      storagePoolManager,
 		clock:                   clock,
@@ -196,6 +204,7 @@ func (f *Facade) ProvisioningInfo(args params.Entities) (params.KubernetesProvis
 		}
 		results.Results[i].Result = info
 	}
+	logger.Debugf("provisioning info result: %#v", results)
 	return results, nil
 }
 
@@ -242,9 +251,15 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		fsp.Tags[tags.JujuStorageOwner] = appTag.Id()
 	}
 
+	devices, err := f.devicesParams(app)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &params.KubernetesProvisioningInfo{
 		PodSpec:     podSpec,
 		Filesystems: filesystemParams,
+		Devices:     devices,
 	}, nil
 }
 
@@ -354,6 +369,23 @@ func (f *Facade) applicationFilesystemParams(
 		allFilesystemParams = append(allFilesystemParams, filesystemParams)
 	}
 	return allFilesystemParams, nil
+}
+
+func (f *Facade) devicesParams(app Application) ([]params.KubernetesDeviceParams, error) {
+	devices, err := app.DeviceConstraints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	logger.Debugf("getting device constraints from state: %#v", devices)
+	var devicesParams []params.KubernetesDeviceParams
+	for _, d := range devices {
+		devicesParams = append(devicesParams, params.KubernetesDeviceParams{
+			Type:       params.DeviceType(d.Type),
+			Count:      d.Count,
+			Attributes: d.Attributes,
+		})
+	}
+	return devicesParams, nil
 }
 
 // ApplicationsConfig returns the config for the specified applications.
