@@ -12,6 +12,7 @@ import (
 type Backend interface {
 	ExportPartial(cfg state.ExportConfig) (description.Model, error)
 	GetExportConfig() state.ExportConfig
+	Machine(id string) (*state.Machine, error)
 }
 
 type stateShim struct {
@@ -30,6 +31,11 @@ func (m *stateShim) GetExportConfig() state.ExportConfig {
 	cfg.SkipLinkLayerDevices = true
 
 	return cfg
+}
+
+// Machine returns machine with given id.
+func (m *stateShim) Machine(id string) (*state.Machine, error) {
+	return m.State.Machine(id)
 }
 
 // NewStateShim creates new state shim to be used by bundle Facade.

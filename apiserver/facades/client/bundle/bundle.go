@@ -248,7 +248,44 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 			Annotations: machine.Annotations(),
 			Series:      machine.Series(),
 		}
-		if result := b.constraints(machine.Constraints()); len(result) != 0 {
+
+		result := b.constraints(machine.Constraints())
+
+		// Get the machine, so we can get the hardware characteristics.
+		// This is done for parity with GUI.
+		if machineState, _ := b.backend.Machine(machine.Id()); machineState != nil {
+			hardware, err := machineState.HardwareCharacteristics()
+			if err == nil {
+				result = result[:0]
+				// arch
+				if arch := hardware.Arch; arch != nil {
+					result = append(result, "arch="+(*arch))
+				}
+
+				// cpu-cores
+				if cores := hardware.CpuCores; cores != nil {
+					result = append(result, "cpu-cores="+strconv.Itoa(int(*cores)))
+				}
+
+				// cpu-power
+				if power := hardware.CpuPower; power != nil {
+					result = append(result, "cpu-power="+strconv.Itoa(int(*power)))
+				}
+
+				// mem
+				if mem := hardware.Mem; mem != nil {
+					result = append(result, "mem="+strconv.Itoa(int(*mem)))
+				}
+
+				// Root-disk
+				if disk := hardware.RootDisk; disk != nil {
+					result = append(result, "root-disk="+strconv.Itoa(int(*disk)))
+				}
+			}
+		}
+
+		// Get the constraints in place.
+		if len(result) != 0 {
 			newMachine.Constraints = strings.Join(result, " ")
 		}
 
