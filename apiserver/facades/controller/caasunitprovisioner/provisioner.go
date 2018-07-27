@@ -204,6 +204,7 @@ func (f *Facade) ProvisioningInfo(args params.Entities) (params.KubernetesProvis
 		}
 		results.Results[i].Result = info
 	}
+	logger.Debugf("provisioning info result: %#v", results)
 	return results, nil
 }
 
@@ -250,7 +251,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 		fsp.Tags[tags.JujuStorageOwner] = appTag.Id()
 	}
 
-	devices, err := f.devicesParams(appTag.Id())
+	devices, err := f.devicesParams(app)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -370,11 +371,12 @@ func (f *Facade) applicationFilesystemParams(
 	return allFilesystemParams, nil
 }
 
-func (f *Facade) devicesParams(appName string) ([]params.KubernetesDeviceParams, error) {
-	devices, err := f.devices.DeviceConstraints(appName)
+func (f *Facade) devicesParams(app Application) ([]params.KubernetesDeviceParams, error) {
+	devices, err := app.DeviceConstraints()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger.Debugf("getting device constraints from state: %#v", devices)
 	var devicesParams []params.KubernetesDeviceParams
 	for _, d := range devices {
 		devicesParams = append(devicesParams, params.KubernetesDeviceParams{

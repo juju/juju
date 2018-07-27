@@ -148,6 +148,15 @@ func (m *mockApplication) UpdateUnits(ops *state.UpdateUnitsOperation) error {
 	return nil
 }
 
+func (m *mockApplication) DeviceConstraints() (map[string]state.DeviceConstraints, error) {
+	return map[string]state.DeviceConstraints{
+		"bitcoinminer": {Type: "nvidia.com/gpu",
+			Count:      3,
+			Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
+		},
+	}, nil
+}
+
 func (m *mockApplication) UpdateCloudService(providerId string, addreses []network.Address) error {
 	m.providerId = providerId
 	m.addresses = addreses

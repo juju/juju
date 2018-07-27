@@ -61,6 +61,7 @@ type Application interface {
 	AddOperation(state.UnitUpdateProperties) *state.AddUnitOperation
 	UpdateUnits(*state.UpdateUnitsOperation) error
 	UpdateCloudService(providerId string, addreses []network.Address) error
+	DeviceConstraints() (map[string]state.DeviceConstraints, error)
 	Life() state.Life
 	Name() string
 }
