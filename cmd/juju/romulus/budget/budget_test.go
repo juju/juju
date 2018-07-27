@@ -13,7 +13,9 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/juju/romulus/budget"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
@@ -62,6 +64,9 @@ func (s *budgetSuite) SetUpTest(c *gc.C) {
 	}
 	s.stub = &testing.Stub{}
 	s.mockAPI = newMockAPI(s.stub)
+	s.PatchValue(&rcmd.GetMeteringURLForModelCmd, func(c *modelcmd.ModelCommandBase) (string, error) {
+		return "http://example.com", nil
+	})
 }
 
 func (s *budgetSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {

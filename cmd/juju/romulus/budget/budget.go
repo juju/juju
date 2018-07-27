@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
+	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -32,11 +33,15 @@ func NewBudgetCommand() cmd.Command {
 	return modelcmd.Wrap(&budgetCommand{})
 }
 
-func (c *budgetCommand) newAPIClient(bakery *httpbakery.Client) (apiClient, error) {
+func (c *budgetCommand) newBudgetAPIClient(apiRoot string, bakery *httpbakery.Client) (apiClient, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	c.api = api.NewClient(bakery)
+	var err error
+	c.api, err = api.NewClient(api.APIRoot(apiRoot), api.HTTPClient(bakery))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return c.api, nil
 }
 
@@ -125,7 +130,11 @@ func (c *budgetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to create an http client")
 	}
-	api, err := c.newAPIClient(client)
+	apiRoot, err := rcmd.GetMeteringURLForModelCmd(&c.ModelCommandBase)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	api, err := c.newBudgetAPIClient(apiRoot, client)
 	if err != nil {
 		return errors.Annotate(err, "failed to create an api client")
 	}

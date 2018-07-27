@@ -12,13 +12,10 @@ import (
 	wireformat "github.com/juju/romulus/wireformat/metrics"
 )
 
-var (
-	metricsHost string = "https://api.jujucharms.com/omnibus/v2/metrics"
-)
-
 // HTTPSender is the default used for sending
 // metrics to the collector service.
 type HTTPSender struct {
+	url string
 }
 
 // Send sends the given metrics to the collector service.
@@ -29,7 +26,7 @@ func (s *HTTPSender) Send(metrics []*wireformat.MetricBatch) (*wireformat.Respon
 	}
 	r := bytes.NewBuffer(b)
 	client := &http.Client{}
-	resp, err := client.Post(metricsHost, "application/json", r)
+	resp, err := client.Post(s.url, "application/json", r)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
