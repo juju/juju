@@ -33,15 +33,30 @@ func (s *dockerMetadataStorageSuite) SetUpTest(c *gc.C) {
 func (s *dockerMetadataStorageSuite) Test(c *gc.C) {}
 
 func (s *dockerMetadataStorageSuite) TestSaveNewResource(c *gc.C) {
-	id := "test-123"
-	registryPath := "url@sha256:abc123"
-	resource := resources.DockerImageDetails{
-		RegistryPath: registryPath,
-	}
-	err := s.metadataStorage.Save(id, resource)
+	for _, registryTest := range []struct {
+		registryPath         string
+		expectedImagePath    string
+		expectedRegistryPath string
+	}{{
+		registryPath:         "registry.staging.charmstore.com/url@sha256:abc123",
+		expectedImagePath:    "url@sha256:abc123",
+		expectedRegistryPath: "registry.staging.charmstore.com",
+	}, {
+		registryPath:         "url@sha256:abc123",
+		expectedImagePath:    "url@sha256:abc123",
+		expectedRegistryPath: "",
+	}} {
+		id := "test-123"
+		resource := resources.DockerImageDetails{
+			RegistryPath: registryTest.registryPath,
+			Username:     "docker-registry",
+			Password:     "Hunter2000",
+		}
+		err := s.metadataStorage.Save(id, resource)
 
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertSavedDockerResource(c, id, resource)
+		c.Assert(err, jc.ErrorIsNil)
+		s.assertSavedDockerResource(c, id, resource, registryTest.expectedRegistryPath, registryTest.expectedImagePath)
+	}
 }
 
 func (s *dockerMetadataStorageSuite) TestSaveUpdatesExistingResource(c *gc.C) {
@@ -51,14 +66,13 @@ func (s *dockerMetadataStorageSuite) TestSaveUpdatesExistingResource(c *gc.C) {
 	}
 	err := s.metadataStorage.Save(id, resource)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertSavedDockerResource(c, id, resource)
 
 	resource2 := resources.DockerImageDetails{
-		RegistryPath: "url@sha256:deadbeef",
+		RegistryPath: "registry.staging.charmstore.com/url@sha256:deadbeef",
 	}
 	err = s.metadataStorage.Save(id, resource2)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertSavedDockerResource(c, id, resource2)
+	s.assertSavedDockerResource(c, id, resource2, "registry.staging.charmstore.com", "url@sha256:deadbeef")
 }
 
 func (s *dockerMetadataStorageSuite) TestSaveIdempotent(c *gc.C) {
@@ -70,10 +84,10 @@ func (s *dockerMetadataStorageSuite) TestSaveIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.metadataStorage.Save(id, resource)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertSavedDockerResource(c, id, resource)
+	s.assertSavedDockerResource(c, id, resource, "", "url@sha256:abc123")
 }
 
-func (s *dockerMetadataStorageSuite) assertSavedDockerResource(c *gc.C, resourceID string, registryInfo resources.DockerImageDetails) {
+func (s *dockerMetadataStorageSuite) assertSavedDockerResource(c *gc.C, resourceID string, registryInfo resources.DockerImageDetails, registry, imagePath string) {
 	coll, closer := state.GetCollection(s.State, "dockerResources")
 	defer closer()
 
@@ -81,9 +95,10 @@ func (s *dockerMetadataStorageSuite) assertSavedDockerResource(c *gc.C, resource
 	err := coll.FindId(resourceID).One(&raw)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(raw["_id"], gc.Equals, fmt.Sprintf("%s:%s", s.State.ModelUUID(), resourceID))
-	c.Assert(raw["registry-path"], gc.Equals, registryInfo.RegistryPath)
 	c.Assert(raw["password"], gc.Equals, registryInfo.Password)
 	c.Assert(raw["username"], gc.Equals, registryInfo.Username)
+	c.Assert(raw["registry"], gc.Equals, registry)
+	c.Assert(raw["image"], gc.Equals, imagePath)
 }
 
 func (s *dockerMetadataStorageSuite) TestGet(c *gc.C) {

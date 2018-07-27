@@ -5,6 +5,7 @@ package state
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 
 	"github.com/juju/errors"
@@ -25,8 +26,11 @@ type dockerMetadataDoc struct {
 	// Id holds the resource ID
 	Id string `bson:"_id"`
 
-	// RegistryPath holds the image name (including host) of the image in the docker registry.
-	RegistryPath string `bson:"registry-path"`
+	// Registry holds the URI/URL of the registry where the image is stored.
+	Registry string `bson:"registry"`
+
+	// Image holds the image path part of the whole url, to be used with the registry URI.
+	Image string `bson:"image"`
 
 	// Username holds the password string for a non-private image.
 	Username string `bson:"username"`
@@ -51,11 +55,17 @@ func NewDockerMetadataStorage(st *State) DockerMetadataStorage {
 
 // Save creates a new record the a Docker resource.
 func (dr *dockerMetadataStorage) Save(resourceID string, drInfo resources.DockerImageDetails) error {
+
+	registry, image, err := resources.SplitRegistryPath(drInfo.RegistryPath)
+	if err != nil {
+		return errors.Annotate(err, "failed to extract repo and image")
+	}
 	doc := dockerMetadataDoc{
-		Id:           resourceID,
-		RegistryPath: drInfo.RegistryPath,
-		Username:     drInfo.Username,
-		Password:     drInfo.Password,
+		Id:       resourceID,
+		Registry: registry,
+		Image:    image,
+		Username: drInfo.Username,
+		Password: drInfo.Password,
 	}
 
 	buildTxn := func(int) ([]txn.Op, error) {
@@ -72,7 +82,8 @@ func (dr *dockerMetadataStorage) Save(resourceID string, drInfo resources.Docker
 				Update: bson.D{
 					{"$set",
 						bson.D{
-							{"registry-path", doc.RegistryPath},
+							{"registry", doc.Registry},
+							{"image", doc.Image},
 							{"username", doc.Username},
 							{"password", doc.Password},
 						},
@@ -89,7 +100,7 @@ func (dr *dockerMetadataStorage) Save(resourceID string, drInfo resources.Docker
 		}}, nil
 	}
 
-	err := dr.st.db().Run(buildTxn)
+	err = dr.st.db().Run(buildTxn)
 	return errors.Annotate(err, "failed to store Docker resource")
 }
 
@@ -110,9 +121,13 @@ func (dr *dockerMetadataStorage) Get(resourceID string) (io.ReadCloser, int64, e
 	if err != nil {
 		return nil, -1, errors.Trace(err)
 	}
+	separator := ""
+	if doc.Registry != "" {
+		separator = "/"
+	}
 	data, err := yaml.Marshal(
 		resources.DockerImageDetails{
-			RegistryPath: doc.RegistryPath,
+			RegistryPath: fmt.Sprintf("%s%s%s", doc.Registry, separator, doc.Image),
 			Username:     doc.Username,
 			Password:     doc.Password,
 		})
