@@ -52,13 +52,12 @@ func (s *uniterResolver) NextOp(
 		return nil, resolver.ErrTerminate
 	}
 
-	// [TODO](externalreality): may need to set the state of the Uniter to
-	// stopped in pre-series-upgrade hook and check it here.
-
 	// If the unit has completed a pre-series-upgrade hook (as noted
 	// by its state) then the uniter should idle in the face of
 	// all remote state changes - the unit is waiting to be shutdown.
-	if localState.UpgradeSeriesPrepareStatus == model.UnitCompleted && remoteState.UpgradeSeriesStatus == model.UnitCompleted {
+	if localState.UpgradeSeriesPrepareStatus == model.UnitCompleted &&
+		remoteState.UpgradeSeriesStatus == model.UnitCompleted &&
+		localState.Stopped {
 		return nil, resolver.ErrNoOperation
 	}
 
@@ -291,6 +290,11 @@ func (s *uniterResolver) nextOp(
 	if localState.UpgradeSeriesPrepareStatus == model.UnitNotStarted &&
 		remoteState.UpgradeSeriesStatus == model.UnitStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
+	}
+
+	if localState.UpgradeSeriesCompleteStatus == model.UnitNotStarted &&
+		remoteState.UpgradeSeriesStatus == model.UnitStarted {
+		return opFactory.NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade})
 	}
 
 	op, err := s.config.Relations.NextOp(localState, remoteState, opFactory)
