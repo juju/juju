@@ -14,7 +14,8 @@ import (
 	"github.com/juju/juju/worker/dependency"
 )
 
-// ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
+// ManifoldConfig holds the information necessary for the dependency engine to
+// to run an upgrade-series worker.
 type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
@@ -30,15 +31,15 @@ func (config ManifoldConfig) Validate() error {
 		return errors.NotValidf("nil Logger")
 	}
 	if config.NewWorker == nil {
-		return errors.NotValidf("nil NewWorker")
+		return errors.NotValidf("nil NewWorker function")
 	}
 	if config.NewFacade == nil {
-		return errors.NotValidf("nil NewFacade")
+		return errors.NotValidf("nil NewFacade function")
 	}
 	return nil
 }
 
-// Manifold returns a dependency manifold that runs a deployer worker,
+// Manifold returns a dependency manifold that runs an upgrade-series worker,
 // using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	typedConfig := engine.AgentAPIManifoldConfig{
@@ -48,17 +49,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return engine.AgentAPIManifold(typedConfig, config.newWorker)
 }
 
-// newWorker trivially wraps NewWorker for use in a engine.AgentAPIManifold.
+// newWorker wraps NewWorker for use in a engine.AgentAPIManifold.
 func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// Grab the tag and ensure that it's for a machine.
+	// Ensure that we have a machine tag.
 	agentCfg := a.CurrentConfig()
 	tag, ok := agentCfg.Tag().(names.MachineTag)
 	if !ok {
-		return nil, errors.New("agent's tag is not a machine tag")
+		return nil, errors.Errorf("expected a machine tag, got %v", tag)
 	}
 
 	cfg := Config{
@@ -69,7 +70,7 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 
 	w, err := config.NewWorker(cfg)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot start machine upgrade series worker")
+		return nil, errors.Annotate(err, "starting machine upgrade series worker")
 	}
 	return w, nil
 }
