@@ -562,7 +562,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	rawStatus, err := w.unit.UpgradeSeriesStatus()
+	rawStatus, err := w.unit.UpgradeSeriesStatus(model.PrepareStatus)
 	if errors.IsNotFound(err) {
 		return nil
 	}
@@ -573,7 +573,7 @@ func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 	if err != nil {
 		return err
 	}
-	w.current.UpgradeSeriesStatus = status
+	w.current.UpgradeSeriesPrepareStatus = status
 	return nil
 }
 

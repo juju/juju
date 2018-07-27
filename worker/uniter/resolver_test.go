@@ -160,7 +160,7 @@ func (s *resolverSuite) TestUpgradeSeriesPrepareStatusChanged(c *gc.C) {
 		},
 	}
 	s.remoteState.Series = s.charmURL.Series
-	s.remoteState.UpgradeSeriesStatus = model.UnitStarted
+	s.remoteState.UpgradeSeriesPrepareStatus = model.UnitStarted
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run pre-series-upgrade hook")
@@ -179,7 +179,7 @@ func (s *resolverSuite) TestUpgradeSeriesCompleteStatusChanged(c *gc.C) {
 		},
 	}
 	s.remoteState.Series = s.charmURL.Series
-	s.remoteState.UpgradeSeriesStatus = model.UnitStarted
+	s.remoteState.UpgradeSeriesPrepareStatus = model.UnitStarted
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run post-series-upgrade hook")
@@ -193,7 +193,7 @@ func (s *resolverSuite) TestUpgradeSeriesStatusIdlesUniterOnUpggradeSeriesComple
 			Installed: true,
 		},
 	}
-	s.remoteState.UpgradeSeriesStatus = model.UnitCompleted
+	s.remoteState.UpgradeSeriesPrepareStatus = model.UnitCompleted
 	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 

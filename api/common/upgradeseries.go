@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/watcher"
 )
 
@@ -49,12 +50,20 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications() (watcher.NotifyWatc
 }
 
 // UpgradeSeriesPrepareStatus returns the upgrade series status of a unit from remote state
-func (u *UpgradeSeriesAPI) UpgradeSeriesStatus() (string, error) {
+func (u *UpgradeSeriesAPI) UpgradeSeriesStatus(statusType model.UpgradeSeriesStatusType) (string, error) {
 	var results params.UpgradeSeriesStatusResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.facade.FacadeCall("UpgradeSeriesPrepareStatus", args, &results)
+
+	var err error
+	switch statusType {
+	case model.PrepareStatus:
+		err = u.facade.FacadeCall("UpgradeSeriesPrepareStatus", args, &results)
+	case model.CompleteStatus:
+		err = u.facade.FacadeCall("UpgradeSeriesCompleteStatus", args, &results)
+	}
+
 	if err != nil {
 		return "", err
 	}

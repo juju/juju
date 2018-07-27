@@ -56,7 +56,7 @@ func (s *uniterResolver) NextOp(
 	// by its state) then the uniter should idle in the face of
 	// all remote state changes - the unit is waiting to be shutdown.
 	if localState.UpgradeSeriesPrepareStatus == model.UnitCompleted &&
-		remoteState.UpgradeSeriesStatus == model.UnitCompleted &&
+		remoteState.UpgradeSeriesPrepareStatus == model.UnitCompleted &&
 		localState.Stopped {
 		return nil, resolver.ErrNoOperation
 	}
@@ -288,12 +288,12 @@ func (s *uniterResolver) nextOp(
 	}
 
 	if localState.UpgradeSeriesPrepareStatus == model.UnitNotStarted &&
-		remoteState.UpgradeSeriesStatus == model.UnitStarted {
+		remoteState.UpgradeSeriesPrepareStatus == model.UnitStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
 	}
 
 	if localState.UpgradeSeriesCompleteStatus == model.UnitNotStarted &&
-		remoteState.UpgradeSeriesStatus == model.UnitStarted {
+		remoteState.UpgradeSeriesPrepareStatus == model.UnitStarted {
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade})
 	}
 
@@ -313,6 +313,7 @@ func (s *uniterResolver) nextOp(
 // NopResolver is a resolver that does nothing.
 type NopResolver struct{}
 
+// The NopResolver's NextOp operation should always return the no operation error.
 func (NopResolver) NextOp(resolver.LocalState, remotestate.Snapshot, operation.Factory) (operation.Operation, error) {
 	return nil, resolver.ErrNoOperation
 }
